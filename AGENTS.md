@@ -448,10 +448,23 @@ oracle the Go code is diffed against, and [Code style](#code-style) holds
 for Go files as it does for the others.
 
 - **Gates.** `gofmt -l cmd internal` prints nothing; `go vet ./...`,
-  `staticcheck ./...` and `govulncheck ./...` pass at the versions the
+  `staticcheck ./...` and `govulncheck ./...` (all with the build tags below) pass at the versions the
   [Quality gates](#quality-gates) table pins; `go test -race ./...` passes.
   The `go` CI job runs them on the Ubuntu, macOS and Windows runners, then builds the
   six release targets twice and fails when any hash differs.
+- **Build tags `noasm` and `nounsafe`.** Every `go` command of the project
+  (build, vet, test, `staticcheck`, `govulncheck`) runs with both tags, so the
+  zstd module's assembly and its unchecked memory reads are never built and
+  compressed evidence is only decoded by bounds-checked Go. In a shell,
+  `export GOFLAGS=-tags=noasm,nounsafe` once; CI sets the same `GOFLAGS` in
+  the workflow `env`, and a command that passes its own `-tags` replaces it,
+  so it spells all of them (`-tags parity,noasm,nounsafe`). `.github/go-build.sh`
+  and `lab/go-parity-vm.sh` pass the tags themselves. `internal/zstdframe` does
+  not compile without them: a build or vet without them stops with
+  `undefined: buildWithTagsNoasmAndNounsafeOnly`. To see what a build links,
+  run `go list -tags noasm,nounsafe -deps -f '{{.ImportPath}} {{.GoFiles}}
+  {{.SFiles}}' ./cmd/doubleagent` for each `GOOS` and `GOARCH`: no `.s` file
+  and no `unsafe_enabled.go` of `github.com/klauspost/compress` may appear.
 - **No cgo.** Every build of the binary sets `CGO_ENABLED=0`; a change that
   needs `import "C"` is refused. The tests alone may run with cgo, because the
   race detector needs it on Linux; nothing they build ships. Platform code lives in `_linux.go`, `_darwin.go`,
@@ -469,7 +482,7 @@ for Go files as it does for the others.
   | --- | --- | --- |
   | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; on Windows the calls the standard library does not expose: file handles opened without following a reparse point, the reparse tag that tells a symlink or junction from a socket, file owners through the security descriptor and account lookup, final paths of handles, directory symlinks, file times set on a handle, and the registry; pure Go. |
   | `github.com/BurntSushi/toml` | v1.5.0 | Reading TOML 1.0 documents (Codex and Gemini CLI settings and policies, Tabby's config) as `tomllib` does, with the tables' keys in document order, which the module reports beside its values; v1.6.0 reads TOML 1.1 and is not used; pure Go with no dependencies. |
-  | `github.com/klauspost/compress` | v1.20.4 | Decoding zstd data (Codex session files, Zed thread blobs), which Go has no public package for (the standard library's decoder is `internal/zstd`, which no outside package can import); only its `zstd` package is used, with `huff0`, `fse`, `cpuinfo`, `le`, `regmask`, `snapref` and `xxhash` beneath it. It has no cgo and requires no other module (its `go.mod` has no `require`). It is not pure Go: on `amd64` and `arm64` the Go toolchain links its assembly for the sequence decoder, the Huffman decoder, the match-length copy and xxhash (four `.s` files on `arm64`; six on `amd64`, one of them for CPU feature detection), and the module reads memory through `unsafe` pointers in `internal/le` on `amd64`, `arm64`, `ppc64le` and `riscv64`; the `noasm` build tag removes the assembly and `purego` or `nounsafe` the `unsafe` reads, and our builds set neither. `internal/zstdframe` runs the decoder in the calling goroutine (concurrency 1) with a 128 MiB window limit. |
+  | `github.com/klauspost/compress` | v1.20.4 | Decoding zstd data (Codex session files, Zed thread blobs), which Go has no public package for (the standard library's decoder is `internal/zstd`, which no outside package can import); only its `zstd` package is used, with `huff0`, `fse`, `cpuinfo`, `le`, `regmask`, `snapref` and `xxhash` beneath it. It has no cgo and requires no other module (its `go.mod` has no `require`). It is not pure Go: on `amd64` and `arm64` the Go toolchain would link its assembly for the sequence decoder, the Huffman decoder, the match-length copy and xxhash (four `.s` files on `arm64`; six on `amd64`, one of them for CPU feature detection), and the module reads memory through `unsafe` pointers in `internal/le` on `amd64`, `arm64`, `ppc64le` and `riscv64`; the `noasm` build tag removes the assembly and `nounsafe` the `unsafe` reads, and every build and test of the project sets both (see "Build tags" above), so neither is linked. `internal/zstdframe` runs the decoder in the calling goroutine (concurrency 1) with a 128 MiB window limit. |
 
 - **File system calls.** Every file under `internal/` that is built for
   Windows opens, lists, stats, creates and removes paths through
@@ -567,7 +580,7 @@ for Go files as it does for the others.
   PowerShell collector over the PowerShell smoke image on Windows, and runs
   in CI on the three runners.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
-  with `CGO_ENABLED=0 go build -trimpath -ldflags=-buildid=`; CI runs it
+  with `CGO_ENABLED=0 go build -trimpath -tags noasm,nounsafe -ldflags=-buildid=`; CI runs it
   twice per commit and compares the hashes. The version is one string in
   `internal/version`, set from the tag by the release workflow; a development
   build reports `0.0.0-dev` and the commit.
@@ -1695,6 +1708,7 @@ cd ../analyzer && tests/run.sh
 cd ..
 python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
 python3 -m pytest lab/round/tests -q   # the round pipeline's tests
+export GOFLAGS=-tags=noasm,nounsafe   # every go command of the project needs these tags
 gofmt -l cmd internal && go vet ./... && go test -race ./...   # the Go tree
 # quality gates, from the repository root (see "Quality gates")
 uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
@@ -1816,9 +1830,9 @@ down.
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
-| gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `go test -race ./...` | none |
-| staticcheck | 0.8.2 | `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
-| govulncheck | 1.9.0 | `go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |
+| gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `go test -race ./...`, each with `GOFLAGS=-tags=noasm,nounsafe` exported | none |
+| staticcheck | 0.8.2 | `GOFLAGS=-tags=noasm,nounsafe go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
+| govulncheck | 1.9.0 | `GOFLAGS=-tags=noasm,nounsafe go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |
 | reproducible build | the toolchain `go.mod` pins | `sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2` | none; see [Go standards](#go-standards) |
 | branch coverage of changed parser lines | coverage.py 7.17.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |

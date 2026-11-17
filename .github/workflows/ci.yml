@@ -29,6 +29,10 @@ env:
   CHECKBASHISMS_TAG: "v2.26.13"
   STATICCHECK_VERSION: "0.8.2"
   GOVULNCHECK_VERSION: "1.9.0"
+  # Every go command builds the zstd module without assembly or unchecked
+  # memory reads (internal/zstdframe does not compile without these tags). A
+  # command that sets -tags itself replaces this, so it spells all three.
+  GOFLAGS: "-tags=noasm,nounsafe"
 
 jobs:
   # Each job runs only when a file it reads changed: .github/classify-changes.sh
@@ -204,7 +208,7 @@ jobs:
         if: runner.os != 'Windows'
         env:
           CGO_ENABLED: "1"
-        run: go test -race -tags parity ./internal/glob/
+        run: go test -race -tags parity,noasm,nounsafe ./internal/glob/
       - name: Build the six targets twice and compare the hashes
         run: |
           sh .github/go-build.sh "$RUNNER_TEMP/build-1" > "$RUNNER_TEMP/sums-1"
@@ -244,7 +248,7 @@ jobs:
       - name: go test (parity)
         env:
           PARITY_LIVE: ${{ runner.os == 'Windows' && '1' || '0' }}
-        run: go test -count=1 -timeout 90m -tags parity ./...
+        run: go test -count=1 -timeout 90m -tags parity,noasm,nounsafe ./...
 
   # The replay corpus: the Python analyzer's test suite runs once with the
   # recorder plugin (analyzer/tests/recorder), which saves every parser, input
@@ -313,7 +317,7 @@ jobs:
       - name: go test (replay)
         env:
           PARITY_CORPUS: ${{ runner.temp }}/corpus
-        run: go test -count=1 -timeout 50m -tags parity ./internal/parity/replay/...
+        run: go test -count=1 -timeout 50m -tags parity,noasm,nounsafe ./internal/parity/replay/...
 
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters)

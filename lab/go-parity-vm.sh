@@ -128,14 +128,14 @@ package_name() {
 build_binaries() {
   cd "$REPO" || die "cannot enter $REPO"
   round_log "building the Windows ARM64 binaries into $DIRECTORY"
-  host_run env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build \
+  host_run env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -tags noasm,nounsafe \
     -o "$DIRECTORY/doubleagent.exe" ./cmd/doubleagent || die "go build failed"
-  host_run env GOOS=windows GOARCH=arm64 go test -c -tags parity \
+  host_run env GOOS=windows GOARCH=arm64 go test -c -tags parity,noasm,nounsafe \
     -o "$DIRECTORY/parity.test.exe" ./internal/collect/parity || die "parity test build failed"
   for _bb_argument in "$@"; do
     _bb_name=$(package_name "$_bb_argument")
     check_word "$_bb_name"
-    host_run env GOOS=windows GOARCH=arm64 go test -c \
+    host_run env GOOS=windows GOARCH=arm64 go test -c -tags noasm,nounsafe \
       -o "$DIRECTORY/$_bb_name.test.exe" "./internal/$_bb_name" ||
       die "test build of internal/$_bb_name failed"
   done
