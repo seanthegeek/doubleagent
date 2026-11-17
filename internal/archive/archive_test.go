@@ -5,7 +5,10 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,10 +17,12 @@ import (
 	"testing"
 )
 
-// buildStage creates a small staging tree and returns its path.
-func buildStage(t *testing.T) string {
+// buildStage creates a small staging tree and returns its path, and whether
+// the two symbolic links in it were created: a Windows process without the
+// symbolic-link privilege gets a tree without them.
+func buildStage(t *testing.T) (stage string, linked bool) {
 	t.Helper()
-	stage := t.TempDir()
+	stage = t.TempDir()
 	for relative, content := range map[string]string{
 		"fs/home/a/z.txt": "zed", "fs/home/a/B.txt": "bee", "fs/home/a/a.txt": "ay",
 		"fs/home/a-b/f": "dash", "fs/home/a.d/f": "dot", "manifest.jsonl": "{}\n",
@@ -31,13 +36,44 @@ func buildStage(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	if err := os.Symlink("/etc/hosts", filepath.Join(stage, "fs/home/a/link")); err != nil {
+	err := os.Symlink("/etc/hosts", filepath.Join(stage, "fs/home/a/link"))
+	if symlinkNeedsPrivilege(err) {
+		return stage, false
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink("sub", filepath.Join(stage, "fs/home/a/dirlink")); err != nil {
 		t.Fatal(err)
 	}
-	return stage
+	return stage, true
+}
+
+// systemTar is the tar program the listing tests check the archive with.
+const systemTar = "/usr/bin/tar"
+
+// requireSystemTar skips the test when the system tar is not installed (on
+// Windows it is not at that path), the one reason a tar test may skip: once
+// tar is there, a failed listing is a failure.
+func requireSystemTar(t *testing.T) {
+	t.Helper()
+	if _, err := os.Stat(systemTar); errors.Is(err, fs.ErrNotExist) {
+		t.Skipf("%s is not installed", systemTar)
+	}
+}
+
+// tarListing returns what `tar -tzf` prints for archivePath, or an error
+// holding tar's standard error when tar cannot list it.
+func tarListing(archivePath string) ([]byte, error) {
+	output, err := exec.Command(systemTar, "-tzf", archivePath).Output()
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
+		return output, fmt.Errorf("tar -tzf %s: %w: %s", archivePath, err, exitError.Stderr)
+	}
+	if err != nil {
+		return output, fmt.Errorf("tar -tzf %s: %w", archivePath, err)
+	}
+	return output, nil
 }
 
 // readMembers returns the archive's headers and the contents of its files.
@@ -73,7 +109,7 @@ func readMembers(t *testing.T, archivePath string) ([]*tar.Header, map[string]st
 }
 
 func TestWriteTarGzMembers(t *testing.T) {
-	stage := buildStage(t)
+	stage, linked := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
 	if err := WriteTarGz(stage, archivePath); err != nil {
 		t.Fatal(err)
@@ -89,6 +125,11 @@ func TestWriteTarGzMembers(t *testing.T) {
 		"./fs/home/a/sub/deep/f", "./fs/home/a/z.txt", "./fs/home/a-b/", "./fs/home/a-b/f",
 		"./fs/home/a.d/", "./fs/home/a.d/f", "./manifest.jsonl",
 	}
+	if !linked {
+		want = slices.DeleteFunc(want, func(name string) bool {
+			return strings.HasSuffix(name, "/link") || strings.HasSuffix(name, "/dirlink")
+		})
+	}
 	if !slices.Equal(names, want) {
 		t.Errorf("members:\n%s\nwant:\n%s", strings.Join(names, "\n"), strings.Join(want, "\n"))
 	}
@@ -98,7 +139,7 @@ func TestWriteTarGzMembers(t *testing.T) {
 	for _, header := range headers {
 		switch header.Name {
 		case "./fs/home/a/link":
-			if header.Typeflag != tar.TypeSymlink || header.Linkname != "/etc/hosts" {
+			if header.Typeflag != tar.TypeSymlink || filepath.ToSlash(header.Linkname) != "/etc/hosts" {
 				t.Errorf("link header = %+v", header)
 			}
 		case "./fs/home/a/dirlink":
@@ -110,17 +151,49 @@ func TestWriteTarGzMembers(t *testing.T) {
 }
 
 func TestWriteTarGzIsReadableByTar(t *testing.T) {
-	stage := buildStage(t)
+	requireSystemTar(t)
+	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
 	if err := WriteTarGz(stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
-	output, err := exec.Command("/usr/bin/tar", "-tzf", archivePath).CombinedOutput()
+	output, err := tarListing(archivePath)
 	if err != nil {
-		t.Skipf("system tar unavailable: %v", err)
+		t.Fatal(err)
 	}
 	if !strings.HasPrefix(string(output), "./\n./fs/\n") {
 		t.Errorf("tar -tzf = %q", output)
+	}
+}
+
+func TestTarListingFailsOnABrokenArchive(t *testing.T) {
+	requireSystemTar(t)
+	stage, _ := buildStage(t)
+	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
+	if err := WriteTarGz(stage, archivePath); err != nil {
+		t.Fatal(err)
+	}
+	whole, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name    string
+		content []byte
+	}{
+		{"a gzip stream cut in half is an error", whole[:len(whole)/2]},
+		{"a file that is not gzip at all is an error", []byte("not an archive\n")},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			broken := filepath.Join(t.TempDir(), "broken.tar.gz")
+			if err := os.WriteFile(broken, testCase.content, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if output, err := tarListing(broken); err == nil {
+				t.Errorf("tar listed a broken archive without an error: %q", output)
+			}
+		})
 	}
 }
 

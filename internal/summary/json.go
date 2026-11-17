@@ -37,7 +37,7 @@ func field(key, value string) string { return `"` + key + `": ` + value }
 func collectionJSON(summary Summary) []byte {
 	root := summary.Root
 	if root == "" {
-		root = "/"
+		root = LiveRootText
 	}
 	text := "{\n" +
 		"  " + field("tool", quoted(Tool)) + ",\n" +
@@ -46,7 +46,7 @@ func collectionJSON(summary Summary) []byte {
 		"  " + field("mode", quoted(summary.Mode)) + ",\n" +
 		"  " + field("root", quoted(root)) + ",\n" +
 		"  " + field("platform", quoted(summary.Platform)) + ",\n" +
-		"  " + field("run_as_uid", quoted(strconv.Itoa(summary.UID))) + ",\n" +
+		identityLines(summary.Identity) +
 		"  " + field("started", quoted(summary.Started)) + ",\n" +
 		"  " + field("finished", quoted(summary.Finished)) + ",\n" +
 		"  " + field("options", optionsJSON(summary.Options)) + ",\n" +
@@ -61,6 +61,20 @@ func collectionJSON(summary Summary) []byte {
 		"  " + field("notes", jsonList(summary.Notes)) + ",\n" +
 		"  " + field("archive", quoted(summary.Archive)) + "\n}\n"
 	return []byte(text)
+}
+
+// unixIdentityLines are the template's run_as_uid line, the account field
+// the sh collector writes.
+func unixIdentityLines(identity Identity) string {
+	return "  " + field("run_as_uid", quoted(strconv.Itoa(identity.UID))) + ",\n"
+}
+
+// windowsIdentityLines are the run_as and run_as_admin lines the PowerShell
+// collector writes in the same place: the account as DOMAIN\user, and
+// whether it is in the Administrators group.
+func windowsIdentityLines(identity Identity) string {
+	return "  " + field("run_as", quoted(identity.RunAs)) + ",\n" +
+		"  " + field("run_as_admin", jsonBool(identity.Admin)) + ",\n"
 }
 
 // joinFields joins `"key": value` pairs as the template's single-line objects
@@ -88,6 +102,7 @@ func optionsJSON(options Options) string {
 		field("projects", jsonList(options.Projects)),
 		field("env_scan_home", jsonBool(options.EnvScanHome)),
 		field("env_scan_max_size_bytes", strconv.FormatInt(options.EnvScanMaxSize, 10)),
+		field("no_preserve_atime", jsonBool(options.NoPreserveAtime)),
 	)
 }
 
@@ -146,9 +161,9 @@ func relocationJSON(relocation Relocation) string {
 	out += "], " + field("registry", joinFields(
 		field("read", jsonBool(relocation.RegistryRead)),
 		field("reason", quoted(relocation.RegistryReason)),
-		field("users_read", "[]"),
-		field("users_not_loaded", "[]"),
-		field("users_denied", "[]"),
+		field("users_read", jsonList(relocation.UsersRead)),
+		field("users_not_loaded", jsonList(relocation.UsersNotLoaded)),
+		field("users_denied", jsonList(relocation.UsersDenied)),
 	)) + ", "
 	out += field("files_searched", strconv.Itoa(relocation.FilesSearched)) + ", "
 	return out + field("files_skipped_size", strconv.Itoa(relocation.FilesSkippedSize)) + "}"

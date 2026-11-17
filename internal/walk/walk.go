@@ -8,9 +8,12 @@ package walk
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // sharedAgent is the agent of the catalog lines whose files are collected
@@ -40,7 +43,11 @@ type Records interface {
 // exclusion table (empty under --full); Secret tells whether a path, relative
 // to its base, is a credential file; MaxSize is the size cap in bytes, 0 for
 // none. Under Inventory nothing is staged or written: matches and files go to
-// Records.
+// Records. Owners names the owners the Windows rows record; nil records none.
+// RootCheck is the image root's check (NewRootCheck), the zero RootCheck on
+// a live run: the catalog expansion looks at nothing behind a link out of
+// the image root.
+// It is not safe for concurrent use, which the sequential walk never needs.
 type Collector struct {
 	Tables    *catalog.Tables
 	Excludes  []string
@@ -53,6 +60,29 @@ type Collector struct {
 	NoSecrets bool
 	Inventory bool
 	Records   Records
+	Owners    *fsmeta.Owners
+	RootCheck RootCheck
+}
+
+// check is the root check the follow functions take: the image root's, nil
+// on a live run.
+func (collector *Collector) check() follow.Check {
+	return collector.RootCheck.Expansion()
+}
+
+// pathSet returns an empty set of paths, one per file system entry, that
+// asks the file system, under the root check, about two spellings of one
+// path that differ only in ASCII case.
+func (collector *Collector) pathSet() *syspath.Entries[struct{}] {
+	return syspath.NewEntries[struct{}](follow.SameEntry(collector.check()))
+}
+
+// ownerOf returns the owner of path itself for its row, or "" without Owners.
+func (collector *Collector) ownerOf(path string) string {
+	if collector.Owners == nil {
+		return ""
+	}
+	return collector.Owners.Name(path)
 }
 
 // MatchAny returns a test that is true when a path matches any of globs as
@@ -70,13 +100,16 @@ func MatchAny(globs []string) func(string) bool {
 }
 
 // scope is what one collect_path call carries: whose rows it writes, where
-// its files are staged and which paths other catalog lines claim.
+// its files are staged and which paths other catalog lines claim, one per
+// file system entry (syspath.Entries), and the lstat of a path a caller took
+// before reading it.
 type scope struct {
 	user   string
 	home   string
 	agent  string
 	stager stage.Stager
-	claims map[string]struct{}
+	claims *syspath.Entries[struct{}]
+	before map[string]fsmeta.Meta
 }
 
 // excludePatterns returns the active exclusions as patterns for full paths

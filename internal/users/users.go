@@ -1,12 +1,17 @@
-// Package users finds the home directories to collect, reproducing the sh
-// collector's enumerate_users, filter_users and get_user_homes.
+// Package users finds the home directories to collect. On Unix it reproduces
+// the sh collector's enumerate_users, filter_users and get_user_homes; on
+// Windows it reproduces the PowerShell collector's Get-CandidateHomes and
+// Get-UserHomes, reading the registry's ProfileList in a live run.
 package users
 
 import (
-	"bytes"
-	"os"
+	"context"
+	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
@@ -17,161 +22,198 @@ type Home struct {
 	Path string
 }
 
-// Runner runs a program and returns its standard output. hostcmd's Runner
-// provides it, as a method value, so this package does not import hostcmd.
-type Runner func(name string, args ...string) ([]byte, error)
+// Runner runs a program and returns its standard output, starting none once
+// ctx is cancelled. hostcmd's Runner provides it, as a method value, so this
+// package does not import hostcmd.
+type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
-// homeGlobs returns the usual home parents, in the order the sh collector
-// tries them, each relative to the root.
-func homeGlobs() []string {
-	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
+// Skipped is a candidate home that could not be seen as a directory.
+// Denied is true when its parent directory lists it, so it exists but cannot
+// be entered; Reason says why in the platform's words.
+type Skipped struct {
+	Path   string
+	Reason string
+	Denied bool
 }
 
-// isSystemHome reports whether a home, relative to the root, belongs to a
-// system or shared profile that is never collected.
-func isSystemHome(relative string) bool {
-	switch relative {
-	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
-		"/proc", "/sys", "/nonexistent", "/var/empty", "/Users/Shared", "/Users/Public",
-		"/Users/Default", "/Users/All Users", "/Users/Default User":
+// Profile is one entry of the registry's ProfileList: the key's security
+// identifier, the user (the profile path's last component) and the profile
+// path in canonical form without a trailing separator. It mirrors
+// relocation.Profile; the collector converts between them.
+type Profile struct {
+	SecurityID string
+	User       string
+	Path       string
+}
+
+// Report is what Find returns: the homes to collect in enumeration order,
+// the candidates that could not be seen as directories, and every
+// ProfileList entry in registry order before any filter. Skipped and
+// Profiles are empty off Windows. Found lists, once each in enumeration
+// order, the users of the homes the run could collect from had -u named
+// them: on Unix the candidates that are not system homes and are
+// directories; on Windows those that are not skipped profiles or files,
+// Skipped ones included. Unmatched lists the -u names, in the order typed,
+// that match none of Found.
+type Report struct {
+	Homes     []Home
+	Skipped   []Skipped
+	Profiles  []Profile
+	Found     []string
+	Unmatched []string
+	// OutOfRoot lists, once each, the links out of the image root that the
+	// enumeration did not look behind (a home parent, the passwd file's
+	// directory, a candidate home); none of them gives a home.
+	OutOfRoot []follow.Refusal
+	// Merged lists the homes dropped because, once reached, they name the
+	// directory an earlier home names: walked once, as the earlier user's.
+	Merged []Merge
+}
+
+// Merge is a home Find dropped because its path, once reached, is the path
+// of an earlier home: Path, walked once as Kept's, is also Dropped's.
+type Merge struct {
+	Path    string
+	Kept    string
+	Dropped string
+}
+
+// reachAll returns candidates with each path put through reach (nil:
+// unchanged), and the paths as written, in the same order.
+func reachAll(candidates []Home, reach func(path string) string) (reached []Home,
+	written []string,
+) {
+	for _, candidate := range candidates {
+		written = append(written, candidate.Path)
+		if reach != nil && candidate.Path != "" {
+			candidate.Path = reach(candidate.Path)
+		}
+		reached = append(reached, candidate)
+	}
+	return reached, written
+}
+
+// rootGuard applies an image run's root check to what the enumeration lists
+// and stats; nil check, a live run's, allows everything. Each refused link is
+// recorded once.
+type rootGuard struct {
+	check  glob.Check
+	opener *fsmeta.Opener
+	links  []follow.Refusal
+}
+
+// allows reports whether path may be looked at, recording the link when not.
+func (guard *rootGuard) allows(path string) bool {
+	if guard.check == nil {
 		return true
 	}
-	return false
+	refusal, refused := guard.check(path)
+	if refused {
+		guard.record(refusal)
+	}
+	return !refused
 }
 
-// Enumerate returns the homes to collect, in enumeration order. In live mode
-// the passwd text comes from `getent passwd` and macOS adds `dscl`; a program
-// that fails is treated as absent. Otherwise passwd is root/etc/passwd. The
-// usual home parents follow. usersFilter is the -u list, compared
-// case-sensitively; a home listed twice keeps its first user; only existing
-// directories are returned. root is "" or "/" for the live system.
-func Enumerate(live bool, root, usersFilter string, run Runner) []Home {
-	root = strings.TrimSuffix(root, "/")
-	candidates := passwdHomes(live, root, run)
-	if live {
-		candidates = append(candidates, dsclHomes(run)...)
+// record keeps refusal once per link.
+func (guard *rootGuard) record(refusal follow.Refusal) {
+	if !slices.ContainsFunc(guard.links, func(known follow.Refusal) bool {
+		return known.Link == refusal.Link
+	}) {
+		guard.links = append(guard.links, refusal)
 	}
-	candidates = append(candidates, globHomes(root)...)
-	var homes []Home
-	for _, home := range filterHomes(candidates, root, usersFilter) {
-		if isDirectory(home.Path) {
-			homes = append(homes, home)
-		}
-	}
-	return homes
 }
 
-// passwdHomes returns the user and root-prefixed home of every passwd line
-// with at least six fields and a non-empty sixth. Live, the text is
-// getent's when getent runs, else the file's, as the sh collector does.
-func passwdHomes(live bool, root string, run Runner) []Home {
-	var text []byte
-	ran := false
-	if live && run != nil {
-		output, err := run("getent", "passwd")
-		text, ran = output, err == nil
+// expand expands pattern in base through the check, recording what it refuses.
+func (guard *rootGuard) expand(base, pattern string) []string {
+	matches, refused := glob.Expand(base, pattern, guard.check, guard.opener)
+	for _, refusal := range refused {
+		guard.record(refusal.Refusal)
 	}
-	if !ran {
-		// test -f follows a link; a directory or missing file gives nothing.
-		text, _ = os.ReadFile(root + "/etc/passwd")
-	}
-	var homes []Home
-	for _, line := range bytes.Split(text, []byte("\n")) {
-		fields := strings.Split(string(line), ":")
-		if len(fields) >= 6 && fields[5] != "" {
-			homes = append(homes, Home{fields[0], root + fields[5]})
-		}
-	}
-	return homes
+	return matches
 }
 
-// dsclHomes returns the user and home of each line of `dscl . -list /Users
-// NFSHomeDirectory`: the first two blank-separated fields, so a home with a
-// space in it is cut at the space, as the sh collector's awk cuts it.
-func dsclHomes(run Runner) []Home {
-	if run == nil {
-		return nil
-	}
-	output, err := run("dscl", ".", "-list", "/Users", "NFSHomeDirectory")
-	if err != nil {
-		return nil
-	}
-	var homes []Home
-	for _, line := range strings.Split(string(output), "\n") {
-		fields := strings.FieldsFunc(line, isBlank)
-		if len(fields) >= 2 {
-			homes = append(homes, Home{fields[0], fields[1]})
-		}
-	}
-	return homes
-}
-
-// isBlank is awk's default field separator under LC_ALL=C: space, tab and newline.
-func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n' }
-
-// globHomes returns, for each home parent in order, the entries that exist
-// and are directories, each named by its last path segment. A match holding a
-// newline is read as its lines, each tried as a home, since the sh collector
-// reads the expansion line by line.
-func globHomes(root string) []Home {
-	var homes []Home
-	for _, pattern := range homeGlobs() {
-		for _, match := range glob.Expand(root, pattern) {
-			for _, line := range strings.Split(match, "\n") {
-				if isDirectory(line) {
-					homes = append(homes, Home{line[strings.LastIndexByte(line, '/')+1:], line})
-				}
-			}
-		}
-	}
-	return homes
-}
-
-// filterHomes drops the system and shared profile homes, the users the -u
-// list did not name, and every home already seen. A home under root is
-// compared with the system list without the root; the root counts as a prefix
-// of the text, so "/tmp/x" also matches "/tmp/xyz/home".
-func filterHomes(candidates []Home, root, usersFilter string) []Home {
-	wanted, filtered := wantedUsers(usersFilter)
-	seen := map[string]struct{}{}
+// inside returns the candidates whose own path the check allows: test -d,
+// and the walk after it, would follow a candidate that is itself a link.
+func (guard *rootGuard) inside(candidates []Home) []Home {
 	var kept []Home
 	for _, home := range candidates {
-		relative := home.Path
-		if root != "" && strings.HasPrefix(home.Path, root) {
-			relative = home.Path[len(root):]
+		if guard.allows(home.Path) {
+			kept = append(kept, home)
 		}
-		if isSystemHome(relative) {
-			continue
-		}
-		if _, named := wanted[home.User]; filtered && !named {
-			continue
-		}
-		if _, repeated := seen[home.Path]; repeated {
-			continue
-		}
-		seen[home.Path] = struct{}{}
-		kept = append(kept, home)
 	}
 	return kept
 }
 
-// wantedUsers splits the -u list at commas. filtered is true for any
-// non-empty list, even one that names nobody (","), which then keeps no home.
-func wantedUsers(usersFilter string) (wanted map[string]struct{}, filtered bool) {
-	wanted = map[string]struct{}{}
-	if usersFilter == "" {
-		return wanted, false
-	}
+// userNames splits the -u list at commas into its names in the order typed,
+// without trimming, empty items dropped and a name that matches an earlier
+// one under matches, the platform's comparison of names, dropped too.
+func userNames(usersFilter string, matches func(name, user string) bool) []string {
+	var names []string
 	for _, name := range strings.Split(usersFilter, ",") {
-		if name != "" {
-			wanted[name] = struct{}{}
+		repeated := slices.ContainsFunc(names, func(earlier string) bool { return matches(earlier, name) })
+		if name != "" && !repeated {
+			names = append(names, name)
 		}
 	}
-	return wanted, true
+	return names
 }
 
-// isDirectory is test -d: true for a directory or a link to one.
-func isDirectory(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
+// unmatchedUsers returns the names, in order, that matches pairs with none
+// of found.
+func unmatchedUsers(names, found []string, matches func(name, user string) bool) []string {
+	var unmatched []string
+	for _, name := range names {
+		if !slices.ContainsFunc(found, func(user string) bool { return matches(name, user) }) {
+			unmatched = append(unmatched, name)
+		}
+	}
+	return unmatched
+}
+
+// addFound appends user to found unless found holds it already.
+func addFound(found []string, user string) []string {
+	if slices.Contains(found, user) {
+		return found
+	}
+	return append(found, user)
+}
+
+// transientProfile matches the ASCII-lowered names of the service profiles
+// Windows makes for the font driver host, the desktop window manager and
+// TEMP.
+var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
+
+// skipProfile reports whether a profile directory's name is a system or
+// shared profile, not a person's home: one of the fixed names or a transient
+// profile, compared ignoring ASCII case. PowerShell's -contains and -match
+// also fold non-ASCII case pairs (U+017F for s); this does not.
+func skipProfile(name string) bool {
+	lowered := lowerASCII(name)
+	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
+	for _, skipped := range fixed {
+		if lowered == skipped {
+			return true
+		}
+	}
+	return transientProfile.MatchString(lowered)
+}
+
+// lowerASCII lowers the ASCII letters of text and leaves every other byte,
+// on every platform.
+func lowerASCII(text string) string {
+	lowered := []byte(text)
+	for i, character := range lowered {
+		if 'A' <= character && character <= 'Z' {
+			lowered[i] = character + 'a' - 'A'
+		}
+	}
+	return string(lowered)
+}
+
+// Enumerate returns the homes to collect, in enumeration order; it is the
+// homes of Find.
+func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner,
+	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
+) []Home {
+	return Find(ctx, live, root, usersFilter, run, check, opener, reach).Homes
 }

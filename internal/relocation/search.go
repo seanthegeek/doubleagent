@@ -9,11 +9,13 @@ package relocation
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -41,13 +43,15 @@ type Value struct {
 
 // Result is what a search found: the hints in the order they were recorded,
 // the resolved values, the number of files searched, the number of files the
-// sweep left unread for their size, and the number of hints with a value.
+// sweep left unread for their size, the number of hints with a value, and what
+// the registry pass read.
 type Result struct {
 	Hints            []Hint
 	Values           []Value
 	FilesSearched    int
 	FilesSkippedSize int
 	Resolved         int
+	Registry         RegistryOutcome
 }
 
 // Logger writes one line of the run log; runlog.Log is the one in use.
@@ -61,10 +65,17 @@ type Logger interface {
 // Excludes is the run's active EXCLUDES list, empty under --full. OutDir and
 // RunName name the run's own output files, which the sweep never reads.
 // Claims returns the paths the catalog table matches under a base, as the walk
-// expands them; Collect collects a hit file as agent shared, flagged secret.
+// expands them; Collect collects a hit file as agent shared, flagged secret,
+// given the file's metadata from before the search first read it.
+// Registry reads the Windows registry, nil off Windows; Profiles lists the
+// ProfileList entries in registry order, whose hives the registry pass reads.
 type Deps struct {
-	Tables          *catalog.Tables
-	Root            string
+	Tables *catalog.Tables
+	Root   string
+	// SystemBase is the base of the system scope: Root in image mode, the
+	// system drive on a live Windows host, "" on a live Unix one; when empty
+	// it is syspath.SystemBase(Root).
+	SystemBase      string
 	Homes           []users.Home
 	Projects        []users.Home
 	EnvScanHome     bool
@@ -75,25 +86,41 @@ type Deps struct {
 	Plutil          PlistReader
 	Log             Logger
 	Claims          func(base string, table []catalog.Entry) []string
-	Collect         func(user, home, path string) error
+	Collect         func(user, home, path string, before fsmeta.Meta) error
+	Registry        Registry
+	Profiles        []Profile
+	// Opener reads every file the search reads, as the run decided (nil
+	// asks to hold access times wherever the platform can).
+	Opener *fsmeta.Opener
+	// Expansion is the image root's check the startup-file globs are expanded
+	// through (nil on a live run, which has no root to leave).
+	Expansion glob.Check
 }
 
 // search is the state of one Search: the hint records already held, the
-// header waiting for the first hint of a base, and the result so far.
+// links out of the image root already logged, the header waiting for the
+// first hint of a base, and the result so far.
 type search struct {
-	deps   Deps
-	names  []string
-	seen   map[string]bool
-	header string
-	result Result
+	deps      Deps
+	system    string
+	names     []string
+	seen      map[string]bool
+	outOfRoot map[string]bool
+	header    string
+	result    Result
 }
 
-// Search searches the startup files of every home, of the system and of every
-// project, then, under --env-scan-home, sweeps every other file of each home
-// and project, logging and recording each hint and collecting each hit file
-// through deps.Collect. It stops with ctx's error when ctx is cancelled.
+// Search searches the startup files of every home and of the system, reads the
+// registry, searches the startup files of every project, then, under
+// --env-scan-home, sweeps every other file of each home and project, logging
+// and recording each hint and collecting each hit file through deps.Collect.
+// It stops with ctx's error when ctx is cancelled.
 func Search(ctx context.Context, deps Deps) (Result, error) {
-	run := &search{deps: deps, names: variableNames(deps.Tables), seen: map[string]bool{}}
+	run := &search{deps: deps, system: deps.SystemBase, names: variableNames(deps.Tables),
+		seen: map[string]bool{}, outOfRoot: map[string]bool{}}
+	if run.system == "" {
+		run.system = syspath.SystemBase(deps.Root)
+	}
 	err := run.startupPass(ctx)
 	if err == nil && deps.EnvScanHome {
 		err = run.sweepPass(ctx)
@@ -114,27 +141,30 @@ func variableNames(tables *catalog.Tables) []string {
 	return names
 }
 
-// startupPass searches the startup files of each home, the system and each
-// project, under the header naming the base.
+// startupPass searches the startup files of each home and the system, reads
+// the registry, then searches each project's, under the header naming the base.
 func (run *search) startupPass(ctx context.Context) error {
 	for _, home := range run.deps.Homes {
 		if home.Path == "" {
 			continue
 		}
-		run.header = fmt.Sprintf("Relocation hints for %s (%s)", home.User, home.Path)
+		run.header = homeHeader(home)
 		if err := run.searchStartup(ctx, home.User, home.Path, home.Path, "home"); err != nil {
 			return err
 		}
 	}
 	run.header = "Relocation hints in system files"
-	if err := run.searchStartup(ctx, "", "", run.deps.Root, "system"); err != nil {
+	if err := run.searchStartup(ctx, "", "", run.system, "system"); err != nil {
+		return err
+	}
+	if err := run.registryPass(); err != nil {
 		return err
 	}
 	for _, project := range run.deps.Projects {
 		if project.Path == "" {
 			continue
 		}
-		run.header = "Relocation hints in project " + project.Path
+		run.header = projectHeader(project)
 		err := run.searchStartup(ctx, project.User, project.Path, project.Path, "project")
 		if err != nil {
 			return err
@@ -149,8 +179,30 @@ func (run *search) searchStartup(ctx context.Context, user, home, base, scope st
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	files := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles)
+	files, outOfRoot := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles,
+		run.deps.Expansion, run.deps.Opener)
+	if err := run.logOutOfRoot(outOfRoot); err != nil {
+		return err
+	}
 	return run.searchFiles(ctx, user, home, base, files)
+}
+
+// logOutOfRoot logs each path the root check refused a startup-file glob,
+// once per run, worded by the refusal's kind, as the skipped sweeps are
+// logged, without the base's header, which heads hints only.
+func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
+	for _, refusal := range refusals {
+		if run.outOfRoot[refusal.Link] {
+			continue
+		}
+		run.outOfRoot[refusal.Link] = true
+		reason := follow.Reason(refusal, " leads out of the image root; nothing behind it was listed")
+		err := run.logSkip("startup files: " + syspath.ToNative(refusal.Link) + reason)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // searchFiles counts files as searched and records the hints of each, the
@@ -173,10 +225,10 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !strings.HasPrefix(file, prefix) || strings.Contains(file, "\n") {
+		if !syspath.HasPrefix(file, prefix) || strings.Contains(file, "\n") {
 			continue
 		}
-		if err := run.recordFileHints(user, home, file); err != nil {
+		if err := run.recordFileHints(ctx, user, home, file); err != nil {
 			return err
 		}
 	}
@@ -187,21 +239,31 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 // its line assigns where Kind reads the file, then a hint on line 0 for each
 // value plutil read from a plist, and has the file collected. A system plist
 // under LaunchDaemons gives its hints the plist's UserName as their user.
-func (run *search) recordFileHints(user, home, path string) error {
+// The file's lstat is taken before it is read, so its row records the access
+// time the search's own read may move; a file lstat cannot read cannot be
+// read either, and has no hits.
+func (run *search) recordFileHints(ctx context.Context, user, home, path string) error {
+	before, err := fsmeta.Lstat(path)
+	if err != nil {
+		return nil
+	}
 	hits := run.boundedNamesOf(path)
 	if len(hits) == 0 {
 		return nil
 	}
 	hintUser, values := user, FileValues{}
 	if kind := Kind(path); kind != "" {
-		values = run.resolve(path, kind, run.resolveHome(user, home), hits)
+		values, err = run.resolve(ctx, path, kind, run.resolveHome(user, home), hits)
+		if err != nil {
+			return err
+		}
 		if user == "" && home == "" && values.User != "" && isDaemonPath(path) {
 			hintUser = values.User
 		}
 	}
 	for _, hit := range hits {
 		value, reason := values.selectValue(hit.Line, hit.Name, run.deps.Root)
-		if err := run.record(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
+		if err := run.recordFile(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
 			return err
 		}
 	}
@@ -210,22 +272,23 @@ func (run *search) recordFileHints(user, home, path string) error {
 			continue
 		}
 		value, reason := values.selectValue(0, assignment.Name, run.deps.Root)
-		if err := run.record(hintUser, path, 0, assignment.Name, value, reason); err != nil {
+		if err := run.recordFile(hintUser, path, 0, assignment.Name, value, reason); err != nil {
 			return err
 		}
 	}
-	return run.deps.Collect(user, home, path)
+	return run.deps.Collect(user, home, path, before)
 }
 
-// boundedNamesOf returns the hits of the file at path; a file that cannot be
-// read has none, as grep lists no file it cannot open.
+// boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32
+// text decoded first; a file that cannot be read has none, as grep lists no
+// file it cannot open.
 func (run *search) boundedNamesOf(path string) []LineName {
-	file, err := fsmeta.OpenRegular(path)
+	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
 		return nil
 	}
 	defer file.Close()
-	hits, _ := BoundedNames(file, run.names, IsPowerShell(path))
+	hits, _ := decodedBoundedNames(file, run.names, IsPowerShell(path))
 	return hits
 }
 
@@ -245,14 +308,15 @@ func (run *search) resolveHome(user, home string) string {
 }
 
 // resolve reads the values of a hit file of a kind: a value reader that cannot
-// open the file reads nothing.
-func (run *search) resolve(path, kind, home string, hits []LineName) FileValues {
+// open the file reads nothing. Only a cancelled ctx is an error.
+func (run *search) resolve(ctx context.Context, path, kind, home string, hits []LineName,
+) (FileValues, error) {
 	if kind == "launchd" {
-		return ResolvePlist(run.deps.Plutil, path, hits)
+		return ResolvePlist(ctx, run.deps.Plutil, path, hits)
 	}
-	file, err := fsmeta.OpenRegular(path)
+	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
-		return FileValues{}
+		return FileValues{}, nil
 	}
 	defer file.Close()
 	var assignments []Assignment
@@ -261,5 +325,5 @@ func (run *search) resolve(path, kind, home string, hits []LineName) FileValues 
 	} else {
 		assignments, _ = ResolveEnvironmentD(file, run.names, home)
 	}
-	return FileValues{Assignments: assignments}
+	return FileValues{Assignments: assignments}, nil
 }

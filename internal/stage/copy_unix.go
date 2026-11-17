@@ -8,20 +8,37 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"golang.org/x/sys/unix"
 )
 
-// openSource opens path for reading without following a final symlink.
-// O_NONBLOCK keeps the open from waiting on a FIFO that replaced the file
-// after its lstat; CopyFile then refuses it as not a regular file.
-func openSource(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+// createDest creates the staged copy at dest exclusively, never following
+// a final symlink: when the volume takes the name for an existing entry's,
+// by any rule it has, the create fails and nothing is opened for write.
+func createDest(dest string) (createdFile, error) {
+	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return createdFile{}, err
+	}
+	created := createdFile{file: file, place: reportedPath(file)}
+	if info, err := file.Stat(); err == nil {
+		created.staged = fsmeta.StatIdentity(info)
+	}
+	return created, nil
 }
 
-// createDest creates or truncates the staged copy without following a final
-// symlink, so a link recreated in the staging tree is never written through.
-func createDest(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
+// handleIdentity returns the device and inode of the open source, from the
+// stat Copy already took of its handle, in the form fsmeta.Lstat gives a
+// link's (fsmeta.StatIdentity).
+func handleIdentity(_ *os.File, info fs.FileInfo) [2]uint64 {
+	return fsmeta.StatIdentity(info)
+}
+
+// MarkCaseSensitive does nothing: these systems have no per-directory case
+// setting, and whether the staging directory takes two names for one is
+// asked with FoldsCase.
+func MarkCaseSensitive(string) error {
+	return nil
 }
 
 // preserve gives the copy the source's owner when running as root, its
@@ -53,10 +70,23 @@ func preserve(target *os.File, dest string, info fs.FileInfo) error {
 
 // PhysicalDir returns dir with every symlink resolved, as `cd -P DIR && pwd
 // -P` prints it, or an error when the shell's cd would fail: dir is not a
-// directory or cannot be searched.
+// directory or cannot be searched. A `..` is never removed as text (as
+// filepath.Abs would): it goes up from where the path physically is, as the
+// kernel resolves it, so `/srv/dotlink/../frank` with srv/dotlink a link to
+// ../opt/escape is /opt/frank. filepath.EvalSymlinks agrees with the kernel
+// on a file followed by `..`, `/` or `/.` (ENOTDIR), but it never asks for
+// the right to search a directory before taking its `..`, so the kernel's
+// own stat of dir is asked first: `noexec/..` fails there (EACCES).
 func PhysicalDir(dir string) (string, error) {
-	absolute, err := filepath.Abs(dir)
-	if err != nil {
+	absolute := dir
+	if !filepath.IsAbs(dir) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		absolute = cwd + "/" + dir
+	}
+	if _, err := os.Stat(absolute); err != nil {
 		return "", err
 	}
 	resolved, err := filepath.EvalSymlinks(absolute)

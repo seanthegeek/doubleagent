@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -21,13 +23,19 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if reason, failed := fsmeta.DirReadError(home.Path); failed {
+		// The users step kept no home that leads out of the root.
+		reason, failed, refused := follow.DirReadError(collector.check(),
+			collector.Stager.Opener, home.Path)
+		if follow.IsOpenedOutside(refused) {
+			continue
+		}
+		if failed {
 			owner := scope{user: home.User, home: home.Path}
 			if err := collector.writeReadErrors(owner, []readError{{home.Path, reason}}); err != nil {
 				return err
 			}
 		}
-		header := "User " + home.User + " (" + home.Path + ")"
+		header := "User " + home.User + " (" + syspath.ToNative(home.Path) + ")"
 		err := collector.CollectCatalog(ctx, home.User, home.Path, collector.Tables.Catalog, header)
 		if err != nil {
 			return err
@@ -47,14 +55,14 @@ func (collector *Collector) WriteReadError(user, home, path, reason string) erro
 // catalogRun is the state of one CollectCatalog call: the header still to
 // log before the first line, the stager of paths under the base, the paths
 // the table's matches claim, and the symlinked directories already considered
-// for a row.
+// for a row, the last two keyed by syspath.Fold.
 type catalogRun struct {
 	user   string
 	base   string
 	header string
 	stager stage.Stager
-	claims map[string]struct{}
-	seen   map[string]struct{}
+	claims *syspath.Entries[struct{}]
+	seen   *syspath.Entries[struct{}]
 }
 
 // CollectCatalog collects every match of table under base for user, logging
@@ -73,12 +81,12 @@ func (collector *Collector) CollectCatalog(ctx context.Context, user, base strin
 func (collector *Collector) collectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string, stager stage.Stager,
 ) error {
-	matches := ExpandCatalog(base, table)
+	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion(), collector.Stager.Opener)
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
-		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
+		claims: collector.pathSet(), seen: collector.pathSet()}
 	for _, match := range matches {
-		if match.Note == "" {
-			run.claims[match.Path] = struct{}{}
+		if match.Note == "" && match.OutOfRoot.Link == "" {
+			run.claims.Put(match.Path, struct{}{})
 		}
 	}
 	for _, match := range matches {
@@ -92,6 +100,29 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 	return nil
 }
 
+// recordOutOfRoot logs a link out of the image root that the expansion of
+// match's glob stopped at, and records the link once as a symlink row of
+// match's agent when it lies inside the base, as a link a match runs through
+// is recorded; nothing behind it was listed or stat'ed, so the line and the
+// row do not depend on what the analyst's host holds there.
+func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun, match Match,
+) error {
+	link := match.OutOfRoot.Link
+	line := "  [" + match.Agent + "] " + syspath.ToNative(link) +
+		follow.Reason(match.OutOfRoot,
+			": the symlinked directory leads out of the image root; nothing under it was listed") +
+		", not walked"
+	if err := collector.logLines(run, line); err != nil || collector.Inventory {
+		return err
+	}
+	if _, inside := pathUnder(link, run.base); !inside || syspath.Equal(link, run.base) {
+		return nil
+	}
+	owner := scope{user: run.user, home: run.base, agent: match.Agent, stager: run.stager,
+		claims: run.claims}
+	return collector.recordPassedLinks(ctx, owner, run.base, []string{link}, run.seen)
+}
+
 // collectMatch logs one match and collects it, as one pass of collect_catalog's
 // loop and collect_catalog_match do. A match under a symlinked directory that
 // leads out of the base is not walked; that link and the in-base links before
@@ -101,19 +132,22 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	if match.Note != "" {
 		return collector.logLines(run, match.Note)
 	}
+	if match.OutOfRoot.Link != "" {
+		return collector.recordOutOfRoot(ctx, run, match)
+	}
 	path := readField(match.Path)
-	links, outside := LinkedParent(run.base, path)
-	line := "  [" + match.Agent + "] " + path
+	links, outside := LinkedParent(run.base, path, collector.check())
+	line := "  [" + match.Agent + "] " + syspath.ToNative(path)
 	switch {
 	case outside:
-		line += ": under the symlinked directory " + links.Outside +
+		line += ": under the symlinked directory " + syspath.ToNative(links.Outside) +
 			", which leads out of the base; not walked"
 		links.Passed = append(links.Passed, links.Outside)
 	case collector.Inventory && match.Agent == sharedAgent:
 		return nil
 	case links.From != "":
-		line += " (through the symlinked directory " + links.From + ", archived under " +
-			physicalPath(path, links.From, links.Into) + ")"
+		line += " (through the symlinked directory " + syspath.ToNative(links.From) +
+			", archived under " + syspath.ToNative(physicalPath(path, links.From, links.Into)) + ")"
 	}
 	if collector.Inventory && !outside {
 		collector.Records.Match(match.Agent, match.Glob)
@@ -165,7 +199,14 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 ) (int, error) {
 	meta, statError := fsmeta.Lstat(path)
 	if statError == nil && meta.Kind == fsmeta.Dir {
-		if reason, failed := fsmeta.DirReadError(path); failed && !collector.Inventory {
+		// path's own lstat typed it a directory, not a link, and its parents
+		// were checked: by the expansion that produced a catalog match, or by
+		// the volume step for the _data that CollectPath gets from it.
+		reason, failed, err := follow.DirReadError(collector.check(), collector.Stager.Opener, path)
+		if follow.IsOpenedOutside(err) {
+			return 0, nil
+		}
+		if failed && !collector.Inventory {
 			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})
 		}
 		return collector.collectTree(ctx, owner, path)
@@ -188,14 +229,19 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 // StageFile stages one path for user under home, attributed to agent, staged
 // by stager, as the relocation step runs the staging worker for a file that
 // names a relocation variable. With forceSecret the file is flagged secret
-// whatever its name, so --no-secrets skips it.
+// whatever its name, so --no-secrets skips it. before, when set, is path's
+// lstat taken before the caller read the file, which the row records in
+// place of a new one, so its access time is the one before that read.
 func (collector *Collector) StageFile(user, home, agent string, stager stage.Stager, path string,
-	forceSecret bool,
+	forceSecret bool, before *fsmeta.Meta,
 ) error {
 	secret := collector.Secret
 	if forceSecret {
 		secret = func(string) bool { return true }
 	}
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
+	if before != nil {
+		owner.before = map[string]fsmeta.Meta{path: *before}
+	}
 	return collector.stageFiles(owner, []string{path}, secret)
 }

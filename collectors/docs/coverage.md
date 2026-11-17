@@ -132,7 +132,28 @@ the path is spelled in the manifest, differs:
 
 Claimed paths of nested entries are compared case-insensitively by the
 PowerShell collector on Windows and case-sensitively elsewhere, so pwsh on
-Linux keeps `.config/cursor/User` and `.config/Cursor/User` apart. With
+Linux keeps `.config/cursor/User` and `.config/Cursor/User` apart.
+
+Windows can mark a single directory case-sensitive, and WSL marks the
+directories it creates. Inside one, `Alice` and `alice` are two entries,
+and a catalog line or a typed path matches only its exact spelling. The
+`doubleagent` binary keeps such entries apart everywhere it compares paths:
+two homes, two claims, two projects, two rows. It treats two spellings as
+one entry when the file system gives both the same file identity, as in
+an ordinary directory, or when neither exists. Both are staged
+and archived: the binary marks its staging directory case-sensitive. Where
+the output directory takes two names for one, by letter case (a Windows
+file system without the setting, the default macOS volume, an exFAT or FAT
+drive) or by Unicode form (every macOS volume: the same accented letter
+stored as one character, or as a letter and a combining mark), the run
+logs a note. A Windows volume that makes 8.3 short names also takes a name
+shaped like one (`CLAUDE~1`) for the directory it names, marked
+case-sensitive or not, without a note. Either way a file or link whose
+name it takes for another file's, link's or directory's is not staged: its
+row says so (`error_copy` for a file, a `symlink` row with that error for
+a link), with no archive path.
+One entry reached through two spellings is staged once, and both rows name
+its member ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
 glob is left out of the agent's `evidence`.
 
@@ -177,13 +198,47 @@ the matched path.
   ([issue 503](https://github.com/seanthegeek/doubleagent/issues/503)): with a relative
   target the copy lands where the link points inside the staging tree, so `archive_path`
   names a path the archive holds only under the target; with an absolute target in live mode
-  the staged path resolves to the source, the copy fails, and the log line ends `staged path
-  resolves outside the staging directory, not removed`, since the collector never removes a
+  the staged path resolves to the source, the copy fails, and the log line ends `staged path resolves outside the staging directory, not removed`, since the collector never removes a
   file outside the staging directory.
+- In image mode the `doubleagent` binary differs from both scripts for a link whose target
+  leads out of the image root (a place on the analyst's own host): the glob expander asks
+  before it lists a directory or looks a name up in one, and looks at nothing behind such a
+  link. The catalog walk logs the link once, in the place of the first catalog line whose
+  glob reached it, as
+  `[vscode] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
+  (for a reparse point other than a symlink or junction,
+  `[vscode] /img/home/bob/.config is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`),
+  and records the link itself as one `symlink` row of that line's agent, unless a match
+  claims it, whether or not anything behind it would have matched: the line and the row do
+  not depend on what the analyst's host holds. Project discovery reads no source behind such
+  a link and logs one line per link
+  ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
+  leaves the home but stays inside the image root is listed and refused as described above.
+  A passwd home, discovered project or `-p` whose path holds `.` or `..` is collected under
+  the path the system reaches for it (on Unix the physical path: `/srv/dotlink/../frank`
+  with `srv/dotlink` a link to `b/c` is `/srv/b/frank`), where the scripts keep the dotted
+  spelling and can stage the copy onto another home of the lexical name
+  ([`internals.md`](internals.md#project-discovery)).
+  On Windows a file or directory the root check let through that Windows nonetheless opens
+  outside the image root is not copied or listed and is logged once
+  (`...: the root check allowed it but Windows opened it outside the image root; nothing from it was used`;
+  [Project discovery in `internals.md`](internals.md#project-discovery) has the detail).
+  An excluded path that is itself such a link gets its `skipped_excluded` row from the
+  link's own entry, whatever the link points at: on Unix from its lstat, as a file, where
+  the sh collector tests it as a directory through the link; on Windows, from the entry's
+  own attributes, so a junction is a `dir` row of size 0, as the PowerShell collector,
+  which does not follow it either, writes it. A live run is unchanged.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
-  `bar|b/sub` names the same files; the archive holds the last copy of a file and the link
-  the first row recreated, which the second leaves as it is: `ln -s` onto a link to a
+  `bar|b/sub` names the same files; the archive holds one copy of a file (the sh
+  collector's last; the `doubleagent` binary copies it once and names that copy in both
+  rows) and the link the first row recreated, which the second leaves as it is: `ln -s` onto a link to a
   directory would create the new link inside that directory, on the source.
+- A link that cannot be recreated in the staging tree (for example when its target cannot
+  be read, or its staged directory cannot be written or resolves outside the staging
+  directory) keeps its `symlink` row with the
+  error `not recreated in the archive: <why>` and no `archive_path`, and the log says
+  `symlink not recreated: <path>: <why>`, on every platform. The sh collector ignores the
+  failed `ln -s` and keeps the `archive_path`, which then names no archive member.
 
 ## Claude Code config homes
 
@@ -662,6 +717,26 @@ The PowerShell collector logs a profile path that cannot be seen as
 `profile not accessible (skipped)`. When its parent directory still lists
 it (access denied rather than a deleted profile), it also gets an
 `error_read` row, but it is not added to `users` and `homes`.
+Whether a candidate is a file or a directory is read from its own entry, as
+.NET's `File.Exists` and `Directory.Exists` read it, without following a
+link: a junction or a directory symlink is a home even when what it leads to
+is gone (its listing then fails, so it gets an `error_read` row), and a
+symlink made without the directory flag is dropped as a file. The Go binary
+on Windows tests candidates the same way.
+
+In image mode the `doubleagent` binary takes nothing behind a link whose
+target leads out of the image root as a home: a home parent such as `home`
+that is such a link is not listed, a `<root>/etc/passwd` reached through one
+is not read, and a candidate home that is or lies behind one is dropped
+without being tested as a directory, so the outcome is the same whatever
+the link points at, or whether it points at anything. The log names each
+link once, as
+`user homes: /img/home leads out of the image root; nothing behind it was listed or taken as a home`
+(for a reparse point other than a symlink or junction,
+`user homes: /img/home is a reparse point other than a symlink or junction; nothing behind it was looked at`);
+the link gets no row of its own (it is not a home), and no user name from
+behind it appears in the outputs. Both scripts list the analyst's own
+directory there.
 
 ## Project discovery
 
@@ -1192,8 +1267,7 @@ temp directory while it lists Codex's models, and removes it when the
 command finishes. A crash or a kill leaves that copy outside every home,
 where no catalog line reaches it; on a host where Ollama launched the
 ChatGPT app, look for the directory in the temp directory and copy it by
-hand (see [Credentials in
-`research/codex-cli.md`](../../research/codex-cli.md#credentials)).
+hand (see [Credentials in `research/codex-cli.md`](../../research/codex-cli.md#credentials)).
 Agent Zero copies a Telegram bot's configuration into each Telegram
 chat's `chat.json`, which is collected unflagged; the keys to redact are
 `data.telegram_bot_cfg.token` and `data.telegram_bot_cfg.webhook_secret`,

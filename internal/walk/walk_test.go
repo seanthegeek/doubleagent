@@ -18,6 +18,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // fixture is a test tree: directories, files and links relative to its base.
@@ -68,7 +69,8 @@ func testCollector(t *testing.T, root string, excludes []string,
 	return &Collector{
 		Tables: &catalog.Tables{}, Excludes: excludes, Secret: MatchAny([]string{"*secret*"}),
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root, MaxSize: 10,
-		Stager: stage.Stager{Dir: stageDir, Physical: stageDir, Root: root},
+		Stager:    stage.Stager{Dir: stageDir, Physical: stageDir, Root: root, Places: stage.NewPlaces()},
+		RootCheck: NewRootCheck(root),
 	}, rows, log
 }
 
@@ -127,7 +129,7 @@ func TestLinkedParent(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			got, outside := LinkedParent(base, test.path)
+			got, outside := LinkedParent(base, test.path, nil)
 			if outside != test.outside || !reflect.DeepEqual(got, test.want) {
 				t.Errorf("LinkedParent = %+v, %v", got, outside)
 			}
@@ -138,7 +140,9 @@ func TestLinkedParent(t *testing.T) {
 func TestClaimed(t *testing.T) {
 	base := fixture{dirs: []string{".gemini/antigravity-cli/x", "real"},
 		links: [][2]string{{"real", ".gemini/link"}}}.build(t)
-	claims := map[string]struct{}{base + "/.gemini": {}, base + "/.gemini/antigravity-cli": {}}
+	claims := syspath.NewEntries[struct{}](nil)
+	claims.Put(base+"/.gemini", struct{}{})
+	claims.Put(base+"/.gemini/antigravity-cli", struct{}{})
 	cases := []struct {
 		name string
 		path string
@@ -170,7 +174,7 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{Agent: "goose", Glob: ".config/Goose"}, {Agent: "pearai", Glob: ".config/goose"},
 		{Agent: "cursor", Glob: ".config/cursor"}, {Agent: "cursor", Glob: ".config/Cursor/User"},
 		{Agent: "split", Glob: "nl*"}}
-	got := ExpandCatalog(base, table)
+	got := ExpandCatalog(base, table, nil, nil)
 	notes, paths := map[string]bool{}, map[string]string{}
 	var split []string
 	for _, match := range got {
@@ -299,6 +303,27 @@ func TestFindLinesForUnreadDirectories(t *testing.T) {
 	}
 }
 
+func TestInventoryLogsNoReadFailureOnUnix(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every directory")
+	}
+	base := fixture{files: []string{"m/locked/f", "m/g"}}.build(t)
+	mustDo(t, os.Chmod(base+"/m/locked", 0))
+	t.Cleanup(func() { _ = os.Chmod(base+"/m/locked", 0o755) })
+	collector, rows, log := testCollector(t, base, nil)
+	collector.Inventory, collector.Records = true, &inventoryRecords{}
+	_, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
+	mustDo(t, err)
+	for _, line := range log.lines {
+		if strings.HasPrefix(line, "read failed: ") {
+			t.Errorf("inventory logged %q; the sh collector's inventory find logs only its own line", line)
+		}
+	}
+	if rows.Len() != 0 {
+		t.Errorf("inventory wrote rows %q", rows.String())
+	}
+}
+
 func TestFailedCopyThroughRecreatedLink(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads an unreadable file")
@@ -409,6 +434,20 @@ func TestInventoryRecordsWithoutStaging(t *testing.T) {
 	}
 }
 
+func TestInventoryCountsOnlyRegularFiles(t *testing.T) {
+	base := fixture{files: []string{"f"}}.build(t)
+	mustDo(t, syscall.Mkfifo(base+"/fifo", 0o644))
+	collector, _, _ := testCollector(t, base, nil)
+	records := &inventoryRecords{}
+	collector.Inventory, collector.Records = true, records
+	owner := scope{user: "u", home: base, agent: "tool"}
+	collector.recordFiles(owner, []string{base + "/f", base + "/fifo", base + "/missing"})
+	want := []string{"F|tool|" + strconv.Itoa(len("f")), "F|tool|0"}
+	if !reflect.DeepEqual(records.lines, want) {
+		t.Errorf("records %q, want the file and the missing path only", records.lines)
+	}
+}
+
 func TestCancelledContextStopsTheWalk(t *testing.T) {
 	base := fixture{files: []string{"m/a"}}.build(t)
 	collector, rows, _ := testCollector(t, base, nil)
@@ -439,5 +478,100 @@ func TestWriteReadErrorWritesTheRowAndTheLogLine(t *testing.T) {
 	if line := "read failed: " + project + ": permission denied"; len(log.lines) != 1 ||
 		log.lines[0] != line {
 		t.Errorf("log %q, want %q", log.lines, line)
+	}
+}
+
+// outOfRootTable is the catalog the out-of-root walk tests expand: a literal
+// path and a glob, both through .config.
+func outOfRootTable() []catalog.Entry {
+	return []catalog.Entry{{Agent: "vscode", Glob: ".config/Code/User"},
+		{Agent: "editors", Glob: ".config/*/User"}}
+}
+
+// walkOutOfRoot walks bob's home under root with the out-of-root table,
+// checking the image root unless live, and returns the rows and log lines.
+func walkOutOfRoot(t *testing.T, root string, live bool) (string, []string) {
+	t.Helper()
+	collector, rows, log := testCollector(t, root, nil)
+	if live {
+		collector.RootCheck = RootCheck{}
+	}
+	err := collector.CollectCatalog(context.Background(), "bob", root+"/home/bob",
+		outOfRootTable(), "User bob")
+	mustDo(t, err)
+	return rows.String(), log.lines
+}
+
+func TestCatalogLooksAtNothingBehindALinkOutOfTheRoot(t *testing.T) {
+	root := fixture{dirs: []string{"home/bob"}}.build(t)
+	outside := fixture{}.build(t)
+	mustDo(t, os.Symlink(outside, root+"/home/bob/.config"))
+	emptyRows, emptyLines := walkOutOfRoot(t, root, false)
+	for _, dir := range []string{"Code/User", "SecretApp/User"} {
+		mustDo(t, os.MkdirAll(outside+"/"+dir, 0o755))
+		mustDo(t, os.WriteFile(outside+"/"+dir+"/settings.json", []byte("{}"), 0o644))
+	}
+	fullRows, fullLines := walkOutOfRoot(t, root, false)
+	if fullRows != emptyRows || strings.Join(fullLines, "\n") != strings.Join(emptyLines, "\n") {
+		t.Errorf("what the outside holds changed the output:\n%s%q\nversus\n%s%q",
+			emptyRows, emptyLines, fullRows, fullLines)
+	}
+	link := root + "/home/bob/.config"
+	wantLine := "  [vscode] " + link + ": the symlinked directory leads out of the image root;" +
+		" nothing under it was listed, not walked"
+	if want := []string{"User bob", wantLine}; !reflect.DeepEqual(fullLines, want) {
+		t.Errorf("log %q, want %q", fullLines, want)
+	}
+	paths, kinds := field(rows(fullRows), "path"), field(rows(fullRows), "type")
+	if !reflect.DeepEqual(paths, []string{link}) || !reflect.DeepEqual(kinds, []string{"symlink"}) {
+		t.Errorf("rows %s, want one symlink row for %s", fullRows, link)
+	}
+}
+
+// rows wraps manifest text for field.
+func rows(text string) *bytes.Buffer { return bytes.NewBufferString(text) }
+
+func TestCatalogStillExpandsLiveAndThroughALinkInsideTheRoot(t *testing.T) {
+	cases := []struct {
+		name, target string
+		live         bool
+		wantLine     string
+	}{
+		{"a live run lists through the link as before", "{OUT}", true,
+			"/home/bob/.config/Code/User: under the symlinked directory"},
+		{"a link inside the home is expanded", "{ROOT}/home/bob/dotfiles", false,
+			"/home/bob/.config/Code/User (through the symlinked directory"},
+		{"a link out of the home inside the image root is listed and refused as before",
+			"{ROOT}/dotfiles", false, "/home/bob/.config/Code/User: under the symlinked directory"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := fixture{dirs: []string{"home/bob/dotfiles/Code/User", "dotfiles/Code/User"}}.build(t)
+			outside := fixture{dirs: []string{"Code/User"}}.build(t)
+			target := strings.NewReplacer("{OUT}", outside, "{ROOT}", root).Replace(testCase.target)
+			mustDo(t, os.Symlink(target, root+"/home/bob/.config"))
+			_, lines := walkOutOfRoot(t, root, testCase.live)
+			if !strings.Contains(strings.Join(lines, "\n"), testCase.wantLine) {
+				t.Errorf("log %q, want a line holding %q", lines, testCase.wantLine)
+			}
+		})
+	}
+}
+
+func TestADirectorySwappedForALinkOutOfTheRootIsNotOpened(t *testing.T) {
+	root := fixture{dirs: []string{"home/bob/.tool"}}.build(t)
+	outside := fixture{}.build(t)
+	link := root + "/home/bob/.tool/swapped"
+	mustDo(t, os.Symlink(outside+"/gone", link))
+	collector, _, log := testCollector(t, root, nil)
+	found := &treeWalk{start: root + "/home/bob/.tool"}
+	owner := scope{user: "bob", home: root + "/home/bob", agent: "tool", stager: collector.Stager}
+	// The listing saw a directory where the link now is.
+	mustDo(t, collector.visit(context.Background(), owner, found, link, true))
+	if found.unreadable != 0 || len(log.lines) != 0 {
+		t.Errorf("unreadable %d, log %q: the link was opened", found.unreadable, log.lines)
+	}
+	if len(found.readErrors) != 1 || !strings.Contains(found.readErrors[0].reason, "image root") {
+		t.Errorf("read errors %+v, want the refusal as the one reason", found.readErrors)
 	}
 }

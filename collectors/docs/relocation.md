@@ -351,7 +351,9 @@ each; the run's own log, manifest and staging directory, which name every
 variable found, are never read, even when the output directory is the
 home. Symlinks are never followed, and a file whose name holds a line
 break is not searched. The startup file search covers every home, these
-included. The sh collector searches bytes, so a UTF-16 file (a Windows
+included; a startup file that is itself a symlink, whether its target is
+inside the image root or not, is not read and gets no log line, as the sh
+collector lists only regular files that are not links (`[ -f ] && [ ! -L ]`). The sh collector searches bytes, so a UTF-16 file (a Windows
 PowerShell profile saved by the ISE) on a mounted Windows image gives it
 no hint; the PowerShell collector reads such a file as text.
 

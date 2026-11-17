@@ -44,23 +44,53 @@ func TestJSONValues(t *testing.T) {
 }
 
 func TestJSONPathKeys(t *testing.T) {
-	checkMatcher(t, jsonPathKeyMatcher(`\{`), []matcherCase{
+	checkMatcher(t, jsonPathKeyMatcher(`\{`, pathRules{}), []matcherCase{
 		{"keys followed by an object", `{"projects":{"/srv/a": {"x":1},"/srv/b":{}}}`,
 			[]string{"/srv/a", "/srv/b"}},
 		{"a relative key is no match", `{"rel": {}}`, nil},
 		{"a key followed by a string is no match", `{"/srv/a": "x"}`, nil},
 	})
-	checkMatcher(t, jsonPathKeyMatcher(`[tf]`), []matcherCase{
+	checkMatcher(t, jsonPathKeyMatcher(`[tf]`, pathRules{}), []matcherCase{
 		{"keys set to true or false", `{"/srv/pitrust": true, "/x": false, "/y": null}`,
 			[]string{"/srv/pitrust", "/x"}},
 	})
-	checkMatcher(t, jsonPathKeyMatcher(`"`), []matcherCase{
+	checkMatcher(t, jsonPathKeyMatcher(`"`, pathRules{}), []matcherCase{
 		{"keys set to a string", `{"/srv/gem": "gem", "/x": 1}`, []string{"/srv/gem"}},
 	})
 }
 
+func TestJSONPathKeysUnderDriveRules(t *testing.T) {
+	drive := pathRules{driveJSON: true}
+	checkMatcher(t, jsonPathKeyMatcher(`\{`, drive), []matcherCase{
+		{"a drive key followed by an object", `{"projects":{"C:\\proj":{}}}`, []string{`C:\\proj`}},
+		{"a drive key with a forward slash", `{"d:/x": {}, "/y": {}}`, []string{"d:/x", "/y"}},
+		{"a relative key is still no match", `{"rel": {}, "C": {}}`, nil},
+	})
+	checkMatcher(t, jsonPathKeyMatcher(`[tf]`, drive), []matcherCase{
+		{"the pi trust fixture gives its key", `{"C:\\pitrust":true}`, []string{`C:\\pitrust`}},
+	})
+	checkMatcher(t, jsonPathKeyMatcher(`\{`, pathRules{}), []matcherCase{
+		{"the sh rules skip a drive key", `{"projects":{"C:\\proj":{}}}`, nil},
+	})
+}
+
+func TestAbsStringsUnderDriveRules(t *testing.T) {
+	checkMatcher(t, absStringMatcher(pathRules{driveJSON: true}), []matcherCase{
+		{"an escaped drive path becomes a slashed path", `{"C:\\twinproj\\src\\a.ts":1}`,
+			[]string{"C:/twinproj/src/a.ts"}},
+		{"an escaped slash is undone first", `"C:\\a\/b"`, []string{"C:/a/b"}},
+		{"an encoded space in a drive path stays", `"C:\\a%20b"`, []string{"C:/a%20b"}},
+		{"a drive path with a forward slash is no match", `"C:/x"`, nil},
+		{"POSIX paths and file URIs are still read", `["/a", "file:///C:/x/y"]`,
+			[]string{"/a", "/x/y"}},
+	})
+	checkMatcher(t, absStringMatcher(pathRules{}), []matcherCase{
+		{"the sh rules skip a drive path", `"C:\\twinproj"`, nil},
+	})
+}
+
 func TestAbsStrings(t *testing.T) {
-	checkMatcher(t, absStringMatcher(), []matcherCase{
+	checkMatcher(t, absStringMatcher(pathRules{}), []matcherCase{
 		{"a Windows drive URI with an encoded colon keeps its path",
 			`        "folderUri":  "file:///c%3A/srv/agywin"`, []string{"/srv/agywin"}},
 		{"a file URI loses its scheme", `"folderUri":  "file:///srv/agyapp"`,

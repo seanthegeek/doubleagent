@@ -11,7 +11,12 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
@@ -39,16 +44,33 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	host := environment{now: time.Now, runner: hostcmd.System(), getwd: os.Getwd}
+	host := environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
+		findUsers: users.Find, lastAccess: lastAccessUpdates, confine: follow.NewConfinement}
 	return runCollection(ctx, options, host, stdout, stderr)
 }
 
+// canonicalGetwd returns the current directory in canonical form.
+func canonicalGetwd() (string, error) {
+	cwd, err := os.Getwd()
+	return syspath.FromNative(cwd), err
+}
+
 // environment is what a run takes from the host, injected so tests can pin
-// the clock: the time, the host programs and the current directory.
+// the clock: the time, the host programs, the current directory, in
+// canonical form, the user enumeration (users.Find) and whether the system
+// updates last-access times (lastAccessUpdates), and the confinement of an
+// image run's opens (follow.NewConfinement).
 type environment struct {
-	now    func() time.Time
-	runner hostcmd.Runner
-	getwd  func() (string, error)
+	now       func() time.Time
+	runner    hostcmd.Runner
+	getwd     func() (string, error)
+	findUsers func(context.Context, bool, string, string, users.Runner, glob.Check,
+		*fsmeta.Opener, func(string) string) users.Report
+	lastAccess func() accessUpdates
+	confine    func(root string, report func(path string)) (*follow.Confinement, error)
+	// markCaseSensitive marks the empty staging fs directory case-sensitive
+	// on Windows (stage.MarkCaseSensitive); nil marks it the same way.
+	markCaseSensitive func(dir string) error
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
@@ -107,10 +129,29 @@ func (state *runState) exitCode(ctx context.Context, err error) int {
 }
 
 // execute runs the steps after the outputs are open, in the sh collector's
-// order, stopping at the first failure or when ctx is cancelled.
+// order, stopping at the first failure or when ctx is cancelled. Every file
+// is read by then, so the count of those read without the access-time hold
+// is logged next, whatever the outcome, and before the archive takes its
+// copy of the log.
 func (state *runState) execute(ctx context.Context) error {
+	err := state.runSteps(ctx)
+	if countErr := state.logNotHeld(); err == nil {
+		err = countErr
+	}
+	switch {
+	case err != nil:
+		return err
+	case state.options.Inventory:
+		return state.writeInventory(ctx)
+	}
+	return state.writeArchive(ctx)
+}
+
+// runSteps runs the steps that read the evidence, stopping at the first
+// failure or when ctx is cancelled.
+func (state *runState) runSteps(ctx context.Context) error {
 	steps := []func(context.Context) error{
-		state.startLog, state.findHomes, state.collectHomes, state.collectVolumes,
+		state.startLog, state.confine, state.findHomes, state.collectHomes, state.collectVolumes,
 		state.collectProjects, state.searchRelocation,
 	}
 	for _, step := range steps {
@@ -121,8 +162,5 @@ func (state *runState) execute(ctx context.Context) error {
 			return err
 		}
 	}
-	if state.options.Inventory {
-		return state.writeInventory(ctx)
-	}
-	return state.writeArchive(ctx)
+	return nil
 }

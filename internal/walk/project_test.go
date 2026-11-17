@@ -5,7 +5,6 @@ package walk
 import (
 	"bytes"
 	"context"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // projectFixture builds a home whose .claude links to dotfiles/claude, by a
@@ -221,8 +222,9 @@ func TestProjectStagers(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			collector, _, _ := testCollector(t, root, nil)
-			stagers := ProjectStagers(collector.Stager, testCase.home, project, testCase.path)
-			if got, _ := stagers.File.Dest(testCase.path); got != testCase.want {
+			stagers := ProjectStagers(collector.RootCheck, collector.Stager, testCase.home, project,
+				testCase.path)
+			if got, _, _ := stagers.File.Dest(testCase.path); got != testCase.want {
 				t.Errorf("archive path %q, want %q", got, testCase.want)
 			}
 			if !reflect.DeepEqual(stagers.Passed, testCase.passed) {
@@ -272,7 +274,7 @@ func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
 		{name: "a dangling first link to an absolute path outside the root is not walked",
 			links: [][2]string{{"{OUT}/nope", "home/dot/ext"}}, project: "home/dot/ext/proj",
 			underHome: true, notWalked: "home/dot/ext"},
-		{name: "a symlink loop inside the root is reported unverifiable",
+		{name: "a symlink loop inside the root is unverifiable and counts as leaving it",
 			links:   [][2]string{{"ext2", "home/dot/ext"}, {"ext", "home/dot/ext2"}},
 			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext", unverified: true},
 		{name: "a dot-dot after a link out of the root is taken from where that link leads",
@@ -334,7 +336,7 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
 		Glob: "AGENTS.md"}}}
 	if testCase.live {
-		collector.Root, collector.Stager.Root = "", ""
+		collector.Root, collector.Stager.Root, collector.RootCheck = "", "", RootCheck{}
 	}
 	home := ""
 	if testCase.underHome {
@@ -352,8 +354,9 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	line := "Project [dot] " + project + ": under the symlinked directory " + root + "/" +
 		testCase.notWalked + ", which leads out of the image root; not walked"
 	if testCase.unverified {
-		line = "Project [dot] " + project + ": under " + root + "/" + testCase.notWalked +
-			", which cannot be verified to lie inside the image root; not walked"
+		line = "Project [dot] " + project + ": " + root + "/" + testCase.notWalked +
+			" cannot be verified to lie inside the image root; nothing behind it was looked at" +
+			"; not walked"
 	}
 	want := []string{line}
 	if !reflect.DeepEqual(log.lines, want) {
@@ -365,7 +368,9 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	if entries, _ := os.ReadDir(collector.Stager.Dir); len(entries) != 0 {
 		t.Errorf("staged %d entries, want none", len(entries))
 	}
-	if stagers := ProjectStagers(collector.Stager, home, project, project+"/AGENTS.md"); !stagers.Skip {
+	stagers := ProjectStagers(collector.RootCheck, collector.Stager, home, project,
+		project+"/AGENTS.md")
+	if !stagers.Skip {
 		t.Errorf("stagers %+v, want the project skipped", stagers)
 	}
 }
@@ -401,21 +406,25 @@ func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project 
 	t.Helper()
 	var probed []string
 	record := probes{
-		lstat: func(path string) (fs.FileInfo, error) {
+		isLink: func(path string) (bool, error) {
 			probed = append(probed, path)
-			return os.Lstat(path)
+			return isLinkProbe(path)
 		},
 		readlink: func(path string) (string, error) {
 			probed = append(probed, path)
 			return os.Readlink(path)
 		},
+		isDir: func(path string) bool {
+			probed = append(probed, path)
+			return isDirProbe(path)
+		},
 	}
 	found := projectScope(root, project, record)
 	want := rootScope{}
 	if testCase.notWalked != "" {
-		// The one unverified case is a link loop inside the root.
-		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified,
-			inImage: testCase.unverified}
+		// The one unverified case is a link loop inside the root: the step
+		// that reaches the bound counts as leaving it, so it is not inImage.
+		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified}
 	}
 	if found != want {
 		t.Errorf("scope %+v, want %+v", found, want)
@@ -441,8 +450,9 @@ func TestProjectOutOfRootWithoutAnyLink(t *testing.T) {
 			rootScope{name: root + "/gone", unverified: true}, true},
 		{"a project outside the root as given is outside", root + "/home", root + "/srv",
 			rootScope{name: root + "/srv", outside: true}, true},
-		{"a dot-dot above the root cannot be verified", root + "/home", root + "/home/../home/dot",
-			rootScope{name: root + "/home", unverified: true}, true},
+		{"a dot-dot above the root names the path that climbs", root + "/home",
+			root + "/home/../home/dot",
+			rootScope{name: root + "/home/../home/dot", unverified: true, climbs: true}, true},
 		{"a dot-dot inside the root stays inside", root, root + "/home/dot/../dot/./proj",
 			rootScope{}, false},
 		{"a missing component inside the root cannot be verified but stays in the image", root,
@@ -476,5 +486,52 @@ func TestProjectOutsideTheRootAsGivenSaysSo(t *testing.T) {
 	}
 	if rows.Len() != 0 {
 		t.Errorf("rows %q, want none", rows.String())
+	}
+}
+
+func TestRelativeKeepsTheGivenRootsSpelling(t *testing.T) {
+	cases := []struct {
+		name, given, path, rest string
+		inside                  bool
+	}{
+		{"a UNC root keeps its two leading slashes", "//server/share", "//server/share/a/b", "a/b", true},
+		{"a trailing slash is trimmed", "/img/", "/img/x", "x", true},
+		{"a path beside the root is outside", "/img", "/img2/x", "", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			walker := rootWalk{given: test.given, physical: "/resolved-elsewhere"}
+			rest, inside := walker.relative(test.path)
+			if rest != test.rest || inside != test.inside {
+				t.Errorf("relative(%q) under %q = %q, %t, want %q, %t", test.path, test.given, rest,
+					inside, test.rest, test.inside)
+			}
+		})
+	}
+}
+
+func TestEachProjectRefusalIsWordedByItsKind(t *testing.T) {
+	const project, link = "/img/home/u/p", "/img/home/u/l"
+	native := syspath.ToNative
+	head := "Project [u] " + native(project) + ": "
+	cases := []struct {
+		kind follow.Kind
+		want string
+	}{
+		{follow.LeadsOut, head + "under the symlinked directory " + native(link) +
+			", which leads out of the image root; not walked"},
+		{follow.Unverified, head + native(link) + " cannot be verified to lie inside the image" +
+			" root; nothing behind it was looked at; not walked"},
+		{follow.OtherReparse, head + native(link) + " is a reparse point other than a symlink or" +
+			" junction; nothing behind it was looked at; not walked"},
+		{follow.Climbs, head + native(link) + " climbs above the image root with ..; nothing" +
+			" behind it was looked at; not walked"},
+		{follow.Outside, head + "is outside the image root; not walked"},
+	}
+	for _, testCase := range cases {
+		found := place{refusal: follow.Refusal{Link: link, Kind: testCase.kind}}
+		if got := projectLine("u", project, found); got != testCase.want {
+			t.Errorf("kind %d: %q, want %q", testCase.kind, got, testCase.want)
+		}
 	}
 }

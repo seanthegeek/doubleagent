@@ -32,29 +32,6 @@ func TestEscapeJSON(t *testing.T) {
 	}
 }
 
-func TestWriterLayout(t *testing.T) {
-	row := Row{
-		User: "alice", Home: "/home/alice", Agent: "claude-code",
-		Path:        "/home/alice/.claude/a\"b\\c\td",
-		ArchivePath: "fs/home/alice/.claude/a",
-		Type:        "file", Size: 97, Mtime: 3, Atime: 4, Ctime: 5, Btime: 6,
-		UID: 1000, GID: 1001, Mode: "644", SHA256: "abc", Secret: true,
-		Status: Collected, Target: "", Error: "",
-	}
-	want := `{"user":"alice","home":"/home/alice","agent":"claude-code",` +
-		`"path":"/home/alice/.claude/a\"b\\c\td","archive_path":"fs/home/alice/.claude/a",` +
-		`"type":"file","size":97,"mtime":3,"atime":4,"ctime":5,"btime":6,"uid":1000,` +
-		`"gid":1001,"mode":"644","sha256":"abc","secret":true,"status":"collected",` +
-		`"target":"","error":""}` + "\n"
-	var out bytes.Buffer
-	if err := NewWriter(&out).Write(row); err != nil {
-		t.Fatal(err)
-	}
-	if out.String() != want {
-		t.Errorf("row =\n%s want\n%s", out.String(), want)
-	}
-}
-
 func TestWriterNegativeNumbersAreZero(t *testing.T) {
 	var out bytes.Buffer
 	if err := NewWriter(&out).Write(Row{Mtime: -5, Size: -1}); err != nil {
@@ -98,12 +75,10 @@ func TestWriterBookkeeping(t *testing.T) {
 			t.Errorf("HasPath(%q) = %v, want %v", path, got, want)
 		}
 	}
-	homes := writer.HomesWithRows()
-	if _, ok := homes["/h/a"]; ok || len(homes) != 2 {
-		t.Errorf("homes = %v, want /h/b and /h/c only", homes)
-	}
-	if _, ok := homes["/h/b"]; !ok {
-		t.Errorf("homes = %v, want /h/b", homes)
+	for home, want := range map[string]bool{"/h/a": false, "/h/b": true, "/h/c": true, "": false} {
+		if got := writer.HasHomeRows(home); got != want {
+			t.Errorf("HasHomeRows(%q) = %v, want %v", home, got, want)
+		}
 	}
 	if got := strings.Count(out.String(), "\n"); got != len(rows) {
 		t.Errorf("lines = %d, want %d", got, len(rows))

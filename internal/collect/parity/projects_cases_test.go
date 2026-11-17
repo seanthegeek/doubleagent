@@ -1,4 +1,4 @@
-//go:build parity
+//go:build parity && unix
 
 package parity
 
@@ -21,7 +21,7 @@ var (
 
 // projectLinkCases are the runs over projects whose own path runs through a
 // symlinked directory, which the binary stages where their files physically
-// are (the parity exceptions at the top of harness_test.go).
+// are (the parity exceptions at the top of harness_unix_test.go).
 func projectLinkCases() []parityCase {
 	return []parityCase{
 		{name: "projout503", args: []string{"-p", "{ROOT}/home/dot/code/proj"},

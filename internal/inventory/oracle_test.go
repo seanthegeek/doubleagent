@@ -1,3 +1,5 @@
+//go:build unix
+
 package inventory
 
 import (
@@ -93,7 +95,7 @@ func TestLinesMatchShInventory(t *testing.T) {
 	collector := &walk.Collector{
 		Tables: tables, Excludes: tables.Excludes, Secret: walk.MatchAny(tables.SecretGlobs),
 		Log: discardLog{}, Manifest: manifest.NewWriter(&strings.Builder{}), Root: root,
-		Stager: stage.Stager{Dir: stageDir, Physical: stageDir, Root: root}, MaxSize: 1 << 20,
+		Stager: stage.Stager{Dir: stageDir, Physical: stageDir, Root: root, Places: stage.NewPlaces()}, MaxSize: 1 << 20,
 		Inventory: true, Records: aggregator,
 	}
 	home := filepath.Join(root, "home/alice")

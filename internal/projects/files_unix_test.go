@@ -24,7 +24,7 @@ func TestDiscoverSkipsAPipeWithoutBlocking(t *testing.T) {
 		t.Fatal(err)
 	}
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, err := Discover(context.Background(), homes, root, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,10 +58,26 @@ func TestFindNamedAgreesWithFind(t *testing.T) {
 					want = append(want, line)
 				}
 			}
-			got := findNamed(context.Background(), dir, "*.jsonl")
+			got := (&homeScan{ctx: context.Background()}).findNamed(dir, "*.jsonl")
 			if len(got) != len(want) || (len(got) > 0 && !reflect.DeepEqual(got, want)) {
 				t.Errorf("got %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+// linkDirectory makes link a symlink to the directory target, both absolute.
+func linkDirectory(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// linkRelative makes link a symlink holding the relative target as written.
+func linkRelative(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
 	}
 }

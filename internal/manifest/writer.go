@@ -3,6 +3,8 @@ package manifest
 import (
 	"io"
 	"strconv"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Counts is the number of rows per status and the bytes the collected rows
@@ -14,28 +16,45 @@ type Counts struct {
 
 // Writer writes rows to an io.Writer, one write per row, and remembers what
 // the summary needs: the counts, the paths written and the homes that have a
-// row. It is not safe for use by several goroutines.
+// row, each path once per file system entry (syspath.Entries). It is not
+// safe for use by several goroutines.
 type Writer struct {
 	out    io.Writer
 	counts Counts
-	paths  map[string]struct{}
-	homes  map[string]struct{}
+	same   syspath.SameEntry
+	paths  *syspath.Entries[struct{}]
+	homes  *syspath.Entries[struct{}]
 	line   []byte
 }
 
-// NewWriter returns a Writer that appends rows to out.
+// NewWriter returns a Writer that appends rows to out. Until UseSameEntry
+// is called, two spellings of a path are two entries unless their bytes are
+// equal.
 func NewWriter(out io.Writer) *Writer {
-	return &Writer{
-		out:    out,
-		counts: Counts{ByStatus: map[Status]int{}},
-		paths:  map[string]struct{}{},
-		homes:  map[string]struct{}{},
+	writer := &Writer{out: out, counts: Counts{ByStatus: map[Status]int{}}}
+	same := func(first, second string) bool {
+		return writer.same != nil && writer.same(first, second)
 	}
+	writer.paths = syspath.NewEntries[struct{}](same)
+	writer.homes = syspath.NewEntries[struct{}](same)
+	return writer
+}
+
+// UseSameEntry sets the question the writer asks the file system about two
+// spellings of a path whose syspath.Fold keys are equal; the writer does no
+// file system call of its own.
+func (writer *Writer) UseSameEntry(same syspath.SameEntry) {
+	writer.same = same
 }
 
 // Write appends row as one line and counts it. A row is counted only when the
 // write succeeds.
 func (writer *Writer) Write(row Row) error {
+	// The canonical forms are the keys; the written forms are native.
+	path, home := row.Path, row.Home
+	ownRow := path == home && row.ArchivePath == "" && row.Type == "dir"
+	row.Path = syspath.ToNative(row.Path)
+	row.Home = syspath.ToNative(row.Home)
 	writer.line = appendRow(writer.line[:0], row)
 	if _, err := writer.out.Write(writer.line); err != nil {
 		return err
@@ -44,11 +63,10 @@ func (writer *Writer) Write(row Row) error {
 	if row.Status == Collected {
 		writer.counts.CollectedBytes += nonNegative(row.Size)
 	}
-	writer.paths[row.Path] = struct{}{}
+	writer.paths.Put(path, struct{}{})
 	// A home's own unreadable-directory row does not make it active.
-	ownRow := row.Path == row.Home && row.ArchivePath == "" && row.Type == "dir"
-	if row.Home != "" && !ownRow {
-		writer.homes[row.Home] = struct{}{}
+	if home != "" && !ownRow {
+		writer.homes.Put(home, struct{}{})
 	}
 	return nil
 }
@@ -62,20 +80,18 @@ func (writer *Writer) Counts() Counts {
 	return Counts{ByStatus: byStatus, CollectedBytes: writer.counts.CollectedBytes}
 }
 
-// HasPath reports whether a row with exactly this path was written.
+// HasPath reports whether a row was written for the file system entry the
+// canonical path names: one with the same bytes, or on Windows one spelled
+// otherwise in ASCII case that the file system says is the same entry. In a
+// case-sensitive directory Alice and alice are two entries.
 func (writer *Writer) HasPath(path string) bool {
-	_, found := writer.paths[path]
-	return found
+	return writer.paths.Has(path)
 }
 
-// HomesWithRows returns the homes that have a row other than the
-// unreadable-directory row of the home itself, as a set.
-func (writer *Writer) HomesWithRows() map[string]struct{} {
-	homes := make(map[string]struct{}, len(writer.homes))
-	for home := range writer.homes {
-		homes[home] = struct{}{}
-	}
-	return homes
+// HasHomeRows reports whether home has a row other than its own
+// unreadable-directory row, its entry found as HasPath finds a path.
+func (writer *Writer) HasHomeRows(home string) bool {
+	return writer.homes.Has(home)
 }
 
 // nonNegative returns value, or 0 for a negative value: the sh collector writes
@@ -124,6 +140,7 @@ func appendRow(out []byte, row Row) []byte {
 	out = appendNumber(out, "uid", int64(row.UID), ",")
 	out = appendNumber(out, "gid", int64(row.GID), ",")
 	out = appendString(out, "mode", row.Mode, ",")
+	out = appendPlatformFields(out, row)
 	out = appendString(out, "sha256", row.SHA256, ",")
 	out = append(out, `"secret":`...)
 	out = strconv.AppendBool(out, row.Secret)
@@ -132,4 +149,11 @@ func appendRow(out []byte, row Row) []byte {
 	out = appendString(out, "target", row.Target, ",")
 	out = appendString(out, "error", row.Error, "")
 	return append(out, "}\n"...)
+}
+
+// appendWindowsFields appends `"owner":"...","attributes":"...",`, the two
+// fields the PowerShell collector writes between mode and sha256.
+func appendWindowsFields(out []byte, row Row) []byte {
+	out = appendString(out, "owner", row.Owner, ",")
+	return appendString(out, "attributes", row.Attributes, ",")
 }

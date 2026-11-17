@@ -1,11 +1,11 @@
-// Package fsmeta reads the file metadata the manifest records: the fields
-// the sh collector takes from stat(1), the unreadable-directory test of
-// get_dir_read_error_var, and the block-count size of du -sk.
+// Package fsmeta reads the file metadata the manifest records: on Unix the
+// fields the sh collector takes from stat(1), the unreadable-directory test
+// of get_dir_read_error_var and the block-count size of du -sk; on Windows
+// the fields, owner, attributes and sizes the PowerShell collector reads.
 package fsmeta
 
 import (
 	"io/fs"
-	"strconv"
 )
 
 // Kind is the type of a file as lstat reports it.
@@ -38,30 +38,41 @@ type Meta struct {
 	Ino    uint64
 	Nlink  uint64
 	Blocks int64 // 512-byte blocks allocated
+	// Attributes holds the Win32 file attribute bits (FILE_ATTRIBUTE_*); 0 on
+	// Unix.
+	Attributes uint32
+	// Junction is set for a Windows mount point (a junction), whose target
+	// Windows does not put in place of its name when it later resolves a
+	// relative symbolic link; false on Unix.
+	Junction bool
 }
 
-// modeString writes mode & 07777 in octal without a leading zero.
-func modeString(mode uint32) string {
-	return strconv.FormatUint(uint64(mode&0o7777), 8)
+// reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT, never set on Unix.
+const reparsePointAttribute = 0x400
+
+// IsLink reports whether m describes a symlink, a junction or any other
+// reparse point: an entry a path may run through elsewhere, which nothing
+// that must not follow a link enters.
+func (m Meta) IsLink() bool {
+	return m.Kind == Symlink || m.Attributes&reparsePointAttribute != 0
 }
 
-// kindOf maps the file-type bits of an lstat mode to a Kind.
-func kindOf(mode uint32) Kind {
-	switch mode & 0o170000 {
-	case 0o100000:
-		return File
-	case 0o040000:
-		return Dir
-	case 0o120000:
-		return Symlink
-	case 0o140000:
-		return Socket
-	case 0o010000:
-		return Fifo
-	case 0o060000, 0o020000:
-		return Device
-	}
-	return Other
+// IsOtherReparsePoint reports whether m describes a reparse point other than
+// a symlink or junction (a cloud-file placeholder, a deduplicated file, an
+// AF_UNIX socket, a WSL symlink, an app execution alias). Never on Unix.
+func (m Meta) IsOtherReparsePoint() bool {
+	return m.Kind != Symlink && m.Attributes&reparsePointAttribute != 0
+}
+
+// directoryAttribute is FILE_ATTRIBUTE_DIRECTORY, which Windows also sets on
+// a symlink made to a directory and on a junction.
+const directoryAttribute = 0x10
+
+// DirectoryLink reports whether m describes a link Windows made as a
+// directory link (a directory symlink or a junction), which must be recreated
+// as one. It is false on Unix, where Attributes is 0.
+func (m Meta) DirectoryLink() bool {
+	return m.Kind == Symlink && m.Attributes&directoryAttribute != 0
 }
 
 // pathError wraps err as the *fs.PathError the Go standard library would

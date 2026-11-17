@@ -57,7 +57,7 @@ func TestOpenRegular(t *testing.T) {
 	}
 }
 
-// openWithin is OpenRegular, failing the test when the open takes more than a
+// openWithin is Opener.OpenRegular, failing the test when the open takes more than a
 // few seconds, as an open that waits on a pipe would.
 func openWithin(t *testing.T, path string) (*os.File, error) {
 	type result struct {
@@ -66,7 +66,7 @@ func openWithin(t *testing.T, path string) (*os.File, error) {
 	}
 	done := make(chan result, 1)
 	go func() {
-		handle, err := OpenRegular(path)
+		handle, err := (&Opener{}).OpenRegular(path)
 		done <- result{handle, err}
 	}()
 	select {

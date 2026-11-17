@@ -31,22 +31,45 @@ func jsonValueMatcher(key string) func(line []byte) []string {
 
 // jsonPathKeyMatcher is json_path_keys: each quoted key starting with `/`
 // followed by a colon and next, a bracket expression or a literal byte.
-func jsonPathKeyMatcher(next string) func(line []byte) []string {
-	pattern := regexp.MustCompilePOSIX(`"(/[^"]*)": *` + next)
+// Under the driveJSON rule a key starting with a drive letter and a colon
+// counts too.
+func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string {
+	key := `/[^"]*`
+	if rules.driveJSON {
+		key = `(/|[A-Za-z]:)[^"]*`
+	}
+	pattern := regexp.MustCompilePOSIX(`"(` + key + `)": *` + next)
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
 // absStringMatcher is abs_strings: every quoted absolute path or file:// URI
-// in a line, turned into a path by localPath.
-func absStringMatcher() func(line []byte) []string {
+// in a line, turned into a path by localPath. Under the driveJSON rule a
+// drive path written with an escaped backslash counts too, made a slashed
+// path by drivePathText rather than localPath, which decodes no drive path.
+func absStringMatcher(rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"((file://)?/[^"]*)"`)
+	if rules.driveJSON {
+		pattern = regexp.MustCompilePOSIX(`"((file://)?/[^"]*|[A-Za-z]:\\\\[^"]*)"`)
+	}
 	return func(line []byte) []string {
 		values := groupValues(pattern, line)
 		for i, value := range values {
-			values[i] = localPath(value)
+			if isDrivePath(value) {
+				values[i] = drivePathText(value)
+			} else {
+				values[i] = localPath(value)
+			}
 		}
 		return values
 	}
+}
+
+// drivePathText returns a drive path read from JSON text with `\\` and `\/`
+// undone, as ConvertTo-LocalPath undoes them, and every backslash a slash,
+// so commonDir splits it into the segments Get-CommonDir splits it into.
+func drivePathText(value string) string {
+	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
+	return strings.ReplaceAll(value, `\`, "/")
 }
 
 // localPath applies abs_strings' sed: a Windows drive URI (`file:///C%3A/`

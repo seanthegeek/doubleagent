@@ -1,64 +1,27 @@
 package fsmeta
 
-import (
-	"context"
-	"os"
-)
+import "context"
 
-// dirKey identifies a file by device and inode.
-type dirKey struct{ dev, ino uint64 }
-
-// DiskUsageBytes returns what du -sk reports for dir, in bytes: the blocks
-// allocated to dir and everything under it, counted in 512-byte units, each
-// hard-linked file once, rounded up to whole KiB and multiplied by 1024. A
-// symlink counts as itself and is never followed; an unreadable directory
-// contributes what could be read, as du does. It is 0 when dir cannot be
-// examined. The context is checked before each directory is read, and the
-// only error returned is the context's, once it is cancelled.
-func DiskUsageBytes(ctx context.Context, dir string) (int64, error) {
-	seen := map[dirKey]struct{}{}
-	blocks, err := countBlocks(ctx, dir, seen)
-	if err != nil {
-		return 0, err
-	}
-	kibibytes := (blocks*512 + 1023) / 1024
-	return kibibytes * 1024, nil
+// DiskUsageBytes returns the size of the directory tree at dir as the
+// platform's collector reports it (usageWalk.size says how), or the
+// context's error once ctx is cancelled; the context is checked before each
+// directory is read. Each directory is opened through opener, whose Admit
+// judges the handle on an image run.
+func DiskUsageBytes(ctx context.Context, opener *Opener, dir string) (int64, error) {
+	return usageWalk{opener: opener}.size(ctx, dir)
 }
 
-// countBlocks returns the 512-byte blocks of path and of everything below
-// it, leaving out a multiply-linked file seen already holds, or the
-// context's error when it is cancelled before a directory is read.
-func countBlocks(ctx context.Context, path string, seen map[dirKey]struct{}) (int64, error) {
-	meta, err := Lstat(path)
-	if err != nil {
-		return 0, nil
+// usageWalk is one sizing of a directory tree: the run's opener, and
+// beforeOpen, which a test sets to change a directory between the lstat
+// that typed it and the open that lists it.
+type usageWalk struct {
+	opener     *Opener
+	beforeOpen func(path string)
+}
+
+// aboutToOpen calls beforeOpen, when set, with the path about to be opened.
+func (walk usageWalk) aboutToOpen(path string) {
+	if walk.beforeOpen != nil {
+		walk.beforeOpen(path)
 	}
-	if meta.Nlink > 1 {
-		key := dirKey{meta.Dev, meta.Ino}
-		if _, counted := seen[key]; counted {
-			return 0, nil
-		}
-		seen[key] = struct{}{}
-	}
-	total := meta.Blocks
-	if meta.Kind != Dir {
-		return total, nil
-	}
-	if err := ctx.Err(); err != nil {
-		return 0, err
-	}
-	handle, err := os.Open(path)
-	if err != nil {
-		return total, nil
-	}
-	defer handle.Close()
-	entries, _ := handle.ReadDir(-1)
-	for _, entry := range entries {
-		blocks, err := countBlocks(ctx, path+"/"+entry.Name(), seen)
-		if err != nil {
-			return 0, err
-		}
-		total += blocks
-	}
-	return total, nil
 }

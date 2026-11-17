@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestParseOptionsDefaults(t *testing.T) {
@@ -24,7 +26,8 @@ func TestParseOptionsDefaults(t *testing.T) {
 func TestParseOptionsReadsEveryOption(t *testing.T) {
 	args := []string{"-o", "out", "-r", "img", "-u", "a,b", "-p", "x", "--project", "y",
 		"--full", "--no-secrets", "--no-projects", "--no-docker", "--env-scan-home",
-		"-k", "--inventory", "-q", "--max-file-size", "0", "--env-scan-max-size", "3"}
+		"-k", "--inventory", "-q", "--max-file-size", "0", "--env-scan-max-size", "3",
+		"--no-preserve-atime"}
 	options, action, err := ParseOptions(args)
 	if err != nil || action != ActRun {
 		t.Fatalf("action %v, error %v", action, err)
@@ -32,9 +35,41 @@ func TestParseOptionsReadsEveryOption(t *testing.T) {
 	want := Options{OutDir: "out", OutDirSet: true, Root: "img", UsersFilter: "a,b",
 		Projects: []string{"x", "y"}, Full: true, NoSecrets: true, NoProjects: true,
 		NoDocker: true, EnvScanHome: true, KeepStaging: true, Inventory: true, Quiet: true,
-		MaxFileBytes: 0, EnvScanMaxBytes: 3 * mebibyte}
+		MaxFileBytes: 0, EnvScanMaxBytes: 3 * mebibyte, NoPreserveAtime: true}
 	if !reflect.DeepEqual(options, want) {
 		t.Errorf("options %+v, want %+v", options, want)
+	}
+}
+
+func TestNoPreserveAtimeIsAValuelessSwitch(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"it is off by default", nil, false},
+		{"it is set on its own", []string{"--no-preserve-atime"}, true},
+		{"the argument after it is still an option", []string{"--no-preserve-atime", "-q"}, true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			options, action, err := ParseOptions(test.args)
+			if err != nil || action != ActRun || options.NoPreserveAtime != test.want {
+				t.Errorf("NoPreserveAtime %v, action %v, error %v; want %v",
+					options.NoPreserveAtime, action, err, test.want)
+			}
+		})
+	}
+	if _, _, err := ParseOptions([]string{"--no-preserve-atime=1"}); err == nil {
+		t.Error("--no-preserve-atime=1 was accepted; the switch takes no value")
+	}
+}
+
+func TestUsageTextNamesNoPreserveAtime(t *testing.T) {
+	want := "      --no-preserve-atime Open files read-only; reading may change their\n" +
+		"                          access time on disk\n"
+	if !strings.Contains(UsageText, want) {
+		t.Errorf("usage text lacks %q:\n%s", want, UsageText)
 	}
 }
 
@@ -90,59 +125,33 @@ func TestParseOptionsActionsAndErrors(t *testing.T) {
 	}
 }
 
-func TestResolveProjects(t *testing.T) {
-	base := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(base, "real", "sub"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	getwd := func() (string, error) { return base, nil }
-	cases := []struct {
-		name  string
-		input []string
-		want  []string
-	}{
-		{"an absolute path is kept", []string{"/abs/p"}, []string{"/abs/p"}},
-		{"an existing relative directory is cleaned", []string{"real/sub/../sub"},
-			[]string{base + "/real/sub"}},
-		{"a missing relative path is joined as typed", []string{"./gone/../x"},
-			[]string{base + "/gone/../x"}},
-		{"duplicates are listed once", []string{"real", "./real", base + "/real"},
-			[]string{base + "/real"}},
-		{"an empty path is dropped", []string{"", "/a"}, []string{"/a"}},
-		{"no path gives none", nil, nil},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			got, err := ResolveProjects(Options{Projects: testCase.input}, getwd)
-			if err != nil || !reflect.DeepEqual(got.Projects, testCase.want) {
-				t.Errorf("projects %q, error %v; want %q", got.Projects, err, testCase.want)
-			}
-		})
-	}
+// rootCase is a -r value and the root ResolveRoot should make of it, or
+// the error it should give.
+type rootCase struct {
+	name      string
+	root      string
+	want      string
+	wantError string
 }
 
 func TestResolveRoot(t *testing.T) {
-	base := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(base, "img", "etc"), 0o755); err != nil {
+	native := longTempDir(t)
+	if err := os.MkdirAll(filepath.Join(native, "img", "etc"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(base, "file"), nil, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(native, "file"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	base := syspath.FromNative(native)
 	getwd := func() (string, error) { return base, nil }
-	cases := []struct {
-		name      string
-		root      string
-		want      string
-		wantError string
-	}{
+	cases := append([]rootCase{
 		{"no root is live mode", "", "", ""},
-		{"/ is live mode", "/", "", ""},
-		{"a relative root becomes absolute", "img/etc/..", base + "/img", ""},
+		{"a relative root becomes absolute and canonical", "img/etc/..", base + "/img", ""},
 		{"an absolute root is kept", base + "/img", base + "/img", ""},
+		{"an absolute native root is made canonical", filepath.Join(native, "img"), base + "/img", ""},
 		{"a file is not a root", base + "/file", "", "Root is not a directory: " + base + "/file"},
 		{"a missing root is not a root", "nope", "", "Root is not a directory: nope"},
-	}
+	}, platformRootCases(base)...)
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			got, err := ResolveRoot(Options{Root: testCase.root}, getwd)
@@ -156,5 +165,15 @@ func TestResolveRoot(t *testing.T) {
 				t.Errorf("root %q, error %v; want %q", got.Root, err, testCase.want)
 			}
 		})
+	}
+}
+
+func TestRespellProjectsMovesTheTypedRootToTheResolvedOne(t *testing.T) {
+	typed, resolved := "/t/JOHNSM~1/img", "/t/johnsmith/img"
+	got := respellProjects([]string{typed + "/proj", typed, typed + "2/proj", "/t/JOHNSM~1/other"},
+		typed, resolved)
+	want := []string{resolved + "/proj", resolved, typed + "2/proj", "/t/JOHNSM~1/other"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("respellProjects = %q, want %q", got, want)
 	}
 }

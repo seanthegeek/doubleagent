@@ -141,7 +141,10 @@ this order, which keeps the per-file order of the forensic rules:
    recreates symlinks with `readlink` and `ln -s` (a link already recreated at
    the destination by another entry's walk is left as it is, since `ln -s`
    onto a link to a directory would create the new link inside that
-   directory), tests `SECRET_GLOBS`
+   directory; a failed `readlink` or `ln -s` is ignored, and the row keeps
+   its `archive_path`, where the `doubleagent` binary records the reason as
+   `not recreated in the archive:` with no archive path and logs
+   `symlink not recreated:`), tests `SECRET_GLOBS`
    with `is_secret`, and marks each file `symlink`, `skipped_special`, `skipped_secret`,
    `skipped_size` or `copy`. A path that exists and is neither a symlink
    nor a regular file is `skipped_special`, its `type_N` set to `socket`,
@@ -286,6 +289,110 @@ case-insensitive filesystem ([coverage.md](coverage.md#case-variants)):
   segment, so two such lines expand to the same path, and `Expand-Catalog`
   keeps the first and lists the other with an empty agent, which
   `Add-CatalogMatches` logs and skips.
+
+The `doubleagent` binary folds the matches as the sh collector does, on
+every platform. Its claims, the links it has already recorded, the paths
+the manifest has a row for, the homes and the projects it keeps once, and
+the paths the relocation sweep leaves out are each a `syspath.Entries`: a
+set keyed by the path with ASCII capitals lowered, whose keys hold the
+exact spellings. Two paths with equal bytes are one entry; two that differ
+only in ASCII case are one entry when both can be examined and their
+`lstat` gives one non-zero identity (volume serial number and file index),
+or when neither exists, since two missing paths hold no evidence
+(`fsmeta.SameEntry`, behind the root check in `follow.SameEntry`). They are
+two entries otherwise: one missing and one present, two identities, an
+identity of 0, or an error other than not found, such as access denied. So in a Windows directory
+marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
+made) `Alice` and `alice` are two homes, two claims and two rows, while in
+an ordinary directory two spellings of one name are still one. On Linux
+and macOS the key is the bytes, so the set never asks the file system. A
+test of whether a path lies under a home or base (`syspath.CutUnder`)
+trusts a prefix spelled byte for byte, and one differing in ASCII case only
+when the file system says it is the same directory; where several homes
+could own a project, the one spelled as the project's path wins.
+
+The staging tree keeps both copies where it can. On Windows the binary
+marks the staging directory's `fs` directory case-sensitive while it is
+still empty (`stage.MarkCaseSensitive`, `FileCaseSensitiveInfo`), and the
+directories made in it inherit the mark, measured on the CI runner, so
+`fs/.../Alice/x` and `fs/.../alice/x` are two files and two archive members,
+each with its own bytes. A volume can still take two names for one: one
+that ignores letter case (the default macOS volume, an exFAT or FAT drive,
+a Linux file system that folds case, a Windows file system without the
+setting), and every APFS volume, case-sensitive ones included, for Unicode
+form (the same accented letter stored as one character, or as a letter and
+a combining mark). A volume can take two names for one by letter case, by
+Unicode form, or on Windows by an 8.3 short name (`CLAUDE~1` for a staged
+`.claude-backup`, where the volume makes short names; measured on the CI
+runner, NTFS makes them and opens paths through them in a directory marked
+case-sensitive too, so marking the staging directory does not prevent
+it); the stager does not need to know which. Directories whose names it takes for one merge there, and all
+their files are staged.
+
+Safety does not depend on knowing which names a volume merges. Every
+staged copy is created exclusively (`O_CREAT|O_EXCL|O_NOFOLLOW`,
+`CREATE_NEW` on Windows), so when the volume takes its name for an
+existing entry's, by whatever rule, the create fails and nothing is
+opened for write, emptied or written over. The run keeps one record
+(`stage.Places`), keyed by each staged file's or link's own identity
+(device and inode, or volume serial number and file index, read from the
+new file's handle or an lstat of the new link), of the source identity it
+was made from and what was returned for it. On a refused create the
+staged path is lstat'ed and looked up: the same non-zero source (the same
+path again, as two rows sharing one archive path, or one source reached
+through two spellings, as the catalog's `AppData/Roaming/Devin` and
+`AppData/Roaming/devin` are on such a volume) returns the first copy's
+member and hash, so both rows name the one member; the second row's own
+metadata (its size and times, from its own lstat) can be newer than those
+bytes when a live file was rewritten in between. A recorded entry made
+for another staged path, or an entry the volume reached through another
+spelling of the name (a walk of the staged path, below, finds a component
+respelled), is a collision: a file's row is `error_copy` with the error
+`the output directory takes its name for another file's, link's or directory's; not staged`, no archive path and no hash; a link keeps its `symlink` row with no archive path and that
+reason after `not recreated in the archive:`. A source staged again at
+the same staged path, byte for byte as `Dest` names it, after its file was
+replaced (saved through a rename, or reached a second time later in the
+run, perhaps once through an in-base link and once directly) is refused
+with `changed since this run staged it; the earlier row holds its copy`,
+and its name is not called merged. Every refusal names the source path.
+Anything else not known to be this source's copy at that exact name, or
+whose identity is 0 or cannot be read, is refused with a plain reason: `not a regular file` for a link or other reparse point, else
+`already exists in the staging directory and is not known to be this source's copy` (such as a file an earlier run of the same name, in the same
+second, left). Nothing is touched either way. The record trusts the
+file system's identity. A copy that fails removes the file it created and
+leaves no record, so no partial copy becomes a member without a row.
+
+A file or link whose name the volume takes for an existing directory's is
+a collision by the same rule. A directory needed where another entry's
+file or link sits fails in the mkdir; that failure is worded as the
+collision when a walk of the staged path (`walkStaged`) finds a component
+the volume resolved to another spelling, by its device and inode, and
+either reaches the end or stops at a link or file; when it finds a
+component missing or fails, the system's own error is kept. The walk
+lists only directories it found typed as real directories, so it never
+lists anything behind a recreated link. Because the directories a path
+needs are made before its files are copied, a directory wins over a file
+of the same name in another spelling whatever their order.
+
+Each row's archive path is spelled as the member is named: on Windows and
+macOS from the path the system reports for the new file
+(`GetFinalPathNameByHandle`, `F_GETPATH`), always; on Linux and for links
+from the walk, where the run's probe (`stage.FoldsCase`: a random
+lower-case name looked up in upper case, and a precomposed `é` looked up
+decomposed) finds that the volume takes two names for one. The sh
+collector writes the source's spelling there. The probe also decides the
+run's note:
+
+`NOTE: output directory <dir> ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)`
+
+It also decides whether a refusal can be worded as the collision (the walk
+behind it runs only where the probe found folding). A rule the probe does
+not see, such as a Windows 8.3 short name, therefore costs, on Linux and
+for links on every platform, a row's archive path spelled as named for a
+member the volume spelled otherwise, and on every platform the refusal's
+plain reason (for example `does not resolve inside the staging directory`
+from the mkdir) in place of the collision's; never bytes. A refused copy
+made nothing, so nothing is cleaned up after it.
 
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an
@@ -484,6 +591,227 @@ the sh readers drop the files `test_inventory_secret` rejects (the
 its caller's `"$@"`), and the PowerShell readers go through
 `Read-DiscoverySource`, which asks `Test-InventorySecret`.
 
+In image mode the `doubleagent` binary looks at nothing behind a symbolic
+link (on Windows also a junction) that leads out of the image root. Before
+it opens a source, tests one with `test -f` or `test -d`, searches below a
+starting directory (`.codex/sessions`, a `workspaceStorage` directory), or
+lets the glob expander list a directory or look a name up in one
+(`.copilot/session-state/*/events.jsonl`), it reads the links on that path
+one by one from the resolved root, as it does for a project's own path, and
+stats nothing outside the root. When one leads out, nothing behind it is
+listed, stat'ed or read, and the log names the link once per home:
+`Discovery [alice] /img/home/alice/.copilot: the symlink leads out of the image root; nothing behind it was listed or read`.
+The line says only that the link exists and leads out; it does not say
+whether any source is behind it, which only the analyst's host could
+answer, and no name from behind it reaches the log. A link whose target
+stays inside the root is read through. The same rule decides whether a
+project's own path leaves the root, and the catalog walk's expansion uses
+the same check
+([Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)).
+Both scripts read and list through such a link, which in image mode reads
+the analyst's own host: the binary differs on purpose. A live run has no
+root to leave and reads every source as the host holds it.
+
+The check judges the path the operating system will open, resolved the way
+that system resolves it, so the two can never name different files:
+
+- **Linux and macOS.** The path as given. The kernel resolves each
+  component in turn, a link's target included, from where it has
+  physically got to, so a `..` goes up from the directory a link really
+  leads to, and so does the check. A component that cannot be stat'ed ends
+  the check as the image's own answer whatever follows, since the kernel
+  fails the whole path at the same component.
+- **Windows**, as a test measures on the CI runner. Win32 removes `.` and
+  `..` from a path by name before the file system sees it, so the check
+  first does the same (`syspath.Opened`, the code `Extended` uses):
+  `Users/alice/nope/../j` is judged as `Users/alice/j`. A symbolic link's
+  relative target is joined to the path as named up to the link, a
+  junction's name included, and its `..` removed by name: with `j` a
+  junction to `real/a` and `real/a/l` a link to `..\x`, `j/l` opens `x`,
+  not `real/x`, and `l` to `nope\..\..\x` opens `x` without looking for
+  `nope`. The open then starts again with that name, and so does the check.
+  A junction is looked through without its target taking its name's place;
+  Windows refuses a junction whose target holds `.` or `..`, and so does the
+  check. A link's target is read from its reparse data, the name the file
+  system stores, not from the text `os.Readlink` rewrites it into, and the
+  check follows only a closed set of forms: a symbolic link marked relative
+  whose name is a plain relative path or `\x` (rooted on the link's own
+  drive or share); a symbolic link not marked relative whose name is
+  `\??\X:\...` or `\??\UNC\server\share\...`; and a junction whose name is
+  `\??\X:\...`. Every other target (a volume GUID name, `GLOBALROOT`, a
+  `\Device\` or `\GLOBAL??\` name, a `\\.\` path, a drive-relative `X:x`,
+  an empty name, data that cannot be parsed) cannot be verified, so a form
+  nobody listed is refused instead of taken for a relative name. A missing component, or one whose name no file can have, ends the
+  check as the image's own answer, since no `..` is left to climb back out
+  of it; any other component that cannot be stat'ed (access refused) is
+  refused when names follow it, since traverse rights may let an open pass
+  through it.
+
+A link whose target cannot be read, and a chain of more than 40 links, count
+as leaving the root, since the analyst's host may resolve what the check
+could not (Windows follows up to 63 reparse points in a path). A reparse
+point other than a symlink or junction (a cloud-file placeholder, a
+deduplicated file, an AF_UNIX socket, a WSL symlink, an app execution
+alias), whose target, if any, `os.Readlink` cannot read, is refused the same
+way, since a filter driver on the analyst's machine may act on it.
+
+Each refusal carries why it was made, and every line that reports one words
+it by that kind, after the refused path: the line's own words when a link
+leads out of the root (a link whose target climbs above the root with `..`
+included); `cannot be verified to lie inside the image root` for a link the
+check cannot follow or a root it cannot resolve; `is a reparse point other than a symlink or junction` for one; `climbs above the image root with ..`
+for a path whose own `..` does, the line naming that path; and `is outside the image root` for a path not under it. Each of the last four ends
+`; nothing behind it was looked at`, with `, not walked` after it in the
+catalog walk's line and `; not walked` in a project's line, except that a
+project not under the root keeps its own line, given below. For a reparse
+point the six lines read, with the
+user, agent or path filled in (the catalog walk's is indented two spaces in
+the log, as its other match lines are):
+
+- `Discovery [alice] /img/home/alice/.claude.json is a reparse point other than a symlink or junction; nothing behind it was looked at`
+- `[claude-code] /img/home/alice/.claude is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`
+- `Project [alice] /img/home/alice/.claude/r/proj: /img/home/alice/.claude/r is a reparse point other than a symlink or junction; nothing behind it was looked at; not walked`
+- `user homes: /img/home/alice is a reparse point other than a symlink or junction; nothing behind it was looked at`
+- `docker: /img/var/lib is a reparse point other than a symlink or junction; nothing behind it was looked at`
+- `startup files: /img/etc is a reparse point other than a symlink or junction; nothing behind it was looked at`
+
+An image passwd line whose home climbs above the root gives
+`user homes: /img/../../tmp climbs above the image root with ..; nothing behind it was looked at`.
+
+The paths that can carry `..` come from outside a listing: a discovered
+project value, a `-p` value, a passwd home, a link's target. A relative
+`-p` is cleaned when it holds `..` or leads out. Every other one that
+holds a `.` or `..` component is replaced once, before anything else uses
+it, by the path the system reaches for it (`walk.RootCheck.Reached`): on
+Linux and macOS the physical path the root check's own walk reached, since
+the kernel resolves `..` from where a link leads, spelled under the root
+as given (on a live run, the directory it resolves to); on Windows the path
+with `.` and `..` removed by name, as Win32 removes them. Its row's home and
+path, its archive path, the log and `collection.json` then all name that
+one path (the root as given when it reaches the image root itself), and
+two homes or projects that become the same path are one, the first in
+enumeration order kept, as two passwd lines naming one home already are;
+for homes whose paths were written apart and that reach one directory, the
+log names both users (two homes reaching a file, which is no home, log
+nothing):
+`user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
+The users step reaches each candidate home before any of its tests, so the
+system-home test, the duplicate check, `-u`, the users found and the `-u`
+warnings all see the reached path. On Linux and macOS a home whose reached
+path, relative to the root as given, is a system home (the root itself,
+`/usr`, `/var/empty`) is dropped, as the sh collector drops a passwd home
+of `/`; the list is matched as spelled, so on a live macOS run a dotted home
+reaching `/var/empty` is reached as `/private/var/empty` and kept. On
+Windows a home reaching the image root itself, or on a live run a drive
+root, is dropped, and the skip list (`Public`, `Default` and the rest)
+still applies by user name. A path the check refuses, or one the kernel
+cannot resolve (a missing component, a file followed by anything, `/` and
+`/.` included, which fails with "not a directory", or a `.` or `..` in a
+directory the user may not search, which fails with "permission denied",
+though the same directory with only a trailing `/` resolves),
+is kept as written; staging refuses any path that still holds a `.` or `..`
+component, on every platform: its row is `error_copy` with no archive path
+and the error `holds a . or .. component, so where it is staged is not known`. The sh collector keeps the dotted spelling and stages the copy at
+`fs/` plus that spelling, which `mkdir -p` resolves lexically: a home
+`/srv/dotlink/../frank` with `srv/dotlink` a link to `b/c` is staged at
+`fs/srv/frank`, onto another user's home of that name (exception 47 in the
+plan). A link's target is followed by the walk above. ProfileList paths are read on a live run only, and a relocation
+hint's value is recorded, never opened.
+
+The binary logs a project the run lists but does not walk with one line
+and writes no row for it:
+`Project [alice] /img/home/alice/.claude/ext/proj: under the symlinked directory /img/home/alice/.claude/ext, which leads out of the image root; not walked`
+when a link on its path leads out of the root, and
+`Project [alice] /img/home/alice/.claude/loop/proj: /img/home/alice/.claude/loop cannot be verified to lie inside the image root; nothing behind it was looked at; not walked`
+when a link on its path cannot be followed: a loop, a chain of more than
+40 links, or a target that cannot be read; a project whose own `..` climbs
+above the root is worded by its kind the same way. A `-p` value or discovered project in any of these cases gets that
+line only: no
+`WARNING: project given with -p is not a directory` line and no `error_read`
+row, since testing it as a directory would follow the link on the
+analyst's host.
+
+On Windows, in image mode, a second check stands behind the root check
+and does not depend on its walk being right. Every evidence file the run
+opens (a collected file's copy, project discovery's reads, the relocation
+search and sweep) and every directory it opens to list (the tree walk, the
+glob expander, discovery's name search, the relocation sweep, and the
+listing test of `follow.DirReadError` and `CanRead`, whose refusal writes
+no `error_read` row, and the sizing of an excluded directory or an
+unmatched volume by `fsmeta.DiskUsageBytes`, where a refused directory adds
+nothing to the size) goes through
+the run's opener (`fsmeta.Opener.Open` and `fsmeta.OpenDir`), which asks
+the open handle where it is (`GetFinalPathNameByHandle`, its links
+resolved and each name spelled as the disk holds it) and requires that to
+be the image root's own place or below it. The place is asked in the NT
+device form (`\Device\HarddiskVolume3\...`, `\Device\Mup\server\share\...`
+for a network share), which every volume has: the drive-letter form fails
+for a volume without a letter and the volume GUID form for a network share
+or a volume the Mount Manager did not create. The two places are compared
+byte for byte, since both come from the same call; folding case would let
+in a sibling a case-sensitive directory keeps apart from the root. A root
+given through a link or a `subst` drive is compared at its physical place,
+a mounted VHD without a letter at its device, a UNC root at its share. A
+handle that lies elsewhere, or whose place cannot be asked, is closed and
+nothing from it is used: a file gets no copy and no row, a directory is not
+listed, and the path is logged once:
+`C:\img\Users\alice\j\notes: the root check allowed it but Windows opened it outside the image root; nothing from it was used`.
+When the root's own place cannot be asked, refusing every open would lose
+the whole image, so the run goes on with the root check alone and logs
+`image root: where C:\img lies cannot be read (<reason>); what is opened under it is checked by the root check alone`.
+The check costs one system call per open; a live run has none. The root
+check alone covers what opens no handle the run keeps, or reads only a
+handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
+`IsRegularFile` and the glob expander's existence test (`os.Stat`); the
+name lookups of `fsmeta.OnDiskName` and `OnDiskPath`; a candidate home's
+parent listing on Windows (`os.ReadDir`, which only says whether the parent
+lists the name); `CanEnter`, which opens nothing
+on Windows; `follow.PhysicalDir` and `stage.PhysicalDir`, which read a
+directory handle's own final path, compared with the root by their
+callers; and `follow.ReadFile`, which reads only the Unix `/etc/passwd`. A
+test in `internal/follow` fails when a counted call on an image path is
+neither admitted nor named here.
+Linux and macOS have no second check: their
+walk is the kernel's own physical resolution, compared with the kernel on
+every shape by a test, while asking an open file for its path there is not
+exact (Linux's `/proc/self/fd` names a deleted file with a suffix and
+depends on the mount namespace; macOS's `F_GETPATH` gives one of a file's
+hard links).
+
+Every call that follows a link in the last component of a path (a stat, a
+directory or file test, an access check, a directory listing test, a read
+or write of a whole file, a resolution to the physical directory) goes
+through the `internal/follow` package, which asks the image root's check
+about the whole path first. A test there denies by default. It reads every
+non-test Go file of the module outside `vendor/` and outside the exact
+directories `internal/follow`, `internal/osfile`, `internal/fsmeta` and
+`internal/stage`, and fails on an import of any standard or vendored
+package not on a reviewed list (each marked as taking no path, or as
+guarded), and on any exported name of a guarded package (`os`, `os/exec`,
+`os/user`, `path/filepath`, `syscall`, `x/sys/unix`, `x/sys/windows` and
+its `registry`, `osfile`, `fsmeta`, `stage`) that is on none of three
+lists: names that take no path or treat it as text; names that take a
+path, never follow its last component and change nothing (an lstat, a
+readlink, a read of a reparse point's own data); and calls that write, remove, list, resolve or follow, counted
+per file with their reason. Those reasons fall in six kinds: the run's own
+output and staging files and directories, created, written and removed;
+the operator's own `-r` and `-o`, and the image root itself, which the run
+resolves once into its check (and once more, for a relative `-p`, before
+the root is resolved); a directory opened after its own lstat, or a
+listing that leaves reparse points out, typed it a directory under a path
+already checked, and on Windows the listing of the parent of a candidate
+home the check let through; spellings and sizes taken below a checked path
+that stop at the first link; the glob expander's lookups, made after it
+asked the check; and the test helper `internal/shortname`, which works
+under the test's own temporary directory, and `internal/hostcmd`, the one
+place a program is run. The test reads package-level names only, so it
+cannot see a method or a call through an interface or a function value.
+The methods in use take a path and do not follow its last component:
+`fsmeta.Opener.Open` and `OpenRegular` open without following it,
+`stage.Stager.Copy` reads its source through them, and
+`hostcmd.Plutil` runs plutil on a hint file whose own lstat typed it a
+regular file.
+
 A new source goes into its group on both sides, at the same position.
 
 ## Relocation hints
@@ -495,7 +823,12 @@ directory whose target, with every link in its chain resolved, lies outside the
 base (`linked_parent`, `Get-LinkedParent`): the glob expansion follows such a
 link, and in image mode an
 image's `/etc -> /private/etc` would read the analyst's host, while a live
-macOS `/etc` stays inside `/` and is read. One
+macOS `/etc` stays inside `/` and is read. In image mode the `doubleagent` binary
+does not even list behind a link whose target leads out of the image root:
+its startup-file globs go through the same check as the catalog walk's, so
+such a link is logged once, as
+`startup files: /img/etc leads out of the image root; nothing behind it was listed`,
+and nothing behind it is listed before `linked_parent`'s test would drop it. One
 `grep -l -F` over the whole
 list names the files that hold any `RELOCATION_VARS` name, and one `grep -n`
 and `awk` per such file keeps a hit only where the character before and after
@@ -565,13 +898,11 @@ each read with `heredoc_var`), the file on its standard input (an operand
 holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
 which only that `awk` sees; `tr` turns a NUL byte into \001 on the way (and a
 \001 into \002, so \001 means a NUL), since BSD `awk` would end the record at a
-NUL, and from such a line on the `awk` refuses every value (`after a NUL
-byte`), as pam_env 1.5 and systemd read no further. It prints
+NUL, and from such a line on the `awk` refuses every value (`after a NUL byte`), as pam_env 1.5 and systemd read no further. It prints
 `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
 for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
 `resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
-startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME
-xml1` once per distinct name hit, and `plutil_string_var` reads only that
+startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME xml1` once per distinct name hit, and `plutil_string_var` reads only that
 one-element output, so the value is the one launchd reads; the lines are
 `0|NAME|=VALUE` or `0|NAME|!REASON` (line 0, since plutil reports none; the
 lines naming the variable stay hints without a value), `U|USER` for the

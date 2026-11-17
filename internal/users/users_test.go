@@ -1,12 +1,14 @@
 package users
 
 import (
-	"errors"
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // tree describes a fixture image: directories, files and symlinks (name to
@@ -21,7 +23,11 @@ func (spec tree) build(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for _, dir := range spec.dirs {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+		err := os.MkdirAll(filepath.Join(root, dir), 0o755)
+		if invalidFileName(err) {
+			t.Skipf("this platform does not accept the directory name %q: %v", dir, err)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -40,10 +46,10 @@ func (spec tree) build(t *testing.T) string {
 			t.Fatal(err)
 		}
 		if err := os.Symlink(target, path); err != nil {
-			t.Fatal(err)
+			t.Skipf("cannot create a symbolic link here: %v", err)
 		}
 	}
-	return root
+	return syspath.FromNative(root)
 }
 
 // expected turns "user:/relative/home" entries into Homes under root.
@@ -70,6 +76,10 @@ func TestEnumerateImage(t *testing.T) {
 		passwd string
 		filter string
 		want   []string
+		// windowsWant replaces want on Windows when set, where there is no
+		// passwd file, the -u list ignores case, Users comes before home and
+		// a directory's names come in listing order (NTFS: by upper case).
+		windowsWant []string
 	}{
 		{
 			name:   "passwd users and glob users in enumeration order",
@@ -77,12 +87,15 @@ func TestEnumerateImage(t *testing.T) {
 			passwd: "zed:x:5:5::/srv/zed:/bin/sh\n",
 			want: []string{"zed:/srv/zed", "alice:/home/alice", "bob:/home/bob", "carol:/Users/carol",
 				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
+			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice", "bob:/home/bob",
+				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
 		},
 		{
-			name:   "every system and shared profile home is dropped",
-			tree:   tree{dirs: append([]string{"home/alice"}, append(systemHomes, "Users/carol")...)},
-			passwd: systemPasswd + "alice:x:1000:1000::/home/alice:/bin/sh\n",
-			want:   []string{"alice:/home/alice", "carol:/Users/carol"},
+			name:        "every system and shared profile home is dropped",
+			tree:        tree{dirs: append([]string{"home/alice"}, append(systemHomes, "Users/carol")...)},
+			passwd:      systemPasswd + "alice:x:1000:1000::/home/alice:/bin/sh\n",
+			want:        []string{"alice:/home/alice", "carol:/Users/carol"},
+			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice"},
 		},
 		{
 			name:   "a home that is missing or a file is dropped",
@@ -97,29 +110,33 @@ func TestEnumerateImage(t *testing.T) {
 			want:   []string{"linked:/home/linked"},
 		},
 		{
-			name:   "passwd lines with fewer than six fields or an empty home are skipped",
-			tree:   tree{dirs: []string{"srv/a", "srv/b"}},
-			passwd: "short:x:1:1:/srv/a\nempty:x:2:2:::/bin/sh\n\nok:x:3:3::/srv/b\n",
-			want:   []string{"ok:/srv/b"},
+			name:        "passwd lines with fewer than six fields or an empty home are skipped",
+			tree:        tree{dirs: []string{"srv/a", "srv/b"}},
+			passwd:      "short:x:1:1:/srv/a\nempty:x:2:2:::/bin/sh\n\nok:x:3:3::/srv/b\n",
+			want:        []string{"ok:/srv/b"},
+			windowsWant: []string{},
 		},
 		{
-			name:   "a repeated home keeps the first user",
-			tree:   tree{dirs: []string{"home/alice"}},
-			passwd: "al:x:1:1::/home/alice:/bin/sh\nalice:x:2:2::/home/alice:/bin/sh\n",
-			want:   []string{"al:/home/alice"},
+			name:        "a repeated home keeps the first user",
+			tree:        tree{dirs: []string{"home/alice"}},
+			passwd:      "al:x:1:1::/home/alice:/bin/sh\nalice:x:2:2::/home/alice:/bin/sh\n",
+			want:        []string{"al:/home/alice"},
+			windowsWant: []string{"alice:/home/alice"},
 		},
 		{
-			name:   "names sort bytewise, upper case before lower case",
-			tree:   tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
-			passwd: "",
-			want:   []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
+			name:        "names sort bytewise, upper case before lower case, but not on Windows",
+			tree:        tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
+			passwd:      "",
+			want:        []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
+			windowsWant: []string{"alice:/home/alice", "b:/home/b", "Zed:/home/Zed", "_u:/home/_u"},
 		},
 		{
-			name:   "the -u list picks users, case-sensitively",
-			tree:   tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
-			passwd: "",
-			filter: "bob,carol,Carol",
-			want:   []string{"Carol:/home/Carol", "bob:/home/bob"},
+			name:        "the -u list picks users, case-sensitively",
+			tree:        tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
+			passwd:      "",
+			filter:      "bob,carol,Carol",
+			want:        []string{"Carol:/home/Carol", "bob:/home/bob"},
+			windowsWant: []string{"bob:/home/bob", "Carol:/home/Carol"},
 		},
 		{
 			name:   "a -u list naming nobody keeps nobody",
@@ -135,8 +152,8 @@ func TestEnumerateImage(t *testing.T) {
 		},
 		{
 			name: "a root whose name holds a bracket",
-			tree: tree{dirs: []string{"home/[x]*"}},
-			want: []string{"[x]*:/home/[x]*"},
+			tree: tree{dirs: []string{"home/" + bracketName}},
+			want: []string{bracketName + ":/home/" + bracketName},
 		},
 		{
 			name: "a home whose name ends in a newline is read as the lines of its name",
@@ -155,8 +172,12 @@ func TestEnumerateImage(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			got := Enumerate(false, root, testCase.filter, nil)
-			want := expected(root, testCase.want...)
+			got := Enumerate(context.Background(), false, root, testCase.filter, nil, nil, nil, nil)
+			entries := testCase.want
+			if onWindows && testCase.windowsWant != nil {
+				entries = testCase.windowsWant
+			}
+			want := expected(root, entries...)
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("Enumerate = %v, want %v", got, want)
 			}
@@ -165,51 +186,88 @@ func TestEnumerateImage(t *testing.T) {
 }
 
 func TestEnumerateRootWithBracket(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "r[o]*ot")
-	if err := os.MkdirAll(filepath.Join(root, "home/alice"), 0o755); err != nil {
+	root := syspath.FromNative(filepath.Join(t.TempDir(), bracketRoot))
+	err := os.MkdirAll(filepath.Join(root, "home/alice"), 0o755)
+	if invalidFileName(err) {
+		t.Skipf("this platform does not accept the directory name %q: %v", root, err)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
-	got := Enumerate(false, root, "", nil)
+	got := Enumerate(context.Background(), false, root, "", nil, nil, nil, nil)
 	if want := expected(root, "alice:/home/alice"); !reflect.DeepEqual(got, want) {
 		t.Errorf("Enumerate = %v, want %v", got, want)
 	}
 }
 
-func TestEnumerateLive(t *testing.T) {
-	root := tree{dirs: []string{"srv/getent", "srv/dscl", "srv/file", "home/alice"}}.build(t)
-	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte("file:x:1:1::/srv/file:/bin/sh\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	getent := func(name string, args ...string) ([]byte, error) {
-		switch name {
-		case "getent":
-			return []byte("viagetent:x:1:1::/srv/getent:/bin/sh\n"), nil
-		case "dscl":
-			return []byte("viadscl  " + root + "/srv/dscl\nlonely\n"), nil
-		}
-		return nil, errors.New("unexpected " + name)
-	}
-	failing := func(string, ...string) ([]byte, error) { return nil, errors.New("not found") }
+func TestSkipProfile(t *testing.T) {
 	cases := []struct {
 		name string
-		run  Runner
-		want []Home
+		want bool
 	}{
-		{"getent replaces the passwd file, dscl adds, globs follow", getent, []Home{
-			{"viagetent", root + "/srv/getent"}, {"viadscl", root + "/srv/dscl"},
-			{"alice", root + "/home/alice"}}},
-		{"programs that fail fall back to the passwd file", failing, []Home{
-			{"file", root + "/srv/file"}, {"alice", root + "/home/alice"}}},
+		{"alice", false},
+		{"Public", true},
+		{"public", true},
+		{"DEFAULT", true},
+		{"Default User", true},
+		{"all users", true},
+		{"Shared", true},
+		{"defaultUser0", true},
+		{"Default2", false},
+		{"UMFD-0", true},
+		{"UMFD-12.DOMAIN", true},
+		{"dwm-3", true},
+		{"TEMP", true},
+		{"temp.corp.000", true},
+		{"UMFD-", false},
+		{"DWM-x", false},
+		{"TEMPERATURE", false},
+		{"my.TEMP", false},
+		{"", false},
+		{"\u017fhared", false},
+		{"Default U\u017fer", false},
+		{"ALL USER\u017f", false},
 	}
 	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			// The fixture root stands in for a live run's empty root: getent's
-			// homes are prefixed with it, dscl's are not.
-			if got := Enumerate(true, root, "", testCase.run); !reflect.DeepEqual(got, testCase.want) {
-				t.Errorf("Enumerate = %v, want %v", got, testCase.want)
+		t.Run("name "+testCase.name, func(t *testing.T) {
+			if got := skipProfile(testCase.name); got != testCase.want {
+				t.Errorf("skipProfile(%q) = %v, want %v", testCase.name, got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestUserNamesAndUnmatchedUsers(t *testing.T) {
+	exact := func(name, user string) bool { return name == user }
+	for _, test := range []struct {
+		name    string
+		matches func(name, user string) bool
+		want    []string
+	}{
+		{"exact names drop only exact repeats", exact, []string{"bob", "alice", " x", "BOB"}},
+		{"folded names drop a repeat in another case", strings.EqualFold, []string{"bob", "alice", " x"}},
+	} {
+		if got := userNames("bob,,alice,bob, x,BOB", test.matches); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s: userNames = %q, want %q", test.name, got, test.want)
+		}
+	}
+	found := []string{"alice", "émile"}
+	cases := []struct {
+		name    string
+		names   []string
+		matches func(name, user string) bool
+		want    []string
+	}{
+		{"exact names match only their own spelling", []string{"alice", "ALICE", "ÉMILE"}, exact,
+			[]string{"ALICE", "ÉMILE"}},
+		{"Unicode folding matches every letter's case", []string{"ALICE", "ÉMILE", "nobody"},
+			strings.EqualFold, []string{"nobody"}},
+		{"no names leave nothing unmatched", nil, exact, nil},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := unmatchedUsers(test.names, found, test.matches); !reflect.DeepEqual(got, test.want) {
+				t.Errorf("unmatchedUsers(%q) = %q, want %q", test.names, got, test.want)
 			}
 		})
 	}

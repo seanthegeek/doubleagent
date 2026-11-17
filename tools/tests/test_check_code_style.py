@@ -154,11 +154,15 @@ def test_a_doc_comment_of_eleven_lines_fails_and_ten_pass() -> None:
     assert messages == [(3, "doc comment of 11 lines is longer than 10")]
 
 
-def test_a_doc_comment_above_a_field_or_package_is_counted() -> None:
+def test_a_doc_comment_above_a_field_is_counted() -> None:
     field = "package p\n\ntype Row struct {\n" + comment_lines(11, "\t") + "\tPath string\n}\n"
     assert findings(field) == [(4, "doc comment of 11 lines is longer than 10")]
-    package = comment_lines(11) + "package p\n"
-    assert findings(package) == [(1, "doc comment of 11 lines is longer than 10")]
+
+
+def test_a_package_comment_may_run_to_thirty_lines() -> None:
+    assert findings(comment_lines(30) + "package p\n") == []
+    package = comment_lines(31) + "package p\n"
+    assert findings(package) == [(1, "doc comment of 31 lines is longer than 30")]
 
 
 def test_a_file_header_over_ten_lines_is_exempt() -> None:

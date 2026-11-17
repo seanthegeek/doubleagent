@@ -1,4 +1,4 @@
-//go:build parity
+//go:build parity && unix
 
 package relocation
 
@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,8 +15,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
+	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -116,7 +116,7 @@ func (run *shRun) readLog(t *testing.T, path string) {
 func foldedClaims(base string, table []catalog.Entry) []string {
 	var paths []string
 	for _, entry := range table {
-		paths = append(paths, glob.Expand(base, entry.Glob)...)
+		paths = append(paths, expandGlob(base, entry.Glob)...)
 	}
 	var claims []string
 	for i, path := range paths {
@@ -176,7 +176,7 @@ func goSearch(t *testing.T, root, outDir string, run shRun, sweep bool) (Result,
 		Projects: run.projects, EnvScanHome: sweep, EnvScanMaxBytes: 1 << 20,
 		Excludes: tables.Excludes, OutDir: outDir, RunName: run.name, Log: log,
 		Plutil: hostcmd.NewPlutil(hostcmd.System()), Claims: foldedClaims,
-		Collect: func(string, string, string) error { return nil }})
+		Collect: func(string, string, string, fsmeta.Meta) error { return nil }})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,6 +14,9 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // WriteTarGz writes stageDir as a gzipped tar at archivePath. Its members are
@@ -22,16 +25,18 @@ import (
 // sorted bytewise. The tar format is PAX. Symlinks are stored, never followed.
 // A failed write removes the partial archive.
 func WriteTarGz(stageDir, archivePath string) error {
-	file, err := os.Create(archivePath)
+	file, err := osfile.Create(archivePath)
 	if err != nil {
 		return fmt.Errorf("create archive: %w", err)
 	}
-	err = writeMembers(file, stageDir)
+	// A write or close error of the archive itself names it in the \\?\
+	// form osfile opened it with.
+	err = syspath.NativeErrors(writeMembers(file, stageDir))
 	if closeError := file.Close(); err == nil && closeError != nil {
-		err = fmt.Errorf("close archive %s: %w", archivePath, closeError)
+		err = fmt.Errorf("close archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(closeError))
 	}
 	if err != nil {
-		_ = os.Remove(archivePath)
+		_ = osfile.Remove(archivePath)
 	}
 	return err
 }
@@ -56,7 +61,7 @@ func writeMembers(out io.Writer, stageDir string) error {
 // under it. member is the name inside the archive, "." for the stage itself.
 func addTree(archive *tar.Writer, stageDir, member string) error {
 	full := filepath.Join(stageDir, member)
-	info, err := os.Lstat(full)
+	info, err := osfile.Lstat(full)
 	if err != nil {
 		return err
 	}
@@ -80,12 +85,7 @@ func addTree(archive *tar.Writer, stageDir, member string) error {
 
 // listNames returns the names in a directory, sorted bytewise.
 func listNames(dir string) ([]string, error) {
-	handle, err := os.Open(dir)
-	if err != nil {
-		return nil, err
-	}
-	defer handle.Close()
-	entries, err := handle.ReadDir(-1)
+	entries, err := osfile.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func listNames(dir string) ([]string, error) {
 func addEntry(archive *tar.Writer, full, member string, info os.FileInfo) error {
 	link := ""
 	if info.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(full)
+		target, err := osfile.Readlink(full)
 		if err != nil {
 			return err
 		}
@@ -111,7 +111,7 @@ func addEntry(archive *tar.Writer, full, member string, info os.FileInfo) error 
 	}
 	header, err := tar.FileInfoHeader(info, link)
 	if err != nil {
-		return fmt.Errorf("archive %s: %w", full, err)
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
 	header.Name = "./" + strings.TrimPrefix(member, "./")
 	if member == "." {
@@ -124,7 +124,7 @@ func addEntry(archive *tar.Writer, full, member string, info os.FileInfo) error 
 	header.ModTime = header.ModTime.Truncate(time.Second)
 	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
 	if err := archive.WriteHeader(header); err != nil {
-		return fmt.Errorf("archive %s: %w", full, err)
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
 	if !info.Mode().IsRegular() {
 		return nil
@@ -134,13 +134,13 @@ func addEntry(archive *tar.Writer, full, member string, info os.FileInfo) error 
 
 // copyContent writes a regular file's bytes into the current member.
 func copyContent(archive *tar.Writer, full string) error {
-	source, err := os.Open(full)
+	source, err := osfile.Open(full)
 	if err != nil {
 		return err
 	}
 	defer source.Close()
 	if _, err := io.Copy(archive, source); err != nil {
-		return fmt.Errorf("archive %s: %w", full, err)
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), syspath.NativeErrors(err))
 	}
 	return nil
 }
@@ -148,7 +148,7 @@ func copyContent(archive *tar.Writer, full string) error {
 // SHA256File returns the SHA-256 of the file at path, in lower-case hex, and
 // its size in bytes.
 func SHA256File(path string) (string, int64, error) {
-	source, err := os.Open(path)
+	source, err := osfile.Open(path)
 	if err != nil {
 		return "", 0, err
 	}
@@ -156,7 +156,7 @@ func SHA256File(path string) (string, int64, error) {
 	digest := sha256.New()
 	size, err := io.Copy(digest, source)
 	if err != nil {
-		return "", 0, fmt.Errorf("hash %s: %w", path, err)
+		return "", 0, fmt.Errorf("hash %s: %w", syspath.ToNative(path), syspath.NativeErrors(err))
 	}
 	return hex.EncodeToString(digest.Sum(nil)), size, nil
 }
@@ -165,7 +165,7 @@ func SHA256File(path string) (string, int64, error) {
 // the archive's base name, in the layout sha256sum -c reads.
 func WriteSidecar(archivePath, sha256Hex string) error {
 	line := sha256Hex + "  " + filepath.Base(archivePath) + "\n"
-	if err := os.WriteFile(archivePath+".sha256", []byte(line), 0o666); err != nil {
+	if err := osfile.WriteFile(archivePath+".sha256", []byte(line), 0o666); err != nil {
 		return fmt.Errorf("write checksum file: %w", err)
 	}
 	return nil

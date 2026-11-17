@@ -1,9 +1,12 @@
 package relocation
 
 import (
+	"bytes"
+	"encoding/binary"
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf16"
 )
 
 func TestBoundedNames(t *testing.T) {
@@ -38,6 +41,85 @@ func TestBoundedNames(t *testing.T) {
 			got, err := BoundedNames(strings.NewReader(testCase.text), names, testCase.powerShell)
 			if err != nil || !slices.Equal(got, testCase.want) {
 				t.Errorf("got %v, %v; want %v", got, err, testCase.want)
+			}
+		})
+	}
+}
+
+// encodeText returns text in UTF-16 (width 2) or UTF-32 (width 4) in order,
+// after mark.
+func encodeText(mark []byte, width int, order binary.AppendByteOrder, text string) []byte {
+	encoded := append([]byte{}, mark...)
+	if width == 2 {
+		for _, unit := range utf16.Encode([]rune(text)) {
+			encoded = order.AppendUint16(encoded, unit)
+		}
+		return encoded
+	}
+	for _, char := range text {
+		encoded = order.AppendUint32(encoded, uint32(char))
+	}
+	return encoded
+}
+
+func TestDecodedBoundedNames(t *testing.T) {
+	names := []string{"CODEX_HOME", "ENV"}
+	profile := "$env:CODEX_HOME = 'C:\\x'\r\n# é ENV\r\n"
+	both := []LineName{{1, "CODEX_HOME"}, {2, "ENV"}}
+	cases := []struct {
+		name       string
+		text       []byte
+		powerShell bool
+		want       []LineName
+	}{
+		{"a UTF-16LE profile with CRLF lines names its variable on line 1",
+			encodeText([]byte{0xFF, 0xFE}, 2, binary.LittleEndian, profile), true, both},
+		{"a UTF-16BE file is decoded",
+			encodeText([]byte{0xFE, 0xFF}, 2, binary.BigEndian, profile), true, both},
+		{"a UTF-32LE file is decoded, not read as UTF-16LE",
+			encodeText([]byte{0xFF, 0xFE, 0, 0}, 4, binary.LittleEndian, profile), true, both},
+		{"a UTF-32BE file is decoded",
+			encodeText([]byte{0, 0, 0xFE, 0xFF}, 4, binary.BigEndian, profile), true, both},
+		{"a UTF-8 mark is kept and bounds the name after it",
+			[]byte("\xEF\xBB\xBFENV=1\nCODEX_HOME=2\n"), false,
+			[]LineName{{1, "ENV"}, {2, "CODEX_HOME"}}},
+		{"UTF-16 without a mark is read as bytes, as grep finds no name in it",
+			encodeText(nil, 2, binary.LittleEndian, "CODEX_HOME=1\n"), false, nil},
+		{"a shell file in UTF-16 still matches in its own case only",
+			encodeText([]byte{0xFF, 0xFE}, 2, binary.LittleEndian, "codex_home=1\nENV=1"), false,
+			[]LineName{{2, "ENV"}}},
+		{"a short last unit decodes to a replacement character",
+			append(encodeText([]byte{0xFF, 0xFE}, 2, binary.LittleEndian, "ENV"), 'x'), false,
+			[]LineName{{1, "ENV"}}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := decodedBoundedNames(bytes.NewReader(test.text), names, test.powerShell)
+			if err != nil || !slices.Equal(got, test.want) {
+				t.Errorf("got %v, %v; want %v", got, err, test.want)
+			}
+		})
+	}
+}
+
+func TestDecodeUnicodeText(t *testing.T) {
+	cases := []struct {
+		name string
+		text []byte
+		want string
+	}{
+		{"a UTF-16LE surrogate pair becomes one character",
+			[]byte{0xFF, 0xFE, 0x3D, 0xD8, 0x00, 0xDE}, "\U0001F600"},
+		{"a lone UTF-16 surrogate becomes U+FFFD", []byte{0xFE, 0xFF, 0xD8, 0x00}, "\uFFFD"},
+		{"a UTF-32 unit past U+10FFFF becomes U+FFFD",
+			[]byte{0, 0, 0xFE, 0xFF, 0x00, 0x11, 0x00, 0x00}, "\uFFFD"},
+		{"a mark alone decodes to nothing", []byte{0xFF, 0xFE}, ""},
+		{"text without a mark is unchanged", []byte("\xFFplain"), "\xFFplain"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := string(decodeUnicodeText(test.text)); got != test.want {
+				t.Errorf("decoded %q, want %q", got, test.want)
 			}
 		})
 	}

@@ -47,6 +47,19 @@ A volumes directory that is a symlink, or has a symlink on the way to it, is
 noted in `collection.json` and not followed. A volume whose own directory is
 a symlink is skipped without a row. A volume whose `_data` is missing or a
 symlink is counted in `volumes_found`, logged, and skipped without a row.
+The `doubleagent` binary decides a `_data` that is a link (on Windows also a
+junction) from its own lstat, before testing whether the volume can be
+read, so the outcome does not depend on what the link points at; the sh
+collector tests readability through the link first.
+In image mode the `doubleagent` binary also looks at nothing behind a link
+above those directories whose target leads out of the image root (an image
+whose `var` or a home's `.local` is such a link): it logs
+`docker: <link> leads out of the image root; nothing behind it was listed`
+(for a reparse point other than a symlink or junction,
+`docker: <link> is a reparse point other than a symlink or junction; nothing behind it was looked at`)
+once per link, also for a reparse point other than a symlink or junction among the volumes
+directory's own components, writes no note and lists no volume behind it, and the
+Docker Desktop directories behind such a link are not looked at either.
 
 ## Matching and collection
 

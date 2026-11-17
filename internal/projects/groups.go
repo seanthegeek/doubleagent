@@ -40,7 +40,7 @@ func (s *homeScan) cliSessionSources() {
 	s.jsonValues("acp_cwd", chats)
 	// The sh grep for the extra directories reads the chats directly, so
 	// readable does not filter them.
-	s.emit(grepFiles(chats, additionalDirectoryMatcher()))
+	s.emit(s.grepFiles(chats, additionalDirectoryMatcher()))
 }
 
 // geminiSources is group 3: Gemini CLI projects, trusted folders and
@@ -66,8 +66,8 @@ func (s *homeScan) gooseSources() {
 		s.home + "/AppData/Roaming/Block/goose/data/schedule.json"})
 	for _, project := range s.expand(".local/share/goose/projects/*.md",
 		"AppData/Roaming/Block/goose/data/projects/*.md") {
-		if isRegularFile(project) {
-			s.emit(gooseWorkingDirs(lines(project)))
+		if s.isRegularFile(project) {
+			s.emit(gooseWorkingDirs(s.lines(project)))
 		}
 	}
 }
@@ -84,10 +84,10 @@ func (s *homeScan) agentSessionSources() {
 	s.gooseSources()
 	var copilot []string
 	for _, events := range s.expand(".copilot/session-state/*/events.jsonl") {
-		if isRegularFile(events) {
+		if s.isRegularFile(events) {
 			workspace := events[:len(events)-len("events.jsonl")] + "workspace.yaml"
 			copilot = append(copilot,
-				grepFiles(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
+				s.grepFiles(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
 		}
 	}
 	s.emitOutside(copilot, nil, []string{s.home + "/.copilot/"})
@@ -130,18 +130,18 @@ func (s *homeScan) configFileSources() {
 		configs := append(s.expand(".openclaw*/openclaw.json"), s.home+"/.clawdbot/openclaw.json",
 			s.home+"/.clawdbot/clawdbot.json", s.home+"/.clawdbot/moltbot.json",
 			s.home+"/.moltbot/moltbot.json")
-		s.emit(grepFiles(s.readable(configs), json5ValueMatcher(key)))
+		s.emit(s.grepFiles(s.readable(configs), json5ValueMatcher(key)))
 	}
 	for _, file := range s.expand(".nanobot*/sessions/*/.workspace") {
-		if isRegularFile(file) {
-			s.emit(lines(file))
+		if s.isRegularFile(file) {
+			s.emit(s.lines(file))
 		}
 	}
 	s.jsonValues("workspace", s.expand(".nanobot*/config.json"))
-	s.emit(grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
+	s.emit(s.grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
 		tomlFileURLMatcher("git_url")))
 	for _, manifest := range s.expand(".twinny/embeddings/*/manifest.json") {
-		if !isRegularFile(manifest) {
+		if !s.isRegularFile(manifest) {
 			continue
 		}
 		if dir, ok := commonDir(s.absStrings([]string{manifest})); ok {
@@ -156,17 +156,17 @@ func (s *homeScan) configFileSources() {
 func (s *homeScan) editorSources() {
 	for _, userDir := range s.expand("Library/Application Support/*/User", ".config/*/User",
 		"AppData/Roaming/*/User", ".*-server*/data/User") {
-		if !isDirectory(userDir) {
+		if !s.isDirectory(userDir) {
 			continue
 		}
-		if storage := userDir + "/workspaceStorage"; isDirectory(storage) {
-			s.emit(grepFiles(findNamed(s.ctx, storage, "workspace.json"), workspaceFolderMatcher()))
+		if storage := userDir + "/workspaceStorage"; s.isDirectory(storage) {
+			s.emit(s.grepFiles(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher()))
 		}
 		global := userDir + "/globalStorage"
-		s.jsonValues("cwdOnTaskInitialization", expandIn(global,
+		s.jsonValues("cwdOnTaskInitialization", s.expandIn(global,
 			"saoudrizwan.claude-dev/state/taskHistory.json",
 			"saoudrizwan.claude-dev/tasks/*/task_metadata.json"))
-		s.jsonValues("workspace", expandIn(global, "rooveterinaryinc.roo-cline/tasks/_index.json",
+		s.jsonValues("workspace", s.expandIn(global, "rooveterinaryinc.roo-cline/tasks/_index.json",
 			"kilocode.kilo-code/tasks/_index.json"))
 	}
 }

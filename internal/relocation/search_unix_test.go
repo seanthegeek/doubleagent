@@ -3,6 +3,8 @@
 package relocation
 
 import (
+	"context"
+	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -24,7 +26,8 @@ func TestSearchSkipsAPipeWithoutBlocking(t *testing.T) {
 		}},
 		{"the value reader reads nothing from a pipe", func() int {
 			hits := []LineName{{Line: 1, Name: "CODEX_HOME"}}
-			return len(run.resolve(pipe, "environment", "", hits).Assignments)
+			values, _ := run.resolve(context.Background(), pipe, "environment", "", hits)
+			return len(values.Assignments)
 		}},
 	}
 	for _, test := range cases {
@@ -40,5 +43,13 @@ func TestSearchSkipsAPipeWithoutBlocking(t *testing.T) {
 				t.Fatal("reading a pipe at a startup file's path did not return")
 			}
 		})
+	}
+}
+
+// linkOut makes link a symlink to the directory target, both native.
+func linkOut(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -412,8 +412,9 @@ The checker reads Go files too, with the exemptions of
   tests' dated fixture-block labels are the exceptions.
 - **Short comments.** A run of whole-line comments is at most ten lines;
   the file header and the collectors' reader's guide are the exceptions. A
-  docstring is at most ten lines, a module docstring at most thirty. What
-  needs more is a paragraph in the owning documentation page.
+  docstring is at most ten lines; a module docstring and a Go package
+  comment, which say what the module or package is for, at most thirty.
+  What needs more is a paragraph in the owning documentation page.
 - **Plain language.** Comments, docstrings, commit messages and
   documentation describe what the code does in words a newcomer
   understands. A domain term is used only where the code implements that
@@ -449,7 +450,7 @@ for Go files as it does for the others.
 - **Gates.** `gofmt -l cmd internal` prints nothing; `go vet ./...`,
   `staticcheck ./...` and `govulncheck ./...` pass at the versions the
   [Quality gates](#quality-gates) table pins; `go test -race ./...` passes.
-  The `go` CI job runs them on the Ubuntu and macOS runners, then builds the
+  The `go` CI job runs them on the Ubuntu, macOS and Windows runners, then builds the
   six release targets twice and fails when any hash differs.
 - **No cgo.** Every build of the binary sets `CGO_ENABLED=0`; a change that
   needs `import "C"` is refused. The tests alone may run with cgo, because the
@@ -466,8 +467,18 @@ for Go files as it does for the others.
 
   | Module | Version | Why |
   | --- | --- | --- |
-  | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; pure Go. |
+  | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; on Windows the calls the standard library does not expose: file handles opened without following a reparse point, the reparse tag that tells a symlink or junction from a socket, file owners through the security descriptor and account lookup, final paths of handles, directory symlinks, file times set on a handle, and the registry; pure Go. |
 
+- **File system calls.** Every file under `internal/` that is built for
+  Windows opens, lists, stats, creates and removes paths through
+  `internal/osfile`, never through `os` directly: on Windows the wrappers
+  pass the extended-length form (`\\?\`), so a name ending in a dot or a
+  space is the entry it names and a long path needs no special case, and
+  they return errors with the path in native form. A file built only for
+  Unix (`_unix.go`, `_linux.go`, `_darwin.go`, or a `!windows` build
+  constraint) may call `os` directly, since there the wrappers are the `os`
+  calls unchanged. A test in that package fails on a direct call in any
+  file of the Windows build.
 - **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
   files only, and runs only `getent`, `dscl` and `plutil`: the programs that
   give a platform's user list, or a launchd value, that no file gives.
@@ -496,7 +507,24 @@ for Go files as it does for the others.
   staging directory and exits 130.
 - **Paths are bytes.** A path is a `string` holding raw bytes: no `[]rune`,
   `strings.ToLower`, `utf8` decoding or `%q` on one; case folding is
-  ASCII-only where the sh collector lowers under `LC_ALL=C`. Directory
+  ASCII-only where the sh collector lowers under `LC_ALL=C`. Windows path
+  keys (`syspath.Fold`) fold ASCII only too: NTFS's own case table keeps
+  apart pairs any other fold would merge (`ı` and `I`), and merging two
+  names loses one of them. The fold is only a lookup key: a set, map or
+  claim over paths is a `syspath.Entries`, where two paths differing only in
+  ASCII case are one entry only when the file system gives both one
+  identity or says neither exists (`follow.SameEntry`), since a directory marked case-sensitive
+  holds `Alice` and `alice` apart; a test of whether a path lies under a
+  home or base trusts bytes first (`syspath.CutUnder`). A Windows path that comes from outside a
+  directory listing is respelled as the disk holds it through
+  `fsmeta.OnDiskPath` before it is compared, so two spellings of one
+  directory become the same bytes, stopping at the first link: `-r` and
+  `-o`, the analyst's own host paths, and the live registry's paths from
+  their drive; `-p` and values read from the image only below the root in
+  image mode.
+  A link target is compared as text, since respelling it could look
+  outside the root. Two `PhysicalDir` results are compared byte for byte
+  through `stage.Under`. Directory
   listings use `(*os.File).ReadDir(-1)` (directory order) where the sh
   collector uses `find`, and the glob expander (sorted) where it expands a
   pattern; never `filepath.WalkDir` or `os.ReadDir` on a collected tree.
@@ -517,10 +545,25 @@ for Go files as it does for the others.
   collectors' exceptions.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`; no test reads the
-  developer's home or the network, and no test runs `collect` without `-r`:
-  a run without a root collects the developer's own credentials. The parity harness
+  developer's home or the network, and no test runs `collect` without `-r`,
+  except the two live cases of the Windows parity harness that `PARITY_LIVE=1`
+  enables, which run only on the disposable CI runner and the lab VM and
+  delete their output: a run without a root collects the developer's own
+  credentials. An empty root (`-r ""`) is live mode too, exactly as no `-r`
+  at all, and so, on Linux and macOS, is a root that comes out as `/` once a
+  relative root is joined to the current directory and its `..` components
+  are taken away by name (`-r /`, `-r /tmp/..`, `-r ..` run from `/tmp`).
+  The sh collector also runs live when it is given a root it cannot enter
+  (one `[ -d ]` accepts but `cd` refuses), where the binary keeps image
+  mode. A symlink to `/` is not resolved, so it gives an image run whose
+  root is the whole workstation, which reads the same files, as does
+  `-r C:\` on Windows. A test or a hand run passes `-r` a real image
+  directory built for it, never an empty or computed value that can come
+  out empty. The parity harness
   (`internal/collect/parity`, build tag `parity`) diffs the binary against
-  the sh collector over the smoke image and runs in CI on both runners.
+  the sh collector over the sh smoke image on Linux and macOS and against the
+  PowerShell collector over the PowerShell smoke image on Windows, and runs
+  in CI on the three runners.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
   with `CGO_ENABLED=0 go build -trimpath -ldflags=-buildid=`; CI runs it
   twice per commit and compares the hashes. The version is one string in
@@ -1293,6 +1336,14 @@ changes, and the main session reviews. The brief sets the safety envelope:
   `lab/` is a separate step the user asks for explicitly.
 - A blocked clone or download is reported, never worked around from
   memory.
+- Nobody runs `doubleagent collect`, either collector script or a smoke
+  test on the workstation by accident: `-r ""`, `-r /` (Unix), a relative
+  root that comes out as `/` from the current directory (`-r ..` from
+  `/tmp`) and `-Root ''` are live runs, not image runs, and so is any root
+  the sh collector cannot enter; a root that is a symlink to `/` or a
+  drive's root (`-r C:\`) reads the whole workstation as an image.
+  A reviewer trying root spellings uses a root inside a scratch image, and a
+  brief for a subagent says so.
 - A subagent that runs a live collection against the workstation writes it
   under the scratchpad, deletes it afterwards, and reports no file contents
   or manifest rows from it; or the main session runs it.
@@ -1565,9 +1616,11 @@ parser's docstring at review.
 CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
 tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
 the Go gates, tests and six-target build and the parity job (the binary
-against the sh collector over the smoke image) on Ubuntu and macOS; the lint and
-site jobs of [Quality gates](#quality-gates); and a `CI result` job that
-fails when any of them failed or was cancelled. `CI result` is the one
+against the sh collector over the smoke image) on Ubuntu, macOS and Windows;
+the lint and site jobs of [Quality gates](#quality-gates); and a `CI result`
+job that fails when any of them failed or was cancelled. CI also runs on a
+push to a `go-rewrite-*` integration branch or a `unit-*` branch of the
+rewrite, so a unit's first run on the Windows runner precedes its merge. `CI result` is the one
 status check the ruleset on `main` requires. On the rewrite branch the sh
 smoke matrix, the macOS BSD smoke, the fork budget, the collector's
 shellcheck job and the two PowerShell smoke jobs do not run: the scripts

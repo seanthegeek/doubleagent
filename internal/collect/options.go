@@ -5,10 +5,14 @@ package collect
 import (
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Options holds every option of `collect`, with the defaults the sh collector
@@ -29,6 +33,19 @@ type Options struct {
 	Quiet           bool
 	MaxFileBytes    int64
 	EnvScanMaxBytes int64
+	// NoPreserveAtime, set by --no-preserve-atime, opens every file the run
+	// reads for reading alone. Without it, Windows opens ask for the right
+	// to change the file's attributes, which security software may watch
+	// for, wherever a read could move the access time, so they can ask
+	// Windows to leave that time as it was; with it, reading may change the
+	// time on disk. A manifest row's atime is taken before the copy, and for
+	// a file the relocation search reads, before that read. On Linux, macOS
+	// and other Unix systems files are always opened for reading alone, so
+	// it changes nothing there.
+	NoPreserveAtime bool
+	// lexicalRoot is Root made absolute as typed, before its components
+	// were respelled from the disk; "" with no root.
+	lexicalRoot string
 }
 
 // Action says what the command line asked for.
@@ -70,7 +87,8 @@ func (e *UsageError) Print(w io.Writer) {
 }
 
 // UsageText is the help text: the sh collector's, with the program name
-// `doubleagent collect` and without its worker-shell paragraph.
+// `doubleagent collect`, without its worker-shell paragraph and with the
+// binary's own --no-preserve-atime.
 const UsageText = `Usage: doubleagent collect [options]
 
   -o, --output DIR        Directory for the archive (default: current dir)
@@ -88,6 +106,8 @@ const UsageText = `Usage: doubleagent collect [options]
       --env-scan-max-size MB
                           Skip files larger than this in that search (default
                           1, 0 = none)
+      --no-preserve-atime Open files read-only; reading may change their
+                          access time on disk
   -k, --keep-staging      Keep the staging directory after archiving
       --inventory         Write nothing; print one JSON line per user and agent
                           found (file count, bytes, first and last mtime) to
@@ -181,17 +201,18 @@ func (raw *rawOptions) setValue(name, value string) {
 // one.
 func (raw *rawOptions) setFlag(name string) bool {
 	flags := map[string]*bool{
-		"--full":          &raw.options.Full,
-		"--no-secrets":    &raw.options.NoSecrets,
-		"--no-projects":   &raw.options.NoProjects,
-		"--no-docker":     &raw.options.NoDocker,
-		"--env-scan-home": &raw.options.EnvScanHome,
-		"-k":              &raw.options.KeepStaging,
-		"--keep-staging":  &raw.options.KeepStaging,
-		"--inventory":     &raw.options.Inventory,
-		"-q":              &raw.options.Quiet,
-		"--quiet":         &raw.options.Quiet,
-		"--list":          &raw.list,
+		"--full":              &raw.options.Full,
+		"--no-secrets":        &raw.options.NoSecrets,
+		"--no-projects":       &raw.options.NoProjects,
+		"--no-docker":         &raw.options.NoDocker,
+		"--env-scan-home":     &raw.options.EnvScanHome,
+		"--no-preserve-atime": &raw.options.NoPreserveAtime,
+		"-k":                  &raw.options.KeepStaging,
+		"--keep-staging":      &raw.options.KeepStaging,
+		"--inventory":         &raw.options.Inventory,
+		"-q":                  &raw.options.Quiet,
+		"--quiet":             &raw.options.Quiet,
+		"--list":              &raw.list,
 	}
 	flag, ok := flags[name]
 	if ok {
@@ -228,26 +249,37 @@ func mebibytes(text string) (int64, bool) {
 }
 
 // ResolveProjects returns OPTIONS with every -p path made absolute against the
-// current directory and listed once, as the sh collector does. A path is never
-// prefixed with the root: it names a place on the machine running the
-// collector. An empty path is dropped; a relative path that does not exist is
-// joined to the current directory unchanged.
+// current directory (absoluteProject, per platform) and listed once
+// (syspath.Entries): on a live run two spellings the file system calls one
+// entry are one; on an image run only equal bytes, the rest judged once the
+// root check exists (reachedProjects). A path is never prefixed
+// with the root: it names a place on the machine running the collector. An
+// empty path is dropped; the current directory is asked for only when a path
+// or, on Unix with a relative -p, the root is relative (imageCheck).
 func ResolveProjects(options Options, getwd func() (string, error)) (Options, error) {
 	var resolved []string
-	seen := map[string]bool{}
+	check := imageCheck(options, getwd)
+	// The root is not resolved yet, so an image run asks the file system
+	// nothing about the analyst's paths here (reachedProjects does, under
+	// the root check); a live run asks about its own.
+	var same syspath.SameEntry
+	if options.Root == "" {
+		same = follow.SameEntry(nil)
+	}
+	seen := syspath.NewEntries[struct{}](same)
 	for _, project := range options.Projects {
 		if project == "" {
 			continue
 		}
+		cwd := ""
 		if !filepath.IsAbs(project) {
-			cwd, err := getwd()
-			if err != nil {
+			var err error
+			if cwd, err = getwd(); err != nil {
 				return options, fmt.Errorf("resolve project %s: %w", project, err)
 			}
-			project = absoluteProject(cwd, project)
 		}
-		if !seen[project] {
-			seen[project] = true
+		project = absoluteProject(cwd, project, check)
+		if seen.Add(project, struct{}{}) {
 			resolved = append(resolved, project)
 		}
 	}
@@ -255,22 +287,43 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 	return options, nil
 }
 
-// absoluteProject joins the relative PROJECT to CWD. An existing directory is
-// cleaned (the shell's `cd` then `pwd`); anything else keeps its spelling,
-// minus one leading "./".
-func absoluteProject(cwd, project string) string {
-	joined := filepath.Join(cwd, project)
-	if isDirectory(joined) {
-		return joined
+// respellProjects returns the -p paths, `.` and `..` removed by name on
+// Windows (syspath.Opened), with existing components spelled as the disk
+// holds them, each listed once by its bytes (two spellings of one existing
+// directory are one spelling by then): below root in image mode, so a path outside
+// the image stays as typed and is never looked at, and from the drive on a
+// live run. A path starting with lexicalRoot, the root as typed (which may
+// hold a short name or another case the respelled root lost), first has that
+// start replaced by root, so a -p spelled like -r stays under it; another
+// spelling of the root counts as outside the image. It runs once the root is
+// resolved, after ResolveProjects, so the order of the errors is the sh one.
+func respellProjects(projects []string, lexicalRoot, root string) []string {
+	var respelled []string
+	seen := map[string]bool{}
+	lexicalRoot = syspath.Opened(lexicalRoot)
+	for _, project := range projects {
+		// On Windows, `.` and `..` are removed by name as Win32 removes
+		// them, so one string is checked, opened, staged and logged.
+		project = syspath.Opened(project)
+		if rest, found := syspath.CutPrefix(project, lexicalRoot+"/"); root != "" && found {
+			project = root + "/" + rest
+		} else if root != "" && syspath.Equal(project, lexicalRoot) {
+			project = root
+		}
+		project = fsmeta.OnDiskPath(root, project)
+		if !seen[project] {
+			seen[project] = true
+			respelled = append(respelled, project)
+		}
 	}
-	return cwd + "/" + strings.TrimPrefix(project, "./")
+	return respelled
 }
 
 // isDirectory reports whether PATH is a directory or a link to one. The
 // command line names the base of a collection, so following a link here is the
 // shell's own `[ -d ]` and `cd`.
 func isDirectory(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
 }
 
@@ -284,30 +337,30 @@ func (e *RootError) Error() string {
 	return "Root is not a directory: " + e.Root
 }
 
-// ResolveRoot returns OPTIONS with Root made absolute. A root that is not a
-// directory is an error (exit code 2). The root "/" becomes "", which means
-// live mode.
+// ResolveRoot returns OPTIONS with Root made absolute and canonical
+// (absoluteRoot, per platform); the current directory is asked for only when
+// the root is relative. A root that is not a directory is an error
+// (exit code 2). A root liveRoot names the live system becomes "", which
+// means live mode: "/" on Unix, none on Windows.
 func ResolveRoot(options Options, getwd func() (string, error)) (Options, error) {
 	if options.Root == "" {
 		return options, nil
 	}
-	root := options.Root
-	checked := root
-	if !filepath.IsAbs(root) {
-		cwd, err := getwd()
-		if err != nil {
-			return options, fmt.Errorf("resolve root %s: %w", root, err)
+	cwd := ""
+	if !filepath.IsAbs(options.Root) {
+		var err error
+		if cwd, err = getwd(); err != nil {
+			return options, fmt.Errorf("resolve root %s: %w", options.Root, err)
 		}
-		checked = cwd + "/" + root
-		root = filepath.Join(cwd, root)
 	}
+	root, checked := absoluteRoot(cwd, options.Root)
 	if !isDirectory(checked) {
 		return options, &RootError{Root: options.Root}
 	}
-	root = filepath.Clean(root)
-	if root == "/" {
-		root = ""
+	lexical := typedRoot(cwd, options.Root, root)
+	if liveRoot(root) {
+		root, lexical = "", ""
 	}
-	options.Root = root
+	options.Root, options.lexicalRoot = root, lexical
 	return options, nil
 }

@@ -80,29 +80,6 @@ func (f fixture) write(path, content string) {
 	}
 }
 
-// symlink creates a link at path to target, making its directory first.
-func (f fixture) symlink(target, path string) {
-	f.t.Helper()
-	f.dir(filepath.Dir(path))
-	f.created(path)
-	if err := os.Symlink(target, path); err != nil {
-		f.t.Fatal(err)
-	}
-}
-
-// chmod sets the mode of path and puts its old mode back at the end.
-func (f fixture) chmod(path string, mode os.FileMode) {
-	f.t.Helper()
-	info, err := os.Lstat(path)
-	if err != nil {
-		f.t.Fatal(err)
-	}
-	f.t.Cleanup(func() { _ = os.Chmod(path, info.Mode().Perm()) })
-	if err := os.Chmod(path, mode); err != nil {
-		f.t.Fatal(err)
-	}
-}
-
 // touch sets the modification time of path and puts the old one back at the end.
 func (f fixture) touch(path string, when time.Time) {
 	f.t.Helper()
@@ -113,19 +90,6 @@ func (f fixture) touch(path string, when time.Time) {
 	f.t.Cleanup(func() { _ = os.Chtimes(path, info.ModTime(), info.ModTime()) })
 	if err := os.Chtimes(path, when, when); err != nil {
 		f.t.Fatal(err)
-	}
-}
-
-// isRoot reports whether the test runs as root.
-func isRoot() bool {
-	return os.Geteuid() == 0
-}
-
-// requireNonRoot skips the test when it runs as root, which ignores mode 000.
-func requireNonRoot(t *testing.T) {
-	t.Helper()
-	if isRoot() {
-		t.Skip("running as root: mode 000 does not stop it")
 	}
 }
 

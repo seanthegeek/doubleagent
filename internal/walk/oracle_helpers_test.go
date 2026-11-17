@@ -1,3 +1,5 @@
+//go:build unix
+
 package walk
 
 import (
@@ -5,11 +7,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -116,12 +120,13 @@ func runGoCollector(t *testing.T, root string, settings runSettings) shRun {
 		Tables: tables, Excludes: tables.Excludes, Secret: MatchAny(tables.SecretGlobs),
 		Log: log, Manifest: manifest.NewWriter(&rows), Root: root, MaxSize: settings.maxSize,
 		NoSecrets: settings.noSecrets,
-		Stager:    stage.Stager{Dir: stageDir, Physical: physical, Root: root},
+		Stager:    stage.Stager{Dir: stageDir, Physical: physical, Root: root, Places: stage.NewPlaces()},
 	}
 	if settings.full {
 		collector.Excludes = nil
 	}
-	homes := users.Enumerate(false, root, "", nil)
+	homes := users.Enumerate(context.Background(), false, root, "", nil, nil, nil,
+		NewRootCheck(root).Reached)
 	if err := collector.CollectUserHomes(context.Background(), homes); err != nil {
 		t.Fatal(err)
 	}
@@ -132,6 +137,68 @@ func runGoCollector(t *testing.T, root string, settings runSettings) shRun {
 // volatileFields matches the row fields the comparison drops: atime, which
 // the sh run's own reads change, and the error text, a documented difference.
 var volatileFields = regexp.MustCompile(`"atime":[0-9]+,|"error":"(\\.|[^"\\])*"`)
+
+// ignoresCase reports whether dir takes two names that differ only in ASCII
+// letter case for one, by making a lower-case probe file, looking it up in
+// upper case and removing it.
+func ignoresCase(t *testing.T, dir string) bool {
+	t.Helper()
+	if err := os.WriteFile(dir+"/case-probe", nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(dir + "/case-probe")
+	_, err := os.Lstat(dir + "/CASE-PROBE")
+	return err == nil
+}
+
+// archivePathField matches a row's archive_path field.
+var archivePathField = regexp.MustCompile(`"archive_path":"(\\.|[^"\\])*"`)
+
+// requireStagedMembers fails unless every row with an archive path names an
+// entry of the staging tree spelled exactly so, component by component as
+// each directory lists it: a collected row's file with the bytes it hashed,
+// a link row's link with its target.
+func requireStagedMembers(t *testing.T, stageDir string, rows []string) {
+	t.Helper()
+	for _, line := range rows {
+		var row struct {
+			ArchivePath string `json:"archive_path"`
+			Status      string `json:"status"`
+			SHA256      string `json:"sha256"`
+			Target      string `json:"target"`
+		}
+		if err := json.Unmarshal([]byte(line), &row); err != nil || row.ArchivePath == "" {
+			continue
+		}
+		directory := stageDir
+		for _, component := range strings.Split(row.ArchivePath, "/") {
+			names, err := os.ReadDir(directory)
+			if err != nil || !slices.ContainsFunc(names, func(entry fs.DirEntry) bool {
+				return entry.Name() == component
+			}) {
+				t.Errorf("row names %s, which the staging tree does not hold under that spelling",
+					row.ArchivePath)
+				break
+			}
+			directory += "/" + component
+		}
+		member := stageDir + "/" + row.ArchivePath
+		switch row.Status {
+		case "symlink":
+			if target, err := os.Readlink(member); err != nil || target != row.Target {
+				t.Errorf("row names link %s, staged as %q, %v; want %q", row.ArchivePath, target,
+					err, row.Target)
+			}
+		case "collected":
+			content, err := os.ReadFile(member)
+			sum := sha256.Sum256(content)
+			if err != nil || hex.EncodeToString(sum[:]) != row.SHA256 {
+				t.Errorf("row names %s, whose staged bytes do not hash to %s (%v)",
+					row.ArchivePath, row.SHA256, err)
+			}
+		}
+	}
+}
 
 // walkLine matches the log lines the home walk writes.
 var walkLine = regexp.MustCompile(`^(User |  \[|read failed: |copy failed: |find: )`)
@@ -157,13 +224,25 @@ func normaliseFailure(line string) string {
 
 // compareRows checks that the sh manifest starts with the Go rows, fields
 // dropped, and that every sh row after them belongs to the relocation step.
-func compareRows(t *testing.T, want, got []string) {
+func compareRows(t *testing.T, want, got []string, goStage string) {
 	t.Helper()
 	if len(got) > len(want) {
 		t.Fatalf("%d Go rows, %d sh rows", len(got), len(want))
 	}
+	requireStagedMembers(t, goStage, got)
+	// On a staging volume that takes two spellings for one, the Go row names
+	// the member as the staging tree spells it (Devin/User/... staged in the
+	// directory devin made), the sh row the source's spelling: only that
+	// field is then compared without regard to ASCII case.
+	normal := func(row string) string { return volatileFields.ReplaceAllString(row, "") }
+	if ignoresCase(t, goStage+"/fs") {
+		normal = func(row string) string {
+			return archivePathField.ReplaceAllStringFunc(volatileFields.ReplaceAllString(row, ""),
+				strings.ToLower)
+		}
+	}
 	for i, row := range got {
-		if volatileFields.ReplaceAllString(row, "") != volatileFields.ReplaceAllString(want[i], "") {
+		if normal(row) != normal(want[i]) {
 			t.Fatalf("row %d:\n sh %s\n go %s", i, want[i], row)
 		}
 	}

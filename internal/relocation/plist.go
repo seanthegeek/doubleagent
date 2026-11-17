@@ -1,15 +1,18 @@
 package relocation
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 // PlistReader reads launchd property lists; hostcmd.Plutil is the one in use.
 type PlistReader interface {
 	// Available reports whether the reader can run on this host.
 	Available() bool
 	// Lint reports whether the file at path is a property list it can read.
-	Lint(path string) bool
+	Lint(ctx context.Context, path string) bool
 	// ExtractString reads the string at keyPath, as hostcmd.Plutil documents.
-	ExtractString(path, keyPath string) (value, reason string, found bool)
+	ExtractString(ctx context.Context, path, keyPath string) (value, reason string, found bool)
 }
 
 // FileValues is what a value reader made of one hit file: a Reason for the
@@ -27,13 +30,22 @@ type FileValues struct {
 // launchd reads it, and the plist's UserName. Each value is an Assignment on
 // line 0, since plutil reports no line; a name with no value there gives
 // none. A UserName is kept when it starts with a letter or underscore and
-// holds only letters, digits, `_`, `.` and `-`.
-func ResolvePlist(plutil PlistReader, path string, hits []LineName) FileValues {
-	if plutil == nil || !plutil.Available() {
-		return FileValues{Reason: "no plutil"}
+// holds only letters, digits, `_`, `.` and `-`. Once ctx is cancelled no
+// further plutil is run and ctx's error is returned, with no values.
+func ResolvePlist(ctx context.Context, plutil PlistReader, path string, hits []LineName,
+) (FileValues, error) {
+	if err := ctx.Err(); err != nil {
+		return FileValues{}, err
 	}
-	if !plutil.Lint(path) {
-		return FileValues{Reason: "plutil could not read the file"}
+	if plutil == nil || !plutil.Available() {
+		return FileValues{Reason: "no plutil"}, nil
+	}
+	linted := plutil.Lint(ctx, path)
+	if err := ctx.Err(); err != nil {
+		return FileValues{}, err
+	}
+	if !linted {
+		return FileValues{Reason: "plutil could not read the file"}, nil
 	}
 	var values FileValues
 	seen := map[string]bool{}
@@ -42,17 +54,20 @@ func ResolvePlist(plutil PlistReader, path string, hits []LineName) FileValues {
 			continue
 		}
 		seen[hit.Name] = true
-		value, reason, found := plutil.ExtractString(path, "EnvironmentVariables."+hit.Name)
+		value, reason, found := plutil.ExtractString(ctx, path, "EnvironmentVariables."+hit.Name)
+		if err := ctx.Err(); err != nil {
+			return FileValues{}, err
+		}
 		if found {
 			values.Assignments = append(values.Assignments,
 				Assignment{Line: 0, Name: hit.Name, Value: value, Reason: reason})
 		}
 	}
-	user, reason, found := plutil.ExtractString(path, "UserName")
+	user, reason, found := plutil.ExtractString(ctx, path, "UserName")
 	if found && reason == "" && isAccountName(user) {
 		values.User = user
 	}
-	return values
+	return values, ctx.Err()
 }
 
 // isAccountName reports a plain account name: a letter or underscore, then

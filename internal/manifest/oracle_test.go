@@ -100,6 +100,8 @@ func decodeRow(t *testing.T, line string) Row {
 		UID         uint32 `json:"uid"`
 		GID         uint32 `json:"gid"`
 		Mode        string `json:"mode"`
+		Owner       string `json:"owner"`
+		Attributes  string `json:"attributes"`
 		SHA256      string `json:"sha256"`
 		Secret      bool   `json:"secret"`
 		Status      Status `json:"status"`

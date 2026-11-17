@@ -1,6 +1,7 @@
 package hostcmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,10 +45,10 @@ func TestExtractedStringReadsTheOneElementDocument(t *testing.T) {
 func TestPlutilRunsTheExpectedCommands(t *testing.T) {
 	fake := &Fake{Outputs: map[string][]byte{"plutil": []byte(plutilDocument("<string>svc</string>"))}}
 	plutil := NewPlutil(fake)
-	if !plutil.Available() || !plutil.Lint("/p.plist") {
+	if !plutil.Available() || !plutil.Lint(context.Background(), "/p.plist") {
 		t.Fatal("plutil should be available and lint should pass")
 	}
-	value, reason, found := plutil.ExtractString("/p.plist", "UserName")
+	value, reason, found := plutil.ExtractString(context.Background(), "/p.plist", "UserName")
 	if !found || value != "svc" || reason != "" {
 		t.Errorf("ExtractString = %q, %q, %v", value, reason, found)
 	}
@@ -56,10 +57,10 @@ func TestPlutilRunsTheExpectedCommands(t *testing.T) {
 		t.Errorf("calls = %q, want %q", fake.Calls, want)
 	}
 	missing := NewPlutil(&Fake{})
-	if missing.Available() || missing.Lint("/p.plist") {
+	if missing.Available() || missing.Lint(context.Background(), "/p.plist") {
 		t.Error("a host without plutil has none to run")
 	}
-	if _, _, found := missing.ExtractString("/p.plist", "UserName"); found {
+	if _, _, found := missing.ExtractString(context.Background(), "/p.plist", "UserName"); found {
 		t.Error("no value is found without plutil")
 	}
 }
@@ -92,13 +93,13 @@ func TestPlutilOnThisHost(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.keyPath, func(t *testing.T) {
-			value, reason, found := plutil.ExtractString(path, testCase.keyPath)
+			value, reason, found := plutil.ExtractString(context.Background(), path, testCase.keyPath)
 			if value != testCase.value || reason != testCase.reason || found != testCase.found {
 				t.Errorf("got %q, %q, %v", value, reason, found)
 			}
 		})
 	}
-	if plutil.Lint(filepath.Join(directory, "missing.plist")) {
+	if plutil.Lint(context.Background(), filepath.Join(directory, "missing.plist")) {
 		t.Error("lint passes a missing file")
 	}
 }

@@ -1,3 +1,5 @@
+//go:build unix
+
 package summary
 
 import (
@@ -34,6 +36,9 @@ type shDocument struct {
 		Projects       []string `json:"projects"`
 		EnvScanHome    bool     `json:"env_scan_home"`
 		EnvScanMaxSize int64    `json:"env_scan_max_size_bytes"`
+		// The sh collector writes no no_preserve_atime; the field is here
+		// so the struct converts to Options, and stays false.
+		NoPreserveAtime bool `json:"no_preserve_atime"`
 	} `json:"options"`
 	Capabilities struct {
 		Plutil bool `json:"plutil"`
@@ -169,7 +174,7 @@ func summaryFrom(t *testing.T, document, stdout string) Summary {
 	}
 	summary := Summary{
 		Version: parsed.Version, Hostname: parsed.Hostname, Mode: parsed.Mode, Root: parsed.Root,
-		Platform: parsed.Platform, UID: uid, Started: parsed.Started, Finished: parsed.Finished,
+		Platform: parsed.Platform, Identity: Identity{UID: uid}, Started: parsed.Started, Finished: parsed.Finished,
 		Options: Options(parsed.Options), Plutil: parsed.Capabilities.Plutil, Users: parsed.Users,
 		Homes: parsed.Homes, ActiveUsers: parsed.Active, Projects: parsed.Projects,
 		Counts: manifest.Counts{ByStatus: byStatus, CollectedBytes: parsed.Counts["collected_bytes"]},
@@ -237,7 +242,10 @@ func TestWritersMatchShCollector(t *testing.T) {
 				t.Fatal(err)
 			}
 			drop := []string{`"started"`, `"finished"`, `"archive"`, `"tool"`, `"version"`, `"capabilities"`}
-			if dropLines(got.String(), drop...) != dropLines(document, drop...) {
+			// The binary's own --no-preserve-atime, which the sh collector
+			// does not have, is recorded at the end of the options line.
+			written := strings.Replace(got.String(), `, "no_preserve_atime": false}`, "}", 1)
+			if dropLines(written, drop...) != dropLines(document, drop...) {
 				t.Errorf("collection.json differs\ngo:\n%s\nsh:\n%s", got.String(), document)
 			}
 			var result strings.Builder

@@ -3,14 +3,17 @@ package volumes
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
@@ -49,6 +52,7 @@ func newSetup(t *testing.T, inventory bool) setup {
 	if err != nil {
 		t.Fatal(err)
 	}
+	root = syspath.FromNative(root)
 	stageDir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -61,10 +65,15 @@ func newSetup(t *testing.T, inventory bool) setup {
 	collector := &walk.Collector{
 		Tables: tables, Excludes: tables.Excludes, Secret: walk.MatchAny(tables.SecretGlobs),
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root,
-		Stager:    stage.Stager{Dir: stageDir, Physical: stageDir, Root: root},
+		Stager:    stage.Stager{Dir: stageDir, Physical: stageDir, Root: root, Places: stage.NewPlaces()},
 		Inventory: inventory, Records: records,
 	}
 	return setup{root, collector, rows, log, records}
+}
+
+// bases are the image bases of the fixture's root.
+func (fixture setup) bases() Bases {
+	return Bases{System: fixture.root, ProgramData: fixture.root + "/ProgramData"}
 }
 
 // write creates a file with its parents under the root.
@@ -124,16 +133,24 @@ func linkCases() []volumeCase {
 		{"a symlinked volume is not counted", func(t *testing.T, fixture setup) {
 			fixture.mkdir(t, "elsewhere/_data")
 			fixture.mkdir(t, "var/lib/docker/volumes")
-			if err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
-				filepath.Join(fixture.root, volumes, "ollama")); err != nil {
+			err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
+				filepath.Join(fixture.root, volumes, "ollama"))
+			if symlinkNeedsPrivilege(err) {
+				t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 		}, Counts{Seen: true}, 0, 0, ""},
 		{"a symlinked volumes directory is noted and not followed", func(t *testing.T, fixture setup) {
 			fixture.mkdir(t, "elsewhere/ollama/_data")
 			fixture.mkdir(t, "var/lib/docker")
-			if err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
-				filepath.Join(fixture.root, "var/lib/docker/volumes")); err != nil {
+			err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
+				filepath.Join(fixture.root, "var/lib/docker/volumes"))
+			if symlinkNeedsPrivilege(err) {
+				t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 		}, Counts{Seen: true}, 0, 1, "is a symlink and was not followed"},
@@ -152,9 +169,9 @@ func TestCollectVolumes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newSetup(t, false)
 			test.build(t, fixture)
-			homes := []users.Home{{User: "alice", Path: filepath.Join(fixture.root, "home/alice")}}
+			homes := []users.Home{{User: "alice", Path: fixture.root + "/home/alice"}}
 			var notes []string
-			got, err := Collect(context.Background(), fixture.collector, fixture.root, homes, &notes)
+			got, err := Collect(context.Background(), fixture.collector, fixture.bases(), homes, &notes)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -174,31 +191,12 @@ func TestCollectVolumes(t *testing.T) {
 	}
 }
 
-func TestUnmatchedVolumeRow(t *testing.T) {
-	fixture := newSetup(t, false)
-	fixture.write(t, "var/lib/docker/volumes/postgres/_data/PG_VERSION", "16")
-	var notes []string
-	if _, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes); err != nil {
-		t.Fatal(err)
-	}
-	data := filepath.Join(fixture.root, "var/lib/docker/volumes/postgres/_data")
-	want := `{"user":"docker","home":"` + data + `","agent":"","path":"` + data +
-		`","archive_path":"","type":"dir","size":`
-	row := fixture.rows.String()
-	if !strings.HasPrefix(row, want) ||
-		!strings.HasSuffix(row, `,"mtime":0,"atime":0,"ctime":0,"btime":0,"uid":0,"gid":0,`+
-			`"mode":"0","sha256":"","secret":false,"status":"skipped_unmatched_volume",`+
-			`"target":"","error":""}`+"\n") {
-		t.Errorf("row = %s", row)
-	}
-}
-
 func TestInventoryRecordsMatchedVolumesOnly(t *testing.T) {
 	fixture := newSetup(t, true)
 	fixture.write(t, "var/lib/docker/volumes/a0_usr/_data/f", "hi")
 	fixture.write(t, "var/lib/docker/volumes/postgres/_data/f", "hi")
 	var notes []string
-	got, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes)
+	got, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,28 +206,6 @@ func TestInventoryRecordsMatchedVolumesOnly(t *testing.T) {
 	if strings.Join(fixture.records.matches, ",") != "agent-zero|*a0_usr" ||
 		strings.Join(fixture.records.files, ",") != "agent-zero" {
 		t.Errorf("records = %+v", fixture.records)
-	}
-}
-
-func TestUnreadableVolumeIsNotedAndCounted(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root reads every directory")
-	}
-	fixture := newSetup(t, false)
-	fixture.write(t, "var/lib/docker/volumes/ollama/_data/f", "x")
-	volume := filepath.Join(fixture.root, "var/lib/docker/volumes/ollama")
-	if err := os.Chmod(volume, 0); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(volume, 0o755) })
-	var notes []string
-	got, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "docker: volume ollama (ollama) at " + volume + " is not readable; run as root to collect it"
-	if got.Unreadable != 1 || got.Collected != 0 || len(notes) != 1 || notes[0] != want {
-		t.Errorf("counts = %+v, notes = %q", got, notes)
 	}
 }
 
@@ -250,7 +226,53 @@ func TestCancelledContextStopsCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var notes []string
-	if _, err := Collect(ctx, fixture.collector, fixture.root, nil, &notes); err == nil {
+	if _, err := Collect(ctx, fixture.collector, fixture.bases(), nil, &notes); err == nil {
 		t.Error("a cancelled context gave no error")
+	}
+}
+
+func TestUnmatchedVolumeRow(t *testing.T) {
+	fixture := newSetup(t, false)
+	fixture.write(t, "var/lib/docker/volumes/postgres/_data/PG_VERSION", "16")
+	var notes []string
+	if _, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes); err != nil {
+		t.Fatal(err)
+	}
+	data := syspath.ToNative(fixture.root + "/var/lib/docker/volumes/postgres/_data")
+	var row map[string]any
+	if err := json.Unmarshal(fixture.rows.Bytes(), &row); err != nil {
+		t.Fatalf("row %s: %v", fixture.rows, err)
+	}
+	want := map[string]any{"user": "docker", "home": data, "agent": "", "path": data,
+		"archive_path": "", "type": "dir", "mtime": 0.0, "atime": 0.0, "ctime": 0.0, "btime": 0.0,
+		"uid": 0.0, "gid": 0.0, "mode": fsmeta.ZeroMeta().Mode, "sha256": "", "secret": false,
+		"status": "skipped_unmatched_volume", "target": "", "error": ""}
+	for name, value := range want {
+		if row[name] != value {
+			t.Errorf("%s = %#v, want %#v in %s", name, row[name], value, fixture.rows)
+		}
+	}
+}
+
+func TestBasesPlaceTheSystemVolumeDirectories(t *testing.T) {
+	fixture := newSetup(t, false)
+	fixture.write(t, "sys/var/lib/docker/volumes/postgres/_data/f", "x")
+	fixture.write(t, "data/Docker/volumes/redis/_data/f", "x")
+	fixture.mkdir(t, "data/DockerDesktop")
+	fixture.write(t, "ProgramData/Docker/volumes/ignored/_data/f", "x")
+	bases := Bases{System: fixture.root + "/sys", ProgramData: fixture.root + "/data"}
+	var notes []string
+	got, err := Collect(context.Background(), fixture.collector, bases, nil, &notes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantNote := "docker: Docker Desktop data at " + syspath.ToNative(fixture.root+"/data/DockerDesktop") +
+		"; volumes inside its virtual machine disk are not collected"
+	if got.Found != 2 || !got.Desktop || len(notes) != 1 || notes[0] != wantNote {
+		t.Errorf("counts %+v, notes %q; want 2 volumes and the note %q", got, notes, wantNote)
+	}
+	wantLine := "Docker volumes in " + syspath.ToNative(fixture.root+"/data/Docker/volumes")
+	if !strings.Contains(strings.Join(fixture.log.lines, "\n"), wantLine) {
+		t.Errorf("log %q lacks %q", fixture.log.lines, wantLine)
 	}
 }

@@ -44,9 +44,15 @@ type Row struct {
 	UID         uint32
 	GID         uint32
 	Mode        string
-	SHA256      string
-	Secret      bool
-	Status      Status
-	Target      string
-	Error       string
+	// Owner is the owning account as DOMAIN\name, the security ID text when
+	// the name cannot be translated, or "". It is written on Windows rows only.
+	Owner string
+	// Attributes is the .NET FileAttributes text, such as "Archive, ReparsePoint".
+	// It is written on Windows rows only.
+	Attributes string
+	SHA256     string
+	Secret     bool
+	Status     Status
+	Target     string
+	Error      string
 }

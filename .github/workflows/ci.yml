@@ -1,8 +1,11 @@
 name: CI
 
+# A milestone integration branch of the Go rewrite (go-rewrite-*) and a
+# unit branch (unit-*) run CI too, so a unit's first run on the Windows
+# runner precedes its merge.
 on:
   push:
-    branches: [main, go-rewrite]
+    branches: [main, go-rewrite, 'go-rewrite-*', 'unit-*']
   pull_request:
 
 # Every job only checks out the repository and downloads public release
@@ -152,21 +155,26 @@ jobs:
       - name: pytest (round pipeline)
         run: python3 -m pytest lab/round/tests -q
 
-  # The Go binary's gates, tests and release build, on the two runners whose
-  # tools the parity harness will need (dash, BSD and GNU userlands). The
-  # linters are pinned in the env block and run with `go run module@version`,
-  # so go.mod and vendor/ hold only what the binary links. The build script
-  # runs twice and the hashes must agree: a release build is reproducible or
-  # it does not ship.
+  # The Go binary's gates, tests and release build, on the three runners whose
+  # tools the parity harness needs (dash with the GNU and BSD userlands, and
+  # Windows PowerShell 5.1). The linters are pinned in the env block and run
+  # with `go run module@version`, so go.mod and vendor/ hold only what the
+  # binary links. The build script runs twice and the hashes must agree: a
+  # release build is reproducible or it does not ship. Every step runs under
+  # bash so the same shell lines serve the Windows runner (Git Bash).
   go:
     name: Go (gates, tests, six-target build on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: changes
     if: needs.changes.outputs.go == 'true'
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     env:
       CGO_ENABLED: "0"
     steps:
@@ -191,8 +199,9 @@ jobs:
           CGO_ENABLED: "1"
         run: go test -race ./...
       # The glob package's tests under the parity tag compare it with dash,
-      # which both runners ship; Debian's dash and Apple's differ in origin.
+      # which the Unix runners ship; Debian's dash and Apple's differ in origin.
       - name: go test (dash oracle)
+        if: runner.os != 'Windows'
         env:
           CGO_ENABLED: "1"
         run: go test -race -tags parity ./internal/glob/
@@ -203,21 +212,28 @@ jobs:
           cat "$RUNNER_TEMP/sums-1"
           cmp "$RUNNER_TEMP/sums-1" "$RUNNER_TEMP/sums-2"
 
-  # The parity harness: the sh collector and the binary run over the smoke
-  # test's image with the same arguments, and their manifests, logs, summaries,
-  # output and archive members are compared (internal/collect/parity). Each
-  # runner's own dash and system tools run the sh side. The sh collector takes
-  # about half a minute a case, so the test timeout is raised above go test's
-  # ten-minute default.
+  # The parity harness: the script collector of the runner's platform (the sh
+  # collector on Linux and macOS, the PowerShell collector on Windows) and the
+  # binary run over the smoke test's image with the same arguments, and their
+  # manifests, logs, summaries, output and archive members are compared
+  # (internal/collect/parity). The collectors are subprocesses, so the race
+  # detector would only slow the test binary and is left off here. A case takes
+  # up to half a minute, so the test timeout is raised above go test's
+  # ten-minute default. PARITY_LIVE lets the two live cases of the Windows table
+  # run on this disposable runner; they never run on a developer's machine.
   go-parity:
-    name: Go parity with the sh collector on ${{ matrix.os }}
+    name: Go parity with the script collector on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: changes
     if: needs.changes.outputs.go == 'true'
+    timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     env:
       CGO_ENABLED: "0"
     steps:
@@ -227,8 +243,8 @@ jobs:
           go-version-file: go.mod
       - name: go test (parity)
         env:
-          CGO_ENABLED: "1"
-        run: go test -race -count=1 -timeout 90m -tags parity ./...
+          PARITY_LIVE: ${{ runner.os == 'Windows' && '1' || '0' }}
+        run: go test -count=1 -timeout 90m -tags parity ./...
 
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters)

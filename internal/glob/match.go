@@ -14,9 +14,11 @@ import "strings"
 
 // MatchPath reports whether path matches pattern as the shell's `case` does:
 // `*` and `?` match any byte, `/` and newline included, and a leading `.`
-// needs no literal dot.
+// needs no literal dot. On Windows every test in this package ignores ASCII
+// case, pattern and subject lowered first, as the PowerShell collector's
+// regexes do; a bracket range is lowered as written ([A-Z] is [a-z]).
 func MatchPath(pattern, path string) bool {
-	return match(pattern, path)
+	return match(fold(pattern), fold(path))
 }
 
 // MatchSegment reports whether one directory entry name matches one segment
@@ -25,13 +27,41 @@ func MatchPath(pattern, path string) bool {
 // untested; otherwise a name starting with `.` matches only a segment whose
 // first character, escaped or not, is a dot.
 func MatchSegment(pattern, name string) bool {
+	return matchSegment(pattern, name, fold)
+}
+
+// matchSegment is MatchSegment with names compared after foldName, so a
+// test can give it the fold of another platform.
+func matchSegment(pattern, name string, foldName func(string) string) bool {
 	if !segmentHasWildcard(pattern) {
-		return unescape(pattern) == name
+		return foldName(unescape(pattern)) == foldName(name)
 	}
-	if strings.HasPrefix(name, ".") && !segmentMatchesDot(pattern) {
+	return wildcardMatches(pattern, name, foldName)
+}
+
+// wildcardMatches reports whether name matches a segment holding a
+// wildcard: a name starting with `.` only when the segment's first
+// character, escaped or not, is a dot, and then by match over the folded
+// forms. The dot rule reads the names as written, since folding never
+// changes a dot.
+func wildcardMatches(segment, name string, foldName func(string) string) bool {
+	if strings.HasPrefix(name, ".") && !segmentMatchesDot(segment) {
 		return false
 	}
-	return match(pattern, name)
+	return match(foldName(segment), foldName(name))
+}
+
+// foldASCII returns text with the ASCII capitals A to Z lowered and every
+// other byte kept, the Windows fold; it is plain code so every platform
+// tests it.
+func foldASCII(text string) string {
+	lowered := []byte(text)
+	for i, character := range lowered {
+		if 'A' <= character && character <= 'Z' {
+			lowered[i] = character + 'a' - 'A'
+		}
+	}
+	return string(lowered)
 }
 
 // QuoteMeta returns text with `[`, `]`, `*`, `?` and `\` escaped by a

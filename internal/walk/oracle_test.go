@@ -89,7 +89,7 @@ func TestEdgeTreeRowsMatchShCollector(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			want := runShCollector(t, root, test.options)
 			got := runGoCollector(t, root, test.settings)
-			compareRows(t, want.rows, got.rows)
+			compareRows(t, want.rows, got.rows, got.stage)
 			compareLog(t, want.log, got.log)
 			compareStage(t, want.stage, got.stage)
 			rows, log := strings.Join(got.rows, "\n"), strings.Join(got.log, "\n")

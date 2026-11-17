@@ -8,3 +8,7 @@ analyzer/docs/output.md text eol=lf
 *.go text eol=lf
 # The vendored modules are third-party source a reviewer reads as generated.
 vendor/** linguist-generated=true
+
+# The embedded catalog is compared byte for byte with `collect --list`.
+internal/catalog/catalog.txt text eol=lf
+analyzer/doubleagent/catalog.txt text eol=lf

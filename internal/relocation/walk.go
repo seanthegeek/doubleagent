@@ -3,17 +3,19 @@ package relocation
 import (
 	"context"
 	"io/fs"
-	"os"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// sweepWalk lists the files of one sweep as the sh collector's find(1) does:
-// depth first, in directory order, never following a symlink, a pruned path
-// left out with everything under it.
+// sweepWalk lists the files of one sweep in the order of the platform's
+// collector (sweepOrder): depth first, never following a symlink or any other
+// reparse point (a Windows junction included, as Get-SweepFiles skips every
+// one), a pruned path left out with everything under it.
 type sweepWalk struct {
 	ctx     context.Context
+	opener  *fsmeta.Opener
 	pruned  func(path string) bool
 	limit   int64
 	files   []string
@@ -28,21 +30,21 @@ func (walk *sweepWalk) visit(path string) error {
 	if walk.pruned(path) {
 		return nil
 	}
-	info, err := os.Lstat(path)
+	meta, err := fsmeta.Lstat(path)
 	if err != nil {
 		return nil
 	}
-	if info.Mode().IsRegular() {
-		walk.addFile(path, info)
+	if meta.Kind == fsmeta.File {
+		walk.addFile(path, meta.Size)
 		return nil
 	}
-	if !info.IsDir() {
+	if meta.Kind != fsmeta.Dir {
 		return nil
 	}
 	if err := walk.ctx.Err(); err != nil {
 		return err
 	}
-	for _, name := range readEntryNames(path) {
+	for _, name := range sweepOrder(readEntries(walk.opener, path)) {
 		if err := walk.visit(path + "/" + name); err != nil {
 			return err
 		}
@@ -53,29 +55,51 @@ func (walk *sweepWalk) visit(path string) error {
 // addFile lists a regular file or counts it as over the size limit; a file
 // whose name holds a newline is neither, since it would forge a line of the
 // sh collector's search output.
-func (walk *sweepWalk) addFile(path string, info fs.FileInfo) {
+func (walk *sweepWalk) addFile(path string, size int64) {
 	name := path[strings.LastIndexByte(path, '/')+1:]
 	if strings.Contains(name, "\n") {
 		return
 	}
-	if walk.limit == 0 || info.Size() <= walk.limit {
+	if walk.limit == 0 || size <= walk.limit {
 		walk.files = append(walk.files, path)
 	} else {
 		walk.skipped++
 	}
 }
 
-// readEntryNames returns the names in directory in directory order.
-func readEntryNames(directory string) []string {
-	handle, err := os.Open(directory)
+// readEntries returns the entries of directory in directory order, listed
+// through fsmeta.OpenDir with opener.
+func readEntries(opener *fsmeta.Opener, directory string) []fs.DirEntry {
+	handle, err := fsmeta.OpenDir(opener, directory)
 	if err != nil {
 		return nil
 	}
 	defer handle.Close()
 	entries, _ := handle.ReadDir(-1)
-	names := make([]string, len(entries))
-	for i, entry := range entries {
-		names[i] = entry.Name()
+	return entries
+}
+
+// stackOrder returns the names of a directory's entries in the order
+// Get-SweepFiles reaches them: every entry that is not a directory in
+// listing order, then the directories in reverse listing order. The function
+// pops a directory off a stack, adds its files as it lists them and pushes
+// its subdirectories, so the subdirectory listed last is popped next and
+// swept whole before the one listed before it. Visiting each name in this
+// order depth first yields the same files in the same order. A junction or a
+// directory symlink, which Go does not type a directory, lands among the
+// files; the sweep skips it wherever it lies.
+func stackOrder(entries []fs.DirEntry) []string {
+	names := make([]string, 0, len(entries))
+	var directories []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			directories = append(directories, entry.Name())
+		} else {
+			names = append(names, entry.Name())
+		}
+	}
+	for i := len(directories) - 1; i >= 0; i-- {
+		names = append(names, directories[i])
 	}
 	return names
 }

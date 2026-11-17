@@ -1,3 +1,5 @@
+//go:build unix
+
 package archive
 
 import (
@@ -9,12 +11,13 @@ import (
 	"testing"
 )
 
-// listMembers returns the sorted member names tar -tzf prints.
+// listMembers returns the sorted member names tar -tzf prints, and fails the
+// test with tar's message when tar cannot list the archive.
 func listMembers(t *testing.T, archivePath string) []string {
 	t.Helper()
-	output, err := exec.Command("/usr/bin/tar", "-tzf", archivePath).Output()
+	output, err := tarListing(archivePath)
 	if err != nil {
-		t.Skipf("system tar unavailable: %v", err)
+		t.Fatal(err)
 	}
 	names := strings.Split(strings.TrimSuffix(string(output), "\n"), "\n")
 	for index, name := range names {
@@ -25,14 +28,16 @@ func listMembers(t *testing.T, archivePath string) []string {
 }
 
 func TestMembersEqualSystemTar(t *testing.T) {
-	stage := buildStage(t)
+	requireSystemTar(t)
+	stage, _ := buildStage(t)
 	dir := t.TempDir()
 	goArchive, systemArchive := filepath.Join(dir, "go.tar.gz"), filepath.Join(dir, "sys.tar.gz")
 	if err := WriteTarGz(stage, goArchive); err != nil {
 		t.Fatal(err)
 	}
-	if output, err := exec.Command("/usr/bin/tar", "-czf", systemArchive, "-C", stage, ".").CombinedOutput(); err != nil {
-		t.Skipf("system tar cannot write: %v %s", err, output)
+	output, err := exec.Command(systemTar, "-czf", systemArchive, "-C", stage, ".").CombinedOutput()
+	if err != nil {
+		t.Fatalf("tar -czf: %v: %s", err, output)
 	}
 	if got, want := listMembers(t, goArchive), listMembers(t, systemArchive); !slices.Equal(got, want) {
 		t.Errorf("members = %v, tar = %v", got, want)

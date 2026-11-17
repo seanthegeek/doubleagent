@@ -716,8 +716,15 @@ def go_comment_findings(tokens: list[GoToken]) -> Iterator[Finding]:
 
 
 def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Iterator[Finding]:
-    """Yield the length finding of one run of whole-line Go comments, if it is too long."""
-    if len(run) <= MAX_COMMENT_BLOCK:
+    """Yield the length finding of one run of whole-line Go comments, if it is too long.
+
+    A package comment, the doc comment of the package clause, has the cap of
+    a Python module docstring: it says what the package is for.
+    """
+    cap = MAX_COMMENT_BLOCK
+    if is_doc and run[-1] + 1 == first_code_line:
+        cap = MAX_MODULE_DOCSTRING_LINES
+    if len(run) <= cap:
         return
     if is_doc:
         message = "doc comment of %d lines is longer than %d"
@@ -725,7 +732,7 @@ def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Itera
         return
     else:
         message = "comment block of %d lines is longer than %d"
-    yield run[0], message % (len(run), MAX_COMMENT_BLOCK)
+    yield run[0], message % (len(run), cap)
 
 
 def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:

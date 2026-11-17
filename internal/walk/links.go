@@ -2,11 +2,12 @@ package walk
 
 import (
 	"context"
-	"io/fs"
-	"os"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Links is what LinkedParent finds between a base and a path. Outside is the
@@ -27,8 +28,9 @@ type Links struct {
 // does. Only the components of path past as many as base has are tested, and
 // path itself is not, unless it ends in "/", as a project's own path is given
 // so that the project directory is tested too; the components are counted,
-// never compared.
-func LinkedParent(base, path string) (Links, bool) {
+// never compared. check is the image root's (nil live): a link it refuses
+// counts as leading out, and is not resolved.
+func LinkedParent(base, path string, check follow.Check) (Links, bool) {
 	var links Links
 	relative := path
 	for range strings.Count(base, "/") + 1 {
@@ -48,17 +50,20 @@ func LinkedParent(base, path string) (Links, bool) {
 		}
 		links.Outside = directory
 		if root == "" {
-			physicalBase, err := stage.PhysicalDir(baseOrRoot(base))
+			physicalBase, err := follow.PhysicalDir(check, baseOrRoot(base))
 			if err != nil {
 				return links, true
 			}
-			root = strings.TrimSuffix(physicalBase, "/") + "/"
+			root = physicalBase
 		}
-		physical, err := stage.PhysicalDir(directory)
-		if err != nil || !strings.HasPrefix(physical+"/", root) {
+		physical, err := follow.PhysicalDir(check, directory)
+		if err != nil {
 			return links, true
 		}
-		inside := strings.TrimSuffix((physical + "/")[len(root):], "/")
+		inside, found := stage.Under(physical, root)
+		if !found {
+			return links, true
+		}
 		links.From = directory
 		links.Into = strings.TrimSuffix(base+"/"+inside, "/")
 		links.Passed = append(links.Passed, directory)
@@ -73,10 +78,13 @@ func baseOrRoot(base string) string {
 	return base
 }
 
-// isSymlink reports whether path itself is a symlink.
+// isSymlink reports whether path itself is a link the walk never enters: a
+// symlink or, on Windows, any reparse point (a junction, a cloud placeholder
+// directory), as Get-LinkedParent and Test-IsLink test the ReparsePoint
+// attribute.
 func isSymlink(path string) bool {
-	info, err := os.Lstat(path)
-	return err == nil && info.Mode()&fs.ModeSymlink != 0
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.IsLink()
 }
 
 // physicalPath returns path with its leading from replaced by to, the path
@@ -106,9 +114,9 @@ func throughLinks(stager stage.Stager, from, into string) stage.Stager {
 // claimed reports whether path, under base, is one of claims or lies under
 // one through real directories only, as test_claimed_path does: the claim's
 // own walk then records it, and a walk never descends a symlinked directory.
-func claimed(path, base string, claims map[string]struct{}) bool {
+func claimed(path, base string, claims *syspath.Entries[struct{}]) bool {
 	for len(path) > len(base) {
-		if _, found := claims[path]; found {
+		if claims.Has(path) {
 			return true
 		}
 		position := strings.LastIndexByte(path, '/')
@@ -129,19 +137,18 @@ func claimed(path, base string, claims map[string]struct{}) bool {
 // where base physically holds it, through the owner's stager, as
 // record_passed_links does.
 func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, base string,
-	links []string, seen map[string]struct{},
+	links []string, seen *syspath.Entries[struct{}],
 ) error {
 	baseStager := owner.stager
 	for _, link := range links {
-		if _, done := seen[link]; done {
+		if !seen.Add(link, struct{}{}) {
 			continue
 		}
-		seen[link] = struct{}{}
 		if !isSymlink(link) || claimed(link, base, owner.claims) ||
 			collector.Manifest.HasPath(link) {
 			continue
 		}
-		found, _ := LinkedParent(base, link)
+		found, _ := LinkedParent(base, link, collector.check())
 		owner.stager = throughLinks(baseStager, found.From, found.Into)
 		if _, err := collector.collectPath(ctx, owner, link); err != nil {
 			return err
@@ -158,7 +165,7 @@ func (collector *Collector) RecordPassedLinks(ctx context.Context, user, base, h
 	stager stage.Stager, links []string,
 ) error {
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
-	return collector.recordPassedLinks(ctx, owner, base, links, map[string]struct{}{})
+	return collector.recordPassedLinks(ctx, owner, base, links, collector.pathSet())
 }
 
 // readField returns a match path as the sh collector's `IFS='|' read` gives it
