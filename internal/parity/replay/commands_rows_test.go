@@ -309,7 +309,7 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 		r.skipped["secondary rows of an agent whose parser declares deduplication hooks"]++
 		return
 	case run.archivedRoot(recorded.Argv, root):
-		r.skipped["an archive holding the recording's own root in its paths"]++
+		r.skipped[commandArchivedRoot]++
 		return
 	}
 	r.registryOverride = func() *parsers.Registry { return recordedRegistry(run) }

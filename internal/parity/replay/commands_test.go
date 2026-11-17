@@ -130,6 +130,10 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	before := filesUnder(root)
 	got := r.run(t, command, recorded, root)
 	want := r.expected(t, recorded, root)
+	if archiveHoldsRoot(recorded, want, root) {
+		r.skipped[commandArchivedRoot]++
+		return
+	}
 	waiting := r.waitingAgents(t, command, recorded, want)
 	defer r.noteBlocks(t, recorded, waiting)
 	if len(waiting) > 0 {
@@ -145,6 +149,27 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	}
 	compareFull(t, node, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
+}
+
+// commandArchivedRoot is why a run over an archive is not compared: the
+// archive's own manifest names paths under the recording's root, which sit
+// inside compressed bytes where the replay's root cannot be put.
+const commandArchivedRoot = "an archive holding the recording's own root in its paths"
+
+// archiveHoldsRoot reports whether a recorded run read a tar.gz or zip
+// archive whose rows carry paths under the recording's root.
+func archiveHoldsRoot(recorded CommandCase, want commandOutput, root string) bool {
+	if !slices.ContainsFunc(recorded.Argv, func(argument Text) bool {
+		return strings.HasSuffix(string(argument), ".tar.gz") || strings.HasSuffix(string(argument), ".zip")
+	}) {
+		return false
+	}
+	for name, content := range want.outputs {
+		if strings.HasSuffix(name, "timeline.jsonl") && strings.Contains(content, root) {
+			return true
+		}
+	}
+	return false
 }
 
 // exampleNode is the node of the recorder's runs over the example
