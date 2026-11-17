@@ -20,12 +20,20 @@ func Dir(test testing.TB) (short, long string) {
 	if err := osfile.MkdirAll(syspath.FromNative(made), 0o755); err != nil {
 		test.Fatal(err)
 	}
-	short = pathName(test, "GetShortPathName", windows.GetShortPathName, made)
+	short = ShortPath(test, made)
 	long = pathName(test, "GetLongPathName", windows.GetLongPathName, short)
 	if short == long {
 		test.Skipf("the volume of %s makes no 8.3 short names", long)
 	}
 	return short, long
+}
+
+// ShortPath returns the native path Windows gives through GetShortPathName for the
+// existing native path long: every component that has an 8.3 short name
+// spelled by it, the rest as they are.
+func ShortPath(test testing.TB, long string) string {
+	test.Helper()
+	return pathName(test, "GetShortPathName", windows.GetShortPathName, long)
 }
 
 // pathName returns what convert, the Windows call named name, gives for the
