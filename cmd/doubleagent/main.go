@@ -33,6 +33,7 @@ const usageText = `Usage: doubleagent <command> [options]
 
 Commands:
   collect     archive the on-disk artifacts of AI agents, with a hashed manifest
+  detect      list the homes, users and agents a collection holds
   catalog     print the bundled artifact catalog
 
 Run "doubleagent <command> --help" for a command's options.

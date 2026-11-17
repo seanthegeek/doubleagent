@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
@@ -50,7 +52,7 @@ func System() Environment {
 // Commands returns the names of the analysis commands, in the order the
 // binary's usage lists them.
 func Commands() []string {
-	return []string{"catalog"}
+	return []string{"detect", "catalog"}
 }
 
 // Run runs the analysis command args[0] with the arguments after it and
@@ -66,6 +68,10 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 		run  func() int
 	)
 	switch args[0] {
+	case "detect":
+		var options DetectOptions
+		options, help, err = ParseDetect(args[1:])
+		run = func() int { return runDetect(ctx, options, env, stdout, stderr) }
 	case "catalog":
 		var options CatalogOptions
 		options, help, err = ParseCatalog(args[1:])
@@ -102,4 +108,53 @@ func matcher() (*catalog.Matcher, error) {
 		return nil, err
 	}
 	return catalog.NewMatcher(tables)
+}
+
+// printError writes an error message and returns the error exit code, or
+// the interrupted code when the run's context was cancelled.
+func printError(ctx context.Context, stderr io.Writer, message string) int {
+	if ctx.Err() != nil {
+		fmt.Fprintln(stderr, "interrupted")
+		return ExitInterrupted
+	}
+	fmt.Fprintf(stderr, "error: %s\n", message)
+	return ExitError
+}
+
+// openInput opens the input of detect or timeline and gives every home
+// without a user the --user name. The message returned with a nil
+// collection is the error line's text.
+func openInput(options InputOptions, found *catalog.Matcher) (*input.Collection, string) {
+	workDir := options.WorkDir
+	if workDir == "" && options.workDirSet {
+		workDir = "."
+	}
+	collection, err := input.Open(options.Input, input.Options{Matcher: found, WorkDir: workDir,
+		Host: options.Host})
+	var inputError *input.Error
+	switch {
+	case errors.As(err, &inputError):
+		return nil, inputError.Message
+	case err != nil:
+		return nil, reason.Describe(pathText(options.Input), err)
+	}
+	if options.User != "" {
+		for _, home := range collection.Homes {
+			if home.User == "" {
+				home.User = options.User
+			}
+		}
+	}
+	return collection, ""
+}
+
+// closeInput removes an extracted archive, or names where it was kept.
+func closeInput(collection *input.Collection, keep bool, stderr io.Writer) {
+	if !keep {
+		_ = collection.Cleanup()
+		return
+	}
+	if extracted := collection.ExtractedDir(); extracted != "" {
+		fmt.Fprintf(stderr, "extracted to: %s\n", extracted)
+	}
 }
