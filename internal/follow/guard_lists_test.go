@@ -57,9 +57,10 @@ func safeNames() map[string][]string {
 		// device's name, file types and flags. Getwd takes no path; the
 		// operating system answers it from the process, though the Unix
 		// fallback stats "." and the working directory to check $PWD.
+		// SameFile compares two FileInfo values already read.
 		"os": {"Args", "DevNull", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
 			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
-			"O_TRUNC", "O_WRONLY", "Stderr", "Stdout"},
+			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout"},
 		// The running account's own record, looked up by the system.
 		"os/user": {"Current"},
 		// Text operations on a path; none touches the file system.
@@ -199,6 +200,9 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked base"},
+		{"internal/sqlitefile/path.go", "osfile.Open", 1,
+			"reads a database or sidecar its own lstat typed a regular file, then checks the handle " +
+				"is that file"},
 		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
 			"creates the run's log file"},
 		{"internal/users/users_windows.go", "osfile.ReadDir", 1,
