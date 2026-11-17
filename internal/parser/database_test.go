@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"io/fs"
+	"math"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -80,6 +81,31 @@ func TestColumnTimeReadsEachStorageClass(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if got := ColumnTime(test.value); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestColumnTextWritesEachStorageClassAsPythonDoes(t *testing.T) {
+	tests := []struct {
+		name  string
+		value sqlitefile.Value
+		want  string
+	}{
+		{"NULL", sqlitefile.Value{}, ""},
+		{"text", sqlitefile.TextValue("a b"), "a b"},
+		{"empty text", sqlitefile.TextValue(""), ""},
+		{"an integer", sqlitefile.IntValue(-7), "-7"},
+		{"a whole float", sqlitefile.FloatValue(1), "1.0"},
+		{"a small float", sqlitefile.FloatValue(0.00001), "1e-05"},
+		{"positive infinity", sqlitefile.FloatValue(math.Inf(1)), "Infinity"},
+		{"negative infinity", sqlitefile.FloatValue(math.Inf(-1)), "-Infinity"},
+		{"a blob", sqlitefile.BlobValue([]byte("ab")), "b'ab'"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ColumnText(test.value); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

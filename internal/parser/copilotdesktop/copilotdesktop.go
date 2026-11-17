@@ -21,7 +21,6 @@
 package copilotdesktop
 
 import (
-	"math"
 	"regexp"
 	"strings"
 
@@ -144,18 +143,9 @@ func (s *store) created(table string) []sqlitefile.Row {
 	return s.rows(table, "created_at")
 }
 
-// text returns a column as the text Python's _str gives it: "" for NULL,
-// text as it is, anything else as JSON (a blob as its bytes literal).
+// text returns a column as the text Python's _str gives it.
 func text(value sqlitefile.Value) string {
-	switch {
-	case value.IsNull():
-		return ""
-	case value.Type == sqlitefile.Float && math.IsInf(value.Float, 1):
-		return "Infinity"
-	case value.Type == sqlitefile.Float && math.IsInf(value.Float, -1):
-		return "-Infinity"
-	}
-	return value.Str()
+	return parser.ColumnText(value)
 }
 
 // dash returns a column as text, "-" when that is empty.

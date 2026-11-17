@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"io/fs"
+	"math"
 
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -57,4 +58,21 @@ func ColumnTime(value sqlitefile.Value) string {
 		return timeutil.FromText(value.Text())
 	}
 	return ""
+}
+
+// ColumnText returns a column value as the text a parser writes into a row
+// for a value that may be of any type: "" for NULL, text as it is, and
+// anything else as the compact JSON of the value the sqlite3 module returns
+// for it (an integer in decimal, a float as Python writes it, with
+// Infinity and -Infinity for the infinities), a blob as its bytes literal.
+func ColumnText(value sqlitefile.Value) string {
+	switch {
+	case value.IsNull():
+		return ""
+	case value.Type == sqlitefile.Float && math.IsInf(value.Float, 1):
+		return "Infinity"
+	case value.Type == sqlitefile.Float && math.IsInf(value.Float, -1):
+		return "-Infinity"
+	}
+	return value.Str()
 }
