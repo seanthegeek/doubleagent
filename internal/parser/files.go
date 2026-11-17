@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -137,9 +138,10 @@ func LoadJSON(path string, problems *Problems) (pyjson.Value, bool) {
 	return value, true
 }
 
-// ReadDir lists the directory at path in the order the file system gives,
-// without following a link at path itself; the entries are never followed
-// either.
+// ReadDir lists the directory at path sorted by name as bytes, not in the
+// order the file system gives, so a parser that reads files in listing
+// order reads them in one order on every file system. It does not follow a
+// link at path itself; the entries are never followed either.
 func ReadDir(path string) ([]os.DirEntry, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
@@ -152,7 +154,11 @@ func ReadDir(path string) ([]os.DirEntry, error) {
 		}
 		return nil, &fs.PathError{Op: "readdir", Path: path, Err: reason}
 	}
-	return osfile.ReadDir(path)
+	entries, err := osfile.ReadDir(path)
+	slices.SortFunc(entries, func(first, second os.DirEntry) int {
+		return strings.Compare(first.Name(), second.Name())
+	})
+	return entries, err
 }
 
 // FileMtime returns the artifact's modification time as a timeline

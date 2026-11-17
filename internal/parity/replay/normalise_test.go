@@ -14,15 +14,17 @@ import (
 // Difference is one numbered documented difference between the Python
 // analyzer and the binary (the milestone plan, 51 onward). Each applies only
 // to its own shape: Text rewrites each place the shape occurs in a text into
-// a form both sides share, Rows puts rows of the shape into one order, and
+// a form both sides share, Rows puts rows of the shape into one order,
 // Excludes reports that a case shows a shape no rewriting can match, so the
-// case is not compared. Each returns how many places it found.
+// case is not compared, and Outputs rewrites a run's output files, by path,
+// against the recorded ones. Each returns how many places it found.
 type Difference struct {
 	Number   int
 	Summary  string
 	Text     func(text string) (string, int)
 	Rows     func(rows []Row) ([]Row, int)
 	Excludes func(text string) bool
+	Outputs  func(want, got map[string]string) int
 }
 
 // Differences returns the table of documented differences, a fresh slice.
@@ -38,6 +40,8 @@ func Differences() []Difference {
 		{Number: 55, Summary: "zed archived worktrees and state.vscdb value problems have one order",
 			Rows: plannerOrder},
 		{Number: 56, Summary: "an FTS5 table is always readable", Excludes: fts5Unreadable},
+		{Number: 57, Summary: "a loose tree is listed in name order, not the file system's",
+			Outputs: otherOfEqualRows},
 	}
 }
 

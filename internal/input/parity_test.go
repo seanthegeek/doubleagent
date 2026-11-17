@@ -86,9 +86,41 @@ func compareWithPython(t *testing.T, input, catalogText, host string) {
 			t.Fatal(err)
 		}
 	}
+	if strings.HasPrefix(want, "kind\tloose\n") {
+		// The binary reads a loose tree's directories in name order and
+		// the analyzer in the file system's, so a loose input is compared
+		// as a sorted sequence of lines; a collected input keeps the
+		// manifest's order and is compared in order.
+		got, want = listingOrder(got), listingOrder(want)
+	}
 	if normalised(got) != normalised(want) {
 		t.Fatalf("Go and Python differ for %s\n--- Go\n%s--- Python\n%s", input, got, want)
 	}
+}
+
+// listingOrder returns a dump with each home's index in the home, staged
+// and artifact lines replaced by the home's directory, so that two
+// listings of one tree name the same home alike, and its lines sorted.
+func listingOrder(dump string) string {
+	lines := strings.Split(strings.TrimSuffix(dump, "\n"), "\n")
+	homes := map[string]string{}
+	for _, line := range lines {
+		if fields := strings.Split(line, "\t"); fields[0] == "home" && len(fields) > 2 {
+			homes[fields[1]] = fields[2]
+		}
+	}
+	for i, line := range lines {
+		fields := strings.Split(line, "\t")
+		switch fields[0] {
+		case "home", "staged", "artifact":
+			if len(fields) > 1 {
+				fields[1] = homes[fields[1]]
+			}
+		}
+		lines[i] = strings.Join(fields, "\t")
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func TestOpenMatchesPythonOnEachCase(t *testing.T) {

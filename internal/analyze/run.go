@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -41,6 +42,10 @@ type Environment struct {
 	Now     timeutil.Clock
 	Parsers func() *parsers.Registry
 	Version string
+	// ReadDir lists a directory of a loose tree; nil means the file
+	// system's listing. Tests deliver the entries in another order through
+	// it.
+	ReadDir func(path string) ([]fs.DirEntry, error)
 }
 
 // System returns the environment of a real run: the system clock, every
@@ -130,15 +135,17 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 }
 
 // openInput opens the input of detect or timeline and gives every home
-// without a user the --user name. The message returned with a nil
-// collection is the error line's text.
-func openInput(options InputOptions, found *catalog.Matcher) (*input.Collection, string) {
+// without a user the --user name, listing a loose tree through env's
+// lister. The message returned with a nil collection is the error line's
+// text.
+func openInput(options InputOptions, found *catalog.Matcher,
+	env Environment) (*input.Collection, string) {
 	workDir := options.WorkDir
 	if workDir == "" && options.workDirSet {
 		workDir = "."
 	}
 	collection, err := input.Open(options.Input, input.Options{Matcher: found, WorkDir: workDir,
-		Host: options.Host})
+		Host: options.Host, ReadDir: env.ReadDir})
 	var inputError *input.Error
 	switch {
 	case errors.As(err, &inputError):

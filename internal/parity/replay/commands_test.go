@@ -61,6 +61,13 @@ type commandReplay struct {
 	// registryOverride, when set, gives the run's parsers in place of
 	// registry.
 	registryOverride func() *parsers.Registry
+	// looseTimelines counts the loose timeline cases whose order was
+	// checked; multisets lists those whose rows differ in order from the
+	// recording's and are compared as multisets, and equalRows those where
+	// difference 57 took the other of two equal rows, with the count.
+	looseTimelines int
+	multisets      []string
+	equalRows      []string
 }
 
 func TestCommandsReplayEveryRecordedCase(t *testing.T) {
@@ -108,6 +115,11 @@ func (r *commandReplay) report(t *testing.T) {
 	for _, reason := range slices.Sorted(maps.Keys(r.skipped)) {
 		t.Logf("not compared, %s: %d cases", reason, r.skipped[reason])
 	}
+	if r.looseTimelines > 0 {
+		t.Logf("listing order: %d loose timeline cases in the documented order; compared as row "+
+			"multisets: %s; the other of two equal rows kept (difference 57): %s", r.looseTimelines,
+			namesOrNone(r.multisets), namesOrNone(r.equalRows))
+	}
 	if len(r.proposed) > 0 {
 		t.Logf("compared after the proposed difference of a repository file's system message: %s",
 			strings.Join(r.proposed, ", "))
@@ -148,7 +160,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	if strerrorShape.MatchString(want.stdout + strings.Join(slices.Collect(maps.Values(want.outputs)), "")) {
 		r.proposed = append(r.proposed, node)
 	}
-	compareFull(t, node, root, want, got)
+	r.compareFull(t, node, root, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }
 
@@ -509,8 +521,24 @@ func hasKey(entries map[string]string, key string) bool {
 
 // compareFull compares the exit code, both streams and every output file,
 // after the documented differences their recorded text shows. root is the
-// run's root, which stands where the recording's stood.
-func compareFull(t *testing.T, node, root string, want, got commandOutput) {
+// run's root, which stands where the recording's stood. A loose tree's
+// timeline and sessions must be in the documented order and are compared
+// after difference 57, as multisets of lines when their order differs,
+// since rows of equal sort keys keep the listing order.
+func (r *commandReplay) compareFull(t *testing.T, node, root string, want, got commandOutput) {
+	if want.loose && holdsTimeline(want.outputs) {
+		checkDocumentedOrder(t, node, got.outputs)
+		want.outputs, got.outputs = maps.Clone(want.outputs), maps.Clone(got.outputs)
+		r.looseTimelines++
+		if rows := difference(t, 57).Outputs(want.outputs, got.outputs); rows > 0 {
+			r.equalRows = append(r.equalRows, fmt.Sprintf("%s (%d rows)", node, rows))
+		}
+		if rowOrderDiffers(t, node, want.outputs, got.outputs) {
+			r.multisets = append(r.multisets, node)
+			sortRowLines(want.outputs)
+			sortRowLines(got.outputs)
+		}
+	}
 	if got.exit != want.exit {
 		t.Errorf("%s: exit %d, want %d", node, got.exit, want.exit)
 	}
@@ -597,13 +625,18 @@ func headerLines(text string) string {
 // recorded form shows, and the proposed ones; for a loose input the listing
 // order is normalised.
 func compareText(t *testing.T, node, label, want, got string, loose bool) {
-	numbers := textDifferences(want)
-	want, got = NormaliseTexts(t, node, numbers, want, got)
-	want = proposedStrerror(want)
+	want, got = normalisedPair(t, node, want, got)
 	if loose {
 		want, got = listingOrder(t, want), listingOrder(t, got)
 	}
 	DiffText(t, node, label, want, got)
+}
+
+// normalisedPair returns a recorded text and the run's after the
+// documented differences the recorded one shows, and the proposed one.
+func normalisedPair(t *testing.T, node, want, got string) (string, string) {
+	want, got = NormaliseTexts(t, node, textDifferences(want), want, got)
+	return proposedStrerror(want), got
 }
 
 // strerrorShape is a repository file's problem as the analyzer words it:

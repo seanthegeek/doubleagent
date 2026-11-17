@@ -2,6 +2,7 @@ package parser
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -168,5 +169,26 @@ func TestOpenAndReadDirRefuseWhatIsNotTheirKind(t *testing.T) {
 	entries, err := ReadDir(filepath.Dir(file))
 	if err != nil || len(entries) != 1 || entries[0].Name() != "file.txt" {
 		t.Errorf("ReadDir gave %v, %v", entries, err)
+	}
+}
+
+func TestReadDirListsInNameOrderAsBytes(t *testing.T) {
+	directory := t.TempDir()
+	for _, name := range []string{"c", "_x", "a", "B", "é", "a.b", "10", "9"} {
+		if err := osfile.WriteFile(filepath.Join(directory, name), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, err := ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, entry := range entries {
+		got = append(got, entry.Name())
+	}
+	want := []string{"10", "9", "B", "_x", "a", "a.b", "c", "é"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

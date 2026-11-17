@@ -82,7 +82,7 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
-	collection, message := openInput(options.InputOptions, found)
+	collection, message := openInput(options.InputOptions, found, env)
 	if collection == nil {
 		return printError(ctx, stderr, message)
 	}

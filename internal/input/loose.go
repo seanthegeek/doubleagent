@@ -3,6 +3,7 @@ package input
 import (
 	"io/fs"
 	"slices"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -82,16 +83,16 @@ func resolvedParent(tree pathForm) []string {
 	return tree.parent().parts
 }
 
-// walkForHomes walks the tree from start in pathlib's top-down order: a
-// directory holding a name that may begin a catalog glob and a real
-// agent's hit is a home and is not entered further; links are never
-// entered.
+// walkForHomes walks the tree from start top-down, each directory's
+// entries in name order: a directory holding a name that may begin a
+// catalog glob and a real agent's hit is a home and is not entered
+// further; links are never entered.
 func (c *Collection) walkForHomes(matcher *catalog.Matcher, start directory) {
 	stack := []directory{start}
 	for len(stack) > 0 {
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		entries, err := osfile.ReadDir(current.joined)
+		entries, err := c.listDirectory(current.joined)
 		if err != nil {
 			c.recordProblem(describeError(current.joined, err))
 			continue
@@ -133,7 +134,7 @@ func hasAgentHit(hits []hit) bool {
 }
 
 // subdirectories returns the real directories among entries, links left
-// out, in reverse listing order, for a stack that pops them in order.
+// out, in reverse name order, for a stack that pops them in order.
 func subdirectories(parent directory, entries []fs.DirEntry) []directory {
 	var children []directory
 	for i := len(entries) - 1; i >= 0; i-- {
@@ -187,4 +188,18 @@ func (c *Collection) recordProblem(line string) {
 	if !slices.Contains(c.Problems, line) {
 		c.Problems = append(c.Problems, line)
 	}
+}
+
+// listDirectory lists a directory of a loose tree in name order, not the
+// file system's: the order artifacts reach the parsers decides ties in the
+// timeline and which of two equal secondary rows is kept, and two file
+// systems list one tree differently. Names compare as bytes, with no
+// locale or case folding, so "B" sorts before "a" and both are kept, and a
+// byte that is not valid UTF-8 sorts by its value.
+func (c *Collection) listDirectory(path string) ([]fs.DirEntry, error) {
+	entries, err := c.readDir(path)
+	slices.SortFunc(entries, func(first, second fs.DirEntry) int {
+		return strings.Compare(first.Name(), second.Name())
+	})
+	return entries, err
 }

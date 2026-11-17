@@ -14,7 +14,7 @@ import (
 type listingCache map[string][]fs.DirEntry
 
 // matchesInHome returns every catalog hit under home, pattern by pattern in
-// table order, each pattern's hits in listing order. Expansion goes segment
+// table order, each pattern's hits in name order. Expansion goes segment
 // by segment through listings, entering only real directories.
 func (c *Collection) matchesInHome(matcher *catalog.Matcher, home pathForm) []hit {
 	cache := listingCache{}
@@ -53,7 +53,7 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base pathForm, 
 	entries, listed := cache[key]
 	if !listed {
 		var err error
-		if entries, err = osfile.ReadDir(key); err != nil {
+		if entries, err = c.listDirectory(key); err != nil {
 			entries = nil
 			c.recordProblem(describeError(key, err))
 		}
@@ -98,7 +98,7 @@ func (c *Collection) addHits(home *Home, hits []hit) {
 }
 
 // walkFiles calls yield for start when it is a regular file, or for every
-// file below it when it is a directory, top-down in listing order; links
+// file below it when it is a directory, top-down in name order; links
 // are never followed or yielded. A start that is neither, or a directory
 // that cannot be listed, is a problem.
 func (c *Collection) walkFiles(start pathForm, rel []string, yield func(pathForm, []string)) {
@@ -120,7 +120,7 @@ func (c *Collection) walkFiles(start pathForm, rel []string, yield func(pathForm
 	for len(stack) > 0 {
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		entries, err := osfile.ReadDir(current.joined)
+		entries, err := c.listDirectory(current.joined)
 		if err != nil {
 			c.recordProblem(describeError(current.joined, err))
 			continue

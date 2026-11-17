@@ -43,7 +43,7 @@ func (l brainLogs) regular(names ...string) bool {
 }
 
 // chunks returns the chunk files of a form under logs/chunks, in chunk
-// order: regular files named <digits>.jsonl, ties in directory order.
+// order: regular files named <digits>.jsonl, ties (01 and 1) in name order.
 func (l brainLogs) chunks(form string) []string {
 	directory := l.path("chunks", form)
 	if directory == "" {

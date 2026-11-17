@@ -87,8 +87,6 @@ func siteClasses() map[string]string {
 		"internal/input/extract.go osfile.Remove":    notImage,
 		"internal/input/extract.go osfile.Chtimes":   notImage,
 		"internal/input/manifest.go osfile.ReadFile": notImage,
-		"internal/input/matches.go osfile.ReadDir":   notImage,
-		"internal/input/loose.go osfile.ReadDir":     notImage,
 		"internal/input/loose.go stage.PhysicalDir":  notImage,
 		// The analysis commands' outputs, where the analyst names them.
 		"internal/analyze/fleet.go osfile.MkdirAll":    notImage,

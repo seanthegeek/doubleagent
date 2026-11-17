@@ -11,7 +11,9 @@
 // With a manifest, attribution (host, user, home, agent) comes from its rows.
 // Without one, homes are found by matching the catalog against the tree, the
 // user is inferred from the path, and the host is left empty unless the
-// caller names one.
+// caller names one. A loose tree's directories are read in name order, not
+// the order the file system lists them in, so one tree gives one result on
+// every file system.
 //
 // Paths in the results are printed as Python's pathlib prints them (str of a
 // Path: no doubled separator, no "." component, no trailing separator, ".."
@@ -55,6 +57,11 @@ type Options struct {
 	WorkDir string
 	// Host, when set, is the host every home is attributed to.
 	Host string
+	// ReadDir lists a directory of a loose tree; nil means osfile.ReadDir.
+	// Whatever order it gives, the entries are taken in name order, so a
+	// test can deliver them in another order to show the result does not
+	// depend on it.
+	ReadDir func(path string) ([]fs.DirEntry, error)
 }
 
 // Home is a base the artifacts are relative to: a user's home, a volume or
@@ -145,6 +152,9 @@ type Collection struct {
 	// extracted is the directory an archive was extracted to, until
 	// Cleanup removes it.
 	extracted string
+	// readDir lists a directory of a loose tree before listDirectory sorts
+	// it.
+	readDir func(path string) ([]fs.DirEntry, error)
 }
 
 // ExtractedDir returns the directory the archive was extracted to, or ""
@@ -226,6 +236,10 @@ func Open(path string, options Options) (*Collection, error) {
 	}
 	if options.Host != "" {
 		collection.Host = options.Host
+	}
+	collection.readDir = options.ReadDir
+	if collection.readDir == nil {
+		collection.readDir = osfile.ReadDir
 	}
 	if collection.Kind == KindLoose {
 		err = collection.discoverLoose(options.Matcher)
