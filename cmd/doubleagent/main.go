@@ -2,8 +2,8 @@
 // or a mounted disk image and analyses a collection on the analyst's
 // workstation. This file only dispatches a subcommand and maps its result to
 // an exit code; the work is in the internal packages. The analysis commands
-// keep the analyzer's exit codes: 0 found, 1 nothing found, 2 an error or a
-// command-line mistake.
+// use the exit codes 0 (found), 1 (nothing found) and 2 (an error
+// or a command-line mistake).
 package main
 
 import (

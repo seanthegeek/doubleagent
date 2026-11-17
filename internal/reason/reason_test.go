@@ -12,8 +12,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The reasons below are this package's own wording: the Python analyzer
-// printed the operating system's text, which differs between platforms.
+// The reasons below are this package's own wording, the same on every
+// platform; the operating system's text differs between platforms.
 
 func TestForGivesOneReasonPerConditionOnEveryPlatform(t *testing.T) {
 	root := t.TempDir()
