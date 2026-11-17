@@ -50,3 +50,15 @@ func isPythonSpace(char rune) bool {
 	}
 	return false
 }
+
+// Fields returns the pieces of text between runs of the whitespace Strip
+// removes, none of them empty, as Python's argument-less str.split() does.
+func Fields(text string) []string {
+	return strings.FieldsFunc(text, isPythonSpace)
+}
+
+// IsSpace reports whether char is whitespace as Python's str.isspace() has
+// it, the set Strip and Fields use.
+func IsSpace(char rune) bool {
+	return isPythonSpace(char)
+}
