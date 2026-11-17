@@ -3,6 +3,7 @@ package reason
 import (
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -28,6 +29,12 @@ func TestForOnWindowsConditions(t *testing.T) {
 			&fs.PathError{Op: "open", Path: file, Err: errorCantResolveFilename}, LinkLoop},
 		{"the name-range code is too long",
 			&fs.PathError{Op: "open", Path: file, Err: errorFilenameExcedRange}, NameTooLong},
+		{"an invalid name with an over-long component is too long",
+			&fs.PathError{Op: "open", Path: filepath.Join(root, strings.Repeat("n", 256)),
+				Err: errorInvalidName}, NameTooLong},
+		{"an invalid name of normal length keeps the system's text",
+			&fs.PathError{Op: "open", Path: filepath.Join(root, "a?b"), Err: errorInvalidName},
+			errorInvalidName.Error()},
 		{"a path not found outside a listing is not found",
 			&fs.PathError{Op: "open", Path: file, Err: errorPathNotFound}, NotFound},
 	}
