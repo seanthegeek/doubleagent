@@ -25,9 +25,14 @@ func reviewedImports() map[string]string {
 		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,
 		// none of which takes a path.
 		"github.com/klauspost/compress/zstd",
-		// Reads an XML document from bytes already read through the parser
-		// kit (Tabby's IntelliJ history); NewDecoder takes an io.Reader.
-		"encoding/xml"}
+		// Reads an XML document from an io.Reader over bytes already read
+		// through the parser kit (Tabby's IntelliJ history, Cody's chat
+		// history); the names used are NewDecoder, the token types, Name and
+		// SyntaxError.
+		"encoding/xml",
+		// Decodes base64 text a parser holds (Cursor's MCP OAuth key names);
+		// the names used are RawStdEncoding and DecodeString.
+		"encoding/base64"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}
