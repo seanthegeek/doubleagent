@@ -96,7 +96,8 @@ func activityText(payload pyjson.Value, console bool, requests map[string]reques
 
 // jsonFile returns a whole-JSON file's value, or false after adding why it
 // is none: "unparseable <label> (<reason>)" for text that is not JSON.
-func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems) (pyjson.Value, bool) {
+func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems) (pyjson.Value,
+	bool) {
 	data, ok := parser.FileBytes(artifact.DiskPath, problems)
 	if !ok {
 		return pyjson.NewNull(), false

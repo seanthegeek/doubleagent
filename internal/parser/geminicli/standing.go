@@ -82,7 +82,8 @@ func TrustedFolderRows(base parser.Base, artifact *input.Artifact, emit parser.E
 // jsonObject returns the artifact's JSON object, read as JSON with
 // comments when jsonc is set, or false with the row that says it cannot be
 // read or is not one.
-func (p *Parser) jsonObject(artifact *input.Artifact, jsonc bool) (pyjson.Value, timeline.Row, bool) {
+func (p *Parser) jsonObject(artifact *input.Artifact, jsonc bool) (pyjson.Value, timeline.Row,
+	bool) {
 	var problems parser.Problems
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {

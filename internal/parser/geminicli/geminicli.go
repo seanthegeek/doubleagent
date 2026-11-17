@@ -47,13 +47,15 @@ const (
 // The artifacts the parser reads, by path relative to the home. A tool
 // checkpoint's name opens with an ISO time, ":" written "-" and "." "_".
 var (
-	sessionPattern        = regexp.MustCompile(tempExpression + `chats/(?:.*/)?[^/]+\.jsonl?\z`)
-	logsPattern           = regexp.MustCompile(tempExpression + `logs\.json\z`)
-	trustedPattern        = regexp.MustCompile(baseExpression + `trustedFolders\.json\z`)
-	shellPattern          = regexp.MustCompile(tempExpression + `shell_history\z`)
-	checkpointPattern     = regexp.MustCompile(tempExpression + `checkpoint-(?P<tag>[^/]+)\.json\z`)
-	bugPattern            = regexp.MustCompile(tempExpression + `bug-report-history-(?P<ms>[0-9]+)\.json\z`)
-	activityPattern       = regexp.MustCompile(tempExpression + `logs/session-(?P<session>[^/]+)\.jsonl\z`)
+	sessionPattern    = regexp.MustCompile(tempExpression + `chats/(?:.*/)?[^/]+\.jsonl?\z`)
+	logsPattern       = regexp.MustCompile(tempExpression + `logs\.json\z`)
+	trustedPattern    = regexp.MustCompile(baseExpression + `trustedFolders\.json\z`)
+	shellPattern      = regexp.MustCompile(tempExpression + `shell_history\z`)
+	checkpointPattern = regexp.MustCompile(tempExpression + `checkpoint-(?P<tag>[^/]+)\.json\z`)
+	bugPattern        = regexp.MustCompile(tempExpression +
+		`bug-report-history-(?P<ms>[0-9]+)\.json\z`)
+	activityPattern = regexp.MustCompile(tempExpression +
+		`logs/session-(?P<session>[^/]+)\.jsonl\z`)
 	toolCheckpointPattern = regexp.MustCompile(tempExpression + `checkpoints/(?P<time>[0-9]{4}-` +
 		`[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}_[0-9]{3}Z)-[^/]+\.json\z`)
 	memoryPattern    = regexp.MustCompile(tempExpression + `memory/(?P<name>.+)\z`)

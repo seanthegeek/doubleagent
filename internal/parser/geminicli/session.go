@@ -35,9 +35,11 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 	project := resolveProject(baseDir(artifact, match), match["slug"],
 		parser.Str(state.projectHash), &problems)
 	for _, start := range state.starts {
-		emit(p.systemRow(artifact, where{start.line, start.timestamp, start.sessionID, project}, start.text))
+		place := where{start.line, start.timestamp, start.sessionID, project}
+		emit(p.systemRow(artifact, place, start.text))
 	}
-	if worktree := worktreePattern.FindStringSubmatch(project); worktree != nil && len(state.starts) > 0 {
+	worktree := worktreePattern.FindStringSubmatch(project)
+	if worktree != nil && len(state.starts) > 0 {
 		first := state.starts[0]
 		emit(p.systemRow(artifact, where{first.line, first.timestamp, first.sessionID, project},
 			"scratch directory: "+project+" (gemini --worktree "+worktree[1]+")"))

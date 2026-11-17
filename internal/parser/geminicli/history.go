@@ -18,7 +18,8 @@ import (
 // historyObjectPattern is the start of a /chat save checkpoint as the CLI
 // writes it, {"history": [...], "authType": ...}, for reading the history
 // array of a file cut mid-write. Only JSON whitespace counts as space.
-var historyObjectPattern = regexp.MustCompile(`^[ \t\n\r]*\{[ \t\n\r]*"history"[ \t\n\r]*:[ \t\n\r]*`)
+var historyObjectPattern = regexp.MustCompile(
+	`^[ \t\n\r]*\{[ \t\n\r]*"history"[ \t\n\r]*:[ \t\n\r]*`)
 
 // shellCommand is one command of a shell_history file and the line it
 // starts on.
