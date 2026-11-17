@@ -287,9 +287,9 @@ class Snapshotter:
             return None
         except PermissionError:
             self.walked.append((path, "denied"))
-            entry, below = self.entries.get(path, (None, {}))
-            mtimes.update(below)
-            return entry
+            last, earlier = self.entries.get(path, (None, {}))
+            mtimes.update(earlier)
+            return last
         key = _status_key(status)
         self.seen[path] = key
         self.walked.append((path, key))
