@@ -95,3 +95,47 @@ func JSONArray(path string, problems *Problems) iter.Seq2[int, pyjson.Value] {
 		}
 	}
 }
+
+// ArrayElements returns the elements of the JSON array text holds, salvaging
+// what it can of a damaged one, for stores read whole into memory. A bad
+// element stops the walk with "unparseable record <position> (<reason>)" and
+// the text from it to the end (TailText) as raw; text that is no array gives
+// "not a JSON array" at 1; a missing closing bracket, a trailing comma at the
+// end included, gives "array cut off after record <n>" after the last
+// element; data after a non-empty array gives "unexpected data after the
+// array". Data after an empty array is not reported.
+func ArrayElements(text string, problems *Problems) []pyjson.Value {
+	var elements []pyjson.Value
+	cursor := skipJSONWhitespace(text, 0)
+	if cursor >= len(text) || text[cursor] != '[' {
+		problems.Add(1, "not a JSON array")
+		return elements
+	}
+	cursor = skipJSONWhitespace(text, cursor+1)
+	if cursor < len(text) && text[cursor] == ']' {
+		return elements
+	}
+	for cursor < len(text) {
+		position := len(elements) + 1
+		value, next, err := pyjson.DecodePrefix(text, cursor)
+		if err != nil {
+			problems.AddRaw(position, UnparseableRecord(position, err), TailText(text, cursor))
+			return elements
+		}
+		elements = append(elements, value)
+		cursor = skipJSONWhitespace(text, next)
+		if cursor < len(text) && text[cursor] == ',' {
+			cursor = skipJSONWhitespace(text, cursor+1)
+			continue
+		}
+		if cursor < len(text) && text[cursor] == ']' {
+			if skipJSONWhitespace(text, cursor+1) < len(text) {
+				problems.Add(position+1, "unexpected data after the array")
+			}
+			return elements
+		}
+		break
+	}
+	problems.Add(len(elements)+1, "array cut off after record "+strconv.Itoa(len(elements)))
+	return elements
+}

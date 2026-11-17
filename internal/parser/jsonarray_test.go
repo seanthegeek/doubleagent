@@ -108,3 +108,74 @@ func FuzzArrayAt(fuzz *testing.F) {
 		}
 	})
 }
+
+// The elements and problems are what the Python analyzer's array reader for
+// in-memory text gives; the decoder's wording is the binary's own.
+func TestArrayElementsSalvagesTheElementsBeforeDamage(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		items    []string
+		problems Problems
+	}{
+		{"elements with spaces around commas", `[1, {"a": 2} ,3]`, []string{"1", `{"a":2}`, "3"}, nil},
+		{"an empty array", `[]`, nil, nil},
+		{"an empty array with spaces", " [ ]\n", nil, nil},
+		{"data after an empty array is not reported", `[] x`, nil, nil},
+		{"empty text is not an array", ``, nil, Problems{{Line: 1, Message: "not a JSON array"}}},
+		{"whitespace is not an array", "  ", nil, Problems{{Line: 1, Message: "not a JSON array"}}},
+		{"a word is not an array", `x`, nil, Problems{{Line: 1, Message: "not a JSON array"}}},
+		{"data after the array", `[1] x`, []string{"1"},
+			Problems{{Line: 2, Message: "unexpected data after the array"}}},
+		{"a second closing bracket", `[1]]`, []string{"1"},
+			Problems{{Line: 2, Message: "unexpected data after the array"}}},
+		{"a line end after the array is fine", "[1]\n", []string{"1"}, nil},
+		{"a comma at the end of text cuts the array off", `[1,`, []string{"1"},
+			Problems{{Line: 2, Message: "array cut off after record 1"}}},
+		{"a comma and a space at the end of text", `[1, `, []string{"1"},
+			Problems{{Line: 2, Message: "array cut off after record 1"}}},
+		{"an opening bracket alone", "[\n", nil,
+			Problems{{Line: 1, Message: "array cut off after record 0"}}},
+		{"a trailing comma before the bracket is a bad record", `[1,]`, []string{"1"}, Problems{{Line: 2,
+			Message: "unparseable record 2 (invalid JSON at line 1, column 4: expected a value)",
+			Raw:     "]"}}},
+		{"a missing comma cuts the array off", `[1 2]`, []string{"1"},
+			Problems{{Line: 2, Message: "array cut off after record 1"}}},
+		{"no closing bracket", `[1`, []string{"1"},
+			Problems{{Line: 2, Message: "array cut off after record 1"}}},
+		{"a record cut off keeps the ones before", `[1, {"a"`, []string{"1"}, Problems{{Line: 2,
+			Message: "unparseable record 2 (invalid JSON at line 1, column 9: expected ':' after a property name)",
+			Raw:     `{"a"`}}},
+		{"a bad third record", `[1,"é", tru]`, []string{"1", `"é"`}, Problems{{Line: 3,
+			Message: "unparseable record 3 (invalid JSON at line 1, column 9: expected a value)",
+			Raw:     "tru]"}}},
+		{"a comma first", `[,1]`, nil, Problems{{Line: 1,
+			Message: "unparseable record 1 (invalid JSON at line 1, column 2: expected a value)",
+			Raw:     ",1]"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var problems Problems
+			var items []string
+			for _, value := range ArrayElements(test.text, &problems) {
+				items = append(items, pyjson.Compact(value))
+			}
+			if !slices.Equal(items, test.items) || !slices.Equal(problems, test.problems) {
+				t.Errorf("got %q, %+v; want %q, %+v", items, problems, test.items, test.problems)
+			}
+		})
+	}
+}
+
+func FuzzArrayElements(fuzz *testing.F) {
+	for _, seed := range []string{`[1, 2]`, `[1, {"a":`, `[1,`, ` [ ] x`, `["\ud83d", 1e400]`} {
+		fuzz.Add(seed)
+	}
+	fuzz.Fuzz(func(t *testing.T, text string) {
+		var problems Problems
+		elements := ArrayElements(text, &problems)
+		if len(problems) > 1 || (len(problems) == 1 && problems[0].Line > len(elements)+1) {
+			t.Errorf("%d elements with problems %+v", len(elements), problems)
+		}
+	})
+}
