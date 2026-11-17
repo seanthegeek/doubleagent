@@ -55,20 +55,22 @@ func ownerPackages() []string {
 func safeNames() map[string][]string {
 	return map[string][]string{
 		// The process, its environment and standard streams, the null
-		// device's name, file types and flags. Getwd takes no path; the
-		// operating system answers it from the process, though the Unix
-		// fallback stats "." and the working directory to check $PWD.
-		// SameFile compares two FileInfo values already read.
+		// device's name, file types and flags, and two error types. Getwd
+		// takes no path; the operating system answers it from the process,
+		// though the Unix fallback stats "." and the working directory to
+		// check $PWD. SameFile compares two FileInfo values already read.
 		"os": {"Args", "DevNull", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
 			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
-			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout"},
+			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout", "SyscallError"},
 		// The running account's own record, looked up by the system.
 		"os/user": {"Current"},
 		// Text operations on a path; none touches the file system.
 		"path/filepath": {"Base", "Clean", "IsAbs", "Join", "SplitList", "VolumeName"},
-		// Constants, a signal and an attribute record type.
-		"syscall": {"ERROR_MORE_DATA", "FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT",
-			"SIGTERM", "Win32FileAttributeData"},
+		// Constants, a signal, an attribute record type, and error numbers
+		// with their type, which internal/reason compares errors against.
+		"syscall": {"EISDIR", "ELOOP", "ENAMETOOLONG", "ENOTDIR", "ERROR_MORE_DATA", "Errno",
+			"FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT", "SIGTERM",
+			"Win32FileAttributeData"},
 		// Constants, the umask, the kernel's name and a byte conversion.
 		"golang.org/x/sys/unix": {"AT_EACCESS", "AT_FDCWD", "ByteSliceToString", "Umask", "Uname",
 			"Utsname", "W_OK", "X_OK"},
