@@ -17,7 +17,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
-	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -281,6 +280,18 @@ func lineDiff(got, want string) string {
 	return strings.Join(diff, "\n")
 }
 
+// stringBody returns text as the inside of a JSON string, as the sh collector
+// writes it: the bytes of encoding/json's form without the quotes.
+func stringBody(text string) string {
+	var encoded strings.Builder
+	encoder := json.NewEncoder(&encoded)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(text); err != nil {
+		panic(err)
+	}
+	return strings.TrimSuffix(encoded.String(), "\"\n")[1:]
+}
+
 // JSON returns the `relocation` object of collection.json as the sh collector
 // writes it for result, for the byte comparison below; the binary's own
 // writer is the summary package's, the one writer of collection.json.
@@ -292,10 +303,10 @@ func JSON(result Result) string {
 			text.WriteString(",")
 		}
 		fmt.Fprintf(&text, "\n    {\"user\": \"%s\", \"source\": \"%s\", \"line\": %d, ",
-			manifest.EscapeJSON(hint.User), manifest.EscapeJSON(hint.Source), hint.Line)
+			stringBody(hint.User), stringBody(hint.Source), hint.Line)
 		fmt.Fprintf(&text, "\"variable\": \"%s\", \"agent\": \"%s\", \"value\": \"%s\"}",
-			manifest.EscapeJSON(hint.Variable), manifest.EscapeJSON(hint.Agent),
-			manifest.EscapeJSON(hint.Value))
+			stringBody(hint.Variable), stringBody(hint.Agent),
+			stringBody(hint.Value))
 	}
 	if len(result.Hints) > 0 {
 		text.WriteString("\n  ")

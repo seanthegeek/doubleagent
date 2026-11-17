@@ -2,6 +2,9 @@
 
 package manifest
 
-// appendPlatformFields adds nothing: Unix rows have no owner or attributes
-// fields.
-func appendPlatformFields(out []byte, _ Row) []byte { return out }
+// platformFields holds the fields only some platforms write: none on Unix,
+// where rows have no owner or attributes.
+type platformFields struct{}
+
+// platformOf returns the platform fields of row.
+func platformOf(Row) platformFields { return platformFields{} }

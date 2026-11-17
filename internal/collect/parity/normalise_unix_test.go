@@ -3,6 +3,8 @@
 package parity
 
 import (
+	"bytes"
+	"encoding/json"
 	"maps"
 	"regexp"
 	"slices"
@@ -14,8 +16,7 @@ import (
 // line's tool and capabilities and the error texts of failure lines.
 var (
 	manifestVolatile = regexp.MustCompile(`"atime":[0-9]+,|"error":"(\\.|[^"\\])*"`)
-	summaryVolatile  = regexp.MustCompile(`(?m)^  "(started|finished|archive|tool|version|capabilities)": .*\n`)
-	registryReason   = regexp.MustCompile(`"reason": "[^"]*"`)
+	registryReason   = regexp.MustCompile(`"reason":"[^"]*"`)
 	logTime          = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z `)
 	logStart         = regexp.MustCompile(`^\S+ \S+ starting on `)
 	logCapability    = regexp.MustCompile(`(hash|stat|worker_sh)=\S+ ?`)
@@ -29,7 +30,7 @@ var (
 	// The binary's --no-preserve-atime, which the sh collector does not
 	// have, is recorded in collection.json's options and the log's second
 	// start line.
-	summaryNoPreserveAtime = regexp.MustCompile(`, "no_preserve_atime": (true|false)`)
+	summaryNoPreserveAtime = regexp.MustCompile(`,"no_preserve_atime":(true|false)`)
 	logNoPreserveAtime     = regexp.MustCompile(` no_preserve_atime=[01]$`)
 	archivePathField       = regexp.MustCompile(`"archive_path":"(\\.|[^"\\])*"`)
 	// foldingNote is the binary's note that the output directory takes two
@@ -102,11 +103,10 @@ func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
 	}
 	manifest := archived(run.files[".manifest.jsonl"])
 	files := map[string]string{
-		".manifest.jsonl": manifest,
-		".collection.json": summaryNoPreserveAtime.ReplaceAllString(registryReason.ReplaceAllString(
-			summaryVolatile.ReplaceAllString(run.files[".collection.json"], ""), `"reason": R`), ""),
-		".log":     normalLog(run.files[".log"], binary),
-		".archive": normalMembers(run.members, archived),
+		".manifest.jsonl":  manifest,
+		".collection.json": normalSummary(run.files[".collection.json"]),
+		".log":             normalLog(run.files[".log"], binary),
+		".archive":         normalMembers(run.members, archived),
 	}
 	stdout := inventoryVolatile.ReplaceAllString(stdoutVolatile.ReplaceAllString(run.stdout, ""),
 		`"$1":X`)
@@ -115,6 +115,46 @@ func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
 		stderr = normalStderr(stderr)
 	}
 	return collectorRun{code: run.code, stdout: stdout, stderr: stderr, files: files}
+}
+
+// summaryVolatile names the top-level keys of collection.json that differ by
+// design.
+var summaryVolatile = []string{"started", "finished", "archive", "tool", "version", "capabilities"}
+
+// normalSummary returns collection.json as one line per top-level field,
+// `"key":value`, in the file's order, each value with the whitespace between
+// its tokens removed, without the volatile keys, the registry reason and the
+// binary's no_preserve_atime option (exception 52 covers the whitespace: the
+// binary indents the document as encoding/json does, the sh collector keeps
+// small objects and lists on one line). A text that is not a JSON object is
+// returned as it is, so it fails the comparison.
+func normalSummary(text string) string {
+	decoder := json.NewDecoder(strings.NewReader(text))
+	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+		return text
+	}
+	var lines []string
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return text
+		}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return text
+		}
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, value); err != nil {
+			return text
+		}
+		if slices.Contains(summaryVolatile, key.(string)) {
+			continue
+		}
+		line := `"` + key.(string) + `":` + compact.String()
+		line = summaryNoPreserveAtime.ReplaceAllString(line, "")
+		lines = append(lines, registryReason.ReplaceAllString(line, `"reason":R`))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // caseFreeArchivePaths returns manifest text with every archive_path value

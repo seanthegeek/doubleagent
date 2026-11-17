@@ -1,6 +1,6 @@
-// Package manifest writes the manifest, one JSON object per line, by hand in
-// the field order and byte layout of the sh collector's write_manifest_row,
-// and keeps the counts the summary reports.
+// Package manifest writes the manifest, one JSON object per line with
+// encoding/json in the documented field order, and keeps the counts the
+// summary reports.
 package manifest
 
 // Status is the outcome recorded for one path.
@@ -55,4 +55,46 @@ type Row struct {
 	Status     Status
 	Target     string
 	Error      string
+}
+
+// jsonRow is the JSON form of a Row: the manifest's fields in their documented
+// order. Every field is written, an empty one as "" or 0, so no field has
+// omitempty; the platform's own fields (owner and attributes on Windows,
+// none elsewhere) come after mode. The numbers are never negative.
+type jsonRow struct {
+	User        string `json:"user"`
+	Home        string `json:"home"`
+	Agent       string `json:"agent"`
+	Path        string `json:"path"`
+	ArchivePath string `json:"archive_path"`
+	Type        string `json:"type"`
+	Size        int64  `json:"size"`
+	Mtime       int64  `json:"mtime"`
+	Atime       int64  `json:"atime"`
+	Ctime       int64  `json:"ctime"`
+	Btime       int64  `json:"btime"`
+	UID         uint32 `json:"uid"`
+	GID         uint32 `json:"gid"`
+	Mode        string `json:"mode"`
+	platformFields
+	SHA256 string `json:"sha256"`
+	Secret bool   `json:"secret"`
+	Status Status `json:"status"`
+	Target string `json:"target"`
+	Error  string `json:"error"`
+}
+
+// jsonRowOf returns the JSON form of row. A negative number is written as 0: the
+// sh collector writes 0 for any number that is not a run of digits, and a
+// time before 1970 is one.
+func jsonRowOf(row Row) jsonRow {
+	return jsonRow{
+		User: row.User, Home: row.Home, Agent: row.Agent, Path: row.Path,
+		ArchivePath: row.ArchivePath, Type: row.Type, Size: nonNegative(row.Size),
+		Mtime: nonNegative(row.Mtime), Atime: nonNegative(row.Atime),
+		Ctime: nonNegative(row.Ctime), Btime: nonNegative(row.Btime),
+		UID: row.UID, GID: row.GID, Mode: row.Mode, platformFields: platformOf(row),
+		SHA256: row.SHA256, Secret: row.Secret, Status: row.Status,
+		Target: row.Target, Error: row.Error,
+	}
 }

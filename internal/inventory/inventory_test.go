@@ -43,6 +43,16 @@ func agentCases() []agentCase {
 			aggregator.File("a\"b", 1, 1)
 		}, `{"type":"agent","host":"h","user":"u","agent":"a\"b","files":1,"bytes":1,` +
 			`"first":"1970-01-01T00:00:01Z","last":"1970-01-01T00:00:01Z","projects":3,"evidence":"x\ty"}` + "\n"},
+		{"angle brackets and an ampersand are written as they are", func(aggregator *Aggregator) {
+			aggregator.Match("a<b>&c", ".a")
+			aggregator.File("a<b>&c", 1, 1)
+		}, `{"type":"agent","host":"h","user":"u","agent":"a<b>&c","files":1,"bytes":1,` +
+			`"first":"1970-01-01T00:00:01Z","last":"1970-01-01T00:00:01Z","projects":3,"evidence":".a"}` + "\n"},
+		{"invalid UTF-8 in a name is written as replacement characters", func(aggregator *Aggregator) {
+			aggregator.Match("a\xffb", ".a")
+			aggregator.File("a\xffb", 1, 1)
+		}, "{\"type\":\"agent\",\"host\":\"h\",\"user\":\"u\",\"agent\":\"a\ufffdb\",\"files\":1,\"bytes\":1," +
+			`"first":"1970-01-01T00:00:01Z","last":"1970-01-01T00:00:01Z","projects":3,"evidence":".a"}` + "\n"},
 	}
 }
 

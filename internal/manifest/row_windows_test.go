@@ -6,11 +6,27 @@ import (
 	"testing"
 )
 
+// platformFieldsText is what a row holds between mode and sha256 on this
+// platform when owner and attributes are empty.
+const platformFieldsText = `"owner":"","attributes":"",`
+
 func TestWindowsRowCarriesFieldsAfterMode(t *testing.T) {
-	line := string(appendRow(nil, Row{Mode: "", Owner: "O", Attributes: "Hidden"}))
-	want := `"mode":"","owner":"O","attributes":"Hidden","sha256"`
-	if !strings.Contains(line, want) {
-		t.Errorf("row %s lacks %s", line, want)
+	cases := []struct {
+		name string
+		row  Row
+		want string
+	}{
+		{"both set", Row{Owner: `HOST\alice`, Attributes: "Archive, ReparsePoint"},
+			`"mode":"","owner":"HOST\\alice","attributes":"Archive, ReparsePoint","sha256"`},
+		{"both empty are still written", Row{}, `"mode":"",` + platformFieldsText + `"sha256"`},
+		{"escaped", Row{Owner: "a\"b"}, `"owner":"a\"b","attributes":"","sha256"`},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := lineOf(t, testCase.row); !strings.Contains(got, testCase.want) {
+				t.Errorf("row %s lacks %s", got, testCase.want)
+			}
+		})
 	}
 }
 

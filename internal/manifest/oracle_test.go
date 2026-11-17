@@ -81,8 +81,7 @@ func buildFixture(t *testing.T) (root, home string) {
 	return root, home
 }
 
-// decodeRow reads a manifest line into a Row with encoding/json, which the
-// project may use to read an interface file but never to write one.
+// decodeRow reads a manifest line into a Row with encoding/json.
 func decodeRow(t *testing.T, line string) Row {
 	t.Helper()
 	var fields struct {
@@ -165,9 +164,13 @@ func TestWriterBuildsShRowFromLstat(t *testing.T) {
 	if err := NewWriter(&expected).Write(want); err != nil {
 		t.Fatal(err)
 	}
+	quotedSource, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
 	found := false
 	for _, line := range runShCollector(t, root) {
-		if strings.Contains(line, `"path":"`+EscapeJSON(source)+`"`) {
+		if strings.Contains(line, `"path":`+string(quotedSource)+`,`) {
 			found = true
 			if withoutAtime(line+"\n") != withoutAtime(expected.String()) {
 				t.Errorf("row differs\n got %swant %s", expected.String(), line)

@@ -48,14 +48,28 @@
 //     "WARNING: project given with -p is not a directory" line and an
 //     error_read row, which the totals count (outsideArgument in
 //     exceptions_test.go).
+//   - badname51 (exception 51): a file whose name is not valid UTF-8
+//     (lone\xff\xfe.jsonl). The binary writes the manifest through
+//     encoding/json, which puts one U+FFFD character in place of each byte of
+//     the name that is not part of a valid character, in path and archive_path
+//     (and in the manifest the archive holds); the sh collector writes the raw
+//     bytes, which makes its line invalid JSON. The archive member keeps the
+//     real bytes in both. shownBadName in badname_unix_test.go rewrites the sh
+//     manifests; every other text is compared as it was.
+//   - every case (exception 52): collection.json. The binary writes it through
+//     encoding/json, indented by two spaces with every object and list item on
+//     a line of its own; the sh collector keeps small objects and lists on one
+//     line. normalSummary removes the whitespace between tokens from both and
+//     compares the fields in order, so key order, values and number text are
+//     still compared; a text it cannot parse is compared as it is.
 
 package parity
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -169,32 +183,13 @@ func archivePathsNamingNoMember(run collectorRun) []string {
 	return missing
 }
 
-// unescapeManifest undoes manifest.EscapeJSON byte for byte: \" and \\, the
-// named escapes and \u00xx; every other byte, invalid UTF-8 included, is a
-// path byte as written. encoding/json would turn invalid UTF-8 into U+FFFD.
+// unescapeManifest returns the text of a manifest string field's body: the
+// text between the quotes, as encoding/json reads it. A body that is not a
+// JSON string is returned as it is.
 func unescapeManifest(escaped string) string {
-	named := map[byte]byte{'"': '"', '\\': '\\', 'b': '\b', 't': '\t', 'n': '\n', 'f': '\f',
-		'r': '\r'}
-	var out []byte
-	for i := 0; i < len(escaped); i++ {
-		if escaped[i] != '\\' || i+1 >= len(escaped) {
-			out = append(out, escaped[i])
-			continue
-		}
-		i++
-		if char, found := named[escaped[i]]; found {
-			out = append(out, char)
-		} else if escaped[i] == 'u' && i+4 < len(escaped) {
-			value, err := strconv.ParseUint(escaped[i+1:i+5], 16, 8)
-			if err == nil {
-				out = append(out, byte(value))
-				i += 4
-				continue
-			}
-			out = append(out, '\\', 'u')
-		} else {
-			out = append(out, '\\', escaped[i])
-		}
+	var text string
+	if err := json.Unmarshal([]byte(`"`+escaped+`"`), &text); err != nil {
+		return escaped
 	}
-	return string(out)
+	return text
 }
