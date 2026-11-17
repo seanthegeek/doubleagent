@@ -171,7 +171,14 @@ func FileMtime(artifact *input.Artifact) string {
 	if err != nil {
 		return ""
 	}
-	return timeutil.FromEpoch(statSeconds(info.ModTime().Unix(), info.ModTime().Nanosecond()))
+	return timeutil.FromEpoch(MtimeSeconds(info))
+}
+
+// MtimeSeconds returns the modification time of an entry already looked
+// at, in seconds since the epoch as the float Python's st_mtime holds, for
+// a parser that compares or converts the times of several files.
+func MtimeSeconds(info fs.FileInfo) float64 {
+	return statSeconds(info.ModTime().Unix(), info.ModTime().Nanosecond())
 }
 
 // statSeconds returns a modification time as Python's st_mtime gives it:

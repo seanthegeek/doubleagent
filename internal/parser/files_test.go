@@ -2,6 +2,7 @@ package parser
 
 import (
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -71,6 +72,34 @@ func TestFileMtimeRoundsTheFileTimeAsPythonDoes(t *testing.T) {
 			artifact := &input.Artifact{DiskPath: path, Manifest: pyjson.NewNull()}
 			if got := FileMtime(artifact); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestMtimeSecondsIsThePythonStatFloat(t *testing.T) {
+	tests := []struct {
+		nanoseconds int64
+		want        float64
+	}{
+		{1790848800_123456789, 1790848800.1234567},
+		{1790848800_999999500, 1790848800.9999995},
+		{1790848799_999999999, 1790848800.0},
+		{1_000000001, 1.000000001},
+	}
+	for _, test := range tests {
+		t.Run(strconv.FormatInt(test.nanoseconds, 10), func(t *testing.T) {
+			path := writeFile(t, "file", nil)
+			moment := time.Unix(0, test.nanoseconds)
+			if err := osfile.Chtimes(path, moment, moment); err != nil {
+				t.Fatal(err)
+			}
+			info, err := osfile.Lstat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := MtimeSeconds(info); got != test.want {
+				t.Errorf("got %v, want %v", got, test.want)
 			}
 		})
 	}

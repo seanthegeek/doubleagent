@@ -92,6 +92,33 @@ func TestSettingValueWritesBooleansLowerAndTheRestAsJSON(t *testing.T) {
 	}
 }
 
+func TestSettingOrDashDashesOnlyNullAndTheEmptyString(t *testing.T) {
+	tests := []struct {
+		name, value, want string
+	}{
+		{"null", `null`, "-"},
+		{"the empty string", `""`, "-"},
+		{"a space is kept", `" "`, " "},
+		{"a string as it is", `"s"`, "s"},
+		{"false is written", `false`, "false"},
+		{"true is written", `true`, "true"},
+		{"zero is written", `0`, "0"},
+		{"a float zero is written", `0.0`, "0.0"},
+		{"a float as Python writes it", `1.50`, "1.5"},
+		{"an empty list is JSON", `[]`, "[]"},
+		{"an empty object is JSON", `{}`, "{}"},
+		{"an object is sorted JSON", `{"b":1,"a":"é"}`, `{"a":"é","b":1}`},
+		{"NaN", `NaN`, "NaN"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := SettingOrDash(decoded(t, test.value)); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestTrackerReportsTheFirstValueAndEachChangePerKey(t *testing.T) {
 	tracker := Tracker{}
 	steps := []struct{ key, value, want string }{

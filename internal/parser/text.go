@@ -77,6 +77,17 @@ func SettingValue(value pyjson.Value) string {
 	return CompactJSON(value)
 }
 
+// SettingOrDash returns a record value as row text, "-" when it is null or
+// the empty string: SettingValue of anything else, so false is "false" and
+// zero is "0". It is the form parsers give a field of a summary row that may
+// be absent.
+func SettingOrDash(value pyjson.Value) string {
+	if value.IsNull() || isString(value, "") {
+		return "-"
+	}
+	return SettingValue(value)
+}
+
 // Tracker remembers, per key (a session or thread id), the last value of
 // one tracked state such as the model, for one parse.
 type Tracker map[string]string
