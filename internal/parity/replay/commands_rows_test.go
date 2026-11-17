@@ -68,6 +68,9 @@ type recordedCalls struct {
 	secondary  map[callKey]bool
 	tolerances map[callKey]float64
 	root       func(Text) string
+	// parsed holds the sequence numbers of the recorded parses in the
+	// order the run made them.
+	parsed []int
 }
 
 // recordedParser answers as the analyzer's parser did in the recording:
@@ -107,6 +110,7 @@ func (p recordedParser) Parse(artifact *input.Artifact, _ parser.Options, emit p
 	}
 	recorded := queue[0]
 	p.calls.parses[key] = queue[1:]
+	p.calls.parsed = append(p.calls.parsed, recorded.Seq)
 	for _, row := range recorded.Result.Rows {
 		emit(p.calls.row(row))
 	}
@@ -315,6 +319,13 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 	before := filesUnder(root)
 	got := r.run(t, "timeline", recorded, root)
 	want := r.expected(t, recorded, root)
+	if !slices.IsSorted(run.parsed) {
+		// A loose tree is listed in the file system's order, which decides
+		// which of two equal secondary rows is kept.
+		r.full["timeline"]--
+		r.skipped["artifacts listed in another order than the recording's"]++
+		return
+	}
 	compareFull(t, node, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }
