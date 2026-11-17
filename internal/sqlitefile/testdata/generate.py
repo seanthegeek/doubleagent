@@ -11,9 +11,12 @@ stdlib `sqlite3` module reads to `expected.txt`. The Go tests compare the
 reader with that file, so the expected values come from SQLite itself.
 
 Logs and journals carry random salts and nonces, so a rerun changes their
-bytes but not the expected rows. Every table is declared without column
-types and without an INTEGER PRIMARY KEY, so the values SQL returns are the
-values stored in each record.
+bytes but not the expected rows. Every table with trees in expected.txt is
+declared without column types and without an INTEGER PRIMARY KEY, so the
+values SQL returns are the values stored in each record. schema.db, sites.db
+and sites_hermes.db hold typed tables and the tables of the parsers' queries;
+what SQL returns from them (`dump_queries`, also used by fixture_tables.py)
+goes to `tables.txt`.
 
 `expected.txt` has one `db <file>` line per database, then `schema` lines
 (type, name, table name, root page, SQL as hex), `tree <table|index> <name>`
@@ -173,6 +176,582 @@ def build_utf16() -> str:
     connection.close()
     TREES[name] = [("table", "t", "SELECT rowid, a FROM t", None)]
     return name
+
+
+# Rowid alias declarations; each table holds one row inserted with rowid 7
+# and id 3, so the dump shows which declarations make id the rowid.
+ALIAS_FORMS = [
+    "id INTEGER PRIMARY KEY, v",
+    "id integer primary key, v",
+    "id INTEGER PRIMARY KEY ASC, v",
+    "id INTEGER PRIMARY KEY DESC, v",
+    "id INTEGER, v, PRIMARY KEY(id)",
+    "id INTEGER, v, PRIMARY KEY(id DESC)",
+    "id INT PRIMARY KEY, v",
+    "id BIGINT PRIMARY KEY, v",
+    "id INTEGER NOT NULL PRIMARY KEY, v",
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, v",
+    '"id" "INTEGER" PRIMARY KEY, v',
+    "id [INTEGER] PRIMARY KEY, v",
+    "id INTEGER(10) PRIMARY KEY, v",
+    "id UNSIGNED INTEGER PRIMARY KEY, v",
+    "id, v, PRIMARY KEY(id)",
+    "id INTEGER, v INTEGER, PRIMARY KEY(id, v)",
+    "id INTEGER CONSTRAINT pk PRIMARY KEY ON CONFLICT REPLACE, v",
+    "id 'INTEGER' PRIMARY KEY, v",
+    "id INTEGER, v, PRIMARY KEY(ID COLLATE nocase)",
+    "id INTEGER COLLATE binary PRIMARY KEY, v",
+]
+
+# DEFAULT clauses for ALTER TABLE ADD COLUMN, each added under every type, so
+# the rows written before read the default with each affinity applied.
+ADDED_DEFAULTS = [
+    "5",
+    "-5",
+    "+5",
+    "1.5",
+    "-1.50",
+    "1e3",
+    "-1e3",
+    "0x10",
+    "0xffffffffffffffff",
+    "'x'",
+    "X'00ff'",
+    "NULL",
+    "TRUE",
+    "false",
+    "(1)",
+    "'5'",
+    "'1e3'",
+    '"q"',
+    "-'5'",
+    "+'5'",
+    "- 3",
+    "9223372036854775808",
+    "-9223372036854775808",
+    "1.",
+    ".5",
+    "-0.0",
+    "1_000",
+    "007",
+    "(-(5))",
+    "(CAST(1 AS TEXT))",
+    "abc",
+]
+ADDED_TYPES = ["", "INTEGER", "TEXT", "REAL", "NUMERIC", "BLOB"]
+
+# An original column list whose defaults only a short record reads: SQLite
+# writes no such record for these columns, so the schema text is rewritten
+# after the row is written.
+WIDENED_SQL = (
+    "CREATE TABLE widened(a, b DEFAULT CURRENT_TIMESTAMP, c DEFAULT (1+2), d DEFAULT (-(5)),"
+    " f DEFAULT abc, g REAL DEFAULT 3, i DEFAULT X'41', j TEXT DEFAULT (X'41'), k DEFAULT (+5),"
+    " l DEFAULT (CAST(1 AS TEXT)), m DEFAULT ('a'||'b'), n INTEGER DEFAULT ('7'),"
+    " o DEFAULT (NULL), p DEFAULT (TRUE), q DEFAULT (strftime('%s','now')))"
+)
+
+# Values the function queries read: text with a NUL, multi-byte text, blobs,
+# numbers, NULL, and (through a cast) text that is not valid UTF-8.
+SAMPLES: list[object] = [
+    "abc",
+    "ABC",
+    "a\x00bc",
+    "é",
+    "É",
+    "日本語",
+    "\U0001f600x",
+    b"abc",
+    b"a\x00bc",
+    b"\xff\xfeA",
+    b"\xc3",
+    b"\xe2\x82",
+    b"\x80\x80A",
+    12,
+    -3,
+    1.5,
+    1e20,
+    0.1,
+    100.0,
+    -0.0,
+    1e-7,
+    123456789012345678,
+    2.5e15,
+    None,
+    "",
+    b"",
+    "a%c",
+    "a_c",
+    " 5 ",
+    "3.0e+5",
+    "0x10",
+]
+INVALID_TEXT = [b"\xff\xfeA", b"\xc3", b"\xe2\x82", b"\x80\x80A"]
+
+
+def add_alias_tables(connection: sqlite3.Connection) -> None:
+    """One table per rowid alias declaration, holding rowid 7 with id 3."""
+    for number, form in enumerate(ALIAS_FORMS):
+        table = "alias_%d" % number
+        connection.execute("CREATE TABLE %s(%s)" % (table, form))
+        try:
+            connection.execute("INSERT INTO %s(rowid, id, v) VALUES (7, 3, 'x')" % table)
+        except sqlite3.IntegrityError:
+            connection.execute("INSERT INTO %s(id, v) VALUES (3, 'x')" % table)
+
+
+def add_default_tables(connection: sqlite3.Connection) -> None:
+    """Tables whose older rows are shorter than the table: ALTERed and rewritten ones."""
+    connection.execute("CREATE TABLE added(a)")
+    connection.executemany("INSERT INTO added VALUES (?)", [(1,), (2,)])
+    number = 0
+    for default in ADDED_DEFAULTS:
+        for kind in ADDED_TYPES:
+            statement = "ALTER TABLE added ADD COLUMN c%d %s DEFAULT %s" % (number, kind, default)
+            connection.execute(statement)
+            number += 1
+    connection.execute("INSERT INTO added(a) VALUES (3)")
+    connection.execute("CREATE TABLE widened(a)")
+    connection.execute("INSERT INTO widened VALUES (1)")
+    connection.execute("PRAGMA writable_schema=ON")
+    connection.execute("UPDATE sqlite_master SET sql=? WHERE name='widened'", (WIDENED_SQL,))
+    connection.execute("PRAGMA writable_schema=OFF")
+
+
+def add_shape_tables(connection: sqlite3.Connection) -> None:
+    """REAL and STRICT columns, WITHOUT ROWID key orders, generated columns and quoting."""
+    connection.execute("CREATE TABLE reals(r REAL, f FLOAT, d DOUBLE PRECISION, n NUMERIC, u)")
+    values = (2, 2.5, "3", None, 2**53 + 1, -0.0, "x", 1e300)
+    connection.executemany(
+        "INSERT INTO reals VALUES (?, ?, ?, ?, ?)", [(value,) * 5 for value in values]
+    )
+    connection.execute("CREATE TABLE strict_t(i INTEGER, r REAL, t TEXT, b BLOB, a ANY) STRICT")
+    connection.execute("INSERT INTO strict_t VALUES (1, 2, 't', x'00', '000123')")
+    connection.execute("INSERT INTO strict_t VALUES (NULL, 2.5, NULL, NULL, 4)")
+    connection.execute(
+        "CREATE TABLE keyed(a TEXT, b INTEGER, c TEXT, d, PRIMARY KEY(c, b)) WITHOUT ROWID"
+    )
+    keyed = [("a%d" % row, 7 - row, "c%d" % (row % 2), row * 1.5) for row in range(8)]
+    connection.executemany("INSERT INTO keyed VALUES (?, ?, ?, ?)", keyed)
+    connection.execute("ALTER TABLE keyed ADD COLUMN e DEFAULT 'later'")
+    connection.execute("INSERT INTO keyed VALUES ('z', 9, 'c0', NULL, 'set')")
+    connection.execute("CREATE TABLE keyed_desc(k INTEGER, v, PRIMARY KEY(k DESC)) WITHOUT ROWID")
+    descending = [(row, "v%d" % row) for row in range(5)]
+    connection.executemany("INSERT INTO keyed_desc VALUES (?, ?)", descending)
+    connection.execute(
+        "CREATE TABLE stored_gen(a INTEGER, b TEXT GENERATED ALWAYS AS (a || 'x') STORED, c)"
+    )
+    connection.executemany("INSERT INTO stored_gen(a, c) VALUES (?, ?)", [(1, "one"), (2, None)])
+    connection.execute("CREATE TABLE computed(a INTEGER, b AS (a * 2), c)")
+    connection.execute("INSERT INTO computed(a, c) VALUES (4, 'four')")
+    connection.execute(
+        'CREATE TABLE "odd ""name"" here" ([a b] TEXT, `c d` INTEGER, \'e f\', "g""h" -- a note\n'
+        " , /* a block comment */ i NUMERIC DEFAULT 'n/a')"
+    )
+    connection.execute("INSERT INTO \"odd \"\"name\"\" here\" VALUES ('x', '7', 1.0, 2, '3.5')")
+
+
+def add_query_tables(connection: sqlite3.Connection) -> None:
+    """Tables the queries read: fts5, collations, mixed values, invalid text, samples."""
+    connection.execute(
+        "CREATE VIRTUAL TABLE search USING fts5(title, body UNINDEXED,"
+        " tokenize='unicode61 remove_diacritics 2')"
+    )
+    search = [("first", "one"), ("second", None), ("third", 3), ("fourth", b"\x04")]
+    connection.executemany("INSERT INTO search(title, body) VALUES (?, ?)", search)
+    connection.execute("DELETE FROM search WHERE title = 'second'")
+    connection.execute(
+        "CREATE TABLE people(name TEXT COLLATE NOCASE, n INTEGER, t TEXT COLLATE RTRIM)"
+    )
+    people = [("bob", 2, "b  "), ("Alice", 1, "b"), ("alice", 1, "a "), ("BOB", 3, "a")]
+    connection.executemany("INSERT INTO people VALUES (?, ?, ?)", [*people, (None, 0, "")])
+    connection.execute("CREATE TABLE mixed(x, y TEXT, z INTEGER, w REAL)")
+    connection.executemany("INSERT INTO mixed VALUES (?, ?, ?, ?)", MIXED)
+    connection.execute("CREATE TABLE broken(a TEXT, b)")
+    connection.execute("INSERT INTO broken VALUES ('ok', 1)")
+    connection.execute("INSERT INTO broken VALUES (CAST(x'ff41' AS TEXT), 2)")
+    connection.execute("INSERT INTO broken VALUES ('after', 3)")
+    connection.execute("CREATE TABLE samples(x)")
+    for value in SAMPLES:
+        connection.execute("INSERT INTO samples VALUES (?)", (value,))
+    for value in INVALID_TEXT:
+        connection.execute("INSERT INTO samples VALUES (CAST(? AS TEXT))", (value,))
+
+
+MIXED = [
+    (5, "5", 5, 5),
+    ("5", "b", "5", 5.5),
+    (5.0, "a", 4, None),
+    (None, None, None, 1),
+    (b"5", "B", 3, 2),
+    ("x", "5.0", 5, 5),
+    (2, " 5", "abc", -1),
+    (5, "c", 5, 5),
+]
+
+
+def build_schema() -> str:
+    """A database of the table shapes the schema layer reads and the tables queries use."""
+    name = "schema.db"
+    connection = connect(HERE / name, 1024)
+    add_alias_tables(connection)
+    add_default_tables(connection)
+    add_shape_tables(connection)
+    add_query_tables(connection)
+    connection.close()
+    TREES[name] = []
+    return name
+
+
+def build_sites() -> list[str]:
+    """Databases holding the tables the parsers' queries read, with ties, NULLs and odd keys."""
+    name = "sites.db"
+    connection = connect(HERE / name, 1024)
+    for statement in SITE_SCHEMA:
+        connection.execute(statement)
+    for table, rows in SITE_ROWS.items():
+        marks = ", ".join("?" * len(rows[0]))
+        connection.executemany("INSERT INTO %s VALUES (%s)" % (table, marks), rows)
+    connection.execute("DELETE FROM session_search WHERE rowid = 2")
+    connection.close()
+    hermes = "sites_hermes.db"
+    connection = connect(HERE / hermes, 1024)
+    connection.execute("CREATE TABLE conversations (name TEXT, response_id TEXT NOT NULL)")
+    names = [("math", "resp_2"), ("chat", "resp_1"), ("math again", "resp_2"), (None, "resp_3")]
+    connection.executemany("INSERT INTO conversations VALUES (?, ?)", names)
+    connection.close()
+    TREES[name] = []
+    TREES[hermes] = []
+    return [name, hermes]
+
+
+SITE_SCHEMA = [
+    "CREATE TABLE local_thread_catalog (host_id TEXT NOT NULL, thread_id TEXT NOT NULL,"
+    " display_title TEXT, source_created_at REAL, source_kind TEXT,"
+    " PRIMARY KEY (host_id, thread_id))",
+    "CREATE TABLE cursorDiskKV (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)",
+    "CREATE TABLE ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)",
+    "CREATE TABLE archived_git_worktrees(id INTEGER PRIMARY KEY, worktree_path TEXT NOT NULL)"
+    " STRICT",
+    "CREATE TABLE thread_archived_worktrees(thread_id BLOB NOT NULL, archived_worktree_id INTEGER"
+    " NOT NULL, PRIMARY KEY (thread_id, archived_worktree_id)) STRICT",
+    "CREATE TABLE conversations (conversation_id TEXT NOT NULL PRIMARY KEY, channel TEXT NOT NULL,"
+    " account_id TEXT, kind TEXT, peer_id TEXT, thread_id TEXT)",
+    "CREATE TABLE session_conversations (session_id TEXT, conversation_id TEXT, role TEXT,"
+    " first_seen_at INTEGER)",
+    "CREATE TABLE session_transcript_cold_archives (session_id TEXT, archive_name TEXT,"
+    " archived_at INTEGER, storage TEXT, archive_blob BLOB)",
+    "CREATE TABLE session_transcript_cold_archive_chunks (session_id TEXT NOT NULL, chunk_index"
+    " INTEGER NOT NULL, archive_name TEXT NOT NULL UNIQUE, archive_blob BLOB,"
+    " PRIMARY KEY (session_id, chunk_index)) WITHOUT ROWID",
+    "CREATE TABLE logs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, ts_nanos INTEGER"
+    " NOT NULL, target TEXT NOT NULL, feedback_log_body TEXT, thread_id TEXT)",
+    "CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,"
+    " content_json TEXT NOT NULL)",
+    "CREATE VIRTUAL TABLE session_search USING fts5(session_id UNINDEXED, document_id UNINDEXED,"
+    " ordinal UNINDEXED, role UNINDEXED, started_at UNINDEXED, workspace_root, title, content,"
+    " tokenize='unicode61 remove_diacritics 2 tokenchars ''_-@''')",
+    "CREATE TABLE session_message (id text PRIMARY KEY, session_id text NOT NULL, type text NOT"
+    " NULL, seq integer, time_created integer NOT NULL, data text NOT NULL)",
+    "CREATE TABLE files (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, path TEXT NOT NULL,"
+    " content TEXT, version INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)",
+]
+SITE_ROWS: dict[str, list[tuple]] = {
+    "local_thread_catalog": [("h2", "t1", "late", 2.0, "chatgpt"), ("h1", "t2", None, 1, "codex")],
+    "cursorDiskKV": [
+        ("composerData:b", b"{}"),
+        ("composerData:a", "x"),
+        ("composerData;", b"edge"),
+        ("composerDat", b"short"),
+        ("bubbleId:1:2", b'{"t":1}'),
+        ("composerData:é", None),
+    ],
+    "ItemTable": [
+        ("cloudAgentRepository.agents.u2", b"[]"),
+        ("cloudAgentRepository.agents.u1", "[1]"),
+        ("cloudAgentRepository.agentsX", b"no"),
+        ("secret://x", b"s"),
+        ("CLOUDAGENTREPOSITORY.agents.u3", b"[]"),
+    ],
+    "archived_git_worktrees": [(3, "/w/three"), (1, "/w/one"), (2, "/w/two")],
+    "thread_archived_worktrees": [(b"\x02", 1), (b"\x01", 1), (b"\x05", 3), (b"\x01\x00", 1)],
+    "conversations": [
+        ("c1", "telegram", "a1", "dm", "p1", None),
+        ("c2", "slack", None, None, "p2", "t9"),
+    ],
+    "session_conversations": [
+        ("s2", "c2", "user", 20),
+        ("s1", "c1", "owner", 10),
+        ("s3", "c9", "user", 10),
+        ("s4", "c1", None, 20),
+        ("s5", None, "x", 5),
+    ],
+    "session_transcript_cold_archives": [
+        ("s1", "one.jsonl.zst", 30, "sqlite", b"one"),
+        ("s2", "two.jsonl.zst", 10, "sqlite", None),
+        ("s3", "three", 10, "file", None),
+        ("s1", "again", 30, "sqlite", b"again"),
+    ],
+    "session_transcript_cold_archive_chunks": [
+        ("s1", 2, "one.2", b"b"),
+        ("s1", 1, "one.1", b"a"),
+        ("s2", 0, "two.0", None),
+    ],
+    "logs": [
+        (None, 100, 1, "codex_feedback", "x feedback event uploaded to Sentry y", "th1"),
+        (None, 101, 2, "codex_core::session::handlers", "op=ExecApproval { a }", None),
+        (None, 102, 3, "codex_core::session::handlers", "op=PatchApproval { b }", "th2"),
+        (None, 103, 4, "codex_app_server::outgoing_message", "no mark", "th3"),
+        (None, 104, 5, "other", "op=ExecApproval {", "th4"),
+        (
+            None,
+            105,
+            6,
+            "codex_app_server::outgoing_message",
+            "CommandExecutionRequestApproval {",
+            None,
+        ),
+    ],
+    "messages": [
+        (None, "s1", '{"type":"toolConfirmationResponse"}'),
+        (None, "s2", '{"type":"text"}'),
+        (None, "s3", "TOOLCONFIRMATIONRESPONSE"),
+        (None, "s4", "toolConfirmationRespons"),
+    ],
+    "session_search": [
+        ("s1", "d1", 1, "user", "2026", "/w", "title one", "content one"),
+        ("s2", "d2", 2, "assistant", None, "/w", "gone", "deleted later"),
+        ("s3", "d3", 3, "user", "2027", None, "title three", None),
+    ],
+    "session_message": [
+        ("m3", "s1", "user", 2, 10, "{}"),
+        ("m1", "s1", "user", 1, 10, "{}"),
+        ("m2", "s1", "assistant", 1, 10, "[]"),
+        ("m4", "s0", "user", None, 5, "{}"),
+        ("m5", "s1", "user", 1, 9, "{}"),
+        ("m6", "s0", "user", None, 5, "x"),
+    ],
+    "files": [
+        ("f1", "s1", "/a", "héllo", 1, 20),
+        ("f2", "s1", "/b", None, 0, 10),
+        ("f3", "s2", "/c", "a\x00b", 2, 10),
+        ("f4", "s2", "/d", "", 3, 20),
+    ],
+}
+
+
+def site_rows(connection: sqlite3.Connection, site: str) -> list[tuple] | None:
+    """The rows one parser's query returns from a database, or None when it lacks the tables.
+
+    Each query is the parser's own text with its parameters; the cursor loop
+    the parser runs around a query is run here too.
+    """
+    tables = {
+        row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+
+    def has(*names: str) -> bool:
+        return all(name in tables for name in names)
+
+    def columns(table: str) -> set:
+        return {info[1] for info in connection.execute("PRAGMA table_info(%s)" % table)}
+
+    def run(sql: str, parameters: tuple = ()) -> list[tuple]:
+        return [tuple(row) for row in connection.execute(sql, parameters).fetchall()]
+
+    if site in SITE_QUERIES:
+        needed, sql, parameters = SITE_QUERIES[site]
+        return run(sql, parameters) if has(*needed) else None
+    if site == "zed_join" and has("archived_git_worktrees", "thread_archived_worktrees"):
+        rows = run(ZED_JOIN)
+        # Difference 55: rows of one archived worktree are ordered by thread id as a blob.
+        return sorted(rows, key=lambda row: (row[1], row[-1] is not None, row[-1] or b""))
+    if site == "openclaw_cold" and has("session_transcript_cold_archives"):
+        found = []
+        chunked = has("session_transcript_cold_archive_chunks")
+        for row in run(COLD_ARCHIVES):
+            found.append(row)
+            if chunked:
+                found += run(COLD_CHUNKS, (row[1],))
+        return found
+    if site == "codex_logs" and has("logs"):
+        have = columns("logs")
+        body = "feedback_log_body" if "feedback_log_body" in have else "message"
+        if body not in have or "target" not in have:
+            return None
+        names = ", ".join(
+            "%s as %s" % (column if column in have else "null", column)
+            for column in ("ts", "ts_nanos", "thread_id")
+        )
+        where = " or ".join("(target = ? and instr(%s, ?) > 0)" % body for _kind in LOG_KINDS)
+        sql = "select rowid as _rowid, %s, target, %s as body from logs where %s order by rowid"
+        parameters = tuple(value for kind in LOG_KINDS for value in kind)
+        return run(sql % (names, body, where), parameters)
+    if (
+        site == "hermes_names"
+        and has("conversations")
+        and {"name", "response_id"} <= columns("conversations")
+    ):
+        return run("select name, response_id from conversations")
+    return None
+
+
+CLOUD_PREFIX = "cloudAgentRepository.agents."
+# The substr calls of the functions query: as text they may hold invalid
+# UTF-8, which Python cannot return, so the query reads each one's type and hex.
+SUBSTR_CALLS = [
+    "substr(x, 1, 1)",
+    "substr(x, 2, 1000000000)",
+    "substr(x, -1, 1)",
+    "substr(x, 0, 2)",
+    "substr(x, 2, -1)",
+    "substr(x, -3, 2)",
+]
+LOG_KINDS = [
+    ("codex_feedback", "feedback event uploaded to Sentry"),
+    ("codex_core::session::handlers", "op=ExecApproval {"),
+    ("codex_core::session::handlers", "op=PatchApproval {"),
+    ("codex_app_server::outgoing_message", "CommandExecutionRequestApproval {"),
+]
+ZED_JOIN = (
+    "select a.rowid as _rowid, a.*, t.thread_id as _thread from"
+    " archived_git_worktrees a left join thread_archived_worktrees t"
+    " on t.archived_worktree_id = a.id order by a.id"
+)
+COLD_ARCHIVES = (
+    "select rowid as _rowid, session_id, archive_name, archived_at, archive_blob "
+    "from session_transcript_cold_archives where storage = 'sqlite' order by archived_at"
+)
+COLD_CHUNKS = (
+    "select archive_name, archive_blob from"
+    " session_transcript_cold_archive_chunks where session_id = ?"
+    " order by chunk_index"
+)
+SITE_QUERIES: dict[str, tuple[tuple[str, ...], str, tuple]] = {
+    "chatgpt_desktop": (
+        ("local_thread_catalog",),
+        "select rowid as _rowid, * from local_thread_catalog order by rowid",
+        (),
+    ),
+    "cursor_prefixed": (
+        ("cursorDiskKV",),
+        "select rowid, key, value from cursorDiskKV where key >= ? and key < ? order by key",
+        ("composerData:", "composerData;"),
+    ),
+    "cursor_one": (
+        ("cursorDiskKV",),
+        "select rowid, value from cursorDiskKV where key = ?",
+        ("bubbleId:1:2",),
+    ),
+    "cursor_substr": (
+        ("ItemTable",),
+        "select rowid, key, value from ItemTable where substr(key, 1, ?) = ? order by key",
+        (len(CLOUD_PREFIX), CLOUD_PREFIX),
+    ),
+    "openclaw_join": (
+        ("session_conversations", "conversations"),
+        "select l.rowid as _rowid, l.session_id, l.role, l.first_seen_at, c.channel,"
+        " c.account_id, c.kind, c.peer_id, c.thread_id from session_conversations l"
+        " join conversations c using (conversation_id)"
+        " order by l.first_seen_at, l.rowid",
+        (),
+    ),
+    "goose_like": (
+        ("messages",),
+        "select session_id, content_json from messages"
+        " where content_json like '%toolConfirmationResponse%'",
+        (),
+    ),
+    "cline_fts": (
+        ("session_search",),
+        "select session_id, document_id, ordinal, role, started_at, workspace_root, title, content"
+        " from session_search order by rowid",
+        (),
+    ),
+    "opencode_messages": (
+        ("session_message",),
+        "select rowid as _rowid, id, session_id, type, seq, time_created, data "
+        "from session_message order by session_id, seq, time_created",
+        (),
+    ),
+    "crush_files": (
+        ("files",),
+        "select rowid as _rowid, session_id, path, version, length(content) as size,"
+        " created_at from files order by created_at, rowid",
+        (),
+    ),
+    "functions": (
+        ("samples",),
+        "select rowid, length(x), %s, instr(x, 'b'), instr(x, x'62'),"
+        " instr(x, 'é'), instr(x, ''), x like 'A%%', x like '%%c', x like '_b%%', x like '%%',"
+        " x like '_', x like 'é', x like 'É', x like '_A', x like '__', x like '%%B_',"
+        " x like 'a\\%%c', x like '%%5%%' from samples order by rowid"
+        % ", ".join("typeof(%s), hex(%s)" % (call, call) for call in SUBSTR_CALLS),
+        (),
+    ),
+    "comparisons": (
+        ("mixed",),
+        "select rowid, x = 5, x = '5', y = 5, y = '5', z = '5', z = 5.0, w = '5', w = 5,"
+        " y < 'b', z > '3', x >= 2 from mixed order by rowid",
+        (),
+    ),
+    "order_mixed": (("mixed",), "select rowid from mixed order by x, y desc", ()),
+    "order_people": (("people",), "select rowid, name from people order by name, t desc", ()),
+}
+SITES = [*SITE_QUERIES, "zed_join", "openclaw_cold", "codex_logs", "hermes_names"]
+
+
+def dump_tables(connection: sqlite3.Connection) -> list[str]:
+    """Every table's column names and rows, in rowid order (key order without rowids)."""
+    lines = []
+    names = connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    for (table,) in names:
+        lines.append("table " + table.encode("utf-8").hex())
+        quoted = '"%s"' % table.replace('"', '""')
+        try:
+            try:
+                cursor = connection.execute("SELECT rowid, * FROM %s ORDER BY rowid" % quoted)
+                with_rowid = True
+            except sqlite3.OperationalError:
+                cursor = connection.execute("SELECT * FROM %s" % quoted)
+                with_rowid = False
+            columns = [entry[0] for entry in cursor.description][1 if with_rowid else 0 :]
+            rows = cursor.fetchall()
+        except sqlite3.Error as error:
+            lines.append("error " + str(error))
+            continue
+        lines.append(" ".join(["columns", *(name.encode("utf-8").hex() for name in columns)]))
+        for row in rows:
+            values = list(row)
+            rowid = str(values.pop(0)) if with_rowid else "-"
+            lines.append(" ".join(["row", rowid, *map(describe, values)]))
+    return lines
+
+
+def dump_sites(connection: sqlite3.Connection) -> list[str]:
+    """The rows each parser query returns from the database, for the queries it can run."""
+    lines = []
+    for site in SITES:
+        try:
+            rows = site_rows(connection, site)
+        except sqlite3.Error as error:
+            lines += ["site " + site, "error " + str(error)]
+            continue
+        if rows is None:
+            continue
+        lines.append("site " + site)
+        lines += [" ".join(["row", *map(describe, row)]) for row in rows]
+    return lines
+
+
+def dump_queries(path: Path, scratch: Path) -> list[str]:
+    """The `db` section of tables.txt for one database: its tables, then its query results."""
+    target = scratch / ("query-" + path.name)
+    copy_open(path, target, ("-wal", "-journal"))
+    connection = sqlite3.connect(target)
+    try:
+        return ["db " + path.name, *dump_tables(connection), *dump_sites(connection)]
+    finally:
+        connection.close()
 
 
 def copy_open(source: Path, target: Path, suffixes: tuple[str, ...]) -> None:
@@ -465,6 +1044,8 @@ def main() -> None:
             stale.unlink()
     names = [build_page_size(size) for size in (512, 1024, 4096, 65536)]
     names += [build_shapes(), build_deep(), *build_vacuum_modes(), build_utf16()]
+    queried = [build_schema(), *build_sites()]
+    names += queried
     with tempfile.TemporaryDirectory() as directory:
         scratch = Path(directory)
         names += build_log_variants(scratch)
@@ -473,7 +1054,11 @@ def main() -> None:
         lines = ["# Written by generate.py from SQLite %s; do not edit." % sqlite3.sqlite_version]
         for name in names:
             lines += dump(name, scratch)
+        tables = ["# Written by generate.py from SQLite %s; do not edit." % sqlite3.sqlite_version]
+        for name in queried:
+            tables += dump_queries(HERE / name, scratch)
     (HERE / "expected.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (HERE / "tables.txt").write_text("\n".join(tables) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

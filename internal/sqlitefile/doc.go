@@ -25,6 +25,7 @@
 // to the last commit frame among them, and its database size, win.
 //
 // OpenPath, Open and OpenBytes open a database; Schema lists the schema
-// table, and TableRows and IndexRows walk one b-tree in key order. Damage
+// table, TableRows and IndexRows walk one b-tree in key order, and Table
+// and Select read a table's rows as SQL's SELECT returns them. Damage
 // gives an error wrapping ErrMalformed, never a panic.
 package sqlitefile
