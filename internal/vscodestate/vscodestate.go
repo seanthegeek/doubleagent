@@ -78,9 +78,7 @@ func ReadItems(path string, keys []string) (map[string]pyjson.Value, []string) {
 	}
 	rows, err := itemRows(path, wanted)
 	if err != nil {
-		// The problem names the file itself; the open error's path would vary by run.
-		reason := strings.TrimPrefix(err.Error(), "open "+path+": ")
-		return values, []string{"state.vscdb unreadable: " + reason}
+		return values, []string{"state.vscdb unreadable: " + err.Error()}
 	}
 	var problems []string
 	for _, row := range rows {

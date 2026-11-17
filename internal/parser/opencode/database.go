@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -46,8 +45,7 @@ type store struct {
 
 // database emits the rows of one database. A file that is not SQLite or
 // cannot be read is one `parser:` row; an error met while opening or
-// reading ends the rows with a "database could not be read" row, whose
-// reason leaves out the path the opener names.
+// reading ends the rows with a "database could not be read" row.
 func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	if err := sqlitefile.Problem(artifact.DiskPath); err != nil {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
@@ -64,8 +62,7 @@ func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit
 		}
 	}
 	if err != nil {
-		reason := strings.TrimPrefix(err.Error(), "open "+artifact.DiskPath+": ")
-		emit(p.ProblemRow(artifact, "database could not be read: "+reason))
+		emit(p.ProblemRow(artifact, "database could not be read: "+err.Error()))
 	}
 }
 

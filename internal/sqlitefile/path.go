@@ -2,7 +2,6 @@ package sqlitefile
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -15,7 +14,10 @@ import (
 // files. It never writes, so SQLite's own leftovers stay as they are. A
 // symbolic link is refused, never followed, for the database and its
 // sidecars alike; a sidecar that is a directory or another special file is
-// skipped, as a copy of regular files would leave it out.
+// skipped, as a copy of regular files would leave it out. No error names
+// the directory, since a parser shows it in a row: a file that cannot be
+// opened or read is an *UnreadableError, and a damaged database gives
+// Open's error alone, the caller knowing which file it asked for.
 func OpenPath(path string) (*Database, error) {
 	var opened []io.Closer
 	files := Files{}
@@ -26,7 +28,8 @@ func OpenPath(path string) (*Database, error) {
 	for _, target := range targets {
 		file, section, err := openRegular(path+target.suffix, target.suffix == "")
 		if err != nil {
-			return nil, errors.Join(err, closeAll(opened))
+			unreadable := &UnreadableError{Path: path + target.suffix, Err: err}
+			return nil, errors.Join(unreadable, closeAll(opened))
 		}
 		if file != nil {
 			opened = append(opened, file)
@@ -35,7 +38,7 @@ func OpenPath(path string) (*Database, error) {
 	}
 	database, err := Open(files)
 	if err != nil {
-		return nil, errors.Join(fmt.Errorf("open %s: %w", path, err), closeAll(opened))
+		return nil, errors.Join(err, closeAll(opened))
 	}
 	database.closers = opened
 	return database, nil
@@ -45,7 +48,8 @@ func OpenPath(path string) (*Database, error) {
 // the file and a reader of its length. An absent sidecar, or one that is
 // not a regular file or a link, gives nil and no error; for the main file
 // every such case is an error. The opened file must be the entry the lstat
-// described, so a link swapped in between is refused.
+// described, so a link swapped in between is refused. The reader reports a
+// failed read as an *UnreadableError, so the path stays out of its text.
 func openRegular(path string, required bool) (*os.File, *io.SectionReader, error) {
 	info, err := osfile.Lstat(path)
 	if !required && errors.Is(err, fs.ErrNotExist) {
@@ -56,9 +60,9 @@ func openRegular(path string, required bool) (*os.File, *io.SectionReader, error
 	}
 	switch {
 	case info.Mode()&fs.ModeSymlink != 0:
-		return nil, nil, fmt.Errorf("%s is a symbolic link, not opened", path)
+		return nil, nil, errSymbolicLink
 	case !info.Mode().IsRegular() && required:
-		return nil, nil, fmt.Errorf("%s is not a regular file", path)
+		return nil, nil, errNotRegular
 	case !info.Mode().IsRegular():
 		return nil, nil, nil
 	}
@@ -68,12 +72,34 @@ func openRegular(path string, required bool) (*os.File, *io.SectionReader, error
 	}
 	opened, err := file.Stat()
 	if err == nil && !os.SameFile(info, opened) {
-		err = fmt.Errorf("%s changed while it was opened", path)
+		err = errChanged
 	}
 	if err != nil {
 		return nil, nil, errors.Join(err, file.Close())
 	}
-	return file, io.NewSectionReader(file, 0, opened.Size()), nil
+	reader := quietReader{file: file, path: path}
+	return file, io.NewSectionReader(reader, 0, opened.Size()), nil
+}
+
+// errChanged is the reason a file replaced between its lstat and its open
+// is not read.
+var errChanged = errors.New("changed while it was opened")
+
+// quietReader reads a file and reports a failed read as an *UnreadableError
+// in place of the *fs.PathError that would name the file's full path.
+type quietReader struct {
+	file *os.File
+	path string
+}
+
+// ReadAt reads from the file, rewording a failure; io.EOF stays as it is.
+func (r quietReader) ReadAt(target []byte, offset int64) (int, error) {
+	n, err := r.file.ReadAt(target, offset)
+	var pathError *fs.PathError
+	if errors.As(err, &pathError) {
+		err = &UnreadableError{Path: r.path, Err: pathError.Err}
+	}
+	return n, err
 }
 
 // closeAll closes every file and joins their errors.
