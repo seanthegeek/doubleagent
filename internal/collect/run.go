@@ -36,7 +36,7 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 		stdout.Write(catalog.Text())
 		return exitOK
 	case ActVersion:
-		fmt.Fprintf(stdout, "doubleagent %s\n", version.String())
+		io.WriteString(stdout, "doubleagent "+version.String()+"\n")
 		return exitOK
 	case ActHelp:
 		fmt.Fprint(stdout, UsageText)

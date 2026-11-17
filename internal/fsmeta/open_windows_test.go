@@ -3,9 +3,9 @@ package fsmeta
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -83,7 +83,7 @@ func TestOpenerDecision(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			judges, access := test.opener.judgesVolume(), accessList(test.opener.asksForRight())
-			if judges != test.wantJudges || fmt.Sprint(access) != fmt.Sprint(test.wantAccess) {
+			if judges != test.wantJudges || !slices.Equal(access, test.wantAccess) {
 				t.Errorf("judges %v, access %#x; want %v, %#x", judges, access,
 					test.wantJudges, test.wantAccess)
 			}

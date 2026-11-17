@@ -1,6 +1,7 @@
 package summary
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -52,13 +53,11 @@ func PrintResult(w io.Writer, summary Summary) error {
 	line("projects:", strconv.Itoa(len(nonEmpty(summary.Projects))))
 	line("collected:", CountNoun(status(manifest.Collected), "file")+", "+
 		CountNoun(counts.CollectedBytes, "byte")+" ("+HumanSize(counts.CollectedBytes)+")")
-	line("skipped:", strconv.FormatInt(status(manifest.SkippedExcluded), 10)+" excluded, "+
-		strconv.FormatInt(status(manifest.SkippedSize), 10)+" too large, "+
-		strconv.FormatInt(status(manifest.SkippedSecret), 10)+" secret, "+
-		strconv.FormatInt(status(manifest.SkippedSpecial), 10)+" special")
-	line("errors:", strconv.FormatInt(copyErrors+readErrors, 10)+" ("+
-		strconv.FormatInt(copyErrors, 10)+" error_copy, "+
-		strconv.FormatInt(readErrors, 10)+" error_read)")
+	line("skipped:", fmt.Sprintf("%d excluded, %d too large, %d secret, %d special",
+		status(manifest.SkippedExcluded), status(manifest.SkippedSize),
+		status(manifest.SkippedSecret), status(manifest.SkippedSpecial)))
+	line("errors:", fmt.Sprintf("%d (%d error_copy, %d error_read)",
+		copyErrors+readErrors, copyErrors, readErrors))
 	line("relocation:", relocationLine(summary.Relocation))
 	if summary.Docker.Seen {
 		line("docker:", dockerLine(summary))

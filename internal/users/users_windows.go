@@ -2,7 +2,7 @@ package users
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"slices"
 	"strings"
 	"syscall"
@@ -177,7 +177,7 @@ func entryAttributes(path string) (uint32, error) {
 	// os.Lstat on Windows always describes an entry with this type.
 	data, ok := info.Sys().(*syscall.Win32FileAttributeData)
 	if !ok {
-		return 0, fmt.Errorf("lstat %s: no file attributes", syspath.ToNative(path))
+		return 0, errors.New("lstat " + syspath.ToNative(path) + ": no file attributes")
 	}
 	return data.FileAttributes, nil
 }

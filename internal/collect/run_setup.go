@@ -292,9 +292,9 @@ func (state *runState) startLog(context.Context) error {
 	options := state.options
 	identity := runIdentity()
 	lines := []string{
-		fmt.Sprintf("%s %s starting on %s (%s %s) mode=%s root=%s %s", summary.Tool,
-			version.String(), state.hostname, system.name, system.release, state.mode(), root,
-			identityText(identity)),
+		summary.Tool + " " + version.String() + " starting on " + state.hostname + " (" +
+			system.name + " " + system.release + ") mode=" + state.mode() + " root=" + root +
+			" " + identityText(identity),
 		fmt.Sprintf("hash=crypto/sha256 max_file_size=%dMB full=%s no_secrets=%s no_docker=%s"+
 			" env_scan_home=%s env_scan_max_size=%dMB no_preserve_atime=%s",
 			options.MaxFileBytes/mebibyte, flag(options.Full), flag(options.NoSecrets),

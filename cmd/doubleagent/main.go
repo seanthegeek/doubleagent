@@ -58,7 +58,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch args[0] {
 	case "-V", "--version":
-		fmt.Fprintf(stdout, "doubleagent %s\n", version.String())
+		io.WriteString(stdout, "doubleagent "+version.String()+"\n")
 		return exitOK
 	case "-h", "--help", "help":
 		fmt.Fprint(stdout, usageText)
@@ -69,7 +69,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if slices.Contains(analyze.Commands(), args[0]) {
 		return runAnalyze(args, stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "Unknown command: %s\n\n%s", args[0], usageText)
+	io.WriteString(stderr, "Unknown command: "+args[0]+"\n\n"+usageText)
 	return exitUsage
 }
 

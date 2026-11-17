@@ -39,9 +39,9 @@ func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log
 // standard error copy is still attempted so a full disk does not hide a
 // message from the operator.
 func (log *Log) Line(text string) error {
-	_, fileError := fmt.Fprintf(log.file, "%s %s\n", log.now().UTC().Format(TimeFormat), text)
+	_, fileError := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n")
 	if !log.quiet {
-		if _, err := fmt.Fprintf(log.stderr, "%s\n", text); fileError == nil {
+		if _, err := io.WriteString(log.stderr, text+"\n"); fileError == nil {
 			fileError = err
 		}
 	}
@@ -54,7 +54,7 @@ func (log *Log) Line(text string) error {
 // FileLine appends "<time> <text>\n" to the log file only, for a line the
 // operator is told about in other words.
 func (log *Log) FileLine(text string) error {
-	if _, err := fmt.Fprintf(log.file, "%s %s\n", log.now().UTC().Format(TimeFormat), text); err != nil {
+	if _, err := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n"); err != nil {
 		return fmt.Errorf("write log: %w", syspath.NativeErrors(err))
 	}
 	return nil
