@@ -37,20 +37,20 @@ func sessionProject(sessions []projectTime, timestamp string) string {
 	return before
 }
 
-// homeSideFile returns where the home holds rel, a file beside the one
-// parsed, when neither it nor .letta is a symbolic link and it is a regular
-// file.
-func homeSideFile(artifact *input.Artifact, rel string) (string, bool) {
-	if artifact.Home == nil {
+// lettaFile returns the path of name in the .letta directory of the
+// transcript's home (a transcript lies four directories below it), when
+// neither it nor .letta is a symbolic link and it is a regular file.
+func lettaFile(artifact *input.Artifact, name string) (string, bool) {
+	letta, ok := parser.Above(artifact, 3)
+	path, _ := parser.Above(artifact, 3, name)
+	if !ok {
 		return "", false
 	}
-	path := artifact.Home.PathOf(rel)
 	info, err := osfile.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() {
 		return "", false
 	}
-	if letta, err := osfile.Lstat(artifact.Home.PathOf(".letta")); err == nil &&
-		letta.Mode()&fs.ModeSymlink != 0 {
+	if found, err := osfile.Lstat(letta); err == nil && found.Mode()&fs.ModeSymlink != 0 {
 		return "", false
 	}
 	return path, true
@@ -59,7 +59,7 @@ func homeSideFile(artifact *input.Artifact, rel string) (string, bool) {
 // agentSessions returns (time, project) of the agent's sessions.jsonl lines
 // that name a project and a time, sorted by time then project.
 func agentSessions(artifact *input.Artifact, agentDirectory string) []projectTime {
-	path, ok := homeSideFile(artifact, sessionsRel)
+	path, ok := lettaFile(artifact, "sessions.jsonl")
 	if !ok {
 		return nil
 	}
@@ -87,7 +87,7 @@ func agentSessions(artifact *input.Artifact, agentDirectory string) []projectTim
 // none, "-" when there is no entry or no file. It is a pre-scan: the
 // settings file reports its own problems when it is parsed itself.
 func server(artifact *input.Artifact, agentDirectory string) string {
-	path, ok := homeSideFile(artifact, settingsRel)
+	path, ok := lettaFile(artifact, "settings.json")
 	if !ok {
 		return "-"
 	}

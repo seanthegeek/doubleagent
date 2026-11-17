@@ -275,12 +275,11 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 	if llamacpp {
 		why = append(why, "assistant provider llamacpp")
 	}
-	if artifact.Home != nil {
-		name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:]
-		checkpoint := artifact.Home.PathOf(".little-coder/checkpoints/" + name)
-		if info, err := osfile.Lstat(checkpoint); err == nil && info.IsDir() {
-			why = append(why, "checkpoints in ~/.little-coder/checkpoints/"+filepath.Base(checkpoint))
-		}
+	name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:]
+	checkpoint, ok := parser.Above(artifact, strings.Count(artifact.Rel, "/"), ".little-coder",
+		"checkpoints", name)
+	if info, err := osfile.Lstat(checkpoint); ok && err == nil && info.IsDir() {
+		why = append(why, "checkpoints in ~/.little-coder/checkpoints/"+name)
 	}
 	return why
 }
