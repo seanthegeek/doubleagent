@@ -1,0 +1,195 @@
+package continuedev
+
+import (
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
+)
+
+// The expected values in this file come from running the Python helpers
+// of the same names on the same inputs.
+
+func TestYAMLScalarReadsOnlyAScalarOnItsLine(t *testing.T) {
+	for _, test := range []struct {
+		name, text, want string
+		ok               bool
+	}{
+		{"a mapping value after a tab is no scalar", "Bash:\tls", "", false},
+		{"a colon before a no-break space is kept", "Bash(ls:\u00a0)", "Bash(ls:\u00a0)", true},
+		{"a double-quoted item is decoded", `"a\"b" # c`, `a"b`, true},
+		{"a single-quoted item halves its quotes", "'it''s'", "it's", true},
+		{"a plain item loses its comment", "plain # note", "plain", true},
+		{"a mapping is no scalar", "a: b", "", false},
+		{"a key alone is no scalar", "a:", "", false},
+		{"a flow sequence is no scalar", "[x]", "", false},
+		{"nothing is no scalar", "", "", false},
+		{"a nested sequence is no scalar", "-x", "", false},
+		{"a hash inside a word stays", "x#y", "x#y", true},
+		{"an unclosed double quote is no scalar", `"unclosed`, "", false},
+		{"an unclosed single quote is no scalar", "'bad", "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, ok := yamlScalar(test.text)
+			if got != test.want || ok != test.ok {
+				t.Errorf("yamlScalar = %q, %v; want %q, %v", got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
+
+func TestReadPermissionsReadsTheFlatShapeTheCLIWrites(t *testing.T) {
+	for _, test := range []struct {
+		name, text string
+		want       []rule
+		problem    string
+	}{
+		{"an item under an emptied list", "allow:\n  - Bash(ls)\nask: []\n  - x\n", nil,
+			"unsupported YAML at line 4"},
+		{"a byte-order mark, comments and a document marker", "\ufeffallow: # c\n  - 'a'\n---\n# c\nexclude: ~\n",
+			[]rule{{2, "allow", "a"}}, ""},
+		{"another key", "other:\n - a\n", nil, "unsupported YAML at line 1"},
+		{"spaces around an item", "allow:\n  -   spaced   \n", []rule{{2, "allow", "spaced"}}, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, problem := readPermissions(test.text)
+			if !slices.Equal(got, test.want) || problem != test.problem {
+				t.Errorf("readPermissions = %v, %q; want %v, %q", got, problem, test.want, test.problem)
+			}
+		})
+	}
+}
+
+// metadataEnd stands for Python's
+// `^\[metadata\] (Success|...)\b.* (\S+/metadata)(?: \{.*\})?$`, whose \b
+// and \S are Unicode.
+func TestTheMetadataPatternsReadAsPythonsDo(t *testing.T) {
+	for _, test := range []struct {
+		name, line string
+		pattern    string
+		want       []string
+	}{
+		{"a success", "[metadata] Success https://x/agents/a/metadata", "end",
+			[]string{"Success", "https://x/agents/a/metadata"}},
+		{"a longer word is no status", "[metadata] Successful https://x/metadata", "end", nil},
+		{"a failure with its response", `[metadata] Failed 500 https://x/a/metadata {"e":1}`, "end",
+			[]string{"Failed", "https://x/a/metadata"}},
+		{"a letter outside ASCII continues the word", "[metadata] Error\u00e9 https://x/metadata", "end", nil},
+		{"the last URL is taken", "[metadata] Error: boom https://y/metadata https://x/metadata", "end",
+			[]string{"Error", "https://x/metadata"}},
+		{"a no-break space is no separator", "[metadata] Error\u00a0https://x/metadata", "end", nil},
+		{"a post with its fields", `[metadata] POST https://x/metadata {"a":1}`, "post",
+			[]string{"https://x/metadata", `{"a":1}`}},
+		{"a no-break space ends no URL", "[metadata] POST https://x/m\u00a0eta", "post", nil},
+		{"fields cut short", "[metadata] POST u {bad", "post", nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			pattern := metadataEnd
+			if test.pattern == "post" {
+				pattern = metadataPost
+			}
+			var got []string
+			if match := pattern.FindStringSubmatch(test.line); match != nil {
+				got = match[1:]
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("groups = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTheLogLinePatternTakesASCIIDigitsOnly(t *testing.T) {
+	line := "2026-10-01 08:00:00.123 [0123abcd] [info]: x"
+	if !logLine.MatchString(line) {
+		t.Errorf("%q does not match", line)
+	}
+	if other := strings.Replace(line, "3", "\u0663", 1); logLine.MatchString(other) {
+		t.Errorf("%q matches", other)
+	}
+}
+
+func TestLoadSessionRecoversWhatItCan(t *testing.T) {
+	for _, test := range []struct {
+		name, text, want, problem string
+	}{
+		{"trailing data", "{\"sessionId\": \"x\", \"history\": []}\n{\"junk\"", `{"sessionId":"x","history":[]}`,
+			"trailing data after the session object at offset 33"},
+		{"JSON whitespace around the colons", "{\"sessionId\" :\n\"s1\", \"history\"\r\n:\t[{\"a\": 1}, {\"b",
+			`{"sessionId":"s1","history":[{"a":1}]}`, "session file did not parse"},
+		{"a list", "[1]", `{}`, "session file is not a JSON object"},
+		{"objects only, offsets counted by character", "x {\"title\": \"\u00e9\", \"history\": [{\"a\":1}, 2, {\"b\":2}]",
+			`{"title":"é","history":[{"a":1},{"b":2}]}`, "session file did not parse"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			session, problem := LoadSession(test.text)
+			if got := pyjson.Compact(session); got != test.want {
+				t.Errorf("session = %s, want %s", got, test.want)
+			}
+			if got, _, _ := strings.Cut(problem, " ("); got != test.problem {
+				t.Errorf("problem = %q, want %q", problem, test.problem)
+			}
+		})
+	}
+}
+
+func TestLoadSessionTakesJSONWhitespaceOnly(t *testing.T) {
+	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
+		text := "{\"sessionId\"" + space + ":\"s1\", \"history\"" + space + ":[{\"a\": 1}, {\"b"
+		session, _ := LoadSession(text)
+		if got := pyjson.Compact(session); got != `{"history":[]}` {
+			t.Errorf("%q: session = %s", space, got)
+		}
+	}
+}
+
+func TestOutputTextAndStateDecision(t *testing.T) {
+	output, err := pyjson.DecodeString(`[{"content": "a"}, {"content": {"b": 1}}, {"name": "n"}, {}, 5, null]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := outputText(output); got != "a\n{\"b\":1}\nn\n5\nNone" {
+		t.Errorf("outputText = %q", got)
+	}
+	violation, _ := pyjson.DecodeString(`[{"name": "Security Policy Violation"}]`)
+	for _, test := range []struct {
+		status, text string
+		output       pyjson.Value
+		want         string
+	}{
+		{"canceled", " Permission denied by user ", pyjson.NewNull(), "canceled reason=user"},
+		{"canceled", "x", pyjson.NewNull(), "canceled"},
+		{"errored", "", violation, "errored reason=policy"},
+		{"errored", "", pyjson.NewArray(), ""},
+	} {
+		if got := stateDecision(test.status, test.output, test.text); got != test.want {
+			t.Errorf("stateDecision(%q, %q) = %q, want %q", test.status, test.text, got, test.want)
+		}
+	}
+}
+
+func FuzzLoadSessionNeverPanics(fuzz *testing.F) {
+	for _, seed := range []string{`{"sessionId": "x", "history": []}`, "{\"history\": [{\"a\": 1}, {\"b",
+		`x {"title": "t"`, "[1]", ""} {
+		fuzz.Add(seed)
+	}
+	fuzz.Fuzz(func(t *testing.T, text string) {
+		session, _ := LoadSession(text)
+		if !session.IsObject() {
+			t.Errorf("LoadSession(%q) is not an object", text)
+		}
+	})
+}
+
+func FuzzReadPermissionsNeverPanics(fuzz *testing.F) {
+	for _, seed := range []string{"allow:\n  - Bash(ls)\n", "ask: []\n", "exclude:\n  - \"a\\\"b\" # c\n", "- x"} {
+		fuzz.Add(seed)
+	}
+	fuzz.Fuzz(func(t *testing.T, text string) {
+		rules, problem := readPermissions(text)
+		if problem != "" && rules != nil {
+			t.Errorf("readPermissions(%q) gave rules and a problem", text)
+		}
+	})
+}

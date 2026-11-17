@@ -176,3 +176,14 @@ func TestTaskStartPrefersTheIdThenTheMetadataThenTheIndex(t *testing.T) {
 		})
 	}
 }
+
+func FuzzArrayAfterKeyFindsAnOpeningBracket(fuzz *testing.F) {
+	for _, seed := range []string{"{\"messages\" \r\n:\t[", `"messages"`, `"messages":`, ""} {
+		fuzz.Add(seed)
+	}
+	fuzz.Fuzz(func(t *testing.T, text string) {
+		if offset, ok := ArrayAfterKey(text, "messages"); ok && text[offset] != '[' {
+			t.Errorf("ArrayAfterKey(%q) = %d, not a bracket", text, offset)
+		}
+	})
+}
