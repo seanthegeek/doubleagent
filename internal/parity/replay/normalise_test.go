@@ -163,6 +163,23 @@ var libraryShapes = []struct {
 	pattern *regexp.Regexp
 	token   string
 }{
+	// Messages the analyzer worded through Python's exception names, its
+	// UTF-8 codec or its shell splitter, each beside the binary's wording of
+	// the same condition. They come first: the JSON detail after
+	// "JSONDecodeError: " would otherwise be taken alone below.
+	{regexp.MustCompile(`JSONDecodeError: (?:Expecting|Unterminated|Invalid|Extra data|Illegal|Unexpected UTF-8 BOM)` +
+		`[^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
+	{regexp.MustCompile(`\((?:ValueError: not a JSON object|the thread is not a JSON object)\)`),
+		"({thread not an object})"},
+	{regexp.MustCompile(`created_git_worktrees: (?:KeyError: 'created_at_seconds'|no created_at_seconds field)\)`),
+		"created_git_worktrees: {no creation time})"},
+	{regexp.MustCompile(`'utf-8' codec can't decode (?:byte 0x[0-9a-f]{2} in position [0-9]+|` +
+		`bytes in position [0-9]+-[0-9]+): (?:invalid start byte|invalid continuation byte|unexpected end of data)` +
+		`|not valid UTF-8 at byte offset [0-9]+`), "{utf-8 error}"},
+	{regexp.MustCompile(`mutation not applied \(path \[[^()\n]*\] not found\)`),
+		"mutation not applied (path {mutation path} not found)"},
+	{regexp.MustCompile(`unparseable line \((?:No closing quotation|a quote is not closed)\)`),
+		"unparseable line ({unclosed quote})"},
 	// Python's messages start with one of a few words, so a record's key or
 	// a lead-in such as "JSON: " before one is not taken into the detail.
 	{regexp.MustCompile(`(?:Expecting|Unterminated|Invalid|Extra data|Illegal|Unexpected UTF-8 BOM)` +

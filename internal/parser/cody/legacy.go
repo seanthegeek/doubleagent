@@ -117,8 +117,8 @@ func (r *legacyReader) end() {
 // errNoRoot and errJunk are the errors of a document with no element and
 // of one with more after its element.
 var (
-	errNoRoot = errors.New("no element found")
-	errJunk   = errors.New("junk after document element")
+	errNoRoot = errors.New("no root element")
+	errJunk   = errors.New("content outside the root element")
 )
 
 // read walks the document, passing each chat on as it ends, and returns

@@ -68,7 +68,7 @@ func parseXML(data []byte) (*element, error) {
 		switch token := token.(type) {
 		case xml.StartElement:
 			if root != nil && len(open) == 0 {
-				return nil, xmlError(decoder, "junk after document element")
+				return nil, xmlError(decoder, "a second root element")
 			}
 			node, problem := newElement(token)
 			if problem != "" {
@@ -85,12 +85,12 @@ func parseXML(data []byte) (*element, error) {
 			open = open[:len(open)-1]
 		case xml.CharData:
 			if len(open) == 0 && len(bytes.Trim(token, " \t\r\n")) > 0 {
-				return nil, xmlError(decoder, "text outside the document element")
+				return nil, xmlError(decoder, "text outside the root element")
 			}
 		}
 	}
 	if root == nil {
-		return nil, xmlError(decoder, "no element found")
+		return nil, xmlError(decoder, "no root element")
 	}
 	return root, nil
 }
@@ -102,7 +102,7 @@ func newElement(token xml.StartElement) (*element, string) {
 	for _, attribute := range token.Attr {
 		name := qualifiedName(attribute.Name)
 		if _, seen := node.attributes[name]; seen {
-			return nil, "duplicate attribute"
+			return nil, "an attribute given twice"
 		}
 		if attribute.Name.Space != "xmlns" && attribute.Name.Local != "xmlns" {
 			node.attributes[name] = attribute.Value

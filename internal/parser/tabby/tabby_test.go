@@ -113,15 +113,16 @@ func TestXMLThatElementTreeRefusesIsRefused(t *testing.T) {
 	tests := []struct {
 		document string
 		refused  bool
+		reason   string
 	}{
-		{"", true},
-		{"<a>", true},
-		{"<a></a><b/>", true},
-		{"text", true},
-		{"<a></b>", true},
-		{"<?xml version=\"1.0\"?>\n<a/>", false},
-		{`<a x="1" x="2"/>`, true},
-		{"<!-- c --><a><b value=\"v\"/></a>\n", false},
+		{"", true, "no root element: "},
+		{"<a>", true, ""},
+		{"<a></a><b/>", true, "a second root element: "},
+		{"text", true, "text outside the root element: "},
+		{"<a></b>", true, ""},
+		{"<?xml version=\"1.0\"?>\n<a/>", false, ""},
+		{`<a x="1" x="2"/>`, true, "an attribute given twice: "},
+		{"<!-- c --><a><b value=\"v\"/></a>\n", false, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.document, func(t *testing.T) {
@@ -131,6 +132,9 @@ func TestXMLThatElementTreeRefusesIsRefused(t *testing.T) {
 			}
 			if err != nil && !strings.Contains(err.Error(), ": line ") {
 				t.Errorf("error %q has no position", err)
+			}
+			if err != nil && !strings.HasPrefix(err.Error(), test.reason) {
+				t.Errorf("error %q does not start %q", err, test.reason)
 			}
 		})
 	}

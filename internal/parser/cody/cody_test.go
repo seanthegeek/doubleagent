@@ -151,6 +151,7 @@ func TestLegacyReaderStopsAtTheFirstDamage(t *testing.T) {
 		{"two chats", "<a><chat/><chat/></a>", 2, false},
 		{"a second element", "<a><chat/></a><b/>", 1, true},
 		{"an empty file", "", 0, true},
+		{"a comment alone", "<!-- c -->", 0, true},
 		{"an unclosed element", "<a><chat/>", 1, true},
 		{"a mismatched tag", "<a><chat/></b>", 1, true},
 		{"a byte-order mark", "\ufeff<a><chat/></a>", 1, false},
@@ -166,6 +167,23 @@ func TestLegacyReaderStopsAtTheFirstDamage(t *testing.T) {
 			err := reader.read([]byte(test.document))
 			if reader.chats != test.chats || (err != nil) != test.fails {
 				t.Errorf("read = %d chats, %v; want %d chats, failing %v", reader.chats, err, test.chats, test.fails)
+			}
+		})
+	}
+}
+
+func TestLegacyReaderWordsTheDamageInPlainWords(t *testing.T) {
+	for _, test := range []struct {
+		name, document, want string
+	}{
+		{"an empty file has no root element", "", "no root element: line 1, column 1"},
+		{"a second element is outside the root", "<a/><b/>", "content outside the root element: line 1, column 9"},
+		{"text is outside the root", "x<a/>", "content outside the root element: line 1, column 2"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			reader := &legacyReader{onChat: func(*element, string) {}}
+			if err := reader.read([]byte(test.document)); err == nil || err.Error() != test.want {
+				t.Errorf("got %v, want %q", err, test.want)
 			}
 		})
 	}

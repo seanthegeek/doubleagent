@@ -100,9 +100,9 @@ func decodeThread(record sqlitefile.Row) (pyjson.Value, string, string) {
 		value, err = pyjson.Decode(raw)
 		switch {
 		case err != nil:
-			failure = "JSONDecodeError: " + err.Error()
+			failure = err.Error()
 		case !value.IsObject():
-			failure = "ValueError: not a JSON object"
+			failure = "the thread is not a JSON object"
 		}
 	}
 	switch {

@@ -190,70 +190,16 @@ func (p *Parser) parseProfile(artifact *input.Artifact, emit parser.Emit) {
 	}
 }
 
-// utf8Problem returns, for data that is not valid UTF-8, the analyzer's
-// message for its first invalid sequence: the byte or bytes from the
-// sequence's start up to the byte that broke it, and whether the start byte
-// is invalid, a continuation byte is, or the data ends inside the sequence.
-// It returns "" for valid UTF-8.
+// utf8Problem returns, for data that is not valid UTF-8, where its first
+// invalid sequence starts: "not valid UTF-8 at byte offset <n>", counted
+// from 0. It returns "" for valid UTF-8.
 func utf8Problem(data []byte) string {
 	for start := 0; start < len(data); {
 		char, size := utf8.DecodeRune(data[start:])
-		if char != utf8.RuneError || size > 1 {
-			start += size
-			continue
+		if char == utf8.RuneError && size <= 1 {
+			return "not valid UTF-8 at byte offset " + strconv.Itoa(start)
 		}
-		return sequenceProblem(data, start)
+		start += size
 	}
 	return ""
-}
-
-// sequenceProblem words the invalid sequence that starts at start, as
-// Python's UTF-8 decoder does: it counts the lead byte and the continuation
-// bytes after it that are still valid (the second byte's range narrowed for
-// E0, ED, F0 and F4, which would otherwise give an overlong form, a
-// surrogate or a code point past U+10FFFF), then says why it stopped.
-func sequenceProblem(data []byte, start int) string {
-	lead := data[start]
-	need, low, high := 0, byte(0x80), byte(0xBF)
-	switch {
-	case lead >= 0xC2 && lead <= 0xDF:
-		need = 2
-	case lead >= 0xE0 && lead <= 0xEF:
-		need = 3
-	case lead >= 0xF0 && lead <= 0xF4:
-		need = 4
-	}
-	switch lead {
-	case 0xE0:
-		low = 0xA0
-	case 0xED:
-		high = 0x9F
-	case 0xF0:
-		low = 0x90
-	case 0xF4:
-		high = 0x8F
-	}
-	reason, valid := "invalid start byte", 1
-	if need > 0 {
-		reason = "invalid continuation byte"
-		for valid < need && start+valid < len(data) && data[start+valid] >= low &&
-			data[start+valid] <= high {
-			valid++
-			low, high = 0x80, 0xBF
-		}
-		if start+valid == len(data) {
-			reason = "unexpected end of data"
-		}
-	}
-	where := "byte 0x" + hexByte(lead) + " in position " + strconv.Itoa(start)
-	if valid > 1 {
-		where = "bytes in position " + strconv.Itoa(start) + "-" + strconv.Itoa(start+valid-1)
-	}
-	return "'utf-8' codec can't decode " + where + ": " + reason
-}
-
-// hexByte returns a byte as two lower-case hex digits.
-func hexByte(octet byte) string {
-	const digits = "0123456789abcdef"
-	return string([]byte{digits[octet>>4], digits[octet&0x0F]})
 }

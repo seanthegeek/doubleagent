@@ -4,11 +4,11 @@ import (
 	"strings"
 )
 
-// The two ways a line fails to split into shell words, worded as the
-// analyzer words them in a bad-line row.
+// The two ways a line fails to split into shell words, as a bad-line row
+// words them.
 const (
-	noClosingQuote = "No closing quotation"
-	noEscaped      = "No escaped character"
+	noClosingQuote = "a quote is not closed"
+	noEscaped      = "a backslash ends the line"
 )
 
 // shellSpace is what separates shell words.

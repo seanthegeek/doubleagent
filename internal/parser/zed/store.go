@@ -1,7 +1,6 @@
 package zed
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -14,21 +13,19 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// errNotText is the reason a key-value entry whose value is not text or a
+// notText is the reason a key-value entry whose value is not text or a
 // blob does not decode.
-var errNotText = errors.New("the value is not text")
+const notText = "the value is not text"
 
-// decodeColumn decodes a key-value entry's value as JSON. The label of a
-// failure names its kind as the analyzer's reports always have:
-// JSONDecodeError for text that is not JSON, TypeError for a value that is
-// not text.
+// decodeColumn decodes a key-value entry's value as JSON, or returns why it
+// does not decode: the value is not text, or the JSON reader's message.
 func decodeColumn(value sqlitefile.Value) (pyjson.Value, string) {
 	if value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob {
-		return pyjson.Value{}, "TypeError: " + errNotText.Error()
+		return pyjson.Value{}, notText
 	}
 	decoded, err := pyjson.Decode(value.Bytes)
 	if err != nil {
-		return pyjson.Value{}, "JSONDecodeError: " + err.Error()
+		return pyjson.Value{}, err.Error()
 	}
 	return decoded, ""
 }
@@ -61,15 +58,15 @@ func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *side
 }
 
 // createdSeconds returns a created_git_worktrees record's creation time in
-// seconds, created_at_seconds plus created_at_subsec_nanos, or the label of
-// why the record has none.
+// seconds, created_at_seconds plus created_at_subsec_nanos, or why the
+// record has none.
 func createdSeconds(record pyjson.Value) (float64, string) {
 	if !record.IsObject() {
-		return 0, "TypeError: the record is not an object"
+		return 0, "the record is not a JSON object"
 	}
 	seconds, ok := record.Lookup("created_at_seconds")
 	if !ok {
-		return 0, "KeyError: 'created_at_seconds'"
+		return 0, "no created_at_seconds field"
 	}
 	whole, wholeOK := pythonNumber(seconds)
 	nanos, nanosOK := 0.0, true
@@ -77,7 +74,7 @@ func createdSeconds(record pyjson.Value) (float64, string) {
 		nanos, nanosOK = pythonNumber(fraction)
 	}
 	if !wholeOK || !nanosOK {
-		return 0, "TypeError: the creation time is not a number"
+		return 0, "the creation time is not a number"
 	}
 	return whole + nanos/1e9, ""
 }

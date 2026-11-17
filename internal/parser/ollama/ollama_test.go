@@ -99,34 +99,21 @@ func TestResultFallbackGivesTheStoredResultAsCompactJSON(t *testing.T) {
 	}
 }
 
-func TestStrictUTF8ErrorsAreWordedAsTheAnalyzerWordsThem(t *testing.T) {
+func TestInvalidUTF8IsReportedAtTheOffsetOfItsFirstBadSequence(t *testing.T) {
 	tests := []struct {
-		data string
-		want string
+		name, data, want string
 	}{
-		{"ab\xe2\x82", "'utf-8' codec can't decode bytes in position 2-3: unexpected end of data"},
-		{"ab\xe2", "'utf-8' codec can't decode byte 0xe2 in position 2: unexpected end of data"},
-		{"\x80", "'utf-8' codec can't decode byte 0x80 in position 0: invalid start byte"},
-		{"\xc1\x80", "'utf-8' codec can't decode byte 0xc1 in position 0: invalid start byte"},
-		{"\xe0\x80\x80", "'utf-8' codec can't decode byte 0xe0 in position 0: invalid continuation byte"},
-		{"\xe0\xa0", "'utf-8' codec can't decode bytes in position 0-1: unexpected end of data"},
-		{"\xe0\xa0x", "'utf-8' codec can't decode bytes in position 0-1: invalid continuation byte"},
-		{"\xed\xa0\x80", "'utf-8' codec can't decode byte 0xed in position 0: invalid continuation byte"},
-		{"\xf0\x90\x80", "'utf-8' codec can't decode bytes in position 0-2: unexpected end of data"},
-		{"\xf0\x90\x80x", "'utf-8' codec can't decode bytes in position 0-2: invalid continuation byte"},
-		{"\xf0\x90x", "'utf-8' codec can't decode bytes in position 0-1: invalid continuation byte"},
-		{"\xf0\x80", "'utf-8' codec can't decode byte 0xf0 in position 0: invalid continuation byte"},
-		{"\xf4\x90", "'utf-8' codec can't decode byte 0xf4 in position 0: invalid continuation byte"},
-		{"\xf5", "'utf-8' codec can't decode byte 0xf5 in position 0: invalid start byte"},
-		{"\xff", "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"},
-		{"\xc3x", "'utf-8' codec can't decode byte 0xc3 in position 0: invalid continuation byte"},
-		{"\xc3", "'utf-8' codec can't decode byte 0xc3 in position 0: unexpected end of data"},
-		{"ok\xf0\x9f\x98", "'utf-8' codec can't decode bytes in position 2-4: unexpected end of data"},
-		{"\xe2\x82\n", "'utf-8' codec can't decode bytes in position 0-1: invalid continuation byte"},
-		{"caf\xc3\xa9 \xf0\x9f\x98\x80", ""},
+		{"a sequence cut at the end", "ab\xe2\x82", "not valid UTF-8 at byte offset 2"},
+		{"a lone continuation byte", "\x80", "not valid UTF-8 at byte offset 0"},
+		{"an overlong form", "\xc1\x80", "not valid UTF-8 at byte offset 0"},
+		{"an encoded surrogate", "ok\xed\xa0\x80", "not valid UTF-8 at byte offset 2"},
+		{"a code point past U+10FFFF", "\xf4\x90\x80\x80", "not valid UTF-8 at byte offset 0"},
+		{"a lead byte no sequence starts with", "caf\xc3\xa9 \xff", "not valid UTF-8 at byte offset 6"},
+		{"only the first bad sequence is named", "\xc3x\xff", "not valid UTF-8 at byte offset 0"},
+		{"valid text with U+FFFD itself", "caf\xc3\xa9 \xef\xbf\xbd \xf0\x9f\x98\x80", ""},
 	}
 	for _, test := range tests {
-		t.Run(test.want, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			if got := utf8Problem([]byte(test.data)); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
@@ -147,8 +134,7 @@ func TestHistoryLinesAreTrimmedOfASCIIWhitespaceOnly(t *testing.T) {
 		texts = append(texts, row.TurnType+"|"+row.Text)
 	})
 	want := []string{"user|hello", "user| kept ", "system|slash command: /bye",
-		"system|parser: unparseable line ('utf-8' codec can't decode byte 0xe9 in position 4: " +
-			"invalid continuation byte): bad �"}
+		"system|parser: unparseable line (not valid UTF-8 at byte offset 4): bad �"}
 	if err != nil || !slices.Equal(texts, want) {
 		t.Errorf("got %q, %v; want %q", texts, err, want)
 	}

@@ -151,7 +151,7 @@ func walk(state *node, path []pyjson.Value) (*node, error) {
 	for _, key := range path {
 		next, ok := child(current, key)
 		if !ok {
-			return nil, mutationError("path " + pyjson.NewArray(path...).Repr() + " not found")
+			return nil, mutationError("path " + pyjson.Compact(pyjson.NewArray(path...)) + " not found")
 		}
 		current = next
 	}
@@ -171,7 +171,7 @@ func set(parent *node, key pyjson.Value, value *node) error {
 		case index >= 0 && index < int64(len(parent.items)):
 			parent.items[index] = value
 		default:
-			return mutationError("index " + key.Repr() + " out of range")
+			return mutationError("index " + pyjson.Compact(key) + " out of range")
 		}
 		return nil
 	case parent != nil && parent.isObject && key.IsString():
@@ -181,7 +181,7 @@ func set(parent *node, key pyjson.Value, value *node) error {
 		parent.members[key.Text()] = value
 		return nil
 	}
-	return mutationError("cannot set " + key.Repr())
+	return mutationError("cannot set " + pyjson.Compact(key))
 }
 
 // isIntLike reports whether Python's isinstance(value, int) holds: an
@@ -220,7 +220,7 @@ func applyMutation(state *node, record pyjson.Value) (*node, error) {
 	pathValue := record.Get("k")
 	path := pathValue.Items()
 	if !pathValue.IsArray() || (len(path) == 0 && !equalsInt(kind, 2)) {
-		return state, mutationError("bad path " + pathValue.Repr())
+		return state, mutationError("bad path " + pyjson.Compact(pathValue))
 	}
 	target := state
 	if len(path) > 0 {
@@ -230,7 +230,7 @@ func applyMutation(state *node, record pyjson.Value) (*node, error) {
 		}
 	}
 	if target == nil || !target.isArray {
-		return state, mutationError("push to non-list at " + pathValue.Repr())
+		return state, mutationError("push to non-list at " + pyjson.Compact(pathValue))
 	}
 	if start, ok := pyInt(record.Get("i")); ok {
 		target.items = target.items[:sliceStart(start, len(target.items))]
@@ -261,7 +261,7 @@ func keyedMutation(state *node, kind pyjson.Value, path []pyjson.Value, value py
 		remove(parent, key)
 		return nil, nil
 	case !equalsInt(kind, 2):
-		return nil, mutationError("unknown kind " + kind.Repr())
+		return nil, mutationError("unknown kind " + pyjson.Compact(kind))
 	}
 	target, ok := child(parent, key)
 	if !ok || target.isNull() {
