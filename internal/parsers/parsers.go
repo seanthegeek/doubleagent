@@ -26,6 +26,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/copilotdesktop"
 	"github.com/seanthegeek/doubleagent/internal/parser/kilocode"
 	"github.com/seanthegeek/doubleagent/internal/parser/musecode"
+	"github.com/seanthegeek/doubleagent/internal/parser/ollama"
 	"github.com/seanthegeek/doubleagent/internal/parser/opencode"
 	"github.com/seanthegeek/doubleagent/internal/parser/openhands"
 	"github.com/seanthegeek/doubleagent/internal/parser/pearai"
@@ -54,6 +55,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return agentzero.New() },
 		func() parser.Parser { return pearai.New() },
 		func() parser.Parser { return musecode.New() },
+		func() parser.Parser { return ollama.New() },
 		func() parser.Parser { return copilotcli.New() },
 		func() parser.Parser { return copilotdesktop.New() },
 		func() parser.Parser { return chatgptdesktop.New() },
