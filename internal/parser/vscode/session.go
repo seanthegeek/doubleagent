@@ -106,16 +106,16 @@ func (p *Parser) workspaceFolder(artifact *input.Artifact, problems *parser.Prob
 	if len(parts) < 4 || parts[len(parts)-2] != "chatSessions" || parts[len(parts)-4] != "workspaceStorage" {
 		return "", ""
 	}
-	return workspaceJSON(artifact, path.Dir(path.Dir(artifact.Rel)), problems)
+	return workspaceJSON(artifact, 1, problems)
 }
 
 // workspaceJSON returns the folder and workspace file, as paths, of the
-// workspace.json in the directory dir names relative to the home; "" for
-// each when there is none. One that cannot be read, does not decode or is
-// not a JSON object adds a whole-file problem.
-func workspaceJSON(artifact *input.Artifact, dir string, problems *parser.Problems) (string, string) {
-	file := artifact.Home.PathOf(path.Join(dir, "workspace.json"))
-	if !parser.RegularFile(file) {
+// workspace.json in the directory levels above the artifact's; "" for each
+// when there is none. One that cannot be read, does not decode or is not a
+// JSON object adds a whole-file problem.
+func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Problems) (string, string) {
+	file, ok := parser.Above(artifact, levels, "workspace.json")
+	if !ok || !parser.RegularFile(file) {
 		return "", ""
 	}
 	content, ok := parser.FileBytes(file, problems)

@@ -1,8 +1,6 @@
 package vscode
 
 import (
-	"path"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/pyjson"
@@ -98,8 +96,7 @@ func settingTexts(key string, value pyjson.Value) []string {
 // as the session id and the workspace's folder as the project.
 func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
-	workspace := path.Dir(path.Dir(path.Dir(artifact.Rel)))
-	project, _ := workspaceJSON(artifact, workspace, &problems)
+	project, _ := workspaceJSON(artifact, 2, &problems)
 	document := pyjson.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		decoded, err := pyjson.DecodeString(pytext.DecodeUTF8(data))
