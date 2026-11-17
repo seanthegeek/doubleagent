@@ -260,7 +260,7 @@ func walkAssistant(message pyjson.Value, index int, content string, state *chatS
 	if pytext.Strip(content) != "" {
 		emit(makeRow(timeline.TurnAssistant, content, "", ""))
 	}
-	for _, call := range iterated(message.Get("tool_calls")) {
+	for _, call := range parser.Elements(message.Get("tool_calls")) {
 		function := call.Get("function")
 		callID := parser.Str(call.Get("id"))
 		name := parser.Str(function.Get("name"))
@@ -273,32 +273,6 @@ func walkAssistant(message pyjson.Value, index int, content string, state *chatS
 		emit(makeRow(timeline.TurnToolUse, callText(functionCall.Get("arguments")),
 			state.pending[1], state.pending[0]))
 	}
-}
-
-// iterated returns what `for call in value or []` visits, each as the object
-// the caller reads fields from: an array's elements, an object's keys and a
-// string's characters are visited, and a visited item that is not an object
-// reads as an empty one.
-func iterated(value pyjson.Value) []pyjson.Value {
-	if !value.Truthy() {
-		return nil
-	}
-	var items []pyjson.Value
-	switch {
-	case value.IsArray():
-		items = value.Items()
-	case value.IsObject():
-		items = make([]pyjson.Value, len(value.Keys()))
-	case value.IsString():
-		items = make([]pyjson.Value, pytext.CodePointLen(value.Text()))
-	}
-	visited := make([]pyjson.Value, len(items))
-	for i, item := range items {
-		if item.IsObject() {
-			visited[i] = item
-		}
-	}
-	return visited
 }
 
 // loadMessages decodes a chat file into its messages and an error text ("" when
