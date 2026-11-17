@@ -305,8 +305,11 @@ jobs:
         with:
           name: analyzer-corpus
           path: ${{ runner.temp }}
+      # The archive is named without its directory: the tar of Git Bash on
+      # the Windows runner reads a drive letter's colon as a remote host.
       - name: Unpack the corpus
-        run: tar -C "$RUNNER_TEMP" -xzf "$RUNNER_TEMP/corpus.tar.gz"
+        working-directory: ${{ runner.temp }}
+        run: tar -xzf corpus.tar.gz
       - name: go test (replay)
         env:
           PARITY_CORPUS: ${{ runner.temp }}/corpus
