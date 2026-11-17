@@ -182,11 +182,12 @@ func splitHead(documents []sqlitefile.Row) (sqlitefile.Row, bool, []sqlitefile.R
 // searchProject returns a search session's project: its manifest's when
 // the manifest is there, else the documents' workspace root.
 func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace string) string {
-	if sessionID == "" {
+	name, named := parser.Component(sessionID)
+	if !named {
 		return workspace
 	}
 	var ignored parser.Problems
-	manifestPath, found := parser.Above(artifact, 1, "sessions", sessionID, sessionID+".json")
+	manifestPath, found := parser.Above(artifact, 1, "sessions", name, name+".json")
 	if !found {
 		return workspace
 	}

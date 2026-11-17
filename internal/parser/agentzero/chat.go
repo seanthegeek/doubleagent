@@ -601,8 +601,8 @@ func (c *chat) messageFile(content pyjson.Value) string {
 		return ""
 	}
 	name := strings.ReplaceAll(content.Get("file").Str(), `\`, "/")
-	name = name[strings.LastIndex(name, "/")+1:]
-	if name == "" {
+	name, named := parser.Component(name[strings.LastIndex(name, "/")+1:])
+	if !named {
 		return ""
 	}
 	path := filepath.Join(c.messagesDir, name)

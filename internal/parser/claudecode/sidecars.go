@@ -81,8 +81,9 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, problems *p
 	name := parts[len(parts)-1]
 	directory, found := sessionDir(artifact)
 	note := stub + "\n[persisted output not found: tool-results/" + name + "]"
+	_, named := parser.Component(name)
 	if len(parts) < 3 || parts[len(parts)-2] != "tool-results" ||
-		!found || parts[len(parts)-3] != filepath.Base(directory) || name == "" || name == "." || name == ".." {
+		!found || parts[len(parts)-3] != filepath.Base(directory) || !named {
 		return note
 	}
 	results := filepath.Join(directory, "tool-results")

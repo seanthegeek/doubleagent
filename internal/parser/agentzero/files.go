@@ -214,12 +214,14 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error
 
 // chatPresent reports whether the chat of a context id is among the files:
 // usr/chats/<id>/chat.json or usr/chats/<id>.json as a regular file, usr
-// being two levels above the state file's directory. A failure other than
-// the path being absent is returned.
+// being two levels above the state file's directory. An id that is not a
+// plain file name is a chat that is not there. A failure other than the
+// path being absent is returned.
 func chatPresent(artifact *input.Artifact, contextID string) (bool, error) {
-	nested, found := parser.Above(artifact, 2, "chats", contextID, "chat.json")
-	flat, _ := parser.Above(artifact, 2, "chats", contextID+".json")
-	if !found {
+	name, named := parser.Component(contextID)
+	nested, found := parser.Above(artifact, 2, "chats", name, "chat.json")
+	flat, _ := parser.Above(artifact, 2, "chats", name+".json")
+	if !named || !found {
 		return false, nil
 	}
 	for _, path := range []string{nested, flat} {

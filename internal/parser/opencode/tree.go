@@ -44,11 +44,11 @@ func rootOf(artifact *input.Artifact, depth int) (treeRoot, bool) {
 }
 
 // childPath returns the path of names below directory, or false when a
-// name is not a plain file name: empty, ".", "..", or holding a separator
-// or a NUL. A name read from the evidence never leads outside the tree.
+// name is not a plain file name (parser.Component refuses it). A name read
+// from the evidence never leads outside the tree.
 func childPath(directory string, names ...string) (string, bool) {
 	for _, name := range names {
-		if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") {
+		if _, ok := parser.Component(name); !ok {
 			return "", false
 		}
 	}

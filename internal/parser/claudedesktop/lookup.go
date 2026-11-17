@@ -167,7 +167,8 @@ func folder(record pyjson.Value) string {
 // sessionCollected reports whether a transcript or audit log of a record's
 // session is in the input: in the session dir (full or short name, beside
 // the record or in its org dir), in the org's imported-staging/, or for the
-// Code tab in ~/.claude/projects/*/.
+// Code tab in ~/.claude/projects/*/. An id from the record that is not a
+// plain file name names nothing collected.
 func sessionCollected(artifact *input.Artifact, record pyjson.Value) bool {
 	recordDir := parser.Beside(artifact)
 	org, found := orgDir(artifact, recordDir, 0)
@@ -178,7 +179,10 @@ func sessionCollected(artifact *input.Artifact, record pyjson.Value) bool {
 	if sessionID == "" {
 		sessionID = strings.TrimSuffix(filepath.Base(artifact.Rel), ".json")
 	}
-	names := []string{sessionID}
+	var names []string
+	if _, named := parser.Component(sessionID); named {
+		names = append(names, sessionID)
+	}
 	if longName.MatchString(sessionID) {
 		names = append(names, sessionID[len("local_"):len("local_")+8])
 	}
@@ -190,8 +194,8 @@ func sessionCollected(artifact *input.Artifact, record pyjson.Value) bool {
 			}
 		}
 	}
-	cliID := text(record.Get("cliSessionId"))
-	if cliID == "" {
+	cliID, named := parser.Component(text(record.Get("cliSessionId")))
+	if !named {
 		return false
 	}
 	staging := filepath.Join(org, "imported-staging")

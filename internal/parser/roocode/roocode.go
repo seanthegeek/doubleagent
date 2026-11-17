@@ -172,7 +172,7 @@ func (p *Parser) historyRows(artifact *input.Artifact, item pyjson.Value, positi
 }
 
 // index emits the task rows of the tasks/_index.json entries whose
-// history_item.json is gone.
+// history_item.json is gone; an id that is not a plain file name has none.
 func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	index, _ := parser.LoadJSON(artifact.DiskPath, &problems)
@@ -187,8 +187,8 @@ func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 		if !entry.IsObject() {
 			continue
 		}
-		taskID := parser.Str(entry.Get("id"))
-		if taskID != "" && parser.RegularFile(parser.Beside(artifact, taskID, itemFile)) {
+		if taskID, named := parser.Component(parser.Str(entry.Get("id"))); named &&
+			parser.RegularFile(parser.Beside(artifact, taskID, itemFile)) {
 			continue
 		}
 		p.historyRows(artifact, entry, i+1, emit)

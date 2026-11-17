@@ -97,9 +97,7 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 	keys := append(startKeys(), "ended_at", "exit_code")
 	for _, record := range rows {
 		session := rowObject(record)
-		sessionID := parser.Str(session.Get("session_id"))
-		if manifest, found := parser.Above(artifact, 1, "sessions", sessionID, sessionID+".json"); sessionID != "" &&
-			found && parser.RegularFile(manifest) {
+		if manifestPresent(artifact, parser.Str(session.Get("session_id"))) {
 			continue
 		}
 		meta := metadataJSON(record.Get("metadata_json"))
@@ -107,6 +105,15 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 		start := p.sessionStart(artifact, session, int(record.Rowid), "started_at", "session index", keys)
 		p.startRows(start, session, meta, "sessions.db sessions.metadata_json", emit)
 	}
+}
+
+// manifestPresent reports whether the session's manifest,
+// sessions/<id>/<id>.json beside the db directory, is a regular file. An id
+// that is not a plain file name has no manifest.
+func manifestPresent(artifact *input.Artifact, sessionID string) bool {
+	name, named := parser.Component(sessionID)
+	manifest, found := parser.Above(artifact, 1, "sessions", name, name+".json")
+	return named && found && parser.RegularFile(manifest)
 }
 
 // metadataJSON returns a metadata_json column decoded as JSON, or null for
