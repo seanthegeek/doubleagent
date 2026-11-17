@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The expected values in this file come from running the Python helpers
@@ -124,7 +124,7 @@ func TestLoadSessionRecoversWhatItCan(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			session, problem := LoadSession(test.text)
-			if got := pyjson.Compact(session); got != test.want {
+			if got := session.JSON(); got != test.want {
 				t.Errorf("session = %s, want %s", got, test.want)
 			}
 			if got, _, _ := strings.Cut(problem, " ("); got != test.problem {
@@ -138,30 +138,30 @@ func TestLoadSessionTakesJSONWhitespaceOnly(t *testing.T) {
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
 		text := "{\"sessionId\"" + space + ":\"s1\", \"history\"" + space + ":[{\"a\": 1}, {\"b"
 		session, _ := LoadSession(text)
-		if got := pyjson.Compact(session); got != `{"history":[]}` {
+		if got := session.JSON(); got != `{"history":[]}` {
 			t.Errorf("%q: session = %s", space, got)
 		}
 	}
 }
 
 func TestOutputTextAndStateDecision(t *testing.T) {
-	output, err := pyjson.DecodeString(`[{"content": "a"}, {"content": {"b": 1}}, {"name": "n"}, {}, 5, null]`)
+	output, err := jsonvalue.DecodeString(`[{"content": "a"}, {"content": {"b": 1}}, {"name": "n"}, {}, 5, null]`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := outputText(output); got != "a\n{\"b\":1}\nn\n5\nNone" {
+	if got := outputText(output); got != "a\n{\"b\":1}\nn\n5" {
 		t.Errorf("outputText = %q", got)
 	}
-	violation, _ := pyjson.DecodeString(`[{"name": "Security Policy Violation"}]`)
+	violation, _ := jsonvalue.DecodeString(`[{"name": "Security Policy Violation"}]`)
 	for _, test := range []struct {
 		status, text string
-		output       pyjson.Value
+		output       jsonvalue.Value
 		want         string
 	}{
-		{"canceled", " Permission denied by user ", pyjson.NewNull(), "canceled reason=user"},
-		{"canceled", "x", pyjson.NewNull(), "canceled"},
+		{"canceled", " Permission denied by user ", jsonvalue.NewNull(), "canceled reason=user"},
+		{"canceled", "x", jsonvalue.NewNull(), "canceled"},
 		{"errored", "", violation, "errored reason=policy"},
-		{"errored", "", pyjson.NewArray(), ""},
+		{"errored", "", jsonvalue.NewArray(), ""},
 	} {
 		if got := stateDecision(test.status, test.output, test.text); got != test.want {
 			t.Errorf("stateDecision(%q, %q) = %q, want %q", test.status, test.text, got, test.want)

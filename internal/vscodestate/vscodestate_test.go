@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // stateCopy copies the sqlitefile package's sites.db, whose ItemTable holds
@@ -27,10 +27,10 @@ func stateCopy(t *testing.T) string {
 }
 
 // compactValues writes each value as compact JSON, keyed by its key.
-func compactValues(values map[string]pyjson.Value) map[string]string {
+func compactValues(values map[string]jsonvalue.Value) map[string]string {
 	out := map[string]string{}
 	for key, value := range values {
-		out[key] = pyjson.Compact(value)
+		out[key] = value.JSON()
 	}
 	return out
 }

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -35,7 +35,7 @@ func argumentKeys() []string {
 // query that is neither null nor empty, as text when it is a string and as
 // compact JSON otherwise, else the whole object as compact JSON; for any
 // other value, "" when it is null or empty, else the value as text or JSON.
-func ArgsSummary(arguments pyjson.Value) string {
+func ArgsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsObject() {
 		for _, key := range argumentKeys() {
 			if value := arguments.Get(key); !isNullOrEmpty(value) {
@@ -51,23 +51,23 @@ func ArgsSummary(arguments pyjson.Value) string {
 }
 
 // textOrJSON returns a string as it is and anything else as compact JSON.
-func textOrJSON(value pyjson.Value) string {
+func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // isNullOrEmpty reports whether value is null or the empty string, Python's
 // `value in (None, "")`.
-func isNullOrEmpty(value pyjson.Value) bool {
+func isNullOrEmpty(value jsonvalue.Value) bool {
 	return value.IsNull() || isText(value, "")
 }
 
 // isNullOrZero reports whether value is null or equals zero as Python
 // compares it, false included: Python's `value in (None, 0)`.
-func isNullOrZero(value pyjson.Value) bool {
-	return value.IsNull() || ((value.IsNumber() || value.IsBool()) && !value.Truthy())
+func isNullOrZero(value jsonvalue.Value) bool {
+	return value.IsNull() || ((value.IsNumber() || value.IsBool()) && value.IsEmpty())
 }
 
 // label returns "<prefix>: <text>", or the prefix alone when text is empty.
@@ -111,7 +111,7 @@ func SwitchText(seen parser.Tracker, key, model, provider string) string {
 // "session synced:" for a report uploaded, "bug report exported:" for one
 // saved as a zip, and "" for any other delivery or data that is not an
 // object. The hint is not written.
-func BugReportText(data pyjson.Value) string {
+func BugReportText(data jsonvalue.Value) string {
 	if !data.IsObject() {
 		return ""
 	}
@@ -185,7 +185,7 @@ func (w *entryWriter) system(text string) {
 
 // entry emits the rows of one entry. Other custom entries, labels, usage
 // and unknown types carry no conversation content and give none.
-func (w *entryWriter) entry(record pyjson.Value) {
+func (w *entryWriter) entry(record jsonvalue.Value) {
 	message := record.Get("message")
 	w.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")),
 		timeutil.FromValue(message.Get("timestamp")))
@@ -204,7 +204,7 @@ func (w *entryWriter) entry(record pyjson.Value) {
 			}
 		}
 	case kind.IsString():
-		if text, ok := entryText(kind.Text(), record); ok {
+		if text, ok := entryText(kind.StringValue(), record); ok {
 			w.system(text)
 		}
 	}
@@ -212,7 +212,7 @@ func (w *entryWriter) entry(record pyjson.Value) {
 
 // entryText returns the system row text of an entry type that gives one
 // row from its own fields, or false for another type.
-func entryText(kind string, record pyjson.Value) (string, bool) {
+func entryText(kind string, record jsonvalue.Value) (string, bool) {
 	field := func(key string) string { return parser.Str(record.Get(key)) }
 	switch kind {
 	case "thinking_level_change":
@@ -236,7 +236,7 @@ func entryText(kind string, record pyjson.Value) (string, bool) {
 }
 
 // message emits the rows of a message entry by its role.
-func (w *entryWriter) message(message, record pyjson.Value) {
+func (w *entryWriter) message(message, record jsonvalue.Value) {
 	content := message.Get("content")
 	switch role := message.Get("role"); {
 	case isText(role, "user"):
@@ -254,13 +254,13 @@ func (w *entryWriter) message(message, record pyjson.Value) {
 	case isText(role, "custom"):
 		w.system(label("custom "+parser.Str(message.Get("customType")), parser.TextOf(content)))
 	case isText(role, "branchSummary"), isText(role, "compactionSummary"):
-		w.system(label(role.Text(), parser.Str(message.Get("summary"))))
+		w.system(label(role.StringValue(), parser.Str(message.Get("summary"))))
 	}
 }
 
 // assistant emits an assistant message's model row, its text, thinking and
 // tool call rows, and a row for a turn that stopped on an error.
-func (w *entryWriter) assistant(message pyjson.Value) {
+func (w *entryWriter) assistant(message jsonvalue.Value) {
 	requested := parser.Str(message.Get("model"))
 	model := parser.Str(message.Get("responseModel"))
 	if model == "" {
@@ -272,9 +272,9 @@ func (w *entryWriter) assistant(message pyjson.Value) {
 	}
 	content := message.Get("content")
 	if content.IsString() {
-		content = pyjson.NewArray(pyjson.NewObject(
-			pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-			pyjson.Member{Key: "text", Value: content}))
+		content = jsonvalue.NewArray(jsonvalue.NewObject(
+			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+			jsonvalue.Member{Key: "text", Value: content}))
 	}
 	for _, part := range content.Items() {
 		if part.IsObject() {
@@ -282,20 +282,20 @@ func (w *entryWriter) assistant(message pyjson.Value) {
 		}
 	}
 	if stop := message.Get("stopReason"); isText(stop, "error") || isText(stop, "aborted") {
-		w.put(timeline.TurnSystem, label("assistant stopReason="+stop.Text(),
+		w.put(timeline.TurnSystem, label("assistant stopReason="+stop.StringValue(),
 			parser.Str(message.Get("errorMessage"))), model, "", "")
 	}
 }
 
 // assistantPart emits the row of one part of an assistant message's
 // content: text, thinking when it is asked for, or a tool call.
-func (w *entryWriter) assistantPart(part pyjson.Value, model string) {
+func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
 	switch kind := part.Get("type"); {
-	case isText(kind, "text") && part.Get("text").Truthy():
-		w.put(timeline.TurnAssistant, part.Get("text").Str(), model, "", "")
+	case isText(kind, "text") && !part.Get("text").IsEmpty():
+		w.put(timeline.TurnAssistant, part.Get("text").Text(), model, "", "")
 	case isText(kind, "thinking") && w.options.IncludeThinking:
 		text := parser.Str(part.Get("thinking"))
-		if part.Get("redacted").Truthy() && text == "" {
+		if !part.Get("redacted").IsEmpty() && text == "" {
 			text = "[redacted]"
 		}
 		if text != "" {
@@ -309,9 +309,9 @@ func (w *entryWriter) assistantPart(part pyjson.Value, model string) {
 
 // toolResult emits a tool result row, and a permission row when the result
 // is a refusal of little-coder's permission gate.
-func (w *entryWriter) toolResult(message pyjson.Value) {
+func (w *entryWriter) toolResult(message jsonvalue.Value) {
 	reason := parser.TextOf(message.Get("content"))
-	failed := message.Get("isError").Truthy()
+	failed := !message.Get("isError").IsEmpty()
 	text := reason
 	if failed {
 		text = "[error] " + reason
@@ -325,17 +325,17 @@ func (w *entryWriter) toolResult(message pyjson.Value) {
 
 // bash emits the call and result rows of a command the user ran with !,
 // the result ending with its exit code, cancellation and truncation.
-func (w *entryWriter) bash(message pyjson.Value, entryID string) {
+func (w *entryWriter) bash(message jsonvalue.Value, entryID string) {
 	w.put(timeline.TurnToolUse, parser.Str(message.Get("command")), "", "bash", entryID)
 	output := parser.Str(message.Get("output"))
 	var notes []string
 	if code := message.Get("exitCode"); !isNullOrZero(code) {
-		notes = append(notes, "exit "+code.Str())
+		notes = append(notes, "exit "+code.Text())
 	}
-	if message.Get("cancelled").Truthy() {
+	if !message.Get("cancelled").IsEmpty() {
 		notes = append(notes, "cancelled")
 	}
-	if message.Get("truncated").Truthy() {
+	if !message.Get("truncated").IsEmpty() {
 		notes = append(notes, "truncated")
 	}
 	if len(notes) > 0 {

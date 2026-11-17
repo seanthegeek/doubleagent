@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -28,15 +28,15 @@ const jsonSpace = " \t\n\r"
 // mark as pi drops it. A file that cannot be read adds its unreadable
 // problem; any other failure adds "<rel> is not a JSON object". A path that
 // is not a regular file gives false and no problem.
-func jsonObject(artifact *input.Artifact, problems *parser.Problems) (pyjson.Value, bool) {
+func jsonObject(artifact *input.Artifact, problems *parser.Problems) (jsonvalue.Value, bool) {
 	text, ok := parser.ReadText(artifact.DiskPath, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	document, err := pyjson.DecodeString(text)
+	document, err := jsonvalue.DecodeString(text)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, artifact.Rel+" is not a JSON object")
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return document, true
 }
@@ -115,16 +115,16 @@ func (p *Parser) parseDebugLog(artifact *input.Artifact, options parser.Options,
 // addDebugMessage adds one message line of the debug log as a message
 // entry, or its problem when it is not a JSON object.
 func (s *Session) addDebugMessage(number int, line string) {
-	message, err := pyjson.DecodeString(line)
+	message, err := jsonvalue.DecodeString(line)
 	switch {
 	case err != nil:
 		s.Problems.AddRaw(number, parser.UnparseableLine(err), line)
 	case !message.IsObject():
 		s.Problems.AddRaw(number, "unparseable line (not a JSON object)", line)
 	default:
-		s.Entries = append(s.Entries, Entry{Line: number, Record: pyjson.NewObject(
-			pyjson.Member{Key: "type", Value: pyjson.NewString("message")},
-			pyjson.Member{Key: "message", Value: message})})
+		s.Entries = append(s.Entries, Entry{Line: number, Record: jsonvalue.NewObject(
+			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("message")},
+			jsonvalue.Member{Key: "message", Value: message})})
 	}
 }
 
@@ -152,7 +152,7 @@ func notObjectRecord(position int) string {
 
 // crashText returns a crash record's `crash:` row text, ending with source,
 // and the session id its sessionFile names.
-func (p *Parser) crashText(record pyjson.Value, source string) (string, string) {
+func (p *Parser) crashText(record jsonvalue.Value, source string) (string, string) {
 	sessionFile := parser.Str(record.Get("sessionFile"))
 	sessionID := ""
 	if match := p.sessionName.FindStringSubmatch(strings.ReplaceAll(sessionFile, `\`, "/")); match != nil {
@@ -161,8 +161,8 @@ func (p *Parser) crashText(record pyjson.Value, source string) (string, string) 
 	field := func(key string) string { return parser.SettingOrDash(record.Get(key)) }
 	text := "crash: " + field("kind") + " " + field("message") + " version=" + field("version") +
 		" sessionFile=" + field("sessionFile") + " " + source
-	if stack := record.Get("stack"); stack.Truthy() {
-		text += "\n" + stack.Str()
+	if stack := record.Get("stack"); !stack.IsEmpty() {
+		text += "\n" + stack.Text()
 	}
 	return text, sessionID
 }

@@ -6,15 +6,15 @@ import (
 	"io"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/zstdframe"
 )
 
 // numberedRecord is one JSON object line of a file and its line number.
 type numberedRecord struct {
 	line  int
-	value pyjson.Value
+	value jsonvalue.Value
 }
 
 // asciiWhitespace is what Python's bytes.strip() removes from a line.
@@ -81,7 +81,7 @@ func appendRecord(records []numberedRecord, number int, raw []byte,
 	if len(stripped) == 0 {
 		return records
 	}
-	record, err := pyjson.Decode(stripped)
+	record, err := jsonvalue.Decode(stripped)
 	if err != nil {
 		problems.AddRaw(number, parser.UnparseableLine(err), parser.LineText(raw))
 		return records

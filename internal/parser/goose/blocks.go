@@ -2,8 +2,8 @@ package goose
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -22,18 +22,18 @@ type blockReader struct {
 
 // orObject returns value when it is truthy, else an empty object: the
 // `value or {}` of a value read as an object.
-func orObject(value pyjson.Value) pyjson.Value {
-	if value.Truthy() {
+func orObject(value jsonvalue.Value) jsonvalue.Value {
+	if !value.IsEmpty() {
 		return value
 	}
-	return pyjson.NewObject()
+	return jsonvalue.NewObject()
 }
 
 // textBlocks returns content as its blocks: a string is one text block.
-func textBlocks(content pyjson.Value) pyjson.Value {
+func textBlocks(content jsonvalue.Value) jsonvalue.Value {
 	if content.IsString() {
-		return pyjson.NewArray(pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-			pyjson.Member{Key: "text", Value: content}))
+		return jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+			jsonvalue.Member{Key: "text", Value: content}))
 	}
 	return content
 }
@@ -43,7 +43,7 @@ func textBlocks(content pyjson.Value) pyjson.Value {
 // the session's toolConfirmationResponse blocks answer: a toolRequest whose
 // _meta holds goose.executable false and no answer is followed by its
 // "permission decision: not executable" row.
-func (r *blockReader) blocks(base timeline.Row, role string, content pyjson.Value,
+func (r *blockReader) blocks(base timeline.Row, role string, content jsonvalue.Value,
 	visible bool, answered map[string]bool, emit parser.Emit) {
 	content = textBlocks(content)
 	if !content.IsArray() {
@@ -76,17 +76,17 @@ func (r *blockReader) blocks(base timeline.Row, role string, content pyjson.Valu
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // block returns the row of one content block, or false for a thinking
 // block the options leave out.
 func (r *blockReader) block(base timeline.Row, role, textType string, visible bool,
-	block pyjson.Value) (timeline.Row, bool) {
+	block jsonvalue.Value) (timeline.Row, bool) {
 	row, text := base, ""
 	kind := block.Get("type")
-	switch kindText := kind.Text(); {
+	switch kindText := kind.StringValue(); {
 	case !kind.IsString():
 		row.TurnType, text = timeline.TurnSystem, parser.CompactJSON(block)
 	case kindText == "text":
@@ -122,7 +122,7 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 
 // toolRequest fills the row of a toolRequest block and returns its text,
 // remembering the tool's name for the response.
-func (r *blockReader) toolRequest(row *timeline.Row, block pyjson.Value) string {
+func (r *blockReader) toolRequest(row *timeline.Row, block jsonvalue.Value) string {
 	row.TurnType = timeline.TurnToolUse
 	row.ToolUseID = parser.Str(block.Get("id"))
 	call := orObject(block.Get("toolCall"))
@@ -139,7 +139,7 @@ func (r *blockReader) toolRequest(row *timeline.Row, block pyjson.Value) string 
 }
 
 // toolResponse fills the row of a toolResponse block and returns its text.
-func (r *blockReader) toolResponse(row *timeline.Row, block pyjson.Value) string {
+func (r *blockReader) toolResponse(row *timeline.Row, block jsonvalue.Value) string {
 	row.TurnType = timeline.TurnToolResult
 	row.ToolUseID = parser.Str(block.Get("id"))
 	row.ToolName = r.toolNames[row.ToolUseID]
@@ -152,7 +152,7 @@ func (r *blockReader) toolResponse(row *timeline.Row, block pyjson.Value) string
 
 // systemBlock fills the row of a confirmation request, notification, error,
 // action or unknown block, all system rows, and returns its text.
-func (r *blockReader) systemBlock(row *timeline.Row, kind string, block pyjson.Value) string {
+func (r *blockReader) systemBlock(row *timeline.Row, kind string, block jsonvalue.Value) string {
 	row.TurnType = timeline.TurnSystem
 	switch kind {
 	case "toolConfirmationRequest":
@@ -178,7 +178,7 @@ func (r *blockReader) systemBlock(row *timeline.Row, kind string, block pyjson.V
 // row's tool join: a tool confirmation is a "permission request:", its
 // answer a "permission decision:", and an elicitation keeps the generic
 // "action required:" row.
-func (r *blockReader) actionText(row *timeline.Row, data pyjson.Value) string {
+func (r *blockReader) actionText(row *timeline.Row, data jsonvalue.Value) string {
 	switch kind := data.Get("actionType"); {
 	case data.IsObject() && isText(kind, "toolConfirmation"):
 		row.ToolName = parser.Str(data.Get("toolName"))
@@ -189,8 +189,8 @@ func (r *blockReader) actionText(row *timeline.Row, data pyjson.Value) string {
 		row.ToolUseID = parser.Str(data.Get("id"))
 		row.ToolName = r.toolNames[row.ToolUseID]
 		permission := data.Get("permission")
-		if !permission.Truthy() {
-			permission = pyjson.NewString("-")
+		if permission.IsEmpty() {
+			permission = jsonvalue.NewString("-")
 		}
 		return "permission decision: " + parser.SettingValue(permission) + " (toolConfirmationResponse)"
 	}
@@ -199,7 +199,7 @@ func (r *blockReader) actionText(row *timeline.Row, data pyjson.Value) string {
 
 // resultText returns the text of a toolResponse's toolResult and whether
 // it is an error.
-func resultText(result pyjson.Value) (string, bool) {
+func resultText(result jsonvalue.Value) (string, bool) {
 	if !result.IsObject() {
 		return parser.CompactJSON(result), false
 	}
@@ -215,7 +215,7 @@ func resultText(result pyjson.Value) (string, bool) {
 		if structured, ok := value.Lookup("structuredContent"); text == "" && ok && !structured.IsNull() {
 			text = parser.CompactJSON(structured)
 		}
-		return text, value.Get("isError").Truthy()
+		return text, !value.Get("isError").IsEmpty()
 	}
 	return "", false
 }

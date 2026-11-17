@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -47,7 +47,7 @@ func systemItem(text string) []itemRow {
 // itemRows returns the rows of an item_completed turn item in the rollout's
 // turn-item form: a tool item gives a tool_use and a tool_result on the
 // item's id, anything else one system row.
-func itemRows(item pyjson.Value) []itemRow {
+func itemRows(item jsonvalue.Value) []itemRow {
 	itemType := parser.Str(item.Get("type"))
 	itemID := parser.Str(item.Get("id"))
 	switch {
@@ -57,7 +57,7 @@ func itemRows(item pyjson.Value) []itemRow {
 	case itemType == "McpToolCall":
 		name := parser.Str(item.Get("server")) + "." + parser.Str(item.Get("tool"))
 		result := itemFailure(item)
-		if item.Get("result").Truthy() {
+		if !item.Get("result").IsEmpty() {
 			result = resultText(item.Get("result"))
 		}
 		return toolPair(itemID, name, parser.CompactJSON(item.Get("arguments")), result)
@@ -76,8 +76,8 @@ func itemRows(item pyjson.Value) []itemRow {
 			text: parser.TextOf(item.Get("output"))}}
 	case itemType == "WebSearch" || (itemType == "Extension" && isText(item.Get("kind"), "web.search")):
 		results := item.Get("results")
-		if !results.Truthy() {
-			results = pyjson.NewArray()
+		if results.IsEmpty() {
+			results = jsonvalue.NewArray()
 		}
 		return toolPair(itemID, "web_search", parser.Str(item.Get("query")), parser.CompactJSON(results))
 	}
@@ -87,12 +87,12 @@ func itemRows(item pyjson.Value) []itemRow {
 // systemItemRows returns the system row of a turn item that is not a tool
 // call: a sleep, an image generation, a plan, a subagent's activity, or any
 // other item as its JSON.
-func systemItemRows(item pyjson.Value, itemType string) []itemRow {
+func systemItemRows(item jsonvalue.Value, itemType string) []itemRow {
 	switch {
 	case itemType == "Extension" && isText(item.Get("kind"), "clock.sleep"):
 		duration := ""
 		if value, ok := item.Lookup("durationMs"); ok {
-			duration = value.Str()
+			duration = value.Text()
 		}
 		return systemItem("sleep: " + duration + " ms")
 	case itemType == "ImageGeneration" || itemType == "Extension":
@@ -109,7 +109,7 @@ func systemItemRows(item pyjson.Value, itemType string) []itemRow {
 
 // imageText returns the text of an image generation item, or of an
 // Extension item of another kind, which is shown as its JSON.
-func imageText(item pyjson.Value, itemType string) string {
+func imageText(item jsonvalue.Value, itemType string) string {
 	if itemType == "Extension" && !isText(item.Get("kind"), "image_gen.generation") {
 		return "item Extension: " + parser.CompactJSON(without(item, "type", "id"))
 	}
@@ -123,15 +123,15 @@ func imageText(item pyjson.Value, itemType string) string {
 
 // fileChangeRows returns the pair of a FileChange item: the changed paths,
 // sorted, and its output or status.
-func fileChangeRows(item pyjson.Value, itemID string) []itemRow {
+func fileChangeRows(item jsonvalue.Value, itemID string) []itemRow {
 	paths := ""
 	if changes := item.Get("changes"); changes.IsObject() {
 		paths = strings.Join(slices.Sorted(slices.Values(changes.Keys())), ", ")
 	}
 	var output []string
 	for _, key := range []string{"stdout", "stderr"} {
-		if value := item.Get(key); value.Truthy() {
-			output = append(output, value.Str())
+		if value := item.Get(key); !value.IsEmpty() {
+			output = append(output, value.Text())
 		}
 	}
 	result := strings.Join(output, "\n")
@@ -143,30 +143,30 @@ func fileChangeRows(item pyjson.Value, itemID string) []itemRow {
 
 // joinedCommand returns a command as text: a list's parts joined by
 // spaces, anything else as its text.
-func joinedCommand(command pyjson.Value) string {
+func joinedCommand(command jsonvalue.Value) string {
 	if !command.IsArray() {
 		return parser.Str(command)
 	}
 	parts := make([]string, 0, command.Len())
 	for _, part := range command.Items() {
-		parts = append(parts, part.Str())
+		parts = append(parts, part.Text())
 	}
 	return strings.Join(parts, " ")
 }
 
 // itemFailure returns the "[error] ..." text of a failed tool item, or ""
 // when it records no error.
-func itemFailure(item pyjson.Value) string {
+func itemFailure(item jsonvalue.Value) string {
 	failure := item.Get("error")
 	if failure.IsObject() {
 		message := failure.Get("message")
-		if message.Truthy() {
-			return "[error] " + message.Str()
+		if !message.IsEmpty() {
+			return "[error] " + message.Text()
 		}
 		return "[error] " + parser.CompactJSON(failure)
 	}
-	if failure.Truthy() {
-		return "[error] " + failure.Str()
+	if !failure.IsEmpty() {
+		return "[error] " + failure.Text()
 	}
 	return ""
 }
@@ -174,7 +174,7 @@ func itemFailure(item pyjson.Value) string {
 // resultText returns the text of a tool server's call result or a dynamic
 // tool's output: an object's "content" as message content, an object
 // without one as JSON, anything else as message content.
-func resultText(value pyjson.Value) string {
+func resultText(value jsonvalue.Value) string {
 	if value.IsObject() {
 		if content, ok := value.Lookup("content"); ok {
 			return parser.TextOf(content)
@@ -186,9 +186,9 @@ func resultText(value pyjson.Value) string {
 
 // withExit prefixes a command's output with "[exit <code>] " when its exit
 // code is neither missing nor zero.
-func withExit(text string, code pyjson.Value) string {
+func withExit(text string, code jsonvalue.Value) string {
 	if isNoneOrZero(code) {
 		return text
 	}
-	return "[exit " + code.Str() + "] " + text
+	return "[exit " + code.Text() + "] " + text
 }

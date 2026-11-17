@@ -30,8 +30,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -117,11 +117,11 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for position, prompt := range parser.JSONArray(artifact.DiskPath, &problems) {
-		if prompt.IsString() && prompt.Text() != "" {
+		if prompt.IsString() && prompt.StringValue() != "" {
 			row := p.BaseRow(artifact)
 			row.SourceLine = position
 			row.TurnType = timeline.TurnUser
-			row.Text = timeline.Compact(prompt.Text())
+			row.Text = timeline.Compact(prompt.StringValue())
 			emit(row)
 		}
 	}
@@ -153,7 +153,7 @@ func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := pyjson.Decode(data)
+	document, err := jsonvalue.Decode(data)
 	timestamp := parser.FileMtime(artifact)
 	put := func(text string) {
 		row := p.SystemRow(artifact, text)
@@ -177,14 +177,14 @@ func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // isNullOrEmpty reports whether value is null or the empty string.
-func isNullOrEmpty(value pyjson.Value) bool {
-	return value.IsNull() || (value.IsString() && value.Text() == "")
+func isNullOrEmpty(value jsonvalue.Value) bool {
+	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
 // isZero reports whether value equals zero as Python compares it, false
 // included.
-func isZero(value pyjson.Value) bool {
-	return (value.IsNumber() || value.IsBool()) && !value.Truthy()
+func isZero(value jsonvalue.Value) bool {
+	return (value.IsNumber() || value.IsBool()) && value.IsEmpty()
 }
 
 // parseLegacySnapshots emits one row per snapshot of a v0.0.x
@@ -200,8 +200,8 @@ func (p *Parser) parseLegacySnapshots(artifact *input.Artifact, emit parser.Emit
 		for _, backup := range snapshot.Get("file_backups").Members() {
 			name := backup.Value.Get("backup_filename")
 			state := "did not exist"
-			if name.Truthy() {
-				state = "backup " + name.Str()
+			if !name.IsEmpty() {
+				state = "backup " + name.Text()
 			}
 			files = append(files, backup.Key+" ("+state+")")
 		}

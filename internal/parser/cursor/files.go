@@ -2,8 +2,8 @@ package cursor
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -28,14 +28,14 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 		}
 		content := record.Get("message").Get("content")
 		if content.IsString() {
-			content = pyjson.NewArray(pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-				pyjson.Member{Key: "text", Value: content}))
+			content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+				jsonvalue.Member{Key: "text", Value: content}))
 		}
 		for _, block := range content.Items() {
 			switch {
 			case isText(block.Get("type"), "text") && block.Get("text").IsString():
-				text := block.Get("text").Text()
-				if role.Text() == "user" {
+				text := block.Get("text").StringValue()
+				if role.StringValue() == "user" {
 					query, when := unwrapQuery(text)
 					if query = timeline.Compact(query); query != "" {
 						emit(row(timeline.TurnUser, query, when, number))
@@ -56,21 +56,21 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 // readDocument reads a JSON settings or attempt file, emitting the row
 // that says why it cannot be used and returning false. A file that cannot
 // be read gives its problem with the project.
-func (p *Parser) readDocument(artifact *input.Artifact, project string, emit parser.Emit) (pyjson.Value, bool) {
+func (p *Parser) readDocument(artifact *input.Artifact, project string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
-	document, err := pyjson.DecodeString(pytext.DecodeUTF8(content))
+	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
 	switch {
 	case err != nil:
 		emit(p.row(artifact, timeline.TurnSystem, "parser: unreadable "+artifact.Rel+": "+reason.For(err), "", 0))
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	case !document.IsObject():
 		emit(p.row(artifact, timeline.TurnSystem, "parser: "+artifact.Rel+" is not a JSON object", "", 0))
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
 	return document, true
 }
@@ -119,7 +119,7 @@ func (p *Parser) settingsFile(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // listSettings returns "<label>=<value>" per item of an array.
-func listSettings(label string, list pyjson.Value) []string {
+func listSettings(label string, list jsonvalue.Value) []string {
 	var out []string
 	for _, entry := range list.Items() {
 		out = append(out, label+"="+parser.SettingValue(entry))
@@ -129,7 +129,7 @@ func listSettings(label string, list pyjson.Value) []string {
 
 // cliConfigSettings returns "<key>=<value>" per setting of
 // .cursor/cli-config.json that governs permissions.
-func cliConfigSettings(document pyjson.Value) []string {
+func cliConfigSettings(document jsonvalue.Value) []string {
 	var out []string
 	if value, ok := document.Lookup("approvalMode"); ok {
 		out = append(out, "approvalMode="+parser.SettingValue(value))
@@ -145,7 +145,7 @@ func cliConfigSettings(document pyjson.Value) []string {
 
 // permissionsSettings returns "<key>=<value>" per entry of a
 // permissions.json.
-func permissionsSettings(document pyjson.Value) []string {
+func permissionsSettings(document jsonvalue.Value) []string {
 	allowlists := document.Get("allowlists")
 	out := listSettings("allowlists.mcp", allowlists.Get("mcp"))
 	out = append(out, listSettings("allowlists.terminal", allowlists.Get("terminal"))...)

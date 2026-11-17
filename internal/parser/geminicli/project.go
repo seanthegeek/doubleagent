@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -64,9 +64,9 @@ func resolveProject(base func(names ...string) string, slug, projectHash string,
 			return root
 		}
 	}
-	var projects []pyjson.Member
+	var projects []jsonvalue.Member
 	if raw, ok := readSmall(base("projects.json"), problems); ok && raw != "" {
-		if data, err := pyjson.DecodeString(raw); err == nil {
+		if data, err := jsonvalue.DecodeString(raw); err == nil {
 			projects = data.Get("projects").Members()
 		}
 	}

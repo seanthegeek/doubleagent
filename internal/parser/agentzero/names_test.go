@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -31,8 +31,8 @@ func telegramTexts(t *testing.T, contextID string, outside []string) []string {
 	t.Helper()
 	home := t.TempDir()
 	const rel = "plugins/_telegram_integration/state.json"
-	state := pyjson.NewObject(pyjson.Member{Key: "bot:user:chat", Value: pyjson.NewString(contextID)})
-	writeFile(t, home, rel, `{"chats": `+pyjson.Compact(state)+`}`)
+	state := jsonvalue.NewObject(jsonvalue.Member{Key: "bot:user:chat", Value: jsonvalue.NewString(contextID)})
+	writeFile(t, home, rel, `{"chats": `+state.JSON()+`}`)
 	for _, name := range outside {
 		writeFile(t, home, name, `{"id": "x"}`)
 	}
@@ -83,7 +83,7 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 	for _, name := range []string{"..", ".", "x/", "../x", `..\x`, "a\x00b"} {
 		t.Run(name, func(t *testing.T) {
 			state := &chat{messagesDir: messages, hasMessages: true}
-			content := pyjson.NewObject(pyjson.Member{Key: "file", Value: pyjson.NewString(name)})
+			content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(name)})
 			got := state.messageFile(content)
 			if got != "" || state.failure != nil || len(state.problems) > 0 {
 				t.Errorf("got %q, failure %v, problems %v", got, state.failure, state.problems)
@@ -91,7 +91,7 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 		})
 	}
 	state := &chat{messagesDir: messages, hasMessages: true}
-	content := pyjson.NewObject(pyjson.Member{Key: "file", Value: pyjson.NewString(`a\1.txt`)})
+	content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(`a\1.txt`)})
 	if got := state.messageFile(content); got != "kept" {
 		t.Errorf("a plain name after a backslash gave %q", got)
 	}

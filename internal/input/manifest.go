@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -48,7 +48,7 @@ type manifestLoad struct {
 // attributes every collected file row to its home.
 func (c *Collection) loadCollected(matcher *catalog.Matcher) error {
 	c.readSummary()
-	if c.Host == "" && c.Summary.Truthy() {
+	if c.Host == "" && !c.Summary.IsEmpty() {
 		c.Host = textOf(c.Summary.Get("hostname"))
 	}
 	data, err := osfile.ReadFile(joinPath(c.Root, "manifest.jsonl"))
@@ -72,8 +72,8 @@ func (c *Collection) loadCollected(matcher *catalog.Matcher) error {
 // as UTF-8 with replacement and trimmed of JSON whitespace, blank lines
 // skipped. A line that is not a JSON object, or a collected file row whose
 // size int() would refuse, is counted as bad instead of kept.
-func parseManifest(data []byte) (rows []pyjson.Value, bad int) {
-	rows = []pyjson.Value{}
+func parseManifest(data []byte) (rows []jsonvalue.Value, bad int) {
+	rows = []jsonvalue.Value{}
 	for len(data) > 0 {
 		line := data
 		if end := bytes.IndexByte(data, '\n'); end >= 0 {
@@ -85,7 +85,7 @@ func parseManifest(data []byte) (rows []pyjson.Value, bad int) {
 		if text == "" {
 			continue
 		}
-		row, err := pyjson.DecodeString(text)
+		row, err := jsonvalue.DecodeString(text)
 		if err != nil || !row.IsObject() || !sizeReadable(row) {
 			bad++
 			continue
@@ -97,7 +97,7 @@ func parseManifest(data []byte) (rows []pyjson.Value, bad int) {
 
 // sizeReadable reports whether a row that becomes an artifact has a size
 // int() accepts; other rows are not asked.
-func sizeReadable(row pyjson.Value) bool {
+func sizeReadable(row jsonvalue.Value) bool {
 	if !isText(row.Get("status"), "collected") || !isText(row.Get("type"), "file") {
 		return true
 	}
@@ -130,16 +130,16 @@ func (c *Collection) readSummary() {
 }
 
 // decodeSummary decodes collection.json bytes as strict UTF-8 JSON.
-func decodeSummary(data []byte) (pyjson.Value, error) {
+func decodeSummary(data []byte) (jsonvalue.Value, error) {
 	if !utf8.Valid(data) {
-		return pyjson.Value{}, errors.New("not valid UTF-8")
+		return jsonvalue.Value{}, errors.New("not valid UTF-8")
 	}
-	summary, err := pyjson.DecodeString(string(data))
+	summary, err := jsonvalue.DecodeString(string(data))
 	if err != nil {
-		return pyjson.Value{}, err
+		return jsonvalue.Value{}, err
 	}
-	if summary.Truthy() && !summary.IsObject() {
-		return pyjson.Value{}, errors.New("not a JSON object")
+	if !summary.IsEmpty() && !summary.IsObject() {
+		return jsonvalue.Value{}, errors.New("not a JSON object")
 	}
 	return summary, nil
 }
@@ -158,8 +158,8 @@ func newManifestLoad(collection *Collection, matcher *catalog.Matcher) *manifest
 	}
 	if projects := collection.Summary.Get("projects"); projects.IsArray() {
 		for _, project := range projects.Items() {
-			if project.Truthy() {
-				load.projects[project.Str()] = true
+			if !project.IsEmpty() {
+				load.projects[project.Text()] = true
 			}
 		}
 	}
@@ -169,7 +169,7 @@ func newManifestLoad(collection *Collection, matcher *catalog.Matcher) *manifest
 // add takes one manifest row: it notes the row's member for the staged
 // paths, and makes a collected file row an artifact of its home, or a
 // problem when its file is not in the collection.
-func (load *manifestLoad) add(row pyjson.Value) {
+func (load *manifestLoad) add(row jsonvalue.Value) {
 	key := homeKey{user: textOf(row.Get("user")), home: textOf(row.Get("home"))}
 	original := textOf(row.Get("path"))
 	archivePath := textOf(row.Get("archive_path"))
@@ -209,7 +209,7 @@ func (load *manifestLoad) add(row pyjson.Value) {
 // homeOf returns the home of key, made from row when it is the home's first
 // collected file. A home whose directory no row has shown takes the
 // collector's layout as a fallback until a later row shows it.
-func (load *manifestLoad) homeOf(key homeKey, row pyjson.Value) *Home {
+func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) *Home {
 	root := load.collection.Root
 	archiveDir := archiveDirFromRow(row)
 	home := load.homes[key]

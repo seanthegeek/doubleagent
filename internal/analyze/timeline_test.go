@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -19,7 +19,7 @@ import (
 // testdata/timeline_oracle.py do.
 type specParser struct {
 	parser.Base
-	spec pyjson.Value
+	spec jsonvalue.Value
 }
 
 // Wants reports whether the spec names the artifact's file.
@@ -34,7 +34,7 @@ type secondarySpecParser struct {
 
 // Secondary reports whether the artifact is the spec's secondary file.
 func (p secondarySpecParser) Secondary(artifact *input.Artifact) bool {
-	return p.spec.Get("secondary").Text() == artifact.Rel
+	return p.spec.Get("secondary").StringValue() == artifact.Rel
 }
 
 // SecondaryTolerance returns the spec's tolerance.
@@ -45,8 +45,8 @@ func (p secondarySpecParser) SecondaryTolerance(*input.Artifact) float64 {
 
 // Marks returns the marks the spec says the parser records.
 func (p specParser) Marks() parser.Marks {
-	return parser.Marks{Sync: p.spec.Get("sync").Truthy(), Relay: p.spec.Get("relay").Truthy(),
-		Origin: p.spec.Get("origin").Truthy()}
+	return parser.Marks{Sync: !p.spec.Get("sync").IsEmpty(), Relay: !p.spec.Get("relay").IsEmpty(),
+		Origin: !p.spec.Get("origin").IsEmpty()}
 }
 
 // Parse emits the spec's rows of the artifact's file.
@@ -62,8 +62,8 @@ func (p specParser) Parse(artifact *input.Artifact, _ parser.Options, emit parse
 }
 
 // setRowField sets the row field a spec member names.
-func setRowField(row *timeline.Row, field pyjson.Member) {
-	text := field.Value.Text()
+func setRowField(row *timeline.Row, field jsonvalue.Member) {
+	text := field.Value.StringValue()
 	targets := map[string]*string{"timestamp_utc": &row.TimestampUTC, "session_id": &row.SessionID,
 		"project_path": &row.ProjectPath, "turn_type": &row.TurnType, "model": &row.Model,
 		"tool_name": &row.ToolName, "tool_use_id": &row.ToolUseID, "text": &row.Text}
@@ -76,13 +76,13 @@ func setRowField(row *timeline.Row, field pyjson.Member) {
 }
 
 // readTestData decodes one JSON file of testdata.
-func readTestData(t *testing.T, name string) pyjson.Value {
+func readTestData(t *testing.T, name string) jsonvalue.Value {
 	t.Helper()
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := pyjson.Decode(data)
+	value, err := jsonvalue.Decode(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +120,8 @@ var timelineRuns = []struct {
 func TestTimelineMatchesTheAnalyzerOverFakeParsers(t *testing.T) {
 	spec, expected := readTestData(t, "timeline_spec.json"), readTestData(t, "timeline_expected.json")
 	work := t.TempDir()
-	collection := writeCollection(t, filepath.Join(work, "col"), []pyjson.Member{
-		member("hostname", pyjson.NewString("h1")),
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1")),
 		member("projects", stringArray([]string{"/srv/proj", "/srv/empty", `c:\users\a\demo`}))},
 		timelineFiles)
 	env := testEnvironment()
@@ -136,14 +136,14 @@ func TestTimelineMatchesTheAnalyzerOverFakeParsers(t *testing.T) {
 			if wantCode, _ := want.Get("exit").Int(); int64(code) != wantCode {
 				t.Errorf("exit %d, want %d", code, wantCode)
 			}
-			compareOutput(t, "stdout", want.Get("stdout").Text(), slashRoot(showRoot(stdout, work)))
-			compareOutput(t, "stderr", want.Get("stderr").Text(), stderr)
+			compareOutput(t, "stdout", want.Get("stdout").StringValue(), slashRoot(showRoot(stdout, work)))
+			compareOutput(t, "stderr", want.Get("stderr").StringValue(), stderr)
 			for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
 				data, err := osfile.ReadFile(filepath.Join(output, name))
 				if err != nil {
 					t.Fatal(err)
 				}
-				compareOutput(t, name, want.Get(name).Text(), slashRoot(showRoot(string(data), work)))
+				compareOutput(t, name, want.Get(name).StringValue(), slashRoot(showRoot(string(data), work)))
 			}
 		})
 	}
@@ -185,10 +185,10 @@ func compareOutput(t *testing.T, label, want, got string) {
 
 // specRegistry returns a registry of one spec parser per entry of the spec,
 // in its order.
-func specRegistry(spec pyjson.Value) *parsers.Registry {
+func specRegistry(spec jsonvalue.Value) *parsers.Registry {
 	var list []parser.Parser
 	for _, entry := range spec.Get("parsers").Items() {
-		each := specParser{Base: parser.NewBase(entry.Get("agent").Text(), "fake"), spec: entry}
+		each := specParser{Base: parser.NewBase(entry.Get("agent").StringValue(), "fake"), spec: entry}
 		if entry.Has("secondary") {
 			list = append(list, secondarySpecParser{each})
 		} else {
@@ -210,8 +210,8 @@ func TestTimelineRefusesBadFiltersBeforeOpeningTheInput(t *testing.T) {
 			[]string{"--since", "2026-10-02", "--until", "2026-10-01"},
 			"error: --since 2026-10-02T00:00:00.000Z is after --until 2026-10-01T23:59:59.999Z\n"},
 		{"a value that is no time", []string{"--since", "soon"},
-			"error: cannot read 'soon' as a time; accepted: "},
-		{"a pattern that does not compile", []string{"--match", "("}, "error: --match '(': "},
+			`error: cannot read "soon" as a time; accepted: `},
+		{"a pattern that does not compile", []string{"--match", "("}, `error: --match "(": `},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

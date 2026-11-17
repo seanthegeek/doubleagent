@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -77,10 +77,10 @@ func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 // holds none and the raw value to show: the text of a json row, decoded
 // with replacement, or the stored bytes of a zstd row as lowercase hex,
 // since they have no faithful text form.
-func decodeThread(record sqlitefile.Row) (pyjson.Value, string, string) {
+func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, string) {
 	data := record.Get("data")
 	if data.IsNull() {
-		return pyjson.Value{}, "no data", ""
+		return jsonvalue.Value{}, "no data", ""
 	}
 	stored := data.Bytes
 	if data.Type != sqlitefile.Blob && data.Type != sqlitefile.Text {
@@ -94,10 +94,10 @@ func decodeThread(record sqlitefile.Row) (pyjson.Value, string, string) {
 			failure = err.Error()
 		}
 	}
-	value := pyjson.Value{}
+	value := jsonvalue.Value{}
 	if failure == "" {
 		var err error
-		value, err = pyjson.Decode(raw)
+		value, err = jsonvalue.Decode(raw)
 		switch {
 		case err != nil:
 			failure = err.Error()
@@ -109,9 +109,9 @@ func decodeThread(record sqlitefile.Row) (pyjson.Value, string, string) {
 	case failure == "":
 		return value, "", ""
 	case isZstd:
-		return pyjson.Value{}, failure + "; stored zstd blob as hex", hex.EncodeToString(stored)
+		return jsonvalue.Value{}, failure + "; stored zstd blob as hex", hex.EncodeToString(stored)
 	}
-	return pyjson.Value{}, failure, pytext.DecodeUTF8(stored)
+	return jsonvalue.Value{}, failure, pytext.DecodeUTF8(stored)
 }
 
 // threadRows emits the rows of one thread: its start, remote, model and
@@ -131,12 +131,12 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row,
 		return
 	}
 	p.threadState(context, record, value, emit)
-	if tempDir := value.Get("sandboxed_terminal_temp_dir"); tempDir.IsString() && tempDir.Text() != "" {
+	if tempDir := value.Get("sandboxed_terminal_temp_dir"); tempDir.IsString() && tempDir.StringValue() != "" {
 		// Its own project path and no session id, so the thread stays
 		// counted under its project.
 		text := fmt.Sprintf("scratch directory: %s (sandboxed terminal temp directory of thread %s)"+
-			" (thread blob, as of updated_at)", tempDir.Text(), context.sessionID)
-		emit(p.stateRow(artifact, text, context.updated, record.Rowid, "", tempDir.Text()))
+			" (thread blob, as of updated_at)", tempDir.StringValue(), context.sessionID)
+		emit(p.stateRow(artifact, text, context.updated, record.Rowid, "", tempDir.StringValue()))
 	}
 	var problems parser.Problems
 	for _, item := range p.messages(value, record.Rowid, &problems) {
@@ -151,7 +151,7 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row,
 		row.ToolName, row.ToolUseID = item.toolName, item.toolUseID
 		emit(row)
 	}
-	if draft := value.Get("draft_prompt"); draft.Truthy() {
+	if draft := value.Get("draft_prompt"); !draft.IsEmpty() {
 		if text := acpBlocksText(draft); pytext.Strip(text) != "" {
 			emit(p.threadRow(context, timeline.TurnSystem,
 				"unsent draft: "+text+" (thread blob, as of updated_at)", ""))

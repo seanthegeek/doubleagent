@@ -8,7 +8,7 @@ import (
 	"iter"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -75,14 +75,14 @@ func SplitLines(data []byte) iter.Seq2[int, []byte] {
 // number with the line as raw text (LineText) and is skipped, so a
 // transcript cut mid-write keeps its earlier records. A line is stripped of
 // ASCII whitespace and decoded as UTF-8 with replacement before it is read.
-func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int, pyjson.Value] {
-	return func(yield func(int, pyjson.Value) bool) {
+func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
 		for number, raw := range lines {
 			stripped := bytes.Trim(raw, asciiWhitespace)
 			if len(stripped) == 0 {
 				continue
 			}
-			record, err := pyjson.Decode(stripped)
+			record, err := jsonvalue.Decode(stripped)
 			if err == nil && !record.IsObject() {
 				err = errNotObject
 			}
@@ -99,7 +99,7 @@ func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int
 
 // JSONLines yields (line number, record) for each JSON object line of the
 // file at path: the lines of Lines read as JSONRecords reads them.
-func JSONLines(path string, problems *Problems) iter.Seq2[int, pyjson.Value] {
+func JSONLines(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
 	return JSONRecords(Lines(path, problems), problems)
 }
 

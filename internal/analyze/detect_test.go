@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // detectFiles is a collection of two homes and a project with a repository;
@@ -50,8 +50,8 @@ const detectJSONText = "{\n  \"input\": \"{ROOT}/col\",\n  \"kind\": \"collected
 
 func TestDetectMatchesTheAnalyzer(t *testing.T) {
 	work := t.TempDir()
-	collection := writeCollection(t, filepath.Join(work, "col"), []pyjson.Member{
-		member("hostname", pyjson.NewString("h1")),
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1")),
 		member("projects", stringArray([]string{"/srv/proj"}))}, detectFiles)
 	if err := osfile.MkdirAll(filepath.Join(work, "empty"), 0o755); err != nil {
 		t.Fatal(err)

@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/openclaw"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -16,7 +16,7 @@ import (
 // number, or a rowid of the session database.
 type numbered struct {
 	line   int
-	record pyjson.Value
+	record jsonvalue.Value
 }
 
 // session is the state of one session while its rows are made: the
@@ -85,7 +85,7 @@ func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, s
 func (p *Parser) hasSwitch(records []numbered) bool {
 	for _, each := range records {
 		record := each.record
-		if isText(record.Get("role"), "assistant") && record.Get("_command").Truthy() &&
+		if isText(record.Get("role"), "assistant") && !record.Get("_command").IsEmpty() &&
 			p.text.switched.MatchString(parser.TextOf(record.Get("content"))) {
 			return true
 		}
@@ -95,13 +95,13 @@ func (p *Parser) hasSwitch(records []numbered) bool {
 
 // metadata emits the rows of a session's metadata record: its start, relay
 // rows, the preset's `model:` row and the workspace scope.
-func (s *session) metadata(line int, record pyjson.Value) {
-	if key := record.Get("key"); key.Truthy() {
-		s.sessionID = key.Str()
+func (s *session) metadata(line int, record jsonvalue.Value) {
+	if key := record.Get("key"); !key.IsEmpty() {
+		s.sessionID = key.Text()
 	}
 	meta := record.Get("metadata")
 	if !meta.IsObject() {
-		meta = pyjson.NewObject()
+		meta = jsonvalue.NewObject()
 	}
 	s.model = ""
 	if !s.switched {
@@ -110,11 +110,11 @@ func (s *session) metadata(line int, record pyjson.Value) {
 	s.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at")),
 		timeutil.FromValue(record.Get("updated_at")))
 	parts := []string{"session start: key=" + s.sessionID}
-	if last := meta.Get("last_channel"); last.Truthy() {
-		parts = append(parts, "last_channel="+last.Str())
+	if last := meta.Get("last_channel"); !last.IsEmpty() {
+		parts = append(parts, "last_channel="+last.Text())
 	}
-	if updated := record.Get("updated_at"); updated.Truthy() {
-		parts = append(parts, "updated_at="+updated.Str())
+	if updated := record.Get("updated_at"); !updated.IsEmpty() {
+		parts = append(parts, "updated_at="+updated.Text())
 	}
 	if s.project != "" {
 		parts = append(parts, "workspace="+s.project)
@@ -127,7 +127,7 @@ func (s *session) metadata(line int, record pyjson.Value) {
 		s.row(line, timeline.TurnSystem, text+" (preset)", "", "")
 	}
 	scope := meta.Get("workspace_scope")
-	if scope.IsObject() && (scope.Get("access_mode").Truthy() || scope.Get("project_path").Truthy()) {
+	if scope.IsObject() && (!scope.Get("access_mode").IsEmpty() || !scope.Get("project_path").IsEmpty()) {
 		s.row(line, timeline.TurnSystem, fmt.Sprintf("permission mode: access_mode=%s project=%s"+
 			" (from session metadata workspace_scope)", parser.Str(scope.Get("access_mode")),
 			parser.Str(scope.Get("project_path"))), "", "")
@@ -135,15 +135,15 @@ func (s *session) metadata(line int, record pyjson.Value) {
 }
 
 // message emits the rows of one chat message by its role.
-func (s *session) message(line int, record pyjson.Value) {
+func (s *session) message(line int, record jsonvalue.Value) {
 	s.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")), s.timestamp)
 	role := record.Get("role")
 	text := parser.TextOf(record.Get("content"))
 	switch {
-	case isText(role, "user") && record.Get("_hidden_history").Truthy():
+	case isText(role, "user") && !record.Get("_hidden_history").IsEmpty():
 		s.row(line, timeline.TurnSystem, "summarised history: "+text, "", "")
 	case isText(role, "user"):
-		if record.Get("_command").Truthy() {
+		if !record.Get("_command").IsEmpty() {
 			if match := s.text.modelCommand.FindStringSubmatch(text); match != nil {
 				s.requested = match[1]
 			}
@@ -165,15 +165,15 @@ func (s *session) message(line int, record pyjson.Value) {
 
 // assistant emits the rows of an assistant message: its reasoning, its
 // text, the `model:` row of a `/model` switch reply, and its tool calls.
-func (s *session) assistant(line int, record pyjson.Value, text string) {
+func (s *session) assistant(line int, record jsonvalue.Value, text string) {
 	if reasoning := record.Get("reasoning_content"); s.options.IncludeThinking &&
-		reasoning.IsString() && reasoning.Text() != "" {
-		s.row(line, timeline.TurnThinking, reasoning.Text(), "", "")
+		reasoning.IsString() && reasoning.StringValue() != "" {
+		s.row(line, timeline.TurnThinking, reasoning.StringValue(), "", "")
 	}
 	if text != "" {
 		s.row(line, timeline.TurnAssistant, text, "", "")
 	}
-	if record.Get("_command").Truthy() {
+	if !record.Get("_command").IsEmpty() {
 		if match := s.text.switched.FindStringSubmatch(text); match != nil {
 			s.switchRow(line, text, match[1])
 		}

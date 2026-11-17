@@ -11,7 +11,7 @@
 package timeline
 
 import (
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -47,23 +47,23 @@ const (
 
 // Row is one line of timeline.jsonl, its fields in column order.
 type Row struct {
-	TimestampUTC string
-	Host         string
-	User         string
-	Agent        string
-	SessionID    string
-	ProjectPath  string
-	GitBranch    string
-	TurnType     string
-	Model        string
-	ToolName     string
-	ToolUseID    string
-	Text         string
-	SourceFile   string
-	SourceLine   int
+	TimestampUTC string `json:"timestamp_utc"`
+	Host         string `json:"host"`
+	User         string `json:"user"`
+	Agent        string `json:"agent"`
+	SessionID    string `json:"session_id"`
+	ProjectPath  string `json:"project_path"`
+	GitBranch    string `json:"git_branch"`
+	TurnType     string `json:"turn_type"`
+	Model        string `json:"model"`
+	ToolName     string `json:"tool_name"`
+	ToolUseID    string `json:"tool_use_id"`
+	Text         string `json:"text"`
+	SourceFile   string `json:"source_file"`
+	SourceLine   int    `json:"source_line"`
 	// Recovered is "yes" for a row of a secondary source that survived
 	// deduplication, so the primary store does not hold the event.
-	Recovered string
+	Recovered string `json:"recovered"`
 }
 
 // Columns returns the field names of timeline.jsonl in order.
@@ -87,12 +87,12 @@ func Compact(text string) string {
 	return pytext.Strip(text)
 }
 
-// CompactValue returns Compact of a decoded value's text as Python's str()
-// writes it, and "" for null: a string as it is, a number, true or false
-// in Python's spelling, an array or object as Python prints a list or dict.
-func CompactValue(value pyjson.Value) string {
+// CompactValue returns Compact of a decoded value's row text (Text): a
+// string as it is, a number as written, true or false, "" for null, and an
+// array or object as compact JSON.
+func CompactValue(value jsonvalue.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return pytext.Strip(value.Str())
+	return pytext.Strip(value.Text())
 }

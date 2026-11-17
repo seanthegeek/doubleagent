@@ -2,10 +2,10 @@ package cline
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -31,7 +31,7 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 			record.Get("taskId"), record.Get("sessionId")))
 		if roots := record.Get("workspaceRoots"); roots.Len() > 0 && roots.IsArray() &&
 			roots.Index(0).IsString() {
-			row.ProjectPath = roots.Index(0).Text()
+			row.ProjectPath = roots.Index(0).StringValue()
 		}
 		hook := parser.Str(record.Get("hookName"))
 		if !hookEvent(&row, hook, record) {
@@ -45,7 +45,7 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 
 // auditDetail returns the " name=value" fields of a hook audit line and its
 // error's name and message.
-func auditDetail(record pyjson.Value) string {
+func auditDetail(record jsonvalue.Value) string {
 	detail := ""
 	for _, pair := range hookKeys() {
 		if value := record.Get(pair[0]); clinelegacy.Present(value) {
@@ -69,14 +69,14 @@ func orDash(text string) string {
 // hookEvent fills row as the transcript event a hook line repeats, a
 // prompt, a tool call, a tool result or the final reply, and reports
 // whether the line is one.
-func hookEvent(row *timeline.Row, hook string, record pyjson.Value) bool {
+func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 	switch hook {
 	case "prompt_submit":
 		prompt := record.Get("userPromptSubmit").Get("prompt")
-		if !prompt.IsString() || pytext.Strip(prompt.Text()) == "" {
+		if !prompt.IsString() || pytext.Strip(prompt.StringValue()) == "" {
 			return false
 		}
-		row.TurnType, row.Text = timeline.TurnUser, timeline.Compact(prompt.Text())
+		row.TurnType, row.Text = timeline.TurnUser, timeline.Compact(prompt.StringValue())
 	case "tool_call":
 		call := record.Get("tool_call")
 		row.TurnType = timeline.TurnToolUse
@@ -87,10 +87,10 @@ func hookEvent(row *timeline.Row, hook string, record pyjson.Value) bool {
 		toolResult(row, record.Get("tool_result"), record.Get("postToolUse"))
 	case "agent_end":
 		text := record.Get("turn").Get("outputText")
-		if !text.IsString() || pytext.Strip(text.Text()) == "" {
+		if !text.IsString() || pytext.Strip(text.StringValue()) == "" {
 			return false
 		}
-		row.TurnType, row.Text = timeline.TurnAssistant, timeline.Compact(text.Text())
+		row.TurnType, row.Text = timeline.TurnAssistant, timeline.Compact(text.StringValue())
 	default:
 		return false
 	}
@@ -99,16 +99,16 @@ func hookEvent(row *timeline.Row, hook string, record pyjson.Value) bool {
 
 // toolResult fills row as a tool result: the error, else the post-use
 // hook's result text, else the output.
-func toolResult(row *timeline.Row, result, post pyjson.Value) {
+func toolResult(row *timeline.Row, result, post jsonvalue.Value) {
 	row.TurnType = timeline.TurnToolResult
 	row.ToolName = parser.Str(clinelegacy.FirstTruthy(result.Get("name"), post.Get("toolName")))
 	row.ToolUseID = parser.Str(result.Get("id"))
 	output := result.Get("output")
 	switch {
-	case result.Get("error").Truthy():
-		row.Text = timeline.Compact("[error] " + result.Get("error").Str())
+	case !result.Get("error").IsEmpty():
+		row.Text = timeline.Compact("[error] " + result.Get("error").Text())
 	case post.Get("result").IsString():
-		row.Text = timeline.Compact(post.Get("result").Text())
+		row.Text = timeline.Compact(post.Get("result").StringValue())
 	case output.IsString() || output.IsArray():
 		row.Text = timeline.Compact(parser.TextOf(output))
 	default:
@@ -124,12 +124,12 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 	type entry struct {
 		line      int
 		prompt    string
-		timestamp pyjson.Value
+		timestamp jsonvalue.Value
 	}
 	var entries []entry
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
-		if prompt := record.Get("prompt"); prompt.IsString() && pytext.Strip(prompt.Text()) != "" {
-			entries = append(entries, entry{line: line, prompt: prompt.Text(), timestamp: record.Get("ts")})
+		if prompt := record.Get("prompt"); prompt.IsString() && pytext.Strip(prompt.StringValue()) != "" {
+			entries = append(entries, entry{line: line, prompt: prompt.StringValue(), timestamp: record.Get("ts")})
 		}
 	}
 	for k, each := range entries {

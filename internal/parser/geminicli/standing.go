@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/tomldoc"
@@ -82,33 +82,33 @@ func TrustedFolderRows(base parser.Base, artifact *input.Artifact, emit parser.E
 // jsonObject returns the artifact's JSON object, read as JSON with
 // comments when jsonc is set, or false with the row that says it cannot be
 // read or is not one.
-func (p *Parser) jsonObject(artifact *input.Artifact, jsonc bool) (pyjson.Value, timeline.Row,
+func (p *Parser) jsonObject(artifact *input.Artifact, jsonc bool) (jsonvalue.Value, timeline.Row,
 	bool) {
 	var problems parser.Problems
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
-		return pyjson.NewNull(), p.ErrorRows(artifact, problems, "", "")[0], false
+		return jsonvalue.NewNull(), p.ErrorRows(artifact, problems, "", "")[0], false
 	}
-	var document pyjson.Value
+	var document jsonvalue.Value
 	var err error
 	if jsonc {
 		document, err = parser.ParseJSONC(data)
 	} else {
-		document, err = pyjson.Decode(data)
+		document, err = jsonvalue.Decode(data)
 	}
 	if err == nil && document.IsObject() {
 		return document, timeline.Row{}, true
 	}
 	text := "parser: " + artifact.Rel + " is not a JSON object"
-	return pyjson.NewNull(), standingRow(p.Base, artifact, parser.FileMtime(artifact), "", text), false
+	return jsonvalue.NewNull(), standingRow(p.Base, artifact, parser.FileMtime(artifact), "", text), false
 }
 
 // dotted returns the value at a dotted key of nested objects, or null.
-func dotted(document pyjson.Value, key string) pyjson.Value {
+func dotted(document jsonvalue.Value, key string) jsonvalue.Value {
 	value := document
 	for part := range strings.SplitSeq(key, ".") {
 		if !value.IsObject() {
-			return pyjson.NewNull()
+			return jsonvalue.NewNull()
 		}
 		value = value.Get(part)
 	}
@@ -133,7 +133,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp, project := parser.FileMtime(artifact), homeProject(artifact)
-	setting := func(label, key string, value pyjson.Value) {
+	setting := func(label, key string, value jsonvalue.Value) {
 		emit(standingRow(p.Base, artifact, timestamp, project, label+": "+key+"="+
 			parser.SettingValue(value)+" "+fromFile(artifact)))
 	}
@@ -253,21 +253,21 @@ func (p *Parser) projectGrants(artifact *input.Artifact, emit parser.Emit) {
 	hooks := hooksPattern.MatchString(artifact.Rel)
 	for _, project := range document.Members() {
 		var keys []string
-		var entries []pyjson.Value
+		var entries []jsonvalue.Value
 		switch value := project.Value; {
 		case hooks && value.IsArray():
 			for _, hook := range value.Items() {
 				keys, entries = append(keys, "trustedHooks"), append(entries, hook)
 			}
 		case hooks:
-			keys, entries = []string{"trustedHooks"}, []pyjson.Value{value}
+			keys, entries = []string{"trustedHooks"}, []jsonvalue.Value{value}
 		case value.IsObject():
 			for _, agent := range value.Members() {
 				keys = append(keys, "acknowledgedAgents."+agent.Key)
 				entries = append(entries, agent.Value)
 			}
 		default:
-			keys, entries = []string{"acknowledgedAgents"}, []pyjson.Value{value}
+			keys, entries = []string{"acknowledgedAgents"}, []jsonvalue.Value{value}
 		}
 		for i, key := range keys {
 			emit(standingRow(p.Base, artifact, timestamp, project.Key, "permission setting: "+key+"="+

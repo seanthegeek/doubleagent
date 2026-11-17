@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -126,7 +126,7 @@ func (r *messageReader) message(record sqlitefile.Row) {
 	for _, part := range parts {
 		if part.IsObject() && isText(part.Get("type"), "finish") {
 			stamp := part.Get("data").Get("time")
-			if stamp.Truthy() && current.finished == "" {
+			if !stamp.IsEmpty() && current.finished == "" {
 				current.finished = timeutil.FromValue(stamp)
 			}
 		}
@@ -144,7 +144,7 @@ func (r *messageReader) message(record sqlitefile.Row) {
 
 // parts returns the message's parts, or false after emitting the bad-record
 // row of a parts column that is not a JSON array.
-func (r *messageReader) parts(current *message) ([]pyjson.Value, bool) {
+func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	value := current.record.Get("parts")
 	raw := ""
 	switch value.Type {
@@ -158,7 +158,7 @@ func (r *messageReader) parts(current *message) ([]pyjson.Value, bool) {
 	if source == "" {
 		source = "[]"
 	}
-	parts, err := pyjson.DecodeString(source)
+	parts, err := jsonvalue.DecodeString(source)
 	reason := ""
 	switch {
 	case err != nil:
@@ -178,43 +178,43 @@ func (r *messageReader) parts(current *message) ([]pyjson.Value, bool) {
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // part emits the row of one part and the rows it adds after it.
-func (r *messageReader) part(current *message, part pyjson.Value) {
+func (r *messageReader) part(current *message, part jsonvalue.Value) {
 	kind, data := part.Get("type"), part.Get("data")
 	if !data.IsObject() {
-		data = pyjson.NewObject()
+		data = jsonvalue.NewObject()
 	}
 	row := r.base(current, "")
 	var after []timeline.Row
 	text, keep := "", true
 	switch {
 	case !kind.IsString():
-		row.TurnType, text = timeline.TurnSystem, kind.Str()+": "+parser.CompactJSON(data)
-	case kind.Text() == "text":
+		row.TurnType, text = timeline.TurnSystem, kind.Text()+": "+parser.CompactJSON(data)
+	case kind.StringValue() == "text":
 		text, after = r.textPart(current, data, &row)
-	case kind.Text() == "reasoning":
-		if keep = r.options.IncludeThinking && data.Get("thinking").Truthy(); keep {
+	case kind.StringValue() == "reasoning":
+		if keep = r.options.IncludeThinking && !data.Get("thinking").IsEmpty(); keep {
 			row.TurnType = timeline.TurnThinking
 			row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(data.Get("started_at")),
 				current.created)
-			text = data.Get("thinking").Str()
+			text = data.Get("thinking").Text()
 		}
-	case kind.Text() == "tool_call":
+	case kind.StringValue() == "tool_call":
 		row.TurnType = timeline.TurnToolUse
 		row.TimestampUTC = timeutil.FirstNonEmpty(current.finished, current.created)
 		row.ToolName, row.ToolUseID = parser.Str(data.Get("name")), parser.Str(data.Get("id"))
 		text = parser.CompactJSON(data.Get("input"))
 		if input := data.Get("input"); input.IsString() {
-			text = input.Text()
+			text = input.StringValue()
 		}
-	case kind.Text() == "tool_result":
+	case kind.StringValue() == "tool_result":
 		text, after = r.resultPart(current, data, &row)
 	default:
-		text, keep = r.otherPart(current, kind.Text(), data, &row)
+		text, keep = r.otherPart(current, kind.StringValue(), data, &row)
 	}
 	if !keep {
 		return
@@ -227,14 +227,14 @@ func (r *messageReader) part(current *message, part pyjson.Value) {
 // textPart fills the row of a text part and returns its text, with the
 // relay row of a user message an MCP channel pushed, once per session and
 // relay.
-func (r *messageReader) textPart(current *message, data pyjson.Value, row *timeline.Row) (string,
+func (r *messageReader) textPart(current *message, data jsonvalue.Value, row *timeline.Row) (string,
 	[]timeline.Row) {
 	row.TurnType = current.textType
 	text := parser.Str(data.Get("text"))
 	if current.textType == timeline.TurnSystem {
 		text = current.role + ": " + text
 	}
-	if data.Get("hidden").Truthy() {
+	if !data.Get("hidden").IsEmpty() {
 		text = "[hidden] " + text
 	}
 	relay, key := r.relayText(text, orText(current.record.Get("id")))
@@ -271,16 +271,16 @@ func (r *messageReader) relayText(text, messageID string) (string, string) {
 
 // resultPart fills the row of a tool result part and returns its text,
 // with the permission decision row it records.
-func (r *messageReader) resultPart(current *message, data pyjson.Value, row *timeline.Row) (string,
+func (r *messageReader) resultPart(current *message, data jsonvalue.Value, row *timeline.Row) (string,
 	[]timeline.Row) {
 	row.TurnType = timeline.TurnToolResult
 	row.TimestampUTC = timeutil.FirstNonEmpty(current.finished, current.created)
 	row.ToolName, row.ToolUseID = parser.Str(data.Get("name")), parser.Str(data.Get("tool_call_id"))
 	text := parser.Str(data.Get("content"))
-	if mime := data.Get("mime_type"); text == "" && mime.Truthy() {
-		text = "[" + mime.Str() + "]"
+	if mime := data.Get("mime_type"); text == "" && !mime.IsEmpty() {
+		text = "[" + mime.Text() + "]"
 	}
-	if data.Get("is_error").Truthy() {
+	if !data.Get("is_error").IsEmpty() {
 		text = "[error] " + text
 	}
 	decision := permissionText(data)
@@ -297,16 +297,16 @@ func (r *messageReader) resultPart(current *message, data pyjson.Value, row *tim
 // otherPart fills the row of a finish, shell command, image, binary or
 // unknown part and returns its text, or false for a finish part that ended
 // the turn normally without a message, which gives no row.
-func (r *messageReader) otherPart(current *message, kind string, data pyjson.Value,
+func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.Value,
 	row *timeline.Row) (string, bool) {
 	row.TurnType = timeline.TurnSystem
 	switch kind {
 	case "finish":
 		reason := parser.Str(data.Get("reason"))
-		if slices.Contains(normalFinish[:], reason) && !data.Get("message").Truthy() {
+		if slices.Contains(normalFinish[:], reason) && data.Get("message").IsEmpty() {
 			return "", false
 		}
-		if stamp := data.Get("time"); stamp.Truthy() {
+		if stamp := data.Get("time"); !stamp.IsEmpty() {
 			row.TimestampUTC = timeutil.FromValue(stamp)
 		}
 		return joinParts("finish: "+reason, parser.Str(data.Get("message")),
@@ -314,7 +314,7 @@ func (r *messageReader) otherPart(current *message, kind string, data pyjson.Val
 	case "shell_command":
 		exit := ""
 		if code, ok := data.Lookup("exit_code"); ok {
-			exit = "exit=" + code.Str()
+			exit = "exit=" + code.Text()
 		}
 		return joinParts("shell: "+parser.Str(data.Get("command")), exit,
 			parser.Str(data.Get("output"))), true
@@ -334,27 +334,27 @@ func (r *messageReader) otherPart(current *message, kind string, data pyjson.Val
 }
 
 // firstStr returns str(data[first] or data[second] or "").
-func firstStr(data pyjson.Value, first, second string) string {
-	if value := data.Get(first); value.Truthy() {
-		return value.Str()
+func firstStr(data jsonvalue.Value, first, second string) string {
+	if value := data.Get(first); !value.IsEmpty() {
+		return value.Text()
 	}
 	return parser.Str(data.Get(second))
 }
 
 // metadata returns a tool result's metadata, stored as a JSON string, as
 // an object; anything else is an empty object.
-func metadata(value pyjson.Value) pyjson.Value {
-	if value.IsString() && value.Text() != "" {
-		decoded, err := pyjson.DecodeString(value.Text())
+func metadata(value jsonvalue.Value) jsonvalue.Value {
+	if value.IsString() && value.StringValue() != "" {
+		decoded, err := jsonvalue.DecodeString(value.StringValue())
 		if err != nil {
-			return pyjson.NewObject()
+			return jsonvalue.NewObject()
 		}
 		value = decoded
 	}
 	if value.IsObject() {
 		return value
 	}
-	return pyjson.NewObject()
+	return jsonvalue.NewObject()
 }
 
 // permissionText returns the "permission decision:" text of a tool result
@@ -362,9 +362,9 @@ func metadata(value pyjson.Value) pyjson.Value {
 // permission"; a hook's decision is metadata.hook, and an error result that
 // starts with a hook's block or halt message stands for it when the
 // metadata is missing. A hook decision of none without a halt is not one.
-func permissionText(data pyjson.Value) string {
+func permissionText(data jsonvalue.Value) string {
 	content := textOnly(data.Get("content"))
-	isError := data.Get("is_error").Truthy()
+	isError := !data.Get("is_error").IsEmpty()
 	if isError && content == denied {
 		return "permission decision: denied by user"
 	}
@@ -384,21 +384,21 @@ func permissionText(data pyjson.Value) string {
 // hookDecision returns the "permission decision:" text of a hook's
 // decision, naming the hooks that made it (all of them when none is
 // marked), or "" for a decision that is neither allow, deny nor halt.
-func hookDecision(hook pyjson.Value) string {
+func hookDecision(hook jsonvalue.Value) string {
 	decision := textOnly(hook.Get("decision"))
-	if hook.Get("halt").Truthy() {
+	if !hook.Get("halt").IsEmpty() {
 		decision = "halt"
 	}
 	if decision != "allow" && decision != "deny" && decision != "halt" {
 		return ""
 	}
-	var hooks, chosen []pyjson.Value
+	var hooks, chosen []jsonvalue.Value
 	for _, entry := range parser.Elements(hook.Get("hooks")) {
 		if !entry.IsObject() {
 			continue
 		}
 		hooks = append(hooks, entry)
-		if decision == "halt" && entry.Get("halt").Truthy() ||
+		if decision == "halt" && !entry.Get("halt").IsEmpty() ||
 			decision != "halt" && isText(entry.Get("decision"), decision) {
 			chosen = append(chosen, entry)
 		}

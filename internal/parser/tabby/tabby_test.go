@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The rows of every store are proved against the Python analyzer by the
@@ -55,7 +55,7 @@ func TestCommandTextReadsAnEntryOfTheVSCodeHistory(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.item, func(t *testing.T) {
-			item, err := pyjson.DecodeString(test.item)
+			item, err := jsonvalue.DecodeString(test.item)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -67,7 +67,7 @@ func TestCommandTextReadsAnEntryOfTheVSCodeHistory(t *testing.T) {
 }
 
 func TestAttachmentPartsDescribeEachKindOfAttachment(t *testing.T) {
-	attachment, err := pyjson.DecodeString(`{"code":[{"git_url":"g | x","commit":"abc",` +
+	attachment, err := jsonvalue.DecodeString(`{"code":[{"git_url":"g | x","commit":"abc",` +
 		`"filepath":"f.py","start_line":3},{"filepath":"","start_line":1},` +
 		`{"git_url":"u","filepath":"p","start_line":""},5],` +
 		`"client_code":[{"filepath":"c.py","start_line":0},{"filepath":null}],` +
@@ -90,7 +90,7 @@ func TestModelTextNamesTheModelAndItsEndpoint(t *testing.T) {
 	}{
 		{"chat", "http", `{"model_name":"m","kind":"openai/chat","api_endpoint":"https://e",` +
 			`"supported_models":["a",1,true]}`, "model configured: chat m via http kind=openai/chat " +
-			"endpoint=https://e supported_models=a,1,True (from config.toml [model.chat.http], file mtime)"},
+			"endpoint=https://e supported_models=a,1,true (from config.toml [model.chat.http], file mtime)"},
 		{"completion", "local", `{"model_id":""}`, "model configured: completion - via local " +
 			"(from config.toml [model.completion.local], file mtime)"},
 		{"chat", "http", `{}`, "model configured: chat - via http (from config.toml " +
@@ -98,7 +98,7 @@ func TestModelTextNamesTheModelAndItsEndpoint(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			body, err := pyjson.DecodeString(test.body)
+			body, err := jsonvalue.DecodeString(test.body)
 			if err != nil {
 				t.Fatal(err)
 			}

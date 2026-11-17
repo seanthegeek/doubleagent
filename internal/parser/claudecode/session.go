@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -126,34 +126,34 @@ func isTranscriptType(recordType string) bool {
 }
 
 // typeOf returns a record's type, "" when it is not a string.
-func typeOf(record pyjson.Value) string {
-	return record.Get("type").Text()
+func typeOf(record jsonvalue.Value) string {
+	return record.Get("type").StringValue()
 }
 
 // record reads one transcript record.
-func (s *session) record(line int, record pyjson.Value) {
+func (s *session) record(line int, record jsonvalue.Value) {
 	s.line = line
-	if sessionID := record.Get("sessionId"); sessionID.Truthy() {
-		s.sessionID = sessionID.Str()
-	} else if sessionID := record.Get("session_id"); sessionID.Truthy() {
-		s.sessionID = sessionID.Str()
+	if sessionID := record.Get("sessionId"); !sessionID.IsEmpty() {
+		s.sessionID = sessionID.Text()
+	} else if sessionID := record.Get("session_id"); !sessionID.IsEmpty() {
+		s.sessionID = sessionID.Text()
 	}
 	s.timestamp = timeutil.FromValue(record.Get("timestamp"))
 	if s.timestamp != "" {
 		s.lastTimestamp = s.timestamp
 	}
-	if cwd := record.Get("cwd"); cwd.Truthy() {
-		s.lastCwd = cwd.Str()
+	if cwd := record.Get("cwd"); !cwd.IsEmpty() {
+		s.lastCwd = cwd.Text()
 	}
-	if branch := record.Get("gitBranch"); branch.Truthy() {
-		s.lastBranch = branch.Str()
+	if branch := record.Get("gitBranch"); !branch.IsEmpty() {
+		s.lastBranch = branch.Text()
 	}
 	recordType := typeOf(record)
 	if !s.headerDone && isTranscriptType(recordType) {
 		s.headerDone = true
 		agentID := s.fileAgentID
-		if recorded := record.Get("agentId"); recorded.Truthy() {
-			agentID = recorded.Str()
+		if recorded := record.Get("agentId"); !recorded.IsEmpty() {
+			agentID = recorded.Text()
 		}
 		header := s.base(s.timestamp)
 		header.TurnType = timeline.TurnSystem
@@ -167,15 +167,15 @@ func (s *session) record(line int, record pyjson.Value) {
 // stateRows emits the rows of what a record sets for its session: the
 // surface it was written from, its origin, the permission mode and the
 // model.
-func (s *session) stateRows(record pyjson.Value, recordType string) {
-	if entrypoint := record.Get("entrypoint"); entrypoint.IsString() && entrypoint.Text() != "" &&
-		entrypoint.Text() != s.surface {
-		text := "session surface: " + entrypoint.Text()
+func (s *session) stateRows(record jsonvalue.Value, recordType string) {
+	if entrypoint := record.Get("entrypoint"); entrypoint.IsString() && entrypoint.StringValue() != "" &&
+		entrypoint.StringValue() != s.surface {
+		text := "session surface: " + entrypoint.StringValue()
 		if s.surface != "" {
-			text = "session surface: " + s.surface + " -> " + entrypoint.Text()
+			text = "session surface: " + s.surface + " -> " + entrypoint.StringValue()
 		}
 		s.emit(s.stateRow(text))
-		s.surface = entrypoint.Text()
+		s.surface = entrypoint.StringValue()
 	}
 	if isTranscriptType(recordType) {
 		if origin := originText(record, s.scan); origin != "" && s.firstSeen("origin", origin) {
@@ -189,7 +189,7 @@ func (s *session) stateRows(record pyjson.Value, recordType string) {
 	}
 	if recordType == "user" || recordType == "permission-mode" {
 		if mode := record.Get("permissionMode"); mode.IsString() {
-			if text := s.modes.Change("permission mode", s.sessionID, mode.Text()); text != "" {
+			if text := s.modes.Change("permission mode", s.sessionID, mode.StringValue()); text != "" {
 				s.emit(s.stateRow(text))
 			}
 		}
@@ -202,7 +202,7 @@ func (s *session) stateRows(record pyjson.Value, recordType string) {
 // originText returns the "session origin:" text a record marks, or "": an
 // sdk-cli record in a Remote Control spawn's file, a remoteSourced record
 // (a teleported cloud turn), or a record of the VS Code extension.
-func originText(record pyjson.Value, scan *prescan) string {
+func originText(record jsonvalue.Value, scan *prescan) string {
 	entrypoint := record.Get("entrypoint")
 	if isText(entrypoint, "sdk-cli") && scan.sdkSpawn {
 		return timeline.OriginPrefix + " (Remote Control, entrypoint sdk-cli)"
@@ -218,17 +218,17 @@ func originText(record pyjson.Value, scan *prescan) string {
 
 // modelRow emits the "model:" row of a session's first or changed
 // message.model, with the model asked for when it differs.
-func (s *session) modelRow(record pyjson.Value) {
+func (s *session) modelRow(record jsonvalue.Value) {
 	model := parser.Str(record.Get("message").Get("model"))
-	if model == "" || model == "<synthetic>" || record.Get("isApiErrorMessage").Truthy() {
+	if model == "" || model == "<synthetic>" || !record.Get("isApiErrorMessage").IsEmpty() {
 		return
 	}
 	text := s.models.Change("model", s.sessionID, model)
 	if text == "" {
 		return
 	}
-	if requested := record.Get("requestedModel"); !isMissing(requested) && requested.Str() != model {
-		text += " requested=" + requested.Str()
+	if requested := record.Get("requestedModel"); !isMissing(requested) && requested.Text() != model {
+		text += " requested=" + requested.Text()
 	}
 	row := s.row(timeline.TurnSystem, text)
 	row.Model = model
@@ -236,7 +236,7 @@ func (s *session) modelRow(record pyjson.Value) {
 }
 
 // content emits the rows of a record's own content, by its type.
-func (s *session) content(record pyjson.Value, recordType string) {
+func (s *session) content(record jsonvalue.Value, recordType string) {
 	switch recordType {
 	case "user":
 		s.user(record, !s.taskDone)
@@ -287,7 +287,7 @@ func titleField(recordType string) string {
 
 // system emits the row of a system record: its subtype and its content,
 // else the record's own fields as JSON.
-func (s *session) system(record pyjson.Value) {
+func (s *session) system(record jsonvalue.Value) {
 	subtype := parser.Str(record.Get("subtype"))
 	if subtype == "" {
 		subtype = "system"
@@ -295,7 +295,7 @@ func (s *session) system(record pyjson.Value) {
 	detail := parser.TextOf(record.Get("content"))
 	switch {
 	case subtype == "turn_duration":
-		detail = record.Get("durationMs").Str() + " ms, " + record.Get("messageCount").Str() + " messages"
+		detail = record.Get("durationMs").Text() + " ms, " + record.Get("messageCount").Text() + " messages"
 	case subtype == "scheduled_task_fire":
 		s.emit(s.row(timeline.TurnSystem, fmt.Sprintf("scheduled task fired: %s cron=%s",
 			valueText(record, "taskId"), valueText(record, "cron"))))
@@ -326,20 +326,20 @@ func isSystemEnvelope(key string) bool {
 
 // withoutKeys returns a new object holding the members of record whose key
 // drop does not report, in order.
-func withoutKeys(record pyjson.Value, drop func(string) bool) pyjson.Value {
-	var kept []pyjson.Member
+func withoutKeys(record jsonvalue.Value, drop func(string) bool) jsonvalue.Value {
+	var kept []jsonvalue.Member
 	for _, member := range record.Members() {
 		if !drop(member.Key) {
 			kept = append(kept, member)
 		}
 	}
-	return pyjson.NewObject(kept...)
+	return jsonvalue.NewObject(kept...)
 }
 
 // queue emits the row of a queue-operation record: where an enqueued
 // prompt was delivered, the first delivery after the record else the first
 // of all, or the operation and its content.
-func (s *session) queue(record pyjson.Value) {
+func (s *session) queue(record jsonvalue.Value) {
 	content := parser.TextOf(record.Get("content"))
 	if isText(record.Get("operation"), "enqueue") {
 		if lines := s.scan.delivered[content]; len(lines) > 0 {
@@ -354,5 +354,5 @@ func (s *session) queue(record pyjson.Value) {
 			return
 		}
 	}
-	s.emit(s.stateRow("queue " + record.Get("operation").Str() + ": " + content))
+	s.emit(s.stateRow("queue " + record.Get("operation").Text() + ": " + content))
 }

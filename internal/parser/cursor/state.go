@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -110,7 +110,7 @@ func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit 
 		if len(entries) > 0 || !isText(current.data.Get("status"), "none") {
 			r.conversation(stamp, entries)
 		}
-	} else if current.head.Get("agentLocationHistory").Truthy() || current.archived() {
+	} else if !current.head.Get("agentLocationHistory").IsEmpty() || current.archived() {
 		deleted = true
 		r.owner.deleted(stamp)
 	}
@@ -122,8 +122,8 @@ func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit 
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // stateReader reads the conversations of the primary store.
@@ -152,8 +152,8 @@ func (r *stateReader) loadBubbles() {
 
 // entries returns the conversation's header list: composerData's inline
 // fullConversationHeadersOnly, else its composerConvHeaders chunks.
-func (r *stateReader) entries(current *composer) []pyjson.Value {
-	var entries []pyjson.Value
+func (r *stateReader) entries(current *composer) []jsonvalue.Value {
+	var entries []jsonvalue.Value
 	if inline := current.data.Get("fullConversationHeadersOnly"); inline.IsArray() && inline.Len() > 0 {
 		for _, entry := range inline.Items() {
 			if entry.IsObject() {
@@ -178,7 +178,7 @@ func (r *stateReader) entries(current *composer) []pyjson.Value {
 
 // conversation emits the rows of a conversation: its name, its origin,
 // each bubble's rows, and whether it is archived.
-func (r *stateReader) conversation(stamp *stamper, entries []pyjson.Value) {
+func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 	current := stamp.composer
 	if name := timeline.CompactValue(firstTruthy(current.data.Get("name"), current.head.Get("name"))); name != "" {
 		stamp.add(timeline.TurnSystem, "session name: "+name, current.created(), current.dataRowid, "")
@@ -207,7 +207,7 @@ func (r *stateReader) conversation(stamp *stamper, entries []pyjson.Value) {
 
 // bubble emits the rows of one bubble: a prompt (with a model change), a
 // tool call, or a reply with its reasoning. It returns the model in use.
-func (r *stateReader) bubble(stamp *stamper, bubble, entry pyjson.Value, rowid int64, tracked parser.Tracker,
+func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64, tracked parser.Tracker,
 	model string) string {
 	ident := stamp.composer.ident
 	switch {
@@ -238,7 +238,7 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry pyjson.Value, rowid i
 }
 
 // equalsOne reports whether value == 1 in Python: 1, 1.0 or true.
-func equalsOne(value pyjson.Value) bool {
+func equalsOne(value jsonvalue.Value) bool {
 	if flag, ok := value.Bool(); ok {
 		return flag
 	}
@@ -286,7 +286,7 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 // error.
 func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
-		blob, err := pyjson.DecodeString(asText(row.value))
+		blob, err := jsonvalue.DecodeString(asText(row.value))
 		if err != nil || !blob.Has("content") {
 			continue
 		}

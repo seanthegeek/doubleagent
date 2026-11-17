@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -19,13 +19,13 @@ const notText = "the value is not text"
 
 // decodeColumn decodes a key-value entry's value as JSON, or returns why it
 // does not decode: the value is not text, or the JSON reader's message.
-func decodeColumn(value sqlitefile.Value) (pyjson.Value, string) {
+func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, string) {
 	if value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob {
-		return pyjson.Value{}, notText
+		return jsonvalue.Value{}, notText
 	}
-	decoded, err := pyjson.Decode(value.Bytes)
+	decoded, err := jsonvalue.Decode(value.Bytes)
 	if err != nil {
-		return pyjson.Value{}, err.Error()
+		return jsonvalue.Value{}, err.Error()
 	}
 	return decoded, ""
 }
@@ -60,7 +60,7 @@ func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *side
 // createdSeconds returns a created_git_worktrees record's creation time in
 // seconds, created_at_seconds plus created_at_subsec_nanos, or why the
 // record has none.
-func createdSeconds(record pyjson.Value) (float64, string) {
+func createdSeconds(record jsonvalue.Value) (float64, string) {
 	if !record.IsObject() {
 		return 0, "the record is not a JSON object"
 	}
@@ -81,7 +81,7 @@ func createdSeconds(record pyjson.Value) (float64, string) {
 
 // pythonNumber returns a JSON number, or a boolean as Python's 0 or 1, as a
 // float.
-func pythonNumber(value pyjson.Value) (float64, bool) {
+func pythonNumber(value jsonvalue.Value) (float64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return 1, true

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -24,29 +24,29 @@ var historyPattern = regexp.MustCompile(`"history"[ \t\n\r]*:[ \t\n\r]*\[`)
 // when it parsed. A file that does not parse yields its header keys and
 // every history item that decodes before the damage, with the problem
 // saying how many were recovered.
-func LoadSession(text string) (pyjson.Value, string) {
-	document, err := pyjson.DecodeString(text)
+func LoadSession(text string) (jsonvalue.Value, string) {
+	document, err := jsonvalue.DecodeString(text)
 	if err == nil {
 		if document.IsObject() {
 			return document, ""
 		}
-		return pyjson.NewObject(), "session file is not a JSON object"
+		return jsonvalue.NewObject(), "session file is not a JSON object"
 	}
 	if start := strings.IndexByte(text, '{'); start >= 0 {
-		prefix, end, prefixErr := pyjson.DecodePrefix(text, start)
+		prefix, end, prefixErr := jsonvalue.DecodePrefix(text, start)
 		if prefixErr == nil && prefix.IsObject() {
 			return prefix, "trailing data after the session object at offset " +
 				strconv.Itoa(pytext.CodePointLen(text[:end]))
 		}
 	}
-	recovered := pyjson.NewObject()
+	recovered := jsonvalue.NewObject()
 	for _, key := range headerKeys() {
 		if value, ok := headerValue(text, key); ok {
 			recovered.Set(key, value)
 		}
 	}
 	history := recoverHistory(text)
-	recovered.Set("history", pyjson.NewArray(history...))
+	recovered.Set("history", jsonvalue.NewArray(history...))
 	return recovered, "session file did not parse (" + err.Error() + "); recovered " +
 		strconv.Itoa(len(history)) + " history item(s)"
 }
@@ -54,24 +54,24 @@ func LoadSession(text string) (pyjson.Value, string) {
 // headerValue returns the decoded string value of the first "<key>":
 // "<string>" pair in text, or false when there is none or it does not
 // decode.
-func headerValue(text, key string) (pyjson.Value, bool) {
+func headerValue(text, key string) (jsonvalue.Value, bool) {
 	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(key) + `"[ \t\n\r]*:[ \t\n\r]*("(?:[^"\\]|\\.)*")`)
 	match := pattern.FindStringSubmatch(text)
 	if match == nil {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	value, err := pyjson.DecodeString(match[1])
+	value, err := jsonvalue.DecodeString(match[1])
 	return value, err == nil
 }
 
 // recoverHistory returns the object items of the history array of a
 // damaged session file, up to the first that does not decode.
-func recoverHistory(text string) []pyjson.Value {
+func recoverHistory(text string) []jsonvalue.Value {
 	location := historyPattern.FindStringIndex(text)
 	if location == nil {
 		return nil
 	}
-	var history []pyjson.Value
+	var history []jsonvalue.Value
 	position := location[1]
 	for {
 		for position < len(text) && strings.IndexByte(" \t\r\n,", text[position]) >= 0 {
@@ -80,7 +80,7 @@ func recoverHistory(text string) []pyjson.Value {
 		if position >= len(text) || text[position] == ']' {
 			return history
 		}
-		item, end, err := pyjson.DecodePrefix(text, position)
+		item, end, err := jsonvalue.DecodePrefix(text, position)
 		if err != nil {
 			return history
 		}
@@ -93,22 +93,22 @@ func recoverHistory(text string) []pyjson.Value {
 
 // MessageText returns the text of a chat message's content, image parts
 // written as "[image]".
-func MessageText(content pyjson.Value) string {
+func MessageText(content jsonvalue.Value) string {
 	if !content.IsArray() {
 		return parser.TextOf(content)
 	}
-	parts := make([]pyjson.Value, 0, content.Len())
+	parts := make([]jsonvalue.Value, 0, content.Len())
 	for _, part := range content.Items() {
 		if part.IsObject() && isText(part.Get("type"), "imageUrl") {
-			part = pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-				pyjson.Member{Key: "text", Value: pyjson.NewString("[image]")})
+			part = jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+				jsonvalue.Member{Key: "text", Value: jsonvalue.NewString("[image]")})
 		}
 		parts = append(parts, part)
 	}
-	return parser.TextOf(pyjson.NewArray(parts...))
+	return parser.TextOf(jsonvalue.NewArray(parts...))
 }
 
 // isText reports whether a value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // A session dir's name: local_<uuid>, or the UUID's first eight hex
@@ -45,12 +45,12 @@ func orgDir(artifact *input.Artifact, dir string) (string, bool) {
 
 // readJSON returns the file decoded as JSON, or false when it cannot be
 // read (its problem added) or is not JSON.
-func readJSON(path string, problems *parser.Problems) (pyjson.Value, bool) {
+func readJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	value, err := pyjson.Decode(data)
+	value, err := jsonvalue.Decode(data)
 	return value, err == nil
 }
 
@@ -61,9 +61,9 @@ func readJSON(path string, problems *parser.Problems) (pyjson.Value, bool) {
 // dir's full or short name, never through a link. A record that cannot be
 // read is skipped here: it is an artifact of its own, reported when it is
 // parsed.
-func findRecord(home *input.Home, session string) (pyjson.Value, bool) {
+func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 	if home == nil {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	parentRel := path.Dir(session)
 	parent := home.PathOf(parentRel)
@@ -74,7 +74,7 @@ func findRecord(home *input.Home, session string) (pyjson.Value, bool) {
 	name := filepath.Base(home.PathOf(session))
 	long := longName.MatchString(name)
 	if !long && !shortName.MatchString(name) || isLink(org) || isLink(parent) {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	for _, directory := range []string{org, filepath.Join(org, "agent")} {
 		if !isPlainDir(directory) {
@@ -91,7 +91,7 @@ func findRecord(home *input.Home, session string) (pyjson.Value, bool) {
 			}
 		}
 	}
-	return pyjson.NewNull(), false
+	return jsonvalue.NewNull(), false
 }
 
 // recordCandidates returns the paths that may hold the record of the
@@ -165,7 +165,7 @@ func hasTranscript(sessionDir string) bool {
 
 // folder returns the first folder the person chose for a session or task,
 // or "".
-func folder(record pyjson.Value) string {
+func folder(record jsonvalue.Value) string {
 	return parser.Str(record.Get("userSelectedFolders").Index(0))
 }
 
@@ -174,7 +174,7 @@ func folder(record pyjson.Value) string {
 // the record or in its org dir), in the org's imported-staging/, or for the
 // Code tab in ~/.claude/projects/*/. An id from the record that is not a
 // plain file name names nothing collected.
-func sessionCollected(artifact *input.Artifact, record pyjson.Value) bool {
+func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	recordDir := parser.Beside(artifact)
 	org, found := orgDir(artifact, recordDir)
 	if !found {

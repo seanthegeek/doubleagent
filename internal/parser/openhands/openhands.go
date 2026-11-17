@@ -37,9 +37,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -144,32 +144,32 @@ func joinWith(separator string, parts []string) string {
 
 // orDefault returns a value as text, or fallback when Python counts it as
 // false.
-func orDefault(value pyjson.Value, fallback string) string {
-	if value.Truthy() {
-		return value.Str()
+func orDefault(value jsonvalue.Value, fallback string) string {
+	if !value.IsEmpty() {
+		return value.Text()
 	}
 	return fallback
 }
 
 // firstTruthy returns the first of the values that is true in Python, else
 // null.
-func firstTruthy(values ...pyjson.Value) pyjson.Value {
+func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // isString reports whether value is the string want.
-func isString(value pyjson.Value, want string) bool {
-	return value.IsString() && value.Text() == want
+func isString(value jsonvalue.Value, want string) bool {
+	return value.IsString() && value.StringValue() == want
 }
 
 // nonEmptyText returns a value's string when it is a non-empty string.
-func nonEmptyText(value pyjson.Value) (string, bool) {
-	return value.Text(), value.IsString() && value.Text() != ""
+func nonEmptyText(value jsonvalue.Value) (string, bool) {
+	return value.StringValue(), value.IsString() && value.StringValue() != ""
 }
 
 // compareNumbers orders two digit strings as numbers of any size.
@@ -216,7 +216,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = project
 		row.SourceLine = index
 		if stamp := entry.Get("timestamp"); stamp.IsString() {
-			row.TimestampUTC = timeutil.FromText(stamp.Text())
+			row.TimestampUTC = timeutil.FromText(stamp.StringValue())
 		}
 		row.Text = body
 		emit(row)
@@ -395,7 +395,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 	row.TurnType = timeline.TurnSystem
 	row.SourceLine = 1
 	if stamp := event.Get("timestamp"); stamp.IsString() {
-		row.TimestampUTC = timeutil.FromText(stamp.Text())
+		row.TimestampUTC = timeutil.FromText(stamp.StringValue())
 	}
 	row.Text = timeline.Compact("legacy OpenHands 0.x session, " + strconv.Itoa(len(numbers)) +
 		" event files, not parsed; times are host local, emitted as if UTC")

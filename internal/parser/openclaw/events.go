@@ -3,8 +3,8 @@ package openclaw
 import (
 	"fmt"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -54,7 +54,7 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 		}
 		data = decoded
 	}
-	record, err := pyjson.Decode(data)
+	record, err := jsonvalue.Decode(data)
 	if err == nil && record.IsObject() {
 		a.entry(current, line, record, createdAt)
 		return
@@ -70,7 +70,7 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 // startOnce emits the session-start row unless the session has one.
 func (a *agentDatabase) startOnce(current *session, line int, timestamp string) {
 	if !current.started {
-		a.start(current, line, timestamp, pyjson.NewObject())
+		a.start(current, line, timestamp, jsonvalue.NewObject())
 	}
 }
 

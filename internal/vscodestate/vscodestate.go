@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
@@ -59,8 +59,8 @@ func IsStateDatabase(rel string) bool {
 // a database sqlitefile.Problem rejects, under its own file name. An absent
 // file, a symbolic link and a file that is not regular give nothing.
 // secret:// keys are never read.
-func ReadItems(path string, keys []string) (map[string]pyjson.Value, []string) {
-	values := map[string]pyjson.Value{}
+func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string) {
+	values := map[string]jsonvalue.Value{}
 	var wanted []sqlitefile.Value
 	for _, key := range keys {
 		if !strings.HasPrefix(key, SecretPrefix) {
@@ -87,9 +87,9 @@ func ReadItems(path string, keys []string) (map[string]pyjson.Value, []string) {
 			continue
 		}
 		text := valueText(row.Get("value"))
-		decoded, err := pyjson.DecodeString(text)
+		decoded, err := jsonvalue.DecodeString(text)
 		if err != nil {
-			decoded = pyjson.NewString(text)
+			decoded = jsonvalue.NewString(text)
 			problems = append(problems, ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
 		}
 		values[key.Text()] = decoded
@@ -144,7 +144,7 @@ func valueText(value sqlitefile.Value) string {
 
 // ReadItem returns the decoded JSON value of one ItemTable key, JSON null
 // when it is absent (as Python's None stands for both), and the problems.
-func ReadItem(path, key string) (pyjson.Value, []string) {
+func ReadItem(path, key string) (jsonvalue.Value, []string) {
 	values, problems := ReadItems(path, []string{key})
 	return values[key], problems
 }

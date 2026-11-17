@@ -2,8 +2,8 @@ package antigravity
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -78,7 +78,7 @@ func firstWorkspace(value sqlitefile.Value) string {
 	if !value.Truthy() || (value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob) {
 		return ""
 	}
-	uris, err := pyjson.DecodeString(pytext.DecodeUTF8(value.Bytes))
+	uris, err := jsonvalue.DecodeString(pytext.DecodeUTF8(value.Bytes))
 	if err != nil || uris.IsObject() {
 		return ""
 	}
@@ -86,5 +86,5 @@ func firstWorkspace(value sqlitefile.Value) string {
 	if len(items) == 0 || !items[0].IsString() {
 		return ""
 	}
-	return URIToPath(items[0].Text())
+	return URIToPath(items[0].StringValue())
 }

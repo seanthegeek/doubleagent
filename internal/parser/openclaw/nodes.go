@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -56,7 +56,7 @@ type node struct {
 	sessionKey       sqlitefile.Value
 	currentSessionID sqlitefile.Value
 	updatedAt        string
-	entry            pyjson.Value
+	entry            jsonvalue.Value
 }
 
 // nodes returns the session_nodes rows in rowid order. An entry_json that
@@ -68,14 +68,14 @@ func (a *agentDatabase) nodes() ([]node, error) {
 	var nodes []node
 	for _, row := range rows {
 		raw := columnText(row.Get("entry_json"))
-		entry, decodeErr := pyjson.DecodeString(raw)
+		entry, decodeErr := jsonvalue.DecodeString(raw)
 		if decodeErr != nil {
 			a.problems.AddRaw(int(row.Rowid), "session_nodes entry_json unparseable ("+
 				decodeErr.Error()+")", raw)
 			continue
 		}
 		if !entry.IsObject() {
-			entry = pyjson.NewObject()
+			entry = jsonvalue.NewObject()
 		}
 		nodes = append(nodes, node{rowid: int(row.Rowid), sessionKey: row.Get("session_key"),
 			currentSessionID: row.Get("current_session_id"),
@@ -93,7 +93,7 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 	for _, each := range nodes {
 		entry, line, timestamp := each.entry, each.rowid, each.updatedAt
 		sessionID := columnStr(each.currentSessionID)
-		if grant := entry.Get("publicShare"); grant.IsObject() && grant.Get("id").Truthy() {
+		if grant := entry.Get("publicShare"); grant.IsObject() && !grant.Get("id").IsEmpty() {
 			generation := parser.Str(grant.Get("sessionId"))
 			a.store.attach(orText(generation, sessionID), line,
 				timeutil.FromValue(grant.Get("createdAt")), fmt.Sprintf("session synced: public"+
@@ -103,8 +103,8 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 		if relay := deliveryRelay(entry.Get("delivery")); relay != "" && !relayed[sessionID] {
 			a.store.attach(sessionID, line, timestamp, relay, "")
 		}
-		if override := entry.Get("modelOverride"); override.IsString() && override.Text() != "" {
-			a.store.attach(sessionID, line, timestamp, overrideText(entry), override.Text())
+		if override := entry.Get("modelOverride"); override.IsString() && override.StringValue() != "" {
+			a.store.attach(sessionID, line, timestamp, overrideText(entry), override.StringValue())
 		}
 		for _, key := range sessionPermissionKeys() {
 			if value := entry.Get(key); !isEmptySetting(value) {
@@ -121,27 +121,27 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 
 // isEmptySetting reports whether a permission setting is absent: null, an
 // empty string, an empty object or an empty list.
-func isEmptySetting(value pyjson.Value) bool {
+func isEmptySetting(value jsonvalue.Value) bool {
 	return value.IsNull() || isText(value, "") ||
 		((value.IsObject() || value.IsArray()) && value.Len() == 0)
 }
 
 // textOrJSON returns a string as it is and anything else as CompactJSON.
-func textOrJSON(value pyjson.Value) string {
+func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // archiveText returns the `session archived:` text of a session's entry,
 // naming the reason and who archived it.
-func archiveText(entry pyjson.Value) string {
+func archiveText(entry jsonvalue.Value) string {
 	archivedBy := entry.Get("archivedBy")
 	var actor []string
 	for _, field := range []string{"type", "id"} {
-		if value := archivedBy.Get(field); value.Truthy() {
-			actor = append(actor, value.Str())
+		if value := archivedBy.Get(field); !value.IsEmpty() {
+			actor = append(actor, value.Text())
 		}
 	}
 	return fmt.Sprintf("session archived: %s by %s (from openclaw-agent.sqlite"+
@@ -153,28 +153,28 @@ func archiveText(entry pyjson.Value) string {
 // entry_json.delivery, else "": its kind is external and its route's
 // channel a platform (src/config/sessions/types.ts:60-83; route is a
 // ChannelRouteRef, src/plugin-sdk/channel-route.ts:18-25).
-func deliveryRelay(delivery pyjson.Value) string {
+func deliveryRelay(delivery jsonvalue.Value) string {
 	if !isText(delivery.Get("kind"), "external") {
 		return ""
 	}
 	route, origin := delivery.Get("route"), delivery.Get("origin")
 	channel := route.Get("channel")
-	if !channel.IsString() || !isPlatform(channel.Text()) {
+	if !channel.IsString() || !isPlatform(channel.StringValue()) {
 		return ""
 	}
-	field := func(value pyjson.Value) string { return orDash(parser.Str(value)) }
+	field := func(value jsonvalue.Value) string { return orDash(parser.Str(value)) }
 	return fmt.Sprintf("session relayed: %s account %s %s from %s to %s (from openclaw-agent.sqlite"+
-		" session_nodes.entry_json delivery, updated_at)", channel.Text(),
+		" session_nodes.entry_json delivery, updated_at)", channel.StringValue(),
 		orDash(firstStr(route.Get("accountId"), origin.Get("accountId"))), field(origin.Get("chatType")),
 		field(origin.Get("from")), field(origin.Get("to")))
 }
 
 // firstStr returns the str() of the first value Python counts as true, or
 // "".
-func firstStr(values ...pyjson.Value) string {
+func firstStr(values ...jsonvalue.Value) string {
 	for _, value := range values {
-		if value.Truthy() {
-			return value.Str()
+		if !value.IsEmpty() {
+			return value.Text()
 		}
 	}
 	return ""
@@ -182,11 +182,11 @@ func firstStr(values ...pyjson.Value) string {
 
 // overrideText returns the `model:` text of a session's modelOverride
 // (types.ts:502-516).
-func overrideText(entry pyjson.Value) string {
+func overrideText(entry jsonvalue.Value) string {
 	var origin []string
 	for _, key := range []string{"modelOverrideFallbackOriginProvider", "modelOverrideFallbackOriginModel"} {
-		if value := entry.Get(key); value.Truthy() {
-			origin = append(origin, value.Str())
+		if value := entry.Get(key); !value.IsEmpty() {
+			origin = append(origin, value.Text())
 		}
 	}
 	fallback := ""
@@ -194,7 +194,7 @@ func overrideText(entry pyjson.Value) string {
 		fallback = " fallback_from=" + strings.Join(origin, "/")
 	}
 	return fmt.Sprintf("model: %s provider=%s source=%s%s (from openclaw-agent.sqlite"+
-		" session_nodes.entry_json modelOverride, updated_at)", entry.Get("modelOverride").Str(),
+		" session_nodes.entry_json modelOverride, updated_at)", entry.Get("modelOverride").Text(),
 		orDash(parser.Str(entry.Get("providerOverride"))),
 		orDash(parser.Str(entry.Get("modelOverrideSource"))), fallback)
 }

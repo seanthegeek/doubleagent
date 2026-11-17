@@ -3,7 +3,7 @@ package musecode
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 func FuzzResultAndArguments(fuzz *testing.F) {
@@ -11,7 +11,7 @@ func FuzzResultAndArguments(fuzz *testing.F) {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		value := pyjson.NewString(text)
+		value := jsonvalue.NewString(text)
 		resultText(value)
 		argumentsSummary(value)
 		microsToUTC(value)

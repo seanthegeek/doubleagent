@@ -196,7 +196,7 @@ func manifestRoot(path string, problems *parser.Problems) string {
 		return ""
 	}
 	if canonical := document.Get("canonical"); canonical.IsString() {
-		return canonical.Text()
+		return canonical.StringValue()
 	}
 	return ""
 }

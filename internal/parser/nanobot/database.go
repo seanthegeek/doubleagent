@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -152,14 +152,14 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 	if head != nil {
 		meta, ok := jsonObject(head.Get("metadata"), head.Rowid, "unparseable session metadata", problems)
 		if !ok || meta.Len() == 0 {
-			meta = pyjson.NewObject()
+			meta = jsonvalue.NewObject()
 		}
-		record := pyjson.NewObject(
-			pyjson.Member{Key: "_type", Value: pyjson.NewString("metadata")},
-			pyjson.Member{Key: "key", Value: columnValue(head.Get("key"))},
-			pyjson.Member{Key: "created_at", Value: columnValue(head.Get("created_at"))},
-			pyjson.Member{Key: "updated_at", Value: columnValue(head.Get("updated_at"))},
-			pyjson.Member{Key: "metadata", Value: meta})
+		record := jsonvalue.NewObject(
+			jsonvalue.Member{Key: "_type", Value: jsonvalue.NewString("metadata")},
+			jsonvalue.Member{Key: "key", Value: columnValue(head.Get("key"))},
+			jsonvalue.Member{Key: "created_at", Value: columnValue(head.Get("created_at"))},
+			jsonvalue.Member{Key: "updated_at", Value: columnValue(head.Get("updated_at"))},
+			jsonvalue.Member{Key: "metadata", Value: meta})
 		records = append(records, numbered{int(head.Rowid), record})
 	}
 	for _, message := range messages {
@@ -174,19 +174,19 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 // jsonObject returns a stored JSON text decoded to an object, or false
 // after adding "<label> (<reason>)" with the value as text to problems.
 func jsonObject(raw sqlitefile.Value, rowid int64, label string,
-	problems *parser.Problems) (pyjson.Value, bool) {
+	problems *parser.Problems) (jsonvalue.Value, bool) {
 	text := raw.Str()
 	if raw.Type == sqlitefile.Blob {
 		text = pytext.DecodeUTF8(raw.Bytes)
 	}
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	switch {
 	case err != nil:
 		problems.AddRaw(int(rowid), label+" ("+err.Error()+")", text)
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	case !value.IsObject():
 		problems.AddRaw(int(rowid), label+" (not a JSON object)", text)
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
 	return value, true
 }

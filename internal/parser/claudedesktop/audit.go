@@ -4,24 +4,24 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // text returns a value's str(), "" for null.
-func text(value pyjson.Value) string {
+func text(value jsonvalue.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // boolText returns true or false as JSON spells them, any other value's
 // str(), and "" for null.
-func boolText(value pyjson.Value) string {
+func boolText(value jsonvalue.Value) string {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return "true"
@@ -74,8 +74,8 @@ func initCwd(artifact *input.Artifact) string {
 }
 
 // isText reports whether value is the string want.
-func isText(value pyjson.Value, want string) bool {
-	return value.IsString() && value.Text() == want
+func isText(value jsonvalue.Value, want string) bool {
+	return value.IsString() && value.StringValue() == want
 }
 
 // auditLine is the state of an audit log's parse and the line being read.
@@ -115,11 +115,11 @@ func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session
 	if project == "" {
 		project = initCwd(artifact)
 	}
-	if project == "" && found && record.Truthy() {
+	if project == "" && found && !record.IsEmpty() {
 		project = text(record.Get("cwd"))
 	}
 	cliID := ""
-	if found && record.Truthy() {
+	if found && !record.IsEmpty() {
 		cliID = text(record.Get("cliSessionId"))
 	}
 	state := &auditLine{parser: p, artifact: artifact, options: options, emit: emit,
@@ -143,13 +143,13 @@ func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session
 }
 
 // read emits the rows of one audit line, by its type and subtype.
-func (a *auditLine) read(line pyjson.Value) {
+func (a *auditLine) read(line jsonvalue.Value) {
 	lineType, subtype := line.Get("type"), line.Get("subtype")
 	isSystem := isText(lineType, "system")
 	switch {
 	case isSystem && (isText(subtype, "permission_request") || isText(subtype, "permission_response") ||
 		isText(subtype, "permission_auto_approved") || isText(subtype, "permission_auto_denied")):
-		a.permission(line, subtype.Text())
+		a.permission(line, subtype.StringValue())
 	case isText(lineType, "result"):
 		a.emit(a.row(timeline.TurnSystem, "result: "+text(subtype)+" turns="+
 			text(line.Get("num_turns"))+" error="+boolText(line.Get("is_error"))))
@@ -158,8 +158,8 @@ func (a *auditLine) read(line pyjson.Value) {
 		a.modelRow(text(line.Get("model")))
 		var parts []string
 		for _, key := range []string{"cwd", "model"} {
-			if value := line.Get(key); value.Truthy() {
-				parts = append(parts, key+"="+value.Str())
+			if value := line.Get(key); !value.IsEmpty() {
+				parts = append(parts, key+"="+value.Text())
 			}
 		}
 		message := "init"
@@ -190,8 +190,8 @@ func (a *auditLine) modelRow(model string) {
 }
 
 // withoutEnvelope returns an audit line without its envelope keys.
-func withoutEnvelope(line pyjson.Value) pyjson.Value {
-	var kept []pyjson.Member
+func withoutEnvelope(line jsonvalue.Value) jsonvalue.Value {
+	var kept []jsonvalue.Member
 	for _, member := range line.Members() {
 		switch member.Key {
 		case "type", "subtype", "uuid", "session_id", "timestamp", "_audit_timestamp",
@@ -200,12 +200,12 @@ func withoutEnvelope(line pyjson.Value) pyjson.Value {
 		}
 		kept = append(kept, member)
 	}
-	return pyjson.NewObject(kept...)
+	return jsonvalue.NewObject(kept...)
 }
 
 // permission emits the row of a permission request, a response, or an
 // automatic approval or denial with what decided it.
-func (a *auditLine) permission(line pyjson.Value, subtype string) {
+func (a *auditLine) permission(line jsonvalue.Value, subtype string) {
 	tool := text(line.Get("tool_name"))
 	message := ""
 	switch subtype {
@@ -236,13 +236,13 @@ func (a *auditLine) permission(line pyjson.Value, subtype string) {
 // autoReason returns what decided an automatic approval or denial: its
 // source, else the scheduled task, else the matched operations as JSON, or
 // "".
-func autoReason(line pyjson.Value) string {
+func autoReason(line jsonvalue.Value) string {
 	why := line.Get("source")
-	if !why.Truthy() {
+	if why.IsEmpty() {
 		why = line.Get("scheduled_task_id")
 	}
-	if why.Truthy() {
-		return why.Str()
+	if !why.IsEmpty() {
+		return why.Text()
 	}
 	if matched := line.Get("matched_ops"); !matched.IsNull() {
 		return parser.CompactJSON(matched)
@@ -252,18 +252,18 @@ func autoReason(line pyjson.Value) string {
 
 // blocks returns a message's content as blocks: a list as it is, anything
 // else as one text block holding it.
-func blocks(content pyjson.Value) []pyjson.Value {
+func blocks(content jsonvalue.Value) []jsonvalue.Value {
 	if content.IsArray() {
 		return content.Items()
 	}
-	return []pyjson.Value{pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-		pyjson.Member{Key: "text", Value: content})}
+	return []jsonvalue.Value{jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+		jsonvalue.Member{Key: "text", Value: content})}
 }
 
 // user emits the rows of a user line: tool results, and texts as user rows
 // when the person typed them in the app, else as context.
-func (a *auditLine) user(line pyjson.Value) {
-	synthetic := line.Get("isSynthetic").Truthy()
+func (a *auditLine) user(line jsonvalue.Value) {
+	synthetic := !line.Get("isSynthetic").IsEmpty()
 	typed := isText(line.Get("client_platform"), "desktop_app") && !synthetic
 	for _, block := range blocks(line.Get("message").Get("content")) {
 		blockType := block.Get("type")
@@ -271,14 +271,14 @@ func (a *auditLine) user(line pyjson.Value) {
 		case !block.IsObject():
 		case isText(blockType, "tool_result"):
 			result := claudecode.ResultText(block.Get("content"))
-			if block.Get("is_error").Truthy() {
+			if !block.Get("is_error").IsEmpty() {
 				result = "[error] " + result
 			}
 			row := a.row(timeline.TurnToolResult, result)
 			row.ToolUseID = text(block.Get("tool_use_id"))
 			a.emit(row)
 		case isText(blockType, "text"), isText(blockType, "image"):
-			body := parser.TextOf(pyjson.NewArray(block))
+			body := parser.TextOf(jsonvalue.NewArray(block))
 			switch {
 			case body == "":
 			case typed:
@@ -294,7 +294,7 @@ func (a *auditLine) user(line pyjson.Value) {
 
 // assistant emits the rows of an assistant line's tool calls, texts and,
 // when asked for, thinking.
-func (a *auditLine) assistant(line pyjson.Value) {
+func (a *auditLine) assistant(line jsonvalue.Value) {
 	message := line.Get("message")
 	model := text(message.Get("model"))
 	for _, block := range blocks(message.Get("content")) {
@@ -308,9 +308,9 @@ func (a *auditLine) assistant(line pyjson.Value) {
 			row = a.row(timeline.TurnToolUse, claudecode.ToolSummary(name, block.Get("input")))
 			row.ToolName = name
 			row.ToolUseID = text(block.Get("id"))
-		case isText(blockType, "text") && block.Get("text").Truthy():
+		case isText(blockType, "text") && !block.Get("text").IsEmpty():
 			row = a.row(timeline.TurnAssistant, text(block.Get("text")))
-		case isText(blockType, "thinking") && a.options.IncludeThinking && block.Get("thinking").Truthy():
+		case isText(blockType, "thinking") && a.options.IncludeThinking && !block.Get("thinking").IsEmpty():
 			row = a.row(timeline.TurnThinking, text(block.Get("thinking")))
 		case isText(blockType, "redacted_thinking") && a.options.IncludeThinking:
 			row = a.row(timeline.TurnThinking, "[redacted]")

@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // jsonSpace is the whitespace JSON allows between tokens, and keyColon a
@@ -73,8 +73,8 @@ func historyMarks(text string) []historyMark {
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
 // Date.toUTCString() date; it belongs to the account key before it.
-func recoverHistory(text string) (pyjson.Value, string, []recoveredError) {
-	history := pyjson.NewObject()
+func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
+	history := jsonvalue.NewObject()
 	var found []recoveredError
 	account := ""
 	chats := 0
@@ -94,7 +94,7 @@ func recoverHistory(text string) (pyjson.Value, string, []recoveredError) {
 		}
 		holder, ok := history.Lookup(account)
 		if !ok {
-			holder = pyjson.NewObject(pyjson.Member{Key: "chat", Value: pyjson.NewObject()})
+			holder = jsonvalue.NewObject(jsonvalue.Member{Key: "chat", Value: jsonvalue.NewObject()})
 			history.Set(account, holder)
 		}
 		holder.Get("chat").Set(mark.name, chat)
@@ -107,9 +107,9 @@ func recoverHistory(text string) (pyjson.Value, string, []recoveredError) {
 // recoverChat returns the chat whose key ends at mark, read up to end: its
 // id, the interactions that decode and its title when it decodes, and the
 // problems of its damaged interactions.
-func recoverChat(text string, mark historyMark, end int) (pyjson.Value, parser.Problems) {
+func recoverChat(text string, mark historyMark, end int) (jsonvalue.Value, parser.Problems) {
 	var problems parser.Problems
-	interactions := []pyjson.Value{}
+	interactions := []jsonvalue.Value{}
 	if found := interactionsKey.FindStringIndex(text[mark.offset:end]); found != nil {
 		for _, value := range parser.ArrayAt(text, mark.offset+found[1], &problems, nil) {
 			if value.IsObject() {
@@ -117,10 +117,10 @@ func recoverChat(text string, mark historyMark, end int) (pyjson.Value, parser.P
 			}
 		}
 	}
-	chat := pyjson.NewObject(pyjson.Member{Key: "id", Value: pyjson.NewString(mark.name)},
-		pyjson.Member{Key: "interactions", Value: pyjson.NewArray(interactions...)})
+	chat := jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString(mark.name)},
+		jsonvalue.Member{Key: "interactions", Value: jsonvalue.NewArray(interactions...)})
 	if found := titleKey.FindStringSubmatch(text[mark.offset:end]); found != nil {
-		if title, err := pyjson.DecodeString(found[1]); err == nil {
+		if title, err := jsonvalue.DecodeString(found[1]); err == nil {
 			chat.Set("chatTitle", title)
 		}
 	}
@@ -130,7 +130,7 @@ func recoverChat(text string, mark historyMark, end int) (pyjson.Value, parser.P
 // recoveredSessions gives each damaged interaction the session id of its
 // chat: the chat key, or "<account>/<chat key>" when the key is under more
 // than one account.
-func recoveredSessions(history pyjson.Value, found []recoveredError) []recoveredError {
+func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recoveredError {
 	counts := map[string]int{}
 	for _, holder := range history.Members() {
 		for _, key := range holder.Value.Get("chat").Keys() {

@@ -46,7 +46,35 @@ func Differences() []Difference {
 		{Number: 106, Summary: "an FTS5 table is always readable", Excludes: fts5Unreadable},
 		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's",
 			Outputs: otherOfEqualRows},
-	}, formatDifferences()...)
+	}, append(formatDifferences(), laterDifferences()...)...)
+}
+
+// laterDifferences returns the differences numbered after the differences
+// of format, 120 onward.
+func laterDifferences() []Difference {
+	return []Difference{
+		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
+			Text: quotedValueText},
+	}
+}
+
+// quotedValue is a value an error: message quotes at the start of its
+// reason, in Python's single quotes or Go's double quotes; a value holding a
+// quote or a backslash, which the two forms escape differently, is left to
+// differ.
+var quotedValue = regexp.MustCompile(`(?m)^(error: (?:cannot read |--match )?)` +
+	`(?:'([^'"\\\n]*)'|"([^'"\\\n]*)")`)
+
+// quotedValueText writes each quoted value of quotedValue in one form and
+// returns the count.
+func quotedValueText(text string) (string, int) {
+	found := 0
+	text = quotedValue.ReplaceAllStringFunc(text, func(match string) string {
+		found++
+		parts := quotedValue.FindStringSubmatch(match)
+		return parts[1] + "{quoted " + parts[2] + parts[3] + "}"
+	})
+	return text, found
 }
 
 // difference returns the table entry numbered number.

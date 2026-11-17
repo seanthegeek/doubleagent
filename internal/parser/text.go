@@ -3,7 +3,7 @@ package parser
 import (
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // TextOf returns the text of a chat message's content: a string as it is;
@@ -11,21 +11,21 @@ import (
 // by LF, an image block without text as "[image]"; for an object, its
 // string "text", else the object as JSON (", " and ": " separators,
 // non-ASCII kept); "" for null; any other value as Python's str() writes it.
-func TextOf(content pyjson.Value) string {
+func TextOf(content jsonvalue.Value) string {
 	switch {
 	case content.IsNull():
 		return ""
 	case content.IsString():
-		return content.Text()
+		return content.StringValue()
 	case content.IsArray():
 		var parts []string
 		for _, block := range content.Items() {
 			switch {
 			case block.IsString():
-				parts = append(parts, block.Text())
+				parts = append(parts, block.StringValue())
 			case !block.IsObject():
 			case block.Get("text").IsString():
-				parts = append(parts, block.Get("text").Text())
+				parts = append(parts, block.Get("text").StringValue())
 			case isString(block.Get("type"), "image"):
 				parts = append(parts, "[image]")
 			}
@@ -33,38 +33,38 @@ func TextOf(content pyjson.Value) string {
 		return strings.Join(parts, "\n")
 	case content.IsObject():
 		if text := content.Get("text"); text.IsString() {
-			return text.Text()
+			return text.StringValue()
 		}
-		return pyjson.SpacedUnicode(content)
+		return content.JSON()
 	}
-	return content.Str()
+	return content.Text()
 }
 
 // Str returns a value as Python's str(value or "") gives it, the form most
 // parsers read an identifier or a name in: "" for a value Python counts as
 // false (null, false, zero, an empty string, array or object), else the
 // value's str().
-func Str(value pyjson.Value) string {
-	if !value.Truthy() {
+func Str(value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // isString reports whether value is the string text.
-func isString(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isString(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // CompactJSON returns a value as compact JSON with sorted keys and non-ASCII
 // text kept, the form parsers give a structured value inside row text.
-func CompactJSON(value pyjson.Value) string {
-	return pyjson.Sorted(value)
+func CompactJSON(value jsonvalue.Value) string {
+	return value.JSON()
 }
 
 // SettingValue returns a setting as row text: "true" or "false" for a
 // boolean, a string as it is, anything else as CompactJSON.
-func SettingValue(value pyjson.Value) string {
+func SettingValue(value jsonvalue.Value) string {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return "true"
@@ -72,7 +72,7 @@ func SettingValue(value pyjson.Value) string {
 		return "false"
 	}
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return CompactJSON(value)
 }
@@ -81,7 +81,7 @@ func SettingValue(value pyjson.Value) string {
 // the empty string: SettingValue of anything else, so false is "false" and
 // zero is "0". It is the form parsers give a field of a summary row that may
 // be absent.
-func SettingOrDash(value pyjson.Value) string {
+func SettingOrDash(value jsonvalue.Value) string {
 	if value.IsNull() || isString(value, "") {
 		return "-"
 	}

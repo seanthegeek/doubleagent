@@ -8,9 +8,9 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -73,7 +73,7 @@ func TestToolSummaryNamesTheCallsAction(t *testing.T) {
 	}{
 		{"an edit names its file", "Edit", `{"file_path": "/a", "old_string": "x", "new_string": "y"}`, "/a"},
 		{"a search joins pattern and path", "Grep", `{"pattern": "foo", "path": "/src"}`, "foo | /src"},
-		{"an unknown tool is sorted JSON", "Unknown", `{"z": 1, "a": 2}`, `{"a":2,"z":1}`},
+		{"an unknown tool is compact JSON in key order", "Unknown", `{"z": 1, "a": 2}`, `{"z":1,"a":2}`},
 		{"an input that is not an object is JSON", "Unknown", `"raw"`, `"raw"`},
 		{"an empty field is not present", "Bash", `{"command": ""}`, `{"command":""}`},
 		{"a null field falls back to the common ones", "Bash", `{"command": null, "description": "d"}`, "d"},
@@ -82,8 +82,8 @@ func TestToolSummaryNamesTheCallsAction(t *testing.T) {
 		{"the common fields are tried in order", "Mystery", `{"query": "q", "url": "u"}`, "u"},
 		{"a null input is null", "Bash", `null`, "null"},
 		{"one of two named fields is enough", "Grep", `{"path": "/only"}`, "/only"},
-		{"a boolean is written as Python writes it", "Skill", `{"skill": true}`, "True"},
-		{"floats and non-ASCII keep Python's form", "X", `{"é": [1.0, 1e16]}`, `{"é":[1.0,1e+16]}`},
+		{"a boolean is true or false", "Skill", `{"skill": true}`, "true"},
+		{"floats and non-ASCII are kept as written", "X", `{"é": [1.0, 1e16]}`, `{"é":[1.0,1e16]}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -319,9 +319,9 @@ func TestPastePlaceholdersExpandFromInlineTextOrTheCache(t *testing.T) {
 }
 
 // decode returns the JSON text decoded.
-func decode(t *testing.T, text string) pyjson.Value {
+func decode(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}

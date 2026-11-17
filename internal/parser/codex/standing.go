@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -57,7 +57,7 @@ func (p *Parser) parseLedger(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	data, err := pyjson.Decode(content)
+	data, err := jsonvalue.Decode(content)
 	if err != nil {
 		emit(p.ProblemRow(artifact, "unreadable import ledger: "+err.Error()))
 		return
@@ -126,35 +126,35 @@ func tomlStr(value tomldoc.Value) string {
 	case tomldoc.KindBoolean:
 		return pytext.Bool(value.Bool())
 	case tomldoc.KindArray, tomldoc.KindTable:
-		return tomlJSON(value).Repr()
+		return tomlJSON(value).JSON()
 	}
 	return value.Text()
 }
 
 // tomlJSON returns a TOML value as the decoded JSON value of the same
 // shape, a date or time as its text.
-func tomlJSON(value tomldoc.Value) pyjson.Value {
+func tomlJSON(value tomldoc.Value) jsonvalue.Value {
 	switch value.Kind() {
 	case tomldoc.KindInteger:
-		return pyjson.NewInt(value.Int())
+		return jsonvalue.NewInt(value.Int())
 	case tomldoc.KindFloat:
-		return pyjson.NewFloat(value.Float())
+		return jsonvalue.NewFloat(value.Float())
 	case tomldoc.KindBoolean:
-		return pyjson.NewBool(value.Bool())
+		return jsonvalue.NewBool(value.Bool())
 	case tomldoc.KindArray:
-		items := make([]pyjson.Value, 0, len(value.Items()))
+		items := make([]jsonvalue.Value, 0, len(value.Items()))
 		for _, item := range value.Items() {
 			items = append(items, tomlJSON(item))
 		}
-		return pyjson.NewArray(items...)
+		return jsonvalue.NewArray(items...)
 	case tomldoc.KindTable:
-		object := pyjson.NewObject()
+		object := jsonvalue.NewObject()
 		for _, entry := range value.Table().Entries() {
 			object.Set(entry.Key, tomlJSON(entry.Value))
 		}
 		return object
 	}
-	return pyjson.NewString(value.Text())
+	return jsonvalue.NewString(value.Text())
 }
 
 // tomlTime returns the timestamp of a table's key: an integer or float as

@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -154,12 +154,12 @@ func (r *timelineRun) inventory(detected detection, agents []agentFiles) string 
 	projects := newProjectInventory(r.rows, r.sessions, collectedProjects(r.collection), files)
 	entries := projects.entries(marks, recordedRemotes(r.rows, r.sessions))
 	scratch := r.found.scratchKeys(r.collection, r.rows)
-	members := []pyjson.Member{member("doubleagent_version", pyjson.NewString(r.env.Version))}
+	members := []jsonvalue.Member{member("doubleagent_version", jsonvalue.NewString(r.env.Version))}
 	members = append(members, detectionMembers(detected)[:4]...)
 	members = append(members,
 		member("problems", stringArray(r.problems)),
-		member("rows", pyjson.NewInt(int64(len(r.rows)))),
-		member("sessions", pyjson.NewInt(int64(len(r.sessions)))),
+		member("rows", jsonvalue.NewInt(int64(len(r.rows)))),
+		member("sessions", jsonvalue.NewInt(int64(len(r.sessions)))),
 		member("parsed", stringArray(r.parsed)),
 		member("detected_not_parsed", stringArray(unparsed)),
 		member("no_rows", stringArray(noRows)),
@@ -169,16 +169,16 @@ func (r *timelineRun) inventory(detected detection, agents []agentFiles) string 
 		member("deduplicated", droppedJSON(r.dropped)),
 		member("collected_only", stringArray(collectedOnly)))
 	for i, count := range markCounts(r.sessions) {
-		members = append(members, member(markNames()[i][0], pyjson.NewInt(int64(count))))
+		members = append(members, member(markNames()[i][0], jsonvalue.NewInt(int64(count))))
 	}
 	members = append(members, member("scratch_directories", projectsWhere(entries, scratch, true)))
-	return pyjson.Indented(pyjson.NewObject(members...))
+	return jsonvalue.NewObject(members...).IndentedJSON("  ")
 }
 
 // homesWithMarks returns the homes array of inventory.json: each agent
 // object ends with the counts of that user's sessions of the agent with
 // each mark.
-func (r *timelineRun) homesWithMarks(homes []homeEntry) pyjson.Value {
+func (r *timelineRun) homesWithMarks(homes []homeEntry) jsonvalue.Value {
 	counts := map[[2]string][4]int{}
 	for _, session := range r.sessions {
 		key := [2]string{session.User, session.Agent}
@@ -190,57 +190,57 @@ func (r *timelineRun) homesWithMarks(homes []homeEntry) pyjson.Value {
 		}
 		counts[key] = total
 	}
-	items := make([]pyjson.Value, len(homes))
+	items := make([]jsonvalue.Value, len(homes))
 	for i, home := range homes {
-		items[i] = pyjson.NewObject(homeMembers(home, func(agent string) []pyjson.Member {
+		items[i] = jsonvalue.NewObject(homeMembers(home, func(agent string) []jsonvalue.Member {
 			total := counts[[2]string{home.user, agent}]
-			members := make([]pyjson.Member, 0, 4)
+			members := make([]jsonvalue.Member, 0, 4)
 			for j, names := range markNames() {
-				members = append(members, member(names[0], pyjson.NewInt(int64(total[j]))))
+				members = append(members, member(names[0], jsonvalue.NewInt(int64(total[j]))))
 			}
 			return members
 		})...)
 	}
-	return pyjson.NewArray(items...)
+	return jsonvalue.NewArray(items...)
 }
 
 // projectsWhere returns the projects object of the project paths that are
 // scratch directories, or of those that are not; the empty path is in
 // neither.
-func projectsWhere(entries []projectEntryJSON, scratch map[string]bool, isScratch bool) pyjson.Value {
-	var members []pyjson.Member
+func projectsWhere(entries []projectEntryJSON, scratch map[string]bool, isScratch bool) jsonvalue.Value {
+	var members []jsonvalue.Member
 	for _, entry := range entries {
 		if entry.path != "" && scratch[timeline.ProjectKey(entry.path)] == isScratch {
 			members = append(members, member(entry.path, entry.value))
 		}
 	}
-	return pyjson.NewObject(members...)
+	return jsonvalue.NewObject(members...)
 }
 
 // outsideProjects returns the entry of the rows and sessions with no
 // project path, or an empty one.
-func outsideProjects(entries []projectEntryJSON, marks []sessionMark) pyjson.Value {
+func outsideProjects(entries []projectEntryJSON, marks []sessionMark) jsonvalue.Value {
 	for _, entry := range entries {
 		if entry.path == "" {
 			return entry.value
 		}
 	}
-	members := []pyjson.Member{member("rows", pyjson.NewInt(0)), member("sessions", pyjson.NewInt(0)),
-		member("agents", pyjson.NewObject())}
+	members := []jsonvalue.Member{member("rows", jsonvalue.NewInt(0)), member("sessions", jsonvalue.NewInt(0)),
+		member("agents", jsonvalue.NewObject())}
 	for _, mark := range marks {
-		members = append(members, member(mark.key, pyjson.NewString("")))
+		members = append(members, member(mark.key, jsonvalue.NewString("")))
 	}
-	return pyjson.NewObject(members...)
+	return jsonvalue.NewObject(members...)
 }
 
 // droppedJSON returns the deduplicated object: per agent with rows
 // dropped, sorted, the count.
-func droppedJSON(dropped map[string]int) pyjson.Value {
-	var members []pyjson.Member
+func droppedJSON(dropped map[string]int) jsonvalue.Value {
+	var members []jsonvalue.Member
 	for _, agent := range sortedKeys(dropped) {
 		if dropped[agent] > 0 {
-			members = append(members, member(agent, pyjson.NewInt(int64(dropped[agent]))))
+			members = append(members, member(agent, jsonvalue.NewInt(int64(dropped[agent]))))
 		}
 	}
-	return pyjson.NewObject(members...)
+	return jsonvalue.NewObject(members...)
 }

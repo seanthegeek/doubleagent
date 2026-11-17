@@ -25,8 +25,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -168,19 +168,19 @@ func (p *Parser) snapshotRow(artifact *input.Artifact, snapshotID string) timeli
 }
 
 // noSession returns the empty session a row with no session is built from.
-func noSession() pyjson.Value {
-	return pyjson.NewObject()
+func noSession() jsonvalue.Value {
+	return jsonvalue.NewObject()
 }
 
 // sessionOf returns the stand-in session of an id alone.
-func sessionOf(sessionID string) pyjson.Value {
-	return pyjson.NewObject(pyjson.Member{Key: "id", Value: pyjson.NewString(sessionID)})
+func sessionOf(sessionID string) jsonvalue.Value {
+	return jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString(sessionID)})
 }
 
 // either returns the first value that is truthy, else the last.
-func either(values ...pyjson.Value) pyjson.Value {
+func either(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -189,12 +189,12 @@ func either(values ...pyjson.Value) pyjson.Value {
 
 // projectOf returns a session's project: its cwd, else its git repository
 // root.
-func projectOf(session pyjson.Value) string {
+func projectOf(session jsonvalue.Value) string {
 	return parser.Str(either(session.Get("cwd"), session.Get("git_repo_root")))
 }
 
 // row returns a row of the artifact attributed to the session.
-func (p *Parser) row(artifact *input.Artifact, line int, session pyjson.Value, timestamp string) timeline.Row {
+func (p *Parser) row(artifact *input.Artifact, line int, session jsonvalue.Value, timestamp string) timeline.Row {
 	row := p.BaseRow(artifact)
 	row.SourceLine = line
 	row.SessionID = parser.Str(session.Get("id"))
@@ -206,7 +206,7 @@ func (p *Parser) row(artifact *input.Artifact, line int, session pyjson.Value, t
 }
 
 // system returns a system row of the session with the text as it is.
-func (p *Parser) system(artifact *input.Artifact, line int, session pyjson.Value, text string) timeline.Row {
+func (p *Parser) system(artifact *input.Artifact, line int, session jsonvalue.Value, text string) timeline.Row {
 	row := p.row(artifact, line, session, "")
 	row.TurnType = timeline.TurnSystem
 	row.Text = text
@@ -234,8 +234,8 @@ func joinParts(parts ...string) string {
 }
 
 // dash returns a value as row text, "-" when it is absent or empty.
-func dash(value pyjson.Value) string {
-	if value.IsNull() || value.IsString() && value.Text() == "" {
+func dash(value jsonvalue.Value) string {
+	if value.IsNull() || value.IsString() && value.StringValue() == "" {
 		return "-"
 	}
 	return parser.SettingValue(value)
@@ -248,7 +248,7 @@ func (p *Parser) parseJSONL(artifact *input.Artifact, options parser.Options, em
 	session := sessionOf(strings.TrimSuffix(path.Base(artifact.Rel), ".jsonl"))
 	reader := p.newMessageReader(artifact, options, nil, emit)
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
-		reader.message(record, session, pyjson.NewInt(int64(number)))
+		reader.message(record, session, jsonvalue.NewInt(int64(number)))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, parser.Str(session.Get("id")),
 		projectOf(session)))

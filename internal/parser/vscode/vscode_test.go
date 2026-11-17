@@ -3,7 +3,7 @@ package vscode
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The expected values in this file come from running the Python helpers
@@ -13,9 +13,9 @@ import (
 const startState = `{"a":[1,2,3],"b":{"c":1},"s":"xyz","n":null}`
 
 // decoded returns text decoded as JSON, failing the test when it is not.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatalf("decode %s: %v", text, err)
 	}
@@ -133,8 +133,8 @@ func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
 				t.Errorf("applyMutation error = %v, want %q", err, test.failure)
 			case test.failure == "" && err != nil:
 				t.Errorf("applyMutation error = %v", err)
-			case test.failure == "" && pyjson.Compact(state.value()) != test.want:
-				t.Errorf("state = %s, want %s", pyjson.Compact(state.value()), test.want)
+			case test.failure == "" && state.value().JSON() != test.want:
+				t.Errorf("state = %s, want %s", state.value().JSON(), test.want)
 			}
 		})
 	}
@@ -164,7 +164,7 @@ func TestConfirmedTextReadsEachForm(t *testing.T) {
 func FuzzApplyMutation(fuzz *testing.F) {
 	fuzz.Add(`[{"kind":0,"v":{"requests":[]}},{"kind":2,"k":["requests"],"v":[{"a":1}]},{"kind":1,"k":["requests",0,"a"],"v":2}]`)
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		records, err := pyjson.DecodeString(text)
+		records, err := jsonvalue.DecodeString(text)
 		if err != nil {
 			return
 		}

@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -14,7 +14,7 @@ import (
 // when something other than the person typing sent it, and a "permission
 // decision:" row when it records one. isTask marks a subagent's first
 // prompt, the task it was given.
-func (s *session) user(record pyjson.Value, isTask bool) {
+func (s *session) user(record jsonvalue.Value, isTask bool) {
 	s.userBlocks(record, isTask)
 	source, origin := pythonText(record.Get("promptSource")), pythonText(record.Get("turnOrigin"))
 	if (source != "" && source != "typed") || (origin != "" && origin != "human") {
@@ -29,18 +29,18 @@ func (s *session) user(record pyjson.Value, isTask bool) {
 }
 
 // pythonText returns a value's str(), "" for null.
-func pythonText(value pyjson.Value) string {
+func pythonText(value jsonvalue.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // permissionRow returns the "permission decision:" row of a user record:
 // the decision, its source and reason, the whole decision as JSON when it
 // holds more, and the denial kind and the person's feedback. A record with
 // a denial kind and no decision is a rejection that interrupted the turn.
-func (s *session) permissionRow(record, decision pyjson.Value) timeline.Row {
+func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	row := s.row(timeline.TurnSystem, "")
 	for _, block := range record.Get("message").Get("content").Items() {
 		if block.IsObject() && isText(block.Get("type"), "tool_result") {
@@ -79,7 +79,7 @@ func (s *session) permissionRow(record, decision pyjson.Value) timeline.Row {
 // userBlocks emits the rows of a user record's content: its text and image
 // blocks as user rows, or as labelled system rows when the agent wrote
 // them, and its tool results with any persisted output read in full.
-func (s *session) userBlocks(record pyjson.Value, isTask bool) {
+func (s *session) userBlocks(record jsonvalue.Value, isTask bool) {
 	content := record.Get("message").Get("content")
 	label := recordLabel(record, isTask)
 	if !content.IsArray() {
@@ -97,7 +97,7 @@ func (s *session) userBlocks(record pyjson.Value, isTask bool) {
 	}
 	savedPath := ""
 	if saved.IsString() && results == 1 {
-		savedPath = saved.Text()
+		savedPath = saved.StringValue()
 	}
 	for _, block := range content.Items() {
 		switch blockType := block.Get("type"); {
@@ -105,20 +105,20 @@ func (s *session) userBlocks(record pyjson.Value, isTask bool) {
 		case isText(blockType, "tool_result"):
 			s.toolResult(block, savedPath)
 		case isText(blockType, "text"), isText(blockType, "image"):
-			s.emit(s.textRow(record, label, parser.TextOf(pyjson.NewArray(block))))
+			s.emit(s.textRow(record, label, parser.TextOf(jsonvalue.NewArray(block))))
 		}
 	}
 }
 
 // recordLabel returns the label every text row of a user record takes: a
 // compaction summary, a subagent's task or an interrupted turn, else "".
-func recordLabel(record pyjson.Value, isTask bool) string {
+func recordLabel(record jsonvalue.Value, isTask bool) string {
 	switch {
-	case record.Get("isCompactSummary").Truthy():
+	case !record.Get("isCompactSummary").IsEmpty():
 		return "compaction summary"
 	case isTask:
 		return "subagent task"
-	case record.Get("interruptedMessageId").Truthy():
+	case !record.Get("interruptedMessageId").IsEmpty():
 		return "interrupted"
 	}
 	return ""
@@ -128,14 +128,14 @@ func recordLabel(record pyjson.Value, isTask bool) string {
 // system row "<label>: <text>" when the record's label, a marker at the
 // text's start, the record's origin or its meta flag says the agent wrote
 // it.
-func (s *session) textRow(record pyjson.Value, label, text string) timeline.Row {
+func (s *session) textRow(record jsonvalue.Value, label, text string) timeline.Row {
 	if label == "" {
 		label = markerLabel(text)
 	}
 	if label == "" {
 		label = originLabel(record.Get("origin").Get("kind"))
 	}
-	if label == "" && record.Get("isMeta").Truthy() {
+	if label == "" && !record.Get("isMeta").IsEmpty() {
 		label = "context"
 	}
 	if label != "" {
@@ -145,12 +145,12 @@ func (s *session) textRow(record pyjson.Value, label, text string) timeline.Row 
 }
 
 // toolResult emits the row of a tool_result block.
-func (s *session) toolResult(block pyjson.Value, savedPath string) {
+func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 	text := ResultText(block.Get("content"))
 	if savedPath != "" || strings.HasPrefix(pytext.StripLeft(text), persistedMark) {
 		text = persistedText(s.artifact, text, savedPath, &s.problems)
 	}
-	if block.Get("is_error").Truthy() {
+	if !block.Get("is_error").IsEmpty() {
 		text = "[error] " + text
 	}
 	row := s.row(timeline.TurnToolResult, text)
@@ -161,15 +161,15 @@ func (s *session) toolResult(block pyjson.Value, savedPath string) {
 // assistant emits the rows of an assistant record: an "api error:" row for
 // an error the API returned, else a row per tool call, text and, when asked
 // for, thinking block.
-func (s *session) assistant(record pyjson.Value) {
+func (s *session) assistant(record jsonvalue.Value) {
 	message := record.Get("message")
 	model := parser.Str(message.Get("model"))
 	content := message.Get("content")
-	if record.Get("isApiErrorMessage").Truthy() || model == "<synthetic>" {
+	if !record.Get("isApiErrorMessage").IsEmpty() || model == "<synthetic>" {
 		var status, parts []string
-		for _, value := range []pyjson.Value{record.Get("apiErrorStatus"), record.Get("error")} {
+		for _, value := range []jsonvalue.Value{record.Get("apiErrorStatus"), record.Get("error")} {
 			if !isMissing(value) {
-				status = append(status, value.Str())
+				status = append(status, value.Text())
 			}
 		}
 		for _, part := range []string{strings.Join(status, " "), parser.TextOf(content)} {
@@ -195,7 +195,7 @@ func (s *session) assistant(record pyjson.Value) {
 
 // assistantBlock emits the row of one block of an assistant record. A Bash
 // call's input is the one sent on the wire when the record keeps it.
-func (s *session) assistantBlock(record, block pyjson.Value, model string) {
+func (s *session) assistantBlock(record, block jsonvalue.Value, model string) {
 	blockType := block.Get("type")
 	switch {
 	case isText(blockType, "tool_use"):
@@ -207,20 +207,20 @@ func (s *session) assistantBlock(record, block pyjson.Value, model string) {
 		toolInput := block.Get("input")
 		if row.ToolName == "Bash" {
 			if sent := record.Get("wireToolInputs").Get(row.ToolUseID); sent.IsObject() &&
-				sent.Get("command").Truthy() {
+				!sent.Get("command").IsEmpty() {
 				toolInput = sent
 			}
 		}
 		row.Text = timeline.Compact(ToolSummary(row.ToolName, toolInput))
 		s.emit(row)
 	case isText(blockType, "text"):
-		if text := block.Get("text"); text.Truthy() {
-			s.modelRowOf(timeline.TurnAssistant, model, text.Str())
+		if text := block.Get("text"); !text.IsEmpty() {
+			s.modelRowOf(timeline.TurnAssistant, model, text.Text())
 		}
 	case !s.options.IncludeThinking:
 	case isText(blockType, "thinking"):
-		if text := block.Get("thinking"); text.Truthy() {
-			s.modelRowOf(timeline.TurnThinking, model, text.Str())
+		if text := block.Get("thinking"); !text.IsEmpty() {
+			s.modelRowOf(timeline.TurnThinking, model, text.Text())
 		}
 	case isText(blockType, "redacted_thinking"):
 		s.modelRowOf(timeline.TurnThinking, model, "[redacted]")
@@ -239,7 +239,7 @@ func (s *session) modelRowOf(turnType, model, text string) {
 // scratch directory an environment attachment names. Before the end of a
 // teleport's replayed block that directory is the cloud machine's, not this
 // host's, and marks the session's origin instead.
-func (s *session) attachment(record pyjson.Value) {
+func (s *session) attachment(record jsonvalue.Value) {
 	if row, ok := s.attachmentRow(record.Get("attachment")); ok {
 		s.emit(row)
 	}
@@ -259,13 +259,13 @@ func (s *session) attachment(record pyjson.Value) {
 
 // attachmentRow returns the row of a queued prompt, a hook's message or an
 // edited file, and false for any other attachment.
-func (s *session) attachmentRow(attachment pyjson.Value) (timeline.Row, bool) {
+func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool) {
 	switch kind := attachment.Get("type"); {
 	case isText(kind, "queued_command"):
 		text := parser.TextOf(attachment.Get("prompt"))
 		origin := attachment.Get("origin").Get("kind")
 		label := markerLabel(text)
-		if label == "" && !(isText(origin, "human") && !attachment.Get("isMeta").Truthy()) {
+		if label == "" && !(isText(origin, "human") && attachment.Get("isMeta").IsEmpty()) {
 			label = originLabel(origin)
 			if label == "" {
 				label = "queued command"
@@ -295,32 +295,32 @@ func (s *session) attachmentRow(attachment pyjson.Value) (timeline.Row, bool) {
 
 // scratchpad returns an environment attachment's
 // snapshot.scratchpadDirectory, or "".
-func scratchpad(record pyjson.Value) string {
+func scratchpad(record jsonvalue.Value) string {
 	attachment := record.Get("attachment")
 	if !isText(attachment.Get("type"), "environment") {
 		return ""
 	}
-	return attachment.Get("snapshot").Get("scratchpadDirectory").Text()
+	return attachment.Get("snapshot").Get("scratchpadDirectory").StringValue()
 }
 
 // bridge emits the rows of a bridge-session record: "remote control: bridge
 // session ..." when the bridge id or sequence number changes, and "session
 // synced:" the first time a session names a bridge id, with the URL of its
 // bridge_status record.
-func (s *session) bridge(record pyjson.Value) {
+func (s *session) bridge(record jsonvalue.Value) {
 	bridge, sequence := record.Get("bridgeSessionId"), record.Get("lastSequenceNum")
 	key := bridgeKey{bridge: equalityKey(bridge), sequence: equalityKey(sequence)}
 	if last, ok := s.bridges[s.sessionID]; !ok || last != key {
 		s.bridges[s.sessionID] = key
 		name := "none"
-		if bridge.Truthy() {
-			name = bridge.Str()
+		if !bridge.IsEmpty() {
+			name = bridge.Text()
 		}
 		s.emit(s.stateRow("remote control: bridge session " + name + " lastSequenceNum=" +
 			strOr(sequence, "-")))
 	}
-	if bridge.Truthy() && s.firstSeen("sync", key.bridge) {
-		s.emit(s.stateRow(timeline.SyncedPrefix + " remote control bridge " + bridge.Str() + " url " +
+	if !bridge.IsEmpty() && s.firstSeen("sync", key.bridge) {
+		s.emit(s.stateRow(timeline.SyncedPrefix + " remote control bridge " + bridge.Text() + " url " +
 			s.bridgeURL(bridge)))
 	}
 }
@@ -328,7 +328,7 @@ func (s *session) bridge(record pyjson.Value) {
 // equalityKey returns a key two values share when Python's == finds them
 // equal: a number or a boolean by its value (1, 1.0 and true are one), a
 // string by its text, anything else by its compact JSON with sorted keys.
-func equalityKey(value pyjson.Value) string {
+func equalityKey(value jsonvalue.Value) string {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return "n1"
@@ -339,7 +339,7 @@ func equalityKey(value pyjson.Value) string {
 		return "n" + strconv.FormatFloat(number, 'g', -1, 64)
 	}
 	if value.IsString() {
-		return "s" + value.Text()
+		return "s" + value.StringValue()
 	}
 	return "j" + parser.CompactJSON(value)
 }
@@ -348,10 +348,10 @@ func equalityKey(value pyjson.Value) string {
 // after the current line, else the nearest before it, among those between
 // the bridge-session records of other bridges either side (a detach, with
 // no id, counting as another bridge), or "-".
-func (s *session) bridgeURL(bridge pyjson.Value) string {
+func (s *session) bridgeURL(bridge jsonvalue.Value) string {
 	start, end := 0, -1
 	for _, other := range s.scan.bridgeLines {
-		if other.named && bridge.IsString() && other.bridgeID == bridge.Text() {
+		if other.named && bridge.IsString() && other.bridgeID == bridge.StringValue() {
 			continue
 		}
 		if other.line < s.line {

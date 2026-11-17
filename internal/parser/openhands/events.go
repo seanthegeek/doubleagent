@@ -4,8 +4,8 @@ import (
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -13,7 +13,7 @@ import (
 type eventRowMaker func(turn, text, toolName, toolUseID string) timeline.Row
 
 // eventRows returns the rows of one event, by its kind.
-func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event pyjson.Value,
+func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event jsonvalue.Value,
 	options parser.Options) []timeline.Row {
 	var rows []timeline.Row
 	row := func(turn, text, toolName, toolUseID string) timeline.Row {
@@ -32,7 +32,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event p
 	case "ObservationEvent":
 		observation := event.Get("observation")
 		text := parser.TextOf(observation.Get("content"))
-		if observation.Get("is_error").Truthy() {
+		if !observation.Get("is_error").IsEmpty() {
 			text = "[error] " + text
 		}
 		row(timeline.TurnToolResult, text, parser.Str(event.Get("tool_name")),
@@ -57,7 +57,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event p
 }
 
 // otherKindRows emits the row of an event kind that is only described.
-func otherKindRows(kind string, event pyjson.Value, row eventRowMaker) {
+func otherKindRows(kind string, event jsonvalue.Value, row eventRowMaker) {
 	switch kind {
 	case "SystemPromptEvent":
 		count := 0
@@ -79,7 +79,7 @@ func otherKindRows(kind string, event pyjson.Value, row eventRowMaker) {
 		// only its key is reported.
 		value, shown := event.Get("value"), ""
 		if !value.IsObject() && !value.IsArray() && !isString(event.Get("key"), "full_state") {
-			shown = value.Str()
+			shown = value.Text()
 		}
 		text := "state update: " + parser.Str(event.Get("key"))
 		if shown != "" {
@@ -93,8 +93,8 @@ func otherKindRows(kind string, event pyjson.Value, row eventRowMaker) {
 
 // otherRow emits the row of an event of any other kind: its kind and the
 // rest of its fields as compact JSON.
-func otherRow(kind string, event pyjson.Value, row eventRowMaker) {
-	var rest []pyjson.Member
+func otherRow(kind string, event jsonvalue.Value, row eventRowMaker) {
+	var rest []jsonvalue.Member
 	for _, member := range event.Members() {
 		switch member.Key {
 		case "kind", "id", "timestamp", "source", "parent_id":
@@ -104,7 +104,7 @@ func otherRow(kind string, event pyjson.Value, row eventRowMaker) {
 	}
 	text := ""
 	if len(rest) > 0 {
-		text = parser.CompactJSON(pyjson.NewObject(rest...))
+		text = parser.CompactJSON(jsonvalue.NewObject(rest...))
 	}
 	if kind == "" {
 		kind = "event"
@@ -114,14 +114,14 @@ func otherRow(kind string, event pyjson.Value, row eventRowMaker) {
 
 // thinkingText returns the reasoning of a message or action: its
 // reasoning_content and the text of its thinking blocks.
-func thinkingText(record pyjson.Value) string {
+func thinkingText(record jsonvalue.Value) string {
 	var parts []string
 	if reasoning := record.Get("reasoning_content"); reasoning.IsString() {
-		parts = append(parts, reasoning.Text())
+		parts = append(parts, reasoning.StringValue())
 	}
 	for _, block := range parser.Elements(record.Get("thinking_blocks")) {
 		if thinking := block.Get("thinking"); thinking.IsString() {
-			parts = append(parts, thinking.Text())
+			parts = append(parts, thinking.StringValue())
 		}
 	}
 	return join(parts...)
@@ -129,7 +129,7 @@ func thinkingText(record pyjson.Value) string {
 
 // messageRows emits the rows of a MessageEvent: thinking, the message or the
 // tool result it carries, and its tool calls.
-func messageRows(event pyjson.Value, options parser.Options, row eventRowMaker) {
+func messageRows(event jsonvalue.Value, options parser.Options, row eventRowMaker) {
 	message := event.Get("llm_message")
 	role := parser.Str(firstTruthy(message.Get("role"), event.Get("source")))
 	if options.IncludeThinking {
@@ -159,7 +159,7 @@ func messageRows(event pyjson.Value, options parser.Options, row eventRowMaker) 
 }
 
 // actionRows emits the thinking and the tool call of an ActionEvent.
-func actionRows(event pyjson.Value, options parser.Options, row eventRowMaker) {
+func actionRows(event jsonvalue.Value, options parser.Options, row eventRowMaker) {
 	if options.IncludeThinking {
 		if thinking := join(parser.TextOf(event.Get("thought")), thinkingText(event)); thinking != "" {
 			row(timeline.TurnThinking, thinking, "", "")
@@ -167,7 +167,7 @@ func actionRows(event pyjson.Value, options parser.Options, row eventRowMaker) {
 	}
 	text := actionText(event)
 	if risk := event.Get("security_risk"); !risk.IsNull() && !isString(risk, "") {
-		text += " security_risk=" + risk.Str()
+		text += " security_risk=" + risk.Text()
 	}
 	row(timeline.TurnToolUse, text, parser.Str(event.Get("tool_name")),
 		parser.Str(event.Get("tool_call_id")))
@@ -175,7 +175,7 @@ func actionRows(event pyjson.Value, options parser.Options, row eventRowMaker) {
 
 // actionText returns a terminal action's command, a file edit's "<command>
 // <path>", else the arguments.
-func actionText(event pyjson.Value) string {
+func actionText(event jsonvalue.Value) string {
 	action := event.Get("action")
 	command, hasCommand := nonEmptyText(action.Get("command"))
 	if path, ok := nonEmptyText(action.Get("path")); ok {
@@ -190,21 +190,21 @@ func actionText(event pyjson.Value) string {
 	if arguments, ok := nonEmptyText(event.Get("tool_call").Get("arguments")); ok {
 		return arguments
 	}
-	var rest []pyjson.Member
+	var rest []jsonvalue.Member
 	for _, member := range action.Members() {
 		if member.Key != "kind" {
 			rest = append(rest, member)
 		}
 	}
 	if len(rest) > 0 {
-		return parser.CompactJSON(pyjson.NewObject(rest...))
+		return parser.CompactJSON(jsonvalue.NewObject(rest...))
 	}
 	return parser.Str(action.Get("kind"))
 }
 
 // rejectionRows emits the result and the permission decision of a rejected
 // action.
-func rejectionRows(event pyjson.Value, row eventRowMaker) {
+func rejectionRows(event jsonvalue.Value, row eventRowMaker) {
 	toolName, toolUseID := parser.Str(event.Get("tool_name")), parser.Str(event.Get("tool_call_id"))
 	source, reason := event.Get("rejection_source"), event.Get("rejection_reason")
 	row(timeline.TurnToolResult, "[rejected by "+orDefault(source, "user")+"] "+orDefault(reason, ""),
@@ -214,7 +214,7 @@ func rejectionRows(event pyjson.Value, row eventRowMaker) {
 }
 
 // acpRows emits the call and the result of an ACP tool call.
-func acpRows(event pyjson.Value, row eventRowMaker) {
+func acpRows(event jsonvalue.Value, row eventRowMaker) {
 	name, callID := orDefault(event.Get("tool_kind"), "acp"), parser.Str(event.Get("tool_call_id"))
 	input := ""
 	if raw := event.Get("raw_input"); !raw.IsNull() {
@@ -224,7 +224,7 @@ func acpRows(event pyjson.Value, row eventRowMaker) {
 	output, content := "", ""
 	switch raw := event.Get("raw_output"); {
 	case raw.IsString():
-		output = raw.Text()
+		output = raw.StringValue()
 	case !raw.IsNull():
 		output = parser.CompactJSON(raw)
 	}
@@ -234,7 +234,7 @@ func acpRows(event pyjson.Value, row eventRowMaker) {
 	text := join(output, content)
 	status := event.Get("status")
 	if text != "" || isString(status, "completed") || isString(status, "failed") {
-		if event.Get("is_error").Truthy() || isString(status, "failed") {
+		if !event.Get("is_error").IsEmpty() || isString(status, "failed") {
 			text = "[error] " + text
 		}
 		row(timeline.TurnToolResult, text, name, callID)
@@ -242,13 +242,13 @@ func acpRows(event pyjson.Value, row eventRowMaker) {
 }
 
 // hookRow emits the row of a hook that ran.
-func hookRow(event pyjson.Value, row eventRowMaker) {
+func hookRow(event jsonvalue.Value, row eventRowMaker) {
 	exit := ""
 	if code := event.Get("exit_code"); !code.IsNull() {
-		exit = "exit=" + code.Str()
+		exit = "exit=" + code.Text()
 	}
 	blocked := ""
-	if event.Get("blocked").Truthy() {
+	if !event.Get("blocked").IsEmpty() {
 		blocked = "blocked"
 	}
 	row(timeline.TurnSystem, join("hook "+parser.Str(event.Get("hook_event_type"))+": "+
@@ -257,7 +257,7 @@ func hookRow(event pyjson.Value, row eventRowMaker) {
 
 // securityRows emits one permission decision row per action the security
 // analyzer rated.
-func securityRows(event pyjson.Value, conv *conversation, row eventRowMaker) {
+func securityRows(event jsonvalue.Value, conv *conversation, row eventRowMaker) {
 	details := event.Get("details")
 	for _, risk := range event.Get("risks").Members() {
 		held := conv.actions[risk.Key]
@@ -266,10 +266,10 @@ func securityRows(event pyjson.Value, conv *conversation, row eventRowMaker) {
 			missing = "action_id=" + risk.Key
 		}
 		detailText := ""
-		if detail := details.Get(risk.Key); detail.Truthy() {
+		if detail := details.Get(risk.Key); !detail.IsEmpty() {
 			detailText = "details=" + parser.CompactJSON(detail)
 		}
-		row(timeline.TurnSystem, joinSpace("permission decision: analyzed risk="+risk.Value.Str()+
+		row(timeline.TurnSystem, joinSpace("permission decision: analyzed risk="+risk.Value.Text()+
 			" analyzer="+orDefault(event.Get("analyzer"), "-")+" policy="+
 			orDefault(event.Get("policy"), "-"), missing, detailText), held[0], held[1])
 	}

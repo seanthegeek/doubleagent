@@ -34,8 +34,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -150,28 +150,28 @@ func (p *Parser) row(artifact *input.Artifact, spec rowSpec) timeline.Row {
 
 // tomlValue returns a TOML value as the JSON value of the same shape,
 // a date or time as its text.
-func tomlValue(value tomldoc.Value) pyjson.Value {
+func tomlValue(value tomldoc.Value) jsonvalue.Value {
 	switch value.Kind() {
 	case tomldoc.KindInteger:
-		return pyjson.NewInt(value.Int())
+		return jsonvalue.NewInt(value.Int())
 	case tomldoc.KindFloat:
-		return pyjson.NewFloat(value.Float())
+		return jsonvalue.NewFloat(value.Float())
 	case tomldoc.KindBoolean:
-		return pyjson.NewBool(value.Bool())
+		return jsonvalue.NewBool(value.Bool())
 	case tomldoc.KindArray:
-		items := make([]pyjson.Value, 0, len(value.Items()))
+		items := make([]jsonvalue.Value, 0, len(value.Items()))
 		for _, item := range value.Items() {
 			items = append(items, tomlValue(item))
 		}
-		return pyjson.NewArray(items...)
+		return jsonvalue.NewArray(items...)
 	case tomldoc.KindTable:
-		var members []pyjson.Member
+		var members []jsonvalue.Member
 		for _, entry := range value.Table().Entries() {
-			members = append(members, pyjson.Member{Key: entry.Key, Value: tomlValue(entry.Value)})
+			members = append(members, jsonvalue.Member{Key: entry.Key, Value: tomlValue(entry.Value)})
 		}
-		return pyjson.NewObject(members...)
+		return jsonvalue.NewObject(members...)
 	}
-	return pyjson.NewString(value.Text())
+	return jsonvalue.NewString(value.Text())
 }
 
 // parseConfig emits one row per configured model of config.toml, at the
@@ -191,7 +191,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 			text: "parser: config.toml is not valid TOML (" + err.Error() + ")"}))
 		return
 	}
-	models := pyjson.NewNull()
+	models := jsonvalue.NewNull()
 	if value, ok := document.Get("model"); ok {
 		models = tomlValue(value)
 	}
@@ -214,21 +214,21 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 // modelText returns the "model configured:" text of one
 // [model.<group>.<kind>] table: model_name, kind, api_endpoint and
 // supported_models for the http form, model_id for the local one.
-func modelText(group, kind string, body pyjson.Value) string {
+func modelText(group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
 	if kind == "http" {
 		model = body.Get("model_name")
 		var parts []string
-		if value := body.Get("kind"); value.Truthy() {
-			parts = append(parts, "kind="+value.Str())
+		if value := body.Get("kind"); !value.IsEmpty() {
+			parts = append(parts, "kind="+value.Text())
 		}
-		if value := body.Get("api_endpoint"); value.Truthy() {
-			parts = append(parts, "endpoint="+value.Str())
+		if value := body.Get("api_endpoint"); !value.IsEmpty() {
+			parts = append(parts, "endpoint="+value.Text())
 		}
 		if supported := body.Get("supported_models"); supported.IsArray() && supported.Len() > 0 {
 			var names []string
 			for _, name := range supported.Items() {
-				names = append(names, name.Str())
+				names = append(names, name.Text())
 			}
 			parts = append(parts, "supported_models="+strings.Join(names, ","))
 		}
@@ -237,8 +237,8 @@ func modelText(group, kind string, body pyjson.Value) string {
 		}
 	}
 	shown := "-"
-	if model.Truthy() {
-		shown = model.Str()
+	if !model.IsEmpty() {
+		shown = model.Text()
 	}
 	return "model configured: " + group + " " + shown + " via " + kind + detail +
 		" (from config.toml [model." + group + "." + kind + "], file mtime)"
@@ -320,8 +320,8 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		owner := ""
-		if user := record.Get("user"); !user.IsNull() && !(user.IsString() && user.Text() == "") {
-			owner = "user=" + user.Str()
+		if user := record.Get("user"); !user.IsNull() && !(user.IsString() && user.StringValue() == "") {
+			owner = "user=" + user.Text()
 		}
 		timestamp := timeutil.FromValue(record.Get("ts"))
 		event := record.Get("event")
@@ -338,7 +338,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 // eventRows emits the rows of one event, read from either store: a
 // completion with its prompt and choices, a view, select or dismiss of a
 // choice, or any other event as its JSON. spec gives the line and time.
-func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string, event pyjson.Value,
+func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string, event jsonvalue.Value,
 	kind string, emit parser.Emit) {
 	if event.Len() != 1 {
 		spec.text = joinParts(timeutil.FirstNonEmpty(kind, "event"), owner, parser.CompactJSON(event))
@@ -348,7 +348,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	member := event.Members()[0]
 	tag, body := member.Key, member.Value
 	if !body.IsObject() {
-		body = pyjson.NewObject()
+		body = jsonvalue.NewObject()
 	}
 	spec.sessionID = parser.Str(body.Get("completion_id"))
 	switch {
@@ -357,18 +357,18 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	case slices.Contains([]string{"view", "select", "dismiss"}, tag):
 		index := ""
 		if value, ok := body.Lookup("choice_index"); ok {
-			index = value.Str()
+			index = value.Text()
 		}
 		elapsed := ""
 		if value := body.Get("elapsed"); !value.IsNull() {
-			elapsed = "elapsed=" + value.Str() + "ms"
+			elapsed = "elapsed=" + value.Text() + "ms"
 		}
 		spec.text = joinParts(tag+" choice "+index, owner, labelled("kind=", body.Get("kind")),
 			labelled("view=", body.Get("view_id")), elapsed)
 		emit(p.row(artifact, spec))
 	default:
 		detail := ""
-		if body.Truthy() {
+		if !body.IsEmpty() {
 			detail = parser.CompactJSON(body)
 		}
 		spec.text = joinParts(tag, owner, detail)
@@ -378,20 +378,20 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 
 // labelled returns label and the value's text when the value is truthy,
 // else "".
-func labelled(label string, value pyjson.Value) string {
-	if !value.Truthy() {
+func labelled(label string, value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
-	return label + value.Str()
+	return label + value.Text()
 }
 
 // completionRows emits a completion's system row, its prompt as a user row
 // and each choice as an assistant row.
 func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner string,
-	body pyjson.Value, emit parser.Emit) {
+	body jsonvalue.Value, emit parser.Emit) {
 	segments := body.Get("segments")
 	if !segments.IsObject() {
-		segments = pyjson.NewObject()
+		segments = jsonvalue.NewObject()
 	}
 	spec.projectPath = parser.Str(segments.Get("git_url"))
 	spec.text = joinParts("completion", owner, labelled("language=", body.Get("language")),

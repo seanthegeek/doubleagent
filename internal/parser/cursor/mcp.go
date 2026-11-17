@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -80,7 +80,7 @@ func lenientBase64(text string) ([]byte, bool) {
 // mcpField is one field of an MCP OAuth scope: its row and value.
 type mcpField struct {
 	rowid int64
-	value pyjson.Value
+	value jsonvalue.Value
 	raw   string
 }
 
@@ -129,7 +129,7 @@ func (i *items) mcpServer(scope string, fields map[string]mcpField, hasTokens bo
 	}
 	url := server.raw
 	if server.value.IsString() {
-		url = server.value.Text()
+		url = server.value.StringValue()
 	}
 	updated := fields["mcp_oauth_updated_at_ms"].value
 	hasTime := updated.IsNumber()
@@ -170,7 +170,7 @@ func (i *items) plugins(emit parser.Emit) {
 			}
 			var sources []string
 			for _, source := range entry.Get("sources").Items() {
-				sources = append(sources, source.Str())
+				sources = append(sources, source.Text())
 			}
 			made := i.system("plugin installed: id="+shown(entry.Get("id"))+" sources="+
 				orDash(strings.Join(sources, ","))+" scope="+orDash(scope)+" "+pluginsSource, i.mtime, row.rowid)

@@ -1,8 +1,8 @@
 package cursor
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -11,23 +11,23 @@ import (
 // composerData, its composerHeaders row and that row's decoded value.
 type composer struct {
 	ident     string
-	data      pyjson.Value // null when there is no composerData row
+	data      jsonvalue.Value // null when there is no composerData row
 	hasData   bool
 	dataRowid int64
 	header    *sqlitefile.Row
-	head      pyjson.Value // the header row's value, an object
+	head      jsonvalue.Value // the header row's value, an object
 	problems  parser.Problems
 }
 
 // newComposer returns a composer known only by its id.
 func newComposer(ident string) *composer {
-	return &composer{ident: ident, data: pyjson.NewNull(), head: pyjson.NewObject()}
+	return &composer{ident: ident, data: jsonvalue.NewNull(), head: jsonvalue.NewObject()}
 }
 
 // documents returns the header value and the composerData, the order a
 // composer's project is looked for in.
-func (c *composer) documents() []pyjson.Value {
-	return []pyjson.Value{c.head, c.data}
+func (c *composer) documents() []jsonvalue.Value {
+	return []jsonvalue.Value{c.head, c.data}
 }
 
 // project returns the composer's project path and git branch: the
@@ -40,7 +40,7 @@ func (c *composer) project() (string, string) {
 			break
 		}
 	}
-	var repos []pyjson.Value
+	var repos []jsonvalue.Value
 	for _, document := range c.documents() {
 		for _, tracked := range parser.Elements(document.Get("trackedGitRepos")) {
 			if tracked.IsObject() {
@@ -54,7 +54,7 @@ func (c *composer) project() (string, string) {
 	for _, repo := range repos {
 		if parser.Str(repo.Get("repoPath")) == path {
 			if branches := parser.Elements(repo.Get("branches")); len(branches) > 0 && branches[0].IsString() {
-				return path, branches[0].Text()
+				return path, branches[0].StringValue()
 			}
 			break
 		}
@@ -78,7 +78,7 @@ func headerAbsent(value sqlitefile.Value) bool {
 // created returns the composer's creation time: the composerData's, the
 // header value's, else the header row's.
 func (c *composer) created() string {
-	for _, document := range []pyjson.Value{c.data, c.head} {
+	for _, document := range []jsonvalue.Value{c.data, c.head} {
 		if value := document.Get("createdAt"); !absent(value) {
 			return timeutil.FromValue(value)
 		}
@@ -99,7 +99,7 @@ func (c *composer) headerUpdated() string {
 }
 
 // isTrue reports whether value is JSON true.
-func isTrue(value pyjson.Value) bool {
+func isTrue(value jsonvalue.Value) bool {
 	flag, ok := value.Bool()
 	return ok && flag
 }
@@ -145,11 +145,11 @@ func readComposers(store *store) *composers {
 }
 
 // objectOf returns value when it is an object, else an empty object.
-func objectOf(value pyjson.Value) pyjson.Value {
+func objectOf(value jsonvalue.Value) jsonvalue.Value {
 	if value.IsObject() {
 		return value
 	}
-	return pyjson.NewObject()
+	return jsonvalue.NewObject()
 }
 
 // readHeaders attaches each composerHeaders row and its decoded value to

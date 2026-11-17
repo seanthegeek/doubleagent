@@ -4,9 +4,9 @@ import (
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -35,13 +35,13 @@ func (s *settings) row(text string) timeline.Row {
 
 // setting emits "permission setting: <key>=<value> (from <rel>, file
 // mtime)".
-func (s *settings) setting(key string, value pyjson.Value) {
+func (s *settings) setting(key string, value jsonvalue.Value) {
 	s.emit(s.row(timeline.Compact("permission setting: " + key + "=" + parser.SettingValue(value) +
 		" (from " + s.artifact.Rel + ", file mtime)")))
 }
 
 // list emits a setting row per entry of a list value.
-func (s *settings) list(key string, value pyjson.Value) {
+func (s *settings) list(key string, value jsonvalue.Value) {
 	for _, entry := range value.Items() {
 		s.setting(key, entry)
 	}
@@ -49,7 +49,7 @@ func (s *settings) list(key string, value pyjson.Value) {
 
 // jsonObject returns the file as a JSON object, or false after emitting
 // the row that says why it is not one.
-func (p *Parser) jsonObject(artifact *input.Artifact, what string, emit parser.Emit) (pyjson.Value, bool) {
+func (p *Parser) jsonObject(artifact *input.Artifact, what string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
 	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
 	if document.IsObject() {
@@ -59,7 +59,7 @@ func (p *Parser) jsonObject(artifact *input.Artifact, what string, emit parser.E
 		problems.Add(0, what+" is not a JSON object")
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-	return pyjson.NewNull(), false
+	return jsonvalue.NewNull(), false
 }
 
 // globalState emits the standing settings and Cline Cloud rows of
@@ -135,7 +135,7 @@ func (p *Parser) pendingStarts(artifact *input.Artifact, emit parser.Emit) {
 		}
 		detail := "sandbox start pending account=" + dash(record.Get("account")) + " endpoint=" +
 			dash(record.Get("endpoint"))
-		p.cloudRows(artifact, record.Get("sessionId").Text(), timestamp, detail,
+		p.cloudRows(artifact, record.Get("sessionId").StringValue(), timestamp, detail,
 			artifact.Rel+", file mtime", position, emit)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -23,7 +23,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		if !text.IsString() {
 			text = record.Get("input")
 		}
-		if !text.IsString() || pytext.Strip(text.Text()) == "" {
+		if !text.IsString() || pytext.Strip(text.StringValue()) == "" {
 			continue
 		}
 		row := p.row(artifact, newScope("", ""), "", line, "", "")
@@ -31,7 +31,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		if isText(record.Get("mode"), "shell") {
 			row.TurnType, row.ToolName = timeline.TurnToolUse, "shell"
 		}
-		row.Text = timeline.Compact(text.Text())
+		row.Text = timeline.Compact(text.StringValue())
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -80,21 +80,21 @@ func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 		if !isFilled(identifier) {
 			continue
 		}
-		emit(p.systemRow(artifact, newScope(identifier.Text(), ""), 1, timestamp,
-			fmt.Sprintf("session pinned: %s (from %s pinned, file mtime)", identifier.Text(), artifact.Rel)))
+		emit(p.systemRow(artifact, newScope(identifier.StringValue(), ""), 1, timestamp,
+			fmt.Sprintf("session pinned: %s (from %s pinned, file mtime)", identifier.StringValue(), artifact.Rel)))
 	}
 }
 
 // readObject returns the file at path decoded as a JSON object, or false
 // when it cannot be read (its problem added) or is not one.
-func readObject(path string, problems *parser.Problems) (pyjson.Value, bool) {
+func readObject(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	value, err := pyjson.Decode(data)
+	value, err := jsonvalue.Decode(data)
 	if err != nil || !value.IsObject() {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return value, true
 }

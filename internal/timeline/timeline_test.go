@@ -9,18 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
-
-func TestAppendRowWritesPythonsLine(t *testing.T) {
-	for i, test := range rowLineCases() {
-		t.Run("row "+strconv.Itoa(i)+" is written as Python writes it", func(t *testing.T) {
-			if got := string(AppendRow(nil, &test.row)); got != test.want {
-				t.Errorf("AppendRow =\n%q\nwant\n%q", got, test.want)
-			}
-		})
-	}
-}
 
 func TestWriteRowsWritesOneLinePerRow(t *testing.T) {
 	cases := rowLineCases()
@@ -49,7 +39,7 @@ func TestWritersReturnTheWriteError(t *testing.T) {
 	}
 }
 
-func TestSummariseGivesPythonsSessions(t *testing.T) {
+func TestSummariseGivesTheDocumentedSessions(t *testing.T) {
 	for _, test := range sessionCases() {
 		t.Run(test.name, func(t *testing.T) {
 			var out bytes.Buffer
@@ -117,21 +107,21 @@ func TestCompactStripsAsPythonDoes(t *testing.T) {
 	}
 }
 
-func TestCompactValueWritesTheValueAsPythonsStr(t *testing.T) {
+func TestCompactValueWritesTheValueAsRowText(t *testing.T) {
 	cases := []struct {
 		name, document, want string
 	}{
 		{"null gives nothing", `null`, ""},
 		{"a string is stripped", `"  hi there \n"`, "hi there"},
 		{"an integer is its digits", `42`, "42"},
-		{"a float is written as repr writes it", `1E5`, "100000.0"},
-		{"true is Python's True", `true`, "True"},
-		{"a list is Python's list", `[1, "a", null]`, "[1, 'a', None]"},
-		{"an object is Python's dict", `{"k": false}`, "{'k': False}"},
+		{"a float is written as the evidence wrote it", `1E5`, "1E5"},
+		{"true is true", `true`, "true"},
+		{"a list is compact JSON", `[1, "a", null]`, `[1,"a",null]`},
+		{"an object is compact JSON", `{"k": false}`, `{"k":false}`},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			value, err := pyjson.DecodeString(test.document)
+			value, err := jsonvalue.DecodeString(test.document)
 			if err != nil {
 				t.Fatal(err)
 			}

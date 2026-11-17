@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -276,13 +276,13 @@ func callText(arguments sqlitefile.Value) string {
 		return parser.ColumnText(arguments)
 	}
 	text := string(arguments.Bytes)
-	decoded, err := pyjson.DecodeString(text)
+	decoded, err := jsonvalue.DecodeString(text)
 	if err != nil || !decoded.IsObject() {
 		return text
 	}
 	for _, key := range []string{"url", "query"} {
-		if value := decoded.Get(key); value.IsString() && value.Text() != "" {
-			return value.Text()
+		if value := decoded.Get(key); value.IsString() && value.StringValue() != "" {
+			return value.StringValue()
 		}
 	}
 	return parser.CompactJSON(decoded)
@@ -299,7 +299,7 @@ func resultFallback(value sqlitefile.Value) string {
 	if value.Type != sqlitefile.Text {
 		return value.Str()
 	}
-	decoded, err := pyjson.DecodeString(string(value.Bytes))
+	decoded, err := jsonvalue.DecodeString(string(value.Bytes))
 	if err != nil {
 		return string(value.Bytes)
 	}

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -23,14 +23,14 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, text string) ti
 // readJSON returns the file at path decoded as JSON and true, or false
 // after adding its unreadable problem; text that is not JSON decodes to
 // null.
-func readJSON(path string, problems *parser.Problems) (pyjson.Value, bool) {
+func readJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	value, err := pyjson.Decode(data)
+	value, err := jsonvalue.Decode(data)
 	if err != nil {
-		return pyjson.NewNull(), true
+		return jsonvalue.NewNull(), true
 	}
 	return value, true
 }
@@ -174,9 +174,9 @@ func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parser.E
 
 // shown returns a value as text, "-" when it is missing, null or the empty
 // string.
-func shown(value pyjson.Value) string {
-	if value.IsNull() || (value.IsString() && value.Text() == "") {
+func shown(value jsonvalue.Value) string {
+	if value.IsNull() || (value.IsString() && value.StringValue() == "") {
 		return "-"
 	}
-	return value.Str()
+	return value.Text()
 }

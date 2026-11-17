@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -42,14 +42,14 @@ func toolKeys(name string) []string {
 // compact JSON with sorted keys. An input that is not an object is written
 // as compact JSON. A field counts as present unless it is missing, null or
 // an empty string.
-func ToolSummary(name string, toolInput pyjson.Value) string {
+func ToolSummary(name string, toolInput jsonvalue.Value) string {
 	if !toolInput.IsObject() {
 		return parser.CompactJSON(toolInput)
 	}
 	var values []string
 	for _, key := range toolKeys(name) {
 		if value := toolInput.Get(key); !isMissing(value) {
-			values = append(values, value.Str())
+			values = append(values, value.Text())
 		}
 	}
 	if len(values) > 0 {
@@ -58,7 +58,7 @@ func ToolSummary(name string, toolInput pyjson.Value) string {
 	for _, key := range []string{"command", "file_path", "path", "pattern", "url", "query",
 		"description"} {
 		if value := toolInput.Get(key); !isMissing(value) {
-			return value.Str()
+			return value.Text()
 		}
 	}
 	return parser.CompactJSON(toolInput)
@@ -67,7 +67,7 @@ func ToolSummary(name string, toolInput pyjson.Value) string {
 // ResultText returns the text of a tool_result block's content: for a list
 // of blocks, each block's text (a tool_reference block's tool name) joined
 // by LF, empty parts left out; anything else as parser.TextOf reads it.
-func ResultText(content pyjson.Value) string {
+func ResultText(content jsonvalue.Value) string {
 	if !content.IsArray() {
 		return parser.TextOf(content)
 	}
@@ -77,7 +77,7 @@ func ResultText(content pyjson.Value) string {
 		if block.IsObject() && isText(block.Get("type"), "tool_reference") {
 			part = parser.Str(block.Get("tool_name"))
 		} else {
-			part = parser.TextOf(pyjson.NewArray(block))
+			part = parser.TextOf(jsonvalue.NewArray(block))
 		}
 		if part != "" {
 			parts = append(parts, part)
@@ -113,8 +113,8 @@ func markerLabel(text string) string {
 
 // originLabel returns the label of a user record's origin.kind when the
 // record is not the person typing, "" for the person or an unknown kind.
-func originLabel(kind pyjson.Value) string {
-	switch kind.Str() {
+func originLabel(kind jsonvalue.Value) string {
+	switch kind.Text() {
 	case "task-notification":
 		return "task notification"
 	case "peer":
@@ -129,18 +129,18 @@ func originLabel(kind pyjson.Value) string {
 
 // isMissing reports whether a value is absent, null or an empty string,
 // the values Python's `in (None, "")` tests for.
-func isMissing(value pyjson.Value) bool {
+func isMissing(value jsonvalue.Value) bool {
 	return value.IsNull() || isText(value, "")
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // valueText returns a JSON value as row text, "-" when it is missing or an
 // empty string.
-func valueText(document pyjson.Value, key string) string {
+func valueText(document jsonvalue.Value, key string) string {
 	value := document.Get(key)
 	if isMissing(value) {
 		return "-"
@@ -150,11 +150,11 @@ func valueText(document pyjson.Value, key string) string {
 
 // strOr returns the value's str(), or missing when it is null or an empty
 // string.
-func strOr(value pyjson.Value, missing string) string {
+func strOr(value jsonvalue.Value, missing string) string {
 	if isMissing(value) {
 		return missing
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // orDash returns text, or "-" when it is empty.

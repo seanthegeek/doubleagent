@@ -13,7 +13,7 @@ func FuzzParseManifest(fuzz *testing.F) {
 		rows, bad := parseManifest(data)
 		for _, row := range rows {
 			if !row.IsObject() {
-				t.Fatalf("kept a row that is not an object: %v", row.Repr())
+				t.Fatalf("kept a row that is not an object: %v", row.JSON())
 			}
 		}
 		if bad < 0 {

@@ -3,8 +3,8 @@ package openclaw
 import (
 	"fmt"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -14,7 +14,7 @@ import (
 // member holds the approvals socket's token and is never read; a raw_json
 // that does not decode is reported without its text.
 func (s *stateRows) execConfig(record sqlitefile.Row) {
-	document, err := pyjson.DecodeString(columnText(record.Get("raw_json")))
+	document, err := jsonvalue.DecodeString(columnText(record.Get("raw_json")))
 	if err != nil {
 		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+err.Error()+
 			"; text withheld, it holds the approvals socket token)")
@@ -22,7 +22,7 @@ func (s *stateRows) execConfig(record sqlitefile.Row) {
 	}
 	type scope struct {
 		name   string
-		policy pyjson.Value
+		policy jsonvalue.Value
 	}
 	scopes := []scope{{"defaults", document.Get("defaults")}}
 	if agents := document.Get("agents"); agents.IsObject() {
@@ -42,7 +42,7 @@ func (s *stateRows) execConfig(record sqlitefile.Row) {
 // policySettings returns "<key>=<value>" per field, allowlist entry and MCP
 // tool grant of one defaults or agents.<id> policy of an exec approvals
 // file (packages/gateway-protocol/src/schema/exec-approvals.ts:15-75).
-func policySettings(policy pyjson.Value) []string {
+func policySettings(policy jsonvalue.Value) []string {
 	if !policy.IsObject() {
 		return nil
 	}
@@ -52,18 +52,18 @@ func policySettings(policy pyjson.Value) []string {
 		switch {
 		case value.IsNull():
 		case value.IsBool():
-			out = append(out, key+"="+pyjson.Compact(value))
+			out = append(out, key+"="+value.JSON())
 		default:
-			out = append(out, key+"="+value.Str())
+			out = append(out, key+"="+value.Text())
 		}
 	}
 	for _, entry := range arrayItems(policy.Get("allowlist")) {
 		if pattern := entry.Get("pattern"); entry.IsObject() && !pattern.IsNull() {
 			argument := ""
-			if value := entry.Get("argPattern"); value.Truthy() {
-				argument = " argPattern=" + value.Str()
+			if value := entry.Get("argPattern"); !value.IsEmpty() {
+				argument = " argPattern=" + value.Text()
 			}
-			out = append(out, "allowlist="+pattern.Str()+argument+" source="+
+			out = append(out, "allowlist="+pattern.Text()+argument+" source="+
 				orDash(parser.Str(entry.Get("source"))))
 		}
 	}
@@ -77,7 +77,7 @@ func policySettings(policy pyjson.Value) []string {
 }
 
 // arrayItems returns the items of an array, none for anything else.
-func arrayItems(value pyjson.Value) []pyjson.Value {
+func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
 	if !value.IsArray() {
 		return nil
 	}

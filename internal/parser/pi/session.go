@@ -3,14 +3,14 @@ package pi
 import (
 	"iter"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // Entry is one record of a session file after its header, with its line.
 type Entry struct {
 	Line   int
-	Record pyjson.Value
+	Record jsonvalue.Value
 }
 
 // Session is one pi-format session file read whole: its header, the
@@ -18,7 +18,7 @@ type Entry struct {
 // backend writes the same format.
 type Session struct {
 	// Header is the first record when its type is "session", else null.
-	Header pyjson.Value
+	Header jsonvalue.Value
 	// HeaderLine is the header's line number, 0 when there is none.
 	HeaderLine int
 	Entries    []Entry
@@ -48,7 +48,7 @@ func ReadSessionBytes(data []byte) *Session {
 
 // fill takes the first record as the header when its type is "session" and
 // every other record as an entry.
-func (s *Session) fill(records iter.Seq2[int, pyjson.Value]) {
+func (s *Session) fill(records iter.Seq2[int, jsonvalue.Value]) {
 	first := true
 	for line, record := range records {
 		if first {
@@ -69,7 +69,7 @@ type entryKey struct {
 }
 
 // keyOf returns the identity of an entry record.
-func keyOf(record pyjson.Value) entryKey {
+func keyOf(record jsonvalue.Value) entryKey {
 	return entryKey{identifier: parser.Str(record.Get("id")),
 		timestamp: parser.Str(record.Get("timestamp"))}
 }
@@ -79,7 +79,7 @@ func keyOf(record pyjson.Value) entryKey {
 func entryKeys(path string) map[entryKey]bool {
 	keys := map[entryKey]bool{}
 	for _, entry := range ReadSession(path).Entries {
-		if entry.Record.Get("id").Truthy() {
+		if !entry.Record.Get("id").IsEmpty() {
 			keys[keyOf(entry.Record)] = true
 		}
 	}
@@ -88,6 +88,6 @@ func entryKeys(path string) map[entryKey]bool {
 
 // isText reports whether value is the string text, as Python's == compares
 // a decoded value with a string.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

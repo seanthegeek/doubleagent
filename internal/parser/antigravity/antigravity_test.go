@@ -68,7 +68,7 @@ func TestToolArgsSummaryPicksTheNamingArgument(t *testing.T) {
 		{`{"Command":[],"Path":{},"Url":null,"Name":"n"}`, "n"},
 		{`[1, "a"]`, `[1,"a"]`},
 		{`"text"`, `"text"`},
-		{`{"b":"é","a":1}`, `{"a":1,"b":"` + "é" + `"}`},
+		{`{"b":"é","a":1}`, `{"b":"é","a":1}`},
 		{"5", "5"},
 	} {
 		t.Run(test.arguments, func(t *testing.T) {

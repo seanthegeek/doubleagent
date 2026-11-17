@@ -29,9 +29,9 @@ import (
 	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
 
@@ -98,22 +98,22 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 
 // HistoryItem returns the task's history_item.json, else its
 // tasks/_index.json entry, else null.
-func (p *Parser) HistoryItem(task clinelegacy.Task) pyjson.Value {
+func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
 	var ignored parser.Problems
 	if item, _ := parser.LoadJSON(task.InDir(itemFile), &ignored); item.IsObject() {
 		return item
 	}
 	indexPath, found := task.InRoot("tasks/_index.json")
 	if !found {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	index := p.CachedJSON(indexPath)
 	for _, entry := range index.Get("entries").Items() {
-		if entry.IsObject() && entry.Get("id").Str() == task.TaskID {
+		if entry.IsObject() && entry.Get("id").Text() == task.TaskID {
 			return entry
 		}
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // Parse emits the rows of one Roo Code file.
@@ -163,11 +163,11 @@ func (p *Parser) historyItem(artifact *input.Artifact, emit parser.Emit) {
 // historyRows emits the task row of an index entry, then "permission
 // mode: <mode>" from its mode, the slug that decides the tool groups the
 // task may use.
-func (p *Parser) historyRows(artifact *input.Artifact, item pyjson.Value, position int, emit parser.Emit) {
+func (p *Parser) historyRows(artifact *input.Artifact, item jsonvalue.Value, position int, emit parser.Emit) {
 	row := p.HistoryRow(artifact, item, position)
 	emit(row)
-	if mode := item.Get("mode"); mode.IsString() && mode.Text() != "" {
-		emit(systemLike(row, "permission mode: "+mode.Text()))
+	if mode := item.Get("mode"); mode.IsString() && mode.StringValue() != "" {
+		emit(systemLike(row, "permission mode: "+mode.StringValue()))
 	}
 }
 

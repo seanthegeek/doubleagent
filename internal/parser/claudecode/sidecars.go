@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 )
@@ -137,7 +137,7 @@ func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool
 // placeholder replaced by its text: pastedContents.<n>.content when the
 // paste is kept inline, else paste-cache/<contentHash>.txt. A placeholder
 // whose text is in neither place is kept as written.
-func expandPastes(historyDir, display string, pasted pyjson.Value, problems *parser.Problems) string {
+func expandPastes(historyDir, display string, pasted jsonvalue.Value, problems *parser.Problems) string {
 	if !pasted.IsObject() || pasted.Len() == 0 {
 		return display
 	}
@@ -159,7 +159,7 @@ func expandPastes(historyDir, display string, pasted pyjson.Value, problems *par
 
 // pasteText returns the text of one pastedContents entry, or false when the
 // entry is not a text paste or its text is in neither place.
-func pasteText(historyDir string, entry pyjson.Value, problems *parser.Problems) (string, bool) {
+func pasteText(historyDir string, entry jsonvalue.Value, problems *parser.Problems) (string, bool) {
 	if !entry.IsObject() {
 		return "", false
 	}
@@ -167,10 +167,10 @@ func pasteText(historyDir string, entry pyjson.Value, problems *parser.Problems)
 		return "", false
 	}
 	if content := entry.Get("content"); content.IsString() {
-		return content.Text(), true
+		return content.StringValue(), true
 	}
 	if hash := entry.Get("contentHash"); hash.IsString() {
-		return readPaste(historyDir, hash.Text(), problems)
+		return readPaste(historyDir, hash.StringValue(), problems)
 	}
 	return "", false
 }

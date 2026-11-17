@@ -8,7 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -30,7 +30,7 @@ type diskEntry struct {
 // collectedProjects keys them, in the order of their first directory by
 // path: directories that come to one path summed, the first repository
 // with remotes, and the first with a head, kept.
-func projectFiles(projects []projectEntry, summary pyjson.Value) []diskEntry {
+func projectFiles(projects []projectEntry, summary jsonvalue.Value) []diskEntry {
 	var entries []diskEntry
 	for _, project := range projects {
 		key := timeline.CanonicalProjectPath(stripImageRoot(project.path, summary))
@@ -68,13 +68,13 @@ func mergeOnDisk(merged *onDisk, shared int64, git projectGit, agents []agentFil
 // stripImageRoot returns a collected path as the imaged host saw it: in
 // image mode the collector records <root>/srv/proj where the transcripts
 // say /srv/proj. A path outside the root is returned unchanged.
-func stripImageRoot(path string, summary pyjson.Value) string {
+func stripImageRoot(path string, summary jsonvalue.Value) string {
 	root := ""
-	if value := summary.Get("root"); value.Truthy() {
-		root = value.Str()
+	if value := summary.Get("root"); !value.IsEmpty() {
+		root = value.Text()
 	}
 	mode := summary.Get("mode")
-	if !mode.IsString() || mode.Text() != "image" || root == "" || root == "/" || root == `\` {
+	if !mode.IsString() || mode.StringValue() != "image" || root == "" || root == "/" || root == `\` {
 		return path
 	}
 	root = strings.TrimRight(root, `/\`)
@@ -92,8 +92,8 @@ func collectedProjects(collection *input.Collection) []string {
 	summary := collection.Summary
 	var paths []string
 	for _, listed := range summary.Get("projects").Items() {
-		if listed.Truthy() {
-			paths = append(paths, listed.Str())
+		if !listed.IsEmpty() {
+			paths = append(paths, listed.Text())
 		}
 	}
 	for _, home := range collection.Homes {

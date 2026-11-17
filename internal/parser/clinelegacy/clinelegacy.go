@@ -32,9 +32,9 @@ import (
 	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -59,7 +59,7 @@ func IsAPIFile(name string) bool {
 type Family interface {
 	// HistoryItem returns the task's entry in the agent's task index, or
 	// null when there is none.
-	HistoryItem(task Task) pyjson.Value
+	HistoryItem(task Task) jsonvalue.Value
 }
 
 // APIRower is implemented by a Family whose API history writes tool calls
@@ -67,7 +67,7 @@ type Family interface {
 type APIRower interface {
 	// APIContentRows returns the rows of one API history message at a
 	// 1-based position.
-	APIContentRows(message pyjson.Value, position int, baseTurn string,
+	APIContentRows(message jsonvalue.Value, position int, baseTurn string,
 		includeThinking bool) []ContentRow
 }
 
@@ -121,7 +121,7 @@ type TaskParser struct {
 	taskPattern *regexp.Regexp
 	projectKey  string
 	family      Family
-	cache       map[cacheKey]pyjson.Value
+	cache       map[cacheKey]jsonvalue.Value
 }
 
 // NewTaskParser returns the reader of the task files under the storage
@@ -130,7 +130,7 @@ type TaskParser struct {
 func NewTaskParser(base parser.Base, root, projectKey string, family Family) *TaskParser {
 	return &TaskParser{Base: base, projectKey: projectKey, family: family,
 		taskPattern: regexp.MustCompile(`(?i)^` + root + taskFilePattern),
-		cache:       map[cacheKey]pyjson.Value{}}
+		cache:       map[cacheKey]jsonvalue.Value{}}
 }
 
 // ProjectKey returns the index entry's key of the project path.
@@ -147,10 +147,10 @@ func (p *TaskParser) TaskMatch(artifact *input.Artifact) bool {
 // absent, unreadable or not JSON. The result is kept for the parser's
 // life, keyed by the path, modification time and size, so the many task
 // files that look up one index read it once.
-func (p *TaskParser) CachedJSON(path string) pyjson.Value {
+func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
 	info, err := osfile.Lstat(path)
 	if err != nil {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	key := cacheKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
 	if value, ok := p.cache[key]; ok {
@@ -204,7 +204,7 @@ func (p *TaskParser) Row(artifact *input.Artifact, context *TaskContext, positio
 }
 
 // HistoryRow returns the "task:" row of one task index entry.
-func (p *TaskParser) HistoryRow(artifact *input.Artifact, item pyjson.Value, position int) timeline.Row {
+func (p *TaskParser) HistoryRow(artifact *input.Artifact, item jsonvalue.Value, position int) timeline.Row {
 	row := p.BaseRow(artifact)
 	row.SourceLine = position
 	row.TimestampUTC = timeutil.FromValue(item.Get("ts"))

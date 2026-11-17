@@ -3,7 +3,7 @@ package openhands
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 func FuzzNaive(fuzz *testing.F) {
@@ -11,6 +11,6 @@ func FuzzNaive(fuzz *testing.F) {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		naive(pyjson.NewString(text))
+		naive(jsonvalue.NewString(text))
 	})
 }

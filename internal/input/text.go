@@ -3,24 +3,24 @@ package input
 import (
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // textOf returns Python's str(value or ""): "" for a false value (null,
 // false, zero, an empty string, array or object), else the value as str()
 // prints it.
-func textOf(value pyjson.Value) string {
-	if !value.Truthy() {
+func textOf(value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // isText reports whether value is the string text, as Python's == between
 // a decoded value and a str literal.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // splitSlash splits text at every slash, keeping empty parts, as Python's
@@ -34,8 +34,8 @@ func joinSlash(parts []string) string { return strings.Join(parts, "/") }
 // when int() would raise: for an array or object, a float that is not
 // finite, a string that is not an integer literal, or a value beyond the
 // int64 range. A float is truncated toward zero and true counts as 1.
-func parseSize(value pyjson.Value) (int64, bool) {
-	if !value.Truthy() {
+func parseSize(value jsonvalue.Value) (int64, bool) {
+	if value.IsEmpty() {
 		return 0, true
 	}
 	switch {
@@ -50,7 +50,7 @@ func parseSize(value pyjson.Value) (int64, bool) {
 		}
 		return int64(number), true
 	case value.IsString():
-		return parseIntegerText(pytext.Strip(value.Text()))
+		return parseIntegerText(pytext.Strip(value.StringValue()))
 	}
 	return 0, false
 }

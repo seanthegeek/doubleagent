@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -11,24 +11,24 @@ import (
 // A number or true is not iterable in Python, so it gives nothing here. A
 // call site reads a visited item with Get, which gives null on anything but
 // an object, as `_dict(item).get(key)` does.
-func Elements(value pyjson.Value) []pyjson.Value {
+func Elements(value jsonvalue.Value) []jsonvalue.Value {
 	switch {
-	case !value.Truthy():
+	case value.IsEmpty():
 		return nil
 	case value.IsArray():
 		return value.Items()
 	case value.IsObject():
 		keys := value.Keys()
-		items := make([]pyjson.Value, len(keys))
+		items := make([]jsonvalue.Value, len(keys))
 		for i, key := range keys {
-			items[i] = pyjson.NewString(key)
+			items[i] = jsonvalue.NewString(key)
 		}
 		return items
 	case value.IsString():
-		var items []pyjson.Value
-		for rest := value.Text(); rest != ""; {
+		var items []jsonvalue.Value
+		for rest := value.StringValue(); rest != ""; {
 			_, size := pytext.NextCodePoint(rest)
-			items = append(items, pyjson.NewString(rest[:size]))
+			items = append(items, jsonvalue.NewString(rest[:size]))
 			rest = rest[size:]
 		}
 		return items

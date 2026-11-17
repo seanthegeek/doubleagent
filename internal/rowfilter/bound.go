@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -66,7 +65,7 @@ func outOfRange(text string) *BoundError {
 
 // quote returns text quoted as the analyzer's messages quote a value.
 func quote(text string) string {
-	return pyjson.NewString(text).Repr()
+	return strconv.Quote(text)
 }
 
 // ParseBound returns the timeline timestamp a --since value (upper false)

@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -127,9 +127,9 @@ func joinParts(parts ...string) string {
 }
 
 // textOnly returns a value's text when it is a string, else "".
-func textOnly(value pyjson.Value) string {
+func textOnly(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return ""
 }
@@ -142,7 +142,7 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil {
 		emit(p.system(artifact, "parser: projects.json did not parse: "+err.Error(), 0))
 		return
@@ -159,8 +159,8 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		row.TimestampUTC = timeutil.FromValue(project.Get("last_accessed"))
 		row.ProjectPath = parser.Str(project.Get("path"))
 		dataDir := ""
-		if value := project.Get("data_dir"); value.Truthy() {
-			dataDir = "data_dir=" + value.Str()
+		if value := project.Get("data_dir"); !value.IsEmpty() {
+			dataDir = "data_dir=" + value.Text()
 		}
 		row.Text = timeline.Compact(joinParts("crush project last accessed", dataDir))
 		emit(row)
@@ -181,7 +181,7 @@ func (p *Parser) configProject(artifact *input.Artifact) string {
 }
 
 // settingRow returns a "permission setting:" row of a config file.
-func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, value pyjson.Value,
+func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, value jsonvalue.Value,
 	where string, line int) timeline.Row {
 	row := p.system(artifact, "", line)
 	row.TimestampUTC = timestamp
@@ -195,13 +195,13 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, val
 // key its rows name.
 type settingList struct {
 	key     string
-	entries pyjson.Value
+	entries jsonvalue.Value
 }
 
 // configLists returns the lists of standing entries of a crush.json in the
 // analyzer's order: permissions.allowed_tools, options.disabled_tools, each
 // MCP server's disabled_tools and enabled_tools, and each hook event.
-func configLists(document pyjson.Value) []settingList {
+func configLists(document jsonvalue.Value) []settingList {
 	var lists []settingList
 	for _, pair := range [][2]string{{"permissions", "allowed_tools"}, {"options", "disabled_tools"}} {
 		if block := document.Get(pair[0]); block.IsObject() {
@@ -236,7 +236,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", p.configProject(artifact)))
 		return
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil || !document.IsObject() {
 		row := p.system(artifact, "parser: "+artifact.Rel+" is not a JSON object", 1)
 		row.TimestampUTC = timestamp
@@ -284,7 +284,7 @@ func (p *Parser) parseCrushrc(artifact *input.Artifact, emit parser.Emit) {
 		}
 		where := artifact.Rel + " line " + strconv.Itoa(number)
 		for _, tool := range words[2:] {
-			emit(p.settingRow(artifact, timestamp, keys[words[1]], pyjson.NewString(tool), where, number))
+			emit(p.settingRow(artifact, timestamp, keys[words[1]], jsonvalue.NewString(tool), where, number))
 		}
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", p.configProject(artifact)))

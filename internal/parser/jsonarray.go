@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // jsonWhitespace is the whitespace JSON allows between tokens.
@@ -28,8 +28,8 @@ func skipJSONWhitespace(text string, offset int) int {
 // are kept. Text that is not an array adds "not a JSON array" at position 1,
 // an array with no closing bracket "array cut off after record <n>". When
 // end is not nil it is set to the offset after the closing bracket, or -1.
-func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, pyjson.Value] {
-	return func(yield func(int, pyjson.Value) bool) {
+func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
 		setEnd(end, -1)
 		cursor := skipJSONWhitespace(text, max(offset, 0))
 		if cursor >= len(text) || text[cursor] != '[' {
@@ -43,7 +43,7 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 		}
 		for position := 1; ; position++ {
 			start := skipJSONWhitespace(text, cursor)
-			value, next, err := pyjson.DecodePrefix(text, start)
+			value, next, err := jsonvalue.DecodePrefix(text, start)
 			if err != nil {
 				problems.AddRaw(position, UnparseableRecord(position, err), TailText(text, start))
 				return
@@ -77,8 +77,8 @@ func setEnd(end *int, offset int) {
 // read as ReadText reads an optional file and walked as ArrayAt walks it. A
 // file that cannot be read, a damaged array and data after the array are
 // added to problems.
-func JSONArray(path string, problems *Problems) iter.Seq2[int, pyjson.Value] {
-	return func(yield func(int, pyjson.Value) bool) {
+func JSONArray(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
 		text, ok := ReadText(path, problems)
 		if !ok {
 			return
@@ -104,8 +104,8 @@ func JSONArray(path string, problems *Problems) iter.Seq2[int, pyjson.Value] {
 // end included, gives "array cut off after record <n>" after the last
 // element; data after a non-empty array gives "unexpected data after the
 // array". Data after an empty array is not reported.
-func ArrayElements(text string, problems *Problems) []pyjson.Value {
-	var elements []pyjson.Value
+func ArrayElements(text string, problems *Problems) []jsonvalue.Value {
+	var elements []jsonvalue.Value
 	cursor := skipJSONWhitespace(text, 0)
 	if cursor >= len(text) || text[cursor] != '[' {
 		problems.Add(1, "not a JSON array")
@@ -117,7 +117,7 @@ func ArrayElements(text string, problems *Problems) []pyjson.Value {
 	}
 	for cursor < len(text) {
 		position := len(elements) + 1
-		value, next, err := pyjson.DecodePrefix(text, cursor)
+		value, next, err := jsonvalue.DecodePrefix(text, cursor)
 		if err != nil {
 			problems.AddRaw(position, UnparseableRecord(position, err), TailText(text, cursor))
 			return elements

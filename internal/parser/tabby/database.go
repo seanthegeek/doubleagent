@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -269,7 +269,7 @@ func (s *store) threads() error {
 
 // thread emits one thread's start row and its message rows.
 func (s *store) thread(thread parent, messages []sqlitefile.Row) {
-	attachments := make([]pyjson.Value, len(messages))
+	attachments := make([]jsonvalue.Value, len(messages))
 	for i, message := range messages {
 		attachments[i] = messageAttachment(message)
 	}
@@ -277,7 +277,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	var questions []string
 	if value, ok := jsonColumn(thread.row.Get("relevant_questions")); ok {
 		for _, question := range arrayItems(value) {
-			questions = append(questions, question.Str())
+			questions = append(questions, question.Text())
 		}
 	}
 	userID := thread.row.Get("user_id")
@@ -306,7 +306,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 }
 
 // messageRow returns the row of one thread message.
-func (s *store) messageRow(message sqlitefile.Row, attachment pyjson.Value, threadID,
+func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, threadID,
 	project string) timeline.Row {
 	role, text := orText(message.Get("role")), orText(message.Get("content"))
 	parts := attachmentParts(attachment)
@@ -349,11 +349,11 @@ func (s *store) pages() error {
 
 // page emits one page's rows.
 func (s *store) page(page parent, sections []sqlitefile.Row) {
-	attachments := make([]pyjson.Value, len(sections))
+	attachments := make([]jsonvalue.Value, len(sections))
 	for i, section := range sections {
 		attachment, ok := jsonColumn(section.Get("attachment"))
 		if !ok || !attachment.IsObject() {
-			attachment = pyjson.NewObject()
+			attachment = jsonvalue.NewObject()
 		}
 		attachments[i] = attachment
 	}
@@ -383,7 +383,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 
 // sectionRows emits a page's sections as assistant rows: the title and
 // content, then the attachments, each at its created_at, else the page's.
-func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []pyjson.Value) {
+func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []jsonvalue.Value) {
 	for i, section := range sections {
 		var pieces []string
 		for _, value := range []sqlitefile.Value{section.Get("title"), section.Get("content")} {

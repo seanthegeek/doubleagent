@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -69,29 +69,29 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parser.Option
 // htmlSessionData returns the session data an HTML export embeds, or why it
 // could not be read: the base64 text of the session-data element, UTF-8
 // JSON once decoded, an object.
-func htmlSessionData(data []byte) (pyjson.Value, string) {
+func htmlSessionData(data []byte) (jsonvalue.Value, string) {
 	start := bytes.Index(data, []byte(sessionDataOpen))
 	if start < 0 {
-		return pyjson.NewNull(), "holds no session data"
+		return jsonvalue.NewNull(), "holds no session data"
 	}
 	start += len(sessionDataOpen)
 	end := bytes.Index(data[start:], []byte(sessionDataClose))
 	if end < 0 {
-		return pyjson.NewNull(), "session data has no closing tag"
+		return jsonvalue.NewNull(), "session data has no closing tag"
 	}
 	decoded, err := decodeBase64(bytes.Trim(data[start:start+end], jsonSpace))
 	if err != nil {
-		return pyjson.NewNull(), "session data is not base64 (" + err.Error() + ")"
+		return jsonvalue.NewNull(), "session data is not base64 (" + err.Error() + ")"
 	}
 	if !utf8.Valid(decoded) {
-		return pyjson.NewNull(), "session data is not JSON (not UTF-8 text)"
+		return jsonvalue.NewNull(), "session data is not JSON (not UTF-8 text)"
 	}
-	value, err := pyjson.DecodeString(string(decoded))
+	value, err := jsonvalue.DecodeString(string(decoded))
 	if err != nil {
-		return pyjson.NewNull(), "session data is not JSON (" + err.Error() + ")"
+		return jsonvalue.NewNull(), "session data is not JSON (" + err.Error() + ")"
 	}
 	if !value.IsObject() {
-		return pyjson.NewNull(), "session data is not a JSON object"
+		return jsonvalue.NewNull(), "session data is not a JSON object"
 	}
 	return value, ""
 }
@@ -178,11 +178,11 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 		session := ReadSessionBytes(data)
 		problems = append(problems, session.Problems...)
 		if session.HasHeader() {
-			if identifier := session.Header.Get("id"); identifier.Truthy() {
-				sessionID = identifier.Str()
+			if identifier := session.Header.Get("id"); !identifier.IsEmpty() {
+				sessionID = identifier.Text()
 			}
-			if path := session.Header.Get("cwd"); path.Truthy() {
-				cwd = path.Str()
+			if path := session.Header.Get("cwd"); !path.IsEmpty() {
+				cwd = path.Text()
 			}
 			p.copyRows(artifact, session, options, emit)
 		}
@@ -192,7 +192,7 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 
 // bugCrashRows emits one `crash:` row per crash record of a bug report's
 // diagnostics, at the record's own time.
-func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes pyjson.Value, source string,
+func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes jsonvalue.Value, source string,
 	emit parser.Emit) {
 	for _, record := range crashes.Items() {
 		if record.IsObject() {
@@ -205,8 +205,8 @@ func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes pyjson.Value, so
 
 // either returns first when Python counts it true, else second: Python's
 // `first or second`.
-func either(first, second pyjson.Value) pyjson.Value {
-	if first.Truthy() {
+func either(first, second jsonvalue.Value) jsonvalue.Value {
+	if !first.IsEmpty() {
 		return first
 	}
 	return second
@@ -216,25 +216,25 @@ func either(first, second pyjson.Value) pyjson.Value {
 // null when the member is absent; a member that is not a UTF-8 JSON object
 // adds a problem and gives null.
 func bugJSONMember(rel string, members map[string][]byte, name string,
-	problems *parser.Problems) pyjson.Value {
+	problems *parser.Problems) jsonvalue.Value {
 	data, ok := members[name]
 	if !ok {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	if utf8.Valid(data) {
-		if value, err := pyjson.DecodeString(string(data)); err == nil && value.IsObject() {
+		if value, err := jsonvalue.DecodeString(string(data)); err == nil && value.IsObject() {
 			return value
 		}
 	}
 	problems.Add(0, rel+" member "+name+" is not a JSON object")
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // bugReportRowText returns the `bug report:` row text of a zip's
 // report.json and diagnostics.json: a first line naming the report, its
 // session and environment, then one line per failed assistant turn. The
 // hint and the redacted settings are not written.
-func bugReportRowText(report, diagnostics pyjson.Value, source string) string {
+func bugReportRowText(report, diagnostics jsonvalue.Value, source string) string {
 	dash := parser.SettingOrDash
 	session, environment, model := report.Get("session"), report.Get("environment"), report.Get("model")
 	text := fmt.Sprintf("bug report: %s session=%s transcript=%s summary=%s messages=%s entries=%s "+

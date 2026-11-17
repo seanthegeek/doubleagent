@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -36,8 +36,8 @@ func readFlatYAML(path string, problems *parser.Problems) map[string]string {
 		case value == "" || value == "null" || value == "~":
 			values[name] = ""
 		case strings.HasPrefix(value, `"`):
-			if decoded, err := pyjson.DecodeString(value); err == nil {
-				values[name] = decoded.Str()
+			if decoded, err := jsonvalue.DecodeString(value); err == nil {
+				values[name] = decoded.Text()
 			} else {
 				values[name] = strings.Trim(value, `"`)
 			}
@@ -52,14 +52,14 @@ func readFlatYAML(path string, problems *parser.Problems) map[string]string {
 
 // readJSON returns the parsed file, or null when it cannot be read or
 // parsed. A file that cannot be read adds its unreadable problem.
-func readJSON(path string, problems *parser.Problems) pyjson.Value {
+func readJSON(path string, problems *parser.Problems) jsonvalue.Value {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
-	value, err := pyjson.Decode(data)
+	value, err := jsonvalue.Decode(data)
 	if err != nil {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	return value
 }
@@ -182,7 +182,7 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		}
 		var paths []string
 		for _, entry := range snapshot.Get("files").Members() {
-			if path := entry.Value.Get("path"); path.Truthy() {
+			if path := entry.Value.Get("path"); !path.IsEmpty() {
 				paths = append(paths, text(path))
 			}
 		}
@@ -196,7 +196,7 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 }
 
 // countText returns a count as text, "0" when it is missing or empty.
-func countText(value pyjson.Value) string {
+func countText(value jsonvalue.Value) string {
 	if shown := text(value); shown != "" {
 		return shown
 	}
@@ -216,14 +216,14 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	for i, entry := range parser.Elements(document.Get("commandHistory")) {
-		if entry.IsString() && pytext.Strip(entry.Text()) != "" {
-			emit(p.row(artifact, i+1, timeline.TurnUser, entry.Text(), columns{}))
+		if entry.IsString() && pytext.Strip(entry.StringValue()) != "" {
+			emit(p.row(artifact, i+1, timeline.TurnUser, entry.StringValue(), columns{}))
 		}
 	}
 }
 
 // settingRow returns the "permission setting:" row of one standing grant.
-func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, value pyjson.Value,
+func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, value jsonvalue.Value,
 	project string) timeline.Row {
 	return p.row(artifact, 1, timeline.TurnSystem, "permission setting: "+key+"="+
 		parser.SettingValue(value)+" (from "+artifact.Rel+", file mtime)",
@@ -266,7 +266,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := pyjson.DecodeString(parser.StripJSONC(pytext.DecodeUTF8(data)))
+	document, err := jsonvalue.DecodeString(parser.StripJSONC(pytext.DecodeUTF8(data)))
 	if err != nil || !document.IsObject() {
 		emit(p.problem(artifact, "parser: settings.json is not a JSON object", timestamp))
 		return

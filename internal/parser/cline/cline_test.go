@@ -3,7 +3,7 @@ package cline
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // isManifest stands for the Python pattern
@@ -48,7 +48,7 @@ func TestDenialReadsRejectionsAndBlocks(t *testing.T) {
 		{"a list", `["x"]`, ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			content, err := pyjson.DecodeString(test.content)
+			content, err := jsonvalue.DecodeString(test.content)
 			if err != nil {
 				t.Fatal(err)
 			}

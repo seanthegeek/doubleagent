@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -123,7 +123,7 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.
 			if len(stripped) == 0 {
 				continue
 			}
-			record, err := pyjson.DecodeString(pytext.DecodeUTF8(stripped))
+			record, err := jsonvalue.DecodeString(pytext.DecodeUTF8(stripped))
 			if err != nil {
 				problems.AddRaw(i+1, parser.UnparseableLine(err), parser.LineText(raw))
 				continue
@@ -144,17 +144,17 @@ type brainLines struct {
 	sessionID string
 	options   parser.Options
 	emit      parser.Emit
-	calls     []pyjson.Value // the last reply's tool calls not yet matched to a result
+	calls     []jsonvalue.Value // the last reply's tool calls not yet matched to a result
 }
 
 // row emits a row of a brain line; text whose field the line marks as
 // truncated says so.
-func (b *brainLines) row(number int, record pyjson.Value, turnType, text, field string) timeline.Row {
+func (b *brainLines) row(number int, record jsonvalue.Value, turnType, text, field string) timeline.Row {
 	row := b.owner.BaseRow(b.artifact)
 	row.SourceLine, row.SessionID, row.TurnType = number, b.sessionID, turnType
 	row.TimestampUTC = timeutil.FromValue(record.Get("created_at"))
 	for _, truncated := range record.Get("truncated_fields").Items() {
-		if truncated.Str() == field {
+		if truncated.Text() == field {
 			text += " [truncated: " + field + "]"
 			break
 		}
@@ -164,12 +164,12 @@ func (b *brainLines) row(number int, record pyjson.Value, turnType, text, field 
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // record emits the rows of one brain line.
-func (b *brainLines) record(number int, record pyjson.Value) {
+func (b *brainLines) record(number int, record jsonvalue.Value) {
 	kind := parser.Str(record.Get("type"))
 	content := parser.TextOf(record.Get("content"))
 	switch kind {
@@ -202,7 +202,7 @@ func (b *brainLines) record(number int, record pyjson.Value) {
 
 // brainEventText returns the text of a brain line that is neither a prompt
 // nor a reply.
-func brainEventText(kind string, record pyjson.Value, content string) string {
+func brainEventText(kind string, record jsonvalue.Value, content string) string {
 	switch kind {
 	case "SYSTEM_MESSAGE":
 		return "system_message: " + content
@@ -212,8 +212,8 @@ func brainEventText(kind string, record pyjson.Value, content string) string {
 			failure = firstTruthy(failure.Get("short_error"), failure.Get("user_error_message"),
 				failure.Get("full_error"))
 		}
-		if failure.IsString() && failure.Text() != "" {
-			return "error: " + failure.Text()
+		if failure.IsString() && failure.StringValue() != "" {
+			return "error: " + failure.StringValue()
 		}
 		return "error: " + content
 	}
@@ -225,9 +225,9 @@ func brainEventText(kind string, record pyjson.Value, content string) string {
 
 // firstTruthy returns the first value Python counts as true, else the
 // last, as `a or b or c` does.
-func firstTruthy(values ...pyjson.Value) pyjson.Value {
+func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -236,7 +236,7 @@ func firstTruthy(values ...pyjson.Value) pyjson.Value {
 
 // reply emits the rows of a reply: its reasoning when asked for, its text
 // and its tool calls, which the next lines' results answer in order.
-func (b *brainLines) reply(number int, record pyjson.Value, content string) {
+func (b *brainLines) reply(number int, record jsonvalue.Value, content string) {
 	if thinking := parser.TextOf(record.Get("thinking")); thinking != "" && b.options.IncludeThinking {
 		b.emit(b.row(number, record, timeline.TurnThinking, thinking, "thinking"))
 	}
@@ -247,7 +247,7 @@ func (b *brainLines) reply(number int, record pyjson.Value, content string) {
 	for _, raw := range record.Get("tool_calls").Items() {
 		call := raw
 		if !call.IsObject() {
-			call = pyjson.NewObject()
+			call = jsonvalue.NewObject()
 		}
 		b.calls = append(b.calls, call)
 		row := b.row(number, record, timeline.TurnToolUse, toolArgsSummary(brainArgs(call)), "tool_calls")
@@ -259,14 +259,14 @@ func (b *brainLines) reply(number int, record pyjson.Value, content string) {
 // brainArgs returns a brain tool call's arguments as JSON text:
 // arguments_json as the database records it, else args or arguments, an
 // object or a string.
-func brainArgs(call pyjson.Value) string {
+func brainArgs(call jsonvalue.Value) string {
 	for _, key := range []string{"arguments_json", "args", "arguments"} {
 		value := call.Get(key)
-		if value.IsString() && value.Text() != "" {
-			return value.Text()
+		if value.IsString() && value.StringValue() != "" {
+			return value.StringValue()
 		}
 		if value.IsObject() || value.IsArray() {
-			return pyjson.SpacedUnicode(value)
+			return value.JSON()
 		}
 	}
 	return ""

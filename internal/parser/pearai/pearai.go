@@ -29,11 +29,11 @@ import (
 	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
 
@@ -65,7 +65,7 @@ type stateKey struct {
 // globalState is the extension's global state read from state.vscdb, and
 // the problems met.
 type globalState struct {
-	value    pyjson.Value
+	value    jsonvalue.Value
 	problems []string
 }
 
@@ -130,7 +130,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 func (p *Parser) globalState(path string) globalState {
 	info, err := osfile.Lstat(path)
 	if err != nil {
-		return globalState{value: pyjson.NewNull()}
+		return globalState{value: jsonvalue.NewNull()}
 	}
 	key := stateKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
 	if found, ok := p.states[key]; ok {

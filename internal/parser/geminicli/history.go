@@ -8,8 +8,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -67,26 +67,26 @@ func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand 
 // checkpoint is {history, authType} or a legacy bare array, a /bug history
 // export a bare array. A file cut mid-write keeps its complete leading
 // items; a file in neither form is one problem.
-func historyItems(text string, problems *parser.Problems) ([]pyjson.Value, pyjson.Value) {
-	document, err := pyjson.DecodeString(text)
+func historyItems(text string, problems *parser.Problems) ([]jsonvalue.Value, jsonvalue.Value) {
+	document, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		if strings.HasPrefix(pytext.StripLeft(text), "[") {
-			return parser.ArrayElements(text, problems), pyjson.NewNull()
+			return parser.ArrayElements(text, problems), jsonvalue.NewNull()
 		}
 		if found := historyObjectPattern.FindStringIndex(text); found != nil {
-			return parser.ArrayElements(text[found[1]:], problems), pyjson.NewNull()
+			return parser.ArrayElements(text[found[1]:], problems), jsonvalue.NewNull()
 		}
 		problems.Add(1, "unparseable chat history ("+err.Error()+")")
-		return nil, pyjson.NewNull()
+		return nil, jsonvalue.NewNull()
 	}
 	if document.IsArray() {
-		return document.Items(), pyjson.NewNull()
+		return document.Items(), jsonvalue.NewNull()
 	}
 	if document.IsObject() && document.Get("history").IsArray() {
 		return document.Get("history").Items(), document
 	}
 	problems.Add(1, "not a chat history: neither a JSON array nor an object with history")
-	return nil, pyjson.NewNull()
+	return nil, jsonvalue.NewNull()
 }
 
 // shellHistory emits one user row per command of a shell_history file, a
@@ -112,8 +112,8 @@ func (p *Parser) historyCopy(artifact *input.Artifact, options parser.Options, m
 	emit parser.Emit) {
 	var problems parser.Problems
 	project := resolveProject(inBase(artifact, match), match["slug"], "", &problems)
-	var items []pyjson.Value
-	document := pyjson.NewNull()
+	var items []jsonvalue.Value
+	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok && len(data) > 0 {
 		items, document = historyItems(pytext.DecodeUTF8(data), &problems)
 	}
@@ -134,7 +134,7 @@ func (p *Parser) historyCopy(artifact *input.Artifact, options parser.Options, m
 
 // itemRows emits the rows of each Content item of a history, numbered from
 // 1; an item that is not an object adds a problem at its number.
-func (p *Parser) itemRows(artifact *input.Artifact, options parser.Options, items []pyjson.Value,
+func (p *Parser) itemRows(artifact *input.Artifact, options parser.Options, items []jsonvalue.Value,
 	project, sessionID string, problems *parser.Problems, emit parser.Emit) {
 	for i, item := range items {
 		if !item.IsObject() {
@@ -151,7 +151,7 @@ func (p *Parser) itemRows(artifact *input.Artifact, options parser.Options, item
 // for; a model item's texts as assistant rows, a user item's as user rows
 // or context rows; then a tool_use row per functionCall part and a
 // tool_result row per functionResponse part with its media.
-func (p *Parser) contentRows(artifact *input.Artifact, options parser.Options, item pyjson.Value,
+func (p *Parser) contentRows(artifact *input.Artifact, options parser.Options, item jsonvalue.Value,
 	index int, project, sessionID string, emit parser.Emit) {
 	row := func(turn, text string) timeline.Row {
 		row := p.BaseRow(artifact)
@@ -167,7 +167,7 @@ func (p *Parser) contentRows(artifact *input.Artifact, options parser.Options, i
 		}
 	}
 	user := isText(item.Get("role"), "user")
-	runs, responses := contentRuns(pyjson.NewArray(itemParts...), user)
+	runs, responses := contentRuns(jsonvalue.NewArray(itemParts...), user)
 	for _, each := range responses {
 		result := row(timeline.TurnToolResult, each.resultText())
 		result.ToolName, result.ToolUseID = parser.Str(each.value.Get("name")),
@@ -182,7 +182,7 @@ func (p *Parser) contentRows(artifact *input.Artifact, options parser.Options, i
 
 // callsAndThoughts returns the texts of an item's thought parts and a
 // tool_use row per functionCall part, its arguments as compact JSON.
-func callsAndThoughts(itemParts []pyjson.Value, row func(turn, text string) timeline.Row) ([]string,
+func callsAndThoughts(itemParts []jsonvalue.Value, row func(turn, text string) timeline.Row) ([]string,
 	[]timeline.Row) {
 	var thoughts []string
 	var tools []timeline.Row
@@ -192,14 +192,14 @@ func callsAndThoughts(itemParts []pyjson.Value, row func(turn, text string) time
 		}
 		if call := part.Get("functionCall"); call.IsObject() {
 			text := ""
-			if call.Get("args").Truthy() {
+			if !call.Get("args").IsEmpty() {
 				text = parser.CompactJSON(call.Get("args"))
 			}
 			use := row(timeline.TurnToolUse, text)
 			use.ToolName, use.ToolUseID = parser.Str(call.Get("name")), parser.Str(call.Get("id"))
 			tools = append(tools, use)
-		} else if part.Get("text").IsString() && part.Get("thought").Truthy() {
-			thoughts = append(thoughts, part.Get("text").Text())
+		} else if part.Get("text").IsString() && !part.Get("thought").IsEmpty() {
+			thoughts = append(thoughts, part.Get("text").StringValue())
 		}
 	}
 	return thoughts, tools

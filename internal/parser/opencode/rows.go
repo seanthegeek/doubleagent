@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -54,7 +54,7 @@ func (p *Parser) systemRow(artifact *input.Artifact, scoped *scope, line int, ti
 // "model: <old id> -> <new id> provider=<provider>" when the id or the
 // provider changes; "" when it is unchanged or names no model id. Only
 // string values count.
-func modelRowText(seen parser.Tracker, key string, provider, model pyjson.Value) string {
+func modelRowText(seen parser.Tracker, key string, provider, model jsonvalue.Value) string {
 	providerText, modelText := textOf(provider), textOf(model)
 	if modelText == "" {
 		return ""
@@ -77,11 +77,11 @@ func modelRowText(seen parser.Tracker, key string, provider, model pyjson.Value)
 // agentRowText returns the "permission mode: agent=<name>" text when a
 // session's agent is new or changed: an OpenCode agent (build, plan, a
 // custom one) is a mode with its own permission set.
-func agentRowText(seen parser.Tracker, key string, agent pyjson.Value) string {
+func agentRowText(seen parser.Tracker, key string, agent jsonvalue.Value) string {
 	if !isFilled(agent) {
 		return ""
 	}
-	return seen.Change("permission mode", key, "agent="+agent.Text())
+	return seen.Change("permission mode", key, "agent="+agent.StringValue())
 }
 
 // lookup reads one field of a session record, a database row or a JSON
@@ -90,10 +90,10 @@ func agentRowText(seen parser.Tracker, key string, agent pyjson.Value) string {
 type lookup func(key string) (string, bool)
 
 // jsonLookup reads the fields of a JSON object.
-func jsonLookup(record pyjson.Value) lookup {
+func jsonLookup(record jsonvalue.Value) lookup {
 	return func(key string) (string, bool) {
 		value := record.Get(key)
-		return value.Str(), value.Truthy()
+		return value.Text(), !value.IsEmpty()
 	}
 }
 

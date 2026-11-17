@@ -78,7 +78,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	}
 	var ignored parser.Problems
 	for _, found := range readCloudAgents(store, &ignored) {
-		ident := found.agent.Get("bcId").Str()
+		ident := found.agent.Get("bcId").Text()
 		if _, seen := p.index.projects[ident]; !seen {
 			p.index.projects[ident] = project{path: jsonText(found.agent.Get("repoUrl"))}
 		}

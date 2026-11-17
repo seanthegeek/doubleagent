@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -37,7 +37,7 @@ type rollout struct {
 	emit     parser.Emit
 
 	carried   map[string]bool
-	exitCodes map[string]pyjson.Value
+	exitCodes map[string]jsonvalue.Value
 
 	sessionID, cwd, model, branch string
 	metaSeen                      bool
@@ -50,7 +50,7 @@ type rollout struct {
 	guardianParent, started string
 
 	line   int
-	record pyjson.Value
+	record jsonvalue.Value
 }
 
 // parseRollout emits the rows of a rollout, plain or zstd-compressed. The
@@ -88,7 +88,7 @@ func (s *rollout) read() {
 	case isText(recordType, "turn_context"):
 		s.turnContext(payload)
 	case isText(recordType, "response_item"):
-		if !s.record.Get("metadata").Get("inherited_user_message").Truthy() {
+		if s.record.Get("metadata").Get("inherited_user_message").IsEmpty() {
 			s.responseItem(payload)
 		}
 	case isText(recordType, "event_msg"):
@@ -106,7 +106,7 @@ func (s *rollout) read() {
 
 // row returns a row of the current line with the session's state: at
 // timestamp when it gives one, else at the line's own time.
-func (s *rollout) row(turnType string, timestamp pyjson.Value) timeline.Row {
+func (s *rollout) row(turnType string, timestamp jsonvalue.Value) timeline.Row {
 	row := s.parser.BaseRow(s.artifact)
 	row.SourceLine = s.line
 	row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(timestamp),
@@ -127,7 +127,7 @@ func (s *rollout) put(row timeline.Row, text string) {
 
 // system emits a system row of the current line at the line's time.
 func (s *rollout) system(text string) {
-	s.put(s.row(timeline.TurnSystem, pyjson.NewNull()), text)
+	s.put(s.row(timeline.TurnSystem, jsonvalue.NewNull()), text)
 }
 
 // prompt emits a prompt that is not context: the person's, or a subagent's
@@ -138,13 +138,13 @@ func (s *rollout) prompt(text string) {
 		s.system("subagent task: " + text)
 		return
 	}
-	s.put(s.row(timeline.TurnUser, pyjson.NewNull()), text)
+	s.put(s.row(timeline.TurnUser, jsonvalue.NewNull()), text)
 }
 
 // sessionMeta reads a session_meta line: the file's first sets the
 // session, project and branch and gives the start rows; a later one with
 // another id was copied from an ancestor thread.
-func (s *rollout) sessionMeta(payload pyjson.Value) {
+func (s *rollout) sessionMeta(payload jsonvalue.Value) {
 	threadID := parser.Str(firstTruthy(payload.Get("id"), payload.Get("session_id")))
 	when := payload.Get("timestamp")
 	if s.metaSeen {
@@ -164,13 +164,13 @@ func (s *rollout) sessionMeta(payload pyjson.Value) {
 		parser.Str(payload.Get("cli_version")) + " provider=" +
 		parser.Str(payload.Get("model_provider")) + " cwd=" + s.cwd
 	for _, field := range [][2]string{{"creator_account_id", "account"}, {"creator_user_id", "user"}} {
-		if value := payload.Get(field[0]); value.Truthy() {
-			start += " " + field[1] + "=" + value.Str()
+		if value := payload.Get(field[0]); !value.IsEmpty() {
+			start += " " + field[1] + "=" + value.Text()
 		}
 	}
 	s.put(s.row(timeline.TurnSystem, when), start)
-	if url := git.Get("repository_url"); url.IsString() && pytext.Strip(url.Text()) != "" {
-		s.put(s.row(timeline.TurnSystem, when), timeline.GitRemotePrefix+url.Text())
+	if url := git.Get("repository_url"); url.IsString() && pytext.Strip(url.StringValue()) != "" {
+		s.put(s.row(timeline.TurnSystem, when), timeline.GitRemotePrefix+url.StringValue())
 	}
 	s.lineage(payload, when)
 }
@@ -178,20 +178,20 @@ func (s *rollout) sessionMeta(payload pyjson.Value) {
 // lineage emits the subagent and fork rows of the file's first
 // session_meta, and notes whether the thread is a subagent's or a guardian
 // review's.
-func (s *rollout) lineage(payload, when pyjson.Value) {
+func (s *rollout) lineage(payload, when jsonvalue.Value) {
 	parent := parentOf(payload)
 	if parent != "" {
 		var extra []string
 		for _, field := range []string{"agent_path", "agent_role", "agent_nickname"} {
-			if value := payload.Get(field); value.Truthy() {
-				extra = append(extra, field+"="+value.Str())
+			if value := payload.Get(field); !value.IsEmpty() {
+				extra = append(extra, field+"="+value.Text())
 			}
 		}
 		s.put(s.row(timeline.TurnSystem, when), pytext.Strip("subagent "+s.sessionID+" of "+parent+
 			" "+strings.Join(extra, " ")))
 	}
-	if forked := payload.Get("forked_from_id"); forked.Truthy() {
-		s.put(s.row(timeline.TurnSystem, when), "forked from "+forked.Str())
+	if forked := payload.Get("forked_from_id"); !forked.IsEmpty() {
+		s.put(s.row(timeline.TurnSystem, when), "forked from "+forked.Text())
 	}
 	s.taskPending = parent != "" || isSubagentMeta(payload)
 	if isGuardian(payload) && parent != "" {
@@ -202,7 +202,7 @@ func (s *rollout) lineage(payload, when pyjson.Value) {
 
 // turnContext reads a turn_context line: it sets the project and model and
 // gives the model and permission mode rows when they change.
-func (s *rollout) turnContext(payload pyjson.Value) {
+func (s *rollout) turnContext(payload jsonvalue.Value) {
 	s.cwd = strOr(payload.Get("cwd"), s.cwd)
 	s.model = strOr(payload.Get("model"), s.model)
 	s.policies[s.sessionID] = policyOf(payload)
@@ -224,27 +224,27 @@ func (s *rollout) systemTexts(texts []string) {
 
 // responseItem reads a response_item line: a message, a tool call or
 // result, a message between agents, an image generation or reasoning.
-func (s *rollout) responseItem(payload pyjson.Value) {
+func (s *rollout) responseItem(payload jsonvalue.Value) {
 	payloadType := payload.Get("type")
 	switch {
 	case isText(payloadType, "message"):
 		s.message(payload)
 	case textIn(payloadType, callTypes...):
-		row := s.row(timeline.TurnToolUse, pyjson.NewNull())
+		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = callName(payload)
 		row.ToolUseID = parser.Str(firstTruthy(payload.Get("call_id"), payload.Get("id")))
 		s.put(row, callSummary(payload))
 	case textIn(payloadType, outputTypes...):
-		row := s.row(timeline.TurnToolResult, pyjson.NewNull())
+		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
 		row.ToolUseID = parser.Str(payload.Get("call_id"))
 		s.put(row, withExit(parser.TextOf(payload.Get("output")), s.exitCodes[row.ToolUseID]))
 	case isText(payloadType, "tool_search_call"):
-		row := s.row(timeline.TurnToolUse, pyjson.NewNull())
+		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = "tool_search"
 		row.ToolUseID = parser.Str(firstTruthy(payload.Get("call_id"), payload.Get("id")))
 		s.put(row, parser.CompactJSON(payload.Get("arguments")))
 	case isText(payloadType, "tool_search_output"):
-		row := s.row(timeline.TurnToolResult, pyjson.NewNull())
+		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
 		row.ToolUseID = parser.Str(payload.Get("call_id"))
 		s.put(row, toolNames(payload.Get("tools")))
 	case isText(payloadType, "agent_message"):
@@ -258,14 +258,14 @@ func (s *rollout) responseItem(payload pyjson.Value) {
 			text = parser.TextOf(payload.Get("content"))
 		}
 		if text != "" {
-			s.put(s.row(timeline.TurnThinking, pyjson.NewNull()), text)
+			s.put(s.row(timeline.TurnThinking, jsonvalue.NewNull()), text)
 		}
 	}
 }
 
 // message reads a message response item: a user-role message by its runs,
 // any other role's text as an assistant row or "<role>: <text>".
-func (s *rollout) message(payload pyjson.Value) {
+func (s *rollout) message(payload jsonvalue.Value) {
 	role := payload.Get("role")
 	if isText(role, "user") {
 		for _, part := range userParts(payload) {
@@ -281,15 +281,15 @@ func (s *rollout) message(payload pyjson.Value) {
 	switch {
 	case text == "":
 	case isText(role, "assistant"):
-		s.put(s.row(timeline.TurnAssistant, pyjson.NewNull()), text)
+		s.put(s.row(timeline.TurnAssistant, jsonvalue.NewNull()), text)
 	default:
-		s.system(role.Str() + ": " + text)
+		s.system(role.Text() + ": " + text)
 	}
 }
 
 // agentMessage emits a message between agents: a subagent's first prompt,
 // or an "agent message" row.
-func (s *rollout) agentMessage(payload pyjson.Value, text string) {
+func (s *rollout) agentMessage(payload jsonvalue.Value, text string) {
 	if s.taskPending {
 		s.prompt(text)
 		return
@@ -298,14 +298,14 @@ func (s *rollout) agentMessage(payload pyjson.Value, text string) {
 }
 
 // event reads an event_msg line.
-func (s *rollout) event(payload pyjson.Value) {
+func (s *rollout) event(payload jsonvalue.Value) {
 	switch payloadType := payload.Get("type"); {
 	case isText(payloadType, "task_started"):
 		s.system("task_started turn=" + parser.Str(payload.Get("turn_id")))
 		attribution := payload.Get("turn_attribution")
-		if trigger := attribution.Get("turn_trigger"); attribution.IsObject() && trigger.Truthy() {
+		if trigger := attribution.Get("turn_trigger"); attribution.IsObject() && !trigger.IsEmpty() {
 			turn := parser.Str(firstTruthy(payload.Get("turn_id"), attribution.Get("turn_id")))
-			s.system("turn trigger: " + trigger.Str() + " turn=" + turn)
+			s.system("turn trigger: " + trigger.Text() + " turn=" + turn)
 		}
 	case isText(payloadType, "task_complete"):
 		s.system("task_complete turn=" + parser.Str(payload.Get("turn_id")) + " duration_ms=" +
@@ -324,7 +324,7 @@ func (s *rollout) event(payload pyjson.Value) {
 	case isText(payloadType, "thread_rolled_back"):
 		count := ""
 		if value, ok := payload.Lookup("num_turns"); ok {
-			count = value.Str()
+			count = value.Text()
 		}
 		s.system("rolled back " + count + " turns")
 	case isText(payloadType, "item_completed"):
@@ -335,16 +335,16 @@ func (s *rollout) event(payload pyjson.Value) {
 // guardianDecision emits, for a guardian review thread's task_complete, the
 // "permission decision:" row of its verdict under the reviewed thread, with
 // the governed call when the log databases name exactly one.
-func (s *rollout) guardianDecision(payload pyjson.Value) {
+func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	message := payload.Get("last_agent_message")
 	if s.guardianParent == "" || !message.IsString() {
 		return
 	}
-	verdict, ok := guardianVerdict(message.Text())
+	verdict, ok := guardianVerdict(message.StringValue())
 	if !ok {
 		return
 	}
-	row := s.row(timeline.TurnSystem, pyjson.NewNull())
+	row := s.row(timeline.TurnSystem, jsonvalue.NewNull())
 	row.SessionID = s.guardianParent
 	row.Model = "" // the reviewer's model is not the parent thread's
 	start := timeutil.FirstNonEmpty(s.started, row.TimestampUTC)
@@ -361,7 +361,7 @@ func (s *rollout) guardianDecision(payload pyjson.Value) {
 // threadSettings reads a thread_settings_applied event: the model and
 // permission mode tracked as for a turn_context. Before the thread's first
 // turn_context the event's policy is folded into that turn's row.
-func (s *rollout) threadSettings(settings pyjson.Value) {
+func (s *rollout) threadSettings(settings jsonvalue.Value) {
 	if !settings.IsObject() {
 		return
 	}
@@ -378,7 +378,7 @@ func (s *rollout) threadSettings(settings pyjson.Value) {
 
 // itemCompleted reads an item_completed event: a turn item that no
 // response item carries gives its rows.
-func (s *rollout) itemCompleted(payload pyjson.Value) {
+func (s *rollout) itemCompleted(payload jsonvalue.Value) {
 	item := payload.Get("item")
 	if !item.IsObject() || textIn(item.Get("type"), responseCarriedItems...) ||
 		s.carried[parser.Str(item.Get("id"))] {
@@ -398,9 +398,9 @@ func (s *rollout) itemCompleted(payload pyjson.Value) {
 
 // compacted reads a compacted line: its summary, or the size of the
 // history that replaced the context.
-func (s *rollout) compacted(payload pyjson.Value) {
-	if message := payload.Get("message"); message.IsString() && message.Text() != "" {
-		s.system("compaction summary: " + message.Text())
+func (s *rollout) compacted(payload jsonvalue.Value) {
+	if message := payload.Get("message"); message.IsString() && message.StringValue() != "" {
+		s.system("compaction summary: " + message.StringValue())
 		return
 	}
 	count := 0
@@ -412,12 +412,12 @@ func (s *rollout) compacted(payload pyjson.Value) {
 
 // interAgent reads an inter_agent_communication line that no response
 // item carries.
-func (s *rollout) interAgent(payload pyjson.Value) {
+func (s *rollout) interAgent(payload jsonvalue.Value) {
 	text := ""
 	switch content := payload.Get("content"); {
-	case content.IsString() && content.Text() != "":
-		text = content.Text()
-	case payload.Get("encrypted_content").Truthy():
+	case content.IsString() && content.StringValue() != "":
+		text = content.StringValue()
+	case !payload.Get("encrypted_content").IsEmpty():
 		text = "[encrypted]"
 	}
 	s.agentMessage(payload, text)
@@ -425,16 +425,16 @@ func (s *rollout) interAgent(payload pyjson.Value) {
 
 // realtime reads a realtime_item line: a transcript segment of the user or
 // the assistant, or any other item as its JSON.
-func (s *rollout) realtime(payload pyjson.Value) {
+func (s *rollout) realtime(payload jsonvalue.Value) {
 	kind, role := payload.Get("type"), payload.Get("role")
 	if isText(kind, "transcript_segment") && textIn(role, "user", "assistant") {
-		s.put(s.row(role.Text(), pyjson.NewNull()), parser.Str(payload.Get("text")))
+		s.put(s.row(role.StringValue(), jsonvalue.NewNull()), parser.Str(payload.Get("text")))
 		return
 	}
 	text := "realtime: " + parser.Str(kind) + " " +
 		parser.CompactJSON(without(payload, "type", "id", "text"))
-	if spoken := payload.Get("text"); spoken.Truthy() {
-		text += " " + spoken.Str()
+	if spoken := payload.Get("text"); !spoken.IsEmpty() {
+		text += " " + spoken.Text()
 	}
 	s.system(text)
 }

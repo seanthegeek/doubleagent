@@ -25,8 +25,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -188,21 +188,21 @@ func unescapeHistory(line string) string {
 
 // jsonDocument returns a settings file as a JSON object, or the row that
 // replaces its rows when it cannot be read or is not one.
-func (p *Parser) jsonDocument(artifact *input.Artifact, what string) (pyjson.Value, *timeline.Row) {
+func (p *Parser) jsonDocument(artifact *input.Artifact, what string) (jsonvalue.Value, *timeline.Row) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
 		row := p.ErrorRows(artifact, problems, "", "")[0]
-		return pyjson.Value{}, &row
+		return jsonvalue.Value{}, &row
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err == nil && document.IsObject() {
 		return document, nil
 	}
 	row := p.SystemRow(artifact, parser.ProblemPrefix+what+" is not a JSON object")
 	row.SourceLine = 1
 	row.TimestampUTC = parser.FileMtime(artifact)
-	return pyjson.Value{}, &row
+	return jsonvalue.Value{}, &row
 }
 
 // homeProject returns the home's path when the home is a project, else "".
@@ -222,7 +222,7 @@ func (p *Parser) parseAgentConfig(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp, project := parser.FileMtime(artifact), homeProject(artifact)
-	setting := func(key string, value pyjson.Value) {
+	setting := func(key string, value jsonvalue.Value) {
 		row := p.SystemRow(artifact, timeline.Compact("permission setting: "+key+"="+
 			parser.SettingValue(value)+" (from "+artifact.Rel+", file mtime)"))
 		row.SourceLine = 1
@@ -251,7 +251,7 @@ func (p *Parser) parseAgentConfig(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // positiveTime returns the time of a positive epoch number, else "".
-func positiveTime(value pyjson.Value) string {
+func positiveTime(value jsonvalue.Value) string {
 	if number, ok := value.Float(); ok && value.IsNumber() && number > 0 {
 		return timeutil.FromValue(value)
 	}
@@ -280,7 +280,7 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 	}
 	pid, trust := "", ""
 	if value, ok := document.Lookup("pid"); ok {
-		pid = value.Str()
+		pid = value.Text()
 	}
 	if agent == defaultAgentName {
 		trust = " trust_all_tools=true"
@@ -294,7 +294,7 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 
 // delegateEnd returns the status row text of a delegate task that ended,
 // with its exit code, summary and output, or false while it runs.
-func delegateEnd(document pyjson.Value) (string, bool) {
+func delegateEnd(document jsonvalue.Value) (string, bool) {
 	agent := parser.Str(document.Get("agent"))
 	status, completed := parser.Str(document.Get("status")), document.Get("completed_at")
 	if completed.IsNull() && (status == "" || status == "running") {
@@ -302,17 +302,17 @@ func delegateEnd(document pyjson.Value) (string, bool) {
 	}
 	exitCode := ""
 	if value := document.Get("exit_code"); !value.IsNull() {
-		exitCode = value.Str()
+		exitCode = value.Text()
 	}
 	if status == "" {
 		status = "ended"
 	}
 	text := "delegate task " + status + ": agent=" + agent + " exit_code=" + exitCode
-	if summary := document.Get("summary"); summary.Truthy() {
-		text += "\nsummary: " + summary.Str()
+	if summary := document.Get("summary"); !summary.IsEmpty() {
+		text += "\nsummary: " + summary.Text()
 	}
-	if output := document.Get("output"); output.Truthy() {
-		text += "\noutput: " + output.Str()
+	if output := document.Get("output"); !output.IsEmpty() {
+		text += "\noutput: " + output.Text()
 	}
 	return text, true
 }

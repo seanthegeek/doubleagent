@@ -36,8 +36,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -118,33 +118,33 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 
 // text returns a value as text: "" for null, a string as it is, anything
 // else as compact JSON.
-func text(value pyjson.Value) string {
+func text(value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
 		return ""
 	case value.IsString():
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // pair returns a field's value for a key=value pair: "-" when it is missing,
 // null or empty text.
-func pair(value pyjson.Value) string {
-	if value.IsNull() || (value.IsString() && value.Text() == "") {
+func pair(value jsonvalue.Value) string {
+	if value.IsNull() || (value.IsString() && value.StringValue() == "") {
 		return "-"
 	}
 	return parser.SettingValue(value)
 }
 
 // isNoneOrEmpty reports whether value is null or empty text.
-func isNoneOrEmpty(value pyjson.Value) bool {
-	return value.IsNull() || (value.IsString() && value.Text() == "")
+func isNoneOrEmpty(value jsonvalue.Value) bool {
+	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
 // isNoneOrZero reports whether value is null or equals zero in Python: zero
 // in any number form, or false.
-func isNoneOrZero(value pyjson.Value) bool {
+func isNoneOrZero(value jsonvalue.Value) bool {
 	switch {
 	case value.IsNull():
 		return true
@@ -160,7 +160,7 @@ func isNoneOrZero(value pyjson.Value) bool {
 
 // fact returns a fact record's fields: payload.record, falling back to the
 // payload.
-func fact(payload pyjson.Value) pyjson.Value {
+func fact(payload jsonvalue.Value) jsonvalue.Value {
 	if record := payload.Get("record"); record.IsObject() {
 		return record
 	}
@@ -168,8 +168,8 @@ func fact(payload pyjson.Value) pyjson.Value {
 }
 
 // firstTruthy returns first when it is true in Python, else second.
-func firstTruthy(first, second pyjson.Value) pyjson.Value {
-	if first.Truthy() {
+func firstTruthy(first, second jsonvalue.Value) jsonvalue.Value {
+	if !first.IsEmpty() {
 		return first
 	}
 	return second
@@ -177,13 +177,13 @@ func firstTruthy(first, second pyjson.Value) pyjson.Value {
 
 // microsToUTC returns recorded_at, in microseconds, as UTC; a plain epoch
 // would read numbers of this size as milliseconds.
-func microsToUTC(value pyjson.Value) string {
+func microsToUTC(value jsonvalue.Value) string {
 	switch {
 	case value.IsNumber():
 		number, _ := value.Float()
 		return timeutil.FromEpoch(number / 1_000_000)
-	case value.IsString() && isASCIIDigits(value.Text()):
-		number, err := strconv.ParseFloat(value.Text(), 64)
+	case value.IsString() && isASCIIDigits(value.StringValue()):
+		number, err := strconv.ParseFloat(value.StringValue(), 64)
 		if err != nil && !errors.Is(err, strconv.ErrRange) {
 			return ""
 		}
@@ -200,11 +200,11 @@ func isASCIIDigits(text string) bool {
 // argumentsSummary returns the first argumentKeys argument of a tool call,
 // else its arguments as compact JSON; arguments given as text are decoded
 // first, and text that is not JSON stands for itself.
-func argumentsSummary(arguments pyjson.Value) string {
+func argumentsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsString() {
-		decoded, err := pyjson.DecodeString(arguments.Text())
+		decoded, err := jsonvalue.DecodeString(arguments.StringValue())
 		if err != nil {
-			return arguments.Text()
+			return arguments.StringValue()
 		}
 		arguments = decoded
 	}
@@ -221,21 +221,21 @@ func argumentsSummary(arguments pyjson.Value) string {
 
 // resultText returns a tool result's text; a bash result is a JSON object
 // with output and exit_code.
-func resultText(result pyjson.Value) string {
+func resultText(result jsonvalue.Value) string {
 	if !result.IsString() {
 		return text(result)
 	}
-	raw := result.Text()
+	raw := result.StringValue()
 	if !strings.HasPrefix(raw, "{") {
 		return raw
 	}
-	decoded, err := pyjson.DecodeString(raw)
+	decoded, err := jsonvalue.DecodeString(raw)
 	if err != nil || !decoded.IsObject() || !decoded.Has("output") {
 		return raw
 	}
 	output := text(decoded.Get("output"))
 	if code := decoded.Get("exit_code"); !isNoneOrZero(code) {
-		output = "[exit " + code.Str() + "] " + output
+		output = "[exit " + code.Text() + "] " + output
 	}
 	return output
 }
@@ -243,14 +243,14 @@ func resultText(result pyjson.Value) string {
 // envelope is one record of a session log, with the number of its line.
 type envelope struct {
 	line   int
-	record pyjson.Value
+	record jsonvalue.Value
 }
 
 // records yields every envelope of the log at path with its line number,
 // the children of each frame unpacked in child order and the markers
 // dropped. It stops at once when the first record is not Muse.
-func records(path string, problems *parser.Problems) iter.Seq2[int, pyjson.Value] {
-	return func(yield func(int, pyjson.Value) bool) {
+func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
 		first := true
 		for number, record := range parser.JSONLines(path, problems) {
 			if first {
@@ -278,24 +278,24 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, pyjson.Value
 
 // frameChildren returns the envelopes held in a retained frame's children,
 // in child_index order. A child that does not decode adds a problem.
-func frameChildren(number int, frame pyjson.Value, problems *parser.Problems) []pyjson.Value {
-	var children []pyjson.Value
+func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
+	var children []jsonvalue.Value
 	for _, item := range parser.Elements(frame.Get("children")) {
 		if item.IsObject() {
 			children = append(children, item)
 		}
 	}
-	slices.SortStableFunc(children, func(left, right pyjson.Value) int {
+	slices.SortStableFunc(children, func(left, right jsonvalue.Value) int {
 		return compareIndex(left.Get("child_index"), right.Get("child_index"))
 	})
-	var inners []pyjson.Value
+	var inners []jsonvalue.Value
 	for _, child := range children {
 		encoded := child.Get("record_json")
 		inner, err := decodeChild(encoded)
 		if err != nil {
 			raw := ""
 			if encoded.IsString() {
-				raw = encoded.Text()
+				raw = encoded.StringValue()
 			}
 			problems.AddRaw(number, "unparseable line (retained_frame child: "+err.Error()+")", raw)
 		} else if inner.IsObject() {
@@ -310,21 +310,21 @@ var errChildNotText = errors.New("the JSON record is not text")
 
 // decodeChild decodes a frame child's record_json; a missing or empty one is
 // an error, as is one that is not text.
-func decodeChild(encoded pyjson.Value) (pyjson.Value, error) {
+func decodeChild(encoded jsonvalue.Value) (jsonvalue.Value, error) {
 	switch {
-	case !encoded.Truthy():
-		return pyjson.DecodeString("")
+	case encoded.IsEmpty():
+		return jsonvalue.DecodeString("")
 	case !encoded.IsString():
-		return pyjson.NewNull(), errChildNotText
+		return jsonvalue.NewNull(), errChildNotText
 	}
-	return pyjson.DecodeString(encoded.Text())
+	return jsonvalue.DecodeString(encoded.StringValue())
 }
 
 // compareIndex orders two child_index values: a missing or false one is 0,
 // numbers compare as numbers and texts as texts.
-func compareIndex(left, right pyjson.Value) int {
-	if left.IsString() && right.IsString() && left.Truthy() && right.Truthy() {
-		return strings.Compare(left.Text(), right.Text())
+func compareIndex(left, right jsonvalue.Value) int {
+	if left.IsString() && right.IsString() && !left.IsEmpty() && !right.IsEmpty() {
+		return strings.Compare(left.StringValue(), right.StringValue())
 	}
 	leftNumber, rightNumber := indexNumber(left), indexNumber(right)
 	switch {
@@ -337,7 +337,7 @@ func compareIndex(left, right pyjson.Value) int {
 }
 
 // indexNumber returns a child_index as a number for ordering.
-func indexNumber(value pyjson.Value) float64 {
+func indexNumber(value jsonvalue.Value) float64 {
 	if flag, ok := value.Bool(); ok && flag {
 		return 1
 	}
@@ -348,7 +348,7 @@ func indexNumber(value pyjson.Value) float64 {
 // workspace returns the project path and branch from a session log's
 // records: the last metadata workspace_root (else the route facts' cwd) and
 // the last branch name. limit caps the lines read, 0 reads them all.
-func workspace(log iter.Seq2[int, pyjson.Value], limit int) (string, string) {
+func workspace(log iter.Seq2[int, jsonvalue.Value], limit int) (string, string) {
 	var project, cwd, branch string
 	for number, record := range log {
 		if limit > 0 && number > limit {
@@ -358,17 +358,17 @@ func workspace(log iter.Seq2[int, pyjson.Value], limit int) (string, string) {
 		facts := fact(payload)
 		switch payloadType(record) {
 		case "runtime.session.metadata":
-			if root := firstTruthy(facts.Get("workspace_root"), payload.Get("workspace_root")); root.Truthy() {
-				project = root.Str()
+			if root := firstTruthy(facts.Get("workspace_root"), payload.Get("workspace_root")); !root.IsEmpty() {
+				project = root.Text()
 			}
 		case "runtime.session.route_facts":
-			if facts.Get("cwd").Truthy() {
-				cwd = facts.Get("cwd").Str()
+			if !facts.Get("cwd").IsEmpty() {
+				cwd = facts.Get("cwd").Text()
 			}
 		case "session.workspace_branch.observed":
 			if reference := facts.Get("reference"); isString(reference.Get("kind"), "branch") &&
-				reference.Get("name").Truthy() {
-				branch = reference.Get("name").Str()
+				!reference.Get("name").IsEmpty() {
+				branch = reference.Get("name").Text()
 			}
 		}
 	}
@@ -379,16 +379,16 @@ func workspace(log iter.Seq2[int, pyjson.Value], limit int) (string, string) {
 }
 
 // payloadType returns an envelope's payload_type when it is text, else "".
-func payloadType(record pyjson.Value) string {
+func payloadType(record jsonvalue.Value) string {
 	if kind := record.Get("payload_type"); kind.IsString() {
-		return kind.Text()
+		return kind.StringValue()
 	}
 	return ""
 }
 
 // isString reports whether value is the string want.
-func isString(value pyjson.Value, want string) bool {
-	return value.IsString() && value.Text() == want
+func isString(value jsonvalue.Value, want string) bool {
+	return value.IsString() && value.StringValue() == want
 }
 
 // parentWorkspace returns the project and branch of the nearest ancestor log
@@ -451,7 +451,7 @@ type walk struct {
 type recordStep struct {
 	index                      int
 	line                       int
-	record, payload, facts     pyjson.Value
+	record, payload, facts     jsonvalue.Value
 	runID, model               string
 	sessionID, project, branch string
 	payloadType                string
@@ -475,8 +475,8 @@ func (w *walk) makeRow(step *recordStep, turn, text, toolName, toolUseID string)
 }
 
 // seqOf returns the entries as a sequence of (line, record).
-func seqOf(entries []envelope) iter.Seq2[int, pyjson.Value] {
-	return func(yield func(int, pyjson.Value) bool) {
+func seqOf(entries []envelope) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
 		for _, entry := range entries {
 			if !yield(entry.line, entry.record) {
 				return
@@ -526,12 +526,12 @@ func (w *walk) prepass() {
 		switch kind := payloadType(entry.record); {
 		case kind == "run.model.configured":
 			runKey := facts.Get("run_stream").Get("id")
-			if runKey.Truthy() && facts.Get("model_id").Truthy() {
-				w.runModel[runKey.Str()] = facts.Get("model_id").Str()
+			if !runKey.IsEmpty() && !facts.Get("model_id").IsEmpty() {
+				w.runModel[runKey.Text()] = facts.Get("model_id").Text()
 			}
-		case kind == "runtime.session.metadata" && facts.Get("model_id").Truthy() &&
+		case kind == "runtime.session.metadata" && !facts.Get("model_id").IsEmpty() &&
 			w.sessionModel == "":
-			w.sessionModel = facts.Get("model_id").Str()
+			w.sessionModel = facts.Get("model_id").Text()
 		case kind == "runtime.session" && isString(payload.Get("kind"), "run"):
 			w.noteRunEvent(i, parser.Str(payload.Get("run_id")), payload.Get("event"))
 		}
@@ -539,14 +539,14 @@ func (w *walk) prepass() {
 }
 
 // noteRunEvent records what the pre-pass takes from one run event.
-func (w *walk) noteRunEvent(index int, runKey string, event pyjson.Value) {
+func (w *walk) noteRunEvent(index int, runKey string, event jsonvalue.Value) {
 	messageID := parser.Str(event.Get("message_id"))
 	switch {
 	case isString(event.Get("kind"), "started"):
 		w.startedRuns[runKey] = true
-	case isString(event.Get("kind"), "model_completed") && event.Get("model").Truthy():
+	case isString(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty():
 		if _, set := w.runCompletedModel[runKey]; !set {
-			w.runCompletedModel[runKey] = event.Get("model").Str()
+			w.runCompletedModel[runKey] = event.Get("model").Text()
 		}
 	case isString(event.Get("kind"), "reasoning_summary_committed"):
 		w.committed[messageID] = true
@@ -560,8 +560,8 @@ func (w *walk) record(index int, entry envelope) {
 	payload := entry.record.Get("payload")
 	step := &recordStep{index: index, line: entry.line, record: entry.record, payload: payload,
 		facts: fact(payload), payloadType: payloadType(entry.record)}
-	if streamID := entry.record.Get("stream").Get("id"); streamID.Truthy() && w.sessionID == "" {
-		w.sessionID = streamID.Str()
+	if streamID := entry.record.Get("stream").Get("id"); !streamID.IsEmpty() && w.sessionID == "" {
+		w.sessionID = streamID.Text()
 	}
 	step.runID = parser.Str(payload.Get("run_id"))
 	step.model = firstNonEmpty(w.runModel[step.runID], w.runCompletedModel[step.runID], w.sessionModel)
@@ -569,8 +569,8 @@ func (w *walk) record(index int, entry envelope) {
 	switch {
 	case step.payloadType == "runtime.session.metadata":
 		w.metadata(step)
-	case step.payloadType == "run.model.configured" && step.facts.Get("model_id").Truthy():
-		w.modelRow(step, step.facts.Get("model_id").Str(), step.facts)
+	case step.payloadType == "run.model.configured" && !step.facts.Get("model_id").IsEmpty():
+		w.modelRow(step, step.facts.Get("model_id").Text(), step.facts)
 	case step.payloadType == "runtime.session.permission_format_declared":
 		w.declaredFormat = text(step.facts.Get("format"))
 	case step.payloadType == "runtime.session.permission_profile_committed":
@@ -610,18 +610,18 @@ func firstNonEmpty(texts ...string) string {
 // metadata handles the session metadata record: the model, then the
 // workspace root.
 func (w *walk) metadata(step *recordStep) {
-	if model := step.facts.Get("model_id"); model.Truthy() {
-		w.sessionModel = model.Str()
+	if model := step.facts.Get("model_id"); !model.IsEmpty() {
+		w.sessionModel = model.Text()
 		w.modelRow(step, w.sessionModel, step.facts)
 	}
-	if root := firstTruthy(step.facts.Get("workspace_root"), step.payload.Get("workspace_root")); root.Truthy() {
-		w.project = root.Str()
+	if root := firstTruthy(step.facts.Get("workspace_root"), step.payload.Get("workspace_root")); !root.IsEmpty() {
+		w.project = root.Text()
 	}
 }
 
 // modelRow emits "model: <id>" at the log's first model and "model: <old> ->
 // <new>" on a change, with " provider=<id>" when the record names one.
-func (w *walk) modelRow(step *recordStep, model string, facts pyjson.Value) {
+func (w *walk) modelRow(step *recordStep, model string, facts jsonvalue.Value) {
 	line := w.models.Change("model", w.sessionID, model)
 	if line == "" {
 		return
@@ -710,7 +710,7 @@ func (w *walk) userIntent(step *recordStep) {
 	for _, message := range parser.Elements(step.payload.Get("model_messages")) {
 		for _, block := range parser.Elements(message.Get("content")) {
 			if body := block.Get("text"); body.IsString() {
-				parts = append(parts, body.Text())
+				parts = append(parts, body.StringValue())
 			}
 		}
 	}
@@ -742,10 +742,10 @@ func (w *walk) userShell(step *recordStep) {
 	output := text(step.facts.Get("visible_output"))
 	var notes []string
 	if code := step.facts.Get("exit_code"); !isNoneOrZero(code) {
-		notes = append(notes, "exit "+code.Str())
+		notes = append(notes, "exit "+code.Text())
 	}
-	if state := step.facts.Get("terminal_state"); state.Truthy() && !isString(state, "completed") {
-		notes = append(notes, state.Str())
+	if state := step.facts.Get("terminal_state"); !state.IsEmpty() && !isString(state, "completed") {
+		notes = append(notes, state.Text())
 	}
 	if len(notes) > 0 {
 		output = "[" + strings.Join(notes, ", ") + "] " + output
@@ -759,9 +759,9 @@ func (w *walk) runtimeSession(step *recordStep) {
 	event := step.payload.Get("event")
 	switch {
 	case isString(step.payload.Get("kind"), "run"):
-		if isString(event.Get("kind"), "model_completed") && event.Get("model").Truthy() {
+		if isString(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty() {
 			if _, configured := w.runModel[step.runID]; !configured {
-				w.modelRow(step, event.Get("model").Str(), pyjson.NewObject())
+				w.modelRow(step, event.Get("model").Text(), jsonvalue.NewObject())
 			}
 		}
 		w.runEvent(step, event)
@@ -772,7 +772,7 @@ func (w *walk) runtimeSession(step *recordStep) {
 
 // approval emits the rows of an approval request, its automated review and
 // the decision applied.
-func (w *walk) approval(step *recordStep, event pyjson.Value) {
+func (w *walk) approval(step *recordStep, event jsonvalue.Value) {
 	switch kind := parser.Str(event.Get("kind")); kind {
 	case "requested":
 		toolName, toolID := text(event.Get("tool_name")), text(event.Get("tool_call_id"))
@@ -805,10 +805,10 @@ func (w *walk) approval(step *recordStep, event pyjson.Value) {
 // results their rows, reasoning deltas only when no committed summary
 // exists, "terminal" a row unless "completed", and the logged events rows of
 // compact JSON.
-func (w *walk) runEvent(step *recordStep, event pyjson.Value) {
+func (w *walk) runEvent(step *recordStep, event jsonvalue.Value) {
 	kind := ""
 	if event.Get("kind").IsString() {
-		kind = event.Get("kind").Text()
+		kind = event.Get("kind").StringValue()
 	}
 	switch {
 	case kind == "started":
@@ -827,7 +827,7 @@ func (w *walk) runEvent(step *recordStep, event pyjson.Value) {
 	case kind == "reasoning_summary_committed" || kind == "reasoning_committed":
 		// reasoning_committed text is usually empty: its content is the opaque
 		// encrypted_content.
-		if w.options.IncludeThinking && event.Get("text").Truthy() {
+		if w.options.IncludeThinking && !event.Get("text").IsEmpty() {
 			w.emit(w.makeRow(step, timeline.TurnThinking, text(event.Get("text")), "", ""))
 		}
 	case kind == "reasoning_summary_delta":
@@ -850,7 +850,7 @@ func (w *walk) runEvent(step *recordStep, event pyjson.Value) {
 
 // inbox emits the row of a queued inbox item: the user's steer, or a system
 // row naming the source.
-func (w *walk) inbox(step *recordStep, event pyjson.Value) {
+func (w *walk) inbox(step *recordStep, event jsonvalue.Value) {
 	source := text(event.Get("source").Get("source"))
 	body := text(event.Get("payload").Get("prompt"))
 	if body == "" {
@@ -868,7 +868,7 @@ func (w *walk) inbox(step *recordStep, event pyjson.Value) {
 
 // reasoningDelta gathers the deltas of a reasoning summary that no commit
 // replaces, and emits them as one thinking row at the last delta.
-func (w *walk) reasoningDelta(step *recordStep, event pyjson.Value) {
+func (w *walk) reasoningDelta(step *recordStep, event jsonvalue.Value) {
 	messageID := text(event.Get("message_id"))
 	if w.committed[messageID] {
 		return
@@ -887,7 +887,7 @@ func (w *walk) reasoningDelta(step *recordStep, event pyjson.Value) {
 }
 
 // toolCalls emits one tool_use row per call of a committed list.
-func (w *walk) toolCalls(step *recordStep, event pyjson.Value) {
+func (w *walk) toolCalls(step *recordStep, event jsonvalue.Value) {
 	for _, call := range parser.Elements(event.Get("tool_calls")) {
 		name, callID := text(call.Get("name")), text(call.Get("call_id"))
 		w.calls[callID] = name
@@ -897,14 +897,14 @@ func (w *walk) toolCalls(step *recordStep, event pyjson.Value) {
 
 // toolResults emits one tool_result row per result of a results event, or
 // of the event itself when it holds no list.
-func (w *walk) toolResults(step *recordStep, event pyjson.Value) {
-	items := []pyjson.Value{event}
+func (w *walk) toolResults(step *recordStep, event jsonvalue.Value) {
+	items := []jsonvalue.Value{event}
 	if results := event.Get("results"); results.IsArray() {
 		items = results.Items()
 	}
 	for _, result := range items {
 		callID := text(firstTruthy(result.Get("tool_call_id"), result.Get("call_id")))
-		raw := pyjson.NewString("")
+		raw := jsonvalue.NewString("")
 		for _, key := range resultKeys {
 			if value := result.Get(key); !value.IsNull() {
 				raw = value
@@ -916,7 +916,7 @@ func (w *walk) toolResults(step *recordStep, event pyjson.Value) {
 }
 
 // providerTool emits the call and the result of a tool the provider ran.
-func (w *walk) providerTool(step *recordStep, event pyjson.Value) {
+func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
 	callID := text(event.Get("call_id"))
 	action := event.Get("action")
 	name := firstNonEmpty(text(action.Get("type")), "provider_tool")
@@ -949,7 +949,7 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 	row := p.SystemRow(artifact, "")
 	row.SourceLine = 1
 	row.TimestampUTC = timestamp
-	document, err := pyjson.DecodeString(pytext.DecodeUTF8(content))
+	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
 	if err != nil || !document.IsObject() {
 		row.Text = "parser: trust.json is not a JSON object"
 		emit(row)
@@ -977,7 +977,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		text string
 	}
 	var pending *prompt
-	send := func(held *prompt, meta pyjson.Value) {
+	send := func(held *prompt, meta jsonvalue.Value) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = held.line
 		row.TurnType = timeline.TurnUser
@@ -991,7 +991,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		if stripped == "" {
 			continue
 		}
-		record, err := pyjson.Decode([]byte(stripped))
+		record, err := jsonvalue.Decode([]byte(stripped))
 		if err != nil {
 			problems.AddRaw(number, parser.UnparseableLine(err), parser.LineText(raw))
 			continue
@@ -999,16 +999,16 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		switch {
 		case record.IsString():
 			if pending != nil {
-				send(pending, pyjson.NewNull())
+				send(pending, jsonvalue.NewNull())
 			}
-			pending = &prompt{number, record.Text()}
+			pending = &prompt{number, record.StringValue()}
 		case record.IsObject() && pending != nil:
 			send(pending, record)
 			pending = nil
 		}
 	}
 	if pending != nil {
-		send(pending, pyjson.NewNull())
+		send(pending, jsonvalue.NewNull())
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows each file gives are proved against the Python analyzer by the
@@ -147,7 +147,6 @@ func TestEqualComparesValuesAsPythonDoes(t *testing.T) {
 		{"null", "false", false},
 		{"[]", "{}", false},
 		{"100000000000000000001", "1e20", false},
-		{"NaN", "NaN", false},
 		{"0.1", "0.1000000000000000055511151231257827", true},
 	}
 	for _, test := range tests {
@@ -219,9 +218,9 @@ func write(t *testing.T, path, text string) {
 }
 
 // decode returns the JSON text decoded.
-func decode(t *testing.T, text string) pyjson.Value {
+func decode(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}

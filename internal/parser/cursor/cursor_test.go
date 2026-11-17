@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The expected values in this file come from running the Python helpers
@@ -104,7 +104,7 @@ func TestRunModeNamesTheUIsLabel(t *testing.T) {
 		{`{"autoRun": false, "fullAutoRun": true}`, true, "Run Everything"},
 	} {
 		t.Run(test.want, func(t *testing.T) {
-			mode, _ := pyjson.DecodeString(test.mode)
+			mode, _ := jsonvalue.DecodeString(test.mode)
 			if got := runMode(mode, test.sandbox); got != test.want {
 				t.Errorf("runMode(%s, %v) = %q, want %q", test.mode, test.sandbox, got, test.want)
 			}

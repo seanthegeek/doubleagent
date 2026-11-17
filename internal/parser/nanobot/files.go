@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/aider"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -15,18 +15,18 @@ import (
 // loadObject returns the JSON object of a whole-file artifact, or false
 // and the `parser:` row that says why there is none; what names the file
 // in that row.
-func (p *Parser) loadObject(artifact *input.Artifact, what string) (pyjson.Value, timeline.Row, bool) {
+func (p *Parser) loadObject(artifact *input.Artifact, what string) (jsonvalue.Value, timeline.Row, bool) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
-		return pyjson.Value{}, p.ProblemRow(artifact, problems[0].Message), false
+		return jsonvalue.Value{}, p.ProblemRow(artifact, problems[0].Message), false
 	}
-	value, err := pyjson.Decode(content)
+	value, err := jsonvalue.Decode(content)
 	switch {
 	case err != nil:
-		return pyjson.Value{}, p.ProblemRow(artifact, what+" did not parse: "+err.Error()), false
+		return jsonvalue.Value{}, p.ProblemRow(artifact, what+" did not parse: "+err.Error()), false
 	case !value.IsObject():
-		return pyjson.Value{}, p.ProblemRow(artifact, what+" is not a JSON object"), false
+		return jsonvalue.Value{}, p.ProblemRow(artifact, what+" is not a JSON object"), false
 	}
 	return value, timeline.Row{}, true
 }
@@ -96,8 +96,8 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 		key := parser.Str(entry.Get("key"))
 		parts := []string{"webui sidebar entry: key=" + key}
 		for _, name := range []string{"title", "preview", "model_preset", "updated_at"} {
-			if value := entry.Get(name); value.Truthy() {
-				parts = append(parts, name+"="+value.Str())
+			if value := entry.Get(name); !value.IsEmpty() {
+				parts = append(parts, name+"="+value.Text())
 			}
 		}
 		parts = append(parts, "(from .webui_session_index.json version "+getOr(data, "version", "")+")")
@@ -133,11 +133,11 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		status := ""
-		if value := info.Get("delivery_status"); value.Truthy() {
-			status = " delivery_status=" + value.Str()
+		if value := info.Get("delivery_status"); !value.IsEmpty() {
+			status = " delivery_status=" + value.Text()
 		}
-		sender := pyjson.NewString("")
-		if value := info.Get("sender_id"); value.Truthy() {
+		sender := jsonvalue.NewString("")
+		if value := info.Get("sender_id"); !value.IsEmpty() {
 			sender = value
 		}
 		emit(p.settingRow(artifact, timeutil.FromValue(info.Get("created_at")), fmt.Sprintf(
@@ -148,7 +148,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // objectMembers returns the members of an object, none for anything else.
-func objectMembers(value pyjson.Value) []pyjson.Member {
+func objectMembers(value jsonvalue.Value) []jsonvalue.Member {
 	if !value.IsObject() {
 		return nil
 	}
@@ -177,13 +177,13 @@ func configExecKeys() [][]string {
 }
 
 // firstKey returns the first of names the object holds, with its value.
-func firstKey(object pyjson.Value, names []string) (string, pyjson.Value, bool) {
+func firstKey(object jsonvalue.Value, names []string) (string, jsonvalue.Value, bool) {
 	for _, name := range names {
 		if value, ok := object.Lookup(name); ok && object.IsObject() {
 			return name, value, true
 		}
 	}
-	return "", pyjson.Value{}, false
+	return "", jsonvalue.Value{}, false
 }
 
 // parseConfig emits one `permission setting:` row per standing setting of
@@ -196,11 +196,11 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		emit(problem)
 		return
 	}
-	var settings []pyjson.Member
-	add := func(prefix string, object pyjson.Value, keys [][]string) {
+	var settings []jsonvalue.Member
+	add := func(prefix string, object jsonvalue.Value, keys [][]string) {
 		for _, names := range keys {
 			if name, value, found := firstKey(object, names); found {
-				settings = append(settings, pyjson.Member{Key: prefix + name, Value: value})
+				settings = append(settings, jsonvalue.Member{Key: prefix + name, Value: value})
 			}
 		}
 	}
@@ -212,7 +212,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	}
 	timestamp := parser.FileMtime(artifact)
 	for _, setting := range settings {
-		entries := []pyjson.Value{setting.Value}
+		entries := []jsonvalue.Value{setting.Value}
 		if setting.Value.IsArray() {
 			entries = setting.Value.Items()
 		}

@@ -2,8 +2,8 @@ package vscode
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -18,7 +18,7 @@ func (p *Parser) cloudSessions(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := pyjson.DecodeString(pytext.DecodeUTF8(data))
+	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(data))
 	if err != nil || !document.IsObject() {
 		why := ""
 		if err != nil {
@@ -80,7 +80,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 // settingTexts returns the "permission setting:" texts of one
 // settings.json key: one per entry of a non-empty object value
 // ("<key>.<entry>=<value>"), else one ("<key>=<value>").
-func settingTexts(key string, value pyjson.Value) []string {
+func settingTexts(key string, value jsonvalue.Value) []string {
 	if !value.IsObject() || value.Len() == 0 {
 		return []string{"permission setting: " + key + "=" + parser.SettingValue(value)}
 	}
@@ -97,9 +97,9 @@ func settingTexts(key string, value pyjson.Value) []string {
 func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
 	project, _ := workspaceJSON(artifact, 2, &problems)
-	document := pyjson.NewNull()
+	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		decoded, err := pyjson.DecodeString(pytext.DecodeUTF8(data))
+		decoded, err := jsonvalue.DecodeString(pytext.DecodeUTF8(data))
 		switch {
 		case err != nil:
 			problems.Add(0, "file is not valid JSON ("+err.Error()+")")

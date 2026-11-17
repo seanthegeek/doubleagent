@@ -3,8 +3,8 @@ package opencode
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The refusal texts a tool's error carries. 1.x and Kilo Code store the
@@ -29,9 +29,9 @@ func toolKeys() []string {
 // (joined as "<pattern> | <path>" when a path is given too), path, url,
 // query, description and prompt. A string input is itself; null, "" and
 // an empty object give ""; any other input is its compact JSON.
-func ToolSummary(toolInput pyjson.Value) string {
+func ToolSummary(toolInput jsonvalue.Value) string {
 	if toolInput.IsString() {
-		return toolInput.Text()
+		return toolInput.StringValue()
 	}
 	if toolInput.IsObject() {
 		for _, key := range toolKeys() {
@@ -40,9 +40,9 @@ func ToolSummary(toolInput pyjson.Value) string {
 				continue
 			}
 			if place := toolInput.Get("path"); key == "pattern" && isFilled(place) {
-				return argument.Text() + " | " + place.Text()
+				return argument.StringValue() + " | " + place.StringValue()
 			}
-			return argument.Text()
+			return argument.StringValue()
 		}
 		if toolInput.Len() == 0 {
 			return ""
@@ -55,36 +55,36 @@ func ToolSummary(toolInput pyjson.Value) string {
 }
 
 // isFilled reports whether value is a non-empty string.
-func isFilled(value pyjson.Value) bool {
-	return value.IsString() && value.Text() != ""
+func isFilled(value jsonvalue.Value) bool {
+	return value.IsString() && value.StringValue() != ""
 }
 
 // textOf returns a string value's text, "" for any other value.
-func textOf(value pyjson.Value) string {
+func textOf(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return ""
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // objectOf returns value when it is an object, else an empty object, so a
 // chain of lookups reads a missing level as empty.
-func objectOf(value pyjson.Value) pyjson.Value {
+func objectOf(value jsonvalue.Value) jsonvalue.Value {
 	if value.IsObject() {
 		return value
 	}
-	return pyjson.NewObject()
+	return jsonvalue.NewObject()
 }
 
 // firstTruthy returns the first value Python counts as true, else the last.
-func firstTruthy(values ...pyjson.Value) pyjson.Value {
+func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -104,16 +104,16 @@ func join(parts ...string) string {
 
 // labelled returns label followed by the value's text when the value counts
 // as true, else "": the "key=value" parts of a row text.
-func labelled(label string, value pyjson.Value) string {
-	if !value.Truthy() {
+func labelled(label string, value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
-	return label + value.Str()
+	return label + value.Text()
 }
 
 // modelName returns "<provider>/<model>", or whichever of the two is a
 // non-empty string.
-func modelName(provider, model pyjson.Value) string {
+func modelName(provider, model jsonvalue.Value) string {
 	providerText, modelText := textOf(provider), textOf(model)
 	if providerText != "" && modelText != "" {
 		return providerText + "/" + modelText
@@ -127,22 +127,22 @@ func modelName(provider, model pyjson.Value) string {
 // messageRef returns the provider and model id of a 1.x message: the
 // assistant's own providerID and modelID, else the user message's model
 // object (its modelID, else its id).
-func messageRef(message pyjson.Value) (pyjson.Value, pyjson.Value) {
+func messageRef(message jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
 	if isText(message.Get("role"), "assistant") {
 		return message.Get("providerID"), message.Get("modelID")
 	}
 	if model := message.Get("model"); model.IsObject() {
 		return model.Get("providerID"), firstTruthy(model.Get("modelID"), model.Get("id"))
 	}
-	return pyjson.NewNull(), pyjson.NewNull()
+	return jsonvalue.NewNull(), jsonvalue.NewNull()
 }
 
 // errorText returns an error value as row text: a string as it is; for an
 // object its name (else type) and its data.message (else message) joined,
 // else the object as compact JSON; "" for a value Python counts as false.
-func errorText(raw pyjson.Value) string {
+func errorText(raw jsonvalue.Value) string {
 	if raw.IsString() {
-		return raw.Text()
+		return raw.StringValue()
 	}
 	failure := objectOf(raw)
 	data := objectOf(failure.Get("data"))
@@ -151,7 +151,7 @@ func errorText(raw pyjson.Value) string {
 	if text := join(parser.Str(name), parser.Str(message)); text != "" {
 		return text
 	}
-	if raw.Truthy() {
+	if !raw.IsEmpty() {
 		return parser.CompactJSON(raw)
 	}
 	return ""
@@ -161,11 +161,11 @@ func errorText(raw pyjson.Value) string {
 // records a refusal, else "". The 2.0 permission.rejected type covers both
 // a deny rule and a rejection with feedback, which its message does not
 // tell apart, so it keeps the agent's own term.
-func decisionText(failure pyjson.Value) string {
+func decisionText(failure jsonvalue.Value) string {
 	var kind, message string
 	switch {
 	case failure.IsString():
-		message = failure.Text()
+		message = failure.StringValue()
 	case failure.IsObject():
 		kind, message = textOf(failure.Get("type")), textOf(failure.Get("message"))
 	default:
@@ -197,7 +197,7 @@ type rule struct {
 // JSON array. Entries of neither shape are skipped; a missing or empty
 // field reads "-".
 func sessionRules(text string) ([]rule, bool) {
-	rules, err := pyjson.DecodeString(text)
+	rules, err := jsonvalue.DecodeString(text)
 	if err != nil || !rules.IsArray() {
 		return nil, false
 	}
@@ -221,10 +221,10 @@ func sessionRules(text string) ([]rule, bool) {
 
 // ruleField returns a rule's field as text, "-" when it is missing, null or
 // the empty string.
-func ruleField(entry pyjson.Value, key string) string {
+func ruleField(entry jsonvalue.Value, key string) string {
 	value := entry.Get(key)
 	if value.IsNull() || isText(value, "") {
 		return "-"
 	}
-	return value.Str()
+	return value.Text()
 }

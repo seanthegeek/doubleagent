@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -17,9 +17,9 @@ import (
 // running the analyzer's functions on the same inputs.
 
 // decode returns the JSON text decoded, failing the test when it is not.
-func decode(t *testing.T, text string) pyjson.Value {
+func decode(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestMergeDeltaExtendsTheLastBlockOfTheSameKind(t *testing.T) {
 	blocks = mergeDelta(blocks, decode(t, `[{"type":"text","text":"b","annotations":{"audience":["user"]}}]`).Items())
 	blocks = mergeDelta(blocks, decode(t, `[{"type":"text","text":"c"}]`).Items())
 	want := `[{"type":"text","text":"ab","annotations":{"audience":["user"]}},{"type":"text","text":"c"}]`
-	if got := pyjson.Compact(pyjson.NewArray(blocks...)); got != want {
+	if got := jsonvalue.NewArray(blocks...).JSON(); got != want {
 		t.Errorf("text: got %s, want %s", got, want)
 	}
 	thinking := decode(t, `[{"type":"thinking","thinking":"x"}]`).Items()
@@ -118,7 +118,7 @@ func TestMergeDeltaExtendsTheLastBlockOfTheSameKind(t *testing.T) {
 	thinking = mergeDelta(thinking, decode(t, `[{"type":"thinking","thinking":"z","signature":"other"}]`).Items())
 	want = `[{"type":"thinking","thinking":"xy","signature":"s"},` +
 		`{"type":"thinking","thinking":"z","signature":"other"}]`
-	if got := pyjson.Compact(pyjson.NewArray(thinking...)); got != want {
+	if got := jsonvalue.NewArray(thinking...).JSON(); got != want {
 		t.Errorf("thinking: got %s, want %s", got, want)
 	}
 }

@@ -3,7 +3,7 @@ package parser
 import (
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -94,7 +94,7 @@ func StripJSONC(text string) string {
 // UTF-8 with replacement, a leading byte-order mark dropped, comments and
 // trailing commas stripped. It returns the decoder's error for text that is
 // still not JSON.
-func ParseJSONC(raw []byte) (pyjson.Value, error) {
+func ParseJSONC(raw []byte) (jsonvalue.Value, error) {
 	text := strings.TrimPrefix(pytext.DecodeUTF8(raw), byteOrderMark)
-	return pyjson.DecodeString(StripJSONC(text))
+	return jsonvalue.DecodeString(StripJSONC(text))
 }

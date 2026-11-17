@@ -117,7 +117,7 @@ func TestActive(t *testing.T) {
 
 func TestCompilePatterns(t *testing.T) {
 	if _, err := CompilePatterns([]string{"ok", "("}, false); err == nil ||
-		err.Error() != "--match '(': error parsing regexp: missing closing ): `(`" {
+		err.Error() != "--match \"(\": error parsing regexp: missing closing ): `(`" {
 		t.Errorf("error %v", err)
 	}
 	patterns := mustCompile(t, true, "rm -RF")

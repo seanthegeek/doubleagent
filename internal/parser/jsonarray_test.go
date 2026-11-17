@@ -3,8 +3,6 @@ package parser
 import (
 	"slices"
 	"testing"
-
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The positions, problems and ends are what the Python analyzer's
@@ -23,22 +21,22 @@ func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 		{"an object is not an array", `{}`, 0, nil, Problems{{Line: 1, Message: "not a JSON array"}}, -1},
 		{"empty text is not an array", ``, 0, nil, Problems{{Line: 1, Message: "not a JSON array"}}, -1},
 		{"a record cut off keeps the ones before", `[1, {"a":`, 0, []string{"1"}, Problems{{Line: 2,
-			Message: "unparseable record 2 (invalid JSON at line 1, column 10: expected a value)",
+			Message: "unparseable record 2 (invalid JSON at line 1, column 10: unexpected end of JSON input)",
 			Raw:     `{"a":`}}, -1},
 		{"a missing comma cuts the array off", `[1 2]`, 0, []string{"1"},
 			Problems{{Line: 2, Message: "array cut off after record 1"}}, -1},
 		{"a trailing comma is a bad record", `[1,]`, 0, []string{"1"}, Problems{{Line: 2,
-			Message: "unparseable record 2 (invalid JSON at line 1, column 4: expected a value)",
+			Message: "unparseable record 2 (invalid JSON at line 1, column 4: invalid character ']' looking for beginning of value)",
 			Raw:     "]"}}, -1},
 		{"a lone bracket", `[`, 0, nil, Problems{{Line: 1,
-			Message: "unparseable record 1 (invalid JSON at line 1, column 2: expected a value)"}}, -1},
+			Message: "unparseable record 1 (invalid JSON at line 1, column 2: unexpected end of JSON input)"}}, -1},
 		{"an array after an offset", `x [ {"a":1} , "é"] tail`, 2, []string{`{"a":1}`, `"é"`}, nil,
 			19},
 		{"an array without its bracket", "[1, 2\n", 0, []string{"1", "2"},
 			Problems{{Line: 3, Message: "array cut off after record 2"}}, -1},
 		{"a bad record's raw text loses its line end", "[1, @\r\n", 0, []string{"1"},
 			Problems{{Line: 2, Message: "unparseable record 2 (invalid JSON at line 1, column 5: " +
-				"expected a value)", Raw: "@"}}, -1},
+				"invalid character '@' looking for beginning of value)", Raw: "@"}}, -1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -51,7 +49,7 @@ func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 				if index != position {
 					t.Errorf("position %d, want %d", index, position)
 				}
-				items = append(items, pyjson.Compact(value))
+				items = append(items, value.JSON())
 			}
 			if !slices.Equal(items, test.items) || !slices.Equal(problems, test.problems) ||
 				end != test.end {
@@ -137,20 +135,20 @@ func TestArrayElementsSalvagesTheElementsBeforeDamage(t *testing.T) {
 		{"an opening bracket alone", "[\n", nil,
 			Problems{{Line: 1, Message: "array cut off after record 0"}}},
 		{"a trailing comma before the bracket is a bad record", `[1,]`, []string{"1"}, Problems{{Line: 2,
-			Message: "unparseable record 2 (invalid JSON at line 1, column 4: expected a value)",
+			Message: "unparseable record 2 (invalid JSON at line 1, column 4: invalid character ']' looking for beginning of value)",
 			Raw:     "]"}}},
 		{"a missing comma cuts the array off", `[1 2]`, []string{"1"},
 			Problems{{Line: 2, Message: "array cut off after record 1"}}},
 		{"no closing bracket", `[1`, []string{"1"},
 			Problems{{Line: 2, Message: "array cut off after record 1"}}},
 		{"a record cut off keeps the ones before", `[1, {"a"`, []string{"1"}, Problems{{Line: 2,
-			Message: "unparseable record 2 (invalid JSON at line 1, column 9: expected ':' after a property name)",
+			Message: "unparseable record 2 (invalid JSON at line 1, column 9: unexpected end of JSON input)",
 			Raw:     `{"a"`}}},
 		{"a bad third record", `[1,"é", tru]`, []string{"1", `"é"`}, Problems{{Line: 3,
-			Message: "unparseable record 3 (invalid JSON at line 1, column 9: expected a value)",
+			Message: "unparseable record 3 (invalid JSON at line 1, column 12: invalid character ']' in literal true)",
 			Raw:     "tru]"}}},
 		{"a comma first", `[,1]`, nil, Problems{{Line: 1,
-			Message: "unparseable record 1 (invalid JSON at line 1, column 2: expected a value)",
+			Message: "unparseable record 1 (invalid JSON at line 1, column 2: invalid character ',' looking for beginning of value)",
 			Raw:     ",1]"}}},
 	}
 	for _, test := range tests {
@@ -158,7 +156,7 @@ func TestArrayElementsSalvagesTheElementsBeforeDamage(t *testing.T) {
 			var problems Problems
 			var items []string
 			for _, value := range ArrayElements(test.text, &problems) {
-				items = append(items, pyjson.Compact(value))
+				items = append(items, value.JSON())
 			}
 			if !slices.Equal(items, test.items) || !slices.Equal(problems, test.problems) {
 				t.Errorf("got %q, %+v; want %q, %+v", items, problems, test.items, test.problems)

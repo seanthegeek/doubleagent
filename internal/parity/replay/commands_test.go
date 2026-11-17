@@ -19,10 +19,10 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/analyze"
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The reasons a recorded command case is not compared in full, as the test
@@ -634,22 +634,22 @@ func rootKeyOrder(t testing.TB, text, root string) string {
 	if !strings.Contains(text, root) {
 		return text
 	}
-	document, err := pyjson.DecodeString(text)
+	document, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatalf("inventory.json: %v", err)
 	}
-	var members []pyjson.Member
+	var members []jsonvalue.Member
 	for _, entry := range document.Members() {
 		if slices.Contains(rootSortedObjects(), entry.Key) {
 			sorted := slices.Clone(entry.Value.Members())
-			slices.SortStableFunc(sorted, func(left, right pyjson.Member) int {
+			slices.SortStableFunc(sorted, func(left, right jsonvalue.Member) int {
 				return strings.Compare(left.Key, right.Key)
 			})
-			entry.Value = pyjson.NewObject(sorted...)
+			entry.Value = jsonvalue.NewObject(sorted...)
 		}
 		members = append(members, entry)
 	}
-	return pyjson.Indented(pyjson.NewObject(members...))
+	return jsonvalue.NewObject(members...).IndentedJSON("  ")
 }
 
 // comparePart compares what does not depend on the parsers of a case that

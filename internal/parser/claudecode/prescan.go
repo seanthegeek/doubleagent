@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -51,25 +51,25 @@ func prescanFile(artifact *input.Artifact) *prescan {
 }
 
 // record adds one record to the prescan.
-func (s *prescan) record(line int, record pyjson.Value) {
+func (s *prescan) record(line int, record jsonvalue.Value) {
 	recordType := record.Get("type")
-	if s.cwd == "" && record.Get("cwd").Truthy() {
-		s.cwd = record.Get("cwd").Str()
+	if s.cwd == "" && !record.Get("cwd").IsEmpty() {
+		s.cwd = record.Get("cwd").Text()
 	}
-	if s.branch == "" && record.Get("gitBranch").Truthy() {
-		s.branch = record.Get("gitBranch").Str()
+	if s.branch == "" && !record.Get("gitBranch").IsEmpty() {
+		s.branch = record.Get("gitBranch").Text()
 	}
 	if flag, ok := record.Get("remoteSourced").Bool(); ok && flag {
 		s.remoteLast = line
 	}
 	if isText(recordType, "system") && isText(record.Get("subtype"), "bridge_status") &&
-		record.Get("url").Truthy() {
-		s.bridgeURLs = append(s.bridgeURLs, bridgeStatus{line: line, url: record.Get("url").Str()})
+		!record.Get("url").IsEmpty() {
+		s.bridgeURLs = append(s.bridgeURLs, bridgeStatus{line: line, url: record.Get("url").Text()})
 	}
 	if isText(recordType, "bridge-session") {
 		bridgeID := record.Get("bridgeSessionId")
-		named := bridgeID.IsString() && bridgeID.Text() != ""
-		s.bridgeLines = append(s.bridgeLines, bridgeLine{line: line, bridgeID: bridgeID.Text(),
+		named := bridgeID.IsString() && bridgeID.StringValue() != ""
+		s.bridgeLines = append(s.bridgeLines, bridgeLine{line: line, bridgeID: bridgeID.StringValue(),
 			named: named})
 	}
 	switch {
@@ -84,13 +84,13 @@ func (s *prescan) record(line int, record pyjson.Value) {
 }
 
 // user adds a user record's prompt texts to the prescan.
-func (s *prescan) user(line int, record pyjson.Value) {
+func (s *prescan) user(line int, record jsonvalue.Value) {
 	if isText(record.Get("entrypoint"), "sdk-cli") && isText(record.Get("promptSource"), "sdk") {
 		s.sdkSpawn = true
 	}
 	content := record.Get("message").Get("content")
 	if content.IsString() {
-		s.deliver(content.Text(), line)
+		s.deliver(content.StringValue(), line)
 		return
 	}
 	for _, block := range content.Items() {

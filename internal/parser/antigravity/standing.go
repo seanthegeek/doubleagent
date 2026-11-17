@@ -2,8 +2,8 @@ package antigravity
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -29,7 +29,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 // the project it concerns.
 type entry struct {
 	key     string
-	value   pyjson.Value
+	value   jsonvalue.Value
 	project string
 }
 
@@ -43,7 +43,7 @@ func (p *Parser) standing(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	mtime := parser.FileMtime(artifact)
-	document, err := pyjson.DecodeString(pytext.DecodeUTF8(content))
+	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
 	if err != nil || !document.IsObject() {
 		row := p.SystemRow(artifact, "parser: unreadable "+artifact.Rel)
 		row.SourceLine, row.TimestampUTC = 1, mtime
@@ -60,7 +60,7 @@ func (p *Parser) standing(artifact *input.Artifact, emit parser.Emit) {
 
 // listEntries returns an entry per item of an array, none for anything
 // else.
-func listEntries(key string, list pyjson.Value, project string) []entry {
+func listEntries(key string, list jsonvalue.Value, project string) []entry {
 	var out []entry
 	for _, value := range list.Items() {
 		out = append(out, entry{key, value, project})
@@ -75,7 +75,7 @@ func listEntries(key string, list pyjson.Value, project string) []entry {
 // permissionGrants and the first projectResources.resources[].folderUri (a
 // project); agent_permissions.access_grants (a sidecar); permissions.allow,
 // .deny and trustedWorkspaces (settings.json).
-func standingEntries(rel string, document pyjson.Value) []entry {
+func standingEntries(rel string, document jsonvalue.Value) []entry {
 	switch {
 	case rel == configRel:
 		return configEntries(document)
@@ -90,11 +90,11 @@ func standingEntries(rel string, document pyjson.Value) []entry {
 		for _, value := range document.Get("trustedWorkspaces").Items() {
 			path := ""
 			if value.IsString() {
-				path = URIToPath(value.Text())
+				path = URIToPath(value.StringValue())
 			}
 			shown := value
 			if path != "" {
-				shown = pyjson.NewString(path)
+				shown = jsonvalue.NewString(path)
 			}
 			out = append(out, entry{"trustedWorkspace", shown, path})
 		}
@@ -104,7 +104,7 @@ func standingEntries(rel string, document pyjson.Value) []entry {
 }
 
 // configEntries returns the permission entries of .gemini/config/config.json.
-func configEntries(document pyjson.Value) []entry {
+func configEntries(document jsonvalue.Value) []entry {
 	settings := document.Get("userSettings")
 	grants := settings.Get("globalPermissionGrants")
 	out := listEntries("userSettings.globalPermissionGrants.allow", grants.Get("allow"), "")
@@ -126,11 +126,11 @@ func configEntries(document pyjson.Value) []entry {
 
 // projectEntries returns the permission entries of a project file, each
 // with the project's first folder.
-func projectEntries(document pyjson.Value) []entry {
+func projectEntries(document jsonvalue.Value) []entry {
 	folder := ""
 	for _, resource := range document.Get("projectResources").Get("resources").Items() {
-		if uri := resource.Get("folderUri"); uri.IsString() && uri.Text() != "" {
-			folder = URIToPath(uri.Text())
+		if uri := resource.Get("folderUri"); uri.IsString() && uri.StringValue() != "" {
+			folder = URIToPath(uri.StringValue())
 			break
 		}
 	}

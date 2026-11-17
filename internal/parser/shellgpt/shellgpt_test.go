@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of the chat, settings and cache files are proved against the
@@ -56,15 +56,15 @@ func TestCallTextPrefersTheShellCommand(t *testing.T) {
 		{"a string holding an array", `"[1]"`, "[1]"},
 		{"an object with a command", `{"shell_command":"a"}`, "a"},
 		{"an object without one is spaced and sorted", `{"b":1,"a":[1,2.5]}`,
-			`{"a": [1, 2.5], "b": 1}`},
+			`{"b":1,"a":[1,2.5]}`},
 		{"null", `null`, ""},
 		{"a number", `5`, "5"},
-		{"a boolean", `true`, "True"},
-		{"an array is a Python list", `["x",1]`, "['x', 1]"},
+		{"a boolean", `true`, "true"},
+		{"an array is JSON", `["x",1]`, `["x",1]`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			arguments, err := pyjson.DecodeString(test.arguments)
+			arguments, err := jsonvalue.DecodeString(test.arguments)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -3,7 +3,7 @@ package analyze
 import (
 	"slices"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -171,7 +171,7 @@ func agentList(counts []fileCounts) []agentFiles {
 // display path.
 type projectEntryJSON struct {
 	path  string
-	value pyjson.Value
+	value jsonvalue.Value
 }
 
 // entries returns each project's object in order of its display path: the
@@ -193,7 +193,7 @@ func (p *projectInventory) entries(marks []sessionMark,
 
 // entry returns the object of one project key.
 func (p *projectInventory) entry(key string, marks []sessionMark,
-	remotes map[string]map[string]bool) pyjson.Value {
+	remotes map[string]map[string]bool) jsonvalue.Value {
 	totals, path := p.groups[key], p.names[key]
 	var disk *onDisk
 	if path != "" {
@@ -202,22 +202,22 @@ func (p *projectInventory) entry(key string, marks []sessionMark,
 			disk = &onDisk{git: emptyGit()}
 		}
 	}
-	members := []pyjson.Member{}
+	members := []jsonvalue.Member{}
 	if disk != nil {
 		status := "referenced"
 		if p.collected[key] {
 			status = "collected"
 		}
-		members = append(members, member("status", pyjson.NewString(status)))
+		members = append(members, member("status", jsonvalue.NewString(status)))
 	}
-	members = append(members, member("rows", pyjson.NewInt(int64(totals.rows))),
-		member("sessions", pyjson.NewInt(int64(totals.sessions))),
+	members = append(members, member("rows", jsonvalue.NewInt(int64(totals.rows))),
+		member("sessions", jsonvalue.NewInt(int64(totals.sessions))),
 		member("agents", agentTallies(totals.agents, disk)))
 	if disk != nil {
-		members = append(members, member("shared_files", pyjson.NewInt(disk.sharedFiles)))
+		members = append(members, member("shared_files", jsonvalue.NewInt(disk.sharedFiles)))
 	}
 	for _, mark := range marks {
-		members = append(members, member(mark.key, pyjson.NewString(mark.label(p.marks[key], totals.agents))))
+		members = append(members, member(mark.key, jsonvalue.NewString(mark.label(p.marks[key], totals.agents))))
 	}
 	if disk != nil {
 		git := emptyGit()
@@ -225,36 +225,36 @@ func (p *projectInventory) entry(key string, marks []sessionMark,
 			git = disk.git
 		}
 		members = append(members, member("remotes", remotesJSON(git.remotes)),
-			member("head", pyjson.NewString(git.head)),
+			member("head", jsonvalue.NewString(git.head)),
 			member("recorded_remotes", stringArray(sortedKeys(remotes[key]))))
 	}
-	return pyjson.NewObject(members...)
+	return jsonvalue.NewObject(members...)
 }
 
 // agentTallies returns the agents object of a project: per agent, sorted,
 // its rows, sessions and turn types and, with disk, its files and bytes.
-func agentTallies(agents map[string]*agentTally, disk *onDisk) pyjson.Value {
-	var members []pyjson.Member
+func agentTallies(agents map[string]*agentTally, disk *onDisk) jsonvalue.Value {
+	var members []jsonvalue.Member
 	for _, agent := range sortedKeys(agents) {
 		tally := agents[agent]
-		var turnTypes []pyjson.Member
+		var turnTypes []jsonvalue.Member
 		for _, turnType := range sortedKeys(tally.turnTypes) {
-			turnTypes = append(turnTypes, member(turnType, pyjson.NewInt(int64(tally.turnTypes[turnType]))))
+			turnTypes = append(turnTypes, member(turnType, jsonvalue.NewInt(int64(tally.turnTypes[turnType]))))
 		}
-		fields := []pyjson.Member{member("rows", pyjson.NewInt(int64(tally.rows))),
-			member("sessions", pyjson.NewInt(int64(tally.sessions))),
-			member("turn_types", pyjson.NewObject(turnTypes...))}
+		fields := []jsonvalue.Member{member("rows", jsonvalue.NewInt(int64(tally.rows))),
+			member("sessions", jsonvalue.NewInt(int64(tally.sessions))),
+			member("turn_types", jsonvalue.NewObject(turnTypes...))}
 		if disk != nil {
 			var files fileCounts
 			if index := slices.IndexFunc(disk.agents, func(each fileCounts) bool { return each.agent == agent }); index >= 0 {
 				files = disk.agents[index]
 			}
-			fields = append(fields, member("files", pyjson.NewInt(files.files)),
-				member("bytes", pyjson.NewInt(files.bytes)))
+			fields = append(fields, member("files", jsonvalue.NewInt(files.files)),
+				member("bytes", jsonvalue.NewInt(files.bytes)))
 		}
-		members = append(members, member(agent, pyjson.NewObject(fields...)))
+		members = append(members, member(agent, jsonvalue.NewObject(fields...)))
 	}
-	return pyjson.NewObject(members...)
+	return jsonvalue.NewObject(members...)
 }
 
 // compareText orders two texts by code point, as Python compares strings.

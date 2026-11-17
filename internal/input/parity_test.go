@@ -13,8 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // parityPython returns the interpreter PARITY_PYTHON names and the
@@ -200,7 +198,7 @@ func dumpCollection(collection *Collection) string {
 	for _, artifact := range collection.Artifacts {
 		manifest := "-"
 		if artifact.Manifest.IsObject() {
-			manifest = dumpField(pyjson.Compact(artifact.Manifest))
+			manifest = dumpField(artifact.Manifest.JSON())
 		}
 		lines = append(lines, strings.Join([]string{"artifact", strconv.Itoa(index[artifact.Home]),
 			dumpField(artifact.Agent), dumpField(artifact.Rel), dumpField(artifact.Original),

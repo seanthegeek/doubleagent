@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -36,14 +36,14 @@ func startKeys() []string {
 
 // copyObject returns a new object holding an object's members, so setting
 // a key leaves the original as it was.
-func copyObject(object pyjson.Value) pyjson.Value {
-	return pyjson.NewObject(slices.Clone(object.Members())...)
+func copyObject(object jsonvalue.Value) jsonvalue.Value {
+	return jsonvalue.NewObject(slices.Clone(object.Members())...)
 }
 
 // addMetadata copies a session's metadata title and importedFrom fields
 // onto the session under the names its start row uses.
-func addMetadata(session, meta pyjson.Value) {
-	if meta.IsObject() && meta.Get("title").Truthy() {
+func addMetadata(session, meta jsonvalue.Value) {
+	if meta.IsObject() && !meta.Get("title").IsEmpty() {
 		session.Set("title", meta.Get("title"))
 	}
 	source := meta.Get("importedFrom")
@@ -59,7 +59,7 @@ func addMetadata(session, meta pyjson.Value) {
 
 // sessionStart returns a session's start, end or index row: its time from
 // timeKey, its id, project and model, and "<label>: <key=value ...>".
-func (p *Parser) sessionStart(artifact *input.Artifact, session pyjson.Value, position int,
+func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value, position int,
 	timeKey, label string, keys []string) timeline.Row {
 	row := p.BaseRow(artifact)
 	row.SourceLine = position
@@ -74,7 +74,7 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session pyjson.Value, po
 
 // startRows emits a start row, then its model row and its blob upload row
 // when the session has them.
-func (p *Parser) startRows(start timeline.Row, session, meta pyjson.Value, source string,
+func (p *Parser) startRows(start timeline.Row, session, meta jsonvalue.Value, source string,
 	emit parser.Emit) {
 	emit(start)
 	if model := parser.Str(session.Get("model")); model != "" {
@@ -95,7 +95,7 @@ func (p *Parser) startRows(start timeline.Row, session, meta pyjson.Value, sourc
 // blobUpload returns the "session synced:" row of a metadata
 // enterprise.blobUpload object, with the start row's time, session and
 // project, or false when the metadata has none.
-func blobUpload(start timeline.Row, meta pyjson.Value, source string) (timeline.Row, bool) {
+func blobUpload(start timeline.Row, meta jsonvalue.Value, source string) (timeline.Row, bool) {
 	blob := meta.Get(blobUploadKey)
 	if !blob.IsObject() {
 		return timeline.Row{}, false
@@ -103,7 +103,7 @@ func blobUpload(start timeline.Row, meta pyjson.Value, source string) (timeline.
 	storage := blob.Get("storage")
 	user := "unknown"
 	if value := blob.Get("userDistinctId"); clinelegacy.Present(value) {
-		user = value.Str()
+		user = value.Text()
 	}
 	row := start
 	row.Text = "session synced: enterprise prompt upload to " + dash(storage.Get("adapterType")) +
@@ -115,11 +115,11 @@ func blobUpload(start timeline.Row, meta pyjson.Value, source string) (timeline.
 }
 
 // dash returns a value as row text, "-" when it is null or empty.
-func dash(value pyjson.Value) string {
+func dash(value jsonvalue.Value) string {
 	if !clinelegacy.Present(value) {
 		return "-"
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // manifest emits the start, model, blob upload and end rows of a session
@@ -137,13 +137,13 @@ func (p *Parser) manifest(artifact *input.Artifact, emit parser.Emit) {
 	}
 	session := copyObject(document)
 	if !session.Has("session_id") {
-		session.Set("session_id", pyjson.NewString(sessionID))
+		session.Set("session_id", jsonvalue.NewString(sessionID))
 	}
 	meta := session.Get("metadata")
 	addMetadata(session, meta)
 	start := p.sessionStart(artifact, session, 0, "started_at", "session start", startKeys())
 	p.startRows(start, session, meta, path.Base(artifact.Rel)+" metadata", emit)
-	if session.Get("ended_at").Truthy() {
+	if !session.Get("ended_at").IsEmpty() {
 		emit(p.sessionStart(artifact, session, 0, "ended_at", "session end",
 			[]string{"status", "exit_code"}))
 	}

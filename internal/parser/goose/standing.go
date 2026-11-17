@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -29,11 +29,11 @@ func unquote(value string) string {
 		return strings.ReplaceAll(value[1:len(value)-1], "''", "'")
 	}
 	if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
-		decoded, err := pyjson.DecodeString(value)
+		decoded, err := jsonvalue.DecodeString(value)
 		if err != nil || !decoded.IsString() {
 			return value[1 : len(value)-1]
 		}
-		return decoded.Text()
+		return decoded.StringValue()
 	}
 	return value
 }
@@ -99,16 +99,16 @@ func (p *Parser) parsePermissionYAML(artifact *input.Artifact, emit parser.Emit)
 // readJSONFile returns a whole-file JSON store, or false after emitting
 // the rows of a file that cannot be read; message says why a readable one
 // is not JSON.
-func (p *Parser) readJSONFile(artifact *input.Artifact, emit parser.Emit) (pyjson.Value, string, bool) {
+func (p *Parser) readJSONFile(artifact *input.Artifact, emit parser.Emit) (jsonvalue.Value, string, bool) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return pyjson.Value{}, "", false
+		return jsonvalue.Value{}, "", false
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil {
-		return pyjson.Value{}, artifact.Rel + " is not JSON (" + err.Error() + ")", true
+		return jsonvalue.Value{}, artifact.Rel + " is not JSON (" + err.Error() + ")", true
 	}
 	return document, "", true
 }
@@ -165,19 +165,19 @@ func (p *Parser) parseSchedule(artifact *input.Artifact, emit parser.Emit) {
 
 // scheduleText returns the "scheduled task:" text of one job; "-" stands
 // for an absent value, and parameters are added only when the job has any.
-func scheduleText(job pyjson.Value, rel string) string {
+func scheduleText(job jsonvalue.Value, rel string) string {
 	value := func(key string) string {
 		stored := job.Get(key)
-		if stored.IsNull() || stored.IsString() && stored.Text() == "" {
+		if stored.IsNull() || stored.IsString() && stored.StringValue() == "" {
 			return "-"
 		}
 		return parser.SettingValue(stored)
 	}
 	flag := func(key string) string {
-		return parser.SettingValue(pyjson.NewBool(job.Get(key).Truthy()))
+		return parser.SettingValue(jsonvalue.NewBool(!job.Get(key).IsEmpty()))
 	}
 	parameters := ""
-	if stored := job.Get("parameters"); stored.Truthy() {
+	if stored := job.Get("parameters"); !stored.IsEmpty() {
 		parameters = " parameters=" + parser.CompactJSON(stored)
 	}
 	return "scheduled task: " + value("id") + " " + value("cron") + " paused=" + flag("paused") +

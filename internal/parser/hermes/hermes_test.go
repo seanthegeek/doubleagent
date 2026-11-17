@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -104,18 +104,18 @@ func TestCronDocumentsSplitByFramesThenHeadings(t *testing.T) {
 func TestModelSwitchMarkersNameTheModelAndProvider(t *testing.T) {
 	prefix := "[System: The active model for this chat has changed to "
 	tests := []struct {
-		content         pyjson.Value
+		content         jsonvalue.Value
 		model, provider string
 		ok              bool
 	}{
-		{pyjson.NewString(prefix + "gpt-5 via provider openai. From this point forward, x]"), "gpt-5", "openai", true},
-		{pyjson.NewString(prefix + "m. From this point forward,"), "m", "", true},
-		{pyjson.NewString(prefix + ". From this point forward,"), "", "", false},
-		{pyjson.NewString("[System: model changed]"), "", "", false},
-		{pyjson.NewInt(5), "", "", false},
+		{jsonvalue.NewString(prefix + "gpt-5 via provider openai. From this point forward, x]"), "gpt-5", "openai", true},
+		{jsonvalue.NewString(prefix + "m. From this point forward,"), "m", "", true},
+		{jsonvalue.NewString(prefix + ". From this point forward,"), "", "", false},
+		{jsonvalue.NewString("[System: model changed]"), "", "", false},
+		{jsonvalue.NewInt(5), "", "", false},
 	}
 	for _, test := range tests {
-		t.Run(test.content.Str(), func(t *testing.T) {
+		t.Run(test.content.Text(), func(t *testing.T) {
 			model, provider, ok := modelSwitch(test.content)
 			if model != test.model || provider != test.provider || ok != test.ok {
 				t.Errorf("got %q, %q, %v", model, provider, ok)
@@ -127,36 +127,36 @@ func TestModelSwitchMarkersNameTheModelAndProvider(t *testing.T) {
 func TestStringHelpersMatchTheAnalyzer(t *testing.T) {
 	tests := []struct {
 		name  string
-		got   func(pyjson.Value) string
-		input pyjson.Value
+		got   func(jsonvalue.Value) string
+		input jsonvalue.Value
 		want  string
 	}{
-		{"approval", terminalDecision, pyjson.NewString(`{"approval":"once"}`), "approved (once)"},
+		{"approval", terminalDecision, jsonvalue.NewString(`{"approval":"once"}`), "approved (once)"},
 		{"blocked with summary", terminalDecision,
-			pyjson.NewString(`{"status":"blocked","error":"no","user_summary":"s"}`), "blocked no user_summary=s"},
-		{"blocked bare", terminalDecision, pyjson.NewString(`{"status":"blocked"}`), "blocked -"},
+			jsonvalue.NewString(`{"status":"blocked","error":"no","user_summary":"s"}`), "blocked no user_summary=s"},
+		{"blocked bare", terminalDecision, jsonvalue.NewString(`{"status":"blocked"}`), "blocked -"},
 		{"pending", terminalDecision,
-			pyjson.NewString(`{"status":"pending_approval","pattern_key":"rm","smart_denied":1}`),
+			jsonvalue.NewString(`{"status":"pending_approval","pattern_key":"rm","smart_denied":1}`),
 			"pending pattern=rm smart_denied=true"},
-		{"sentinel approval", terminalDecision, pyjson.NewString("\x00json:{\"approval\":\"a\"}"), "approved (a)"},
-		{"not JSON", terminalDecision, pyjson.NewString("nope"), ""},
-		{"other status", terminalDecision, pyjson.NewString(`{"status":"ok"}`), ""},
-		{"command first", callSummary, pyjson.NewString(`{"command":"ls","path":"p"}`), "ls"},
-		{"empty path skipped", callSummary, pyjson.NewString(`{"path":"","url":"u"}`), "u"},
-		{"other arguments", callSummary, pyjson.NewString(`{"x":1}`), `{"x":1}`},
-		{"text", callSummary, pyjson.NewString("not json"), "not json"},
-		{"empty", callSummary, pyjson.NewString(""), ""},
-		{"null", callSummary, pyjson.NewNull(), "null"},
-		{"number", callSummary, pyjson.NewInt(5), "5"},
-		{"array", callSummary, pyjson.NewString("[1, 2]"), "[1,2]"},
-		{"zero command", callSummary, pyjson.NewString(`{"command":0}`), "0"},
-		{"false command", callSummary, pyjson.NewString(`{"command":false}`), "False"},
-		{"image parts", contentText, pyjson.NewString("\x00json:[{\"type\":\"text\",\"text\":\"a\"}," +
+		{"sentinel approval", terminalDecision, jsonvalue.NewString("\x00json:{\"approval\":\"a\"}"), "approved (a)"},
+		{"not JSON", terminalDecision, jsonvalue.NewString("nope"), ""},
+		{"other status", terminalDecision, jsonvalue.NewString(`{"status":"ok"}`), ""},
+		{"command first", callSummary, jsonvalue.NewString(`{"command":"ls","path":"p"}`), "ls"},
+		{"empty path skipped", callSummary, jsonvalue.NewString(`{"path":"","url":"u"}`), "u"},
+		{"other arguments", callSummary, jsonvalue.NewString(`{"x":1}`), `{"x":1}`},
+		{"text", callSummary, jsonvalue.NewString("not json"), "not json"},
+		{"empty", callSummary, jsonvalue.NewString(""), ""},
+		{"null", callSummary, jsonvalue.NewNull(), "null"},
+		{"number", callSummary, jsonvalue.NewInt(5), "5"},
+		{"array", callSummary, jsonvalue.NewString("[1, 2]"), "[1,2]"},
+		{"zero command", callSummary, jsonvalue.NewString(`{"command":0}`), "0"},
+		{"false command", callSummary, jsonvalue.NewString(`{"command":false}`), "false"},
+		{"image parts", contentText, jsonvalue.NewString("\x00json:[{\"type\":\"text\",\"text\":\"a\"}," +
 			"{\"type\":\"image_url\"},{\"type\":\"input_image\",\"text\":\"t\"}]"), "a\n[image]\n[image]"},
-		{"bad sentinel JSON", contentText, pyjson.NewString("\x00json:bad"), "bad"},
-		{"plain content", contentText, pyjson.NewString("plain"), "plain"},
-		{"null content", contentText, pyjson.NewNull(), ""},
-		{"number content", contentText, pyjson.NewInt(5), "5"},
+		{"bad sentinel JSON", contentText, jsonvalue.NewString("\x00json:bad"), "bad"},
+		{"plain content", contentText, jsonvalue.NewString("plain"), "plain"},
+		{"null content", contentText, jsonvalue.NewNull(), ""},
+		{"number content", contentText, jsonvalue.NewInt(5), "5"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -169,23 +169,23 @@ func TestStringHelpersMatchTheAnalyzer(t *testing.T) {
 
 func TestToolCallsReportWhatIsNotAListOfObjects(t *testing.T) {
 	tests := []struct {
-		value pyjson.Value
+		value jsonvalue.Value
 		calls int
 		want  parser.Problems
 	}{
-		{pyjson.NewString(`[{"id":"a"}]`), 1, nil},
-		{pyjson.NewString(`{"id":"b"}`), 1, nil},
-		{pyjson.NewString("42"), 0, parser.Problems{{Line: 7,
+		{jsonvalue.NewString(`[{"id":"a"}]`), 1, nil},
+		{jsonvalue.NewString(`{"id":"b"}`), 1, nil},
+		{jsonvalue.NewString("42"), 0, parser.Problems{{Line: 7,
 			Message: "unparseable record 7 (tool_calls is not a list)", Raw: "42"}}},
-		{pyjson.NewString(`["x",{"id":"c"}]`), 1, parser.Problems{{Line: 7,
+		{jsonvalue.NewString(`["x",{"id":"c"}]`), 1, parser.Problems{{Line: 7,
 			Message: "unparseable record 7 (tool_calls entry is not an object)", Raw: `["x",{"id":"c"}]`}}},
-		{pyjson.NewString(""), 0, nil},
-		{pyjson.NewNull(), 0, nil},
+		{jsonvalue.NewString(""), 0, nil},
+		{jsonvalue.NewNull(), 0, nil},
 	}
 	for _, test := range tests {
-		t.Run(test.value.Str(), func(t *testing.T) {
-			message := pyjson.NewObject(pyjson.Member{Key: "tool_calls", Value: test.value})
-			calls, problems := toolCalls(message, pyjson.NewInt(7))
+		t.Run(test.value.Text(), func(t *testing.T) {
+			message := jsonvalue.NewObject(jsonvalue.Member{Key: "tool_calls", Value: test.value})
+			calls, problems := toolCalls(message, jsonvalue.NewInt(7))
 			if len(calls) != test.calls || fmt.Sprint(problems) != fmt.Sprint(test.want) {
 				t.Errorf("got %d calls, %v; want %d, %v", len(calls), problems, test.calls, test.want)
 			}

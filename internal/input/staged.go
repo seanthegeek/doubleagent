@@ -3,7 +3,7 @@ package input
 import (
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // relativeToHome returns path relative to home, both host paths with
@@ -23,7 +23,7 @@ func relativeToHome(path, home string) string {
 // path: the archive path must end with the home-relative path, and what is
 // left must be the home's drive form or fs plus the home less a leading
 // root, never the same path below another directory.
-func archiveDirFromRow(row pyjson.Value) string {
+func archiveDirFromRow(row jsonvalue.Value) string {
 	home := textOf(row.Get("home"))
 	archivePath := strings.ReplaceAll(textOf(row.Get("archive_path")), `\`, "/")
 	rel := relativeToHome(textOf(row.Get("path")), home)

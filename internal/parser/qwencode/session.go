@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -28,7 +28,7 @@ type record struct {
 	options  parser.Options
 	state    *sessionState
 	line     int
-	value    pyjson.Value
+	value    jsonvalue.Value
 }
 
 // row returns a row of the record: its line, time, cwd and git branch,
@@ -53,11 +53,11 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		if state.first == nil {
 			state.first = &numbered{line, value}
 		}
-		if named := value.Get("sessionId"); named.Truthy() {
-			state.sessionID = named.Str()
+		if named := value.Get("sessionId"); !named.IsEmpty() {
+			state.sessionID = named.Text()
 		}
-		if cwd := value.Get("cwd"); cwd.Truthy() {
-			state.project = cwd.Str()
+		if cwd := value.Get("cwd"); !cwd.IsEmpty() {
+			state.project = cwd.Text()
 		}
 		current := &record{owner: p, artifact: artifact, options: options, state: state, line: line,
 			value: value}
@@ -97,8 +97,8 @@ func (r *record) contextChanges() []timeline.Row {
 	var out []timeline.Row
 	model := parser.Str(context.Get("modelId"))
 	if change := r.state.models.Change("model", r.state.sessionID, model); change != "" {
-		if auth := context.Get("authType"); auth.Truthy() {
-			change += " auth=" + auth.Str()
+		if auth := context.Get("authType"); !auth.IsEmpty() {
+			change += " auth=" + auth.Text()
 		}
 		row := r.row(timeline.TurnSystem, change)
 		row.Model = model
@@ -117,8 +117,8 @@ func (r *record) contextChanges() []timeline.Row {
 func (r *record) userRows() []timeline.Row {
 	var texts []string
 	for _, part := range messageParts(r.value) {
-		if part.Get("text").IsString() && !part.Get("thought").Truthy() {
-			texts = append(texts, part.Get("text").Text())
+		if part.Get("text").IsString() && part.Get("thought").IsEmpty() {
+			texts = append(texts, part.Get("text").StringValue())
 		}
 	}
 	text := strings.Join(texts, "\n")
@@ -158,13 +158,13 @@ func (r *record) assistantRows() []timeline.Row {
 		case call.IsObject():
 			row = r.row(timeline.TurnToolUse, argsSummary(call.Get("args")))
 			row.ToolName, row.ToolUseID = parser.Str(call.Get("name")), parser.Str(call.Get("id"))
-		case text.IsString() && part.Get("thought").Truthy():
+		case text.IsString() && !part.Get("thought").IsEmpty():
 			if !r.options.IncludeThinking {
 				continue
 			}
-			row = r.row(timeline.TurnThinking, text.Text())
-		case text.IsString() && text.Text() != "":
-			row = r.row(timeline.TurnAssistant, text.Text())
+			row = r.row(timeline.TurnThinking, text.StringValue())
+		case text.IsString() && text.StringValue() != "":
+			row = r.row(timeline.TurnAssistant, text.StringValue())
 		default:
 			continue
 		}
@@ -180,7 +180,7 @@ func (r *record) assistantRows() []timeline.Row {
 // awaiting approval.
 func (r *record) toolResultRows() []timeline.Row {
 	result := r.value.Get("toolCallResult")
-	first := pyjson.NewObject()
+	first := jsonvalue.NewObject()
 	for _, part := range messageParts(r.value) {
 		if response := part.Get("functionResponse"); response.IsObject() {
 			first = response
@@ -190,18 +190,18 @@ func (r *record) toolResultRows() []timeline.Row {
 	display := result.Get("resultDisplay")
 	var text string
 	switch {
-	case display.IsString() && display.Text() != "":
-		text = display.Text()
-	case first.Truthy():
+	case display.IsString() && display.StringValue() != "":
+		text = display.StringValue()
+	case !first.IsEmpty():
 		text = responseText(first.Get("response"))
-	case display.Truthy():
+	case !display.IsEmpty():
 		text = parser.CompactJSON(display)
 	}
 	status := parser.Str(result.Get("status"))
 	if status != "" && status != "success" {
 		tag := status
-		if errorType := result.Get("errorType"); errorType.Truthy() {
-			tag += " " + errorType.Str()
+		if errorType := result.Get("errorType"); !errorType.IsEmpty() {
+			tag += " " + errorType.Text()
 		}
 		text = "[" + tag + "] " + text
 	}
@@ -233,7 +233,7 @@ func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problem
 	if !ok {
 		return
 	}
-	document, err := pyjson.Decode(data)
+	document, err := jsonvalue.Decode(data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, name+" is not a JSON object")
 		return
@@ -279,8 +279,8 @@ func (r *record) systemRows() []timeline.Row {
 				text = "permission mode: " + mode
 			}
 			for _, key := range []string{"prePlanMode", "planExecutionMode"} {
-				if value := payload.Get(key); value.Truthy() {
-					text += " " + key + "=" + value.Str()
+				if value := payload.Get(key); !value.IsEmpty() {
+					text += " " + key + "=" + value.Text()
 				}
 			}
 		}
@@ -297,13 +297,13 @@ func (r *record) systemRows() []timeline.Row {
 // telemetryDecision returns the permission decision row of a ui_telemetry
 // record's tool call event, as the CLI's logToolCall records it under its
 // own event name or the class's default one, or none.
-func (r *record) telemetryDecision(event pyjson.Value) []timeline.Row {
+func (r *record) telemetryDecision(event jsonvalue.Value) []timeline.Row {
 	name := event.Get("event.name")
 	if !event.IsObject() || !isText(name, "qwen-code.tool_call") && !isText(name, "tool_call") ||
-		!event.Get("decision").Truthy() {
+		event.Get("decision").IsEmpty() {
 		return nil
 	}
-	decision := r.row(timeline.TurnSystem, "permission decision: "+event.Get("decision").Str()+
+	decision := r.row(timeline.TurnSystem, "permission decision: "+event.Get("decision").Text()+
 		" (tool_call ui_telemetry)")
 	decision.ToolName = parser.Str(event.Get("function_name"))
 	decision.ToolUseID = parser.Str(event.Get("call_id"))
@@ -313,7 +313,7 @@ func (r *record) telemetryDecision(event pyjson.Value) []timeline.Row {
 // entry is one object of a JSON array and its 1-based index.
 type entry struct {
 	index int
-	value pyjson.Value
+	value jsonvalue.Value
 }
 
 // logs emits one row per entry of a logs.json, a secondary source: a user
@@ -334,16 +334,16 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 			row.TurnType = timeline.TurnSystem
 			event := message
 			if message.IsString() {
-				if decoded, err := pyjson.DecodeString(message.Text()); err == nil {
+				if decoded, err := jsonvalue.DecodeString(message.StringValue()); err == nil {
 					event = decoded
 				}
 			}
 			if isText(kind, "model_switch") && event.IsObject() {
-				text = "model: " + event.Get("fromModel").Str() + " -> " + event.Get("toModel").Str() +
-					" reason=" + event.Get("reason").Str()
+				text = "model: " + event.Get("fromModel").Text() + " -> " + event.Get("toModel").Text() +
+					" reason=" + event.Get("reason").Text()
 				row.Model = parser.Str(event.Get("toModel"))
 			} else {
-				text = kind.Str() + ": " + textOrJSON(event)
+				text = kind.Text() + ": " + textOrJSON(event)
 			}
 		}
 		row.Text = timeline.Compact(text)
@@ -378,7 +378,7 @@ func logEntries(path string, problems *parser.Problems) []entry {
 	index := 0
 	for offset = skipWhitespace(text, offset+1); offset < len(text) && text[offset] != ']'; {
 		index++
-		value, next, err := pyjson.DecodePrefix(text, offset)
+		value, next, err := jsonvalue.DecodePrefix(text, offset)
 		if err != nil {
 			problems.AddRaw(index, parser.UnparseableRecord(index, err), parser.TailText(text, offset))
 			return out

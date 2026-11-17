@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -220,7 +220,7 @@ func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, pr
 	if sessionID == "" {
 		sessionID = internal
 	}
-	timestamp := chatTime(updated, pyjson.NewNull())
+	timestamp := chatTime(updated, jsonvalue.NewNull())
 	row := func(turnType, text, modelID string) {
 		made := p.BaseRow(artifact)
 		made.TimestampUTC, made.SessionID, made.ProjectPath = timestamp, sessionID, project

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The rows of every file kind are proved against the Python analyzer by the
@@ -15,9 +15,9 @@ import (
 // running the analyzer's functions.
 
 // decoded returns the value of JSON text.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestRecoverLogsTakesJSONWhitespaceOnly(t *testing.T) {
 	subject := New()
 	for _, space := range []string{" ", "\t", "\n", "\r\n"} {
 		text := `{"logs"` + space + ":" + space + `[{"a": 1}`
-		if got := subject.recoverLogs(text); len(got) != 1 || pyjson.Compact(got[0]) != `{"a":1}` {
+		if got := subject.recoverLogs(text); len(got) != 1 || got[0].JSON() != `{"a":1}` {
 			t.Errorf("%q gave %d items", space, len(got))
 		}
 	}
@@ -38,7 +38,7 @@ func TestRecoverLogsTakesJSONWhitespaceOnly(t *testing.T) {
 		}
 	}
 	got := subject.recoverLogs(`{"logs": [{"no": 0}, {"no": 1`)
-	if len(got) != 1 || pyjson.Compact(got[0]) != `{"no":0}` {
+	if len(got) != 1 || got[0].JSON() != `{"no":0}` {
 		t.Errorf("a cut log gave %d items", len(got))
 	}
 }
@@ -56,7 +56,7 @@ func TestArgsSummaryPicksTheFirstKnownVisibleArgument(t *testing.T) {
 		{`null`, "null"},
 		{`[1]`, "[1]"},
 		{`5`, "5"},
-		{`{"path":{"k":1}}`, "{'k': 1}"},
+		{`{"path":{"k":1}}`, `{"k":1}`},
 	}
 	for _, test := range tests {
 		t.Run(test.json, func(t *testing.T) {
@@ -103,7 +103,7 @@ func TestParseAIReadsAnObjectOrTextHoldingOne(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.json, func(t *testing.T) {
 			got := parseAI(decoded(t, test.json))
-			if text := pyjson.Compact(got); (got.IsNull() && test.want != "") ||
+			if text := got.JSON(); (got.IsNull() && test.want != "") ||
 				(!got.IsNull() && text != test.want) {
 				t.Errorf("got %q, want %q", text, test.want)
 			}
@@ -144,10 +144,10 @@ func TestContentTextReadsBlocksTextAndObjects(t *testing.T) {
 		{`{"a":1}`, `{"a":1}`},
 		{`[1,"x"]`, "x"},
 		{`{"text":"t"}`, "t"},
-		{`{"text":5}`, `{"text": 5}`},
+		{`{"text":5}`, `{"text":5}`},
 		{`[{"text":"a"},{"type":"image"},"s"]`, "a\n[image]\ns"},
 		{`5`, "5"},
-		{`true`, "True"},
+		{`true`, "true"},
 	}
 	for _, test := range tests {
 		t.Run(test.json, func(t *testing.T) {
@@ -163,11 +163,11 @@ func TestWalkHistoryVisitsBulksTopicsThenTheCurrentTopic(t *testing.T) {
 		`"records":[{"_cls":"Message","id":"1"}]}],"topics":[{"messages":[{"_cls":"Message","id":"2"}],`+
 		`"summary":"T"}],"current":{"_cls":"Topic","messages":[{"_cls":"Message","id":"3"}]}}`)
 	var seen []string
-	walkHistory(document, true, func(summary bool, node pyjson.Value) {
+	walkHistory(document, true, func(summary bool, node jsonvalue.Value) {
 		if summary {
-			seen = append(seen, "summary "+node.Text())
+			seen = append(seen, "summary "+node.StringValue())
 		} else {
-			seen = append(seen, "message "+node.Get("id").Text())
+			seen = append(seen, "message "+node.Get("id").StringValue())
 		}
 	})
 	want := []string{"summary S", "message 1", "summary T", "message 2", "message 3"}
@@ -175,7 +175,7 @@ func TestWalkHistoryVisitsBulksTopicsThenTheCurrentTopic(t *testing.T) {
 		t.Errorf("got %q, want %q", seen, want)
 	}
 	seen = nil
-	walkHistory(document, false, func(_ bool, node pyjson.Value) { seen = append(seen, node.Get("id").Text()) })
+	walkHistory(document, false, func(_ bool, node jsonvalue.Value) { seen = append(seen, node.Get("id").StringValue()) })
 	if !slices.Equal(seen, []string{"1", "2", "3"}) {
 		t.Errorf("without summaries got %q", seen)
 	}

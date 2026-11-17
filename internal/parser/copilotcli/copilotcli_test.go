@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of every file kind are proved against the Python analyzer by the
@@ -17,9 +17,9 @@ import (
 // running the analyzer's functions.
 
 // decoded returns the value of JSON text.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestArgsTextPrefersTheFirstKnownArgument(t *testing.T) {
 		{`"raw"`, "raw"},
 		{`{"command":"ls","x":1}`, "ls"},
 		{`{"url":"u"}`, "u"},
-		{`{"x":1,"b":[2]}`, `{"b":[2],"x":1}`},
+		{`{"x":1,"b":[2]}`, `{"x":1,"b":[2]}`},
 		{`{}`, ""},
 		{`{"input":0}`, "0"},
 		{`null`, ""},
@@ -126,7 +126,7 @@ func TestHookInfoAndShutdownTexts(t *testing.T) {
 		want string
 	}{
 		{"hook start", hookText("hook.start", decoded(t, `{"hookType":"pre","input":{"b":1,"a":2}}`)),
-			`hook pre start: {"a":2,"b":1}`},
+			`hook pre start: {"b":1,"a":2}`},
 		{"hook start without input", hookText("hook.start", decoded(t, `{}`)), "hook - start: {}"},
 		{"hook end with an error", hookText("hook.end", decoded(t, `{"success":true,"output":null,"error":{"m":1}}`)),
 			`hook - end: success=true output={} error={"m":1}`},
@@ -154,8 +154,8 @@ func TestHookInfoAndShutdownTexts(t *testing.T) {
 func TestStrippedSettingsKeepStringsAndTrailingCommasOfJSONSpaceOnly(t *testing.T) {
 	for _, space := range []string{" ", "\t", "\n", "\r\n", " // c\n", " /* c */ "} {
 		text := `{"a": [1,` + space + `],` + space + `}`
-		document, err := pyjson.DecodeString(parser.StripJSONC(text))
-		if err != nil || pyjson.Compact(document) != `{"a":[1]}` {
+		document, err := jsonvalue.DecodeString(parser.StripJSONC(text))
+		if err != nil || document.JSON() != `{"a":[1]}` {
 			t.Errorf("%q gave %v, %v", text, document, err)
 		}
 	}
@@ -169,8 +169,8 @@ func TestStrippedSettingsKeepStringsAndTrailingCommasOfJSONSpaceOnly(t *testing.
 	if got := parser.StripJSONC(text); got != text {
 		t.Errorf("%q became %q", text, got)
 	}
-	document, err := pyjson.DecodeString(parser.StripJSONC("{\"a\": \"http://x\", /* c */ \"b\": [1,], // d\n}"))
-	if err != nil || pyjson.Compact(document) != `{"a":"http://x","b":[1]}` {
+	document, err := jsonvalue.DecodeString(parser.StripJSONC("{\"a\": \"http://x\", /* c */ \"b\": [1,], // d\n}"))
+	if err != nil || document.JSON() != `{"a":"http://x","b":[1]}` {
 		t.Errorf("got %v, %v", document, err)
 	}
 }

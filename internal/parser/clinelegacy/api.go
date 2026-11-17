@@ -2,9 +2,9 @@ package clinelegacy
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -17,7 +17,7 @@ type ContentRow struct {
 
 // BaseTurn returns the turn type of a message's role: user, assistant, and
 // system for any other.
-func BaseTurn(role pyjson.Value) string {
+func BaseTurn(role jsonvalue.Value) string {
 	switch {
 	case isText(role, "user"):
 		return timeline.TurnUser
@@ -46,9 +46,9 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 			continue
 		}
 		if reasoning := message.Get("reasoning_content"); options.IncludeThinking &&
-			reasoning.IsString() && reasoning.Text() != "" {
+			reasoning.IsString() && reasoning.StringValue() != "" {
 			thinking := row(timeline.TurnThinking)
-			thinking.Text = timeline.Compact(reasoning.Text())
+			thinking.Text = timeline.Compact(reasoning.StringValue())
 			emit(thinking)
 		}
 		for _, content := range p.apiContentRows(message, position, options.IncludeThinking) {
@@ -64,21 +64,21 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 // apiMarker emits the row of a reasoning record (when thinking is kept),
 // a summary or a truncation marker, and reports whether the message was
 // one of those, which have no content rows.
-func (p *TaskParser) apiMarker(message pyjson.Value, options parser.Options,
+func (p *TaskParser) apiMarker(message jsonvalue.Value, options parser.Options,
 	row func(string) timeline.Row, emit parser.Emit) bool {
 	switch {
 	case isText(message.Get("type"), "reasoning"):
 		if options.IncludeThinking {
 			thinking := row(timeline.TurnThinking)
-			thinking.Text = timeline.CompactValue(FirstTruthy(pyjson.NewString(parser.TextOf(message.Get("summary"))),
+			thinking.Text = timeline.CompactValue(FirstTruthy(jsonvalue.NewString(parser.TextOf(message.Get("summary"))),
 				message.Get("text"), message.Get("reasoning_content"),
-				pyjson.NewString("[encrypted reasoning]")))
+				jsonvalue.NewString("[encrypted reasoning]")))
 			emit(thinking)
 		}
 		return true
-	case message.Get("isSummary").Truthy() || message.Get("isTruncationMarker").Truthy():
+	case !message.Get("isSummary").IsEmpty() || !message.Get("isTruncationMarker").IsEmpty():
 		label := "truncation marker"
-		if message.Get("isSummary").Truthy() {
+		if !message.Get("isSummary").IsEmpty() {
 			label = "summary"
 		}
 		marker := row(timeline.TurnSystem)
@@ -91,7 +91,7 @@ func (p *TaskParser) apiMarker(message pyjson.Value, options parser.Options,
 
 // apiContentRows returns the content rows of one API history message, by
 // the family's own reading when it has one.
-func (p *TaskParser) apiContentRows(message pyjson.Value, position int, includeThinking bool) []ContentRow {
+func (p *TaskParser) apiContentRows(message jsonvalue.Value, position int, includeThinking bool) []ContentRow {
 	baseTurn := BaseTurn(message.Get("role"))
 	if rower, ok := p.family.(APIRower); ok {
 		return rower.APIContentRows(message, position, baseTurn, includeThinking)
@@ -104,13 +104,13 @@ func (p *TaskParser) apiContentRows(message pyjson.Value, position int, includeT
 // thinking (kept only with includeThinking), image and file blocks, and
 // "[<type>]" for a block of another type. Content that is neither a string
 // nor a list is one row of its CompactJSON.
-func ContentRows(content pyjson.Value, baseTurn string, includeThinking bool) []ContentRow {
+func ContentRows(content jsonvalue.Value, baseTurn string, includeThinking bool) []ContentRow {
 	switch {
 	case content.IsString():
-		if content.Text() == "" {
+		if content.StringValue() == "" {
 			return nil
 		}
-		return []ContentRow{{TurnType: baseTurn, Text: content.Text()}}
+		return []ContentRow{{TurnType: baseTurn, Text: content.StringValue()}}
 	case !content.IsArray():
 		if !Present(content) {
 			return nil
@@ -120,8 +120,8 @@ func ContentRows(content pyjson.Value, baseTurn string, includeThinking bool) []
 	var rows []ContentRow
 	for _, block := range content.Items() {
 		if block.IsString() {
-			if block.Text() != "" {
-				rows = append(rows, ContentRow{TurnType: baseTurn, Text: block.Text()})
+			if block.StringValue() != "" {
+				rows = append(rows, ContentRow{TurnType: baseTurn, Text: block.StringValue()})
 			}
 			continue
 		}
@@ -134,7 +134,7 @@ func ContentRows(content pyjson.Value, baseTurn string, includeThinking bool) []
 
 // blockRow returns the row of one content block, or false for a block that
 // gives none.
-func blockRow(block pyjson.Value, baseTurn string, includeThinking bool) (ContentRow, bool) {
+func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (ContentRow, bool) {
 	if !block.IsObject() {
 		return ContentRow{}, false
 	}
@@ -142,7 +142,7 @@ func blockRow(block pyjson.Value, baseTurn string, includeThinking bool) (Conten
 	switch {
 	case isText(blockType, "text"):
 		text := block.Get("text")
-		return ContentRow{TurnType: baseTurn, Text: text.Str()}, text.Truthy()
+		return ContentRow{TurnType: baseTurn, Text: text.Text()}, !text.IsEmpty()
 	case isText(blockType, "tool_use"):
 		name := parser.Str(block.Get("name"))
 		return ContentRow{TurnType: timeline.TurnToolUse, ToolName: name,
@@ -158,9 +158,9 @@ func blockRow(block pyjson.Value, baseTurn string, includeThinking bool) (Conten
 	case isText(blockType, "image"):
 		return ContentRow{TurnType: baseTurn, Text: "[image]"}, true
 	case isText(blockType, "file"):
-		return ContentRow{TurnType: baseTurn, Text: Join(pyjson.NewString("[file]"), block.Get("path"))}, true
-	case blockType.Truthy():
-		return ContentRow{TurnType: baseTurn, Text: "[" + blockType.Str() + "]"}, true
+		return ContentRow{TurnType: baseTurn, Text: Join(jsonvalue.NewString("[file]"), block.Get("path"))}, true
+	case !blockType.IsEmpty():
+		return ContentRow{TurnType: baseTurn, Text: "[" + blockType.Text() + "]"}, true
 	}
 	return ContentRow{}, false
 }
@@ -168,13 +168,13 @@ func blockRow(block pyjson.Value, baseTurn string, includeThinking bool) (Conten
 // toolResultRow returns the row of a tool_result block: its content's text
 // (CompactJSON for content that is neither a string nor a list), marked
 // "[error]" for a failed call.
-func toolResultRow(block pyjson.Value) ContentRow {
+func toolResultRow(block jsonvalue.Value) ContentRow {
 	content := block.Get("content")
 	body := parser.CompactJSON(content)
 	if content.IsString() || content.IsArray() || content.IsNull() {
 		body = parser.TextOf(content)
 	}
-	if block.Get("is_error").Truthy() {
+	if !block.Get("is_error").IsEmpty() {
 		body = "[error] " + body
 	}
 	return ContentRow{TurnType: timeline.TurnToolResult, Text: body,

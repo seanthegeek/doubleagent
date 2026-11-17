@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -18,7 +18,7 @@ import (
 // decodes to another kind than Goose writes there, the reason and the
 // stored text in full.
 type storedJSON struct {
-	value       pyjson.Value
+	value       jsonvalue.Value
 	reason, raw string
 }
 
@@ -40,7 +40,7 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 	if len(column.Bytes) == 0 {
 		return storedJSON{}
 	}
-	decoded, err := pyjson.DecodeString(text)
+	decoded, err := jsonvalue.DecodeString(text)
 	switch {
 	case err != nil:
 		return storedJSON{reason: err.Error(), raw: text}
@@ -286,7 +286,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 }
 
 // arrayItems returns the items of an array, nothing for any other value.
-func arrayItems(value pyjson.Value) []pyjson.Value {
+func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
 	if value.IsArray() {
 		return value.Items()
 	}
@@ -312,7 +312,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	}
 	meta := stored.value
 	if !meta.IsObject() {
-		meta = pyjson.NewObject()
+		meta = jsonvalue.NewObject()
 	}
 	base := d.parser.row(d.artifact, line, sessionID, projectPath, "",
 		timeutil.FirstNonEmpty(epochColumn(message.Get("created_timestamp")),
@@ -339,7 +339,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 
 // messageModel returns the model of a message from its inference
 // metadata, else its session's, and emits the model row of a change.
-func (d *database) messageModel(base timeline.Row, inference pyjson.Value) string {
+func (d *database) messageModel(base timeline.Row, inference jsonvalue.Value) string {
 	resolved := parser.Str(inference.Get("resolvedModel"))
 	if resolved == "" {
 		resolved = parser.Str(inference.Get("requestedModel"))

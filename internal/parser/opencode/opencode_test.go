@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows each file gives are proved against the Python analyzer by the
@@ -17,9 +17,9 @@ import (
 
 // decoded returns the JSON text decoded, failing the test when it is not
 // JSON.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestToolSummaryNamesTheCallsAction(t *testing.T) {
 		{"a file path", `{"filePath": "/a"}`, "/a"},
 		{"a search joins pattern and path", `{"pattern": "foo", "path": "/src"}`, "foo | /src"},
 		{"an empty path is not joined", `{"pattern": "foo", "path": ""}`, "foo"},
-		{"an unknown input is sorted JSON", `{"z": 1, "a": 2}`, `{"a":2,"z":1}`},
+		{"an unknown input is sorted JSON", `{"z": 1, "a": 2}`, `{"z":1,"a":2}`},
 		{"null is empty", `null`, ""},
 		{"an empty string is empty", `""`, ""},
 		{"an empty object is empty", `{}`, ""},
@@ -117,7 +117,7 @@ func TestSessionRulesReadBothShapes(t *testing.T) {
 		{"1.x rules, missing fields and other entries",
 			`[{"permission":"bash","pattern":"","action":null}, 3, {"x":1}, ` +
 				`{"permission":0,"pattern":false,"action":[]}]`,
-			[]rule{{"bash", "-", "-"}, {"0", "False", "[]"}}, true},
+			[]rule{{"bash", "-", "-"}, {"0", "false", "[]"}}, true},
 		{"an object is not an array", `{}`, nil, false},
 		{"text that is not JSON", `x`, nil, false},
 		{"an empty array", `[]`, nil, true},

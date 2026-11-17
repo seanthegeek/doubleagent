@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -18,7 +18,7 @@ var worktreePattern = regexp.MustCompile(`^.*[/\\]\.gemini[/\\]worktrees[/\\]([^
 // numbered is one record of a session file and its line.
 type numbered struct {
 	line   int
-	record pyjson.Value
+	record jsonvalue.Value
 }
 
 // session emits the rows of one session file: the session starts, a
@@ -83,7 +83,7 @@ func legacyRecords(artifact *input.Artifact, problems *parser.Problems) []number
 	if !ok {
 		return nil
 	}
-	record, err := pyjson.Decode(data)
+	record, err := jsonvalue.Decode(data)
 	if err != nil {
 		problems.Add(1, "unparseable session file: "+err.Error())
 		return nil
@@ -97,7 +97,7 @@ func legacyRecords(artifact *input.Artifact, problems *parser.Problems) []number
 
 // isFailed reports whether a tool call's status is one that gives a
 // tool_result row without a result.
-func isFailed(status pyjson.Value) bool {
+func isFailed(status jsonvalue.Value) bool {
 	return isText(status, "error") || isText(status, "cancelled")
 }
 
@@ -145,7 +145,7 @@ func (t *messageTurn) row(turn, text, when string) timeline.Row {
 // its unanswered responses, a model message's model change, thinking,
 // text, tool calls and results, or an info, error or warning message as
 // one system row.
-func (t *messageTurn) rows(message pyjson.Value, models parser.Tracker,
+func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	answered map[string]bool) []timeline.Row {
 	kind := message.Get("type")
 	t.timestamp = timeutil.FromValue(message.Get("timestamp"))
@@ -187,7 +187,7 @@ func (t *messageTurn) rows(message pyjson.Value, models parser.Tracker,
 // userRows returns a user message's runs as user and context rows, then a
 // tool_result row with its media per response whose call is not answered;
 // a message with neither gives an empty user row.
-func (t *messageTurn) userRows(content pyjson.Value, answered map[string]bool) []timeline.Row {
+func (t *messageTurn) userRows(content jsonvalue.Value, answered map[string]bool) []timeline.Row {
 	var out []timeline.Row
 	runs, responses := contentRuns(content, true)
 	row := func(turn, text string) timeline.Row { return t.row(turn, text, "") }
@@ -212,7 +212,7 @@ func (t *messageTurn) userRows(content pyjson.Value, answered map[string]bool) [
 // thinkingRows returns a model message's thinking rows: one per thoughts
 // entry, "<subject>: <description>", at its own time, then one for its
 // thought parts.
-func (t *messageTurn) thinkingRows(message pyjson.Value) []timeline.Row {
+func (t *messageTurn) thinkingRows(message jsonvalue.Value) []timeline.Row {
 	var out []timeline.Row
 	for _, entry := range message.Get("thoughts").Items() {
 		if !entry.IsObject() {
@@ -233,8 +233,8 @@ func (t *messageTurn) thinkingRows(message pyjson.Value) []timeline.Row {
 // toolCalls returns a model message's tool calls: its toolCalls objects,
 // then each functionCall part of its content whose id none of them has,
 // as a call of that id, name and args.
-func toolCalls(message pyjson.Value) []pyjson.Value {
-	var calls []pyjson.Value
+func toolCalls(message jsonvalue.Value) []jsonvalue.Value {
+	var calls []jsonvalue.Value
 	seen := map[string]bool{}
 	for _, call := range message.Get("toolCalls").Items() {
 		if call.IsObject() {
@@ -245,9 +245,9 @@ func toolCalls(message pyjson.Value) []pyjson.Value {
 	for _, part := range parts(message.Get("content")) {
 		call := part.Get("functionCall")
 		if call.IsObject() && !seen[parser.Str(call.Get("id"))] {
-			calls = append(calls, pyjson.NewObject(pyjson.Member{Key: "id", Value: call.Get("id")},
-				pyjson.Member{Key: "name", Value: call.Get("name")},
-				pyjson.Member{Key: "args", Value: call.Get("args")}))
+			calls = append(calls, jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: call.Get("id")},
+				jsonvalue.Member{Key: "name", Value: call.Get("name")},
+				jsonvalue.Member{Key: "args", Value: call.Get("args")}))
 		}
 	}
 	return calls
@@ -256,7 +256,7 @@ func toolCalls(message pyjson.Value) []pyjson.Value {
 // callRows returns the rows of one tool call: its tool_use row, a
 // tool_result row when it has a result or failed (the text prefixed with
 // the failed status), and a permission decision row when it was cancelled.
-func (t *messageTurn) callRows(call pyjson.Value) []timeline.Row {
+func (t *messageTurn) callRows(call jsonvalue.Value) []timeline.Row {
 	callID, name := parser.Str(call.Get("id")), parser.Str(call.Get("name"))
 	when := timeutil.FromValue(call.Get("timestamp"))
 	use := t.row(timeline.TurnToolUse, toolText(call), when)
@@ -266,9 +266,9 @@ func (t *messageTurn) callRows(call pyjson.Value) []timeline.Row {
 	if !call.Get("result").IsNull() || isFailed(status) {
 		text := callResultText(call.Get("result"), callID)
 		if isFailed(status) && text != "" {
-			text = "[" + status.Text() + "] " + text
+			text = "[" + status.StringValue() + "] " + text
 		} else if isFailed(status) {
-			text = "[" + status.Text() + "]"
+			text = "[" + status.StringValue() + "]"
 		}
 		result := t.row(timeline.TurnToolResult, text, when)
 		result.ToolName, result.ToolUseID = name, callID

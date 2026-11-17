@@ -13,7 +13,7 @@ func TestAValueThatDoesNotDecodeSaysWhyInPlainWords(t *testing.T) {
 		want  string
 	}{
 		{"text that is not JSON gives the reader's message", sqlitefile.TextValue(`[{"a"`),
-			"invalid JSON at line 1, column 6: expected ':' after a property name"},
+			"invalid JSON at line 1, column 6: unexpected end of JSON input"},
 		{"a number is not text", sqlitefile.IntValue(7), "the value is not text"},
 		{"JSON text decodes", sqlitefile.TextValue(`[1]`), ""},
 	}

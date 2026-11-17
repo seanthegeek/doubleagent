@@ -4,8 +4,8 @@ import (
 	"bytes"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -22,12 +22,12 @@ func permissionKeys() []string {
 // setting is one permission entry of a settings file.
 type setting struct {
 	key   string
-	value pyjson.Value
+	value jsonvalue.Value
 }
 
 // leaves appends (dotted key, value) per leaf of a settings value; an
 // empty object is a leaf.
-func leaves(out []setting, prefix string, value pyjson.Value) []setting {
+func leaves(out []setting, prefix string, value jsonvalue.Value) []setting {
 	if !value.IsObject() || value.Len() == 0 {
 		return append(out, setting{prefix, value})
 	}
@@ -40,7 +40,7 @@ func leaves(out []setting, prefix string, value pyjson.Value) []setting {
 // settingsEntries returns the permission entries of an editor's
 // settings.json: every leaf of the permission keys, and disabled and
 // disabledTools of each MCP server, never its headers, env, url or command.
-func settingsEntries(document pyjson.Value) []setting {
+func settingsEntries(document jsonvalue.Value) []setting {
 	var out []setting
 	for _, key := range permissionKeys() {
 		if value, ok := document.Lookup(key); ok {
@@ -96,7 +96,7 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	preferences, err := pyjson.DecodeString(text)
+	preferences, err := jsonvalue.DecodeString(text)
 	if err != nil || !preferences.IsObject() {
 		emit(p.systemRow(artifact, "parser: "+preferencesKey+" is not a JSON object", 1))
 		return
@@ -107,7 +107,7 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
 // file's modification time.
-func (p *Parser) preferenceRows(artifact *input.Artifact, preferences pyjson.Value, source string, line int,
+func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
 	emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	for _, endpoint := range preferences.Members() {
@@ -117,13 +117,13 @@ func (p *Parser) preferenceRows(artifact *input.Artifact, preferences pyjson.Val
 		for _, kind := range []string{"selected", "defaults"} {
 			for _, usage := range endpoint.Value.Get(kind).Members() {
 				model := usage.Value
-				if !model.IsString() || model.Text() == "" {
+				if !model.IsString() || model.StringValue() == "" {
 					continue
 				}
-				row := p.systemRow(artifact, "model setting: "+kind+"."+usage.Key+"="+model.Text()+
+				row := p.systemRow(artifact, "model setting: "+kind+"."+usage.Key+"="+model.StringValue()+
 					" endpoint="+endpoint.Key+" (from "+source+", file mtime)", line)
 				row.TimestampUTC = timestamp
-				row.Model = model.Text()
+				row.Model = model.StringValue()
 				emit(row)
 			}
 		}

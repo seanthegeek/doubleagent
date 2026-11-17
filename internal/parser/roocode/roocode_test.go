@@ -3,7 +3,7 @@ package roocode
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The expected texts come from running api_decisions over a tool_result
@@ -27,7 +27,7 @@ func TestDecisionTextReadsTheStatusObjectARoundTripWrites(t *testing.T) {
 			"permission decision: approved", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			content, err := pyjson.DecodeString(test.content)
+			content, err := jsonvalue.DecodeString(test.content)
 			if err != nil {
 				t.Fatal(err)
 			}

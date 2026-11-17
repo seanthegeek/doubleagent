@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The expected values are what the Python analyzer's two readers of JSON
@@ -30,7 +30,7 @@ func TestJSONCReadsCommentsAndTrailingCommasOutsideStrings(t *testing.T) {
 			if got := compactOrError(ParseJSONC([]byte(test.raw))); got != test.parsed {
 				t.Errorf("ParseJSONC: got %s, want %s", got, test.parsed)
 			}
-			if got := compactOrError(pyjson.DecodeString(StripJSONC(test.raw))); got != test.stripped {
+			if got := compactOrError(jsonvalue.DecodeString(StripJSONC(test.raw))); got != test.stripped {
 				t.Errorf("StripJSONC: got %s, want %s", got, test.stripped)
 			}
 		})
@@ -38,11 +38,11 @@ func TestJSONCReadsCommentsAndTrailingCommasOutsideStrings(t *testing.T) {
 }
 
 // compactOrError returns a decoded value as compact JSON, or "error".
-func compactOrError(value pyjson.Value, err error) string {
+func compactOrError(value jsonvalue.Value, err error) string {
 	if err != nil {
 		return "error"
 	}
-	return pyjson.Compact(value)
+	return value.JSON()
 }
 
 func FuzzParseJSONC(fuzz *testing.F) {
