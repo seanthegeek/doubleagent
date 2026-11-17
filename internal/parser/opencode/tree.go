@@ -22,10 +22,15 @@ type treeRoot struct {
 	disk      string
 }
 
-// rootOf returns the directory depth levels above the artifact. The
-// original path is cut by the length of the relative tail, which is the
-// same whatever the separator.
-func rootOf(artifact *input.Artifact, depth int) treeRoot {
+// rootOf returns the directory depth levels above the artifact (the
+// artifact's own directory is the first), and false when that lies outside
+// the artifact's home. The original path is cut by the length of the
+// relative tail, which is the same whatever the separator.
+func rootOf(artifact *input.Artifact, depth int) (treeRoot, bool) {
+	disk, found := parser.Above(artifact, depth-1)
+	if !found {
+		return treeRoot{}, false
+	}
 	parts := strings.Split(artifact.Rel, "/")
 	depth = min(depth, len(parts))
 	tail := strings.Join(parts[len(parts)-depth:], "/")
@@ -35,8 +40,7 @@ func rootOf(artifact *input.Artifact, depth int) treeRoot {
 		separator = `\`
 	}
 	cut := original[:max(len(original)-len(tail), 0)]
-	return treeRoot{original: strings.TrimRight(cut, `/\`), separator: separator,
-		disk: artifact.Home.PathOf(strings.Join(parts[:len(parts)-depth], "/"))}
+	return treeRoot{original: strings.TrimRight(cut, `/\`), separator: separator, disk: disk}, true
 }
 
 // childPath returns the path of names below directory, or false when a
@@ -171,7 +175,11 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 	projectPath := parser.Str(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && projectID.Truthy() {
 		name := projectID.Str() + ".json"
-		file, ok := childPath(rootOf(artifact, 3).disk, "project", name)
+		var file string
+		root, ok := rootOf(artifact, 3)
+		if ok {
+			file, ok = childPath(root.disk, "project", name)
+		}
 		project, reason := readSide(file, ok, &problems)
 		if reason != "" {
 			problems.Add(1, fmt.Sprintf("project file %s could not be read (%s)", name, reason))
@@ -211,7 +219,10 @@ func readSide(path string, ok bool, problems *parser.Problems) (pyjson.Value, st
 // <session>/<message>/.
 func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, old bool,
 	emit parser.Emit) {
-	root := rootOf(artifact, 3)
+	root, rooted := rootOf(artifact, 3)
+	if !rooted {
+		return
+	}
 	parts := strings.Split(artifact.Rel, "/")
 	sessionID, name := parts[len(parts)-2], parts[len(parts)-1]
 	var problems parser.Problems
@@ -233,8 +244,7 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 		messageID = jsonStem(name)
 	}
 	scoped := sessionScope(root.disk, sessionID, old, message)
-	directory := artifact.Home.PathOf(strings.Join(parts[:len(parts)-1], "/"))
-	if previous, ok := previousMessage(directory, name); ok {
+	if previous, ok := previousMessage(parser.Beside(artifact), name); ok {
 		provider, model := messageRef(previous)
 		modelRowText(scoped.models, scoped.sessionID, provider, model)
 		agentRowText(scoped.modes, scoped.sessionID, previous.Get("agent"))

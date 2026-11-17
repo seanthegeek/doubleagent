@@ -2,7 +2,6 @@ package kilocode
 
 import (
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -132,9 +131,10 @@ func orDash(text string) string {
 // object, is a `parser:` row.
 func (p *Parser) digest(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	parts := strings.Split(artifact.Rel, "/")
-	folder := artifact.Home.PathOf(strings.Join(parts[:len(parts)-2], "/"))
-	project := manifestRoot(filepath.Join(folder, "manifest.json"), &problems)
+	project := ""
+	if manifest, found := parser.Above(artifact, 1, "manifest.json"); found {
+		project = manifestRoot(manifest, &problems)
+	}
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))

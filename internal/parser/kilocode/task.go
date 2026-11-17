@@ -1,7 +1,6 @@
 package kilocode
 
 import (
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,16 +16,16 @@ import (
 
 // historyItem returns a pre-fork task's history item: history_item.json in
 // its directory, else its entry in the tasks' _index.json, else an empty
-// object. Either file that is there but cannot be read adds a problem.
-func historyItem(taskDir, indexPath, taskID string, problems *parser.Problems) pyjson.Value {
+// object. The task directory is the artifact's own. Either file that is there but cannot be read adds a problem.
+func historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) pyjson.Value {
 	item := pyjson.NewNull()
-	if itemPath := filepath.Join(taskDir, "history_item.json"); parser.RegularFile(itemPath) {
+	if itemPath := parser.Beside(artifact, "history_item.json"); parser.RegularFile(itemPath) {
 		item, _ = readJSON(itemPath, problems)
 	}
 	if item.IsObject() {
 		return item
 	}
-	if parser.RegularFile(indexPath) {
+	if indexPath, found := parser.Above(artifact, 1, "_index.json"); found && parser.RegularFile(indexPath) {
 		index, _ := readJSON(indexPath, problems)
 		for _, entry := range index.Get("entries").Items() {
 			if entry.IsObject() && entry.Get("id").IsString() && entry.Get("id").Text() == taskID {
@@ -63,11 +62,9 @@ func (t *task) row(line int, timestamp, turn, text string) timeline.Row {
 // then a row per problem.
 func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	parts := strings.Split(artifact.Rel, "/")
-	taskDir := artifact.Home.PathOf(strings.Join(parts[:len(parts)-1], "/"))
-	indexPath := filepath.Join(artifact.Home.PathOf(strings.Join(parts[:len(parts)-2], "/")), "_index.json")
 	var problems parser.Problems
 	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options}
-	item := historyItem(taskDir, indexPath, current.taskID, &problems)
+	item := historyItem(artifact, current.taskID, &problems)
 	current.project = parser.Str(item.Get("workspace"))
 	current.started = taskTime(item.Get("ts"), current.taskID)
 	if item.Len() > 0 {
