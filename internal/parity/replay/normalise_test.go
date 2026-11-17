@@ -170,6 +170,8 @@ var libraryShapes = []struct {
 	{regexp.MustCompile(`unreadable \([^()"\n]*\)`), "unreadable ({sqlite error})"},
 	{regexp.MustCompile(`zstd: [^"\n]*`), "zstd: {zstd error}"},
 	{regexp.MustCompile(`could not be read \([^()"\n]*\)`), "could not be read ({system error})"},
+	{regexp.MustCompile(`is not a zip archive \([^()"\n]*\)`), "is not a zip archive ({zip error})"},
+	{regexp.MustCompile(`is not base64 \([^()"\n]*\)`), "is not base64 ({base64 error})"},
 }
 
 // libraryErrorText rewrites the library error details of each line's error
