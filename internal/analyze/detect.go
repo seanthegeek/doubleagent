@@ -174,13 +174,19 @@ func sortedKeys[V any](entries map[string]V) []string {
 // repository files of the projects are read on the way, and a problem
 // with one is added to problems.
 func detect(collection *input.Collection, parsed map[string]bool, problems *[]string) detection {
-	repositories := projectRepositories(collection.Artifacts, problems)
+	return detectWith(collection, parsed, projectRepositories(collection.Artifacts, problems))
+}
+
+// detectWith returns what detect --json and inventory.json share, given the
+// repositories of the projects.
+func detectWith(collection *input.Collection, parsed map[string]bool,
+	repositories map[string]projectGit) detection {
 	projects := projectGroups(collection, parsed)
 	for i := range projects {
 		if git, ok := repositories[projects[i].path]; ok {
 			projects[i].git = git
 		} else {
-			projects[i].git = projectGit{remotes: []gitmeta.Remote{}}
+			projects[i].git = emptyGit()
 		}
 	}
 	return detection{input: collection.Source, kind: collection.Kind, host: collection.Host,

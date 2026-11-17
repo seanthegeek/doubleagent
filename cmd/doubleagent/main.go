@@ -34,6 +34,7 @@ const usageText = `Usage: doubleagent <command> [options]
 Commands:
   collect     archive the on-disk artifacts of AI agents, with a hashed manifest
   detect      list the homes, users and agents a collection holds
+  timeline    parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json
   fleet       merge saved collect --inventory outputs into one CSV
   catalog     print the bundled artifact catalog
 

@@ -52,7 +52,7 @@ func System() Environment {
 // Commands returns the names of the analysis commands, in the order the
 // binary's usage lists them.
 func Commands() []string {
-	return []string{"detect", "fleet", "catalog"}
+	return []string{"detect", "timeline", "fleet", "catalog"}
 }
 
 // Run runs the analysis command args[0] with the arguments after it and
@@ -72,6 +72,10 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 		var options DetectOptions
 		options, help, err = ParseDetect(args[1:])
 		run = func() int { return runDetect(ctx, options, env, stdout, stderr) }
+	case "timeline":
+		var options TimelineOptions
+		options, help, err = ParseTimeline(args[1:])
+		run = func() int { return runTimeline(ctx, options, env, stdout, stderr) }
 	case "fleet":
 		var options FleetOptions
 		options, help, err = ParseFleet(args[1:])

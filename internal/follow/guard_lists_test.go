@@ -267,6 +267,10 @@ func allowedCalls() map[string]allowance {
 			"creates the directory of the CSV the analyst names with -o"},
 		{"internal/analyze/fleet.go", "osfile.WriteFile", 1,
 			"writes the CSV the analyst names with -o"},
+		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
+			"creates the output directory the analyst names with -o"},
+		{"internal/analyze/timeline.go", "osfile.Create", 1,
+			"writes timeline.jsonl, sessions.jsonl and inventory.json in that directory"},
 		{"internal/walk/tree.go", "fsmeta.OpenDir", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {
