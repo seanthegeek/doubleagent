@@ -167,6 +167,8 @@ var libraryShapes = []struct {
 		"{toml error}"},
 	{regexp.MustCompile(`invalid TOML at line [0-9]+, column [0-9]+: [^()"\n]*`), "{toml error}"},
 	{regexp.MustCompile(`SQLite error: [^"\n]*`), "SQLite error: {sqlite error}"},
+	{regexp.MustCompile(`database could not be read: [^"\n]*`),
+		"database could not be read: {sqlite error}"},
 	{regexp.MustCompile(`unreadable \([^()"\n]*\)`), "unreadable ({sqlite error})"},
 	{regexp.MustCompile(`zstd: [^"\n]*`), "zstd: {zstd error}"},
 	{regexp.MustCompile(`could not be read \([^()"\n]*\)`), "could not be read ({system error})"},
