@@ -40,6 +40,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/openhands"
 	"github.com/seanthegeek/doubleagent/internal/parser/openinterpreter"
 	"github.com/seanthegeek/doubleagent/internal/parser/pearai"
+	"github.com/seanthegeek/doubleagent/internal/parser/pi"
 	"github.com/seanthegeek/doubleagent/internal/parser/qwencode"
 	"github.com/seanthegeek/doubleagent/internal/parser/roocode"
 	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
@@ -75,6 +76,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return tabby.New() },
 		func() parser.Parser { return openhands.New() },
 		func() parser.Parser { return shellgpt.New() },
+		func() parser.Parser { return pi.New() },
 		func() parser.Parser { return hermes.New() },
 		func() parser.Parser { return agentzero.New() },
 		func() parser.Parser { return openinterpreter.New() },

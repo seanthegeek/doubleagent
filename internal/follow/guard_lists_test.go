@@ -15,8 +15,9 @@ package follow
 // plugin, net with its Unix sockets, io/ioutil) are not listed, so importing
 // one fails.
 func reviewedImports() map[string]string {
-	noPath := []string{"archive/tar", "bufio", "bytes", "cmp", "compress/bzip2", "compress/gzip",
-		"context", "crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex",
+	noPath := []string{"archive/tar", "bufio", "bytes", "cmp", "compress/bzip2", "compress/flate",
+		"compress/gzip", "context", "crypto/rand", "crypto/sha256", "embed", "encoding/base64",
+		"encoding/binary", "encoding/hex",
 		"errors", "fmt", "hash/crc32", "io", "io/fs", "iter", "math", "math/big", "os/signal",
 		"path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
 		"testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
@@ -78,7 +79,8 @@ func safeNames() map[string][]string {
 			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout", "SyscallError", "TempDir"},
 		// A zip reader over a handle already open, its types and errors;
 		// OpenReader, which opens a path by name, is left out.
-		"archive/zip": {"ErrAlgorithm", "ErrChecksum", "ErrFormat", "File", "FileHeader", "NewReader"},
+		"archive/zip": {"ErrAlgorithm", "ErrChecksum", "ErrFormat", "ErrInsecurePath", "File", "FileHeader",
+			"NewReader"},
 		// The running account's own record, looked up by the system.
 		"os/user": {"Current"},
 		// Text operations on a path; none touches the file system.
