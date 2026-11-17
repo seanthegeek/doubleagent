@@ -2,9 +2,13 @@ package protowire
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
+
+	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // maxDepth bounds how deeply messages nest; deeper input is left out as
@@ -123,7 +127,7 @@ func scalar(kind string, field rawField) (any, bool) {
 	switch kind {
 	case KindString:
 		if isBytes {
-			return decodeUTF8(field.data), true
+			return pytext.DecodeUTF8(field.data), true
 		}
 		return new(big.Int).SetUint64(field.varint).String(), true
 	case KindBytes:
@@ -177,7 +181,7 @@ func floatScalar(kind string, field rawField, isBytes bool) (any, bool) {
 // timestampScalar decodes a Timestamp message, or a varint as epoch time.
 func timestampScalar(field rawField, isBytes bool) (any, bool) {
 	if !isBytes {
-		return epochText(float64(field.varint)), true
+		return timeutil.FromEpoch(float64(field.varint)), true
 	}
 	text, err := timestampText(field.data)
 	return text, err == nil
@@ -205,5 +209,10 @@ func timestampText(data []byte) (string, error) {
 	if seconds == 0 {
 		return "", nil
 	}
-	return epochText(float64(seconds) + float64(nanos)/1e9), nil
+	return timeutil.FromEpoch(float64(seconds) + float64(nanos)/1e9), nil
+}
+
+// isMalformed reports whether err says the bytes are not a valid message.
+func isMalformed(err error) bool {
+	return errors.Is(err, ErrMalformed)
 }

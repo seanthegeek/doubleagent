@@ -204,25 +204,6 @@ func TestAccessorsReadTypedValues(t *testing.T) {
 	}
 }
 
-func TestEpochTextHandlesTheEdges(t *testing.T) {
-	for name, test := range map[string]struct {
-		epoch float64
-		want  string
-	}{
-		"zero":                           {0, "1970-01-01T00:00:00.000Z"},
-		"a fraction cut to milliseconds": {1.7e9 + 0.1239, "2023-11-14T22:13:20.123Z"},
-		"not a number":                   {math.NaN(), ""},
-		"infinity":                       {math.Inf(1), ""},
-		"a negative time":                {-1.5, "1969-12-31T23:59:58.500Z"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if got := epochText(test.epoch); got != test.want {
-				t.Fatalf("got %q want %q", got, test.want)
-			}
-		})
-	}
-}
-
 // appendDelimited returns one length-delimited field for tests.
 func appendDelimited(number int, payload []byte) []byte {
 	out := appendVarint(nil, uint64(number)<<3|2)
