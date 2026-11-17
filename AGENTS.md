@@ -543,10 +543,29 @@ for Go files as it does for the others.
   listings use `(*os.File).ReadDir(-1)` (directory order) where the sh
   collector uses `find`, and the glob expander (sorted) where it expands a
   pattern; never `filepath.WalkDir` or `os.ReadDir` on a collected tree.
-- **Interface files are written by hand.** The manifest, `collection.json`,
-  the inventory lines and the analyzer's JSON and JSONL outputs are written
-  through the project's own escaper in the documented field order;
-  `encoding/json` reads, it never writes an interface file.
+- **Standard library first.** Where the standard library does the job, use
+  it: `encoding/json` reads and writes JSON (a struct's field order is the
+  documented field order, with `SetEscapeHTML(false)`), `encoding/csv`
+  writes CSV, and `strings`, `slices`, `path` and the like are used in place
+  of a hand-written copy. A file name that is not valid UTF-8 is therefore
+  written to the manifest with U+FFFD in place of each bad byte; the archive
+  member keeps the real bytes.
+- **A package that stands in for the standard library says why.** Where the
+  project has its own package or function for something the standard
+  library (or a well-known module) also offers, such as `internal/glob`
+  beside `path.Match` and `filepath.Glob`, or `internal/osfile` beside the
+  `os` path functions, the package comment names the standard facility and
+  says in a few sentences what it does differently that the project needs.
+  A reader should not have to ask whether the package is duplication. A new
+  package of this kind is added only with that explanation, and when the
+  reason stops holding the package goes.
+- **One way to build a string.** Use `fmt.Sprintf` (or `Errorf`, `Fprintf`)
+  when a value needs converting, quoting or padding. When every value is
+  already a string, join with `+`, with `strings.Join` for a list, or with a
+  `strings.Builder` in a loop.
+- **Tests follow the same standards.** Every rule in this section and in
+  [Code style](#code-style) applies to `_test.go` files as it does to
+  package code, in every package.
 - **Catalog is data.** The seven tables are one embedded text file in the
   `--list` format; code never holds a path or glob that belongs in a table.
 - **Names and comments.** [Code style](#code-style) holds, with these Go
