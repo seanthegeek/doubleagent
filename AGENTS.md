@@ -468,6 +468,7 @@ for Go files as it does for the others.
   | Module | Version | Why |
   | --- | --- | --- |
   | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; on Windows the calls the standard library does not expose: file handles opened without following a reparse point, the reparse tag that tells a symlink or junction from a socket, file owners through the security descriptor and account lookup, final paths of handles, directory symlinks, file times set on a handle, and the registry; pure Go. |
+  | `github.com/BurntSushi/toml` | v1.5.0 | Reading TOML 1.0 documents (Codex and Gemini CLI settings and policies, Tabby's config) as `tomllib` does, with the tables' keys in document order, which the module reports beside its values; v1.6.0 reads TOML 1.1 and is not used; pure Go with no dependencies. |
 
 - **File system calls.** Every file under `internal/` that is built for
   Windows opens, lists, stats, creates and removes paths through

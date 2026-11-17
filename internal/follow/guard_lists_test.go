@@ -21,7 +21,8 @@ func reviewedImports() map[string]string {
 		"os/signal", "path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv",
 		"strings", "testing", "time", "unicode", "unicode/utf16", "unicode/utf8"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
-		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry"}
+		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
+		"github.com/BurntSushi/toml"}
 	reviewed := map[string]string{}
 	for _, name := range noPath {
 		reviewed[name] = "no path"
@@ -82,6 +83,10 @@ func safeNames() map[string][]string {
 		"golang.org/x/sys/windows": {"CreateWellKnownSid", "ERROR_INVALID_NAME",
 			"FILE_ATTRIBUTE_DIRECTORY", "MAX_LONG_PATH", "RtlGetVersion", "Token",
 			"UTF16PtrFromString", "UTF16ToString", "WinBuiltinAdministratorsSid"},
+		// Decode reads TOML text it is given, and the other two are an error
+		// type and a key path type. DecodeFile and DecodeFS open paths and are
+		// not listed.
+		"github.com/BurntSushi/toml": {"Decode", "Key", "ParseError"},
 		// Registry keys and values, which are not file paths.
 		"golang.org/x/sys/windows/registry": {"DWORD", "ENUMERATE_SUB_KEYS", "EXPAND_SZ",
 			"ErrNotExist", "ErrUnexpectedType", "ExpandString", "Key", "LOCAL_MACHINE", "OpenKey",
