@@ -19,10 +19,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path("analyzer").resolve()))
 sys.path.insert(0, str(Path("analyzer/tests").resolve()))
 
+from parsers import test_qwen_code as module
+
 import doubleagent.parsers  # noqa: F401  (fills the deduplicator's hook tables)
 from doubleagent import dedup
 from doubleagent.model import TIMELINE_COLUMNS
-from parsers import test_qwen_code as module
 
 TESTS = (
     "test_group_history_any_scope_within_the_clear",

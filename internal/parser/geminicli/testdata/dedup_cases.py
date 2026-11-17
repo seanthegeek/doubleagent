@@ -19,10 +19,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path("analyzer").resolve()))
 sys.path.insert(0, str(Path("analyzer/tests").resolve()))
 
+from parsers import test_gemini_cli as module
+
 import doubleagent.parsers  # noqa: F401  (fills the deduplicator's hook tables)
 from doubleagent import dedup
 from doubleagent.model import TIMELINE_COLUMNS
-from parsers import test_gemini_cli as module
 
 TESTS = (
     "test_chat_checkpoint",
