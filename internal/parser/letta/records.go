@@ -250,12 +250,7 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		row.SessionID, row.ProjectPath = sessionID, cwd
 		emit(row)
 	}
-	var results []pyjson.Value
-	for _, result := range document.Get("results").Items() {
-		if result.IsObject() {
-			results = append(results, result)
-		}
-	}
+	results := objects(document.Get("results"))
 	put(timeline.TurnSystem, "", fmt.Sprintf("interrupted turn: agent %s conversation %s run %s "+
 		"tool_calls=%s unstarted=%s results=%d working_directory=%s acting_user=%s (from %s, file mtime)",
 		dash(document.Get("agentId")), dash(pyjson.NewString(sessionID)), dash(document.Get("runId")),
@@ -273,6 +268,17 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		}
 		put(timeline.TurnToolResult, callID, text)
 	}
+}
+
+// objects returns the objects of a list, none for any other value.
+func objects(list pyjson.Value) []pyjson.Value {
+	var out []pyjson.Value
+	for _, item := range list.Items() {
+		if item.IsObject() {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // interruptedDecision returns the `permission decision:` row text of an

@@ -46,18 +46,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	if len(files) == 0 || files[0].Name() != filepath.Base(artifact.DiskPath) {
 		return
 	}
-	var mtimes []float64
-	var listed []string
-	for _, entry := range files {
-		if info, err := entry.Info(); err == nil {
-			mtimes = append(mtimes, parser.MtimeSeconds(info))
-		}
-		if name, absent := strings.CutSuffix(entry.Name(), absentSuffix); absent {
-			listed = append(listed, name+" (did not exist)")
-		} else {
-			listed = append(listed, entry.Name())
-		}
-	}
+	mtimes, listed := describeFiles(files)
 	row := p.BaseRow(artifact)
 	row.TurnType = timeline.TurnSystem
 	header, failure := pyjson.NewNull(), parser.Problems(nil)
@@ -81,6 +70,25 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 		strconv.Itoa(len(listed)) + " pre-edit file(s)" + collected + ": " + strings.Join(listed, "; "))
 	emit(row)
 	parser.EmitAll(emit, p.ErrorRows(artifact, failure, row.SessionID, row.ProjectPath))
+}
+
+// describeFiles returns the modification times of the files that could be
+// looked at, and each file's name as the row lists it: an absence marker
+// as the name it stands for, "(did not exist)" after it.
+func describeFiles(files []os.DirEntry) ([]float64, []string) {
+	var mtimes []float64
+	var listed []string
+	for _, entry := range files {
+		if info, err := entry.Info(); err == nil {
+			mtimes = append(mtimes, parser.MtimeSeconds(info))
+		}
+		if name, absent := strings.CutSuffix(entry.Name(), absentSuffix); absent {
+			listed = append(listed, name+" (did not exist)")
+		} else {
+			listed = append(listed, entry.Name())
+		}
+	}
+	return mtimes, listed
 }
 
 // lstatPresent returns the entry at path, nil and no error when nothing is

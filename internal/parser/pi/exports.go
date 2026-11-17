@@ -167,13 +167,8 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd,
 			bugReportRowText(report, diagnostics, source("report.json", "createdAt"))))
 	}
-	for _, record := range diagnostics.Get("crashes").Items() {
-		if record.IsObject() {
-			text, crashSession := p.crashText(record, source("diagnostics.json", "record timestamp"))
-			emit(p.systemRow(artifact, 0, timeutil.FromValue(record.Get("timestamp")), crashSession,
-				parser.Str(record.Get("cwd")), text))
-		}
-	}
+	p.bugCrashRows(artifact, diagnostics.Get("crashes"), source("diagnostics.json", "record timestamp"),
+		emit)
 	if summary, ok := members["summary.md"]; ok {
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd, "bug report summary: "+
 			parser.SettingOrDash(report.Get("id"))+" "+source("summary.md", "report.json createdAt")+
@@ -193,6 +188,19 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 		}
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, cwd))
+}
+
+// bugCrashRows emits one `crash:` row per crash record of a bug report's
+// diagnostics, at the record's own time.
+func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes pyjson.Value, source string,
+	emit parser.Emit) {
+	for _, record := range crashes.Items() {
+		if record.IsObject() {
+			text, crashSession := p.crashText(record, source)
+			emit(p.systemRow(artifact, 0, timeutil.FromValue(record.Get("timestamp")), crashSession,
+				parser.Str(record.Get("cwd")), text))
+		}
+	}
 }
 
 // either returns first when Python counts it true, else second: Python's
