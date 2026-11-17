@@ -4,6 +4,7 @@ import json
 import os
 import random
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,23 @@ from types import SimpleNamespace
 
 from recorder import corpus
 from recorder.plugin import NameSequence, Recorder
+
+# The names of the `open` audit events while _AUDITING[0] is set; an audit hook cannot be
+# removed, so once a test installs it, it stays installed and records nothing otherwise.
+_AUDITED: list[str] = []
+_AUDITING = [False, False]
+
+
+def _audit(event: str, arguments: tuple) -> None:
+    if _AUDITING[0] and event == "open" and isinstance(arguments[0], (str, bytes)):
+        _AUDITED.append(os.fsdecode(arguments[0]))
+
+
+def _install_audit() -> None:
+    """Install the audit hook once."""
+    if not _AUDITING[1]:
+        sys.addaudithook(_audit)
+        _AUDITING[1] = True
 
 
 def read_cases(directory: Path, group: str) -> list[dict]:
@@ -94,6 +112,45 @@ class CorpusTests(unittest.TestCase):
         blob = self.tmp / "corpus" / "blobs" / files["top/secret"][1]
         self.assertEqual(blob.read_bytes(), b"hidden")
         self.assertEqual(sorted(snapshot.mtimes), ["top", "top/secret"])
+
+    def test_a_file_rewritten_at_its_size_and_re_dated_is_read_again(self):
+        top = Path(self.root) / "top"
+        top.mkdir()
+        path = top / "state.json"
+        path.write_text('{"host": "a"}', encoding="utf-8")
+        status = os.stat(path)
+        snapshots = corpus.Snapshotter(self.store)
+        before = snapshots.root_entry("top")
+        path.write_text('{"host": "b"}', encoding="utf-8")
+        os.utime(path, ns=(status.st_atime_ns, status.st_mtime_ns))
+        self.assertFalse(before.current())
+        after = snapshots.root_entry("top")
+        assert after.entry is not None
+        files = corpus.tree_files(self.store.trees, self.store.tree([after.entry]))
+        blob = self.tmp / "corpus" / "blobs" / files["top/state.json"][1]
+        self.assertEqual(blob.read_bytes(), b'{"host": "b"}')
+
+    @unittest.skipUnless(os.open in os.supports_dir_fd, "the platform has no dir_fd")
+    def test_a_file_read_again_is_not_an_open_of_its_path(self):
+        top = Path(self.root) / "top"
+        top.mkdir()
+        path = top / "notes.txt"
+        path.write_text("notes", encoding="utf-8")
+        snapshots = corpus.Snapshotter(self.store)
+        snapshots.root_entry("top")
+        os.chmod(path, 0)
+        os.chmod(path, 0o600)
+        _install_audit()
+        _AUDITED.clear()
+        _AUDITING[0] = True
+        try:
+            snapshot = snapshots.root_entry("top")
+        finally:
+            _AUDITING[0] = False
+        assert snapshot.entry is not None
+        opened = [os.path.realpath(name) for name in _AUDITED]
+        self.assertNotIn(os.path.realpath(path), opened)
+        self.assertIn("notes.txt", _AUDITED)
 
     def test_an_entry_of_an_unsearchable_directory_keeps_its_last_snapshot(self):
         top = Path(self.root) / "top"

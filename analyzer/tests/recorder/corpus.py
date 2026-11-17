@@ -316,8 +316,7 @@ class Snapshotter:
         if known and known[0] == key:
             return known[1]
         try:
-            with open(path, "rb") as handle:
-                data = handle.read()
+            data = _read_bytes(path)
         except PermissionError:
             return known[1] if known else None
         digest = self.corpus.blob(data)
@@ -368,12 +367,46 @@ def current_key(path: str) -> tuple[int, ...] | str:
 
 
 def _status_key(status: os.stat_result) -> tuple[int, ...]:
-    """Return what tells a changed file apart: device, inode, mode, size and modification time.
+    """Return what tells a changed file apart: device, inode, mode, size and both times.
 
-    The change time is left out: a test that locks a file and unlocks it again moves it, and a
-    file read again would be an `open` the suite's audit hook counts as the parser's.
+    The change time catches a file rewritten at the same size whose modification time a test set
+    back; it also moves when a test locks a file and unlocks it, and the file is then read again
+    through `_read_bytes`.
     """
-    return (status.st_dev, status.st_ino, status.st_mode, status.st_size, status.st_mtime_ns)
+    return (
+        status.st_dev,
+        status.st_ino,
+        status.st_mode,
+        status.st_size,
+        status.st_mtime_ns,
+        status.st_ctime_ns,
+    )
+
+
+def _read_bytes(path: str) -> bytes:
+    """Return the bytes of the file at `path`, opened by its name inside its open directory.
+
+    The audit hook of `tests/test_unreadable.py` counts each `open` of a file under the home while
+    a parser runs as the parser's read. Opened this way, the `open` events name the directory,
+    which is not a file, and the bare file name, which does not lead into the home, so a snapshot
+    taken during a parse is not counted. Without `dir_fd`, or when the directory cannot be opened,
+    the file is opened by its path.
+    """
+    directory = None
+    if os.open in os.supports_dir_fd:
+        try:
+            directory = os.open(os.path.dirname(path), os.O_RDONLY)
+        except PermissionError:
+            directory = None
+    if directory is None:
+        with open(path, "rb") as handle:
+            return handle.read()
+    try:
+        descriptor = os.open(os.path.basename(path), os.O_RDONLY, dir_fd=directory)
+    finally:
+        os.close(directory)
+    with open(descriptor, "rb") as handle:
+        return handle.read()
 
 
 def top_of(root: str, path: str) -> str:
