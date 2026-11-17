@@ -6,9 +6,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The expected values are what the Python analyzer's two readers of JSON
-// with comments give: parse_jsonc for ParseJSONC, and strip_jsonc followed
-// by json.loads for StripJSONC, which differ only in the byte-order mark.
+// ParseJSONC and StripJSONC followed by a decode read JSON with comments
+// alike, except for a leading byte-order mark.
 func TestJSONCReadsCommentsAndTrailingCommasOutsideStrings(t *testing.T) {
 	tests := []struct {
 		name, raw, parsed, stripped string

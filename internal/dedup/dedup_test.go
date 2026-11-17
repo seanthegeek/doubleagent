@@ -52,7 +52,7 @@ func set(field string, value any) change {
 	}
 }
 
-// primaryRow returns the transcript row the Python tests build, at a time.
+// primaryRow returns a transcript row at a time.
 func primaryRow(moment string, changes ...change) timeline.Row {
 	row := timeline.Row{TimestampUTC: moment, Host: "h1", User: "alice", Agent: "claude-code",
 		SessionID: sessionID, ProjectPath: "/srv/proj", TurnType: "user",
@@ -143,7 +143,7 @@ func describe(list []timeline.Row) string {
 	return text
 }
 
-// scopeCases are the Python tests of identity and scope.
+// scopeCases are the tests of identity and scope.
 func scopeCases() []deduplicateCase {
 	history := historyRow(baseTime)
 	return []deduplicateCase{

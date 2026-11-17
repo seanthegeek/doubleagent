@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// The /srv/proj repository of the Python fixtures.
+// The /srv/proj repository of the analysis fixtures.
 const (
 	projectRemote  = "git@github.com:alice/proj.git"
 	projectMirror  = "https://mirror.example.com/alice/proj.git"
@@ -42,8 +42,8 @@ func remote(name string, urls []string, pushURLs ...string) Remote {
 // list is shorthand for a slice of strings.
 func list(values ...string) []string { return values }
 
-// configCase is one .git/config text with the remotes and problems the
-// Python analyzer reads from it.
+// configCase is one .git/config text with the remotes and problems read
+// from it.
 type configCase struct {
 	name     string
 	text     string
@@ -68,7 +68,7 @@ func TestParseConfig(t *testing.T) {
 	}
 }
 
-// configCases are the Python tests of sections, keys, comments and lines.
+// configCases are the tests of sections, keys, comments and lines.
 func configCases() []configCase {
 	return []configCase{
 		{"the fixture config", projectConfig, []Remote{
@@ -131,7 +131,7 @@ func configCases() []configCase {
 	}
 }
 
-// valueCases are the Python tests of value quoting, escapes and trimming.
+// valueCases are the tests of value quoting, escapes and trimming.
 func valueCases() []configCase {
 	pad := strings.Repeat(" ", 200_000)
 	return []configCase{

@@ -78,9 +78,9 @@ func TestSessionWithOnlyParserRowsIsNeverRecovered(t *testing.T) {
 	}
 }
 
-func TestProjectPathsMatchPython(t *testing.T) {
+func TestProjectPathsHaveOneSpellingAndKey(t *testing.T) {
 	for _, test := range pathCases() {
-		t.Run(strconv.Quote(test.input)+" is spelled as Python spells it", func(t *testing.T) {
+		t.Run(strconv.Quote(test.input)+" has one spelling", func(t *testing.T) {
 			if got := CanonicalProjectPath(test.input); got != test.canonical {
 				t.Errorf("CanonicalProjectPath = %q, want %q", got, test.canonical)
 			}
@@ -88,7 +88,7 @@ func TestProjectPathsMatchPython(t *testing.T) {
 				t.Errorf("CanonicalProjectPath is not idempotent: %q gives %q", test.canonical, got)
 			}
 			if got := ProjectKey(test.input); got != test.key {
-				t.Errorf("ProjectKey = %q, want %q (Python %q)", got, test.key, test.pythonKey)
+				t.Errorf("ProjectKey = %q, want %q (a Unicode lowering gives %q)", got, test.key, test.unicodeKey)
 			}
 			if got := IsWindowsPath(test.input); got != test.windows {
 				t.Errorf("IsWindowsPath = %v, want %v", got, test.windows)
