@@ -435,8 +435,10 @@ func (c treeChecker) entry(path, relative string, entry Entry) {
 	}
 	switch entry.Kind {
 	case "link":
+		// Windows stores a link's target in its own separators.
 		target, err := osfile.Readlink(path)
-		if want := c.corpus.Expand(entry.Target, c.root); err != nil || target != want {
+		target = strings.TrimPrefix(target, `\\?\`)
+		if want := filepath.FromSlash(c.corpus.Expand(entry.Target, c.root)); err != nil || target != want {
 			c.t.Errorf("%s: link to %q (%v), want %q", relative, target, err, want)
 		}
 		return
