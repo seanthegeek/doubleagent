@@ -1,5 +1,6 @@
 // Package reason turns an error that stopped a read into the short text the
-// analyzer prints in a `parser:` row, a `problem:` line or an error message.
+// analysis commands print in a `parser:` row, a `problem:` line or an error
+// message.
 //
 // The common conditions of the operating system get one fixed lower-case
 // reason each, the same on Linux, macOS and Windows: "permission denied",
