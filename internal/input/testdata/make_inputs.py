@@ -37,6 +37,7 @@ def zip_of(source, archive):
 
 
 def main():
+    """Write the test inputs into the directory named on the command line."""
     analyzer, out = Path(sys.argv[1]), Path(sys.argv[2])
     sys.path[:0] = [str(analyzer), str(analyzer / "tests")]
     import fixtures

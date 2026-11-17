@@ -1,4 +1,4 @@
-"""Print what the Python analyzer's open_input returns for one input, for the Go parity test.
+r"""Print what the Python analyzer's open_input returns for one input, for the Go parity test.
 
     python3 -I dump_input.py <analyzer directory> <input> [--catalog FILE] [--host H] [--work-dir D]
 
@@ -36,6 +36,7 @@ def field(text):
 
 
 def main():
+    """Open the input named on the command line and print what the analyzer found."""
     parser = argparse.ArgumentParser()
     parser.add_argument("analyzer")
     parser.add_argument("input")
@@ -48,7 +49,9 @@ def main():
 
     from doubleagent import catalog, inputs
 
-    tables = catalog.parse(Path(args.catalog).read_text("utf-8")) if args.catalog else catalog.load()
+    tables = (
+        catalog.parse(Path(args.catalog).read_text("utf-8")) if args.catalog else catalog.load()
+    )
     work_dir = Path(args.work_dir) if args.work_dir else None
     try:
         collection = inputs.open_input(Path(args.input), tables, work_dir=work_dir, host=args.host)
@@ -88,8 +91,10 @@ def main():
                 lines.append("\t".join(["staged", str(index), field(rel), path(staged)]))
         for artifact in collection.artifacts:
             row = artifact.manifest
-            manifest = "-" if row is None else field(
-                json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+            manifest = (
+                "-"
+                if row is None
+                else field(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
             )
             lines.append(
                 "\t".join(
