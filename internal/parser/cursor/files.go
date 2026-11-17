@@ -4,8 +4,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -63,7 +63,7 @@ func (p *Parser) readDocument(artifact *input.Artifact, project string, emit par
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 		return jsonvalue.Value{}, false
 	}
-	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
+	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
 	switch {
 	case err != nil:
 		emit(p.row(artifact, timeline.TurnSystem, "parser: unreadable "+artifact.Rel+": "+reason.For(err), "", 0))

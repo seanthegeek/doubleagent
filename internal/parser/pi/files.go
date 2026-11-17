@@ -8,7 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -91,7 +90,7 @@ func (p *Parser) parseDebugLog(artifact *input.Artifact, options parser.Options,
 		readAny = true
 		line := parser.LineText(raw)
 		if number == 1 && strings.HasPrefix(line, debugHeader) {
-			written = timeutil.FromText(pytext.Strip(line[len(debugHeader):]))
+			written = timeutil.FromText(strings.TrimSpace(line[len(debugHeader):]))
 		}
 		if !inMessages {
 			inMessages = line == debugMarker

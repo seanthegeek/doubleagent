@@ -11,7 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -172,7 +172,7 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 	if summary, ok := members["summary.md"]; ok {
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd, "bug report summary: "+
 			parser.SettingOrDash(report.Get("id"))+" "+source("summary.md", "report.json createdAt")+
-			"\n"+pytext.DecodeUTF8(summary)))
+			"\n"+textlines.ValidUTF8(summary)))
 	}
 	if data, ok := members["session.jsonl"]; ok {
 		session := ReadSessionBytes(data)

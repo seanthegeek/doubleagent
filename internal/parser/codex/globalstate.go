@@ -6,7 +6,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -80,7 +79,7 @@ func promptEntries(atom jsonvalue.Value) []promptEntry {
 		}
 		for i, entry := range member.Value.Items() {
 			markdown := entry.Get("markdown")
-			if !markdown.IsString() || pytext.Strip(markdown.StringValue()) == "" {
+			if !markdown.IsString() || strings.TrimSpace(markdown.StringValue()) == "" {
 				continue
 			}
 			listed = append(listed, promptEntry{member.Key, i + 1, markdown.StringValue()})

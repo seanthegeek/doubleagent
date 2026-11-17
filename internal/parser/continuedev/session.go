@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -62,7 +62,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, fileID, ""))
 		return
 	}
-	document, problem := LoadSession(pytext.DecodeUTF8(content))
+	document, problem := LoadSession(textlines.ValidUTF8(content))
 	sessionID := clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)).Text()
 	entry := p.indexes.Index(parser.Beside(artifact))[sessionID]
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,

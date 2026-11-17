@@ -12,7 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -120,7 +120,7 @@ func ReadText(path string, problems *Problems) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return strings.TrimPrefix(pytext.DecodeUTF8(data), byteOrderMark), true
+	return strings.TrimPrefix(textlines.ValidUTF8(data), byteOrderMark), true
 }
 
 // LoadJSON returns an optional side file decoded as JSON, read as ReadText

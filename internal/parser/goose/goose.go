@@ -26,7 +26,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -202,7 +202,7 @@ func unescapeHistory(line string) string {
 func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for number, raw := range parser.Lines(artifact.DiskPath, &problems) {
-		line := strings.TrimRight(pytext.DecodeUTF8(raw), "\r\n")
+		line := strings.TrimRight(textlines.ValidUTF8(raw), "\r\n")
 		if line == "" || number == 1 && strings.HasPrefix(line, "#V") {
 			continue
 		}

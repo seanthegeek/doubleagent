@@ -108,3 +108,24 @@ func TestTrimSetsTakeTheirASCIICharacters(t *testing.T) {
 		})
 	}
 }
+
+func TestValidUTF8ReplacesEachInvalidByte(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want string
+	}{
+		{"valid text is kept", "café 😀", "café 😀"},
+		{"a cut sequence gives one replacement per byte", "a\xe2\x82b", "a��b"},
+		{"an encoded surrogate gives three", "\xed\xa0\x80", "���"},
+		{"a stray byte gives one", "x\xffy", "x�y"},
+		{"the replacement character itself is kept", "�", "�"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ValidUTF8([]byte(test.data)); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}

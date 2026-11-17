@@ -1,8 +1,9 @@
 package parser
 
 import (
+	"unicode/utf8"
+
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // Elements returns what a Python loop over `value or []` visits: the items
@@ -27,7 +28,7 @@ func Elements(value jsonvalue.Value) []jsonvalue.Value {
 	case value.IsString():
 		var items []jsonvalue.Value
 		for rest := value.StringValue(); rest != ""; {
-			_, size := pytext.NextCodePoint(rest)
+			_, size := utf8.DecodeRuneInString(rest)
 			items = append(items, jsonvalue.NewString(rest[:size]))
 			rest = rest[size:]
 		}

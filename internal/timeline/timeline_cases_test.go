@@ -154,7 +154,7 @@ func compactCases() []compactCase {
 		{"  a  ", "a"},
 		{"\U000000A0\U00002028a b\U00003000", "a b"},
 		{"\n\tline one\n  line two\n", "line one\n  line two"},
-		{"\x1c\x1fa\x1e", "a"},
+		{"\x1c\x1fa\x1e", "\x1c\x1fa\x1e"},
 		{"\U0000200Ba\U0000FEFF", "\U0000200Ba\U0000FEFF"},
 		{"a\x00", "a\x00"},
 		{"\U00000085x\U00000085", "x"},

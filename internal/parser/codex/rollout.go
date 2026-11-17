@@ -8,7 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -169,7 +168,7 @@ func (s *rollout) sessionMeta(payload jsonvalue.Value) {
 		}
 	}
 	s.put(s.row(timeline.TurnSystem, when), start)
-	if url := git.Get("repository_url"); url.IsString() && pytext.Strip(url.StringValue()) != "" {
+	if url := git.Get("repository_url"); url.IsString() && strings.TrimSpace(url.StringValue()) != "" {
 		s.put(s.row(timeline.TurnSystem, when), timeline.GitRemotePrefix+url.StringValue())
 	}
 	s.lineage(payload, when)
@@ -187,7 +186,7 @@ func (s *rollout) lineage(payload, when jsonvalue.Value) {
 				extra = append(extra, field+"="+value.Text())
 			}
 		}
-		s.put(s.row(timeline.TurnSystem, when), pytext.Strip("subagent "+s.sessionID+" of "+parent+
+		s.put(s.row(timeline.TurnSystem, when), strings.TrimSpace("subagent "+s.sessionID+" of "+parent+
 			" "+strings.Join(extra, " ")))
 	}
 	if forked := payload.Get("forked_from_id"); !forked.IsEmpty() {
@@ -320,7 +319,7 @@ func (s *rollout) event(payload jsonvalue.Value) {
 		if failure := payload.Get("error"); failure.IsObject() {
 			detail = parser.Str(failure.Get("message"))
 		}
-		s.system(pytext.Strip("turn aborted: " + parser.Str(payload.Get("reason")) + " " + detail))
+		s.system(strings.TrimSpace("turn aborted: " + parser.Str(payload.Get("reason")) + " " + detail))
 	case isText(payloadType, "thread_rolled_back"):
 		count := ""
 		if value, ok := payload.Lookup("num_turns"); ok {

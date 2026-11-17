@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -365,7 +365,7 @@ func logEntries(path string, problems *parser.Problems) []entry {
 	if !ok {
 		return nil
 	}
-	text := pytext.DecodeUTF8(data)
+	text := textlines.ValidUTF8(data)
 	offset := skipWhitespace(text, 0)
 	if offset >= len(text) {
 		return nil

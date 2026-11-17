@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/tomldoc"
 )
@@ -173,7 +173,7 @@ func (p *Parser) policy(artifact *input.Artifact, emit parser.Emit) {
 	row := func(text string) {
 		emit(standingRow(p.Base, artifact, timestamp, project, text))
 	}
-	document, err := tomldoc.Parse(pytext.DecodeUTF8(data))
+	document, err := tomldoc.Parse(textlines.ValidUTF8(data))
 	if err != nil {
 		row("parser: unreadable " + artifact.Rel + ": " + err.Error())
 		return

@@ -9,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -127,8 +126,7 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 		return strings.Compare(left[1], right[1])
 	})
 	for _, key := range keys {
-		fmt.Fprintf(w, "           %s %s %d\n", pytext.PadRight(key[0], 14), pytext.PadRight(key[1], 12),
-			r.counts[key])
+		fmt.Fprintf(w, "           %-14s %-12s %d\n", key[0], key[1], r.counts[key])
 	}
 	var marks []string
 	for i, count := range markCounts(r.sessions) {

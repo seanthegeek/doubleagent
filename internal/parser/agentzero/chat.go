@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -87,7 +87,7 @@ func parseAI(content jsonvalue.Value) jsonvalue.Value {
 	if !content.IsString() {
 		return jsonvalue.NewNull()
 	}
-	text := pytext.Strip(content.StringValue())
+	text := strings.TrimSpace(content.StringValue())
 	if !strings.HasPrefix(text, "{") {
 		return jsonvalue.NewNull()
 	}
@@ -233,7 +233,7 @@ func slicesAny(names []string, holds func(string) bool) bool {
 func modelName(config jsonvalue.Value) string {
 	var parts []string
 	for _, name := range []string{"provider", "name"} {
-		if part := pytext.Strip(parser.Str(config.Get(name))); part != "" {
+		if part := strings.TrimSpace(parser.Str(config.Get(name))); part != "" {
 			parts = append(parts, part)
 		}
 	}
@@ -285,8 +285,8 @@ func chatSettingRows(data jsonvalue.Value) []chatSetting {
 		rows = append(rows, chatSetting{"model: requested " + requested +
 			" (chat override, as of file mtime)", ""})
 	}
-	if workdir := data.Get("workdir_path"); workdir.IsString() && pytext.Strip(workdir.StringValue()) != "" {
-		path := pytext.Strip(workdir.StringValue())
+	if workdir := data.Get("workdir_path"); workdir.IsString() && strings.TrimSpace(workdir.StringValue()) != "" {
+		path := strings.TrimSpace(workdir.StringValue())
 		rows = append(rows, chatSetting{"scratch directory: " + path + " (acp container transport, " +
 			"from chat.json data.workdir_path, as of file mtime)", path})
 	}
@@ -383,7 +383,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		parser.EmitAll(emit, p.ErrorRows(artifact, state.problems, fallbackID, ""))
 		return nil
 	}
-	raw := pytext.DecodeUTF8(content)
+	raw := textlines.ValidUTF8(content)
 	document, err := jsonvalue.DecodeString(raw)
 	reason := ""
 	switch {
@@ -414,8 +414,8 @@ func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
 	}
 	// An editor (ACP) session's workspace is the user's project on the host
 	// that ran the editor.
-	if cwd := data.Get("acp_cwd"); cwd.IsString() && pytext.Strip(cwd.StringValue()) != "" {
-		c.base.ProjectPath = pytext.Strip(cwd.StringValue())
+	if cwd := data.Get("acp_cwd"); cwd.IsString() && strings.TrimSpace(cwd.StringValue()) != "" {
+		c.base.ProjectPath = strings.TrimSpace(cwd.StringValue())
 	}
 	c.startRows(document, data)
 	logs := c.logItems(document)
@@ -620,7 +620,7 @@ func (c *chat) messageFile(content jsonvalue.Value) string {
 	if !ok {
 		return ""
 	}
-	return pytext.DecodeUTF8(data)
+	return textlines.ValidUTF8(data)
 }
 
 // logItem is one log item with what its rows are built from.
@@ -763,7 +763,7 @@ func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timelin
 // otherLogRows emits the row of any other log item: its type, heading and
 // content, and for a warning the permission decision it records.
 func (c *chat) otherLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	heading := pytext.Strip(c.parser.icon.ReplaceAllString(parser.Str(current.item.Get("heading")), ""))
+	heading := strings.TrimSpace(c.parser.icon.ReplaceAllString(parser.Str(current.item.Get("heading")), ""))
 	text := join(heading, contentText(current.content))
 	kind := firstNonEmpty(current.kind, "log")
 	if text != "" {

@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -63,7 +62,8 @@ func outOfRange(text string) *BoundError {
 	return &BoundError{Reason: quote(text) + " is out of range"}
 }
 
-// quote returns text quoted as the analyzer's messages quote a value.
+// quote returns text in double quotes, escaped as a Go string literal, as
+// the binary's messages quote a value.
 func quote(text string) string {
 	return strconv.Quote(text)
 }
@@ -73,7 +73,7 @@ func quote(text string) string {
 // now. Surrounding whitespace is removed and each inner run of it read as
 // one space.
 func ParseBound(text string, upper bool, now time.Time) (string, error) {
-	value := strings.Join(strings.FieldsFunc(text, isPythonSpace), " ")
+	value := strings.Join(strings.Fields(text), " ")
 	lowered := asciiLower(value)
 	now = now.UTC()
 	switch lowered {
@@ -113,12 +113,6 @@ func periodBound(start, next time.Time, upper bool) string {
 		return timeutil.FormatUTC(next.Add(-time.Millisecond))
 	}
 	return timeutil.FormatUTC(start)
-}
-
-// isPythonSpace reports whether char is whitespace to Python's
-// str.split(), the characters pytext.Strip removes.
-func isPythonSpace(char rune) bool {
-	return pytext.Strip(string(char)) == ""
 }
 
 // asciiLower returns text with ASCII capitals lowered and every other byte

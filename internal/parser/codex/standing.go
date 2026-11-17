@@ -7,7 +7,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -92,7 +91,7 @@ func (p *Parser) parseAutomation(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := tomldoc.Parse(pytext.DecodeUTF8(content))
+	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
 		emit(p.ProblemRow(artifact, "unreadable automation.toml: "+err.Error()))
 		return
@@ -122,9 +121,9 @@ func tomlStr(value tomldoc.Value) string {
 	case tomldoc.KindInteger:
 		return strconv.FormatInt(value.Int(), 10)
 	case tomldoc.KindFloat:
-		return pytext.Float(value.Float())
+		return strconv.FormatFloat(value.Float(), 'g', -1, 64)
 	case tomldoc.KindBoolean:
-		return pytext.Bool(value.Bool())
+		return strconv.FormatBool(value.Bool())
 	case tomldoc.KindArray, tomldoc.KindTable:
 		return tomlJSON(value).JSON()
 	}
@@ -196,7 +195,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
 		return
 	}
-	document, err := tomldoc.Parse(pytext.DecodeUTF8(content))
+	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
 		emit(p.ProblemRow(artifact, "unreadable config.toml: "+err.Error()))
 		return
@@ -279,7 +278,7 @@ func (p *Parser) parseRules(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
 		return
 	}
-	for _, statement := range ruleStatements(pytext.DecodeUTF8(content), &problems) {
+	for _, statement := range ruleStatements(textlines.ValidUTF8(content), &problems) {
 		emit(p.setting(artifact, statement.text, statement.line, base))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
@@ -413,14 +412,14 @@ func (p *Parser) parseMemorySummary(artifact *input.Artifact, emit parser.Emit) 
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	header, body := memorySummary(pytext.DecodeUTF8(content))
+	header, body := memorySummary(textlines.ValidUTF8(content))
 	threadID := header["thread_id"]
 	if threadID == "" {
 		emit(p.ProblemRow(artifact, "memory summary has no thread_id header"))
 		return
 	}
 	text := "memory summary: thread " + threadID + " rollout=" + orDash(header["rollout_path"]) +
-		" (from " + artifact.Rel + ", updated_at): " + pytext.Strip(body)
+		" (from " + artifact.Rel + ", updated_at): " + strings.TrimSpace(body)
 	row := p.systemRow(artifact, timeline.Compact(text), threadID, 1)
 	row.TimestampUTC = timeutil.FromText(header["updated_at"])
 	row.ProjectPath = header["cwd"]

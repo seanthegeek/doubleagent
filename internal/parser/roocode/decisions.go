@@ -2,12 +2,12 @@ package roocode
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -137,7 +137,7 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 // decisionText returns the "permission decision:" text of a tool result's
 // content, or false when its text does not open with a decision object.
 func decisionText(content jsonvalue.Value) (string, bool) {
-	body := pytext.StripLeft(parser.TextOf(content))
+	body := strings.TrimLeftFunc(parser.TextOf(content), unicode.IsSpace)
 	if !strings.HasPrefix(body, "{") {
 		return "", false
 	}

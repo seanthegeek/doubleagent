@@ -7,7 +7,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -44,7 +43,7 @@ func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *side
 		return
 	}
 	text := acpBlocksText(blocks)
-	if pytext.Strip(text) == "" {
+	if strings.TrimSpace(text) == "" {
 		return
 	}
 	if side, ok := store.byKey[key]; ok {

@@ -2,11 +2,11 @@ package opencode
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -23,7 +23,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		if !text.IsString() {
 			text = record.Get("input")
 		}
-		if !text.IsString() || pytext.Strip(text.StringValue()) == "" {
+		if !text.IsString() || strings.TrimSpace(text.StringValue()) == "" {
 			continue
 		}
 		row := p.row(artifact, newScope("", ""), "", line, "", "")
@@ -48,7 +48,7 @@ func (p *Parser) stash(artifact *input.Artifact, emit parser.Emit) {
 		if prompt := record.Get("prompt"); prompt.IsObject() {
 			text = prompt.Get("text")
 		}
-		stripped := pytext.Strip(textOf(text))
+		stripped := strings.TrimSpace(textOf(text))
 		if !text.IsString() || stripped == "" {
 			continue
 		}

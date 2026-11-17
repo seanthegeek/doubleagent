@@ -26,11 +26,12 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -110,7 +111,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	raw := ""
 	if content, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		raw = pytext.DecodeUTF8(content)
+		raw = textlines.ValidUTF8(content)
 	}
 	for _, setting := range readSettings(raw, &problems) {
 		if setting.key == modelKey {
@@ -141,7 +142,7 @@ func readSettings(raw string, problems *parser.Problems) []setting {
 	raw = strings.ReplaceAll(raw, "\r", "\n")
 	for i, line := range strings.Split(raw, "\n") {
 		number := i + 1
-		if pytext.Strip(line) == "" || strings.HasPrefix(line, "#") {
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		if !strings.Contains(line, "=") {
@@ -149,7 +150,7 @@ func readSettings(raw string, problems *parser.Problems) []setting {
 				` (no "=" separator; not shown, the file holds the API key)`)
 			continue
 		}
-		key, value, _ := strings.Cut(pytext.Strip(line), "=")
+		key, value, _ := strings.Cut(strings.TrimSpace(line), "=")
 		if key == modelKey || slices.Contains(permissionKeys, key) {
 			found = append(found, setting{key, value})
 		}
@@ -165,8 +166,8 @@ func (p *Parser) parseCache(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	text := pytext.DecodeUTF8(content)
-	if pytext.Strip(text) == "" {
+	text := textlines.ValidUTF8(content)
+	if strings.TrimSpace(text) == "" {
 		return
 	}
 	row := p.BaseRow(artifact)
@@ -202,7 +203,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	messages, failure := loadMessages(pytext.DecodeUTF8(content))
+	messages, failure := loadMessages(textlines.ValidUTF8(content))
 	if !slices.ContainsFunc(messages, func(message jsonvalue.Value) bool { return message.Has("role") }) {
 		text := "parser: not a ShellGPT chat file"
 		if failure != "" {
@@ -257,7 +258,7 @@ func walkMessage(message jsonvalue.Value, index int, state *chatState, makeRow r
 // walkAssistant emits an assistant message's text and its tool calls.
 func walkAssistant(message jsonvalue.Value, index int, content string, state *chatState,
 	makeRow rowMaker, emit parser.Emit) {
-	if pytext.Strip(content) != "" {
+	if strings.TrimSpace(content) != "" {
 		emit(makeRow(timeline.TurnAssistant, content, "", ""))
 	}
 	for _, call := range parser.Elements(message.Get("tool_calls")) {
@@ -286,7 +287,7 @@ func loadMessages(raw string) ([]jsonvalue.Value, string) {
 		}
 		return objects(data.Items()), ""
 	}
-	text := pytext.StripLeft(raw)
+	text := strings.TrimLeftFunc(raw, unicode.IsSpace)
 	if !strings.HasPrefix(text, "[") {
 		return nil, err.Error()
 	}

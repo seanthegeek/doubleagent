@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // runCatalog prints the bundled catalog as collect --list does, or with
@@ -27,7 +26,7 @@ func runCatalog(options CatalogOptions, env Environment, stdout, stderr io.Write
 		if len(parsed[agent]) > 0 {
 			state = "parser"
 		}
-		fmt.Fprintf(stdout, "%s %s\n", pytext.PadRight(agent, 20), state)
+		fmt.Fprintf(stdout, "%-20s %s\n", agent, state)
 	}
 	return ExitFound
 }

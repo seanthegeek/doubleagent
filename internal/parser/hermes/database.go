@@ -3,11 +3,11 @@ package hermes
 import (
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -347,7 +347,8 @@ func (s *stateReader) retiredRows() error {
 	}).OrderBy("rowid").Each(func(row sqlitefile.Row) error {
 		record := rowObject(row)
 		key := record.Get("key").Text()
-		sessionID := key[len(pytext.SliceCodePoints(key, pytext.CodePointLen(retiredPrefix))):]
+		characters := []rune(key)
+		sessionID := string(characters[min(utf8.RuneCountInString(retiredPrefix), len(characters)):])
 		session, ok := s.sessions[sessionID]
 		if !ok {
 			session = sessionOf(sessionID)

@@ -8,7 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -152,7 +152,7 @@ func (p *Parser) summary(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	row := p.systemRow(artifact, 1, parser.FileMtime(artifact),
-		"project summary (from .qwen/PROJECT_SUMMARY.md, file mtime): "+pytext.DecodeUTF8(data))
+		"project summary (from .qwen/PROJECT_SUMMARY.md, file mtime): "+textlines.ValidUTF8(data))
 	row.ProjectPath = project
 	emit(row)
 }

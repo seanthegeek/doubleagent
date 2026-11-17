@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -47,7 +47,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	if strings.HasSuffix(artifact.Rel, ".jsonl") {
 		state = replay(artifact.DiskPath, lines, &problems)
 	} else if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		decoded, err := jsonvalue.DecodeString(pytext.DecodeUTF8(data))
+		decoded, err := jsonvalue.DecodeString(textlines.ValidUTF8(data))
 		if err != nil {
 			problems.Add(0, "file is not valid JSON ("+err.Error()+")")
 		}
@@ -122,7 +122,7 @@ func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Proble
 	if !ok {
 		return "", ""
 	}
-	data, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
+	data, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
 	switch {
 	case err != nil:
 		problems.Add(0, "workspace.json not read ("+err.Error()+")")

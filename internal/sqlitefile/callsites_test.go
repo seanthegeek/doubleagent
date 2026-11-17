@@ -4,8 +4,7 @@ import (
 	"encoding/hex"
 	"slices"
 	"strings"
-
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"unicode/utf8"
 )
 
 // The parsers' queries, rewritten with the helpers as a parser would write
@@ -117,7 +116,7 @@ func cursorSubstrSite(database *Database) ([][]Value, bool, error) {
 		return nil, ok, err
 	}
 	prefix := "cloudAgentRepository.agents."
-	length := int64(pytext.CodePointLen(prefix))
+	length := int64(utf8.RuneCountInString(prefix))
 	rows, err := tables[0].Select("key", "value").Where(func(row Row) bool {
 		return Equal(Substr(row.Get("key"), 1, length), TextValue(prefix))
 	}).OrderBy("key").All()

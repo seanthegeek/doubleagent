@@ -3,10 +3,10 @@ package claudecode
 import (
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -93,7 +93,7 @@ const forkMark = "<fork-boilerplate>"
 // of text, leading whitespace aside, or "": the tags that start a user
 // record's text when the agent, not the person, wrote it.
 func markerLabel(text string) string {
-	head := pytext.StripLeft(text)
+	head := strings.TrimLeftFunc(text, unicode.IsSpace)
 	markers := [...]struct{ mark, label string }{
 		{"<task-notification>", "task notification"},
 		{"<command-name>", "slash command"},

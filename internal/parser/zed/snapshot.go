@@ -7,7 +7,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -59,7 +58,7 @@ func branchAndRemote(worktrees []jsonvalue.Value, project string) (string, strin
 	remote := ""
 	if len(own) > 0 {
 		if url := own[0].Get("git_state").Get("remote_url"); url.IsString() {
-			remote = pytext.Strip(url.StringValue())
+			remote = strings.TrimSpace(url.StringValue())
 		}
 	}
 	return cmp.Or(ownBranch, firstBranch), remote

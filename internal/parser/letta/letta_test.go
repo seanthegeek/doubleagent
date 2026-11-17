@@ -42,7 +42,8 @@ func TestSanitizeReplacesEachOtherCharacterOnce(t *testing.T) {
 		{"é", "_"},
 		{"", "unknown"},
 		{"  ", "__"},
-		{"ab\xed\xa0\xbd", "ab_"},
+		{"ab\ufffd", "ab_"},
+		{"ab\xed\xa0", "ab__"},
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // jsonColumn returns the JSON a column holds, or false for NULL, empty
@@ -23,7 +23,7 @@ func jsonColumn(value sqlitefile.Value) (jsonvalue.Value, bool) {
 	case sqlitefile.Float:
 		return jsonvalue.NewFloat(value.Float), true
 	case sqlitefile.Blob:
-		text = pytext.DecodeUTF8(value.Bytes)
+		text = textlines.ValidUTF8(value.Bytes)
 	default:
 		text = value.Text()
 		if text == "" {
@@ -84,7 +84,7 @@ func attachmentParts(attachment jsonvalue.Value) []string {
 	}
 	for _, code := range arrayItems(attachment.Get("client_code")) {
 		if code.IsObject() {
-			parts = append(parts, pytext.Strip("client_code "+
+			parts = append(parts, strings.TrimSpace("client_code "+
 				location(code.Get("filepath"), code.Get("start_line"))))
 		}
 	}

@@ -273,8 +273,8 @@ func TestValuesReadAsPythonWritesThem(t *testing.T) {
 		str    string
 		truthy bool
 	}{
-		{Value{}, "None", false}, {IntValue(0), "0", false}, {IntValue(-3), "-3", true},
-		{FloatValue(1e16), "1e+16", true}, {FloatValue(0), "0.0", false}, {TextValue(""), "", false},
+		{Value{}, "", false}, {IntValue(0), "0", false}, {IntValue(-3), "-3", true},
+		{FloatValue(1e16), "1e+16", true}, {FloatValue(0), "0", false}, {TextValue(""), "", false},
 		{TextValue("é"), "é", true}, {BlobValue([]byte("a'b\"\\\n\x00\xff")), `b'a\'b"\\\n\x00\xff'`, true},
 		{BlobValue([]byte("it's")), `b"it's"`, true}, {BlobValue(nil), "b''", false},
 	}

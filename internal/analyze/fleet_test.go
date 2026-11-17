@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // fleetText is a saved inventory output with every shape the reader meets;
@@ -28,7 +28,7 @@ const fleetText = "\xef\xbb\xbf" + `{"type":"agent","host":"orphan","user":"u0",
 	"\xff\xfe junk"
 
 func TestFleetRowsReadEachRecordShapeAsTheAnalyzerDoes(t *testing.T) {
-	text := strings.TrimPrefix(pytext.DecodeUTF8([]byte(fleetText)), "\uFEFF")
+	text := strings.TrimPrefix(textlines.ValidUTF8([]byte(fleetText)), "\uFEFF")
 	rows, junk := fleetRows(text)
 	want := [][]string{
 		{"orphan", "", "", "", "u0", "aider", "1", "", "", "", "", ""},

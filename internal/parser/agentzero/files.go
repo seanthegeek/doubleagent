@@ -6,12 +6,13 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -142,7 +143,7 @@ func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.V
 		emit(row)
 	}
 	result := task.Get("last_result")
-	if !result.IsString() || pytext.Strip(result.StringValue()) == "" {
+	if !result.IsString() || strings.TrimSpace(result.StringValue()) == "" {
 		return
 	}
 	text, turn := result.StringValue(), timeline.TurnAssistant
@@ -330,11 +331,11 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	values := map[string]string{}
-	for _, line := range pythonLines(pytext.DecodeUTF8(content)) {
-		name, value, found := strings.Cut(pytext.Strip(line), "=")
-		name = pytext.Strip(name)
+	for _, line := range pythonLines(textlines.ValidUTF8(content)) {
+		name, value, found := strings.Cut(strings.TrimSpace(line), "=")
+		name = strings.TrimSpace(name)
 		if found && (name == lastContextKeys[0] || name == lastContextKeys[1]) {
-			values[name] = strings.Trim(pytext.Strip(value), `"'`)
+			values[name] = strings.Trim(strings.TrimSpace(value), `"'`)
 		}
 	}
 	host, contextID := values[lastContextKeys[0]], values[lastContextKeys[1]]
@@ -351,7 +352,7 @@ func pythonLines(text string) []string {
 	var lines []string
 	start := 0
 	for i := 0; i < len(text); {
-		char, width := pytext.NextCodePoint(text[i:])
+		char, width := utf8.DecodeRuneInString(text[i:])
 		switch char {
 		case '\n', '\v', '\f', 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029:
 			lines = append(lines, text[start:i])

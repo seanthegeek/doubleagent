@@ -38,7 +38,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -949,7 +949,7 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 	row := p.SystemRow(artifact, "")
 	row.SourceLine = 1
 	row.TimestampUTC = timestamp
-	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
+	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
 	if err != nil || !document.IsObject() {
 		row.Text = "parser: trust.json is not a JSON object"
 		emit(row)
@@ -987,7 +987,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 	}
 	for number, raw := range parser.Lines(artifact.DiskPath, &problems) {
-		stripped := pytext.StripASCII(string(raw))
+		stripped := strings.Trim(string(raw), textlines.ASCIIWhitespace)
 		if stripped == "" {
 			continue
 		}

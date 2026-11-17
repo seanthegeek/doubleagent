@@ -97,7 +97,7 @@ func TestProjectPathsMatchPython(t *testing.T) {
 	}
 }
 
-func TestCompactStripsAsPythonDoes(t *testing.T) {
+func TestCompactTrimsUnicodeWhitespace(t *testing.T) {
 	for _, test := range compactCases() {
 		t.Run(strconv.Quote(test.input)+" is stripped", func(t *testing.T) {
 			if got := Compact(test.input); got != test.want {

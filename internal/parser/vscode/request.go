@@ -5,7 +5,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -88,7 +87,7 @@ func (r *responseRows) row(turnType, text, toolName, toolUseID string) {
 
 // flush emits the text parts gathered so far as one assistant row.
 func (r *responseRows) flush() {
-	joined := pytext.Strip(strings.Join(r.run, ""))
+	joined := strings.TrimSpace(strings.Join(r.run, ""))
 	r.run = r.run[:0]
 	if joined != "" {
 		r.row(timeline.TurnAssistant, joined, "", "")

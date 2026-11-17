@@ -10,14 +10,17 @@
 // read them as single bytes here since every character is ASCII.
 package textlines
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 // The character sets a trim takes, each ASCII only.
 const (
 	// ASCIISpace is the whitespace a line-level trim takes once the line's
 	// terminator is gone: space, tab, CR, form feed and vertical tab.
 	ASCIISpace = " \t\r\f\v"
-	// ASCIIWhitespace is ASCIISpace with LF: Python's ASCII whitespace, the
+	// ASCIIWhitespace is ASCIISpace with LF: all of ASCII's whitespace, the
 	// padding a value such as a timestamp may carry.
 	ASCIIWhitespace = " \t\n\r\f\v"
 	// JSONSpace is the whitespace JSON allows between tokens.
@@ -47,4 +50,20 @@ func WithoutTerminator(line string) string {
 		return line
 	}
 	return strings.TrimSuffix(line[:len(line)-1], "\r")
+}
+
+// ValidUTF8 returns data as text with each byte that is not part of valid
+// UTF-8 replaced by U+FFFD, one replacement per byte. It is the rule
+// encoding/json applies inside a string and a range loop applies to a
+// Go string, so a text decoded here and one decoded as JSON show the same
+// replacements for the same bytes.
+func ValidUTF8(data []byte) string {
+	if utf8.Valid(data) {
+		return string(data)
+	}
+	out := make([]rune, 0, len(data))
+	for _, char := range string(data) {
+		out = append(out, char)
+	}
+	return string(out)
 }

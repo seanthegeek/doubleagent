@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -133,7 +133,7 @@ func (s *store) stateRows() error {
 		if !ok {
 			raw := stored.Str()
 			if stored.Type == sqlitefile.Blob {
-				raw = pytext.DecodeUTF8(stored.Bytes)
+				raw = textlines.ValidUTF8(stored.Bytes)
 			}
 			s.failures = append(s.failures, failure{line: int(rowid), raw: raw, sessionID: each.identifier,
 				message: unparseable(rowid, each.table+".permission", "not a JSON array")})
@@ -155,7 +155,7 @@ func permissionRules(stored sqlitefile.Value) ([]rule, bool) {
 	case sqlitefile.Text:
 		return sessionRules(stored.Text())
 	case sqlitefile.Blob:
-		return sessionRules(pytext.DecodeUTF8(stored.Bytes))
+		return sessionRules(textlines.ValidUTF8(stored.Bytes))
 	}
 	return nil, false
 }

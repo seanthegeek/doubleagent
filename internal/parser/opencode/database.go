@@ -7,8 +7,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -231,7 +231,7 @@ func valueKey(value sqlitefile.Value) string {
 		if value.Float == math.Trunc(value.Float) && math.Abs(value.Float) < 1<<63 {
 			return "n" + strconv.FormatInt(int64(value.Float), 10)
 		}
-		return "f" + pytext.Float(value.Float)
+		return "f" + strconv.FormatFloat(value.Float, 'g', -1, 64)
 	case sqlitefile.Text:
 		return "t" + value.Text()
 	case sqlitefile.Blob:
@@ -248,7 +248,7 @@ func columnJSON(value sqlitefile.Value) (string, string, bool) {
 	case sqlitefile.Null:
 		return "", "no data", false
 	case sqlitefile.Blob:
-		return pytext.DecodeUTF8(value.Bytes), "", true
+		return textlines.ValidUTF8(value.Bytes), "", true
 	case sqlitefile.Text:
 		return value.Text(), "", true
 	}

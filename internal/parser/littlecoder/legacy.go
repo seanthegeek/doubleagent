@@ -3,12 +3,12 @@ package littlecoder
 import (
 	"fmt"
 	"iter"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -163,7 +163,7 @@ func sized(value jsonvalue.Value) bool {
 // points.
 func sizeOf(value jsonvalue.Value) int {
 	if value.IsString() {
-		return pytext.CodePointLen(value.StringValue())
+		return utf8.RuneCountInString(value.StringValue())
 	}
 	return value.Len()
 }

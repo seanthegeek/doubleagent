@@ -7,8 +7,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -177,7 +177,7 @@ func jsonObject(raw sqlitefile.Value, rowid int64, label string,
 	problems *parser.Problems) (jsonvalue.Value, bool) {
 	text := raw.Str()
 	if raw.Type == sqlitefile.Blob {
-		text = pytext.DecodeUTF8(raw.Bytes)
+		text = textlines.ValidUTF8(raw.Bytes)
 	}
 	value, err := jsonvalue.DecodeString(text)
 	switch {

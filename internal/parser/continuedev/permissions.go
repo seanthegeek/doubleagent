@@ -8,7 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -107,7 +106,7 @@ func (p *Parser) permissions(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	rules, problem := readPermissions(pytext.DecodeUTF8(content))
+	rules, problem := readPermissions(textlines.ValidUTF8(content))
 	if problem != "" {
 		emit(p.ProblemRow(artifact, problem+" (only allow, ask and exclude lists of strings are read)"))
 		return

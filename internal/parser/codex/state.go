@@ -8,8 +8,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -68,7 +68,7 @@ func compactColumn(value sqlitefile.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return pytext.Strip(value.Str())
+	return strings.TrimSpace(value.Str())
 }
 
 // isColumnText reports whether a column holds the text text.
@@ -284,7 +284,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Problems) (jsonvalue.Value, bool) {
 	raw := value.Str()
 	if value.Type == sqlitefile.Blob {
-		raw = pytext.DecodeUTF8(value.Bytes)
+		raw = textlines.ValidUTF8(value.Bytes)
 	}
 	record, err := jsonvalue.DecodeString(raw)
 	if err == nil && !record.IsObject() {

@@ -7,8 +7,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -33,7 +33,7 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 	case sqlitefile.Integer, sqlitefile.Float:
 		return storedJSON{reason: "not JSON text", raw: column.Str()}
 	case sqlitefile.Blob:
-		text = pytext.DecodeUTF8(column.Bytes)
+		text = textlines.ValidUTF8(column.Bytes)
 	default:
 		text = column.Text()
 	}

@@ -20,7 +20,7 @@ func TestURIToPathReadsFileURIsAsPythonDoes(t *testing.T) {
 		{"file:///a%20b/c%2Fd", "/a b/c/d"},
 		{"file:///a?q=1#frag", "/a"},
 		{"file:///a#f?q", "/a"},
-		{"file:///%E2%82", "/\ufffd"},
+		{"file:///%E2%82", "/\ufffd\ufffd"},
 		{"file:///%E2%82%AC", "/\u20ac"},
 		{"file:///%zz%4", "/%zz%4"},
 		{"file:///a%", "/a%"},

@@ -1,11 +1,11 @@
 an empty buffer is an empty message		{}
 a string field	0a0568656c6c6f	{name=s"68656c6c6f"}
 a string with an invalid byte	0a0361ff62	{name=s"61efbfbd62"}
-a string cut off mid sequence	0a0361e282	{name=s"61efbfbd"}
+a string cut off mid sequence	0a0361e282	{name=s"61efbfbdefbfbd"}
 a string with an overlong lead	0a03c08078	{name=s"efbfbdefbfbd78"}
 a string with a surrogate encoding	0a04eda0807a	{name=s"efbfbdefbfbdefbfbd7a"}
 a string with a lead above the range	0a04f5808080	{name=s"efbfbdefbfbdefbfbdefbfbd"}
-a string with a four byte character cut short	0a03f09f98	{name=s"efbfbd"}
+a string with a four byte character cut short	0a03f09f98	{name=s"efbfbdefbfbdefbfbd"}
 a string with a four byte character	0a0578f09f9880	{name=s"78f09f9880"}
 a string field given as a varint	08b960	{name=s"3132333435"}
 a repeated string	1201611201621200	{tags=[s"61",s"62",s""]}

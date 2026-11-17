@@ -4,7 +4,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -43,7 +43,7 @@ func (p *Parser) standing(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	mtime := parser.FileMtime(artifact)
-	document, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
+	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
 	if err != nil || !document.IsObject() {
 		row := p.SystemRow(artifact, "parser: unreadable "+artifact.Rel)
 		row.SourceLine, row.TimestampUTC = 1, mtime

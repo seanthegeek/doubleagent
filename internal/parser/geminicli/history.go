@@ -5,12 +5,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -43,7 +44,7 @@ func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand 
 			continue
 		}
 		text := string(line)
-		if pytext.Strip(text) == "" {
+		if strings.TrimSpace(text) == "" {
 			continue
 		}
 		tail := len(current) - len(strings.TrimRight(current, `\`))
@@ -70,7 +71,7 @@ func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand 
 func historyItems(text string, problems *parser.Problems) ([]jsonvalue.Value, jsonvalue.Value) {
 	document, err := jsonvalue.DecodeString(text)
 	if err != nil {
-		if strings.HasPrefix(pytext.StripLeft(text), "[") {
+		if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "[") {
 			return parser.ArrayElements(text, problems), jsonvalue.NewNull()
 		}
 		if found := historyObjectPattern.FindStringIndex(text); found != nil {
@@ -115,7 +116,7 @@ func (p *Parser) historyCopy(artifact *input.Artifact, options parser.Options, m
 	var items []jsonvalue.Value
 	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok && len(data) > 0 {
-		items, document = historyItems(pytext.DecodeUTF8(data), &problems)
+		items, document = historyItems(textlines.ValidUTF8(data), &problems)
 	}
 	var header timeline.Row
 	if tag, ok := match["tag"]; ok {
@@ -213,7 +214,7 @@ func runRow(row func(turn, text string) timeline.Row, each run, user bool) timel
 	case !user:
 		return row(timeline.TurnAssistant, each.text)
 	case each.kind != "":
-		return row(timeline.TurnSystem, "context: "+each.kind+": "+pytext.Strip(each.text))
+		return row(timeline.TurnSystem, "context: "+each.kind+": "+strings.TrimSpace(each.text))
 	}
 	return row(timeline.TurnUser, each.text)
 }

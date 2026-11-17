@@ -6,13 +6,14 @@
 // Both files are interfaces analysts build on: fields are added at the end,
 // never renamed or removed. The writers put each record on one line, keys
 // in column order, non-ASCII text as UTF-8, U+2028 and U+2029 escaped since
-// some readers split lines at them, and a record holding a lone surrogate
-// (which UTF-8 cannot encode) wholly in ASCII escapes.
+// some readers split lines at them, and each byte of invalid UTF-8 as
+// U+FFFD.
 package timeline
 
 import (
+	"strings"
+
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // The turn types a row's TurnType holds.
@@ -80,11 +81,11 @@ func TurnTypes() []string {
 }
 
 // Compact returns event text with leading and trailing whitespace removed,
-// as Python's str.strip() removes it (Unicode spaces included). Inner line
+// as strings.TrimSpace removes it (Unicode spaces included). Inner line
 // breaks and indentation stay: the writer escapes them, so each record
 // still takes one line.
 func Compact(text string) string {
-	return pytext.Strip(text)
+	return strings.TrimSpace(text)
 }
 
 // CompactValue returns Compact of a decoded value's row text (Text): a
@@ -94,5 +95,5 @@ func CompactValue(value jsonvalue.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return pytext.Strip(value.Text())
+	return strings.TrimSpace(value.Text())
 }

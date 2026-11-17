@@ -36,7 +36,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/tomldoc"
@@ -185,7 +185,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := tomldoc.Parse(pytext.DecodeUTF8(content))
+	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
 		emit(p.row(artifact, rowSpec{timestamp: timestamp,
 			text: "parser: config.toml is not valid TOML (" + err.Error() + ")"}))

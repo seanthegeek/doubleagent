@@ -5,7 +5,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // callTypes and outputTypes are the response items of a tool call and of
@@ -84,7 +83,7 @@ var contextMarkers = [][3]string{
 // text, stripped, starts with the open marker and ends with the close
 // marker, ignoring case.
 func contextMarker(text string) string {
-	body := lowerForMarkers(pytext.Strip(text))
+	body := lowerForMarkers(strings.TrimSpace(text))
 	for _, marker := range contextMarkers {
 		if strings.HasPrefix(body, strings.ToLower(marker[1])) &&
 			strings.HasSuffix(body, strings.ToLower(marker[2])) {
@@ -273,7 +272,7 @@ func agentText(payload jsonvalue.Value) string {
 	text := parser.TextOf(content)
 	for _, block := range content.Items() {
 		if isText(block.Get("type"), "encrypted_content") {
-			return pytext.Strip(text + " [encrypted]")
+			return strings.TrimSpace(text + " [encrypted]")
 		}
 	}
 	return text

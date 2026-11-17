@@ -29,10 +29,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -344,7 +344,7 @@ func (c *chatReader) line(number int, line string) {
 	switch {
 	case strings.HasPrefix(line, "#### "):
 		kind, content = "user", line[5:]
-	case pytext.StripRight(line) == "####":
+	case strings.TrimRightFunc(line, unicode.IsSpace) == "####":
 		kind = "user"
 	case strings.HasPrefix(line, "> "):
 		kind, content = "tool", line[2:]
@@ -357,11 +357,11 @@ func (c *chatReader) line(number int, line string) {
 		c.flush()
 		c.kind, c.buffer, c.lineNumbers, c.start = kind, nil, nil, number
 	}
-	if !slices.ContainsFunc(c.buffer, func(held string) bool { return pytext.Strip(held) != "" }) {
+	if !slices.ContainsFunc(c.buffer, func(held string) bool { return strings.TrimSpace(held) != "" }) {
 		c.start = number
 	}
 	if kind != "assistant" {
-		content = pytext.StripRight(content)
+		content = strings.TrimRightFunc(content, unicode.IsSpace)
 	}
 	c.buffer = append(c.buffer, content)
 	c.lineNumbers = append(c.lineNumbers, number)
@@ -391,7 +391,7 @@ func (c *chatReader) startSession(number int, header string) {
 
 // flush emits the run of lines held, with its model and permission rows.
 func (c *chatReader) flush() {
-	text := pytext.Strip(strings.Join(c.buffer, "\n"))
+	text := strings.TrimSpace(strings.Join(c.buffer, "\n"))
 	if text == "" || c.kind == "" {
 		return
 	}
@@ -413,7 +413,7 @@ func (c *chatReader) flush() {
 
 // normalise returns text with each run of whitespace as one space.
 func normalise(text string) string {
-	return strings.Join(pytext.Fields(text), " ")
+	return strings.Join(strings.Fields(text), " ")
 }
 
 // matchInput gives the run the time of the input history entry that holds
@@ -578,7 +578,7 @@ func (p *Parser) llmRow(artifact *input.Artifact, block *llmBlock,
 		for i, line := range block.lines {
 			stripped[i] = stripRole(line, "ASSISTANT")
 		}
-		text := pytext.Strip(strings.Join(stripped, "\n"))
+		text := strings.TrimSpace(strings.Join(stripped, "\n"))
 		if text == "" {
 			return
 		}

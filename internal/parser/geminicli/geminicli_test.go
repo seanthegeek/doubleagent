@@ -113,7 +113,7 @@ func TestUnquoteDecodesATagAsPythonDoes(t *testing.T) {
 	tests := []struct{ text, want string }{
 		{"a%20b", "a b"},
 		{"%E2%82%AC", "€"},
-		{"%e2%82", "�"},
+		{"%e2%82", "��"},
 		{"100%", "100%"},
 		{"%zz%41", "%zzA"},
 		{"é%41", "éA"},

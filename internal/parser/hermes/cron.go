@@ -3,8 +3,6 @@ package hermes
 import (
 	"strconv"
 	"strings"
-
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // The headings of a cron run document's prompt and response sections.
@@ -49,5 +47,6 @@ func advance(text string, start int, count string) int {
 	if err != nil || n >= len(text)-start {
 		return len(text)
 	}
-	return start + len(pytext.SliceCodePoints(text[start:], n))
+	characters := []rune(text[start:])
+	return start + len(string(characters[:min(n, len(characters))]))
 }

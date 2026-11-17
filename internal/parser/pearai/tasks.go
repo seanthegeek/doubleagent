@@ -3,12 +3,12 @@ package pearai
 import (
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -88,7 +88,7 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 			if !text.IsString() {
 				continue
 			}
-			if hit := resultPattern.FindStringSubmatch(pytext.Strip(text.StringValue())); hit != nil {
+			if hit := resultPattern.FindStringSubmatch(strings.TrimSpace(text.StringValue())); hit != nil {
 				name = hit[1]
 				continue
 			}
@@ -202,7 +202,7 @@ func permissionTexts() [][2]string {
 // permissionDecision returns the decision a Roo 3.15 tool result block
 // records, or "".
 func permissionDecision(text string) string {
-	text = pytext.StripLeft(text)
+	text = strings.TrimLeftFunc(text, unicode.IsSpace)
 	for _, pair := range permissionTexts() {
 		if strings.HasPrefix(text, pair[0]) {
 			return pair[1]

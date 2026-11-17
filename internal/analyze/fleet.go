@@ -12,8 +12,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -113,7 +113,7 @@ func fleetRows(text string) ([][]string, int) {
 		record, ok := inventoryRecord(line)
 		switch {
 		case !ok:
-			if pytext.Strip(line) != "" {
+			if strings.TrimSpace(line) != "" {
 				junk++
 			}
 		case record.Get("type").StringValue() == "host":
@@ -147,7 +147,7 @@ func universalLines(text string) []string {
 // object whose type is "host" or "agent", once surrounding whitespace and
 // leading byte-order marks are removed. Anything else is not a record.
 func inventoryRecord(line string) (jsonvalue.Value, bool) {
-	line = strings.TrimLeft(pytext.Strip(line), "\uFEFF")
+	line = strings.TrimLeft(strings.TrimSpace(line), "\uFEFF")
 	if !strings.HasPrefix(line, "{") {
 		return jsonvalue.Value{}, false
 	}
@@ -236,7 +236,7 @@ func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "error: %s\n", reason.Describe(path, err))
 			return ExitError
 		}
-		text := strings.TrimPrefix(pytext.DecodeUTF8(data), "\uFEFF")
+		text := strings.TrimPrefix(textlines.ValidUTF8(data), "\uFEFF")
 		fileRows, junk := fleetRows(text)
 		if junk > 0 {
 			fmt.Fprintf(stderr, "skipped %d non-inventory %s in %s\n", junk, plural(junk, "line"), path)
@@ -292,9 +292,9 @@ func printFleet(w io.Writer, rows [][]string, output string) {
 	if len(totals) == 0 {
 		return
 	}
-	fmt.Fprintf(w, "\n%s %6s %6s  %s\n", pytext.PadRight("agent", 22), "hosts", "users", "latest")
+	fmt.Fprintf(w, "\n%-22s %6s %6s  %s\n", "agent", "hosts", "users", "latest")
 	for _, total := range totals {
-		fmt.Fprintf(w, "%s %6d %6d  %s\n", pytext.PadRight(total.agent, 22), total.hosts,
+		fmt.Fprintf(w, "%-22s %6d %6d  %s\n", total.agent, total.hosts,
 			total.users, total.latest)
 	}
 }

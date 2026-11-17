@@ -10,7 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -49,7 +49,7 @@ func readSmall(path string, problems *parser.Problems) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return pytext.DecodeUTF8(data), true
+	return textlines.ValidUTF8(data), true
 }
 
 // resolveProject returns the project path of tmp/<slug> under the runtime
@@ -60,7 +60,7 @@ func readSmall(path string, problems *parser.Problems) (string, bool) {
 func resolveProject(base func(names ...string) string, slug, projectHash string,
 	problems *parser.Problems) string {
 	if root, ok := readSmall(base("tmp", slug, ".project_root"), problems); ok {
-		if root = pytext.Strip(root); root != "" {
+		if root = strings.TrimSpace(root); root != "" {
 			return root
 		}
 	}
@@ -144,7 +144,7 @@ func unquote(text string) string {
 			}
 			out.WriteString(text[start:end])
 		} else {
-			out.WriteString(pytext.DecodeUTF8(unescapeBytes(text[start:end])))
+			out.WriteString(textlines.ValidUTF8(unescapeBytes(text[start:end])))
 		}
 		start = end
 	}
