@@ -4,16 +4,16 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // space is one character Python's \s matches.
-const space = `[` + parser.PythonSpace + `]`
+const space = `[` + parser.Space + `]`
 
 // The texts of a Roo 3.15 user message. A tool result opens with
 // "[<tool> ...] Result:" (Python's \b after the tool name is a character
@@ -108,12 +108,12 @@ func xmlBlocks(text string, includeThinking bool) []clinelegacy.ContentRow {
 		if !ok {
 			break
 		}
-		if before := pytext.Strip(text[position:block.start]); before != "" {
+		if before := strings.TrimSpace(text[position:block.start]); before != "" {
 			rows = append(rows, clinelegacy.ContentRow{TurnType: timeline.TurnAssistant, Text: before})
 		}
 		position = block.end
 		if block.tag == "thinking" {
-			if body := pytext.Strip(block.body); includeThinking && body != "" {
+			if body := strings.TrimSpace(block.body); includeThinking && body != "" {
 				rows = append(rows, clinelegacy.ContentRow{TurnType: timeline.TurnThinking, Text: body})
 			}
 			continue
@@ -121,7 +121,7 @@ func xmlBlocks(text string, includeThinking bool) []clinelegacy.ContentRow {
 		rows = append(rows, clinelegacy.ContentRow{TurnType: timeline.TurnToolUse,
 			Text: toolText(block.body), ToolName: block.tag})
 	}
-	if rest := pytext.Strip(text[position:]); rest != "" {
+	if rest := strings.TrimSpace(text[position:]); rest != "" {
 		rows = append(rows, clinelegacy.ContentRow{TurnType: timeline.TurnAssistant, Text: rest})
 	}
 	return rows
@@ -137,12 +137,12 @@ func toolText(body string) string {
 			break
 		}
 		offset = param.end
-		if value := pytext.Strip(param.body); value != "" {
+		if value := strings.TrimSpace(param.body); value != "" {
 			values = append(values, value)
 		}
 	}
 	if len(values) == 0 {
-		return pytext.Strip(body)
+		return strings.TrimSpace(body)
 	}
 	return strings.Join(values, " | ")
 }
@@ -264,7 +264,7 @@ func (r *resultRows) block(block jsonvalue.Value, includeThinking bool) {
 		}
 		return
 	}
-	stripped := pytext.Strip(text.StringValue())
+	stripped := strings.TrimSpace(text.StringValue())
 	result := resultPattern.FindStringSubmatch(stripped)
 	notice := noticePattern.FindStringSubmatch(stripped)
 	switch {
@@ -276,7 +276,7 @@ func (r *resultRows) block(block jsonvalue.Value, includeThinking bool) {
 		} else {
 			r.name, r.parts = notice[1], []string{stripped}
 		}
-	case strings.HasPrefix(pytext.StripLeft(text.StringValue()), "<environment_details>"):
+	case strings.HasPrefix(strings.TrimLeftFunc(text.StringValue(), unicode.IsSpace), "<environment_details>"):
 		r.flush()
 		r.inResult = false
 		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnSystem, Text: stripped})
@@ -296,7 +296,7 @@ func (r *resultRows) userText(text string) {
 	if task := taskPattern.FindStringSubmatch(text); task != nil {
 		text = task[1]
 	}
-	if pytext.Strip(text) != "" {
+	if strings.TrimSpace(text) != "" {
 		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnUser, Text: text})
 	}
 }

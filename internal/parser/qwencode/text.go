@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // The markers a channel prompt's quoted group messages are wrapped in, one
@@ -136,7 +135,7 @@ func systemText(subtype string, payload jsonvalue.Value) string {
 			detail = parser.CompactJSON(payload)
 		}
 	}
-	if detail = pytext.Strip(detail); detail != "" {
+	if detail = strings.TrimSpace(detail); detail != "" {
 		return subtype + ": " + detail
 	}
 	return subtype

@@ -3,8 +3,8 @@ package kiro
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -47,7 +47,7 @@ func (p *Parser) databaseRows(artifact *input.Artifact, options parser.Options,
 			value := record.Get("value")
 			text := orText(value)
 			if value.Type == sqlitefile.Blob {
-				text = pytext.DecodeUTF8(value.Bytes)
+				text = textlines.ValidUTF8(value.Bytes)
 			}
 			p.conversation(artifact, options, text, orText(record.Get("key")), position+1, emit)
 		}

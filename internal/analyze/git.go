@@ -7,8 +7,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // projectGit is the remotes and the checked-out branch or commit of one
@@ -119,7 +119,7 @@ func readGitText(path string) (string, string) {
 	if err != nil {
 		return "", reason.For(err)
 	}
-	return pytext.DecodeUTF8(data), ""
+	return textlines.ValidUTF8(data), ""
 }
 
 // asciiLower returns text with its ASCII capitals lowered and every other

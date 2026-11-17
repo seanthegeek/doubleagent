@@ -8,7 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -50,7 +50,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	record, err := jsonvalue.DecodeString(pytext.DecodeUTF8(raw))
+	record, err := jsonvalue.DecodeString(textlines.ValidUTF8(raw))
 	switch {
 	case err != nil:
 		problems.Add(0, "agent-changes record is not valid JSON ("+err.Error()+")")

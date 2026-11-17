@@ -2,8 +2,8 @@ package gitmeta
 
 import (
 	"strings"
+	"unicode/utf8"
 
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -69,7 +69,7 @@ func readSubsection(line string, start int) (string, int, bool) {
 			if position+1 >= len(line) {
 				return "", 0, false
 			}
-			_, width := pytext.NextCodePoint(line[position+1:])
+			_, width := utf8.DecodeRuneInString(line[position+1:])
 			text.WriteString(line[position+1 : position+1+width])
 			position += 1 + width
 		default:
@@ -168,7 +168,7 @@ func (v *valueText) scan(text string) (bool, string) {
 		case char == '\\':
 			escaped, ok := escapeOf(text[position+1])
 			if !ok {
-				_, width := pytext.NextCodePoint(text[position+1:])
+				_, width := utf8.DecodeRuneInString(text[position+1:])
 				return false, "unsupported escape \\" + text[position+1:position+1+width]
 			}
 			v.bytes, v.protected = append(v.bytes, escaped), append(v.protected, true)

@@ -3,8 +3,6 @@ package sqlitefile
 import (
 	"strconv"
 	"strings"
-
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // TextValue returns a TEXT value holding text.
@@ -54,13 +52,13 @@ func (v Value) Str() string {
 	case Integer:
 		return strconv.FormatInt(v.Int, 10)
 	case Float:
-		return pytext.Float(v.Float)
+		return strconv.FormatFloat(v.Float, 'g', -1, 64)
 	case Text:
 		return string(v.Bytes)
 	case Blob:
 		return bytesRepr(v.Bytes)
 	}
-	return pytext.None
+	return ""
 }
 
 // bytesRepr writes data as Python's repr(bytes): single quotes unless the

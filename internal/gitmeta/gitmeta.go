@@ -16,7 +16,7 @@
 //     else the commit hash of a detached HEAD.
 //
 // Both readers take the file's text decoded as UTF-8 with invalid bytes
-// replaced (pytext.DecodeUTF8), split lines at LF or CRLF only, drop a
+// replaced (textlines.ValidUTF8), split lines at LF or CRLF only, drop a
 // leading byte-order mark and trim ASCII whitespace only, as git does.
 // Finding the files among a collection's artifacts is the caller's job.
 package gitmeta

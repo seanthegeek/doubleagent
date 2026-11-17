@@ -7,7 +7,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -85,7 +84,7 @@ func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker
 		}
 	}
 	if images := message.Get("images"); images.IsArray() && images.Len() > 0 {
-		text = pytext.Strip(text + "\n[" + strconv.Itoa(images.Len()) + " image(s)]")
+		text = strings.TrimSpace(text + "\n[" + strconv.Itoa(images.Len()) + " image(s)]")
 	}
 	c.text(role, text, model)
 	for _, step := range parser.Elements(message.Get("toolSteps")) {
@@ -208,12 +207,12 @@ func splitThink(content string) (string, []string) {
 		if found := strings.Index(body, closing); found >= 0 && found < end {
 			end, next = found, found+len(closing)
 		}
-		if thought := pytext.Strip(body[:end]); thought != "" {
+		if thought := strings.TrimSpace(body[:end]); thought != "" {
 			thoughts = append(thoughts, thought)
 		}
 		rest = body[next:]
 	}
-	return pytext.Strip(out.String()), thoughts
+	return strings.TrimSpace(out.String()), thoughts
 }
 
 // openTag returns the offset and name of the first <think> or <thinking>

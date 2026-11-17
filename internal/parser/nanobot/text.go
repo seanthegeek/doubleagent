@@ -9,8 +9,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // textPatterns are the patterns of the `/model <preset>` command and its
@@ -24,7 +24,7 @@ type textPatterns struct {
 // newTextPatterns compiles the patterns. Spaces are the ones Python's \s
 // and \S name in text.
 func newTextPatterns() textPatterns {
-	space, other := `[`+parser.PythonSpace+`]`, `[^`+parser.PythonSpace+`]`
+	space, other := `[`+parser.Space+`]`, `[^`+parser.Space+`]`
 	return textPatterns{
 		modelCommand: regexp.MustCompile(`(?s)\A/model` + space + `+(` + other + `.*?)` + space + `*\z`),
 		switched:     regexp.MustCompile("\\ASwitched model preset to `([^`]*)`"),
@@ -65,7 +65,7 @@ func readMarker(path string, problems *parser.Problems) string {
 	if !ok {
 		return ""
 	}
-	return pytext.Strip(pytext.DecodeUTF8(content))
+	return strings.TrimSpace(textlines.ValidUTF8(content))
 }
 
 // relayTexts returns the `session relayed:` row texts of a session: one for

@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -208,7 +208,7 @@ func readSide(path string, ok bool, problems *parser.Problems) (jsonvalue.Value,
 	if !read {
 		return jsonvalue.NewNull(), ""
 	}
-	value, reason, _ := decodeText(pytext.DecodeUTF8(data))
+	value, reason, _ := decodeText(textlines.ValidUTF8(data))
 	return value, reason
 }
 
@@ -290,7 +290,7 @@ func (r treeRoot) partFiles(names []string) ([]part, []failure) {
 			}
 			continue
 		}
-		value, reason, raw := decodeText(pytext.DecodeUTF8(data))
+		value, reason, raw := decodeText(textlines.ValidUTF8(data))
 		if reason != "" {
 			failures = append(failures, failure{line: 1, raw: raw, sourceFile: source,
 				message: fmt.Sprintf("unparseable part %s (%s)", jsonStem(file), reason)})

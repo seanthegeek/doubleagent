@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -127,7 +127,7 @@ func scalar(kind string, field rawField) (any, bool) {
 	switch kind {
 	case KindString:
 		if isBytes {
-			return pytext.DecodeUTF8(field.data), true
+			return textlines.ValidUTF8(field.data), true
 		}
 		return new(big.Int).SetUint64(field.varint).String(), true
 	case KindBytes:

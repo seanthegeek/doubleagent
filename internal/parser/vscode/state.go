@@ -8,8 +8,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
@@ -183,7 +183,7 @@ func usageItems(databasePath string) ([]usage, []string) {
 // writes it.
 func usageText(value sqlitefile.Value) string {
 	if value.Type == sqlitefile.Blob {
-		return pytext.DecodeUTF8(value.Bytes)
+		return textlines.ValidUTF8(value.Bytes)
 	}
 	return value.Str()
 }

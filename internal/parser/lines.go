@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // errNotObject is the reason a JSON line holding something other than an
@@ -108,7 +108,7 @@ func JSONLines(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] 
 func LineText(raw []byte) string {
 	raw = bytes.TrimSuffix(raw, []byte("\n"))
 	raw = bytes.TrimSuffix(raw, []byte("\r"))
-	return pytext.DecodeUTF8(raw)
+	return textlines.ValidUTF8(raw)
 }
 
 // TailText returns text from the byte offset start to its end as the text

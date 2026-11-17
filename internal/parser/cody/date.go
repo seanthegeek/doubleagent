@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -98,7 +97,7 @@ func mailDate(text string) (string, bool) {
 // fields, dropping a day name and splitting an offset written against the
 // time, or returns false when there are fewer than five.
 func dateFields(text string) ([]string, bool) {
-	fields := pytext.Fields(text)
+	fields := strings.Fields(text)
 	if len(fields) == 0 {
 		return nil, false
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -53,7 +52,7 @@ func permissionEntries(path string, problems *parser.Problems) []permissionEntry
 	var entries []permissionEntry
 	category, level := "", ""
 	for number, raw := range parser.Lines(path, problems) {
-		text := textlines.WithoutTerminator(pytext.DecodeUTF8(raw))
+		text := textlines.WithoutTerminator(textlines.ValidUTF8(raw))
 		body := strings.Trim(text, textlines.SpaceOrTab)
 		if body == "" || strings.HasPrefix(body, "#") || body == "---" || body == "{}" {
 			continue

@@ -22,11 +22,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -268,10 +269,10 @@ func (p *Parser) parseCrushrc(artifact *input.Artifact, emit parser.Emit) {
 	}
 	timestamp := parser.FileMtime(artifact)
 	keys := map[string]string{"allow": "permissions.allowed_tools", "deny": "options.disabled_tools"}
-	for i, line := range strings.Split(pytext.DecodeUTF8(content), "\n") {
+	for i, line := range strings.Split(textlines.ValidUTF8(content), "\n") {
 		number := i + 1
 		line = strings.TrimSuffix(line, "\r")
-		if !strings.HasPrefix(pytext.StripLeft(line), "permissions") {
+		if !strings.HasPrefix(strings.TrimLeftFunc(line, unicode.IsSpace), "permissions") {
 			continue
 		}
 		words, problem := splitWords(line)

@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -123,7 +123,7 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.
 			if len(stripped) == 0 {
 				continue
 			}
-			record, err := jsonvalue.DecodeString(pytext.DecodeUTF8(stripped))
+			record, err := jsonvalue.DecodeString(textlines.ValidUTF8(stripped))
 			if err != nil {
 				problems.AddRaw(i+1, parser.UnparseableLine(err), parser.LineText(raw))
 				continue

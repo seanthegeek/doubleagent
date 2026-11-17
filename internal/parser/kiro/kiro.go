@@ -27,7 +27,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -325,7 +324,7 @@ func (p *Parser) parseExport(artifact *input.Artifact, options parser.Options, e
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	p.conversation(artifact, options, pytext.DecodeUTF8(content), "", 0, emit)
+	p.conversation(artifact, options, textlines.ValidUTF8(content), "", 0, emit)
 }
 
 // The interfaces the registry looks for, checked when the package builds.

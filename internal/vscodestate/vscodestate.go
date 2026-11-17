@@ -24,8 +24,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // SecretPrefix starts the keys of SecretStorage rows, which are never read.
@@ -135,7 +135,7 @@ func itemRows(path string, wanted []sqlitefile.Value) ([]sqlitefile.Row, error) 
 func valueText(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Blob:
-		return pytext.DecodeUTF8(value.Bytes)
+		return textlines.ValidUTF8(value.Bytes)
 	case sqlitefile.Null:
 		return ""
 	}

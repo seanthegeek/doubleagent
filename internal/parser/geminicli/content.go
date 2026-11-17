@@ -2,10 +2,10 @@ package geminicli
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // The tags a compression summary opens with: <state_snapshot>, or the
@@ -103,7 +103,7 @@ func joinNonEmpty(texts []string) string {
 // tag typed inside a prompt does not count; a compression summary may
 // instead open with <scratchpad> and hold <state_snapshot> after it.
 func contextKind(text string) string {
-	body := pytext.Strip(text)
+	body := strings.TrimSpace(text)
 	if strings.HasPrefix(body, scratchpadTag) && strings.Contains(body, stateSnapshotTag) {
 		return "state_snapshot"
 	}
@@ -126,7 +126,7 @@ type run struct {
 // slice, so the pass stays linear in the text's length.
 func classified(text string) []run {
 	var runs []run
-	contentEnd := len(pytext.StripRight(text))
+	contentEnd := len(strings.TrimRightFunc(text, unicode.IsSpace))
 	start := 0
 	for {
 		found := strings.Index(text[start:], hookContextEnd)

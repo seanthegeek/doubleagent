@@ -9,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -26,7 +25,7 @@ func readFlatYAML(path string, problems *parser.Problems) map[string]string {
 	if !ok {
 		return values
 	}
-	for _, line := range textlines.Split(pytext.DecodeUTF8(data)) {
+	for _, line := range textlines.Split(textlines.ValidUTF8(data)) {
 		if line == "" || strings.IndexByte(" \t#-", line[0]) >= 0 || !strings.Contains(line, ":") {
 			continue
 		}
@@ -216,7 +215,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	for i, entry := range parser.Elements(document.Get("commandHistory")) {
-		if entry.IsString() && pytext.Strip(entry.StringValue()) != "" {
+		if entry.IsString() && strings.TrimSpace(entry.StringValue()) != "" {
 			emit(p.row(artifact, i+1, timeline.TurnUser, entry.StringValue(), columns{}))
 		}
 	}
@@ -266,7 +265,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := jsonvalue.DecodeString(parser.StripJSONC(pytext.DecodeUTF8(data)))
+	document, err := jsonvalue.DecodeString(parser.StripJSONC(textlines.ValidUTF8(data)))
 	if err != nil || !document.IsObject() {
 		emit(p.problem(artifact, "parser: settings.json is not a JSON object", timestamp))
 		return
@@ -288,7 +287,7 @@ func (p *Parser) parseLog(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	lines := textlines.Split(pytext.DecodeUTF8(data))
+	lines := textlines.Split(textlines.ValidUTF8(data))
 	sessions := map[string]bool{}
 	for _, line := range lines {
 		if match := p.workspaceLine.FindStringSubmatch(line); match != nil {

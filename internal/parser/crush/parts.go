@@ -6,8 +6,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -149,7 +149,7 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	raw := ""
 	switch value.Type {
 	case sqlitefile.Blob:
-		raw = pytext.DecodeUTF8(value.Bytes)
+		raw = textlines.ValidUTF8(value.Bytes)
 	case sqlitefile.Null:
 	default:
 		raw = value.Str()

@@ -2,11 +2,12 @@ package antigravity
 
 import (
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/protowire"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // message is a decoded protobuf message read as the Python analyzer reads
@@ -116,9 +117,9 @@ func valueText(value any) string {
 	case *big.Int:
 		return value.String()
 	case bool:
-		return pytext.Bool(value)
+		return strconv.FormatBool(value)
 	case float64:
-		return pytext.Float(value)
+		return strconv.FormatFloat(value, 'g', -1, 64)
 	}
 	return jsonValue(value).Text()
 }
@@ -148,7 +149,7 @@ func jsonValue(value any) jsonvalue.Value {
 	case float64:
 		return jsonvalue.NewFloat(value)
 	case []byte:
-		return jsonvalue.NewString(pytext.DecodeUTF8(value))
+		return jsonvalue.NewString(textlines.ValidUTF8(value))
 	case []any:
 		items := make([]jsonvalue.Value, len(value))
 		for i, item := range value {

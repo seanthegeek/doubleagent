@@ -13,7 +13,7 @@ import (
 )
 
 // nonSpace is one character Python's \S matches.
-const nonSpace = `[^` + parser.PythonSpace + `]`
+const nonSpace = `[^` + parser.Space + `]`
 
 // The lines of a cn log that are read. A line is
 // "<date> <time.ms> [<process id>] [<level>]: <message>". A [metadata]

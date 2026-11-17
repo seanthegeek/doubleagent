@@ -11,7 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // jsonSpace is the whitespace JSON allows between tokens, the only padding
@@ -81,7 +81,7 @@ func parseManifest(data []byte) (rows []jsonvalue.Value, bad int) {
 		} else {
 			data = nil
 		}
-		text := strings.Trim(pytext.DecodeUTF8(line), jsonSpace)
+		text := strings.Trim(textlines.ValidUTF8(line), jsonSpace)
 		if text == "" {
 			continue
 		}

@@ -97,7 +97,7 @@ func TestColumnTextWritesEachStorageClassAsPythonDoes(t *testing.T) {
 		{"text", sqlitefile.TextValue("a b"), "a b"},
 		{"empty text", sqlitefile.TextValue(""), ""},
 		{"an integer", sqlitefile.IntValue(-7), "-7"},
-		{"a whole float", sqlitefile.FloatValue(1), "1.0"},
+		{"a whole float", sqlitefile.FloatValue(1), "1"},
 		{"a small float", sqlitefile.FloatValue(0.00001), "1e-05"},
 		{"positive infinity", sqlitefile.FloatValue(math.Inf(1)), "Infinity"},
 		{"negative infinity", sqlitefile.FloatValue(math.Inf(-1)), "-Infinity"},

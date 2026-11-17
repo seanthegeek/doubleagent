@@ -5,7 +5,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -140,7 +139,7 @@ func outputText(output jsonvalue.Value) string {
 // refused by policy.
 func stateDecision(status string, output jsonvalue.Value, text string) string {
 	if status == "canceled" {
-		switch pytext.Strip(text) {
+		switch strings.TrimSpace(text) {
 		case "Permission denied by user":
 			return "canceled reason=user"
 		case "Command blocked by security policy":

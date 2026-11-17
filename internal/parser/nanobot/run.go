@@ -8,7 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -52,7 +51,7 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parser.Emit) {
 		out.ProjectPath = project
 		emit(out)
 	}
-	if pytext.Strip(run.prompt) != "" {
+	if strings.TrimSpace(run.prompt) != "" {
 		row(run.start, timeline.TurnUser, run.prompt)
 	}
 	if response := record.Get("response"); response.IsString() && response.StringValue() != "" {
@@ -88,7 +87,7 @@ func cronRun(record jsonvalue.Value, end string) runRecord {
 // triggerRun reads a trigger run record, which starts at created_at_ms,
 // else at end.
 func triggerRun(record jsonvalue.Value, end string) runRecord {
-	label := pytext.Strip(parser.Str(record.Get("trigger_name")))
+	label := strings.TrimSpace(parser.Str(record.Get("trigger_name")))
 	if label == "" {
 		label = parser.Str(record.Get("trigger_id"))
 	}

@@ -3,10 +3,10 @@ package antigravity
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // argKeys are the JSON arguments that best identify a proposed tool call,
@@ -145,7 +145,7 @@ func eventDescribers() map[string]func(message) string {
 		},
 		"conversation_history": func(payload message) string {
 			return "conversation history injected (" +
-				strconv.Itoa(pytext.CodePointLen(payload.text("content"))) + " chars)"
+				strconv.Itoa(utf8.RuneCountInString(payload.text("content"))) + " chars)"
 		},
 	}
 }

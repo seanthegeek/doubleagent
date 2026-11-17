@@ -7,7 +7,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -19,7 +18,7 @@ const userDenial = "Permission to run tool denied by user"
 // at 9cd14da). A run of non-space is written with the spaces Python's \S
 // excludes, and \d as any decimal digit, as the original pattern reads them.
 func newDenialPattern() *regexp.Regexp {
-	word := `[^` + parser.PythonSpace + `]+`
+	word := `[^` + parser.Space + `]+`
 	return regexp.MustCompile(`\A(?s:Blocked by global default: deny` +
 		`|Command blocked by security rule for ` + word + ` tool` +
 		`|` + word + ` tool is disabled` +
@@ -131,7 +130,7 @@ func firstFolder(folderPaths sqlitefile.Value) string {
 		return ""
 	}
 	for _, path := range strings.Split(folderPaths.Text(), "\n") {
-		if pytext.Strip(path) != "" {
+		if strings.TrimSpace(path) != "" {
 			return path
 		}
 	}
@@ -182,7 +181,7 @@ func (p *Parser) denialText(result jsonvalue.Value) string {
 	if result.Get("is_error").IsEmpty() {
 		return ""
 	}
-	text := pytext.Strip(contentText(result.Get("content")))
+	text := strings.TrimSpace(contentText(result.Get("content")))
 	switch {
 	case text == userDenial:
 		return "permission decision: denied"

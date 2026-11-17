@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // StripJSONComments returns text with its `//` line comments and `/* */`
@@ -95,6 +95,6 @@ func StripJSONC(text string) string {
 // trailing commas stripped. It returns the decoder's error for text that is
 // still not JSON.
 func ParseJSONC(raw []byte) (jsonvalue.Value, error) {
-	text := strings.TrimPrefix(pytext.DecodeUTF8(raw), byteOrderMark)
+	text := strings.TrimPrefix(textlines.ValidUTF8(raw), byteOrderMark)
 	return jsonvalue.DecodeString(StripJSONC(text))
 }

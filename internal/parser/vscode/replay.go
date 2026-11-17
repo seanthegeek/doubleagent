@@ -2,10 +2,11 @@ package vscode
 
 import (
 	"bytes"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // asciiWhitespace is what Python's bytes.strip() removes from a line.
@@ -29,7 +30,7 @@ func replay(path string, lines requestLines, problems *parser.Problems) jsonvalu
 		if len(stripped) == 0 {
 			continue
 		}
-		record, err := jsonvalue.DecodeString(pytext.DecodeUTF8(stripped))
+		record, err := jsonvalue.DecodeString(textlines.ValidUTF8(stripped))
 		if err != nil {
 			problems.AddRaw(number, parser.UnparseableLine(err), parser.LineText(raw))
 			continue
@@ -104,7 +105,7 @@ func track(record jsonvalue.Value, state *node, number int, lines requestLines) 
 // value; it is counted as 0 here.
 func pushedCount(value jsonvalue.Value) int64 {
 	if value.IsString() {
-		return int64(pytext.CodePointLen(value.StringValue()))
+		return int64(utf8.RuneCountInString(value.StringValue()))
 	}
 	return int64(value.Len())
 }

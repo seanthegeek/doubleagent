@@ -4,12 +4,13 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/opencode"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -78,7 +79,7 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.taskID, current.project))
 		return
 	}
-	for index, message := range parser.ArrayElements(pytext.DecodeUTF8(data), &problems) {
+	for index, message := range parser.ArrayElements(textlines.ValidUTF8(data), &problems) {
 		if message.IsObject() {
 			parser.EmitAll(emit, current.messageRows(index+1, message))
 		}
@@ -186,7 +187,7 @@ func (b *blocks) block(block jsonvalue.Value) {
 			text = parser.Str(block.Get("text"))
 		}
 		switch {
-		case strings.HasPrefix(pytext.StripLeft(text), "<environment_details>"):
+		case strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "<environment_details>"):
 			b.add(timeline.TurnSystem, text)
 		case text != "":
 			if b.textAt < 0 {

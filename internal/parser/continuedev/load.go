@@ -4,10 +4,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // headerKeys are the session fields recovered from a session file that
@@ -36,7 +36,7 @@ func LoadSession(text string) (jsonvalue.Value, string) {
 		prefix, end, prefixErr := jsonvalue.DecodePrefix(text, start)
 		if prefixErr == nil && prefix.IsObject() {
 			return prefix, "trailing data after the session object at offset " +
-				strconv.Itoa(pytext.CodePointLen(text[:end]))
+				strconv.Itoa(utf8.RuneCountInString(text[:end]))
 		}
 	}
 	recovered := jsonvalue.NewObject()

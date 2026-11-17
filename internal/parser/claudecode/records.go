@@ -3,10 +3,10 @@ package claudecode
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -147,7 +147,7 @@ func (s *session) textRow(record jsonvalue.Value, label, text string) timeline.R
 // toolResult emits the row of a tool_result block.
 func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 	text := ResultText(block.Get("content"))
-	if savedPath != "" || strings.HasPrefix(pytext.StripLeft(text), persistedMark) {
+	if savedPath != "" || strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), persistedMark) {
 		text = persistedText(s.artifact, text, savedPath, &s.problems)
 	}
 	if !block.Get("is_error").IsEmpty() {

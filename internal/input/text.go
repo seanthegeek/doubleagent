@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // textOf returns Python's str(value or ""): "" for a false value (null,
@@ -50,7 +49,7 @@ func parseSize(value jsonvalue.Value) (int64, bool) {
 		}
 		return int64(number), true
 	case value.IsString():
-		return parseIntegerText(pytext.Strip(value.StringValue()))
+		return parseIntegerText(strings.TrimSpace(value.StringValue()))
 	}
 	return 0, false
 }

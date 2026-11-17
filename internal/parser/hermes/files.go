@@ -9,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/aider"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -90,7 +89,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	text := ""
 	if content, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		text = pytext.DecodeUTF8(content)
+		text = textlines.ValidUTF8(content)
 	}
 	entries, problem := p.readFlatList(textlines.Split(text), "command_allowlist")
 	timestamp := ""
@@ -161,7 +160,7 @@ func (p *Parser) parseCron(artifact *input.Artifact, match []string, emit parser
 	var problems parser.Problems
 	document := ""
 	if content, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		document = pytext.DecodeUTF8(content)
+		document = textlines.ValidUTF8(content)
 	}
 	type turn struct{ turnType, text string }
 	turns := []turn{{timeline.TurnSystem, "cron run: job " + match[1] +

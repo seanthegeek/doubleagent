@@ -10,8 +10,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // persistedMark starts the stub a transcript keeps in place of a tool
@@ -96,7 +96,7 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, problems *p
 		problems.AddUnreadable(0, output, err)
 		return stub + "\n[persisted output could not be read (" + reason.For(err) + ")]"
 	}
-	return pytext.DecodeUTF8(data)
+	return textlines.ValidUTF8(data)
 }
 
 // isPasteHash reports whether a paste's content hash is a plain name of
@@ -130,7 +130,7 @@ func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool
 		problems.AddUnreadable(0, cacheFile, err)
 		return "", false
 	}
-	return pytext.DecodeUTF8(data), true
+	return textlines.ValidUTF8(data), true
 }
 
 // expandPastes returns a history line's display text with each paste

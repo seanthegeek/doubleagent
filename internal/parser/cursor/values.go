@@ -3,11 +3,12 @@ package cursor
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // asText returns a database value as text: a blob decoded as UTF-8 with
@@ -15,7 +16,7 @@ import (
 func asText(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Blob:
-		return pytext.DecodeUTF8(value.Bytes)
+		return textlines.ValidUTF8(value.Bytes)
 	case sqlitefile.Null:
 		return ""
 	}
@@ -173,5 +174,5 @@ func selectPresent(table *sqlitefile.Table, wanted []string) ([]sqlitefile.Row, 
 // lstripsToList reports whether text, less its leading whitespace, starts
 // a JSON array.
 func lstripsToList(text string) bool {
-	return strings.HasPrefix(pytext.StripLeft(text), "[")
+	return strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "[")
 }

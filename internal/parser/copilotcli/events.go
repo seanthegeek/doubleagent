@@ -6,7 +6,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -214,7 +213,7 @@ func (w *eventWalk) userRow(record, data jsonvalue.Value) {
 // requests.
 func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 	model, content := text(data.Get("model")), text(data.Get("content"))
-	if pytext.Strip(content) != "" {
+	if strings.TrimSpace(content) != "" {
 		w.emit(w.row(timeline.TurnAssistant, content, "", "", model))
 	}
 	if w.options.IncludeThinking {

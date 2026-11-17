@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -192,7 +192,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	text := strings.TrimPrefix(pytext.DecodeUTF8(content), byteOrderMark)
+	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
 	ArrayRecords(text, &problems, func(position int, entry jsonvalue.Value) {
 		prompt := entry.Get("text")
 		if !prompt.IsString() {

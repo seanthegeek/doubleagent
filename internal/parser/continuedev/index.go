@@ -8,7 +8,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -75,7 +74,7 @@ func ReadIndex(path string) (map[string]jsonvalue.Value, parser.Problems) {
 	if !ok {
 		return entries, problems
 	}
-	text := strings.TrimPrefix(pytext.DecodeUTF8(content), byteOrderMark)
+	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
 	ArrayRecords(text, &problems, func(position int, element jsonvalue.Value) {
 		switch {
 		case element.IsObject() && !element.Get("sessionId").IsEmpty():

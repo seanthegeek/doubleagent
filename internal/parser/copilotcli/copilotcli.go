@@ -16,11 +16,11 @@ package copilotcli
 import (
 	"regexp"
 	"slices"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -240,7 +240,7 @@ func resultText(data jsonvalue.Value) string {
 	result := data.Get("result")
 	detailed, concise := text(result.Get("detailedContent")), text(result.Get("content"))
 	body := detailed
-	if pytext.CodePointLen(concise) > pytext.CodePointLen(detailed) {
+	if utf8.RuneCountInString(concise) > utf8.RuneCountInString(detailed) {
 		body = concise
 	}
 	if code := data.Get("shellExecution").Get("exitCode"); !isNoneOrZero(code) && !code.IsBool() {

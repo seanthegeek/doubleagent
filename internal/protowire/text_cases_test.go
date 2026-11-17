@@ -4,25 +4,13 @@ import (
 	"math"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// The decoder once had its own UTF-8 decoder and epoch formatter. These
-// tables hold what they gave for generated inputs (epochs around the
-// millisecond threshold, the year limits and microsecond halves; truncated,
-// overlong, surrogate and out-of-range UTF-8 sequences), and the tests check
-// that the shared functions the decoder now calls give the same text.
-
-func TestStringFieldsDecodeAsTheDecoderAlwaysDid(t *testing.T) {
-	for _, test := range utf8Cases {
-		t.Run("the bytes "+string(byteLiteralText(test.data))+" decode as before", func(t *testing.T) {
-			if got := pytext.DecodeUTF8(test.data); got != test.want {
-				t.Errorf("DecodeUTF8(% x) = %q, want %q", test.data, got, test.want)
-			}
-		})
-	}
-}
+// The decoder once had its own epoch formatter. This table holds what it
+// gave for generated epochs (around the millisecond threshold, the year
+// limits and microsecond halves), and the test checks that the shared
+// function the decoder now calls gives the same text.
 
 func TestTimestampFieldsFormatAsTheDecoderAlwaysDid(t *testing.T) {
 	for _, test := range epochCases {
@@ -30,19 +18,6 @@ func TestTimestampFieldsFormatAsTheDecoderAlwaysDid(t *testing.T) {
 			t.Errorf("FromEpoch(%v) = %q, want %q", test.epoch, got, test.want)
 		}
 	}
-}
-
-// byteLiteralText writes bytes as hex pairs for a test name.
-func byteLiteralText(data []byte) []byte {
-	const digits = "0123456789abcdef"
-	out := make([]byte, 0, len(data)*3)
-	for i, value := range data {
-		if i > 0 {
-			out = append(out, ' ')
-		}
-		out = append(out, digits[value>>4], digits[value&15])
-	}
-	return out
 }
 
 var epochCases = []struct {
@@ -245,52 +220,4 @@ var epochCases = []struct {
 	{-1e+19, ""},
 	{2.5e+19, ""},
 	{-9.999999999999999e+20, ""},
-}
-
-var utf8Cases = []struct {
-	data []byte
-	want string
-}{
-	{[]byte{}, ""},
-	{[]byte{0x70, 0x6c, 0x61, 0x69, 0x6e}, "plain"},
-	{[]byte{0xc3, 0xa9, 0xf0, 0x9f, 0x98, 0x80}, "é😀"},
-	{[]byte{0x80}, "�"},
-	{[]byte{0xbf}, "�"},
-	{[]byte{0xc0}, "�"},
-	{[]byte{0xc1, 0xbf}, "��"},
-	{[]byte{0xc2}, "�"},
-	{[]byte{0xc2, 0x41}, "�A"},
-	{[]byte{0xc2, 0x80}, "\u0080"},
-	{[]byte{0xdf, 0xc0}, "��"},
-	{[]byte{0xe0, 0x80}, "��"},
-	{[]byte{0xe0, 0x9f, 0x80}, "���"},
-	{[]byte{0xe0, 0xa0}, "�"},
-	{[]byte{0xe0, 0xa0, 0x80}, "ࠀ"},
-	{[]byte{0xe1, 0x80}, "�"},
-	{[]byte{0xe2, 0x82}, "�"},
-	{[]byte{0xe2, 0x82, 0x41}, "�A"},
-	{[]byte{0xe2, 0x82, 0xac}, "€"},
-	{[]byte{0xed, 0x9f, 0xbf}, "\ud7ff"},
-	{[]byte{0xed, 0xa0, 0x80}, "���"},
-	{[]byte{0xed, 0xbf, 0xbf}, "���"},
-	{[]byte{0xee, 0x80, 0xc0}, "��"},
-	{[]byte{0xef, 0xbf, 0xbf}, "\uffff"},
-	{[]byte{0xf0, 0x80}, "��"},
-	{[]byte{0xf0, 0x8f, 0x80, 0x80}, "����"},
-	{[]byte{0xf0, 0x90}, "�"},
-	{[]byte{0xf0, 0x90, 0x80}, "�"},
-	{[]byte{0xf0, 0x90, 0x80, 0x80}, "𐀀"},
-	{[]byte{0xf1, 0x80, 0x80}, "�"},
-	{[]byte{0xf3, 0xbf, 0xbf, 0xbf}, "\U000fffff"},
-	{[]byte{0xf4, 0x8f, 0xbf, 0xbf}, "\U0010ffff"},
-	{[]byte{0xf4, 0x90, 0x80, 0x80}, "����"},
-	{[]byte{0xf5, 0x80, 0x80, 0x80}, "����"},
-	{[]byte{0xf8, 0x88, 0x80, 0x80, 0x80}, "�����"},
-	{[]byte{0xfe}, "�"},
-	{[]byte{0xff}, "�"},
-	{[]byte{0x61, 0xe2, 0x82, 0x62, 0xf0, 0x9f, 0x98, 0x63, 0x80, 0x80, 0x64}, "a�b�c��d"},
-	{[]byte{0xe2, 0x82, 0xe2, 0x82, 0xac}, "�€"},
-	{[]byte{0xf0, 0x9f, 0x98, 0x80, 0xf0, 0x9f, 0x98}, "😀�"},
-	{[]byte{0xc2, 0xc2, 0x80}, "�\u0080"},
-	{[]byte{0xed, 0xa0, 0x80, 0xed, 0xb0, 0x80}, "������"},
 }

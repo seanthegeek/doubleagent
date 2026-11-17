@@ -8,7 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
@@ -56,7 +55,7 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 	}
 	data, err := jsonvalue.DecodeString(text)
 	for position, entry := range cliEntries(text, data, err == nil, &problems) {
-		if !entry.IsString() || pytext.Strip(entry.StringValue()) == "" {
+		if !entry.IsString() || strings.TrimSpace(entry.StringValue()) == "" {
 			continue
 		}
 		row := p.BaseRow(artifact)

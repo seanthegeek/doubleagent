@@ -28,7 +28,7 @@ const (
 
 // mcpKeyPattern matches a decoded MCP OAuth key name, "[<scope>] <field>";
 // Python's $ also takes a final LF.
-var mcpKeyPattern = regexp.MustCompile(`^\[(.+)\] ([^` + parser.PythonSpace + `]+)\n?\z`)
+var mcpKeyPattern = regexp.MustCompile(`^\[(.+)\] ([^` + parser.Space + `]+)\n?\z`)
 
 // base64Alphabet holds the characters a standard or URL-safe base64 text
 // is made of, padding aside.

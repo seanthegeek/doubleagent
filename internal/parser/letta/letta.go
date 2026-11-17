@@ -32,7 +32,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -146,7 +145,7 @@ func DecodeKey(name string) string {
 func sanitize(segment string) string {
 	var out strings.Builder
 	for rest := segment; rest != ""; {
-		char, width := pytext.NextCodePoint(rest)
+		char, width := utf8.DecodeRuneInString(rest)
 		if keptInName(char) {
 			out.WriteRune(char)
 		} else {

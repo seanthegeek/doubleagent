@@ -12,7 +12,7 @@ import (
 )
 
 // space is a Python \s in a str pattern.
-const space = `[` + parser.PythonSpace + `]`
+const space = `[` + parser.Space + `]`
 
 // wrapperPattern matches the worker's wrapper of a user text block,
 // "<timestamp>Thursday, Oct 1, <year>, 6:00 AM (UTC-4)</timestamp>" LF

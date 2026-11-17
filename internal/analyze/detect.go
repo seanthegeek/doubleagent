@@ -6,13 +6,13 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // fileCounts is the number and total size of one agent's files.
@@ -313,16 +313,15 @@ func printHomeTable(w io.Writer, rows []tableRow) {
 		return
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "%s %s %s %8s %12s  %s\n", pytext.PadRight("user", 14),
-		pytext.PadRight("home", 32), pytext.PadRight("agent", 18), "files", "bytes", "parser")
+	fmt.Fprintf(w, "%-14s %-32s %-18s %8s %12s  %s\n", "user", "home", "agent", "files", "bytes",
+		"parser")
 	for _, row := range rows {
 		user := row.user
 		if user == "" {
 			user = "?"
 		}
-		fmt.Fprintf(w, "%s %s %s %8d %12d  %s\n", pytext.PadRight(user, 14),
-			pytext.PadRight(pytext.SliceCodePoints(row.home, 32), 32),
-			pytext.PadRight(row.agent, 18), row.files, row.bytes, parserLabel(row.parser))
+		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", user, row.home, row.agent, row.files,
+			row.bytes, parserLabel(row.parser))
 	}
 }
 
@@ -344,7 +343,7 @@ func printProjectTable(w io.Writer, projects []projectEntry) {
 		line := func(agent, files, size, parser string) {
 			path, users := "", ""
 			if first {
-				path = pytext.SliceCodePoints(project.path, 40)
+				path = fmt.Sprintf("%.40s", project.path)
 				users = strings.Join(project.users, ",")
 				if users == "" {
 					users = "?"
@@ -369,9 +368,8 @@ func printProjectTable(w io.Writer, projects []projectEntry) {
 // printProjectLine prints one line of the project table, trailing
 // whitespace removed.
 func printProjectLine(w io.Writer, path, users, agent, files, size, parser string) {
-	line := fmt.Sprintf("%s %s %s %s %s  %s", pytext.PadRight(path, 40), pytext.PadRight(users, 14),
-		pytext.PadRight(agent, 18), pytext.PadLeft(files, 8), pytext.PadLeft(size, 12), parser)
-	fmt.Fprintln(w, pytext.StripRight(line))
+	line := fmt.Sprintf("%-40s %-14s %-18s %8s %12s  %s", path, users, agent, files, size, parser)
+	fmt.Fprintln(w, strings.TrimRightFunc(line, unicode.IsSpace))
 }
 
 // remotesText returns the remotes as "<name> <url> ... (push <pushurl> ...)"

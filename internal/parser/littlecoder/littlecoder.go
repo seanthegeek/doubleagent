@@ -32,7 +32,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -134,7 +133,7 @@ func (p *Parser) parseInputHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, raw := range parser.Lines(artifact.DiskPath, &problems) {
 		text := parser.LineText(raw)
-		if pytext.Strip(text) == "" {
+		if strings.TrimSpace(text) == "" {
 			continue
 		}
 		row := p.BaseRow(artifact)

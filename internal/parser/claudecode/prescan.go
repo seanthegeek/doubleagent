@@ -2,11 +2,11 @@ package claudecode
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // bridgeStatus is the line and URL of a system bridge_status record.
@@ -99,7 +99,7 @@ func (s *prescan) user(line int, record jsonvalue.Value) {
 		}
 		text := parser.Str(block.Get("text"))
 		s.deliver(text, line)
-		if strings.HasPrefix(pytext.StripLeft(text), forkMark) {
+		if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), forkMark) {
 			s.fork = true
 		}
 	}

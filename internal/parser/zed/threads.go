@@ -8,8 +8,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -111,7 +111,7 @@ func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, string) {
 	case isZstd:
 		return jsonvalue.Value{}, failure + "; stored zstd blob as hex", hex.EncodeToString(stored)
 	}
-	return jsonvalue.Value{}, failure, pytext.DecodeUTF8(stored)
+	return jsonvalue.Value{}, failure, textlines.ValidUTF8(stored)
 }
 
 // threadRows emits the rows of one thread: its start, remote, model and
@@ -152,7 +152,7 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row,
 		emit(row)
 	}
 	if draft := value.Get("draft_prompt"); !draft.IsEmpty() {
-		if text := acpBlocksText(draft); pytext.Strip(text) != "" {
+		if text := acpBlocksText(draft); strings.TrimSpace(text) != "" {
 			emit(p.threadRow(context, timeline.TurnSystem,
 				"unsent draft: "+text+" (thread blob, as of updated_at)", ""))
 		}

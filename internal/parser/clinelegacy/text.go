@@ -2,9 +2,9 @@ package clinelegacy
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // Present reports whether a value is neither null nor the empty string, the
@@ -53,7 +53,7 @@ func FirstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 // LoadsOrNone returns text decoded as a JSON object, or false when it does
 // not open with "{" after leading whitespace or is not a JSON object.
 func LoadsOrNone(text string) (jsonvalue.Value, bool) {
-	if !strings.HasPrefix(pytext.StripLeft(text), "{") {
+	if !strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "{") {
 		return jsonvalue.NewNull(), false
 	}
 	value, err := jsonvalue.DecodeString(text)

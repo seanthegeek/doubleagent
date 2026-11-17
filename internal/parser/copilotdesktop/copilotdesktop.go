@@ -26,8 +26,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -88,7 +88,7 @@ func (p *Parser) refRow(artifact *input.Artifact, sessionID, sequence, eventID s
 		number = "0"
 	}
 	row := p.row(artifact, "checkpoint ref "+number+": commit "+
-		pytext.Strip(pytext.DecodeUTF8(data))+" event "+eventID+" (file mtime)",
+		strings.TrimSpace(textlines.ValidUTF8(data))+" event "+eventID+" (file mtime)",
 		parser.FileMtime(artifact))
 	row.SessionID = sessionID
 	return row

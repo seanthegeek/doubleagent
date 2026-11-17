@@ -2,8 +2,9 @@ package antigravity
 
 import (
 	"strings"
+	"unicode/utf8"
 
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // URIToPath returns the local path of a file: URI, with a Windows drive
@@ -60,7 +61,7 @@ func unquote(text string) string {
 	var out strings.Builder
 	for i := 0; i < len(text); {
 		if text[i] >= 0x80 {
-			_, size := pytext.NextCodePoint(text[i:])
+			_, size := utf8.DecodeRuneInString(text[i:])
 			out.WriteString(text[i : i+size])
 			i += size
 			continue
@@ -69,7 +70,7 @@ func unquote(text string) string {
 		for end < len(text) && text[end] < 0x80 {
 			end++
 		}
-		out.WriteString(pytext.DecodeUTF8(percentBytes(text[i:end])))
+		out.WriteString(textlines.ValidUTF8(percentBytes(text[i:end])))
 		i = end
 	}
 	return out.String()

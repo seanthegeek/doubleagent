@@ -1,12 +1,13 @@
 package cline
 
 import (
+	"strings"
+
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -73,7 +74,7 @@ func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 	switch hook {
 	case "prompt_submit":
 		prompt := record.Get("userPromptSubmit").Get("prompt")
-		if !prompt.IsString() || pytext.Strip(prompt.StringValue()) == "" {
+		if !prompt.IsString() || strings.TrimSpace(prompt.StringValue()) == "" {
 			return false
 		}
 		row.TurnType, row.Text = timeline.TurnUser, timeline.Compact(prompt.StringValue())
@@ -87,7 +88,7 @@ func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 		toolResult(row, record.Get("tool_result"), record.Get("postToolUse"))
 	case "agent_end":
 		text := record.Get("turn").Get("outputText")
-		if !text.IsString() || pytext.Strip(text.StringValue()) == "" {
+		if !text.IsString() || strings.TrimSpace(text.StringValue()) == "" {
 			return false
 		}
 		row.TurnType, row.Text = timeline.TurnAssistant, timeline.Compact(text.StringValue())
@@ -128,7 +129,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 	}
 	var entries []entry
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
-		if prompt := record.Get("prompt"); prompt.IsString() && pytext.Strip(prompt.StringValue()) != "" {
+		if prompt := record.Get("prompt"); prompt.IsString() && strings.TrimSpace(prompt.StringValue()) != "" {
 			entries = append(entries, entry{line: line, prompt: prompt.StringValue(), timestamp: record.Get("ts")})
 		}
 	}

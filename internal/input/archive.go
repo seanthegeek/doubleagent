@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // tempNameCharacters are the characters of a new extraction directory's
@@ -111,7 +111,7 @@ func verifySidecar(archive, sidecar string) (string, error) {
 		return "WARNING archive sha256 not checked: " + describeError(sidecar, err), nil
 	}
 	expected := ""
-	if fields := strings.FieldsFunc(pytext.DecodeUTF8(data), isASCIIWhitespace); len(fields) > 0 {
+	if fields := strings.FieldsFunc(textlines.ValidUTF8(data), isASCIIWhitespace); len(fields) > 0 {
 		expected = strings.ToLower(fields[0])
 	}
 	file, err := osfile.Open(archive)
