@@ -1,6 +1,3 @@
-// Package openclaw reads OpenClaw's agent and state databases, its JSONL
-// session transcripts and their archives, and holds ToolArgsText, which the
-// nanobot parser shares. See research/openclaw.md.
 package openclaw
 
 import (
