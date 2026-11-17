@@ -1,0 +1,162 @@
+package roocode
+
+import (
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+	"github.com/seanthegeek/doubleagent/internal/timeutil"
+)
+
+// approvedText is the decision of a tool ask marked isAnswered: approved by
+// a click or automatically.
+const approvedText = "permission decision: approved isAnswered=true (user or auto-approval)"
+
+// systemLike returns a system row with text and every other field of like.
+func systemLike(like timeline.Row, text string) timeline.Row {
+	like.TurnType = timeline.TurnSystem
+	like.Text = timeline.Compact(text)
+	return like
+}
+
+// taskFile emits a task file's rows with the permission decisions beside
+// them.
+func (p *Parser) taskFile(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
+	name := clinelegacy.TaskFileName(artifact)
+	switch {
+	case name == clinelegacy.UIFile:
+		p.uiWithDecisions(artifact, options, emit)
+	case clinelegacy.IsAPIFile(name):
+		p.apiWithDecisions(artifact, options, emit)
+	default:
+		p.ParseTaskFile(artifact, options, emit)
+	}
+}
+
+// uiWithDecisions emits the ui_messages.json rows with each approval after
+// its tool call. The pre-scan's problems are dropped: the reader reports
+// them.
+func (p *Parser) uiWithDecisions(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
+	answered := map[int]bool{}
+	var ignored parser.Problems
+	for position, message := range parser.JSONArray(artifact.DiskPath, &ignored) {
+		if isText(message.Get("type"), "ask") && isText(message.Get("ask"), "tool") {
+			if flag, ok := message.Get("isAnswered").Bool(); ok && flag {
+				answered[position] = true
+			}
+		}
+	}
+	p.ParseUI(artifact, p.Context(artifact), options, func(row timeline.Row) {
+		emit(row)
+		if row.TurnType == timeline.TurnToolUse && answered[row.SourceLine] {
+			delete(answered, row.SourceLine)
+			emit(systemLike(row, approvedText))
+		}
+	})
+}
+
+// apiWithDecisions emits the API history's permission decisions. Beside
+// ui_messages.json only the decisions and the file's problems are emitted,
+// since the transcript rows come from that file; alone, the API history's
+// rows come with each decision after its tool_result row.
+func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
+	context := p.Context(artifact)
+	if parser.RegularFile(clinelegacy.TaskOf(artifact).InDir(clinelegacy.UIFile)) {
+		var problems parser.Problems
+		for _, decision := range apiDecisions(artifact.DiskPath, &problems) {
+			row := p.Row(artifact, context, decision.position,
+				timeutil.FirstNonEmpty(timeutil.FromValue(decision.timestamp), context.Start), "")
+			row.ToolUseID, row.ToolName = decision.toolUseID, decision.toolName
+			emit(systemLike(row, decision.text))
+		}
+		parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+		return
+	}
+	var ignored parser.Problems
+	pending := map[string][]decision{}
+	for _, decision := range apiDecisions(artifact.DiskPath, &ignored) {
+		pending[decision.toolUseID] = append(pending[decision.toolUseID], decision)
+	}
+	p.ParseAPI(artifact, context, options, func(row timeline.Row) {
+		emit(row)
+		waiting := pending[row.ToolUseID]
+		if row.TurnType != timeline.TurnToolResult || len(waiting) == 0 {
+			return
+		}
+		pending[row.ToolUseID] = waiting[1:]
+		result := systemLike(row, waiting[0].text)
+		if result.ToolName == "" {
+			result.ToolName = waiting[0].toolName
+		}
+		emit(result)
+	})
+}
+
+// decision is one permission decision a tool_result of the API history
+// records: the record's position and ts, the call's id and tool name, and
+// the row text.
+type decision struct {
+	position                  int
+	timestamp                 pyjson.Value
+	toolUseID, toolName, text string
+}
+
+// apiDecisions returns the permission decision of each tool_result whose
+// text opens with the JSON Roo writes for a denial or an approval with
+// feedback: {"status":"denied","message":...}, {"status":"denied",
+// "feedback":...} or {"status":"approved","feedback":...}, the last
+// followed by the tool output.
+func apiDecisions(path string, problems *parser.Problems) []decision {
+	var decisions []decision
+	names := map[string]string{}
+	for position, message := range parser.JSONArray(path, problems) {
+		for _, block := range message.Get("content").Items() {
+			if isText(block.Get("type"), "tool_use") {
+				names[parser.Str(block.Get("id"))] = parser.Str(block.Get("name"))
+				continue
+			}
+			if !isText(block.Get("type"), "tool_result") {
+				continue
+			}
+			text, ok := decisionText(block.Get("content"))
+			if !ok {
+				continue
+			}
+			toolUseID := parser.Str(block.Get("tool_use_id"))
+			decisions = append(decisions, decision{position: position, timestamp: message.Get("ts"),
+				toolUseID: toolUseID, toolName: names[toolUseID], text: text})
+		}
+	}
+	return decisions
+}
+
+// decisionText returns the "permission decision:" text of a tool result's
+// content, or false when its text does not open with a decision object.
+func decisionText(content pyjson.Value) (string, bool) {
+	body := pytext.StripLeft(parser.TextOf(content))
+	if !strings.HasPrefix(body, "{") {
+		return "", false
+	}
+	status, _, err := pyjson.DecodePrefix(body, 0)
+	if err != nil {
+		return "", false
+	}
+	state := status.Get("status")
+	if !isText(state, "denied") && !isText(state, "approved") {
+		return "", false
+	}
+	text := "permission decision: " + state.Text()
+	if feedback := status.Get("feedback"); !feedback.IsNull() {
+		text += " feedback=" + parser.SettingValue(feedback)
+	}
+	return text, true
+}
+
+// isText reports whether a value is the string text.
+func isText(value pyjson.Value, text string) bool {
+	return value.IsString() && value.Text() == text
+}

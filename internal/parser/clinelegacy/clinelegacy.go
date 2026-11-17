@@ -173,7 +173,7 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 // ParseTaskFile emits the rows of one task file: the API history only
 // when no ui_messages.json is beside it.
 func (p *TaskParser) ParseTaskFile(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	name := lowerASCII(path.Base(artifact.Rel))
+	name := TaskFileName(artifact)
 	context := p.Context(artifact)
 	switch {
 	case name == UIFile:
@@ -214,6 +214,13 @@ func (p *TaskParser) HistoryRow(artifact *input.Artifact, item pyjson.Value, pos
 		"size", "apiProvider", "mode", "status", "apiConfigName", "parentTaskId", "rootTaskId")
 	row.Text = timeline.Compact("task: " + parser.Str(item.Get("task")) + " | " + extra)
 	return row
+}
+
+// TaskFileName returns the name of a task file with its ASCII letters
+// lowered, the form compared with UIFile, the API history's names and
+// MetadataFile.
+func TaskFileName(artifact *input.Artifact) string {
+	return lowerASCII(path.Base(artifact.Rel))
 }
 
 // lowerASCII returns a file name with its ASCII letters lowered and every
