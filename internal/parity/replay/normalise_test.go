@@ -11,13 +11,15 @@ import (
 	"unicode"
 )
 
-// Difference is one numbered documented difference between the Python
-// analyzer and the binary (the milestone plan, 51 onward). Each applies only
-// to its own shape: Text rewrites each place the shape occurs in a text into
-// a form both sides share, Rows puts rows of the shape into one order,
-// Excludes reports that a case shows a shape no rewriting can match, so the
-// case is not compared, and Outputs rewrites a run's output files, by path,
-// against the recorded ones. Each returns how many places it found.
+// Difference is one analysis difference: a numbered documented difference
+// between the Python analyzer and the binary (the milestone plan, 101
+// onward, numbered apart from the collector's parity exceptions). Each
+// applies only to its own shape: Text rewrites each place the shape occurs
+// in a text into a form both sides share, Rows puts rows of the shape into
+// one order, Excludes reports that a case shows a shape no rewriting can
+// match, so the case is not compared, and Outputs rewrites a run's output
+// files, by path, against the recorded ones. Each returns how many places
+// it found.
 type Difference struct {
 	Number   int
 	Summary  string
@@ -30,17 +32,17 @@ type Difference struct {
 // Differences returns the table of documented differences, a fresh slice.
 func Differences() []Difference {
 	return []Difference{
-		{Number: 51, Summary: "usage and help text are the binary's own", Text: usageText},
-		{Number: 52, Summary: "library and operating-system error wording in parser: rows, " +
+		{Number: 101, Summary: "usage and help text are the binary's own", Text: usageText},
+		{Number: 102, Summary: "library and operating-system error wording in parser: rows, " +
 			"problem: lines and error: messages is the binary's own", Text: libraryErrorText},
-		{Number: 53, Summary: "--match takes Go regular-expression syntax",
+		{Number: 103, Summary: "--match takes Go regular-expression syntax",
 			Excludes: pythonOnlyPattern},
-		{Number: 54, Summary: "ISO week dates, ordinal dates and non-ASCII digits are not times",
+		{Number: 104, Summary: "ISO week dates, ordinal dates and non-ASCII digits are not times",
 			Excludes: unacceptedTime},
-		{Number: 55, Summary: "zed archived worktrees and state.vscdb value problems have one order",
+		{Number: 105, Summary: "zed archived worktrees and state.vscdb value problems have one order",
 			Rows: plannerOrder},
-		{Number: 56, Summary: "an FTS5 table is always readable", Excludes: fts5Unreadable},
-		{Number: 57, Summary: "a loose tree is listed in name order, not the file system's",
+		{Number: 106, Summary: "an FTS5 table is always readable", Excludes: fts5Unreadable},
+		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's",
 			Outputs: otherOfEqualRows},
 	}
 }
