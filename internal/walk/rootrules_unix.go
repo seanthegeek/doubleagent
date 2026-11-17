@@ -140,12 +140,9 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []step, ro
 // hasNames reports whether components hold a name still to be walked, not
 // only empty or `.` components.
 func hasNames(components []step) bool {
-	for _, component := range components {
-		if component.name != "" && component.name != "." {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(components, func(component step) bool {
+		return component.name != "" && component.name != "."
+	})
 }
 
 // above is the decision for a `..` that climbs above the resolved root:

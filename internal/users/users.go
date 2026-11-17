@@ -190,12 +190,7 @@ var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
 func skipProfile(name string) bool {
 	lowered := lowerASCII(name)
 	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
-	for _, skipped := range fixed {
-		if lowered == skipped {
-			return true
-		}
-	}
-	return transientProfile.MatchString(lowered)
+	return slices.Contains(fixed[:], lowered) || transientProfile.MatchString(lowered)
 }
 
 // lowerASCII lowers the ASCII letters of text and leaves every other byte,

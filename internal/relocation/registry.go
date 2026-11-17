@@ -3,6 +3,8 @@ package relocation
 import (
 	"slices"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
 // RegistryRoot names one of the two registry hives the registry pass reads.
@@ -167,12 +169,9 @@ func (run *search) collectedHome(path string) bool {
 	if path == "" {
 		return false
 	}
-	for _, home := range run.deps.Homes {
-		if equalFoldASCII(home.Path, path) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(run.deps.Homes, func(home users.Home) bool {
+		return equalFoldASCII(home.Path, path)
+	})
 }
 
 // registryHints records a hint, line 0, for every value of the key whose name

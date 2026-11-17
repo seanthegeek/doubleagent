@@ -3,6 +3,7 @@ package relocation
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -77,12 +78,9 @@ func (run *search) logSkip(text string) error {
 // case, as Test-UserHomeRoot's -match does.
 func (run *search) underHomeRoot(home string) bool {
 	relative, _ := syspath.CutPrefix(home, run.system)
-	for _, pattern := range homeRoots() {
-		if glob.MatchPath(syspath.Fold(pattern), syspath.Fold(relative)) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(homeRoots(), func(pattern string) bool {
+		return glob.MatchPath(syspath.Fold(pattern), syspath.Fold(relative))
+	})
 }
 
 // holdsHome reports whether a home of the user list is base or lies under it:

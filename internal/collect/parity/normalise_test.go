@@ -4,7 +4,8 @@ package parity
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -20,13 +21,8 @@ type normaliser func(run collectorRun, binary, logOnStderr bool) collectorRun
 // and collector.log are listed without a hash: the files beside the archive
 // are the ones compared. manifest normalises the archived manifest's text.
 func normalMembers(members map[string]string, manifest func(string) string) string {
-	names := make([]string, 0, len(members))
-	for name := range members {
-		names = append(names, name)
-	}
-	sort.Strings(names)
 	var lines []string
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(members)) {
 		hash := members[name]
 		switch name {
 		case "./collection.json", "./collector.log":

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -118,7 +118,7 @@ func withoutCarriageReturns(text string) string {
 // before the volumes.
 func sortedLines(text string) string {
 	lines := strings.Split(text, "\n")
-	sort.Strings(lines)
+	slices.Sort(lines)
 	return strings.Join(lines, "\n")
 }
 

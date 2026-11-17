@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -74,7 +75,7 @@ func foldCaseMatches(found []Match) []Match {
 	for i, match := range found {
 		if match.OutOfRoot.Link != "" {
 			folded = append(folded, match)
-		} else if same := firstEqual(lowered, i); same >= 0 {
+		} else if same := slices.Index(lowered[:i], lowered[i]); same >= 0 {
 			folded = append(folded, dropSameFile(match, found[same].Path))
 		} else if parent := shortestParent(found, lowered, i); parent >= 0 {
 			folded = append(folded, respell(match, found[parent].Path))
@@ -83,17 +84,6 @@ func foldCaseMatches(found []Match) []Match {
 		}
 	}
 	return folded
-}
-
-// firstEqual returns the first index before i whose lowered path equals
-// lowered[i], or -1.
-func firstEqual(lowered []string, i int) int {
-	for j := 0; j < i; j++ {
-		if lowered[j] == lowered[i] {
-			return j
-		}
-	}
-	return -1
 }
 
 // shortestParent returns the index of the shortest other match that lowered
