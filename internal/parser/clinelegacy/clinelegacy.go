@@ -208,13 +208,13 @@ func (p *TaskParser) HistoryRow(artifact *input.Artifact, item jsonvalue.Value, 
 	row := p.BaseRow(artifact)
 	row.SourceLine = position
 	row.TimestampUTC = timeutil.FromValue(item.Get("ts"))
-	row.SessionID = parser.Str(item.Get("id"))
-	row.ProjectPath = parser.Str(item.Get(p.projectKey))
-	row.Model = parser.Str(item.Get("modelId"))
+	row.SessionID = parser.Text(item.Get("id"))
+	row.ProjectPath = parser.Text(item.Get(p.projectKey))
+	row.Model = parser.Text(item.Get("modelId"))
 	row.TurnType = timeline.TurnSystem
 	extra := FormatCounts(item, "tokensIn", "tokensOut", "cacheWrites", "cacheReads", "totalCost",
 		"size", "apiProvider", "mode", "status", "apiConfigName", "parentTaskId", "rootTaskId")
-	row.Text = timeline.Compact("task: " + parser.Str(item.Get("task")) + " | " + extra)
+	row.Text = timeline.Compact("task: " + parser.Text(item.Get("task")) + " | " + extra)
 	return row
 }
 

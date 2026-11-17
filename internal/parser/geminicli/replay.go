@@ -251,13 +251,13 @@ func (r *replay) header(line int, record jsonvalue.Value) {
 	}
 	timestamp := timeutil.FromValue(record.Get("startTime"))
 	r.seen(timestamp)
-	kind := parser.Str(record.Get("kind"))
+	kind := parser.Text(record.Get("kind"))
 	if kind == "" {
 		kind = "main"
 	}
-	text := "session start: kind=" + kind + " projectHash=" + parser.Str(record.Get("projectHash"))
+	text := "session start: kind=" + kind + " projectHash=" + parser.Text(record.Get("projectHash"))
 	if directories := record.Get("directories"); !directories.IsEmpty() {
-		text += " directories=" + parser.CompactJSON(directories)
+		text += " directories=" + parser.JSONText(directories)
 	}
 	r.starts = append(r.starts, event{line, timestamp, r.sessionID, text})
 	r.putAll(record.Get("messages"), line)

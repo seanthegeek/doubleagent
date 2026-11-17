@@ -119,7 +119,7 @@ func (p *Parser) parseTasks(artifact *input.Artifact, emit parser.Emit) {
 		number := i + 1
 		if !task.IsObject() {
 			problems.AddRaw(number, "unparseable record "+strconv.Itoa(number)+" (not a JSON object)",
-				parser.CompactJSON(task))
+				parser.JSONText(task))
 			continue
 		}
 		p.taskRows(artifact, number, task, emit)
@@ -129,7 +129,7 @@ func (p *Parser) parseTasks(artifact *input.Artifact, emit parser.Emit) {
 
 // taskRows emits the rows of one scheduler task.
 func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.Value, emit parser.Emit) {
-	sessionID := parser.Str(firstTruthyValue(task.Get("context_id"), task.Get("uuid")))
+	sessionID := parser.Text(firstTruthyValue(task.Get("context_id"), task.Get("uuid")))
 	projectPath := projectOf(task.Get("project_name"))
 	row := p.fileRow(artifact, "scheduled task: "+key(task, "name")+" type="+key(task, "type")+
 		" state="+key(task, "state"), timeutil.FromValue(task.Get("created_at")), sessionID, projectPath)
@@ -190,7 +190,7 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error
 		return nil
 	}
 	for _, member := range chats.Members() {
-		contextID := parser.Str(member.Value)
+		contextID := parser.Text(member.Value)
 		if contextID == "" {
 			continue
 		}

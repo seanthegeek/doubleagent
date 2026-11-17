@@ -24,10 +24,10 @@ func callSummary(payload jsonvalue.Value) string {
 		if command := action.Get("command"); command.IsArray() {
 			return joinedCommand(command)
 		}
-		return strOr(action.Get("command"), parser.CompactJSON(action))
+		return strOr(action.Get("command"), parser.JSONText(action))
 	case isText(payload.Get("type"), "web_search_call"):
 		action := objectOrEmpty(payload.Get("action"))
-		return strOr(action.Get("query"), parser.CompactJSON(action))
+		return strOr(action.Get("query"), parser.JSONText(action))
 	}
 	for _, key := range []string{"arguments", "input"} {
 		value := payload.Get(key)
@@ -36,10 +36,10 @@ func callSummary(payload jsonvalue.Value) string {
 		case value.IsString():
 			return value.StringValue()
 		default:
-			return parser.CompactJSON(value)
+			return parser.JSONText(value)
 		}
 	}
-	return parser.CompactJSON(without(payload, "type", "id", "call_id", "name", "status"))
+	return parser.JSONText(without(payload, "type", "id", "call_id", "name", "status"))
 }
 
 // objectOrEmpty returns value, or an empty object when Python counts it as
@@ -60,7 +60,7 @@ func callName(payload jsonvalue.Value) string {
 	case isText(payload.Get("type"), "web_search_call"):
 		return "web_search"
 	}
-	return parser.Str(firstTruthy(payload.Get("name"), payload.Get("type")))
+	return parser.Text(firstTruthy(payload.Get("name"), payload.Get("type")))
 }
 
 // contextMarkers are the wrappers the harness puts around the user-role
@@ -166,7 +166,7 @@ func userParts(payload jsonvalue.Value) []userPart {
 // contentKind returns the run kind of a content_item_kinds entry: "" for the
 // person's input, else the kind.
 func contentKind(value jsonvalue.Value) string {
-	kind := parser.Str(value)
+	kind := parser.Text(value)
 	if strings.HasPrefix(kind, "user.") || kind == "" || kind == "unknown" {
 		return ""
 	}
@@ -227,7 +227,7 @@ func prescan(records []numberedRecord) (map[string]bool, map[string]jsonvalue.Va
 			isText(payload.Get("type"), "item_completed"):
 			item := payload.Get("item")
 			if isText(item.Get("type"), "CommandExecution") && !item.Get("exit_code").IsNull() {
-				exitCodes[parser.Str(item.Get("id"))] = item.Get("exit_code")
+				exitCodes[parser.Text(item.Get("id"))] = item.Get("exit_code")
 			}
 		}
 	}
@@ -239,14 +239,14 @@ func prescan(records []numberedRecord) (map[string]bool, map[string]jsonvalue.Va
 // tool's name or else its JSON, joined by ", ".
 func toolNames(tools jsonvalue.Value) string {
 	if !tools.IsArray() {
-		return parser.CompactJSON(tools)
+		return parser.JSONText(tools)
 	}
 	names := make([]string, 0, tools.Len())
 	for _, tool := range tools.Items() {
 		if name := tool.Get("name"); !name.IsEmpty() {
 			names = append(names, name.Text())
 		} else {
-			names = append(names, parser.CompactJSON(tool))
+			names = append(names, parser.JSONText(tool))
 		}
 	}
 	return strings.Join(names, ", ")
@@ -255,13 +255,13 @@ func toolNames(tools jsonvalue.Value) string {
 // agentLabel returns the "agent message <author> -> <recipients>: " start
 // of a message between agents.
 func agentLabel(payload jsonvalue.Value) string {
-	recipients := []string{parser.Str(payload.Get("recipient"))}
+	recipients := []string{parser.Text(payload.Get("recipient"))}
 	if others := payload.Get("other_recipients"); others.IsArray() {
 		for _, recipient := range others.Items() {
 			recipients = append(recipients, recipient.Text())
 		}
 	}
-	return "agent message " + parser.Str(payload.Get("author")) + " -> " +
+	return "agent message " + parser.Text(payload.Get("author")) + " -> " +
 		strings.Join(recipients, ", ") + ": "
 }
 
@@ -283,7 +283,7 @@ func agentText(payload jsonvalue.Value) string {
 func goalText(payload jsonvalue.Value) string {
 	goal := objectOr(payload.Get("goal"))
 	return "thread goal: status=" + strOr(goal.Get("status"), "-") + " turn=" +
-		strOr(payload.Get("turnId"), "-") + " objective: " + parser.Str(goal.Get("objective"))
+		strOr(payload.Get("turnId"), "-") + " objective: " + parser.Text(goal.Get("objective"))
 }
 
 // guardianVerdict returns the verdict a guardian review's message holds: a
@@ -302,5 +302,5 @@ func guardianText(verdict jsonvalue.Value, call, reviewer string) string {
 	return "permission decision: " + verdict.Get("outcome").Text() + " (auto_review risk_level=" +
 		strOr(verdict.Get("risk_level"), "-") + " user_authorization=" +
 		strOr(verdict.Get("user_authorization"), "-") + ") exec " + call + " reviewer " +
-		reviewer + ": " + parser.Str(verdict.Get("rationale"))
+		reviewer + ": " + parser.Text(verdict.Get("rationale"))
 }

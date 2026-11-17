@@ -30,5 +30,5 @@ func ToolArgsText(arguments jsonvalue.Value) string {
 	if empty {
 		return ""
 	}
-	return parser.CompactJSON(arguments)
+	return parser.JSONText(arguments)
 }

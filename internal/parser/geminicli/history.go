@@ -140,7 +140,7 @@ func (p *Parser) itemRows(artifact *input.Artifact, options parser.Options, item
 	for i, item := range items {
 		if !item.IsObject() {
 			problems.AddRaw(i+1, "unparseable record "+strconv.Itoa(i+1)+" (not a JSON object)",
-				parser.CompactJSON(item))
+				parser.JSONText(item))
 			continue
 		}
 		p.contentRows(artifact, options, item, i+1, project, sessionID, emit)
@@ -171,8 +171,8 @@ func (p *Parser) contentRows(artifact *input.Artifact, options parser.Options, i
 	runs, responses := contentRuns(jsonvalue.NewArray(itemParts...), user)
 	for _, each := range responses {
 		result := row(timeline.TurnToolResult, each.resultText())
-		result.ToolName, result.ToolUseID = parser.Str(each.value.Get("name")),
-			parser.Str(each.value.Get("id"))
+		result.ToolName, result.ToolUseID = parser.Text(each.value.Get("name")),
+			parser.Text(each.value.Get("id"))
 		tools = append(tools, result)
 	}
 	for _, each := range runs {
@@ -194,10 +194,10 @@ func callsAndThoughts(itemParts []jsonvalue.Value, row func(turn, text string) t
 		if call := part.Get("functionCall"); call.IsObject() {
 			text := ""
 			if !call.Get("args").IsEmpty() {
-				text = parser.CompactJSON(call.Get("args"))
+				text = parser.JSONText(call.Get("args"))
 			}
 			use := row(timeline.TurnToolUse, text)
-			use.ToolName, use.ToolUseID = parser.Str(call.Get("name")), parser.Str(call.Get("id"))
+			use.ToolName, use.ToolUseID = parser.Text(call.Get("name")), parser.Text(call.Get("id"))
 			tools = append(tools, use)
 		} else if part.Get("text").IsString() && !part.Get("thought").IsEmpty() {
 			thoughts = append(thoughts, part.Get("text").StringValue())

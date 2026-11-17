@@ -25,10 +25,10 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	}
 	document, problem := continuedev.LoadSession(raw)
 	base := p.BaseRow(artifact)
-	base.SessionID = parser.Str(clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)))
+	base.SessionID = parser.Text(clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)))
 	entry := p.indexes.Index(parser.Beside(artifact))[base.SessionID]
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
-	base.ProjectPath = parser.Str(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
+	base.ProjectPath = parser.Text(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))
 	row := func(position int, turnType, text, model string) {
 		each := base
@@ -54,7 +54,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 // startText returns the text of a session's start row: its title, the
 // index's integration, the item counts and whether the time is known.
 func startText(document, entry jsonvalue.Value, history, search int, dated bool) string {
-	bits := []string{"session start: " + parser.Str(clinelegacy.FirstTruthy(document.Get("title"),
+	bits := []string{"session start: " + parser.Text(clinelegacy.FirstTruthy(document.Get("title"),
 		entry.Get("title")))}
 	if integration := entry.Get("integrationType"); !integration.IsEmpty() {
 		bits = append(bits, "integration="+integration.Text())
@@ -113,7 +113,7 @@ func itemLabels(list jsonvalue.Value, first, second string) string {
 		if !each.IsObject() {
 			continue
 		}
-		if label := parser.Str(clinelegacy.FirstTruthy(each.Get(first), each.Get(second))); label != "" {
+		if label := parser.Text(clinelegacy.FirstTruthy(each.Get(first), each.Get(second))); label != "" {
 			labels = append(labels, label)
 		}
 	}

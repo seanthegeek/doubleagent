@@ -62,7 +62,7 @@ func messageKind(message jsonvalue.Value) string {
 	if isText(message.Get("type"), "say") {
 		kind = message.Get("say")
 	}
-	return parser.Str(FirstTruthy(kind, message.Get("say"), message.Get("ask"), message.Get("type")))
+	return parser.Text(FirstTruthy(kind, message.Get("say"), message.Get("ask"), message.Get("type")))
 }
 
 // toolID returns the id a tool call's rows share: the message's ts as
@@ -178,7 +178,7 @@ func messageText(value jsonvalue.Value) string {
 	case value.IsNull():
 		return ""
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // screenshot returns "[screenshot]" when a browser result holds one.
@@ -215,7 +215,7 @@ func choiceList(choices jsonvalue.Value) string {
 		case choice.IsObject() && !choice.Get("answer").IsEmpty():
 			parts = append(parts, choice.Get("answer").Text())
 		case choice.IsObject():
-			parts = append(parts, parser.CompactJSON(choice))
+			parts = append(parts, parser.JSONText(choice))
 		default:
 			parts = append(parts, choice.Text())
 		}
@@ -240,7 +240,7 @@ func systemText(kind, text string, message jsonvalue.Value) string {
 		condense := message.Get("contextCondense")
 		if condense.IsObject() && condense.Len() > 0 {
 			detail := FormatCounts(condense, "prevContextTokens", "newContextTokens", "cost")
-			return "condense_context: " + detail + " | " + parser.Str(condense.Get("summary"))
+			return "condense_context: " + detail + " | " + parser.Text(condense.Get("summary"))
 		}
 	case "checkpoint_created":
 		if hash := message.Get("lastCheckpointHash"); !hash.IsEmpty() {
@@ -260,7 +260,7 @@ func toolUseText(kind, text string) (string, string) {
 	case kind == "tool" && !ok:
 		return "tool", text
 	case kind == "tool":
-		return parser.Str(FirstTruthy(parsed.Get("tool"), jsonvalue.NewString("tool"))), fileToolText(parsed)
+		return parser.Text(FirstTruthy(parsed.Get("tool"), jsonvalue.NewString("tool"))), fileToolText(parsed)
 	case kind == "use_mcp_server" && !ok:
 		return "use_mcp_server", text
 	case kind == "use_mcp_server":

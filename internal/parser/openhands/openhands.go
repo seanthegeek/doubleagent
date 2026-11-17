@@ -204,7 +204,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for index, entry := range parser.JSONArray(artifact.DiskPath, &problems) {
 		if !entry.IsObject() {
-			problems.AddRaw(index, parser.UnparseableRecord(index, errNotObject), parser.CompactJSON(entry))
+			problems.AddRaw(index, parser.UnparseableRecord(index, errNotObject), parser.JSONText(entry))
 			continue
 		}
 		body, ok := nonEmptyText(entry.Get("text"))

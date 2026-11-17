@@ -24,7 +24,7 @@ func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 			problems.Add(i+1, "pull request "+strconv.Itoa(i+1)+" is not a JSON object")
 			continue
 		}
-		url := parser.Str(pullRequest.Get("url"))
+		url := parser.Text(pullRequest.Get("url"))
 		address := splitURL(url)
 		var segments []string
 		for segment := range strings.SplitSeq(address.path, "/") {
@@ -84,7 +84,7 @@ func (p *Parser) audit(artifact *input.Artifact, emit parser.Emit) {
 			dash(record.Get("triggerKind")) + " number " + dash(record.Get("number")) + " comment " +
 			dash(record.Get("commentUrl")) + failure + " (from " + fileName(artifact) + ", at)"
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("at")), text)
-		row.SessionID = parser.Str(record.Get("sessionId"))
+		row.SessionID = parser.Text(record.Get("sessionId"))
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -116,8 +116,8 @@ func (p *Parser) channelRoutes(artifact *input.Artifact, name string, emit parse
 		target := entry.Get("target")
 		row := p.SystemRow(artifact, "")
 		row.SourceLine = i + 1
-		row.SessionID = parser.Str(entry.Get("sessionId"))
-		row.ProjectPath = parser.Str(entry.Get("cwd"))
+		row.SessionID = parser.Text(entry.Get("sessionId"))
+		row.ProjectPath = parser.Text(entry.Get("cwd"))
 		row.TimestampUTC = timeutil.FromValue(entry.Get("startedAt"))
 		when := "startedAt"
 		if row.TimestampUTC == "" {
@@ -194,11 +194,11 @@ func (p *Parser) usage(artifact *input.Artifact, emit parser.Emit) {
 		if record.Get("models").Len() > 0 && record.Get("models").IsObject() {
 			models = strings.Join(record.Get("models").Keys(), ",")
 		}
-		project := parser.Str(record.Get("project"))
+		project := parser.Text(record.Get("project"))
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("startTime")),
 			"session usage: project "+orText(project)+" duration "+duration+" models "+models+
 				" tools "+orText(strings.Join(counts, ","))+" (from usage_record.jsonl, startTime)")
-		row.SessionID, row.ProjectPath = parser.Str(record.Get("sessionId")), project
+		row.SessionID, row.ProjectPath = parser.Text(record.Get("sessionId")), project
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))

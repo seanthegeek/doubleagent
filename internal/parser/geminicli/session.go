@@ -33,7 +33,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 		state.apply(each.line, each.record)
 	}
 	project := resolveProject(inBase(artifact, match), match["slug"],
-		parser.Str(state.projectHash), &problems)
+		parser.Text(state.projectHash), &problems)
 	for _, start := range state.starts {
 		place := where{start.line, start.timestamp, start.sessionID, project}
 		emit(p.systemRow(artifact, place, start.text))
@@ -113,7 +113,7 @@ func answeredCalls(messages *messageLog) map[string]bool {
 		}
 		for _, call := range message.Get("toolCalls").Items() {
 			if call.IsObject() && (!call.Get("result").IsNull() || isFailed(call.Get("status"))) {
-				answered[parser.Str(call.Get("id"))] = true
+				answered[parser.Text(call.Get("id"))] = true
 			}
 		}
 	}
@@ -150,14 +150,14 @@ func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	kind := message.Get("type")
 	t.timestamp = timeutil.FromValue(message.Get("timestamp"))
 	if isText(kind, "gemini") {
-		t.model = parser.Str(message.Get("model"))
+		t.model = parser.Text(message.Get("model"))
 	}
 	content := message.Get("content")
 	switch {
 	case isText(kind, "user"):
 		return t.userRows(content, answered)
 	case !isText(kind, "gemini"):
-		label := parser.Str(kind)
+		label := parser.Text(kind)
 		if label == "" {
 			label = "message"
 		}
@@ -195,12 +195,12 @@ func (t *messageTurn) userRows(content jsonvalue.Value, answered map[string]bool
 		out = append(out, runRow(row, each, true))
 	}
 	for _, each := range responses {
-		callID := parser.Str(each.value.Get("id"))
+		callID := parser.Text(each.value.Get("id"))
 		if answered[callID] {
 			continue
 		}
 		result := t.row(timeline.TurnToolResult, each.resultText(), "")
-		result.ToolName, result.ToolUseID = parser.Str(each.value.Get("name")), callID
+		result.ToolName, result.ToolUseID = parser.Text(each.value.Get("name")), callID
 		out = append(out, result)
 	}
 	if len(runs) == 0 && len(responses) == 0 {
@@ -218,8 +218,8 @@ func (t *messageTurn) thinkingRows(message jsonvalue.Value) []timeline.Row {
 		if !entry.IsObject() {
 			continue
 		}
-		text := parser.Str(entry.Get("description"))
-		if subject := parser.Str(entry.Get("subject")); subject != "" {
+		text := parser.Text(entry.Get("description"))
+		if subject := parser.Text(entry.Get("subject")); subject != "" {
 			text = subject + ": " + text
 		}
 		out = append(out, t.row(timeline.TurnThinking, text, timeutil.FromValue(entry.Get("timestamp"))))
@@ -239,12 +239,12 @@ func toolCalls(message jsonvalue.Value) []jsonvalue.Value {
 	for _, call := range message.Get("toolCalls").Items() {
 		if call.IsObject() {
 			calls = append(calls, call)
-			seen[parser.Str(call.Get("id"))] = true
+			seen[parser.Text(call.Get("id"))] = true
 		}
 	}
 	for _, part := range parts(message.Get("content")) {
 		call := part.Get("functionCall")
-		if call.IsObject() && !seen[parser.Str(call.Get("id"))] {
+		if call.IsObject() && !seen[parser.Text(call.Get("id"))] {
 			calls = append(calls, jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: call.Get("id")},
 				jsonvalue.Member{Key: "name", Value: call.Get("name")},
 				jsonvalue.Member{Key: "args", Value: call.Get("args")}))
@@ -257,7 +257,7 @@ func toolCalls(message jsonvalue.Value) []jsonvalue.Value {
 // tool_result row when it has a result or failed (the text prefixed with
 // the failed status), and a permission decision row when it was cancelled.
 func (t *messageTurn) callRows(call jsonvalue.Value) []timeline.Row {
-	callID, name := parser.Str(call.Get("id")), parser.Str(call.Get("name"))
+	callID, name := parser.Text(call.Get("id")), parser.Text(call.Get("name"))
 	when := timeutil.FromValue(call.Get("timestamp"))
 	use := t.row(timeline.TurnToolUse, toolText(call), when)
 	use.ToolName, use.ToolUseID = name, callID

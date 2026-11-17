@@ -16,8 +16,8 @@ import (
 // object is skipped.
 var errNotObject = errors.New("not a JSON object")
 
-// asciiWhitespace is what Python's bytes.strip() removes from both ends of
-// a line: space, tab, LF, CR, vertical tab and form feed.
+// asciiWhitespace is the ASCII whitespace trimmed from both ends of a line:
+// space, tab, LF, CR, vertical tab and form feed.
 const asciiWhitespace = " \t\n\r\v\f"
 
 // Lines yields (line number, raw line) for every line of the file at path,

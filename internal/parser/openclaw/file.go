@@ -63,7 +63,7 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 		}
 		kind := record.Get("kind")
 		if isText(kind, "header") && current.sessionID == "" {
-			current.sessionID = parser.Str(record.Get("sessionId"))
+			current.sessionID = parser.Text(record.Get("sessionId"))
 		}
 		inner := record.Get("row")
 		if !isText(kind, "event") || !inner.IsObject() {

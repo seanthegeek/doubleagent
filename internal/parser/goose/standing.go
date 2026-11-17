@@ -154,7 +154,7 @@ func (p *Parser) parseSchedule(artifact *input.Artifact, emit parser.Emit) {
 	for i, job := range document.Items() {
 		if !job.IsObject() {
 			problems.AddRaw(0, "unparseable record "+strconv.Itoa(i+1)+" (not a JSON object)",
-				parser.CompactJSON(job))
+				parser.JSONText(job))
 			continue
 		}
 		emit(p.standingRow(artifact, 1, timestamp, scheduleText(job, artifact.Rel)))
@@ -177,7 +177,7 @@ func scheduleText(job jsonvalue.Value, rel string) string {
 	}
 	parameters := ""
 	if stored := job.Get("parameters"); !stored.IsEmpty() {
-		parameters = " parameters=" + parser.CompactJSON(stored)
+		parameters = " parameters=" + parser.JSONText(stored)
 	}
 	return "scheduled task: " + value("id") + " " + value("cron") + " paused=" + flag("paused") +
 		" running=" + flag("currently_running") + " source=" + value("source") + " last_run=" +

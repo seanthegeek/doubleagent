@@ -224,10 +224,10 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 		toolNames: map[string]string{}}
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		if !record.Has("role") && !record.Has("content") {
-			if recorded := parser.Str(record.Get("id")); recorded != "" {
+			if recorded := parser.Text(record.Get("id")); recorded != "" {
 				sessionID = recorded
 			}
-			projectPath = parser.Str(record.Get("working_dir"))
+			projectPath = parser.Text(record.Get("working_dir"))
 			count := ""
 			if value, ok := record.Lookup("message_count"); ok {
 				count = value.Text() + " messages"
@@ -236,12 +236,12 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 				timeutil.FromValue(record.Get("created_at")))
 			row.TurnType = timeline.TurnSystem
 			row.Text = timeline.Compact(joinParts("session start (legacy)",
-				parser.Str(record.Get("description")), count))
+				parser.Text(record.Get("description")), count))
 			emit(row)
 			continue
 		}
 		base := p.row(artifact, number, sessionID, projectPath, "", epochJSON(record.Get("created")))
-		reader.blocks(base, parser.Str(record.Get("role")), record.Get("content"),
+		reader.blocks(base, parser.Text(record.Get("role")), record.Get("content"),
 			userVisible(record.Get("metadata")), nil, emit)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, projectPath))

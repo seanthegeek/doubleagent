@@ -66,7 +66,7 @@ func agentSessions(artifact *input.Artifact, agentDirectory string) []projectTim
 	var sessions []projectTime
 	var ignored parser.Problems
 	for _, record := range parser.JSONLines(path, &ignored) {
-		if sanitize(parser.Str(record.Get("agent_id"))) != agentDirectory || record.Get("project").IsEmpty() {
+		if sanitize(parser.Text(record.Get("agent_id"))) != agentDirectory || record.Get("project").IsEmpty() {
 			continue
 		}
 		if timestamp := timeutil.FromValue(record.Get("timestamp")); timestamp != "" {
@@ -94,8 +94,8 @@ func server(artifact *input.Artifact, agentDirectory string) string {
 	var ignored parser.Problems
 	document, _ := readSettings(path, &ignored)
 	for _, entry := range document.Get("agents").Items() {
-		if entry.IsObject() && sanitize(parser.Str(entry.Get("agentId"))) == agentDirectory {
-			if base := parser.Str(entry.Get("baseUrl")); base != "" {
+		if entry.IsObject() && sanitize(parser.Text(entry.Get("agentId"))) == agentDirectory {
+			if base := parser.Text(entry.Get("baseUrl")); base != "" {
 				return base
 			}
 			return lettaCloud
@@ -169,7 +169,7 @@ func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conve
 // record emits the rows of one transcript line by its kind; a kind that
 // is not a string matches none.
 func (w *transcriptRows) record(record jsonvalue.Value, options parser.Options) {
-	text := parser.Str(record.Get("text"))
+	text := parser.Text(record.Get("text"))
 	switch kind := record.Get("kind").StringValue(); kind {
 	case "user", "assistant":
 		w.put(kind, text, "")
@@ -187,10 +187,10 @@ func (w *transcriptRows) record(record jsonvalue.Value, options parser.Options) 
 // toolCall emits a tool call line's call row and, when it holds a result,
 // its result row.
 func (w *transcriptRows) toolCall(record jsonvalue.Value) {
-	name := parser.Str(record.Get("name"))
+	name := parser.Text(record.Get("name"))
 	w.put(timeline.TurnToolUse, argumentsText(record.Get("argsText")), name)
 	if record.Has("resultText") || record.Has("resultOk") {
-		result := parser.Str(record.Get("resultText"))
+		result := parser.Text(record.Get("resultText"))
 		if succeeded, isBool := record.Get("resultOk").Bool(); isBool && !succeeded {
 			result = "[error] " + result
 		}

@@ -105,7 +105,7 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 	}
 	s.model = ""
 	if !s.switched {
-		s.model = parser.Str(meta.Get("_nanobot_model_preset"))
+		s.model = parser.Text(meta.Get("_nanobot_model_preset"))
 	}
 	s.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at")),
 		timeutil.FromValue(record.Get("updated_at")))
@@ -129,8 +129,8 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 	scope := meta.Get("workspace_scope")
 	if scope.IsObject() && (!scope.Get("access_mode").IsEmpty() || !scope.Get("project_path").IsEmpty()) {
 		s.row(line, timeline.TurnSystem, fmt.Sprintf("permission mode: access_mode=%s project=%s"+
-			" (from session metadata workspace_scope)", parser.Str(scope.Get("access_mode")),
-			parser.Str(scope.Get("project_path"))), "", "")
+			" (from session metadata workspace_scope)", parser.Text(scope.Get("access_mode")),
+			parser.Text(scope.Get("project_path"))), "", "")
 	}
 }
 
@@ -152,10 +152,10 @@ func (s *session) message(line int, record jsonvalue.Value) {
 	case isText(role, "assistant"):
 		s.assistant(line, record, text)
 	case isText(role, "tool"):
-		s.row(line, timeline.TurnToolResult, text, parser.Str(record.Get("name")),
-			parser.Str(record.Get("tool_call_id")))
+		s.row(line, timeline.TurnToolResult, text, parser.Text(record.Get("name")),
+			parser.Text(record.Get("tool_call_id")))
 	default:
-		label := parser.Str(role)
+		label := parser.Text(role)
 		if label == "" {
 			label = "message"
 		}
@@ -184,7 +184,7 @@ func (s *session) assistant(line int, record jsonvalue.Value, text string) {
 		}
 		function := call.Get("function")
 		s.row(line, timeline.TurnToolUse, openclaw.ToolArgsText(function.Get("arguments")),
-			parser.Str(function.Get("name")), parser.Str(call.Get("id")))
+			parser.Text(function.Get("name")), parser.Text(call.Get("id")))
 	}
 }
 

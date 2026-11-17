@@ -265,11 +265,11 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 		emit(*bad)
 		return
 	}
-	cwd := parser.Str(document.Get("cwd"))
+	cwd := parser.Text(document.Get("cwd"))
 	if cwd == "" || cwd == "Unknown" {
 		cwd = homeProject(artifact)
 	}
-	agent := parser.Str(document.Get("agent"))
+	agent := parser.Text(document.Get("agent"))
 	event := func(timestamp, text string) {
 		row := p.SystemRow(artifact, timeline.Compact(text))
 		row.SourceLine = 1
@@ -285,7 +285,7 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 		trust = " trust_all_tools=true"
 	}
 	event(positiveTime(document.Get("launched_at")), "delegate task launched: agent="+agent+
-		" pid="+pid+trust+": "+parser.Str(document.Get("task")))
+		" pid="+pid+trust+": "+parser.Text(document.Get("task")))
 	if text, ended := delegateEnd(document); ended {
 		event(positiveTime(document.Get("completed_at")), text)
 	}
@@ -294,8 +294,8 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 // delegateEnd returns the status row text of a delegate task that ended,
 // with its exit code, summary and output, or false while it runs.
 func delegateEnd(document jsonvalue.Value) (string, bool) {
-	agent := parser.Str(document.Get("agent"))
-	status, completed := parser.Str(document.Get("status")), document.Get("completed_at")
+	agent := parser.Text(document.Get("agent"))
+	status, completed := parser.Text(document.Get("status")), document.Get("completed_at")
 	if completed.IsNull() && (status == "" || status == "running") {
 		return "", false
 	}

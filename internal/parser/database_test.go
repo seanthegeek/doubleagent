@@ -87,7 +87,7 @@ func TestColumnTimeReadsEachStorageClass(t *testing.T) {
 	}
 }
 
-func TestColumnTextWritesEachStorageClassAsPythonDoes(t *testing.T) {
+func TestColumnTextWritesEachStorageClassAsRowText(t *testing.T) {
 	tests := []struct {
 		name  string
 		value sqlitefile.Value

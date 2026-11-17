@@ -88,9 +88,9 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 	kind := block.Get("type")
 	switch kindText := kind.StringValue(); {
 	case !kind.IsString():
-		row.TurnType, text = timeline.TurnSystem, parser.CompactJSON(block)
+		row.TurnType, text = timeline.TurnSystem, parser.JSONText(block)
 	case kindText == "text":
-		row.TurnType, text = textType, parser.Str(block.Get("text"))
+		row.TurnType, text = textType, parser.Text(block.Get("text"))
 		if textType == timeline.TurnSystem {
 			text = role + ": " + text
 		}
@@ -99,8 +99,8 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 		}
 	case kindText == "image" || kindText == "document":
 		row.TurnType = textType
-		text = "[" + kindText + "] " + joinParts(parser.Str(block.Get("name")),
-			parser.Str(block.Get("mimeType")))
+		text = "[" + kindText + "] " + joinParts(parser.Text(block.Get("name")),
+			parser.Text(block.Get("mimeType")))
 	case kindText == "toolRequest":
 		text = r.toolRequest(&row, block)
 	case kindText == "toolResponse":
@@ -111,7 +111,7 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 		}
 		row.TurnType, text = timeline.TurnThinking, "[redacted thinking]"
 		if kindText == "thinking" {
-			text = parser.Str(block.Get("thinking"))
+			text = parser.Text(block.Get("thinking"))
 		}
 	default:
 		text = r.systemBlock(&row, kindText, block)
@@ -124,15 +124,15 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 // remembering the tool's name for the response.
 func (r *blockReader) toolRequest(row *timeline.Row, block jsonvalue.Value) string {
 	row.TurnType = timeline.TurnToolUse
-	row.ToolUseID = parser.Str(block.Get("id"))
+	row.ToolUseID = parser.Text(block.Get("id"))
 	call := orObject(block.Get("toolCall"))
 	text := ""
 	if isText(call.Get("status"), "error") {
-		text = "[error] " + parser.Str(call.Get("error"))
+		text = "[error] " + parser.Text(call.Get("error"))
 	} else {
 		value := orObject(call.Get("value"))
-		row.ToolName = parser.Str(value.Get("name"))
-		text = parser.CompactJSON(orObject(value.Get("arguments")))
+		row.ToolName = parser.Text(value.Get("name"))
+		text = parser.JSONText(orObject(value.Get("arguments")))
 	}
 	r.toolNames[row.ToolUseID] = row.ToolName
 	return text
@@ -141,7 +141,7 @@ func (r *blockReader) toolRequest(row *timeline.Row, block jsonvalue.Value) stri
 // toolResponse fills the row of a toolResponse block and returns its text.
 func (r *blockReader) toolResponse(row *timeline.Row, block jsonvalue.Value) string {
 	row.TurnType = timeline.TurnToolResult
-	row.ToolUseID = parser.Str(block.Get("id"))
+	row.ToolUseID = parser.Text(block.Get("id"))
 	row.ToolName = r.toolNames[row.ToolUseID]
 	text, isError := resultText(block.Get("toolResult"))
 	if isError {
@@ -156,22 +156,22 @@ func (r *blockReader) systemBlock(row *timeline.Row, kind string, block jsonvalu
 	row.TurnType = timeline.TurnSystem
 	switch kind {
 	case "toolConfirmationRequest":
-		row.ToolName = parser.Str(block.Get("toolName"))
-		row.ToolUseID = parser.Str(block.Get("id"))
-		return joinParts("confirmation requested: "+row.ToolName, parser.Str(block.Get("prompt")),
-			parser.CompactJSON(orObject(block.Get("arguments"))))
+		row.ToolName = parser.Text(block.Get("toolName"))
+		row.ToolUseID = parser.Text(block.Get("id"))
+		return joinParts("confirmation requested: "+row.ToolName, parser.Text(block.Get("prompt")),
+			parser.JSONText(orObject(block.Get("arguments"))))
 	case "systemNotification":
-		notification := parser.Str(block.Get("notificationType"))
+		notification := parser.Text(block.Get("notificationType"))
 		if notification == "" {
 			notification = "notification"
 		}
-		return notification + ": " + parser.Str(block.Get("msg"))
+		return notification + ": " + parser.Text(block.Get("msg"))
 	case "error":
-		return "error " + parser.Str(block.Get("kind")) + ": " + parser.Str(block.Get("message"))
+		return "error " + parser.Text(block.Get("kind")) + ": " + parser.Text(block.Get("message"))
 	case "actionRequired":
 		return r.actionText(row, block.Get("data"))
 	}
-	return parser.CompactJSON(block)
+	return parser.JSONText(block)
 }
 
 // actionText returns the text of an actionRequired block, setting the
@@ -181,12 +181,12 @@ func (r *blockReader) systemBlock(row *timeline.Row, kind string, block jsonvalu
 func (r *blockReader) actionText(row *timeline.Row, data jsonvalue.Value) string {
 	switch kind := data.Get("actionType"); {
 	case data.IsObject() && isText(kind, "toolConfirmation"):
-		row.ToolName = parser.Str(data.Get("toolName"))
-		row.ToolUseID = parser.Str(data.Get("id"))
-		return joinParts("permission request: "+row.ToolName, parser.Str(data.Get("prompt")),
-			parser.CompactJSON(orObject(data.Get("arguments"))))
+		row.ToolName = parser.Text(data.Get("toolName"))
+		row.ToolUseID = parser.Text(data.Get("id"))
+		return joinParts("permission request: "+row.ToolName, parser.Text(data.Get("prompt")),
+			parser.JSONText(orObject(data.Get("arguments"))))
 	case data.IsObject() && isText(kind, "toolConfirmationResponse"):
-		row.ToolUseID = parser.Str(data.Get("id"))
+		row.ToolUseID = parser.Text(data.Get("id"))
 		row.ToolName = r.toolNames[row.ToolUseID]
 		permission := data.Get("permission")
 		if permission.IsEmpty() {
@@ -194,17 +194,17 @@ func (r *blockReader) actionText(row *timeline.Row, data jsonvalue.Value) string
 		}
 		return "permission decision: " + parser.SettingValue(permission) + " (toolConfirmationResponse)"
 	}
-	return "action required: " + parser.CompactJSON(data)
+	return "action required: " + parser.JSONText(data)
 }
 
 // resultText returns the text of a toolResponse's toolResult and whether
 // it is an error.
 func resultText(result jsonvalue.Value) (string, bool) {
 	if !result.IsObject() {
-		return parser.CompactJSON(result), false
+		return parser.JSONText(result), false
 	}
 	if isText(result.Get("status"), "error") {
-		return parser.Str(result.Get("error")), true
+		return parser.Text(result.Get("error")), true
 	}
 	switch value := result.Get("value"); {
 	case value.IsArray():
@@ -213,7 +213,7 @@ func resultText(result jsonvalue.Value) (string, bool) {
 	case value.IsObject():
 		text := parser.TextOf(value.Get("content"))
 		if structured, ok := value.Lookup("structuredContent"); text == "" && ok && !structured.IsNull() {
-			text = parser.CompactJSON(structured)
+			text = parser.JSONText(structured)
 		}
 		return text, !value.Get("isError").IsEmpty()
 	}

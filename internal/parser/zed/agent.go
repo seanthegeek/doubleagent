@@ -56,9 +56,9 @@ func (p *Parser) agentPart(out *transcript, k int, part, results jsonvalue.Value
 		out.add(timeline.TurnThinking, "[redacted thinking]")
 	case part.Get("ToolUse").IsObject():
 		toolUse := part.Get("ToolUse")
-		toolUseID := parser.Str(toolUse.Get("id"))
+		toolUseID := parser.Text(toolUse.Get("id"))
 		out.items = append(out.items, item{timeline.TurnToolUse, toolInputText(toolUse),
-			parser.Str(toolUse.Get("name")), toolUseID})
+			parser.Text(toolUse.Get("name")), toolUseID})
 		if result := results.Get(toolUseID); result.IsObject() {
 			done[toolUseID] = true
 			p.toolResult(out, toolUseID, result)
@@ -74,7 +74,7 @@ func (p *Parser) agentPart(out *transcript, k int, part, results jsonvalue.Value
 // any other value as Python's str() writes it.
 func thinkingText(thinking jsonvalue.Value) string {
 	if thinking.IsObject() {
-		return parser.Str(thinking.Get("text"))
+		return parser.Text(thinking.Get("text"))
 	}
 	return thinking.Text()
 }
@@ -82,7 +82,7 @@ func thinkingText(thinking jsonvalue.Value) string {
 // legacyMessage adds the items of a message of the 0.1.0 and 0.2.0 shape:
 // role and text, segments, tool_uses and tool_results.
 func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
-	role := lower(parser.Str(message.Get("role")))
+	role := lower(parser.Text(message.Get("role")))
 	kind := timeline.TurnSystem
 	switch role {
 	case "user":
@@ -100,13 +100,13 @@ func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
 	for k, segment := range parser.Elements(message.Get("segments")) {
 		segmentType := ""
 		if segment.IsObject() {
-			segmentType = lower(parser.Str(segment.Get("type")))
+			segmentType = lower(parser.Text(segment.Get("type")))
 		}
 		switch segmentType {
 		case "text":
-			out.add(kind, parser.Str(segment.Get("text")))
+			out.add(kind, parser.Text(segment.Get("text")))
 		case "thinking":
-			out.add(timeline.TurnThinking, parser.Str(segment.Get("text")))
+			out.add(timeline.TurnThinking, parser.Text(segment.Get("text")))
 		case "redactedthinking":
 			out.add(timeline.TurnThinking, "[redacted thinking]")
 		default:
@@ -124,7 +124,7 @@ func (p *Parser) legacyTools(out *transcript, message jsonvalue.Value) {
 			continue
 		}
 		out.items = append(out.items, item{timeline.TurnToolUse, toolInputText(toolUse),
-			parser.Str(toolUse.Get("name")), parser.Str(toolUse.Get("id"))})
+			parser.Text(toolUse.Get("name")), parser.Text(toolUse.Get("id"))})
 	}
 	for k, result := range parser.Elements(message.Get("tool_results")) {
 		if !result.IsObject() {
@@ -135,6 +135,6 @@ func (p *Parser) legacyTools(out *transcript, message jsonvalue.Value) {
 		if !result.Get("is_error").IsEmpty() {
 			text = "[error] " + text
 		}
-		p.resultItems(out, text, "", parser.Str(result.Get("tool_use_id")), result)
+		p.resultItems(out, text, "", parser.Text(result.Get("tool_use_id")), result)
 	}
 }

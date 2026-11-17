@@ -130,9 +130,9 @@ func (p *Parser) devChat(artifact *input.Artifact, emit parser.Emit) {
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		base := p.BaseRow(artifact)
 		base.SourceLine = line
-		base.SessionID = parser.Str(record.Get("sessionId"))
-		base.ProjectPath = parser.Str(index[base.SessionID].Get("workspaceDirectory"))
-		base.Model = parser.Str(record.Get("completionOptions").Get("model"))
+		base.SessionID = parser.Text(record.Get("sessionId"))
+		base.ProjectPath = parser.Text(index[base.SessionID].Get("workspaceDirectory"))
+		base.Model = parser.Text(record.Get("completionOptions").Get("model"))
 		var turns [][2]string
 		if prompt := record.Get("prompt"); prompt.IsString() {
 			turnType, text := promptTurn(prompt.StringValue())
@@ -171,7 +171,7 @@ func (p *Parser) tokens(artifact *input.Artifact, emit parser.Emit) {
 		}
 		row := p.SystemRow(artifact, "tokens generated: "+strings.Join(parts, " "))
 		row.SourceLine = line
-		row.Model = parser.Str(record.Get("model"))
+		row.Model = parser.Text(record.Get("model"))
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))

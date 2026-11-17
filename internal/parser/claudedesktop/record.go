@@ -34,7 +34,7 @@ func grantValue(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // sessionRecord is a session record being read and what its rows share.

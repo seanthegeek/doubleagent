@@ -162,7 +162,7 @@ func text(value jsonvalue.Value) string {
 	case value.IsString():
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // blank reports whether value is null or empty text.
@@ -206,7 +206,7 @@ func argsText(arguments jsonvalue.Value) string {
 			}
 		}
 		if arguments.Len() > 0 {
-			return parser.CompactJSON(arguments)
+			return parser.JSONText(arguments)
 		}
 		return ""
 	}

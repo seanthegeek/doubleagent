@@ -35,12 +35,12 @@ func recordText(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // recordModel returns a dev_data line's model title, else its model name.
 func recordModel(record jsonvalue.Value) string {
-	return parser.Str(clinelegacy.FirstTruthy(record.Get("modelTitle"), record.Get("modelName")))
+	return parser.Text(clinelegacy.FirstTruthy(record.Get("modelTitle"), record.Get("modelName")))
 }
 
 // chatInteraction emits the user and assistant rows of each
@@ -53,8 +53,8 @@ func (p *Parser) chatInteraction(artifact *input.Artifact, feedback bool, emit p
 		base := p.BaseRow(artifact)
 		base.SourceLine = line
 		base.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		base.SessionID = parser.Str(record.Get("sessionId"))
-		base.ProjectPath = parser.Str(index[base.SessionID].Get("workspaceDirectory"))
+		base.SessionID = parser.Text(record.Get("sessionId"))
+		base.ProjectPath = parser.Text(index[base.SessionID].Get("workspaceDirectory"))
 		model := recordModel(record)
 		for _, turn := range [][2]string{{timeline.TurnUser, "prompt"}, {timeline.TurnAssistant, "completion"}} {
 			text := record.Get(turn[1])
@@ -156,11 +156,11 @@ func (p *Parser) toolUsage(artifact *input.Artifact, emit parser.Emit) {
 		base := p.BaseRow(artifact)
 		base.SourceLine = line
 		base.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		base.ToolName = parser.Str(record.Get("functionName"))
-		base.ToolUseID = parser.Str(record.Get("toolCallId"))
+		base.ToolName = parser.Text(record.Get("functionName"))
+		base.ToolUseID = parser.Text(record.Get("toolCallId"))
 		arguments := record.Get("toolCallArgs")
 		if params := record.Get("functionParams"); arguments.IsEmpty() && !params.IsNull() {
-			arguments = jsonvalue.NewString(parser.CompactJSON(params))
+			arguments = jsonvalue.NewString(parser.JSONText(params))
 		}
 		call := base
 		call.TurnType = timeline.TurnToolUse
@@ -168,8 +168,8 @@ func (p *Parser) toolUsage(artifact *input.Artifact, emit parser.Emit) {
 		emit(call)
 		result := base
 		result.TurnType = timeline.TurnToolResult
-		result.Text = timeline.Compact("accepted=" + parser.CompactJSON(record.Get("accepted")) +
-			" succeeded=" + parser.CompactJSON(record.Get("succeeded")) + " " +
+		result.Text = timeline.Compact("accepted=" + parser.JSONText(record.Get("accepted")) +
+			" succeeded=" + parser.JSONText(record.Get("succeeded")) + " " +
 			outputText(record.Get("output")))
 		emit(result)
 		if accepted, found := record.Lookup("accepted"); found {
@@ -197,7 +197,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 		prompt := entry.Get("text")
 		if !prompt.IsString() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
-				" (not an object with a text)", parser.CompactJSON(entry))
+				" (not an object with a text)", parser.JSONText(entry))
 			return
 		}
 		row := p.BaseRow(artifact)

@@ -54,7 +54,7 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 		payload, kind := record.Get("payload"), record.Get("type")
 		if !payload.IsObject() || !isText(kind, "console") && !isText(kind, "network") {
 			problems.AddRaw(line, "unparseable line (not an activity log record)",
-				parser.CompactJSON(record))
+				parser.JSONText(record))
 			continue
 		}
 		text, ok := activityText(payload, isText(kind, "console"), requests)
@@ -62,7 +62,7 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 			continue
 		}
 		place := where{line, timeutil.FromValue(record.Get("timestamp")),
-			parser.Str(record.Get("sessionId")), project}
+			parser.Text(record.Get("sessionId")), project}
 		emit(p.systemRow(artifact, place, text))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, match["session"], project))
@@ -71,16 +71,16 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 // activityText returns the row text of one activity log record, or false
 // for a record that gives no row, remembering each request it names.
 func activityText(payload jsonvalue.Value, console bool, requests map[string]request) (string, bool) {
-	requestID := parser.Str(payload.Get("id"))
+	requestID := parser.Text(payload.Get("id"))
 	answered, known := requests[requestID]
 	if !known {
 		answered = request{"-", "-"}
 	}
 	switch value := payload.Get("response"); {
 	case console:
-		return "console " + orDash(payload.Get("type")) + ": " + parser.Str(payload.Get("content")), true
+		return "console " + orDash(payload.Get("type")) + ": " + parser.Text(payload.Get("content")), true
 	case payload.Get("method").IsString():
-		named := request{payload.Get("method").StringValue(), urlWithoutQuery(parser.Str(payload.Get("url")))}
+		named := request{payload.Get("method").StringValue(), urlWithoutQuery(parser.Text(payload.Get("url")))}
 		requests[requestID] = named
 		return "network request: " + named.method + " " + named.url + " (request " + requestID + ")", true
 	case value.IsObject():
@@ -125,7 +125,7 @@ func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 		return
 	}
-	promptID := parser.Str(document.Get("messageId"))
+	promptID := parser.Text(document.Get("messageId"))
 	sessionID := ""
 	if strings.Contains(promptID, promptIDSeparator) {
 		sessionID, _, _ = strings.Cut(promptID, promptIDSeparator)
@@ -198,7 +198,7 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, m
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 		return
 	}
-	text := "error report: " + match["type"] + ": " + parser.Str(report.Get("message")) +
+	text := "error report: " + match["type"] + ": " + parser.Text(report.Get("message")) +
 		" (from " + artifact.Rel + fromName
 	if stack := report.Get("stack"); stack.IsString() && stack.StringValue() != "" {
 		text += "\n" + stack.StringValue()
@@ -242,7 +242,7 @@ func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, 
 		row := p.BaseRow(artifact)
 		row.SourceLine = i + 1
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.SessionID = parser.Str(record.Get("sessionId"))
+		row.SessionID = parser.Text(record.Get("sessionId"))
 		row.ProjectPath = project
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("message"))

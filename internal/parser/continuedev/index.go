@@ -82,7 +82,7 @@ func ReadIndex(path string) (map[string]jsonvalue.Value, parser.Problems) {
 		case element.IsObject() && !element.Get("session_id").IsEmpty():
 		default:
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
-				" (not an object with a sessionId)", parser.CompactJSON(element))
+				" (not an object with a sessionId)", parser.JSONText(element))
 		}
 	})
 	return entries, problems

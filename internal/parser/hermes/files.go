@@ -65,7 +65,7 @@ func (p *Parser) parsePastes(artifact *input.Artifact, emit parser.Emit) {
 		position := i + 1
 		if url := entry.Get("url"); !entry.IsObject() || url.IsEmpty() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
-				" (not an object with a url)", parser.CompactJSON(entry))
+				" (not an object with a url)", parser.JSONText(entry))
 			continue
 		}
 		row := p.system(artifact, position, noSession(), "debug report uploaded: "+
@@ -119,7 +119,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, match []string, emit par
 		position := i + 1
 		if !user.Value.IsObject() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+" (not an object)",
-				parser.CompactJSON(jsonvalue.NewObject(user)))
+				parser.JSONText(jsonvalue.NewObject(user)))
 			continue
 		}
 		emit(p.setting(artifact, position, "permission setting: pairing."+match[2]+"."+user.Key+
@@ -221,7 +221,7 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 	record jsonvalue.Value, emit parser.Emit) {
 	head := p.BaseRow(artifact)
 	head.SourceLine, head.ProjectPath, head.TurnType = number, project, timeline.TurnSystem
-	head.Model = parser.Str(record.Get("model"))
+	head.Model = parser.Text(record.Get("model"))
 	head.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
 	head.Text = "trajectory: model=" + dash(record.Get("model")) + " completed=" +
 		dash(record.Get("completed")) + " (from " + name + ", timestamp host-local)"
@@ -242,7 +242,7 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 			row.Text = timeline.Compact("trajectory system prompt: " + value)
 		default:
 			if value == "" {
-				value = parser.CompactJSON(entry)
+				value = parser.JSONText(entry)
 			}
 			row.TurnType = timeline.TurnSystem
 			row.Text = timeline.Compact(dash(sender) + ": " + value)
@@ -268,7 +268,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 		position := i + 1
 		if !connection.IsObject() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+" (not an object)",
-				parser.CompactJSON(connection))
+				parser.JSONText(connection))
 			continue
 		}
 		if isText(connection.Get("kind"), "local") {

@@ -170,7 +170,7 @@ func isText(value jsonvalue.Value, text string) bool {
 
 // record emits the rows of one brain line.
 func (b *brainLines) record(number int, record jsonvalue.Value) {
-	kind := parser.Str(record.Get("type"))
+	kind := parser.Text(record.Get("type"))
 	content := parser.TextOf(record.Get("content"))
 	switch kind {
 	case "USER_INPUT":
@@ -186,7 +186,7 @@ func (b *brainLines) record(number int, record jsonvalue.Value) {
 		return
 	}
 	text := brainEventText(kind, record, content)
-	if status := strings.ToLower(parser.Str(record.Get("status"))); status != "" && status != "done" {
+	if status := strings.ToLower(parser.Text(record.Get("status"))); status != "" && status != "done" {
 		text = "[" + status + "] " + text
 	}
 	if kind == "SYSTEM_MESSAGE" || kind == "ERROR_MESSAGE" || len(b.calls) == 0 {
@@ -196,7 +196,7 @@ func (b *brainLines) record(number int, record jsonvalue.Value) {
 	call := b.calls[0]
 	b.calls = b.calls[1:]
 	row := b.row(number, record, timeline.TurnToolResult, text, "content")
-	row.ToolName, row.ToolUseID = parser.Str(call.Get("name")), parser.Str(call.Get("id"))
+	row.ToolName, row.ToolUseID = parser.Text(call.Get("name")), parser.Text(call.Get("id"))
 	b.emit(row)
 }
 
@@ -251,7 +251,7 @@ func (b *brainLines) reply(number int, record jsonvalue.Value, content string) {
 		}
 		b.calls = append(b.calls, call)
 		row := b.row(number, record, timeline.TurnToolUse, toolArgsSummary(brainArgs(call)), "tool_calls")
-		row.ToolName, row.ToolUseID = parser.Str(call.Get("name")), parser.Str(call.Get("id"))
+		row.ToolName, row.ToolUseID = parser.Text(call.Get("name")), parser.Text(call.Get("id"))
 		b.emit(row)
 	}
 }

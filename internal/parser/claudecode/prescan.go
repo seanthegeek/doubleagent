@@ -97,7 +97,7 @@ func (s *prescan) user(line int, record jsonvalue.Value) {
 		if !isText(block.Get("type"), "text") {
 			continue
 		}
-		text := parser.Str(block.Get("text"))
+		text := parser.Text(block.Get("text"))
 		s.deliver(text, line)
 		if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), forkMark) {
 			s.fork = true

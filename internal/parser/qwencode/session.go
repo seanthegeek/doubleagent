@@ -38,8 +38,8 @@ func (r *record) row(turn, text string) timeline.Row {
 	row.SourceLine = r.line
 	row.TimestampUTC = timeutil.FromValue(r.value.Get("timestamp"))
 	row.SessionID = r.state.sessionID
-	row.ProjectPath = parser.Str(r.value.Get("cwd"))
-	row.GitBranch = parser.Str(r.value.Get("gitBranch"))
+	row.ProjectPath = parser.Text(r.value.Get("cwd"))
+	row.GitBranch = parser.Text(r.value.Get("gitBranch"))
 	row.TurnType, row.Text = turn, timeline.Compact(text)
 	return row
 }
@@ -95,7 +95,7 @@ func (r *record) contextChanges() []timeline.Row {
 		return nil
 	}
 	var out []timeline.Row
-	model := parser.Str(context.Get("modelId"))
+	model := parser.Text(context.Get("modelId"))
 	if change := r.state.models.Change("model", r.state.sessionID, model); change != "" {
 		if auth := context.Get("authType"); !auth.IsEmpty() {
 			change += " auth=" + auth.Text()
@@ -104,7 +104,7 @@ func (r *record) contextChanges() []timeline.Row {
 		row.Model = model
 		out = append(out, row)
 	}
-	mode := parser.Str(context.Get("approvalMode"))
+	mode := parser.Text(context.Get("approvalMode"))
 	if change := r.state.modes.Change("permission mode", r.state.sessionID, mode); change != "" {
 		out = append(out, r.row(timeline.TurnSystem, change))
 	}
@@ -123,7 +123,7 @@ func (r *record) userRows() []timeline.Row {
 	}
 	text := strings.Join(texts, "\n")
 	if text == "" {
-		text = parser.Str(r.value.Get("systemPayload").Get("displayText"))
+		text = parser.Text(r.value.Get("systemPayload").Get("displayText"))
 	}
 	var out []timeline.Row
 	switch origin := injectedOrigin(r.value); {
@@ -145,7 +145,7 @@ func (r *record) userRows() []timeline.Row {
 // for, an assistant row per non-empty text; each carries the model.
 func (r *record) assistantRows() []timeline.Row {
 	var out []timeline.Row
-	model := parser.Str(r.value.Get("model"))
+	model := parser.Text(r.value.Get("model"))
 	if change := r.state.models.Change("model", r.state.sessionID, model); change != "" {
 		row := r.row(timeline.TurnSystem, change)
 		row.Model = model
@@ -157,7 +157,7 @@ func (r *record) assistantRows() []timeline.Row {
 		switch call := part.Get("functionCall"); {
 		case call.IsObject():
 			row = r.row(timeline.TurnToolUse, argsSummary(call.Get("args")))
-			row.ToolName, row.ToolUseID = parser.Str(call.Get("name")), parser.Str(call.Get("id"))
+			row.ToolName, row.ToolUseID = parser.Text(call.Get("name")), parser.Text(call.Get("id"))
 		case text.IsString() && !part.Get("thought").IsEmpty():
 			if !r.options.IncludeThinking {
 				continue
@@ -195,9 +195,9 @@ func (r *record) toolResultRows() []timeline.Row {
 	case !first.IsEmpty():
 		text = responseText(first.Get("response"))
 	case !display.IsEmpty():
-		text = parser.CompactJSON(display)
+		text = parser.JSONText(display)
 	}
-	status := parser.Str(result.Get("status"))
+	status := parser.Text(result.Get("status"))
 	if status != "" && status != "success" {
 		tag := status
 		if errorType := result.Get("errorType"); !errorType.IsEmpty() {
@@ -206,8 +206,8 @@ func (r *record) toolResultRows() []timeline.Row {
 		text = "[" + tag + "] " + text
 	}
 	row := r.row(timeline.TurnToolResult, text)
-	row.ToolName = parser.Str(first.Get("name"))
-	row.ToolUseID = parser.Str(orElse(result.Get("callId"), first.Get("id")))
+	row.ToolName = parser.Text(first.Get("name"))
+	row.ToolUseID = parser.Text(orElse(result.Get("callId"), first.Get("id")))
 	out := []timeline.Row{row}
 	if status == "cancelled" || status == "awaiting_approval" {
 		decision := r.row(timeline.TurnSystem, "permission decision: "+status)
@@ -238,7 +238,7 @@ func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problem
 		problems.Add(0, name+" is not a JSON object")
 		return
 	}
-	worktree := parser.Str(document.Get("worktreePath"))
+	worktree := parser.Text(document.Get("worktreePath"))
 	if worktree == "" {
 		return
 	}
@@ -247,7 +247,7 @@ func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problem
 	row := p.SystemRow(artifact, timeline.ScratchPrefix+" "+worktree+" (enter_worktree "+slug+")")
 	row.SourceLine = first.line
 	row.TimestampUTC = timeutil.FromValue(first.record.Get("timestamp"))
-	row.SessionID = parser.Str(first.record.Get("sessionId"))
+	row.SessionID = parser.Text(first.record.Get("sessionId"))
 	row.ProjectPath = worktree
 	emit(row)
 }
@@ -257,7 +257,7 @@ func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problem
 // is one. A tool call's approval decision recorded in a ui_telemetry record
 // adds a permission decision row.
 func (r *record) systemRows() []timeline.Row {
-	subtype := parser.Str(r.value.Get("subtype"))
+	subtype := parser.Text(r.value.Get("subtype"))
 	if subtype == "" {
 		subtype = "system"
 	}
@@ -265,15 +265,15 @@ func (r *record) systemRows() []timeline.Row {
 	text, model := systemText(subtype, payload), ""
 	switch {
 	case subtype == "session_model" && payload.IsObject():
-		if model = parser.Str(payload.Get("modelId")); model != "" {
+		if model = parser.Text(payload.Get("modelId")); model != "" {
 			change := r.state.models.Change("model", r.state.sessionID, model)
 			if change == "" {
 				change = "model: " + model
 			}
-			text = change + " auth=" + parser.Str(payload.Get("authType"))
+			text = change + " auth=" + parser.Text(payload.Get("authType"))
 		}
 	case subtype == "session_approval_mode" && payload.IsObject():
-		if mode := parser.Str(payload.Get("mode")); mode != "" {
+		if mode := parser.Text(payload.Get("mode")); mode != "" {
 			text = r.state.modes.Change("permission mode", r.state.sessionID, mode)
 			if text == "" {
 				text = "permission mode: " + mode
@@ -305,8 +305,8 @@ func (r *record) telemetryDecision(event jsonvalue.Value) []timeline.Row {
 	}
 	decision := r.row(timeline.TurnSystem, "permission decision: "+event.Get("decision").Text()+
 		" (tool_call ui_telemetry)")
-	decision.ToolName = parser.Str(event.Get("function_name"))
-	decision.ToolUseID = parser.Str(event.Get("call_id"))
+	decision.ToolName = parser.Text(event.Get("function_name"))
+	decision.ToolUseID = parser.Text(event.Get("call_id"))
 	return []timeline.Row{decision}
 }
 
@@ -325,7 +325,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = each.index
 		row.TimestampUTC = timeutil.FromValue(each.value.Get("timestamp"))
-		row.SessionID = parser.Str(each.value.Get("sessionId"))
+		row.SessionID = parser.Text(each.value.Get("sessionId"))
 		kind, message := each.value.Get("type"), each.value.Get("message")
 		var text string
 		if isText(kind, "user") {
@@ -341,7 +341,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 			if isText(kind, "model_switch") && event.IsObject() {
 				text = "model: " + event.Get("fromModel").Text() + " -> " + event.Get("toModel").Text() +
 					" reason=" + event.Get("reason").Text()
-				row.Model = parser.Str(event.Get("toModel"))
+				row.Model = parser.Text(event.Get("toModel"))
 			} else {
 				text = kind.Text() + ": " + textOrJSON(event)
 			}

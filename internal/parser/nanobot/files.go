@@ -50,7 +50,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		row := p.settingRow(artifact, timeutil.FromValue(record.Get("timestamp")),
 			fmt.Sprintf("memory history #%s: %s", getOr(record, "cursor", ""),
-				parser.Str(record.Get("content"))), parser.Str(record.Get("session_key")))
+				parser.Text(record.Get("content"))), parser.Text(record.Get("session_key")))
 		row.SourceLine = line
 		row.ProjectPath = project
 		emit(row)
@@ -90,10 +90,10 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 	for i, entry := range entries.Items() {
 		if !entry.IsObject() {
 			problems.AddRaw(0, fmt.Sprintf("unparseable record %d (not a JSON object)", i+1),
-				parser.CompactJSON(entry))
+				parser.JSONText(entry))
 			continue
 		}
-		key := parser.Str(entry.Get("key"))
+		key := parser.Text(entry.Get("key"))
 		parts := []string{"webui sidebar entry: key=" + key}
 		for _, name := range []string{"title", "preview", "model_preset", "updated_at"} {
 			if value := entry.Get(name); !value.IsEmpty() {
@@ -142,7 +142,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 		}
 		emit(p.settingRow(artifact, timeutil.FromValue(info.Get("created_at")), fmt.Sprintf(
 			"permission setting: pairing.pending.%s=%s expires_at=%s%s (from %s, created_at)",
-			parser.Str(info.Get("channel")), parser.SettingValue(sender),
+			parser.Text(info.Get("channel")), parser.SettingValue(sender),
 			timeutil.FromValue(info.Get("expires_at")), status, artifact.Rel), ""))
 	}
 }

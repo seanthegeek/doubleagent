@@ -42,7 +42,7 @@ func ArgsSummary(arguments jsonvalue.Value) string {
 				return textOrJSON(value)
 			}
 		}
-		return parser.CompactJSON(arguments)
+		return parser.JSONText(arguments)
 	}
 	if isNullOrEmpty(arguments) {
 		return ""
@@ -55,7 +55,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // isNullOrEmpty reports whether value is null or the empty string, Python's
@@ -193,8 +193,8 @@ func (w *entryWriter) entry(record jsonvalue.Value) {
 	case isText(kind, "message"):
 		w.message(message, record)
 	case isText(kind, "model_change"):
-		model := parser.Str(record.Get("modelId"))
-		if text := SwitchText(w.models, w.sessionID, model, parser.Str(record.Get("provider"))); text != "" {
+		model := parser.Text(record.Get("modelId"))
+		if text := SwitchText(w.models, w.sessionID, model, parser.Text(record.Get("provider"))); text != "" {
 			w.put(timeline.TurnSystem, text, model, "", "")
 		}
 	case isText(kind, "custom"):
@@ -213,7 +213,7 @@ func (w *entryWriter) entry(record jsonvalue.Value) {
 // entryText returns the system row text of an entry type that gives one
 // row from its own fields, or false for another type.
 func entryText(kind string, record jsonvalue.Value) (string, bool) {
-	field := func(key string) string { return parser.Str(record.Get(key)) }
+	field := func(key string) string { return parser.Text(record.Get(key)) }
 	switch kind {
 	case "thinking_level_change":
 		return "thinking_level_change: " + field("thinkingLevel"), true
@@ -248,25 +248,25 @@ func (w *entryWriter) message(message, record jsonvalue.Value) {
 	case isText(role, "toolResult"):
 		w.toolResult(message)
 	case isText(role, "bashExecution"):
-		w.bash(message, parser.Str(record.Get("id")))
+		w.bash(message, parser.Text(record.Get("id")))
 	case isText(role, "system"):
 		w.system(label("system prompt", parser.TextOf(content)))
 	case isText(role, "custom"):
-		w.system(label("custom "+parser.Str(message.Get("customType")), parser.TextOf(content)))
+		w.system(label("custom "+parser.Text(message.Get("customType")), parser.TextOf(content)))
 	case isText(role, "branchSummary"), isText(role, "compactionSummary"):
-		w.system(label(role.StringValue(), parser.Str(message.Get("summary"))))
+		w.system(label(role.StringValue(), parser.Text(message.Get("summary"))))
 	}
 }
 
 // assistant emits an assistant message's model row, its text, thinking and
 // tool call rows, and a row for a turn that stopped on an error.
 func (w *entryWriter) assistant(message jsonvalue.Value) {
-	requested := parser.Str(message.Get("model"))
-	model := parser.Str(message.Get("responseModel"))
+	requested := parser.Text(message.Get("model"))
+	model := parser.Text(message.Get("responseModel"))
 	if model == "" {
 		model = requested
 	}
-	provider := parser.Str(message.Get("provider"))
+	provider := parser.Text(message.Get("provider"))
 	if text := ModelText(w.models, w.sessionID, model, provider, requested); text != "" {
 		w.put(timeline.TurnSystem, text, model, "", "")
 	}
@@ -283,7 +283,7 @@ func (w *entryWriter) assistant(message jsonvalue.Value) {
 	}
 	if stop := message.Get("stopReason"); isText(stop, "error") || isText(stop, "aborted") {
 		w.put(timeline.TurnSystem, label("assistant stopReason="+stop.StringValue(),
-			parser.Str(message.Get("errorMessage"))), model, "", "")
+			parser.Text(message.Get("errorMessage"))), model, "", "")
 	}
 }
 
@@ -294,7 +294,7 @@ func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
 	case isText(kind, "text") && !part.Get("text").IsEmpty():
 		w.put(timeline.TurnAssistant, part.Get("text").Text(), model, "", "")
 	case isText(kind, "thinking") && w.options.IncludeThinking:
-		text := parser.Str(part.Get("thinking"))
+		text := parser.Text(part.Get("thinking"))
 		if !part.Get("redacted").IsEmpty() && text == "" {
 			text = "[redacted]"
 		}
@@ -303,7 +303,7 @@ func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
 		}
 	case isText(kind, "toolCall"):
 		w.put(timeline.TurnToolUse, ArgsSummary(part.Get("arguments")), model,
-			parser.Str(part.Get("name")), parser.Str(part.Get("id")))
+			parser.Text(part.Get("name")), parser.Text(part.Get("id")))
 	}
 }
 
@@ -316,7 +316,7 @@ func (w *entryWriter) toolResult(message jsonvalue.Value) {
 	if failed {
 		text = "[error] " + reason
 	}
-	name, callID := parser.Str(message.Get("toolName")), parser.Str(message.Get("toolCallId"))
+	name, callID := parser.Text(message.Get("toolName")), parser.Text(message.Get("toolCallId"))
 	w.put(timeline.TurnToolResult, text, "", name, callID)
 	if failed && (slices.Contains(gateRefusals(), reason) || strings.HasPrefix(reason, gatePrefix)) {
 		w.put(timeline.TurnSystem, "permission decision: denied ("+reason+")", "", name, callID)
@@ -326,8 +326,8 @@ func (w *entryWriter) toolResult(message jsonvalue.Value) {
 // bash emits the call and result rows of a command the user ran with !,
 // the result ending with its exit code, cancellation and truncation.
 func (w *entryWriter) bash(message jsonvalue.Value, entryID string) {
-	w.put(timeline.TurnToolUse, parser.Str(message.Get("command")), "", "bash", entryID)
-	output := parser.Str(message.Get("output"))
+	w.put(timeline.TurnToolUse, parser.Text(message.Get("command")), "", "bash", entryID)
+	output := parser.Text(message.Get("output"))
 	var notes []string
 	if code := message.Get("exitCode"); !isNullOrZero(code) {
 		notes = append(notes, "exit "+code.Text())

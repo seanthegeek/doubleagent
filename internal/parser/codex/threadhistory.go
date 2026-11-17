@@ -295,11 +295,11 @@ func threadItemRows(item jsonvalue.Value, row sqlitefile.Row) []threadRow {
 		}
 		return []threadRow{{itemRow{turnType: turnType, text: text}, completed}}
 	}
-	switch itemType := parser.Str(item.Get("type")); itemType {
+	switch itemType := parser.Text(item.Get("type")); itemType {
 	case "userMessage":
 		return one(timeline.TurnUser, joinedTexts(item.Get("content"), "text"))
 	case "agentMessage":
-		return one(timeline.TurnAssistant, parser.Str(item.Get("text")))
+		return one(timeline.TurnAssistant, parser.Text(item.Get("text")))
 	case "reasoning":
 		text := joinedTexts(item.Get("summary"), "")
 		if text == "" {
@@ -340,7 +340,7 @@ func joinedTexts(values jsonvalue.Value, key string) string {
 // form: a sleep as the clock.sleep Extension, any other item with its type
 // and keys renamed and a file change's list of changes keyed by path.
 func toTurnItem(item jsonvalue.Value) jsonvalue.Value {
-	itemType := parser.Str(item.Get("type"))
+	itemType := parser.Text(item.Get("type"))
 	if itemType == "sleep" {
 		return jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("Extension")},
 			jsonvalue.Member{Key: "kind", Value: jsonvalue.NewString("clock.sleep")},

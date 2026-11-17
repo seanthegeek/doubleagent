@@ -53,9 +53,9 @@ func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string
 	case "agent-switched":
 		builder.system(agentRowText(scoped.modes, scoped.sessionID, data.Get("agent")))
 	case "user":
-		builder.add(timeline.TurnUser, parser.Str(data.Get("text")), "")
+		builder.add(timeline.TurnUser, parser.Text(data.Get("text")), "")
 	case "synthetic", "system":
-		builder.add(timeline.TurnSystem, join(kind+":", parser.Str(data.Get("text"))), "")
+		builder.add(timeline.TurnSystem, join(kind+":", parser.Text(data.Get("text"))), "")
 	case "shell":
 		builder.shell(data)
 	case "assistant":
@@ -82,8 +82,8 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 	}
 	switch kind {
 	case "compaction":
-		return join("compaction", parser.Str(data.Get("reason")), parser.Str(data.Get("status")),
-			parser.Str(data.Get("summary")), failure)
+		return join("compaction", parser.Text(data.Get("reason")), parser.Text(data.Get("status")),
+			parser.Text(data.Get("summary")), failure)
 	case "location-switched":
 		location := objectOf(data.Get("location"))
 		previous := objectOf(objectOf(data.Get("previous")).Get("location"))
@@ -91,13 +91,13 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 		if before != "" {
 			before += " ->"
 		}
-		return join("location switched:", before, parser.Str(location.Get("directory")),
+		return join("location switched:", before, parser.Text(location.Get("directory")),
 			labelled("workspace=", location.Get("workspaceID")),
 			labelled("subpath=", data.Get("subpath")))
 	case "skill":
-		return join("skill "+parser.Str(data.Get("name"))+":", parser.Str(data.Get("text")))
+		return join("skill "+parser.Text(data.Get("name"))+":", parser.Text(data.Get("text")))
 	case "idle":
-		return join("idle:", parser.Str(data.Get("outcome")), failure)
+		return join("idle:", parser.Text(data.Get("outcome")), failure)
 	}
 	var kept []jsonvalue.Member
 	for _, member := range data.Members() {
@@ -105,7 +105,7 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 			kept = append(kept, member)
 		}
 	}
-	return join(kind+":", parser.CompactJSON(jsonvalue.NewObject(kept...)))
+	return join(kind+":", parser.JSONText(jsonvalue.NewObject(kept...)))
 }
 
 // assistant emits an assistant record's model and agent changes, the rows
@@ -143,7 +143,7 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 // "permission decision:" row.
 func (b *recordRows) tool(item jsonvalue.Value) {
 	state, times := objectOf(item.Get("state")), objectOf(item.Get("time"))
-	name, callID := parser.Str(item.Get("name")), parser.Str(item.Get("id"))
+	name, callID := parser.Text(item.Get("name")), parser.Text(item.Get("id"))
 	b.add(timeline.TurnToolUse, ToolSummary(state.Get("input")),
 		timeutil.FromValue(times.Get("created")), name, callID)
 	status := textOf(state.Get("status"))
@@ -179,8 +179,8 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 // output.output. A result that did not exit 0 starts "[<status>]" or
 // "[exit <code>]".
 func (b *recordRows) shell(data jsonvalue.Value) {
-	callID := parser.Str(firstTruthy(data.Get("callID"), data.Get("shellID")))
-	b.add(timeline.TurnToolUse, parser.Str(data.Get("command")), "", "shell", callID)
+	callID := parser.Text(firstTruthy(data.Get("callID"), data.Get("shellID")))
+	b.add(timeline.TurnToolUse, parser.Text(data.Get("command")), "", "shell", callID)
 	output, status, code := data.Get("output"), data.Get("status"), data.Get("exit")
 	if output.IsNull() && (status.IsNull() || isText(status, "running")) {
 		return

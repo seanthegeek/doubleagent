@@ -135,14 +135,14 @@ func sessionScope(root string, sessionID string, old bool, message jsonvalue.Val
 			}
 		}
 	}
-	projectPath := parser.Str(session.Get("directory"))
+	projectPath := parser.Text(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
 		project, _ := quietObject(childPath(root, "project", projectID.Text()+".json"))
 		projectPath = worktreeText(project.Get("worktree"))
 	}
 	if projectPath == "" {
 		where := objectOf(message.Get("path"))
-		projectPath = parser.Str(firstTruthy(where.Get("root"), where.Get("cwd")))
+		projectPath = parser.Text(firstTruthy(where.Get("root"), where.Get("cwd")))
 	}
 	return newScope(sessionID, projectPath)
 }
@@ -152,7 +152,7 @@ func worktreeText(worktree jsonvalue.Value) string {
 	if isText(worktree, "/") {
 		return ""
 	}
-	return parser.Str(worktree)
+	return parser.Text(worktree)
 }
 
 // sessionFile emits the "session start:" row of a legacy session file and
@@ -172,7 +172,7 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 		emit(row)
 		return
 	}
-	projectPath := parser.Str(session.Get("directory"))
+	projectPath := parser.Text(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
 		name := projectID.Text() + ".json"
 		var file string
@@ -186,7 +186,7 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 		}
 		projectPath = worktreeText(project.Get("worktree"))
 	}
-	identifier := parser.Str(session.Get("id"))
+	identifier := parser.Text(session.Get("id"))
 	if identifier == "" {
 		identifier = stem
 	}
@@ -236,10 +236,10 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 		emit(p.systemRow(artifact, scoped, 1, "", "parser: message file could not be decoded"))
 		return
 	}
-	if identifier := parser.Str(message.Get("sessionID")); identifier != "" {
+	if identifier := parser.Text(message.Get("sessionID")); identifier != "" {
 		sessionID = identifier
 	}
-	messageID := parser.Str(message.Get("id"))
+	messageID := parser.Text(message.Get("id"))
 	if messageID == "" {
 		messageID = jsonStem(name)
 	}

@@ -114,8 +114,8 @@ func backupText(run sqlitefile.Row, manifest jsonvalue.Value) string {
 		return ""
 	}
 	return fmt.Sprintf("backup uploaded: %s to %s key %s namespace %s (from state/openclaw.sqlite"+
-		" backup_runs, created_at)", orDash(parser.Str(manifest.Get("kind"))),
-		orDash(orText(parser.Str(location.Get("name")), columnStr(run.Get("archive_path")))),
+		" backup_runs, created_at)", orDash(parser.Text(manifest.Get("kind"))),
+		orDash(orText(parser.Text(location.Get("name")), columnStr(run.Get("archive_path")))),
 		orDash(firstStr(location.Get("key"), target)),
 		orDash(firstStr(location.Get("namespace"), manifest.Get("namespace"))))
 }

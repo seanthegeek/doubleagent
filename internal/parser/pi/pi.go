@@ -149,8 +149,8 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 		return
 	}
 	header := session.Header
-	sessionID, cwd := parser.Str(header.Get("id")), parser.Str(header.Get("cwd"))
-	parent := parser.Str(header.Get("parentSession"))
+	sessionID, cwd := parser.Text(header.Get("id")), parser.Text(header.Get("cwd"))
+	parent := parser.Text(header.Get("parentSession"))
 	headerRow := func(text string) timeline.Row {
 		return p.systemRow(artifact, session.HeaderLine, timeutil.FromValue(header.Get("timestamp")),
 			sessionID, cwd, text)
@@ -240,8 +240,8 @@ func SessionStartText(header jsonvalue.Value) string {
 	if value := header.Get("version"); !value.IsEmpty() {
 		version = value.Text()
 	}
-	text := "session start: version=" + version + " cwd=" + parser.Str(header.Get("cwd"))
-	if parent := parser.Str(header.Get("parentSession")); parent != "" {
+	text := "session start: version=" + version + " cwd=" + parser.Text(header.Get("cwd"))
+	if parent := parser.Text(header.Get("parentSession")); parent != "" {
 		text += " parentSession=" + parent
 	}
 	return text
@@ -258,7 +258,7 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 		record := entry.Record
 		switch kind := record.Get("type"); {
 		case isText(kind, "custom_message"):
-			custom := parser.Str(record.Get("customType"))
+			custom := parser.Text(record.Get("customType"))
 			if strings.HasPrefix(custom, "lc-") && !slices.Contains(types, custom) {
 				types = append(types, custom)
 			}

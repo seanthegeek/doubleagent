@@ -64,13 +64,13 @@ func policySettings(policy jsonvalue.Value) []string {
 				argument = " argPattern=" + value.Text()
 			}
 			out = append(out, "allowlist="+pattern.Text()+argument+" source="+
-				orDash(parser.Str(entry.Get("source"))))
+				orDash(parser.Text(entry.Get("source"))))
 		}
 	}
 	for _, grant := range arrayItems(policy.Get("mcpTools")) {
 		if grant.IsObject() {
-			out = append(out, fmt.Sprintf("mcpTools=%s/%s source=%s", orDash(parser.Str(grant.Get("server"))),
-				orDash(parser.Str(grant.Get("tool"))), orDash(parser.Str(grant.Get("source")))))
+			out = append(out, fmt.Sprintf("mcpTools=%s/%s source=%s", orDash(parser.Text(grant.Get("server"))),
+				orDash(parser.Text(grant.Get("tool"))), orDash(parser.Text(grant.Get("source")))))
 		}
 	}
 	return out

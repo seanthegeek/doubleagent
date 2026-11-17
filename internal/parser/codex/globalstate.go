@@ -252,7 +252,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 	stamp := func(sessionID string) timeline.Row {
 		row := p.stamp(artifact, nil, sessionID)
 		if sessionID != "" {
-			row.ProjectPath = parser.Str(firstTruthy(roots.Get(sessionID), outputs.Get(sessionID)))
+			row.ProjectPath = parser.Text(firstTruthy(roots.Get(sessionID), outputs.Get(sessionID)))
 		}
 		return row
 	}

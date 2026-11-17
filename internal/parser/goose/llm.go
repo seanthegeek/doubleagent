@@ -74,7 +74,7 @@ func (l *llmLog) record(number int, record jsonvalue.Value) {
 	case !record.Get("error").IsEmpty():
 		l.flush()
 		failure := record.Get("error")
-		text := parser.CompactJSON(failure)
+		text := parser.JSONText(failure)
 		if failure.IsString() {
 			text = failure.StringValue()
 		}
@@ -92,9 +92,9 @@ func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	if !request.IsObject() {
 		request = jsonvalue.NewObject()
 	}
-	l.model = parser.Str(config.Get("model_name"))
+	l.model = parser.Text(config.Get("model_name"))
 	if l.model == "" {
-		l.model = parser.Str(request.Get("model"))
+		l.model = parser.Text(request.Get("model"))
 	}
 	messages := arrayItems(request.Get("messages"))
 	lastUser := ""
@@ -121,7 +121,7 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 	if !content.IsArray() || content.Len() == 0 {
 		return
 	}
-	messageID := parser.Str(data.Get("id"))
+	messageID := parser.Text(data.Get("id"))
 	if l.current != nil && messageID != "" && l.current.messageID == messageID {
 		l.current.blocks = mergeDelta(l.current.blocks, content.Items())
 		return
@@ -131,7 +131,7 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 	if l.request != nil && l.request.TimestampUTC == "" {
 		l.request.TimestampUTC = base.TimestampUTC
 	}
-	role := parser.Str(data.Get("role"))
+	role := parser.Text(data.Get("role"))
 	if role == "" {
 		role = timeline.TurnAssistant
 	}
@@ -154,11 +154,11 @@ func mergeDelta(blocks, added []jsonvalue.Value) []jsonvalue.Value {
 	case isText(kind, "text") && isText(block.Get("type"), "text") &&
 		pyEqual(audience(last), audience(block)):
 		blocks[len(blocks)-1] = withMember(last, "text",
-			jsonvalue.NewString(parser.Str(last.Get("text"))+parser.Str(block.Get("text"))))
+			jsonvalue.NewString(parser.Text(last.Get("text"))+parser.Text(block.Get("text"))))
 	case isText(kind, "thinking") && isText(block.Get("type"), "thinking") &&
 		(last.Get("signature").IsEmpty() || pyEqual(block.Get("signature"), last.Get("signature"))):
 		merged := withMember(last, "thinking",
-			jsonvalue.NewString(parser.Str(last.Get("thinking"))+parser.Str(block.Get("thinking"))))
+			jsonvalue.NewString(parser.Text(last.Get("thinking"))+parser.Text(block.Get("thinking"))))
 		if signature := block.Get("signature"); !signature.IsEmpty() {
 			merged = withMember(merged, "signature", signature)
 		}

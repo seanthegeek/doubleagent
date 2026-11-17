@@ -95,7 +95,7 @@ func (s *rollout) read() {
 	case isText(recordType, "compacted"):
 		s.compacted(payload)
 	case isText(recordType, "inter_agent_communication"):
-		if !s.carried[parser.Str(payload.Get("id"))] {
+		if !s.carried[parser.Text(payload.Get("id"))] {
 			s.interAgent(payload)
 		}
 	case isText(recordType, "realtime_item"):
@@ -144,13 +144,13 @@ func (s *rollout) prompt(text string) {
 // session, project and branch and gives the start rows; a later one with
 // another id was copied from an ancestor thread.
 func (s *rollout) sessionMeta(payload jsonvalue.Value) {
-	threadID := parser.Str(firstTruthy(payload.Get("id"), payload.Get("session_id")))
+	threadID := parser.Text(firstTruthy(payload.Get("id"), payload.Get("session_id")))
 	when := payload.Get("timestamp")
 	if s.metaSeen {
 		if threadID != "" && threadID != s.sessionID {
 			s.put(s.row(timeline.TurnSystem, when), "copied from ancestor: session start "+
-				strOr(payload.Get("originator"), "codex")+" "+parser.Str(payload.Get("cli_version"))+
-				" id="+threadID+" cwd="+parser.Str(payload.Get("cwd")))
+				strOr(payload.Get("originator"), "codex")+" "+parser.Text(payload.Get("cli_version"))+
+				" id="+threadID+" cwd="+parser.Text(payload.Get("cwd")))
 		}
 		return
 	}
@@ -160,8 +160,8 @@ func (s *rollout) sessionMeta(payload jsonvalue.Value) {
 	git := objectOr(payload.Get("git"))
 	s.branch = strOr(git.Get("branch"), s.branch)
 	start := "session start: " + strOr(payload.Get("originator"), "codex") + " " +
-		parser.Str(payload.Get("cli_version")) + " provider=" +
-		parser.Str(payload.Get("model_provider")) + " cwd=" + s.cwd
+		parser.Text(payload.Get("cli_version")) + " provider=" +
+		parser.Text(payload.Get("model_provider")) + " cwd=" + s.cwd
 	for _, field := range [][2]string{{"creator_account_id", "account"}, {"creator_user_id", "user"}} {
 		if value := payload.Get(field[0]); !value.IsEmpty() {
 			start += " " + field[1] + "=" + value.Text()
@@ -195,7 +195,7 @@ func (s *rollout) lineage(payload, when jsonvalue.Value) {
 	s.taskPending = parent != "" || isSubagentMeta(payload)
 	if isGuardian(payload) && parent != "" {
 		s.guardianParent = parent
-		s.started = parser.Str(firstTruthy(payload.Get("timestamp"), s.record.Get("timestamp")))
+		s.started = parser.Text(firstTruthy(payload.Get("timestamp"), s.record.Get("timestamp")))
 	}
 }
 
@@ -206,7 +206,7 @@ func (s *rollout) turnContext(payload jsonvalue.Value) {
 	s.model = strOr(payload.Get("model"), s.model)
 	s.policies[s.sessionID] = policyOf(payload)
 	texts := []string{
-		s.seenModel.Change("model", s.sessionID, parser.Str(payload.Get("model"))),
+		s.seenModel.Change("model", s.sessionID, parser.Text(payload.Get("model"))),
 		s.seenMode.Change("permission mode", s.sessionID, s.policies[s.sessionID].text()),
 	}
 	s.systemTexts(texts)
@@ -231,26 +231,26 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 	case textIn(payloadType, callTypes...):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = callName(payload)
-		row.ToolUseID = parser.Str(firstTruthy(payload.Get("call_id"), payload.Get("id")))
+		row.ToolUseID = parser.Text(firstTruthy(payload.Get("call_id"), payload.Get("id")))
 		s.put(row, callSummary(payload))
 	case textIn(payloadType, outputTypes...):
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
-		row.ToolUseID = parser.Str(payload.Get("call_id"))
+		row.ToolUseID = parser.Text(payload.Get("call_id"))
 		s.put(row, withExit(parser.TextOf(payload.Get("output")), s.exitCodes[row.ToolUseID]))
 	case isText(payloadType, "tool_search_call"):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = "tool_search"
-		row.ToolUseID = parser.Str(firstTruthy(payload.Get("call_id"), payload.Get("id")))
-		s.put(row, parser.CompactJSON(payload.Get("arguments")))
+		row.ToolUseID = parser.Text(firstTruthy(payload.Get("call_id"), payload.Get("id")))
+		s.put(row, parser.JSONText(payload.Get("arguments")))
 	case isText(payloadType, "tool_search_output"):
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
-		row.ToolUseID = parser.Str(payload.Get("call_id"))
+		row.ToolUseID = parser.Text(payload.Get("call_id"))
 		s.put(row, toolNames(payload.Get("tools")))
 	case isText(payloadType, "agent_message"):
 		s.agentMessage(payload, agentText(payload))
 	case isText(payloadType, "image_generation_call"):
-		s.system("image generation: " + parser.Str(payload.Get("revised_prompt")) + " status=" +
-			parser.Str(payload.Get("status")))
+		s.system("image generation: " + parser.Text(payload.Get("revised_prompt")) + " status=" +
+			parser.Text(payload.Get("status")))
 	case isText(payloadType, "reasoning") && s.options.IncludeThinking:
 		text := parser.TextOf(payload.Get("summary"))
 		if text == "" {
@@ -300,15 +300,15 @@ func (s *rollout) agentMessage(payload jsonvalue.Value, text string) {
 func (s *rollout) event(payload jsonvalue.Value) {
 	switch payloadType := payload.Get("type"); {
 	case isText(payloadType, "task_started"):
-		s.system("task_started turn=" + parser.Str(payload.Get("turn_id")))
+		s.system("task_started turn=" + parser.Text(payload.Get("turn_id")))
 		attribution := payload.Get("turn_attribution")
 		if trigger := attribution.Get("turn_trigger"); attribution.IsObject() && !trigger.IsEmpty() {
-			turn := parser.Str(firstTruthy(payload.Get("turn_id"), attribution.Get("turn_id")))
+			turn := parser.Text(firstTruthy(payload.Get("turn_id"), attribution.Get("turn_id")))
 			s.system("turn trigger: " + trigger.Text() + " turn=" + turn)
 		}
 	case isText(payloadType, "task_complete"):
-		s.system("task_complete turn=" + parser.Str(payload.Get("turn_id")) + " duration_ms=" +
-			parser.Str(payload.Get("duration_ms")))
+		s.system("task_complete turn=" + parser.Text(payload.Get("turn_id")) + " duration_ms=" +
+			parser.Text(payload.Get("duration_ms")))
 		s.guardianDecision(payload)
 	case isText(payloadType, "thread_settings_applied"):
 		s.threadSettings(payload.Get("thread_settings"))
@@ -317,9 +317,9 @@ func (s *rollout) event(payload jsonvalue.Value) {
 	case isText(payloadType, "turn_aborted"):
 		detail := ""
 		if failure := payload.Get("error"); failure.IsObject() {
-			detail = parser.Str(failure.Get("message"))
+			detail = parser.Text(failure.Get("message"))
 		}
-		s.system(strings.TrimSpace("turn aborted: " + parser.Str(payload.Get("reason")) + " " + detail))
+		s.system(strings.TrimSpace("turn aborted: " + parser.Text(payload.Get("reason")) + " " + detail))
 	case isText(payloadType, "thread_rolled_back"):
 		count := ""
 		if value, ok := payload.Lookup("num_turns"); ok {
@@ -380,7 +380,7 @@ func (s *rollout) threadSettings(settings jsonvalue.Value) {
 func (s *rollout) itemCompleted(payload jsonvalue.Value) {
 	item := payload.Get("item")
 	if !item.IsObject() || textIn(item.Get("type"), responseCarriedItems...) ||
-		s.carried[parser.Str(item.Get("id"))] {
+		s.carried[parser.Text(item.Get("id"))] {
 		return
 	}
 	for _, part := range itemRows(item) {
@@ -427,11 +427,11 @@ func (s *rollout) interAgent(payload jsonvalue.Value) {
 func (s *rollout) realtime(payload jsonvalue.Value) {
 	kind, role := payload.Get("type"), payload.Get("role")
 	if isText(kind, "transcript_segment") && textIn(role, "user", "assistant") {
-		s.put(s.row(role.StringValue(), jsonvalue.NewNull()), parser.Str(payload.Get("text")))
+		s.put(s.row(role.StringValue(), jsonvalue.NewNull()), parser.Text(payload.Get("text")))
 		return
 	}
-	text := "realtime: " + parser.Str(kind) + " " +
-		parser.CompactJSON(without(payload, "type", "id", "text"))
+	text := "realtime: " + parser.Text(kind) + " " +
+		parser.JSONText(without(payload, "type", "id", "text"))
 	if spoken := payload.Get("text"); !spoken.IsEmpty() {
 		text += " " + spoken.Text()
 	}

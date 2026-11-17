@@ -228,7 +228,7 @@ type rowMaker func(turn, text, toolName, toolUseID string) timeline.Row
 // walkMessage emits the rows of one chat message.
 func walkMessage(message jsonvalue.Value, index int, state *chatState, makeRow rowMaker,
 	emit parser.Emit) {
-	role := parser.Str(message.Get("role"))
+	role := parser.Text(message.Get("role"))
 	content := parser.TextOf(message.Get("content"))
 	previous := state.pending
 	state.pending = [2]string{}
@@ -238,10 +238,10 @@ func walkMessage(message jsonvalue.Value, index int, state *chatState, makeRow r
 	case "assistant":
 		walkAssistant(message, index, content, state, makeRow, emit)
 	case "tool":
-		callID := parser.Str(message.Get("tool_call_id"))
+		callID := parser.Text(message.Get("tool_call_id"))
 		emit(makeRow(timeline.TurnToolResult, content, state.names[callID], callID))
 	case "function":
-		name := parser.Str(message.Get("name"))
+		name := parser.Text(message.Get("name"))
 		if name == "" {
 			name = previous[1]
 		}
@@ -263,14 +263,14 @@ func walkAssistant(message jsonvalue.Value, index int, content string, state *ch
 	}
 	for _, call := range parser.Elements(message.Get("tool_calls")) {
 		function := call.Get("function")
-		callID := parser.Str(call.Get("id"))
-		name := parser.Str(function.Get("name"))
+		callID := parser.Text(call.Get("id"))
+		name := parser.Text(function.Get("name"))
 		state.names[callID] = name
 		emit(makeRow(timeline.TurnToolUse, callText(function.Get("arguments")), name, callID))
 	}
 	if functionCall := message.Get("function_call"); functionCall.IsObject() {
 		state.pending = [2]string{"function_call_" + strconv.Itoa(index),
-			parser.Str(functionCall.Get("name"))}
+			parser.Text(functionCall.Get("name"))}
 		emit(makeRow(timeline.TurnToolUse, callText(functionCall.Get("arguments")),
 			state.pending[1], state.pending[0]))
 	}

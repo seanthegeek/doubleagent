@@ -48,7 +48,7 @@ func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parser.Emit) 
 		for position, session := range sessions {
 			if session.IsObject() {
 				p.legacyRows(artifact, session, numbered(session.Get("messages")),
-					parser.Str(session.Get("session_id")), parser.Str(session.Get("saved_at")), position, emit)
+					parser.Text(session.Get("session_id")), parser.Text(session.Get("saved_at")), position, emit)
 			}
 		}
 	}
@@ -66,7 +66,7 @@ func (p *Parser) parseLegacySession(artifact *input.Artifact, emit parser.Emit) 
 		switch found := p.messagesKey.FindStringIndex(text); {
 		case err == nil && document.IsObject():
 			p.legacyRows(artifact, document, numbered(document.Get("messages")),
-				parser.Str(document.Get("session_id")), parser.Str(document.Get("saved_at")), 0, emit)
+				parser.Text(document.Get("session_id")), parser.Text(document.Get("saved_at")), 0, emit)
 		case found != nil:
 			head := text[:found[0]]
 			p.legacyRows(artifact, jsonvalue.NewNull(), parser.ArrayAt(text, found[1], &problems, nil),
@@ -140,12 +140,12 @@ func messageRows(message jsonvalue.Value, put func(turn, text, toolName, toolUse
 		}
 		for _, call := range message.Get("tool_calls").Items() {
 			if call.IsObject() {
-				put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parser.Str(call.Get("name")),
-					parser.Str(call.Get("id")))
+				put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parser.Text(call.Get("name")),
+					parser.Text(call.Get("id")))
 			}
 		}
 	case "tool":
-		name, callID := parser.Str(message.Get("name")), parser.Str(message.Get("tool_call_id"))
+		name, callID := parser.Text(message.Get("name")), parser.Text(message.Get("tool_call_id"))
 		put(timeline.TurnToolResult, text, name, callID)
 		if text == legacyDenied {
 			put(timeline.TurnSystem, "permission decision: denied ("+text+")", name, callID)

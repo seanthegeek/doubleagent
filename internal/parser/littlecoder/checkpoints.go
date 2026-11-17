@@ -56,8 +56,8 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 		header, failure = sessionHeader(artifact, setName)
 	}
 	if header.IsObject() {
-		row.SessionID = timeutil.FirstNonEmpty(parser.Str(header.Get("id")), row.SessionID)
-		row.ProjectPath = parser.Str(header.Get("cwd"))
+		row.SessionID = timeutil.FirstNonEmpty(parser.Text(header.Get("id")), row.SessionID)
+		row.ProjectPath = parser.Text(header.Get("cwd"))
 	}
 	if len(mtimes) > 0 {
 		row.TimestampUTC = timeutil.FromEpoch(slices.Min(mtimes))

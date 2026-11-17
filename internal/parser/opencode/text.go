@@ -51,7 +51,7 @@ func ToolSummary(toolInput jsonvalue.Value) string {
 	if toolInput.IsNull() {
 		return ""
 	}
-	return parser.CompactJSON(toolInput)
+	return parser.JSONText(toolInput)
 }
 
 // isFilled reports whether value is a non-empty string.
@@ -148,11 +148,11 @@ func errorText(raw jsonvalue.Value) string {
 	data := objectOf(failure.Get("data"))
 	name := firstTruthy(failure.Get("name"), failure.Get("type"))
 	message := firstTruthy(data.Get("message"), failure.Get("message"))
-	if text := join(parser.Str(name), parser.Str(message)); text != "" {
+	if text := join(parser.Text(name), parser.Text(message)); text != "" {
 		return text
 	}
 	if !raw.IsEmpty() {
-		return parser.CompactJSON(raw)
+		return parser.JSONText(raw)
 	}
 	return ""
 }

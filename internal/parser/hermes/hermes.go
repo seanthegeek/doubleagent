@@ -190,17 +190,17 @@ func either(values ...jsonvalue.Value) jsonvalue.Value {
 // projectOf returns a session's project: its cwd, else its git repository
 // root.
 func projectOf(session jsonvalue.Value) string {
-	return parser.Str(either(session.Get("cwd"), session.Get("git_repo_root")))
+	return parser.Text(either(session.Get("cwd"), session.Get("git_repo_root")))
 }
 
 // row returns a row of the artifact attributed to the session.
 func (p *Parser) row(artifact *input.Artifact, line int, session jsonvalue.Value, timestamp string) timeline.Row {
 	row := p.BaseRow(artifact)
 	row.SourceLine = line
-	row.SessionID = parser.Str(session.Get("id"))
+	row.SessionID = parser.Text(session.Get("id"))
 	row.ProjectPath = projectOf(session)
-	row.GitBranch = parser.Str(session.Get("git_branch"))
-	row.Model = parser.Str(session.Get("model"))
+	row.GitBranch = parser.Text(session.Get("git_branch"))
+	row.Model = parser.Text(session.Get("model"))
 	row.TimestampUTC = timestamp
 	return row
 }
@@ -250,7 +250,7 @@ func (p *Parser) parseJSONL(artifact *input.Artifact, options parser.Options, em
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		reader.message(record, session, jsonvalue.NewInt(int64(number)))
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, parser.Str(session.Get("id")),
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, parser.Text(session.Get("id")),
 		projectOf(session)))
 }
 

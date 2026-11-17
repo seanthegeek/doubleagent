@@ -203,7 +203,7 @@ func flatten(prefix string, value jsonvalue.Value, yield func(key, value string)
 	case value.IsArray():
 		for _, item := range value.Items() {
 			if item.IsObject() || item.IsArray() {
-				yield(prefix, parser.CompactJSON(item))
+				yield(prefix, parser.JSONText(item))
 			} else {
 				yield(prefix, parser.SettingValue(item))
 			}

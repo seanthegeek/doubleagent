@@ -97,7 +97,7 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 	keys := append(startKeys(), "ended_at", "exit_code")
 	for _, record := range rows {
 		session := rowObject(record)
-		if manifestPresent(artifact, parser.Str(session.Get("session_id"))) {
+		if manifestPresent(artifact, parser.Text(session.Get("session_id"))) {
 			continue
 		}
 		meta := metadataJSON(record.Get("metadata_json"))

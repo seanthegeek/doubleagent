@@ -36,7 +36,7 @@ func (c *composer) documents() []jsonvalue.Value {
 func (c *composer) project() (string, string) {
 	path := ""
 	for _, document := range c.documents() {
-		if path = parser.Str(document.Get("workspaceIdentifier").Get("uri").Get("fsPath")); path != "" {
+		if path = parser.Text(document.Get("workspaceIdentifier").Get("uri").Get("fsPath")); path != "" {
 			break
 		}
 	}
@@ -49,10 +49,10 @@ func (c *composer) project() (string, string) {
 		}
 	}
 	if path == "" && len(repos) > 0 {
-		path = parser.Str(repos[0].Get("repoPath"))
+		path = parser.Text(repos[0].Get("repoPath"))
 	}
 	for _, repo := range repos {
-		if parser.Str(repo.Get("repoPath")) == path {
+		if parser.Text(repo.Get("repoPath")) == path {
 			if branches := parser.Elements(repo.Get("branches")); len(branches) > 0 && branches[0].IsString() {
 				return path, branches[0].StringValue()
 			}

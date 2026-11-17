@@ -219,7 +219,7 @@ func originText(record jsonvalue.Value, scan *prescan) string {
 // modelRow emits the "model:" row of a session's first or changed
 // message.model, with the model asked for when it differs.
 func (s *session) modelRow(record jsonvalue.Value) {
-	model := parser.Str(record.Get("message").Get("model"))
+	model := parser.Text(record.Get("message").Get("model"))
 	if model == "" || model == "<synthetic>" || !record.Get("isApiErrorMessage").IsEmpty() {
 		return
 	}
@@ -248,23 +248,23 @@ func (s *session) content(record jsonvalue.Value, recordType string) {
 	case "attachment":
 		s.attachment(record)
 	case "continued-in":
-		s.emit(s.stateRow("session continued in: " + orDash(parser.Str(record.Get("continuedInSessionId")))))
+		s.emit(s.stateRow("session continued in: " + orDash(parser.Text(record.Get("continuedInSessionId")))))
 	case "bridge-session":
 		s.bridge(record)
 	case "ai-title", "custom-title", "agent-name":
-		title := parser.Str(record.Get(titleField(recordType)))
+		title := parser.Text(record.Get(titleField(recordType)))
 		if title != "" && s.firstSeen("title", title) {
 			s.emit(s.stateRow("session title: " + title))
 		}
 	case "relocated":
-		if cwd := parser.Str(record.Get("relocatedCwd")); cwd != "" {
+		if cwd := parser.Text(record.Get("relocatedCwd")); cwd != "" {
 			s.relocated = cwd
 			s.emit(s.stateRow("cwd changed: " + cwd))
 		}
 	case "pr-link":
-		url := parser.Str(record.Get("prUrl"))
+		url := parser.Text(record.Get("prUrl"))
 		if url == "" {
-			url = parser.Str(record.Get("prNumber"))
+			url = parser.Text(record.Get("prNumber"))
 		}
 		if s.firstSeen("pr", url) {
 			s.emit(s.stateRow("pr-link: " + url))
@@ -288,7 +288,7 @@ func titleField(recordType string) string {
 // system emits the row of a system record: its subtype and its content,
 // else the record's own fields as JSON.
 func (s *session) system(record jsonvalue.Value) {
-	subtype := parser.Str(record.Get("subtype"))
+	subtype := parser.Text(record.Get("subtype"))
 	if subtype == "" {
 		subtype = "system"
 	}
@@ -302,7 +302,7 @@ func (s *session) system(record jsonvalue.Value) {
 		return
 	case detail == "":
 		if rest := withoutKeys(record, isSystemEnvelope); rest.Len() > 0 {
-			detail = parser.CompactJSON(rest)
+			detail = parser.JSONText(rest)
 		}
 	}
 	text := subtype

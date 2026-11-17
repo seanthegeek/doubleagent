@@ -73,7 +73,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 	sessionID := path.Base(directory)
 	var ignored, problems parser.Problems
 	manifest, _ := parser.LoadJSON(parser.Beside(artifact, sessionID+".json"), &ignored)
-	project := parser.Str(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
+	project := parser.Text(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
 	read := readTranscript(artifact, manifest, &problems)
 	seen := parser.Tracker{}
 	if path.Base(artifact.Rel) == sessionID+".messages.json" && !manifest.Get("model").IsEmpty() {
@@ -98,11 +98,11 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 func (p *Parser) messageRows(base timeline.Row, message, manifest jsonvalue.Value, seen parser.Tracker,
 	options parser.Options, emit parser.Emit) {
 	info := message.Get("modelInfo")
-	base.Model = parser.Str(clinelegacy.FirstTruthy(info.Get("id"), manifest.Get("model")))
-	if change := seen.Change("model", base.SessionID, parser.Str(info.Get("id"))); change != "" {
+	base.Model = parser.Text(clinelegacy.FirstTruthy(info.Get("id"), manifest.Get("model")))
+	if change := seen.Change("model", base.SessionID, parser.Text(info.Get("id"))); change != "" {
 		row := base
 		row.TurnType = timeline.TurnSystem
-		if provider := parser.Str(info.Get("provider")); provider != "" {
+		if provider := parser.Text(info.Get("provider")); provider != "" {
 			change += " provider=" + provider
 		}
 		row.Text = timeline.Compact(change)
@@ -134,7 +134,7 @@ func decisions(content jsonvalue.Value) map[string]string {
 			continue
 		}
 		if text := denial(block.Get("content")); text != "" {
-			decided[parser.Str(block.Get("tool_use_id"))] = timeline.Compact(text)
+			decided[parser.Text(block.Get("tool_use_id"))] = timeline.Compact(text)
 		}
 	}
 	return decided

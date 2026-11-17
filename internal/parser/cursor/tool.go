@@ -14,7 +14,7 @@ import (
 func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64, model string) {
 	tool := bubble.Get("toolFormerData")
 	extra := tool.Get("additionalData")
-	name, callID := parser.Str(tool.Get("name")), parser.Str(tool.Get("toolCallId"))
+	name, callID := parser.Text(tool.Get("name")), parser.Text(tool.Get("toolCallId"))
 	started := firstTruthy(bubble.Get("startedAtMs"), extra.Get("startedAtMs"), bubble.Get("createdAt"),
 		entry.Get("createdAt"))
 	row := func(turnType, text string, when jsonvalue.Value) {
@@ -25,7 +25,7 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 	arguments := firstTruthy(tool.Get("params"), tool.Get("rawArgs"))
 	argsText := arguments.StringValue()
 	if !arguments.IsString() && !arguments.IsEmpty() {
-		argsText = parser.CompactJSON(arguments)
+		argsText = parser.JSONText(arguments)
 	}
 	row(timeline.TurnToolUse, timeline.Compact(argsText), started)
 	review := extra.Get("reviewData")

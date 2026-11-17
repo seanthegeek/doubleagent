@@ -166,7 +166,7 @@ func hasTranscript(sessionDir string) bool {
 // folder returns the first folder the person chose for a session or task,
 // or "".
 func folder(record jsonvalue.Value) string {
-	return parser.Str(record.Get("userSelectedFolders").Index(0))
+	return parser.Text(record.Get("userSelectedFolders").Index(0))
 }
 
 // sessionCollected reports whether a transcript or audit log of a record's

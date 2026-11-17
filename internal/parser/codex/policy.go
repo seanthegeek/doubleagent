@@ -102,5 +102,5 @@ func settingsModel(settings jsonvalue.Value) string {
 	if model := settings.Get("model"); !model.IsEmpty() {
 		return model.Text()
 	}
-	return parser.Str(settings.Get("collaboration_mode").Get("settings").Get("model"))
+	return parser.Text(settings.Get("collaboration_mode").Get("settings").Get("model"))
 }

@@ -57,7 +57,7 @@ func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message js
 	times := objectOf(message.Get("time"))
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("created")), where.time)
 	if scoped.projectPath == "" {
-		scoped.projectPath = parser.Str(objectOf(message.Get("path")).Get("cwd"))
+		scoped.projectPath = parser.Text(objectOf(message.Get("path")).Get("cwd"))
 	}
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, provider, modelID),
 		agentRowText(scoped.modes, scoped.sessionID, message.Get("agent"))} {
@@ -92,7 +92,7 @@ func (b *partRows) parts(parts []part, user bool, messageTime string) {
 			data.Get("ignored").IsEmpty()
 		if isPlainText && user {
 			if !text.IsEmpty() {
-				texts = append(texts, parser.Str(text))
+				texts = append(texts, parser.Text(text))
 				if place < 0 {
 					first, place = each.where, len(b.rows)-start
 				}
@@ -116,15 +116,15 @@ func (b *partRows) part(where origin, data jsonvalue.Value, timestamp string) {
 	case "text":
 		switch {
 		case !data.Get("synthetic").IsEmpty():
-			b.add(where, timestamp, timeline.TurnSystem, join("synthetic:", parser.Str(text)))
+			b.add(where, timestamp, timeline.TurnSystem, join("synthetic:", parser.Text(text)))
 		case !data.Get("ignored").IsEmpty():
-			b.add(where, timestamp, timeline.TurnSystem, join("ignored:", parser.Str(text)))
+			b.add(where, timestamp, timeline.TurnSystem, join("ignored:", parser.Text(text)))
 		case !text.IsEmpty():
-			b.add(where, timestamp, timeline.TurnAssistant, parser.Str(text))
+			b.add(where, timestamp, timeline.TurnAssistant, parser.Text(text))
 		}
 	case "reasoning":
 		if b.options.IncludeThinking && !text.IsEmpty() {
-			b.add(where, timestamp, timeline.TurnThinking, parser.Str(text))
+			b.add(where, timestamp, timeline.TurnThinking, parser.Text(text))
 		}
 	case "tool":
 		b.tool(where, data, timestamp)
@@ -145,7 +145,7 @@ func partSummary(kind, data jsonvalue.Value) string {
 			present("tokens_out=", tokens.Get("output")))
 	case "subtask":
 		return join("subtask", labelled("agent=", data.Get("agent")),
-			parser.Str(data.Get("description"))+":", parser.Str(data.Get("prompt")))
+			parser.Text(data.Get("description"))+":", parser.Text(data.Get("prompt")))
 	case "compaction":
 		auto := ""
 		if !data.Get("auto").IsEmpty() {
@@ -153,9 +153,9 @@ func partSummary(kind, data jsonvalue.Value) string {
 		}
 		return join("compaction", auto)
 	case "file":
-		return join("file:", parser.Str(data.Get("filename")), parser.Str(data.Get("url")))
+		return join("file:", parser.Text(data.Get("filename")), parser.Text(data.Get("url")))
 	case "agent":
-		return join("agent:", parser.Str(data.Get("name")))
+		return join("agent:", parser.Text(data.Get("name")))
 	case "retry":
 		return join("retry", labelled("attempt=", data.Get("attempt")), errorText(data.Get("error")))
 	case "patch":
@@ -169,7 +169,7 @@ func partSummary(kind, data jsonvalue.Value) string {
 	if !kind.IsEmpty() {
 		label = kind.Text()
 	}
-	return join(label+":", parser.CompactJSON(data))
+	return join(label+":", parser.JSONText(data))
 }
 
 // present returns label followed by the value's text unless it is null or
@@ -186,10 +186,10 @@ func present(label string, value jsonvalue.Value) string {
 func (b *partRows) tool(where origin, data jsonvalue.Value, timestamp string) {
 	state := objectOf(data.Get("state"))
 	times := objectOf(state.Get("time"))
-	name, callID := parser.Str(data.Get("tool")), parser.Str(data.Get("callID"))
+	name, callID := parser.Text(data.Get("tool")), parser.Text(data.Get("callID"))
 	summary := ToolSummary(state.Get("input"))
 	if summary == "" {
-		summary = parser.Str(state.Get("title"))
+		summary = parser.Text(state.Get("title"))
 	}
 	started := timeutil.FromValue(times.Get("start"))
 	b.named(b.add(where, timeutil.FirstNonEmpty(started, timestamp), timeline.TurnToolUse, summary),
@@ -205,7 +205,7 @@ func (b *partRows) tool(where origin, data jsonvalue.Value, timestamp string) {
 	case output.IsString():
 		text = output.StringValue()
 	default:
-		text = parser.CompactJSON(output)
+		text = parser.JSONText(output)
 	}
 	ended := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("end")), started, timestamp)
 	result := b.add(where, ended, timeline.TurnToolResult, text)

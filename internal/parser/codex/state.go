@@ -263,7 +263,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 		if !ok {
 			continue
 		}
-		sessionID := parser.Str(record.Get("reviewed_thread_id"))
+		sessionID := parser.Text(record.Get("reviewed_thread_id"))
 		if sessionID == "" {
 			sessionID = columnText(entry.Get("thread_id"))
 		}
@@ -271,7 +271,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 		row.SourceLine = rowid
 		row.TurnType = timeline.TurnSystem
 		row.TimestampUTC = uuid7Time(entry.Get("id"))
-		row.ToolUseID = parser.Str(record.Get("target_item_id"))
+		row.ToolUseID = parser.Text(record.Get("target_item_id"))
 		row.Text = timeline.Compact(feedbackText(record))
 		emit(row)
 	}
@@ -313,7 +313,7 @@ func feedbackText(record jsonvalue.Value) string {
 	return "permission decision: " + strOr(record.Get("status"), "-") +
 		" (auto_review feedback model=" + strOr(record.Get("model"), "-") + ") exec " + item +
 		" turn=" + strOr(record.Get("reviewed_turn_id"), "-") + " reviewer " + reviewer + ": " +
-		strOr(decision, "-") + " action: " + parser.Str(record.Get("action"))
+		strOr(decision, "-") + " action: " + parser.Text(record.Get("action"))
 }
 
 // siblingThreads returns the threads rows of the state_5.sqlite beside the

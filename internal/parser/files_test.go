@@ -80,7 +80,7 @@ func TestFileMtimeCutsTheFileTimeToTheMillisecond(t *testing.T) {
 
 // The times are whole multiples of 100 ns, the finest a Windows file time
 // holds.
-func TestMtimeSecondsIsThePythonStatFloat(t *testing.T) {
+func TestMtimeSecondsIsTheStatTimeAsAFloat(t *testing.T) {
 	tests := []struct {
 		nanoseconds int64
 		want        float64

@@ -16,8 +16,8 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = number
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.ProjectPath = URIToPath(parser.Str(record.Get("workspace")))
-		row.SessionID = parser.Str(record.Get("conversationId"))
+		row.ProjectPath = URIToPath(parser.Text(record.Get("workspace")))
+		row.SessionID = parser.Text(record.Get("conversationId"))
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("display"))
 		emit(row)

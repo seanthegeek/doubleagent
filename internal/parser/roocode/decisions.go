@@ -116,7 +116,7 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 	for position, message := range parser.JSONArray(path, problems) {
 		for _, block := range message.Get("content").Items() {
 			if isText(block.Get("type"), "tool_use") {
-				names[parser.Str(block.Get("id"))] = parser.Str(block.Get("name"))
+				names[parser.Text(block.Get("id"))] = parser.Text(block.Get("name"))
 				continue
 			}
 			if !isText(block.Get("type"), "tool_result") {
@@ -126,7 +126,7 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 			if !ok {
 				continue
 			}
-			toolUseID := parser.Str(block.Get("tool_use_id"))
+			toolUseID := parser.Text(block.Get("tool_use_id"))
 			decisions = append(decisions, decision{position: position, timestamp: message.Get("ts"),
 				toolUseID: toolUseID, toolName: names[toolUseID], text: text})
 		}

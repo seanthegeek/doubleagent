@@ -171,7 +171,7 @@ func (a *auditLine) read(line jsonvalue.Value) {
 		// The subtype is in the bundle, its fields are not recorded: they
 		// are printed as they are.
 		a.emit(a.row(timeline.TurnSystem, "model_refusal_fallback: "+
-			parser.CompactJSON(withoutEnvelope(line))))
+			parser.JSONText(withoutEnvelope(line))))
 	case isText(lineType, "user"):
 		a.user(line)
 	case isText(lineType, "assistant"):
@@ -245,7 +245,7 @@ func autoReason(line jsonvalue.Value) string {
 		return why.Text()
 	}
 	if matched := line.Get("matched_ops"); !matched.IsNull() {
-		return parser.CompactJSON(matched)
+		return parser.JSONText(matched)
 	}
 	return ""
 }

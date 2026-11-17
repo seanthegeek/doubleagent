@@ -46,7 +46,7 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parser.Emit) {
 		run = cronRun(record, end)
 	}
 	row := func(timestamp, turnType, text string) {
-		out := p.settingRow(artifact, timestamp, text, parser.Str(record.Get("session_key")))
+		out := p.settingRow(artifact, timestamp, text, parser.Text(record.Get("session_key")))
 		out.TurnType = turnType
 		out.ProjectPath = project
 		emit(out)
@@ -67,11 +67,11 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parser.Emit) {
 // run_id, which is <job id>:<epoch ms at the run's start>:<hex>, else end.
 func cronRun(record jsonvalue.Value, end string) runRecord {
 	message := record.Get("prompt_vars").Get("message")
-	prompt := parser.Str(record.Get("rendered_prompt"))
+	prompt := parser.Text(record.Get("rendered_prompt"))
 	if !record.Get("job_name").IsEmpty() && message.IsString() {
 		prompt = "Scheduled cron job triggered: " + record.Get("job_name").Text() + "\n\n" + message.StringValue()
 	}
-	runID := parser.Str(record.Get("run_id"))
+	runID := parser.Text(record.Get("run_id"))
 	start := end
 	if parts := rsplit(runID, ":", 2); len(parts) == 3 && isASCIIDigits(parts[1]) {
 		start = ""
@@ -79,23 +79,23 @@ func cronRun(record jsonvalue.Value, end string) runRecord {
 			start = timeutil.FromInt(epoch)
 		}
 	}
-	status := fmt.Sprintf("cron run: job %s (%s) run %s status=%s", parser.Str(record.Get("job_name")),
-		parser.Str(record.Get("job_id")), runID, parser.Str(record.Get("status")))
+	status := fmt.Sprintf("cron run: job %s (%s) run %s status=%s", parser.Text(record.Get("job_name")),
+		parser.Text(record.Get("job_id")), runID, parser.Text(record.Get("status")))
 	return runRecord{prompt: prompt, start: start, status: status}
 }
 
 // triggerRun reads a trigger run record, which starts at created_at_ms,
 // else at end.
 func triggerRun(record jsonvalue.Value, end string) runRecord {
-	label := strings.TrimSpace(parser.Str(record.Get("trigger_name")))
+	label := strings.TrimSpace(parser.Text(record.Get("trigger_name")))
 	if label == "" {
-		label = parser.Str(record.Get("trigger_id"))
+		label = parser.Text(record.Get("trigger_id"))
 	}
-	prompt := "Local trigger received: " + label + "\n\n" + parser.Str(record.Get("content"))
+	prompt := "Local trigger received: " + label + "\n\n" + parser.Text(record.Get("content"))
 	start := timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at_ms")), end)
 	status := fmt.Sprintf("trigger run: trigger %s (%s) delivery %s status=%s attempts=%s",
-		parser.Str(record.Get("trigger_name")), parser.Str(record.Get("trigger_id")),
-		firstStr(record.Get("delivery_id"), record.Get("run_id")), parser.Str(record.Get("status")),
+		parser.Text(record.Get("trigger_name")), parser.Text(record.Get("trigger_id")),
+		firstStr(record.Get("delivery_id"), record.Get("run_id")), parser.Text(record.Get("status")),
 		getOr(record, "attempts", ""))
 	return runRecord{prompt: prompt, start: start, status: status}
 }
