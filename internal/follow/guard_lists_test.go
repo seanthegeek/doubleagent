@@ -17,7 +17,7 @@ package follow
 func reviewedImports() map[string]string {
 	noPath := []string{"archive/tar", "bufio", "bytes", "compress/gzip", "context",
 		"crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex", "errors",
-		"fmt", "io", "io/fs", "os/signal", "path", "regexp", "runtime", "runtime/debug",
+		"fmt", "io", "io/fs", "math", "os/signal", "path", "regexp", "runtime", "runtime/debug",
 		"slices", "strconv", "strings", "testing", "time", "unicode/utf16", "unicode/utf8"}
 	guarded := []string{"os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry"}
