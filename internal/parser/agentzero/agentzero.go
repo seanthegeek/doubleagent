@@ -1,0 +1,154 @@
+// Package agentzero reads Agent Zero's chats, scheduler tasks, plugin
+// settings and connector state.
+//
+// It reads <a0>/usr/chats/<ctxid>/chat.json with its messages/<n>.txt tool
+// outputs (and the older <a0>/usr/chats/<ctxid>.json and <a0>/tmp/chats/
+// copies), where <a0> is [Desktop/]agent-zero[/<instance>], or the same
+// files under chats/ at the base of a collected /a0/usr Docker or Podman
+// volume. Beside them it reads usr/scheduler/tasks.json and the Telegram
+// plugin's state.json (both secondary sources), the _tool_access and
+// _orchestrator plugin config.json and .toggle-0/.toggle-1 files, and the A0
+// CLI connector's ~/.agent-zero/.env. It yields the chat log as user,
+// assistant, thinking, tool_use, tool_result and system rows, and model,
+// permission, sync, relay, origin and scheduled-task rows.
+//
+// Fields read are those listed in research/agent-zero.md; the Telegram bot
+// configuration, a task's token and system prompt, and every .env key but the
+// last context's host and id are never read.
+package agentzero
+
+import (
+	"regexp"
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+)
+
+// tasksTolerance is the window of the scheduler's rows: a task's last_run is
+// stamped when the run finishes, after the chat's response log item, so its
+// result is matched in a wider window.
+const tasksTolerance = 60.0
+
+// Parser reads Agent Zero's files.
+type Parser struct {
+	parser.Base
+	chat, legacy, tasks, telegram, policy, toggle, connector *regexp.Regexp
+	blocked, icon, logs                                      *regexp.Regexp
+}
+
+// whitespace is Python's \s for text and notSpace its \S: characters that are
+// whitespace as str.isspace() has it, and the rest.
+const (
+	whitespace = `\t-\r \x1c-\x1f\x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}` +
+		`\x{205f}\x{3000}`
+	notSpace = `[^` + whitespace + `]`
+)
+
+// New returns the parser.
+func New() *Parser {
+	// A home install keeps the chats under <a0>/usr/chats (or the legacy
+	// <a0>/tmp/chats); a volume mounted at /a0/usr is collected with its _data
+	// directory as the home, so its chats start at chats/.
+	const chats = `(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?(?:usr|tmp)/)?chats`
+	// The other usr/ files read beside the chats, in the same two forms.
+	const usr = `\A(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?`
+	// A plugin's scoped directory: usr/plugins/<plugin>, a profile's
+	// usr/agents/<profile>/plugins/<plugin>, a project's
+	// usr/projects/<name>/.a0proj/plugins/<plugin> and a project profile's
+	// .a0proj/agents/<profile>/plugins/<plugin>.
+	const scope = `(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/`
+	return &Parser{
+		Base:   parser.NewBase("agent-zero", "agent-zero"),
+		chat:   regexp.MustCompile(`\A` + chats + `/[^/]+/chat\.json\z`),
+		legacy: regexp.MustCompile(`\A` + chats + `/[^/]+\.json\z`),
+		tasks: regexp.MustCompile(
+			`\A(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?(?:usr|tmp)/)?scheduler/tasks\.json\z`),
+		telegram: regexp.MustCompile(usr + `plugins/_telegram_integration/state\.json\z`),
+		policy:   regexp.MustCompile(usr + scope + `(?P<plugin>_tool_access|_orchestrator)/config\.json\z`),
+		toggle: regexp.MustCompile(usr + scope +
+			`(?P<plugin>_infection_check|_orchestrator)/\.toggle-(?P<state>[01])\z`),
+		connector: regexp.MustCompile(`\A\.agent-zero/\.env\z`),
+		// The message ensure_tool_allowed raises for a blocked tool, inside the
+		// formatted error of the warning log item.
+		blocked: regexp.MustCompile(
+			`Tool "([^"]*)" is blocked for agent profile "([^"]*)"\.`),
+		icon: regexp.MustCompile(`icon://` + notSpace + `+[` + whitespace + `]*`),
+		logs: regexp.MustCompile(`"logs"[ \t\n\r]*:[ \t\n\r]*\[`),
+	}
+}
+
+// Marks says the parser records synced, relayed and remote-origin sessions.
+func (p *Parser) Marks() parser.Marks {
+	return parser.Marks{Sync: true, Relay: true, Origin: true}
+}
+
+// Wants reports whether the artifact is a chat, scheduler, Telegram, plugin
+// or connector file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	rel := artifact.Rel
+	for _, pattern := range []*regexp.Regexp{p.chat, p.legacy, p.tasks, p.telegram, p.policy,
+		p.toggle, p.connector} {
+		if pattern.MatchString(rel) {
+			return true
+		}
+	}
+	return false
+}
+
+// Secondary reports whether the artifact is the scheduler's tasks or the
+// Telegram chat map.
+func (p *Parser) Secondary(artifact *input.Artifact) bool {
+	return p.tasks.MatchString(artifact.Rel) || p.telegram.MatchString(artifact.Rel)
+}
+
+// SecondaryTolerance returns the wider window of the scheduler, whose
+// last_run follows the reply.
+func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
+	if p.tasks.MatchString(artifact.Rel) {
+		return tasksTolerance
+	}
+	return parser.DefaultTolerance
+}
+
+// Parse emits the rows of one Agent Zero file.
+func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	rel := artifact.Rel
+	switch {
+	case p.tasks.MatchString(rel):
+		p.parseTasks(artifact, emit)
+	case p.telegram.MatchString(rel):
+		return p.parseTelegram(artifact, emit)
+	case p.policy.MatchString(rel):
+		p.parsePolicy(artifact, p.policy.FindStringSubmatch(rel), emit)
+	case p.toggle.MatchString(rel):
+		p.parseToggle(artifact, p.toggle.FindStringSubmatch(rel), emit)
+	case p.connector.MatchString(rel):
+		p.parseConnector(artifact, emit)
+	default:
+		return p.parseChat(artifact, options, emit)
+	}
+	return nil
+}
+
+// groupOf returns the text a named group of a match holds.
+func groupOf(pattern *regexp.Regexp, match []string, name string) string {
+	return match[pattern.SubexpIndex(name)]
+}
+
+// stem returns a file name without its last suffix, as Python's Path.stem
+// gives it: a name that starts with its only dot has no suffix.
+func stem(name string) string {
+	if dot := strings.LastIndex(name, "."); dot > 0 && dot < len(name)-1 {
+		return name[:dot]
+	}
+	return name
+}
+
+// The interfaces the registry looks for, checked when the package builds.
+var (
+	_ parser.Parser          = (*Parser)(nil)
+	_ parser.SecondaryReader = (*Parser)(nil)
+	_ parser.ToleranceSetter = (*Parser)(nil)
+	_ parser.Marker          = (*Parser)(nil)
+)
