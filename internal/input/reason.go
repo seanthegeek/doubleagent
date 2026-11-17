@@ -2,8 +2,8 @@ package input
 
 import (
 	"errors"
-	"io/fs"
-	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/reason"
 )
 
 // errNotDirectory and errIsDirectory are the reasons given for a path whose
@@ -14,22 +14,9 @@ var (
 )
 
 // errorReason returns the reason a problem line or note gives for err,
-// without the path it names: a fixed lower-case phrase for a permission or
-// missing-file error, else the innermost error's own text lower-cased. It
-// is the one place the wording is chosen, so that the shared wording of the
-// operating-system errors can replace it.
+// without the path it names: the fixed wording every command shares.
 func errorReason(err error) string {
-	switch {
-	case errors.Is(err, fs.ErrPermission):
-		return "permission denied"
-	case errors.Is(err, fs.ErrNotExist):
-		return "no such file or directory"
-	}
-	var pathError *fs.PathError
-	if errors.As(err, &pathError) {
-		err = pathError.Err
-	}
-	return strings.ToLower(err.Error())
+	return reason.For(err)
 }
 
 // describeError returns "<path>: <reason>" for a problem line.
