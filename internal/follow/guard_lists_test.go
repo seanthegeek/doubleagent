@@ -17,8 +17,9 @@ package follow
 func reviewedImports() map[string]string {
 	noPath := []string{"archive/tar", "bufio", "bytes", "compress/bzip2", "compress/gzip",
 		"context", "crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex",
-		"errors", "fmt", "hash/crc32", "io", "io/fs", "math", "math/big", "os/signal", "path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv",
-		"strings", "testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
+		"errors", "fmt", "hash/crc32", "io", "io/fs", "iter", "math", "math/big", "os/signal",
+		"path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
+		"testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
 		// Decodes zstd data from an io.Reader the caller gives it; the names
 		// used are NewReader, WithDecoderConcurrency, WithDecoderLowmem,
 		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,
@@ -64,7 +65,7 @@ func safeNames() map[string][]string {
 		// takes no path; the operating system answers it from the process,
 		// though the Unix fallback stats "." and the working directory to
 		// check $PWD. SameFile compares two FileInfo values already read.
-		"os": {"Args", "DevNull", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
+		"os": {"Args", "DevNull", "DirEntry", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
 			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
 			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout", "SyscallError", "TempDir"},
 		// A zip reader over a handle already open, its types and errors;
@@ -215,6 +216,11 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked base"},
+		{"internal/parser/files.go", "osfile.Open", 1,
+			"reads an evidence file its own lstat typed a regular file, then checks the handle " +
+				"is that file"},
+		{"internal/parser/files.go", "osfile.ReadDir", 1,
+			"lists a directory of the input its own lstat typed a directory, not a link"},
 		{"internal/sqlitefile/path.go", "osfile.Open", 1,
 			"reads a database or sidecar its own lstat typed a regular file, then checks the handle " +
 				"is that file"},
