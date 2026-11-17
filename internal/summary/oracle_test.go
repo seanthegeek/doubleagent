@@ -3,11 +3,13 @@
 package summary
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -135,7 +137,7 @@ func runSh(t *testing.T, args ...string) (document, stdout string) {
 	return string(content), string(output)
 }
 
-// dropLines removes the lines that start with any of the quoted keys.
+// dropLines removes the lines that start with any of the keys.
 func dropLines(text string, keys ...string) string {
 	var kept []string
 	for _, line := range strings.Split(text, "\n") {
@@ -148,6 +150,37 @@ func dropLines(text string, keys ...string) string {
 		}
 	}
 	return strings.Join(kept, "\n")
+}
+
+// compactWithout returns the JSON object text with the whitespace between its
+// tokens removed and the named top-level fields left out, the others in
+// their order.
+func compactWithout(t *testing.T, text string, keys ...string) string {
+	t.Helper()
+	decoder := json.NewDecoder(strings.NewReader(text))
+	if _, err := decoder.Token(); err != nil {
+		t.Fatal(err)
+	}
+	var fields []string
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(keys, key.(string)) {
+			continue
+		}
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, value); err != nil {
+			t.Fatal(err)
+		}
+		fields = append(fields, `"`+key.(string)+`":`+compact.String())
+	}
+	return "{" + strings.Join(fields, ",") + "}"
 }
 
 // summaryFrom converts the sh collector's own report into a Summary, so the
@@ -241,11 +274,16 @@ func TestWritersMatchShCollector(t *testing.T) {
 			if err := WriteCollectionJSON(&got, summary); err != nil {
 				t.Fatal(err)
 			}
-			drop := []string{`"started"`, `"finished"`, `"archive"`, `"tool"`, `"version"`, `"capabilities"`}
-			// The binary's own --no-preserve-atime, which the sh collector
-			// does not have, is recorded at the end of the options line.
-			written := strings.Replace(got.String(), `, "no_preserve_atime": false}`, "}", 1)
-			if dropLines(written, drop...) != dropLines(document, drop...) {
+			// The binary lays the document out as encoding/json indents it, the
+			// sh collector keeps small objects and lists on one line: the two
+			// are compared with their insignificant whitespace removed, which
+			// leaves the field order and every value. The binary's own
+			// --no-preserve-atime, which the sh collector does not have, is the
+			// last of the options.
+			drop := []string{"started", "finished", "archive", "tool", "version", "capabilities"}
+			written := strings.Replace(compactWithout(t, got.String(), drop...),
+				`,"no_preserve_atime":false}`, "}", 1)
+			if written != compactWithout(t, document, drop...) {
 				t.Errorf("collection.json differs\ngo:\n%s\nsh:\n%s", got.String(), document)
 			}
 			var result strings.Builder

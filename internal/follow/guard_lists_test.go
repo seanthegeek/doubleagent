@@ -30,7 +30,12 @@ func reviewedImports() map[string]string {
 		// through the parser kit (Tabby's IntelliJ history, Cody's chat
 		// history); the names used are NewDecoder, the token types, Name and
 		// SyntaxError.
-		"encoding/xml"}
+		"encoding/xml",
+		// Writes the manifest rows, collection.json and the inventory lines to
+		// an io.Writer the caller gives it; the names used are NewEncoder and
+		// the Encoder's SetEscapeHTML, SetIndent and Encode, none of which
+		// takes a path.
+		"encoding/json"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}

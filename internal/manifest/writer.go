@@ -1,8 +1,8 @@
 package manifest
 
 import (
+	"encoding/json"
 	"io"
-	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -19,19 +19,20 @@ type Counts struct {
 // row, each path once per file system entry (syspath.Entries). It is not
 // safe for use by several goroutines.
 type Writer struct {
-	out    io.Writer
-	counts Counts
-	same   syspath.SameEntry
-	paths  *syspath.Entries[struct{}]
-	homes  *syspath.Entries[struct{}]
-	line   []byte
+	counts  Counts
+	same    syspath.SameEntry
+	paths   *syspath.Entries[struct{}]
+	homes   *syspath.Entries[struct{}]
+	encoder *json.Encoder
 }
 
 // NewWriter returns a Writer that appends rows to out. Until UseSameEntry
 // is called, two spellings of a path are two entries unless their bytes are
 // equal.
 func NewWriter(out io.Writer) *Writer {
-	writer := &Writer{out: out, counts: Counts{ByStatus: map[Status]int{}}}
+	encoder := json.NewEncoder(out)
+	encoder.SetEscapeHTML(false)
+	writer := &Writer{encoder: encoder, counts: Counts{ByStatus: map[Status]int{}}}
 	same := func(first, second string) bool {
 		return writer.same != nil && writer.same(first, second)
 	}
@@ -47,7 +48,7 @@ func (writer *Writer) UseSameEntry(same syspath.SameEntry) {
 	writer.same = same
 }
 
-// Write appends row as one line and counts it. A row is counted only when the
+// Write appends row as one line, one write to the output, and counts it. A row is counted only when the
 // write succeeds.
 func (writer *Writer) Write(row Row) error {
 	// The canonical forms are the keys; the written forms are native.
@@ -55,8 +56,7 @@ func (writer *Writer) Write(row Row) error {
 	ownRow := path == home && row.ArchivePath == "" && row.Type == "dir"
 	row.Path = syspath.ToNative(row.Path)
 	row.Home = syspath.ToNative(row.Home)
-	writer.line = appendRow(writer.line[:0], row)
-	if _, err := writer.out.Write(writer.line); err != nil {
+	if err := writer.encoder.Encode(jsonRowOf(row)); err != nil {
 		return err
 	}
 	writer.counts.ByStatus[row.Status]++
@@ -101,59 +101,4 @@ func nonNegative(value int64) int64 {
 		return 0
 	}
 	return value
-}
-
-// appendString appends `"key":"escaped value"` and the separator.
-func appendString(out []byte, key, value, separator string) []byte {
-	out = append(out, '"')
-	out = append(out, key...)
-	out = append(out, `":"`...)
-	out = appendEscaped(out, value)
-	out = append(out, '"')
-	return append(out, separator...)
-}
-
-// appendNumber appends `"key":value` and the separator.
-func appendNumber(out []byte, key string, value int64, separator string) []byte {
-	out = append(out, '"')
-	out = append(out, key...)
-	out = append(out, `":`...)
-	out = strconv.AppendInt(out, nonNegative(value), 10)
-	return append(out, separator...)
-}
-
-// appendRow appends the line for row, with no spaces, numbers and the secret
-// flag unquoted, and a final newline.
-func appendRow(out []byte, row Row) []byte {
-	out = append(out, '{')
-	out = appendString(out, "user", row.User, ",")
-	out = appendString(out, "home", row.Home, ",")
-	out = appendString(out, "agent", row.Agent, ",")
-	out = appendString(out, "path", row.Path, ",")
-	out = appendString(out, "archive_path", row.ArchivePath, ",")
-	out = appendString(out, "type", row.Type, ",")
-	out = appendNumber(out, "size", row.Size, ",")
-	out = appendNumber(out, "mtime", row.Mtime, ",")
-	out = appendNumber(out, "atime", row.Atime, ",")
-	out = appendNumber(out, "ctime", row.Ctime, ",")
-	out = appendNumber(out, "btime", row.Btime, ",")
-	out = appendNumber(out, "uid", int64(row.UID), ",")
-	out = appendNumber(out, "gid", int64(row.GID), ",")
-	out = appendString(out, "mode", row.Mode, ",")
-	out = appendPlatformFields(out, row)
-	out = appendString(out, "sha256", row.SHA256, ",")
-	out = append(out, `"secret":`...)
-	out = strconv.AppendBool(out, row.Secret)
-	out = append(out, ',')
-	out = appendString(out, "status", string(row.Status), ",")
-	out = appendString(out, "target", row.Target, ",")
-	out = appendString(out, "error", row.Error, "")
-	return append(out, "}\n"...)
-}
-
-// appendWindowsFields appends `"owner":"...","attributes":"...",`, the two
-// fields the PowerShell collector writes between mode and sha256.
-func appendWindowsFields(out []byte, row Row) []byte {
-	out = appendString(out, "owner", row.Owner, ",")
-	return appendString(out, "attributes", row.Attributes, ",")
 }

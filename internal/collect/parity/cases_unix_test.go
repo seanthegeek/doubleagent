@@ -44,6 +44,7 @@ func parityCases() []parityCase {
 		{name: "cdpath110", parallel: true, cwd: "{WORK}", root: "root", env: []string{"CDPATH={WORK}/cdp110"},
 			args: []string{"--no-docker", "--no-projects"}},
 		{name: "fold32", setup: setupUnreadableCaseVariant},
+		{name: "badname51", setup: setupBadName, expect: shownBadName},
 		{name: "batch71", root: "{WORK}/root71", args: []string{"--no-docker"}, setup: setupBatchRoot},
 		{name: "nobatch71", skip: "CAC_NO_BATCH selects the sh collector's per-file stage path, " +
 			"which the binary does not have"},

@@ -1,6 +1,6 @@
 // Package summary writes the run's two reports: collection.json, the
-// machine-readable record of the run, and the stdout summary, in the layout of
-// the sh collector's write_summary and print_result.
+// machine-readable record of the run, written through encoding/json, and the
+// stdout summary, in the layout of the sh collector's print_result.
 package summary
 
 import (
@@ -113,9 +113,9 @@ func ActiveUsers(homes []users.Home, hasRows func(home string) bool) []users.Hom
 	return active
 }
 
-// WriteCollectionJSON writes collection.json, in the sh collector's line
-// breaks and spacing.
+// WriteCollectionJSON writes collection.json through encoding/json: the
+// fields in the documented order, indented by two spaces, every object and list
+// with its items on lines of their own.
 func WriteCollectionJSON(w io.Writer, summary Summary) error {
-	_, err := w.Write(collectionJSON(summary))
-	return err
+	return encodeDocument(w, summary)
 }

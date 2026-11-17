@@ -7,8 +7,12 @@ import (
 	"testing"
 )
 
+// platformFieldsText is what a row holds between mode and sha256 on this
+// platform: nothing.
+const platformFieldsText = ""
+
 func TestUnixRowsCarryNoWindowsFields(t *testing.T) {
-	line := string(appendRow(nil, Row{Owner: "x", Attributes: "Hidden"}))
+	line := lineOf(t, Row{Owner: "x", Attributes: "Hidden"})
 	for _, field := range []string{`"owner"`, `"attributes"`} {
 		if strings.Contains(line, field) {
 			t.Errorf("row %s holds %s", line, field)

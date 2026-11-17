@@ -8,7 +8,10 @@
 // Windows ones (collection.json compared as parsed values, file-hint values,
 // the start lines' shape, the log lines only one collector writes, the two
 // mapped wordings, error records on stderr, the inventory log's order and
-// the link targets' spelling). Every other difference fails the case.
+// the link targets' spelling), and exception 51: a lone surrogate in a file
+// name, which the binary's JSON writer puts in the manifest as three U+FFFD
+// characters (one for each of its three WTF-8 bytes) where the PowerShell
+// collector writes one. Every other difference fails the case.
 
 package parity
 

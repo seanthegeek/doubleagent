@@ -80,7 +80,7 @@ func newWindowsNormaliser() normaliser {
 		}
 		manifest, members := run.files[".manifest.jsonl"], run.members
 		if binary {
-			manifest, members = replaceSurrogates(manifest), replaceMemberSurrogates(members)
+			manifest, members = replaceSurrogateCharacters(manifest), replaceMemberSurrogates(members)
 			members = blankLinkTargets(members, emptyTargets)
 		} else {
 			emptyTargets = emptyLinkTargets(members)
@@ -181,13 +181,24 @@ func replaceSurrogates(text string) string {
 	return out.String()
 }
 
+// replaceSurrogateCharacters returns the binary's manifest text with the
+// three U+FFFD characters encoding/json writes for a lone surrogate's three
+// WTF-8 bytes (exception 51) turned into the one the PowerShell collector's
+// UTF-8 writer writes. The Windows image's one name with a byte sequence
+// that is not valid UTF-8 is that lone surrogate, so no other run of three
+// replacement characters is in the text.
+func replaceSurrogateCharacters(text string) string {
+	return strings.ReplaceAll(text, "\uFFFD\uFFFD\uFFFD", "\uFFFD")
+}
+
 // replaceMemberSurrogates returns the archive's members with replaceSurrogates
-// applied to each name and to the archived manifest's text.
+// applied to each name, whose bytes the archive keeps, and
+// replaceSurrogateCharacters to the archived manifest's text.
 func replaceMemberSurrogates(members map[string]string) map[string]string {
 	replaced := make(map[string]string, len(members))
 	for name, description := range members {
 		if name == "./manifest.jsonl" {
-			description = replaceSurrogates(description)
+			description = replaceSurrogateCharacters(description)
 		}
 		replaced[replaceSurrogates(name)] = description
 	}
@@ -385,6 +396,21 @@ func TestTheWindowsLogDropsTheBinarysAccessTimeNotHeldLines(t *testing.T) {
 			got := normalWindowsLog(strings.Join(lines, "\n")+"\n", test.binary, true)
 			if got != test.want {
 				t.Errorf("normalWindowsLog = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTheBinarysThreeReplacementCharactersForALoneSurrogateAreOne(t *testing.T) {
+	cases := []struct{ name, text, want string }{
+		{"a lone surrogate's three characters become one", "a\uFFFD\uFFFD\uFFFDb", "a\uFFFDb"},
+		{"a name without one is unchanged", "a\u00e9b", "a\u00e9b"},
+		{"the bytes of a lone surrogate are not touched here", "a\xed\xa0\x80b", "a\xed\xa0\x80b"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := replaceSurrogateCharacters(test.text); got != test.want {
+				t.Errorf("replaceSurrogateCharacters(%q) = %q, want %q", test.text, got, test.want)
 			}
 		})
 	}
