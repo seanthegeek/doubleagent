@@ -77,6 +77,8 @@ func TestFileMtimeRoundsTheFileTimeAsPythonDoes(t *testing.T) {
 	}
 }
 
+// The times are whole multiples of 100 ns, the finest a Windows file time
+// holds.
 func TestMtimeSecondsIsThePythonStatFloat(t *testing.T) {
 	tests := []struct {
 		nanoseconds int64
@@ -85,7 +87,7 @@ func TestMtimeSecondsIsThePythonStatFloat(t *testing.T) {
 		{1790848800_123456789, 1790848800.1234567},
 		{1790848800_999999500, 1790848800.9999995},
 		{1790848799_999999999, 1790848800.0},
-		{1_000000001, 1.000000001},
+		{1_000000100, 1.0000001},
 	}
 	for _, test := range tests {
 		t.Run(strconv.FormatInt(test.nanoseconds, 10), func(t *testing.T) {
