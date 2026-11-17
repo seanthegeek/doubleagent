@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -93,7 +93,7 @@ func directoryFiles(directory string) ([]string, error) {
 	slices.Sort(names)
 	files := make([]string, len(names))
 	for i, name := range names {
-		files[i] = input.JoinPath(directory, name)
+		files[i] = filepath.Join(directory, name)
 	}
 	return files, nil
 }
@@ -251,14 +251,14 @@ func rollup(rows [][]string) []agentTotal {
 func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
 	files, err := fleetInputs(options.Inputs)
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %s\n", err)
+		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
 		return ExitError
 	}
 	var rows [][]string
 	for _, path := range files {
 		data, err := parser.ReadFile(path)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: %s\n", reason.Describe(path, err))
+			fmt.Fprint(stderr, "error: "+reason.Describe(path, err)+"\n")
 			return ExitError
 		}
 		text := strings.TrimPrefix(textlines.ValidUTF8(data), "\uFEFF")
@@ -270,7 +270,7 @@ func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
 	}
 	output := options.Output
 	if err := writeFleetCSV(output, rows); err != nil {
-		fmt.Fprintf(stderr, "error: %s\n", reason.Describe(output, err))
+		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
 		return ExitError
 	}
 	printFleet(stdout, rows, output)

@@ -231,13 +231,15 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) *Home {
 
 // memberPath returns where the collection holds archivePath, or the reason
 // it cannot be an artifact: absent, not a regular file, or a path that
-// would leave the collection (absolute, or with a ".." component).
+// would leave the collection: one starting with a slash, a backslash or a
+// drive, or with a ".." element between either kind of slash, on every
+// host.
 func memberPath(root, archivePath string) (string, string) {
 	if archivePath == "" {
 		return "", "missing from the collection"
 	}
-	form := parsePath(archivePath)
-	if form.drive != "" || form.root != "" || containsPart(form.parts, "..") {
+	if strings.HasPrefix(archivePath, "/") || strings.HasPrefix(archivePath, `\`) ||
+		windowsDrive(archivePath) != "" || containsPart(archiveParts(archivePath), "..") {
 		return "", "outside the collection"
 	}
 	diskPath := joinPath(root, archivePath)

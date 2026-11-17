@@ -16,9 +16,8 @@
 // every file system.
 //
 // The input's own path is kept as given; the paths found in it are joined
-// to its cleaned form (no doubled separator, no "." component, no trailing
-// separator, ".." kept), so one input gives one set of paths however its
-// path was spelt. Nothing here follows a
+// to its cleaned form (filepath.Clean) by filepath.Join, so one input gives
+// one set of paths however its path was spelt. Nothing here follows a
 // symbolic link inside the input, and extraction never writes outside its
 // directory: no link, hard link or device member is created, a member's name
 // is confined to the directory, and every file is created new.
@@ -27,6 +26,7 @@ package input
 import (
 	"errors"
 	"io/fs"
+	"path/filepath"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -217,7 +217,7 @@ func Open(path string, options Options) (*Collection, error) {
 	if options.Matcher == nil {
 		return nil, errors.New("input: Open needs a catalog matcher")
 	}
-	source := cleanPath(path)
+	source := filepath.Clean(path)
 	info, err := osfile.Stat(source)
 	if err != nil {
 		return nil, err

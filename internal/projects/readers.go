@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 )
 
 // The readers below reproduce the sh collector's `grep -o` and `sed`
@@ -54,7 +56,7 @@ func absStringMatcher(rules pathRules) func(line []byte) []string {
 	return func(line []byte) []string {
 		values := groupValues(pattern, line)
 		for i, value := range values {
-			if isDrivePath(value) {
+			if evidencepath.IsDrivePath(value) {
 				values[i] = drivePathText(value)
 			} else {
 				values[i] = localPath(value)

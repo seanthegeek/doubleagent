@@ -2,6 +2,7 @@ package input
 
 import (
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -16,21 +17,18 @@ func homeParents() [][]string {
 	return [][]string{{"home"}, {"Users"}, {"usr", "home"}, {"export", "home"}}
 }
 
-// directory is one directory of a walk: its cleaned path, its path as
-// JoinPath builds it from the walk's base (the form an error from listing
-// it names),
-// and its components below the walk's base.
+// directory is one directory of a walk: its path, joined to the walk's
+// base by filepath.Join, and its components below the walk's base.
 type directory struct {
-	form   pathForm
-	joined string
-	rel    []string
+	path string
+	rel  []string
 }
 
 // hit is a path a catalog pattern matched, with its components below the
 // home it was found in.
 type hit struct {
 	pattern *catalog.Pattern
-	form    pathForm
+	path    string
 	rel     []string
 }
 
@@ -38,35 +36,35 @@ type hit struct {
 // their files artifacts. fs/ without a manifest is taken as the root; a
 // root that is itself an agent directory makes its parent the one home.
 func (c *Collection) discoverLoose(matcher *catalog.Matcher) error {
-	tree := parsePath(c.Root)
+	tree := c.Root
 	if lstatMode(joinPath(c.Root, "fs")).IsDir() {
 		if _, err := osfile.Lstat(joinPath(c.Root, "manifest.jsonl")); err != nil {
-			tree = tree.join("fs")
+			tree = joinPath(tree, "fs")
 			c.Notes = append(c.Notes, "fs/ found without manifest.jsonl; treating fs/ as the root")
 		}
 	}
 	if c.agentDirectoryRoot(matcher, tree) {
 		return nil
 	}
-	c.walkForHomes(matcher, directory{form: tree, joined: tree.String()})
+	c.walkForHomes(matcher, directory{path: tree})
 	return nil
 }
 
 // agentDirectoryRoot handles a tree that is an agent directory (~/.claude
 // copied on its own): its parent is the home, restricted to the tree, and
 // nothing inside it is a home. It reports whether the tree was one.
-func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree pathForm) bool {
-	name := tree.name()
+func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree string) bool {
+	name := filepath.Base(tree)
 	for i := range matcher.Home {
 		pattern := &matcher.Home[i]
 		if pattern.Depth() != 1 || pattern.Agent == sharedAgent || !pattern.MatchSegment(0, name) {
 			continue
 		}
-		home := &Home{DiskPath: tree.parent().String(), User: userFromParts(resolvedParent(tree)),
+		home := &Home{DiskPath: parentPath(tree), User: userFromParts(resolvedParent(tree)),
 			Host: c.Host, Inferred: true}
 		c.Notes = append(c.Notes, "root is a "+pattern.Agent+" directory; treating its parent as the home")
 		c.Homes = append(c.Homes, home)
-		hits := []hit{{pattern: pattern, form: tree, rel: []string{name}}}
+		hits := []hit{{pattern: pattern, path: tree, rel: []string{name}}}
 		hits = append(hits, c.nestedMatches(matcher, tree)...)
 		c.addHits(home, hits)
 		return true
@@ -74,14 +72,13 @@ func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree pathForm)
 	return false
 }
 
-// resolvedParent returns the components of the tree's parent once its
-// links are resolved, as Path.resolve().parent gives them, or of its
-// lexical parent when it cannot be resolved.
-func resolvedParent(tree pathForm) []string {
-	if physical, err := stage.PhysicalDir(tree.String()); err == nil {
-		return parsePath(physical).parent().parts
+// resolvedParent returns the elements of the tree's parent once its links
+// are resolved, or of its parent as written when it cannot be resolved.
+func resolvedParent(tree string) []string {
+	if physical, err := stage.PhysicalDir(tree); err == nil {
+		return pathElements(parentPath(physical))
 	}
-	return tree.parent().parts
+	return pathElements(parentPath(tree))
 }
 
 // walkForHomes walks the tree from start top-down, each directory's
@@ -93,13 +90,13 @@ func (c *Collection) walkForHomes(matcher *catalog.Matcher, start directory) {
 	for len(stack) > 0 {
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		entries, err := c.listDirectory(current.joined)
+		entries, err := c.listDirectory(current.path)
 		if err != nil {
-			c.recordProblem(describeError(current.joined, err))
+			c.recordProblem(describeError(current.path, err))
 			continue
 		}
 		if holdsFirstSegment(matcher, entries) {
-			hits := c.matchesInHome(matcher, current.form)
+			hits := c.matchesInHome(matcher, current.path)
 			if hasAgentHit(hits) {
 				home := makeHome(current, c.Host)
 				c.Homes = append(c.Homes, home)
@@ -141,8 +138,8 @@ func subdirectories(parent directory, entries []fs.DirEntry) []directory {
 	for i := len(entries) - 1; i >= 0; i-- {
 		if entries[i].IsDir() {
 			name := entries[i].Name()
-			children = append(children, directory{form: parent.form.join(name),
-				joined: JoinPath(parent.joined, name), rel: appendPart(parent.rel, name)})
+			children = append(children, directory{path: joinPath(parent.path, name),
+				rel: appendPart(parent.rel, name)})
 		}
 	}
 	return children
@@ -165,7 +162,7 @@ func makeHome(place directory, host string) *Home {
 	if len(place.rel) > 0 {
 		original = "/" + joinSlash(place.rel)
 	}
-	return &Home{DiskPath: place.form.String(), Original: original, User: user, Host: host, Inferred: true}
+	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true}
 }
 
 // userFromParts returns the owner of a home from its path components, or

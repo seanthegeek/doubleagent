@@ -124,7 +124,7 @@ func verifySidecar(archive, sidecar string) (string, error) {
 		return "", &fs.PathError{Op: "read", Path: archive, Err: err}
 	}
 	actual := hex.EncodeToString(digest.Sum(nil))
-	name := parsePath(sidecar).name()
+	name := filepath.Base(sidecar)
 	if actual == expected {
 		return "archive sha256 verified against " + name, nil
 	}

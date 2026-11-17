@@ -9,6 +9,7 @@ import (
 	"hash/crc32"
 	"io"
 	"os"
+	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -178,7 +179,7 @@ func extractZip(file *os.File, size int64, path string, out *extraction) error {
 		if !zipNameAllowed(name) {
 			continue
 		}
-		parts := components(name, "/")
+		parts := memberElements(name)
 		if strings.HasSuffix(name, "/") {
 			if err := out.makeDirectories(parts); err != nil {
 				return err
@@ -190,6 +191,16 @@ func extractZip(file *os.File, size int64, path string, out *extraction) error {
 		}
 	}
 	return nil
+}
+
+// memberElements returns the elements of a member name that holds no ".."
+// element: path.Clean drops the empty and "." ones.
+func memberElements(name string) []string {
+	cleaned := path.Clean(name)
+	if cleaned == "." {
+		return nil
+	}
+	return strings.Split(cleaned, "/")
 }
 
 // extractZipMember writes one file member.

@@ -2,6 +2,7 @@ package input
 
 import (
 	"io/fs"
+	"path/filepath"
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -16,7 +17,7 @@ type listingCache map[string][]fs.DirEntry
 // matchesInHome returns every catalog hit under home, pattern by pattern in
 // table order, each pattern's hits in name order. Expansion goes segment
 // by segment through listings, entering only real directories.
-func (c *Collection) matchesInHome(matcher *catalog.Matcher, home pathForm) []hit {
+func (c *Collection) matchesInHome(matcher *catalog.Matcher, home string) []hit {
 	cache := listingCache{}
 	var hits []hit
 	for i := range matcher.Home {
@@ -28,15 +29,16 @@ func (c *Collection) matchesInHome(matcher *catalog.Matcher, home pathForm) []hi
 // nestedMatches returns the hits of the entries with two or more segments
 // whose first segment names the agent directory tree, such as
 // .gemini/antigravity-cli inside a .gemini given as the root.
-func (c *Collection) nestedMatches(matcher *catalog.Matcher, tree pathForm) []hit {
+func (c *Collection) nestedMatches(matcher *catalog.Matcher, tree string) []hit {
 	cache := listingCache{}
 	var hits []hit
+	name := filepath.Base(tree)
 	for i := range matcher.Home {
 		pattern := &matcher.Home[i]
-		if pattern.Depth() < 2 || !pattern.MatchSegment(0, tree.name()) {
+		if pattern.Depth() < 2 || !pattern.MatchSegment(0, name) {
 			continue
 		}
-		hits = c.expand(pattern, 1, tree, []string{tree.name()}, cache, hits)
+		hits = c.expand(pattern, 1, tree, []string{name}, cache, hits)
 	}
 	return hits
 }
@@ -44,12 +46,12 @@ func (c *Collection) nestedMatches(matcher *catalog.Matcher, tree pathForm) []hi
 // expand appends to hits each path below base that segments index onward
 // of pattern match. The last segment matches any entry, a link included;
 // an earlier one only a real directory.
-func (c *Collection) expand(pattern *catalog.Pattern, index int, base pathForm, rel []string,
+func (c *Collection) expand(pattern *catalog.Pattern, index int, base string, rel []string,
 	cache listingCache, hits []hit) []hit {
 	if index == pattern.Depth() {
-		return append(hits, hit{pattern: pattern, form: base, rel: rel})
+		return append(hits, hit{pattern: pattern, path: base, rel: rel})
 	}
-	key := base.String()
+	key := base
 	entries, listed := cache[key]
 	if !listed {
 		var err error
@@ -65,7 +67,7 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base pathForm, 
 		if !pattern.MatchSegment(index, name) || (!last && !entry.IsDir()) {
 			continue
 		}
-		hits = c.expand(pattern, index+1, base.join(name), appendPart(rel, name), cache, hits)
+		hits = c.expand(pattern, index+1, joinPath(base, name), appendPart(rel, name), cache, hits)
 	}
 	return hits
 }
@@ -80,8 +82,7 @@ func (c *Collection) addHits(home *Home, hits []hit) {
 	})
 	seen := map[string]bool{}
 	for _, found := range hits {
-		c.walkFiles(found.form, found.rel, func(form pathForm, rel []string) {
-			diskPath := form.String()
+		c.walkFiles(found.path, found.rel, func(diskPath string, rel []string) {
 			if seen[diskPath] {
 				return
 			}
@@ -101,11 +102,11 @@ func (c *Collection) addHits(home *Home, hits []hit) {
 // file below it when it is a directory, top-down in name order; links
 // are never followed or yielded. A start that is neither, or a directory
 // that cannot be listed, is a problem.
-func (c *Collection) walkFiles(start pathForm, rel []string, yield func(pathForm, []string)) {
-	info, err := osfile.Lstat(start.String())
+func (c *Collection) walkFiles(start string, rel []string, yield func(string, []string)) {
+	info, err := osfile.Lstat(start)
 	switch {
 	case err != nil:
-		c.recordProblem(describeError(start.String(), err))
+		c.recordProblem(describeError(start, err))
 		return
 	case info.Mode()&fs.ModeSymlink != 0:
 		return
@@ -113,21 +114,21 @@ func (c *Collection) walkFiles(start pathForm, rel []string, yield func(pathForm
 		yield(start, rel)
 		return
 	case !info.IsDir():
-		c.recordProblem(describeError(start.String(), errNotDirectory))
+		c.recordProblem(describeError(start, errNotDirectory))
 		return
 	}
-	stack := []directory{{form: start, joined: start.String(), rel: rel}}
+	stack := []directory{{path: start, rel: rel}}
 	for len(stack) > 0 {
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		entries, err := c.listDirectory(current.joined)
+		entries, err := c.listDirectory(current.path)
 		if err != nil {
-			c.recordProblem(describeError(current.joined, err))
+			c.recordProblem(describeError(current.path, err))
 			continue
 		}
 		for _, entry := range entries {
 			if entry.Type()&(fs.ModeDir|fs.ModeSymlink|fs.ModeIrregular) == 0 {
-				yield(current.form.join(entry.Name()), appendPart(current.rel, entry.Name()))
+				yield(joinPath(current.path, entry.Name()), appendPart(current.rel, entry.Name()))
 			}
 		}
 		stack = append(stack, subdirectories(current, entries)...)

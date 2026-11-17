@@ -1,150 +1,38 @@
 package input
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
-// pathForm is a path split into its anchor (a drive and a root, either
-// possibly empty) and the components below it, with empty and "."
-// components gone and ".." kept. The input's paths are joined and compared
-// in this form, so a collection read from "coll/" and from "coll" gives the
-// same disk paths.
-type pathForm struct {
-	drive, root string
-	parts       []string
-	windows     bool
-}
-
-// String returns the path with the platform's separator between its
-// components: "." for an empty relative path, and ".\" before a Windows
-// relative path whose first component would read as a drive.
-func (p pathForm) String() string {
-	separator := "/"
-	if p.windows {
-		separator = `\`
-	}
-	if p.drive != "" || p.root != "" {
-		return p.drive + p.root + strings.Join(p.parts, separator)
-	}
-	if len(p.parts) == 0 {
-		return "."
-	}
-	if p.windows && windowsDrive(p.parts[0]) != "" {
-		return `.\` + strings.Join(p.parts, separator)
-	}
-	return strings.Join(p.parts, separator)
-}
-
-// name returns the last component, "" for an anchor alone.
-func (p pathForm) name() string {
-	if len(p.parts) == 0 {
-		return ""
-	}
-	return p.parts[len(p.parts)-1]
-}
-
-// parent returns the path less its last component, or itself when it has
-// none.
-func (p pathForm) parent() pathForm {
-	if len(p.parts) == 0 {
-		return p
-	}
-	p.parts = p.parts[: len(p.parts)-1 : len(p.parts)-1]
-	return p
-}
-
-// join returns p with each element appended: an element with a root
-// replaces the path (keeping the drive on Windows unless the element names
-// its own).
-func (p pathForm) join(elements ...string) pathForm {
-	for _, element := range elements {
-		next := parsePathAs(element, p.windows)
-		switch {
-		case next.drive != "":
-			p = next
-		case next.root != "":
-			next.drive = p.drive
-			p = next
-		default:
-			p.parts = append(p.parts[:len(p.parts):len(p.parts)], next.parts...)
-		}
-	}
-	return p
-}
-
-// parsePathAs splits path with the POSIX or, when windows is set, the
-// Windows rules.
-func parsePathAs(path string, windows bool) pathForm {
-	if windows {
-		return parseWindowsPath(path)
-	}
-	return parsePosixPath(path)
-}
-
-// parsePosixPath splits a POSIX path: exactly two leading slashes are kept
-// as the root (POSIX leaves their meaning to the system), one or three and
-// more become one.
-func parsePosixPath(path string) pathForm {
-	form := pathForm{}
-	if strings.HasPrefix(path, "/") {
-		form.root = "/"
-		if strings.HasPrefix(path, "//") && !strings.HasPrefix(path, "///") {
-			form.root = "//"
-		}
-	}
-	form.parts = components(path, "/")
-	return form
-}
-
-// parseWindowsPath splits a Windows path: slashes become backslashes, then
-// a drive (`C:`, `\\server\share` or a `\\?\` device) and a root are taken
-// off the front.
-func parseWindowsPath(path string) pathForm {
-	path = strings.ReplaceAll(path, "/", `\`)
-	form := pathForm{windows: true}
-	rest := path
+// parentPath returns a cleaned path less its last element, as filepath.Dir
+// gives it: "." for a name alone, the volume and root for an element
+// directly under the root. It stands in for filepath.Dir, which the import
+// guard does not allow in this package.
+func parentPath(path string) string {
+	volume := filepath.VolumeName(path)
+	rest := path[len(volume):]
+	last := strings.LastIndexFunc(rest, isSeparator)
 	switch {
-	case strings.HasPrefix(path, `\\`):
-		form.drive, form.root, rest = splitWindowsShare(path)
-	case strings.HasPrefix(path, `\`):
-		form.root, rest = `\`, path[1:]
-	case windowsDrive(path) != "":
-		form.drive, rest = path[:2], path[2:]
-		if strings.HasPrefix(rest, `\`) {
-			form.root, rest = `\`, rest[1:]
-		}
+	case last < 0 && volume != "":
+		return volume
+	case last < 0:
+		return "."
+	case last == 0:
+		return volume + rest[:1]
 	}
-	form.parts = components(rest, `\`)
-	return form
+	return volume + rest[:last]
 }
 
-// splitWindowsShare splits a path starting with two backslashes into the
-// share or device that is its drive, its root and the rest; a share whose
-// path has no root gets one.
-func splitWindowsShare(path string) (drive, root, rest string) {
-	start := 2
-	if len(path) >= 8 && strings.EqualFold(path[:8], `\\?\UNC\`) {
-		start = 8
-	}
-	first := strings.IndexByte(path[start:], '\\')
-	if first < 0 {
-		return path, "", ""
-	}
-	first += start
-	second := strings.IndexByte(path[first+1:], '\\')
-	if second < 0 {
-		drive = path
-	} else {
-		second += first + 1
-		drive, root, rest = path[:second], `\`, path[second+1:]
-	}
-	if root == "" && !strings.HasSuffix(drive, `\`) {
-		// A third piece of "?", "." or nothing names a device, which takes no
-		// root of its own.
-		pieces := strings.Split(drive, `\`)
-		if len(pieces) == 4 && !strings.Contains("?.", pieces[2]) || len(pieces) == 6 {
-			root = `\`
-		}
-	}
-	return drive, root, rest
+// pathElements returns the elements of a host path below its volume and
+// root, empty ones dropped.
+func pathElements(path string) []string {
+	return strings.FieldsFunc(path[len(filepath.VolumeName(path)):], isSeparator)
+}
+
+// joinPath returns base with elements joined to it by filepath.Join.
+func joinPath(base string, elements ...string) string {
+	return filepath.Join(append([]string{base}, elements...)...)
 }
 
 // windowsDrive returns the `X:` drive that starts path, or "".
@@ -158,28 +46,4 @@ func windowsDrive(path string) string {
 // isASCIILetter reports whether character is an ASCII letter.
 func isASCIILetter(character byte) bool {
 	return ('a' <= character && character <= 'z') || ('A' <= character && character <= 'Z')
-}
-
-// components splits text at separator, dropping empty and "." parts.
-func components(text, separator string) []string {
-	var parts []string
-	for _, part := range strings.Split(text, separator) {
-		if part != "" && part != "." {
-			parts = append(parts, part)
-		}
-	}
-	return parts
-}
-
-// cleanPath returns path in the form the input's paths are joined in:
-// repeated separators and "." components removed, ".." kept, no trailing
-// separator, "." for an empty path.
-func cleanPath(path string) string {
-	return parsePath(path).String()
-}
-
-// joinPath returns base with elements joined to it, as pathForm.join
-// joins them, in this platform's form.
-func joinPath(base string, elements ...string) string {
-	return parsePath(base).join(elements...).String()
 }

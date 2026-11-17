@@ -247,18 +247,18 @@ func detectDocument(detected detection, collection *input.Collection, files bool
 // holds no agent files.
 func printDetect(w io.Writer, detected detection, collection *input.Collection,
 	parsed map[string]bool, files bool) int {
-	fmt.Fprintf(w, "input:   %s\n", collection.Source)
+	fmt.Fprint(w, "input:   "+collection.Source+"\n")
 	kind := collection.Kind
 	if kind == input.KindLoose {
 		kind += " (no manifest; user and home inferred from paths)"
 	}
-	fmt.Fprintf(w, "kind:    %s\n", kind)
-	fmt.Fprintf(w, "host:    %s\n", orUnknown(collection.Host))
+	fmt.Fprint(w, "kind:    "+kind+"\n")
+	fmt.Fprint(w, "host:    "+orUnknown(collection.Host)+"\n")
 	for _, note := range collection.Notes {
-		fmt.Fprintf(w, "note:    %s\n", note)
+		fmt.Fprint(w, "note:    "+note+"\n")
 	}
 	for _, problem := range collection.Problems {
-		fmt.Fprintf(w, "problem: %s\n", problem)
+		fmt.Fprint(w, "problem: "+problem+"\n")
 	}
 	table := detectTable(collection, parsed)
 	if len(table) == 0 && len(detected.projects) == 0 {
@@ -273,7 +273,7 @@ func printDetect(w io.Writer, detected detection, collection *input.Collection,
 	if files {
 		fmt.Fprintln(w)
 		for _, artifact := range collection.Artifacts {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", artifact.Home.User, artifact.Agent, artifact.Original)
+			fmt.Fprint(w, artifact.Home.User+"\t"+artifact.Agent+"\t"+artifact.Original+"\n")
 		}
 	}
 	return ExitFound
@@ -370,7 +370,7 @@ func printProjectTable(w io.Writer, projects []projectEntry) {
 			line("(shared)", fmt.Sprint(project.sharedFiles), fmt.Sprint(project.sharedBytes), "")
 		}
 		if len(project.git.remotes) > 0 {
-			fmt.Fprintf(w, "  remotes: %s\n", remotesText(project.git.remotes))
+			fmt.Fprint(w, "  remotes: "+remotesText(project.git.remotes)+"\n")
 		}
 	}
 }

@@ -2,11 +2,12 @@ package projects
 
 import (
 	"context"
-	"github.com/seanthegeek/doubleagent/internal/follow"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/follow"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"

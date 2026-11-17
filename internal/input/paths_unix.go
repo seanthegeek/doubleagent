@@ -4,22 +4,12 @@ package input
 
 import "strings"
 
-// parsePath splits path with this platform's rules.
-func parsePath(path string) pathForm { return parsePosixPath(path) }
-
 // samePath reports whether two cleaned paths name one place: byte for
 // byte on POSIX.
 func samePath(first, second string) bool { return first == second }
 
-// JoinPath returns a path as given with name joined to it: name follows
-// directory after a separator unless directory is empty or already ends
-// with one; nothing else of directory changes.
-func JoinPath(directory, name string) string {
-	if directory == "" || directory[len(directory)-1] == '/' {
-		return directory + name
-	}
-	return directory + "/" + name
-}
+// isSeparator reports whether char separates the elements of a host path.
+func isSeparator(char rune) bool { return char == '/' }
 
 // trimRightSlash removes trailing slashes.
 func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }

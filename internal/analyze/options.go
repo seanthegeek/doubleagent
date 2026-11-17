@@ -109,8 +109,7 @@ func (c *commandLine) option(args []string, seen map[string]bool) (int, error) {
 	}
 	if flag, ok := c.flags[name]; ok {
 		if hasAttached {
-			return 0, &UsageError{c.command, fmt.Sprintf("Option %s takes no value: %s", name,
-				args[0])}
+			return 0, &UsageError{c.command, "Option " + name + " takes no value: " + args[0]}
 		}
 		*flag = true
 		return 0, nil

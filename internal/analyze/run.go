@@ -90,7 +90,7 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 		options, help, err = ParseCatalog(args[1:])
 		run = func() int { return runCatalog(options, env, stdout, stderr) }
 	default:
-		fmt.Fprintf(stderr, "error: unknown command %s\n", args[0])
+		fmt.Fprint(stderr, "error: unknown command "+args[0]+"\n")
 		return ExitError
 	}
 	return finish(args[0], help, err, run, stdout, stderr)
@@ -130,7 +130,7 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 		fmt.Fprintln(stderr, "interrupted")
 		return ExitInterrupted
 	}
-	fmt.Fprintf(stderr, "error: %s\n", message)
+	fmt.Fprint(stderr, "error: "+message+"\n")
 	return ExitError
 }
 
@@ -170,6 +170,6 @@ func closeInput(collection *input.Collection, keep bool, stderr io.Writer) {
 		return
 	}
 	if extracted := collection.ExtractedDir(); extracted != "" {
-		fmt.Fprintf(stderr, "extracted to: %s\n", extracted)
+		fmt.Fprint(stderr, "extracted to: "+extracted+"\n")
 	}
 }

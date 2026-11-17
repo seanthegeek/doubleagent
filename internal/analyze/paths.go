@@ -2,20 +2,10 @@ package analyze
 
 import "strings"
 
-// pathParts returns the components of text split at separator, without
-// empty and "." ones.
-func pathParts(text, separator string) []string {
-	var parts []string
-	for _, part := range strings.Split(text, separator) {
-		if part != "" && part != "." {
-			parts = append(parts, part)
-		}
-	}
-	return parts
-}
-
-// pathParent returns the directory part of a path: "." for a name alone,
-// the root for a name directly under it.
+// pathParent returns the directory part of a host path, as filepath.Dir
+// gives it for a cleaned path: "." for a name alone, the root for a name
+// directly under it. It stands in for filepath.Dir, which the import guard
+// allows in no file of this package.
 func pathParent(path string) string {
 	index := strings.LastIndexAny(path, `/\`)
 	switch {
