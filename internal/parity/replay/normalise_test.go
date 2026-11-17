@@ -152,13 +152,14 @@ func usageText(text string) (string, int) {
 var errorMarker = regexp.MustCompile(`parser: |^problem: |^error: `)
 
 // libraryShapes are the library and system error details as Python words
-// them, each replaced by a token naming its source. A detail inside JSON text
-// stops at a quote.
+// them, and as the binary words those it words differently, each replaced
+// by a token naming its source. A detail inside JSON text stops at a quote.
 var libraryShapes = []struct {
 	pattern *regexp.Regexp
 	token   string
 }{
 	{regexp.MustCompile(`[A-Z][^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
+	{regexp.MustCompile(`invalid JSON at line [0-9]+, column [0-9]+: [^()"\n]*`), "{json error}"},
 	{regexp.MustCompile(`[A-Za-z][^()"\n]*(?: \([^()"\n]*\))?: line [0-9]+, column [0-9]+`),
 		"{xml error}"},
 	{regexp.MustCompile(`[A-Z][^()"\n]* \(at (?:line [0-9]+, column [0-9]+|end of document)\)`),
