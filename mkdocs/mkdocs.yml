@@ -39,7 +39,6 @@ exclude_docs: |
   **/.*/**
   /README.md
   /SECURITY.md
-  /THIRD-PARTY-NOTICES.md
   /CLAUDE.md
   /mkdocs/**
   /analyzer/doubleagent/**

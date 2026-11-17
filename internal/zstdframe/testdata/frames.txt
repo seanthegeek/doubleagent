@@ -27,3 +27,4 @@ multi-frame	72674e7c5a57e83afa8c52b16b4fc337275e6cc86cb9e76cdc7982ca15364a31	125
 skippable-between	786294a96a3076e8e2175752dc5c1c3987d4369db5acc196a78fdfaa55a997f7	5300	a skippable frame between two frames
 wide-window	a7806550d215bca145008cc2e1bea40f3d8fd79d6dea31968f15ad990d92b3cb	300000	announces a 128 MiB window, matches near
 far-reference	f085afdcf2bf42aa034faad63ea49e924f4361fc94b6f7e0d4eea109b4b2aa47	9445376	128 MiB window, a match 9 MiB back
+too-wide-window	b215de235663c477fad7f9d233008ceecf3ccdf9e6357aab4108205988ef7711	5000	announces a 256 MiB window

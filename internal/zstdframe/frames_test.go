@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -55,7 +56,7 @@ func digestOf(data []byte) string {
 
 func TestDecodeAllMatchesWhatPythonCompressed(t *testing.T) {
 	for _, test := range loadFrames(t) {
-		if strings.HasPrefix(test.name, "far-") {
+		if test.name == "too-wide-window" {
 			continue
 		}
 		t.Run(test.name, func(t *testing.T) {
@@ -73,7 +74,7 @@ func TestDecodeAllMatchesWhatPythonCompressed(t *testing.T) {
 
 func TestDecodeStreamEmitsTheSameBytesFromASlowReader(t *testing.T) {
 	for _, test := range loadFrames(t) {
-		if test.size > 1<<20 || strings.HasPrefix(test.name, "far-") {
+		if test.size > 1<<20 || test.name == "too-wide-window" {
 			continue
 		}
 		t.Run(test.name, func(t *testing.T) {
@@ -91,7 +92,7 @@ func TestDecodeStreamEmitsTheSameBytesFromASlowReader(t *testing.T) {
 }
 
 func TestFramesCoverTheShapesTheAgentsWrite(t *testing.T) {
-	want := map[string]bool{"size1000-nosize": false, "multi-frame": false, "far-reference": false}
+	want := map[string]bool{"size1000-nosize": false, "multi-frame": false, "far-reference": false, "too-wide-window": false}
 	for _, test := range loadFrames(t) {
 		if _, ok := want[test.name]; ok {
 			want[test.name] = true
@@ -232,13 +233,100 @@ func TestEmitErrorStopsTheStream(t *testing.T) {
 	}
 }
 
-func TestMatchBeyondTheKeptWindowIsCorruptNotCrashing(t *testing.T) {
-	// The frame announces a 128 MiB window and holds a match 9 MiB back, more
-	// than MaxWindowSize bytes.
-	_, err := DecodeAll(loadNamed(t, "far-reference"), 1<<30)
-	if !errors.Is(err, ErrCorrupt) || !strings.Contains(err.Error(), "offset past window") {
+func TestAMatchNineMebibytesBackIsDecoded(t *testing.T) {
+	// The frame announces a 128 MiB window and holds a match 9 MiB back.
+	for _, test := range loadFrames(t) {
+		if test.name != "far-reference" {
+			continue
+		}
+		got, err := DecodeAll(test.frame, 1<<30)
+		if err != nil || len(got) != test.size || digestOf(got) != test.digest {
+			t.Fatalf("got %d bytes, digest %s, err %v", len(got), digestOf(got), err)
+		}
+	}
+}
+
+func TestAWindowAboveTheLimitIsRefusedWithoutAllocatingIt(t *testing.T) {
+	frame := loadNamed(t, "too-wide-window")
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, err := DecodeAll(frame, 1<<30)
+	runtime.ReadMemStats(&after)
+	if !errors.Is(err, ErrTooLarge) || errors.Is(err, ErrCorrupt) {
 		t.Fatalf("got %v", err)
 	}
+	if grown := after.TotalAlloc - before.TotalAlloc; grown > 16<<20 {
+		t.Fatalf("a refused frame allocated %d bytes", grown)
+	}
+}
+
+func TestASmallFrameAnnouncingTheLargestWindowCostsAboutThatWindow(t *testing.T) {
+	// The frame of too-wide-window with its window byte set to 2^27 bytes.
+	frame := append([]byte{}, loadNamed(t, "too-wide-window")...)
+	frame[5] = 17 << 3
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	var total int
+	err := DecodeStream(bytes.NewReader(frame), func(chunk []byte) error {
+		total += len(chunk)
+		return nil
+	})
+	runtime.ReadMemStats(&after)
+	if err != nil || total != 5000 {
+		t.Fatalf("decoded %d bytes, err %v", total, err)
+	}
+	grown := after.TotalAlloc - before.TotalAlloc
+	if grown < MaxWindowSize || grown > MaxWindowSize+2<<20 {
+		t.Fatalf("one decode allocated %d bytes, want the window of %d and under 2 MiB more", grown, MaxWindowSize)
+	}
+}
+
+func TestADecodeStartsNoGoroutines(t *testing.T) {
+	before := runtime.NumGoroutine()
+	frame := loadNamed(t, "size300000-level3")
+	err := DecodeStream(bytes.NewReader(frame), func([]byte) error {
+		if during := runtime.NumGoroutine(); during > before {
+			t.Errorf("%d goroutines during the decode, %d before", during, before)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after := runtime.NumGoroutine(); after > before {
+		t.Fatalf("%d goroutines after the decode, %d before", after, before)
+	}
+}
+
+func TestADamagedBlockInFullInputIsNeverCalledTruncatedEvenFromAReaderThatReturnsEOFWithData(t *testing.T) {
+	good := loadNamed(t, "size300000-level19")
+	for place := 20; place < len(good); place += 1 + len(good)/400 {
+		damaged := flip2(good, place, 0xFF)
+		_, err := DecodeAll(damaged, 1<<30)
+		if errors.Is(err, ErrTruncated) {
+			t.Fatalf("byte %d damaged: got %v", place, err)
+		}
+		var out bytes.Buffer
+		err = DecodeStream(&dataWithEOF{data: damaged}, func(chunk []byte) error {
+			out.Write(chunk)
+			return nil
+		})
+		if errors.Is(err, ErrTruncated) {
+			t.Fatalf("byte %d damaged, EOF with the last data: got %v", place, err)
+		}
+	}
+}
+
+// dataWithEOF returns its bytes in one read together with io.EOF.
+type dataWithEOF struct{ data []byte }
+
+func (d *dataWithEOF) Read(buffer []byte) (int, error) {
+	n := copy(buffer, d.data)
+	d.data = d.data[n:]
+	if len(d.data) > 0 {
+		return n, nil
+	}
+	return n, io.EOF
 }
 
 func FuzzDecodeAll(fuzzer *testing.F) {

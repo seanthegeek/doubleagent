@@ -17,9 +17,13 @@ package follow
 func reviewedImports() map[string]string {
 	noPath := []string{"archive/tar", "bufio", "bytes", "compress/bzip2", "compress/gzip",
 		"context", "crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex",
-		"errors", "fmt", "hash/crc32", "io", "io/fs", "math", "math/big", "math/bits",
-		"os/signal", "path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv",
-		"strings", "testing", "time", "unicode", "unicode/utf16", "unicode/utf8"}
+		"errors", "fmt", "hash/crc32", "io", "io/fs", "math", "math/big", "os/signal", "path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv",
+		"strings", "testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
+		// Decodes zstd data from an io.Reader the caller gives it; the names
+		// used are NewReader, WithDecoderConcurrency, WithDecoderLowmem,
+		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,
+		// none of which takes a path.
+		"github.com/klauspost/compress/zstd"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}

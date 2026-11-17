@@ -64,6 +64,18 @@ def wide_window(data):
     return zstandard.ZstdCompressor(compression_params=params).compress(data)
 
 
+def too_wide(data):
+    """Return `data` as a frame without a content size whose header announces a 256 MiB window.
+
+    The compressor shrinks the window to fit small input, so the window byte is rewritten:
+    exponent 18 gives 2^(10+18) bytes. Python's streaming decoders refuse such a frame.
+    """
+    frame = bytearray(compress(data, 3, content_size=False))
+    assert frame[4] == 0x00, "a window byte follows only when the single-segment bit is clear"
+    frame[5] = 18 << 3
+    return bytes(frame)
+
+
 def cases():
     """Return the (name, shape, decoded bytes, frame bytes) cases."""
     out = []
@@ -96,6 +108,8 @@ def cases():
     out.append(("wide-window", "announces a 128 MiB window, matches near", wide, wide_window(wide)))
     data, frame = far_reference()
     out.append(("far-reference", "128 MiB window, a match 9 MiB back", data, frame))
+    small = jsonl(5000, 8)
+    out.append(("too-wide-window", "announces a 256 MiB window", small, too_wide(small)))
     return out
 
 
