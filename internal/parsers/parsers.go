@@ -49,6 +49,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
 	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
 	"github.com/seanthegeek/doubleagent/internal/parser/vscode"
+	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -70,6 +71,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return goose.New() },
 		func() parser.Parser { return continuedev.New() },
 		func() parser.Parser { return aider.New() },
+		func() parser.Parser { return zed.New() },
 		func() parser.Parser { return vscode.New() },
 		func() parser.Parser { return opencode.New() },
 		func() parser.Parser { return kilocode.New() },
