@@ -16,8 +16,9 @@ func homeParents() [][]string {
 	return [][]string{{"home"}, {"Users"}, {"usr", "home"}, {"export", "home"}}
 }
 
-// directory is one directory of a walk: its path as pathlib prints it, its
-// path as os.path.join builds it (the form an error from listing it names),
+// directory is one directory of a walk: its cleaned path, its path as
+// JoinPath builds it from the walk's base (the form an error from listing
+// it names),
 // and its components below the walk's base.
 type directory struct {
 	form   pathForm
@@ -141,7 +142,7 @@ func subdirectories(parent directory, entries []fs.DirEntry) []directory {
 		if entries[i].IsDir() {
 			name := entries[i].Name()
 			children = append(children, directory{form: parent.form.join(name),
-				joined: osJoin(parent.joined, name), rel: appendPart(parent.rel, name)})
+				joined: JoinPath(parent.joined, name), rel: appendPart(parent.rel, name)})
 		}
 	}
 	return children

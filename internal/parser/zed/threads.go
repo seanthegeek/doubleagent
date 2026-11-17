@@ -84,7 +84,7 @@ func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, string) {
 	}
 	stored := data.Bytes
 	if data.Type != sqlitefile.Blob && data.Type != sqlitefile.Text {
-		stored = []byte(data.Str())
+		stored = []byte(data.String())
 	}
 	isZstd := strings.ToLower(columnStr(record.Get("data_type"))) == "zstd"
 	raw, failure := stored, ""

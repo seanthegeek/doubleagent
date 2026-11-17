@@ -103,8 +103,8 @@ func readCatalog(path string) ([]sqlitefile.Row, string) {
 // conversationRows emits the three rows of one conversation.
 func (p *Parser) conversationRows(artifact *input.Artifact, record sqlitefile.Row, emit parser.Emit) {
 	threadID := ""
-	if thread := record.Get("thread_id"); thread.Truthy() {
-		threadID = thread.Str()
+	if thread := record.Get("thread_id"); !thread.IsEmpty() {
+		threadID = thread.String()
 	}
 	created := parser.ColumnTime(record.Get("source_created_at"))
 	updated := parser.ColumnTime(record.Get("source_updated_at"))
@@ -131,7 +131,7 @@ func shown(value sqlitefile.Value) string {
 	if value.IsNull() || (value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
 		return "-"
 	}
-	return value.Str()
+	return value.String()
 }
 
 // orDash returns text, or "-" when it is empty.

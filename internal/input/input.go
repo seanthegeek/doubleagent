@@ -15,9 +15,10 @@
 // the order the file system lists them in, so one tree gives one result on
 // every file system.
 //
-// Paths in the results are printed as Python's pathlib prints them (str of a
-// Path: no doubled separator, no "." component, no trailing separator, ".."
-// kept), since the analyzer's output shows them. Nothing here follows a
+// The input's own path is kept as given; the paths found in it are joined
+// to its cleaned form (no doubled separator, no "." component, no trailing
+// separator, ".." kept), so one input gives one set of paths however its
+// path was spelt. Nothing here follows a
 // symbolic link inside the input, and extraction never writes outside its
 // directory: no link, hard link or device member is created, a member's name
 // is confined to the directory, and every file is created new.
@@ -119,9 +120,8 @@ type Artifact struct {
 // Mtime returns the manifest row's mtime, or null when there is none.
 func (a *Artifact) Mtime() jsonvalue.Value { return a.Manifest.Get("mtime") }
 
-// Size returns the manifest row's size as Python's int() of `size or 0`
-// gives it; a row whose size int() would refuse never becomes an artifact.
-// Loose input gives 0.
+// Size returns the manifest row's size as parseSize reads it; a row whose
+// size is refused never becomes an artifact. Loose input gives 0.
 func (a *Artifact) Size() int64 {
 	size, _ := parseSize(a.Manifest.Get("size"))
 	return size
@@ -129,7 +129,7 @@ func (a *Artifact) Size() int64 {
 
 // Collection is an opened input.
 type Collection struct {
-	// Source is the input path as given, printed as pathlib prints it.
+	// Source is the input path as given.
 	Source string
 	// Kind is KindArchive, KindCollected or KindLoose.
 	Kind string
@@ -217,7 +217,7 @@ func Open(path string, options Options) (*Collection, error) {
 	if options.Matcher == nil {
 		return nil, errors.New("input: Open needs a catalog matcher")
 	}
-	source := PathText(path)
+	source := cleanPath(path)
 	info, err := osfile.Stat(source)
 	if err != nil {
 		return nil, err
@@ -229,11 +229,12 @@ func Open(path string, options Options) (*Collection, error) {
 	case info.Mode().IsRegular():
 		collection, err = openArchive(source, options.WorkDir)
 	default:
-		err = &Error{Message: source + " is neither a regular file nor a directory"}
+		err = &Error{Message: path + " is neither a regular file nor a directory"}
 	}
 	if err != nil {
 		return nil, err
 	}
+	collection.Source = path
 	if options.Host != "" {
 		collection.Host = options.Host
 	}

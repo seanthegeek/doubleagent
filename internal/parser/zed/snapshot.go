@@ -67,8 +67,8 @@ func branchAndRemote(worktrees []jsonvalue.Value, project string) (string, strin
 // threadParent returns the parent thread of a thread: the row's parent_id,
 // else the blob's subagent_context.parent_thread_id, "" when neither is set.
 func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
-	if parent := record.Get("parent_id"); parent.Truthy() {
-		return parent.Str()
+	if parent := record.Get("parent_id"); !parent.IsEmpty() {
+		return parent.String()
 	}
 	return parser.Str(value.Get("subagent_context").Get("parent_thread_id"))
 }

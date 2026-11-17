@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // Signatures and sizes of the zip records, from the format's specification
@@ -36,10 +38,6 @@ const (
 	zipBzip2Method = 12
 )
 
-// cp437High holds the characters of code page 437 for the bytes 0x80 to
-// 0xFF; below 0x80 it is ASCII. A zip name without the UTF-8 flag is in it.
-const cp437High = "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ "
-
 // zipEnd is the end-of-central-directory record, completed from the zip64
 // record when there is one.
 type zipEnd struct {
@@ -47,10 +45,10 @@ type zipEnd struct {
 	size, offset, location         uint64
 }
 
-// isZipFile reports whether file is a zip as Python's zipfile.is_zipfile
-// decides it: an end record is found at the end, or within the last 64 KiB
-// as a comment allows, and either the archive is empty or the central
-// directory it points to starts with its signature.
+// isZipFile reports whether file is a zip: an end of central directory
+// record is found at the end, or within the last 64 KiB as a comment
+// allows, and either the archive is empty or the central directory it
+// points to starts with its signature.
 func isZipFile(file io.ReaderAt, size int64) bool {
 	end, ok := findZipEnd(file, size)
 	if !ok {
@@ -219,10 +217,10 @@ func zipNameAllowed(name string) bool {
 		windowsDrive(name) == "" && memberNameAllowed(name)
 }
 
-// zipMemberName returns a member's name as Python's zipfile reads it: UTF-8
-// when the flag says so (an invalid name is an error), else code page 437;
-// cut at a NUL; and replaced by an Info-ZIP Unicode Path field whose
-// checksum matches the stored name.
+// zipMemberName returns a member's name: UTF-8 when the flag says so (an
+// invalid name is then an error), else its bytes with each one that is not
+// valid UTF-8 replaced by U+FFFD; cut at a NUL; and replaced by an
+// Info-ZIP Unicode Path field whose checksum matches the stored name.
 func zipMemberName(header *zip.FileHeader) (string, error) {
 	name := header.Name
 	if header.Flags&zipUTF8Flag != 0 {
@@ -230,7 +228,7 @@ func zipMemberName(header *zip.FileHeader) (string, error) {
 			return "", errors.New("a member name is not valid UTF-8")
 		}
 	} else {
-		name = decodeCP437(name)
+		name = textlines.ValidUTF8([]byte(name))
 	}
 	name = cutAtNul(name)
 	unicodeName, err := unicodePathField(header.Extra, crc32.ChecksumIEEE([]byte(header.Name)))
@@ -241,20 +239,6 @@ func zipMemberName(header *zip.FileHeader) (string, error) {
 		name = cutAtNul(unicodeName)
 	}
 	return name, nil
-}
-
-// decodeCP437 returns text decoded from code page 437.
-func decodeCP437(text string) string {
-	var out strings.Builder
-	high := []rune(cp437High)
-	for i := 0; i < len(text); i++ {
-		if character := text[i]; character < 0x80 {
-			out.WriteByte(character)
-		} else {
-			out.WriteRune(high[character-0x80])
-		}
-	}
-	return out.String()
 }
 
 // cutAtNul returns text up to its first NUL.

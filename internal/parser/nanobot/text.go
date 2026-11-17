@@ -105,7 +105,7 @@ func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	case sqlitefile.Text:
 		return jsonvalue.NewString(value.Text())
 	}
-	return jsonvalue.NewString(value.Str())
+	return jsonvalue.NewString(value.String())
 }
 
 // firstStr returns the first of the values Python counts as true as its

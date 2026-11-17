@@ -152,7 +152,7 @@ func (p *Parser) tracking(artifact *input.Artifact, store *store, emit parser.Em
 func trackingText(table string, record sqlitefile.Row) (string, sqlitefile.Value, string) {
 	field := func(column string) string { return columnField(record.Get(column)) }
 	session := record.Get("conversationId")
-	if !session.Truthy() {
+	if session.IsEmpty() {
 		session = record.Get("composerId")
 	}
 	sessionID := asText(session)

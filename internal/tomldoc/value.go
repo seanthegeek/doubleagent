@@ -1,6 +1,6 @@
 // Package tomldoc reads a TOML 1.0 document into values that keep the
-// document's order, as Python's `tomllib` does: a parser walks tables and keys
-// in the order the file wrote them.
+// document's order: a parser walks tables and keys in the order the file
+// wrote them.
 //
 // The reading itself is done by github.com/BurntSushi/toml, which returns
 // tables as unordered maps; the order comes from the list of keys that module
@@ -12,8 +12,8 @@ package tomldoc
 // Kind says what a Value holds.
 type Kind uint8
 
-// The kinds of value. The four temporal kinds hold their text, written as
-// Python writes a date or time object (year-month-day, a space, then the clock and offset).
+// The kinds of value. The four temporal kinds hold their RFC 3339 text,
+// as temporal writes it.
 const (
 	// KindString is a string.
 	KindString Kind = iota

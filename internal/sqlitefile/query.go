@@ -8,8 +8,9 @@ import (
 	"unicode/utf8"
 )
 
-// ErrInvalidText reports a selected TEXT value that is not valid UTF-8,
-// which Python's sqlite3 module refuses to return.
+// ErrInvalidText reports a selected TEXT value that is not valid UTF-8, the
+// encoding the database declares, so its text would not be what was
+// stored.
 var ErrInvalidText = errors.New("text is not valid UTF-8")
 
 // errStop ends a scan once a query's limit is reached.
@@ -195,7 +196,7 @@ type projected struct {
 }
 
 // project returns the selected columns of a whole row, refusing text that
-// is not valid UTF-8 as Python's sqlite3 module does when it reads it.
+// is not valid UTF-8 (ErrInvalidText).
 func (q Query) project(row Row, selection *projected) (Row, error) {
 	values := make([]Value, 0, len(selection.shape.names))
 	for _, position := range selection.positions {

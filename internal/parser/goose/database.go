@@ -31,7 +31,7 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 	case sqlitefile.Null:
 		return storedJSON{}
 	case sqlitefile.Integer, sqlitefile.Float:
-		return storedJSON{reason: "not JSON text", raw: column.Str()}
+		return storedJSON{reason: "not JSON text", raw: column.String()}
 	case sqlitefile.Blob:
 		text = textlines.ValidUTF8(column.Bytes)
 	default:
@@ -55,10 +55,10 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 
 // orText returns a column as Python's str(value or "") writes it.
 func orText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // sourceLine returns an id column as a row's source line, 0 when it is not
@@ -214,10 +214,10 @@ func (d *database) session(session sqlitefile.Row) {
 // labelled returns label and the column's text when the column is truthy,
 // else "".
 func labelled(label string, value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return label + value.Str()
+	return label + value.String()
 }
 
 // itoa returns n in decimal.
@@ -300,14 +300,14 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	sessionID := orText(message.Get("session_id"))
 	projectPath := orText(d.sessions[sessionID].Get("working_dir"))
 	record := message.Get("id")
-	if !record.Truthy() {
+	if record.IsEmpty() {
 		record = sqlitefile.IntValue(0)
 	}
 	line := sourceLine(record)
 	var problems parser.Problems
 	stored := readStored(message.Get("metadata_json"), false)
 	if stored.reason != "" {
-		problems.AddRaw(line, "unparseable record "+record.Str()+" (messages.metadata_json: "+
+		problems.AddRaw(line, "unparseable record "+record.String()+" (messages.metadata_json: "+
 			stored.reason+")", stored.raw)
 	}
 	meta := stored.value
@@ -328,7 +328,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	}
 	if content.reason != "" {
 		var bad parser.Problems
-		bad.AddRaw(line, "unparseable record "+record.Str()+" (messages.content_json: "+
+		bad.AddRaw(line, "unparseable record "+record.String()+" (messages.content_json: "+
 			content.reason+")", content.raw)
 		parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, bad, sessionID, projectPath))
 		return

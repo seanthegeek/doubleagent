@@ -34,7 +34,7 @@ func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	case sqlitefile.Float:
 		return jsonvalue.NewFloat(value.Float)
 	case sqlitefile.Text, sqlitefile.Blob:
-		return jsonvalue.NewString(value.Str())
+		return jsonvalue.NewString(value.String())
 	}
 	return jsonvalue.NewNull()
 }

@@ -2,9 +2,10 @@ package input
 
 import "testing"
 
-// Expected values from str(), .name and .parent of PurePosixPath and
-// PureWindowsPath under Python 3.14.
-func TestPathFormPrintsAsPathlibDoes(t *testing.T) {
+// The expected values are those of the POSIX and Windows path rules the
+// package comment describes, checked against str(), .name and .parent of
+// PurePosixPath and PureWindowsPath under Python 3.14 when written.
+func TestPathFormSplitsAndJoinsEachPlatformsPaths(t *testing.T) {
 	cases := []struct {
 		name, path      string
 		windows         bool
@@ -85,9 +86,7 @@ func TestPathFormJoinsAsJoinpathDoes(t *testing.T) {
 	}
 }
 
-// The expected texts are Python's str(PurePosixPath(path)) and
-// str(PureWindowsPath(path)).
-func TestPathTextPrintsAPathAsPathlibDoes(t *testing.T) {
+func TestCleanPathJoinsInTheCleanedForm(t *testing.T) {
 	tests := []struct {
 		name, path, posix, windows string
 	}{
@@ -113,8 +112,8 @@ func TestPathTextPrintsAPathAsPathlibDoes(t *testing.T) {
 			if got := parseWindowsPath(test.path).String(); got != test.windows {
 				t.Errorf("Windows form %q, want %q", got, test.windows)
 			}
-			if got := PathText(test.path); got != parsePath(test.path).String() {
-				t.Errorf("PathText = %q, want this platform's form %q", got, parsePath(test.path).String())
+			if got := cleanPath(test.path); got != parsePath(test.path).String() {
+				t.Errorf("cleanPath = %q, want this platform's form %q", got, parsePath(test.path).String())
 			}
 		})
 	}

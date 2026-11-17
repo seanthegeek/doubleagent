@@ -17,7 +17,7 @@ const inputHelp = `
 `
 
 // detectUsage is the help text of detect.
-const detectUsage = `usage: doubleagent detect [options] INPUT
+const detectUsage = `Usage: doubleagent detect [options] INPUT
 
 List the homes, users and agents found in the input. Exit status: 0 when
 agent files were found, 1 when none were, 2 on an error.
@@ -26,7 +26,7 @@ agent files were found, 1 when none were, 2 on an error.
 `
 
 // timelineUsage is the help text of timeline.
-const timelineUsage = `usage: doubleagent timeline [options] -o DIR INPUT
+const timelineUsage = `Usage: doubleagent timeline [options] -o DIR INPUT
 
 Parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json.
 Exit status: 0 when rows were written, 1 when there were none, 2 on an
@@ -52,7 +52,7 @@ WHEN is one of the forms ` + rowfilter.FormsHelp + `.
 `
 
 // fleetUsage is the help text of fleet.
-const fleetUsage = `usage: doubleagent fleet [-o CSV] INPUT [INPUT ...]
+const fleetUsage = `Usage: doubleagent fleet [-o CSV] INPUT [INPUT ...]
 
 Merge saved outputs of collect --inventory, or directories of them, into one
 CSV with a row per host and agent, and print a rollup per agent. Exit
@@ -66,7 +66,7 @@ status: 0 when rows were written, 1 when there were none, 2 on an error.
 `
 
 // catalogUsage is the help text of catalog.
-const catalogUsage = `usage: doubleagent catalog [--agents]
+const catalogUsage = `Usage: doubleagent catalog [--agents]
 
 Print the bundled artifact catalog.
 

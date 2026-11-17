@@ -4,10 +4,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// SettingText returns a value as the text of a setting row, as Python's
-// `setting_value` writes it: `true` or `false` for a boolean, a string as it
-// is, a date or time as Python writes it, and anything else as compact JSON
-// with the keys of every table sorted.
+// SettingText returns a value as the text of a setting row: `true` or
+// `false` for a boolean, a string as it is, a date or time as its RFC 3339
+// text, and anything else as CompactJSON.
 func SettingText(value Value) string {
 	switch value.kind {
 	case KindBoolean:
@@ -21,17 +20,16 @@ func SettingText(value Value) string {
 	return CompactJSON(value)
 }
 
-// CompactJSON returns a value as JSON with no spaces, the keys of every table
-// sorted and non-ASCII characters kept, as Python's
-// `json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)`
-// writes it. A date or time inside an array or table is written as a JSON
-// string of its text.
+// CompactJSON returns a value as compact JSON through jsonvalue: tables'
+// keys in document order, non-ASCII characters kept, a float in its
+// shortest form. A date or time inside an array or table is written as a
+// JSON string of its text.
 func CompactJSON(value Value) string {
 	return jsonValue(value).JSON()
 }
 
-// jsonValue returns a value as the JSON value Python's encoder sees: a
-// table as an object in document order, a date or time as its text.
+// jsonValue returns a value as a JSON value: a table as an object in
+// document order, a date or time as its text.
 func jsonValue(value Value) jsonvalue.Value {
 	switch value.kind {
 	case KindInteger:

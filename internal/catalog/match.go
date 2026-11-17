@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// Pattern is one `agent|glob` line compiled the way the analyzer matches a
-// path against it: the glob split at slashes into segments, empty ones
+// Pattern is one `agent|glob` line compiled for matching a path against
+// it: the glob split at slashes into segments, empty ones
 // dropped, each segment a regular expression matched against one whole
 // directory entry name. A `*` or `?` never matches a slash, takes a leading
 // dot as any other character, and counts characters (code points), not

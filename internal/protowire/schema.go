@@ -3,8 +3,8 @@
 // number, name and kind per message, and needs no generated code. Unknown
 // fields are skipped. A field that cannot be read in its declared kind is
 // left out of the result, and a nested message that is cut off is left out
-// whole, as the Python analyzer does; only a damaged top-level buffer is an
-// error.
+// whole, so one damaged field costs only itself; only a damaged top-level
+// buffer is an error.
 package protowire
 
 import (

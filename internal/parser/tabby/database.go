@@ -156,24 +156,24 @@ func (s *store) readUsers() (map[string]string, error) {
 	}
 	err := s.each("users", "id", func(user sqlitefile.Row, _ selection) {
 		label := orText(user.Get("email"))
-		if name := user.Get("name"); name.Truthy() {
+		if name := user.Get("name"); !name.IsEmpty() {
 			if label != "" {
-				label += " (" + name.Str() + ")"
+				label += " (" + name.String() + ")"
 			} else {
-				label = name.Str()
+				label = name.String()
 			}
 		}
-		users[user.Get("id").Str()] = label
+		users[user.Get("id").String()] = label
 	})
 	return users, err
 }
 
 // orText returns a column as Python's str(value or "") writes it.
 func orText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // sourceLine returns an id column as a row's source line, 0 when it is not
@@ -223,7 +223,7 @@ type parent struct {
 func (s *store) parents(table, order string, children *grouped) ([]parent, error) {
 	var list []parent
 	err := s.each(table, order, func(row sqlitefile.Row, from selection) {
-		list = append(list, parent{parentID: row.Get("id").Str(), row: row, from: from})
+		list = append(list, parent{parentID: row.Get("id").String(), row: row, from: from})
 	})
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (s *store) parents(table, order string, children *grouped) ([]parent, error
 // owner returns a user's label by the id column, "" when unknown; a
 // missing column reads as None.
 func (s *store) owner(value sqlitefile.Value) string {
-	return s.users[value.Str()]
+	return s.users[value.String()]
 }
 
 // threads emits each thread's start row and its messages.
@@ -251,7 +251,7 @@ func (s *store) threads() error {
 	messages := &grouped{rows: map[string][]sqlitefile.Row{}}
 	if s.tables["thread_messages"] {
 		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row, _ selection) {
-			messages.add(row.Get("thread_id").Str(), row)
+			messages.add(row.Get("thread_id").String(), row)
 		})
 		if err != nil {
 			return err
@@ -285,10 +285,10 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	if owner := s.owner(userID); owner != "" {
 		ownerText = "owner " + owner
 	} else if !userID.IsNull() {
-		ownerText = "owner user_id=" + userID.Str()
+		ownerText = "owner user_id=" + userID.String()
 	}
 	parts := []string{"thread start", ownerText}
-	if thread.row.Get("is_ephemeral").Truthy() {
+	if !thread.row.Get("is_ephemeral").IsEmpty() {
 		parts = append(parts, "ephemeral")
 	}
 	if !thread.from.has("user_id") {
@@ -310,8 +310,8 @@ func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, t
 	project string) timeline.Row {
 	role, text := orText(message.Get("role")), orText(message.Get("content"))
 	parts := attachmentParts(attachment)
-	if source := message.Get("code_source_id"); source.Truthy() {
-		parts = append([]string{"code_source " + source.Str()}, parts...)
+	if source := message.Get("code_source_id"); !source.IsEmpty() {
+		parts = append([]string{"code_source " + source.String()}, parts...)
 	}
 	if len(parts) > 0 {
 		text += " [attachments: " + strings.Join(parts, "; ") + "]"
@@ -331,7 +331,7 @@ func (s *store) pages() error {
 	sections := &grouped{rows: map[string][]sqlitefile.Row{}}
 	if s.tables["page_sections"] {
 		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row, _ selection) {
-			sections.add(row.Get("page_id").Str(), row)
+			sections.add(row.Get("page_id").String(), row)
 		})
 		if err != nil {
 			return err
@@ -363,7 +363,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 	if owner := s.owner(authorID); owner != "" {
 		author = "author " + owner
 	} else if !authorID.IsNull() {
-		author = "author user_id=" + authorID.Str()
+		author = "author user_id=" + authorID.String()
 	}
 	missing := ""
 	if !page.from.has("author_id") {
@@ -373,9 +373,9 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 	start.text = joinParts("page start", labelledColumn("title ", page.row.Get("title")), author,
 		labelledColumn("code_source ", page.row.Get("code_source_id")), missing)
 	s.emit(s.parser.row(s.artifact, start))
-	if content := page.row.Get("content"); content.Truthy() {
+	if content := page.row.Get("content"); !content.IsEmpty() {
 		body := spec
-		body.turnType, body.text = timeline.TurnAssistant, content.Str()
+		body.turnType, body.text = timeline.TurnAssistant, content.String()
 		s.emit(s.parser.row(s.artifact, body))
 	}
 	s.sectionRows(spec, sections, attachments)
@@ -388,7 +388,7 @@ func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments
 		var pieces []string
 		for _, value := range []sqlitefile.Value{section.Get("title"), section.Get("content")} {
 			if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-				pieces = append(pieces, value.Str())
+				pieces = append(pieces, value.String())
 			}
 		}
 		text := strings.Join(pieces, "\n\n")
@@ -407,10 +407,10 @@ func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments
 // labelledColumn returns label and the column's text when the column is
 // truthy, else "".
 func labelledColumn(label string, value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return label + value.Str()
+	return label + value.String()
 }
 
 // userEvents emits the rows of each user event, or a `parser:` row for a
@@ -421,11 +421,11 @@ func (s *store) userEvents() error {
 		userID := event.Get("user_id")
 		owner := s.owner(userID)
 		if owner == "" {
-			owner = userID.Str()
+			owner = userID.String()
 		}
 		payload, ok := jsonColumn(event.Get("payload"))
 		if !ok || !payload.IsObject() {
-			spec.text = "parser: user_event " + event.Get("id").Str() + " payload did not parse"
+			spec.text = "parser: user_event " + event.Get("id").String() + " payload did not parse"
 			s.emit(s.parser.row(s.artifact, spec))
 			return
 		}
@@ -445,7 +445,7 @@ func (s *store) integrations() error {
 			host = urlHostname(apiBase)
 		}
 		name := orText(integration.Get("display_name"))
-		names[integration.Get("id").Str()] = named{name, kind}
+		names[integration.Get("id").String()] = named{name, kind}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: sourceLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
 			text: "source host: " + dash(host) + " integration " + dash(name) + " kind=" + dash(kind) +
@@ -456,14 +456,14 @@ func (s *store) integrations() error {
 		return err
 	}
 	return s.each("provided_repositories", "integration_id,id", func(repository sqlitefile.Row, _ selection) {
-		integration := names[repository.Get("integration_id").Str()]
+		integration := names[repository.Get("integration_id").String()]
 		active := "no"
-		if repository.Get("active").Truthy() {
+		if !repository.Get("active").IsEmpty() {
 			active = "yes"
 		}
 		owner := integration.name
 		if owner == "" {
-			owner = "integration_id=" + repository.Get("integration_id").Str()
+			owner = "integration_id=" + repository.Get("integration_id").String()
 		}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: sourceLine(repository.Get("id")),
 			timestamp: parser.ColumnTime(repository.Get("updated_at")),

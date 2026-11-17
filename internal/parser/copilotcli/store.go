@@ -119,7 +119,7 @@ func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parser.
 		session := stamps.sessions[sessionID]
 		if present(session, "summary") {
 			stamps.stamp(sessionID, session.Rowid, timeline.TurnSystem,
-				"session name: "+session.Get("summary").Str(), session.Get("created_at"), "")
+				"session name: "+session.Get("summary").String(), session.Get("created_at"), "")
 		}
 	}
 	for _, turn := range reader.rows("turns", "session_id, turn_index") {
@@ -183,7 +183,7 @@ func (p *Parser) forgeRows(reader *store, stamps *stamper) {
 		}
 		body := stored(event, "output")
 		if !isZeroColumn(code) {
-			body = "[exit " + code.Str() + "] " + body
+			body = "[exit " + code.String() + "] " + body
 		}
 		stamps.stamp(sessionID, event.Rowid, timeline.TurnToolResult, body, event.Get("created_at"), callID)
 	}

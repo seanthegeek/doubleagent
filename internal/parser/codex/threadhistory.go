@@ -168,7 +168,7 @@ func (p *Parser) turnRow(artifact *input.Artifact, event historyEvent, thread *s
 
 // ordinalOf returns a row's rollout_ordinal, 0 when it has none.
 func ordinalOf(row sqlitefile.Row) sqlitefile.Value {
-	if ordinal := row.Get("rollout_ordinal"); ordinal.Truthy() {
+	if ordinal := row.Get("rollout_ordinal"); !ordinal.IsEmpty() {
 		return ordinal
 	}
 	return sqlitefile.IntValue(0)
@@ -247,7 +247,7 @@ func compareInt64(left, right int64) int {
 // valueKey returns a column value as a map key that tells the storage
 // classes apart, as Python's dict tells None, numbers, text and bytes apart.
 func valueKey(value sqlitefile.Value) string {
-	return strconv.Itoa(int(value.Type)) + ":" + value.Str()
+	return strconv.Itoa(int(value.Type)) + ":" + value.String()
 }
 
 // decodeItem returns the ThreadItem object a thread_items row's item_json

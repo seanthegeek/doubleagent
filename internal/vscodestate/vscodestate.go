@@ -130,20 +130,18 @@ func itemRows(path string, wanted []sqlitefile.Value) ([]sqlitefile.Row, error) 
 }
 
 // valueText returns a value as the text its JSON is read from: a blob
-// decoded as UTF-8 with replacement, a number as Python's str() writes it,
-// and "" for NULL.
+// decoded as UTF-8 with each invalid byte replaced, and any other value as
+// its row text (sqlitefile.Value.String).
 func valueText(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Blob:
 		return textlines.ValidUTF8(value.Bytes)
-	case sqlitefile.Null:
-		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // ReadItem returns the decoded JSON value of one ItemTable key, JSON null
-// when it is absent (as Python's None stands for both), and the problems.
+// when it is absent (the two read alike), and the problems.
 func ReadItem(path, key string) (jsonvalue.Value, []string) {
 	values, problems := ReadItems(path, []string{key})
 	return values[key], problems

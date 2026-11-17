@@ -57,10 +57,10 @@ func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]
 
 // columnText returns a column as Python's str(value or "") writes it.
 func columnText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // compactColumn returns a column's text compacted, "" for NULL.
@@ -68,7 +68,7 @@ func compactColumn(value sqlitefile.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return strings.TrimSpace(value.Str())
+	return strings.TrimSpace(value.String())
 }
 
 // isColumnText reports whether a column holds the text text.
@@ -104,7 +104,7 @@ func readThreads(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 // createdKey returns a thread's creation time as a sort key, 0 when it has
 // none.
 func createdKey(thread sqlitefile.Row) sqlitefile.Value {
-	if created := threadCreated(thread); created.Truthy() {
+	if created := threadCreated(thread); !created.IsEmpty() {
 		return created
 	}
 	return sqlitefile.IntValue(0)
@@ -122,11 +122,11 @@ func threadText(thread sqlitefile.Row) string {
 	text := "thread record: " + columnText(thread.Get("id")) + " title=" +
 		columnText(thread.Get("title")) + " rollout=" + columnText(thread.Get("rollout_path"))
 	for _, field := range [][2]string{{"name", "name"}, {"git_branch", "branch"}, {"model", "model"}} {
-		if value := thread.Get(field[0]); value.Truthy() {
-			text += " " + field[1] + "=" + value.Str()
+		if value := thread.Get(field[0]); !value.IsEmpty() {
+			text += " " + field[1] + "=" + value.String()
 		}
 	}
-	if thread.Get("archived").Truthy() {
+	if !thread.Get("archived").IsEmpty() {
 		text += " archived"
 	}
 	return text
@@ -212,7 +212,7 @@ func enrollmentText(enrollment sqlitefile.Row) string {
 	for i, label := range labels {
 		value, shown := enrollment.Get(enrollmentColumns[i]), "-"
 		if !value.IsNull() && !isColumnText(value, "") {
-			shown = value.Str()
+			shown = value.String()
 		}
 		parts[i] = label + "=" + shown
 	}
@@ -282,7 +282,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 // a UTF-8 blob, or false after adding the problem "unparseable record
 // <rowid> (<reason>)" with the stored value.
 func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Problems) (jsonvalue.Value, bool) {
-	raw := value.Str()
+	raw := value.String()
 	if value.Type == sqlitefile.Blob {
 		raw = textlines.ValidUTF8(value.Bytes)
 	}

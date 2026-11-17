@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // render writes a parsed value in the form the oracle script prints.
@@ -53,6 +55,7 @@ func knownDifferences() map[string]string {
 		"an integer beyond int64":             "Python reads any size of integer; this reader stops at 64 bits",
 		"a UTF-8 byte order mark":             "Python rejects a leading byte order mark; this reader skips it",
 		"an array with a nested inline array": "keys of a table nested in an array's array are sorted, not in document order",
+		"a datetime with a long fraction":     "Python keeps microseconds; this reader keeps every digit the text gives, up to nanoseconds",
 	}
 }
 
@@ -98,11 +101,42 @@ func TestParseMatchesTheTomllibOracle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			if got := render(Value{kind: KindTable, table: table}); got != test.structure {
-				t.Fatalf("got  %s\nwant %s", got, test.structure)
+			want := oracleTemporals(t, test.structure)
+			if got := render(Value{kind: KindTable, table: table}); got != want {
+				t.Fatalf("got  %s\nwant %s", got, want)
 			}
 		})
 	}
+}
+
+// oracleTemporal is a temporal value in the oracle's rendering: its kind
+// and its text in hex.
+var oracleTemporal = regexp.MustCompile(`(dt|ndt|date|time):([0-9a-f]*)`)
+
+// oracleTemporals returns the oracle's rendering with each date and time,
+// which the oracle wrote as a Python date or time object prints (a space
+// between date and clock, an offset as +HH:MM, six fraction digits), in the
+// RFC 3339 text temporal gives the same value.
+func oracleTemporals(t *testing.T, structure string) string {
+	return oracleTemporal.ReplaceAllStringFunc(structure, func(match string) string {
+		parts := oracleTemporal.FindStringSubmatch(match)
+		text, err := hex.DecodeString(parts[2])
+		if err != nil {
+			t.Fatal(err)
+		}
+		layouts := map[string]string{"dt": "2006-01-02 15:04:05.999999999-07:00",
+			"ndt": "2006-01-02 15:04:05.999999999", "date": time.DateOnly, "time": "15:04:05.999999999"}
+		zones := map[string]string{"ndt": "datetime-local", "date": "date-local", "time": "time-local"}
+		moment, err := time.Parse(layouts[parts[1]], string(text))
+		if err != nil {
+			t.Fatalf("oracle temporal %q: %v", text, err)
+		}
+		if zone, ok := zones[parts[1]]; ok {
+			moment = time.Date(moment.Year(), moment.Month(), moment.Day(), moment.Hour(),
+				moment.Minute(), moment.Second(), moment.Nanosecond(), time.FixedZone(zone, 0))
+		}
+		return parts[1] + ":" + hex.EncodeToString([]byte(temporal(moment).Text()))
+	})
 }
 
 func TestKnownDifferencesAreRealAndNamedInTheOracle(t *testing.T) {
@@ -149,7 +183,7 @@ func TestSettingTextFormats(t *testing.T) {
 	want := map[string]string{
 		"a": "true", "b": "text", "c": "7", "d": "1", "e": `[1,2.5,"é\n"]`,
 		"f": `{"z":1,"a":{"y":false}}`, "g": "1e+16", "h": "1e-05",
-		"i": "1979-05-27 07:32:00+00:00", "j": "[]", "k": "{}",
+		"i": "1979-05-27T07:32:00Z", "j": "[]", "k": "{}",
 	}
 	for _, entry := range table.Entries() {
 		if got := SettingText(entry.Value); got != want[entry.Key] {

@@ -34,12 +34,12 @@ func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, string) {
 // so, when the draft has no sidebar row.
 func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *sidebarStore,
 	problems *parser.Problems, emit parser.Emit) {
-	key, value := row.Get("key").Str(), row.Get("value")
+	key, value := row.Get("key").String(), row.Get("value")
 	blocks, failure := decodeColumn(value)
 	if failure != "" {
 		label := fmt.Sprintf("unparseable record %d (%s %s: %s)", row.Rowid, draftsNamespace, key,
 			failure)
-		problems.AddRaw(int(row.Rowid), label, value.Str())
+		problems.AddRaw(int(row.Rowid), label, value.String())
 		return
 	}
 	text := acpBlocksText(blocks)
@@ -96,7 +96,7 @@ func pythonNumber(value jsonvalue.Value) (float64, bool) {
 func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 	store *sidebarStore, problems *parser.Problems, emit parser.Emit) {
 	value := row.Get("value")
-	host, path, _ := strings.Cut(row.Get("key").Str(), "\n")
+	host, path, _ := strings.Cut(row.Get("key").String(), "\n")
 	record, failure := decodeColumn(value)
 	seconds := 0.0
 	if failure == "" {
@@ -104,7 +104,7 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 	}
 	if failure != "" {
 		label := fmt.Sprintf("unparseable record %d (%s: %s)", row.Rowid, worktreesNamespace, failure)
-		problems.AddRaw(int(row.Rowid), label, value.Str())
+		problems.AddRaw(int(row.Rowid), label, value.String())
 		return
 	}
 	main := store.mainRepository(path)
@@ -127,7 +127,7 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 func (s *sidebarStore) mainRepository(path string) string {
 	for _, entry := range s.sidebar {
 		folders := columnStr(entry.Get("folder_paths"))
-		if entry.Get("main_worktree_paths").Truthy() && containsLine(folders, path) {
+		if !entry.Get("main_worktree_paths").IsEmpty() && containsLine(folders, path) {
 			if main := firstFolder(entry.Get("main_worktree_paths")); main != "" {
 				return main
 			}
@@ -137,7 +137,7 @@ func (s *sidebarStore) mainRepository(path string) string {
 	for _, archive := range s.archived {
 		if worktree := archive.Get("worktree_path"); worktree.Type == sqlitefile.Text &&
 			worktree.Text() == path {
-			return archive.Get("main_repo_path").Str()
+			return archive.Get("main_repo_path").String()
 		}
 	}
 	return ""
@@ -159,7 +159,7 @@ func containsLine(text, line string) bool {
 func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 	store *sidebarStore) timeline.Row {
 	sessionID := ""
-	if row.thread.Truthy() {
+	if !row.thread.IsEmpty() {
 		if side, ok := store.byKey[threadKey(row.thread)]; ok {
 			sessionID = columnStr(side.Get("session_id"))
 		}
@@ -169,7 +169,7 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 		columnStr(row.Get("worktree_path")), columnStr(row.Get("main_repo_path")),
 		orDash(columnStr(row.Get("branch_name"))), orDash(columnStr(row.Get("staged_commit_hash"))),
 		orDash(columnStr(row.Get("unstaged_commit_hash"))),
-		orDash(columnStr(row.Get("original_commit_hash"))), row.Get("id").Str(), artifact.Rel)
+		orDash(columnStr(row.Get("original_commit_hash"))), row.Get("id").String(), artifact.Rel)
 	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, sessionID,
 		columnStr(row.Get("main_repo_path")))
 }

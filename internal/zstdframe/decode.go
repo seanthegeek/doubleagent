@@ -10,7 +10,8 @@ import (
 )
 
 // MaxWindowSize is the largest window a frame may announce, in bytes: 128 MiB,
-// the limit the Python zstandard package applies when it decodes a stream. The
+// the reference zstd library's default limit for a decoder
+// (ZSTD_WINDOWLOG_LIMIT_DEFAULT, a window log of 27). The
 // decoder reserves a buffer of this size when a frame announces it, whatever
 // the frame later holds, so one decode takes at most this much plus a few
 // hundred kilobytes of working space, and the output buffer DecodeAll builds.

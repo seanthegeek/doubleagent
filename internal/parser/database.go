@@ -74,5 +74,5 @@ func ColumnText(value sqlitefile.Value) string {
 	case value.Type == sqlitefile.Float && math.IsInf(value.Float, -1):
 		return "-Infinity"
 	}
-	return value.Str()
+	return value.String()
 }

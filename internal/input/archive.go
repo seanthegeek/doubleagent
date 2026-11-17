@@ -16,7 +16,7 @@ import (
 )
 
 // tempNameCharacters are the characters of a new extraction directory's
-// random name, the set Python's tempfile draws from.
+// random name: lower-case ASCII letters, digits and the underscore.
 const tempNameCharacters = "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 // openArchive extracts the archive at source into a new directory and
@@ -75,7 +75,7 @@ func makeExtractionDir(workDir string) (string, error) {
 		base = filepath.Join(working, base)
 	}
 	for range 100 {
-		path := PathText(filepath.Join(base, prefix+randomName()))
+		path := filepath.Join(base, prefix+randomName())
 		if _, err := osfile.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -131,8 +131,8 @@ func verifySidecar(archive, sidecar string) (string, error) {
 	return "WARNING archive sha256 " + actual + " does not match " + name + " (" + expected + ")", nil
 }
 
-// isASCIIWhitespace reports whether character is one of Python's ASCII
-// whitespace characters.
+// isASCIIWhitespace reports whether character is ASCII whitespace: space,
+// tab, CR, LF, form feed or vertical tab.
 func isASCIIWhitespace(character rune) bool {
 	return strings.ContainsRune(" \t\r\n\f\v", character)
 }

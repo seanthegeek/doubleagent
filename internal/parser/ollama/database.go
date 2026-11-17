@@ -65,10 +65,10 @@ func valueKey(value sqlitefile.Value) string {
 
 // orText returns a column as Python's str(value or "") writes it.
 func orText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // readCalls returns the tool calls by message, each message's in id order.
@@ -172,7 +172,7 @@ func sourceLine(value sqlitefile.Value) int {
 // message emits the rows of one message.
 func (m *messageReader) message(message sqlitefile.Row) {
 	messageID := message.Get("id")
-	if !messageID.Truthy() {
+	if messageID.IsEmpty() {
 		messageID = sqlitefile.IntValue(0)
 	}
 	sessionID := orText(message.Get("chat_id"))
@@ -239,7 +239,7 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 		row := build(timeline.TurnToolUse, timeline.Compact(callText(call.arguments)))
 		row.SourceLine = sourceLine(call.callID)
 		row.ToolName = call.name
-		row.ToolUseID = m.state.chat + ":" + call.callID.Str()
+		row.ToolUseID = m.state.chat + ":" + call.callID.String()
 		m.emit(row)
 	}
 }
@@ -252,7 +252,7 @@ func (m *messageReader) toolResult(message sqlitefile.Row, row timeline.Row) {
 	case m.state.used < len(pending):
 		call := pending[m.state.used]
 		row.ToolName = call.name
-		row.ToolUseID = m.state.chat + ":" + call.callID.Str()
+		row.ToolUseID = m.state.chat + ":" + call.callID.String()
 	case len(pending) > 0:
 		row.ToolName = pending[len(pending)-1].name
 	}
@@ -297,7 +297,7 @@ func resultFallback(value sqlitefile.Value) string {
 		return ""
 	}
 	if value.Type != sqlitefile.Text {
-		return value.Str()
+		return value.String()
 	}
 	decoded, err := jsonvalue.DecodeString(string(value.Bytes))
 	if err != nil {

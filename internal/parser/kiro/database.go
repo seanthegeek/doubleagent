@@ -60,10 +60,10 @@ func (p *Parser) databaseRows(artifact *input.Artifact, options parser.Options,
 
 // orText returns a column as Python's str(value or "") writes it.
 func orText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // shellHistory emits one "shell history:" row per row of the legacy Fig
@@ -93,7 +93,7 @@ func (p *Parser) shellHistory(artifact *input.Artifact, database *sqlitefile.Dat
 			if extras != "" {
 				extras += " "
 			}
-			extras += key + "=" + value.Str()
+			extras += key + "=" + value.String()
 		}
 		if extras != "" {
 			text += " (" + extras + ")"

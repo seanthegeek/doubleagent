@@ -30,10 +30,10 @@ func sessionPermissionKeys() []string {
 
 // columnStr returns a column value as Python's str(value or "") gives it.
 func columnStr(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // orDash returns text, or "-" when it is empty.

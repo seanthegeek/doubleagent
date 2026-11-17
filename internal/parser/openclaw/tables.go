@@ -34,7 +34,7 @@ func (a *agentDatabase) pending() error {
 	for _, record := range rows {
 		sessionID := columnStr(record.Get("session_id"))
 		consumed := record.Get("consumed_event_id")
-		if consumed.Truthy() && a.store.ids[[2]string{sessionID, consumed.Str()}] {
+		if !consumed.IsEmpty() && a.store.ids[[2]string{sessionID, consumed.String()}] {
 			continue
 		}
 		line := sourceLine(record.Get("seq"))
@@ -47,7 +47,7 @@ func (a *agentDatabase) pending() error {
 		timestamp := parser.ColumnTime(record.Get("accepted_at"))
 		row := a.contextRow(sessionID, line, timestamp, timeline.TurnUser,
 			parser.TextOf(message.Get("content")))
-		if consumed.Truthy() {
+		if !consumed.IsEmpty() {
 			row.Recovered = "yes"
 			a.emit(row)
 			continue
@@ -88,7 +88,7 @@ func (a *agentDatabase) fullText() error {
 		role := columnStr(record.Get("c3"))
 		text := ""
 		if value := record.Get("c0"); !value.IsNull() {
-			text = timeline.Compact(value.Str())
+			text = timeline.Compact(value.String())
 		}
 		turnType := timeline.TurnSystem
 		if role == "user" || role == "assistant" {
@@ -114,7 +114,7 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 	}
 	current := map[string]string{}
 	for _, each := range nodes {
-		current[each.sessionKey.Str()] = each.currentSessionID.Str()
+		current[each.sessionKey.String()] = each.currentSessionID.String()
 	}
 	conversations, err := a.database.Table("conversations")
 	if err != nil {
@@ -142,8 +142,8 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, sessionID string) {
 	field := func(name string) string { return orDash(columnStr(row.Get(name))) }
 	rejection := ""
-	if value := row.Get("rejection_error"); value.Truthy() {
-		rejection = " error=" + value.Str()
+	if value := row.Get("rejection_error"); !value.IsEmpty() {
+		rejection = " error=" + value.String()
 	}
 	line := int(row.Rowid)
 	a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
@@ -154,7 +154,7 @@ func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, s
 	if reply := row.Get("reply_text"); !reply.IsNull() {
 		a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("reply_timestamp")),
 			timeline.TurnSystem, fmt.Sprintf("channel delivery reply: %s (reply message %s; from"+
-				" openclaw-agent.sqlite conversation_deliveries, reply_timestamp)", reply.Str(),
+				" openclaw-agent.sqlite conversation_deliveries, reply_timestamp)", reply.String(),
 				field("reply_message_id"))))
 	}
 }

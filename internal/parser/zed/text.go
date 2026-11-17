@@ -204,18 +204,18 @@ func threadKey(value sqlitefile.Value) string {
 
 // columnStr returns a column value as Python's str(value or "") gives it.
 func columnStr(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // firstColumn returns the first of the values Python counts as true, as
 // columnStr gives it, or "".
 func firstColumn(values ...sqlitefile.Value) string {
 	for _, value := range values {
-		if value.Truthy() {
-			return value.Str()
+		if !value.IsEmpty() {
+			return value.String()
 		}
 	}
 	return ""

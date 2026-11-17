@@ -64,7 +64,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	var heads []head
 	known := map[string]bool{}
 	for i := range store.sessions {
-		key := store.sessions[i].Get("key").Str()
+		key := store.sessions[i].Get("key").String()
 		known[key] = true
 		heads = append(heads, head{key, &store.sessions[i]})
 	}
@@ -135,7 +135,7 @@ func querySessionStore(database *sqlitefile.Database) (*sessionStore, error) {
 	rows, err := messages.Select("rowid", "session_key", "position", "record").
 		OrderBy("session_key", "position").All()
 	for _, row := range rows {
-		key := row.Get("session_key").Str()
+		key := row.Get("session_key").String()
 		store.messages[key] = append(store.messages[key], row)
 	}
 	return store, err
@@ -163,7 +163,7 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 		records = append(records, numbered{int(head.Rowid), record})
 	}
 	for _, message := range messages {
-		label := "unparseable record " + message.Get("position").Str()
+		label := "unparseable record " + message.Get("position").String()
 		if record, ok := jsonObject(message.Get("record"), message.Rowid, label, problems); ok {
 			records = append(records, numbered{int(message.Rowid), record})
 		}
@@ -175,7 +175,7 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 // after adding "<label> (<reason>)" with the value as text to problems.
 func jsonObject(raw sqlitefile.Value, rowid int64, label string,
 	problems *parser.Problems) (jsonvalue.Value, bool) {
-	text := raw.Str()
+	text := raw.String()
 	if raw.Type == sqlitefile.Blob {
 		text = textlines.ValidUTF8(raw.Bytes)
 	}

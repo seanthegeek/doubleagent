@@ -88,7 +88,7 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	}
 	defer closeInput(collection, options.KeepExtracted, stderr)
 	run := &timelineRun{options: options, env: env, collection: collection,
-		registry: env.Parsers(), found: newScratchFinder(found), output: input.PathText(options.Output),
+		registry: env.Parsers(), found: newScratchFinder(found), output: options.Output,
 		filter: filter}
 	if err := osfile.MkdirAll(run.output, 0o777); err != nil {
 		return printError(ctx, stderr, reason.Describe(run.output, err))
@@ -140,7 +140,7 @@ func countRows(rows []timeline.Row) map[[2]string]int {
 
 // outputPath returns the path of one output file, as the summary prints it.
 func (r *timelineRun) outputPath(name string) string {
-	return input.PathText(r.output + "/" + name)
+	return input.JoinPath(r.output, name)
 }
 
 // writeRows writes timeline.jsonl and sessions.jsonl.

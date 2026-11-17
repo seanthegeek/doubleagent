@@ -20,7 +20,7 @@ func asText(value sqlitefile.Value) string {
 	case sqlitefile.Null:
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // jsonText returns a decoded value as text: "" for null, a string as it

@@ -180,7 +180,7 @@ func TestUUID7TimeReadsTheFirst48Bits(t *testing.T) {
 		{sqlitefile.TextValue("01-90f5a25c3e7d4f8a1b2c3d4e5f6a7b"), "2024-07-27T19:19:36.766Z"},
 	}
 	for _, test := range tests {
-		t.Run(test.value.Str(), func(t *testing.T) {
+		t.Run(test.value.String(), func(t *testing.T) {
 			if got := uuid7Time(test.value); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}

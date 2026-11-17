@@ -29,8 +29,8 @@ func TestColumnsAreTextAsPythonWritesThem(t *testing.T) {
 		{"a float", sqlitefile.FloatValue(1), "1", "1", "true"},
 		{"positive infinity", sqlitefile.FloatValue(math.Inf(1)), "Infinity", "Infinity", "true"},
 		{"negative infinity", sqlitefile.FloatValue(math.Inf(-1)), "-Infinity", "-Infinity", "true"},
-		{"a blob", sqlitefile.BlobValue([]byte("ab")), "b'ab'", "b'ab'", "true"},
-		{"an empty blob", sqlitefile.BlobValue(nil), "b''", "b''", "true"},
+		{"a blob", sqlitefile.BlobValue([]byte("ab")), "x'6162'", "x'6162'", "true"},
+		{"an empty blob", sqlitefile.BlobValue(nil), "x''", "x''", "true"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

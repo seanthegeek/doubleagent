@@ -42,7 +42,7 @@ func (a *agentDatabase) events() error {
 // `parser:` row of an event that cannot be decompressed or decoded.
 func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 	line, createdAt := int(row.Rowid), parser.ColumnTime(row.Get("created_at"))
-	seq := row.Get("seq").Str()
+	seq := row.Get("seq").String()
 	raw := row.Get("event_json")
 	data := columnBytes(raw)
 	if raw.IsNull() && !row.Get("event_zstd").IsNull() {

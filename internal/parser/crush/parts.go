@@ -75,7 +75,7 @@ func modelText(seen map[string]modelState, sessionID, provider, requested, prism
 // columnText returns a column's text when it is text, else "".
 func columnText(value sqlitefile.Value) string {
 	if value.Type == sqlitefile.Text {
-		return value.Str()
+		return value.String()
 	}
 	return ""
 }
@@ -120,7 +120,7 @@ func (r *messageReader) message(record sqlitefile.Row) {
 	if !ok {
 		return
 	}
-	if finished := record.Get("finished_at"); finished.Truthy() {
+	if finished := record.Get("finished_at"); !finished.IsEmpty() {
 		current.finished = parser.ColumnTime(finished)
 	}
 	for _, part := range parts {
@@ -152,7 +152,7 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 		raw = textlines.ValidUTF8(value.Bytes)
 	case sqlitefile.Null:
 	default:
-		raw = value.Str()
+		raw = value.String()
 	}
 	source := raw
 	if source == "" {
@@ -171,7 +171,7 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	rowid := current.record.Rowid
 	var problems parser.Problems
 	problems.AddRaw(int(rowid), "unparseable record "+rowidText(rowid)+" (message "+
-		current.record.Get("id").Str()+" parts: "+reason+")", raw)
+		current.record.Get("id").String()+" parts: "+reason+")", raw)
 	parser.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems,
 		current.sessionID, r.store.projectPath))
 	return nil, false

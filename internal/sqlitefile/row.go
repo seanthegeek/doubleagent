@@ -71,8 +71,8 @@ func (r Row) Has(name string) bool {
 	return r.lookup(name) >= 0
 }
 
-// Columns returns the names of the row's columns in order, as Python's
-// dict(row) orders its keys.
+// Columns returns the names of the row's columns in the order the query
+// selected them.
 func (r Row) Columns() []string {
 	if r.shape == nil {
 		return nil

@@ -186,18 +186,18 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit p
 	project := firstFolder(row.Get("folder_paths"))
 	sessionID := columnStr(row.Get("session_id"))
 	switch {
-	case row.Get("agent_id").Truthy():
+	case !row.Get("agent_id").IsEmpty():
 		archived := ""
-		if row.Get("archived").Truthy() {
+		if !row.Get("archived").IsEmpty() {
 			archived = " archived"
 		}
 		text := fmt.Sprintf("external agent thread (no transcript in threads.db): agent=%s title=%s%s",
-			row.Get("agent_id").Str(), title, archived)
+			row.Get("agent_id").String(), title, archived)
 		timestamp := parser.ColumnTime(firstTrue(row.Get("interacted_at"), row.Get("updated_at")))
 		emit(p.stateRow(artifact, text, timestamp, row.Rowid, sessionID, project))
 	case sessionID != "":
 		text := fmt.Sprintf("sidebar thread: title=%s archived=%t interacted_at=%s main_worktree=%s",
-			title, row.Get("archived").Truthy(), orDash(parser.ColumnTime(row.Get("interacted_at"))),
+			title, !row.Get("archived").IsEmpty(), orDash(parser.ColumnTime(row.Get("interacted_at"))),
 			orDash(firstFolder(row.Get("main_worktree_paths"))))
 		emit(p.stateRow(artifact, text, parser.ColumnTime(row.Get("updated_at")), row.Rowid,
 			sessionID, project))
@@ -209,8 +209,8 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit p
 func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeline.Row {
 	path := columnStr(row.Get("absolute_path"))
 	host := columnStr(row.Get("host_name"))
-	if host != "" && row.Get("user_name").Truthy() {
-		host = row.Get("user_name").Str() + "@" + host
+	if host != "" && !row.Get("user_name").IsEmpty() {
+		host = row.Get("user_name").String() + "@" + host
 	}
 	if host != "" {
 		host = " host=" + host
@@ -223,7 +223,7 @@ func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeli
 // firstTrue returns the first value Python counts as true, else the last.
 func firstTrue(values ...sqlitefile.Value) sqlitefile.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}

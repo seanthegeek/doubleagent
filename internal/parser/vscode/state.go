@@ -185,7 +185,7 @@ func usageText(value sqlitefile.Value) string {
 	if value.Type == sqlitefile.Blob {
 		return textlines.ValidUTF8(value.Bytes)
 	}
-	return value.Str()
+	return value.String()
 }
 
 // sourceHostRows emits a "source host:" row per extension or MCP server

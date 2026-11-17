@@ -41,14 +41,14 @@ func (s *stateRows) emitAll() {
 		s.row(record, parser.ColumnTime(record.Get("updated_at")), fmt.Sprintf(
 			"permission setting: channel %s account %s allowFrom=%s (from state/openclaw.sqlite"+
 				" channel_pairing_allow_entries, updated_at)", orDash(columnStr(record.Get("channel_key"))),
-			orDash(columnStr(record.Get("account_id"))), record.Get("entry").Str()), "")
+			orDash(columnStr(record.Get("account_id"))), record.Get("entry").String()), "")
 	}
 	for _, record := range s.data["channel_ingress_events"] {
 		s.row(record, parser.ColumnTime(record.Get("received_at")), fmt.Sprintf(
 			"channel ingress: %s account %s status %s: %s (from state/openclaw.sqlite"+
 				" channel_ingress_events, received_at)", orDash(columnStr(record.Get("channel_id"))),
 			orDash(columnStr(record.Get("account_id"))), orDash(columnStr(record.Get("status"))),
-			record.Get("payload_json").Str()), "")
+			record.Get("payload_json").String()), "")
 	}
 	for _, table := range githubPublicationTables() {
 		for _, record := range s.data[table] {
@@ -64,7 +64,7 @@ func (s *stateRows) projects() {
 	for _, record := range s.data["projects"] {
 		origin := ""
 		if value := record.Get("origin_url"); !value.IsNull() {
-			origin = timeline.Compact(value.Str())
+			origin = timeline.Compact(value.String())
 		}
 		if origin == "" {
 			continue
@@ -148,7 +148,7 @@ func grantText(record sqlitefile.Row) string {
 	value := func(name string) string { return orDash(columnStr(record.Get(name))) }
 	uses := "-"
 	if count := record.Get("use_count"); !count.IsNull() {
-		uses = count.Str()
+		uses = count.String()
 	}
 	return fmt.Sprintf("permission setting: standing grant %s allow-always cron job %s agent %s"+
 		" binding %s approval %s expires=%s revoked=%s uses=%s (from state/openclaw.sqlite"+
@@ -165,7 +165,7 @@ func publicationText(table string, record sqlitefile.Row) string {
 	value := func(name string) string { return orDash(columnStr(record.Get(name))) }
 	account := "-"
 	if identifier := record.Get("identity_account_id"); !identifier.IsNull() {
-		account = identifier.Str()
+		account = identifier.String()
 	}
 	return fmt.Sprintf("source host: github account %s id %s identity %s; publication %s repository"+
 		" %s branch %s pull request %s (from state/openclaw.sqlite %s, created_at_ms)",

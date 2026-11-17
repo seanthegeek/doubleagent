@@ -18,8 +18,9 @@ func Parse(text string) (table *Table, err error) {
 		}
 	}()
 	var mapping map[string]any
-	// Python's reader turns every CR LF into LF before it reads, so a
-	// multi-line string holds LF however the file ended its lines.
+	// Every CR LF becomes LF before reading, so a multi-line string holds LF
+	// however the file ended its lines; TOML lets a reader normalise
+	// newlines so.
 	meta, err := toml.Decode(strings.ReplaceAll(text, "\r\n", "\n"), &mapping)
 	if err != nil {
 		return nil, syntaxError(err)
@@ -38,8 +39,8 @@ func syntaxError(err error) error {
 
 // builder rebuilds the document's order. The reader gives every key path in
 // document order and the finished values as maps; walking the paths in order
-// and creating each table at its first appearance gives the order a dict has
-// in Python.
+// and creating each table at its first appearance gives the document's
+// order.
 type builder struct {
 	mapping map[string]any
 	keys    []toml.Key
@@ -313,33 +314,18 @@ func fillMissing(table *Table, node map[string]any) {
 	}
 }
 
-// temporal converts a date or time the reader returned. The reader marks a
-// value without an offset by a zone named for its kind.
+// temporal converts a date or time the reader returned to its RFC 3339
+// text, in the forms the reader's own encoder writes: a fraction only when
+// it is not zero, without trailing zeros, and Z for a zero offset. The
+// reader marks a value without an offset by a zone named for its kind.
 func temporal(moment time.Time) Value {
-	micros := moment.Nanosecond() / 1000
-	clock := fmt.Sprintf("%02d:%02d:%02d", moment.Hour(), moment.Minute(), moment.Second())
-	if micros != 0 {
-		clock += fmt.Sprintf(".%06d", micros)
-	}
-	year, month, day := moment.Date()
-	date := fmt.Sprintf("%04d-%02d-%02d", year, int(month), day)
 	switch moment.Location().String() {
 	case "date-local":
-		return Value{kind: KindLocalDate, text: date}
+		return Value{kind: KindLocalDate, text: moment.Format(time.DateOnly)}
 	case "time-local":
-		return Value{kind: KindLocalTime, text: clock}
+		return Value{kind: KindLocalTime, text: moment.Format("15:04:05.999999999")}
 	case "datetime-local":
-		return Value{kind: KindLocalDatetime, text: date + " " + clock}
+		return Value{kind: KindLocalDatetime, text: moment.Format("2006-01-02T15:04:05.999999999")}
 	}
-	return Value{kind: KindDatetime, text: date + " " + clock + offsetText(moment)}
-}
-
-// offsetText writes the UTC offset as Python's `str(datetime)` does.
-func offsetText(moment time.Time) string {
-	_, seconds := moment.Zone()
-	sign := "+"
-	if seconds < 0 {
-		sign, seconds = "-", -seconds
-	}
-	return fmt.Sprintf("%s%02d:%02d", sign, seconds/3600, seconds%3600/60)
+	return Value{kind: KindDatetime, text: moment.Format(time.RFC3339Nano)}
 }
