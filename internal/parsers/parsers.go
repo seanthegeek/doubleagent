@@ -34,6 +34,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/hermes"
 	"github.com/seanthegeek/doubleagent/internal/parser/kilocode"
 	"github.com/seanthegeek/doubleagent/internal/parser/kiro"
+	"github.com/seanthegeek/doubleagent/internal/parser/letta"
 	"github.com/seanthegeek/doubleagent/internal/parser/musecode"
 	"github.com/seanthegeek/doubleagent/internal/parser/ollama"
 	"github.com/seanthegeek/doubleagent/internal/parser/opencode"
@@ -77,6 +78,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return openhands.New() },
 		func() parser.Parser { return shellgpt.New() },
 		func() parser.Parser { return pi.New() },
+		func() parser.Parser { return letta.New() },
 		func() parser.Parser { return hermes.New() },
 		func() parser.Parser { return agentzero.New() },
 		func() parser.Parser { return openinterpreter.New() },
