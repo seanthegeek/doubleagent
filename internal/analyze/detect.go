@@ -10,7 +10,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
@@ -209,28 +208,39 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 	parsed := parserAgents(env.Parsers())
 	detected := detect(collection, parsed, &collection.Problems)
 	if options.JSON {
-		_, _ = io.WriteString(stdout, detectJSON(detected, collection, options.Files)+"\n")
+		_ = writeJSON(stdout, detectDocument(detected, collection, options.Files))
 		return ExitFound
 	}
 	return printDetect(stdout, detected, collection, parsed, options.Files)
 }
 
-// detectJSON returns the object detect --json prints: the detection, the
-// problems and, with files, every artifact's user, agent and path.
-func detectJSON(detected detection, collection *input.Collection, files bool) string {
-	members := append(detectionMembers(detected), jsonvalue.Member{Key: "problems",
-		Value: stringArray(collection.Problems)})
+// detectJSON is the document detect --json prints: the detection, the
+// problems and, with --files, every artifact's user, agent and path.
+type detectJSON struct {
+	detectionJSON
+	Problems []string    `json:"problems"`
+	Files    *[]fileJSON `json:"files,omitempty"`
+}
+
+// fileJSON is one artifact of detect --json --files.
+type fileJSON struct {
+	User  string `json:"user"`
+	Agent string `json:"agent"`
+	Path  string `json:"path"`
+}
+
+// detectDocument returns the document detect --json prints.
+func detectDocument(detected detection, collection *input.Collection, files bool) detectJSON {
+	document := detectJSON{detectionJSON: newDetectionJSON(detected),
+		Problems: list(collection.Problems)}
 	if files {
-		list := make([]jsonvalue.Value, len(collection.Artifacts))
+		artifacts := make([]fileJSON, len(collection.Artifacts))
 		for i, artifact := range collection.Artifacts {
-			list[i] = jsonvalue.NewObject(
-				jsonvalue.Member{Key: "user", Value: jsonvalue.NewString(artifact.Home.User)},
-				jsonvalue.Member{Key: "agent", Value: jsonvalue.NewString(artifact.Agent)},
-				jsonvalue.Member{Key: "path", Value: jsonvalue.NewString(artifact.Original)})
+			artifacts[i] = fileJSON{User: artifact.Home.User, Agent: artifact.Agent, Path: artifact.Original}
 		}
-		members = append(members, jsonvalue.Member{Key: "files", Value: jsonvalue.NewArray(list...)})
+		document.Files = &artifacts
 	}
-	return jsonvalue.NewObject(members...).IndentedJSON("  ")
+	return document
 }
 
 // printDetect prints the tables of detect and returns 1 when the input

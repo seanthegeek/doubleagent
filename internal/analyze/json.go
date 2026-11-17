@@ -1,103 +1,116 @@
 package analyze
 
 import (
+	"encoding/json"
+	"io"
+
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// member returns one key and value of an object.
-func member(key string, value jsonvalue.Value) jsonvalue.Member {
-	return jsonvalue.Member{Key: key, Value: value}
+// writeJSON writes document as indented JSON (two spaces), UTF-8 kept and
+// HTML characters not escaped, ending in a newline.
+func writeJSON(w io.Writer, document any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(document)
 }
 
-// stringArray returns texts as a JSON array of strings.
-func stringArray(texts []string) jsonvalue.Value {
-	items := make([]jsonvalue.Value, len(texts))
-	for i, text := range texts {
-		items[i] = jsonvalue.NewString(text)
+// list returns items, or an empty list for none, so that encoding/json
+// writes [] rather than null.
+func list[T any](items []T) []T {
+	if items == nil {
+		return []T{}
 	}
-	return jsonvalue.NewArray(items...)
+	return items
 }
 
-// detectionMembers returns the keys detect --json and inventory.json share,
-// in order: input, kind, host, notes, homes and projects.
-func detectionMembers(detected detection) []jsonvalue.Member {
-	homes := make([]jsonvalue.Value, len(detected.homes))
-	for i, home := range detected.homes {
-		homes[i] = jsonvalue.NewObject(homeMembers(home, nil)...)
-	}
-	projects := make([]jsonvalue.Value, len(detected.projects))
-	for i, project := range detected.projects {
-		projects[i] = projectJSON(project)
-	}
-	return []jsonvalue.Member{
-		member("input", jsonvalue.NewString(detected.input)),
-		member("kind", jsonvalue.NewString(detected.kind)),
-		member("host", jsonvalue.NewString(detected.host)),
-		member("notes", stringArray(detected.notes)),
-		member("homes", jsonvalue.NewArray(homes...)),
-		member("projects", jsonvalue.NewArray(projects...)),
-	}
+// detectionJSON holds the keys detect --json and inventory.json share, in
+// order: input, kind, host, notes, homes and projects.
+type detectionJSON struct {
+	Input    string        `json:"input"`
+	Kind     string        `json:"kind"`
+	Host     string        `json:"host"`
+	Notes    []string      `json:"notes"`
+	Homes    []homeJSON    `json:"homes"`
+	Projects []projectJSON `json:"projects"`
 }
 
-// homeMembers returns the keys of one home: user, home, inferred and its
-// agents, each agent's object ending with the members extra gives it.
-func homeMembers(home homeEntry, extra func(agent string) []jsonvalue.Member) []jsonvalue.Member {
-	agents := make([]jsonvalue.Value, len(home.agents))
-	for i, agent := range home.agents {
-		members := agentMembers(agent)
-		if extra != nil {
-			members = append(members, extra(agent.agent)...)
-		}
-		agents[i] = jsonvalue.NewObject(members...)
-	}
-	return []jsonvalue.Member{
-		member("user", jsonvalue.NewString(home.user)),
-		member("home", jsonvalue.NewString(home.home)),
-		member("inferred", jsonvalue.NewBool(home.inferred)),
-		member("agents", jsonvalue.NewArray(agents...)),
-	}
+// homeJSON is one home: user, home, inferred and its agents.
+type homeJSON struct {
+	User     string      `json:"user"`
+	Home     string      `json:"home"`
+	Inferred bool        `json:"inferred"`
+	Agents   []agentJSON `json:"agents"`
 }
 
-// agentMembers returns the keys of one agent of a home or project: agent,
-// files, bytes and parser.
-func agentMembers(agent agentFiles) []jsonvalue.Member {
-	return []jsonvalue.Member{
-		member("agent", jsonvalue.NewString(agent.agent)),
-		member("files", jsonvalue.NewInt(agent.files)),
-		member("bytes", jsonvalue.NewInt(agent.bytes)),
-		member("parser", jsonvalue.NewBool(agent.parser)),
-	}
+// agentJSON is one agent of a home or project: agent, files, bytes and
+// parser.
+type agentJSON struct {
+	Agent  string `json:"agent"`
+	Files  int64  `json:"files"`
+	Bytes  int64  `json:"bytes"`
+	Parser bool   `json:"parser"`
 }
 
-// projectJSON returns one project of detect --json: path, users, agents,
+// projectJSON is one project of detect --json: path, users, agents,
 // shared_files, shared_bytes, remotes and head.
-func projectJSON(project projectEntry) jsonvalue.Value {
-	agents := make([]jsonvalue.Value, len(project.agents))
-	for i, agent := range project.agents {
-		agents[i] = jsonvalue.NewObject(agentMembers(agent)...)
-	}
-	return jsonvalue.NewObject(
-		member("path", jsonvalue.NewString(project.path)),
-		member("users", stringArray(project.users)),
-		member("agents", jsonvalue.NewArray(agents...)),
-		member("shared_files", jsonvalue.NewInt(project.sharedFiles)),
-		member("shared_bytes", jsonvalue.NewInt(project.sharedBytes)),
-		member("remotes", remotesJSON(project.git.remotes)),
-		member("head", jsonvalue.NewString(project.git.head)),
-	)
+type projectJSON struct {
+	Path        string       `json:"path"`
+	Users       []string     `json:"users"`
+	Agents      []agentJSON  `json:"agents"`
+	SharedFiles int64        `json:"shared_files"`
+	SharedBytes int64        `json:"shared_bytes"`
+	Remotes     []remoteJSON `json:"remotes"`
+	Head        string       `json:"head"`
 }
 
-// remotesJSON returns remotes as a JSON array of objects with name, urls and
-// pushurls.
-func remotesJSON(remotes []gitmeta.Remote) jsonvalue.Value {
-	items := make([]jsonvalue.Value, len(remotes))
-	for i, remote := range remotes {
-		items[i] = jsonvalue.NewObject(
-			member("name", jsonvalue.NewString(remote.Name)),
-			member("urls", stringArray(remote.URLs)),
-			member("pushurls", stringArray(remote.PushURLs)),
-		)
+// remoteJSON is one git remote: name, urls and pushurls.
+type remoteJSON struct {
+	Name     string   `json:"name"`
+	URLs     []string `json:"urls"`
+	PushURLs []string `json:"pushurls"`
+}
+
+// newDetectionJSON returns the shared keys of a detection.
+func newDetectionJSON(detected detection) detectionJSON {
+	homes := make([]homeJSON, len(detected.homes))
+	for i, home := range detected.homes {
+		homes[i] = newHomeJSON(home)
 	}
-	return jsonvalue.NewArray(items...)
+	projects := make([]projectJSON, len(detected.projects))
+	for i, project := range detected.projects {
+		projects[i] = projectJSON{Path: project.path, Users: list(project.users),
+			Agents: agentsJSON(project.agents), SharedFiles: project.sharedFiles,
+			SharedBytes: project.sharedBytes, Remotes: remotesJSON(project.git.remotes),
+			Head: project.git.head}
+	}
+	return detectionJSON{Input: detected.input, Kind: detected.kind, Host: detected.host,
+		Notes: list(detected.notes), Homes: homes, Projects: projects}
+}
+
+// newHomeJSON returns one home with its agents.
+func newHomeJSON(home homeEntry) homeJSON {
+	return homeJSON{User: home.user, Home: home.home, Inferred: home.inferred,
+		Agents: agentsJSON(home.agents)}
+}
+
+// agentsJSON returns agents in the form of a home's or project's agents.
+func agentsJSON(agents []agentFiles) []agentJSON {
+	out := make([]agentJSON, len(agents))
+	for i, agent := range agents {
+		out[i] = agentJSON{Agent: agent.agent, Files: agent.files, Bytes: agent.bytes,
+			Parser: agent.parser}
+	}
+	return out
+}
+
+// remotesJSON returns remotes with their urls and pushurls.
+func remotesJSON(remotes []gitmeta.Remote) []remoteJSON {
+	out := make([]remoteJSON, len(remotes))
+	for i, remote := range remotes {
+		out[i] = remoteJSON{Name: remote.Name, URLs: list(remote.URLs),
+			PushURLs: list(remote.PushURLs)}
+	}
+	return out
 }

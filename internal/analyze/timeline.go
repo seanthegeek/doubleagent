@@ -188,8 +188,7 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 	agents := detectedAgents(detected)
 	inventory := r.inventory(detected, agents)
 	if err := writeOutput(r.outputPath(InventoryFile), func(w io.Writer) error {
-		_, err := io.WriteString(w, inventory)
-		return err
+		return writeJSON(w, inventory)
 	}); err != nil {
 		return printError(ctx, stderr, err.Error())
 	}

@@ -164,10 +164,8 @@ func TestColumnsNameTheFieldsInOrder(t *testing.T) {
 			t.Fatalf("%s has %d fields for %d columns", kind.Name(), kind.NumField(), len(columns))
 		}
 		for i, column := range columns {
-			name := strings.ReplaceAll(strings.ToLower(kind.Field(i).Name), "_", "")
-			if strings.ReplaceAll(column, "_", "") != name {
-				t.Errorf("field %d of %s is %s, column %s", i, kind.Name(), kind.Field(i).Name,
-					column)
+			if tag := kind.Field(i).Tag.Get("json"); tag != column {
+				t.Errorf("field %d of %s is written as %q, column %s", i, kind.Name(), tag, column)
 			}
 		}
 	}

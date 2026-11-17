@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -143,40 +142,75 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 		r.outputPath(InventoryFile))
 }
 
-// inventory returns the text of inventory.json: indented, ASCII only, and
-// without a final newline.
-func (r *timelineRun) inventory(detected detection, agents []agentFiles) string {
+// inventoryJSON is inventory.json, its keys in the documented order.
+type inventoryJSON struct {
+	Version            string                      `json:"doubleagent_version"`
+	Input              string                      `json:"input"`
+	Kind               string                      `json:"kind"`
+	Host               string                      `json:"host"`
+	Notes              []string                    `json:"notes"`
+	Problems           []string                    `json:"problems"`
+	Rows               int                         `json:"rows"`
+	Sessions           int                         `json:"sessions"`
+	Parsed             []string                    `json:"parsed"`
+	DetectedNotParsed  []string                    `json:"detected_not_parsed"`
+	NoRows             []string                    `json:"no_rows"`
+	Homes              []inventoryHomeJSON         `json:"homes"`
+	Projects           map[string]projectValueJSON `json:"projects"`
+	OutsideProjects    projectValueJSON            `json:"outside_projects"`
+	Deduplicated       map[string]int              `json:"deduplicated"`
+	CollectedOnly      []string                    `json:"collected_only"`
+	SyncedSessions     int                         `json:"synced_sessions"`
+	RelayedSessions    int                         `json:"relayed_sessions"`
+	RemoteSessions     int                         `json:"remote_sessions"`
+	RecoveredSessions  int                         `json:"recovered_sessions"`
+	ScratchDirectories map[string]projectValueJSON `json:"scratch_directories"`
+}
+
+// inventoryHomeJSON is one home of inventory.json: a home whose agents carry
+// the counts of their sessions with each mark.
+type inventoryHomeJSON struct {
+	User     string               `json:"user"`
+	Home     string               `json:"home"`
+	Inferred bool                 `json:"inferred"`
+	Agents   []inventoryAgentJSON `json:"agents"`
+}
+
+// inventoryAgentJSON is one agent of a home of inventory.json.
+type inventoryAgentJSON struct {
+	agentJSON
+	SyncedSessions    int `json:"synced_sessions"`
+	RelayedSessions   int `json:"relayed_sessions"`
+	RemoteSessions    int `json:"remote_sessions"`
+	RecoveredSessions int `json:"recovered_sessions"`
+}
+
+// inventory returns inventory.json's document. The projects and scratch
+// directories are keyed by display path, which encoding/json writes in
+// sorted order, the order entries gives them.
+func (r *timelineRun) inventory(detected detection, agents []agentFiles) inventoryJSON {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
 	files := projectFiles(detected.projects, r.collection.Summary)
 	marks := projectMarks(r.registry.Marks())
 	projects := newProjectInventory(r.rows, r.sessions, collectedProjects(r.collection), files)
 	entries := projects.entries(marks, recordedRemotes(r.rows, r.sessions))
 	scratch := r.found.scratchKeys(r.collection, r.rows)
-	members := []jsonvalue.Member{member("doubleagent_version", jsonvalue.NewString(r.env.Version))}
-	members = append(members, detectionMembers(detected)[:4]...)
-	members = append(members,
-		member("problems", stringArray(r.problems)),
-		member("rows", jsonvalue.NewInt(int64(len(r.rows)))),
-		member("sessions", jsonvalue.NewInt(int64(len(r.sessions)))),
-		member("parsed", stringArray(r.parsed)),
-		member("detected_not_parsed", stringArray(unparsed)),
-		member("no_rows", stringArray(noRows)),
-		member("homes", r.homesWithMarks(detected.homes)),
-		member("projects", projectsWhere(entries, scratch, false)),
-		member("outside_projects", outsideProjects(entries, marks)),
-		member("deduplicated", droppedJSON(r.dropped)),
-		member("collected_only", stringArray(collectedOnly)))
-	for i, count := range markCounts(r.sessions) {
-		members = append(members, member(markNames()[i][0], jsonvalue.NewInt(int64(count))))
-	}
-	members = append(members, member("scratch_directories", projectsWhere(entries, scratch, true)))
-	return jsonvalue.NewObject(members...).IndentedJSON("  ")
+	counts := markCounts(r.sessions)
+	return inventoryJSON{Version: r.env.Version, Input: detected.input, Kind: detected.kind,
+		Host: detected.host, Notes: list(detected.notes), Problems: list(r.problems),
+		Rows: len(r.rows), Sessions: len(r.sessions), Parsed: list(r.parsed),
+		DetectedNotParsed: list(unparsed), NoRows: list(noRows),
+		Homes: r.homesWithMarks(detected.homes), Projects: projectsWhere(entries, scratch, false),
+		OutsideProjects: outsideProjects(entries, marks), Deduplicated: droppedCounts(r.dropped),
+		CollectedOnly: list(collectedOnly), SyncedSessions: counts[0], RelayedSessions: counts[1],
+		RemoteSessions: counts[2], RecoveredSessions: counts[3],
+		ScratchDirectories: projectsWhere(entries, scratch, true)}
 }
 
 // homesWithMarks returns the homes array of inventory.json: each agent
 // object ends with the counts of that user's sessions of the agent with
 // each mark.
-func (r *timelineRun) homesWithMarks(homes []homeEntry) jsonvalue.Value {
+func (r *timelineRun) homesWithMarks(homes []homeEntry) []inventoryHomeJSON {
 	counts := map[[2]string][4]int{}
 	for _, session := range r.sessions {
 		key := [2]string{session.User, session.Agent}
@@ -188,57 +222,52 @@ func (r *timelineRun) homesWithMarks(homes []homeEntry) jsonvalue.Value {
 		}
 		counts[key] = total
 	}
-	items := make([]jsonvalue.Value, len(homes))
+	items := make([]inventoryHomeJSON, len(homes))
 	for i, home := range homes {
-		items[i] = jsonvalue.NewObject(homeMembers(home, func(agent string) []jsonvalue.Member {
-			total := counts[[2]string{home.user, agent}]
-			members := make([]jsonvalue.Member, 0, 4)
-			for j, names := range markNames() {
-				members = append(members, member(names[0], jsonvalue.NewInt(int64(total[j]))))
-			}
-			return members
-		})...)
+		agents := make([]inventoryAgentJSON, len(home.agents))
+		for j, agent := range agentsJSON(home.agents) {
+			total := counts[[2]string{home.user, agent.Agent}]
+			agents[j] = inventoryAgentJSON{agentJSON: agent, SyncedSessions: total[0],
+				RelayedSessions: total[1], RemoteSessions: total[2], RecoveredSessions: total[3]}
+		}
+		items[i] = inventoryHomeJSON{User: home.user, Home: home.home, Inferred: home.inferred,
+			Agents: agents}
 	}
-	return jsonvalue.NewArray(items...)
+	return items
 }
 
-// projectsWhere returns the projects object of the project paths that are
-// scratch directories, or of those that are not; the empty path is in
-// neither.
-func projectsWhere(entries []projectEntryJSON, scratch map[string]bool, isScratch bool) jsonvalue.Value {
-	var members []jsonvalue.Member
+// projectsWhere returns the projects of the project paths that are scratch
+// directories, or of those that are not; the empty path is in neither.
+func projectsWhere(entries []projectEntryJSON, scratch map[string]bool,
+	isScratch bool) map[string]projectValueJSON {
+	projects := map[string]projectValueJSON{}
 	for _, entry := range entries {
 		if entry.path != "" && scratch[timeline.ProjectKey(entry.path)] == isScratch {
-			members = append(members, member(entry.path, entry.value))
+			projects[entry.path] = entry.value
 		}
 	}
-	return jsonvalue.NewObject(members...)
+	return projects
 }
 
 // outsideProjects returns the entry of the rows and sessions with no
 // project path, or an empty one.
-func outsideProjects(entries []projectEntryJSON, marks []sessionMark) jsonvalue.Value {
+func outsideProjects(entries []projectEntryJSON, marks []sessionMark) projectValueJSON {
 	for _, entry := range entries {
 		if entry.path == "" {
 			return entry.value
 		}
 	}
-	members := []jsonvalue.Member{member("rows", jsonvalue.NewInt(0)), member("sessions", jsonvalue.NewInt(0)),
-		member("agents", jsonvalue.NewObject())}
-	for _, mark := range marks {
-		members = append(members, member(mark.key, jsonvalue.NewString("")))
-	}
-	return jsonvalue.NewObject(members...)
+	return newProjectValue(0, 0, map[string]agentTallyJSON{}, make([]string, len(marks)))
 }
 
-// droppedJSON returns the deduplicated object: per agent with rows
-// dropped, sorted, the count.
-func droppedJSON(dropped map[string]int) jsonvalue.Value {
-	var members []jsonvalue.Member
-	for _, agent := range sortedKeys(dropped) {
-		if dropped[agent] > 0 {
-			members = append(members, member(agent, jsonvalue.NewInt(int64(dropped[agent]))))
+// droppedCounts returns the deduplicated object: per agent with rows
+// dropped, the count.
+func droppedCounts(dropped map[string]int) map[string]int {
+	counts := map[string]int{}
+	for agent, count := range dropped {
+		if count > 0 {
+			counts[agent] = count
 		}
 	}
-	return jsonvalue.NewObject(members...)
+	return counts
 }

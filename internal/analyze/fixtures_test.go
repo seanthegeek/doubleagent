@@ -79,3 +79,17 @@ func showRoot(output, work string) string {
 	output = strings.ReplaceAll(output, escaped[1:len(escaped)-1], "{ROOT}/")
 	return strings.ReplaceAll(output, prefix, "{ROOT}/")
 }
+
+// member returns one key and value of an object.
+func member(key string, value jsonvalue.Value) jsonvalue.Member {
+	return jsonvalue.Member{Key: key, Value: value}
+}
+
+// stringArray returns texts as a JSON array of strings.
+func stringArray(texts []string) jsonvalue.Value {
+	items := make([]jsonvalue.Value, len(texts))
+	for i, text := range texts {
+		items[i] = jsonvalue.NewString(text)
+	}
+	return jsonvalue.NewArray(items...)
+}
