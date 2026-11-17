@@ -2,6 +2,7 @@ package sqlitefile
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -100,7 +101,7 @@ func TestParseCreateTableReadsEachPart(t *testing.T) {
 			if strings.Join(got, "; ") != strings.Join(test.columns, "; ") {
 				t.Errorf("columns = %q, want %q", got, test.columns)
 			}
-			if !equalInts(shape.primaryKey, test.key) {
+			if !slices.Equal(shape.primaryKey, test.key) {
 				t.Errorf("primary key = %v, want %v", shape.primaryKey, test.key)
 			}
 			options := strings.TrimSpace(map[bool]string{true: "strict"}[shape.strict] + " " +
@@ -110,19 +111,6 @@ func TestParseCreateTableReadsEachPart(t *testing.T) {
 			}
 		})
 	}
-}
-
-// equalInts reports whether two int lists are equal, nil and empty alike.
-func equalInts(first, second []int) bool {
-	if len(first) != len(second) {
-		return false
-	}
-	for i := range first {
-		if first[i] != second[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func TestParseCreateTableRefusesWhatItCannotRead(t *testing.T) {

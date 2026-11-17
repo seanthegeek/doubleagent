@@ -3,6 +3,7 @@ package sqlitefile
 import (
 	"errors"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -80,24 +81,11 @@ func TestQueryBuildingReadsLikeSQL(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := rowids(rows); !equalInt64s(got, test.want) {
+			if got := rowids(rows); !slices.Equal(got, test.want) {
 				t.Errorf("rowids = %v, want %v", got, test.want)
 			}
 		})
 	}
-}
-
-// equalInt64s reports whether two lists are equal, nil and empty alike.
-func equalInt64s(first, second []int64) bool {
-	if len(first) != len(second) {
-		return false
-	}
-	for i := range first {
-		if first[i] != second[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func TestQueryErrorsNameTheProblem(t *testing.T) {
@@ -150,7 +138,7 @@ func TestEachAndFirstStopWhereTheyShould(t *testing.T) {
 	}
 }
 
-func TestRowsReadNamesAndValuesAsPythonDoes(t *testing.T) {
+func TestRowsReadNamesAndValues(t *testing.T) {
 	odd := tableOf(t, "schema.db", `odd "name" here`)
 	rows, err := odd.Select("[a b]", "C D", "rowid").Compute("twice", func(row Row) Value {
 		return IntValue(2 * row.Get("c d").Int)
@@ -202,10 +190,10 @@ func TestLookupComparesAsAJoinDoes(t *testing.T) {
 		t.Fatal(err)
 	}
 	// y is TEXT and z INTEGER, so the text "5" and "5.0" match the integer 5.
-	if got := rowids(byZ.Find(rows[0], "y")); !equalInt64s(got, []int64{1, 2, 6, 8}) {
+	if got := rowids(byZ.Find(rows[0], "y")); !slices.Equal(got, []int64{1, 2, 6, 8}) {
 		t.Errorf("numeric join of y = '5' found rowids %v, want 1, 2, 6, 8", got)
 	}
-	if got := rowids(byZ.Find(rows[5], "y")); !equalInt64s(got, []int64{1, 2, 6, 8}) {
+	if got := rowids(byZ.Find(rows[5], "y")); !slices.Equal(got, []int64{1, 2, 6, 8}) {
 		t.Errorf("numeric join of y = '5.0' found rowids %v, want 1, 2, 6, 8", got)
 	}
 	if got := byZ.Find(rows[0], "absent"); got != nil {

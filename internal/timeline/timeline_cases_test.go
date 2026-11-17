@@ -92,13 +92,13 @@ func sessionCases() []sessionCase {
 	}
 }
 
-// pathCase is a project path, Python's canonical form, the key this
-// package gives, whether it is a Windows path, and Python's key where it
-// differs: Python lowers non-ASCII letters too, this package ASCII only.
+// pathCase is a project path, its canonical form, the key this package
+// gives, whether it is a Windows path, and the key a full Unicode lowering
+// would give where it differs: this package lowers ASCII letters only.
 type pathCase struct {
 	input, canonical, key string
 	windows               bool
-	pythonKey             string
+	unicodeKey            string
 }
 
 // pathCases returns the project path cases.
@@ -142,7 +142,7 @@ func pathCases() []pathCase {
 	}
 }
 
-// compactCase is a text and Python's compact of it.
+// compactCase is a text and its compact form.
 type compactCase struct {
 	input, want string
 }

@@ -64,8 +64,7 @@ func TestDatabaseErrorWordsEachKindOfFailure(t *testing.T) {
 	}
 }
 
-// The expected timestamps are what the Python analyzer's to_utc gives for
-// the values its sqlite3 module returns.
+// Each storage class reads as timeutil reads a number or a text.
 func TestColumnTimeReadsEachStorageClass(t *testing.T) {
 	tests := []struct {
 		name  string

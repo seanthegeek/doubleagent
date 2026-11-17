@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-// testNow returns the clock of the Python tests.
+// testNow returns the clock the bound tests run at.
 func testNow() time.Time {
 	return time.Date(2026, 3, 31, 14, 5, 9, 123_000_000, time.UTC)
 }
 
-// acceptedCases are values both analyzers read, with the --since and the
-// --until bound the Python analyzer gives.
+// acceptedCases are accepted values with their --since and --until
+// bounds.
 func acceptedCases() []struct{ text, since, until string } {
 	return []struct{ text, since, until string }{
 		{"2026-10-01", "2026-10-01T00:00:00.000Z", "2026-10-01T23:59:59.999Z"},
@@ -181,8 +181,8 @@ func rejectedCases() []string {
 	}
 }
 
-// refusedCases are values the Python analyzer read, or crashed on, that
-// are refused here: forms only its date parser's leniency allowed.
+// refusedCases are values in no accepted form, each line's comment naming
+// what puts it outside them.
 func refusedCases() []string {
 	return []string{
 		"2026-10-01t09:30", "2026-10-01_09:30", "2026-10-01 +02:00", // other separators
@@ -226,8 +226,8 @@ func TestParseBound(t *testing.T) {
 }
 
 func TestUntilAtTheEndOfTheYear9999(t *testing.T) {
-	// The Python analyzer failed with an overflow here, computing the start
-	// of the following period before taking a millisecond off.
+	// The bound is the period's last millisecond, computed without the
+	// start of a following period, which no timestamp can hold.
 	for _, text := range []string{"9999", "9999-12", "9999-12-31", "9999-12-31T23:59"} {
 		until, err := ParseBound(text, true, testNow())
 		if err != nil || until != "9999-12-31T23:59:59.999Z" {

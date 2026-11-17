@@ -1,6 +1,7 @@
 package vscodestate
 
 import (
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -35,7 +36,7 @@ func compactValues(values map[string]jsonvalue.Value) map[string]string {
 	return out
 }
 
-func TestReadItemsReturnsWhatPythonReturns(t *testing.T) {
+func TestReadItemsReturnsEachValueAndProblem(t *testing.T) {
 	path := stateCopy(t)
 	// From read_items on the same file: values decoded, the value that is not
 	// JSON kept as text, the secret never read, problems in key order.
@@ -45,7 +46,7 @@ func TestReadItemsReturnsWhatPythonReturns(t *testing.T) {
 	want := map[string]string{"CLOUDAGENTREPOSITORY.agents.u3": "[]",
 		"cloudAgentRepository.agents.u1": "[1]", "cloudAgentRepository.agents.u2": "[]",
 		"cloudAgentRepository.agentsX": `"no"`}
-	if got := compactValues(values); !mapsEqual(got, want) {
+	if got := compactValues(values); !maps.Equal(got, want) {
 		t.Errorf("values = %v, want %v", got, want)
 	}
 	if len(problems) != 1 || !strings.HasPrefix(problems[0],
@@ -59,19 +60,6 @@ func TestReadItemsReturnsWhatPythonReturns(t *testing.T) {
 	if !value.IsNull() || problems != nil {
 		t.Errorf("ReadItem(missing) = %v, %q; want null and no problem", value, problems)
 	}
-}
-
-// mapsEqual reports whether two string maps hold the same entries.
-func mapsEqual(first, second map[string]string) bool {
-	if len(first) != len(second) {
-		return false
-	}
-	for key, value := range first {
-		if other, ok := second[key]; !ok || other != value {
-			return false
-		}
-	}
-	return true
 }
 
 func TestReadItemsReportsAFileItCannotOpen(t *testing.T) {

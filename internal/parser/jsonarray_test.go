@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// The positions, problems and ends are what the Python analyzer's
-// iter_array_at gives; the decoder's wording is the binary's own.
+// ArrayAt yields each element before damage with its position, then the
+// damage as a problem.
 func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -107,8 +107,7 @@ func FuzzArrayAt(fuzz *testing.F) {
 	})
 }
 
-// The elements and problems are what the Python analyzer's array reader for
-// in-memory text gives; the decoder's wording is the binary's own.
+// ArrayElements does the same for text already in memory.
 func TestArrayElementsSalvagesTheElementsBeforeDamage(t *testing.T) {
 	tests := []struct {
 		name     string

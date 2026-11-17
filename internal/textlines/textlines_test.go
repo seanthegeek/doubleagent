@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// The expected values below are those of the Python analyzer's textlines
-// module and its tests (analyzer/tests/test_textlines.py).
+// The expected values below are the line and trim rules the package
+// comment states.
 
 func TestSplitEndsLinesAtLFOrCRLFOnly(t *testing.T) {
 	cases := []struct {

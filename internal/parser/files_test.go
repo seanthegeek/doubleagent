@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,8 +13,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The expected timestamps are what the Python analyzer's file_mtime gives
-// for the same manifest values and file times.
+// A positive manifest number is the mtime; anything else falls back to the
+// file's own time.
 func TestFileMtimePrefersAPositiveManifestNumber(t *testing.T) {
 	path := writeFile(t, "settings.json", []byte("{}"))
 	moment := time.Unix(1790848800, 123456789)
@@ -31,7 +32,7 @@ func TestFileMtimePrefersAPositiveManifestNumber(t *testing.T) {
 		{"a negative mtime falls back to the file", `{"mtime":-5}`, path, "2026-10-01T10:00:00.123Z"},
 		{"a boolean falls back to the file", `{"mtime":true}`, path, "2026-10-01T10:00:00.123Z"},
 		{"a string falls back to the file", `{"mtime":"1790848800"}`, path, "2026-10-01T10:00:00.123Z"},
-		{"an integer too large for a float gives nothing", `{"mtime":1` + zeros(400) + `}`, path, ""},
+		{"an integer too large for a float gives nothing", `{"mtime":1` + strings.Repeat("0", 400) + `}`, path, ""},
 		{"no manifest and no file give nothing", `null`, absent, ""},
 	}
 	for _, test := range tests {
@@ -42,15 +43,6 @@ func TestFileMtimePrefersAPositiveManifestNumber(t *testing.T) {
 			}
 		})
 	}
-}
-
-// zeros returns n zero digits.
-func zeros(n int) string {
-	digits := make([]byte, n)
-	for i := range digits {
-		digits[i] = '0'
-	}
-	return string(digits)
 }
 
 func TestFileMtimeCutsTheFileTimeToTheMillisecond(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// timeCases are the Python tests of the time rule and of one-to-one
+// timeCases are the tests of the time rule and of one-to-one
 // matching against the primary store.
 func timeCases() []deduplicateCase {
 	var cut, history []timeline.Row
@@ -85,7 +85,7 @@ func timeCases() []deduplicateCase {
 	}
 }
 
-// copyCases are the Python tests of copies among secondary rows, of tool
+// copyCases are the tests of copies among secondary rows, of tool
 // rows paired on their id and of parser: rows.
 func copyCases() []deduplicateCase {
 	copyA := historyRow("", set("file", backupA))
@@ -174,7 +174,7 @@ func broaderCases() []deduplicateCase {
 	}
 }
 
-// repeatCases are the Python tests of repeats inside one source and of
+// repeatCases are the tests of repeats inside one source and of
 // chained copies.
 func repeatCases() []deduplicateCase {
 	minute := "2026-10-01T10:01:00.000Z"
@@ -206,7 +206,7 @@ func repeatCases() []deduplicateCase {
 	}
 }
 
-// toolCases are the Python tests of tool rows paired on their tool_use_id,
+// toolCases are the tests of tool rows paired on their tool_use_id,
 // for one turn type.
 func toolCases(turnType string) []deduplicateCase {
 	command := `{"cmd": ["ls", "-la"]}`

@@ -8,7 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// filterRows returns the rows of the Python tests of RowFilter.
+// filterRows returns the rows the RowFilter tests filter.
 func filterRows() []timeline.Row {
 	row := func(timestamp, text, turnType, session, toolUseID string) timeline.Row {
 		return timeline.Row{TimestampUTC: timestamp, Agent: "claude-code", SessionID: session,
