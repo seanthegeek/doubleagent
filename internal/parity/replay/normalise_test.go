@@ -159,11 +159,10 @@ var libraryShapes = []struct {
 	pattern *regexp.Regexp
 	token   string
 }{
-	// Python's messages start with a capitalised word (Expecting, Extra,
-	// Invalid, Unterminated, Illegal), so a lead-in such as "JSON: " before
-	// one is not taken into the detail.
-	{regexp.MustCompile(`[A-Z][a-z][^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`),
-		"{json error}"},
+	// Python's messages start with one of a few words, so a record's key or
+	// a lead-in such as "JSON: " before one is not taken into the detail.
+	{regexp.MustCompile(`(?:Expecting|Unterminated|Invalid|Extra data|Illegal|Unexpected UTF-8 BOM)` +
+		`[^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
 	{regexp.MustCompile(`invalid JSON at line [0-9]+, column [0-9]+: [^()"\n]*`), "{json error}"},
 	{regexp.MustCompile(`[A-Za-z][^()"\n]*(?: \([^()"\n]*\))?: line [0-9]+, column [0-9]+`),
 		"{xml error}"},
@@ -173,6 +172,7 @@ var libraryShapes = []struct {
 	{regexp.MustCompile(`SQLite error: [^"\n]*`), "SQLite error: {sqlite error}"},
 	{regexp.MustCompile(`database could not be read: [^"\n]*`),
 		"database could not be read: {sqlite error}"},
+	{regexp.MustCompile(`state\.vscdb unreadable: [^"\n]*`), "state.vscdb unreadable: {sqlite error}"},
 	{regexp.MustCompile(`unreadable \([^()"\n]*\)`), "unreadable ({sqlite error})"},
 	{regexp.MustCompile(`zstd: [^"\n]*`), "zstd: {zstd error}"},
 	{regexp.MustCompile(`could not be read \([^()"\n]*\)`), "could not be read ({system error})"},

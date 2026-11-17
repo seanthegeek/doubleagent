@@ -91,7 +91,8 @@ func checkTree(t *testing.T, corpus *Corpus, root, directory, tree string) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			data = bytes.ReplaceAll(data, []byte(root), []byte(corpus.Header.RootPlaceholder))
+			data = bytes.ReplaceAll(data, []byte(filepath.ToSlash(root)),
+				[]byte(corpus.Header.RootPlaceholder))
 			sum := sha256.Sum256(data)
 			if hex.EncodeToString(sum[:]) != entry.Blob {
 				t.Errorf("%s does not hash to its blob %s", path, entry.Blob)

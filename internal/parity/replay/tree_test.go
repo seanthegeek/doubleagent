@@ -44,13 +44,16 @@ func (c *Corpus) ReadTree(digest string) ([]Entry, error) {
 	return tree.Entries, nil
 }
 
-// ReadBlob returns a blob's bytes with the root placeholder replaced by root.
+// ReadBlob returns a blob's bytes with the root placeholder replaced by root
+// written with forward slashes, which is root itself except on Windows: a
+// recorded file may hold the root inside JSON text, where a backslash would
+// start an escape.
 func (c *Corpus) ReadBlob(digest, root string) ([]byte, error) {
 	data, err := osfile.ReadFile(filepath.Join(c.Directory, "blobs", digest))
 	if err != nil {
 		return nil, fmt.Errorf("read blob: %w", err)
 	}
-	return bytes.ReplaceAll(data, []byte(c.Header.RootPlaceholder), []byte(root)), nil
+	return bytes.ReplaceAll(data, []byte(c.Header.RootPlaceholder), []byte(filepath.ToSlash(root))), nil
 }
 
 // PaddedRoot returns a new directory under the test's temporary directory

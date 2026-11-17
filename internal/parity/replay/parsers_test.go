@@ -27,6 +27,7 @@ import (
 // them.
 const (
 	skipPatched  = "the test patched the analyzer while the call ran"
+	skipStale    = "the recorder kept an earlier snapshot of a file the test rewrote and re-dated"
 	skipDenied   = "its tree denies reading, which this platform does not enforce"
 	skipCrash    = "the Python call raised an exception that is not an operating-system error"
 	skipExcluded = "an excluding documented difference shows in its rows"
@@ -137,6 +138,9 @@ func (r *parserReplay) replayCase(t *testing.T, subject parser.Parser, recorded 
 	t.Helper()
 	if len(recorded.Patched) > 0 {
 		return skipPatched
+	}
+	if staleSnapshot(recorded.Node) {
+		return skipStale
 	}
 	if recorded.Tree != "" {
 		denied, err := r.work.DeniesReading(recorded.Tree)
@@ -313,4 +317,12 @@ func (c *Corpus) expandJSON(text, root string) string {
 	}
 	text = strings.ReplaceAll(text, c.Header.RootToken, escape(root))
 	return strings.ReplaceAll(text, c.Header.RepoToken, escape(repositoryRoot()))
+}
+
+// staleSnapshot reports whether a test is known to rewrite a file and set
+// its modification time back, which the recorder does not see: it keeps the
+// file's earlier bytes, so the recorded rows do not come from the recorded
+// tree.
+func staleSnapshot(node string) bool {
+	return strings.HasSuffix(node, "::CursorTests::test_source_host_and_remote_agent_host")
 }
