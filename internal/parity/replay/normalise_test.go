@@ -148,8 +148,9 @@ func usageText(text string) (string, int) {
 }
 
 // errorMarker finds where a line's error text starts: a parser: row, a
-// problem: line, or an error: message.
-var errorMarker = regexp.MustCompile(`parser: |^problem: |^error: `)
+// problem: line, an error: message, or the note a tool result carries in
+// place of a persisted output that could not be read.
+var errorMarker = regexp.MustCompile(`parser: |^problem: |^error: |\[persisted output `)
 
 // libraryShapes are the library and system error details as Python words
 // them, and as the binary words those it words differently, each replaced
