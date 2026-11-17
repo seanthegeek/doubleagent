@@ -4,6 +4,7 @@ package parity
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -19,12 +20,16 @@ const (
 
 // setupBadName adds a transcript whose name is not valid UTF-8 to alice's
 // Claude Code projects. It skips the case where the file system refuses such a
-// name, as macOS's does.
+// name, as macOS's does. Linux file systems take any bytes, so a refusal there
+// fails the case: the case then cannot pass on every runner without running.
 func setupBadName(t *testing.T, img image) {
 	build := fixture{t}
 	directory := img.root + "/home/alice/.claude/projects/-srv-bad51"
 	build.dir(directory)
 	if err := os.WriteFile(directory+"/"+badName, []byte("{\"type\":\"user\"}\n"), 0o644); err != nil {
+		if runtime.GOOS == "linux" {
+			t.Fatalf("Linux refused a name that is not valid UTF-8: %v", err)
+		}
 		t.Skipf("this file system refuses a name that is not valid UTF-8: %v", err)
 	}
 }
