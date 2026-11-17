@@ -235,7 +235,9 @@ func TestMaterialiseWritesBytesTimesAndTheRootInPlaceOfThePlaceholder(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !info.ModTime().Equal(want) {
+		// NTFS keeps a time in units of 100 nanoseconds, so both are cut to that.
+		const unit = 100 * time.Nanosecond
+		if !info.ModTime().Truncate(unit).Equal(want.Truncate(unit)) {
 			t.Errorf("%s: time %v, want %v", name, info.ModTime(), want)
 		}
 	}
