@@ -1,0 +1,177 @@
+package cursor
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+)
+
+// asText returns a database value as text: a blob decoded as UTF-8 with
+// replacement, "" for NULL, anything else as Python's str() writes it.
+func asText(value sqlitefile.Value) string {
+	switch value.Type {
+	case sqlitefile.Blob:
+		return pytext.DecodeUTF8(value.Bytes)
+	case sqlitefile.Null:
+		return ""
+	}
+	return value.Str()
+}
+
+// jsonText returns a decoded value as text: "" for null, a string as it
+// is, anything else as Python's str() writes it.
+func jsonText(value pyjson.Value) string {
+	if value.IsNull() {
+		return ""
+	}
+	return value.Str()
+}
+
+// orDash returns text, or "-" when it is empty.
+func orDash(text string) string {
+	if text == "" {
+		return "-"
+	}
+	return text
+}
+
+// shown returns a decoded value as row text: "-" when it is null or "",
+// else as a setting.
+func shown(value pyjson.Value) string {
+	if value.IsNull() || (value.IsString() && value.Text() == "") {
+		return "-"
+	}
+	return parser.SettingValue(value)
+}
+
+// absent reports whether a decoded value is null or "", which a time or a
+// name counts as missing.
+func absent(value pyjson.Value) bool {
+	return value.IsNull() || (value.IsString() && value.Text() == "")
+}
+
+// firstTruthy returns the first value Python counts as true, else the
+// last, as `a or b or c` does.
+func firstTruthy(values ...pyjson.Value) pyjson.Value {
+	for _, value := range values {
+		if value.Truthy() {
+			return value
+		}
+	}
+	return values[len(values)-1]
+}
+
+// textOrJSON returns a string as it is and any other value as JSON.
+func textOrJSON(value pyjson.Value) string {
+	if value.IsString() {
+		return value.Text()
+	}
+	return parser.CompactJSON(value)
+}
+
+// plain returns a short ItemTable value's JSON value when it decodes, else
+// its text as a string.
+func plain(value sqlitefile.Value) pyjson.Value {
+	text := asText(value)
+	decoded, err := pyjson.DecodeString(text)
+	if err != nil {
+		return pyjson.NewString(text)
+	}
+	return decoded
+}
+
+// decodeRecord returns the JSON value of a row, or null after adding the
+// problem "unparseable record <rowid> (<key>: <reason>)" with the text.
+func decodeRecord(rowid int64, key string, value sqlitefile.Value, problems *parser.Problems) pyjson.Value {
+	text := asText(value)
+	decoded, err := pyjson.DecodeString(text)
+	if err != nil {
+		problems.AddRaw(int(rowid), "unparseable record "+strconv.FormatInt(rowid, 10)+" ("+key+": "+err.Error()+")", text)
+		return pyjson.NewNull()
+	}
+	return decoded
+}
+
+// hasTextPrefix reports whether SQL's substr(value, 1, len(prefix)) =
+// prefix holds for an ASCII prefix: a text value that starts with it.
+func hasTextPrefix(value sqlitefile.Value, prefix string) bool {
+	cut := sqlitefile.Substr(value, 1, int64(len(prefix)))
+	return cut.Type == sqlitefile.Text && string(cut.Bytes) == prefix
+}
+
+// keyed is a key-value row: its rowid, key text and value.
+type keyed struct {
+	rowid int64
+	key   string
+	value sqlitefile.Value
+}
+
+// keyedRows returns the rows of a key-value table the filter keeps, as
+// keyed rows in the order given.
+func keyedRows(table *sqlitefile.Table, keep func(sqlitefile.Row) bool, order ...string) ([]keyed, error) {
+	query := table.Select("key", "value").Where(keep)
+	if len(order) > 0 {
+		query = query.OrderBy(order...)
+	}
+	rows, err := query.All()
+	if err != nil {
+		return nil, err
+	}
+	found := make([]keyed, len(rows))
+	for i, row := range rows {
+		found[i] = keyed{rowid: row.Rowid, key: asText(row.Get("key")), value: row.Get("value")}
+	}
+	return found, nil
+}
+
+// prefixed returns the rows of a key-value table whose key starts with
+// prefix, in key order: SQL's key >= prefix and key < the prefix with its
+// last character incremented.
+func prefixed(table *sqlitefile.Table, prefix string) ([]keyed, error) {
+	end := sqlitefile.TextValue(prefix[:len(prefix)-1] + string(prefix[len(prefix)-1]+1))
+	start := sqlitefile.TextValue(prefix)
+	return keyedRows(table, func(row sqlitefile.Row) bool {
+		low, ok := row.Cmp("key", start)
+		high, okHigh := row.Cmp("key", end)
+		return ok && okHigh && low >= 0 && high < 0
+	}, "key")
+}
+
+// substrPrefixed returns the rows of a key-value table whose key starts
+// with prefix as SQL's substr() compares it, in key order.
+func substrPrefixed(table *sqlitefile.Table, prefix string) ([]keyed, error) {
+	return keyedRows(table, func(row sqlitefile.Row) bool {
+		return hasTextPrefix(row.Get("key"), prefix)
+	}, "key")
+}
+
+// keyEquals returns a filter for the rows whose key is text.
+func keyEquals(text string) func(sqlitefile.Row) bool {
+	operand := sqlitefile.TextValue(text)
+	return func(row sqlitefile.Row) bool { return row.Equals("key", operand) }
+}
+
+// selectPresent returns every row of a table, in rowid order, with the
+// wanted columns it has; none when it has none of them.
+func selectPresent(table *sqlitefile.Table, wanted []string) ([]sqlitefile.Row, error) {
+	var columns []string
+	for _, column := range wanted {
+		if table.Has(column) {
+			columns = append(columns, column)
+		}
+	}
+	if len(columns) == 0 {
+		return nil, nil
+	}
+	return table.Select(columns...).OrderBy("rowid").All()
+}
+
+// lstripsToList reports whether text, less its leading whitespace, starts
+// a JSON array.
+func lstripsToList(text string) bool {
+	return strings.HasPrefix(pytext.StripLeft(text), "[")
+}

@@ -28,6 +28,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/copilotcli"
 	"github.com/seanthegeek/doubleagent/internal/parser/copilotdesktop"
 	"github.com/seanthegeek/doubleagent/internal/parser/crush"
+	"github.com/seanthegeek/doubleagent/internal/parser/cursor"
 	"github.com/seanthegeek/doubleagent/internal/parser/goose"
 	"github.com/seanthegeek/doubleagent/internal/parser/hermes"
 	"github.com/seanthegeek/doubleagent/internal/parser/kilocode"
@@ -81,6 +82,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return copilotcli.New() },
 		func() parser.Parser { return copilotdesktop.New() },
 		func() parser.Parser { return chatgptdesktop.New() },
+		func() parser.Parser { return cursor.New() },
 	}
 }
 
