@@ -216,6 +216,9 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked base"},
+		{"internal/parser/beside.go", "filepath.Dir", 3,
+			"the directory of an artifact the collection gave, as text, climbing no further than " +
+				"the artifact lies below its home; no parser calls it itself"},
 		{"internal/parser/files.go", "osfile.Open", 1,
 			"reads an evidence file its own lstat typed a regular file, then checks the handle " +
 				"is that file"},

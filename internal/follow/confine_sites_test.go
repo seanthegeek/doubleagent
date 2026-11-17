@@ -69,6 +69,7 @@ func siteClasses() map[string]string {
 		// A database the analyzer reads from a collection it was given.
 		"internal/sqlitefile/path.go osfile.Open": notImage,
 		// The files and directories a parser reads from that collection.
+		"internal/parser/beside.go filepath.Dir":  notImage,
 		"internal/parser/files.go osfile.Open":    notImage,
 		"internal/parser/files.go osfile.ReadDir": notImage,
 		// The analyzer's input: the analyst's own archive or directory, read
