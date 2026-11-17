@@ -32,7 +32,7 @@ func foldingCollectors(t *testing.T) (parent string, collectors [2]*Collector,
 	if err := os.MkdirAll(stageDir+"/fs", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if !stage.FoldsCase(stageDir + "/fs") {
+	if !ignoresCase(t, stageDir+"/fs") {
 		t.Skipf("%s tells letter case apart", stageDir)
 	}
 	places := stage.NewPlaces()
@@ -86,7 +86,7 @@ func TestALinkRefusedForACaseCollisionNamesNoArchivePath(t *testing.T) {
 	}
 	row := rowByPath(t, rows[1], parent+"/two/home/u/.claude/l")
 	if row == nil || row["archive_path"] != "" || row["status"] != "symlink" ||
-		!strings.Contains(row["error"].(string), "letter case or Unicode form") {
+		!strings.Contains(row["error"].(string), "takes its name for another") {
 		t.Errorf("row of l %v; want a symlink row with the case collision error and no "+
 			"archive path, since the staged place holds L's link", row)
 	}
@@ -195,7 +195,7 @@ func TestALinkOutOfTheStageIsNeverListedThroughAnotherSpelling(t *testing.T) {
 	}
 	row := rowByPath(t, rows[1], settings)
 	if row == nil || row["status"] != "error_copy" ||
-		!strings.Contains(row["error"].(string), "letter case or Unicode form") {
+		!strings.Contains(row["error"].(string), "takes its name for another") {
 		t.Errorf("row of Cursor/User/settings.json %v; want error_copy with the case collision", row)
 	}
 }
@@ -232,7 +232,7 @@ func TestARefusedCopyLooksAtNothingBehindAnotherEntrysLink(t *testing.T) {
 		}
 	}
 	row := rowByPath(t, rows[1], settings)
-	if row == nil || !strings.Contains(row["error"].(string), "letter case or Unicode form") {
+	if row == nil || !strings.Contains(row["error"].(string), "takes its name for another") {
 		t.Errorf("row of .Config/cursor/User/settings.json %v; want the case collision", row)
 	}
 	log := strings.Join(collectors[1].Log.(*lineLog).lines, "\n")

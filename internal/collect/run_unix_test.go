@@ -5,6 +5,7 @@ package collect
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -555,12 +556,19 @@ func TestTwoHomesReachingOneFileAreNoMerge(t *testing.T) {
 func TestTheLogNotesAnOutputDirectoryThatIgnoresCase(t *testing.T) {
 	root := fixtureImage(t)
 	outDir := syspath.FromNative(t.TempDir())
-	if err := os.WriteFile(outDir+"/probe", nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, folds := os.Lstat(outDir + "/PROBE")
-	if err := os.Remove(outDir + "/probe"); err != nil {
-		t.Fatal(err)
+	// The note is due where the directory takes letter case or the two
+	// Unicode forms of a name (é as one character, or e and an accent) for one.
+	var folds error = errors.New("keeps names apart")
+	for _, pair := range [][2]string{{"probe", "PROBE"}, {"caf\u00e9", "cafe\u0301"}} {
+		if err := os.WriteFile(outDir+"/"+pair[0], nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Lstat(outDir + "/" + pair[1]); err == nil {
+			folds = nil
+		}
+		if err := os.Remove(outDir + "/" + pair[0]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,

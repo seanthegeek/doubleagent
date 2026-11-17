@@ -130,6 +130,8 @@ func (c parityCase) compare(t *testing.T, img image, reference oracle, binary []
 	}
 	got := execute(t, binary, c.invocation(img, goDir))
 	c.requireNoOutput(t, "binary", goDir)
+	// Letter case only: the harness loosens just what the sh collector spells
+	// differently there, while stage.FoldsCase also probes Unicode form.
 	want.foldsCase = goDir != "" && foldsCase(t, goDir)
 	got.foldsCase = want.foldsCase
 	if got.foldsCase {

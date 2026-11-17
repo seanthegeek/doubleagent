@@ -371,7 +371,8 @@ func (notStagedHere) Error() string {
 }
 
 // changedSince is the reason a file or link is not staged when this run
-// staged the same path before and the path now names another file.
+// staged a source at the same staged path before, perhaps through another
+// source path, and the source there is now another file.
 type changedSince struct{}
 
 // Error returns the reason.
@@ -420,10 +421,10 @@ type notRegular struct{}
 func (notRegular) Error() string { return "not a regular file" }
 
 // caseCollision is the reason a file or link is not staged: the output
-// directory takes its name for another file's, link's or directory's that
-// differs only in letter case or in Unicode form (one accented letter
-// stored as one character or as a letter and a combining mark). Staging one
-// over the other would leave a row pointing at the other entry's bytes.
+// directory takes its name for another file's, link's or directory's, by
+// whatever rule it has (letter case, Unicode form, an 8.3 short name), which
+// the stager does not need to know. Staging one over the other would leave
+// a row pointing at the other entry's bytes.
 type caseCollision struct{}
 
 // collisionError is caseCollision for path.
@@ -440,8 +441,8 @@ func IsCaseCollision(err error) bool {
 
 // Error returns the reason.
 func (caseCollision) Error() string {
-	return "the output directory takes its name for another file's, link's or directory's " +
-		"(letter case or Unicode form); not staged"
+	return "the output directory takes its name for another file's, link's or directory's; " +
+		"not staged"
 }
 
 // Link recreates the symlink path, with its stored target, at its staged

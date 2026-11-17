@@ -137,9 +137,18 @@ func TestFoldsCaseAnswersForTheStagingDirectory(t *testing.T) {
 	if err := os.WriteFile(probe, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := os.Lstat(dir + "/X")
-	if got := FoldsCase(dir); got != (err == nil) {
-		t.Errorf("FoldsCase = %v; the directory folds case: %v", got, err == nil)
+	_, caseErr := os.Lstat(dir + "/X")
+	if err := os.WriteFile(dir+"/"+composed, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, formErr := os.Lstat(dir + "/" + decomposed)
+	if err := os.Remove(dir + "/" + composed); err != nil {
+		t.Fatal(err)
+	}
+	merges := caseErr == nil || formErr == nil
+	if got := FoldsCase(dir); got != merges {
+		t.Errorf("FoldsCase = %v; the directory takes letter case or Unicode forms for one: %v",
+			got, merges)
 	}
 	entries, _ := os.ReadDir(dir)
 	if len(entries) != 1 {

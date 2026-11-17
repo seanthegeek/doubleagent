@@ -321,8 +321,11 @@ that ignores letter case (the default macOS volume, an exFAT or FAT drive,
 a Linux file system that folds case, a Windows file system without the
 setting), and every APFS volume, case-sensitive ones included, for Unicode
 form (the same accented letter stored as one character, or as a letter and
-a combining mark). Directories whose names it takes for one merge there,
-and all their files are staged.
+a combining mark). A volume can take two names for one by letter case, by
+Unicode form, or on Windows by an 8.3 short name (`CLAUDE~1` for a staged
+`.claude-backup`, where short names are on); the stager does not need to
+know which. Directories whose names it takes for one merge there, and all
+their files are staged.
 
 Safety does not depend on knowing which names a volume merges. Every
 staged copy is created exclusively (`O_CREAT|O_EXCL|O_NOFOLLOW`,
@@ -339,21 +342,20 @@ through two spellings, as the catalog's `AppData/Roaming/Devin` and
 `AppData/Roaming/devin` are on such a volume) returns the first copy's
 member and hash, so both rows name the one member; the second row's own
 metadata (its size and times, from its own lstat) can be newer than those
-bytes when a live file was rewritten in between. A recorded entry of
-another source, or an entry the volume reached through another spelling
-of the name (a walk of the staged path, below, finds a component
+bytes when a live file was rewritten in between. A recorded entry made
+for another staged path, or an entry the volume reached through another
+spelling of the name (a walk of the staged path, below, finds a component
 respelled), is a collision: a file's row is `error_copy` with the error
 `the output directory takes its name for another file's, link's or
-directory's (letter case or Unicode form); not staged`, no archive path
-and no hash; a link keeps its `symlink` row with no archive path and that
+directory's; not staged`, no archive path and no hash; a link keeps its `symlink` row with no archive path and that
 reason after `not recreated in the archive:`. A source staged again at
 the same staged path, byte for byte as `Dest` names it, after its file was
 replaced (saved through a rename, or reached a second time later in the
 run, perhaps once through an in-base link and once directly) is refused
 with `changed since this run staged it; the earlier row holds its copy`,
-and its name is not called merged. Every refusal names the source path. Anything else not known to be this source's copy at that exact
-name, or whose identity is 0 or cannot be read, is refused with a plain
-reason: `not a regular file` for a link or other reparse point, else
+and its name is not called merged. Every refusal names the source path.
+Anything else not known to be this source's copy at that exact name, or
+whose identity is 0 or cannot be read, is refused with a plain reason: `not a regular file` for a link or other reparse point, else
 `already exists in the staging directory and is not known to be this
 source's copy` (such as a file an earlier run of the same name, in the same
 second, left). Nothing is touched either way. The record trusts the

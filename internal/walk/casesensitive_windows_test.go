@@ -86,7 +86,7 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 		if archived, _ := row["archive_path"].(string); archived != "" {
 			members[archived] = true
 		}
-		if row["archive_path"] == "" && strings.Contains(row["error"].(string), "letter case or Unicode form") {
+		if row["archive_path"] == "" && strings.Contains(row["error"].(string), "takes its name for another") {
 			refused++
 		}
 		if row["archive_path"] == "" {

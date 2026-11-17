@@ -145,6 +145,16 @@ func TestCollectAgreesWithTheShCollector(t *testing.T) {
 // archive member of exactly that name, byte for byte.
 func guardCaseFreeArchivePaths(t *testing.T, run collectorRun) {
 	t.Helper()
+	for _, archived := range archivePathsNamingNoMember(run) {
+		t.Errorf("the binary's row names %q, which the archive holds under no such name",
+			archived)
+	}
+}
+
+// archivePathsNamingNoMember returns each archive path of run's manifest
+// that names no member of its archive byte for byte, in row order.
+func archivePathsNamingNoMember(run collectorRun) []string {
+	var missing []string
 	for _, line := range strings.Split(run.files[".manifest.jsonl"], "\n") {
 		field := archivePathField.FindString(line)
 		if field == "" {
@@ -153,10 +163,10 @@ func guardCaseFreeArchivePaths(t *testing.T, run collectorRun) {
 		archived := unescapeManifest(strings.TrimSuffix(
 			strings.TrimPrefix(field, `"archive_path":"`), `"`))
 		if _, found := run.members["./"+archived]; archived != "" && !found {
-			t.Errorf("the binary's row names %q, which the archive holds under no such name",
-				archived)
+			missing = append(missing, archived)
 		}
 	}
+	return missing
 }
 
 // unescapeManifest undoes manifest.EscapeJSON byte for byte: \" and \\, the

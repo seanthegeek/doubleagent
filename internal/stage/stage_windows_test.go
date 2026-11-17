@@ -684,3 +684,48 @@ func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 		t.Errorf("the source reads %q, %v", text, err)
 	}
 }
+
+func TestADirectoryNamedAsAnotherDirectorysShortNameIsMergedSafely(t *testing.T) {
+	first, root := newWindowsStager(t)
+	second := first
+	second.Root = root + "-two"
+	long := root + "/.claude-backup"
+	mustDo(t, os.MkdirAll(long, 0o755))
+	mustDo(t, os.WriteFile(long+"/x", []byte("first entry"), 0o600))
+	one, err := first.Copy(long + "/x")
+	mustDo(t, err)
+	stagedDir := first.Dir + "/" + one.ArchivePath[:strings.LastIndexByte(one.ArchivePath, '/')]
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(stagedDir))
+	mustDo(t, err)
+	buffer := make([]uint16, windows.MAX_LONG_PATH)
+	n, err := windows.GetShortPathName(name, &buffer[0], uint32(len(buffer)))
+	short := syspath.FromNative(windows.UTF16ToString(buffer[:n]))
+	alias := short[strings.LastIndexByte(short, '/')+1:]
+	if err != nil || strings.EqualFold(alias, ".claude-backup") {
+		t.Skipf("the staging volume gives %s no 8.3 short name (%v)", stagedDir, err)
+	}
+	// A source directory literally named as that alias, staged later.
+	other := second.Root + "/" + alias
+	mustDo(t, os.MkdirAll(other, 0o755))
+	mustDo(t, os.WriteFile(other+"/x", []byte("second entry"), 0o600))
+	mustDo(t, os.WriteFile(other+"/y", []byte("second entry's y"), 0o600))
+	if _, err := second.Copy(other + "/x"); !IsCaseCollision(err) ||
+		!strings.Contains(err.Error(), "takes its name for another file's, link's or directory's; ") {
+		t.Errorf("%s/x = %v; want the collision reason", alias, err)
+	}
+	why, err := second.Copy(other + "/y")
+	mustDo(t, err)
+	for archived, text := range map[string]string{one.ArchivePath: "first entry",
+		why.ArchivePath: "second entry's y"} {
+		if data, err := os.ReadFile(syspath.ToNative(first.Dir + "/" + archived)); err != nil ||
+			string(data) != text {
+			t.Errorf("member %s holds %q (%v), want %q", archived, data, err, text)
+		}
+		if spelled := fsmeta.OnDiskPath(first.Dir, first.Dir+"/"+archived); spelled !=
+			first.Dir+"/"+archived {
+			t.Errorf("archive path %s names a member the staging tree spells %s", archived, spelled)
+		}
+	}
+	t.Logf("8.3 alias %s of the staged .claude-backup: %s/y staged as %s", alias, alias,
+		why.ArchivePath)
+}
