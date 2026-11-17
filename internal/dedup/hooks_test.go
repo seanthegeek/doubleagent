@@ -67,19 +67,24 @@ func hookedRow(second int, options map[string]string) timeline.Row {
 	return row
 }
 
-func TestHooks(t *testing.T) {
+// hookCase is one call of Deduplicate with sampleHooks: the source lines
+// kept, the secondary ones recovered, and the rows of "hooked" dropped.
+type hookCase struct {
+	name      string
+	primary   []timeline.Row
+	secondary []timeline.Row
+	kept      []int
+	dropped   int
+}
+
+// hookCases are the cases of TestHooks, with the oracle's results.
+func hookCases() []hookCase {
 	copyAt := func(second, line int, extra map[string]string) timeline.Row {
 		options := map[string]string{"file": "/h/a", "line": strconv.Itoa(line)}
 		maps.Copy(options, extra)
 		return hookedRow(second, options)
 	}
-	tests := []struct {
-		name      string
-		primary   []timeline.Row
-		secondary []timeline.Row
-		kept      []int // source lines kept, the secondary ones recovered
-		dropped   int
-	}{
+	return []hookCase{
 		{"a row in another form matches under the agent's form",
 			rows(hookedRow(0, nil)), rows(copyAt(1, 2, map[string]string{"text": "cmd: x",
 				"turn": "system"})), []int{1}, 1},
@@ -107,7 +112,10 @@ func TestHooks(t *testing.T) {
 				"model": "at 2026-10-01T10:01:00.000Z"}), copyAt(60, 3,
 				map[string]string{"text": "a", "file": "/h/b"})), []int{2}, 1},
 	}
-	for _, test := range tests {
+}
+
+func TestHooks(t *testing.T) {
+	for _, test := range hookCases() {
 		t.Run(test.name, func(t *testing.T) {
 			kept, dropped := Deduplicate(test.primary, withTolerance(ToleranceSeconds,
 				test.secondary...), sampleHooks())
