@@ -1,0 +1,5 @@
+host,collector,mode,at,user,agent,files,bytes,first,last,projects,evidence
+ws01,,,,alice,claude-code,6,318,2026-09-15T01:02:03.000Z,2026-10-04T16:31:11.000Z,2,".claude,.claude.json*"
+ws01,,,,alice,codex-cli,1,35,2026-10-01T00:00:00.000Z,2026-10-01T00:00:00.000Z,2,.codex
+ws01,,,,bob,claude-code,0,0,,,0,.claude
+ws01,,,,docker,agent-zero,2,63,2026-10-02T10:00:00.000Z,2026-10-03T10:00:00.000Z,0,*a0_usr

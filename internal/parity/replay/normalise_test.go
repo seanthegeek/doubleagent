@@ -19,7 +19,8 @@ import (
 // one order, Excludes reports that a case shows a shape no rewriting can
 // match, so the case is not compared, and Outputs rewrites a run's output
 // files, by path, against the recorded ones. Each returns how many places
-// it found.
+// it found. A difference of format names in Scope the texts that
+// information_test.go applies it to.
 type Difference struct {
 	Number   int
 	Summary  string
@@ -27,11 +28,12 @@ type Difference struct {
 	Rows     func(rows []Row) ([]Row, int)
 	Excludes func(text string) bool
 	Outputs  func(want, got map[string]string) int
+	Scope    string
 }
 
 // Differences returns the table of documented differences, a fresh slice.
 func Differences() []Difference {
-	return []Difference{
+	return append([]Difference{
 		{Number: 101, Summary: "usage and help text are the binary's own", Text: usageText},
 		{Number: 102, Summary: "library and operating-system error wording in parser: rows, " +
 			"problem: lines and error: messages is the binary's own", Text: libraryErrorText},
@@ -44,7 +46,7 @@ func Differences() []Difference {
 		{Number: 106, Summary: "an FTS5 table is always readable", Excludes: fts5Unreadable},
 		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's",
 			Outputs: otherOfEqualRows},
-	}
+	}, formatDifferences()...)
 }
 
 // difference returns the table entry numbered number.
@@ -141,16 +143,23 @@ func Excluded(t testing.TB, node string, numbers []int, text string) bool {
 	return false
 }
 
-// usageLine starts the usage text of a command-line parser.
-var usageLine = regexp.MustCompile(`(?m)^usage: `)
+// usageLine starts the usage text of a command-line parser: Python's
+// "usage: " line, or the binary's "Usage: " line.
+var usageLine = regexp.MustCompile(`(?m)^[uU]sage: `)
 
-// usageText replaces everything from a usage line to the end of the text.
+// usageText replaces everything from a usage line to the end of the text,
+// and before the binary's "Usage: " line the one message line collect's
+// parser prints ahead of it.
 func usageText(text string) (string, int) {
 	location := usageLine.FindStringIndex(text)
 	if location == nil {
 		return text, 0
 	}
-	return text[:location[0]] + "{usage}\n", 1
+	start := location[0]
+	if text[start] == 'U' && start > 1 && text[start-2] != '\n' {
+		start = strings.LastIndexByte(text[:start-1], '\n') + 1
+	}
+	return text[:start] + "{usage}\n", 1
 }
 
 // errorMarker finds where a line's error text starts: a parser: row, a

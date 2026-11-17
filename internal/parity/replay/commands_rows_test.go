@@ -315,6 +315,6 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 	before := filesUnder(root)
 	got := r.run(t, "timeline", recorded, root)
 	want := r.expected(t, recorded, root)
-	r.compareFull(t, node, root, want, got)
+	r.compareFull(t, node, root, recorded, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }

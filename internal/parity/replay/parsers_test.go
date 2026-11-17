@@ -41,13 +41,14 @@ type parserReplay struct {
 	work         *WorkTree
 	deniesAccess bool
 	skipped      map[string]int
+	needed       neededTally
 }
 
 func TestRegisteredParsersReplayEveryRecordedCase(t *testing.T) {
 	corpus := Open(t)
 	started := time.Now()
 	replay := &parserReplay{corpus: corpus, work: corpus.NewWorkTree(t),
-		deniesAccess: deniesReading(t), skipped: map[string]int{}}
+		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}}
 	registered := parsers.ByAgent(parsers.All())
 	var pending []string
 	replayed := 0
@@ -66,6 +67,7 @@ func TestRegisteredParsersReplayEveryRecordedCase(t *testing.T) {
 	for _, reason := range slices.Sorted(maps.Keys(replay.skipped)) {
 		t.Logf("not replayed, %s: %d cases", reason, replay.skipped[reason])
 	}
+	logNeeded(t, "information comparison", replay.needed, rowFormatNumbers())
 	t.Logf("agents with recorded cases and no parser yet (%d): %s", len(pending),
 		strings.Join(pending, ", "))
 }
@@ -183,7 +185,8 @@ func (r *parserReplay) replayCase(t *testing.T, subject parser.Parser, recorded 
 }
 
 // compareParse runs one parse and compares its rows with the recorded
-// ones after the documented differences they show are normalised. A parse
+// ones as information, after the documented differences they show are
+// normalised. A parse
 // the recording did not run to its end is compared over the rows it gave.
 func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Parser,
 	artifact *input.Artifact, recorded ParserCase) string {
@@ -217,7 +220,7 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		return skipExcluded
 	}
 	want, got = NormaliseRows(t, node, numbers, want, got)
-	DiffRows(t, node, want, got)
+	r.needed.note(node, compareRowInformation(t, node, want, got))
 	return ""
 }
 

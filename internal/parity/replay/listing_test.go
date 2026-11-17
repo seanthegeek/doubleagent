@@ -70,24 +70,39 @@ func rewriteCopies(want, got string, ignored []string, allowed func(filePair) bo
 	[]filePair) {
 	gotLines := strings.Split(got, "\n")
 	wantOnly, gotOnly := unmatchedLines(strings.Split(want, "\n"), gotLines)
+	gotKeys := make([]lineKey, len(gotOnly))
+	for j, index := range gotOnly {
+		gotKeys[j] = newLineKey(gotLines[index], ignored)
+	}
 	var pairs []filePair
 	for _, wanted := range wantOnly {
-		wantKey, wantFile, ok := recordKey(wanted, ignored)
-		if !ok {
+		wantKey := newLineKey(wanted, ignored)
+		if !wantKey.ok {
 			continue
 		}
-		for j, index := range gotOnly {
-			gotKey, gotFile, ok := recordKey(gotLines[index], ignored)
-			pair := filePair{wantFile, gotFile}
-			if ok && gotKey == wantKey && gotFile != wantFile && allowed(pair) {
-				gotLines[index] = wanted
-				gotOnly = slices.Delete(gotOnly, j, j+1)
+		for j, gotKey := range gotKeys {
+			pair := filePair{wantKey.file, gotKey.file}
+			if gotKey.ok && gotKey.key == wantKey.key && gotKey.file != wantKey.file && allowed(pair) {
+				gotLines[gotOnly[j]] = wanted
+				gotOnly, gotKeys = slices.Delete(gotOnly, j, j+1), slices.Delete(gotKeys, j, j+1)
 				pairs = append(pairs, pair)
 				break
 			}
 		}
 	}
 	return strings.Join(gotLines, "\n"), pairs
+}
+
+// lineKey is what recordKey gives for one line, read once.
+type lineKey struct {
+	key, file string
+	ok        bool
+}
+
+// newLineKey returns the recordKey of a line.
+func newLineKey(line string, ignored []string) lineKey {
+	key, file, ok := recordKey(line, ignored)
+	return lineKey{key, file, ok}
 }
 
 // unmatchedLines returns the lines of want that got does not hold, counted
@@ -141,12 +156,13 @@ func recordKey(line string, ignored []string) (string, string, bool) {
 // rowOrderDiffers reports whether a timeline.jsonl or sessions.jsonl of
 // got differs from want's once the documented differences of text are
 // applied, so that only such a case is compared as multisets of lines.
-func rowOrderDiffers(t *testing.T, node string, want, got map[string]string) bool {
+func rowOrderDiffers(t testing.TB, node string, normaliser *textNormaliser, want,
+	got map[string]string) bool {
 	for path, text := range want {
 		if !strings.HasSuffix(path, timelineName) && !strings.HasSuffix(path, sessionsName) {
 			continue
 		}
-		if normalWant, normalGot := normalisedPair(t, node, text, got[path]); normalWant != normalGot {
+		if normalWant, normalGot := normaliser.pair(t, node, text, got[path]); normalWant != normalGot {
 			return true
 		}
 	}
