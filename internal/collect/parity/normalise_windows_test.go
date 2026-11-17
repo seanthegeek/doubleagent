@@ -181,14 +181,21 @@ func replaceSurrogates(text string) string {
 	return out.String()
 }
 
-// replaceSurrogateCharacters returns the binary's manifest text with the
-// three U+FFFD characters encoding/json writes for a lone surrogate's three
-// WTF-8 bytes (exception 51) turned into the one the PowerShell collector's
-// UTF-8 writer writes. The Windows image's one name with a byte sequence
-// that is not valid UTF-8 is that lone surrogate, so no other run of three
-// replacement characters is in the text.
+// loneSurrogateName is the Windows image's one name with a lone surrogate
+// (setupNonASCIIRoot) as the binary's manifest writes it: encoding/json puts
+// one U+FFFD for each of the surrogate's three WTF-8 bytes (exception 51).
+// The PowerShell collector writes one.
+const (
+	loneSurrogateName  = "lone\uFFFD\uFFFD\uFFFD.jsonl"
+	loneSurrogateShown = "lone\uFFFD.jsonl"
+)
+
+// replaceSurrogateCharacters returns the binary's manifest text with that one
+// file name's three U+FFFD characters made the one the PowerShell collector
+// writes. Only the whole name is matched, so the same three characters in any
+// other name are left to fail the comparison.
 func replaceSurrogateCharacters(text string) string {
-	return strings.ReplaceAll(text, "\uFFFD\uFFFD\uFFFD", "\uFFFD")
+	return strings.ReplaceAll(text, loneSurrogateName, loneSurrogateShown)
 }
 
 // replaceMemberSurrogates returns the archive's members with replaceSurrogates
@@ -401,10 +408,11 @@ func TestTheWindowsLogDropsTheBinarysAccessTimeNotHeldLines(t *testing.T) {
 	}
 }
 
-func TestTheBinarysThreeReplacementCharactersForALoneSurrogateAreOne(t *testing.T) {
+func TestTheBinarysReplacementCharactersAreFoldedForThatOneNameOnly(t *testing.T) {
 	cases := []struct{ name, text, want string }{
-		{"a lone surrogate's three characters become one", "a\uFFFD\uFFFD\uFFFDb", "a\uFFFDb"},
-		{"a name without one is unchanged", "a\u00e9b", "a\u00e9b"},
+		{"the fixture's name becomes the PowerShell collector's", "x/" + loneSurrogateName, "x/" + loneSurrogateShown},
+		{"three characters in another name are left", "x/other\uFFFD\uFFFD\uFFFD.jsonl", "x/other\uFFFD\uFFFD\uFFFD.jsonl"},
+		{"two characters in the fixture's name are left", "x/lone\uFFFD\uFFFD.jsonl", "x/lone\uFFFD\uFFFD.jsonl"},
 		{"the bytes of a lone surrogate are not touched here", "a\xed\xa0\x80b", "a\xed\xa0\x80b"},
 	}
 	for _, test := range cases {
