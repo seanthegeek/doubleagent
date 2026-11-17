@@ -12,6 +12,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/chatgptdesktop"
@@ -102,8 +103,8 @@ func (r *Registry) For(agent string) []parser.Parser {
 }
 
 // Hooks returns the deduplication hooks the parsers declare, by agent.
-func (r *Registry) Hooks() map[string]parser.AgentHooks {
-	hooks := map[string]parser.AgentHooks{}
+func (r *Registry) Hooks() dedup.Hooks {
+	hooks := dedup.Hooks{}
 	for _, each := range r.all {
 		if declarer, ok := each.(parser.HooksDeclarer); ok {
 			hooks[each.Agent()] = declarer.DedupHooks()
@@ -136,10 +137,7 @@ func addWhen(set map[string]bool, agent string, holds bool) {
 
 // Secondary is one row of a secondary source, with the matching window of
 // the source it came from in seconds: the deduplicator's input row.
-type Secondary struct {
-	Row       timeline.Row
-	Tolerance float64
-}
+type Secondary = dedup.Secondary
 
 // Result is what Collect gathers: the rows of primary sources and of
 // secondary sources, each in parse order, and the problem lines, the

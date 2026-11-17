@@ -1,10 +1,11 @@
 package parser
 
+import "github.com/seanthegeek/doubleagent/internal/dedup"
+
 // AgentHooks are what a parser declares when its secondary source records
 // events in another form or at another moment than its primary store: the
-// deduplicator's per-agent hooks. It stands for that package's AgentHooks
-// type, which this declaration becomes an alias of.
-type AgentHooks struct{}
+// deduplicator's per-agent hooks.
+type AgentHooks = dedup.AgentHooks
 
 // HooksDeclarer is implemented by a parser whose secondary rows the
 // deduplicator matches under the parser's own hooks. The registry gathers
