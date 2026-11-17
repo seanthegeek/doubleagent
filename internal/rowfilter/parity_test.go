@@ -135,6 +135,20 @@ func relativeForm(random *rand.Rand) string {
 	return pick("now", "today", "yesterday", "Today", "NOW", " now ", digits, digits+"."+count)
 }
 
+// dateForm returns a random date in one of the documented forms, and
+// whether a time may follow it.
+func dateForm(random *rand.Rand, number func(limit, width int) string) (string, bool) {
+	pick := func(options ...string) string { return options[random.IntN(len(options))] }
+	year, month, day := number(10000, 4), number(14, 2), number(33, 2)
+	week, weekday, ordinal := number(56, 2), number(9, 1), number(370, 3)
+	switch random.IntN(8) {
+	case 0:
+		return pick(year, year+"-"+month, year+"-W"+week, year+"W"+week), false
+	}
+	return pick(year+"-"+month+"-"+day, year+month+day, year+"-W"+week+"-"+weekday,
+		year+"W"+week+weekday, year+"-"+ordinal, year+ordinal), true
+}
+
 // acceptedForm returns a random value in one of the accepted forms, its
 // fields sometimes out of range.
 func acceptedForm(random *rand.Rand) string {
@@ -146,15 +160,8 @@ func acceptedForm(random *rand.Rand) string {
 	if random.IntN(5) < 2 {
 		return relativeForm(random)
 	}
-	year, month, day := number(10000, 4), number(14, 2), number(33, 2)
-	switch random.IntN(6) {
-	case 0:
-		return year
-	case 1:
-		return year + "-" + month
-	}
-	date := pick(year+"-"+month+"-"+day, year+month+day)
-	if random.IntN(4) == 0 {
+	date, whole := dateForm(random, number)
+	if !whole || random.IntN(4) == 0 {
 		return date
 	}
 	colon := pick(":", "")
@@ -179,7 +186,7 @@ func acceptedForm(random *rand.Rand) string {
 // mutate changes a few bytes of text: a replacement by a byte from a set
 // that the forms hold, an insertion or a deletion.
 func mutate(random *rand.Rand, text string) string {
-	const alphabet = "0123456789-:.,+ TtZzWU_\t"
+	const alphabet = "0123456789-:.,+ TtZzWwU_\t"
 	data := []byte(text)
 	for range 1 + random.IntN(3) {
 		position := random.IntN(len(data) + 1)

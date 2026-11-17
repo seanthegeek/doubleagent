@@ -88,9 +88,9 @@ func readDateTime(value string) (dateTime, string, bool) {
 	return fields, detail, ok
 }
 
-// readDate reads YYYY, YYYY-MM, YYYY-MM-DD or YYYYMMDD at the start of
-// value and returns the text after it. A week date or an ordinal date is
-// refused with a detail naming it.
+// readDate reads YYYY, YYYY-MM, YYYY-MM-DD or YYYYMMDD, or an ISO week
+// date or ordinal date (readWeekOrOrdinal), at the start of value and
+// returns the text after it, with a detail when a field is out of range.
 func (d *dateTime) readDate(value string) (string, string, bool) {
 	year, ok := digitsAt(value, 0, 4)
 	if !ok {
@@ -118,20 +118,88 @@ func (d *dateTime) readDate(value string) (string, string, bool) {
 			return value[8:], "", true
 		}
 	}
-	return "", unsupportedDate(value), false
+	return d.readWeekOrOrdinal(value)
 }
 
-// unsupportedDate names the ISO 8601 date form value starts with that is
-// refused, a week date or an ordinal date, or returns "".
-func unsupportedDate(value string) string {
-	rest := strings.TrimPrefix(value[4:], "-")
-	if strings.HasPrefix(rest, "W") {
-		return "ISO week dates are not accepted"
+// readWeekOrOrdinal reads an ISO week date (YYYY-Www-D, YYYYWwwD, or
+// YYYY-Www and YYYYWww for the week's Monday) or an ordinal date
+// (YYYY-DDD, YYYYDDD) at the start of value, after the year d already
+// holds, and returns the text after it. A week date without its day ends
+// the value; the dash is used throughout or not at all.
+func (d *dateTime) readWeekOrOrdinal(value string) (string, string, bool) {
+	dashed := value[4] == '-'
+	rest := value[4:]
+	if dashed {
+		rest = rest[1:]
 	}
-	if _, ok := digitsAt(rest, 0, 3); ok && (len(rest) == 3 || !isDigit(rest[3])) {
-		return "ordinal dates are not accepted"
+	if week, ok := digitsAt(rest, 1, 2); ok && rest[0] == 'W' {
+		rest = rest[3:]
+		weekday := 1
+		if rest != "" {
+			if dashed {
+				if rest[0] != '-' {
+					return "", "", false
+				}
+				rest = rest[1:]
+			}
+			if weekday, ok = digitsAt(rest, 0, 1); !ok {
+				return "", "", false
+			}
+			rest = rest[1:]
+		}
+		detail := d.setWeekDate(week, weekday)
+		return rest, detail, detail == ""
 	}
+	ordinal, ok := digitsAt(rest, 0, 3)
+	// A basic ordinal date before a space is refused: the Python analyzer
+	// read its digits as a month and a day there, never as an ordinal.
+	if !ok || (len(rest) > 3 && (isDigit(rest[3]) || (!dashed && rest[3] == ' '))) {
+		return "", "", false
+	}
+	detail := d.setOrdinalDate(ordinal)
+	return rest[3:], detail, detail == ""
+}
+
+// setWeekDate sets the date of a week and weekday of d's ISO year, whose
+// first week holds 4 January, and returns a detail for a field out of
+// range, or "".
+func (d *dateTime) setWeekDate(week, weekday int) string {
+	switch {
+	case week < 1 || week > 53:
+		return fmt.Sprintf("week must be in 1..53, not %d", week)
+	case weekday < 1 || weekday > 7:
+		return fmt.Sprintf("weekday must be in 1..7, not %d", weekday)
+	case d.year < 1:
+		return fmt.Sprintf("year must be in 1..9999, not %d", d.year)
+	}
+	fourth := time.Date(d.year, time.January, 4, 0, 0, 0, 0, time.UTC)
+	monday := fourth.AddDate(0, 0, -((int(fourth.Weekday()) + 6) % 7))
+	d.setDay(monday.AddDate(0, 0, (week-1)*7+weekday-1))
 	return ""
+}
+
+// setOrdinalDate sets the date of a day of d's year, counted from 1, and
+// returns a detail for a day the year does not have, or "".
+func (d *dateTime) setOrdinalDate(ordinal int) string {
+	days := 365
+	if daysIn(d.year, time.February) == 29 {
+		days = 366
+	}
+	switch {
+	case d.year < 1:
+		return fmt.Sprintf("year must be in 1..9999, not %d", d.year)
+	case ordinal < 1 || ordinal > days:
+		return fmt.Sprintf("ordinal day must be in 1..%d for %04d, not %d", days, d.year,
+			ordinal)
+	}
+	d.setDay(time.Date(d.year, time.January, ordinal, 0, 0, 0, 0, time.UTC))
+	return ""
+}
+
+// setDay sets d's date to the calendar day of moment, with day precision.
+func (d *dateTime) setDay(moment time.Time) {
+	d.year, d.month, d.day = moment.Year(), int(moment.Month()), moment.Day()
+	d.precision = inDay
 }
 
 // readClock reads hh, hh:mm, hhmm, hh:mm:ss or hhmmss, the seconds
@@ -224,7 +292,7 @@ func (d *dateTime) readOffset(text string) (string, bool) {
 // or "".
 func (d *dateTime) rangeProblem() string {
 	switch {
-	case d.year < 1:
+	case d.year < 1 || d.year > 9999:
 		return fmt.Sprintf("year must be in 1..9999, not %d", d.year)
 	case d.month < 1 || d.month > 12:
 		return fmt.Sprintf("month must be in 1..12, not %d", d.month)

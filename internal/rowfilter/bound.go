@@ -11,8 +11,9 @@
 // in any ASCII case. A value without an offset is UTC. A value naming a
 // period (a year, a month, a day, an hour, a minute, a second) gives its
 // first millisecond for --since and its last for --until. Anything else is
-// a BoundError; nothing is guessed. ISO week dates, ordinal dates, a
-// lower-case t, a comma before the fraction, 24:00, fields of one digit and
+// a BoundError; nothing is guessed. Dates may be ISO week dates or ordinal
+// dates as well. A lower-case t or another separator, an offset straight
+// after a date, a comma before the fraction, 24:00, fields of one digit and
 // non-ASCII digits are refused. The forms are listed in
 // analyzer/docs/filtering.md under "WHEN forms".
 //
