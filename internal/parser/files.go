@@ -177,7 +177,7 @@ func FileMtime(artifact *input.Artifact) string {
 	if err != nil {
 		return ""
 	}
-	return timeutil.FromEpoch(MtimeSeconds(info))
+	return timeutil.FormatUTC(info.ModTime())
 }
 
 // MtimeSeconds returns the modification time of an entry already looked

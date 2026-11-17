@@ -53,15 +53,15 @@ func zeros(n int) string {
 	return string(digits)
 }
 
-func TestFileMtimeRoundsTheFileTimeAsPythonDoes(t *testing.T) {
+func TestFileMtimeCutsTheFileTimeToTheMillisecond(t *testing.T) {
 	tests := []struct {
 		nanoseconds int64
 		want        string
 	}{
 		{1790848800_123456789, "2026-10-01T10:00:00.123Z"},
-		{1790848800_999999500, "2026-10-01T10:00:01.000Z"},
+		{1790848800_999999500, "2026-10-01T10:00:00.999Z"},
 		{1790848800_000500500, "2026-10-01T10:00:00.000Z"},
-		{1790848799_999999999, "2026-10-01T10:00:00.000Z"},
+		{1790848799_999999999, "2026-10-01T09:59:59.999Z"},
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {

@@ -10,82 +10,115 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// The range of whole seconds since the epoch that falls in the years 1 to
-// 9999, the years a timestamp can hold.
+// The first and last millisecond of the years 1 to 9999 since the epoch.
 const (
-	firstSecond = -62135596800 // 0001-01-01T00:00:00Z
-	lastSecond  = 253402300799 // 9999-12-31T23:59:59Z
+	firstMillisecond = -62135596800000 // 0001-01-01T00:00:00.000Z
+	lastMillisecond  = 253402300799999 // 9999-12-31T23:59:59.999Z
 )
 
 // millisecondsAbove is the epoch number above which a value counts
 // milliseconds rather than seconds (about the year 5138 in seconds).
-const millisecondsAbove = 1e11
+const millisecondsAbove = 100_000_000_000
 
 // FromValue returns the timestamp of a decoded JSON value: a string as
-// FromText reads it, a number as FromEpoch reads it, and "" for null, a
-// boolean, an array, an object and an integer too large for a float.
+// FromText reads it, a number as an epoch read from its source text, and
+// "" for null, a boolean, an array and an object.
 func FromValue(value jsonvalue.Value) string {
 	switch {
 	case value.IsString():
 		return FromText(value.StringValue())
 	case value.IsNumber():
-		epoch, ok := value.Float()
-		if !ok {
-			return ""
+		text := string(value.Number())
+		if strings.ContainsAny(text, "eE") {
+			number, ok := value.Float()
+			if !ok {
+				return ""
+			}
+			return FromEpoch(number)
 		}
-		return FromEpoch(epoch)
+		return fromDecimal(text)
 	}
 	return ""
 }
 
 // FromText returns the timestamp text spells, or "": text trimmed of ASCII
-// whitespace is an epoch number when it is ASCII digits with at most one
-// point, else an ISO 8601 date and time in a form the package comment
-// lists. Text holding a non-ASCII character gives "".
+// whitespace is an epoch when it is ASCII digits with at most one point,
+// else a date and time in a form the package comment lists. Text holding a
+// non-ASCII character gives "".
 func FromText(text string) string {
 	text = strings.Trim(text, textlines.ASCIIWhitespace)
 	if text == "" || !isASCII(text) {
 		return ""
 	}
 	if isEpochText(text) {
-		// A value past the float range reads as infinity, which FromEpoch refuses.
-		epoch, _ := strconv.ParseFloat(text, 64)
-		return FromEpoch(epoch)
+		return fromDecimal(text)
 	}
 	return fromISO(text)
 }
 
-// FromInt returns the timestamp of an integer epoch number, as FromEpoch
-// reads the nearest float.
+// FromInt returns the timestamp of an integer epoch: milliseconds when it
+// is above 1e11, else seconds.
 func FromInt(epoch int64) string {
-	return FromEpoch(float64(epoch))
+	if epoch > millisecondsAbove {
+		return fromMilliseconds(epoch)
+	}
+	if epoch < firstMillisecond/1000 || epoch > lastMillisecond/1000 {
+		return ""
+	}
+	return fromMilliseconds(epoch * 1000)
 }
 
-// FromEpoch returns the timestamp of an epoch number: seconds, or
-// milliseconds when above 1e11. The time is first rounded to microseconds,
-// halves to even, then written with milliseconds truncated; a time outside
-// the years 1 to 9999, NaN and an infinity give "".
+// FromEpoch returns the timestamp of a float epoch: milliseconds when it is
+// above 1e11, else seconds, read from the shortest decimal that gives the
+// float back and cut to the millisecond. NaN and an infinity give "".
 func FromEpoch(epoch float64) string {
-	if epoch > millisecondsAbove {
-		epoch /= 1000
-	}
 	if math.IsNaN(epoch) || math.IsInf(epoch, 0) {
 		return ""
 	}
-	whole, fraction := math.Modf(epoch)
-	microseconds := math.RoundToEven(fraction * 1e6)
-	switch {
-	case microseconds >= 1e6:
-		microseconds -= 1e6
-		whole++
-	case microseconds < 0:
-		microseconds += 1e6
-		whole--
-	}
-	if whole < firstSecond || whole > lastSecond {
+	return fromDecimal(strconv.FormatFloat(epoch, 'f', -1, 64))
+}
+
+// fromDecimal returns the timestamp of an epoch written as an optional
+// minus, digits and an optional point and digits: its whole milliseconds,
+// the fraction of a millisecond dropped toward the earlier time.
+func fromDecimal(text string) string {
+	negative := strings.HasPrefix(text, "-")
+	whole, fraction, _ := strings.Cut(strings.TrimPrefix(text, "-"), ".")
+	units, err := strconv.ParseInt("0"+whole, 10, 64)
+	if err != nil {
 		return ""
 	}
-	return FormatUTC(time.Unix(int64(whole), int64(microseconds)*int64(time.Microsecond)))
+	digits := 3
+	if !negative && (units > millisecondsAbove ||
+		units == millisecondsAbove && strings.Trim(fraction, "0") != "") {
+		digits = 0
+	}
+	kept := (fraction + "000")[:digits]
+	if units > math.MaxInt64/1000 {
+		return ""
+	}
+	milliseconds := units
+	if digits == 3 {
+		milliseconds = units * 1000
+	}
+	if part, _ := strconv.ParseInt("0"+kept, 10, 64); negative {
+		milliseconds = -milliseconds - part
+		if strings.Trim(fraction[min(len(fraction), digits):], "0") != "" {
+			milliseconds--
+		}
+	} else {
+		milliseconds += part
+	}
+	return fromMilliseconds(milliseconds)
+}
+
+// fromMilliseconds returns the timestamp of a count of milliseconds since
+// the epoch, or "" outside the years 1 to 9999.
+func fromMilliseconds(milliseconds int64) string {
+	if milliseconds < firstMillisecond || milliseconds > lastMillisecond {
+		return ""
+	}
+	return FormatUTC(time.UnixMilli(milliseconds))
 }
 
 // isASCII reports whether every byte of text is ASCII.

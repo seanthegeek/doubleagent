@@ -7,8 +7,8 @@ import (
 // FuzzFromText checks that any text gives "" or a timestamp in the timeline
 // form, which EpochMillis reads back, without a panic.
 func FuzzFromText(fuzz *testing.F) {
-	for _, test := range textCases() {
-		fuzz.Add(test.input)
+	for _, test := range append(acceptedText(), refusedText()...) {
+		fuzz.Add(test[0])
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		got := FromText(text)
