@@ -7,6 +7,10 @@
 // reports in document order. A table written as an inline table inside an
 // array keeps its keys in document order when its values are plain (no nested
 // table), and in sorted order otherwise.
+//
+// The module's Decode into a map gives the values but not their order;
+// rows list settings in the file's order, so this package rebuilds it from
+// the key list Decode also returns.
 package tomldoc
 
 // Kind says what a Value holds.

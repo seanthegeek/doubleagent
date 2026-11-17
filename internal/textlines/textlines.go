@@ -8,6 +8,10 @@
 // value that holds one. A lone CR stays inside its line. The sets are
 // meant for strings.Trim, strings.TrimLeft and strings.TrimRight, which
 // read them as single bytes here since every character is ASCII.
+//
+// A bufio.Scanner with ScanLines ends lines by the same rule but stops at a
+// line longer than its buffer (64 KiB unless told otherwise); Split takes
+// text already in memory and has no such limit.
 package textlines
 
 import (

@@ -10,4 +10,9 @@
 //
 // Dictionaries are not supported: a frame that names one is reported as
 // corrupt.
+//
+// The standard library's own decoder, internal/zstd, cannot be imported;
+// using the vendored decoder directly would leave each caller to set the
+// concurrency, window and output limits and to sort its errors, which this
+// package does once.
 package zstdframe

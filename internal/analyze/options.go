@@ -28,6 +28,11 @@ func (e *UsageError) Print(w io.Writer) {
 	fmt.Fprint(w, usageOf(e.Command))
 }
 
+// commandLine stands in for the flag package, whose FlagSet.Parse stops at
+// the first argument that is not an option: these commands take options
+// after their input too (timeline INPUT -o DIR), and print their mistakes in
+// collect's form rather than flag's own messages and usage.
+//
 // commandLine describes the options and inputs of one command for parse:
 // the options that take no value, those that take one, the option that must
 // be given (its spellings), and how many inputs it takes: inputs, at least

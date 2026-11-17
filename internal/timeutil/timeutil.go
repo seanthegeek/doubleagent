@@ -21,6 +21,11 @@
 // to 23. Anything else gives "": week and ordinal dates, the basic form
 // without separators, any other separator, a date with an offset but no
 // time, 24:00, a second of 60, an offset with seconds, non-ASCII digits.
+//
+// time.Parse with time.RFC3339 reads one form only and needs seconds and
+// an offset; agents also write dates alone, times without seconds or zone,
+// a space separator and epoch numbers, so the forms above are tried in turn
+// and an epoch is read from its digits.
 package timeutil
 
 import (

@@ -7,6 +7,10 @@
 // many levels of symbolic links" and "file name too long". Any other error
 // gives the text of its innermost cause, without the operation and path Go
 // puts in front of it.
+//
+// err.Error() names the operation and path and words a condition as each
+// system does, so one denied file reads differently on each platform; this
+// package gives one wording everywhere.
 package reason
 
 import (

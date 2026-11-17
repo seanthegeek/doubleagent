@@ -19,6 +19,10 @@
 // replaced (textlines.ValidUTF8), split lines at LF or CRLF only, drop a
 // leading byte-order mark and trim ASCII whitespace only, as git does.
 // Finding the files among a collection's artifacts is the caller's job.
+//
+// Running git, or a Git library, would open a repository found in
+// evidence and could run its hooks or configured programs; this package
+// only reads the two text files and never runs anything.
 package gitmeta
 
 import (
