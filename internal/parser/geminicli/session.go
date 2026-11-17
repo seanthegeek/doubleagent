@@ -32,7 +32,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 	for _, each := range sessionRecords(artifact, &problems) {
 		state.apply(each.line, each.record)
 	}
-	project := resolveProject(baseDir(artifact, match), match["slug"],
+	project := resolveProject(inBase(artifact, match), match["slug"],
 		parser.Str(state.projectHash), &problems)
 	for _, start := range state.starts {
 		place := where{start.line, start.timestamp, start.sessionID, project}

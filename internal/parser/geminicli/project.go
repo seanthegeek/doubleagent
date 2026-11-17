@@ -3,7 +3,6 @@ package geminicli
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -23,10 +22,16 @@ var hex64Pattern = regexp.MustCompile(`^[0-9a-f]{64}\z`)
 var nameTimePattern = regexp.MustCompile(`^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2})-([0-9]{2})-` +
 	`([0-9]{2})[-_]([0-9]{3})Z\z`)
 
-// baseDir returns where the collection holds the runtime directory a match
-// of a path under it names.
-func baseDir(artifact *input.Artifact, match pathMatch) string {
-	return artifact.Home.PathOf(match["base"])
+// inBase returns where the collection holds a path below the runtime
+// directory that a match of the artifact's path names: the directory as
+// many levels above the artifact's as its path has below the runtime
+// directory.
+func inBase(artifact *input.Artifact, match pathMatch) func(names ...string) string {
+	levels := strings.Count(strings.TrimPrefix(artifact.Rel, match["base"]+"/"), "/")
+	return func(names ...string) string {
+		found, _ := parser.Above(artifact, levels, names...)
+		return found
+	}
 }
 
 // readSmall returns a side file's text decoded as UTF-8 with replacement,
@@ -45,18 +50,19 @@ func readSmall(path string, problems *parser.Problems) (string, bool) {
 }
 
 // resolveProject returns the project path of tmp/<slug> under the runtime
-// directory base: tmp/<slug>/.project_root, else the projects.json key
+// directory that base locates paths in: tmp/<slug>/.project_root, else the projects.json key
 // whose value is the slug, else the key whose sha256 is the slug or
 // projectHash, else projectHash. A side file that exists but cannot be read
 // adds its problem for the caller's rows.
-func resolveProject(base, slug, projectHash string, problems *parser.Problems) string {
-	if root, ok := readSmall(filepath.Join(base, "tmp", slug, ".project_root"), problems); ok {
+func resolveProject(base func(names ...string) string, slug, projectHash string,
+	problems *parser.Problems) string {
+	if root, ok := readSmall(base("tmp", slug, ".project_root"), problems); ok {
 		if root = pytext.Strip(root); root != "" {
 			return root
 		}
 	}
 	var projects []pyjson.Member
-	if raw, ok := readSmall(filepath.Join(base, "projects.json"), problems); ok && raw != "" {
+	if raw, ok := readSmall(base("projects.json"), problems); ok && raw != "" {
 		if data, err := pyjson.DecodeString(raw); err == nil {
 			projects = data.Get("projects").Members()
 		}
@@ -92,7 +98,7 @@ func projectOf(artifact *input.Artifact, match pathMatch, problems *parser.Probl
 	if !ok {
 		return ""
 	}
-	return resolveProject(baseDir(artifact, match), slug, "", problems)
+	return resolveProject(inBase(artifact, match), slug, "", problems)
 }
 
 // nameTime returns the timeline time of an ISO time a file name spells with

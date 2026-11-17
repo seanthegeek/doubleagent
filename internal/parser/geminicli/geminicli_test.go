@@ -182,7 +182,9 @@ func TestProjectFallsBackFromTheRootFileToProjectsJSONToTheHash(t *testing.T) {
 		if step.before != nil {
 			step.before()
 		}
-		if got := resolveProject(base, step.slug, step.hash, &problems); got != step.want {
+		if got := resolveProject(func(names ...string) string {
+			return filepath.Join(append([]string{base}, names...)...)
+		}, step.slug, step.hash, &problems); got != step.want {
 			t.Errorf("%s: got %q, want %q", step.name, got, step.want)
 		}
 	}

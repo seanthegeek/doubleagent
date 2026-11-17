@@ -1,7 +1,6 @@
 package qwencode
 
 import (
-	"path"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -226,7 +225,7 @@ func (r *record) toolResultRows() []timeline.Row {
 func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problems *parser.Problems,
 	emit parser.Emit) {
 	name := strings.TrimSuffix(fileName(artifact), ".jsonl") + ".worktree.json"
-	sidecar := artifact.Home.PathOf(path.Join(path.Dir(artifact.Rel), name))
+	sidecar := parser.Beside(artifact, name)
 	if !parser.RegularFile(sidecar) {
 		return
 	}

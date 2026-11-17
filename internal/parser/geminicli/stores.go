@@ -215,7 +215,7 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, m
 // logs emits one user row per record of a logs.json, a secondary source.
 func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := resolveProject(baseDir(artifact, match), match["slug"], "", &problems)
+	project := resolveProject(inBase(artifact, match), match["slug"], "", &problems)
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		p.logRows(artifact, project, data, emit)
 	}
