@@ -15,11 +15,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// parentOf returns the directory above path, as text.
-func parentOf(path string) string {
-	return filepath.Join(path, "..")
-}
-
 // readFlatYAML returns the top-level "key: value" scalars of a YAML file:
 // null and ~ are empty and quoted values are unquoted. workspace.yaml holds
 // only scalars, so a nested or multi-line value is skipped. This reads that
@@ -118,10 +113,11 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 }
 
 // fallbackProject returns the session's working directory from its
-// workspace.yaml, else from the sidebar files.
-func (p *Parser) fallbackProject(artifact *input.Artifact, sessionDir, sessionID string) string {
-	path := filepath.Join(sessionDir, "workspace.yaml")
-	if parser.RegularFile(path) {
+// workspace.yaml, else from the sidebar files. The session's directory lies
+// levels above the artifact's own directory.
+func (p *Parser) fallbackProject(artifact *input.Artifact, levels int, sessionID string) string {
+	path, found := parser.Above(artifact, levels, "workspace.yaml")
+	if found && parser.RegularFile(path) {
 		// The file is also an artifact parseWorkspace reads in full and reports.
 		if cwd := readFlatYAML(path, &parser.Problems{})["cwd"]; cwd != "" {
 			return cwd
@@ -150,7 +146,7 @@ func (p *Parser) parseWorkspace(artifact *input.Artifact, sessionID string, emit
 	// A session the app pre-created and never prompted (Copilot Desktop's pool
 	// and probe sessions) has no events.jsonl; its cwd is the agent's, not a
 	// project.
-	if _, err := osfile.Lstat(filepath.Join(parentOf(artifact.DiskPath), "events.jsonl")); err != nil &&
+	if _, err := osfile.Lstat(parser.Beside(artifact, "events.jsonl")); err != nil &&
 		metadata["cwd"] != "" {
 		emit(p.row(artifact, 1, timeline.TurnSystem, timeline.ScratchPrefix+" "+metadata["cwd"]+
 			" (working directory of a session the app pre-created and never prompted: no events.jsonl)", set))
@@ -176,7 +172,7 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		emit(p.problem(artifact, "parser: rewind snapshot index is not a JSON object", ""))
 		return
 	}
-	project := p.fallbackProject(artifact, parentOf(parentOf(artifact.DiskPath)), sessionID)
+	project := p.fallbackProject(artifact, 1, sessionID)
 	for i, snapshot := range parser.Elements(document.Get("snapshots")) {
 		number := i + 1
 		set := columns{timestamp: timeutil.FromValue(snapshot.Get("timestamp")), sessionID: sessionID,

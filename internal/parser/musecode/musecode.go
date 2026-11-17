@@ -395,10 +395,14 @@ func isString(value pyjson.Value, want string) bool {
 // that has them. The walk goes up through subagent/<id>/ levels; symbolic
 // links are not read.
 func (p *Parser) parentWorkspace(artifact *input.Artifact) (string, string) {
-	directory := parentOf(artifact.DiskPath)
-	for filepath.Base(parentOf(directory)) == "subagent" {
-		directory = parentOf(parentOf(directory))
-		log := filepath.Join(directory, "session.jsonl")
+	for levels := 0; ; levels += 2 {
+		if above, ok := parser.Above(artifact, levels+1); !ok || filepath.Base(above) != "subagent" {
+			break
+		}
+		log, ok := parser.Above(artifact, levels+2, "session.jsonl")
+		if !ok {
+			break
+		}
 		if !parser.RegularFile(log) {
 			continue
 		}
@@ -414,11 +418,6 @@ func (p *Parser) parentWorkspace(artifact *input.Artifact) (string, string) {
 		}
 	}
 	return "", ""
-}
-
-// parentOf returns the directory above path, as text.
-func parentOf(path string) string {
-	return filepath.Join(path, "..")
 }
 
 // walk is the state of one pass over a session log.

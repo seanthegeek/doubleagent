@@ -121,11 +121,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	return nil
 }
 
-// parentOf returns the directory above path, as text.
-func parentOf(path string) string {
-	return filepath.Join(path, "..")
-}
-
 // join returns the non-empty parts joined by " | ".
 func join(parts ...string) string {
 	return joinWith(" | ", parts)
@@ -205,7 +200,7 @@ func sha256Hex(text string) string {
 // parseHistory emits one user row per prompt of the CLI's prompt history.
 func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	digest := p.history.FindStringSubmatch(artifact.Rel)[1]
-	project := p.projectForHash(parentOf(parentOf(parentOf(artifact.DiskPath))), digest)
+	project := p.projectForHash(artifact, digest)
 	var problems parser.Problems
 	for index, entry := range parser.JSONArray(artifact.DiskPath, &problems) {
 		if !entry.IsObject() {
@@ -232,13 +227,17 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 // errNotObject is the reason a prompt history entry is skipped.
 var errNotObject = errors.New("not a JSON object")
 
-// projectForHash returns the working directory under root whose SHA-256 is
-// digest, else "". root is the .openhands directory; the directories are the
+// projectForHash returns the working directory under the .openhands
+// directory, two levels above the history file, whose SHA-256 is
+// digest, else "". The directories are the
 // conversations' workspace.working_dir, and the digest is the name the CLI
 // gives a project's directory under projects/.
-func (p *Parser) projectForHash(root, digest string) string {
+func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string {
 	for _, glob := range conversationGlobs {
-		directory := filepath.Join(append([]string{root}, glob.directory...)...)
+		directory, found := parser.Above(artifact, 2, glob.directory...)
+		if !found {
+			return ""
+		}
 		entries, err := parser.ReadDir(directory)
 		if err != nil {
 			continue
@@ -262,7 +261,7 @@ func (p *Parser) projectForHash(root, digest string) string {
 // parseState emits the standing permission rows of a base_state.json and the
 // model row of a switch made over REST.
 func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
-	conv := p.conversation(parentOf(artifact.DiskPath))
+	conv := p.conversation(parser.Beside(artifact))
 	timestamp := parser.FileMtime(artifact)
 	texts := slices.Clone(conv.settings)
 	if conv.finalModelRow != "" {
@@ -291,7 +290,11 @@ func (p *Parser) row(artifact *input.Artifact, conv *conversation, turn string) 
 // parseEvent emits the rows of one event file; the conversation's first event
 // adds the header rows.
 func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	conv := p.conversation(parentOf(parentOf(artifact.DiskPath)))
+	directory, found := parser.Above(artifact, 1)
+	if !found {
+		return
+	}
+	conv := p.conversation(directory)
 	name := filepath.Base(artifact.DiskPath)
 	if name == conv.firstEvent {
 		p.headerRows(artifact, conv, emit)
@@ -373,7 +376,7 @@ func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit p
 func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 	match := p.legacy.FindStringSubmatch(artifact.Rel)
 	var numbers []string
-	if entries, err := parser.ReadDir(parentOf(artifact.DiskPath)); err == nil {
+	if entries, err := parser.ReadDir(parser.Beside(artifact)); err == nil {
 		for _, entry := range entries {
 			stem, isJSON := strings.CutSuffix(entry.Name(), ".json")
 			if isJSON && stem != "" && strings.Trim(stem, "0123456789") == "" &&

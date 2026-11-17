@@ -371,7 +371,7 @@ func (c *chat) row(turn, text string, line int, timestamp string) timeline.Row {
 func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	name := filepath.Base(artifact.DiskPath)
 	legacy := !p.chat.MatchString(artifact.Rel)
-	fallbackID := filepath.Base(filepath.Join(artifact.DiskPath, ".."))
+	fallbackID := filepath.Base(parser.Beside(artifact))
 	if legacy {
 		fallbackID = stem(name)
 	}
@@ -399,8 +399,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		return state.failure
 	}
 	if !legacy {
-		state.messagesDir, state.hasMessages = filepath.Join(artifact.DiskPath, ".."), true
-		state.messagesDir = filepath.Join(state.messagesDir, "messages")
+		state.messagesDir, state.hasMessages = parser.Beside(artifact, "messages"), true
 	}
 	state.chatRows(document, fallbackID)
 	return state.failure

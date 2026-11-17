@@ -3,7 +3,6 @@ package agentzero
 import (
 	"errors"
 	"io/fs"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -186,13 +185,15 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error
 		emit(p.fileRow(artifact, "parser: state.json "+firstNonEmpty(why, "has no chats map"), "", "", ""))
 		return nil
 	}
-	usr := filepath.Join(artifact.DiskPath, "..", "..", "..")
+	if _, found := parser.Above(artifact, 2); !found {
+		return nil
+	}
 	for _, member := range chats.Members() {
 		contextID := parser.Str(member.Value)
 		if contextID == "" {
 			continue
 		}
-		present, err := chatPresent(usr, contextID)
+		present, err := chatPresent(artifact, contextID)
 		if err != nil {
 			return err
 		}
@@ -212,11 +213,16 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error
 }
 
 // chatPresent reports whether the chat of a context id is among the files:
-// usr/chats/<id>/chat.json or usr/chats/<id>.json as a regular file. A
-// failure other than the path being absent is returned.
-func chatPresent(usr, contextID string) (bool, error) {
-	for _, path := range []string{filepath.Join(usr, "chats", contextID, "chat.json"),
-		filepath.Join(usr, "chats", contextID+".json")} {
+// usr/chats/<id>/chat.json or usr/chats/<id>.json as a regular file, usr
+// being two levels above the state file's directory. A failure other than
+// the path being absent is returned.
+func chatPresent(artifact *input.Artifact, contextID string) (bool, error) {
+	nested, found := parser.Above(artifact, 2, "chats", contextID, "chat.json")
+	flat, _ := parser.Above(artifact, 2, "chats", contextID+".json")
+	if !found {
+		return false, nil
+	}
+	for _, path := range []string{nested, flat} {
 		info, err := osfile.Lstat(path)
 		if err != nil {
 			if absentLookup(err) {

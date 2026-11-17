@@ -24,7 +24,6 @@
 package aider
 
 import (
-	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -252,18 +251,12 @@ func readHeaders(path string) []string {
 	return headers
 }
 
-// besideOnDisk returns the path of the file called name in the directory
-// that holds the artifact's file on disk.
-func besideOnDisk(artifact *input.Artifact, name string) string {
-	return strings.TrimSuffix(artifact.DiskPath, filepath.Base(artifact.DiskPath)) + name
-}
-
 // sessionFor returns a function mapping a local time to the session of the
 // chat history beside the artifact: the last header at or before the time.
 // The chat history is a pre-scan: the parser reports its errors when it
 // parses that file in full.
 func sessionFor(artifact *input.Artifact) func(timestamp string) string {
-	headers := readHeaders(besideOnDisk(artifact, chatName))
+	headers := readHeaders(parser.Beside(artifact, chatName))
 	slices.Sort(headers)
 	chat := sibling(artifact.Original, chatName)
 	return func(timestamp string) string {
@@ -325,7 +318,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	// are reported when each file is parsed in full.
 	reader := &chatReader{parser: p, artifact: artifact, emit: emit,
 		headers: readHeaders(artifact.DiskPath), models: map[string]string{}}
-	inputPath := besideOnDisk(artifact, inputName)
+	inputPath := parser.Beside(artifact, inputName)
 	if parser.RegularFile(inputPath) {
 		var ignored parser.Problems
 		for _, entry := range ReadInputHistory(inputPath, &ignored) {

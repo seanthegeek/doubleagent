@@ -59,7 +59,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options
 	emit parser.Emit) {
 	var problems parser.Problems
 	walk := &eventWalk{parser: p, artifact: artifact, options: options, emit: emit, sessionID: sessionID,
-		project: p.fallbackProject(artifact, parentOf(artifact.DiskPath), sessionID),
+		project: p.fallbackProject(artifact, 0, sessionID),
 		names:   map[string]string{}, requested: map[string]bool{}, models: map[string]string{},
 		modes: parser.Tracker{}}
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
