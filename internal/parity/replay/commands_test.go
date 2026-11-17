@@ -52,9 +52,6 @@ type commandReplay struct {
 	partial      map[string]int
 	skipped      map[string]int
 	waiting      map[string][]string
-	// proposed lists the cases compared after the proposed difference
-	// proposedStrerror.
-	proposed []string
 	// blocks holds, by name, what became of the generated blocks of
 	// analyzer/docs/output.md.
 	blocks map[string]string
@@ -120,10 +117,6 @@ func (r *commandReplay) report(t *testing.T) {
 			"multisets: %s; the other of two equal rows kept (difference 57): %s", r.looseTimelines,
 			namesOrNone(r.multisets), namesOrNone(r.equalRows))
 	}
-	if len(r.proposed) > 0 {
-		t.Logf("compared after the proposed difference of a repository file's system message: %s",
-			strings.Join(r.proposed, ", "))
-	}
 	for _, block := range slices.Sorted(maps.Keys(r.blocks)) {
 		t.Logf("analyzer/docs/output.md block %s %s", block, r.blocks[block])
 	}
@@ -157,9 +150,6 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 		return
 	}
 	r.full[command]++
-	if strerrorShape.MatchString(want.stdout + strings.Join(slices.Collect(maps.Values(want.outputs)), "")) {
-		r.proposed = append(r.proposed, node)
-	}
 	r.compareFull(t, node, root, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }
@@ -622,8 +612,7 @@ func headerLines(text string) string {
 }
 
 // compareText compares one text after the documented differences its
-// recorded form shows, and the proposed ones; for a loose input the listing
-// order is normalised.
+// recorded form shows; for a loose input the listing order is normalised.
 func compareText(t *testing.T, node, label, want, got string, loose bool) {
 	want, got = normalisedPair(t, node, want, got)
 	if loose {
@@ -633,34 +622,77 @@ func compareText(t *testing.T, node, label, want, got string, loose bool) {
 }
 
 // normalisedPair returns a recorded text and the run's after the
-// documented differences the recorded one shows, and the proposed one.
+// documented differences the recorded one shows.
 func normalisedPair(t *testing.T, node, want, got string) (string, string) {
-	want, got = NormaliseTexts(t, node, textDifferences(want), want, got)
-	return proposedStrerror(want), got
+	return normaliseCommandTexts(t, node, textDifferences(want), want, got)
 }
 
-// strerrorShape is a repository file's problem as the analyzer words it:
-// the system's message with its first letter capitalised, at the end of a
-// problem line or of a JSON string.
-var strerrorShape = regexp.MustCompile(`: (Permission denied|No such file or directory|` +
+// commandDifferences returns the table of documented differences as the
+// command replay applies them: difference 52 also rewrites the system
+// message of a file a command could not read, which Python printed as
+// its capitalised strerror at the end of a problem line or a JSON string
+// and the binary prints as the shared lower-case reason.
+func commandDifferences() []Difference {
+	table := Differences()
+	for i := range table {
+		if library := table[i].Text; table[i].Number == 52 && library != nil {
+			table[i].Text = func(text string) (string, int) {
+				text, found := library(text)
+				text, system := systemMessageText(text)
+				return text, found + system
+			}
+		}
+	}
+	return table
+}
+
+// normaliseCommandTexts applies the named differences of commandDifferences
+// that rewrite text to both texts, and fails the test for a named one that
+// finds nothing in want.
+func normaliseCommandTexts(t testing.TB, node string, numbers []int, want, got string) (string, string) {
+	t.Helper()
+	table := commandDifferences()
+	for _, number := range numbers {
+		index := slices.IndexFunc(table, func(entry Difference) bool { return entry.Number == number })
+		if index < 0 {
+			t.Fatalf("no documented difference %d", number)
+		}
+		if table[index].Text == nil {
+			continue
+		}
+		var found int
+		want, found = table[index].Text(want)
+		got, _ = table[index].Text(got)
+		if found == 0 {
+			t.Errorf("%s: difference %d names this case but its text holds nothing to normalise",
+				node, number)
+		}
+	}
+	return want, got
+}
+
+// systemMessageShape is a system message as Python's strerror words it,
+// capitalised, at the end of a problem line or of a JSON string.
+var systemMessageShape = regexp.MustCompile(`: (Permission denied|No such file or directory|` +
 	`Is a directory|Not a directory|Too many levels of symbolic links|File name too long)` +
 	`("?,?\n|\z)`)
 
-// proposedStrerror rewrites the analyzer's capitalised system message of an
-// unreadable repository file to the binary's lower-case reason, which every
-// other problem line of both already uses. It is a proposed documented
-// difference, not yet numbered: a case it rewrites is logged.
-func proposedStrerror(text string) string {
-	return strerrorShape.ReplaceAllStringFunc(text, func(found string) string {
-		return ": " + strings.ToLower(found[2:3]) + found[3:]
+// systemMessageText lowers the first letter of each system message of
+// systemMessageShape, the form internal/reason gives, and returns the count.
+func systemMessageText(text string) (string, int) {
+	found := 0
+	text = systemMessageShape.ReplaceAllStringFunc(text, func(match string) string {
+		found++
+		return ": " + strings.ToLower(match[2:3]) + match[3:]
 	})
+	return text, found
 }
 
 // textDifferences returns the numbers of the rewriting differences whose
 // shape shows in text.
 func textDifferences(text string) []int {
 	var numbers []int
-	for _, entry := range Differences() {
+	for _, entry := range commandDifferences() {
 		if entry.Text != nil {
 			if _, found := entry.Text(text); found > 0 {
 				numbers = append(numbers, entry.Number)
@@ -732,6 +764,38 @@ func TestRootKeyOrderSortsOnlyAnInventoryWithPathsUnderTheRoot(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := rootKeyOrder(t, test.text, root); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestDifference52RewritesACommandsSystemMessage(t *testing.T) {
+	python := "problem:   /srv/proj/.git/config: Permission denied\nrows: 3\n"
+	binary := "problem:   /srv/proj/.git/config: permission denied\nrows: 3\n"
+	pythonJSON := `  "problems": [` + "\n" + `    "/srv/proj/.git/config: No such file or directory"` + "\n  ]"
+	binaryJSON := `  "problems": [` + "\n" + `    "/srv/proj/.git/config: no such file or directory"` + "\n  ]"
+	tests := []struct {
+		name, want, got string
+		numbers         []int
+		fails, equal    bool
+	}{
+		{"a problem line's message is compared under 52", python, binary, []int{52}, false, true},
+		{"a JSON string's message is compared under 52", pythonJSON, binaryJSON, []int{52}, false, true},
+		{"the shape names difference 52", python, binary, textDifferences(python), false, true},
+		{"another capitalised word is not a system message", "problem:   /x: Permission granted\n",
+			"problem:   /x: permission granted\n", []int{52}, true, false},
+		{"52 named on a text without its shape fails the case", "rows: 3\n", "rows: 3\n", []int{52},
+			true, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reporter := &recordingTB{TB: t}
+			want, got := normaliseCommandTexts(reporter, "n", test.numbers, test.want, test.got)
+			if failed := len(reporter.errors) > 0; failed != test.fails {
+				t.Errorf("failed %v, want %v: %s", failed, test.fails, strings.Join(reporter.errors, "; "))
+			}
+			if (want == got) != test.equal {
+				t.Errorf("normalised texts %q and %q, want equal %v", want, got, test.equal)
 			}
 		})
 	}
