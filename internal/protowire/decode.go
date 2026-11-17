@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -181,13 +182,18 @@ func floatScalar(kind string, field rawField, isBytes bool) (any, bool) {
 // timestampScalar decodes a Timestamp message, or a varint as epoch time.
 func timestampScalar(field rawField, isBytes bool) (any, bool) {
 	if !isBytes {
-		return timeutil.FromEpoch(float64(field.varint)), true
+		if field.varint > math.MaxInt64 {
+			return "", true
+		}
+		return timeutil.FromInt(int64(field.varint)), true
 	}
 	text, err := timestampText(field.data)
 	return text, err == nil
 }
 
-// timestampText decodes the seconds and nanoseconds of a Timestamp message.
+// timestampText decodes the seconds and nanoseconds of a Timestamp message
+// as a timeline timestamp; no seconds, or seconds the varint holds as a
+// negative int64, give "".
 func timestampText(data []byte) (string, error) {
 	var seconds, nanos uint64
 	for offset := 0; offset < len(data); {
@@ -206,10 +212,10 @@ func timestampText(data []byte) (string, error) {
 			nanos = field.varint
 		}
 	}
-	if seconds == 0 {
+	if seconds == 0 || seconds > math.MaxInt64 || nanos > math.MaxInt64 {
 		return "", nil
 	}
-	return timeutil.FromEpoch(float64(seconds) + float64(nanos)/1e9), nil
+	return timeutil.FromTime(time.Unix(int64(seconds), int64(nanos))), nil
 }
 
 // isMalformed reports whether err says the bytes are not a valid message.

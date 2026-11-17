@@ -71,7 +71,12 @@ func render(value any) string {
 	return `s"` + hex.EncodeToString([]byte(value.(string))) + `"`
 }
 
-func TestDecodeMatchesThePythonDecoder(t *testing.T) {
+// The expected messages in testdata/oracle.txt are those gen_oracle.py
+// printed, except each Timestamp's when value: this decoder reads seconds
+// and nanoseconds through time.Unix and cuts to the millisecond, where the
+// script's decoder took seconds above 1e11 as milliseconds and rounded to
+// the microsecond, so those 33 values were rewritten to this decoder's.
+func TestDecodeMatchesTheRecordedMessages(t *testing.T) {
 	file, err := os.Open("testdata/oracle.txt")
 	if err != nil {
 		t.Fatal(err)
