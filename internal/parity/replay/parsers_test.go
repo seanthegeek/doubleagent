@@ -28,6 +28,7 @@ import (
 const (
 	skipPatched  = "the test patched the analyzer while the call ran"
 	skipStale    = "the recorder kept an earlier snapshot of a file the test rewrote and re-dated"
+	skipPosixURI = "a file URI the test built from the recording's POSIX root, which has no Windows form"
 	skipDenied   = "its tree denies reading, which this platform does not enforce"
 	skipCrash    = "the Python call raised an exception that is not an operating-system error"
 	skipExcluded = "an excluding documented difference shows in its rows"
@@ -141,6 +142,9 @@ func (r *parserReplay) replayCase(t *testing.T, subject parser.Parser, recorded 
 	}
 	if staleSnapshot(recorded.Node) {
 		return skipStale
+	}
+	if filepath.Separator == '\\' && posixRootURI(recorded.Node) {
+		return skipPosixURI
 	}
 	if recorded.Tree != "" {
 		denied, err := r.work.DeniesReading(recorded.Tree)
@@ -325,4 +329,11 @@ func (c *Corpus) expandJSON(text, root string) string {
 // tree.
 func staleSnapshot(node string) bool {
 	return strings.HasSuffix(node, "::CursorTests::test_source_host_and_remote_agent_host")
+}
+
+// posixRootURI reports whether a test writes a file URI made from its
+// temporary root into the evidence. The recording's root is a POSIX path, so
+// the URI and the row built from it cannot be given a Windows root.
+func posixRootURI(node string) bool {
+	return strings.HasSuffix(node, "::VsCodeTests::test_agents_window_project_is_working_directory")
 }

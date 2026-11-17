@@ -226,7 +226,8 @@ func TestMaterialiseWritesBytesTimesAndTheRootInPlaceOfThePlaceholder(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "path=" + materialised + "/top/a.txt\n"; string(data) != want {
+	// A file's content holds the root with forward slashes on every platform.
+	if want := "path=" + filepath.ToSlash(materialised) + "/top/a.txt\n"; string(data) != want {
 		t.Errorf("content %q, want %q", data, want)
 	}
 	for name, want := range map[string]time.Time{path: modified,
