@@ -86,8 +86,9 @@ func TestFleetWritesTheCSVAndPrintsTheRollup(t *testing.T) {
 		"claude-code                 2      2  2026-11-01T00:00:00.000Z\n" +
 		"aider                       1      1  \n" +
 		"codex-cli                   1      1  \n"
-	if stdout = showRoot(stdout, work); code != ExitFound || stdout != wantStdout ||
-		showRoot(stderr, work) != "skipped 5 non-inventory lines in {ROOT}/in/b.txt\n" {
+	stdout, stderr = slashRoot(showRoot(stdout, work)), slashRoot(showRoot(stderr, work))
+	if code != ExitFound || stdout != wantStdout ||
+		stderr != "skipped 5 non-inventory lines in {ROOT}/in/b.txt\n" {
 		t.Errorf("exit %d, stdout:\n%s\nstderr: %q", code, stdout, stderr)
 	}
 	data, err := osfile.ReadFile(output)
@@ -119,7 +120,7 @@ func TestFleetRefusesInputsItCannotUse(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			args := append([]string{"fleet", "-o", filepath.Join(work, "f.csv")}, test.inputs...)
 			code, _, stderr := runCommand(testEnvironment(), args...)
-			if code != test.code || showRoot(stderr, work) != test.stderr {
+			if code != test.code || slashRoot(showRoot(stderr, work)) != test.stderr {
 				t.Errorf("exit %d, stderr %q", code, stderr)
 			}
 		})
