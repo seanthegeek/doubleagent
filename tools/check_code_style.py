@@ -167,6 +167,23 @@ PS_AUTOMATIC = {
 Finding = tuple[int, str]
 
 
+OWN_ZSTDFRAME_FILES = {
+    "decode.go",
+    "doc.go",
+    "frames_test.go",
+    "race_off_test.go",
+    "race_on_test.go",
+}
+
+
+def third_party(path: str) -> bool:
+    """Report whether a repository path holds source copied or vendored from another project."""
+    if path.startswith("vendor/"):
+        return True
+    directory, _, name = path.rpartition("/")
+    return directory.startswith("internal/zstdframe") and name not in OWN_ZSTDFRAME_FILES
+
+
 def code_files() -> list[pathlib.Path]:
     """Return the tracked and unignored files of the repository this check reads, sorted."""
     listing = subprocess.run(
@@ -176,8 +193,9 @@ def code_files() -> list[pathlib.Path]:
         check=True,
     ).stdout
     # The vendored Go modules are third-party source, audited as a dependency,
-    # never held to this project's style.
-    files = {ROOT / path for path in listing.split("\0") if path and not path.startswith("vendor/")}
+    # never held to this project's style; so is the zstd decoder copied into
+    # internal/zstdframe, apart from the files this project wrote beside it.
+    files = {ROOT / path for path in listing.split("\0") if path and not third_party(path)}
     return sorted(path for path in files if path.is_file() and language_of(path))
 
 

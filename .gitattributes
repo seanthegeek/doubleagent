@@ -17,3 +17,6 @@ analyzer/doubleagent/catalog.txt text eol=lf
 internal/sqlitefile/testdata/*.db binary
 internal/sqlitefile/testdata/*.db-wal binary
 internal/sqlitefile/testdata/*.db-journal binary
+
+# The copied zstd decoder's test data is hashed and decoded byte for byte.
+internal/zstdframe/testdata/** binary
