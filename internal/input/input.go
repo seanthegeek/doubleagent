@@ -22,6 +22,7 @@
 package input
 
 import (
+	"errors"
 	"io/fs"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -203,6 +204,9 @@ func (e *Error) Error() string { return e.Message }
 // archive member or the manifest cannot be read (an operating-system error
 // naming the path), or as an *Error. On error nothing extracted is left.
 func Open(path string, options Options) (*Collection, error) {
+	if options.Matcher == nil {
+		return nil, errors.New("input: Open needs a catalog matcher")
+	}
 	source := cleanPath(path)
 	info, err := osfile.Stat(source)
 	if err != nil {

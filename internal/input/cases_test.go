@@ -837,6 +837,12 @@ func TestCleanupRemovesTheExtractionDirectory(t *testing.T) {
 	wantEqual(t, "extracted after cleanup", collection.ExtractedDir(), "")
 }
 
+func TestOpenRefusesToRunWithoutAMatcher(t *testing.T) {
+	if _, err := Open(t.TempDir(), Options{}); err == nil {
+		t.Fatal("no error without a matcher")
+	}
+}
+
 func TestOpenRefusesAMissingInput(t *testing.T) {
 	_, err := Open(filepath.Join(t.TempDir(), "nope"), Options{Matcher: matcherOf(t, "")})
 	if !errors.Is(err, os.ErrNotExist) {
