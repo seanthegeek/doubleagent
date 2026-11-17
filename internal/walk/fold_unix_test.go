@@ -87,7 +87,7 @@ func TestALinkRefusedForACaseCollisionNamesNoArchivePath(t *testing.T) {
 	row := rowByPath(t, rows[1], parent+"/two/home/u/.claude/l")
 	if row == nil || row["archive_path"] != "" || row["status"] != "symlink" ||
 		!strings.Contains(row["error"].(string), "takes its name for another") {
-		t.Errorf("row of l %v; want a symlink row with the case collision error and no "+
+		t.Errorf("row of l %v; want a symlink row with the collision error and no "+
 			"archive path, since the staged place holds L's link", row)
 	}
 	if target, err := os.Readlink(parent + "/stage/fs/home/u/.claude/L"); err != nil || target != "a" {
@@ -196,7 +196,7 @@ func TestALinkOutOfTheStageIsNeverListedThroughAnotherSpelling(t *testing.T) {
 	row := rowByPath(t, rows[1], settings)
 	if row == nil || row["status"] != "error_copy" ||
 		!strings.Contains(row["error"].(string), "takes its name for another") {
-		t.Errorf("row of Cursor/User/settings.json %v; want error_copy with the case collision", row)
+		t.Errorf("row of Cursor/User/settings.json %v; want error_copy with the collision", row)
 	}
 }
 
@@ -233,7 +233,7 @@ func TestARefusedCopyLooksAtNothingBehindAnotherEntrysLink(t *testing.T) {
 	}
 	row := rowByPath(t, rows[1], settings)
 	if row == nil || !strings.Contains(row["error"].(string), "takes its name for another") {
-		t.Errorf("row of .Config/cursor/User/settings.json %v; want the case collision", row)
+		t.Errorf("row of .Config/cursor/User/settings.json %v; want the collision", row)
 	}
 	log := strings.Join(collectors[1].Log.(*lineLog).lines, "\n")
 	if strings.Contains(log, "not removed") {

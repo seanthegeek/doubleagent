@@ -10,7 +10,7 @@
 // directory, and every respelling walks the tree with walkStaged, which
 // stops at a link. requireInside, PhysicalDir and FailedCopyInside's lstat
 // of the staged path (copy_run's test, run after a copy that failed for a
-// reason other than a case collision) resolve through links and read
+// reason other than a collision) resolve through links and read
 // metadata only.
 package stage
 
@@ -420,27 +420,27 @@ type notRegular struct{}
 // Error returns the reason, in the text of the error it replaces.
 func (notRegular) Error() string { return "not a regular file" }
 
-// caseCollision is the reason a file or link is not staged: the output
+// collision is the reason a file or link is not staged: the output
 // directory takes its name for another file's, link's or directory's, by
 // whatever rule it has (letter case, Unicode form, an 8.3 short name), which
 // the stager does not need to know. Staging one over the other would leave
 // a row pointing at the other entry's bytes.
-type caseCollision struct{}
+type collision struct{}
 
-// collisionError is caseCollision for path.
+// collisionError is collision for path.
 func collisionError(path string) error {
-	return &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
+	return &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: collision{}}
 }
 
-// IsCaseCollision reports whether err says a file or link was not staged
+// IsCollision reports whether err says a file or link was not staged
 // because the output directory takes its name for another entry's
-// (caseCollision), the one link failure every platform records in its row.
-func IsCaseCollision(err error) bool {
-	return errors.As(err, &caseCollision{})
+// (collision), the one link failure every platform records in its row.
+func IsCollision(err error) bool {
+	return errors.As(err, &collision{})
 }
 
 // Error returns the reason.
-func (caseCollision) Error() string {
+func (collision) Error() string {
 	return "the output directory takes its name for another file's, link's or directory's; " +
 		"not staged"
 }
@@ -512,14 +512,15 @@ func parentOf(path string) string {
 }
 
 // FoldsCase reports whether dir, a staging directory, takes two names for
-// one: two that differ in ASCII letter case, or the two Unicode forms of an
-// accented letter (a precomposed é, and e with a combining acute accent). It
-// makes a probe file of the first kind of each pair, looks it up as the
-// second and removes it. Safety does not depend on it: no staged file is
-// ever written over, whatever the volume merges (Copy). It decides only the
-// output-directory note and, on Linux and for links, whether a member's
-// spelling is read from the tree; a miss costs a row's archive path spelled
-// as named for a member the volume spelled otherwise, never bytes.
+// one: two differing in ASCII letter case, or the two Unicode forms of an
+// accented letter (precomposed é, and e with a combining acute accent),
+// made as the first and looked up as the second. Safety does not depend on
+// it: no staged file is ever written over (Copy). It decides the note,
+// whether a member's spelling is read from the tree (Linux, links) and
+// whether a refusal is worded as a collision (again, takenByAnother); a
+// rule it misses, such as a Windows short name, costs an archive path
+// spelled as named or a plain reason instead of the collision's, never
+// bytes.
 func FoldsCase(dir string) bool {
 	random := make([]byte, 8)
 	_, _ = rand.Read(random)

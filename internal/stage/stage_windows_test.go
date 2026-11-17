@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -686,7 +688,25 @@ func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 }
 
 func TestADirectoryNamedAsAnotherDirectorysShortNameIsMergedSafely(t *testing.T) {
+	// Measured on the CI runner: NTFS makes 8.3 short names, and opens a
+	// path through one, in a directory marked case-sensitive as in any
+	// other, so both variants merge the two directories.
+	for _, marked := range []bool{false, true} {
+		t.Run(fmt.Sprintf("staging directory marked case-sensitive %v", marked), func(t *testing.T) {
+			stagesUnderAShortName(t, marked)
+		})
+	}
+}
+
+// stagesUnderAShortName stages .claude-backup/x from one root, then from a
+// second root x and y under a directory literally named as the staged
+// directory's 8.3 alias, into a staging fs directory marked case-sensitive
+// or not, and checks the collision and the members.
+func stagesUnderAShortName(t *testing.T, marked bool) {
 	first, root := newWindowsStager(t)
+	if marked {
+		mustDo(t, MarkCaseSensitive(first.Dir+"/fs"))
+	}
 	second := first
 	second.Root = root + "-two"
 	long := root + "/.claude-backup"
@@ -695,21 +715,16 @@ func TestADirectoryNamedAsAnotherDirectorysShortNameIsMergedSafely(t *testing.T)
 	one, err := first.Copy(long + "/x")
 	mustDo(t, err)
 	stagedDir := first.Dir + "/" + one.ArchivePath[:strings.LastIndexByte(one.ArchivePath, '/')]
-	name, err := windows.UTF16PtrFromString(syspath.ToNative(stagedDir))
-	mustDo(t, err)
-	buffer := make([]uint16, windows.MAX_LONG_PATH)
-	n, err := windows.GetShortPathName(name, &buffer[0], uint32(len(buffer)))
-	short := syspath.FromNative(windows.UTF16ToString(buffer[:n]))
+	short := syspath.FromNative(shortname.ShortPath(t, syspath.ToNative(stagedDir)))
 	alias := short[strings.LastIndexByte(short, '/')+1:]
-	if err != nil || strings.EqualFold(alias, ".claude-backup") {
-		t.Skipf("the staging volume gives %s no 8.3 short name (%v)", stagedDir, err)
+	if strings.EqualFold(alias, ".claude-backup") {
+		t.Skipf("the staging volume gives %s no 8.3 short name", stagedDir)
 	}
-	// A source directory literally named as that alias, staged later.
 	other := second.Root + "/" + alias
 	mustDo(t, os.MkdirAll(other, 0o755))
 	mustDo(t, os.WriteFile(other+"/x", []byte("second entry"), 0o600))
 	mustDo(t, os.WriteFile(other+"/y", []byte("second entry's y"), 0o600))
-	if _, err := second.Copy(other + "/x"); !IsCaseCollision(err) ||
+	if _, err := second.Copy(other + "/x"); !IsCollision(err) ||
 		!strings.Contains(err.Error(), "takes its name for another file's, link's or directory's; ") {
 		t.Errorf("%s/x = %v; want the collision reason", alias, err)
 	}
@@ -726,6 +741,4 @@ func TestADirectoryNamedAsAnotherDirectorysShortNameIsMergedSafely(t *testing.T)
 			t.Errorf("archive path %s names a member the staging tree spells %s", archived, spelled)
 		}
 	}
-	t.Logf("8.3 alias %s of the staged .claude-backup: %s/y staged as %s", alias, alias,
-		why.ArchivePath)
 }

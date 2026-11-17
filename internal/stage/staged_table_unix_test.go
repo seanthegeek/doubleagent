@@ -37,8 +37,8 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	file := parent + "/two/home/u/.config/Cursor/User/settings.json"
 	makeSource(t, file, false)
 	_, dest, _ := second.Dest(file)
-	if _, _, err := copyFile(second, file); !IsCaseCollision(err) {
-		t.Errorf("Copy = %v; want the case collision error: the place is cursor's link", err)
+	if _, _, err := copyFile(second, file); !IsCollision(err) {
+		t.Errorf("Copy = %v; want the collision error: the place is cursor's link", err)
 	}
 	second.FailedCopyInside(dest)
 	staged := parent + "/stage/fs/home/u/.config/cursor"

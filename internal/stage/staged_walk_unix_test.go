@@ -97,8 +97,8 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 		source := parent + "/two/a/b/c/x"
 		makeSource(t, source, false)
 		_, _, err := copyFile(stager, source)
-		if IsCaseCollision(err) || !errors.Is(err, fs.ErrPermission) {
-			t.Errorf("Copy = %v; want permission denied, not a case collision", err)
+		if IsCollision(err) || !errors.Is(err, fs.ErrPermission) {
+			t.Errorf("Copy = %v; want permission denied, not a collision", err)
 		}
 	})
 	t.Run("a staged path too long for the system", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 		source := parent + "/two/" + strings.Repeat(strings.Repeat("s", 50)+"/", 9) + "x"
 		makeSource(t, source, false)
 		_, _, err := copyFile(stager, source)
-		if err == nil || IsCaseCollision(err) {
+		if err == nil || IsCollision(err) {
 			t.Errorf("Copy = %v; want the system's error for a path too long", err)
 		}
 	})
@@ -127,7 +127,7 @@ func TestALinkUnderAnotherEntrysFileIsACaseCollision(t *testing.T) {
 	}
 	makeSource(t, parent+"/two/S/y", true)
 	_ = second.MakeParent(parent + "/two/S/y")
-	if err := symlink(second, parent+"/two/S/y", "t", false); !IsCaseCollision(err) {
-		t.Errorf("Symlink of S/y under the staged file s = %v; want the case collision error", err)
+	if err := symlink(second, parent+"/two/S/y", "t", false); !IsCollision(err) {
+		t.Errorf("Symlink of S/y under the staged file s = %v; want the collision error", err)
 	}
 }

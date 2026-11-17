@@ -31,8 +31,7 @@ is in the [README](../README.md#quick-start)):
   and by `; see collectors/docs/relocation.md` when N is above 0. It is printed after `errors` and before `docker`; see
   [relocation.md](relocation.md).
 - The `docker:` line appears only when a Docker or Podman volume directory
-  or Docker Desktop data was found, as `N volumes found, N collected,
-  N unreadable`; see [docker.md](docker.md).
+  or Docker Desktop data was found, as `N volumes found, N collected, N unreadable`; see [docker.md](docker.md).
 
 On the `collected`, `relocation` and `docker` lines a count of 1 takes the
 singular noun (`1 file`, `1 byte`, `1 hint`, `1 volume found`).
@@ -213,7 +212,7 @@ escapes; the parsed values are the same.
 | `skipped_size` | Larger than `--max-file-size`. |
 | `skipped_secret` | A credential file left out by `--no-secrets`. |
 | `skipped_special` | A special file: neither a regular file, a directory nor a symbolic link, such as the Unix domain sockets Codex CLI keeps under `.codex`. Never opened or copied; `type` names the kind, `size` and the times are as `lstat` (sh) or `Get-Item` (PowerShell) reported them, `archive_path`, `sha256`, `target` and `error` are empty, and `secret` is set as for any path. See [Special files](#special-files). Since collector 1.13.0. |
-| `error_copy` | Could not be read or copied; see `error`. From the `doubleagent` binary also a file not staged because the output directory takes its name for another file's, link's or directory's, by letter case, by Unicode form (the same accented letter stored as one character, or as a letter and a combining mark) or on Windows by an 8.3 short name: `the output directory takes its name for another file's, link's or directory's; not staged`, with no `archive_path`; such a link keeps its `symlink` row, with no `archive_path` and that reason after `not recreated in the archive:`. A file or link staged again at the same staged path after its source was replaced during the run gets `changed since this run staged it; the earlier row holds its copy` instead. |
+| `error_copy` | Could not be read or copied; see `error`. From the `doubleagent` binary also a file not staged because the output directory takes its name for another file's, link's or directory's, by letter case, by Unicode form (the same accented letter stored as one character, or as a letter and a combining mark) or on Windows by an 8.3 short name: `the output directory takes its name for another file's, link's or directory's; not staged` where the run can tell, else a plain reason (for an 8.3 short name, for example `does not resolve inside the staging directory`), with no `archive_path`; such a link keeps its `symlink` row, with no `archive_path` and that reason after `not recreated in the archive:`. A file or link staged again at the same staged path after its source was replaced during the run gets `changed since this run staged it; the earlier row holds its copy` instead. |
 | `skipped_unmatched_volume` | A Docker or Podman volume that matched no `DOCKER_VOLUMES` line: one `dir` row with its size, `user` `docker`, an empty `agent`, and `home` and `path` both the volume's `_data`. |
 | `error_read` | A directory that could not be listed or entered: a home, a project directory, a `-p` value that is not a directory, or a directory inside a walk (see [privileges.md](privileges.md)). One `dir` row with size `0`, no `archive_path` and the reason in `error`; nothing under it is collected. |
 

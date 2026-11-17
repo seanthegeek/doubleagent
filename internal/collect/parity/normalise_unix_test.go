@@ -32,8 +32,9 @@ var (
 	summaryNoPreserveAtime = regexp.MustCompile(`, "no_preserve_atime": (true|false)`)
 	logNoPreserveAtime     = regexp.MustCompile(` no_preserve_atime=[01]$`)
 	archivePathField       = regexp.MustCompile(`"archive_path":"(\\.|[^"\\])*"`)
-	// foldingNote is the binary's note that the output directory ignores
-	// letter case, as a default macOS volume does; neither script writes it.
+	// foldingNote is the binary's note that the output directory takes two
+	// names for one: letter case on the default macOS volume, Unicode form on
+	// every APFS volume; neither script writes it.
 	foldingNote = regexp.MustCompile(
 		`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z )?NOTE: output directory .* ignores letter case or Unicode form in names;`)
 )

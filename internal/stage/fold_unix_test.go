@@ -69,8 +69,8 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 		t.Errorf("Alice's staged copy holds %q (%v) after alice's copy; want Alice's bytes, "+
 			"which her row hashed", staged, readErr)
 	}
-	if !errors.As(err, &caseCollision{}) {
-		t.Errorf("alice's copy gave %v; want the case collision error", err)
+	if !errors.As(err, &collision{}) {
+		t.Errorf("alice's copy gave %v; want the collision error", err)
 	}
 	if !first.FailedCopyInside(parent+"/stage/fs/Users/alice/notes.txt") ||
 		!fileHolds(parent+"/stage/fs/Users/Alice/notes.txt", "Alice's notes") {
@@ -102,8 +102,8 @@ func TestALinkIsNotStagedOverAnotherEntrysLinkInAFoldingStage(t *testing.T) {
 		t.Errorf("staging Alice's link again = %v; want it left in place", err)
 	}
 	if err := symlink(second, parent+"/two/Users/alice/link", "target", false); !errors.As(err,
-		&caseCollision{}) {
-		t.Errorf("staging alice's link over Alice's = %v; want the case collision error", err)
+		&collision{}) {
+		t.Errorf("staging alice's link over Alice's = %v; want the collision error", err)
 	}
 }
 
@@ -251,8 +251,8 @@ func TestAFileWhosePlaceHoldsALinkOrDirectoryIsACaseCollision(t *testing.T) {
 				t.Fatal(err)
 			}
 			err := stage(second, parent+"/two/"+testCase.second, testCase.secondIsLink)
-			if !IsCaseCollision(err) {
-				t.Errorf("staging %s after %s = %v; want the case collision error", testCase.second,
+			if !IsCollision(err) {
+				t.Errorf("staging %s after %s = %v; want the collision error", testCase.second,
 					testCase.first, err)
 			}
 		})
@@ -294,8 +294,8 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 		}
 		file := parent + "/two/A/cursor/User/x"
 		makeSource(t, file, false)
-		if _, _, err := copyFile(second, file); !IsCaseCollision(err) {
-			t.Errorf("Copy of A/cursor/User/x = %v; want the case collision error", err)
+		if _, _, err := copyFile(second, file); !IsCollision(err) {
+			t.Errorf("Copy of A/cursor/User/x = %v; want the collision error", err)
 		}
 	})
 	t.Run("a file where another entry's directory sits in another case", func(t *testing.T) {
@@ -306,8 +306,8 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 			t.Fatal(err)
 		}
 		makeSource(t, parent+"/two/zed/two", false)
-		if _, _, err := copyFile(second, parent+"/two/zed/two"); !IsCaseCollision(err) {
-			t.Errorf("Copy of zed/two = %v; want the case collision error", err)
+		if _, _, err := copyFile(second, parent+"/two/zed/two"); !IsCollision(err) {
+			t.Errorf("Copy of zed/two = %v; want the collision error", err)
 		}
 	})
 }

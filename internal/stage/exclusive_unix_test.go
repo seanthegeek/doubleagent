@@ -83,7 +83,7 @@ func TestTwoFilesWhoseNamesDifferInUnicodeFormAreNotStagedOverEachOther(t *testi
 				t.Fatal(err)
 			}
 			_, err = second.Copy(parent + "/two/home/" + decomposed + "/notes")
-			if !IsCaseCollision(err) {
+			if !IsCollision(err) {
 				t.Errorf("the second entry's copy = %v; want it refused as a collision", err)
 			}
 			if !fileHolds(parent+"/stage/"+one.ArchivePath, "first entry") {
@@ -171,7 +171,7 @@ func TestALinkIsNotStagedOverAnotherEntryInAnotherUnicodeForm(t *testing.T) {
 				if err := os.Symlink("second", link); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := second.Link(link, "second", false); !IsCaseCollision(err) {
+				if _, err := second.Link(link, "second", false); !IsCollision(err) {
 					t.Errorf("the second entry's link = %v; want it refused as a collision", err)
 				}
 			})

@@ -146,9 +146,12 @@ the output directory takes two names for one, by letter case (a Windows
 file system without the setting, the default macOS volume, an exFAT or FAT
 drive) or by Unicode form (every macOS volume: the same accented letter
 stored as one character, or as a letter and a combining mark), the run
-logs a note, and a file or link whose name it takes for another file's,
-link's or directory's is not staged: its row says so (`error_copy` for a
-file, a `symlink` row with that error for a link), with no archive path.
+logs a note. A Windows volume that makes 8.3 short names also takes a name
+shaped like one (`CLAUDE~1`) for the directory it names, marked
+case-sensitive or not, without a note. Either way a file or link whose
+name it takes for another file's, link's or directory's is not staged: its
+row says so (`error_copy` for a file, a `symlink` row with that error for
+a link), with no archive path.
 One entry reached through two spellings is staged once, and both rows name
 its member ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
@@ -195,8 +198,7 @@ the matched path.
   ([issue 503](https://github.com/seanthegeek/doubleagent/issues/503)): with a relative
   target the copy lands where the link points inside the staging tree, so `archive_path`
   names a path the archive holds only under the target; with an absolute target in live mode
-  the staged path resolves to the source, the copy fails, and the log line ends `staged path
-  resolves outside the staging directory, not removed`, since the collector never removes a
+  the staged path resolves to the source, the copy fails, and the log line ends `staged path resolves outside the staging directory, not removed`, since the collector never removes a
   file outside the staging directory.
 - In image mode the `doubleagent` binary differs from both scripts for a link whose target
   leads out of the image root (a place on the analyst's own host): the glob expander asks
@@ -1265,8 +1267,7 @@ temp directory while it lists Codex's models, and removes it when the
 command finishes. A crash or a kill leaves that copy outside every home,
 where no catalog line reaches it; on a host where Ollama launched the
 ChatGPT app, look for the directory in the temp directory and copy it by
-hand (see [Credentials in
-`research/codex-cli.md`](../../research/codex-cli.md#credentials)).
+hand (see [Credentials in `research/codex-cli.md`](../../research/codex-cli.md#credentials)).
 Agent Zero copies a Telegram bot's configuration into each Telegram
 chat's `chat.json`, which is collected unflagged; the keys to redact are
 `data.telegram_bot_cfg.token` and `data.telegram_bot_cfg.webhook_secret`,

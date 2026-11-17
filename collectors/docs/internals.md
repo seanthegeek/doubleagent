@@ -323,8 +323,10 @@ setting), and every APFS volume, case-sensitive ones included, for Unicode
 form (the same accented letter stored as one character, or as a letter and
 a combining mark). A volume can take two names for one by letter case, by
 Unicode form, or on Windows by an 8.3 short name (`CLAUDE~1` for a staged
-`.claude-backup`, where short names are on); the stager does not need to
-know which. Directories whose names it takes for one merge there, and all
+`.claude-backup`, where the volume makes short names; measured on the CI
+runner, NTFS makes them and opens paths through them in a directory marked
+case-sensitive too, so marking the staging directory does not prevent
+it); the stager does not need to know which. Directories whose names it takes for one merge there, and all
 their files are staged.
 
 Safety does not depend on knowing which names a volume merges. Every
@@ -346,8 +348,7 @@ bytes when a live file was rewritten in between. A recorded entry made
 for another staged path, or an entry the volume reached through another
 spelling of the name (a walk of the staged path, below, finds a component
 respelled), is a collision: a file's row is `error_copy` with the error
-`the output directory takes its name for another file's, link's or
-directory's; not staged`, no archive path and no hash; a link keeps its `symlink` row with no archive path and that
+`the output directory takes its name for another file's, link's or directory's; not staged`, no archive path and no hash; a link keeps its `symlink` row with no archive path and that
 reason after `not recreated in the archive:`. A source staged again at
 the same staged path, byte for byte as `Dest` names it, after its file was
 replaced (saved through a rename, or reached a second time later in the
@@ -356,8 +357,7 @@ with `changed since this run staged it; the earlier row holds its copy`,
 and its name is not called merged. Every refusal names the source path.
 Anything else not known to be this source's copy at that exact name, or
 whose identity is 0 or cannot be read, is refused with a plain reason: `not a regular file` for a link or other reparse point, else
-`already exists in the staging directory and is not known to be this
-source's copy` (such as a file an earlier run of the same name, in the same
+`already exists in the staging directory and is not known to be this source's copy` (such as a file an earlier run of the same name, in the same
 second, left). Nothing is touched either way. The record trusts the
 file system's identity. A copy that fails removes the file it created and
 leaves no record, so no partial copy becomes a member without a row.
@@ -381,14 +381,18 @@ from the walk, where the run's probe (`stage.FoldsCase`: a random
 lower-case name looked up in upper case, and a precomposed `é` looked up
 decomposed) finds that the volume takes two names for one. The sh
 collector writes the source's spelling there. The probe also decides the
-run's note, `NOTE: output directory <dir> ignores letter case or Unicode
-form in names; a file or link whose name it takes for another file's,
-link's or directory's is not staged and its row says why (an output
-directory on a file system that compares names byte for byte keeps
-both)`; a probe that misses a rule costs, on Linux, and for links on every
-platform, a row's archive
-path spelled as named for a member the volume spelled otherwise, never
-bytes. A refused copy made nothing, so nothing is cleaned up after it.
+run's note:
+
+`NOTE: output directory <dir> ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)`
+
+It also decides whether a refusal can be worded as the collision (the walk
+behind it runs only where the probe found folding). A rule the probe does
+not see, such as a Windows 8.3 short name, therefore costs, on Linux and
+for links on every platform, a row's archive path spelled as named for a
+member the volume spelled otherwise, and on every platform the refusal's
+plain reason (for example `does not resolve inside the staging directory`
+from the mkdir) in place of the collision's; never bytes. A refused copy
+made nothing, so nothing is cleaned up after it.
 
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an
@@ -655,10 +659,8 @@ Each refusal carries why it was made, and every line that reports one words
 it by that kind, after the refused path: the line's own words when a link
 leads out of the root (a link whose target climbs above the root with `..`
 included); `cannot be verified to lie inside the image root` for a link the
-check cannot follow or a root it cannot resolve; `is a reparse point other
-than a symlink or junction` for one; `climbs above the image root with ..`
-for a path whose own `..` does, the line naming that path; and `is outside
-the image root` for a path not under it. Each of the last four ends
+check cannot follow or a root it cannot resolve; `is a reparse point other than a symlink or junction` for one; `climbs above the image root with ..`
+for a path whose own `..` does, the line naming that path; and `is outside the image root` for a path not under it. Each of the last four ends
 `; nothing behind it was looked at`, with `, not walked` after it in the
 catalog walk's line and `; not walked` in a project's line, except that a
 project not under the root keeps its own line, given below. For a reparse
@@ -709,8 +711,7 @@ directory the user may not search, which fails with "permission denied",
 though the same directory with only a trailing `/` resolves),
 is kept as written; staging refuses any path that still holds a `.` or `..`
 component, on every platform: its row is `error_copy` with no archive path
-and the error `holds a . or .. component, so where it is staged is not
-known`. The sh collector keeps the dotted spelling and stages the copy at
+and the error `holds a . or .. component, so where it is staged is not known`. The sh collector keeps the dotted spelling and stages the copy at
 `fs/` plus that spelling, which `mkdir -p` resolves lexically: a home
 `/srv/dotlink/../frank` with `srv/dotlink` a link to `b/c` is staged at
 `fs/srv/frank`, onto another user's home of that name (exception 47 in the
@@ -897,13 +898,11 @@ each read with `heredoc_var`), the file on its standard input (an operand
 holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
 which only that `awk` sees; `tr` turns a NUL byte into \001 on the way (and a
 \001 into \002, so \001 means a NUL), since BSD `awk` would end the record at a
-NUL, and from such a line on the `awk` refuses every value (`after a NUL
-byte`), as pam_env 1.5 and systemd read no further. It prints
+NUL, and from such a line on the `awk` refuses every value (`after a NUL byte`), as pam_env 1.5 and systemd read no further. It prints
 `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
 for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
 `resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
-startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME
-xml1` once per distinct name hit, and `plutil_string_var` reads only that
+startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME xml1` once per distinct name hit, and `plutil_string_var` reads only that
 one-element output, so the value is the one launchd reads; the lines are
 `0|NAME|=VALUE` or `0|NAME|!REASON` (line 0, since plutil reports none; the
 lines naming the variable stay hints without a value), `U|USER` for the

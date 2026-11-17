@@ -65,7 +65,7 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	makeJunction(t, home+"/target", home+"/cs/J")
 	makeJunction(t, home+"/target", home+"/cs/j")
 	// A file whose staged place, unmarked, holds a link or a directory of
-	// another case is refused as a case collision too.
+	// another case is refused as a collision too.
 	makeJunction(t, home+"/target", home+"/cs/P")
 	collector, recorder := windowsCollector(t, "", nil)
 	mustDo(t, os.Mkdir(syspath.ToNative(collector.Stager.Dir+"/fs"), 0o755))

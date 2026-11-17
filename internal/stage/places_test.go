@@ -51,7 +51,7 @@ func TestAgainKeepsOnlyTheSameSourcesRecordedResult(t *testing.T) {
 			}
 			// Only another source recorded at the place is that entry's name.
 			wantCollision := testCase.name == "another source is a collision"
-			if IsCaseCollision(err) != wantCollision {
+			if IsCollision(err) != wantCollision {
 				t.Errorf("again = %v; a collision: %v", err, wantCollision)
 			}
 		})

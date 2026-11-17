@@ -376,7 +376,7 @@ func TestAPathStagedAgainAfterItsFileWasReplacedIsNoCollision(t *testing.T) {
 	mustDo(t, os.WriteFile(source+".tmp", []byte("second"), 0o644))
 	mustDo(t, os.Rename(source+".tmp", source))
 	_, err := stager.Copy(source)
-	if err == nil || IsCaseCollision(err) || !strings.Contains(err.Error(), "changed since") {
+	if err == nil || IsCollision(err) || !strings.Contains(err.Error(), "changed since") {
 		t.Errorf("Copy of the replaced file = %v; want the plain reason that it changed since "+
 			"this run staged it, not a name collision", err)
 	}
@@ -394,7 +394,7 @@ func TestAPlaceReachedThroughALinkThenDirectlyAfterAReplaceIsNoCollision(t *test
 	mustDo(t, os.WriteFile(root+"/real/f.tmp", []byte("second"), 0o644))
 	mustDo(t, os.Rename(root+"/real/f.tmp", root+"/real/f"))
 	_, err := stager.Copy(root + "/real/f")
-	if err == nil || IsCaseCollision(err) || !strings.Contains(err.Error(), "changed since") {
+	if err == nil || IsCollision(err) || !strings.Contains(err.Error(), "changed since") {
 		t.Errorf("Copy of the replaced file at the same staged path = %v; want the plain "+
 			"reason that it changed since this run staged it, not a name collision", err)
 	}
