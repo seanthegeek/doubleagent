@@ -2,6 +2,7 @@ package claudedesktop
 
 import (
 	"io/fs"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -32,13 +33,12 @@ func isPlainDir(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// orgDir returns the org dir that holds the record's directory dir, which
-// lies levels above the artifact's own directory: dir itself, or the dir
-// above it when it is an agent/ dir. It is false when that dir lies outside
-// the artifact's home.
-func orgDir(artifact *input.Artifact, dir string, levels int) (string, bool) {
+// orgDir returns the org dir that holds a session record's directory dir,
+// the artifact's own: dir itself, or the dir above it when it is an agent/
+// dir. It is false when that dir lies outside the artifact's home.
+func orgDir(artifact *input.Artifact, dir string) (string, bool) {
 	if filepath.Base(dir) == "agent" {
-		return parser.Above(artifact, levels+1)
+		return parser.Above(artifact, 1)
 	}
 	return dir, true
 }
@@ -54,21 +54,26 @@ func readJSON(path string, problems *parser.Problems) (pyjson.Value, bool) {
 	return value, err == nil
 }
 
-// findRecord returns the session record of the session dir that lies
-// levels above the artifact's own directory, or false. The record is in
-// <org>/ or <org>/agent/, found by the dir's full or short name, never
-// through a link. A record that cannot be read is skipped here: it is an
-// artifact of its own, reported when it is parsed.
-func findRecord(artifact *input.Artifact, levels int) (pyjson.Value, bool) {
-	session, found := parser.Above(artifact, levels)
-	parent, foundParent := parser.Above(artifact, levels+1)
-	if !found || !foundParent {
+// findRecord returns the session record of the session dir at session, a
+// path relative to the home, or false. The dir and its parents are found
+// where the collection holds them (Home.PathOf follows the collector's
+// staged paths). The record is in <org>/ or <org>/agent/, found by the
+// dir's full or short name, never through a link. A record that cannot be
+// read is skipped here: it is an artifact of its own, reported when it is
+// parsed.
+func findRecord(home *input.Home, session string) (pyjson.Value, bool) {
+	if home == nil {
 		return pyjson.NewNull(), false
 	}
-	org, found := orgDir(artifact, parent, levels+1)
-	name := filepath.Base(session)
+	parentRel := path.Dir(session)
+	parent := home.PathOf(parentRel)
+	org := parent
+	if filepath.Base(parent) == "agent" {
+		org = home.PathOf(path.Dir(parentRel))
+	}
+	name := filepath.Base(home.PathOf(session))
 	long := longName.MatchString(name)
-	if !found || !long && !shortName.MatchString(name) || isLink(org) || isLink(parent) {
+	if !long && !shortName.MatchString(name) || isLink(org) || isLink(parent) {
 		return pyjson.NewNull(), false
 	}
 	for _, directory := range []string{org, filepath.Join(org, "agent")} {
@@ -171,7 +176,7 @@ func folder(record pyjson.Value) string {
 // plain file name names nothing collected.
 func sessionCollected(artifact *input.Artifact, record pyjson.Value) bool {
 	recordDir := parser.Beside(artifact)
-	org, found := orgDir(artifact, recordDir, 0)
+	org, found := orgDir(artifact, recordDir)
 	if !found {
 		return false
 	}

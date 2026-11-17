@@ -79,6 +79,24 @@ func TestTheParserRecordsNoMarksAndDeclaresNoHooks(t *testing.T) {
 	}
 }
 
+func TestARecordIsFoundWhereTheCollectionStagedTheSessionsOrg(t *testing.T) {
+	root := t.TempDir()
+	home, staged := filepath.Join(root, "home"), filepath.Join(root, "staged", "org")
+	if err := osfile.MkdirAll(filepath.Join(staged, session), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(filepath.Join(staged, session+".json"), []byte(`{"title": "staged"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	collected := &input.Home{DiskPath: home, StagedPaths: map[string]string{cowork: staged}}
+	if record, found := findRecord(collected, cowork+"/"+session); !found || text(record.Get("title")) != "staged" {
+		t.Errorf("got %v, %v; want the staged org's record", record, found)
+	}
+	if _, found := findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); found {
+		t.Error("a record was found in a home that holds none")
+	}
+}
+
 func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 	short := "c0c0c0c0"
 	tests := []struct {
@@ -103,9 +121,8 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 			if err := osfile.WriteFile(path, []byte(test.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			artifact := &input.Artifact{DiskPath: filepath.Join(org, filepath.FromSlash(test.sessionDir), "audit.jsonl"),
-				Rel: filepath.Base(org) + "/" + test.sessionDir + "/audit.jsonl"}
-			record, _ := findRecord(artifact, 0)
+			home := &input.Home{DiskPath: filepath.Dir(org)}
+			record, _ := findRecord(home, filepath.Base(org)+"/"+test.sessionDir)
 			if got := text(record.Get("title")); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}

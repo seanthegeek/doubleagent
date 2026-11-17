@@ -3,6 +3,7 @@ package geminicli
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -23,14 +24,16 @@ var nameTimePattern = regexp.MustCompile(`^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2
 	`([0-9]{2})[-_]([0-9]{3})Z\z`)
 
 // inBase returns where the collection holds a path below the runtime
-// directory that a match of the artifact's path names: the directory as
-// many levels above the artifact's as its path has below the runtime
-// directory.
+// directory that a match of the artifact's path names: a path of the home,
+// found through Home.PathOf, which follows the collector's staged paths.
+// It gives "" for an artifact with no home.
 func inBase(artifact *input.Artifact, match pathMatch) func(names ...string) string {
-	levels := strings.Count(strings.TrimPrefix(artifact.Rel, match["base"]+"/"), "/")
+	if artifact.Home == nil {
+		return func(...string) string { return "" }
+	}
+	base := artifact.Home.PathOf(match["base"])
 	return func(names ...string) string {
-		found, _ := parser.Above(artifact, levels, names...)
-		return found
+		return filepath.Join(append([]string{base}, names...)...)
 	}
 }
 

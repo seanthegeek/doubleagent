@@ -41,13 +41,13 @@ func orDash(value string) string {
 
 // transcript emits the rows of a transcript in Claude Code's format. When
 // the session record names a folder, every row but a scratch directory's
-// takes it as project path. levels, how far the session dir lies above the
-// artifact's directory, is noSession for a staged transcript, which has no record.
-func (p *Parser) transcript(artifact *input.Artifact, options parser.Options, levels int,
+// takes it as project path. session, the session dir relative to the home,
+// is "" for a staged transcript, which has no record.
+func (p *Parser) transcript(artifact *input.Artifact, options parser.Options, session string,
 	emit parser.Emit) {
 	project := ""
-	if levels != noSession {
-		record, _ := findRecord(artifact, levels)
+	if session != "" {
+		record, _ := findRecord(artifact.Home, session)
 		project = folder(record)
 	}
 	p.code.Session(artifact, options, func(row timeline.Row) {
@@ -104,13 +104,13 @@ func (a *auditLine) row(turnType, text string) timeline.Row {
 	return row
 }
 
-// audit emits the rows of a session dir's audit.jsonl, levels being how
-// far the session dir lies above the artifact's directory. The project is the
-// record's folder, else the CLI's working directory, else the record's cwd;
-// the session is the record's CLI session id, else each line's own.
-func (p *Parser) audit(artifact *input.Artifact, options parser.Options, levels int,
+// audit emits the rows of a session dir's audit.jsonl, session being the
+// session dir relative to the home. The project is the record's folder,
+// else the CLI's working directory, else the record's cwd; the session is
+// the record's CLI session id, else each line's own.
+func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session string,
 	emit parser.Emit) {
-	record, found := findRecord(artifact, levels)
+	record, found := findRecord(artifact.Home, session)
 	project := folder(record)
 	if project == "" {
 		project = initCwd(artifact)
