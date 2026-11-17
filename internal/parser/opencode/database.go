@@ -161,7 +161,7 @@ func (s *store) readSessions() error {
 			return err
 		}
 		for _, row := range rows {
-			identifier := row.Get("id").Str()
+			identifier := row.Get("id").String()
 			if _, seen := s.sessionAt[identifier]; !seen {
 				s.sessionAt[identifier] = len(s.sessions)
 				s.sessions = append(s.sessions, session{identifier: identifier, row: row, table: name})
@@ -208,16 +208,16 @@ func (s *store) worktreeOf(identifier sqlitefile.Value) string {
 func rowLookup(row sqlitefile.Row) lookup {
 	return func(key string) (string, bool) {
 		value := row.Get(key)
-		return value.Str(), value.Truthy()
+		return value.String(), !value.IsEmpty()
 	}
 }
 
 // columnText returns a column value as Python's str(value or "") gives it.
 func columnText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // valueKey returns a key under which two column values are one key exactly
@@ -252,7 +252,7 @@ func columnJSON(value sqlitefile.Value) (string, string, bool) {
 	case sqlitefile.Text:
 		return value.Text(), "", true
 	}
-	return value.Str(), "not JSON text", false
+	return value.String(), "not JSON text", false
 }
 
 // unparseable returns the message of a stored record that does not decode:

@@ -111,7 +111,7 @@ func (r *conversationReader) plannerResponse(index int64, created, completed, mo
 // the steps.permissions column, else the Step's own field.
 func (r *conversationReader) permissionRows(index int64, column sqlitefile.Value, step, metadata message) {
 	permissions := step.child("permissions")
-	if column.Truthy() {
+	if !column.IsEmpty() {
 		decoded, ok := r.owner.decodeMessage(blobOf(column), "TrajectoryPermissions")
 		if !ok {
 			row := r.row(index)

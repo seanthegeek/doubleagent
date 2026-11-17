@@ -121,7 +121,7 @@ func decodeText(text string) (jsonvalue.Value, string, string) {
 func (s *store) stateRows() error {
 	for _, each := range s.sessions {
 		scoped, rowid := s.scopeFor(each.identifier), each.row.Rowid
-		if archived := each.row.Get("time_archived"); archived.Truthy() {
+		if archived := each.row.Get("time_archived"); !archived.IsEmpty() {
 			s.emit(s.systemAt(scoped, rowid, archived, fmt.Sprintf(
 				"session archived (from %s %s, time_archived)", s.label, each.table)))
 		}
@@ -131,7 +131,7 @@ func (s *store) stateRows() error {
 		}
 		rules, ok := permissionRules(stored)
 		if !ok {
-			raw := stored.Str()
+			raw := stored.String()
 			if stored.Type == sqlitefile.Blob {
 				raw = textlines.ValidUTF8(stored.Bytes)
 			}

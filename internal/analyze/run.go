@@ -151,7 +151,7 @@ func openInput(options InputOptions, found *catalog.Matcher,
 	case errors.As(err, &inputError):
 		return nil, inputError.Message
 	case err != nil:
-		return nil, reason.Describe(input.PathText(options.Input), err)
+		return nil, reason.Describe(options.Input, err)
 	}
 	if options.User != "" {
 		for _, home := range collection.Homes {

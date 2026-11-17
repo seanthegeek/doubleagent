@@ -267,7 +267,7 @@ func TestNumericTextFollowsSQLite(t *testing.T) {
 	}
 }
 
-func TestValuesReadAsPythonWritesThem(t *testing.T) {
+func TestValuesGiveTheirRowText(t *testing.T) {
 	cases := []struct {
 		value  Value
 		str    string
@@ -275,16 +275,16 @@ func TestValuesReadAsPythonWritesThem(t *testing.T) {
 	}{
 		{Value{}, "", false}, {IntValue(0), "0", false}, {IntValue(-3), "-3", true},
 		{FloatValue(1e16), "1e+16", true}, {FloatValue(0), "0", false}, {TextValue(""), "", false},
-		{TextValue("é"), "é", true}, {BlobValue([]byte("a'b\"\\\n\x00\xff")), `b'a\'b"\\\n\x00\xff'`, true},
-		{BlobValue([]byte("it's")), `b"it's"`, true}, {BlobValue(nil), "b''", false},
+		{TextValue("é"), "é", true}, {BlobValue([]byte("a'b\x00\xff")), `x'612762` + `00ff'`, true},
+		{BlobValue(nil), "x''", false},
 	}
 	for _, test := range cases {
-		t.Run("str of "+test.str, func(t *testing.T) {
-			if got := test.value.Str(); got != test.str {
-				t.Errorf("Str() = %q, want %q", got, test.str)
+		t.Run("the text of "+test.str, func(t *testing.T) {
+			if got := test.value.String(); got != test.str {
+				t.Errorf("String() = %q, want %q", got, test.str)
 			}
-			if got := test.value.Truthy(); got != test.truthy {
-				t.Errorf("Truthy() = %v, want %v", got, test.truthy)
+			if got := !test.value.IsEmpty(); got != test.truthy {
+				t.Errorf("not IsEmpty() = %v, want %v", got, test.truthy)
 			}
 		})
 	}

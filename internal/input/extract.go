@@ -12,9 +12,8 @@ import (
 )
 
 // extractArchive extracts the zip or tar archive at path into destination,
-// a new empty directory. A file is a zip when it ends with a zip directory,
-// as Python's zipfile.is_zipfile tests it, else a tar when its first header
-// reads. Neither is an *Error, and so is a damaged archive; a member that
+// a new empty directory. A file is a zip when it ends with a zip directory
+// (isZipFile), else a tar when its first header reads. Neither is an *Error, and so is a damaged archive; a member that
 // cannot be written is the operating-system error.
 func extractArchive(path, destination string) error {
 	file, err := osfile.Open(path)

@@ -50,7 +50,7 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 		row.TurnType = timeline.TurnSystem
 		steps := "0"
 		if table.Has("step_count") {
-			steps = summary.Get("step_count").Str()
+			steps = summary.Get("step_count").String()
 		}
 		title := truthyText(summary.Get("title"))
 		if title == "" {
@@ -66,16 +66,16 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 
 // truthyText returns a column value as Python's str(value or "") gives it.
 func truthyText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // firstWorkspace returns the path of the first workspace URI of a
 // summary's JSON list, "" when there is none.
 func firstWorkspace(value sqlitefile.Value) string {
-	if !value.Truthy() || (value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob) {
+	if value.IsEmpty() || (value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob) {
 		return ""
 	}
 	uris, err := jsonvalue.DecodeString(textlines.ValidUTF8(value.Bytes))

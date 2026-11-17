@@ -101,7 +101,7 @@ func TestColumnTextWritesEachStorageClassAsPythonDoes(t *testing.T) {
 		{"a small float", sqlitefile.FloatValue(0.00001), "1e-05"},
 		{"positive infinity", sqlitefile.FloatValue(math.Inf(1)), "Infinity"},
 		{"negative infinity", sqlitefile.FloatValue(math.Inf(-1)), "-Infinity"},
-		{"a blob", sqlitefile.BlobValue([]byte("ab")), "b'ab'"},
+		{"a blob", sqlitefile.BlobValue([]byte("ab")), "x'6162'"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -106,7 +106,7 @@ func isTrue(value jsonvalue.Value) bool {
 
 // archived reports whether the composer is archived (a delete sets it too).
 func (c *composer) archived() bool {
-	return c.headerValue("isArchived").Truthy() || isTrue(c.head.Get("isArchived")) ||
+	return !c.headerValue("isArchived").IsEmpty() || isTrue(c.head.Get("isArchived")) ||
 		isTrue(c.data.Get("isArchived"))
 }
 
@@ -166,10 +166,10 @@ func readHeaders(store *store, found *composers) {
 	}
 	for i := range rows {
 		ident := rows[i].Get("composerId")
-		if !ident.Truthy() {
+		if ident.IsEmpty() {
 			continue
 		}
-		current := found.get(ident.Str())
+		current := found.get(ident.String())
 		current.header = &rows[i]
 		if value := rows[i].Get("value"); !value.IsNull() {
 			current.head = objectOf(decodeRecord(rows[i].Rowid, "composerHeaders "+current.ident, value,

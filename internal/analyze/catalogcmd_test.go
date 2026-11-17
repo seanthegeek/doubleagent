@@ -81,7 +81,7 @@ func TestCatalogHelpAndMistakes(t *testing.T) {
 	}{
 		{"help goes to stdout", []string{"catalog", "--help"}, ExitFound, catalogUsage, ""},
 		{"an extra argument is a usage error", []string{"catalog", "x"}, ExitError, "",
-			"doubleagent catalog: error: unrecognized arguments: x\n"},
+			"Unknown argument: x\nUsage: doubleagent catalog"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -45,7 +45,7 @@ func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	case sqlitefile.Float:
 		return jsonvalue.NewFloat(value.Float)
 	case sqlitefile.Text, sqlitefile.Blob:
-		return jsonvalue.NewString(value.Str())
+		return jsonvalue.NewString(value.String())
 	}
 	return jsonvalue.NewNull()
 }
@@ -119,7 +119,7 @@ func manifestPresent(artifact *input.Artifact, sessionID string) bool {
 // metadataJSON returns a metadata_json column decoded as JSON, or null for
 // an empty or absent value, a number, or text that is not JSON.
 func metadataJSON(value sqlitefile.Value) jsonvalue.Value {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return jsonvalue.NewNull()
 	}
 	var decoded jsonvalue.Value

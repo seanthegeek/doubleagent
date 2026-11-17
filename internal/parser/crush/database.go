@@ -100,10 +100,10 @@ func (s *store) system(rowid int64, sessionID, timestamp, text string) timeline.
 
 // orText returns a column as Python's str(value or "") writes it.
 func orText(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // sessionRows emits the session start, relay and deletion rows. A
@@ -128,14 +128,14 @@ func (s *store) sessionRows() error {
 	orphans := map[string]bool{}
 	for _, session := range sessions {
 		parent := session.Get("parent_session_id")
-		if parent.Type != sqlitefile.Text || len(parent.Bytes) == 0 || ids[parent.Str()] ||
-			orphans[parent.Str()] {
+		if parent.Type != sqlitefile.Text || len(parent.Bytes) == 0 || ids[parent.String()] ||
+			orphans[parent.String()] {
 			continue
 		}
-		orphans[parent.Str()] = true
-		s.emit(s.system(session.Rowid, parent.Str(), updatedOrCreated(session),
-			timeline.Compact("session deleted: "+parent.Str()+" (parent_session_id of sub-agent "+
-				"session "+session.Get("id").Str()+" names no session in crush.db; time is the "+
+		orphans[parent.String()] = true
+		s.emit(s.system(session.Rowid, parent.String(), updatedOrCreated(session),
+			timeline.Compact("session deleted: "+parent.String()+" (parent_session_id of sub-agent "+
+				"session "+session.Get("id").String()+" names no session in crush.db; time is the "+
 				"sub-agent's updated_at)")))
 	}
 	return nil
@@ -152,34 +152,34 @@ func updatedOrCreated(session sqlitefile.Row) string {
 func (s *store) sessionStart(session sqlitefile.Row) {
 	sessionID := orText(session.Get("id"))
 	parent, count := "", ""
-	if value := session.Get("parent_session_id"); value.Truthy() {
-		parent = "parent=" + value.Str()
+	if value := session.Get("parent_session_id"); !value.IsEmpty() {
+		parent = "parent=" + value.String()
 	}
 	if value := session.Get("message_count"); !value.IsNull() {
-		count = value.Str() + " messages"
+		count = value.String() + " messages"
 	}
 	tokens := "tokens in=" + orZero(session.Get("prompt_tokens")) + " out=" +
 		orZero(session.Get("completion_tokens"))
 	cost := ""
-	if value := session.Get("cost"); value.Truthy() {
-		cost = "cost=" + value.Str()
+	if value := session.Get("cost"); !value.IsEmpty() {
+		cost = "cost=" + value.String()
 	}
 	s.emit(s.system(session.Rowid, sessionID, parser.ColumnTime(session.Get("created_at")),
 		timeline.Compact(joinParts("session start", orText(session.Get("title")), parent, count,
 			tokens, cost))))
 	if channel := session.Get("channel"); channel.Type == sqlitefile.Text && len(channel.Bytes) > 0 {
 		s.emit(s.system(session.Rowid, sessionID, updatedOrCreated(session),
-			timeline.Compact("session relayed: channel "+channel.Str()+
+			timeline.Compact("session relayed: channel "+channel.String()+
 				" (from crush.db sessions.channel, as of updated_at)")))
 	}
 }
 
 // orZero returns a column as Python's str(value or 0) writes it.
 func orZero(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return "0"
 	}
-	return value.Str()
+	return value.String()
 }
 
 // mcpRows emits one "permission setting:" row per MCP server turned on or
@@ -195,7 +195,7 @@ func (s *store) mcpRows() error {
 		}
 		err = handle.Select("rowid", "name").OrderBy("rowid").Each(func(record sqlitefile.Row) error {
 			s.emit(s.system(record.Rowid, "", parser.FileMtime(s.artifact),
-				timeline.Compact("permission setting: "+table+"="+record.Get("name").Str()+
+				timeline.Compact("permission setting: "+table+"="+record.Get("name").String()+
 					" (from "+s.artifact.Rel+", file mtime)")))
 			return nil
 		})
@@ -221,8 +221,8 @@ func (s *store) fileRows() error {
 			}).OrderBy("created_at", "rowid").Each(func(record sqlitefile.Row) error {
 			s.emit(s.system(record.Rowid, orText(record.Get("session_id")),
 				parser.ColumnTime(record.Get("created_at")),
-				timeline.Compact("file version: "+record.Get("path").Str()+" version="+
-					record.Get("version").Str()+" bytes="+orZero(record.Get("size"))+
+				timeline.Compact("file version: "+record.Get("path").String()+" version="+
+					record.Get("version").String()+" bytes="+orZero(record.Get("size"))+
 					" (from crush.db files)")))
 			return nil
 		})
@@ -241,7 +241,7 @@ func (s *store) fileRows() error {
 		Each(func(record sqlitefile.Row) error {
 			s.emit(s.system(record.Rowid, orText(record.Get("session_id")),
 				parser.ColumnTime(record.Get("read_at")),
-				timeline.Compact("file read: "+record.Get("path").Str()+
+				timeline.Compact("file read: "+record.Get("path").String()+
 					" (from crush.db read_files, read_at)")))
 			return nil
 		})

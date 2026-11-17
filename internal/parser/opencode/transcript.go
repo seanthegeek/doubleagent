@@ -186,7 +186,7 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 		if !ok {
 			continue
 		}
-		if kind := row.Get("type"); kind.Truthy() {
+		if kind := row.Get("type"); !kind.IsEmpty() {
 			data.Set("type", columnValue(kind))
 		}
 		message := columnText(row.Get("message_id"))

@@ -1,14 +1,16 @@
 package input
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// textOf returns Python's str(value or ""): "" for a false value (null,
-// false, zero, an empty string, array or object), else the value as str()
-// prints it.
+// textOf returns a manifest field read as text: a string as it is, an
+// empty value (null, false, zero, an empty string, array or object) as "",
+// and any other value as its row text (jsonvalue.Value.Text), the fallback
+// for a writer that put a number or a boolean where text belongs.
 func textOf(value jsonvalue.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -16,23 +18,23 @@ func textOf(value jsonvalue.Value) string {
 	return value.Text()
 }
 
-// isText reports whether value is the string text, as Python's == between
-// a decoded value and a str literal.
+// isText reports whether value is the string text.
 func isText(value jsonvalue.Value, text string) bool {
 	return value.IsString() && value.StringValue() == text
 }
 
-// splitSlash splits text at every slash, keeping empty parts, as Python's
-// str.split("/").
+// splitSlash splits text at every slash, keeping empty parts.
 func splitSlash(text string) []string { return strings.Split(text, "/") }
 
 // joinSlash joins parts with slashes.
 func joinSlash(parts []string) string { return strings.Join(parts, "/") }
 
-// parseSize returns Python's int(value or 0) for a manifest size, and false
-// when int() would raise: for an array or object, a float that is not
-// finite, a string that is not an integer literal, or a value beyond the
-// int64 range. A float is truncated toward zero and true counts as 1.
+// parseSize returns a manifest size read as an integer, and false when it
+// is not one. An empty value is 0. The fallbacks for a writer that did not
+// write an integer: true is 1, a finite float is cut toward zero, and a
+// string is read as a base-10 integer with an optional sign, surrounding
+// whitespace ignored. An array, an object, other text and a value beyond
+// the int64 range are refused.
 func parseSize(value jsonvalue.Value) (int64, bool) {
 	if value.IsEmpty() {
 		return 0, true
@@ -49,36 +51,8 @@ func parseSize(value jsonvalue.Value) (int64, bool) {
 		}
 		return int64(number), true
 	case value.IsString():
-		return parseIntegerText(strings.TrimSpace(value.StringValue()))
+		number, err := strconv.ParseInt(strings.TrimSpace(value.StringValue()), 10, 64)
+		return number, err == nil
 	}
 	return 0, false
-}
-
-// parseIntegerText parses an integer literal as int() accepts one in
-// base 10: an optional sign, then ASCII digits that single underscores
-// may separate.
-func parseIntegerText(text string) (int64, bool) {
-	negative := false
-	if text != "" && (text[0] == '+' || text[0] == '-') {
-		negative = text[0] == '-'
-		text = text[1:]
-	}
-	var number int64
-	for i := 0; i < len(text); i++ {
-		character := text[i]
-		if character == '_' && i > 0 && i+1 < len(text) && text[i-1] != '_' {
-			continue
-		}
-		if character < '0' || character > '9' || number > (1<<63-1-int64(character-'0'))/10 {
-			return 0, false
-		}
-		number = number*10 + int64(character-'0')
-	}
-	if text == "" {
-		return 0, false
-	}
-	if negative {
-		number = -number
-	}
-	return number, true
 }

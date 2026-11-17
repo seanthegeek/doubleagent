@@ -2,17 +2,20 @@ package input
 
 import "strings"
 
-// pathForm is a path split the way a Python pathlib path holds it: an
-// anchor (a drive and a root, either possibly empty) and the components
-// below it, with empty and "." components gone and ".." kept.
+// pathForm is a path split into its anchor (a drive and a root, either
+// possibly empty) and the components below it, with empty and "."
+// components gone and ".." kept. The input's paths are joined and compared
+// in this form, so a collection read from "coll/" and from "coll" gives the
+// same disk paths.
 type pathForm struct {
 	drive, root string
 	parts       []string
 	windows     bool
 }
 
-// String returns the path as Python's str(Path) prints it: "." for an
-// empty relative path.
+// String returns the path with the platform's separator between its
+// components: "." for an empty relative path, and ".\" before a Windows
+// relative path whose first component would read as a drive.
 func (p pathForm) String() string {
 	separator := "/"
 	if p.windows {
@@ -48,9 +51,9 @@ func (p pathForm) parent() pathForm {
 	return p
 }
 
-// join returns p with each element appended as Python's Path.joinpath
-// does: an element with a root replaces the path (keeping the drive on
-// Windows unless the element names its own).
+// join returns p with each element appended: an element with a root
+// replaces the path (keeping the drive on Windows unless the element names
+// its own).
 func (p pathForm) join(elements ...string) pathForm {
 	for _, element := range elements {
 		next := parsePathAs(element, p.windows)
@@ -68,7 +71,7 @@ func (p pathForm) join(elements ...string) pathForm {
 }
 
 // parsePathAs splits path with the POSIX or, when windows is set, the
-// Windows rules of pathlib.
+// Windows rules.
 func parsePathAs(path string, windows bool) pathForm {
 	if windows {
 		return parseWindowsPath(path)
@@ -76,8 +79,9 @@ func parsePathAs(path string, windows bool) pathForm {
 	return parsePosixPath(path)
 }
 
-// parsePosixPath splits path as PurePosixPath does: exactly two leading
-// slashes are kept as the root, one or three and more become one.
+// parsePosixPath splits a POSIX path: exactly two leading slashes are kept
+// as the root (POSIX leaves their meaning to the system), one or three and
+// more become one.
 func parsePosixPath(path string) pathForm {
 	form := pathForm{}
 	if strings.HasPrefix(path, "/") {
@@ -90,9 +94,9 @@ func parsePosixPath(path string) pathForm {
 	return form
 }
 
-// parseWindowsPath splits path as PureWindowsPath does: slashes become
-// backslashes, then a drive (`C:`, `\\server\share` or a `\\?\` device) and
-// a root are taken off the front, as ntpath.splitroot finds them.
+// parseWindowsPath splits a Windows path: slashes become backslashes, then
+// a drive (`C:`, `\\server\share` or a `\\?\` device) and a root are taken
+// off the front.
 func parseWindowsPath(path string) pathForm {
 	path = strings.ReplaceAll(path, "/", `\`)
 	form := pathForm{windows: true}
@@ -114,7 +118,7 @@ func parseWindowsPath(path string) pathForm {
 
 // splitWindowsShare splits a path starting with two backslashes into the
 // share or device that is its drive, its root and the rest; a share whose
-// path has no root gets one, as pathlib gives it.
+// path has no root gets one.
 func splitWindowsShare(path string) (drive, root, rest string) {
 	start := 2
 	if len(path) >= 8 && strings.EqualFold(path[:8], `\\?\UNC\`) {
@@ -133,8 +137,8 @@ func splitWindowsShare(path string) (drive, root, rest string) {
 		drive, root, rest = path[:second], `\`, path[second+1:]
 	}
 	if root == "" && !strings.HasSuffix(drive, `\`) {
-		// pathlib tests the third piece with Python's "in '?.'", which an
-		// empty piece passes too.
+		// A third piece of "?", "." or nothing names a device, which takes no
+		// root of its own.
 		pieces := strings.Split(drive, `\`)
 		if len(pieces) == 4 && !strings.Contains("?.", pieces[2]) || len(pieces) == 6 {
 			root = `\`
@@ -167,16 +171,15 @@ func components(text, separator string) []string {
 	return parts
 }
 
-// PathText returns path as Python's str(Path(path)) prints it on this
-// platform: repeated separators and "." components removed, ".." kept, no
-// trailing separator, "." for an empty path; on POSIX exactly two leading
-// slashes are kept, and on Windows slashes become backslashes and a drive
-// (C:, a \\server\share share or a \\?\ device path) and its root are kept.
-func PathText(path string) string {
+// cleanPath returns path in the form the input's paths are joined in:
+// repeated separators and "." components removed, ".." kept, no trailing
+// separator, "." for an empty path.
+func cleanPath(path string) string {
 	return parsePath(path).String()
 }
 
-// joinPath returns str(Path(base).joinpath(elements...)) on this platform.
+// joinPath returns base with elements joined to it, as pathForm.join
+// joins them, in this platform's form.
 func joinPath(base string, elements ...string) string {
 	return parsePath(base).join(elements...).String()
 }

@@ -14,9 +14,8 @@ func pathParts(text, separator string) []string {
 	return parts
 }
 
-// pathParent returns the directory of a path printed by input.PathText, as
-// Python's Path.parent gives it: "." for a name alone, the root for a name
-// directly under it.
+// pathParent returns the directory part of a path: "." for a name alone,
+// the root for a name directly under it.
 func pathParent(path string) string {
 	index := strings.LastIndexAny(path, `/\`)
 	switch {

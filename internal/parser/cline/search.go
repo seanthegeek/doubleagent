@@ -102,16 +102,16 @@ func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
 
 // columnStr returns a column as Python's str(value or "") gives it.
 func columnStr(value sqlitefile.Value) string {
-	if !value.Truthy() {
+	if value.IsEmpty() {
 		return ""
 	}
-	return value.Str()
+	return value.String()
 }
 
 // orColumn returns the first value Python counts as true, else the last.
 func orColumn(values ...sqlitefile.Value) sqlitefile.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -145,7 +145,7 @@ func (p *Parser) searchSession(artifact *input.Artifact, sessionID string, index
 			row.TurnType = role.Text()
 		}
 		if content := document.Get("content"); !content.IsNull() {
-			row.Text = timeline.Compact(content.Str())
+			row.Text = timeline.Compact(content.String())
 		}
 		emit(row)
 	}
@@ -220,7 +220,7 @@ func searchDetail(indexed, head sqlitefile.Row, workspace string) string {
 		if detail != "" {
 			detail += " "
 		}
-		detail += field.key + "=" + field.value.Str()
+		detail += field.key + "=" + field.value.String()
 	}
 	return detail
 }

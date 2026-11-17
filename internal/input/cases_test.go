@@ -432,7 +432,7 @@ func goOnlyManifestCases() []inputCase {
 			build: func(t *testing.T, dir string) string {
 				writeFile(t, filepath.Join(dir, "fs/home/a/.claude/x"), "x")
 				good := jsonRow("path", "/home/a/.claude/x", "home", "/home/a", "archive_path", "fs/home/a/.claude/x",
-					"status", "collected", "type", "file", "size", " 1_2 ")
+					"status", "collected", "type", "file", "size", " 12 ")
 				badSize := jsonRow("path", "/home/a/.claude/y", "status", "collected", "type", "file", "size", "1.5")
 				skippedSize := jsonRow("path", "/home/a/.claude/z", "status", "skipped_size", "size", "big")
 				writeManifest(t, dir, "[1]", `"row"`, good, badSize, skippedSize)
@@ -585,7 +585,7 @@ func looseShapeCases() []inputCase {
 				wantEqual(t, "carol", users["/Users/carol"], "carol")
 				wantEqual(t, "root", users["/root"], "root")
 				wantEqual(t, "www", users["/var/www"], "www")
-				wantEqual(t, "source", strings.HasSuffix(collection.Source, "image"), true)
+				wantEqual(t, "source is as given", strings.HasSuffix(collection.Source, "image"+string(filepath.Separator)), true)
 			}},
 		{name: "fs without a manifest is taken as the root",
 			build: func(t *testing.T, dir string) string {

@@ -32,7 +32,7 @@ func enumText(value sqlitefile.Value, names map[int64]string) string {
 	if name, known := names[number]; ok && known {
 		return name
 	}
-	return value.Str()
+	return value.String()
 }
 
 // blobOf returns the bytes of a blob or text column, nil for any other.
@@ -151,8 +151,8 @@ func (r *conversationReader) trajectory() error {
 	if err != nil || !ok {
 		return err
 	}
-	if cascade := trajectory.Get("cascade_id"); cascade.Truthy() {
-		r.sessionID = cascade.Str()
+	if cascade := trajectory.Get("cascade_id"); !cascade.IsEmpty() {
+		r.sessionID = cascade.String()
 	}
 	if source := trajectory.Get("source"); !source.IsNull() {
 		r.source = enumText(source, trajectorySources())
@@ -164,7 +164,7 @@ func (r *conversationReader) trajectory() error {
 // session start row.
 func (r *conversationReader) metadata() error {
 	blob, ok, err := r.firstRow("trajectory_metadata_blob", "data")
-	if err != nil || !ok || !blob.Get("data").Truthy() {
+	if err != nil || !ok || blob.Get("data").IsEmpty() {
 		return err
 	}
 	meta, _ := r.owner.decodeMessage(blobOf(blob.Get("data")), "CortexTrajectoryMetadata")
@@ -259,7 +259,7 @@ func (r *conversationReader) steps() error {
 func (r *conversationReader) step(stored sqlitefile.Row, tracked parser.Tracker) bool {
 	index := stored.Get("idx").Int
 	step := message{&protowire.Message{}}
-	if payload := stored.Get("step_payload"); payload.Truthy() {
+	if payload := stored.Get("step_payload"); !payload.IsEmpty() {
 		decoded, ok := r.owner.decodeMessage(blobOf(payload), "Step")
 		if !ok {
 			return false
@@ -267,7 +267,7 @@ func (r *conversationReader) step(stored sqlitefile.Row, tracked parser.Tracker)
 		step = decoded
 	}
 	metadata := step.child("metadata")
-	if !step.has("metadata") && stored.Get("metadata").Truthy() {
+	if !step.has("metadata") && !stored.Get("metadata").IsEmpty() {
 		decoded, ok := r.owner.decodeMessage(blobOf(stored.Get("metadata")), "CortexStepMetadata")
 		if !ok {
 			return false

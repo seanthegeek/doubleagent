@@ -9,8 +9,9 @@ import (
 )
 
 // UsageError is a command-line mistake: an unknown option, an option without
-// its value, a missing or extra input. It is printed with the command's usage
-// text and gives exit code 2.
+// its value, a missing or extra input. It is printed as collect prints its
+// own: the message on one line, then the command's usage text; it gives
+// exit code 2.
 type UsageError struct {
 	Command string
 	Message string
@@ -21,10 +22,10 @@ func (e *UsageError) Error() string {
 	return e.Message
 }
 
-// Print writes the command's usage text, then the message, to W.
+// Print writes the message, then the command's usage text, to w.
 func (e *UsageError) Print(w io.Writer) {
+	fmt.Fprintln(w, e.Message)
 	fmt.Fprint(w, usageOf(e.Command))
-	fmt.Fprintf(w, "doubleagent %s: error: %s\n", e.Command, e.Message)
 }
 
 // commandLine describes the options and inputs of one command for parse:
@@ -108,8 +109,8 @@ func (c *commandLine) option(args []string, seen map[string]bool) (int, error) {
 	}
 	if flag, ok := c.flags[name]; ok {
 		if hasAttached {
-			return 0, &UsageError{c.command, fmt.Sprintf("argument %s: ignored explicit argument %s",
-				name, quoted(attached))}
+			return 0, &UsageError{c.command, fmt.Sprintf("Option %s takes no value: %s", name,
+				args[0])}
 		}
 		*flag = true
 		return 0, nil
@@ -124,7 +125,7 @@ func (c *commandLine) option(args []string, seen map[string]bool) (int, error) {
 		return 0, nil
 	}
 	if len(args) < 2 || c.isOption(args[1]) {
-		return 0, &UsageError{c.command, fmt.Sprintf("argument %s: expected one argument", name)}
+		return 0, &UsageError{c.command, "Missing value for option: " + name}
 	}
 	setter(args[1])
 	return 1, nil
@@ -143,8 +144,7 @@ func (c *commandLine) check(seen map[string]bool, extras []string) error {
 		missing = append(missing, strings.Join(c.required, "/"))
 	}
 	if len(missing) > 0 {
-		return &UsageError{c.command, "the following arguments are required: " +
-			strings.Join(missing, ", ")}
+		return &UsageError{c.command, "Missing argument: " + strings.Join(missing, ", ")}
 	}
 	switch {
 	case !c.needsInput:
@@ -153,14 +153,9 @@ func (c *commandLine) check(seen map[string]bool, extras []string) error {
 		extras = append(extras, c.inputs[1:]...)
 	}
 	if len(extras) > 0 {
-		return &UsageError{c.command, "unrecognized arguments: " + strings.Join(extras, " ")}
+		return &UsageError{c.command, "Unknown argument: " + strings.Join(extras, " ")}
 	}
 	return nil
-}
-
-// quoted returns text in single quotes, as the usage messages show a value.
-func quoted(text string) string {
-	return "'" + text + "'"
 }
 
 // InputOptions are the options detect and timeline share: the input and how

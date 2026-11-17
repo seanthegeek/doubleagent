@@ -151,8 +151,8 @@ func (d *dateTime) readWeekOrOrdinal(value string) (string, string, bool) {
 		return rest, detail, detail == ""
 	}
 	ordinal, ok := digitsAt(rest, 0, 3)
-	// A basic ordinal date before a space is refused: the Python analyzer
-	// read its digits as a month and a day there, never as an ordinal.
+	// A basic ordinal date before a space is refused: seven digits there
+	// read as well as a year, a month and a day, so the form is ambiguous.
 	if !ok || (len(rest) > 3 && (isDigit(rest[3]) || (!dashed && rest[3] == ' '))) {
 		return "", "", false
 	}

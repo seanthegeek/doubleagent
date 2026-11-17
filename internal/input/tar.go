@@ -74,10 +74,9 @@ func extractTar(file *os.File, path string, out *extraction) error {
 }
 
 // openTarStream returns a reader positioned after the archive's first
-// header, trying gzip, then bzip2, then no compression, as Python's tarfile
-// tries them; the header is nil for an archive with no member. A file none
-// of them reads is not an archive, unless it is xz or zstd compressed,
-// which the extractor refuses.
+// header, trying gzip, then bzip2, then no compression; the header is nil
+// for an archive with no member. A file none of them reads is not an
+// archive, unless it is xz or zstd compressed, which the extractor refuses.
 func openTarStream(file *os.File, path string) (*tar.Reader, *tar.Header, error) {
 	magic := make([]byte, 6)
 	n, _ := file.ReadAt(magic, 0)

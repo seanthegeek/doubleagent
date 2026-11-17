@@ -108,7 +108,7 @@ func (a *agentDatabase) prepare() ([]node, error) {
 			return nil, err
 		}
 		for _, window := range rows {
-			sessionID := window.Get("session_id").Str()
+			sessionID := window.Get("session_id").String()
 			if _, ok := a.windows.byID[sessionID]; !ok {
 				a.windows.order = append(a.windows.order, sessionID)
 			}
@@ -153,7 +153,7 @@ func anchorMessage(database *sqlitefile.Database, label string) string {
 	store, schema := "-", "-"
 	if table, err := database.Table("openclaw_engine_anchor"); err == nil {
 		if row, found, err := table.Select("store_id", "schema").First(); err == nil && found {
-			store, schema = row.Get("store_id").Str(), row.Get("schema").Str()
+			store, schema = row.Get("store_id").String(), row.Get("schema").String()
 		}
 	}
 	where := "the Gateway state is"
@@ -174,7 +174,7 @@ func (a *agentDatabase) windowSession(sessionID, key, extra string) *session {
 		"previous_session_id", "parent_session_key", "spawned_by", "display_name"} {
 		value := window.Get(column)
 		if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-			parts = append(parts, column+"="+value.Str())
+			parts = append(parts, column+"="+value.String())
 		}
 	}
 	if extra != "" {

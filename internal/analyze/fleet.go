@@ -55,7 +55,7 @@ func (e *fleetError) Error() string { return e.message }
 func fleetInputs(inputs []string) ([]string, error) {
 	var files []string
 	for _, given := range inputs {
-		path := input.PathText(given)
+		path := given
 		info, err := osfile.Lstat(path)
 		switch {
 		case err != nil:
@@ -93,7 +93,7 @@ func directoryFiles(directory string) ([]string, error) {
 	slices.Sort(names)
 	files := make([]string, len(names))
 	for i, name := range names {
-		files[i] = input.PathText(directory + "/" + name)
+		files[i] = input.JoinPath(directory, name)
 	}
 	return files, nil
 }
@@ -268,7 +268,7 @@ func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
 		}
 		rows = append(rows, fileRows...)
 	}
-	output := input.PathText(options.Output)
+	output := options.Output
 	if err := writeFleetCSV(output, rows); err != nil {
 		fmt.Fprintf(stderr, "error: %s\n", reason.Describe(output, err))
 		return ExitError

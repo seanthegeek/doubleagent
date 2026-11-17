@@ -55,27 +55,27 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 		want  string
 	}{
 		{"timeline needs its output", func() error { _, _, err := ParseTimeline([]string{"in"}); return err },
-			"the following arguments are required: -o/--output"},
+			"Missing argument: -o/--output"},
 		{"timeline needs its input", func() error { _, _, err := ParseTimeline([]string{"-o", "x"}); return err },
-			"the following arguments are required: input"},
+			"Missing argument: input"},
 		{"an option's value is missing at the end",
 			func() error { _, _, err := ParseTimeline([]string{"in", "-o"}); return err },
-			"argument -o: expected one argument"},
+			"Missing value for option: -o"},
 		{"an option's value may not look like an option",
 			func() error { _, _, err := ParseTimeline([]string{"in", "-o", "--agent", "x"}); return err },
-			"argument -o: expected one argument"},
+			"Missing value for option: -o"},
 		{"an unknown option is refused",
 			func() error { _, _, err := ParseDetect([]string{"in", "--bogus"}); return err },
-			"unrecognized arguments: --bogus"},
+			"Unknown argument: --bogus"},
 		{"detect takes one input", func() error { _, _, err := ParseDetect([]string{"a", "b"}); return err },
-			"unrecognized arguments: b"},
+			"Unknown argument: b"},
 		{"a flag takes no value",
 			func() error { _, _, err := ParseDetect([]string{"in", "--json=yes"}); return err },
-			"argument --json: ignored explicit argument 'yes'"},
+			"Option --json takes no value: --json=yes"},
 		{"fleet needs an input", func() error { _, _, err := ParseFleet(nil); return err },
-			"the following arguments are required: input"},
+			"Missing argument: input"},
 		{"catalog takes no input", func() error { _, _, err := ParseCatalog([]string{"x"}); return err },
-			"unrecognized arguments: x"},
+			"Unknown argument: x"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,11 +113,11 @@ func TestHelpEndsTheLineBeforeAnyMistakeAfterIt(t *testing.T) {
 	}
 }
 
-func TestUsageErrorPrintsTheUsageThenTheMessage(t *testing.T) {
+func TestUsageErrorPrintsTheMessageThenTheUsage(t *testing.T) {
 	var out strings.Builder
 	(&UsageError{Command: "fleet", Message: "boom"}).Print(&out)
-	if !strings.HasPrefix(out.String(), "usage: doubleagent fleet ") ||
-		!strings.HasSuffix(out.String(), "\ndoubleagent fleet: error: boom\n") {
+	if !strings.HasPrefix(out.String(), "boom\nUsage: doubleagent fleet ") ||
+		!strings.HasSuffix(out.String(), "print this text and exit\n") {
 		t.Errorf("printed %q", out.String())
 	}
 }
