@@ -54,6 +54,12 @@ type commandReplay struct {
 	// proposed lists the cases compared after the proposed difference
 	// proposedStrerror.
 	proposed []string
+	// blocks holds, by name, what became of the generated blocks of
+	// analyzer/docs/output.md.
+	blocks map[string]string
+	// registryOverride, when set, gives the run's parsers in place of
+	// registry.
+	registryOverride func() *parsers.Registry
 }
 
 func TestCommandsReplayEveryRecordedCase(t *testing.T) {
@@ -79,7 +85,7 @@ func newCommandReplay(t *testing.T, corpus *Corpus) *commandReplay {
 	replay := &commandReplay{corpus: corpus, pending: map[string]bool{},
 		pythonAgents: caseFiles(t, corpus, "parsers"), deniesAccess: deniesReading(t),
 		trees: corpus.NewWorkTree(t), full: map[string]int{}, partial: map[string]int{},
-		skipped: map[string]int{}, waiting: map[string][]string{}}
+		skipped: map[string]int{}, waiting: map[string][]string{}, blocks: map[string]string{}}
 	for _, agent := range replay.pythonAgents {
 		if len(registered[agent]) == 0 {
 			replay.pending[agent] = true
@@ -105,6 +111,9 @@ func (r *commandReplay) report(t *testing.T) {
 		t.Logf("compared after the proposed difference of a repository file's system message: %s",
 			strings.Join(r.proposed, ", "))
 	}
+	for _, block := range slices.Sorted(maps.Keys(r.blocks)) {
+		t.Logf("analyzer/docs/output.md block %s %s", block, r.blocks[block])
+	}
 	for _, agents := range slices.Sorted(maps.Keys(r.waiting)) {
 		t.Logf("compared in part, waiting for %s: %s", agents, strings.Join(r.waiting[agents], ", "))
 	}
@@ -122,6 +131,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	got := r.run(t, command, recorded, root)
 	want := r.expected(t, recorded, root)
 	waiting := r.waitingAgents(t, command, recorded, want)
+	defer r.noteBlocks(t, recorded, waiting)
 	if len(waiting) > 0 {
 		key := strings.Join(waiting, ", ")
 		r.waiting[key] = append(r.waiting[key], node)
@@ -135,6 +145,45 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	}
 	compareFull(t, node, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
+}
+
+// exampleNode is the node of the recorder's runs over the example
+// collection, whose outputs are the generated blocks of
+// analyzer/docs/output.md.
+const exampleNode = "recorder::example-collection"
+
+// noteBlocks records, for a run over the example collection, whether the
+// generated blocks it gives passed in full or wait for parsers.
+func (r *commandReplay) noteBlocks(t *testing.T, recorded CommandCase, waiting []string) {
+	if recorded.Node != exampleNode {
+		return
+	}
+	state := "passes"
+	switch {
+	case len(waiting) > 0:
+		state = "waits for " + strings.Join(waiting, ", ")
+	case t.Failed():
+		state = "fails"
+	}
+	for _, block := range outputBlocks(ArgumentsText(recorded)) {
+		r.blocks[block] = state
+	}
+}
+
+// outputBlocks returns the generated blocks of analyzer/docs/output.md a
+// run over the example collection gives, from its arguments.
+func outputBlocks(arguments string) []string {
+	switch {
+	case strings.HasPrefix(arguments, "detect\n") && strings.HasSuffix(arguments, "--json"):
+		return []string{"detect-json"}
+	case strings.HasPrefix(arguments, "detect\n") && !strings.Contains(arguments, "--files"):
+		return []string{"detect-text"}
+	case strings.HasPrefix(arguments, "timeline\n") && strings.Contains(arguments, "--match"):
+		return []string{"timeline-jsonl"}
+	case strings.HasPrefix(arguments, "timeline\n"):
+		return []string{"timeline-stdout", "inventory-json", "sessions-jsonl"}
+	}
+	return nil
 }
 
 // notComparable returns why a case is not compared at all, or "".
@@ -194,7 +243,11 @@ func (r *commandReplay) run(t *testing.T, command string, recorded CommandCase,
 	}
 	args[0] = commandNames[command]
 	t.Chdir(r.corpus.Expand(recorded.Cwd, root))
-	env := analyze.Environment{Now: recordedClock(t, recorded.Clock), Parsers: r.registry,
+	registry := r.registry
+	if r.registryOverride != nil {
+		registry = r.registryOverride
+	}
+	env := analyze.Environment{Now: recordedClock(t, recorded.Clock), Parsers: registry,
 		Version: r.recordedVersion(t, recorded, root)}
 	var stdout, stderr bytes.Buffer
 	exit := analyze.Run(context.Background(), args, env, &stdout, &stderr)
