@@ -24,7 +24,10 @@ func reviewedImports() map[string]string {
 		// used are NewReader, WithDecoderConcurrency, WithDecoderLowmem,
 		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,
 		// none of which takes a path.
-		"github.com/klauspost/compress/zstd"}
+		"github.com/klauspost/compress/zstd",
+		// Reads an XML document from bytes already read through the parser
+		// kit (Tabby's IntelliJ history); NewDecoder takes an io.Reader.
+		"encoding/xml"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}
