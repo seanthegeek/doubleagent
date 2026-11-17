@@ -12,10 +12,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// nonSpace is one character Python's \S matches: anything but its
-// whitespace, which takes the Unicode spaces and the separators
-// U+001C to U+001F as well as ASCII's.
-const nonSpace = `[^\t\n\v\f\r \x1c-\x1f\x85\xa0\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}]`
+// nonSpace is one character Python's \S matches.
+const nonSpace = `[^` + parser.PythonSpace + `]`
 
 // The lines of a cn log that are read. A line is
 // "<date> <time.ms> [<process id>] [<level>]: <message>". A [metadata]
