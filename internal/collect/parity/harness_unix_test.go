@@ -56,6 +56,10 @@
 //     bytes, which makes its line invalid JSON. The archive member keeps the
 //     real bytes in both. shownBadName in badname_unix_test.go rewrites the sh
 //     manifests; every other text is compared as it was.
+//   - exception 53: U+2028 and U+2029 in a string. encoding/json writes them as
+//     the escapes \u2028 and \u2029, where the sh collector writes the raw
+//     characters. No smoke fixture has such a name, so the harness normalises
+//     nothing for it; the manifest, summary and inventory tests cover it.
 //   - every case (exception 52): collection.json. The binary writes it through
 //     encoding/json, indented by two spaces with every object and list item on
 //     a line of its own; the sh collector keeps small objects and lists on one

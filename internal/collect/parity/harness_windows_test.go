@@ -11,7 +11,10 @@
 // the link targets' spelling), and exception 51: a lone surrogate in a file
 // name, which the binary's JSON writer puts in the manifest as three U+FFFD
 // characters (one for each of its three WTF-8 bytes) where the PowerShell
-// collector writes one. Every other difference fails the case.
+// collector writes one (the fixture's lone\xed\xa0\x80.jsonl; the rule
+// matches that name only). Exception 53 (U+2028 and U+2029 written as
+// escapes) needs no rule here: the manifest and summary are compared parsed.
+// Every other difference fails the case.
 
 package parity
 
