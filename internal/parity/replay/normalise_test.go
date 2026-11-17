@@ -159,7 +159,11 @@ var libraryShapes = []struct {
 	pattern *regexp.Regexp
 	token   string
 }{
-	{regexp.MustCompile(`[A-Z][^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
+	// Python's messages start with a capitalised word (Expecting, Extra,
+	// Invalid, Unterminated, Illegal), so a lead-in such as "JSON: " before
+	// one is not taken into the detail.
+	{regexp.MustCompile(`[A-Z][a-z][^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`),
+		"{json error}"},
 	{regexp.MustCompile(`invalid JSON at line [0-9]+, column [0-9]+: [^()"\n]*`), "{json error}"},
 	{regexp.MustCompile(`[A-Za-z][^()"\n]*(?: \([^()"\n]*\))?: line [0-9]+, column [0-9]+`),
 		"{xml error}"},
