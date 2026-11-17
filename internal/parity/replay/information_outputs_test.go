@@ -1,0 +1,198 @@
+//go:build parity
+
+package replay
+
+import (
+	"maps"
+	"reflect"
+	"slices"
+	"strings"
+	"testing"
+)
+
+// The recorded runs testdata/recorded holds, by name: a timeline over a
+// loose home, a detect and a detect --json over a collection, and a fleet.
+const (
+	recordedRoot   = "/evidence/root"
+	recordedRemote = recordedRoot + "/cac-remotes-test-9wo1imx9/col"
+)
+
+// recordedRuns returns the recorded runs of testdata/recorded, each with
+// its command line, compared as runs over a tree that is not loose so
+// that the order of every line counts.
+func recordedRuns(t *testing.T) map[string]commandOutput {
+	t.Helper()
+	return map[string]commandOutput{
+		"timeline": {stdout: recordedText(t, "timeline.txt"), outputs: map[string]string{
+			"out/timeline.jsonl": recordedText(t, "timeline.jsonl"),
+			"out/sessions.jsonl": recordedText(t, "sessions.jsonl"),
+			"out/inventory.json": recordedText(t, "inventory.json")}},
+		"detect":      {stdout: recordedText(t, "detect.txt"), outputs: map[string]string{}},
+		"detect-json": {stdout: recordedText(t, "detect.json"), outputs: map[string]string{}},
+		"fleet": {stdout: recordedText(t, "fleet.txt"),
+			outputs: map[string]string{"o.csv": recordedText(t, "fleet.csv")}},
+	}
+}
+
+// changedOutput returns a copy of a run with the text of label (stdout or
+// an output's path) rewritten.
+func changedOutput(run commandOutput, label string, rewrite func(string) string) commandOutput {
+	run.outputs = maps.Clone(run.outputs)
+	if label == "stdout" {
+		run.stdout = rewrite(run.stdout)
+	} else {
+		run.outputs[label] = rewrite(run.outputs[label])
+	}
+	return run
+}
+
+// outputsAgree compares two runs as the command replay does, and returns
+// whether they agree and the differences of format they needed.
+func outputsAgree(t *testing.T, arguments []string, want, got commandOutput) (bool, []int) {
+	reporter := &recordingTB{TB: t}
+	_, needed := compareInformation(reporter, "n", recordedRoot, arguments, want, got)
+	return len(reporter.errors) == 0, needed
+}
+
+// outputsRefused compares two runs once under every difference of format
+// and reports whether they still differ.
+func outputsRefused(t *testing.T, arguments []string, want, got commandOutput) bool {
+	reporter := &recordingTB{TB: t}
+	compareOutputs(reporter, "n", recordedRoot, outputForms{setOf(commandFormatNumbers()), arguments}, nil,
+		want, got)
+	return len(reporter.errors) > 0
+}
+
+// lineSwapped returns text with its lines first and second swapped, when
+// both hold text.
+func lineSwapped(first, second int) func(string) string {
+	return func(text string) string {
+		lines := strings.Split(text, "\n")
+		if max(first, second) >= len(lines) || lines[first] == "" || lines[second] == "" {
+			return text
+		}
+		lines[first], lines[second] = lines[second], lines[first]
+		return strings.Join(lines, "\n")
+	}
+}
+
+// lineDropped returns text without its line index.
+func lineDropped(index int) func(string) string {
+	return func(text string) string {
+		lines := strings.Split(text, "\n")
+		return strings.Join(slices.Delete(lines, index, index+1), "\n")
+	}
+}
+
+func TestEachFormatOfTheBinaryPassesInTheOutputs(t *testing.T) {
+	runs := recordedRuns(t)
+	firstRow := strings.SplitN(runs["timeline"].outputs["out/timeline.jsonl"], "\n", 2)[0]
+	surrogate := strings.Replace(firstRow, "task: fix tests", `task: fix \ud800 tests`, 1) + "\n"
+	tests := []struct {
+		name      string
+		run       commandOutput
+		label     string
+		rewrite   func(string) string
+		arguments []string
+		needed    []int
+	}{
+		{"inventory.json written by encoding/json", runs["timeline"], "out/inventory.json",
+			func(text string) string { return binaryJSON(text, "  ") }, nil, []int{differenceJSONValues}},
+		{"timeline.jsonl written by encoding/json", runs["timeline"], "out/timeline.jsonl", binaryJSONLines,
+			nil, []int{differenceJSONValues}},
+		{"sessions.jsonl written by encoding/json", runs["timeline"], "out/sessions.jsonl", binaryJSONLines,
+			nil, []int{differenceJSONValues}},
+		{"detect --json written by encoding/json", runs["detect-json"], "stdout",
+			func(text string) string { return binaryJSON(text, "\t") }, nil, []int{differenceJSONValues}},
+		{"a lone surrogate as U+FFFD", changedOutput(runs["timeline"], "out/timeline.jsonl",
+			func(string) string { return surrogate }), "out/timeline.jsonl",
+			replaced(`\ud800`, "�"), nil, []int{differenceJSONValues, differenceLoneSurrogate}},
+		{"the CSV written by encoding/csv", changedOutput(runs["fleet"], "o.csv", func(text string) string {
+			return strings.ReplaceAll(strings.Replace(text, ",ws01,", ", ws01,", 1), "\n", "\r\n")
+		}), "o.csv", func(text string) string { return binaryCSV(strings.Replace(text, ", ws01,", ", ws01,", 1)) },
+			nil, []int{differenceCSVRecords}},
+		{"the detect table padded to other widths", runs["detect"], "stdout", binaryTable, nil,
+			[]int{differenceTableColumns}},
+		{"the fleet table padded to other widths", runs["fleet"], "stdout", binaryTable, nil,
+			[]int{differenceTableColumns}},
+		{"the timeline summary padded to other widths", runs["timeline"], "stdout", binaryTable, nil,
+			[]int{differenceTableColumns}},
+		{"a path printed as given", runs["detect"], "stdout", replaced(recordedRemote, recordedRemote+"/"),
+			[]string{"detect", recordedRemote + "/"}, []int{differencePathAsGiven}},
+		{"a timestamp not rounded up", runs["timeline"], "out/timeline.jsonl",
+			replaced("10:00:01.000Z", "10:00:00.999Z"), nil, []int{differenceRoundedTime}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			agree, needed := outputsAgree(t, test.arguments, test.run, changedOutput(test.run, test.label, test.rewrite))
+			if !agree || !slices.Equal(needed, test.needed) {
+				t.Errorf("agree %v needing %v, want agreement needing %v", agree, needed, test.needed)
+			}
+		})
+	}
+}
+
+func TestEachMutationOfRecordedOutputsFails(t *testing.T) {
+	runs := recordedRuns(t)
+	timeline, sessions, inventory := "out/timeline.jsonl", "out/sessions.jsonl", "out/inventory.json"
+	tests := []struct {
+		name    string
+		run     string
+		label   string
+		rewrite func(string) string
+	}{
+		{"a changed word in a row's text", "timeline", timeline, replaced("fix tests", "fix bests")},
+		{"a row dropped", "timeline", timeline, lineDropped(3)},
+		{"two rows swapped", "timeline", timeline, lineSwapped(2, 3)},
+		{"a source_line changed", "timeline", timeline, replaced(`"source_line":0`, `"source_line":1`)},
+		{"a timestamp moved by two milliseconds", "timeline", timeline,
+			replaced("10:00:01.000Z", "10:00:01.002Z")},
+		{"a session's turn counts changed", "timeline", sessions, replaced(`"user_turns":1`, `"user_turns":2`)},
+		{"true turned into false", "timeline", inventory, replaced(`"inferred": true`, `"inferred": false`)},
+		{"a removed key", "timeline", inventory, replaced(`  "sessions": 3,`+"\n", "")},
+		{"an added key", "timeline", inventory, replaced(`  "sessions": 3,`, `  "sessions": 3, "x": 0,`)},
+		{"a changed number", "timeline", inventory, replaced(`"sessions": 3,`, `"sessions": 4,`)},
+		{"two array elements swapped", "detect-json", "stdout", func(text string) string {
+			text = strings.Replace(text, `"git@github.com:alice/proj.git"`, "{first}", 1)
+			text = strings.Replace(text, `"https://mirror.example.com/alice/proj.git"`, `"git@github.com:alice/proj.git"`, 1)
+			return strings.Replace(text, "{first}", `"https://mirror.example.com/alice/proj.git"`, 1)
+		}},
+		{"a CSV field changed", "fleet", "o.csv", replaced(",318,", ",319,")},
+		{"a field moved to another column in a table", "detect", "stdout",
+			replaced("codex-cli                 2        10812", "codex-cli             10812            2")},
+		{"two cells of the fleet table exchanged", "fleet", "stdout", replaced("1      2  2026", "2      1  2026")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			want := runs[test.run]
+			mutated := changedOutput(want, test.label, test.rewrite)
+			if reflect.DeepEqual(mutated, want) {
+				t.Fatal("the mutation changed nothing")
+			}
+			if !outputsRefused(t, nil, want, binaryForm(mutated)) {
+				t.Error("the comparison accepted the mutation in the binary's form")
+			}
+		})
+	}
+}
+
+// binaryForm returns a run with every text as the binary is to write it.
+func binaryForm(run commandOutput) commandOutput {
+	form := commandOutput{stdout: binaryTable(run.stdout), outputs: map[string]string{}}
+	if strings.HasPrefix(run.stdout, "{") {
+		form.stdout = binaryJSON(run.stdout, "  ")
+	}
+	for path, text := range run.outputs {
+		switch {
+		case strings.HasSuffix(path, ".jsonl"):
+			form.outputs[path] = binaryJSONLines(text)
+		case strings.HasSuffix(path, ".json"):
+			form.outputs[path] = binaryJSON(text, "  ")
+		case strings.HasSuffix(path, ".csv"):
+			form.outputs[path] = binaryCSV(text)
+		default:
+			form.outputs[path] = text
+		}
+	}
+	return form
+}

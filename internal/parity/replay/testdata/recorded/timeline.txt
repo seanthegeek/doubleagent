@@ -1,0 +1,12 @@
+input:     /evidence/root/cac-analyzer-test-9wo1imx9/home (loose)
+host:      (unknown)
+dropped:   1 duplicate rows from secondary sources (kilo-code 1)
+agents:    parsed: kilo-code; detected but not parsed: qwen-live; collected only: copilot
+rows:      36 in /evidence/root/cac-analyzer-test-9wo1imx9/out/timeline.jsonl
+           kilo-code      assistant    2
+           kilo-code      system       26
+           kilo-code      tool_result  2
+           kilo-code      tool_use     3
+           kilo-code      user         3
+sessions:  3 in /evidence/root/cac-analyzer-test-9wo1imx9/out/sessions.jsonl (1 synced)
+inventory: /evidence/root/cac-analyzer-test-9wo1imx9/out/inventory.json (homes, projects, scratch directories, counts per agent, problems)

@@ -1,0 +1,64 @@
+{
+  "input": "/evidence/root/cac-remotes-test-9wo1imx9/col",
+  "kind": "collected",
+  "host": "h1",
+  "notes": [],
+  "homes": [
+    {
+      "user": "alice",
+      "home": "/home/alice",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "codex-cli",
+          "files": 2,
+          "bytes": 10812,
+          "parser": true
+        }
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "path": "/srv/bare",
+      "users": [
+        "alice"
+      ],
+      "agents": [],
+      "shared_files": 1,
+      "shared_bytes": 4,
+      "remotes": [],
+      "head": ""
+    },
+    {
+      "path": "/srv/proj",
+      "users": [
+        "alice"
+      ],
+      "agents": [],
+      "shared_files": 2,
+      "shared_bytes": 486,
+      "remotes": [
+        {
+          "name": "origin",
+          "urls": [
+            "git@github.com:alice/proj.git",
+            "https://mirror.example.com/alice/proj.git"
+          ],
+          "pushurls": [
+            "https://alice:FIXTURE-TOKEN@github.com/alice/proj.git"
+          ]
+        },
+        {
+          "name": "upstream",
+          "urls": [
+            "https://github.com/upstream/proj.git"
+          ],
+          "pushurls": []
+        }
+      ],
+      "head": "main"
+    }
+  ],
+  "problems": []
+}
