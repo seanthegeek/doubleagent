@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // oracleScript reads lines of a hex-encoded value and the clock in epoch
@@ -96,6 +98,8 @@ func compare(t *testing.T, queries []query, exact bool) {
 		}
 		switch {
 		case sinceErr == nil && untilErr == nil && [2]string{since, until} == answer:
+		case sinceErr == nil && untilErr == nil && exactMilliseconds(since, answer[0]) &&
+			exactMilliseconds(until, answer[1]):
 		case sinceErr != nil && untilErr != nil && answer == [2]string{"E", "E"}:
 		case sinceErr != nil && untilErr != nil && !exact:
 			refused++
@@ -108,6 +112,15 @@ func compare(t *testing.T, queries []query, exact bool) {
 		}
 	}
 	t.Logf("%d of %d values Python reads are refused here", refused, len(queries))
+}
+
+// exactMilliseconds reports whether got is one millisecond after want:
+// Python read a millisecond epoch through a float divided by 1000, which
+// can land a millisecond early, where this package reads its digits.
+func exactMilliseconds(got, want string) bool {
+	gotMillis, gotOK := timeutil.EpochMillis(got)
+	wantMillis, wantOK := timeutil.EpochMillis(want)
+	return gotOK && wantOK && gotMillis == wantMillis+1
 }
 
 // randomNow returns a clock time between the years 1900 and 2100, some at

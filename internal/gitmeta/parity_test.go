@@ -37,7 +37,8 @@ func textArray(texts []string) jsonvalue.Value {
 	return jsonvalue.NewArray(items...)
 }
 
-// encodeResult writes the Go results as the oracle prints them.
+// encodeResult writes the Go results as compact JSON, in the shape the
+// oracle prints them.
 func encodeResult(text string) string {
 	remotes, problems := ParseConfig(text)
 	items := []jsonvalue.Value{}
@@ -112,7 +113,11 @@ func TestRandomConfigsMatchPython(t *testing.T) {
 		t.Fatalf("oracle gave %d answers for %d texts", len(answers), len(texts))
 	}
 	for i, answer := range answers {
-		if got := encodeResult(texts[i]); got != answer {
+		want, err := jsonvalue.DecodeString(answer)
+		if err != nil {
+			t.Fatalf("oracle answer %q: %v", answer, err)
+		}
+		if got := encodeResult(texts[i]); got != want.JSON() {
 			t.Errorf("config %q:\nGo     %s\nPython %s", texts[i], got, answer)
 		}
 	}
