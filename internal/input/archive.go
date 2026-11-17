@@ -75,7 +75,7 @@ func makeExtractionDir(workDir string) (string, error) {
 		base = filepath.Join(working, base)
 	}
 	for range 100 {
-		path := cleanPath(filepath.Join(base, prefix+randomName()))
+		path := PathText(filepath.Join(base, prefix+randomName()))
 		if _, err := osfile.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
 			continue
 		}

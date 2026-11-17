@@ -40,6 +40,12 @@ func TestPathFormPrintsAsPathlibDoes(t *testing.T) {
 		{"an inner dot goes on Windows", `a\.\b`, true, `a\b`, "b", "a"},
 		{"an empty Windows path is a dot", "", true, ".", "", "."},
 		{"a lower-case drive is kept", "c:/Users/bob/", true, `c:\Users\bob`, "bob", `c:\Users`},
+		{"three leading slashes and a dot are a drive without a root", "///.", true, `\\\.`, "", `\\\.`},
+		{"two slashes alone are a drive", "//", true, `\\`, "", `\\`},
+		{"three leading slashes and a name take a root", "///a/b", true, `\\\a\b`, "b", `\\\a\`},
+		{"an extended share gets its root", `\\?\UNC\srv\sh`, true, `\\?\UNC\srv\sh\`, "",
+			`\\?\UNC\srv\sh\`},
+		{"a device path has no root", `\\.\pipe`, true, `\\.\pipe`, "", `\\.\pipe`},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -74,6 +80,41 @@ func TestPathFormJoinsAsJoinpathDoes(t *testing.T) {
 			got := parsePathAs(test.base, test.windows).join(test.element).String()
 			if got != test.want {
 				t.Fatalf("%q / %q = %q, want %q", test.base, test.element, got, test.want)
+			}
+		})
+	}
+}
+
+// The expected texts are Python's str(PurePosixPath(path)) and
+// str(PureWindowsPath(path)).
+func TestPathTextPrintsAPathAsPathlibDoes(t *testing.T) {
+	tests := []struct {
+		name, path, posix, windows string
+	}{
+		{"an empty path is the current directory", "", ".", "."},
+		{"a lone dot is the current directory", ".", ".", "."},
+		{"repeated separators, dot components and a trailing slash go", "a//b/./c/", "a/b/c",
+			`a\b\c`},
+		{"two leading slashes are kept", "//srv/x", "//srv/x", `\\srv\x\`},
+		{"three leading slashes become one", "///srv/x", "/srv/x", `\\\srv\x`},
+		{"a parent component is kept", "/a/../b", "/a/../b", `\a\..\b`},
+		{"a leading dot component goes", "./a", "a", "a"},
+		{"the root alone stays", "/", "/", `\`},
+		{"a drive with slashes takes backslashes", "C:/a//b/./c/", "C:/a/b/c", `C:\a\b\c`},
+		{"a drive alone stays", "c:", "c:", "c:"},
+		{"a share keeps its root", `\\server\share`, `\\server\share`, `\\server\share\`},
+		{"an extended-length path keeps its prefix", `\\?\C:\x`, `\\?\C:\x`, `\\?\C:\x`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := parsePosixPath(test.path).String(); got != test.posix {
+				t.Errorf("POSIX form %q, want %q", got, test.posix)
+			}
+			if got := parseWindowsPath(test.path).String(); got != test.windows {
+				t.Errorf("Windows form %q, want %q", got, test.windows)
+			}
+			if got := PathText(test.path); got != parsePath(test.path).String() {
+				t.Errorf("PathText = %q, want this platform's form %q", got, parsePath(test.path).String())
 			}
 		})
 	}

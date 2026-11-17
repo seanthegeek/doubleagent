@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/pyjson"
@@ -50,8 +51,8 @@ func (e *fleetError) Error() string { return e.message }
 // An input that is a link, or neither a file nor a directory, is refused.
 func fleetInputs(inputs []string) ([]string, error) {
 	var files []string
-	for _, input := range inputs {
-		path := pathText(input)
+	for _, given := range inputs {
+		path := input.PathText(given)
 		info, err := osfile.Lstat(path)
 		switch {
 		case err != nil:
@@ -89,7 +90,7 @@ func directoryFiles(directory string) ([]string, error) {
 	slices.Sort(names)
 	files := make([]string, len(names))
 	for i, name := range names {
-		files[i] = pathText(directory + "/" + name)
+		files[i] = input.PathText(directory + "/" + name)
 	}
 	return files, nil
 }
@@ -242,7 +243,7 @@ func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
 		}
 		rows = append(rows, fileRows...)
 	}
-	output := pathText(options.Output)
+	output := input.PathText(options.Output)
 	if err := writeFleetCSV(output, rows); err != nil {
 		fmt.Fprintf(stderr, "error: %s\n", reason.Describe(output, err))
 		return ExitError

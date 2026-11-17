@@ -133,8 +133,10 @@ func splitWindowsShare(path string) (drive, root, rest string) {
 		drive, root, rest = path[:second], `\`, path[second+1:]
 	}
 	if root == "" && !strings.HasSuffix(drive, `\`) {
+		// pathlib tests the third piece with Python's "in '?.'", which an
+		// empty piece passes too.
 		pieces := strings.Split(drive, `\`)
-		if len(pieces) == 4 && pieces[2] != "?" && pieces[2] != "." {
+		if len(pieces) == 4 && !strings.Contains("?.", pieces[2]) || len(pieces) == 6 {
 			root = `\`
 		}
 	}
@@ -165,8 +167,12 @@ func components(text, separator string) []string {
 	return parts
 }
 
-// cleanPath returns path as str(Path(path)) prints it on this platform.
-func cleanPath(path string) string {
+// PathText returns path as Python's str(Path(path)) prints it on this
+// platform: repeated separators and "." components removed, ".." kept, no
+// trailing separator, "." for an empty path; on POSIX exactly two leading
+// slashes are kept, and on Windows slashes become backslashes and a drive
+// (C:, a \\server\share share or a \\?\ device path) and its root are kept.
+func PathText(path string) string {
 	return parsePath(path).String()
 }
 

@@ -217,7 +217,7 @@ func Open(path string, options Options) (*Collection, error) {
 	if options.Matcher == nil {
 		return nil, errors.New("input: Open needs a catalog matcher")
 	}
-	source := cleanPath(path)
+	source := PathText(path)
 	info, err := osfile.Stat(source)
 	if err != nil {
 		return nil, err
