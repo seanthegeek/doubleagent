@@ -1,5 +1,299 @@
 package analyze
 
+import (
+	"cmp"
+	"fmt"
+	"io"
+	"io/fs"
+	"slices"
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/pytext"
+	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/timeutil"
+)
+
 // DefaultFleetName is the CSV fleet writes when -o is not given, in the
 // current directory.
 const DefaultFleetName = "fleet-inventory.csv"
+
+// FleetColumns returns the columns of the fleet CSV, in order: the host
+// line's run fields, then the agent line's fields.
+func FleetColumns() []string {
+	return append(hostFields(), agentFields()...)
+}
+
+// hostFields are the fields of a host line the CSV keeps.
+func hostFields() []string {
+	return []string{"host", "collector", "mode", "at"}
+}
+
+// agentFields are the fields of an agent line the CSV keeps.
+func agentFields() []string {
+	return []string{"user", "agent", "files", "bytes", "first", "last", "projects", "evidence"}
+}
+
+// fleetError is a fleet input that cannot be used, with the message the
+// command prints.
+type fleetError struct {
+	message string
+}
+
+// Error returns the message.
+func (e *fleetError) Error() string { return e.message }
+
+// fleetInputs returns each input that is a file, and the regular files of
+// each input that is a directory, sorted by name and not read recursively.
+// An input that is a link, or neither a file nor a directory, is refused.
+func fleetInputs(inputs []string) ([]string, error) {
+	var files []string
+	for _, input := range inputs {
+		path := pathText(input)
+		info, err := osfile.Lstat(path)
+		switch {
+		case err != nil:
+			return nil, &fleetError{reason.Describe(path, err)}
+		case info.Mode().Type() == 0:
+			files = append(files, path)
+		case info.Mode()&fs.ModeSymlink != 0:
+			return nil, &fleetError{path + " is a symlink; give its target"}
+		case info.IsDir():
+			listed, err := directoryFiles(path)
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, listed...)
+		default:
+			return nil, &fleetError{path + " is neither a regular file nor a directory"}
+		}
+	}
+	return files, nil
+}
+
+// directoryFiles returns the regular files directly in directory, sorted
+// by name; a link is not a regular file.
+func directoryFiles(directory string) ([]string, error) {
+	entries, err := parser.ReadDir(directory)
+	if err != nil {
+		return nil, &fleetError{reason.Describe(directory, err)}
+	}
+	var names []string
+	for _, entry := range entries {
+		if entry.Type().IsRegular() {
+			names = append(names, entry.Name())
+		}
+	}
+	slices.Sort(names)
+	files := make([]string, len(names))
+	for i, name := range names {
+		files[i] = pathText(directory + "/" + name)
+	}
+	return files, nil
+}
+
+// fleetRows returns the CSV rows of one saved inventory output and how many
+// of its non-blank lines are not inventory records. A host line opens a run
+// whose agent lines follow it; a host without agent lines gets a row of its
+// own, and an agent line before any host line keeps only its host field.
+func fleetRows(text string) ([][]string, int) {
+	var rows [][]string
+	junk := 0
+	var host []string
+	hostHasAgents := false
+	closeHost := func() {
+		if host != nil && !hostHasAgents {
+			rows = append(rows, append(slices.Clone(host), make([]string, len(agentFields()))...))
+		}
+	}
+	for _, line := range universalLines(text) {
+		record, ok := inventoryRecord(line)
+		switch {
+		case !ok:
+			if pytext.Strip(line) != "" {
+				junk++
+			}
+		case record.Get("type").Text() == "host":
+			closeHost()
+			host, hostHasAgents = cells(record, hostFields()), false
+		default:
+			head := []string{cell("host", record.Get("host")), "", "", ""}
+			if host != nil {
+				head, hostHasAgents = slices.Clone(host), true
+			}
+			rows = append(rows, append(head, cells(record, agentFields())...))
+		}
+	}
+	closeHost()
+	return rows, junk
+}
+
+// universalLines returns the lines of text split at LF, CR LF or a lone
+// CR, as a text file is read line by line, without their ends.
+func universalLines(text string) []string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	lines := strings.Split(text, "\n")
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
+// inventoryRecord returns the host or agent record a line holds: a JSON
+// object whose type is "host" or "agent", once surrounding whitespace and
+// leading byte-order marks are removed. Anything else is not a record.
+func inventoryRecord(line string) (pyjson.Value, bool) {
+	line = strings.TrimLeft(pytext.Strip(line), "\uFEFF")
+	if !strings.HasPrefix(line, "{") {
+		return pyjson.Value{}, false
+	}
+	record, err := pyjson.DecodeString(line)
+	if err != nil || !record.IsObject() {
+		return pyjson.Value{}, false
+	}
+	kind := record.Get("type")
+	if !kind.IsString() || kind.Text() != "host" && kind.Text() != "agent" {
+		return pyjson.Value{}, false
+	}
+	return record, true
+}
+
+// cells returns the CSV cells of a record's fields.
+func cells(record pyjson.Value, fields []string) []string {
+	out := make([]string, len(fields))
+	for i, field := range fields {
+		out[i] = cell(field, record.Get(field))
+	}
+	return out
+}
+
+// cell returns one field's CSV cell: "" for a missing or null value, a
+// time field as a timeline timestamp, anything else as Python's str() of it.
+func cell(field string, value pyjson.Value) string {
+	switch {
+	case value.IsNull():
+		return ""
+	case field == "at" || field == "first" || field == "last":
+		return timeutil.FromValue(value)
+	}
+	return value.Str()
+}
+
+// agentTotal is one line of the rollup: an agent, the hosts and the users
+// (host and user pairs) it was found for, and the latest last time.
+type agentTotal struct {
+	agent        string
+	hosts, users int
+	latest       string
+}
+
+// rollup returns one total per agent of the rows, sorted by hosts, then
+// users, both descending, then by agent.
+func rollup(rows [][]string) []agentTotal {
+	const hostIndex, userIndex, agentIndex, lastIndex = 0, 4, 5, 9
+	hosts := map[string]map[string]bool{}
+	users := map[string]map[[2]string]bool{}
+	latest := map[string]string{}
+	for _, row := range rows {
+		agent := row[agentIndex]
+		if agent == "" {
+			continue
+		}
+		if hosts[agent] == nil {
+			hosts[agent], users[agent] = map[string]bool{}, map[[2]string]bool{}
+		}
+		hosts[agent][row[hostIndex]] = true
+		users[agent][[2]string{row[hostIndex], row[userIndex]}] = true
+		latest[agent] = max(latest[agent], row[lastIndex])
+	}
+	totals := make([]agentTotal, 0, len(hosts))
+	for agent := range hosts {
+		totals = append(totals, agentTotal{agent, len(hosts[agent]), len(users[agent]), latest[agent]})
+	}
+	slices.SortFunc(totals, func(left, right agentTotal) int {
+		return cmp.Or(cmp.Compare(right.hosts, left.hosts), cmp.Compare(right.users, left.users),
+			strings.Compare(left.agent, right.agent))
+	})
+	return totals
+}
+
+// runFleet merges the inventory files into the fleet CSV and prints the
+// rows written and the rollup per agent.
+func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
+	files, err := fleetInputs(options.Inputs)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %s\n", err)
+		return ExitError
+	}
+	var rows [][]string
+	for _, path := range files {
+		data, err := parser.ReadFile(path)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %s\n", reason.Describe(path, err))
+			return ExitError
+		}
+		text := strings.TrimPrefix(pytext.DecodeUTF8(data), "\uFEFF")
+		fileRows, junk := fleetRows(text)
+		if junk > 0 {
+			fmt.Fprintf(stderr, "skipped %d non-inventory %s in %s\n", junk, plural(junk, "line"), path)
+		}
+		rows = append(rows, fileRows...)
+	}
+	output := pathText(options.Output)
+	if err := writeFleetCSV(output, rows); err != nil {
+		fmt.Fprintf(stderr, "error: %s\n", reason.Describe(output, err))
+		return ExitError
+	}
+	printFleet(stdout, rows, output)
+	if len(rows) == 0 {
+		return ExitNothing
+	}
+	return ExitFound
+}
+
+// plural returns noun, with an s unless count is one.
+func plural(count int, noun string) string {
+	if count == 1 {
+		return noun
+	}
+	return noun + "s"
+}
+
+// writeFleetCSV writes the header and rows to path, creating its parent
+// directory.
+func writeFleetCSV(path string, rows [][]string) error {
+	if parent := pathParent(path); parent != "." {
+		if err := osfile.MkdirAll(parent, 0o777); err != nil {
+			return err
+		}
+	}
+	var out []byte
+	out = appendCSVRow(out, FleetColumns())
+	for _, row := range rows {
+		out = appendCSVRow(out, row)
+	}
+	return osfile.WriteFile(path, out, 0o666)
+}
+
+// printFleet prints how many rows from how many hosts were written, and the
+// rollup per agent when there is one.
+func printFleet(w io.Writer, rows [][]string, output string) {
+	hosts := map[string]bool{}
+	for _, row := range rows {
+		hosts[row[0]] = true
+	}
+	fmt.Fprintf(w, "rows:   %d from %d %s in %s\n", len(rows), len(hosts), plural(len(hosts), "host"),
+		output)
+	totals := rollup(rows)
+	if len(totals) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\n%s %6s %6s  %s\n", pytext.PadRight("agent", 22), "hosts", "users", "latest")
+	for _, total := range totals {
+		fmt.Fprintf(w, "%s %6d %6d  %s\n", pytext.PadRight(total.agent, 22), total.hosts,
+			total.users, total.latest)
+	}
+}

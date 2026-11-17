@@ -95,8 +95,8 @@ func (r *commandReplay) report(t *testing.T) {
 		if r.full[command]+r.partial[command] == 0 {
 			continue
 		}
-		t.Logf("%s: %d cases compared in full, %d in part", command, r.full[command],
-			r.partial[command])
+		t.Logf("%s (recorded as %s): %d cases compared in full, %d in part", commandNames[command],
+			command, r.full[command], r.partial[command])
 	}
 	for _, reason := range slices.Sorted(maps.Keys(r.skipped)) {
 		t.Logf("not compared, %s: %d cases", reason, r.skipped[reason])

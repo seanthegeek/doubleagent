@@ -66,3 +66,17 @@ func pathParts(text, separator string) []string {
 func isASCIILetter(character byte) bool {
 	return 'a' <= character|0x20 && character|0x20 <= 'z'
 }
+
+// pathParent returns the directory of a path printed by pathText, as
+// Python's Path.parent gives it: "." for a name alone, the root for a name
+// directly under it.
+func pathParent(path string) string {
+	index := strings.LastIndexAny(path, `/\`)
+	switch {
+	case index < 0:
+		return "."
+	case index == 0 || path[index-1] == ':':
+		return path[:index+1]
+	}
+	return path[:index]
+}

@@ -15,7 +15,7 @@ package follow
 // plugin, net with its Unix sockets, io/ioutil) are not listed, so importing
 // one fails.
 func reviewedImports() map[string]string {
-	noPath := []string{"archive/tar", "bufio", "bytes", "compress/bzip2", "compress/gzip",
+	noPath := []string{"archive/tar", "bufio", "bytes", "cmp", "compress/bzip2", "compress/gzip",
 		"context", "crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex",
 		"errors", "fmt", "hash/crc32", "io", "io/fs", "iter", "math", "math/big", "os/signal",
 		"path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
@@ -263,6 +263,10 @@ func allowedCalls() map[string]allowance {
 			"lists the input, or a directory its parent's listing typed a real directory"},
 		{"internal/input/loose.go", "stage.PhysicalDir", 1,
 			"resolves the input directory the analyst names, for the owner of its parent"},
+		{"internal/analyze/fleet.go", "osfile.MkdirAll", 1,
+			"creates the directory of the CSV the analyst names with -o"},
+		{"internal/analyze/fleet.go", "osfile.WriteFile", 1,
+			"writes the CSV the analyst names with -o"},
 		{"internal/walk/tree.go", "fsmeta.OpenDir", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {
