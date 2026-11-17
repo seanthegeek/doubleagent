@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of every file are proved against the Python analyzer by the
@@ -37,7 +37,7 @@ func TestSalvageKeepsTheEntriesBeforeTheDamage(t *testing.T) {
 			state, ok, message := New().salvage(test.text)
 			got := ""
 			if ok {
-				got = pyjson.Compact(state)
+				got = state.JSON()
 			}
 			if got != test.want || (message != "") != test.wantError {
 				t.Errorf("got %s, %q; want %s, error %v", got, message, test.want, test.wantError)
@@ -52,7 +52,7 @@ func TestSalvageTakesJSONWhitespaceOnly(t *testing.T) {
 			fourth + `[{"a": 1}, {"b`
 	}
 	state, _, _ := New().salvage(template(" ", "\n", "\r\n", "\t"))
-	if got := state.Get("conversation_id"); !got.IsString() || got.Text() != "c1" {
+	if got := state.Get("conversation_id"); !got.IsString() || got.StringValue() != "c1" {
 		t.Errorf("got %v", got)
 	}
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
@@ -81,18 +81,18 @@ func TestHistoryEscapesAreOnlyLineFeedAndBackslash(t *testing.T) {
 func TestDecisionTextNamesWhoRefusedTheCall(t *testing.T) {
 	rule := " was rejected because the arguments supplied were forbidden"
 	tests := []struct {
-		prompt pyjson.Value
+		prompt jsonvalue.Value
 		want   string
 	}{
-		{pyjson.NewNull(), "permission decision: cancelled"},
-		{pyjson.NewString(""), "permission decision: cancelled"},
-		{pyjson.NewInt(5), "permission decision: cancelled"},
-		{pyjson.NewString(denyText), "permission decision: denied by=n"},
-		{pyjson.NewString(interruptText), "permission decision: cancelled by=interrupt"},
-		{pyjson.NewString("Tool use with fs_write" + rule), "permission decision: denied by=deny-rule tool=fs_write"},
-		{pyjson.NewString("Tool use with a\nb" + rule + "\n"), "permission decision: denied by=deny-rule tool=a\nb"},
-		{pyjson.NewString("Tool use with x" + rule + "\n\n"), "permission decision: denied by=user-text"},
-		{pyjson.NewString("no thanks"), "permission decision: denied by=user-text"},
+		{jsonvalue.NewNull(), "permission decision: cancelled"},
+		{jsonvalue.NewString(""), "permission decision: cancelled"},
+		{jsonvalue.NewInt(5), "permission decision: cancelled"},
+		{jsonvalue.NewString(denyText), "permission decision: denied by=n"},
+		{jsonvalue.NewString(interruptText), "permission decision: cancelled by=interrupt"},
+		{jsonvalue.NewString("Tool use with fs_write" + rule), "permission decision: denied by=deny-rule tool=fs_write"},
+		{jsonvalue.NewString("Tool use with a\nb" + rule + "\n"), "permission decision: denied by=deny-rule tool=a\nb"},
+		{jsonvalue.NewString("Tool use with x" + rule + "\n\n"), "permission decision: denied by=user-text"},
+		{jsonvalue.NewString("no thanks"), "permission decision: denied by=user-text"},
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestDecisionTextNamesWhoRefusedTheCall(t *testing.T) {
 func TestResultTextJoinsTheBlocksAndAddsTheStatus(t *testing.T) {
 	tests := []struct{ result, want string }{
 		{`{"content": [{"Text": "a"}, {"Json": {"b": 1, "a": 2}}, {"x": 1}, "s", 3], "status": "Success"}`,
-			"a\n{\"a\":2,\"b\":1}\n{\"x\":1}\ns\n3 [Success]"},
+			"a\n{\"b\":1,\"a\":2}\n{\"x\":1}\ns\n3 [Success]"},
 		{`{"content": [], "status": "Error"}`, "[Error]"},
 		{`{"content": "ab"}`, "a\nb"},
 		{`{"content": null}`, ""},
@@ -114,7 +114,7 @@ func TestResultTextJoinsTheBlocksAndAddsTheStatus(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.result, func(t *testing.T) {
-			result, err := pyjson.DecodeString(test.result)
+			result, err := jsonvalue.DecodeString(test.result)
 			if err != nil {
 				t.Fatal(err)
 			}

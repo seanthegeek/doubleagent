@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 func TestFromTextMatchesPythonForTheFormsAgentsWrite(t *testing.T) {
@@ -47,46 +47,46 @@ func TestFromIntReadsTheNearestFloat(t *testing.T) {
 }
 
 func TestFromValueReadsEachKindAsPythonDoes(t *testing.T) {
-	big, err := pyjson.DecodeString("12345678901234567890123456789012345678901234567890")
+	big, err := jsonvalue.DecodeString("12345678901234567890123456789012345678901234567890")
 	if err != nil {
 		t.Fatal(err)
 	}
-	huge, err := pyjson.DecodeString("1" + strings.Repeat("0", 400))
+	huge, err := jsonvalue.DecodeString("1" + strings.Repeat("0", 400))
 	if err != nil {
 		t.Fatal(err)
 	}
-	infinite, err := pyjson.DecodeString("1e400")
+	infinite, err := jsonvalue.DecodeString("1e400")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cases := []struct {
 		name  string
-		value pyjson.Value
+		value jsonvalue.Value
 		want  string
 	}{
-		{"null gives nothing", pyjson.NewNull(), ""},
-		{"true gives nothing", pyjson.NewBool(true), ""},
-		{"false gives nothing", pyjson.NewBool(false), ""},
-		{"an ISO string is read as text", pyjson.NewString("2026-10-01T08:00:00+02:00"),
+		{"null gives nothing", jsonvalue.NewNull(), ""},
+		{"true gives nothing", jsonvalue.NewBool(true), ""},
+		{"false gives nothing", jsonvalue.NewBool(false), ""},
+		{"an ISO string is read as text", jsonvalue.NewString("2026-10-01T08:00:00+02:00"),
 			"2026-10-01T06:00:00.000Z"},
-		{"a digit string is an epoch", pyjson.NewString("1700000000"), "2023-11-14T22:13:20.000Z"},
-		{"an empty string gives nothing", pyjson.NewString(""), ""},
-		{"an integer is seconds", pyjson.NewInt(1700000000), "2023-11-14T22:13:20.000Z"},
-		{"a large integer is milliseconds", pyjson.NewInt(1700000000123),
+		{"a digit string is an epoch", jsonvalue.NewString("1700000000"), "2023-11-14T22:13:20.000Z"},
+		{"an empty string gives nothing", jsonvalue.NewString(""), ""},
+		{"an integer is seconds", jsonvalue.NewInt(1700000000), "2023-11-14T22:13:20.000Z"},
+		{"a large integer is milliseconds", jsonvalue.NewInt(1700000000123),
 			"2023-11-14T22:13:20.123Z"},
-		{"zero is the epoch", pyjson.NewInt(0), "1970-01-01T00:00:00.000Z"},
-		{"a float is seconds", pyjson.NewFloat(1700000000.5), "2023-11-14T22:13:20.500Z"},
+		{"zero is the epoch", jsonvalue.NewInt(0), "1970-01-01T00:00:00.000Z"},
+		{"a float is seconds", jsonvalue.NewFloat(1700000000.5), "2023-11-14T22:13:20.500Z"},
 		{"an integer past the years gives nothing", big, ""},
 		{"an integer past the float range gives nothing", huge, ""},
 		{"a float read as infinity gives nothing", infinite, ""},
-		{"NaN gives nothing", pyjson.NewFloat(math.NaN()), ""},
-		{"an array gives nothing", pyjson.NewArray(pyjson.NewString("2026-10-01")), ""},
-		{"an object gives nothing", pyjson.NewObject(), ""},
+		{"NaN gives nothing", jsonvalue.NewFloat(math.NaN()), ""},
+		{"an array gives nothing", jsonvalue.NewArray(jsonvalue.NewString("2026-10-01")), ""},
+		{"an object gives nothing", jsonvalue.NewObject(), ""},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			if got := FromValue(test.value); got != test.want {
-				t.Errorf("FromValue(%s) = %q, want %q", pyjson.Compact(test.value), got, test.want)
+				t.Errorf("FromValue(%s) = %q, want %q", test.value.JSON(), got, test.want)
 			}
 		})
 	}

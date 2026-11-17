@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -100,15 +100,15 @@ func settle(pending []*post, processID, url, status string) []*post {
 // postText returns the row text of a metadata post: the agent, from the
 // fields sent or else the URL, the metadata keys sent and the status.
 func postText(entry *post, source string) string {
-	document := pyjson.NewNull()
+	document := jsonvalue.NewNull()
 	if entry.fields != "" {
-		if decoded, err := pyjson.DecodeString(entry.fields); err == nil {
+		if decoded, err := jsonvalue.DecodeString(entry.fields); err == nil {
 			document = decoded
 		}
 	}
 	agent := "-"
-	if value := document.Get("agentId"); value.IsString() && value.Text() != "" {
-		agent = value.Text()
+	if value := document.Get("agentId"); value.IsString() && value.StringValue() != "" {
+		agent = value.StringValue()
 	} else if match := agentURL.FindStringSubmatch(entry.url); match != nil {
 		agent = match[1]
 	}
@@ -116,7 +116,7 @@ func postText(entry *post, source string) string {
 	if list := document.Get("metadataKeys"); list.IsArray() && list.Len() > 0 {
 		names := make([]string, list.Len())
 		for i, key := range list.Items() {
-			names[i] = key.Str()
+			names[i] = key.Text()
 		}
 		keys = strings.Join(names, ",")
 	}

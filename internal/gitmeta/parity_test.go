@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // oracleScript reads one hex-encoded text per line and prints, as one JSON
@@ -29,26 +29,27 @@ for line in sys.stdin:
 `
 
 // textArray returns a JSON array of texts.
-func textArray(texts []string) pyjson.Value {
-	items := []pyjson.Value{}
+func textArray(texts []string) jsonvalue.Value {
+	items := []jsonvalue.Value{}
 	for _, text := range texts {
-		items = append(items, pyjson.NewString(text))
+		items = append(items, jsonvalue.NewString(text))
 	}
-	return pyjson.NewArray(items...)
+	return jsonvalue.NewArray(items...)
 }
 
 // encodeResult writes the Go results as the oracle prints them.
 func encodeResult(text string) string {
 	remotes, problems := ParseConfig(text)
-	items := []pyjson.Value{}
+	items := []jsonvalue.Value{}
 	for _, found := range remotes {
-		items = append(items, pyjson.NewObject(
-			pyjson.Member{Key: "name", Value: pyjson.NewString(found.Name)},
-			pyjson.Member{Key: "urls", Value: textArray(found.URLs)},
-			pyjson.Member{Key: "pushurls", Value: textArray(found.PushURLs)}))
+		items = append(items, jsonvalue.NewObject(
+			jsonvalue.Member{Key: "name", Value: jsonvalue.NewString(found.Name)},
+			jsonvalue.Member{Key: "urls", Value: textArray(found.URLs)},
+			jsonvalue.Member{Key: "pushurls", Value: textArray(found.PushURLs)}))
 	}
-	return pyjson.Spaced(pyjson.NewArray(pyjson.NewArray(items...), textArray(problems),
-		pyjson.NewString(ParseHead(text))))
+	return jsonvalue.NewArray(jsonvalue.NewArray(items...), textArray(problems),
+		jsonvalue.NewString(ParseHead(text))).JSON()
+
 }
 
 // randomConfig returns a config text built from fragments of headers,

@@ -1,8 +1,8 @@
 package opencode
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -148,7 +148,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 		found := items[columnText(row.Get("id"))]
 		if len(found) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
 			data.Has("content") {
-			data.Set("content", pyjson.NewArray(found...))
+			data.Set("content", jsonvalue.NewArray(found...))
 		}
 		name := columnText(kind)
 		if name == "" {
@@ -163,8 +163,8 @@ func (s *store) v2Messages(skip map[string]bool) error {
 // sessionParts returns the session_part items of each message id, in
 // ordinal order, for every session not in skip. A row's type column
 // overrides the item's own. A row whose data does not decode is a problem.
-func (s *store) sessionParts(skip map[string]bool) (map[string][]pyjson.Value, error) {
-	items := map[string][]pyjson.Value{}
+func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value, error) {
+	items := map[string][]jsonvalue.Value{}
 	if !s.tables["session_part"] {
 		return items, nil
 	}
@@ -197,14 +197,14 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]pyjson.Value, e
 
 // columnValue returns a column value as the JSON value Python's dict would
 // hold for it; a blob, which no store writes there, is held as its text.
-func columnValue(value sqlitefile.Value) pyjson.Value {
+func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Integer:
-		return pyjson.NewInt(value.Int)
+		return jsonvalue.NewInt(value.Int)
 	case sqlitefile.Float:
-		return pyjson.NewFloat(value.Float)
+		return jsonvalue.NewFloat(value.Float)
 	case sqlitefile.Null:
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
-	return pyjson.NewString(value.Text())
+	return jsonvalue.NewString(value.Text())
 }

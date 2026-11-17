@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -24,10 +24,10 @@ const millisecondsAbove = 1e11
 // FromValue returns the timestamp of a decoded JSON value: a string as
 // FromText reads it, a number as FromEpoch reads it, and "" for null, a
 // boolean, an array, an object and an integer too large for a float.
-func FromValue(value pyjson.Value) string {
+func FromValue(value jsonvalue.Value) string {
 	switch {
 	case value.IsString():
-		return FromText(value.Text())
+		return FromText(value.StringValue())
 	case value.IsNumber():
 		epoch, ok := value.Float()
 		if !ok {

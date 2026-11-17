@@ -3,24 +3,24 @@ package clinelegacy
 import (
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // Present reports whether a value is neither null nor the empty string, the
 // test the agents' optional fields are written under: false, zero, an
 // empty array and an empty object are present.
-func Present(value pyjson.Value) bool {
-	return !value.IsNull() && !(value.IsString() && value.Text() == "")
+func Present(value jsonvalue.Value) bool {
+	return !value.IsNull() && !(value.IsString() && value.StringValue() == "")
 }
 
 // FormatCounts returns "key=value" for each key whose value in record is
 // Present, joined by spaces, each value as Python's str() writes it.
-func FormatCounts(record pyjson.Value, keys ...string) string {
+func FormatCounts(record jsonvalue.Value, keys ...string) string {
 	var parts []string
 	for _, key := range keys {
 		if value := record.Get(key); Present(value) {
-			parts = append(parts, key+"="+value.Str())
+			parts = append(parts, key+"="+value.Text())
 		}
 	}
 	return strings.Join(parts, " ")
@@ -28,12 +28,12 @@ func FormatCounts(record pyjson.Value, keys ...string) string {
 
 // Join returns the parts that are not null, an empty string, an empty array
 // or an empty object, each as Python's str() writes it, joined by " | ".
-func Join(parts ...pyjson.Value) string {
+func Join(parts ...jsonvalue.Value) string {
 	var kept []string
 	for _, part := range parts {
 		empty := (part.IsArray() || part.IsObject()) && part.Len() == 0
 		if Present(part) && !empty {
-			kept = append(kept, part.Str())
+			kept = append(kept, part.Text())
 		}
 	}
 	return strings.Join(kept, " | ")
@@ -41,9 +41,9 @@ func Join(parts ...pyjson.Value) string {
 
 // FirstTruthy returns the first value Python counts as true, else the last one, as
 // Python's `a or b or c` does.
-func FirstTruthy(values ...pyjson.Value) pyjson.Value {
+func FirstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -52,26 +52,26 @@ func FirstTruthy(values ...pyjson.Value) pyjson.Value {
 
 // LoadsOrNone returns text decoded as a JSON object, or false when it does
 // not open with "{" after leading whitespace or is not a JSON object.
-func LoadsOrNone(text string) (pyjson.Value, bool) {
+func LoadsOrNone(text string) (jsonvalue.Value, bool) {
 	if !strings.HasPrefix(pytext.StripLeft(text), "{") {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil || !value.IsObject() {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return value, true
 }
 
 // IsNumber reports whether a value is a number for Python's
 // isinstance(value, (int, float)), which a boolean is too.
-func IsNumber(value pyjson.Value) bool {
+func IsNumber(value jsonvalue.Value) bool {
 	return value.IsNumber() || value.IsBool()
 }
 
 // NumberOf returns a number as a float, a boolean as 0 or 1, and false for
 // any other value or an integer too large for a float.
-func NumberOf(value pyjson.Value) (float64, bool) {
+func NumberOf(value jsonvalue.Value) (float64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return 1, true

@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/zed"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -32,7 +32,7 @@ func maybeZstd(blob []byte) ([]byte, error) {
 // numbered is one JSON object line of a blob and its line number.
 type numbered struct {
 	line   int
-	record pyjson.Value
+	record jsonvalue.Value
 }
 
 // blobLines returns the JSON object lines of data, numbered from 1. A line
@@ -73,7 +73,7 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 		entry, err := eventJSON(inner.Get("event_json"))
 		if err != nil {
 			w.bad(current, line, fmt.Sprintf("cold archive event seq %s unreadable: %s",
-				inner.Get("seq").Str(), err), createdAt)
+				inner.Get("seq").Text(), err), createdAt)
 			continue
 		}
 		if entry.IsObject() {
@@ -84,15 +84,15 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 
 // eventJSON decodes the event_json text of a cold archive's event record;
 // a value that is not text is an error.
-func eventJSON(value pyjson.Value) (pyjson.Value, error) {
+func eventJSON(value jsonvalue.Value) (jsonvalue.Value, error) {
 	text := ""
 	switch {
 	case value.IsString():
-		text = value.Text()
-	case value.Truthy():
-		return pyjson.Value{}, errEventNotText
+		text = value.StringValue()
+	case !value.IsEmpty():
+		return jsonvalue.Value{}, errEventNotText
 	}
-	return pyjson.DecodeString(text)
+	return jsonvalue.DecodeString(text)
 }
 
 // parseFile emits the rows of a JSONL transcript, an archived or copied
@@ -143,7 +143,7 @@ func legacyKey(artifact *input.Artifact, sessionID string) (string, string) {
 	if !ok {
 		return "", problems[0].Message
 	}
-	data, err := pyjson.Decode(content)
+	data, err := jsonvalue.Decode(content)
 	switch {
 	case err != nil:
 		return "", "sessions.json unparseable (" + err.Error() + ")"

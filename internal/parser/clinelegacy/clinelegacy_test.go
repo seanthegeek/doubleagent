@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // decode returns JSON text as a value, failing the test when it is not JSON.
-func decode(t *testing.T, text string) pyjson.Value {
+func decode(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatalf("%s: %v", text, err)
 	}
@@ -38,12 +38,12 @@ func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 			false, Mapped{"assistant", "", ""}, false},
 		{"a file tool names its paths and diff", "tool",
 			`{"text": "{\"tool\": \"readFile\", \"path\": \"a.py\", \"batchFiles\": [{\"path\": \"b\"}, {}], \"diff\": \"d\"}"}`,
-			false, Mapped{"tool_use", "a.py | b; None | d", "readFile"}, true},
+			false, Mapped{"tool_use", "a.py | b;  | d", "readFile"}, true},
 		{"a tool message that is not JSON keeps its text", "tool", `{"text": "plain"}`, false,
 			Mapped{"tool_use", "plain", "tool"}, true},
-		{"an MCP call shows its arguments as Python prints them", "use_mcp_server",
+		{"an MCP call shows its arguments as JSON", "use_mcp_server",
 			`{"text": "{\"serverName\": \"s\", \"arguments\": {\"a\": 1}}"}`, false,
-			Mapped{"tool_use", "s | {'a': 1}", "use_mcp_server"}, true},
+			Mapped{"tool_use", `s | {"a":1}`, "use_mcp_server"}, true},
 		{"a browser action that is not JSON keeps its text", "browser_action", `{"text": "not json"}`,
 			false, Mapped{"tool_use", "not json", "browser_action"}, true},
 		{"subagent prompts are joined", "use_subagents", `{"text": "{\"prompts\": [\"a\", 2]}"}`, false,

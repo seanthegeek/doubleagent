@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // policyFields are the turn_context and thread_settings_applied policy
@@ -37,10 +37,10 @@ const (
 )
 
 // policy is the value of each of policyFields last recorded for a session.
-type policy [len(policyFields)]pyjson.Value
+type policy [len(policyFields)]jsonvalue.Value
 
 // policyOf returns the policy fields of a turn_context payload.
-func policyOf(payload pyjson.Value) policy {
+func policyOf(payload jsonvalue.Value) policy {
 	var fields policy
 	for i, field := range policyFields {
 		fields[i] = payload.Get(field[1])
@@ -52,7 +52,7 @@ func policyOf(payload pyjson.Value) policy {
 // settings: its three thread-level fields replace the old ones, and when
 // the access level changes, the sandbox and profile become unknown until
 // the next turn_context.
-func (p policy) withSettings(settings pyjson.Value) policy {
+func (p policy) withSettings(settings jsonvalue.Value) policy {
 	state := p
 	for i, field := range policyFields {
 		if value, ok := settings.Lookup(field[1]); ok && slices.Contains(settingsPolicyKeys, field[1]) {
@@ -61,15 +61,15 @@ func (p policy) withSettings(settings pyjson.Value) policy {
 	}
 	if !sameValue(shownPolicyValue(accessField, p[accessField]),
 		shownPolicyValue(accessField, state[accessField])) {
-		state[sandboxField] = pyjson.NewNull()
-		state[profileField] = pyjson.NewNull()
+		state[sandboxField] = jsonvalue.NewNull()
+		state[profileField] = jsonvalue.NewNull()
 	}
 	return state
 }
 
 // shownPolicyValue returns a policy field as the composite shows it: the
 // access level's object as its id, any other value as it is.
-func shownPolicyValue(index int, value pyjson.Value) pyjson.Value {
+func shownPolicyValue(index int, value jsonvalue.Value) jsonvalue.Value {
 	if index == accessField && value.IsObject() {
 		return value.Get("id")
 	}
@@ -98,9 +98,9 @@ func (p policy) text() string {
 
 // settingsModel returns the model a thread_settings object names: model,
 // else collaboration_mode.settings.model, else "".
-func settingsModel(settings pyjson.Value) string {
-	if model := settings.Get("model"); model.Truthy() {
-		return model.Str()
+func settingsModel(settings jsonvalue.Value) string {
+	if model := settings.Get("model"); !model.IsEmpty() {
+		return model.Text()
 	}
 	return parser.Str(settings.Get("collaboration_mode").Get("settings").Get("model"))
 }

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -35,10 +35,10 @@ func zoneOffsets() map[string]int64 {
 // Date.toUTCString(), else of fallback; each is tried first as a mail date
 // and then as any time the timeline reads, and only when it is a non-empty
 // string.
-func chatTime(chatID string, fallback pyjson.Value) string {
+func chatTime(chatID string, fallback jsonvalue.Value) string {
 	candidates := []string{chatID}
 	if fallback.IsString() {
-		candidates = append(candidates, fallback.Text())
+		candidates = append(candidates, fallback.StringValue())
 	}
 	for _, candidate := range candidates {
 		if candidate == "" {

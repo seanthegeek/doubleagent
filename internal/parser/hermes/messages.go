@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -36,59 +36,59 @@ type messageReader struct {
 	options   parser.Options
 	toolNames map[string]string
 	switches  map[string]string
-	usage     map[string][]pyjson.Value
+	usage     map[string][]jsonvalue.Value
 	emit      parser.Emit
 }
 
 // newMessageReader returns a reader of one file's messages.
 func (p *Parser) newMessageReader(artifact *input.Artifact, options parser.Options,
-	usage map[string][]pyjson.Value, emit parser.Emit) *messageReader {
+	usage map[string][]jsonvalue.Value, emit parser.Emit) *messageReader {
 	return &messageReader{parser: p, artifact: artifact, options: options,
 		toolNames: map[string]string{}, switches: map[string]string{}, usage: usage, emit: emit}
 }
 
 // decodeContent returns a messages.content value as stored: text, or the
 // parts behind the JSON sentinel (the text after it when it is not JSON).
-func decodeContent(value pyjson.Value) pyjson.Value {
-	if !value.IsString() || !strings.HasPrefix(value.Text(), jsonPrefix) {
+func decodeContent(value jsonvalue.Value) jsonvalue.Value {
+	if !value.IsString() || !strings.HasPrefix(value.StringValue(), jsonPrefix) {
 		return value
 	}
-	rest := strings.TrimPrefix(value.Text(), jsonPrefix)
-	decoded, err := pyjson.DecodeString(rest)
+	rest := strings.TrimPrefix(value.StringValue(), jsonPrefix)
+	decoded, err := jsonvalue.DecodeString(rest)
 	if err != nil {
-		return pyjson.NewString(rest)
+		return jsonvalue.NewString(rest)
 	}
 	return decoded
 }
 
 // contentText returns the text of a messages.content value, image parts as
 // "[image]".
-func contentText(value pyjson.Value) string {
+func contentText(value jsonvalue.Value) string {
 	content := decodeContent(value)
 	if content.IsArray() {
-		blocks := make([]pyjson.Value, 0, content.Len())
+		blocks := make([]jsonvalue.Value, 0, content.Len())
 		for _, block := range content.Items() {
 			if kind := block.Get("type"); block.IsObject() && kind.IsString() &&
-				(kind.Text() == "image_url" || kind.Text() == "input_image") {
-				block = pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("image")})
+				(kind.StringValue() == "image_url" || kind.StringValue() == "input_image") {
+				block = jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("image")})
 			}
 			blocks = append(blocks, block)
 		}
-		content = pyjson.NewArray(blocks...)
+		content = jsonvalue.NewArray(blocks...)
 	}
 	return parser.TextOf(content)
 }
 
 // jsonOr decodes a JSON text, returning fallback for null, empty text or
 // text that is not JSON; a value that is not text is itself.
-func jsonOr(value, fallback pyjson.Value) pyjson.Value {
+func jsonOr(value, fallback jsonvalue.Value) jsonvalue.Value {
 	switch {
-	case value.IsNull(), value.IsString() && value.Text() == "":
+	case value.IsNull(), value.IsString() && value.StringValue() == "":
 		return fallback
 	case !value.IsString():
 		return value
 	}
-	decoded, err := pyjson.DecodeString(value.Text())
+	decoded, err := jsonvalue.DecodeString(value.StringValue())
 	if err != nil {
 		return fallback
 	}
@@ -97,11 +97,11 @@ func jsonOr(value, fallback pyjson.Value) pyjson.Value {
 
 // modelSwitch returns the model and provider a model-switch marker names,
 // the provider "" when it names none, and false when the text is not one.
-func modelSwitch(content pyjson.Value) (string, string, bool) {
-	if !content.IsString() || !strings.HasPrefix(content.Text(), switchPrefix) {
+func modelSwitch(content jsonvalue.Value) (string, string, bool) {
+	if !content.IsString() || !strings.HasPrefix(content.StringValue(), switchPrefix) {
 		return "", "", false
 	}
-	head, _, found := strings.Cut(strings.TrimPrefix(content.Text(), switchPrefix), switchEnd)
+	head, _, found := strings.Cut(strings.TrimPrefix(content.StringValue(), switchPrefix), switchEnd)
 	if !found {
 		return "", "", false
 	}
@@ -113,20 +113,20 @@ func modelSwitch(content pyjson.Value) (string, string, bool) {
 // value that is not JSON, not a list (a lone object is a one-call list) or
 // holds an entry that is not an object is a problem carrying the value as
 // stored; the entries that are objects are still returned.
-func toolCalls(message pyjson.Value, line pyjson.Value) ([]pyjson.Value, parser.Problems) {
+func toolCalls(message jsonvalue.Value, line jsonvalue.Value) ([]jsonvalue.Value, parser.Problems) {
 	value := message.Get("tool_calls")
-	if value.IsNull() || value.IsString() && value.Text() == "" {
+	if value.IsNull() || value.IsString() && value.StringValue() == "" {
 		return nil, nil
 	}
 	raw := parser.CompactJSON(value)
 	if value.IsString() {
-		raw = value.Text()
+		raw = value.StringValue()
 	}
 	number := lineNumber(line)
-	label := "unparseable record " + line.Str()
+	label := "unparseable record " + line.Text()
 	var problems parser.Problems
 	if value.IsString() {
-		decoded, err := pyjson.DecodeString(value.Text())
+		decoded, err := jsonvalue.DecodeString(value.StringValue())
 		if err != nil {
 			problems.AddRaw(number, label+" (tool_calls is not valid JSON: "+err.Error()+")", raw)
 			return nil, problems
@@ -134,13 +134,13 @@ func toolCalls(message pyjson.Value, line pyjson.Value) ([]pyjson.Value, parser.
 		value = decoded
 	}
 	if value.IsObject() {
-		value = pyjson.NewArray(value)
+		value = jsonvalue.NewArray(value)
 	}
 	if !value.IsArray() {
 		problems.AddRaw(number, label+" (tool_calls is not a list)", raw)
 		return nil, problems
 	}
-	var calls []pyjson.Value
+	var calls []jsonvalue.Value
 	for _, call := range value.Items() {
 		if call.IsObject() {
 			calls = append(calls, call)
@@ -154,7 +154,7 @@ func toolCalls(message pyjson.Value, line pyjson.Value) ([]pyjson.Value, parser.
 
 // lineNumber returns a line value as a row's source line, 0 when it is not
 // an integer.
-func lineNumber(line pyjson.Value) int {
+func lineNumber(line jsonvalue.Value) int {
 	if number, ok := line.Int(); ok && line.IsInt() {
 		return int(number)
 	}
@@ -163,18 +163,18 @@ func lineNumber(line pyjson.Value) int {
 
 // callSummary returns the command, path, file_path, url or query argument
 // of a call, else the arguments as compact JSON, or as stored text.
-func callSummary(arguments pyjson.Value) string {
+func callSummary(arguments jsonvalue.Value) string {
 	decoded := jsonOr(arguments, arguments)
 	if decoded.IsObject() {
 		for _, key := range []string{"command", "path", "file_path", "url", "query"} {
-			if value := decoded.Get(key); !value.IsNull() && !(value.IsString() && value.Text() == "") {
-				return value.Str()
+			if value := decoded.Get(key); !value.IsNull() && !(value.IsString() && value.StringValue() == "") {
+				return value.Text()
 			}
 		}
 		return parser.CompactJSON(decoded)
 	}
 	if decoded.IsString() {
-		return decoded.Text()
+		return decoded.StringValue()
 	}
 	return parser.CompactJSON(decoded)
 }
@@ -183,10 +183,10 @@ func callSummary(arguments pyjson.Value) string {
 // of a terminal tool result: "approved (<note>)", "blocked <error>" with
 // " user_summary=<summary>" when a person was asked, or "pending
 // pattern=<key> smart_denied=<bool>"; "" for any other result.
-func terminalDecision(content pyjson.Value) string {
+func terminalDecision(content jsonvalue.Value) string {
 	value := decodeContent(content)
 	if value.IsString() {
-		decoded, err := pyjson.DecodeString(value.Text())
+		decoded, err := jsonvalue.DecodeString(value.StringValue())
 		if err != nil {
 			return ""
 		}
@@ -195,31 +195,31 @@ func terminalDecision(content pyjson.Value) string {
 	if !value.IsObject() {
 		return ""
 	}
-	if approval := value.Get("approval"); approval.IsString() && approval.Text() != "" {
-		return "approved (" + approval.Text() + ")"
+	if approval := value.Get("approval"); approval.IsString() && approval.StringValue() != "" {
+		return "approved (" + approval.StringValue() + ")"
 	}
 	switch status := value.Get("status"); {
 	case isText(status, "blocked"):
 		text := "blocked " + dash(value.Get("error"))
-		if summary := value.Get("user_summary"); summary.Truthy() {
+		if summary := value.Get("user_summary"); !summary.IsEmpty() {
 			text += " user_summary=" + parser.SettingValue(summary)
 		}
 		return text
 	case isText(status, "pending_approval"):
 		return "pending pattern=" + dash(value.Get("pattern_key")) + " smart_denied=" +
-			parser.SettingValue(pyjson.NewBool(value.Get("smart_denied").Truthy()))
+			parser.SettingValue(jsonvalue.NewBool(!value.Get("smart_denied").IsEmpty()))
 	}
 	return ""
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // rewound reports whether a message's active flag marks it rewound: 0,
 // "0" or false; a message without the flag is active.
-func rewound(message pyjson.Value) bool {
+func rewound(message jsonvalue.Value) bool {
 	active, ok := message.Lookup("active")
 	if !ok {
 		return false
@@ -234,7 +234,7 @@ func rewound(message pyjson.Value) bool {
 // message emits the rows of one message: its thinking, its text or tool
 // result with a terminal's permission decision, its tool calls, and the
 // problems of its tool_calls. line is the message's line or record id.
-func (m *messageReader) message(message, session, line pyjson.Value) {
+func (m *messageReader) message(message, session, line jsonvalue.Value) {
 	number := lineNumber(line)
 	timestamp := timeutil.FromValue(message.Get("timestamp"))
 	role := parser.Str(message.Get("role"))
@@ -253,8 +253,8 @@ func (m *messageReader) message(message, session, line pyjson.Value) {
 		return row
 	}
 	if m.options.IncludeThinking {
-		if reasoning := either(message.Get("reasoning"), message.Get("reasoning_content")); reasoning.Truthy() {
-			m.emit(makeRow(timeline.TurnThinking, reasoning.Str()))
+		if reasoning := either(message.Get("reasoning"), message.Get("reasoning_content")); !reasoning.IsEmpty() {
+			m.emit(makeRow(timeline.TurnThinking, reasoning.Text()))
 		}
 	}
 	text := contentText(message.Get("content"))
@@ -276,13 +276,13 @@ func (m *messageReader) message(message, session, line pyjson.Value) {
 
 // toolUses emits a tool_use row per tool call of a message, remembering
 // each call's tool name, then the problems of its tool_calls.
-func (m *messageReader) toolUses(message, session, line pyjson.Value,
+func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 	makeRow func(turnType, text string) timeline.Row) {
 	calls, problems := toolCalls(message, line)
 	for _, call := range calls {
 		function := call.Get("function")
 		if !function.IsObject() {
-			function = pyjson.NewObject()
+			function = jsonvalue.NewObject()
 		}
 		row := makeRow(timeline.TurnToolUse, callSummary(function.Get("arguments")))
 		row.ToolUseID = parser.Str(either(call.Get("id"), call.Get("call_id")))
@@ -296,7 +296,7 @@ func (m *messageReader) toolUses(message, session, line pyjson.Value,
 
 // toolResult emits a tool result row and, for the terminal tool, the
 // permission decision its result records.
-func (m *messageReader) toolResult(message, session pyjson.Value, row timeline.Row, number int,
+func (m *messageReader) toolResult(message, session jsonvalue.Value, row timeline.Row, number int,
 	timestamp string) {
 	row.ToolUseID = parser.Str(message.Get("tool_call_id"))
 	row.ToolName = parser.Str(message.Get("tool_name"))
@@ -321,7 +321,7 @@ func (m *messageReader) toolResult(message, session pyjson.Value, row timeline.R
 // previous marker's, else the last main-loop usage model first seen before
 // it, else unknown. A marker whose text does not parse is a
 // "model_switch: <text>" row.
-func (m *messageReader) switchRow(message, session pyjson.Value, number int) timeline.Row {
+func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) timeline.Row {
 	row := m.parser.row(m.artifact, number, session, timeutil.FromValue(message.Get("timestamp")))
 	row.TurnType = timeline.TurnSystem
 	model, provider, ok := modelSwitch(message.Get("content"))
@@ -352,7 +352,7 @@ func (m *messageReader) switchRow(message, session pyjson.Value, number int) tim
 
 // numberValue returns a number (or a boolean, which Python counts as an
 // integer) as a float.
-func numberValue(value pyjson.Value) (float64, bool) {
+func numberValue(value jsonvalue.Value) (float64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return 1, true

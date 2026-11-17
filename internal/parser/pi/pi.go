@@ -30,9 +30,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -235,10 +235,10 @@ func linkOnTheWay(home *input.Home, parts []string) bool {
 
 // SessionStartText returns the `session start:` row text of a session
 // header: its version (1 when unset), cwd and, for a fork, parent session.
-func SessionStartText(header pyjson.Value) string {
+func SessionStartText(header jsonvalue.Value) string {
 	version := "1"
-	if value := header.Get("version"); value.Truthy() {
-		version = value.Str()
+	if value := header.Get("version"); !value.IsEmpty() {
+		version = value.Text()
 	}
 	text := "session start: version=" + version + " cwd=" + parser.Str(header.Get("cwd"))
 	if parent := parser.Str(header.Get("parentSession")); parent != "" {

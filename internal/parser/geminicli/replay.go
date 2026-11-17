@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -13,7 +13,7 @@ import (
 // written, the line that wrote it, and the session it was first written
 // under.
 type stored struct {
-	message   pyjson.Value
+	message   jsonvalue.Value
 	line      int
 	sessionID string
 }
@@ -27,8 +27,8 @@ type messageLog struct {
 
 // put records a message: a new id goes last, an id already present keeps
 // its place and session and takes the new message and line.
-func (m *messageLog) put(message pyjson.Value, line int, sessionID string) {
-	messageID := message.Get("id").Text()
+func (m *messageLog) put(message jsonvalue.Value, line int, sessionID string) {
+	messageID := message.Get("id").StringValue()
 	if entry, ok := m.byID[messageID]; ok {
 		entry.message, entry.line = message, line
 		return
@@ -91,7 +91,7 @@ type replay struct {
 	starts, events []event
 	sessionID      string
 	latest         string
-	projectHash    pyjson.Value
+	projectHash    jsonvalue.Value
 }
 
 // newReplay returns an empty replay.
@@ -106,10 +106,10 @@ func (r *replay) seen(timestamp string) {
 
 // apply replays one record, by its form: a rewind, a patch, a message, a
 // metadata update or a session header.
-func (r *replay) apply(line int, record pyjson.Value) {
+func (r *replay) apply(line int, record jsonvalue.Value) {
 	switch {
 	case record.Get("$rewindTo").IsString():
-		r.rewind(line, record.Get("$rewindTo").Text())
+		r.rewind(line, record.Get("$rewindTo").StringValue())
 	case record.Get("$patch").IsObject():
 		r.patch(line, record.Get("$patch"))
 	case record.Get("id").IsString():
@@ -133,7 +133,7 @@ func (r *replay) rewind(line int, target string) {
 
 // patch applies a $patch: its own message change and those of its
 // updates, then the removals and the new order of the ids it names.
-func (r *replay) patch(line int, patch pyjson.Value) {
+func (r *replay) patch(line int, patch jsonvalue.Value) {
 	if patch.Get("id").IsString() {
 		r.applyPatch(patch)
 	}
@@ -151,11 +151,11 @@ func (r *replay) patch(line int, patch pyjson.Value) {
 }
 
 // texts returns the string items of an array.
-func texts(list pyjson.Value) []string {
+func texts(list jsonvalue.Value) []string {
 	var out []string
 	for _, item := range list.Items() {
 		if item.IsString() {
-			out = append(out, item.Text())
+			out = append(out, item.StringValue())
 		}
 	}
 	return out
@@ -164,8 +164,8 @@ func texts(list pyjson.Value) []string {
 // applyPatch changes the message a patch names, when present: its content
 // when the patch has one, and the result of each of its tool calls the
 // patch gives a result for. The message is copied, never changed in place.
-func (r *replay) applyPatch(patch pyjson.Value) {
-	entry, ok := r.messages.byID[patch.Get("id").Text()]
+func (r *replay) applyPatch(patch jsonvalue.Value) {
+	entry, ok := r.messages.byID[patch.Get("id").StringValue()]
 	if !ok {
 		return
 	}
@@ -175,7 +175,7 @@ func (r *replay) applyPatch(patch pyjson.Value) {
 	}
 	calls := entry.message.Get("toolCalls")
 	if patch.Get("toolCalls").IsArray() && isText(message.Get("type"), "gemini") && calls.IsArray() {
-		copied := make([]pyjson.Value, 0, calls.Len())
+		copied := make([]jsonvalue.Value, 0, calls.Len())
 		for _, call := range calls.Items() {
 			if call.IsObject() {
 				call = copyObject(call)
@@ -187,44 +187,44 @@ func (r *replay) applyPatch(patch pyjson.Value) {
 			if !toolPatch.IsObject() || !ok {
 				continue
 			}
-			index := slices.IndexFunc(copied, func(call pyjson.Value) bool {
+			index := slices.IndexFunc(copied, func(call jsonvalue.Value) bool {
 				return call.IsObject() && equal(call.Get("id"), toolPatch.Get("id"))
 			})
 			if index >= 0 {
 				copied[index].Set("result", result)
 			}
 		}
-		message.Set("toolCalls", pyjson.NewArray(copied...))
+		message.Set("toolCalls", jsonvalue.NewArray(copied...))
 	}
 	entry.message = message
 }
 
 // copyObject returns a new object holding an object's members, so a
 // change to it leaves the original as it was.
-func copyObject(object pyjson.Value) pyjson.Value {
-	return pyjson.NewObject(object.Members()...)
+func copyObject(object jsonvalue.Value) jsonvalue.Value {
+	return jsonvalue.NewObject(object.Members()...)
 }
 
 // set applies a $set: a new session id, a new message list, metadata, and
 // a summary row at the update's time, else the latest time seen.
-func (r *replay) set(line int, changes pyjson.Value) {
-	if named := changes.Get("sessionId"); named.IsString() && named.Text() != "" {
-		r.sessionID = named.Text()
+func (r *replay) set(line int, changes jsonvalue.Value) {
+	if named := changes.Get("sessionId"); named.IsString() && named.StringValue() != "" {
+		r.sessionID = named.StringValue()
 	}
 	if messages := changes.Get("messages"); messages.IsArray() {
 		r.messages = messageLog{byID: map[string]*stored{}}
 		r.putAll(messages, line)
 	}
 	r.metadata(changes)
-	if summary := changes.Get("summary"); summary.Truthy() {
+	if summary := changes.Get("summary"); !summary.IsEmpty() {
 		timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(changes.Get("lastUpdated")), r.latest)
-		r.events = append(r.events, event{line, timestamp, r.sessionID, "summary: " + summary.Str()})
+		r.events = append(r.events, event{line, timestamp, r.sessionID, "summary: " + summary.Text()})
 	}
 }
 
 // putAll records each message of a list that is an object with a string
 // id.
-func (r *replay) putAll(messages pyjson.Value, line int) {
+func (r *replay) putAll(messages jsonvalue.Value, line int) {
 	for _, message := range messages.Items() {
 		if message.IsObject() && message.Get("id").IsString() {
 			r.seen(timeutil.FromValue(message.Get("timestamp")))
@@ -235,7 +235,7 @@ func (r *replay) putAll(messages pyjson.Value, line int) {
 
 // metadata takes the projectHash of a $set or a session header, when it
 // names one.
-func (r *replay) metadata(record pyjson.Value) {
+func (r *replay) metadata(record jsonvalue.Value) {
 	if hash, ok := record.Lookup("projectHash"); ok {
 		r.projectHash = hash
 	}
@@ -244,9 +244,9 @@ func (r *replay) metadata(record pyjson.Value) {
 // header applies a session header (or a legacy whole-session record): the
 // session id, a "session start:" row and, in the legacy form, the
 // messages it holds.
-func (r *replay) header(line int, record pyjson.Value) {
+func (r *replay) header(line int, record jsonvalue.Value) {
 	r.metadata(record)
-	if named := record.Get("sessionId").Text(); named != "" {
+	if named := record.Get("sessionId").StringValue(); named != "" {
 		r.sessionID = named
 	}
 	timestamp := timeutil.FromValue(record.Get("startTime"))
@@ -256,7 +256,7 @@ func (r *replay) header(line int, record pyjson.Value) {
 		kind = "main"
 	}
 	text := "session start: kind=" + kind + " projectHash=" + parser.Str(record.Get("projectHash"))
-	if directories := record.Get("directories"); directories.Truthy() {
+	if directories := record.Get("directories"); !directories.IsEmpty() {
 		text += " directories=" + parser.CompactJSON(directories)
 	}
 	r.starts = append(r.starts, event{line, timestamp, r.sessionID, text})

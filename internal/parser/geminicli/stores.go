@@ -6,9 +6,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -70,7 +70,7 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 
 // activityText returns the row text of one activity log record, or false
 // for a record that gives no row, remembering each request it names.
-func activityText(payload pyjson.Value, console bool, requests map[string]request) (string, bool) {
+func activityText(payload jsonvalue.Value, console bool, requests map[string]request) (string, bool) {
 	requestID := parser.Str(payload.Get("id"))
 	answered, known := requests[requestID]
 	if !known {
@@ -80,32 +80,32 @@ func activityText(payload pyjson.Value, console bool, requests map[string]reques
 	case console:
 		return "console " + orDash(payload.Get("type")) + ": " + parser.Str(payload.Get("content")), true
 	case payload.Get("method").IsString():
-		named := request{payload.Get("method").Text(), urlWithoutQuery(parser.Str(payload.Get("url")))}
+		named := request{payload.Get("method").StringValue(), urlWithoutQuery(parser.Str(payload.Get("url")))}
 		requests[requestID] = named
 		return "network request: " + named.method + " " + named.url + " (request " + requestID + ")", true
 	case value.IsObject():
 		return "network response: " + answered.method + " " + answered.url + " status " +
 			dashUnlessSet(value.Get("status")) + " in " + dashUnlessSet(value.Get("durationMs")) +
 			" ms (request " + requestID + ")", true
-	case payload.Get("error").Truthy():
+	case !payload.Get("error").IsEmpty():
 		return "network error: " + answered.method + " " + answered.url + ": " +
-			payload.Get("error").Str() + " (request " + requestID + ")", true
+			payload.Get("error").Text() + " (request " + requestID + ")", true
 	}
 	return "", false
 }
 
 // jsonFile returns a whole-JSON file's value, or false after adding why it
 // is none: "unparseable <label> (<reason>)" for text that is not JSON.
-func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems) (pyjson.Value,
+func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems) (jsonvalue.Value,
 	bool) {
 	data, ok := parser.FileBytes(artifact.DiskPath, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	document, err := pyjson.Decode(data)
+	document, err := jsonvalue.Decode(data)
 	if err != nil {
 		problems.Add(0, "unparseable "+label+" ("+err.Error()+")")
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return document, true
 }
@@ -132,7 +132,7 @@ func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options
 	}
 	toolCall := document.Get("toolCall")
 	if !toolCall.IsObject() {
-		toolCall = pyjson.NewNull()
+		toolCall = jsonvalue.NewNull()
 	}
 	text := "tool checkpoint: " + orDash(toolCall.Get("name")) + " " +
 		orDash(toolCall.Get("args").Get("file_path")) + " commit " +
@@ -166,7 +166,7 @@ func (p *Parser) clipboardImage(artifact *input.Artifact, match pathMatch, emit 
 	var problems parser.Problems
 	project := projectOf(artifact, match, &problems)
 	size := artifact.Manifest.Get("size")
-	sizeText := size.Str()
+	sizeText := size.Text()
 	if !size.IsInt() {
 		if info, err := osfile.Lstat(artifact.DiskPath); err != nil {
 			problems.Add(0, reason.Unreadable(artifact.DiskPath, err))
@@ -200,8 +200,8 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, m
 	}
 	text := "error report: " + match["type"] + ": " + parser.Str(report.Get("message")) +
 		" (from " + artifact.Rel + fromName
-	if stack := report.Get("stack"); stack.IsString() && stack.Text() != "" {
-		text += "\n" + stack.Text()
+	if stack := report.Get("stack"); stack.IsString() && stack.StringValue() != "" {
+		text += "\n" + stack.StringValue()
 	}
 	emit(p.systemRow(artifact, where{0, nameTime(match["time"]), "", project}, text))
 	context := document.Get("context")
@@ -226,7 +226,7 @@ func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parser.Emi
 // its 1-based index, or the row saying the file is not an array.
 func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, emit parser.Emit) {
 	place := where{project: project}
-	records, err := pyjson.Decode(data)
+	records, err := jsonvalue.Decode(data)
 	switch {
 	case err != nil:
 		emit(p.systemRow(artifact, place, "parser: unparseable logs.json: "+err.Error()))

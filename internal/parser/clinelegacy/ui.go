@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -20,8 +20,8 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 		if !message.IsObject() {
 			continue
 		}
-		if info := message.Get("modelInfo"); info.IsObject() && info.Get("modelId").Truthy() {
-			model = info.Get("modelId").Str()
+		if info := message.Get("modelInfo"); info.IsObject() && !info.Get("modelId").IsEmpty() {
+			model = info.Get("modelId").Text()
 		}
 		timestamp := message.Get("ts")
 		rowModel := model
@@ -30,10 +30,10 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 		}
 		kind := messageKind(message)
 		reasoning := message.Get("reasoning")
-		if options.IncludeThinking && reasoning.IsString() && reasoning.Text() != "" && kind != "reasoning" {
+		if options.IncludeThinking && reasoning.IsString() && reasoning.StringValue() != "" && kind != "reasoning" {
 			row := p.Row(artifact, context, position, timeutil.FromValue(timestamp), rowModel)
 			row.TurnType = timeline.TurnThinking
-			row.Text = timeline.Compact(reasoning.Text())
+			row.Text = timeline.Compact(reasoning.StringValue())
 			emit(row)
 		}
 		mapped, ok := MapUI(kind, message, position == 1)
@@ -57,7 +57,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 
 // messageKind returns a message's say for a "say" message, else its ask,
 // falling back to whichever of say, ask and type is set.
-func messageKind(message pyjson.Value) string {
+func messageKind(message jsonvalue.Value) string {
 	kind := message.Get("ask")
 	if isText(message.Get("type"), "say") {
 		kind = message.Get("say")
@@ -67,16 +67,16 @@ func messageKind(message pyjson.Value) string {
 
 // toolID returns the id a tool call's rows share: the message's ts as
 // Python's str() writes it, or its position when it has none.
-func toolID(timestamp pyjson.Value, position int) string {
+func toolID(timestamp jsonvalue.Value, position int) string {
 	if timestamp.IsNull() {
 		return strconv.Itoa(position)
 	}
-	return timestamp.Str()
+	return timestamp.Text()
 }
 
 // partialText marks the text of a message still being streamed.
-func partialText(text string, message pyjson.Value) string {
-	if !message.Get("partial").Truthy() {
+func partialText(text string, message jsonvalue.Value) string {
+	if message.Get("partial").IsEmpty() {
 		return text
 	}
 	if text == "" {
@@ -86,8 +86,8 @@ func partialText(text string, message pyjson.Value) string {
 }
 
 // isText reports whether a value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // Mapped is the row one ui_messages.json message gives: its turn type,
@@ -142,12 +142,12 @@ func resultTool(kind string) (string, bool) {
 // MapUI returns the row of one ui_messages.json message of a kind, or
 // false to skip it. first is set for the file's first message, whose
 // "text" kind is the user's task.
-func MapUI(kind string, message pyjson.Value, first bool) (Mapped, bool) {
+func MapUI(kind string, message jsonvalue.Value, first bool) (Mapped, bool) {
 	text := messageText(message.Get("text"))
 	switch {
 	case isUserKind(kind) || (kind == "text" && first):
 		if images := message.Get("images"); images.IsArray() && images.Len() > 0 {
-			text = Join(pyjson.NewString(text), pyjson.NewString("["+strconv.Itoa(images.Len())+" image(s)]"))
+			text = Join(jsonvalue.NewString(text), jsonvalue.NewString("["+strconv.Itoa(images.Len())+" image(s)]"))
 		}
 		return Mapped{TurnType: timeline.TurnUser, Text: text}, text != ""
 	case kind == "reasoning":
@@ -171,10 +171,10 @@ func MapUI(kind string, message pyjson.Value, first bool) (Mapped, bool) {
 
 // messageText returns a message's text field: a string as it is, "" for
 // none, anything else as CompactJSON.
-func messageText(value pyjson.Value) string {
+func messageText(value jsonvalue.Value) string {
 	switch {
 	case value.IsString():
-		return value.Text()
+		return value.StringValue()
 	case value.IsNull():
 		return ""
 	}
@@ -182,11 +182,11 @@ func messageText(value pyjson.Value) string {
 }
 
 // screenshot returns "[screenshot]" when a browser result holds one.
-func screenshot(parsed pyjson.Value) pyjson.Value {
-	if parsed.Get("screenshot").Truthy() {
-		return pyjson.NewString("[screenshot]")
+func screenshot(parsed jsonvalue.Value) jsonvalue.Value {
+	if !parsed.Get("screenshot").IsEmpty() {
+		return jsonvalue.NewString("[screenshot]")
 	}
-	return pyjson.NewString("")
+	return jsonvalue.NewString("")
 }
 
 // assistantText returns a reply's text: for JSON text (a followup or a
@@ -198,26 +198,26 @@ func assistantText(text string) string {
 	}
 	choices := FirstTruthy(parsed.Get("options"), parsed.Get("suggest"))
 	if choices.IsArray() {
-		choices = pyjson.NewString(choiceList(choices))
+		choices = jsonvalue.NewString(choiceList(choices))
 	}
-	question := FirstTruthy(parsed.Get("question"), parsed.Get("response"), pyjson.NewString(""))
-	return Join(question, FirstTruthy(choices, pyjson.NewString("")))
+	question := FirstTruthy(parsed.Get("question"), parsed.Get("response"), jsonvalue.NewString(""))
+	return Join(question, FirstTruthy(choices, jsonvalue.NewString("")))
 }
 
 // choiceList returns the choices of a followup joined by "; ": a string as
 // it is, an object as its answer or else its CompactJSON.
-func choiceList(choices pyjson.Value) string {
+func choiceList(choices jsonvalue.Value) string {
 	parts := make([]string, 0, choices.Len())
 	for _, choice := range choices.Items() {
 		switch {
 		case choice.IsString():
-			parts = append(parts, choice.Text())
-		case choice.IsObject() && choice.Get("answer").Truthy():
-			parts = append(parts, choice.Get("answer").Str())
+			parts = append(parts, choice.StringValue())
+		case choice.IsObject() && !choice.Get("answer").IsEmpty():
+			parts = append(parts, choice.Get("answer").Text())
 		case choice.IsObject():
 			parts = append(parts, parser.CompactJSON(choice))
 		default:
-			parts = append(parts, choice.Str())
+			parts = append(parts, choice.Text())
 		}
 	}
 	return strings.Join(parts, "; ")
@@ -226,7 +226,7 @@ func choiceList(choices pyjson.Value) string {
 // systemText returns the text of a message kept as a system row: the
 // request counts of an API request, a context condensation's counts and
 // summary, a checkpoint's hash, else "<kind>: <text>" or the kind alone.
-func systemText(kind, text string, message pyjson.Value) string {
+func systemText(kind, text string, message jsonvalue.Value) string {
 	switch kind {
 	case "api_req_started", "api_req_finished", "api_req_deleted":
 		parsed, _ := LoadsOrNone(text)
@@ -243,8 +243,8 @@ func systemText(kind, text string, message pyjson.Value) string {
 			return "condense_context: " + detail + " | " + parser.Str(condense.Get("summary"))
 		}
 	case "checkpoint_created":
-		if hash := message.Get("lastCheckpointHash"); hash.Truthy() {
-			return "checkpoint_created: " + hash.Str()
+		if hash := message.Get("lastCheckpointHash"); !hash.IsEmpty() {
+			return "checkpoint_created: " + hash.Text()
 		}
 	}
 	if text == "" {
@@ -260,19 +260,19 @@ func toolUseText(kind, text string) (string, string) {
 	case kind == "tool" && !ok:
 		return "tool", text
 	case kind == "tool":
-		return parser.Str(FirstTruthy(parsed.Get("tool"), pyjson.NewString("tool"))), fileToolText(parsed)
+		return parser.Str(FirstTruthy(parsed.Get("tool"), jsonvalue.NewString("tool"))), fileToolText(parsed)
 	case kind == "use_mcp_server" && !ok:
 		return "use_mcp_server", text
 	case kind == "use_mcp_server":
-		name := FirstTruthy(parsed.Get("toolName"), parsed.Get("type"), pyjson.NewString("use_mcp_server"))
-		return name.Str(), Join(parsed.Get("serverName"), parsed.Get("uri"), parsed.Get("arguments"))
+		name := FirstTruthy(parsed.Get("toolName"), parsed.Get("type"), jsonvalue.NewString("use_mcp_server"))
+		return name.Text(), Join(parsed.Get("serverName"), parsed.Get("uri"), parsed.Get("arguments"))
 	case kind == "browser_action" && ok:
 		return "browser_action", Join(parsed.Get("action"), parsed.Get("coordinate"), parsed.Get("text"))
 	case kind == "use_subagents" && ok && parsed.Get("prompts").IsArray():
 		prompts := parsed.Get("prompts").Items()
 		parts := make([]string, len(prompts))
 		for i, prompt := range prompts {
-			parts[i] = prompt.Str()
+			parts[i] = prompt.Text()
 		}
 		return "use_subagents", strings.Join(parts, " ; ")
 	}
@@ -288,18 +288,18 @@ func toolUseText(kind, text string) (string, string) {
 // fileToolText returns the text of a "tool" message: its path, the paths
 // of a batch, the search and mode fields, the reason and the diff or
 // content.
-func fileToolText(parsed pyjson.Value) string {
+func fileToolText(parsed jsonvalue.Value) string {
 	paths := ""
 	if batch := parsed.Get("batchFiles"); batch.IsArray() {
 		var parts []string
 		for _, entry := range batch.Items() {
 			if entry.IsObject() {
-				parts = append(parts, entry.Get("path").Str())
+				parts = append(parts, entry.Get("path").Text())
 			}
 		}
 		paths = strings.Join(parts, "; ")
 	}
-	return Join(parsed.Get("path"), pyjson.NewString(paths), parsed.Get("regex"),
+	return Join(parsed.Get("path"), jsonvalue.NewString(paths), parsed.Get("regex"),
 		parsed.Get("filePattern"), parsed.Get("query"), parsed.Get("mode"), parsed.Get("reason"),
 		FirstTruthy(parsed.Get("diff"), parsed.Get("content")))
 }

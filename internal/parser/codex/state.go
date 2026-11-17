@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -281,18 +281,18 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 // decodeColumnObject returns the JSON object a column holds as text or as
 // a UTF-8 blob, or false after adding the problem "unparseable record
 // <rowid> (<reason>)" with the stored value.
-func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Problems) (pyjson.Value, bool) {
+func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Problems) (jsonvalue.Value, bool) {
 	raw := value.Str()
 	if value.Type == sqlitefile.Blob {
 		raw = pytext.DecodeUTF8(value.Bytes)
 	}
-	record, err := pyjson.DecodeString(raw)
+	record, err := jsonvalue.DecodeString(raw)
 	if err == nil && !record.IsObject() {
 		err = errNotObject
 	}
 	if err != nil {
 		problems.AddRaw(rowid, parser.UnparseableRecord(rowid, err), raw)
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return record, true
 }
@@ -301,12 +301,12 @@ func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Prob
 // review's feedback record. A denied record whose decision is the
 // reviewer's JSON verdict reads as the review thread's own row for that
 // verdict, so the two pair.
-func feedbackText(record pyjson.Value) string {
+func feedbackText(record jsonvalue.Value) string {
 	item := strOr(record.Get("target_item_id"), "-")
 	reviewer := strOr(record.Get("reviewer_thread_id"), "-")
 	decision := record.Get("decision")
 	if isText(record.Get("status"), "denied") && decision.IsString() {
-		if verdict, ok := guardianVerdict(decision.Text()); ok {
+		if verdict, ok := guardianVerdict(decision.StringValue()); ok {
 			return guardianText(verdict, item, reviewer)
 		}
 	}

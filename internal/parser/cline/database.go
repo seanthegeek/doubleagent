@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -38,21 +38,21 @@ func unreadable(name string, err error) string {
 // columnValue returns a column value as the JSON value Python's sqlite3
 // module would give the parser: a number, text, null, or for a blob the
 // text Python's str() writes for bytes.
-func columnValue(value sqlitefile.Value) pyjson.Value {
+func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Integer:
-		return pyjson.NewInt(value.Int)
+		return jsonvalue.NewInt(value.Int)
 	case sqlitefile.Float:
-		return pyjson.NewFloat(value.Float)
+		return jsonvalue.NewFloat(value.Float)
 	case sqlitefile.Text, sqlitefile.Blob:
-		return pyjson.NewString(value.Str())
+		return jsonvalue.NewString(value.Str())
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // rowObject returns a database row as an object of its columns.
-func rowObject(row sqlitefile.Row) pyjson.Value {
-	object := pyjson.NewObject()
+func rowObject(row sqlitefile.Row) jsonvalue.Value {
+	object := jsonvalue.NewObject()
 	for _, column := range row.Columns() {
 		object.Set(column, columnValue(row.Get(column)))
 	}
@@ -118,22 +118,22 @@ func manifestPresent(artifact *input.Artifact, sessionID string) bool {
 
 // metadataJSON returns a metadata_json column decoded as JSON, or null for
 // an empty or absent value, a number, or text that is not JSON.
-func metadataJSON(value sqlitefile.Value) pyjson.Value {
+func metadataJSON(value sqlitefile.Value) jsonvalue.Value {
 	if !value.Truthy() {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
-	var decoded pyjson.Value
+	var decoded jsonvalue.Value
 	var err error
 	switch value.Type {
 	case sqlitefile.Text:
-		decoded, err = pyjson.DecodeString(value.Text())
+		decoded, err = jsonvalue.DecodeString(value.Text())
 	case sqlitefile.Blob:
-		decoded, err = pyjson.Decode(value.Bytes)
+		decoded, err = jsonvalue.Decode(value.Bytes)
 	default:
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	if err != nil {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	return decoded
 }

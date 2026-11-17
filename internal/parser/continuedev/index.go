@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
@@ -18,7 +18,7 @@ const byteOrderMark = "\ufeff"
 // index is one read of a sessions.json index: its entries by session id
 // and the problems met.
 type index struct {
-	entries  map[string]pyjson.Value
+	entries  map[string]jsonvalue.Value
 	problems parser.Problems
 }
 
@@ -49,7 +49,7 @@ func (x *Indexes) get(path string) index {
 // Index returns the entries, by session id, of the sessions.json in the
 // directory at path: none when it is absent or unreadable, which is
 // reported once, by Errors on the index's own artifact.
-func (x *Indexes) Index(directory string) map[string]pyjson.Value {
+func (x *Indexes) Index(directory string) map[string]jsonvalue.Value {
 	return x.get(filepath.Join(directory, IndexName)).entries
 }
 
@@ -65,8 +65,8 @@ func (x *Indexes) Errors(path string) parser.Problems {
 // Entries keyed session_id, a pre-1.0 format the extension filters out,
 // are skipped without a problem. An absent file or a symbolic link is an
 // empty index with no problem.
-func ReadIndex(path string) (map[string]pyjson.Value, parser.Problems) {
-	entries := map[string]pyjson.Value{}
+func ReadIndex(path string) (map[string]jsonvalue.Value, parser.Problems) {
+	entries := map[string]jsonvalue.Value{}
 	var problems parser.Problems
 	if !parser.RegularFile(path) {
 		return entries, problems
@@ -76,11 +76,11 @@ func ReadIndex(path string) (map[string]pyjson.Value, parser.Problems) {
 		return entries, problems
 	}
 	text := strings.TrimPrefix(pytext.DecodeUTF8(content), byteOrderMark)
-	ArrayRecords(text, &problems, func(position int, element pyjson.Value) {
+	ArrayRecords(text, &problems, func(position int, element jsonvalue.Value) {
 		switch {
-		case element.IsObject() && element.Get("sessionId").Truthy():
-			entries[element.Get("sessionId").Str()] = element
-		case element.IsObject() && element.Get("session_id").Truthy():
+		case element.IsObject() && !element.Get("sessionId").IsEmpty():
+			entries[element.Get("sessionId").Text()] = element
+		case element.IsObject() && !element.Get("session_id").IsEmpty():
 		default:
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
 				" (not an object with a sessionId)", parser.CompactJSON(element))
@@ -92,7 +92,7 @@ func ReadIndex(path string) (map[string]pyjson.Value, parser.Problems) {
 // ArrayRecords passes each element of the JSON array text holds to visit,
 // salvaging a damaged array as parser.ArrayAt does, and adds a problem for
 // data after the array.
-func ArrayRecords(text string, problems *parser.Problems, visit func(int, pyjson.Value)) {
+func ArrayRecords(text string, problems *parser.Problems, visit func(int, jsonvalue.Value)) {
 	end, count := -1, 0
 	for position, element := range parser.ArrayAt(text, 0, problems, &end) {
 		count = position

@@ -3,8 +3,8 @@ package vscode
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -12,7 +12,7 @@ import (
 // request emits the rows of one request: changes of the model, mode and
 // permission level, the prompt, a confirmation, the response's parts, and
 // an error or a cancel.
-func (s *sessionRows) request(request pyjson.Value, line int, options parser.Options) {
+func (s *sessionRows) request(request jsonvalue.Value, line int, options parser.Options) {
 	model := parser.Str(request.Get("modelId"))
 	asked := request.Get("timestamp")
 	s.change("model", "model", modelText(model, request.Get("modelConfiguration")), asked, line, model)
@@ -20,47 +20,47 @@ func (s *sessionRows) request(request pyjson.Value, line int, options parser.Opt
 	s.change("permission mode", "mode", shownSetting(modeInfo.Get("telemetryModeId")), asked, line, model)
 	s.change("permission level", "level", shownSetting(modeInfo.Get("permissionLevel")), asked, line, model)
 	answered := request.Get("responseTimestamp")
-	if !answered.Truthy() {
+	if answered.IsEmpty() {
 		answered = asked
 	}
 	text := promptText(request)
-	if request.Get("isSystemInitiated").Truthy() {
+	if !request.Get("isSystemInitiated").IsEmpty() {
 		s.emit(s.row(timeline.TurnSystem, "system initiated: "+text, asked, line, model))
 	} else {
 		s.emit(s.row(timeline.TurnUser, text, asked, line, model))
 	}
-	if confirmation := request.Get("confirmation"); confirmation.IsString() && confirmation.Text() != "" {
-		s.emit(s.row(timeline.TurnSystem, "permission decision: confirmation="+confirmation.Text(), asked,
+	if confirmation := request.Get("confirmation"); confirmation.IsString() && confirmation.StringValue() != "" {
+		s.emit(s.row(timeline.TurnSystem, "permission decision: confirmation="+confirmation.StringValue(), asked,
 			line, model))
 	}
 	response := request.Get("response")
 	parts := response.Items()
 	if response.IsString() || response.IsObject() {
-		parts = []pyjson.Value{response}
+		parts = []jsonvalue.Value{response}
 	}
 	responses := responseRows{session: s, timestamp: answered, line: line, model: model}
 	responses.parts(parts, options)
 	failure := request.Get("result").Get("errorDetails")
 	switch {
-	case failure.IsObject() && failure.Get("message").Truthy():
-		s.emit(s.row(timeline.TurnSystem, "error: "+failure.Get("message").Str(), answered, line, model))
-	case request.Get("isCanceled").Truthy():
+	case failure.IsObject() && !failure.Get("message").IsEmpty():
+		s.emit(s.row(timeline.TurnSystem, "error: "+failure.Get("message").Text(), answered, line, model))
+	case !request.Get("isCanceled").IsEmpty():
 		s.emit(s.row(timeline.TurnSystem, "canceled", answered, line, model))
 	}
 }
 
 // promptText returns a request's message text, with the names of its
 // attached variables.
-func promptText(request pyjson.Value) string {
+func promptText(request jsonvalue.Value) string {
 	message := request.Get("message")
-	text := message.Text()
+	text := message.StringValue()
 	if message.IsObject() {
 		text = parser.Str(message.Get("text"))
 	}
 	var names []string
 	for _, variable := range parser.Elements(request.Get("variableData").Get("variables")) {
-		if name := variable.Get("name"); name.Truthy() {
-			names = append(names, name.Str())
+		if name := variable.Get("name"); !name.IsEmpty() {
+			names = append(names, name.Text())
 		}
 	}
 	if len(names) > 0 {
@@ -73,7 +73,7 @@ func promptText(request pyjson.Value) string {
 // response's time.
 type responseRows struct {
 	session   *sessionRows
-	timestamp pyjson.Value
+	timestamp jsonvalue.Value
 	line      int
 	model     string
 	run       []string // the text parts not yet emitted
@@ -97,10 +97,10 @@ func (r *responseRows) flush() {
 
 // parts emits the rows of a response's parts: runs of text parts join
 // into one assistant row, and any other part ends the run.
-func (r *responseRows) parts(parts []pyjson.Value, options parser.Options) {
+func (r *responseRows) parts(parts []jsonvalue.Value, options parser.Options) {
 	for _, part := range parts {
 		if part.IsString() {
-			r.run = append(r.run, part.Text())
+			r.run = append(r.run, part.StringValue())
 			continue
 		}
 		if !part.IsObject() {
@@ -129,7 +129,7 @@ func (r *responseRows) parts(parts []pyjson.Value, options parser.Options) {
 }
 
 // part emits the rows of a response part that is not text.
-func (r *responseRows) part(kind, part pyjson.Value, options parser.Options) {
+func (r *responseRows) part(kind, part jsonvalue.Value, options parser.Options) {
 	switch {
 	case isText(kind, "thinking"):
 		if thought := mdText(part.Get("value")); options.IncludeThinking && thought != "" {
@@ -150,6 +150,6 @@ func (r *responseRows) part(kind, part pyjson.Value, options parser.Options) {
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

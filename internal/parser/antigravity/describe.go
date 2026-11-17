@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -19,9 +19,9 @@ func argKeys() []string {
 // toolArgsSummary returns the argument that names a tool call's action,
 // else the arguments as JSON; text that is not JSON is returned as it is.
 func toolArgsSummary(argumentsJSON string) string {
-	args := pyjson.NewObject()
+	args := jsonvalue.NewObject()
 	if argumentsJSON != "" {
-		decoded, err := pyjson.DecodeString(argumentsJSON)
+		decoded, err := jsonvalue.DecodeString(argumentsJSON)
 		if err != nil {
 			return argumentsJSON
 		}
@@ -29,13 +29,13 @@ func toolArgsSummary(argumentsJSON string) string {
 	}
 	for _, key := range argKeys() {
 		value := args.Get(key)
-		empty := value.IsNull() || (value.IsString() && value.Text() == "") ||
+		empty := value.IsNull() || (value.IsString() && value.StringValue() == "") ||
 			((value.IsArray() || value.IsObject()) && value.Len() == 0)
 		if empty {
 			continue
 		}
 		if value.IsString() {
-			return value.Text()
+			return value.StringValue()
 		}
 		return parser.CompactJSON(value)
 	}

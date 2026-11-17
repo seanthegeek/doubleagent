@@ -3,8 +3,8 @@ package continuedev
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -12,14 +12,14 @@ import (
 // promptModels emits a model row for each prompt log that changes the
 // model, and returns the item's model: the last prompt log's, else the
 // session's.
-func (s *sessionFile) promptModels(position int, item pyjson.Value) string {
+func (s *sessionFile) promptModels(position int, item jsonvalue.Value) string {
 	model := s.model
 	for _, log := range item.Get("promptLogs").Items() {
 		title := log.Get("modelTitle")
-		if !title.Truthy() {
+		if title.IsEmpty() {
 			continue
 		}
-		model = title.Str()
+		model = title.Text()
 		if change := s.models.Change("model", s.base.SessionID, model); change != "" {
 			row := s.row(position, model, timeline.TurnSystem)
 			row.Text = change
@@ -33,8 +33,8 @@ func (s *sessionFile) promptModels(position int, item pyjson.Value) string {
 // state, its result when no tool message answers the call and its
 // permission decision. The calls come from the message, else from the
 // states.
-func (s *sessionFile) toolCalls(position int, model string, item, message pyjson.Value) {
-	var states []pyjson.Value
+func (s *sessionFile) toolCalls(position int, model string, item, message jsonvalue.Value) {
+	var states []jsonvalue.Value
 	for _, state := range item.Get("toolCallStates").Items() {
 		if state.IsObject() {
 			states = append(states, state)
@@ -66,10 +66,10 @@ func (s *sessionFile) toolCalls(position int, model string, item, message pyjson
 
 // argumentsText returns a call's arguments as row text: a string as it is,
 // "" for none, anything else as CompactJSON.
-func argumentsText(arguments pyjson.Value) string {
+func argumentsText(arguments jsonvalue.Value) string {
 	switch {
 	case arguments.IsString():
-		return arguments.Text()
+		return arguments.StringValue()
 	case arguments.IsNull():
 		return ""
 	}
@@ -79,7 +79,7 @@ func argumentsText(arguments pyjson.Value) string {
 // callState emits the result row of a call state no tool message answers,
 // when it has output or a status beyond the running ones, and the
 // permission decision it records.
-func (s *sessionFile) callState(position int, model string, state pyjson.Value) {
+func (s *sessionFile) callState(position int, model string, state jsonvalue.Value) {
 	callID := parser.Str(state.Get("toolCallId"))
 	if callID == "" {
 		return
@@ -108,17 +108,17 @@ func (s *sessionFile) callState(position int, model string, state pyjson.Value) 
 // outputText returns the text of a tool output, a list of context items:
 // each item's content, its CompactJSON when it is not text, or its name
 // when it has none, joined by LF.
-func outputText(output pyjson.Value) string {
+func outputText(output jsonvalue.Value) string {
 	if !output.IsArray() {
 		return parser.TextOf(output)
 	}
 	var parts []string
 	for _, item := range output.Items() {
-		part := item.Str()
+		part := item.Text()
 		if item.IsObject() {
 			switch content := item.Get("content"); {
 			case content.IsString():
-				part = content.Text()
+				part = content.StringValue()
 			case !content.IsNull():
 				part = parser.CompactJSON(content)
 			default:
@@ -138,7 +138,7 @@ func outputText(output pyjson.Value) string {
 // (extensions/cli/src/stream/streamChatResponse.helpers.ts:519-527); an
 // errored one whose output is the extension's policy violation was
 // refused by policy.
-func stateDecision(status string, output pyjson.Value, text string) string {
+func stateDecision(status string, output jsonvalue.Value, text string) string {
 	if status == "canceled" {
 		switch pytext.Strip(text) {
 		case "Permission denied by user":

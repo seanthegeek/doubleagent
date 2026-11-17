@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of every file are proved against the Python analyzer by the
@@ -58,7 +58,7 @@ func TestRelayTextsNameMessagingPlatformsOnly(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := relayTexts(test.session, pyjson.NewString(test.last))
+			got := relayTexts(test.session, jsonvalue.NewString(test.last))
 			if !slices.Equal(got, test.want) {
 				t.Errorf("got %q, want %q", got, test.want)
 			}

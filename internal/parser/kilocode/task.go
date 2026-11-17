@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/opencode"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -17,8 +17,8 @@ import (
 // historyItem returns a pre-fork task's history item: history_item.json in
 // its directory, else its entry in the tasks' _index.json, else an empty
 // object. The task directory is the artifact's own. Either file that is there but cannot be read adds a problem.
-func historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) pyjson.Value {
-	item := pyjson.NewNull()
+func historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) jsonvalue.Value {
+	item := jsonvalue.NewNull()
 	if itemPath := parser.Beside(artifact, "history_item.json"); parser.RegularFile(itemPath) {
 		item, _ = readJSON(itemPath, problems)
 	}
@@ -28,12 +28,12 @@ func historyItem(artifact *input.Artifact, taskID string, problems *parser.Probl
 	if indexPath, found := parser.Above(artifact, 1, "_index.json"); found && parser.RegularFile(indexPath) {
 		index, _ := readJSON(indexPath, problems)
 		for _, entry := range index.Get("entries").Items() {
-			if entry.IsObject() && entry.Get("id").IsString() && entry.Get("id").Text() == taskID {
+			if entry.IsObject() && entry.Get("id").IsString() && entry.Get("id").StringValue() == taskID {
 				return entry
 			}
 		}
 	}
-	return pyjson.NewObject()
+	return jsonvalue.NewObject()
 }
 
 // task holds what every row of one pre-fork task shares.
@@ -88,7 +88,7 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 
 // taskTime returns a task's start: its ts, else its id read as an epoch
 // number when the id is all ASCII digits.
-func taskTime(stamp pyjson.Value, taskID string) string {
+func taskTime(stamp jsonvalue.Value, taskID string) string {
 	if started := timeutil.FromValue(stamp); started != "" {
 		return started
 	}
@@ -104,18 +104,18 @@ func taskTime(stamp pyjson.Value, taskID string) string {
 
 // labelled returns label followed by the value's text when the value counts
 // as true, else "".
-func labelled(label string, value pyjson.Value) string {
-	if !value.Truthy() {
+func labelled(label string, value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
-	return label + value.Str()
+	return label + value.Text()
 }
 
 // messageRows returns the rows of the record at position: a reasoning
 // record's thinking row, a summary's system row, or the rows of a
 // message's content blocks with its text blocks joined into one row placed
 // where the first of them was.
-func (t *task) messageRows(position int, message pyjson.Value) []timeline.Row {
+func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row {
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), t.started)
 	if isText(message.Get("type"), "reasoning") {
 		if !t.options.IncludeThinking {
@@ -131,13 +131,13 @@ func (t *task) messageRows(position int, message pyjson.Value) []timeline.Row {
 		return []timeline.Row{t.row(position, timestamp, timeline.TurnThinking, text)}
 	}
 	content := message.Get("content")
-	if message.Get("isSummary").Truthy() {
+	if !message.Get("isSummary").IsEmpty() {
 		return []timeline.Row{t.row(position, timestamp, timeline.TurnSystem,
 			"summary: "+parser.TextOf(content))}
 	}
 	if content.IsString() {
-		content = pyjson.NewArray(pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-			pyjson.Member{Key: "text", Value: content}))
+		content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+			jsonvalue.Member{Key: "text", Value: content}))
 	}
 	return t.blockRows(position, timestamp, message.Get("role"), content.Items())
 }
@@ -162,7 +162,7 @@ func (b *blocks) add(turn, text string) *timeline.Row {
 // blockRows returns the rows of a message's content blocks, its text
 // blocks joined into one row of the role's turn placed where the first of
 // them was.
-func (t *task) blockRows(position int, timestamp string, role pyjson.Value, content []pyjson.Value) []timeline.Row {
+func (t *task) blockRows(position int, timestamp string, role jsonvalue.Value, content []jsonvalue.Value) []timeline.Row {
 	built := &blocks{owner: t, position: position, timestamp: timestamp, textAt: -1}
 	for _, block := range content {
 		if block.IsObject() {
@@ -177,7 +177,7 @@ func (t *task) blockRows(position int, timestamp string, role pyjson.Value, cont
 }
 
 // block adds the rows of one content block, or its text to the message's.
-func (b *blocks) block(block pyjson.Value) {
+func (b *blocks) block(block jsonvalue.Value) {
 	kind := block.Get("type")
 	switch textOf(kind) {
 	case "text", "image":
@@ -199,19 +199,19 @@ func (b *blocks) block(block pyjson.Value) {
 		row.ToolName, row.ToolUseID = parser.Str(block.Get("name")), parser.Str(block.Get("id"))
 	case "tool_result":
 		text := parser.TextOf(block.Get("content"))
-		if block.Get("is_error").Truthy() {
+		if !block.Get("is_error").IsEmpty() {
 			text = "[error] " + text
 		}
 		b.add(timeline.TurnToolResult, text).ToolUseID = parser.Str(block.Get("tool_use_id"))
 	case "thinking", "reasoning":
 		text := firstTruthy(block.Get("thinking"), block.Get("text"))
-		if b.owner.options.IncludeThinking && text.Truthy() {
+		if b.owner.options.IncludeThinking && !text.IsEmpty() {
 			b.add(timeline.TurnThinking, parser.Str(text))
 		}
 	default:
 		label := "block"
-		if kind.Truthy() {
-			label = kind.Str()
+		if !kind.IsEmpty() {
+			label = kind.Text()
 		}
 		b.add(timeline.TurnSystem, label+": "+parser.CompactJSON(block))
 	}
@@ -219,7 +219,7 @@ func (b *blocks) block(block pyjson.Value) {
 
 // roleTurn returns the turn type of a message's joined text: user,
 // assistant, else system.
-func roleTurn(role pyjson.Value) string {
+func roleTurn(role jsonvalue.Value) string {
 	switch textOf(role) {
 	case "user":
 		return timeline.TurnUser
@@ -230,9 +230,9 @@ func roleTurn(role pyjson.Value) string {
 }
 
 // firstTruthy returns the first value Python counts as true, else the last.
-func firstTruthy(values ...pyjson.Value) pyjson.Value {
+func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -240,14 +240,14 @@ func firstTruthy(values ...pyjson.Value) pyjson.Value {
 }
 
 // textOf returns a string value's text, "" for any other value.
-func textOf(value pyjson.Value) string {
+func textOf(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return ""
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

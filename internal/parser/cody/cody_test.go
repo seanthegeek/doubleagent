@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // The expected values in this file come from running the Python helpers
@@ -76,7 +76,7 @@ func TestChatTimeReadsMailDatesAsPythonDoes(t *testing.T) {
 		{"03 Mar 2025 \u0661\u0660:00:00 GMT", ""},
 	} {
 		t.Run(test.text, func(t *testing.T) {
-			if got := chatTime(test.text, pyjson.NewNull()); got != test.want {
+			if got := chatTime(test.text, jsonvalue.NewNull()); got != test.want {
 				t.Errorf("chatTime(%q) = %q, want %q", test.text, got, test.want)
 			}
 		})
@@ -86,15 +86,15 @@ func TestChatTimeReadsMailDatesAsPythonDoes(t *testing.T) {
 func TestChatTimeFallsBackToTheLastInteraction(t *testing.T) {
 	for _, test := range []struct {
 		name, chatID string
-		fallback     pyjson.Value
+		fallback     jsonvalue.Value
 		want         string
 	}{
-		{"an ISO fallback", "", pyjson.NewString("2025-01-01T00:00:00Z"), "2025-01-01T00:00:00.000Z"},
-		{"a number is not read", "junk", pyjson.NewInt(5), ""},
-		{"a mail date fallback", "junk", pyjson.NewString("Mon, 03 Mar 2025 10:00:00 GMT"), "2025-03-03T10:00:00.000Z"},
-		{"a chat id wins", "Sat, 03 Oct 2026 10:00:00 GMT", pyjson.NewString("Sat, 03 Oct 2026 11:00:00 GMT"),
+		{"an ISO fallback", "", jsonvalue.NewString("2025-01-01T00:00:00Z"), "2025-01-01T00:00:00.000Z"},
+		{"a number is not read", "junk", jsonvalue.NewInt(5), ""},
+		{"a mail date fallback", "junk", jsonvalue.NewString("Mon, 03 Mar 2025 10:00:00 GMT"), "2025-03-03T10:00:00.000Z"},
+		{"a chat id wins", "Sat, 03 Oct 2026 10:00:00 GMT", jsonvalue.NewString("Sat, 03 Oct 2026 11:00:00 GMT"),
 			"2026-10-03T10:00:00.000Z"},
-		{"a uuid chat id", "0f0e-uuid", pyjson.NewNull(), ""},
+		{"a uuid chat id", "0f0e-uuid", jsonvalue.NewNull(), ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := chatTime(test.chatID, test.fallback); got != test.want {
@@ -116,11 +116,11 @@ func TestRecoveredKeysTakeJSONWhitespaceAndASCIIDigitsOnly(t *testing.T) {
 	}
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
 		if chats, _, _ := recoverHistory(build(date, space, "")); chats.Len() != 0 {
-			t.Errorf("a key followed by %q recovers %s", space, pyjson.Compact(chats))
+			t.Errorf("a key followed by %q recovers %s", space, chats.JSON())
 		}
 	}
 	if chats, _, _ := recoverHistory(build(strings.Replace(date, "01 Oct", "0\u0661 Oct", 1), "", "")); chats.Len() != 0 {
-		t.Errorf("a key with a non-ASCII digit recovers %s", pyjson.Compact(chats))
+		t.Errorf("a key with a non-ASCII digit recovers %s", chats.JSON())
 	}
 }
 
@@ -131,7 +131,7 @@ func TestRecoverHistoryKeepsTheInteractionsBeforeTheDamage(t *testing.T) {
 	want := `{"a":{"chat":{"Wed, 01 Oct 2026 08:00:00 GMT":{"id":"Wed, 01 Oct 2026 08:00:00 GMT",` +
 		`"interactions":[{"x":1}],"chatTitle":"one"}}},"b":{"chat":{"Wed, 01 Oct 2026 08:00:00 GMT":` +
 		`{"id":"Wed, 01 Oct 2026 08:00:00 GMT","interactions":[{"z":2}]}}}}`
-	if got := pyjson.Compact(history); got != want {
+	if got := history.JSON(); got != want {
 		t.Errorf("recovered history = %s\nwant %s", got, want)
 	}
 	if message != "chat history did not parse; recovered 2 chat(s)" {

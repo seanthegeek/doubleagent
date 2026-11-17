@@ -12,9 +12,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -88,24 +88,24 @@ func ignoredLookupError(err error) bool {
 // exists but cannot be read adds its unreadable problem to problems. A
 // missing file, a link or a directory gives nothing and no reason, since the
 // CLI writes no meta.json and that is not an error.
-func loadJSON(path string, problems *parser.Problems) (pyjson.Value, bool, string) {
+func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, string) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		if !ignoredLookupError(err) {
 			problems.AddUnreadable(0, path, err)
 		}
-		return pyjson.NewNull(), false, ""
+		return jsonvalue.NewNull(), false, ""
 	}
 	if !info.Mode().IsRegular() {
-		return pyjson.NewNull(), false, ""
+		return jsonvalue.NewNull(), false, ""
 	}
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return pyjson.NewNull(), false, ""
+		return jsonvalue.NewNull(), false, ""
 	}
-	value, err := pyjson.Decode(data)
+	value, err := jsonvalue.Decode(data)
 	if err != nil {
-		return pyjson.NewNull(), false, "could not be decoded (" + err.Error() + ")"
+		return jsonvalue.NewNull(), false, "could not be decoded (" + err.Error() + ")"
 	}
 	return value, true, ""
 }
@@ -114,12 +114,12 @@ func loadJSON(path string, problems *parser.Problems) (pyjson.Value, bool, strin
 // that exists but cannot be read adds its whole-file problem to problems;
 // one that does not decode or is not an object adds "<name> <reason>" at
 // line 1.
-func loadObject(path string, problems *parser.Problems) pyjson.Value {
+func loadObject(path string, problems *parser.Problems) jsonvalue.Value {
 	var unread parser.Problems
 	value, decoded, reason := loadJSON(path, &unread)
 	if len(unread) > 0 {
 		*problems = append(*problems, unread...)
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	if reason == "" && decoded && !value.IsObject() {
 		reason = "is not a JSON object"
@@ -130,18 +130,18 @@ func loadObject(path string, problems *parser.Problems) pyjson.Value {
 	if value.IsObject() {
 		return value
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // readObject returns the JSON object in a file this parser also parses in
 // full, else null: a pre-scan, whose problems are reported when the file is
 // parsed as an artifact or loaded as a conversation's state.
-func readObject(path string) pyjson.Value {
+func readObject(path string) jsonvalue.Value {
 	value, _, _ := loadJSON(path, &parser.Problems{})
 	if value.IsObject() {
 		return value
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // conversation returns the conversation in a directory, loaded once for as
@@ -207,7 +207,7 @@ func (p *Parser) load(directory string) *conversation {
 	for i, file := range files {
 		loaded[i] = loadedEvent{file.name, readObject(filepath.Join(directory, "events", file.name))}
 	}
-	first := pyjson.NewNull()
+	first := jsonvalue.NewNull()
 	if len(loaded) > 0 {
 		first = loaded[0].event
 	}
@@ -221,7 +221,7 @@ func (p *Parser) load(directory string) *conversation {
 
 // anchor sets the host's offset from the first event's time and meta.json's
 // created_at, and the conversation's start time.
-func (c *conversation) anchor(meta, first pyjson.Value) {
+func (c *conversation) anchor(meta, first jsonvalue.Value) {
 	created, hasCreated := aware(meta.Get("created_at"))
 	naiveFirst, hasNaive := naive(first.Get("timestamp"))
 	if hasCreated && hasNaive {
@@ -232,7 +232,7 @@ func (c *conversation) anchor(meta, first pyjson.Value) {
 		}
 	}
 	if hasCreated {
-		c.created = timeutil.FromText(meta.Get("created_at").Text())
+		c.created = timeutil.FromText(meta.Get("created_at").StringValue())
 	} else {
 		c.created = c.timestamp(first.Get("timestamp"))
 	}
@@ -258,7 +258,7 @@ func floorDivide(left, right float64) float64 {
 }
 
 // header returns the text of the conversation's start row.
-func header(conv *conversation, meta, state pyjson.Value, events int, first pyjson.Value) string {
+func header(conv *conversation, meta, state jsonvalue.Value, events int, first jsonvalue.Value) string {
 	basis := ""
 	if conv.hasOffset {
 		basis = "event times are host local, corrected by " + formatOffset(conv.offset) +
@@ -266,9 +266,9 @@ func header(conv *conversation, meta, state pyjson.Value, events int, first pyjs
 	} else if _, ok := naive(first.Get("timestamp")); ok {
 		basis = "event times are host local with no zone, emitted as if UTC"
 	}
-	labelled := func(label string, value pyjson.Value) string {
-		if value.Truthy() {
-			return label + "=" + value.Str()
+	labelled := func(label string, value jsonvalue.Value) string {
+		if !value.IsEmpty() {
+			return label + "=" + value.Text()
 		}
 		return ""
 	}
@@ -301,11 +301,11 @@ func pad2(number int) string {
 }
 
 // aware returns the time of a text timeutil reads, else false.
-func aware(value pyjson.Value) (time.Time, bool) {
+func aware(value jsonvalue.Value) (time.Time, bool) {
 	if !value.IsString() {
 		return time.Time{}, false
 	}
-	stamp := timeutil.FromText(value.Text())
+	stamp := timeutil.FromText(value.StringValue())
 	if stamp == "" {
 		return time.Time{}, false
 	}
@@ -316,11 +316,11 @@ func aware(value pyjson.Value) (time.Time, bool) {
 // naive returns the time of an ISO 8601 text that has no zone, else false:
 // a date, optionally followed by one separator character and an hour with
 // optional minutes, seconds and a fraction.
-func naive(value pyjson.Value) (time.Time, bool) {
-	if !value.IsString() || value.Text() == "" {
+func naive(value jsonvalue.Value) (time.Time, bool) {
+	if !value.IsString() || value.StringValue() == "" {
 		return time.Time{}, false
 	}
-	text := strings.Trim(value.Text(), " \t\n\r\f\v")
+	text := strings.Trim(value.StringValue(), " \t\n\r\f\v")
 	if len(text) < 10 || !digitsAt(text, 0, 4) || text[4] != '-' || !digitsAt(text, 5, 2) ||
 		text[7] != '-' || !digitsAt(text, 8, 2) {
 		return time.Time{}, false
@@ -394,12 +394,12 @@ func clock(text string) (hour, minute, second, nanos int, ok bool) {
 
 // timestamp returns an event time as UTC: a naive time less the host's
 // offset when the conversation has one, else the text as timeutil reads it.
-func (c *conversation) timestamp(value pyjson.Value) string {
+func (c *conversation) timestamp(value jsonvalue.Value) string {
 	if moment, ok := naive(value); ok && c.hasOffset {
 		return timeutil.FormatUTC(moment.Add(-time.Duration(c.offset) * time.Second))
 	}
 	if value.IsString() {
-		return timeutil.FromText(value.Text())
+		return timeutil.FromText(value.StringValue())
 	}
 	return ""
 }
@@ -419,12 +419,12 @@ func scratchText(workingDir string) string {
 // loadedEvent is an event file's name and its object, null when it has none.
 type loadedEvent struct {
 	name  string
-	event pyjson.Value
+	event jsonvalue.Value
 }
 
 // responseModels returns the model of each response id, from the token
 // usages of base_state.json's stats; the first model of an id stands.
-func responseModels(state pyjson.Value) map[string]string {
+func responseModels(state jsonvalue.Value) map[string]string {
 	byResponse := map[string]string{}
 	for _, metrics := range state.Get("stats").Get("usage_to_metrics").Members() {
 		for _, usage := range parser.Elements(metrics.Value.Get("token_usages")) {
@@ -447,7 +447,7 @@ func responseModels(state pyjson.Value) map[string]string {
 // from the switch observations' active_model, and a final row when
 // agent.llm.model differs from the last model the events show, since a
 // switch over REST leaves no event.
-func (c *conversation) trackModels(state pyjson.Value, loaded []loadedEvent) {
+func (c *conversation) trackModels(state jsonvalue.Value, loaded []loadedEvent) {
 	byResponse := responseModels(state)
 	initial, switched := "", false
 	for _, each := range loaded {
@@ -467,8 +467,8 @@ func (c *conversation) trackModels(state pyjson.Value, loaded []loadedEvent) {
 	current := initial
 	for _, each := range loaded {
 		event := each.event
-		if isString(event.Get("kind"), "ActionEvent") && event.Get("id").Truthy() {
-			c.actions[event.Get("id").Str()] = [2]string{parser.Str(event.Get("tool_name")),
+		if isString(event.Get("kind"), "ActionEvent") && !event.Get("id").IsEmpty() {
+			c.actions[event.Get("id").Text()] = [2]string{parser.Str(event.Get("tool_name")),
 				parser.Str(event.Get("tool_call_id"))}
 		}
 		if model := byResponse[parser.Str(event.Get("llm_response_id"))]; model != "" && model != current {
@@ -497,7 +497,7 @@ func modelText(old, next string) string {
 
 // switchOf returns the new model of a model switch and its " profile=<name>[
 // class=<class>]" suffix, else two empty texts.
-func switchOf(event pyjson.Value) (string, string) {
+func switchOf(event jsonvalue.Value) (string, string) {
 	observation := event.Get("observation")
 	if !isString(event.Get("kind"), "ObservationEvent") ||
 		!slices.ContainsFunc(switchKinds, func(kind string) bool {
@@ -506,15 +506,15 @@ func switchOf(event pyjson.Value) (string, string) {
 		return "", ""
 	}
 	next, ok := nonEmptyText(observation.Get("active_model"))
-	if observation.Get("is_error").Truthy() || !ok {
+	if !observation.Get("is_error").IsEmpty() || !ok {
 		return "", ""
 	}
 	suffix := ""
 	if profile, ok := nonEmptyText(firstTruthy(observation.Get("profile_name"), observation.Get("model"))); ok {
 		suffix = " profile=" + profile
 	}
-	if class := observation.Get("chosen_class"); class.Truthy() {
-		suffix += " class=" + class.Str()
+	if class := observation.Get("chosen_class"); !class.IsEmpty() {
+		suffix += " class=" + class.Text()
 	}
 	return next, suffix
 }
@@ -523,17 +523,17 @@ func switchOf(event pyjson.Value) (string, string) {
 // the confirmation policy, the security analyzer ("none" when the key is
 // absent, since the file is written without null fields) and one per
 // hook-blocked action, joined to its tool call when the events name it.
-func settingRows(state pyjson.Value, actions map[string][2]string) []setting {
-	if !state.Truthy() {
+func settingRows(state jsonvalue.Value, actions map[string][2]string) []setting {
+	if state.IsEmpty() {
 		return nil
 	}
 	const tail = " (from base_state.json, file mtime)"
 	var rows []setting
 	policy := state.Get("confirmation_policy")
-	if kind := policy.Get("kind"); kind.Truthy() {
-		text := "permission setting: confirmation_policy=" + kind.Str()
-		if threshold := policy.Get("threshold"); threshold.Truthy() {
-			text += " threshold=" + threshold.Str()
+	if kind := policy.Get("kind"); !kind.IsEmpty() {
+		text := "permission setting: confirmation_policy=" + kind.Text()
+		if threshold := policy.Get("threshold"); !threshold.IsEmpty() {
+			text += " threshold=" + threshold.Text()
 		}
 		if policy.Has("confirm_unknown") {
 			text += " confirm_unknown=" + parser.SettingValue(policy.Get("confirm_unknown"))

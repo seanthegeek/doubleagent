@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -26,7 +26,7 @@ type sessionRows struct {
 }
 
 // row returns a row of the session at a time and source line.
-func (s *sessionRows) row(turnType, text string, timestamp pyjson.Value, line int, model string) timeline.Row {
+func (s *sessionRows) row(turnType, text string, timestamp jsonvalue.Value, line int, model string) timeline.Row {
 	row := s.owner.BaseRow(s.artifact)
 	row.SessionID = s.sessionID
 	row.ProjectPath = s.project
@@ -43,18 +43,18 @@ func (s *sessionRows) row(turnType, text string, timestamp pyjson.Value, line in
 func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	lines := requestLines{}
 	var problems parser.Problems
-	state := pyjson.NewNull()
+	state := jsonvalue.NewNull()
 	if strings.HasSuffix(artifact.Rel, ".jsonl") {
 		state = replay(artifact.DiskPath, lines, &problems)
 	} else if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		decoded, err := pyjson.DecodeString(pytext.DecodeUTF8(data))
+		decoded, err := jsonvalue.DecodeString(pytext.DecodeUTF8(data))
 		if err != nil {
 			problems.Add(0, "file is not valid JSON ("+err.Error()+")")
 		}
 		state = decoded
 	}
 	if !state.IsObject() {
-		state = pyjson.NewObject()
+		state = jsonvalue.NewObject()
 	}
 	sessionID := parser.Str(state.Get("sessionId"))
 	if sessionID == "" {
@@ -83,13 +83,13 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 }
 
 // sessionStartText returns the text of a session's first row.
-func sessionStartText(state pyjson.Value, workspaceFile string) string {
+func sessionStartText(state jsonvalue.Value, workspaceFile string) string {
 	parts := []string{"session start:"}
 	for _, field := range []struct{ label, key string }{
 		{"responder", "responderUsername"}, {"location", "initialLocation"}, {"title", "customTitle"},
 	} {
-		if value := state.Get(field.key); value.Truthy() {
-			parts = append(parts, field.label+"="+value.Str())
+		if value := state.Get(field.key); !value.IsEmpty() {
+			parts = append(parts, field.label+"="+value.Text())
 		}
 	}
 	if workspaceFile != "" {
@@ -122,7 +122,7 @@ func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Proble
 	if !ok {
 		return "", ""
 	}
-	data, err := pyjson.DecodeString(pytext.DecodeUTF8(content))
+	data, err := jsonvalue.DecodeString(pytext.DecodeUTF8(content))
 	switch {
 	case err != nil:
 		problems.Add(0, "workspace.json not read ("+err.Error()+")")
@@ -136,7 +136,7 @@ func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Proble
 }
 
 // tracked emits a system row when a tracked state of the session changes.
-func (s *sessionRows) change(label, key, value string, timestamp pyjson.Value, line int, model string) {
+func (s *sessionRows) change(label, key, value string, timestamp jsonvalue.Value, line int, model string) {
 	if text := s.tracked.Change(label, key, value); text != "" {
 		s.emit(s.row(timeline.TurnSystem, text, timestamp, line, model))
 	}
@@ -144,7 +144,7 @@ func (s *sessionRows) change(label, key, value string, timestamp pyjson.Value, l
 
 // modelText returns the model and its options, sorted by name, as the
 // tracked model state.
-func modelText(model string, config pyjson.Value) string {
+func modelText(model string, config jsonvalue.Value) string {
 	if model == "" || !config.IsObject() || config.Len() == 0 {
 		return model
 	}
@@ -158,8 +158,8 @@ func modelText(model string, config pyjson.Value) string {
 }
 
 // shownSetting returns a value as a tracked setting, "" when it is false.
-func shownSetting(value pyjson.Value) string {
-	if !value.Truthy() {
+func shownSetting(value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
 	return parser.SettingValue(value)

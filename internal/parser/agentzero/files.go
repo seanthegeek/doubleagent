@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -34,23 +34,23 @@ var (
 )
 
 // blank reports whether value is null or empty text.
-func blank(value pyjson.Value) bool {
-	return value.IsNull() || (value.IsString() && value.Text() == "")
+func blank(value jsonvalue.Value) bool {
+	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
 // key returns a field as row text, "-" when it is absent or empty.
-func key(record pyjson.Value, name string) string {
+func key(record jsonvalue.Value, name string) string {
 	if value := record.Get(name); !blank(value) {
-		return value.Str()
+		return value.Text()
 	}
 	return "-"
 }
 
 // projectOf returns the container path of an Agent Zero project, "" for
 // none.
-func projectOf(name pyjson.Value) string {
-	if name.Truthy() {
-		return "/a0/usr/projects/" + name.Str()
+func projectOf(name jsonvalue.Value) string {
+	if !name.IsEmpty() {
+		return "/a0/usr/projects/" + name.Text()
 	}
 	return ""
 }
@@ -67,14 +67,14 @@ func (p *Parser) fileRow(artifact *input.Artifact, text, timestamp, sessionID, p
 // loadDocument returns the file as JSON and whether it decoded, or why it
 // did not: "not JSON (<reason>)". A file that cannot be read adds its
 // unreadable problem to problems.
-func loadDocument(artifact *input.Artifact, problems *parser.Problems) (pyjson.Value, string) {
+func loadDocument(artifact *input.Artifact, problems *parser.Problems) (jsonvalue.Value, string) {
 	content, ok := parser.FileBytes(artifact.DiskPath, problems)
 	if !ok {
-		return pyjson.NewNull(), ""
+		return jsonvalue.NewNull(), ""
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil {
-		return pyjson.NewNull(), "not JSON (" + err.Error() + ")"
+		return jsonvalue.NewNull(), "not JSON (" + err.Error() + ")"
 	}
 	return document, ""
 }
@@ -91,9 +91,9 @@ func firstNonEmpty(texts ...string) string {
 
 // orDefault returns a value as text, or fallback when Python counts it as
 // false.
-func orDefault(value pyjson.Value, fallback string) string {
-	if value.Truthy() {
-		return value.Str()
+func orDefault(value jsonvalue.Value, fallback string) string {
+	if !value.IsEmpty() {
+		return value.Text()
 	}
 	return fallback
 }
@@ -127,25 +127,25 @@ func (p *Parser) parseTasks(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // taskRows emits the rows of one scheduler task.
-func (p *Parser) taskRows(artifact *input.Artifact, number int, task pyjson.Value, emit parser.Emit) {
+func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.Value, emit parser.Emit) {
 	sessionID := parser.Str(firstTruthyValue(task.Get("context_id"), task.Get("uuid")))
 	projectPath := projectOf(task.Get("project_name"))
 	row := p.fileRow(artifact, "scheduled task: "+key(task, "name")+" type="+key(task, "type")+
 		" state="+key(task, "state"), timeutil.FromValue(task.Get("created_at")), sessionID, projectPath)
 	row.SourceLine = number
 	emit(row)
-	if prompt := task.Get("prompt"); prompt.Truthy() {
+	if prompt := task.Get("prompt"); !prompt.IsEmpty() {
 		// The scheduler logs "## Task:\n<prompt>" as the chat's user message
 		// when the task has no context.
-		row = p.fileRow(artifact, "## Task:\n"+prompt.Str(), "", sessionID, projectPath)
+		row = p.fileRow(artifact, "## Task:\n"+prompt.Text(), "", sessionID, projectPath)
 		row.TurnType, row.SourceLine = timeline.TurnUser, number
 		emit(row)
 	}
 	result := task.Get("last_result")
-	if !result.IsString() || pytext.Strip(result.Text()) == "" {
+	if !result.IsString() || pytext.Strip(result.StringValue()) == "" {
 		return
 	}
-	text, turn := result.Text(), timeline.TurnAssistant
+	text, turn := result.StringValue(), timeline.TurnAssistant
 	if isString(task.Get("state"), "error") && strings.HasPrefix(text, "ERROR: ") {
 		text, turn = "scheduled task failed: "+text[len("ERROR: "):], timeline.TurnSystem
 	}
@@ -156,18 +156,18 @@ func (p *Parser) taskRows(artifact *input.Artifact, number int, task pyjson.Valu
 
 // firstTruthyValue returns the first of the values that is true in Python,
 // else null.
-func firstTruthyValue(values ...pyjson.Value) pyjson.Value {
+func firstTruthyValue(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // isString reports whether value is the string want.
-func isString(value pyjson.Value, want string) bool {
-	return value.IsString() && value.Text() == want
+func isString(value jsonvalue.Value, want string) bool {
+	return value.IsString() && value.StringValue() == want
 }
 
 // parseTelegram emits a "session deleted:" row per Telegram chat whose chat
@@ -278,7 +278,7 @@ func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit pars
 			"", "", ""))
 		return
 	}
-	scope, project := p.scopeText(match), projectOf(pyjson.NewString(groupOf(p.policy, match, "project")))
+	scope, project := p.scopeText(match), projectOf(jsonvalue.NewString(groupOf(p.policy, match, "project")))
 	if groupOf(p.policy, match, "plugin") == "_tool_access" {
 		for _, name := range policyScalars {
 			if value := document.Get(name); !blank(value) {
@@ -316,7 +316,7 @@ func (p *Parser) parseToggle(artifact *input.Artifact, match []string, emit pars
 			text += " " + name + "=" + value
 		}
 	}
-	emit(p.settingRow(artifact, text, projectOf(pyjson.NewString(groupOf(p.toggle, match, "project")))))
+	emit(p.settingRow(artifact, text, projectOf(jsonvalue.NewString(groupOf(p.toggle, match, "project")))))
 }
 
 // parseConnector emits the "session origin:" row of the A0 CLI connector's

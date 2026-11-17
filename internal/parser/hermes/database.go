@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -27,30 +27,30 @@ func messagingSources() []string {
 
 // columnValue returns a column value as the decoded value of the same
 // type: a blob as the text Python's str() gives it.
-func columnValue(value sqlitefile.Value) pyjson.Value {
+func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Integer:
-		return pyjson.NewInt(value.Int)
+		return jsonvalue.NewInt(value.Int)
 	case sqlitefile.Float:
-		return pyjson.NewFloat(value.Float)
+		return jsonvalue.NewFloat(value.Float)
 	case sqlitefile.Text, sqlitefile.Blob:
-		return pyjson.NewString(value.Str())
+		return jsonvalue.NewString(value.Str())
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // rowObject returns a row as Python's dict of it: the rowid as _rowid when
 // selected, then every column by name.
-func rowObject(row sqlitefile.Row) pyjson.Value {
-	var members []pyjson.Member
+func rowObject(row sqlitefile.Row) jsonvalue.Value {
+	var members []jsonvalue.Member
 	for i, column := range row.Columns() {
 		key := column
 		if i == 0 && column == "rowid" {
 			key = "_rowid"
 		}
-		members = append(members, pyjson.Member{Key: key, Value: columnValue(row.Values()[i])})
+		members = append(members, jsonvalue.Member{Key: key, Value: columnValue(row.Values()[i])})
 	}
-	return pyjson.NewObject(members...)
+	return jsonvalue.NewObject(members...)
 }
 
 // recordError is a problem of one stored record, reported after the file's
@@ -66,8 +66,8 @@ type stateReader struct {
 	artifact *input.Artifact
 	handle   *sqlitefile.Database
 	tables   map[string]bool
-	sessions map[string]pyjson.Value
-	usage    map[string][]pyjson.Value
+	sessions map[string]jsonvalue.Value
+	usage    map[string][]jsonvalue.Value
 	errors   []recordError
 	emit     parser.Emit
 }
@@ -84,7 +84,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	}
 	defer handle.Close()
 	reader := &stateReader{parser: p, artifact: artifact, handle: handle,
-		sessions: map[string]pyjson.Value{}, emit: emit}
+		sessions: map[string]jsonvalue.Value{}, emit: emit}
 	if err := reader.rows(options); err != nil {
 		emit(p.system(artifact, 0, noSession(), parser.ProblemPrefix+parser.DatabaseError(err)))
 	}
@@ -93,7 +93,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 // each runs visit over the rows of table as objects, with the rowid first
 // when withRowid is set, filtered by keep when not nil, in the order.
 func (s *stateReader) each(table string, withRowid bool, keep func(sqlitefile.Row) bool,
-	order []string, visit func(pyjson.Value) error) error {
+	order []string, visit func(jsonvalue.Value) error) error {
 	handle, err := s.handle.Table(table)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func (s *stateReader) rows(options parser.Options) error {
 	}
 	if s.tables["sessions"] {
 		seen := parser.Tracker{}
-		err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session pyjson.Value) error {
+		err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
 			s.sessions[parser.Str(session.Get("id"))] = session
 			s.sessionRows(session, seen)
 			return nil
@@ -133,13 +133,13 @@ func (s *stateReader) rows(options parser.Options) error {
 		}
 	}
 	reader := s.parser.newMessageReader(s.artifact, options, s.usage, s.emit)
-	err = s.each("messages", false, nil, []string{"timestamp", "id"}, func(message pyjson.Value) error {
+	err = s.each("messages", false, nil, []string{"timestamp", "id"}, func(message jsonvalue.Value) error {
 		sessionID := parser.Str(message.Get("session_id"))
 		session, ok := s.sessions[sessionID]
 		if !ok {
 			session = sessionOf(sessionID)
 		}
-		reader.message(message, session, either(message.Get("id"), pyjson.NewInt(0)))
+		reader.message(message, session, either(message.Get("id"), jsonvalue.NewInt(0)))
 		return nil
 	})
 	if err != nil {
@@ -177,12 +177,12 @@ func (s *stateReader) tableRows() error {
 // readUsage reads the main-loop session_model_usage rows per session, by
 // first_seen; a row with a task is a side task's and is skipped.
 func (s *stateReader) readUsage() error {
-	s.usage = map[string][]pyjson.Value{}
+	s.usage = map[string][]jsonvalue.Value{}
 	if !s.tables["session_model_usage"] {
 		return nil
 	}
-	return s.each("session_model_usage", true, nil, []string{"first_seen", "rowid"}, func(usage pyjson.Value) error {
-		if !usage.Get("task").Truthy() {
+	return s.each("session_model_usage", true, nil, []string{"first_seen", "rowid"}, func(usage jsonvalue.Value) error {
+		if usage.Get("task").IsEmpty() {
 			sessionID := parser.Str(usage.Get("session_id"))
 			s.usage[sessionID] = append(s.usage[sessionID], usage)
 		}
@@ -191,7 +191,7 @@ func (s *stateReader) readUsage() error {
 }
 
 // addError files a record problem under a session and project.
-func (s *stateReader) addError(sessionID, project string, line pyjson.Value, message, raw string) {
+func (s *stateReader) addError(sessionID, project string, line jsonvalue.Value, message, raw string) {
 	s.errors = append(s.errors, recordError{sessionID: sessionID, project: project,
 		problem: parser.Problem{Line: lineNumber(line), Message: message, Raw: raw}})
 }
@@ -200,32 +200,32 @@ func (s *stateReader) addError(sessionID, project string, line pyjson.Value, mes
 // object when the column is empty. A value that does not decode to an
 // object files a record problem with the value as stored and gives an
 // empty object.
-func (s *stateReader) columnJSON(session pyjson.Value, column string) pyjson.Value {
+func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonvalue.Value {
 	raw := session.Get(column)
-	if raw.IsNull() || raw.IsString() && raw.Text() == "" {
-		return pyjson.NewObject()
+	if raw.IsNull() || raw.IsString() && raw.StringValue() == "" {
+		return jsonvalue.NewObject()
 	}
 	sessionID, project := parser.Str(session.Get("id")), projectOf(session)
 	rowid := session.Get("_rowid")
-	label := "unparseable record " + rowid.Str() + " (sessions." + column
+	label := "unparseable record " + rowid.Text() + " (sessions." + column
 	value := raw
 	if raw.IsString() {
-		decoded, err := pyjson.DecodeString(raw.Text())
+		decoded, err := jsonvalue.DecodeString(raw.StringValue())
 		if err != nil {
-			s.addError(sessionID, project, rowid, label+": "+err.Error()+")", raw.Text())
-			return pyjson.NewObject()
+			s.addError(sessionID, project, rowid, label+": "+err.Error()+")", raw.StringValue())
+			return jsonvalue.NewObject()
 		}
 		value = decoded
 	}
 	if !value.IsObject() {
-		s.addError(sessionID, project, rowid, label+": not a JSON object)", raw.Str())
-		return pyjson.NewObject()
+		s.addError(sessionID, project, rowid, label+": not a JSON object)", raw.Text())
+		return jsonvalue.NewObject()
 	}
 	return value
 }
 
 // archivedValue reports whether sessions.archived is 1, "1" or true.
-func archivedValue(value pyjson.Value) bool {
+func archivedValue(value jsonvalue.Value) bool {
 	if number, ok := numberValue(value); ok {
 		return number == 1
 	}
@@ -234,7 +234,7 @@ func archivedValue(value pyjson.Value) bool {
 
 // sessionRows emits a session's start row, its model rows, and its relay,
 // yolo-mode and worktree rows.
-func (s *stateReader) sessionRows(session pyjson.Value, seen parser.Tracker) {
+func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) {
 	origin, config := s.columnJSON(session, "origin_json"), s.columnJSON(session, "model_config")
 	imported := ""
 	if from := origin.Get("imported_from"); from.IsObject() {
@@ -255,7 +255,7 @@ func (s *stateReader) sessionRows(session pyjson.Value, seen parser.Tracker) {
 	s.modelRows(session, start, seen)
 	source := parser.Str(session.Get("source"))
 	if slices.Contains(messagingSources(), source) ||
-		session.Get("chat_id").Truthy() && source != "local" && source != "api_server" {
+		!session.Get("chat_id").IsEmpty() && source != "local" && source != "api_server" {
 		s.emit(copyRow(start, "session relayed: "+source+" chat "+dash(session.Get("chat_id"))+
 			" type "+dash(session.Get("chat_type"))+" thread "+dash(session.Get("thread_id"))+
 			" user "+dash(session.Get("user_id"))+" name "+dash(origin.Get("user_name"))+
@@ -276,16 +276,16 @@ func (s *stateReader) sessionRows(session pyjson.Value, seen parser.Tracker) {
 
 // labelled returns label and the value's text when the value is truthy,
 // else "".
-func labelled(label string, value pyjson.Value) string {
-	if !value.Truthy() {
+func labelled(label string, value jsonvalue.Value) string {
+	if value.IsEmpty() {
 		return ""
 	}
-	return label + value.Str()
+	return label + value.Text()
 }
 
 // modelRows emits a session's model rows: one per main-loop usage model
 // that changes it, at the usage's first_seen, else one for sessions.model.
-func (s *stateReader) modelRows(session pyjson.Value, start timeline.Row, seen parser.Tracker) {
+func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, seen parser.Tracker) {
 	uses := s.usage[start.SessionID]
 	if len(uses) == 0 {
 		model := parser.Str(session.Get("model"))
@@ -300,8 +300,8 @@ func (s *stateReader) modelRows(session pyjson.Value, start timeline.Row, seen p
 		if text == "" {
 			continue
 		}
-		if provider := usage.Get("billing_provider"); provider.Truthy() {
-			text += " provider=" + provider.Str()
+		if provider := usage.Get("billing_provider"); !provider.IsEmpty() {
+			text += " provider=" + provider.Text()
 		}
 		row := copyRow(start, text, model)
 		row.SourceLine = lineNumber(usage.Get("_rowid"))
@@ -314,22 +314,22 @@ func (s *stateReader) modelRows(session pyjson.Value, start timeline.Row, seen p
 // jsonText decodes a column read as Python's json.loads(value or "") reads
 // it: the reason is the decoder's error, or "not JSON text" for a number,
 // which is not text to decode.
-func jsonText(value pyjson.Value) (pyjson.Value, string) {
-	if !value.Truthy() {
-		value = pyjson.NewString("")
+func jsonText(value jsonvalue.Value) (jsonvalue.Value, string) {
+	if value.IsEmpty() {
+		value = jsonvalue.NewString("")
 	}
 	if !value.IsString() {
-		return pyjson.Value{}, "not JSON text"
+		return jsonvalue.Value{}, "not JSON text"
 	}
-	decoded, err := pyjson.DecodeString(value.Text())
+	decoded, err := jsonvalue.DecodeString(value.StringValue())
 	if err != nil {
-		return pyjson.Value{}, err.Error()
+		return jsonvalue.Value{}, err.Error()
 	}
 	return decoded, ""
 }
 
 // orEmpty returns str(value or "").
-func orEmpty(value pyjson.Value) string {
+func orEmpty(value jsonvalue.Value) string {
 	return parser.Str(value)
 }
 
@@ -346,7 +346,7 @@ func (s *stateReader) retiredRows() error {
 		return sqlitefile.Like(row.Get("key"), retiredPrefix+"%")
 	}).OrderBy("rowid").Each(func(row sqlitefile.Row) error {
 		record := rowObject(row)
-		key := record.Get("key").Str()
+		key := record.Get("key").Text()
 		sessionID := key[len(pytext.SliceCodePoints(key, pytext.CodePointLen(retiredPrefix))):]
 		session, ok := s.sessions[sessionID]
 		if !ok {
@@ -358,11 +358,11 @@ func (s *stateReader) retiredRows() error {
 		}
 		if reason != "" {
 			s.addError(sessionID, projectOf(session), record.Get("_rowid"), "unparseable record "+
-				record.Get("_rowid").Str()+" (state_meta.value: "+reason+")", orEmpty(record.Get("value")))
+				record.Get("_rowid").Text()+" (state_meta.value: "+reason+")", orEmpty(record.Get("value")))
 			return nil
 		}
 		sweep := ""
-		if value.Get("expires").Truthy() {
+		if !value.Get("expires").IsEmpty() {
 			sweep = " sweep"
 		}
 		deleted := s.parser.system(s.artifact, int(row.Rowid), session, "session deleted: "+sessionID+
@@ -404,7 +404,7 @@ func (s *stateReader) roomRows() error {
 		}
 		err = table.Select("room_id", "name").Each(func(row sqlitefile.Row) error {
 			record := rowObject(row)
-			names[record.Get("room_id").Str()] = orEmpty(record.Get("name"))
+			names[record.Get("room_id").Text()] = orEmpty(record.Get("name"))
 			return nil
 		})
 		if err != nil {
@@ -412,7 +412,7 @@ func (s *stateReader) roomRows() error {
 		}
 	}
 	order := []string{"created_at", "room_id", "seq"}
-	return s.each("hosted_room_events", true, nil, order, func(event pyjson.Value) error {
+	return s.each("hosted_room_events", true, nil, order, func(event jsonvalue.Value) error {
 		actor, actorOK := s.roomJSON(event, "actor_json")
 		payload, payloadOK := s.roomJSON(event, "payload_json")
 		if !actorOK || !payloadOK {
@@ -421,11 +421,11 @@ func (s *stateReader) roomRows() error {
 		kind, room := orEmpty(event.Get("kind")), orEmpty(event.Get("room_id"))
 		body := parser.CompactJSON(payload)
 		if text := payload.Get("text"); text.IsString() && (kind == "message.user" || kind == "message.member") {
-			body = text.Text()
+			body = text.StringValue()
 		}
-		roomName := pyjson.NewNull()
+		roomName := jsonvalue.NewNull()
 		if name, ok := names[room]; ok {
-			roomName = pyjson.NewString(name)
+			roomName = jsonvalue.NewString(name)
 		}
 		row := s.parser.system(s.artifact, lineNumber(event.Get("_rowid")), noSession(),
 			"bot mode room "+dash(roomName)+" ("+room+") seq "+dash(event.Get("seq"))+" "+kind+
@@ -440,7 +440,7 @@ func (s *stateReader) roomRows() error {
 // roomJSON returns hosted_room_events.<column> of an event as a JSON
 // object, or false after filing a record problem when it does not decode
 // to one.
-func (s *stateReader) roomJSON(event pyjson.Value, column string) (pyjson.Value, bool) {
+func (s *stateReader) roomJSON(event jsonvalue.Value, column string) (jsonvalue.Value, bool) {
 	value, reason := jsonText(event.Get(column))
 	if reason == "" && value.IsObject() {
 		return value, true
@@ -449,7 +449,7 @@ func (s *stateReader) roomJSON(event pyjson.Value, column string) (pyjson.Value,
 		reason = "not a JSON object"
 	}
 	rowid := event.Get("_rowid")
-	s.addError("", "", rowid, "unparseable record "+rowid.Str()+" (hosted_room_events."+column+": "+
+	s.addError("", "", rowid, "unparseable record "+rowid.Text()+" (hosted_room_events."+column+": "+
 		reason+")", orEmpty(event.Get(column)))
-	return pyjson.Value{}, false
+	return jsonvalue.Value{}, false
 }

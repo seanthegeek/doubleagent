@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -57,11 +57,11 @@ func orText(text string) string {
 
 // issueNumbers returns the numbers of a pull request's issues, joined by
 // commas.
-func issueNumbers(issues pyjson.Value) string {
+func issueNumbers(issues jsonvalue.Value) string {
 	var numbers []string
 	for _, issue := range issues.Items() {
 		if number := issue.Get("number"); issue.IsObject() && !number.IsNull() {
-			numbers = append(numbers, number.Str())
+			numbers = append(numbers, number.Text())
 		}
 	}
 	return strings.Join(numbers, ",")
@@ -75,7 +75,7 @@ func (p *Parser) audit(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		failure := ""
-		if record.Get("failurePhase").Truthy() || record.Get("failureError").Truthy() {
+		if !record.Get("failurePhase").IsEmpty() || !record.Get("failureError").IsEmpty() {
 			failure = " failure " + dash(record.Get("failurePhase")) + ": " +
 				dash(record.Get("failureError"))
 		}
@@ -100,7 +100,7 @@ func (p *Parser) channelRoutes(artifact *input.Artifact, name string, emit parse
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := pyjson.Decode(data)
+	document, err := jsonvalue.Decode(data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, name+" is not a JSON object")
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -156,7 +156,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var keys []string
-	var values []pyjson.Value
+	var values []jsonvalue.Value
 	for _, list := range []string{"allow", "ask", "deny"} {
 		for _, entry := range document.Get("permissions").Get(list).Items() {
 			keys, values = append(keys, "permissions."+list), append(values, entry)
@@ -184,11 +184,11 @@ func (p *Parser) usage(artifact *input.Artifact, emit parser.Emit) {
 			if count.IsObject() {
 				count = count.Get("count")
 			}
-			counts = append(counts, tool.Key+"="+count.Str())
+			counts = append(counts, tool.Key+"="+count.Text())
 		}
 		duration := "-"
 		if value := record.Get("durationMs"); isSet(value) {
-			duration = value.Str() + "ms"
+			duration = value.Text() + "ms"
 		}
 		models := "-"
 		if record.Get("models").Len() > 0 && record.Get("models").IsObject() {

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -125,20 +125,20 @@ func (g *generator) copyOf(row timeline.Row, files ...string) timeline.Row {
 }
 
 // rowValue returns a row as the JSON object the oracle builds a Row from.
-func rowValue(row timeline.Row) pyjson.Value {
-	text := pyjson.NewString
-	return pyjson.NewObject(pyjson.Member{Key: "timestamp_utc", Value: text(row.TimestampUTC)},
-		pyjson.Member{Key: "host", Value: text(row.Host)},
-		pyjson.Member{Key: "user", Value: text(row.User)},
-		pyjson.Member{Key: "agent", Value: text(row.Agent)},
-		pyjson.Member{Key: "session_id", Value: text(row.SessionID)},
-		pyjson.Member{Key: "project_path", Value: text(row.ProjectPath)},
-		pyjson.Member{Key: "turn_type", Value: text(row.TurnType)},
-		pyjson.Member{Key: "model", Value: text(row.Model)},
-		pyjson.Member{Key: "tool_use_id", Value: text(row.ToolUseID)},
-		pyjson.Member{Key: "text", Value: text(row.Text)},
-		pyjson.Member{Key: "source_file", Value: text(row.SourceFile)},
-		pyjson.Member{Key: "source_line", Value: pyjson.NewInt(int64(row.SourceLine))})
+func rowValue(row timeline.Row) jsonvalue.Value {
+	text := jsonvalue.NewString
+	return jsonvalue.NewObject(jsonvalue.Member{Key: "timestamp_utc", Value: text(row.TimestampUTC)},
+		jsonvalue.Member{Key: "host", Value: text(row.Host)},
+		jsonvalue.Member{Key: "user", Value: text(row.User)},
+		jsonvalue.Member{Key: "agent", Value: text(row.Agent)},
+		jsonvalue.Member{Key: "session_id", Value: text(row.SessionID)},
+		jsonvalue.Member{Key: "project_path", Value: text(row.ProjectPath)},
+		jsonvalue.Member{Key: "turn_type", Value: text(row.TurnType)},
+		jsonvalue.Member{Key: "model", Value: text(row.Model)},
+		jsonvalue.Member{Key: "tool_use_id", Value: text(row.ToolUseID)},
+		jsonvalue.Member{Key: "text", Value: text(row.Text)},
+		jsonvalue.Member{Key: "source_file", Value: text(row.SourceFile)},
+		jsonvalue.Member{Key: "source_line", Value: jsonvalue.NewInt(int64(row.SourceLine))})
 }
 
 // randomCase returns a random primary and secondary row set, many
@@ -169,18 +169,19 @@ func (g *generator) randomCase() ([]timeline.Row, []Secondary) {
 
 // encodeCase returns one case as the JSON line the oracle reads.
 func encodeCase(primary []timeline.Row, secondary []Secondary) string {
-	primaryValues := []pyjson.Value{}
+	primaryValues := []jsonvalue.Value{}
 	for _, row := range primary {
 		primaryValues = append(primaryValues, rowValue(row))
 	}
-	secondaryValues := []pyjson.Value{}
+	secondaryValues := []jsonvalue.Value{}
 	for _, item := range secondary {
-		secondaryValues = append(secondaryValues, pyjson.NewArray(rowValue(item.Row),
-			pyjson.NewFloat(item.Tolerance)))
+		secondaryValues = append(secondaryValues, jsonvalue.NewArray(rowValue(item.Row),
+			jsonvalue.NewFloat(item.Tolerance)))
 	}
-	return pyjson.Compact(pyjson.NewObject(
-		pyjson.Member{Key: "primary", Value: pyjson.NewArray(primaryValues...)},
-		pyjson.Member{Key: "secondary", Value: pyjson.NewArray(secondaryValues...)}))
+	return jsonvalue.NewObject(
+		jsonvalue.Member{Key: "primary", Value: jsonvalue.NewArray(primaryValues...)},
+		jsonvalue.Member{Key: "secondary", Value: jsonvalue.NewArray(secondaryValues...)}).JSON()
+
 }
 
 // summary writes a result as the oracle prints it.

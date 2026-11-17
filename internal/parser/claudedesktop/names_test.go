@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // writeEmpty writes an empty file at the slash-separated rel below root,
@@ -48,9 +48,9 @@ func TestARecordsIDsThatAreNotFileNamesNameNothingCollected(t *testing.T) {
 			rel := cowork + "/" + session + ".json"
 			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
 				Home: &input.Home{DiskPath: home}}
-			record := pyjson.NewObject(
-				pyjson.Member{Key: "sessionId", Value: pyjson.NewString(test.sessionID)},
-				pyjson.Member{Key: "cliSessionId", Value: pyjson.NewString(test.cliID)})
+			record := jsonvalue.NewObject(
+				jsonvalue.Member{Key: "sessionId", Value: jsonvalue.NewString(test.sessionID)},
+				jsonvalue.Member{Key: "cliSessionId", Value: jsonvalue.NewString(test.cliID)})
 			if sessionCollected(artifact, record) {
 				t.Error("a file outside the session's places counted as collected")
 			}

@@ -24,9 +24,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // root matches the storage roots: the extension's global storage in any
@@ -126,18 +126,18 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 }
 
 // HistoryItem returns the task's entry in state/taskHistory.json, or null.
-func (p *Parser) HistoryItem(task clinelegacy.Task) pyjson.Value {
+func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
 	history, found := task.InRoot("state/taskHistory.json")
 	if !found {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	items := p.CachedJSON(history)
 	for _, item := range items.Items() {
-		if item.IsObject() && item.Get("id").Str() == task.TaskID {
+		if item.IsObject() && item.Get("id").Text() == task.TaskID {
 			return item
 		}
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // Parse emits the rows of one Cline file.

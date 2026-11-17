@@ -1,9 +1,8 @@
 package timeline
 
-// The want values were printed by the Python analyzer (model.py and
-// cli.jsonl_line) under Python 3.14 (analyzer/.venv); the parity-tagged
-// tests compare generated rows and sessions with the interpreter
-// PARITY_PYTHON names.
+// The rows and sessions are the documented line forms of timeline.jsonl and
+// sessions.jsonl; the parity-tagged tests compare generated rows and
+// sessions, as decoded values, with the interpreter PARITY_PYTHON names.
 
 // rowLineCase is a row and its timeline.jsonl line.
 type rowLineCase struct {
@@ -11,7 +10,7 @@ type rowLineCase struct {
 	want string
 }
 
-// rowLineCases returns rows and the lines Python writes for them.
+// rowLineCases returns rows and their timeline.jsonl lines.
 func rowLineCases() []rowLineCase {
 	return []rowLineCase{
 		{Row{}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
@@ -20,8 +19,7 @@ func rowLineCases() []rowLineCase {
 		{Row{Text: "controls \x00\x01\x1f del \x7f"}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"controls \\u0000\\u0001\\u001f del \x7f\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
 		{Row{Text: "non-ASCII caf\U000000E9 \U00004E2D\U00006587 emoji \U0001F600 nbsp \U000000A0"}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"non-ASCII caf\U000000E9 \U00004E2D\U00006587 emoji \U0001F600 nbsp \U000000A0\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
 		{Row{Text: "separators \U00002028 and \U00002029 and nel \U00000085"}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"separators \\u2028 and \\u2029 and nel \U00000085\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
-		{Row{Text: "lone surrogate \xed\xa0\xbd caf\U000000E9 \U00002028 \x7f"}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"lone surrogate \\ud83d caf\\u00e9 \\u2028 \\u007f\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
-		{Row{Host: "caf\U000000E9", Text: "low \xed\xb0\x80"}, "{\"timestamp_utc\":\"\",\"host\":\"caf\\u00e9\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"low \\udc00\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
+		{Row{Text: "invalid UTF-8 \xed\xa0\xbd caf\U000000E9 \U00002028 \x7f"}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"invalid UTF-8 \U0000FFFD\U0000FFFD\U0000FFFD caf\U000000E9 \\u2028 \x7f\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
 		{Row{Text: "<script>&amp;</script>"}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"<script>&amp;</script>\",\"source_file\":\"\",\"source_line\":0,\"recovered\":\"\"}\n"},
 		{Row{SourceLine: -3}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"\",\"source_file\":\"\",\"source_line\":-3,\"recovered\":\"\"}\n"},
 		{Row{SourceLine: 1099511627776}, "{\"timestamp_utc\":\"\",\"host\":\"\",\"user\":\"\",\"agent\":\"\",\"session_id\":\"\",\"project_path\":\"\",\"git_branch\":\"\",\"turn_type\":\"\",\"model\":\"\",\"tool_name\":\"\",\"tool_use_id\":\"\",\"text\":\"\",\"source_file\":\"\",\"source_line\":1099511627776,\"recovered\":\"\"}\n"},
@@ -30,7 +28,7 @@ func rowLineCases() []rowLineCase {
 }
 
 // sessionCase is a set of rows, the mark agents and the sessions.jsonl
-// lines Python writes for their summaries.
+// lines of their summaries.
 type sessionCase struct {
 	name  string
 	rows  []Row

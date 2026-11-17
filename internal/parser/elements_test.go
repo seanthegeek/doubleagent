@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 func TestElementsVisitWhatPythonsLoopVisits(t *testing.T) {
@@ -12,7 +12,7 @@ func TestElementsVisitWhatPythonsLoopVisits(t *testing.T) {
 		json  string
 		items []string
 	}{
-		{"an array's items", `["a", 1, {"k": 2}]`, []string{`"a"`, `1`, `{"k": 2}`}},
+		{"an array's items", `["a", 1, {"k": 2}]`, []string{`"a"`, `1`, `{"k":2}`}},
 		{"an object's keys", `{"b": 1, "a": 2}`, []string{`"b"`, `"a"`}},
 		{"a string's characters", `"aé😀"`, []string{`"a"`, `"é"`, `"😀"`}},
 		{"null", `null`, nil},
@@ -26,7 +26,7 @@ func TestElementsVisitWhatPythonsLoopVisits(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			value, err := pyjson.DecodeString(test.json)
+			value, err := jsonvalue.DecodeString(test.json)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -35,7 +35,7 @@ func TestElementsVisitWhatPythonsLoopVisits(t *testing.T) {
 				t.Fatalf("got %d items, want %d", len(got), len(test.items))
 			}
 			for i, item := range got {
-				if text := pyjson.SpacedUnicode(item); text != test.items[i] {
+				if text := item.JSON(); text != test.items[i] {
 					t.Errorf("item %d is %s, want %s", i, text, test.items[i])
 				}
 			}
@@ -44,7 +44,7 @@ func TestElementsVisitWhatPythonsLoopVisits(t *testing.T) {
 }
 
 func TestElementsGiveNullForAFieldOfANonObject(t *testing.T) {
-	for _, item := range Elements(pyjson.NewString("ab")) {
+	for _, item := range Elements(jsonvalue.NewString("ab")) {
 		if !item.Get("name").IsNull() {
 			t.Errorf("a character gave a field %v", item.Get("name"))
 		}

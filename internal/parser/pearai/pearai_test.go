@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The expected values in this file come from running the Python helpers
@@ -104,7 +104,7 @@ func TestTheResultAndTaskPatternsReadAsPythonsDo(t *testing.T) {
 }
 
 func TestAPIContentRowsReadsRooToolResultsAndCalls(t *testing.T) {
-	user, err := pyjson.DecodeString(`{"role": "user", "content": [
+	user, err := jsonvalue.DecodeString(`{"role": "user", "content": [
 		{"type": "text", "text": "[read_file for 'a.py'] Result:"},
 		{"type": "text", "text": "The user denied this operation."},
 		{"type": "image"},
@@ -124,7 +124,7 @@ func TestAPIContentRowsReadsRooToolResultsAndCalls(t *testing.T) {
 	if got := parser.APIContentRows(user, 3, "user", false); !slices.Equal(got, want) {
 		t.Errorf("user rows = %+v, want %+v", got, want)
 	}
-	assistant, err := pyjson.DecodeString(`{"role": "assistant", "content": [
+	assistant, err := jsonvalue.DecodeString(`{"role": "assistant", "content": [
 		{"type": "text", "text": "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.py</path>\n</read_file><list_files><path>.</path></list_files>"},
 		{"type": "thinking", "thinking": "t"}]}`)
 	if err != nil {

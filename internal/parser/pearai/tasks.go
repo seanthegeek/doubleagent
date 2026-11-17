@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -24,18 +24,18 @@ func standingKeys() []string {
 
 // HistoryItem returns the task's taskHistory[] entry from the editor's
 // global state, or null.
-func (p *Parser) HistoryItem(task clinelegacy.Task) pyjson.Value {
+func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
 	database, found := task.InRootParent("state.vscdb")
 	if !found {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	state := p.globalState(database).value
 	for _, entry := range state.Get("taskHistory").Items() {
-		if entry.IsObject() && entry.Get("id").Str() == task.TaskID {
+		if entry.IsObject() && entry.Get("id").Text() == task.TaskID {
 			return entry
 		}
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // taskFile emits a task file's rows; beside ui_messages.json, which holds
@@ -53,8 +53,8 @@ func (p *Parser) taskFile(artifact *input.Artifact, options parser.Options, emit
 
 // askTimes returns, in time order, the ts of each tool call ask of
 // ui_messages.json, which a decision's tool_use_id names.
-func (p *Parser) askTimes(task clinelegacy.Task) []pyjson.Value {
-	var asks []pyjson.Value
+func (p *Parser) askTimes(task clinelegacy.Task) []jsonvalue.Value {
+	var asks []jsonvalue.Value
 	for _, message := range p.CachedJSON(task.InDir(clinelegacy.UIFile)).Items() {
 		stamp := message.Get("ts")
 		kind := parser.Str(clinelegacy.FirstTruthy(message.Get("ask"), message.Get("say")))
@@ -62,7 +62,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) []pyjson.Value {
 			asks = append(asks, stamp)
 		}
 	}
-	slices.SortStableFunc(asks, func(left, right pyjson.Value) int {
+	slices.SortStableFunc(asks, func(left, right jsonvalue.Value) int {
 		leftNumber, _ := clinelegacy.NumberOf(left)
 		rightNumber, _ := clinelegacy.NumberOf(right)
 		return clinelegacy.CompareNumbers(leftNumber, rightNumber)
@@ -88,11 +88,11 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 			if !text.IsString() {
 				continue
 			}
-			if hit := resultPattern.FindStringSubmatch(pytext.Strip(text.Text())); hit != nil {
+			if hit := resultPattern.FindStringSubmatch(pytext.Strip(text.StringValue())); hit != nil {
 				name = hit[1]
 				continue
 			}
-			decision := permissionDecision(text.Text())
+			decision := permissionDecision(text.StringValue())
 			if decision == "" {
 				continue
 			}
@@ -111,7 +111,7 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 // lastAskBefore returns, as Python's str() writes it, the latest ask time
 // at or before a message's time, or "" when there is none or the time is
 // not a number.
-func lastAskBefore(asks []pyjson.Value, timestamp pyjson.Value) string {
+func lastAskBefore(asks []jsonvalue.Value, timestamp jsonvalue.Value) string {
 	moment, ok := clinelegacy.NumberOf(timestamp)
 	if !ok || !clinelegacy.IsNumber(timestamp) {
 		return ""
@@ -119,23 +119,23 @@ func lastAskBefore(asks []pyjson.Value, timestamp pyjson.Value) string {
 	found := ""
 	for _, ask := range asks {
 		if since, _ := clinelegacy.NumberOf(ask); since <= moment {
-			found = ask.Str()
+			found = ask.Text()
 		}
 	}
 	return found
 }
 
 // blockText returns a text block's text, or null for any other block.
-func blockText(block pyjson.Value) pyjson.Value {
+func blockText(block jsonvalue.Value) jsonvalue.Value {
 	if isText(block.Get("type"), "text") {
 		return block.Get("text")
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // isText reports whether a value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // state emits a task row per taskHistory[] entry of the editor's global
@@ -156,7 +156,7 @@ func (p *Parser) state(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // stateRows emits the task and setting rows of the extension's state.
-func (p *Parser) stateRows(artifact *input.Artifact, state pyjson.Value, emit parser.Emit) {
+func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	for i, item := range state.Get("taskHistory").Items() {
 		if !item.IsObject() {
 			continue
@@ -164,7 +164,7 @@ func (p *Parser) stateRows(artifact *input.Artifact, state pyjson.Value, emit pa
 		row := p.HistoryRow(artifact, item, i+1)
 		text := row.Text
 		if number := item.Get("number"); clinelegacy.Present(number) {
-			text += " number=" + number.Str()
+			text += " number=" + number.Text()
 		}
 		if creator := item.Get("creatorModeConfig"); creator.IsObject() && creator.Len() > 0 {
 			text += " | creator mode: newProjectType=" + orDash(creator.Get("newProjectType")) +
@@ -185,8 +185,8 @@ func (p *Parser) stateRows(artifact *input.Artifact, state pyjson.Value, emit pa
 }
 
 // orDash returns a value as Python's str(value or "-") writes it.
-func orDash(value pyjson.Value) string {
-	return clinelegacy.FirstTruthy(value, pyjson.NewString("-")).Str()
+func orDash(value jsonvalue.Value) string {
+	return clinelegacy.FirstTruthy(value, jsonvalue.NewString("-")).Text()
 }
 
 // permissionTexts are the texts Roo 3.15 opens a tool result with when the

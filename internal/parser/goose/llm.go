@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -30,7 +30,7 @@ type assembly struct {
 	base      timeline.Row
 	messageID string
 	role      string
-	blocks    []pyjson.Value
+	blocks    []jsonvalue.Value
 }
 
 // flush adds the rows of the message assembled so far.
@@ -38,7 +38,7 @@ func (l *llmLog) flush() {
 	if l.current == nil {
 		return
 	}
-	l.reader.blocks(l.current.base, l.current.role, pyjson.NewArray(l.current.blocks...), true, nil,
+	l.reader.blocks(l.current.base, l.current.role, jsonvalue.NewArray(l.current.blocks...), true, nil,
 		func(row timeline.Row) { l.pending = append(l.pending, row) })
 	l.current = nil
 }
@@ -61,7 +61,7 @@ func (p *Parser) parseLLMLog(artifact *input.Artifact, options parser.Options, e
 }
 
 // record reads one line of the log.
-func (l *llmLog) record(number int, record pyjson.Value) {
+func (l *llmLog) record(number int, record jsonvalue.Value) {
 	if record.Has("input") || record.Has("model_config") {
 		l.flush()
 		l.requestRow(number, record)
@@ -71,12 +71,12 @@ func (l *llmLog) record(number int, record pyjson.Value) {
 	switch {
 	case data.IsObject() && data.Has("content"):
 		l.chunk(number, data)
-	case record.Get("error").Truthy():
+	case !record.Get("error").IsEmpty():
 		l.flush()
 		failure := record.Get("error")
 		text := parser.CompactJSON(failure)
 		if failure.IsString() {
-			text = failure.Text()
+			text = failure.StringValue()
 		}
 		row := l.parser.row(l.artifact, number, "", "", l.model, "")
 		row.TurnType, row.Text = timeline.TurnSystem, timeline.Compact("llm error: "+text)
@@ -86,11 +86,11 @@ func (l *llmLog) record(number int, record pyjson.Value) {
 
 // requestRow replaces the request row with the one of a request line,
 // whose model the rows after it take.
-func (l *llmLog) requestRow(number int, record pyjson.Value) {
+func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	config := orObject(record.Get("model_config"))
 	request := record.Get("input")
 	if !request.IsObject() {
-		request = pyjson.NewObject()
+		request = jsonvalue.NewObject()
 	}
 	l.model = parser.Str(config.Get("model_name"))
 	if l.model == "" {
@@ -116,7 +116,7 @@ func (l *llmLog) requestRow(number int, record pyjson.Value) {
 // chunk reads one streamed chunk: a chunk of the message being assembled
 // is merged into it, any other starts a new message. A chunk without
 // content (usage or metadata) adds nothing.
-func (l *llmLog) chunk(number int, data pyjson.Value) {
+func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 	content := textBlocks(data.Get("content"))
 	if !content.IsArray() || content.Len() == 0 {
 		return
@@ -136,7 +136,7 @@ func (l *llmLog) chunk(number int, data pyjson.Value) {
 		role = timeline.TurnAssistant
 	}
 	l.current = &assembly{base: base, messageID: messageID, role: role,
-		blocks: append([]pyjson.Value(nil), content.Items()...)}
+		blocks: append([]jsonvalue.Value(nil), content.Items()...)}
 }
 
 // mergeDelta appends one streamed chunk's blocks to the message assembled
@@ -144,7 +144,7 @@ func (l *llmLog) chunk(number int, data pyjson.Value) {
 // id: a one-block text chunk extends a last text block of the same
 // audience, a one-block thinking chunk extends a last thinking block that
 // is unsigned or has its signature, and anything else is appended.
-func mergeDelta(blocks, added []pyjson.Value) []pyjson.Value {
+func mergeDelta(blocks, added []jsonvalue.Value) []jsonvalue.Value {
 	if len(added) != 1 || len(blocks) == 0 || !blocks[len(blocks)-1].IsObject() || !added[0].IsObject() {
 		return append(blocks, added...)
 	}
@@ -154,12 +154,12 @@ func mergeDelta(blocks, added []pyjson.Value) []pyjson.Value {
 	case isText(kind, "text") && isText(block.Get("type"), "text") &&
 		pyEqual(audience(last), audience(block)):
 		blocks[len(blocks)-1] = withMember(last, "text",
-			pyjson.NewString(parser.Str(last.Get("text"))+parser.Str(block.Get("text"))))
+			jsonvalue.NewString(parser.Str(last.Get("text"))+parser.Str(block.Get("text"))))
 	case isText(kind, "thinking") && isText(block.Get("type"), "thinking") &&
-		(!last.Get("signature").Truthy() || pyEqual(block.Get("signature"), last.Get("signature"))):
+		(last.Get("signature").IsEmpty() || pyEqual(block.Get("signature"), last.Get("signature"))):
 		merged := withMember(last, "thinking",
-			pyjson.NewString(parser.Str(last.Get("thinking"))+parser.Str(block.Get("thinking"))))
-		if signature := block.Get("signature"); signature.Truthy() {
+			jsonvalue.NewString(parser.Str(last.Get("thinking"))+parser.Str(block.Get("thinking"))))
+		if signature := block.Get("signature"); !signature.IsEmpty() {
 			merged = withMember(merged, "signature", signature)
 		}
 		blocks[len(blocks)-1] = merged
@@ -171,42 +171,42 @@ func mergeDelta(blocks, added []pyjson.Value) []pyjson.Value {
 
 // audience returns a block's annotations.audience, JSON null when there is
 // none.
-func audience(block pyjson.Value) pyjson.Value {
+func audience(block jsonvalue.Value) jsonvalue.Value {
 	if annotations := block.Get("annotations"); annotations.IsObject() {
 		return annotations.Get("audience")
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // withMember returns a copy of an object with key set to value, in the
 // key's place or at the end.
-func withMember(object pyjson.Value, key string, value pyjson.Value) pyjson.Value {
+func withMember(object jsonvalue.Value, key string, value jsonvalue.Value) jsonvalue.Value {
 	members := slices.Clone(object.Members())
 	for i := range members {
 		if members[i].Key == key {
 			members[i].Value = value
-			return pyjson.NewObject(members...)
+			return jsonvalue.NewObject(members...)
 		}
 	}
-	return pyjson.NewObject(append(members, pyjson.Member{Key: key, Value: value})...)
+	return jsonvalue.NewObject(append(members, jsonvalue.Member{Key: key, Value: value})...)
 }
 
 // pyEqual reports whether two decoded values are equal as Python's ==
 // compares them: numbers (and booleans, which are 0 and 1) by value,
 // objects by their keys and values whatever the order.
-func pyEqual(left, right pyjson.Value) bool {
+func pyEqual(left, right jsonvalue.Value) bool {
 	leftNumber, leftIsNumber := numberOf(left)
 	rightNumber, rightIsNumber := numberOf(right)
 	switch {
 	case leftIsNumber || rightIsNumber:
 		if left.IsNumber() && right.IsNumber() && left.IsInt() && right.IsInt() {
-			return left.NumberText() == right.NumberText()
+			return left.Number() == right.Number()
 		}
 		return leftIsNumber && rightIsNumber && leftNumber == rightNumber
 	case left.Kind() != right.Kind():
 		return false
 	case left.IsString():
-		return left.Text() == right.Text()
+		return left.StringValue() == right.StringValue()
 	case left.IsArray():
 		return arraysEqual(left.Items(), right.Items())
 	case left.IsObject():
@@ -216,7 +216,7 @@ func pyEqual(left, right pyjson.Value) bool {
 }
 
 // numberOf returns a number or a boolean as a float.
-func numberOf(value pyjson.Value) (float64, bool) {
+func numberOf(value jsonvalue.Value) (float64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return 1, true
@@ -231,7 +231,7 @@ func numberOf(value pyjson.Value) (float64, bool) {
 }
 
 // arraysEqual compares two arrays item by item.
-func arraysEqual(left, right []pyjson.Value) bool {
+func arraysEqual(left, right []jsonvalue.Value) bool {
 	if len(left) != len(right) {
 		return false
 	}
@@ -244,7 +244,7 @@ func arraysEqual(left, right []pyjson.Value) bool {
 }
 
 // objectsEqual compares two objects by their keys and values.
-func objectsEqual(left, right pyjson.Value) bool {
+func objectsEqual(left, right jsonvalue.Value) bool {
 	if left.Len() != right.Len() {
 		return false
 	}

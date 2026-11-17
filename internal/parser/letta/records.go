@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -18,12 +18,12 @@ func permissionKeys() []string {
 }
 
 // dash returns a record value as row text, "-" when absent or empty.
-func dash(value pyjson.Value) string {
+func dash(value jsonvalue.Value) string {
 	return parser.SettingOrDash(value)
 }
 
 // timeOrDash returns a record value as a timestamp, "-" when it is none.
-func timeOrDash(value pyjson.Value) string {
+func timeOrDash(value jsonvalue.Value) string {
 	if timestamp := timeutil.FromValue(value); timestamp != "" {
 		return timestamp
 	}
@@ -31,9 +31,9 @@ func timeOrDash(value pyjson.Value) string {
 }
 
 // strOrDash returns a value as Python's `value or "-"` writes it.
-func strOrDash(value pyjson.Value) string {
-	if value.Truthy() {
-		return value.Str()
+func strOrDash(value jsonvalue.Value) string {
+	if !value.IsEmpty() {
+		return value.Text()
 	}
 	return "-"
 }
@@ -51,7 +51,7 @@ func (p *Parser) lineOne(artifact *input.Artifact, timestamp, text string) timel
 // row when it cannot be read. It returns the document, whether it is an
 // object, and whether the file was read at all.
 func (p *Parser) readDocument(artifact *input.Artifact, emit parser.Emit,
-	project string) (pyjson.Value, bool, bool) {
+	project string) (jsonvalue.Value, bool, bool) {
 	var problems parser.Problems
 	document, isObject := readSettings(artifact.DiskPath, &problems)
 	if len(problems) > 0 {
@@ -100,7 +100,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 
 // syncRows writes, through put, one `session synced:` row per entry of a
 // settings file's sessionsByServer whose key does not start "local:".
-func syncRows(servers pyjson.Value, rel string, put func(sessionID, text string)) {
+func syncRows(servers jsonvalue.Value, rel string, put func(sessionID, text string)) {
 	for _, server := range servers.Members() {
 		if strings.HasPrefix(server.Key, "local:") {
 			continue
@@ -114,14 +114,14 @@ func syncRows(servers pyjson.Value, rel string, put func(sessionID, text string)
 
 // listOf returns a list's items, nothing for null, and any other value as
 // a list of one.
-func listOf(value pyjson.Value) []pyjson.Value {
+func listOf(value jsonvalue.Value) []jsonvalue.Value {
 	switch {
 	case value.IsArray():
 		return value.Items()
 	case value.IsNull():
 		return nil
 	}
-	return []pyjson.Value{value}
+	return []jsonvalue.Value{value}
 }
 
 // parseRouting emits one `session relayed:` row per route of a channel's
@@ -189,7 +189,7 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // taskText returns the `scheduled task:` row text of one task.
-func taskText(task pyjson.Value, conversation string, created bool, rel string) string {
+func taskText(task jsonvalue.Value, conversation string, created bool, rel string) string {
 	field := func(key string) string { return dash(task.Get(key)) }
 	source := "file mtime"
 	if created {
@@ -199,7 +199,7 @@ func taskText(task pyjson.Value, conversation string, created bool, rel string) 
 		"scheduled_for=%s agent=%s conversation=%s fire_count=%s last_fired=%s last_run=%s outcome=%s "+
 		"reason=%s error=%s cancel_reason=%s (from %s, %s) description: %s prompt: %s",
 		field("id"), field("name"), field("status"), field("cron"), field("timezone"), field("recurring"),
-		timeOrDash(task.Get("scheduled_for")), field("agent_id"), dash(pyjson.NewString(conversation)),
+		timeOrDash(task.Get("scheduled_for")), field("agent_id"), dash(jsonvalue.NewString(conversation)),
 		field("fire_count"), timeOrDash(task.Get("last_fired_at")), timeOrDash(task.Get("last_run_at")),
 		field("last_run_outcome"), field("last_run_reason"), field("last_run_error"),
 		field("cancel_reason"), rel, source, field("description"), field("prompt"))
@@ -253,9 +253,9 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 	results := objects(document.Get("results"))
 	put(timeline.TurnSystem, "", fmt.Sprintf("interrupted turn: agent %s conversation %s run %s "+
 		"tool_calls=%s unstarted=%s results=%d working_directory=%s acting_user=%s (from %s, file mtime)",
-		dash(document.Get("agentId")), dash(pyjson.NewString(sessionID)), dash(document.Get("runId")),
+		dash(document.Get("agentId")), dash(jsonvalue.NewString(sessionID)), dash(document.Get("runId")),
 		joinedIDs(document.Get("toolCallIds")), joinedIDs(document.Get("unstartedToolCallIds")),
-		len(results), dash(pyjson.NewString(cwd)), dash(document.Get("actingUserId")), artifact.Rel))
+		len(results), dash(jsonvalue.NewString(cwd)), dash(document.Get("actingUserId")), artifact.Rel))
 	for _, result := range results {
 		callID := parser.Str(result.Get("tool_call_id"))
 		if result.Has("approve") {
@@ -263,7 +263,7 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		text := parser.TextOf(result.Get("tool_return"))
-		if status := result.Get("status"); status.IsString() && status.Text() == "error" {
+		if status := result.Get("status"); status.IsString() && status.StringValue() == "error" {
 			text = "[error] " + text
 		}
 		put(timeline.TurnToolResult, callID, text)
@@ -271,8 +271,8 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // objects returns the objects of a list, none for any other value.
-func objects(list pyjson.Value) []pyjson.Value {
-	var out []pyjson.Value
+func objects(list jsonvalue.Value) []jsonvalue.Value {
+	var out []jsonvalue.Value
 	for _, item := range list.Items() {
 		if item.IsObject() {
 			out = append(out, item)
@@ -283,7 +283,7 @@ func objects(list pyjson.Value) []pyjson.Value {
 
 // interruptedDecision returns the `permission decision:` row text of an
 // approval in an interrupted turn's results.
-func interruptedDecision(result pyjson.Value, rel string) string {
+func interruptedDecision(result jsonvalue.Value, rel string) string {
 	decision := "deny"
 	if approved, isBool := result.Get("approve").Bool(); isBool && approved {
 		decision = "approve"
@@ -294,10 +294,10 @@ func interruptedDecision(result pyjson.Value, rel string) string {
 
 // joinedIDs returns a list of ids joined by commas, each as Python's str()
 // writes it, or "-" for an empty list or a value that is not a list.
-func joinedIDs(value pyjson.Value) string {
+func joinedIDs(value jsonvalue.Value) string {
 	var items []string
 	for _, item := range value.Items() {
-		items = append(items, item.Str())
+		items = append(items, item.Text())
 	}
 	if joined := strings.Join(items, ","); joined != "" {
 		return joined
@@ -329,11 +329,11 @@ func (p *Parser) parseSessions(artifact *input.Artifact, emit parser.Emit) {
 
 // sessionText returns the text of a sessions.jsonl line: the end of a CLI
 // session when it has exit_reason or message_count, else its start.
-func sessionText(record pyjson.Value) string {
+func sessionText(record jsonvalue.Value) string {
 	field := func(key string) string { return parser.Str(record.Get(key)) }
-	present := func(value pyjson.Value, key string) string {
+	present := func(value jsonvalue.Value, key string) string {
 		if item, ok := value.Lookup(key); ok {
-			return item.Str()
+			return item.Text()
 		}
 		return ""
 	}

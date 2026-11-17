@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of every file kind are proved against the Python analyzer by the
@@ -54,7 +54,7 @@ func TestNaiveReadsAZonelessISOTimeAndNothingElse(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			moment, ok := naive(pyjson.NewString(test.text))
+			moment, ok := naive(jsonvalue.NewString(test.text))
 			got := ""
 			if ok {
 				got = moment.Format("2006-01-02T15:04:05.000000")

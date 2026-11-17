@@ -4,15 +4,15 @@ import (
 	"math"
 	"slices"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // node is a JSON value of a session being rebuilt from its mutation log:
 // its arrays and objects change in place. A value that is neither is held
 // as it was decoded.
 type node struct {
-	scalar   pyjson.Value
+	scalar   jsonvalue.Value
 	isArray  bool
 	isObject bool
 	items    []*node
@@ -21,7 +21,7 @@ type node struct {
 }
 
 // newNode returns a decoded value as a node, its arrays and objects copied.
-func newNode(value pyjson.Value) *node {
+func newNode(value jsonvalue.Value) *node {
 	switch {
 	case value.IsArray():
 		created := &node{isArray: true, items: make([]*node, 0, value.Len())}
@@ -41,22 +41,22 @@ func newNode(value pyjson.Value) *node {
 }
 
 // value returns the node as a decoded value.
-func (n *node) value() pyjson.Value {
+func (n *node) value() jsonvalue.Value {
 	switch {
 	case n == nil:
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	case n.isArray:
-		items := make([]pyjson.Value, len(n.items))
+		items := make([]jsonvalue.Value, len(n.items))
 		for i, item := range n.items {
 			items[i] = item.value()
 		}
-		return pyjson.NewArray(items...)
+		return jsonvalue.NewArray(items...)
 	case n.isObject:
-		members := make([]pyjson.Member, len(n.keys))
+		members := make([]jsonvalue.Member, len(n.keys))
 		for i, key := range n.keys {
-			members[i] = pyjson.Member{Key: key, Value: n.members[key].value()}
+			members[i] = jsonvalue.Member{Key: key, Value: n.members[key].value()}
 		}
-		return pyjson.NewObject(members...)
+		return jsonvalue.NewObject(members...)
 	}
 	return n.scalar
 }
@@ -75,7 +75,7 @@ func (e mutationError) Error() string { return string(e) }
 // pyInt returns a value as Python's isinstance(value, int) reads it: an
 // integer, or a boolean as 0 or 1; an integer beyond int64 is held at the
 // nearest bound, which is out of every range it is compared with.
-func pyInt(value pyjson.Value) (int64, bool) {
+func pyInt(value jsonvalue.Value) (int64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
 			return 1, true
@@ -88,7 +88,7 @@ func pyInt(value pyjson.Value) (int64, bool) {
 	if number, ok := value.Int(); ok {
 		return number, true
 	}
-	if value.NumberText()[0] == '-' {
+	if value.Number()[0] == '-' {
 		return math.MinInt64, true
 	}
 	return math.MaxInt64, true
@@ -96,7 +96,7 @@ func pyInt(value pyjson.Value) (int64, bool) {
 
 // equalsInt reports whether value == n in Python: a number of that value,
 // in integer or float form, or a boolean equal to it.
-func equalsInt(value pyjson.Value, n int64) bool {
+func equalsInt(value jsonvalue.Value, n int64) bool {
 	if number, ok := pyInt(value); ok {
 		return number == n
 	}
@@ -107,7 +107,7 @@ func equalsInt(value pyjson.Value, n int64) bool {
 // listIndex returns the position a Python index names in a list of size
 // items, a negative index counting from the end, or false when it is out of
 // range or not an integer.
-func listIndex(key pyjson.Value, size int) (int, bool) {
+func listIndex(key jsonvalue.Value, size int) (int, bool) {
 	index, ok := pyInt(key)
 	if !ok {
 		return 0, false
@@ -124,12 +124,12 @@ func listIndex(key pyjson.Value, size int) (int, bool) {
 // child returns parent[key] as Python reads it, or false where Python
 // raises KeyError, IndexError or TypeError: an object by a string key, an
 // array or a string by an integer index.
-func child(parent *node, key pyjson.Value) (*node, bool) {
+func child(parent *node, key jsonvalue.Value) (*node, bool) {
 	switch {
 	case parent == nil:
 		return nil, false
 	case parent.isObject:
-		found, ok := parent.members[key.Text()]
+		found, ok := parent.members[key.StringValue()]
 		return found, ok && key.IsString()
 	case parent.isArray:
 		if i, ok := listIndex(key, len(parent.items)); ok {
@@ -146,12 +146,12 @@ func child(parent *node, key pyjson.Value) (*node, bool) {
 
 // walk returns the node at path under state, or the error "path <path>
 // not found".
-func walk(state *node, path []pyjson.Value) (*node, error) {
+func walk(state *node, path []jsonvalue.Value) (*node, error) {
 	current := state
 	for _, key := range path {
 		next, ok := child(current, key)
 		if !ok {
-			return nil, mutationError("path " + pyjson.Compact(pyjson.NewArray(path...)) + " not found")
+			return nil, mutationError("path " + jsonvalue.NewArray(path...).JSON() + " not found")
 		}
 		current = next
 	}
@@ -161,7 +161,7 @@ func walk(state *node, path []pyjson.Value) (*node, error) {
 // set gives parent[key] the value as Python's assignment does: an array
 // takes an index up to its length, one past the end appending; an object
 // takes a string key.
-func set(parent *node, key pyjson.Value, value *node) error {
+func set(parent *node, key jsonvalue.Value, value *node) error {
 	switch {
 	case parent != nil && parent.isArray && isIntLike(key):
 		index, _ := pyInt(key)
@@ -171,35 +171,35 @@ func set(parent *node, key pyjson.Value, value *node) error {
 		case index >= 0 && index < int64(len(parent.items)):
 			parent.items[index] = value
 		default:
-			return mutationError("index " + pyjson.Compact(key) + " out of range")
+			return mutationError("index " + key.JSON() + " out of range")
 		}
 		return nil
 	case parent != nil && parent.isObject && key.IsString():
-		if _, ok := parent.members[key.Text()]; !ok {
-			parent.keys = append(parent.keys, key.Text())
+		if _, ok := parent.members[key.StringValue()]; !ok {
+			parent.keys = append(parent.keys, key.StringValue())
 		}
-		parent.members[key.Text()] = value
+		parent.members[key.StringValue()] = value
 		return nil
 	}
-	return mutationError("cannot set " + pyjson.Compact(key))
+	return mutationError("cannot set " + key.JSON())
 }
 
 // isIntLike reports whether Python's isinstance(value, int) holds: an
 // integer or a boolean.
-func isIntLike(value pyjson.Value) bool {
+func isIntLike(value jsonvalue.Value) bool {
 	_, ok := pyInt(value)
 	return ok
 }
 
 // remove deletes parent[key] when it is there, as Python's del does; a key
 // that is not there, or a parent that cannot lose one, changes nothing.
-func remove(parent *node, key pyjson.Value) {
+func remove(parent *node, key jsonvalue.Value) {
 	switch {
 	case parent == nil:
 	case parent.isObject && key.IsString():
-		if _, ok := parent.members[key.Text()]; ok {
-			delete(parent.members, key.Text())
-			parent.keys = slices.DeleteFunc(parent.keys, func(each string) bool { return each == key.Text() })
+		if _, ok := parent.members[key.StringValue()]; ok {
+			delete(parent.members, key.StringValue())
+			parent.keys = slices.DeleteFunc(parent.keys, func(each string) bool { return each == key.StringValue() })
 		}
 	case parent.isArray:
 		if i, ok := listIndex(key, len(parent.items)); ok {
@@ -212,7 +212,7 @@ func remove(parent *node, key pyjson.Value) {
 // new state. Kind 0 replaces the state with v; kind 1 sets v at path k; kind
 // 2 truncates the array at k to i items, when i is given, and pushes v
 // (each item of an array); kind 3 deletes the value at k.
-func applyMutation(state *node, record pyjson.Value) (*node, error) {
+func applyMutation(state *node, record jsonvalue.Value) (*node, error) {
 	kind := record.Get("kind")
 	if equalsInt(kind, 0) {
 		return newNode(record.Get("v")), nil
@@ -220,7 +220,7 @@ func applyMutation(state *node, record pyjson.Value) (*node, error) {
 	pathValue := record.Get("k")
 	path := pathValue.Items()
 	if !pathValue.IsArray() || (len(path) == 0 && !equalsInt(kind, 2)) {
-		return state, mutationError("bad path " + pyjson.Compact(pathValue))
+		return state, mutationError("bad path " + pathValue.JSON())
 	}
 	target := state
 	if len(path) > 0 {
@@ -230,7 +230,7 @@ func applyMutation(state *node, record pyjson.Value) (*node, error) {
 		}
 	}
 	if target == nil || !target.isArray {
-		return state, mutationError("push to non-list at " + pyjson.Compact(pathValue))
+		return state, mutationError("push to non-list at " + pathValue.JSON())
 	}
 	if start, ok := pyInt(record.Get("i")); ok {
 		target.items = target.items[:sliceStart(start, len(target.items))]
@@ -248,7 +248,7 @@ func applyMutation(state *node, record pyjson.Value) (*node, error) {
 // keyedMutation applies a record of kind 1, 2 or 3 at a non-empty path: a
 // set of value or a delete is done and gives nil, and a push gives the array to push
 // to, made empty at the path when the path holds nothing.
-func keyedMutation(state *node, kind pyjson.Value, path []pyjson.Value, value pyjson.Value) (*node, error) {
+func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value) (*node, error) {
 	parent, err := walk(state, path[:len(path)-1])
 	if err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func keyedMutation(state *node, kind pyjson.Value, path []pyjson.Value, value py
 		remove(parent, key)
 		return nil, nil
 	case !equalsInt(kind, 2):
-		return nil, mutationError("unknown kind " + pyjson.Compact(kind))
+		return nil, mutationError("unknown kind " + kind.JSON())
 	}
 	target, ok := child(parent, key)
 	if !ok || target.isNull() {

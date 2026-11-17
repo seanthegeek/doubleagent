@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -16,11 +16,11 @@ import (
 // text or, for a model_usage entry, the entry, whose text depends on the
 // entries before it.
 type metadataEvent struct {
-	timestamp pyjson.Value
+	timestamp jsonvalue.Value
 	position  int
 	model     string
 	text      string
-	usage     pyjson.Value
+	usage     jsonvalue.Value
 }
 
 // sortKey returns the number an event is ordered by: its time when that is
@@ -43,7 +43,7 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 		return
 	}
 	events := fileEvents(data.Get("files_in_context"))
-	zero := pyjson.NewInt(0)
+	zero := jsonvalue.NewInt(0)
 	for position, entry := range data.Get("model_usage").Items() {
 		if entry.IsObject() {
 			events = append(events, metadataEvent{timestamp: FirstTruthy(entry.Get("ts"), zero),
@@ -93,7 +93,7 @@ func eventTexts(event metadataEvent, taskID string, models, modes parser.Tracker
 
 // fileEvents returns an event per numeric *_date field of each
 // files_in_context entry, in key order, once per path, field and time.
-func fileEvents(files pyjson.Value) []metadataEvent {
+func fileEvents(files jsonvalue.Value) []metadataEvent {
 	var events []metadataEvent
 	seen := map[string]bool{}
 	for position, entry := range files.Items() {
@@ -124,9 +124,9 @@ func fileEvents(files pyjson.Value) []metadataEvent {
 // hashKey returns a value as a key that equal values share, as Python's set
 // compares them: a number (or boolean) by its value, so 1, 1.0 and true are
 // one key, and any other value by its kind and JSON text.
-func hashKey(value pyjson.Value) string {
+func hashKey(value jsonvalue.Value) string {
 	if number, ok := NumberOf(value); ok {
-		return "n" + pyjson.Compact(pyjson.NewFloat(number))
+		return "n" + jsonvalue.NewFloat(number).JSON()
 	}
-	return "v" + pyjson.Sorted(value)
+	return "v" + value.JSON()
 }

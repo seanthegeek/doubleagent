@@ -11,10 +11,10 @@ import (
 	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -49,7 +49,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	mtimes, listed := describeFiles(files)
 	row := p.BaseRow(artifact)
 	row.TurnType = timeline.TurnSystem
-	header, failure := pyjson.NewNull(), parser.Problems(nil)
+	header, failure := jsonvalue.NewNull(), parser.Problems(nil)
 	what := "no session file (" + setName + ")"
 	if match := p.sessionFile.FindStringSubmatch(setName); match != nil {
 		row.SessionID, what = match[1], "pi session "+setName
@@ -113,13 +113,13 @@ func isDirectory(info fs.FileInfo) bool {
 // be listed, or the first project directory or session file that could not
 // be looked at when no directory held the file (a session file name
 // belongs to one project), or the session file that could not be read.
-func sessionHeader(artifact *input.Artifact, name string) (pyjson.Value, parser.Problems) {
+func sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, parser.Problems) {
 	// The sessions directory is a fixed path of the home, not a neighbour
 	// of the checkpoint: Home.PathOf finds it where the collection staged
 	// it, at a symbolic link's physical path, which climbing from the
 	// checkpoint's own directory would miss.
 	if artifact.Home == nil {
-		return pyjson.NewNull(), nil
+		return jsonvalue.NewNull(), nil
 	}
 	sessions := artifact.Home.PathOf(".pi/agent/sessions")
 	var directories []string
@@ -134,7 +134,7 @@ func sessionHeader(artifact *input.Artifact, name string) (pyjson.Value, parser.
 		}
 	}
 	if err != nil {
-		return pyjson.NewNull(), parser.Problems{{Message: reason.Unreadable(sessions, err)}}
+		return jsonvalue.NewNull(), parser.Problems{{Message: reason.Unreadable(sessions, err)}}
 	}
 	var firstFailure parser.Problems
 	for _, directory := range directories {
@@ -146,17 +146,17 @@ func sessionHeader(artifact *input.Artifact, name string) (pyjson.Value, parser.
 			firstFailure = failure
 		}
 	}
-	return pyjson.NewNull(), firstFailure
+	return jsonvalue.NewNull(), firstFailure
 }
 
 // projectSession looks for the session file name in one project directory
 // of sessions. It returns the file's header and whole-file problems and
 // true when the directory holds it, or the problem of a look that failed
 // and false.
-func projectSession(directory, sessions, name string) (pyjson.Value, parser.Problems, bool) {
+func projectSession(directory, sessions, name string) (jsonvalue.Value, parser.Problems, bool) {
 	info, err := lstatPresent(directory)
 	if err == nil && !isDirectory(info) {
-		return pyjson.NewNull(), nil, false
+		return jsonvalue.NewNull(), nil, false
 	}
 	failed := sessions
 	if err == nil {
@@ -164,10 +164,10 @@ func projectSession(directory, sessions, name string) (pyjson.Value, parser.Prob
 		info, err = lstatPresent(filepath.Join(directory, name))
 	}
 	if err != nil {
-		return pyjson.NewNull(), parser.Problems{{Message: reason.Unreadable(failed, err)}}, false
+		return jsonvalue.NewNull(), parser.Problems{{Message: reason.Unreadable(failed, err)}}, false
 	}
 	if info == nil || !info.Mode().IsRegular() {
-		return pyjson.NewNull(), nil, false
+		return jsonvalue.NewNull(), nil, false
 	}
 	session := pi.ReadSession(filepath.Join(directory, name))
 	// A problem without raw text concerns the whole file (it could not be

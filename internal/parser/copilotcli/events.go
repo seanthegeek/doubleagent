@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -76,7 +76,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options
 // event emits the rows of one event, by its type. The assistant turn and
 // usage events, the other model events and unknown types are bookkeeping and
 // give no row.
-func (w *eventWalk) event(kind string, record, data pyjson.Value) {
+func (w *eventWalk) event(kind string, record, data jsonvalue.Value) {
 	switch {
 	case kind == "session.start" || kind == "session.resume" || kind == "session.context_changed":
 		w.sessionEvent(kind, data)
@@ -91,7 +91,7 @@ func (w *eventWalk) event(kind string, record, data pyjson.Value) {
 	case kind == "assistant.message":
 		w.assistantRows(data)
 	case kind == "assistant.reasoning":
-		if w.options.IncludeThinking && data.Get("content").Truthy() {
+		if w.options.IncludeThinking && !data.Get("content").IsEmpty() {
 			w.emit(w.row(timeline.TurnThinking, text(data.Get("content")), "", "", ""))
 		}
 	case kind == "tool.execution_start" || kind == "tool.user_requested":
@@ -111,7 +111,7 @@ func (w *eventWalk) event(kind string, record, data pyjson.Value) {
 }
 
 // noteEvent emits the rows of the events that are described in one line.
-func (w *eventWalk) noteEvent(kind string, data pyjson.Value) {
+func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 	switch {
 	case kind == "session.info":
 		w.system(infoText(data))
@@ -152,12 +152,12 @@ func isNoteType(kind string) bool {
 
 // sessionEvent handles session.start, session.resume and
 // session.context_changed: the working directory and branch they carry.
-func (w *eventWalk) sessionEvent(kind string, data pyjson.Value) {
+func (w *eventWalk) sessionEvent(kind string, data jsonvalue.Value) {
 	context := data
 	if data.Has("context") {
 		context = data.Get("context")
 	}
-	if context.Get("cwd").Truthy() {
+	if !context.Get("cwd").IsEmpty() {
 		w.project = text(context.Get("cwd"))
 	}
 	if context.Has("branch") || kind == "session.context_changed" {
@@ -175,7 +175,7 @@ func (w *eventWalk) sessionEvent(kind string, data pyjson.Value) {
 
 // toolStart emits the tool_use row of a tool the model or the user started,
 // once per call id.
-func (w *eventWalk) toolStart(kind string, data pyjson.Value) {
+func (w *eventWalk) toolStart(kind string, data jsonvalue.Value) {
 	callID, name := text(data.Get("toolCallId")), text(data.Get("toolName"))
 	if _, held := w.names[callID]; callID != "" && name != "" && !held {
 		w.names[callID] = name
@@ -193,13 +193,13 @@ func (w *eventWalk) toolStart(kind string, data pyjson.Value) {
 
 // userRow emits a user message: a user row for a typed prompt, else a system
 // row naming what sent it.
-func (w *eventWalk) userRow(record, data pyjson.Value) {
+func (w *eventWalk) userRow(record, data jsonvalue.Value) {
 	content, source := text(data.Get("content")), text(data.Get("source"))
 	label := ""
 	switch {
-	case data.Get("isAutopilotContinuation").Truthy():
+	case !data.Get("isAutopilotContinuation").IsEmpty():
 		label = "auto-continuation"
-	case record.Get("agentId").Truthy():
+	case !record.Get("agentId").IsEmpty():
 		label = "subagent task"
 	case source != "" && source != "user":
 		label = source
@@ -212,7 +212,7 @@ func (w *eventWalk) userRow(record, data pyjson.Value) {
 
 // assistantRows emits an assistant message's reply, reasoning and tool
 // requests.
-func (w *eventWalk) assistantRows(data pyjson.Value) {
+func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 	model, content := text(data.Get("model")), text(data.Get("content"))
 	if pytext.Strip(content) != "" {
 		w.emit(w.row(timeline.TurnAssistant, content, "", "", model))
@@ -238,12 +238,12 @@ func (w *eventWalk) assistantRows(data pyjson.Value) {
 
 // reasoningSummaries returns the text of a message's reasoning blocks'
 // summaries, separated by blank lines.
-func reasoningSummaries(data pyjson.Value) string {
+func reasoningSummaries(data jsonvalue.Value) string {
 	var parts []string
 	for _, block := range parser.Elements(data.Get("reasoningBlocks").Get("blocks")) {
 		for _, summary := range parser.Elements(block.Get("summary")) {
-			if body := summary.Get("text"); body.IsString() && body.Text() != "" {
-				parts = append(parts, body.Text())
+			if body := summary.Get("text"); body.IsString() && body.StringValue() != "" {
+				parts = append(parts, body.StringValue())
 			}
 		}
 	}
@@ -262,7 +262,7 @@ func (w *eventWalk) modeValue() string {
 // permissionRows emits the permission request, decision and mode rows of one
 // event. The tracked mode is "<permissionMode> agent=<agentMode>"; the two
 // change events update their half of it.
-func (w *eventWalk) permissionRows(kind string, data pyjson.Value) {
+func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
 	callID := text(data.Get("toolCallId"))
 	switch kind {
 	case "permission.requested":
@@ -286,7 +286,7 @@ func (w *eventWalk) permissionRows(kind string, data pyjson.Value) {
 
 // permissionRequest emits the row of a permission request and the mode row
 // when the request shows the mode changed.
-func (w *eventWalk) permissionRequest(data pyjson.Value) {
+func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
 	request := data.Get("permissionRequest")
 	callID := text(request.Get("toolCallId"))
 	line := "permission request: " + orDash(text(request.Get("kind")))
@@ -297,10 +297,10 @@ func (w *eventWalk) permissionRequest(data pyjson.Value) {
 		line += " intention=" + text(intention)
 	}
 	w.emit(w.row(timeline.TurnSystem, line, w.names[callID], callID, ""))
-	if data.Get("permissionMode").Truthy() {
+	if !data.Get("permissionMode").IsEmpty() {
 		w.permission.mode = text(data.Get("permissionMode"))
 	}
-	if data.Get("agentMode").Truthy() {
+	if !data.Get("agentMode").IsEmpty() {
 		w.permission.agent = text(data.Get("agentMode"))
 	}
 	if w.permission.mode == "" {
@@ -313,7 +313,7 @@ func (w *eventWalk) permissionRequest(data pyjson.Value) {
 
 // permissionsChanged emits the row of a permission mode change, in the form
 // the app's bundled CLI writes (allow-all keys) or the CLI's own.
-func (w *eventWalk) permissionsChanged(data pyjson.Value) {
+func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
 	allowAll := !data.Has("mode") && !data.Has("previousMode")
 	if allowAll {
 		allowAll = false
@@ -341,7 +341,7 @@ func (w *eventWalk) permissionsChanged(data pyjson.Value) {
 // modelRows emits "model: <id>" at the first model and "model: <old> -> <new>"
 // after. A change to the same model is kept, since a change event is a
 // decision even when it resolves to the same model.
-func (w *eventWalk) modelRows(kind string, data pyjson.Value) {
+func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 	var next, suffix string
 	if kind == "session.auto_mode_resolved" {
 		next = text(data.Get("chosenModel"))
@@ -374,7 +374,7 @@ func (w *eventWalk) modelRows(kind string, data pyjson.Value) {
 // start: <input>", or "hook <type> end: success=<b> output=<output>" and
 // " error=<error>" when present; each payload is compact JSON in full, "{}"
 // when absent.
-func hookText(kind string, data pyjson.Value) string {
+func hookText(kind string, data jsonvalue.Value) string {
 	hook := orDash(text(data.Get("hookType")))
 	if kind == "hook.start" {
 		payload := "{}"
@@ -399,7 +399,7 @@ func hookText(kind string, data pyjson.Value) string {
 
 // infoText returns "session.info <infoType>: <message>" and the url and tip
 // present.
-func infoText(data pyjson.Value) string {
+func infoText(data jsonvalue.Value) string {
 	line := "session.info " + text(data.Get("infoType")) + ": " + text(data.Get("message"))
 	for _, key := range []string{"url", "tip"} {
 		if value := data.Get(key); !blank(value) {
@@ -410,7 +410,7 @@ func infoText(data pyjson.Value) string {
 }
 
 // shutdownText returns the text of a session.shutdown event.
-func shutdownText(data pyjson.Value) string {
+func shutdownText(data jsonvalue.Value) string {
 	files := data.Get("codeChanges").Get("filesModified")
 	var listed string
 	if files.IsArray() {

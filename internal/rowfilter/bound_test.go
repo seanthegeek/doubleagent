@@ -238,26 +238,26 @@ func TestUntilAtTheEndOfTheYear9999(t *testing.T) {
 
 func TestBoundErrorMessages(t *testing.T) {
 	tests := []struct{ text, reason string }{
-		{"2026-13-01", "cannot read '2026-13-01' as a time (month must be in 1..12, not 13)"},
-		{"2026-02-29", "cannot read '2026-02-29' as a time (day must be in 1..28 for 2026-02, " +
+		{"2026-13-01", "cannot read \"2026-13-01\" as a time (month must be in 1..12, not 13)"},
+		{"2026-02-29", "cannot read \"2026-02-29\" as a time (day must be in 1..28 for 2026-02, " +
 			"not 29)"},
-		{"2026-10-01T25:00", "cannot read '2026-10-01T25:00' as a time (hour must be in " +
+		{"2026-10-01T25:00", "cannot read \"2026-10-01T25:00\" as a time (hour must be in " +
 			"0..23, not 25)"},
-		{"2026-13-01T09:30+24:00", "cannot read '2026-13-01T09:30+24:00' as a time (offset " +
+		{"2026-13-01T09:30+24:00", "cannot read \"2026-13-01T09:30+24:00\" as a time (offset " +
 			"hours must be in 0..23, not 24)"},
-		{"2026-10-01T09:30+02:60", "cannot read '2026-10-01T09:30+02:60' as a time (offset " +
+		{"2026-10-01T09:30+02:60", "cannot read \"2026-10-01T09:30+02:60\" as a time (offset " +
 			"minutes must be in 0..59, not 60)"},
-		{"2026-W54-1", "cannot read '2026-W54-1' as a time (week must be in 1..53, not 54)"},
-		{"2026-366", "cannot read '2026-366' as a time (ordinal day must be in 1..365 for " +
+		{"2026-W54-1", "cannot read \"2026-W54-1\" as a time (week must be in 1..53, not 54)"},
+		{"2026-366", "cannot read \"2026-366\" as a time (ordinal day must be in 1..365 for " +
 			"2026, not 366)"},
-		{"9999-W52-7", "cannot read '9999-W52-7' as a time (year must be in 1..9999, not " +
+		{"9999-W52-7", "cannot read \"9999-W52-7\" as a time (year must be in 1..9999, not " +
 			"10000)"},
-		{"last friday", "cannot read 'last friday' as a time"},
-		{"", "cannot read '' as a time"},
-		{"99999y", "'99999y' is out of range"},
-		{strings.Repeat("9", 20), "'99999999999999999999' is out of range as epoch seconds " +
+		{"last friday", "cannot read \"last friday\" as a time"},
+		{"", "cannot read \"\" as a time"},
+		{"99999y", `"99999y" is out of range`},
+		{strings.Repeat("9", 20), `"99999999999999999999" is out of range as epoch seconds ` +
 			"or milliseconds"},
-		{"9999-12-31T23:30-01:00", "cannot read '9999-12-31T23:30-01:00' as a time (the " +
+		{"9999-12-31T23:30-01:00", "cannot read \"9999-12-31T23:30-01:00\" as a time (the " +
 			"time is out of range)"},
 		{"it's", `cannot read "it's" as a time`},
 	}

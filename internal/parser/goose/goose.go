@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -174,7 +174,7 @@ func epochNumber(value float64) string {
 
 // epochJSON returns a decoded created time as epochNumber reads a number,
 // any other value as timeutil reads it.
-func epochJSON(value pyjson.Value) string {
+func epochJSON(value jsonvalue.Value) string {
 	if number, ok := value.Float(); ok && value.IsNumber() && number > 10_000_000_000 {
 		return timeutil.FromEpoch(number / 1000.0)
 	}
@@ -230,7 +230,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 			projectPath = parser.Str(record.Get("working_dir"))
 			count := ""
 			if value, ok := record.Lookup("message_count"); ok {
-				count = value.Str() + " messages"
+				count = value.Text() + " messages"
 			}
 			row := p.row(artifact, number, sessionID, projectPath, "",
 				timeutil.FromValue(record.Get("created_at")))
@@ -249,7 +249,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 
 // userVisible reports whether a message's metadata leaves it visible: only
 // a userVisible of JSON false hides it.
-func userVisible(metadata pyjson.Value) bool {
+func userVisible(metadata jsonvalue.Value) bool {
 	flag, isBool := metadata.Get("userVisible").Bool()
 	return !metadata.IsObject() || !isBool || flag
 }

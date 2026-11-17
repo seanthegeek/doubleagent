@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -93,7 +93,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 // key (an object keyed by tool or server id, or the older array of ids),
 // the global auto-approve opt-in, and one per external path allowed in the
 // workspace. A value of another JSON type adds a problem.
-func grantTexts(values map[string]pyjson.Value, problems *[]string) []string {
+func grantTexts(values map[string]jsonvalue.Value, problems *[]string) []string {
 	var texts []string
 	for _, key := range grantKeys() {
 		value := values[key]
@@ -119,7 +119,7 @@ func grantTexts(values map[string]pyjson.Value, problems *[]string) []string {
 		for _, entry := range allow.Items() {
 			text := parser.SettingValue(entry)
 			if entry.IsString() {
-				text = antigravity.URIToPath(entry.Text())
+				text = antigravity.URIToPath(entry.StringValue())
 			}
 			texts = append(texts, "permission setting: "+allowlistKey+"="+text)
 		}
@@ -132,7 +132,7 @@ func grantTexts(values map[string]pyjson.Value, problems *[]string) []string {
 // usage is one GitHub authentication usage row: its key and decoded value.
 type usage struct {
 	key   string
-	value pyjson.Value
+	value jsonvalue.Value
 }
 
 // usageItems returns the GitHub authentication usage rows of a state
@@ -168,7 +168,7 @@ func usageItems(databasePath string) ([]usage, []string) {
 		if key.Type != sqlitefile.Text || !usageKey.MatchString(key.Text()) {
 			continue
 		}
-		decoded, err := pyjson.DecodeString(usageText(row.Get("value")))
+		decoded, err := jsonvalue.DecodeString(usageText(row.Get("value")))
 		if err != nil {
 			problems = append(problems, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
 			continue
@@ -215,8 +215,8 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, emit p
 				continue
 			}
 			user := entry.Get(idKey)
-			if !user.Truthy() {
-				user = pyjson.NewString("-")
+			if user.IsEmpty() {
+				user = jsonvalue.NewString("-")
 			}
 			text := "source host: " + host + " account " + login + " " + kind + "=" + parser.SettingValue(user) +
 				" scopes=" + scopesText(entry.Get("scopes")) + " (from state.vscdb " + item.key + ", lastUsed)"
@@ -227,23 +227,23 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, emit p
 
 // scopesText returns a usage's scopes joined by commas, "-" when they are
 // not an array.
-func scopesText(scopes pyjson.Value) string {
+func scopesText(scopes jsonvalue.Value) string {
 	if !scopes.IsArray() {
 		return "-"
 	}
 	texts := make([]string, 0, scopes.Len())
 	for _, scope := range scopes.Items() {
-		texts = append(texts, scope.Str())
+		texts = append(texts, scope.Text())
 	}
 	return strings.Join(texts, ",")
 }
 
 // ownedTaskRows emits a "session synced:" and a "session origin: remote"
 // row per owned cloud agent task.
-func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks pyjson.Value, emit parser.Emit) {
+func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, emit parser.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + ownedTasksKey + ", recordedAt)"
 	for _, task := range tasks.Members() {
-		recorded, application := task.Value, pyjson.NewNull()
+		recorded, application := task.Value, jsonvalue.NewNull()
 		if task.Value.IsObject() {
 			recorded, application = task.Value.Get("recordedAt"), task.Value.Get("application")
 		}
@@ -256,10 +256,10 @@ func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks pyjson.Value, emi
 
 // selectedRepoRows emits a "source host repository:" row per repository
 // picked for a cloud agent task.
-func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories pyjson.Value, emit parser.Emit) {
+func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories jsonvalue.Value, emit parser.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + selectedReposKey + ", timestamp)"
 	for _, entry := range repositories.Items() {
-		if name := entry.Get("name"); entry.IsObject() && name.Truthy() {
+		if name := entry.Get("name"); entry.IsObject() && !name.IsEmpty() {
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("timestamp")),
 				"source host repository: "+parser.SettingValue(name)+" type=cloud agent selection "+source))
 		}

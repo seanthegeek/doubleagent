@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of the logs, the history and trust.json are proved against the
@@ -17,9 +17,9 @@ import (
 // the analyzer gives them.
 
 // decoded returns the value of JSON text.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestArgumentsSummaryPicksTheFirstKnownArgument(t *testing.T) {
 		{"a JSON text with a url", `"{\"url\": \"https://example.org\"}"`, "https://example.org"},
 		{"an object with a cmd", `{"cmd":"make"}`, "make"},
 		{"text that is not JSON", `"not json"`, "not json"},
-		{"no known argument is sorted compact JSON", `"{\"x\":1,\"b\":[2]}"`, `{"b":[2],"x":1}`},
+		{"no known argument is compact JSON in key order", `"{\"x\":1,\"b\":[2]}"`, `{"x":1,"b":[2]}`},
 		{"an empty command is skipped", `"{\"command\":\"\"}"`, `{"command":""}`},
 		{"a zero command is kept", `"{\"command\":0}"`, "0"},
 		{"JSON text of a number", `"5"`, "5"},
@@ -92,7 +92,7 @@ func TestResultTextUnwrapsABashResult(t *testing.T) {
 		{"plain text", `"tool failed: 403"`, "tool failed: 403"},
 		{"a failing exit", `"{\"output\":\"o\",\"exit_code\":2}"`, "[exit 2] o"},
 		{"exit false", `"{\"output\":\"o\",\"exit_code\":false}"`, "o"},
-		{"exit true", `"{\"output\":\"o\",\"exit_code\":true}"`, "[exit True] o"},
+		{"exit true", `"{\"output\":\"o\",\"exit_code\":true}"`, "[exit true] o"},
 		{"exit text", `"{\"output\":\"o\",\"exit_code\":\"x\"}"`, "[exit x] o"},
 		{"exit zero as a float", `"{\"output\":\"o\",\"exit_code\":0.0}"`, "o"},
 		{"output that is an object", `"{\"output\":{\"a\":1}}"`, `{"a":1}`},
@@ -156,7 +156,7 @@ func TestFrameChildrenAreReadInChildOrder(t *testing.T) {
 	var problems parser.Problems
 	var kinds []string
 	for number, record := range records(path, &problems) {
-		kinds = append(kinds, record.Get("payload_type").Text())
+		kinds = append(kinds, record.Get("payload_type").StringValue())
 		if number != 1 && number != 3 {
 			t.Errorf("record on line %d", number)
 		}

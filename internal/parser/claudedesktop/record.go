@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -21,7 +21,7 @@ func (p *Parser) systemRow(artifact *input.Artifact, message string, line int) t
 
 // flag returns "true" only for a JSON true; absent or anything else is
 // "false".
-func flag(value pyjson.Value) string {
+func flag(value jsonvalue.Value) string {
 	if set, ok := value.Bool(); ok && set {
 		return "true"
 	}
@@ -30,9 +30,9 @@ func flag(value pyjson.Value) string {
 
 // grantValue returns a grant as text: a string as it is, anything else as
 // compact JSON.
-func grantValue(value pyjson.Value) string {
+func grantValue(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
@@ -41,7 +41,7 @@ func grantValue(value pyjson.Value) string {
 type sessionRecord struct {
 	parser   *Parser
 	artifact *input.Artifact
-	record   pyjson.Value
+	record   jsonvalue.Value
 	code     bool
 	created  string
 	emit     parser.Emit
@@ -97,7 +97,7 @@ func (p *Parser) record(artifact *input.Artifact, emit parser.Emit) {
 			emit(state.row(timeline.TurnUser, initial, state.created))
 		}
 	}
-	if record.Get("error").Truthy() {
+	if !record.Get("error").IsEmpty() {
 		message := text(record.Get("error"))
 		if category := text(record.Get("errorCategory")); category != "" {
 			message = category + ": " + message
@@ -125,7 +125,7 @@ func (s *sessionRecord) sessionRows() {
 	s.emit(s.row(timeline.TurnSystem, fmt.Sprintf(`desktop code session: "%s" remote_control=%s `+
 		"bridges=%d spawned_remotely=%s steered_remotely=%s", text(record.Get("title")),
 		flag(record.Get("remoteControlUserEnabled")), bridges,
-		flag(pyjson.NewBool(spawn.IsObject() && spawn.Len() > 0)),
+		flag(jsonvalue.NewBool(spawn.IsObject() && spawn.Len() > 0)),
 		flag(record.Get("steeredByRemoteClient")))+modeEffort, s.created))
 	if quitAt := record.Get("remoteControlLiveAtUpdateQuit").Get("at"); quitAt.IsNumber() {
 		s.emit(s.row(timeline.TurnSystem, "remote control live at update quit",
@@ -180,7 +180,7 @@ func (s *sessionRecord) grants() {
 // readObject returns a state file as a JSON object, or false after
 // emitting why not: the unreadable rows, or a row "parser: unreadable
 // <name>" at line 1 for a file that is not a JSON object.
-func (p *Parser) readObject(artifact *input.Artifact, name string, emit parser.Emit) (pyjson.Value, bool) {
+func (p *Parser) readObject(artifact *input.Artifact, name string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
 	document, _ := readJSON(artifact.DiskPath, &problems)
 	if len(problems) > 0 {
@@ -206,7 +206,7 @@ func (p *Parser) scheduled(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		when := text(task.Get("cronExpression"))
-		if !task.Get("cronExpression").Truthy() {
+		if task.Get("cronExpression").IsEmpty() {
 			when = timeutil.FromValue(task.Get("fireAt"))
 		}
 		row := p.systemRow(artifact, fmt.Sprintf(
@@ -235,8 +235,8 @@ func (p *Parser) worktrees(artifact *input.Artifact, emit parser.Emit) {
 		}
 		message := "worktree created: " + text(worktree.Get("path")) + " branch=" +
 			text(worktree.Get("branch")) + " from=" + text(worktree.Get("sourceBranch"))
-		if leased := worktree.Get("leasedBy"); leased.Truthy() {
-			message += " leased by " + leased.Str()
+		if leased := worktree.Get("leasedBy"); !leased.IsEmpty() {
+			message += " leased by " + leased.Text()
 		}
 		row := p.systemRow(artifact, message, i+1)
 		row.TimestampUTC = timeutil.FromValue(worktree.Get("createdAt"))

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/openclaw"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -109,8 +109,8 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parser.Options, em
 	sessionID := fallback
 	for line, record := range parser.JSONLines(artifact.DiskPath, &state.problems) {
 		sessionID = fallback
-		if chat := record.Get("chat_id"); chat.IsString() && chat.Text() != "" {
-			sessionID = webuiPrefix + chat.Text()
+		if chat := record.Get("chat_id"); chat.IsString() && chat.StringValue() != "" {
+			sessionID = webuiPrefix + chat.StringValue()
 		}
 		for _, each := range webuiEvents(record, options) {
 			row := p.BaseRow(artifact)
@@ -135,25 +135,25 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parser.Options, em
 // it merges into the next, the end of reasoning, finished file edits, a fork
 // marker and a context compaction. The silent events give nothing and any
 // other a `webui event:` row.
-func webuiEvents(record pyjson.Value, options parser.Options) []event {
+func webuiEvents(record jsonvalue.Value, options parser.Options) []event {
 	name := record.Get("event")
 	text := ""
 	if value := record.Get("text"); value.IsString() {
-		text = value.Text()
+		text = value.StringValue()
 	}
-	if !name.IsString() || name.Text() == "" || slices.Contains(webuiSilent(), name.Text()) {
+	if !name.IsString() || name.StringValue() == "" || slices.Contains(webuiSilent(), name.StringValue()) {
 		return nil
 	}
 	only := func(turnType, text string) []event {
 		return []event{{turnType: turnType, text: text}}
 	}
-	switch name.Text() {
+	switch name.StringValue() {
 	case "user":
 		return only(timeline.TurnUser, userText(record, text))
 	case "message":
 		return messageEvents(record, text, options)
 	case "stream_end":
-		if text != "" && !record.Get("merge_next").Truthy() {
+		if text != "" && record.Get("merge_next").IsEmpty() {
 			return only(timeline.TurnAssistant, text)
 		}
 		return nil
@@ -169,18 +169,18 @@ func webuiEvents(record pyjson.Value, options parser.Options) []event {
 	case "context_compaction":
 		return only(timeline.TurnSystem, "context compaction: "+parser.Str(record.Get("phase")))
 	}
-	return only(timeline.TurnSystem, "webui event: "+name.Text())
+	return only(timeline.TurnSystem, "webui event: "+name.StringValue())
 }
 
 // userText returns the text of a user prompt, else its media paths.
-func userText(record pyjson.Value, text string) string {
+func userText(record jsonvalue.Value, text string) string {
 	if text != "" {
 		return text
 	}
 	var media []string
 	for _, path := range parser.Elements(record.Get("media_paths")) {
-		if path.Truthy() {
-			media = append(media, "[media: "+path.Str()+"]")
+		if !path.IsEmpty() {
+			media = append(media, "[media: "+path.Text()+"]")
 		}
 	}
 	return strings.Join(media, " ")
@@ -188,8 +188,8 @@ func userText(record pyjson.Value, text string) string {
 
 // messageEvents returns the rows of a message record: its tool events,
 // then its text by kind.
-func messageEvents(record pyjson.Value, text string, options parser.Options) []event {
-	var toolEvents []pyjson.Value
+func messageEvents(record jsonvalue.Value, text string, options parser.Options) []event {
+	var toolEvents []jsonvalue.Value
 	for _, entry := range parser.Elements(record.Get("tool_events")) {
 		if entry.IsObject() {
 			toolEvents = append(toolEvents, entry)
@@ -204,7 +204,7 @@ func messageEvents(record pyjson.Value, text string, options parser.Options) []e
 		}
 	case isText(kind, "tool_hint"), isText(kind, "progress"):
 		if text != "" && len(toolEvents) == 0 {
-			label := strings.ReplaceAll(kind.Text(), "_", " ")
+			label := strings.ReplaceAll(kind.StringValue(), "_", " ")
 			events = append(events, event{turnType: timeline.TurnSystem, text: label + ": " + text})
 		}
 	case text != "":
@@ -215,15 +215,15 @@ func messageEvents(record pyjson.Value, text string, options parser.Options) []e
 
 // fileEdits returns a `file edit:` row per edit of a file_edit record that
 // is past its start.
-func fileEdits(record pyjson.Value) []event {
+func fileEdits(record jsonvalue.Value) []event {
 	var events []event
 	for _, entry := range parser.Elements(record.Get("edits")) {
 		if !entry.IsObject() || isText(entry.Get("phase"), "start") {
 			continue
 		}
 		operation := ""
-		if value := entry.Get("operation"); value.Truthy() {
-			operation = " (" + value.Str() + ")"
+		if value := entry.Get("operation"); !value.IsEmpty() {
+			operation = " (" + value.Text() + ")"
 		}
 		text := fmt.Sprintf("file edit: %s %s +%s -%s%s",
 			firstStr(entry.Get("status"), entry.Get("phase")),
@@ -237,7 +237,7 @@ func fileEdits(record pyjson.Value) []event {
 
 // toolEventRows returns the tool call and result rows of a message's tool
 // events, joined on call_id.
-func toolEventRows(toolEvents []pyjson.Value) []event {
+func toolEventRows(toolEvents []jsonvalue.Value) []event {
 	var events []event
 	for _, entry := range toolEvents {
 		name, callID := parser.Str(entry.Get("name")), parser.Str(entry.Get("call_id"))
@@ -250,7 +250,7 @@ func toolEventRows(toolEvents []pyjson.Value) []event {
 			result := entry.Get("result")
 			body := parser.CompactJSON(result)
 			if result.IsString() {
-				body = result.Text()
+				body = result.StringValue()
 			}
 			events = append(events, event{timeline.TurnToolResult, body, name, callID})
 		case isText(phase, "error"):

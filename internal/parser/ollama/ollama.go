@@ -29,8 +29,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -122,26 +122,26 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 
 // readObject returns the JSON object of a settings file, or the text of
 // the `parser:` row that replaces its rows.
-func (p *Parser) readObject(artifact *input.Artifact) (pyjson.Value, string) {
+func (p *Parser) readObject(artifact *input.Artifact) (jsonvalue.Value, string) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
-		return pyjson.Value{}, parser.ProblemPrefix + problems[0].Message
+		return jsonvalue.Value{}, parser.ProblemPrefix + problems[0].Message
 	}
 	reason := utf8Problem(content)
-	var document pyjson.Value
+	var document jsonvalue.Value
 	if reason == "" {
 		var err error
-		if document, err = pyjson.Decode(content); err != nil {
+		if document, err = jsonvalue.Decode(content); err != nil {
 			reason = err.Error()
 		}
 	}
 	if reason != "" {
-		return pyjson.Value{}, parser.ProblemPrefix + artifact.Rel + " is not readable JSON (" +
+		return jsonvalue.Value{}, parser.ProblemPrefix + artifact.Rel + " is not readable JSON (" +
 			reason + ")"
 	}
 	if !document.IsObject() {
-		return pyjson.Value{}, parser.ProblemPrefix + artifact.Rel + " is not a JSON object"
+		return jsonvalue.Value{}, parser.ProblemPrefix + artifact.Rel + " is not a JSON object"
 	}
 	return document, ""
 }

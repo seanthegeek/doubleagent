@@ -3,8 +3,8 @@ package cursor
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -28,7 +28,7 @@ const (
 // list.
 type cloudAgent struct {
 	rowid int64
-	agent pyjson.Value
+	agent jsonvalue.Value
 }
 
 // readCloudAgents returns every element with a bcId of the cloud agent
@@ -45,7 +45,7 @@ func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 			continue
 		}
 		for _, agent := range decodeRecord(row.rowid, row.key, row.value, problems).Items() {
-			if agent.IsObject() && agent.Get("bcId").Truthy() {
+			if agent.IsObject() && !agent.Get("bcId").IsEmpty() {
 				found = append(found, cloudAgent{rowid: row.rowid, agent: agent})
 			}
 		}
@@ -55,7 +55,7 @@ func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 
 // cloudModel returns a cloud agent's model (modelDetails.modelName, else
 // the requested model) and the requested model's id.
-func cloudModel(agent pyjson.Value) (string, string) {
+func cloudModel(agent jsonvalue.Value) (string, string) {
 	requested := jsonText(agent.Get("requestedModel").Get("modelId"))
 	model := jsonText(agent.Get("modelDetails").Get("modelName"))
 	if model == "" {
@@ -97,11 +97,11 @@ func (i *items) cloud(emit parser.Emit) {
 // rows of one cloud agent.
 func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser.Emit) {
 	agent := found.agent
-	ident := agent.Get("bcId").Str()
+	ident := agent.Get("bcId").Text()
 	repo := jsonText(agent.Get("repoUrl"))
 	model, requested := cloudModel(agent)
 	created := firstTruthy(agent.Get("createdAt"), agent.Get("rowUpdatedAtMs"))
-	row := func(text string, when pyjson.Value) {
+	row := func(text string, when jsonvalue.Value) {
 		made := i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(when), found.rowid)
 		made.SessionID, made.ProjectPath, made.Model = ident, repo, model
 		emit(made)
@@ -125,7 +125,7 @@ func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser
 
 // cloudText returns the "cloud agent:" text of a cloud agent, "-" for an
 // absent value.
-func cloudText(agent pyjson.Value) string {
+func cloudText(agent jsonvalue.Value) string {
 	return "cloud agent: " + orDash(timeline.CompactValue(agent.Get("name"))) + " repo=" + shown(agent.Get("repoUrl")) +
 		" status=" + shown(agent.Get("status")) + " workflowStatus=" + shown(agent.Get("workflowStatus")) +
 		" archived=" + shown(agent.Get("isArchived")) + " killed=" + shown(agent.Get("isKilled")) +
@@ -141,11 +141,11 @@ func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
 		return
 	}
 	document := decodeRecord(found.rowid, mcpAuthKey, found.value, i.problems)
-	known := map[string]pyjson.Value{}
+	known := map[string]jsonvalue.Value{}
 	for _, each := range agents {
-		known[each.agent.Get("bcId").Str()] = each.agent
+		known[each.agent.Get("bcId").Text()] = each.agent
 	}
-	resolutions := []pyjson.Value{document}
+	resolutions := []jsonvalue.Value{document}
 	if document.IsArray() {
 		resolutions = document.Items()
 	}

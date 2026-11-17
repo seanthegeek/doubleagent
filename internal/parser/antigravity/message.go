@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/protowire"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -120,7 +120,7 @@ func valueText(value any) string {
 	case float64:
 		return pytext.Float(value)
 	}
-	return jsonValue(value).Str()
+	return jsonValue(value).Text()
 }
 
 // intValue returns an integer field as an int64, false when it is absent,
@@ -136,36 +136,36 @@ func (m message) intValue(name string) (int64, bool) {
 
 // jsonValue returns a decoded value as the JSON value Python's json module
 // writes for it.
-func jsonValue(value any) pyjson.Value {
+func jsonValue(value any) jsonvalue.Value {
 	switch value := value.(type) {
 	case string:
-		return pyjson.NewString(value)
+		return jsonvalue.NewString(value)
 	case *big.Int:
-		number, _ := pyjson.DecodeString(value.String())
+		number, _ := jsonvalue.DecodeString(value.String())
 		return number
 	case bool:
-		return pyjson.NewBool(value)
+		return jsonvalue.NewBool(value)
 	case float64:
-		return pyjson.NewFloat(value)
+		return jsonvalue.NewFloat(value)
 	case []byte:
-		return pyjson.NewString(pytext.DecodeUTF8(value))
+		return jsonvalue.NewString(pytext.DecodeUTF8(value))
 	case []any:
-		items := make([]pyjson.Value, len(value))
+		items := make([]jsonvalue.Value, len(value))
 		for i, item := range value {
 			items[i] = jsonValue(item)
 		}
-		return pyjson.NewArray(items...)
+		return jsonvalue.NewArray(items...)
 	case *protowire.Message:
-		var members []pyjson.Member
+		var members []jsonvalue.Member
 		if value == nil {
-			return pyjson.NewObject()
+			return jsonvalue.NewObject()
 		}
 		for _, entry := range value.Entries() {
-			members = append(members, pyjson.Member{Key: entry.Name, Value: jsonValue(entry.Value)})
+			members = append(members, jsonvalue.Member{Key: entry.Name, Value: jsonValue(entry.Value)})
 		}
-		return pyjson.NewObject(members...)
+		return jsonvalue.NewObject(members...)
 	}
-	return pyjson.NewNull()
+	return jsonvalue.NewNull()
 }
 
 // join returns the non-empty parts joined by " | ".

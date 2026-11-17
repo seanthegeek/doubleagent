@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -36,7 +36,7 @@ func (r *Reader) history(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = parser.Str(record.Get("project"))
 		row.TurnType = timeline.TurnUser
 		if display := record.Get("display"); display.IsString() {
-			row.Text = timeline.Compact(expandPastes(historyDir, display.Text(),
+			row.Text = timeline.Compact(expandPastes(historyDir, display.StringValue(),
 				record.Get("pastedContents"), &problems))
 		} else {
 			row.Text = timeline.CompactValue(display)
@@ -59,19 +59,19 @@ func (r *Reader) fileRow(artifact *input.Artifact) timeline.Row {
 // the system row that says why it is not one: the unreadable row for a file
 // that cannot be read, else "parser: <what> is not a JSON object" at line 1
 // and the file's modification time.
-func (r *Reader) JSONObject(artifact *input.Artifact, what string) (pyjson.Value, timeline.Row, bool) {
+func (r *Reader) JSONObject(artifact *input.Artifact, what string) (jsonvalue.Value, timeline.Row, bool) {
 	var problems parser.Problems
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
-		return pyjson.NewNull(), r.ErrorRows(artifact, problems, "", "")[0], false
+		return jsonvalue.NewNull(), r.ErrorRows(artifact, problems, "", "")[0], false
 	}
-	document, err := pyjson.Decode(data)
+	document, err := jsonvalue.Decode(data)
 	if err == nil && document.IsObject() {
 		return document, timeline.Row{}, true
 	}
 	row := r.fileRow(artifact)
 	row.Text = "parser: " + what + " is not a JSON object"
-	return pyjson.NewNull(), row, false
+	return jsonvalue.NewNull(), row, false
 }
 
 // ccrTip emits the "session synced:" row of a session's ccr-tip.json: the
@@ -124,7 +124,7 @@ func (r *Reader) registry(artifact *input.Artifact, emit parser.Emit) {
 	row := r.BaseRow(artifact)
 	row.SourceLine = 1
 	row.TurnType = timeline.TurnSystem
-	record, err := pyjson.Decode(data)
+	record, err := jsonvalue.Decode(data)
 	if err != nil || !record.IsObject() {
 		row.Text = "parser: session registry file is not a JSON object"
 		emit(row)
@@ -139,12 +139,12 @@ func (r *Reader) registry(artifact *input.Artifact, emit parser.Emit) {
 		strOr(record.Get("status"), "-"), strOr(record.Get("entrypoint"), "-"),
 		strOr(record.Get("bridgeSessionId"), "none"), strOr(record.Get("hostSessionId"), "none"))
 	emit(row)
-	if bridge := record.Get("bridgeSessionId"); bridge.IsString() && bridge.Text() != "" {
+	if bridge := record.Get("bridgeSessionId"); bridge.IsString() && bridge.StringValue() != "" {
 		sync := r.fileRow(artifact)
 		sync.SessionID = row.SessionID
 		sync.ProjectPath = row.ProjectPath
 		sync.Text = fmt.Sprintf("%s remote control bridge %s url - (from %s, file mtime)",
-			timeline.SyncedPrefix, bridge.Text(), artifact.Rel)
+			timeline.SyncedPrefix, bridge.StringValue(), artifact.Rel)
 		emit(sync)
 	}
 }
@@ -152,7 +152,7 @@ func (r *Reader) registry(artifact *input.Artifact, emit parser.Emit) {
 // StandingRow returns the system row of a standing setting at the given
 // time and project: "<label>: <key>=<value> (from <rel>, file mtime)".
 func (r *Reader) StandingRow(artifact *input.Artifact, timestamp, project, key string,
-	value pyjson.Value, label string) timeline.Row {
+	value jsonvalue.Value, label string) timeline.Row {
 	row := r.BaseRow(artifact)
 	row.SourceLine = 1
 	row.TurnType = timeline.TurnSystem
@@ -178,7 +178,7 @@ func (r *Reader) settings(artifact *input.Artifact, emit parser.Emit) {
 	if artifact.Home != nil && artifact.Home.Project {
 		project = artifact.Home.Original
 	}
-	standing := func(key string, value pyjson.Value, label string) {
+	standing := func(key string, value jsonvalue.Value, label string) {
 		emit(r.StandingRow(artifact, timestamp, project, key, value, label))
 	}
 	if permissions := document.Get("permissions"); permissions.IsObject() {
@@ -196,7 +196,7 @@ func (r *Reader) settings(artifact *input.Artifact, emit parser.Emit) {
 	if value := document.Get(retentionKey); !value.IsNull() {
 		standing(retentionKey, value, "retention setting")
 	}
-	if value := document.Get(modelKey); value.IsString() && value.Text() != "" {
+	if value := document.Get(modelKey); value.IsString() && value.StringValue() != "" {
 		standing(modelKey, value, "model setting")
 	}
 }
@@ -239,7 +239,7 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 
 // projectRows emits the rows of one project of ~/.claude.json.
 func (r *Reader) projectRows(artifact *input.Artifact, timestamp, projectPath string,
-	project pyjson.Value, emit parser.Emit) {
+	project jsonvalue.Value, emit parser.Emit) {
 	if !project.IsObject() {
 		return
 	}

@@ -23,8 +23,8 @@ import (
 	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
@@ -134,14 +134,14 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 		return
 	}
 	var recovered []recoveredError
-	history := pyjson.NewNull()
+	history := jsonvalue.NewNull()
 	switch {
 	case state.IsString(): // the value did not parse, and ReadItem said so
-		history, _, recovered = recoverHistory(state.Text())
+		history, _, recovered = recoverHistory(state.StringValue())
 	case state.IsObject():
 		history = state.Get(historyKey)
 		if history.IsString() {
-			history = decodeHistory(history.Text(), &problems, &recovered)
+			history = decodeHistory(history.StringValue(), &problems, &recovered)
 		}
 	}
 	p.historyRows(artifact, history, 0, options, emit)
@@ -156,8 +156,8 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 
 // decodeHistory returns a history's text decoded, else what can be
 // recovered from it, adding the problem and the damaged interactions.
-func decodeHistory(text string, problems *[]string, recovered *[]recoveredError) pyjson.Value {
-	history, err := pyjson.DecodeString(text)
+func decodeHistory(text string, problems *[]string, recovered *[]recoveredError) jsonvalue.Value {
+	history, err := jsonvalue.DecodeString(text)
 	if err == nil {
 		return history
 	}

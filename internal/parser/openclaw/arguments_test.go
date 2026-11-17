@@ -3,7 +3,7 @@ package openclaw
 import (
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 func TestToolArgsTextGivesTheAnalyzersText(t *testing.T) {
@@ -16,7 +16,7 @@ func TestToolArgsTextGivesTheAnalyzersText(t *testing.T) {
 		{"an empty command gives way to the path", `{"path": "/a", "command": ""}`, "/a"},
 		{"a path that is not a string gives way to the url", `{"url": "https://x", "path": 5}`,
 			"https://x"},
-		{"other arguments are sorted compact JSON", `{"b": 1, "a": "é"}`, `{"a":"é","b":1}`},
+		{"other arguments are sorted compact JSON", `{"b": 1, "a": "é"}`, `{"b":1,"a":"é"}`},
 		{"a string that is not JSON is kept", `"not json {"`, "not json {"},
 		{"blanks that are not JSON are kept", `"  "`, "  "},
 		{"an empty string is empty", `""`, ""},
@@ -32,7 +32,7 @@ func TestToolArgsTextGivesTheAnalyzersText(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			arguments, err := pyjson.DecodeString(test.arguments)
+			arguments, err := jsonvalue.DecodeString(test.arguments)
 			if err != nil {
 				t.Fatal(err)
 			}

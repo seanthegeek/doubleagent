@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -82,13 +82,13 @@ func (s *stateRows) projects() {
 func (s *stateRows) backups() {
 	for _, run := range s.data["backup_runs"] {
 		raw := columnText(run.Get("manifest_json"))
-		manifest, err := pyjson.DecodeString(raw)
+		manifest, err := jsonvalue.DecodeString(raw)
 		if err != nil {
 			s.problems.AddRaw(int(run.Rowid), "backup_runs manifest_json unparseable ("+err.Error()+")", raw)
 			continue
 		}
 		if !manifest.IsObject() {
-			manifest = pyjson.NewObject()
+			manifest = jsonvalue.NewObject()
 		}
 		if text := backupText(run, manifest); text != "" {
 			s.row(run, parser.ColumnTime(run.Get("created_at")), text, "")
@@ -99,17 +99,17 @@ func (s *stateRows) backups() {
 // backupText returns the `backup uploaded:` text of a successful upload or
 // Git backup, else "": a failed run, a local archive or a Git push that
 // failed gives none.
-func backupText(run sqlitefile.Row, manifest pyjson.Value) string {
+func backupText(run sqlitefile.Row, manifest jsonvalue.Value) string {
 	if columnText(run.Get("status")) != "ok" {
 		return ""
 	}
 	location := manifest.Get("location")
 	if !location.IsObject() {
-		location = pyjson.NewObject()
+		location = jsonvalue.NewObject()
 	}
 	target := manifest.Get("target")
 	failed, _ := manifest.Get("pushFailed").Bool()
-	pushed := isText(manifest.Get("kind"), "git") && target.Truthy() && !failed
+	pushed := isText(manifest.Get("kind"), "git") && !target.IsEmpty() && !failed
 	if location.Len() == 0 && !pushed {
 		return ""
 	}

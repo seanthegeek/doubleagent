@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -54,15 +54,15 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	data, err := pyjson.DecodeString(text)
+	data, err := jsonvalue.DecodeString(text)
 	for position, entry := range cliEntries(text, data, err == nil, &problems) {
-		if !entry.IsString() || pytext.Strip(entry.Text()) == "" {
+		if !entry.IsString() || pytext.Strip(entry.StringValue()) == "" {
 			continue
 		}
 		row := p.BaseRow(artifact)
 		row.SourceLine = position
 		row.TurnType = timeline.TurnUser
-		row.Text = entry.Text()
+		row.Text = entry.StringValue()
 		emit(row)
 	}
 	if err != nil && len(problems) == 0 {
@@ -74,9 +74,9 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 // cliEntries returns the entries of the CLI history: the document's entries
 // array, else, for text that is not JSON, the array after its "entries"
 // key walked as far as it parses.
-func cliEntries(text string, data pyjson.Value, decoded bool, problems *parser.Problems) func(func(int, pyjson.Value) bool) {
+func cliEntries(text string, data jsonvalue.Value, decoded bool, problems *parser.Problems) func(func(int, jsonvalue.Value) bool) {
 	if entries := data.Get("entries"); entries.IsArray() {
-		return func(yield func(int, pyjson.Value) bool) {
+		return func(yield func(int, jsonvalue.Value) bool) {
 			for i, entry := range entries.Items() {
 				if !yield(i+1, entry) {
 					return
@@ -90,19 +90,19 @@ func cliEntries(text string, data pyjson.Value, decoded bool, problems *parser.P
 		}
 	}
 	problems.Add(0, "cli-history.json has no entries array")
-	return func(func(int, pyjson.Value) bool) {}
+	return func(func(int, jsonvalue.Value) bool) {}
 }
 
 // stateFile returns a state file as a JSON object, or false after emitting
 // the row that says why it is not one.
-func (p *Parser) stateFile(artifact *input.Artifact, what string, emit parser.Emit) (pyjson.Value, bool) {
+func (p *Parser) stateFile(artifact *input.Artifact, what string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
 	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
 	if document.IsObject() {
 		return document, true
 	}
 	p.unusable(artifact, problems, what+" is not a JSON object", emit)
-	return pyjson.NewNull(), false
+	return jsonvalue.NewNull(), false
 }
 
 // unusable emits the unreadable-file rows of problems, else message as a
@@ -124,7 +124,7 @@ func (p *Parser) badFile(artifact *input.Artifact, message string) timeline.Row 
 
 // settingRow returns "<label>: <key>=<value> (from <source>, file mtime)"
 // at line 1 and the file's modification time.
-func (p *Parser) settingRow(artifact *input.Artifact, label, key string, value pyjson.Value,
+func (p *Parser) settingRow(artifact *input.Artifact, label, key string, value jsonvalue.Value,
 	source, project string) timeline.Row {
 	row := p.SystemRow(artifact, timeline.Compact(label+": "+key+"="+parser.SettingValue(value)+
 		" (from "+source+", file mtime)"))
@@ -136,14 +136,14 @@ func (p *Parser) settingRow(artifact *input.Artifact, label, key string, value p
 
 // settingsRows emits a permission setting row per scalar of keys, or per
 // entry of a list.
-func (p *Parser) settingsRows(artifact *input.Artifact, document pyjson.Value, keys []string,
+func (p *Parser) settingsRows(artifact *input.Artifact, document jsonvalue.Value, keys []string,
 	source string, emit parser.Emit) {
 	for _, key := range keys {
 		value := document.Get(key)
 		if value.IsNull() {
 			continue
 		}
-		items := []pyjson.Value{value}
+		items := []jsonvalue.Value{value}
 		if value.IsArray() {
 			items = value.Items()
 		}
@@ -156,13 +156,13 @@ func (p *Parser) settingsRows(artifact *input.Artifact, document pyjson.Value, k
 // globalStateRows emits the standing permission settings, then the Roo Code
 // Cloud settings cache, which exists only while the extension was signed in
 // and says whether task messages were uploaded.
-func (p *Parser) globalStateRows(artifact *input.Artifact, state pyjson.Value, source string, emit parser.Emit) {
+func (p *Parser) globalStateRows(artifact *input.Artifact, state jsonvalue.Value, source string, emit parser.Emit) {
 	p.settingsRows(artifact, state, standingKeys(), source, emit)
 	cloudSource := source + ", Roo Code Cloud settings cache"
 	if user := state.Get("user-settings"); user.IsObject() {
 		value := user.Get("settings").Get("taskSyncEnabled")
 		if value.IsNull() {
-			value = pyjson.NewString("unset (defaults to true)")
+			value = jsonvalue.NewString("unset (defaults to true)")
 		}
 		emit(p.settingRow(artifact, "sync setting", "user-settings.settings.taskSyncEnabled", value,
 			cloudSource, ""))
@@ -254,7 +254,7 @@ func mentions(problems []string, key string) bool {
 // after a failed upload. Only the event type, the task id, the URL and the
 // retry state are written: the request's headers carry a bearer token and
 // its body the event.
-func (p *Parser) retryQueueRows(artifact *input.Artifact, state pyjson.Value, source string, emit parser.Emit) {
+func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value, source string, emit parser.Emit) {
 	for i, request := range state.Get(retryQueueKey).Items() {
 		if !request.IsObject() {
 			continue
@@ -263,18 +263,18 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state pyjson.Value, so
 		taskID := event.Get("properties").Get("taskId")
 		retries := "-"
 		if value, found := request.Lookup("retryCount"); found {
-			retries = value.Str()
+			retries = value.Text()
 		}
 		parts := []string{
 			"cloud upload queued: " + clinelegacy.FirstTruthy(event.Get("type"), request.Get("operation"),
-				pyjson.NewString("-")).Str(),
-			"task=" + clinelegacy.FirstTruthy(taskID, pyjson.NewString("-")).Str(),
-			"type=" + clinelegacy.FirstTruthy(request.Get("type"), pyjson.NewString("-")).Str(),
+				jsonvalue.NewString("-")).Text(),
+			"task=" + clinelegacy.FirstTruthy(taskID, jsonvalue.NewString("-")).Text(),
+			"type=" + clinelegacy.FirstTruthy(request.Get("type"), jsonvalue.NewString("-")).Text(),
 			"retries=" + retries,
-			"url=" + clinelegacy.FirstTruthy(request.Get("url"), pyjson.NewString("-")).Str(),
+			"url=" + clinelegacy.FirstTruthy(request.Get("url"), jsonvalue.NewString("-")).Text(),
 		}
-		if lastError := request.Get("lastError"); lastError.Truthy() {
-			parts = append(parts, "lastError="+lastError.Str())
+		if lastError := request.Get("lastError"); !lastError.IsEmpty() {
+			parts = append(parts, "lastError="+lastError.Text())
 		}
 		row := p.SystemRow(artifact, timeline.Compact(strings.Join(parts, " ")+
 			" (Roo Code Cloud retry queue, from "+source+" "+retryQueueKey+", request timestamp)"))
@@ -287,14 +287,14 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state pyjson.Value, so
 
 // queuedEvent returns the JSON event body of a queued request, or null
 // when it is not a JSON object.
-func queuedEvent(request pyjson.Value) pyjson.Value {
+func queuedEvent(request jsonvalue.Value) jsonvalue.Value {
 	body := request.Get("options").Get("body")
 	if !body.IsString() {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
-	event, err := pyjson.DecodeString(body.Text())
+	event, err := jsonvalue.DecodeString(body.StringValue())
 	if err != nil || !event.IsObject() {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	return event
 }

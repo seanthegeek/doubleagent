@@ -3,8 +3,8 @@ package codex
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -18,7 +18,7 @@ var (
 
 // callSummary returns the text of a tool call: its command, its query, its
 // arguments or input, or else the call's other fields as JSON.
-func callSummary(payload pyjson.Value) string {
+func callSummary(payload jsonvalue.Value) string {
 	switch {
 	case isText(payload.Get("type"), "local_shell_call"):
 		action := objectOrEmpty(payload.Get("action"))
@@ -35,7 +35,7 @@ func callSummary(payload pyjson.Value) string {
 		switch {
 		case isNoneOrEmpty(value):
 		case value.IsString():
-			return value.Text()
+			return value.StringValue()
 		default:
 			return parser.CompactJSON(value)
 		}
@@ -45,16 +45,16 @@ func callSummary(payload pyjson.Value) string {
 
 // objectOrEmpty returns value, or an empty object when Python counts it as
 // false: the form `value or {}`.
-func objectOrEmpty(value pyjson.Value) pyjson.Value {
-	if value.Truthy() {
+func objectOrEmpty(value jsonvalue.Value) jsonvalue.Value {
+	if !value.IsEmpty() {
 		return value
 	}
-	return pyjson.NewObject()
+	return jsonvalue.NewObject()
 }
 
 // callName returns the tool name of a call: shell, web_search, or the
 // call's own name, else its type.
-func callName(payload pyjson.Value) string {
+func callName(payload jsonvalue.Value) string {
 	switch {
 	case isText(payload.Get("type"), "local_shell_call"):
 		return "shell"
@@ -128,12 +128,12 @@ type userPart struct {
 // one kind joined by LF. The kind comes from the content_item_kinds list
 // when it is as long as the content (user.* and unknown are the person's),
 // else from the block's wrapper (contextMarker).
-func userParts(payload pyjson.Value) []userPart {
+func userParts(payload jsonvalue.Value) []userPart {
 	content := payload.Get("content")
 	if content.IsString() {
-		content = pyjson.NewArray(pyjson.NewObject(
-			pyjson.Member{Key: "type", Value: pyjson.NewString("input_text")},
-			pyjson.Member{Key: "text", Value: content}))
+		content = jsonvalue.NewArray(jsonvalue.NewObject(
+			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("input_text")},
+			jsonvalue.Member{Key: "text", Value: content}))
 	}
 	if !content.IsArray() {
 		if text := parser.TextOf(content); text != "" {
@@ -145,7 +145,7 @@ func userParts(payload pyjson.Value) []userPart {
 	useKinds := kinds.IsArray() && kinds.Len() == content.Len()
 	var parts []userPart
 	for i, block := range content.Items() {
-		text := parser.TextOf(pyjson.NewArray(block))
+		text := parser.TextOf(jsonvalue.NewArray(block))
 		if text == "" {
 			continue
 		}
@@ -166,7 +166,7 @@ func userParts(payload pyjson.Value) []userPart {
 
 // contentKind returns the run kind of a content_item_kinds entry: "" for the
 // person's input, else the kind.
-func contentKind(value pyjson.Value) string {
+func contentKind(value jsonvalue.Value) string {
 	kind := parser.Str(value)
 	if strings.HasPrefix(kind, "user.") || kind == "" || kind == "unknown" {
 		return ""
@@ -177,31 +177,31 @@ func contentKind(value pyjson.Value) string {
 // parentOf returns the parent thread a subagent's session_meta names, or
 // "": parent_thread_id, else source.subagent.thread_spawn.parent_thread_id,
 // else a root session_id other than the id when the thread is not a fork.
-func parentOf(metadata pyjson.Value) string {
-	if parent := metadata.Get("parent_thread_id"); parent.Truthy() {
-		return parent.Str()
+func parentOf(metadata jsonvalue.Value) string {
+	if parent := metadata.Get("parent_thread_id"); !parent.IsEmpty() {
+		return parent.Text()
 	}
 	spawn := metadata.Get("source").Get("subagent").Get("thread_spawn")
-	if parent := spawn.Get("parent_thread_id"); parent.Truthy() {
-		return parent.Str()
+	if parent := spawn.Get("parent_thread_id"); !parent.IsEmpty() {
+		return parent.Text()
 	}
 	root, threadID := metadata.Get("session_id"), metadata.Get("id")
-	if root.Truthy() && threadID.Truthy() && !sameValue(root, threadID) &&
-		!metadata.Get("forked_from_id").Truthy() {
-		return root.Str()
+	if !root.IsEmpty() && !threadID.IsEmpty() && !sameValue(root, threadID) &&
+		metadata.Get("forked_from_id").IsEmpty() {
+		return root.Text()
 	}
 	return ""
 }
 
 // isSubagentMeta reports whether a session_meta is a subagent thread's.
-func isSubagentMeta(metadata pyjson.Value) bool {
+func isSubagentMeta(metadata jsonvalue.Value) bool {
 	return isText(metadata.Get("thread_source"), "subagent") ||
 		metadata.Get("source").Has("subagent")
 }
 
 // isGuardian reports whether a session_meta is a guardian review thread's:
 // thread_source guardian_review, or a source.subagent.other of guardian.
-func isGuardian(metadata pyjson.Value) bool {
+func isGuardian(metadata jsonvalue.Value) bool {
 	return isText(metadata.Get("thread_source"), "guardian_review") ||
 		isText(metadata.Get("source").Get("subagent").Get("other"), "guardian")
 }
@@ -209,9 +209,9 @@ func isGuardian(metadata pyjson.Value) bool {
 // prescan returns the ids every response item carries, as id or call_id,
 // and the exit code of each completed CommandExecution item by its id,
 // which is the call's call_id.
-func prescan(records []numberedRecord) (map[string]bool, map[string]pyjson.Value) {
+func prescan(records []numberedRecord) (map[string]bool, map[string]jsonvalue.Value) {
 	carried := map[string]bool{}
-	exitCodes := map[string]pyjson.Value{}
+	exitCodes := map[string]jsonvalue.Value{}
 	for _, record := range records {
 		payload := record.value.Get("payload")
 		if !payload.IsObject() {
@@ -220,8 +220,8 @@ func prescan(records []numberedRecord) (map[string]bool, map[string]pyjson.Value
 		switch {
 		case isText(record.value.Get("type"), "response_item"):
 			for _, key := range []string{"id", "call_id"} {
-				if value := payload.Get(key); value.Truthy() {
-					carried[value.Str()] = true
+				if value := payload.Get(key); !value.IsEmpty() {
+					carried[value.Text()] = true
 				}
 			}
 		case isText(record.value.Get("type"), "event_msg") &&
@@ -238,14 +238,14 @@ func prescan(records []numberedRecord) (map[string]bool, map[string]pyjson.Value
 
 // toolNames returns the names of the tools a tool search found, each
 // tool's name or else its JSON, joined by ", ".
-func toolNames(tools pyjson.Value) string {
+func toolNames(tools jsonvalue.Value) string {
 	if !tools.IsArray() {
 		return parser.CompactJSON(tools)
 	}
 	names := make([]string, 0, tools.Len())
 	for _, tool := range tools.Items() {
-		if name := tool.Get("name"); name.Truthy() {
-			names = append(names, name.Str())
+		if name := tool.Get("name"); !name.IsEmpty() {
+			names = append(names, name.Text())
 		} else {
 			names = append(names, parser.CompactJSON(tool))
 		}
@@ -255,11 +255,11 @@ func toolNames(tools pyjson.Value) string {
 
 // agentLabel returns the "agent message <author> -> <recipients>: " start
 // of a message between agents.
-func agentLabel(payload pyjson.Value) string {
+func agentLabel(payload jsonvalue.Value) string {
 	recipients := []string{parser.Str(payload.Get("recipient"))}
 	if others := payload.Get("other_recipients"); others.IsArray() {
 		for _, recipient := range others.Items() {
-			recipients = append(recipients, recipient.Str())
+			recipients = append(recipients, recipient.Text())
 		}
 	}
 	return "agent message " + parser.Str(payload.Get("author")) + " -> " +
@@ -268,7 +268,7 @@ func agentLabel(payload pyjson.Value) string {
 
 // agentText returns the text of an agent message, marked [encrypted] when a
 // block of it is encrypted.
-func agentText(payload pyjson.Value) string {
+func agentText(payload jsonvalue.Value) string {
 	content := payload.Get("content")
 	text := parser.TextOf(content)
 	for _, block := range content.Items() {
@@ -281,7 +281,7 @@ func agentText(payload pyjson.Value) string {
 
 // goalText returns the "thread goal:" text of a thread_goal_updated event,
 // whose keys are camelCase.
-func goalText(payload pyjson.Value) string {
+func goalText(payload jsonvalue.Value) string {
 	goal := objectOr(payload.Get("goal"))
 	return "thread goal: status=" + strOr(goal.Get("status"), "-") + " turn=" +
 		strOr(payload.Get("turnId"), "-") + " objective: " + parser.Str(goal.Get("objective"))
@@ -289,18 +289,18 @@ func goalText(payload pyjson.Value) string {
 
 // guardianVerdict returns the verdict a guardian review's message holds: a
 // JSON object, in a string, with a true outcome; false otherwise.
-func guardianVerdict(message string) (pyjson.Value, bool) {
-	verdict, err := pyjson.DecodeString(message)
-	if err != nil || !verdict.Get("outcome").Truthy() {
-		return pyjson.NewNull(), false
+func guardianVerdict(message string) (jsonvalue.Value, bool) {
+	verdict, err := jsonvalue.DecodeString(message)
+	if err != nil || verdict.Get("outcome").IsEmpty() {
+		return jsonvalue.NewNull(), false
 	}
 	return verdict, true
 }
 
 // guardianText returns the "permission decision:" text of a guardian
 // review's verdict on call, by reviewer.
-func guardianText(verdict pyjson.Value, call, reviewer string) string {
-	return "permission decision: " + verdict.Get("outcome").Str() + " (auto_review risk_level=" +
+func guardianText(verdict jsonvalue.Value, call, reviewer string) string {
+	return "permission decision: " + verdict.Get("outcome").Text() + " (auto_review risk_level=" +
 		strOr(verdict.Get("risk_level"), "-") + " user_authorization=" +
 		strOr(verdict.Get("user_authorization"), "-") + ") exec " + call + " reviewer " +
 		reviewer + ": " + parser.Str(verdict.Get("rationale"))

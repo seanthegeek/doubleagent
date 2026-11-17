@@ -3,7 +3,7 @@ package opencode
 import (
 	"fmt"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -64,9 +64,9 @@ func (s *store) eventShareRows() error {
 		url := objectOf(info.Get("share")).Get("url")
 		var text string
 		switch _, known := state[identifier]; {
-		case url.Truthy() && !known:
-			state[identifier], text = "shared", timeline.SyncedPrefix+" share url "+url.Str()
-		case !url.Truthy() && state[identifier] == "shared":
+		case !url.IsEmpty() && !known:
+			state[identifier], text = "shared", timeline.SyncedPrefix+" share url "+url.Text()
+		case url.IsEmpty() && state[identifier] == "shared":
 			state[identifier], text = "unshared", "session unshared"
 		default:
 			continue
@@ -81,35 +81,35 @@ func (s *store) eventShareRows() error {
 // decodeColumn returns a row's JSON object column decoded, or false after
 // adding the problem "unparseable record <rowid> (<label>: <reason>)",
 // with the column's text as raw, for the session id.
-func (s *store) decodeColumn(row sqlitefile.Row, column, label, sessionID string) (pyjson.Value, bool) {
+func (s *store) decodeColumn(row sqlitefile.Row, column, label, sessionID string) (jsonvalue.Value, bool) {
 	value, reason, raw := decodeRecord(row.Get(column))
 	if reason != "" {
 		s.failures = append(s.failures, failure{line: int(row.Rowid),
 			message: unparseable(row.Rowid, label, reason), raw: raw, sessionID: sessionID})
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return value, true
 }
 
 // decodeRecord returns a stored JSON value decoded to an object, or the
 // reason it is not one and its text.
-func decodeRecord(stored sqlitefile.Value) (pyjson.Value, string, string) {
+func decodeRecord(stored sqlitefile.Value) (jsonvalue.Value, string, string) {
 	text, reason, ok := columnJSON(stored)
 	if !ok {
-		return pyjson.NewNull(), reason, text
+		return jsonvalue.NewNull(), reason, text
 	}
 	return decodeText(text)
 }
 
 // decodeText returns text decoded to a JSON object, or the reason it is
 // not one and the text.
-func decodeText(text string) (pyjson.Value, string, string) {
-	value, err := pyjson.DecodeString(text)
+func decodeText(text string) (jsonvalue.Value, string, string) {
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
-		return pyjson.NewNull(), err.Error(), text
+		return jsonvalue.NewNull(), err.Error(), text
 	}
 	if !value.IsObject() {
-		return pyjson.NewNull(), "not a JSON object", text
+		return jsonvalue.NewNull(), "not a JSON object", text
 	}
 	return value, "", text
 }

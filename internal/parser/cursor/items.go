@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -90,7 +90,7 @@ func (i *items) standing(emit parser.Emit) {
 // runMode returns the label the UI gives a modes4 entry's run mode, from
 // its autoRun, smartModeAutoRun and fullAutoRun flags and the sandbox
 // switch; no run-mode string is stored.
-func runMode(mode pyjson.Value, sandbox bool) string {
+func runMode(mode jsonvalue.Value, sandbox bool) string {
 	if isTrue(mode.Get("fullAutoRun")) {
 		return "Run Everything"
 	}
@@ -109,14 +109,14 @@ func runMode(mode pyjson.Value, sandbox bool) string {
 
 // standingTexts returns the "permission setting:" texts of composerState:
 // one per standing-list entry, one per modes4 entry and one per switch.
-func standingTexts(state pyjson.Value, sandbox bool) []string {
+func standingTexts(state jsonvalue.Value, sandbox bool) []string {
 	var texts []string
 	for _, key := range standingLists() {
 		for _, entry := range state.Get(key).Items() {
 			texts = append(texts, "permission setting: "+key+"="+parser.SettingValue(entry)+" "+composerSource)
 		}
 	}
-	sandboxText := parser.SettingValue(pyjson.NewBool(sandbox))
+	sandboxText := parser.SettingValue(jsonvalue.NewBool(sandbox))
 	for _, mode := range state.Get("modes4").Items() {
 		if !mode.IsObject() {
 			continue
@@ -177,7 +177,7 @@ func enrolledText(key string, byKey map[string]keyed) string {
 	name := plain(raw)
 	text := asText(raw)
 	if name.IsString() {
-		text = name.Text()
+		text = name.StringValue()
 	}
 	return "remote agent host enrolled: " + orDash(timeline.Compact(text)) + " (from state.vscdb " + key +
 		", file mtime; on by default, a paired device leaves no local record)"
@@ -195,7 +195,7 @@ func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emi
 		}
 		return
 	}
-	var usages []pyjson.Value
+	var usages []jsonvalue.Value
 	if found, ok := byKey[row.key+"-usages"]; ok {
 		for _, usage := range decodeRecord(found.rowid, found.key, found.value, i.problems).Items() {
 			if usage.IsObject() {
@@ -204,7 +204,7 @@ func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emi
 		}
 	}
 	text := githubText(login, row.key, usages)
-	if latest := lastUsed(usages); latest.Truthy() {
+	if latest := lastUsed(usages); !latest.IsEmpty() {
 		emit(i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(latest), row.rowid))
 		return
 	}
@@ -213,8 +213,8 @@ func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emi
 
 // lastUsed returns the latest numeric lastUsed of a usages list (a
 // boolean counts as 0 or 1), the first of equal ones, or null.
-func lastUsed(usages []pyjson.Value) pyjson.Value {
-	latest, best := pyjson.NewNull(), 0.0
+func lastUsed(usages []jsonvalue.Value) jsonvalue.Value {
+	latest, best := jsonvalue.NewNull(), 0.0
 	for _, usage := range usages {
 		value := usage.Get("lastUsed")
 		number, ok := value.Float()
@@ -233,12 +233,12 @@ func lastUsed(usages []pyjson.Value) pyjson.Value {
 
 // githubText returns the "source host: github account" text, the scopes
 // of its usages without repeats.
-func githubText(login, key string, usages []pyjson.Value) string {
+func githubText(login, key string, usages []jsonvalue.Value) string {
 	var scopes []string
 	for _, usage := range usages {
 		for _, scope := range usage.Get("scopes").Items() {
-			if !slices.Contains(scopes, scope.Str()) {
-				scopes = append(scopes, scope.Str())
+			if !slices.Contains(scopes, scope.Text()) {
+				scopes = append(scopes, scope.Text())
 			}
 		}
 	}

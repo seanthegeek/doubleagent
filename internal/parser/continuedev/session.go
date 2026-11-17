@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -63,7 +63,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		return
 	}
 	document, problem := LoadSession(pytext.DecodeUTF8(content))
-	sessionID := clinelegacy.FirstTruthy(document.Get("sessionId"), pyjson.NewString(fileID)).Str()
+	sessionID := clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)).Text()
 	entry := p.indexes.Index(parser.Beside(artifact))[sessionID]
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), models: parser.Tracker{}, names: map[string]string{},
@@ -77,8 +77,8 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	state.header(document, entry, len(history))
 	for _, item := range history {
 		message := item.Get("message")
-		if isText(message.Get("role"), "tool") && message.Get("toolCallId").Truthy() {
-			state.answered[message.Get("toolCallId").Str()] = true
+		if isText(message.Get("role"), "tool") && !message.Get("toolCallId").IsEmpty() {
+			state.answered[message.Get("toolCallId").Text()] = true
 		}
 	}
 	for i, item := range history {
@@ -95,17 +95,17 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 
 // header emits a session's start row, its first model, its mode, and the
 // scratch directory row of a cn review worktree.
-func (s *sessionFile) header(document, entry pyjson.Value, items int) {
+func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
 	model := s.model
 	bits := []string{"session start: " + parser.Str(clinelegacy.FirstTruthy(document.Get("title"),
 		entry.Get("title")))}
-	if mode := document.Get("mode"); mode.Truthy() {
-		bits = append(bits, "mode="+mode.Str())
+	if mode := document.Get("mode"); !mode.IsEmpty() {
+		bits = append(bits, "mode="+mode.Text())
 	}
 	bits = append(bits, "items="+strconv.Itoa(items))
 	for _, field := range []string{"promptTokens", "completionTokens", "totalCost"} {
 		if value := document.Get("usage").Get(field); !value.IsNull() {
-			bits = append(bits, field+"="+value.Str())
+			bits = append(bits, field+"="+value.Text())
 		}
 	}
 	if s.base.TimestampUTC == "" {
@@ -116,8 +116,8 @@ func (s *sessionFile) header(document, entry pyjson.Value, items int) {
 	if change := s.models.Change("model", s.base.SessionID, model); change != "" {
 		texts = append(texts, change)
 	}
-	if mode := document.Get("mode"); mode.IsString() && mode.Text() != "" {
-		texts = append(texts, "permission mode: "+mode.Text())
+	if mode := document.Get("mode"); mode.IsString() && mode.StringValue() != "" {
+		texts = append(texts, "permission mode: "+mode.StringValue())
 	}
 	if reviewWorktree.MatchString(s.base.ProjectPath) {
 		texts = append(texts, "scratch directory: "+s.base.ProjectPath+" (cn review worktree)")
@@ -130,10 +130,10 @@ func (s *sessionFile) header(document, entry pyjson.Value, items int) {
 }
 
 // item emits the rows of one history item at a 1-based position.
-func (s *sessionFile) item(position int, item, message pyjson.Value) {
+func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
 	model := s.promptModels(position, item)
 	if reasoning := item.Get("reasoning"); s.options.IncludeThinking && reasoning.IsObject() &&
-		reasoning.Get("text").Truthy() {
+		!reasoning.Get("text").IsEmpty() {
 		row := s.row(position, model, timeline.TurnThinking)
 		row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(reasoning.Get("startAt")),
 			s.base.TimestampUTC)
@@ -163,7 +163,7 @@ func (s *sessionFile) item(position int, item, message pyjson.Value) {
 		s.text(row, text)
 	case text != "":
 		if !isText(role, "system") {
-			text = clinelegacy.FirstTruthy(role, pyjson.NewString("unknown")).Str() + ": " + text
+			text = clinelegacy.FirstTruthy(role, jsonvalue.NewString("unknown")).Text() + ": " + text
 		}
 		s.text(s.row(position, "", timeline.TurnSystem), text)
 	}

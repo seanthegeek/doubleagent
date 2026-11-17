@@ -139,6 +139,18 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 			"parser: unparseable line (not a JSON object): [1]", 0},
 		{"102 leaves an assistant row that quotes an error alone", 102,
 			"SQLite error: file is not a database", "SQLite error: file is not a database", 0},
+		{"120 writes Python's quoted value in one form", 120,
+			"error: cannot read 'last friday' as a time; accepted: 'ago'\n",
+			"error: cannot read {quoted last friday} as a time; accepted: 'ago'\n", 1},
+		{"120 writes Go's quoted value in the same form", 120,
+			"error: cannot read \"last friday\" as a time; accepted: 'ago'\n",
+			"error: cannot read {quoted last friday} as a time; accepted: 'ago'\n", 1},
+		{"120 reads a value that starts the reason", 120, "error: '2026-13' is out of range\n",
+			"error: {quoted 2026-13} is out of range\n", 1},
+		{"120 leaves a value holding a quote alone", 120, "error: cannot read \"it's\" as a time\n",
+			"error: cannot read \"it's\" as a time\n", 0},
+		{"120 leaves a quote inside a row's text alone", 120, "parser: cannot read 'x' here",
+			"parser: cannot read 'x' here", 0},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -147,6 +159,14 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 				t.Errorf("got %q (%d places), want %q (%d)", got, found, test.want, test.found)
 			}
 		})
+	}
+}
+
+func TestQuotedValuesStillDifferWhenTheValueDiffers(t *testing.T) {
+	want, _ := quotedValueText("error: cannot read 'last friday' as a time\n")
+	got, _ := quotedValueText("error: cannot read \"last monday\" as a time\n")
+	if want == got {
+		t.Errorf("two different values compare equal: %q", want)
 	}
 }
 

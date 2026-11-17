@@ -28,8 +28,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -203,7 +203,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	messages, failure := loadMessages(pytext.DecodeUTF8(content))
-	if !slices.ContainsFunc(messages, func(message pyjson.Value) bool { return message.Has("role") }) {
+	if !slices.ContainsFunc(messages, func(message jsonvalue.Value) bool { return message.Has("role") }) {
 		text := "parser: not a ShellGPT chat file"
 		if failure != "" {
 			text += ": " + failure
@@ -225,7 +225,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 type rowMaker func(turn, text, toolName, toolUseID string) timeline.Row
 
 // walkMessage emits the rows of one chat message.
-func walkMessage(message pyjson.Value, index int, state *chatState, makeRow rowMaker,
+func walkMessage(message jsonvalue.Value, index int, state *chatState, makeRow rowMaker,
 	emit parser.Emit) {
 	role := parser.Str(message.Get("role"))
 	content := parser.TextOf(message.Get("content"))
@@ -255,7 +255,7 @@ func walkMessage(message pyjson.Value, index int, state *chatState, makeRow rowM
 }
 
 // walkAssistant emits an assistant message's text and its tool calls.
-func walkAssistant(message pyjson.Value, index int, content string, state *chatState,
+func walkAssistant(message jsonvalue.Value, index int, content string, state *chatState,
 	makeRow rowMaker, emit parser.Emit) {
 	if pytext.Strip(content) != "" {
 		emit(makeRow(timeline.TurnAssistant, content, "", ""))
@@ -278,8 +278,8 @@ func walkAssistant(message pyjson.Value, index int, content string, state *chatS
 // loadMessages decodes a chat file into its messages and an error text ("" when
 // whole). A whole array parses at once; a truncated one is decoded element by
 // element so the messages before the cut survive.
-func loadMessages(raw string) ([]pyjson.Value, string) {
-	data, err := pyjson.DecodeString(raw)
+func loadMessages(raw string) ([]jsonvalue.Value, string) {
+	data, err := jsonvalue.DecodeString(raw)
 	if err == nil {
 		if !data.IsArray() {
 			return nil, "not a JSON array"
@@ -290,7 +290,7 @@ func loadMessages(raw string) ([]pyjson.Value, string) {
 	if !strings.HasPrefix(text, "[") {
 		return nil, err.Error()
 	}
-	var found []pyjson.Value
+	var found []jsonvalue.Value
 	position := 1
 	for {
 		for position < len(text) && strings.IndexByte(" \t\r\n,", text[position]) >= 0 {
@@ -299,7 +299,7 @@ func loadMessages(raw string) ([]pyjson.Value, string) {
 		if position >= len(text) || text[position] == ']' {
 			break
 		}
-		value, end, decodeErr := pyjson.DecodePrefix(text, position)
+		value, end, decodeErr := jsonvalue.DecodePrefix(text, position)
 		if decodeErr != nil {
 			break
 		}
@@ -312,8 +312,8 @@ func loadMessages(raw string) ([]pyjson.Value, string) {
 }
 
 // objects returns the elements of values that are objects.
-func objects(values []pyjson.Value) []pyjson.Value {
-	var found []pyjson.Value
+func objects(values []jsonvalue.Value) []jsonvalue.Value {
+	var found []jsonvalue.Value
 	for _, value := range values {
 		if value.IsObject() {
 			found = append(found, value)
@@ -324,23 +324,23 @@ func objects(values []pyjson.Value) []pyjson.Value {
 
 // callText returns a tool call's "shell_command" argument, else its
 // arguments as text.
-func callText(arguments pyjson.Value) string {
+func callText(arguments jsonvalue.Value) string {
 	switch {
 	case arguments.IsString():
-		parsed, err := pyjson.DecodeString(arguments.Text())
+		parsed, err := jsonvalue.DecodeString(arguments.StringValue())
 		if err == nil && parsed.IsObject() && parsed.Get("shell_command").IsString() {
-			return parsed.Get("shell_command").Text()
+			return parsed.Get("shell_command").StringValue()
 		}
-		return arguments.Text()
+		return arguments.StringValue()
 	case arguments.IsObject():
 		if command := arguments.Get("shell_command"); command.IsString() {
-			return command.Text()
+			return command.StringValue()
 		}
-		return pyjson.Format{SortKeys: true, Spaced: true}.Encode(arguments)
+		return arguments.JSON()
 	case arguments.IsNull():
 		return ""
 	}
-	return arguments.Str()
+	return arguments.Text()
 }
 
 // The interfaces the registry looks for, checked when the package builds.

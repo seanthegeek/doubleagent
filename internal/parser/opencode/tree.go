@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -106,9 +106,9 @@ func subdirectories(directory string) []string {
 // quietObject returns a file read beside the one parsed decoded as a JSON
 // object, or false; that file's own problems are reported where it is
 // parsed, so none is kept here.
-func quietObject(path string, ok bool) (pyjson.Value, bool) {
+func quietObject(path string, ok bool) (jsonvalue.Value, bool) {
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	var ignored parser.Problems
 	return readObject(path, &ignored)
@@ -119,8 +119,8 @@ func quietObject(path string, ok bool) (pyjson.Value, bool) {
 // that decodes; the project path is its directory, else (new layout) its
 // project file's worktree unless "/", else the message's path.root or
 // path.cwd.
-func sessionScope(root string, sessionID string, old bool, message pyjson.Value) *scope {
-	session := pyjson.NewNull()
+func sessionScope(root string, sessionID string, old bool, message jsonvalue.Value) *scope {
+	session := jsonvalue.NewNull()
 	if old {
 		session, _ = quietObject(childPath(root, "info", sessionID+".json"))
 	} else {
@@ -136,8 +136,8 @@ func sessionScope(root string, sessionID string, old bool, message pyjson.Value)
 		}
 	}
 	projectPath := parser.Str(session.Get("directory"))
-	if projectID := session.Get("projectID"); projectPath == "" && !old && projectID.Truthy() {
-		project, _ := quietObject(childPath(root, "project", projectID.Str()+".json"))
+	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
+		project, _ := quietObject(childPath(root, "project", projectID.Text()+".json"))
 		projectPath = worktreeText(project.Get("worktree"))
 	}
 	if projectPath == "" {
@@ -148,7 +148,7 @@ func sessionScope(root string, sessionID string, old bool, message pyjson.Value)
 }
 
 // worktreeText returns a project's worktree as text, "" when it is "/".
-func worktreeText(worktree pyjson.Value) string {
+func worktreeText(worktree jsonvalue.Value) string {
 	if isText(worktree, "/") {
 		return ""
 	}
@@ -173,8 +173,8 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 		return
 	}
 	projectPath := parser.Str(session.Get("directory"))
-	if projectID := session.Get("projectID"); projectPath == "" && !old && projectID.Truthy() {
-		name := projectID.Str() + ".json"
+	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
+		name := projectID.Text() + ".json"
 		var file string
 		root, ok := rootOf(artifact, 3)
 		if ok {
@@ -200,13 +200,13 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 // object, and why it is not one. A file that is absent, a link or not a
 // regular file is silent; one that cannot be read adds its unreadable
 // problem and gives no reason.
-func readSide(path string, ok bool, problems *parser.Problems) (pyjson.Value, string) {
+func readSide(path string, ok bool, problems *parser.Problems) (jsonvalue.Value, string) {
 	if !ok || !parser.RegularFile(path) {
-		return pyjson.NewNull(), ""
+		return jsonvalue.NewNull(), ""
 	}
 	data, read := parser.FileBytes(path, problems)
 	if !read {
-		return pyjson.NewNull(), ""
+		return jsonvalue.NewNull(), ""
 	}
 	value, reason, _ := decodeText(pytext.DecodeUTF8(data))
 	return value, reason
@@ -228,7 +228,7 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 	var problems parser.Problems
 	message, ok := readObject(artifact.DiskPath, &problems)
 	if !ok {
-		scoped := sessionScope(root.disk, sessionID, old, pyjson.NewNull())
+		scoped := sessionScope(root.disk, sessionID, old, jsonvalue.NewNull())
 		if len(problems) > 0 {
 			parser.EmitAll(emit, p.ErrorRows(artifact, problems, scoped.sessionID, scoped.projectPath))
 			return
@@ -260,11 +260,11 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 // previousMessage returns the message file before the named one in its
 // directory, decoded: one file holds one message, and message ids sort in
 // time order, so the model and agent in force come from it.
-func previousMessage(directory, name string) (pyjson.Value, bool) {
+func previousMessage(directory, name string) (jsonvalue.Value, bool) {
 	siblings := children(directory)
 	position := slices.Index(siblings, name)
 	if position <= 0 {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return quietObject(filepath.Join(directory, siblings[position-1]), true)
 }

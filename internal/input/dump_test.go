@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // writeFile writes text at path, making its directories.
@@ -37,22 +37,22 @@ func writeTree(t *testing.T, root string, files map[string]string) {
 // jsonRow returns a compact JSON object of key and value pairs; a value
 // is a string, an int or a bool.
 func jsonRow(pairs ...any) string {
-	var members []pyjson.Member
+	var members []jsonvalue.Member
 	for i := 0; i+1 < len(pairs); i += 2 {
-		var value pyjson.Value
+		var value jsonvalue.Value
 		switch typed := pairs[i+1].(type) {
 		case string:
-			value = pyjson.NewString(typed)
+			value = jsonvalue.NewString(typed)
 		case int:
-			value = pyjson.NewInt(int64(typed))
+			value = jsonvalue.NewInt(int64(typed))
 		case bool:
-			value = pyjson.NewBool(typed)
-		case pyjson.Value:
+			value = jsonvalue.NewBool(typed)
+		case jsonvalue.Value:
 			value = typed
 		}
-		members = append(members, pyjson.Member{Key: pairs[i].(string), Value: value})
+		members = append(members, jsonvalue.Member{Key: pairs[i].(string), Value: value})
 	}
-	return pyjson.Compact(pyjson.NewObject(members...))
+	return jsonvalue.NewObject(members...).JSON()
 }
 
 // collectedRow returns the manifest row of a collected file.

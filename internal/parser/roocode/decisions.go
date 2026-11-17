@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -101,7 +101,7 @@ func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parser.Optio
 // the row text.
 type decision struct {
 	position                  int
-	timestamp                 pyjson.Value
+	timestamp                 jsonvalue.Value
 	toolUseID, toolName, text string
 }
 
@@ -136,12 +136,12 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 
 // decisionText returns the "permission decision:" text of a tool result's
 // content, or false when its text does not open with a decision object.
-func decisionText(content pyjson.Value) (string, bool) {
+func decisionText(content jsonvalue.Value) (string, bool) {
 	body := pytext.StripLeft(parser.TextOf(content))
 	if !strings.HasPrefix(body, "{") {
 		return "", false
 	}
-	status, _, err := pyjson.DecodePrefix(body, 0)
+	status, _, err := jsonvalue.DecodePrefix(body, 0)
 	if err != nil {
 		return "", false
 	}
@@ -149,7 +149,7 @@ func decisionText(content pyjson.Value) (string, bool) {
 	if !isText(state, "denied") && !isText(state, "approved") {
 		return "", false
 	}
-	text := "permission decision: " + state.Text()
+	text := "permission decision: " + state.StringValue()
 	if feedback := status.Get("feedback"); !feedback.IsNull() {
 		text += " feedback=" + parser.SettingValue(feedback)
 	}
@@ -157,6 +157,6 @@ func decisionText(content pyjson.Value) (string, bool) {
 }
 
 // isText reports whether a value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

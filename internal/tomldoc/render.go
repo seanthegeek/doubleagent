@@ -1,7 +1,7 @@
 package tomldoc
 
 import (
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // SettingText returns a value as the text of a setting row, as Python's
@@ -27,31 +27,31 @@ func SettingText(value Value) string {
 // writes it. A date or time inside an array or table is written as a JSON
 // string of its text.
 func CompactJSON(value Value) string {
-	return pyjson.Sorted(jsonValue(value))
+	return jsonValue(value).JSON()
 }
 
 // jsonValue returns a value as the JSON value Python's encoder sees: a
 // table as an object in document order, a date or time as its text.
-func jsonValue(value Value) pyjson.Value {
+func jsonValue(value Value) jsonvalue.Value {
 	switch value.kind {
 	case KindInteger:
-		return pyjson.NewInt(value.integer)
+		return jsonvalue.NewInt(value.integer)
 	case KindFloat:
-		return pyjson.NewFloat(value.float)
+		return jsonvalue.NewFloat(value.float)
 	case KindBoolean:
-		return pyjson.NewBool(value.boolean)
+		return jsonvalue.NewBool(value.boolean)
 	case KindArray:
-		items := make([]pyjson.Value, len(value.items))
+		items := make([]jsonvalue.Value, len(value.items))
 		for i, item := range value.items {
 			items[i] = jsonValue(item)
 		}
-		return pyjson.NewArray(items...)
+		return jsonvalue.NewArray(items...)
 	case KindTable:
-		members := make([]pyjson.Member, len(value.table.entries))
+		members := make([]jsonvalue.Member, len(value.table.entries))
 		for i, entry := range value.table.entries {
-			members[i] = pyjson.Member{Key: entry.Key, Value: jsonValue(entry.Value)}
+			members[i] = jsonvalue.Member{Key: entry.Key, Value: jsonValue(entry.Value)}
 		}
-		return pyjson.NewObject(members...)
+		return jsonvalue.NewObject(members...)
 	}
-	return pyjson.NewString(value.text)
+	return jsonvalue.NewString(value.text)
 }

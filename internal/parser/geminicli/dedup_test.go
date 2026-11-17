@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/dedup"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -28,18 +28,18 @@ func TestDeduplicationOfTheSecondarySourcesMatchesPython(t *testing.T) {
 		hooks["gemini-cli"] = declarer.DedupHooks()
 	}
 	for i, line := range bytes.Split(bytes.TrimSpace(data), []byte("\n")) {
-		recorded, err := pyjson.Decode(line)
+		recorded, err := jsonvalue.Decode(line)
 		if err != nil {
 			t.Fatal(err)
 		}
-		name := strconv.Itoa(i+1) + " " + recorded.Get("test").Text()
+		name := strconv.Itoa(i+1) + " " + recorded.Get("test").StringValue()
 		t.Run(name, func(t *testing.T) { replayDeduplication(t, recorded, hooks) })
 	}
 }
 
 // replayDeduplication runs one recorded call through the Go deduplicator
 // and compares the secondary rows kept and the counts dropped.
-func replayDeduplication(t *testing.T, recorded pyjson.Value, hooks dedup.Hooks) {
+func replayDeduplication(t *testing.T, recorded jsonvalue.Value, hooks dedup.Hooks) {
 	var primary []timeline.Row
 	for _, row := range recorded.Get("primary").Items() {
 		primary = append(primary, recordedRow(row))
@@ -68,15 +68,15 @@ func replayDeduplication(t *testing.T, recorded pyjson.Value, hooks dedup.Hooks)
 		}
 	}
 	if len(dropped) != recorded.Get("dropped").Len() {
-		t.Errorf("dropped rows of %v, want %s", dropped, pyjson.Compact(recorded.Get("dropped")))
+		t.Errorf("dropped rows of %v, want %s", dropped, recorded.Get("dropped").JSON())
 	}
 }
 
 // recordedRow returns the row a recorded object holds, its fields named as
 // timeline.jsonl names them.
-func recordedRow(object pyjson.Value) timeline.Row {
+func recordedRow(object jsonvalue.Value) timeline.Row {
 	line, _ := object.Get("source_line").Int()
-	text := func(key string) string { return object.Get(key).Text() }
+	text := func(key string) string { return object.Get(key).StringValue() }
 	return timeline.Row{TimestampUTC: text("timestamp_utc"), Host: text("host"), User: text("user"),
 		Agent: text("agent"), SessionID: text("session_id"), ProjectPath: text("project_path"),
 		GitBranch: text("git_branch"), TurnType: text("turn_type"), Model: text("model"),

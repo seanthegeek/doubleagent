@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -35,20 +35,20 @@ type TaskContext struct {
 
 // newTaskContext reads a task's project and models from its index item
 // and metadata, either of which may be null or of another type.
-func newTaskContext(taskID string, item, metadata pyjson.Value, projectKey string) *TaskContext {
+func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey string) *TaskContext {
 	if !item.IsObject() {
-		item = pyjson.NewNull()
+		item = jsonvalue.NewNull()
 	}
 	if !metadata.IsObject() {
-		metadata = pyjson.NewNull()
+		metadata = jsonvalue.NewNull()
 	}
 	context := &TaskContext{TaskID: taskID, ProjectPath: parser.Str(item.Get(projectKey)),
 		defaultModel: parser.Str(item.Get("modelId"))}
 	for _, entry := range metadata.Get("model_usage").Items() {
-		if !entry.IsObject() || !entry.Get("model_id").Truthy() {
+		if !entry.IsObject() || entry.Get("model_id").IsEmpty() {
 			continue
 		}
-		since, _ := pythonFloat(FirstTruthy(entry.Get("ts"), pyjson.NewInt(0)))
+		since, _ := pythonFloat(FirstTruthy(entry.Get("ts"), jsonvalue.NewInt(0)))
 		context.usage = append(context.usage, modelUse{since: since, model: parser.Str(entry.Get("model_id"))})
 	}
 	slices.SortStableFunc(context.usage, func(left, right modelUse) int {
@@ -64,23 +64,23 @@ func newTaskContext(taskID string, item, metadata pyjson.Value, projectKey strin
 // pythonFloat returns a value as Python's float() gives it: a number, a
 // boolean as 0 or 1, and a string of a decimal number with surrounding
 // whitespace. Anything else gives false.
-func pythonFloat(value pyjson.Value) (float64, bool) {
+func pythonFloat(value jsonvalue.Value) (float64, bool) {
 	if !value.IsString() {
 		return NumberOf(value)
 	}
-	number, err := strconv.ParseFloat(strings.TrimSpace(value.Text()), 64)
+	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
 	return number, err == nil
 }
 
 // taskStart returns the start of a task: its id when that is a millisecond
 // time, else the earliest numeric ts of the metadata's model_usage and
 // environment_history entries, else the index item's ts.
-func taskStart(taskID string, item, metadata pyjson.Value) string {
+func taskStart(taskID string, item, metadata jsonvalue.Value) string {
 	if millisecondID.MatchString(taskID) {
 		epoch, _ := strconv.ParseInt(taskID, 10, 64)
 		return timeutil.FromInt(epoch)
 	}
-	earliest, found := pyjson.NewNull(), false
+	earliest, found := jsonvalue.NewNull(), false
 	for _, key := range []string{"model_usage", "environment_history"} {
 		for _, entry := range metadata.Get(key).Items() {
 			stamp := entry.Get("ts")
@@ -99,7 +99,7 @@ func taskStart(taskID string, item, metadata pyjson.Value) string {
 }
 
 // numberLess reports whether one number is below another.
-func numberLess(left, right pyjson.Value) bool {
+func numberLess(left, right jsonvalue.Value) bool {
 	leftNumber, _ := NumberOf(left)
 	rightNumber, _ := NumberOf(right)
 	return leftNumber < rightNumber
@@ -108,7 +108,7 @@ func numberLess(left, right pyjson.Value) bool {
 // ModelAt returns the model in use at an epoch-millisecond time: the last
 // model_usage entry at or before it, the earliest entry for a time that is
 // not a number, and the index item's model when there are no entries.
-func (c *TaskContext) ModelAt(timestamp pyjson.Value) string {
+func (c *TaskContext) ModelAt(timestamp jsonvalue.Value) string {
 	if len(c.usage) == 0 {
 		return c.defaultModel
 	}

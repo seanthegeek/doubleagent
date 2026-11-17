@@ -18,8 +18,8 @@ import (
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -155,19 +155,19 @@ func (p *Parser) problem(artifact *input.Artifact, text, timestamp string) timel
 
 // text returns a value as text: "" for null, a string as it is, anything
 // else as compact JSON.
-func text(value pyjson.Value) string {
+func text(value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
 		return ""
 	case value.IsString():
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // blank reports whether value is null or empty text.
-func blank(value pyjson.Value) bool {
-	return value.IsNull() || (value.IsString() && value.Text() == "")
+func blank(value jsonvalue.Value) bool {
+	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
 // orDash returns text, or "-" when it is empty.
@@ -195,10 +195,10 @@ var argumentKeys = []string{"command", "url", "query", "path", "input"}
 // argsText returns the tool_use text of a call's arguments: a string
 // argument (a custom grammar tool such as apply_patch) as it is, else the
 // first of argumentKeys, else compact JSON.
-func argsText(arguments pyjson.Value) string {
+func argsText(arguments jsonvalue.Value) string {
 	switch {
 	case arguments.IsString():
-		return arguments.Text()
+		return arguments.StringValue()
 	case arguments.IsObject():
 		for _, key := range argumentKeys {
 			if value := arguments.Get(key); !blank(value) {
@@ -215,7 +215,7 @@ func argsText(arguments pyjson.Value) string {
 
 // isNoneOrZero reports whether value is null, zero as a number or the text "0":
 // the exit codes that are not a failure.
-func isNoneOrZero(value pyjson.Value) bool {
+func isNoneOrZero(value jsonvalue.Value) bool {
 	if value.IsNull() || isString(value, "0") {
 		return true
 	}
@@ -227,8 +227,8 @@ func isNoneOrZero(value pyjson.Value) bool {
 }
 
 // isString reports whether value is the string want.
-func isString(value pyjson.Value, want string) bool {
-	return value.IsString() && value.Text() == want
+func isString(value jsonvalue.Value, want string) bool {
+	return value.IsString() && value.StringValue() == want
 }
 
 // resultText returns the tool_result text of a tool.execution_complete
@@ -236,7 +236,7 @@ func isString(value pyjson.Value, want string) bool {
 // sent to the model, except that a successful skill invocation puts the
 // concise text in detailedContent, so the longer of the two is taken,
 // detailedContent on a tie.
-func resultText(data pyjson.Value) string {
+func resultText(data jsonvalue.Value) string {
 	result := data.Get("result")
 	detailed, concise := text(result.Get("detailedContent")), text(result.Get("content"))
 	body := detailed
@@ -244,7 +244,7 @@ func resultText(data pyjson.Value) string {
 		body = concise
 	}
 	if code := data.Get("shellExecution").Get("exitCode"); !isNoneOrZero(code) && !code.IsBool() {
-		body = "[exit " + code.Str() + "] " + body
+		body = "[exit " + code.Text() + "] " + body
 	}
 	if success, ok := data.Get("success").Bool(); ok && !success {
 		if message := text(data.Get("error").Get("message")); message != "" {
@@ -259,7 +259,7 @@ func resultText(data pyjson.Value) string {
 
 // requestTarget returns what a permissionRequest asks about, or "": the
 // command, URL, file or path, or "<server>/<tool>" for an MCP tool.
-func requestTarget(request pyjson.Value) string {
+func requestTarget(request jsonvalue.Value) string {
 	for _, key := range []string{"fullCommandText", "url", "fileName", "path"} {
 		if value := request.Get(key); !blank(value) {
 			return text(value)
@@ -283,7 +283,7 @@ var decisionKeys = [][2]string{{"locationKey", "location"}, {"approval", "approv
 
 // decisionText returns "permission decision: <kind> source=<decisionSource
 // or -> ..." for a permission.completed event.
-func decisionText(data pyjson.Value) string {
+func decisionText(data jsonvalue.Value) string {
 	result := data.Get("result")
 	line := "permission decision: " + orDash(text(result.Get("kind"))) + " source=" +
 		orDash(text(data.Get("decisionSource")))

@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -108,13 +108,13 @@ func (w *writer) bad(current *session, line int, text, timestamp string) {
 
 // start emits the session-start row, then a `model:` row when the window
 // names the model, then the rows attached to the generation.
-func (w *writer) start(current *session, line int, timestamp string, header pyjson.Value) {
+func (w *writer) start(current *session, line int, timestamp string, header jsonvalue.Value) {
 	current.started = true
-	if identifier := header.Get("id"); identifier.Truthy() && (current.headerID || current.sessionID == "") {
-		current.sessionID = identifier.Str()
+	if identifier := header.Get("id"); !identifier.IsEmpty() && (current.headerID || current.sessionID == "") {
+		current.sessionID = identifier.Text()
 	}
 	if cwd := header.Get("cwd"); cwd.IsString() {
-		current.cwd = cwd.Text()
+		current.cwd = cwd.StringValue()
 	}
 	parts := []string{"session start:"}
 	if current.key != "" {
@@ -124,10 +124,10 @@ func (w *writer) start(current *session, line int, timestamp string, header pyjs
 		parts = append(parts, current.extra)
 	}
 	if version, ok := header.Lookup("version"); ok && !version.IsNull() {
-		parts = append(parts, "version="+version.Str())
+		parts = append(parts, "version="+version.Text())
 	}
-	if parent := header.Get("parentSession"); parent.Truthy() {
-		parts = append(parts, "parent_session="+parent.Str())
+	if parent := header.Get("parentSession"); !parent.IsEmpty() {
+		parts = append(parts, "parent_session="+parent.Text())
 	}
 	timestamp = timeutil.FirstNonEmpty(timestamp, timeutil.FromValue(header.Get("timestamp")))
 	w.system(current, line, timestamp, strings.Join(parts, " "), current.model)
@@ -147,11 +147,11 @@ func (w *writer) start(current *session, line int, timestamp string, header pyjs
 
 // entry emits the rows of one transcript entry. createdAt is the time of
 // the database row that held it, "" for a file.
-func (w *writer) entry(current *session, line int, record pyjson.Value, createdAt string) {
+func (w *writer) entry(current *session, line int, record jsonvalue.Value, createdAt string) {
 	entryType := record.Get("type")
 	message := record.Get("message")
 	if !message.IsObject() {
-		message = pyjson.NewObject()
+		message = jsonvalue.NewObject()
 	}
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")),
 		timeutil.FromValue(message.Get("timestamp")), createdAt)
@@ -160,10 +160,10 @@ func (w *writer) entry(current *session, line int, record pyjson.Value, createdA
 		return
 	}
 	if !current.started {
-		w.start(current, line, timestamp, pyjson.NewObject())
+		w.start(current, line, timestamp, jsonvalue.NewObject())
 	}
 	if identifier := record.Get("id"); current.store != nil && !identifier.IsNull() && !isText(identifier, "") {
-		current.store.ids[[2]string{current.sessionID, identifier.Str()}] = true
+		current.store.ids[[2]string{current.sessionID, identifier.Text()}] = true
 	}
 	if isText(entryType, "message") {
 		w.message(current, line, timestamp, record, message)
@@ -182,7 +182,7 @@ func (w *writer) entry(current *session, line int, record pyjson.Value, createdA
 
 // entryText returns the text of the system row of an entry that is neither
 // a message nor a model change.
-func entryText(entryType, record pyjson.Value) string {
+func entryText(entryType, record jsonvalue.Value) string {
 	field := func(key string) string { return parser.Str(record.Get(key)) }
 	switch {
 	case isText(entryType, "thinking_level_change"):
@@ -191,7 +191,7 @@ func entryText(entryType, record pyjson.Value) string {
 		var tokens []string
 		for _, pair := range [][2]string{{"tokens_before", "tokensBefore"}, {"tokens_after", "tokensAfter"}} {
 			if value, ok := record.Lookup(pair[1]); ok && !value.IsNull() {
-				tokens = append(tokens, pair[0]+"="+value.Str())
+				tokens = append(tokens, pair[0]+"="+value.Text())
 			}
 		}
 		label := "compaction"
@@ -212,7 +212,7 @@ func entryText(entryType, record pyjson.Value) string {
 	case isText(entryType, "session_info"):
 		return "session name: " + field("name")
 	}
-	var rest []pyjson.Member
+	var rest []jsonvalue.Member
 	for _, member := range record.Members() {
 		switch member.Key {
 		case "type", "id", "parentId", "timestamp":
@@ -220,12 +220,12 @@ func entryText(entryType, record pyjson.Value) string {
 			rest = append(rest, member)
 		}
 	}
-	return orText(parser.Str(entryType), "entry") + ": " + parser.CompactJSON(pyjson.NewObject(rest...))
+	return orText(parser.Str(entryType), "entry") + ": " + parser.CompactJSON(jsonvalue.NewObject(rest...))
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // orText returns text, or fallback when text is empty.

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -123,7 +123,7 @@ func settingsModel(header string) string {
 // as promptTurn reads it, the completion, and the user's feedback.
 func (p *Parser) devChat(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	var index map[string]pyjson.Value
+	var index map[string]jsonvalue.Value
 	if sessions, found := parser.Above(artifact, 1, "sessions"); found {
 		index = p.indexes.Index(sessions)
 	}
@@ -135,11 +135,11 @@ func (p *Parser) devChat(artifact *input.Artifact, emit parser.Emit) {
 		base.Model = parser.Str(record.Get("completionOptions").Get("model"))
 		var turns [][2]string
 		if prompt := record.Get("prompt"); prompt.IsString() {
-			turnType, text := promptTurn(prompt.Text())
+			turnType, text := promptTurn(prompt.StringValue())
 			turns = append(turns, [2]string{turnType, text})
 		}
 		if completion := record.Get("completion"); completion.IsString() {
-			turns = append(turns, [2]string{timeline.TurnAssistant, completion.Text()})
+			turns = append(turns, [2]string{timeline.TurnAssistant, completion.StringValue()})
 		}
 		if feedback := record.Get("feedback"); feedback.IsBool() {
 			turns = append(turns, [2]string{timeline.TurnSystem,

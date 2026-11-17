@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -37,12 +37,12 @@ func (c conversationRows) row(turnType, text, model, toolName, toolUseID string)
 
 // conversation emits the rows of one conversation: a heading system row,
 // then each message's rows.
-func (p *Parser) conversation(artifact *input.Artifact, conversation pyjson.Value, options parser.Options,
+func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parser.Options,
 	emit parser.Emit) {
 	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
 		timestamp: timeutil.FromValue(conversation.Get("updatedAt")),
 		sessionID: parser.Str(conversation.Get("id"))}
-	var messages []pyjson.Value
+	var messages []jsonvalue.Value
 	for _, message := range conversation.Get("messages").Items() {
 		if message.IsObject() {
 			messages = append(messages, message)
@@ -63,18 +63,18 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation pyjson.Valu
 // message emits the rows of one message: a model change, its reasoning,
 // its text, its tool steps, its file changes and what the secret shield
 // withheld.
-func (c conversationRows) message(message pyjson.Value, models parser.Tracker, options parser.Options) {
+func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker, options parser.Options) {
 	role := message.Get("role")
 	meta := message.Get("meta")
 	model := parser.Str(meta.Get("model"))
-	isAssistant := role.IsString() && role.Text() == "assistant"
+	isAssistant := role.IsString() && role.StringValue() == "assistant"
 	if isAssistant {
 		if change := models.Change("model", "model", model); change != "" {
 			c.row(timeline.TurnSystem, change, model, "", "")
 		}
 	}
 	content := message.Get("content")
-	text := content.Text()
+	text := content.StringValue()
 	if !content.IsString() {
 		text = parser.TextOf(content)
 	}
@@ -94,19 +94,19 @@ func (c conversationRows) message(message pyjson.Value, models parser.Tracker, o
 		}
 	}
 	c.changes(message.Get("changes"), model)
-	if withheld := meta.Get("withheld"); withheld.Truthy() {
+	if withheld := meta.Get("withheld"); !withheld.IsEmpty() {
 		c.row(timeline.TurnSystem, "secret shield withheld: "+parser.CompactJSON(withheld), model, "", "")
 	}
 }
 
 // text emits a message's text as a user or assistant row, or as a system
 // row naming any other role; empty text gives nothing.
-func (c conversationRows) text(role pyjson.Value, text, model string) {
+func (c conversationRows) text(role jsonvalue.Value, text, model string) {
 	switch {
 	case text == "":
-	case role.IsString() && role.Text() == "user":
+	case role.IsString() && role.StringValue() == "user":
 		c.row(timeline.TurnUser, text, "", "", "")
-	case role.IsString() && role.Text() == "assistant":
+	case role.IsString() && role.StringValue() == "assistant":
 		c.row(timeline.TurnAssistant, text, model, "", "")
 	default:
 		c.row(timeline.TurnSystem, roleName(role)+": "+text, model, "", "")
@@ -115,7 +115,7 @@ func (c conversationRows) text(role pyjson.Value, text, model string) {
 
 // roleName returns a role as a system row names it, "unknown" when it is
 // missing or empty.
-func roleName(role pyjson.Value) string {
+func roleName(role jsonvalue.Value) string {
 	if name := parser.Str(role); name != "" {
 		return name
 	}
@@ -124,10 +124,10 @@ func roleName(role pyjson.Value) string {
 
 // toolStep emits the rows of one tool step: a message the user sent while
 // the reply ran, or a tool call, its result and a permission decision.
-func (c conversationRows) toolStep(step pyjson.Value, model string) {
+func (c conversationRows) toolStep(step jsonvalue.Value, model string) {
 	if said, ok := step.Get("said").Bool(); ok && said {
 		summary := step.Get("summary")
-		text := summary.Text()
+		text := summary.StringValue()
 		if !summary.IsString() && !summary.IsNull() {
 			text = parser.CompactJSON(summary) // a summary that is not a string is kept whole
 		}
@@ -137,7 +137,7 @@ func (c conversationRows) toolStep(step pyjson.Value, model string) {
 	name, toolUseID := parser.Str(step.Get("name")), parser.Str(step.Get("id"))
 	c.row(timeline.TurnToolUse, stepBody(step), model, name, toolUseID)
 	output := step.Get("output")
-	out := output.Text()
+	out := output.StringValue()
 	if !output.IsString() && !output.IsNull() {
 		out = parser.CompactJSON(output)
 	}
@@ -148,7 +148,7 @@ func (c conversationRows) toolStep(step pyjson.Value, model string) {
 	c.row(timeline.TurnToolResult, out, model, name, toolUseID)
 	if status == "waiting" || status == "skipped" {
 		decision := "permission decision: " + status
-		if approval := step.Get("approval"); approval.Truthy() {
+		if approval := step.Get("approval"); !approval.IsEmpty() {
 			decision += " approval=" + parser.SettingValue(approval)
 		}
 		c.row(timeline.TurnSystem, decision, model, name, toolUseID)
@@ -157,21 +157,21 @@ func (c conversationRows) toolStep(step pyjson.Value, model string) {
 
 // stepBody returns the text of a tool call: its command, else its
 // arguments as JSON, else its summary, else "".
-func stepBody(step pyjson.Value) string {
-	if command := step.Get("command"); command.Truthy() {
-		return command.Str()
+func stepBody(step jsonvalue.Value) string {
+	if command := step.Get("command"); !command.IsEmpty() {
+		return command.Text()
 	}
-	if args := step.Get("args"); args.Truthy() {
+	if args := step.Get("args"); !args.IsEmpty() {
 		return parser.CompactJSON(args)
 	}
-	if summary := step.Get("summary"); summary.Truthy() {
-		return summary.Str()
+	if summary := step.Get("summary"); !summary.IsEmpty() {
+		return summary.Text()
 	}
 	return ""
 }
 
 // changes emits a "file changed:" row per changed file of a reply.
-func (c conversationRows) changes(changes pyjson.Value, model string) {
+func (c conversationRows) changes(changes jsonvalue.Value, model string) {
 	if !changes.IsObject() || !changes.Get("files").IsArray() {
 		return
 	}

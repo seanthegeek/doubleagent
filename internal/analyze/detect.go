@@ -9,9 +9,9 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -218,19 +218,19 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 // detectJSON returns the object detect --json prints: the detection, the
 // problems and, with files, every artifact's user, agent and path.
 func detectJSON(detected detection, collection *input.Collection, files bool) string {
-	members := append(detectionMembers(detected), pyjson.Member{Key: "problems",
+	members := append(detectionMembers(detected), jsonvalue.Member{Key: "problems",
 		Value: stringArray(collection.Problems)})
 	if files {
-		list := make([]pyjson.Value, len(collection.Artifacts))
+		list := make([]jsonvalue.Value, len(collection.Artifacts))
 		for i, artifact := range collection.Artifacts {
-			list[i] = pyjson.NewObject(
-				pyjson.Member{Key: "user", Value: pyjson.NewString(artifact.Home.User)},
-				pyjson.Member{Key: "agent", Value: pyjson.NewString(artifact.Agent)},
-				pyjson.Member{Key: "path", Value: pyjson.NewString(artifact.Original)})
+			list[i] = jsonvalue.NewObject(
+				jsonvalue.Member{Key: "user", Value: jsonvalue.NewString(artifact.Home.User)},
+				jsonvalue.Member{Key: "agent", Value: jsonvalue.NewString(artifact.Agent)},
+				jsonvalue.Member{Key: "path", Value: jsonvalue.NewString(artifact.Original)})
 		}
-		members = append(members, pyjson.Member{Key: "files", Value: pyjson.NewArray(list...)})
+		members = append(members, jsonvalue.Member{Key: "files", Value: jsonvalue.NewArray(list...)})
 	}
-	return pyjson.Indented(pyjson.NewObject(members...))
+	return jsonvalue.NewObject(members...).IndentedJSON("  ")
 }
 
 // printDetect prints the tables of detect and returns 1 when the input

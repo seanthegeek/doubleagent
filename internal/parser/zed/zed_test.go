@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -57,9 +57,9 @@ func TestDecompressRefusesDataThatIsNotZstd(t *testing.T) {
 
 // decoded returns the JSON value of text, failing the test when it is not
 // JSON.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func decoded(t *testing.T, text string) pyjson.Value {
 func TestHelpersGiveTheAnalyzersText(t *testing.T) {
 	tests := []struct {
 		name     string
-		function func(pyjson.Value) string
+		function func(jsonvalue.Value) string
 		input    string
 		want     string
 	}{
@@ -85,14 +85,14 @@ func TestHelpersGiveTheAnalyzersText(t *testing.T) {
 			"[mention] file:///a\n[mention] 5\n[image]\nraw\n[audio]\n{\"type\":\"other\"}\n3"},
 		{"a draft that is a string is JSON", acpBlocksText, `"str"`, `"str"`},
 		{"a wrapped tool input is unwrapped", toolInputText,
-			`{"input": {"type": "x", "value": {"b": 1, "a": 2}}}`, `{"a":2,"b":1}`},
+			`{"input": {"type": "x", "value": {"b": 1, "a": 2}}}`, `{"b":1,"a":2}`},
 		{"an empty tool input falls back to raw_input", toolInputText,
 			`{"input": {}, "raw_input": "r"}`, "r"},
 		{"a raw_input that is not a string is dropped", toolInputText,
 			`{"input": "", "raw_input": 5}`, ""},
 		{"a zero tool input is kept", toolInputText, `{"input": 0}`, "0"},
 		{"an input with other keys stays wrapped", toolInputText,
-			`{"input": {"value": "v", "other": 1}}`, `{"other":1,"value":"v"}`},
+			`{"input": {"value": "v", "other": 1}}`, `{"value":"v","other":1}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

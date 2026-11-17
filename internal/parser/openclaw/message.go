@@ -3,19 +3,19 @@ package openclaw
 import (
 	"cmp"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // message emits the rows of a message entry by its role.
-func (w *writer) message(current *session, line int, timestamp string, record, message pyjson.Value) {
+func (w *writer) message(current *session, line int, timestamp string, record, message jsonvalue.Value) {
 	role := message.Get("role")
 	content := parser.TextOf(message.Get("content"))
 	switch {
 	case isText(role, "user"):
-		if message.Get("runtimeContext").Truthy() || message.Get("runtimeContextCarrier").Truthy() {
+		if !message.Get("runtimeContext").IsEmpty() || !message.Get("runtimeContextCarrier").IsEmpty() {
 			w.system(current, line, timestamp, "runtime context: "+content, "")
 		} else {
 			w.emit(w.row(current, line, timestamp, timeline.TurnUser, content))
@@ -23,7 +23,7 @@ func (w *writer) message(current *session, line int, timestamp string, record, m
 	case isText(role, "assistant"):
 		w.assistant(current, line, timestamp, message)
 	case isText(role, "toolResult"):
-		if message.Get("isError").Truthy() {
+		if !message.Get("isError").IsEmpty() {
 			content = "[error] " + content
 		}
 		w.tool(current, line, timestamp, timeline.TurnToolResult, content,
@@ -50,15 +50,15 @@ func (w *writer) tool(current *session, line int, timestamp, turnType, text, nam
 }
 
 // bash emits the call and the result of a bash execution the user ran.
-func (w *writer) bash(current *session, line int, timestamp string, record, message pyjson.Value) {
+func (w *writer) bash(current *session, line int, timestamp string, record, message jsonvalue.Value) {
 	toolUseID := parser.Str(record.Get("id"))
 	w.tool(current, line, timestamp, timeline.TurnToolUse, parser.Str(message.Get("command")), "bash",
 		toolUseID)
-	status := "exit=" + message.Get("exitCode").Str()
-	if message.Get("cancelled").Truthy() {
+	status := "exit=" + message.Get("exitCode").Text()
+	if !message.Get("cancelled").IsEmpty() {
 		status += " cancelled"
 	}
-	if message.Get("truncated").Truthy() {
+	if !message.Get("truncated").IsEmpty() {
 		status += " truncated"
 	}
 	w.tool(current, line, timestamp, timeline.TurnToolResult,
@@ -67,13 +67,13 @@ func (w *writer) bash(current *session, line int, timestamp string, record, mess
 
 // assistant emits the rows of an assistant message: its `model:` row when
 // the model is new, its blocks, and an error or abort.
-func (w *writer) assistant(current *session, line int, timestamp string, message pyjson.Value) {
+func (w *writer) assistant(current *session, line int, timestamp string, message jsonvalue.Value) {
 	requested := parser.Str(message.Get("model"))
 	model := cmp.Or(parser.Str(message.Get("responseModel")), requested, current.model)
 	if model != "" {
 		current.model = model
 	}
-	if message.Get("responseModel").Truthy() || requested != "" {
+	if !message.Get("responseModel").IsEmpty() || requested != "" {
 		text := pi.ModelText(current.seen, current.sessionID, model, parser.Str(message.Get("provider")), requested)
 		if text != "" {
 			w.system(current, line, timestamp, text, model)
@@ -81,9 +81,9 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	}
 	content := message.Get("content")
 	if content.IsString() {
-		content = pyjson.NewArray(pyjson.NewObject(
-			pyjson.Member{Key: "type", Value: pyjson.NewString("text")},
-			pyjson.Member{Key: "text", Value: content}))
+		content = jsonvalue.NewArray(jsonvalue.NewObject(
+			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+			jsonvalue.Member{Key: "text", Value: content}))
 	}
 	if content.IsArray() {
 		for _, block := range content.Items() {
@@ -92,25 +92,25 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	}
 	stop := message.Get("stopReason")
 	errorMessage := message.Get("errorMessage")
-	if isText(stop, "error") || isText(stop, "aborted") || errorMessage.Truthy() {
+	if isText(stop, "error") || isText(stop, "aborted") || !errorMessage.IsEmpty() {
 		w.system(current, line, timestamp, "assistant "+orText(parser.Str(stop), "error")+": "+
 			parser.Str(errorMessage), model)
 	}
 }
 
 // block emits the row of one content block of an assistant message.
-func (w *writer) block(current *session, line int, timestamp string, block pyjson.Value, model string) {
+func (w *writer) block(current *session, line int, timestamp string, block jsonvalue.Value, model string) {
 	if !block.IsObject() {
 		return
 	}
 	var row timeline.Row
 	blockType := block.Get("type")
 	switch {
-	case isText(blockType, "text") && block.Get("text").Truthy():
-		row = w.row(current, line, timestamp, timeline.TurnAssistant, block.Get("text").Str())
+	case isText(blockType, "text") && !block.Get("text").IsEmpty():
+		row = w.row(current, line, timestamp, timeline.TurnAssistant, block.Get("text").Text())
 	case isText(blockType, "thinking") && w.options.IncludeThinking:
 		thinking := parser.Str(block.Get("thinking"))
-		if thinking == "" && block.Get("redacted").Truthy() {
+		if thinking == "" && !block.Get("redacted").IsEmpty() {
 			thinking = "[redacted thinking]"
 		}
 		if thinking == "" {

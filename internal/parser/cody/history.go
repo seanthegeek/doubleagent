@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -16,7 +16,7 @@ const rejected = "Command rejected"
 // historyRows emits the rows of every chat of every account of a history.
 // A chat key found under more than one account takes the account before
 // it in its session id.
-func (p *Parser) historyRows(artifact *input.Artifact, history pyjson.Value, line int,
+func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
 	options parser.Options, emit parser.Emit) {
 	if !history.IsObject() {
 		return
@@ -76,9 +76,9 @@ func (c *chatRows) row(turnType, text, model, toolName, toolUseID string) {
 
 // chat emits a heading row, then the rows of each interaction's human and
 // assistant messages.
-func (c *chatRows) chat(account string, chat pyjson.Value) {
+func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parser.Str(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
-	var interactions []pyjson.Value
+	var interactions []jsonvalue.Value
 	for _, entry := range chat.Get("interactions").Items() {
 		if entry.IsObject() {
 			interactions = append(interactions, entry)
@@ -96,13 +96,13 @@ func (c *chatRows) chat(account string, chat pyjson.Value) {
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // message emits the rows of one message: a model change, its text, its
 // tool calls and results, its process steps and its error.
-func (c *chatRows) message(message pyjson.Value) {
+func (c *chatRows) message(message jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
 	if isText(speaker, "assistant") {
@@ -134,25 +134,25 @@ func (c *chatRows) message(message pyjson.Value) {
 	}
 	callIDs := c.parts(parts, model)
 	c.processes(message.Get("processes"), callIDs, model)
-	if failure := message.Get("error"); failure.IsObject() && failure.Get("message").Truthy() {
-		c.row(timeline.TurnSystem, "error: "+failure.Get("message").Str(), model, "", "")
+	if failure := message.Get("error"); failure.IsObject() && !failure.Get("message").IsEmpty() {
+		c.row(timeline.TurnSystem, "error: "+failure.Get("message").Text(), model, "", "")
 	}
 }
 
 // messageText returns a message's text, else the text of its text parts
 // joined by LF.
-func messageText(message pyjson.Value, parts []pyjson.Value) string {
+func messageText(message jsonvalue.Value, parts []jsonvalue.Value) string {
 	text := message.Get("text")
 	if !text.IsString() {
-		text = pyjson.NewString(parser.TextOf(text))
+		text = jsonvalue.NewString(parser.TextOf(text))
 	}
-	if text.Text() != "" {
-		return text.Text()
+	if text.StringValue() != "" {
+		return text.StringValue()
 	}
 	var texts []string
 	for _, part := range parts {
-		if part.IsObject() && isText(part.Get("type"), "text") && part.Get("text").Truthy() {
-			texts = append(texts, part.Get("text").Str())
+		if part.IsObject() && isText(part.Get("type"), "text") && !part.Get("text").IsEmpty() {
+			texts = append(texts, part.Get("text").Text())
 		}
 	}
 	return strings.Join(texts, "\n")
@@ -160,13 +160,13 @@ func messageText(message pyjson.Value, parts []pyjson.Value) string {
 
 // fsPath returns the file path of a context file's uri: a string as it
 // is, else the first non-empty fsPath, path or external of an object.
-func fsPath(uri pyjson.Value) string {
+func fsPath(uri jsonvalue.Value) string {
 	if uri.IsString() {
-		return uri.Text()
+		return uri.StringValue()
 	}
 	for _, key := range []string{"fsPath", "path", "external"} {
-		if value := uri.Get(key); value.IsString() && value.Text() != "" {
-			return value.Text()
+		if value := uri.Get(key); value.IsString() && value.StringValue() != "" {
+			return value.StringValue()
 		}
 	}
 	return ""
@@ -174,7 +174,7 @@ func fsPath(uri pyjson.Value) string {
 
 // parts emits the tool call and result rows of a message's content parts
 // and returns the ids of its calls.
-func (c *chatRows) parts(parts []pyjson.Value, model string) map[string]bool {
+func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool {
 	callIDs := map[string]bool{}
 	for _, part := range parts {
 		kind := part.Get("type")
@@ -183,7 +183,7 @@ func (c *chatRows) parts(parts []pyjson.Value, model string) map[string]bool {
 			callIDs[toolID] = true
 			c.names[toolID] = name
 			args := call.Get("arguments")
-			text := args.Text()
+			text := args.StringValue()
 			if !args.IsString() {
 				text = parser.CompactJSON(args)
 			}
@@ -191,7 +191,7 @@ func (c *chatRows) parts(parts []pyjson.Value, model string) map[string]bool {
 		} else if result := part.Get("tool_result"); isText(kind, "tool_result") && result.IsObject() {
 			toolID := parser.Str(result.Get("id"))
 			content := result.Get("content")
-			text := content.Text()
+			text := content.StringValue()
 			switch {
 			case content.IsArray():
 				text = parser.TextOf(content)
@@ -207,14 +207,14 @@ func (c *chatRows) parts(parts []pyjson.Value, model string) map[string]bool {
 // processes emits the rows of a message's process steps: a permission row
 // per confirmation step and a tool row per tool step that no content part
 // already called.
-func (c *chatRows) processes(processes pyjson.Value, callIDs map[string]bool, model string) {
+func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool, model string) {
 	for _, process := range parser.Elements(processes) {
 		kind := process.Get("type")
 		toolID := parser.Str(process.Get("id"))
 		if isText(kind, "confirmation") {
 			lines := []string{confirmationHead(process)}
 			for _, key := range []string{"description", "content"} {
-				if value := process.Get(key); value.Truthy() {
+				if value := process.Get(key); !value.IsEmpty() {
 					lines = append(lines, parser.SettingValue(value))
 				}
 			}
@@ -227,12 +227,12 @@ func (c *chatRows) processes(processes pyjson.Value, callIDs map[string]bool, mo
 		name := parser.Str(process.Get("title"))
 		c.names[toolID] = name
 		content := process.Get("content")
-		body := content.Text()
+		body := content.StringValue()
 		if !content.IsString() && !content.IsNull() {
 			body = parser.CompactJSON(content)
 		}
-		if state := process.Get("state"); state.Truthy() && !isText(state, "success") {
-			body = "[" + state.Str() + "] " + body
+		if state := process.Get("state"); !state.IsEmpty() && !isText(state, "success") {
+			body = "[" + state.Text() + "] " + body
 		}
 		c.row(timeline.TurnToolUse, body, model, name, toolID)
 	}
@@ -242,7 +242,7 @@ func (c *chatRows) processes(processes pyjson.Value, callIDs map[string]bool, mo
 // confirmation step. A refusal completes the step with the error "Command
 // rejected"; an approval never completes it, so "pending" is an approval
 // or an unanswered request.
-func confirmationHead(process pyjson.Value) string {
+func confirmationHead(process jsonvalue.Value) string {
 	state := process.Get("state")
 	failure := process.Get("error")
 	message := failure
@@ -250,7 +250,7 @@ func confirmationHead(process pyjson.Value) string {
 		message = failure.Get("message")
 	}
 	shown := ""
-	if message.Truthy() {
+	if !message.IsEmpty() {
 		shown = parser.SettingValue(message)
 	}
 	head := "permission decision: confirmation"
@@ -260,13 +260,13 @@ func confirmationHead(process pyjson.Value) string {
 	case isText(state, "pending"):
 		head = "permission decision: approved or unanswered confirmation"
 	}
-	if state.Truthy() {
+	if !state.IsEmpty() {
 		head += " state=" + parser.SettingValue(state)
 	}
 	if shown != "" {
 		head += " error=" + shown
 	}
-	if title := process.Get("title"); title.Truthy() {
+	if title := process.Get("title"); !title.IsEmpty() {
 		head += " title=" + parser.SettingValue(title)
 	}
 	return head

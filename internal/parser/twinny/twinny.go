@@ -25,8 +25,8 @@ import (
 	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
@@ -119,9 +119,9 @@ func (p *Parser) state(artifact *input.Artifact, options parser.Options, emit pa
 }
 
 // globalRows emits each conversation, then the standing grants.
-func (p *Parser) globalRows(artifact *input.Artifact, state pyjson.Value, options parser.Options,
+func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, options parser.Options,
 	emit parser.Emit) {
-	var listed []pyjson.Value
+	var listed []jsonvalue.Value
 	switch all := state.Get(conversationsKey); {
 	case all.IsObject():
 		for _, member := range all.Members() {
@@ -130,16 +130,16 @@ func (p *Parser) globalRows(artifact *input.Artifact, state pyjson.Value, option
 	case all.IsArray():
 		listed = all.Items()
 	}
-	var conversations []pyjson.Value
+	var conversations []jsonvalue.Value
 	ids := map[string]bool{}
 	for _, conversation := range listed {
 		if conversation.IsObject() {
 			conversations = append(conversations, conversation)
-			ids[conversation.Get("id").Str()] = true
+			ids[conversation.Get("id").Text()] = true
 		}
 	}
 	active := state.Get(activeKey)
-	if active.IsObject() && active.Get("messages").Truthy() && !ids[active.Get("id").Str()] {
+	if active.IsObject() && !active.Get("messages").IsEmpty() && !ids[active.Get("id").Text()] {
 		conversations = append(conversations, active)
 	}
 	for _, conversation := range conversations {
@@ -157,7 +157,7 @@ func (p *Parser) systemRow(artifact *input.Artifact, timestamp, text string) tim
 
 // standingRows emits the standing grants and the team policy, at the
 // file's modification time.
-func (p *Parser) standingRows(artifact *input.Artifact, state pyjson.Value, emit parser.Emit) {
+func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	timestamp := ""
 	stamp := func() string {
 		if timestamp == "" {
@@ -175,7 +175,7 @@ func (p *Parser) standingRows(artifact *input.Artifact, state pyjson.Value, emit
 		if key == "agentMode" {
 			label = "permission mode"
 		}
-		values := []pyjson.Value{value}
+		values := []jsonvalue.Value{value}
 		if value.IsArray() {
 			values = value.Items()
 		}
@@ -194,7 +194,7 @@ func (p *Parser) standingRows(artifact *input.Artifact, state pyjson.Value, emit
 
 // flatten passes (dotted key, value text) for each leaf of value to yield,
 // one pair per array entry; a null leaf outside an array gives nothing.
-func flatten(prefix string, value pyjson.Value, yield func(key, value string)) {
+func flatten(prefix string, value jsonvalue.Value, yield func(key, value string)) {
 	switch {
 	case value.IsObject():
 		for _, member := range value.Members() {
@@ -215,13 +215,13 @@ func flatten(prefix string, value pyjson.Value, yield func(key, value string)) {
 
 // workspaceRows emits the repository the pull request review tab last
 // listed.
-func (p *Parser) workspaceRows(artifact *input.Artifact, state pyjson.Value, emit parser.Emit) {
+func (p *Parser) workspaceRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	owner := state.Get(workspacePrefix + "reviewOwner")
 	repository := state.Get(workspacePrefix + "reviewRepo")
-	if !owner.IsString() || owner.Text() == "" || !repository.IsString() || repository.Text() == "" {
+	if !owner.IsString() || owner.StringValue() == "" || !repository.IsString() || repository.StringValue() == "" {
 		return
 	}
-	text := "source host repository: https://github.com/" + owner.Text() + "/" + repository.Text() +
+	text := "source host repository: https://github.com/" + owner.StringValue() + "/" + repository.StringValue() +
 		" type=review (from workspaceStorage state.vscdb rjmacarthy.twinny, file mtime)"
 	emit(p.systemRow(artifact, parser.FileMtime(artifact), text))
 }

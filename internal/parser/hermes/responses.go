@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -17,7 +17,7 @@ type storedResponse struct {
 	created    float64
 	rowid      int64
 	responseID string
-	data       pyjson.Value
+	data       jsonvalue.Value
 }
 
 // parseResponses emits the rows of the API server's Responses store: per
@@ -58,11 +58,11 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 	sessionID := parser.Str(entry.data.Get("session_id"))
 	response := entry.data.Get("response")
 	if !response.IsObject() {
-		response = pyjson.NewObject()
+		response = jsonvalue.NewObject()
 	}
-	name := pyjson.NewNull()
+	name := jsonvalue.NewNull()
 	if value, ok := names[entry.responseID]; ok {
-		name = pyjson.NewString(value)
+		name = jsonvalue.NewString(value)
 	}
 	header := p.system(artifact, int(entry.rowid), sessionOf(sessionID), "api server response "+
 		entry.responseID+" status="+dash(response.Get("status"))+" model="+dash(response.Get("model"))+
@@ -85,7 +85,7 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 			continue
 		}
 		seen[sessionID][key] = true
-		reader.message(item, sessionOf(sessionID), pyjson.NewInt(entry.rowid))
+		reader.message(item, sessionOf(sessionID), jsonvalue.NewInt(entry.rowid))
 	}
 }
 
@@ -110,7 +110,7 @@ func readResponses(handle *sqlitefile.Database, problems *parser.Problems) (map[
 		}
 		err = table.Select("name", "response_id").Each(func(row sqlitefile.Row) error {
 			record := rowObject(row)
-			names[record.Get("response_id").Str()] = record.Get("name").Str()
+			names[record.Get("response_id").Text()] = record.Get("name").Text()
 			return nil
 		})
 		if err != nil {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // settingsOverrides are the release-channel and platform override blocks of
@@ -18,7 +18,7 @@ func settingsOverrides() []string {
 // setting is one standing permission entry: its dotted key and its value.
 type setting struct {
 	key   string
-	value pyjson.Value
+	value jsonvalue.Value
 }
 
 // parseSettings emits one `permission setting:` row per standing permission
@@ -51,10 +51,10 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 // legacy agent.always_allow_tool_actions, agent_servers.<id>.default_mode
 // and session.trust_all_worktrees, in the top level, each override block
 // and each profiles.<name>.settings, the key prefixed with the block's.
-func settingsEntries(document pyjson.Value) []setting {
+func settingsEntries(document jsonvalue.Value) []setting {
 	type layer struct {
 		prefix string
-		block  pyjson.Value
+		block  jsonvalue.Value
 	}
 	layers := []layer{{"", document}}
 	for _, name := range settingsOverrides() {
@@ -78,7 +78,7 @@ func settingsEntries(document pyjson.Value) []setting {
 
 // blockEntries returns the standing permission entries of one settings
 // block, each key prefixed with prefix.
-func blockEntries(prefix string, block pyjson.Value) []setting {
+func blockEntries(prefix string, block jsonvalue.Value) []setting {
 	var entries []setting
 	if agent := block.Get("agent"); agent.IsObject() {
 		for _, section := range []string{"tool_permissions", "sandbox_permissions"} {
@@ -108,7 +108,7 @@ func blockEntries(prefix string, block pyjson.Value) []setting {
 
 // flatten appends one entry per leaf of a settings value: an object's
 // members under dotted keys, a list's items each under the list's key.
-func flatten(entries []setting, key string, value pyjson.Value) []setting {
+func flatten(entries []setting, key string, value jsonvalue.Value) []setting {
 	switch {
 	case value.IsObject():
 		for _, member := range value.Members() {

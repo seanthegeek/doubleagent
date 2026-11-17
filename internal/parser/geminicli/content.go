@@ -3,8 +3,8 @@ package geminicli
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -48,35 +48,35 @@ func contextOpenings() []contextOpening {
 
 // parts returns a message's parts: an array's items, nothing for null, and
 // any other value as the one part.
-func parts(content pyjson.Value) []pyjson.Value {
+func parts(content jsonvalue.Value) []jsonvalue.Value {
 	switch {
 	case content.IsNull():
 		return nil
 	case content.IsArray():
 		return content.Items()
 	}
-	return []pyjson.Value{content}
+	return []jsonvalue.Value{content}
 }
 
 // partText returns the text of a Gemini message's parts, joined by LF with
 // empty texts left out: a string part, a text part, a function response's
 // text and a media part's label. With thoughts set it returns the text of
 // the thought parts instead, and only theirs.
-func partText(content pyjson.Value, thoughts bool) string {
+func partText(content jsonvalue.Value, thoughts bool) string {
 	var out []string
 	for _, part := range parts(content) {
 		if part.IsString() {
 			if !thoughts {
-				out = append(out, part.Text())
+				out = append(out, part.StringValue())
 			}
 			continue
 		}
-		if !part.IsObject() || part.Get("thought").Truthy() != thoughts {
+		if !part.IsObject() || !part.Get("thought").IsEmpty() != thoughts {
 			continue
 		}
 		switch text := part.Get("text"); {
 		case text.IsString():
-			out = append(out, text.Text())
+			out = append(out, text.StringValue())
 		case thoughts:
 		case part.Get("functionResponse").IsObject():
 			out = append(out, responseText(part.Get("functionResponse")))
@@ -147,7 +147,7 @@ func classified(text string) []run {
 
 // mediaText returns the label of an inlineData or a fileData part, or ""
 // for any other part.
-func mediaText(part pyjson.Value) string {
+func mediaText(part jsonvalue.Value) string {
 	if data := part.Get("inlineData"); data.IsObject() {
 		return "[inlineData " + parser.Str(data.Get("mimeType")) + "]"
 	}
@@ -160,7 +160,7 @@ func mediaText(part pyjson.Value) string {
 // response is a functionResponse part with the labels of the media parts
 // that follow it.
 type response struct {
-	value pyjson.Value
+	value jsonvalue.Value
 	media []string
 }
 
@@ -170,7 +170,7 @@ type response struct {
 // after one it joins the nearest preceding response. Consecutive texts of
 // one kind are one run, joined by LF; thought parts and empty texts give
 // none.
-func contentRuns(content pyjson.Value, classify bool) ([]run, []response) {
+func contentRuns(content jsonvalue.Value, classify bool) ([]run, []response) {
 	var pieces []run
 	var responses []response
 	textRuns := func(text string) []run {
@@ -182,10 +182,10 @@ func contentRuns(content pyjson.Value, classify bool) ([]run, []response) {
 	for _, part := range parts(content) {
 		switch {
 		case part.IsString():
-			pieces = append(pieces, textRuns(part.Text())...)
-		case !part.IsObject() || part.Get("thought").Truthy():
+			pieces = append(pieces, textRuns(part.StringValue())...)
+		case !part.IsObject() || !part.Get("thought").IsEmpty():
 		case part.Get("text").IsString():
-			pieces = append(pieces, textRuns(part.Get("text").Text())...)
+			pieces = append(pieces, textRuns(part.Get("text").StringValue())...)
 		case part.Get("functionResponse").IsObject():
 			responses = append(responses, response{value: part.Get("functionResponse")})
 		default:
@@ -220,17 +220,17 @@ func joinRuns(pieces []run) []run {
 // responseText returns the text of a functionResponse: its response's
 // non-empty output, error or content string, a string response as it is,
 // else the response as compact JSON.
-func responseText(functionResponse pyjson.Value) string {
+func responseText(functionResponse jsonvalue.Value) string {
 	value := functionResponse.Get("response")
 	if value.IsObject() {
 		for _, key := range []string{"output", "error", "content"} {
-			if text := value.Get(key); text.IsString() && text.Text() != "" {
-				return text.Text()
+			if text := value.Get(key); text.IsString() && text.StringValue() != "" {
+				return text.StringValue()
 			}
 		}
 	}
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
@@ -246,12 +246,12 @@ func (r response) resultText() string {
 // media, nothing else, since a history sync rewrites a result to every part
 // of the answering turn. Any other result gives every part's text, joined,
 // a media part as its label and anything else as compact JSON.
-func callResultText(result pyjson.Value, callID string) string {
+func callResultText(result jsonvalue.Value, callID string) string {
 	switch {
 	case result.IsNull():
 		return ""
 	case result.IsString():
-		return result.Text()
+		return result.StringValue()
 	}
 	_, responses := contentRuns(result, false)
 	for _, each := range responses {
@@ -265,9 +265,9 @@ func callResultText(result pyjson.Value, callID string) string {
 		case part.IsObject() && part.Get("functionResponse").IsObject():
 			texts = append(texts, responseText(part.Get("functionResponse")))
 		case part.IsObject() && part.Get("text").IsString():
-			texts = append(texts, part.Get("text").Text())
+			texts = append(texts, part.Get("text").StringValue())
 		case part.IsString():
-			texts = append(texts, part.Text())
+			texts = append(texts, part.StringValue())
 		default:
 			media := ""
 			if part.IsObject() {
@@ -285,18 +285,18 @@ func callResultText(result pyjson.Value, callID string) string {
 // toolText returns the tool_use text of a tool call: its arguments as
 // compact JSON, after the display name when it is set and differs from the
 // call's name.
-func toolText(call pyjson.Value) string {
+func toolText(call jsonvalue.Value) string {
 	arguments := call.Get("args")
 	argumentsText := ""
-	if !arguments.IsNull() && !(arguments.IsString() && arguments.Text() == "") {
+	if !arguments.IsNull() && !(arguments.IsString() && arguments.StringValue() == "") {
 		argumentsText = parser.CompactJSON(arguments)
 	}
 	label := call.Get("displayName")
-	if label.Truthy() && !equal(label, call.Get("name")) {
+	if !label.IsEmpty() && !equal(label, call.Get("name")) {
 		if argumentsText != "" {
-			return label.Str() + ": " + argumentsText
+			return label.Text() + ": " + argumentsText
 		}
-		return label.Str()
+		return label.Text()
 	}
 	return argumentsText
 }

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -66,11 +66,11 @@ func agentSessions(artifact *input.Artifact, agentDirectory string) []projectTim
 	var sessions []projectTime
 	var ignored parser.Problems
 	for _, record := range parser.JSONLines(path, &ignored) {
-		if sanitize(parser.Str(record.Get("agent_id"))) != agentDirectory || !record.Get("project").Truthy() {
+		if sanitize(parser.Str(record.Get("agent_id"))) != agentDirectory || record.Get("project").IsEmpty() {
 			continue
 		}
 		if timestamp := timeutil.FromValue(record.Get("timestamp")); timestamp != "" {
-			sessions = append(sessions, projectTime{timestamp, record.Get("project").Str()})
+			sessions = append(sessions, projectTime{timestamp, record.Get("project").Text()})
 		}
 	}
 	sort.Slice(sessions, func(i, j int) bool {
@@ -107,14 +107,14 @@ func server(artifact *input.Artifact, agentDirectory string) string {
 // readSettings returns a Letta JSON file as an object, or false when it
 // cannot be read (its unreadable problem added) or is not an object (no
 // problem added).
-func readSettings(path string, problems *parser.Problems) (pyjson.Value, bool) {
+func readSettings(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	content, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil || !document.IsObject() {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return document, true
 }
@@ -168,9 +168,9 @@ func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conve
 
 // record emits the rows of one transcript line by its kind; a kind that
 // is not a string matches none.
-func (w *transcriptRows) record(record pyjson.Value, options parser.Options) {
+func (w *transcriptRows) record(record jsonvalue.Value, options parser.Options) {
 	text := parser.Str(record.Get("text"))
-	switch kind := record.Get("kind").Text(); kind {
+	switch kind := record.Get("kind").StringValue(); kind {
 	case "user", "assistant":
 		w.put(kind, text, "")
 	case "reasoning":
@@ -186,7 +186,7 @@ func (w *transcriptRows) record(record pyjson.Value, options parser.Options) {
 
 // toolCall emits a tool call line's call row and, when it holds a result,
 // its result row.
-func (w *transcriptRows) toolCall(record pyjson.Value) {
+func (w *transcriptRows) toolCall(record jsonvalue.Value) {
 	name := parser.Str(record.Get("name"))
 	w.put(timeline.TurnToolUse, argumentsText(record.Get("argsText")), name)
 	if record.Has("resultText") || record.Has("resultOk") {

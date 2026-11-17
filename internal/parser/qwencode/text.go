@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
@@ -28,24 +28,24 @@ func argumentKeys() []string {
 
 // isSet reports whether a value is neither null nor the empty string, the
 // test Python's `value not in (None, "")` makes.
-func isSet(value pyjson.Value) bool {
-	return !value.IsNull() && !(value.IsString() && value.Text() == "")
+func isSet(value jsonvalue.Value) bool {
+	return !value.IsNull() && !(value.IsString() && value.StringValue() == "")
 }
 
 // textOrJSON returns a string as it is and any other value as compact
 // JSON.
-func textOrJSON(value pyjson.Value) string {
+func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // orElse returns the first value Python counts as true, else the last, as
 // Python's `a or b` does.
-func orElse(values ...pyjson.Value) pyjson.Value {
+func orElse(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values[:len(values)-1] {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -53,21 +53,21 @@ func orElse(values ...pyjson.Value) pyjson.Value {
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // dash returns a value as row text, "-" when it is null or empty.
-func dash(value pyjson.Value) string {
+func dash(value jsonvalue.Value) string {
 	if !isSet(value) {
 		return "-"
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // argsSummary returns the most identifying argument of a function call,
 // else the arguments as compact JSON; "" for none.
-func argsSummary(arguments pyjson.Value) string {
+func argsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsObject() {
 		for _, key := range argumentKeys() {
 			if value := arguments.Get(key); isSet(value) {
@@ -83,8 +83,8 @@ func argsSummary(arguments pyjson.Value) string {
 }
 
 // messageParts returns the object parts of a record's message.
-func messageParts(record pyjson.Value) []pyjson.Value {
-	var out []pyjson.Value
+func messageParts(record jsonvalue.Value) []jsonvalue.Value {
+	var out []jsonvalue.Value
 	for _, part := range record.Get("message").Get("parts").Items() {
 		if part.IsObject() {
 			out = append(out, part)
@@ -96,11 +96,11 @@ func messageParts(record pyjson.Value) []pyjson.Value {
 // responseText returns the text of a function response's response: its
 // non-empty output, error or llmContent string, else the response as
 // compact JSON, "" for none.
-func responseText(response pyjson.Value) string {
+func responseText(response jsonvalue.Value) string {
 	if response.IsObject() {
 		for _, key := range []string{"output", "error", "llmContent"} {
-			if value := response.Get(key); value.IsString() && value.Text() != "" {
-				return value.Text()
+			if value := response.Get(key); value.IsString() && value.StringValue() != "" {
+				return value.StringValue()
 			}
 		}
 		return parser.CompactJSON(response)
@@ -113,7 +113,7 @@ func responseText(response pyjson.Value) string {
 
 // systemText returns the row text of a system record: its subtype and a
 // summary of its payload.
-func systemText(subtype string, payload pyjson.Value) string {
+func systemText(subtype string, payload jsonvalue.Value) string {
 	field := func(key string) string { return parser.Str(payload.Get(key)) }
 	var detail string
 	switch subtype {
@@ -126,13 +126,13 @@ func systemText(subtype string, payload pyjson.Value) string {
 	case "turn_result":
 		detail = field("state") + " " + field("resultText")
 	case "rewind":
-		detail = "truncated " + payload.Get("truncatedCount").Str() + " record(s)"
+		detail = "truncated " + payload.Get("truncatedCount").Text() + " record(s)"
 	case "chat_compression":
 		if info := payload.Get("info"); !info.IsNull() {
 			detail = parser.CompactJSON(info)
 		}
 	default:
-		if payload.Truthy() {
+		if !payload.IsEmpty() {
 			detail = parser.CompactJSON(payload)
 		}
 	}
@@ -147,7 +147,7 @@ func systemText(subtype string, payload pyjson.Value) string {
 // agentId=<agentId>)", leaving out what is not recorded. A record is the
 // user's when its provenance is absent or real_user, unless its subtype is
 // one only the system or another agent writes.
-func injectedOrigin(record pyjson.Value) string {
+func injectedOrigin(record jsonvalue.Value) string {
 	provenance := parser.Str(record.Get("provenance"))
 	subtype := parser.Str(record.Get("subtype"))
 	injected := subtype == "notification" || subtype == "cron" || subtype == "agent_message"
@@ -158,14 +158,14 @@ func injectedOrigin(record pyjson.Value) string {
 	var keys []string
 	for _, pair := range []struct {
 		key   string
-		value pyjson.Value
+		value jsonvalue.Value
 	}{
-		{"provenance", pyjson.NewString(provenance)},
+		{"provenance", jsonvalue.NewString(provenance)},
 		{"agent", orElse(record.Get("agentName"), author.Get("name"))},
 		{"agentId", orElse(record.Get("agentId"), author.Get("agentId"))},
 	} {
 		if isSet(pair.value) {
-			keys = append(keys, pair.key+"="+pair.value.Str())
+			keys = append(keys, pair.key+"="+pair.value.Text())
 		}
 	}
 	label := subtype

@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
@@ -24,11 +24,11 @@ func asText(value sqlitefile.Value) string {
 
 // jsonText returns a decoded value as text: "" for null, a string as it
 // is, anything else as Python's str() writes it.
-func jsonText(value pyjson.Value) string {
+func jsonText(value jsonvalue.Value) string {
 	if value.IsNull() {
 		return ""
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // orDash returns text, or "-" when it is empty.
@@ -41,8 +41,8 @@ func orDash(text string) string {
 
 // shown returns a decoded value as row text: "-" when it is null or "",
 // else as a setting.
-func shown(value pyjson.Value) string {
-	if value.IsNull() || (value.IsString() && value.Text() == "") {
+func shown(value jsonvalue.Value) string {
+	if value.IsNull() || (value.IsString() && value.StringValue() == "") {
 		return "-"
 	}
 	return parser.SettingValue(value)
@@ -50,15 +50,15 @@ func shown(value pyjson.Value) string {
 
 // absent reports whether a decoded value is null or "", which a time or a
 // name counts as missing.
-func absent(value pyjson.Value) bool {
-	return value.IsNull() || (value.IsString() && value.Text() == "")
+func absent(value jsonvalue.Value) bool {
+	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
 // firstTruthy returns the first value Python counts as true, else the
 // last, as `a or b or c` does.
-func firstTruthy(values ...pyjson.Value) pyjson.Value {
+func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
 	for _, value := range values {
-		if value.Truthy() {
+		if !value.IsEmpty() {
 			return value
 		}
 	}
@@ -66,32 +66,32 @@ func firstTruthy(values ...pyjson.Value) pyjson.Value {
 }
 
 // textOrJSON returns a string as it is and any other value as JSON.
-func textOrJSON(value pyjson.Value) string {
+func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // plain returns a short ItemTable value's JSON value when it decodes, else
 // its text as a string.
-func plain(value sqlitefile.Value) pyjson.Value {
+func plain(value sqlitefile.Value) jsonvalue.Value {
 	text := asText(value)
-	decoded, err := pyjson.DecodeString(text)
+	decoded, err := jsonvalue.DecodeString(text)
 	if err != nil {
-		return pyjson.NewString(text)
+		return jsonvalue.NewString(text)
 	}
 	return decoded
 }
 
 // decodeRecord returns the JSON value of a row, or null after adding the
 // problem "unparseable record <rowid> (<key>: <reason>)" with the text.
-func decodeRecord(rowid int64, key string, value sqlitefile.Value, problems *parser.Problems) pyjson.Value {
+func decodeRecord(rowid int64, key string, value sqlitefile.Value, problems *parser.Problems) jsonvalue.Value {
 	text := asText(value)
-	decoded, err := pyjson.DecodeString(text)
+	decoded, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		problems.AddRaw(int(rowid), "unparseable record "+strconv.FormatInt(rowid, 10)+" ("+key+": "+err.Error()+")", text)
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	return decoded
 }

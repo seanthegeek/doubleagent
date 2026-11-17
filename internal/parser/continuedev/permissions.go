@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -38,8 +38,8 @@ func yamlScalar(text string) (string, bool) {
 		if match == nil {
 			return "", false
 		}
-		value, err := pyjson.DecodeString(match[1])
-		return value.Text(), err == nil && value.IsString()
+		value, err := jsonvalue.DecodeString(match[1])
+		return value.StringValue(), err == nil && value.IsString()
 	case strings.HasPrefix(text, "'"):
 		match := yamlSingleQuoted.FindStringSubmatch(text)
 		if match == nil {

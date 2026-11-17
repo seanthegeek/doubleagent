@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -126,14 +126,14 @@ func ReadText(path string, problems *Problems) (string, bool) {
 // LoadJSON returns an optional side file decoded as JSON, read as ReadText
 // reads it. Only a file that cannot be read adds a problem; for text that is
 // not JSON the caller writes its own message, so it gives false silently.
-func LoadJSON(path string, problems *Problems) (pyjson.Value, bool) {
+func LoadJSON(path string, problems *Problems) (jsonvalue.Value, bool) {
 	text, ok := ReadText(path, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return value, true
 }

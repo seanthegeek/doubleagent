@@ -29,9 +29,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -169,13 +169,13 @@ func keptInName(char rune) bool {
 // argumentsText returns a transcript's argsText as the pi reader renders
 // the same call's arguments: ArgsSummary of the text decoded as JSON, else
 // the text itself.
-func argumentsText(arguments pyjson.Value) string {
+func argumentsText(arguments jsonvalue.Value) string {
 	if !arguments.IsString() {
 		return pi.ArgsSummary(arguments)
 	}
-	value, err := pyjson.DecodeString(arguments.Text())
+	value, err := jsonvalue.DecodeString(arguments.StringValue())
 	if err != nil {
-		return arguments.Text()
+		return arguments.StringValue()
 	}
 	return pi.ArgsSummary(value)
 }
@@ -216,7 +216,7 @@ func isBareMessages(session *pi.Session) bool {
 	}
 	for _, entry := range session.Entries {
 		kind := entry.Record.Get("type")
-		if !entry.Record.Has("role") || (kind.IsString() && kind.Text() == "message") {
+		if !entry.Record.Has("role") || (kind.IsString() && kind.StringValue() == "message") {
 			return false
 		}
 	}
@@ -229,19 +229,19 @@ func bareMessages(session *pi.Session) *pi.Session {
 	out := &pi.Session{Header: session.Header, Problems: session.Problems}
 	for _, entry := range session.Entries {
 		meta := entry.Record.Get("metadata")
-		out.Entries = append(out.Entries, pi.Entry{Line: entry.Line, Record: pyjson.NewObject(
-			pyjson.Member{Key: "type", Value: pyjson.NewString("message")},
-			pyjson.Member{Key: "timestamp", Value: meta.Get("created_at")},
-			pyjson.Member{Key: "message", Value: entry.Record})})
+		out.Entries = append(out.Entries, pi.Entry{Line: entry.Line, Record: jsonvalue.NewObject(
+			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("message")},
+			jsonvalue.Member{Key: "timestamp", Value: meta.Get("created_at")},
+			jsonvalue.Member{Key: "message", Value: entry.Record})})
 	}
 	return out
 }
 
 // lastSnapshots keeps only the last entry of each message id.
 func lastSnapshots(session *pi.Session) *pi.Session {
-	idOf := func(record pyjson.Value) (string, bool) {
+	idOf := func(record jsonvalue.Value) (string, bool) {
 		identifier := record.Get("message").Get("id")
-		return identifier.Str(), identifier.Truthy()
+		return identifier.Text(), !identifier.IsEmpty()
 	}
 	last := map[string]int{}
 	for i, entry := range session.Entries {

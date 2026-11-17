@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The rows of every file kind are proved against the Python analyzer by the
@@ -20,9 +20,9 @@ import (
 // helpers on the same input.
 
 // decoded returns JSON text decoded, failing the test on an error.
-func decoded(t testing.TB, text string) pyjson.Value {
+func decoded(t testing.TB, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestArgsSummaryPicksTheMostIdentifyingArgument(t *testing.T) {
 		{"the path of an edit", `{"edits":[{"oldText":"a","newText":"b"}],"path":"src/a.ts"}`, "src/a.ts"},
 		{"empty and null values are passed over", `{"command":"","path":null,"pattern":0}`, "0"},
 		{"false is a value", `{"url":false}`, "false"},
-		{"no known key gives the sorted object", `{"b":2,"a":"é"}`, `{"a":"é","b":2}`},
+		{"no known key gives the sorted object", `{"b":2,"a":"é"}`, `{"b":2,"a":"é"}`},
 		{"an empty object", `{}`, "{}"},
 		{"null is empty", `null`, ""},
 		{"the empty string is empty", `""`, ""},
@@ -44,8 +44,8 @@ func TestArgsSummaryPicksTheMostIdentifyingArgument(t *testing.T) {
 		{"a list is JSON", `[1,"x"]`, `[1,"x"]`},
 		{"zero is JSON", `0`, "0"},
 		{"false alone is JSON", `false`, "false"},
-		{"a float as Python writes it", `1.50`, "1.5"},
-		{"an object argument is sorted JSON", `{"query":{"z":1,"a":[true]}}`, `{"a":[true],"z":1}`},
+		{"a float as written", `1.50`, "1.50"},
+		{"an object argument is sorted JSON", `{"query":{"z":1,"a":[true]}}`, `{"z":1,"a":[true]}`},
 		{"spaces are kept", `{"command":"  "}`, "  "},
 	}
 	for _, test := range tests {

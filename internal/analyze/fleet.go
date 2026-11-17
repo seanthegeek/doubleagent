@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -116,7 +116,7 @@ func fleetRows(text string) ([][]string, int) {
 			if pytext.Strip(line) != "" {
 				junk++
 			}
-		case record.Get("type").Text() == "host":
+		case record.Get("type").StringValue() == "host":
 			closeHost()
 			host, hostHasAgents = cells(record, hostFields()), false
 		default:
@@ -146,24 +146,24 @@ func universalLines(text string) []string {
 // inventoryRecord returns the host or agent record a line holds: a JSON
 // object whose type is "host" or "agent", once surrounding whitespace and
 // leading byte-order marks are removed. Anything else is not a record.
-func inventoryRecord(line string) (pyjson.Value, bool) {
+func inventoryRecord(line string) (jsonvalue.Value, bool) {
 	line = strings.TrimLeft(pytext.Strip(line), "\uFEFF")
 	if !strings.HasPrefix(line, "{") {
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
-	record, err := pyjson.DecodeString(line)
+	record, err := jsonvalue.DecodeString(line)
 	if err != nil || !record.IsObject() {
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
 	kind := record.Get("type")
-	if !kind.IsString() || kind.Text() != "host" && kind.Text() != "agent" {
-		return pyjson.Value{}, false
+	if !kind.IsString() || kind.StringValue() != "host" && kind.StringValue() != "agent" {
+		return jsonvalue.Value{}, false
 	}
 	return record, true
 }
 
 // cells returns the CSV cells of a record's fields.
-func cells(record pyjson.Value, fields []string) []string {
+func cells(record jsonvalue.Value, fields []string) []string {
 	out := make([]string, len(fields))
 	for i, field := range fields {
 		out[i] = cell(field, record.Get(field))
@@ -173,14 +173,14 @@ func cells(record pyjson.Value, fields []string) []string {
 
 // cell returns one field's CSV cell: "" for a missing or null value, a
 // time field as a timeline timestamp, anything else as Python's str() of it.
-func cell(field string, value pyjson.Value) string {
+func cell(field string, value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
 		return ""
 	case field == "at" || field == "first" || field == "last":
 		return timeutil.FromValue(value)
 	}
-	return value.Str()
+	return value.Text()
 }
 
 // agentTotal is one line of the rollup: an agent, the hosts and the users

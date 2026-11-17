@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/aider"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -35,15 +35,15 @@ func (p *Parser) setting(artifact *input.Artifact, line int, text, timestamp str
 // readJSON returns the JSON document of the artifact, or false after
 // adding a whole-file problem: its unreadable problem, or
 // "<name> did not parse (<reason>)".
-func (p *Parser) readJSON(artifact *input.Artifact, name string, problems *parser.Problems) (pyjson.Value, bool) {
+func (p *Parser) readJSON(artifact *input.Artifact, name string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	content, ok := parser.FileBytes(artifact.DiskPath, problems)
 	if !ok {
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil {
 		problems.Add(0, name+" did not parse ("+err.Error()+")")
-		return pyjson.Value{}, false
+		return jsonvalue.Value{}, false
 	}
 	return document, true
 }
@@ -64,13 +64,13 @@ func (p *Parser) parsePastes(artifact *input.Artifact, emit parser.Emit) {
 	}
 	for i, entry := range document.Items() {
 		position := i + 1
-		if url := entry.Get("url"); !entry.IsObject() || !url.Truthy() {
+		if url := entry.Get("url"); !entry.IsObject() || url.IsEmpty() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
 				" (not an object with a url)", parser.CompactJSON(entry))
 			continue
 		}
 		row := p.system(artifact, position, noSession(), "debug report uploaded: "+
-			entry.Get("url").Str()+" (from pastes/pending.json, expire_at minus 6 hours)")
+			entry.Get("url").Text()+" (from pastes/pending.json, expire_at minus 6 hours)")
 		expire := entry.Get("expire_at")
 		if seconds, ok := expire.Int(); ok && expire.IsInt() {
 			row.TimestampUTC = timeutil.FromInt(seconds - pasteLifetime)
@@ -120,7 +120,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, match []string, emit par
 		position := i + 1
 		if !user.Value.IsObject() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+" (not an object)",
-				parser.CompactJSON(pyjson.NewObject(user)))
+				parser.CompactJSON(jsonvalue.NewObject(user)))
 			continue
 		}
 		emit(p.setting(artifact, position, "permission setting: pairing."+match[2]+"."+user.Key+
@@ -198,7 +198,7 @@ func (p *Parser) parseTrajectory(artifact *input.Artifact, emit parser.Emit) {
 		if len(strings.Trim(string(raw), textlines.ASCIIWhitespace)) == 0 {
 			continue
 		}
-		record, err := pyjson.Decode(raw)
+		record, err := jsonvalue.Decode(raw)
 		reason := ""
 		switch {
 		case err != nil:
@@ -219,7 +219,7 @@ func (p *Parser) parseTrajectory(artifact *input.Artifact, emit parser.Emit) {
 
 // trajectoryRows emits the rows of one trajectory line.
 func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, name string,
-	record pyjson.Value, emit parser.Emit) {
+	record jsonvalue.Value, emit parser.Emit) {
 	head := p.BaseRow(artifact)
 	head.SourceLine, head.ProjectPath, head.TurnType = number, project, timeline.TurnSystem
 	head.Model = parser.Str(record.Get("model"))
@@ -230,11 +230,11 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 	for _, entry := range record.Get("conversations").Items() {
 		row := p.BaseRow(artifact)
 		row.SourceLine, row.ProjectPath, row.Model = number, project, head.Model
-		sender, value := pyjson.NewNull(), ""
+		sender, value := jsonvalue.NewNull(), ""
 		if entry.IsObject() {
 			sender, value = entry.Get("from"), parser.TextOf(entry.Get("value"))
 		}
-		turnType, known := trajectoryTypes()[sender.Text()]
+		turnType, known := trajectoryTypes()[sender.StringValue()]
 		switch {
 		case sender.IsString() && known:
 			row.TurnType, row.Text = turnType, timeline.Compact(value)
@@ -286,22 +286,22 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 
 // connectionText returns the "remote backend:" text of one connection: its
 // url, else [user@]host[:port].
-func connectionText(connection pyjson.Value) string {
+func connectionText(connection jsonvalue.Value) string {
 	target := connection.Get("url")
-	if host := connection.Get("host"); !target.Truthy() && host.Truthy() {
-		text := host.Str()
-		if user := connection.Get("user"); user.Truthy() {
-			text = user.Str() + "@" + text
+	if host := connection.Get("host"); target.IsEmpty() && !host.IsEmpty() {
+		text := host.Text()
+		if user := connection.Get("user"); !user.IsEmpty() {
+			text = user.Text() + "@" + text
 		}
-		if port := connection.Get("port"); port.Truthy() {
-			text += ":" + port.Str()
+		if port := connection.Get("port"); !port.IsEmpty() {
+			text += ":" + port.Text()
 		}
-		target = pyjson.NewString(text)
+		target = jsonvalue.NewString(text)
 	}
 	text := "remote backend: " + dash(connection.Get("kind")) + " " + dash(connection.Get("label")) +
 		" " + dash(target)
 	for _, pair := range [][2]string{{"org", "org"}, {"name", "name"}, {"remoteProfile", "profile"}} {
-		if value := connection.Get(pair[0]); value.Truthy() {
+		if value := connection.Get(pair[0]); !value.IsEmpty() {
 			text += " " + pair[1] + "=" + parser.SettingValue(value)
 		}
 	}
@@ -309,7 +309,7 @@ func connectionText(connection pyjson.Value) string {
 }
 
 // arrayItems returns the items of an array, nothing for any other value.
-func arrayItems(value pyjson.Value) []pyjson.Value {
+func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
 	if value.IsArray() {
 		return value.Items()
 	}

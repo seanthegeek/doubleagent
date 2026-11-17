@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The expected timestamps are what the Python analyzer's file_mtime gives
@@ -70,7 +70,7 @@ func TestFileMtimeRoundsTheFileTimeAsPythonDoes(t *testing.T) {
 			if err := osfile.Chtimes(path, moment, moment); err != nil {
 				t.Fatal(err)
 			}
-			artifact := &input.Artifact{DiskPath: path, Manifest: pyjson.NewNull()}
+			artifact := &input.Artifact{DiskPath: path, Manifest: jsonvalue.NewNull()}
 			if got := FileMtime(artifact); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
@@ -130,8 +130,8 @@ func TestReadTextAndLoadJSONTreatASideFileAsOptional(t *testing.T) {
 		})
 	}
 	var problems Problems
-	if value, ok := LoadJSON(withMark, &problems); !ok || pyjson.Compact(value) != `{"a":1}` {
-		t.Errorf("LoadJSON gave %v, %v", pyjson.Compact(value), ok)
+	if value, ok := LoadJSON(withMark, &problems); !ok || value.JSON() != `{"a":1}` {
+		t.Errorf("LoadJSON gave %v, %v", value.JSON(), ok)
 	}
 	if _, ok := LoadJSON(notJSON, &problems); ok || len(problems) > 0 {
 		t.Errorf("text that is not JSON gave %v and %v", ok, problems)

@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -26,19 +26,19 @@ var blockedPattern = regexp.MustCompile(
 // transcript is what a messages file holds: its messages and the time of a
 // message without its own.
 type transcript struct {
-	messages iter.Seq2[int, pyjson.Value]
+	messages iter.Seq2[int, jsonvalue.Value]
 	fallback string
 }
 
 // readTranscript reads a messages file: a whole object's messages array,
 // or, for a file cut mid-write, its messages array walked as far as it
 // parses.
-func readTranscript(artifact *input.Artifact, manifest pyjson.Value, problems *parser.Problems) transcript {
+func readTranscript(artifact *input.Artifact, manifest jsonvalue.Value, problems *parser.Problems) transcript {
 	rawText, ok := parser.ReadText(artifact.DiskPath, problems)
 	if !ok {
-		return transcript{messages: func(func(int, pyjson.Value) bool) {}}
+		return transcript{messages: func(func(int, jsonvalue.Value) bool) {}}
 	}
-	payload, err := pyjson.DecodeString(rawText)
+	payload, err := jsonvalue.DecodeString(rawText)
 	if err == nil && payload.IsObject() {
 		return transcript{messages: positions(payload.Get("messages").Items()),
 			fallback: timeutil.FirstNonEmpty(timeutil.FromValue(manifest.Get("started_at")),
@@ -55,8 +55,8 @@ func readTranscript(artifact *input.Artifact, manifest pyjson.Value, problems *p
 }
 
 // positions yields the items of a list with their 1-based positions.
-func positions(items []pyjson.Value) iter.Seq2[int, pyjson.Value] {
-	return func(yield func(int, pyjson.Value) bool) {
+func positions(items []jsonvalue.Value) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
 		for i, item := range items {
 			if !yield(i+1, item) {
 				return
@@ -76,8 +76,8 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 	project := parser.Str(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
 	read := readTranscript(artifact, manifest, &problems)
 	seen := parser.Tracker{}
-	if path.Base(artifact.Rel) == sessionID+".messages.json" && manifest.Get("model").Truthy() {
-		seen[sessionID] = manifest.Get("model").Str()
+	if path.Base(artifact.Rel) == sessionID+".messages.json" && !manifest.Get("model").IsEmpty() {
+		seen[sessionID] = manifest.Get("model").Text()
 	}
 	fallback := read.fallback
 	for position, message := range read.messages {
@@ -95,7 +95,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 }
 
 // messageRows emits the rows of one message, each built from base.
-func (p *Parser) messageRows(base timeline.Row, message, manifest pyjson.Value, seen parser.Tracker,
+func (p *Parser) messageRows(base timeline.Row, message, manifest jsonvalue.Value, seen parser.Tracker,
 	options parser.Options, emit parser.Emit) {
 	info := message.Get("modelInfo")
 	base.Model = parser.Str(clinelegacy.FirstTruthy(info.Get("id"), manifest.Get("model")))
@@ -127,10 +127,10 @@ func (p *Parser) messageRows(base timeline.Row, message, manifest pyjson.Value, 
 // decisions returns, by tool call id, the "permission decision:" text of
 // each skipped call in a message's content: an errored tool_result whose
 // reason is a rejection or a block.
-func decisions(content pyjson.Value) map[string]string {
+func decisions(content jsonvalue.Value) map[string]string {
 	decided := map[string]string{}
 	for _, block := range content.Items() {
-		if !isText(block.Get("type"), "tool_result") || !block.Get("is_error").Truthy() {
+		if !isText(block.Get("type"), "tool_result") || block.Get("is_error").IsEmpty() {
 			continue
 		}
 		if text := denial(block.Get("content")); text != "" {
@@ -143,9 +143,9 @@ func decisions(content pyjson.Value) map[string]string {
 // denial returns the "permission decision:" text of a skipped call's
 // result, whose content is {"error": <reason>}, possibly as a JSON string;
 // "" for any other result.
-func denial(content pyjson.Value) string {
+func denial(content jsonvalue.Value) string {
 	if content.IsString() {
-		decoded, err := pyjson.DecodeString(content.Text())
+		decoded, err := jsonvalue.DecodeString(content.StringValue())
 		if err != nil {
 			return ""
 		}
@@ -155,16 +155,16 @@ func denial(content pyjson.Value) string {
 	if !reason.IsString() {
 		return ""
 	}
-	if text, ok := strings.CutSuffix(reason.Text(), rejectionSuffix); ok {
+	if text, ok := strings.CutSuffix(reason.StringValue(), rejectionSuffix); ok {
 		return "permission decision: rejected reason=" + text
 	}
-	if blockedPattern.MatchString(reason.Text()) {
-		return "permission decision: blocked reason=" + reason.Text()
+	if blockedPattern.MatchString(reason.StringValue()) {
+		return "permission decision: blocked reason=" + reason.StringValue()
 	}
 	return ""
 }
 
 // isText reports whether a value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

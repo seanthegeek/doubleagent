@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -38,21 +38,21 @@ var infectionHeadings = [][2]string{
 // historyItem is one entry of an agent's history: a message, or the summary
 // of a topic or bulk.
 type historyItem struct {
-	agent   pyjson.Value
+	agent   jsonvalue.Value
 	summary bool
-	node    pyjson.Value
+	node    jsonvalue.Value
 }
 
 // historyEntry is a history message and the number of the agent that holds
 // it.
 type historyEntry struct {
-	agent   pyjson.Value
-	message pyjson.Value
+	agent   jsonvalue.Value
+	message jsonvalue.Value
 }
 
 // walkHistory visits the history's messages and, with summaries, its
 // summaries in order: bulks, then topics, then the current topic.
-func walkHistory(node pyjson.Value, summaries bool, visit func(summary bool, node pyjson.Value)) {
+func walkHistory(node jsonvalue.Value, summaries bool, visit func(summary bool, node jsonvalue.Value)) {
 	if node.IsArray() {
 		for _, child := range node.Items() {
 			walkHistory(child, summaries, visit)
@@ -71,7 +71,7 @@ func walkHistory(node pyjson.Value, summaries bool, visit func(summary bool, nod
 			walkHistory(node.Get(name), summaries, visit)
 		}
 	case isString(class, "Topic") || isString(class, "Bulk") || node.Has("messages") || node.Has("records"):
-		if summaries && node.Get("summary").Truthy() {
+		if summaries && !node.Get("summary").IsEmpty() {
 			visit(true, node.Get("summary"))
 		}
 		walkHistory(firstTruthyValue(node.Get("messages"), node.Get("records")), summaries, visit)
@@ -80,75 +80,75 @@ func walkHistory(node pyjson.Value, summaries bool, visit func(summary bool, nod
 
 // parseAI returns the assistant's raw output parsed as the agent's JSON
 // response, else null.
-func parseAI(content pyjson.Value) pyjson.Value {
+func parseAI(content jsonvalue.Value) jsonvalue.Value {
 	if content.IsObject() {
 		return content
 	}
 	if !content.IsString() {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
-	text := pytext.Strip(content.Text())
+	text := pytext.Strip(content.StringValue())
 	if !strings.HasPrefix(text, "{") {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil || !value.IsObject() {
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	}
 	return value
 }
 
 // headlineText returns a response's headline and thoughts, one per line.
-func headlineText(response pyjson.Value) string {
+func headlineText(response jsonvalue.Value) string {
 	var parts []string
-	if headline := response.Get("headline"); headline.Truthy() {
-		parts = append(parts, headline.Str())
+	if headline := response.Get("headline"); !headline.IsEmpty() {
+		parts = append(parts, headline.Text())
 	}
 	if thoughts := response.Get("thoughts"); thoughts.IsArray() {
 		for _, thought := range thoughts.Items() {
-			if thought.Truthy() {
-				parts = append(parts, thought.Str())
+			if !thought.IsEmpty() {
+				parts = append(parts, thought.Text())
 			}
 		}
-	} else if thoughts.Truthy() {
-		parts = append(parts, thoughts.Str())
+	} else if !thoughts.IsEmpty() {
+		parts = append(parts, thoughts.Text())
 	}
 	return strings.Join(parts, "\n")
 }
 
 // argsSummary returns the argument that names a tool call's action, else
 // the arguments as JSON.
-func argsSummary(args pyjson.Value) string {
+func argsSummary(args jsonvalue.Value) string {
 	if args.IsObject() {
-		var visible []pyjson.Member
+		var visible []jsonvalue.Member
 		for _, member := range args.Members() {
 			if !strings.HasPrefix(member.Key, "_") {
 				visible = append(visible, member)
 			}
 		}
-		object := pyjson.NewObject(visible...)
+		object := jsonvalue.NewObject(visible...)
 		for _, name := range argKeys {
 			if value := object.Get(name); !blank(value) {
-				return value.Str()
+				return value.Text()
 			}
 		}
 		return parser.CompactJSON(object)
 	}
 	if args.IsString() {
-		return args.Text()
+		return args.StringValue()
 	}
 	return parser.CompactJSON(args)
 }
 
 // modelOf returns a history message's provider_model_key, or "".
-func modelOf(message pyjson.Value) string {
+func modelOf(message jsonvalue.Value) string {
 	return parser.Str(message.Get("metadata").Get("responses").Get("provider_model_key"))
 }
 
 // contentText returns a message's content as text: a list of blocks as their
 // text, an object without text as compact JSON, anything else as the text
 // of a chat message.
-func contentText(value pyjson.Value) string {
+func contentText(value jsonvalue.Value) string {
 	if value.IsObject() && !value.Has("text") {
 		return parser.CompactJSON(value)
 	}
@@ -157,18 +157,18 @@ func contentText(value pyjson.Value) string {
 
 // recoverLogs returns the complete log items before the point where a
 // damaged file breaks off.
-func (p *Parser) recoverLogs(raw string) []pyjson.Value {
+func (p *Parser) recoverLogs(raw string) []jsonvalue.Value {
 	match := p.logs.FindStringIndex(raw)
 	if match == nil {
 		return nil
 	}
-	var items []pyjson.Value
+	var items []jsonvalue.Value
 	position := match[1]
 	for {
 		for position < len(raw) && strings.IndexByte(" \t\r\n,", raw[position]) >= 0 {
 			position++
 		}
-		item, end, err := pyjson.DecodePrefix(raw, position)
+		item, end, err := jsonvalue.DecodePrefix(raw, position)
 		if err != nil || !item.IsObject() {
 			return items
 		}
@@ -181,7 +181,7 @@ func (p *Parser) recoverLogs(raw string) []pyjson.Value {
 // of a chat: a synced text names a provider response chain, a relayed text a
 // Telegram, WhatsApp or email chat. The Telegram bot configuration, which
 // holds the bot token, is never read.
-func remoteCopyTexts(chat, data pyjson.Value) []string {
+func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 	var texts []string
 	for i, agent := range parser.Elements(chat.Get("agents")) {
 		state := agent.Get("data").Get("responses_state")
@@ -194,7 +194,7 @@ func remoteCopyTexts(chat, data pyjson.Value) []string {
 		}
 		number := strconv.Itoa(i)
 		if declared, ok := agent.Lookup("number"); ok {
-			number = declared.Str()
+			number = declared.Text()
 		}
 		texts = append(texts, "session synced: provider response "+key(state, "response_id")+
 			" previous "+key(state, "previous_response_id")+" model "+key(state, "provider_model_key")+
@@ -230,7 +230,7 @@ func slicesAny(names []string, holds func(string) bool) bool {
 
 // modelName returns "<provider>/<name>" of a model configuration, or ""
 // when it names neither. The api_key and api_base are never read.
-func modelName(config pyjson.Value) string {
+func modelName(config jsonvalue.Value) string {
 	var parts []string
 	for _, name := range []string{"provider", "name"} {
 		if part := pytext.Strip(parser.Str(config.Get(name))); part != "" {
@@ -244,12 +244,12 @@ func modelName(config pyjson.Value) string {
 // text: a preset by its name, a custom configuration by the provider and
 // name of each slot. A custom configuration from the connector can carry an
 // api_key, so the object itself is never printed.
-func overrideText(override pyjson.Value) string {
+func overrideText(override jsonvalue.Value) string {
 	if !override.IsObject() || override.Len() == 0 {
 		return ""
 	}
-	if preset := override.Get("preset_name"); preset.Truthy() {
-		return "preset " + preset.Str()
+	if preset := override.Get("preset_name"); !preset.IsEmpty() {
+		return "preset " + preset.Text()
 	}
 	var slots []string
 	for _, slot := range overrides {
@@ -273,20 +273,20 @@ type chatSetting struct {
 // data, each value the latest as of the file's modification time; ACP is the
 // Agent Client Protocol an editor session uses. Only the scratch directory
 // row names its own project path.
-func chatSettingRows(data pyjson.Value) []chatSetting {
+func chatSettingRows(data jsonvalue.Value) []chatSetting {
 	var rows []chatSetting
-	if mode := data.Get("acp_mode"); mode.Truthy() {
-		rows = append(rows, chatSetting{"permission mode: " + mode.Str() + " (acp, as of file mtime)", ""})
+	if mode := data.Get("acp_mode"); !mode.IsEmpty() {
+		rows = append(rows, chatSetting{"permission mode: " + mode.Text() + " (acp, as of file mtime)", ""})
 	}
-	if model := data.Get("acp_model_id"); model.Truthy() {
-		rows = append(rows, chatSetting{"model: requested " + model.Str() + " (acp, as of file mtime)", ""})
+	if model := data.Get("acp_model_id"); !model.IsEmpty() {
+		rows = append(rows, chatSetting{"model: requested " + model.Text() + " (acp, as of file mtime)", ""})
 	}
 	if requested := overrideText(data.Get("chat_model_override")); requested != "" {
 		rows = append(rows, chatSetting{"model: requested " + requested +
 			" (chat override, as of file mtime)", ""})
 	}
-	if workdir := data.Get("workdir_path"); workdir.IsString() && pytext.Strip(workdir.Text()) != "" {
-		path := pytext.Strip(workdir.Text())
+	if workdir := data.Get("workdir_path"); workdir.IsString() && pytext.Strip(workdir.StringValue()) != "" {
+		path := pytext.Strip(workdir.StringValue())
 		rows = append(rows, chatSetting{"scratch directory: " + path + " (acp container transport, " +
 			"from chat.json data.workdir_path, as of file mtime)", path})
 	}
@@ -295,10 +295,10 @@ func chatSettingRows(data pyjson.Value) []chatSetting {
 
 // warningDecision returns the text and tool name of a warning log item's
 // "permission decision:" row, two empty texts when it records no decision.
-func (p *Parser) warningDecision(item pyjson.Value) (string, string) {
+func (p *Parser) warningDecision(item jsonvalue.Value) (string, string) {
 	heading := parser.Str(item.Get("heading"))
 	if content := item.Get("content"); content.IsString() {
-		if match := p.blocked.FindStringSubmatch(content.Text()); match != nil {
+		if match := p.blocked.FindStringSubmatch(content.StringValue()); match != nil {
 			return "permission decision: blocked tool=" + match[1] + " profile=" + match[2], match[1]
 		}
 	}
@@ -333,7 +333,7 @@ type chat struct {
 
 // zeroAgent reports whether an agent number is the main agent's: null, zero,
 // false or the text "0".
-func zeroAgent(number pyjson.Value) bool {
+func zeroAgent(number jsonvalue.Value) bool {
 	switch {
 	case number.IsNull():
 		return true
@@ -349,11 +349,11 @@ func zeroAgent(number pyjson.Value) bool {
 
 // prefix returns text led by its agent: "[agent <n>] " for a subordinate
 // agent, the text itself for the main one.
-func prefix(agent pyjson.Value, text string) string {
+func prefix(agent jsonvalue.Value, text string) string {
 	if zeroAgent(agent) {
 		return text
 	}
-	return "[agent " + agent.Str() + "] " + text
+	return "[agent " + agent.Text() + "] " + text
 }
 
 // row returns a system, user, assistant, tool or thinking row of the chat.
@@ -384,7 +384,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		return nil
 	}
 	raw := pytext.DecodeUTF8(content)
-	document, err := pyjson.DecodeString(raw)
+	document, err := jsonvalue.DecodeString(raw)
 	reason := ""
 	switch {
 	case err != nil:
@@ -406,16 +406,16 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 }
 
 // chatRows emits the rows of a chat that decoded.
-func (c *chat) chatRows(document pyjson.Value, fallbackID string) {
+func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
 	c.base.SessionID = orDefault(document.Get("id"), fallbackID)
 	data := document.Get("data")
-	if project := data.Get("project"); project.Truthy() {
+	if project := data.Get("project"); !project.IsEmpty() {
 		c.base.ProjectPath = projectOf(project)
 	}
 	// An editor (ACP) session's workspace is the user's project on the host
 	// that ran the editor.
-	if cwd := data.Get("acp_cwd"); cwd.IsString() && pytext.Strip(cwd.Text()) != "" {
-		c.base.ProjectPath = pytext.Strip(cwd.Text())
+	if cwd := data.Get("acp_cwd"); cwd.IsString() && pytext.Strip(cwd.StringValue()) != "" {
+		c.base.ProjectPath = pytext.Strip(cwd.StringValue())
 	}
 	c.startRows(document, data)
 	logs := c.logItems(document)
@@ -433,10 +433,10 @@ func (c *chat) chatRows(document pyjson.Value, fallbackID string) {
 
 // startRows emits the chat start row and the standing rows from the chat's
 // data.
-func (c *chat) startRows(document, data pyjson.Value) {
-	label := func(name string, value pyjson.Value) string {
-		if value.Truthy() {
-			return name + "=" + value.Str()
+func (c *chat) startRows(document, data jsonvalue.Value) {
+	label := func(name string, value jsonvalue.Value) string {
+		if !value.IsEmpty() {
+			return name + "=" + value.Text()
 		}
 		return ""
 	}
@@ -469,8 +469,8 @@ func join(parts ...string) string {
 }
 
 // logItems returns the chat's log items that are objects.
-func (c *chat) logItems(document pyjson.Value) []pyjson.Value {
-	var logs []pyjson.Value
+func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
+	var logs []jsonvalue.Value
 	for _, item := range parser.Elements(document.Get("log").Get("logs")) {
 		if item.IsObject() {
 			logs = append(logs, item)
@@ -481,34 +481,34 @@ func (c *chat) logItems(document pyjson.Value) []pyjson.Value {
 
 // agentHistories reads each agent's history, filling the chat's message
 // index and returning its items in order.
-func (c *chat) agentHistories(document pyjson.Value, summaries bool) []historyItem {
+func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
 	for i, agent := range parser.Elements(document.Get("agents")) {
 		if !agent.IsObject() {
 			continue
 		}
-		number := pyjson.NewInt(int64(i))
+		number := jsonvalue.NewInt(int64(i))
 		if declared, ok := agent.Lookup("number"); ok {
 			number = declared
 		}
 		history := agent.Get("history")
 		if history.IsString() {
-			history = pyjson.NewObject()
-			if text := agent.Get("history").Text(); text != "" {
-				decoded, err := pyjson.DecodeString(text)
+			history = jsonvalue.NewObject()
+			if text := agent.Get("history").StringValue(); text != "" {
+				decoded, err := jsonvalue.DecodeString(text)
 				if err != nil {
-					c.emit(c.row(timeline.TurnSystem, "parser: history of agent "+number.Str()+
+					c.emit(c.row(timeline.TurnSystem, "parser: history of agent "+number.Text()+
 						" did not parse ("+err.Error()+")", 0, ""))
 					continue
 				}
 				history = decoded
 			}
 		}
-		walkHistory(history, summaries, func(summary bool, node pyjson.Value) {
+		walkHistory(history, summaries, func(summary bool, node jsonvalue.Value) {
 			ordered = append(ordered, historyItem{agent: number, summary: summary, node: node})
-			if messageID := node.Get("id"); !summary && messageID.Truthy() {
-				if _, held := c.history[messageID.Str()]; !held {
-					c.history[messageID.Str()] = historyEntry{agent: number, message: node}
+			if messageID := node.Get("id"); !summary && !messageID.IsEmpty() {
+				if _, held := c.history[messageID.Text()]; !held {
+					c.history[messageID.Text()] = historyEntry{agent: number, message: node}
 				}
 			}
 		})
@@ -518,13 +518,13 @@ func (c *chat) agentHistories(document pyjson.Value, summaries bool) []historyIt
 
 // trimmedRows emits, for a chat whose log was cut to its last items, the
 // note and the turns the log no longer holds, from the agent history.
-func (c *chat) trimmedRows(logs []pyjson.Value, ordered []historyItem) {
+func (c *chat) trimmedRows(logs []jsonvalue.Value, ordered []historyItem) {
 	c.emit(c.row(timeline.TurnSystem, "log trimmed to its last "+strconv.Itoa(logSize)+
 		" items; earlier turns follow from the agent history without timestamps", 0, ""))
 	inLog := map[string]bool{}
 	for _, item := range logs {
-		if logID := item.Get("id"); logID.Truthy() {
-			inLog[logID.Str()] = true
+		if logID := item.Get("id"); !logID.IsEmpty() {
+			inLog[logID.Text()] = true
 		}
 	}
 	for _, each := range ordered {
@@ -539,13 +539,13 @@ func (c *chat) trimmedRows(logs []pyjson.Value, ordered []historyItem) {
 
 // modelRow emits the "model:" row of a new or changed model. The model is
 // tracked per chat and agent number; a subordinate agent's row ends " agent=<n>".
-func (c *chat) modelRow(agent pyjson.Value, model string, line int, timestamp string) {
-	text := c.models.Change("model", c.base.SessionID+"\x00"+agent.Str(), model)
+func (c *chat) modelRow(agent jsonvalue.Value, model string, line int, timestamp string) {
+	text := c.models.Change("model", c.base.SessionID+"\x00"+agent.Text(), model)
 	if text == "" {
 		return
 	}
 	if !zeroAgent(agent) {
-		text += " agent=" + agent.Str()
+		text += " agent=" + agent.Text()
 	}
 	row := c.row(timeline.TurnSystem, text, line, timestamp)
 	row.Model = model
@@ -553,9 +553,9 @@ func (c *chat) modelRow(agent pyjson.Value, model string, line int, timestamp st
 }
 
 // historyRows emits the rows of one history message.
-func (c *chat) historyRows(agent, message pyjson.Value) {
+func (c *chat) historyRows(agent, message jsonvalue.Value) {
 	content := message.Get("content")
-	if message.Get("ai").Truthy() {
+	if !message.Get("ai").IsEmpty() {
 		c.assistantHistory(agent, message, content)
 		return
 	}
@@ -573,12 +573,12 @@ func (c *chat) historyRows(agent, message pyjson.Value) {
 
 // assistantHistory emits the model row, the reply and the tool call of an
 // assistant history message.
-func (c *chat) assistantHistory(agent, message, content pyjson.Value) {
+func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
 	parsed := parseAI(content)
 	model := modelOf(message)
 	c.modelRow(agent, model, 0, "")
 	text := contentText(content)
-	if parsed.Truthy() {
+	if !parsed.IsEmpty() {
 		text = headlineText(parsed)
 	}
 	if text != "" {
@@ -586,9 +586,9 @@ func (c *chat) assistantHistory(agent, message, content pyjson.Value) {
 		row.Model = model
 		c.emit(row)
 	}
-	if parsed.Truthy() && parsed.Get("tool_name").Truthy() {
+	if !parsed.IsEmpty() && !parsed.Get("tool_name").IsEmpty() {
 		row := c.row(timeline.TurnToolUse, prefix(agent, argsSummary(parsed.Get("tool_args"))), 0, "")
-		row.ToolName, row.Model = parsed.Get("tool_name").Str(), model
+		row.ToolName, row.Model = parsed.Get("tool_name").Text(), model
 		c.emit(row)
 	}
 }
@@ -596,11 +596,11 @@ func (c *chat) assistantHistory(agent, message, content pyjson.Value) {
 // messageFile returns the text of the message file a history entry names, ""
 // when there is none. A file that exists but cannot be read adds its
 // unreadable problem; a failure to look for it stops the parse.
-func (c *chat) messageFile(content pyjson.Value) string {
-	if !c.hasMessages || !content.IsObject() || !content.Get("file").Truthy() {
+func (c *chat) messageFile(content jsonvalue.Value) string {
+	if !c.hasMessages || !content.IsObject() || content.Get("file").IsEmpty() {
 		return ""
 	}
-	name := strings.ReplaceAll(content.Get("file").Str(), `\`, "/")
+	name := strings.ReplaceAll(content.Get("file").Text(), `\`, "/")
 	name, named := parser.Component(name[strings.LastIndex(name, "/")+1:])
 	if !named {
 		return ""
@@ -625,21 +625,21 @@ func (c *chat) messageFile(content pyjson.Value) string {
 
 // logItem is one log item with what its rows are built from.
 type logItem struct {
-	item, kvps, content pyjson.Value
+	item, kvps, content jsonvalue.Value
 	kind, itemID        string
 	line                int
 	timestamp           string
-	agent               pyjson.Value
-	message, body       pyjson.Value
+	agent               jsonvalue.Value
+	message, body       jsonvalue.Value
 	hasMessage          bool
 }
 
 // newLogItem reads a log item against the chat's history.
-func (c *chat) newLogItem(item pyjson.Value) *logItem {
+func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
 	current := &logItem{item: item, kind: parser.Str(item.Get("type")),
 		timestamp: timeutil.FromValue(item.Get("timestamp")), kvps: item.Get("kvps"),
-		itemID: parser.Str(item.Get("id")), agent: pyjson.NewInt(0), content: pyjson.NewString(""),
-		message: pyjson.NewNull(), body: pyjson.NewNull()}
+		itemID: parser.Str(item.Get("id")), agent: jsonvalue.NewInt(0), content: jsonvalue.NewString(""),
+		message: jsonvalue.NewNull(), body: jsonvalue.NewNull()}
 	if number, ok := item.Get("no").Int(); ok && item.Get("no").IsInt() {
 		current.line = int(number)
 	}
@@ -647,12 +647,12 @@ func (c *chat) newLogItem(item pyjson.Value) *logItem {
 		current.agent = agent
 	}
 	if !current.kvps.IsObject() {
-		current.kvps = pyjson.NewObject()
+		current.kvps = jsonvalue.NewObject()
 	}
-	if content := item.Get("content"); content.Truthy() {
+	if content := item.Get("content"); !content.IsEmpty() {
 		current.content = content
 	}
-	if held, ok := c.history[current.itemID]; ok && current.itemID != "" && held.message.Truthy() {
+	if held, ok := c.history[current.itemID]; ok && current.itemID != "" && !held.message.IsEmpty() {
 		current.message, current.body, current.hasMessage = held.message, held.message.Get("content"), true
 	}
 	return current
@@ -660,7 +660,7 @@ func (c *chat) newLogItem(item pyjson.Value) *logItem {
 
 // logRows emits the rows of the log items; a message file that cannot be
 // read adds a problem.
-func (c *chat) logRows(logs []pyjson.Value) {
+func (c *chat) logRows(logs []jsonvalue.Value) {
 	for _, item := range logs {
 		if c.failure != nil {
 			return
@@ -694,7 +694,7 @@ func (c *chat) userLogRow(current *logItem, row func(turn, text string) timeline
 	if attachments := current.kvps.Get("attachments"); attachments.IsArray() && attachments.Len() > 0 {
 		names := make([]string, 0, attachments.Len())
 		for _, attachment := range attachments.Items() {
-			names = append(names, attachment.Str())
+			names = append(names, attachment.Text())
 		}
 		text += " [attachments: " + strings.Join(names, ", ") + "]"
 	}
@@ -706,20 +706,20 @@ func (c *chat) userLogRow(current *logItem, row func(turn, text string) timeline
 func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeline.Row) {
 	model := modelOf(current.message)
 	c.modelRow(current.agent, model, current.line, current.timestamp)
-	if reasoning := current.kvps.Get("reasoning"); c.options.IncludeThinking && reasoning.Truthy() {
+	if reasoning := current.kvps.Get("reasoning"); c.options.IncludeThinking && !reasoning.IsEmpty() {
 		made := row(timeline.TurnThinking, contentText(reasoning))
 		made.Model = model
 		c.emit(made)
 	}
-	parsed := pyjson.NewNull()
+	parsed := jsonvalue.NewNull()
 	if current.hasMessage {
 		parsed = parseAI(current.body)
 	}
 	text := headlineText(current.kvps)
-	if text == "" && parsed.Truthy() {
+	if text == "" && !parsed.IsEmpty() {
 		text = headlineText(parsed)
 	}
-	if text == "" && current.hasMessage && !parsed.Truthy() {
+	if text == "" && current.hasMessage && parsed.IsEmpty() {
 		text = contentText(current.body)
 	}
 	if text == "" {

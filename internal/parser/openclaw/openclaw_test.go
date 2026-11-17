@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -50,9 +50,9 @@ func TestWantsAndSecondaryFollowTheFileNames(t *testing.T) {
 
 // decoded returns the JSON value of text, failing the test when it is not
 // JSON.
-func decoded(t *testing.T, text string) pyjson.Value {
+func decoded(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestPolicySettingsGiveTheAnalyzersText(t *testing.T) {
 		` "autoAllowSkills": {"a": [1]}, "allowlist": [{"pattern": "ls", "argPattern": "-l",`+
 		` "source": "user"}, {"pattern": null}, "x", {"pattern": 5}],`+
 		` "mcpTools": [{"server": "s"}, {}]}`)
-	want := []string{"security=allowlist", "ask=true", "autoAllowSkills={'a': [1]}",
+	want := []string{"security=allowlist", "ask=true", `autoAllowSkills={"a":[1]}`,
 		"allowlist=ls argPattern=-l source=user", "allowlist=5 source=-", "mcpTools=s/- source=-",
 		"mcpTools=-/- source=-"}
 	if got := policySettings(policy); !slices.Equal(got, want) {

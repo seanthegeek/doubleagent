@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
@@ -72,13 +72,13 @@ func readMarker(path string, problems *parser.Problems) string {
 // a session key <channel>:<chat id> of a messaging platform, and one for a
 // metadata.last_channel route of a messaging platform that differs from
 // the key.
-func relayTexts(sessionID string, lastChannel pyjson.Value) []string {
+func relayTexts(sessionID string, lastChannel jsonvalue.Value) []string {
 	var texts []string
 	if channel, chat, _ := strings.Cut(sessionID, ":"); isMessaging(channel) && chat != "" {
 		texts = append(texts, "session relayed: "+channel+" chat "+chat+" (from session key)")
 	}
-	if lastChannel.IsString() && lastChannel.Text() != sessionID {
-		if channel, chat, _ := strings.Cut(lastChannel.Text(), ":"); isMessaging(channel) && chat != "" {
+	if lastChannel.IsString() && lastChannel.StringValue() != sessionID {
+		if channel, chat, _ := strings.Cut(lastChannel.StringValue(), ":"); isMessaging(channel) && chat != "" {
 			texts = append(texts, "session relayed: "+channel+" chat "+chat+
 				" (from metadata.last_channel)")
 		}
@@ -94,26 +94,26 @@ func isMessaging(channel string) bool {
 // columnValue returns a column value as the JSON value of the record the
 // session database's rows are rebuilt into: a blob as the text Python's
 // str() writes for it, which reads as no time and prints the same.
-func columnValue(value sqlitefile.Value) pyjson.Value {
+func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Null:
-		return pyjson.NewNull()
+		return jsonvalue.NewNull()
 	case sqlitefile.Integer:
-		return pyjson.NewInt(value.Int)
+		return jsonvalue.NewInt(value.Int)
 	case sqlitefile.Float:
-		return pyjson.NewFloat(value.Float)
+		return jsonvalue.NewFloat(value.Float)
 	case sqlitefile.Text:
-		return pyjson.NewString(value.Text())
+		return jsonvalue.NewString(value.Text())
 	}
-	return pyjson.NewString(value.Str())
+	return jsonvalue.NewString(value.Str())
 }
 
 // firstStr returns the first of the values Python counts as true as its
 // str(), or "".
-func firstStr(values ...pyjson.Value) string {
+func firstStr(values ...jsonvalue.Value) string {
 	for _, value := range values {
-		if value.Truthy() {
-			return value.Str()
+		if !value.IsEmpty() {
+			return value.Text()
 		}
 	}
 	return ""
@@ -121,14 +121,14 @@ func firstStr(values ...pyjson.Value) string {
 
 // getOr returns the str() of the member key of object, or fallback when the
 // object has no such member: Python's "%s" % record.get(key, fallback).
-func getOr(object pyjson.Value, key, fallback string) string {
+func getOr(object jsonvalue.Value, key, fallback string) string {
 	if value, ok := object.Lookup(key); ok {
-		return value.Str()
+		return value.Text()
 	}
 	return fallback
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }

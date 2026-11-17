@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -23,15 +23,15 @@ func (p *Parser) systemRow(artifact *input.Artifact, line int, timestamp,
 
 // readObject returns a JSON file's object, or false after adding its
 // failure: the unreadable problem, or "<file> is not a JSON object".
-func readObject(artifact *input.Artifact, problems *parser.Problems) (pyjson.Value, bool) {
+func readObject(artifact *input.Artifact, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(artifact.DiskPath, problems)
 	if !ok {
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	document, err := pyjson.Decode(data)
+	document, err := jsonvalue.Decode(data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, fileName(artifact)+" is not a JSON object")
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return document, true
 }
@@ -49,7 +49,7 @@ func (p *Parser) tokenUsage(artifact *input.Artifact, emit parser.Emit) {
 		}
 		duration := "-"
 		if value := record.Get("apiDurationMs"); isSet(value) {
-			duration = value.Str() + "ms"
+			duration = value.Text() + "ms"
 		}
 		text := "token usage: model " + dash(record.Get("model")) + " auth " +
 			dash(record.Get("authType")) + " source " + dash(record.Get("source")) + " tokens " +
@@ -68,7 +68,7 @@ func (p *Parser) tokenUsage(artifact *input.Artifact, emit parser.Emit) {
 // numbered is one record of a JSON lines file and its line.
 type numbered struct {
 	line   int
-	record pyjson.Value
+	record jsonvalue.Value
 }
 
 // clearTimes returns, for each message line of a group history, the
@@ -133,7 +133,7 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // orDash returns a value as Python's "%s" % (value or "-") writes it.
-func orDash(value pyjson.Value) string {
+func orDash(value jsonvalue.Value) string {
 	if text := parser.Str(value); text != "" {
 		return text
 	}
@@ -195,7 +195,7 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 		}
 		var blocked []string
 		for _, each := range item.Get("blockedBy").Items() {
-			blocked = append(blocked, each.Str())
+			blocked = append(blocked, each.Text())
 		}
 		blockedBy := strings.Join(blocked, ",")
 		if blockedBy == "" {
@@ -213,11 +213,11 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 
 // groupNames returns the Web Shell's group names by id: each group with an
 // id, by its name, else its id; a later group of the same id wins.
-func groupNames(groups pyjson.Value) map[string]string {
+func groupNames(groups jsonvalue.Value) map[string]string {
 	names := map[string]string{}
 	for _, group := range groups.Items() {
-		if groupID := group.Get("id"); group.IsObject() && groupID.Truthy() {
-			names[groupID.Str()] = orElse(group.Get("name"), groupID).Str()
+		if groupID := group.Get("id"); group.IsObject() && !groupID.IsEmpty() {
+			names[groupID.Text()] = orElse(group.Get("name"), groupID).Text()
 		}
 	}
 	return names
@@ -241,8 +241,8 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		group := "-"
-		if groupID := entry.Get("groupId"); groupID.Truthy() {
-			group = groupID.Str()
+		if groupID := entry.Get("groupId"); !groupID.IsEmpty() {
+			group = groupID.Text()
 			if name, ok := names[group]; ok {
 				group = name
 			}

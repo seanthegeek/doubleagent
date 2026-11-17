@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -290,9 +290,9 @@ func (c *Corpus) inputArtifact(t *testing.T, recorded Artifact, root string) *in
 	t.Helper()
 	artifact := &input.Artifact{DiskPath: filepath.FromSlash(c.Expand(recorded.DiskPath, root)),
 		Original: c.Expand(recorded.Original, root), Rel: string(recorded.Rel),
-		Agent: string(recorded.Agent), Manifest: pyjson.NewNull()}
+		Agent: string(recorded.Agent), Manifest: jsonvalue.NewNull()}
 	if manifest := bytes.TrimSpace(recorded.Manifest); len(manifest) > 0 {
-		decoded, err := pyjson.DecodeString(c.expandJSON(string(manifest), root))
+		decoded, err := jsonvalue.DecodeString(c.expandJSON(string(manifest), root))
 		if err != nil {
 			t.Fatalf("manifest of %s: %v", recorded.Original, err)
 		}
@@ -315,7 +315,7 @@ func (c *Corpus) inputArtifact(t *testing.T, recorded Artifact, root string) *in
 // content.
 func (c *Corpus) expandJSON(text, root string) string {
 	escape := func(path string) string {
-		quoted := pyjson.Compact(pyjson.NewString(path))
+		quoted := jsonvalue.NewString(path).JSON()
 		return quoted[1 : len(quoted)-1]
 	}
 	text = strings.ReplaceAll(text, c.Header.RootToken, escape(root))

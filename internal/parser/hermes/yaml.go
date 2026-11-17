@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -56,11 +56,11 @@ func quotedScalar(value string) (string, bool) {
 	if quote == '\'' {
 		return strings.ReplaceAll(value[1:i], "''", "'"), true
 	}
-	decoded, err := pyjson.DecodeString(value[:i+1])
+	decoded, err := jsonvalue.DecodeString(value[:i+1])
 	if err != nil || !decoded.IsString() {
 		return "", false
 	}
-	return decoded.Text(), true
+	return decoded.StringValue(), true
 }
 
 // listEntry is one string item of a YAML block list and its line.

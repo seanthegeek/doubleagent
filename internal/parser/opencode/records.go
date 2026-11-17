@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -37,7 +37,7 @@ func (b *recordRows) add(turn, text, when string, tool ...string) timeline.Row {
 
 // recordRows emits the rows of one session_message record of the given
 // type, at line, created being the row's time_created.
-func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string, data pyjson.Value,
+func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string, data jsonvalue.Value,
 	line int, created string, options parser.Options, emit parser.Emit) {
 	reference := objectOf(data.Get("model"))
 	builder := &recordRows{owner: p, artifact: artifact, scoped: scoped, line: line, options: options,
@@ -75,9 +75,9 @@ func (b *recordRows) system(text string) {
 
 // recordSummary returns the system row text of a record that is neither a
 // message nor a switch of model or agent.
-func recordSummary(kind string, data pyjson.Value) string {
+func recordSummary(kind string, data jsonvalue.Value) string {
 	failure := ""
-	if data.Get("error").Truthy() {
+	if !data.Get("error").IsEmpty() {
 		failure = errorText(data.Get("error"))
 	}
 	switch kind {
@@ -99,18 +99,18 @@ func recordSummary(kind string, data pyjson.Value) string {
 	case "idle":
 		return join("idle:", parser.Str(data.Get("outcome")), failure)
 	}
-	var kept []pyjson.Member
+	var kept []jsonvalue.Member
 	for _, member := range data.Members() {
 		if member.Key != "time" {
 			kept = append(kept, member)
 		}
 	}
-	return join(kind+":", parser.CompactJSON(pyjson.NewObject(kept...)))
+	return join(kind+":", parser.CompactJSON(jsonvalue.NewObject(kept...)))
 }
 
 // assistant emits an assistant record's model and agent changes, the rows
 // of its content items and its error.
-func (b *recordRows) assistant(data, reference pyjson.Value) {
+func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 	scoped := b.scoped
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
 		firstTruthy(reference.Get("id"), reference.Get("modelID"))),
@@ -122,18 +122,18 @@ func (b *recordRows) assistant(data, reference pyjson.Value) {
 		text := item.Get("text")
 		switch textOf(item.Get("type")) {
 		case "text":
-			if text.Truthy() {
-				b.add(timeline.TurnAssistant, text.Str(), "")
+			if !text.IsEmpty() {
+				b.add(timeline.TurnAssistant, text.Text(), "")
 			}
 		case "reasoning":
-			if b.options.IncludeThinking && text.Truthy() {
-				b.add(timeline.TurnThinking, text.Str(), "")
+			if b.options.IncludeThinking && !text.IsEmpty() {
+				b.add(timeline.TurnThinking, text.Text(), "")
 			}
 		case "tool":
 			b.tool(item)
 		}
 	}
-	if failure := data.Get("error"); failure.Truthy() {
+	if failure := data.Get("error"); !failure.IsEmpty() {
 		b.add(timeline.TurnSystem, "error: "+errorText(failure), "")
 	}
 }
@@ -141,7 +141,7 @@ func (b *recordRows) assistant(data, reference pyjson.Value) {
 // tool emits a 2.x tool item's tool_use row, and once the call has
 // finished its tool_result row and, for a refusal, its
 // "permission decision:" row.
-func (b *recordRows) tool(item pyjson.Value) {
+func (b *recordRows) tool(item jsonvalue.Value) {
 	state, times := objectOf(item.Get("state")), objectOf(item.Get("time"))
 	name, callID := parser.Str(item.Get("name")), parser.Str(item.Get("id"))
 	b.add(timeline.TurnToolUse, ToolSummary(state.Get("input")),
@@ -157,7 +157,7 @@ func (b *recordRows) tool(item pyjson.Value) {
 		var chunks []string
 		for _, chunk := range state.Get("content").Items() {
 			if chunk.IsObject() && !chunk.Get("text").IsNull() {
-				chunks = append(chunks, chunk.Get("text").Str())
+				chunks = append(chunks, chunk.Get("text").Text())
 			}
 		}
 		text = strings.Join(chunks, "\n")
@@ -178,7 +178,7 @@ func (b *recordRows) tool(item pyjson.Value) {
 // string; 2.0 shellID, status (running, exited, timeout, killed), exit and
 // output.output. A result that did not exit 0 starts "[<status>]" or
 // "[exit <code>]".
-func (b *recordRows) shell(data pyjson.Value) {
+func (b *recordRows) shell(data jsonvalue.Value) {
 	callID := parser.Str(firstTruthy(data.Get("callID"), data.Get("shellID")))
 	b.add(timeline.TurnToolUse, parser.Str(data.Get("command")), "", "shell", callID)
 	output, status, code := data.Get("output"), data.Get("status"), data.Get("exit")
@@ -191,9 +191,9 @@ func (b *recordRows) shell(data pyjson.Value) {
 	text := textOf(output)
 	switch {
 	case isText(status, "timeout") || isText(status, "killed"):
-		text = join("["+status.Text()+"]", text)
+		text = join("["+status.StringValue()+"]", text)
 	case !code.IsNull() && !isZero(code):
-		text = join("[exit "+code.Str()+"]", text)
+		text = join("[exit "+code.Text()+"]", text)
 	}
 	b.add(timeline.TurnToolResult, text,
 		timeutil.FromValue(objectOf(data.Get("time")).Get("completed")), "shell", callID)
@@ -201,7 +201,7 @@ func (b *recordRows) shell(data pyjson.Value) {
 
 // isZero reports whether Python counts value equal to 0: a number of value
 // zero, or false.
-func isZero(value pyjson.Value) bool {
+func isZero(value jsonvalue.Value) bool {
 	if flag, ok := value.Bool(); ok {
 		return !flag
 	}

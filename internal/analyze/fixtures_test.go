@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // fakeParser stands for an agent's parser in a test: it wants nothing.
@@ -40,22 +40,22 @@ type collectedFile struct {
 // writeCollection writes an extracted collection under directory: a
 // collection.json with the summary members, each file under fs/ and its
 // collected manifest row, as the analyzer's tests write one.
-func writeCollection(t *testing.T, directory string, summary []pyjson.Member,
+func writeCollection(t *testing.T, directory string, summary []jsonvalue.Member,
 	files []collectedFile) string {
 	t.Helper()
 	var manifest strings.Builder
 	for _, file := range files {
 		path := strings.TrimRight(file.home, "/") + "/" + file.rel
 		writeFile(t, filepath.Join(directory, "fs"+filepath.FromSlash(path)), file.text)
-		row := pyjson.NewObject(member("user", pyjson.NewString(file.user)),
-			member("home", pyjson.NewString(file.home)), member("agent", pyjson.NewString(file.agent)),
-			member("path", pyjson.NewString(path)), member("archive_path", pyjson.NewString("fs"+path)),
-			member("type", pyjson.NewString("file")), member("status", pyjson.NewString("collected")),
-			member("size", pyjson.NewInt(int64(len(file.text)))))
-		manifest.WriteString(pyjson.Spaced(row) + "\n")
+		row := jsonvalue.NewObject(member("user", jsonvalue.NewString(file.user)),
+			member("home", jsonvalue.NewString(file.home)), member("agent", jsonvalue.NewString(file.agent)),
+			member("path", jsonvalue.NewString(path)), member("archive_path", jsonvalue.NewString("fs"+path)),
+			member("type", jsonvalue.NewString("file")), member("status", jsonvalue.NewString("collected")),
+			member("size", jsonvalue.NewInt(int64(len(file.text)))))
+		manifest.WriteString(row.JSON() + "\n")
 	}
 	writeFile(t, filepath.Join(directory, "manifest.jsonl"), manifest.String())
-	writeFile(t, filepath.Join(directory, "collection.json"), pyjson.Spaced(pyjson.NewObject(summary...)))
+	writeFile(t, filepath.Join(directory, "collection.json"), jsonvalue.NewObject(summary...).JSON())
 	return directory
 }
 
@@ -75,7 +75,7 @@ func writeFile(t *testing.T, path, text string) {
 // and its JSON-escaped form.
 func showRoot(output, work string) string {
 	prefix := work + string(filepath.Separator)
-	escaped := pyjson.Compact(pyjson.NewString(prefix))
+	escaped := jsonvalue.NewString(prefix).JSON()
 	output = strings.ReplaceAll(output, escaped[1:len(escaped)-1], "{ROOT}/")
 	return strings.ReplaceAll(output, prefix, "{ROOT}/")
 }

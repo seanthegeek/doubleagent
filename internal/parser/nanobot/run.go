@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -55,8 +55,8 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parser.Emit) {
 	if pytext.Strip(run.prompt) != "" {
 		row(run.start, timeline.TurnUser, run.prompt)
 	}
-	if response := record.Get("response"); response.IsString() && response.Text() != "" {
-		row(end, timeline.TurnAssistant, response.Text())
+	if response := record.Get("response"); response.IsString() && response.StringValue() != "" {
+		row(end, timeline.TurnAssistant, response.StringValue())
 	}
 	if failure := firstStr(record.Get("error"), record.Get("last_error")); failure != "" {
 		run.status += " error=" + failure
@@ -66,11 +66,11 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parser.Emit) {
 
 // cronRun reads a cron run record. Its start is the epoch milliseconds in
 // run_id, which is <job id>:<epoch ms at the run's start>:<hex>, else end.
-func cronRun(record pyjson.Value, end string) runRecord {
+func cronRun(record jsonvalue.Value, end string) runRecord {
 	message := record.Get("prompt_vars").Get("message")
 	prompt := parser.Str(record.Get("rendered_prompt"))
-	if record.Get("job_name").Truthy() && message.IsString() {
-		prompt = "Scheduled cron job triggered: " + record.Get("job_name").Str() + "\n\n" + message.Text()
+	if !record.Get("job_name").IsEmpty() && message.IsString() {
+		prompt = "Scheduled cron job triggered: " + record.Get("job_name").Text() + "\n\n" + message.StringValue()
 	}
 	runID := parser.Str(record.Get("run_id"))
 	start := end
@@ -87,7 +87,7 @@ func cronRun(record pyjson.Value, end string) runRecord {
 
 // triggerRun reads a trigger run record, which starts at created_at_ms,
 // else at end.
-func triggerRun(record pyjson.Value, end string) runRecord {
+func triggerRun(record jsonvalue.Value, end string) runRecord {
 	label := pytext.Strip(parser.Str(record.Get("trigger_name")))
 	if label == "" {
 		label = parser.Str(record.Get("trigger_id"))

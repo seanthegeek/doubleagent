@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -21,26 +21,26 @@ const (
 // when it does not parse: the conversation_id and every complete history
 // entry before the damage. It returns the state, or false when there is
 // none, and the error message, "" when the whole document parsed.
-func (p *Parser) salvage(text string) (pyjson.Value, bool, string) {
-	state, err := pyjson.DecodeString(text)
+func (p *Parser) salvage(text string) (jsonvalue.Value, bool, string) {
+	state, err := jsonvalue.DecodeString(text)
 	if err == nil {
 		if state.IsObject() {
 			return state, true, ""
 		}
-		return pyjson.Value{}, false, "not a JSON object"
+		return jsonvalue.Value{}, false, "not a JSON object"
 	}
 	message := err.Error()
 	found := p.historyStart.FindStringIndex(text)
 	if found == nil {
-		return pyjson.Value{}, false, message
+		return jsonvalue.Value{}, false, message
 	}
-	var members []pyjson.Member
+	var members []jsonvalue.Member
 	if match := p.conversationID.FindStringSubmatch(text[:found[0]]); match != nil {
-		if decoded, err := pyjson.DecodeString(`"` + match[1] + `"`); err == nil {
-			members = append(members, pyjson.Member{Key: "conversation_id", Value: decoded})
+		if decoded, err := jsonvalue.DecodeString(`"` + match[1] + `"`); err == nil {
+			members = append(members, jsonvalue.Member{Key: "conversation_id", Value: decoded})
 		}
 	}
-	var entries []pyjson.Value
+	var entries []jsonvalue.Value
 	for i := found[1]; i < len(text); {
 		for i < len(text) && strings.IndexByte(" \t\r\n,", text[i]) >= 0 {
 			i++
@@ -48,7 +48,7 @@ func (p *Parser) salvage(text string) (pyjson.Value, bool, string) {
 		if i >= len(text) || text[i] == ']' {
 			break
 		}
-		entry, next, err := pyjson.DecodePrefix(text, i)
+		entry, next, err := jsonvalue.DecodePrefix(text, i)
 		if err != nil {
 			break
 		}
@@ -57,33 +57,33 @@ func (p *Parser) salvage(text string) (pyjson.Value, bool, string) {
 		}
 		i = next
 	}
-	history := pyjson.Member{Key: "history", Value: pyjson.NewArray(entries...)}
-	return pyjson.NewObject(append([]pyjson.Member{history}, members...)...), true, message
+	history := jsonvalue.Member{Key: "history", Value: jsonvalue.NewArray(entries...)}
+	return jsonvalue.NewObject(append([]jsonvalue.Member{history}, members...)...), true, message
 }
 
 // variant unpacks an externally tagged enum, {"Tag": {...}}, as its tag
 // and body, the body an empty object when it is not one.
-func variant(value pyjson.Value) (string, pyjson.Value) {
+func variant(value jsonvalue.Value) (string, jsonvalue.Value) {
 	if !value.IsObject() || value.Len() != 1 {
-		return "", pyjson.NewObject()
+		return "", jsonvalue.NewObject()
 	}
 	member := value.Members()[0]
 	if !member.Value.IsObject() {
-		return member.Key, pyjson.NewObject()
+		return member.Key, jsonvalue.NewObject()
 	}
 	return member.Key, member.Value
 }
 
 // resultText returns the text of a tool use result, its status in
 // brackets after it.
-func resultText(result pyjson.Value) string {
+func resultText(result jsonvalue.Value) string {
 	var parts []string
 	for _, block := range parser.Elements(result.Get("content")) {
 		switch {
 		case !block.IsObject():
-			parts = append(parts, block.Str())
+			parts = append(parts, block.Text())
 		case block.Get("Text").IsString():
-			parts = append(parts, block.Get("Text").Text())
+			parts = append(parts, block.Get("Text").StringValue())
 		case block.Has("Json"):
 			parts = append(parts, parser.CompactJSON(block.Get("Json")))
 		default:
@@ -91,11 +91,11 @@ func resultText(result pyjson.Value) string {
 		}
 	}
 	text := strings.Join(parts, "\n")
-	if status := result.Get("status"); status.Truthy() {
+	if status := result.Get("status"); !status.IsEmpty() {
 		if text == "" {
-			return "[" + status.Str() + "]"
+			return "[" + status.Text() + "]"
 		}
-		text += " [" + status.Str() + "]"
+		text += " [" + status.Text() + "]"
 	}
 	return text
 }
@@ -104,11 +104,11 @@ func resultText(result pyjson.Value) string {
 // CancelledToolUses message's prompt: the fixed denial text of a bare n, a
 // deny rule of the agent's toolsSettings, an interrupt, or the user's own
 // words typed at the approval prompt.
-func (p *Parser) decisionText(prompt pyjson.Value) string {
-	if !prompt.IsString() || prompt.Text() == "" {
+func (p *Parser) decisionText(prompt jsonvalue.Value) string {
+	if !prompt.IsString() || prompt.StringValue() == "" {
 		return "permission decision: cancelled"
 	}
-	switch text := prompt.Text(); {
+	switch text := prompt.StringValue(); {
 	case text == denyText:
 		return "permission decision: denied by=n"
 	case text == interruptText:
@@ -122,9 +122,9 @@ func (p *Parser) decisionText(prompt pyjson.Value) string {
 // entryKey returns what identifies a history entry across the copies one
 // blob holds: the user content and time and the assistant message, on
 // which a snapshot entry, a clone of the history entry, is equal to it.
-func entryKey(entry pyjson.Value) string {
+func entryKey(entry jsonvalue.Value) string {
 	user := entry.Get("user")
-	return parser.CompactJSON(pyjson.NewArray(user.Get("content"), user.Get("timestamp"),
+	return parser.CompactJSON(jsonvalue.NewArray(user.Get("content"), user.Get("timestamp"),
 		entry.Get("assistant")))
 }
 
@@ -164,9 +164,9 @@ func fill(row timeline.Row, turnType, text string) timeline.Row {
 }
 
 // textOrJSON returns a string value's text, anything else as compact JSON.
-func textOrJSON(value pyjson.Value) string {
+func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
@@ -189,10 +189,10 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 	reader := &conversation{parser: p, artifact: artifact, options: options, emit: emit,
 		line: line, sessionID: parser.Str(state.Get("conversation_id")), project: key,
 		names: map[string]string{}}
-	if info := state.Get("model_info"); info.IsObject() && info.Get("model_id").Truthy() {
-		reader.stateModel, reader.source = info.Get("model_id").Str(), "model_info"
+	if info := state.Get("model_info"); info.IsObject() && !info.Get("model_id").IsEmpty() {
+		reader.stateModel, reader.source = info.Get("model_id").Text(), "model_info"
 	} else if model := state.Get("model"); model.IsString() {
-		reader.stateModel, reader.source = model.Text(), "model"
+		reader.stateModel, reader.source = model.StringValue(), "model"
 	}
 	if reader.project == "" {
 		reader.project = firstCwd(state)
@@ -210,11 +210,11 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 
 // firstCwd returns the first working directory recorded in the history,
 // or "".
-func firstCwd(state pyjson.Value) string {
+func firstCwd(state jsonvalue.Value) string {
 	for _, entry := range parser.Elements(state.Get("history")) {
 		cwd, ok := lookupPath(entry, "user", "env_context", "env_state", "current_working_directory")
-		if ok && cwd.Truthy() {
-			return cwd.Str()
+		if ok && !cwd.IsEmpty() {
+			return cwd.Text()
 		}
 	}
 	return ""
@@ -222,14 +222,14 @@ func firstCwd(state pyjson.Value) string {
 
 // lookupPath follows keys through nested objects and reports whether every
 // one was there.
-func lookupPath(value pyjson.Value, keys ...string) (pyjson.Value, bool) {
+func lookupPath(value jsonvalue.Value, keys ...string) (jsonvalue.Value, bool) {
 	for _, key := range keys {
 		if !value.IsObject() {
-			return pyjson.Value{}, false
+			return jsonvalue.Value{}, false
 		}
 		next, ok := value.Lookup(key)
 		if !ok {
-			return pyjson.Value{}, false
+			return jsonvalue.Value{}, false
 		}
 		value = next
 	}
@@ -238,7 +238,7 @@ func lookupPath(value pyjson.Value, keys ...string) (pyjson.Value, bool) {
 
 // read emits the rows of the history, then of the entries only a copy of
 // it holds, then the summary, the pending message.
-func (c *conversation) read(state pyjson.Value) {
+func (c *conversation) read(state jsonvalue.Value) {
 	models := parser.Tracker{}
 	seen := map[string]bool{}
 	for _, entry := range state.Get("history").Items() {
@@ -249,7 +249,7 @@ func (c *conversation) read(state pyjson.Value) {
 	}
 	copyModels := parser.Tracker{}
 	for _, copied := range historyCopies(state) {
-		var fresh []pyjson.Value
+		var fresh []jsonvalue.Value
 		for _, entry := range copied.entries {
 			if entry.IsObject() && !seen[entryKey(entry)] {
 				seen[entryKey(entry)] = true
@@ -278,13 +278,13 @@ func (c *conversation) read(state pyjson.Value) {
 // and after the entry count, its time and its entries.
 type historyCopy struct {
 	head, tail, timestamp string
-	entries               []pyjson.Value
+	entries               []jsonvalue.Value
 }
 
 // historyCopies returns each checkpoint's history_snapshot, in checkpoint
 // order, then tangent_state.main_history. The tangent copy has no time of
 // its own.
-func historyCopies(state pyjson.Value) []historyCopy {
+func historyCopies(state jsonvalue.Value) []historyCopy {
 	var copies []historyCopy
 	if checkpoints := state.Get("checkpoint_manager").Get("checkpoints"); checkpoints.IsArray() {
 		for _, checkpoint := range checkpoints.Items() {
@@ -293,12 +293,12 @@ func historyCopies(state pyjson.Value) []historyCopy {
 				continue
 			}
 			head := "checkpoint snapshot: tag=" + parser.Str(checkpoint.Get("tag"))
-			if tool := checkpoint.Get("tool_name"); tool.Truthy() {
-				head += " tool=" + tool.Str()
+			if tool := checkpoint.Get("tool_name"); !tool.IsEmpty() {
+				head += " tool=" + tool.Text()
 			}
 			tail := ""
-			if description := checkpoint.Get("description"); description.Truthy() {
-				tail = ": " + description.Str()
+			if description := checkpoint.Get("description"); !description.IsEmpty() {
+				tail = ": " + description.Text()
 			}
 			copies = append(copies, historyCopy{head: head, tail: tail,
 				timestamp: timeutil.FromValue(checkpoint.Get("timestamp")), entries: snapshot.Items()})
@@ -312,13 +312,13 @@ func historyCopies(state pyjson.Value) []historyCopy {
 }
 
 // summary emits the row of the conversation's latest summary.
-func (c *conversation) summary(summary pyjson.Value) {
+func (c *conversation) summary(summary jsonvalue.Value) {
 	if !summary.IsArray() || summary.Len() == 0 {
 		return
 	}
 	meta := summary.Index(1)
 	if !meta.IsObject() {
-		meta = pyjson.NewObject()
+		meta = jsonvalue.NewObject()
 	}
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")),
 		timeutil.FromValue(meta.Get("request_start_timestamp_ms")))
@@ -327,7 +327,7 @@ func (c *conversation) summary(summary pyjson.Value) {
 }
 
 // pending emits the row of the message typed but not sent.
-func (c *conversation) pending(pending pyjson.Value) {
+func (c *conversation) pending(pending jsonvalue.Value) {
 	if !pending.IsObject() {
 		return
 	}
@@ -345,14 +345,14 @@ func (c *conversation) pending(pending pyjson.Value) {
 // entryRows emits the rows of one history entry: a model change, the user
 // content, the assistant's response and tool uses, and a compaction mark.
 // models tracks the model per session for this run over entries.
-func (c *conversation) entryRows(entry pyjson.Value, models parser.Tracker, emit parser.Emit) {
+func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, emit parser.Emit) {
 	meta := entry.Get("request_metadata")
 	if !meta.IsObject() {
-		meta = pyjson.NewObject()
+		meta = jsonvalue.NewObject()
 	}
 	model := c.stateModel
-	if modelID := meta.Get("model_id"); modelID.Truthy() {
-		model = modelID.Str()
+	if modelID := meta.Get("model_id"); !modelID.IsEmpty() {
+		model = modelID.Text()
 	}
 	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
 	end := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
@@ -362,7 +362,7 @@ func (c *conversation) entryRows(entry pyjson.Value, models parser.Tracker, emit
 		userTime = timeutil.FromValue(user.Get("timestamp"))
 	}
 	if text := models.Change("model", c.sessionID, model); text != "" {
-		if !meta.Get("model_id").Truthy() {
+		if meta.Get("model_id").IsEmpty() {
 			text += " source=" + c.source
 		}
 		emit(fill(c.base(timeutil.FirstNonEmpty(userTime, start, end), model), timeline.TurnSystem, text))
@@ -371,14 +371,14 @@ func (c *conversation) entryRows(entry pyjson.Value, models parser.Tracker, emit
 		c.userRows(user.Get("content"), timeutil.FirstNonEmpty(userTime, start), model, emit)
 	}
 	if tag, body := variant(entry.Get("assistant")); tag == "Response" || tag == "ToolUse" {
-		if content := body.Get("content"); content.Truthy() {
+		if content := body.Get("content"); !content.IsEmpty() {
 			emit(fill(c.base(end, model), timeline.TurnAssistant, textOrJSON(content)))
 		}
 		c.toolUses(body.Get("tool_uses"), end, model, emit)
 	}
 	if tags := meta.Get("message_meta_tags"); tags.IsArray() {
 		for _, tag := range tags.Items() {
-			if tag.IsString() && tag.Text() == "Compact" {
+			if tag.IsString() && tag.StringValue() == "Compact" {
 				emit(fill(c.base(end, model), timeline.TurnSystem,
 					"compact: conversation history summarised"))
 				break
@@ -389,7 +389,7 @@ func (c *conversation) entryRows(entry pyjson.Value, models parser.Tracker, emit
 
 // toolUses emits a tool_use row per call of an assistant message, and
 // remembers each call's tool name for its result.
-func (c *conversation) toolUses(uses pyjson.Value, end, model string, emit parser.Emit) {
+func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit parser.Emit) {
 	for _, use := range parser.Elements(uses) {
 		if !use.IsObject() {
 			continue
@@ -403,8 +403,8 @@ func (c *conversation) toolUses(uses pyjson.Value, end, model string, emit parse
 		row := c.base(end, model)
 		row.ToolName, row.ToolUseID = toolName, toolID
 		arguments := textOrJSON(use.Get("args"))
-		if orig := use.Get("orig_name"); orig.Truthy() && !(orig.IsString() && orig.Text() == toolName) {
-			arguments = "orig_name=" + orig.Str() + " " + arguments
+		if orig := use.Get("orig_name"); !orig.IsEmpty() && !(orig.IsString() && orig.StringValue() == toolName) {
+			arguments = "orig_name=" + orig.Text() + " " + arguments
 		}
 		emit(fill(row, timeline.TurnToolUse, arguments))
 	}
@@ -413,15 +413,15 @@ func (c *conversation) toolUses(uses pyjson.Value, end, model string, emit parse
 // userRows emits the rows of a history entry's user content: the prompt,
 // a deny-rule rejection sent as a plain prompt, and each tool result with,
 // for a cancelled call, its permission decision.
-func (c *conversation) userRows(content pyjson.Value, timestamp, model string, emit parser.Emit) {
+func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string, emit parser.Emit) {
 	tag, body := variant(content)
 	prompt := body.Get("prompt")
 	cancelled := tag == "CancelledToolUses"
-	if (tag == "Prompt" || cancelled) && prompt.Truthy() {
-		emit(fill(c.base(timestamp, model), timeline.TurnUser, prompt.Str()))
+	if (tag == "Prompt" || cancelled) && !prompt.IsEmpty() {
+		emit(fill(c.base(timestamp, model), timeline.TurnUser, prompt.Text()))
 	}
 	if tag == "Prompt" && prompt.IsString() {
-		if match := c.parser.denyRule.FindStringSubmatch(prompt.Text()); match != nil {
+		if match := c.parser.denyRule.FindStringSubmatch(prompt.StringValue()); match != nil {
 			// The rejection reached the model as a plain prompt: it names the
 			// tool but not the call.
 			row := c.base(timestamp, model)

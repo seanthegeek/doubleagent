@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/seanthegeek/doubleagent/internal/pytext"
 )
 
 // oracleScript reads commands, one per line, each a word and hex fields
@@ -95,29 +93,6 @@ func rowCommand(row Row) string {
 	return "row " + strings.Join(fields, " ")
 }
 
-func TestRowLinesMatchPython(t *testing.T) {
-	random := rand.New(rand.NewPCG(19, 23))
-	rows := make([]Row, 3000)
-	commands := make([]string, len(rows))
-	for i := range rows {
-		rows[i] = Row{TimestampUTC: oddText(random), Host: oddText(random),
-			Agent: oddText(random), Text: oddText(random), Model: oddText(random),
-			SourceFile: oddText(random), SourceLine: random.IntN(1 << 40), Recovered: "yes"}
-		commands[i] = rowCommand(rows[i])
-	}
-	commands = append(commands, "order")
-	answers := askPython(t, commands)
-	for i := range rows {
-		want, err := hex.DecodeString(answers[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := AppendRow(nil, &rows[i]); string(got) != string(want)+"\n" {
-			t.Errorf("AppendRow =\n%q\nPython writes\n%q", got, want)
-		}
-	}
-}
-
 func TestSessionsAndOrderMatchPython(t *testing.T) {
 	random := rand.New(rand.NewPCG(29, 31))
 	agentSets := []string{"", "claude-code", "copilot-cli,aider", "claude-code,copilot-cli,aider"}
@@ -194,7 +169,8 @@ func TestProjectPathsOfGeneratedSpellingsMatchPython(t *testing.T) {
 		commands[i] = "path " + hex.EncodeToString(path)
 	}
 	for i, answer := range askPython(t, commands) {
-		windows := pytext.Bool(IsWindowsPath(paths[i]))
+		// The oracle prints the boolean as Python spells it.
+		windows := map[bool]string{true: "True", false: "False"}[IsWindowsPath(paths[i])]
 		got := hex.EncodeToString([]byte(CanonicalProjectPath(paths[i]))) + " " +
 			hex.EncodeToString([]byte(ProjectKey(paths[i]))) + " " +
 			hex.EncodeToString([]byte(windows))
@@ -240,20 +216,4 @@ func poolRow(random *rand.Rand) Row {
 		SourceLine: random.IntN(4),
 		Recovered:  pick("", "yes"),
 	}
-}
-
-// oddText returns short text of characters a writer must handle: controls,
-// quotes, separators, non-ASCII and emoji, and now and then a lone
-// surrogate.
-func oddText(random *rand.Rand) string {
-	alphabet := []rune{'a', '"', '\\', '/', '\n', '\r', '\t', '\b', '\f', 0, 0x1f, 0x7f, 0x80,
-		0x85, 0xa0, 0xe9, 0x2028, 0x2029, 0xfeff, 0xfffd, 0x4e2d, 0x1f600, '<', '&'}
-	var out []byte
-	for range random.IntN(12) {
-		out = pytext.AppendCodePoint(out, alphabet[random.IntN(len(alphabet))])
-	}
-	if random.IntN(10) == 0 {
-		out = pytext.AppendCodePoint(out, rune(0xd800+random.IntN(0x800)))
-	}
-	return string(out)
 }

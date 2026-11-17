@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
@@ -31,28 +31,28 @@ func newDenialPattern() *regexp.Regexp {
 
 // recordJSON returns a decoded blob item as the raw text of an error row:
 // compact JSON in the blob's own key order, non-ASCII kept.
-func recordJSON(value pyjson.Value) string {
-	return pyjson.Compact(value)
+func recordJSON(value jsonvalue.Value) string {
+	return value.JSON()
 }
 
 // asList returns what a loop over content visits when a single string or
 // object stands for a list of one: the items of an array, or the value
 // alone.
-func asList(content pyjson.Value) []pyjson.Value {
+func asList(content jsonvalue.Value) []jsonvalue.Value {
 	if content.IsArray() {
 		return content.Items()
 	}
-	return []pyjson.Value{content}
+	return []jsonvalue.Value{content}
 }
 
 // contentText returns the text of a tool result's content: a list of
 // {"Text": ...} or {"Image": ...} items, one such item, or a string.
-func contentText(content pyjson.Value) string {
+func contentText(content jsonvalue.Value) string {
 	switch {
 	case content.IsNull():
 		return ""
 	case content.IsString():
-		return content.Text()
+		return content.StringValue()
 	case !content.IsObject() && !content.IsArray():
 		return parser.CompactJSON(content)
 	}
@@ -60,14 +60,14 @@ func contentText(content pyjson.Value) string {
 	for _, item := range asList(content) {
 		switch {
 		case item.IsString():
-			parts = append(parts, item.Text())
+			parts = append(parts, item.StringValue())
 		case !item.IsObject():
 		case item.Get("Text").IsString():
-			parts = append(parts, item.Get("Text").Text())
+			parts = append(parts, item.Get("Text").StringValue())
 		case item.Has("Image"):
 			parts = append(parts, "[image]")
 		case item.Get("text").IsString():
-			parts = append(parts, item.Get("text").Text())
+			parts = append(parts, item.Get("text").StringValue())
 		default:
 			parts = append(parts, parser.CompactJSON(item))
 		}
@@ -76,7 +76,7 @@ func contentText(content pyjson.Value) string {
 }
 
 // mentionText returns a Mention content item as "[mention] <uri>".
-func mentionText(mention pyjson.Value) string {
+func mentionText(mention jsonvalue.Value) string {
 	if !mention.IsObject() {
 		return "[mention]"
 	}
@@ -84,9 +84,9 @@ func mentionText(mention pyjson.Value) string {
 }
 
 // textOrJSON returns a string as it is and anything else as CompactJSON.
-func textOrJSON(value pyjson.Value) string {
+func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
@@ -94,24 +94,24 @@ func textOrJSON(value pyjson.Value) string {
 // toolInputText returns a tool use's input as text, unwrapping a
 // {"type", "value"} wrapper, else its raw_input string. A null, empty
 // string or empty object input counts as absent.
-func toolInputText(toolUse pyjson.Value) string {
+func toolInputText(toolUse jsonvalue.Value) string {
 	toolInput := toolUse.Get("input")
 	if toolInput.IsObject() && toolInput.Has("value") && onlyKeys(toolInput, "type", "value") {
 		toolInput = toolInput.Get("value")
 	}
-	empty := toolInput.IsNull() || (toolInput.IsString() && toolInput.Text() == "") ||
+	empty := toolInput.IsNull() || (toolInput.IsString() && toolInput.StringValue() == "") ||
 		(toolInput.IsObject() && toolInput.Len() == 0)
 	if !empty {
 		return textOrJSON(toolInput)
 	}
 	if raw := toolUse.Get("raw_input"); raw.IsString() {
-		return raw.Text()
+		return raw.StringValue()
 	}
 	return ""
 }
 
 // onlyKeys reports whether every key of the object is one of keys.
-func onlyKeys(object pyjson.Value, keys ...string) bool {
+func onlyKeys(object jsonvalue.Value, keys ...string) bool {
 	for _, key := range object.Keys() {
 		found := false
 		for _, allowed := range keys {
@@ -141,7 +141,7 @@ func firstFolder(folderPaths sqlitefile.Value) string {
 // acpBlocksText returns the text of a draft prompt's ACP content blocks:
 // a text block's text, a resource link's or resource's URI as a mention,
 // a marker for an image or audio block, and anything else as CompactJSON.
-func acpBlocksText(blocks pyjson.Value) string {
+func acpBlocksText(blocks jsonvalue.Value) string {
 	if !blocks.IsObject() && !blocks.IsArray() {
 		return parser.CompactJSON(blocks)
 	}
@@ -153,33 +153,33 @@ func acpBlocksText(blocks pyjson.Value) string {
 }
 
 // acpBlockText returns the text of one ACP content block.
-func acpBlockText(block pyjson.Value) string {
+func acpBlockText(block jsonvalue.Value) string {
 	kind := block.Get("type")
 	switch {
 	case block.IsString():
-		return block.Text()
+		return block.StringValue()
 	case isText(kind, "text") && block.Get("text").IsString():
-		return block.Get("text").Text()
+		return block.Get("text").StringValue()
 	case isText(kind, "resource_link") && block.Get("uri").IsString():
-		return "[mention] " + block.Get("uri").Text()
+		return "[mention] " + block.Get("uri").StringValue()
 	case isText(kind, "resource") && block.Get("resource").IsObject():
 		return "[mention] " + textOrJSON(block.Get("resource").Get("uri"))
 	case isText(kind, "image"), isText(kind, "audio"):
-		return "[" + kind.Text() + "]"
+		return "[" + kind.StringValue() + "]"
 	}
 	return parser.CompactJSON(block)
 }
 
 // isText reports whether value is the string text.
-func isText(value pyjson.Value, text string) bool {
-	return value.IsString() && value.Text() == text
+func isText(value jsonvalue.Value, text string) bool {
+	return value.IsString() && value.StringValue() == text
 }
 
 // denialText returns the `permission decision:` text of a failed tool
 // result Zed wrote for a denial, and "" for any other result: an approval
 // leaves no record.
-func (p *Parser) denialText(result pyjson.Value) string {
-	if !result.Get("is_error").Truthy() {
+func (p *Parser) denialText(result jsonvalue.Value) string {
+	if result.Get("is_error").IsEmpty() {
 		return ""
 	}
 	text := pytext.Strip(contentText(result.Get("content")))

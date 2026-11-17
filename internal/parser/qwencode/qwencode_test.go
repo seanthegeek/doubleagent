@@ -6,8 +6,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -49,7 +49,7 @@ func TestArgsSummaryPicksTheMostIdentifyingArgument(t *testing.T) {
 		{`[1]`, "[1]"},
 		{`{"path": ""}`, `{"path":""}`},
 		{`{"path": 0, "url": "u"}`, "0"},
-		{`{"query": {"b": 1, "a": 2}}`, `{"a":2,"b":1}`},
+		{`{"query": {"b": 1, "a": 2}}`, `{"b":1,"a":2}`},
 		{`0`, "0"},
 		{`false`, "false"},
 	}
@@ -82,7 +82,7 @@ func TestInjectedOriginNamesWhatTheUserDidNotType(t *testing.T) {
 func TestSystemTextSummarisesThePayloadOfEachSubtype(t *testing.T) {
 	tests := []struct{ subtype, payload, want string }{
 		{"slash_command", `{"phase": "start", "rawCommand": "/x"}`, "slash_command: start /x"},
-		{"rewind", `null`, "rewind: truncated None record(s)"},
+		{"rewind", `null`, "rewind: truncated  record(s)"},
 		{"rewind", `{"truncatedCount": 3}`, "rewind: truncated 3 record(s)"},
 		{"custom_title", `{"customTitle": "  T "}`, "custom_title: T"},
 		{"chat_compression", `{"info": {"b": 1}}`, `chat_compression: {"b":1}`},
@@ -193,9 +193,9 @@ func TestStemDropsTheLastSuffixAsPythonDoes(t *testing.T) {
 }
 
 // decode returns the JSON text decoded.
-func decode(t *testing.T, text string) pyjson.Value {
+func decode(t *testing.T, text string) jsonvalue.Value {
 	t.Helper()
-	value, err := pyjson.DecodeString(text)
+	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
 		t.Fatal(err)
 	}

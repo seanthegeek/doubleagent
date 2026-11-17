@@ -8,31 +8,31 @@ import (
 // SessionSummary is one line of sessions.jsonl, built from a session's rows
 // by Summarise.
 type SessionSummary struct {
-	Host              string
-	User              string
-	Agent             string
-	SessionID         string
-	ProjectPath       string
-	FirstTimestampUTC string
-	LastTimestampUTC  string
+	Host              string `json:"host"`
+	User              string `json:"user"`
+	Agent             string `json:"agent"`
+	SessionID         string `json:"session_id"`
+	ProjectPath       string `json:"project_path"`
+	FirstTimestampUTC string `json:"first_timestamp_utc"`
+	LastTimestampUTC  string `json:"last_timestamp_utc"`
 	// Models are the distinct models of the rows, in first-seen order.
-	Models         []string
-	UserTurns      int
-	AssistantTurns int
-	ToolCalls      int
+	Models         []string `json:"models"`
+	UserTurns      int      `json:"user_turns"`
+	AssistantTurns int      `json:"assistant_turns"`
+	ToolCalls      int      `json:"tool_calls"`
 	// SourceFile is the file that gave the most rows, the first of them
 	// on a tie, so a transcript wins over a one-line-per-prompt history.
-	SourceFile string
+	SourceFile string `json:"source_file"`
 	// Synced, Relayed and Origin are "yes" ("remote" for Origin) when a
 	// row carries the mark, "no" ("local") when the agent's parser records
 	// the mark and none does, "" otherwise.
-	Synced  string
-	Relayed string
-	Origin  string
+	Synced  string `json:"synced"`
+	Relayed string `json:"relayed"`
+	Origin  string `json:"origin"`
 	// Recovered is "yes" when every event row is recovered, "partial"
 	// when some are, "no" when none are and the agent's parser reads a
 	// secondary source, "" otherwise. System rows are not event rows.
-	Recovered string
+	Recovered string `json:"recovered"`
 }
 
 // SessionColumns returns the field names of sessions.jsonl in order.

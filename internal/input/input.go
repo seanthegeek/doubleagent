@@ -28,8 +28,8 @@ import (
 	"io/fs"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The kinds of input a Collection reports.
@@ -113,11 +113,11 @@ type Artifact struct {
 	Home  *Home
 	// Manifest is the file's manifest row, an object, or null for loose
 	// input.
-	Manifest pyjson.Value
+	Manifest jsonvalue.Value
 }
 
 // Mtime returns the manifest row's mtime, or null when there is none.
-func (a *Artifact) Mtime() pyjson.Value { return a.Manifest.Get("mtime") }
+func (a *Artifact) Mtime() jsonvalue.Value { return a.Manifest.Get("mtime") }
 
 // Size returns the manifest row's size as Python's int() of `size or 0`
 // gives it; a row whose size int() would refuse never becomes an artifact.
@@ -139,10 +139,10 @@ type Collection struct {
 	Host string
 	// Manifest holds the manifest rows that parsed, in file order; nil for
 	// loose input.
-	Manifest []pyjson.Value
+	Manifest []jsonvalue.Value
 	// Summary is collection.json, an object, or null when it is absent or
 	// unreadable.
-	Summary   pyjson.Value
+	Summary   jsonvalue.Value
 	Homes     []*Home
 	Artifacts []*Artifact
 	Notes     []string

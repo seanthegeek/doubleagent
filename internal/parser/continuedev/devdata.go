@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -17,7 +17,7 @@ import (
 // devIndex returns the session index of the .continue directory a
 // dev_data file is in: .continue/dev_data/<file> or
 // .continue/dev_data/<schema>/<file>.
-func (p *Parser) devIndex(artifact *input.Artifact) map[string]pyjson.Value {
+func (p *Parser) devIndex(artifact *input.Artifact) map[string]jsonvalue.Value {
 	levels := 2
 	if parent, found := parser.Above(artifact, 1); found && filepath.Base(parent) == ".continue" {
 		levels = 1
@@ -31,15 +31,15 @@ func (p *Parser) devIndex(artifact *input.Artifact) map[string]pyjson.Value {
 
 // recordText returns a prompt or completion as row text: a string as it
 // is, anything else as CompactJSON.
-func recordText(value pyjson.Value) string {
+func recordText(value jsonvalue.Value) string {
 	if value.IsString() {
-		return value.Text()
+		return value.StringValue()
 	}
 	return parser.CompactJSON(value)
 }
 
 // recordModel returns a dev_data line's model title, else its model name.
-func recordModel(record pyjson.Value) string {
+func recordModel(record jsonvalue.Value) string {
 	return parser.Str(clinelegacy.FirstTruthy(record.Get("modelTitle"), record.Get("modelName")))
 }
 
@@ -58,7 +58,7 @@ func (p *Parser) chatInteraction(artifact *input.Artifact, feedback bool, emit p
 		model := recordModel(record)
 		for _, turn := range [][2]string{{timeline.TurnUser, "prompt"}, {timeline.TurnAssistant, "completion"}} {
 			text := record.Get(turn[1])
-			if !text.Truthy() {
+			if text.IsEmpty() {
 				continue
 			}
 			row := base
@@ -97,17 +97,17 @@ func (p *Parser) editInteraction(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		model := recordModel(record)
-		file := clinelegacy.FirstTruthy(record.Get("filepath"), pyjson.NewString("-")).Str()
+		file := clinelegacy.FirstTruthy(record.Get("filepath"), jsonvalue.NewString("-")).Text()
 		parts := []struct {
 			turnType string
-			text     pyjson.Value
+			text     jsonvalue.Value
 		}{
-			{timeline.TurnSystem, pyjson.NewString("edit interaction: file=" + file)},
+			{timeline.TurnSystem, jsonvalue.NewString("edit interaction: file=" + file)},
 			{timeline.TurnUser, record.Get("prompt")},
 			{timeline.TurnAssistant, record.Get("completion")},
 		}
 		for _, part := range parts {
-			if !part.text.Truthy() {
+			if part.text.IsEmpty() {
 				continue
 			}
 			row := p.BaseRow(artifact)
@@ -159,8 +159,8 @@ func (p *Parser) toolUsage(artifact *input.Artifact, emit parser.Emit) {
 		base.ToolName = parser.Str(record.Get("functionName"))
 		base.ToolUseID = parser.Str(record.Get("toolCallId"))
 		arguments := record.Get("toolCallArgs")
-		if params := record.Get("functionParams"); !arguments.Truthy() && !params.IsNull() {
-			arguments = pyjson.NewString(parser.CompactJSON(params))
+		if params := record.Get("functionParams"); arguments.IsEmpty() && !params.IsNull() {
+			arguments = jsonvalue.NewString(parser.CompactJSON(params))
 		}
 		call := base
 		call.TurnType = timeline.TurnToolUse
@@ -193,7 +193,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	text := strings.TrimPrefix(pytext.DecodeUTF8(content), byteOrderMark)
-	ArrayRecords(text, &problems, func(position int, entry pyjson.Value) {
+	ArrayRecords(text, &problems, func(position int, entry jsonvalue.Value) {
 		prompt := entry.Get("text")
 		if !prompt.IsString() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
@@ -204,7 +204,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 		row.SourceLine = position
 		row.TimestampUTC = timeutil.FromValue(entry.Get("timestamp"))
 		row.TurnType = timeline.TurnUser
-		row.Text = timeline.Compact(prompt.Text())
+		row.Text = timeline.Compact(prompt.StringValue())
 		emit(row)
 	})
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))

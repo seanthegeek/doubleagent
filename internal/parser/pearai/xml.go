@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -173,7 +173,7 @@ func promptTurn(prompt string) (string, string) {
 // (with ".<n>" after the first); and in a user message each "[<tool> ...]
 // Result:" block as a tool_result row followed by the permission decision
 // its text records.
-func (p *Parser) APIContentRows(message pyjson.Value, position int, baseTurn string,
+func (p *Parser) APIContentRows(message jsonvalue.Value, position int, baseTurn string,
 	includeThinking bool) []clinelegacy.ContentRow {
 	content := message.Get("content")
 	if baseTurn == timeline.TurnAssistant {
@@ -192,7 +192,7 @@ func (p *Parser) APIContentRows(message pyjson.Value, position int, baseTurn str
 
 // assistantRows returns an assistant message's rows with its text split at
 // the XML tool tags.
-func assistantRows(content pyjson.Value, position int, includeThinking bool) []clinelegacy.ContentRow {
+func assistantRows(content jsonvalue.Value, position int, includeThinking bool) []clinelegacy.ContentRow {
 	var rows []clinelegacy.ContentRow
 	tools := 0
 	for _, row := range clinelegacy.ContentRows(content, timeline.TurnAssistant, includeThinking) {
@@ -251,10 +251,10 @@ func (r *resultRows) flush() {
 }
 
 // block reads one content block of the message.
-func (r *resultRows) block(block pyjson.Value, includeThinking bool) {
+func (r *resultRows) block(block jsonvalue.Value, includeThinking bool) {
 	text := blockText(block)
 	if !text.IsString() {
-		rows := clinelegacy.ContentRows(pyjson.NewArray(block), timeline.TurnUser, includeThinking)
+		rows := clinelegacy.ContentRows(jsonvalue.NewArray(block), timeline.TurnUser, includeThinking)
 		if !r.inResult {
 			r.rows = append(r.rows, rows...)
 			return
@@ -264,7 +264,7 @@ func (r *resultRows) block(block pyjson.Value, includeThinking bool) {
 		}
 		return
 	}
-	stripped := pytext.Strip(text.Text())
+	stripped := pytext.Strip(text.StringValue())
 	result := resultPattern.FindStringSubmatch(stripped)
 	notice := noticePattern.FindStringSubmatch(stripped)
 	switch {
@@ -276,17 +276,17 @@ func (r *resultRows) block(block pyjson.Value, includeThinking bool) {
 		} else {
 			r.name, r.parts = notice[1], []string{stripped}
 		}
-	case strings.HasPrefix(pytext.StripLeft(text.Text()), "<environment_details>"):
+	case strings.HasPrefix(pytext.StripLeft(text.StringValue()), "<environment_details>"):
 		r.flush()
 		r.inResult = false
 		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnSystem, Text: stripped})
 	case r.inResult:
 		if len(r.parts) == 0 && r.decision == "" {
-			r.decision = permissionDecision(text.Text())
+			r.decision = permissionDecision(text.StringValue())
 		}
-		r.parts = append(r.parts, text.Text())
+		r.parts = append(r.parts, text.StringValue())
 	default:
-		r.userText(text.Text())
+		r.userText(text.StringValue())
 	}
 }
 

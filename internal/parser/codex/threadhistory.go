@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -121,7 +121,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 // first user message is its task; tasked holds the threads whose first
 // user message has been seen.
 func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thread *sqlitefile.Row,
-	item pyjson.Value, options parser.Options, tasked map[string]bool, emit parser.Emit) {
+	item jsonvalue.Value, options parser.Options, tasked map[string]bool, emit parser.Emit) {
 	for _, part := range threadItemRows(item, event.row) {
 		if part.turnType == timeline.TurnThinking && !options.IncludeThinking {
 			continue
@@ -253,17 +253,17 @@ func valueKey(value sqlitefile.Value) string {
 // decodeItem returns the ThreadItem object a thread_items row's item_json
 // holds, or false with the problem "unparseable record <rowid> (<reason>)"
 // and the stored value.
-func decodeItem(row sqlitefile.Row) (pyjson.Value, parser.Problem, bool) {
+func decodeItem(row sqlitefile.Row) (jsonvalue.Value, parser.Problem, bool) {
 	rowid := int(row.Rowid)
 	value := row.Get("item_json")
 	if value.IsNull() {
 		message := "unparseable record " + strconv.Itoa(rowid) + " (no item_json)"
-		return pyjson.NewNull(), parser.Problem{Line: rowid, Message: message}, false
+		return jsonvalue.NewNull(), parser.Problem{Line: rowid, Message: message}, false
 	}
 	var problems parser.Problems
 	item, ok := decodeColumnObject(value, rowid, &problems)
 	if !ok {
-		return pyjson.NewNull(), problems[0], false
+		return jsonvalue.NewNull(), problems[0], false
 	}
 	return item, parser.Problem{}, true
 }
@@ -280,7 +280,7 @@ type threadRow struct {
 // item's completion, nothing for a hook prompt or a compaction, and any
 // other item renamed to the turn-item form and read as itemRows reads it.
 // A time the row does not record is its creation time.
-func threadItemRows(item pyjson.Value, row sqlitefile.Row) []threadRow {
+func threadItemRows(item jsonvalue.Value, row sqlitefile.Row) []threadRow {
 	created := row.Get("created_at_ms")
 	started, completed := row.Get("started_at_ms"), row.Get("completed_at_ms")
 	if started.IsNull() {
@@ -323,14 +323,14 @@ func threadItemRows(item pyjson.Value, row sqlitefile.Row) []threadRow {
 // joinedTexts returns the strings of a list joined by LF, taking key of
 // each member that is a text block when key is given; "" for a value that
 // is not a list.
-func joinedTexts(values pyjson.Value, key string) string {
+func joinedTexts(values jsonvalue.Value, key string) string {
 	var parts []string
 	for _, value := range values.Items() {
 		if key != "" && isText(value.Get("type"), "text") {
 			value = value.Get(key)
 		}
-		if value.IsString() && value.Text() != "" {
-			parts = append(parts, value.Text())
+		if value.IsString() && value.StringValue() != "" {
+			parts = append(parts, value.StringValue())
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -339,14 +339,14 @@ func joinedTexts(values pyjson.Value, key string) string {
 // toTurnItem returns a camelCase ThreadItem in the rollout's turn-item
 // form: a sleep as the clock.sleep Extension, any other item with its type
 // and keys renamed and a file change's list of changes keyed by path.
-func toTurnItem(item pyjson.Value) pyjson.Value {
+func toTurnItem(item jsonvalue.Value) jsonvalue.Value {
 	itemType := parser.Str(item.Get("type"))
 	if itemType == "sleep" {
-		return pyjson.NewObject(pyjson.Member{Key: "type", Value: pyjson.NewString("Extension")},
-			pyjson.Member{Key: "kind", Value: pyjson.NewString("clock.sleep")},
-			pyjson.Member{Key: "durationMs", Value: item.Get("durationMs")})
+		return jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("Extension")},
+			jsonvalue.Member{Key: "kind", Value: jsonvalue.NewString("clock.sleep")},
+			jsonvalue.Member{Key: "durationMs", Value: item.Get("durationMs")})
 	}
-	out := pyjson.NewObject()
+	out := jsonvalue.NewObject()
 	for _, member := range item.Members() {
 		key := member.Key
 		if renamed, ok := turnItemKeys[key]; ok {
@@ -358,12 +358,12 @@ func toTurnItem(item pyjson.Value) pyjson.Value {
 	if !ok {
 		renamed = itemType
 	}
-	out.Set("type", pyjson.NewString(renamed))
+	out.Set("type", jsonvalue.NewString(renamed))
 	if changes := item.Get("changes"); itemType == "fileChange" && changes.IsArray() {
-		byPath := pyjson.NewObject()
+		byPath := jsonvalue.NewObject()
 		for _, change := range changes.Items() {
-			if path := change.Get("path"); change.IsObject() && path.Truthy() {
-				byPath.Set(path.Str(), change)
+			if path := change.Get("path"); change.IsObject() && !path.IsEmpty() {
+				byPath.Set(path.Text(), change)
 			}
 		}
 		out.Set("changes", byPath)

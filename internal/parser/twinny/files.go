@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -21,7 +21,7 @@ var logHeader = regexp.MustCompile(
 // fileChangeText returns the "file changed:" text of one changed file of a
 // reply: "file changed: <status> <path> +<added> -<removed> reply=<id>",
 // with " undone=true" and " noUndo=true" when the entry sets them.
-func fileChangeText(changeID, entry pyjson.Value) string {
+func fileChangeText(changeID, entry jsonvalue.Value) string {
 	field := func(key string) string {
 		value, ok := entry.Lookup(key)
 		if !ok {
@@ -50,7 +50,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	record, err := pyjson.DecodeString(pytext.DecodeUTF8(raw))
+	record, err := jsonvalue.DecodeString(pytext.DecodeUTF8(raw))
 	switch {
 	case err != nil:
 		problems.Add(0, "agent-changes record is not valid JSON ("+err.Error()+")")
@@ -63,7 +63,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 	}
 	root := ""
 	if value := record.Get("root"); value.IsString() {
-		root = value.Text()
+		root = value.StringValue()
 	}
 	timestamp := timeutil.FromValue(record.Get("createdAt"))
 	for _, entry := range record.Get("files").Items() {

@@ -3,8 +3,8 @@ package openclaw
 import (
 	"fmt"
 
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -39,7 +39,7 @@ func (a *agentDatabase) pending() error {
 		}
 		line := sourceLine(record.Get("seq"))
 		raw := columnText(record.Get("message_json"))
-		message, err := pyjson.DecodeString(raw)
+		message, err := jsonvalue.DecodeString(raw)
 		if err != nil {
 			a.problems.AddRaw(line, "session_pending_inputs message_json unparseable ("+err.Error()+")", raw)
 			continue

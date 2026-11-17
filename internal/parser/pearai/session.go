@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -25,7 +25,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	}
 	document, problem := continuedev.LoadSession(raw)
 	base := p.BaseRow(artifact)
-	base.SessionID = parser.Str(clinelegacy.FirstTruthy(document.Get("sessionId"), pyjson.NewString(fileID)))
+	base.SessionID = parser.Str(clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)))
 	entry := p.indexes.Index(parser.Beside(artifact))[base.SessionID]
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
 	base.ProjectPath = parser.Str(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
@@ -41,7 +41,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	row(0, timeline.TurnSystem, startText(document, entry, len(history), len(search),
 		base.TimestampUTC != ""), "")
 	models := parser.Tracker{}
-	for i, item := range append(append([]pyjson.Value{}, history...), search...) {
+	for i, item := range append(append([]jsonvalue.Value{}, history...), search...) {
 		if message := item.Get("message"); message.IsObject() {
 			sessionItem(i+1, item, message, base.SessionID, models, row)
 		}
@@ -53,11 +53,11 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 
 // startText returns the text of a session's start row: its title, the
 // index's integration, the item counts and whether the time is known.
-func startText(document, entry pyjson.Value, history, search int, dated bool) string {
+func startText(document, entry jsonvalue.Value, history, search int, dated bool) string {
 	bits := []string{"session start: " + parser.Str(clinelegacy.FirstTruthy(document.Get("title"),
 		entry.Get("title")))}
-	if integration := entry.Get("integrationType"); integration.Truthy() {
-		bits = append(bits, "integration="+integration.Str())
+	if integration := entry.Get("integrationType"); !integration.IsEmpty() {
+		bits = append(bits, "integration="+integration.Text())
 	}
 	bits = append(bits, "history="+strconv.Itoa(history)+" perplexityHistory="+strconv.Itoa(search))
 	if !dated {
@@ -69,14 +69,14 @@ func startText(document, entry pyjson.Value, history, search int, dated bool) st
 // sessionItem emits the rows of one session item at a 1-based position:
 // a model row on each change, then its message, a user message with its
 // context items and a reply with its citations.
-func sessionItem(position int, item, message pyjson.Value, sessionID string, models parser.Tracker,
+func sessionItem(position int, item, message jsonvalue.Value, sessionID string, models parser.Tracker,
 	row func(int, string, string, string)) {
 	role := message.Get("role")
 	text := continuedev.MessageText(message.Get("content"))
 	model := ""
 	for _, log := range item.Get("promptLogs").Items() {
-		if options := log.Get("completionOptions"); options.Get("model").Truthy() {
-			model = options.Get("model").Str()
+		if options := log.Get("completionOptions"); !options.Get("model").IsEmpty() {
+			model = options.Get("model").Text()
 			if change := models.Change("model", sessionID, model); change != "" {
 				row(position, timeline.TurnSystem, change, model)
 			}
@@ -99,7 +99,7 @@ func sessionItem(position int, item, message pyjson.Value, sessionID string, mod
 		}
 	case text != "":
 		if !isText(role, "system") {
-			text = clinelegacy.FirstTruthy(role, pyjson.NewString("unknown")).Str() + ": " + text
+			text = clinelegacy.FirstTruthy(role, jsonvalue.NewString("unknown")).Text() + ": " + text
 		}
 		row(position, timeline.TurnSystem, text, model)
 	}
@@ -107,7 +107,7 @@ func sessionItem(position int, item, message pyjson.Value, sessionID string, mod
 
 // itemLabels returns the labels of a list of objects, each its first key
 // or else its second, the empty ones left out, joined by ", ".
-func itemLabels(list pyjson.Value, first, second string) string {
+func itemLabels(list jsonvalue.Value, first, second string) string {
 	var labels []string
 	for _, each := range list.Items() {
 		if !each.IsObject() {

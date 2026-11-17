@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/pytext"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -34,11 +34,11 @@ var hostSettingKeys = []string{"agent-mode-by-host-id",
 
 // asObject returns value when it is a JSON object, or the object a string
 // holds; else an empty object.
-func asObject(value pyjson.Value) pyjson.Value {
+func asObject(value jsonvalue.Value) jsonvalue.Value {
 	if value.IsString() {
-		decoded, err := pyjson.DecodeString(value.Text())
+		decoded, err := jsonvalue.DecodeString(value.StringValue())
 		if err != nil {
-			return pyjson.NewObject()
+			return jsonvalue.NewObject()
 		}
 		value = decoded
 	}
@@ -47,12 +47,12 @@ func asObject(value pyjson.Value) pyjson.Value {
 
 // activityByThread returns the last activity time per thread id, from the
 // keys `["local","<id>"]` of the activity atom.
-func activityByThread(atom pyjson.Value) pyjson.Value {
-	out := pyjson.NewObject()
+func activityByThread(atom jsonvalue.Value) jsonvalue.Value {
+	out := jsonvalue.NewObject()
 	for _, member := range asObject(atom.Get(activityKey)).Members() {
-		parts, err := pyjson.DecodeString(member.Key)
+		parts, err := jsonvalue.DecodeString(member.Key)
 		if err == nil && parts.IsArray() && parts.Len() == 2 && parts.Index(1).IsString() {
-			out.Set(parts.Index(1).Text(), member.Value)
+			out.Set(parts.Index(1).StringValue(), member.Value)
 		}
 	}
 	return out
@@ -71,7 +71,7 @@ type promptEntry struct {
 // threads, has no thread and is left out when a thread's list in the same
 // file has its text, since two rows of one file never pair in
 // deduplication.
-func promptEntries(atom pyjson.Value) []promptEntry {
+func promptEntries(atom jsonvalue.Value) []promptEntry {
 	var listed []promptEntry
 	threaded := map[string]bool{}
 	for _, member := range asObject(atom.Get(promptHistoryKey)).Members() {
@@ -80,12 +80,12 @@ func promptEntries(atom pyjson.Value) []promptEntry {
 		}
 		for i, entry := range member.Value.Items() {
 			markdown := entry.Get("markdown")
-			if !markdown.IsString() || pytext.Strip(markdown.Text()) == "" {
+			if !markdown.IsString() || pytext.Strip(markdown.StringValue()) == "" {
 				continue
 			}
-			listed = append(listed, promptEntry{member.Key, i + 1, markdown.Text()})
+			listed = append(listed, promptEntry{member.Key, i + 1, markdown.StringValue()})
 			if member.Key != "global" {
-				threaded[markdown.Text()] = true
+				threaded[markdown.StringValue()] = true
 			}
 		}
 	}
@@ -103,14 +103,14 @@ func promptEntries(atom pyjson.Value) []promptEntry {
 
 // standingText returns the "permission mode (standing):" text of a
 // thread's standing permission entry.
-func standingText(entry pyjson.Value, suffix string) string {
+func standingText(entry jsonvalue.Value, suffix string) string {
 	profile := entry.Get("activePermissionProfile")
 	if profile.IsObject() {
 		profile = profile.Get("id")
 	}
 	pairs := []struct {
 		label string
-		value pyjson.Value
+		value jsonvalue.Value
 	}{
 		{"approval", entry.Get("approvalPolicy")},
 		{"sandbox", entry.Get("sandboxPolicy")},
@@ -137,7 +137,7 @@ type stateText struct {
 // globalStateTexts returns the file-time system rows of the global state:
 // deleted threads, thread descriptions, standing permissions, host
 // settings, the remote control state and the projectless directories.
-func globalStateTexts(document pyjson.Value, rel string) []stateText {
+func globalStateTexts(document jsonvalue.Value, rel string) []stateText {
 	atom := asObject(document.Get(atomKey))
 	source := func(key string) string { return "(from " + rel + " " + key + ", file mtime)" }
 	setting := func(text string) stateText {
@@ -173,7 +173,7 @@ func globalStateTexts(document pyjson.Value, rel string) []stateText {
 
 // descriptionTexts returns a "thread description:" text per described
 // thread, then per thread with only an activity time.
-func descriptionTexts(atom pyjson.Value, suffix string) []stateText {
+func descriptionTexts(atom jsonvalue.Value, suffix string) []stateText {
 	descriptions := asObject(atom.Get(descriptionsKey))
 	activity := activityByThread(atom)
 	sessions := descriptions.Keys()
@@ -186,8 +186,8 @@ func descriptionTexts(atom pyjson.Value, suffix string) []stateText {
 	for _, sessionID := range sessions {
 		description := descriptions.Get(sessionID)
 		shown := "-"
-		if description.IsString() && description.Text() != "" {
-			shown = description.Text()
+		if description.IsString() && description.StringValue() != "" {
+			shown = description.StringValue()
 		}
 		texts = append(texts, stateText{sessionID, "thread description: " + shown +
 			" last_activity=" + orDash(timeutil.FromValue(activity.Get(sessionID))) + " " + suffix})
@@ -198,7 +198,7 @@ func descriptionTexts(atom pyjson.Value, suffix string) []stateText {
 // remoteTexts returns the remote control row of the two top-level keys,
 // when either is present, and a scratch directory row per projectless
 // thread's output directory.
-func remoteTexts(document pyjson.Value, source func(string) string) []stateText {
+func remoteTexts(document jsonvalue.Value, source func(string) string) []stateText {
 	var texts []stateText
 	mobile, hasMobile := document.Lookup(mobileDeviceKey)
 	if hasMobile || document.Has(remoteEnvironment) {
@@ -211,9 +211,9 @@ func remoteTexts(document pyjson.Value, source func(string) string) []stateText 
 			source(mobileDeviceKey)})
 	}
 	for _, member := range asObject(document.Get(outputDirsKey)).Members() {
-		if member.Value.IsString() && member.Value.Text() != "" {
+		if member.Value.IsString() && member.Value.StringValue() != "" {
 			texts = append(texts, stateText{member.Key, timeline.ScratchPrefix + " " +
-				member.Value.Text() + " (projectless thread " + member.Key + ") " +
+				member.Value.StringValue() + " (projectless thread " + member.Key + ") " +
 				source(outputDirsKey)})
 		}
 	}
@@ -222,21 +222,21 @@ func remoteTexts(document pyjson.Value, source func(string) string) []stateText 
 
 // readGlobalState returns the global state's JSON object, or false after
 // emitting the rows that say why it cannot be read.
-func (p *Parser) readGlobalState(artifact *input.Artifact, emit parser.Emit) (pyjson.Value, bool) {
+func (p *Parser) readGlobalState(artifact *input.Artifact, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
-	document, err := pyjson.Decode(content)
+	document, err := jsonvalue.Decode(content)
 	if err != nil {
 		emit(p.ProblemRow(artifact, "unreadable global state: "+err.Error()))
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	if !document.IsObject() {
 		emit(p.ProblemRow(artifact, "global state is not a JSON object"))
-		return pyjson.NewNull(), false
+		return jsonvalue.NewNull(), false
 	}
 	return document, true
 }
@@ -274,7 +274,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 		if strings.HasPrefix(found.text, timeline.ScratchPrefix) {
 			// The row names the projectless directory itself, whatever root
 			// hint the thread has.
-			row.ProjectPath = outputs.Get(found.sessionID).Text()
+			row.ProjectPath = outputs.Get(found.sessionID).StringValue()
 		}
 		emit(row)
 	}

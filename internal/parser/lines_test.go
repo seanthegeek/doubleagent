@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // numbered is one record a JSON line reader yielded, as compact JSON.
@@ -27,9 +26,7 @@ func writeFile(t *testing.T, name string, data []byte) string {
 	return path
 }
 
-// The lines and expected records and problems are what the Python
-// analyzer's iter_jsonl_lines gives for them; the decoder's wording of the
-// line 5 problem is the binary's own.
+// Each invalid UTF-8 byte of a line becomes one U+FFFD.
 func TestJSONLinesKeepGoodRecordsAndReportBadLines(t *testing.T) {
 	data := []byte("{\"a\":1}\n\n  \t\x0b{\"b\":2}\x0c \r\n[1,2]\n{\"c\":\n\"str\"\r\n" +
 		"{\"d\":\"\xff\xe2\x82\"}\n{\"e\":3}")
@@ -37,15 +34,15 @@ func TestJSONLinesKeepGoodRecordsAndReportBadLines(t *testing.T) {
 	var problems Problems
 	var got []numbered
 	for line, record := range JSONLines(path, &problems) {
-		got = append(got, numbered{line, pyjson.Compact(record)})
+		got = append(got, numbered{line, record.JSON()})
 	}
-	want := []numbered{{1, `{"a":1}`}, {3, `{"b":2}`}, {7, "{\"d\":\"\ufffd\ufffd\"}"}, {8, `{"e":3}`}}
+	want := []numbered{{1, `{"a":1}`}, {3, `{"b":2}`}, {7, "{\"d\":\"\ufffd\ufffd\ufffd\"}"}, {8, `{"e":3}`}}
 	if !slices.Equal(got, want) {
 		t.Errorf("records %v, want %v", got, want)
 	}
 	wantProblems := Problems{
 		{Line: 4, Message: "unparseable line (not a JSON object)", Raw: "[1,2]"},
-		{Line: 5, Message: "unparseable line (invalid JSON at line 1, column 6: expected a value)",
+		{Line: 5, Message: "unparseable line (invalid JSON at line 1, column 6: unexpected end of JSON input)",
 			Raw: `{"c":`},
 		{Line: 6, Message: "unparseable line (not a JSON object)", Raw: `"str"`},
 	}
@@ -132,7 +129,7 @@ func FuzzJSONRecords(fuzz *testing.F) {
 		lines := 0
 		for line, record := range JSONRecords(SplitLines(data), &problems) {
 			if !record.IsObject() || line <= lines {
-				t.Errorf("line %d after %d gave %s", line, lines, pyjson.Compact(record))
+				t.Errorf("line %d after %d gave %s", line, lines, record.JSON())
 			}
 			lines = line
 		}
