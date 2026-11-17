@@ -28,7 +28,7 @@ func TestSplitThinkTakesOutReasoningBlocksAsPythonsPatternDoes(t *testing.T) {
 		{"a block with a trailing LF", "<think>x\n</think>\n", "", []string{"x"}},
 		{"a broken tag", "<think\n>x", "<think\n>x", nil},
 		{"tags are case-sensitive", "<THINK>x</THINK>", "<THINK>x</THINK>", nil},
-		{"Unicode spaces are stripped", "　<think>　a　</think>　", "", []string{"a"}},
+		{"Unicode spaces are stripped", "\u3000<think>\u3000a\u3000</think>\u3000", "", []string{"a"}},
 		{"an unclosed block over lines", "<think>a\nb\n", "", []string{"a\nb"}},
 		{"an empty block at the end", "x<think>", "x", nil},
 	} {
@@ -46,7 +46,7 @@ func TestLogHeaderTakesASCIIDigitsOnly(t *testing.T) {
 	if !logHeader.MatchString(line) {
 		t.Fatalf("logHeader does not match %q", line)
 	}
-	if other := strings.ReplaceAll(line, "3", "٣"); logHeader.MatchString(other) {
+	if other := strings.ReplaceAll(line, "3", "\u0663"); logHeader.MatchString(other) {
 		t.Errorf("logHeader matches %q", other)
 	}
 }
