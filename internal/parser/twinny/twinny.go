@@ -118,7 +118,8 @@ func (p *Parser) state(artifact *input.Artifact, options parser.Options, emit pa
 	}
 }
 
-// globalRows emits each conversation, then the standing grants.
+// globalRows emits each conversation, then the standing grants. A
+// conversations value that is neither an object nor a list adds a problem.
 func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, options parser.Options,
 	emit parser.Emit) {
 	var listed []jsonvalue.Value
@@ -129,6 +130,8 @@ func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, opt
 		}
 	case all.IsArray():
 		listed = all.Items()
+	case !all.IsNull():
+		emit(p.ProblemRow(artifact, parser.WrongKind(conversationsKey, jsonvalue.Object)))
 	}
 	var conversations []jsonvalue.Value
 	ids := map[string]bool{}
@@ -156,7 +159,8 @@ func (p *Parser) systemRow(artifact *input.Artifact, timestamp, text string) tim
 }
 
 // standingRows emits the standing grants and the team policy, at the
-// file's modification time.
+// file's modification time; a team policy that is not an object adds a
+// problem.
 func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	timestamp := ""
 	stamp := func() string {
@@ -184,11 +188,14 @@ func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, e
 			emit(p.systemRow(artifact, timestamp, text))
 		}
 	}
-	if policy := state.Get(teamPolicyKey); policy.IsObject() {
+	switch policy := state.Get(teamPolicyKey); {
+	case policy.IsObject():
 		stamp()
 		flatten(teamPolicyKey, policy, func(key, value string) {
 			emit(p.systemRow(artifact, timestamp, "permission setting: "+key+"="+value+" "+standingSource))
 		})
+	case !policy.IsNull():
+		emit(p.ProblemRow(artifact, parser.WrongKind(teamPolicyKey, jsonvalue.Object)))
 	}
 }
 
