@@ -308,7 +308,9 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	// A line ends at LF; the CR of a CRLF line and the whitespace around a
-	// key or value are trimmed, and one layer of quotes around a value.
+	// key or value are trimmed, then every single or double quote at either
+	// end of a value, as the connector's own reader strips them
+	// (research/agent-zero.md, "Origin").
 	values := map[string]string{}
 	for line := range strings.Lines(textlines.ValidUTF8(content)) {
 		name, value, found := strings.Cut(strings.TrimSpace(line), "=")

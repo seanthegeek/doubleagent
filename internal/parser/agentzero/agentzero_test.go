@@ -1,11 +1,14 @@
 package agentzero
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every file kind are proved by the parser replay
@@ -232,6 +235,36 @@ func TestTheIconMarkerIsRemovedWithTheSpaceAfterIt(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := subject.icon.ReplaceAllString(test.heading, ""); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTheConnectorEnvLosesEveryQuoteAtEitherEndOfAValue(t *testing.T) {
+	const rel = ".agent-zero/.env"
+	tests := []struct{ name, value, want string }{
+		{"a plain value", `host`, "host"},
+		{"double quotes", `"host"`, "host"},
+		{"single quotes", `'host'`, "host"},
+		{"two layers", `""host""`, "host"},
+		{"mixed layers", `'"host"'`, "host"},
+		{"unmatched quotes", `"host'`, "host"},
+		{"a quote at one end", `host"`, "host"},
+		{"a quote inside stays", `ho"st`, `ho"st`},
+		{"spaces around the quotes", `  "host"  `, "host"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			writeFile(t, home, rel, "AGENT_ZERO_LAST_CONTEXT_HOST="+test.value+"\nAGENT_ZERO_LAST_CONTEXT_ID=c1\n")
+			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/a/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+			var texts []string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+				t.Fatal(err)
+			}
+			want := "session origin: remote agent-zero instance " + test.want + " context c1 (from .agent-zero/.env, file mtime)"
+			if len(texts) != 1 || texts[0] != want {
+				t.Errorf("rows %q, want %q", texts, want)
 			}
 		})
 	}
