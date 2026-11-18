@@ -105,19 +105,19 @@ func TestPermissionYAMLReadsOnlyCategoriesLevelsAndItems(t *testing.T) {
 }
 
 func TestMergeDeltaExtendsTheLastBlockOfTheSameKind(t *testing.T) {
-	blocks := decode(t, `[{"type":"text","text":"a","annotations":{"audience":["user"]}}]`).Items()
-	blocks = mergeDelta(blocks, decode(t, `[{"type":"text","text":"b","annotations":{"audience":["user"]}}]`).Items())
-	blocks = mergeDelta(blocks, decode(t, `[{"type":"text","text":"c"}]`).Items())
+	blocks := &streamed{blocks: decode(t, `[{"type":"text","text":"a","annotations":{"audience":["user"]}}]`).Items()}
+	blocks.merge(decode(t, `[{"type":"text","text":"b","annotations":{"audience":["user"]}}]`).Items())
+	blocks.merge(decode(t, `[{"type":"text","text":"c"}]`).Items())
 	want := `[{"type":"text","text":"ab","annotations":{"audience":["user"]}},{"type":"text","text":"c"}]`
-	if got := jsonvalue.NewArray(blocks...).JSON(); got != want {
+	if got := jsonvalue.NewArray(blocks.values()...).JSON(); got != want {
 		t.Errorf("text: got %s, want %s", got, want)
 	}
-	thinking := decode(t, `[{"type":"thinking","thinking":"x"}]`).Items()
-	thinking = mergeDelta(thinking, decode(t, `[{"type":"thinking","thinking":"y","signature":"s"}]`).Items())
-	thinking = mergeDelta(thinking, decode(t, `[{"type":"thinking","thinking":"z","signature":"other"}]`).Items())
+	thinking := &streamed{blocks: decode(t, `[{"type":"thinking","thinking":"x"}]`).Items()}
+	thinking.merge(decode(t, `[{"type":"thinking","thinking":"y","signature":"s"}]`).Items())
+	thinking.merge(decode(t, `[{"type":"thinking","thinking":"z","signature":"other"}]`).Items())
 	want = `[{"type":"thinking","thinking":"xy","signature":"s"},` +
 		`{"type":"thinking","thinking":"z","signature":"other"}]`
-	if got := jsonvalue.NewArray(thinking...).JSON(); got != want {
+	if got := jsonvalue.NewArray(thinking.values()...).JSON(); got != want {
 		t.Errorf("thinking: got %s, want %s", got, want)
 	}
 }
