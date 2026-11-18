@@ -1872,6 +1872,10 @@ skipped without it. Never add a `python3` requirement to the collector.
   job that is killed prints nothing. The loop then waits for ever.
 - Bound every wait (`timeout 1800 ...`, or a loop of N rounds); a timeout
   is a failure.
+- Stop only a process you started, by its process id. Never stop
+  processes by name (`pkill`, `killall`, or `kill` on what `pgrep` finds):
+  other checks, often another checkout's, run on the same machine under the
+  same command names, and a run that is stopped that way reports nothing.
 - Read results from the output files, not from whether the watcher ended.
 - For CI, use `gh pr checks <n> --watch` or
   `gh run watch <id> --exit-status`.
@@ -1964,6 +1968,11 @@ down.
   path and URL, and stays lowercase in code spans.
 - A commit message has an imperative subject under 70 characters and a
   body explaining why.
+- Do not use `git stash`. Every working tree of a repository shares one
+  stash list, so a `git stash pop` in one checkout can take what another
+  checkout put away. To set changes aside, commit them to a branch or save
+  them with `git diff > file.patch`; to look at an older commit, add a
+  separate working tree (`git worktree add --detach <dir> <commit>`).
 - Everything an AI agent writes to git or GitHub (commits, issues, pull
   requests, comments, reviews, review replies), including on a person's
   behalf, discloses AI generation and names the model as the tool reports
