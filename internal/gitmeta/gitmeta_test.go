@@ -121,6 +121,11 @@ func configCases() []configCase {
 			"[remote \"upstream\"]\n\turl = https://h/upstream.git\n\x00\u00ff garbage\n",
 			[]Remote{remote("origin", list("https://h/origin.git")),
 				remote("upstream", list("https://h/upstream.git"))}, nil},
+		{"both empty-name headers open the remote with the empty name",
+			"[remote.]\n\turl = /srv/dotted\n[remote \"\"]\n\turl = /srv/quoted\n" +
+				"[remote. \"\"]\n\turl = /srv/point\n[remote]\n\turl = /srv/none\n",
+			[]Remote{remote("", list("/srv/dotted", "/srv/quoted")),
+				remote(".", list("/srv/point"))}, nil},
 		{"a subsection needs a blank before its quote", "[remote\"x\"]\n\turl = /srv/x\n",
 			nil, nil},
 		{"an empty config has no remotes", "", nil, nil},
