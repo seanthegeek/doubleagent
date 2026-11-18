@@ -42,7 +42,8 @@ func fileChangeText(changeID, entry jsonvalue.Value) string {
 	return text
 }
 
-// changes emits the "file changed:" rows of one agent-changes record.
+// changes emits the "file changed:" rows of one agent-changes record; a
+// files member that is not an array adds a problem.
 func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	raw, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -66,7 +67,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		root = value.StringValue()
 	}
 	timestamp := timeutil.FromValue(record.Get("createdAt"))
-	for _, entry := range record.Get("files").Items() {
+	for _, entry := range parser.ArrayMember(record.Get("files"), "files", 0, &problems) {
 		if !entry.IsObject() {
 			continue
 		}
@@ -74,6 +75,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = root
 		emit(row)
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // logEntry is one entry of a log file: its header line's number, time,

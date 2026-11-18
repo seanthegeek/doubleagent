@@ -714,7 +714,13 @@ A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidec
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
 that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, a damaged one
 `parser: state.vscdb unreadable: <message>`; a value that is not JSON is one row that never echoes
-the value.
+the value. A member of the wrong kind is one row naming it, the rows it would have held being lost:
+`parser: twinny.conversations is not a JSON object` (neither an object nor a list),
+`parser: twinny.teamPolicy is not a JSON object`, and, after a conversation's heading,
+`parser: messages is not a JSON array`, `parser: toolSteps is not a JSON array`,
+`parser: changes is not a JSON object` or `parser: changes.files is not a JSON array`; an
+agent-changes record's `files` that is not an array is `parser: files is not a JSON array`. An
+absent, null or empty member gives no row.
 
 #### Fixtures
 

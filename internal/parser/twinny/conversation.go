@@ -35,14 +35,16 @@ func (c conversationRows) row(turnType, text, model, toolName, toolUseID string)
 }
 
 // conversation emits the rows of one conversation: a heading system row,
-// then each message's rows.
+// the problem of a messages member that is not an array, then each
+// message's rows.
 func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parser.Options,
 	emit parser.Emit) {
 	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
 		timestamp: timeutil.FromValue(conversation.Get("updatedAt")),
 		sessionID: parser.Text(conversation.Get("id"))}
+	var problems parser.Problems
 	var messages []jsonvalue.Value
-	for _, message := range conversation.Get("messages").Items() {
+	for _, message := range parser.ArrayMember(conversation.Get("messages"), "messages", 0, &problems) {
 		if message.IsObject() {
 			messages = append(messages, message)
 		}
@@ -53,6 +55,7 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 		heading += " | updatedAt unknown"
 	}
 	rows.row(timeline.TurnSystem, heading, "", "", "")
+	rows.problems(problems)
 	models := parser.Tracker{} // per conversation, so the key needs no session id
 	for _, message := range messages {
 		rows.message(message, models, options)
@@ -61,7 +64,8 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 
 // message emits the rows of one message: a model change, its reasoning,
 // its text, its tool steps, its file changes and what the secret shield
-// withheld.
+// withheld. A toolSteps, changes or changes.files of the wrong kind adds
+// a problem.
 func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker, options parser.Options) {
 	role := message.Get("role")
 	meta := message.Get("meta")
@@ -87,12 +91,14 @@ func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker
 		text = strings.TrimSpace(text + "\n[" + strconv.Itoa(images.Len()) + " image(s)]")
 	}
 	c.text(role, text, model)
-	for _, step := range parser.Elements(message.Get("toolSteps")) {
+	var problems parser.Problems
+	for _, step := range parser.ArrayMember(message.Get("toolSteps"), "toolSteps", 0, &problems) {
 		if step.IsObject() {
 			c.toolStep(step, model)
 		}
 	}
-	c.changes(message.Get("changes"), model)
+	c.changes(message.Get("changes"), model, &problems)
+	c.problems(problems)
 	if withheld := meta.Get("withheld"); !withheld.IsEmpty() {
 		c.row(timeline.TurnSystem, "secret shield withheld: "+parser.JSONText(withheld), model, "", "")
 	}
@@ -169,12 +175,23 @@ func stepBody(step jsonvalue.Value) string {
 	return ""
 }
 
-// changes emits a "file changed:" row per changed file of a reply.
-func (c conversationRows) changes(changes jsonvalue.Value, model string) {
-	if !changes.IsObject() || !changes.Get("files").IsArray() {
+// problems emits a system row per problem.
+func (c conversationRows) problems(problems parser.Problems) {
+	for _, problem := range problems {
+		c.row(timeline.TurnSystem, parser.ProblemPrefix+problem.Message, "", "", "")
+	}
+}
+
+// changes emits a "file changed:" row per changed file of a reply, and
+// adds a problem for a changes or changes.files of the wrong kind.
+func (c conversationRows) changes(changes jsonvalue.Value, model string, problems *parser.Problems) {
+	if !changes.IsObject() {
+		if !changes.IsNull() {
+			problems.Add(0, parser.WrongKind("changes", jsonvalue.Object))
+		}
 		return
 	}
-	for _, entry := range changes.Get("files").Items() {
+	for _, entry := range parser.ArrayMember(changes.Get("files"), "changes.files", 0, problems) {
 		if entry.IsObject() {
 			c.row(timeline.TurnSystem, fileChangeText(changes.Get("id"), entry), model, "", "")
 		}
