@@ -134,7 +134,7 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 	}
 	document, err := jsonvalue.Decode(content)
 	if err != nil {
-		emit(p.system(artifact, "parser: projects.json did not parse: "+err.Error(), 0))
+		emit(p.system(artifact, parser.ProblemPrefix+"projects.json did not parse: "+err.Error(), 0))
 		return
 	}
 	projects := document.Get("projects")
@@ -217,7 +217,8 @@ func configLists(document jsonvalue.Value) []settingList {
 }
 
 // parseConfig emits one "permission setting:" row per standing entry of a
-// crush.json; nothing else in the file is read.
+// crush.json; nothing else in the file is read. A file that is not JSON
+// gives only where it stopped, since the file holds API keys.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -228,7 +229,11 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	}
 	document, err := jsonvalue.Decode(content)
 	if err != nil || !document.IsObject() {
-		row := p.system(artifact, "parser: "+artifact.Rel+" is not a JSON object", 1)
+		text := parser.ProblemPrefix + artifact.Rel + " is not a JSON object"
+		if err != nil {
+			text += " (" + parser.JSONPosition(err) + ")"
+		}
+		row := p.system(artifact, text, 1)
 		row.TimestampUTC = timestamp
 		row.ProjectPath = p.configProject(artifact)
 		emit(row)
