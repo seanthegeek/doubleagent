@@ -227,8 +227,9 @@ func tomlPosition(err error) string {
 }
 
 // modelText returns the "model configured:" text of one
-// [model.<group>.<kind>] table: model_name, kind, api_endpoint and
-// supported_models for the http form, model_id for the local one.
+// [model.<group>.<kind>] table: model_name, kind, api_endpoint (without
+// the credentials a URL may carry) and supported_models for the http form,
+// model_id for the local one.
 func modelText(group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
 	if kind == "http" {
@@ -238,7 +239,7 @@ func modelText(group, kind string, body jsonvalue.Value) string {
 			parts = append(parts, "kind="+value.Text())
 		}
 		if value := body.Get("api_endpoint"); !value.IsEmpty() {
-			parts = append(parts, "endpoint="+value.Text())
+			parts = append(parts, "endpoint="+parser.WithoutCredentials(value.Text()))
 		}
 		if supported := body.Get("supported_models"); supported.IsArray() && supported.Len() > 0 {
 			var names []string

@@ -52,3 +52,16 @@ func TestAFileHoldingSecretsThatIsNotJSONGivesOnlyThePosition(t *testing.T) {
 		})
 	}
 }
+
+func TestARemoteBackendsURLIsShownWithoutItsCredentials(t *testing.T) {
+	got := parseFile(t, ".config/Hermes/connections.json", `{"connections": [`+
+		`{"kind": "remote", "label": "work", "url": "https://alice:s3cret@hermes.example:9119/"},`+
+		`{"kind": "ssh", "label": "box", "host": "box.example", "user": "alice", "port": 22}]}`)
+	want := []string{
+		"remote backend: remote work https://redacted@hermes.example:9119/ (from connections.json, file mtime)",
+		"remote backend: ssh box alice@box.example:22 (from connections.json, file mtime)",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
