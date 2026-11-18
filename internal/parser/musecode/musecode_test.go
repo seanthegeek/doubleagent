@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of the logs, the history and trust.json are proved by the parser
@@ -176,5 +177,40 @@ func TestALogThatStartsWithAnotherRecordIsNotMuse(t *testing.T) {
 	var problems parser.Problems
 	for range records(path, &problems) {
 		t.Fatal("a record was yielded")
+	}
+}
+
+func TestAFileOfTheWrongKindIsReported(t *testing.T) {
+	const session = ".local/share/muse/sessions/2026/01/01/s1/session.jsonl"
+	const history = ".local/share/muse/tui-history.jsonl"
+	tests := []struct {
+		name, rel, text string
+		want            []string
+	}{
+		{"a session log whose first record is not Muse", session, "\n{\"other\": 1}\n{\"stream\": {}, \"payload_type\": \"x\"}\n",
+			[]string{"parser: " + notMuse}},
+		{"a session log that is Muse", session, `{"stream": {"id": "s1"}, "payload_type": "x", "payload": {}}` + "\n", nil},
+		{"a history line that is a number", history, "\"prompt\"\n7\n", []string{"prompt", "parser: unparseable line (not a JSON string or object): 7"}},
+		{"a history line that is a list", history, "[\"prompt\"]\n", []string{"parser: unparseable line (not a JSON string or object): [\"prompt\"]"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(test.rel))
+			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(path, []byte(test.text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + test.rel, Rel: test.rel, Home: &input.Home{DiskPath: home}}
+			var texts []string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(texts, test.want) {
+				t.Errorf("rows %q, want %q", texts, test.want)
+			}
+		})
 	}
 }
