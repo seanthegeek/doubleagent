@@ -51,6 +51,10 @@ type Parser struct {
 	parser.Base
 	settings Settings
 	paths    paths
+	// guardians holds the guardian index of each log database read, and
+	// threads the threads of each state database read, by path.
+	guardians map[string]*guardianFile
+	threads   map[string]*threadsFile
 }
 
 // paths are the relative paths and patterns of the files the parser reads,

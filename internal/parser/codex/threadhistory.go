@@ -92,7 +92,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
-	threads := siblingThreads(artifact)
+	threads := p.siblingThreads(artifact)
 	var problems []itemProblem
 	tasked := map[string]bool{} // subagent threads whose first prompt was seen
 	for _, event := range historyEvents(turns, items) {

@@ -48,9 +48,9 @@ type rollout struct {
 	// guardianParent is the thread a guardian review thread reviews, and
 	// started that thread's start time as written.
 	guardianParent, started string
-	// guardian holds the guardian rows of the log databases once a
-	// task_complete has read them, so the rollout reads each database once.
-	guardian     [][]guardianLog
+	// guardian holds the indexes of the log databases once a
+	// task_complete has looked for them, so the rollout lists them once.
+	guardian     []*guardianIndex
 	guardianRead bool
 
 	line   int
@@ -354,7 +354,8 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	start := timeutil.FirstNonEmpty(s.started, row.TimestampUTC)
 	var calls []string
 	if home, ok := s.parser.codexHome(s.artifact); ok {
-		calls = guardianCalls(func() [][]guardianLog { return s.guardianLogs(home) }, start, row.TimestampUTC)
+		calls = guardianCalls(func() []*guardianIndex { return s.guardianLogs(home) }, s.guardianParent, start,
+			row.TimestampUTC)
 	}
 	if len(calls) == 1 {
 		row.ToolUseID = calls[0]
@@ -362,11 +363,11 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	s.put(row, guardianText(verdict, cmp.Or(row.ToolUseID, "-"), s.sessionID))
 }
 
-// guardianLogs returns the guardian rows of the log databases in home,
-// reading them on the rollout's first call.
-func (s *rollout) guardianLogs(home string) [][]guardianLog {
+// guardianLogs returns the indexes of the log databases in home, looking
+// for them on the rollout's first call.
+func (s *rollout) guardianLogs(home string) []*guardianIndex {
 	if !s.guardianRead {
-		s.guardian, s.guardianRead = guardianLogs(home, s.guardianParent), true
+		s.guardian, s.guardianRead = s.parser.guardianIndexes(home), true
 		s.parser.Work.Add("guardian log reads", 1)
 	}
 	return s.guardian

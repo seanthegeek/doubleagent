@@ -308,22 +308,40 @@ func feedbackText(record jsonvalue.Value) string {
 		cmp.Or(parser.Text(decision), "-") + " action: " + parser.Text(record.Get("action"))
 }
 
+// threadsFile is the threads of one state database by id, kept for one
+// state of the file and its write-ahead log.
+type threadsFile struct {
+	state [4]int64
+	byID  map[string]*sqlitefile.Row
+}
+
 // siblingThreads returns the threads rows of the state_5.sqlite beside the
-// artifact, by id; none when there is no such database or it cannot be
-// read, which that database's own parse reports.
-func siblingThreads(artifact *input.Artifact) map[string]*sqlitefile.Row {
+// artifact, by id, read once per state of that file and its log for the
+// parser's life, since every log database beside it looks them up; none
+// when there is no such database or it cannot be read, which that
+// database's own parse reports. The map is shared: callers only read it.
+func (p *Parser) siblingThreads(artifact *input.Artifact) map[string]*sqlitefile.Row {
 	path, ok := parser.Beside(artifact, stateDatabase)
 	if !ok {
 		return map[string]*sqlitefile.Row{}
 	}
+	if p.threads == nil {
+		p.threads = map[string]*threadsFile{}
+	}
+	state := databaseState(path)
+	if cached, ok := p.threads[path]; ok && cached.state == state {
+		return cached.byID
+	}
+	p.Work.Add("state databases read", 1)
+	cached := &threadsFile{state: state, byID: map[string]*sqlitefile.Row{}}
+	p.threads[path] = cached
 	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return map[string]*sqlitefile.Row{}
+		return cached.byID
 	}
 	defer database.Close()
-	threads, err := readThreads(database)
-	if err != nil {
-		return map[string]*sqlitefile.Row{}
+	if threads, err := readThreads(database); err == nil {
+		cached.byID = threadsByID(threads)
 	}
-	return threadsByID(threads)
+	return cached.byID
 }

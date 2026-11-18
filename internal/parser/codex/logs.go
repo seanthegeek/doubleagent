@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -184,7 +183,7 @@ func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
 	}
 	threads := map[string]*sqlitefile.Row{}
 	if len(records) > 0 {
-		threads = siblingThreads(artifact)
+		threads = p.siblingThreads(artifact)
 	}
 	var problems parser.Problems
 	decided := decisions(records, &problems)
@@ -320,76 +319,6 @@ func decisions(records []logRecord, problems *parser.Problems) map[int]decision 
 	return out
 }
 
-// guardianLog is one log row holding a guardian review span: the whole
-// row, for its ts, whether its body is text a query could return, and the
-// tool_call_id values of its spans of the reviewed thread, in order.
-type guardianLog struct {
-	row      sqlitefile.Row
-	readable bool
-	calls    []string
-}
-
-// guardianLogs returns, per logs_<N>.sqlite file in the agent's home in
-// name order, its rows that hold a guardian review span, in rowid order,
-// with the calls of thread parent's spans. A database that cannot be read
-// gives none; its own parse reports why.
-func guardianLogs(home, parent string) [][]guardianLog {
-	var databases [][]guardianLog
-	for _, logPath := range logDatabases(home) {
-		rows, body := guardianRows(logPath)
-		logs := make([]guardianLog, 0, len(rows))
-		for _, row := range rows {
-			text := row.Get(body)
-			each := guardianLog{row: row, readable: text.Type != sqlitefile.Text || utf8.Valid(text.Bytes)}
-			for _, match := range guardianSpan.FindAllStringSubmatch(parser.NonEmptyColumn(text), -1) {
-				fields := logFields(match[1])
-				if call := fields["tool_call_id"]; fields["thread_id"] == parent && call != "" {
-					each.calls = append(each.calls, call)
-				}
-			}
-			logs = append(logs, each)
-		}
-		databases = append(databases, logs)
-	}
-	return databases
-}
-
-// guardianCalls returns the distinct tool_call_id values of the guardian
-// logs, in log order, of the rows logged from 2 seconds before start to 2
-// seconds after end (both timeline timestamps), the ts compared as the
-// database compares it. A database with a row in that time whose body is
-// not valid text gives none, as a query of those rows fails. None when
-// either time cannot be read, without reading the logs.
-func guardianCalls(logs func() [][]guardianLog, start, end string) []string {
-	startMillis, startOK := timeutil.EpochMillis(start)
-	endMillis, endOK := timeutil.EpochMillis(end)
-	if !startOK || !endOK {
-		return nil
-	}
-	low, high := floorDiv(startMillis, 1000)-2, floorDiv(endMillis, 1000)+2
-	var calls []string
-	seen := map[string]bool{}
-	for _, database := range logs() {
-		inTime := slices.DeleteFunc(slices.Clone(database), func(each guardianLog) bool {
-			lowOrder, lowOK := each.row.Cmp("ts", sqlitefile.IntValue(low))
-			highOrder, highOK := each.row.Cmp("ts", sqlitefile.IntValue(high))
-			return !lowOK || !highOK || lowOrder < 0 || highOrder > 0
-		})
-		if slices.ContainsFunc(inTime, func(each guardianLog) bool { return !each.readable }) {
-			continue
-		}
-		for _, each := range inTime {
-			for _, call := range each.calls {
-				if !seen[call] {
-					seen[call] = true
-					calls = append(calls, call)
-				}
-			}
-		}
-	}
-	return calls
-}
-
 // floorDiv returns n divided by divisor, rounded toward minus infinity.
 func floorDiv(n, divisor int64) int64 {
 	quotient := n / divisor
@@ -421,35 +350,6 @@ func logDatabases(home string) []string {
 	}
 	slices.Sort(paths)
 	return paths
-}
-
-// guardianRows returns, in rowid order, the whole log rows of the
-// database at logPath whose body holds a guardian review span, and the
-// name of the body column; none when the database cannot be read. The
-// rows are taken as the scan meets them, unprojected, so a body that is
-// not valid text fails only the times that would have returned it.
-func guardianRows(logPath string) ([]sqlitefile.Row, string) {
-	database, err := parser.OpenDatabase(logPath)
-	if err != nil {
-		return nil, ""
-	}
-	defer database.Close()
-	table, body, err := logsTableOf(database)
-	if table == nil || err != nil {
-		return nil, ""
-	}
-	var rows []sqlitefile.Row
-	err = table.Select().Where(func(row sqlitefile.Row) bool {
-		if sqlitefile.Instr(row.Get(body), sqlitefile.TextValue(guardianMark)) > 0 {
-			rows = append(rows, row)
-		}
-		return false
-	}).Each(func(sqlitefile.Row) error { return nil })
-	if err != nil {
-		return nil, ""
-	}
-	slices.SortStableFunc(rows, func(left, right sqlitefile.Row) int { return cmp.Compare(left.Rowid, right.Rowid) })
-	return rows, body
 }
 
 // uuid7Time returns the capture time in a UUIDv7's first 48 bits, the
