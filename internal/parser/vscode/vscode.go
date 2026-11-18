@@ -54,6 +54,8 @@ var (
 // databases and settings.
 type Parser struct {
 	parser.Base
+	// workspaces holds each workspace.json read, by its state.
+	workspaces map[workspaceState]*workspaceFile
 }
 
 // New returns the parser.

@@ -63,7 +63,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	var errors parser.Problems
 	project := ""
 	if workspace {
-		project, _ = workspaceJSON(artifact, 0, &errors)
+		project, _ = p.workspaceJSON(artifact, 0, &errors)
 	}
 	if state := values[copilotStateKey]; state.IsObject() {
 		p.ownedTaskRows(artifact, state.Get(ownedTasksKey), emit)
