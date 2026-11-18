@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -105,9 +106,15 @@ func TestATableIsAlignedByRunesOfTheShownText(t *testing.T) {
 func TestTheCommandsPrintNoControlCharacterFromTheEvidence(t *testing.T) {
 	const hostile = "evil\x1b]0;pwned\x07\x1b[2J\rhost\u009b"
 	work := t.TempDir()
+	// The home's directory is made on disk, and Windows refuses a control
+	// character in a name; there the manifest's user and agent carry them.
+	home := "/home/al\x1b[2Jice"
+	if runtime.GOOS == "windows" {
+		home = "/home/alice"
+	}
 	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
 		member("hostname", jsonvalue.NewString(hostile))},
-		[]collectedFile{{"al\x1b[2Jice", "/home/al\x1b[2Jice", "claude\x07code", ".claude/x", "x"}})
+		[]collectedFile{{"al\x1b[2Jice", home, "claude\x07code", ".claude/x", "x"}})
 	inventory := filepath.Join(work, "inv.jsonl")
 	writeFile(t, inventory, `{"type":"host","host":"`+"evil\\u001b[2J"+`"}`+"\n"+
 		`{"type":"agent","agent":"claude-code\u001b[2J","last":"x\u0007"}`+"\n")
