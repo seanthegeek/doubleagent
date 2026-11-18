@@ -1,8 +1,8 @@
 package dedup
 
 import (
+	"cmp"
 	"math"
-	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -17,9 +17,11 @@ const noMatch = math.MinInt64
 // a window never overflows; it is longer than the years 1 to 9999.
 const windowLimit = 1 << 62
 
-// matcher runs one deduplication with the hooks the agents declared.
+// matcher runs one deduplication with the hooks the agents declared, adding
+// the work its lookups do to steps.
 type matcher struct {
 	hooks Hooks
+	steps *int
 }
 
 // identity is what two rows must share to pair, apart from scope: host,
@@ -34,17 +36,20 @@ type identity struct {
 // scopeKind is the scope a bucket key is filed under.
 type scopeKind uint8
 
-// The scopes, from the narrowest.
+// The scopes: a row's session, its project, none, and its session and
+// project together, which lets a lookup under a broader scope ask for
+// exactly the sessions and projects it may take.
 const (
 	scopeSession scopeKind = iota
 	scopeProject
 	scopeAny
+	scopePair
 )
 
-// scope is a scope kind with the session id or project path it names.
+// scope is a scope kind with the session id and project path it names.
 type scope struct {
-	kind  scopeKind
-	value string
+	kind             scopeKind
+	session, project string
 }
 
 // bucketKey is an identity under a scope: the key candidates are filed
@@ -60,20 +65,29 @@ type stamp struct {
 	index  int
 }
 
-// bucket holds the candidates of one key: the dated ones sorted by time
-// then index, the undated ones in the order they were filed.
+// bucket holds the candidates of one key, apart by whether they carry a
+// tool_use_id, since a lookup by text for a row that carries one may take
+// only those without.
 type bucket struct {
-	dated   []stamp
-	undated []int
+	parts [2]bucketPart
 }
 
-// isUnavailable reports whether the candidate at a row index may not be
-// taken.
-type isUnavailable func(index int) bool
+// bucketPart holds candidates of one key: the dated ones filed before a
+// pass's lookups began (settled, sorted once by time then row index), those
+// filed during the lookups (arriving, already in that order), and the
+// undated ones by when they were filed.
+type bucketPart struct {
+	settled, arriving, undated *candidateList
+}
 
-// upperBound returns the time at or after which the candidate at a row
-// index may not be taken, and false when there is none.
-type upperBound func(index int) (int64, bool)
+// newBucket returns an empty bucket.
+func newBucket() *bucket {
+	found := &bucket{}
+	for i := range found.parts {
+		found.parts[i] = bucketPart{newCandidateList(), newCandidateList(), newCandidateList()}
+	}
+	return found
+}
 
 // matchTime returns the epoch milliseconds a row is matched at and true,
 // noMatch and true for a row its agent's Anchor hook keeps from every
@@ -131,11 +145,13 @@ func scopeRank(row timeline.Row) int {
 	return 2
 }
 
-// add files a candidate row under its text and id keys at every scope,
-// keeping each bucket's dated candidates sorted. A row at noMatch is filed
-// nowhere, so no row pairs with it.
-func (m matcher) add(buckets map[bucketKey]*bucket, row timeline.Row, index int,
-	millis int64, dated bool) {
+// add files a candidate row under its text and id keys at every scope. A
+// candidate filed before the pass's lookups begin is settled; one filed
+// during them arrives after every dated candidate already filed, since the
+// pass tests rows in the order of their match times. A row at noMatch is
+// filed nowhere, so no row pairs with it.
+func (m matcher) add(state *pass, row timeline.Row, index int, millis int64, dated,
+	arriving bool) {
 	if dated && millis == noMatch {
 		return
 	}
@@ -143,94 +159,42 @@ func (m matcher) add(buckets map[bucketKey]*bucket, row timeline.Row, index int,
 	if hasID(row) {
 		identities = append(identities, byID(row))
 	}
-	scopes := []scope{{scopeSession, row.SessionID}, {scopeProject, row.ProjectPath},
-		{kind: scopeAny}}
+	scopes := []scope{{kind: scopeSession, session: row.SessionID},
+		{kind: scopeProject, project: row.ProjectPath}, {kind: scopeAny},
+		{kind: scopePair, session: row.SessionID, project: row.ProjectPath}}
+	state.filed++
 	for _, ident := range identities {
 		for _, where := range scopes {
 			key := bucketKey{ident, where}
-			found := buckets[key]
+			found := state.buckets[key]
 			if found == nil {
-				found = &bucket{}
-				buckets[key] = found
+				found = newBucket()
+				state.buckets[key] = found
 			}
-			if !dated {
-				found.undated = append(found.undated, index)
-				continue
+			part := &found.parts[boolInt(hasID(row))]
+			switch {
+			case !dated:
+				part.undated.push(stamp{int64(state.filed), index})
+			case arriving:
+				part.arriving.push(stamp{millis, index})
+			default:
+				part.settled.push(stamp{millis, index})
 			}
-			entry := stamp{millis, index}
-			position, _ := slices.BinarySearchFunc(found.dated, entry, compareStamps)
-			found.dated = slices.Insert(found.dated, position, entry)
 		}
 	}
 }
 
 // compareStamps orders stamps by time, then row index.
 func compareStamps(left, right stamp) int {
-	switch {
-	case left.millis != right.millis:
-		return compareInts(left.millis, right.millis)
-	case left.index < right.index:
-		return -1
-	case left.index > right.index:
+	return cmp.Or(cmp.Compare(left.millis, right.millis), cmp.Compare(left.index, right.index))
+}
+
+// boolInt returns 1 for true and 0 for false.
+func boolInt(value bool) int {
+	if value {
 		return 1
 	}
 	return 0
-}
-
-// compareInts returns -1, 0 or 1 as left is below, equal to or above right.
-func compareInts(left, right int64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	}
-	return 0
-}
-
-// nearest returns the row index of the available dated candidate nearest
-// in time, at most back milliseconds before millis or forward after it,
-// the earlier on a tie, and before the bound upper gives for it.
-func nearest(dated []stamp, millis, back, forward int64, unavailable isUnavailable,
-	upper upperBound) (int, bool) {
-	position, _ := slices.BinarySearchFunc(dated, millis-back,
-		func(entry stamp, target int64) int { return compareInts(entry.millis, target) })
-	best, bestDistance := -1, int64(0)
-	for ; position < len(dated) && dated[position].millis <= millis+forward; position++ {
-		candidate := dated[position]
-		if unavailable(candidate.index) {
-			continue
-		}
-		if upper != nil {
-			if limit, ok := upper(candidate.index); ok && candidate.millis >= limit {
-				continue
-			}
-		}
-		distance := candidate.millis - millis
-		if distance < 0 {
-			distance = -distance
-		}
-		if best < 0 || distance < bestDistance {
-			best, bestDistance = candidate.index, distance
-		}
-	}
-	return best, best >= 0
-}
-
-// earliest returns the earliest available candidate of a bucket, the
-// undated ones last.
-func earliest(found *bucket, unavailable isUnavailable) (int, bool) {
-	for _, entry := range found.dated {
-		if !unavailable(entry.index) {
-			return entry.index, true
-		}
-	}
-	for _, index := range found.undated {
-		if !unavailable(index) {
-			return index, true
-		}
-	}
-	return -1, false
 }
 
 // millisOf returns a window in seconds as whole milliseconds, truncated
@@ -254,21 +218,21 @@ type window struct {
 	set     bool
 }
 
-// pair returns the available candidate in a bucket that a secondary row
-// pairs with under the time rule.
-func (m matcher) pair(found *bucket, row timeline.Row, tolerance float64,
-	unavailable isUnavailable, upper upperBound, forward window, againstPrimary bool) (int, bool) {
+// pair returns the candidate of the parts that a secondary row pairs with
+// under the time rule.
+func (m matcher) pair(query *search, parts []*bucketPart, row timeline.Row, tolerance float64,
+	forward window, againstPrimary bool) (int, bool) {
 	millis, dated := m.matchTime(row, againstPrimary)
-	if found == nil || (dated && millis == noMatch) {
+	if len(parts) == 0 || (dated && millis == noMatch) {
 		return -1, false
 	}
 	if !dated {
-		return earliest(found, unavailable)
+		return query.earliest(parts)
 	}
 	back := millisOf(tolerance)
 	ahead := back
 	if forward.set {
 		ahead = millisOf(forward.seconds)
 	}
-	return nearest(found.dated, millis, back, ahead, unavailable, upper)
+	return query.nearest(parts, millis, millis-back, millis+ahead)
 }

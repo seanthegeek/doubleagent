@@ -87,7 +87,17 @@ type Hooks map[string]AgentHooks
 // arguments are not changed.
 func Deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]timeline.Row,
 	map[string]int) {
-	run := matcher{hooks: hooks}
+	kept, counts, _ := deduplicate(primary, secondary, hooks)
+	return kept, counts
+}
+
+// deduplicate is Deduplicate, also returning the work its lookups did: the
+// candidates they looked at, the jumps they made over candidates already
+// refused, and the comparisons that sorted the candidates.
+func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]timeline.Row,
+	map[string]int, int) {
+	steps := 0
+	run := matcher{hooks: hooks, steps: &steps}
 	forward := run.forwardWindows(secondary)
 	var limits *bounds
 	if len(forward) > 0 {
@@ -114,5 +124,5 @@ func Deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]
 		}
 		kept = append(kept, row)
 	}
-	return kept, counts
+	return kept, counts, steps
 }

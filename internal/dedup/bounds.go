@@ -2,7 +2,6 @@ package dedup
 
 import (
 	"slices"
-	"sort"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -60,19 +59,25 @@ func (m matcher) newBounds(secondary []Secondary) *bounds {
 	return limits
 }
 
-// upper returns the earliest time after millis of a secondary row of the
-// same text that could take candidate, and false when there is none.
-func (b *bounds) upper(text identity, millis int64, candidate timeline.Row) (int64, bool) {
+// after returns the earliest time after millis of a secondary row of the
+// same text that could take a candidate of a session and project, and
+// false when there is none.
+func (b *bounds) after(text identity, millis int64, session, project string) (int64, bool) {
 	lists := [][]int64{b.byNone[text]}
-	if candidate.SessionID != "" {
-		lists = append(lists, b.bySession[scopedText{text, candidate.SessionID}])
+	if session != "" {
+		lists = append(lists, b.bySession[scopedText{text, session}])
 	}
-	if candidate.ProjectPath != "" {
-		lists = append(lists, b.byProjectOnly[scopedText{text, candidate.ProjectPath}])
+	if project != "" {
+		lists = append(lists, b.byProjectOnly[scopedText{text, project}])
 	}
 	later, found := int64(0), false
 	for _, times := range lists {
-		position := sort.Search(len(times), func(i int) bool { return times[i] > millis })
+		position, _ := slices.BinarySearchFunc(times, millis, func(moment, target int64) int {
+			if moment <= target {
+				return -1
+			}
+			return 1
+		})
 		if position < len(times) && (!found || times[position] < later) {
 			later, found = times[position], true
 		}
@@ -80,16 +85,34 @@ func (b *bounds) upper(text identity, millis int64, candidate timeline.Row) (int
 	return later, found
 }
 
-// candidateBound returns the bound of a widened row by candidate index,
-// or nil when the row is undated.
+// forwardBound is the bound of one widened row at millis: the time from
+// which it may not take a candidate.
+type forwardBound struct {
+	limits  *bounds
+	text    identity
+	millis  int64
+	primary []timeline.Row
+}
+
+// forCandidate returns the bound for the candidate at a primary row index.
+func (f *forwardBound) forCandidate(index int) (int64, bool) {
+	candidate := f.primary[index]
+	return f.limits.after(f.text, f.millis, candidate.SessionID, candidate.ProjectPath)
+}
+
+// shared returns a bound that holds for every candidate filed under where:
+// each one's own bound is at most this.
+func (f *forwardBound) shared(where scope) (int64, bool) {
+	return f.limits.after(f.text, f.millis, where.session, where.project)
+}
+
+// candidateBound returns the bound of a widened row, or nil when the row is
+// undated.
 func (m matcher) candidateBound(limits *bounds, primary []timeline.Row,
-	row timeline.Row) upperBound {
+	row timeline.Row) *forwardBound {
 	millis, dated := m.matchTime(row, true)
 	if !dated {
 		return nil
 	}
-	text := m.byText(row)
-	return func(index int) (int64, bool) {
-		return limits.upper(text, millis, primary[index])
-	}
+	return &forwardBound{limits, m.byText(row), millis, primary}
 }
