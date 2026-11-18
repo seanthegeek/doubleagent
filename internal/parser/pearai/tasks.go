@@ -155,9 +155,15 @@ func (p *Parser) state(artifact *input.Artifact, emit parser.Emit) {
 	}
 }
 
-// stateRows emits the task and setting rows of the extension's state.
+// stateRows emits the task and setting rows of the extension's state, and
+// the problem of a taskHistory that is not an array.
 func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
-	for i, item := range state.Get("taskHistory").Items() {
+	var problems parser.Problems
+	history := parser.ArrayMember(state.Get("taskHistory"), "taskHistory", 0, &problems)
+	for _, problem := range problems {
+		emit(p.ProblemRow(artifact, problem.Message))
+	}
+	for i, item := range history {
 		if !item.IsObject() {
 			continue
 		}
