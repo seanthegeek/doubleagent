@@ -93,6 +93,9 @@ func TestCronDocumentsSplitByFramesThenHeadings(t *testing.T) {
 		{"**Prompt Characters:** 99\n## Prompt\n\nshort\n\n## Response\n\nr\n", "short", "r", true},
 		{"## Prompt\n\n## Prompt\n\nx\n**Prompt Characters:** 1\n## Prompt\n\ny\n\n**Response Characters:** 1\n## Response\n\nz",
 			"## Prompt\n\nx\n**Prompt Characters:** 1\n## Prompt\n\ny\n\n**Response Characters:** 1\n", "z", true},
+		{"**Prompt Characters:** 1\n## Prompt\n\n\xb6\n\n**Response Characters:** 2\n## Response\n\n\xb6\xb6",
+			"\xb6", "\xb6\xb6", true},
+		{"**Prompt Characters:** 5\n## Prompt\n\n00000\xb600", "", "", false},
 	}
 	for _, test := range tests {
 		t.Run(test.document, func(t *testing.T) {
