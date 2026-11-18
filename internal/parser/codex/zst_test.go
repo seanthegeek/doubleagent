@@ -205,8 +205,8 @@ func TestLinesCutAcrossManyChunksAreSearchedOnce(t *testing.T) {
 		}
 		return split.scanned
 	}
-	if small, large := work(500), work(1000); small > 500*1024+1 || large > 3*small {
-		t.Errorf("%d then %d bytes searched for 500 and 1000 chunks of 1024: not once each", small, large)
+	if searched := work(1000); searched != 1000*1024+1 {
+		t.Errorf("%d bytes searched for 1000 chunks of 1024 and a line end, want each once", searched)
 	}
 }
 

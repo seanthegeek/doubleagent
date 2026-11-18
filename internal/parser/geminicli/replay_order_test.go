@@ -161,39 +161,25 @@ func TestThePlacesOfTheReplayKeepTheOrderOfTheRewrittenList(t *testing.T) {
 	}
 }
 
-// orderWork returns the placements read by a replay of size messages, then
-// size patches moving the first to the end, then size rewinds to the last
-// message, each adding a message back first; with the work of the rewritten
-// list beside it.
-func orderWork(size int) (placedWork, referenceWork int) {
-	placed, reference := newMessageLog(), referenceLog{byID: map[string]*stored{}}
+func TestTheReplaysOrderReadsEachPlacementOnce(t *testing.T) {
+	const size = 2000
+	placed := newMessageLog()
 	for i := range size {
 		placed.put(message("m"+strconv.Itoa(i), i), i, "s")
-		reference.put(message("m"+strconv.Itoa(i), i), i, "s")
 	}
 	for range size {
 		placed.moveToEnd([]string{"m0"})
-		reference.moveToEnd([]string{"m0"})
 	}
 	for i := range size {
 		extra := "x" + strconv.Itoa(i)
 		placed.put(message(extra, i), i, "s")
-		reference.put(message(extra, i), i, "s")
 		placed.dropFrom(extra)
-		reference.dropFrom(extra)
 	}
-	placed.order()
-	return placed.visited, reference.visited
-}
-
-func TestTheReplaysOrderCostsLinearWork(t *testing.T) {
-	small, smallReference := orderWork(2000)
-	large, largeReference := orderWork(4000)
-	if largeReference < 3*smallReference {
-		t.Fatalf("the rewritten list read %d then %d ids: the measure does not tell the two apart",
-			smallReference, largeReference)
-	}
-	if large > 3*small {
-		t.Errorf("%d placements read for twice the records against %d: not linear", large, small)
+	order := placed.order()
+	// Each rewind reads only its own placement, and the order reads the
+	// size messages' placements and the size moves'.
+	if len(order) != size || order[size-1] != "m0" || placed.visited != 3*size {
+		t.Errorf("%d placements read for %d messages, %d moves and %d rewinds, want %d", placed.visited,
+			size, size, size, 3*size)
 	}
 }

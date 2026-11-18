@@ -123,11 +123,20 @@ type paste struct {
 
 // expandPastes returns a history line's display text with each paste
 // placeholder replaced by its text: pastedContents.<n>.content when the
-// paste is kept inline, else paste-cache/<contentHash>.txt. A placeholder
-// whose text is in neither place is kept as written. Each paste-cache file
-// is read once per line, however many placeholders name it; the problems
-// of that read are added for each of them, as a fresh read would.
+// paste is kept inline, else paste-cache/<contentHash>.txt in historyDir. A
+// placeholder whose text is in neither place is kept as written.
 func expandPastes(historyDir, display string, pasted jsonvalue.Value, problems *parser.Problems) string {
+	return expandPastesFrom(display, pasted, problems, func(hash string, read *parser.Problems) (string, bool) {
+		return readPaste(historyDir, hash, read)
+	})
+}
+
+// expandPastesFrom is expandPastes with the paste-cache file of a hash read
+// by readCache. Each file is read once per line, however many placeholders
+// name it; the problems of that read are added for each of them, as a
+// fresh read would.
+func expandPastesFrom(display string, pasted jsonvalue.Value, problems *parser.Problems,
+	readCache func(hash string, read *parser.Problems) (string, bool)) string {
 	if !pasted.IsObject() || pasted.Len() == 0 {
 		return display
 	}
@@ -136,7 +145,7 @@ func expandPastes(historyDir, display string, pasted jsonvalue.Value, problems *
 		each, ok := files[hash]
 		if !ok {
 			each = &paste{}
-			each.text, each.found = readPaste(historyDir, hash, &each.problems)
+			each.text, each.found = readCache(hash, &each.problems)
 			files[hash] = each
 		}
 		*problems = append(*problems, each.problems...)

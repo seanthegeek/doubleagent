@@ -4,6 +4,7 @@ import (
 	"maps"
 	"math"
 	"math/big"
+	"math/bits"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -133,27 +134,19 @@ func TestARequestFarFromEveryExecRowIsItsOwnDecision(t *testing.T) {
 }
 
 func TestPairingCostsALogarithmPerRequest(t *testing.T) {
-	work := func(size int) (int, int) {
-		execs := make([]logRecord, size)
-		requests := make([]sqlitefile.Value, size)
-		for i := range size {
-			execs[i] = logRecord{rowid: i + 1, timestamp: sqlitefile.IntValue(int64(10 * i))}
-			requests[i] = sqlitefile.IntValue(int64(10*(size-i) + 1000000))
-		}
-		pairs := newExecPairs(execs)
-		for _, request := range requests {
-			pairs.take(request)
-		}
-		_, read := referencePairs(execs, requests)
-		return pairs.steps, read
+	const size = 2000
+	execs := make([]logRecord, size)
+	for i := range size {
+		execs[i] = logRecord{rowid: i + 1, timestamp: sqlitefile.IntValue(int64(10 * i))}
 	}
-	small, smallReference := work(1000)
-	large, largeReference := work(2000)
-	if largeReference < 3*smallReference {
-		t.Fatalf("reading every exec row took %d then %d reads: the measure does not tell the two apart",
-			smallReference, largeReference)
+	pairs := newExecPairs(execs)
+	for i := range size {
+		pairs.take(sqlitefile.IntValue(int64(10*(size-i) + 1000000)))
 	}
-	if large > 3*small {
-		t.Errorf("%d steps for twice the rows against %d: not about linear", large, small)
+	// Per request and group: two binary searches of at most bits.Len(size)
+	// comparisons each, and a tree query reading at most two cells a level.
+	depth := bits.Len(size)
+	if limit := size * 2 * (2*depth + 2*(depth+1)); pairs.steps > limit {
+		t.Errorf("%d steps for %d requests over %d exec rows, over the bound %d", pairs.steps, size, size, limit)
 	}
 }
