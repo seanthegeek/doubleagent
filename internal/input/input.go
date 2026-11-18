@@ -24,10 +24,10 @@
 // point) refused. os.Root would also keep a path below a directory, but it
 // follows a link that stays inside and bypasses internal/osfile's Windows
 // path form. A loose tree's walk enters only real directories. Extraction
-// creates no link, hard link or device, checks each component of a
-// member's name the same way (checkElement), looks at each directory it
-// makes with lstat and creates every file new; a member whose name cannot
-// be used is skipped with a problem naming the archive and the member.
+// makes no link or device, checks each member name's components with
+// checkElement, lstats each directory it makes and creates every file new;
+// a member whose name cannot be used, or whose place holds an entry made
+// for another name, is skipped with a problem naming archive and member.
 package input
 
 import (
@@ -176,6 +176,12 @@ type Collection struct {
 	// found without searching the list, whose length grows with the
 	// evidence.
 	problemLines map[string]bool
+	// extractedFiles holds the slash key of each file the extraction of an
+	// archive made, under the member's own name; nil for a directory
+	// input. A manifest row names a file only by such a key, so a member
+	// skipped because the file system holds its name and another's as one
+	// entry is not read under the other's content.
+	extractedFiles map[string]bool
 	// extracted is the directory an archive was extracted to, until
 	// Cleanup removes it.
 	extracted string

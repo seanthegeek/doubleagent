@@ -54,11 +54,11 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 			continue
 		}
 		if directory {
-			err = out.makeDirectories(parts)
+			err = out.makeDirectories(out.placeOf(parts), len(parts))
 		} else {
 			err = extractZipMember(member, parts, path, out)
 		}
-		if err != nil {
+		if err != nil && !out.skipped(name, err) {
 			return err
 		}
 	}
@@ -100,7 +100,8 @@ func extractZipMember(member *zip.File, parts []string, path string, out *extrac
 	}
 	defer contents.Close()
 	err = out.writeFile(parts, 0o666, contents, time.Time{})
-	if err != nil && !isPathError(err) {
+	var collision *collisionError
+	if err != nil && !isPathError(err) && !errors.As(err, &collision) {
 		return cannotExtract(path, zipReason(err))
 	}
 	return err

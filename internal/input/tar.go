@@ -159,12 +159,18 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 		return nil, nil
 	}
 	if header.Typeflag == tar.TypeDir {
-		if err := out.makeDirectories(parts); err != nil {
+		if err := out.makeDirectories(out.placeOf(parts), len(parts)); err != nil {
+			if out.skipped(header.Name, err) {
+				return nil, nil
+			}
 			return nil, err
 		}
 		return &tarDirectory{key: joinSlash(parts), parts: parts, modified: header.ModTime}, nil
 	}
 	err := out.writeFile(parts, tarFileMode(header.Mode), reader, header.ModTime)
+	if err != nil && out.skipped(header.Name, err) {
+		return nil, nil
+	}
 	if err != nil && !isPathError(err) {
 		return nil, cannotExtract(path, tarReason(err))
 	}

@@ -338,8 +338,10 @@ problem	<input>/c.zip: member C:/drive.txt not extracted: its name leads out of 
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
 artifact	0	claude-code	.claude/y	/alice/.claude/y	<extract>/alice/.claude/y	-
-=== a zip member below a file member is an error
-error
+=== a zip member below a file member is skipped with a problem
+kind	loose
+host	
+problem	<input>/c.zip: member a/b not extracted: member a holds its place as another kind of entry
 === links inside a loose tree are never followed
 kind	loose
 host	

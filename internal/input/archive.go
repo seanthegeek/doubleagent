@@ -40,13 +40,19 @@ func openArchive(ctx context.Context, source, workDir string) (*Collection, erro
 		}
 		collection.Notes = append(collection.Notes, note)
 	}
-	problems, err := extractArchive(ctx, source, destination)
+	out, err := extractArchive(ctx, source, destination)
 	if err != nil {
 		_ = collection.Cleanup()
 		return nil, err
 	}
-	for _, problem := range problems {
+	for _, problem := range out.problems {
 		collection.addProblem(problem)
+	}
+	collection.extractedFiles = map[string]bool{}
+	for key, directory := range out.made {
+		if !directory {
+			collection.extractedFiles[key] = true
+		}
 	}
 	if !isCollectionLayout(destination) {
 		collection.Kind = KindLoose

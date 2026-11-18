@@ -788,16 +788,16 @@ func zipMemberCases() []inputCase {
 					"member /abs.txt not extracted: its name leads out of the extraction directory",
 					"member C:/drive.txt not extracted: its name leads out of the extraction directory"})
 			}},
-		{name: "a zip member below a file member is an error",
+		{name: "a zip member below a file member is skipped with a problem",
 			build: func(t *testing.T, dir string) string {
 				archive := filepath.Join(dir, "c.zip")
 				writeFile(t, archive, string(zipBytes(t, []string{"a", "a/b"}, map[string]string{})))
 				return archive
 			},
 			check: func(t *testing.T, collection *Collection, err error) {
-				if err == nil {
-					t.Fatal("no error")
-				}
+				opened(t, err)
+				wantProblem(t, collection, "c.zip: member a/b not extracted: member a holds its place "+
+					"as another kind of entry")
 			}},
 	}
 }
