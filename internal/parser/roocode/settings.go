@@ -72,6 +72,9 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
+// entriesArray finds the entries array of a CLI history that is not JSON.
+var entriesArray = clinelegacy.KeyedArray("entries")
+
 // cliEntries returns the entries of the CLI history: the document's entries
 // array, else, for text that is not JSON, the array after its "entries"
 // key walked as far as it parses.
@@ -86,7 +89,7 @@ func cliEntries(text string, data jsonvalue.Value, decoded bool, problems *parse
 		}
 	}
 	if !decoded {
-		if start, found := clinelegacy.ArrayAfterKey(text, "entries"); found {
+		if start, found := clinelegacy.ArrayAfterKey(text, entriesArray); found {
 			return parser.ArrayAt(text, start, problems, nil)
 		}
 	}

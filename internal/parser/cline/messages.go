@@ -23,6 +23,9 @@ const rejectionSuffix = " -- NOT a tool or system failure. Clarify with user bef
 var blockedPattern = regexp.MustCompile(
 	`^(?:Tool "[^"\n]*" is disabled by policy|Tool [^\n]* was blocked by a runtime hook)\z`)
 
+// messagesArray finds the messages array of a messages file cut mid-write.
+var messagesArray = clinelegacy.KeyedArray("messages")
+
 // transcript is what a messages file holds: its messages and the time of a
 // message without its own.
 type transcript struct {
@@ -45,7 +48,7 @@ func readTranscript(artifact *input.Artifact, manifest jsonvalue.Value, problems
 				timeutil.FromValue(payload.Get("updated_at")))}
 	}
 	result := transcript{fallback: timeutil.FromValue(manifest.Get("started_at"))}
-	if start, found := clinelegacy.ArrayAfterKey(rawText, "messages"); found {
+	if start, found := clinelegacy.ArrayAfterKey(rawText, messagesArray); found {
 		result.messages = parser.ArrayAt(rawText, start, problems, nil)
 	} else {
 		problems.Add(0, "messages file is not a JSON object")
