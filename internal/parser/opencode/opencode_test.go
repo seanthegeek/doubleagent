@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows each file gives are proved against the recorded cases by the
@@ -195,5 +197,73 @@ func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 	want := []string{"a.json", "b.json", "x..json"}
 	if got := children(directory); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// legacySession writes a legacy tree under a new home: a session file in
+// the second of two project directories and count user messages, and
+// returns the artifact of each message file in name order.
+func legacySession(t *testing.T, count int) []*input.Artifact {
+	t.Helper()
+	home := t.TempDir()
+	const storage = ".local/share/opencode/storage"
+	files := map[string]string{
+		storage + "/session/proj_a/other.json": `{"id": "other"}`,
+		storage + "/session/proj_b/ses_x.json": `{"id": "ses_x", "directory": "/work/x"}`,
+	}
+	var rels []string
+	for i := range count {
+		rel := fmt.Sprintf("%s/message/ses_x/msg_%03d.json", storage, i)
+		rels = append(rels, rel)
+		files[rel] = fmt.Sprintf(`{"id": "msg_%03d", "sessionID": "ses_x", "role": "assistant", `+
+			`"providerID": "p", "modelID": "m%d", "time": {"created": %d}}`, i, i, 1700000000000+i)
+	}
+	for rel, text := range files {
+		path := filepath.Join(home, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	artifacts := make([]*input.Artifact, len(rels))
+	for i, rel := range rels {
+		artifacts[i] = &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+			Original: "/home/u/" + rel, Rel: rel, Agent: "opencode", Manifest: jsonvalue.NewNull(),
+			Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}}
+	}
+	return artifacts
+}
+
+func TestALegacySessionsDirectoriesAreListedOncePerRun(t *testing.T) {
+	for _, count := range []int{4, 16} {
+		t.Run(fmt.Sprintf("a session of %d messages lists two directories", count), func(t *testing.T) {
+			artifacts := legacySession(t, count)
+			shared := New()
+			for _, artifact := range artifacts {
+				var got, want []timeline.Row
+				if err := shared.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+					got = append(got, row)
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+					want = append(want, row)
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if !slices.Equal(got, want) {
+					t.Fatalf("%s: one parser for the run gives %+v, a parser per file %+v", artifact.Rel, got, want)
+				}
+				if len(got) == 0 || got[0].ProjectPath != "/work/x" {
+					t.Fatalf("%s: got %+v, want rows in the session file's directory", artifact.Rel, got)
+				}
+			}
+			if shared.tree.listings != 2 {
+				t.Errorf("%d directory listings, want 2 (the message and the session directory)",
+					shared.tree.listings)
+			}
+		})
 	}
 }
