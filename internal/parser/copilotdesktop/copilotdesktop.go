@@ -60,9 +60,9 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 		emit(p.refRow(artifact, ref[1], ref[2], ref[3]))
 		return nil
 	}
-	database, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		emit(p.row(artifact, "parser: "+message, ""))
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.row(artifact, parser.ProblemPrefix+parser.DatabaseError(err), ""))
 		return nil
 	}
 	defer database.Close()

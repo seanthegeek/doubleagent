@@ -146,9 +146,9 @@ type stateTables struct {
 // readState returns the tables of state_5.sqlite, or an error whose text
 // is the problem row that replaces them.
 func readState(path string) (stateTables, error) {
-	database, err := openDatabase(path)
+	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return stateTables{}, err
+		return stateTables{}, databaseError(err)
 	}
 	defer database.Close()
 	var tables stateTables
@@ -313,10 +313,10 @@ func feedbackText(record jsonvalue.Value) string {
 // read, which that database's own parse reports.
 func siblingThreads(artifact *input.Artifact) map[string]*sqlitefile.Row {
 	path, ok := parser.Beside(artifact, stateDatabase)
-	if !ok || sqlitefile.Problem(path) != nil {
+	if !ok {
 		return map[string]*sqlitefile.Row{}
 	}
-	database, err := sqlitefile.OpenPath(path)
+	database, err := parser.OpenDatabase(path)
 	if err != nil {
 		return map[string]*sqlitefile.Row{}
 	}

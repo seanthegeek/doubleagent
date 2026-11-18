@@ -100,9 +100,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 		row.TurnType, row.Text = timeline.TurnSystem, parser.ProblemPrefix+message
 		emit(row)
 	}
-	handle, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		problem(message)
+	handle, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		problem(parser.DatabaseError(err))
 		return
 	}
 	defer handle.Close()

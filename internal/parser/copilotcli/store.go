@@ -63,8 +63,9 @@ func present(row sqlitefile.Row, column string) bool {
 // parseStore emits the rows of session-store.db: every row is read before
 // any is emitted, so a database that fails midway gives one problem row.
 func (p *Parser) parseStore(artifact *input.Artifact, emit parser.Emit) {
-	database, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		message := parser.DatabaseError(err)
 		line := 0
 		if strings.HasPrefix(message, "SQLite error: ") {
 			line = 1

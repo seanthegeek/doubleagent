@@ -61,9 +61,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 			" copied before a schema migration; it can hold threads and events since deleted " +
 			"from the live database"}))
 	}
-	database, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + message}))
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + parser.DatabaseError(err)}))
 		return
 	}
 	defer database.Close()

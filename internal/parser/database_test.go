@@ -17,27 +17,36 @@ func TestOpenDatabaseNamesWhyADatabaseCannotBeRead(t *testing.T) {
 		name   string
 		data   []byte
 		prefix string
+		opened bool
 	}{
-		{"a text file is not a database", []byte("not sqlite"), "not a SQLite database"},
-		{"a header over a damaged body is a SQLite error",
-			append([]byte("SQLite format 3\x00"), make([]byte, 200)...), "SQLite error: "},
-		{"an empty file is an empty database", nil, ""},
+		{"a text file is not a database", []byte("not sqlite"), "not a SQLite database", false},
+		{"a header over a damaged body is a SQLite error met opening it",
+			append([]byte("SQLite format 3\x00"), make([]byte, 200)...), "SQLite error: ", true},
+		{"an empty file is an empty database", nil, "", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := writeFile(t, "codex-dev.db", test.data)
-			database, message := OpenDatabase(path)
+			database, err := OpenDatabase(path)
 			if database != nil {
 				defer database.Close()
 			}
-			if (test.prefix == "") != (message == "") || !strings.HasPrefix(message, test.prefix) {
-				t.Errorf("got %q, want a message starting %q", message, test.prefix)
+			message := ""
+			if err != nil {
+				message = DatabaseError(err)
+			}
+			var openErr *OpenError
+			if (test.prefix == "") != (err == nil) || !strings.HasPrefix(message, test.prefix) ||
+				errors.As(err, &openErr) != test.opened {
+				t.Errorf("got %v (%q), want a message starting %q, opening failed %v", err, message,
+					test.prefix, test.opened)
 			}
 		})
 	}
-	_, message := OpenDatabase(filepath.Join(directory, "absent.db"))
-	if want := "absent.db could not be read (no such file or directory)"; message != want {
-		t.Errorf("a missing file gave %q, want %q", message, want)
+	_, err := OpenDatabase(filepath.Join(directory, "absent.db"))
+	if want := "absent.db could not be read (no such file or directory)"; err == nil ||
+		DatabaseError(err) != want {
+		t.Errorf("a missing file gave %v, want %q", err, want)
 	}
 }
 

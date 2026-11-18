@@ -155,9 +155,9 @@ func logKind(row sqlitefile.Row, body string) string {
 // readLogDatabase returns the log rows of the database at path, or an
 // error whose text is the problem row that replaces them.
 func readLogDatabase(path string) ([]logRecord, error) {
-	database, err := openDatabase(path)
+	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return nil, err
+		return nil, databaseError(err)
 	}
 	defer database.Close()
 	records, err := readLogs(database)
@@ -165,16 +165,6 @@ func readLogDatabase(path string) ([]logRecord, error) {
 		return nil, databaseError(err)
 	}
 	return records, nil
-}
-
-// openDatabase opens the database at path through parser.OpenDatabase, or
-// returns an error whose text is the problem row that says why it cannot.
-func openDatabase(path string) (*sqlitefile.Database, error) {
-	database, message := parser.OpenDatabase(path)
-	if message != "" {
-		return nil, errors.New(message)
-	}
-	return database, nil
 }
 
 // databaseError returns an error met reading a database as an error whose
@@ -432,10 +422,7 @@ func logDatabases(home string) []string {
 // rows are taken as the scan meets them, unprojected, so a body that is
 // not valid text fails only the times that would have returned it.
 func guardianRows(logPath string) ([]sqlitefile.Row, string) {
-	if sqlitefile.Problem(logPath) != nil {
-		return nil, ""
-	}
-	database, err := sqlitefile.OpenPath(logPath)
+	database, err := parser.OpenDatabase(logPath)
 	if err != nil {
 		return nil, ""
 	}

@@ -28,14 +28,14 @@ type attachment struct {
 // parseDatabase emits the rows of db.sqlite, or one `parser:` row when the
 // database cannot be read; a failure part way gives only that row.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	database, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		emit(p.SystemRow(artifact, parser.ProblemPrefix+message))
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.SystemRow(artifact, parser.ProblemPrefix+parser.DatabaseError(err)))
 		return
 	}
 	defer database.Close()
 	var rows []timeline.Row
-	err := p.databaseRows(database, artifact, options, func(row timeline.Row) { rows = append(rows, row) })
+	err = p.databaseRows(database, artifact, options, func(row timeline.Row) { rows = append(rows, row) })
 	if err != nil {
 		emit(p.SystemRow(artifact, parser.ProblemPrefix+parser.DatabaseError(err)))
 		return

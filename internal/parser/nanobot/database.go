@@ -96,9 +96,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 // or an error whose text is the message of the one `parser:` row that
 // replaces them.
 func readSessionStore(path string) (*sessionStore, error) {
-	database, message := parser.OpenDatabase(path)
-	if message != "" {
-		return nil, errors.New(message)
+	database, err := parser.OpenDatabase(path)
+	if err != nil {
+		return nil, errors.New(parser.DatabaseError(err))
 	}
 	defer database.Close()
 	names, err := database.TableNames()

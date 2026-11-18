@@ -139,9 +139,9 @@ func (p *Parser) systemAt(artifact *input.Artifact, text, timestamp string, line
 // rows are gathered first: a database error met while reading them is one
 // problem row in their place.
 func (p *Parser) database(artifact *input.Artifact, emit parser.Emit, read func(*store, parser.Emit)) {
-	database, problem := parser.OpenDatabase(artifact.DiskPath)
-	if problem != "" {
-		emit(p.row(artifact, timeline.TurnSystem, parser.ProblemPrefix+problem, "", 0))
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.row(artifact, timeline.TurnSystem, parser.ProblemPrefix+parser.DatabaseError(err), "", 0))
 		return
 	}
 	defer database.Close()
