@@ -97,15 +97,15 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 // store without a responses table.
 func readResponses(handle *sqlitefile.Database, problems *parser.Problems) (map[string]string,
 	[]storedResponse, string, error) {
-	tables, err := handle.TableNames()
+	tables, err := parser.TablesOf(handle)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	if !tables["responses"] {
+	if !tables.Has("responses") {
 		return nil, nil, "no responses table", nil
 	}
 	names := map[string]string{}
-	if tables["conversations"] {
+	if tables.Has("conversations") {
 		table, err := handle.Table("conversations")
 		if err != nil {
 			return nil, nil, "", err

@@ -102,13 +102,13 @@ func readSessionStore(path string) (*sessionStore, error) {
 		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	defer database.Close()
-	names, err := database.TableNames()
+	names, err := parser.TablesOf(database)
 	if err != nil {
 		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	var missing []string
 	for _, name := range []string{"messages", "sessions"} {
-		if !names[name] {
+		if !names.Has(name) {
 			missing = append(missing, name)
 		}
 	}

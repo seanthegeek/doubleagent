@@ -23,7 +23,7 @@ type windowSet struct {
 type agentDatabase struct {
 	*writer
 	database *sqlitefile.Database
-	names    map[string]bool
+	names    parser.Tables
 	windows  windowSet
 	store    *databaseState
 	problems parser.Problems
@@ -69,12 +69,12 @@ func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parser.Opt
 
 // read runs the passes over the database in order.
 func (a *agentDatabase) read() error {
-	names, err := a.database.TableNames()
+	names, err := parser.TablesOf(a.database)
 	if err != nil {
 		return err
 	}
 	a.names = names
-	if !names["transcript_events"] && names["openclaw_engine_anchor"] {
+	if !names.Has("transcript_events") && names.Has("openclaw_engine_anchor") {
 		a.problems.Add(0, anchorMessage(a.database, "agent"))
 		return nil
 	}
@@ -95,7 +95,7 @@ func (a *agentDatabase) read() error {
 		{"memory_session_tombstones", a.tombstones},
 	}
 	for _, step := range steps {
-		if names[step.table] {
+		if names.Has(step.table) {
 			if err := step.run(); err != nil {
 				return err
 			}
@@ -108,7 +108,7 @@ func (a *agentDatabase) read() error {
 // prepare reads the windows, attaches the relay rows and the rows of each
 // session's metadata entry, and returns the session_nodes rows read.
 func (a *agentDatabase) prepare() ([]node, error) {
-	if a.names["session_windows"] {
+	if a.names.Has("session_windows") {
 		rows, err := a.table("session_windows", func(table *sqlitefile.Table) sqlitefile.Query {
 			return table.Select()
 		})
@@ -128,7 +128,7 @@ func (a *agentDatabase) prepare() ([]node, error) {
 		return nil, err
 	}
 	var nodes []node
-	if a.names["session_nodes"] {
+	if a.names.Has("session_nodes") {
 		if nodes, err = a.nodes(); err != nil {
 			return nil, err
 		}

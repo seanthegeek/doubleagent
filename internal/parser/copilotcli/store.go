@@ -18,7 +18,6 @@ var checkpointColumns = []string{"overview", "history", "work_done", "technical_
 // store reads the tables of session-store.db, keeping the first error.
 type store struct {
 	database *sqlitefile.Database
-	tables   map[string]bool
 	err      error
 }
 
@@ -43,10 +42,12 @@ func (s *store) rows(table, order string) []sqlitefile.Row {
 
 // has reports whether the database has the table.
 func (s *store) has(table string) bool {
-	if s.tables == nil && s.err == nil {
-		s.tables, s.err = s.database.TableNames()
+	if s.err != nil {
+		return false
 	}
-	return s.tables[table]
+	tables, err := parser.TablesOf(s.database)
+	s.err = err
+	return tables.Has(table)
 }
 
 // stored returns a column as row text (parser.ColumnText): "" for NULL.

@@ -41,14 +41,14 @@ type sidebarStore struct {
 // error: once one fails the rest return nothing.
 type tableReader struct {
 	database *sqlitefile.Database
-	names    map[string]bool
+	names    parser.Tables
 	err      error
 }
 
 // rows returns the rows query gives over the table called name, none when
 // the database has no such table or an earlier query failed.
 func (r *tableReader) rows(name string, query func(*sqlitefile.Table) sqlitefile.Query) []sqlitefile.Row {
-	if r.err != nil || !r.names[name] {
+	if r.err != nil || !r.names.Has(name) {
 		return nil
 	}
 	table, err := r.database.Table(name)
@@ -64,7 +64,7 @@ func (r *tableReader) rows(name string, query func(*sqlitefile.Table) sqlitefile
 // readSidebar reads every table of a db.sqlite the parser uses. An error
 // in any of them stops the whole file, as one query failing did.
 func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
-	names, err := database.TableNames()
+	names, err := parser.TablesOf(database)
 	if err != nil {
 		return nil, err
 	}
@@ -82,8 +82,8 @@ func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
 				row.Equals("namespace", sqlitefile.TextValue(worktreesNamespace))
 		})
 	})
-	if reader.err == nil && names["archived_git_worktrees"] {
-		store.archived, reader.err = readArchived(database, names["thread_archived_worktrees"])
+	if reader.err == nil && names.Has("archived_git_worktrees") {
+		store.archived, reader.err = readArchived(database, names.Has("thread_archived_worktrees"))
 	}
 	store.terminals = reader.rows("sidebar_terminal_threads", func(table *sqlitefile.Table) sqlitefile.Query {
 		return table.Select().OrderBy("created_at")

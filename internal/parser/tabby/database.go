@@ -42,7 +42,7 @@ type store struct {
 	parser   *Parser
 	artifact *input.Artifact
 	database *sqlitefile.Database
-	tables   map[string]bool
+	tables   parser.Tables
 	users    map[string]string
 	emit     parser.Emit
 }
@@ -76,7 +76,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 // rows emits the database's rows in order, stopping at the first error.
 func (s *store) rows() error {
 	var err error
-	if s.tables, err = s.database.TableNames(); err != nil {
+	if s.tables, err = parser.TablesOf(s.database); err != nil {
 		return err
 	}
 	if s.users, err = s.readUsers(); err != nil {
@@ -87,7 +87,7 @@ func (s *store) rows() error {
 		run   func() error
 	}{{"threads", s.threads}, {"pages", s.pages}, {"user_events", s.userEvents},
 		{"integrations", s.integrations}} {
-		if s.tables[step.table] {
+		if s.tables.Has(step.table) {
 			if err := step.run(); err != nil {
 				return err
 			}
@@ -135,7 +135,7 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 // readUsers returns each user's label, "<email> (<name>)", by id.
 func (s *store) readUsers() (map[string]string, error) {
 	users := map[string]string{}
-	if !s.tables["users"] {
+	if !s.tables.Has("users") {
 		return users, nil
 	}
 	err := s.each("users", "id", func(user sqlitefile.Row) {
@@ -215,7 +215,7 @@ func (s *store) owner(value sqlitefile.Value) string {
 // threads emits each thread's start row and its messages.
 func (s *store) threads() error {
 	messages := &grouped{rows: map[string][]sqlitefile.Row{}}
-	if s.tables["thread_messages"] {
+	if s.tables.Has("thread_messages") {
 		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row) {
 			messages.add(row.Get("thread_id").String(), row)
 		})
@@ -295,7 +295,7 @@ func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, t
 // each section, in position order, as assistant rows.
 func (s *store) pages() error {
 	sections := &grouped{rows: map[string][]sqlitefile.Row{}}
-	if s.tables["page_sections"] {
+	if s.tables.Has("page_sections") {
 		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row) {
 			sections.add(row.Get("page_id").String(), row)
 		})
@@ -421,7 +421,7 @@ func (s *store) integrations() error {
 				" api_base=" + cmp.Or(apiBase, "-") + " (account not recorded; from integrations table, " +
 				"created_at)"}))
 	})
-	if err != nil || !s.tables["provided_repositories"] {
+	if err != nil || !s.tables.Has("provided_repositories") {
 		return err
 	}
 	return s.each("provided_repositories", "integration_id,id", func(repository sqlitefile.Row) {

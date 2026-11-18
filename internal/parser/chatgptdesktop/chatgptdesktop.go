@@ -83,11 +83,11 @@ func readCatalog(path string) ([]sqlitefile.Row, error) {
 		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	defer database.Close()
-	names, err := database.TableNames()
+	names, err := parser.TablesOf(database)
 	if err != nil {
 		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
-	if !names[catalogTable] {
+	if !names.Has(catalogTable) {
 		return nil, errors.New("no " + catalogTable + " table")
 	}
 	table, err := database.Table(catalogTable)

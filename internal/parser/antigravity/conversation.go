@@ -90,7 +90,7 @@ type conversationReader struct {
 	artifact  *input.Artifact
 	database  *sqlitefile.Database
 	options   parser.Options
-	tables    map[string]bool
+	tables    parser.Tables
 	sessionID string
 	project   string
 	branch    string
@@ -115,7 +115,7 @@ func (r *conversationReader) add(row timeline.Row) {
 // firstRow returns the first row of a table in storage order with every
 // column, and whether there is one.
 func (r *conversationReader) firstRow(table string, columns ...string) (sqlitefile.Row, bool, error) {
-	if !r.tables[table] {
+	if !r.tables.Has(table) {
 		return sqlitefile.Row{}, false, nil
 	}
 	handle, err := r.database.Table(table)
@@ -128,8 +128,8 @@ func (r *conversationReader) firstRow(table string, columns ...string) (sqlitefi
 // read reads the conversation: its trajectory, the models of its steps,
 // then its steps.
 func (r *conversationReader) read() error {
-	tables, err := r.database.TableNames()
-	if err != nil || !tables["steps"] {
+	tables, err := parser.TablesOf(r.database)
+	if err != nil || !tables.Has("steps") {
 		return err
 	}
 	r.tables = tables
@@ -205,7 +205,7 @@ func prefixed(prefix, text string) string {
 // generators reads the model that generated each step.
 func (r *conversationReader) generators() error {
 	r.models = map[int64]string{}
-	if !r.tables["gen_metadata"] {
+	if !r.tables.Has("gen_metadata") {
 		return nil
 	}
 	table, err := r.database.Table("gen_metadata")

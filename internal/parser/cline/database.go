@@ -56,11 +56,11 @@ func readSessions(path string) ([]sqlitefile.Row, error) {
 		return nil, err
 	}
 	defer database.Close()
-	names, err := database.TableNames()
+	names, err := parser.TablesOf(database)
 	if err != nil {
 		return nil, unreadable("sessions.db", err)
 	}
-	if !names["sessions"] {
+	if !names.Has("sessions") {
 		return nil, nil
 	}
 	table, err := database.Table("sessions")

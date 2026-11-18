@@ -16,7 +16,7 @@ type store struct {
 	parser      *Parser
 	artifact    *input.Artifact
 	database    *sqlitefile.Database
-	tables      map[string]bool
+	tables      parser.Tables
 	projectPath string
 	emit        parser.Emit
 }
@@ -47,10 +47,10 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 // rows emits the database's rows in order, stopping at the first error.
 func (s *store) rows(options parser.Options) error {
 	var err error
-	if s.tables, err = s.database.TableNames(); err != nil || !s.tables["messages"] {
+	if s.tables, err = parser.TablesOf(s.database); err != nil || !s.tables.Has("messages") {
 		return err
 	}
-	if s.tables["sessions"] {
+	if s.tables.Has("sessions") {
 		if err := s.sessionRows(); err != nil {
 			return err
 		}
@@ -185,7 +185,7 @@ func orZero(value sqlitefile.Value) string {
 // off for the project, at the database file's mtime.
 func (s *store) mcpRows() error {
 	for _, table := range mcpTables {
-		if !s.tables[table] {
+		if !s.tables.Has(table) {
 			continue
 		}
 		handle, err := s.database.Table(table)
@@ -209,7 +209,7 @@ func (s *store) mcpRows() error {
 // stored content's length in bytes and never the content, and a "file
 // read:" row per read.
 func (s *store) fileRows() error {
-	if s.tables["files"] {
+	if s.tables.Has("files") {
 		handle, err := s.database.Table("files")
 		if err != nil {
 			return err
@@ -229,7 +229,7 @@ func (s *store) fileRows() error {
 			return err
 		}
 	}
-	if !s.tables["read_files"] {
+	if !s.tables.Has("read_files") {
 		return nil
 	}
 	handle, err := s.database.Table("read_files")
