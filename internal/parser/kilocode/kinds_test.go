@@ -75,3 +75,24 @@ func TestASideFileThatDoesNotHoldAnObjectIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestTaskEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	t.Run("index entries", func(t *testing.T) {
+		got := taskRows(t, `{"entries": [{"id": "u"}, 7]}`)
+		if want := []string{"hi", "parser: entries holds 1 entry that is not a JSON object"}; !slices.Equal(got, want) {
+			t.Errorf("rows %q, want %q", got, want)
+		}
+	})
+	t.Run("messages and their content", func(t *testing.T) {
+		home := t.TempDir()
+		artifact := taskArtifact(home, "t")
+		write(t, artifact.DiskPath, `[{"role": "user", "content": [{"type": "text", "text": "hi"}, 7]}, "x"]`)
+		var texts []string
+		New().task(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
+		want := []string{"hi", "parser: content holds 1 entry that is not a JSON object",
+			"parser: api_conversation_history.json holds 1 entry that is not a JSON object"}
+		if !slices.Equal(texts, want) {
+			t.Errorf("rows %q, want %q", texts, want)
+		}
+	})
+}

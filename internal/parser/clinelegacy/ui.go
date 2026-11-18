@@ -2,6 +2,7 @@ package clinelegacy
 
 import (
 	"cmp"
+	"path"
 	"strconv"
 	"strings"
 
@@ -17,10 +18,8 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 	options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	model, lastToolID := "", ""
-	for position, message := range parser.JSONArray(artifact.DiskPath, &problems) {
-		if !message.IsObject() {
-			continue
-		}
+	for position, message := range parser.EntriesOfKindFrom(parser.JSONArray(artifact.DiskPath, &problems),
+		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
 		if info := message.Get("modelInfo"); info.IsObject() && !info.Get("modelId").IsEmpty() {
 			model = info.Get("modelId").Text()
 		}

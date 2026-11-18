@@ -1,6 +1,8 @@
 package clinelegacy
 
 import (
+	"path"
+
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -31,10 +33,8 @@ func BaseTurn(role jsonvalue.Value) string {
 func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 	options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
-	for position, message := range parser.JSONArray(artifact.DiskPath, &problems) {
-		if !message.IsObject() {
-			continue
-		}
+	for position, message := range parser.EntriesOfKindFrom(parser.JSONArray(artifact.DiskPath, &problems),
+		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
 		timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), context.Start)
 		model := context.ModelAt(message.Get("ts"))
 		row := func(turnType string) timeline.Row {

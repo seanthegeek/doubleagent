@@ -86,3 +86,22 @@ func TestACloudSessionStatusesThatIsNotAnObjectIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestEntriesThatAreNotObjectsAreReportedOncePerFile(t *testing.T) {
+	tests := []struct {
+		name, rel, text, want string
+	}{
+		{"SDK messages", ".cline/data/sessions/s/s.messages.json",
+			`{"messages": [{"role": "user", "content": "hi"}, 7, "x"]}`,
+			"parser: messages holds 2 entries that are not JSON objects"},
+		{"task history", ".cline/data/state/taskHistory.json", `[{"id": "1", "task": "hi", "ts": 1}, 7]`,
+			"parser: taskHistory.json holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := parseFile(t, test.rel, test.text); !slices.Contains(got, test.want) {
+				t.Errorf("rows %q lack %q", got, test.want)
+			}
+		})
+	}
+}

@@ -152,10 +152,9 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 // taskHistory emits the "task:" row of each entry of state/taskHistory.json.
 func (p *Parser) taskHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	for position, item := range parser.JSONArray(artifact.DiskPath, &problems) {
-		if item.IsObject() {
-			emit(p.HistoryRow(artifact, item, position))
-		}
+	for position, item := range parser.EntriesOfKindFrom(parser.JSONArray(artifact.DiskPath, &problems),
+		"taskHistory.json", jsonvalue.Object, 0, &problems) {
+		emit(p.HistoryRow(artifact, item, position))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

@@ -62,3 +62,14 @@ func TestATaskMetadataListThatIsNotAnArrayIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestTaskMetadataEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	for _, member := range []string{"files_in_context", "model_usage", "environment_history"} {
+		t.Run(member, func(t *testing.T) {
+			got := metadataRows(t, `{"`+member+`": [7, "x"]}`)
+			if want := []string{"parser: " + member + " holds 2 entries that are not JSON objects"}; !slices.Equal(got, want) {
+				t.Errorf("rows %q, want %q", got, want)
+			}
+		})
+	}
+}

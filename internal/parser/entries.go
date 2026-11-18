@@ -92,3 +92,28 @@ func ListOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line 
 	}
 	return entries
 }
+
+// EntriesOfKindFrom gives the entries of entries, an array read as it is
+// walked (JSONArray), that are of kind want, passing over the others, and
+// adds one problem for those passed over at line once the walk ends, or
+// when the loop leaves it, for the entries walked by then (WrongEntries).
+func EntriesOfKindFrom(entries iter.Seq2[int, jsonvalue.Value], member string, want jsonvalue.Kind, line int,
+	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
+		wrong := 0
+		defer func() {
+			if wrong > 0 {
+				problems.Add(line, WrongEntries(member, want, wrong))
+			}
+		}()
+		for i, entry := range entries {
+			if entry.Kind() != want {
+				wrong++
+				continue
+			}
+			if !yield(i, entry) {
+				return
+			}
+		}
+	}
+}

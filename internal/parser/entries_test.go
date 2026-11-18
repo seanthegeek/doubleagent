@@ -129,3 +129,43 @@ func TestListOfKindKeepsTheEntriesInOrder(t *testing.T) {
 		t.Errorf("got %v and %v, want [a b] and %v", got, problems, want)
 	}
 }
+
+func TestEntriesOfKindFromReportTheEntriesWalkedOnce(t *testing.T) {
+	value, err := jsonvalue.DecodeString(`[{}, "x", {}, 7, "y"]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	walk := func(yield func(int, jsonvalue.Value) bool) {
+		for i, item := range value.Items() {
+			if !yield(i, item) {
+				return
+			}
+		}
+	}
+	tests := []struct {
+		name     string
+		stop     int
+		indexes  []int
+		problems Problems
+	}{
+		{"a whole walk reports every entry passed over", -1, []int{0, 2},
+			Problems{{Line: 1, Message: "file.json holds 3 entries that are not JSON objects"}}},
+		{"a loop that leaves early reports those walked", 1, []int{0, 2},
+			Problems{{Line: 1, Message: "file.json holds 1 entry that is not a JSON object"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var problems Problems
+			var indexes []int
+			for i := range EntriesOfKindFrom(walk, "file.json", jsonvalue.Object, 1, &problems) {
+				indexes = append(indexes, i)
+				if len(indexes) > test.stop && test.stop >= 0 {
+					break
+				}
+			}
+			if !slices.Equal(indexes, test.indexes) || !slices.Equal(problems, test.problems) {
+				t.Errorf("indexes %v and problems %v, want %v and %v", indexes, problems, test.indexes, test.problems)
+			}
+		})
+	}
+}
