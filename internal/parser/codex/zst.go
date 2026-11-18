@@ -17,11 +17,6 @@ type numberedRecord struct {
 	value jsonvalue.Value
 }
 
-// asciiWhitespace is what is trimmed from each line of a decoded rollout
-// before it is read as JSON: ASCII whitespace, the line's bytes not yet
-// being decoded as UTF-8.
-const asciiWhitespace = " \t\n\r\v\f"
-
 // zstRecords returns the JSON object lines of a zstd-compressed JSON lines
 // file, numbered from 1, as zstRecordsOf reads them. A file that cannot be
 // opened adds its unreadable problem at line 0.
@@ -36,62 +31,74 @@ func zstRecords(path string, problems *parser.Problems) []numberedRecord {
 }
 
 // zstRecordsOf decodes the zstd frames of r, one after another, and returns
-// the JSON object lines of the text they hold. A line that is not JSON adds
-// an "unparseable line" problem and one holding another JSON value is
-// skipped. Corrupt or cut data adds one "zstd:" problem at the line after
-// the last one decoded, after which the text decoded before the damage is
-// read as a last line. A read that fails adds the file's unreadable problem
-// at the last line read, and nothing more is read; the file is read in
-// chunks of readChunk bytes, so the lines of the chunks before the failing
-// one are kept.
+// the JSON object lines of the text they hold, each line read as
+// parser.JSONRecords reads the lines of a plain file, so a compressed and a
+// plain rollout give the same records and problems. Corrupt or cut data
+// adds one "zstd:" problem at the line after the last one decoded, after
+// which the text decoded before the damage is read as a last line. A read
+// that fails adds the file's unreadable problem at the last line read, and
+// nothing more is read; the file is read in chunks of readChunk bytes, so
+// the lines of the chunks before the failing one are kept.
 func zstRecordsOf(r io.Reader, path string, problems *parser.Problems) []numberedRecord {
 	var records []numberedRecord
-	var pending []byte
-	number := 0
+	var split lineSplitter
 	source := &chunkReader{source: r, buffer: make([]byte, readChunk)}
 	err := zstdframe.DecodeStream(source, func(chunk []byte) error {
-		pending = append(pending, chunk...)
-		for {
-			end := bytes.IndexByte(pending, '\n')
-			if end < 0 {
-				break
-			}
-			number++
-			records = appendRecord(records, number, pending[:end], problems)
-			pending = pending[end+1:]
-		}
+		split.add(chunk, func(number int, raw []byte) {
+			records = appendRecord(records, number, raw, problems)
+		})
 		return nil
 	})
 	if err != nil {
 		if source.err != nil && !errors.Is(source.err, io.EOF) {
-			problems.AddUnreadable(number, path, source.err)
+			problems.AddUnreadable(split.number, path, source.err)
 			return records
 		}
-		problems.Add(number+1, zstdMessage(err))
+		problems.Add(split.number+1, zstdMessage(err))
 	}
-	if len(bytes.Trim(pending, asciiWhitespace)) > 0 {
-		records = appendRecord(records, number+1, pending, problems)
-	}
-	return records
+	return appendRecord(records, split.number+1, split.pending, problems)
 }
 
-// appendRecord adds the line raw to records when it holds a JSON object; a
-// blank line adds nothing, and a line that is not JSON adds its problem.
+// lineSplitter cuts decoded text into lines as it arrives. Each byte is
+// looked at once however the text is cut into chunks: a search for the
+// end of a line resumes where the last one stopped.
+type lineSplitter struct {
+	pending  []byte
+	searched int
+	number   int
+	// scanned counts the bytes searched, the work a test holds to linear.
+	scanned int
+}
+
+// add appends a chunk and calls line with the number and bytes of each
+// line it completes, without its LF.
+func (s *lineSplitter) add(chunk []byte, line func(number int, raw []byte)) {
+	s.pending = append(s.pending, chunk...)
+	for {
+		end := bytes.IndexByte(s.pending[s.searched:], '\n')
+		if end < 0 {
+			s.scanned += len(s.pending) - s.searched
+			s.searched = len(s.pending)
+			return
+		}
+		s.scanned += end + 1
+		end += s.searched
+		s.number++
+		line(s.number, s.pending[:end])
+		s.pending, s.searched = s.pending[end+1:], 0
+	}
+}
+
+// appendRecord adds the line raw to records when it holds a JSON object,
+// read as parser.JSONRecords reads a line: a blank line adds nothing, and a
+// line that is not a JSON object adds its problem.
 func appendRecord(records []numberedRecord, number int, raw []byte,
 	problems *parser.Problems) []numberedRecord {
-	stripped := bytes.Trim(raw, asciiWhitespace)
-	if len(stripped) == 0 {
-		return records
+	line := func(yield func(int, []byte) bool) { yield(number, raw) }
+	for lineNumber, record := range parser.JSONRecords(line, problems) {
+		records = append(records, numberedRecord{line: lineNumber, value: record})
 	}
-	record, err := jsonvalue.Decode(stripped)
-	if err != nil {
-		problems.AddRaw(number, parser.UnparseableLine(err), parser.LineText(raw))
-		return records
-	}
-	if !record.IsObject() {
-		return records
-	}
-	return append(records, numberedRecord{line: number, value: record})
+	return records
 }
 
 // zstdMessage returns the "zstd:" problem message of a decoding failure.
