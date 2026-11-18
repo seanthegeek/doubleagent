@@ -1,6 +1,7 @@
 package input
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -15,7 +16,7 @@ import (
 // a new empty directory. A file is a zip when it ends with a zip directory
 // (isZipFile), else a tar when its first header reads. Neither is an *Error, and so is a damaged archive; a member that
 // cannot be written is the operating-system error.
-func extractArchive(path, destination string) error {
+func extractArchive(ctx context.Context, path, destination string) error {
 	file, err := osfile.Open(path)
 	if err != nil {
 		return err
@@ -26,9 +27,9 @@ func extractArchive(path, destination string) error {
 		return &fs.PathError{Op: "stat", Path: path, Err: err}
 	}
 	if isZipFile(file, info.Size()) {
-		return extractZip(file, info.Size(), path, newExtraction(destination))
+		return extractZip(ctx, file, info.Size(), path, newExtraction(destination))
 	}
-	return extractTar(file, path, newExtraction(destination))
+	return extractTar(ctx, file, path, newExtraction(destination))
 }
 
 // notAnArchive returns the error for a file that is neither archive.

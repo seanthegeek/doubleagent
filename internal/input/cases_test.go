@@ -1,6 +1,7 @@
 package input
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -801,7 +802,7 @@ func allInputCases() []inputCase {
 func openCase(t *testing.T, test inputCase) (*Collection, error) {
 	t.Helper()
 	input := test.build(t, t.TempDir())
-	collection, err := Open(input, Options{Matcher: matcherOf(t, test.catalog), Host: test.host})
+	collection, err := Open(t.Context(), input, Options{Matcher: matcherOf(t, test.catalog), Host: test.host})
 	if err == nil {
 		t.Cleanup(func() { _ = collection.Cleanup() })
 	}
@@ -822,7 +823,7 @@ func TestCleanupRemovesTheExtractionDirectory(t *testing.T) {
 	archive := filepath.Join(dir, "h.tar")
 	writeFile(t, archive, string(tarBytes(t, false, tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"})))
 	work := filepath.Join(dir, "work", "deeper")
-	collection, err := Open(archive, Options{Matcher: matcherOf(t, ""), WorkDir: work})
+	collection, err := Open(t.Context(), archive, Options{Matcher: matcherOf(t, ""), WorkDir: work})
 	opened(t, err)
 	extracted := collection.ExtractedDir()
 	if filepath.Dir(extracted) != work || !strings.HasPrefix(filepath.Base(extracted), "cac-") {
@@ -838,13 +839,13 @@ func TestCleanupRemovesTheExtractionDirectory(t *testing.T) {
 }
 
 func TestOpenRefusesToRunWithoutAMatcher(t *testing.T) {
-	if _, err := Open(t.TempDir(), Options{}); err == nil {
+	if _, err := Open(t.Context(), t.TempDir(), Options{}); err == nil {
 		t.Fatal("no error without a matcher")
 	}
 }
 
 func TestOpenRefusesAMissingInput(t *testing.T) {
-	_, err := Open(filepath.Join(t.TempDir(), "nope"), Options{Matcher: matcherOf(t, "")})
+	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "nope"), Options{Matcher: matcherOf(t, "")})
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("error %v, want not exist", err)
 	}
@@ -865,7 +866,7 @@ func TestSidecarNotes(t *testing.T) {
 			data := tarBytes(t, false, tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"})
 			writeFile(t, archive, string(data))
 			writeFile(t, archive+".sha256", strings.Replace(test.sidecar, "%s", strings.ToUpper(sha256Hex(data)), 1))
-			collection, err := Open(archive, Options{Matcher: matcherOf(t, "")})
+			collection, err := Open(t.Context(), archive, Options{Matcher: matcherOf(t, "")})
 			opened(t, err)
 			defer collection.Cleanup()
 			if len(collection.Notes) != 1 || !strings.HasPrefix(collection.Notes[0], test.wantPrefix) {
@@ -908,4 +909,23 @@ func linkMemberCase() inputCase {
 func sha256Hex(data []byte) string {
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])
+}
+
+func TestACancelledOpenStopsAndLeavesNothingExtracted(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "h.tar")
+	writeFile(t, archive, string(tarBytes(t, false, tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"})))
+	writeTree(t, dir, map[string]string{"tree/alice/.claude/history.jsonl": "{}\n"})
+	work := filepath.Join(dir, "work")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	for _, input := range []string{archive, filepath.Join(dir, "tree")} {
+		if _, err := Open(ctx, input, Options{Matcher: matcherOf(t, ""), WorkDir: work}); !errors.Is(err, context.Canceled) {
+			t.Errorf("Open(%s) gave %v, want the cancellation", input, err)
+		}
+	}
+	entries, _ := os.ReadDir(work)
+	if len(entries) != 0 {
+		t.Errorf("left in the work directory: %v", entries)
+	}
 }

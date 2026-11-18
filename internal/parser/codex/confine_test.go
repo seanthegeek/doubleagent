@@ -21,7 +21,7 @@ func openCollection(t *testing.T, root string) *input.Collection {
 	if err != nil {
 		t.Fatal(err)
 	}
-	collection, err := input.Open(root, input.Options{Matcher: matcher})
+	collection, err := input.Open(t.Context(), root, input.Options{Matcher: matcher})
 	if err != nil {
 		t.Fatal(err)
 	}

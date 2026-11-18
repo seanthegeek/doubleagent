@@ -69,7 +69,7 @@ func TestAJunctionInsideADirectoryCollectionIsNeverPassedThrough(t *testing.T) {
 	writeManifest(t, root, collectedRow("a", "/home/a", "gemini-cli",
 		"/home/a/.gemini/tmp/slug/shell_history", "fs/home/a/.gemini/tmp/slug/shell_history"))
 	makeJunction(t, outside, filepath.Join(root, "fs", "home", "a", ".gemini"))
-	collection, err := Open(root, Options{Matcher: matcherOf(t, "")})
+	collection, err := Open(t.Context(), root, Options{Matcher: matcherOf(t, "")})
 	opened(t, err)
 	wantConfined(t, collection)
 	wantProblem(t, collection, "shell_history: through a symbolic link, not followed")

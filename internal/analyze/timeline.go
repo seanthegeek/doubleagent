@@ -84,11 +84,11 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
-	collection, message := openInput(options.InputOptions, found, env)
+	collection, message := openInput(ctx, options.InputOptions, found, env)
 	if collection == nil {
 		return printError(ctx, stderr, message)
 	}
-	defer closeInput(collection, options.KeepExtracted, stderr)
+	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: env.Parsers(), found: newScratchFinder(found), output: options.Output,
 		filter: filter}

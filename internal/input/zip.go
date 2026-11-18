@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/bzip2"
+	"context"
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
@@ -163,7 +164,7 @@ func readZip64Record(file io.ReaderAt, relative, offset uint64) ([]byte, uint64,
 // slashes for backslashes; a name that is absolute, holds a ".." component
 // or starts with a drive letter (or that this platform refuses) is
 // skipped, as is nothing else. A name ending in a slash is a directory.
-func extractZip(file *os.File, size int64, path string, out *extraction) error {
+func extractZip(ctx context.Context, file *os.File, size int64, path string, out *extraction) error {
 	archive, err := zip.NewReader(file, size)
 	if err != nil {
 		return cannotExtract(path, zipReason(err))
@@ -172,6 +173,9 @@ func extractZip(file *os.File, size int64, path string, out *extraction) error {
 		return io.NopCloser(bzip2.NewReader(r))
 	})
 	for _, member := range archive.File {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		name, err := zipMemberName(&member.FileHeader)
 		if err != nil {
 			return cannotExtract(path, err.Error())

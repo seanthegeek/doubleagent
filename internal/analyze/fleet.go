@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -247,8 +248,9 @@ func rollup(rows [][]string) []agentTotal {
 }
 
 // runFleet merges the inventory files into the fleet CSV and prints the
-// rows written and the rollup per agent.
-func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
+// rows written and the rollup per agent. It stops, writing nothing, once
+// ctx is cancelled, looked at before each input file.
+func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Writer) int {
 	files, err := fleetInputs(options.Inputs)
 	if err != nil {
 		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
@@ -256,6 +258,9 @@ func runFleet(options FleetOptions, stdout, stderr io.Writer) int {
 	}
 	var rows [][]string
 	for _, path := range files {
+		if ctx.Err() != nil {
+			return printError(ctx, stderr, "")
+		}
 		data, err := parser.ReadFile(path)
 		if err != nil {
 			fmt.Fprint(stderr, "error: "+reason.Describe(path, err)+"\n")

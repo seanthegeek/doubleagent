@@ -134,7 +134,7 @@ func (d dumper) dump(collection *Collection) string {
 // "error" when it does not open.
 func openAndDump(t *testing.T, root, input, catalogText, host string) string {
 	t.Helper()
-	collection, err := Open(input, Options{Matcher: matcherOf(t, catalogText), Host: host})
+	collection, err := Open(t.Context(), input, Options{Matcher: matcherOf(t, catalogText), Host: host})
 	if err != nil {
 		return "error\n"
 	}

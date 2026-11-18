@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"compress/gzip"
+	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -42,13 +43,16 @@ type tarDirectory struct {
 // Link, hard-link, device and FIFO members are skipped (the manifest holds
 // a link's target); a sparse member or one of an unknown type refuses the
 // archive, as does a member whose name leads out of the directory.
-func extractTar(file *os.File, path string, out *extraction) error {
+func extractTar(ctx context.Context, file *os.File, path string, out *extraction) error {
 	reader, header, err := openTarStream(file, path)
 	if err != nil || header == nil {
 		return err
 	}
 	var directories []tarDirectory
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		directory, err := extractTarMember(reader, header, path, out)
 		if err != nil {
 			return err

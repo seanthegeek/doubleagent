@@ -31,6 +31,7 @@
 package input
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"path/filepath"
@@ -226,8 +227,10 @@ func (e *Error) Error() string { return e.Message }
 // Unreadable directories and files inside a loose tree are not errors; they
 // are recorded in Problems. An error is returned when the input itself, an
 // archive member or the manifest cannot be read (an operating-system error
-// naming the path), or as an *Error. On error nothing extracted is left.
-func Open(path string, options Options) (*Collection, error) {
+// naming the path), or as an *Error, and ctx's error once it is cancelled,
+// which is looked at for each archive member, manifest row and directory.
+// On error nothing extracted is left.
+func Open(ctx context.Context, path string, options Options) (*Collection, error) {
 	if options.Matcher == nil {
 		return nil, errors.New("input: Open needs a catalog matcher")
 	}
@@ -241,7 +244,7 @@ func Open(path string, options Options) (*Collection, error) {
 	case info.IsDir():
 		collection, err = openDirectory(source)
 	case info.Mode().IsRegular():
-		collection, err = openArchive(source, options.WorkDir)
+		collection, err = openArchive(ctx, source, options.WorkDir)
 	default:
 		err = &Error{Message: path + " is neither a regular file nor a directory"}
 	}
@@ -257,9 +260,9 @@ func Open(path string, options Options) (*Collection, error) {
 		collection.readDir = osfile.ReadDir
 	}
 	if collection.Kind == KindLoose {
-		err = collection.discoverLoose(options.Matcher)
+		err = collection.discoverLoose(ctx, options.Matcher)
 	} else {
-		err = collection.loadCollected(options.Matcher)
+		err = collection.loadCollected(ctx, options.Matcher)
 	}
 	if err != nil {
 		_ = collection.Cleanup()
