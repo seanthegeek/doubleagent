@@ -227,6 +227,9 @@ func TestParseHead(t *testing.T) {
 func FuzzParseConfig(fuzz *testing.F) {
 	fuzz.Add(projectConfig)
 	fuzz.Add("[remote \"a\\\"b\"] url = \"x\\\n\\ty\" ; c\n[remote.B]\npushurl=\\q\n")
+	for _, test := range loadMixedConfigs(fuzz) {
+		fuzz.Add(test.Config)
+	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		remotes, _ := ParseConfig(text)
 		for _, found := range remotes {
