@@ -1,7 +1,9 @@
 package agentzero
 
 import (
+	"cmp"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -74,7 +76,7 @@ func walkHistory(node jsonvalue.Value, summaries bool, visit func(summary bool, 
 		if summaries && !node.Get("summary").IsEmpty() {
 			visit(true, node.Get("summary"))
 		}
-		walkHistory(firstTruthyValue(node.Get("messages"), node.Get("records")), summaries, visit)
+		walkHistory(parser.FirstNonEmpty(node.Get("messages"), node.Get("records")), summaries, visit)
 	}
 }
 
@@ -201,7 +203,7 @@ func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 			" ("+strconv.Itoa(count)+" response ids) agent="+number+
 			" (from chat.json agents[].data.responses_state, file mtime)")
 	}
-	if slicesAny(telegramKeys, func(name string) bool { return !blank(data.Get(name)) }) {
+	if slices.ContainsFunc(telegramKeys, func(name string) bool { return !blank(data.Get(name)) }) {
 		texts = append(texts, "session relayed: telegram bot "+key(data, "telegram_bot")+" chat "+
 			key(data, "telegram_chat_id")+" user "+key(data, "telegram_user_id")+" @"+
 			key(data, "telegram_username")+" (from chat.json data, file mtime)")
@@ -210,22 +212,12 @@ func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 		texts = append(texts, "session relayed: whatsapp chat "+key(data, "wa_chat_id")+" number "+
 			key(data, "wa_sender_number")+" (from chat.json data, file mtime)")
 	}
-	if slicesAny([]string{"email_thread_id", "email_sender"},
+	if slices.ContainsFunc([]string{"email_thread_id", "email_sender"},
 		func(name string) bool { return !blank(data.Get(name)) }) {
 		texts = append(texts, "session relayed: email thread "+key(data, "email_thread_id")+" from "+
 			key(data, "email_sender")+" (from chat.json data, file mtime)")
 	}
 	return texts
-}
-
-// slicesAny reports whether holds is true for any of the names.
-func slicesAny(names []string, holds func(string) bool) bool {
-	for _, name := range names {
-		if holds(name) {
-			return true
-		}
-	}
-	return false
 }
 
 // modelName returns "<provider>/<name>" of a model configuration, or ""
@@ -260,7 +252,7 @@ func overrideText(override jsonvalue.Value) string {
 	if len(slots) > 0 {
 		return strings.Join(slots, " ")
 	}
-	return firstNonEmpty(modelName(override), "custom configuration")
+	return cmp.Or(modelName(override), "custom configuration")
 }
 
 // chatSetting is the text of an editor-session or chat-model row and the
@@ -367,13 +359,14 @@ func (c *chat) row(turn, text string, line int, timestamp string) timeline.Row {
 }
 
 // parseChat emits the rows of a chat file. A failure to look for a message
-// file stops the parse and is returned, as it is in Python.
+// file, other than the file being absent, stops the parse and is returned:
+// the run reports it as a problem with the whole artifact.
 func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	name := filepath.Base(artifact.DiskPath)
 	legacy := !p.chat.MatchString(artifact.Rel)
 	fallbackID := filepath.Base(parser.Beside(artifact))
 	if legacy {
-		fallbackID = stem(name)
+		fallbackID = parser.Stem(name)
 	}
 	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), history: map[string]historyEntry{}, models: parser.Tracker{}}
@@ -440,8 +433,9 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 		}
 		return ""
 	}
-	text := join("chat start", parser.Text(document.Get("name")), label("type", document.Get("type")),
-		label("profile", document.Get("agent_profile")), label("project", data.Get("project")))
+	text := parser.JoinNonEmpty(" | ", "chat start", parser.Text(document.Get("name")),
+		label("type", document.Get("type")), label("profile", document.Get("agent_profile")),
+		label("project", data.Get("project")))
 	start := c.row(timeline.TurnSystem, text, 0, "")
 	start.TimestampUTC = timeutil.FromValue(document.Get("created_at"))
 	c.emit(start)
@@ -455,17 +449,6 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 		}
 		c.emit(row)
 	}
-}
-
-// join returns the non-empty parts joined by " | ".
-func join(parts ...string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " | ")
 }
 
 // logItems returns the chat's log items that are objects.
@@ -676,7 +659,7 @@ func (c *chat) logRows(logs []jsonvalue.Value) {
 			c.agentLogRows(current, row)
 		case current.kind == "response":
 			c.emit(row(timeline.TurnAssistant, contentText(current.content)))
-		case slicesAny(toolTypes, func(name string) bool { return name == current.kind }):
+		case slices.Contains(toolTypes, current.kind):
 			c.toolLogRows(current, row)
 		default:
 			c.otherLogRows(current, row)
@@ -734,7 +717,7 @@ func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeli
 
 // toolLogRows emits the call and the result of a tool log item.
 func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	name := orDefault(firstTruthyValue(current.kvps.Get("_tool_name"), current.body.Get("tool_name")),
+	name := orDefault(parser.FirstNonEmpty(current.kvps.Get("_tool_name"), current.body.Get("tool_name")),
 		current.kind)
 	toolID := current.itemID
 	if toolID == "" {
@@ -764,8 +747,8 @@ func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timelin
 // content, and for a warning the permission decision it records.
 func (c *chat) otherLogRows(current *logItem, row func(turn, text string) timeline.Row) {
 	heading := strings.TrimSpace(c.parser.icon.ReplaceAllString(parser.Text(current.item.Get("heading")), ""))
-	text := join(heading, contentText(current.content))
-	kind := firstNonEmpty(current.kind, "log")
+	text := parser.JoinNonEmpty(" | ", heading, contentText(current.content))
+	kind := cmp.Or(current.kind, "log")
 	if text != "" {
 		text = kind + ": " + text
 	} else {

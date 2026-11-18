@@ -96,3 +96,74 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 		t.Errorf("a plain name after a backslash gave %q", got)
 	}
 }
+
+func TestAStateFileAtTheShortestPathLooksForChatsTwoLevelsUp(t *testing.T) {
+	tests := []struct {
+		name    string
+		outside []string
+		deleted bool
+	}{
+		{"no chat file gives a deleted-session row", nil, true},
+		{"a chat directory hides the row", []string{"chats/ctx/chat.json"}, false},
+		{"an older flat chat file hides the row", []string{"chats/ctx.json"}, false},
+		{"a chat in another directory does not", []string{"other/chats/ctx/chat.json"}, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			texts := telegramTexts(t, "ctx", test.outside)
+			want := 0
+			if test.deleted {
+				want = 1
+			}
+			if len(texts) != want {
+				t.Fatalf("rows %q, want %d", texts, want)
+			}
+			if test.deleted && texts[0] != "session deleted: telegram bot bot chat chat user user ctxid ctx "+
+				"(from state.json, no chat.json in the input, file mtime)" {
+				t.Errorf("text %q", texts[0])
+			}
+		})
+	}
+}
+
+// connectorTexts returns the row texts of a connector .env holding text.
+func connectorTexts(t *testing.T, text string) []string {
+	t.Helper()
+	home := t.TempDir()
+	const rel = ".agent-zero/.env"
+	writeFile(t, home, rel, text)
+	artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+		Original: "/alice/" + rel, Rel: rel, Home: &input.Home{DiskPath: home, User: "alice"}}
+	var texts []string
+	err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return texts
+}
+
+func TestTheConnectorEnvGivesTheLastContextOnly(t *testing.T) {
+	const origin = "session origin: remote agent-zero instance h:5080 context c1 " +
+		"(from .agent-zero/.env, file mtime)"
+	tests := []struct {
+		name string
+		text string
+		want []string
+	}{
+		{"LF lines", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\nAGENT_ZERO_LAST_CONTEXT_ID=c1\n",
+			[]string{origin}},
+		{"CRLF lines with quotes and spaces", " AGENT_ZERO_LAST_CONTEXT_HOST = \"h:5080\"\r\n" +
+			"AGENT_ZERO_LAST_CONTEXT_ID='c1'\r\nAGENT_ZERO_TOKEN=secret\r\n", []string{origin}},
+		{"no final LF", "AGENT_ZERO_LAST_CONTEXT_ID=c1\nAGENT_ZERO_LAST_CONTEXT_HOST=h:5080",
+			[]string{origin}},
+		{"a missing id gives no row", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\n", nil},
+		{"an empty value gives no row", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\nAGENT_ZERO_LAST_CONTEXT_ID=\n", nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := connectorTexts(t, test.text); !slices.Equal(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}

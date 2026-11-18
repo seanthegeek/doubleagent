@@ -1,12 +1,12 @@
 package agentzero
 
 import (
+	"cmp"
 	"errors"
 	"io/fs"
 	"strconv"
 	"strings"
 	"syscall"
-	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -80,18 +80,8 @@ func loadDocument(artifact *input.Artifact, problems *parser.Problems) (jsonvalu
 	return document, ""
 }
 
-// firstNonEmpty returns the first of the texts that is not empty.
-func firstNonEmpty(texts ...string) string {
-	for _, each := range texts {
-		if each != "" {
-			return each
-		}
-	}
-	return ""
-}
-
-// orDefault returns a value as text, or fallback when Python counts it as
-// false.
+// orDefault returns a value as row text, or fallback when the value is
+// empty (jsonvalue.Value.IsEmpty).
 func orDefault(value jsonvalue.Value, fallback string) string {
 	if !value.IsEmpty() {
 		return value.Text()
@@ -111,7 +101,7 @@ func (p *Parser) parseTasks(artifact *input.Artifact, emit parser.Emit) {
 	}
 	tasks := document.Get("tasks")
 	if !tasks.IsArray() {
-		emit(p.fileRow(artifact, "parser: scheduler tasks file "+firstNonEmpty(why, "has no tasks list"),
+		emit(p.fileRow(artifact, "parser: scheduler tasks file "+cmp.Or(why, "has no tasks list"),
 			"", "", ""))
 		return
 	}
@@ -129,7 +119,7 @@ func (p *Parser) parseTasks(artifact *input.Artifact, emit parser.Emit) {
 
 // taskRows emits the rows of one scheduler task.
 func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.Value, emit parser.Emit) {
-	sessionID := parser.Text(firstTruthyValue(task.Get("context_id"), task.Get("uuid")))
+	sessionID := parser.Text(parser.FirstNonEmpty(task.Get("context_id"), task.Get("uuid")))
 	projectPath := projectOf(task.Get("project_name"))
 	row := p.fileRow(artifact, "scheduled task: "+key(task, "name")+" type="+key(task, "type")+
 		" state="+key(task, "state"), timeutil.FromValue(task.Get("created_at")), sessionID, projectPath)
@@ -155,25 +145,14 @@ func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.V
 	emit(row)
 }
 
-// firstTruthyValue returns the first of the values that is true in Python,
-// else null.
-func firstTruthyValue(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return jsonvalue.NewNull()
-}
-
 // isString reports whether value is the string want.
 func isString(value jsonvalue.Value, want string) bool {
 	return value.IsString() && value.StringValue() == want
 }
 
 // parseTelegram emits a "session deleted:" row per Telegram chat whose chat
-// file is not in the input. A failure to look for a chat file stops the
-// parse and is returned, as it is in Python.
+// file is not in the input. A failure to look for a chat file, other than
+// the file being absent, stops the parse and is returned.
 func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error {
 	var problems parser.Problems
 	document, why := loadDocument(artifact, &problems)
@@ -183,10 +162,7 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error
 	}
 	chats := document.Get("chats")
 	if !chats.IsObject() {
-		emit(p.fileRow(artifact, "parser: state.json "+firstNonEmpty(why, "has no chats map"), "", "", ""))
-		return nil
-	}
-	if _, found := parser.Above(artifact, 2); !found {
+		emit(p.fileRow(artifact, "parser: state.json "+cmp.Or(why, "has no chats map"), "", "", ""))
 		return nil
 	}
 	for _, member := range chats.Members() {
@@ -215,16 +191,17 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parser.Emit) error
 
 // chatPresent reports whether the chat of a context id is among the files:
 // usr/chats/<id>/chat.json or usr/chats/<id>.json as a regular file, usr
-// being two levels above the state file's directory. An id that is not a
-// plain file name is a chat that is not there. A failure other than the
-// path being absent is returned.
+// being two levels above the state file's directory, which the state file's
+// path (plugins/_telegram_integration/state.json at the least) always has
+// below its home. An id that is not a plain file name is a chat that is not
+// there. A failure other than the path being absent is returned.
 func chatPresent(artifact *input.Artifact, contextID string) (bool, error) {
 	name, named := parser.Component(contextID)
-	nested, found := parser.Above(artifact, 2, "chats", name, "chat.json")
-	flat, _ := parser.Above(artifact, 2, "chats", name+".json")
-	if !named || !found {
+	if !named {
 		return false, nil
 	}
+	nested, _ := parser.Above(artifact, 2, "chats", name, "chat.json")
+	flat, _ := parser.Above(artifact, 2, "chats", name+".json")
 	for _, path := range []string{nested, flat} {
 		info, err := osfile.Lstat(path)
 		if err != nil {
@@ -275,7 +252,7 @@ func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit pars
 		return
 	}
 	if !document.IsObject() {
-		emit(p.fileRow(artifact, "parser: "+artifact.Rel+" "+firstNonEmpty(why, "is not a JSON object"),
+		emit(p.fileRow(artifact, "parser: "+artifact.Rel+" "+cmp.Or(why, "is not a JSON object"),
 			"", "", ""))
 		return
 	}
@@ -330,8 +307,10 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
+	// A line ends at LF; the CR of a CRLF line and the whitespace around a
+	// key or value are trimmed, and one layer of quotes around a value.
 	values := map[string]string{}
-	for _, line := range pythonLines(textlines.ValidUTF8(content)) {
+	for line := range strings.Lines(textlines.ValidUTF8(content)) {
 		name, value, found := strings.Cut(strings.TrimSpace(line), "=")
 		name = strings.TrimSpace(name)
 		if found && (name == lastContextKeys[0] || name == lastContextKeys[1]) {
@@ -343,31 +322,4 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.fileRow(artifact, "session origin: remote agent-zero instance "+host+" context "+
 			contextID+" (from .agent-zero/.env, file mtime)", parser.FileMtime(artifact), contextID, ""))
 	}
-}
-
-// pythonLines splits text at the line boundaries of Python's str.splitlines:
-// LF, CR, CRLF, vertical tab, form feed, U+001C to U+001E, U+0085, U+2028
-// and U+2029.
-func pythonLines(text string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(text); {
-		char, width := utf8.DecodeRuneInString(text[i:])
-		switch char {
-		case '\n', '\v', '\f', 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029:
-			lines = append(lines, text[start:i])
-			start = i + width
-		case '\r':
-			lines = append(lines, text[start:i])
-			if strings.HasPrefix(text[i:], "\r\n") {
-				width = 2
-			}
-			start = i + width
-		}
-		i += width
-	}
-	if start < len(text) {
-		lines = append(lines, text[start:])
-	}
-	return lines
 }

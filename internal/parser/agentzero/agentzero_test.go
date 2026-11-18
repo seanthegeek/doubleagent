@@ -2,17 +2,15 @@ package agentzero
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The rows of every file kind are proved against the Python analyzer by the
-// parser replay (internal/parity/replay), over the recorded fixtures; these
-// tests port what the Python tests call directly. Expected values come from
-// running the analyzer's functions.
+// The rows of every file kind are proved by the parser replay
+// (internal/parity/replay) over the recorded fixtures; these tests cover the
+// helpers the rows are built from.
 
 // decoded returns the value of JSON text.
 func decoded(t *testing.T, text string) jsonvalue.Value {
@@ -181,33 +179,6 @@ func TestWalkHistoryVisitsBulksTopicsThenTheCurrentTopic(t *testing.T) {
 	}
 }
 
-func TestPythonLinesSplitAtPythonsBoundaries(t *testing.T) {
-	tests := []struct {
-		text string
-		want []string
-	}{
-		{"a\r\nb\vc\x1cd\u2028e\u0085f", []string{"a", "b", "c", "d", "e", "f"}},
-		{"x\n", []string{"x"}},
-		{"a\n\nb", []string{"a", "", "b"}},
-		{"a\rb", []string{"a", "b"}},
-		{"", nil},
-	}
-	for _, test := range tests {
-		if got := pythonLines(test.text); !slices.Equal(got, test.want) {
-			t.Errorf("pythonLines(%q) = %q, want %q", test.text, got, test.want)
-		}
-	}
-}
-
-func TestStemDropsOnlyARealSuffix(t *testing.T) {
-	for name, want := range map[string]string{"abc.json": "abc", "a.b.json": "a.b", ".json": ".json",
-		"abc.": "abc.", "abc": "abc"} {
-		if got := stem(name); got != want {
-			t.Errorf("stem(%q) = %q, want %q", name, got, want)
-		}
-	}
-}
-
 func TestWantsTheChatAndFilesBesideIt(t *testing.T) {
 	tests := []struct {
 		rel       string
@@ -244,11 +215,24 @@ func TestWantsTheChatAndFilesBesideIt(t *testing.T) {
 }
 
 func TestTheIconMarkerIsRemovedWithTheSpaceAfterIt(t *testing.T) {
-	got := New().icon.ReplaceAllString("icon://abc x icon://q\u00a0z", "")
-	if got != "x z" {
-		t.Errorf("got %q", got)
+	tests := []struct {
+		name    string
+		heading string
+		want    string
+	}{
+		{"an ASCII space ends the marker", "icon://abc x", "x"},
+		{"a no-break space ends the marker", "icon://q\u00a0z", "z"},
+		{"an ideographic space ends the marker", "icon://q\u3000z", "z"},
+		{"every run of whitespace after the marker goes", "icon://q \t\u2028z", "z"},
+		{"an information separator is part of the marker", "icon://q\x1cz y", "y"},
+		{"two markers both go", "icon://abc x icon://q\u00a0z", "x z"},
 	}
-	if strings.Contains(New().icon.String(), `\S`) {
-		t.Error("the pattern must use Python's whitespace set, not Go's")
+	subject := New()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := subject.icon.ReplaceAllString(test.heading, ""); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
 	}
 }

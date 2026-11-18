@@ -19,7 +19,6 @@ package agentzero
 
 import (
 	"regexp"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -36,14 +35,6 @@ type Parser struct {
 	chat, legacy, tasks, telegram, policy, toggle, connector *regexp.Regexp
 	blocked, icon, logs                                      *regexp.Regexp
 }
-
-// whitespace is Python's \s for text and notSpace its \S: characters that are
-// whitespace as str.isspace() has it, and the rest.
-const (
-	whitespace = `\t-\r \x1c-\x1f\x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}` +
-		`\x{205f}\x{3000}`
-	notSpace = `[^` + whitespace + `]`
-)
 
 // New returns the parser.
 func New() *Parser {
@@ -73,7 +64,9 @@ func New() *Parser {
 		// formatted error of the warning log item.
 		blocked: regexp.MustCompile(
 			`Tool "([^"]*)" is blocked for agent profile "([^"]*)"\.`),
-		icon: regexp.MustCompile(`icon://` + notSpace + `+[` + whitespace + `]*`),
+		// A heading's icon marker, icon://<name>, runs to the next whitespace
+		// (unicode.IsSpace) and is removed with the whitespace after it.
+		icon: regexp.MustCompile(`icon://[^` + parser.Space + `]+[` + parser.Space + `]*`),
 		logs: regexp.MustCompile(`"logs"[ \t\n\r]*:[ \t\n\r]*\[`),
 	}
 }
@@ -134,15 +127,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 // groupOf returns the text a named group of a match holds.
 func groupOf(pattern *regexp.Regexp, match []string, name string) string {
 	return match[pattern.SubexpIndex(name)]
-}
-
-// stem returns a file name without its last suffix, as Python's Path.stem
-// gives it: a name that starts with its only dot has no suffix.
-func stem(name string) string {
-	if dot := strings.LastIndex(name, "."); dot > 0 && dot < len(name)-1 {
-		return name[:dot]
-	}
-	return name
 }
 
 // The interfaces the registry looks for, checked when the package builds.
