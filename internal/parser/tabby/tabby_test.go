@@ -69,15 +69,15 @@ func TestCommandTextReadsAnEntryOfTheVSCodeHistory(t *testing.T) {
 
 func TestAttachmentPartsDescribeEachKindOfAttachment(t *testing.T) {
 	attachment, err := jsonvalue.DecodeString(`{"code":[{"git_url":"g | x","commit":"abc",` +
-		`"filepath":"f.py","start_line":3},{"filepath":"","start_line":1},` +
+		`"filepath":"f.go","start_line":3},{"filepath":"","start_line":1},` +
 		`{"git_url":"u","filepath":"p","start_line":""},5],` +
-		`"client_code":[{"filepath":"c.py","start_line":0},{"filepath":null}],` +
+		`"client_code":[{"filepath":"c.go","start_line":0},{"filepath":null}],` +
 		`"doc":[{"title":"T","link":"L"},{"sha":"s","page_link":"P"},{}],` +
 		`"code_file_list":{"file_list":["a","b"]}}`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"code g x@abc f.py:3", "code", "code u p", "client_code c.py:0",
+	want := []string{"code g x@abc f.go:3", "code", "code u p", "client_code c.go:0",
 		"client_code", "doc T L", "doc s P", "doc", "code_file_list 2 files"}
 	if got := attachmentParts(attachment); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("got %q, want %q", got, want)
