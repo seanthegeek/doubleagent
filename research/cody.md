@@ -707,7 +707,12 @@ carrying the chat's session id, for the first interaction of a chat that does no
 XML is read incrementally, so the chats before a cut or damaged part are yielded, followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
-cody-model-preferences is not a JSON object` row. A JetBrains chat history
+cody-model-preferences is not a JSON object` row. A JetBrains chat history that decodes to
+something other than an object is one `parser: chat history is not a JSON object` row; in a
+`state.vscdb`, a `sourcegraph.cody-ai` value that is not an object is one
+`parser: sourcegraph.cody-ai value is not a JSON object` row, and a chat history member that is
+present but not an object, or text that decodes to something else, one
+`parser: cody-local-chatHistory-v2 is not a JSON object` row. A JetBrains chat history
 (`JetBrains-globalState/cody-local-chatHistory-v2`), model preferences file, editor
 `User/settings.json` or legacy `cody_history.xml` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; the row for
