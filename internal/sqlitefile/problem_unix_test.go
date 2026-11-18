@@ -4,6 +4,7 @@ package sqlitefile
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -23,7 +24,7 @@ func denyRead(t *testing.T, path string) {
 }
 
 func TestProblemNamesTheFileThatCannotBeRead(t *testing.T) {
-	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
+	for _, suffix := range []string{"", "-wal", "-journal"} {
 		t.Run("an unreadable sessions.db"+suffix+" is named", func(t *testing.T) {
 			directory := t.TempDir()
 			path := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
@@ -41,7 +42,7 @@ func TestProblemNamesTheFileThatCannotBeRead(t *testing.T) {
 }
 
 func TestProblemRefusesLinkedFiles(t *testing.T) {
-	for _, suffix := range []string{"", "-wal", "-shm"} {
+	for _, suffix := range []string{"", "-wal", "-journal"} {
 		t.Run("a link at sessions.db"+suffix+" is a problem", func(t *testing.T) {
 			directory := t.TempDir()
 			target := writeFile(t, directory, "target.db", testdataBytes(t, "page_1024.db"))
@@ -58,6 +59,43 @@ func TestProblemRefusesLinkedFiles(t *testing.T) {
 			}
 			if suffix == "" && IsSQLite(path) {
 				t.Error("IsSQLite() followed a link")
+			}
+		})
+	}
+}
+
+func TestTheSharedMemoryFileIsNeverAProblem(t *testing.T) {
+	// SQLite rebuilds the -shm file from the log, and OpenPath never reads
+	// it, so no state of it keeps a database from being read.
+	cases := []struct {
+		name  string
+		place func(t *testing.T, path string)
+	}{
+		{"an unreadable one", func(t *testing.T, path string) {
+			writeFile(t, filepath.Dir(path), filepath.Base(path), nil)
+			denyRead(t, path)
+		}},
+		{"a symbolic link", func(t *testing.T, path string) {
+			if err := os.Symlink(filepath.Join(filepath.Dir(path), "elsewhere"), path); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" leaves the database readable", func(t *testing.T) {
+			directory := t.TempDir()
+			path := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
+			test.place(t, path+"-shm")
+			if err := Problem(path); err != nil {
+				t.Errorf("Problem() = %v, want none", err)
+			}
+			database, err := OpenPath(path)
+			if err != nil {
+				t.Fatalf("OpenPath() = %v", err)
+			}
+			defer database.Close()
+			if _, err := database.TableNames(); err != nil {
+				t.Errorf("TableNames() = %v", err)
 			}
 		})
 	}

@@ -30,6 +30,14 @@ func TestReadItemsReportsAnUnreadableDatabaseOrSidecar(t *testing.T) {
 			}
 		})
 	}
+	shared := stateCopy(t)
+	if err := os.Symlink(shared, shared+"-shm"); err != nil {
+		t.Fatal(err)
+	}
+	if values, problems := ReadItems(shared, []string{"cloudAgentRepository.agents.u1"}); len(values) != 1 ||
+		problems != nil {
+		t.Errorf("beside a linked -shm file: %v, %q; want the value read", values, problems)
+	}
 	path := stateCopy(t)
 	link := path + ".link"
 	if err := os.Symlink(path, link); err != nil {

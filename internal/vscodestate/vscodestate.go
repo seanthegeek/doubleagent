@@ -9,8 +9,9 @@
 // SecretStorage rows have keys starting secret:// and hold encrypted
 // credentials; they are never read here, whatever key a caller asks for.
 //
-// The database is read in place through sqlitefile, its -wal sidecar
-// applied. A file that cannot be read, or whose sidecar cannot, a file that
+// The database is read in place through sqlitefile, its -wal and -journal
+// sidecars applied; the -shm file is never read, so it never stands in the
+// way. A file that cannot be read, or whose sidecar cannot, a file that
 // is not SQLite, a damaged SQLite file and a value that is not JSON are each
 // reported in the returned problem list; the rows are read in key order, so
 // the problems come in key order too.

@@ -44,10 +44,11 @@ func IsSQLite(path string) bool {
 // Problem returns why OpenPath cannot open the database at path, or nil:
 // ErrNotDatabase for a readable file that does not start with the SQLite
 // header (a 0-byte file is an empty database, no problem), or an
-// *UnreadableError for the file or the first of its -wal, -shm and -journal
+// *UnreadableError for the file or the first of its -wal and -journal
 // sidecars that cannot be read. A sidecar that is absent, a directory or
 // another special file is skipped, as a copy of the database would leave it
 // out; one that is a symbolic link is a problem, since it is never read.
+// The -shm file is never read, so it is never a problem.
 func Problem(path string) error {
 	header, err := readHeader(path)
 	if err != nil {
@@ -56,7 +57,7 @@ func Problem(path string) error {
 	if len(header) > 0 && string(header) != headerString {
 		return ErrNotDatabase
 	}
-	for _, suffix := range []string{"-wal", "-shm", "-journal"} {
+	for _, suffix := range []string{"-wal", "-journal"} {
 		if err := checkSidecar(path + suffix); err != nil {
 			return &UnreadableError{Path: path + suffix, Err: err}
 		}

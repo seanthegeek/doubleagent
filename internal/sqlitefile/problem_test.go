@@ -55,7 +55,7 @@ func TestProblemAndIsSQLiteReadTheHeader(t *testing.T) {
 func TestProblemSkipsSidecarsACopyWouldSkip(t *testing.T) {
 	directory := t.TempDir()
 	database := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
-	for _, suffix := range []string{"-wal", "-shm", "-journal"} {
+	for _, suffix := range []string{"-wal", "-journal"} {
 		writeFile(t, directory, "sessions.db"+suffix, nil)
 	}
 	if err := Problem(database); err != nil {
