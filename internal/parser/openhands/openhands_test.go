@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every file kind are proved by the parser replay
@@ -156,4 +157,36 @@ func TestAJSONFileWithAByteOrderMarkDoesNotDecode(t *testing.T) {
 	if _, decoded, err := loadJSON(path, new(parser.Problems)); decoded || err == nil {
 		t.Errorf("decoded %v with error %v", decoded, err)
 	}
+}
+
+// writeTree writes each file of files, by path relative to home, and
+// returns home.
+func writeTree(t *testing.T, home string, files map[string]string) string {
+	t.Helper()
+	for rel, text := range files {
+		path := filepath.Join(home, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return home
+}
+
+// parseRel returns the rows of the file at rel under home.
+func parseRel(t *testing.T, home, rel string) []timeline.Row {
+	t.Helper()
+	artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
+		Rel: rel, Home: &input.Home{DiskPath: home, Original: "/h"}}
+	subject := New()
+	if !subject.Wants(artifact) {
+		t.Fatalf("%s is not wanted", rel)
+	}
+	var rows []timeline.Row
+	if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+		t.Fatal(err)
+	}
+	return rows
 }

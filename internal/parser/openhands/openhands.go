@@ -204,7 +204,11 @@ func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string 
 		}
 		names := make([]string, 0, len(entries))
 		for _, entry := range entries {
-			names = append(names, entry.Name())
+			// A conversation is a real directory: a link in its place is
+			// never followed.
+			if entry.IsDir() && entry.Type()&fs.ModeSymlink == 0 {
+				names = append(names, entry.Name())
+			}
 		}
 		sort.Strings(names)
 		for _, name := range names {
