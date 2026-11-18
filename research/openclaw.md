@@ -1781,6 +1781,13 @@ name of the file that failed; one that is not a SQLite database is `parser: not 
 for the agent database and `parser: state/openclaw.sqlite is not a SQLite database` for the state
 database.
 
+In an `exec_approvals_config` row a `raw_json` that decodes but is not an object, an `agents` that
+is present but not an object, a `defaults` or `agents.<id>` policy that is not an object, and an
+`allowlist` or `mcpTools` that is not an array are each one row at the row's `rowid`:
+`parser: <member> is not a JSON object` or `parser: <member> is not a JSON array`, `<member>`
+`raw_json`, `agents`, `defaults`, `agents.<id>`, or the policy's name followed by `.allowlist` or
+`.mcpTools`; an absent, null or empty one gives no row.
+
 #### Fixtures
 
 Transcript entries as the writers at `fc3490a` produce them, JSONL form; the SQLite form stores
