@@ -103,10 +103,10 @@ func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []f
 	var found []part
 	var failures []failure
 	for _, row := range parts.Find(message, "id") {
-		data, reason, raw := decodeRecord(row.Get("data"))
-		if reason != "" {
+		data, raw, err := decodeRecord(row.Get("data"))
+		if err != nil {
 			failures = append(failures, failure{line: int(row.Rowid),
-				message: unparseable(row.Rowid, "part.data", reason), raw: raw})
+				message: unparseable(row.Rowid, "part.data", err), raw: raw})
 			continue
 		}
 		found = append(found, part{data: data,
@@ -195,8 +195,9 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 	return items, nil
 }
 
-// columnValue returns a column value as the JSON value Python's dict would
-// hold for it; a blob, which no store writes there, is held as its text.
+// columnValue returns a column value as the JSON value of the same type:
+// NULL as null, a number as a number, and text as a string; a blob, which
+// no store writes there, is held as its text.
 func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Integer:

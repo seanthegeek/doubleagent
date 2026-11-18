@@ -45,11 +45,11 @@ func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string
 		timestamp: timeutil.FirstNonEmpty(
 			timeutil.FromValue(objectOf(data.Get("time")).Get("created")), created),
 		model: modelName(reference.Get("providerID"),
-			firstTruthy(reference.Get("modelID"), reference.Get("id")))}
+			parser.FirstNonEmpty(reference.Get("modelID"), reference.Get("id")))}
 	switch kind {
 	case "model-switched":
 		builder.system(modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
-			firstTruthy(reference.Get("id"), reference.Get("modelID"))))
+			parser.FirstNonEmpty(reference.Get("id"), reference.Get("modelID"))))
 	case "agent-switched":
 		builder.system(agentRowText(scoped.modes, scoped.sessionID, data.Get("agent")))
 	case "user":
@@ -113,7 +113,7 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 	scoped := b.scoped
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
-		firstTruthy(reference.Get("id"), reference.Get("modelID"))),
+		parser.FirstNonEmpty(reference.Get("id"), reference.Get("modelID"))),
 		agentRowText(scoped.modes, scoped.sessionID, data.Get("agent"))} {
 		b.system(text)
 	}
@@ -179,7 +179,7 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 // output.output. A result that did not exit 0 starts "[<status>]" or
 // "[exit <code>]".
 func (b *recordRows) shell(data jsonvalue.Value) {
-	callID := parser.Text(firstTruthy(data.Get("callID"), data.Get("shellID")))
+	callID := parser.Text(parser.FirstNonEmpty(data.Get("callID"), data.Get("shellID")))
 	b.add(timeline.TurnToolUse, parser.Text(data.Get("command")), "", "shell", callID)
 	output, status, code := data.Get("output"), data.Get("status"), data.Get("exit")
 	if output.IsNull() && (status.IsNull() || isText(status, "running")) {
@@ -199,12 +199,7 @@ func (b *recordRows) shell(data jsonvalue.Value) {
 		timeutil.FromValue(objectOf(data.Get("time")).Get("completed")), "shell", callID)
 }
 
-// isZero reports whether Python counts value equal to 0: a number of value
-// zero, or false.
+// isZero reports whether value is a number equal to zero.
 func isZero(value jsonvalue.Value) bool {
-	if flag, ok := value.Bool(); ok {
-		return !flag
-	}
-	number, ok := value.Float()
-	return ok && value.IsNumber() && number == 0
+	return jsonvalue.Equal(value, jsonvalue.NewInt(0))
 }
