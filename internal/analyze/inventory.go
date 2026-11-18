@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -211,7 +212,7 @@ func (p *projectInventory) entries(marks []sessionMark,
 	for key := range p.groups {
 		keys = append(keys, key)
 	}
-	slices.SortFunc(keys, func(left, right string) int { return compareText(p.names[left], p.names[right]) })
+	slices.SortFunc(keys, func(left, right string) int { return strings.Compare(p.names[left], p.names[right]) })
 	out := make([]projectEntryJSON, len(keys))
 	for i, key := range keys {
 		out[i] = projectEntryJSON{p.names[key], p.entry(key, marks, remotes)}
@@ -278,16 +279,4 @@ func agentTallies(agents map[string]*agentTally, disk *onDisk) map[string]agentT
 		out[agent] = entry
 	}
 	return out
-}
-
-// compareText orders two texts byte by byte, which for UTF-8 is the order
-// of their characters.
-func compareText(left, right string) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	}
-	return 0
 }

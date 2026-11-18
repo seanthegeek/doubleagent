@@ -34,7 +34,8 @@ type hit struct {
 }
 
 // discoverLoose finds the homes of a loose tree by catalog hits and makes
-// their files artifacts. fs/ without a manifest is taken as the root; a
+// their files artifacts. fs/ without a manifest is taken as the root, and
+// beside a manifest.jsonl that is a link or a directory leaves a note; a
 // root that is itself an agent directory makes its parent the one home.
 func (c *Collection) discoverLoose(ctx context.Context, matcher *catalog.Matcher) error {
 	tree := c.Root
@@ -42,6 +43,8 @@ func (c *Collection) discoverLoose(ctx context.Context, matcher *catalog.Matcher
 		if _, err := osfile.Lstat(joinPath(c.Root, "manifest.jsonl")); err != nil {
 			tree = joinPath(tree, "fs")
 			c.Notes = append(c.Notes, "fs/ found without manifest.jsonl; treating fs/ as the root")
+		} else {
+			c.Notes = append(c.Notes, "manifest.jsonl is not a regular file; reading the input as a loose tree")
 		}
 	}
 	if found, err := c.agentDirectoryRoot(ctx, matcher, tree); found || err != nil {

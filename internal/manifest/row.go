@@ -90,9 +90,9 @@ type jsonRow struct {
 func jsonRowOf(row Row) jsonRow {
 	return jsonRow{
 		User: row.User, Home: row.Home, Agent: row.Agent, Path: row.Path,
-		ArchivePath: row.ArchivePath, Type: row.Type, Size: nonNegative(row.Size),
-		Mtime: nonNegative(row.Mtime), Atime: nonNegative(row.Atime),
-		Ctime: nonNegative(row.Ctime), Btime: nonNegative(row.Btime),
+		ArchivePath: row.ArchivePath, Type: row.Type, Size: max(row.Size, 0),
+		Mtime: max(row.Mtime, 0), Atime: max(row.Atime, 0),
+		Ctime: max(row.Ctime, 0), Btime: max(row.Btime, 0),
 		UID: row.UID, GID: row.GID, Mode: row.Mode, platformFields: platformOf(row),
 		SHA256: row.SHA256, Secret: row.Secret, Status: row.Status,
 		Target: row.Target, Error: row.Error,

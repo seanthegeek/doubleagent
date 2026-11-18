@@ -3,6 +3,7 @@ package analyze
 import (
 	"bytes"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -23,7 +24,7 @@ func TestInventoryProjectsAreWrittenInDisplayPathOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := slices.Clone(paths)
-	slices.SortFunc(want, compareText)
+	slices.SortFunc(want, strings.Compare)
 	if got := written.Keys(); !slices.Equal(got, want) {
 		t.Errorf("projects written in the order %q, want %q", got, want)
 	}
