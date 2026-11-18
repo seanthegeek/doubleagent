@@ -1051,6 +1051,10 @@ file, a `taskHistory.json`, a session manifest or messages file, `sync-queue.jso
 `globalState.json`, a settings file or a pending-start file that cannot be read, in place of the
 row for a file of the wrong shape, with the task's or session's id where the path gives one.
 
+A `task_metadata.json` whose `files_in_context`, `model_usage` or `environment_history` is present
+but not an array is `parser: <member> is not a JSON array` (`source_line` 0, the task's id); an
+absent, null or empty one gives no row.
+
 #### Fixtures
 
 Fixtures (invented content, real field names):

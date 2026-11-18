@@ -31,7 +31,9 @@ func (e metadataEvent) sortKey() float64 {
 }
 
 // parseMetadata emits a system row per dated event of task_metadata.json in
-// time order: files read or edited, model and mode changes, environments.
+// time order: files read or edited, model and mode changes, environments. A
+// files_in_context, model_usage or environment_history that is not an array
+// adds a problem.
 func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContext, emit parser.Emit) {
 	var problems parser.Problems
 	data, _ := parser.LoadJSON(artifact.DiskPath, &problems)
@@ -42,14 +44,14 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
 		return
 	}
-	events := fileEvents(data.Get("files_in_context"))
-	for position, entry := range data.Get("model_usage").Items() {
+	events := fileEvents(data.Get("files_in_context"), &problems)
+	for position, entry := range parser.ArrayMember(data.Get("model_usage"), "model_usage", 0, &problems) {
 		if entry.IsObject() {
 			events = append(events, metadataEvent{timestamp: timeOrZero(entry),
 				position: position + 1, model: parser.Text(entry.Get("model_id")), usage: entry})
 		}
 	}
-	for position, entry := range data.Get("environment_history").Items() {
+	for position, entry := range parser.ArrayMember(data.Get("environment_history"), "environment_history", 0, &problems) {
 		if entry.IsObject() {
 			events = append(events, metadataEvent{timestamp: timeOrZero(entry),
 				position: position + 1, text: "environment: " + FormatCounts(entry, "os_name",
@@ -68,6 +70,7 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 			emit(row)
 		}
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
 }
 
 // timeOrZero returns an entry's ts, or the number 0 when it is empty, so an
@@ -100,11 +103,12 @@ func eventTexts(event metadataEvent, taskID string, models, modes parser.Tracker
 }
 
 // fileEvents returns an event per numeric *_date field of each
-// files_in_context entry, in key order, once per path, field and time.
-func fileEvents(files jsonvalue.Value) []metadataEvent {
+// files_in_context entry, in key order, once per path, field and time. A
+// files_in_context that is not an array adds a problem.
+func fileEvents(files jsonvalue.Value, problems *parser.Problems) []metadataEvent {
 	var events []metadataEvent
 	seen := map[string]bool{}
-	for position, entry := range files.Items() {
+	for position, entry := range parser.ArrayMember(files, "files_in_context", 0, problems) {
 		if !entry.IsObject() {
 			continue
 		}

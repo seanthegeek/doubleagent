@@ -658,6 +658,10 @@ object files above that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with no file
 time and the task id for a task file or `history_item.json`.
 
+A `task_metadata.json` whose `files_in_context` is present but not an array is
+`parser: files_in_context is not a JSON array` (`source_line` 0, the task's id); an absent, null or
+empty one gives no row.
+
 #### Fixtures
 
 ```json
