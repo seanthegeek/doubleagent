@@ -167,3 +167,20 @@ func TestAnAgentDirectoryInputsHomeGivesOnlyPathsInsideIt(t *testing.T) {
 		}
 	}
 }
+
+func TestARelativeInputIsOpenedByItsAbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "tree", "alice", ".claude", "history.jsonl"), "{}")
+	t.Chdir(dir)
+	collection, err := Open(t.Context(), "tree", Options{Matcher: matcherOf(t, "")})
+	opened(t, err)
+	wantEqual(t, "source", collection.Source, "tree")
+	if !filepath.IsAbs(collection.Root) {
+		t.Errorf("root %s is relative", collection.Root)
+	}
+	for _, artifact := range collection.Artifacts {
+		if !filepath.IsAbs(artifact.DiskPath) {
+			t.Errorf("artifact %s is relative", artifact.DiskPath)
+		}
+	}
+}

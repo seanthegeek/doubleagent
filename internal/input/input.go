@@ -16,8 +16,8 @@
 // every file system.
 //
 // The input's own path is kept as given; the paths found in it are joined
-// to its cleaned form, so one input gives one set of paths however its
-// path was spelt. A path built from the evidence's text (a manifest field,
+// to its absolute, cleaned form, so one input gives one set of paths
+// however its path was spelt. A path built from the evidence's text (a manifest field,
 // a name a parser asks Home.PathOf or Below for) is made by one function,
 // below: each element must be one plain component, and each directory on
 // the way down is looked at with lstat, a link (on Windows any reparse
@@ -34,6 +34,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -258,7 +259,10 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	if options.Matcher == nil {
 		return nil, errors.New("input: Open needs a catalog matcher")
 	}
-	source := filepath.Clean(path)
+	source, err := absolute(path)
+	if err != nil {
+		return nil, err
+	}
 	info, err := osfile.Stat(source)
 	if err != nil {
 		return nil, err
@@ -293,6 +297,21 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 		return nil, err
 	}
 	return collection, nil
+}
+
+// absolute returns path joined to the working directory when relative, and
+// cleaned. Every path of the input is built from it: on Windows only an
+// absolute path takes the extended form that keeps a name ending in a dot
+// or a space apart from the name without it.
+func absolute(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+	working, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(working, path), nil
 }
 
 // openDirectory returns the collection of a directory input, after a

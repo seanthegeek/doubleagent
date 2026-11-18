@@ -70,12 +70,9 @@ func makeExtractionDir(workDir string) (string, error) {
 	} else if err := osfile.MkdirAll(workDir, 0o777); err != nil {
 		return "", err
 	}
-	if !filepath.IsAbs(base) {
-		working, err := os.Getwd()
-		if err != nil {
-			return "", err
-		}
-		base = filepath.Join(working, base)
+	base, err := absolute(base)
+	if err != nil {
+		return "", err
 	}
 	return osfile.MkdirTemp(base, pattern)
 }
