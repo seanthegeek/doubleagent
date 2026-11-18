@@ -117,23 +117,23 @@ func TestModelTextNamesTheModelAndItsEndpoint(t *testing.T) {
 	}
 }
 
-func TestXMLThatElementTreeRefusesIsRefused(t *testing.T) {
+func TestXMLThatIsNotOneWellFormedDocumentIsRefused(t *testing.T) {
 	tests := []struct {
-		document string
-		refused  bool
-		reason   string
+		name, document string
+		refused        bool
+		reason         string
 	}{
-		{"", true, "no root element: "},
-		{"<a>", true, ""},
-		{"<a></a><b/>", true, "a second root element: "},
-		{"text", true, "text outside the root element: "},
-		{"<a></b>", true, ""},
-		{"<?xml version=\"1.0\"?>\n<a/>", false, ""},
-		{`<a x="1" x="2"/>`, true, "an attribute given twice: "},
-		{"<!-- c --><a><b value=\"v\"/></a>\n", false, ""},
+		{"an empty document has no root", "", true, "no root element: "},
+		{"an unclosed element is refused", "<a>", true, ""},
+		{"a second root element is refused", "<a></a><b/>", true, "a second root element: "},
+		{"text outside the root is refused", "text", true, "text outside the root element: "},
+		{"a mismatched end tag is refused", "<a></b>", true, ""},
+		{"a declaration before the root is read", "<?xml version=\"1.0\"?>\n<a/>", false, ""},
+		{"an attribute given twice is refused", `<a x="1" x="2"/>`, true, "an attribute given twice: "},
+		{"a comment before the root is read", "<!-- c --><a><b value=\"v\"/></a>\n", false, ""},
 	}
 	for _, test := range tests {
-		t.Run(test.document, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			_, err := parseXML([]byte(test.document))
 			if (err != nil) != test.refused {
 				t.Fatalf("got %v, want refused %v", err, test.refused)

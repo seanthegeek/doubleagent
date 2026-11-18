@@ -331,11 +331,6 @@ func jsonObject(value jsonvalue.Value) (jsonvalue.Value, error) {
 	return decoded, nil
 }
 
-// orEmpty returns str(value or "").
-func orEmpty(value jsonvalue.Value) string {
-	return parser.Text(value)
-}
-
 // retiredRows emits one "session deleted:" row per state_meta deletion
 // fence (key gateway.retired_session.v1.<session id>, matched with SQL's
 // LIKE, so the prefix's letters match in either case), at its retired_at; " sweep" follows the id
@@ -359,7 +354,7 @@ func (s *stateReader) retiredRows() error {
 		value, err := jsonObject(record.Get("value"))
 		if err != nil {
 			s.addError(sessionID, projectOf(session), record.Get("_rowid"), "unparseable record "+
-				record.Get("_rowid").Text()+" (state_meta.value: "+err.Error()+")", orEmpty(record.Get("value")))
+				record.Get("_rowid").Text()+" (state_meta.value: "+err.Error()+")", parser.Text(record.Get("value")))
 			return nil
 		}
 		sweep := ""
@@ -405,7 +400,7 @@ func (s *stateReader) roomRows() error {
 		}
 		err = table.Select("room_id", "name").Each(func(row sqlitefile.Row) error {
 			record := rowObject(row)
-			names[record.Get("room_id").Text()] = orEmpty(record.Get("name"))
+			names[record.Get("room_id").Text()] = parser.Text(record.Get("name"))
 			return nil
 		})
 		if err != nil {
@@ -419,7 +414,7 @@ func (s *stateReader) roomRows() error {
 		if !actorOK || !payloadOK {
 			return nil
 		}
-		kind, room := orEmpty(event.Get("kind")), orEmpty(event.Get("room_id"))
+		kind, room := parser.Text(event.Get("kind")), parser.Text(event.Get("room_id"))
 		body := parser.JSONText(payload)
 		if text := payload.Get("text"); text.IsString() && (kind == "message.user" || kind == "message.member") {
 			body = text.StringValue()
@@ -448,6 +443,6 @@ func (s *stateReader) roomJSON(event jsonvalue.Value, column string) (jsonvalue.
 	}
 	rowid := event.Get("_rowid")
 	s.addError("", "", rowid, "unparseable record "+rowid.Text()+" (hosted_room_events."+column+": "+
-		err.Error()+")", orEmpty(event.Get(column)))
+		err.Error()+")", parser.Text(event.Get(column)))
 	return jsonvalue.Value{}, false
 }
