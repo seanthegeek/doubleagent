@@ -2,8 +2,9 @@
 // or a mounted disk image and analyses a collection on the analyst's
 // workstation. This file only dispatches a subcommand and maps its result to
 // an exit code; the work is in the internal packages. The analysis commands
-// use the exit codes 0 (found), 1 (nothing found) and 2 (an error
-// or a command-line mistake).
+// use the exit codes 0 (found), 1 (nothing found), 2 (an error or a
+// command-line mistake) and 130 (interrupted), analyze.ExitFound and its
+// neighbours.
 package main
 
 import (
@@ -20,7 +21,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
-// Exit codes shared by every subcommand, as the collectors define them.
+// Exit codes of collect and of the top-level command line, as the
+// collectors define them; the analysis commands use analyze's own.
 const (
 	exitOK          = 0
 	exitUsage       = 1

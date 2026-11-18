@@ -509,7 +509,10 @@ for Go files as it does for the others.
   `%w` and the path or item (`fmt.Errorf("stage %s: %w", path, err)`) and
   never calls `os.Exit`, `log.Fatal` or `panic`; a panic in library code is a
   bug. Only `cmd/doubleagent` and a subcommand's run function map errors to
-  the exit codes 0, 1 (usage), 2 (fatal) and 130 (interrupted). A manifest
+  exit codes: `collect` and the top-level command line use 0, 1 (usage), 2
+  (fatal) and 130 (interrupted); the analysis commands (`detect`, `timeline`,
+  `fleet`, `catalog`) use 0 (found), 1 (nothing found), 2 (an error or a
+  command-line mistake) and 130 (interrupted). A manifest
   `error` field holds the innermost `*fs.PathError` text.
 - **State.** No package-level mutable state; a run's state lives in a struct
   passed down. The one exception is the version variable that `-ldflags -X`
