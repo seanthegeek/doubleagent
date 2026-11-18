@@ -117,8 +117,9 @@ func safeNames() map[string][]string {
 		"path/filepath": {"Base", "Clean", "Dir", "IsAbs", "Join", "Separator", "SplitList", "ToSlash",
 			"VolumeName"},
 		// Constants, a signal, an attribute record type, and error numbers
-		// with their type, which internal/reason compares errors against.
-		"syscall": {"EISDIR", "ELOOP", "ENAMETOOLONG", "ENOTDIR", "ERROR_MORE_DATA", "Errno",
+		// with their type, which internal/reason and internal/input compare
+		// errors against.
+		"syscall": {"EILSEQ", "EISDIR", "ELOOP", "ENAMETOOLONG", "ENOTDIR", "ERROR_MORE_DATA", "Errno",
 			"FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT", "SIGTERM",
 			"Win32FileAttributeData"},
 		// Constants, the umask, the kernel's name and a byte conversion.

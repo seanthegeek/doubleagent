@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -194,5 +195,19 @@ func TestWindowsNameAllowedFollowsTheWindowsNamingRules(t *testing.T) {
 				t.Errorf("windowsNameAllowed(%q) = %v, want %v", test.text, got, test.allowed)
 			}
 		})
+	}
+}
+
+func TestAMemberNameThatIsNotUTF8IsExtractedOrSkipped(t *testing.T) {
+	name := "alice/.claude/q/\xff.jsonl"
+	collection, err := openArchiveOf(t, "c.tar", tarBytes(t, false,
+		tarMember{name: name, typeflag: '0', body: "x"},
+		tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"}))
+	opened(t, err)
+	if len(collection.Problems) > 0 {
+		wantProblem(t, collection, "member "+name+" not extracted: "+reasonNotAName)
+	}
+	if !slices.Contains(rels(collection), ".claude/x") {
+		t.Errorf("artifacts %q", rels(collection))
 	}
 }

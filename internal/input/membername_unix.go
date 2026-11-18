@@ -13,7 +13,8 @@ import (
 func hostMemberName(string) bool { return true }
 
 // nameRefused reports whether err is the system refusing a name it cannot
-// hold, such as one longer than the file system stores.
+// hold: one longer than the file system stores, or (macOS) one that is not
+// valid UTF-8.
 func nameRefused(err error) bool {
-	return errors.Is(err, syscall.ENAMETOOLONG)
+	return errors.Is(err, syscall.ENAMETOOLONG) || errors.Is(err, syscall.EILSEQ)
 }
