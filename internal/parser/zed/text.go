@@ -29,12 +29,6 @@ func newDenialPattern() *regexp.Regexp {
 		`|The .+ shell does not support "always allow" patterns .*)\z`)
 }
 
-// recordJSON returns a decoded blob item as the raw text of an error row:
-// compact JSON in the blob's own key order, non-ASCII kept.
-func recordJSON(value jsonvalue.Value) string {
-	return value.JSON()
-}
-
 // asList returns what a loop over content visits when a single string or
 // object stands for a list of one: the items of an array, or the value
 // alone.

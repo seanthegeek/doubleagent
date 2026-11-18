@@ -61,7 +61,7 @@ func (w *webui) workspace(sessionID string) string {
 		levels = 2
 	}
 	sessions, ok := parser.Above(w.artifact, levels, "sessions")
-	stem := strings.TrimRight(base64.URLEncoding.EncodeToString([]byte(sessionID)), "=")
+	stem := base64.RawURLEncoding.EncodeToString([]byte(sessionID))
 	name, named := parser.Component(stem + ".jsonl")
 	if !ok || !named {
 		return ""

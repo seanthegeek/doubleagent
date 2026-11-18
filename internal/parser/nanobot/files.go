@@ -120,7 +120,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp := parser.FileMtime(artifact)
-	for _, member := range objectMembers(data.Get("approved")) {
+	for _, member := range data.Get("approved").Members() {
 		if !member.Value.IsArray() {
 			continue
 		}
@@ -130,7 +130,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 				", file mtime)", ""))
 		}
 	}
-	for _, member := range objectMembers(data.Get("pending")) {
+	for _, member := range data.Get("pending").Members() {
 		info := member.Value
 		if !info.IsObject() {
 			continue
@@ -148,14 +148,6 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 			timeutil.FromValue(info.Get("expires_at"))+status+" (from "+artifact.Rel+
 			", created_at)", ""))
 	}
-}
-
-// objectMembers returns the members of an object, none for anything else.
-func objectMembers(value jsonvalue.Value) []jsonvalue.Member {
-	if !value.IsObject() {
-		return nil
-	}
-	return value.Members()
 }
 
 // configToolKeys are the tools settings of config.json that grant or
@@ -210,7 +202,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	tools := data.Get("tools")
 	add("tools.", tools, configToolKeys())
 	add("tools.exec.", tools.Get("exec"), configExecKeys())
-	for _, member := range objectMembers(data.Get("channels")) {
+	for _, member := range data.Get("channels").Members() {
 		add("channels."+member.Key+".", member.Value, [][]string{{"allowFrom", "allow_from"}})
 	}
 	timestamp := parser.FileMtime(artifact)

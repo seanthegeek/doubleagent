@@ -128,7 +128,7 @@ func (p *Parser) parseRoamingTrust(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	for _, key := range []string{"allowed", "revoked_keys"} {
-		for _, peer := range arrayItems(document.Get(key)) {
+		for _, peer := range parser.Elements(document.Get(key)) {
 			emit(p.standingRow(artifact, 1, timestamp, "permission setting: roaming_trust."+key+"="+
 				parser.SettingValue(peer)+" (from "+artifact.Rel+", file mtime)"))
 		}

@@ -73,7 +73,7 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 		seen[sessionID] = map[string]bool{}
 	}
 	rowid := strconv.FormatInt(entry.rowid, 10)
-	for i, item := range arrayItems(entry.data.Get("conversation_history")) {
+	for i, item := range parser.Elements(entry.data.Get("conversation_history")) {
 		if !item.IsObject() {
 			problems.AddRaw(int(entry.rowid), "unparseable record "+rowid+
 				" (responses.data conversation_history "+strconv.Itoa(i)+": not an object)",

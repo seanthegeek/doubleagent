@@ -37,14 +37,6 @@ func jsonColumn(value sqlitefile.Value) (jsonvalue.Value, bool) {
 	return decoded, true
 }
 
-// arrayItems returns the items of an array, nothing for any other value.
-func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
-	if value.IsArray() {
-		return value.Items()
-	}
-	return nil
-}
-
 // location returns "<file>:<line>", or the file alone when the line is
 // null or empty text, or "" when there is no file.
 func location(filepath, startLine jsonvalue.Value) string {
@@ -60,7 +52,7 @@ func location(filepath, startLine jsonvalue.Value) string {
 // file list.
 func attachmentParts(attachment jsonvalue.Value) []string {
 	var parts []string
-	for _, code := range arrayItems(attachment.Get("code")) {
+	for _, code := range parser.Elements(attachment.Get("code")) {
 		if !code.IsObject() {
 			continue
 		}
@@ -71,13 +63,13 @@ func attachmentParts(attachment jsonvalue.Value) []string {
 		parts = append(parts, strings.ReplaceAll(parser.JoinNonEmpty(" | ", "code", repository,
 			location(code.Get("filepath"), code.Get("start_line"))), " | ", " "))
 	}
-	for _, code := range arrayItems(attachment.Get("client_code")) {
+	for _, code := range parser.Elements(attachment.Get("client_code")) {
 		if code.IsObject() {
 			parts = append(parts, strings.TrimSpace("client_code "+
 				location(code.Get("filepath"), code.Get("start_line"))))
 		}
 	}
-	for _, doc := range arrayItems(attachment.Get("doc")) {
+	for _, doc := range parser.Elements(attachment.Get("doc")) {
 		if !doc.IsObject() {
 			continue
 		}
@@ -110,7 +102,7 @@ func messageAttachment(message sqlitefile.Row) jsonvalue.Value {
 
 // firstGitURL returns the first code[].git_url of an attachment, else "".
 func firstGitURL(attachment jsonvalue.Value) string {
-	for _, code := range arrayItems(attachment.Get("code")) {
+	for _, code := range parser.Elements(attachment.Get("code")) {
 		if url := code.Get("git_url"); code.IsObject() && !url.IsEmpty() {
 			return url.Text()
 		}
@@ -144,7 +136,7 @@ func commandText(item jsonvalue.Value) string {
 	if command.IsObject() && !command.Get("command").IsEmpty() {
 		text := command.Get("command").Text()
 		var files []string
-		for _, context := range arrayItems(command.Get("context")) {
+		for _, context := range parser.Elements(command.Get("context")) {
 			if uri := context.Get("uri"); context.IsObject() && !uri.IsEmpty() {
 				files = append(files, uri.Text())
 			}

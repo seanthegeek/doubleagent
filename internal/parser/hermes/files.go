@@ -270,7 +270,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 	}
 	timestamp := parser.FileMtime(artifact)
 	const tail = " (from connections.json, file mtime)"
-	for i, connection := range arrayItems(connections) {
+	for i, connection := range parser.Elements(connections) {
 		position := i + 1
 		if !connection.IsObject() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+" (not an object)",
@@ -282,7 +282,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 		}
 		emit(p.setting(artifact, position, connectionText(connection)+tail, timestamp))
 	}
-	for _, entry := range arrayItems(document.Get("quarantined")) {
+	for _, entry := range parser.Elements(document.Get("quarantined")) {
 		emit(p.setting(artifact, 0, "remote backend quarantined by the app: "+
 			dash(entry.Get("reason"))+tail, timestamp))
 	}
@@ -315,12 +315,4 @@ func connectionText(connection jsonvalue.Value) string {
 		}
 	}
 	return text
-}
-
-// arrayItems returns the items of an array, nothing for any other value.
-func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
-	if value.IsArray() {
-		return value.Items()
-	}
-	return nil
 }
