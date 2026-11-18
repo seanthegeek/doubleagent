@@ -169,8 +169,10 @@ func TestIsEmptyHoldsNullFalseZeroAndEmptyContainers(t *testing.T) {
 		empty bool
 	}{
 		{`null`, true}, {`false`, true}, {`0`, true}, {`-0`, true}, {`0.0`, true}, {`0e10`, true},
-		{`1e-400`, true}, {`""`, true}, {`[]`, true}, {`{}`, true},
+		{`0.000e-999999999999999999999`, true}, {`""`, true}, {`[]`, true}, {`{}`, true},
 		{`true`, false}, {`1`, false}, {`0.5`, false}, {`1e400`, false}, {`" "`, false},
+		{`1e-400`, false}, {`2e-324`, false}, {`-1e-324`, false},
+		{`0.` + strings.Repeat("0", 330) + `1`, false}, {`9e-100000000000000000`, false},
 		{`[0]`, false}, {`{"a":null}`, false},
 	}
 	for _, test := range tests {

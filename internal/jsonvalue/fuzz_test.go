@@ -47,3 +47,22 @@ func FuzzDecode(fuzz *testing.F) {
 		_ = value.IsEmpty()
 	})
 }
+
+// FuzzIsEmptyNumber checks that a number is empty exactly when it equals
+// zero by value.
+func FuzzIsEmptyNumber(fuzz *testing.F) {
+	for _, seed := range []string{"0", "-0", "0.0e5", "1e-400", "2e-324", "1", "-0.00",
+		"504.90372E-0500367971000030950", "0e-99999999999999999999"} {
+		fuzz.Add(seed)
+	}
+	zero, _ := NewNumber("0")
+	fuzz.Fuzz(func(t *testing.T, text string) {
+		number, ok := NewNumber(text)
+		if !ok {
+			return
+		}
+		if number.IsEmpty() != Equal(number, zero) {
+			t.Fatalf("%s: IsEmpty %v, Equal to 0 %v", text, number.IsEmpty(), Equal(number, zero))
+		}
+	})
+}
