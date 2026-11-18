@@ -36,7 +36,8 @@ type shellCommand struct {
 // line that is not valid UTF-8 adds a problem and is skipped.
 func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand {
 	var out []shellCommand
-	current, first := "", 0
+	var pieces []string
+	first := 0
 	for i, line := range bytes.Split(data, []byte("\n")) {
 		line = bytes.TrimSuffix(line, []byte("\r"))
 		if !utf8.Valid(line) {
@@ -47,20 +48,26 @@ func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand 
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
-		tail := len(current) - len(strings.TrimRight(current, `\`))
-		if current != "" && tail%2 == 1 {
-			current = current[:len(current)-1] + " " + text
+		if last := len(pieces) - 1; last >= 0 && continues(pieces[last]) {
+			pieces[last] = strings.TrimSuffix(pieces[last], `\`)
+			pieces = append(pieces, text)
 			continue
 		}
-		if current != "" {
-			out = append(out, shellCommand{first, current})
+		if len(pieces) > 0 {
+			out = append(out, shellCommand{first, strings.Join(pieces, " ")})
 		}
-		current, first = text, i+1
+		pieces, first = []string{text}, i+1
 	}
-	if current != "" {
-		out = append(out, shellCommand{first, current})
+	if len(pieces) > 0 {
+		out = append(out, shellCommand{first, strings.Join(pieces, " ")})
 	}
 	return out
+}
+
+// continues reports whether a shell_history line ends in an odd number of
+// backslashes, which joins the next line to it.
+func continues(line string) bool {
+	return (len(line)-len(strings.TrimRight(line, `\`)))%2 == 1
 }
 
 // historyItems returns the Content items of a history copy and, for a
