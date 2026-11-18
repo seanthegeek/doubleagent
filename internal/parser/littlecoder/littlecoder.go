@@ -26,6 +26,7 @@
 package littlecoder
 
 import (
+	"errors"
 	"regexp"
 	"slices"
 	"strings"
@@ -44,6 +45,13 @@ const (
 	legacyLatestRel  = ".little-coder/sessions/mr_sessions/session_latest.json"
 	legacyInputRel   = ".little-coder/input_history.txt"
 	legacyConfigRel  = ".little-coder/config.json"
+)
+
+// The reasons an entry of a JSON array file is reported: a prompt that is
+// not a string, a snapshot that is not an object.
+var (
+	errNotString = errors.New("not a JSON string")
+	errNotObject = errors.New("not a JSON object")
 )
 
 // legacyDenied is the tool result of an operation the user refused in the
@@ -126,11 +134,16 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 	return nil
 }
 
-// parseHistory emits one user row per prompt of the prompt history.
+// parseHistory emits one user row per prompt of the prompt history; an
+// entry that is not a string is a problem.
 func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for position, prompt := range parser.JSONArray(artifact.DiskPath, &problems) {
-		if prompt.IsString() && prompt.StringValue() != "" {
+		if !prompt.IsString() {
+			problems.AddRaw(position, parser.UnparseableRecord(position, errNotString), parser.JSONText(prompt))
+			continue
+		}
+		if prompt.StringValue() != "" {
 			row := p.BaseRow(artifact)
 			row.SourceLine = position
 			row.TurnType = timeline.TurnUser
@@ -207,6 +220,7 @@ func (p *Parser) parseLegacySnapshots(artifact *input.Artifact, emit parser.Emit
 	var problems parser.Problems
 	for position, snapshot := range parser.JSONArray(artifact.DiskPath, &problems) {
 		if !snapshot.IsObject() {
+			problems.AddRaw(position, parser.UnparseableRecord(position, errNotObject), parser.JSONText(snapshot))
 			continue
 		}
 		var files []string
