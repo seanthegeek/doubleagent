@@ -37,7 +37,7 @@ func TestATagCheckpointIsNotAToolCheckpointNorTheOtherWay(t *testing.T) {
 	}
 }
 
-// contextKindCases are texts and the context kinds the analyzer gives them:
+// contextKindCases are texts and the context kinds they are read as:
 // the CLI's own openings, then the person's texts with a tag or phrase
 // typed inside them.
 func contextKindCases() []struct{ text, kind string } {

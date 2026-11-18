@@ -3,6 +3,7 @@ package roocode
 import (
 	"cmp"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -219,7 +220,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		if !state.IsObject() {
-			if !mentions(problems, key) {
+			if !slices.ContainsFunc(problems, func(problem string) bool { return strings.Contains(problem, key) }) {
 				problems = append(problems, key+" value is not a JSON object")
 			}
 			continue
@@ -238,16 +239,6 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 			emit(p.ProblemRow(artifact, problem))
 		}
 	}
-}
-
-// mentions reports whether any problem names key.
-func mentions(problems []string, key string) bool {
-	for _, problem := range problems {
-		if strings.Contains(problem, key) {
-			return true
-		}
-	}
-	return false
 }
 
 // retryQueueRows emits one row per request the Roo Code Cloud client queued
