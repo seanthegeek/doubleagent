@@ -17,15 +17,17 @@ import (
 // malformed, so a self-referencing schema cannot exhaust the stack.
 const maxDepth = 100
 
-// maxPackedValues is the most packed integers and booleans one Decode call
-// reads, over all its fields. An agent's lists of this kind hold thousands
-// of values at most, and each value costs about 70 bytes once decoded, so
-// the bound keeps a message's packed values to about 70 MiB however large
-// its buffer.
-const maxPackedValues = 1 << 20
+// maxValues is the most values one Decode call reads, nested messages
+// included: every scalar, packed value and nested message counts once,
+// whether its field is repeated or not. Decoding a value allocates up to
+// about 150 bytes, beyond the bytes of a string, which come from the input,
+// so the bound keeps a call to about 150 MiB however large its buffer. The
+// longest list an agent writes is the step indices of an Antigravity
+// conversation, one per step; the conversations studied held at most 125.
+const maxValues = 1 << 20
 
-// ErrTooLarge is wrapped by the error of a message holding more packed
-// values than one Decode call reads.
+// ErrTooLarge is wrapped by the error of a message holding more values
+// than one Decode call reads.
 var ErrTooLarge = errors.New("protobuf message is larger than the limit")
 
 // Decode reads data as the named message. Unknown fields are skipped. A
@@ -34,8 +36,9 @@ var ErrTooLarge = errors.New("protobuf message is larger than the limit")
 // nested message that is malformed are each left out, the rest kept. The
 // error wraps ErrMalformed when the top-level buffer cannot be followed (a
 // tag, varint or length cut off, or an unsupported wire type), wraps
-// ErrTooLarge past maxPackedValues, and is another error when the schema
-// has no such message.
+// ErrTooLarge when the message holds more than 1,048,576 values, counting
+// each scalar, packed value and nested message at any depth, and is
+// another error when the schema has no such message.
 func (s *Schema) Decode(data []byte, message string) (*Message, error) {
 	spec := s.messages[message]
 	if spec == nil {
@@ -45,11 +48,19 @@ func (s *Schema) Decode(data []byte, message string) (*Message, error) {
 	return run.message(data, spec, 0)
 }
 
-// decoding is the state of one Decode call: the schema and the packed
-// values read so far.
+// decoding is the state of one Decode call: the schema and how many
+// values it has read so far.
 type decoding struct {
 	schema *Schema
-	packed int
+	values int
+}
+
+// count adds one value to the call's total, refusing one past maxValues.
+func (d *decoding) count() error {
+	if d.values++; d.values > maxValues {
+		return fmt.Errorf("%w: more than %d values", ErrTooLarge, maxValues)
+	}
+	return nil
 }
 
 // message decodes data as the message spec describes, depth levels below
@@ -81,6 +92,9 @@ func (d *decoding) message(data []byte, spec *messageSpec, depth int) (*Message,
 // cannot be read as its kind.
 func (d *decoding) addField(message *Message, known fieldSpec, field rawField, depth int) error {
 	if !isScalar(known.kind) {
+		if err := d.count(); err != nil {
+			return err
+		}
 		child, err := d.nested(known.kind, field, depth)
 		if err != nil || child == nil {
 			return err
@@ -99,8 +113,10 @@ func (d *decoding) addField(message *Message, known fieldSpec, field rawField, d
 		message.extend(known.name, values)
 		return nil
 	}
-	value, ok := scalar(known.kind, field)
-	if ok {
+	if err := d.count(); err != nil {
+		return err
+	}
+	if value, ok := scalar(known.kind, field); ok {
 		store(message, known, value)
 	}
 	return nil
@@ -132,8 +148,8 @@ func (d *decoding) nested(kind string, field rawField, depth int) (*Message, err
 }
 
 // packedVarints reads a packed run of varints as integers or booleans. A
-// damaged varint is an ErrMalformed error, and the run passing
-// maxPackedValues for the call an ErrTooLarge one.
+// damaged varint is an ErrMalformed error, and a value past maxValues for
+// the call an ErrTooLarge one.
 func (d *decoding) packedVarints(data []byte, boolean bool) ([]any, error) {
 	values := []any{}
 	for offset := 0; offset < len(data); {
@@ -141,8 +157,8 @@ func (d *decoding) packedVarints(data []byte, boolean bool) ([]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if d.packed++; d.packed > maxPackedValues {
-			return nil, fmt.Errorf("%w: more than %d packed values", ErrTooLarge, maxPackedValues)
+		if err := d.count(); err != nil {
+			return nil, err
 		}
 		offset = next
 		if boolean {
