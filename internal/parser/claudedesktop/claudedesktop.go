@@ -62,6 +62,9 @@ var (
 type Parser struct {
 	parser.Base
 	code *claudecode.Reader
+	// records holds the session record found for each session dir looked
+	// up, by home and session dir.
+	records map[recordKey]foundRecord
 }
 
 // New returns the parser.

@@ -129,3 +129,27 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 		})
 	}
 }
+
+func TestASessionDirsRecordIsLookedUpOncePerRun(t *testing.T) {
+	const transcripts = 50
+	org := t.TempDir()
+	short := "c0c0c0c0"
+	if err := osfile.MkdirAll(filepath.Join(org, short), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(filepath.Join(org, session+".json"), []byte(`{"title": "short"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := &input.Home{DiskPath: filepath.Dir(org)}
+	subject := New()
+	subject.Work = parser.CountingWork()
+	for range transcripts {
+		if record, found := subject.sessionRecord(home, filepath.Base(org)+"/"+short); !found ||
+			record.Get("title").Text() != "short" {
+			t.Fatalf("got %v, %v; want the short name's record", record, found)
+		}
+	}
+	if lookups := subject.Work.Count("record lookups"); lookups != 1 {
+		t.Errorf("%d transcripts looked the record up %d times, want once", transcripts, lookups)
+	}
+}

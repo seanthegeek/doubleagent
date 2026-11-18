@@ -40,6 +40,39 @@ func readJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	return value, err == nil
 }
 
+// recordKey names a session dir looked up: its home and its path
+// relative to the home.
+type recordKey struct {
+	home, session string
+}
+
+// foundRecord is a session record looked up, and whether one was found.
+type foundRecord struct {
+	record jsonvalue.Value
+	found  bool
+}
+
+// sessionRecord returns findRecord's answer for the session dir, looked up
+// once per run, since every transcript and audit log of the session dir
+// needs it and the lookup reads the record (and, for a short name, lists
+// the org dir).
+func (p *Parser) sessionRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
+	key := recordKey{session: session}
+	if home != nil {
+		key.home = home.DiskPath
+	}
+	if cached, ok := p.records[key]; ok {
+		return cached.record, cached.found
+	}
+	p.Work.Add("record lookups", 1)
+	record, found := findRecord(home, session)
+	if p.records == nil {
+		p.records = map[recordKey]foundRecord{}
+	}
+	p.records[key] = foundRecord{record: record, found: found}
+	return record, found
+}
+
 // findRecord returns the session record of the session dir at session, a
 // path relative to the home, or false. The dir and its parents are found
 // where the collection holds them (Home.PathOf follows the collector's
