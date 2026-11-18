@@ -47,9 +47,9 @@ func joinProject(row *timeline.Row, sessionID string, index *stateIndex) {
 	}
 }
 
-// valueKey returns a column value as a key that is equal for values Python
-// counts as equal dict keys: a number by its value, text and blobs by
-// their bytes, and NULL.
+// valueKey returns a column value as a key that is equal for equal
+// values: a number by its value whatever its storage class, text and blobs
+// by their bytes, and NULL.
 func valueKey(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Integer:

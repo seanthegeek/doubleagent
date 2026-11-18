@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// space is a Python \s in a str pattern.
+// space is one white space character of parser.Space.
 const space = `[` + parser.Space + `]`
 
 // wrapperPattern matches the worker's wrapper of a user text block,
@@ -75,48 +76,18 @@ func unwrapQuery(text string) (string, string) {
 	return text, ""
 }
 
-// schemeCharacters are the characters a URL scheme is made of.
-const schemeCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-."
-
 // githubRepository returns "<owner>/<repo>", less a .git suffix, when the
-// host of url is github.com, else "". Cursor writes repoUrl without a
+// host of a URL is github.com, else "". Cursor writes repoUrl without a
 // scheme, so a value without "://" is read as a network path; a path or a
-// longer host that merely holds github.com does not match.
-func githubRepository(url string) string {
-	if !strings.Contains(url, "://") {
-		url = "//" + url
+// longer host that merely holds github.com does not match, nor does text
+// net/url cannot read as a URL.
+func githubRepository(text string) string {
+	if !strings.Contains(text, "://") {
+		text = "//" + text
 	}
-	url = strings.NewReplacer("\t", "", "\r", "", "\n", "").Replace(strings.TrimLeft(url, controlOrSpace))
-	if colon := strings.IndexByte(url, ':'); colon > 0 && isASCIILetter(url[0]) &&
-		strings.Trim(url[:colon], schemeCharacters) == "" {
-		url = url[colon+1:]
-	}
-	if !strings.HasPrefix(url, "//") {
+	parsed, err := url.Parse(text)
+	if err != nil || !strings.EqualFold(parsed.Hostname(), "github.com") {
 		return ""
 	}
-	end := strings.IndexAny(url[2:], "/?#")
-	if end < 0 {
-		end = len(url) - 2
-	}
-	netloc, rest := url[2:2+end], url[2+end:]
-	host := netloc[strings.LastIndex(netloc, "@")+1:]
-	if !strings.HasPrefix(host, "[") {
-		host, _, _ = strings.Cut(host, ":")
-	}
-	if strings.ToLower(host) != "github.com" {
-		return ""
-	}
-	rest, _, _ = strings.Cut(rest, "#")
-	rest, _, _ = strings.Cut(rest, "?")
-	return strings.TrimSuffix(strings.Trim(rest, "/"), ".git")
-}
-
-// controlOrSpace is what a URL loses at its start: the C0 controls and
-// space.
-const controlOrSpace = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\v\f\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17" +
-	"\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f "
-
-// isASCIILetter reports whether char is an ASCII letter.
-func isASCIILetter(char byte) bool {
-	return ('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z')
+	return strings.TrimSuffix(strings.Trim(parsed.EscapedPath(), "/"), ".git")
 }

@@ -15,14 +15,14 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 	tool := bubble.Get("toolFormerData")
 	extra := tool.Get("additionalData")
 	name, callID := parser.Text(tool.Get("name")), parser.Text(tool.Get("toolCallId"))
-	started := firstTruthy(bubble.Get("startedAtMs"), extra.Get("startedAtMs"), bubble.Get("createdAt"),
+	started := firstOrLast(bubble.Get("startedAtMs"), extra.Get("startedAtMs"), bubble.Get("createdAt"),
 		entry.Get("createdAt"))
 	row := func(turnType, text string, when jsonvalue.Value) {
 		made := stamp.row(turnType, text, timeutil.FromValue(when), rowid, model)
 		made.ToolName, made.ToolUseID = name, callID
 		stamp.emit(made)
 	}
-	arguments := firstTruthy(tool.Get("params"), tool.Get("rawArgs"))
+	arguments := parser.FirstNonEmpty(tool.Get("params"), tool.Get("rawArgs"))
 	argsText := arguments.StringValue()
 	if !arguments.IsString() && !arguments.IsEmpty() {
 		argsText = parser.JSONText(arguments)
@@ -45,7 +45,7 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 		if rejected {
 			text = "[rejected] " + text
 		}
-		row(timeline.TurnToolResult, timeline.Compact(text), firstTruthy(bubble.Get("completedAtMs"), started))
+		row(timeline.TurnToolResult, timeline.Compact(text), firstOrLast(bubble.Get("completedAtMs"), started))
 	}
 }
 
@@ -64,7 +64,7 @@ func reviewText(name string, tool, extra, review jsonvalue.Value) (string, bool)
 
 // fieldOf returns a decoded value as row text, "-" when it is null or "".
 func fieldOf(value jsonvalue.Value) string {
-	return orDash(jsonText(value))
+	return orDash(value.Text())
 }
 
 // optionIDs returns the ids of a prompt's allowlist options.
@@ -83,7 +83,7 @@ func optionIDs(review jsonvalue.Value) []jsonvalue.Value {
 func pendingText(name string, extra, review jsonvalue.Value) string {
 	var ids []string
 	for _, ident := range optionIDs(review) {
-		ids = append(ids, jsonText(ident))
+		ids = append(ids, ident.Text())
 	}
 	return "permission prompt pending: " + orDash(name) + " reason=" + fieldOf(extra.Get("blockReason")) +
 		" options=" + orDash(strings.Join(ids, ","))

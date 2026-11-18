@@ -80,7 +80,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	for _, found := range readCloudAgents(store, &ignored) {
 		ident := found.agent.Get("bcId").Text()
 		if _, seen := p.index.projects[ident]; !seen {
-			p.index.projects[ident] = project{path: jsonText(found.agent.Get("repoUrl"))}
+			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text()}
 		}
 		if _, seen := p.index.models[ident]; !seen {
 			p.index.models[ident], _ = cloudModel(found.agent)
