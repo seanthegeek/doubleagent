@@ -1,8 +1,6 @@
 package collect
 
 import (
-	"bytes"
-	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -149,8 +147,6 @@ func TestParseOptionsActions(t *testing.T) {
 		{"--version after other options", []string{"-o", "out", "-q", "--version"}, ActVersion},
 		{"--help wins over --version wherever it stands", []string{"-V", "-h"}, ActHelp},
 		{"--version wins over --list", []string{"--list", "-V"}, ActVersion},
-		{"--list skips the size check", []string{"--list", "--max-file-size", "x"}, ActList},
-		{"--version skips the size check", []string{"--max-file-size", "x", "-V"}, ActVersion},
 		{"--list=false runs", []string{"--list", "--list=false"}, ActRun},
 	}
 	for _, test := range cases {
@@ -199,33 +195,21 @@ func TestParseOptionsErrors(t *testing.T) {
 			"Invalid --max-file-size: 99999999999999999999\n"},
 		{"the max size is checked first", []string{"--env-scan-max-size", "q", "--max-file-size", "z"},
 			"Invalid --max-file-size: z\n"},
+		{"a bad size beats --help", []string{"--help", "--max-file-size", "x"}, "Invalid --max-file-size: x\n"},
+		{"a bad size beats --version", []string{"--max-file-size", "x", "-V"}, "Invalid --max-file-size: x\n"},
+		{"a bad size beats --list", []string{"--list", "--env-scan-max-size", "x"},
+			"Invalid --env-scan-max-size: x\n"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			_, action, err := ParseOptions(test.args)
-			var usageError *UsageError
-			if !errors.As(err, &usageError) || action != ActRun {
-				t.Fatalf("action %v, error %v; want a *UsageError", action, err)
+			if err == nil || action != ActRun {
+				t.Fatalf("action %v, error %v; want an error", action, err)
 			}
-			var printed bytes.Buffer
-			usageError.Print(&printed)
-			if printed.String() != test.want {
-				t.Errorf("printed %q, want %q", printed.String(), test.want)
+			if printed := err.Error() + "\n"; printed != test.want {
+				t.Errorf("printed %q, want %q", printed, test.want)
 			}
 		})
-	}
-}
-
-func TestAUsageErrorPrintsTheWholeUsageOrNone(t *testing.T) {
-	var printed bytes.Buffer
-	(&UsageError{Message: "doubleagent collect: x", ShowUsage: true}).Print(&printed)
-	if printed.String() != "doubleagent collect: x\n"+UsageText {
-		t.Errorf("printed %q", printed.String())
-	}
-	printed.Reset()
-	(&UsageError{Message: "Invalid --max-file-size: z"}).Print(&printed)
-	if printed.String() != "Invalid --max-file-size: z\n" {
-		t.Errorf("printed %q", printed.String())
 	}
 }
 

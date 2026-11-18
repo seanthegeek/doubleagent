@@ -8,7 +8,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -74,13 +73,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 // runCollect parses ARGS, the arguments after `collect`, and runs the
-// subcommand. A command-line mistake prints its message and the usage text on
-// STDERR and exits with the usage code.
+// subcommand. A command-line mistake is printed on STDERR and exits with the
+// usage code.
 func runCollect(args []string, stdout, stderr io.Writer) int {
 	options, action, err := collect.ParseOptions(args)
-	var usageError *collect.UsageError
-	if errors.As(err, &usageError) {
-		usageError.Print(stderr)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return exitUsage
 	}
 	return collect.Run(context.Background(), options, action, stdout, stderr)

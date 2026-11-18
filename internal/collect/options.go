@@ -3,6 +3,7 @@
 package collect
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -62,26 +63,6 @@ const (
 
 const mebibyte = 1024 * 1024
 
-// UsageError is a command-line mistake, exit code 1. Message is printed
-// first; the usage text follows when ShowUsage is set.
-type UsageError struct {
-	Message   string
-	ShowUsage bool
-}
-
-// Error returns the message.
-func (e *UsageError) Error() string {
-	return e.Message
-}
-
-// Print writes the message and, when asked, the usage text to W.
-func (e *UsageError) Print(w io.Writer) {
-	fmt.Fprintln(w, e.Message)
-	if e.ShowUsage {
-		fmt.Fprint(w, UsageText)
-	}
-}
-
 // UsageText is the help text: the sh collector's, with the program name
 // `doubleagent collect`, without its worker-shell paragraph and with the
 // binary's own --no-preserve-atime.
@@ -117,7 +98,7 @@ Run as root to collect every user's home.
 `
 
 // rawOptions holds the option values as typed, before the sizes are checked,
-// and the switches that end the line.
+// and the switches that print instead of collecting.
 type rawOptions struct {
 	options Options
 	maxMB   string
@@ -129,43 +110,54 @@ type rawOptions struct {
 
 // ParseOptions reads the arguments after `collect` with the flag package, so
 // each option is also accepted with one dash or two and with its value after
-// `=`. What flag cannot state is checked once the line is read: `collect`
-// takes no argument that is not an option; --help, then --version, then
-// --list end the line whatever their place; and the two sizes are checked
-// last, the max size first, so a bad size is reported only when the line
-// runs a collection.
+// `=`. What flag cannot state is checked once the line is read.
 func ParseOptions(args []string) (Options, Action, error) {
-	raw := rawOptions{options: Options{OutDir: "."}, maxMB: "256", scanMB: "1"}
+	raw := rawOptions{options: Options{OutDir: "."}}
 	set := raw.flagSet()
 	if err := set.Parse(args); err != nil {
-		return Options{}, ActRun, &UsageError{Message: "doubleagent collect: " + err.Error(), ShowUsage: true}
+		return Options{}, ActRun, usageError(err.Error())
 	}
+	// collect takes no argument that is not an option.
 	if set.NArg() > 0 {
-		return Options{}, ActRun, &UsageError{
-			Message: "doubleagent collect: unexpected argument: " + set.Arg(0), ShowUsage: true}
+		return Options{}, ActRun, usageError("unexpected argument: " + set.Arg(0))
 	}
+	// A size is whole MiB; its message is the collectors' own, without the usage.
+	maxBytes, ok := mebibytes(raw.maxMB)
+	if !ok {
+		return Options{}, ActRun, errors.New("Invalid --max-file-size: " + raw.maxMB)
+	}
+	scanBytes, ok := mebibytes(raw.scanMB)
+	if !ok {
+		return Options{}, ActRun, errors.New("Invalid --env-scan-max-size: " + raw.scanMB)
+	}
+	options := raw.options
+	options.MaxFileBytes, options.EnvScanMaxBytes = maxBytes, scanBytes
+	// On a line without a mistake, --help, then --version, then --list
+	// replace the collection.
 	switch {
 	case raw.help:
-		return raw.options, ActHelp, nil
+		return options, ActHelp, nil
 	case raw.version:
-		return raw.options, ActVersion, nil
+		return options, ActVersion, nil
 	case raw.list:
-		return raw.options, ActList, nil
+		return options, ActList, nil
 	}
-	if err := raw.setSizes(); err != nil {
-		return Options{}, ActRun, err
-	}
-	return raw.options, ActRun, nil
+	return options, ActRun, nil
+}
+
+// usageError returns the usage error the caller prints for a mistake flag
+// or the argument count finds: "doubleagent collect: " and message, then
+// UsageText.
+func usageError(message string) error {
+	return errors.New("doubleagent collect: " + message + "\n" + strings.TrimSuffix(UsageText, "\n"))
 }
 
 // flagSet returns the flag set of `collect`, reading into raw. An option with
 // a short and a long name is one variable under two names. Parse prints
-// nothing: ParseOptions words the error and the caller prints it with
-// UsageText, the documented help, which flag's own listing is not.
+// nothing: ParseOptions returns the mistake for the caller to print.
 func (raw *rawOptions) flagSet() *flag.FlagSet {
 	set := flag.NewFlagSet("collect", flag.ContinueOnError)
 	set.SetOutput(io.Discard)
-	set.Usage = func() {}
 	options := &raw.options
 	output := func(value string) error {
 		options.OutDir, options.OutDirSet = value, true
@@ -175,56 +167,33 @@ func (raw *rawOptions) flagSet() *flag.FlagSet {
 		options.Projects = append(options.Projects, value)
 		return nil
 	}
-	for _, name := range []string{"o", "output"} {
-		set.Func(name, "", output)
-	}
-	for _, name := range []string{"p", "project"} {
-		set.Func(name, "", project)
-	}
-	stringOption(set, &options.Root, "r", "root")
-	stringOption(set, &options.UsersFilter, "u", "users")
-	stringOption(set, &raw.maxMB, "max-file-size")
-	stringOption(set, &raw.scanMB, "env-scan-max-size")
-	switches := map[*bool][]string{&options.Full: {"full"}, &options.NoSecrets: {"no-secrets"},
-		&options.NoProjects: {"no-projects"}, &options.NoDocker: {"no-docker"},
-		&options.EnvScanHome: {"env-scan-home"}, &options.NoPreserveAtime: {"no-preserve-atime"},
-		&options.KeepStaging: {"k", "keep-staging"}, &options.Inventory: {"inventory"},
-		&options.Quiet: {"q", "quiet"}, &raw.list: {"list"}, &raw.version: {"V", "version"},
-		&raw.help: {"h", "help"}}
-	for target, names := range switches {
-		switchOption(set, target, names...)
-	}
+	set.Func("o", "", output)
+	set.Func("output", "", output)
+	set.StringVar(&options.Root, "r", "", "")
+	set.StringVar(&options.Root, "root", "", "")
+	set.StringVar(&options.UsersFilter, "u", "", "")
+	set.StringVar(&options.UsersFilter, "users", "", "")
+	set.Func("p", "", project)
+	set.Func("project", "", project)
+	set.BoolVar(&options.Full, "full", false, "")
+	set.BoolVar(&options.NoSecrets, "no-secrets", false, "")
+	set.BoolVar(&options.NoProjects, "no-projects", false, "")
+	set.BoolVar(&options.NoDocker, "no-docker", false, "")
+	set.StringVar(&raw.maxMB, "max-file-size", "256", "")
+	set.BoolVar(&options.EnvScanHome, "env-scan-home", false, "")
+	set.StringVar(&raw.scanMB, "env-scan-max-size", "1", "")
+	set.BoolVar(&options.NoPreserveAtime, "no-preserve-atime", false, "")
+	set.BoolVar(&options.KeepStaging, "k", false, "")
+	set.BoolVar(&options.KeepStaging, "keep-staging", false, "")
+	set.BoolVar(&options.Inventory, "inventory", false, "")
+	set.BoolVar(&raw.list, "list", false, "")
+	set.BoolVar(&options.Quiet, "q", false, "")
+	set.BoolVar(&options.Quiet, "quiet", false, "")
+	set.BoolVar(&raw.version, "V", false, "")
+	set.BoolVar(&raw.version, "version", false, "")
+	set.BoolVar(&raw.help, "h", false, "")
+	set.BoolVar(&raw.help, "help", false, "")
 	return set
-}
-
-// stringOption registers target under each of names, keeping its value as
-// the default.
-func stringOption(set *flag.FlagSet, target *string, names ...string) {
-	for _, name := range names {
-		set.StringVar(target, name, *target, "")
-	}
-}
-
-// switchOption registers the boolean target, false by default, under each
-// of names.
-func switchOption(set *flag.FlagSet, target *bool, names ...string) {
-	for _, name := range names {
-		set.BoolVar(target, name, false, "")
-	}
-}
-
-// setSizes converts the two size options from whole MiB to bytes.
-func (raw *rawOptions) setSizes() error {
-	maxBytes, ok := mebibytes(raw.maxMB)
-	if !ok {
-		return &UsageError{Message: "Invalid --max-file-size: " + raw.maxMB}
-	}
-	scanBytes, ok := mebibytes(raw.scanMB)
-	if !ok {
-		return &UsageError{Message: "Invalid --env-scan-max-size: " + raw.scanMB}
-	}
-	raw.options.MaxFileBytes, raw.options.EnvScanMaxBytes = maxBytes, scanBytes
-	return nil
 }
 
 // mebibytes converts TEXT, a non-empty run of ASCII digits, to bytes. Text
