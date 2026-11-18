@@ -1,8 +1,10 @@
 package cody
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -67,6 +69,112 @@ func TestAHistoryThatIsNotAnObjectIsReported(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := parseFile(t, test.rel, test.data); !slices.Equal(got, test.want) {
 				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+// parserRows returns the rows of texts that are problems.
+func parserRows(texts []string) []string {
+	var found []string
+	for _, text := range texts {
+		if strings.HasPrefix(text, "parser: ") {
+			found = append(found, text)
+		}
+	}
+	return found
+}
+
+// wrongKinds returns the values a member must not have, each with a name:
+// a string, a number and the container of the other kind than the member's.
+func wrongKinds(array bool) [][2]string {
+	other := `[1]`
+	if array {
+		other = `{"a": 1}`
+	}
+	return [][2]string{{"a string", `"oops"`}, {"a number", `7`}, {"the other container", other}}
+}
+
+func TestAHistoryMemberThatIsNotTheRightKindIsReported(t *testing.T) {
+	const jetBrains = "Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2"
+	const message = `"speaker": "assistant", "text": "ok"`
+	tests := []struct {
+		name, member, history string
+		array                 bool
+	}{
+		{"an account", "chat history account", `{"a": %s}`, false},
+		{"chat", "chat", `{"a": {"chat": %s}}`, false},
+		{"interactions", "interactions", `{"a": {"chat": {"c": {"id": "c", "interactions": %s}}}}`, true},
+		{"content", "content",
+			`{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": {` + message + `, "content": %s}}]}}}}`, true},
+		{"processes", "processes",
+			`{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": {` + message + `, "processes": %s}}]}}}}`, true},
+	}
+	for _, test := range tests {
+		kind := "object"
+		silent := []string{`null`, `{}`}
+		if test.array {
+			kind, silent = "array", []string{`null`, `[]`}
+		}
+		for _, wrong := range wrongKinds(test.array) {
+			t.Run(test.name+" as "+wrong[0], func(t *testing.T) {
+				got := parserRows(parseFile(t, jetBrains, []byte(fmt.Sprintf(test.history, wrong[1]))))
+				if want := []string{"parser: " + test.member + " is not a JSON " + kind}; !slices.Equal(got, want) {
+					t.Errorf("problems %q, want %q", got, want)
+				}
+			})
+		}
+		for _, value := range silent {
+			t.Run(test.name+" as "+value, func(t *testing.T) {
+				if got := parserRows(parseFile(t, jetBrains, []byte(fmt.Sprintf(test.history, value)))); len(got) != 0 {
+					t.Errorf("problems %q, want none", got)
+				}
+			})
+		}
+	}
+	t.Run("absent members", func(t *testing.T) {
+		data := `{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": {` + message + `}}]}}}}`
+		if got := parserRows(parseFile(t, jetBrains, []byte(data))); len(got) != 0 {
+			t.Errorf("problems %q, want none", got)
+		}
+	})
+}
+
+func TestAModelPreferenceMemberThatIsNotAnObjectIsReported(t *testing.T) {
+	const rel = "Cody-nodejs/JetBrains-globalState/cody-model-preferences"
+	for _, kind := range []string{"selected", "defaults"} {
+		for _, wrong := range wrongKinds(false) {
+			t.Run(kind+" as "+wrong[0], func(t *testing.T) {
+				data := `{"https://s.com/": {"` + kind + `": ` + wrong[1] + `}}`
+				want := []string{"parser: " + kind + " is not a JSON object"}
+				if got := parserRows(parseFile(t, rel, []byte(data))); !slices.Equal(got, want) {
+					t.Errorf("problems %q, want %q", got, want)
+				}
+			})
+		}
+		for _, silent := range []string{`null`, `{}`} {
+			t.Run(kind+" as "+silent, func(t *testing.T) {
+				data := `{"https://s.com/": {"` + kind + `": ` + silent + `}}`
+				if got := parserRows(parseFile(t, rel, []byte(data))); len(got) != 0 {
+					t.Errorf("problems %q, want none", got)
+				}
+			})
+		}
+	}
+}
+
+// The state.vscdb fixtures under testdata are built by testdata/gen_state.py.
+func TestStateModelPreferencesThatAreNotAnObjectAreReported(t *testing.T) {
+	const rel = "Code/User/globalStorage/state.vscdb"
+	for _, name := range []string{"preferences-string", "preferences-number", "preferences-list"} {
+		t.Run(name, func(t *testing.T) {
+			data, err := osfile.ReadFile(filepath.Join("testdata", name+".vscdb"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"parser: cody-model-preferences is not a JSON object"}
+			if got := parserRows(parseFile(t, rel, data)); !slices.Equal(got, want) {
+				t.Errorf("problems %q, want %q", got, want)
 			}
 		})
 	}
