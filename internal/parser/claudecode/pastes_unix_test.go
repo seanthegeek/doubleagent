@@ -30,28 +30,36 @@ func TestAPasteCacheFileNamedManyTimesIsReadOnce(t *testing.T) {
 		t.Skip("this user reads a file without read permission")
 	}
 	const placeholders = 2000
-	members := make([]jsonvalue.Member, placeholders)
-	var display strings.Builder
-	for i := range placeholders {
-		number := strconv.Itoa(i)
-		members[i] = jsonvalue.Member{Key: number, Value: decode(t, `{"contentHash": "abc"}`)}
-		display.WriteString("[Pasted text #" + number + "] ")
+	allocations := func(hash string) (float64, string, int) {
+		members := make([]jsonvalue.Member, placeholders)
+		var display strings.Builder
+		for i := range placeholders {
+			number := strconv.Itoa(i)
+			members[i] = jsonvalue.Member{Key: number, Value: decode(t, `{"contentHash": "`+hash+`"}`)}
+			display.WriteString("[Pasted text #" + number + "] ")
+		}
+		pasted := jsonvalue.NewObject(members...)
+		var problems parser.Problems
+		got := ""
+		count := testing.AllocsPerRun(1, func() {
+			problems = nil
+			got = expandPastes(home, display.String(), pasted, &problems)
+		})
+		if got != display.String() {
+			t.Fatalf("the placeholders of %q changed: %q", hash, got)
+		}
+		return count, got, len(problems)
 	}
-	pasted := jsonvalue.NewObject(members...)
-	var problems parser.Problems
-	got := ""
-	allocations := testing.AllocsPerRun(1, func() {
-		problems = nil
-		got = expandPastes(home, display.String(), pasted, &problems)
-	})
-	if got != display.String() || len(problems) != placeholders {
-		t.Fatalf("%d problems and the text changed: want the placeholders kept and one problem each",
-			len(problems))
+	// A name that is not a plain hash is never looked up, so the difference
+	// between the two is the cost of reading the file: about a dozen
+	// allocations a read.
+	unread, _, unreadProblems := allocations("not/a/hash")
+	read, _, problems := allocations("abc")
+	if unreadProblems != 0 || problems != placeholders {
+		t.Fatalf("%d and %d problems, want none and one per placeholder", unreadProblems, problems)
 	}
-	// The pattern's match list takes about one allocation per placeholder;
-	// a read of the file takes about a dozen.
-	if allocations > 2*placeholders {
-		t.Errorf("%.0f allocations for %d placeholders of one unreadable file: read more than once",
-			allocations, placeholders)
+	if read-unread > placeholders/2 {
+		t.Errorf("%.0f allocations more for %d placeholders of one unreadable file than for none: "+
+			"read more than once", read-unread, placeholders)
 	}
 }
