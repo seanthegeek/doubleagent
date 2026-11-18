@@ -4,9 +4,16 @@
 //
 // The reading itself is done by github.com/BurntSushi/toml, which returns
 // tables as unordered maps; the order comes from the list of keys that module
-// reports in document order. A table written as an inline table inside an
-// array keeps its keys in document order when its values are plain (no nested
-// table), and in sorted order otherwise.
+// reports in document order. That list cannot always be matched to the
+// inline tables inside an array, so their keys keep document order only
+// when the array is a key's own value, not an element of another array, and
+// nothing in the array holds a table except those inline tables themselves,
+// whose values hold none; otherwise every inline table in the array has its
+// keys in byte order.
+//
+// Parse refuses a document over a size limit, or whose keys and arrays nest
+// deeper than a depth limit (maxDocumentBytes and maxDepth), before reading
+// it.
 //
 // The module's Decode into a map gives the values but not their order;
 // rows list settings in the file's order, so this package rebuilds it from

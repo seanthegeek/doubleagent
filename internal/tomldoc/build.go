@@ -1,6 +1,7 @@
 package tomldoc
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,29 +11,57 @@ import (
 )
 
 // Parse reads a TOML 1.0 document. The error says where the document breaks
-// the TOML rules, with a line and column.
-func Parse(text string) (table *Table, err error) {
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			table, err = nil, fmt.Errorf("invalid TOML: the reader failed on this input: %v", recovered)
-		}
-	}()
-	var mapping map[string]any
+// the TOML rules, with a line and column, or that it is larger or nests
+// deeper than this package reads.
+func Parse(text string) (*Table, error) {
+	if err := checkShape(text); err != nil {
+		return nil, err
+	}
 	// Every CR LF becomes LF before reading, so a multi-line string holds LF
 	// however the file ended its lines; TOML lets a reader normalise
 	// newlines so.
-	meta, err := toml.Decode(strings.ReplaceAll(text, "\r\n", "\n"), &mapping)
+	mapping, keys, err := decode(strings.ReplaceAll(text, "\r\n", "\n"))
 	if err != nil {
-		return nil, syntaxError(err)
+		return nil, err
 	}
-	return newBuilder(mapping, meta.Keys()).build(), nil
+	return newBuilder(mapping, keys).build(), nil
 }
 
-// syntaxError words a reader failure as this package's own error.
-func syntaxError(err error) error {
-	if parseErr, ok := err.(toml.ParseError); ok {
-		return fmt.Errorf("invalid TOML at line %d, column %d: %s",
-			parseErr.Position.Line, parseErr.Position.Col, parseErr.Message)
+// decode runs the reader. The reader turns its own parse failures into
+// errors but lets a panic from a defect of its own through; that panic
+// becomes an error here, so one malformed file cannot stop a run.
+func decode(text string) (mapping map[string]any, keys []toml.Key, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			mapping, keys, err = nil, nil, fmt.Errorf("invalid TOML: the reader failed on this input: %v", recovered)
+		}
+	}()
+	meta, err := toml.Decode(text, &mapping)
+	if err != nil {
+		return nil, nil, newSyntaxError(err)
+	}
+	return mapping, meta.Keys(), nil
+}
+
+// syntaxError is a reader failure worded as this package's own error, with
+// the line and column, keeping the reader's error as its cause.
+type syntaxError struct {
+	text  string
+	cause error
+}
+
+// Error returns the worded failure.
+func (e *syntaxError) Error() string { return e.text }
+
+// Unwrap returns the reader's own error.
+func (e *syntaxError) Unwrap() error { return e.cause }
+
+// newSyntaxError words a reader failure.
+func newSyntaxError(err error) error {
+	var parseErr toml.ParseError
+	if errors.As(err, &parseErr) {
+		return &syntaxError{fmt.Sprintf("invalid TOML at line %d, column %d: %s",
+			parseErr.Position.Line, parseErr.Position.Col, parseErr.Message), err}
 	}
 	return fmt.Errorf("invalid TOML: %w", err)
 }
@@ -47,6 +76,7 @@ type builder struct {
 	root    *Table
 }
 
+// newBuilder starts a builder over the reader's values and key paths.
 func newBuilder(mapping map[string]any, keys []toml.Key) *builder {
 	return &builder{mapping: mapping, keys: keys, root: &Table{}}
 }
@@ -135,6 +165,8 @@ func (b *builder) followers(position int) []toml.Key {
 	return b.keys[position+1 : end]
 }
 
+// hasPrefix says whether path starts with every part of prefix; path is
+// at least as long.
 func hasPrefix(path, prefix toml.Key) bool {
 	for i, part := range prefix {
 		if path[i] != part {
@@ -280,6 +312,7 @@ func sortedTable(raw map[string]any) *Table {
 	return table
 }
 
+// sortedKeys returns a map's keys in byte order.
 func sortedKeys(raw map[string]any) []string {
 	keys := make([]string, 0, len(raw))
 	for key := range raw {
