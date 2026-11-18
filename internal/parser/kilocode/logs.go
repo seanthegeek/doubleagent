@@ -1,7 +1,7 @@
 package kilocode
 
 import (
-	"fmt"
+	"cmp"
 	"regexp"
 	"strings"
 
@@ -11,9 +11,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// nonSpace is one character that is not whitespace as Python's \s in a
-// text pattern counts it, the Unicode separators included.
-const nonSpace = `[^\t\n\v\f\r \x1c-\x1f\x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}` +
+// nonSpace is one character that is not whitespace by unicode.IsSpace,
+// written out because Go's \s is ASCII only: a field value ends at any
+// Unicode space, the no-break space included.
+const nonSpace = `[^\t\n\v\f\r \x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}` +
 	`\x{202f}\x{205f}\x{3000}]`
 
 // The remote control messages a log line ends with, in the order they are
@@ -104,23 +105,14 @@ func (p *Parser) remoteRow(artifact *input.Artifact, name string, number int, li
 	case sessionStarted:
 		row.SessionID, row.ProjectPath = fields[1], fields[4]
 		row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromText(fields[2]), row.TimestampUTC)
-		text = fmt.Sprintf("session started model=%s directory=%s", orDash(fields[3]), orDash(fields[4]))
+		text = "session started model=" + cmp.Or(fields[3], "-") + " directory=" + cmp.Or(fields[4], "-")
 		basis = "startedAt"
 	default:
 		row.SessionID = fields[1]
-		text = fmt.Sprintf("session ended reason=%s durationMs=%s startedAt=%s", fields[4], fields[3],
-			fields[2])
+		text = "session ended reason=" + fields[4] + " durationMs=" + fields[3] + " startedAt=" + fields[2]
 	}
-	row.Text = timeline.Compact(fmt.Sprintf("remote control: %s (from log/%s, %s)", text, name, basis))
+	row.Text = timeline.Compact("remote control: " + text + " (from log/" + name + ", " + basis + ")")
 	return row, true
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }
 
 // digest emits the "memory digest:" row of one project memory session
@@ -156,8 +148,8 @@ func (p *Parser) digest(artifact *input.Artifact, emit parser.Emit) {
 	row.SourceLine = summaryAt + 2
 	row.TimestampUTC = timeutil.FromText(fields["Updated: "])
 	summary := strings.Trim(strings.Join(lines[summaryAt+1:], "\n"), " \t\n")
-	row.Text = fmt.Sprintf("memory digest: %s: %s (from %s, Updated)", orDash(fields["Topic: "]),
-		summary, artifact.Rel)
+	row.Text = "memory digest: " + cmp.Or(fields["Topic: "], "-") + ": " + summary + " (from " +
+		artifact.Rel + ", Updated)"
 	emit(row)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }

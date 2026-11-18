@@ -73,7 +73,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 	sessionID := path.Base(directory)
 	var ignored, problems parser.Problems
 	manifest, _ := parser.LoadJSON(parser.Beside(artifact, sessionID+".json"), &ignored)
-	project := parser.Text(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
+	project := parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))
 	read := readTranscript(artifact, manifest, &problems)
 	seen := parser.Tracker{}
 	if path.Base(artifact.Rel) == sessionID+".messages.json" && !manifest.Get("model").IsEmpty() {
@@ -98,7 +98,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 func (p *Parser) messageRows(base timeline.Row, message, manifest jsonvalue.Value, seen parser.Tracker,
 	options parser.Options, emit parser.Emit) {
 	info := message.Get("modelInfo")
-	base.Model = parser.Text(clinelegacy.FirstTruthy(info.Get("id"), manifest.Get("model")))
+	base.Model = parser.Text(parser.FirstNonEmpty(info.Get("id"), manifest.Get("model")))
 	if change := seen.Change("model", base.SessionID, parser.Text(info.Get("id"))); change != "" {
 		row := base
 		row.TurnType = timeline.TurnSystem

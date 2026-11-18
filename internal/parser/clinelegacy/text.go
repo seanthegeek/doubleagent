@@ -15,7 +15,8 @@ func Present(value jsonvalue.Value) bool {
 }
 
 // FormatCounts returns "key=value" for each key whose value in record is
-// Present, joined by spaces, each value as Python's str() writes it.
+// Present, joined by spaces, each value as its row text
+// (jsonvalue.Value.Text).
 func FormatCounts(record jsonvalue.Value, keys ...string) string {
 	var parts []string
 	for _, key := range keys {
@@ -27,7 +28,8 @@ func FormatCounts(record jsonvalue.Value, keys ...string) string {
 }
 
 // Join returns the parts that are not null, an empty string, an empty array
-// or an empty object, each as Python's str() writes it, joined by " | ".
+// or an empty object, each as its row text, joined by " | ". False and zero
+// are kept: they are values the agent wrote.
 func Join(parts ...jsonvalue.Value) string {
 	var kept []string
 	for _, part := range parts {
@@ -37,17 +39,6 @@ func Join(parts ...jsonvalue.Value) string {
 		}
 	}
 	return strings.Join(kept, " | ")
-}
-
-// FirstTruthy returns the first value Python counts as true, else the last one, as
-// Python's `a or b or c` does.
-func FirstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return values[len(values)-1]
 }
 
 // LoadsOrNone returns text decoded as a JSON object, or false when it does
@@ -63,8 +54,9 @@ func LoadsOrNone(text string) (jsonvalue.Value, bool) {
 	return value, true
 }
 
-// IsNumber reports whether a value is a number for Python's
-// isinstance(value, (int, float)), which a boolean is too.
+// IsNumber reports whether a value is read as a number: a JSON number, or
+// a boolean, which counts as 0 or 1 (NumberOf) wherever a time or a count
+// is expected.
 func IsNumber(value jsonvalue.Value) bool {
 	return value.IsNumber() || value.IsBool()
 }
@@ -84,8 +76,8 @@ func NumberOf(value jsonvalue.Value) (float64, bool) {
 // ArrayAfterKey returns the byte offset of the "[" that opens the array of
 // the first `"<key>"` in text followed, after JSON whitespace only, by a
 // colon and the bracket, so a file cut mid-write can be walked from there.
-// It stands for the Python search `"<key>"[ \t\n\r]*:[ \t\n\r]*(?=\[)`,
-// whose lookahead Go's engine has no form for.
+// As a pattern it would be `"<key>"[ \t\n\r]*:[ \t\n\r]*(?=\[)`, whose
+// lookahead Go's regexp has no form for.
 func ArrayAfterKey(text, key string) (int, bool) {
 	quoted := `"` + key + `"`
 	for start := 0; ; start++ {
@@ -111,16 +103,4 @@ func skipWhitespace(text string, offset int) int {
 		offset++
 	}
 	return offset
-}
-
-// CompareNumbers returns -1, 0 or 1 as left is below, equal to or above
-// right, the order a sort by number gives.
-func CompareNumbers(left, right float64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	}
-	return 0
 }

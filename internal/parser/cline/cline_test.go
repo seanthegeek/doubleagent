@@ -6,8 +6,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// isManifest stands for the Python pattern
-// `^\.cline/data/sessions/([^/]+)/\1\.json$`; the names are the fixture's.
+// A manifest is a file named after its own session directory; the names
+// are the fixture's.
 func TestIsManifestMatchesASessionDirectorysOwnFile(t *testing.T) {
 	for _, test := range []struct {
 		name, rel string
@@ -28,9 +28,9 @@ func TestIsManifestMatchesASessionDirectorysOwnFile(t *testing.T) {
 	}
 }
 
-// The expected texts come from running _denial on the same content. A
-// reason ending in a line break matched Python's `$` but not `\z`, and no
-// runtime writes one.
+// The expected texts are the permission decisions research/cline.md
+// describes. A reason must end the text: one followed by a line break is
+// not read, and no runtime writes one.
 func TestDenialReadsRejectionsAndBlocks(t *testing.T) {
 	for _, test := range []struct {
 		name, content, want string

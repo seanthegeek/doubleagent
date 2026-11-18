@@ -1,18 +1,19 @@
 package kilocode
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the patterns
-// and helpers the analyzer's own tests call directly, with the oracle's
-// results. Its array reader is the kit's parser.ArrayElements, tested
+// The rows each file gives are proved by the parser replay
+// (internal/parity/replay); these tests cover the patterns and helpers on
+// their own. The array reader is the kit's parser.ArrayElements, tested
 // there.
 
 func TestTheLogHeadTakesASCIIDigitsAndSpaceOrTab(t *testing.T) {
@@ -37,7 +38,7 @@ func TestTheLogHeadTakesASCIIDigitsAndSpaceOrTab(t *testing.T) {
 	}
 }
 
-func TestRemoteFieldsStopAtPythonsWhitespace(t *testing.T) {
+func TestRemoteFieldsStopAtUnicodeWhitespace(t *testing.T) {
 	ended := " sessionID=s startedAt=t durationMs=%s reason=r remote session ended"
 	tests := []struct {
 		name    string
@@ -54,7 +55,9 @@ func TestRemoteFieldsStopAtPythonsWhitespace(t *testing.T) {
 		{"a model and a directory with a space", "started",
 			" sessionID=s startedAt=t model=m directory=/x y remote session started",
 			[]string{"s", "t", "m", "/x y"}},
-		{"a file separator ends a field", "enabled", " connected=a\x1cb remote connection enabled", nil},
+		{"an ideographic space ends a field", "enabled", " connected=a\u3000b remote connection enabled", nil},
+		{"a file separator does not", "enabled", " connected=a\x1cb remote connection enabled",
+			[]string{"a\x1cb"}},
 	}
 	patterns := map[string]func(string) []string{
 		"ended":   endedPattern.FindStringSubmatch,
@@ -145,5 +148,14 @@ func TestDigestFieldsStopAtTheSummaryLine(t *testing.T) {
 	}
 	if _, summaryAt := digestFields([]string{"# Session s1"}); summaryAt != -1 {
 		t.Errorf("got %d without a summary line", summaryAt)
+	}
+}
+
+func TestNonSpaceIsTheComplementOfUnicodeIsSpace(t *testing.T) {
+	pattern := regexp.MustCompile(`\A` + nonSpace + `\z`)
+	for char := rune(0); char <= 0x3000; char++ {
+		if got, want := pattern.MatchString(string(char)), !unicode.IsSpace(char); got != want {
+			t.Errorf("U+%04X: nonSpace matches %v, want %v", char, got, want)
+		}
 	}
 }

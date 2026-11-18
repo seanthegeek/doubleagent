@@ -70,7 +70,7 @@ func (p *TaskParser) apiMarker(message jsonvalue.Value, options parser.Options,
 	case isText(message.Get("type"), "reasoning"):
 		if options.IncludeThinking {
 			thinking := row(timeline.TurnThinking)
-			thinking.Text = timeline.CompactValue(FirstTruthy(jsonvalue.NewString(parser.TextOf(message.Get("summary"))),
+			thinking.Text = timeline.CompactValue(parser.FirstNonEmpty(jsonvalue.NewString(parser.TextOf(message.Get("summary"))),
 				message.Get("text"), message.Get("reasoning_content"),
 				jsonvalue.NewString("[encrypted reasoning]")))
 			emit(thinking)
@@ -147,11 +147,11 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 		name := parser.Text(block.Get("name"))
 		return ContentRow{TurnType: timeline.TurnToolUse, ToolName: name,
 			Text:      claudecode.ToolSummary(name, block.Get("input")),
-			ToolUseID: parser.Text(FirstTruthy(block.Get("id"), block.Get("call_id")))}, true
+			ToolUseID: parser.Text(parser.FirstNonEmpty(block.Get("id"), block.Get("call_id")))}, true
 	case isText(blockType, "tool_result"):
 		return toolResultRow(block), true
 	case isText(blockType, "thinking") || isText(blockType, "reasoning"):
-		text := parser.Text(FirstTruthy(block.Get("thinking"), block.Get("text")))
+		text := parser.Text(parser.FirstNonEmpty(block.Get("thinking"), block.Get("text")))
 		return ContentRow{TurnType: timeline.TurnThinking, Text: text}, includeThinking
 	case isText(blockType, "redacted_thinking"):
 		return ContentRow{TurnType: timeline.TurnThinking, Text: "[redacted thinking]"}, includeThinking

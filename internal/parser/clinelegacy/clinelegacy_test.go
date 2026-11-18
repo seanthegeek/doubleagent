@@ -1,6 +1,7 @@
 package clinelegacy
 
 import (
+	"math"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -20,7 +21,8 @@ func decode(t *testing.T, text string) jsonvalue.Value {
 	return value
 }
 
-// The expected values come from running map_ui on the same messages.
+// The expected values are the row research/cline.md gives each message
+// kind.
 func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 	for _, test := range []struct {
 		name, kind, message string
@@ -38,7 +40,13 @@ func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 			false, Mapped{"assistant", "", ""}, false},
 		{"a file tool names its paths and diff", "tool",
 			`{"text": "{\"tool\": \"readFile\", \"path\": \"a.py\", \"batchFiles\": [{\"path\": \"b\"}, {}], \"diff\": \"d\"}"}`,
-			false, Mapped{"tool_use", "a.py | b;  | d", "readFile"}, true},
+			false, Mapped{"tool_use", "a.py | b | d", "readFile"}, true},
+		{"batch entries without a path are left out", "tool",
+			`{"text": "{\"tool\": \"readFile\", \"batchFiles\": [{}, {\"path\": null}, {\"path\": \"\"}, {\"path\": 0}, \"x\"], \"content\": \"c\"}"}`,
+			false, Mapped{"tool_use", "0 | c", "readFile"}, true},
+		{"a tool without a diff shows its content", "tool",
+			`{"text": "{\"tool\": \"\", \"diff\": \"\", \"content\": 0}"}`,
+			false, Mapped{"tool_use", "0", "tool"}, true},
 		{"a tool message that is not JSON keeps its text", "tool", `{"text": "plain"}`, false,
 			Mapped{"tool_use", "plain", "tool"}, true},
 		{"an MCP call shows its arguments as JSON", "use_mcp_server",
@@ -80,7 +88,7 @@ func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 	}
 }
 
-// The expected values come from running content_rows on the same content.
+// The expected values are the row research/cline.md gives each block.
 func TestContentRowsGivesARowPerBlock(t *testing.T) {
 	for _, test := range []struct {
 		name, content string
@@ -113,8 +121,8 @@ func TestContentRowsGivesARowPerBlock(t *testing.T) {
 	}
 }
 
-// ArrayAfterKey stands for the Python search
-// `"messages"[ \t\n\r]*:[ \t\n\r]*(?=\[)` and its "entries" twin.
+// ArrayAfterKey finds what `"messages"[ \t\n\r]*:[ \t\n\r]*(?=\[)`
+// would match, with JSON's four whitespace characters only.
 func TestArrayAfterKeyTakesJSONWhitespaceOnly(t *testing.T) {
 	for _, test := range []struct {
 		name, text string
@@ -159,7 +167,7 @@ func TestTheTaskPatternMatchesTaskFilesUnderTheRoot(t *testing.T) {
 	}
 }
 
-// The expected starts come from TaskContext._start on the same inputs.
+// The expected starts follow the order the package comment gives.
 func TestTaskStartPrefersTheIdThenTheMetadataThenTheIndex(t *testing.T) {
 	for _, test := range []struct {
 		name, taskID, item, metadata, want string
@@ -217,5 +225,50 @@ func TestTaskPathsComeFromTheArtifactsDiskPath(t *testing.T) {
 		DiskPath: filepath.Join(home, "tasks", "t1", "ui_messages.json")}
 	if _, ok := TaskOf(shallow).InRootParent("state.vscdb"); ok {
 		t.Error("a root above the home was named")
+	}
+}
+
+func TestEpochOfReadsANumberOrANumericString(t *testing.T) {
+	tests := []struct {
+		name, value string
+		want        float64
+	}{
+		{"a number", `1791021600000`, 1791021600000},
+		{"true counts as 1", `true`, 1},
+		{"a numeric string with spaces", `" 12.5\n"`, 12.5},
+		{"a string that is not a number is 0", `"soon"`, 0},
+		{"NaN is 0", `"nan"`, 0},
+		{"a string past the float range is infinite", `"1e999"`, math.Inf(1)},
+		{"a number past the float range is 0", `1e999`, 0},
+		{"null is 0", `null`, 0},
+		{"an object is 0", `{"a": 1}`, 0},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := epochOf(decode(t, test.value)); got != test.want {
+				t.Errorf("epochOf(%s) = %v, want %v", test.value, got, test.want)
+			}
+		})
+	}
+}
+
+func TestModelAtTakesTheLastModelInUse(t *testing.T) {
+	metadata := decode(t, `{"model_usage": [{"ts": 300, "model_id": "c"}, {"ts": "200", "model_id": "b"},
+		{"model_id": "a"}, {"ts": 200, "model_id": "a2"}, {"ts": 400}]}`)
+	context := newTaskContext("t", decode(t, `{"modelId": "m"}`), metadata, "cwd")
+	tests := []struct {
+		name, timestamp, want string
+	}{
+		{"before every entry gives the earliest", `-1`, "a"},
+		{"a tie in time is ordered by model", `250`, "b"},
+		{"after every entry gives the last", `999`, "c"},
+		{"a time that is not a number gives the earliest", `"x"`, "a"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := context.ModelAt(decode(t, test.timestamp)); got != test.want {
+				t.Errorf("ModelAt(%s) = %q, want %q", test.timestamp, got, test.want)
+			}
+		})
 	}
 }
