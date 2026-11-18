@@ -130,7 +130,7 @@ func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 	case isNoteType(kind):
 		main := ""
 		for _, key := range noteKeys {
-			if value := data.Get(key); !blank(value) {
+			if value := data.Get(key); parser.Present(value) {
 				main = value.Text()
 				break
 			}
@@ -289,7 +289,7 @@ func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
 	if target := requestTarget(request); target != "" {
 		line += " " + target
 	}
-	if intention := request.Get("intention"); !blank(intention) {
+	if intention := request.Get("intention"); parser.Present(intention) {
 		line += " intention=" + intention.Text()
 	}
 	w.emit(w.row(timeline.TurnSystem, line, w.names[callID], callID, ""))
@@ -345,11 +345,11 @@ func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 	} else {
 		next = data.Get("newModel").Text()
 		for _, key := range []string{"cause", "source"} {
-			if value := data.Get(key); !blank(value) {
+			if value := data.Get(key); parser.Present(value) {
 				suffix += " " + key + "=" + value.Text()
 			}
 		}
-		if effort := data.Get("reasoningEffort"); !blank(effort) {
+		if effort := data.Get("reasoningEffort"); parser.Present(effort) {
 			suffix += " effort=" + effort.Text()
 		}
 	}
@@ -398,7 +398,7 @@ func hookText(kind string, data jsonvalue.Value) string {
 func infoText(data jsonvalue.Value) string {
 	line := "session.info " + data.Get("infoType").Text() + ": " + data.Get("message").Text()
 	for _, key := range []string{"url", "tip"} {
-		if value := data.Get(key); !blank(value) {
+		if value := data.Get(key); parser.Present(value) {
 			line += " " + key + "=" + value.Text()
 		}
 	}
@@ -419,7 +419,7 @@ func shutdownText(data jsonvalue.Value) string {
 		listed = files.Text()
 	}
 	parts := []string{"session end:", orDash(data.Get("shutdownType").Text())}
-	if reason := data.Get("errorReason"); !blank(reason) {
+	if reason := data.Get("errorReason"); parser.Present(reason) {
 		parts = append(parts, reason.Text())
 	}
 	parts = append(parts, "files modified: "+cmp.Or(listed, "none"))

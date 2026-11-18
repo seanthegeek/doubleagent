@@ -191,20 +191,15 @@ func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	source := " (from " + artifact.Rel + ", file mtime)"
-	if gist := document.Get("cloudsave_last_gist_id"); !isNullOrEmpty(gist) {
+	if gist := document.Get("cloudsave_last_gist_id"); parser.Present(gist) {
 		put(timeline.Compact("session synced: gist " + parser.SettingOrDash(gist) + source))
 	}
-	if chat := document.Get("telegram_chat_id"); !isNullOrEmpty(chat) && !isZero(chat) {
+	if chat := document.Get("telegram_chat_id"); parser.Present(chat) && !isZero(chat) {
 		put(timeline.Compact("session relayed: telegram chat " + parser.SettingOrDash(chat) + source))
 	}
-	if mode := document.Get("permission_mode"); !isNullOrEmpty(mode) {
+	if mode := document.Get("permission_mode"); parser.Present(mode) {
 		put(timeline.Compact("permission setting: permission_mode=" + parser.SettingOrDash(mode) + source))
 	}
-}
-
-// isNullOrEmpty reports whether value is null or the empty string.
-func isNullOrEmpty(value jsonvalue.Value) bool {
-	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
 // isZero reports whether value is a number equal to zero or false: a

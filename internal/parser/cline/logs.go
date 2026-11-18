@@ -59,7 +59,7 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 func auditDetail(record jsonvalue.Value) string {
 	var detail strings.Builder
 	for _, pair := range hookKeys() {
-		if value := record.Get(pair[0]); clinelegacy.Present(value) {
+		if value := record.Get(pair[0]); parser.Present(value) {
 			detail.WriteString(" " + pair[1] + "=" + parser.SettingValue(value))
 		}
 	}

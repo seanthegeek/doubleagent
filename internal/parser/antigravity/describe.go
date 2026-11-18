@@ -29,7 +29,7 @@ func toolArgsSummary(argumentsJSON string) string {
 	}
 	for _, key := range argKeys() {
 		value := args.Get(key)
-		empty := value.IsNull() || (value.IsString() && value.StringValue() == "") ||
+		empty := !parser.Present(value) ||
 			((value.IsArray() || value.IsObject()) && value.Len() == 0)
 		if empty {
 			continue

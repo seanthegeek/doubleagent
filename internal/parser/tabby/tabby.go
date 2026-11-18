@@ -336,7 +336,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		owner := ""
-		if user := record.Get("user"); !user.IsNull() && !(user.IsString() && user.StringValue() == "") {
+		if user := record.Get("user"); parser.Present(user) {
 			owner = "user=" + user.Text()
 		}
 		timestamp := timeutil.FromValue(record.Get("ts"))

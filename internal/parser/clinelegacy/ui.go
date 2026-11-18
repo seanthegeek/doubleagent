@@ -286,7 +286,7 @@ func toolUseText(kind, text string) (string, string) {
 func fileToolText(parsed jsonvalue.Value) string {
 	var paths []string
 	for _, entry := range parsed.Get("batchFiles").Items() {
-		if path := entry.Get("path"); entry.IsObject() && Present(path) {
+		if path := entry.Get("path"); entry.IsObject() && parser.Present(path) {
 			paths = append(paths, path.Text())
 		}
 	}

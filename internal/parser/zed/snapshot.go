@@ -139,7 +139,7 @@ func startText(record sqlitefile.Row, value jsonvalue.Value) string {
 // set (DbSandboxGrants, db.rs:91-122 at a84689073d29).
 func threadGrants(value jsonvalue.Value) []setting {
 	var grants []setting
-	if profile, ok := value.Lookup("profile"); ok && !profile.IsNull() && !parser.IsText(profile, "") {
+	if profile, ok := value.Lookup("profile"); ok && parser.Present(profile) {
 		grants = append(grants, setting{"profile", profile})
 	}
 	sandbox := value.Get("sandbox_grants")

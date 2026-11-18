@@ -33,7 +33,7 @@ func callSummary(payload jsonvalue.Value) string {
 	for _, key := range []string{"arguments", "input"} {
 		value := payload.Get(key)
 		switch {
-		case isMissing(value):
+		case !parser.Present(value):
 		case value.IsString():
 			return value.StringValue()
 		default:

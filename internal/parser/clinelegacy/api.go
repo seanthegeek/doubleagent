@@ -112,7 +112,7 @@ func ContentRows(content jsonvalue.Value, baseTurn string, includeThinking bool)
 		}
 		return []ContentRow{{TurnType: baseTurn, Text: content.StringValue()}}
 	case !content.IsArray():
-		if !Present(content) {
+		if !parser.Present(content) {
 			return nil
 		}
 		return []ContentRow{{TurnType: baseTurn, Text: parser.JSONText(content)}}

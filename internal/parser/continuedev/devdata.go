@@ -9,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -131,7 +130,7 @@ func (p *Parser) editOutcome(artifact *input.Artifact, emit parser.Emit) {
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		field := func(key string) string {
 			value := record.Get(key)
-			if !clinelegacy.Present(value) {
+			if !parser.Present(value) {
 				return "-"
 			}
 			return parser.SettingValue(value)

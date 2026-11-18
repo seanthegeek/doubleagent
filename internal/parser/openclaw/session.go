@@ -163,7 +163,7 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 	if !current.started {
 		w.start(current, line, timestamp, jsonvalue.NewObject())
 	}
-	if identifier := record.Get("id"); current.store != nil && !identifier.IsNull() && !parser.IsText(identifier, "") {
+	if identifier := record.Get("id"); current.store != nil && parser.Present(identifier) {
 		current.store.ids[[2]string{current.sessionID, identifier.Text()}] = true
 	}
 	if parser.IsText(entryType, "message") {

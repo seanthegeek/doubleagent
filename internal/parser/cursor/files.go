@@ -85,7 +85,7 @@ func (p *Parser) attempt(artifact *input.Artifact, emit parser.Emit) {
 	}
 	source := "mcp-oauth-attempts/" + attemptPattern.FindStringSubmatch(artifact.Rel)[1]
 	created := timeutil.FromValue(document.Get("createdAtMs"))
-	if absent(document.Get("createdAtMs")) {
+	if !parser.Present(document.Get("createdAtMs")) {
 		created, source = parser.FileMtime(artifact), source+", file mtime"
 	}
 	text := "mcp oauth attempt: server=" + parser.WithoutCredentials(fieldOf(document.Get("serverUrl"))) + " client_id=" +

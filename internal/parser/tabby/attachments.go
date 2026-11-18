@@ -41,7 +41,7 @@ func jsonColumn(value sqlitefile.Value) (jsonvalue.Value, bool) {
 // null or empty text, or "" when there is no file.
 func location(filepath, startLine jsonvalue.Value) string {
 	path := parser.Text(filepath)
-	if path == "" || startLine.IsNull() || startLine.IsString() && startLine.StringValue() == "" {
+	if path == "" || !parser.Present(startLine) {
 		return path
 	}
 	return path + ":" + startLine.Text()

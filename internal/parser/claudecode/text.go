@@ -48,7 +48,7 @@ func ToolSummary(name string, toolInput jsonvalue.Value) string {
 	}
 	var values []string
 	for _, key := range toolKeys(name) {
-		if value := toolInput.Get(key); !isMissing(value) {
+		if value := toolInput.Get(key); parser.Present(value) {
 			values = append(values, value.Text())
 		}
 	}
@@ -57,7 +57,7 @@ func ToolSummary(name string, toolInput jsonvalue.Value) string {
 	}
 	for _, key := range []string{"command", "file_path", "path", "pattern", "url", "query",
 		"description"} {
-		if value := toolInput.Get(key); !isMissing(value) {
+		if value := toolInput.Get(key); parser.Present(value) {
 			return value.Text()
 		}
 	}
@@ -127,17 +127,11 @@ func originLabel(kind jsonvalue.Value) string {
 	return ""
 }
 
-// isMissing reports whether a value is absent, null or an empty string:
-// false and zero are values the agent wrote.
-func isMissing(value jsonvalue.Value) bool {
-	return value.IsNull() || parser.IsText(value, "")
-}
-
 // valueText returns a JSON value as row text, "-" when it is missing or an
 // empty string.
 func valueText(document jsonvalue.Value, key string) string {
 	value := document.Get(key)
-	if isMissing(value) {
+	if !parser.Present(value) {
 		return "-"
 	}
 	return parser.SettingValue(value)
@@ -146,7 +140,7 @@ func valueText(document jsonvalue.Value, key string) string {
 // textOr returns the value's row text, or missing when it is null or an
 // empty string.
 func textOr(value jsonvalue.Value, missing string) string {
-	if isMissing(value) {
+	if !parser.Present(value) {
 		return missing
 	}
 	return value.Text()

@@ -71,7 +71,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	value := document.Get("defaultProjectTrust")
-	if isNullOrEmpty(value) {
+	if !parser.Present(value) {
 		return
 	}
 	emit(p.systemRow(artifact, 1, parser.FileMtime(artifact), "", "",

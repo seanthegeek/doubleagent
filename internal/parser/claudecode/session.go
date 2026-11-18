@@ -227,7 +227,7 @@ func (s *session) modelRow(record jsonvalue.Value) {
 	if text == "" {
 		return
 	}
-	if requested := record.Get("requestedModel"); !isMissing(requested) && requested.Text() != model {
+	if requested := record.Get("requestedModel"); parser.Present(requested) && requested.Text() != model {
 		text += " requested=" + requested.Text()
 	}
 	row := s.row(timeline.TurnSystem, text)

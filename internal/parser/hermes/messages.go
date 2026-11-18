@@ -115,7 +115,7 @@ func modelSwitch(content jsonvalue.Value) (string, string, bool) {
 // stored; the entries that are objects are still returned.
 func toolCalls(message jsonvalue.Value, line jsonvalue.Value) ([]jsonvalue.Value, parser.Problems) {
 	value := message.Get("tool_calls")
-	if value.IsNull() || value.IsString() && value.StringValue() == "" {
+	if !parser.Present(value) {
 		return nil, nil
 	}
 	raw := parser.JSONText(value)
@@ -167,7 +167,7 @@ func callSummary(arguments jsonvalue.Value) string {
 	decoded := jsonOr(arguments, arguments)
 	if decoded.IsObject() {
 		for _, key := range []string{"command", "path", "file_path", "url", "query"} {
-			if value := decoded.Get(key); !value.IsNull() && !(value.IsString() && value.StringValue() == "") {
+			if value := decoded.Get(key); parser.Present(value) {
 				return value.Text()
 			}
 		}

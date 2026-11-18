@@ -180,7 +180,7 @@ func (p *Parser) usage(artifact *input.Artifact, emit parser.Emit) {
 			counts = append(counts, tool.Key+"="+count.Text())
 		}
 		duration := "-"
-		if value := record.Get("durationMs"); isSet(value) {
+		if value := record.Get("durationMs"); parser.Present(value) {
 			duration = value.Text() + "ms"
 		}
 		models := "-"

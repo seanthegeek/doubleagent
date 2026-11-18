@@ -25,12 +25,6 @@ func argumentKeys() []string {
 		"prompt", "description"}
 }
 
-// isSet reports whether a value is neither null nor the empty string: false
-// and zero are values the agent wrote, and are shown.
-func isSet(value jsonvalue.Value) bool {
-	return !value.IsNull() && !(value.IsString() && value.StringValue() == "")
-}
-
 // textOrJSON returns a string as it is and any other value as compact
 // JSON.
 func textOrJSON(value jsonvalue.Value) string {
@@ -54,13 +48,13 @@ func orElse(value, fallback jsonvalue.Value) jsonvalue.Value {
 func argsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsObject() {
 		for _, key := range argumentKeys() {
-			if value := arguments.Get(key); isSet(value) {
+			if value := arguments.Get(key); parser.Present(value) {
 				return textOrJSON(value)
 			}
 		}
 		return parser.JSONText(arguments)
 	}
-	if !isSet(arguments) {
+	if !parser.Present(arguments) {
 		return ""
 	}
 	return textOrJSON(arguments)
@@ -89,7 +83,7 @@ func responseText(response jsonvalue.Value) string {
 		}
 		return parser.JSONText(response)
 	}
-	if !isSet(response) {
+	if !parser.Present(response) {
 		return ""
 	}
 	return textOrJSON(response)
@@ -148,7 +142,7 @@ func injectedOrigin(record jsonvalue.Value) string {
 		{"agent", orElse(record.Get("agentName"), author.Get("name"))},
 		{"agentId", orElse(record.Get("agentId"), author.Get("agentId"))},
 	} {
-		if isSet(pair.value) {
+		if parser.Present(pair.value) {
 			keys = append(keys, pair.key+"="+pair.value.Text())
 		}
 	}

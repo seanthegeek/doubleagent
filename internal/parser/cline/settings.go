@@ -6,7 +6,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -82,7 +81,7 @@ func (p *Parser) globalState(artifact *input.Artifact, emit parser.Emit) {
 	for _, member := range auto.Get("actions").Members() {
 		writer.setting("autoApprovalSettings.actions."+member.Key, member.Value)
 	}
-	if mode := document.Get("mode"); clinelegacy.Present(mode) {
+	if mode := document.Get("mode"); parser.Present(mode) {
 		writer.setting("mode", mode)
 	}
 	if target := document.Get("cloudTaskTarget"); target.IsObject() {
@@ -150,7 +149,7 @@ func (p *Parser) globalSettings(artifact *input.Artifact, emit parser.Emit) {
 	}
 	writer := p.newSettings(artifact, emit)
 	for _, key := range []string{"toolAutoApprove", "planActMode"} {
-		if value := document.Get(key); clinelegacy.Present(value) {
+		if value := document.Get(key); parser.Present(value) {
 			writer.setting(key, value)
 		}
 	}

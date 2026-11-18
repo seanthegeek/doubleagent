@@ -36,7 +36,7 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 		row(timeline.TurnSystem, text, started)
 	}
 	resultText := ""
-	if result := tool.Get("result"); !absent(result) {
+	if result := tool.Get("result"); parser.Present(result) {
 		resultText = timeline.Compact(textOrJSON(result))
 	}
 	rejected := parser.IsText(extra.Get("status"), "rejected") && !pending

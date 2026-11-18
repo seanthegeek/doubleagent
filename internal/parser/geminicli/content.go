@@ -288,7 +288,7 @@ func callResultText(result jsonvalue.Value, callID string) string {
 func toolText(call jsonvalue.Value) string {
 	arguments := call.Get("args")
 	argumentsText := ""
-	if !arguments.IsNull() && !(arguments.IsString() && arguments.StringValue() == "") {
+	if parser.Present(arguments) {
 		argumentsText = parser.JSONText(arguments)
 	}
 	label := call.Get("displayName")

@@ -49,7 +49,7 @@ func (p *Parser) tokenUsage(artifact *input.Artifact, emit parser.Emit) {
 			counts = append(counts, pair[0]+" "+parser.SettingOrDash(record.Get(pair[1])))
 		}
 		duration := "-"
-		if value := record.Get("apiDurationMs"); isSet(value) {
+		if value := record.Get("apiDurationMs"); parser.Present(value) {
 			duration = value.Text() + "ms"
 		}
 		text := "token usage: model " + parser.SettingOrDash(record.Get("model")) + " auth " +
