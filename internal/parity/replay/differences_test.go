@@ -10,11 +10,15 @@ import (
 )
 
 func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
+	// Numbers rise through the table; a gap is a range given to work not
+	// merged yet.
 	seen := map[int]bool{}
+	previous := 100
 	for i, entry := range Differences() {
-		if entry.Number != 101+i || seen[entry.Number] {
-			t.Errorf("entry %d is numbered %d", i, entry.Number)
+		if entry.Number <= previous || seen[entry.Number] {
+			t.Errorf("entry %d is numbered %d, after %d", i, entry.Number, previous)
 		}
+		previous = entry.Number
 		seen[entry.Number] = true
 		kinds := 0
 		for _, set := range []bool{entry.Text != nil, entry.Rows != nil, entry.Excludes != nil,
@@ -149,6 +153,24 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 			"error: {quoted 2026-13} is out of range\n", 1},
 		{"120 leaves a value holding a quote alone", 120, "error: cannot read \"it's\" as a time\n",
 			"error: cannot read \"it's\" as a time\n", 0},
+		{"130 gives a TOML config's recorded reason one token", 130,
+			"parser: config.toml is not valid TOML (Invalid value (at line 2, column 25))",
+			"parser: config.toml is not valid TOML ({position})", 1},
+		{"130 gives a TOML config's position the same token", 130,
+			"parser: config.toml is not valid TOML (invalid TOML at line 2, column 25)",
+			"parser: config.toml is not valid TOML ({position})", 1},
+		{"130 gives a JSON config's reason one token", 130,
+			"parser: config.json did not parse: invalid JSON at line 1, column 11",
+			"parser: config.json did not parse: {position}", 1},
+		{"130 drops the position of a crush.json", 130,
+			"parser: .config/crush/crush.json is not a JSON object (invalid JSON at line 1, column 3)",
+			"parser: .config/crush/crush.json is not a JSON object", 1},
+		{"130 gives an exec config's reason one token and keeps its note", 130,
+			"parser: exec_approvals_config raw_json unparseable (invalid JSON at line 1, column 60; text withheld, it",
+			"parser: exec_approvals_config raw_json unparseable ({position}; text withheld, it", 1},
+		{"130 leaves another file's reason alone", 130,
+			"parser: projects.json did not parse: invalid JSON at line 1, column 2",
+			"parser: projects.json did not parse: invalid JSON at line 1, column 2", 0},
 		{"120 leaves a quote inside a row's text alone", 120, "parser: cannot read 'x' here",
 			"parser: cannot read 'x' here", 0},
 	}
