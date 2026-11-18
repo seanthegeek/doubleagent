@@ -212,6 +212,7 @@ func TestEpochMillisReadsOnlyTheTimelineForm(t *testing.T) {
 		{"2026-10-01T08:00:00.5Z", 0, false},
 		{"2026-10-01t08:00:00.000z", 0, false},
 		{"2026-10-01T08:00:00.000Z ", 0, false},
+		{"2026-10-01T08:00:00,123Z", 0, false},
 	}
 	for _, test := range tests {
 		t.Run(strconv.Quote(test.input), func(t *testing.T) {
@@ -297,5 +298,20 @@ func TestClockIsTheTimeAFunctionGives(t *testing.T) {
 	clock := Clock(func() time.Time { return pinned })
 	if got := FormatUTC(clock()); got != "2026-10-01T08:00:00.000Z" {
 		t.Errorf("FormatUTC(clock()) = %q", got)
+	}
+}
+
+func TestFromTextReadsAllDigitTextAsAnEpoch(t *testing.T) {
+	tests := []struct{ name, input, want string }{
+		{"a basic date is all digits, so an epoch in seconds", "20240102", "1970-08-23T06:15:02.000Z"},
+		{"a basic date and time is neither form", "20240102T030405", ""},
+		{"a basic date with an extended time is neither form", "20240102T03:04:05", ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := FromText(test.input); got != test.want {
+				t.Errorf("FromText(%q) = %q, want %q", test.input, got, test.want)
+			}
+		})
 	}
 }

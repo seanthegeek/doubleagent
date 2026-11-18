@@ -13,14 +13,15 @@
 //
 //	YYYY-MM-DD
 //	YYYY-MM-DDTHH:MM    YYYY-MM-DDTHH:MM:SS    YYYY-MM-DDTHH:MM:SS.fffffffff
-//	either time form followed by Z, +HH:MM, +HHMM or +HH (or a minus)
+//	any of these time forms followed by Z, +HH:MM, +HHMM or +HH (or a minus)
 //
 // The fraction may have any number of digits, after a point or a comma;
 // T, a lower-case t or one space separates date and time; a lower-case z
 // is Z; no zone is UTC. The hour has two digits and an offset's hours run
-// to 23. Anything else gives "": week and ordinal dates, the basic form
-// without separators, any other separator, a date with an offset but no
-// time, 24:00, a second of 60, an offset with seconds, non-ASCII digits.
+// to 23. Anything else gives "": week and ordinal dates, a basic date and
+// time without separators (a basic date alone is all digits, so an epoch),
+// any other separator, a date with an offset but no time, 24:00, a second
+// of 60, an offset with seconds, non-ASCII digits.
 //
 // time.Parse with time.RFC3339 reads one form only and needs seconds and
 // an offset; agents also write dates alone, times without seconds or zone,
@@ -58,9 +59,10 @@ func FromTime(moment time.Time) string {
 // EpochMillis returns the milliseconds since the Unix epoch of a timeline
 // timestamp and true; or 0 and false for "" and for text that is not
 // exactly the form FormatUTC writes with a valid date and time in the
-// years 1 to 9999.
+// years 1 to 9999. time.Parse also takes a comma before the fraction, which
+// FormatUTC never writes, so the point is checked first.
 func EpochMillis(value string) (int64, bool) {
-	if len(value) != len(layout) {
+	if len(value) != len(layout) || value[len("2006-01-02T15:04:05")] != '.' {
 		return 0, false
 	}
 	moment, err := time.Parse(layout, value)
