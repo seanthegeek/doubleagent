@@ -15,10 +15,12 @@ import (
 
 // numbered yields (1-based position, item) for each item of a list, and
 // nothing for any other value: the messages of a saved session, whose
-// other shapes hold no message object.
-func numbered(list jsonvalue.Value) iter.Seq2[int, jsonvalue.Value] {
+// other shapes hold no message object. A list that is present but not an
+// array adds a problem naming member at line.
+func numbered(list jsonvalue.Value, member string, line int, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
+	items := parser.ArrayMember(list, member, line, problems)
 	return func(yield func(int, jsonvalue.Value) bool) {
-		for i, item := range list.Items() {
+		for i, item := range items {
 			if !yield(i+1, item) {
 				return
 			}
@@ -36,7 +38,7 @@ func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parser.Emit) 
 	switch document, err := jsonvalue.DecodeString(text); {
 	case !ok:
 	case err == nil && document.IsObject() && document.Get("sessions").IsArray():
-		sessions = numbered(document.Get("sessions"))
+		sessions = numbered(document.Get("sessions"), "sessions", 0, &problems)
 	default:
 		if found := p.sessionsKey.FindStringIndex(text); found != nil {
 			sessions = parser.ArrayAt(text, found[1], &problems, nil)
@@ -47,8 +49,8 @@ func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parser.Emit) 
 	if sessions != nil {
 		for position, session := range sessions {
 			if session.IsObject() {
-				p.legacyRows(artifact, session, numbered(session.Get("messages")),
-					parser.Text(session.Get("session_id")), parser.Text(session.Get("saved_at")), position, emit)
+				p.legacyRows(artifact, session, numbered(session.Get("messages"), "messages", position, &problems),
+					parser.Text(session.Get("session_id")), parser.Text(session.Get("saved_at")), position, &problems, emit)
 			}
 		}
 	}
@@ -65,13 +67,13 @@ func (p *Parser) parseLegacySession(artifact *input.Artifact, emit parser.Emit) 
 		document, err := jsonvalue.DecodeString(text)
 		switch found := p.messagesKey.FindStringIndex(text); {
 		case err == nil && document.IsObject():
-			p.legacyRows(artifact, document, numbered(document.Get("messages")),
-				parser.Text(document.Get("session_id")), parser.Text(document.Get("saved_at")), 0, emit)
+			p.legacyRows(artifact, document, numbered(document.Get("messages"), "messages", 0, &problems),
+				parser.Text(document.Get("session_id")), parser.Text(document.Get("saved_at")), 0, &problems, emit)
 		case found != nil:
 			head := text[:found[0]]
 			p.legacyRows(artifact, jsonvalue.NewNull(), parser.ArrayAt(text, found[1], &problems, nil),
 				firstGroup(p.sessionID.FindStringSubmatch(head)), firstGroup(p.savedAt.FindStringSubmatch(head)),
-				0, emit)
+				0, &problems, emit)
 		default:
 			problems.Add(0, "session file is not a JSON object")
 		}
@@ -90,9 +92,11 @@ func firstGroup(match []string) string {
 // legacyRows emits a `session saved:` row, then each message's rows, all at
 // the session's saved_at. sessionPosition is the session's position in
 // history.json, which every row takes as its line, or 0 for a session file,
-// whose rows take their message's position.
+// whose rows take their message's position. A message's tool_calls that is
+// not an array adds a problem.
 func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
-	messages iter.Seq2[int, jsonvalue.Value], sessionID, savedAt string, sessionPosition int, emit parser.Emit) {
+	messages iter.Seq2[int, jsonvalue.Value], sessionID, savedAt string, sessionPosition int,
+	problems *parser.Problems, emit parser.Emit) {
 	timestamp := timeutil.FromText(savedAt)
 	put := func(line int, turn, text, toolName, toolUseID string) {
 		row := p.BaseRow(artifact)
@@ -112,7 +116,11 @@ func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
 		", host local time)", "", "")
 	for position, message := range messages {
 		if message.IsObject() {
-			messageRows(message, func(turn, text, toolName, toolUseID string) {
+			line := position
+			if sessionPosition != 0 {
+				line = sessionPosition
+			}
+			messageRows(message, line, problems, func(turn, text, toolName, toolUseID string) {
 				put(position, turn, text, toolName, toolUseID)
 			})
 		}
@@ -120,8 +128,9 @@ func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
 }
 
 // messageRows writes, through put, the rows of one saved message by its
-// role.
-func messageRows(message jsonvalue.Value, put func(turn, text, toolName, toolUseID string)) {
+// role; a tool_calls that is not an array adds a problem at line.
+func messageRows(message jsonvalue.Value, line int, problems *parser.Problems,
+	put func(turn, text, toolName, toolUseID string)) {
 	text := parser.TextOf(message.Get("content"))
 	switch message.Get("role").StringValue() {
 	case "user":
@@ -138,7 +147,7 @@ func messageRows(message jsonvalue.Value, put func(turn, text, toolName, toolUse
 		if text != "" {
 			put(timeline.TurnAssistant, text, "", "")
 		}
-		for _, call := range message.Get("tool_calls").Items() {
+		for _, call := range parser.ArrayMember(message.Get("tool_calls"), "tool_calls", line, problems) {
 			if call.IsObject() {
 				put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parser.Text(call.Get("name")),
 					parser.Text(call.Get("id")))

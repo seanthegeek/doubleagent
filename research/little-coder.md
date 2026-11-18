@@ -575,6 +575,13 @@ is one whole-file row
 `input_history.txt` that fails part way through gives that row after the prompts read before the
 failure, its `source_line` the last line read.
 
+In a v0.0.x saved session a `messages` or a message's `tool_calls` that is present but not an array
+is `parser: messages is not a JSON array` or `parser: tool_calls is not a JSON array`, and in a
+`snapshots.json` snapshot a `file_backups` that is present but not an object is
+`parser: file_backups is not a JSON object`; the row's `source_line` is the message's position, or
+the session's in `history.json`, or 0 for the `messages` of a session file. An absent, null or
+empty member gives no row.
+
 A pi session file a checkpoint directory names that cannot be read gives the checkpoint row without
 the `session file not collected` clause, followed by one row
 `parser: <file> could not be read (<reason>)`, `<file>` the session file's name.
