@@ -86,9 +86,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 			state.item(i+1, item, message)
 		}
 	}
-	if problem != "" {
+	if problem != nil {
 		row := state.row(0, "", timeline.TurnSystem)
-		row.Text = parser.ProblemPrefix + problem
+		row.Text = parser.ProblemPrefix + problem.Error()
 		emit(row)
 	}
 }

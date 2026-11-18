@@ -1,8 +1,8 @@
 package continuedev
 
 import (
+	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -27,8 +27,8 @@ var (
 
 // yamlScalar returns a YAML sequence item as a string, or false for
 // anything but a scalar on its line. A double-quoted item is decoded as
-// JSON, whose escapes it shares; in a single-quoted one ” is one quote; a
-// plain one loses its " #" comment. A nested sequence or mapping, a flow
+// JSON, whose escapes it shares; in a single-quoted one two single quotes
+// stand for one; a plain one loses its " #" comment. A nested sequence or mapping, a flow
 // collection, an alias, a block scalar or an unclosed quote is no scalar.
 func yamlScalar(text string) (string, bool) {
 	switch {
@@ -63,9 +63,10 @@ type rule struct {
 }
 
 // readPermissions returns the rules of a permissions.yaml, or, with no
-// rules, why the file is not the flat shape the CLI writes: a reader of
-// that shape alone cannot tell what any other YAML construct grants.
-func readPermissions(text string) ([]rule, string) {
+// rules, an error saying where the file leaves the flat shape the CLI
+// writes: a reader of that shape alone cannot tell what any other YAML
+// construct grants.
+func readPermissions(text string) ([]rule, error) {
 	var rules []rule
 	current := ""
 	for i, line := range textlines.Split(text) {
@@ -89,11 +90,11 @@ func readPermissions(text string) ([]rule, string) {
 			value, ok = yamlScalar(item[1])
 		}
 		if !ok {
-			return nil, "unsupported YAML at line " + strconv.Itoa(i+1)
+			return nil, fmt.Errorf("unsupported YAML at line %d", i+1)
 		}
 		rules = append(rules, rule{line: i + 1, list: current, text: value})
 	}
-	return rules, ""
+	return rules, nil
 }
 
 // permissions emits one "permission setting:" row per rule of
@@ -106,9 +107,9 @@ func (p *Parser) permissions(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	rules, problem := readPermissions(textlines.ValidUTF8(content))
-	if problem != "" {
-		emit(p.ProblemRow(artifact, problem+" (only allow, ask and exclude lists of strings are read)"))
+	rules, err := readPermissions(textlines.ValidUTF8(content))
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()+" (only allow, ask and exclude lists of strings are read)"))
 		return
 	}
 	timestamp := parser.FileMtime(artifact)

@@ -1,8 +1,9 @@
 package continuedev
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -20,23 +21,30 @@ func headerKeys() []string {
 // session file.
 var historyPattern = regexp.MustCompile(`"history"[ \t\n\r]*:[ \t\n\r]*\[`)
 
-// LoadSession returns a session file's object and a problem message, ""
-// when it parsed. A file that does not parse yields its header keys and
-// every history item that decodes before the damage, with the problem
-// saying how many were recovered.
-func LoadSession(text string) (jsonvalue.Value, string) {
+// errNotObject is the problem of a session file that decodes to something
+// other than an object.
+var errNotObject = errors.New("session file is not a JSON object")
+
+// LoadSession returns a session file's object, always an object, and the
+// problem that kept it from decoding whole, nil when it did. A file whose
+// object is followed by other data keeps the object, and the problem gives
+// the offset where the data starts, counted in characters (runes). A file
+// that does not decode yields its header keys and every history item that
+// decodes before the damage, with the problem saying how many were
+// recovered.
+func LoadSession(text string) (jsonvalue.Value, error) {
 	document, err := jsonvalue.DecodeString(text)
 	if err == nil {
 		if document.IsObject() {
-			return document, ""
+			return document, nil
 		}
-		return jsonvalue.NewObject(), "session file is not a JSON object"
+		return jsonvalue.NewObject(), errNotObject
 	}
 	if start := strings.IndexByte(text, '{'); start >= 0 {
 		prefix, end, prefixErr := jsonvalue.DecodePrefix(text, start)
 		if prefixErr == nil && prefix.IsObject() {
-			return prefix, "trailing data after the session object at offset " +
-				strconv.Itoa(utf8.RuneCountInString(text[:end]))
+			return prefix, fmt.Errorf("trailing data after the session object at offset %d",
+				utf8.RuneCountInString(text[:end]))
 		}
 	}
 	recovered := jsonvalue.NewObject()
@@ -47,8 +55,8 @@ func LoadSession(text string) (jsonvalue.Value, string) {
 	}
 	history := recoverHistory(text)
 	recovered.Set("history", jsonvalue.NewArray(history...))
-	return recovered, "session file did not parse (" + err.Error() + "); recovered " +
-		strconv.Itoa(len(history)) + " history item(s)"
+	return recovered, fmt.Errorf("session file did not parse (%w); recovered %d history item(s)",
+		err, len(history))
 }
 
 // headerValue returns the decoded string value of the first "<key>":

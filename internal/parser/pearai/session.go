@@ -46,8 +46,8 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 			sessionItem(i+1, item, message, base.SessionID, models, row)
 		}
 	}
-	if problem != "" {
-		row(0, timeline.TurnSystem, parser.ProblemPrefix+problem, "")
+	if problem != nil {
+		row(0, timeline.TurnSystem, parser.ProblemPrefix+problem.Error(), "")
 	}
 }
 

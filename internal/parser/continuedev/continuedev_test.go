@@ -8,9 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs.
-
 func TestYAMLScalarReadsOnlyAScalarOnItsLine(t *testing.T) {
 	for _, test := range []struct {
 		name, text, want string
@@ -53,18 +50,15 @@ func TestReadPermissionsReadsTheFlatShapeTheCLIWrites(t *testing.T) {
 		{"spaces around an item", "allow:\n  -   spaced   \n", []rule{{2, "allow", "spaced"}}, ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got, problem := readPermissions(test.text)
-			if !slices.Equal(got, test.want) || problem != test.problem {
-				t.Errorf("readPermissions = %v, %q; want %v, %q", got, problem, test.want, test.problem)
+			got, err := readPermissions(test.text)
+			if !slices.Equal(got, test.want) || errorText(err) != test.problem {
+				t.Errorf("readPermissions = %v, %v; want %v, %q", got, err, test.want, test.problem)
 			}
 		})
 	}
 }
 
-// metadataEnd stands for Python's
-// `^\[metadata\] (Success|...)\b.* (\S+/metadata)(?: \{.*\})?$`, whose \b
-// and \S are Unicode.
-func TestTheMetadataPatternsReadAsPythonsDo(t *testing.T) {
+func TestTheMetadataPatternsTakeAWholeStatusWordAndTheLastURL(t *testing.T) {
 	for _, test := range []struct {
 		name, line string
 		pattern    string
@@ -110,6 +104,14 @@ func TestTheLogLinePatternTakesASCIIDigitsOnly(t *testing.T) {
 	}
 }
 
+// errorText returns the text of err, "" for nil.
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 func TestLoadSessionRecoversWhatItCan(t *testing.T) {
 	for _, test := range []struct {
 		name, text, want, problem string
@@ -119,6 +121,8 @@ func TestLoadSessionRecoversWhatItCan(t *testing.T) {
 		{"JSON whitespace around the colons", "{\"sessionId\" :\n\"s1\", \"history\"\r\n:\t[{\"a\": 1}, {\"b",
 			`{"sessionId":"s1","history":[{"a":1}]}`, "session file did not parse"},
 		{"a list", "[1]", `{}`, "session file is not a JSON object"},
+		{"a trailing data offset counts characters", "{\"t\":\"\u00e9\"} x", `{"t":"é"}`,
+			"trailing data after the session object at offset 9"},
 		{"objects only, offsets counted by character", "x {\"title\": \"\u00e9\", \"history\": [{\"a\":1}, 2, {\"b\":2}]",
 			`{"title":"é","history":[{"a":1},{"b":2}]}`, "session file did not parse"},
 	} {
@@ -127,8 +131,8 @@ func TestLoadSessionRecoversWhatItCan(t *testing.T) {
 			if got := session.JSON(); got != test.want {
 				t.Errorf("session = %s, want %s", got, test.want)
 			}
-			if got, _, _ := strings.Cut(problem, " ("); got != test.problem {
-				t.Errorf("problem = %q, want %q", problem, test.problem)
+			if got, _, _ := strings.Cut(errorText(problem), " ("); got != test.problem {
+				t.Errorf("problem = %v, want %q", problem, test.problem)
 			}
 		})
 	}
@@ -187,8 +191,8 @@ func FuzzReadPermissionsNeverPanics(fuzz *testing.F) {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		rules, problem := readPermissions(text)
-		if problem != "" && rules != nil {
+		rules, err := readPermissions(text)
+		if err != nil && rules != nil {
 			t.Errorf("readPermissions(%q) gave rules and a problem", text)
 		}
 	})

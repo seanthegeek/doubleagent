@@ -12,16 +12,17 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// nonSpace is one character Python's \S matches.
+// nonSpace is one character that is not whitespace by unicode.IsSpace.
 const nonSpace = `[^` + parser.Space + `]`
 
 // The lines of a cn log that are read. A line is
 // "<date> <time.ms> [<process id>] [<level>]: <message>". A [metadata]
 // result line (extensions/cli/src/util/metadata.ts:144-180) has the status
 // word, then the URL, which ends /metadata, followed on a Failed line by
-// the response as JSON. Python's \b after the status word becomes "a
-// character that is not a word character", which the space before the URL
-// is when nothing else stands between them.
+// the response as JSON. The status word must be a whole word: what follows
+// it, if anything stands before the space and the URL, starts with a
+// character that is not a letter, digit or underscore of any script (Go's
+// \b knows ASCII letters only).
 var (
 	logLine      = regexp.MustCompile(`^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}) \[([0-9a-fA-F]{8})\] \[[A-Za-z]+\]: (.*)\z`)
 	metadataPost = regexp.MustCompile(`^\[metadata\] POST (` + nonSpace + `+)(?: (\{.*\}))?\z`)

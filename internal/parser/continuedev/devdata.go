@@ -1,6 +1,7 @@
 package continuedev
 
 import (
+	"cmp"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -85,10 +86,7 @@ func (p *Parser) chatInteraction(artifact *input.Artifact, feedback bool, emit p
 
 // orDash returns text, or "-" when it is empty.
 func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
+	return cmp.Or(text, "-")
 }
 
 // editInteraction emits an edit request: an "edit interaction:" row, the
