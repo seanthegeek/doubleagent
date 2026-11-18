@@ -11,7 +11,7 @@ import (
 
 // UnreadableError reports a database file or one of its sidecars that
 // cannot be opened or read. Path is the file's path, kept for a log; Error
-// names only its base name, as the analyzer's messages do.
+// names only its base name, as the analysis commands' messages do.
 type UnreadableError struct {
 	Path string
 	Err  error

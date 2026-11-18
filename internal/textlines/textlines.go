@@ -1,5 +1,5 @@
 // Package textlines splits text into lines and names the character sets
-// the analyzer trims, as the formats it reads specify them.
+// the analysis commands trim, as the formats they read specify them.
 //
 // A reader of a configuration or log format ends a line at LF or CRLF
 // only and trims only ASCII whitespace. Unicode-aware splitting would also
