@@ -662,6 +662,10 @@ A `task_metadata.json` whose `files_in_context` is present but not an array is
 `parser: files_in_context is not a JSON array` (`source_line` 0, the task's id); an absent, null or
 empty one gives no row.
 
+A `roo.retryQueue` that is present but not an array, in `workspace-state.json` or a
+`state.vscdb`, is `parser: roo.retryQueue is not a JSON array` (at the file's time); an absent,
+null or empty one gives no row.
+
 #### Fixtures
 
 ```json
