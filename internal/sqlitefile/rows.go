@@ -7,10 +7,17 @@ import (
 // maxPayload is the largest payload a cell may hold ("B-tree Pages").
 const maxPayload = 2147483647
 
+// maxTreeDepth is the most pages a path from a b-tree's root to a leaf may
+// hold: SQLite's cursor keeps at most 20 (BTCURSOR_MAX_DEPTH in btree.c)
+// and reports a deeper tree as corrupt, so no valid file holds one.
+const maxTreeDepth = 20
+
 // Rows walks one b-tree in key order: a table b-tree's rows by rowid, or an
 // index b-tree's keys, the form a WITHOUT ROWID table's rows take. Pages
 // are read as the walk reaches them, so the rows before a damaged page are
-// delivered before Err reports it:
+// delivered before Err reports it. A page serves a walk once, as a tree or
+// an overflow page, and a page's cells keep no more payload than it holds,
+// so a walk returns at most the pages times their usable size:
 //
 //	rows := database.TableRows(root)
 //	for rows.Next() { values, err := rows.Record(); ... }
@@ -21,19 +28,24 @@ type Rows struct {
 	root     uint32
 	started  bool
 	stack    []*treeStep
-	visited  map[uint32]bool
-	rowid    int64
-	payload  cellPayload
-	err      error
+	// visited holds every page the walk has read, tree and overflow pages.
+	visited map[uint32]bool
+	rowid   int64
+	payload cellPayload
+	// whole is the current row's payload once Record has assembled it.
+	whole []byte
+	err   error
 }
 
 // treeStep is one page of the path from the root to the current cell: the
-// next child or cell to visit, and for an interior page whether a child was
-// just finished, after which an index page yields that child's divider key.
+// next child or cell to visit, for an interior page whether a child was
+// just finished, after which an index page yields that child's divider key,
+// and the payload bytes its cells have kept on the page so far.
 type treeStep struct {
 	page       *btreePage
 	next       int
 	afterChild bool
+	stored     int64
 }
 
 // cellPayload is a cell's payload as the page holds it: the bytes stored
@@ -72,7 +84,7 @@ func (r *Rows) Next() bool {
 		if step.page.leaf() {
 			if step.next < step.page.cellCount {
 				step.next++
-				return r.readCell(step.page, step.next-1)
+				return r.readCell(step, step.next-1)
 			}
 			r.stack = r.stack[:len(r.stack)-1]
 			continue
@@ -80,7 +92,7 @@ func (r *Rows) Next() bool {
 		if step.afterChild {
 			step.afterChild = false
 			if !r.table && step.next-1 < step.page.cellCount {
-				return r.readCell(step.page, step.next-1)
+				return r.readCell(step, step.next-1)
 			}
 		}
 		if step.next > step.page.cellCount {
@@ -111,13 +123,16 @@ func (r *Rows) descend(step *treeStep) bool {
 }
 
 // push loads page number onto the path, refusing a page the walk has
-// already visited, so a damaged tree that loops ends with an error.
+// already visited, so a damaged tree that loops ends with an error, and a
+// path deeper than maxTreeDepth.
 func (r *Rows) push(number uint32) bool {
-	if r.visited[number] {
-		r.err = malformed("page %d appears twice in the b-tree rooted at page %d", number, r.root)
+	if len(r.stack) == maxTreeDepth {
+		r.err = malformed("the b-tree rooted at page %d is more than %d pages deep", r.root, maxTreeDepth)
 		return false
 	}
-	r.visited[number] = true
+	if r.err = r.visit(number); r.err != nil {
+		return false
+	}
 	page, err := r.database.loadPage(number, r.table)
 	if err != nil {
 		r.err = err
@@ -127,9 +142,21 @@ func (r *Rows) push(number uint32) bool {
 	return true
 }
 
-// readCell makes cell i of page the current row: a table leaf cell's rowid
-// and payload, or an index cell's key.
-func (r *Rows) readCell(page *btreePage, i int) bool {
+// visit marks page number read by the walk, refusing one read before.
+func (r *Rows) visit(number uint32) error {
+	if r.visited[number] {
+		return malformed("page %d appears twice in the b-tree rooted at page %d", number, r.root)
+	}
+	r.visited[number] = true
+	return nil
+}
+
+// readCell makes cell i of the step's page the current row: a table leaf
+// cell's rowid and payload, or an index cell's key. Cells that together
+// keep more payload than the page holds overlap, which is damage.
+func (r *Rows) readCell(step *treeStep, i int) bool {
+	page := step.page
+	r.whole = nil
 	cell, err := r.database.cell(page, i)
 	if err != nil {
 		r.err = err
@@ -153,8 +180,14 @@ func (r *Rows) readCell(page *btreePage, i int) bool {
 		}
 		r.rowid, cell = int64(rowid), cell[used:]
 	}
-	r.payload, r.err = r.database.splitPayload(page, i, cell, total)
-	return r.err == nil
+	if r.payload, r.err = r.database.splitPayload(page, i, cell, total); r.err != nil {
+		return false
+	}
+	if step.stored += int64(len(r.payload.local)); step.stored > r.database.usable {
+		r.err = malformed("the cells of page %d keep more payload than the page holds", page.number)
+		return false
+	}
+	return true
 }
 
 // Rowid returns the current row's rowid; it is 0 in an index b-tree.
@@ -165,12 +198,16 @@ func (r *Rows) Rowid() int64 {
 // Record reads the current row's payload, following its overflow pages,
 // and decodes it. A record may hold fewer values than its table has
 // columns, after an ALTER TABLE ADD COLUMN; the schema supplies the rest.
+// An overflow page another row of the walk has used is damage.
 func (r *Rows) Record() ([]Value, error) {
-	payload, err := r.database.readPayload(r.payload)
-	if err != nil {
-		return nil, err
+	if r.whole == nil {
+		payload, err := r.readPayload()
+		if err != nil {
+			return nil, err
+		}
+		r.whole = payload
 	}
-	return decodeRecord(payload)
+	return decodeRecord(r.whole)
 }
 
 // Err returns the error that ended the walk, or nil at a clean end.
@@ -213,30 +250,30 @@ func (d *Database) splitPayload(page *btreePage, i int, cell []byte, total uint6
 	return payload, nil
 }
 
-// readPayload returns a payload whole, reading its overflow chain ("Cell
-// Payload Overflow Pages"): each page holds the next page's number and then
-// its share of the payload. A chain that ends early or loops is damage.
-func (d *Database) readPayload(payload cellPayload) ([]byte, error) {
+// readPayload returns the current row's payload whole, reading its
+// overflow chain ("Cell Payload Overflow Pages"): each page holds the next
+// page's number and then its share of the payload. A chain that ends early,
+// loops or reaches a page the walk has read before is damage.
+func (r *Rows) readPayload() ([]byte, error) {
+	payload := r.payload
 	if payload.overflow == 0 {
 		return payload.local, nil
 	}
 	capacity := max(int64(len(payload.local)), min(payload.total, 1<<20))
 	whole := make([]byte, len(payload.local), capacity)
 	copy(whole, payload.local)
-	visited := map[uint32]bool{}
 	for next := payload.overflow; int64(len(whole)) < payload.total; {
 		if next == 0 {
 			return nil, malformed("overflow chain ends %d bytes short", payload.total-int64(len(whole)))
 		}
-		if visited[next] {
-			return nil, malformed("overflow chain visits page %d twice", next)
+		if err := r.visit(next); err != nil {
+			return nil, err
 		}
-		visited[next] = true
-		data, err := d.readPage(next)
+		data, err := r.database.readPage(next)
 		if err != nil {
 			return nil, err
 		}
-		share := min(payload.total-int64(len(whole)), d.usable-4)
+		share := min(payload.total-int64(len(whole)), r.database.usable-4)
 		whole = append(whole, data[4:4+share]...)
 		next = binary.BigEndian.Uint32(data)
 	}

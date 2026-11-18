@@ -2,6 +2,7 @@ package sqlitefile
 
 import (
 	"encoding/binary"
+	"io"
 	"runtime"
 )
 
@@ -144,6 +145,36 @@ func tableLeafCell(rowid int64, payload []byte) []byte {
 	cell := appendSQLiteVarint(nil, uint64(len(payload)))
 	cell = appendSQLiteVarint(cell, uint64(rowid))
 	return append(cell, payload...)
+}
+
+// countingReader counts the bytes read through it, the measure of how much
+// work a read of a database does.
+type countingReader struct {
+	source io.ReaderAt
+	read   *int64
+}
+
+// ReadAt reads from the source and counts the bytes.
+func (r countingReader) ReadAt(target []byte, offset int64) (int, error) {
+	n, err := r.source.ReadAt(target, offset)
+	*r.read += int64(n)
+	return n, err
+}
+
+// countedFiles returns the files of a database held in memory, each read
+// through a reader that adds the bytes it reads to read.
+func countedFiles(read *int64, main, log, journal []byte) Files {
+	section := func(data []byte) *io.SectionReader {
+		return io.NewSectionReader(countingReader{source: sectionOf(data), read: read}, 0, int64(len(data)))
+	}
+	files := Files{Main: section(main)}
+	if log != nil {
+		files.Log = section(log)
+	}
+	if journal != nil {
+		files.Journal = section(journal)
+	}
+	return files
 }
 
 // allocatedBytes returns how many bytes of memory work allocates.
