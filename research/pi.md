@@ -1380,7 +1380,10 @@ dropped as pi drops it ([Project trust](#project-trust)), is one whole-file row
 that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, an
 element cut mid-write `parser: unparseable record <N> (<reason>): <the rest of the file>`, and an
 array that ends where an element is due `parser: array cut off after record <N>`, `<N>` the
-elements read whole. An empty `settings.json` gives no row, since pi
+elements read whole. A bug report zip's `diagnostics.json` `crashes` or `assistant` that is
+present but not an array is `parser: diagnostics.crashes is not a JSON array` or
+`parser: diagnostics.assistant is not a JSON array` at line 0; an absent, null or empty one gives
+no row. An empty `settings.json` gives no row, since pi
 reads empty content as no settings
 ([settings-manager.ts:377-379](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/settings-manager.ts#L377-L379)),
 while an empty `trust.json` gives the not-an-object row, as pi rejects it

@@ -159,7 +159,8 @@ func (p *Parser) copyRows(artifact *input.Artifact, session *Session, options pa
 
 // parseBugZip emits a bug report zip's `bug report:` row, its crash and
 // summary rows and its session's rows, which carry that member's line
-// numbers.
+// numbers. A diagnostics crashes or assistant that is not an array adds a
+// problem.
 func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	members := bugZipMembers(artifact, &problems)
@@ -174,10 +175,10 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 	}
 	if report.Len() > 0 || diagnostics.Len() > 0 {
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd,
-			bugReportRowText(report, diagnostics, source("report.json", "createdAt"))))
+			bugReportRowText(report, diagnostics, source("report.json", "createdAt"), &problems)))
 	}
-	p.bugCrashRows(artifact, diagnostics.Get("crashes"), source("diagnostics.json", "record timestamp"),
-		emit)
+	p.bugCrashRows(artifact, parser.ArrayMember(diagnostics.Get("crashes"), "diagnostics.crashes", 0, &problems),
+		source("diagnostics.json", "record timestamp"), emit)
 	if summary, ok := members["summary.md"]; ok {
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd, "bug report summary: "+
 			parser.SettingOrDash(report.Get("id"))+" "+source("summary.md", "report.json createdAt")+
@@ -201,9 +202,9 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 
 // bugCrashRows emits one `crash:` row per crash record of a bug report's
 // diagnostics, at the record's own time.
-func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes jsonvalue.Value, source string,
+func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes []jsonvalue.Value, source string,
 	emit parser.Emit) {
-	for _, record := range crashes.Items() {
+	for _, record := range crashes {
 		if record.IsObject() {
 			text, crashSession := p.crashText(record, source)
 			emit(p.systemRow(artifact, 0, timeutil.FromValue(record.Get("timestamp")), crashSession,
@@ -242,8 +243,9 @@ func bugJSONMember(rel string, members map[string][]byte, name string,
 // bugReportRowText returns the `bug report:` row text of a zip's
 // report.json and diagnostics.json: a first line naming the report, its
 // session and environment, then one line per failed assistant turn. The
-// hint and the redacted settings are not written.
-func bugReportRowText(report, diagnostics jsonvalue.Value, source string) string {
+// hint and the redacted settings are not written. A diagnostics assistant
+// that is not an array adds a problem.
+func bugReportRowText(report, diagnostics jsonvalue.Value, source string, problems *parser.Problems) string {
 	dash := parser.SettingOrDash
 	session, environment, model := report.Get("session"), report.Get("environment"), report.Get("model")
 	var text strings.Builder
@@ -254,7 +256,7 @@ func bugReportRowText(report, diagnostics jsonvalue.Value, source string) string
 		" version=" + dash(environment.Get("version")) +
 		" platform=" + dash(environment.Get("platform")) + "/" + dash(environment.Get("arch")) +
 		" model=" + dash(model.Get("provider")) + "/" + dash(model.Get("id")) + " " + source)
-	for _, turn := range diagnostics.Get("assistant").Items() {
+	for _, turn := range parser.ArrayMember(diagnostics.Get("assistant"), "diagnostics.assistant", 0, problems) {
 		if turn.IsObject() {
 			text.WriteString("\nfailed assistant turn " + dash(turn.Get("entryId")) + " at " +
 				dash(turn.Get("timestamp")) + ": stopReason=" + dash(turn.Get("stopReason")) + " " +
