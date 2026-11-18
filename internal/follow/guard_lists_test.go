@@ -99,7 +99,10 @@ func safeNames() map[string][]string {
 		// The running account's own record, looked up by the system.
 		"os/user": {"Current"},
 		// Text operations on a path; none touches the file system.
-		"path/filepath": {"Base", "Clean", "IsAbs", "Join", "SplitList", "VolumeName"},
+		// Dir is text too, but it climbs, so each file that calls it is
+		// counted on allowedCalls.
+		"path/filepath": {"Base", "Clean", "IsAbs", "Join", "Separator", "SplitList", "ToSlash",
+			"VolumeName"},
 		// Constants, a signal, an attribute record type, and error numbers
 		// with their type, which internal/reason compares errors against.
 		"syscall": {"EISDIR", "ELOOP", "ENAMETOOLONG", "ENOTDIR", "ERROR_MORE_DATA", "Errno",
@@ -286,8 +289,13 @@ func allowedCalls() map[string]allowance {
 			"sets the time of a file or directory the extraction made, from its member"},
 		{"internal/input/manifest.go", "osfile.ReadFile", 2,
 			"reads manifest.jsonl and collection.json, each typed a regular file by its lstat"},
+		{"internal/input/loose.go", "filepath.Dir", 3,
+			"the parent of the analyst's own input directory, as text, when that directory " +
+				"is itself an agent's directory"},
 		{"internal/input/loose.go", "stage.PhysicalDir", 1,
 			"resolves the input directory the analyst names, for the owner of its parent"},
+		{"internal/analyze/fleet.go", "filepath.Dir", 1,
+			"the directory of the output file the analyst named, as text, to create it"},
 		{"internal/analyze/fleet.go", "osfile.MkdirAll", 1,
 			"creates the directory of the CSV the analyst names with -o"},
 		{"internal/analyze/fleet.go", "osfile.WriteFile", 1,

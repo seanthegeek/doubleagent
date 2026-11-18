@@ -3,21 +3,8 @@ package input
 import (
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 )
-
-func TestParentPathIsFilepathDirOfACleanedPath(t *testing.T) {
-	for _, path := range []string{"", ".", "a", "a/b", "/a", "/a/b/c", "/", "../a", "..", "a//b/",
-		`C:\a\b`, `C:\a`, `C:\`, `C:a`, `\\server\share\x`, `\\server\share`, `\\?\C:\x\y`} {
-		cleaned := filepath.Clean(path)
-		t.Run(strings.ReplaceAll(path, `\`, "|"), func(t *testing.T) {
-			if got, want := parentPath(cleaned), filepath.Dir(cleaned); got != want {
-				t.Errorf("parentPath(%q) = %q, filepath.Dir gives %q", cleaned, got, want)
-			}
-		})
-	}
-}
 
 func TestPathElementsDropTheVolumeAndTheRoot(t *testing.T) {
 	tests := []struct {

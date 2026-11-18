@@ -10,9 +10,6 @@ import (
 // without regard to ASCII case.
 func samePath(first, second string) bool { return syspath.Fold(first) == syspath.Fold(second) }
 
-// isSeparator reports whether char separates the elements of a host path.
-func isSeparator(char rune) bool { return char == '/' || char == '\\' }
-
 // trimRightSlash removes trailing slashes.
 func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }
 

@@ -2,32 +2,15 @@ package input
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 )
-
-// parentPath returns a cleaned path less its last element, as filepath.Dir
-// gives it: "." for a name alone ("C:." after a drive, a share's volume
-// itself), the volume and root for an element directly under the root. It stands in for filepath.Dir, which the import
-// guard does not allow in this package.
-func parentPath(path string) string {
-	volume := filepath.VolumeName(path)
-	rest := path[len(volume):]
-	last := strings.LastIndexFunc(rest, isSeparator)
-	switch {
-	case last < 0 && len(volume) > 2:
-		return volume
-	case last < 0:
-		return volume + "."
-	case last == 0:
-		return volume + rest[:1]
-	}
-	return volume + rest[:last]
-}
 
 // pathElements returns the elements of a host path below its volume and
 // root, empty ones dropped.
 func pathElements(path string) []string {
-	return strings.FieldsFunc(path[len(filepath.VolumeName(path)):], isSeparator)
+	below := filepath.ToSlash(path[len(filepath.VolumeName(path)):])
+	return slices.DeleteFunc(strings.Split(below, "/"), func(element string) bool { return element == "" })
 }
 
 // joinPath returns base with elements joined to it by filepath.Join.

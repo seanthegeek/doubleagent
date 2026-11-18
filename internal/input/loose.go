@@ -60,7 +60,7 @@ func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree string) b
 		if pattern.Depth() != 1 || pattern.Agent == sharedAgent || !pattern.MatchSegment(0, name) {
 			continue
 		}
-		home := &Home{DiskPath: parentPath(tree), User: userFromParts(resolvedParent(tree)),
+		home := &Home{DiskPath: filepath.Dir(tree), User: userFromParts(resolvedParent(tree)),
 			Host: c.Host, Inferred: true}
 		c.Notes = append(c.Notes, "root is a "+pattern.Agent+" directory; treating its parent as the home")
 		c.Homes = append(c.Homes, home)
@@ -76,9 +76,9 @@ func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree string) b
 // are resolved, or of its parent as written when it cannot be resolved.
 func resolvedParent(tree string) []string {
 	if physical, err := stage.PhysicalDir(tree); err == nil {
-		return pathElements(parentPath(physical))
+		return pathElements(filepath.Dir(physical))
 	}
-	return pathElements(parentPath(tree))
+	return pathElements(filepath.Dir(tree))
 }
 
 // walkForHomes walks the tree from start top-down, each directory's

@@ -292,7 +292,7 @@ func plural(count int, noun string) string {
 // with its defaults (fields quoted where needed, lines ending in LF),
 // creating its parent directory.
 func writeFleetCSV(path string, rows [][]string) error {
-	if parent := pathParent(path); parent != "." {
+	if parent := filepath.Dir(path); parent != "." {
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {
 			return err
 		}
