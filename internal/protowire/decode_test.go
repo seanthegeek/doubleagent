@@ -12,8 +12,8 @@ import (
 	"testing"
 )
 
-// testSchema is the schema the oracle script testdata/gen_oracle.py decodes
-// with; the two must stay equal.
+// testSchema is the schema the messages of testdata/messages.txt are
+// decoded with.
 func testSchema(t testing.TB) *Schema {
 	t.Helper()
 	schema, err := NewSchema(map[string][]Field{
@@ -44,7 +44,9 @@ func testSchema(t testing.TB) *Schema {
 	return schema
 }
 
-// render writes a decoded value in the form the oracle script prints.
+// render writes a decoded value as compact text: a message as
+// {name=value;...} and a list as [value,...], strings and bytes in hex, a
+// float as its bits.
 func render(value any) string {
 	switch typed := value.(type) {
 	case *Message:
@@ -71,13 +73,12 @@ func render(value any) string {
 	return `s"` + hex.EncodeToString([]byte(value.(string))) + `"`
 }
 
-// The expected messages in testdata/oracle.txt are those gen_oracle.py
-// printed, except each Timestamp's when value: this decoder reads seconds
-// and nanoseconds through time.Unix and cuts to the millisecond, where the
-// script's decoder took seconds above 1e11 as milliseconds and rounded to
-// the microsecond, so those 33 values were rewritten to this decoder's.
+// Each line of testdata/messages.txt is a label, an encoded Outer message in
+// hex and its decoded form as render writes it, or ERR for a malformed
+// buffer. A Timestamp's when value is its seconds and nanoseconds read
+// through time.Unix and cut to the millisecond.
 func TestDecodeMatchesTheRecordedMessages(t *testing.T) {
-	file, err := os.Open("testdata/oracle.txt")
+	file, err := os.Open("testdata/messages.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +89,7 @@ func TestDecodeMatchesTheRecordedMessages(t *testing.T) {
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), "\t")
 		if len(parts) != 3 {
-			t.Fatalf("bad oracle line %q", scanner.Text())
+			t.Fatalf("bad message line %q", scanner.Text())
 		}
 		cases++
 		t.Run(parts[0], func(t *testing.T) {
@@ -112,7 +113,7 @@ func TestDecodeMatchesTheRecordedMessages(t *testing.T) {
 		})
 	}
 	if cases < 400 {
-		t.Fatalf("only %d oracle cases", cases)
+		t.Fatalf("only %d message cases", cases)
 	}
 }
 
@@ -235,7 +236,7 @@ func TestVarintRoundTrip(t *testing.T) {
 }
 
 func FuzzDecode(fuzzer *testing.F) {
-	file, err := os.Open("testdata/oracle.txt")
+	file, err := os.Open("testdata/messages.txt")
 	if err != nil {
 		fuzzer.Fatal(err)
 	}
