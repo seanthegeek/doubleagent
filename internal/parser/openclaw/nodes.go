@@ -1,7 +1,7 @@
 package openclaw
 
 import (
-	"fmt"
+	"cmp"
 	"slices"
 	"strings"
 
@@ -28,7 +28,8 @@ func sessionPermissionKeys() []string {
 	return []string{"elevatedLevel", "execHost", "execNode", "execCwd", "toolOverrides", "sendPolicy"}
 }
 
-// columnStr returns a column value as Python's str(value or "") gives it.
+// columnStr returns a column value as row text, "" for an empty value
+// (NULL, zero, or empty text or blob).
 func columnStr(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -38,11 +39,11 @@ func columnStr(value sqlitefile.Value) string {
 
 // orDash returns text, or "-" when it is empty.
 func orDash(text string) string {
-	return orText(text, "-")
+	return cmp.Or(text, "-")
 }
 
-// columnText returns a column value as text, "" for NULL: the value of a
-// column the analyzer reads as a string when it is one.
+// columnText returns a text column value as it is, and "" for a value of
+// any other type.
 func columnText(value sqlitefile.Value) string {
 	if value.Type == sqlitefile.Text {
 		return value.Text()
@@ -95,10 +96,10 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 		sessionID := columnStr(each.currentSessionID)
 		if grant := entry.Get("publicShare"); grant.IsObject() && !grant.Get("id").IsEmpty() {
 			generation := parser.Text(grant.Get("sessionId"))
-			a.store.attach(orText(generation, sessionID), line,
-				timeutil.FromValue(grant.Get("createdAt")), fmt.Sprintf("session synced: public"+
-					" share %s generation %s (from openclaw-agent.sqlite session_nodes.entry_json,"+
-					" publicShare.createdAt)", orDash(parser.Text(grant.Get("id"))), orDash(generation)), "")
+			a.store.attach(cmp.Or(generation, sessionID), line,
+				timeutil.FromValue(grant.Get("createdAt")), "session synced: public share "+
+					orDash(parser.Text(grant.Get("id")))+" generation "+orDash(generation)+
+					" (from openclaw-agent.sqlite session_nodes.entry_json, publicShare.createdAt)", "")
 		}
 		if relay := deliveryRelay(entry.Get("delivery")); relay != "" && !relayed[sessionID] {
 			a.store.attach(sessionID, line, timestamp, relay, "")
@@ -108,9 +109,9 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 		}
 		for _, key := range sessionPermissionKeys() {
 			if value := entry.Get(key); !isEmptySetting(value) {
-				a.store.attach(sessionID, line, timestamp, fmt.Sprintf("permission setting: %s=%s"+
-					" (from openclaw-agent.sqlite session_nodes.entry_json, updated_at)", key,
-					textOrJSON(value)), "")
+				a.store.attach(sessionID, line, timestamp, "permission setting: "+key+"="+
+					textOrJSON(value)+
+					" (from openclaw-agent.sqlite session_nodes.entry_json, updated_at)", "")
 			}
 		}
 		if archived, ok := entry.Lookup("archivedAt"); ok && !archived.IsNull() {
@@ -144,9 +145,9 @@ func archiveText(entry jsonvalue.Value) string {
 			actor = append(actor, value.Text())
 		}
 	}
-	return fmt.Sprintf("session archived: %s by %s (from openclaw-agent.sqlite"+
-		" session_nodes.entry_json, archivedAt)", orDash(parser.Text(entry.Get("archiveReason"))),
-		orDash(strings.Join(actor, ":")))
+	return "session archived: " + orDash(parser.Text(entry.Get("archiveReason"))) + " by " +
+		orDash(strings.Join(actor, ":")) +
+		" (from openclaw-agent.sqlite session_nodes.entry_json, archivedAt)"
 }
 
 // deliveryRelay returns the `session relayed:` text of an external
@@ -163,21 +164,17 @@ func deliveryRelay(delivery jsonvalue.Value) string {
 		return ""
 	}
 	field := func(value jsonvalue.Value) string { return orDash(parser.Text(value)) }
-	return fmt.Sprintf("session relayed: %s account %s %s from %s to %s (from openclaw-agent.sqlite"+
-		" session_nodes.entry_json delivery, updated_at)", channel.StringValue(),
-		orDash(firstStr(route.Get("accountId"), origin.Get("accountId"))), field(origin.Get("chatType")),
-		field(origin.Get("from")), field(origin.Get("to")))
+	return "session relayed: " + channel.StringValue() + " account " +
+		orDash(firstStr(route.Get("accountId"), origin.Get("accountId"))) + " " +
+		field(origin.Get("chatType")) + " from " + field(origin.Get("from")) + " to " +
+		field(origin.Get("to")) +
+		" (from openclaw-agent.sqlite session_nodes.entry_json delivery, updated_at)"
 }
 
-// firstStr returns the str() of the first value Python counts as true, or
+// firstStr returns the row text of the first value that is not empty, or
 // "".
 func firstStr(values ...jsonvalue.Value) string {
-	for _, value := range values {
-		if !value.IsEmpty() {
-			return value.Text()
-		}
-	}
-	return ""
+	return parser.Text(parser.FirstNonEmpty(values...))
 }
 
 // overrideText returns the `model:` text of a session's modelOverride
@@ -193,8 +190,8 @@ func overrideText(entry jsonvalue.Value) string {
 	if len(origin) > 0 {
 		fallback = " fallback_from=" + strings.Join(origin, "/")
 	}
-	return fmt.Sprintf("model: %s provider=%s source=%s%s (from openclaw-agent.sqlite"+
-		" session_nodes.entry_json modelOverride, updated_at)", entry.Get("modelOverride").Text(),
-		orDash(parser.Text(entry.Get("providerOverride"))),
-		orDash(parser.Text(entry.Get("modelOverrideSource"))), fallback)
+	return "model: " + entry.Get("modelOverride").Text() + " provider=" +
+		orDash(parser.Text(entry.Get("providerOverride"))) + " source=" +
+		orDash(parser.Text(entry.Get("modelOverrideSource"))) + fallback +
+		" (from openclaw-agent.sqlite session_nodes.entry_json modelOverride, updated_at)"
 }

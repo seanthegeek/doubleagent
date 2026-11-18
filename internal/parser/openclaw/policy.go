@@ -1,8 +1,6 @@
 package openclaw
 
 import (
-	"fmt"
-
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -33,8 +31,8 @@ func (s *stateRows) execConfig(record sqlitefile.Row) {
 	timestamp := parser.ColumnTime(record.Get("updated_at_ms"))
 	for _, each := range scopes {
 		for _, setting := range policySettings(each.policy) {
-			s.row(record, timestamp, fmt.Sprintf("permission setting: %s.%s (from state/openclaw.sqlite"+
-				" exec_approvals_config, updated_at_ms)", each.name, setting), "")
+			s.row(record, timestamp, "permission setting: "+each.name+"."+setting+
+				" (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)", "")
 		}
 	}
 }
@@ -69,8 +67,9 @@ func policySettings(policy jsonvalue.Value) []string {
 	}
 	for _, grant := range arrayItems(policy.Get("mcpTools")) {
 		if grant.IsObject() {
-			out = append(out, fmt.Sprintf("mcpTools=%s/%s source=%s", orDash(parser.Text(grant.Get("server"))),
-				orDash(parser.Text(grant.Get("tool"))), orDash(parser.Text(grant.Get("source")))))
+			out = append(out, "mcpTools="+orDash(parser.Text(grant.Get("server")))+"/"+
+				orDash(parser.Text(grant.Get("tool")))+" source="+
+				orDash(parser.Text(grant.Get("source"))))
 		}
 	}
 	return out

@@ -1,7 +1,7 @@
 package openclaw
 
 import (
-	"fmt"
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -160,8 +160,8 @@ func anchorMessage(database *sqlitefile.Database, label string) string {
 	if label == "agent" {
 		where = "transcripts are"
 	}
-	return fmt.Sprintf("%s database is a PostgreSQL anchor (store %s, schema %s): %s on the"+
-		" database server", label, store, schema, where)
+	return label + " database is a PostgreSQL anchor (store " + store + ", schema " + schema +
+		"): " + where + " on the database server"
 }
 
 // windowSession returns the session of a generation, described by its
@@ -185,7 +185,7 @@ func (a *agentDatabase) windowSession(sessionID, key, extra string) *session {
 		parts = append(parts, "model_provider="+provider)
 	}
 	current := newSession(sessionID)
-	current.key = orText(key, columnStr(window.Get("session_key")))
+	current.key = cmp.Or(key, columnStr(window.Get("session_key")))
 	current.extra = strings.Join(parts, " ")
 	current.model = columnStr(window.Get("model"))
 	current.provider = provider
