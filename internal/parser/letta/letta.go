@@ -61,6 +61,10 @@ const turnTolerance = 3600.0
 type Parser struct {
 	parser.Base
 	transcript, local, routing, runs, listener *regexp.Regexp
+	// sessions and servers hold what sessions.jsonl and settings.json give
+	// each agent, read once per state of the file.
+	sessions map[fileState]map[string][]projectTime
+	servers  map[fileState]map[string]string
 }
 
 // New returns the parser.
@@ -72,6 +76,8 @@ func New() *Parser {
 		routing:    regexp.MustCompile(`\A\.letta/channels/([^/]+)/routing\.(?:json|yaml)\z`),
 		runs:       regexp.MustCompile(`\A\.letta/runs/[^/]+\.jsonl\z`),
 		listener:   regexp.MustCompile(`\A\.letta/listener-state/[0-9a-f]{24}/[^/]+\.json\z`),
+		sessions:   map[fileState]map[string][]projectTime{},
+		servers:    map[fileState]map[string]string{},
 	}
 }
 
