@@ -51,7 +51,7 @@ func TestARecordsIDsThatAreNotFileNamesNameNothingCollected(t *testing.T) {
 			record := jsonvalue.NewObject(
 				jsonvalue.Member{Key: "sessionId", Value: jsonvalue.NewString(test.sessionID)},
 				jsonvalue.Member{Key: "cliSessionId", Value: jsonvalue.NewString(test.cliID)})
-			if sessionCollected(artifact, record) {
+			if New().sessionCollected(artifact, record) {
 				t.Error("a file outside the session's places counted as collected")
 			}
 		})

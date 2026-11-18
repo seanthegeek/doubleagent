@@ -59,7 +59,7 @@ func TestASessionIsNeverCountedCollectedThroughALinkedDirectory(t *testing.T) {
 			record := jsonvalue.NewObject(
 				jsonvalue.Member{Key: "sessionId", Value: jsonvalue.NewString(session)},
 				jsonvalue.Member{Key: "cliSessionId", Value: jsonvalue.NewString(cliID)})
-			if got := sessionCollected(artifact, record); got != test.want {
+			if got := New().sessionCollected(artifact, record); got != test.want {
 				t.Errorf("collected %v, want %v", got, test.want)
 			}
 		})

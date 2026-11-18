@@ -225,7 +225,7 @@ func folder(record jsonvalue.Value) string {
 // the record or in its org dir), in the org's imported-staging/, or for the
 // Code tab in ~/.claude/projects/*/. An id from the record that is not a
 // plain file name names nothing collected.
-func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
+func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	recordDir, found := parser.Beside(artifact)
 	if !found {
 		return false
@@ -266,7 +266,72 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	claude, claudeFound := artifact.Home.PathOf(".claude")
 	projects, projectsFound := artifact.Home.PathOf(".claude/projects")
 	return claudeFound && projectsFound && parser.IsDirectory(claude) &&
-		hasTranscriptFile(projects, cliID+".jsonl")
+		p.transcriptIndexOf(projects).holds(cliID+".jsonl")
+}
+
+// transcriptIndex is a .claude/projects directory read once: the slug
+// directories whose listing holds each name as a regular file, and the
+// slug directories that could not be listed.
+type transcriptIndex struct {
+	holders  map[string][]parser.Directory
+	unlisted []parser.Directory
+}
+
+// transcriptIndexOf returns the index of the projects directory, made on
+// first use for the run, since every Code tab record looks for its
+// transcript in each slug directory.
+func (p *Parser) transcriptIndexOf(projects string) *transcriptIndex {
+	if index, ok := p.transcripts[projects]; ok {
+		return index
+	}
+	index := &transcriptIndex{holders: map[string][]parser.Directory{}}
+	if p.transcripts == nil {
+		p.transcripts = map[string]*transcriptIndex{}
+	}
+	p.transcripts[projects] = index
+	directory, ok := parser.DirectoryAt(projects)
+	slugs, err := parser.ReadDir(projects)
+	if !ok || err != nil {
+		return index
+	}
+	for _, slug := range slugs {
+		slugPath, ok := directory.Child(slug.Name())
+		if !ok {
+			continue
+		}
+		if slugDirectory, ok := parser.DirectoryAt(slugPath); ok {
+			p.Work.Add("slug directory listings", 1)
+			index.add(slugDirectory)
+		}
+	}
+	return index
+}
+
+// add indexes the regular files of one slug directory by name.
+func (x *transcriptIndex) add(slug parser.Directory) {
+	files, err := parser.ReadDir(slug.Path())
+	if err != nil {
+		x.unlisted = append(x.unlisted, slug)
+		return
+	}
+	for _, file := range files {
+		if file.Type().IsRegular() {
+			x.holders[file.Name()] = append(x.holders[file.Name()], slug)
+		}
+	}
+}
+
+// holds reports whether a slug directory holds a regular file named name,
+// as hasTranscriptFile does: by its exact name in each slug's listing,
+// since the record names the transcript by the session id the CLI wrote
+// it under, the file then looked at once more as a look per slug would.
+func (x *transcriptIndex) holds(name string) bool {
+	for _, slug := range slices.Concat(x.holders[name], x.unlisted) {
+		if slugHolds(slug, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // sessionDirHolds reports whether the session dir called name in directory

@@ -24,6 +24,9 @@ type treeIndex struct {
 	// projectFiles holds each project file a session file read, by its
 	// state, since every session of a project names it.
 	projectFiles map[fileState]*sideRead
+	// listings holds each project directory of a session directory, listed
+	// once, since every session looks for its file in each of them.
+	listings map[string]parser.Listing
 }
 
 // fileState names a file as read: its path, modification time in
@@ -56,7 +59,7 @@ type sessionKey struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string][]string{},
 		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
-		projectFiles: map[fileState]*sideRead{}}
+		projectFiles: map[fileState]*sideRead{}, listings: map[string]parser.Listing{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,
@@ -75,7 +78,9 @@ func (x *treeIndex) messageNames(directory string, work parser.Work) []string {
 
 // session returns the session file <project>/<id>.json under the session
 // directory, from the first project directory in name order where it is a
-// regular file that decodes, or null; it is looked up on first use.
+// regular file that decodes, or null; it is looked up on first use, by its
+// exact name in each project directory's listing, since the agent names
+// the file by the id the message files carry.
 func (x *treeIndex) session(directory, sessionID string, work parser.Work) jsonvalue.Value {
 	key := sessionKey{directory: directory, sessionID: sessionID}
 	if found, ok := x.sessions[key]; ok {
@@ -94,8 +99,8 @@ func (x *treeIndex) session(directory, sessionID string, work parser.Work) jsonv
 		if !ok {
 			continue
 		}
-		candidate, ok := childPath(projectPath, sessionID+".json")
-		if !ok || !parser.RegularFile(candidate) {
+		candidate, ok := x.listing(projectPath, work).RegularFile(sessionID + ".json")
+		if !ok {
 			continue
 		}
 		if decoded, ok := quietObject(candidate, true); ok {
@@ -126,4 +131,16 @@ func (x *treeIndex) projectFile(path string, found bool, problems *parser.Proble
 	}
 	*problems = append(*problems, held.problems...)
 	return held.value, held.err
+}
+
+// listing returns the listing of a project directory, made on first use.
+func (x *treeIndex) listing(path string, work parser.Work) parser.Listing {
+	listing, ok := x.listings[path]
+	if !ok {
+		work.Add("project directory listings", 1)
+		directory, _ := parser.DirectoryAt(path)
+		listing = parser.ListingOf(directory)
+		x.listings[path] = listing
+	}
+	return listing
 }

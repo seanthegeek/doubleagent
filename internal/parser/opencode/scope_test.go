@@ -131,3 +131,44 @@ func TestAProjectFileIsReadOnceForAllItsSessions(t *testing.T) {
 		})
 	}
 }
+
+// Each session looks for its file in every project directory, so each
+// directory is listed once and the session's file name looked up in the
+// listing, not looked at once per session and directory.
+func TestEachProjectDirectoryIsListedOnceForAllSessions(t *testing.T) {
+	const storage = ".local/share/opencode/storage"
+	for _, sessions := range []int{4, 32} {
+		t.Run(fmt.Sprintf("%d sessions over 6 project directories make 6 listings", sessions), func(t *testing.T) {
+			files := map[string]string{}
+			for project := range 5 {
+				files[fmt.Sprintf("%s/session/p%d/other.json", storage, project)] = `{}`
+			}
+			var rels []string
+			for i := range sessions {
+				files[fmt.Sprintf("%s/session/p5/ses_%03d.json", storage, i)] =
+					fmt.Sprintf(`{"id": "ses_%03d", "directory": "/work/s%d"}`, i, i)
+				rel := fmt.Sprintf("%s/message/ses_%03d/msg_1.json", storage, i)
+				files[rel] = fmt.Sprintf(`{"id": "msg_1", "sessionID": "ses_%03d", "role": "user"}`, i)
+				rels = append(rels, rel)
+			}
+			home := writeTree(t, files)
+			subject := New()
+			subject.Work = parser.CountingWork()
+			for i, rel := range rels {
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
+					Home: &input.Home{DiskPath: home}}
+				want := fmt.Sprintf("/work/s%d", i)
+				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+					if row.ProjectPath != want {
+						t.Errorf("%s: row %q has project %q, want %q", rel, row.Text, row.ProjectPath, want)
+					}
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if listings := subject.Work.Count("project directory listings"); listings != 6 {
+				t.Errorf("%d sessions made %d project directory listings, want 6", sessions, listings)
+			}
+		})
+	}
+}
