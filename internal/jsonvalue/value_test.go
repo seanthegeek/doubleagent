@@ -285,3 +285,27 @@ func TestNewNumberAcceptsOnlyAJSONNumber(t *testing.T) {
 		}
 	}
 }
+
+func TestJSONEscapesEveryControlCharacterInStringsAndKeys(t *testing.T) {
+	var control strings.Builder
+	for char := rune(0); char < 0x20; char++ {
+		control.WriteRune(char)
+	}
+	control.WriteString("\x7f\u2028")
+	value := NewObject(Member{Key: control.String(), Value: NewArray(NewString(control.String()))})
+	for name, text := range map[string]string{"compact": value.JSON(),
+		"indented": value.IndentedJSON("  ")} {
+		t.Run("the "+name+" form", func(t *testing.T) {
+			if strings.ContainsFunc(strings.ReplaceAll(text, "\n", ""), func(char rune) bool {
+				return char < 0x20
+			}) {
+				t.Errorf("a control character is written raw: %q", text)
+			}
+			for _, want := range []string{`\u0000`, `\u001b`, `\t`, "\x7f", `\u2028`} {
+				if strings.Count(text, want) != 2 {
+					t.Errorf("%q is not in both the key and the string: %q", want, text)
+				}
+			}
+		})
+	}
+}
