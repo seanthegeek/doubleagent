@@ -54,8 +54,10 @@ func (c *Collection) discoverLoose(ctx context.Context, matcher *catalog.Matcher
 }
 
 // agentDirectoryRoot handles a tree that is an agent directory (~/.claude
-// copied on its own): its parent is the home, restricted to the tree, and
-// nothing inside it is a home. It reports whether the tree was one.
+// copied on its own): its parent is the home, restricted to the tree (a
+// path the home gives starts with the tree's name, so nothing beside the
+// tree is read), and nothing inside it is a home. It reports whether the
+// tree was one.
 func (c *Collection) agentDirectoryRoot(ctx context.Context, matcher *catalog.Matcher,
 	tree string) (bool, error) {
 	name := filepath.Base(tree)
@@ -65,7 +67,7 @@ func (c *Collection) agentDirectoryRoot(ctx context.Context, matcher *catalog.Ma
 			continue
 		}
 		home := &Home{DiskPath: filepath.Dir(tree), User: userFromParts(resolvedParent(tree)),
-			Host: c.Host, Inferred: true, ownDirectory: true}
+			Host: c.Host, Inferred: true, ownDirectory: true, tree: name}
 		c.Notes = append(c.Notes, "root is a "+pattern.Agent+" directory; treating its parent as the home")
 		c.Homes = append(c.Homes, home)
 		hits := []hit{{pattern: pattern, path: tree, rel: []string{name}}}

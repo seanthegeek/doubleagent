@@ -143,3 +143,27 @@ func TestBelowRefusesAnEmptyBase(t *testing.T) {
 		t.Errorf("Below of an empty base gave %q", path)
 	}
 }
+
+func TestAnAgentDirectoryInputsHomeGivesOnlyPathsInsideIt(t *testing.T) {
+	dir := t.TempDir()
+	tree := filepath.Join(dir, "case", ".pi")
+	writeFile(t, filepath.Join(tree, "agent", "sessions", "p", "s.jsonl"), "{}")
+	writeFile(t, filepath.Join(dir, "case", ".little-coder", "checkpoints", "s.jsonl", "a.txt"), "x")
+	collection, err := Open(t.Context(), tree, Options{Matcher: matcherOf(t, "")})
+	opened(t, err)
+	home := collection.Homes[0]
+	for _, test := range []struct {
+		rel    string
+		inside bool
+	}{
+		{".pi/agent/sessions", true},
+		{".pi", true},
+		{".little-coder/checkpoints/s.jsonl", false},
+		{"", false},
+		{"other", false},
+	} {
+		if _, ok := home.PathOf(test.rel); ok != test.inside {
+			t.Errorf("PathOf(%q) gave %v, want %v", test.rel, ok, test.inside)
+		}
+	}
+}

@@ -67,3 +67,26 @@ func TestNeighbourLookupsNeverLeaveTheCollection(t *testing.T) {
 		}
 	}
 }
+
+func TestAnAgentDirectoryInputReadsNothingBesideIt(t *testing.T) {
+	const planted = "PLANTED-BESIDE-THE-INPUT"
+	dir := t.TempDir()
+	tree := filepath.Join(dir, "case", ".little-coder")
+	writeFile(t, filepath.Join(tree, "checkpoints", "2026-01-01_abc.jsonl", "a.txt"), "hi\n")
+	writeFile(t, filepath.Join(dir, "case", ".pi", "agent", "sessions", "proj", "2026-01-01_abc.jsonl"),
+		`{"type":"session","version":3,"id":"`+planted+`","timestamp":"2026-01-01T00:00:00Z",`+
+			`"cwd":"/`+planted+`"}`+"\n")
+	output := filepath.Join(dir, "out")
+	var stdout, stderr bytes.Buffer
+	code := Run(context.Background(), []string{"timeline", tree, output}, System(), &stdout, &stderr)
+	if code != ExitFound {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(output, TimelineFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), planted) || !strings.Contains(string(data), `"session_id":"abc"`) {
+		t.Errorf("the timeline reads the file beside the input, or not the input:\n%s", data)
+	}
+}

@@ -96,20 +96,26 @@ type Home struct {
 	// ownDirectory is set when DiskPath is a directory the input's walk
 	// found, or the input itself, so a lookup below it need not look at it.
 	ownDirectory bool
+	// tree, when set, is the name of the agent directory given as the
+	// input, whose parent stands as the home: every path PathOf gives
+	// starts with it, since the rest of the parent is not the input.
+	tree string
 }
 
 // PathOf returns where the collection holds rel, a path relative to the
-// home with slashes (empty and "." elements, which name no further place,
-// are dropped), and true: the mapped
-// location of rel or of its longest mapped ancestor with the rest of rel
-// below it, else DiskPath/rel. It is false when an element of rel is not
-// one plain component (such as "..", or a name holding a backslash), when
-// rel has more than maxPathComponents elements, or when the way down passes
-// through a link, so every path it gives lies below the home or a staged
-// location; the last element is left for the reader.
+// home with slashes (empty and "." elements are dropped), and true: the
+// mapped location of rel or of its longest mapped ancestor with the rest of
+// rel below it, else DiskPath/rel. It is false when an element of rel is
+// not one plain component (such as "..", or a name holding a backslash),
+// when rel has more than maxPathComponents elements, when the input is one
+// agent directory and rel does not start with its name, or when the way
+// down passes through a link, so every path it gives lies inside the input,
+// below the home or a staged location; the last element is left for the
+// reader.
 func (h *Home) PathOf(rel string) (string, bool) {
 	parts := slices.DeleteFunc(splitSlash(rel), func(part string) bool { return part == "" || part == "." })
-	if len(parts) > maxPathComponents || !plainParts(parts) {
+	if len(parts) > maxPathComponents || !plainParts(parts) ||
+		h.tree != "" && (len(parts) == 0 || parts[0] != h.tree) {
 		return "", false
 	}
 	if len(h.StagedPaths) > 0 {
