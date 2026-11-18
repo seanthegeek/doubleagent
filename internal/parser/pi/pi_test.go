@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -302,4 +303,37 @@ func FuzzZipMembers(fuzz *testing.F) {
 			t.Errorf("%d bytes read past the budget", total)
 		}
 	})
+}
+
+func TestFirstSeenKeepsDistinctTextsInOrderAtOneLookupEach(t *testing.T) {
+	tests := []struct {
+		name  string
+		texts []string
+		want  []string
+	}{
+		{"none", nil, nil},
+		{"repeats are kept once, first place", []string{"lc-b", "lc-a", "lc-b", "lc-a", "lc-c"}, []string{"lc-b", "lc-a", "lc-c"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			seen := newFirstSeen()
+			for _, text := range test.texts {
+				seen.add(text)
+			}
+			if !slices.Equal(seen.order, test.want) {
+				t.Errorf("order %q, want %q", seen.order, test.want)
+			}
+		})
+	}
+	for _, count := range []int{1000, 2000, 4000} {
+		t.Run(strconv.Itoa(count)+" distinct texts", func(t *testing.T) {
+			seen := newFirstSeen()
+			for i := range count {
+				seen.add("lc-" + strconv.Itoa(i))
+			}
+			if seen.lookups != count || len(seen.order) != count {
+				t.Errorf("%d lookups for %d texts (%d kept), want one each", seen.lookups, count, len(seen.order))
+			}
+		})
+	}
 }
