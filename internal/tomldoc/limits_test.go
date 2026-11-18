@@ -124,23 +124,47 @@ func TestParseIgnoresBracketsInStringsAndComments(t *testing.T) {
 	}
 }
 
-func TestParseReadsALargeDocumentOfLittleDepth(t *testing.T) {
-	const keys = 200000
+func TestParseReadsAFlatDocumentJustUnderTheSizeLimit(t *testing.T) {
 	var text strings.Builder
-	for i := range keys {
-		text.WriteString("k" + strconv.Itoa(i) + " = 1\n")
-	}
-	if text.Len() < 2<<20 {
-		t.Fatalf("the document is only %d bytes", text.Len())
+	var keys []string
+	for i := 0; ; i++ {
+		line := "k" + strconv.Itoa(i) + " = " + strconv.Itoa(i) + "\n"
+		if text.Len()+len(line) > maxDocumentBytes {
+			break
+		}
+		text.WriteString(line)
+		keys = append(keys, "k"+strconv.Itoa(i))
 	}
 	document, err := Parse(text.String())
 	if err != nil {
 		t.Fatalf("a flat document of %d bytes: %v", text.Len(), err)
 	}
-	if got := document.Len(); got != keys {
-		t.Errorf("read %d keys, want %d", got, keys)
+	entries := document.Entries()
+	if len(entries) != len(keys) {
+		t.Fatalf("read %d keys, want %d", len(entries), len(keys))
+	}
+	for i, entry := range entries {
+		if entry.Key != keys[i] || entry.Value.Kind() != KindInteger || entry.Value.Int() != int64(i) {
+			t.Fatalf("entry %d is %s = %d, want %s = %d", i, entry.Key, entry.Value.Int(), keys[i], i)
+		}
 	}
 }
+
+func TestParseRefusesADocumentOverTheSizeLimit(t *testing.T) {
+	padding := func(size int) string {
+		text := "a = 1\n#"
+		return text + strings.Repeat("x", size-len(text))
+	}
+	if _, err := Parse(padding(maxDocumentBytes)); err != nil {
+		t.Fatalf("a document at the limit: %v", err)
+	}
+	_, err := Parse(padding(maxDocumentBytes + 1))
+	want := "TOML document of 1048577 bytes is larger than the 1048576 bytes this reader accepts"
+	if err == nil || err.Error() != want {
+		t.Fatalf("a document one byte over the limit: got %v, want %q", err, want)
+	}
+}
+
 func TestSettingTextWritesAValueAtTheDepthLimit(t *testing.T) {
 	table, err := Parse(nestedArray(maxDepth - 1))
 	if err != nil {
