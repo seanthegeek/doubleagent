@@ -20,3 +20,10 @@ internal/sqlitefile/testdata/*.db-journal binary
 
 # The zstd test frames are hashed and decoded byte for byte.
 internal/zstdframe/testdata/frames/*.zst binary
+
+# Recorded test outputs and the inputs the Go tests read are compared byte
+# for byte.
+internal/input/testdata/*_dumps.txt text eol=lf
+internal/**/testdata/**/*.tar.gz binary
+internal/**/testdata/**/*.tar.bz2 binary
+internal/**/testdata/**/*.zip binary
