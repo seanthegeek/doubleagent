@@ -23,6 +23,6 @@
 // cross-compiled build; and either runs the database's own schema text
 // through a SQL engine, where an evidence file is hostile input. This
 // package reads pages and records with bounds-checked Go, executes no SQL
-// (it reads CREATE TABLE text only for the columns and their defaults) and never writes,
-// so a database is read in place with its -wal and journal.
+// (CREATE TABLE text is read only for the columns and their defaults) and
+// never writes, so a database is read in place with its -wal and journal.
 package sqlitefile
