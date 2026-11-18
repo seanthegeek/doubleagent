@@ -8,6 +8,12 @@
 // A live run passes a nil check, and the functions follow as the operating
 // system does.
 //
+// os.Stat, os.ReadFile and filepath.EvalSymlinks follow any link; os.Root
+// refuses every link that leaves its directory and every absolute link, with
+// a plain error. Here an absolute link naming a path under the root is
+// followed, and a refusal says which link and why (*OutOfRootError), which
+// the log prints.
+//
 // A test in this package denies by default. Outside the directories of this
 // package and the ones it is built on (osfile, fsmeta, stage), every non-test
 // Go file of the module may import only a reviewed standard or vendored
