@@ -26,22 +26,15 @@ const (
 	pluginsSource   = "(from state.vscdb cursor.plugins.installedIds, file mtime)"
 )
 
-// mcpKeyPattern matches a decoded MCP OAuth key name, "[<scope>] <field>";
-// Python's $ also takes a final LF.
-var mcpKeyPattern = regexp.MustCompile(`^\[(.+)\] ([^` + parser.Space + `]+)\n?\z`)
-
-// base64Alphabet holds the characters a standard or URL-safe base64 text
-// is made of, padding aside.
-const base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/-_"
+// mcpKeyPattern matches a decoded MCP OAuth key name, "[<scope>] <field>".
+var mcpKeyPattern = regexp.MustCompile(`^\[(.+)\] ([^` + parser.Space + `]+)\z`)
 
 // mcpKeyName returns the scope and field an MCP OAuth key names, or false.
-// The suffix is decoded as Python's urlsafe_b64decode does: padded to a
-// multiple of four, characters outside the alphabet dropped, the data
-// characters needing the padding after them that completes their last
-// group; then it is read as UTF-8.
+// The suffix is URL-safe base64 without padding (research/cursor.md); a
+// padded suffix is read too. The name must be UTF-8.
 func mcpKeyName(key, prefix string) (string, string, bool) {
-	decoded, ok := lenientBase64(key[len(prefix):])
-	if !ok || !utf8.Valid(decoded) {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(key[len(prefix):], "="))
+	if err != nil || !utf8.Valid(decoded) {
 		return "", "", false
 	}
 	match := mcpKeyPattern.FindStringSubmatch(string(decoded))
@@ -49,32 +42,6 @@ func mcpKeyName(key, prefix string) (string, string, bool) {
 		return "", "", false
 	}
 	return match[1], match[2], true
-}
-
-// lenientBase64 decodes URL-safe base64 text as Python's urlsafe_b64decode
-// does without validation, or returns false.
-func lenientBase64(text string) ([]byte, bool) {
-	var data strings.Builder
-	pads := 0
-	for i := range len(text) {
-		switch char := text[i]; {
-		case char >= utf8.RuneSelf:
-			return nil, false
-		case strings.IndexByte(base64Alphabet, char) >= 0:
-			data.WriteByte(char)
-			pads = 0
-		case char == '=':
-			pads++
-		}
-	}
-	pads += (4 - len(text)%4) % 4
-	count := data.Len() % 4
-	if count == 1 || (count > 1 && pads < 4-count) {
-		return nil, false
-	}
-	plain := strings.NewReplacer("-", "+", "_", "/").Replace(data.String())
-	decoded, err := base64.RawStdEncoding.DecodeString(plain)
-	return decoded, err == nil
 }
 
 // mcpField is one field of an MCP OAuth scope: its row and value.

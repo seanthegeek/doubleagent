@@ -180,7 +180,7 @@ func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 // each bubble's rows, and whether it is archived.
 func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 	current := stamp.composer
-	if name := timeline.CompactValue(firstTruthy(current.data.Get("name"), current.head.Get("name"))); name != "" {
+	if name := timeline.CompactValue(firstOrLast(current.data.Get("name"), current.head.Get("name"))); name != "" {
 		stamp.add(timeline.TurnSystem, "session name: "+name, current.created(), current.dataRowid, "")
 	}
 	r.owner.origin(stamp)
@@ -211,10 +211,10 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowi
 	model string) string {
 	ident := stamp.composer.ident
 	switch {
-	case equalsOne(firstTruthy(bubble.Get("type"), entry.Get("type"))):
+	case equalsOne(firstOrLast(bubble.Get("type"), entry.Get("type"))):
 		change := tracked.Change("model", ident, parser.Text(bubble.Get("modelInfo").Get("modelName")))
 		model = tracked[ident]
-		when := timeutil.FromValue(firstTruthy(bubble.Get("createdAt"), entry.Get("createdAt")))
+		when := timeutil.FromValue(firstOrLast(bubble.Get("createdAt"), entry.Get("createdAt")))
 		if change != "" {
 			stamp.add(timeline.TurnSystem, change, when, rowid, model)
 		}
@@ -224,7 +224,7 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowi
 	case bubble.Get("toolFormerData").IsObject():
 		r.owner.tool(stamp, bubble, entry, rowid, model)
 	default:
-		when := timeutil.FromValue(firstTruthy(bubble.Get("createdAt"), bubble.Get("startedAtMs"),
+		when := timeutil.FromValue(firstOrLast(bubble.Get("createdAt"), bubble.Get("startedAtMs"),
 			entry.Get("createdAt")))
 		thinking := timeline.CompactValue(bubble.Get("thinking").Get("text"))
 		if thinking != "" && r.options.IncludeThinking {
@@ -237,13 +237,9 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowi
 	return model
 }
 
-// equalsOne reports whether value == 1 in Python: 1, 1.0 or true.
+// equalsOne reports whether value is the number 1, by value (1 or 1.0).
 func equalsOne(value jsonvalue.Value) bool {
-	if flag, ok := value.Bool(); ok {
-		return flag
-	}
-	number, ok := value.Float()
-	return ok && number == 1
+	return jsonvalue.Equal(value, jsonvalue.NewInt(1))
 }
 
 // origin emits "session origin: remote <type>" for a conversation whose

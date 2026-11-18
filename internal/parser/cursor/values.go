@@ -12,7 +12,8 @@ import (
 )
 
 // asText returns a database value as text: a blob decoded as UTF-8 with
-// replacement, "" for NULL, anything else as Python's str() writes it.
+// replacement, "" for NULL, anything else as its row text
+// (sqlitefile.Value.String).
 func asText(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Blob:
@@ -21,15 +22,6 @@ func asText(value sqlitefile.Value) string {
 		return ""
 	}
 	return value.String()
-}
-
-// jsonText returns a decoded value as text: "" for null, a string as it
-// is, anything else as Python's str() writes it.
-func jsonText(value jsonvalue.Value) string {
-	if value.IsNull() {
-		return ""
-	}
-	return value.Text()
 }
 
 // orDash returns text, or "-" when it is empty.
@@ -55,10 +47,11 @@ func absent(value jsonvalue.Value) bool {
 	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
-// firstTruthy returns the first value Python counts as true, else the
-// last, as `a or b or c` does.
-func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values {
+// firstOrLast returns the first of values that is not empty, else the
+// last one: a time field falls back to the next, and the last is read even
+// when it is empty, so a zero time still reads as the epoch.
+func firstOrLast(values ...jsonvalue.Value) jsonvalue.Value {
+	for _, value := range values[:len(values)-1] {
 		if !value.IsEmpty() {
 			return value
 		}

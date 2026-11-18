@@ -7,8 +7,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs.
+// The rows of every store are proved against the recorded cases by the
+// parser replay (internal/parity/replay); these tests cover the helpers
+// that read a field's own format.
 
 func TestTagTimeReadsTheTranscriptsTimeTag(t *testing.T) {
 	for _, test := range []struct{ tag, want string }{
@@ -60,10 +61,10 @@ func TestGithubRepositoryComparesTheParsedHost(t *testing.T) {
 		{"example.net/github.com/owner/demo", ""}, {"https://example.net/?u=github.com/owner/demo", ""},
 		{"", ""}, {"https://github.com/o/r.git", "o/r"}, {"https://user:pw@github.com/o/r", "o/r"},
 		{"https://github.com:443/o/r", "o/r"}, {"notgithub.com/o/r", ""}, {"https://github.com@evil.example/o/r", ""},
-		{"git@github.com:owner/demo", "demo"}, {"ssh://git@github.com/owner/demo", "owner/demo"},
+		{"git@github.com:owner/demo", ""}, {"ssh://git@github.com/owner/demo", "owner/demo"},
 		{"https://user:pw@GitHub.com:443/o/r/?x#y", "o/r"}, {"HTTPS://github.com/o/r", "o/r"},
 		{"1x://github.com/o/r", ""}, {"github.com:22/o/r", "o/r"}, {"//github.com/o/r", ""},
-		{"  github.com/o/r", ""}, {"gith\tub.com/o/r", "o/r"}, {"github.com/o/r.git/", "o/r"},
+		{"  github.com/o/r", ""}, {"gith\tub.com/o/r", ""}, {"github.com/o/r.git/", "o/r"},
 	} {
 		t.Run(test.url, func(t *testing.T) {
 			if got := githubRepository(test.url); got != test.want {
@@ -76,7 +77,7 @@ func TestGithubRepositoryComparesTheParsedHost(t *testing.T) {
 func TestMCPKeyNameDecodesTheKeysBase64(t *testing.T) {
 	for _, test := range []struct{ suffix, scope, field string }{
 		{"W3Nydjo6eF0gbWNwX3NlcnZlcl91cmw", "srv::x", "mcp_server_url"},
-		{"W2FdIGI=", "a", "b"}, {"W2FdIGI", "a", "b"}, {"W2EgYl0gYwo=", "a b", "c"},
+		{"W2FdIGI=", "a", "b"}, {"W2FdIGI", "a", "b"}, {"W2EgYl0gYw", "a b", "c"}, {"W2EgYl0gYwo=", "", ""},
 		{"W2FdIGIgYw==", "", ""}, {"W8OpXSBm", "\u00e9", "f"}, {"W2FdIP8=", "", ""},
 		{"W2Fd!IGI", "", ""}, {"W2FdIGI=junk", "", ""}, {"abc", "", ""}, {"W2Fd IGI", "", ""},
 		{"W3hdXSB5XSB6", "x]] y", "z"}, {"", "", ""}, {"\u00e9", "", ""},

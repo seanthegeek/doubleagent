@@ -56,8 +56,8 @@ func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 // cloudModel returns a cloud agent's model (modelDetails.modelName, else
 // the requested model) and the requested model's id.
 func cloudModel(agent jsonvalue.Value) (string, string) {
-	requested := jsonText(agent.Get("requestedModel").Get("modelId"))
-	model := jsonText(agent.Get("modelDetails").Get("modelName"))
+	requested := agent.Get("requestedModel").Get("modelId").Text()
+	model := agent.Get("modelDetails").Get("modelName").Text()
 	if model == "" {
 		model = requested
 	}
@@ -83,9 +83,9 @@ func (i *items) cloud(emit parser.Emit) {
 	}
 	for _, repo := range decodeRecord(found.rowid, githubReposKey, found.value, i.problems).Items() {
 		if repo.IsObject() {
-			target := jsonText(repo.Get("url"))
+			target := repo.Get("url").Text()
 			if target == "" {
-				target = orDash(jsonText(repo.Get("name")))
+				target = orDash(repo.Get("name").Text())
 			}
 			emit(i.system("source host repository: "+target+" type="+shown(repo.Get("type"))+" "+reposSource,
 				i.mtime, found.rowid))
@@ -98,9 +98,9 @@ func (i *items) cloud(emit parser.Emit) {
 func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser.Emit) {
 	agent := found.agent
 	ident := agent.Get("bcId").Text()
-	repo := jsonText(agent.Get("repoUrl"))
+	repo := agent.Get("repoUrl").Text()
 	model, requested := cloudModel(agent)
-	created := firstTruthy(agent.Get("createdAt"), agent.Get("rowUpdatedAtMs"))
+	created := firstOrLast(agent.Get("createdAt"), agent.Get("rowUpdatedAtMs"))
 	row := func(text string, when jsonvalue.Value) {
 		made := i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(when), found.rowid)
 		made.SessionID, made.ProjectPath, made.Model = ident, repo, model
@@ -120,7 +120,7 @@ func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser
 	if github := githubRepository(repo); github != "" {
 		row("source host: github.com "+github+" (cloud agent)", created)
 	}
-	row(cloudText(agent), firstTruthy(agent.Get("rowUpdatedAtMs"), created))
+	row(cloudText(agent), firstOrLast(agent.Get("rowUpdatedAtMs"), created))
 }
 
 // cloudText returns the "cloud agent:" text of a cloud agent, "-" for an
@@ -153,13 +153,13 @@ func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
 		if !resolution.IsObject() {
 			continue
 		}
-		agentID, callID := jsonText(resolution.Get("agentId")), jsonText(resolution.Get("toolCallId"))
+		agentID, callID := resolution.Get("agentId").Text(), resolution.Get("toolCallId").Text()
 		row := i.system("permission decision: "+fieldOf(resolution.Get("userDecision"))+
 			" mcp auth for cloud agent "+orDash(agentID)+" tool_call="+orDash(callID)+" "+mcpAuthSource,
 			i.mtime, found.rowid)
 		row.SessionID, row.ToolUseID = agentID, callID
 		if agent, ok := known[agentID]; ok {
-			row.ProjectPath = jsonText(agent.Get("repoUrl"))
+			row.ProjectPath = agent.Get("repoUrl").Text()
 			row.Model, _ = cloudModel(agent)
 		}
 		emit(row)
