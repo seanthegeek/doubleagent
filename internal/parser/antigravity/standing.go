@@ -16,7 +16,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = number
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.ProjectPath = URIToPath(parser.Text(record.Get("workspace")))
+		row.ProjectPath = uriPath(parser.Text(record.Get("workspace")))
 		row.SessionID = parser.Text(record.Get("conversationId"))
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("display"))
@@ -90,7 +90,7 @@ func standingEntries(rel string, document jsonvalue.Value) []entry {
 		for _, value := range document.Get("trustedWorkspaces").Items() {
 			path := ""
 			if value.IsString() {
-				path = URIToPath(value.StringValue())
+				path = uriPath(value.StringValue())
 			}
 			shown := value
 			if path != "" {
@@ -130,7 +130,7 @@ func projectEntries(document jsonvalue.Value) []entry {
 	folder := ""
 	for _, resource := range document.Get("projectResources").Get("resources").Items() {
 		if uri := resource.Get("folderUri"); uri.IsString() && uri.StringValue() != "" {
-			folder = URIToPath(uri.StringValue())
+			folder = uriPath(uri.StringValue())
 			break
 		}
 	}

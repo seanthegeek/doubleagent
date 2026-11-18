@@ -3,16 +3,14 @@ package antigravity
 import (
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/protowire"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// message is a decoded protobuf message read as the Python analyzer reads
-// its dict: an absent message is empty, and a missing field gives the
-// zero of its use.
+// message is a decoded protobuf message: an absent message is empty, and a
+// missing field gives the zero of its use (no text, not set, no items).
 type message struct {
 	decoded *protowire.Message
 }
@@ -31,7 +29,7 @@ func (m message) has(name string) bool {
 	return ok
 }
 
-// text returns a field as Python's str() writes it, "" when it is absent.
+// text returns a field as row text (valueText), "" when it is absent.
 func (m message) text(name string) string {
 	value, ok := m.field(name)
 	if !ok {
@@ -40,11 +38,10 @@ func (m message) text(name string) string {
 	return valueText(value)
 }
 
-// truthy reports whether a field is present and Python counts its value
-// as true.
-func (m message) truthy(name string) bool {
+// set reports whether a field is present and not empty (isNonEmpty).
+func (m message) set(name string) bool {
 	value, _ := m.field(name)
-	return isTruthy(value)
+	return isNonEmpty(value)
 }
 
 // child returns a nested message field, empty when it is absent.
@@ -71,25 +68,25 @@ func (m message) children(name string) []message {
 	return out
 }
 
-// empty reports whether the message holds no field, which Python counts
-// as false.
+// empty reports whether the message holds no field.
 func (m message) empty() bool {
 	return m.decoded == nil || len(m.decoded.Entries()) == 0
 }
 
-// first returns the text of the first of the fields Python counts as true,
-// as `a or b or ""` does, else "".
+// first returns the text of the first of the fields that is set, else "".
 func (m message) first(names ...string) string {
 	for _, name := range names {
-		if m.truthy(name) {
+		if m.set(name) {
 			return m.text(name)
 		}
 	}
 	return ""
 }
 
-// isTruthy reports whether Python counts a decoded value as true.
-func isTruthy(value any) bool {
+// isNonEmpty reports whether a decoded value is not empty by DoubleAgent's
+// rule (jsonvalue.Value.IsEmpty): a non-empty string, bytes or list, a
+// non-zero number, true, or a message with a field.
+func isNonEmpty(value any) bool {
 	switch value := value.(type) {
 	case string:
 		return value != ""
@@ -109,7 +106,9 @@ func isTruthy(value any) bool {
 	return false
 }
 
-// valueText returns a decoded value as Python's str() writes it.
+// valueText returns a decoded value as row text: a string as it is, an
+// integer in decimal, true or false, a float in its shortest form
+// (strconv's 'g'), and bytes, lists and messages as their JSON (jsonValue).
 func valueText(value any) string {
 	switch value := value.(type) {
 	case string:
@@ -135,8 +134,8 @@ func (m message) intValue(name string) (int64, bool) {
 	return number.Int64(), true
 }
 
-// jsonValue returns a decoded value as the JSON value Python's json module
-// writes for it.
+// jsonValue returns a decoded value as a JSON value: bytes as text with
+// U+FFFD for what is not UTF-8, a message as an object in field order.
 func jsonValue(value any) jsonvalue.Value {
 	switch value := value.(type) {
 	case string:
@@ -169,20 +168,9 @@ func jsonValue(value any) jsonvalue.Value {
 	return jsonvalue.NewNull()
 }
 
-// join returns the non-empty parts joined by " | ".
-func join(parts ...string) string {
-	kept := parts[:0:0]
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " | ")
-}
-
 // boolText returns "true" or "false" for a field's truth.
 func boolText(fields message, name string) string {
-	if fields.truthy(name) {
+	if fields.set(name) {
 		return "true"
 	}
 	return "false"

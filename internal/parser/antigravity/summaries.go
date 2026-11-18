@@ -44,7 +44,7 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 	for position, summary := range stored {
 		row := p.BaseRow(artifact)
 		row.SourceLine = position + 1
-		row.SessionID = truthyText(summary.Get("conversation_id"))
+		row.SessionID = nonEmptyText(summary.Get("conversation_id"))
 		row.TimestampUTC = parser.ColumnTime(summary.Get("last_modified_time"))
 		row.ProjectPath = firstWorkspace(summary.Get("workspace_uris"))
 		row.TurnType = timeline.TurnSystem
@@ -52,20 +52,21 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 		if table.Has("step_count") {
 			steps = summary.Get("step_count").String()
 		}
-		title := truthyText(summary.Get("title"))
+		title := nonEmptyText(summary.Get("title"))
 		if title == "" {
-			title = truthyText(summary.Get("preview"))
+			title = nonEmptyText(summary.Get("preview"))
 		}
-		row.Text = timeline.Compact(join("conversation summary", title, truthyText(summary.Get("status")),
-			steps+" steps", prefixed("agent=", truthyText(summary.Get("agent_name"))),
-			prefixed("parent=", truthyText(summary.Get("parent_conversation_id")))))
+		row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "conversation summary", title, nonEmptyText(summary.Get("status")),
+			steps+" steps", prefixed("agent=", nonEmptyText(summary.Get("agent_name"))),
+			prefixed("parent=", nonEmptyText(summary.Get("parent_conversation_id")))))
 		rows = append(rows, row)
 	}
 	return rows, nil
 }
 
-// truthyText returns a column value as Python's str(value or "") gives it.
-func truthyText(value sqlitefile.Value) string {
+// nonEmptyText returns a column value as row text, "" when it is empty
+// (NULL, zero, or empty text or blob).
+func nonEmptyText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
 	}
@@ -86,5 +87,5 @@ func firstWorkspace(value sqlitefile.Value) string {
 	if len(items) == 0 || !items[0].IsString() {
 		return ""
 	}
-	return URIToPath(items[0].StringValue())
+	return uriPath(items[0].StringValue())
 }

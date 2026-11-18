@@ -12,9 +12,8 @@
 // config/sidecars/<name>/sidecar.json and antigravity-cli/settings.json.
 //
 // The protobuf messages come from the descriptors embedded in the agy
-// binary; schemaText lists every field read. URIToPath, the reading of a
-// file: URI as a local path, is shared with package vscode. See
-// research/antigravity.md.
+// binary; schemaText lists every field read. File: URIs are read as paths
+// by evidencepath.FromFileURI. See research/antigravity.md.
 package antigravity
 
 import (

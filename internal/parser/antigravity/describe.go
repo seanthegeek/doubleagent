@@ -44,7 +44,7 @@ func toolArgsSummary(argumentsJSON string) string {
 
 // pathOf returns the path of a PathScopeItem.
 func pathOf(scope message) string {
-	return URIToPath(scope.first("absolute_uri", "absolute_path_migrate_me_to_uri"))
+	return uriPath(scope.first("absolute_uri", "absolute_path_migrate_me_to_uri"))
 }
 
 // output returns a command step's output: the full or cut combined output,
@@ -58,7 +58,7 @@ func output(payload message) string {
 
 // flag returns text when the field is true, else "".
 func flag(payload message, name, text string) string {
-	if payload.truthy(name) {
+	if payload.set(name) {
 		return text
 	}
 	return ""
@@ -83,19 +83,19 @@ func describers() map[string]func(message) string {
 		},
 		"view_file": viewFileText,
 		"list_directory": func(payload message) string {
-			return URIToPath(payload.text("directory_path_uri"))
+			return uriPath(payload.text("directory_path_uri"))
 		},
 		"grep_search": func(payload message) string {
-			return join(payload.text("query"), URIToPath(payload.text("search_path_uri")), payload.text("command_run"))
+			return parser.JoinNonEmpty(" | ", payload.text("query"), uriPath(payload.text("search_path_uri")), payload.text("command_run"))
 		},
 		"find": func(payload message) string {
-			return join(payload.text("pattern"), payload.text("search_directory"), payload.text("command_run"))
+			return parser.JoinNonEmpty(" | ", payload.text("pattern"), payload.text("search_directory"), payload.text("command_run"))
 		},
 		"write_to_file": func(payload message) string {
-			return URIToPath(payload.text("target_file_uri")) + flag(payload, "file_created", " [created]")
+			return uriPath(payload.text("target_file_uri")) + flag(payload, "file_created", " [created]")
 		},
 		"file_change": func(payload message) string {
-			return join(URIToPath(payload.text("absolute_path_uri")), payload.text("instruction"))
+			return parser.JoinNonEmpty(" | ", uriPath(payload.text("absolute_path_uri")), payload.text("instruction"))
 		},
 		"code_action":      codeActionText,
 		"read_url_content": func(payload message) string { return payload.first("resolved_url", "url") },
@@ -139,7 +139,7 @@ func eventDescribers() map[string]func(message) string {
 		"directory_rules": func(payload message) string {
 			var paths []string
 			for _, uri := range payload.list("rule_file_uris") {
-				paths = append(paths, URIToPath(valueText(uri)))
+				paths = append(paths, uriPath(valueText(uri)))
 			}
 			return "directory rules: " + strings.Join(paths, " ")
 		},
@@ -164,13 +164,13 @@ func describePayload(kind string, payload message) string {
 
 // runCommandText describes a command run.
 func runCommandText(payload message) string {
-	return join(payload.first("command_line", "command"), flag(payload, "user_rejected", "[rejected by user]"),
+	return parser.JoinNonEmpty(" | ", payload.first("command_line", "command"), flag(payload, "user_rejected", "[rejected by user]"),
 		flag(payload, "timed_out", "[timed out]"), exitText(payload), output(payload))
 }
 
 // mcpToolText describes an MCP tool call.
 func mcpToolText(payload message) string {
-	return join(payload.text("server_name")+"/"+payload.child("tool_call").text("name"),
+	return parser.JoinNonEmpty(" | ", payload.text("server_name")+"/"+payload.child("tool_call").text("name"),
 		flag(payload, "user_rejected", "[rejected by user]"), payload.text("result_string"))
 }
 
@@ -180,17 +180,17 @@ func commandText(payload message) string {
 	if out == "" {
 		out = payload.text("error_message")
 	}
-	return join(payload.text("command"), exitText(payload), out)
+	return parser.JoinNonEmpty(" | ", payload.text("command"), exitText(payload), out)
 }
 
 // viewFileText describes a file view, with its line range when it has
 // one.
 func viewFileText(payload message) string {
 	lineRange := ""
-	if payload.truthy("start_line") || payload.truthy("end_line") {
+	if payload.set("start_line") || payload.set("end_line") {
 		lineRange = ":" + payload.text("start_line") + "-" + payload.text("end_line")
 	}
-	return URIToPath(payload.text("absolute_path_uri")) + lineRange
+	return uriPath(payload.text("absolute_path_uri")) + lineRange
 }
 
 // codeActionText describes a code action: its kind, its path and its
@@ -212,14 +212,14 @@ func codeActionText(payload message) string {
 	if description == "" {
 		description = payload.text("code_instruction")
 	}
-	return join(actionKind, path, description)
+	return parser.JoinNonEmpty(" | ", actionKind, path, description)
 }
 
 // subagentText describes a subagent call and the conversations it began.
 func subagentText(payload message) string {
 	var children []string
 	for _, result := range payload.children("results") {
-		if result.truthy("conversation_id") {
+		if result.set("conversation_id") {
 			children = append(children, result.text("conversation_id"))
 		}
 	}
@@ -227,7 +227,7 @@ func subagentText(payload message) string {
 	if len(children) > 0 {
 		listed = "children: " + strings.Join(children, " ")
 	}
-	return join(payload.text("subagent_name"), payload.text("prompt"), listed)
+	return parser.JoinNonEmpty(" | ", payload.text("subagent_name"), payload.text("prompt"), listed)
 }
 
 // askQuestionText describes the questions asked and their answers.
@@ -285,15 +285,15 @@ func permissionTexts(permissions message) []string {
 		}
 		text := "permission grant: action=" + action + " target=" + target + " allow=" + boolText(grant, "allow") +
 			" scope=" + scopeName(grant)
-		if grant.truthy("user_deny_instruction") {
+		if grant.set("user_deny_instruction") {
 			text += " deny_instruction=" + grant.text("user_deny_instruction")
 		}
 		out = append(out, text)
 	}
 	for _, access := range permissions.children("file_access_permissions") {
-		text := "permission grant: path=" + URIToPath(access.text("path")) + " is_directory=" +
+		text := "permission grant: path=" + uriPath(access.text("path")) + " is_directory=" +
 			boolText(access, "is_directory") + " allow=" + boolText(access, "allow") + " scope=" + scopeName(access)
-		if access.truthy("from_current_step") {
+		if access.set("from_current_step") {
 			text += " from_current_step=true"
 		}
 		out = append(out, text)

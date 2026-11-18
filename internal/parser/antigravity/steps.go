@@ -41,7 +41,7 @@ func (r *conversationReader) stepRows(index int64, stored sqlitefile.Row, step, 
 	if status := enumText(stored.Get("status"), stepStatuses()); status != "done" {
 		text = "[" + status + "] " + text
 	}
-	if kind == "run_command" && payload.truthy("ran_in_sandbox") {
+	if kind == "run_command" && payload.set("ran_in_sandbox") {
 		text += " sandbox=true"
 	}
 	row := r.stepRow(index, created, model, timeline.TurnSystem, text)
@@ -50,7 +50,7 @@ func (r *conversationReader) stepRows(index int64, stored sqlitefile.Row, step, 
 		row.ToolName, row.ToolUseID = call.first("name", "original_name"), call.text("id")
 	}
 	r.add(row)
-	if (kind == "run_command" || kind == "mcp_tool") && payload.truthy("user_rejected") {
+	if (kind == "run_command" || kind == "mcp_tool") && payload.set("user_rejected") {
 		r.rejection(row, payload)
 	}
 }
@@ -85,7 +85,7 @@ func (r *conversationReader) userInput(index int64, created, model string, paylo
 		turnType = timeline.TurnSystem
 	}
 	text := payload.first("query", "user_response")
-	if payload.truthy("is_queued_message") {
+	if payload.set("is_queued_message") {
 		text = "[queued] " + text
 	}
 	r.add(r.stepRow(index, created, model, turnType, text))

@@ -19,7 +19,7 @@ import (
 const stepSourceUserImplicit = 3
 
 // enumText returns the name a column value stands for in an enum table, or
-// the value as Python's str() writes it.
+// the value as row text.
 func enumText(value sqlitefile.Value, names map[int64]string) string {
 	number, ok := int64(0), false
 	switch {
@@ -176,15 +176,15 @@ func (r *conversationReader) metadata() error {
 	if uris := meta.list("workspace_uris"); folder == "" && len(uris) > 0 {
 		folder = valueText(uris[0])
 	}
-	r.project, r.branch = URIToPath(folder), workspace.text("branch_name")
-	if !meta.truthy("created_at") {
+	r.project, r.branch = uriPath(folder), workspace.text("branch_name")
+	if !meta.set("created_at") {
 		return nil
 	}
 	match := conversationPattern.FindStringSubmatch(r.artifact.Rel)
 	row := r.row(0)
 	row.TimestampUTC = meta.text("created_at")
 	row.TurnType = timeline.TurnSystem
-	row.Text = timeline.Compact(join("session start", prefixed("source=", r.source),
+	row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "session start", prefixed("source=", r.source),
 		prefixed("data_dir=", match[1]), prefixed("project_id=", meta.first("project_id")),
 		prefixed("parent=", meta.first("parent_conversation_id"))))
 	r.add(row)
