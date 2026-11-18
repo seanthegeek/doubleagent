@@ -774,7 +774,11 @@ it (`input_history.json`, `dev_data`,
 whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name. So is an
 `input_history.json`, `permissions.yaml`, session file or `cn.log` that cannot be read (the
 session file's row carries the session id of its file name, the log's rows read before the failure
-are kept), each with `source_line` 0 and an empty time. `input_history.json` is read as a
+are kept), each with `source_line` 0 and an empty time. A session file's `history` that is
+present but not an array is `parser: history is not a JSON array` (`source_line` 0), and a history
+item's `promptLogs` or `toolCallStates`, or its message's `toolCalls`, that is present but not an
+array is `parser: <member> is not a JSON array` at the item's position; an absent, null or empty
+one gives no row. `input_history.json` is read as a
 JSON array: an element cut mid-write is `parser: unparseable record <N> (<reason>): <the text from
 that element to the end of the file>`, the entries before it kept; an element that is not an
 object with a string `text` is `parser: unparseable record <N> (not an object with a text): <the

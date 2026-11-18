@@ -10,10 +10,10 @@ import (
 
 // promptModels emits a model row for each prompt log that changes the
 // model, and returns the item's model: the last prompt log's, else the
-// session's.
+// session's. A promptLogs that is not an array adds a problem.
 func (s *sessionFile) promptModels(position int, item jsonvalue.Value) string {
 	model := s.model
-	for _, log := range item.Get("promptLogs").Items() {
+	for _, log := range parser.ArrayMember(item.Get("promptLogs"), "promptLogs", position, &s.problems) {
 		title := log.Get("modelTitle")
 		if title.IsEmpty() {
 			continue
@@ -31,15 +31,15 @@ func (s *sessionFile) promptModels(position int, item jsonvalue.Value) string {
 // toolCalls emits an assistant item's tool calls, then, for each call
 // state, its result when no tool message answers the call and its
 // permission decision. The calls come from the message, else from the
-// states.
+// states; a toolCalls or toolCallStates that is not an array adds a problem.
 func (s *sessionFile) toolCalls(position int, model string, item, message jsonvalue.Value) {
 	var states []jsonvalue.Value
-	for _, state := range item.Get("toolCallStates").Items() {
+	for _, state := range parser.ArrayMember(item.Get("toolCallStates"), "toolCallStates", position, &s.problems) {
 		if state.IsObject() {
 			states = append(states, state)
 		}
 	}
-	calls := message.Get("toolCalls").Items()
+	calls := parser.ArrayMember(message.Get("toolCalls"), "toolCalls", position, &s.problems)
 	if len(calls) == 0 {
 		calls = nil
 		for _, state := range states {
