@@ -17,7 +17,8 @@ type header struct {
 // other section: [remote "<name>"] keeps the name's case, and the dotted
 // [remote.<name>] has it lowered, as git lowers it. git names a remote by
 // everything between "remote." and the key, so [remote.<a> "<b>"] opens
-// the remote <a>.<b>.
+// the remote <a>.<b>. [remote.] and [remote ""] both open the remote whose
+// name is empty, as git reads them.
 func (h header) remote() (string, bool) {
 	if h.quoted && h.section == "remote" {
 		return h.subsection, true
@@ -26,7 +27,7 @@ func (h header) remote() (string, bool) {
 	if h.quoted {
 		name += "." + h.subsection
 	}
-	return name, ok && name != ""
+	return name, ok
 }
 
 // readHeader reads a section header at the start of line: [, then a name
