@@ -150,15 +150,15 @@ func (i *items) plugins(emit parser.Emit) {
 	}
 }
 
-// uriPath returns the path a file: URI names, a Windows drive path in the
-// c:\Users\... form fsPath writes; a URI net/url cannot read is kept as it
-// is.
+// uriPath returns the path a file: URI names, a Windows drive path and a
+// network path in the c:\Users\... and \\server\share\... forms fsPath
+// writes; a URI net/url cannot read is kept as it is.
 func uriPath(uri string) string {
 	path, ok := evidencepath.FromFileURI(uri)
 	switch {
 	case !ok:
 		return uri
-	case evidencepath.IsDrivePath(path):
+	case evidencepath.IsDrivePath(path), strings.HasPrefix(path, "//"):
 		return strings.ReplaceAll(path, "/", "\\")
 	}
 	return path
