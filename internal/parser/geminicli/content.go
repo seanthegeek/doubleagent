@@ -190,19 +190,29 @@ func contentRuns(content jsonvalue.Value, classify bool) ([]run, []response) {
 }
 
 // joinRuns merges consecutive pieces of one kind into one run, joined by
-// LF, leaving out empty pieces.
+// LF, leaving out empty pieces. Each run's texts are joined once, at its
+// end, so a message of many parts costs work in proportion to its length.
 func joinRuns(pieces []run) []run {
 	var runs []run
+	var texts []string
+	flush := func() {
+		if len(texts) > 0 {
+			runs[len(runs)-1].text = strings.Join(texts, "\n")
+		}
+	}
 	for _, piece := range pieces {
 		if piece.text == "" {
 			continue
 		}
 		if last := len(runs) - 1; last >= 0 && runs[last].kind == piece.kind {
-			runs[last].text += "\n" + piece.text
+			texts = append(texts, piece.text)
 			continue
 		}
+		flush()
 		runs = append(runs, piece)
+		texts = []string{piece.text}
 	}
+	flush()
 	return runs
 }
 

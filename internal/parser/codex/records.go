@@ -120,7 +120,7 @@ func userParts(payload jsonvalue.Value) []userPart {
 	}
 	kinds := payload.Get("internal_chat_message_metadata_passthrough").Get("content_item_kinds")
 	useKinds := kinds.IsArray() && kinds.Len() == content.Len()
-	var parts []userPart
+	var blocks []userPart
 	for i, block := range content.Items() {
 		text := parser.TextOf(jsonvalue.NewArray(block))
 		if text == "" {
@@ -132,11 +132,27 @@ func userParts(payload jsonvalue.Value) []userPart {
 		} else {
 			key = contextMarker(text)
 		}
-		if last := len(parts) - 1; last >= 0 && parts[last].kind == key {
-			parts[last].text += "\n" + text
-		} else {
-			parts = append(parts, userPart{kind: key, text: text})
+		blocks = append(blocks, userPart{kind: key, text: text})
+	}
+	return joinParts(blocks)
+}
+
+// joinParts merges consecutive blocks of one kind into one part, joined by
+// LF. Each part's texts are joined once, so a message of many blocks costs
+// work in proportion to its length.
+func joinParts(blocks []userPart) []userPart {
+	var parts []userPart
+	for start := 0; start < len(blocks); {
+		end := start + 1
+		for end < len(blocks) && blocks[end].kind == blocks[start].kind {
+			end++
 		}
+		texts := make([]string, 0, end-start)
+		for _, block := range blocks[start:end] {
+			texts = append(texts, block.text)
+		}
+		parts = append(parts, userPart{kind: blocks[start].kind, text: strings.Join(texts, "\n")})
+		start = end
 	}
 	return parts
 }
