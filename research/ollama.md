@@ -1007,7 +1007,9 @@ failure.
 
 A `.ollama/config.json` `integrations` that is present but not an object is one row
 `parser: integrations is not a JSON object`, after the file's other rows; an absent, null or empty
-one gives no row.
+one gives no row. An `integrations` holding values that are not objects gives one row for them
+all, `parser: integrations holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one).
 
 #### Fixtures
 

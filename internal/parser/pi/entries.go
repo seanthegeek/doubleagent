@@ -262,9 +262,13 @@ func (w *entryWriter) assistant(message jsonvalue.Value) {
 			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 			jsonvalue.Member{Key: "text", Value: content}))
 	}
-	for _, part := range content.Items() {
-		if part.IsObject() {
+	if content.IsArray() {
+		var problems parser.Problems
+		for _, part := range parser.EntriesOfKind(content, "content", jsonvalue.Object, w.line, &problems) {
 			w.assistantPart(part, model)
+		}
+		for _, problem := range problems {
+			w.put(timeline.TurnSystem, parser.ProblemPrefix+problem.Message, "", "", "")
 		}
 	}
 	if stop := message.Get("stopReason"); parser.IsText(stop, "error") || parser.IsText(stop, "aborted") {

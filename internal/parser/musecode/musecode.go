@@ -256,12 +256,7 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Va
 // in child_index order. A child that does not decode, or a children that is
 // not an array, adds a problem.
 func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
-	var children []jsonvalue.Value
-	for _, item := range parser.ArrayMember(frame.Get("children"), "children", number, problems) {
-		if item.IsObject() {
-			children = append(children, item)
-		}
-	}
+	children := parser.ListOfKind(frame.Get("children"), "children", jsonvalue.Object, number, problems)
 	slices.SortStableFunc(children, func(left, right jsonvalue.Value) int {
 		return compareIndex(left.Get("child_index"), right.Get("child_index"))
 	})
@@ -277,6 +272,9 @@ func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems)
 			problems.AddRaw(number, "unparseable line (retained_frame child: "+err.Error()+")", raw)
 		} else if inner.IsObject() {
 			inners = append(inners, inner)
+		} else if !inner.IsNull() {
+			problems.AddRaw(number, "unparseable line (retained_frame child: "+
+				parser.WrongKind("record_json", jsonvalue.Object)+")", encoded.StringValue())
 		}
 	}
 	return inners
@@ -671,9 +669,11 @@ func (w *walk) userIntent(step *recordStep) {
 		return
 	}
 	var parts []string
-	messages := parser.ArrayMember(step.payload.Get("model_messages"), "model_messages", step.line, w.problems)
+	messages := parser.EntriesOfKind(step.payload.Get("model_messages"), "model_messages", jsonvalue.Object,
+		step.line, w.problems)
 	for _, message := range messages {
-		blocks := parser.ArrayMember(message.Get("content"), "model_messages.content", step.line, w.problems)
+		blocks := parser.EntriesOfKind(message.Get("content"), "model_messages.content", jsonvalue.Object,
+			step.line, w.problems)
 		for _, block := range blocks {
 			if body := block.Get("text"); body.IsString() {
 				parts = append(parts, body.StringValue())
@@ -923,13 +923,14 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var wrong parser.Problems
-	for _, member := range parser.ObjectMember(document.Get("projects"), "projects", 1, &wrong) {
-		if !member.Value.IsObject() || !member.Value.Has("decision") {
+	for project, decision := range parser.MembersOfKind(document.Get("projects"), "projects", jsonvalue.Object, 1,
+		&wrong) {
+		if !decision.Has("decision") {
 			continue
 		}
-		row.ProjectPath = member.Key
-		row.Text = timeline.Compact("permission setting: projects." + member.Key + ".decision=" +
-			parser.SettingValue(member.Value.Get("decision")) + " (from " + artifact.Rel +
+		row.ProjectPath = project
+		row.Text = timeline.Compact("permission setting: projects." + project + ".decision=" +
+			parser.SettingValue(decision.Get("decision")) + " (from " + artifact.Rel +
 			", file mtime)")
 		emit(row)
 	}

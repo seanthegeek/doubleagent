@@ -47,11 +47,9 @@ func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parser.Emit) 
 		}
 	}
 	if sessions != nil {
-		for position, session := range sessions {
-			if session.IsObject() {
-				p.legacyRows(artifact, session, numbered(session.Get("messages"), "messages", position, &problems),
-					parser.Text(session.Get("session_id")), parser.Text(session.Get("saved_at")), position, &problems, emit)
-			}
+		for position, session := range parser.EntriesOfKindFrom(sessions, "sessions", jsonvalue.Object, 0, &problems) {
+			p.legacyRows(artifact, session, numbered(session.Get("messages"), "messages", position, &problems),
+				parser.Text(session.Get("session_id")), parser.Text(session.Get("saved_at")), position, &problems, emit)
 		}
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -114,16 +112,15 @@ func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
 		" input_tokens="+dash(session.Get("total_input_tokens"))+" output_tokens="+
 		dash(session.Get("total_output_tokens"))+" (saved_at "+dash(jsonvalue.NewString(savedAt))+
 		", host local time)", "", "")
-	for position, message := range messages {
-		if message.IsObject() {
-			line := position
-			if sessionPosition != 0 {
-				line = sessionPosition
-			}
-			messageRows(message, line, problems, func(turn, text, toolName, toolUseID string) {
-				put(position, turn, text, toolName, toolUseID)
-			})
+	for position, message := range parser.EntriesOfKindFrom(messages, "messages", jsonvalue.Object, sessionPosition,
+		problems) {
+		line := position
+		if sessionPosition != 0 {
+			line = sessionPosition
 		}
+		messageRows(message, line, problems, func(turn, text, toolName, toolUseID string) {
+			put(position, turn, text, toolName, toolUseID)
+		})
 	}
 }
 
@@ -147,11 +144,10 @@ func messageRows(message jsonvalue.Value, line int, problems *parser.Problems,
 		if text != "" {
 			put(timeline.TurnAssistant, text, "", "")
 		}
-		for _, call := range parser.ArrayMember(message.Get("tool_calls"), "tool_calls", line, problems) {
-			if call.IsObject() {
-				put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parser.Text(call.Get("name")),
-					parser.Text(call.Get("id")))
-			}
+		for _, call := range parser.EntriesOfKind(message.Get("tool_calls"), "tool_calls", jsonvalue.Object, line,
+			problems) {
+			put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parser.Text(call.Get("name")),
+				parser.Text(call.Get("id")))
 		}
 	case "tool":
 		name, callID := parser.Text(message.Get("name")), parser.Text(message.Get("tool_call_id"))

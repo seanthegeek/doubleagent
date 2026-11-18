@@ -1383,8 +1383,11 @@ array that ends where an element is due `parser: array cut off after record <N>`
 elements read whole. A bug report zip's `diagnostics.json` `crashes` or `assistant` that is
 present but not an array is `parser: diagnostics.crashes is not a JSON array` or
 `parser: diagnostics.assistant is not a JSON array` at line 0; an absent, null or empty one gives
-no row. An empty `settings.json` gives no row, since pi
-reads empty content as no settings
+no row. Either list holding entries that are not objects, or an assistant message's `content`
+holding parts that are not, gives one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. An empty
+`settings.json` gives no row, since pi reads empty content as no settings
 ([settings-manager.ts:377-379](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/settings-manager.ts#L377-L379)),
 while an empty `trust.json` gives the not-an-object row, as pi rejects it
 ([trust-manager.ts:111-117](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L111-L117)).

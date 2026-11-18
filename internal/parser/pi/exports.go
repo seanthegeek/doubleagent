@@ -177,7 +177,8 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd,
 			bugReportRowText(report, diagnostics, source("report.json", "createdAt"), &problems)))
 	}
-	p.bugCrashRows(artifact, parser.ArrayMember(diagnostics.Get("crashes"), "diagnostics.crashes", 0, &problems),
+	p.bugCrashRows(artifact, parser.ListOfKind(diagnostics.Get("crashes"), "diagnostics.crashes", jsonvalue.Object, 0,
+		&problems),
 		source("diagnostics.json", "record timestamp"), emit)
 	if summary, ok := members["summary.md"]; ok {
 		emit(p.systemRow(artifact, 0, created, sessionID, cwd, "bug report summary: "+
@@ -205,11 +206,9 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes []jsonvalue.Value, source string,
 	emit parser.Emit) {
 	for _, record := range crashes {
-		if record.IsObject() {
-			text, crashSession := p.crashText(record, source)
-			emit(p.systemRow(artifact, 0, timeutil.FromValue(record.Get("timestamp")), crashSession,
-				parser.Text(record.Get("cwd")), text))
-		}
+		text, crashSession := p.crashText(record, source)
+		emit(p.systemRow(artifact, 0, timeutil.FromValue(record.Get("timestamp")), crashSession,
+			parser.Text(record.Get("cwd")), text))
 	}
 }
 
@@ -256,12 +255,11 @@ func bugReportRowText(report, diagnostics jsonvalue.Value, source string, proble
 		" version=" + dash(environment.Get("version")) +
 		" platform=" + dash(environment.Get("platform")) + "/" + dash(environment.Get("arch")) +
 		" model=" + dash(model.Get("provider")) + "/" + dash(model.Get("id")) + " " + source)
-	for _, turn := range parser.ArrayMember(diagnostics.Get("assistant"), "diagnostics.assistant", 0, problems) {
-		if turn.IsObject() {
-			text.WriteString("\nfailed assistant turn " + dash(turn.Get("entryId")) + " at " +
-				dash(turn.Get("timestamp")) + ": stopReason=" + dash(turn.Get("stopReason")) + " " +
-				dash(turn.Get("errorMessage")))
-		}
+	for _, turn := range parser.EntriesOfKind(diagnostics.Get("assistant"), "diagnostics.assistant", jsonvalue.Object, 0,
+		problems) {
+		text.WriteString("\nfailed assistant turn " + dash(turn.Get("entryId")) + " at " +
+			dash(turn.Get("timestamp")) + ": stopReason=" + dash(turn.Get("stopReason")) + " " +
+			dash(turn.Get("errorMessage")))
 	}
 	return text.String()
 }

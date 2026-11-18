@@ -582,7 +582,10 @@ is `parser: messages is not a JSON array` or `parser: tool_calls is not a JSON a
 null (a null one is listed as `did not exist`) is `parser: file_backups.<path> is not a JSON object`
 and is not listed; the row's `source_line` is the message's position, or
 the session's in `history.json`, or 0 for the `messages` of a session file. An absent, null or
-empty member gives no row.
+empty member gives no row. A `history.json` `sessions`, a `messages` or a `tool_calls` holding
+entries that are not objects gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 A pi session file a checkpoint directory names that cannot be read gives the checkpoint row without
 the `session file not collected` clause, followed by one row

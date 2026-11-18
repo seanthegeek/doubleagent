@@ -114,3 +114,25 @@ func TestATrustProjectsThatIsNotAnObjectIsReported(t *testing.T) {
 		return `{` + field("projects", value) + `"version": 1}`
 	})
 }
+
+func TestEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	tests := []struct {
+		name, rel, text, want string
+	}{
+		{"user intent messages", sessionRel,
+			sessionLog("runtime.user_intent.accepted", `{"model_messages": [{"content": [{"text": "hi"}]}, 7], "intent_id": "i"}`),
+			"parser: model_messages holds 1 entry that is not a JSON object"},
+		{"a message's content", sessionRel,
+			sessionLog("runtime.user_intent.accepted", `{"model_messages": [{"content": [{"text": "hi"}, "x"]}], "intent_id": "i"}`),
+			"parser: model_messages.content holds 1 entry that is not a JSON object"},
+		{"trust projects", ".config/muse/trust.json", `{"version": 1, "projects": {"/w": {"decision": "trust"}, "/x": 7}}`,
+			"parser: projects holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := countOf(parseFile(t, test.rel, test.text), test.want); got != 1 {
+				t.Errorf("%q given %d times, want once", test.want, got)
+			}
+		})
+	}
+}

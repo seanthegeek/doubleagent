@@ -16,6 +16,35 @@ func reportedDifferences() []Difference {
 	}
 }
 
+// entryReportDifferences returns the differences numbered 241 onward.
+func entryReportDifferences() []Difference {
+	return []Difference{
+		{Number: 241, Summary: "a list whose entries are not all of the kind the format gives is " +
+			"reported once per list, so a parse that difference 170 lets add one such row may add one " +
+			"more for a second list of secondEntryReports, in that parser's wording", Added: secondEntryReport},
+	}
+}
+
+// secondEntryReports returns the reports difference 241 takes: one entry
+// per parser whose recorded cases hold two lists with entries of the wrong
+// kind, the agent and the text of the second list's report.
+func secondEntryReports() []wrongKindEntry {
+	return []wrongKindEntry{
+		// A bug report whose diagnostics crashes and assistant turns both
+		// hold an entry that is not an object.
+		{"pi", func(string) []string {
+			return []string{"parser: diagnostics.crashes holds 1 entry that is not a JSON object"}
+		}},
+	}
+}
+
+// secondEntryReport takes from got the first system row of the parsed file
+// whose text is one of the agent's secondEntryReports texts and that want
+// does not hold, as wrongKindReport takes its own.
+func secondEntryReport(parse parsedFile, want, got []Row) ([]Row, string) {
+	return takeReport(secondEntryReports(), parse, want, got)
+}
+
 // wrongKindEntry is one report of a file of the wrong kind that the binary
 // gives and the recording lacks: the agent whose parser gives it, and the
 // texts it gives for a file at a home-relative path.
@@ -32,6 +61,11 @@ func wrongKindReports() []wrongKindEntry {
 		{"pi", func(rel string) []string {
 			return []string{"parser: " + rel + " has no session header",
 				"parser: " + rel + " member session.jsonl has no session header"}
+		}},
+		// A bug report whose diagnostics assistant turns hold a number among
+		// the objects the format gives.
+		{"pi", func(string) []string {
+			return []string{"parser: diagnostics.assistant holds 1 entry that is not a JSON object"}
 		}},
 		{"muse-code", func(string) []string {
 			return []string{"parser: not a Muse session log (the first record is neither an envelope nor a " +
@@ -62,7 +96,14 @@ func wrongKindReports() []wrongKindEntry {
 // from, or "". A parse may add one such row; a second stays and is
 // compared.
 func wrongKindReport(parse parsedFile, want, got []Row) ([]Row, string) {
-	for _, entry := range wrongKindReports() {
+	return takeReport(wrongKindReports(), parse, want, got)
+}
+
+// takeReport takes from got the first system row of the parsed file whose
+// text is one of the texts an entry of reports gives for the parse's agent
+// and that want does not hold, and returns the rest and that agent, or "".
+func takeReport(reports []wrongKindEntry, parse parsedFile, want, got []Row) ([]Row, string) {
+	for _, entry := range reports {
 		if entry.agent != parse.agent {
 			continue
 		}
@@ -158,6 +199,39 @@ func TestAReportOfAFileOfTheWrongKindIsTheOnlyRowAParseMayAdd(t *testing.T) {
 		{"a report naming another file fails", piParse, []Row{entry}, []Row{entry, otherName}, false},
 		{"a report of one parser added by another fails", museParse, []Row{entry}, []Row{entry, report}, false},
 		{"a parser without an entry adds nothing", parsedFile{"codex-cli", file, rel}, nil, []Row{museReport}, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _, _ := addedRows(test.parse, test.want, test.got)
+			if agree, _ := rowsAgree(t, test.want, got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
+	}
+}
+
+func TestDifference241LetsAParseAddASecondListsEntryReportOnly(t *testing.T) {
+	const file, rel = "/h/proj/pi-bug-report-r.zip", "proj/pi-bug-report-r.zip"
+	piParse := parsedFile{"pi", file, rel}
+	entry := Row{TurnType: "system", Text: "bug report: r", SourceFile: file}
+	assistant := Row{TurnType: "system", SourceFile: file,
+		Text: "parser: diagnostics.assistant holds 1 entry that is not a JSON object"}
+	crashes := assistant
+	crashes.Text = "parser: diagnostics.crashes holds 1 entry that is not a JSON object"
+	twoCrashes := crashes
+	twoCrashes.Text = "parser: diagnostics.crashes holds 2 entries that are not JSON objects"
+	tests := []struct {
+		name      string
+		parse     parsedFile
+		want, got []Row
+		agree     bool
+	}{
+		{"a report of each list passes", piParse, []Row{entry}, []Row{entry, assistant, crashes}, true},
+		{"a report of the second list alone passes", piParse, []Row{entry}, []Row{entry, crashes}, true},
+		{"the second list's report twice fails", piParse, []Row{entry}, []Row{entry, crashes, crashes}, false},
+		{"a report of another count fails", piParse, []Row{entry}, []Row{entry, twoCrashes}, false},
+		{"the report added by another agent's parse fails", parsedFile{"cline", file, rel}, []Row{entry},
+			[]Row{entry, crashes}, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

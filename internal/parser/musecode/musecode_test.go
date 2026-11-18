@@ -165,7 +165,10 @@ func TestFrameChildrenAreReadInChildOrder(t *testing.T) {
 	if want := []string{"zero", "a", "b", "c"}; !slices.Equal(kinds, want) {
 		t.Errorf("order %q, want %q", kinds, want)
 	}
-	if len(problems) != 2 || problems[0].Line != 1 || problems[0].Raw != "{bad" {
+	// The child "skipped" is not an object: one problem says so, before the
+	// child that does not decode and the one whose record is not text.
+	if len(problems) != 3 || problems[0].Message != "children holds 1 entry that is not a JSON object" ||
+		problems[1].Line != 1 || problems[1].Raw != "{bad" {
 		t.Errorf("problems %+v", problems)
 	}
 }

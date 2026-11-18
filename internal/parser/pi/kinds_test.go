@@ -67,3 +67,25 @@ func TestABugReportDiagnosticsListThatIsNotAnArrayIsReported(t *testing.T) {
 		}
 	}
 }
+
+func TestBugReportDiagnosticsEntriesThatAreNotObjectsAreReportedOnce(t *testing.T) {
+	for _, member := range []string{"crashes", "assistant"} {
+		t.Run(member, func(t *testing.T) {
+			diagnostics := `{"sessionId": "s", "` + member + `": [{"timestamp": 1}, 7, "x"]}`
+			data := zipOf(t, [2]string{"report.json", `{"id": "r"}`}, [2]string{"diagnostics.json", diagnostics})
+			problem := parser.ProblemPrefix + parser.WrongEntries("diagnostics."+member, jsonvalue.Object, 2)
+			if got := countOf(parseBytes(t, "pi-bug-report-r.zip", data), problem); got != 1 {
+				t.Errorf("%d rows %q, want one", got, problem)
+			}
+		})
+	}
+	t.Run("an assistant message's content", func(t *testing.T) {
+		const rel = ".pi/agent/sessions/--w--/2026-10-01T11-00-00-000Z_s.jsonl"
+		data := `{"type": "session", "id": "s", "cwd": "/w"}` + "\n" +
+			`{"type": "message", "message": {"role": "assistant", "content": [{"type": "text", "text": "ok"}, 7]}}` + "\n"
+		problem := parser.ProblemPrefix + parser.WrongEntries("content", jsonvalue.Object, 1)
+		if got := countOf(parseBytes(t, rel, []byte(data)), problem); got != 1 {
+			t.Errorf("%d rows %q, want one", got, problem)
+		}
+	})
+}
