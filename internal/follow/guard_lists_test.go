@@ -257,9 +257,6 @@ func allowedCalls() map[string]allowance {
 		{"internal/parser/beside.go", "filepath.Dir", 2,
 			"the directory of an artifact without a home, which only a test builds, as text, " +
 				"climbing no further than the artifact lies below its home; no parser calls it itself"},
-		{"internal/parser/files.go", "osfile.Open", 1,
-			"reads an evidence file its own lstat typed a regular file, at a path the kit built, " +
-				"then checks the handle is that file"},
 		{"internal/parser/files.go", "osfile.ReadDir", 1,
 			"lists a directory of the input its own lstat typed a directory, not a link, at a path " +
 				"the kit built (Beside, Above, Under, Home.PathOf), which refused a link on the way down"},

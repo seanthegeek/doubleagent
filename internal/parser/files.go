@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -49,9 +50,13 @@ func entryError(path string, info fs.FileInfo) error {
 // Open opens the regular file at path for reading. A symbolic link is never
 // followed and a directory, a named pipe or a device is never opened: each
 // is an error, as is a file replaced between the look at its entry and the
-// open. The directories above the last element are not looked at here:
-// Beside, Above, Under and Home.PathOf, through which a parser builds every
-// path it opens, refuse a link on the way down.
+// open. The open itself follows no link at the last element and does not
+// wait on a named pipe (on Unix O_NOFOLLOW and O_NONBLOCK; on Windows the
+// handle is opened on the entry's own reparse point, and a named pipe is
+// not a file of a directory there), and the handle must be the regular file
+// the look described. The directories above the last element are not
+// looked at here: Beside, Above, Under and Home.PathOf, through which a
+// parser builds every path it opens, refuse a link on the way down.
 func Open(path string) (*os.File, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
@@ -60,12 +65,18 @@ func Open(path string) (*os.File, error) {
 	if err := entryError(path, info); err != nil {
 		return nil, err
 	}
-	file, err := osfile.Open(path)
+	return openLooked(path, info)
+}
+
+// openLooked opens path, whose entry an lstat described as info, and
+// returns the file when the handle is that regular file.
+func openLooked(path string, info fs.FileInfo) (*os.File, error) {
+	file, err := (&fsmeta.Opener{ReadOnly: true}).Open(path)
 	if err != nil {
 		return nil, err
 	}
 	opened, err := file.Stat()
-	if err == nil && !os.SameFile(info, opened) {
+	if err == nil && (!opened.Mode().IsRegular() || !os.SameFile(info, opened)) {
 		err = &fs.PathError{Op: "open", Path: path, Err: errChanged}
 	}
 	if err != nil {
