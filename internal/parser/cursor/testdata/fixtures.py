@@ -72,6 +72,15 @@ INSERT INTO cursorDiskKV VALUES ('agentKv:blob:00',
 """
 
 
+# Headers whose value is a list, a string, JSON null and an empty object.
+HEADER_KINDS = """
+INSERT INTO composerHeaders (composerId, value) VALUES ('c1', '[1]');
+INSERT INTO composerHeaders (composerId, value) VALUES ('c2', '"x"');
+INSERT INTO composerHeaders (composerId, value) VALUES ('c3', 'null');
+INSERT INTO composerHeaders (composerId, value) VALUES ('c4', '{}');
+"""
+
+
 def mcp_key(prefix: str, scope: str, field: str) -> str:
     """Return an MCP OAuth key: the prefix, then URL-safe base64 of "[scope] field"."""
     name = base64.urlsafe_b64encode(f"[{scope}] {field}".encode()).decode().rstrip("=")
@@ -92,6 +101,7 @@ DATABASES = {
     "chunked_headers.db": (chunked(), ""),
     "empty_composer_id.db": ([], EMPTY_HEADER),
     "mcp_secret.db": ([], MCP_SECRET),
+    "header_kinds.db": ([], HEADER_KINDS),
 }
 
 

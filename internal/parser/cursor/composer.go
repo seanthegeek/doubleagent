@@ -146,7 +146,8 @@ func readComposers(store *store) *composers {
 }
 
 // readHeaders attaches each composerHeaders row and its decoded value to
-// its composer; a value that does not decode is that composer's problem.
+// its composer; a value that does not decode, or decodes to anything but
+// an object, is that composer's problem.
 func readHeaders(store *store, found *composers) {
 	table := store.table("composerHeaders")
 	if table == nil {
@@ -165,8 +166,8 @@ func readHeaders(store *store, found *composers) {
 		current := found.get(ident.String())
 		current.header = &rows[i]
 		if value := rows[i].Get("value"); !value.IsNull() {
-			current.head = parser.ObjectOrEmpty(decodeRecord(rows[i].Rowid, "composerHeaders "+current.ident, value,
-				&current.problems))
+			current.head = objectRecord(keyed{rowid: rows[i].Rowid, key: "composerHeaders " + current.ident,
+				value: value}, &current.problems)
 		}
 	}
 }

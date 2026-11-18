@@ -3,6 +3,7 @@ package cursor
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -132,5 +133,20 @@ func TestAnMCPOAuthAttemptsServerIsShownWithoutItsCredentials(t *testing.T) {
 		"(from mcp-oauth-attempts/a.json)"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestAHeaderValueThatIsNotAnObjectIsReported(t *testing.T) {
+	rows, _ := readState(t, "header_kinds.db")
+	var got []string
+	for _, row := range rows {
+		if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+			got = append(got, row.SessionID+" "+row.Text)
+		}
+	}
+	want := []string{"c1 parser: composerHeaders c1 is not a JSON object",
+		"c2 parser: composerHeaders c2 is not a JSON object"}
+	if !slices.Equal(got, want) {
+		t.Errorf("problems %q, want %q", got, want)
 	}
 }

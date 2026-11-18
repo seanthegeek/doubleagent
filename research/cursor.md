@@ -2424,7 +2424,8 @@ absent, null or empty one gives no row) is a row through `error_rows` at the val
 `cloudAgentRepository.agents.<account>`, `cloudEnvironmentTemplate.githubRepos`,
 `cursor.plugins.installedIds.<team>|<scope>` or `composerConvHeaders:<id>:<NNNNNN>` value that is
 not an array is `parser: <key> is not a JSON array` (`<key>` the row's key), a `composerData:<id>`
-value or the settings blob that is not an object is `parser: <key> is not a JSON object`, a
+value or the settings blob that is not an object is `parser: <key> is not a JSON object` (a
+`composerHeaders` row's `value` gives `parser: composerHeaders <id> is not a JSON object`), a
 `fullConversationHeadersOnly` that is not an array is
 `parser: fullConversationHeadersOnly is not a JSON array`, a settings blob's `composerState`,
 `aiSettings` or `aiSettings.modelLastUsedAt` that is not an object is
