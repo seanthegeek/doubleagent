@@ -70,6 +70,8 @@ func TestDetectReportsEachHomeAndProject(t *testing.T) {
 		{"the tables and every file", []string{"detect", "--files", collection}, ExitFound,
 			detectFilesText, ""},
 		{"one JSON object", []string{"detect", "--json", collection}, ExitFound, detectJSONText, ""},
+		{"one JSON object with every file", []string{"detect", "--json", "--files", collection}, ExitFound,
+			detectJSONFilesText(), ""},
 		{"an input without agent files exits 1", []string{"detect", filepath.Join(work, "empty")},
 			ExitNothing, "input:   {ROOT}/empty\nkind:    loose (no manifest; user and home " +
 				"inferred from paths)\nhost:    (unknown)\nno agent artifacts found\n", ""},
@@ -106,4 +108,17 @@ func TestDetectExitsAsItsHelpSays(t *testing.T) {
 			t.Errorf("%q exited %d, want %d", test.args, code, test.want)
 		}
 	}
+}
+
+// detectJSONFilesText is detect --json --files over detectFiles: the
+// object of detect --json with a files array, each file's user, agent and
+// source path in manifest order.
+func detectJSONFilesText() string {
+	var files []string
+	for _, file := range detectFiles {
+		files = append(files, "    {\n      \"user\": \""+file.user+"\",\n      \"agent\": \""+file.agent+
+			"\",\n      \"path\": \""+file.home+"/"+file.rel+"\"\n    }")
+	}
+	return strings.TrimSuffix(detectJSONText, "\n}\n") + ",\n  \"files\": [\n" +
+		strings.Join(files, ",\n") + "\n  ]\n}\n"
 }
