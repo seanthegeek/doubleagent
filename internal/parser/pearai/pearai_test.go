@@ -8,17 +8,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 )
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs.
-
 // rowOf returns a content row of a turn type, text, tool name and call id.
 func rowOf(turnType, text, toolName, toolUseID string) clinelegacy.ContentRow {
 	return clinelegacy.ContentRow{TurnType: turnType, Text: text, ToolName: toolName, ToolUseID: toolUseID}
 }
 
-// xmlBlocks stands for the Python pattern `<(thinking|<tools>)>(.*?)(?:</\1>|$)`
-// and toolText for `<([a-z_]+)>(.*?)(?:</\1>|$)`, whose backreferences
-// Go's engine has no form for.
 func TestXMLBlocksSplitsAssistantTextAtItsToolTags(t *testing.T) {
 	for _, test := range []struct {
 		name, text string
@@ -68,10 +62,7 @@ func TestPromptTurnTakesTheLastUserBlock(t *testing.T) {
 	}
 }
 
-// resultPattern stands for `^\[([a-z_]+)\b.*\] Result:\s*$` and
-// taskPattern for `^\s*<task>\s*(.*?)\s*</task>\s*$`, whose \b and \s
-// are Unicode in Python.
-func TestTheResultAndTaskPatternsReadAsPythonsDo(t *testing.T) {
+func TestTheResultPatternTakesAWholeToolNameAndTheTaskItsTags(t *testing.T) {
 	for _, test := range []struct {
 		name, text, want string
 		task             bool

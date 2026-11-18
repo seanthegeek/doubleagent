@@ -1,6 +1,7 @@
 package pearai
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
@@ -53,8 +54,8 @@ func (p *Parser) outputLog(artifact *input.Artifact, emit parser.Emit) {
 			end = starts[i+1] - separatorLength
 		}
 		line := strings.Count(raw[:start], "\n") + 1
-		if message := writes.record(raw[start:end], line); message != "" {
-			problems.AddRaw(line, message, strings.TrimRight(raw[start:end], "\n"))
+		if err := writes.record(raw[start:end], line); err != nil {
+			problems.AddRaw(line, err.Error(), strings.TrimRight(raw[start:end], "\n"))
 		}
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -79,13 +80,20 @@ func (w *logWrites) row(line int, turnType, text, model string) {
 	w.emit(row)
 }
 
-// record emits the rows of one write, or returns why it cannot be read.
-func (w *logWrites) record(record string, line int) string {
+// The reasons a write of the output log cannot be read.
+var (
+	errNoPromptRule = errors.New("unparseable record (no prompt rule)")
+	errUnknownWrite = errors.New("unparseable record (not a Settings: or Completion: write)")
+)
+
+// record emits the rows of one write, or returns the error that says why
+// it cannot be read.
+func (w *logWrites) record(record string, line int) error {
 	switch {
 	case strings.HasPrefix(record, settingsHead):
 		header, prompt, found := strings.Cut(record, logRule)
 		if !found {
-			return "unparseable record (no prompt rule)"
+			return errNoPromptRule
 		}
 		w.model = settingsModel(header)
 		if change := w.models.Change("model", "", w.model); change != "" {
@@ -102,9 +110,9 @@ func (w *logWrites) record(record string, line int) string {
 			w.row(line, timeline.TurnSystem, "model completion: "+timeline.Compact(reply), w.model)
 		}
 	default:
-		return "unparseable record (not a Settings: or Completion: write)"
+		return errUnknownWrite
 	}
-	return ""
+	return nil
 }
 
 // settingsModel returns the model a write's settings name: the last

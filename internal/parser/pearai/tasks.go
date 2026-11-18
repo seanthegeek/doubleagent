@@ -1,6 +1,7 @@
 package pearai
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 	"unicode"
@@ -57,7 +58,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) []jsonvalue.Value {
 	var asks []jsonvalue.Value
 	for _, message := range p.CachedJSON(task.InDir(clinelegacy.UIFile)).Items() {
 		stamp := message.Get("ts")
-		kind := parser.Text(clinelegacy.FirstTruthy(message.Get("ask"), message.Get("say")))
+		kind := parser.Text(parser.FirstNonEmpty(message.Get("ask"), message.Get("say")))
 		if clinelegacy.IsNumber(stamp) && clinelegacy.IsToolUseKind(kind) {
 			asks = append(asks, stamp)
 		}
@@ -108,9 +109,9 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
 }
 
-// lastAskBefore returns, as Python's str() writes it, the latest ask time
-// at or before a message's time, or "" when there is none or the time is
-// not a number.
+// lastAskBefore returns the latest ask time at or before a message's time,
+// as its number text, or "" when there is none or the time is not a
+// number.
 func lastAskBefore(asks []jsonvalue.Value, timestamp jsonvalue.Value) string {
 	moment, ok := clinelegacy.NumberOf(timestamp)
 	if !ok || !clinelegacy.IsNumber(timestamp) {
@@ -184,9 +185,10 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 	}
 }
 
-// orDash returns a value as Python's str(value or "-") writes it.
+// orDash returns a value as row text, "-" when it is empty
+// (jsonvalue.Value.IsEmpty).
 func orDash(value jsonvalue.Value) string {
-	return clinelegacy.FirstTruthy(value, jsonvalue.NewString("-")).Text()
+	return cmp.Or(parser.Text(value), "-")
 }
 
 // permissionTexts are the texts Roo 3.15 opens a tool result with when the

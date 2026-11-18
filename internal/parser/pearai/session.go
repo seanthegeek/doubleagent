@@ -1,13 +1,13 @@
 package pearai
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -25,10 +25,10 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	}
 	document, problem := continuedev.LoadSession(raw)
 	base := p.BaseRow(artifact)
-	base.SessionID = parser.Text(clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)))
+	base.SessionID = cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	entry := p.indexes.Index(parser.Beside(artifact))[base.SessionID]
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
-	base.ProjectPath = parser.Text(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
+	base.ProjectPath = parser.Text(parser.FirstNonEmpty(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))
 	row := func(position int, turnType, text, model string) {
 		each := base
@@ -54,7 +54,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 // startText returns the text of a session's start row: its title, the
 // index's integration, the item counts and whether the time is known.
 func startText(document, entry jsonvalue.Value, history, search int, dated bool) string {
-	bits := []string{"session start: " + parser.Text(clinelegacy.FirstTruthy(document.Get("title"),
+	bits := []string{"session start: " + parser.Text(parser.FirstNonEmpty(document.Get("title"),
 		entry.Get("title")))}
 	if integration := entry.Get("integrationType"); !integration.IsEmpty() {
 		bits = append(bits, "integration="+integration.Text())
@@ -99,7 +99,7 @@ func sessionItem(position int, item, message jsonvalue.Value, sessionID string, 
 		}
 	case text != "":
 		if !isText(role, "system") {
-			text = clinelegacy.FirstTruthy(role, jsonvalue.NewString("unknown")).Text() + ": " + text
+			text = cmp.Or(parser.Text(role), "unknown") + ": " + text
 		}
 		row(position, timeline.TurnSystem, text, model)
 	}
@@ -113,7 +113,7 @@ func itemLabels(list jsonvalue.Value, first, second string) string {
 		if !each.IsObject() {
 			continue
 		}
-		if label := parser.Text(clinelegacy.FirstTruthy(each.Get(first), each.Get(second))); label != "" {
+		if label := parser.Text(parser.FirstNonEmpty(each.Get(first), each.Get(second))); label != "" {
 			labels = append(labels, label)
 		}
 	}

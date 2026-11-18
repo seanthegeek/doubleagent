@@ -12,12 +12,14 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// space is one character Python's \s matches.
+// space is one whitespace character by unicode.IsSpace.
 const space = `[` + parser.Space + `]`
 
 // The texts of a Roo 3.15 user message. A tool result opens with
-// "[<tool> ...] Result:" (Python's \b after the tool name is a character
-// that is not a letter, digit or underscore in any script), a skipped
+// "[<tool> ...] Result:", the tool name a whole word (what follows it, if
+// anything before the bracket, starts with a character that is not a
+// letter, digit or underscore of any script; Go's \b knows ASCII letters
+// only), a skipped
 // call's notice with "Skipping tool [<tool>" or "Tool [<tool>", and the
 // first message wraps the task in <task> tags.
 var (
@@ -56,11 +58,10 @@ type element struct {
 }
 
 // nextElement returns the first element at or after offset whose tag
-// tagOf names, its body running to its closing tag or to the end of the
-// text. It stands for the Python pattern `<(<tags>)>(.*?)(?:</\1>|$)`,
-// whose backreference Go's engine has no form for; where Python's `$`
-// stops before a final LF, the body here keeps it, which every caller
-// strips.
+// tagOf names, its body running to the first closing tag of the same name
+// or to the end of the text (a final LF included, which every caller
+// strips). Matching the closing tag to the opening one needs a
+// backreference, which Go's regexp has no form for, so the scan is by hand.
 func nextElement(text string, offset int, tagOf func(string, int) string) (element, bool) {
 	for {
 		found := strings.IndexByte(text[offset:], '<')
