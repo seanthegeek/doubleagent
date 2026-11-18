@@ -73,9 +73,9 @@ func (q Query) Where(keep func(Row) bool) Query {
 	return q
 }
 
-// OrderBy sorts the rows by the keys, each a stored column's name or the rowid,
-// followed by " DESC" for a descending key ("ASC" may be written too); a
-// key may also be a comma-separated list, as in SQL.
+// OrderBy sorts the rows by the keys, each a stored column's name or the
+// rowid, followed by " DESC" for a descending key ("ASC" may be written
+// too); a key may also be a comma-separated list, as in SQL.
 // Values are ordered as Compare orders them, text under the column's
 // collation; a descending key reverses that order, NULLs last.
 func (q Query) OrderBy(keys ...string) Query {
