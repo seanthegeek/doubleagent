@@ -1,6 +1,7 @@
 package letta
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -30,12 +31,10 @@ func timeOrDash(value jsonvalue.Value) string {
 	return "-"
 }
 
-// strOrDash returns a value as Python's `value or "-"` writes it.
-func strOrDash(value jsonvalue.Value) string {
-	if !value.IsEmpty() {
-		return value.Text()
-	}
-	return "-"
+// textOrDash returns a value as row text, "-" for an empty value (so
+// false and zero are "-" too, unlike dash).
+func textOrDash(value jsonvalue.Value) string {
+	return cmp.Or(parser.Text(value), "-")
 }
 
 // lineOne returns a system row of the artifact at line 1 with the given
@@ -106,9 +105,9 @@ func syncRows(servers jsonvalue.Value, rel string, put func(sessionID, text stri
 			continue
 		}
 		entry := server.Value
-		put(parser.Text(entry.Get("conversationId")), fmt.Sprintf("session synced: last session on %s "+
-			"agent %s conversation %s (from %s, file mtime)", server.Key, strOrDash(entry.Get("agentId")),
-			strOrDash(entry.Get("conversationId")), rel))
+		put(parser.Text(entry.Get("conversationId")), "session synced: last session on "+
+			server.Key+" agent "+textOrDash(entry.Get("agentId"))+" conversation "+
+			textOrDash(entry.Get("conversationId"))+" (from "+rel+", file mtime)")
 	}
 }
 
@@ -148,12 +147,13 @@ func (p *Parser) parseRouting(artifact *input.Artifact, channel string, emit par
 		if created == "" {
 			source = "file mtime"
 		}
-		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), fmt.Sprintf(
-			"session relayed: %s chat %s type %s thread %s account %s agent %s enabled=%s outbound=%s "+
-				"detached=%s updated=%s (from %s, %s)", channel, dash(route.Get("chatId")),
-			dash(route.Get("chatType")), dash(route.Get("threadId")), dash(route.Get("accountId")),
-			dash(route.Get("agentId")), dash(route.Get("enabled")), dash(route.Get("outboundEnabled")),
-			dash(route.Get("detached")), timeOrDash(route.Get("updatedAt")), artifact.Rel, source))
+		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), "session relayed: "+
+			channel+" chat "+dash(route.Get("chatId"))+" type "+dash(route.Get("chatType"))+
+			" thread "+dash(route.Get("threadId"))+" account "+dash(route.Get("accountId"))+
+			" agent "+dash(route.Get("agentId"))+" enabled="+dash(route.Get("enabled"))+
+			" outbound="+dash(route.Get("outboundEnabled"))+" detached="+
+			dash(route.Get("detached"))+" updated="+timeOrDash(route.Get("updatedAt"))+
+			" (from "+artifact.Rel+", "+source+")")
 		row.SessionID = parser.Text(route.Get("conversationId"))
 		emit(row)
 	}
@@ -195,14 +195,16 @@ func taskText(task jsonvalue.Value, conversation string, created bool, rel strin
 	if created {
 		source = "created_at"
 	}
-	return fmt.Sprintf("scheduled task: %s name=%s status=%s cron=%s timezone=%s recurring=%s "+
-		"scheduled_for=%s agent=%s conversation=%s fire_count=%s last_fired=%s last_run=%s outcome=%s "+
-		"reason=%s error=%s cancel_reason=%s (from %s, %s) description: %s prompt: %s",
-		field("id"), field("name"), field("status"), field("cron"), field("timezone"), field("recurring"),
-		timeOrDash(task.Get("scheduled_for")), field("agent_id"), dash(jsonvalue.NewString(conversation)),
-		field("fire_count"), timeOrDash(task.Get("last_fired_at")), timeOrDash(task.Get("last_run_at")),
-		field("last_run_outcome"), field("last_run_reason"), field("last_run_error"),
-		field("cancel_reason"), rel, source, field("description"), field("prompt"))
+	return "scheduled task: " + field("id") + " name=" + field("name") + " status=" +
+		field("status") + " cron=" + field("cron") + " timezone=" + field("timezone") +
+		" recurring=" + field("recurring") + " scheduled_for=" +
+		timeOrDash(task.Get("scheduled_for")) + " agent=" + field("agent_id") + " conversation=" +
+		dash(jsonvalue.NewString(conversation)) + " fire_count=" + field("fire_count") +
+		" last_fired=" + timeOrDash(task.Get("last_fired_at")) + " last_run=" +
+		timeOrDash(task.Get("last_run_at")) + " outcome=" + field("last_run_outcome") + " reason=" +
+		field("last_run_reason") + " error=" + field("last_run_error") + " cancel_reason=" +
+		field("cancel_reason") + " (from " + rel + ", " + source + ") description: " +
+		field("description") + " prompt: " + field("prompt")
 }
 
 // parseRuns emits one `scheduled task run:` row per line of a task's run
@@ -211,13 +213,13 @@ func (p *Parser) parseRuns(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		field := func(key string) string { return dash(record.Get(key)) }
-		row := p.SystemRow(artifact, timeline.Compact(fmt.Sprintf("scheduled task run: %s action=%s "+
-			"status=%s outcome=%s reason=%s agent=%s conversation=%s run=%s scheduled_for=%s fired=%s "+
-			"missed=%s summary=%s error=%s (from %s, ts)", field("jobId"), field("action"),
-			field("status"), field("outcome"), field("reason"), field("agentId"),
-			field("conversationId"), field("runId"), timeOrDash(record.Get("scheduledFor")),
-			timeOrDash(record.Get("firedAt")), field("missedCount"), field("summary"), field("error"),
-			artifact.Rel)))
+		row := p.SystemRow(artifact, timeline.Compact("scheduled task run: "+field("jobId")+
+			" action="+field("action")+" status="+field("status")+" outcome="+
+			field("outcome")+" reason="+field("reason")+" agent="+field("agentId")+
+			" conversation="+field("conversationId")+" run="+field("runId")+
+			" scheduled_for="+timeOrDash(record.Get("scheduledFor"))+" fired="+
+			timeOrDash(record.Get("firedAt"))+" missed="+field("missedCount")+" summary="+
+			field("summary")+" error="+field("error")+" (from "+artifact.Rel+", ts)"))
 		row.SourceLine = line
 		row.TimestampUTC = timeutil.FromValue(record.Get("ts"))
 		row.SessionID = parser.Text(record.Get("conversationId"))
@@ -292,8 +294,7 @@ func interruptedDecision(result jsonvalue.Value, rel string) string {
 		" (from " + rel + ", interrupted turn, file mtime)"
 }
 
-// joinedIDs returns a list of ids joined by commas, each as Python's str()
-// writes it, or "-" for an empty list or a value that is not a list.
+// joinedIDs returns a list of ids joined by commas, each as its row text, or "-" for an empty list or a value that is not a list.
 func joinedIDs(value jsonvalue.Value) string {
 	var items []string
 	for _, item := range value.Items() {
