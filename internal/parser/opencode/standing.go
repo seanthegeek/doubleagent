@@ -202,7 +202,8 @@ func (s *store) worktreeRows() error {
 
 // grantRows emits a "permission setting:" row per saved grant of the
 // permission table, ordered by time and id. The first layout's
-// permission(project_id, data), without an action, is not read.
+// permission(project_id, data), without an action or an id, is not read,
+// and the rest of the database is read as without the table.
 func (s *store) grantRows() error {
 	if !s.tables["permission"] {
 		return nil
@@ -211,8 +212,11 @@ func (s *store) grantRows() error {
 	if err != nil {
 		return err
 	}
+	if !table.Has("action") {
+		return nil
+	}
 	rows, err := table.Select().OrderBy("time_created, id").All()
-	if err != nil || !table.Has("action") {
+	if err != nil {
 		return err
 	}
 	for _, row := range rows {
