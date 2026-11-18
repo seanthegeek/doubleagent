@@ -168,16 +168,29 @@ type namedBlob struct {
 	blob sqlitefile.Value
 }
 
-// chunks returns the chunks of a session's cold archive, by chunk_index.
+// chunks returns the chunks of a session's cold archive, by chunk_index:
+// the rows whose session_id is the session id as text, the key the agent
+// gives a cold archive and its chunks. The chunks table is read once, on
+// first use, and grouped by session id.
 func (a *agentDatabase) chunks(sessionID string) ([]namedBlob, error) {
-	rows, err := a.table("session_transcript_cold_archive_chunks", func(table *sqlitefile.Table) sqlitefile.Query {
-		return table.Select("archive_name", "archive_blob").Where(func(row sqlitefile.Row) bool {
-			return row.Equals("session_id", sqlitefile.TextValue(sessionID))
-		}).OrderBy("chunk_index")
-	})
+	if a.chunksBySession == nil {
+		rows, err := a.table("session_transcript_cold_archive_chunks", func(table *sqlitefile.Table) sqlitefile.Query {
+			return table.Select("session_id", "archive_name", "archive_blob").OrderBy("chunk_index")
+		})
+		if err != nil {
+			return nil, err
+		}
+		a.chunksBySession = map[string][]sqlitefile.Row{}
+		for _, row := range rows {
+			if key := row.Get("session_id"); key.Type == sqlitefile.Text {
+				a.chunksBySession[key.Text()] = append(a.chunksBySession[key.Text()], row)
+			}
+		}
+	}
+	rows := a.chunksBySession[sessionID]
 	blobs := make([]namedBlob, len(rows))
 	for i, row := range rows {
 		blobs[i] = namedBlob{cmp.Or(columnStr(row.Get("archive_name")), sessionID), row.Get("archive_blob")}
 	}
-	return blobs, err
+	return blobs, nil
 }

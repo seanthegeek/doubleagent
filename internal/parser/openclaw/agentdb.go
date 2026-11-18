@@ -26,10 +26,16 @@ type agentDatabase struct {
 	windows  windowSet
 	store    *databaseState
 	problems parser.Problems
+	// chunksBySession holds the cold archive chunks by session id once
+	// they are read.
+	chunksBySession map[string][]sqlitefile.Row
+	// queries counts the queries run, the work a test measures.
+	queries int
 }
 
 // table returns the rows a query over the named table gives.
 func (a *agentDatabase) table(name string, query func(*sqlitefile.Table) sqlitefile.Query) ([]sqlitefile.Row, error) {
+	a.queries++
 	table, err := a.database.Table(name)
 	if err != nil {
 		return nil, err
