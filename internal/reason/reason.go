@@ -36,7 +36,8 @@ const (
 // For returns the reason err gives: one of the fixed reasons for an
 // operating-system error the package classifies, else the text of the
 // innermost error under every *fs.PathError, *os.LinkError and
-// *os.SyscallError of its chain, else err's own text. A nil err gives "".
+// *os.SyscallError of its chain, else err's own text. A nil err gives "",
+// and a wrapper with no error under it its own operation and path.
 func For(err error) string {
 	if err == nil {
 		return ""
@@ -50,7 +51,7 @@ func For(err error) string {
 	case errors.Is(err, fs.ErrNotExist):
 		return NotFound
 	}
-	return innermost(err).Error()
+	return innermostText(err)
 }
 
 // Unreadable returns "<file name> could not be read (<reason>)" for the
@@ -75,23 +76,32 @@ func Describe(path string, err error) string {
 	return path + ": " + For(err)
 }
 
-// innermost returns the error under the last *fs.PathError, *os.LinkError
-// or *os.SyscallError in err's chain, taking each in turn until none is
-// left, or err itself when it has none.
-func innermost(err error) error {
+// innermostText returns the text of the error under the last
+// *fs.PathError, *os.LinkError or *os.SyscallError in err's chain, taking
+// each in turn until none is left, or err's own text when it has none. A
+// wrapper holding no error gives its own words without a cause (its
+// operation and path, or its system call), since its Error method would
+// read the missing cause.
+func innermostText(err error) string {
 	for {
 		var pathError *fs.PathError
 		var linkError *os.LinkError
 		var syscallError *os.SyscallError
 		switch {
 		case errors.As(err, &pathError):
-			err = pathError.Err
+			if err = pathError.Err; err == nil {
+				return pathError.Op + " " + pathError.Path
+			}
 		case errors.As(err, &linkError):
-			err = linkError.Err
+			if err = linkError.Err; err == nil {
+				return linkError.Op + " " + linkError.Old + " " + linkError.New
+			}
 		case errors.As(err, &syscallError):
-			err = syscallError.Err
+			if err = syscallError.Err; err == nil {
+				return syscallError.Syscall
+			}
 		default:
-			return err
+			return err.Error()
 		}
 	}
 }
