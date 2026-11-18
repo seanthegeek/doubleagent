@@ -11,21 +11,33 @@ import (
 )
 
 // OpenDatabase opens the SQLite database at path, with its write-ahead log
-// and rollback journal, in place and read-only. When it cannot, it returns
-// the message of the `parser:` row that says why: "not a SQLite database"
-// for a file without the SQLite header, "<file name> could not be read
-// (<reason>)" for the file or a sidecar that cannot be read, and
-// "SQLite error: <reason>" for a database that cannot be opened.
-func OpenDatabase(path string) (*sqlitefile.Database, string) {
+// and rollback journal, in place and read-only. When it cannot, the error
+// is sqlitefile.Problem's for a file it would not open (ErrNotDatabase, or
+// an *sqlitefile.UnreadableError for the file or a sidecar), or an
+// *OpenError for a database that failed as it was opened; DatabaseError
+// gives either as the text of the `parser:` row that says why.
+func OpenDatabase(path string) (*sqlitefile.Database, error) {
 	if err := sqlitefile.Problem(path); err != nil {
-		return nil, DatabaseError(err)
+		return nil, err
 	}
 	database, err := sqlitefile.OpenPath(path)
 	if err != nil {
-		return nil, DatabaseError(err)
+		return nil, &OpenError{Err: err}
 	}
-	return database, ""
+	return database, nil
 }
+
+// OpenError is the error of a database that passed sqlitefile.Problem's
+// checks but could not be opened, for a parser that words that case apart.
+type OpenError struct {
+	Err error
+}
+
+// Error returns the error opening met.
+func (e *OpenError) Error() string { return e.Err.Error() }
+
+// Unwrap returns the error opening met.
+func (e *OpenError) Unwrap() error { return e.Err }
 
 // DatabaseError returns the message of the `parser:` row for an error met
 // while opening or reading a database: the unreadable message for a file

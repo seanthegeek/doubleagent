@@ -77,9 +77,9 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 // readCatalog returns every row of the catalog table in rowid order, or an
 // error whose text is the message of the problem row that replaces them.
 func readCatalog(path string) ([]sqlitefile.Row, error) {
-	database, message := parser.OpenDatabase(path)
-	if message != "" {
-		return nil, errors.New(message)
+	database, err := parser.OpenDatabase(path)
+	if err != nil {
+		return nil, errors.New(parser.DatabaseError(err))
 	}
 	defer database.Close()
 	names, err := database.TableNames()

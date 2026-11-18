@@ -11,9 +11,9 @@ import (
 // parseDatabase emits the rows of data.sqlite3, or one `parser:` row for a
 // database that cannot be read; a failure part way gives only that row.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	database, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return
 	}
 	defer database.Close()

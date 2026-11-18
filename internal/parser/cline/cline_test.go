@@ -3,6 +3,7 @@ package cline
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -96,6 +97,35 @@ func TestACutMessagesFileReportsTheCutAfterTheWholeMessages(t *testing.T) {
 			if count != test.messages || !slices.Equal(problems, test.problems) {
 				t.Errorf("got %d messages and %+v, want %d and %+v", count, problems, test.messages,
 					test.problems)
+			}
+		})
+	}
+}
+
+// A database the parser cannot open is named in its row.
+func TestOpenDatabaseNamesTheDatabaseInItsRow(t *testing.T) {
+	tests := []struct {
+		name, data, prefix string
+	}{
+		{"a text file", "not sqlite", "sessions.db is not a SQLite database"},
+		{"a header over a damaged body", "SQLite format 3\x00" + strings.Repeat("\x00", 200),
+			"sessions.db unreadable ("},
+		{"no file", "", "sessions.db could not be read ("},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.db")
+			if test.data != "" {
+				if err := osfile.WriteFile(path, []byte(test.data), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			database, err := openDatabase(path, "sessions.db")
+			if database != nil {
+				database.Close()
+			}
+			if err == nil || !strings.HasPrefix(err.Error(), test.prefix) {
+				t.Errorf("got %v, want a row starting %q", err, test.prefix)
 			}
 		})
 	}

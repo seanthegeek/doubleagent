@@ -63,10 +63,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		return p.index
 	}
 	p.index = &stateIndex{key: key, path: path, projects: map[string]project{}, models: map[string]string{}}
-	if sqlitefile.Problem(path) != nil {
-		return p.index
-	}
-	database, err := sqlitefile.OpenPath(path)
+	database, err := parser.OpenDatabase(path)
 	if err != nil {
 		return p.index
 	}
@@ -98,10 +95,10 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 func cloudCachedIDs(artifact *input.Artifact) map[string]bool {
 	ids := map[string]bool{}
 	path, ok := parser.Beside(artifact, "conversation-search.db")
-	if !ok || sqlitefile.Problem(path) != nil {
+	if !ok {
 		return ids
 	}
-	database, err := sqlitefile.OpenPath(path)
+	database, err := parser.OpenDatabase(path)
 	if err != nil {
 		return ids
 	}

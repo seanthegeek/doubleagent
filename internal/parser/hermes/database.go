@@ -78,9 +78,9 @@ type stateReader struct {
 // that do not decode. A database error ends the rows with one `parser:`
 // row; the rows before it stay.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	handle, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		emit(p.system(artifact, 0, noSession(), parser.ProblemPrefix+message))
+	handle, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.system(artifact, 0, noSession(), parser.ProblemPrefix+parser.DatabaseError(err)))
 		return
 	}
 	defer handle.Close()

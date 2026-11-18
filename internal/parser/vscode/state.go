@@ -140,10 +140,10 @@ type usage struct {
 // database ReadItems could not open gives nothing here, since it reported
 // it; secret:// rows never match.
 func usageItems(databasePath string) ([]usage, []string) {
-	if !parser.RegularFile(databasePath) || sqlitefile.Problem(databasePath) != nil {
+	if !parser.RegularFile(databasePath) {
 		return nil, nil
 	}
-	database, err := sqlitefile.OpenPath(databasePath)
+	database, err := parser.OpenDatabase(databasePath)
 	if err != nil {
 		return nil, nil
 	}

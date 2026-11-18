@@ -67,9 +67,9 @@ type itemProblem struct {
 // readThreadHistory returns the turns and items of thread_history_1.sqlite,
 // or an error whose text is the problem row that replaces them.
 func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, error) {
-	database, err := openDatabase(path)
+	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, databaseError(err)
 	}
 	defer database.Close()
 	turns, err := selectRows(database, "thread_turns", turnColumns)

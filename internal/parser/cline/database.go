@@ -12,22 +12,23 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// openDatabase opens a database the parser reads, or returns an error whose
-// text is the row that says why it cannot: "<name> is not a SQLite
-// database", the unreadable message of the file or a sidecar, or "<name>
-// unreadable (<reason>)".
+// openDatabase opens a database the parser reads (parser.OpenDatabase), or
+// returns an error whose text is the row that says why it cannot, with the
+// database's name where the kit's words have none: "<name> unreadable
+// (<reason>)" for one that failed as it was opened, "<name> is not a SQLite
+// database", and the unreadable message of the file or a sidecar.
 func openDatabase(path, name string) (*sqlitefile.Database, error) {
-	if err := sqlitefile.Problem(path); err != nil {
-		if errors.Is(err, sqlitefile.ErrNotDatabase) {
-			return nil, errors.New(name + " is not a SQLite database")
-		}
-		return nil, errors.New(parser.DatabaseError(err))
+	database, err := parser.OpenDatabase(path)
+	var openErr *parser.OpenError
+	switch {
+	case err == nil:
+		return database, nil
+	case errors.As(err, &openErr):
+		return nil, unreadable(name, openErr.Err)
+	case errors.Is(err, sqlitefile.ErrNotDatabase):
+		return nil, errors.New(name + " is not a SQLite database")
 	}
-	database, err := sqlitefile.OpenPath(path)
-	if err != nil {
-		return nil, unreadable(name, err)
-	}
-	return database, nil
+	return nil, errors.New(parser.DatabaseError(err))
 }
 
 // unreadable returns the error of a database that failed while it was

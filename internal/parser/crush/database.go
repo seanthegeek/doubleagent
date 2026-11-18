@@ -31,9 +31,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 		row.ProjectPath = projectPath
 		emit(row)
 	}
-	database, message := parser.OpenDatabase(artifact.DiskPath)
-	if message != "" {
-		problem(message)
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	if err != nil {
+		problem(parser.DatabaseError(err))
 		return
 	}
 	defer database.Close()

@@ -20,8 +20,10 @@ func databaseMessages(t *testing.T, path string) []string {
 	if err := sqlitefile.Problem(path); err != nil {
 		messages = append(messages, err.Error(), DatabaseError(err))
 	}
-	database, message := OpenDatabase(path)
-	messages = append(messages, message)
+	database, err := OpenDatabase(path)
+	if err != nil {
+		messages = append(messages, DatabaseError(err))
+	}
 	if database != nil {
 		messages = append(messages, readError(t, database)...)
 	}
