@@ -689,6 +689,10 @@ its rows: `history`, `checkpoint_manager.checkpoints`, a checkpoint's `history_s
 `user.content` and `assistant` as objects, and the body of a `user.content` or `assistant` variant
 as an object (`parser: user.content.<variant> is not a JSON object`,
 `parser: assistant.<variant> is not a JSON object`). An absent, null or empty one gives no row.
+One of these arrays, other than `message_meta_tags`, holding entries that are not objects gives
+one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 A `.cli_bash_history`, `/save` export, agent configuration or delegate record that cannot be read
 is one row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
