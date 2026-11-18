@@ -113,9 +113,9 @@ func imageText(item jsonvalue.Value, itemType string) string {
 	if itemType == "Extension" && !isText(item.Get("kind"), "image_gen.generation") {
 		return "item Extension: " + parser.JSONText(without(item, "type", "id"))
 	}
-	prompt := parser.Text(firstTruthy(item.Get("revised_prompt"), item.Get("revisedPrompt")))
+	prompt := parser.Text(parser.FirstNonEmpty(item.Get("revised_prompt"), item.Get("revisedPrompt")))
 	text := "image generation: " + prompt + " status=" + parser.Text(item.Get("status"))
-	if saved := parser.Text(firstTruthy(item.Get("saved_path"), item.Get("savedPath"))); saved != "" {
+	if saved := parser.Text(parser.FirstNonEmpty(item.Get("saved_path"), item.Get("savedPath"))); saved != "" {
 		text += " saved=" + saved
 	}
 	return text
@@ -187,7 +187,7 @@ func resultText(value jsonvalue.Value) string {
 // withExit prefixes a command's output with "[exit <code>] " when its exit
 // code is neither missing nor zero.
 func withExit(text string, code jsonvalue.Value) string {
-	if isNoneOrZero(code) {
+	if isNullOrZero(code) {
 		return text
 	}
 	return "[exit " + code.Text() + "] " + text

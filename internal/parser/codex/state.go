@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -55,7 +56,8 @@ func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]
 	return table.Select(columns...).OrderBy("rowid").All()
 }
 
-// columnText returns a column as Python's str(value or "") writes it.
+// columnText returns a column as row text, "" for an empty value (null,
+// zero, empty text or an empty blob).
 func columnText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -119,17 +121,17 @@ func isSubagentThread(thread sqlitefile.Row) bool {
 
 // threadText returns the "thread record:" text of a threads row.
 func threadText(thread sqlitefile.Row) string {
-	text := "thread record: " + columnText(thread.Get("id")) + " title=" +
-		columnText(thread.Get("title")) + " rollout=" + columnText(thread.Get("rollout_path"))
+	parts := []string{"thread record: " + columnText(thread.Get("id")) + " title=" +
+		columnText(thread.Get("title")) + " rollout=" + columnText(thread.Get("rollout_path"))}
 	for _, field := range [][2]string{{"name", "name"}, {"git_branch", "branch"}, {"model", "model"}} {
 		if value := thread.Get(field[0]); !value.IsEmpty() {
-			text += " " + field[1] + "=" + value.String()
+			parts = append(parts, field[1]+"="+value.String())
 		}
 	}
 	if !thread.Get("archived").IsEmpty() {
-		text += " archived"
+		parts = append(parts, "archived")
 	}
-	return text
+	return strings.Join(parts, " ")
 }
 
 // stamp returns a row of the session with the project and branch of its
@@ -150,28 +152,27 @@ type stateTables struct {
 	threads, enrollments, feedback []sqlitefile.Row
 }
 
-// readState returns the tables of state_5.sqlite, or the message of the
-// problem row that replaces them.
-func readState(path string) (stateTables, string) {
-	database, message := parser.OpenDatabase(path)
-	if message != "" {
-		return stateTables{}, message
+// readState returns the tables of state_5.sqlite, or an error whose text
+// is the problem row that replaces them.
+func readState(path string) (stateTables, error) {
+	database, err := openDatabase(path)
+	if err != nil {
+		return stateTables{}, err
 	}
 	defer database.Close()
 	var tables stateTables
-	var err error
 	if tables.threads, err = readThreads(database); err != nil {
-		return stateTables{}, parser.DatabaseError(err)
+		return stateTables{}, databaseError(err)
 	}
 	if tables.enrollments, err = selectRows(database, "remote_control_enrollments",
 		enrollmentColumns); err != nil {
-		return stateTables{}, parser.DatabaseError(err)
+		return stateTables{}, databaseError(err)
 	}
 	if tables.feedback, err = selectRows(database, "guardian_review_feedback",
 		feedbackColumns); err != nil {
-		return stateTables{}, parser.DatabaseError(err)
+		return stateTables{}, databaseError(err)
 	}
-	return tables, ""
+	return tables, nil
 }
 
 // parseState emits the rows of state_5.sqlite or of a copy under
@@ -179,9 +180,9 @@ func readState(path string) (stateTables, string) {
 // control:" row per enrollment, then a "permission decision:" row per
 // guardian review feedback record.
 func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
-	tables, message := readState(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	tables, err := readState(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
 	p.threadRows(artifact, tables.threads, emit)
@@ -302,18 +303,18 @@ func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Prob
 // reviewer's JSON verdict reads as the review thread's own row for that
 // verdict, so the two pair.
 func feedbackText(record jsonvalue.Value) string {
-	item := strOr(record.Get("target_item_id"), "-")
-	reviewer := strOr(record.Get("reviewer_thread_id"), "-")
+	item := cmp.Or(parser.Text(record.Get("target_item_id")), "-")
+	reviewer := cmp.Or(parser.Text(record.Get("reviewer_thread_id")), "-")
 	decision := record.Get("decision")
 	if isText(record.Get("status"), "denied") && decision.IsString() {
 		if verdict, ok := guardianVerdict(decision.StringValue()); ok {
 			return guardianText(verdict, item, reviewer)
 		}
 	}
-	return "permission decision: " + strOr(record.Get("status"), "-") +
-		" (auto_review feedback model=" + strOr(record.Get("model"), "-") + ") exec " + item +
-		" turn=" + strOr(record.Get("reviewed_turn_id"), "-") + " reviewer " + reviewer + ": " +
-		strOr(decision, "-") + " action: " + parser.Text(record.Get("action"))
+	return "permission decision: " + cmp.Or(parser.Text(record.Get("status")), "-") +
+		" (auto_review feedback model=" + cmp.Or(parser.Text(record.Get("model")), "-") + ") exec " + item +
+		" turn=" + cmp.Or(parser.Text(record.Get("reviewed_turn_id")), "-") + " reviewer " + reviewer + ": " +
+		cmp.Or(parser.Text(decision), "-") + " action: " + parser.Text(record.Get("action"))
 }
 
 // siblingThreads returns the threads rows of the state_5.sqlite beside the

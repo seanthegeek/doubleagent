@@ -17,7 +17,9 @@ type numberedRecord struct {
 	value jsonvalue.Value
 }
 
-// asciiWhitespace is what Python's bytes.strip() removes from a line.
+// asciiWhitespace is what is trimmed from each line of a decoded rollout
+// before it is read as JSON: ASCII whitespace, the line's bytes not yet
+// being decoded as UTF-8.
 const asciiWhitespace = " \t\n\r\v\f"
 
 // zstRecords returns the JSON object lines of a zstd-compressed JSON lines

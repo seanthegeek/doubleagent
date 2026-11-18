@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -119,7 +120,7 @@ func standingText(entry jsonvalue.Value, suffix string) string {
 	parts := make([]string, len(pairs))
 	for i, pair := range pairs {
 		shown := "-"
-		if !isNoneOrEmpty(pair.value) {
+		if !isMissing(pair.value) {
 			shown = parser.SettingValue(pair.value)
 		}
 		parts[i] = pair.label + "=" + shown
@@ -189,7 +190,7 @@ func descriptionTexts(atom jsonvalue.Value, suffix string) []stateText {
 			shown = description.StringValue()
 		}
 		texts = append(texts, stateText{sessionID, "thread description: " + shown +
-			" last_activity=" + orDash(timeutil.FromValue(activity.Get(sessionID))) + " " + suffix})
+			" last_activity=" + cmp.Or(timeutil.FromValue(activity.Get(sessionID)), "-") + " " + suffix})
 	}
 	return texts
 }
@@ -206,7 +207,7 @@ func remoteTexts(document jsonvalue.Value, source func(string) string) []stateTe
 			connected = parser.SettingValue(mobile)
 		}
 		texts = append(texts, stateText{"", "remote control: mobile device connected=" + connected +
-			" environment=" + strOr(document.Get(remoteEnvironment), "-") + " " +
+			" environment=" + cmp.Or(parser.Text(document.Get(remoteEnvironment)), "-") + " " +
 			source(mobileDeviceKey)})
 	}
 	for _, member := range asObject(document.Get(outputDirsKey)).Members() {
@@ -252,7 +253,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 	stamp := func(sessionID string) timeline.Row {
 		row := p.stamp(artifact, nil, sessionID)
 		if sessionID != "" {
-			row.ProjectPath = parser.Text(firstTruthy(roots.Get(sessionID), outputs.Get(sessionID)))
+			row.ProjectPath = parser.Text(parser.FirstNonEmpty(roots.Get(sessionID), outputs.Get(sessionID)))
 		}
 		return row
 	}

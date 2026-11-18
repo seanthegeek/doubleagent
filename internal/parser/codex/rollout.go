@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"regexp"
 	"strconv"
 	"strings"
@@ -144,30 +145,30 @@ func (s *rollout) prompt(text string) {
 // session, project and branch and gives the start rows; a later one with
 // another id was copied from an ancestor thread.
 func (s *rollout) sessionMeta(payload jsonvalue.Value) {
-	threadID := parser.Text(firstTruthy(payload.Get("id"), payload.Get("session_id")))
+	threadID := parser.Text(parser.FirstNonEmpty(payload.Get("id"), payload.Get("session_id")))
 	when := payload.Get("timestamp")
 	if s.metaSeen {
 		if threadID != "" && threadID != s.sessionID {
 			s.put(s.row(timeline.TurnSystem, when), "copied from ancestor: session start "+
-				strOr(payload.Get("originator"), "codex")+" "+parser.Text(payload.Get("cli_version"))+
+				cmp.Or(parser.Text(payload.Get("originator")), "codex")+" "+parser.Text(payload.Get("cli_version"))+
 				" id="+threadID+" cwd="+parser.Text(payload.Get("cwd")))
 		}
 		return
 	}
 	s.metaSeen = true
 	s.sessionID = timeutil.FirstNonEmpty(threadID, s.sessionID)
-	s.cwd = strOr(payload.Get("cwd"), s.cwd)
+	s.cwd = cmp.Or(parser.Text(payload.Get("cwd")), s.cwd)
 	git := objectOr(payload.Get("git"))
-	s.branch = strOr(git.Get("branch"), s.branch)
-	start := "session start: " + strOr(payload.Get("originator"), "codex") + " " +
+	s.branch = cmp.Or(parser.Text(git.Get("branch")), s.branch)
+	start := []string{"session start: " + cmp.Or(parser.Text(payload.Get("originator")), "codex") + " " +
 		parser.Text(payload.Get("cli_version")) + " provider=" +
-		parser.Text(payload.Get("model_provider")) + " cwd=" + s.cwd
+		parser.Text(payload.Get("model_provider")) + " cwd=" + s.cwd}
 	for _, field := range [][2]string{{"creator_account_id", "account"}, {"creator_user_id", "user"}} {
 		if value := payload.Get(field[0]); !value.IsEmpty() {
-			start += " " + field[1] + "=" + value.Text()
+			start = append(start, field[1]+"="+value.Text())
 		}
 	}
-	s.put(s.row(timeline.TurnSystem, when), start)
+	s.put(s.row(timeline.TurnSystem, when), strings.Join(start, " "))
 	if url := git.Get("repository_url"); url.IsString() && strings.TrimSpace(url.StringValue()) != "" {
 		s.put(s.row(timeline.TurnSystem, when), timeline.GitRemotePrefix+url.StringValue())
 	}
@@ -195,15 +196,15 @@ func (s *rollout) lineage(payload, when jsonvalue.Value) {
 	s.taskPending = parent != "" || isSubagentMeta(payload)
 	if isGuardian(payload) && parent != "" {
 		s.guardianParent = parent
-		s.started = parser.Text(firstTruthy(payload.Get("timestamp"), s.record.Get("timestamp")))
+		s.started = parser.Text(parser.FirstNonEmpty(payload.Get("timestamp"), s.record.Get("timestamp")))
 	}
 }
 
 // turnContext reads a turn_context line: it sets the project and model and
 // gives the model and permission mode rows when they change.
 func (s *rollout) turnContext(payload jsonvalue.Value) {
-	s.cwd = strOr(payload.Get("cwd"), s.cwd)
-	s.model = strOr(payload.Get("model"), s.model)
+	s.cwd = cmp.Or(parser.Text(payload.Get("cwd")), s.cwd)
+	s.model = cmp.Or(parser.Text(payload.Get("model")), s.model)
 	s.policies[s.sessionID] = policyOf(payload)
 	texts := []string{
 		s.seenModel.Change("model", s.sessionID, parser.Text(payload.Get("model"))),
@@ -231,7 +232,7 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 	case textIn(payloadType, callTypes...):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = callName(payload)
-		row.ToolUseID = parser.Text(firstTruthy(payload.Get("call_id"), payload.Get("id")))
+		row.ToolUseID = parser.Text(parser.FirstNonEmpty(payload.Get("call_id"), payload.Get("id")))
 		s.put(row, callSummary(payload))
 	case textIn(payloadType, outputTypes...):
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
@@ -240,7 +241,7 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 	case isText(payloadType, "tool_search_call"):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = "tool_search"
-		row.ToolUseID = parser.Text(firstTruthy(payload.Get("call_id"), payload.Get("id")))
+		row.ToolUseID = parser.Text(parser.FirstNonEmpty(payload.Get("call_id"), payload.Get("id")))
 		s.put(row, parser.JSONText(payload.Get("arguments")))
 	case isText(payloadType, "tool_search_output"):
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
@@ -303,7 +304,7 @@ func (s *rollout) event(payload jsonvalue.Value) {
 		s.system("task_started turn=" + parser.Text(payload.Get("turn_id")))
 		attribution := payload.Get("turn_attribution")
 		if trigger := attribution.Get("turn_trigger"); attribution.IsObject() && !trigger.IsEmpty() {
-			turn := parser.Text(firstTruthy(payload.Get("turn_id"), attribution.Get("turn_id")))
+			turn := parser.Text(parser.FirstNonEmpty(payload.Get("turn_id"), attribution.Get("turn_id")))
 			s.system("turn trigger: " + trigger.Text() + " turn=" + turn)
 		}
 	case isText(payloadType, "task_complete"):
@@ -354,7 +355,7 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	if len(calls) == 1 {
 		row.ToolUseID = calls[0]
 	}
-	s.put(row, guardianText(verdict, orDash(row.ToolUseID), s.sessionID))
+	s.put(row, guardianText(verdict, cmp.Or(row.ToolUseID, "-"), s.sessionID))
 }
 
 // threadSettings reads a thread_settings_applied event: the model and

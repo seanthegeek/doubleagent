@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -24,15 +25,15 @@ func callSummary(payload jsonvalue.Value) string {
 		if command := action.Get("command"); command.IsArray() {
 			return joinedCommand(command)
 		}
-		return strOr(action.Get("command"), parser.JSONText(action))
+		return cmp.Or(parser.Text(action.Get("command")), parser.JSONText(action))
 	case isText(payload.Get("type"), "web_search_call"):
 		action := objectOrEmpty(payload.Get("action"))
-		return strOr(action.Get("query"), parser.JSONText(action))
+		return cmp.Or(parser.Text(action.Get("query")), parser.JSONText(action))
 	}
 	for _, key := range []string{"arguments", "input"} {
 		value := payload.Get(key)
 		switch {
-		case isNoneOrEmpty(value):
+		case isMissing(value):
 		case value.IsString():
 			return value.StringValue()
 		default:
@@ -42,8 +43,8 @@ func callSummary(payload jsonvalue.Value) string {
 	return parser.JSONText(without(payload, "type", "id", "call_id", "name", "status"))
 }
 
-// objectOrEmpty returns value, or an empty object when Python counts it as
-// false: the form `value or {}`.
+// objectOrEmpty returns value, or an empty object when value is empty
+// (jsonvalue.Value.IsEmpty).
 func objectOrEmpty(value jsonvalue.Value) jsonvalue.Value {
 	if !value.IsEmpty() {
 		return value
@@ -60,7 +61,7 @@ func callName(payload jsonvalue.Value) string {
 	case isText(payload.Get("type"), "web_search_call"):
 		return "web_search"
 	}
-	return parser.Text(firstTruthy(payload.Get("name"), payload.Get("type")))
+	return parser.Text(parser.FirstNonEmpty(payload.Get("name"), payload.Get("type")))
 }
 
 // contextMarkers are the wrappers the harness puts around the user-role
@@ -83,7 +84,7 @@ var contextMarkers = [][3]string{
 // text, stripped, starts with the open marker and ends with the close
 // marker, ignoring case.
 func contextMarker(text string) string {
-	body := lowerForMarkers(strings.TrimSpace(text))
+	body := strings.ToLower(strings.TrimSpace(text))
 	for _, marker := range contextMarkers {
 		if strings.HasPrefix(body, strings.ToLower(marker[1])) &&
 			strings.HasSuffix(body, strings.ToLower(marker[2])) {
@@ -91,29 +92,6 @@ func contextMarker(text string) string {
 		}
 	}
 	return ""
-}
-
-// lowerForMarkers lowers text as far as a comparison with the ASCII markers
-// can tell from Python's str.lower(): ASCII letters, the Kelvin sign, the one
-// other character that lowers to an ASCII letter, and the capital I with dot,
-// which lowers to two characters. Every other character stays, and matches
-// no marker either way.
-func lowerForMarkers(text string) string {
-	var out strings.Builder
-	out.Grow(len(text))
-	for _, character := range text {
-		switch {
-		case character >= 'A' && character <= 'Z':
-			out.WriteRune(character + 'a' - 'A')
-		case character == 'K':
-			out.WriteByte('k')
-		case character == 'İ':
-			out.WriteString("i̇")
-		default:
-			out.WriteRune(character)
-		}
-	}
-	return out.String()
 }
 
 // userPart is one run of a user-role message: kind is "" for input the
@@ -282,8 +260,8 @@ func agentText(payload jsonvalue.Value) string {
 // whose keys are camelCase.
 func goalText(payload jsonvalue.Value) string {
 	goal := objectOr(payload.Get("goal"))
-	return "thread goal: status=" + strOr(goal.Get("status"), "-") + " turn=" +
-		strOr(payload.Get("turnId"), "-") + " objective: " + parser.Text(goal.Get("objective"))
+	return "thread goal: status=" + cmp.Or(parser.Text(goal.Get("status")), "-") + " turn=" +
+		cmp.Or(parser.Text(payload.Get("turnId")), "-") + " objective: " + parser.Text(goal.Get("objective"))
 }
 
 // guardianVerdict returns the verdict a guardian review's message holds: a
@@ -300,7 +278,7 @@ func guardianVerdict(message string) (jsonvalue.Value, bool) {
 // review's verdict on call, by reviewer.
 func guardianText(verdict jsonvalue.Value, call, reviewer string) string {
 	return "permission decision: " + verdict.Get("outcome").Text() + " (auto_review risk_level=" +
-		strOr(verdict.Get("risk_level"), "-") + " user_authorization=" +
-		strOr(verdict.Get("user_authorization"), "-") + ") exec " + call + " reviewer " +
+		cmp.Or(parser.Text(verdict.Get("risk_level")), "-") + " user_authorization=" +
+		cmp.Or(parser.Text(verdict.Get("user_authorization")), "-") + ") exec " + call + " reviewer " +
 		reviewer + ": " + parser.Text(verdict.Get("rationale"))
 }
