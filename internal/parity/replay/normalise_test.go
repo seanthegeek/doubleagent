@@ -14,12 +14,12 @@ import (
 // the binary, numbered from 101. Text rewrites the recorded shape, and
 // Binary the binary's own, into one form, so the binary printing the
 // recorded wording still differs; Excludes reports a case no rewriting can
-// match, Outputs rewrites a run's outputs, Added takes a
-// row the recording lacks, Arguments rewrites a command line; each returns
-// what it found. Scope names the texts a difference of format applies to;
-// Within names a difference that can lie inside this one's rows, which this
-// one applies before. A retired one applies nowhere; Unchecked says why a
-// run that never uses one does not fail.
+// match, Outputs rewrites a run's outputs, Added takes a row the recording
+// lacks, Arguments rewrites a command line (each returns what it found),
+// Wanted names a file a parser may want that the recording did not. Scope
+// names the texts a difference of format applies to; Within names one that
+// can lie in this one's rows, which this one applies before. A retired one
+// applies nowhere; Unchecked says why a run that never uses one passes.
 type Difference struct {
 	Number    int
 	Summary   string
@@ -30,6 +30,7 @@ type Difference struct {
 	Arguments func(command string, args []string) ([]string, int)
 	Scope     string
 	Added     func(parse parsedFile, want, got []Row) ([]Row, string)
+	Wanted    func(agent, rel string) bool
 	Within    int
 	Retired   string
 	Unchecked string
@@ -54,7 +55,7 @@ func Differences() []Difference {
 			"of the other",
 			Outputs: otherOfEqualRows, Unchecked: "whether a case needs it depends on the order " +
 				"the recording machine's file system listed the tree in"},
-	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences(),
+	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences(), wantedDifferences(),
 		[]Difference{withheldDifference()})...)
 }
 

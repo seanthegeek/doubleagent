@@ -224,7 +224,7 @@ func (r *parserReplay) replayCase(t *testing.T, subject parser.Parser, recorded 
 	var got any
 	switch recorded.Method {
 	case "wants":
-		got = subject.Wants(artifact)
+		return r.compareWants(t, node, subject, artifact, recorded)
 	case "secondary":
 		got = parser.IsSecondary(subject, artifact)
 	case "secondary_tolerance":
@@ -239,6 +239,24 @@ func (r *parserReplay) replayCase(t *testing.T, subject parser.Parser, recorded 
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("%s: %s gave %v, want %v", node, recorded.Method, got, want)
 	}
+	return ""
+}
+
+// compareWants runs one wants call and compares its answer with the
+// recorded one, under the differences whose Wanted rule names the file.
+func (r *parserReplay) compareWants(t *testing.T, node string, subject parser.Parser, artifact *input.Artifact,
+	recorded ParserCase) string {
+	t.Helper()
+	var want bool
+	if err := json.Unmarshal(recorded.Result.Value, &want); err != nil {
+		t.Fatalf("%s: %v", node, err)
+	}
+	got := subject.Wants(artifact)
+	agree, numbers := wantsAgree(subject.Agent(), artifact.Rel, got, want)
+	if !agree {
+		t.Errorf("%s: wants gave %v, want %v", node, got, want)
+	}
+	r.note(node, numbers)
 	return ""
 }
 
