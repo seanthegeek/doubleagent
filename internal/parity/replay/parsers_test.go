@@ -309,6 +309,10 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		t.Errorf("%s", message)
 	}
 	for _, entry := range entries {
+		if isWithheldRowLabel(entry) {
+			r.withheld[entry]++
+			continue
+		}
 		r.wrongKind[entry]++
 	}
 	if len(reporter.errors) == 0 {

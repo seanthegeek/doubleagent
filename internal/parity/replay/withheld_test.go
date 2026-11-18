@@ -44,6 +44,61 @@ func withheldDifference() Difference {
 		Within: 102}
 }
 
+// withheldRowsDifference returns difference 231.
+func withheldRowsDifference() Difference {
+	return Difference{Number: 231, Summary: "a secret the recording never printed and had no row for is " +
+		"shown in a row of its own: a parse may add one row of withheldRows, exactly as written there, " +
+		"with REDACTED where the secret was", Added: withheldRowAdded}
+}
+
+// withheldRow is a row the binary adds for a secret the recording never
+// printed and gave no row for: the agent whose parser gives it, a name,
+// and the row's exact text with the default placeholder in place of the
+// secret.
+type withheldRow struct {
+	agent, name, text string
+}
+
+// label returns the name the run's log and its check of every entry use.
+func (r withheldRow) label() string {
+	return r.agent + " " + r.name
+}
+
+// withheldRows returns the rows difference 231 takes. A parser that comes
+// to show a secret in a row of its own adds an entry, and a run of every
+// case fails for an entry no case used.
+func withheldRows() []withheldRow {
+	return []withheldRow{
+		{"openclaw", "exec approvals socket token", "permission setting: socket.token=" +
+			secrets.DefaultPlaceholder + " (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)"},
+	}
+}
+
+// withheldRowAdded takes from got the first system row of the parsed file
+// whose text is the text of one of the agent's withheldRows and that want
+// does not hold, and returns the rest and that entry's label, or "". A
+// parse may add one such row; a second stays and is compared.
+func withheldRowAdded(parse parsedFile, want, got []Row) ([]Row, string) {
+	for _, entry := range withheldRows() {
+		if entry.agent != parse.agent {
+			continue
+		}
+		index := slices.IndexFunc(got, func(row Row) bool {
+			return row.TurnType == "system" && string(row.SourceFile) == parse.file &&
+				string(row.Text) == entry.text && !slices.Contains(want, row)
+		})
+		if index >= 0 {
+			return slices.Delete(slices.Clone(got), index, index+1), entry.label()
+		}
+	}
+	return got, ""
+}
+
+// isWithheldRowLabel reports whether label names an entry of withheldRows.
+func isWithheldRowLabel(label string) bool {
+	return slices.ContainsFunc(withheldRows(), func(entry withheldRow) bool { return entry.label() == label })
+}
+
 // withheldForm is one site where the recording's form of a secret differs
 // from the binary's withheld form: whose output it is (scope, a parser's
 // rows or a command's own output, and agent, the parser's agent or the
@@ -187,6 +242,56 @@ func checkEveryWithheldFormUsed(t testing.TB, scope string, used map[string]int,
 			continue
 		}
 		t.Logf("difference 230's entry %s used by %d cases", entry.label(), used[entry.label()])
+	}
+	if scope != parserScope {
+		return
+	}
+	for _, entry := range withheldRows() {
+		if used[entry.label()] == 0 {
+			t.Errorf("difference 231's entry %s is used by no recorded case: remove it", entry.label())
+			continue
+		}
+		t.Logf("difference 231's entry %s used by %d cases", entry.label(), used[entry.label()])
+	}
+}
+
+func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
+	const file, rel = "/h/.openclaw/state/openclaw.sqlite", ".openclaw/state/openclaw.sqlite"
+	parse := parsedFile{"openclaw", file, rel}
+	setting := Row{TurnType: "system", SourceFile: file, SourceLine: 1,
+		Text: "permission setting: defaults.security=deny (from state/openclaw.sqlite exec_approvals_config, " +
+			"updated_at_ms)"}
+	socket := setting
+	socket.Text = "permission setting: socket.token=REDACTED (from state/openclaw.sqlite exec_approvals_config, " +
+		"updated_at_ms)"
+	shown := socket
+	shown.Text = Text(strings.Replace(string(socket.Text), "REDACTED", "FIXTURE-TOKEN", 1))
+	elsewhere := socket
+	elsewhere.SourceFile = "/h/other.sqlite"
+	notSystem := socket
+	notSystem.TurnType = "user"
+	tests := []struct {
+		name      string
+		parse     parsedFile
+		want, got []Row
+		agree     bool
+	}{
+		{"an added withheld socket token passes", parse, []Row{setting}, []Row{socket, setting}, true},
+		{"an added socket token shown fails", parse, []Row{setting}, []Row{shown, setting}, false},
+		{"the row added twice fails", parse, []Row{setting}, []Row{socket, socket, setting}, false},
+		{"the row of another file fails", parse, []Row{setting}, []Row{elsewhere, setting}, false},
+		{"the row as another turn fails", parse, []Row{setting}, []Row{notSystem, setting}, false},
+		{"the row added by another agent's parse fails", parsedFile{"hermes", file, rel}, []Row{setting},
+			[]Row{socket, setting}, false},
+		{"a changed row beside it fails", parse, []Row{setting}, []Row{socket, shown}, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _, _ := addedRows(test.parse, test.want, test.got)
+			if agree, _ := rowsAgree(t, test.want, got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
 	}
 }
 

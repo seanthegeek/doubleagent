@@ -112,6 +112,30 @@ INSERT INTO exec_approvals_config VALUES ('default', '{"socket": {"token": sk-SE
   1790845100000);
 """
 
+EXEC_CONFIG_WITH_SOCKET = """
+PRAGMA page_size = 512;
+CREATE TABLE exec_approvals_config (config_key TEXT NOT NULL PRIMARY KEY, raw_json TEXT NOT NULL,
+  has_socket_token INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL);
+INSERT INTO exec_approvals_config VALUES ('default', '{"version": 1, "socket": {"path":
+  "/home/u/.openclaw/exec.sock", "token": "FIXTURE-SOCKET-TOKEN"}, "defaults": {"security": "deny"}}', 1,
+  1790845100000);
+"""
+
+STATE_URLS = """
+PRAGMA page_size = 512;
+CREATE TABLE backup_runs (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, archive_path TEXT,
+  status TEXT NOT NULL, manifest_json TEXT);
+INSERT INTO backup_runs VALUES ('b1', 1790845100000, NULL, 'ok',
+  '{"kind": "git", "target": "https://ci:s3cret@git.example/o/backup.git"}');
+CREATE TABLE github_publication_requests (session_id TEXT, identity_source TEXT,
+  identity_account_id INTEGER, identity_login TEXT, status TEXT, repository TEXT, branch TEXT,
+  pull_request_url TEXT, created_at_ms INTEGER);
+INSERT INTO github_publication_requests VALUES ('s1', 'app', 7, 'ana', 'opened', 'o/r', 'fix',
+  'https://ci:s3cret@github.example/o/r/pull/7', 1790845200000);
+CREATE TABLE projects (repo_root TEXT, origin_url TEXT, created_at_ms INTEGER);
+INSERT INTO projects VALUES ('/w/r', 'https://ci:s3cret@git.example/o/r.git', 1790845300000);
+"""
+
 
 def write_state(name: str, script: str) -> None:
     """Write a state database from its SQL."""
@@ -145,6 +169,8 @@ def main() -> None:
             connection.commit()
 
     write_state("bad_exec_config.db", BAD_EXEC_CONFIG)
+    write_state("exec_config_socket.db", EXEC_CONFIG_WITH_SOCKET)
+    write_state("state_urls.db", STATE_URLS)
 
 
 if __name__ == "__main__":

@@ -1469,7 +1469,8 @@ the client credential store), `mcp_oauth_stores`, `secret_store_entries` (`value
 ([`state/secret-state-tables.ts:2-23`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/secret-state-tables.ts#L2-L23);
 [`openclaw-state-schema.sql:2768-2780`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-state-schema.sql#L2768-L2780)).
 `exec_approvals_config.raw_json` holds `socket.token` on builds before the client credential store
-([Format versions](#format-versions)).
+([Format versions](#format-versions)); the parser shows it in a `permission setting: socket.token=`
+row, which `--no-secrets` replaces with the placeholder ([Parser plan](#parser-plan)).
 
 In records: `thinkingSignature` and `providerReplay.data` are opaque provider state;
 `image.data` is base64 media; `toolResult.content` and `bashExecution.output` are raw tool output
@@ -1555,8 +1556,11 @@ all fixture only:
   row per `security`, `ask`, `askFallback` and `autoAllowSkills` value (`<key>=<value>`), per
   allowlist entry (`allowlist=<pattern>[ argPattern=<argPattern>] source=<source>`) and per MCP
   tool grant (`mcpTools=<server>/<tool> source=<source>`) of `raw_json`'s `defaults` and of each
-  `agents.<id>`, `<scope>` being `defaults` or `agents.<id>`. `socket` is never read
-  ([Secrets](#secrets)); a `raw_json` that does not decode is one row
+  `agents.<id>`, `<scope>` being `defaults` or `agents.<id>`, after one
+  `permission setting: socket.token=<token> (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)`
+  row when `socket.token` is set ([Secrets](#secrets)), the token shown as written and replaced
+  with the placeholder under `timeline --no-secrets` and `detect --no-secrets`; a `raw_json`
+  that does not decode is one row
   `parser: exec_approvals_config raw_json unparseable (<reason>)`, the reader's error in full, or
   where it stopped (`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds
   secrets, since on older builds the text holds the token.
@@ -1699,7 +1703,9 @@ parsed (`records_sync`).
   `pushFailed`, with an empty `session_id`, in the agent's own term rather than `session synced:`
   because it marks no one session:
   `backup uploaded: <kind> to <location.name or archive_path> key <location.key or target> namespace <location.namespace or namespace or -> (from state/openclaw.sqlite backup_runs, created_at)`,
-  timestamped by `created_at`. A Git backup run without `--push` records the same manifest as a
+  timestamped by `created_at`. The key is shown as written; `timeline --no-secrets` and
+  `detect --no-secrets` replace the credentials a URL in it carries with the placeholder. A Git
+  backup run without `--push` records the same manifest as a
   pushed one, `target` the commit and no `pushFailed`, so a Git row says a commit was made and may
   have been pushed. Fixture only. Deleting a session does not touch `backup_runs`, and the
   uploaded archives keep the session.
@@ -1834,7 +1840,8 @@ it may reach as `repositories`, a list of `{id, fullName}`, in that config entry
 The repository-bound records are the GitHub publication requests
 ([Source-host records](#source-host-records)). Each yields, fixture only,
 `source host: github account <identity_login> id <identity_account_id> identity <identity_source>; publication <status> repository <repository> branch <branch> pull request <pull_request_url> (from state/openclaw.sqlite <table>, created_at_ms)`
-at `created_at_ms`, `session_id` the session. Not read: the App installation's `repositories`
+at `created_at_ms`, `session_id` the session; `--no-secrets` replaces the credentials the pull
+request URL carries with the placeholder. Not read: the App installation's `repositories`
 list, since the parser reads no `openclaw.json` (JSON5), so it gives no `source host repository:`
 rows.
 
@@ -1843,7 +1850,8 @@ rows.
 Each `projects` row ([Source-host records](#source-host-records)) whose `origin_url` is set yields,
 fixture only, `git remote: <origin_url>` (`system`) at the row's `created_at_ms`, with
 `project_path` its `repo_root` and an empty `session_id`: the table names a repository the Gateway
-registered or cloned, not a session. Its other columns are not read.
+registered or cloned, not a session. `--no-secrets` replaces the credentials the URL carries
+with the placeholder. Its other columns are not read.
 
 ## Confidence
 

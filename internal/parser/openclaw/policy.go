@@ -9,8 +9,8 @@ import (
 
 // execConfig emits one `permission setting:` row per policy setting of the
 // migrated exec approvals in exec_approvals_config: each default and
-// per-agent policy field, allowlist entry and MCP tool grant. The socket
-// member holds the approvals socket's token and is never read; a raw_json
+// per-agent policy field, allowlist entry and MCP tool grant, after one for
+// the approvals socket's token, shown through parser.SecretText; a raw_json
 // that does not decode is reported with the reader's error through
 // parser.ReaderErrorText, since the reader can quote that token, and a raw_json,
 // agents, policy, allowlist or mcpTools of the wrong kind adds a problem.
@@ -34,6 +34,10 @@ func (s *stateRows) execDocument(rowid int64, document jsonvalue.Value, timestam
 	}
 	line := int(rowid)
 	parser.ObjectMember(document, "raw_json", line, &s.problems)
+	if token := parser.Text(document.Get("socket").Get("token")); token != "" {
+		s.emit(s.stateRow(s.artifact, rowid, timestamp, "permission setting: socket.token="+
+			parser.SecretText(s.artifact, token)+" (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)", ""))
+	}
 	scopes := []scope{{"defaults", document.Get("defaults")}}
 	for _, member := range parser.ObjectMember(document.Get("agents"), "agents", line, &s.problems) {
 		scopes = append(scopes, scope{"agents." + member.Key, member.Value})

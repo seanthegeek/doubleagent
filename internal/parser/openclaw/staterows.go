@@ -53,14 +53,15 @@ func (s *stateRows) emitAll() {
 	}
 	for _, table := range githubPublicationTables() {
 		for _, record := range s.data[table] {
-			s.row(record, parser.ColumnTime(record.Get("created_at_ms")), publicationText(table, record),
+			s.row(record, parser.ColumnTime(record.Get("created_at_ms")), publicationText(s.artifact, table, record),
 				parser.NonEmptyColumn(record.Get("session_id")))
 		}
 	}
 	s.projects()
 }
 
-// projects emits a `git remote:` row per project with an origin.
+// projects emits a `git remote:` row per project with an origin, shown
+// through parser.URLText.
 func (s *stateRows) projects() {
 	for _, record := range s.data["projects"] {
 		origin := ""
@@ -71,7 +72,7 @@ func (s *stateRows) projects() {
 			continue
 		}
 		row := s.stateRow(s.artifact, record.Rowid, parser.ColumnTime(record.Get("created_at_ms")),
-			timeline.GitRemotePrefix+origin, "")
+			timeline.GitRemotePrefix+parser.URLText(s.artifact, origin), "")
 		row.ProjectPath = parser.NonEmptyColumn(record.Get("repo_root"))
 		s.emit(row)
 	}
@@ -91,7 +92,7 @@ func (s *stateRows) backups() {
 		if !manifest.IsObject() {
 			manifest = jsonvalue.NewObject()
 		}
-		if text := backupText(run, manifest); text != "" {
+		if text := backupText(s.artifact, run, manifest); text != "" {
 			s.row(run, parser.ColumnTime(run.Get("created_at")), text, "")
 		}
 	}
@@ -99,8 +100,9 @@ func (s *stateRows) backups() {
 
 // backupText returns the `backup uploaded:` text of a successful upload or
 // Git backup, else "": a failed run, a local archive or a Git push that
-// failed gives none.
-func backupText(run sqlitefile.Row, manifest jsonvalue.Value) string {
+// failed gives none. The key, a Git backup's remote URL, goes through
+// parser.URLText.
+func backupText(artifact *input.Artifact, run sqlitefile.Row, manifest jsonvalue.Value) string {
 	if parser.TextColumn(run.Get("status")) != "ok" {
 		return ""
 	}
@@ -116,7 +118,7 @@ func backupText(run sqlitefile.Row, manifest jsonvalue.Value) string {
 	}
 	return "backup uploaded: " + cmp.Or(parser.Text(manifest.Get("kind")), "-") + " to " +
 		cmp.Or(cmp.Or(parser.Text(location.Get("name")), parser.NonEmptyColumn(run.Get("archive_path"))), "-") +
-		" key " + cmp.Or(firstStr(location.Get("key"), target), "-") + " namespace " +
+		" key " + parser.URLText(artifact, cmp.Or(firstStr(location.Get("key"), target), "-")) + " namespace " +
 		cmp.Or(firstStr(location.Get("namespace"), manifest.Get("namespace")), "-") +
 		" (from state/openclaw.sqlite backup_runs, created_at)"
 }
@@ -161,8 +163,8 @@ func grantText(record sqlitefile.Row) string {
 
 // publicationText returns the `source host:` text of a GitHub publication
 // request: the account the Gateway pushed or opened the pull request as,
-// and what it published.
-func publicationText(table string, record sqlitefile.Row) string {
+// and what it published, the pull request's URL through parser.URLText.
+func publicationText(artifact *input.Artifact, table string, record sqlitefile.Row) string {
 	value := func(name string) string { return cmp.Or(parser.NonEmptyColumn(record.Get(name)), "-") }
 	account := "-"
 	if identifier := record.Get("identity_account_id"); !identifier.IsNull() {
@@ -171,5 +173,5 @@ func publicationText(table string, record sqlitefile.Row) string {
 	return "source host: github account " + value("identity_login") + " id " + account +
 		" identity " + value("identity_source") + "; publication " + value("status") +
 		" repository " + value("repository") + " branch " + value("branch") + " pull request " +
-		value("pull_request_url") + " (from state/openclaw.sqlite " + table + ", created_at_ms)"
+		parser.URLText(artifact, value("pull_request_url")) + " (from state/openclaw.sqlite " + table + ", created_at_ms)"
 }
