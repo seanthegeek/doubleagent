@@ -119,3 +119,36 @@ func TestUnderRefusesANameThatIsNotOneComponent(t *testing.T) {
 		t.Errorf("Under gave %q, %v", path, ok)
 	}
 }
+
+func TestADirectorysChildIsOneNameBelowIt(t *testing.T) {
+	root := t.TempDir()
+	directory, ok := DirectoryAt(root)
+	if !ok {
+		t.Fatal("a real directory was refused")
+	}
+	cases := []struct {
+		name      string
+		directory Directory
+		child     string
+		want      string
+		ok        bool
+	}{
+		{"a plain name is joined below the directory", directory, "a.json", filepath.Join(root, "a.json"), true},
+		{"a dot file is a plain name", directory, ".workspace", filepath.Join(root, ".workspace"), true},
+		{"a name that climbs is refused", directory, "..", "", false},
+		{"the directory itself is refused", directory, ".", "", false},
+		{"a name holding a slash is refused", directory, "../etc", "", false},
+		{"a name holding a backslash is refused", directory, `..\etc`, "", false},
+		{"an empty name is refused", directory, "", "", false},
+		{"a name holding a NUL byte is refused", directory, "a\x00b", "", false},
+		{"the zero directory has no child", Directory{}, "a.json", "", false},
+	}
+	for _, each := range cases {
+		t.Run(each.name, func(t *testing.T) {
+			got, ok := each.directory.Child(each.child)
+			if got != each.want || ok != each.ok {
+				t.Errorf("Child gave %q, %v; want %q, %v", got, ok, each.want, each.ok)
+			}
+		})
+	}
+}

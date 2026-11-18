@@ -110,6 +110,42 @@ func TestNoPathTheKitBuildsPassesThroughALinkedDirectory(t *testing.T) {
 	}
 }
 
+func TestADirectoryIsOnlyARealDirectory(t *testing.T) {
+	root := t.TempDir()
+	plain := filepath.Join(root, "plain")
+	if err := os.MkdirAll(filepath.Join(plain, "inner"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(root, "linked")
+	if err := os.Symlink(plain, linked); err != nil {
+		t.Fatal(err)
+	}
+	file := writeFile(t, "file.json", []byte("{}"))
+	cases := []struct {
+		name, path string
+		ok         bool
+	}{
+		{"a real directory is one", plain, true},
+		{"a directory below a real one is one", filepath.Join(plain, "inner"), true},
+		{"a link to a directory is not one", linked, false},
+		{"a regular file is not one", file, false},
+		{"an absent path is not one", filepath.Join(root, "absent"), false},
+		{"an empty path is not one", "", false},
+	}
+	for _, each := range cases {
+		t.Run(each.name, func(t *testing.T) {
+			directory, ok := DirectoryAt(each.path)
+			if ok != each.ok {
+				t.Fatalf("DirectoryAt gave %v, want %v", ok, each.ok)
+			}
+			child, childOK := directory.Child("a.json")
+			if want := filepath.Join(each.path, "a.json"); childOK != each.ok || each.ok && child != want {
+				t.Errorf("Child gave %q, %v", child, childOK)
+			}
+		})
+	}
+}
+
 func TestAnEntryReplacedBetweenTheLookAndTheOpenIsRefused(t *testing.T) {
 	looked := writeFile(t, "looked.json", []byte("{}"))
 	info, err := os.Lstat(looked)

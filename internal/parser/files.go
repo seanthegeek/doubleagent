@@ -54,9 +54,9 @@ func entryError(path string, info fs.FileInfo) error {
 // wait on a named pipe (on Unix O_NOFOLLOW and O_NONBLOCK; on Windows the
 // handle is opened on the entry's own reparse point, and a named pipe is
 // not a file of a directory there), and the handle must be the regular file
-// the look described. The directories above the last element are not
-// looked at here: Beside, Above, Under and Home.PathOf, through which a
-// parser builds every path it opens, refuse a link on the way down.
+// the look described. The directories above the last element were looked
+// at when the path was built (Beside, Above, Under, Home.PathOf, or a
+// Directory's Child), which refuse a link on the way down.
 func Open(path string) (*os.File, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
@@ -168,7 +168,9 @@ func LoadJSON(path string, problems *Problems) (jsonvalue.Value, bool) {
 // ReadDir lists the directory at path sorted by name as bytes, not in the
 // order the file system gives, so a parser that reads files in listing
 // order reads them in one order on every file system. It does not follow a
-// link at path itself; the entries are never followed either.
+// link at path itself, and the directories above path were looked at when
+// the kit built it; the entries are never followed either. A parser reaches
+// an entry through DirectoryAt(path) and its Child.
 func ReadDir(path string) ([]os.DirEntry, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
