@@ -57,6 +57,8 @@ func laterDifferences() []Difference {
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
 			Text: quotedValueText},
 		{Number: 121, Summary: "options come before the input", Arguments: optionsFirst},
+		{Number: 130, Summary: "a file that holds secrets gives only where it stopped decoding, " +
+			"not the reader's detail", Text: secretFileErrorText},
 		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem",
 			Excludes: sharedMemoryProblem},
 	}
@@ -70,6 +72,35 @@ var sharedMemoryLine = regexp.MustCompile(`(?m)^parser: [^\n]*-shm could not be 
 // file.
 func sharedMemoryProblem(text string) bool {
 	return sharedMemoryLine.MatchString(text)
+}
+
+// secretFileErrors are the rows of files that hold API keys or tokens whose
+// reason the binary gives as a position alone, and what each becomes: the
+// recorded reason, or the binary's position, or none, is one token.
+var secretFileErrors = []struct {
+	pattern     *regexp.Regexp
+	replacement string
+}{
+	{regexp.MustCompile(`(parser: config\.toml is not valid TOML \()(?:[^()\n]|\([^()\n]*\))*\)`),
+		"${1}{position})"},
+	{regexp.MustCompile(`(parser: config\.json did not parse: )[^\n]*`), "${1}{position}"},
+	{regexp.MustCompile(`(parser: [^\n]*crush\.json is not a JSON object)(?: \(invalid JSON at line [0-9]+, ` +
+		`column [0-9]+\))?`), "${1}"},
+	{regexp.MustCompile(`(exec_approvals_config raw_json unparseable \()[^;\n]*(; text withheld)`),
+		"${1}{position}${2}"},
+}
+
+// secretFileErrorText rewrites the reason of each secretFileErrors row and
+// returns the count.
+func secretFileErrorText(text string) (string, int) {
+	found := 0
+	for _, shape := range secretFileErrors {
+		text = shape.pattern.ReplaceAllStringFunc(text, func(match string) string {
+			found++
+			return shape.pattern.ReplaceAllString(match, shape.replacement)
+		})
+	}
+	return text, found
 }
 
 // quotedValue is a value an error: message quotes at the start of its
