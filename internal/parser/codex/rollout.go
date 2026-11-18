@@ -78,6 +78,7 @@ func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, 
 	state.carried, state.exitCodes = prescan(records)
 	for _, record := range records {
 		state.line, state.record = record.line, record.value
+		parser.ObjectMember(record.value.Get("payload"), "payload", record.line, &problems)
 		state.read()
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, state.sessionID, ""))

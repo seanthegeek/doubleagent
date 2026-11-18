@@ -135,3 +135,50 @@ func TestAThreadItemListThatIsNotAnArrayIsReported(t *testing.T) {
 		t.Errorf("an absent content: problems %v, want none", problems)
 	}
 }
+
+// rolloutProblems writes lines as a rollout of a home, parses it and
+// returns the texts of its problem rows.
+func rolloutProblems(t *testing.T, lines ...string) []string {
+	t.Helper()
+	const rel = ".codex/sessions/2026/01/02/rollout-2026-01-02T00-00-00-0198f0a1-0000-7000-8000-000000000001.jsonl"
+	home := t.TempDir()
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+	var problems []string
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+		if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+			problems = append(problems, row.Text)
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return problems
+}
+
+func TestARolloutPayloadThatIsNotAnObjectIsReported(t *testing.T) {
+	tests := []struct {
+		name, payload string
+		want          []string
+	}{
+		{"an object", `{"type":"task_started"}`, nil},
+		{"an empty object", `{}`, nil},
+		{"null", `null`, nil},
+		{"a string", `"x"`, []string{"parser: payload is not a JSON object"}},
+		{"a number", `5`, []string{"parser: payload is not a JSON object"}},
+		{"an array", `[{"type":"task_started"}]`, []string{"parser: payload is not a JSON object"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := rolloutProblems(t, `{"timestamp":"2026-01-02T00:00:00Z","type":"event_msg","payload":`+test.payload+`}`)
+			if !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
