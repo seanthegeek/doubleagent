@@ -26,7 +26,25 @@ INSERT INTO integrations VALUES (1, 'gitlab_self_hosted', 'work', 'glpat-TOKEN',
     'https://ci:s3cret@gitlab.example/api', '2026-10-01 09:00:00');
 """
 
-DATABASES = {"integrations.db": INTEGRATIONS}
+# Tables of an older shape, without user_id and author_id: thread 7 and page 3 have their row,
+# thread 8 and page 4 only their children.
+NARROW_TABLES = """
+PRAGMA page_size = 512;
+CREATE TABLE threads (id INTEGER PRIMARY KEY, created_at TIMESTAMP);
+INSERT INTO threads VALUES (7, '2026-10-01 09:00:00');
+CREATE TABLE thread_messages (id INTEGER PRIMARY KEY, thread_id INTEGER, role TEXT, content TEXT,
+    created_at TIMESTAMP);
+INSERT INTO thread_messages VALUES (1, 7, 'user', 'hello', '2026-10-01 09:00:01');
+INSERT INTO thread_messages VALUES (2, 8, 'user', 'orphan', '2026-10-01 09:00:02');
+CREATE TABLE pages (id INTEGER PRIMARY KEY, title TEXT, created_at TIMESTAMP);
+INSERT INTO pages VALUES (3, 'Notes', '2026-10-01 09:00:00');
+CREATE TABLE page_sections (id INTEGER PRIMARY KEY, page_id INTEGER, title TEXT, content TEXT,
+    position INTEGER, created_at TIMESTAMP);
+INSERT INTO page_sections VALUES (5, 3, 'One', 'body', 0, '2026-10-01 09:00:03');
+INSERT INTO page_sections VALUES (6, 4, 'Lost', 'body', 0, '2026-10-01 09:00:04');
+"""
+
+DATABASES = {"integrations.db": INTEGRATIONS, "narrow_tables.db": NARROW_TABLES}
 
 
 def main() -> None:

@@ -2,7 +2,6 @@ package tabby
 
 import (
 	"path"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -96,22 +95,11 @@ func (s *store) rows() error {
 	return nil
 }
 
-// selection is a table's whitelisted columns that it has, in whitelist
-// order: the keys each row of a select of them holds.
-type selection struct {
-	columns []string
-}
-
-// has reports whether the selection holds the column.
-func (s selection) has(column string) bool {
-	return slices.Contains(s.columns, column)
-}
-
 // each runs visit over the rows of table restricted to its whitelisted
 // columns, ordered by the comma-separated order columns the table has. A
 // table with none of the columns gives no rows. A column counts as present
 // when "PRAGMA table_info" would list it under exactly that name.
-func (s *store) each(table, order string, visit func(sqlitefile.Row, selection)) error {
+func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 	handle, err := s.database.Table(table)
 	if err != nil {
 		return err
@@ -122,13 +110,13 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row, selection))
 			have[column.Name] = true
 		}
 	}
-	var chosen selection
+	var chosen []string
 	for _, column := range tableColumns()[table] {
 		if have[column] {
-			chosen.columns = append(chosen.columns, column)
+			chosen = append(chosen, column)
 		}
 	}
-	if len(chosen.columns) == 0 {
+	if len(chosen) == 0 {
 		return nil
 	}
 	var keys []string
@@ -137,8 +125,8 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row, selection))
 			keys = append(keys, column)
 		}
 	}
-	return handle.Select(chosen.columns...).OrderBy(keys...).Each(func(row sqlitefile.Row) error {
-		visit(row, chosen)
+	return handle.Select(chosen...).OrderBy(keys...).Each(func(row sqlitefile.Row) error {
+		visit(row)
 		return nil
 	})
 }
@@ -149,7 +137,7 @@ func (s *store) readUsers() (map[string]string, error) {
 	if !s.tables["users"] {
 		return users, nil
 	}
-	err := s.each("users", "id", func(user sqlitefile.Row, _ selection) {
+	err := s.each("users", "id", func(user sqlitefile.Row) {
 		label := orText(user.Get("email"))
 		if name := user.Get("name"); !name.IsEmpty() {
 			if label != "" {
@@ -205,21 +193,20 @@ func (g *grouped) add(key string, row sqlitefile.Row) {
 	g.rows[key] = append(g.rows[key], row)
 }
 
-// parent is one thread or page: its row, or none when only its children
-// name it, and the columns its row holds.
+// parent is one thread or page: its row, or none (missing) when only its
+// children name it.
 type parent struct {
 	parentID string
 	row      sqlitefile.Row
 	missing  bool
-	from     selection
 }
 
 // parents returns the rows of table in order, then a stand-in for each key
 // of children no row has, whose children still get read under that id.
 func (s *store) parents(table, order string, children *grouped) ([]parent, error) {
 	var list []parent
-	err := s.each(table, order, func(row sqlitefile.Row, from selection) {
-		list = append(list, parent{parentID: row.Get("id").String(), row: row, from: from})
+	err := s.each(table, order, func(row sqlitefile.Row) {
+		list = append(list, parent{parentID: row.Get("id").String(), row: row})
 	})
 	if err != nil {
 		return nil, err
@@ -246,7 +233,7 @@ func (s *store) owner(value sqlitefile.Value) string {
 func (s *store) threads() error {
 	messages := &grouped{rows: map[string][]sqlitefile.Row{}}
 	if s.tables["thread_messages"] {
-		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row, _ selection) {
+		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row) {
 			messages.add(row.Get("thread_id").String(), row)
 		})
 		if err != nil {
@@ -287,7 +274,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	if !thread.row.Get("is_ephemeral").IsEmpty() {
 		parts = append(parts, "ephemeral")
 	}
-	if !thread.from.has("user_id") {
+	if thread.missing {
 		parts = append(parts, "thread row missing")
 	}
 	if len(questions) > 0 {
@@ -326,7 +313,7 @@ func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, t
 func (s *store) pages() error {
 	sections := &grouped{rows: map[string][]sqlitefile.Row{}}
 	if s.tables["page_sections"] {
-		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row, _ selection) {
+		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row) {
 			sections.add(row.Get("page_id").String(), row)
 		})
 		if err != nil {
@@ -362,7 +349,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 		author = "author user_id=" + authorID.String()
 	}
 	missing := ""
-	if !page.from.has("author_id") {
+	if page.missing {
 		missing = "page row missing"
 	}
 	start := spec
@@ -412,7 +399,7 @@ func labelledColumn(label string, value sqlitefile.Value) string {
 // userEvents emits the rows of each user event, or a `parser:` row for a
 // payload that is not a JSON object.
 func (s *store) userEvents() error {
-	return s.each("user_events", "created_at,id", func(event sqlitefile.Row, _ selection) {
+	return s.each("user_events", "created_at,id", func(event sqlitefile.Row) {
 		spec := rowSpec{line: sourceLine(event.Get("id")), timestamp: parser.ColumnTime(event.Get("created_at"))}
 		userID := event.Get("user_id")
 		owner := s.owner(userID)
@@ -435,7 +422,7 @@ func (s *store) userEvents() error {
 func (s *store) integrations() error {
 	type named struct{ name, kind string }
 	names := map[string]named{}
-	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row, _ selection) {
+	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
 		kind, apiBase := orText(integration.Get("kind")), parser.WithoutCredentials(orText(integration.Get("api_base")))
 		host := integrationHosts()[kind]
 		if host == "" {
@@ -452,7 +439,7 @@ func (s *store) integrations() error {
 	if err != nil || !s.tables["provided_repositories"] {
 		return err
 	}
-	return s.each("provided_repositories", "integration_id,id", func(repository sqlitefile.Row, _ selection) {
+	return s.each("provided_repositories", "integration_id,id", func(repository sqlitefile.Row) {
 		integration := names[repository.Get("integration_id").String()]
 		active := "no"
 		if !repository.Get("active").IsEmpty() {
