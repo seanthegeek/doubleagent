@@ -18,6 +18,11 @@ type stored struct {
 	line      int
 	sessionID string
 	place     int
+	// patched is set once a patch has replaced the message with its own
+	// copy, which later patches change in place; calls finds that copy's
+	// tool calls by a string id.
+	patched bool
+	calls   map[string]jsonvalue.Value
 }
 
 // placement is an id and a place it took in the order. A placement whose
@@ -63,7 +68,7 @@ func (m *messageLog) live(each placement) bool {
 func (m *messageLog) put(message jsonvalue.Value, line int, sessionID string) {
 	messageID := message.Get("id").StringValue()
 	if entry, ok := m.byID[messageID]; ok {
-		entry.message, entry.line = message, line
+		entry.message, entry.line, entry.patched, entry.calls = message, line, false, nil
 		return
 	}
 	entry := &stored{message: message, line: line, sessionID: sessionID}
@@ -144,6 +149,9 @@ type replay struct {
 	sessionID      string
 	latest         string
 	projectHash    jsonvalue.Value
+	// compared counts the tool calls looked at for a patch's results, the
+	// work a test holds to the size of the patches.
+	compared int
 }
 
 // newReplay returns an empty replay.
@@ -214,40 +222,77 @@ func texts(list jsonvalue.Value) []string {
 
 // applyPatch changes the message a patch names, when present: its content
 // when the patch has one, and the result of each of its tool calls the
-// patch gives a result for. The message is copied, never changed in place.
+// patch gives a result for. The message as recorded is never changed: the
+// first patch replaces it with a copy, tool calls included, which later
+// patches change in place, so a patch costs work in proportion to its own
+// size, not the message's.
 func (r *replay) applyPatch(patch jsonvalue.Value) {
 	entry, ok := r.messages.byID[patch.Get("id").StringValue()]
 	if !ok {
 		return
 	}
-	message := copyObject(entry.message)
+	if !entry.patched {
+		entry.message, entry.calls = patchableCopy(entry.message)
+		entry.patched = true
+	}
+	message := entry.message
 	if content := patch.Get("content"); !content.IsNull() {
 		message.Set("content", content)
 	}
-	calls := entry.message.Get("toolCalls")
-	if patch.Get("toolCalls").IsArray() && isText(message.Get("type"), "gemini") && calls.IsArray() {
-		copied := make([]jsonvalue.Value, 0, calls.Len())
-		for _, call := range calls.Items() {
-			if call.IsObject() {
-				call = copyObject(call)
-			}
-			copied = append(copied, call)
-		}
-		for _, toolPatch := range patch.Get("toolCalls").Items() {
-			result, ok := toolPatch.Lookup("result")
-			if !toolPatch.IsObject() || !ok {
-				continue
-			}
-			index := slices.IndexFunc(copied, func(call jsonvalue.Value) bool {
-				return call.IsObject() && jsonvalue.Equal(call.Get("id"), toolPatch.Get("id"))
-			})
-			if index >= 0 {
-				copied[index].Set("result", result)
-			}
-		}
-		message.Set("toolCalls", jsonvalue.NewArray(copied...))
+	calls := message.Get("toolCalls")
+	if !patch.Get("toolCalls").IsArray() || !isText(message.Get("type"), "gemini") || !calls.IsArray() {
+		return
 	}
-	entry.message = message
+	for _, toolPatch := range patch.Get("toolCalls").Items() {
+		result, ok := toolPatch.Lookup("result")
+		if !toolPatch.IsObject() || !ok {
+			continue
+		}
+		if call, found := r.patchedCall(entry, calls, toolPatch.Get("id")); found {
+			call.Set("result", result)
+		}
+	}
+}
+
+// patchableCopy returns a copy of a message whose tool calls are copies
+// too, and the first of those calls of each string id.
+func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonvalue.Value) {
+	copied := copyObject(message)
+	calls := message.Get("toolCalls")
+	if !calls.IsArray() {
+		return copied, nil
+	}
+	byID := map[string]jsonvalue.Value{}
+	items := make([]jsonvalue.Value, 0, calls.Len())
+	for _, call := range calls.Items() {
+		if call.IsObject() {
+			call = copyObject(call)
+			if _, seen := byID[call.Get("id").StringValue()]; call.Get("id").IsString() && !seen {
+				byID[call.Get("id").StringValue()] = call
+			}
+		}
+		items = append(items, call)
+	}
+	copied.Set("toolCalls", jsonvalue.NewArray(items...))
+	return copied, byID
+}
+
+// patchedCall returns the first tool call of a patched message whose id
+// equals callID: by the index for a string id, else by comparing each
+// call's id by value, as a number may be written 1 or 1.0.
+func (r *replay) patchedCall(entry *stored, calls, callID jsonvalue.Value) (jsonvalue.Value, bool) {
+	if callID.IsString() {
+		r.compared++
+		call, ok := entry.calls[callID.StringValue()]
+		return call, ok
+	}
+	for _, call := range calls.Items() {
+		r.compared++
+		if call.IsObject() && jsonvalue.Equal(call.Get("id"), callID) {
+			return call, true
+		}
+	}
+	return jsonvalue.NewNull(), false
 }
 
 // copyObject returns a new object holding an object's members, so a
