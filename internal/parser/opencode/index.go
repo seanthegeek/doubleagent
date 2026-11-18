@@ -17,6 +17,15 @@ type treeIndex struct {
 	// sessions holds each session file looked up, decoded, null when none
 	// decodes.
 	sessions map[sessionKey]jsonvalue.Value
+	// projectPaths holds the project path each session's side files give,
+	// "" when they give none.
+	projectPaths map[projectKey]string
+}
+
+// projectKey names a session looked up under one tree root and layout.
+type projectKey struct {
+	root, sessionID string
+	old             bool
 }
 
 // sessionKey names a session looked up under one session directory.
@@ -27,7 +36,7 @@ type sessionKey struct {
 // newTreeIndex returns an empty index.
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string][]string{},
-		sessions: map[sessionKey]jsonvalue.Value{}}
+		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,

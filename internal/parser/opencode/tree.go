@@ -119,6 +119,24 @@ func quietObject(path string, ok bool) (jsonvalue.Value, bool) {
 // project file's worktree unless "/", else the message's path.root or
 // path.cwd.
 func (p *Parser) sessionScope(root string, sessionID string, old bool, message jsonvalue.Value) *scope {
+	projectPath := p.sessionProject(root, sessionID, old)
+	if projectPath == "" {
+		where := parser.ObjectOrEmpty(message.Get("path"))
+		projectPath = parser.Text(parser.FirstNonEmpty(where.Get("root"), where.Get("cwd")))
+	}
+	return newScope(sessionID, projectPath)
+}
+
+// sessionProject returns the project path a session's side files give:
+// its session file's directory, else (new layout) its project file's
+// worktree unless "/", else "". It is read once per session for the run,
+// since every message file of the session looks it up.
+func (p *Parser) sessionProject(root string, sessionID string, old bool) string {
+	key := projectKey{root: root, sessionID: sessionID, old: old}
+	if projectPath, ok := p.tree.projectPaths[key]; ok {
+		return projectPath
+	}
+	p.Work.Add("session side reads", 1)
 	session := jsonvalue.NewNull()
 	if old {
 		session, _ = quietObject(childPath(root, "info", sessionID+".json"))
@@ -130,11 +148,8 @@ func (p *Parser) sessionScope(root string, sessionID string, old bool, message j
 		project, _ := quietObject(childPath(root, "project", projectID.Text()+".json"))
 		projectPath = worktreeText(project.Get("worktree"))
 	}
-	if projectPath == "" {
-		where := parser.ObjectOrEmpty(message.Get("path"))
-		projectPath = parser.Text(parser.FirstNonEmpty(where.Get("root"), where.Get("cwd")))
-	}
-	return newScope(sessionID, projectPath)
+	p.tree.projectPaths[key] = projectPath
+	return projectPath
 }
 
 // worktreeText returns a project's worktree as text, "" when it is "/".
