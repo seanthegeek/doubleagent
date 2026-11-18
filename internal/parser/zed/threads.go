@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -48,7 +49,8 @@ func (p *Parser) threadRow(context *thread, turnType, text, timestamp string) ti
 }
 
 // parseThreads emits the rows of every thread of threads.db, by updated_at.
-// A database error after some threads ends the file with its problem row.
+// A database error ends the file with its problem row, after the threads
+// read before it.
 func (p *Parser) parseThreads(artifact *input.Artifact, database *sqlitefile.Database,
 	options parser.Options, emit parser.Emit) {
 	records, err := threadRecords(database)
@@ -61,7 +63,9 @@ func (p *Parser) parseThreads(artifact *input.Artifact, database *sqlitefile.Dat
 }
 
 // threadRecords returns the rows of the threads table by updated_at, none
-// when there is no such table.
+// when there is no such table. The rows are read in storage order and
+// sorted here, so the rows read before damage come back with the error,
+// which a sorted query, reading every row first, would not return.
 func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 	names, err := database.TableNames()
 	if err != nil || !names["threads"] {
@@ -71,7 +75,11 @@ func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 	if err != nil {
 		return nil, err
 	}
-	return table.Select().OrderBy("updated_at").All()
+	rows, err := table.Select().All()
+	slices.SortStableFunc(rows, func(left, right sqlitefile.Row) int {
+		return sqlitefile.Compare(left.Get("updated_at"), right.Get("updated_at"))
+	})
+	return rows, err
 }
 
 // decodeThread returns the thread a row's data holds and the raw value to
