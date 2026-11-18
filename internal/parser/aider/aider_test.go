@@ -2,8 +2,10 @@ package aider
 
 import (
 	"fmt"
+	"math/bits"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -213,6 +215,110 @@ func TestAChatRunStartsAtItsFirstLineWithText(t *testing.T) {
 			reader.flush()
 			if len(rows) != 2 || rows[1].SourceLine != test.line {
 				t.Errorf("rows %+v, want a second row at line %d", rows, test.line)
+			}
+		})
+	}
+}
+
+// scanInput is the plain form of matchInput's search, the test's measure
+// of it: from position next, entries timed before the header are passed
+// over, the search ends at the first timed at or after the next header,
+// and the first holding the text matches. It returns the match, or -1.
+func scanInput(inputs []InputEntry, next int, header, nextHeader, text string) int {
+	for j := next; j < len(inputs); j++ {
+		stamp := inputs[j].Timestamp[:19]
+		if stamp < header {
+			continue
+		}
+		if nextHeader != "" && stamp >= nextHeader {
+			return -1
+		}
+		if normalise(inputs[j].Text) == normalise(text) {
+			return j
+		}
+	}
+	return -1
+}
+
+func TestAPromptFindsItsInputEntryAsTheEntriesAreSearchedInOrder(t *testing.T) {
+	stamp := func(minute int) string { return fmt.Sprintf("2025-01-01 10:%02d:00.000000", minute) }
+	inputs := []InputEntry{
+		{Timestamp: stamp(1), Text: "early"}, {Timestamp: stamp(12), Text: "fix  the\nbug"},
+		{Timestamp: stamp(14), Text: "again"}, {Timestamp: stamp(25), Text: "later"},
+		{Timestamp: stamp(13), Text: "again"}, {Timestamp: stamp(11), Text: "again"},
+	}
+	tests := []struct {
+		name, header, nextHeader, text string
+		next, want                     int
+	}{
+		{"whitespace runs are one space", stamp(10)[:19], stamp(20)[:19], "fix the bug", 0, 1},
+		{"an entry before the header is passed over", stamp(10)[:19], "", "early", 0, -1},
+		{"an entry of the next session ends the search", stamp(10)[:19], stamp(20)[:19], "again", 3, -1},
+		{"the search starts after the last match", stamp(10)[:19], stamp(20)[:19], "again", 4, 4},
+		{"the first entry holding the text matches", stamp(10)[:19], stamp(20)[:19], "again", 2, 2},
+		{"the last session searches to the end", stamp(20)[:19], "", "later", 0, 3},
+		{"no entry holds the text", stamp(10)[:19], "", "missing", 0, -1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reader := &chatReader{inputs: inputs, header: test.header, nextHeader: test.nextHeader,
+				nextInput: test.next}
+			reader.matchInput(test.text)
+			got := reader.nextInput - 1
+			if reader.nextInput == test.next {
+				got = -1
+			}
+			if got != test.want {
+				t.Errorf("matched %d, want %d", got, test.want)
+			}
+			if plain := scanInput(inputs, test.next, test.header, test.nextHeader, test.text); plain != test.want {
+				t.Errorf("the plain search matched %d, want %d", plain, test.want)
+			}
+		})
+	}
+}
+
+func TestAPromptSearchAgreesWithThePlainSearchOverMixedTimes(t *testing.T) {
+	var inputs []InputEntry
+	state := uint32(7)
+	random := func(n int) int {
+		state = state*1103515245 + 12345
+		return int(state>>16) % n
+	}
+	for range 300 {
+		inputs = append(inputs, InputEntry{Timestamp: fmt.Sprintf("2025-01-01 10:%02d:00", random(60)),
+			Text: fmt.Sprintf("prompt %d", random(8))})
+	}
+	for trial := range 2000 {
+		header := fmt.Sprintf("2025-01-01 10:%02d:00", random(60))
+		nextHeader := ""
+		if trial%3 != 0 {
+			nextHeader = fmt.Sprintf("2025-01-01 10:%02d:00", random(60))
+		}
+		next, text := random(len(inputs)+1), fmt.Sprintf("prompt %d", random(9))
+		reader := &chatReader{inputs: inputs, header: header, nextHeader: nextHeader, nextInput: next}
+		reader.matchInput(text)
+		want := scanInput(inputs, next, header, nextHeader, text)
+		if (want < 0 && reader.nextInput != next) || (want >= 0 && reader.nextInput != want+1) {
+			t.Fatalf("trial %d: next input %d, want the match %d", trial, reader.nextInput, want)
+		}
+	}
+}
+
+func TestAPromptSearchGrowsWithTheLogarithmOfTheEntries(t *testing.T) {
+	for _, count := range []int{1024, 2048, 4096} {
+		t.Run(strconv.Itoa(count)+" entries", func(t *testing.T) {
+			inputs := make([]InputEntry, count)
+			for i := range inputs {
+				inputs[i] = InputEntry{Timestamp: "2025-01-01 10:30:00", Text: "prompt " + strconv.Itoa(i%2)}
+			}
+			reader := &chatReader{inputs: inputs, header: "2025-01-01 10:00:00", nextHeader: "2025-01-01 11:00:00"}
+			for range count {
+				reader.matchInput("a prompt no entry holds")
+				reader.matchInput("prompt 0")
+			}
+			if limit := 2 * count * 4 * (bits.Len(uint(count)) + 1); reader.inputIndex.steps > limit {
+				t.Errorf("%d steps for %d searches, want at most %d", reader.inputIndex.steps, 2*count, limit)
 			}
 		})
 	}
