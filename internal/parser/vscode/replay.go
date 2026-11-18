@@ -15,13 +15,15 @@ const sessionStart = -1
 // requestLines maps a request's position to the log line that created it.
 type requestLines map[int64]int
 
-// replay replays a .jsonl mutation log and returns the session state. A
-// line that does not decode, or whose mutation does not apply, is a problem
-// with the line's text and is skipped; a line holding anything but an
-// object is skipped silently. The entries the replay moves are counted in
-// work.
+// replay replays a .jsonl mutation log and returns the session state,
+// filling lines with the log line that made each request and the line of
+// the session's own creation. A line that does not decode, or whose
+// mutation does not apply, is a problem with the line's text and is
+// skipped; a line holding anything but an object is skipped silently. The
+// entries the replay changes are counted in work.
 func replay(path string, lines requestLines, problems *parser.Problems, work parser.Work) jsonvalue.Value {
 	var state *node
+	started, startLine := false, 0
 	for number, raw := range parser.Lines(path, problems) {
 		stripped := bytes.TrimSpace(raw)
 		if len(stripped) == 0 {
@@ -35,89 +37,43 @@ func replay(path string, lines requestLines, problems *parser.Problems, work par
 		if !record.IsObject() {
 			continue
 		}
-		before := requestCount(state)
-		next, err := applyMutation(state, record, work)
+		next, err := applyMutation(state, record, number, work)
 		if err != nil {
 			problems.AddRaw(number, "mutation not applied ("+err.Error()+")", parser.LineText(raw))
 			continue
 		}
 		state = next
-		track(record, before, requestCount(state), number, lines, work)
+		if isKind(record.Get("kind"), 0) {
+			started, startLine = true, number
+		}
 	}
+	trackLines(state, started, startLine, lines)
 	return state.value()
 }
 
-// requestCount returns how many requests the state holds.
-func requestCount(state *node) int64 {
+// trackLines fills lines from the replayed state: the log line that made
+// each request, which every node carries from the record that made it (a
+// replaced state, a list set whole, a push, a set by index), so a delete
+// moves no line, and the session start's line once a state was set whole.
+func trackLines(state *node, started bool, startLine int, lines requestLines) {
+	clear(lines)
+	if started {
+		lines[sessionStart] = startLine
+	}
+	if requests := requestList(state); requests != nil {
+		for i, request := range requests.items.items() {
+			lines[int64(i)] = request.line
+		}
+	}
+}
+
+// requestList returns the state's requests array, nil when it has none.
+func requestList(state *node) *node {
 	if state == nil || !state.isObject {
-		return 0
+		return nil
 	}
-	requests := state.members["requests"]
-	if requests == nil || !requests.isArray {
-		return 0
+	if requests := state.members["requests"]; requests != nil && requests.isArray {
+		return requests
 	}
-	return int64(len(requests.items))
-}
-
-// track remembers the log line that created each request, given how many
-// requests there were before and after the record was applied: every
-// request of a replaced state or of a list set whole, the requests a push
-// added at the end of the list (whatever the truncation before it), a
-// request set by its index, and a deleted request's followers moved down
-// one place. Before the record, lines holds a line for each of the before
-// requests and no other, so only those from the first changed one on are
-// looked at; the entries set or moved are counted in work.
-func track(record jsonvalue.Value, before, after int64, number int, lines requestLines, work parser.Work) {
-	kind := record.Get("kind")
-	path := record.Get("k").Items()
-	switch {
-	case isKind(kind, 0):
-		clear(lines)
-		lines[sessionStart] = number
-		for i := range after {
-			lines[i] = number
-		}
-		work.Add("entries moved", int(after))
-	case len(path) == 1 && isRequests(path[0]):
-		start := int64(0)
-		if isKind(kind, 2) {
-			start = after - pushedCount(record.Get("v"))
-		}
-		for i := start; i < before; i++ {
-			delete(lines, i)
-		}
-		for i := start; i < after; i++ {
-			lines[i] = number
-		}
-		work.Add("entries moved", int(max(before, after)-start))
-	case len(path) == 2 && isRequests(path[0]) && isKind(kind, 1) && path[1].IsInt():
-		index, _ := integer(path[1])
-		lines[index] = number
-	case len(path) == 2 && isRequests(path[0]) && isKind(kind, 3):
-		if removed, ok := listIndex(path[1], int(before)); ok {
-			for i := int64(removed); i < after; i++ {
-				if line, ok := lines[i+1]; ok {
-					lines[i] = line
-				} else {
-					delete(lines, i)
-				}
-			}
-			delete(lines, after)
-			work.Add("entries moved", int(after)-removed)
-		}
-	}
-}
-
-// isRequests reports whether a path key is "requests".
-func isRequests(key jsonvalue.Value) bool {
-	return key.IsString() && key.StringValue() == "requests"
-}
-
-// pushedCount returns how many items a push of value adds: each item of
-// an array, or the value itself as one item.
-func pushedCount(value jsonvalue.Value) int64 {
-	if value.IsArray() {
-		return int64(value.Len())
-	}
-	return 1
+	return nil
 }

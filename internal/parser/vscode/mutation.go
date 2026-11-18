@@ -2,7 +2,6 @@ package vscode
 
 import (
 	"math"
-	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -10,12 +9,13 @@ import (
 
 // node is a JSON value of a session being rebuilt from its mutation log:
 // its arrays and objects change in place. A value that is neither is held
-// as it was decoded.
+// as it was decoded. line is the log line of the record that made it.
 type node struct {
 	scalar   jsonvalue.Value
+	line     int
 	isArray  bool
 	isObject bool
-	items    []*node
+	items    itemList
 	// keys holds an object's keys in the order they were added, a deleted
 	// key left in place; slots gives each present key its position in
 	// keys, so a delete need not search the list.
@@ -24,23 +24,24 @@ type node struct {
 	members map[string]*node
 }
 
-// newNode returns a decoded value as a node, its arrays and objects copied.
-func newNode(value jsonvalue.Value) *node {
+// newNode returns a decoded value as a node made by the record at log line
+// line, its arrays and objects copied.
+func newNode(value jsonvalue.Value, line int) *node {
 	switch {
 	case value.IsArray():
-		created := &node{isArray: true, items: make([]*node, 0, value.Len())}
+		created := &node{isArray: true, line: line}
 		for _, item := range value.Items() {
-			created.items = append(created.items, newNode(item))
+			created.items.push(newNode(item, line))
 		}
 		return created
 	case value.IsObject():
-		created := &node{isObject: true, slots: map[string]int{}, members: map[string]*node{}}
+		created := &node{isObject: true, line: line, slots: map[string]int{}, members: map[string]*node{}}
 		for _, member := range value.Members() {
-			created.add(member.Key, newNode(member.Value))
+			created.add(member.Key, newNode(member.Value, line))
 		}
 		return created
 	}
-	return &node{scalar: value}
+	return &node{scalar: value, line: line}
 }
 
 // value returns the node as a decoded value.
@@ -49,8 +50,9 @@ func (n *node) value() jsonvalue.Value {
 	case n == nil:
 		return jsonvalue.NewNull()
 	case n.isArray:
-		items := make([]jsonvalue.Value, len(n.items))
-		for i, item := range n.items {
+		held := n.items.items()
+		items := make([]jsonvalue.Value, len(held))
+		for i, item := range held {
 			items[i] = item.value()
 		}
 		return jsonvalue.NewArray(items...)
@@ -135,8 +137,8 @@ func child(parent *node, key jsonvalue.Value) (*node, bool) {
 		found, ok := parent.members[key.StringValue()]
 		return found, ok && key.IsString()
 	case parent.isArray:
-		if i, ok := listIndex(key, len(parent.items)); ok {
-			return parent.items[i], true
+		if i, ok := listIndex(key, parent.items.Len()); ok {
+			return parent.items.item(i), true
 		}
 	}
 	return nil, false
@@ -163,10 +165,10 @@ func set(parent *node, key jsonvalue.Value, value *node) error {
 	switch {
 	case parent != nil && parent.isArray && isInteger:
 		switch {
-		case index == int64(len(parent.items)):
-			parent.items = append(parent.items, value)
-		case index >= 0 && index < int64(len(parent.items)):
-			parent.items[index] = value
+		case index == int64(parent.items.Len()):
+			parent.items.push(value)
+		case index >= 0 && index < int64(parent.items.Len()):
+			parent.items.replace(int(index), value)
 		default:
 			return mutationError("index " + key.JSON() + " out of range")
 		}
@@ -179,8 +181,9 @@ func set(parent *node, key jsonvalue.Value, value *node) error {
 }
 
 // remove deletes parent[key] when it is there; a key that names nothing,
-// or a parent that cannot lose one, changes nothing. It counts in work the
-// keys and items it moves or looks at.
+// or a parent that cannot lose one, changes nothing. Neither an object's
+// keys nor an array's items after the one deleted move; the entry deleted
+// is counted in work.
 func remove(parent *node, key jsonvalue.Value, work parser.Work) {
 	switch {
 	case parent == nil:
@@ -188,25 +191,25 @@ func remove(parent *node, key jsonvalue.Value, work parser.Work) {
 		if _, ok := parent.members[key.StringValue()]; ok {
 			delete(parent.members, key.StringValue())
 			delete(parent.slots, key.StringValue())
-			work.Add("entries moved", 1)
+			work.Add("entries changed", 1)
 		}
 	case parent.isArray:
-		if i, ok := listIndex(key, len(parent.items)); ok {
-			parent.items = slices.Delete(parent.items, i, i+1)
-			work.Add("entries moved", len(parent.items)-i)
+		if i, ok := listIndex(key, parent.items.Len()); ok {
+			parent.items.remove(i)
+			work.Add("entries changed", 1)
 		}
 	}
 }
 
-// applyMutation applies one mutation-log record to state and returns the
-// new state. Kind 0 replaces the state with v; kind 1 sets v at path k; kind
-// 2 truncates the array at k to i items, when i is given, and pushes v
-// (each item of an array); kind 3 deletes the value at k, its work counted
-// in work.
-func applyMutation(state *node, record jsonvalue.Value, work parser.Work) (*node, error) {
+// applyMutation applies one mutation-log record, at log line line, to
+// state and returns the new state. Kind 0 replaces the state with v; kind 1
+// sets v at path k; kind 2 truncates the array at k to i items, when i is
+// given, and pushes v (each item of an array); kind 3 deletes the value at
+// k. The items pushed and deleted are counted in work.
+func applyMutation(state *node, record jsonvalue.Value, line int, work parser.Work) (*node, error) {
 	kind := record.Get("kind")
 	if isKind(kind, 0) {
-		return newNode(record.Get("v")), nil
+		return newNode(record.Get("v"), line), nil
 	}
 	pathValue := record.Get("k")
 	path := pathValue.Items()
@@ -216,7 +219,7 @@ func applyMutation(state *node, record jsonvalue.Value, work parser.Work) (*node
 	target := state
 	if len(path) > 0 {
 		var err error
-		if target, err = keyedMutation(state, kind, path, record.Get("v"), work); target == nil || err != nil {
+		if target, err = keyedMutation(state, kind, path, record.Get("v"), line, work); target == nil || err != nil {
 			return state, err
 		}
 	}
@@ -224,15 +227,16 @@ func applyMutation(state *node, record jsonvalue.Value, work parser.Work) (*node
 		return state, mutationError("push to non-list at " + pathValue.JSON())
 	}
 	if start, ok := integer(record.Get("i")); ok {
-		target.items = target.items[:sliceStart(start, len(target.items))]
+		target.items.truncate(sliceStart(start, target.items.Len()))
 	}
-	if items := record.Get("v"); items.IsArray() {
-		for _, item := range items.Items() {
-			target.items = append(target.items, newNode(item))
-		}
-	} else {
-		target.items = append(target.items, newNode(items))
+	pushed := []jsonvalue.Value{record.Get("v")}
+	if record.Get("v").IsArray() {
+		pushed = record.Get("v").Items()
 	}
+	for _, item := range pushed {
+		target.items.push(newNode(item, line))
+	}
+	work.Add("entries changed", len(pushed))
 	return state, nil
 }
 
@@ -240,7 +244,7 @@ func applyMutation(state *node, record jsonvalue.Value, work parser.Work) (*node
 // set of value or a delete is done and gives nil, and a push gives the array to push
 // to, made empty at the path when the path holds nothing.
 func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value,
-	work parser.Work) (*node, error) {
+	line int, work parser.Work) (*node, error) {
 	parent, err := walk(state, path[:len(path)-1])
 	if err != nil {
 		return nil, err
@@ -248,7 +252,7 @@ func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, va
 	key := path[len(path)-1]
 	switch {
 	case isKind(kind, 1):
-		return nil, set(parent, key, newNode(value))
+		return nil, set(parent, key, newNode(value, line))
 	case isKind(kind, 3):
 		remove(parent, key, work)
 		return nil, nil
@@ -257,7 +261,7 @@ func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, va
 	}
 	target, ok := child(parent, key)
 	if !ok || target.isNull() {
-		target = &node{isArray: true}
+		target = &node{isArray: true, line: line}
 		if err := set(parent, key, target); err != nil {
 			return nil, err
 		}
