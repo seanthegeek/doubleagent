@@ -200,6 +200,8 @@ func TestALookupOfAnAskTimeIsABinarySearch(t *testing.T) {
 		{"between two asks", "25", "20"},
 		{"after every ask", "99", "30"},
 		{"a time that is not a number", `"25"`, ""},
+		{"a time past the float range is after every ask", `1e400`, "30"},
+		{"a negative time past the float range is before every ask", `-1e400`, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

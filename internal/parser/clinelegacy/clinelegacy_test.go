@@ -239,7 +239,13 @@ func TestEpochOfReadsANumberOrANumericString(t *testing.T) {
 		{"a string that is not a number is 0", `"soon"`, 0},
 		{"NaN is 0", `"nan"`, 0},
 		{"a string past the float range is infinite", `"1e999"`, math.Inf(1)},
-		{"a number past the float range is 0", `1e999`, 0},
+		{"a number past the float range is infinite", `1e400`, math.Inf(1)},
+		{"a negative number past the float range is minus infinity", `-1e400`, math.Inf(-1)},
+		{"a string of a negative number past the float range", `"-1e400"`, math.Inf(-1)},
+		{"NaN text in another case is 0", `"NaN"`, 0},
+		{"a negative number", `-5`, -5},
+		{"zero", `0`, 0},
+		{"false counts as 0", `false`, 0},
 		{"null is 0", `null`, 0},
 		{"an object is 0", `{"a": 1}`, 0},
 	}
@@ -247,6 +253,31 @@ func TestEpochOfReadsANumberOrANumericString(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := epochOf(decode(t, test.value)); got != test.want {
 				t.Errorf("epochOf(%s) = %v, want %v", test.value, got, test.want)
+			}
+		})
+	}
+}
+
+func TestATimePastTheFloatRangeFallsAfterOrBeforeEveryRealTime(t *testing.T) {
+	metadata := decode(t, `{"model_usage": [{"ts": 1000, "model_id": "early"}, {"ts": 1e400, "model_id": "never"},
+		{"ts": -1e400, "model_id": "always"}]}`)
+	context := newTaskContext("t", jsonvalue.NewNull(), metadata, "cwd")
+	tests := []struct {
+		name, timestamp, want string
+	}{
+		{"before the earliest real switch", `500`, "always"},
+		{"after it", `5000`, "early"},
+		{"zero", `0`, "always"},
+		{"a negative time", `-5`, "always"},
+		{"a time past the float range", `1e400`, "never"},
+		{"a negative time past the float range", `-1e400`, "always"},
+		{"text of a time past the float range is not a time", `"1e400"`, "always"},
+		{"NaN text is not a time", `"NaN"`, "always"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := context.ModelAt(decode(t, test.timestamp)); got != test.want {
+				t.Errorf("ModelAt(%s) = %q, want %q", test.timestamp, got, test.want)
 			}
 		})
 	}

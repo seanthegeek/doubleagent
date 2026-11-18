@@ -66,18 +66,16 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 }
 
 // epochOf returns the time of a model_usage entry in epoch milliseconds:
-// a number (NumberOf), or a string holding one with spaces around it, as a
-// hand-edited file may write it. Any other value, an empty one and a NaN
-// are 0, so an entry without a readable time counts as the earliest. A
-// number past the float range is infinite, as strconv.ParseFloat gives it.
+// TimeOf's, else a string holding a number with spaces around it, as a
+// hand-edited file may write it, past the float range infinite by its sign
+// as TimeOf gives a number. Any other value, an empty one and NaN text are
+// 0, so an entry without a readable time counts as the earliest.
 func epochOf(value jsonvalue.Value) float64 {
-	number, ok := NumberOf(value)
-	if value.IsString() {
-		var err error
-		number, err = strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
-		ok = err == nil || errors.Is(err, strconv.ErrRange)
+	if moment, ok := TimeOf(value); ok {
+		return moment
 	}
-	if !ok || math.IsNaN(number) {
+	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
+	if (err != nil && !errors.Is(err, strconv.ErrRange)) || math.IsNaN(number) {
 		return 0
 	}
 	return number
@@ -114,15 +112,16 @@ func numberLess(left, right jsonvalue.Value) bool {
 	return OrderOf(left) < OrderOf(right)
 }
 
-// ModelAt returns the model in use at an epoch-millisecond time: the last
-// model_usage entry at or before it, the earliest entry for a time that is
-// not a number, and the index item's model when there are no entries. The
-// entries are sorted by time, so each lookup is a binary search.
+// ModelAt returns the model in use at an epoch-millisecond time (TimeOf):
+// the last model_usage entry at or before it, the earliest entry for a time
+// that is not a number, and the index item's model when there are no
+// entries. The entries are sorted by time, so each lookup is a binary
+// search.
 func (c *TaskContext) ModelAt(timestamp jsonvalue.Value) string {
 	if len(c.usage) == 0 {
 		return c.defaultModel
 	}
-	moment, ok := NumberOf(timestamp)
+	moment, ok := TimeOf(timestamp)
 	if !ok {
 		return c.usage[0].model
 	}

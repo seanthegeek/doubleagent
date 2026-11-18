@@ -112,12 +112,12 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
 }
 
-// lastBefore returns the latest ask time at or before a message's time,
-// as its number text, or "" when there is none or the time is not a
-// number. The asks are in time order, so a binary search finds it.
+// lastBefore returns the latest ask time at or before a message's time
+// (clinelegacy.TimeOf), as its number text, or "" when there is none or
+// the time is not a number. The asks are in time order, so a binary search finds it.
 func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
-	moment, ok := clinelegacy.NumberOf(timestamp)
-	if !ok || !clinelegacy.IsNumber(timestamp) {
+	moment, ok := clinelegacy.TimeOf(timestamp)
+	if !ok {
 		return ""
 	}
 	after := sort.Search(len(x.times), func(i int) bool {
