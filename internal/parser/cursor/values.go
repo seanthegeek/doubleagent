@@ -2,8 +2,6 @@ package cursor
 
 import (
 	"strconv"
-	"strings"
-	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -148,8 +146,20 @@ func selectPresent(table *sqlitefile.Table, wanted []string) ([]sqlitefile.Row, 
 	return table.Select(columns...).OrderBy("rowid").All()
 }
 
-// lstripsToList reports whether text, less its leading whitespace, starts
-// a JSON array.
-func lstripsToList(text string) bool {
-	return strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "[")
+// listRecord returns the items of a key-value row whose value the format
+// makes a JSON array. A value that does not decode is a problem through
+// decodeRecord, and one of another kind adds the problem that the row's
+// key is not a JSON array, at its rowid.
+func listRecord(row keyed, problems *parser.Problems) []jsonvalue.Value {
+	return parser.ArrayMember(decodeRecord(row.rowid, row.key, row.value, problems), row.key, int(row.rowid), problems)
+}
+
+// objectRecord returns the value of a key-value row whose value the format
+// makes a JSON object, an empty object when it is not one. A value that
+// does not decode is a problem through decodeRecord, and one of another
+// kind adds the problem that the row's key is not a JSON object.
+func objectRecord(row keyed, problems *parser.Problems) jsonvalue.Value {
+	value := decodeRecord(row.rowid, row.key, row.value, problems)
+	parser.ObjectMember(value, row.key, int(row.rowid), problems)
+	return parser.ObjectOrEmpty(value)
 }

@@ -121,8 +121,8 @@ func (i *items) mcpServer(scope string, fields map[string]mcpField, hasTokens bo
 
 // plugins emits a "plugin installed:" row per entry of each
 // cursor.plugins.installedIds. list, at the file's modification time; a
-// file: scope is the row's project. A value that is not a JSON list is
-// skipped, one that starts as a list and does not decode is a problem.
+// file: scope is the row's project. A value that does not decode, or is
+// not a JSON array, is a problem.
 func (i *items) plugins(emit parser.Emit) {
 	if i.table == nil {
 		return
@@ -130,10 +130,7 @@ func (i *items) plugins(emit parser.Emit) {
 	for _, row := range i.store.rows(substrPrefixed(i.table, pluginsPrefix)) {
 		suffix := row.key[len(pluginsPrefix):]
 		scope := suffix[strings.LastIndex(suffix, "|")+1:]
-		if !lstripsToList(asText(row.value)) {
-			continue
-		}
-		for _, entry := range decodeRecord(row.rowid, row.key, row.value, i.problems).Items() {
+		for _, entry := range listRecord(row, i.problems) {
 			if !entry.IsObject() {
 				continue
 			}

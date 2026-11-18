@@ -154,10 +154,15 @@ func (r *stateReader) loadBubbles() {
 }
 
 // entries returns the conversation's header list: composerData's inline
-// fullConversationHeadersOnly, else its composerConvHeaders chunks.
+// fullConversationHeadersOnly, else its composerConvHeaders chunks. An
+// inline list or a chunk that is not a JSON array is a problem.
 func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 	var entries []jsonvalue.Value
-	if inline := current.data.Get("fullConversationHeadersOnly"); inline.IsArray() && inline.Len() > 0 {
+	inline := current.data.Get("fullConversationHeadersOnly")
+	if !inline.IsArray() && !inline.IsNull() {
+		current.problems.Add(int(current.dataRowid), parser.WrongKind("fullConversationHeadersOnly", jsonvalue.Array))
+	}
+	if inline.IsArray() && inline.Len() > 0 {
 		for _, entry := range inline.Items() {
 			if entry.IsObject() {
 				entries = append(entries, entry)
@@ -166,8 +171,7 @@ func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 		return entries
 	}
 	for _, row := range r.headerChunks(current.ident) {
-		chunk := decodeRecord(row.rowid, row.key, row.value, &current.problems)
-		for _, entry := range chunk.Items() {
+		for _, entry := range listRecord(row, &current.problems) {
 			if entry.IsObject() {
 				entries = append(entries, entry)
 			}

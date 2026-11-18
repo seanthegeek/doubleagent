@@ -128,7 +128,8 @@ func (c *composers) get(ident string) *composer {
 }
 
 // readComposers returns every composer of the store: the composerData rows
-// in rowid order, then the composers with only a header.
+// in rowid order, then the composers with only a header. A composerData
+// value that is not a JSON object is that composer's problem.
 func readComposers(store *store) *composers {
 	found := &composers{byID: map[string]*composer{}}
 	if keyValues := store.table("cursorDiskKV"); keyValues != nil {
@@ -136,7 +137,7 @@ func readComposers(store *store) *composers {
 		sortByRowid(rows)
 		for _, row := range rows {
 			current := found.get(row.key[len("composerData:"):])
-			current.data = parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, &current.problems))
+			current.data = objectRecord(row, &current.problems)
 			current.hasData, current.dataRowid = true, row.rowid
 		}
 	}

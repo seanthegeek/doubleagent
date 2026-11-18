@@ -64,7 +64,8 @@ func (i *items) system(text, timestamp string, rowid int64) timeline.Row {
 }
 
 // standing emits the standing permissions of the settings blob's
-// composerState and the models' last use.
+// composerState and the models' last use. A blob, composerState, list,
+// aiSettings or modelLastUsedAt of the wrong kind is a problem.
 func (i *items) standing(emit parser.Emit) {
 	if i.table == nil {
 		return
@@ -73,16 +74,18 @@ func (i *items) standing(emit parser.Emit) {
 	if !ok {
 		return
 	}
-	document := parser.ObjectOrEmpty(decodeRecord(settings.rowid, settingsKey, settings.value, i.problems))
+	document := objectRecord(settings, i.problems)
 	sandbox := false
 	if found, ok := keyedValue(i.store, i.table, sandboxKey); ok {
 		var ignored parser.Problems
 		sandbox = isTrue(decodeRecord(found.rowid, sandboxKey, found.value, &ignored))
 	}
-	for _, text := range standingTexts(parser.ObjectOrEmpty(document.Get("composerState")), sandbox) {
+	line := int(settings.rowid)
+	state, uses := settingsParts(document, line, i.problems)
+	for _, text := range standingTexts(state, sandbox, line, i.problems) {
 		emit(i.system(text, i.mtime, settings.rowid))
 	}
-	for _, used := range document.Get("aiSettings").Get("modelLastUsedAt").Members() {
+	for _, used := range uses {
 		emit(i.owner.row(i.artifact, timeline.TurnSystem, "model last used: "+used.Key+" "+modelUsedSource,
 			timeutil.FromValue(used.Value), settings.rowid))
 	}
@@ -108,17 +111,31 @@ func runMode(mode jsonvalue.Value, sandbox bool) string {
 	return label
 }
 
+// settingsParts returns the settings blob's composerState, an empty object
+// when it is not one, and the members of aiSettings.modelLastUsedAt. A
+// composerState, aiSettings or modelLastUsedAt of the wrong kind adds a
+// problem at line.
+func settingsParts(document jsonvalue.Value, line int, problems *parser.Problems) (jsonvalue.Value, []jsonvalue.Member) {
+	state := document.Get("composerState")
+	parser.ObjectMember(state, "composerState", line, problems)
+	aiSettings := document.Get("aiSettings")
+	parser.ObjectMember(aiSettings, "aiSettings", line, problems)
+	uses := parser.ObjectMember(aiSettings.Get("modelLastUsedAt"), "aiSettings.modelLastUsedAt", line, problems)
+	return parser.ObjectOrEmpty(state), uses
+}
+
 // standingTexts returns the "permission setting:" texts of composerState:
-// one per standing-list entry, one per modes4 entry and one per switch.
-func standingTexts(state jsonvalue.Value, sandbox bool) []string {
+// one per standing-list entry, one per modes4 entry and one per switch. A
+// standing list or modes4 that is not a JSON array adds a problem at line.
+func standingTexts(state jsonvalue.Value, sandbox bool, line int, problems *parser.Problems) []string {
 	var texts []string
 	for _, key := range standingLists() {
-		for _, entry := range state.Get(key).Items() {
+		for _, entry := range parser.ArrayMember(state.Get(key), key, line, problems) {
 			texts = append(texts, "permission setting: "+key+"="+parser.SettingValue(entry)+" "+composerSource)
 		}
 	}
 	sandboxText := parser.SettingValue(jsonvalue.NewBool(sandbox))
-	for _, mode := range state.Get("modes4").Items() {
+	for _, mode := range parser.ArrayMember(state.Get("modes4"), "modes4", line, problems) {
 		if !mode.IsObject() {
 			continue
 		}
