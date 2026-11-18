@@ -68,10 +68,7 @@ func (p *Parser) parseLedger(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.ProblemRow(artifact, "import ledger has no records list"))
 		return
 	}
-	for i, record := range records.Items() {
-		if !record.IsObject() {
-			continue
-		}
+	for i, record := range parser.EntriesOfKind(records, "records", jsonvalue.Object, 0, &problems) {
 		text := "imported session from " + parser.Text(record.Get("source_path")) + " sha256=" +
 			parser.Text(record.Get("content_sha256"))
 		if modified := timeutil.FromValue(record.Get("source_modified_at")); modified != "" {
@@ -81,6 +78,9 @@ func (p *Parser) parseLedger(artifact *input.Artifact, emit parser.Emit) {
 			parser.Text(record.Get("imported_thread_id")), i+1)
 		row.TimestampUTC = timeutil.FromValue(record.Get("imported_at"))
 		emit(row)
+	}
+	for _, problem := range problems {
+		emit(p.ProblemRow(artifact, problem.Message))
 	}
 }
 

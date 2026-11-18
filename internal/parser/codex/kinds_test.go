@@ -182,3 +182,49 @@ func TestARolloutPayloadThatIsNotAnObjectIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestGlobalStateEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
+	inAtom := func(key, value string) string {
+		return `{"electron-persisted-atom-state": {"` + key + `": ` + value + `}}`
+	}
+	tests := []struct {
+		name, document, want string
+	}{
+		{"a prompt list's entries", inAtom(promptHistoryKey, `{"t1": [{"markdown": "hi"}, "x", 7]}`),
+			"parser: prompt-history.t1 holds 2 entries that are not JSON objects"},
+		{"thread permissions", inAtom(permissionsKey, `{"t1": {"mode": "ask"}, "t2": "x"}`),
+			"parser: heartbeat-thread-permissions-by-id holds 1 entry that is not a JSON object"},
+		{"output directories", `{"thread-projectless-output-directories": {"t1": "/w/a", "t2": 7, "t3": {}}}`,
+			"parser: thread-projectless-output-directories holds 2 entries that are not JSON strings"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := globalStateProblems(t, test.document); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestImportLedgerRecordsThatAreNotObjectsAreReportedOnce(t *testing.T) {
+	const rel = ".fork/imports.json"
+	home := t.TempDir()
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ledger := `{"records": [{"source_path": "/a", "imported_thread_id": "t1"}, "x", 7]}`
+	if err := osfile.WriteFile(path, []byte(ledger), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fork := NewRollout(Settings{Agent: "fork", HomePrefix: ".fork", LedgerName: "imports.json"})
+	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+	var texts []string
+	if err := fork.Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"imported session from /a sha256=", "parser: records holds 2 entries that are not JSON objects"}
+	if !slices.Equal(texts, want) {
+		t.Errorf("rows %q, want %q", texts, want)
+	}
+}
