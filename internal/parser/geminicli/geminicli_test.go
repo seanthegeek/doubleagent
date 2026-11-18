@@ -224,6 +224,37 @@ func TestProjectsJSONIsReadOncePerStateOfTheFile(t *testing.T) {
 	}
 }
 
+// Every file of a runtime directory reads its .project_root, which is read
+// once per state of the file.
+func TestTheProjectRootIsReadOncePerStateOfTheFile(t *testing.T) {
+	const lookups = 300
+	base := t.TempDir()
+	root := filepath.Join(base, "tmp", "slug", ".project_root")
+	if err := osfile.MkdirAll(filepath.Dir(root), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write(t, root, "/srv/a\n")
+	locate := func(names ...string) string { return filepath.Join(append([]string{base}, names...)...) }
+	subject := New()
+	subject.Work = parser.CountingWork()
+	var problems parser.Problems
+	for i := range lookups {
+		if got := subject.resolveProject(locate, "slug", "", &problems); got != "/srv/a" {
+			t.Fatalf("lookup %d gave %q, want /srv/a", i, got)
+		}
+	}
+	if reads := subject.Work.Count(".project_root reads"); reads != 1 {
+		t.Errorf(".project_root read %d times for %d lookups, want once", reads, lookups)
+	}
+	write(t, root, "/srv/longer\n")
+	if got := subject.resolveProject(locate, "slug", "", &problems); got != "/srv/longer" {
+		t.Errorf("a changed file gave %q, want its new text", got)
+	}
+	if reads := subject.Work.Count(".project_root reads"); reads != 2 || len(problems) != 0 {
+		t.Errorf("%d reads and problems %+v after a change, want 2 and none", reads, problems)
+	}
+}
+
 // The sha256 of a key matches a hash slug or the session's project hash,
 // the first such key in the file's order winning.
 func TestTheFirstKeyOfAMatchingHashWins(t *testing.T) {

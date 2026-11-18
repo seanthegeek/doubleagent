@@ -95,6 +95,8 @@ func matchPath(pattern *regexp.Regexp, rel string) pathMatch {
 type Parser struct {
 	parser.Base
 	projects map[fileState]*projectIndex
+	// roots holds each .project_root read, by its state.
+	roots map[fileState]*sideText
 }
 
 // New returns the parser.
