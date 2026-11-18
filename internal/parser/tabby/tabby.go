@@ -294,19 +294,24 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parser.Emit
 
 // parseVSCodeState emits the VS Code extension's command history from an
 // editor's state.vscdb, then a row per problem, never echoing the value:
-// the same row holds the extension's endpoint tokens.
+// the same row holds the extension's endpoint tokens. A history that is
+// not an array adds a problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parser.Emit) {
 	state, problems := vscodestate.ReadItem(artifact.DiskPath, vscodeItemKey)
 	switch {
 	case state.IsObject():
 		var commands []string
-		for _, entry := range parser.Elements(state.Get(vscodeHistoryKey)) {
+		var found parser.Problems
+		for _, entry := range parser.ArrayMember(state.Get(vscodeHistoryKey), vscodeHistoryKey, 0, &found) {
 			if command := commandText(entry); command != "" {
 				commands = append(commands, command)
 			}
 		}
 		if len(commands) > 0 {
 			p.historyRows(artifact, "state.vscdb "+vscodeItemKey+" "+vscodeHistoryKey, commands, emit)
+		}
+		for _, problem := range found {
+			problems = append(problems, problem.Message)
 		}
 	case !state.IsNull() && len(problems) == 0:
 		problems = []string{vscodeItemKey + " value is not a JSON object"}
@@ -378,7 +383,8 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 }
 
 // completionRows emits a completion's system row, its prompt as a user row
-// and each choice as an assistant row.
+// and each choice as an assistant row. A choices that is not an array adds
+// a problem row after them.
 func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner string,
 	body jsonvalue.Value, emit parser.Emit) {
 	segments := body.Get("segments")
@@ -391,11 +397,16 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 	emit(p.row(artifact, spec))
 	spec.turnType, spec.text = timeline.TurnUser, parser.Text(body.Get("prompt"))
 	emit(p.row(artifact, spec))
-	for _, choice := range parser.Elements(body.Get("choices")) {
+	var found parser.Problems
+	for _, choice := range parser.ArrayMember(body.Get("choices"), "choices", spec.line, &found) {
 		if choice.IsObject() {
 			spec.turnType, spec.text = timeline.TurnAssistant, parser.Text(choice.Get("text"))
 			emit(p.row(artifact, spec))
 		}
+	}
+	for _, problem := range found {
+		emit(p.row(artifact, rowSpec{line: problem.Line, sessionID: spec.sessionID, timestamp: spec.timestamp,
+			text: parser.ProblemPrefix + problem.Message}))
 	}
 }
 
