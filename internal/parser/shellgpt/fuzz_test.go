@@ -7,10 +7,9 @@ func FuzzLoadMessages(fuzz *testing.F) {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, raw string) {
-		messages, failure := loadMessages(raw)
+		messages, _ := loadMessages(raw)
 		if len(messages) > 0 && !messages[0].IsObject() {
 			t.Errorf("a message that is not an object: %v", messages[0])
 		}
-		_ = failure
 	})
 }

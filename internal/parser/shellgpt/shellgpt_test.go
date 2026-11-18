@@ -9,10 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of the chat, settings and cache files are proved against the
-// Python analyzer by the parser replay (internal/parity/replay); these
-// tests port the helpers the Python tests call directly. Expected values
-// come from running the analyzer's functions.
+// The rows of the chat, settings and cache files are proved by the parser
+// replay (internal/parity/replay) over the recorded fixtures; these tests
+// cover the helpers the rows are built from.
 
 func TestLoadMessagesKeepsWhatSurvivesATruncation(t *testing.T) {
 	tests := []struct {
@@ -34,10 +33,13 @@ func TestLoadMessagesKeepsWhatSurvivesATruncation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			messages, failure := loadMessages(test.raw)
-			wantsFailure := test.failure != ""
-			if len(messages) != test.messages || (failure != "") != wantsFailure ||
-				(test.failure != "?" && !strings.HasPrefix(failure, test.failure)) {
-				t.Errorf("got %d messages and %q, want %d and %q", len(messages), failure,
+			text := ""
+			if failure != nil {
+				text = failure.Error()
+			}
+			if len(messages) != test.messages || (failure != nil) != (test.failure != "") ||
+				(test.failure != "?" && !strings.HasPrefix(text, test.failure)) {
+				t.Errorf("got %d messages and %q, want %d and %q", len(messages), text,
 					test.messages, test.failure)
 			}
 		})
@@ -55,7 +57,7 @@ func TestCallTextPrefersTheShellCommand(t *testing.T) {
 		{"a string that is not JSON", `"plain"`, "plain"},
 		{"a string holding an array", `"[1]"`, "[1]"},
 		{"an object with a command", `{"shell_command":"a"}`, "a"},
-		{"an object without one is spaced and sorted", `{"b":1,"a":[1,2.5]}`,
+		{"an object without one is compact JSON in its own key order", `{"b":1,"a":[1,2.5]}`,
 			`{"b":1,"a":[1,2.5]}`},
 		{"null", `null`, ""},
 		{"a number", `5`, "5"},

@@ -21,6 +21,8 @@
 package shellgpt
 
 import (
+	"errors"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -206,8 +208,8 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	messages, failure := loadMessages(textlines.ValidUTF8(content))
 	if !slices.ContainsFunc(messages, func(message jsonvalue.Value) bool { return message.Has("role") }) {
 		text := "parser: not a ShellGPT chat file"
-		if failure != "" {
-			text += ": " + failure
+		if failure != nil {
+			text += ": " + failure.Error()
 		}
 		emit(makeRow(timeline.TurnSystem, text, "", ""))
 		return
@@ -216,8 +218,8 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	for index, message := range messages {
 		walkMessage(message, index, &state, makeRow, emit)
 	}
-	if failure != "" {
-		emit(makeRow(timeline.TurnSystem, "parser: "+failure, "", ""))
+	if failure != nil {
+		emit(makeRow(timeline.TurnSystem, "parser: "+failure.Error(), "", ""))
 	}
 }
 
@@ -276,20 +278,25 @@ func walkAssistant(message jsonvalue.Value, index int, content string, state *ch
 	}
 }
 
-// loadMessages decodes a chat file into its messages and an error text ("" when
-// whole). A whole array parses at once; a truncated one is decoded element by
-// element so the messages before the cut survive.
-func loadMessages(raw string) ([]jsonvalue.Value, string) {
+// errNotArray is the reason a chat file that decodes to something other
+// than an array is not read.
+var errNotArray = errors.New("not a JSON array")
+
+// loadMessages decodes a chat file into its messages that are objects, and
+// the error that kept it from decoding whole (nil when it did). A whole
+// array decodes at once; a truncated one is decoded element by element so
+// the messages before the cut survive, and the error says how many did.
+func loadMessages(raw string) ([]jsonvalue.Value, error) {
 	data, err := jsonvalue.DecodeString(raw)
 	if err == nil {
 		if !data.IsArray() {
-			return nil, "not a JSON array"
+			return nil, errNotArray
 		}
-		return objects(data.Items()), ""
+		return objects(data.Items()), nil
 	}
 	text := strings.TrimLeftFunc(raw, unicode.IsSpace)
 	if !strings.HasPrefix(text, "[") {
-		return nil, err.Error()
+		return nil, err
 	}
 	var found []jsonvalue.Value
 	position := 1
@@ -309,7 +316,7 @@ func loadMessages(raw string) ([]jsonvalue.Value, string) {
 			found = append(found, value)
 		}
 	}
-	return found, "truncated after " + strconv.Itoa(len(found)) + " message(s): " + err.Error()
+	return found, fmt.Errorf("truncated after %d message(s): %w", len(found), err)
 }
 
 // objects returns the elements of values that are objects.
