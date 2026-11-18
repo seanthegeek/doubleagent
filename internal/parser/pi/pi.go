@@ -239,15 +239,14 @@ func SessionStartText(header jsonvalue.Value) string {
 // provider, a checkpoint directory named after the session file. It is
 // empty when nothing points at little-coder.
 func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
-	var types []string
+	types := newFirstSeen()
 	llamacpp := false
 	for _, entry := range session.Entries {
 		record := entry.Record
 		switch kind := record.Get("type"); {
 		case isText(kind, "custom_message"):
-			custom := parser.Text(record.Get("customType"))
-			if strings.HasPrefix(custom, "lc-") && !slices.Contains(types, custom) {
-				types = append(types, custom)
+			if custom := parser.Text(record.Get("customType")); strings.HasPrefix(custom, "lc-") {
+				types.add(custom)
 			}
 		case isText(kind, "message"):
 			message := record.Get("message")
@@ -256,8 +255,8 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 		}
 	}
 	var why []string
-	if len(types) > 0 {
-		why = append(why, "custom_message types "+strings.Join(types, ", "))
+	if len(types.order) > 0 {
+		why = append(why, "custom_message types "+strings.Join(types.order, ", "))
 	}
 	if llamacpp {
 		why = append(why, "assistant provider llamacpp")
@@ -270,6 +269,29 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 		}
 	}
 	return why
+}
+
+// firstSeen keeps distinct texts in the order they are first met, through a
+// set, so each text added costs one lookup whatever came before. lookups
+// counts them, a measure of the work.
+type firstSeen struct {
+	seen    map[string]bool
+	order   []string
+	lookups int
+}
+
+// newFirstSeen returns an empty firstSeen.
+func newFirstSeen() *firstSeen {
+	return &firstSeen{seen: map[string]bool{}}
+}
+
+// add keeps text when it has not been met before.
+func (f *firstSeen) add(text string) {
+	f.lookups++
+	if !f.seen[text] {
+		f.seen[text] = true
+		f.order = append(f.order, text)
+	}
 }
 
 // systemRow returns a system row of the artifact at line and timestamp,
