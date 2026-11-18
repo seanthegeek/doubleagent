@@ -1,6 +1,7 @@
 package clinelegacy
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -73,34 +74,20 @@ func NumberOf(value jsonvalue.Value) (float64, bool) {
 	return value.Float()
 }
 
-// ArrayAfterKey returns the byte offset of the "[" that opens the array of
-// the first `"<key>"` in text followed, after JSON whitespace only, by a
-// colon and the bracket, so a file cut mid-write can be walked from there.
-// As a pattern it would be `"<key>"[ \t\n\r]*:[ \t\n\r]*(?=\[)`, whose
-// lookahead Go's regexp has no form for.
-func ArrayAfterKey(text, key string) (int, bool) {
-	quoted := `"` + key + `"`
-	for start := 0; ; start++ {
-		found := strings.Index(text[start:], quoted)
-		if found < 0 {
-			return 0, false
-		}
-		start += found
-		cursor := skipWhitespace(text, start+len(quoted))
-		if cursor < len(text) && text[cursor] == ':' {
-			cursor = skipWhitespace(text, cursor+1)
-			if cursor < len(text) && text[cursor] == '[' {
-				return cursor, true
-			}
-		}
-	}
+// KeyedArray returns the pattern of `"<key>"` followed, after JSON
+// whitespace only, by a colon and the "[" that opens the key's array. key
+// is a constant name the caller holds the pattern of.
+func KeyedArray(key string) *regexp.Regexp {
+	return regexp.MustCompile(regexp.QuoteMeta(`"`+key+`"`) + `[ \t\n\r]*:[ \t\n\r]*\[`)
 }
 
-// skipWhitespace returns the first offset at or after offset that is not
-// JSON whitespace.
-func skipWhitespace(text string, offset int) int {
-	for offset < len(text) && strings.IndexByte(" \t\r\n", text[offset]) >= 0 {
-		offset++
+// ArrayAfterKey returns the byte offset of the "[" that ends the first
+// match of a KeyedArray pattern in text, so a file cut mid-write can be
+// walked from there.
+func ArrayAfterKey(text string, keyed *regexp.Regexp) (int, bool) {
+	found := keyed.FindStringIndex(text)
+	if found == nil {
+		return 0, false
 	}
-	return offset
+	return found[1] - 1, true
 }

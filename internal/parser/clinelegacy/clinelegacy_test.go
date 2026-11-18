@@ -121,8 +121,8 @@ func TestContentRowsGivesARowPerBlock(t *testing.T) {
 	}
 }
 
-// ArrayAfterKey finds what `"messages"[ \t\n\r]*:[ \t\n\r]*(?=\[)`
-// would match, with JSON's four whitespace characters only.
+// ArrayAfterKey finds the bracket after the key, with JSON's four
+// whitespace characters only.
 func TestArrayAfterKeyTakesJSONWhitespaceOnly(t *testing.T) {
 	for _, test := range []struct {
 		name, text string
@@ -138,7 +138,7 @@ func TestArrayAfterKeyTakesJSONWhitespaceOnly(t *testing.T) {
 		{"a key without an array is not found", `{"messages": {}}`, 0, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got, ok := ArrayAfterKey(test.text, "messages")
+			got, ok := ArrayAfterKey(test.text, KeyedArray("messages"))
 			if got != test.want || ok != test.ok {
 				t.Errorf("ArrayAfterKey = %d, %v; want %d, %v", got, ok, test.want, test.ok)
 			}
@@ -192,7 +192,7 @@ func FuzzArrayAfterKeyFindsAnOpeningBracket(fuzz *testing.F) {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		if offset, ok := ArrayAfterKey(text, "messages"); ok && text[offset] != '[' {
+		if offset, ok := ArrayAfterKey(text, KeyedArray("messages")); ok && text[offset] != '[' {
 			t.Errorf("ArrayAfterKey(%q) = %d, not a bracket", text, offset)
 		}
 	})

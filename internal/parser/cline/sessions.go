@@ -2,7 +2,6 @@ package cline
 
 import (
 	"path"
-	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -37,7 +36,7 @@ func startKeys() []string {
 // copyObject returns a new object holding an object's members, so setting
 // a key leaves the original as it was.
 func copyObject(object jsonvalue.Value) jsonvalue.Value {
-	return jsonvalue.NewObject(slices.Clone(object.Members())...)
+	return jsonvalue.NewObject(object.Members()...)
 }
 
 // addMetadata copies a session's metadata title and importedFrom fields
