@@ -96,20 +96,16 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 	return finish(args[0], help, err, run, stdout, stderr)
 }
 
-// finish prints the help or the usage error of a parsed command line, or
+// finish prints the usage error or the help of a parsed command line, or
 // runs the command.
 func finish(command string, help bool, err error, run func() int, stdout, stderr io.Writer) int {
-	var usageError *UsageError
 	switch {
+	case err != nil:
+		fmt.Fprintln(stderr, err)
+		return ExitError
 	case help:
 		fmt.Fprint(stdout, usageOf(command))
 		return ExitFound
-	case errors.As(err, &usageError):
-		usageError.Print(stderr)
-		return ExitError
-	case err != nil:
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return ExitError
 	}
 	return run()
 }

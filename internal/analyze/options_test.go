@@ -1,7 +1,6 @@
 package analyze
 
 import (
-	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -48,6 +47,8 @@ func TestParseTimelineReadsEveryOption(t *testing.T) {
 			TimelineOptions{InputOptions: InputOptions{Input: "-"}, Output: "out"}},
 		{"-- may be a value after =", []string{"-o", "out", "--match=--", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", Match: []string{"--"}}},
+		{"-- may be -o's value", []string{"-o", "--", "in"},
+			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "--"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -62,107 +63,94 @@ func TestParseTimelineReadsEveryOption(t *testing.T) {
 	}
 }
 
-// usageMessage returns the message of the usage error parse returns, or
-// fails the test when it returns no usage error.
-func usageMessage(t *testing.T, parse func() error) string {
-	t.Helper()
-	var usageError *UsageError
-	if err := parse(); !errors.As(err, &usageError) {
-		t.Fatalf("got %v, want a usage error", err)
+// parseError returns the error each command's parse function gives for
+// args.
+func parseError(command string, args []string) error {
+	var err error
+	switch command {
+	case "detect":
+		_, _, err = ParseDetect(args)
+	case "timeline":
+		_, _, err = ParseTimeline(args)
+	case "fleet":
+		_, _, err = ParseFleet(args)
+	case "catalog":
+		_, _, err = ParseCatalog(args)
 	}
-	return usageError.Message
+	return err
 }
 
 func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
-	timeline := func(args ...string) func() error {
-		return func() error { _, _, err := ParseTimeline(args); return err }
-	}
-	detect := func(args ...string) func() error {
-		return func() error { _, _, err := ParseDetect(args); return err }
-	}
-	tests := []struct {
-		name  string
-		parse func() error
-		want  string
-	}{
-		{"timeline needs its output", timeline("in"), "doubleagent timeline: missing argument: -o/--output"},
-		{"timeline needs its input", timeline("-o", "x"), "doubleagent timeline: missing argument: input"},
-		{"timeline needs both", timeline(), "doubleagent timeline: missing argument: input, -o/--output"},
-		{"an option's value is missing at the end", timeline("-o"),
-			"doubleagent timeline: flag needs an argument: -o"},
-		{"an unknown option is refused", detect("--bogus", "in"),
-			"doubleagent detect: flag provided but not defined: -bogus"},
-		{"a short option with its value attached is refused", timeline("-oout", "in"),
-			"doubleagent timeline: flag provided but not defined: -oout"},
-		{"a negative number is not an input", detect("-1"),
-			"doubleagent detect: flag provided but not defined: -1"},
-		{"--version is not an analysis option", timeline("--version"),
-			"doubleagent timeline: flag provided but not defined: -version"},
-		{"detect takes one input", detect("a", "b"), "doubleagent detect: unexpected argument: b"},
-		{"detect names every extra input", detect("a", "b", "c"),
-			"doubleagent detect: unexpected argument: b c"},
-		{"an extra input after -- is refused", detect("--", "a", "b"),
-			"doubleagent detect: unexpected argument: b"},
-		{"a switch takes no value that is not a boolean", detect("--json=yes", "in"),
-			`doubleagent detect: invalid boolean value "yes" for -json: parse error`},
-		{"fleet needs an input",
-			func() error { _, _, err := ParseFleet(nil); return err }, "doubleagent fleet: missing argument: input"},
-		{"catalog takes no input",
-			func() error { _, _, err := ParseCatalog([]string{"x"}); return err },
-			"doubleagent catalog: unexpected argument: x"},
-		{"catalog refuses an unknown option",
-			func() error { _, _, err := ParseCatalog([]string{"--bogus"}); return err },
-			"doubleagent catalog: flag provided but not defined: -bogus"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := usageMessage(t, test.parse); got != test.want {
-				t.Errorf("message %q, want %q", got, test.want)
-			}
-		})
-	}
-}
-
-func TestAnOptionAfterTheInputIsAUsageError(t *testing.T) {
-	parsers := map[string]func([]string) error{
-		"detect":   func(args []string) error { _, _, err := ParseDetect(args); return err },
-		"timeline": func(args []string) error { _, _, err := ParseTimeline(args); return err },
-		"fleet":    func(args []string) error { _, _, err := ParseFleet(args); return err },
-		"catalog":  func(args []string) error { _, _, err := ParseCatalog(args); return err },
-	}
 	tests := []struct {
 		name    string
 		command string
 		args    []string
-		option  string
+		want    string
 	}{
-		{"detect with a switch after the input", "detect", []string{"in", "--json"}, "--json"},
-		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"}, "--host"},
-		{"timeline with its output after the input", "timeline",
-			[]string{"in", "--since", "2026-10-01", "-o", "out"}, "--since"},
-		{"timeline with --help after the input", "timeline", []string{"-o", "x", "in", "--help"}, "--help"},
+		{"timeline needs its output", "timeline", []string{"in"}, "missing argument: -o/--output"},
+		{"an empty output is no output", "timeline", []string{"-o", "", "in"}, "missing argument: -o/--output"},
+		{"timeline needs its input", "timeline", []string{"-o", "x"}, "missing argument: input"},
+		{"timeline needs both", "timeline", nil, "missing argument: input, -o/--output"},
+		{"an option's value is missing at the end", "timeline", []string{"-o"}, "flag needs an argument: -o"},
+		{"an unknown option is refused", "detect", []string{"--bogus", "in"},
+			"flag provided but not defined: -bogus"},
+		{"a short option with its value attached is refused", "timeline", []string{"-oout", "in"},
+			"flag provided but not defined: -oout"},
+		{"a negative number is not an input", "detect", []string{"-1"}, "flag provided but not defined: -1"},
+		{"--version is not an analysis option", "timeline", []string{"--version"},
+			"flag provided but not defined: -version"},
+		{"detect takes one input", "detect", []string{"a", "b"}, "unexpected argument: b"},
+		{"detect names every extra input", "detect", []string{"a", "b", "c"}, "unexpected argument: b c"},
+		{"an extra input after -- is refused", "detect", []string{"--", "a", "b"}, "unexpected argument: b"},
+		{"a switch takes no value that is not a boolean", "detect", []string{"--json=yes", "in"},
+			`invalid boolean value "yes" for -json: parse error`},
+		{"fleet needs an input", "fleet", nil, "missing argument: input"},
+		{"catalog takes no input", "catalog", []string{"x"}, "unexpected argument: x"},
+		{"catalog refuses an unknown option", "catalog", []string{"--bogus"},
+			"flag provided but not defined: -bogus"},
+		{"detect with a switch after the input", "detect", []string{"in", "--json"},
+			"options go before the input; --json is after it"},
+		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"},
+			"options go before the input; --host is after it"},
+		{"timeline with options after the input", "timeline", []string{"in", "--since", "2026-10-01", "-o", "out"},
+			"options go before the input; --since is after it"},
+		{"timeline with --help after the input", "timeline", []string{"-o", "x", "in", "--help"},
+			"options go before the input; --help is after it"},
 		{"timeline with an unknown option after the input", "timeline", []string{"-o", "x", "in", "--bogus"},
-			"--bogus"},
-		{"fleet with -o between its inputs", "fleet", []string{"a", "-o", "x.csv", "b"}, "-o"},
-		{"catalog with --agents after an argument", "catalog", []string{"x", "--agents"}, "--agents"},
+			"options go before the input; --bogus is after it"},
+		{"-o's value -- does not end the options", "timeline", []string{"-o", "--", "in", "--json"},
+			"options go before the input; --json is after it"},
+		{"fleet with -o between its inputs", "fleet", []string{"a", "-o", "x.csv", "b"},
+			"options go before the input; -o is after it"},
+		{"fleet with an option after -o's value --", "fleet", []string{"-o", "--", "a", "-c"},
+			"options go before the input; -c is after it"},
+		{"fleet with -- after its inputs", "fleet", []string{"-o", "x.csv", "a", "b", "--", "-c"},
+			"options go before the input; -- is after it"},
+		{"catalog with --agents after an argument", "catalog", []string{"x", "--agents"},
+			"options go before the input; --agents is after it"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			parse := parsers[test.command]
-			got := usageMessage(t, func() error { return parse(test.args) })
-			want := "doubleagent " + test.command + ": options go before the input; " + test.option +
-				" is after it"
-			if got != want {
+			err := parseError(test.command, test.args)
+			if err == nil {
+				t.Fatal("no error")
+			}
+			want := "doubleagent " + test.command + ": " + test.want
+			if got, _, _ := strings.Cut(err.Error(), "\n"); got != want {
 				t.Errorf("message %q, want %q", got, want)
 			}
 		})
 	}
 }
 
-func TestParseFleetAndDetect(t *testing.T) {
-	if fleet, _, err := ParseFleet([]string{"-o", "x.csv", "a", "b", "--", "-c"}); err == nil {
-		t.Errorf("fleet took -- after its inputs: %+v", fleet)
+func TestAUsageErrorEndsWithTheUsage(t *testing.T) {
+	want := "doubleagent fleet: missing argument: input\n" + strings.TrimSuffix(fleetUsage, "\n")
+	if err := parseError("fleet", nil); err == nil || err.Error() != want {
+		t.Errorf("error %q, want %q", err, want)
 	}
+}
+
+func TestParseFleetAndDetect(t *testing.T) {
 	fleet, help, err := ParseFleet([]string{"-o", "x.csv", "--", "a", "-c"})
 	if err != nil || help || !reflect.DeepEqual(fleet, FleetOptions{Inputs: []string{"a", "-c"},
 		Output: "x.csv"}) {
@@ -215,17 +203,9 @@ func TestHelpIsAskedForAmongTheOptions(t *testing.T) {
 }
 
 func TestAMistakeAmongTheOptionsBeatsHelp(t *testing.T) {
-	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"-h", "-o"}} {
+	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"-h", "-o"}, {"-h", "in", "--json"}} {
 		if _, help, err := ParseTimeline(args); help || err == nil {
 			t.Errorf("%q: help %v, error %v; want a usage error", args, help, err)
 		}
-	}
-}
-
-func TestUsageErrorPrintsTheMessageThenTheUsage(t *testing.T) {
-	var out strings.Builder
-	(&UsageError{Command: "fleet", Message: "boom"}).Print(&out)
-	if out.String() != "boom\n"+fleetUsage {
-		t.Errorf("printed %q", out.String())
 	}
 }
