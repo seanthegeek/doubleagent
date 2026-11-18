@@ -19,11 +19,11 @@ func TestXMLBlocksSplitsAssistantTextAtItsToolTags(t *testing.T) {
 		thinking   bool
 		want       []clinelegacy.ContentRow
 	}{
-		{"text, thinking and a tool", "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.py</path>\n</read_file>",
+		{"text, thinking and a tool", "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.go</path>\n</read_file>",
 			true, []clinelegacy.ContentRow{rowOf("assistant", "Let me look.", "", ""), rowOf("thinking", "plan", "", ""),
-				rowOf("tool_use", "src/a.py", "read_file", "")}},
-		{"thinking dropped", "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.py</path>\n</read_file>",
-			false, []clinelegacy.ContentRow{rowOf("assistant", "Let me look.", "", ""), rowOf("tool_use", "src/a.py", "read_file", "")}},
+				rowOf("tool_use", "src/a.go", "read_file", "")}},
+		{"thinking dropped", "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.go</path>\n</read_file>",
+			false, []clinelegacy.ContentRow{rowOf("assistant", "Let me look.", "", ""), rowOf("tool_use", "src/a.go", "read_file", "")}},
 		{"an unclosed tool and parameter", "<execute_command>\n<command>ls -la</command>\n<cwd>/srv</cwd>",
 			false, []clinelegacy.ContentRow{rowOf("tool_use", "ls -la | /srv", "execute_command", "")}},
 		{"text after a tool", "<attempt_completion><result>done</result></attempt_completion> tail\n",
@@ -67,7 +67,7 @@ func TestTheResultPatternTakesAWholeToolNameAndTheTaskItsTags(t *testing.T) {
 		name, text, want string
 		task             bool
 	}{
-		{"a result with its argument", "[read_file for 'a.py'] Result:", "read_file", false},
+		{"a result with its argument", "[read_file for 'a.go'] Result:", "read_file", false},
 		{"a bare result", "[read_file] Result:", "read_file", false},
 		{"a letter outside ASCII continues the name", "[read_fileé] Result:", "", false},
 		{"a digit continues the name", "[read_file1] Result:", "", false},
@@ -96,7 +96,7 @@ func TestTheResultPatternTakesAWholeToolNameAndTheTaskItsTags(t *testing.T) {
 
 func TestAPIContentRowsReadsRooToolResultsAndCalls(t *testing.T) {
 	user, err := jsonvalue.DecodeString(`{"role": "user", "content": [
-		{"type": "text", "text": "[read_file for 'a.py'] Result:"},
+		{"type": "text", "text": "[read_file for 'a.go'] Result:"},
 		{"type": "text", "text": "The user denied this operation."},
 		{"type": "image"},
 		{"type": "text", "text": "Skipping tool [write_to_file] because a tool was already used"},
@@ -116,13 +116,13 @@ func TestAPIContentRowsReadsRooToolResultsAndCalls(t *testing.T) {
 		t.Errorf("user rows = %+v, want %+v", got, want)
 	}
 	assistant, err := jsonvalue.DecodeString(`{"role": "assistant", "content": [
-		{"type": "text", "text": "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.py</path>\n</read_file><list_files><path>.</path></list_files>"},
+		{"type": "text", "text": "Let me look.\n<thinking>\nplan\n</thinking>\n<read_file>\n<path>src/a.go</path>\n</read_file><list_files><path>.</path></list_files>"},
 		{"type": "thinking", "thinking": "t"}]}`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want = []clinelegacy.ContentRow{rowOf("assistant", "Let me look.", "", ""), rowOf("thinking", "plan", "", ""),
-		rowOf("tool_use", "src/a.py", "read_file", "2"), rowOf("tool_use", ".", "list_files", "2.2"),
+		rowOf("tool_use", "src/a.go", "read_file", "2"), rowOf("tool_use", ".", "list_files", "2.2"),
 		rowOf("thinking", "t", "", "")}
 	if got := parser.APIContentRows(assistant, 2, "assistant", true); !slices.Equal(got, want) {
 		t.Errorf("assistant rows = %+v, want %+v", got, want)
