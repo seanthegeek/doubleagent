@@ -45,7 +45,11 @@ func reviewedImports() map[string]string {
 		// Parses a file: URI from evidence text into its parts
 		// (evidencepath.FromFileURI); the names used are Parse, PathUnescape
 		// and the URL type, which work on text and take no path.
-		"net/url"}
+		"net/url",
+		// Decodes the character references of evidence text (a Crush channel
+		// message's attribute values); the name used is UnescapeString,
+		// which works on text and takes no path.
+		"html"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}
