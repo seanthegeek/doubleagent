@@ -9,6 +9,8 @@ Each holds an ItemTable whose sourcegraph.cody-ai row is:
 - no-history.vscdb: an object with model preferences and no chat history.
 - history-null.vscdb: an object whose chat history is null.
 - history-text-null.vscdb: an object whose chat history is text holding null.
+- preferences-string.vscdb, preferences-number.vscdb, preferences-list.vscdb:
+  an object whose model preferences are a string, a number and a list.
 """
 
 import json
@@ -22,6 +24,9 @@ DATABASES = {
     "no-history.vscdb": {"cody-model-preferences": {}},
     "history-null.vscdb": {"cody-local-chatHistory-v2": None},
     "history-text-null.vscdb": {"cody-local-chatHistory-v2": "null"},
+    "preferences-string.vscdb": {"cody-model-preferences": "x"},
+    "preferences-number.vscdb": {"cody-model-preferences": 7},
+    "preferences-list.vscdb": {"cody-model-preferences": [1]},
 }
 
 

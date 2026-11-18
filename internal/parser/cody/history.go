@@ -15,12 +15,15 @@ const rejected = "Command rejected"
 
 // historyRows emits the rows of every chat of every account of a history.
 // A chat key found under more than one account takes the account before
-// it in its session id.
+// it in its session id. An account that is not an object, or a chat list,
+// interactions, content or processes member of the wrong kind, adds a
+// problem to problems, at line.
 func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
-	options parser.Options, emit parser.Emit) {
+	options parser.Options, emit parser.Emit, problems *[]string) {
 	if !history.IsObject() {
 		return
 	}
+	var found parser.Problems
 	seen := map[string]int{}
 	for _, account := range history.Members() {
 		for _, chatID := range account.Value.Get("chat").Keys() {
@@ -28,8 +31,10 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 		}
 	}
 	for _, account := range history.Members() {
-		chats := account.Value.Get("chat")
-		for _, chat := range chats.Members() {
+		if !account.Value.IsObject() && !account.Value.IsNull() {
+			found.Add(line, parser.WrongKind("chat history account", jsonvalue.Object))
+		}
+		for _, chat := range parser.ObjectMember(account.Value.Get("chat"), "chat", line, &found) {
 			if !chat.Value.IsObject() {
 				continue
 			}
@@ -41,9 +46,17 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 				sessionID = account.Key + "/" + sessionID
 			}
 			rows := chatRows{owner: p, artifact: artifact, sessionID: sessionID, line: line, emit: emit,
-				names: map[string]string{}, models: parser.Tracker{}}
+				names: map[string]string{}, models: parser.Tracker{}, problems: &found}
 			rows.chat(account.Key, chat.Value)
 		}
+	}
+	addProblems(problems, found)
+}
+
+// addProblems appends the messages of found to problems.
+func addProblems(problems *[]string, found parser.Problems) {
+	for _, problem := range found {
+		*problems = append(*problems, problem.Message)
 	}
 }
 
@@ -58,6 +71,7 @@ type chatRows struct {
 	emit      parser.Emit
 	names     map[string]string // tool names by call id
 	models    parser.Tracker    // per chat, so the key needs no session id
+	problems  *parser.Problems  // of the whole history, at the history's line
 }
 
 // row emits a row of the chat with its text compacted.
@@ -75,11 +89,11 @@ func (c *chatRows) row(turnType, text, model, toolName, toolUseID string) {
 }
 
 // chat emits a heading row, then the rows of each interaction's human and
-// assistant messages.
+// assistant messages; an interactions that is not an array adds a problem.
 func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parser.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
 	var interactions []jsonvalue.Value
-	for _, entry := range chat.Get("interactions").Items() {
+	for _, entry := range parser.ArrayMember(chat.Get("interactions"), "interactions", c.line, c.problems) {
 		if entry.IsObject() {
 			interactions = append(interactions, entry)
 		}
@@ -96,7 +110,8 @@ func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 }
 
 // message emits the rows of one message: a model change, its text, its
-// tool calls and results, its process steps and its error.
+// tool calls and results, its process steps and its error; a content or
+// processes that is not an array adds a problem.
 func (c *chatRows) message(message jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
@@ -106,7 +121,7 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	if change := c.models.Change("model", "model", model); change != "" {
 		c.row(timeline.TurnSystem, change, model, "", "")
 	}
-	parts := message.Get("content").Items()
+	parts := parser.ArrayMember(message.Get("content"), "content", c.line, c.problems)
 	text := messageText(message, parts)
 	switch {
 	case parser.IsText(speaker, "human"):
@@ -203,7 +218,7 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 // per confirmation step and a tool row per tool step that no content part
 // already called.
 func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool, model string) {
-	for _, process := range parser.Elements(processes) {
+	for _, process := range parser.ArrayMember(processes, "processes", c.line, c.problems) {
 		kind := process.Get("type")
 		toolID := parser.Text(process.Get("id"))
 		if parser.IsText(kind, "confirmation") {

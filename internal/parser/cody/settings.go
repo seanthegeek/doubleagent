@@ -73,7 +73,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 	if err != nil || !document.IsObject() {
 		// The file is the editor's; it concerns Cody only when it names Cody.
 		if bytes.Contains(raw, []byte(`"cody.`)) {
-			emit(p.systemRow(artifact, "parser: settings.json is not a JSON object", 1))
+			emit(p.systemRow(artifact, parser.ProblemPrefix+parser.WrongKind("settings.json", jsonvalue.Object), 1))
 		}
 		return
 	}
@@ -98,24 +98,29 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 	}
 	preferences, err := jsonvalue.DecodeString(text)
 	if err != nil || !preferences.IsObject() {
-		emit(p.systemRow(artifact, "parser: "+preferencesKey+" is not a JSON object", 1))
+		emit(p.systemRow(artifact, parser.ProblemPrefix+parser.WrongKind(preferencesKey, jsonvalue.Object), 1))
 		return
 	}
-	p.preferenceRows(artifact, preferences, artifact.Rel, 1, emit)
+	var found parser.Problems
+	p.preferenceRows(artifact, preferences, artifact.Rel, 1, emit, &found)
+	for _, problem := range found {
+		emit(p.systemRow(artifact, parser.ProblemPrefix+problem.Message, 1))
+	}
 }
 
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
-// file's modification time.
+// file's modification time. A selected or defaults that is not an object
+// adds a problem to problems, at line.
 func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
-	emit parser.Emit) {
+	emit parser.Emit, problems *parser.Problems) {
 	timestamp := parser.FileMtime(artifact)
 	for _, endpoint := range preferences.Members() {
 		if !endpoint.Value.IsObject() {
 			continue
 		}
 		for _, kind := range []string{"selected", "defaults"} {
-			for _, usage := range endpoint.Value.Get(kind).Members() {
+			for _, usage := range parser.ObjectMember(endpoint.Value.Get(kind), kind, line, problems) {
 				model := usage.Value
 				if !model.IsString() || model.StringValue() == "" {
 					continue

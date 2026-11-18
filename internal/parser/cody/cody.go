@@ -116,9 +116,9 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parser.Options, emi
 	var recovered []recoveredError
 	history := decodeHistory(text, &problems, &recovered)
 	if !history.IsObject() {
-		problems = append(problems, "chat history is not a JSON object")
+		problems = append(problems, parser.WrongKind("chat history", jsonvalue.Object))
 	}
-	p.historyRows(artifact, history, 1, options, emit)
+	p.historyRows(artifact, history, 1, options, emit, &problems)
 	p.recoveredRows(artifact, recovered, emit)
 	for _, problem := range problems {
 		emit(p.systemRow(artifact, parser.ProblemPrefix+problem, 1))
@@ -127,9 +127,10 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parser.Options, emi
 
 // stateDatabase emits the rows of the extension's row of a state.vscdb:
 // its history, the history's damage, its model preferences, then the
-// problems met, a value or a history that is not an object among them. A
-// history is held to the JetBrains file's rule: written as JSON text, it
-// must decode to an object, null included; a null member is no history.
+// problems met, a value, a history or model preferences that is not an
+// object among them. A history is held to the JetBrains file's rule:
+// written as JSON text, it must decode to an object, null included; a null
+// member is no history.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	state, problems := vscodestate.ReadItem(artifact.DiskPath, itemKey)
 	if state.IsNull() {
@@ -150,15 +151,21 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 			history = decodeHistory(history.StringValue(), &problems, &recovered)
 		}
 		if (fromText || !history.IsNull()) && !history.IsObject() {
-			problems = append(problems, historyKey+" is not a JSON object")
+			problems = append(problems, parser.WrongKind(historyKey, jsonvalue.Object))
 		}
 	default:
 		problems = append(problems, itemKey+" value is not a JSON object")
 	}
-	p.historyRows(artifact, history, 0, options, emit)
+	p.historyRows(artifact, history, 0, options, emit, &problems)
 	p.recoveredRows(artifact, recovered, emit)
 	if state.IsObject() {
-		p.preferenceRows(artifact, state.Get(preferencesKey), artifact.Rel+" "+preferencesKey, 0, emit)
+		preferences := state.Get(preferencesKey)
+		if !preferences.IsNull() && !preferences.IsObject() {
+			problems = append(problems, parser.WrongKind(preferencesKey, jsonvalue.Object))
+		}
+		var found parser.Problems
+		p.preferenceRows(artifact, preferences, artifact.Rel+" "+preferencesKey, 0, emit, &found)
+		addProblems(&problems, found)
 	}
 	for _, problem := range problems {
 		emit(p.systemRow(artifact, parser.ProblemPrefix+problem, 0))
