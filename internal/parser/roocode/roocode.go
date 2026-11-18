@@ -107,13 +107,7 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
 	if !found {
 		return jsonvalue.NewNull()
 	}
-	index := p.CachedJSON(indexPath)
-	for _, entry := range index.Get("entries").Items() {
-		if entry.IsObject() && entry.Get("id").Text() == task.TaskID {
-			return entry
-		}
-	}
-	return jsonvalue.NewNull()
+	return p.CachedEntry(indexPath, "entries", task.TaskID)
 }
 
 // Parse emits the rows of one Roo Code file.

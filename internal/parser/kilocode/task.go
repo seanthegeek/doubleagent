@@ -8,6 +8,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/opencode"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -17,8 +18,9 @@ import (
 
 // historyItem returns a pre-fork task's history item: history_item.json in
 // its directory, else its entry in the tasks' _index.json, else an empty
-// object. The task directory is the artifact's own. Either file that is there but cannot be read adds a problem.
-func historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) jsonvalue.Value {
+// object. The task directory is the artifact's own. Either file that is
+// there but cannot be read adds a problem.
+func (p *Parser) historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) jsonvalue.Value {
 	item := jsonvalue.NewNull()
 	if itemPath := parser.Beside(artifact, "history_item.json"); parser.RegularFile(itemPath) {
 		item, _ = readJSON(itemPath, problems)
@@ -27,14 +29,53 @@ func historyItem(artifact *input.Artifact, taskID string, problems *parser.Probl
 		return item
 	}
 	if indexPath, found := parser.Above(artifact, 1, "_index.json"); found && parser.RegularFile(indexPath) {
-		index, _ := readJSON(indexPath, problems)
-		for _, entry := range index.Get("entries").Items() {
-			if entry.IsObject() && entry.Get("id").IsString() && entry.Get("id").StringValue() == taskID {
-				return entry
-			}
+		if entry, ok := p.indexEntry(indexPath, taskID, problems); ok {
+			return entry
 		}
 	}
 	return jsonvalue.NewObject()
+}
+
+// indexKey identifies one state of a tasks' _index.json: its path,
+// modification time in nanoseconds and size.
+type indexKey struct {
+	path        string
+	mtime, size int64
+}
+
+// taskIndex is a tasks' _index.json read once: the first object entry of
+// each string id, and the problems reading the file added.
+type taskIndex struct {
+	entries  map[string]jsonvalue.Value
+	problems parser.Problems
+}
+
+// indexEntry returns the entry of the _index.json at indexPath whose id is
+// the string taskID. The file is read and indexed once per state for the
+// parser's life, since every task file below it looks it up, and the
+// problems of that read are added for each lookup as a fresh read would.
+func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems) (jsonvalue.Value, bool) {
+	info, err := osfile.Lstat(indexPath)
+	if err != nil {
+		return jsonvalue.NewNull(), false
+	}
+	key := indexKey{path: indexPath, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	index, ok := p.indexes[key]
+	if !ok {
+		index = &taskIndex{entries: map[string]jsonvalue.Value{}}
+		document, _ := readJSON(indexPath, &index.problems)
+		for _, entry := range document.Get("entries").Items() {
+			p.indexed++
+			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.IsObject() &&
+				entry.Get("id").IsString() && !seen {
+				index.entries[entry.Get("id").StringValue()] = entry
+			}
+		}
+		p.indexes[key] = index
+	}
+	*problems = append(*problems, index.problems...)
+	entry, found := index.entries[taskID]
+	return entry, found
 }
 
 // task holds what every row of one pre-fork task shares.
@@ -65,7 +106,7 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 	parts := strings.Split(artifact.Rel, "/")
 	var problems parser.Problems
 	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options}
-	item := historyItem(artifact, current.taskID, &problems)
+	item := p.historyItem(artifact, current.taskID, &problems)
 	current.project = parser.Text(item.Get("workspace"))
 	current.started = taskTime(item.Get("ts"), current.taskID)
 	if item.Len() > 0 {
