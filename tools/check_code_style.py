@@ -136,6 +136,9 @@ GO_TOKEN = re.compile(
     |(?P<punct>:=|\.\.\.|<-|&&|\|\||.)""",
     re.DOTALL | re.VERBOSE,
 )
+GO_VERB = re.compile(r"%(?:%|[-+# 0]*(?:\d+|\*)?(?:\.(?:\d+|\*)?)?(?:\[\d+\])?[a-zA-Z])")
+GO_FORMAT_CALLS = {"Sprintf": "`+`", "Errorf": "`errors.New` and `+`"}
+GO_FORMAT_MESSAGE = "fmt.%s only joins strings (every verb is %%s); use %s"
 GO_WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
 GO_KEYWORDS = {
     "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough",
@@ -740,6 +743,42 @@ def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Itera
     yield run[0], message % (len(run), cap)
 
 
+def go_format_text(tokens: list[GoToken], start: int) -> tuple[str, int] | None:
+    """Return the string literals joined by `+` from `start`, and the index after them.
+
+    None when the argument there is not made of string literals alone.
+    """
+    parts: list[str] = []
+    index = start
+    while tokens[index].kind in ("string", "raw", "linecomment") or tokens[index].text == "+":
+        if tokens[index].kind in ("string", "raw"):
+            parts.append(tokens[index].text[1:-1])
+        index += 1
+    if not parts or tokens[index].text not in (",", ")"):
+        return None
+    return "".join(parts), index
+
+
+def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
+    """Yield a finding for each `fmt.Sprintf` or `fmt.Errorf` that only joins strings.
+
+    A format whose verbs are all a plain `%s` converts, quotes and pads nothing, so the
+    strings are joined with `+` (and the error made with `errors.New`). A `%s` of an error or
+    of a value with a String method is written as its `Error()` or `String()` call.
+    """
+    for index in range(2, len(tokens) - 2):
+        token = tokens[index]
+        is_call = token.text in GO_FORMAT_CALLS and tokens[index + 1].text == "("
+        if not is_call or tokens[index - 1].text != "." or tokens[index - 2].text != "fmt":
+            continue
+        format_text = go_format_text(tokens, index + 2)
+        if format_text is None:
+            continue
+        verbs = [verb for verb in GO_VERB.findall(format_text[0]) if verb != "%%"]
+        if verbs and all(verb == "%s" for verb in verbs):
+            yield token.line, GO_FORMAT_MESSAGE % (token.text, GO_FORMAT_CALLS[token.text])
+
+
 def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     """Yield the findings of one Go file."""
     tokens = go_tokens(source)
@@ -749,6 +788,7 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
         if message:
             yield binding.line, message
     yield from go_comment_findings(tokens)
+    yield from go_format_findings(tokens)
 
 
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {

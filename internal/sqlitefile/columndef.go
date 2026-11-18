@@ -1,6 +1,7 @@
 package sqlitefile
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -409,7 +410,7 @@ func (p *schemaParser) virtualTable() (*tableShape, error) {
 		return nil, err
 	}
 	if !strings.EqualFold(module, "fts5") {
-		return nil, fmt.Errorf("virtual table module %s is not supported", module)
+		return nil, errors.New("virtual table module " + module + " is not supported")
 	}
 	var arguments []token
 	if p.peek().isPunctuation("(") {
@@ -435,7 +436,7 @@ func (s *tableShape) fts5Argument(argument []token) error {
 	if len(argument) >= 2 && argument[1].isPunctuation("=") {
 		option := strings.ToLower(argument[0].name())
 		if option == "content" || option == "contentless_delete" || option == "contentless_unindexed" {
-			return fmt.Errorf("fts5 table %s keeps no content table of its own (%s=)", s.name, option)
+			return errors.New("fts5 table " + s.name + " keeps no content table of its own (" + option + "=)")
 		}
 		return nil
 	}

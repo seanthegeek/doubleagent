@@ -91,7 +91,7 @@ func (d *Database) attachContent(schema []SchemaRow, table *Table) error {
 		return fmt.Errorf("fts5 table %s: %w", table.shape.name, err)
 	}
 	if !content.Has("id") || content.shape.withoutRowid {
-		return fmt.Errorf("fts5 table %s: its content table has no id column", table.shape.name)
+		return errors.New("fts5 table " + table.shape.name + ": its content table has no id column")
 	}
 	for i := range table.shape.columns {
 		index := content.shape.columnIndex("c" + strconv.Itoa(i))

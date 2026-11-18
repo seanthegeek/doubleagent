@@ -213,3 +213,27 @@ def test_the_vendored_modules_are_not_checked() -> None:
     assert not [
         path for path in style.code_files() if "vendor" in path.relative_to(style.ROOT).parts
     ]
+
+
+FORMAT_CASES = [
+    ('text := fmt.Sprintf("%s: %s", agent, path)', ["Sprintf"]),
+    ('text := fmt.Sprintf("%s: "+\n\t"%s", agent, path)', ["Sprintf"]),
+    ('return fmt.Errorf("table %s has no rows", name)', ["Errorf"]),
+    ('text := fmt.Sprintf("%d rows in %s", count, name)', []),
+    ('text := fmt.Sprintf("%q", name)', []),
+    ('text := fmt.Sprintf("%-14s%s", agent, path)', []),
+    ('text := fmt.Sprintf("100%% of %s", name)', ["Sprintf"]),
+    ('return fmt.Errorf("reading %s: %w", name, err)', []),
+    ("text := fmt.Sprintf(layout, agent, path)", []),
+    ('text := fmt.Sprintf("no verbs")', []),
+    ('fmt.Fprintf(output, "%s\n", line)', []),
+]
+
+
+def test_a_format_call_that_only_joins_strings_is_reported() -> None:
+    for statement, expected in FORMAT_CASES:
+        source = "package p\n\nfunc run() {\n\t" + statement + "\n}\n"
+        calls = [
+            message.split()[0][4:] for _, message in findings(source) if "only joins" in message
+        ]
+        assert calls == expected, statement

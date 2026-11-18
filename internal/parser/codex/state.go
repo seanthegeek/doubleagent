@@ -2,7 +2,7 @@ package codex
 
 import (
 	"cmp"
-	"fmt"
+	"errors"
 	"slices"
 	"strings"
 
@@ -51,7 +51,7 @@ func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]
 		return slices.Index(wanted, left) - slices.Index(wanted, right)
 	})
 	if len(columns) == 0 {
-		return nil, fmt.Errorf("table %s has none of the columns read", name)
+		return nil, errors.New("table " + name + " has none of the columns read")
 	}
 	return table.Select(columns...).OrderBy("rowid").All()
 }

@@ -3,7 +3,7 @@ package sqlitefile
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"math"
 	"strconv"
 )
@@ -48,7 +48,7 @@ func (q Query) Lookup(column string) (*Lookup, error) {
 
 // errorNoColumn reports a column the table does not have.
 func errorNoColumn(table *Table, column string) error {
-	return fmt.Errorf("table %s: no such column: %s", table.shape.name, column)
+	return errors.New("table " + table.shape.name + ": no such column: " + column)
 }
 
 // Find returns, in the query's order, the rows whose key equals the value

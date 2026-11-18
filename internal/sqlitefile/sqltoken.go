@@ -1,6 +1,7 @@
 package sqlitefile
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -171,7 +172,7 @@ func scanBlob(text string) (token, int, error) {
 	}
 	digits := text[2 : 2+end]
 	if len(digits)%2 != 0 || strings.IndexFunc(digits, notHexDigit) >= 0 {
-		return token{}, 0, fmt.Errorf("malformed blob literal %s", text[:end+3])
+		return token{}, 0, errors.New("malformed blob literal " + text[:end+3])
 	}
 	return token{kind: blobToken, text: text[:end+3], value: digits}, end + 3, nil
 }

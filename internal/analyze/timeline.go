@@ -44,7 +44,7 @@ func buildFilter(options TimelineOptions, now func() time.Time) (*rowfilter.RowF
 		}
 	}
 	if filter.Since != "" && filter.Until != "" && filter.Since > filter.Until {
-		return nil, fmt.Errorf("--since %s is after --until %s", filter.Since, filter.Until)
+		return nil, errors.New("--since " + filter.Since + " is after --until " + filter.Until)
 	}
 	filter.Patterns, err = rowfilter.CompilePatterns(options.Match, options.IgnoreCase)
 	if err != nil {

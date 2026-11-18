@@ -170,8 +170,8 @@ func (q Query) projection(columns []*Column) (*projected, error) {
 			return nil, errorNoColumn(q.table, name)
 		}
 		if columns[position].Generated == VirtualGenerated {
-			return nil, fmt.Errorf("table %s: column %s is computed when read and is not stored",
-				q.table.shape.name, name)
+			return nil, errors.New("table " + q.table.shape.name + ": column " + name +
+				" is computed when read and is not stored")
 		}
 		renamed := *columns[position]
 		renamed.Name = name
