@@ -44,7 +44,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	var problems parser.Problems
 	state := jsonvalue.NewNull()
 	if strings.HasSuffix(artifact.Rel, ".jsonl") {
-		state = replay(artifact.DiskPath, lines, &problems)
+		state = replay(artifact.DiskPath, lines, &problems, p.Work)
 	} else if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		decoded, err := jsonvalue.DecodeString(textlines.ValidUTF8(data))
 		if err != nil {
