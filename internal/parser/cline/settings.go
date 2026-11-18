@@ -64,7 +64,8 @@ func (p *Parser) jsonObject(artifact *input.Artifact, what string, emit parser.E
 // globalState emits the standing settings and Cline Cloud rows of
 // globalState.json: autoApprovalSettings and mode as permission settings,
 // cloudTaskTarget as one row, and an origin and a sync row per
-// cloudSessionStatuses entry. No other key is read.
+// cloudSessionStatuses entry. No other key is read. A cloudSessionStatuses
+// that is not an object adds a problem.
 func (p *Parser) globalState(artifact *input.Artifact, emit parser.Emit) {
 	document, ok := p.jsonObject(artifact, "globalState.json", emit)
 	if !ok {
@@ -90,11 +91,13 @@ func (p *Parser) globalState(artifact *input.Artifact, emit parser.Emit) {
 			" (from " + artifact.Rel + ", file mtime)"))
 	}
 	source := artifact.Rel + " cloudSessionStatuses, observedAt"
-	for _, member := range document.Get("cloudSessionStatuses").Members() {
+	var problems parser.Problems
+	for _, member := range parser.ObjectMember(document.Get("cloudSessionStatuses"), "cloudSessionStatuses", 0, &problems) {
 		status := member.Value
 		p.cloudRows(artifact, member.Key, timeutil.FromValue(status.Get("observedAt")),
 			"status "+parser.SettingOrDash(status.Get("status")), source, 0, emit)
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // cloudRows emits the "session origin:" and "session synced:" rows of a
