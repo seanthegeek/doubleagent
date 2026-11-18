@@ -82,9 +82,11 @@ func (d dumper) path(text string) string {
 	return dumpField(text)
 }
 
-// text returns a note or problem as the dump prints it.
+// text returns a note or problem as the dump prints it, a path below the
+// input's directory starting <input>/ on every platform.
 func (d dumper) text(text string) string {
 	for _, root := range d.roots {
+		text = strings.ReplaceAll(text, root+string(filepath.Separator), "<input>/")
 		text = strings.ReplaceAll(text, root, "<input>")
 	}
 	return dumpField(text)
