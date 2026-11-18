@@ -5,6 +5,9 @@
 *.collection.json
 *.log
 *.zip
+# Archives the Go tests read as inputs.
+!internal/**/testdata/**/*.tar.gz
+!internal/**/testdata/**/*.zip
 __pycache__/
 *.egg-info/
 analyzer/build/

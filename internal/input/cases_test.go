@@ -11,8 +11,8 @@ import (
 	"testing"
 )
 
-// bzip2Archive is a bzip2 tar holding alice/.claude/history.jsonl, made by
-// Python's tarfile in mode w:bz2, since Go's library has no bzip2 writer.
+// bzip2Archive is a bzip2 tar holding alice/.claude/history.jsonl, written
+// by another tar writer, since Go's library has no bzip2 writer.
 const bzip2Archive = "425a6839314159265359195c55a10000727d80c9100000c001ff8002006e759e2a" +
 	"08082000751147947a81900dea80d0c80929a53ca184f5193466841ea7a959d8321047821087ef2e23e4e82043" +
 	"97e63a5264a3cdc88b31110422095a3b0ce9954189a8a8cc9d00fd63cbc2f4be2f708b1122c6a90a7cad714907" +
@@ -32,16 +32,14 @@ aider|.aider.*
 `
 
 // inputCase is one input built under a test directory, opened, and checked;
-// the parity test also opens it with the Python analyzer and compares.
+// TestOpenGivesTheRecordedDumpOfEachCase also compares all it opens to the
+// dump recorded under its name in testdata/case_dumps.txt.
 type inputCase struct {
 	name    string
 	catalog string
 	host    string
-	// pythonDiffers marks an input the Python analyzer crashes on or reads
-	// differently by a documented choice, so the parity test skips it.
-	pythonDiffers bool
-	build         func(t *testing.T, dir string) string
-	check         func(t *testing.T, collection *Collection, err error)
+	build   func(t *testing.T, dir string) string
+	check   func(t *testing.T, collection *Collection, err error)
 }
 
 // opened fails the test unless the input opened.
@@ -424,11 +422,12 @@ func projectAgentsCase(newShape bool) inputCase {
 		}}
 }
 
-// goOnlyManifestCases are inputs Python crashes on or would read outside
-// the collection for; the binary counts or refuses them.
-func goOnlyManifestCases() []inputCase {
+// damagedManifestCases are manifests with rows that are not objects, sizes
+// that are not numbers, a collection.json that is not an object and archive
+// paths leaving the collection; the binary counts or refuses them.
+func damagedManifestCases() []inputCase {
 	return []inputCase{
-		{name: "a line that is JSON but not an object, and an unreadable size, are bad rows", pythonDiffers: true,
+		{name: "a line that is JSON but not an object, and an unreadable size, are bad rows",
 			build: func(t *testing.T, dir string) string {
 				writeFile(t, filepath.Join(dir, "fs/home/a/.claude/x"), "x")
 				good := jsonRow("path", "/home/a/.claude/x", "home", "/home/a", "archive_path", "fs/home/a/.claude/x",
@@ -444,7 +443,7 @@ func goOnlyManifestCases() []inputCase {
 				wantEqual(t, "rows kept", len(collection.Manifest), 2)
 				wantEqual(t, "size", collection.Artifacts[0].Size(), int64(12))
 			}},
-		{name: "a true collection.json that is not an object leaves a note", pythonDiffers: true,
+		{name: "a true collection.json that is not an object leaves a note",
 			build: func(t *testing.T, dir string) string {
 				writeManifest(t, dir)
 				writeFile(t, filepath.Join(dir, "collection.json"), `[1]`)
@@ -454,7 +453,7 @@ func goOnlyManifestCases() []inputCase {
 				opened(t, err)
 				wantSlice(t, "notes", collection.Notes, []string{"collection.json unreadable: not a JSON object"})
 			}},
-		{name: "an archive path leaving the collection is a problem", pythonDiffers: true,
+		{name: "an archive path leaving the collection is a problem",
 			build: func(t *testing.T, dir string) string {
 				collection := filepath.Join(dir, "collection")
 				writeFile(t, filepath.Join(dir, "outside"), "secret")
@@ -791,7 +790,7 @@ func zipMemberCases() []inputCase {
 func allInputCases() []inputCase {
 	var cases []inputCase
 	for _, group := range [][]inputCase{homeDirCases(), stagedCases(), manifestCases(),
-		goOnlyManifestCases(), looseCases(), archiveCases(), platformCases()} {
+		damagedManifestCases(), looseCases(), archiveCases(), platformCases()} {
 		cases = append(cases, group...)
 	}
 	return cases
