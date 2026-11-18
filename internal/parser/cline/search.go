@@ -1,6 +1,7 @@
 package cline
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"strings"
@@ -158,14 +159,7 @@ func splitHead(documents []sqlitefile.Row) (sqlitefile.Row, bool, []sqlitefile.R
 		messages = append(messages, document)
 	}
 	slices.SortStableFunc(messages, func(left, right sqlitefile.Row) int {
-		leftOrdinal, rightOrdinal := ordinal(left.Get("ordinal")), ordinal(right.Get("ordinal"))
-		switch {
-		case leftOrdinal < rightOrdinal:
-			return -1
-		case leftOrdinal > rightOrdinal:
-			return 1
-		}
-		return 0
+		return cmp.Compare(ordinal(left.Get("ordinal")), ordinal(right.Get("ordinal")))
 	})
 	return head, hasHead, messages
 }

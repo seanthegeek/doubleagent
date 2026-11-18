@@ -2,6 +2,7 @@ package codex
 
 import (
 	"cmp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -375,22 +376,12 @@ func memorySummary(text string) (map[string]string, string) {
 		}
 		key, value, found := strings.Cut(line, ":")
 		key = strings.Trim(key, textlines.ASCIISpace)
-		if !found || !isMemoryKey(key) {
+		if !found || !slices.Contains(memoryHeaderKeys, key) {
 			return header, strings.Join(lines[i:], "\n")
 		}
 		header[key] = strings.Trim(value, textlines.ASCIISpace)
 	}
 	return header, ""
-}
-
-// isMemoryKey reports whether key is a memory summary header key.
-func isMemoryKey(key string) bool {
-	for _, known := range memoryHeaderKeys {
-		if key == known {
-			return true
-		}
-	}
-	return false
 }
 
 // parseMemorySummary emits the "memory summary:" row of a thread's summary

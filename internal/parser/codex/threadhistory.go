@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"strconv"
@@ -230,18 +231,7 @@ func compareEvents(left, right historyEvent) int {
 	if left.kind != right.kind {
 		return left.kind - right.kind
 	}
-	return compareInt64(left.row.Rowid, right.row.Rowid)
-}
-
-// compareInt64 returns -1, 0 or 1 as left is below, equal to or above right.
-func compareInt64(left, right int64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	}
-	return 0
+	return cmp.Compare(left.row.Rowid, right.row.Rowid)
 }
 
 // valueKey returns a column value as a map key that tells the storage
