@@ -111,9 +111,7 @@ func taskStart(taskID string, item, metadata jsonvalue.Value) string {
 
 // numberLess reports whether one number is below another.
 func numberLess(left, right jsonvalue.Value) bool {
-	leftNumber, _ := NumberOf(left)
-	rightNumber, _ := NumberOf(right)
-	return leftNumber < rightNumber
+	return OrderOf(left) < OrderOf(right)
 }
 
 // ModelAt returns the model in use at an epoch-millisecond time: the last

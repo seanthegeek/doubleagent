@@ -272,3 +272,29 @@ func TestModelAtTakesTheLastModelInUse(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderOfSortsATimeBeyondTheRangeLast(t *testing.T) {
+	tests := []struct {
+		name, json string
+		want       float64
+		isNumber   bool
+	}{
+		{"a number", "1790000000000", 1790000000000, true},
+		{"true is one", "true", 1, true},
+		{"text is zero", `"1790000000000"`, 0, false},
+		{"null is zero", "null", 0, false},
+		{"a number beyond the float64 range sorts last", "1e999", math.Inf(1), false},
+		{"a negative one sorts first", "-1e999", math.Inf(-1), false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			value := decode(t, test.json)
+			if got := OrderOf(value); got != test.want {
+				t.Errorf("OrderOf(%s) = %v, want %v", test.json, got, test.want)
+			}
+			if _, ok := NumberOf(value); ok != test.isNumber {
+				t.Errorf("NumberOf(%s) gave %v, want %v", test.json, ok, test.isNumber)
+			}
+		})
+	}
+}

@@ -136,8 +136,7 @@ func storedResponses(handle *sqlitefile.Database, problems *parser.Problems) ([]
 				" (responses.data: "+err.Error()+")", parser.Text(record.Get("data")))
 			return nil
 		}
-		created, _ := data.Get("response").Get("created_at").Float()
-		stored = append(stored, storedResponse{created: created, rowid: row.Rowid,
+		stored = append(stored, storedResponse{created: parser.NumberOrder(data.Get("response").Get("created_at")), rowid: row.Rowid,
 			responseID: parser.Text(record.Get("response_id")), data: data})
 		return nil
 	})

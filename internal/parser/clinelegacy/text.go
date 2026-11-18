@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // Present reports whether a value is neither null nor the empty string, the
@@ -63,7 +64,7 @@ func IsNumber(value jsonvalue.Value) bool {
 }
 
 // NumberOf returns a number as a float, a boolean as 0 or 1, and false for
-// any other value or an integer too large for a float.
+// any other value or a number beyond the float64 range.
 func NumberOf(value jsonvalue.Value) (float64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
@@ -72,6 +73,16 @@ func NumberOf(value jsonvalue.Value) (float64, bool) {
 		return 0, true
 	}
 	return value.Float()
+}
+
+// OrderOf returns the number a time sorts by: NumberOf's number, else as
+// parser.NumberOrder orders it, a number beyond the float64 range past
+// every other.
+func OrderOf(value jsonvalue.Value) float64 {
+	if number, ok := NumberOf(value); ok {
+		return number
+	}
+	return parser.NumberOrder(value)
 }
 
 // KeyedArray returns the pattern of `"<key>"` followed, after JSON
