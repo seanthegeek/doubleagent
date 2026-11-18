@@ -127,8 +127,8 @@ def test_a_raw_string_over_several_lines_does_not_confuse_line_numbers() -> None
 
 
 def test_a_finding_names_its_line() -> None:
-    source = "package p\n\nfunc run(path string) {\n\tab := 1\n}\n"
-    assert findings(source) == [(4, "name 'ab' is shorter than 3 characters")]
+    source = "package p\n\n// run runs.\nfunc run(path string) {\n\tab := 1\n}\n"
+    assert findings(source) == [(5, "name 'ab' is shorter than 3 characters")]
 
 
 def comment_lines(count: int, indent: str = "") -> str:
@@ -137,10 +137,10 @@ def comment_lines(count: int, indent: str = "") -> str:
 
 
 def test_a_run_of_eleven_comment_lines_in_a_body_fails_and_ten_pass() -> None:
-    head = "package p\n\nfunc run() {\n"
+    head = "package p\n\n// run runs.\nfunc run() {\n"
     assert findings(head + comment_lines(10, "\t") + "\tstep()\n}\n") == []
     messages = findings(head + comment_lines(11, "\t") + "\n\tstep()\n}\n")
-    assert messages == [(4, "comment block of 11 lines is longer than 10")]
+    assert messages == [(5, "comment block of 11 lines is longer than 10")]
 
 
 def test_a_blank_line_ends_a_comment_run() -> None:
@@ -334,3 +334,80 @@ DROPPED_CAUSE_CASES = [
 def test_errors_new_of_an_error_text_is_reported() -> None:
     for body, expected in DROPPED_CAUSE_CASES:
         assert format_messages(body) == expected, body
+
+
+def missing_comments(source: str, name: str = "sample.go") -> list[tuple[int, str]]:
+    """Return the (line, message) findings of the comment-above-a-function rule."""
+    return [(line, message) for line, message in findings(source, name) if "no comment" in message]
+
+
+def test_only_the_function_without_a_comment_above_fails() -> None:
+    for comment in ["// run runs.", "/* run runs. */", "/*\nrun runs.\n*/"]:
+        source = "package p\n\n" + comment + "\nfunc run() {}\n\nfunc step() {}\n"
+        line = source.count("\n", 0, source.index("func step")) + 1
+        expected = [(line, "function 'step' has no comment directly above it")]
+        assert missing_comments(source) == expected, comment
+
+
+def test_a_function_without_a_comment_fails() -> None:
+    source = "package p\n\nvar value = 1\n\nfunc run() {}\n"
+    assert missing_comments(source) == [(5, "function 'run' has no comment directly above it")]
+
+
+def test_a_blank_line_between_the_comment_and_the_function_fails() -> None:
+    source = "package p\n\n// run runs.\n\nfunc run() {}\n"
+    assert missing_comments(source) == [(5, "function 'run' has no comment directly above it")]
+
+
+def test_a_trailing_comment_on_the_line_above_is_not_a_comment_above() -> None:
+    source = "package p\n\nvar value = 1 // one\nfunc run() {}\n"
+    assert missing_comments(source) == [(4, "function 'run' has no comment directly above it")]
+
+
+def test_a_method_needs_a_comment_too() -> None:
+    source = 'package p\n\n// Row is one row.\ntype Row struct{}\n\nfunc (r Row) Name() string { return "" }\n'
+    assert missing_comments(source) == [(6, "method 'Name' has no comment directly above it")]
+    documented = source.replace("\nfunc (r", "\n// Name names the row.\nfunc (r")
+    assert missing_comments(documented) == []
+
+
+def test_a_directive_is_not_a_comment_but_is_passed_over() -> None:
+    bare = "//go:build linux\n\npackage p\n\n//go:noinline\nfunc run() {}\n"
+    assert missing_comments(bare) == [(6, "function 'run' has no comment directly above it")]
+    documented = bare.replace("\n//go:noinline", "\n// run runs.\n//go:noinline")
+    assert missing_comments(documented) == []
+
+
+def test_the_functions_go_test_runs_are_exempt_in_a_test_file() -> None:
+    names = ["TestRun", "TestMain", "Test", "BenchmarkRun", "FuzzRun", "ExampleRun", "Example_run"]
+    for name in names:
+        source = "package p\n\nfunc %s() {}\n" % name
+        assert missing_comments(source, "run_test.go") == [], name
+        assert len(missing_comments(source, "run.go")) == 1, name
+    source = "package p\n\nfunc Testable() {}\n"
+    assert len(missing_comments(source, "run_test.go")) == 1
+
+
+def test_a_method_named_like_a_test_is_not_exempt() -> None:
+    source = "package p\n\n// Row is one row.\ntype Row struct{}\n\nfunc (r Row) TestRun() {}\n"
+    assert len(missing_comments(source, "run_test.go")) == 1
+
+
+def test_main_and_init_are_exempt() -> None:
+    source = "package main\n\nfunc main() {}\n\nfunc init() {}\n\nfunc run() {}\n"
+    assert missing_comments(source) == [(7, "function 'run' has no comment directly above it")]
+
+
+def test_a_function_literal_is_not_a_declaration() -> None:
+    sources = [
+        "package p\n\n// run runs.\nfunc run() {\n\tdone := func() {}\n\tdone()\n}\n",
+        "package p\n\nvar handler = func() {}\n",
+        "package p\n\nvar handler =\n\tfunc() {}\n",
+        "package p\n\nvar (\n\thandler = func() {}\n)\n",
+        "package p\n\n// Row is one row.\ntype Row struct {\n\tdone func()\n}\n",
+        "package p\n\n// Handler handles.\ntype Handler func(int) error\n",
+    ]
+    for source in sources:
+        line = source.count("\n") + 1
+        expected = [(line, "function 'step' has no comment directly above it")]
+        assert missing_comments(source + "func step() {}\n") == expected, source

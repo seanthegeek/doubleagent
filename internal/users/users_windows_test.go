@@ -18,6 +18,7 @@ import (
 // fakeProfiles is a profileReader that returns a fixed list.
 type fakeProfiles []Profile
 
+// Profiles returns the fixed list.
 func (fake fakeProfiles) Profiles() []Profile { return fake }
 
 // writeTree creates the directories and empty files under a fresh root and
@@ -165,6 +166,7 @@ func TestFind(t *testing.T) {
 	}
 }
 
+// boolText returns value as the word true or false.
 func boolText(value bool) string {
 	if value {
 		return "true"

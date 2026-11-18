@@ -100,6 +100,7 @@ func TestWrappersActLikeOsOnAnOrdinaryPath(t *testing.T) {
 	}
 }
 
+// checkOpen checks that Open reads the file.
 func checkOpen(t *testing.T, root string) {
 	writeText(t, filepath.Join(root, "file"), "content")
 	file, err := Open(filepath.Join(root, "file"))
@@ -114,6 +115,7 @@ func checkOpen(t *testing.T, root string) {
 	}
 }
 
+// checkOpenFile checks that OpenFile with create and write makes the file.
 func checkOpenFile(t *testing.T, root string) {
 	path := filepath.Join(root, "file")
 	file, err := OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
@@ -134,6 +136,7 @@ func checkOpenFile(t *testing.T, root string) {
 	}
 }
 
+// checkCreate checks that Create truncates an existing file.
 func checkCreate(t *testing.T, root string) {
 	path := filepath.Join(root, "file")
 	writeText(t, path, "long old content")
@@ -149,6 +152,7 @@ func checkCreate(t *testing.T, root string) {
 	}
 }
 
+// checkStats checks that Lstat and Stat describe the file.
 func checkStats(t *testing.T, root string) {
 	writeText(t, filepath.Join(root, "file"), "12345")
 	for name, stat := range map[string]func(string) (fs.FileInfo, error){"Lstat": Lstat, "Stat": Stat} {
@@ -163,6 +167,7 @@ func checkStats(t *testing.T, root string) {
 	}
 }
 
+// checkReadDir checks that ReadDir lists the entries of a directory.
 func checkReadDir(t *testing.T, root string) {
 	writeText(t, filepath.Join(root, "b"), "")
 	writeText(t, filepath.Join(root, "a"), "")
@@ -183,6 +188,7 @@ func checkReadDir(t *testing.T, root string) {
 	}
 }
 
+// checkReadFile checks that ReadFile returns the contents.
 func checkReadFile(t *testing.T, root string) {
 	writeText(t, filepath.Join(root, "file"), "content")
 	data, err := ReadFile(filepath.Join(root, "file"))
@@ -191,6 +197,7 @@ func checkReadFile(t *testing.T, root string) {
 	}
 }
 
+// checkWriteFile checks that WriteFile replaces the contents.
 func checkWriteFile(t *testing.T, root string) {
 	path := filepath.Join(root, "file")
 	writeText(t, path, "long old content")
@@ -202,6 +209,8 @@ func checkWriteFile(t *testing.T, root string) {
 	}
 }
 
+// checkMkdirAll checks that MkdirAll makes nested directories and accepts an
+// existing one.
 func checkMkdirAll(t *testing.T, root string) {
 	nested := filepath.Join(root, "one", "two", "three")
 	for attempt := 0; attempt < 2; attempt++ {
@@ -214,6 +223,8 @@ func checkMkdirAll(t *testing.T, root string) {
 	}
 }
 
+// checkMkdirTemp checks that MkdirTemp makes two new directories under its
+// pattern.
 func checkMkdirTemp(t *testing.T, root string) {
 	first, err := MkdirTemp(root, "cac-*")
 	if err != nil {
@@ -239,6 +250,8 @@ func checkMkdirTemp(t *testing.T, root string) {
 	}
 }
 
+// checkRemove checks that Remove deletes a file and refuses a directory that
+// holds one.
 func checkRemove(t *testing.T, root string) {
 	writeText(t, filepath.Join(root, "file"), "")
 	if err := os.Mkdir(filepath.Join(root, "full"), 0o755); err != nil {
@@ -256,6 +269,7 @@ func checkRemove(t *testing.T, root string) {
 	}
 }
 
+// checkRemoveAll checks that RemoveAll deletes a tree.
 func checkRemoveAll(t *testing.T, root string) {
 	if err := os.MkdirAll(filepath.Join(root, "tree", "deep"), 0o755); err != nil {
 		t.Fatal(err)
@@ -269,6 +283,7 @@ func checkRemoveAll(t *testing.T, root string) {
 	}
 }
 
+// checkChtimes checks that Chtimes sets the modification time.
 func checkChtimes(t *testing.T, root string) {
 	path := filepath.Join(root, "file")
 	writeText(t, path, "")

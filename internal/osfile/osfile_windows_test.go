@@ -84,6 +84,7 @@ func TestWrappersReachTheEntryNamedNotItsNeighbour(t *testing.T) {
 	}
 }
 
+// checkOpenSpace checks that Open reads the file with a trailing space.
 func checkOpenSpace(t *testing.T, root string) {
 	file, err := Open(filepath.Join(root, "y "))
 	if err != nil {
@@ -97,6 +98,8 @@ func checkOpenSpace(t *testing.T, root string) {
 	}
 }
 
+// checkOpenFileSpace checks that OpenFile appends to the file with a
+// trailing space only.
 func checkOpenFileSpace(t *testing.T, root string) {
 	file, err := OpenFile(filepath.Join(root, "y "), os.O_WRONLY|os.O_APPEND, 0)
 	if err != nil {
@@ -116,6 +119,8 @@ func checkOpenFileSpace(t *testing.T, root string) {
 	}
 }
 
+// checkCreateDot checks that Create makes the file with a trailing dot
+// beside its neighbour.
 func checkCreateDot(t *testing.T, root string) {
 	makeEntries(t, root, "z=keep")
 	file, err := Create(filepath.Join(root, "z."))
@@ -136,6 +141,7 @@ func checkCreateDot(t *testing.T, root string) {
 	}
 }
 
+// checkStatSizes checks that Lstat and Stat give the size of the file named.
 func checkStatSizes(t *testing.T, root string) {
 	for name, stat := range map[string]func(string) (fs.FileInfo, error){"Lstat": Lstat, "Stat": Stat} {
 		spaced, err := stat(filepath.Join(root, "y "))
@@ -149,6 +155,7 @@ func checkStatSizes(t *testing.T, root string) {
 	}
 }
 
+// checkReadlinkDot checks that Readlink reads the link with a trailing dot.
 func checkReadlinkDot(t *testing.T, root string) {
 	if err := os.Symlink("dotted-target", extended(root, "l.")); err != nil {
 		t.Skipf("cannot make a symlink here: %v", err)
@@ -163,6 +170,8 @@ func checkReadlinkDot(t *testing.T, root string) {
 	}
 }
 
+// checkReadDirDot checks that ReadDir lists the directory with a trailing
+// dot.
 func checkReadDirDot(t *testing.T, root string) {
 	for name, want := range map[string]string{"x.": "dotted-entry", "x": "plain-entry"} {
 		entries, err := ReadDir(filepath.Join(root, name))
@@ -172,6 +181,8 @@ func checkReadDirDot(t *testing.T, root string) {
 	}
 }
 
+// checkReadFileSpace checks that ReadFile reads the file with a trailing
+// space.
 func checkReadFileSpace(t *testing.T, root string) {
 	if data, err := ReadFile(filepath.Join(root, "y ")); err != nil || string(data) != "space-content" {
 		t.Errorf("ReadFile(y with space) = %q, %v", data, err)
@@ -181,6 +192,8 @@ func checkReadFileSpace(t *testing.T, root string) {
 	}
 }
 
+// checkWriteFileDot checks that WriteFile writes the file with a trailing
+// dot beside its neighbour.
 func checkWriteFileDot(t *testing.T, root string) {
 	makeEntries(t, root, "v=keep")
 	if err := WriteFile(filepath.Join(root, "v."), []byte("dot"), 0o644); err != nil {
@@ -194,6 +207,8 @@ func checkWriteFileDot(t *testing.T, root string) {
 	}
 }
 
+// checkMkdirAllDot checks that MkdirAll makes a child inside the directory
+// with a trailing dot.
 func checkMkdirAllDot(t *testing.T, root string) {
 	if err := MkdirAll(filepath.Join(root, "x.", "sub", "deep"), 0o755); err != nil {
 		t.Fatal(err)
@@ -204,6 +219,8 @@ func checkMkdirAllDot(t *testing.T, root string) {
 	}
 }
 
+// checkRemoveDot checks that Remove deletes the entry with a trailing dot
+// and keeps its neighbour.
 func checkRemoveDot(t *testing.T, root string) {
 	makeEntries(t, root, "r.", "r")
 	if err := Remove(filepath.Join(root, "r.")); err != nil {
@@ -215,6 +232,8 @@ func checkRemoveDot(t *testing.T, root string) {
 	}
 }
 
+// checkRemoveAllDot checks that RemoveAll deletes the tree with a trailing
+// dot and keeps its neighbour.
 func checkRemoveAllDot(t *testing.T, root string) {
 	if err := RemoveAll(filepath.Join(root, "x.")); err != nil {
 		t.Fatal(err)
@@ -225,6 +244,8 @@ func checkRemoveAllDot(t *testing.T, root string) {
 	}
 }
 
+// checkChtimesSpace checks that Chtimes dates the file with a trailing space
+// and not its neighbour.
 func checkChtimesSpace(t *testing.T, root string) {
 	before, err := os.Stat(extended(root, "y"))
 	if err != nil {
@@ -274,6 +295,8 @@ func TestWrappersWorkOnAPathLongerThanTheOrdinaryLimit(t *testing.T) {
 	}
 }
 
+// checkLongFiles checks that Create, WriteFile and ReadFile make and read a
+// file under a long path.
 func checkLongFiles(t *testing.T, long string) {
 	file, err := Create(filepath.Join(long, "created"))
 	if err != nil {
@@ -288,6 +311,8 @@ func checkLongFiles(t *testing.T, long string) {
 	}
 }
 
+// checkLongOpens checks that Open and OpenFile open a file under a long
+// path.
 func checkLongOpens(t *testing.T, long string) {
 	if err := WriteFile(filepath.Join(long, "file"), []byte("long"), 0o644); err != nil {
 		t.Fatal(err)
@@ -304,6 +329,8 @@ func checkLongOpens(t *testing.T, long string) {
 	}
 }
 
+// checkLongDescribes checks that Lstat, Stat and ReadDir describe a file
+// under a long path.
 func checkLongDescribes(t *testing.T, long string) {
 	if err := WriteFile(filepath.Join(long, "file"), []byte("long"), 0o644); err != nil {
 		t.Fatal(err)
@@ -319,6 +346,7 @@ func checkLongDescribes(t *testing.T, long string) {
 	}
 }
 
+// checkLongChtimes checks that Chtimes dates a file under a long path.
 func checkLongChtimes(t *testing.T, long string) {
 	if err := WriteFile(filepath.Join(long, "file"), nil, 0o644); err != nil {
 		t.Fatal(err)
@@ -332,6 +360,8 @@ func checkLongChtimes(t *testing.T, long string) {
 	}
 }
 
+// checkLongRemoves checks that Remove and RemoveAll delete a file and a tree
+// under a long path.
 func checkLongRemoves(t *testing.T, long string) {
 	if err := WriteFile(filepath.Join(long, "file"), nil, 0o644); err != nil {
 		t.Fatal(err)

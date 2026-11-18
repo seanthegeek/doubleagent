@@ -15,6 +15,8 @@ type conversionCase struct {
 	want  string
 }
 
+// runConversions runs convert over each case as a subtest and checks its
+// result.
 func runConversions(t *testing.T, convert func(string) string, cases []conversionCase) {
 	t.Helper()
 	for _, testCase := range cases {
@@ -201,7 +203,10 @@ func TestSystemBaseWindows(t *testing.T) {
 // customError wraps an error without being a type nativeErrors knows.
 type customError struct{ inner error }
 
+// Error puts a prefix before the inner error's text.
 func (e customError) Error() string { return "custom: " + e.inner.Error() }
+
+// Unwrap returns the inner error.
 func (e customError) Unwrap() error { return e.inner }
 
 func TestNativeErrorsRewritesPaths(t *testing.T) {

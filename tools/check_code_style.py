@@ -144,6 +144,7 @@ GO_NO_VERB_MESSAGE = "fmt.%s has no verb to fill; use %s"
 GO_ERRORS_NEW_FORMAT_MESSAGE = (
     "errors.New(fmt.Sprintf(...)) makes an error from a format; use fmt.Errorf"
 )
+GO_NO_COMMENT_MESSAGE = "%s %r has no comment directly above it"
 GO_DROPPED_CAUSE_MESSAGE = (
     "errors.New makes an error from another error's text and drops it; wrap it with %w"
 )
@@ -911,6 +912,66 @@ def go_dropped_cause_findings(tokens: list[GoToken]) -> Iterator[Finding]:
             yield code[index].line, GO_DROPPED_CAUSE_MESSAGE
 
 
+def go_declared_functions(tokens: list[GoToken]) -> Iterator[tuple[GoToken, str, bool]]:
+    """Yield the `func` token, name and whether it has a receiver of each top-level declaration.
+
+    A declaration's `func` starts its line outside every bracket; a function literal is inside a
+    body or a declaration, or follows `=` or another operator.
+    """
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    depth = 0
+    for index, token in enumerate(code):
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        is_start = depth == 0 and token.first and token.text == "func" and index + 1 < len(code)
+        if not is_start or (index > 0 and code[index - 1].text in GO_CONTINUATION):
+            continue
+        after = index + 1
+        has_receiver = code[after].text == "("
+        if has_receiver:
+            after = go_close(code, after) + 1
+        if after < len(code) and go_is_name(code[after]):
+            yield token, code[after].text, has_receiver
+
+
+def go_is_test_function(name: str) -> bool:
+    """Return True for a name `go test` runs: Test, Benchmark, Fuzz or Example and a non-lower."""
+    for prefix in ("Test", "Benchmark", "Fuzz", "Example"):
+        rest = name.removeprefix(prefix)
+        if rest != name and not rest[:1].islower():
+            return True
+    return False
+
+
+def go_function_comment_findings(tokens: list[GoToken], is_test: bool) -> Iterator[Finding]:
+    """Yield a finding for each function or method declaration with no comment above it.
+
+    The comment ends on the line directly above the `func`, past any `//go:` directive lines;
+    a blank line between them ends it. `main` and `init`, which the package comment and the
+    embedded file they check explain, and in a test file the functions `go test` runs, are
+    exempt.
+    """
+    comment_lines: set[int] = set()
+    directive_lines: set[int] = set()
+    for token in tokens:
+        if token.kind in {"linecomment", "blockcomment"} and token.first:
+            lines = directive_lines if token.text.startswith("//go:") else comment_lines
+            lines.update(range(token.line, token.end_line + 1))
+    for token, name, has_receiver in go_declared_functions(tokens):
+        if not has_receiver and (
+            name in {"main", "init"} or (is_test and go_is_test_function(name))
+        ):
+            continue
+        line = token.line - 1
+        while line in directive_lines:
+            line -= 1
+        if line not in comment_lines:
+            kind = "method" if has_receiver else "function"
+            yield token.line, GO_NO_COMMENT_MESSAGE % (kind, name)
+
+
 def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     """Yield the findings of one Go file."""
     tokens = go_tokens(source)
@@ -922,6 +983,7 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     yield from go_comment_findings(tokens)
     yield from go_format_findings(tokens)
     yield from go_dropped_cause_findings(tokens)
+    yield from go_function_comment_findings(tokens, is_test)
 
 
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {

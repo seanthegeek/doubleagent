@@ -80,6 +80,7 @@ func TestWriterNegativeNumbersAreZero(t *testing.T) {
 
 type failingWriter struct{}
 
+// Write fails every write, as a full disk does.
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
 
 func TestWriterBookkeeping(t *testing.T) {

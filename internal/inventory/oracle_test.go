@@ -21,6 +21,7 @@ import (
 // discardLog drops log lines.
 type discardLog struct{}
 
+// Line drops the log line.
 func (discardLog) Line(string) error { return nil }
 
 var atField = regexp.MustCompile(`"at":"[^"]*",`)

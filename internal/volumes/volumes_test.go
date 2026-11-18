@@ -21,6 +21,7 @@ import (
 // memoryLog keeps log lines in memory.
 type memoryLog struct{ lines []string }
 
+// Line keeps the log line.
 func (log *memoryLog) Line(text string) error {
 	log.lines = append(log.lines, text)
 	return nil
@@ -29,10 +30,12 @@ func (log *memoryLog) Line(text string) error {
 // inventoryRecords keeps what an inventory walk reports.
 type inventoryRecords struct{ matches, files []string }
 
+// Match keeps the agent and glob of a match.
 func (records *inventoryRecords) Match(agent, glob string) {
 	records.matches = append(records.matches, agent+"|"+glob)
 }
 
+// File keeps the agent of a file the walk reports.
 func (records *inventoryRecords) File(agent string, _, _ int64) {
 	records.files = append(records.files, agent)
 }
@@ -46,6 +49,8 @@ type setup struct {
 	records   *inventoryRecords
 }
 
+// newSetup returns a collector over a fresh image root, with an inventory
+// walk when inventory is set.
 func newSetup(t *testing.T, inventory bool) setup {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -88,6 +93,8 @@ func (fixture setup) write(t *testing.T, relative, content string) {
 	}
 }
 
+// mkdir makes the directory at relative under the image root, with its
+// parents.
 func (fixture setup) mkdir(t *testing.T, relative string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(fixture.root, relative), 0o755); err != nil {

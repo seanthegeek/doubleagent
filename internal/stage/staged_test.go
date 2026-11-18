@@ -21,9 +21,16 @@ type fakeEntry struct {
 	mode fs.FileMode
 }
 
-func (entry fakeEntry) Name() string               { return entry.name }
-func (entry fakeEntry) IsDir() bool                { return entry.mode.IsDir() }
-func (entry fakeEntry) Type() fs.FileMode          { return entry.mode.Type() }
+// Name returns the entry's name.
+func (entry fakeEntry) Name() string { return entry.name }
+
+// IsDir reports whether the entry's mode is a directory.
+func (entry fakeEntry) IsDir() bool { return entry.mode.IsDir() }
+
+// Type returns the type bits of the entry's mode.
+func (entry fakeEntry) Type() fs.FileMode { return entry.mode.Type() }
+
+// Info has no file to describe and fails.
 func (entry fakeEntry) Info() (fs.FileInfo, error) { return nil, errors.ErrUnsupported }
 
 // fakeTree is a staging tree whose volume folds case and Unicode
