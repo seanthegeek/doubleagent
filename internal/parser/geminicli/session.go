@@ -24,7 +24,8 @@ type numbered struct {
 // session emits the rows of one session file: the session starts, a
 // scratch directory row for a worktree session, the rows of the messages
 // in force after the replay, in replay order, then the summaries, rewinds
-// and removals, then a row per problem.
+// and removals, then a row per problem, among them each member of the
+// wrong kind the replay or a message met.
 func (p *Parser) session(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
@@ -32,6 +33,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 	for _, each := range sessionRecords(artifact, &problems) {
 		state.apply(each.line, each.record)
 	}
+	problems = append(problems, state.problems...)
 	project := p.resolveProject(inBase(artifact, match), match["slug"],
 		parser.Text(state.projectHash), &problems)
 	for _, start := range state.starts {
@@ -56,6 +58,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 		turn := messageTurn{owner: p, artifact: artifact, options: options, line: entry.line,
 			sessionID: sessionID, project: project}
 		parser.EmitAll(emit, turn.rows(entry.message, models, answered))
+		problems = append(problems, turn.problems...)
 	}
 	for _, each := range state.events {
 		emit(p.systemRow(artifact, where{each.line, each.timestamp, each.sessionID, project}, each.text))
@@ -122,7 +125,7 @@ func answeredCalls(messages *messageLog, order []string) map[string]bool {
 }
 
 // messageTurn is where the rows of one replayed message go: its line,
-// session and project.
+// session and project, and the problems its members of the wrong kind add.
 type messageTurn struct {
 	owner              *Parser
 	artifact           *input.Artifact
@@ -130,6 +133,7 @@ type messageTurn struct {
 	line               int
 	sessionID, project string
 	timestamp, model   string
+	problems           parser.Problems
 }
 
 // row returns a row of the message at when, else at the message's time.
@@ -145,7 +149,8 @@ func (t *messageTurn) row(turn, text, when string) timeline.Row {
 // rows returns the rows of one replayed message: a user message's runs and
 // its unanswered responses, a model message's model change, thinking,
 // text, tool calls and results, or an info, error or warning message as
-// one system row.
+// one system row. A model message's thoughts or toolCalls that is not an
+// array adds a problem.
 func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	answered map[string]bool) []timeline.Row {
 	kind := message.Get("type")
@@ -168,13 +173,14 @@ func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	if change := models.Change("model", t.sessionID, t.model); change != "" {
 		out = append(out, t.row(timeline.TurnSystem, change, ""))
 	}
+	thoughts := parser.ArrayMember(message.Get("thoughts"), "thoughts", t.line, &t.problems)
 	if t.options.IncludeThinking {
-		out = append(out, t.thinkingRows(message)...)
+		out = append(out, t.thinkingRows(thoughts, content)...)
 	}
 	if text := partText(content, false); text != "" {
 		out = append(out, t.row(timeline.TurnAssistant, text, ""))
 	}
-	for _, call := range toolCalls(message) {
+	for _, call := range t.toolCalls(message) {
 		out = append(out, t.callRows(call)...)
 	}
 	if len(out) == 0 {
@@ -211,11 +217,11 @@ func (t *messageTurn) userRows(content jsonvalue.Value, answered map[string]bool
 }
 
 // thinkingRows returns a model message's thinking rows: one per thoughts
-// entry, "<subject>: <description>", at its own time, then one for its
-// thought parts.
-func (t *messageTurn) thinkingRows(message jsonvalue.Value) []timeline.Row {
+// entry, "<subject>: <description>", at its own time, then one for the
+// thought parts of its content.
+func (t *messageTurn) thinkingRows(thoughts []jsonvalue.Value, content jsonvalue.Value) []timeline.Row {
 	var out []timeline.Row
-	for _, entry := range message.Get("thoughts").Items() {
+	for _, entry := range thoughts {
 		if !entry.IsObject() {
 			continue
 		}
@@ -225,7 +231,7 @@ func (t *messageTurn) thinkingRows(message jsonvalue.Value) []timeline.Row {
 		}
 		out = append(out, t.row(timeline.TurnThinking, text, timeutil.FromValue(entry.Get("timestamp"))))
 	}
-	if thought := partText(message.Get("content"), true); thought != "" {
+	if thought := partText(content, true); thought != "" {
 		out = append(out, t.row(timeline.TurnThinking, thought, ""))
 	}
 	return out
@@ -233,11 +239,12 @@ func (t *messageTurn) thinkingRows(message jsonvalue.Value) []timeline.Row {
 
 // toolCalls returns a model message's tool calls: its toolCalls objects,
 // then each functionCall part of its content whose id none of them has,
-// as a call of that id, name and args.
-func toolCalls(message jsonvalue.Value) []jsonvalue.Value {
+// as a call of that id, name and args. A toolCalls that is not an array
+// adds a problem.
+func (t *messageTurn) toolCalls(message jsonvalue.Value) []jsonvalue.Value {
 	var calls []jsonvalue.Value
 	seen := map[string]bool{}
-	for _, call := range message.Get("toolCalls").Items() {
+	for _, call := range parser.ArrayMember(message.Get("toolCalls"), "toolCalls", t.line, &t.problems) {
 		if call.IsObject() {
 			calls = append(calls, call)
 			seen[parser.Text(call.Get("id"))] = true

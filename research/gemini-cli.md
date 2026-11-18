@@ -2212,7 +2212,15 @@ file name. A tool checkpoint that does not decode is one
 `parser: not a tool checkpoint: not a JSON object`; an error report that does not decode is one
 `parser: unparseable error report (<reason>)` row, one without an `error` object
 `parser: not an error report: no error object`. In either a `clientHistory` or `context` item that
-is not an object is `parser: unparseable record <N> (not a JSON object): <item>`. A `memory/`
+is not an object is `parser: unparseable record <N> (not a JSON object): <item>`; a `clientHistory`,
+a `context` that is neither an array nor an object, or a `context.requestContents`, that is present
+but not an array is `parser: <member> is not a JSON array` (`source_line` 0). In a session file a
+member of a record that is present but not an array is `parser: <member> is not a JSON array` at the
+record's line: a `gemini` message's `toolCalls` or `thoughts` (the message in force after the
+replay), a `$patch` record's `$patch.updates`, `$patch.removeIds`, `$patch.orderIds` or
+`$patch.toolCalls`, an update's `$patch.updates[].toolCalls`, a `$set` record's `$set.messages`
+(the message list is then left as it was) and a legacy session file's `messages`. An absent, null
+or empty member gives no row. A `memory/`
 file that is not valid UTF-8 is one `parser: <name> is not UTF-8 text` row.
 
 A session file (JSONL or legacy JSON), `logs.json`, `shell_history`, `/chat save` checkpoint,

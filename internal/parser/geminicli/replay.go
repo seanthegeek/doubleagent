@@ -142,13 +142,15 @@ type event struct {
 
 // replay replays the records of one session file as the CLI does: the
 // messages in force, the starts and events, the session id, the latest
-// time seen and the projectHash of the metadata.
+// time seen, the projectHash of the metadata and the problems of the
+// members of the wrong kind its records hold.
 type replay struct {
 	messages       messageLog
 	starts, events []event
 	sessionID      string
 	latest         string
 	projectHash    jsonvalue.Value
+	problems       parser.Problems
 	// work counts the tool call lookups of patches and the placements read,
 	// which a test holds to the size of the patches and to linear.
 	work parser.Work
@@ -191,28 +193,31 @@ func (r *replay) rewind(line int, target string) {
 }
 
 // patch applies a $patch: its own message change and those of its
-// updates, then the removals and the new order of the ids it names.
+// updates, then the removals and the new order of the ids it names. An
+// updates, removeIds or orderIds that is not an array adds a problem.
 func (r *replay) patch(line int, patch jsonvalue.Value) {
 	if patch.Get("id").IsString() {
-		r.applyPatch(patch)
+		r.applyPatch(line, patch, "$patch.toolCalls")
 	}
-	for _, update := range patch.Get("updates").Items() {
+	for _, update := range parser.ArrayMember(patch.Get("updates"), "$patch.updates", line, &r.problems) {
 		if update.IsObject() && update.Get("id").IsString() {
-			r.applyPatch(update)
+			r.applyPatch(line, update, "$patch.updates[].toolCalls")
 		}
 	}
-	if removed := texts(patch.Get("removeIds")); len(removed) > 0 {
+	removeIDs := parser.ArrayMember(patch.Get("removeIds"), "$patch.removeIds", line, &r.problems)
+	orderIDs := parser.ArrayMember(patch.Get("orderIds"), "$patch.orderIds", line, &r.problems)
+	if removed := texts(removeIDs); len(removed) > 0 {
 		dropped := r.messages.drop(removed)
 		r.events = append(r.events, event{line, r.latest, r.sessionID,
 			"patch removed " + strconv.Itoa(dropped) + " message(s)"})
 	}
-	r.messages.moveToEnd(texts(patch.Get("orderIds")))
+	r.messages.moveToEnd(texts(orderIDs))
 }
 
-// texts returns the string items of an array.
-func texts(list jsonvalue.Value) []string {
+// texts returns the string items of a list.
+func texts(items []jsonvalue.Value) []string {
 	var out []string
-	for _, item := range list.Items() {
+	for _, item := range items {
 		if item.IsString() {
 			out = append(out, item.StringValue())
 		}
@@ -225,8 +230,11 @@ func texts(list jsonvalue.Value) []string {
 // patch gives a result for. The message as recorded is never changed: the
 // first patch replaces it with a copy, tool calls included, which later
 // patches change in place, so a patch costs work in proportion to its own
-// size, not the message's.
-func (r *replay) applyPatch(patch jsonvalue.Value) {
+// size, not the message's. A toolCalls of the patch that is not an array
+// adds a problem at line, naming it as member, whether or not the message
+// is present.
+func (r *replay) applyPatch(line int, patch jsonvalue.Value, member string) {
+	toolPatches := parser.ArrayMember(patch.Get("toolCalls"), member, line, &r.problems)
 	entry, ok := r.messages.byID[patch.Get("id").StringValue()]
 	if !ok {
 		return
@@ -240,10 +248,10 @@ func (r *replay) applyPatch(patch jsonvalue.Value) {
 		message.Set("content", content)
 	}
 	calls := message.Get("toolCalls")
-	if !patch.Get("toolCalls").IsArray() || !parser.IsText(message.Get("type"), "gemini") || !calls.IsArray() {
+	if len(toolPatches) == 0 || !parser.IsText(message.Get("type"), "gemini") || !calls.IsArray() {
 		return
 	}
-	for _, toolPatch := range patch.Get("toolCalls").Items() {
+	for _, toolPatch := range toolPatches {
 		result, ok := toolPatch.Lookup("result")
 		if !toolPatch.IsObject() || !ok {
 			continue
@@ -288,14 +296,18 @@ func (r *replay) patchedCall(entry *stored, callID jsonvalue.Value) (jsonvalue.V
 }
 
 // set applies a $set: a new session id, a new message list, metadata, and
-// a summary row at the update's time, else the latest time seen.
+// a summary row at the update's time, else the latest time seen. A
+// messages that is not an array adds a problem and leaves the list as it
+// was.
 func (r *replay) set(line int, changes jsonvalue.Value) {
 	if named := changes.Get("sessionId"); named.IsString() && named.StringValue() != "" {
 		r.sessionID = named.StringValue()
 	}
-	if messages := changes.Get("messages"); messages.IsArray() {
+	messages := changes.Get("messages")
+	list := parser.ArrayMember(messages, "$set.messages", line, &r.problems)
+	if messages.IsArray() {
 		r.messages = newMessageLog(r.work)
-		r.putAll(messages, line)
+		r.putAll(list, line)
 	}
 	r.metadata(changes)
 	if summary := changes.Get("summary"); !summary.IsEmpty() {
@@ -306,8 +318,8 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 
 // putAll records each message of a list that is an object with a string
 // id.
-func (r *replay) putAll(messages jsonvalue.Value, line int) {
-	for _, message := range messages.Items() {
+func (r *replay) putAll(messages []jsonvalue.Value, line int) {
+	for _, message := range messages {
 		if message.IsObject() && message.Get("id").IsString() {
 			r.seen(timeutil.FromValue(message.Get("timestamp")))
 			r.messages.put(message, line, r.sessionID)
@@ -325,7 +337,7 @@ func (r *replay) metadata(record jsonvalue.Value) {
 
 // header applies a session header (or a legacy whole-session record): the
 // session id, a "session start:" row and, in the legacy form, the
-// messages it holds.
+// messages it holds; a messages that is not an array adds a problem.
 func (r *replay) header(line int, record jsonvalue.Value) {
 	r.metadata(record)
 	if named := record.Get("sessionId").StringValue(); named != "" {
@@ -342,5 +354,5 @@ func (r *replay) header(line int, record jsonvalue.Value) {
 		text += " directories=" + parser.JSONText(directories)
 	}
 	r.starts = append(r.starts, event{line, timestamp, r.sessionID, text})
-	r.putAll(record.Get("messages"), line)
+	r.putAll(parser.ArrayMember(record.Get("messages"), "messages", line, &r.problems), line)
 }
