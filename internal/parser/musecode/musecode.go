@@ -253,10 +253,11 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Va
 }
 
 // frameChildren returns the envelopes held in a retained frame's children,
-// in child_index order. A child that does not decode adds a problem.
+// in child_index order. A child that does not decode, or a children that is
+// not an array, adds a problem.
 func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
 	var children []jsonvalue.Value
-	for _, item := range parser.Elements(frame.Get("children")) {
+	for _, item := range parser.ArrayMember(frame.Get("children"), "children", number, problems) {
 		if item.IsObject() {
 			children = append(children, item)
 		}
@@ -399,6 +400,7 @@ type walk struct {
 	emit       parser.Emit
 	entries    []envelope
 	isSubagent bool
+	problems   *parser.Problems
 
 	// What the pre-pass finds, for rows that need it before the record that
 	// sets it.
@@ -468,8 +470,8 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 		return
 	}
 	pass := &walk{parser: p, artifact: artifact, options: options, emit: emit, entries: entries,
-		isSubagent: strings.Contains(artifact.Rel, "/subagent/"),
-		runModel:   map[string]string{}, runCompletedModel: map[string]string{},
+		isSubagent: strings.Contains(artifact.Rel, "/subagent/"), problems: &problems,
+		runModel: map[string]string{}, runCompletedModel: map[string]string{},
 		startedRuns: map[string]bool{}, committed: map[string]bool{},
 		lastDelta: map[string]int{}, deltas: map[string][]string{}, calls: map[string]string{},
 		approvals: map[string][2]string{}, models: parser.Tracker{}, modes: parser.Tracker{}}
@@ -661,15 +663,18 @@ func (w *walk) hasModel() bool {
 }
 
 // userIntent emits the prompt of an accepted user intent that no run
-// started.
+// started. A model_messages or a message's content that is not an array
+// adds a problem.
 func (w *walk) userIntent(step *recordStep) {
 	intent := parser.Text(step.payload.Get("intent_id"))
 	if intent == "" || w.startedRuns[intent] {
 		return
 	}
 	var parts []string
-	for _, message := range parser.Elements(step.payload.Get("model_messages")) {
-		for _, block := range parser.Elements(message.Get("content")) {
+	messages := parser.ArrayMember(step.payload.Get("model_messages"), "model_messages", step.line, w.problems)
+	for _, message := range messages {
+		blocks := parser.ArrayMember(message.Get("content"), "model_messages.content", step.line, w.problems)
+		for _, block := range blocks {
 			if body := block.Get("text"); body.IsString() {
 				parts = append(parts, body.StringValue())
 			}
@@ -847,9 +852,10 @@ func (w *walk) reasoningDelta(step *recordStep, event jsonvalue.Value) {
 	}
 }
 
-// toolCalls emits one tool_use row per call of a committed list.
+// toolCalls emits one tool_use row per call of a committed list; a
+// tool_calls that is not an array adds a problem.
 func (w *walk) toolCalls(step *recordStep, event jsonvalue.Value) {
-	for _, call := range parser.Elements(event.Get("tool_calls")) {
+	for _, call := range parser.ArrayMember(event.Get("tool_calls"), "tool_calls", step.line, w.problems) {
 		name, callID := call.Get("name").Text(), call.Get("call_id").Text()
 		w.calls[callID] = name
 		w.emit(w.makeRow(step, timeline.TurnToolUse, argumentsSummary(call.Get("args")), name, callID))
@@ -898,7 +904,7 @@ func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
 }
 
 // parseTrust emits one "permission setting:" row per trusted project's
-// decision.
+// decision; a projects that is not an object adds a problem row.
 func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -916,7 +922,8 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 		return
 	}
-	for _, member := range document.Get("projects").Members() {
+	var wrong parser.Problems
+	for _, member := range parser.ObjectMember(document.Get("projects"), "projects", 1, &wrong) {
 		if !member.Value.IsObject() || !member.Value.Has("decision") {
 			continue
 		}
@@ -924,6 +931,11 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 		row.Text = timeline.Compact("permission setting: projects." + member.Key + ".decision=" +
 			parser.SettingValue(member.Value.Get("decision")) + " (from " + artifact.Rel +
 			", file mtime)")
+		emit(row)
+	}
+	row.ProjectPath = ""
+	for _, found := range wrong {
+		row.Text = parser.ProblemPrefix + found.Message
 		emit(row)
 	}
 }

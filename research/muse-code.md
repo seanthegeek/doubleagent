@@ -969,6 +969,12 @@ A `session.jsonl` whose first record is neither an envelope nor a
 at that record's line. A `tui-history.jsonl` line that is JSON but neither a
 string nor an object is `parser: unparseable line (not a JSON string or object): <the line>`.
 
+A member the format makes an array that is present but not an array is one row at the record's
+line, `parser: <member> is not a JSON array`, `<member>` being `children` (of a `retained_frame`),
+`model_messages` or `model_messages.content` (of a user intent) or `tool_calls` (of a committed
+tool-call event); a `trust.json` `projects` that is present but not an object is
+`parser: projects is not a JSON object` at line 1. An absent, null or empty member gives no row.
+
 A `session.jsonl` that cannot be read is one whole-file row
 `parser: session.jsonl could not be read (<reason>)` through `error_rows`; a `tui-history.jsonl` or
 `trust.json` that cannot be read is likewise one row `parser: <file> could not be read (<reason>)`,
