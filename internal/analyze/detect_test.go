@@ -1,7 +1,10 @@
 package analyze
 
 import (
+	"bytes"
+	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -82,5 +85,25 @@ func TestDetectReportsEachHomeAndProject(t *testing.T) {
 					code, stdout, stderr, test.code, test.stdout, test.stderr)
 			}
 		})
+	}
+}
+
+func TestDetectExitsAsItsHelpSays(t *testing.T) {
+	help := detectUsage[:strings.Index(detectUsage, "\n  INPUT")]
+	if !strings.Contains(help, "0 when\nagent files were found or --json was given") {
+		t.Errorf("the help does not give --json's exit status:\n%s", help)
+	}
+	empty := t.TempDir()
+	for _, test := range []struct {
+		args []string
+		want int
+	}{
+		{[]string{"detect", empty}, ExitNothing},
+		{[]string{"detect", "--json", empty}, ExitFound},
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := Run(context.Background(), test.args, System(), &stdout, &stderr); code != test.want {
+			t.Errorf("%q exited %d, want %d", test.args, code, test.want)
+		}
 	}
 }
