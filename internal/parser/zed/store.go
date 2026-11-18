@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -110,24 +109,50 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 
 // mainRepository returns the main repository of a Zed-created worktree:
 // from the first sidebar thread with main worktrees whose folders hold the
-// path, else from the first archived worktree at the path, else "".
+// path, else from the first archived worktree at the path, else "". The
+// index of both is built once per store.
 func (s *sidebarStore) mainRepository(path string) string {
+	if s.repositories == nil {
+		s.repositories = s.indexRepositories()
+	}
+	if main, ok := s.repositories.sidebar[path]; ok && main != "" {
+		return main
+	}
+	return s.repositories.archived[path]
+}
+
+// repositoryIndex holds, by worktree path, what mainRepository looks up:
+// the first main worktree of the first sidebar thread with main worktrees
+// whose folders hold the path ("" when it has none), and the main
+// repository of the first archived worktree at the path.
+type repositoryIndex struct {
+	sidebar, archived map[string]string
+}
+
+// indexRepositories builds the store's repository index, counting the
+// folders and archived worktrees it reads in the store's work.
+func (s *sidebarStore) indexRepositories() *repositoryIndex {
+	index := &repositoryIndex{sidebar: map[string]string{}, archived: map[string]string{}}
 	for _, entry := range s.sidebar {
-		folders := parser.NonEmptyColumn(entry.Get("folder_paths"))
-		if !entry.Get("main_worktree_paths").IsEmpty() && slices.Contains(strings.Split(folders, "\n"), path) {
-			if main := firstFolder(entry.Get("main_worktree_paths")); main != "" {
-				return main
+		if entry.Get("main_worktree_paths").IsEmpty() {
+			continue
+		}
+		main := firstFolder(entry.Get("main_worktree_paths"))
+		for _, folder := range strings.Split(parser.NonEmptyColumn(entry.Get("folder_paths")), "\n") {
+			s.work.Add("sidebar folders indexed", 1)
+			if _, held := index.sidebar[folder]; !held {
+				index.sidebar[folder] = main
 			}
-			break
 		}
 	}
 	for _, archive := range s.archived {
-		if worktree := archive.Get("worktree_path"); worktree.Type == sqlitefile.Text &&
-			worktree.Text() == path {
-			return archive.Get("main_repo_path").String()
+		s.work.Add("archived worktrees indexed", 1)
+		worktree := archive.Get("worktree_path")
+		if _, held := index.archived[worktree.Text()]; worktree.Type == sqlitefile.Text && !held {
+			index.archived[worktree.Text()] = archive.Get("main_repo_path").String()
 		}
 	}
-	return ""
+	return index
 }
 
 // archivedWorktree returns the row of one archived worktree and one thread

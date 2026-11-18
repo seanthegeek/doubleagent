@@ -35,6 +35,11 @@ type sidebarStore struct {
 	// byKey holds the sidebar rows by thread key, the last row of a key
 	// winning.
 	byKey map[string]sqlitefile.Row
+	// repositories indexes the main repository of each worktree path, made
+	// on first use.
+	repositories *repositoryIndex
+	// work counts the entries indexed, which a test measures.
+	work parser.Work
 }
 
 // tableReader runs the queries of one database in turn, keeping the first
@@ -152,6 +157,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return
 	}
+	store.work = p.Work
 	var problems parser.Problems
 	for _, row := range store.sidebar {
 		p.sidebarRow(artifact, row, emit)
