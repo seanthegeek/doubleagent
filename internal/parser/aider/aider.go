@@ -45,10 +45,10 @@ const (
 	llmName   = ".aider.llm.history"
 )
 
-// notSpace is Python's \S for text: a character that is not whitespace as
-// str.isspace() has it.
-const notSpace = `[^\t-\r \x1c-\x1f\x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}` +
-	`\x{202f}\x{205f}\x{3000}]`
+// notSpace matches one character that is not whitespace by unicode.IsSpace,
+// so a model name in an announcement line starts at its first visible
+// character whatever spaces Aider's console padded it with.
+const notSpace = `[^` + parser.Space + `]`
 
 // Parser reads Aider's history files.
 type Parser struct {

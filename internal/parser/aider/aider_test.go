@@ -3,6 +3,7 @@ package aider
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,10 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of the three history files are proved against the Python
-// analyzer by the parser replay (internal/parity/replay); these tests port
-// what the Python tests call directly. Expected values come from running the
-// analyzer.
+// The rows of the three history files are proved by the parser replay
+// (internal/parity/replay) over the recorded fixtures; these tests cover the
+// line readers and helpers the rows are built from.
 
 func TestMarkerLinesTakeASCIIDigitsAndSpaceOrTab(t *testing.T) {
 	markers := []struct {
@@ -136,6 +136,32 @@ func TestWantsAndSecondaryNameTheThreeFilesAtAnyDepth(t *testing.T) {
 			subject := New()
 			if subject.Wants(artifact) != test.wants || (test.wants && subject.Secondary(artifact) != test.secondary) {
 				t.Errorf("wants %v secondary %v", subject.Wants(artifact), subject.Secondary(artifact))
+			}
+		})
+	}
+}
+
+func TestAnnouncementLinesNameTheModelFromItsFirstVisibleCharacter(t *testing.T) {
+	tests := []struct {
+		line string
+		want []modelChange
+	}{
+		{"Main model: gpt-4o with diff edit format, infinite output",
+			[]modelChange{{"main", "gpt-4o", "", true}}},
+		{"Model: gpt-4o with whole edit format", []modelChange{{"main", "gpt-4o", "", true},
+			{"weak", "gpt-4o", " (weak model)", false}}},
+		{"Editor model: sonnet with editor-diff edit format",
+			[]modelChange{{"editor", "sonnet", " (editor model)", true}}},
+		{"Weak model: haiku", []modelChange{{"weak", "haiku", " (weak model)", true}}},
+		{"Weak model:  haiku", nil},
+		{"Main model:  gpt with diff edit format", nil},
+		{"Main model: gpt with   edit format", nil},
+	}
+	subject := New()
+	for _, test := range tests {
+		t.Run(test.line, func(t *testing.T) {
+			if got := subject.announcement(test.line); !slices.Equal(got, test.want) {
+				t.Errorf("got %+v, want %+v", got, test.want)
 			}
 		})
 	}
