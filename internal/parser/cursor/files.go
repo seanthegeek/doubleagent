@@ -34,7 +34,7 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 			content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 				jsonvalue.Member{Key: "text", Value: content}))
 		}
-		for _, block := range parser.ArrayMember(content, "message.content", number, &problems) {
+		for _, block := range parser.EntriesOfKind(content, "message.content", jsonvalue.Object, number, &problems) {
 			switch {
 			case parser.IsText(block.Get("type"), "text") && block.Get("text").IsString():
 				text := block.Get("text").StringValue()

@@ -2432,7 +2432,11 @@ value or the settings blob that is not an object is `parser: <key> is not a JSON
 `parser: <member> is not a JSON object`, and a standing list or `modes4` of `composerState` that is
 not an array is `parser: <list> is not a JSON array`. A transcript line whose `message` is not an
 object is `parser: message is not a JSON object`, and one whose `message.content` is neither text
-nor an array `parser: message.content is not a JSON array`, at its line. A `cli-config.json` whose
+nor an array `parser: message.content is not a JSON array`, at its line. Any of these arrays, and
+`modes4`, holding entries that are not objects gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A
+`cli-config.json` whose
 `permissions` is not an object, or whose `permissions.allow` or `permissions.deny` is not an array,
 is a whole-file row after its setting rows, `parser: permissions is not a JSON object` or
 `parser: permissions.<key> is not a JSON array`, with `source_line` 0; `permissions.json`, which the

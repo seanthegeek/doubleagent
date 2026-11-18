@@ -42,8 +42,8 @@ func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 	}
 	var found []cloudAgent
 	for _, row := range store.rows(substrPrefixed(table, cloudAgentsPrefix)) {
-		for _, agent := range listRecord(row, problems) {
-			if agent.IsObject() && !agent.Get("bcId").IsEmpty() {
+		for _, agent := range objectEntries(row, problems) {
+			if !agent.Get("bcId").IsEmpty() {
 				found = append(found, cloudAgent{rowid: row.rowid, agent: agent})
 			}
 		}
@@ -80,15 +80,13 @@ func (i *items) cloud(emit parser.Emit) {
 	if !ok {
 		return
 	}
-	for _, repo := range listRecord(found, i.problems) {
-		if repo.IsObject() {
-			target := repo.Get("url").Text()
-			if target == "" {
-				target = cmp.Or(repo.Get("name").Text(), "-")
-			}
-			emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+reposSource,
-				i.mtime, found.rowid))
+	for _, repo := range objectEntries(found, i.problems) {
+		target := repo.Get("url").Text()
+		if target == "" {
+			target = cmp.Or(repo.Get("name").Text(), "-")
 		}
+		emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+reposSource,
+			i.mtime, found.rowid))
 	}
 }
 
