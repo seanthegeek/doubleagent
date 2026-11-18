@@ -97,7 +97,7 @@ func settingTexts(key string, value jsonvalue.Value) []string {
 // as the session id and the workspace's folder as the project.
 func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
-	project, _ := workspaceJSON(artifact, 2, &problems)
+	project, _ := p.workspaceJSON(artifact, 2, &problems)
 	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		decoded, err := jsonvalue.DecodeString(textlines.ValidUTF8(data))

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -374,5 +375,34 @@ func TestObjectKeysKeepTheOrderAListOfKeysWouldKeep(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAWorkspaceJSONIsReadOncePerStateForAllItsSessions(t *testing.T) {
+	const sessions = 30
+	home := t.TempDir()
+	const workspace = ".config/Code/User/workspaceStorage/abc"
+	folder := filepath.Join(home, filepath.FromSlash(workspace))
+	if err := osfile.MkdirAll(filepath.Join(folder, "chatSessions"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(filepath.Join(folder, "workspace.json"), []byte(`{"folder": "file:///srv/a"}`),
+		0o600); err != nil {
+		t.Fatal(err)
+	}
+	subject := New()
+	subject.Work = parser.CountingWork()
+	var problems parser.Problems
+	for i := range sessions {
+		rel := fmt.Sprintf("%s/chatSessions/s%d.json", workspace, i)
+		artifact := &input.Artifact{Rel: rel, DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+			Home: &input.Home{DiskPath: home}}
+		if got, _ := subject.workspaceFolder(artifact, &problems); got != "/srv/a" {
+			t.Fatalf("session %d: folder %q, want /srv/a", i, got)
+		}
+	}
+	if reads := subject.Work.Count("workspace.json reads"); reads != 1 || len(problems) != 0 {
+		t.Errorf("%d sessions read workspace.json %d times with problems %v, want once and none", sessions,
+			reads, problems)
 	}
 }
