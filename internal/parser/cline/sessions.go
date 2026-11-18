@@ -33,12 +33,6 @@ func startKeys() []string {
 	return keys
 }
 
-// copyObject returns a new object holding an object's members, so setting
-// a key leaves the original as it was.
-func copyObject(object jsonvalue.Value) jsonvalue.Value {
-	return jsonvalue.NewObject(object.Members()...)
-}
-
 // addMetadata copies a session's metadata title and importedFrom fields
 // onto the session under the names its start row uses.
 func addMetadata(session, meta jsonvalue.Value) {
@@ -126,7 +120,7 @@ func (p *Parser) manifest(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	session := copyObject(document)
+	session := parser.CopyObject(document)
 	if !session.Has("session_id") {
 		session.Set("session_id", jsonvalue.NewString(sessionID))
 	}

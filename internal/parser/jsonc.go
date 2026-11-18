@@ -73,7 +73,7 @@ func StripTrailingCommas(text string) string {
 		case character == '"':
 			inString = true
 		case character == ',':
-			next := skipJSONWhitespace(text, i+1)
+			next := SkipJSONSpace(text, i+1)
 			if next < len(text) && (text[next] == '}' || text[next] == ']') {
 				continue
 			}

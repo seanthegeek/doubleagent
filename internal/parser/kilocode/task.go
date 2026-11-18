@@ -111,8 +111,8 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 	current.started = taskTime(item.Get("ts"), current.taskID)
 	if item.Len() > 0 {
 		emit(current.row(0, current.started, timeline.TurnSystem, strings.Join(slices.DeleteFunc(
-			[]string{"task:", parser.Text(item.Get("task")), labelled("mode=", item.Get("mode")),
-				labelled("status=", item.Get("status")), labelled("parent=", item.Get("parentTaskId"))},
+			[]string{"task:", parser.Text(item.Get("task")), parser.Labelled("mode=", item.Get("mode")),
+				parser.Labelled("status=", item.Get("status")), parser.Labelled("parent=", item.Get("parentTaskId"))},
 			func(part string) bool { return part == "" }), " ")))
 	}
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -142,15 +142,6 @@ func taskTime(stamp jsonvalue.Value, taskID string) string {
 		return ""
 	}
 	return timeutil.FromInt(epoch)
-}
-
-// labelled returns label followed by the value's text when the value counts
-// as true, else "".
-func labelled(label string, value jsonvalue.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return label + value.Text()
 }
 
 // messageRows returns the rows of the record at position: a reasoning

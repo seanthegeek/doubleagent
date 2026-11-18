@@ -37,26 +37,11 @@ func unreadable(name string, err error) error {
 	return fmt.Errorf("%s unreadable (%w)", name, err)
 }
 
-// columnValue returns a column value as a JSON value, so a row of the
-// sessions table reads as a manifest does: a number, text, null, or for a
-// blob its literal text (sqlitefile.Value.String).
-func columnValue(value sqlitefile.Value) jsonvalue.Value {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return jsonvalue.NewInt(value.Int)
-	case sqlitefile.Float:
-		return jsonvalue.NewFloat(value.Float)
-	case sqlitefile.Text, sqlitefile.Blob:
-		return jsonvalue.NewString(value.String())
-	}
-	return jsonvalue.NewNull()
-}
-
 // rowObject returns a database row as an object of its columns.
 func rowObject(row sqlitefile.Row) jsonvalue.Value {
 	object := jsonvalue.NewObject()
 	for _, column := range row.Columns() {
-		object.Set(column, columnValue(row.Get(column)))
+		object.Set(column, parser.ColumnValue(row.Get(column)))
 	}
 	return object
 }

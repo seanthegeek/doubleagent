@@ -63,8 +63,8 @@ func (s *store) eventShareRows() error {
 		if !ok || s.shares[identifier] || state[identifier] == "unshared" {
 			continue
 		}
-		info := objectOf(data.Get("info"))
-		url := objectOf(info.Get("share")).Get("url")
+		info := parser.ObjectOrEmpty(data.Get("info"))
+		url := parser.ObjectOrEmpty(info.Get("share")).Get("url")
 		var text string
 		switch _, known := state[identifier]; {
 		case !url.IsEmpty() && !known:
@@ -75,7 +75,7 @@ func (s *store) eventShareRows() error {
 			continue
 		}
 		s.emit(s.owner.systemRow(s.artifact, s.scopeFor(identifier), int(row.Rowid),
-			timeutil.FromValue(objectOf(info.Get("time")).Get("updated")),
+			timeutil.FromValue(parser.ObjectOrEmpty(info.Get("time")).Get("updated")),
 			text+" (from "+s.label+" event session.updated.1, info.time.updated)"))
 	}
 	return nil

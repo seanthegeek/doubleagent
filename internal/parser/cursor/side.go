@@ -2,9 +2,6 @@ package cursor
 
 import (
 	"cmp"
-	"math"
-	"strconv"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -48,26 +45,6 @@ func joinProject(row *timeline.Row, sessionID string, index *stateIndex) {
 	}
 }
 
-// valueKey returns a column value as a key that is equal for equal
-// values: a number by its value whatever its storage class, text and blobs
-// by their bytes, and NULL.
-func valueKey(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return "n" + strconv.FormatInt(value.Int, 10)
-	case sqlitefile.Float:
-		if value.Float == math.Trunc(value.Float) && math.Abs(value.Float) < 1<<63 {
-			return "n" + strconv.FormatInt(int64(value.Float), 10)
-		}
-		return "f" + strconv.FormatFloat(value.Float, 'g', -1, 64)
-	case sqlitefile.Text:
-		return "t" + string(value.Bytes)
-	case sqlitefile.Blob:
-		return "b" + string(value.Bytes)
-	}
-	return "null"
-}
-
 // ftsBodies returns the conversation_fts_content id -> c1 (the body; c0 is
 // the title). The full-text table's content table is read as a plain
 // table, so the module is never needed; none when it or a column is
@@ -83,7 +60,7 @@ func ftsBodies(store *store) map[string]sqlitefile.Value {
 		return bodies
 	}
 	for _, row := range rows {
-		bodies[valueKey(row.Get("id"))] = row.Get("c1")
+		bodies[parser.ColumnKey(row.Get("id"))] = row.Get("c1")
 	}
 	return bodies
 }
@@ -117,7 +94,7 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 			row("conversation index: " + title + " source=" + cmp.Or(source, "-") + " archived=" +
 				columnField(record.Get("is_archived")))
 		}
-		if body := timeline.Compact(asText(bodies[valueKey(record.Get("fts_rowid"))])); body != "" {
+		if body := timeline.Compact(asText(bodies[parser.ColumnKey(record.Get("fts_rowid"))])); body != "" {
 			row("cached conversation text (conversation-search.db, source=" + cmp.Or(source, "-") + "): " + body)
 		}
 	}

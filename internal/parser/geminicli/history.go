@@ -135,7 +135,7 @@ func (p *Parser) historyCopy(artifact *input.Artifact, options parser.Options, m
 	var header timeline.Row
 	if tag, ok := match["tag"]; ok {
 		header = standingRow(p.Base, artifact, parser.FileMtime(artifact), project,
-			"chat checkpoint: tag "+unquote(tag)+" authType="+parser.TextOrDash(document.Get("authType"))+
+			"chat checkpoint: tag "+unquote(tag)+" authType="+parser.TextOr(document.Get("authType"), "-")+
 				" "+fromFile(artifact))
 	} else {
 		header = standingRow(p.Base, artifact, timeutil.FromText(match["ms"]), project,

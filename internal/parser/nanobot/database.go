@@ -161,9 +161,9 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 		}
 		record := jsonvalue.NewObject(
 			jsonvalue.Member{Key: "_type", Value: jsonvalue.NewString("metadata")},
-			jsonvalue.Member{Key: "key", Value: columnValue(head.Get("key"))},
-			jsonvalue.Member{Key: "created_at", Value: columnValue(head.Get("created_at"))},
-			jsonvalue.Member{Key: "updated_at", Value: columnValue(head.Get("updated_at"))},
+			jsonvalue.Member{Key: "key", Value: parser.ColumnValue(head.Get("key"))},
+			jsonvalue.Member{Key: "created_at", Value: parser.ColumnValue(head.Get("created_at"))},
+			jsonvalue.Member{Key: "updated_at", Value: parser.ColumnValue(head.Get("updated_at"))},
 			jsonvalue.Member{Key: "metadata", Value: meta})
 		records = append(records, numbered{int(head.Rowid), record})
 	}

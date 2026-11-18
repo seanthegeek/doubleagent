@@ -130,7 +130,7 @@ func (p *Parser) sessionScope(root string, sessionID string, old bool, message j
 		projectPath = worktreeText(project.Get("worktree"))
 	}
 	if projectPath == "" {
-		where := objectOf(message.Get("path"))
+		where := parser.ObjectOrEmpty(message.Get("path"))
 		projectPath = parser.Text(parser.FirstNonEmpty(where.Get("root"), where.Get("cwd")))
 	}
 	return newScope(sessionID, projectPath)
@@ -181,7 +181,7 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 	}
 	scoped := newScope(identifier, projectPath)
 	emit(p.sessionRow(artifact, scoped, jsonLookup(session),
-		timeutil.FromValue(objectOf(session.Get("time")).Get("created")), 1, ""))
+		timeutil.FromValue(parser.ObjectOrEmpty(session.Get("time")).Get("created")), 1, ""))
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, scoped.sessionID, scoped.projectPath))
 }
 

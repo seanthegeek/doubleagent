@@ -26,20 +26,6 @@ func messagingSources() []string {
 		"wecom", "wecom_callback", "weixin", "bluebubbles", "qqbot", "yuanbao", "relay"}
 }
 
-// columnValue returns a column value as the decoded value of the same
-// type: a blob as its row text (sqlitefile.Value.String).
-func columnValue(value sqlitefile.Value) jsonvalue.Value {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return jsonvalue.NewInt(value.Int)
-	case sqlitefile.Float:
-		return jsonvalue.NewFloat(value.Float)
-	case sqlitefile.Text, sqlitefile.Blob:
-		return jsonvalue.NewString(value.String())
-	}
-	return jsonvalue.NewNull()
-}
-
 // rowObject returns a row as a JSON object: the rowid as _rowid when
 // selected, then every column by name.
 func rowObject(row sqlitefile.Row) jsonvalue.Value {
@@ -49,7 +35,7 @@ func rowObject(row sqlitefile.Row) jsonvalue.Value {
 		if i == 0 && column == "rowid" {
 			key = "_rowid"
 		}
-		members = append(members, jsonvalue.Member{Key: key, Value: columnValue(row.Values()[i])})
+		members = append(members, jsonvalue.Member{Key: key, Value: parser.ColumnValue(row.Values()[i])})
 	}
 	return jsonvalue.NewObject(members...)
 }
@@ -247,9 +233,9 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 	}
 	start := s.parser.system(s.artifact, lineNumber(session.Get("_rowid")), session,
 		timeline.Compact(parser.JoinNonEmpty(" | ", "session start", parser.Text(session.Get("title")),
-			labelled("source=", session.Get("source")),
-			labelled("parent=", session.Get("parent_session_id")),
-			labelled("end=", session.Get("end_reason")), archived, imported)))
+			parser.Labelled("source=", session.Get("source")),
+			parser.Labelled("parent=", session.Get("parent_session_id")),
+			parser.Labelled("end=", session.Get("end_reason")), archived, imported)))
 	start.TimestampUTC = timeutil.FromValue(session.Get("started_at"))
 	s.emit(start)
 	s.modelRows(session, start, seen)
@@ -272,15 +258,6 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 		s.emit(copyRow(start, "scratch directory: "+cwd+" (git worktree the agent created in "+
 			tree[1]+", branch "+branch+")", start.Model))
 	}
-}
-
-// labelled returns label and the value's text when the value is not
-// empty, else "".
-func labelled(label string, value jsonvalue.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return label + value.Text()
 }
 
 // modelRows emits a session's model rows: one per main-loop usage model

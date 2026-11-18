@@ -217,7 +217,7 @@ func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 				timeutil.FromValue(entry.Get("createdAt")), 0, "")
 			continue
 		}
-		bubble := objectOf(decodeRecord(found.rowid, key, found.value, &current.problems))
+		bubble := parser.ObjectOrEmpty(decodeRecord(found.rowid, key, found.value, &current.problems))
 		if bubble.Len() == 0 {
 			continue
 		}
@@ -294,7 +294,7 @@ func (p *Parser) deleted(stamp *stamper) {
 
 // draft emits a composer's unsent draft.
 func (p *Parser) draft(stamp *stamper, row keyed) {
-	draft := objectOf(decodeRecord(row.rowid, row.key, row.value, &stamp.composer.problems))
+	draft := parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, &stamp.composer.problems))
 	if text := timeline.CompactValue(draft.Get("text")); text != "" {
 		stamp.add(timeline.TurnSystem, "unsent draft: "+text, stamp.composer.created(), row.rowid, "")
 	}

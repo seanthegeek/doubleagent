@@ -40,7 +40,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event j
 	case "UserRejectObservation":
 		rejectionRows(event, row)
 	case "AgentErrorEvent":
-		row(timeline.TurnToolResult, "[error] "+orDefault(event.Get("error"), ""),
+		row(timeline.TurnToolResult, "[error] "+parser.TextOr(event.Get("error"), ""),
 			parser.Text(event.Get("tool_name")), parser.Text(event.Get("tool_call_id")))
 	case "ACPToolCallEvent":
 		acpRows(event, row)
@@ -207,15 +207,15 @@ func actionText(event jsonvalue.Value) string {
 func rejectionRows(event jsonvalue.Value, row eventRowMaker) {
 	toolName, toolUseID := parser.Text(event.Get("tool_name")), parser.Text(event.Get("tool_call_id"))
 	source, reason := event.Get("rejection_source"), event.Get("rejection_reason")
-	row(timeline.TurnToolResult, "[rejected by "+orDefault(source, "user")+"] "+orDefault(reason, ""),
+	row(timeline.TurnToolResult, "[rejected by "+parser.TextOr(source, "user")+"] "+parser.TextOr(reason, ""),
 		toolName, toolUseID)
 	row(timeline.TurnSystem, parser.JoinNonEmpty(" ", "permission decision: rejected rejection_source="+
-		orDefault(source, "-"), parser.Text(reason)), toolName, toolUseID)
+		parser.TextOr(source, "-"), parser.Text(reason)), toolName, toolUseID)
 }
 
 // acpRows emits the call and the result of an ACP tool call.
 func acpRows(event jsonvalue.Value, row eventRowMaker) {
-	name, callID := orDefault(event.Get("tool_kind"), "acp"), parser.Text(event.Get("tool_call_id"))
+	name, callID := parser.TextOr(event.Get("tool_kind"), "acp"), parser.Text(event.Get("tool_call_id"))
 	input := ""
 	if raw := event.Get("raw_input"); !raw.IsNull() {
 		input = parser.JSONText(raw)
@@ -270,7 +270,7 @@ func securityRows(event jsonvalue.Value, conv *conversation, row eventRowMaker) 
 			detailText = "details=" + parser.JSONText(detail)
 		}
 		row(timeline.TurnSystem, parser.JoinNonEmpty(" ", "permission decision: analyzed risk="+risk.Value.Text()+
-			" analyzer="+orDefault(event.Get("analyzer"), "-")+" policy="+
-			orDefault(event.Get("policy"), "-"), missing, detailText), held[0], held[1])
+			" analyzer="+parser.TextOr(event.Get("analyzer"), "-")+" policy="+
+			parser.TextOr(event.Get("policy"), "-"), missing, detailText), held[0], held[1])
 	}
 }

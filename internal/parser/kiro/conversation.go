@@ -41,23 +41,7 @@ func (p *Parser) salvage(text string) (jsonvalue.Value, bool, error) {
 			members = append(members, jsonvalue.Member{Key: "conversation_id", Value: decoded})
 		}
 	}
-	var entries []jsonvalue.Value
-	for i := found[1]; i < len(text); {
-		for i < len(text) && strings.IndexByte(" \t\r\n,", text[i]) >= 0 {
-			i++
-		}
-		if i >= len(text) || text[i] == ']' {
-			break
-		}
-		entry, next, entryErr := jsonvalue.DecodePrefix(text, i)
-		if entryErr != nil {
-			break
-		}
-		if entry.IsObject() {
-			entries = append(entries, entry)
-		}
-		i = next
-	}
+	entries := parser.ObjectsFrom(text, found[1])
 	history := jsonvalue.Member{Key: "history", Value: jsonvalue.NewArray(entries...)}
 	return jsonvalue.NewObject(append([]jsonvalue.Member{history}, members...)...), true, err
 }

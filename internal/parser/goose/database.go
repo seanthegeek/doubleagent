@@ -54,15 +54,6 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 	return storedJSON{value: decoded, raw: text}
 }
 
-// sourceLine returns an id column as a row's source line, 0 when it is not
-// an integer.
-func sourceLine(value sqlitefile.Value) int {
-	if value.Type == sqlitefile.Integer {
-		return int(value.Int)
-	}
-	return 0
-}
-
 // epochColumn returns a created_timestamp column as epochNumber reads a
 // number, text as timeutil reads it.
 func epochColumn(value sqlitefile.Value) string {
@@ -275,7 +266,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	if record.IsEmpty() {
 		record = sqlitefile.IntValue(0)
 	}
-	line := sourceLine(record)
+	line := parser.ColumnLine(record)
 	var problems parser.Problems
 	stored := readStored(message.Get("metadata_json"), false)
 	if stored.reason != "" {

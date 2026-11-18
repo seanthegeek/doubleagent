@@ -298,24 +298,7 @@ func loadMessages(raw string) ([]jsonvalue.Value, error) {
 	if !strings.HasPrefix(text, "[") {
 		return nil, err
 	}
-	var found []jsonvalue.Value
-	position := 1
-	for {
-		for position < len(text) && strings.IndexByte(" \t\r\n,", text[position]) >= 0 {
-			position++
-		}
-		if position >= len(text) || text[position] == ']' {
-			break
-		}
-		value, end, decodeErr := jsonvalue.DecodePrefix(text, position)
-		if decodeErr != nil {
-			break
-		}
-		position = end
-		if value.IsObject() {
-			found = append(found, value)
-		}
-	}
+	found := parser.ObjectsFrom(text, 1)
 	return found, fmt.Errorf("truncated after %d message(s): %w", len(found), err)
 }
 

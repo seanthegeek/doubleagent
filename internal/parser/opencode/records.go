@@ -39,11 +39,11 @@ func (b *recordRows) add(turn, text, when string, tool ...string) timeline.Row {
 // type, at line, created being the row's time_created.
 func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string, data jsonvalue.Value,
 	line int, created string, options parser.Options, emit parser.Emit) {
-	reference := objectOf(data.Get("model"))
+	reference := parser.ObjectOrEmpty(data.Get("model"))
 	builder := &recordRows{owner: p, artifact: artifact, scoped: scoped, line: line, options: options,
 		emit: emit,
 		timestamp: timeutil.FirstNonEmpty(
-			timeutil.FromValue(objectOf(data.Get("time")).Get("created")), created),
+			timeutil.FromValue(parser.ObjectOrEmpty(data.Get("time")).Get("created")), created),
 		model: modelName(reference.Get("providerID"),
 			parser.FirstNonEmpty(reference.Get("modelID"), reference.Get("id")))}
 	switch kind {
@@ -85,15 +85,15 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 		return join("compaction", parser.Text(data.Get("reason")), parser.Text(data.Get("status")),
 			parser.Text(data.Get("summary")), failure)
 	case "location-switched":
-		location := objectOf(data.Get("location"))
-		previous := objectOf(objectOf(data.Get("previous")).Get("location"))
-		before := labelled("", previous.Get("directory"))
+		location := parser.ObjectOrEmpty(data.Get("location"))
+		previous := parser.ObjectOrEmpty(parser.ObjectOrEmpty(data.Get("previous")).Get("location"))
+		before := parser.Labelled("", previous.Get("directory"))
 		if before != "" {
 			before += " ->"
 		}
 		return join("location switched:", before, parser.Text(location.Get("directory")),
-			labelled("workspace=", location.Get("workspaceID")),
-			labelled("subpath=", data.Get("subpath")))
+			parser.Labelled("workspace=", location.Get("workspaceID")),
+			parser.Labelled("subpath=", data.Get("subpath")))
 	case "skill":
 		return join("skill "+parser.Text(data.Get("name"))+":", parser.Text(data.Get("text")))
 	case "idle":
@@ -118,7 +118,7 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 		b.system(text)
 	}
 	for _, item := range data.Get("content").Items() {
-		item = objectOf(item)
+		item = parser.ObjectOrEmpty(item)
 		text := item.Get("text")
 		switch textOf(item.Get("type")) {
 		case "text":
@@ -142,7 +142,7 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 // finished its tool_result row and, for a refusal, its
 // "permission decision:" row.
 func (b *recordRows) tool(item jsonvalue.Value) {
-	state, times := objectOf(item.Get("state")), objectOf(item.Get("time"))
+	state, times := parser.ObjectOrEmpty(item.Get("state")), parser.ObjectOrEmpty(item.Get("time"))
 	name, callID := parser.Text(item.Get("name")), parser.Text(item.Get("id"))
 	b.add(timeline.TurnToolUse, ToolSummary(state.Get("input")),
 		timeutil.FromValue(times.Get("created")), name, callID)
@@ -196,7 +196,7 @@ func (b *recordRows) shell(data jsonvalue.Value) {
 		text = join("[exit "+code.Text()+"]", text)
 	}
 	b.add(timeline.TurnToolResult, text,
-		timeutil.FromValue(objectOf(data.Get("time")).Get("completed")), "shell", callID)
+		timeutil.FromValue(parser.ObjectOrEmpty(data.Get("time")).Get("completed")), "shell", callID)
 }
 
 // isZero reports whether value is a number equal to zero.

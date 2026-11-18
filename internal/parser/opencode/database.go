@@ -3,9 +3,6 @@ package opencode
 import (
 	"errors"
 	"fmt"
-	"math"
-	"strconv"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -141,7 +138,7 @@ func (s *store) readProjects() error {
 	}
 	rows, err := table.Select().All()
 	for _, row := range rows {
-		s.projects[valueKey(row.Get("id"))] = row
+		s.projects[parser.ColumnKey(row.Get("id"))] = row
 	}
 	return err
 }
@@ -194,7 +191,7 @@ func (s *store) scopeFor(identifier string) *scope {
 // worktreeOf returns the worktree of the project with the given id, "" when
 // there is none or it is "/".
 func (s *store) worktreeOf(identifier sqlitefile.Value) string {
-	project, ok := s.projects[valueKey(identifier)]
+	project, ok := s.projects[parser.ColumnKey(identifier)]
 	if !ok {
 		return ""
 	}
@@ -211,27 +208,6 @@ func rowLookup(row sqlitefile.Row) lookup {
 		value := row.Get(key)
 		return value.String(), !value.IsEmpty()
 	}
-}
-
-// valueKey returns a key under which two column values are one key exactly
-// when they are equal: numbers by value whatever their storage class (an
-// id stored as 3 and as 3.0 joins), text and blobs by content and kind,
-// and NULL as itself.
-func valueKey(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return "n" + strconv.FormatInt(value.Int, 10)
-	case sqlitefile.Float:
-		if value.Float == math.Trunc(value.Float) && math.Abs(value.Float) < 1<<63 {
-			return "n" + strconv.FormatInt(int64(value.Float), 10)
-		}
-		return "f" + strconv.FormatFloat(value.Float, 'g', -1, 64)
-	case sqlitefile.Text:
-		return "t" + value.Text()
-	case sqlitefile.Blob:
-		return "b" + value.Text()
-	}
-	return "null"
 }
 
 // columnJSON returns the text of a column that stores JSON, with an error

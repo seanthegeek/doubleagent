@@ -11,14 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// objectOrEmpty returns value when it is an object, else an empty object.
-func objectOrEmpty(value jsonvalue.Value) jsonvalue.Value {
-	if value.IsObject() {
-		return value
-	}
-	return jsonvalue.NewObject()
-}
-
 // worktreeSnapshots returns the worktree snapshots of a project snapshot
 // that are objects.
 func worktreeSnapshots(snapshot jsonvalue.Value) []jsonvalue.Value {
@@ -77,13 +69,13 @@ func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
 // `permission setting:` row per thread-scoped grant.
 func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonvalue.Value,
 	emit parser.Emit) {
-	snapshot := objectOrEmpty(value.Get("initial_project_snapshot"))
+	snapshot := parser.ObjectOrEmpty(value.Get("initial_project_snapshot"))
 	worktrees := worktreeSnapshots(snapshot)
 	if context.project == "" && len(worktrees) > 0 {
 		context.project = parser.Text(worktrees[0].Get("worktree_path"))
 	}
 	branch, remote := branchAndRemote(worktrees, context.project)
-	modelInfo := objectOrEmpty(value.Get("model"))
+	modelInfo := parser.ObjectOrEmpty(value.Get("model"))
 	var parts []string
 	for _, part := range []jsonvalue.Value{modelInfo.Get("provider"), modelInfo.Get("model")} {
 		if !part.IsEmpty() {

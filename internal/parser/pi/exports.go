@@ -89,7 +89,7 @@ func htmlSessionData(data []byte) (jsonvalue.Value, error) {
 	if end < 0 {
 		return jsonvalue.NewNull(), errNoClosingTag
 	}
-	decoded, err := decodeBase64(bytes.Trim(data[start:start+end], jsonSpace))
+	decoded, err := decodeBase64(bytes.Trim(data[start:start+end], textlines.JSONSpace))
 	if err != nil {
 		return jsonvalue.NewNull(), fmt.Errorf("session data is not base64 (%w)", err)
 	}

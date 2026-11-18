@@ -67,27 +67,9 @@ func textOf(value jsonvalue.Value) string {
 	return ""
 }
 
-// objectOf returns value when it is an object, else an empty object, so a
-// chain of lookups reads a missing level as empty.
-func objectOf(value jsonvalue.Value) jsonvalue.Value {
-	if value.IsObject() {
-		return value
-	}
-	return jsonvalue.NewObject()
-}
-
 // join returns the non-empty parts joined by single spaces.
 func join(parts ...string) string {
 	return parser.JoinNonEmpty(" ", parts...)
-}
-
-// labelled returns label followed by the value's text when the value is
-// not empty, else "": the "key=value" parts of a row text.
-func labelled(label string, value jsonvalue.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return label + value.Text()
 }
 
 // modelName returns "<provider>/<model>", or whichever of the two is a
@@ -123,8 +105,8 @@ func errorText(raw jsonvalue.Value) string {
 	if raw.IsString() {
 		return raw.StringValue()
 	}
-	failure := objectOf(raw)
-	data := objectOf(failure.Get("data"))
+	failure := parser.ObjectOrEmpty(raw)
+	data := parser.ObjectOrEmpty(failure.Get("data"))
 	name := parser.FirstNonEmpty(failure.Get("name"), failure.Get("type"))
 	message := parser.FirstNonEmpty(data.Get("message"), failure.Get("message"))
 	if text := join(parser.Text(name), parser.Text(message)); text != "" {
@@ -182,7 +164,7 @@ func sessionRules(text string) ([]rule, bool) {
 	}
 	var found []rule
 	for _, entry := range rules.Items() {
-		entry = objectOf(entry)
+		entry = parser.ObjectOrEmpty(entry)
 		var keys [3]string
 		switch {
 		case entry.Has("effect"):

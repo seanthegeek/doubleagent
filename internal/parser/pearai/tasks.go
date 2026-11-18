@@ -167,8 +167,8 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 			text += " number=" + number.Text()
 		}
 		if creator := item.Get("creatorModeConfig"); creator.IsObject() && creator.Len() > 0 {
-			text += " | creator mode: newProjectType=" + parser.TextOrDash(creator.Get("newProjectType")) +
-				" newProjectPath=" + parser.TextOrDash(creator.Get("newProjectPath"))
+			text += " | creator mode: newProjectType=" + parser.TextOr(creator.Get("newProjectType"), "-") +
+				" newProjectPath=" + parser.TextOr(creator.Get("newProjectPath"), "-")
 		}
 		row.Text = timeline.Compact(text)
 		emit(row)

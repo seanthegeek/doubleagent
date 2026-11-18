@@ -3,22 +3,9 @@ package parser
 import (
 	"iter"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
-
-// jsonWhitespace is the whitespace JSON allows between tokens.
-const jsonWhitespace = " \t\r\n"
-
-// skipJSONWhitespace returns the first offset at or after offset that is
-// not JSON whitespace.
-func skipJSONWhitespace(text string, offset int) int {
-	for offset < len(text) && strings.IndexByte(jsonWhitespace, text[offset]) >= 0 {
-		offset++
-	}
-	return offset
-}
 
 // ArrayAt yields (1-based position, element) from the JSON array that
 // starts at the byte offset of text, after any whitespace, salvaging what it
@@ -33,18 +20,18 @@ func skipJSONWhitespace(text string, offset int) int {
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		setEnd(end, -1)
-		cursor := skipJSONWhitespace(text, max(offset, 0))
+		cursor := SkipJSONSpace(text, max(offset, 0))
 		if cursor >= len(text) || text[cursor] != '[' {
 			problems.Add(1, "not a JSON array")
 			return
 		}
-		cursor = skipJSONWhitespace(text, cursor+1)
+		cursor = SkipJSONSpace(text, cursor+1)
 		if cursor < len(text) && text[cursor] == ']' {
 			setEnd(end, cursor+1)
 			return
 		}
 		for position := 1; ; position++ {
-			start := skipJSONWhitespace(text, cursor)
+			start := SkipJSONSpace(text, cursor)
 			if start == len(text) {
 				problems.Add(position, cutOff(position-1))
 				return
@@ -57,7 +44,7 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 			if !yield(position, value) {
 				return
 			}
-			cursor = skipJSONWhitespace(text, next)
+			cursor = SkipJSONSpace(text, next)
 			switch {
 			case cursor < len(text) && text[cursor] == ',':
 				cursor++
@@ -97,7 +84,7 @@ func ArrayText(text string, problems *Problems) iter.Seq2[int, jsonvalue.Value] 
 				return
 			}
 		}
-		if end >= 0 && skipJSONWhitespace(text, end) < len(text) {
+		if end >= 0 && SkipJSONSpace(text, end) < len(text) {
 			problems.Add(count+1, "unexpected data after the array")
 		}
 	}

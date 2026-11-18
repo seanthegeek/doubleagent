@@ -73,13 +73,13 @@ func (i *items) standing(emit parser.Emit) {
 	if !ok {
 		return
 	}
-	document := objectOf(decodeRecord(settings.rowid, settingsKey, settings.value, i.problems))
+	document := parser.ObjectOrEmpty(decodeRecord(settings.rowid, settingsKey, settings.value, i.problems))
 	sandbox := false
 	if found, ok := keyedValue(i.store, i.table, sandboxKey); ok {
 		var ignored parser.Problems
 		sandbox = isTrue(decodeRecord(found.rowid, sandboxKey, found.value, &ignored))
 	}
-	for _, text := range standingTexts(objectOf(document.Get("composerState")), sandbox) {
+	for _, text := range standingTexts(parser.ObjectOrEmpty(document.Get("composerState")), sandbox) {
 		emit(i.system(text, i.mtime, settings.rowid))
 	}
 	for _, used := range document.Get("aiSettings").Get("modelLastUsedAt").Members() {

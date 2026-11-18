@@ -22,7 +22,7 @@ func (p *Parser) agentMessage(out *transcript, message jsonvalue.Value) {
 	if !results.IsNull() && !results.IsObject() {
 		out.bad("Agent tool_results is not an object", results)
 	}
-	results = objectOrEmpty(results)
+	results = parser.ObjectOrEmpty(results)
 	done := map[string]bool{}
 	for k, part := range contentList(out, message.Get("content"), "Agent") {
 		p.agentPart(out, k, part, results, done)

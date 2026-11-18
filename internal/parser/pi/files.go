@@ -8,6 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -19,9 +20,6 @@ const (
 	tuiCrashHeader = "Crash at "
 	tuiCrashMarker = "=== All rendered lines ==="
 )
-
-// jsonSpace is the whitespace JSON allows, which a blank line holds.
-const jsonSpace = " \t\n\r"
 
 // jsonObject returns a whole-file JSON object, without a leading byte-order
 // mark as pi drops it. A file that cannot be read adds its unreadable
@@ -96,7 +94,7 @@ func (p *Parser) parseDebugLog(artifact *input.Artifact, options parser.Options,
 			inMessages = line == debugMarker
 			continue
 		}
-		if strings.Trim(line, jsonSpace) != "" {
+		if strings.Trim(line, textlines.JSONSpace) != "" {
 			session.addDebugMessage(number, line)
 		}
 	}
@@ -207,7 +205,7 @@ func (p *Parser) parseTUICrash(artifact *input.Artifact, emit parser.Emit) {
 	}
 	for _, crash := range crashes {
 		screen := crash.screen
-		for len(screen) > 0 && strings.Trim(screen[len(screen)-1], jsonSpace) == "" {
+		for len(screen) > 0 && strings.Trim(screen[len(screen)-1], textlines.JSONSpace) == "" {
 			screen = screen[:len(screen)-1]
 		}
 		notes := strings.Join(crash.notes, "; ")
@@ -218,7 +216,7 @@ func (p *Parser) parseTUICrash(artifact *input.Artifact, emit parser.Emit) {
 		if len(screen) > 0 {
 			text += "\n" + strings.Join(screen, "\n")
 		}
-		emit(p.systemRow(artifact, crash.line, timeutil.FromText(strings.Trim(crash.time, jsonSpace)),
+		emit(p.systemRow(artifact, crash.line, timeutil.FromText(strings.Trim(crash.time, textlines.JSONSpace)),
 			"", "", text))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -228,7 +226,7 @@ func (p *Parser) parseTUICrash(artifact *input.Artifact, emit parser.Emit) {
 // screen line after the marker, a note before it. It returns the problem
 // message of a line that belongs nowhere, "" otherwise.
 func addCrashLine(crashes []*tuiCrash, line string) string {
-	blank := strings.Trim(line, jsonSpace) == ""
+	blank := strings.Trim(line, textlines.JSONSpace) == ""
 	if len(crashes) == 0 {
 		if blank {
 			return ""
