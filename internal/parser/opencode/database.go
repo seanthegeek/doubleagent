@@ -45,11 +45,12 @@ type store struct {
 // cannot be read is one `parser:` row; an error met while opening or
 // reading ends the rows with a "database could not be read" row.
 func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	if err := sqlitefile.Problem(artifact.DiskPath); err != nil {
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	var openErr *parser.OpenError
+	if err != nil && !errors.As(err, &openErr) {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return
 	}
-	database, err := sqlitefile.OpenPath(artifact.DiskPath)
 	if err == nil {
 		reading := &store{owner: p, artifact: artifact, options: options, emit: emit,
 			database: database, label: databaseLabel(artifact), projects: map[string]sqlitefile.Row{},

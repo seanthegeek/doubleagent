@@ -58,7 +58,9 @@ func stateQueries() []stateQuery {
 // channel_ingress_events, `source host:` from the GitHub publication tables
 // and `git remote:` from projects.
 func (p *Parser) parseStateDatabase(artifact *input.Artifact, emit parser.Emit) {
-	if err := sqlitefile.Problem(artifact.DiskPath); err != nil {
+	database, err := parser.OpenDatabase(artifact.DiskPath)
+	var openErr *parser.OpenError
+	if err != nil && !errors.As(err, &openErr) {
 		message := parser.DatabaseError(err)
 		if errors.Is(err, sqlitefile.ErrNotDatabase) {
 			message = "state/openclaw.sqlite is not a SQLite database"
@@ -66,7 +68,12 @@ func (p *Parser) parseStateDatabase(artifact *input.Artifact, emit parser.Emit) 
 		emit(p.ProblemRow(artifact, message))
 		return
 	}
-	data, anchor, err := readState(artifact.DiskPath)
+	var data map[string][]sqlitefile.Row
+	anchor := ""
+	if err == nil {
+		data, anchor, err = readState(database)
+		database.Close()
+	}
 	switch {
 	case err != nil:
 		emit(p.ProblemRow(artifact, "state/openclaw.sqlite unreadable ("+err.Error()+")"))
@@ -80,14 +87,9 @@ func (p *Parser) parseStateDatabase(artifact *input.Artifact, emit parser.Emit) 
 	parser.EmitAll(emit, p.ErrorRows(artifact, rows.problems, "", ""))
 }
 
-// readState returns the rows of every state table the database has, or the
-// message of a PostgreSQL anchor that replaces them.
-func readState(path string) (map[string][]sqlitefile.Row, string, error) {
-	database, err := sqlitefile.OpenPath(path)
-	if err != nil {
-		return nil, "", err
-	}
-	defer database.Close()
+// readState returns the rows of every state table the open database has,
+// or the message of a PostgreSQL anchor that replaces them.
+func readState(database *sqlitefile.Database) (map[string][]sqlitefile.Row, string, error) {
 	names, err := database.TableNames()
 	if err != nil {
 		return nil, "", err
