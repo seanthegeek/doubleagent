@@ -23,7 +23,9 @@ func pathBuilders() []string {
 }
 
 func TestNoParserPackageBuildsAPath(t *testing.T) {
-	const kit = "../parser"
+	// The walk gives paths in the platform's form, so the kit's directory is
+	// named in that form too.
+	kit := filepath.Join("..", "parser")
 	packages := 0
 	err := filepath.WalkDir(kit, func(file string, entry fs.DirEntry, err error) error {
 		switch {
