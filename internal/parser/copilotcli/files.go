@@ -72,7 +72,10 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 	if match == nil {
 		return nil
 	}
-	directory := artifact.Home.PathOf(match[1] + "/sidebar-sessions-state")
+	directory, ok := artifact.Home.PathOf(match[1] + "/sidebar-sessions-state")
+	if !ok {
+		return nil
+	}
 	if held, ok := p.sidebarCache[directory]; ok {
 		return held
 	}
@@ -146,8 +149,8 @@ func (p *Parser) parseWorkspace(artifact *input.Artifact, sessionID string, emit
 	// A session the app pre-created and never prompted (Copilot Desktop's pool
 	// and probe sessions) has no events.jsonl; its cwd is the agent's, not a
 	// project.
-	if _, err := osfile.Lstat(parser.Beside(artifact, "events.jsonl")); err != nil &&
-		metadata["cwd"] != "" {
+	events, found := parser.Beside(artifact, "events.jsonl")
+	if _, err := osfile.Lstat(events); (!found || err != nil) && metadata["cwd"] != "" {
 		emit(p.row(artifact, 1, timeline.TurnSystem, timeline.ScratchPrefix+" "+metadata["cwd"]+
 			" (working directory of a session the app pre-created and never prompted: no events.jsonl)", set))
 	}

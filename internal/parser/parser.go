@@ -12,9 +12,14 @@
 //
 // Every reader here opens only a regular file and never follows a symbolic
 // link: it looks at the path's own entry first, so a link, a directory, a
-// named pipe or a device is reported as unreadable and never opened. A
-// problem met while reading is collected in a Problems list, which a parser
-// turns into `parser:` rows (ErrorRows) where its output puts them.
+// named pipe or a device is reported as unreadable and never opened. The
+// directories above that entry were looked at when the path was built:
+// a parser takes every path it opens from the artifact, from Beside, Above,
+// Under or Home.PathOf, which refuse a link on the way down and a name that
+// climbs, or from one of those joined with a single name a listing gave or
+// Component accepted, which the reader's own look covers. A problem met
+// while reading is collected in a Problems list, which a parser turns into
+// `parser:` rows (ErrorRows) where its output puts them.
 package parser
 
 import (

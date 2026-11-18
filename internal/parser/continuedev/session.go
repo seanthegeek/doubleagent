@@ -64,7 +64,10 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	}
 	document, problem := LoadSession(textlines.ValidUTF8(content))
 	sessionID := cmp.Or(parser.Text(document.Get("sessionId")), fileID)
-	entry := p.indexes.Index(parser.Beside(artifact))[sessionID]
+	var entry jsonvalue.Value
+	if directory, ok := parser.Beside(artifact); ok {
+		entry = p.indexes.Index(directory)[sessionID]
+	}
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), models: parser.Tracker{}, names: map[string]string{},
 		answered: map[string]bool{}}

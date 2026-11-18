@@ -221,7 +221,11 @@ func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string 
 // parseState emits the standing permission rows of a base_state.json and the
 // model row of a switch made over REST.
 func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
-	conv := p.conversation(parser.Beside(artifact))
+	directory, ok := parser.Beside(artifact)
+	if !ok {
+		return
+	}
+	conv := p.conversation(directory)
 	timestamp := parser.FileMtime(artifact)
 	texts := slices.Clone(conv.settings)
 	if conv.finalModelRow != "" {
@@ -329,7 +333,8 @@ func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit p
 func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 	match := p.legacy.FindStringSubmatch(artifact.Rel)
 	var numbers []string
-	if entries, err := parser.ReadDir(parser.Beside(artifact)); err == nil {
+	directory, found := parser.Beside(artifact)
+	if entries, err := parser.ReadDir(directory); found && err == nil {
 		for _, entry := range entries {
 			stem, isJSON := strings.CutSuffix(entry.Name(), ".json")
 			if isJSON && stem != "" && strings.Trim(stem, "0123456789") == "" &&

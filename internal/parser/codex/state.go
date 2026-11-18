@@ -321,8 +321,8 @@ func feedbackText(record jsonvalue.Value) string {
 // artifact, by id; none when there is no such database or it cannot be
 // read, which that database's own parse reports.
 func siblingThreads(artifact *input.Artifact) map[string]*sqlitefile.Row {
-	path := parser.Beside(artifact, stateDatabase)
-	if sqlitefile.Problem(path) != nil {
+	path, ok := parser.Beside(artifact, stateDatabase)
+	if !ok || sqlitefile.Problem(path) != nil {
 		return map[string]*sqlitefile.Row{}
 	}
 	database, err := sqlitefile.OpenPath(path)

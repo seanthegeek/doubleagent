@@ -133,8 +133,8 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 // row of a sessions.json that cannot be read, does not decode or is not a
 // JSON object. A missing file is no error.
 func legacyKey(artifact *input.Artifact, sessionID string) (string, error) {
-	store := parser.Beside(artifact, "sessions.json")
-	if !parser.RegularFile(store) {
+	store, found := parser.Beside(artifact, "sessions.json")
+	if !found || !parser.RegularFile(store) {
 		return "", nil
 	}
 	var problems parser.Problems

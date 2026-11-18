@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -224,7 +225,7 @@ func extractZipMember(member *zip.File, parts []string, path string, out *extrac
 // the extraction directory: not absolute, no ".." component, no leading
 // drive letter, and allowed on this platform.
 func zipNameAllowed(name string) bool {
-	return !strings.HasPrefix(name, "/") && !containsPart(splitSlash(name), "..") &&
+	return !strings.HasPrefix(name, "/") && !slices.Contains(splitSlash(name), "..") &&
 		windowsDrive(name) == "" && memberNameAllowed(name)
 }
 

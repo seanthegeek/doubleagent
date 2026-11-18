@@ -245,10 +245,12 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 		messageID = jsonStem(name)
 	}
 	scoped := sessionScope(root.disk, sessionID, old, message)
-	if previous, ok := previousMessage(parser.Beside(artifact), name); ok {
-		provider, model := messageRef(previous)
-		modelRowText(scoped.models, scoped.sessionID, provider, model)
-		agentRowText(scoped.modes, scoped.sessionID, previous.Get("agent"))
+	if directory, found := parser.Beside(artifact); found {
+		if previous, ok := previousMessage(directory, name); ok {
+			provider, model := messageRef(previous)
+			modelRowText(scoped.models, scoped.sessionID, provider, model)
+			agentRowText(scoped.modes, scoped.sessionID, previous.Get("agent"))
+		}
 	}
 	partNames := []string{"part", messageID}
 	if old {

@@ -42,7 +42,11 @@ func regularFiles(directory string) []os.DirEntry {
 // directory's first file by name, so each directory gives one row.
 func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	setName := p.checkpoint.FindStringSubmatch(artifact.Rel)[1]
-	files := regularFiles(parser.Beside(artifact))
+	directory, found := parser.Beside(artifact)
+	if !found {
+		return
+	}
+	files := regularFiles(directory)
 	if len(files) == 0 || files[0].Name() != filepath.Base(artifact.DiskPath) {
 		return
 	}
@@ -121,10 +125,10 @@ func sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, pars
 	if artifact.Home == nil {
 		return jsonvalue.NewNull(), nil
 	}
-	sessions := artifact.Home.PathOf(".pi/agent/sessions")
+	sessions, found := artifact.Home.PathOf(".pi/agent/sessions")
 	var directories []string
 	info, err := lstatPresent(sessions)
-	if err == nil && isDirectory(info) {
+	if found && err == nil && isDirectory(info) {
 		var entries []os.DirEntry
 		if entries, err = parser.ReadDir(sessions); err == nil {
 			for _, entry := range entries {

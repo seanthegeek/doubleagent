@@ -229,8 +229,6 @@ host
 problem	/home/a/.claude/x: outside the collection
 problem	/home/a/.claude/y: outside the collection
 home	0	<input>/collection/fs/home/a	/home/a	a		false	false
-staged	0	.claude/x	<input>/outside
-staged	0	.claude/y	<input>/collection/<input>/outside
 === a home tree attributes each file to the most specific entry
 kind	loose
 host	

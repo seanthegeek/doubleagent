@@ -61,7 +61,7 @@ func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree string) b
 			continue
 		}
 		home := &Home{DiskPath: filepath.Dir(tree), User: userFromParts(resolvedParent(tree)),
-			Host: c.Host, Inferred: true}
+			Host: c.Host, Inferred: true, ownDirectory: true}
 		c.Notes = append(c.Notes, "root is a "+pattern.Agent+" directory; treating its parent as the home")
 		c.Homes = append(c.Homes, home)
 		hits := []hit{{pattern: pattern, path: tree, rel: []string{name}}}
@@ -162,7 +162,8 @@ func makeHome(place directory, host string) *Home {
 	if len(place.rel) > 0 {
 		original = "/" + joinSlash(place.rel)
 	}
-	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true}
+	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true,
+		ownDirectory: true}
 }
 
 // userFromParts returns the owner of a home from its path components, or

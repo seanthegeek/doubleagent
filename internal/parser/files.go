@@ -49,7 +49,9 @@ func entryError(path string, info fs.FileInfo) error {
 // Open opens the regular file at path for reading. A symbolic link is never
 // followed and a directory, a named pipe or a device is never opened: each
 // is an error, as is a file replaced between the look at its entry and the
-// open.
+// open. The directories above the last element are not looked at here:
+// Beside, Above, Under and Home.PathOf, through which a parser builds every
+// path it opens, refuse a link on the way down.
 func Open(path string) (*os.File, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
@@ -105,6 +107,20 @@ func FileBytes(path string, problems *Problems) ([]byte, bool) {
 func RegularFile(path string) bool {
 	info, err := osfile.Lstat(path)
 	return err == nil && info.Mode().IsRegular()
+}
+
+// IsLink reports whether path's own entry is a symbolic link; a path that
+// cannot be looked at is not one.
+func IsLink(path string) bool {
+	info, err := osfile.Lstat(path)
+	return err == nil && info.Mode()&fs.ModeSymlink != 0
+}
+
+// IsDirectory reports whether path's own entry is a directory, not a link
+// to one.
+func IsDirectory(path string) bool {
+	info, err := osfile.Lstat(path)
+	return err == nil && info.IsDir()
 }
 
 // ReadText returns the text of an optional side file, decoded as UTF-8 with

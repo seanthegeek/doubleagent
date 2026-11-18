@@ -20,7 +20,7 @@ import (
 // object. The task directory is the artifact's own. Either file that is there but cannot be read adds a problem.
 func historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) jsonvalue.Value {
 	item := jsonvalue.NewNull()
-	if itemPath := parser.Beside(artifact, "history_item.json"); parser.RegularFile(itemPath) {
+	if itemPath, ok := parser.Beside(artifact, "history_item.json"); ok && parser.RegularFile(itemPath) {
 		item, _ = readJSON(itemPath, problems)
 	}
 	if item.IsObject() {
