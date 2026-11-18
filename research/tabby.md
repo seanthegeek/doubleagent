@@ -694,6 +694,12 @@ A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, o
 `parser: state.vscdb is not a SQLite database` for the editor state, and a damaged editor state is
 `parser: state.vscdb unreadable: <message>`.
 
+A completion event whose `choices` is present but not an array is
+`parser: choices is not a JSON array` at the event's line, after the completion's rows. A
+`state.vscdb` whose `edit.recentlyCommand` is present but not an array is
+`parser: edit.recentlyCommand is not a JSON array` with `source_line` 0. An absent, null or empty
+one gives no row.
+
 #### Fixtures
 
 ```sql
