@@ -93,7 +93,7 @@ func toolInputText(toolUse jsonvalue.Value) string {
 	if toolInput.IsObject() && toolInput.Has("value") && onlyKeys(toolInput, "type", "value") {
 		toolInput = toolInput.Get("value")
 	}
-	empty := toolInput.IsNull() || (toolInput.IsString() && toolInput.StringValue() == "") ||
+	empty := !parser.Present(toolInput) ||
 		(toolInput.IsObject() && toolInput.Len() == 0)
 	if !empty {
 		return textOrJSON(toolInput)

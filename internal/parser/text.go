@@ -78,7 +78,7 @@ func SettingValue(value jsonvalue.Value) string {
 // zero is "0". It is the form parsers give a field of a summary row that may
 // be absent.
 func SettingOrDash(value jsonvalue.Value) string {
-	if value.IsNull() || IsText(value, "") {
+	if !Present(value) {
 		return "-"
 	}
 	return SettingValue(value)

@@ -79,7 +79,7 @@ func headerAbsent(value sqlitefile.Value) bool {
 // header value's, else the header row's.
 func (c *composer) created() string {
 	for _, document := range []jsonvalue.Value{c.data, c.head} {
-		if value := document.Get("createdAt"); !absent(value) {
+		if value := document.Get("createdAt"); parser.Present(value) {
 			return timeutil.FromValue(value)
 		}
 	}

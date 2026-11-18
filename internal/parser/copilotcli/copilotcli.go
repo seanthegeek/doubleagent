@@ -151,11 +151,6 @@ func (p *Parser) problem(artifact *input.Artifact, text, timestamp string) timel
 	return p.row(artifact, 1, timeline.TurnSystem, text, columns{timestamp: timestamp})
 }
 
-// blank reports whether value is null or empty text.
-func blank(value jsonvalue.Value) bool {
-	return value.IsNull() || (value.IsString() && value.StringValue() == "")
-}
-
 // orDash returns text, or "-" when it is empty.
 func orDash(text string) string {
 	return cmp.Or(text, "-")
@@ -174,7 +169,7 @@ func argsText(arguments jsonvalue.Value) string {
 		return arguments.StringValue()
 	case arguments.IsObject():
 		for _, key := range argumentKeys {
-			if value := arguments.Get(key); !blank(value) {
+			if value := arguments.Get(key); parser.Present(value) {
 				return value.Text()
 			}
 		}
@@ -229,7 +224,7 @@ func resultText(data jsonvalue.Value) string {
 // command, URL, file or path, or "<server>/<tool>" for an MCP tool.
 func requestTarget(request jsonvalue.Value) string {
 	for _, key := range []string{"fullCommandText", "url", "fileName", "path"} {
-		if value := request.Get(key); !blank(value) {
+		if value := request.Get(key); parser.Present(value) {
 			return value.Text()
 		}
 	}
@@ -257,7 +252,7 @@ func decisionText(data jsonvalue.Value) string {
 		orDash(data.Get("decisionSource").Text())
 	for _, key := range decisionKeys {
 		value := result.Get(key[0])
-		empty := blank(value) || (value.IsArray() && value.Len() == 0) ||
+		empty := !parser.Present(value) || (value.IsArray() && value.Len() == 0) ||
 			(value.IsObject() && value.Len() == 0)
 		if !empty {
 			line += " " + key[1] + "=" + parser.SettingValue(value)

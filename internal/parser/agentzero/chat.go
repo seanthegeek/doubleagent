@@ -130,7 +130,7 @@ func argsSummary(args jsonvalue.Value) string {
 		}
 		object := jsonvalue.NewObject(visible...)
 		for _, name := range argKeys {
-			if value := object.Get(name); !blank(value) {
+			if value := object.Get(name); parser.Present(value) {
 				return value.Text()
 			}
 		}
@@ -187,7 +187,7 @@ func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 	var texts []string
 	for i, agent := range parser.Elements(chat.Get("agents")) {
 		state := agent.Get("data").Get("responses_state")
-		if !state.IsObject() || blank(state.Get("previous_response_id")) {
+		if !state.IsObject() || !parser.Present(state.Get("previous_response_id")) {
 			continue
 		}
 		count := 0
@@ -203,17 +203,17 @@ func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 			" ("+strconv.Itoa(count)+" response ids) agent="+number+
 			" (from chat.json agents[].data.responses_state, file mtime)")
 	}
-	if slices.ContainsFunc(telegramKeys, func(name string) bool { return !blank(data.Get(name)) }) {
+	if slices.ContainsFunc(telegramKeys, func(name string) bool { return parser.Present(data.Get(name)) }) {
 		texts = append(texts, "session relayed: telegram bot "+key(data, "telegram_bot")+" chat "+
 			key(data, "telegram_chat_id")+" user "+key(data, "telegram_user_id")+" @"+
 			key(data, "telegram_username")+" (from chat.json data, file mtime)")
 	}
-	if !blank(data.Get("wa_chat_id")) {
+	if parser.Present(data.Get("wa_chat_id")) {
 		texts = append(texts, "session relayed: whatsapp chat "+key(data, "wa_chat_id")+" number "+
 			key(data, "wa_sender_number")+" (from chat.json data, file mtime)")
 	}
 	if slices.ContainsFunc([]string{"email_thread_id", "email_sender"},
-		func(name string) bool { return !blank(data.Get(name)) }) {
+		func(name string) bool { return parser.Present(data.Get(name)) }) {
 		texts = append(texts, "session relayed: email thread "+key(data, "email_thread_id")+" from "+
 			key(data, "email_sender")+" (from chat.json data, file mtime)")
 	}

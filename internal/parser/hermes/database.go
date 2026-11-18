@@ -203,7 +203,7 @@ func (s *stateReader) addError(sessionID, project string, line jsonvalue.Value, 
 // empty object.
 func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonvalue.Value {
 	raw := session.Get(column)
-	if raw.IsNull() || raw.IsString() && raw.StringValue() == "" {
+	if !parser.Present(raw) {
 		return jsonvalue.NewObject()
 	}
 	sessionID, project := parser.Text(session.Get("id")), projectOf(session)

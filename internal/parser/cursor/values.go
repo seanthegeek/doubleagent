@@ -41,12 +41,6 @@ func shown(value jsonvalue.Value) string {
 	return parser.SettingValue(value)
 }
 
-// absent reports whether a decoded value is null or "", which a time or a
-// name counts as missing.
-func absent(value jsonvalue.Value) bool {
-	return value.IsNull() || (value.IsString() && value.StringValue() == "")
-}
-
 // firstOrLast returns the first of values that is not empty, else the
 // last one: a time field falls back to the next, and the last is read even
 // when it is empty, so a zero time still reads as the epoch.

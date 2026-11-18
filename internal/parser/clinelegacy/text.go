@@ -9,20 +9,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// Present reports whether a value is neither null nor the empty string, the
-// test the agents' optional fields are written under: false, zero, an
-// empty array and an empty object are present.
-func Present(value jsonvalue.Value) bool {
-	return !value.IsNull() && !(value.IsString() && value.StringValue() == "")
-}
-
 // FormatCounts returns "key=value" for each key whose value in record is
-// Present, joined by spaces, each value as its row text
+// parser.Present, joined by spaces, each value as its row text
 // (jsonvalue.Value.Text).
 func FormatCounts(record jsonvalue.Value, keys ...string) string {
 	var parts []string
 	for _, key := range keys {
-		if value := record.Get(key); Present(value) {
+		if value := record.Get(key); parser.Present(value) {
 			parts = append(parts, key+"="+value.Text())
 		}
 	}
@@ -36,7 +29,7 @@ func Join(parts ...jsonvalue.Value) string {
 	var kept []string
 	for _, part := range parts {
 		empty := (part.IsArray() || part.IsObject()) && part.Len() == 0
-		if Present(part) && !empty {
+		if parser.Present(part) && !empty {
 			kept = append(kept, part.Text())
 		}
 	}

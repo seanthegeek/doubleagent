@@ -220,7 +220,7 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 			" (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
-	if !isMissing(document.Get(remoteControlMachine)) {
+	if parser.Present(document.Get(remoteControlMachine)) {
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
 		row.Text = "remote control: machine id set (from " + artifact.Rel + ", file mtime)"
@@ -249,7 +249,7 @@ func (r *Reader) projectRows(artifact *input.Artifact, timestamp, projectPath st
 			emit(r.StandingRow(artifact, timestamp, projectPath, key, value, PermissionSetting))
 		}
 	}
-	if spawn := project.Get(remoteControlSpawnKey); !isMissing(spawn) {
+	if spawn := project.Get(remoteControlSpawnKey); parser.Present(spawn) {
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
 		row.ProjectPath = projectPath

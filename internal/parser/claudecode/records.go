@@ -23,8 +23,8 @@ func (s *session) user(record jsonvalue.Value, isTask bool) {
 			" turnOrigin="+cmp.Or(origin, "-")))
 	}
 	decision := record.Get("permissionDecision")
-	if !decision.IsNull() || !isMissing(record.Get("toolDenialKind")) ||
-		!isMissing(record.Get("userFeedback")) {
+	if !decision.IsNull() || parser.Present(record.Get("toolDenialKind")) ||
+		parser.Present(record.Get("userFeedback")) {
 		s.emit(s.permissionRow(record, decision))
 	}
 }
@@ -43,13 +43,13 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	}
 	var denial strings.Builder
 	for _, key := range []string{"toolDenialKind", "userFeedback"} {
-		if value := record.Get(key); !isMissing(value) {
+		if value := record.Get(key); parser.Present(value) {
 			denial.WriteString(" " + key + "=" + parser.SettingValue(value))
 		}
 	}
 	text := ""
 	switch {
-	case decision.IsNull() && !isMissing(record.Get("toolDenialKind")):
+	case decision.IsNull() && parser.Present(record.Get("toolDenialKind")):
 		text = "permission decision: reject (interrupted)"
 	case decision.IsNull():
 		text = "permission decision: - source=- reason=-"
@@ -161,7 +161,7 @@ func (s *session) assistant(record jsonvalue.Value) {
 	if !record.Get("isApiErrorMessage").IsEmpty() || model == "<synthetic>" {
 		var status, parts []string
 		for _, value := range []jsonvalue.Value{record.Get("apiErrorStatus"), record.Get("error")} {
-			if !isMissing(value) {
+			if parser.Present(value) {
 				status = append(status, value.Text())
 			}
 		}

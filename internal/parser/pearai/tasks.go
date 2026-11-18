@@ -163,7 +163,7 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 		}
 		row := p.HistoryRow(artifact, item, i+1)
 		text := row.Text
-		if number := item.Get("number"); clinelegacy.Present(number) {
+		if number := item.Get("number"); parser.Present(number) {
 			text += " number=" + number.Text()
 		}
 		if creator := item.Get("creatorModeConfig"); creator.IsObject() && creator.Len() > 0 {

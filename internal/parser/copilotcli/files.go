@@ -180,7 +180,7 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		number := i + 1
 		set := columns{timestamp: timeutil.FromValue(snapshot.Get("timestamp")), sessionID: sessionID,
 			project: project}
-		if message := snapshot.Get("userMessage"); !blank(message) {
+		if message := snapshot.Get("userMessage"); parser.Present(message) {
 			emit(p.row(artifact, number, timeline.TurnUser, message.Text(), set))
 		}
 		var paths []string

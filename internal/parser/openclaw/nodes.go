@@ -123,7 +123,7 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 // isEmptySetting reports whether a permission setting is absent: null, an
 // empty string, an empty object or an empty list.
 func isEmptySetting(value jsonvalue.Value) bool {
-	return value.IsNull() || parser.IsText(value, "") ||
+	return !parser.Present(value) ||
 		((value.IsObject() || value.IsArray()) && value.Len() == 0)
 }
 

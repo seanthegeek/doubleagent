@@ -50,7 +50,7 @@ func addMetadata(session, meta jsonvalue.Value) {
 		return
 	}
 	for _, pair := range importedKeys() {
-		if value := source.Get(pair[0]); clinelegacy.Present(value) {
+		if value := source.Get(pair[0]); parser.Present(value) {
 			session.Set(pair[1], value)
 		}
 	}
@@ -101,7 +101,7 @@ func blobUpload(start timeline.Row, meta jsonvalue.Value, source string) (timeli
 	}
 	storage := blob.Get("storage")
 	user := "unknown"
-	if value := blob.Get("userDistinctId"); clinelegacy.Present(value) {
+	if value := blob.Get("userDistinctId"); parser.Present(value) {
 		user = value.Text()
 	}
 	row := start

@@ -34,14 +34,9 @@ var (
 	lastContextKeys = []string{"AGENT_ZERO_LAST_CONTEXT_HOST", "AGENT_ZERO_LAST_CONTEXT_ID"}
 )
 
-// blank reports whether value is null or empty text.
-func blank(value jsonvalue.Value) bool {
-	return value.IsNull() || (value.IsString() && value.StringValue() == "")
-}
-
 // key returns a field as row text, "-" when it is absent or empty.
 func key(record jsonvalue.Value, name string) string {
-	if value := record.Get(name); !blank(value) {
+	if value := record.Get(name); parser.Present(value) {
 		return value.Text()
 	}
 	return "-"
@@ -254,7 +249,7 @@ func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit pars
 	scope, project := p.scopeText(match), projectOf(jsonvalue.NewString(groupOf(p.policy, match, "project")))
 	if groupOf(p.policy, match, "plugin") == "_tool_access" {
 		for _, name := range policyScalars {
-			if value := document.Get(name); !blank(value) {
+			if value := document.Get(name); parser.Present(value) {
 				emit(p.settingRow(artifact, "tool_access."+name+"="+parser.SettingValue(value)+scope, project))
 			}
 		}
@@ -268,7 +263,7 @@ func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit pars
 		return
 	}
 	for _, each := range orchestratorKeys {
-		if section := document.Get(each[0]); section.IsObject() && !blank(section.Get(each[1])) {
+		if section := document.Get(each[0]); section.IsObject() && parser.Present(section.Get(each[1])) {
 			emit(p.settingRow(artifact, "orchestrator."+each[0]+"."+each[1]+"="+
 				parser.SettingValue(section.Get(each[1])), project))
 		}

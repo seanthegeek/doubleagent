@@ -25,7 +25,7 @@ func ToolArgsText(arguments jsonvalue.Value) string {
 			}
 		}
 	}
-	empty := arguments.IsNull() || (arguments.IsString() && arguments.StringValue() == "") ||
+	empty := !parser.Present(arguments) ||
 		(arguments.IsObject() && arguments.Len() == 0)
 	if empty {
 		return ""

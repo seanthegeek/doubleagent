@@ -38,13 +38,13 @@ func argumentKeys() []string {
 func ArgsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsObject() {
 		for _, key := range argumentKeys() {
-			if value := arguments.Get(key); !isNullOrEmpty(value) {
+			if value := arguments.Get(key); parser.Present(value) {
 				return textOrJSON(value)
 			}
 		}
 		return parser.JSONText(arguments)
 	}
-	if isNullOrEmpty(arguments) {
+	if !parser.Present(arguments) {
 		return ""
 	}
 	return textOrJSON(arguments)
@@ -56,12 +56,6 @@ func textOrJSON(value jsonvalue.Value) string {
 		return value.StringValue()
 	}
 	return parser.JSONText(value)
-}
-
-// isNullOrEmpty reports whether value is null or the empty string; false and
-// zero are values an argument can hold.
-func isNullOrEmpty(value jsonvalue.Value) bool {
-	return value.IsNull() || parser.IsText(value, "")
 }
 
 // exitSucceeded reports whether a bash exit code is no failure: null, false

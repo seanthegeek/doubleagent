@@ -166,7 +166,7 @@ func actionRows(event jsonvalue.Value, options parser.Options, row eventRowMaker
 		}
 	}
 	text := actionText(event)
-	if risk := event.Get("security_risk"); !risk.IsNull() && !parser.IsText(risk, "") {
+	if risk := event.Get("security_risk"); parser.Present(risk) {
 		text += " security_risk=" + risk.Text()
 	}
 	row(timeline.TurnToolUse, text, parser.Text(event.Get("tool_name")),

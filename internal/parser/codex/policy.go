@@ -85,7 +85,7 @@ func (p policy) text() string {
 	for i, value := range p {
 		value = shownPolicyValue(i, value)
 		shown := "-"
-		if !isMissing(value) {
+		if parser.Present(value) {
 			shown, empty = parser.SettingValue(value), false
 		}
 		parts[i] = policyFields[i][0] + "=" + shown

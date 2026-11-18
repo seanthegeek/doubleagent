@@ -117,11 +117,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	return nil
 }
 
-// missing reports whether value is null or the empty string.
-func missing(value jsonvalue.Value) bool {
-	return value.IsNull() || (value.IsString() && value.StringValue() == "")
-}
-
 // exitSucceeded reports whether an exit code is no failure: null, false or
 // a number equal to zero; a number beyond the float64 range is not zero.
 func exitSucceeded(value jsonvalue.Value) bool {
@@ -188,7 +183,7 @@ func argumentsSummary(arguments jsonvalue.Value) string {
 		return arguments.Text()
 	}
 	for _, key := range argumentKeys {
-		if value := arguments.Get(key); !missing(value) {
+		if value := arguments.Get(key); parser.Present(value) {
 			return value.Text()
 		}
 	}
@@ -551,7 +546,7 @@ func (w *walk) record(index int, entry envelope) {
 		w.declaredFormat = step.facts.Get("format").Text()
 	case step.payloadType == "runtime.session.permission_profile_committed":
 		w.permissionProfile(step)
-	case step.payloadType == "session.opened.observed" && !missing(step.facts.Get("security_mode")):
+	case step.payloadType == "session.opened.observed" && parser.Present(step.facts.Get("security_mode")):
 		w.securityMode(step)
 	case step.payloadType == "session.workspace_branch.observed":
 		w.branch = ""
@@ -592,7 +587,7 @@ func (w *walk) modelRow(step *recordStep, model string, facts jsonvalue.Value) {
 	if line == "" {
 		return
 	}
-	if provider := facts.Get("provider_id"); !missing(provider) {
+	if provider := facts.Get("provider_id"); parser.Present(provider) {
 		line += " provider=" + parser.SettingOrDash(provider)
 	}
 	row := w.makeRow(step, timeline.TurnSystem, line, "", "")
@@ -610,7 +605,7 @@ func (w *walk) permissionProfile(step *recordStep) {
 	if line == "" {
 		return
 	}
-	if cause := step.facts.Get("cause"); !missing(cause) {
+	if cause := step.facts.Get("cause"); parser.Present(cause) {
 		line += " cause=" + parser.SettingOrDash(cause)
 	}
 	if w.declaredFormat != "" {
@@ -651,7 +646,7 @@ func (w *walk) reconfigure(step *recordStep) {
 	if line == "" {
 		line = "model: " + effective + " -> " + effective
 	}
-	if outcome := step.facts.Get("apply_outcome"); !missing(outcome) {
+	if outcome := step.facts.Get("apply_outcome"); parser.Present(outcome) {
 		line += " apply_outcome=" + parser.SettingOrDash(outcome)
 	}
 	row := w.makeRow(step, timeline.TurnSystem, line, "", "")
@@ -752,7 +747,7 @@ func (w *walk) approval(step *recordStep, event jsonvalue.Value) {
 			" kind=automated_review_completed risk_level=" + parser.SettingOrDash(assessment.Get("risk_level")) +
 			" user_authorization=" + parser.SettingOrDash(assessment.Get("user_authorization")) + " status=" +
 			parser.SettingOrDash(event.Get("status"))
-		if rationale := assessment.Get("rationale"); !missing(rationale) {
+		if rationale := assessment.Get("rationale"); parser.Present(rationale) {
 			line += " " + rationale.Text()
 		}
 		w.emit(w.makeRow(step, timeline.TurnSystem, line, w.lastRequest[0], w.lastRequest[1]))

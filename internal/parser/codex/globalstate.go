@@ -120,7 +120,7 @@ func standingText(entry jsonvalue.Value, suffix string) string {
 	parts := make([]string, len(pairs))
 	for i, pair := range pairs {
 		shown := "-"
-		if !isMissing(pair.value) {
+		if parser.Present(pair.value) {
 			shown = parser.SettingValue(pair.value)
 		}
 		parts[i] = pair.label + "=" + shown
