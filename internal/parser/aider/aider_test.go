@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of the three history files are proved by the parser replay
@@ -162,6 +163,56 @@ func TestAnnouncementLinesNameTheModelFromItsFirstVisibleCharacter(t *testing.T)
 		t.Run(test.line, func(t *testing.T) {
 			if got := subject.announcement(test.line); !slices.Equal(got, test.want) {
 				t.Errorf("got %+v, want %+v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAChatRunIsReadInOneTestForTextPerLine(t *testing.T) {
+	for _, blanks := range []int{1000, 2000, 4000} {
+		t.Run(fmt.Sprintf("%d blank lines", blanks), func(t *testing.T) {
+			var rows []timeline.Row
+			reader := &chatReader{parser: New(), artifact: &input.Artifact{Original: "/p/" + chatName},
+				emit: func(row timeline.Row) { rows = append(rows, row) }, models: map[string]string{}}
+			reader.line(1, "# aider chat started at 2025-01-01 10:00:00")
+			for number := 2; number <= blanks+1; number++ {
+				reader.line(number, "")
+			}
+			reader.line(blanks+2, "the reply")
+			reader.flush()
+			if reader.textChecks != blanks+1 {
+				t.Errorf("%d tests for text over %d lines, want one per line", reader.textChecks, blanks+1)
+			}
+			if last := rows[len(rows)-1]; last.Text != "the reply" || last.SourceLine != blanks+2 {
+				t.Errorf("last row %q at line %d, want the reply at line %d", last.Text, last.SourceLine, blanks+2)
+			}
+		})
+	}
+}
+
+func TestAChatRunStartsAtItsFirstLineWithText(t *testing.T) {
+	tests := []struct {
+		name  string
+		lines []string
+		line  int
+	}{
+		{"text at once", []string{"#### hello", "#### more"}, 2},
+		{"blank user lines first", []string{"####", "####   ", "#### hello"}, 4},
+		{"blank assistant lines first", []string{"", "  ", "the reply", ""}, 4},
+		{"a blank line after the text keeps the start", []string{"> ran", ">", "> more"}, 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var rows []timeline.Row
+			reader := &chatReader{parser: New(), artifact: &input.Artifact{Original: "/p/" + chatName},
+				emit: func(row timeline.Row) { rows = append(rows, row) }, models: map[string]string{}}
+			reader.line(1, "# aider chat started at 2025-01-01 10:00:00")
+			for i, line := range test.lines {
+				reader.line(i+2, line)
+			}
+			reader.flush()
+			if len(rows) != 2 || rows[1].SourceLine != test.line {
+				t.Errorf("rows %+v, want a second row at line %d", rows, test.line)
 			}
 		})
 	}
