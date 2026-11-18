@@ -19,7 +19,7 @@ func (p *Parser) transcript(artifact *input.Artifact, options parser.Options, se
 	emit parser.Emit) {
 	project := ""
 	if session != "" {
-		record, _ := findRecord(artifact.Home, session)
+		record, _ := p.sessionRecord(artifact.Home, session)
 		project = folder(record)
 	}
 	p.code.Session(artifact, options, func(row timeline.Row) {
@@ -77,7 +77,7 @@ func (a *auditLine) row(turnType, text string) timeline.Row {
 // the record's CLI session id, else each line's own.
 func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session string,
 	emit parser.Emit) {
-	record, found := findRecord(artifact.Home, session)
+	record, found := p.sessionRecord(artifact.Home, session)
 	project := folder(record)
 	if project == "" {
 		project = initCwd(artifact)
