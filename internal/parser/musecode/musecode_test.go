@@ -11,10 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of the logs, the history and trust.json are proved against the
-// Python analyzer by the parser replay (internal/parity/replay); these
-// tests port the helpers the Python tests call directly, with the values
-// the analyzer gives them.
+// The rows of the logs, the history and trust.json are proved by the parser
+// replay (internal/parity/replay) over the recorded fixtures; these tests
+// cover the helpers the rows are built from.
 
 // decoded returns the value of JSON text.
 func decoded(t *testing.T, text string) jsonvalue.Value {

@@ -27,6 +27,7 @@
 package musecode
 
 import (
+	"cmp"
 	"errors"
 	"iter"
 	"path/filepath"
@@ -116,35 +117,14 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	return nil
 }
 
-// text returns a value as text: "" for null, a string as it is, anything
-// else as compact JSON.
-func text(value jsonvalue.Value) string {
-	switch {
-	case value.IsNull():
-		return ""
-	case value.IsString():
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
-}
-
-// pair returns a field's value for a key=value pair: "-" when it is missing,
-// null or empty text.
-func pair(value jsonvalue.Value) string {
-	if value.IsNull() || (value.IsString() && value.StringValue() == "") {
-		return "-"
-	}
-	return parser.SettingValue(value)
-}
-
-// isNoneOrEmpty reports whether value is null or empty text.
-func isNoneOrEmpty(value jsonvalue.Value) bool {
+// missing reports whether value is null or the empty string.
+func missing(value jsonvalue.Value) bool {
 	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
-// isNoneOrZero reports whether value is null or equals zero in Python: zero
-// in any number form, or false.
-func isNoneOrZero(value jsonvalue.Value) bool {
+// exitSucceeded reports whether an exit code is no failure: null, false or
+// a number equal to zero.
+func exitSucceeded(value jsonvalue.Value) bool {
 	switch {
 	case value.IsNull():
 		return true
@@ -165,14 +145,6 @@ func fact(payload jsonvalue.Value) jsonvalue.Value {
 		return record
 	}
 	return payload
-}
-
-// firstTruthy returns first when it is true in Python, else second.
-func firstTruthy(first, second jsonvalue.Value) jsonvalue.Value {
-	if !first.IsEmpty() {
-		return first
-	}
-	return second
 }
 
 // microsToUTC returns recorded_at, in microseconds, as UTC; a plain epoch
@@ -209,11 +181,11 @@ func argumentsSummary(arguments jsonvalue.Value) string {
 		arguments = decoded
 	}
 	if !arguments.IsObject() {
-		return text(arguments)
+		return arguments.Text()
 	}
 	for _, key := range argumentKeys {
-		if value := arguments.Get(key); !isNoneOrEmpty(value) {
-			return text(value)
+		if value := arguments.Get(key); !missing(value) {
+			return value.Text()
 		}
 	}
 	return parser.JSONText(arguments)
@@ -223,7 +195,7 @@ func argumentsSummary(arguments jsonvalue.Value) string {
 // with output and exit_code.
 func resultText(result jsonvalue.Value) string {
 	if !result.IsString() {
-		return text(result)
+		return result.Text()
 	}
 	raw := result.StringValue()
 	if !strings.HasPrefix(raw, "{") {
@@ -233,8 +205,8 @@ func resultText(result jsonvalue.Value) string {
 	if err != nil || !decoded.IsObject() || !decoded.Has("output") {
 		return raw
 	}
-	output := text(decoded.Get("output"))
-	if code := decoded.Get("exit_code"); !isNoneOrZero(code) {
+	output := decoded.Get("output").Text()
+	if code := decoded.Get("exit_code"); !exitSucceeded(code) {
 		output = "[exit " + code.Text() + "] " + output
 	}
 	return output
@@ -358,7 +330,7 @@ func workspace(log iter.Seq2[int, jsonvalue.Value], limit int) (string, string) 
 		facts := fact(payload)
 		switch payloadType(record) {
 		case "runtime.session.metadata":
-			if root := firstTruthy(facts.Get("workspace_root"), payload.Get("workspace_root")); !root.IsEmpty() {
+			if root := parser.FirstNonEmpty(facts.Get("workspace_root"), payload.Get("workspace_root")); !root.IsEmpty() {
 				project = root.Text()
 			}
 		case "runtime.session.route_facts":
@@ -564,7 +536,7 @@ func (w *walk) record(index int, entry envelope) {
 		w.sessionID = streamID.Text()
 	}
 	step.runID = parser.Text(payload.Get("run_id"))
-	step.model = firstNonEmpty(w.runModel[step.runID], w.runCompletedModel[step.runID], w.sessionModel)
+	step.model = cmp.Or(w.runModel[step.runID], w.runCompletedModel[step.runID], w.sessionModel)
 	step.sessionID, step.project, step.branch = w.sessionID, w.project, w.branch
 	switch {
 	case step.payloadType == "runtime.session.metadata":
@@ -572,10 +544,10 @@ func (w *walk) record(index int, entry envelope) {
 	case step.payloadType == "run.model.configured" && !step.facts.Get("model_id").IsEmpty():
 		w.modelRow(step, step.facts.Get("model_id").Text(), step.facts)
 	case step.payloadType == "runtime.session.permission_format_declared":
-		w.declaredFormat = text(step.facts.Get("format"))
+		w.declaredFormat = step.facts.Get("format").Text()
 	case step.payloadType == "runtime.session.permission_profile_committed":
 		w.permissionProfile(step)
-	case step.payloadType == "session.opened.observed" && !isNoneOrEmpty(step.facts.Get("security_mode")):
+	case step.payloadType == "session.opened.observed" && !missing(step.facts.Get("security_mode")):
 		w.securityMode(step)
 	case step.payloadType == "session.workspace_branch.observed":
 		w.branch = ""
@@ -583,7 +555,7 @@ func (w *walk) record(index int, entry envelope) {
 			w.branch = parser.Text(reference.Get("name"))
 		}
 	case step.payloadType == "session.name.changed":
-		w.emit(w.makeRow(step, timeline.TurnSystem, "session name: "+text(step.facts.Get("new_name")), "", ""))
+		w.emit(w.makeRow(step, timeline.TurnSystem, "session name: "+step.facts.Get("new_name").Text(), "", ""))
 	case step.payloadType == "runtime.model_reconfigure.completed":
 		w.reconfigure(step)
 	case step.payloadType == "runtime.user_intent.accepted":
@@ -597,16 +569,6 @@ func (w *walk) record(index int, entry envelope) {
 	}
 }
 
-// firstNonEmpty returns the first of the texts that is not empty.
-func firstNonEmpty(texts ...string) string {
-	for _, each := range texts {
-		if each != "" {
-			return each
-		}
-	}
-	return ""
-}
-
 // metadata handles the session metadata record: the model, then the
 // workspace root.
 func (w *walk) metadata(step *recordStep) {
@@ -614,7 +576,7 @@ func (w *walk) metadata(step *recordStep) {
 		w.sessionModel = model.Text()
 		w.modelRow(step, w.sessionModel, step.facts)
 	}
-	if root := firstTruthy(step.facts.Get("workspace_root"), step.payload.Get("workspace_root")); !root.IsEmpty() {
+	if root := parser.FirstNonEmpty(step.facts.Get("workspace_root"), step.payload.Get("workspace_root")); !root.IsEmpty() {
 		w.project = root.Text()
 	}
 }
@@ -626,8 +588,8 @@ func (w *walk) modelRow(step *recordStep, model string, facts jsonvalue.Value) {
 	if line == "" {
 		return
 	}
-	if provider := facts.Get("provider_id"); !isNoneOrEmpty(provider) {
-		line += " provider=" + pair(provider)
+	if provider := facts.Get("provider_id"); !missing(provider) {
+		line += " provider=" + parser.SettingOrDash(provider)
 	}
 	row := w.makeRow(step, timeline.TurnSystem, line, "", "")
 	row.Model = model
@@ -638,14 +600,14 @@ func (w *walk) modelRow(step *recordStep, model string, facts jsonvalue.Value) {
 // when the mode changed.
 func (w *walk) permissionProfile(step *recordStep) {
 	snapshot := step.facts.Get("resolved_snapshot")
-	value := "approval=" + pair(snapshot.Get("approval")) + " reviewer=" +
-		pair(snapshot.Get("reviewer")) + " profile=" + pair(step.facts.Get("source").Get("id"))
+	value := "approval=" + parser.SettingOrDash(snapshot.Get("approval")) + " reviewer=" +
+		parser.SettingOrDash(snapshot.Get("reviewer")) + " profile=" + parser.SettingOrDash(step.facts.Get("source").Get("id"))
 	line := w.modes.Change("permission mode", w.sessionID, value)
 	if line == "" {
 		return
 	}
-	if cause := step.facts.Get("cause"); !isNoneOrEmpty(cause) {
-		line += " cause=" + pair(cause)
+	if cause := step.facts.Get("cause"); !missing(cause) {
+		line += " cause=" + parser.SettingOrDash(cause)
 	}
 	if w.declaredFormat != "" {
 		line += " format=" + w.declaredFormat
@@ -657,7 +619,7 @@ func (w *walk) permissionProfile(step *recordStep) {
 // security mode changed.
 func (w *walk) securityMode(step *recordStep) {
 	line := w.modes.Change("permission mode", w.sessionID+"\x00security_mode",
-		"security_mode="+pair(step.facts.Get("security_mode")))
+		"security_mode="+parser.SettingOrDash(step.facts.Get("security_mode")))
 	if line != "" {
 		w.emit(w.makeRow(step, timeline.TurnSystem, line, "", ""))
 	}
@@ -667,8 +629,8 @@ func (w *walk) securityMode(step *recordStep) {
 // when the log has none yet, and the change, which a /model the user typed
 // keeps even when the model did not change.
 func (w *walk) reconfigure(step *recordStep) {
-	effective := text(step.facts.Get("effective").Get("model_id"))
-	previous := text(step.facts.Get("previous").Get("model_id"))
+	effective := step.facts.Get("effective").Get("model_id").Text()
+	previous := step.facts.Get("previous").Get("model_id").Text()
 	if effective == "" {
 		w.emit(w.makeRow(step, timeline.TurnSystem,
 			step.payloadType+": "+parser.JSONText(step.facts), "", ""))
@@ -685,8 +647,8 @@ func (w *walk) reconfigure(step *recordStep) {
 	if line == "" {
 		line = "model: " + effective + " -> " + effective
 	}
-	if outcome := step.facts.Get("apply_outcome"); !isNoneOrEmpty(outcome) {
-		line += " apply_outcome=" + pair(outcome)
+	if outcome := step.facts.Get("apply_outcome"); !missing(outcome) {
+		line += " apply_outcome=" + parser.SettingOrDash(outcome)
 	}
 	row := w.makeRow(step, timeline.TurnSystem, line, "", "")
 	row.Model = effective
@@ -722,26 +684,26 @@ func (w *walk) userIntent(step *recordStep) {
 		turn = timeline.TurnSystem
 	}
 	row := w.makeRow(step, turn, strings.Join(parts, "\n"), "", "")
-	row.Model = firstNonEmpty(w.runModel[intent], step.model)
+	row.Model = cmp.Or(w.runModel[intent], step.model)
 	w.emit(row)
 }
 
 // userShell emits the call or the result of a command the user ran in the
 // shell.
 func (w *walk) userShell(step *recordStep) {
-	commandID := text(step.facts.Get("command_id"))
+	commandID := step.facts.Get("command_id").Text()
 	if step.payloadType == "user_shell.command" {
 		w.shellIDs = append(w.shellIDs, commandID)
-		w.emit(w.makeRow(step, timeline.TurnToolUse, text(step.facts.Get("command_text")),
+		w.emit(w.makeRow(step, timeline.TurnToolUse, step.facts.Get("command_text").Text(),
 			"user_shell", commandID))
 		return
 	}
 	if commandID == "" && len(w.shellIDs) > 0 {
 		commandID = w.shellIDs[len(w.shellIDs)-1]
 	}
-	output := text(step.facts.Get("visible_output"))
+	output := step.facts.Get("visible_output").Text()
 	var notes []string
-	if code := step.facts.Get("exit_code"); !isNoneOrZero(code) {
+	if code := step.facts.Get("exit_code"); !exitSucceeded(code) {
 		notes = append(notes, "exit "+code.Text())
 	}
 	if state := step.facts.Get("terminal_state"); !state.IsEmpty() && !isString(state, "completed") {
@@ -775,26 +737,26 @@ func (w *walk) runtimeSession(step *recordStep) {
 func (w *walk) approval(step *recordStep, event jsonvalue.Value) {
 	switch kind := parser.Text(event.Get("kind")); kind {
 	case "requested":
-		toolName, toolID := text(event.Get("tool_name")), text(event.Get("tool_call_id"))
-		w.approvals[text(event.Get("pending_action_id"))] = [2]string{toolName, toolID}
+		toolName, toolID := event.Get("tool_name").Text(), event.Get("tool_call_id").Text()
+		w.approvals[event.Get("pending_action_id").Text()] = [2]string{toolName, toolID}
 		w.lastRequest = [2]string{toolName, toolID}
 		w.emit(w.makeRow(step, timeline.TurnSystem,
-			"approval requested: "+text(event.Get("raw_args")), toolName, toolID))
+			"approval requested: "+event.Get("raw_args").Text(), toolName, toolID))
 	case "automated_review_completed":
 		assessment := event.Get("assessment")
-		line := "permission decision: " + pair(assessment.Get("outcome")) +
-			" kind=automated_review_completed risk_level=" + pair(assessment.Get("risk_level")) +
-			" user_authorization=" + pair(assessment.Get("user_authorization")) + " status=" +
-			pair(event.Get("status"))
-		if rationale := assessment.Get("rationale"); !isNoneOrEmpty(rationale) {
-			line += " " + text(rationale)
+		line := "permission decision: " + parser.SettingOrDash(assessment.Get("outcome")) +
+			" kind=automated_review_completed risk_level=" + parser.SettingOrDash(assessment.Get("risk_level")) +
+			" user_authorization=" + parser.SettingOrDash(assessment.Get("user_authorization")) + " status=" +
+			parser.SettingOrDash(event.Get("status"))
+		if rationale := assessment.Get("rationale"); !missing(rationale) {
+			line += " " + rationale.Text()
 		}
 		w.emit(w.makeRow(step, timeline.TurnSystem, line, w.lastRequest[0], w.lastRequest[1]))
 	case "decision_applied":
-		held := w.approvals[text(event.Get("pending_action_id"))]
-		w.emit(w.makeRow(step, timeline.TurnSystem, "permission decision: "+pair(event.Get("decision"))+
-			" source="+pair(event.Get("decision_source").Get("kind"))+" policy_result="+
-			pair(event.Get("policy_result"))+" amendment="+pair(event.Get("amendment")),
+		held := w.approvals[event.Get("pending_action_id").Text()]
+		w.emit(w.makeRow(step, timeline.TurnSystem, "permission decision: "+parser.SettingOrDash(event.Get("decision"))+
+			" source="+parser.SettingOrDash(event.Get("decision_source").Get("kind"))+" policy_result="+
+			parser.SettingOrDash(event.Get("policy_result"))+" amendment="+parser.SettingOrDash(event.Get("amendment")),
 			held[0], held[1]))
 	}
 }
@@ -812,7 +774,7 @@ func (w *walk) runEvent(step *recordStep, event jsonvalue.Value) {
 	}
 	switch {
 	case kind == "started":
-		prompt := text(event.Get("prompt"))
+		prompt := event.Get("prompt").Text()
 		if w.isSubagent {
 			w.emit(w.makeRow(step, timeline.TurnSystem, "subagent task: "+prompt, "", ""))
 		} else {
@@ -821,14 +783,14 @@ func (w *walk) runEvent(step *recordStep, event jsonvalue.Value) {
 	case kind == "inbox_item_queued":
 		w.inbox(step, event)
 	case kind == "assistant_message_committed":
-		if body := text(event.Get("text")); body != "" {
+		if body := event.Get("text").Text(); body != "" {
 			w.emit(w.makeRow(step, timeline.TurnAssistant, body, "", ""))
 		}
 	case kind == "reasoning_summary_committed" || kind == "reasoning_committed":
 		// reasoning_committed text is usually empty: its content is the opaque
 		// encrypted_content.
 		if w.options.IncludeThinking && !event.Get("text").IsEmpty() {
-			w.emit(w.makeRow(step, timeline.TurnThinking, text(event.Get("text")), "", ""))
+			w.emit(w.makeRow(step, timeline.TurnThinking, event.Get("text").Text(), "", ""))
 		}
 	case kind == "reasoning_summary_delta":
 		w.reasoningDelta(step, event)
@@ -839,9 +801,9 @@ func (w *walk) runEvent(step *recordStep, event jsonvalue.Value) {
 	case kind == "provider_tool_call_completed":
 		w.providerTool(step, event)
 	case kind == "terminal":
-		if term := text(event.Get("terminal")); term != "" && term != "completed" {
+		if term := event.Get("terminal").Text(); term != "" && term != "completed" {
 			w.emit(w.makeRow(step, timeline.TurnSystem,
-				"run "+term+": "+text(event.Get("reason")), "", ""))
+				"run "+term+": "+event.Get("reason").Text(), "", ""))
 		}
 	case slices.Contains(loggedEvents, kind):
 		w.emit(w.makeRow(step, timeline.TurnSystem, kind+": "+parser.JSONText(event), "", ""))
@@ -851,17 +813,17 @@ func (w *walk) runEvent(step *recordStep, event jsonvalue.Value) {
 // inbox emits the row of a queued inbox item: the user's steer, or a system
 // row naming the source.
 func (w *walk) inbox(step *recordStep, event jsonvalue.Value) {
-	source := text(event.Get("source").Get("source"))
-	body := text(event.Get("payload").Get("prompt"))
+	source := event.Get("source").Get("source").Text()
+	body := event.Get("payload").Get("prompt").Text()
 	if body == "" {
-		body = text(event.Get("body"))
+		body = event.Get("body").Text()
 	}
 	if source == "user_steer" {
 		w.emit(w.makeRow(step, timeline.TurnUser, body, "", ""))
 		return
 	}
 	if body == "" {
-		body = text(event.Get("summary"))
+		body = event.Get("summary").Text()
 	}
 	w.emit(w.makeRow(step, timeline.TurnSystem, "inbox "+source+": "+body, "", ""))
 }
@@ -869,11 +831,11 @@ func (w *walk) inbox(step *recordStep, event jsonvalue.Value) {
 // reasoningDelta gathers the deltas of a reasoning summary that no commit
 // replaces, and emits them as one thinking row at the last delta.
 func (w *walk) reasoningDelta(step *recordStep, event jsonvalue.Value) {
-	messageID := text(event.Get("message_id"))
+	messageID := event.Get("message_id").Text()
 	if w.committed[messageID] {
 		return
 	}
-	w.deltas[messageID] = append(w.deltas[messageID], text(event.Get("text")))
+	w.deltas[messageID] = append(w.deltas[messageID], event.Get("text").Text())
 	if last, ok := w.lastDelta[messageID]; ok && last == step.index && w.options.IncludeThinking {
 		var parts []string
 		for _, delta := range w.deltas[messageID] {
@@ -889,7 +851,7 @@ func (w *walk) reasoningDelta(step *recordStep, event jsonvalue.Value) {
 // toolCalls emits one tool_use row per call of a committed list.
 func (w *walk) toolCalls(step *recordStep, event jsonvalue.Value) {
 	for _, call := range parser.Elements(event.Get("tool_calls")) {
-		name, callID := text(call.Get("name")), text(call.Get("call_id"))
+		name, callID := call.Get("name").Text(), call.Get("call_id").Text()
 		w.calls[callID] = name
 		w.emit(w.makeRow(step, timeline.TurnToolUse, argumentsSummary(call.Get("args")), name, callID))
 	}
@@ -903,7 +865,7 @@ func (w *walk) toolResults(step *recordStep, event jsonvalue.Value) {
 		items = results.Items()
 	}
 	for _, result := range items {
-		callID := text(firstTruthy(result.Get("tool_call_id"), result.Get("call_id")))
+		callID := cmp.Or(parser.Text(result.Get("tool_call_id")), result.Get("call_id").Text())
 		raw := jsonvalue.NewString("")
 		for _, key := range resultKeys {
 			if value := result.Get(key); !value.IsNull() {
@@ -917,9 +879,9 @@ func (w *walk) toolResults(step *recordStep, event jsonvalue.Value) {
 
 // providerTool emits the call and the result of a tool the provider ran.
 func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
-	callID := text(event.Get("call_id"))
+	callID := event.Get("call_id").Text()
 	action := event.Get("action")
-	name := firstNonEmpty(text(action.Get("type")), "provider_tool")
+	name := cmp.Or(action.Get("type").Text(), "provider_tool")
 	w.calls[callID] = name
 	summary := ""
 	if action.IsObject() && action.Len() > 0 {
@@ -930,7 +892,7 @@ func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
 	if results := event.Get("results"); !results.IsNull() {
 		body = parser.JSONText(results)
 	}
-	if status := text(event.Get("status")); status != "" && status != "completed" {
+	if status := event.Get("status").Text(); status != "" && status != "completed" {
 		body = "[" + status + "] " + body
 	}
 	w.emit(w.makeRow(step, timeline.TurnToolResult, body, name, callID))
@@ -981,8 +943,8 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = held.line
 		row.TurnType = timeline.TurnUser
-		row.SessionID = text(meta.Get("session"))
-		row.ProjectPath = text(meta.Get("project"))
+		row.SessionID = meta.Get("session").Text()
+		row.ProjectPath = meta.Get("project").Text()
 		row.Text = timeline.Compact(held.text)
 		emit(row)
 	}
