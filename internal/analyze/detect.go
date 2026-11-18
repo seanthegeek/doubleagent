@@ -270,18 +270,18 @@ func detectDocument(detected detection, collection *input.Collection, files bool
 // holds no agent files.
 func printDetect(w io.Writer, detected detection, collection *input.Collection,
 	parsed map[string]bool, files bool) int {
-	fmt.Fprint(w, "input:   "+collection.Source+"\n")
+	fmt.Fprint(w, "input:   "+shown(collection.Source)+"\n")
 	kind := collection.Kind
 	if kind == input.KindLoose {
 		kind += " (no manifest; user and home inferred from paths)"
 	}
 	fmt.Fprint(w, "kind:    "+kind+"\n")
-	fmt.Fprint(w, "host:    "+orUnknown(collection.Host)+"\n")
+	fmt.Fprint(w, "host:    "+shown(orUnknown(collection.Host))+"\n")
 	for _, note := range collection.Notes {
-		fmt.Fprint(w, "note:    "+note+"\n")
+		fmt.Fprint(w, "note:    "+shown(note)+"\n")
 	}
 	for _, problem := range collection.Problems {
-		fmt.Fprint(w, "problem: "+problem+"\n")
+		fmt.Fprint(w, "problem: "+shown(problem)+"\n")
 	}
 	table := detectTable(collection, parsed)
 	if len(table) == 0 && len(detected.projects) == 0 {
@@ -296,7 +296,8 @@ func printDetect(w io.Writer, detected detection, collection *input.Collection,
 	if files {
 		fmt.Fprintln(w)
 		for _, artifact := range collection.Artifacts {
-			fmt.Fprint(w, artifact.Home.User+"\t"+artifact.Agent+"\t"+artifact.Original+"\n")
+			fmt.Fprint(w, shown(artifact.Home.User)+"\t"+shown(artifact.Agent)+"\t"+
+				shown(artifact.Original)+"\n")
 		}
 	}
 	return ExitFound
@@ -348,8 +349,8 @@ func printHomeTable(w io.Writer, rows []tableRow) {
 		if user == "" {
 			user = "?"
 		}
-		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", user, row.home, row.agent, row.files,
-			row.bytes, parserLabel(row.parser))
+		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", shown(user), shown(row.home),
+			shown(row.agent), row.files, row.bytes, parserLabel(row.parser))
 	}
 }
 
@@ -371,8 +372,8 @@ func printProjectTable(w io.Writer, projects []projectEntry) {
 		line := func(agent, files, size, parser string) {
 			path, users := "", ""
 			if first {
-				path = fmt.Sprintf("%.40s", project.path)
-				users = strings.Join(project.users, ",")
+				path = fmt.Sprintf("%.40s", shown(project.path))
+				users = strings.Join(shownAll(project.users), ",")
 				if users == "" {
 					users = "?"
 				}
@@ -381,14 +382,14 @@ func printProjectTable(w io.Writer, projects []projectEntry) {
 			printProjectLine(w, path, users, agent, files, size, parser)
 		}
 		for _, agent := range project.agents {
-			line(agent.agent, fmt.Sprint(agent.files), fmt.Sprint(agent.bytes),
+			line(shown(agent.agent), fmt.Sprint(agent.files), fmt.Sprint(agent.bytes),
 				parserLabel(agent.parser))
 		}
 		if project.sharedFiles > 0 {
 			line("(shared)", fmt.Sprint(project.sharedFiles), fmt.Sprint(project.sharedBytes), "")
 		}
 		if len(project.git.remotes) > 0 {
-			fmt.Fprint(w, "  remotes: "+remotesText(project.git.remotes)+"\n")
+			fmt.Fprint(w, "  remotes: "+shown(remotesText(project.git.remotes))+"\n")
 		}
 	}
 }

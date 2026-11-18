@@ -87,6 +87,10 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
+	registry := env.Parsers()
+	if unknown := unknownAgent(registry, options.Agents); unknown != "" {
+		return printError(ctx, stderr, "--agent "+unknown+": no parser reads this agent")
+	}
 	// Cleaned once, so the directories made and those removed on failure
 	// are the same ones, whatever .. the analyst wrote.
 	options.Output = filepath.Clean(options.Output)
@@ -102,7 +106,7 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	}
 	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
 	run := &timelineRun{options: options, env: env, collection: collection,
-		registry: env.Parsers(), found: newScratchFinder(found), output: options.Output,
+		registry: registry, found: newScratchFinder(found), output: options.Output,
 		filter: filter}
 	if err := run.parse(ctx); err != nil {
 		return printError(ctx, stderr, err.Error())
@@ -111,6 +115,18 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 		return printError(ctx, stderr, err.Error())
 	}
 	return run.summarise(ctx, stdout, stderr)
+}
+
+// unknownAgent returns the first of agents that no parser of registry
+// reads, or "".
+func unknownAgent(registry *parsers.Registry, agents []string) string {
+	known := parsers.ByAgent(registry.All())
+	for _, agent := range agents {
+		if len(known[agent]) == 0 {
+			return agent
+		}
+	}
+	return ""
 }
 
 // prepareOutput checks the output directory before the input is touched and
@@ -130,14 +146,14 @@ func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 	case err == nil:
 		entries, listErr := osfile.ReadDir(output)
 		if listErr != nil {
-			fmt.Fprint(stderr, "error: "+reason.Describe(output, listErr)+"\n")
+			fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, listErr))+"\n")
 			return nil, ExitError
 		}
 		if len(entries) > 0 {
 			return refuse("the output directory " + output + " is not empty")
 		}
 	case !errors.Is(err, fs.ErrNotExist):
-		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
+		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
 		return nil, ExitError
 	}
 	if insideDirectory(output, options.Input) {
@@ -146,7 +162,7 @@ func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 	created := missingDirectories(output)
 	if err := osfile.MkdirAll(output, 0o777); err != nil {
 		removeCreated(created)
-		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
+		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
 		return nil, ExitError
 	}
 	if !probeWrite(output) {
@@ -304,13 +320,13 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 // printHeader prints the input, host, notes, problems, filters and the
 // dropped duplicates.
 func (r *timelineRun) printHeader(w io.Writer) {
-	fmt.Fprint(w, "input:     "+r.collection.Source+" ("+r.collection.Kind+")\n")
-	fmt.Fprint(w, "host:      "+orUnknown(r.collection.Host)+"\n")
+	fmt.Fprint(w, "input:     "+shown(r.collection.Source)+" ("+r.collection.Kind+")\n")
+	fmt.Fprint(w, "host:      "+shown(orUnknown(r.collection.Host))+"\n")
 	for _, note := range r.collection.Notes {
-		fmt.Fprint(w, "note:      "+note+"\n")
+		fmt.Fprint(w, "note:      "+shown(note)+"\n")
 	}
 	for _, problem := range r.problems {
-		fmt.Fprint(w, "problem:   "+problem+"\n")
+		fmt.Fprint(w, "problem:   "+shown(problem)+"\n")
 	}
 	filter := r.filter
 	if filter.Since != "" || filter.Until != "" {
@@ -326,7 +342,7 @@ func (r *timelineRun) printHeader(w io.Writer) {
 		if r.options.IgnoreCase {
 			ignoring = " (ignore case)"
 		}
-		fmt.Fprint(w, "match:     "+strings.Join(r.options.Match, " | ")+ignoring+"\n")
+		fmt.Fprint(w, "match:     "+shown(strings.Join(r.options.Match, " | "))+ignoring+"\n")
 	}
 	if filter.Active() {
 		fmt.Fprintf(w, "filtered:  %d outside the window, %d without a timestamp, %d not matching\n",

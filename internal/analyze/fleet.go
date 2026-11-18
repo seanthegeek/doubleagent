@@ -253,7 +253,7 @@ func rollup(rows [][]string) []agentTotal {
 func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Writer) int {
 	files, err := fleetInputs(options.Inputs)
 	if err != nil {
-		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
+		fmt.Fprint(stderr, "error: "+shown(err.Error())+"\n")
 		return ExitError
 	}
 	if message := fleetOutputRefusal(options.Output, options.Inputs, files); message != "" {
@@ -267,19 +267,19 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 		}
 		data, err := parser.ReadFile(path)
 		if err != nil {
-			fmt.Fprint(stderr, "error: "+reason.Describe(path, err)+"\n")
+			fmt.Fprint(stderr, "error: "+shown(reason.Describe(path, err))+"\n")
 			return ExitError
 		}
 		text := strings.TrimPrefix(textlines.ValidUTF8(data), "\uFEFF")
 		fileRows, junk := fleetRows(text)
 		if junk > 0 {
-			fmt.Fprintf(stderr, "skipped %d non-inventory %s in %s\n", junk, plural(junk, "line"), path)
+			fmt.Fprintf(stderr, "skipped %d non-inventory %s in %s\n", junk, plural(junk, "line"), shown(path))
 		}
 		rows = append(rows, fileRows...)
 	}
 	output := options.Output
 	if err := writeFleetCSV(output, rows); err != nil {
-		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
+		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
 		return ExitError
 	}
 	printFleet(stdout, rows, output)
@@ -344,14 +344,14 @@ func printFleet(w io.Writer, rows [][]string, output string) {
 		hosts[row[0]] = true
 	}
 	fmt.Fprintf(w, "rows:   %d from %d %s in %s\n", len(rows), len(hosts), plural(len(hosts), "host"),
-		output)
+		shown(output))
 	totals := rollup(rows)
 	if len(totals) == 0 {
 		return
 	}
 	fmt.Fprintf(w, "\n%-22s %6s %6s  %s\n", "agent", "hosts", "users", "latest")
 	for _, total := range totals {
-		fmt.Fprintf(w, "%-22s %6d %6d  %s\n", total.agent, total.hosts,
-			total.users, total.latest)
+		fmt.Fprintf(w, "%-22s %6d %6d  %s\n", shown(total.agent), total.hosts,
+			total.users, shown(total.latest))
 	}
 }

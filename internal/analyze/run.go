@@ -69,6 +69,17 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 	if len(args) == 0 {
 		return ExitError
 	}
+	output := &recordingWriter{out: stdout}
+	code := dispatch(ctx, args, env, output, stderr)
+	if output.err != nil && code != ExitError && code != ExitInterrupted {
+		fmt.Fprint(stderr, "error: the output could not be written: "+shown(reason.For(output.err))+"\n")
+		return ExitError
+	}
+	return code
+}
+
+// dispatch is Run with stdout recording its first write error.
+func dispatch(ctx context.Context, args []string, env Environment, stdout, stderr io.Writer) int {
 	var (
 		help bool
 		err  error
@@ -92,10 +103,28 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 		options, help, err = ParseCatalog(args[1:])
 		run = func() int { return runCatalog(options, env, stdout, stderr) }
 	default:
-		fmt.Fprint(stderr, "error: unknown command "+args[0]+"\n")
+		fmt.Fprint(stderr, "error: unknown command "+shown(args[0])+"\n")
 		return ExitError
 	}
 	return finish(args[0], help, err, run, stdout, stderr)
+}
+
+// recordingWriter passes writes to w and keeps the first error, so a
+// command whose output could not be written does not exit as if it had
+// been.
+type recordingWriter struct {
+	out io.Writer
+	err error
+}
+
+// Write writes data to the underlying writer, once no write has failed.
+func (r *recordingWriter) Write(data []byte) (int, error) {
+	if r.err != nil {
+		return 0, r.err
+	}
+	n, err := r.out.Write(data)
+	r.err = err
+	return n, err
 }
 
 // finish prints the usage error or the help of a parsed command line, or
@@ -128,7 +157,7 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 		fmt.Fprintln(stderr, "interrupted")
 		return ExitInterrupted
 	}
-	fmt.Fprint(stderr, "error: "+message+"\n")
+	fmt.Fprint(stderr, "error: "+shown(message)+"\n")
 	return ExitError
 }
 
