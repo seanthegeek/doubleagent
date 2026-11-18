@@ -3,6 +3,7 @@ package hermes
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // The headings of a cron run document's prompt and response sections.
@@ -41,12 +42,17 @@ func (p *Parser) splitCronDocument(document string) (string, string, bool) {
 
 // advance returns the byte offset count characters after the byte offset
 // start of text, count given in decimal digits, or the end of text when it
-// has fewer characters left.
+// has fewer characters left. A byte that is not UTF-8 counts as one
+// character.
 func advance(text string, start int, count string) int {
 	n, err := strconv.Atoi(count)
 	if err != nil || n >= len(text)-start {
 		return len(text)
 	}
-	characters := []rune(text[start:])
-	return start + len(string(characters[:min(n, len(characters))]))
+	offset := start
+	for range n {
+		_, size := utf8.DecodeRuneInString(text[offset:])
+		offset += size
+	}
+	return offset
 }
