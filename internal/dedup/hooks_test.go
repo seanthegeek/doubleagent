@@ -77,7 +77,7 @@ type hookCase struct {
 	dropped   int
 }
 
-// hookCases are the cases of TestHooks, with the oracle's results.
+// hookCases are the cases of TestHooks, with their results.
 func hookCases() []hookCase {
 	copyAt := func(second, line int, extra map[string]string) timeline.Row {
 		options := map[string]string{"file": "/h/a", "line": strconv.Itoa(line)}
