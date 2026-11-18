@@ -63,7 +63,7 @@ func readSmall(path string, problems *parser.Problems) (string, bool) {
 // adds its problem for the caller's rows.
 func (p *Parser) resolveProject(base func(names ...string) string, slug, projectHash string,
 	problems *parser.Problems) string {
-	if root, ok := readSmall(base("tmp", slug, ".project_root"), problems); ok {
+	if root, ok := p.projectRoot(base("tmp", slug, ".project_root"), problems); ok {
 		if root = strings.TrimSpace(root); root != "" {
 			return root
 		}
@@ -106,6 +106,38 @@ type projectIndex struct {
 	byValue  map[string]string
 	byDigest map[string]int
 	problems parser.Problems
+}
+
+// sideText is a small side file read once: its text, whether it was read,
+// and the problems reading it added.
+type sideText struct {
+	text     string
+	read     bool
+	problems parser.Problems
+}
+
+// projectRoot returns the text of the .project_root at path as readSmall
+// does, read once per state of the file for the parser's life, since every
+// file under its runtime directory looks it up; the problems of that read
+// are added for each lookup as a fresh read would.
+func (p *Parser) projectRoot(path string, problems *parser.Problems) (string, bool) {
+	info, err := osfile.Lstat(path)
+	if path == "" || err != nil {
+		return "", false
+	}
+	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	side, ok := p.roots[key]
+	if !ok {
+		p.Work.Add(".project_root reads", 1)
+		side = &sideText{}
+		side.text, side.read = readSmall(path, &side.problems)
+		if p.roots == nil {
+			p.roots = map[fileState]*sideText{}
+		}
+		p.roots[key] = side
+	}
+	*problems = append(*problems, side.problems...)
+	return side.text, side.read
 }
 
 // projectIndex returns the index of the projects.json at path, read and
