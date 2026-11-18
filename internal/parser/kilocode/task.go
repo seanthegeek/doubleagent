@@ -54,7 +54,8 @@ type taskIndex struct {
 // indexEntry returns the entry of the _index.json at indexPath whose id is
 // the string taskID. The file is read and indexed once per state for the
 // parser's life, since every task file below it looks it up, and the
-// problems of that read are added for each lookup as a fresh read would.
+// problems of that read are added for each lookup as a fresh read would; an
+// entries member that is not an array is one of them.
 func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	info, err := osfile.Lstat(indexPath)
 	if err != nil {
@@ -65,7 +66,7 @@ func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems)
 	if !ok {
 		index = &taskIndex{entries: map[string]jsonvalue.Value{}}
 		document, _ := readJSON(indexPath, &index.problems)
-		for _, entry := range document.Get("entries").Items() {
+		for _, entry := range parser.ArrayMember(document.Get("entries"), "entries", 0, &index.problems) {
 			p.Work.Add("index entries read", 1)
 			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.IsObject() &&
 				entry.Get("id").IsString() && !seen {
