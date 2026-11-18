@@ -171,7 +171,10 @@ type namedBlob struct {
 // chunks returns the chunks of a session's cold archive, by chunk_index:
 // the rows whose session_id is the session id as text, the key the agent
 // gives a cold archive and its chunks. The chunks table is read once, on
-// first use, and grouped by session id.
+// first use, and grouped by session id. The match is on the exact text,
+// not the column's affinity and collation: research/openclaw.md "Archive
+// tables" gives session_id as a string the agent writes as text, so the two
+// differ only for a schema the agent never writes.
 func (a *agentDatabase) chunks(sessionID string) ([]namedBlob, error) {
 	if a.chunksBySession == nil {
 		rows, err := a.table("session_transcript_cold_archive_chunks", func(table *sqlitefile.Table) sqlitefile.Query {

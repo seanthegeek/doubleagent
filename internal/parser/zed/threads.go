@@ -78,6 +78,9 @@ func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 		return nil, err
 	}
 	rows, err := table.Select().All()
+	// A binary comparison is the column's own order: research/zed.md gives
+	// "updated_at TEXT NOT NULL" with no COLLATE clause, so it differs from
+	// an ORDER BY only for a schema the agent never writes.
 	slices.SortStableFunc(rows, func(left, right sqlitefile.Row) int {
 		return sqlitefile.Compare(left.Get("updated_at"), right.Get("updated_at"))
 	})
