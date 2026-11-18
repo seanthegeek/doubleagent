@@ -10,7 +10,7 @@ func TestURIPathReadsFileURIsAndKeepsOtherText(t *testing.T) {
 		{"file:///home/u/proj", "/home/u/proj"},
 		{"file:///c%3A/Users/u/p", "c:/Users/u/p"},
 		{"file:///C:/Users/u/p", "C:/Users/u/p"},
-		{"file://host/share/x", "/share/x"},
+		{"file://host/share/x", "//host/share/x"},
 		{"file://localhost/home/u", "/home/u"},
 		{"file:/home/u", "/home/u"},
 		{"file:home/u", "home/u"},

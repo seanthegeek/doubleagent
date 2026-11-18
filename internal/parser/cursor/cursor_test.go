@@ -113,14 +113,20 @@ func TestRunModeNamesTheUIsLabel(t *testing.T) {
 	}
 }
 
-func TestURIPathWritesDrivePathsWithBackslashes(t *testing.T) {
-	for uri, want := range map[string]string{
-		"file:///c%3A/Users/alice/proj/demo": "c:\\Users\\alice\\proj\\demo",
-		"file:///home/alice/my%20proj":       "/home/alice/my proj",
+func TestURIPathWritesWindowsPathsWithBackslashes(t *testing.T) {
+	for _, test := range []struct{ name, uri, want string }{
+		{"a drive path", "file:///c%3A/Users/alice/proj/demo", "c:\\Users\\alice\\proj\\demo"},
+		{"a POSIX path keeps its slashes", "file:///home/alice/my%20proj", "/home/alice/my proj"},
+		{"a network share keeps its server", "file://fileserver/share/proj",
+			"\\\\fileserver\\share\\proj"},
+		{"a server alone names no folder", "file://fileserver", ""},
+		{"localhost is this machine", "file://localhost/c:/proj", "c:\\proj"},
 	} {
-		if got := uriPath(uri); got != want {
-			t.Errorf("uriPath(%q) = %q, want %q", uri, got, want)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			if got := uriPath(test.uri); got != test.want {
+				t.Errorf("uriPath(%q) = %q, want %q", test.uri, got, test.want)
+			}
+		})
 	}
 }
 

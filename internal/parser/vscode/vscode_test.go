@@ -287,3 +287,23 @@ func FuzzApplyMutation(fuzz *testing.F) {
 		_ = state.value()
 	})
 }
+
+// A URI's path keeps the slashes FromFileURI gives, a network share's
+// server included; other text is kept as it is.
+func TestURIToPathReadsFileURIsAndKeepsOtherText(t *testing.T) {
+	for _, test := range []struct{ name, uri, want string }{
+		{"a POSIX path", "file:///home/u/proj", "/home/u/proj"},
+		{"a drive path", "file:///c%3A/Users/u/proj", "c:/Users/u/proj"},
+		{"a network share keeps its server", "file://fileserver/share/proj", "//fileserver/share/proj"},
+		{"a server alone names no folder", "file://fileserver", ""},
+		{"localhost is this machine", "file://localhost/home/u", "/home/u"},
+		{"a plain path is kept", "/home/u/proj", "/home/u/proj"},
+		{"a URI net/url cannot read is kept", "file:///a%zz", "file:///a%zz"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := uriToPath(test.uri); got != test.want {
+				t.Errorf("uriToPath(%q) = %q, want %q", test.uri, got, test.want)
+			}
+		})
+	}
+}
