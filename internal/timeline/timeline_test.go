@@ -192,3 +192,52 @@ type failingWriter struct {
 func (w failingWriter) Write([]byte) (int, error) {
 	return 0, w.err
 }
+
+// controlText returns every ASCII control character, DEL, every C1 control
+// and the two Unicode line separators.
+func controlText() string {
+	var text strings.Builder
+	for char := rune(0); char < 0x20; char++ {
+		text.WriteRune(char)
+	}
+	text.WriteRune(0x7f)
+	for char := rune(0x80); char < 0xa0; char++ {
+		text.WriteRune(char)
+	}
+	text.WriteString("\u2028\u2029")
+	return text.String()
+}
+
+func TestWritersEscapeEveryControlCharacter(t *testing.T) {
+	control := controlText()
+	writers := []struct {
+		name  string
+		write func(*bytes.Buffer) error
+	}{
+		{"timeline rows", func(out *bytes.Buffer) error {
+			return WriteRows(out, []Row{{Text: control, SourceFile: control, Host: control}})
+		}},
+		{"session summaries", func(out *bytes.Buffer) error {
+			return WriteSessions(out, []SessionSummary{{SessionID: control,
+				Models: []string{control}}})
+		}},
+	}
+	for _, test := range writers {
+		t.Run("the "+test.name+" escape every byte below 0x20 and write DEL as it is", func(t *testing.T) {
+			var out bytes.Buffer
+			if err := test.write(&out); err != nil {
+				t.Fatal(err)
+			}
+			line, ok := strings.CutSuffix(out.String(), "\n")
+			if !ok || strings.ContainsFunc(line, func(char rune) bool { return char < 0x20 }) {
+				t.Fatalf("a control character is written raw: %q", out.String())
+			}
+			for _, want := range []string{`\u0000`, `\u001b`, `\n`, `\t`, "\x7f", "\u009b",
+				`\u2028\u2029`} {
+				if !strings.Contains(line, want) {
+					t.Errorf("%q not in %q", want, line)
+				}
+			}
+		})
+	}
+}
