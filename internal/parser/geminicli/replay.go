@@ -20,7 +20,7 @@ type stored struct {
 	place     int
 	// patched is set once a patch has replaced the message with its own
 	// copy, which later patches change in place; calls finds that copy's
-	// tool calls by a string id.
+	// tool calls by the key of their id (parser.ValueKey).
 	patched bool
 	calls   map[string]jsonvalue.Value
 }
@@ -248,14 +248,15 @@ func (r *replay) applyPatch(patch jsonvalue.Value) {
 		if !toolPatch.IsObject() || !ok {
 			continue
 		}
-		if call, found := r.patchedCall(entry, calls, toolPatch.Get("id")); found {
+		if call, found := r.patchedCall(entry, toolPatch.Get("id")); found {
 			call.Set("result", result)
 		}
 	}
 }
 
 // patchableCopy returns a copy of a message whose tool calls are copies
-// too, and the first of those calls of each string id.
+// too, and the first of those calls of each id, by the id's key: ids are
+// compared by value, so 1 and 1.0 name one call, and an absent id is null.
 func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonvalue.Value) {
 	copied := parser.CopyObject(message)
 	calls := message.Get("toolCalls")
@@ -267,8 +268,9 @@ func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonval
 	for _, call := range calls.Items() {
 		if call.IsObject() {
 			call = parser.CopyObject(call)
-			if _, seen := byID[call.Get("id").StringValue()]; call.Get("id").IsString() && !seen {
-				byID[call.Get("id").StringValue()] = call
+			key := parser.ValueKey(call.Get("id"))
+			if _, seen := byID[key]; !seen {
+				byID[key] = call
 			}
 		}
 		items = append(items, call)
@@ -278,21 +280,11 @@ func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonval
 }
 
 // patchedCall returns the first tool call of a patched message whose id
-// equals callID: by the index for a string id, else by comparing each
-// call's id by value, as a number may be written 1 or 1.0.
-func (r *replay) patchedCall(entry *stored, calls, callID jsonvalue.Value) (jsonvalue.Value, bool) {
-	if callID.IsString() {
-		r.compared++
-		call, ok := entry.calls[callID.StringValue()]
-		return call, ok
-	}
-	for _, call := range calls.Items() {
-		r.compared++
-		if call.IsObject() && jsonvalue.Equal(call.Get("id"), callID) {
-			return call, true
-		}
-	}
-	return jsonvalue.NewNull(), false
+// equals callID, found by the key of the id.
+func (r *replay) patchedCall(entry *stored, callID jsonvalue.Value) (jsonvalue.Value, bool) {
+	r.compared++
+	call, ok := entry.calls[parser.ValueKey(callID)]
+	return call, ok
 }
 
 // set applies a $set: a new session id, a new message list, metadata, and

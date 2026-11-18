@@ -4,6 +4,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -59,9 +60,12 @@ func decoded(t *testing.T, text string) jsonvalue.Value {
 }
 
 // callIDs are the tool call ids generated messages and patches use: equal
-// numbers written two ways, strings, and values of other kinds.
+// numbers written several ways, strings, and values of other kinds,
+// objects among them with their keys in either order.
 func callIDs() []string {
-	return []string{`"a"`, `"b"`, `"1"`, `1`, `1.0`, `2`, `null`, `true`, `["a"]`, `{"k":1}`}
+	return []string{`"a"`, `"b"`, `"1"`, `1`, `1.0`, `1e0`, `10e-1`, `-0`, `0`, `2`, `2e0`, `1e400`, `10e399`,
+		`0.1`, `0.10000000000000001`, `null`, `true`, `false`, `["a"]`, `[1]`, `[1.0]`, `{"k":1}`, `{"k":1e0}`,
+		`{"a":1,"b":2}`, `{"b":2,"a":1}`}
 }
 
 // randomMessage returns a gemini message, or now and then another kind,
@@ -145,21 +149,36 @@ func TestARecordedMessageIsNotChangedByAPatch(t *testing.T) {
 
 func TestEachPatchResultLooksAtOneCall(t *testing.T) {
 	const size = 1000
-	calls := make([]jsonvalue.Value, size)
-	for i := range calls {
-		calls[i] = jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("c" + strconv.Itoa(i))})
+	tests := []struct {
+		name         string
+		call, result func(i int) string
+	}{
+		{"string ids", func(i int) string { return `"c` + strconv.Itoa(i) + `"` },
+			func(i int) string { return `"c` + strconv.Itoa(i) + `"` }},
+		{"number ids patched in another spelling", strconv.Itoa,
+			func(i int) string { return strconv.Itoa(i) + `.0e0` }},
+		{"object ids patched with their keys in another order", func(i int) string { return `{"a":` + strconv.Itoa(i) + `,"b":0}` },
+			func(i int) string { return `{"b":0,"a":` + strconv.Itoa(i) + `}` }},
 	}
-	state := newReplay()
-	state.apply(1, jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("m")},
-		jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("gemini")},
-		jsonvalue.Member{Key: "toolCalls", Value: jsonvalue.NewArray(calls...)}))
-	for i := range size {
-		state.patch(i+2, jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("m")},
-			jsonvalue.Member{Key: "toolCalls", Value: jsonvalue.NewArray(jsonvalue.NewObject(
-				jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("c" + strconv.Itoa(size-1-i))},
-				jsonvalue.Member{Key: "result", Value: jsonvalue.NewString("r")}))}))
-	}
-	if state.compared != size {
-		t.Errorf("%d calls looked at for %d patch results, want one each", state.compared, size)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			calls := make([]string, size)
+			for i := range calls {
+				calls[i] = `{"id":` + test.call(i) + `}`
+			}
+			state := newReplay()
+			state.apply(1, decoded(t, `{"id":"m","type":"gemini","toolCalls":[`+strings.Join(calls, ",")+`]}`))
+			for i := range size {
+				state.patch(i+2, decoded(t, `{"id":"m","toolCalls":[{"id":`+test.result(size-1-i)+`,"result":"r"}]}`))
+			}
+			if state.compared != size {
+				t.Errorf("%d calls looked at for %d patch results, want one each", state.compared, size)
+			}
+			for i, call := range state.messages.byID["m"].message.Get("toolCalls").Items() {
+				if call.Get("result").StringValue() != "r" {
+					t.Fatalf("call %d got no result: %s", i, call.JSON())
+				}
+			}
+		})
 	}
 }
