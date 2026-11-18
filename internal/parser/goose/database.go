@@ -116,7 +116,7 @@ func (d *database) rows() error {
 		if err != nil {
 			return err
 		}
-		err = table.Select(allColumns(table)...).OrderBy("created_at", "rowid").
+		err = table.Select().OrderBy("created_at", "rowid").
 			Each(func(session sqlitefile.Row) error {
 				d.session(session)
 				return nil
@@ -140,16 +140,6 @@ func (d *database) rows() error {
 			d.message(message, reader, answered)
 			return nil
 		})
-}
-
-// allColumns returns "rowid" and every column of the table, the columns of
-// "select rowid as _rowid, *".
-func allColumns(table *sqlitefile.Table) []string {
-	columns := []string{"rowid"}
-	for _, column := range table.Columns() {
-		columns = append(columns, column.Name)
-	}
-	return columns
 }
 
 // session emits a session's start row, its bad-config row, and its relay,

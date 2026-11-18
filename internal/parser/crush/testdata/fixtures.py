@@ -31,7 +31,18 @@ INSERT INTO files VALUES ('f4', 's1', '/w/number.txt', 12345, 1, 1760000004);
 INSERT INTO files VALUES ('f5', 's1', '/w/null.txt', NULL, 1, 1760000005);
 """
 
-DATABASES = {"file_versions.db": FILE_VERSIONS}
+# A messages table with a virtual generated column, which is computed when read and not stored.
+GENERATED_COLUMN = """
+PRAGMA page_size = 512;
+CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, created_at INTEGER);
+CREATE TABLE messages (id TEXT, session_id TEXT, role TEXT, parts TEXT, created_at INTEGER,
+    shown_role TEXT GENERATED ALWAYS AS (upper(role)) VIRTUAL);
+INSERT INTO sessions VALUES ('s1', 'first', 1760000000);
+INSERT INTO messages (id, session_id, role, parts, created_at)
+    VALUES ('m1', 's1', 'user', '[{"type":"text","data":{"text":"hello"}}]', 1760000001);
+"""
+
+DATABASES = {"file_versions.db": FILE_VERSIONS, "generated_column.db": GENERATED_COLUMN}
 
 
 def main() -> None:
