@@ -28,6 +28,7 @@
 package tabby
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"strconv"
@@ -341,7 +342,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string, event jsonvalue.Value,
 	kind string, emit parser.Emit) {
 	if event.Len() != 1 {
-		spec.text = joinParts(timeutil.FirstNonEmpty(kind, "event"), owner, parser.JSONText(event))
+		spec.text = parser.JoinNonEmpty(" | ", cmp.Or(kind, "event"), owner, parser.JSONText(event))
 		emit(p.row(artifact, spec))
 		return
 	}
@@ -363,7 +364,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 		if value := body.Get("elapsed"); !value.IsNull() {
 			elapsed = "elapsed=" + value.Text() + "ms"
 		}
-		spec.text = joinParts(tag+" choice "+index, owner, labelled("kind=", body.Get("kind")),
+		spec.text = parser.JoinNonEmpty(" | ", tag+" choice "+index, owner, labelled("kind=", body.Get("kind")),
 			labelled("view=", body.Get("view_id")), elapsed)
 		emit(p.row(artifact, spec))
 	default:
@@ -371,13 +372,13 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 		if !body.IsEmpty() {
 			detail = parser.JSONText(body)
 		}
-		spec.text = joinParts(tag, owner, detail)
+		spec.text = parser.JoinNonEmpty(" | ", tag, owner, detail)
 		emit(p.row(artifact, spec))
 	}
 }
 
-// labelled returns label and the value's text when the value is truthy,
-// else "".
+// labelled returns label and the value's text when the value is not
+// empty, else "".
 func labelled(label string, value jsonvalue.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -394,7 +395,7 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 		segments = jsonvalue.NewObject()
 	}
 	spec.projectPath = parser.Text(segments.Get("git_url"))
-	spec.text = joinParts("completion", owner, labelled("language=", body.Get("language")),
+	spec.text = parser.JoinNonEmpty(" | ", "completion", owner, labelled("language=", body.Get("language")),
 		labelled("file=", segments.Get("filepath")), labelled("client=", body.Get("user_agent")))
 	emit(p.row(artifact, spec))
 	spec.turnType, spec.text = timeline.TurnUser, parser.Text(body.Get("prompt"))

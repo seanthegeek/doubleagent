@@ -37,17 +37,6 @@ func jsonColumn(value sqlitefile.Value) (jsonvalue.Value, bool) {
 	return decoded, true
 }
 
-// joinParts joins the non-empty parts with " | ".
-func joinParts(parts ...string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " | ")
-}
-
 // arrayItems returns the items of an array, nothing for any other value.
 func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
 	if value.IsArray() {
@@ -79,7 +68,7 @@ func attachmentParts(attachment jsonvalue.Value) []string {
 		if commit := code.Get("commit"); !commit.IsEmpty() {
 			repository += "@" + commit.Text()
 		}
-		parts = append(parts, strings.ReplaceAll(joinParts("code", repository,
+		parts = append(parts, strings.ReplaceAll(parser.JoinNonEmpty(" | ", "code", repository,
 			location(code.Get("filepath"), code.Get("start_line"))), " | ", " "))
 	}
 	for _, code := range arrayItems(attachment.Get("client_code")) {
@@ -92,22 +81,14 @@ func attachmentParts(attachment jsonvalue.Value) []string {
 		if !doc.IsObject() {
 			continue
 		}
-		label := firstTruthy(doc, "title", "sha")
-		link := firstTruthy(doc, "link", "page_link")
-		parts = append(parts, strings.ReplaceAll(joinParts("doc", label, link), " | ", " "))
+		label := parser.Text(parser.FirstNonEmpty(doc.Get("title"), doc.Get("sha")))
+		link := parser.Text(parser.FirstNonEmpty(doc.Get("link"), doc.Get("page_link")))
+		parts = append(parts, strings.ReplaceAll(parser.JoinNonEmpty(" | ", "doc", label, link), " | ", " "))
 	}
 	if files := attachment.Get("code_file_list"); files.IsObject() && files.Get("file_list").IsArray() {
 		parts = append(parts, "code_file_list "+strconv.Itoa(files.Get("file_list").Len())+" files")
 	}
 	return parts
-}
-
-// firstTruthy returns str(object[first] or object[second] or "").
-func firstTruthy(object jsonvalue.Value, first, second string) string {
-	if value := object.Get(first); !value.IsEmpty() {
-		return value.Text()
-	}
-	return parser.Text(object.Get(second))
 }
 
 // messageAttachment returns a thread message's attachment, built from the

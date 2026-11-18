@@ -8,20 +8,21 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The rows of every store are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers,
-// with expected values from running the analyzer's functions and Python's
-// urlparse and ElementTree on the same inputs.
+// The rows of every store are proved against the recorded cases by the
+// parser replay (internal/parity/replay); these tests cover the helpers
+// and the XML reader.
 
-func TestURLHostnameIsTheHostUrlparseGives(t *testing.T) {
+func TestURLHostnameIsTheLowerCaseHostOfAURL(t *testing.T) {
 	tests := []struct{ url, want string }{
 		{"https://Git.Example.COM:8443/api", "git.example.com"},
 		{"http://user:pw@host.x/", "host.x"},
 		{"git.example.com", "-"},
 		{"", "-"},
-		{"  \x01https://A.b", "a.b"},
-		{"ht\ttps://x.y", "x.y"},
-		{"https://[FE80::1%ZoNe]:80/", "fe80::1%ZoNe"},
+		{"  \x01https://A.b", "-"},
+		{"ht\ttps://x.y", "-"},
+		{"https://[FE80::1%25ZoNe]:80/", "fe80::1%zone"},
+		{"https://[FE80::1%ZoNe]:80/", "-"},
+		{"https://[::1]:80/", "::1"},
 		{"//Host", "host"},
 		{"1https://x", "-"},
 		{"mailto:a@b", "-"},
