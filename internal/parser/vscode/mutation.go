@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // node is a JSON value of a session being rebuilt from its mutation log:
@@ -72,16 +71,9 @@ type mutationError string
 // Error returns the reason.
 func (e mutationError) Error() string { return string(e) }
 
-// pyInt returns a value as Python's isinstance(value, int) reads it: an
-// integer, or a boolean as 0 or 1; an integer beyond int64 is held at the
-// nearest bound, which is out of every range it is compared with.
-func pyInt(value jsonvalue.Value) (int64, bool) {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return 1, true
-		}
-		return 0, true
-	}
+// integer returns a value written as an integer; one beyond int64 is held
+// at the nearest bound, which is out of every range it is compared with.
+func integer(value jsonvalue.Value) (int64, bool) {
 	if !value.IsInt() {
 		return 0, false
 	}
@@ -94,21 +86,17 @@ func pyInt(value jsonvalue.Value) (int64, bool) {
 	return math.MaxInt64, true
 }
 
-// equalsInt reports whether value == n in Python: a number of that value,
-// in integer or float form, or a boolean equal to it.
-func equalsInt(value jsonvalue.Value, n int64) bool {
-	if number, ok := pyInt(value); ok {
-		return number == n
-	}
-	number, ok := value.Float()
-	return ok && number == float64(n)
+// isKind reports whether a record's kind is the number n, compared by
+// value, so 2 and 2.0 are the same kind.
+func isKind(kind jsonvalue.Value, n int64) bool {
+	return jsonvalue.Equal(kind, jsonvalue.NewInt(n))
 }
 
-// listIndex returns the position a Python index names in a list of size
-// items, a negative index counting from the end, or false when it is out of
+// listIndex returns the position an integer key names in an array of size
+// items, a negative key counting from the end, or false when it is out of
 // range or not an integer.
 func listIndex(key jsonvalue.Value, size int) (int, bool) {
-	index, ok := pyInt(key)
+	index, ok := integer(key)
 	if !ok {
 		return 0, false
 	}
@@ -121,9 +109,9 @@ func listIndex(key jsonvalue.Value, size int) (int, bool) {
 	return int(index), true
 }
 
-// child returns parent[key] as Python reads it, or false where Python
-// raises KeyError, IndexError or TypeError: an object by a string key, an
-// array or a string by an integer index.
+// child returns parent[key]: an object's member by a string key, an
+// array's item by an integer key, or false for a key that names nothing.
+// Any other value is a leaf, which has no children.
 func child(parent *node, key jsonvalue.Value) (*node, bool) {
 	switch {
 	case parent == nil:
@@ -134,11 +122,6 @@ func child(parent *node, key jsonvalue.Value) (*node, bool) {
 	case parent.isArray:
 		if i, ok := listIndex(key, len(parent.items)); ok {
 			return parent.items[i], true
-		}
-	case parent.scalar.IsString():
-		characters := parser.Elements(parent.scalar)
-		if i, ok := listIndex(key, len(characters)); ok {
-			return &node{scalar: characters[i]}, true
 		}
 	}
 	return nil, false
@@ -158,13 +141,12 @@ func walk(state *node, path []jsonvalue.Value) (*node, error) {
 	return current, nil
 }
 
-// set gives parent[key] the value as Python's assignment does: an array
-// takes an index up to its length, one past the end appending; an object
-// takes a string key.
+// set gives parent[key] the value: an array takes an integer key from 0
+// to its length, its length appending; an object takes a string key.
 func set(parent *node, key jsonvalue.Value, value *node) error {
+	index, isInteger := integer(key)
 	switch {
-	case parent != nil && parent.isArray && isIntLike(key):
-		index, _ := pyInt(key)
+	case parent != nil && parent.isArray && isInteger:
 		switch {
 		case index == int64(len(parent.items)):
 			parent.items = append(parent.items, value)
@@ -184,15 +166,8 @@ func set(parent *node, key jsonvalue.Value, value *node) error {
 	return mutationError("cannot set " + key.JSON())
 }
 
-// isIntLike reports whether Python's isinstance(value, int) holds: an
-// integer or a boolean.
-func isIntLike(value jsonvalue.Value) bool {
-	_, ok := pyInt(value)
-	return ok
-}
-
-// remove deletes parent[key] when it is there, as Python's del does; a key
-// that is not there, or a parent that cannot lose one, changes nothing.
+// remove deletes parent[key] when it is there; a key that names nothing,
+// or a parent that cannot lose one, changes nothing.
 func remove(parent *node, key jsonvalue.Value) {
 	switch {
 	case parent == nil:
@@ -214,12 +189,12 @@ func remove(parent *node, key jsonvalue.Value) {
 // (each item of an array); kind 3 deletes the value at k.
 func applyMutation(state *node, record jsonvalue.Value) (*node, error) {
 	kind := record.Get("kind")
-	if equalsInt(kind, 0) {
+	if isKind(kind, 0) {
 		return newNode(record.Get("v")), nil
 	}
 	pathValue := record.Get("k")
 	path := pathValue.Items()
-	if !pathValue.IsArray() || (len(path) == 0 && !equalsInt(kind, 2)) {
+	if !pathValue.IsArray() || (len(path) == 0 && !isKind(kind, 2)) {
 		return state, mutationError("bad path " + pathValue.JSON())
 	}
 	target := state
@@ -232,7 +207,7 @@ func applyMutation(state *node, record jsonvalue.Value) (*node, error) {
 	if target == nil || !target.isArray {
 		return state, mutationError("push to non-list at " + pathValue.JSON())
 	}
-	if start, ok := pyInt(record.Get("i")); ok {
+	if start, ok := integer(record.Get("i")); ok {
 		target.items = target.items[:sliceStart(start, len(target.items))]
 	}
 	if items := record.Get("v"); items.IsArray() {
@@ -255,12 +230,12 @@ func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, va
 	}
 	key := path[len(path)-1]
 	switch {
-	case equalsInt(kind, 1):
+	case isKind(kind, 1):
 		return nil, set(parent, key, newNode(value))
-	case equalsInt(kind, 3):
+	case isKind(kind, 3):
 		remove(parent, key)
 		return nil, nil
-	case !equalsInt(kind, 2):
+	case !isKind(kind, 2):
 		return nil, mutationError("unknown kind " + kind.JSON())
 	}
 	target, ok := child(parent, key)
@@ -273,8 +248,9 @@ func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, va
 	return target, nil
 }
 
-// sliceStart returns where Python's target[start:] begins in a list of size
-// items.
+// sliceStart returns how many items of a list of size items a truncation
+// to start keeps: a negative start counts from the end, and a start beyond
+// either end keeps nothing or everything.
 func sliceStart(start int64, size int) int {
 	if start < 0 {
 		start = max(start+int64(size), 0)

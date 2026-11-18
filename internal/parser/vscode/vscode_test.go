@@ -1,13 +1,15 @@
 package vscode
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs.
+// The mutation log's rules are in research/vscode.md: kind 0 replaces the
+// state, 1 sets the value at a path, 2 pushes onto the array at a path and
+// 3 deletes the value at a path.
 
 // startState is the state each mutation case starts from.
 const startState = `{"a":[1,2,3],"b":{"c":1},"s":"xyz","n":null}`
@@ -22,7 +24,7 @@ func decoded(t *testing.T, text string) jsonvalue.Value {
 	return value
 }
 
-func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
+func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 	for _, test := range []struct {
 		name, records, failure, want string
 	}{
@@ -32,9 +34,9 @@ func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
 		{"a missing parent",
 			`[{"kind":1,"k":["missing","x"],"v":1}]`,
 			`path ["missing"] not found`, ""},
-		{"a true kind sets",
+		{"a boolean kind is no kind",
 			`[{"kind":true,"k":["b","c"],"v":5}]`,
-			"", `{"a":[1,2,3],"b":{"c":5},"s":"xyz","n":null}`},
+			"unknown kind true", ""},
 		{"a float kind pushes",
 			`[{"kind":2.0,"k":["a"],"v":4}]`,
 			"", `{"a":[1,2,3,4],"b":{"c":1},"s":"xyz","n":null}`},
@@ -50,12 +52,12 @@ func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
 		{"an index beyond the end",
 			`[{"kind":1,"k":["a",9],"v":7}]`,
 			"index 9 out of range", ""},
-		{"a true index",
+		{"a boolean index is not an index",
 			`[{"kind":1,"k":["a",true],"v":7}]`,
-			"", `{"a":[1,7,3],"b":{"c":1},"s":"xyz","n":null}`},
-		{"a true truncation",
+			"cannot set true", ""},
+		{"a boolean truncation truncates nothing",
 			`[{"kind":2,"k":["a"],"i":true,"v":[8]}]`,
-			"", `{"a":[1,8],"b":{"c":1},"s":"xyz","n":null}`},
+			"", `{"a":[1,2,3,8],"b":{"c":1},"s":"xyz","n":null}`},
 		{"a negative truncation",
 			`[{"kind":2,"k":["a"],"i":-1,"v":[8]}]`,
 			"", `{"a":[1,2,8],"b":{"c":1},"s":"xyz","n":null}`},
@@ -80,7 +82,7 @@ func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
 		{"a set into a string",
 			`[{"kind":1,"k":["s",0],"v":1}]`,
 			"cannot set 0", ""},
-		{"a walk through a string",
+		{"a string is a leaf a walk cannot pass",
 			`[{"kind":1,"k":["s",0,0],"v":1}]`,
 			`path ["s",0] not found`, ""},
 		{"an empty path",
@@ -116,9 +118,9 @@ func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
 		{"kind zero without a value",
 			`[{"kind":0}]`,
 			"", `null`},
-		{"a false kind replaces",
+		{"a false kind is not kind zero",
 			`[{"kind":false,"v":[1]}]`,
-			"", `[1]`},
+			"bad path null", ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			state := newNode(decoded(t, startState))
@@ -135,6 +137,45 @@ func TestApplyMutationChangesTheStateAsPythonDoes(t *testing.T) {
 				t.Errorf("applyMutation error = %v", err)
 			case test.failure == "" && state.value().JSON() != test.want:
 				t.Errorf("state = %s, want %s", state.value().JSON(), test.want)
+			}
+		})
+	}
+}
+
+func TestTrackGivesEachPushedRequestTheLineOfItsPush(t *testing.T) {
+	for _, test := range []struct {
+		name, records string
+		want          requestLines
+	}{
+		{"an array pushes each item",
+			`[{"kind":0,"v":{"requests":[{}]}},{"kind":2,"k":["requests"],"v":[{},{}]}]`,
+			requestLines{sessionStart: 0, 0: 0, 1: 1, 2: 1}},
+		{"an object pushes itself",
+			`[{"kind":0,"v":{"requests":[{}]}},{"kind":2,"k":["requests"],"v":{"a":1,"b":2}}]`,
+			requestLines{sessionStart: 0, 0: 0, 1: 1}},
+		{"a string pushes itself",
+			`[{"kind":0,"v":{"requests":[]}},{"kind":2,"k":["requests"],"v":"abc"}]`,
+			requestLines{sessionStart: 0, 0: 1}},
+		{"a truncation replaces the requests after it",
+			`[{"kind":0,"v":{"requests":[{},{}]}},{"kind":2,"k":["requests"],"i":1,"v":[{}]}]`,
+			requestLines{sessionStart: 0, 0: 0, 1: 1}},
+		{"a set by index takes that request",
+			`[{"kind":0,"v":{"requests":[{},{}]}},{"kind":1,"k":["requests",1],"v":{}}]`,
+			requestLines{sessionStart: 0, 0: 0, 1: 1}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var state *node
+			lines := requestLines{}
+			for i, record := range decoded(t, test.records).Items() {
+				next, err := applyMutation(state, record)
+				if err != nil {
+					t.Fatalf("record %d: %v", i, err)
+				}
+				state = next
+				track(record, state, i, lines)
+			}
+			if !maps.Equal(lines, test.want) {
+				t.Errorf("lines = %v, want %v", lines, test.want)
 			}
 		})
 	}

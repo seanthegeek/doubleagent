@@ -179,8 +179,8 @@ func usageItems(databasePath string) ([]usage, []string) {
 }
 
 // usageText returns a usage value as the text its JSON is read from: a
-// blob decoded as UTF-8 with replacement, anything else as Python's str()
-// writes it.
+// blob decoded as UTF-8 with replacement, anything else as its row text
+// (sqlitefile.Value.String).
 func usageText(value sqlitefile.Value) string {
 	if value.Type == sqlitefile.Blob {
 		return textlines.ValidUTF8(value.Bytes)
