@@ -97,7 +97,7 @@ func TestFleetWritesTheCSVAndPrintsTheRollup(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := filepath.Join(work, "out", "deeper", "fleet.csv")
-	code, stdout, stderr := runCommand(testEnvironment(), "fleet", filepath.Join(work, "in"), "-o", output)
+	code, stdout, stderr := runCommand(testEnvironment(), "fleet", "-o", output, filepath.Join(work, "in"))
 	wantStdout := "rows:   6 from 5 hosts in {ROOT}/out/deeper/fleet.csv\n\n" +
 		"agent                   hosts  users  latest\n" +
 		"claude-code                 2      2  2026-11-01T00:00:00.000Z\n" +

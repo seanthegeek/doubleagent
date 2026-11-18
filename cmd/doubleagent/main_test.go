@@ -38,14 +38,16 @@ func TestRun(t *testing.T) {
 		{"catalog --agents names the agents", []string{"catalog", "--agents"}, exitOK, "claude-code ", ""},
 		{"an analysis command's mistake exits 2", []string{"catalog", "--bogus"}, exitFatal, "",
 			"doubleagent catalog: flag provided but not defined: -bogus\nUsage: doubleagent catalog"},
-		{"a missing value exits 2", []string{"timeline", "in", "-o"}, exitFatal, "",
+		{"a missing value exits 2", []string{"timeline", "-o"}, exitFatal, "",
 			"doubleagent timeline: flag needs an argument: -o\nUsage: doubleagent timeline"},
 		{"a missing input exits 2", []string{"detect"}, exitFatal, "",
 			"doubleagent detect: missing argument: input\nUsage: doubleagent detect"},
 		{"a switch value that is not a boolean exits 2", []string{"fleet", "-h=x"}, exitFatal, "",
 			"doubleagent fleet: invalid boolean value \"x\" for -h: parse error\nUsage: doubleagent fleet"},
-		{"an analysis command's help exits 0", []string{"timeline", "in", "--help"}, exitOK,
+		{"an analysis command's help exits 0", []string{"timeline", "--help", "in"}, exitOK,
 			"Usage: doubleagent timeline", ""},
+		{"an option after the input exits 2", []string{"timeline", "in", "-o", "out"}, exitFatal, "",
+			"doubleagent timeline: options go before the input; -o is after it\nUsage: doubleagent timeline"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

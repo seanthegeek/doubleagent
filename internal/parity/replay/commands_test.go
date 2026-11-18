@@ -67,6 +67,9 @@ type commandReplay struct {
 	equalRows      []string
 	// needed holds the cases that needed each difference of format.
 	needed neededTally
+	// reordered counts the cases whose options difference 121 moved ahead
+	// of the input.
+	reordered int
 }
 
 func TestCommandsReplayEveryRecordedCase(t *testing.T) {
@@ -116,6 +119,7 @@ func (r *commandReplay) report(t *testing.T) {
 		t.Logf("not compared, %s: %d cases", reason, r.skipped[reason])
 	}
 	logNeeded(t, "information comparison", r.needed, commandFormatNumbers())
+	t.Logf("difference 121: options moved ahead of the input in %d cases", r.reordered)
 	if r.looseTimelines > 0 {
 		t.Logf("listing order: %d loose timeline cases in the documented order; compared as row "+
 			"multisets: %s; the other of two equal rows kept (difference 107): %s", r.looseTimelines,
@@ -274,6 +278,11 @@ func (r *commandReplay) run(t *testing.T, command string, recorded CommandCase,
 		args[i] = r.corpus.Expand(argument, root)
 	}
 	args[0] = commandNames[command]
+	rest, moved := difference(t, 121).Arguments(args[0], args[1:])
+	if moved > 0 {
+		args = append([]string{args[0]}, rest...)
+		r.reordered++
+	}
 	t.Chdir(r.corpus.Expand(recorded.Cwd, root))
 	registry := r.registry
 	if r.registryOverride != nil {

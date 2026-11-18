@@ -46,7 +46,7 @@ func TestTimelineOfALooseTreeDoesNotDependOnTheListingOrder(t *testing.T) {
 		env.Parsers = parsers.New
 		env.ReadDir = listedInOrder(order.reverse)
 		output := filepath.Join(work, "out-"+strings.ReplaceAll(order.name, " ", "-"))
-		code, stdout, stderr := runCommand(env, "timeline", filepath.Join(work, "in"), "-o", output)
+		code, stdout, stderr := runCommand(env, "timeline", "-o", output, filepath.Join(work, "in"))
 		if code != ExitFound {
 			t.Fatalf("%s: exit %d, stdout %q, stderr %q", order.name, code, stdout, stderr)
 		}
