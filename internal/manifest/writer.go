@@ -61,7 +61,8 @@ func (writer *Writer) Write(row Row) error {
 	}
 	writer.counts.ByStatus[row.Status]++
 	if row.Status == Collected {
-		writer.counts.CollectedBytes += nonNegative(row.Size)
+		// A negative size counts as 0, as jsonRowOf writes it.
+		writer.counts.CollectedBytes += max(row.Size, 0)
 	}
 	writer.paths.Put(path, struct{}{})
 	// A home's own unreadable-directory row does not make it active.
@@ -92,13 +93,4 @@ func (writer *Writer) HasPath(path string) bool {
 // unreadable-directory row, its entry found as HasPath finds a path.
 func (writer *Writer) HasHomeRows(home string) bool {
 	return writer.homes.Has(home)
-}
-
-// nonNegative returns value, or 0 for a negative value: the sh collector writes
-// 0 for any number that is not a run of digits, and a time before 1970 is one.
-func nonNegative(value int64) int64 {
-	if value < 0 {
-		return 0
-	}
-	return value
 }

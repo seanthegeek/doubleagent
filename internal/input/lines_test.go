@@ -60,3 +60,14 @@ func TestACollectionSummaryLargerThanItsBoundIsANote(t *testing.T) {
 	opened(t, err)
 	wantSlice(t, "notes", collection.Notes, []string{"collection.json unreadable: larger than the analyzer reads"})
 }
+
+func TestAManifestThatIsADirectoryLeavesANote(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/fs/home/a/.claude/x", "x")
+	writeFile(t, dir+"/manifest.jsonl/inside", "x")
+	collection, err := Open(t.Context(), dir, Options{Matcher: matcherOf(t, "")})
+	opened(t, err)
+	wantEqual(t, "kind", collection.Kind, KindLoose)
+	wantSlice(t, "notes", collection.Notes,
+		[]string{"manifest.jsonl is not a regular file; reading the input as a loose tree"})
+}
