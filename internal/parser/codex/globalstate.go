@@ -45,11 +45,28 @@ func asObject(value jsonvalue.Value) jsonvalue.Value {
 	return objectOr(value)
 }
 
+// objectIn returns asObject(value) for a member of the global state that
+// the app writes as an object: a member present as anything else, or as a
+// string that does not hold an object, adds a problem naming it.
+func objectIn(value jsonvalue.Value, member string, problems *parser.Problems) jsonvalue.Value {
+	held := value
+	if value.IsString() {
+		if decoded, err := jsonvalue.DecodeString(value.StringValue()); err == nil {
+			held = decoded
+		}
+	}
+	if !held.IsObject() && !held.IsNull() {
+		problems.Add(0, parser.WrongKind(member, jsonvalue.Object))
+	}
+	return objectOr(held)
+}
+
 // activityByThread returns the last activity time per thread id, from the
-// keys `["local","<id>"]` of the activity atom.
-func activityByThread(atom jsonvalue.Value) jsonvalue.Value {
+// keys `["local","<id>"]` of the activity atom; an atom that is not an
+// object adds a problem.
+func activityByThread(atom jsonvalue.Value, problems *parser.Problems) jsonvalue.Value {
 	out := jsonvalue.NewObject()
-	for _, member := range asObject(atom.Get(activityKey)).Members() {
+	for _, member := range objectIn(atom.Get(activityKey), activityKey, problems).Members() {
 		parts, err := jsonvalue.DecodeString(member.Key)
 		if err == nil && parts.IsArray() && parts.Len() == 2 && parts.Index(1).IsString() {
 			out.Set(parts.Index(1).StringValue(), member.Value)
@@ -70,15 +87,14 @@ type promptEntry struct {
 // list. An entry of the "global" list, the composer's history across
 // threads, has no thread and is left out when a thread's list in the same
 // file has its text, since two rows of one file never pair in
-// deduplication.
-func promptEntries(atom jsonvalue.Value) []promptEntry {
+// deduplication. A prompt-history that is not an object, or a list of it
+// that is not an array, adds a problem.
+func promptEntries(atom jsonvalue.Value, problems *parser.Problems) []promptEntry {
 	var listed []promptEntry
 	threaded := map[string]bool{}
-	for _, member := range asObject(atom.Get(promptHistoryKey)).Members() {
-		if !member.Value.IsArray() {
-			continue
-		}
-		for i, entry := range member.Value.Items() {
+	for _, member := range objectIn(atom.Get(promptHistoryKey), promptHistoryKey, problems).Members() {
+		list := parser.ArrayMember(member.Value, promptHistoryKey+"."+member.Key, 0, problems)
+		for i, entry := range list {
 			markdown := entry.Get("markdown")
 			if !markdown.IsString() || strings.TrimSpace(markdown.StringValue()) == "" {
 				continue
@@ -136,9 +152,11 @@ type stateText struct {
 
 // globalStateTexts returns the file-time system rows of the global state:
 // deleted threads, thread descriptions, standing permissions, host
-// settings, the remote control state and the projectless directories.
-func globalStateTexts(document jsonvalue.Value, rel string) []stateText {
-	atom := asObject(document.Get(atomKey))
+// settings, the remote control state and the projectless directories,
+// from the document, its atom and its output directories. A member of the
+// atom read here that is not an object adds a problem.
+func globalStateTexts(document, atom, outputs jsonvalue.Value, rel string,
+	problems *parser.Problems) []stateText {
 	source := func(key string) string { return "(from " + rel + " " + key + ", file mtime)" }
 	setting := func(text string) stateText {
 		return stateText{"", "permission setting: " + text + " (from " + rel + ", file mtime)"}
@@ -151,15 +169,15 @@ func globalStateTexts(document jsonvalue.Value, rel string) []stateText {
 				source(strings.TrimSuffix(deletedPrefix, ":"))})
 		}
 	}
-	texts = append(texts, descriptionTexts(atom, source(descriptionsKey))...)
-	for _, member := range asObject(atom.Get(permissionsKey)).Members() {
+	texts = append(texts, descriptionTexts(atom, source(descriptionsKey), problems)...)
+	for _, member := range objectIn(atom.Get(permissionsKey), permissionsKey, problems).Members() {
 		if member.Value.IsObject() {
 			texts = append(texts, stateText{member.Key,
 				standingText(member.Value, source(permissionsKey))})
 		}
 	}
 	for _, key := range hostSettingKeys {
-		for _, member := range asObject(atom.Get(key)).Members() {
+		for _, member := range objectIn(atom.Get(key), key, problems).Members() {
 			texts = append(texts, setting(key+"."+member.Key+"="+parser.SettingValue(member.Value)))
 		}
 	}
@@ -168,14 +186,15 @@ func globalStateTexts(document jsonvalue.Value, rel string) []stateText {
 			texts = append(texts, setting(member.Key+"="+parser.SettingValue(member.Value)))
 		}
 	}
-	return append(texts, remoteTexts(document, source)...)
+	return append(texts, remoteTexts(document, outputs, source)...)
 }
 
 // descriptionTexts returns a "thread description:" text per described
-// thread, then per thread with only an activity time.
-func descriptionTexts(atom jsonvalue.Value, suffix string) []stateText {
-	descriptions := asObject(atom.Get(descriptionsKey))
-	activity := activityByThread(atom)
+// thread, then per thread with only an activity time. Either atom that is
+// not an object adds a problem.
+func descriptionTexts(atom jsonvalue.Value, suffix string, problems *parser.Problems) []stateText {
+	descriptions := objectIn(atom.Get(descriptionsKey), descriptionsKey, problems)
+	activity := activityByThread(atom, problems)
 	sessions := descriptions.Keys()
 	for _, threadID := range activity.Keys() {
 		if !descriptions.Has(threadID) {
@@ -197,8 +216,8 @@ func descriptionTexts(atom jsonvalue.Value, suffix string) []stateText {
 
 // remoteTexts returns the remote control row of the two top-level keys,
 // when either is present, and a scratch directory row per projectless
-// thread's output directory.
-func remoteTexts(document jsonvalue.Value, source func(string) string) []stateText {
+// thread's output directory of outputs.
+func remoteTexts(document, outputs jsonvalue.Value, source func(string) string) []stateText {
 	var texts []stateText
 	mobile, hasMobile := document.Lookup(mobileDeviceKey)
 	if hasMobile || document.Has(remoteEnvironment) {
@@ -210,7 +229,7 @@ func remoteTexts(document jsonvalue.Value, source func(string) string) []stateTe
 			" environment=" + cmp.Or(parser.Text(document.Get(remoteEnvironment)), "-") + " " +
 			source(mobileDeviceKey)})
 	}
-	for _, member := range asObject(document.Get(outputDirsKey)).Members() {
+	for _, member := range outputs.Members() {
 		if member.Value.IsString() && member.Value.StringValue() != "" {
 			texts = append(texts, stateText{member.Key, timeline.ScratchPrefix + " " +
 				member.Value.StringValue() + " (projectless thread " + member.Key + ") " +
@@ -243,13 +262,17 @@ func (p *Parser) readGlobalState(artifact *input.Artifact, emit parser.Emit) (js
 
 // parseGlobalState emits the rows of .codex-global-state.json: the app's
 // prompt history first, as user rows with no time, then the system rows at
-// the file's modification time.
+// the file's modification time, then a problem row per member of the wrong
+// kind.
 func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 	document, ok := p.readGlobalState(artifact, emit)
 	if !ok {
 		return
 	}
-	roots, outputs := asObject(document.Get(rootHintsKey)), asObject(document.Get(outputDirsKey))
+	var problems parser.Problems
+	atom := objectIn(document.Get(atomKey), atomKey, &problems)
+	roots := asObject(document.Get(rootHintsKey))
+	outputs := objectIn(document.Get(outputDirsKey), outputDirsKey, &problems)
 	stamp := func(sessionID string) timeline.Row {
 		row := p.stamp(artifact, nil, sessionID)
 		if sessionID != "" {
@@ -257,7 +280,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 		}
 		return row
 	}
-	for _, entry := range promptEntries(asObject(document.Get(atomKey))) {
+	for _, entry := range promptEntries(atom, &problems) {
 		row := stamp(entry.threadID)
 		row.TurnType = timeline.TurnUser
 		row.SourceLine = entry.index
@@ -265,7 +288,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 	}
 	mtime := parser.FileMtime(artifact)
-	for _, found := range globalStateTexts(document, artifact.Rel) {
+	for _, found := range globalStateTexts(document, atom, outputs, artifact.Rel, &problems) {
 		row := stamp(found.sessionID)
 		row.TurnType = timeline.TurnSystem
 		row.SourceLine = 1
@@ -277,5 +300,8 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 			row.ProjectPath = outputs.Get(found.sessionID).StringValue()
 		}
 		emit(row)
+	}
+	for _, problem := range problems {
+		emit(p.ProblemRow(artifact, problem.Message))
 	}
 }
