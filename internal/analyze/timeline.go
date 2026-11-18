@@ -89,6 +89,11 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 		return printError(ctx, stderr, message)
 	}
 	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
+	if collection.Kind != input.KindArchive && insideDirectory(options.Output, collection.Root) {
+		fmt.Fprintln(stderr, usageError("timeline", "the output directory "+options.Output+
+			" must be outside the input"))
+		return ExitError
+	}
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: env.Parsers(), found: newScratchFinder(found), output: options.Output,
 		filter: filter}

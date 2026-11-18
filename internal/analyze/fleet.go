@@ -256,6 +256,13 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
 		return ExitError
 	}
+	for _, given := range options.Inputs {
+		if info, err := osfile.Lstat(given); err == nil && info.IsDir() && insideDirectory(options.Output, given) {
+			fmt.Fprintln(stderr, usageError("fleet", "the output "+options.Output+
+				" must be outside the input directory "+given))
+			return ExitError
+		}
+	}
 	var rows [][]string
 	for _, path := range files {
 		if ctx.Err() != nil {
