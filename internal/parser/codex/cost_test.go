@@ -1,11 +1,17 @@
 package codex
 
 import (
+	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // allocatedBytes returns how many bytes work allocates on the heap, a count
@@ -72,4 +78,36 @@ func TestAUserMessageOfManyBlocksCostsLinearWork(t *testing.T) {
 		}
 		userParts(textBlocks(texts...))
 	})
+}
+
+func TestAGuardianRolloutReadsTheLogDatabasesOnce(t *testing.T) {
+	home := t.TempDir()
+	rel := ".codex/sessions/2026/01/02/rollout-2026-01-02T00-00-00-0198f0a1-0000-7000-8000-000000000001.jsonl"
+	lines := []string{`{"type":"session_meta","timestamp":"2026-01-02T00:00:00Z","payload":{` +
+		`"id":"0198f0a1-0000-7000-8000-000000000001","thread_source":"guardian_review",` +
+		`"parent_thread_id":"parent","timestamp":"2026-01-02T00:00:00.000Z"}}`}
+	const completions = 50
+	for range completions {
+		lines = append(lines, `{"type":"event_msg","timestamp":"2026-01-02T00:00:05Z","payload":{`+
+			`"type":"task_complete","last_agent_message":"{\"outcome\":\"allow\"}"}}`)
+	}
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	subject := New()
+	decisions := 0
+	artifact := &input.Artifact{Rel: rel, DiskPath: path, Home: &input.Home{DiskPath: home}}
+	subject.parseRollout(artifact, parser.Options{}, func(row timeline.Row) {
+		if strings.HasPrefix(row.Text, "permission decision:") {
+			decisions++
+		}
+	})
+	if decisions != completions || subject.guardianReads != 1 {
+		t.Errorf("%d decisions and %d reads of the logs, want %d and 1", decisions, subject.guardianReads,
+			completions)
+	}
 }
