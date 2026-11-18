@@ -546,10 +546,11 @@ for Go files as it does for the others.
 - **Standard library first.** Where the standard library does the job, use
   it: `encoding/json` reads and writes JSON (a struct's field order is the
   documented field order, with `SetEscapeHTML(false)`), `encoding/csv`
-  writes CSV, and `strings`, `slices`, `path` and the like are used in place
-  of a hand-written copy. A file name that is not valid UTF-8 is therefore
-  written to the manifest with U+FFFD in place of each bad byte; the archive
-  member keeps the real bytes.
+  writes CSV, `flag` reads each subcommand's command line (one `FlagSet`
+  per subcommand, options before the input), and `strings`, `slices`,
+  `path` and the like are used in place of a hand-written copy. A file name
+  that is not valid UTF-8 is therefore written to the manifest with U+FFFD
+  in place of each bad byte; the archive member keeps the real bytes.
 - **A package that stands in for the standard library says why.** Where the
   project has its own package or function for something the standard
   library (or a well-known module) also offers, such as `internal/glob`
@@ -562,10 +563,31 @@ for Go files as it does for the others.
 - **One way to build a string.** Use `fmt.Sprintf` (or `Errorf`, `Fprintf`)
   when a value needs converting, quoting or padding. When every value is
   already a string, join with `+`, with `strings.Join` for a list, or with a
-  `strings.Builder` in a loop.
+  `strings.Builder` in a loop, and make the error with `errors.New`.
+  `tools/check_code_style.py` fails on a `fmt.Sprintf` or `fmt.Errorf`
+  whose verbs are all a plain `%s`.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.
+- **A rewrite in Go, not a port.** The analysis commands carry the same
+  information as the Python analyzer did, in Go's formatting, and the code
+  stands on its own terms. No package, identifier, comment or test under
+  `cmd/` or `internal/` refers to Python or explains Go by what Python
+  does; a comment states the rule itself. No Go test runs a Python
+  interpreter or takes its expected values from one. The two exceptions:
+  `internal/parity/replay`, which compares the binary with recordings of
+  the Python analyzer until that analyzer is removed, and the scripts under
+  a package's `testdata` that build binary fixtures Go cannot build without
+  using the code under test (SQLite databases, zstd frames, archives),
+  which no test or CI step runs.
+- **Evidence is shown as written.** In the analysis output a number from the
+  evidence keeps its source text, JSON embedded in a row is compact with the
+  evidence's key order, a boolean is `true` or `false`, and a null is
+  empty. Text is handled by Go's rules: white space is `unicode.IsSpace`,
+  length counts runes, and invalid UTF-8 becomes U+FFFD, one per bad byte.
+  A value is *empty* when it is null, false, zero, an empty string or an
+  empty list or object (`jsonvalue.Value.IsEmpty`), and numbers are
+  compared by value (`jsonvalue.Equal`).
 - **Catalog is data.** The seven tables are one embedded text file in the
   `--list` format; code never holds a path or glob that belongs in a table.
 - **Names and comments.** [Code style](#code-style) holds, with these Go
