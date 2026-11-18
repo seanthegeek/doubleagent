@@ -713,8 +713,11 @@ is only a time the parent still existed before. The log, the stats page and the 
 A `crushrc` is read line by line for its `permissions` lines: such a line that does not split
 into shell words (an unclosed quote) is one row `parser: unparseable line (<reason>): <line>` with
 `source_line` its line number, and the file's other lines are still read; other lines are not
-records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row, as is
-a `crush.json` that is not a JSON object (`parser: <file> is not a JSON object`, followed by
+records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row. One
+that decodes to something other than an object is `parser: projects.json is not a JSON object`, and
+a `projects` that is present but not an array `parser: projects is not a JSON array` (absent, null
+or empty gives none). So is a `crush.json` that is not a JSON object
+(`parser: <file> is not a JSON object`, followed by
 ` (invalid JSON at line <n>, column <n>)` for one that does not decode, without the reader's
 detail, since the file holds API keys). A `projects.json`,
 `crush.json` or `crushrc` that cannot be read is one row
