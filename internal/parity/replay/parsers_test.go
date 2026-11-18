@@ -74,12 +74,12 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	replay := &parserReplay{corpus: corpus, work: corpus.NewWorkTree(t),
 		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}, used: used}
 	registered := parsers.ByAgent(parsers.All())
-	var pending []string
 	agents := caseFiles(t, corpus, "parsers")
+	missing := checkEveryAgentHasAParser(t, agents, parsers.All())
 	replayed, ran := 0, 0
 	for _, agent := range agents {
-		if len(registered[agent]) == 0 {
-			pending = append(pending, fmt.Sprintf("%s (%d cases)", agent, countCases(t, corpus, agent)))
+		if slices.Contains(missing, agent) {
+			t.Errorf("%s: %d recorded cases not replayed", agent, countCases(t, corpus, agent))
 			ran++
 			continue
 		}
@@ -97,8 +97,6 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 		t.Logf("not replayed, %s: %d cases", reason, replay.skipped[reason])
 	}
 	logNeeded(t, "information comparison", replay.needed, rowFormatNumbers())
-	t.Logf("agents with recorded cases and no parser yet (%d): %s", len(pending),
-		strings.Join(pending, ", "))
 	return ran == len(agents)
 }
 

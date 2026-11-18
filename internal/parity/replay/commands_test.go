@@ -99,31 +99,50 @@ func replayCommands(t *testing.T, corpus *Corpus, used neededTally) bool {
 
 // newCommandReplay returns the replay's state: the Python parser agents
 // are those with recorded parser cases, and a pending one is any of them
-// with no registered parser.
+// with no registered parser, which fails the test.
 func newCommandReplay(t *testing.T, corpus *Corpus) *commandReplay {
-	registered := parsers.ByAgent(parsers.All())
 	replay := &commandReplay{corpus: corpus, pending: map[string]bool{},
 		pythonAgents: caseFiles(t, corpus, "parsers"), deniesAccess: deniesReading(t),
 		trees: corpus.NewWorkTree(t), full: map[string]int{}, partial: map[string]int{},
 		skipped: map[string]int{}, waiting: map[string][]string{}, blocks: map[string]string{},
 		needed: neededTally{}, used: neededTally{}}
-	for _, agent := range replay.pythonAgents {
-		if len(registered[agent]) == 0 {
-			replay.pending[agent] = true
-		}
+	for _, agent := range checkEveryAgentHasAParser(t, replay.pythonAgents, parsers.All()) {
+		replay.pending[agent] = true
 	}
 	return replay
 }
 
+// checkEveryAgentHasAParser fails the test for each agent with recorded
+// cases that list has no parser for, since every parser of the analyzer
+// has one in the binary, and returns those agents.
+func checkEveryAgentHasAParser(t testing.TB, agents []string, list []parser.Parser) []string {
+	t.Helper()
+	registered := parsers.ByAgent(list)
+	var missing []string
+	for _, agent := range agents {
+		if len(registered[agent]) == 0 {
+			missing = append(missing, agent)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("agents with recorded cases and no parser: %s", strings.Join(missing, ", "))
+	}
+	return missing
+}
+
 // report logs, per command, the cases compared in full and in part, the
-// cases not compared by reason, and the agents the partial cases wait for.
-func (r *commandReplay) report(t *testing.T) {
+// cases not compared by reason, and the agents the partial cases wait for;
+// a case compared only in part fails the test.
+func (r *commandReplay) report(t testing.TB) {
 	for _, command := range slices.Sorted(maps.Keys(commandNames)) {
 		if r.full[command]+r.partial[command] == 0 {
 			continue
 		}
 		t.Logf("%s (recorded as %s): %d cases compared in full, %d in part", commandNames[command],
 			command, r.full[command], r.partial[command])
+		if r.partial[command] > 0 {
+			t.Errorf("%d %s cases were compared only in part", r.partial[command], commandNames[command])
+		}
 	}
 	for _, reason := range slices.Sorted(maps.Keys(r.skipped)) {
 		t.Logf("not compared, %s: %d cases", reason, r.skipped[reason])
