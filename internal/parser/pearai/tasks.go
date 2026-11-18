@@ -66,7 +66,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) []jsonvalue.Value {
 	slices.SortStableFunc(asks, func(left, right jsonvalue.Value) int {
 		leftNumber, _ := clinelegacy.NumberOf(left)
 		rightNumber, _ := clinelegacy.NumberOf(right)
-		return clinelegacy.CompareNumbers(leftNumber, rightNumber)
+		return cmp.Compare(leftNumber, rightNumber)
 	})
 	return asks
 }
