@@ -59,6 +59,17 @@ func variant(value jsonvalue.Value) (string, jsonvalue.Value) {
 	return member.Key, member.Value
 }
 
+// variantOf is variant for a member of a history entry; a variant whose
+// body is present but not an object, which the format never writes, adds
+// the problem "<member>.<tag> is not a JSON object".
+func (c *conversation) variantOf(value jsonvalue.Value, member string) (string, jsonvalue.Value) {
+	tag, body := variant(value)
+	if raw := value.Get(tag); tag != "" && !raw.IsNull() && !raw.IsObject() {
+		c.problems.Add(c.line, parser.WrongKind(member+"."+tag, jsonvalue.Object))
+	}
+	return tag, body
+}
+
 // resultText returns the text of a tool use result, its status in
 // brackets after it. The content is a list of blocks; a content that is a
 // string is its own text.
@@ -371,7 +382,7 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, e
 	if !assistant.IsNull() && !assistant.IsObject() {
 		c.problems.Add(c.line, parser.WrongKind("assistant", jsonvalue.Object))
 	}
-	if tag, body := variant(assistant); tag == "Response" || tag == "ToolUse" {
+	if tag, body := c.variantOf(assistant, "assistant"); tag == "Response" || tag == "ToolUse" {
 		if content := body.Get("content"); !content.IsEmpty() {
 			emit(fill(c.base(end, model), timeline.TurnAssistant, parser.SettingValue(content)))
 		}
@@ -416,7 +427,8 @@ func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit pa
 // for a cancelled call, its permission decision. A content that is not an
 // object, or a tool_use_results that is not an array, adds a problem.
 func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string, emit parser.Emit) {
-	tag, body := variant(parser.ObjectOrEmptyMember(content, "user.content", c.line, &c.problems))
+	tag, body := c.variantOf(parser.ObjectOrEmptyMember(content, "user.content", c.line, &c.problems),
+		"user.content")
 	prompt := body.Get("prompt")
 	cancelled := tag == "CancelledToolUses"
 	if (tag == "Prompt" || cancelled) && !prompt.IsEmpty() {
