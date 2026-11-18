@@ -4,6 +4,11 @@
 // with its manifest row, reproducing the sh collector's "Catalog walk"
 // section and its worker programs. collectors/docs/internals.md, "Glob
 // matching" and "Claimed paths and case variants", has the rules.
+//
+// filepath.WalkDir and os.ReadDir return a directory's entries sorted by name
+// and know nothing of the image root; this walk lists each directory in the
+// order the system gives it, as find does, and asks the root check before it
+// enters one.
 package walk
 
 import (

@@ -1,5 +1,8 @@
 // Package runlog writes the run's log: every line goes to the log file with a
-// UTC time, and to standard error unless the run is quiet.
+// UTC time, and to standard error unless the run is quiet. The standard log
+// package stamps a line from the system clock in layouts of its own; this one
+// writes the sh collector's time layout from a clock the caller injects, to
+// the file and, unless quiet, to standard error.
 package runlog
 
 import (

@@ -8,6 +8,21 @@
 // such as [:alpha:], which the AGENTS.md catalog rule and catalog-sync.sh
 // refuse. On a class name, an unclosed bracket, a backslash, a caret or a
 // collating or equivalence class the shells disagree; the result is one's.
+//
+// The standard library's path.Match, filepath.Match and filepath.Glob read a
+// different pattern language, so they cannot stand in for this package. There
+// `*` and `?` stop at `/` and match characters (UTF-8 runes), a leading dot
+// is no special case, negation is `[^...]` and a malformed pattern is an
+// error. Here MatchPath lets `*` cross `/`, matching is by byte, so a name
+// that is not valid UTF-8 matches predictably, MatchSegment and Expand let a
+// name starting with a dot match only a segment that starts with a dot,
+// negation is `[!...]` (a caret is an ordinary character), and no pattern is
+// an error: an unclosed
+// `[` is plain text in Expand and fails the match in MatchPath. On Windows
+// ASCII case is ignored, where filepath.Match is case-sensitive. Expand also
+// asks the image root's check before it lists a directory and reports each
+// link it refused, and reads the disk only through osfile and fsmeta, where
+// filepath.Glob follows links freely through os.Stat and os.Open.
 package glob
 
 import "strings"

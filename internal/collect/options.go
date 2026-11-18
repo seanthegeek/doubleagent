@@ -131,7 +131,13 @@ type rawOptions struct {
 // ParseOptions reads the arguments after `collect`. As in the sh collector,
 // --version and --help act at their position in the line, so an earlier
 // mistake still fails first, and a bad size is reported only after --list has
-// been seen.
+// been seen. The standard flag package does not serve: it accepts -name and
+// --name alike and the -name=value form, where here only the listed spellings
+// exist and --output=dir is an unknown option; it stops at the first word that
+// is not an option, where here every such word is an error; it words its
+// errors itself ("flag provided but not defined"), where here they are the sh
+// collector's text with its usage; and it reports a bad value at its position,
+// where here a size is checked only at the end of the line.
 func ParseOptions(args []string) (Options, Action, error) {
 	raw := rawOptions{
 		options: Options{OutDir: "."},
