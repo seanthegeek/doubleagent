@@ -90,3 +90,26 @@ func TestARecentCommandHistoryThatIsNotAnArrayIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestAnEventBodyThatIsNotAnObjectIsReported(t *testing.T) {
+	const rel = ".tabby/events/2026-01-01.json"
+	tests := []struct {
+		name, event string
+		want        []string
+	}{
+		{"a completion as a string", `{"completion": "x"}`, []string{"parser: completion is not a JSON object"}},
+		{"a view as a number", `{"view": 3}`, []string{"parser: view is not a JSON object"}},
+		{"a select as an array", `{"select": [1]}`, []string{"parser: select is not a JSON object"}},
+		{"a dismiss as null", `{"dismiss": null}`, nil},
+		{"a view as an object", `{"view": {"choice_index": 0}}`, nil},
+		{"another event as a string", `{"other": "x"}`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := problemRows(t, rel, "", []byte(`{"user": "1", "ts": 1, "event": `+test.event+"}\n"))
+			if !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
