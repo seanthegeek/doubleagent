@@ -13,10 +13,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The recorded deduplications of the parser's rows (testdata/dedup_cases.py
-// wrote them with their results) run again through the Go deduplicator
-// with the hooks the parser declares, its group history match form and
-// time. The secondary rows kept, in order, and the counts dropped must
+// The recorded deduplications of the parser's rows, each with its result in
+// testdata/dedup_cases.jsonl, run again through the deduplicator with the
+// hooks the parser declares, its group history match form and time. The secondary rows kept, in order, and the counts dropped must
 // match the recorded ones.
 func TestDeduplicationOfTheSecondarySourcesMatchesTheRecordedResults(t *testing.T) {
 	data, err := osfile.ReadFile("testdata/dedup_cases.jsonl")
