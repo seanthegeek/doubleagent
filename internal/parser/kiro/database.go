@@ -58,7 +58,8 @@ func (p *Parser) databaseRows(artifact *input.Artifact, options parser.Options,
 	return nil
 }
 
-// orText returns a column as Python's str(value or "") writes it.
+// orText returns a column as row text, "" for an empty value (NULL, zero,
+// or empty text or blob).
 func orText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
