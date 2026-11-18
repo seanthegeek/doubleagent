@@ -84,18 +84,7 @@ func partText(content jsonvalue.Value, thoughts bool) string {
 			out = append(out, mediaText(part))
 		}
 	}
-	return joinNonEmpty(out)
-}
-
-// joinNonEmpty joins the non-empty texts with LF.
-func joinNonEmpty(texts []string) string {
-	kept := texts[:0:0]
-	for _, text := range texts {
-		if text != "" {
-			kept = append(kept, text)
-		}
-	}
-	return strings.Join(kept, "\n")
+	return parser.JoinNonEmpty("\n", out...)
 }
 
 // contextKind returns the kind of a user text the CLI wrote itself, or ""
@@ -238,7 +227,7 @@ func responseText(functionResponse jsonvalue.Value) string {
 // resultText returns a tool_result text: the response's text, then each of
 // its media labels, one per line.
 func (r response) resultText() string {
-	return joinNonEmpty(append([]string{responseText(r.value)}, r.media...))
+	return parser.JoinNonEmpty("\n", append([]string{responseText(r.value)}, r.media...)...)
 }
 
 // callResultText returns the text of a tool call's result. A result holding
@@ -279,7 +268,7 @@ func callResultText(result jsonvalue.Value, callID string) string {
 			texts = append(texts, media)
 		}
 	}
-	return joinNonEmpty(texts)
+	return parser.JoinNonEmpty("\n", texts...)
 }
 
 // toolText returns the tool_use text of a tool call: its arguments as
@@ -292,7 +281,7 @@ func toolText(call jsonvalue.Value) string {
 		argumentsText = parser.JSONText(arguments)
 	}
 	label := call.Get("displayName")
-	if !label.IsEmpty() && !equal(label, call.Get("name")) {
+	if !label.IsEmpty() && !jsonvalue.Equal(label, call.Get("name")) {
 		if argumentsText != "" {
 			return label.Text() + ": " + argumentsText
 		}

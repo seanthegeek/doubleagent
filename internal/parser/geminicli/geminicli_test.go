@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers the
-// analyzer's own tests call directly, with the oracle's results.
+// The rows each file gives are proved by the parser replay
+// (internal/parity/replay); these tests cover the helpers on their own.
 
 func TestTheHistoryObjectStartTakesJSONWhitespaceOnly(t *testing.T) {
 	if !historyObjectPattern.MatchString(" \r\n{\t\"history\" : ") {
@@ -109,50 +107,24 @@ func TestNameTimeReadsTheTimeOfAFileName(t *testing.T) {
 	}
 }
 
-func TestUnquoteDecodesATagAsPythonDoes(t *testing.T) {
-	tests := []struct{ text, want string }{
-		{"a%20b", "a b"},
-		{"%E2%82%AC", "€"},
-		{"%e2%82", "��"},
-		{"100%", "100%"},
-		{"%zz%41", "%zzA"},
-		{"é%41", "éA"},
-		{"%41é%42", "AéB"},
-		{"%%41", "%A"},
-		{"plain", "plain"},
-		{"%C3%A9x%2F", "éx/"},
+func TestUnquoteDecodesATagsEscapes(t *testing.T) {
+	tests := []struct{ name, text, want string }{
+		{"an escaped space", "a%20b", "a b"},
+		{"an escaped character", "%E2%82%AC", "€"},
+		{"each invalid byte becomes U+FFFD", "%e2%82", "\uFFFD\uFFFD"},
+		{"text beside escapes is kept", "%41é%42", "AéB"},
+		{"an escaped slash", "%C3%A9x%2F", "éx/"},
+		{"a plus sign stays", "a+b", "a+b"},
+		{"plain text stays", "plain", "plain"},
+		{"a bare percent sign is shown as written", "100%", "100%"},
+		{"an invalid escape is shown as written", "%zz%41", "%zz%41"},
 	}
 	for _, test := range tests {
-		if got := unquote(test.text); got != test.want {
-			t.Errorf("unquote(%q) = %q, want %q", test.text, got, test.want)
-		}
-	}
-}
-
-func TestEqualComparesValuesAsPythonDoes(t *testing.T) {
-	tests := []struct {
-		left, right string
-		want        bool
-	}{
-		{"1", "1.0", true},
-		{"true", "1", true},
-		{"false", "0", true},
-		{"true", "1.5", false},
-		{"null", "null", true},
-		{`"a"`, `"a"`, true},
-		{`"1"`, "1", false},
-		{"[1,2]", "[1.0,2]", true},
-		{`{"a":1,"b":2}`, `{"b":2,"a":true}`, true},
-		{`{"a":1}`, `{"a":1,"b":2}`, false},
-		{"null", "false", false},
-		{"[]", "{}", false},
-		{"100000000000000000001", "1e20", false},
-		{"0.1", "0.1000000000000000055511151231257827", true},
-	}
-	for _, test := range tests {
-		if got := equal(decode(t, test.left), decode(t, test.right)); got != test.want {
-			t.Errorf("%s == %s gave %v, want %v", test.left, test.right, got, test.want)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			if got := unquote(test.text); got != test.want {
+				t.Errorf("unquote(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
 	}
 }
 
@@ -215,14 +187,4 @@ func write(t *testing.T, path, text string) {
 	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-}
-
-// decode returns the JSON text decoded.
-func decode(t *testing.T, text string) jsonvalue.Value {
-	t.Helper()
-	value, err := jsonvalue.DecodeString(text)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return value
 }

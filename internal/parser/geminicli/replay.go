@@ -188,7 +188,7 @@ func (r *replay) applyPatch(patch jsonvalue.Value) {
 				continue
 			}
 			index := slices.IndexFunc(copied, func(call jsonvalue.Value) bool {
-				return call.IsObject() && equal(call.Get("id"), toolPatch.Get("id"))
+				return call.IsObject() && jsonvalue.Equal(call.Get("id"), toolPatch.Get("id"))
 			})
 			if index >= 0 {
 				copied[index].Set("result", result)

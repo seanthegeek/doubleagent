@@ -85,7 +85,7 @@ func activityText(payload jsonvalue.Value, console bool, requests map[string]req
 		return "network request: " + named.method + " " + named.url + " (request " + requestID + ")", true
 	case value.IsObject():
 		return "network response: " + answered.method + " " + answered.url + " status " +
-			dashUnlessSet(value.Get("status")) + " in " + dashUnlessSet(value.Get("durationMs")) +
+			parser.SettingOrDash(value.Get("status")) + " in " + parser.SettingOrDash(value.Get("durationMs")) +
 			" ms (request " + requestID + ")", true
 	case !payload.Get("error").IsEmpty():
 		return "network error: " + answered.method + " " + answered.url + ": " +
