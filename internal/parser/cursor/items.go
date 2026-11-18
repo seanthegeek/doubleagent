@@ -204,7 +204,7 @@ func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emi
 			}
 		}
 	}
-	text := githubText(login, row.key, usages)
+	text := githubText(login, row.key, usages, i.owner.Work)
 	if latest := lastUsed(usages); !latest.IsEmpty() {
 		emit(i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(latest), row.rowid))
 		return
@@ -233,13 +233,17 @@ func lastUsed(usages []jsonvalue.Value) jsonvalue.Value {
 }
 
 // githubText returns the "source host: github account" text, the scopes
-// of its usages without repeats.
-func githubText(login, key string, usages []jsonvalue.Value) string {
+// of its usages without repeats, in the order first met; work counts the
+// scopes looked up in the set of those already met.
+func githubText(login, key string, usages []jsonvalue.Value, work parser.Work) string {
 	var scopes []string
+	seen := map[string]bool{}
 	for _, usage := range usages {
 		for _, scope := range usage.Get("scopes").Items() {
-			if !slices.Contains(scopes, scope.Text()) {
-				scopes = append(scopes, scope.Text())
+			work.Add("scope lookups", 1)
+			if text := scope.Text(); !seen[text] {
+				seen[text] = true
+				scopes = append(scopes, text)
 			}
 		}
 	}
