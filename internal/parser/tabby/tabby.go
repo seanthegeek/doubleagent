@@ -286,22 +286,7 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parser.Emit
 		emit(p.row(artifact, rowSpec{text: "parser: not a readable XML document (" + err.Error() + ")"}))
 		return
 	}
-	var commands []string
-	for _, component := range document.iter("component") {
-		if name, _ := component.attribute("name"); name != intellijComponent {
-			continue
-		}
-		for _, option := range component.iter("option") {
-			if name, _ := option.attribute("name"); name != "history" {
-				continue
-			}
-			for _, element := range option.iter("")[1:] {
-				if value, ok := element.attribute("value"); ok {
-					commands = append(commands, value)
-				}
-			}
-		}
-	}
+	commands := historyCommands(document, p.Work)
 	if len(commands) > 0 {
 		p.historyRows(artifact, "intellij-tabby-command-history.xml", commands, emit)
 	}
