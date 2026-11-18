@@ -298,6 +298,10 @@ func TestListingOrderTakesOnlyTheOtherOfTwoEqualRows(t *testing.T) {
 			[]string{timelineLine("user", "hi", early, 1)}, []string{timelineLine("user", "hi", early, 1)},
 			sessionLine(early), sessionLine(late), 0,
 			[]string{timelineLine("user", "hi", early, 1)}, sessionLine(late)},
+		{"a row from a file whose recorded parse did not read the record is left as it is",
+			[]string{timelineLine("user", "hi", early, 1)}, []string{timelineLine("user", "hi", "/a/other.sqlite", 5)},
+			sessionLine(early), sessionLine("/a/other.sqlite"), 0,
+			[]string{timelineLine("user", "hi", "/a/other.sqlite", 5)}, sessionLine("/a/other.sqlite")},
 		{"rows both sides hold are not paired",
 			[]string{timelineLine("system", "start", early, 3), timelineLine("user", "hi", early, 1)},
 			[]string{timelineLine("system", "start", early, 3), timelineLine("user", "hi", late, 5)},
@@ -311,7 +315,8 @@ func TestListingOrderTakesOnlyTheOtherOfTwoEqualRows(t *testing.T) {
 				"out/sessions.jsonl": test.wantSessions + "\n"}
 			got := map[string]string{"out/timeline.jsonl": strings.Join(test.got, "\n") + "\n",
 				"out/sessions.jsonl": test.gotSessions + "\n"}
-			rows := difference(t, 107).Outputs(want, got)
+			held := heldRecords{late: {identity("2026-09-10T08:00:00.000Z", "3", "user", "hi"): true}}
+			rows := difference(t, 107).Outputs(want, got, held)
 			if rows != test.rows {
 				t.Errorf("rewrote %d rows, want %d", rows, test.rows)
 			}

@@ -15,7 +15,7 @@ import (
 // its shape: Text rewrites each place it occurs into a form both sides
 // share, Rows puts rows of the shape into one order, Excludes reports a case
 // no rewriting can match, Outputs rewrites a run's output files against the
-// recorded ones, Arguments a command's recorded arguments; each returns how
+// recorded ones and the records the recorded parses read, Arguments a command's recorded arguments; each returns how
 // many places it found. A difference of format names in Scope the texts it
 // applies to. A retired one keeps its number, which the plan cites, says in
 // Retired why, and applies nowhere.
@@ -25,7 +25,7 @@ type Difference struct {
 	Text      func(text string) (string, int)
 	Rows      func(rows []Row) ([]Row, int)
 	Excludes  func(text string) bool
-	Outputs   func(want, got map[string]string) int
+	Outputs   func(want, got map[string]string, held heldRecords) int
 	Arguments func(command string, args []string) ([]string, int)
 	Scope     string
 	Retired   string
@@ -44,7 +44,9 @@ func Differences() []Difference {
 		{Number: 105, Summary: "zed archived worktrees and state.vscdb value problems have one order",
 			Rows: plannerOrder},
 		{Number: 106, Summary: "an FTS5 table is always readable", Retired: retiredUnused},
-		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's",
+		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's: of two " +
+			"files the recording's parses both read the same record from, the run may keep the row " +
+			"of the other",
 			Outputs: otherOfEqualRows},
 	}, append(formatDifferences(), laterDifferences()...)...)
 }

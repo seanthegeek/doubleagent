@@ -209,6 +209,15 @@ func recordedRegistry(calls *recordedCalls) *parsers.Registry {
 	return parsers.NewOf(list)
 }
 
+// readTimelineCalls reads the parser calls of the nodes that ran timeline.
+func readTimelineCalls(t *testing.T, corpus *Corpus) nodeCalls {
+	nodes := map[string]bool{}
+	for _, recorded := range corpus.CommandCases(t, "timeline") {
+		nodes[recorded.Node] = true
+	}
+	return readNodeCalls(t, corpus, nodes)
+}
+
 // nodeCalls holds every recorded parser call by node, and the sequence
 // numbers of each node's command runs.
 type nodeCalls struct {
@@ -278,11 +287,7 @@ func replayTimelinesOverRecordedRows(t *testing.T, corpus *Corpus, used neededTa
 	replay := newCommandReplay(t, corpus)
 	replay.used = used
 	cases := corpus.CommandCases(t, "timeline")
-	nodes := map[string]bool{}
-	for _, recorded := range cases {
-		nodes[recorded.Node] = true
-	}
-	calls := readNodeCalls(t, corpus, nodes)
+	calls := readTimelineCalls(t, corpus)
 	ran := 0
 	for _, recorded := range cases {
 		t.Run(fmt.Sprint(recorded.Seq), func(t *testing.T) {
@@ -318,9 +323,13 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 	defer func() { r.registryOverride = nil }()
 	r.full["timeline"]++
 	defer r.noteBlocks(t, recorded, nil)
+	// The recorded parsers use up their calls, so what they held is read
+	// before the run.
+	held := heldBy(run)
 	before := filesUnder(root)
 	got := r.run(t, node, "timeline", recorded, root)
 	want := r.expected(t, recorded, root)
+	want.held = held
 	r.compareFull(t, node, root, recorded, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }

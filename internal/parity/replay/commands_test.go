@@ -71,6 +71,9 @@ type commandReplay struct {
 	// reordered counts the cases whose options difference 121 moved ahead
 	// of the input.
 	reordered int
+	// calls holds the recorded parser calls of the nodes that ran timeline,
+	// which tell difference 107 which files held a record.
+	calls nodeCalls
 }
 
 // replayCommands runs every recorded command case, noting in used the
@@ -82,6 +85,7 @@ func replayCommands(t *testing.T, corpus *Corpus, used neededTally) bool {
 	}
 	replay := newCommandReplay(t, corpus)
 	replay.used = used
+	replay.calls = readTimelineCalls(t, corpus)
 	total, ran := 0, 0
 	for _, command := range caseFiles(t, corpus, "commands") {
 		for _, recorded := range corpus.CommandCases(t, command) {
@@ -173,6 +177,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	before := filesUnder(root)
 	got := r.run(t, node, command, recorded, root)
 	want := r.expected(t, recorded, root)
+	want.held = heldBy(r.calls.forRun(recorded, func(text Text) string { return r.corpus.Expand(text, root) }))
 	if archiveHoldsRoot(recorded, want, root) {
 		r.skipped[commandArchivedRoot]++
 		return
@@ -302,6 +307,8 @@ type commandOutput struct {
 	stdout, stderr string
 	outputs        map[string]string
 	loose          bool
+	// held is, for a recorded run, the records its recorded parses read.
+	held heldRecords
 }
 
 // run runs the case's command line in this process, in the recorded
@@ -636,7 +643,7 @@ func compareOutputs(t testing.TB, node, root string, forms outputForms, normalis
 	wantTexts, gotTexts := comparedTexts(t, root, forms, want, want), comparedTexts(t, root, forms, got, want)
 	var notes looseNotes
 	if want.loose && holdsTimeline(want.outputs) {
-		notes = looseNotes{checked: true, equalRows: difference(t, 107).Outputs(wantTexts, gotTexts)}
+		notes = looseNotes{checked: true, equalRows: difference(t, 107).Outputs(wantTexts, gotTexts, want.held)}
 		if rowOrderDiffers(t, node, normaliser, wantTexts, gotTexts) {
 			notes.multiset = true
 			sortRowLines(wantTexts)
