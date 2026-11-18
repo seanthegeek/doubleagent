@@ -18,7 +18,7 @@ func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
 		seen[entry.Number] = true
 		kinds := 0
 		for _, set := range []bool{entry.Text != nil, entry.Rows != nil, entry.Excludes != nil,
-			entry.Outputs != nil, entry.Scope != ""} {
+			entry.Outputs != nil, entry.Arguments != nil, entry.Scope != ""} {
 			if set {
 				kinds++
 			}

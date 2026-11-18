@@ -64,7 +64,7 @@ func TestDetectMatchesTheAnalyzer(t *testing.T) {
 		stdout, stderr string
 	}{
 		{"the tables", []string{"detect", collection}, ExitFound, detectText, ""},
-		{"the tables and every file", []string{"detect", collection, "--files"}, ExitFound,
+		{"the tables and every file", []string{"detect", "--files", collection}, ExitFound,
 			detectFilesText, ""},
 		{"one JSON object", []string{"detect", "--json", collection}, ExitFound, detectJSONText, ""},
 		{"an input without agent files exits 1", []string{"detect", filepath.Join(work, "empty")},

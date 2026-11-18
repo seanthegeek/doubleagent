@@ -13,42 +13,40 @@ func TestParseTimelineReadsEveryOption(t *testing.T) {
 		args []string
 		want TimelineOptions
 	}{
-		{"the input may follow the options", []string{"-o", "out", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
-		{"the options may follow the input", []string{"in", "--since", "2026-10-01", "-o", "out"},
+		{"the input follows the options", []string{"--since", "2026-10-01", "-o", "out", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", Since: "2026-10-01"}},
-		{"--output is -o", []string{"in", "--output", "out"},
+		{"--output is -o", []string{"--output", "out", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
-		{"-output with one dash is --output", []string{"in", "-output", "out"},
+		{"-output with one dash is --output", []string{"-output", "out", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
 		{"-o takes a value after =", []string{"-o=out", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
 		{"repeatable options keep every value in order",
-			[]string{"in", "--agent", "aider", "--output=out", "--agent", "pi", "--match", "a",
-				"--match=b"},
+			[]string{"--agent", "aider", "--output=out", "--agent", "pi", "--match", "a",
+				"--match=b", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out",
 				Agents: []string{"aider", "pi"}, Match: []string{"a", "b"}}},
 		{"flags and the shared input options are read",
 			[]string{"--include-thinking", "--keep-undated", "-i", "--host", "h1", "--user", "u",
-				"--work-dir", "w", "--keep-extracted", "-o", "out", "in", "--since", "2026",
-				"--until", "now"},
+				"--work-dir", "w", "--keep-extracted", "-o", "out", "--since", "2026",
+				"--until", "now", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in", Host: "h1", User: "u",
 				WorkDir: "w", KeepExtracted: true, workDirSet: true}, Output: "out",
 				IncludeThinking: true, KeepUndated: true, IgnoreCase: true, Since: "2026",
 				Until: "now"}},
-		{"--ignore-case is -i", []string{"in", "-o", "out", "--ignore-case"},
+		{"--ignore-case is -i", []string{"-o", "out", "--ignore-case", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", IgnoreCase: true}},
-		{"a switch takes =false", []string{"in", "-o", "out", "-i", "--ignore-case=false"},
+		{"a switch takes =false", []string{"-o", "out", "-i", "--ignore-case=false", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
 		{"a value may start with a dash or hold a space",
-			[]string{"in", "-o", "out", "--match", "-1", "--match", "-a b", "--match", "--x"},
+			[]string{"-o", "out", "--match", "-1", "--match", "-a b", "--match", "--x", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out",
 				Match: []string{"-1", "-a b", "--x"}}},
 		{"after -- every argument is an input", []string{"-o", "out", "--", "-in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "-in"}, Output: "out"}},
 		{"a lone dash is an input", []string{"-o", "out", "-"},
 			TimelineOptions{InputOptions: InputOptions{Input: "-"}, Output: "out"}},
-		{"-- may be a value after =", []string{"in", "-o", "out", "--match=--"},
+		{"-- may be a value after =", []string{"-o", "out", "--match=--", "in"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", Match: []string{"--"}}},
 	}
 	for _, test := range tests {
@@ -90,25 +88,22 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 		{"timeline needs its output", timeline("in"), "doubleagent timeline: missing argument: -o/--output"},
 		{"timeline needs its input", timeline("-o", "x"), "doubleagent timeline: missing argument: input"},
 		{"timeline needs both", timeline(), "doubleagent timeline: missing argument: input, -o/--output"},
-		{"an option's value is missing at the end", timeline("in", "-o"),
+		{"an option's value is missing at the end", timeline("-o"),
 			"doubleagent timeline: flag needs an argument: -o"},
-		{"an option's value is missing before --", timeline("in", "-o", "--", "x"),
-			"doubleagent timeline: flag needs an argument: -o"},
-		{"an unknown option is refused", detect("in", "--bogus"),
+		{"an unknown option is refused", detect("--bogus", "in"),
 			"doubleagent detect: flag provided but not defined: -bogus"},
-		{"an unknown option after the input is refused before the missing output",
-			timeline("in", "--bogus"), "doubleagent timeline: flag provided but not defined: -bogus"},
-		{"a short option with its value attached is refused", timeline("in", "-oout"),
+		{"a short option with its value attached is refused", timeline("-oout", "in"),
 			"doubleagent timeline: flag provided but not defined: -oout"},
 		{"a negative number is not an input", detect("-1"),
 			"doubleagent detect: flag provided but not defined: -1"},
 		{"--version is not an analysis option", timeline("--version"),
 			"doubleagent timeline: flag provided but not defined: -version"},
 		{"detect takes one input", detect("a", "b"), "doubleagent detect: unexpected argument: b"},
-		{"detect names every extra input", detect("a", "b", "--json", "c"),
+		{"detect names every extra input", detect("a", "b", "c"),
 			"doubleagent detect: unexpected argument: b c"},
-		{"an extra input after -- is refused", detect("a", "--", "b"), "doubleagent detect: unexpected argument: b"},
-		{"a switch takes no value that is not a boolean", detect("in", "--json=yes"),
+		{"an extra input after -- is refused", detect("--", "a", "b"),
+			"doubleagent detect: unexpected argument: b"},
+		{"a switch takes no value that is not a boolean", detect("--json=yes", "in"),
 			`doubleagent detect: invalid boolean value "yes" for -json: parse error`},
 		{"fleet needs an input",
 			func() error { _, _, err := ParseFleet(nil); return err }, "doubleagent fleet: missing argument: input"},
@@ -128,9 +123,48 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 	}
 }
 
+func TestAnOptionAfterTheInputIsAUsageError(t *testing.T) {
+	parsers := map[string]func([]string) error{
+		"detect":   func(args []string) error { _, _, err := ParseDetect(args); return err },
+		"timeline": func(args []string) error { _, _, err := ParseTimeline(args); return err },
+		"fleet":    func(args []string) error { _, _, err := ParseFleet(args); return err },
+		"catalog":  func(args []string) error { _, _, err := ParseCatalog(args); return err },
+	}
+	tests := []struct {
+		name    string
+		command string
+		args    []string
+		option  string
+	}{
+		{"detect with a switch after the input", "detect", []string{"in", "--json"}, "--json"},
+		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"}, "--host"},
+		{"timeline with its output after the input", "timeline",
+			[]string{"in", "--since", "2026-10-01", "-o", "out"}, "--since"},
+		{"timeline with --help after the input", "timeline", []string{"-o", "x", "in", "--help"}, "--help"},
+		{"timeline with an unknown option after the input", "timeline", []string{"-o", "x", "in", "--bogus"},
+			"--bogus"},
+		{"fleet with -o between its inputs", "fleet", []string{"a", "-o", "x.csv", "b"}, "-o"},
+		{"catalog with --agents after an argument", "catalog", []string{"x", "--agents"}, "--agents"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parse := parsers[test.command]
+			got := usageMessage(t, func() error { return parse(test.args) })
+			want := "doubleagent " + test.command + ": options go before the input; " + test.option +
+				" is after it"
+			if got != want {
+				t.Errorf("message %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestParseFleetAndDetect(t *testing.T) {
-	fleet, help, err := ParseFleet([]string{"a", "-o", "x.csv", "b", "--", "-c"})
-	if err != nil || help || !reflect.DeepEqual(fleet, FleetOptions{Inputs: []string{"a", "b", "-c"},
+	if fleet, _, err := ParseFleet([]string{"-o", "x.csv", "a", "b", "--", "-c"}); err == nil {
+		t.Errorf("fleet took -- after its inputs: %+v", fleet)
+	}
+	fleet, help, err := ParseFleet([]string{"-o", "x.csv", "--", "a", "-c"})
+	if err != nil || help || !reflect.DeepEqual(fleet, FleetOptions{Inputs: []string{"a", "-c"},
 		Output: "x.csv"}) {
 		t.Errorf("fleet: %+v, %v, %v", fleet, help, err)
 	}
@@ -140,7 +174,7 @@ func TestParseFleetAndDetect(t *testing.T) {
 	if fleet, _, _ = ParseFleet([]string{"--output=y.csv", "a"}); fleet.Output != "y.csv" {
 		t.Errorf("fleet's --output= gave %q", fleet.Output)
 	}
-	detect, help, err := ParseDetect([]string{"--files", "in", "--json", "--work-dir="})
+	detect, help, err := ParseDetect([]string{"--files", "--json", "--work-dir=", "in"})
 	want := DetectOptions{InputOptions: InputOptions{Input: "in", workDirSet: true}, JSON: true,
 		Files: true}
 	if err != nil || help || !reflect.DeepEqual(detect, want) {
@@ -152,16 +186,36 @@ func TestParseFleetAndDetect(t *testing.T) {
 	}
 }
 
-func TestHelpIsAskedForWhereverItStands(t *testing.T) {
-	for _, args := range [][]string{{"-h"}, {"--help"}, {"-help"}, {"in", "--help"}, {"-o", "x", "-h", "in"}} {
+func TestFlagSetTellsWhichOptionsTakeAValue(t *testing.T) {
+	takesValue := func(command, name string) bool {
+		option := FlagSet(command).Lookup(name)
+		if option == nil {
+			t.Fatalf("%s has no option %s", command, name)
+		}
+		switchValue, ok := option.Value.(interface{ IsBoolFlag() bool })
+		return !ok || !switchValue.IsBoolFlag()
+	}
+	if !takesValue("timeline", "o") || !takesValue("timeline", "match") || !takesValue("detect", "work-dir") {
+		t.Error("a value option reads as a switch")
+	}
+	if takesValue("detect", "json") || takesValue("timeline", "i") || takesValue("catalog", "agents") {
+		t.Error("a switch reads as a value option")
+	}
+	if FlagSet("collect") != nil {
+		t.Error("collect is not an analysis command")
+	}
+}
+
+func TestHelpIsAskedForAmongTheOptions(t *testing.T) {
+	for _, args := range [][]string{{"-h"}, {"--help"}, {"-help"}, {"-o", "x", "-h", "in"}} {
 		if _, help, err := ParseTimeline(args); !help || err != nil {
 			t.Errorf("%q: help %v, error %v", args, help, err)
 		}
 	}
 }
 
-func TestAMistakeAnywhereOnTheLineBeatsHelp(t *testing.T) {
-	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"in", "-h", "-o"}} {
+func TestAMistakeAmongTheOptionsBeatsHelp(t *testing.T) {
+	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"-h", "-o"}} {
 		if _, help, err := ParseTimeline(args); help || err == nil {
 			t.Errorf("%q: help %v, error %v; want a usage error", args, help, err)
 		}

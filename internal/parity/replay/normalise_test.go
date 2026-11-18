@@ -16,19 +16,20 @@ import (
 // onward, numbered apart from the collector's parity exceptions). Each
 // applies only to its own shape: Text rewrites each place the shape occurs
 // in a text into a form both sides share, Rows puts rows of the shape into
-// one order, Excludes reports that a case shows a shape no rewriting can
-// match, so the case is not compared, and Outputs rewrites a run's output
-// files, by path, against the recorded ones. Each returns how many places
-// it found. A difference of format names in Scope the texts that
-// information_test.go applies it to.
+// one order, Excludes reports a case no rewriting can match, which is not
+// compared, Outputs rewrites a run's output files against the recorded
+// ones, Arguments a command's recorded arguments before the binary runs
+// them. Each returns how many places it found. A difference of format
+// names in Scope the texts information_test.go applies it to.
 type Difference struct {
-	Number   int
-	Summary  string
-	Text     func(text string) (string, int)
-	Rows     func(rows []Row) ([]Row, int)
-	Excludes func(text string) bool
-	Outputs  func(want, got map[string]string) int
-	Scope    string
+	Number    int
+	Summary   string
+	Text      func(text string) (string, int)
+	Rows      func(rows []Row) ([]Row, int)
+	Excludes  func(text string) bool
+	Outputs   func(want, got map[string]string) int
+	Arguments func(command string, args []string) ([]string, int)
+	Scope     string
 }
 
 // Differences returns the table of documented differences, a fresh slice.
@@ -55,6 +56,7 @@ func laterDifferences() []Difference {
 	return []Difference{
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
 			Text: quotedValueText},
+		{Number: 121, Summary: "options come before the input", Arguments: optionsFirst},
 	}
 }
 
