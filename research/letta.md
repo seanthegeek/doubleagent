@@ -860,6 +860,12 @@ A `transcript.jsonl`, `messages.jsonl`, `sessions.jsonl` or `runs/*.jsonl` file,
 file's row carrying its project path. `~/.letta/settings.json` read for a transcript's sync row
 gives no row there when it cannot be read (the server is `-`); its own rows report it.
 
+A member that the format makes an array or an object but that is present with another kind is one
+`parser:` row at line 1 naming it: `parser: <member> is not a JSON array` for `tasks` of
+`crons.json` and `results` of an interrupted-turn file, and
+`parser: <member> is not a JSON object` for `sessionsByServer` and `permissions` of a settings
+file; an absent, null or empty one gives no row.
+
 #### Fixtures
 
 - `.letta/transcripts/agent-1a2b/conv-9f/transcript.jsonl`:

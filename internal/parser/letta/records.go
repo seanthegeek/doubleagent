@@ -51,7 +51,8 @@ func (p *Parser) readDocument(artifact *input.Artifact, emit parser.Emit,
 // parseSettings emits the sync and permission rows of a settings file, at
 // its modification time: one sync row per sessionsByServer entry whose key
 // does not start "local:" (not in the legacy file, which Letta reads only
-// for its permissions), then one row per permissions entry.
+// for its permissions), then one row per permissions entry. A
+// sessionsByServer or permissions that is not an object adds a problem row.
 func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	project := ""
 	if artifact.Home != nil && artifact.Home.Project {
@@ -73,22 +74,28 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 		return
 	}
+	var problems parser.Problems
 	if artifact.Rel != legacySettingsRel {
-		syncRows(document.Get("sessionsByServer"), artifact.Rel, put)
+		syncRows(parser.ObjectMember(document.Get("sessionsByServer"), "sessionsByServer", 0, &problems),
+			artifact.Rel, put)
 	}
 	permissions := document.Get("permissions")
+	parser.ObjectMember(permissions, "permissions", 0, &problems)
 	for _, key := range permissionKeys() {
 		for _, entry := range listOf(permissions.Get(key)) {
 			put("", "permission setting: permissions."+key+"="+parser.SettingValue(entry)+
 				" (from "+artifact.Rel+", file mtime)")
 		}
 	}
+	for _, found := range problems {
+		put("", parser.ProblemPrefix+found.Message)
+	}
 }
 
 // syncRows writes, through put, one `session synced:` row per entry of a
-// settings file's sessionsByServer whose key does not start "local:".
-func syncRows(servers jsonvalue.Value, rel string, put func(sessionID, text string)) {
-	for _, server := range servers.Members() {
+// settings file's sessionsByServer members whose key does not start "local:".
+func syncRows(servers []jsonvalue.Member, rel string, put func(sessionID, text string)) {
+	for _, server := range servers {
 		if strings.HasPrefix(server.Key, "local:") {
 			continue
 		}
@@ -148,7 +155,8 @@ func (p *Parser) parseRouting(artifact *input.Artifact, channel string, emit par
 }
 
 // parseCrons emits one `scheduled task:` row per task of crons.json, at its
-// created_at, else the file's modification time.
+// created_at, else the file's modification time. A tasks that is not an
+// array adds a problem row.
 func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 	document, isObject, read := p.readDocument(artifact, emit, "")
 	if !read {
@@ -161,7 +169,8 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	mtime := parser.FileMtime(artifact)
-	for _, task := range document.Get("tasks").Items() {
+	var problems parser.Problems
+	for _, task := range parser.ArrayMember(document.Get("tasks"), "tasks", 0, &problems) {
 		if !task.IsObject() {
 			continue
 		}
@@ -173,6 +182,9 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 			row.SessionID = conversation
 		}
 		emit(row)
+	}
+	for _, found := range problems {
+		emit(p.lineOne(artifact, mtime, parser.ProblemPrefix+found.Message))
 	}
 }
 
@@ -220,7 +232,8 @@ func (p *Parser) parseRuns(artifact *input.Artifact, emit parser.Emit) {
 // at the file's modification time (the record holds no time): one
 // `interrupted turn:` row, then per results entry a `permission decision:`
 // row (an approval, with approve) or a tool_result row (a tool return, with
-// status), joined on tool_call_id.
+// status), joined on tool_call_id. A results that is not an array adds a
+// problem row.
 func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 	document, isObject, read := p.readDocument(artifact, emit, "")
 	if !read {
@@ -240,7 +253,8 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		row.SessionID, row.ProjectPath = sessionID, cwd
 		emit(row)
 	}
-	results := objects(document.Get("results"))
+	var problems parser.Problems
+	results := objects(parser.ArrayMember(document.Get("results"), "results", 0, &problems))
 	put(timeline.TurnSystem, "", fmt.Sprintf("interrupted turn: agent %s conversation %s run %s "+
 		"tool_calls=%s unstarted=%s results=%d working_directory=%s acting_user=%s (from %s, file mtime)",
 		parser.SettingOrDash(document.Get("agentId")), parser.SettingOrDash(jsonvalue.NewString(sessionID)), parser.SettingOrDash(document.Get("runId")),
@@ -258,12 +272,15 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		}
 		put(timeline.TurnToolResult, callID, text)
 	}
+	for _, found := range problems {
+		put(timeline.TurnSystem, "", parser.ProblemPrefix+found.Message)
+	}
 }
 
 // objects returns the objects of a list, none for any other value.
-func objects(list jsonvalue.Value) []jsonvalue.Value {
+func objects(list []jsonvalue.Value) []jsonvalue.Value {
 	var out []jsonvalue.Value
-	for _, item := range list.Items() {
+	for _, item := range list {
 		if item.IsObject() {
 			out = append(out, item)
 		}
