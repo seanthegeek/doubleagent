@@ -13,7 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The frames under testdata are written by testdata/gen_zst.py; the cut
+// The frames under testdata are built by testdata/gen_zst.py; the cut
 // tables below are what a reader of the first n bytes of each file must
 // give: from the cut n up to the next row's, the line numbers read and the
 // problems as line:kind, where kind is zstd for a decoding problem and line
