@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -228,6 +229,44 @@ func TestAConversationWithNoEventReportsItsFilesOnItsState(t *testing.T) {
 			home := writeTree(t, t.TempDir(), test.files)
 			if got := problemTexts(parseRel(t, home, conversation+"base_state.json")); !slices.Equal(got, test.want) {
 				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
+	const events = ".openhands/sessions/s1/events/"
+	for _, test := range []struct {
+		name     string
+		reversed bool
+	}{{"lowest first", false}, {"lowest last", true}} {
+		t.Run(test.name, func(t *testing.T) {
+			files := map[string]string{}
+			var rels []string
+			for i := range 200 {
+				rel := events + strconv.Itoa(i) + ".json"
+				files[rel] = `{"timestamp": "2024-01-01T00:00:00"}`
+				rels = append(rels, rel)
+			}
+			if test.reversed {
+				slices.Reverse(rels)
+			}
+			home := writeTree(t, t.TempDir(), files)
+			subject := New()
+			var texts []string
+			for _, rel := range rels {
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
+					Rel: rel, Home: &input.Home{DiskPath: home, Original: "/h"}}
+				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			want := "legacy OpenHands 0.x session, 200 event files, not parsed; times are host local, emitted as if UTC"
+			if len(texts) != 1 || texts[0] != want {
+				t.Errorf("rows %q, want one %q", texts, want)
+			}
+			if subject.legacyListings > 2 {
+				t.Errorf("the events directory was listed %d times, want at most twice", subject.legacyListings)
 			}
 		})
 	}
