@@ -62,19 +62,9 @@ func (l brainLogs) chunks(form string) []string {
 		}
 	}
 	slices.SortStableFunc(names, func(left, right string) int {
-		return compareDigits(strings.TrimSuffix(left, ".jsonl"), strings.TrimSuffix(right, ".jsonl"))
+		return parser.CompareDigits(strings.TrimSuffix(left, ".jsonl"), strings.TrimSuffix(right, ".jsonl"))
 	})
 	return names
-}
-
-// compareDigits compares two strings of ASCII digits by the numbers they
-// write, however long.
-func compareDigits(left, right string) int {
-	left, right = strings.TrimLeft(left, "0"), strings.TrimLeft(right, "0")
-	if len(left) != len(right) {
-		return len(left) - len(right)
-	}
-	return strings.Compare(left, right)
 }
 
 // brainCopy returns the bytes of the brain transcript the artifact stands
@@ -209,7 +199,7 @@ func brainEventText(kind string, record jsonvalue.Value, content string) string 
 	case "ERROR_MESSAGE":
 		failure := record.Get("error")
 		if failure.IsObject() {
-			failure = firstTruthy(failure.Get("short_error"), failure.Get("user_error_message"),
+			failure = parser.FirstNonEmpty(failure.Get("short_error"), failure.Get("user_error_message"),
 				failure.Get("full_error"))
 		}
 		if failure.IsString() && failure.StringValue() != "" {
@@ -221,17 +211,6 @@ func brainEventText(kind string, record jsonvalue.Value, content string) string 
 		return content
 	}
 	return "step " + strings.ToLower(kind)
-}
-
-// firstTruthy returns the first value Python counts as true, else the
-// last, as `a or b or c` does.
-func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return values[len(values)-1]
 }
 
 // reply emits the rows of a reply: its reasoning when asked for, its text

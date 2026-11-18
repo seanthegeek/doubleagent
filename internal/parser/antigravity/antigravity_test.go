@@ -4,10 +4,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
-)
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs.
+	"github.com/seanthegeek/doubleagent/internal/parser"
+)
 
 // varintField returns a varint field in wire form.
 func varintField(number, value uint64) []byte {
@@ -41,7 +40,7 @@ func decodedAs(t *testing.T, data []byte, name string) message {
 	return decoded
 }
 
-func TestTheSchemaBuildsWithPythonsStepKindOrder(t *testing.T) {
+func TestTheSchemaGivesTheStepKindsInDeclarationOrder(t *testing.T) {
 	created := New()
 	if created.schemaErr != nil {
 		t.Fatal(created.schemaErr)
@@ -103,7 +102,7 @@ func TestDeleteFilePathIsField1(t *testing.T) {
 
 func TestChunksSortByTheirNumber(t *testing.T) {
 	names := []string{"10", "9", "0010", "1", "01"}
-	slices.SortStableFunc(names, compareDigits)
+	slices.SortStableFunc(names, parser.CompareDigits)
 	if want := []string{"1", "01", "9", "10", "0010"}; !slices.Equal(names, want) {
 		t.Errorf("sorted = %v, want %v", names, want)
 	}
