@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -101,7 +102,7 @@ func (p *Parser) parseAutomation(artifact *input.Artifact, emit parser.Emit) {
 		if !ok {
 			return ""
 		}
-		return tomlStr(value)
+		return tomlText(value)
 	}
 	text := "scheduled task: " + field("id") + " name=" + field("name") + " kind=" +
 		field("kind") + " status=" + field("status") + " rrule=" + field("rrule") +
@@ -113,10 +114,10 @@ func (p *Parser) parseAutomation(artifact *input.Artifact, emit parser.Emit) {
 	emit(row)
 }
 
-// tomlStr returns a TOML value as Python's str() writes the value tomllib
-// gives: a string as it is, a number, True or False, a date or time as
-// Python writes it, and an array or table as Python writes a list or dict.
-func tomlStr(value tomldoc.Value) string {
+// tomlText returns a TOML value as row text: a string, date or time as its
+// text, an integer in decimal, a float in strconv's shortest form, true or
+// false, and an array or table as compact JSON.
+func tomlText(value tomldoc.Value) string {
 	switch value.Kind() {
 	case tomldoc.KindInteger:
 		return strconv.FormatInt(value.Int(), 10)
@@ -311,7 +312,7 @@ func ruleStatements(text string, problems *parser.Problems) []statement {
 			raw = append(raw, line)
 		}
 		if len(parts) > 0 && scan.depth <= 0 && scan.quote == 0 {
-			out = append(out, statement{line: start, text: joinNonEmpty(parts)})
+			out = append(out, statement{line: start, text: parser.JoinNonEmpty(" ", parts...)})
 			parts, raw, scan.depth = nil, nil, 0
 		}
 	}
@@ -319,17 +320,6 @@ func ruleStatements(text string, problems *parser.Problems) []statement {
 		problems.AddRaw(start, "unterminated rule", strings.Join(raw, "\n"))
 	}
 	return out
-}
-
-// joinNonEmpty joins the parts that are not empty with spaces.
-func joinNonEmpty(parts []string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " ")
 }
 
 // ruleScanner follows the brackets and strings of a policy file from line
@@ -418,7 +408,7 @@ func (p *Parser) parseMemorySummary(artifact *input.Artifact, emit parser.Emit) 
 		emit(p.ProblemRow(artifact, "memory summary has no thread_id header"))
 		return
 	}
-	text := "memory summary: thread " + threadID + " rollout=" + orDash(header["rollout_path"]) +
+	text := "memory summary: thread " + threadID + " rollout=" + cmp.Or(header["rollout_path"], "-") +
 		" (from " + artifact.Rel + ", updated_at): " + strings.TrimSpace(body)
 	row := p.systemRow(artifact, timeline.Compact(text), threadID, 1)
 	row.TimestampUTC = timeutil.FromText(header["updated_at"])

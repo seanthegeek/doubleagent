@@ -1,6 +1,8 @@
 package codex
 
 import (
+	"cmp"
+	"errors"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -149,28 +151,44 @@ func logKind(row sqlitefile.Row, body string) string {
 	return ""
 }
 
-// readLogDatabase returns the log rows of the database at path, or the
-// message of the problem row that replaces them.
-func readLogDatabase(path string) ([]logRecord, string) {
-	database, message := parser.OpenDatabase(path)
-	if message != "" {
-		return nil, message
+// readLogDatabase returns the log rows of the database at path, or an
+// error whose text is the problem row that replaces them.
+func readLogDatabase(path string) ([]logRecord, error) {
+	database, err := openDatabase(path)
+	if err != nil {
+		return nil, err
 	}
 	defer database.Close()
 	records, err := readLogs(database)
 	if err != nil {
-		return nil, parser.DatabaseError(err)
+		return nil, databaseError(err)
 	}
-	return records, ""
+	return records, nil
+}
+
+// openDatabase opens the database at path through parser.OpenDatabase, or
+// returns an error whose text is the problem row that says why it cannot.
+func openDatabase(path string) (*sqlitefile.Database, error) {
+	database, message := parser.OpenDatabase(path)
+	if message != "" {
+		return nil, errors.New(message)
+	}
+	return database, nil
+}
+
+// databaseError returns an error met reading a database as an error whose
+// text is its problem row (parser.DatabaseError).
+func databaseError(err error) error {
+	return errors.New(parser.DatabaseError(err))
 }
 
 // parseLogs emits the rows of logs_<N>.sqlite: one per sent /feedback
 // report and one per approval decision, at the log time, then a problem
 // row per approval line the patterns cannot read.
 func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
-	records, message := readLogDatabase(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	records, err := readLogDatabase(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
 	threads := map[string]*sqlitefile.Row{}
@@ -222,7 +240,7 @@ func feedbackDecision(record logRecord, name string) decision {
 		sessionID = ""
 	}
 	text := "session synced: feedback report uploaded to Sentry, attachments " +
-		orDash(fields["uploaded_attachments"]) + " failed " + orDash(fields["attachments_failed"]) +
+		cmp.Or(fields["uploaded_attachments"], "-") + " failed " + cmp.Or(fields["attachments_failed"], "-") +
 		" (from " + name + " logs, ts)"
 	return decision{sessionID: sessionID, text: text}
 }
@@ -301,7 +319,7 @@ func decisions(records []logRecord, problems *parser.Problems) map[int]decision 
 	for _, record := range records {
 		if match := approvalMatch(record, "exec", problems); match != nil {
 			out[record.rowid] = decision{decisionSession(record), match[1], "permission decision: " +
-				match[3] + " exec " + match[1] + " turn=" + orDash(match[2])}
+				match[3] + " exec " + match[1] + " turn=" + cmp.Or(match[2], "-")}
 			execs = append(execs, record)
 		}
 	}

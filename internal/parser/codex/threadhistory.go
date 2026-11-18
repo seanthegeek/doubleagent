@@ -64,31 +64,31 @@ type itemProblem struct {
 }
 
 // readThreadHistory returns the turns and items of thread_history_1.sqlite,
-// or the message of the problem row that replaces them.
-func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, string) {
-	database, message := parser.OpenDatabase(path)
-	if message != "" {
-		return nil, nil, message
+// or an error whose text is the problem row that replaces them.
+func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, error) {
+	database, err := openDatabase(path)
+	if err != nil {
+		return nil, nil, err
 	}
 	defer database.Close()
 	turns, err := selectRows(database, "thread_turns", turnColumns)
 	if err != nil {
-		return nil, nil, parser.DatabaseError(err)
+		return nil, nil, databaseError(err)
 	}
 	items, err := selectRows(database, "thread_items", itemColumns)
 	if err != nil {
-		return nil, nil, parser.DatabaseError(err)
+		return nil, nil, databaseError(err)
 	}
-	return turns, items, ""
+	return turns, items, nil
 }
 
 // parseThreadHistory emits the rows of thread_history_1.sqlite: the turns
 // and their items in rollout order, thread by thread, then a problem row
 // per item that does not decode.
 func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	turns, items, message := readThreadHistory(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	turns, items, err := readThreadHistory(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
 	threads := siblingThreads(artifact)
@@ -175,7 +175,7 @@ func ordinalOf(row sqlitefile.Row) sqlitefile.Value {
 }
 
 // greater returns the greater of two values in SQL's order, the first on a
-// tie, as Python's max does.
+// tie.
 func greater(first, second sqlitefile.Value) sqlitefile.Value {
 	if sqlitefile.Compare(second, first) > 0 {
 		return second
@@ -245,7 +245,8 @@ func compareInt64(left, right int64) int {
 }
 
 // valueKey returns a column value as a map key that tells the storage
-// classes apart, as Python's dict tells None, numbers, text and bytes apart.
+// classes apart: NULL, an integer, a float, text and a blob holding the
+// same text are five keys.
 func valueKey(value sqlitefile.Value) string {
 	return strconv.Itoa(int(value.Type)) + ":" + value.String()
 }

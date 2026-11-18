@@ -12,10 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// The rows of every store are proved against the analyzer by the parser
-// replay (internal/parity/replay) over the recorded fixtures. These tests
-// port the analyzer's tests of the helpers it calls directly, with the
-// expected values the analyzer's own functions returned.
+// The rows of every store are proved by the parser replay
+// (internal/parity/replay) over the recorded fixtures. These tests cover
+// the helpers on their own.
 
 func TestWantsAndSecondaryFollowTheAgentsHome(t *testing.T) {
 	codex := New()
@@ -149,20 +148,22 @@ func TestLogFieldsAreSeparatedBySpaceOrTabOnly(t *testing.T) {
 	}
 }
 
-func TestContextMarkersIgnoreCaseAsPythonLowersIt(t *testing.T) {
-	tests := []struct{ text, want string }{
-		{"<SKILL>x</skill>", "skill"},
-		{"  <environment_context>\n</ENVIRONMENT_CONTEXT>  ", "environment_context"},
-		{"<sKill>x</skill>", "skill"},
-		{"<skİll>x</skill>", ""},
-		{"# agents.md INSTRUCTIONS\n</instructions>", "agents_md_instructions"},
-		{"hello <skill>x</skill>", ""},
-		{" <skill></skill> ", "skill"},
+func TestContextMarkersIgnoreCase(t *testing.T) {
+	tests := []struct{ name, text, want string }{
+		{"an upper-case open marker", "<SKILL>x</skill>", "skill"},
+		{"an upper-case close marker with spaces around", "  <environment_context>\n</ENVIRONMENT_CONTEXT>  ",
+			"environment_context"},
+		{"the Kelvin sign lowers to k", "<s\u212aill>x</skill>", "skill"},
+		{"a capital I with dot lowers to i", "<sk\u0130ll>x</skill>", "skill"},
+		{"a dotless i is not i", "<sk\u0131ll>x</skill>", ""},
+		{"the AGENTS.md heading", "# agents.md INSTRUCTIONS\n</instructions>", "agents_md_instructions"},
+		{"text before the marker", "hello <skill>x</skill>", ""},
+		{"an empty block", " <skill></skill> ", "skill"},
 	}
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("%q", test.text), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			if got := contextMarker(test.text); got != test.want {
-				t.Errorf("got %q, want %q", got, test.want)
+				t.Errorf("contextMarker(%q) = %q, want %q", test.text, got, test.want)
 			}
 		})
 	}

@@ -13,9 +13,8 @@
 // rules/*.rules, memories/rollout_summaries/*.md, a fork's import ledger and
 // Codex's automations/*/automation.toml.
 //
-// One package holds what the analyzer kept in two modules that import each
-// other (the rollout reader and the readers of the SQLite and JSON stores):
-// the store readers need the rollout's turn-item rows and guardian texts,
+// One package holds the rollout reader and the readers of the SQLite and
+// JSON stores, which need each other: the store readers need the rollout's turn-item rows and guardian texts,
 // and the rollout reader needs the log databases for a guardian review's
 // governed call. A fork is the same parser built with other Settings. See
 // research/codex-cli.md, Parser plan, for every row.
