@@ -2836,6 +2836,16 @@ read gives the same row after its transcript's rows, with the session id, and it
 row keeps the stub followed by `[persisted output could not be read (<reason>)]`
 ([Persisted output files](#persisted-output-files)).
 
+A member the format gives a kind that is present with another is one `system` row after the
+file's other rows, `source_line` 1 at the file's modification time, as the not-a-JSON-object row
+is; an absent, null or empty member gives no row. A settings file whose `permissions` is not an
+object is `parser: permissions is not a JSON object`, and one whose `permissions.allow`, `deny`,
+`ask` or `additionalDirectories` is not an array `parser: permissions.<key> is not a JSON array`.
+A `.claude.json` whose `projects` is not an object is `parser: projects is not a JSON object`, a
+`projects.<path>` that is present and not an object `parser: projects.<path> is not a JSON object`,
+and a project's `allowedTools` that is not an array
+`parser: projects.<path>.allowedTools is not a JSON array`, `<path>` the project's key.
+
 #### Fixtures
 
 Sample records, `.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl` (state

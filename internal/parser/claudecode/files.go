@@ -165,7 +165,8 @@ func (r *Reader) StandingRow(artifact *input.Artifact, timestamp, project, key s
 const PermissionSetting = "permission setting"
 
 // settings emits the permission, retention and model rows of a settings
-// file: the permissions lists one row per entry, then the scalars.
+// file: the permissions lists one row per entry, then the scalars, then
+// the problem of a permissions or permissions list of the wrong kind.
 func (r *Reader) settings(artifact *input.Artifact, emit parser.Emit) {
 	document, bad, ok := r.JSONObject(artifact, "settings file")
 	if !ok {
@@ -179,9 +180,12 @@ func (r *Reader) settings(artifact *input.Artifact, emit parser.Emit) {
 	standing := func(key string, value jsonvalue.Value, label string) {
 		emit(r.StandingRow(artifact, timestamp, project, key, value, label))
 	}
-	if permissions := document.Get("permissions"); permissions.IsObject() {
+	var problems parser.Problems
+	permissions := document.Get("permissions")
+	parser.ObjectMember(permissions, "permissions", 1, &problems)
+	if permissions.IsObject() {
 		for _, key := range []string{"allow", "deny", "ask", "additionalDirectories"} {
-			for _, entry := range permissions.Get(key).Items() {
+			for _, entry := range parser.ArrayMember(permissions.Get(key), "permissions."+key, 1, &problems) {
 				standing("permissions."+key, entry, PermissionSetting)
 			}
 		}
@@ -197,11 +201,24 @@ func (r *Reader) settings(artifact *input.Artifact, emit parser.Emit) {
 	if value := document.Get(modelKey); value.IsString() && value.StringValue() != "" {
 		standing(modelKey, value, "model setting")
 	}
+	r.problemRows(artifact, problems, emit)
+}
+
+// problemRows emits a "parser:" row per problem of a JSON file, at line 1
+// and the file's modification time, as the row of a file that is not a
+// JSON object is.
+func (r *Reader) problemRows(artifact *input.Artifact, problems parser.Problems, emit parser.Emit) {
+	for _, problem := range problems {
+		row := r.fileRow(artifact)
+		row.Text = parser.ProblemPrefix + problem.Message
+		emit(row)
+	}
 }
 
 // globalConfig emits the rows of ~/.claude.json: each project's allowed
 // tools, trust flags and Remote Control spawn mode, then the GitHub app
-// connection, the Remote Control machine id and the cloud flag.
+// connection, the Remote Control machine id and the cloud flag, then the
+// problems of a projects, project or allowedTools of the wrong kind.
 func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 	document, bad, ok := r.JSONObject(artifact, ".claude.json")
 	if !ok {
@@ -209,8 +226,9 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp := parser.FileMtime(artifact)
-	for _, member := range document.Get("projects").Members() {
-		r.projectRows(artifact, timestamp, member.Key, member.Value, emit)
+	var problems parser.Problems
+	for _, member := range parser.ObjectMember(document.Get("projects"), "projects", 1, &problems) {
+		r.projectRows(artifact, timestamp, member.Key, member.Value, &problems, emit)
 	}
 	if github := document.Get(githubStatusKey); github.IsObject() {
 		// accountUuid and orgUuid are identity values: never printed.
@@ -233,15 +251,20 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 			" (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
+	r.problemRows(artifact, problems, emit)
 }
 
-// projectRows emits the rows of one project of ~/.claude.json.
+// projectRows emits the rows of one project of ~/.claude.json. A project
+// that is not a JSON object, or its allowedTools that is not an array,
+// adds a problem.
 func (r *Reader) projectRows(artifact *input.Artifact, timestamp, projectPath string,
-	project jsonvalue.Value, emit parser.Emit) {
+	project jsonvalue.Value, problems *parser.Problems, emit parser.Emit) {
+	member := "projects." + projectPath
 	if !project.IsObject() {
+		parser.ObjectMember(project, member, 1, problems)
 		return
 	}
-	for _, entry := range project.Get("allowedTools").Items() {
+	for _, entry := range parser.ArrayMember(project.Get("allowedTools"), member+".allowedTools", 1, problems) {
 		emit(r.StandingRow(artifact, timestamp, projectPath, "allowedTools", entry, PermissionSetting))
 	}
 	for _, key := range []string{"hasTrustDialogAccepted", "hasClaudeMdExternalIncludesApproved"} {
