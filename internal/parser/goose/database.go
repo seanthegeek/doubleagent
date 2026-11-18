@@ -107,11 +107,11 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 
 // rows emits the database's rows, stopping at the first error.
 func (d *database) rows() error {
-	tables, err := d.handle.TableNames()
-	if err != nil || !tables["messages"] {
+	tables, err := parser.TablesOf(d.handle)
+	if err != nil || !tables.Has("messages") {
 		return err
 	}
-	if tables["sessions"] {
+	if tables.Has("sessions") {
 		table, err := d.handle.Table("sessions")
 		if err != nil {
 			return err

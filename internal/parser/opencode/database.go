@@ -30,7 +30,7 @@ type store struct {
 	options   parser.Options
 	emit      parser.Emit
 	database  *sqlitefile.Database
-	tables    map[string]bool
+	tables    parser.Tables
 	label     string
 	projects  map[string]sqlitefile.Row
 	sessions  []session
@@ -68,7 +68,7 @@ func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit
 // read emits the database's rows: the session starts, the shares, the
 // standing state, the transcript, then the problems.
 func (s *store) read() error {
-	tables, err := s.database.TableNames()
+	tables, err := parser.TablesOf(s.database)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (s *store) read() error {
 	if err := s.readSessions(); err != nil {
 		return err
 	}
-	hasV2 := tables["session_v2"]
+	hasV2 := tables.Has("session_v2")
 	for _, each := range s.sessions {
 		note := ""
 		if hasV2 && each.table == "session" {
@@ -109,7 +109,7 @@ func (s *store) read() error {
 // and part are the transcript, and session_message, which a migration
 // once wiped, is read only for a session with no 1.x message.
 func (s *store) transcript() error {
-	if s.tables["session_v2"] {
+	if s.tables.Has("session_v2") {
 		covered, err := s.sessionMessageIDs()
 		if err != nil {
 			return err
@@ -130,7 +130,7 @@ func (s *store) transcript() error {
 // readProjects indexes the project table's rows by their id, a later row
 // replacing an earlier one with the same id.
 func (s *store) readProjects() error {
-	if !s.tables["project"] {
+	if !s.tables.Has("project") {
 		return nil
 	}
 	table, err := s.database.Table("project")
@@ -156,7 +156,7 @@ func (s *store) addProject(row sqlitefile.Row) {
 // and id; the first row of an id is kept.
 func (s *store) readSessions() error {
 	for _, name := range []string{"session_v2", "session"} {
-		if !s.tables[name] {
+		if !s.tables.Has(name) {
 			continue
 		}
 		table, err := s.database.Table(name)

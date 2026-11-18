@@ -33,8 +33,8 @@ var (
 // columns it has, a column a migration has not added reading as NULL; no
 // rows and no error when the database has no such table.
 func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]sqlitefile.Row, error) {
-	names, err := database.TableNames()
-	if err != nil || !names[name] {
+	names, err := parser.TablesOf(database)
+	if err != nil || !names.Has(name) {
 		return nil, err
 	}
 	table, err := database.Table(name)

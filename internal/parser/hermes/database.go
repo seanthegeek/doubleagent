@@ -52,7 +52,7 @@ type stateReader struct {
 	parser   *Parser
 	artifact *input.Artifact
 	handle   *sqlitefile.Database
-	tables   map[string]bool
+	tables   parser.Tables
 	sessions map[string]jsonvalue.Value
 	usage    map[string][]jsonvalue.Value
 	errors   []recordError
@@ -107,13 +107,13 @@ func (s *stateReader) each(table string, withRowid bool, keep func(sqlitefile.Ro
 // rows emits the database's rows, stopping at the first error.
 func (s *stateReader) rows(options parser.Options) error {
 	var err error
-	if s.tables, err = s.handle.TableNames(); err != nil || !s.tables["messages"] {
+	if s.tables, err = parser.TablesOf(s.handle); err != nil || !s.tables.Has("messages") {
 		return err
 	}
 	if err := s.readUsage(); err != nil {
 		return err
 	}
-	if s.tables["sessions"] {
+	if s.tables.Has("sessions") {
 		seen := parser.Tracker{}
 		err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
 			s.sessions[parser.Text(session.Get("id"))] = session
@@ -150,17 +150,17 @@ func (s *stateReader) rows(options parser.Options) error {
 // tableRows emits the rows of the deletion fences, the relay peers and the
 // room events, for the tables the database has.
 func (s *stateReader) tableRows() error {
-	if s.tables["state_meta"] {
+	if s.tables.Has("state_meta") {
 		if err := s.retiredRows(); err != nil {
 			return err
 		}
 	}
-	if s.tables["conversation_generations"] {
+	if s.tables.Has("conversation_generations") {
 		if err := s.generationRows(); err != nil {
 			return err
 		}
 	}
-	if s.tables["hosted_room_events"] {
+	if s.tables.Has("hosted_room_events") {
 		return s.roomRows()
 	}
 	return nil
@@ -170,7 +170,7 @@ func (s *stateReader) tableRows() error {
 // first_seen; a row with a task is a side task's and is skipped.
 func (s *stateReader) readUsage() error {
 	s.usage = map[string][]jsonvalue.Value{}
-	if !s.tables["session_model_usage"] {
+	if !s.tables.Has("session_model_usage") {
 		return nil
 	}
 	return s.each("session_model_usage", true, nil, []string{"first_seen", "rowid"}, func(usage jsonvalue.Value) error {
@@ -375,7 +375,7 @@ func (s *stateReader) generationRows() error {
 // also a messages row is not known, so these are never user rows.
 func (s *stateReader) roomRows() error {
 	names := map[string]string{}
-	if s.tables["hosted_rooms"] {
+	if s.tables.Has("hosted_rooms") {
 		table, err := s.handle.Table("hosted_rooms")
 		if err != nil {
 			return err

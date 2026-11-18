@@ -166,7 +166,7 @@ func usageItems(databasePath string) ([]usage, []string) {
 		return nil, nil
 	}
 	defer database.Close()
-	if tables, err := database.TableNames(); err != nil || !tables["ItemTable"] {
+	if tables, err := parser.TablesOf(database); err != nil || !tables.Has("ItemTable") {
 		return nil, nil
 	}
 	table, err := database.Table("ItemTable")

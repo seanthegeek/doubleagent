@@ -11,7 +11,7 @@ import (
 // row.
 func (s *store) sessionMessageIDs() (map[string]bool, error) {
 	ids := map[string]bool{}
-	if !s.tables["session_message"] {
+	if !s.tables.Has("session_message") {
 		return ids, nil
 	}
 	table, err := s.database.Table("session_message")
@@ -32,7 +32,7 @@ func (s *store) sessionMessageIDs() (map[string]bool, error) {
 // `parser:` row after its message's rows.
 func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]bool, error) {
 	covered := map[string]bool{}
-	if !s.tables["message"] {
+	if !s.tables.Has("message") {
 		return covered, nil
 	}
 	table, err := s.database.Table("message")
@@ -59,7 +59,7 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 		if !ok {
 			continue
 		}
-		if parts == nil && s.tables["part"] {
+		if parts == nil && s.tables.Has("part") {
 			if parts, err = s.partLookup(); err != nil {
 				return nil, err
 			}
@@ -119,7 +119,7 @@ func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []f
 // skip, an assistant message's content replaced by its session_part items
 // when it has any. A record whose data does not decode is a problem.
 func (s *store) v2Messages(skip map[string]bool) error {
-	if !s.tables["session_message"] {
+	if !s.tables.Has("session_message") {
 		return nil
 	}
 	items, err := s.sessionParts(skip)
@@ -165,7 +165,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 // overrides the item's own. A row whose data does not decode is a problem.
 func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value, error) {
 	items := map[string][]jsonvalue.Value{}
-	if !s.tables["session_part"] {
+	if !s.tables.Has("session_part") {
 		return items, nil
 	}
 	table, err := s.database.Table("session_part")

@@ -15,7 +15,7 @@ import (
 // shareRows emits a "session synced:" row per session_share row, ordered
 // by its time then session. The share's secret is never read.
 func (s *store) shareRows() error {
-	if !s.tables["session_share"] {
+	if !s.tables.Has("session_share") {
 		return nil
 	}
 	table, err := s.database.Table("session_share")
@@ -42,7 +42,7 @@ func (s *store) shareRows() error {
 // and the unshare its session.updated.1 events record, ordered by session
 // then sequence. An event whose data does not decode is a problem.
 func (s *store) eventShareRows() error {
-	if !s.tables["event"] {
+	if !s.tables.Has("event") {
 		return nil
 	}
 	table, err := s.database.Table("event")
@@ -171,7 +171,7 @@ func permissionRules(stored sqlitefile.Value) ([]rule, bool) {
 func (s *store) worktreeRows() error {
 	seen := map[string]bool{}
 	for _, name := range []string{"worktree", "project_directory"} {
-		if !s.tables[name] {
+		if !s.tables.Has(name) {
 			continue
 		}
 		table, err := s.database.Table(name)
@@ -207,7 +207,7 @@ func (s *store) worktreeRows() error {
 // permission(project_id, data), without an action or an id, is not read,
 // and the rest of the database is read as without the table.
 func (s *store) grantRows() error {
-	if !s.tables["permission"] {
+	if !s.tables.Has("permission") {
 		return nil
 	}
 	table, err := s.database.Table("permission")

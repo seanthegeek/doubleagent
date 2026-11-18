@@ -30,11 +30,11 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 // rows, of an open database.
 func (p *Parser) databaseRows(artifact *input.Artifact, options parser.Options,
 	database *sqlitefile.Database, emit parser.Emit) error {
-	tables, err := database.TableNames()
+	tables, err := parser.TablesOf(database)
 	if err != nil {
 		return err
 	}
-	if tables["conversations"] {
+	if tables.Has("conversations") {
 		table, err := database.Table("conversations")
 		if err != nil {
 			return err
@@ -52,7 +52,7 @@ func (p *Parser) databaseRows(artifact *input.Artifact, options parser.Options,
 			p.conversation(artifact, options, text, parser.NonEmptyColumn(record.Get("key")), position+1, emit)
 		}
 	}
-	if tables["history"] {
+	if tables.Has("history") {
 		return p.shellHistory(artifact, database, emit)
 	}
 	return nil

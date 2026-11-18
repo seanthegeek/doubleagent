@@ -159,7 +159,7 @@ func (p *Parser) database(artifact *input.Artifact, emit parser.Emit, read func(
 // which every read gives nothing.
 type store struct {
 	database *sqlitefile.Database
-	tables   map[string]bool
+	tables   parser.Tables
 	err      error
 	// work counts the queries run, which a test measures.
 	work parser.Work
@@ -169,7 +169,7 @@ type store struct {
 // work.
 func newStore(database *sqlitefile.Database, work parser.Work) *store {
 	created := &store{database: database, work: work}
-	created.tables, created.err = database.TableNames()
+	created.tables, created.err = parser.TablesOf(database)
 	return created
 }
 
@@ -185,7 +185,7 @@ func (s *store) keep(err error) bool {
 // table returns the named table, nil when it is absent or the store has
 // failed.
 func (s *store) table(name string) *sqlitefile.Table {
-	if s.err != nil || !s.tables[name] {
+	if s.err != nil || !s.tables.Has(name) {
 		return nil
 	}
 	table, err := s.database.Table(name)

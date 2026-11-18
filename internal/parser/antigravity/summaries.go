@@ -28,8 +28,8 @@ func (p *Parser) summaries(artifact *input.Artifact, emit parser.Emit) {
 
 // summaryRows returns the rows of an open summaries database.
 func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Database) ([]timeline.Row, error) {
-	tables, err := database.TableNames()
-	if err != nil || !tables["conversation_summaries"] {
+	tables, err := parser.TablesOf(database)
+	if err != nil || !tables.Has("conversation_summaries") {
 		return nil, err
 	}
 	table, err := database.Table("conversation_summaries")

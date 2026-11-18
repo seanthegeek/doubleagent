@@ -69,8 +69,8 @@ func (p *Parser) parseThreads(artifact *input.Artifact, database *sqlitefile.Dat
 // sorted here, so the rows read before damage come back with the error,
 // which a sorted query, reading every row first, would not return.
 func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
-	names, err := database.TableNames()
-	if err != nil || !names["threads"] {
+	names, err := parser.TablesOf(database)
+	if err != nil || !names.Has("threads") {
 		return nil, err
 	}
 	table, err := database.Table("threads")

@@ -90,16 +90,16 @@ func (p *Parser) parseStateDatabase(artifact *input.Artifact, emit parser.Emit) 
 // readState returns the rows of every state table the open database has,
 // or the message of a PostgreSQL anchor that replaces them.
 func readState(database *sqlitefile.Database) (map[string][]sqlitefile.Row, string, error) {
-	names, err := database.TableNames()
+	names, err := parser.TablesOf(database)
 	if err != nil {
 		return nil, "", err
 	}
-	if !names["backup_runs"] && names["openclaw_engine_anchor"] {
+	if !names.Has("backup_runs") && names.Has("openclaw_engine_anchor") {
 		return nil, anchorMessage(database, "state"), nil
 	}
 	data := map[string][]sqlitefile.Row{}
 	for _, query := range stateQueries() {
-		if !names[query.table] {
+		if !names.Has(query.table) {
 			continue
 		}
 		table, err := database.Table(query.table)

@@ -107,7 +107,6 @@ func (p *Parser) row(artifact *input.Artifact, text, timestamp string) timeline.
 // store reads the tables of one database, keeping the first error.
 type store struct {
 	database *sqlitefile.Database
-	tables   map[string]bool
 	err      error
 }
 
@@ -117,13 +116,12 @@ func (s *store) rows(table, order string) []sqlitefile.Row {
 	if s.err != nil {
 		return nil
 	}
-	if s.tables == nil {
-		s.tables, s.err = s.database.TableNames()
-		if s.err != nil {
-			return nil
-		}
+	tables, err := parser.TablesOf(s.database)
+	if err != nil {
+		s.err = err
+		return nil
 	}
-	if !s.tables[table] {
+	if !tables.Has(table) {
 		return nil
 	}
 	handle, err := s.database.Table(table)

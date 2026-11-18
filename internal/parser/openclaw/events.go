@@ -141,7 +141,7 @@ func (a *agentDatabase) cold() error {
 		current := a.windowSession(sessionID, "", "cold_archive="+parser.NonEmptyColumn(row.Get("archive_name")))
 		line, archivedAt := int(row.Rowid), parser.ColumnTime(row.Get("archived_at"))
 		blobs := []namedBlob{{cmp.Or(parser.NonEmptyColumn(row.Get("archive_name")), sessionID), row.Get("archive_blob")}}
-		if a.names["session_transcript_cold_archive_chunks"] {
+		if a.names.Has("session_transcript_cold_archive_chunks") {
 			chunks, err := a.chunks(sessionID)
 			if err != nil {
 				return err

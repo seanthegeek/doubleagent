@@ -14,7 +14,7 @@ import (
 // hook started.
 func (a *agentDatabase) relays() (map[string]bool, error) {
 	relayed := map[string]bool{}
-	if a.names["session_conversations"] && a.names["conversations"] {
+	if a.names.Has("session_conversations") && a.names.Has("conversations") {
 		if err := a.conversationRelays(relayed); err != nil {
 			return nil, err
 		}

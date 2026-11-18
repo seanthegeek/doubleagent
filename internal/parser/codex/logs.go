@@ -86,8 +86,8 @@ func logFields(body string) map[string]string {
 // nil when the database has no such table or it lacks the body or target
 // column. The body is feedback_log_body, message in the first migration.
 func logsTableOf(database *sqlitefile.Database) (*sqlitefile.Table, string, error) {
-	names, err := database.TableNames()
-	if err != nil || !names[logsTable] {
+	names, err := parser.TablesOf(database)
+	if err != nil || !names.Has(logsTable) {
 		return nil, "", err
 	}
 	table, err := database.Table(logsTable)

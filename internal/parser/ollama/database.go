@@ -92,17 +92,17 @@ type chatState struct {
 // databaseRows emits the rows of the messages, ordered by chat_id then id.
 func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Artifact,
 	options parser.Options, emit parser.Emit) error {
-	tables, err := database.TableNames()
-	if err != nil || !tables["messages"] {
+	tables, err := parser.TablesOf(database)
+	if err != nil || !tables.Has("messages") {
 		return err
 	}
 	calls, files := map[string][]toolCall{}, map[string][]attachment{}
-	if tables["tool_calls"] {
+	if tables.Has("tool_calls") {
 		if calls, err = readCalls(database); err != nil {
 			return err
 		}
 	}
-	if tables["attachments"] {
+	if tables.Has("attachments") {
 		if files, err = readAttachments(database); err != nil {
 			return err
 		}

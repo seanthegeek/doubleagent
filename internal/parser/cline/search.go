@@ -33,17 +33,17 @@ func readSearch(path string) (searchIndex, error) {
 		return searchIndex{}, err
 	}
 	defer database.Close()
-	names, err := database.TableNames()
+	names, err := parser.TablesOf(database)
 	if err != nil {
 		return searchIndex{}, unreadable(searchName, err)
 	}
 	var index searchIndex
-	if names["indexed_sessions"] {
+	if names.Has("indexed_sessions") {
 		if index.indexed, err = selectAll(database, "indexed_sessions"); err != nil {
 			return searchIndex{}, unreadable(searchName, err)
 		}
 	}
-	if names["session_search"] {
+	if names.Has("session_search") {
 		index.documents, err = selectAll(database, "session_search", "session_id", "document_id",
 			"ordinal", "role", "started_at", "workspace_root", "title", "content")
 		switch {

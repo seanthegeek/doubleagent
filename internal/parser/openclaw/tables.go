@@ -100,7 +100,7 @@ func (a *agentDatabase) fullText() error {
 // row for the platform message that replied to it. The session is the
 // current generation of source_session_key in session_nodes.
 func (a *agentDatabase) deliveries(nodes []node) error {
-	if !a.names["conversations"] {
+	if !a.names.Has("conversations") {
 		return nil
 	}
 	current := map[string]string{}
