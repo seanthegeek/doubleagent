@@ -75,6 +75,7 @@ func TestAThreadStateMemberOfTheWrongKindIsReported(t *testing.T) {
 		{"network_hosts", "sandbox_grants.network_hosts", `{"sandbox_grants": {"network_hosts": %s}}`, true},
 		{"initial_project_snapshot", "initial_project_snapshot", `{"initial_project_snapshot": %s}`, false},
 		{"sandbox_grants", "sandbox_grants", `{"sandbox_grants": %s}`, false},
+		{"model", "model", `{"model": %s}`, false},
 	}
 	for _, test := range tests {
 		for _, wrong := range wrongKinds(test.array) {

@@ -70,8 +70,8 @@ func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
 // threadState fills in the thread's project, branch, model and time, and
 // emits its start row, its `git remote:` and `model:` rows and one
 // `permission setting:` row per thread-scoped grant. An
-// initial_project_snapshot, worktree_snapshots or sandbox_grants of the
-// wrong kind adds a problem.
+// initial_project_snapshot, worktree_snapshots, model or sandbox_grants of
+// the wrong kind adds a problem.
 func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonvalue.Value,
 	problems *parser.Problems, emit parser.Emit) {
 	line := int(record.Rowid)
@@ -81,7 +81,7 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 		context.project = parser.Text(worktrees[0].Get("worktree_path"))
 	}
 	branch, remote := branchAndRemote(worktrees, context.project)
-	modelInfo := parser.ObjectOrEmpty(value.Get("model"))
+	modelInfo := parser.ObjectOrEmptyMember(value.Get("model"), "model", line, problems)
 	var parts []string
 	for _, part := range []jsonvalue.Value{modelInfo.Get("provider"), modelInfo.Get("model")} {
 		if !part.IsEmpty() {
