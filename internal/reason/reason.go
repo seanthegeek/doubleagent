@@ -21,7 +21,9 @@ import (
 	"path/filepath"
 )
 
-// The fixed reasons, in the order For tests for them.
+// The fixed reasons. For tests the platform's own conditions (a directory,
+// not a directory, a link loop, a long name) first, then permission, then
+// a missing file.
 const (
 	PermissionDenied = "permission denied"
 	NotFound         = "no such file or directory"
@@ -33,8 +35,8 @@ const (
 
 // For returns the reason err gives: one of the fixed reasons for an
 // operating-system error the package classifies, else the text of the
-// innermost error under any *fs.PathError, *os.LinkError or
-// *os.SyscallError, else err's own text. A nil err gives "".
+// innermost error under every *fs.PathError, *os.LinkError and
+// *os.SyscallError of its chain, else err's own text. A nil err gives "".
 func For(err error) string {
 	if err == nil {
 		return ""
@@ -73,20 +75,23 @@ func Describe(path string, err error) string {
 	return path + ": " + For(err)
 }
 
-// innermost returns the error under the outermost *fs.PathError,
-// *os.LinkError or *os.SyscallError in err's chain, or err itself when it
-// has none.
+// innermost returns the error under the last *fs.PathError, *os.LinkError
+// or *os.SyscallError in err's chain, taking each in turn until none is
+// left, or err itself when it has none.
 func innermost(err error) error {
-	var pathError *fs.PathError
-	var linkError *os.LinkError
-	var syscallError *os.SyscallError
-	switch {
-	case errors.As(err, &pathError):
-		return pathError.Err
-	case errors.As(err, &linkError):
-		return linkError.Err
-	case errors.As(err, &syscallError):
-		return syscallError.Err
+	for {
+		var pathError *fs.PathError
+		var linkError *os.LinkError
+		var syscallError *os.SyscallError
+		switch {
+		case errors.As(err, &pathError):
+			err = pathError.Err
+		case errors.As(err, &linkError):
+			err = linkError.Err
+		case errors.As(err, &syscallError):
+			err = syscallError.Err
+		default:
+			return err
+		}
 	}
-	return err
 }

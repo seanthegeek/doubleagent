@@ -3,8 +3,11 @@
 package reason
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -37,4 +40,24 @@ func TestForOnUnixConditions(t *testing.T) {
 			t.Errorf("For(%v) = %q, want %q (%s)", err, got, PermissionDenied, errorChain(err))
 		}
 	})
+}
+
+func TestForGivesTheInnermostCauseOfARealErrorWrappedTwice(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file.txt")
+	if err := osfile.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := osfile.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	_, writeErr := file.Write([]byte("y"))
+	if !errors.Is(writeErr, syscall.EBADF) {
+		t.Fatalf("writing a file opened to read gave %v (%s)", writeErr, errorChain(writeErr))
+	}
+	nested := &fs.PathError{Op: "close", Path: path, Err: os.NewSyscallError("fsync", writeErr)}
+	if got, want := For(nested), syscall.EBADF.Error(); got != want {
+		t.Errorf("For(%v) = %q, want %q (%s)", nested, got, want, errorChain(nested))
+	}
 }
