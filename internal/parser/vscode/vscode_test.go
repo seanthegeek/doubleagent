@@ -131,10 +131,10 @@ func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 			"bad path null", ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			state := newNode(decoded(t, startState))
+			state := newNode(decoded(t, startState), 0)
 			var err error
-			for _, record := range decoded(t, test.records).Items() {
-				if state, err = applyMutation(state, record, parser.Work{}); err != nil {
+			for i, record := range decoded(t, test.records).Items() {
+				if state, err = applyMutation(state, record, i+1, parser.Work{}); err != nil {
 					break
 				}
 			}
@@ -268,33 +268,36 @@ func FuzzApplyMutation(fuzz *testing.F) {
 			return
 		}
 		var state *node
-		lines := requestLines{}
+		var reference *shiftingNode
+		started, startLine := false, 0
+		lines, referenceLines := requestLines{}, requestLines{}
 		for i, record := range records.Items() {
-			before := requestCount(state)
-			next, err := applyMutation(state, record, parser.Work{})
+			referenceBefore := shiftingRequestCount(reference)
+			made, makes := requestMadeInside(reference, record)
+			nextReference, referenceErr := shiftingApply(reference, record, parser.Work{})
+			next, err := applyMutation(state, record, i, parser.Work{})
+			if (err == nil) != (referenceErr == nil) || (err != nil && err.Error() != referenceErr.Error()) {
+				t.Fatalf("record %d: error %v, the shifting replay's %v", i, err, referenceErr)
+			}
 			if err != nil {
 				continue
 			}
-			state = next
-			after := requestCount(state)
-			track(record, before, after, i, lines, parser.Work{})
-			// Every request has a line and no line outlives its request; the
-			// session start has a line once a state has been set whole, which
-			// a log may never do.
-			requestEntries := len(lines)
-			if _, started := lines[sessionStart]; started {
-				requestEntries--
+			state, reference = next, nextReference
+			shiftingTrack(record, referenceBefore, shiftingRequestCount(reference), i, referenceLines, parser.Work{})
+			if makes {
+				referenceLines[made] = i
 			}
-			if requestEntries != int(after) {
-				t.Fatalf("record %d: %d request lines for %d requests: %v", i, requestEntries, after, lines)
+			if isKind(record.Get("kind"), 0) {
+				started, startLine = true, i
 			}
-			for position := range after {
-				if _, ok := lines[position]; !ok {
-					t.Fatalf("record %d: request %d has no line: %v", i, position, lines)
-				}
+			trackLines(state, started, startLine, lines)
+			if got, want := state.value().JSON(), reference.value().JSON(); got != want {
+				t.Fatalf("record %d: state %s, the shifting replay's %s", i, got, want)
+			}
+			if !maps.Equal(lines, referenceLines) {
+				t.Fatalf("record %d: lines %v, the shifting replay's %v", i, lines, referenceLines)
 			}
 		}
-		_ = state.value()
 	})
 }
 
@@ -349,10 +352,10 @@ func TestReplayWorkGrowsWithTheLogNotItsSquare(t *testing.T) {
 			if state.Get("requests").Len() != n || state.Get("settings").Len() != 0 || len(problems) != 0 {
 				t.Fatalf("replay gave %s with problems %v", state.JSON(), problems)
 			}
-			// Each push sets its one request's line and each delete
-			// drops its one key.
-			if got := work.Count("entries moved"); got != 2*n {
-				t.Errorf("moved %d entries, want %d", got, 2*n)
+			// Each push adds its one request and each delete drops its
+			// one key.
+			if got := work.Count("entries changed"); got != 2*n {
+				t.Errorf("changed %d entries, want %d", got, 2*n)
 			}
 		})
 	}
@@ -362,7 +365,7 @@ func TestObjectKeysKeepTheOrderAListOfKeysWouldKeep(t *testing.T) {
 	for seed := range uint64(200) {
 		t.Run(fmt.Sprintf("seed %d", seed), func(t *testing.T) {
 			source := rand.New(rand.NewPCG(seed, 527))
-			state := newNode(decoded(t, `{"o":{"b":0,"a":0}}`))
+			state := newNode(decoded(t, `{"o":{"b":0,"a":0}}`), 0)
 			want := []string{"b", "a"}
 			for step := range 40 {
 				key := string("abcd"[source.IntN(4)])
@@ -373,7 +376,7 @@ func TestObjectKeysKeepTheOrderAListOfKeysWouldKeep(t *testing.T) {
 				} else if !slices.Contains(want, key) {
 					want = append(want, key)
 				}
-				if _, err := applyMutation(state, decoded(t, record), parser.Work{}); err != nil {
+				if _, err := applyMutation(state, decoded(t, record), step+1, parser.Work{}); err != nil {
 					t.Fatal(err)
 				}
 				if got := state.value().Get("o").Keys(); !slices.Equal(got, want) {
