@@ -779,7 +779,7 @@ JSON array: an element cut mid-write is `parser: unparseable record <N> (<reason
 that element to the end of the file>`, the entries before it kept; an element that is not an
 object with a string `text` is `parser: unparseable record <N> (not an object with a text): <the
 element as JSON>` and the walk goes on; `parser: not a JSON array`, `parser: array cut off after
-record <N>` and `parser: unparseable data after the JSON array` describe the whole file; the
+record <N>` and `parser: unexpected data after the array` describe the whole file; the
 other layouts of `permissions.yaml` are the one row of [Permission rows](#permission-rows). These
 are source-derived; not observed on any real install. `sessions.json` is read by
 `read_index` in `continue_dev.py` (the PearAI parser shares it), whose
@@ -793,7 +793,7 @@ still time their sessions), `parser: array cut off after record <N>`,
 `parser: unparseable record <N> (not an object with a sessionId):
 <the entry as JSON>` (an entry keyed by the pre-1.0 `session_id` is
 skipped without a row, as the extension filters it) and `parser:
-unparseable data after the JSON array`. A session the index lost
+unexpected data after the array`. A session the index lost
 keeps its rows with an empty `timestamp_utc`. These damaged-index layouts are not observed on any
 real install, source-derived (continuedev/continue at
 [`5522c6f`](https://github.com/continuedev/continue/commit/5522c6f44ca0ac3528b37244818fbfa39b5af470));

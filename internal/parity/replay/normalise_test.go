@@ -75,6 +75,8 @@ func laterDifferences() []Difference {
 			"both of which are read", Text: epochUnitsText},
 		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem",
 			Excludes: sharedMemoryProblem},
+		{Number: 160, Summary: "a JSON array that is cut off, or has data after it, is reported in " +
+			"one wording", Text: arrayDamageText},
 	}
 }
 

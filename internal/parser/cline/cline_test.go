@@ -1,9 +1,14 @@
 package cline
 
 import (
+	"path/filepath"
+	"slices"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // A manifest is a file named after its own session directory; the names
@@ -54,6 +59,43 @@ func TestDenialReadsRejectionsAndBlocks(t *testing.T) {
 			}
 			if got := denial(content); got != test.want {
 				t.Errorf("denial = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+// A messages file cut mid-write keeps the messages read whole and reports
+// the cut in the kit's wording.
+func TestACutMessagesFileReportsTheCutAfterTheWholeMessages(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		messages int
+		problems parser.Problems
+	}{
+		{"cut after a comma", `{"messages": [{"id": "m1"}, {"id": "m2"},`, 2,
+			parser.Problems{{Line: 3, Message: "array cut off after record 2"}}},
+		{"cut after the bracket", `{"messages": [`, 0,
+			parser.Problems{{Line: 1, Message: "array cut off after record 0"}}},
+		{"cut inside a message", `{"messages": [{"id": "m1"}, {"id"`, 1, parser.Problems{{Line: 2,
+			Message: "unparseable record 2 (invalid JSON at line 1, column 34: unexpected end of JSON input)",
+			Raw:     `{"id"`}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "s.messages.json")
+			if err := osfile.WriteFile(path, []byte(test.text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var problems parser.Problems
+			result := readTranscript(&input.Artifact{DiskPath: path}, jsonvalue.NewNull(), &problems)
+			count := 0
+			for range result.messages {
+				count++
+			}
+			if count != test.messages || !slices.Equal(problems, test.problems) {
+				t.Errorf("got %d messages and %+v, want %d and %+v", count, problems, test.messages,
+					test.problems)
 			}
 		})
 	}

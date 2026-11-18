@@ -22,13 +22,14 @@ func skipJSONWhitespace(text string, offset int) int {
 
 // ArrayAt yields (1-based position, element) from the JSON array that
 // starts at the byte offset of text, after any whitespace, salvaging what it
-// can. Text that is not an array adds "not a JSON array" at 1. Where an
-// element is due, after "[" or a comma, one that does not decode, the end
-// of the text included, stops the walk with "unparseable record <position>
-// (<reason>)" and the text from there to the end (TailText) as raw. Where a
-// comma or "]" is due after an element, anything else adds "array cut off
-// after record <n>". The elements before the damage are kept. When end is
-// not nil it is set to the offset after the closing bracket, or -1.
+// can of a damaged one; the elements before the damage are kept. Text that
+// is not an array adds "not a JSON array" at 1. An array whose text ends
+// before its closing bracket, or that lacks a comma between two elements,
+// adds "array cut off after record <n>" at n+1, n the elements read whole.
+// An element that starts but does not decode adds "unparseable record
+// <position> (<reason>)" at its position, with the text from there to the
+// end (TailText) as raw. When end is not nil it is set to the offset after
+// the closing bracket, or -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		setEnd(end, -1)
@@ -44,6 +45,10 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 		}
 		for position := 1; ; position++ {
 			start := skipJSONWhitespace(text, cursor)
+			if start == len(text) {
+				problems.Add(position, cutOff(position-1))
+				return
+			}
 			value, next, err := jsonvalue.DecodePrefix(text, start)
 			if err != nil {
 				problems.AddRaw(position, UnparseableRecord(position, err), TailText(text, start))
@@ -61,10 +66,15 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 				setEnd(end, cursor+1)
 				return
 			}
-			problems.Add(position+1, "array cut off after record "+strconv.Itoa(position))
+			problems.Add(position+1, cutOff(position))
 			return
 		}
 	}
+}
+
+// cutOff is the message of an array cut off after count whole elements.
+func cutOff(count int) string {
+	return "array cut off after record " + strconv.Itoa(count)
 }
 
 // setEnd stores offset in end when the caller asked for it.
@@ -74,17 +84,12 @@ func setEnd(end *int, offset int) {
 	}
 }
 
-// JSONArray yields the elements of the file at path holding one JSON array,
-// read as ReadText reads an optional file and walked as ArrayAt walks it. A
-// file that cannot be read, a damaged array and data after the array, empty
-// or not, as "unparseable data after the JSON array", are added to
-// problems.
-func JSONArray(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+// ArrayText yields the elements of the JSON array text holds, walked as
+// ArrayAt walks it from the start of text. Text after the closing bracket
+// other than JSON whitespace, after an empty array too, adds "unexpected
+// data after the array" after the last element.
+func ArrayText(text string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
-		text, ok := ReadText(path, problems)
-		if !ok {
-			return
-		}
 		end, count := -1, 0
 		for position, value := range ArrayAt(text, 0, problems, &end) {
 			count = position
@@ -92,51 +97,35 @@ func JSONArray(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] 
 				return
 			}
 		}
-		if end >= 0 && strings.Trim(text[end:], jsonWhitespace) != "" {
-			problems.Add(count+1, "unparseable data after the JSON array")
+		if end >= 0 && skipJSONWhitespace(text, end) < len(text) {
+			problems.Add(count+1, "unexpected data after the array")
 		}
 	}
 }
 
-// ArrayElements returns the elements of the JSON array text holds, for
-// stores read whole into memory (Gemini CLI histories, Kilo Code tasks),
-// walked as ArrayAt walks it except for two conditions, named in the words
-// those stores' rows hold: text that ends where an element is due gives
-// "array cut off after record <n>" after the last element, not an
-// unparseable record; data after a non-empty array gives "unexpected data
-// after the array", and data after an empty one nothing.
+// JSONArray yields the elements of the file at path holding one JSON array,
+// read as ReadText reads an optional file and walked as ArrayText walks it,
+// with the same problems; a file that cannot be read is one more.
+func JSONArray(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
+		text, ok := ReadText(path, problems)
+		if !ok {
+			return
+		}
+		for position, value := range ArrayText(text, problems) {
+			if !yield(position, value) {
+				return
+			}
+		}
+	}
+}
+
+// ArrayElements returns the elements ArrayText yields from text, with its
+// problems, for stores read whole into memory.
 func ArrayElements(text string, problems *Problems) []jsonvalue.Value {
 	var elements []jsonvalue.Value
-	cursor := skipJSONWhitespace(text, 0)
-	if cursor >= len(text) || text[cursor] != '[' {
-		problems.Add(1, "not a JSON array")
-		return elements
-	}
-	cursor = skipJSONWhitespace(text, cursor+1)
-	if cursor < len(text) && text[cursor] == ']' {
-		return elements
-	}
-	for cursor < len(text) {
-		position := len(elements) + 1
-		value, next, err := jsonvalue.DecodePrefix(text, cursor)
-		if err != nil {
-			problems.AddRaw(position, UnparseableRecord(position, err), TailText(text, cursor))
-			return elements
-		}
+	for _, value := range ArrayText(text, problems) {
 		elements = append(elements, value)
-		cursor = skipJSONWhitespace(text, next)
-		if cursor < len(text) && text[cursor] == ',' {
-			cursor = skipJSONWhitespace(text, cursor+1)
-			continue
-		}
-		if cursor < len(text) && text[cursor] == ']' {
-			if skipJSONWhitespace(text, cursor+1) < len(text) {
-				problems.Add(position+1, "unexpected data after the array")
-			}
-			return elements
-		}
-		break
 	}
-	problems.Add(len(elements)+1, "array cut off after record "+strconv.Itoa(len(elements)))
 	return elements
 }

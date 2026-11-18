@@ -75,7 +75,7 @@ func ReadIndex(path string) (map[string]jsonvalue.Value, parser.Problems) {
 		return entries, problems
 	}
 	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
-	ArrayRecords(text, &problems, func(position int, element jsonvalue.Value) {
+	for position, element := range parser.ArrayText(text, &problems) {
 		switch {
 		case element.IsObject() && !element.Get("sessionId").IsEmpty():
 			entries[element.Get("sessionId").Text()] = element
@@ -84,20 +84,6 @@ func ReadIndex(path string) (map[string]jsonvalue.Value, parser.Problems) {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
 				" (not an object with a sessionId)", parser.JSONText(element))
 		}
-	})
+	}
 	return entries, problems
-}
-
-// ArrayRecords passes each element of the JSON array text holds to visit,
-// salvaging a damaged array as parser.ArrayAt does, and adds a problem for
-// data after the array.
-func ArrayRecords(text string, problems *parser.Problems, visit func(int, jsonvalue.Value)) {
-	end, count := -1, 0
-	for position, element := range parser.ArrayAt(text, 0, problems, &end) {
-		count = position
-		visit(position, element)
-	}
-	if end >= 0 && strings.Trim(text[end:], textlines.JSONSpace) != "" {
-		problems.Add(count+1, "unparseable data after the JSON array")
-	}
 }

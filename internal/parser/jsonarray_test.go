@@ -28,11 +28,10 @@ func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 		{"a trailing comma is a bad record", `[1,]`, 0, []string{"1"}, Problems{{Line: 2,
 			Message: "unparseable record 2 (invalid JSON at line 1, column 4: invalid character ']' looking for beginning of value)",
 			Raw:     "]"}}, -1},
-		{"a lone bracket", `[`, 0, nil, Problems{{Line: 1,
-			Message: "unparseable record 1 (invalid JSON at line 1, column 2: unexpected end of JSON input)"}}, -1},
-		{"text that ends after a comma has a missing record", "[1, \n", 0, []string{"1"},
-			Problems{{Line: 2, Message: "unparseable record 2 (invalid JSON at line 2, column 1: " +
-				"unexpected end of JSON input)"}}, -1},
+		{"a lone bracket is cut off after no record", `[`, 0, nil,
+			Problems{{Line: 1, Message: "array cut off after record 0"}}, -1},
+		{"text that ends after a comma is cut off after the record before", "[1, \n", 0, []string{"1"},
+			Problems{{Line: 2, Message: "array cut off after record 1"}}, -1},
 		{"an array after an offset", `x [ {"a":1} , "é"] tail`, 2, []string{`{"a":1}`, `"é"`}, nil,
 			19},
 		{"an array without its bracket", "[1, 2\n", 0, []string{"1", "2"},
@@ -72,11 +71,11 @@ func TestJSONArrayReportsDataAfterTheArray(t *testing.T) {
 	}{
 		{"whitespace after the array is fine", "\ufeff[1, 2] \r\n", 2, nil},
 		{"text after the array is reported after its records", "[1, 2] x", 2,
-			Problems{{Line: 3, Message: "unparseable data after the JSON array"}}},
+			Problems{{Line: 3, Message: "unexpected data after the array"}}},
 		{"a cut-off array reports only the cut", "[1, 2", 2,
 			Problems{{Line: 3, Message: "array cut off after record 2"}}},
 		{"text after an empty array is reported", "[] x", 0,
-			Problems{{Line: 1, Message: "unparseable data after the JSON array"}}},
+			Problems{{Line: 1, Message: "unexpected data after the array"}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -123,7 +122,8 @@ func TestArrayElementsSalvagesTheElementsBeforeDamage(t *testing.T) {
 		{"elements with spaces around commas", `[1, {"a": 2} ,3]`, []string{"1", `{"a":2}`, "3"}, nil},
 		{"an empty array", `[]`, nil, nil},
 		{"an empty array with spaces", " [ ]\n", nil, nil},
-		{"data after an empty array is not reported", `[] x`, nil, nil},
+		{"data after an empty array", `[] x`, nil,
+			Problems{{Line: 1, Message: "unexpected data after the array"}}},
 		{"empty text is not an array", ``, nil, Problems{{Line: 1, Message: "not a JSON array"}}},
 		{"whitespace is not an array", "  ", nil, Problems{{Line: 1, Message: "not a JSON array"}}},
 		{"a word is not an array", `x`, nil, Problems{{Line: 1, Message: "not a JSON array"}}},
@@ -180,4 +180,41 @@ func FuzzArrayElements(fuzz *testing.F) {
 			t.Errorf("%d elements with problems %+v", len(elements), problems)
 		}
 	})
+}
+
+// The three readers describe each condition of a damaged array in the same
+// words at the same position.
+func TestTheArrayReadersDescribeDamageAlike(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		problems Problems
+	}{
+		{"cut after a comma", "[1, ", Problems{{Line: 2, Message: "array cut off after record 1"}}},
+		{"cut after a record", "[1, 2", Problems{{Line: 3, Message: "array cut off after record 2"}}},
+		{"cut after the bracket", "[", Problems{{Line: 1, Message: "array cut off after record 0"}}},
+		{"cut inside a record", `[1, {"a":`, Problems{{Line: 2,
+			Message: "unparseable record 2 (invalid JSON at line 1, column 10: unexpected end of JSON input)",
+			Raw:     `{"a":`}}},
+		{"data after the array", "[1] {}", Problems{{Line: 2, Message: "unexpected data after the array"}}},
+		{"data after an empty array", "[]]", Problems{{Line: 1, Message: "unexpected data after the array"}}},
+		{"a bad record", "[1, @]", Problems{{Line: 2, Message: "unparseable record 2 (invalid JSON at " +
+			"line 1, column 5: invalid character '@' looking for beginning of value)", Raw: "@]"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var fromText, fromElements, fromFile Problems
+			for range ArrayText(test.text, &fromText) {
+			}
+			ArrayElements(test.text, &fromElements)
+			for range JSONArray(writeFile(t, "array.json", []byte(test.text)), &fromFile) {
+			}
+			for name, got := range map[string]Problems{"ArrayText": fromText,
+				"ArrayElements": fromElements, "JSONArray": fromFile} {
+				if !slices.Equal(got, test.problems) {
+					t.Errorf("%s gave %+v, want %+v", name, got, test.problems)
+				}
+			}
+		})
+	}
 }

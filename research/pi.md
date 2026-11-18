@@ -1377,8 +1377,10 @@ session's `meta.json` that cannot be read is one whole-file row
 `trust.json`, `settings.json` or `meta.json` that is not a JSON object, a leading byte-order mark
 dropped as pi drops it ([Project trust](#project-trust)), is one whole-file row
 `parser: <path> is not a JSON object`, `<path>` relative to the home. A `crashes.json` element
-that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, and a cut
-array `parser: unparseable record <N> (<reason>)`. An empty `settings.json` gives no row, since pi
+that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, an
+element cut mid-write `parser: unparseable record <N> (<reason>): <the rest of the file>`, and an
+array that ends where an element is due `parser: array cut off after record <N>`, `<N>` the
+elements read whole. An empty `settings.json` gives no row, since pi
 reads empty content as no settings
 ([settings-manager.ts:377-379](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/settings-manager.ts#L377-L379)),
 while an empty `trust.json` gives the not-an-object row, as pi rejects it
