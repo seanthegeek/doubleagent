@@ -6,7 +6,6 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -114,12 +113,6 @@ func FuzzProjectPathSpelling(fuzz *testing.F) {
 	}
 	fuzz.Fuzz(func(t *testing.T, path string) {
 		canonical := CanonicalProjectPath(path)
-		if strings.HasPrefix(canonical, `\\?\`) && IsWindowsPath(path) {
-			// A UNC path whose server is named "?" is spelled like an
-			// extended-length prefix once its separators are backslashes;
-			// Windows allows no such server name.
-			return
-		}
 		if again := CanonicalProjectPath(canonical); again != canonical {
 			t.Fatalf("CanonicalProjectPath(%q) = %q, but of that %q", path, canonical, again)
 		}

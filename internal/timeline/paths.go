@@ -13,7 +13,9 @@ import (
 // repeated or trailing separator and no extended-length prefix (\\?\ or
 // \\?\UNC\). The case after the drive is kept, since the folder's real
 // casing is unknown. Any other path, //server/share included, is returned
-// unchanged, because a backslash is a legal character in a POSIX file name.
+// unchanged, as is a UNC path whose server is "?" with more after it, which
+// no Windows program writes and which would read as an extended-length
+// prefix; CanonicalProjectPath and ProjectKey give their results back.
 func CanonicalProjectPath(path string) string {
 	if canonical, ok := windowsForm(path); ok {
 		return canonical
@@ -40,7 +42,8 @@ func IsWindowsPath(path string) bool {
 }
 
 // windowsForm returns path in the canonical Windows form and true, or false
-// when path is not a Windows form.
+// when path is not a Windows form. A backslash is a legal character in a
+// POSIX file name, so a path is read as a Windows one only in these forms.
 func windowsForm(path string) (string, bool) {
 	if rest, ok := strings.CutPrefix(path, `\\?\`); ok {
 		path = rest
@@ -53,7 +56,8 @@ func windowsForm(path string) (string, bool) {
 		return string(upperASCII(path[0])) + `:\` + strings.Join(parts, `\`), true
 	}
 	if rest, ok := strings.CutPrefix(path, `\\`); ok {
-		if parts := evidencepath.Elements(rest, true); len(parts) > 0 {
+		parts := evidencepath.Elements(rest, true)
+		if len(parts) == 1 || len(parts) > 1 && parts[0] != "?" {
 			return `\\` + strings.Join(parts, `\`), true
 		}
 	}
