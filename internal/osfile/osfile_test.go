@@ -90,6 +90,7 @@ func TestWrappersActLikeOsOnAnOrdinaryPath(t *testing.T) {
 		{"ReadFile returns the contents", checkReadFile},
 		{"WriteFile replaces the contents", checkWriteFile},
 		{"MkdirAll makes nested directories and accepts an existing one", checkMkdirAll},
+		{"MkdirTemp makes two new directories under its pattern, in the native form", checkMkdirTemp},
 		{"Remove deletes a file and refuses a directory that holds one", checkRemove},
 		{"RemoveAll deletes a tree", checkRemoveAll},
 		{"Chtimes sets the modification time", checkChtimes},
@@ -210,6 +211,31 @@ func checkMkdirAll(t *testing.T, root string) {
 	}
 	if entry, err := os.Stat(nested); err != nil || !entry.IsDir() {
 		t.Errorf("nested path is not a directory: %v", err)
+	}
+}
+
+func checkMkdirTemp(t *testing.T, root string) {
+	first, err := MkdirTemp(root, "cac-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	second, err := MkdirTemp(root, "cac-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp again: %v", err)
+	}
+	for _, made := range []string{first, second} {
+		if filepath.Dir(made) != root || !strings.HasPrefix(filepath.Base(made), "cac-") {
+			t.Errorf("made %q, want a cac- directory directly under %q", made, root)
+		}
+		if entry, err := os.Stat(made); err != nil || !entry.IsDir() {
+			t.Errorf("%q is not a directory: %v", made, err)
+		}
+	}
+	if first == second {
+		t.Errorf("both calls made %q", first)
+	}
+	if _, err := MkdirTemp(filepath.Join(root, "absent"), "cac-*"); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("in a directory that does not exist: %v, want not exist", err)
 	}
 }
 

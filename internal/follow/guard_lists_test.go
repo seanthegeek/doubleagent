@@ -285,9 +285,11 @@ func allowedCalls() map[string]allowance {
 			"tests the checksum file beside the archive the analyst names"},
 		{"internal/input/archive.go", "osfile.ReadFile", 1,
 			"reads the checksum file beside the archive the analyst names"},
-		{"internal/input/archive.go", "osfile.MkdirAll", 2,
-			"creates the analyst's work directory and a new extraction directory whose lstat " +
-				"showed nothing there"},
+		{"internal/input/archive.go", "osfile.MkdirAll", 1,
+			"creates the analyst's work directory"},
+		{"internal/input/archive.go", "osfile.MkdirTemp", 1,
+			"creates a new extraction directory, under a name nothing else holds, in the " +
+				"analyst's work directory or the system's temporary directory"},
 		{"internal/input/extract.go", "osfile.Open", 1,
 			"reads the archive the analyst names"},
 		{"internal/input/extract.go", "osfile.MkdirAll", 1,

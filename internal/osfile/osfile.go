@@ -104,6 +104,18 @@ func MkdirAll(path string, perm fs.FileMode) error {
 	return syspath.NativeErrors(os.MkdirAll(syspath.Extended(path), perm))
 }
 
+// MkdirTemp creates a new directory in dir, which must exist, with a name
+// that begins with pattern's text before its last `*` and holds random
+// characters in the star's place, as os.MkdirTemp does, and returns its path
+// in the native form. Only the owner can read or enter it.
+func MkdirTemp(dir, pattern string) (string, error) {
+	path, err := os.MkdirTemp(syspath.Extended(dir), pattern)
+	if err != nil {
+		return "", syspath.NativeErrors(err)
+	}
+	return syspath.ToNative(syspath.FromNative(path)), nil
+}
+
 // Remove removes the file or empty directory path, as os.Remove does.
 func Remove(path string) error {
 	return syspath.NativeErrors(os.Remove(syspath.Extended(path)))

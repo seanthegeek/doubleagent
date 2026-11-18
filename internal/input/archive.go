@@ -2,10 +2,8 @@ package input
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -15,10 +13,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
-
-// tempNameCharacters are the characters of a new extraction directory's
-// random name: lower-case ASCII letters, digits and the underscore.
-const tempNameCharacters = "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 // openArchive extracts the archive at source into a new directory and
 // returns its collection: kind archive when it unpacked to manifest.jsonl
@@ -60,13 +54,11 @@ func openArchive(ctx context.Context, source, workDir string) (*Collection, erro
 
 // makeExtractionDir creates a new directory with a random name, prefixed
 // cac- under workDir (created when missing) or cac-analyzer- under the
-// system's temporary directory, and returns its absolute path. A name is
-// taken only when nothing exists there; the name's randomness keeps another
-// process from making it first.
+// system's temporary directory, and returns its absolute path.
 func makeExtractionDir(workDir string) (string, error) {
-	base, prefix := workDir, "cac-"
+	base, pattern := workDir, "cac-*"
 	if workDir == "" {
-		base, prefix = os.TempDir(), "cac-analyzer-"
+		base, pattern = os.TempDir(), "cac-analyzer-*"
 	} else if err := osfile.MkdirAll(workDir, 0o777); err != nil {
 		return "", err
 	}
@@ -77,31 +69,7 @@ func makeExtractionDir(workDir string) (string, error) {
 		}
 		base = filepath.Join(working, base)
 	}
-	for range 100 {
-		path := filepath.Join(base, prefix+randomName())
-		if _, err := osfile.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err := osfile.MkdirAll(path, 0o700); err != nil {
-			return "", err
-		}
-		if info, err := osfile.Lstat(path); err != nil || !info.IsDir() {
-			return "", &fs.PathError{Op: "mkdir", Path: path, Err: fs.ErrExist}
-		}
-		return path, nil
-	}
-	return "", &fs.PathError{Op: "mkdir", Path: filepath.Join(base, prefix), Err: fs.ErrExist}
-}
-
-// randomName returns sixteen characters drawn at random from
-// tempNameCharacters.
-func randomName() string {
-	name := make([]byte, 16)
-	_, _ = rand.Read(name)
-	for i, value := range name {
-		name[i] = tempNameCharacters[int(value)%len(tempNameCharacters)]
-	}
-	return string(name)
+	return osfile.MkdirTemp(base, pattern)
 }
 
 // verifySidecar returns the note for the archive's sha256 file: verified,
