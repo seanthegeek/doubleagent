@@ -159,22 +159,17 @@ func (r *stateReader) loadBubbles() {
 func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 	var entries []jsonvalue.Value
 	inline := current.data.Get("fullConversationHeadersOnly")
-	if !inline.IsArray() && !inline.IsNull() {
-		current.problems.Add(int(current.dataRowid), parser.WrongKind("fullConversationHeadersOnly", jsonvalue.Array))
-	}
+	inlineEntries := parser.EntriesOfKind(inline, "fullConversationHeadersOnly", jsonvalue.Object,
+		int(current.dataRowid), &current.problems)
 	if inline.IsArray() && inline.Len() > 0 {
-		for _, entry := range inline.Items() {
-			if entry.IsObject() {
-				entries = append(entries, entry)
-			}
+		for _, entry := range inlineEntries {
+			entries = append(entries, entry)
 		}
 		return entries
 	}
 	for _, row := range r.headerChunks(current.ident) {
-		for _, entry := range listRecord(row, &current.problems) {
-			if entry.IsObject() {
-				entries = append(entries, entry)
-			}
+		for _, entry := range objectEntries(row, &current.problems) {
+			entries = append(entries, entry)
 		}
 	}
 	return entries

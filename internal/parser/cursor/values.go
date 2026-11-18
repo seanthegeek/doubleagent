@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"iter"
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -146,12 +147,14 @@ func selectPresent(table *sqlitefile.Table, wanted []string) ([]sqlitefile.Row, 
 	return table.Select(columns...).OrderBy("rowid").All()
 }
 
-// listRecord returns the items of a key-value row whose value the format
-// makes a JSON array. A value that does not decode is a problem through
-// decodeRecord, and one of another kind adds the problem that the row's
-// key is not a JSON array, at its rowid.
-func listRecord(row keyed, problems *parser.Problems) []jsonvalue.Value {
-	return parser.ArrayMember(decodeRecord(row.rowid, row.key, row.value, problems), row.key, int(row.rowid), problems)
+// objectEntries returns the entries of a key-value row whose value the
+// format makes a JSON array of objects. A value that does not decode is a
+// problem through decodeRecord, one of another kind adds the problem that
+// the row's key is not a JSON array, and entries that are not objects one
+// problem, each at the row's rowid.
+func objectEntries(row keyed, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
+	return parser.EntriesOfKind(decodeRecord(row.rowid, row.key, row.value, problems), row.key, jsonvalue.Object,
+		int(row.rowid), problems)
 }
 
 // objectRecord returns the value of a key-value row whose value the format

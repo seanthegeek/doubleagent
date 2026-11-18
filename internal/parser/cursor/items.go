@@ -135,10 +135,7 @@ func standingTexts(state jsonvalue.Value, sandbox bool, line int, problems *pars
 		}
 	}
 	sandboxText := parser.SettingValue(jsonvalue.NewBool(sandbox))
-	for _, mode := range parser.ArrayMember(state.Get("modes4"), "modes4", line, problems) {
-		if !mode.IsObject() {
-			continue
-		}
+	for _, mode := range parser.EntriesOfKind(state.Get("modes4"), "modes4", jsonvalue.Object, line, problems) {
 		var flags []string
 		for _, flag := range []string{"autoRun", "smartModeAutoRun", "fullAutoRun"} {
 			value := "-"

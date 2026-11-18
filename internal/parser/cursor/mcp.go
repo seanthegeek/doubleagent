@@ -130,10 +130,7 @@ func (i *items) plugins(emit parser.Emit) {
 	for _, row := range i.store.rows(substrPrefixed(i.table, pluginsPrefix)) {
 		suffix := row.key[len(pluginsPrefix):]
 		scope := suffix[strings.LastIndex(suffix, "|")+1:]
-		for _, entry := range listRecord(row, i.problems) {
-			if !entry.IsObject() {
-				continue
-			}
+		for _, entry := range objectEntries(row, i.problems) {
 			var sources []string
 			for _, source := range entry.Get("sources").Items() {
 				sources = append(sources, source.Text())

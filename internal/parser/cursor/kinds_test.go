@@ -67,6 +67,8 @@ func TestATranscriptMessageOrContentOfTheWrongKindIsReported(t *testing.T) {
 		{"content as a number", `{"content": 3}`, []string{contentWrong}},
 		{"content as an object", `{"content": {"type": "text", "text": "hi"}}`, []string{contentWrong}},
 		{"content as text", `{"content": "hi"}`, []string{"hi"}},
+		{"content holding a string among blocks", `{"content": [{"type": "text", "text": "hi"}, "x", 2]}`,
+			[]string{"hi", "parser: message.content holds 2 entries that are not JSON objects"}},
 		{"content null", `{"content": null}`, nil},
 		{"content empty", `{"content": []}`, nil},
 		{"content absent", `{}`, nil},
@@ -127,13 +129,18 @@ func TestAListValueThatIsNotAnArrayIsReported(t *testing.T) {
 		{"null", `null`, nil, 0},
 		{"empty", `[]`, nil, 0},
 		{"an array", `[{"bcId": "bc-1"}]`, nil, 1},
+		{"an array holding a string", `[{"bcId": "bc-1"}, "x"]`,
+			[]string{"cloudAgentRepository.agents.auth0|user_1 holds 1 entry that is not a JSON object"}, 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			items := listRecord(keyed{rowid: 7, key: key, value: sqlitefile.TextValue(test.value)}, &problems)
-			if got := messages(problems); !slices.Equal(got, test.want) || len(items) != test.items {
-				t.Errorf("problems %q and %d items, want %q and %d", got, len(items), test.want, test.items)
+			items := 0
+			for range objectEntries(keyed{rowid: 7, key: key, value: sqlitefile.TextValue(test.value)}, &problems) {
+				items++
+			}
+			if got := messages(problems); !slices.Equal(got, test.want) || items != test.items {
+				t.Errorf("problems %q and %d items, want %q and %d", got, items, test.want, test.items)
 			}
 			for _, problem := range problems {
 				if problem.Line != 7 {
