@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -35,11 +36,11 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parser.Option
 	}
 	sessionData, failure := htmlSessionData(data)
 	header := sessionData.Get("header")
-	if failure == "" && !(header.IsObject() && isText(header.Get("type"), "session")) {
-		failure = "session data has no session header"
+	if failure == nil && !(header.IsObject() && isText(header.Get("type"), "session")) {
+		failure = errNoHeader
 	}
-	if failure != "" {
-		problems.Add(0, artifact.Rel+" "+failure)
+	if failure != nil {
+		problems.Add(0, artifact.Rel+" "+failure.Error())
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
@@ -56,44 +57,53 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parser.Option
 		}
 	}
 	sessionID, cwd := parser.Text(header.Get("id")), parser.Text(header.Get("cwd"))
-	emit(p.systemRow(artifact, 0, parser.FileMtime(artifact), sessionID, cwd, fmt.Sprintf(
-		"session exported: HTML /export of session %s, %d entries of every branch, leaf %s (from %s, "+
-			"file mtime)", sessionID, len(session.Entries), parser.SettingOrDash(sessionData.Get("leafId")),
-		artifact.Rel)))
+	emit(p.systemRow(artifact, 0, parser.FileMtime(artifact), sessionID, cwd,
+		"session exported: HTML /export of session "+sessionID+", "+strconv.Itoa(len(session.Entries))+
+			" entries of every branch, leaf "+parser.SettingOrDash(sessionData.Get("leafId"))+
+			" (from "+artifact.Rel+", file mtime)"))
 	emit(p.systemRow(artifact, 0, timeutil.FromValue(header.Get("timestamp")), sessionID, cwd,
 		SessionStartText(header)))
 	p.copyRows(artifact, session, options, emit)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, cwd))
 }
 
-// htmlSessionData returns the session data an HTML export embeds, or why it
-// could not be read: the base64 text of the session-data element, UTF-8
-// JSON once decoded, an object.
-func htmlSessionData(data []byte) (jsonvalue.Value, string) {
+// The reasons an HTML export's session data cannot be read.
+var (
+	errNoSessionData = errors.New("holds no session data")
+	errNoClosingTag  = errors.New("session data has no closing tag")
+	errNotUTF8       = errors.New("session data is not JSON (not UTF-8 text)")
+	errNotObject     = errors.New("session data is not a JSON object")
+	errNoHeader      = errors.New("session data has no session header")
+)
+
+// htmlSessionData returns the session data an HTML export embeds, or the
+// error that says why it could not be read: the base64 text of the
+// session-data element, UTF-8 JSON once decoded, an object.
+func htmlSessionData(data []byte) (jsonvalue.Value, error) {
 	start := bytes.Index(data, []byte(sessionDataOpen))
 	if start < 0 {
-		return jsonvalue.NewNull(), "holds no session data"
+		return jsonvalue.NewNull(), errNoSessionData
 	}
 	start += len(sessionDataOpen)
 	end := bytes.Index(data[start:], []byte(sessionDataClose))
 	if end < 0 {
-		return jsonvalue.NewNull(), "session data has no closing tag"
+		return jsonvalue.NewNull(), errNoClosingTag
 	}
 	decoded, err := decodeBase64(bytes.Trim(data[start:start+end], jsonSpace))
 	if err != nil {
-		return jsonvalue.NewNull(), "session data is not base64 (" + err.Error() + ")"
+		return jsonvalue.NewNull(), fmt.Errorf("session data is not base64 (%w)", err)
 	}
 	if !utf8.Valid(decoded) {
-		return jsonvalue.NewNull(), "session data is not JSON (not UTF-8 text)"
+		return jsonvalue.NewNull(), errNotUTF8
 	}
 	value, err := jsonvalue.DecodeString(string(decoded))
 	if err != nil {
-		return jsonvalue.NewNull(), "session data is not JSON (" + err.Error() + ")"
+		return jsonvalue.NewNull(), fmt.Errorf("session data is not JSON (%w)", err)
 	}
 	if !value.IsObject() {
-		return jsonvalue.NewNull(), "session data is not a JSON object"
+		return jsonvalue.NewNull(), errNotObject
 	}
-	return value, ""
+	return value, nil
 }
 
 // decodeBase64 decodes standard base64 with its padding and nothing else:
@@ -126,9 +136,8 @@ func (p *Parser) parseJSONLExport(artifact *input.Artifact, options parser.Optio
 	header := session.Header
 	sessionID, cwd := parser.Text(header.Get("id")), parser.Text(header.Get("cwd"))
 	emit(p.systemRow(artifact, session.HeaderLine, timeutil.FromValue(header.Get("timestamp")),
-		sessionID, cwd, fmt.Sprintf("session exported: JSONL /export of the current branch of "+
-			"session %s, %d entries (from %s, header timestamp)", sessionID, len(session.Entries),
-			artifact.Rel)))
+		sessionID, cwd, "session exported: JSONL /export of the current branch of session "+sessionID+
+			", "+strconv.Itoa(len(session.Entries))+" entries (from "+artifact.Rel+", header timestamp)"))
 	p.copyRows(artifact, session, options, emit)
 	parser.EmitAll(emit, p.ErrorRows(artifact, session.Problems, sessionID, cwd))
 }
@@ -203,8 +212,8 @@ func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes jsonvalue.Value,
 	}
 }
 
-// either returns first when Python counts it true, else second: Python's
-// `first or second`.
+// either returns first when it is not empty (jsonvalue.Value.IsEmpty),
+// else second.
 func either(first, second jsonvalue.Value) jsonvalue.Value {
 	if !first.IsEmpty() {
 		return first
@@ -237,18 +246,17 @@ func bugJSONMember(rel string, members map[string][]byte, name string,
 func bugReportRowText(report, diagnostics jsonvalue.Value, source string) string {
 	dash := parser.SettingOrDash
 	session, environment, model := report.Get("session"), report.Get("environment"), report.Get("model")
-	text := fmt.Sprintf("bug report: %s session=%s transcript=%s summary=%s messages=%s entries=%s "+
-		"version=%s platform=%s/%s model=%s/%s %s", dash(report.Get("id")),
-		dash(either(session.Get("id"), diagnostics.Get("sessionId"))), dash(session.Get("included")),
-		dash(session.Get("summaryIncluded")), dash(session.Get("messageCount")),
-		dash(diagnostics.Get("entryCount")), dash(environment.Get("version")),
-		dash(environment.Get("platform")), dash(environment.Get("arch")),
-		dash(model.Get("provider")), dash(model.Get("id")), source)
+	text := "bug report: " + dash(report.Get("id")) +
+		" session=" + dash(either(session.Get("id"), diagnostics.Get("sessionId"))) +
+		" transcript=" + dash(session.Get("included")) + " summary=" + dash(session.Get("summaryIncluded")) +
+		" messages=" + dash(session.Get("messageCount")) + " entries=" + dash(diagnostics.Get("entryCount")) +
+		" version=" + dash(environment.Get("version")) +
+		" platform=" + dash(environment.Get("platform")) + "/" + dash(environment.Get("arch")) +
+		" model=" + dash(model.Get("provider")) + "/" + dash(model.Get("id")) + " " + source
 	for _, turn := range diagnostics.Get("assistant").Items() {
 		if turn.IsObject() {
-			text += fmt.Sprintf("\nfailed assistant turn %s at %s: stopReason=%s %s",
-				dash(turn.Get("entryId")), dash(turn.Get("timestamp")), dash(turn.Get("stopReason")),
-				dash(turn.Get("errorMessage")))
+			text += "\nfailed assistant turn " + dash(turn.Get("entryId")) + " at " + dash(turn.Get("timestamp")) +
+				": stopReason=" + dash(turn.Get("stopReason")) + " " + dash(turn.Get("errorMessage"))
 		}
 	}
 	return text

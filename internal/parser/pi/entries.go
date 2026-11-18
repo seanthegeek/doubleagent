@@ -58,15 +58,15 @@ func textOrJSON(value jsonvalue.Value) string {
 	return parser.JSONText(value)
 }
 
-// isNullOrEmpty reports whether value is null or the empty string, Python's
-// `value in (None, "")`.
+// isNullOrEmpty reports whether value is null or the empty string; false and
+// zero are values an argument can hold.
 func isNullOrEmpty(value jsonvalue.Value) bool {
 	return value.IsNull() || isText(value, "")
 }
 
-// isNullOrZero reports whether value is null or equals zero as Python
-// compares it, false included: Python's `value in (None, 0)`.
-func isNullOrZero(value jsonvalue.Value) bool {
+// exitSucceeded reports whether a bash exit code is no failure: null, false
+// or a number equal to zero.
+func exitSucceeded(value jsonvalue.Value) bool {
 	return value.IsNull() || ((value.IsNumber() || value.IsBool()) && value.IsEmpty())
 }
 
@@ -329,7 +329,7 @@ func (w *entryWriter) bash(message jsonvalue.Value, entryID string) {
 	w.put(timeline.TurnToolUse, parser.Text(message.Get("command")), "", "bash", entryID)
 	output := parser.Text(message.Get("output"))
 	var notes []string
-	if code := message.Get("exitCode"); !isNullOrZero(code) {
+	if code := message.Get("exitCode"); !exitSucceeded(code) {
 		notes = append(notes, "exit "+code.Text())
 	}
 	if !message.Get("cancelled").IsEmpty() {

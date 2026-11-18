@@ -13,11 +13,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of every file kind are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers the
-// Python tests call directly, the ones other parsers share, and the bounds
-// of the readers of evidence. Expected values come from running the Python
-// helpers on the same input.
+// The rows of every file kind are proved by the parser replay
+// (internal/parity/replay) over the recorded fixtures; these tests cover the
+// helpers the rows are built from, the ones other parsers share, and the
+// bounds of the readers of evidence.
 
 // decoded returns JSON text decoded, failing the test on an error.
 func decoded(t testing.TB, text string) jsonvalue.Value {
@@ -113,7 +112,7 @@ func TestBugReportTextNamesTheDelivery(t *testing.T) {
 	}
 }
 
-func TestBase64IsReadAsPythonsStrictDecoderReadsIt(t *testing.T) {
+func TestBase64IsReadOnlyInItsPaddedFormWithoutLineBreaks(t *testing.T) {
 	tests := []struct {
 		text, want string
 		valid      bool
@@ -171,9 +170,13 @@ func TestHTMLSessionDataSaysWhyItCannotBeRead(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, got := htmlSessionData(test.page)
-			if !strings.HasPrefix(got, test.want) || (test.want == "") != (got == "") {
-				t.Errorf("got %q, want %q", got, test.want)
+			_, err := htmlSessionData(test.page)
+			got := ""
+			if err != nil {
+				got = err.Error()
+			}
+			if !strings.HasPrefix(got, test.want) || (test.want == "") != (err == nil) {
+				t.Errorf("got %v, want %q", err, test.want)
 			}
 		})
 	}
@@ -279,9 +282,9 @@ func FuzzHTMLSessionData(fuzz *testing.F) {
 	fuzz.Add(htmlPage(base64.StdEncoding.EncodeToString([]byte(`{"header":{"type":"session"}}`))))
 	fuzz.Add(htmlPage("QU JD"))
 	fuzz.Fuzz(func(t *testing.T, page []byte) {
-		value, failure := htmlSessionData(page)
-		if (failure == "") != value.IsObject() {
-			t.Errorf("failure %q with a value of kind %v", failure, value.Kind())
+		value, err := htmlSessionData(page)
+		if (err == nil) != value.IsObject() {
+			t.Errorf("error %v with a value of kind %v", err, value.Kind())
 		}
 	})
 }

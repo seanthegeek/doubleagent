@@ -86,8 +86,8 @@ func entryKeys(path string) map[entryKey]bool {
 	return keys
 }
 
-// isText reports whether value is the string text, as Python's == compares
-// a decoded value with a string.
+// isText reports whether value is the string text; a value of any other
+// kind is not.
 func isText(value jsonvalue.Value, text string) bool {
 	return value.IsString() && value.StringValue() == text
 }

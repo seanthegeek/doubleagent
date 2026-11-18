@@ -52,8 +52,8 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	for _, member := range document.Members() {
 		emit(p.systemRow(artifact, 1, timestamp, "", member.Key,
-			fmt.Sprintf("permission setting: %s=%s (from %s, file mtime)", member.Key,
-				parser.SettingValue(member.Value), artifact.Rel)))
+			"permission setting: "+member.Key+"="+parser.SettingValue(member.Value)+
+				" (from "+artifact.Rel+", file mtime)"))
 	}
 }
 
