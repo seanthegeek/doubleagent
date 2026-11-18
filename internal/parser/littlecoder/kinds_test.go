@@ -131,3 +131,24 @@ func TestASnapshotBackupThatIsNotAnObjectIsReportedNotListed(t *testing.T) {
 		})
 	}
 }
+
+func TestSavedEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	tests := []struct {
+		name, rel, text, want string
+	}{
+		{"history sessions", legacyHistoryRel, `{"sessions": [{"session_id": "s", "messages": []}, 7]}`,
+			"parser: sessions holds 1 entry that is not a JSON object"},
+		{"messages", ".little-coder/sessions/s.json", `{"session_id": "s", "messages": [{"role": "user", "content": "hi"}, "x"]}`,
+			"parser: messages holds 1 entry that is not a JSON object"},
+		{"tool calls", ".little-coder/sessions/s.json",
+			`{"session_id": "s", "messages": [{"role": "assistant", "content": "hi", "tool_calls": [{"id": "c"}, 7]}]}`,
+			"parser: tool_calls holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := countOf(parseFile(t, test.rel, test.text), test.want); got != 1 {
+				t.Errorf("%q given %d times, want once", test.want, got)
+			}
+		})
+	}
+}

@@ -161,12 +161,13 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var problems parser.Problems
-	for _, member := range parser.ObjectMember(document.Get("integrations"), "integrations", 0, &problems) {
-		automode, ok := member.Value.Lookup("automode")
-		if !member.Value.IsObject() || !ok {
+	for name, integration := range parser.MembersOfKind(document.Get("integrations"), "integrations", jsonvalue.Object, 0,
+		&problems) {
+		automode, ok := integration.Lookup("automode")
+		if !ok {
 			continue
 		}
-		emit(p.setting(artifact, "permission setting: integrations."+member.Key+".automode="+
+		emit(p.setting(artifact, "permission setting: integrations."+name+".automode="+
 			parser.SettingValue(automode)+" (from "+artifact.Rel+", file mtime)"))
 	}
 	for _, found := range problems {

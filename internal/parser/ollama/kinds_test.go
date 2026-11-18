@@ -2,6 +2,7 @@ package ollama
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -58,5 +59,13 @@ func TestAnIntegrationsMemberThatIsNotAnObjectIsReported(t *testing.T) {
 				t.Errorf("%d rows %q, want %d", got, problem, test.want)
 			}
 		})
+	}
+}
+
+func TestIntegrationsThatAreNotObjectsAreReportedOnce(t *testing.T) {
+	got := parseFile(t, ".ollama/config.json", `{"integrations": {"a": {"automode": true}, "b": 7, "c": "x"}}`)
+	want := parser.ProblemPrefix + parser.WrongEntries("integrations", jsonvalue.Object, 2)
+	if !slices.Contains(got, want) {
+		t.Errorf("rows %q lack %q", got, want)
 	}
 }
