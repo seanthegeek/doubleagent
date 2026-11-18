@@ -296,6 +296,7 @@ type chatReader struct {
 	emit        parser.Emit
 	headers     []string
 	inputs      []InputEntry
+	inputIndex  *inputIndex
 	nextInput   int
 	models      map[string]string
 	sessionID   string
@@ -426,23 +427,123 @@ func normalise(text string) string {
 }
 
 // matchInput gives the run the time of the input history entry that holds
-// the same prompt, searching the entries of the session from the one after
-// the last match.
+// the same prompt: the first entry from the one after the last match whose
+// time is in the session, the search ending at the first entry from there
+// timed at or after the next session's header.
 func (c *chatReader) matchInput(text string) {
-	for j := c.nextInput; j < len(c.inputs); j++ {
-		stamp := c.inputs[j].Timestamp[:19]
-		if stamp < c.header {
-			continue
-		}
-		if c.nextHeader != "" && stamp >= c.nextHeader {
-			break
-		}
-		if normalise(c.inputs[j].Text) == normalise(text) {
-			c.timestamp = timeutil.FromText(c.inputs[j].Timestamp)
-			c.nextInput = j + 1
-			break
+	if c.inputIndex == nil {
+		c.inputIndex = newInputIndex(c.inputs)
+	}
+	index := c.inputIndex
+	stop := len(c.inputs)
+	if c.nextHeader != "" {
+		if found := index.all.first(c.nextInput, max(c.header, c.nextHeader)); found >= 0 {
+			stop = found
 		}
 	}
+	group, ok := index.byText[normalise(text)]
+	if !ok {
+		return
+	}
+	position := group.tree.first(sort.SearchInts(group.entries, c.nextInput), c.header)
+	if position < 0 || group.entries[position] >= stop {
+		return
+	}
+	match := group.entries[position]
+	c.timestamp = timeutil.FromText(c.inputs[match].Timestamp)
+	c.nextInput = match + 1
+}
+
+// inputIndex holds the input history entries for matchInput: the times of
+// all of them, and by prompt text the positions and times of the entries
+// that hold it, each searchable from a position for the first time at or
+// after a bound. steps counts the search's steps, a measure of its work.
+type inputIndex struct {
+	all    *stampTree
+	byText map[string]*textEntries
+	steps  int
+}
+
+// textEntries are the positions, in file order, of the entries holding one
+// prompt text, and their times.
+type textEntries struct {
+	entries []int
+	tree    *stampTree
+}
+
+// newInputIndex indexes the input history entries, every one timed.
+func newInputIndex(inputs []InputEntry) *inputIndex {
+	index := &inputIndex{byText: map[string]*textEntries{}}
+	stamps := make([]string, len(inputs))
+	texts := map[string][]string{}
+	for i, entry := range inputs {
+		stamps[i] = entry.Timestamp[:19]
+		key := normalise(entry.Text)
+		group, ok := index.byText[key]
+		if !ok {
+			group = &textEntries{}
+			index.byText[key] = group
+		}
+		group.entries = append(group.entries, i)
+		texts[key] = append(texts[key], stamps[i])
+	}
+	index.all = newStampTree(stamps, &index.steps)
+	for key, group := range index.byText {
+		group.tree = newStampTree(texts[key], &index.steps)
+	}
+	return index
+}
+
+// stampTree finds, among a list of times written as sortable text, the
+// first at or after a position that is at least a bound, in steps that
+// grow with the logarithm of the list's length: each node of the tree
+// holds the latest time of its half of the range above it.
+type stampTree struct {
+	size  int
+	count int
+	nodes []string
+	steps *int
+}
+
+// newStampTree builds the tree of stamps; steps counts the nodes visited.
+func newStampTree(stamps []string, steps *int) *stampTree {
+	size := 1
+	for size < len(stamps) {
+		size *= 2
+	}
+	nodes := make([]string, 2*size)
+	copy(nodes[size:], stamps)
+	for i := size - 1; i >= 1; i-- {
+		nodes[i] = max(nodes[2*i], nodes[2*i+1])
+	}
+	return &stampTree{size: size, count: len(stamps), nodes: nodes, steps: steps}
+}
+
+// first returns the position of the first stamp at or after from that is
+// at least bound, a non-empty text, or -1 when there is none.
+func (t *stampTree) first(from int, bound string) int {
+	found := t.search(1, 0, t.size, from, bound)
+	if found >= t.count {
+		return -1
+	}
+	return found
+}
+
+// search returns the first position in the node's range [low, high) at or
+// after from whose stamp is at least bound, or -1.
+func (t *stampTree) search(node, low, high, from int, bound string) int {
+	*t.steps++
+	if high <= from || t.nodes[node] < bound {
+		return -1
+	}
+	if high-low == 1 {
+		return low
+	}
+	middle := (low + high) / 2
+	if found := t.search(2*node, low, middle, from, bound); found >= 0 {
+		return found
+	}
+	return t.search(2*node+1, middle, high, from, bound)
 }
 
 // modelChange is one change of the session's models a line announces.
