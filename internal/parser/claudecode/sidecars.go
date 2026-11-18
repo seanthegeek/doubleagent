@@ -113,23 +113,43 @@ func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool
 	return textlines.ValidUTF8(data), true
 }
 
+// paste is the text of one paste-cache file, whether it was read, and the
+// problems reading it added.
+type paste struct {
+	text     string
+	found    bool
+	problems parser.Problems
+}
+
 // expandPastes returns a history line's display text with each paste
 // placeholder replaced by its text: pastedContents.<n>.content when the
 // paste is kept inline, else paste-cache/<contentHash>.txt. A placeholder
-// whose text is in neither place is kept as written.
+// whose text is in neither place is kept as written. Each paste-cache file
+// is read once per line, however many placeholders name it; the problems
+// of that read are added for each of them, as a fresh read would.
 func expandPastes(historyDir, display string, pasted jsonvalue.Value, problems *parser.Problems) string {
 	if !pasted.IsObject() || pasted.Len() == 0 {
 		return display
+	}
+	files := map[string]*paste{}
+	cached := func(hash string) (string, bool) {
+		each, ok := files[hash]
+		if !ok {
+			each = &paste{}
+			each.text, each.found = readPaste(historyDir, hash, &each.problems)
+			files[hash] = each
+		}
+		*problems = append(*problems, each.problems...)
+		return each.text, each.found
 	}
 	var out strings.Builder
 	last := 0
 	for _, match := range pastePattern.FindAllStringSubmatchIndex(display, -1) {
 		out.WriteString(display[last:match[0]])
-		placeholder := display[match[0]:match[1]]
-		if text, ok := pasteText(historyDir, pasted.Get(display[match[2]:match[3]]), problems); ok {
+		if text, ok := pasteText(pasted.Get(display[match[2]:match[3]]), cached); ok {
 			out.WriteString(text)
 		} else {
-			out.WriteString(placeholder)
+			out.WriteString(display[match[0]:match[1]])
 		}
 		last = match[1]
 	}
@@ -137,9 +157,10 @@ func expandPastes(historyDir, display string, pasted jsonvalue.Value, problems *
 	return out.String()
 }
 
-// pasteText returns the text of one pastedContents entry, or false when the
-// entry is not a text paste or its text is in neither place.
-func pasteText(historyDir string, entry jsonvalue.Value, problems *parser.Problems) (string, bool) {
+// pasteText returns the text of one pastedContents entry, its paste-cache
+// file read through cached, or false when the entry is not a text paste or
+// its text is in neither place.
+func pasteText(entry jsonvalue.Value, cached func(hash string) (string, bool)) (string, bool) {
 	if !entry.IsObject() {
 		return "", false
 	}
@@ -150,7 +171,7 @@ func pasteText(historyDir string, entry jsonvalue.Value, problems *parser.Proble
 		return content.StringValue(), true
 	}
 	if hash := entry.Get("contentHash"); hash.IsString() {
-		return readPaste(historyDir, hash.StringValue(), problems)
+		return cached(hash.StringValue())
 	}
 	return "", false
 }
