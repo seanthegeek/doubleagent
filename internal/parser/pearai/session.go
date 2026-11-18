@@ -14,8 +14,8 @@ import (
 )
 
 // session emits the rows of a chat session file: its start row, then each
-// item of history[] and perplexityHistory[], then the problem of a damaged
-// file.
+// item of history[] and perplexityHistory[], then the problems of a member
+// that is not an array and of a damaged file.
 func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Emit) {
 	var problems parser.Problems
 	raw, ok := parser.ReadText(artifact.DiskPath, &problems)
@@ -39,18 +39,21 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 		each.Text = timeline.Compact(text)
 		emit(each)
 	}
-	history := document.Get("history").Items()
-	search := document.Get("perplexityHistory").Items()
+	history := parser.ArrayMember(document.Get("history"), "history", 0, &problems)
+	search := parser.ArrayMember(document.Get("perplexityHistory"), "perplexityHistory", 0, &problems)
 	row(0, timeline.TurnSystem, startText(document, entry, len(history), len(search),
 		base.TimestampUTC != ""), "")
 	models := parser.Tracker{}
 	for i, item := range append(append([]jsonvalue.Value{}, history...), search...) {
 		if message := item.Get("message"); message.IsObject() {
-			sessionItem(i+1, item, message, base.SessionID, models, row)
+			sessionItem(i+1, item, message, base.SessionID, models, &problems, row)
 		}
 	}
 	if problem != nil {
-		row(0, timeline.TurnSystem, parser.ProblemPrefix+problem.Error(), "")
+		problems.Add(0, problem.Error())
+	}
+	for _, found := range problems {
+		row(found.Line, timeline.TurnSystem, parser.ProblemPrefix+found.Message, "")
 	}
 }
 
@@ -71,13 +74,14 @@ func startText(document, entry jsonvalue.Value, history, search int, dated bool)
 
 // sessionItem emits the rows of one session item at a 1-based position:
 // a model row on each change, then its message, a user message with its
-// context items and a reply with its citations.
+// context items and a reply with its citations. A promptLogs that is not
+// an array adds a problem.
 func sessionItem(position int, item, message jsonvalue.Value, sessionID string, models parser.Tracker,
-	row func(int, string, string, string)) {
+	problems *parser.Problems, row func(int, string, string, string)) {
 	role := message.Get("role")
 	text := continuedev.MessageText(message.Get("content"))
 	model := ""
-	for _, log := range item.Get("promptLogs").Items() {
+	for _, log := range parser.ArrayMember(item.Get("promptLogs"), "promptLogs", position, problems) {
 		if options := log.Get("completionOptions"); !options.Get("model").IsEmpty() {
 			model = options.Get("model").Text()
 			if change := models.Change("model", sessionID, model); change != "" {

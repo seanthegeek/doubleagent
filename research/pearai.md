@@ -681,7 +681,11 @@ beside `ui_messages.json` reports its own bad records. A `state.vscdb` that cann
 `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
 is not a SQLite database is `parser: state.vscdb is not a SQLite database`. A damaged `state.vscdb`,
-or an extension row that is not JSON, is one `parser:` row. The chat surface's `sessions.json` index
+or an extension row that is not JSON, is one `parser:` row. A `taskHistory` in that row that is
+present but not an array is `parser: taskHistory is not a JSON array`. A session file's `history` or
+`perplexityHistory` that is present but not an array is `parser: <member> is not a JSON array`
+(`source_line` 0), and an item's `promptLogs` that is not one gives the same text at the item's
+position; an absent, null or empty member gives no row. The chat surface's `sessions.json` index
 is read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
 which yields rows for what it loses, with the texts of
 [Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions
