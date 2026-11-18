@@ -2222,7 +2222,11 @@ record's line: a `gemini` message's `toolCalls` or `thoughts` (the message in fo
 replay), a `$patch` record's `$patch.updates`, `$patch.removeIds`, `$patch.orderIds` or
 `$patch.toolCalls`, an update's `$patch.updates[].toolCalls`, a `$set` record's `$set.messages`
 (the message list is then left as it was) and a legacy session file's `messages`. An absent, null
-or empty member gives no row. A `memory/`
+or empty member gives no row. Any of these holding entries that are not objects (strings for the
+two id lists) gives one row for them all at the same line,
+`parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for
+one), and so does a `logs.json` holding records that are not objects, at `source_line` 0. A
+`memory/`
 file that is not valid UTF-8 is one `parser: <name> is not UTF-8 text` row.
 
 A session file (JSONL or legacy JSON), `logs.json`, `shell_history`, `/chat save` checkpoint,

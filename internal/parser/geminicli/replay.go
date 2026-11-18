@@ -199,13 +199,14 @@ func (r *replay) patch(line int, patch jsonvalue.Value) {
 	if patch.Get("id").IsString() {
 		r.applyPatch(line, patch, "$patch.toolCalls")
 	}
-	for _, update := range parser.ArrayMember(patch.Get("updates"), "$patch.updates", line, &r.problems) {
-		if update.IsObject() && update.Get("id").IsString() {
+	for _, update := range parser.EntriesOfKind(patch.Get("updates"), "$patch.updates", jsonvalue.Object, line,
+		&r.problems) {
+		if update.Get("id").IsString() {
 			r.applyPatch(line, update, "$patch.updates[].toolCalls")
 		}
 	}
-	removeIDs := parser.ArrayMember(patch.Get("removeIds"), "$patch.removeIds", line, &r.problems)
-	orderIDs := parser.ArrayMember(patch.Get("orderIds"), "$patch.orderIds", line, &r.problems)
+	removeIDs := parser.ListOfKind(patch.Get("removeIds"), "$patch.removeIds", jsonvalue.String, line, &r.problems)
+	orderIDs := parser.ListOfKind(patch.Get("orderIds"), "$patch.orderIds", jsonvalue.String, line, &r.problems)
 	if removed := texts(removeIDs); len(removed) > 0 {
 		dropped := r.messages.drop(removed)
 		r.events = append(r.events, event{line, r.latest, r.sessionID,
@@ -234,7 +235,7 @@ func texts(items []jsonvalue.Value) []string {
 // adds a problem at line, naming it as member, whether or not the message
 // is present.
 func (r *replay) applyPatch(line int, patch jsonvalue.Value, member string) {
-	toolPatches := parser.ArrayMember(patch.Get("toolCalls"), member, line, &r.problems)
+	toolPatches := parser.ListOfKind(patch.Get("toolCalls"), member, jsonvalue.Object, line, &r.problems)
 	entry, ok := r.messages.byID[patch.Get("id").StringValue()]
 	if !ok {
 		return
@@ -253,7 +254,7 @@ func (r *replay) applyPatch(line int, patch jsonvalue.Value, member string) {
 	}
 	for _, toolPatch := range toolPatches {
 		result, ok := toolPatch.Lookup("result")
-		if !toolPatch.IsObject() || !ok {
+		if !ok {
 			continue
 		}
 		if call, found := r.patchedCall(entry, toolPatch.Get("id")); found {
@@ -304,7 +305,7 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 		r.sessionID = named.StringValue()
 	}
 	messages := changes.Get("messages")
-	list := parser.ArrayMember(messages, "$set.messages", line, &r.problems)
+	list := parser.ListOfKind(messages, "$set.messages", jsonvalue.Object, line, &r.problems)
 	if messages.IsArray() {
 		r.messages = newMessageLog(r.work)
 		r.putAll(list, line)
@@ -316,11 +317,10 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 	}
 }
 
-// putAll records each message of a list that is an object with a string
-// id.
+// putAll records each message of a list of objects that has a string id.
 func (r *replay) putAll(messages []jsonvalue.Value, line int) {
 	for _, message := range messages {
-		if message.IsObject() && message.Get("id").IsString() {
+		if message.Get("id").IsString() {
 			r.seen(timeutil.FromValue(message.Get("timestamp")))
 			r.messages.put(message, line, r.sessionID)
 		}
@@ -354,5 +354,5 @@ func (r *replay) header(line int, record jsonvalue.Value) {
 		text += " directories=" + parser.JSONText(directories)
 	}
 	r.starts = append(r.starts, event{line, timestamp, r.sessionID, text})
-	r.putAll(parser.ArrayMember(record.Get("messages"), "messages", line, &r.problems), line)
+	r.putAll(parser.ListOfKind(record.Get("messages"), "messages", jsonvalue.Object, line, &r.problems), line)
 }
