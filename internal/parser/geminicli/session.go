@@ -45,8 +45,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 			"scratch directory: "+project+" (gemini --worktree "+worktree[1]+")"))
 	}
 	models := parser.Tracker{}
-	answered := answeredCalls(&state.messages)
-	for _, messageID := range state.messages.order {
+	order := state.messages.order()
+	answered := answeredCalls(&state.messages, order)
+	for _, messageID := range order {
 		entry := state.messages.byID[messageID]
 		sessionID := entry.sessionID
 		if sessionID == "" {
@@ -101,12 +102,12 @@ func isFailed(status jsonvalue.Value) bool {
 	return isText(status, "error") || isText(status, "cancelled")
 }
 
-// answeredCalls returns the ids of the tool calls whose own result, or
-// failed status, already gives a tool_result row, so that their response
-// in a tool-response message gives none.
-func answeredCalls(messages *messageLog) map[string]bool {
+// answeredCalls returns the ids of the tool calls, among the messages of
+// order, whose own result, or failed status, already gives a tool_result
+// row, so that their response in a tool-response message gives none.
+func answeredCalls(messages *messageLog, order []string) map[string]bool {
 	answered := map[string]bool{}
-	for _, messageID := range messages.order {
+	for _, messageID := range order {
 		message := messages.byID[messageID].message
 		if !isText(message.Get("type"), "gemini") {
 			continue

@@ -1,6 +1,7 @@
 package geminicli
 
 import (
+	"cmp"
 	"slices"
 	"strconv"
 
@@ -10,19 +11,51 @@ import (
 )
 
 // stored is one message of a session's replay: the message as last
-// written, the line that wrote it, and the session it was first written
-// under.
+// written, the line that wrote it, the session it was first written
+// under, and its place in the replay's order.
 type stored struct {
 	message   jsonvalue.Value
 	line      int
 	sessionID string
+	place     int
+}
+
+// placement is an id and a place it took in the order. A placement whose
+// id has since moved or gone is stale and is skipped.
+type placement struct {
+	messageID string
+	place     int
 }
 
 // messageLog holds the replayed messages by id, in the order the CLI's
-// recording service keeps them.
+// recording service keeps them. The order is a place number per message,
+// growing with each message added or moved to the end, so a record costs
+// no rewrite of the order: placed lists the places in the order they were
+// taken, and the messages in force are its entries that are not stale.
 type messageLog struct {
-	order []string
-	byID  map[string]*stored
+	byID   map[string]*stored
+	placed []placement
+	next   int
+	// visited counts the placements read, the work a test holds to linear.
+	visited int
+}
+
+// newMessageLog returns an empty log.
+func newMessageLog() messageLog {
+	return messageLog{byID: map[string]*stored{}}
+}
+
+// place gives a message the next place, at the end of the order.
+func (m *messageLog) place(messageID string, entry *stored) {
+	entry.place = m.next
+	m.placed = append(m.placed, placement{messageID, m.next})
+	m.next++
+}
+
+// live reports whether a placement is the current place of its message.
+func (m *messageLog) live(each placement) bool {
+	entry, ok := m.byID[each.messageID]
+	return ok && entry.place == each.place
 }
 
 // put records a message: a new id goes last, an id already present keeps
@@ -33,47 +66,66 @@ func (m *messageLog) put(message jsonvalue.Value, line int, sessionID string) {
 		entry.message, entry.line = message, line
 		return
 	}
-	m.order = append(m.order, messageID)
-	m.byID[messageID] = &stored{message: message, line: line, sessionID: sessionID}
+	entry := &stored{message: message, line: line, sessionID: sessionID}
+	m.byID[messageID] = entry
+	m.place(messageID, entry)
 }
 
 // drop removes the messages of the ids present and returns how many it
 // removed.
 func (m *messageLog) drop(ids []string) int {
-	removed := map[string]bool{}
+	removed := 0
 	for _, messageID := range ids {
 		if _, ok := m.byID[messageID]; ok {
 			delete(m.byID, messageID)
-			removed[messageID] = true
+			removed++
 		}
 	}
-	if len(removed) > 0 {
-		m.order = slices.DeleteFunc(m.order, func(messageID string) bool { return removed[messageID] })
+	return removed
+}
+
+// dropFrom removes the target message and every one after it, or every
+// message when the target is not present, and returns how many it removed.
+// The placements from the target's on are read once and let go.
+func (m *messageLog) dropFrom(target string) int {
+	cut := 0
+	if entry, ok := m.byID[target]; ok {
+		cut, _ = slices.BinarySearchFunc(m.placed, entry.place, func(each placement, place int) int {
+			return cmp.Compare(each.place, place)
+		})
 	}
-	return len(removed)
+	removed := 0
+	for _, each := range m.placed[cut:] {
+		m.visited++
+		if m.live(each) {
+			delete(m.byID, each.messageID)
+			removed++
+		}
+	}
+	m.placed = m.placed[:cut]
+	return removed
 }
 
 // moveToEnd moves each id present to the end, in turn: the ids moved end
 // up after the others, in the order of their last mention.
 func (m *messageLog) moveToEnd(ids []string) {
-	last := map[string]int{}
-	for i, messageID := range ids {
-		if _, ok := m.byID[messageID]; ok {
-			last[messageID] = i
+	for _, messageID := range ids {
+		if entry, ok := m.byID[messageID]; ok {
+			m.place(messageID, entry)
 		}
 	}
-	if len(last) == 0 {
-		return
+}
+
+// order returns the ids of the messages in force, in replay order.
+func (m *messageLog) order() []string {
+	ids := make([]string, 0, len(m.byID))
+	for _, each := range m.placed {
+		m.visited++
+		if m.live(each) {
+			ids = append(ids, each.messageID)
+		}
 	}
-	moved := make([]string, 0, len(last))
-	for messageID := range last {
-		moved = append(moved, messageID)
-	}
-	slices.SortFunc(moved, func(left, right string) int { return last[left] - last[right] })
-	m.order = append(slices.DeleteFunc(m.order, func(messageID string) bool {
-		_, ok := last[messageID]
-		return ok
-	}), moved...)
+	return ids
 }
 
 // event is a system row the replay gives beside the messages: a session
@@ -96,7 +148,7 @@ type replay struct {
 
 // newReplay returns an empty replay.
 func newReplay() *replay {
-	return &replay{messages: messageLog{byID: map[string]*stored{}}}
+	return &replay{messages: newMessageLog()}
 }
 
 // seen keeps the latest of the times seen so far.
@@ -125,8 +177,7 @@ func (r *replay) apply(line int, record jsonvalue.Value) {
 // rewind drops the target message and every one after it, or every
 // message when the target is not present.
 func (r *replay) rewind(line int, target string) {
-	cut := max(slices.Index(r.messages.order, target), 0)
-	dropped := r.messages.drop(slices.Clone(r.messages.order[cut:]))
+	dropped := r.messages.dropFrom(target)
 	r.events = append(r.events, event{line, r.latest, r.sessionID,
 		"rewind to " + target + ": " + strconv.Itoa(dropped) + " message(s) dropped"})
 }
@@ -212,7 +263,7 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 		r.sessionID = named.StringValue()
 	}
 	if messages := changes.Get("messages"); messages.IsArray() {
-		r.messages = messageLog{byID: map[string]*stored{}}
+		r.messages = newMessageLog()
 		r.putAll(messages, line)
 	}
 	r.metadata(changes)
