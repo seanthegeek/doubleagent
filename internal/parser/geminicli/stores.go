@@ -48,7 +48,7 @@ type request struct {
 // gives none. Header values and bodies are never read into a row.
 func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := projectOf(artifact, match, &problems)
+	project := p.projectOf(artifact, match, &problems)
 	requests := map[string]request{}
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		payload, kind := record.Get("payload"), record.Get("type")
@@ -115,7 +115,7 @@ func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems)
 func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
-	project := projectOf(artifact, match, &problems)
+	project := p.projectOf(artifact, match, &problems)
 	document, ok := jsonFile(artifact, "tool checkpoint", &problems)
 	// A file holding null is no document: no row and no problem.
 	if ok && !document.IsNull() && !document.IsObject() {
@@ -148,7 +148,7 @@ func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options
 // modification time; a file that is not UTF-8 text is a problem.
 func (p *Parser) memoryFile(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := projectOf(artifact, match, &problems)
+	project := p.projectOf(artifact, match, &problems)
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		if utf8.Valid(data) {
 			text := "memory file: " + match["name"] + " " + fromFile(artifact) + "\n" + string(data)
@@ -164,7 +164,7 @@ func (p *Parser) memoryFile(artifact *input.Artifact, match pathMatch, emit pars
 // size, never its content, timed by the file's name.
 func (p *Parser) clipboardImage(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := projectOf(artifact, match, &problems)
+	project := p.projectOf(artifact, match, &problems)
 	size := artifact.Manifest.Get("size")
 	sizeText := size.Text()
 	if !size.IsInt() {
@@ -188,7 +188,7 @@ func (p *Parser) clipboardImage(artifact *input.Artifact, match pathMatch, emit 
 func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
-	project := projectOf(artifact, match, &problems)
+	project := p.projectOf(artifact, match, &problems)
 	document, ok := jsonFile(artifact, "error report", &problems)
 	report := document.Get("error")
 	if ok && !document.IsNull() && !report.IsObject() {
@@ -215,7 +215,7 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, m
 // logs emits one user row per record of a logs.json, a secondary source.
 func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := resolveProject(inBase(artifact, match), match["slug"], "", &problems)
+	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		p.logRows(artifact, project, data, emit)
 	}

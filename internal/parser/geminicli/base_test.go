@@ -28,7 +28,7 @@ func TestTheRuntimeDirectoryIsWhereTheCollectionHoldsIt(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			match := pathMatch{"base": ".gemini", "slug": "proj"}
 			var problems parser.Problems
-			if got := projectOf(test.artifact, match, &problems); got != "/srv/proj" || len(problems) != 0 {
+			if got := New().projectOf(test.artifact, match, &problems); got != "/srv/proj" || len(problems) != 0 {
 				t.Errorf("got %q, %v; want the project projects.json names", got, problems)
 			}
 		})

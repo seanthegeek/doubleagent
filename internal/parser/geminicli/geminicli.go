@@ -94,11 +94,15 @@ func matchPath(pattern *regexp.Regexp, rel string) pathMatch {
 // standing permission files.
 type Parser struct {
 	parser.Base
+	projects map[fileState]*projectIndex
+	// projectsRead counts the projects.json files decoded, the work a test
+	// holds to one read per state of the file.
+	projectsRead int
 }
 
 // New returns the parser.
 func New() *Parser {
-	return &Parser{Base: parser.NewBase("gemini-cli", "gemini-cli")}
+	return &Parser{Base: parser.NewBase("gemini-cli", "gemini-cli"), projects: map[fileState]*projectIndex{}}
 }
 
 // Wants reports whether the artifact is one of the files the parser reads;

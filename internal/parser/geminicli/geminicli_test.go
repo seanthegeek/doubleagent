@@ -1,6 +1,8 @@
 package geminicli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -149,11 +151,12 @@ func TestProjectFallsBackFromTheRootFileToProjectsJSONToTheHash(t *testing.T) {
 		{"the hash itself", "other", strings.Repeat("f", 64), strings.Repeat("f", 64), nil},
 		{"nothing", "other", "", "", nil},
 	}
+	subject := New()
 	for _, step := range steps {
 		if step.before != nil {
 			step.before()
 		}
-		if got := resolveProject(func(names ...string) string {
+		if got := subject.resolveProject(func(names ...string) string {
 			return filepath.Join(append([]string{base}, names...)...)
 		}, step.slug, step.hash, &problems); got != step.want {
 			t.Errorf("%s: got %q, want %q", step.name, got, step.want)
@@ -186,5 +189,66 @@ func write(t *testing.T, path, text string) {
 	}
 	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Every file of a runtime directory looks its project up in one
+// projects.json, which is decoded once per state of the file.
+func TestProjectsJSONIsReadOncePerStateOfTheFile(t *testing.T) {
+	const lookups = 300
+	base := t.TempDir()
+	projects := filepath.Join(base, "projects.json")
+	write(t, projects, `{"projects": {"/srv/a": "a", "/srv/b": "b"}}`)
+	locate := func(names ...string) string { return filepath.Join(append([]string{base}, names...)...) }
+	subject := New()
+	var problems parser.Problems
+	for i := range lookups {
+		slug, want := "a", "/srv/a"
+		if i%2 == 1 {
+			slug, want = "b", "/srv/b"
+		}
+		if got := subject.resolveProject(locate, slug, "", &problems); got != want {
+			t.Fatalf("lookup %d gave %q, want %q", i, got, want)
+		}
+	}
+	if subject.projectsRead != 1 {
+		t.Errorf("projects.json decoded %d times for %d lookups, want once", subject.projectsRead, lookups)
+	}
+	write(t, projects, `{"projects": {"/srv/a2": "a", "/srv/b": "b"}}`)
+	if got := subject.resolveProject(locate, "a", "", &problems); got != "/srv/a2" {
+		t.Errorf("a changed file gave %q, want the new key", got)
+	}
+	if subject.projectsRead != 2 || len(problems) != 0 {
+		t.Errorf("%d reads and problems %+v after a change, want 2 and none", subject.projectsRead, problems)
+	}
+}
+
+// The sha256 of a key matches a hash slug or the session's project hash,
+// the first such key in the file's order winning.
+func TestTheFirstKeyOfAMatchingHashWins(t *testing.T) {
+	base := t.TempDir()
+	first, second := "/srv/first", "/srv/second"
+	digest := func(text string) string {
+		sum := sha256.Sum256([]byte(text))
+		return hex.EncodeToString(sum[:])
+	}
+	write(t, filepath.Join(base, "projects.json"),
+		`{"projects": {"/srv/first": "x", "/srv/second": "y"}}`)
+	locate := func(names ...string) string { return filepath.Join(append([]string{base}, names...)...) }
+	tests := []struct{ name, slug, hash, want string }{
+		{"a hash slug", digest(second), "", second},
+		{"the session's hash", "other", digest(second), second},
+		{"of a slug and a hash, the earlier key", digest(second), digest(first), first},
+		{"a slug that is no hash is not looked for", "other", "", ""},
+		{"an unknown hash is itself", "other", digest("/srv/none"), digest("/srv/none")},
+	}
+	subject := New()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var problems parser.Problems
+			if got := subject.resolveProject(locate, test.slug, test.hash, &problems); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
 	}
 }

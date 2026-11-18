@@ -108,7 +108,7 @@ func historyItems(text string, problems *parser.Problems) ([]jsonvalue.Value, js
 // secondary source.
 func (p *Parser) shellHistory(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := resolveProject(inBase(artifact, match), match["slug"], "", &problems)
+	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
 	data, _ := parser.FileBytes(artifact.DiskPath, &problems)
 	for _, entry := range shellHistoryEntries(data, &problems) {
 		row := p.BaseRow(artifact)
@@ -126,7 +126,7 @@ func (p *Parser) shellHistory(artifact *input.Artifact, match pathMatch, emit pa
 func (p *Parser) historyCopy(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
-	project := resolveProject(inBase(artifact, match), match["slug"], "", &problems)
+	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
 	var items []jsonvalue.Value
 	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok && len(data) > 0 {
