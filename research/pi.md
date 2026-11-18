@@ -1127,7 +1127,8 @@ version 3 keys are added without a bump; a parser must ignore unknown types and 
 
 The parser reads `.pi/agent/sessions/*/*.jsonl` and `.pi/agent/*.jsonl` and takes the first line
 that decodes as the header; a file whose first decoded record is not `type` `session` gives only
-its bad-line rows ([Bad-line rows](#bad-line-rows)). Files in a custom session
+its bad-line rows and one `parser: <file> has no session header` row
+([Bad-line rows](#bad-line-rows)). Files in a custom session
 directory elsewhere on disk are not read; they would be recognised by that header shape. It also
 reads `.pi/agent/trust.json`, `.pi/agent/settings.json`, `.pi/agent/pi-debug.log`,
 `.pi/agent/crashes.json`, `.pi/agent/pi*-crash.log` (`.pi/agent/pi-tui-crash.log` and the older
@@ -1366,8 +1367,9 @@ pi writes no deletion marker; the picker's delete removes the session file with 
 pi itself skips malformed lines ([Record schema](#record-schema)); the parser does not. Each line
 that does not decode is its own `system` row at the end of the session's rows,
 `parser: unparseable line (<decoder reason>): <the line in full>`, with the session's id and
-`cwd`; a file with no header line gives those rows alone, with an empty session id. Every
-line-by-line reader reports bad lines.
+`cwd`; a file with no header line gives those rows and, when it holds records,
+`parser: <file> has no session header` (`<file>` its home-relative path), with an empty session
+id. Every line-by-line reader reports bad lines.
 
 A session file, `crashes.json`, `pi-debug.log`, `trust.json`, `settings.json` or an experimental
 session's `meta.json` that cannot be read is one whole-file row
@@ -1389,7 +1391,9 @@ A `pi-debug.log` that cannot be opened gives no
 line and the marker that is neither a `Terminal width:` nor a `Line` line as
 `parser: unparseable line (not a crash header line): <line>`; the record keeps its row. A JSONL
 export or a zip's `session.jsonl` reports its bad lines as a session file does, the zip's with the
-member's line numbers. Each of the following is one whole-file row, `<file>` the export's name in
+member's line numbers, and one with records but no header gives
+`parser: <file> has no session header` (`parser: <file> member session.jsonl has no session header`
+for the zip's). Each of the following is one whole-file row, `<file>` the export's name in
 its project directory, after the rows the file still gives:
 
 - an HTML export: `parser: <file> holds no session data` (no `session-data` element),
