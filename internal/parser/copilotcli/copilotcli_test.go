@@ -3,12 +3,15 @@ package copilotcli
 import (
 	"maps"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every file kind are proved by the parser replay
@@ -263,6 +266,40 @@ func TestWantsEachFileInEachCopilotHome(t *testing.T) {
 				subject.SecondaryTolerance(artifact) != test.tolerance {
 				t.Errorf("wants %v secondary %v tolerance %v", subject.Wants(artifact),
 					subject.Secondary(artifact), subject.SecondaryTolerance(artifact))
+			}
+		})
+	}
+}
+
+func TestASidebarFileGivesAProblemRowWhenItIsNotAJSONObject(t *testing.T) {
+	rel := ".copilot/sidebar-sessions-state/" + strings.Repeat("a", 64) + ".json"
+	tests := []struct {
+		name, text string
+		want       []string
+	}{
+		{"a whole file gives no row", `{"cwd": "/work/proj", "sessionIds": ["1"]}`, nil},
+		{"a file cut mid-string", `{"cwd": "/work/proj", "sessionIds": ["11111111-1111`,
+			[]string{"parser: sidebar file is not a JSON object"}},
+		{"a list", `["/work/proj"]`, []string{"parser: sidebar file is not a JSON object"}},
+		{"an empty file", ``, []string{"parser: sidebar file is not a JSON object"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(rel))
+			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(path, []byte(test.text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+			var texts []string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(texts, test.want) {
+				t.Errorf("rows %q, want %q", texts, test.want)
 			}
 		})
 	}

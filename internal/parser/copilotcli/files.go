@@ -312,11 +312,18 @@ func (p *Parser) parseLog(artifact *input.Artifact, emit parser.Emit) {
 	}
 }
 
-// parseSidebar emits the unreadable row of a sidebar file that cannot be
-// read, else nothing: a sidebar file gives no rows of its own, since
-// sidebarJoin reads it as a join.
+// parseSidebar emits the problem row of a sidebar file that cannot be
+// read or is not a JSON object, else nothing: a sidebar file gives no rows
+// of its own, since sidebarJoin reads it as a join, and one it cannot read
+// is a join lost.
 func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	readJSON(artifact.DiskPath, &problems)
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	document := readJSON(artifact.DiskPath, &problems)
+	if len(problems) > 0 {
+		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
+	}
+	if !document.IsObject() {
+		emit(p.problem(artifact, "parser: sidebar file is not a JSON object", ""))
+	}
 }
