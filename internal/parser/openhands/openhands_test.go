@@ -271,3 +271,28 @@ func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
 		})
 	}
 }
+
+func TestALegacyEventFileThatIsNotAnObjectIsReported(t *testing.T) {
+	const event = ".openhands/sessions/abc/events/0.json"
+	tests := []struct {
+		name, text string
+		want       []string
+	}{
+		{"a whole event", `{"timestamp": "2024-05-01T10:00:00"}`, nil},
+		{"an event cut off", `{"timestamp": "2024`,
+			[]string{"parser: 0.json could not be decoded (invalid JSON at line 1, column 20: unexpected end of JSON input)"}},
+		{"an event that is not an object", `[1]`, []string{"parser: 0.json is not a JSON object"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := writeTree(t, t.TempDir(), map[string]string{event: test.text})
+			rows := parseRel(t, home, event)
+			if got := problemTexts(rows); !slices.Equal(got, test.want) {
+				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+			if len(rows) == 0 || !strings.HasPrefix(rows[0].Text, "legacy OpenHands 0.x session") {
+				t.Errorf("rows %+v, want the session row first", rows)
+			}
+		})
+	}
+}

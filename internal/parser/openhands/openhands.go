@@ -70,7 +70,7 @@ type Parser struct {
 	// legacyLowest is the lowest event number of each legacy session's
 	// events directory listed, so its other event files are passed over
 	// without a listing of their own; legacyListings counts the listings,
-	// a measure of the work.
+	// a measure of the work that a test reads.
 	legacyLowest   map[legacyKey]string
 	legacyListings int
 }
@@ -355,7 +355,8 @@ func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit p
 }
 
 // parseLegacy emits the one row of a legacy 0.x session: from its lowest
-// numbered event file only.
+// numbered event file only, with that file's problem when it does not
+// decode as an object.
 func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 	match := p.legacy.FindStringSubmatch(artifact.Rel)
 	key := legacyKey{events: strings.TrimSuffix(artifact.Rel, match[2]+".json")}
@@ -385,7 +386,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 		}
 	}
 	var problems parser.Problems
-	event, _, _ := loadJSON(artifact.DiskPath, &problems)
+	event := loadObject(artifact.DiskPath, &problems)
 	row := p.BaseRow(artifact)
 	row.SessionID = match[1]
 	row.TurnType = timeline.TurnSystem
