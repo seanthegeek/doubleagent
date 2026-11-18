@@ -246,18 +246,20 @@ func bugJSONMember(rel string, members map[string][]byte, name string,
 func bugReportRowText(report, diagnostics jsonvalue.Value, source string) string {
 	dash := parser.SettingOrDash
 	session, environment, model := report.Get("session"), report.Get("environment"), report.Get("model")
-	text := "bug report: " + dash(report.Get("id")) +
+	var text strings.Builder
+	text.WriteString("bug report: " + dash(report.Get("id")) +
 		" session=" + dash(either(session.Get("id"), diagnostics.Get("sessionId"))) +
 		" transcript=" + dash(session.Get("included")) + " summary=" + dash(session.Get("summaryIncluded")) +
 		" messages=" + dash(session.Get("messageCount")) + " entries=" + dash(diagnostics.Get("entryCount")) +
 		" version=" + dash(environment.Get("version")) +
 		" platform=" + dash(environment.Get("platform")) + "/" + dash(environment.Get("arch")) +
-		" model=" + dash(model.Get("provider")) + "/" + dash(model.Get("id")) + " " + source
+		" model=" + dash(model.Get("provider")) + "/" + dash(model.Get("id")) + " " + source)
 	for _, turn := range diagnostics.Get("assistant").Items() {
 		if turn.IsObject() {
-			text += "\nfailed assistant turn " + dash(turn.Get("entryId")) + " at " + dash(turn.Get("timestamp")) +
-				": stopReason=" + dash(turn.Get("stopReason")) + " " + dash(turn.Get("errorMessage"))
+			text.WriteString("\nfailed assistant turn " + dash(turn.Get("entryId")) + " at " +
+				dash(turn.Get("timestamp")) + ": stopReason=" + dash(turn.Get("stopReason")) + " " +
+				dash(turn.Get("errorMessage")))
 		}
 	}
-	return text
+	return text.String()
 }
