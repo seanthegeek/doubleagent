@@ -43,14 +43,24 @@ type Column struct {
 // order, the table options and, for a WITHOUT ROWID table, the primary key
 // columns, which its records store first.
 type tableShape struct {
-	name         string
-	columns      []Column
+	name    string
+	columns []Column
+	// byName maps each folded column name to the first column of that name.
+	byName       map[string]int
 	withoutRowid bool
 	strict       bool
 	primaryKey   []int
 	// fts5 is set for a CREATE VIRTUAL TABLE ... USING fts5 statement.
 	fts5 bool
 }
+
+// maxColumns is the most columns a table, an fts5 table or a PRIMARY KEY
+// may list: SQLITE_MAX_COLUMN as SQLite builds by default. A build may raise
+// it as far as 32767, but a default build refuses to read a schema holding
+// a wider table, so a database that needs a raised build is not read here
+// either. The bound keeps the cost of a schema, and of each row, in
+// proportion to the file.
+const maxColumns = 2000
 
 // errSchemaSyntax is wrapped by every error from CREATE TABLE text this
 // package cannot read.
@@ -256,12 +266,25 @@ func (p *schemaParser) options(shape *tableShape) error {
 // columnIndex returns the index of the column called name, matched with
 // ASCII case folding as SQL matches identifiers, or -1.
 func (s *tableShape) columnIndex(name string) int {
-	for i, column := range s.columns {
-		if equalFoldASCII(column.Name, name) {
-			return i
-		}
+	if index, ok := s.byName[foldASCII(name)]; ok {
+		return index
 	}
 	return -1
+}
+
+// addColumn appends a column, refusing one past maxColumns.
+func (s *tableShape) addColumn(column Column) error {
+	if len(s.columns) == maxColumns {
+		return fmt.Errorf("%w: table %s has more than %d columns", errSchemaSyntax, s.name, maxColumns)
+	}
+	if s.byName == nil {
+		s.byName = map[string]int{}
+	}
+	if _, taken := s.byName[foldASCII(column.Name)]; !taken {
+		s.byName[foldASCII(column.Name)] = len(s.columns)
+	}
+	s.columns = append(s.columns, column)
+	return nil
 }
 
 // finish settles what depends on the whole statement: a STRICT table's

@@ -156,11 +156,11 @@ func TestDefaultsSQLiteRefusesFailOnlyTheRowsThatNeedThem(t *testing.T) {
 			t.Errorf("column %s default error = %v, want a schema error", column.Name, column.defaultErr)
 		}
 	}
-	table := &Table{shape: shape, positions: recordPositions(shape)}
-	if _, err := table.decode(1, []Value{IntValue(1), IntValue(2), IntValue(3)}); err != nil {
+	layout := newLayout(shape)
+	if err := layout.checkDefaults(1, []Value{IntValue(1), IntValue(2), IntValue(3)}); err != nil {
 		t.Errorf("a full record failed: %v", err)
 	}
-	if _, err := table.decode(1, []Value{IntValue(1)}); err == nil || !strings.Contains(err.Error(), "column b") {
+	if err := layout.checkDefaults(1, []Value{IntValue(1)}); err == nil || !strings.Contains(err.Error(), "column b") {
 		t.Errorf("a short record error = %v, want one naming column b", err)
 	}
 }

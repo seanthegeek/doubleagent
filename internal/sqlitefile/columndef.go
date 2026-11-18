@@ -36,8 +36,7 @@ func (p *schemaParser) columnDefinition(shape *tableShape) error {
 			return fmt.Errorf("column %s: %w", name, err)
 		}
 	}
-	shape.columns = append(shape.columns, column)
-	return nil
+	return shape.addColumn(column)
 }
 
 // columnType reads a type name: identifiers and strings, then an optional
@@ -310,7 +309,12 @@ func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 	if len(shape.primaryKey) > 0 {
 		return fmt.Errorf("%w: more than one PRIMARY KEY", errSchemaSyntax)
 	}
-	for _, item := range splitTopLevel(inner) {
+	items := splitTopLevel(inner)
+	if len(items) > maxColumns {
+		return fmt.Errorf("%w: PRIMARY KEY lists more than %d columns", errSchemaSyntax, maxColumns)
+	}
+	listed := map[int]bool{}
+	for _, item := range items {
 		name, ok := keyColumnName(item)
 		if !ok {
 			return fmt.Errorf("%w: PRIMARY KEY holds an expression", errSchemaSyntax)
@@ -319,7 +323,8 @@ func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 		if index < 0 {
 			return fmt.Errorf("%w: PRIMARY KEY names no column %s", errSchemaSyntax, name)
 		}
-		if !containsIndex(shape.primaryKey, index) {
+		if !listed[index] {
+			listed[index] = true
 			shape.primaryKey = append(shape.primaryKey, index)
 		}
 	}
@@ -360,16 +365,6 @@ func keyColumnName(item []token) (string, bool) {
 		rest = rest[1:]
 	}
 	return name[0].name(), len(rest) == 0
-}
-
-// containsIndex reports whether list holds index.
-func containsIndex(list []int, index int) bool {
-	for _, item := range list {
-		if item == index {
-			return true
-		}
-	}
-	return false
 }
 
 // splitTopLevel splits tokens at the commas outside parentheses.
@@ -443,6 +438,5 @@ func (s *tableShape) fts5Argument(argument []token) error {
 	if kind := argument[0].kind; kind != word && kind != quoted && kind != stringToken {
 		return fmt.Errorf("%w: fts5 argument %q", errSchemaSyntax, argument[0].text)
 	}
-	s.columns = append(s.columns, Column{Name: argument[0].name()})
-	return nil
+	return s.addColumn(Column{Name: argument[0].name()})
 }

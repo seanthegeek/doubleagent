@@ -344,8 +344,8 @@ func functionsSite(database *Database) ([][]Value, bool, error) {
 		return nil, ok, err
 	}
 	var out [][]Value
-	err = tables[0].scan(func(rowid int64, values []Value) error {
-		out = append(out, functionRow(rowid, values[0]))
+	err = tables[0].scan(func(row Row) error {
+		out = append(out, functionRow(row.Rowid, row.value(0)))
 		return nil
 	})
 	return out, true, err

@@ -18,13 +18,10 @@ type Table struct {
 	database *Database
 	shape    *tableShape
 	root     uint32
-	// positions maps each declared column to its place in the stored
-	// record, -1 for a virtual generated column, which is not stored.
-	positions []int
-	// content is the fts5 content table, and contentColumns the index of
-	// each declared column's value in its rows.
-	content        *Table
-	contentColumns []int
+	// layout says where each declared column's value is in a stored row.
+	layout *recordLayout
+	// content is the fts5 content table, whose b-tree holds the rows.
+	content *Table
 }
 
 // TableNames returns the names of the schema's tables, as SQL's
@@ -48,7 +45,8 @@ func (d *Database) TableNames() (map[string]bool, error) {
 // Table returns the table called name, matched as SQL matches a table
 // name (ASCII letters in any case). It fails with ErrNoTable when there is
 // none, and with an error naming the table when its CREATE TABLE text
-// cannot be read or it is a virtual table of a module other than fts5.
+// cannot be read, declares more than the 2000 columns SQLite allows, or
+// is a virtual table of a module other than fts5.
 func (d *Database) Table(name string) (*Table, error) {
 	schema, err := d.Schema()
 	if err != nil {
@@ -77,7 +75,7 @@ func (d *Database) tableFrom(schema []SchemaRow, name string) (*Table, error) {
 	if row.RootPage == 0 {
 		return nil, malformed("table %s has no root page", row.Name)
 	}
-	table.positions = recordPositions(shape)
+	table.layout = newLayout(shape)
 	return table, nil
 }
 
@@ -92,14 +90,15 @@ func (d *Database) attachContent(schema []SchemaRow, table *Table) error {
 	if !content.Has("id") || content.shape.withoutRowid {
 		return errors.New("fts5 table " + table.shape.name + ": its content table has no id column")
 	}
+	sources := make([]columnSource, len(table.shape.columns))
 	for i := range table.shape.columns {
 		index := content.shape.columnIndex("c" + strconv.Itoa(i))
 		if index < 0 {
 			return fmt.Errorf("fts5 table %s: its content table has no column c%d", table.shape.name, i)
 		}
-		table.contentColumns = append(table.contentColumns, index)
+		sources[i] = content.layout.sources[index]
 	}
-	table.content = content
+	table.content, table.layout = content, layoutOf(sources)
 	return nil
 }
 
@@ -110,16 +109,17 @@ func (d *Database) attachContent(schema []SchemaRow, table *Table) error {
 // ROWID Tables").
 func recordPositions(shape *tableShape) []int {
 	positions := make([]int, len(shape.columns))
+	inKey := make([]bool, len(shape.columns))
 	next := 0
 	if shape.withoutRowid {
 		for _, key := range shape.primaryKey {
-			positions[key] = next
+			positions[key], inKey[key] = next, true
 			next++
 		}
 	}
 	for i, column := range shape.columns {
 		switch {
-		case shape.withoutRowid && containsIndex(shape.primaryKey, i):
+		case inKey[i]:
 		case column.Generated == VirtualGenerated:
 			positions[i] = -1
 		default:
@@ -156,64 +156,49 @@ func (t *Table) WithoutRowid() bool {
 }
 
 // scan reads every row in storage order (rowid order, or primary key order
-// for a WITHOUT ROWID table) and passes visit the rowid and the values in
-// declared order. It stops at visit's first error or the first damage.
-func (t *Table) scan(visit func(rowid int64, values []Value) error) error {
+// for a WITHOUT ROWID table) and passes visit each one whole, its columns
+// in declared order. It stops at visit's first error or the first damage.
+func (t *Table) scan(visit func(row Row) error) error {
+	stored := t
 	if t.content != nil {
-		return t.content.scan(func(rowid int64, stored []Value) error {
-			values := make([]Value, len(t.contentColumns))
-			for i, index := range t.contentColumns {
-				values[i] = stored[index]
-			}
-			return visit(rowid, values)
-		})
+		stored = t.content
 	}
-	rows := t.database.TableRows(t.root)
-	if t.shape.withoutRowid {
-		rows = t.database.IndexRows(t.root)
+	rows := t.database.TableRows(stored.root)
+	if stored.shape.withoutRowid {
+		rows = t.database.IndexRows(stored.root)
 	}
+	shape := t.wholeShape()
 	for rows.Next() {
 		record, err := rows.Record()
 		if err != nil {
-			return fmt.Errorf("table %s: %w", t.shape.name, err)
+			return fmt.Errorf("table %s: %w", stored.shape.name, err)
 		}
-		values, err := t.decode(rows.Rowid(), record)
-		if err != nil {
+		if err := t.layout.checkDefaults(rows.Rowid(), record); err != nil {
 			return err
 		}
-		if err := visit(rows.Rowid(), values); err != nil {
+		if err := visit(Row{Rowid: rows.Rowid(), shape: shape, values: record}); err != nil {
 			return err
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("table %s: %w", t.shape.name, err)
+		return fmt.Errorf("table %s: %w", stored.shape.name, err)
 	}
 	return nil
 }
 
-// decode turns a stored record into the row's values in declared order:
-// the rowid for the rowid alias, an integer read as a float in a REAL
-// column, and a column's default where the record is too short.
-func (t *Table) decode(rowid int64, record []Value) ([]Value, error) {
-	values := make([]Value, len(t.shape.columns))
-	for i := range t.shape.columns {
-		column := &t.shape.columns[i]
-		position := t.positions[i]
-		switch {
-		case column.RowidAlias:
-			values[i] = IntValue(rowid)
-		case position < 0:
-		case position < len(record):
-			values[i] = record[position]
-			if column.Affinity == RealAffinity && values[i].Type == Integer {
-				values[i] = FloatValue(float64(values[i].Int))
-			}
-		case column.defaultErr != nil:
-			return nil, fmt.Errorf("table %s row %d: column %s: %w", t.shape.name, rowid,
-				column.Name, column.defaultErr)
-		default:
-			values[i] = column.Default
-		}
+// wholeShape returns the shape of rows holding every column of the table
+// in declared order, read from the stored records through the layout.
+func (t *Table) wholeShape() *rowShape {
+	shape := newRowShape(t.columnPointers())
+	shape.layout = t.layout
+	return shape
+}
+
+// columnPointers returns a pointer to each of the table's columns.
+func (t *Table) columnPointers() []*Column {
+	columns := make([]*Column, len(t.shape.columns))
+	for i := range columns {
+		columns[i] = &t.shape.columns[i]
 	}
-	return values, nil
+	return columns
 }

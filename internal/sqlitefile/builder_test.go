@@ -2,6 +2,7 @@ package sqlitefile
 
 import (
 	"encoding/binary"
+	"runtime"
 )
 
 // testPages builds a database file page by page, for the shapes no
@@ -143,4 +144,13 @@ func tableLeafCell(rowid int64, payload []byte) []byte {
 	cell := appendSQLiteVarint(nil, uint64(len(payload)))
 	cell = appendSQLiteVarint(cell, uint64(rowid))
 	return append(cell, payload...)
+}
+
+// allocatedBytes returns how many bytes of memory work allocates.
+func allocatedBytes(work func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	work()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
 }

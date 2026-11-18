@@ -36,7 +36,7 @@ func (q Query) Lookup(column string) (*Lookup, error) {
 	lookup := &Lookup{column: &q.table.shape.columns[position],
 		indexes: map[lookupMode]map[string][]int{}}
 	err := q.run(func(whole, selected Row) error {
-		lookup.keys = append(lookup.keys, whole.values[position])
+		lookup.keys = append(lookup.keys, whole.value(position))
 		lookup.rows = append(lookup.rows, selected)
 		return nil
 	})
@@ -61,7 +61,7 @@ func (l *Lookup) Find(row Row, column string) []Row {
 	if position < 0 {
 		return nil
 	}
-	probe, probeColumn := row.values[position], row.shape.columns[position]
+	probe, probeColumn := row.value(position), row.shape.columns[position]
 	mode := lookupMode{numeric: probeColumn.Affinity.numeric() || l.column.Affinity.numeric(),
 		collation: probeColumn.Collation}
 	if mode.collation == "" {

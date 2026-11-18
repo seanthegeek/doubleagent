@@ -121,12 +121,7 @@ func (q Query) run(visit func(whole, selected Row) error) error {
 	if q.table == nil {
 		return errors.New("query of no table")
 	}
-	columns := make([]*Column, len(q.table.shape.columns))
-	for i := range columns {
-		columns[i] = &q.table.shape.columns[i]
-	}
-	whole := newRowShape(columns)
-	projection, err := q.projection(columns)
+	projection, err := q.projection(q.table.columnPointers())
 	if err != nil {
 		return err
 	}
@@ -142,9 +137,9 @@ func (q Query) run(visit func(whole, selected Row) error) error {
 		return visit(row, selected)
 	}
 	if len(keys) == 0 {
-		return q.stream(whole, emit)
+		return q.stream(emit)
 	}
-	return q.sorted(whole, keys, emit)
+	return q.sorted(keys, emit)
 }
 
 // projection returns the positions of the selected columns and their
@@ -185,11 +180,15 @@ func (q Query) projection(columns []*Column) (*projected, error) {
 		chosen = append(chosen, &Column{Name: column.name})
 	}
 	result.shape = newRowShape(chosen)
+	if len(q.columns) == 0 && len(q.computed) == 0 {
+		result.shape.layout = q.table.layout
+	}
 	return result, nil
 }
 
 // projected is a query's selection: the positions of the selected
-// columns in a whole row and the shape of the rows it returns.
+// columns in a whole row and the shape of the rows it returns, which keep
+// the stored record, as whole rows do, when every column is selected.
 type projected struct {
 	positions []int
 	shape     *rowShape
@@ -198,24 +197,39 @@ type projected struct {
 // project returns the selected columns of a whole row, refusing text that
 // is not valid UTF-8 (ErrInvalidText).
 func (q Query) project(row Row, selection *projected) (Row, error) {
+	if selection.shape.layout != nil {
+		if selection.shape.layout.hasInvalidText(row.values) {
+			return Row{}, q.invalidText(row.Values(), row.Rowid, selection.shape)
+		}
+		return Row{Rowid: row.Rowid, shape: selection.shape, values: row.values}, nil
+	}
 	values := make([]Value, 0, len(selection.shape.names))
 	for _, position := range selection.positions {
 		if position < 0 {
 			values = append(values, IntValue(row.Rowid))
 		} else {
-			values = append(values, row.values[position])
+			values = append(values, row.value(position))
 		}
 	}
 	for _, column := range q.computed {
 		values = append(values, column.compute(row))
 	}
-	for i, value := range values {
-		if value.Type == Text && !utf8.Valid(value.Bytes) {
-			return Row{}, fmt.Errorf("table %s row %d: column %s: %w", q.table.shape.name,
-				row.Rowid, selection.shape.names[i], ErrInvalidText)
-		}
+	if err := q.invalidText(values, row.Rowid, selection.shape); err != nil {
+		return Row{}, err
 	}
 	return Row{Rowid: row.Rowid, shape: selection.shape, values: values}, nil
+}
+
+// invalidText returns ErrInvalidText for the first of values, the selected
+// columns of the row with rowid, that is text but not valid UTF-8.
+func (q Query) invalidText(values []Value, rowid int64, shape *rowShape) error {
+	for i, value := range values {
+		if value.Type == Text && !utf8.Valid(value.Bytes) {
+			return fmt.Errorf("table %s row %d: column %s: %w", q.table.shape.name,
+				rowid, shape.names[i], ErrInvalidText)
+		}
+	}
+	return nil
 }
 
 // orderKeys resolves the OrderBy keys.
@@ -259,13 +273,12 @@ func (q Query) kept(row Row) bool {
 }
 
 // stream emits the kept rows as the scan reads them, up to the limit.
-func (q Query) stream(whole *rowShape, emit func(Row) error) error {
+func (q Query) stream(emit func(Row) error) error {
 	if q.limit == 0 {
 		return nil
 	}
 	count := 0
-	err := q.table.scan(func(rowid int64, values []Value) error {
-		row := Row{Rowid: rowid, shape: whole, values: values}
+	err := q.table.scan(func(row Row) error {
 		if !q.kept(row) {
 			return nil
 		}
@@ -285,10 +298,9 @@ func (q Query) stream(whole *rowShape, emit func(Row) error) error {
 
 // sorted reads every kept row, sorts them stably by the keys and emits
 // them up to the limit.
-func (q Query) sorted(whole *rowShape, keys []orderKey, emit func(Row) error) error {
+func (q Query) sorted(keys []orderKey, emit func(Row) error) error {
 	var rows []Row
-	err := q.table.scan(func(rowid int64, values []Value) error {
-		row := Row{Rowid: rowid, shape: whole, values: values}
+	err := q.table.scan(func(row Row) error {
 		if q.kept(row) {
 			rows = append(rows, row)
 		}
@@ -317,7 +329,7 @@ func compareKeys(left, right Row, keys []orderKey) int {
 			order = cmpInt(left.Rowid, right.Rowid)
 		} else {
 			collation := left.shape.columns[key.position].Collation
-			order = compareCollated(left.values[key.position], right.values[key.position], collation)
+			order = compareCollated(left.value(key.position), right.value(key.position), collation)
 		}
 		if key.descending {
 			order = -order

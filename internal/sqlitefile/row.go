@@ -8,17 +8,21 @@ import (
 // and its values by column name. A Row passed to a Where function holds
 // every column; a Row a query returns holds the selected columns.
 type Row struct {
-	Rowid  int64
-	shape  *rowShape
+	Rowid int64
+	shape *rowShape
+	// values holds the row's values in column order, or, when the shape
+	// has a layout, the stored record the layout reads them from.
 	values []Value
 }
 
 // rowShape is what the rows of one query share: the column names in
-// order, each one's column, and a lookup of positions by folded name.
+// order, each one's column, a lookup of positions by folded name and, for
+// rows that keep their stored record, the table's record layout.
 type rowShape struct {
 	names    []string
 	columns  []*Column
 	position map[string]int
+	layout   *recordLayout
 }
 
 // newRowShape returns the shape of rows holding columns in that order.
@@ -74,6 +78,14 @@ func lowerByte(octet byte) byte {
 	return octet
 }
 
+// value returns the value of the column at position.
+func (r Row) value(position int) Value {
+	if r.shape.layout == nil {
+		return r.values[position]
+	}
+	return r.shape.layout.sources[position].read(r.Rowid, r.values)
+}
+
 // lookup returns the position of the column called name, or -1.
 func (r Row) lookup(name string) int {
 	if r.shape == nil {
@@ -89,7 +101,7 @@ func (r Row) lookup(name string) int {
 // NULL when the row holds no such column.
 func (r Row) Get(name string) Value {
 	if position := r.lookup(name); position >= 0 {
-		return r.values[position]
+		return r.value(position)
 	}
 	return Value{}
 }
@@ -110,7 +122,14 @@ func (r Row) Columns() []string {
 
 // Values returns the row's values in column order.
 func (r Row) Values() []Value {
-	return slices.Clone(r.values)
+	if r.shape == nil || r.shape.layout == nil {
+		return slices.Clone(r.values)
+	}
+	values := make([]Value, len(r.shape.columns))
+	for i := range values {
+		values[i] = r.value(i)
+	}
+	return values
 }
 
 // Equals reports whether SQL's "column = operand" holds for the row: the
@@ -131,7 +150,7 @@ func (r Row) Cmp(name string, operand Value) (int, bool) {
 	if position < 0 {
 		return 0, false
 	}
-	value, column := r.values[position], r.shape.columns[position]
+	value, column := r.value(position), r.shape.columns[position]
 	switch {
 	case column.Affinity.numeric():
 		operand = applyAffinity(operand, NumericAffinity)
