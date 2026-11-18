@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -383,5 +384,24 @@ func TestASessionFileWithRecordsButNoHeaderIsReported(t *testing.T) {
 				t.Errorf("problem rows %q, want %q", problems, test.want)
 			}
 		})
+	}
+}
+
+// A member whose directory entry places its header before the first byte of
+// the archive is named in the package's own words.
+func TestAMemberPlacedBeforeTheArchivesStartIsNamedInOwnWords(t *testing.T) {
+	data := zipOf(t, [2]string{"report.json", "{}"}, [2]string{"diagnostics.json", "{}"})
+	// The end record's last eight bytes before its comment length hold the
+	// directory's size and offset; moving the offset on by four makes the
+	// reader place every member four bytes earlier, the first one before
+	// the start.
+	end := bytes.LastIndex(data, []byte("PK\x05\x06"))
+	offset := binary.LittleEndian.Uint32(data[end+16:])
+	binary.LittleEndian.PutUint32(data[end+16:], offset+4)
+	var problems parser.Problems
+	zipMembers("r.zip", data, maxInflated, &problems)
+	want := "r.zip member report.json could not be read (header placed before the start of the archive)"
+	if len(problems) == 0 || problems[0].Message != want {
+		t.Errorf("got %v, want first %q", problems, want)
 	}
 }

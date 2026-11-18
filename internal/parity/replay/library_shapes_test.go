@@ -169,7 +169,7 @@ func libraryShapes() []libraryShape {
 		shape(`(member [^"\n]* could not be read \()not a valid zip archive\)`, "${1}{not a zip member})", binarySide),
 		shape(`(member [^"\n]* could not be read \()negative seek value -[0-9]+\)`, "${1}{offset before the start})",
 			recordedSide),
-		shape(`(member [^"\n]* could not be read \()bytes\.Reader\.ReadAt: negative offset\)`,
+		shape(`(member [^"\n]* could not be read \()header placed before the start of the archive\)`,
 			"${1}{offset before the start})", binarySide),
 		shape(`SQLite error: [^"\n]*?`+rowEnd, "SQLite error: {sqlite error}${1}${2}", eitherSide),
 		shape(`database could not be read: [^"\n]*?`+rowEnd, "database could not be read: {sqlite error}${1}${2}",

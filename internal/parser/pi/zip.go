@@ -23,6 +23,24 @@ const maxInflated = 256 << 20
 var errTooLarge = errors.New("it decompresses past the " + strconv.Itoa(maxInflated>>20) +
 	" MiB read from one bug report")
 
+// errBeforeStart is the reason a member is not read when the archive's
+// directory places its header before the archive's first byte.
+var errBeforeStart = errors.New("header placed before the start of the archive")
+
+// archiveBytes is an archive held in memory, read at an offset with the
+// reason errBeforeStart for an offset before its start.
+type archiveBytes struct {
+	data *bytes.Reader
+}
+
+// ReadAt reads len(into) bytes at offset, as io.ReaderAt says.
+func (a archiveBytes) ReadAt(into []byte, offset int64) (int, error) {
+	if offset < 0 {
+		return 0, errBeforeStart
+	}
+	return a.data.ReadAt(into, offset)
+}
+
 // bugMembers returns the members of a bug report zip that are read, the
 // two always written first.
 func bugMembers() []string {
@@ -45,7 +63,7 @@ func bugZipMembers(artifact *input.Artifact, problems *parser.Problems) map[stri
 // zipMembers returns the known members of the bug report zip rel held in
 // data, decompressing at most budget bytes in all, as bugZipMembers says.
 func zipMembers(rel string, data []byte, budget int, problems *parser.Problems) map[string][]byte {
-	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	archive, err := zip.NewReader(archiveBytes{data: bytes.NewReader(data)}, int64(len(data)))
 	if err != nil && !(errors.Is(err, zip.ErrInsecurePath) && archive != nil) {
 		problems.Add(0, rel+" is not a zip archive ("+zipReason(err)+")")
 		return nil
@@ -99,7 +117,7 @@ func readMember(file *zip.File, budget int) ([]byte, error) {
 func zipReason(err error) string {
 	var corrupt flate.CorruptInputError
 	switch {
-	case errors.Is(err, errTooLarge):
+	case errors.Is(err, errTooLarge), errors.Is(err, errBeforeStart):
 		return err.Error()
 	case errors.Is(err, zip.ErrFormat):
 		return "not a valid zip archive"
