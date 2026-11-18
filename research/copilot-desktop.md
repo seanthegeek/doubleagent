@@ -1088,8 +1088,10 @@ Windows build, `cliVersion.d.ts` and `sdkProtocolVersion.d.ts`).
   older table's migration, `ALTER TABLE github_accounts ADD COLUMN
   access_token TEXT;`, and queries on `github_access_token IS NOT NULL`, so
   a file fallback exists; when it is used is not determined. The parser
-  writes only whether each is present (`token_present=`,
-  `github_token_present=`), never the value.
+  shows a stored token as written (`token=`, `github_token=`), and
+  `timeline --no-secrets` and `detect --no-secrets` replace it with the
+  placeholder; a NULL or empty column is written `token_present=false` or
+  `github_token_present=false`.
 - `repo-metadata-cache.db` `github_metadata_account_lifecycle` holds a
   credential identity hash, not a token
   ([`repo-metadata-cache.db`](#repo-metadata-cachedb)).
@@ -1123,8 +1125,8 @@ timestamps converted with `to_utc`:
 
 | Table | Row |
 | --- | --- |
-| `accounts` | at `created_at`: `account: <login> host=<host> kind=<kind> default=<is_default> token_present=<true if access_token not null>` |
-| `settings` | at the file's mtime (say so in the text): `desktop settings: storage_location=<storage_location> instructions=<instructions or -> github_token_present=<bool> github_token_type=<github_token_type or ->` |
+| `accounts` | at `created_at`: `account: <login> host=<host> kind=<kind> default=<is_default> token=<access_token>`, or `token_present=false` when `access_token` is NULL or empty; `--no-secrets` replaces the token with the placeholder |
+| `settings` | at the file's mtime (say so in the text): `desktop settings: storage_location=<storage_location> instructions=<instructions or -> github_token=<github_access_token> github_token_type=<github_token_type or ->`, `github_token_present=false` in place of `github_token=` when the column is NULL or empty; `--no-secrets` replaces the token with the placeholder |
 | `model_providers` | at `created_at`: `model provider: <name> type=<type>` |
 | `projects` | at `created_at`, `project_path` = `main_repo_path`: `project added: <name> kind=<container_kind> path=<main_repo_path> github=<github_owner>/<github_repo> default_branch=<default_branch>` (omit ` github=` when both null) |
 | `worktrees` | at `created_at`, `project_path` = the project's `main_repo_path`: `worktree: <path> branch=<branch> base=<base_branch or ->` |

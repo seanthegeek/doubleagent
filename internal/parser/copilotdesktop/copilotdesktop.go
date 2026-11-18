@@ -10,8 +10,8 @@
 //     accounts, settings, model_providers, projects, worktrees, workspaces,
 //     sessions (the project through workspace_session_aliases and
 //     workspaces.project_id), activity_items, session_checkpoints and the
-//     scheduling tables. A token is never written, only whether one is
-//     present.
+//     scheduling tables. A stored GitHub token is shown through
+//     parser.SecretText; a missing one is written as absent.
 //   - .copilot/repos/<repo>/.git/refs/copilot/checkpoints/<session>/<seq>/<event>,
 //     the loose git ref the app writes into its clone of a project per
 //     checkpoint: one row at the file's mtime.
@@ -148,6 +148,16 @@ func dash(value sqlitefile.Value) string {
 	return cmp.Or(parser.ColumnText(value), "-")
 }
 
+// token returns a token column as a row shows it: <name>=<token> through
+// parser.SecretText when one is stored, <name>_present=false when the
+// column is NULL or empty text.
+func token(artifact *input.Artifact, name string, value sqlitefile.Value) string {
+	if flag(value) == "false" {
+		return name + "_present=false"
+	}
+	return name + "=" + parser.SecretText(artifact, parser.ColumnText(value))
+}
+
 // flag returns "false" for NULL or empty text and "true" for anything else.
 func flag(value sqlitefile.Value) string {
 	if value.IsNull() || (value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
@@ -214,7 +224,7 @@ func (p *Parser) accountRows(artifact *input.Artifact, reader *store, emit parse
 	for _, account := range reader.created("accounts") {
 		emit(p.row(artifact, "account: "+parser.ColumnText(account.Get("login"))+" host="+
 			parser.ColumnText(account.Get("host"))+" kind="+parser.ColumnText(account.Get("kind"))+" default="+
-			parser.ColumnText(account.Get("is_default"))+" token_present="+flag(account.Get("access_token")),
+			parser.ColumnText(account.Get("is_default"))+" "+token(artifact, "token", account.Get("access_token")),
 			parser.ColumnTime(account.Get("created_at"))))
 	}
 }
@@ -225,8 +235,8 @@ func (p *Parser) settingsRows(artifact *input.Artifact, reader *store, emit pars
 	for _, settings := range reader.rows("settings", "id") {
 		emit(p.row(artifact, "desktop settings: storage_location="+
 			parser.ColumnText(settings.Get("storage_location"))+" instructions="+
-			dash(settings.Get("instructions"))+" github_token_present="+
-			flag(settings.Get("github_access_token"))+" github_token_type="+
+			dash(settings.Get("instructions"))+" "+token(artifact, "github_token", settings.Get("github_access_token"))+
+			" github_token_type="+
 			dash(settings.Get("github_token_type"))+" (from "+artifact.Rel+", file mtime)", mtime))
 	}
 }

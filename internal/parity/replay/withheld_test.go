@@ -127,6 +127,12 @@ func withheldForms() []withheldForm {
 				`socket token\)`,
 			`(exec_approvals_config raw_json unparseable \()`+goJSON+`\)`,
 			"${1}"+position+")"),
+		// The recording said only that an account's token was present; the
+		// binary gives the token, withheld.
+		form("copilot-desktop", "account token",
+			`(account: [^"\n]* )token_present=true("|\n|\z)`,
+			`(account: [^"\n]* )token=`+secrets.DefaultPlaceholder+`("|\n|\z)`,
+			"${1}{withheld token}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -197,6 +203,9 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	remoteRecorded := "  remotes: origin git@h:o/r.git (push https://alice:TOKEN@github.com/o/r.git)\n"
 	remoteBinary := strings.Replace(remoteRecorded, "alice:TOKEN", "REDACTED", 1)
 	jsonRemote := "          \"urls\": [\n            \"https://alice:TOKEN@github.com/o/r.git\"\n"
+	accountRecorded := "account: ana host=github.com kind=github default=1 token_present=true"
+	accountBinary := "account: ana host=github.com kind=github default=1 token=REDACTED"
+	accountAbsent := "account: ana host=github.com kind=github default=1 token_present=false"
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -235,6 +244,14 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			strings.Replace(execBinary, "22", "23", 1), false},
 		{"an exec approvals error of another table fails", execRecorded,
 			strings.Replace(execBinary, "exec_approvals_config", "exec_approvals", 1), false},
+		{"an account token in its placeholder form passes", accountRecorded, accountBinary, true},
+		{"an account token shown fails", accountRecorded,
+			strings.Replace(accountBinary, "REDACTED", "FIXTURE-TOKEN", 1), false},
+		{"an account token in the recording's form fails", accountRecorded, accountRecorded, false},
+		{"an account token of another login fails", accountRecorded, strings.Replace(accountBinary, "ana", "bo", 1),
+			false},
+		{"an absent account token passes as written", accountAbsent, accountAbsent, true},
+		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -255,6 +272,7 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 		"crush crush.json reader error":    "parser: crush.json is not a JSON object",
 		"openclaw exec approvals reader error": "parser: exec_approvals_config raw_json unparseable (Expecting value: " +
 			"line 1 column 22 (char 21); text withheld, it holds the approvals socket token)",
+		"copilot-desktop account token":              "account: ana host=github.com kind=github default=1 token_present=true",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {
