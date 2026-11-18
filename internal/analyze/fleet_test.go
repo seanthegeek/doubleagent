@@ -143,3 +143,38 @@ func TestFleetRefusesInputsItCannotUse(t *testing.T) {
 		})
 	}
 }
+
+func TestSpreadsheetTextKeepsAFormulaFromRunning(t *testing.T) {
+	for _, test := range []struct {
+		name, text, want string
+	}{
+		{"an equals sign", "=cmd|' /C calc'!A0", "'=cmd|' /C calc'!A0"},
+		{"a plus sign", "+SUM(1)", "'+SUM(1)"},
+		{"a minus sign", "-y", "'-y"},
+		{"an at sign", "@x", "'@x"},
+		{"a tab", "\t=1", "'\t=1"},
+		{"a carriage return", "\r=1", "'\r=1"},
+		{"a space before an equals sign starts no formula", " =1", " =1"},
+		{"an empty cell", "", ""},
+		{"a cell that already starts with a quote", "'=1", "'=1"},
+		{"a full-width equals sign starts no formula", "＝1", "＝1"},
+		{"a cell of several lines", "=a\nb", "'=a\nb"},
+		{"plain text", "claude-code", "claude-code"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := spreadsheetText(test.text); got != test.want {
+				t.Errorf("spreadsheetText(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+func TestFleetWritesEvidenceTextAsTextAndNumbersAsNumbers(t *testing.T) {
+	rows, _ := fleetRows(`{"type":"host","host":"=cmd|' /C calc'!A0","collector":"+1","mode":"@m"}` + "\n" +
+		`{"type":"agent","user":"-u","agent":"a","files":-5,"bytes":"-6","last":"=x","evidence":["@x","-y"]}`)
+	want := [][]string{{"'=cmd|' /C calc'!A0", "'+1", "'@m", "", "'-u", "a", "-5", "'-6", "", "", "",
+		`["@x","-y"]`}}
+	if !reflect.DeepEqual(rows, want) {
+		t.Errorf("rows %q\nwant %q", rows, want)
+	}
+}

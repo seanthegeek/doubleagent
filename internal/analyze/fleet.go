@@ -198,15 +198,33 @@ func cells(record jsonvalue.Value, fields []string) []string {
 }
 
 // cell returns one field's CSV cell: "" for a missing or null value, a
-// time field as a timeline timestamp, anything else as its row text (Text).
+// time field as a timeline timestamp, a number as written, anything else as
+// its row text (Text); text passes through spreadsheetText.
 func cell(field string, value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
 		return ""
 	case field == "at" || field == "first" || field == "last":
-		return timeutil.FromValue(value)
+		return spreadsheetText(timeutil.FromValue(value))
+	case value.IsNumber():
+		return value.Text()
 	}
-	return value.Text()
+	return spreadsheetText(value.Text())
+}
+
+// spreadsheetText returns a cell's text with a single quote in front when
+// it starts with =, +, -, @, a tab or a carriage return, the characters a
+// spreadsheet that opens the CSV takes as the start of a formula (OWASP's
+// "CSV Injection" lists them), so the cell shows as text and runs nothing:
+// the inventory comes from the examined host, which may be hostile. Only
+// the first character counts, as in that list; a look-alike such as the
+// full-width equals sign starts no formula and is left as it is. A JSON
+// number is written as a number, never through here.
+func spreadsheetText(text string) string {
+	if text != "" && strings.ContainsRune("=+-@\t\r", rune(text[0])) {
+		return "'" + text
+	}
+	return text
 }
 
 // agentTotal is one line of the rollup: an agent, the hosts and the users

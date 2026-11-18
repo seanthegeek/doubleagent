@@ -71,6 +71,9 @@ status: 0 when rows were written, 1 when there were none, 2 on an error,
   -o, --output CSV     CSV to write (default: ` + DefaultFleetName + ` in the
                        current directory)
   -h, --help           print this text and exit
+
+A cell that begins with =, +, - or @ is written with a ' in front, so a
+spreadsheet shows it as text; the saved inventories keep it as written.
 `
 
 // catalogUsage is the help text of catalog.
