@@ -242,8 +242,8 @@ func lookupPath(value jsonvalue.Value, keys ...string) (jsonvalue.Value, bool) {
 func (c *conversation) read(state jsonvalue.Value) {
 	models := parser.Tracker{}
 	seen := map[string]bool{}
-	for _, entry := range state.Get("history").Items() {
-		if entry.IsObject() {
+	if history := state.Get("history"); history.IsArray() {
+		for _, entry := range parser.EntriesOfKind(history, "history", jsonvalue.Object, c.line, &c.problems) {
 			seen[entryKey(entry)] = true
 			c.entryRows(entry, models, c.emit)
 		}
@@ -252,7 +252,7 @@ func (c *conversation) read(state jsonvalue.Value) {
 	for _, copied := range c.historyCopies(state) {
 		var fresh []jsonvalue.Value
 		for _, entry := range copied.entries {
-			if entry.IsObject() && !seen[entryKey(entry)] {
+			if !seen[entryKey(entry)] {
 				seen[entryKey(entry)] = true
 				fresh = append(fresh, entry)
 			}
@@ -289,14 +289,12 @@ type historyCopy struct {
 func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 	var copies []historyCopy
 	manager := parser.ObjectOrEmptyMember(state.Get("checkpoint_manager"), "checkpoint_manager", c.line, &c.problems)
-	checkpoints := parser.ArrayMember(manager.Get("checkpoints"), "checkpoint_manager.checkpoints",
-		c.line, &c.problems)
+	checkpoints := parser.EntriesOfKind(manager.Get("checkpoints"), "checkpoint_manager.checkpoints",
+		jsonvalue.Object, c.line, &c.problems)
 	for _, checkpoint := range checkpoints {
-		if !checkpoint.IsObject() {
-			continue
-		}
 		snapshot := checkpoint.Get("history_snapshot")
-		parser.ArrayMember(snapshot, "checkpoint_manager.checkpoints[].history_snapshot", c.line, &c.problems)
+		entries := parser.ListOfKind(snapshot, "checkpoint_manager.checkpoints[].history_snapshot", jsonvalue.Object,
+			c.line, &c.problems)
 		if !snapshot.IsArray() {
 			continue
 		}
@@ -309,11 +307,11 @@ func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 			tail = ": " + description.Text()
 		}
 		copies = append(copies, historyCopy{head: head, tail: tail,
-			timestamp: timeutil.FromValue(checkpoint.Get("timestamp")), entries: snapshot.Items()})
+			timestamp: timeutil.FromValue(checkpoint.Get("timestamp")), entries: entries})
 	}
 	tangent := parser.ObjectOrEmptyMember(state.Get("tangent_state"), "tangent_state", c.line, &c.problems)
-	if main := parser.ArrayMember(tangent.Get("main_history"), "tangent_state.main_history", c.line,
-		&c.problems); len(main) > 0 {
+	if main := parser.ListOfKind(tangent.Get("main_history"), "tangent_state.main_history", jsonvalue.Object,
+		c.line, &c.problems); len(main) > 0 {
 		copies = append(copies, historyCopy{head: "tangent mode: main conversation held aside,",
 			entries: main})
 	}
@@ -402,10 +400,7 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, e
 // remembers each call's tool name for its result. A tool_uses that is not
 // an array adds a problem.
 func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit parser.Emit) {
-	for _, use := range parser.ArrayMember(uses, "tool_uses", c.line, &c.problems) {
-		if !use.IsObject() {
-			continue
-		}
+	for _, use := range parser.EntriesOfKind(uses, "tool_uses", jsonvalue.Object, c.line, &c.problems) {
 		toolID := parser.Text(use.Get("id"))
 		toolName := parser.Text(use.Get("name"))
 		if toolName == "" {
@@ -446,11 +441,8 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 	if tag != "ToolUseResults" && !cancelled {
 		return
 	}
-	for _, result := range parser.ArrayMember(body.Get("tool_use_results"), "tool_use_results", c.line,
-		&c.problems) {
-		if !result.IsObject() {
-			continue
-		}
+	for _, result := range parser.EntriesOfKind(body.Get("tool_use_results"), "tool_use_results", jsonvalue.Object,
+		c.line, &c.problems) {
 		row := c.base(timestamp, model)
 		row.ToolUseID = parser.Text(result.Get("tool_use_id"))
 		row.ToolName = c.names[row.ToolUseID]

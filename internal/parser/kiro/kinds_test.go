@@ -88,3 +88,28 @@ func TestAConversationMemberThatIsNotTheRightKindIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestConversationEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	const prompt = `"user": {"content": {"Prompt": {"prompt": "hi"}}}`
+	tests := []struct {
+		name, member, document string
+	}{
+		{"history", "history", `{"conversation_id": "c", "history": %s}`},
+		{"checkpoints", "checkpoint_manager.checkpoints", `{"history": [], "checkpoint_manager": {"checkpoints": %s}}`},
+		{"history_snapshot", "checkpoint_manager.checkpoints[].history_snapshot",
+			`{"history": [], "checkpoint_manager": {"checkpoints": [{"tag": "1", "history_snapshot": %s}]}}`},
+		{"main_history", "tangent_state.main_history", `{"history": [], "tangent_state": {"main_history": %s}}`},
+		{"tool_uses", "tool_uses",
+			`{"history": [{` + prompt + `, "assistant": {"Response": {"content": "x", "tool_uses": %s}}}]}`},
+		{"tool_use_results", "tool_use_results",
+			`{"history": [{"user": {"content": {"ToolUseResults": {"tool_use_results": %s}}}}]}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := conversationProblems(fmt.Sprintf(test.document, `[7, "x"]`))
+			if want := []string{"parser: " + test.member + " holds 2 entries that are not JSON objects"}; !slices.Equal(got, want) {
+				t.Errorf("problems %q, want %q", got, want)
+			}
+		})
+	}
+}
