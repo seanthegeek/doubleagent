@@ -1,6 +1,7 @@
 package clinelegacy
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -62,11 +63,11 @@ func messageKind(message jsonvalue.Value) string {
 	if isText(message.Get("type"), "say") {
 		kind = message.Get("say")
 	}
-	return parser.Text(FirstTruthy(kind, message.Get("say"), message.Get("ask"), message.Get("type")))
+	return parser.Text(parser.FirstNonEmpty(kind, message.Get("say"), message.Get("ask"), message.Get("type")))
 }
 
-// toolID returns the id a tool call's rows share: the message's ts as
-// Python's str() writes it, or its position when it has none.
+// toolID returns the id a tool call's rows share: the message's ts as its
+// row text, or its position when it has none.
 func toolID(timestamp jsonvalue.Value, position int) string {
 	if timestamp.IsNull() {
 		return strconv.Itoa(position)
@@ -196,12 +197,11 @@ func assistantText(text string) string {
 	if !ok {
 		return text
 	}
-	choices := FirstTruthy(parsed.Get("options"), parsed.Get("suggest"))
+	choices := parser.FirstNonEmpty(parsed.Get("options"), parsed.Get("suggest"))
 	if choices.IsArray() {
 		choices = jsonvalue.NewString(choiceList(choices))
 	}
-	question := FirstTruthy(parsed.Get("question"), parsed.Get("response"), jsonvalue.NewString(""))
-	return Join(question, FirstTruthy(choices, jsonvalue.NewString("")))
+	return Join(parser.FirstNonEmpty(parsed.Get("question"), parsed.Get("response")), choices)
 }
 
 // choiceList returns the choices of a followup joined by "; ": a string as
@@ -260,12 +260,12 @@ func toolUseText(kind, text string) (string, string) {
 	case kind == "tool" && !ok:
 		return "tool", text
 	case kind == "tool":
-		return parser.Text(FirstTruthy(parsed.Get("tool"), jsonvalue.NewString("tool"))), fileToolText(parsed)
+		return cmp.Or(parser.Text(parsed.Get("tool")), "tool"), fileToolText(parsed)
 	case kind == "use_mcp_server" && !ok:
 		return "use_mcp_server", text
 	case kind == "use_mcp_server":
-		name := FirstTruthy(parsed.Get("toolName"), parsed.Get("type"), jsonvalue.NewString("use_mcp_server"))
-		return name.Text(), Join(parsed.Get("serverName"), parsed.Get("uri"), parsed.Get("arguments"))
+		name := cmp.Or(parser.Text(parsed.Get("toolName")), parser.Text(parsed.Get("type")), "use_mcp_server")
+		return name, Join(parsed.Get("serverName"), parsed.Get("uri"), parsed.Get("arguments"))
 	case kind == "browser_action" && ok:
 		return "browser_action", Join(parsed.Get("action"), parsed.Get("coordinate"), parsed.Get("text"))
 	case kind == "use_subagents" && ok && parsed.Get("prompts").IsArray():
@@ -286,20 +286,19 @@ func toolUseText(kind, text string) (string, string) {
 }
 
 // fileToolText returns the text of a "tool" message: its path, the paths
-// of a batch, the search and mode fields, the reason and the diff or
-// content.
+// of a batch (an entry without a path is left out), the search and mode
+// fields, the reason and the diff, else the content.
 func fileToolText(parsed jsonvalue.Value) string {
-	paths := ""
-	if batch := parsed.Get("batchFiles"); batch.IsArray() {
-		var parts []string
-		for _, entry := range batch.Items() {
-			if entry.IsObject() {
-				parts = append(parts, entry.Get("path").Text())
-			}
+	var paths []string
+	for _, entry := range parsed.Get("batchFiles").Items() {
+		if path := entry.Get("path"); entry.IsObject() && Present(path) {
+			paths = append(paths, path.Text())
 		}
-		paths = strings.Join(parts, "; ")
 	}
-	return Join(parsed.Get("path"), jsonvalue.NewString(paths), parsed.Get("regex"),
-		parsed.Get("filePattern"), parsed.Get("query"), parsed.Get("mode"), parsed.Get("reason"),
-		FirstTruthy(parsed.Get("diff"), parsed.Get("content")))
+	body := parsed.Get("diff")
+	if body.IsEmpty() {
+		body = parsed.Get("content")
+	}
+	return Join(parsed.Get("path"), jsonvalue.NewString(strings.Join(paths, "; ")), parsed.Get("regex"),
+		parsed.Get("filePattern"), parsed.Get("query"), parsed.Get("mode"), parsed.Get("reason"), body)
 }

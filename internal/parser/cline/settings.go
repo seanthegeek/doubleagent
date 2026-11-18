@@ -86,15 +86,15 @@ func (p *Parser) globalState(artifact *input.Artifact, emit parser.Emit) {
 		writer.setting("mode", mode)
 	}
 	if target := document.Get("cloudTaskTarget"); target.IsObject() {
-		emit(writer.row("cloud task target: target=" + dash(target.Get("target")) + " repository_id=" +
-			dash(target.Get("repositoryId")) + " branch=" + dash(target.Get("branch")) +
+		emit(writer.row("cloud task target: target=" + parser.SettingOrDash(target.Get("target")) + " repository_id=" +
+			parser.SettingOrDash(target.Get("repositoryId")) + " branch=" + parser.SettingOrDash(target.Get("branch")) +
 			" (from " + artifact.Rel + ", file mtime)"))
 	}
 	source := artifact.Rel + " cloudSessionStatuses, observedAt"
 	for _, member := range document.Get("cloudSessionStatuses").Members() {
 		status := member.Value
 		p.cloudRows(artifact, member.Key, timeutil.FromValue(status.Get("observedAt")),
-			"status "+dash(status.Get("status")), source, 0, emit)
+			"status "+parser.SettingOrDash(status.Get("status")), source, 0, emit)
 	}
 }
 
@@ -133,8 +133,8 @@ func (p *Parser) pendingStarts(artifact *input.Artifact, emit parser.Emit) {
 			problems.Add(position, "pending-start record "+strconv.Itoa(position)+" has no sessionId")
 			continue
 		}
-		detail := "sandbox start pending account=" + dash(record.Get("account")) + " endpoint=" +
-			dash(record.Get("endpoint"))
+		detail := "sandbox start pending account=" + parser.SettingOrDash(record.Get("account")) + " endpoint=" +
+			parser.SettingOrDash(record.Get("endpoint"))
 		p.cloudRows(artifact, record.Get("sessionId").StringValue(), timestamp, detail,
 			artifact.Rel+", file mtime", position, emit)
 	}

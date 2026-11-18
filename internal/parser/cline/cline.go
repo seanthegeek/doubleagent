@@ -61,9 +61,9 @@ var (
 const hooksTolerance = 3600.0
 
 // isManifest reports whether rel is a session manifest,
-// .cline/data/sessions/<id>/<id>.json: the Python pattern
-// `^\.cline/data/sessions/([^/]+)/\1\.json$`, whose backreference Go's
-// engine has no form for.
+// .cline/data/sessions/<id>/<id>.json, a file named after its own
+// directory. A pattern for it needs a backreference
+// (`^\.cline/data/sessions/([^/]+)/\1\.json$`), which Go's regexp lacks.
 func isManifest(rel string) bool {
 	rest, ok := strings.CutPrefix(rel, sessionsPrefix)
 	if !ok {

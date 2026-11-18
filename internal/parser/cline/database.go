@@ -2,6 +2,7 @@ package cline
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -11,33 +12,33 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// openDatabase opens a database the parser reads, or returns the message
-// of the row that says why it cannot: "<name> is not a SQLite database",
-// the unreadable message of the file or a sidecar, or "<name> unreadable
-// (<reason>)".
-func openDatabase(path, name string) (*sqlitefile.Database, string) {
+// openDatabase opens a database the parser reads, or returns an error whose
+// text is the row that says why it cannot: "<name> is not a SQLite
+// database", the unreadable message of the file or a sidecar, or "<name>
+// unreadable (<reason>)".
+func openDatabase(path, name string) (*sqlitefile.Database, error) {
 	if err := sqlitefile.Problem(path); err != nil {
 		if errors.Is(err, sqlitefile.ErrNotDatabase) {
-			return nil, name + " is not a SQLite database"
+			return nil, errors.New(name + " is not a SQLite database")
 		}
-		return nil, parser.DatabaseError(err)
+		return nil, errors.New(parser.DatabaseError(err))
 	}
 	database, err := sqlitefile.OpenPath(path)
 	if err != nil {
 		return nil, unreadable(name, err)
 	}
-	return database, ""
+	return database, nil
 }
 
-// unreadable returns the message of a database that failed while it was
+// unreadable returns the error of a database that failed while it was
 // read.
-func unreadable(name string, err error) string {
-	return name + " unreadable (" + err.Error() + ")"
+func unreadable(name string, err error) error {
+	return fmt.Errorf("%s unreadable (%w)", name, err)
 }
 
-// columnValue returns a column value as the JSON value Python's sqlite3
-// module would give the parser: a number, text, null, or for a blob the
-// text Python's str() writes for bytes.
+// columnValue returns a column value as a JSON value, so a row of the
+// sessions table reads as a manifest does: a number, text, null, or for a
+// blob its literal text (sqlitefile.Value.String).
 func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Integer:
@@ -60,12 +61,12 @@ func rowObject(row sqlitefile.Row) jsonvalue.Value {
 }
 
 // readSessions returns every row of the sessions table in rowid order, an
-// empty list when there is no such table, or the message of the row that
-// replaces them.
-func readSessions(path string) ([]sqlitefile.Row, string) {
-	database, message := openDatabase(path, "sessions.db")
-	if message != "" {
-		return nil, message
+// empty list when there is no such table, or an error whose text is the
+// row that replaces them.
+func readSessions(path string) ([]sqlitefile.Row, error) {
+	database, err := openDatabase(path, "sessions.db")
+	if err != nil {
+		return nil, err
 	}
 	defer database.Close()
 	names, err := database.TableNames()
@@ -73,14 +74,14 @@ func readSessions(path string) ([]sqlitefile.Row, string) {
 		return nil, unreadable("sessions.db", err)
 	}
 	if !names["sessions"] {
-		return nil, ""
+		return nil, nil
 	}
 	table, err := database.Table("sessions")
 	if err == nil {
 		var rows []sqlitefile.Row
 		rows, err = table.Select().OrderBy("rowid").All()
 		if err == nil {
-			return rows, ""
+			return rows, nil
 		}
 	}
 	return nil, unreadable("sessions.db", err)
@@ -89,9 +90,9 @@ func readSessions(path string) ([]sqlitefile.Row, string) {
 // sessionsDatabase emits a session index row, with its model and blob
 // upload rows, per row of db/sessions.db whose manifest is gone.
 func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
-	rows, message := readSessions(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	rows, err := readSessions(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
 	keys := append(startKeys(), "ended_at", "exit_code")
@@ -138,8 +139,9 @@ func metadataJSON(value sqlitefile.Value) jsonvalue.Value {
 	return decoded
 }
 
-// ordinal returns a search document's ordinal as Python's int() reads it,
-// -1 when it is not a number.
+// ordinal returns a search document's ordinal: an integer, a float cut
+// to its whole part, or text holding a decimal integer with spaces around
+// it; -1 when it is none of those.
 func ordinal(value sqlitefile.Value) int {
 	switch value.Type {
 	case sqlitefile.Integer:
@@ -147,8 +149,7 @@ func ordinal(value sqlitefile.Value) int {
 	case sqlitefile.Float:
 		return int(value.Float)
 	case sqlitefile.Text, sqlitefile.Blob:
-		text := strings.ReplaceAll(strings.TrimSpace(string(value.Bytes)), "_", "")
-		if number, err := strconv.Atoi(text); err == nil {
+		if number, err := strconv.Atoi(strings.TrimSpace(string(value.Bytes))); err == nil {
 			return number
 		}
 	}

@@ -65,7 +65,7 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value,
 	row.SourceLine = position
 	row.TimestampUTC = timeutil.FromValue(session.Get(timeKey))
 	row.SessionID = parser.Text(session.Get("session_id"))
-	row.ProjectPath = parser.Text(clinelegacy.FirstTruthy(session.Get("cwd"), session.Get("workspace_root")))
+	row.ProjectPath = parser.Text(parser.FirstNonEmpty(session.Get("cwd"), session.Get("workspace_root")))
 	row.Model = parser.Text(session.Get("model"))
 	row.TurnType = timeline.TurnSystem
 	row.Text = timeline.Compact(label + ": " + clinelegacy.FormatCounts(session, keys...))
@@ -106,20 +106,12 @@ func blobUpload(start timeline.Row, meta jsonvalue.Value, source string) (timeli
 		user = value.Text()
 	}
 	row := start
-	row.Text = "session synced: enterprise prompt upload to " + dash(storage.Get("adapterType")) +
-		" bucket " + dash(storage.Get("bucket")) + " object sessions/" + user + "/" +
-		start.SessionID + "/messages.json endpoint=" + dash(storage.Get("endpoint")) +
-		" region=" + dash(storage.Get("region")) + " account=" + dash(storage.Get("accountId")) +
+	row.Text = "session synced: enterprise prompt upload to " + parser.SettingOrDash(storage.Get("adapterType")) +
+		" bucket " + parser.SettingOrDash(storage.Get("bucket")) + " object sessions/" + user + "/" +
+		start.SessionID + "/messages.json endpoint=" + parser.SettingOrDash(storage.Get("endpoint")) +
+		" region=" + parser.SettingOrDash(storage.Get("region")) + " account=" + parser.SettingOrDash(storage.Get("accountId")) +
 		" (from " + source + " " + blobUploadKey + ", started_at)"
 	return row, true
-}
-
-// dash returns a value as row text, "-" when it is null or empty.
-func dash(value jsonvalue.Value) string {
-	if !clinelegacy.Present(value) {
-		return "-"
-	}
-	return value.Text()
 }
 
 // manifest emits the start, model, blob upload and end rows of a session

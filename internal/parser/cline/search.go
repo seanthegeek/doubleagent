@@ -3,10 +3,10 @@ package cline
 import (
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -23,13 +23,13 @@ type searchIndex struct {
 	problem   string
 }
 
-// readSearch reads the search index, or returns the message of the row that
-// replaces it. The FTS5 table session_search is read from its content
-// table; one that cannot be read leaves indexed_sessions read alone.
-func readSearch(path string) (searchIndex, string) {
-	database, message := openDatabase(path, searchName)
-	if message != "" {
-		return searchIndex{}, message
+// readSearch reads the search index, or returns an error whose text is the
+// row that replaces it. The FTS5 table session_search is read from its
+// content table; one that cannot be read leaves indexed_sessions read alone.
+func readSearch(path string) (searchIndex, error) {
+	database, err := openDatabase(path, searchName)
+	if err != nil {
+		return searchIndex{}, err
 	}
 	defer database.Close()
 	names, err := database.TableNames()
@@ -52,7 +52,7 @@ func readSearch(path string) (searchIndex, string) {
 			index.problem = "session_search unreadable (" + err.Error() + "), indexed_sessions read alone"
 		}
 	}
-	return index, ""
+	return index, nil
 }
 
 // selectAll returns the named columns, or every column, of a table's rows
@@ -68,9 +68,9 @@ func selectAll(database *sqlitefile.Database, name string, columns ...string) ([
 // searchDatabase emits, per session of the search index, its index row
 // and a row per message document.
 func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
-	index, message := readSearch(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	index, err := readSearch(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
 	if index.problem != "" {
@@ -86,12 +86,12 @@ func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
 	}
 	meta := map[string]sqlitefile.Row{}
 	for _, indexed := range index.indexed {
-		sessionID := columnStr(indexed.Get("session_id"))
+		sessionID := columnText(indexed.Get("session_id"))
 		add(sessionID)
 		meta[sessionID] = indexed
 	}
 	for _, document := range index.documents {
-		sessionID := columnStr(document.Get("session_id"))
+		sessionID := columnText(document.Get("session_id"))
 		add(sessionID)
 		bySession[sessionID] = append(bySession[sessionID], document)
 	}
@@ -100,22 +100,13 @@ func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
 	}
 }
 
-// columnStr returns a column as Python's str(value or "") gives it.
-func columnStr(value sqlitefile.Value) string {
+// columnText returns a column as row text, "" for an empty value (null,
+// zero, empty text or an empty blob).
+func columnText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
 	}
 	return value.String()
-}
-
-// orColumn returns the first value Python counts as true, else the last.
-func orColumn(values ...sqlitefile.Value) sqlitefile.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return values[len(values)-1]
 }
 
 // searchSession emits the index row of one session, then a row per
@@ -127,7 +118,7 @@ func (p *Parser) searchSession(artifact *input.Artifact, sessionID string, index
 	if !hasHead && len(messages) > 0 {
 		first = messages[0]
 	}
-	workspace := columnStr(first.Get("workspace_root"))
+	workspace := columnText(first.Get("workspace_root"))
 	project := p.searchProject(artifact, sessionID, workspace)
 	row := p.BaseRow(artifact)
 	row.TimestampUTC = parser.ColumnTime(first.Get("started_at"))
@@ -195,32 +186,32 @@ func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace st
 	if !manifest.IsObject() {
 		return workspace
 	}
-	return parser.Text(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
+	return parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))
 }
 
 // searchDetail returns the "key=value" fields of a search session's index
 // row: title, workspace root, prompt, document count and indexing time.
 func searchDetail(indexed, head sqlitefile.Row, workspace string) string {
+	title := indexed.Get("title")
+	if title.IsEmpty() {
+		title = head.Get("title")
+	}
 	fields := []struct {
 		key   string
 		value sqlitefile.Value
 	}{
-		{"title", orColumn(indexed.Get("title"), head.Get("title"))},
+		{"title", title},
 		{"workspace_root", sqlitefile.TextValue(workspace)},
 		{"prompt", head.Get("content")},
 		{"document_count", indexed.Get("document_count")},
 		{"indexed_at", indexed.Get("indexed_at")},
 	}
-	detail := ""
+	parts := make([]string, 0, len(fields))
 	for _, field := range fields {
 		empty := field.value.Type == sqlitefile.Text && len(field.value.Bytes) == 0
-		if field.value.IsNull() || empty {
-			continue
+		if !field.value.IsNull() && !empty {
+			parts = append(parts, field.key+"="+field.value.String())
 		}
-		if detail != "" {
-			detail += " "
-		}
-		detail += field.key + "=" + field.value.String()
 	}
-	return detail
+	return strings.Join(parts, " ")
 }

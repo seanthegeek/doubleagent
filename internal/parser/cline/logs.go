@@ -1,6 +1,7 @@
 package cline
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -20,6 +21,15 @@ func hookKeys() [][2]string {
 		{"source", "source"}}
 }
 
+// lineTime returns a hook log line's time: its ts, else (when ts is empty)
+// its timestamp, whatever that holds.
+func lineTime(record jsonvalue.Value) jsonvalue.Value {
+	if stamp := record.Get("ts"); !stamp.IsEmpty() {
+		return stamp
+	}
+	return record.Get("timestamp")
+}
+
 // hooksLog emits one row per line of logs/hooks.jsonl: the transcript event
 // a line repeats, else a "hook audit:" row.
 func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
@@ -27,8 +37,8 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = line
-		row.TimestampUTC = timeutil.FromValue(clinelegacy.FirstTruthy(record.Get("ts"), record.Get("timestamp")))
-		row.SessionID = parser.Text(clinelegacy.FirstTruthy(record.Get("sessionContext").Get("rootSessionId"),
+		row.TimestampUTC = timeutil.FromValue(lineTime(record))
+		row.SessionID = parser.Text(parser.FirstNonEmpty(record.Get("sessionContext").Get("rootSessionId"),
 			record.Get("taskId"), record.Get("sessionId")))
 		if roots := record.Get("workspaceRoots"); roots.Len() > 0 && roots.IsArray() &&
 			roots.Index(0).IsString() {
@@ -37,7 +47,7 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 		hook := parser.Text(record.Get("hookName"))
 		if !hookEvent(&row, hook, record) {
 			row.TurnType = timeline.TurnSystem
-			row.Text = timeline.Compact("hook audit: " + orDash(hook) + auditDetail(record))
+			row.Text = timeline.Compact("hook audit: " + cmp.Or(hook, "-") + auditDetail(record))
 		}
 		emit(row)
 	}
@@ -47,24 +57,17 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 // auditDetail returns the " name=value" fields of a hook audit line and its
 // error's name and message.
 func auditDetail(record jsonvalue.Value) string {
-	detail := ""
+	var detail strings.Builder
 	for _, pair := range hookKeys() {
 		if value := record.Get(pair[0]); clinelegacy.Present(value) {
-			detail += " " + pair[1] + "=" + parser.SettingValue(value)
+			detail.WriteString(" " + pair[1] + "=" + parser.SettingValue(value))
 		}
 	}
 	if failure := record.Get("error"); failure.IsObject() && failure.Len() > 0 {
-		detail += " error=" + dash(failure.Get("name")) + ": " + dash(failure.Get("message"))
+		detail.WriteString(" error=" + parser.SettingOrDash(failure.Get("name")) + ": " +
+			parser.SettingOrDash(failure.Get("message")))
 	}
-	return detail
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
+	return detail.String()
 }
 
 // hookEvent fills row as the transcript event a hook line repeats, a
@@ -102,7 +105,7 @@ func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 // hook's result text, else the output.
 func toolResult(row *timeline.Row, result, post jsonvalue.Value) {
 	row.TurnType = timeline.TurnToolResult
-	row.ToolName = parser.Text(clinelegacy.FirstTruthy(result.Get("name"), post.Get("toolName")))
+	row.ToolName = parser.Text(parser.FirstNonEmpty(result.Get("name"), post.Get("toolName")))
 	row.ToolUseID = parser.Text(result.Get("id"))
 	output := result.Get("output")
 	switch {
@@ -178,8 +181,8 @@ func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 			problems.Add(i+1, "sync-queue item "+member.Key+" is not a JSON object")
 			continue
 		}
-		row := p.SystemRow(artifact, "enterprise prompt upload "+dash(item.Get("status"))+" key "+
-			dash(item.Get("key"))+" retries "+dash(item.Get("retryCount"))+
+		row := p.SystemRow(artifact, "enterprise prompt upload "+parser.SettingOrDash(item.Get("status"))+" key "+
+			parser.SettingOrDash(item.Get("key"))+" retries "+parser.SettingOrDash(item.Get("retryCount"))+
 			" (from saoudrizwan.claude-dev/cache/sync-queue.json, item timestamp)")
 		row.SourceLine = i + 1
 		row.SessionID = parser.Text(item.Get("taskId"))

@@ -1,7 +1,6 @@
 package kilocode
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -52,7 +51,7 @@ func (p *Parser) config(artifact *input.Artifact, emit parser.Emit) {
 	switch {
 	case err != nil:
 		emit(p.settingRow(artifact, timestamp,
-			fmt.Sprintf("parser: %s could not be decoded (%s)", artifact.Rel, err)))
+			"parser: "+artifact.Rel+" could not be decoded ("+err.Error()+")"))
 		return
 	case !document.IsObject():
 		emit(p.settingRow(artifact, timestamp, "parser: "+artifact.Rel+" is not a JSON object"))
@@ -69,14 +68,13 @@ func (p *Parser) config(artifact *input.Artifact, emit parser.Emit) {
 	}
 	for _, member := range permission.Members() {
 		if !member.Value.IsObject() {
-			emit(p.settingRow(artifact, timestamp, fmt.Sprintf("permission setting: permission.%s=%s %s",
-				member.Key, parser.SettingValue(member.Value), source)))
+			emit(p.settingRow(artifact, timestamp, "permission setting: permission."+member.Key+"="+
+				parser.SettingValue(member.Value)+" "+source))
 			continue
 		}
 		for _, action := range member.Value.Members() {
-			emit(p.settingRow(artifact, timestamp, fmt.Sprintf(
-				"permission setting: permission.%s.%s=%s %s", member.Key, action.Key,
-				parser.SettingValue(action.Value), source)))
+			emit(p.settingRow(artifact, timestamp, "permission setting: permission."+member.Key+"."+
+				action.Key+"="+parser.SettingValue(action.Value)+" "+source))
 		}
 	}
 }
@@ -108,8 +106,8 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	for _, member := range document.Members() {
-		emit(p.settingRow(artifact, timestamp, fmt.Sprintf("permission setting: sandbox.%s=%s %s",
-			member.Key, parser.SettingValue(member.Value), source)))
+		emit(p.settingRow(artifact, timestamp, "permission setting: sandbox."+member.Key+"="+
+			parser.SettingValue(member.Value)+" "+source))
 	}
 }
 
@@ -166,17 +164,8 @@ func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parser.E
 		emit(row)
 		return
 	}
-	row.Text = timeline.Compact(fmt.Sprintf(
-		"%s kilo session %s ingest %s share %s (from %s, file mtime)", timeline.SyncedPrefix,
-		shown(document.Get("id")), shown(document.Get("ingestPath")), shown(document.Get("url")), rel))
+	row.Text = timeline.Compact(timeline.SyncedPrefix + " kilo session " + parser.SettingOrDash(document.Get("id")) +
+		" ingest " + parser.SettingOrDash(document.Get("ingestPath")) + " share " + parser.SettingOrDash(document.Get("url")) +
+		" (from " + rel + ", file mtime)")
 	emit(row)
-}
-
-// shown returns a value as text, "-" when it is missing, null or the empty
-// string.
-func shown(value jsonvalue.Value) string {
-	if value.IsNull() || (value.IsString() && value.StringValue() == "") {
-		return "-"
-	}
-	return value.Text()
 }

@@ -1,6 +1,9 @@
 package clinelegacy
 
 import (
+	"cmp"
+	"errors"
+	"math"
 	"regexp"
 	"slices"
 	"strconv"
@@ -48,28 +51,32 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 		if !entry.IsObject() || entry.Get("model_id").IsEmpty() {
 			continue
 		}
-		since, _ := pythonFloat(FirstTruthy(entry.Get("ts"), jsonvalue.NewInt(0)))
-		context.usage = append(context.usage, modelUse{since: since, model: parser.Text(entry.Get("model_id"))})
+		context.usage = append(context.usage, modelUse{since: epochOf(entry.Get("ts")),
+			model: parser.Text(entry.Get("model_id"))})
 	}
 	slices.SortStableFunc(context.usage, func(left, right modelUse) int {
-		if order := CompareNumbers(left.since, right.since); order != 0 {
-			return order
-		}
-		return strings.Compare(left.model, right.model)
+		return cmp.Or(cmp.Compare(left.since, right.since), strings.Compare(left.model, right.model))
 	})
 	context.Start = taskStart(taskID, item, metadata)
 	return context
 }
 
-// pythonFloat returns a value as Python's float() gives it: a number, a
-// boolean as 0 or 1, and a string of a decimal number with surrounding
-// whitespace. Anything else gives false.
-func pythonFloat(value jsonvalue.Value) (float64, bool) {
-	if !value.IsString() {
-		return NumberOf(value)
+// epochOf returns the time of a model_usage entry in epoch milliseconds:
+// a number (NumberOf), or a string holding one with spaces around it, as a
+// hand-edited file may write it. Any other value, an empty one and a NaN
+// are 0, so an entry without a readable time counts as the earliest. A
+// number past the float range is infinite, as strconv.ParseFloat gives it.
+func epochOf(value jsonvalue.Value) float64 {
+	number, ok := NumberOf(value)
+	if value.IsString() {
+		var err error
+		number, err = strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
+		ok = err == nil || errors.Is(err, strconv.ErrRange)
 	}
-	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
-	return number, err == nil
+	if !ok || math.IsNaN(number) {
+		return 0
+	}
+	return number
 }
 
 // taskStart returns the start of a task: its id when that is a millisecond

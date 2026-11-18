@@ -1,6 +1,7 @@
 package roocode
 
 import (
+	"cmp"
 	"path"
 	"strings"
 
@@ -265,12 +266,11 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 			retries = value.Text()
 		}
 		parts := []string{
-			"cloud upload queued: " + clinelegacy.FirstTruthy(event.Get("type"), request.Get("operation"),
-				jsonvalue.NewString("-")).Text(),
-			"task=" + clinelegacy.FirstTruthy(taskID, jsonvalue.NewString("-")).Text(),
-			"type=" + clinelegacy.FirstTruthy(request.Get("type"), jsonvalue.NewString("-")).Text(),
+			"cloud upload queued: " + cmp.Or(parser.Text(event.Get("type")), parser.Text(request.Get("operation")), "-"),
+			"task=" + cmp.Or(parser.Text(taskID), "-"),
+			"type=" + cmp.Or(parser.Text(request.Get("type")), "-"),
 			"retries=" + retries,
-			"url=" + clinelegacy.FirstTruthy(request.Get("url"), jsonvalue.NewString("-")).Text(),
+			"url=" + cmp.Or(parser.Text(request.Get("url")), "-"),
 		}
 		if lastError := request.Get("lastError"); !lastError.IsEmpty() {
 			parts = append(parts, "lastError="+lastError.Text())

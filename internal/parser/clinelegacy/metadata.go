@@ -1,6 +1,7 @@
 package clinelegacy
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -43,22 +44,21 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 		return
 	}
 	events := fileEvents(data.Get("files_in_context"))
-	zero := jsonvalue.NewInt(0)
 	for position, entry := range data.Get("model_usage").Items() {
 		if entry.IsObject() {
-			events = append(events, metadataEvent{timestamp: FirstTruthy(entry.Get("ts"), zero),
+			events = append(events, metadataEvent{timestamp: timeOrZero(entry),
 				position: position + 1, model: parser.Text(entry.Get("model_id")), usage: entry})
 		}
 	}
 	for position, entry := range data.Get("environment_history").Items() {
 		if entry.IsObject() {
-			events = append(events, metadataEvent{timestamp: FirstTruthy(entry.Get("ts"), zero),
+			events = append(events, metadataEvent{timestamp: timeOrZero(entry),
 				position: position + 1, text: "environment: " + FormatCounts(entry, "os_name",
 					"os_version", "os_arch", "host_name", "host_version", "cline_version")})
 		}
 	}
 	slices.SortStableFunc(events, func(left, right metadataEvent) int {
-		return CompareNumbers(left.sortKey(), right.sortKey())
+		return cmp.Compare(left.sortKey(), right.sortKey())
 	})
 	models, modes := parser.Tracker{}, parser.Tracker{}
 	for _, event := range events {
@@ -69,6 +69,15 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 			emit(row)
 		}
 	}
+}
+
+// timeOrZero returns an entry's ts, or the number 0 when it is empty, so an
+// entry without a time sorts first and shows the epoch.
+func timeOrZero(entry jsonvalue.Value) jsonvalue.Value {
+	if stamp := entry.Get("ts"); !stamp.IsEmpty() {
+		return stamp
+	}
+	return jsonvalue.NewInt(0)
 }
 
 // eventTexts returns the row texts of one event: a model_usage entry gives
@@ -121,9 +130,9 @@ func fileEvents(files jsonvalue.Value) []metadataEvent {
 	return events
 }
 
-// hashKey returns a value as a key that equal values share, as Python's set
-// compares them: a number (or boolean) by its value, so 1, 1.0 and true are
-// one key, and any other value by its kind and JSON text.
+// hashKey returns a value as a key that equal values share: a number (or
+// boolean) by its value, so 1, 1.0 and true are one key (numbers are
+// compared by value), and any other value by its kind and JSON text.
 func hashKey(value jsonvalue.Value) string {
 	if number, ok := NumberOf(value); ok {
 		return "n" + jsonvalue.NewFloat(number).JSON()

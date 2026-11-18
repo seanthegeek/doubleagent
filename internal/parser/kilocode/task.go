@@ -124,7 +124,7 @@ func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row
 		}
 		text := parser.TextOf(message.Get("summary"))
 		if text == "" {
-			text = parser.Text(firstTruthy(message.Get("reasoning_content"), message.Get("text")))
+			text = parser.Text(parser.FirstNonEmpty(message.Get("reasoning_content"), message.Get("text")))
 		}
 		if text == "" {
 			return nil
@@ -205,7 +205,7 @@ func (b *blocks) block(block jsonvalue.Value) {
 		}
 		b.add(timeline.TurnToolResult, text).ToolUseID = parser.Text(block.Get("tool_use_id"))
 	case "thinking", "reasoning":
-		text := firstTruthy(block.Get("thinking"), block.Get("text"))
+		text := parser.FirstNonEmpty(block.Get("thinking"), block.Get("text"))
 		if b.owner.options.IncludeThinking && !text.IsEmpty() {
 			b.add(timeline.TurnThinking, parser.Text(text))
 		}
@@ -228,16 +228,6 @@ func roleTurn(role jsonvalue.Value) string {
 		return timeline.TurnAssistant
 	}
 	return timeline.TurnSystem
-}
-
-// firstTruthy returns the first value Python counts as true, else the last.
-func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return values[len(values)-1]
 }
 
 // textOf returns a string value's text, "" for any other value.
