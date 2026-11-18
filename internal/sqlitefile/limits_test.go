@@ -1,7 +1,9 @@
 package sqlitefile
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -166,5 +168,122 @@ func TestDefaultsNestedPastSQLitesParserAreNotEvaluated(t *testing.T) {
 				t.Errorf("default error = %v (%v), want one naming the limit", shape.columns[0].defaultErr, err)
 			}
 		})
+	}
+}
+
+// fatTable returns a table declared with three columns whose count rows,
+// one to a page, each store fields values: three integers, then NULLs.
+func fatTable(t *testing.T, count, fields int) *Table {
+	t.Helper()
+	table, err := openOrFail(t, fatTableFile(count, fields), nil, nil).Table("fat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return table
+}
+
+// fatTableFile returns the database file of fatTable.
+func fatTableFile(count, fields int) []byte {
+	pages := newTestPages(maxPageSize)
+	var leaves []uint32
+	for i := range count {
+		values := make([]Value, fields)
+		values[0], values[1], values[2] = IntValue(int64(i)), IntValue(int64(count-i)), IntValue(7)
+		leaf := pages.add()
+		pages.setPage(leaf, leafTable, [][]byte{tableLeafCell(int64(i+1), testRecord(values...))}, 0)
+		leaves = append(leaves, leaf)
+	}
+	root := pages.add()
+	var dividers [][]byte
+	for i, leaf := range leaves[:len(leaves)-1] {
+		cell := binary.BigEndian.AppendUint32(nil, leaf)
+		dividers = append(dividers, appendSQLiteVarint(cell, uint64(i+1)))
+	}
+	pages.setPage(root, interiorTable, dividers, leaves[len(leaves)-1])
+	pages.setSchema(schemaTable{"fat", root, "CREATE TABLE fat(a, b, c)"})
+	return pages.bytes()
+}
+
+// fatReads are the ways of reading a table, each returning the rows it read.
+func fatReads() []struct {
+	name string
+	read func(table *Table) ([]Row, error)
+} {
+	return []struct {
+		name string
+		read func(table *Table) ([]Row, error)
+	}{
+		{"every column", func(table *Table) ([]Row, error) { return table.Select().All() }},
+		{"one selected column", func(table *Table) ([]Row, error) { return table.Select("a").All() }},
+		{"a sorted query", func(table *Table) ([]Row, error) {
+			return table.Select("a").OrderBy("b DESC").All()
+		}},
+		{"a filtered query", func(table *Table) ([]Row, error) {
+			return table.Select("a").Where(func(row Row) bool { return row.Get("c").Int == 7 }).All()
+		}},
+		{"a lookup", func(table *Table) ([]Row, error) {
+			lookup, err := table.Select("a").Lookup("b")
+			if err != nil {
+				return nil, err
+			}
+			return lookup.rows, nil
+		}},
+		{"the values of whole rows", func(table *Table) ([]Row, error) {
+			rows, err := table.Select().All()
+			for _, row := range rows {
+				if values := row.Values(); len(values) != 3 || values[2].Int != 7 {
+					return nil, fmt.Errorf("Values() = %d values, want a, b and c", len(values))
+				}
+			}
+			return rows, err
+		}},
+	}
+}
+
+func TestAWideRecordCostsOnlyTheDeclaredColumns(t *testing.T) {
+	// Fields past the last declared column are walked for the exact-fill
+	// check but never decoded: a row of 16,000 stored fields costs its page,
+	// not 48 bytes a field.
+	const fields, perRow = 16000, 2 * maxPageSize
+	for _, test := range fatReads() {
+		t.Run(test.name+" keeps the declared columns of each record", func(t *testing.T) {
+			rows, err := test.read(fatTable(t, 4, fields))
+			if err != nil || len(rows) != 4 {
+				t.Fatalf("read = %d rows, %v; want 4", len(rows), err)
+			}
+			for _, row := range rows {
+				if len(row.values) > 3 {
+					t.Errorf("row %d holds %d values, want at most the 3 declared", row.Rowid, len(row.values))
+				}
+			}
+		})
+		t.Run(test.name+" costs a page per row however many fields a record stores", func(t *testing.T) {
+			cost := map[int]uint64{}
+			for _, count := range []int{8, 16} {
+				table := fatTable(t, count, fields)
+				cost[count] = allocatedBytes(func() {
+					if rows, err := test.read(table); err != nil || len(rows) != count {
+						t.Fatalf("read = %d rows, %v; want %d", len(rows), err, count)
+					}
+				})
+			}
+			if grown := cost[16] - cost[8]; grown > 8*perRow {
+				t.Errorf("8 more rows allocated %d bytes, more than %d per row", grown, perRow)
+			}
+		})
+	}
+}
+
+func TestAWhereRowHoldsOnlyTheDeclaredColumns(t *testing.T) {
+	seen := 0
+	_, err := fatTable(t, 2, 16000).Select("a").Where(func(row Row) bool {
+		if len(row.values) > 3 {
+			t.Errorf("the row given to Where holds %d values, want at most 3", len(row.values))
+		}
+		seen++
+		return true
+	}).OrderBy("b").All()
+	if err != nil || seen != 2 {
+		t.Errorf("Where saw %d rows, %v; want 2", seen, err)
 	}
 }

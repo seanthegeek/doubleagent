@@ -108,3 +108,37 @@ func TestTypeNames(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeRecordUpToChecksTheValuesItLeavesOut(t *testing.T) {
+	cases := []struct {
+		name    string
+		payload []byte
+		want    []Value
+		damaged bool
+	}{
+		{"the values past the limit are left out", []byte{0x04, 1, 19, 0, 7, 'a', 'b', 'c'},
+			[]Value{{Type: Integer, Int: 7}}, false},
+		{"a limit past the last value keeps every value", []byte{0x02, 9},
+			[]Value{{Type: Integer, Int: 1}}, false},
+		{"a value past the limit that runs past the payload is damage",
+			[]byte{0x03, 1, 6, 7, 1, 2}, nil, true},
+		{"bytes left over after values past the limit are damage",
+			[]byte{0x03, 1, 0, 7, 9}, nil, true},
+		{"a serial type past the limit cut by the header's end is damage",
+			[]byte{0x03, 1, 0x81, 7}, nil, true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			values, err := decodeRecordUpTo(test.payload, 1)
+			if test.damaged {
+				if !errors.Is(err, ErrMalformed) {
+					t.Errorf("decodeRecordUpTo(%x) error = %v, want ErrMalformed", test.payload, err)
+				}
+				return
+			}
+			if err != nil || !slices.EqualFunc(values, test.want, sameValue) {
+				t.Errorf("decodeRecordUpTo(%x) = %v, %v; want %v", test.payload, values, err, test.want)
+			}
+		})
+	}
+}

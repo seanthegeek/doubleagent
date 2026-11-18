@@ -112,14 +112,19 @@ func readMeasured(main, log, journal []byte) (int64, int64, int64) {
 func TestMutatedFixturesReadWithBoundedWork(t *testing.T) {
 	// Each walk reads every page at most once, so no walk reads more than
 	// the pages times their size, and what a read allocates follows the
-	// bytes it read.
+	// bytes it read. The most measured is 5.2 bytes per byte read, by the
+	// fat records, whose raw walk decodes 16,000 values a page; a reader
+	// holding every stored field of each row a query keeps needs 22.
 	const (
 		perFixture     = 3
-		perByteRead    = 256
+		perByteRead    = 8
 		allocatedFloor = 4 << 20
 	)
 	random := rand.New(rand.NewPCG(527, 3))
-	for _, set := range fixtureSets(t) {
+	// A narrow table whose records hold thousands of fields, which a row
+	// must not keep, joins the fixtures.
+	sets := append(fixtureSets(t), fixtureSet{name: "fat records", main: fatTableFile(6, 16000)})
+	for _, set := range sets {
 		t.Run("mutations of "+filepath.Base(set.name)+" read with bounded work", func(t *testing.T) {
 			for range perFixture {
 				main, log, journal := mutate(random, set.main), set.log, set.journal

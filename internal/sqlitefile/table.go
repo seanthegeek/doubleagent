@@ -169,7 +169,7 @@ func (t *Table) scan(visit func(row Row) error) error {
 	}
 	shape := t.wholeShape()
 	for rows.Next() {
-		record, err := rows.Record()
+		record, err := rows.recordUpTo(len(t.layout.read))
 		if err != nil {
 			return fmt.Errorf("table %s: %w", stored.shape.name, err)
 		}

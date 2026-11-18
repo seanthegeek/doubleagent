@@ -82,6 +82,14 @@ func readVarint(data []byte) (uint64, int) {
 // SQLite, it requires the values to fill the payload exactly, and reads the
 // reserved serial types 10 and 11 as NULL and a stored NaN as NULL.
 func decodeRecord(payload []byte) ([]Value, error) {
+	return decodeRecordUpTo(payload, math.MaxInt)
+}
+
+// decodeRecordUpTo decodes the first limit values of a record, as
+// decodeRecord does, and walks the serial types after them only to check
+// that the values fill the payload exactly, so a record holding more
+// values than a table reads costs its bytes and no more.
+func decodeRecordUpTo(payload []byte, limit int) ([]Value, error) {
 	headerSize, n := readVarint(payload)
 	if n == 0 || headerSize < uint64(n) || headerSize > uint64(len(payload)) ||
 		headerSize > maxRecordHeader {
@@ -90,7 +98,7 @@ func decodeRecord(payload []byte) ([]Value, error) {
 	}
 	header := payload[n:headerSize]
 	body := payload[headerSize:]
-	var values []Value
+	values := make([]Value, 0, min(limit, serialTypeCount(header)))
 	for len(header) > 0 {
 		serialType, used := readVarint(header)
 		if used == 0 {
@@ -101,13 +109,29 @@ func decodeRecord(payload []byte) ([]Value, error) {
 		if size > uint64(len(body)) {
 			return nil, malformed("record value of %d bytes runs past its payload", size)
 		}
-		values = append(values, decodeValue(serialType, body[:size]))
+		if len(values) < limit {
+			values = append(values, decodeValue(serialType, body[:size]))
+		}
 		body = body[size:]
 	}
 	if len(body) != 0 {
 		return nil, malformed("record leaves %d bytes of its payload unused", len(body))
 	}
 	return values, nil
+}
+
+// serialTypeCount returns how many bytes of a record header are below
+// 0x80, each the last byte of a serial type's varint: the number of serial
+// types, less any nine-byte one whose last byte is 0x80 or more. It sizes
+// the slice the values are decoded into.
+func serialTypeCount(header []byte) int {
+	count := 0
+	for _, octet := range header {
+		if octet < 0x80 {
+			count++
+		}
+	}
+	return count
 }
 
 // serialSize is the number of body bytes a serial type takes.
