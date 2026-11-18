@@ -1,5 +1,5 @@
 // Package jsonvalue holds a decoded JSON document as an ordered value, read
-// through encoding/json's token reader and written through its encoder.
+// through encoding/json's token reader and written with its string quoting.
 //
 // The value keeps what the evidence wrote: an object's keys stay in document
 // order (a duplicate key keeps its first position and takes its last

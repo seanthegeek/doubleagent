@@ -136,3 +136,15 @@ func TestParseRefusesADocumentOverTheSizeLimit(t *testing.T) {
 		t.Fatalf("a document one byte over the limit: got %v", err)
 	}
 }
+
+func TestSettingTextWritesAValueAtTheDepthLimit(t *testing.T) {
+	table, err := Parse(nestedArray(maxDepth - 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, _ := table.Get("a")
+	want := strings.Repeat("[", maxDepth-1) + strings.Repeat("]", maxDepth-1)
+	if got := SettingText(value); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
