@@ -7,7 +7,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -119,7 +118,7 @@ func grantTexts(values map[string]jsonvalue.Value, problems *[]string) []string 
 		for _, entry := range allow.Items() {
 			text := parser.SettingValue(entry)
 			if entry.IsString() {
-				text = antigravity.URIToPath(entry.StringValue())
+				text = uriToPath(entry.StringValue())
 			}
 			texts = append(texts, "permission setting: "+allowlistKey+"="+text)
 		}
