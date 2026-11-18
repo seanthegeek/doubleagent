@@ -130,19 +130,13 @@ func storedResponses(handle *sqlitefile.Database, problems *parser.Problems) ([]
 	var stored []storedResponse
 	err = table.Select("rowid", "response_id", "data").Each(func(row sqlitefile.Row) error {
 		record := rowObject(row)
-		data, reason := jsonText(record.Get("data"))
-		if reason == "" && !data.IsObject() {
-			reason = "not a JSON object"
-		}
-		if reason != "" {
+		data, err := jsonObject(record.Get("data"))
+		if err != nil {
 			problems.AddRaw(int(row.Rowid), "unparseable record "+strconv.FormatInt(row.Rowid, 10)+
-				" (responses.data: "+reason+")", orEmpty(record.Get("data")))
+				" (responses.data: "+err.Error()+")", orEmpty(record.Get("data")))
 			return nil
 		}
-		created, ok := numberValue(data.Get("response").Get("created_at"))
-		if _, isBool := data.Get("response").Get("created_at").Bool(); !ok || isBool {
-			created = 0
-		}
+		created, _ := data.Get("response").Get("created_at").Float()
 		stored = append(stored, storedResponse{created: created, rowid: row.Rowid,
 			responseID: orEmpty(record.Get("response_id")), data: data})
 		return nil

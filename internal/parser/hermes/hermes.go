@@ -69,8 +69,7 @@ func New() *Parser {
 		trajectory:   regexp.MustCompile(`\A(?:trajectory_samples|failed_trajectories)\.jsonl\z`),
 		connections: regexp.MustCompile(`\A(?:\.config|Library/Application Support|AppData/Roaming)/` +
 			`Hermes[^/]*/connections\.json\z`),
-		// The end may follow a line feed, as the analyzer's pattern allows.
-		worktree: regexp.MustCompile(`\A(.*)[/\\]\.worktrees[/\\][^/\\]+[/\\]?\n?\z`),
+		worktree: regexp.MustCompile(`\A(.*)[/\\]\.worktrees[/\\][^/\\]+[/\\]?\z`),
 		// The cron run document's length frames.
 		promptFrame:   regexp.MustCompile(`(?m)^\*\*Prompt Characters:\*\* ([0-9]+)\n## Prompt\n\n`),
 		responseFrame: regexp.MustCompile(`\A\*\*Response Characters:\*\* ([0-9]+)\n## Response\n\n`),
@@ -177,20 +176,19 @@ func sessionOf(sessionID string) jsonvalue.Value {
 	return jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString(sessionID)})
 }
 
-// either returns the first value that is truthy, else the last.
-func either(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
+// displayName returns a session's display_name, or origin's chat_name in
+// place of an empty one.
+func displayName(session, origin jsonvalue.Value) jsonvalue.Value {
+	if name := session.Get("display_name"); !name.IsEmpty() {
+		return name
 	}
-	return values[len(values)-1]
+	return origin.Get("chat_name")
 }
 
 // projectOf returns a session's project: its cwd, else its git repository
 // root.
 func projectOf(session jsonvalue.Value) string {
-	return parser.Text(either(session.Get("cwd"), session.Get("git_repo_root")))
+	return parser.Text(parser.FirstNonEmpty(session.Get("cwd"), session.Get("git_repo_root")))
 }
 
 // row returns a row of the artifact attributed to the session.
@@ -220,17 +218,6 @@ func copyRow(base timeline.Row, text, model string) timeline.Row {
 	base.Model = model
 	base.Text = text
 	return base
-}
-
-// joinParts joins the non-empty parts with " | ".
-func joinParts(parts ...string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " | ")
 }
 
 // dash returns a value as row text, "-" when it is absent or empty.

@@ -91,7 +91,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	if content, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		text = textlines.ValidUTF8(content)
 	}
-	entries, problem := p.readFlatList(textlines.Split(text), "command_allowlist")
+	entries, err := p.readFlatList(textlines.Split(text), "command_allowlist")
 	timestamp := ""
 	if len(entries) > 0 {
 		timestamp = parser.FileMtime(artifact)
@@ -100,8 +100,8 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.setting(artifact, entry.line, "permission setting: command_allowlist="+entry.value+
 			" (from config.yaml, file mtime)", timestamp))
 	}
-	if problem != "" {
-		problems.Add(0, "config.yaml command_allowlist is not a flat list ("+problem+")")
+	if err != nil {
+		problems.Add(0, "config.yaml command_allowlist is not a flat list ("+err.Error()+")")
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
