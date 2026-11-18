@@ -3,6 +3,7 @@ package geminicli
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -123,47 +124,14 @@ func urlWithoutQuery(url string) string {
 	return url
 }
 
-// unquote decodes the %XX escapes of a file name as Python's
-// urllib.parse.unquote does: each run of ASCII characters has its valid
-// escapes turned into bytes and is decoded as UTF-8 with replacement; an
-// escape that is not two hex digits stays as written, and any other
-// character is kept.
+// unquote decodes the escapes of a checkpoint's tag, which the agent
+// writes with encodeURIComponent (research/gemini-cli.md), through
+// url.PathUnescape; a byte that is not UTF-8 becomes U+FFFD. A name with an
+// invalid escape, such as an older checkpoint's "100%", is shown as written.
 func unquote(text string) string {
-	if !strings.Contains(text, "%") {
+	decoded, err := url.PathUnescape(text)
+	if err != nil {
 		return text
 	}
-	var out strings.Builder
-	for start := 0; start < len(text); {
-		end := start
-		for end < len(text) && text[end] < 0x80 {
-			end++
-		}
-		if end == start {
-			for end < len(text) && text[end] >= 0x80 {
-				end++
-			}
-			out.WriteString(text[start:end])
-		} else {
-			out.WriteString(textlines.ValidUTF8(unescapeBytes(text[start:end])))
-		}
-		start = end
-	}
-	return out.String()
-}
-
-// unescapeBytes returns ASCII text with each %XX escape of two hex digits
-// replaced by its byte.
-func unescapeBytes(text string) []byte {
-	out := make([]byte, 0, len(text))
-	for i := 0; i < len(text); i++ {
-		if text[i] == '%' && i+2 < len(text) {
-			if value, err := hex.DecodeString(text[i+1 : i+3]); err == nil {
-				out = append(out, value[0])
-				i += 2
-				continue
-			}
-		}
-		out = append(out, text[i])
-	}
-	return out
+	return textlines.ValidUTF8([]byte(decoded))
 }
