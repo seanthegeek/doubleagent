@@ -131,13 +131,7 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
 	if !found {
 		return jsonvalue.NewNull()
 	}
-	items := p.CachedJSON(history)
-	for _, item := range items.Items() {
-		if item.IsObject() && item.Get("id").Text() == task.TaskID {
-			return item
-		}
-	}
-	return jsonvalue.NewNull()
+	return p.CachedEntry(history, "", task.TaskID)
 }
 
 // Parse emits the rows of one Cline file.

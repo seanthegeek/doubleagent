@@ -54,13 +54,17 @@ var (
 // and Kilo's own settings, digests and logs.
 type Parser struct {
 	*opencode.Parser
+	indexes map[indexKey]*taskIndex
+	// indexed counts the _index.json entries read, the work a test holds to
+	// one pass per file.
+	indexed int
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{Parser: opencode.NewFor(opencode.Config{Agent: "kilo-code",
 		DataDir: ".local/share/kilo", DatabasePrefixes: []string{"kilo", "opencode"},
-		StateDir: ".local/state/kilo"})}
+		StateDir: ".local/state/kilo"}), indexes: map[indexKey]*taskIndex{}}
 }
 
 // IsTaskFile reports whether rel is a pre-fork task's

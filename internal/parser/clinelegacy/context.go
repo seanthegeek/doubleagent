@@ -6,6 +6,7 @@ import (
 	"math"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,9 @@ type TaskContext struct {
 	Start        string
 	defaultModel string
 	usage        []modelUse
+	// compared counts the entries ModelAt has looked at, the work a test
+	// holds to a binary search.
+	compared int
 }
 
 // newTaskContext reads a task's project and models from its index item
@@ -114,18 +118,19 @@ func numberLess(left, right jsonvalue.Value) bool {
 
 // ModelAt returns the model in use at an epoch-millisecond time: the last
 // model_usage entry at or before it, the earliest entry for a time that is
-// not a number, and the index item's model when there are no entries.
+// not a number, and the index item's model when there are no entries. The
+// entries are sorted by time, so each lookup is a binary search.
 func (c *TaskContext) ModelAt(timestamp jsonvalue.Value) string {
 	if len(c.usage) == 0 {
 		return c.defaultModel
 	}
-	chosen := c.usage[0].model
-	if moment, ok := NumberOf(timestamp); ok {
-		for _, use := range c.usage {
-			if use.since <= moment {
-				chosen = use.model
-			}
-		}
+	moment, ok := NumberOf(timestamp)
+	if !ok {
+		return c.usage[0].model
 	}
-	return chosen
+	after := sort.Search(len(c.usage), func(i int) bool {
+		c.compared++
+		return c.usage[i].since > moment
+	})
+	return c.usage[max(after-1, 0)].model
 }

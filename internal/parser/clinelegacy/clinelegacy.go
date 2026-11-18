@@ -117,6 +117,14 @@ type cacheKey struct {
 	size  int64
 }
 
+// cachedFile is a file decoded as JSON and, once a lookup asks for them,
+// the entries of its lists by id, keyed by the member that holds the list
+// ("" for the document itself).
+type cachedFile struct {
+	value jsonvalue.Value
+	byID  map[string]map[string]jsonvalue.Value
+}
+
 // TaskParser reads the task files under one storage root for the parser
 // that embeds it.
 type TaskParser struct {
@@ -124,7 +132,10 @@ type TaskParser struct {
 	taskPattern *regexp.Regexp
 	projectKey  string
 	family      Family
-	cache       map[cacheKey]jsonvalue.Value
+	cache       map[cacheKey]*cachedFile
+	// indexed counts the list items CachedEntry has read, the work a test
+	// holds to one pass per file.
+	indexed int
 }
 
 // NewTaskParser returns the reader of the task files under the storage
@@ -133,7 +144,7 @@ type TaskParser struct {
 func NewTaskParser(base parser.Base, root, projectKey string, family Family) *TaskParser {
 	return &TaskParser{Base: base, projectKey: projectKey, family: family,
 		taskPattern: regexp.MustCompile(`(?i)^` + root + taskFilePattern),
-		cache:       map[cacheKey]jsonvalue.Value{}}
+		cache:       map[cacheKey]*cachedFile{}}
 }
 
 // ProjectKey returns the index entry's key of the project path.
@@ -151,18 +162,55 @@ func (p *TaskParser) TaskMatch(artifact *input.Artifact) bool {
 // life, keyed by the path, modification time and size, so the many task
 // files that look up one index read it once.
 func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
+	return p.cachedFile(path).value
+}
+
+// cachedFile returns the cache entry of the file at path, decoding the
+// file when the entry is not there yet.
+func (p *TaskParser) cachedFile(path string) *cachedFile {
 	info, err := osfile.Lstat(path)
 	if err != nil {
-		return jsonvalue.NewNull()
+		return &cachedFile{value: jsonvalue.NewNull()}
 	}
 	key := cacheKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	if value, ok := p.cache[key]; ok {
-		return value
+	if cached, ok := p.cache[key]; ok {
+		return cached
 	}
 	var ignored parser.Problems
 	value, _ := parser.LoadJSON(path, &ignored)
-	p.cache[key] = value
-	return value
+	p.cache[key] = &cachedFile{value: value}
+	return p.cache[key]
+}
+
+// CachedEntry returns the first object of a list in the file at path whose
+// id, as row text, is entryID, or null. The list is the document itself when
+// member is "", else the document's member of that name. The file is read
+// as CachedJSON reads it, and its list is indexed by id once, so the many
+// task files that look up one index cost one pass over it.
+func (p *TaskParser) CachedEntry(path, member, entryID string) jsonvalue.Value {
+	cached := p.cachedFile(path)
+	if cached.byID == nil {
+		cached.byID = map[string]map[string]jsonvalue.Value{}
+	}
+	entries, ok := cached.byID[member]
+	if !ok {
+		list := cached.value
+		if member != "" {
+			list = list.Get(member)
+		}
+		entries = map[string]jsonvalue.Value{}
+		for _, item := range list.Items() {
+			p.indexed++
+			if _, seen := entries[item.Get("id").Text()]; item.IsObject() && !seen {
+				entries[item.Get("id").Text()] = item
+			}
+		}
+		cached.byID[member] = entries
+	}
+	if entry, ok := entries[entryID]; ok {
+		return entry
+	}
+	return jsonvalue.NewNull()
 }
 
 // Context returns what the task directory of the artifact knows about
