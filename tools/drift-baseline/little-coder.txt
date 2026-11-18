@@ -6,7 +6,6 @@ check_fixture_schema|key-undocumented|file_path
 check_fixture_schema|key-undocumented|mcpServers
 check_fixture_schema|module-provenance-missing|little_coder
 check_fixture_schema|sample-equals-builder|.little-coder/sessions/daily/2026-09-20/session_101500_a1b2c3d4.json
-check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
 check_parser_research|pattern-undocumented|.little-coder/input_history.txt
 check_parser_research|pattern-undocumented|.little-coder/sessions/history.json
 check_parser_research|pattern-undocumented|.little-coder/sessions/mr_sessions/session_latest.json
