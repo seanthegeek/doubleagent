@@ -243,7 +243,7 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 		switch {
 		case sender.IsString() && known:
 			row.TurnType, row.Text = turnType, timeline.Compact(value)
-		case isText(sender, "system"):
+		case parser.IsText(sender, "system"):
 			row.TurnType = timeline.TurnSystem
 			row.Text = timeline.Compact("trajectory system prompt: " + value)
 		default:
@@ -277,7 +277,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 				parser.JSONText(connection))
 			continue
 		}
-		if isText(connection.Get("kind"), "local") {
+		if parser.IsText(connection.Get("kind"), "local") {
 			continue
 		}
 		emit(p.setting(artifact, position, connectionText(connection)+tail, timestamp))

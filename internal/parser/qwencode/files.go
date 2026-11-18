@@ -80,7 +80,7 @@ func clearTimes(records []numbered) map[int]string {
 	clearedAt := map[int]string{}
 	for _, each := range slices.Backward(records) {
 		key := parser.JSONText(each.record.Get("key"))
-		if isText(each.record.Get("type"), "clear") {
+		if parser.IsText(each.record.Get("type"), "clear") {
 			nextClear[key] = timeutil.FromValue(each.record.Get("recordedAt"))
 		} else if cleared, ok := nextClear[key]; ok {
 			clearedAt[each.line] = cleared
@@ -105,7 +105,7 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 		record, entry := each.record, each.record.Get("entry")
 		var text, timestamp string
 		switch {
-		case isText(record.Get("type"), "message") && entry.IsObject():
+		case parser.IsText(record.Get("type"), "message") && entry.IsObject():
 			state := "waiting"
 			if cleared, ok := clearedAt[each.line]; ok && cleared != "" {
 				state = "cleared " + cleared
@@ -115,7 +115,7 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 			sender := parser.Text(parser.FirstNonEmpty(entry.Get("senderName"), entry.Get("senderId")))
 			text = "group message: [" + sender + "] " + parser.Text(entry.Get("text")) + " (" + state + ")"
 			timestamp = timeutil.FromValue(entry.Get("timestamp"))
-		case isText(record.Get("type"), "clear"):
+		case parser.IsText(record.Get("type"), "clear"):
 			text = "group history cleared: " + cmp.Or(parser.Text(record.Get("key")), "-") + " (from " +
 				fileName(artifact) + ", recordedAt)"
 			timestamp = timeutil.FromValue(record.Get("recordedAt"))

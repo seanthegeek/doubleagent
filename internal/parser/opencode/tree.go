@@ -138,7 +138,7 @@ func (p *Parser) sessionScope(root string, sessionID string, old bool, message j
 
 // worktreeText returns a project's worktree as text, "" when it is "/".
 func worktreeText(worktree jsonvalue.Value) string {
-	if isText(worktree, "/") {
+	if parser.IsText(worktree, "/") {
 		return ""
 	}
 	return parser.Text(worktree)

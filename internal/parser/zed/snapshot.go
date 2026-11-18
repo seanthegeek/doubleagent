@@ -39,7 +39,7 @@ func branchAndRemote(worktrees []jsonvalue.Value, project string) (string, strin
 	firstBranch, ownBranch := "", ""
 	var own []jsonvalue.Value
 	for _, worktree := range worktrees {
-		isOwn := isText(worktree.Get("worktree_path"), project)
+		isOwn := parser.IsText(worktree.Get("worktree_path"), project)
 		if isOwn {
 			own = append(own, worktree)
 		}
@@ -139,7 +139,7 @@ func startText(record sqlitefile.Row, value jsonvalue.Value) string {
 // set (DbSandboxGrants, db.rs:91-122 at a84689073d29).
 func threadGrants(value jsonvalue.Value) []setting {
 	var grants []setting
-	if profile, ok := value.Lookup("profile"); ok && !profile.IsNull() && !isText(profile, "") {
+	if profile, ok := value.Lookup("profile"); ok && !profile.IsNull() && !parser.IsText(profile, "") {
 		grants = append(grants, setting{"profile", profile})
 	}
 	sandbox := value.Get("sandbox_grants")

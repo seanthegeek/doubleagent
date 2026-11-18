@@ -69,7 +69,7 @@ func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, s
 		record := each.record
 		recordType, typed := record.Lookup("_type")
 		switch {
-		case isText(recordType, "metadata"):
+		case parser.IsText(recordType, "metadata"):
 			state.metadata(each.line, record)
 		case typed && !recordType.IsNull() && !record.Has("role"):
 			// provider_state and record types to come
@@ -84,7 +84,7 @@ func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, s
 func (p *Parser) hasSwitch(records []numbered) bool {
 	for _, each := range records {
 		record := each.record
-		if isText(record.Get("role"), "assistant") && !record.Get("_command").IsEmpty() &&
+		if parser.IsText(record.Get("role"), "assistant") && !record.Get("_command").IsEmpty() &&
 			p.text.switched.MatchString(parser.TextOf(record.Get("content"))) {
 			return true
 		}
@@ -139,18 +139,18 @@ func (s *session) message(line int, record jsonvalue.Value) {
 	role := record.Get("role")
 	text := parser.TextOf(record.Get("content"))
 	switch {
-	case isText(role, "user") && !record.Get("_hidden_history").IsEmpty():
+	case parser.IsText(role, "user") && !record.Get("_hidden_history").IsEmpty():
 		s.row(line, timeline.TurnSystem, "summarised history: "+text, "", "")
-	case isText(role, "user"):
+	case parser.IsText(role, "user"):
 		if !record.Get("_command").IsEmpty() {
 			if match := s.text.modelCommand.FindStringSubmatch(text); match != nil {
 				s.requested = match[1]
 			}
 		}
 		s.row(line, timeline.TurnUser, text, "", "")
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		s.assistant(line, record, text)
-	case isText(role, "tool"):
+	case parser.IsText(role, "tool"):
 		s.row(line, timeline.TurnToolResult, text, parser.Text(record.Get("name")),
 			parser.Text(record.Get("tool_call_id")))
 	default:

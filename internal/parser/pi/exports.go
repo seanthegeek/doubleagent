@@ -36,7 +36,7 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parser.Option
 	}
 	sessionData, failure := htmlSessionData(data)
 	header := sessionData.Get("header")
-	if failure == nil && !(header.IsObject() && isText(header.Get("type"), "session")) {
+	if failure == nil && !(header.IsObject() && parser.IsText(header.Get("type"), "session")) {
 		failure = errNoHeader
 	}
 	if failure != nil {

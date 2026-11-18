@@ -4,12 +4,8 @@ import (
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
-}
 
 // textIn reports whether value is a string among texts.
 func textIn(value jsonvalue.Value, texts ...string) bool {
@@ -19,7 +15,7 @@ func textIn(value jsonvalue.Value, texts ...string) bool {
 // isMissing reports whether value is null or the empty string: false and
 // zero are values the agent wrote.
 func isMissing(value jsonvalue.Value) bool {
-	return value.IsNull() || isText(value, "")
+	return value.IsNull() || parser.IsText(value, "")
 }
 
 // isNullOrZero reports whether value is null, false or a number equal to

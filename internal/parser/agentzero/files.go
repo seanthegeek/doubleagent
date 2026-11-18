@@ -137,17 +137,12 @@ func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.V
 		return
 	}
 	text, turn := result.StringValue(), timeline.TurnAssistant
-	if isString(task.Get("state"), "error") && strings.HasPrefix(text, "ERROR: ") {
+	if parser.IsText(task.Get("state"), "error") && strings.HasPrefix(text, "ERROR: ") {
 		text, turn = "scheduled task failed: "+text[len("ERROR: "):], timeline.TurnSystem
 	}
 	row = p.fileRow(artifact, text, timeutil.FromValue(task.Get("last_run")), sessionID, projectPath)
 	row.TurnType, row.SourceLine = turn, number
 	emit(row)
-}
-
-// isString reports whether value is the string want.
-func isString(value jsonvalue.Value, want string) bool {
-	return value.IsString() && value.StringValue() == want
 }
 
 // parseTelegram emits a "session deleted:" row per Telegram chat whose chat

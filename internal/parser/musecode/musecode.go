@@ -347,7 +347,7 @@ func workspace(log iter.Seq2[int, jsonvalue.Value], limit int) (string, string) 
 				cwd = facts.Get("cwd").Text()
 			}
 		case "session.workspace_branch.observed":
-			if reference := facts.Get("reference"); isString(reference.Get("kind"), "branch") &&
+			if reference := facts.Get("reference"); parser.IsText(reference.Get("kind"), "branch") &&
 				!reference.Get("name").IsEmpty() {
 				branch = reference.Get("name").Text()
 			}
@@ -365,11 +365,6 @@ func payloadType(record jsonvalue.Value) string {
 		return kind.StringValue()
 	}
 	return ""
-}
-
-// isString reports whether value is the string want.
-func isString(value jsonvalue.Value, want string) bool {
-	return value.IsString() && value.StringValue() == want
 }
 
 // parentWorkspace returns the project and branch of the nearest ancestor log
@@ -513,7 +508,7 @@ func (w *walk) prepass() {
 		case kind == "runtime.session.metadata" && !facts.Get("model_id").IsEmpty() &&
 			w.sessionModel == "":
 			w.sessionModel = facts.Get("model_id").Text()
-		case kind == "runtime.session" && isString(payload.Get("kind"), "run"):
+		case kind == "runtime.session" && parser.IsText(payload.Get("kind"), "run"):
 			w.noteRunEvent(i, parser.Text(payload.Get("run_id")), payload.Get("event"))
 		}
 	}
@@ -523,15 +518,15 @@ func (w *walk) prepass() {
 func (w *walk) noteRunEvent(index int, runKey string, event jsonvalue.Value) {
 	messageID := parser.Text(event.Get("message_id"))
 	switch {
-	case isString(event.Get("kind"), "started"):
+	case parser.IsText(event.Get("kind"), "started"):
 		w.startedRuns[runKey] = true
-	case isString(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty():
+	case parser.IsText(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty():
 		if _, set := w.runCompletedModel[runKey]; !set {
 			w.runCompletedModel[runKey] = event.Get("model").Text()
 		}
-	case isString(event.Get("kind"), "reasoning_summary_committed"):
+	case parser.IsText(event.Get("kind"), "reasoning_summary_committed"):
 		w.committed[messageID] = true
-	case isString(event.Get("kind"), "reasoning_summary_delta"):
+	case parser.IsText(event.Get("kind"), "reasoning_summary_delta"):
 		w.lastDelta[messageID] = index
 	}
 }
@@ -560,7 +555,7 @@ func (w *walk) record(index int, entry envelope) {
 		w.securityMode(step)
 	case step.payloadType == "session.workspace_branch.observed":
 		w.branch = ""
-		if reference := step.facts.Get("reference"); isString(reference.Get("kind"), "branch") {
+		if reference := step.facts.Get("reference"); parser.IsText(reference.Get("kind"), "branch") {
 			w.branch = parser.Text(reference.Get("name"))
 		}
 	case step.payloadType == "session.name.changed":
@@ -715,7 +710,7 @@ func (w *walk) userShell(step *recordStep) {
 	if code := step.facts.Get("exit_code"); !exitSucceeded(code) {
 		notes = append(notes, "exit "+code.Text())
 	}
-	if state := step.facts.Get("terminal_state"); !state.IsEmpty() && !isString(state, "completed") {
+	if state := step.facts.Get("terminal_state"); !state.IsEmpty() && !parser.IsText(state, "completed") {
 		notes = append(notes, state.Text())
 	}
 	if len(notes) > 0 {
@@ -729,14 +724,14 @@ func (w *walk) userShell(step *recordStep) {
 func (w *walk) runtimeSession(step *recordStep) {
 	event := step.payload.Get("event")
 	switch {
-	case isString(step.payload.Get("kind"), "run"):
-		if isString(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty() {
+	case parser.IsText(step.payload.Get("kind"), "run"):
+		if parser.IsText(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty() {
 			if _, configured := w.runModel[step.runID]; !configured {
 				w.modelRow(step, event.Get("model").Text(), jsonvalue.NewObject())
 			}
 		}
 		w.runEvent(step, event)
-	case isString(step.payload.Get("kind"), "approval"):
+	case parser.IsText(step.payload.Get("kind"), "approval"):
 		w.approval(step, event)
 	}
 }

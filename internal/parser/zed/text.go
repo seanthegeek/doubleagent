@@ -152,21 +152,16 @@ func acpBlockText(block jsonvalue.Value) string {
 	switch {
 	case block.IsString():
 		return block.StringValue()
-	case isText(kind, "text") && block.Get("text").IsString():
+	case parser.IsText(kind, "text") && block.Get("text").IsString():
 		return block.Get("text").StringValue()
-	case isText(kind, "resource_link") && block.Get("uri").IsString():
+	case parser.IsText(kind, "resource_link") && block.Get("uri").IsString():
 		return "[mention] " + block.Get("uri").StringValue()
-	case isText(kind, "resource") && block.Get("resource").IsObject():
+	case parser.IsText(kind, "resource") && block.Get("resource").IsObject():
 		return "[mention] " + textOrJSON(block.Get("resource").Get("uri"))
-	case isText(kind, "image"), isText(kind, "audio"):
+	case parser.IsText(kind, "image"), parser.IsText(kind, "audio"):
 		return "[" + kind.StringValue() + "]"
 	}
 	return parser.JSONText(block)
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // denialText returns the `permission decision:` text of a failed tool

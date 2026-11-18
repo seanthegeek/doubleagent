@@ -62,7 +62,7 @@ func (r *blockReader) blocks(base timeline.Row, role string, content jsonvalue.V
 			continue
 		}
 		emit(row)
-		if !isText(block.Get("type"), "toolRequest") || answered == nil {
+		if !parser.IsText(block.Get("type"), "toolRequest") || answered == nil {
 			continue
 		}
 		verdict := block.Get("_meta")
@@ -73,11 +73,6 @@ func (r *blockReader) blocks(base timeline.Row, role string, content jsonvalue.V
 			emit(row)
 		}
 	}
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // block returns the row of one content block, or false for a thinking
@@ -127,7 +122,7 @@ func (r *blockReader) toolRequest(row *timeline.Row, block jsonvalue.Value) stri
 	row.ToolUseID = parser.Text(block.Get("id"))
 	call := orObject(block.Get("toolCall"))
 	text := ""
-	if isText(call.Get("status"), "error") {
+	if parser.IsText(call.Get("status"), "error") {
 		text = "[error] " + parser.Text(call.Get("error"))
 	} else {
 		value := orObject(call.Get("value"))
@@ -180,12 +175,12 @@ func (r *blockReader) systemBlock(row *timeline.Row, kind string, block jsonvalu
 // "action required:" row.
 func (r *blockReader) actionText(row *timeline.Row, data jsonvalue.Value) string {
 	switch kind := data.Get("actionType"); {
-	case data.IsObject() && isText(kind, "toolConfirmation"):
+	case data.IsObject() && parser.IsText(kind, "toolConfirmation"):
 		row.ToolName = parser.Text(data.Get("toolName"))
 		row.ToolUseID = parser.Text(data.Get("id"))
 		return parser.JoinNonEmpty(" | ", "permission request: "+row.ToolName, parser.Text(data.Get("prompt")),
 			parser.JSONText(orObject(data.Get("arguments"))))
-	case data.IsObject() && isText(kind, "toolConfirmationResponse"):
+	case data.IsObject() && parser.IsText(kind, "toolConfirmationResponse"):
 		row.ToolUseID = parser.Text(data.Get("id"))
 		row.ToolName = r.toolNames[row.ToolUseID]
 		permission := data.Get("permission")
@@ -203,7 +198,7 @@ func resultText(result jsonvalue.Value) (string, bool) {
 	if !result.IsObject() {
 		return parser.JSONText(result), false
 	}
-	if isText(result.Get("status"), "error") {
+	if parser.IsText(result.Get("status"), "error") {
 		return parser.Text(result.Get("error")), true
 	}
 	switch value := result.Get("value"); {

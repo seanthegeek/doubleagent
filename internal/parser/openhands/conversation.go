@@ -418,7 +418,7 @@ func (c *conversation) trackModels(state jsonvalue.Value, loaded []loadedEvent) 
 	current := initial
 	for _, each := range loaded {
 		event := each.event
-		if isString(event.Get("kind"), "ActionEvent") && !event.Get("id").IsEmpty() {
+		if parser.IsText(event.Get("kind"), "ActionEvent") && !event.Get("id").IsEmpty() {
 			c.actions[event.Get("id").Text()] = [2]string{parser.Text(event.Get("tool_name")),
 				parser.Text(event.Get("tool_call_id"))}
 		}
@@ -450,9 +450,9 @@ func modelText(old, next string) string {
 // class=<class>]" suffix, else two empty texts.
 func switchOf(event jsonvalue.Value) (string, string) {
 	observation := event.Get("observation")
-	if !isString(event.Get("kind"), "ObservationEvent") ||
+	if !parser.IsText(event.Get("kind"), "ObservationEvent") ||
 		!slices.ContainsFunc(switchKinds, func(kind string) bool {
-			return isString(observation.Get("kind"), kind)
+			return parser.IsText(observation.Get("kind"), kind)
 		}) {
 		return "", ""
 	}

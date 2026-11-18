@@ -144,11 +144,6 @@ func orDefault(value jsonvalue.Value, fallback string) string {
 	return fallback
 }
 
-// isString reports whether value is the string want.
-func isString(value jsonvalue.Value, want string) bool {
-	return value.IsString() && value.StringValue() == want
-}
-
 // nonEmptyText returns a value's string when it is a non-empty string.
 func nonEmptyText(value jsonvalue.Value) (string, bool) {
 	return value.StringValue(), value.IsString() && value.StringValue() != ""

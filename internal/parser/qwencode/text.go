@@ -49,11 +49,6 @@ func orElse(value, fallback jsonvalue.Value) jsonvalue.Value {
 	return value
 }
 
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
-}
-
 // argsSummary returns the most identifying argument of a function call,
 // else the arguments as compact JSON; "" for none.
 func argsSummary(arguments jsonvalue.Value) string {

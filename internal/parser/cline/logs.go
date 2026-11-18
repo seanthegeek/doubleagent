@@ -192,7 +192,7 @@ func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 			row.ProjectPath = parser.Text(history.Get(p.ProjectKey()))
 		}
 		row.TimestampUTC = timeutil.FromValue(item.Get("timestamp"))
-		if isText(item.Get("status"), "synced") {
+		if parser.IsText(item.Get("status"), "synced") {
 			row.Text = "session synced: " + row.Text
 		}
 		emit(row)

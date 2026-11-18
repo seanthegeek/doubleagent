@@ -61,7 +61,7 @@ func textOrJSON(value jsonvalue.Value) string {
 // isNullOrEmpty reports whether value is null or the empty string; false and
 // zero are values an argument can hold.
 func isNullOrEmpty(value jsonvalue.Value) bool {
-	return value.IsNull() || isText(value, "")
+	return value.IsNull() || parser.IsText(value, "")
 }
 
 // exitSucceeded reports whether a bash exit code is no failure: null, false
@@ -118,10 +118,10 @@ func BugReportText(data jsonvalue.Value) string {
 	field := func(key string) string { return parser.SettingOrDash(data.Get(key)) }
 	source := "(from session entry " + bugReportType + ", entry timestamp)"
 	switch delivery := data.Get("delivery"); {
-	case isText(delivery, "upload"):
+	case parser.IsText(delivery, "upload"):
 		return "session synced: bug report " + field("id") + " uploaded to radius.pi.dev transcript=" +
 			field("sessionIncluded") + " summary=" + field("summaryIncluded") + " " + source
-	case isText(delivery, "zip"):
+	case parser.IsText(delivery, "zip"):
 		return "bug report exported: " + field("id") + " path=" + field("path") + " " + source
 	}
 	return ""
@@ -190,15 +190,15 @@ func (w *entryWriter) entry(record jsonvalue.Value) {
 	w.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")),
 		timeutil.FromValue(message.Get("timestamp")))
 	switch kind := record.Get("type"); {
-	case isText(kind, "message"):
+	case parser.IsText(kind, "message"):
 		w.message(message, record)
-	case isText(kind, "model_change"):
+	case parser.IsText(kind, "model_change"):
 		model := parser.Text(record.Get("modelId"))
 		if text := SwitchText(w.models, w.sessionID, model, parser.Text(record.Get("provider"))); text != "" {
 			w.put(timeline.TurnSystem, text, model, "", "")
 		}
-	case isText(kind, "custom"):
-		if isText(record.Get("customType"), bugReportType) {
+	case parser.IsText(kind, "custom"):
+		if parser.IsText(record.Get("customType"), bugReportType) {
 			if text := BugReportText(record.Get("data")); text != "" {
 				w.system(text)
 			}
@@ -239,21 +239,21 @@ func entryText(kind string, record jsonvalue.Value) (string, bool) {
 func (w *entryWriter) message(message, record jsonvalue.Value) {
 	content := message.Get("content")
 	switch role := message.Get("role"); {
-	case isText(role, "user"):
+	case parser.IsText(role, "user"):
 		if text := parser.TextOf(content); text != "" {
 			w.put(timeline.TurnUser, text, "", "", "")
 		}
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		w.assistant(message)
-	case isText(role, "toolResult"):
+	case parser.IsText(role, "toolResult"):
 		w.toolResult(message)
-	case isText(role, "bashExecution"):
+	case parser.IsText(role, "bashExecution"):
 		w.bash(message, parser.Text(record.Get("id")))
-	case isText(role, "system"):
+	case parser.IsText(role, "system"):
 		w.system(label("system prompt", parser.TextOf(content)))
-	case isText(role, "custom"):
+	case parser.IsText(role, "custom"):
 		w.system(label("custom "+parser.Text(message.Get("customType")), parser.TextOf(content)))
-	case isText(role, "branchSummary"), isText(role, "compactionSummary"):
+	case parser.IsText(role, "branchSummary"), parser.IsText(role, "compactionSummary"):
 		w.system(label(role.StringValue(), parser.Text(message.Get("summary"))))
 	}
 }
@@ -281,7 +281,7 @@ func (w *entryWriter) assistant(message jsonvalue.Value) {
 			w.assistantPart(part, model)
 		}
 	}
-	if stop := message.Get("stopReason"); isText(stop, "error") || isText(stop, "aborted") {
+	if stop := message.Get("stopReason"); parser.IsText(stop, "error") || parser.IsText(stop, "aborted") {
 		w.put(timeline.TurnSystem, label("assistant stopReason="+stop.StringValue(),
 			parser.Text(message.Get("errorMessage"))), model, "", "")
 	}
@@ -291,9 +291,9 @@ func (w *entryWriter) assistant(message jsonvalue.Value) {
 // content: text, thinking when it is asked for, or a tool call.
 func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
 	switch kind := part.Get("type"); {
-	case isText(kind, "text") && !part.Get("text").IsEmpty():
+	case parser.IsText(kind, "text") && !part.Get("text").IsEmpty():
 		w.put(timeline.TurnAssistant, part.Get("text").Text(), model, "", "")
-	case isText(kind, "thinking") && w.options.IncludeThinking:
+	case parser.IsText(kind, "thinking") && w.options.IncludeThinking:
 		text := parser.Text(part.Get("thinking"))
 		if !part.Get("redacted").IsEmpty() && text == "" {
 			text = "[redacted]"
@@ -301,7 +301,7 @@ func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
 		if text != "" {
 			w.put(timeline.TurnThinking, text, model, "", "")
 		}
-	case isText(kind, "toolCall"):
+	case parser.IsText(kind, "toolCall"):
 		w.put(timeline.TurnToolUse, ArgsSummary(part.Get("arguments")), model,
 			parser.Text(part.Get("name")), parser.Text(part.Get("id")))
 	}

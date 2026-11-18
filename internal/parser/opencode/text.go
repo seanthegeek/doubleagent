@@ -67,11 +67,6 @@ func textOf(value jsonvalue.Value) string {
 	return ""
 }
 
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
-}
-
 // objectOf returns value when it is an object, else an empty object, so a
 // chain of lookups reads a missing level as empty.
 func objectOf(value jsonvalue.Value) jsonvalue.Value {
@@ -112,7 +107,7 @@ func modelName(provider, model jsonvalue.Value) string {
 // assistant's own providerID and modelID, else the user message's model
 // object (its modelID, else its id).
 func messageRef(message jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
-	if isText(message.Get("role"), "assistant") {
+	if parser.IsText(message.Get("role"), "assistant") {
 		return message.Get("providerID"), message.Get("modelID")
 	}
 	if model := message.Get("model"); model.IsObject() {
@@ -207,7 +202,7 @@ func sessionRules(text string) ([]rule, bool) {
 // the empty string.
 func ruleField(entry jsonvalue.Value, key string) string {
 	value := entry.Get(key)
-	if value.IsNull() || isText(value, "") {
+	if value.IsNull() || parser.IsText(value, "") {
 		return "-"
 	}
 	return value.Text()

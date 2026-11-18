@@ -78,7 +78,7 @@ func otherKindRows(kind string, event jsonvalue.Value, row eventRowMaker) {
 		// The full_state value is a whole ConversationState, secrets included;
 		// only its key is reported.
 		value, shown := event.Get("value"), ""
-		if !value.IsObject() && !value.IsArray() && !isString(event.Get("key"), "full_state") {
+		if !value.IsObject() && !value.IsArray() && !parser.IsText(event.Get("key"), "full_state") {
 			shown = value.Text()
 		}
 		text := "state update: " + parser.Text(event.Get("key"))
@@ -166,7 +166,7 @@ func actionRows(event jsonvalue.Value, options parser.Options, row eventRowMaker
 		}
 	}
 	text := actionText(event)
-	if risk := event.Get("security_risk"); !risk.IsNull() && !isString(risk, "") {
+	if risk := event.Get("security_risk"); !risk.IsNull() && !parser.IsText(risk, "") {
 		text += " security_risk=" + risk.Text()
 	}
 	row(timeline.TurnToolUse, text, parser.Text(event.Get("tool_name")),
@@ -233,8 +233,8 @@ func acpRows(event jsonvalue.Value, row eventRowMaker) {
 	}
 	text := parser.JoinNonEmpty(" | ", output, content)
 	status := event.Get("status")
-	if text != "" || isString(status, "completed") || isString(status, "failed") {
-		if !event.Get("is_error").IsEmpty() || isString(status, "failed") {
+	if text != "" || parser.IsText(status, "completed") || parser.IsText(status, "failed") {
+		if !event.Get("is_error").IsEmpty() || parser.IsText(status, "failed") {
 			text = "[error] " + text
 		}
 		row(timeline.TurnToolResult, text, name, callID)

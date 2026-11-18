@@ -19,9 +19,9 @@ type ContentRow struct {
 // system for any other.
 func BaseTurn(role jsonvalue.Value) string {
 	switch {
-	case isText(role, "user"):
+	case parser.IsText(role, "user"):
 		return timeline.TurnUser
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		return timeline.TurnAssistant
 	}
 	return timeline.TurnSystem
@@ -67,7 +67,7 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 func (p *TaskParser) apiMarker(message jsonvalue.Value, options parser.Options,
 	row func(string) timeline.Row, emit parser.Emit) bool {
 	switch {
-	case isText(message.Get("type"), "reasoning"):
+	case parser.IsText(message.Get("type"), "reasoning"):
 		if options.IncludeThinking {
 			thinking := row(timeline.TurnThinking)
 			thinking.Text = timeline.CompactValue(parser.FirstNonEmpty(jsonvalue.NewString(parser.TextOf(message.Get("summary"))),
@@ -140,24 +140,24 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 	}
 	blockType := block.Get("type")
 	switch {
-	case isText(blockType, "text"):
+	case parser.IsText(blockType, "text"):
 		text := block.Get("text")
 		return ContentRow{TurnType: baseTurn, Text: text.Text()}, !text.IsEmpty()
-	case isText(blockType, "tool_use"):
+	case parser.IsText(blockType, "tool_use"):
 		name := parser.Text(block.Get("name"))
 		return ContentRow{TurnType: timeline.TurnToolUse, ToolName: name,
 			Text:      claudecode.ToolSummary(name, block.Get("input")),
 			ToolUseID: parser.Text(parser.FirstNonEmpty(block.Get("id"), block.Get("call_id")))}, true
-	case isText(blockType, "tool_result"):
+	case parser.IsText(blockType, "tool_result"):
 		return toolResultRow(block), true
-	case isText(blockType, "thinking") || isText(blockType, "reasoning"):
+	case parser.IsText(blockType, "thinking") || parser.IsText(blockType, "reasoning"):
 		text := parser.Text(parser.FirstNonEmpty(block.Get("thinking"), block.Get("text")))
 		return ContentRow{TurnType: timeline.TurnThinking, Text: text}, includeThinking
-	case isText(blockType, "redacted_thinking"):
+	case parser.IsText(blockType, "redacted_thinking"):
 		return ContentRow{TurnType: timeline.TurnThinking, Text: "[redacted thinking]"}, includeThinking
-	case isText(blockType, "image"):
+	case parser.IsText(blockType, "image"):
 		return ContentRow{TurnType: baseTurn, Text: "[image]"}, true
-	case isText(blockType, "file"):
+	case parser.IsText(blockType, "file"):
 		return ContentRow{TurnType: baseTurn, Text: Join(jsonvalue.NewString("[file]"), block.Get("path"))}, true
 	case !blockType.IsEmpty():
 		return ContentRow{TurnType: baseTurn, Text: "[" + blockType.Text() + "]"}, true

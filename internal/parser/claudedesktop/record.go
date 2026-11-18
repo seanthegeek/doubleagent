@@ -153,7 +153,7 @@ func (s *sessionRecord) grants() {
 	for _, key := range []string{"chromePermissionMode", "chromeAllowedDomains", "cuAllowedApps",
 		"cuGrantFlags", "cuFlagsGrantedAt"} {
 		value := s.record.Get(key)
-		if value.IsNull() || isText(value, "") || ((value.IsArray() || value.IsObject()) && value.Len() == 0) {
+		if value.IsNull() || parser.IsText(value, "") || ((value.IsArray() || value.IsObject()) && value.Len() == 0) {
 			continue
 		}
 		grant(key + "=" + grantValue(value))
@@ -172,7 +172,7 @@ func (s *sessionRecord) grants() {
 			for _, member := range value.Members() {
 				grant(key + "." + member.Key + "=" + grantValue(member.Value))
 			}
-		case !value.IsNull() && !isText(value, ""):
+		case !value.IsNull() && !parser.IsText(value, ""):
 			grant(key + "=" + grantValue(value))
 		}
 	}
@@ -267,7 +267,7 @@ func (p *Parser) spaces(artifact *input.Artifact, emit parser.Emit) {
 			key = "entries." + sessionID + ".folders"
 		}
 		for _, granted := range folders.Items() {
-			if granted.IsNull() || isText(granted, "") {
+			if granted.IsNull() || parser.IsText(granted, "") {
 				continue
 			}
 			emit(p.code.StandingRow(artifact, timestamp, granted.Text(), key, granted,

@@ -39,7 +39,7 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 	if result := tool.Get("result"); !absent(result) {
 		resultText = timeline.Compact(textOrJSON(result))
 	}
-	rejected := isText(extra.Get("status"), "rejected") && !pending
+	rejected := parser.IsText(extra.Get("status"), "rejected") && !pending
 	if resultText != "" || rejected {
 		text := resultText
 		if rejected {
@@ -53,10 +53,10 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 // whether its prompt is still open: a turn the user stopped (whose
 // selectedOption is a preset), an open prompt, or an answer.
 func reviewText(name string, tool, extra, review jsonvalue.Value) (string, bool) {
-	if isText(review.Get("status"), "None") && isText(extra.Get("status"), "rejected") {
+	if parser.IsText(review.Get("status"), "None") && parser.IsText(extra.Get("status"), "rejected") {
 		return stoppedText, false
 	}
-	if !isText(review.Get("status"), "Done") || isText(tool.Get("status"), "loading") {
+	if !parser.IsText(review.Get("status"), "Done") || parser.IsText(tool.Get("status"), "loading") {
 		return pendingText(name, extra, review), true
 	}
 	return permissionText(extra, review), false

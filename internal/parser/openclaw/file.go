@@ -62,11 +62,11 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 			continue
 		}
 		kind := record.Get("kind")
-		if isText(kind, "header") && current.sessionID == "" {
+		if parser.IsText(kind, "header") && current.sessionID == "" {
 			current.sessionID = parser.Text(record.Get("sessionId"))
 		}
 		inner := record.Get("row")
-		if !isText(kind, "event") || !inner.IsObject() {
+		if !parser.IsText(kind, "event") || !inner.IsObject() {
 			continue
 		}
 		createdAt := timeutil.FromValue(inner.Get("created_at"))
@@ -151,7 +151,7 @@ func legacyKey(artifact *input.Artifact, sessionID string) (string, error) {
 		return "", errors.New("sessions.json is not a JSON object")
 	}
 	for _, member := range data.Members() {
-		if entry := member.Value; entry.IsObject() && isText(entry.Get("sessionId"), sessionID) {
+		if entry := member.Value; entry.IsObject() && parser.IsText(entry.Get("sessionId"), sessionID) {
 			return member.Key, nil
 		}
 	}

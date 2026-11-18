@@ -36,7 +36,7 @@ func (s *session) user(record jsonvalue.Value, isTask bool) {
 func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	row := s.row(timeline.TurnSystem, "")
 	for _, block := range record.Get("message").Get("content").Items() {
-		if block.IsObject() && isText(block.Get("type"), "tool_result") {
+		if block.IsObject() && parser.IsText(block.Get("type"), "tool_result") {
 			row.ToolUseID = parser.Text(block.Get("tool_use_id"))
 			break
 		}
@@ -84,7 +84,7 @@ func (s *session) userBlocks(record jsonvalue.Value, isTask bool) {
 	saved := record.Get("toolUseResult").Get("persistedOutputPath")
 	results := 0
 	for _, block := range content.Items() {
-		if block.IsObject() && isText(block.Get("type"), "tool_result") {
+		if block.IsObject() && parser.IsText(block.Get("type"), "tool_result") {
 			results++
 		}
 	}
@@ -95,9 +95,9 @@ func (s *session) userBlocks(record jsonvalue.Value, isTask bool) {
 	for _, block := range content.Items() {
 		switch blockType := block.Get("type"); {
 		case !block.IsObject():
-		case isText(blockType, "tool_result"):
+		case parser.IsText(blockType, "tool_result"):
 			s.toolResult(block, savedPath)
-		case isText(blockType, "text"), isText(blockType, "image"):
+		case parser.IsText(blockType, "text"), parser.IsText(blockType, "image"):
 			s.emit(s.textRow(record, label, parser.TextOf(jsonvalue.NewArray(block))))
 		}
 	}
@@ -191,7 +191,7 @@ func (s *session) assistant(record jsonvalue.Value) {
 func (s *session) assistantBlock(record, block jsonvalue.Value, model string) {
 	blockType := block.Get("type")
 	switch {
-	case isText(blockType, "tool_use"):
+	case parser.IsText(blockType, "tool_use"):
 		row := s.base(s.timestamp)
 		row.TurnType = timeline.TurnToolUse
 		row.Model = model
@@ -206,16 +206,16 @@ func (s *session) assistantBlock(record, block jsonvalue.Value, model string) {
 		}
 		row.Text = timeline.Compact(ToolSummary(row.ToolName, toolInput))
 		s.emit(row)
-	case isText(blockType, "text"):
+	case parser.IsText(blockType, "text"):
 		if text := block.Get("text"); !text.IsEmpty() {
 			s.modelRowOf(timeline.TurnAssistant, model, text.Text())
 		}
 	case !s.options.IncludeThinking:
-	case isText(blockType, "thinking"):
+	case parser.IsText(blockType, "thinking"):
 		if text := block.Get("thinking"); !text.IsEmpty() {
 			s.modelRowOf(timeline.TurnThinking, model, text.Text())
 		}
-	case isText(blockType, "redacted_thinking"):
+	case parser.IsText(blockType, "redacted_thinking"):
 		s.modelRowOf(timeline.TurnThinking, model, "[redacted]")
 	}
 }
@@ -254,11 +254,11 @@ func (s *session) attachment(record jsonvalue.Value) {
 // edited file, and false for any other attachment.
 func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool) {
 	switch kind := attachment.Get("type"); {
-	case isText(kind, "queued_command"):
+	case parser.IsText(kind, "queued_command"):
 		text := parser.TextOf(attachment.Get("prompt"))
 		origin := attachment.Get("origin").Get("kind")
 		label := markerLabel(text)
-		if label == "" && !(isText(origin, "human") && attachment.Get("isMeta").IsEmpty()) {
+		if label == "" && !(parser.IsText(origin, "human") && attachment.Get("isMeta").IsEmpty()) {
 			label = originLabel(origin)
 			if label == "" {
 				label = "queued command"
@@ -268,7 +268,7 @@ func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool)
 			return s.row(timeline.TurnSystem, label+": "+text), true
 		}
 		return s.row(timeline.TurnUser, text), true
-	case isText(kind, "hook_system_message"):
+	case parser.IsText(kind, "hook_system_message"):
 		name := parser.Text(attachment.Get("hookName"))
 		if name == "" {
 			name = parser.Text(attachment.Get("hookEvent"))
@@ -280,7 +280,7 @@ func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool)
 			}
 		}
 		return s.row(timeline.TurnSystem, "hook: "+strings.Join(parts, ": ")), true
-	case isText(kind, "edited_text_file"):
+	case parser.IsText(kind, "edited_text_file"):
 		return s.row(timeline.TurnSystem, "edited file: "+parser.Text(attachment.Get("filename"))), true
 	}
 	return timeline.Row{}, false
@@ -290,7 +290,7 @@ func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool)
 // snapshot.scratchpadDirectory, or "".
 func scratchpad(record jsonvalue.Value) string {
 	attachment := record.Get("attachment")
-	if !isText(attachment.Get("type"), "environment") {
+	if !parser.IsText(attachment.Get("type"), "environment") {
 		return ""
 	}
 	return attachment.Get("snapshot").Get("scratchpadDirectory").StringValue()

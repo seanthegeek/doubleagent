@@ -240,7 +240,7 @@ func (r *replay) applyPatch(patch jsonvalue.Value) {
 		message.Set("content", content)
 	}
 	calls := message.Get("toolCalls")
-	if !patch.Get("toolCalls").IsArray() || !isText(message.Get("type"), "gemini") || !calls.IsArray() {
+	if !patch.Get("toolCalls").IsArray() || !parser.IsText(message.Get("type"), "gemini") || !calls.IsArray() {
 		return
 	}
 	for _, toolPatch := range patch.Get("toolCalls").Items() {

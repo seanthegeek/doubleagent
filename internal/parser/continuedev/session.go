@@ -80,7 +80,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	state.header(document, entry, len(history))
 	for _, item := range history {
 		message := item.Get("message")
-		if isText(message.Get("role"), "tool") && !message.Get("toolCallId").IsEmpty() {
+		if parser.IsText(message.Get("role"), "tool") && !message.Get("toolCallId").IsEmpty() {
 			state.answered[message.Get("toolCallId").Text()] = true
 		}
 	}
@@ -146,26 +146,26 @@ func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
 	role := message.Get("role")
 	text := MessageText(message.Get("content"))
 	switch {
-	case isText(role, "user"):
+	case parser.IsText(role, "user"):
 		if text != "" {
 			s.text(s.row(position, "", timeline.TurnUser), text)
 		}
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		if text != "" {
 			s.text(s.row(position, model, timeline.TurnAssistant), text)
 		}
 		s.toolCalls(position, model, item, message)
-	case isText(role, "thinking"):
+	case parser.IsText(role, "thinking"):
 		if s.options.IncludeThinking && text != "" {
 			s.text(s.row(position, model, timeline.TurnThinking), text)
 		}
-	case isText(role, "tool"):
+	case parser.IsText(role, "tool"):
 		row := s.row(position, "", timeline.TurnToolResult)
 		row.ToolUseID = parser.Text(message.Get("toolCallId"))
 		row.ToolName = s.names[row.ToolUseID]
 		s.text(row, text)
 	case text != "":
-		if !isText(role, "system") {
+		if !parser.IsText(role, "system") {
 			text = cmp.Or(parser.Text(role), "unknown") + ": " + text
 		}
 		s.text(s.row(position, "", timeline.TurnSystem), text)

@@ -44,7 +44,7 @@ func (p *Parser) uiWithDecisions(artifact *input.Artifact, options parser.Option
 	answered := map[int]bool{}
 	var ignored parser.Problems
 	for position, message := range parser.JSONArray(artifact.DiskPath, &ignored) {
-		if isText(message.Get("type"), "ask") && isText(message.Get("ask"), "tool") {
+		if parser.IsText(message.Get("type"), "ask") && parser.IsText(message.Get("ask"), "tool") {
 			if flag, ok := message.Get("isAnswered").Bool(); ok && flag {
 				answered[position] = true
 			}
@@ -115,11 +115,11 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 	names := map[string]string{}
 	for position, message := range parser.JSONArray(path, problems) {
 		for _, block := range message.Get("content").Items() {
-			if isText(block.Get("type"), "tool_use") {
+			if parser.IsText(block.Get("type"), "tool_use") {
 				names[parser.Text(block.Get("id"))] = parser.Text(block.Get("name"))
 				continue
 			}
-			if !isText(block.Get("type"), "tool_result") {
+			if !parser.IsText(block.Get("type"), "tool_result") {
 				continue
 			}
 			text, ok := decisionText(block.Get("content"))
@@ -146,7 +146,7 @@ func decisionText(content jsonvalue.Value) (string, bool) {
 		return "", false
 	}
 	state := status.Get("status")
-	if !isText(state, "denied") && !isText(state, "approved") {
+	if !parser.IsText(state, "denied") && !parser.IsText(state, "approved") {
 		return "", false
 	}
 	text := "permission decision: " + state.StringValue()
@@ -154,9 +154,4 @@ func decisionText(content jsonvalue.Value) (string, bool) {
 		text += " feedback=" + parser.SettingValue(feedback)
 	}
 	return text, true
-}
-
-// isText reports whether a value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

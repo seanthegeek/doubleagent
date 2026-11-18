@@ -99,7 +99,7 @@ func legacyRecords(artifact *input.Artifact, problems *parser.Problems) []number
 // isFailed reports whether a tool call's status is one that gives a
 // tool_result row without a result.
 func isFailed(status jsonvalue.Value) bool {
-	return isText(status, "error") || isText(status, "cancelled")
+	return parser.IsText(status, "error") || parser.IsText(status, "cancelled")
 }
 
 // answeredCalls returns the ids of the tool calls, among the messages of
@@ -109,7 +109,7 @@ func answeredCalls(messages *messageLog, order []string) map[string]bool {
 	answered := map[string]bool{}
 	for _, messageID := range order {
 		message := messages.byID[messageID].message
-		if !isText(message.Get("type"), "gemini") {
+		if !parser.IsText(message.Get("type"), "gemini") {
 			continue
 		}
 		for _, call := range message.Get("toolCalls").Items() {
@@ -150,14 +150,14 @@ func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	answered map[string]bool) []timeline.Row {
 	kind := message.Get("type")
 	t.timestamp = timeutil.FromValue(message.Get("timestamp"))
-	if isText(kind, "gemini") {
+	if parser.IsText(kind, "gemini") {
 		t.model = parser.Text(message.Get("model"))
 	}
 	content := message.Get("content")
 	switch {
-	case isText(kind, "user"):
+	case parser.IsText(kind, "user"):
 		return t.userRows(content, answered)
-	case !isText(kind, "gemini"):
+	case !parser.IsText(kind, "gemini"):
 		label := parser.Text(kind)
 		if label == "" {
 			label = "message"
@@ -275,7 +275,7 @@ func (t *messageTurn) callRows(call jsonvalue.Value) []timeline.Row {
 		result.ToolName, result.ToolUseID = name, callID
 		out = append(out, result)
 	}
-	if isText(status, "cancelled") {
+	if parser.IsText(status, "cancelled") {
 		decision := t.row(timeline.TurnSystem, "permission decision: cancelled", when)
 		decision.ToolName, decision.ToolUseID = name, callID
 		out = append(out, decision)

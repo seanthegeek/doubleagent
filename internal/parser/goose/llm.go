@@ -98,7 +98,7 @@ func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	messages := parser.Elements(request.Get("messages"))
 	lastUser := ""
 	for i := len(messages) - 1; i >= 0; i-- {
-		if message := messages[i]; message.IsObject() && isText(message.Get("role"), "user") {
+		if message := messages[i]; message.IsObject() && parser.IsText(message.Get("role"), "user") {
 			lastUser = parser.TextOf(message.Get("content"))
 			break
 		}
@@ -150,11 +150,11 @@ func mergeDelta(blocks, added []jsonvalue.Value) []jsonvalue.Value {
 	last, block := blocks[len(blocks)-1], added[0]
 	kind := last.Get("type")
 	switch {
-	case isText(kind, "text") && isText(block.Get("type"), "text") &&
+	case parser.IsText(kind, "text") && parser.IsText(block.Get("type"), "text") &&
 		jsonvalue.Equal(audience(last), audience(block)):
 		blocks[len(blocks)-1] = withMember(last, "text",
 			jsonvalue.NewString(parser.Text(last.Get("text"))+parser.Text(block.Get("text"))))
-	case isText(kind, "thinking") && isText(block.Get("type"), "thinking") &&
+	case parser.IsText(kind, "thinking") && parser.IsText(block.Get("type"), "thinking") &&
 		(last.Get("signature").IsEmpty() || jsonvalue.Equal(block.Get("signature"), last.Get("signature"))):
 		merged := withMember(last, "thinking",
 			jsonvalue.NewString(parser.Text(last.Get("thinking"))+parser.Text(block.Get("thinking"))))

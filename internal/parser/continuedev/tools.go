@@ -151,7 +151,7 @@ func stateDecision(status string, output jsonvalue.Value, text string) string {
 		return ""
 	}
 	for _, item := range output.Items() {
-		if isText(item.Get("name"), policyViolation) {
+		if parser.IsText(item.Get("name"), policyViolation) {
 			return "errored reason=policy"
 		}
 	}

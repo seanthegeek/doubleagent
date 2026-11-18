@@ -182,7 +182,7 @@ func (b *recordRows) shell(data jsonvalue.Value) {
 	callID := parser.Text(parser.FirstNonEmpty(data.Get("callID"), data.Get("shellID")))
 	b.add(timeline.TurnToolUse, parser.Text(data.Get("command")), "", "shell", callID)
 	output, status, code := data.Get("output"), data.Get("status"), data.Get("exit")
-	if output.IsNull() && (status.IsNull() || isText(status, "running")) {
+	if output.IsNull() && (status.IsNull() || parser.IsText(status, "running")) {
 		return
 	}
 	if output.IsObject() {
@@ -190,7 +190,7 @@ func (b *recordRows) shell(data jsonvalue.Value) {
 	}
 	text := textOf(output)
 	switch {
-	case isText(status, "timeout") || isText(status, "killed"):
+	case parser.IsText(status, "timeout") || parser.IsText(status, "killed"):
 		text = join("["+status.StringValue()+"]", text)
 	case !code.IsNull() && !isZero(code):
 		text = join("[exit "+code.Text()+"]", text)

@@ -82,7 +82,7 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 	asks := p.askTimes(task)
 	var problems parser.Problems
 	for position, message := range parser.JSONArray(artifact.DiskPath, &problems) {
-		if !isText(message.Get("role"), "user") {
+		if !parser.IsText(message.Get("role"), "user") {
 			continue
 		}
 		timestamp := message.Get("ts")
@@ -132,15 +132,10 @@ func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
 
 // blockText returns a text block's text, or null for any other block.
 func blockText(block jsonvalue.Value) jsonvalue.Value {
-	if isText(block.Get("type"), "text") {
+	if parser.IsText(block.Get("type"), "text") {
 		return block.Get("text")
 	}
 	return jsonvalue.NewNull()
-}
-
-// isText reports whether a value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // state emits a task row per taskHistory[] entry of the editor's global

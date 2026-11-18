@@ -110,10 +110,10 @@ func (r *responseRows) parts(parts []jsonvalue.Value, options parser.Options) {
 		case kind.IsNull() && part.Has("value"):
 			r.run = append(r.run, mdText(part))
 			continue
-		case isText(kind, "markdownContent"):
+		case parser.IsText(kind, "markdownContent"):
 			r.run = append(r.run, mdText(part.Get("content")))
 			continue
-		case isText(kind, "inlineReference"):
+		case parser.IsText(kind, "inlineReference"):
 			name := parser.Text(part.Get("name"))
 			if name == "" {
 				name = uriText(part.Get("inlineReference"))
@@ -130,25 +130,20 @@ func (r *responseRows) parts(parts []jsonvalue.Value, options parser.Options) {
 // part emits the rows of a response part that is not text.
 func (r *responseRows) part(kind, part jsonvalue.Value, options parser.Options) {
 	switch {
-	case isText(kind, "thinking"):
+	case parser.IsText(kind, "thinking"):
 		if thought := mdText(part.Get("value")); options.IncludeThinking && thought != "" {
 			r.row(timeline.TurnThinking, thought, "", "")
 		}
-	case isText(kind, "toolInvocationSerialized"):
+	case parser.IsText(kind, "toolInvocationSerialized"):
 		toolUseID, toolName := parser.Text(part.Get("toolCallId")), parser.Text(part.Get("toolId"))
 		r.row(timeline.TurnToolUse, toolCallText(part), toolName, toolUseID)
 		r.row(timeline.TurnToolResult, toolResultText(part), toolName, toolUseID)
 		if decision := confirmedText(part); decision != "" {
 			r.row(timeline.TurnSystem, decision, toolName, toolUseID)
 		}
-	case isText(kind, "confirmation"):
+	case parser.IsText(kind, "confirmation"):
 		r.row(timeline.TurnSystem, confirmationPartText(part), "", "")
-	case isText(kind, "textEditGroup"):
+	case parser.IsText(kind, "textEditGroup"):
 		r.row(timeline.TurnSystem, "edit: "+uriText(part.Get("uri")), "", "")
 	}
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

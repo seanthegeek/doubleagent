@@ -20,13 +20,13 @@ var (
 // arguments or input, or else the call's other fields as JSON.
 func callSummary(payload jsonvalue.Value) string {
 	switch {
-	case isText(payload.Get("type"), "local_shell_call"):
+	case parser.IsText(payload.Get("type"), "local_shell_call"):
 		action := objectOrEmpty(payload.Get("action"))
 		if command := action.Get("command"); command.IsArray() {
 			return joinedCommand(command)
 		}
 		return cmp.Or(parser.Text(action.Get("command")), parser.JSONText(action))
-	case isText(payload.Get("type"), "web_search_call"):
+	case parser.IsText(payload.Get("type"), "web_search_call"):
 		action := objectOrEmpty(payload.Get("action"))
 		return cmp.Or(parser.Text(action.Get("query")), parser.JSONText(action))
 	}
@@ -56,9 +56,9 @@ func objectOrEmpty(value jsonvalue.Value) jsonvalue.Value {
 // call's own name, else its type.
 func callName(payload jsonvalue.Value) string {
 	switch {
-	case isText(payload.Get("type"), "local_shell_call"):
+	case parser.IsText(payload.Get("type"), "local_shell_call"):
 		return "shell"
-	case isText(payload.Get("type"), "web_search_call"):
+	case parser.IsText(payload.Get("type"), "web_search_call"):
 		return "web_search"
 	}
 	return parser.Text(parser.FirstNonEmpty(payload.Get("name"), payload.Get("type")))
@@ -188,15 +188,15 @@ func parentOf(metadata jsonvalue.Value) string {
 
 // isSubagentMeta reports whether a session_meta is a subagent thread's.
 func isSubagentMeta(metadata jsonvalue.Value) bool {
-	return isText(metadata.Get("thread_source"), "subagent") ||
+	return parser.IsText(metadata.Get("thread_source"), "subagent") ||
 		metadata.Get("source").Has("subagent")
 }
 
 // isGuardian reports whether a session_meta is a guardian review thread's:
 // thread_source guardian_review, or a source.subagent.other of guardian.
 func isGuardian(metadata jsonvalue.Value) bool {
-	return isText(metadata.Get("thread_source"), "guardian_review") ||
-		isText(metadata.Get("source").Get("subagent").Get("other"), "guardian")
+	return parser.IsText(metadata.Get("thread_source"), "guardian_review") ||
+		parser.IsText(metadata.Get("source").Get("subagent").Get("other"), "guardian")
 }
 
 // prescan returns the ids every response item carries, as id or call_id,
@@ -211,16 +211,16 @@ func prescan(records []numberedRecord) (map[string]bool, map[string]jsonvalue.Va
 			continue
 		}
 		switch {
-		case isText(record.value.Get("type"), "response_item"):
+		case parser.IsText(record.value.Get("type"), "response_item"):
 			for _, key := range []string{"id", "call_id"} {
 				if value := payload.Get(key); !value.IsEmpty() {
 					carried[value.Text()] = true
 				}
 			}
-		case isText(record.value.Get("type"), "event_msg") &&
-			isText(payload.Get("type"), "item_completed"):
+		case parser.IsText(record.value.Get("type"), "event_msg") &&
+			parser.IsText(payload.Get("type"), "item_completed"):
 			item := payload.Get("item")
-			if isText(item.Get("type"), "CommandExecution") && !item.Get("exit_code").IsNull() {
+			if parser.IsText(item.Get("type"), "CommandExecution") && !item.Get("exit_code").IsNull() {
 				exitCodes[parser.Text(item.Get("id"))] = item.Get("exit_code")
 			}
 		}
@@ -265,7 +265,7 @@ func agentText(payload jsonvalue.Value) string {
 	content := payload.Get("content")
 	text := parser.TextOf(content)
 	for _, block := range content.Items() {
-		if isText(block.Get("type"), "encrypted_content") {
+		if parser.IsText(block.Get("type"), "encrypted_content") {
 			return strings.TrimSpace(text + " [encrypted]")
 		}
 	}

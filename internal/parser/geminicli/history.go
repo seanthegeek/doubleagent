@@ -181,7 +181,7 @@ func (p *Parser) contentRows(artifact *input.Artifact, options parser.Options, i
 			emit(row(timeline.TurnThinking, thought))
 		}
 	}
-	user := isText(item.Get("role"), "user")
+	user := parser.IsText(item.Get("role"), "user")
 	runs, responses := contentRuns(jsonvalue.NewArray(itemParts...), user)
 	for _, each := range responses {
 		result := row(timeline.TurnToolResult, each.resultText())
