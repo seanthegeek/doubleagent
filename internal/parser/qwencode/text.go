@@ -51,10 +51,17 @@ func argsSummary(arguments jsonvalue.Value) string {
 	return parser.SettingValue(arguments)
 }
 
-// messageParts returns the object parts of a record's message.
-func messageParts(record jsonvalue.Value) []jsonvalue.Value {
+// parts returns the object parts of the record's message. A message that
+// is not an object, or its parts that is not an array, adds a problem at
+// the record's line.
+func (r *record) parts() []jsonvalue.Value {
+	message := r.value.Get("message")
+	if !message.IsObject() && !message.IsNull() {
+		r.problems.Add(r.line, parser.WrongKind("message", jsonvalue.Object))
+		return nil
+	}
 	var out []jsonvalue.Value
-	for _, part := range record.Get("message").Get("parts").Items() {
+	for _, part := range parser.ArrayMember(message.Get("parts"), "message.parts", r.line, r.problems) {
 		if part.IsObject() {
 			out = append(out, part)
 		}

@@ -14,13 +14,13 @@ import (
 
 // pullRequests emits one "source host:" row per pull request a session's
 // .pr.json binds, its host and repository taken from the pull request's
-// url, at its createdAt.
+// url, at its createdAt. A prs that is not an array adds a problem.
 func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	name := fileName(artifact)
 	sessionID := strings.TrimSuffix(name, ".pr.json")
 	document, _ := readObject(artifact, &problems)
-	for i, pullRequest := range document.Get("prs").Items() {
+	for i, pullRequest := range parser.ArrayMember(document.Get("prs"), "prs", 0, &problems) {
 		if !pullRequest.IsObject() {
 			problems.Add(i+1, "pull request "+strconv.Itoa(i+1)+" is not a JSON object")
 			continue
@@ -130,7 +130,8 @@ func (p *Parser) channelRoutes(artifact *input.Artifact, name string, emit parse
 // settings emits one "permission setting:" row per permissions.allow, ask
 // and deny rule and one for tools.approvalMode of a settings.json, read as
 // JSON with comments as Qwen Code reads it. No other key is read, since the
-// file can hold provider keys and channel tokens.
+// file can hold provider keys and channel tokens. A permissions that is not
+// an object, or a list of it that is not an array, adds a problem.
 func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -150,9 +151,14 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 	}
 	var keys []string
 	var values []jsonvalue.Value
+	permissions := document.Get("permissions")
+	if !permissions.IsObject() && !permissions.IsNull() {
+		problems.Add(0, parser.WrongKind("permissions", jsonvalue.Object))
+	}
 	for _, list := range []string{"allow", "ask", "deny"} {
-		for _, entry := range document.Get("permissions").Get(list).Items() {
-			keys, values = append(keys, "permissions."+list), append(values, entry)
+		member := "permissions." + list
+		for _, entry := range parser.ArrayMember(permissions.Get(list), member, 0, &problems) {
+			keys, values = append(keys, member), append(values, entry)
 		}
 	}
 	if mode := document.Get("tools").Get("approvalMode"); !mode.IsNull() {
@@ -164,6 +170,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = project
 		emit(row)
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
 // usage emits one "session usage:" row per line of a usage_record.jsonl,
