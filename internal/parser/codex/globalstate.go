@@ -93,7 +93,7 @@ func promptEntries(atom jsonvalue.Value, problems *parser.Problems) []promptEntr
 	var listed []promptEntry
 	threaded := map[string]bool{}
 	for _, member := range objectIn(atom.Get(promptHistoryKey), promptHistoryKey, problems).Members() {
-		list := parser.ArrayMember(member.Value, promptHistoryKey+"."+member.Key, 0, problems)
+		list := parser.EntriesOfKind(member.Value, promptHistoryKey+"."+member.Key, jsonvalue.Object, 0, problems)
 		for i, entry := range list {
 			markdown := entry.Get("markdown")
 			if !markdown.IsString() || strings.TrimSpace(markdown.StringValue()) == "" {
@@ -170,11 +170,9 @@ func globalStateTexts(document, atom, outputs jsonvalue.Value, rel string,
 		}
 	}
 	texts = append(texts, descriptionTexts(atom, source(descriptionsKey), problems)...)
-	for _, member := range objectIn(atom.Get(permissionsKey), permissionsKey, problems).Members() {
-		if member.Value.IsObject() {
-			texts = append(texts, stateText{member.Key,
-				standingText(member.Value, source(permissionsKey))})
-		}
+	permissions := objectIn(atom.Get(permissionsKey), permissionsKey, problems)
+	for threadID, permission := range parser.MembersOfKind(permissions, permissionsKey, jsonvalue.Object, 0, problems) {
+		texts = append(texts, stateText{threadID, standingText(permission, source(permissionsKey))})
 	}
 	for _, key := range hostSettingKeys {
 		for _, member := range objectIn(atom.Get(key), key, problems).Members() {
@@ -186,7 +184,7 @@ func globalStateTexts(document, atom, outputs jsonvalue.Value, rel string,
 			texts = append(texts, setting(member.Key+"="+parser.SettingValue(member.Value)))
 		}
 	}
-	return append(texts, remoteTexts(document, outputs, source)...)
+	return append(texts, remoteTexts(document, outputs, source, problems)...)
 }
 
 // descriptionTexts returns a "thread description:" text per described
@@ -216,8 +214,10 @@ func descriptionTexts(atom jsonvalue.Value, suffix string, problems *parser.Prob
 
 // remoteTexts returns the remote control row of the two top-level keys,
 // when either is present, and a scratch directory row per projectless
-// thread's output directory of outputs.
-func remoteTexts(document, outputs jsonvalue.Value, source func(string) string) []stateText {
+// thread's output directory of outputs; directories that are not text add
+// a problem.
+func remoteTexts(document, outputs jsonvalue.Value, source func(string) string,
+	problems *parser.Problems) []stateText {
 	var texts []stateText
 	mobile, hasMobile := document.Lookup(mobileDeviceKey)
 	if hasMobile || document.Has(remoteEnvironment) {
@@ -229,11 +229,10 @@ func remoteTexts(document, outputs jsonvalue.Value, source func(string) string) 
 			" environment=" + cmp.Or(parser.Text(document.Get(remoteEnvironment)), "-") + " " +
 			source(mobileDeviceKey)})
 	}
-	for _, member := range outputs.Members() {
-		if member.Value.IsString() && member.Value.StringValue() != "" {
-			texts = append(texts, stateText{member.Key, timeline.ScratchPrefix + " " +
-				member.Value.StringValue() + " (projectless thread " + member.Key + ") " +
-				source(outputDirsKey)})
+	for threadID, directory := range parser.MembersOfKind(outputs, outputDirsKey, jsonvalue.String, 0, problems) {
+		if directory.StringValue() != "" {
+			texts = append(texts, stateText{threadID, timeline.ScratchPrefix + " " +
+				directory.StringValue() + " (projectless thread " + threadID + ") " + source(outputDirsKey)})
 		}
 	}
 	return texts
