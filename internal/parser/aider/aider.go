@@ -313,7 +313,7 @@ type chatReader struct {
 	start       int
 	// hasText is set once a line of the run in progress holds more than
 	// whitespace; textChecks counts the lines tested for it, a measure of
-	// the reader's work that stays one test per line.
+	// the reader's work that a test reads.
 	hasText    bool
 	textChecks int
 }
@@ -459,7 +459,7 @@ func (c *chatReader) matchInput(text string) {
 // inputIndex holds the input history entries for matchInput: the times of
 // all of them, and by prompt text the positions and times of the entries
 // that hold it, each searchable from a position for the first time at or
-// after a bound. steps counts the search's steps, a measure of its work.
+// after a bound. steps counts the search's steps, which a test reads.
 type inputIndex struct {
 	all    *stampTree
 	byText map[string]*textEntries

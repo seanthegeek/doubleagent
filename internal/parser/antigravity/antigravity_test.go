@@ -186,6 +186,7 @@ func parseFile(t *testing.T, rel string, data []byte) []string {
 	return texts
 }
 
+// testdata/undecodable.db is built by testdata/gen_conversation.py.
 func TestAConversationReportsTheBlobsThatDoNotDecode(t *testing.T) {
 	data, err := osfile.ReadFile(filepath.Join("testdata", "undecodable.db"))
 	if err != nil {

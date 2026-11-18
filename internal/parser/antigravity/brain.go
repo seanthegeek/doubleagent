@@ -35,7 +35,7 @@ type brainLogs struct {
 // chunkListings keeps the chunk names of each chunks directory listed, so
 // the many chunk files of one transcript list their directory once; it
 // holds each chunk's name once, as the run's list of files does. listings
-// counts the directories listed, a measure of the work.
+// counts the directories listed, a measure of the work that a test reads.
 type chunkListings struct {
 	names    map[string][]string
 	listings int
