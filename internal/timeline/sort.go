@@ -1,6 +1,7 @@
 package timeline
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 )
@@ -22,17 +23,7 @@ func CompareRows(left, right Row) int {
 	case rightUndated && !leftUndated:
 		return -1
 	}
-	if order := strings.Compare(left.TimestampUTC, right.TimestampUTC); order != 0 {
-		return order
-	}
-	if order := strings.Compare(left.SourceFile, right.SourceFile); order != 0 {
-		return order
-	}
-	switch {
-	case left.SourceLine < right.SourceLine:
-		return -1
-	case left.SourceLine > right.SourceLine:
-		return 1
-	}
-	return 0
+	return cmp.Or(strings.Compare(left.TimestampUTC, right.TimestampUTC),
+		strings.Compare(left.SourceFile, right.SourceFile),
+		cmp.Compare(left.SourceLine, right.SourceLine))
 }

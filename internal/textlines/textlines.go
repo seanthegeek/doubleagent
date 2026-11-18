@@ -5,7 +5,8 @@
 // only and trims only ASCII whitespace. Unicode-aware splitting would also
 // end a line at U+2028, U+0085 or a form feed, and a Unicode trim would
 // take U+00A0 and other Unicode spaces, so either would cut or shorten a
-// value that holds one. A lone CR stays inside its line. The sets are
+// value that holds one. A lone CR stays inside its line; Split also takes
+// one CR that ends the text, as a line end whose LF is missing. The sets are
 // meant for strings.Trim, strings.TrimLeft and strings.TrimRight, which
 // read them as single bytes here since every character is ASCII.
 //
@@ -34,7 +35,8 @@ const (
 )
 
 // Split returns the lines of text, split at LF, each without its LF and
-// without one CR before it. A terminating LF gives no empty final line, so
+// without one CR before it; the last line also loses one CR that ends the
+// text, as a CRLF cut short. A terminating LF gives no empty final line, so
 // empty text gives no line; a byte-order mark is kept.
 func Split(text string) []string {
 	if text == "" {
@@ -65,9 +67,5 @@ func ValidUTF8(data []byte) string {
 	if utf8.Valid(data) {
 		return string(data)
 	}
-	out := make([]rune, 0, len(data))
-	for _, char := range string(data) {
-		out = append(out, char)
-	}
-	return string(out)
+	return string([]rune(string(data)))
 }

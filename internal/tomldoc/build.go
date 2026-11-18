@@ -3,7 +3,7 @@ package tomldoc
 import (
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -318,7 +318,7 @@ func sortedKeys(raw map[string]any) []string {
 	for key := range raw {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	return keys
 }
 
