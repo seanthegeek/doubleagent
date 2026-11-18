@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -113,7 +114,7 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 func (s *sidebarStore) mainRepository(path string) string {
 	for _, entry := range s.sidebar {
 		folders := parser.NonEmptyColumn(entry.Get("folder_paths"))
-		if !entry.Get("main_worktree_paths").IsEmpty() && containsLine(folders, path) {
+		if !entry.Get("main_worktree_paths").IsEmpty() && slices.Contains(strings.Split(folders, "\n"), path) {
 			if main := firstFolder(entry.Get("main_worktree_paths")); main != "" {
 				return main
 			}
@@ -127,17 +128,6 @@ func (s *sidebarStore) mainRepository(path string) string {
 		}
 	}
 	return ""
-}
-
-// containsLine reports whether one of the newline-separated lines of text
-// is line.
-func containsLine(text, line string) bool {
-	for _, each := range strings.Split(text, "\n") {
-		if each == line {
-			return true
-		}
-	}
-	return false
 }
 
 // archivedWorktree returns the row of one archived worktree and one thread

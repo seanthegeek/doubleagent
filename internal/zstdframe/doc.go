@@ -1,5 +1,6 @@
-// Package zstdframe decodes zstd data for the analyzer: a whole buffer of
-// frames, or a stream where a cut-off input is told apart from a corrupt one.
+// Package zstdframe decodes zstd data for the analysis commands: a whole
+// buffer of frames, or a stream where a cut-off input is told apart from a
+// corrupt one.
 //
 // The decoding itself is done by the zstd package of the module
 // github.com/klauspost/compress (vendored, see the dependency table in

@@ -258,7 +258,7 @@ func normalRow(line string) (string, error) {
 	decoder := json.NewDecoder(strings.NewReader(line))
 	decoder.UseNumber()
 	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
-		return "", fmt.Errorf("not an object: %v", err)
+		return "", fmt.Errorf("not an object: %w", err)
 	}
 	var fields []string
 	for decoder.More() {
