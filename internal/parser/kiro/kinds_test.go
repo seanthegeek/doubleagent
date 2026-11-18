@@ -56,6 +56,10 @@ func TestAConversationMemberThatIsNotTheRightKindIsReported(t *testing.T) {
 		{"user", "user", `{"history": [{"user": %s}]}`, false},
 		{"user content", "user.content", `{"history": [{"user": {"content": %s}}]}`, false},
 		{"assistant", "assistant", `{"history": [{` + prompt + `, "assistant": %s}]}`, false},
+		{"an assistant variant's body", "assistant.Response", `{"history": [{` + prompt + `, "assistant": {"Response": %s}}]}`,
+			false},
+		{"a user content variant's body", "user.content.Prompt", `{"history": [{"user": {"content": {"Prompt": %s}}}]}`,
+			false},
 	}
 	for _, test := range tests {
 		kind, silent := "object", []string{`null`, `{}`}

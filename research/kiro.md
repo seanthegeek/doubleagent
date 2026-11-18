@@ -686,7 +686,9 @@ record is not a JSON object`. A conversation member that is present but of the w
 its rows: `history`, `checkpoint_manager.checkpoints`, a checkpoint's `history_snapshot`,
 `tangent_state.main_history`, `request_metadata.message_meta_tags`, `tool_uses` and
 `tool_use_results` as arrays; `checkpoint_manager`, `tangent_state`, `request_metadata`, `user`,
-`user.content` and `assistant` as objects. An absent, null or empty one gives no row.
+`user.content` and `assistant` as objects, and the body of a `user.content` or `assistant` variant
+as an object (`parser: user.content.<variant> is not a JSON object`,
+`parser: assistant.<variant> is not a JSON object`). An absent, null or empty one gives no row.
 
 A `.cli_bash_history`, `/save` export, agent configuration or delegate record that cannot be read
 is one row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
