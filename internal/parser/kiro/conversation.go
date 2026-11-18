@@ -277,7 +277,7 @@ type historyCopy struct {
 // history_snapshot or main_history of the wrong kind adds a problem.
 func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 	var copies []historyCopy
-	manager := c.objectMember(state.Get("checkpoint_manager"), "checkpoint_manager")
+	manager := parser.ObjectOrEmptyMember(state.Get("checkpoint_manager"), "checkpoint_manager", c.line, &c.problems)
 	checkpoints := parser.ArrayMember(manager.Get("checkpoints"), "checkpoint_manager.checkpoints",
 		c.line, &c.problems)
 	for _, checkpoint := range checkpoints {
@@ -300,23 +300,13 @@ func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 		copies = append(copies, historyCopy{head: head, tail: tail,
 			timestamp: timeutil.FromValue(checkpoint.Get("timestamp")), entries: snapshot.Items()})
 	}
-	tangent := c.objectMember(state.Get("tangent_state"), "tangent_state")
+	tangent := parser.ObjectOrEmptyMember(state.Get("tangent_state"), "tangent_state", c.line, &c.problems)
 	if main := parser.ArrayMember(tangent.Get("main_history"), "tangent_state.main_history", c.line,
 		&c.problems); len(main) > 0 {
 		copies = append(copies, historyCopy{head: "tangent mode: main conversation held aside,",
 			entries: main})
 	}
 	return copies
-}
-
-// objectMember returns value, a member of the state that the format makes
-// an object, an empty object when it is not one; a value present but not
-// an object adds a problem.
-func (c *conversation) objectMember(value jsonvalue.Value, member string) jsonvalue.Value {
-	if !value.IsNull() && !value.IsObject() {
-		c.problems.Add(c.line, parser.WrongKind(member, jsonvalue.Object))
-	}
-	return parser.ObjectOrEmpty(value)
 }
 
 // summary emits the row of the conversation's latest summary.
@@ -356,14 +346,14 @@ func (c *conversation) pending(pending jsonvalue.Value) {
 // request_metadata, user, assistant or message_meta_tags of the wrong kind
 // adds a problem.
 func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, emit parser.Emit) {
-	meta := c.objectMember(entry.Get("request_metadata"), "request_metadata")
+	meta := parser.ObjectOrEmptyMember(entry.Get("request_metadata"), "request_metadata", c.line, &c.problems)
 	model := c.stateModel
 	if modelID := meta.Get("model_id"); !modelID.IsEmpty() {
 		model = modelID.Text()
 	}
 	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
 	end := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
-	user := c.objectMember(entry.Get("user"), "user")
+	user := parser.ObjectOrEmptyMember(entry.Get("user"), "user", c.line, &c.problems)
 	userTime := ""
 	if user.IsObject() {
 		userTime = timeutil.FromValue(user.Get("timestamp"))
@@ -426,7 +416,7 @@ func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit pa
 // for a cancelled call, its permission decision. A content that is not an
 // object, or a tool_use_results that is not an array, adds a problem.
 func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string, emit parser.Emit) {
-	tag, body := variant(c.objectMember(content, "user.content"))
+	tag, body := variant(parser.ObjectOrEmptyMember(content, "user.content", c.line, &c.problems))
 	prompt := body.Get("prompt")
 	cancelled := tag == "CancelledToolUses"
 	if (tag == "Prompt" || cancelled) && !prompt.IsEmpty() {
