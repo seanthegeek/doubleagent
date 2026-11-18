@@ -193,9 +193,18 @@ func userFromParts(parts []string) string {
 
 // recordProblem appends line to the problems unless it is there already.
 func (c *Collection) recordProblem(line string) {
-	if !slices.Contains(c.Problems, line) {
-		c.Problems = append(c.Problems, line)
+	if !c.problemLines[line] {
+		c.addProblem(line)
 	}
+}
+
+// addProblem appends line to the problems, a repeat included.
+func (c *Collection) addProblem(line string) {
+	if c.problemLines == nil {
+		c.problemLines = map[string]bool{}
+	}
+	c.problemLines[line] = true
+	c.Problems = append(c.Problems, line)
 }
 
 // listDirectory lists a directory of a loose tree in name order, not the

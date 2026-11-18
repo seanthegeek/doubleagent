@@ -74,6 +74,18 @@ func Below(base string, names ...string) (string, bool) {
 	return path, err == nil
 }
 
+// parentPath returns the directory holding name, given path, the result of
+// joining a plain component name below that directory as below does: a
+// slice of path, the separator before name dropped unless it is the root's
+// own.
+func parentPath(path, name string) string {
+	parent := path[:len(path)-len(name)]
+	if len(parent) > len(filepath.VolumeName(parent))+1 {
+		parent = parent[:len(parent)-1]
+	}
+	return parent
+}
+
 // inside returns the root joined with elements as below does, the root
 // itself not looked at: it is the analyst's own input, which may be a link
 // the analyst chose.

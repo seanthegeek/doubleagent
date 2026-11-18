@@ -88,8 +88,8 @@ func (c *Collection) readManifest(ctx context.Context) ([]jsonvalue.Value, int, 
 		return nil, 0, &fs.PathError{Op: "read", Path: path, Err: err}
 	}
 	for _, number := range long {
-		c.Problems = append(c.Problems, "manifest.jsonl line "+strconv.Itoa(number)+": longer than "+
-			strconv.Itoa(maxManifestLine)+" bytes, not read")
+		c.addProblem("manifest.jsonl line " + strconv.Itoa(number) + ": longer than " +
+			strconv.Itoa(maxManifestLine) + " bytes, not read")
 	}
 	return rows, bad, nil
 }
@@ -236,6 +236,10 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 	if label == "" {
 		label = archivePath
 	}
+	if tooDeep(original) || tooDeep(archivePath) {
+		load.collection.addProblem(label + ": " + errTooDeep.Error())
+		return
+	}
 	link := isText(row.Get("type"), "symlink")
 	if archivePath != "" || link {
 		load.archived[key] = append(load.archived[key], archivedRow{rel: relativeToHome(original, key.home),
@@ -262,11 +266,36 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 	}
 	diskPath, reason := load.memberPath(archivePath)
 	if reason != "" {
-		collection.Problems = append(collection.Problems, label+": "+reason)
+		collection.addProblem(label + ": " + reason)
 		return
 	}
 	collection.Artifacts = append(collection.Artifacts, &Artifact{DiskPath: diskPath, Original: original,
 		Rel: rel, Agent: agent, Home: home, Manifest: row})
+}
+
+// maxPathComponents is the most components a manifest path may have. A
+// path a system's file calls take whole is at most 4096 bytes on Linux
+// (PATH_MAX) and 1024 on macOS, and holds at most one component for every
+// two bytes; the limit is twice the most such a path holds, room for any
+// real file, while a row's staged paths, one per component, stay few.
+const maxPathComponents = 4096
+
+// errTooDeep is the reason a row with a path deeper than maxPathComponents
+// is not read.
+var errTooDeep = errors.New("more than " + strconv.Itoa(maxPathComponents) +
+	" path components, not read")
+
+// tooDeep reports whether a manifest path, split at slashes or backslashes,
+// has more than maxPathComponents non-empty components.
+func tooDeep(path string) bool {
+	components := 0
+	for i := range len(path) {
+		separator := path[i] == '/' || path[i] == '\\'
+		if !separator && (i == 0 || path[i-1] == '/' || path[i-1] == '\\') {
+			components++
+		}
+	}
+	return components > maxPathComponents
 }
 
 // homeOf returns the home of key, made from row when it is the home's first
@@ -337,9 +366,10 @@ func (load *manifestLoad) finish() {
 			}
 			// A row archived in place shows every directory above it real.
 			if row.archivePath != "" && archivedInPlace(home, load.collection.Root, row.rel, row.archivePath) {
-				parts := splitSlash(row.rel)
-				for depth := 1; depth < len(parts); depth++ {
-					inPlace[joinSlash(parts[:depth])] = true
+				for i := range len(row.rel) {
+					if row.rel[i] == '/' {
+						inPlace[row.rel[:i]] = true
+					}
 				}
 			}
 		}

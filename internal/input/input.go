@@ -103,15 +103,22 @@ type Home struct {
 // are dropped), and true: the mapped
 // location of rel or of its longest mapped ancestor with the rest of rel
 // below it, else DiskPath/rel. It is false when an element of rel is not
-// one plain component (such as "..", or a name holding a backslash) or when the way
-// down passes through a link, so every path it gives lies below the home
-// or a staged location; the last element is left for the reader.
+// one plain component (such as "..", or a name holding a backslash), when
+// rel has more than maxPathComponents elements, or when the way down passes
+// through a link, so every path it gives lies below the home or a staged
+// location; the last element is left for the reader.
 func (h *Home) PathOf(rel string) (string, bool) {
 	parts := slices.DeleteFunc(splitSlash(rel), func(part string) bool { return part == "" || part == "." })
-	for depth := len(parts); depth > 0 && len(h.StagedPaths) > 0; depth-- {
-		if mapped, ok := h.StagedPaths[joinSlash(parts[:depth])]; ok {
-			path, err := below(mapped, parts[depth:], true)
-			return path, err == nil
+	if len(parts) > maxPathComponents || !plainParts(parts) {
+		return "", false
+	}
+	if len(h.StagedPaths) > 0 {
+		joined, ends := joinedPrefixes(parts)
+		for depth := len(parts); depth > 0; depth-- {
+			if mapped, ok := h.StagedPaths[joined[:ends[depth]]]; ok {
+				path, err := below(mapped, parts[depth:], true)
+				return path, err == nil
+			}
 		}
 	}
 	path, err := below(h.DiskPath, parts, !h.ownDirectory)
@@ -164,6 +171,10 @@ type Collection struct {
 	// Problems holds "<path>: <reason>" for each directory or file inside
 	// the input that could not be read while it was opened.
 	Problems []string
+	// problemLines holds every line of Problems, so a repeated line is
+	// found without searching the list, whose length grows with the
+	// evidence.
+	problemLines map[string]bool
 	// extracted is the directory an archive was extracted to, until
 	// Cleanup removes it.
 	extracted string

@@ -45,7 +45,9 @@ func openArchive(ctx context.Context, source, workDir string) (*Collection, erro
 		_ = collection.Cleanup()
 		return nil, err
 	}
-	collection.Problems = append(collection.Problems, problems...)
+	for _, problem := range problems {
+		collection.addProblem(problem)
+	}
 	if !isCollectionLayout(destination) {
 		collection.Kind = KindLoose
 	}

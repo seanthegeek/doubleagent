@@ -86,15 +86,18 @@ func archivedInPlace(home *Home, root, rel, archivePath string) bool {
 // directory that moved it, map to their place in the archive. That
 // directory is the deepest ancestor of rel among links; without one (an
 // excluded link has no row) the components are matched from the right
-// while equal, and the walk stops below a directory in inPlace. A location
-// inside refuses is a problem of the row and maps nothing.
+// while equal, and the walk stops below a directory in inPlace. A rel part
+// that is not one plain component, or a location inside refuses, is a
+// problem of the row and maps nothing. Every key is a prefix of one joined
+// rel and every location a prefix of one joined path, so a row's work grows
+// with its length, not with its length times its depth.
 func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPlace map[string]bool) {
 	relParts := splitNonEmpty(row.rel)
 	parts := archiveParts(row.archivePath)
 	if len(relParts) == 0 || archivedInPlace(home, load.collection.Root, row.rel, row.archivePath) {
 		return
 	}
-	if startsOutside(row.archivePath) {
+	if startsOutside(row.archivePath) || !plainParts(relParts) {
 		load.collection.recordProblem(row.label + ": " + errOutside.Error())
 		return
 	}
@@ -103,9 +106,10 @@ func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPl
 		relParts[len(relParts)-1-equal] == parts[len(parts)-1-equal] {
 		equal++
 	}
+	relText, ends := joinedPrefixes(relParts)
 	limit := min(equal, len(relParts)-1)
 	for depth := 1; depth < len(relParts); depth++ {
-		ancestor := joinSlash(relParts[:len(relParts)-depth])
+		ancestor := relText[:ends[len(relParts)-depth]]
 		if links[ancestor] {
 			limit = min(limit, depth)
 			break
@@ -115,16 +119,50 @@ func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPl
 			break
 		}
 	}
+	staged := ""
 	for depth := 0; depth <= limit; depth++ {
-		key := joinSlash(relParts[:len(relParts)-depth])
+		key := relText[:ends[len(relParts)-depth]]
+		if staged != "" {
+			staged = parentPath(staged, parts[len(parts)-depth])
+		}
 		if _, ok := home.StagedPaths[key]; ok {
 			continue
 		}
-		staged, err := load.collection.inside(parts[:len(parts)-depth]...)
-		if err != nil {
-			load.collection.recordProblem(row.label + ": " + err.Error())
-			return
+		if staged == "" {
+			// Walked once, for the deepest location mapped; each shallower
+			// one is a prefix of it, whose directories that walk looked at.
+			var err error
+			if staged, err = load.collection.inside(parts[:len(parts)-depth]...); err != nil {
+				load.collection.recordProblem(row.label + ": " + err.Error())
+				return
+			}
 		}
 		home.StagedPaths[key] = staged
 	}
+}
+
+// plainParts reports whether every part passes checkElement.
+func plainParts(parts []string) bool {
+	for _, part := range parts {
+		if checkElement(part) != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// joinedPrefixes returns parts joined with slashes, and for each count k
+// from 0 to len(parts) the length of the first k parts' joined text, so
+// each prefix is a slice of one string rather than a new one.
+func joinedPrefixes(parts []string) (string, []int) {
+	var joined strings.Builder
+	ends := make([]int, len(parts)+1)
+	for i, part := range parts {
+		if i > 0 {
+			joined.WriteByte('/')
+		}
+		joined.WriteString(part)
+		ends[i+1] = joined.Len()
+	}
+	return joined.String(), ends
 }
