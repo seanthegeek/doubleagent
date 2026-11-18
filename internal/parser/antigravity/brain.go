@@ -136,7 +136,8 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.
 	var problems parser.Problems
 	blob, ok := brainCopy(artifact, match[3], match[4], p.chunks, p.Work, &problems)
 	if ok {
-		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit}
+		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit,
+			problems: &problems}
 		for i, raw := range bytes.Split(blob, []byte("\n")) {
 			stripped := bytes.Trim(raw, " \t\n\r\v\f")
 			if len(stripped) == 0 {
@@ -157,7 +158,8 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.
 }
 
 // brainLines renders the lines of one brain transcript as the database
-// reader renders the same step kinds.
+// reader renders the same step kinds, adding to problems the members of
+// the wrong kind it meets.
 type brainLines struct {
 	owner     *Parser
 	artifact  *input.Artifact
@@ -165,6 +167,7 @@ type brainLines struct {
 	options   parser.Options
 	emit      parser.Emit
 	calls     []jsonvalue.Value // the last reply's tool calls not yet matched to a result
+	problems  *parser.Problems
 }
 
 // row emits a row of a brain line; text whose field the line marks as
@@ -239,7 +242,8 @@ func brainEventText(kind string, record jsonvalue.Value, content string) string 
 }
 
 // reply emits the rows of a reply: its reasoning when asked for, its text
-// and its tool calls, which the next lines' results answer in order.
+// and its tool calls, which the next lines' results answer in order. A
+// tool_calls that is not an array adds a problem.
 func (b *brainLines) reply(number int, record jsonvalue.Value, content string) {
 	if thinking := parser.TextOf(record.Get("thinking")); thinking != "" && b.options.IncludeThinking {
 		b.emit(b.row(number, record, timeline.TurnThinking, thinking, "thinking"))
@@ -248,7 +252,7 @@ func (b *brainLines) reply(number int, record jsonvalue.Value, content string) {
 		b.emit(b.row(number, record, timeline.TurnAssistant, content, "content"))
 	}
 	b.calls = nil
-	for _, raw := range record.Get("tool_calls").Items() {
+	for _, raw := range parser.ArrayMember(record.Get("tool_calls"), "tool_calls", number, b.problems) {
 		call := raw
 		if !call.IsObject() {
 			call = jsonvalue.NewObject()

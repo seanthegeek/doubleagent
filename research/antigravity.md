@@ -1781,6 +1781,15 @@ file that cannot be read is one row `parser: <file> could not be read (<reason>)
 name; one that reads but does not parse, or is not a JSON object, is one row
 `parser: unreadable <file>`, `<file>` its home-relative path, at the file's modification time.
 
+A brain line's `tool_calls` that is present but not an array is one row
+`parser: tool_calls is not a JSON array` at the line. In a standing permission file a list or an
+object that the format gives (`permissions.allow`, `trustedWorkspaces`, `sidecars`,
+`permissionGrants.permissionGrants.deny` and the others the file's entries come from) that is
+present but of another kind is one row `parser: <member> is not a JSON array` or
+`parser: <member> is not a JSON object` at line 1 and the file's modification time, `<member>` its
+path from the file's root; a parent that is not an object is reported by its own name only. An
+absent, null or empty member gives no row.
+
 #### Fixtures
 
 `analyzer/tests/fixtures/antigravity.py` builds the CLI data directory
