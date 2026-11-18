@@ -41,7 +41,7 @@ func recordText(value jsonvalue.Value) string {
 
 // recordModel returns a dev_data line's model title, else its model name.
 func recordModel(record jsonvalue.Value) string {
-	return parser.Text(clinelegacy.FirstTruthy(record.Get("modelTitle"), record.Get("modelName")))
+	return parser.Text(parser.FirstNonEmpty(record.Get("modelTitle"), record.Get("modelName")))
 }
 
 // chatInteraction emits the user and assistant rows of each
@@ -95,7 +95,7 @@ func (p *Parser) editInteraction(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		model := recordModel(record)
-		file := clinelegacy.FirstTruthy(record.Get("filepath"), jsonvalue.NewString("-")).Text()
+		file := cmp.Or(parser.Text(record.Get("filepath")), "-")
 		parts := []struct {
 			turnType string
 			text     jsonvalue.Value

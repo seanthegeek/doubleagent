@@ -1,6 +1,7 @@
 package continuedev
 
 import (
+	"cmp"
 	"regexp"
 	"strconv"
 	"strings"
@@ -8,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -63,14 +63,14 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		return
 	}
 	document, problem := LoadSession(textlines.ValidUTF8(content))
-	sessionID := clinelegacy.FirstTruthy(document.Get("sessionId"), jsonvalue.NewString(fileID)).Text()
+	sessionID := cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	entry := p.indexes.Index(parser.Beside(artifact))[sessionID]
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), models: parser.Tracker{}, names: map[string]string{},
 		answered: map[string]bool{}}
 	state.base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
 	state.base.SessionID = sessionID
-	state.base.ProjectPath = parser.Text(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
+	state.base.ProjectPath = parser.Text(parser.FirstNonEmpty(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))
 	state.model = parser.Text(document.Get("chatModelTitle"))
 	history := document.Get("history").Items()
@@ -97,7 +97,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 // scratch directory row of a cn review worktree.
 func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
 	model := s.model
-	bits := []string{"session start: " + parser.Text(clinelegacy.FirstTruthy(document.Get("title"),
+	bits := []string{"session start: " + parser.Text(parser.FirstNonEmpty(document.Get("title"),
 		entry.Get("title")))}
 	if mode := document.Get("mode"); !mode.IsEmpty() {
 		bits = append(bits, "mode="+mode.Text())
@@ -163,7 +163,7 @@ func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
 		s.text(row, text)
 	case text != "":
 		if !isText(role, "system") {
-			text = clinelegacy.FirstTruthy(role, jsonvalue.NewString("unknown")).Text() + ": " + text
+			text = cmp.Or(parser.Text(role), "unknown") + ": " + text
 		}
 		s.text(s.row(position, "", timeline.TurnSystem), text)
 	}
