@@ -2,6 +2,8 @@ package pearai
 
 import (
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -152,4 +154,22 @@ func FuzzXMLBlocksKeepsEveryTag(fuzz *testing.F) {
 			}
 		}
 	})
+}
+
+func TestTheOutputLogCountsEachByteOnceForItsLineNumbers(t *testing.T) {
+	separator := strings.Repeat("=", 74) + "\n" + strings.Repeat("=", 74) + "\n"
+	for _, writes := range []int{1000, 2000, 4000} {
+		t.Run(strconv.Itoa(writes)+" writes", func(t *testing.T) {
+			text := strings.Repeat(separator+"Completion:\nok\n", writes)
+			lines := &lineCounter{text: text, line: 1}
+			for i, location := range logSeparator.FindAllStringIndex(text, -1) {
+				if line, want := lines.lineAt(location[1]), 4*i+3; line != want {
+					t.Fatalf("write %d at line %d, want %d", i+1, line, want)
+				}
+			}
+			if lines.scanned > len(text) {
+				t.Errorf("%d bytes counted in a text of %d", lines.scanned, len(text))
+			}
+		})
+	}
 }

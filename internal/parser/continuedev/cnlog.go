@@ -50,7 +50,8 @@ func (p *Parser) cnLog(artifact *input.Artifact, emit parser.Emit) {
 	source := "logs/" + path.Base(artifact.Rel)
 	var problems parser.Problems
 	var rows []timeline.Row
-	var posts, pending []*post
+	var posts []*post
+	pending := newPendingPosts()
 	for line, raw := range parser.Lines(artifact.DiskPath, &problems) {
 		match := logLine.FindStringSubmatch(parser.LineText(raw))
 		if match == nil {
@@ -70,10 +71,11 @@ func (p *Parser) cnLog(artifact *input.Artifact, emit parser.Emit) {
 			if sent[4] >= 0 {
 				entry.fields = message[sent[4]:sent[5]]
 			}
-			posts, pending = append(posts, entry), append(pending, entry)
+			posts = append(posts, entry)
+			pending.add(entry)
 		} else {
 			if result := metadataEnd.FindStringSubmatch(message); result != nil {
-				pending = settle(pending, processID, result[2], result[1])
+				pending.settle(processID, result[2], result[1])
 			}
 			continue
 		}
@@ -86,16 +88,46 @@ func (p *Parser) cnLog(artifact *input.Artifact, emit parser.Emit) {
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// settle gives the oldest pending post of a process to a URL its status,
-// and returns the posts still pending.
-func settle(pending []*post, processID, url, status string) []*post {
-	for i, entry := range pending {
-		if entry.processID == processID && entry.url == url {
-			entry.status = status
-			return append(pending[:i:i], pending[i+1:]...)
-		}
+// postKey is the process and URL a result line answers.
+type postKey struct {
+	processID, url string
+}
+
+// pendingPosts holds the posts that wait for their result line, oldest
+// first per process and URL, so a result finds its post without a scan of
+// the others. examined counts the posts a result was given to, a measure
+// of the work that stays at most one per result line.
+type pendingPosts struct {
+	queues   map[postKey][]*post
+	examined int
+}
+
+// newPendingPosts returns an empty set of pending posts.
+func newPendingPosts() *pendingPosts {
+	return &pendingPosts{queues: map[postKey][]*post{}}
+}
+
+// add puts a post at the end of its process and URL's queue.
+func (q *pendingPosts) add(entry *post) {
+	key := postKey{entry.processID, entry.url}
+	q.queues[key] = append(q.queues[key], entry)
+}
+
+// settle gives the oldest pending post of a process to a URL its status
+// and takes it off the queue; a result no post waits for changes nothing.
+func (q *pendingPosts) settle(processID, url, status string) {
+	key := postKey{processID, url}
+	queue := q.queues[key]
+	if len(queue) == 0 {
+		return
 	}
-	return pending
+	q.examined++
+	queue[0].status = status
+	if len(queue) == 1 {
+		delete(q.queues, key)
+		return
+	}
+	q.queues[key] = queue[1:]
 }
 
 // postText returns the row text of a metadata post: the agent, from the

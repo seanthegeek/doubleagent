@@ -2,6 +2,7 @@ package continuedev
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -196,4 +197,52 @@ func FuzzReadPermissionsNeverPanics(fuzz *testing.F) {
 			t.Errorf("readPermissions(%q) gave rules and a problem", text)
 		}
 	})
+}
+
+func TestAResultLineFindsItsPostWithoutAScanOfTheOthers(t *testing.T) {
+	for _, count := range []int{1000, 2000, 4000} {
+		t.Run(strconv.Itoa(count)+" posts", func(t *testing.T) {
+			pending := newPendingPosts()
+			for i := range count {
+				pending.add(&post{processID: "0000abcd", url: "https://x/agents/a" + strconv.Itoa(i) + "/metadata"})
+			}
+			for range count {
+				pending.settle("0000abcd", "https://x/agents/none/metadata", "Success")
+			}
+			if pending.examined != 0 {
+				t.Errorf("%d posts examined for results no post waits for", pending.examined)
+			}
+		})
+	}
+}
+
+func TestAResultSettlesTheOldestPostOfItsProcessAndURL(t *testing.T) {
+	const url = "https://x/agents/a/metadata"
+	first, second := &post{processID: "0000abcd", url: url, status: "-"}, &post{processID: "0000abcd", url: url, status: "-"}
+	other := &post{processID: "0000beef", url: url, status: "-"}
+	pending := newPendingPosts()
+	for _, entry := range []*post{first, other, second} {
+		pending.add(entry)
+	}
+	tests := []struct {
+		name, processID, url, status string
+		want                         [3]string
+	}{
+		{"another URL settles none", "0000abcd", "https://x/agents/b/metadata", "Failed", [3]string{"-", "-", "-"}},
+		{"the oldest of the process first", "0000abcd", url, "Success", [3]string{"Success", "-", "-"}},
+		{"then the next", "0000abcd", url, "Error", [3]string{"Success", "Error", "-"}},
+		{"a third result finds none", "0000abcd", url, "Failed", [3]string{"Success", "Error", "-"}},
+		{"another process has its own", "0000beef", url, "Auth required", [3]string{"Success", "Error", "Auth required"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pending.settle(test.processID, test.url, test.status)
+			if got := [3]string{first.status, second.status, other.status}; got != test.want {
+				t.Errorf("statuses %q, want %q", got, test.want)
+			}
+		})
+	}
+	if pending.examined != 3 {
+		t.Errorf("%d posts settled, want 3", pending.examined)
+	}
 }
