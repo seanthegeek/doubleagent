@@ -2,6 +2,7 @@ package zed
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -73,45 +74,39 @@ func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 	return table.Select().OrderBy("updated_at").All()
 }
 
-// decodeThread returns the thread a row's data holds, or the reason it
-// holds none and the raw value to show: the text of a json row, decoded
-// with replacement, or the stored bytes of a zstd row as lowercase hex,
-// since they have no faithful text form.
-func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, string) {
+// decodeThread returns the thread a row's data holds and the raw value to
+// show, or an error saying why it holds none: the raw value is the text of
+// a json row, decoded with replacement, or the stored bytes of a zstd row
+// as lowercase hex, since they have no faithful text form.
+func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, error) {
 	data := record.Get("data")
 	if data.IsNull() {
-		return jsonvalue.Value{}, "no data", ""
+		return jsonvalue.Value{}, "", errors.New("no data")
 	}
 	stored := data.Bytes
 	if data.Type != sqlitefile.Blob && data.Type != sqlitefile.Text {
 		stored = []byte(data.String())
 	}
 	isZstd := strings.ToLower(columnStr(record.Get("data_type"))) == "zstd"
-	raw, failure := stored, ""
+	raw := stored
+	var err error
 	if isZstd {
-		var err error
-		if raw, err = Decompress(stored); err != nil {
-			failure = err.Error()
-		}
+		raw, err = Decompress(stored)
 	}
 	value := jsonvalue.Value{}
-	if failure == "" {
-		var err error
+	if err == nil {
 		value, err = jsonvalue.Decode(raw)
-		switch {
-		case err != nil:
-			failure = err.Error()
-		case !value.IsObject():
-			failure = "the thread is not a JSON object"
+		if err == nil && !value.IsObject() {
+			err = errors.New("the thread is not a JSON object")
 		}
 	}
 	switch {
-	case failure == "":
-		return value, "", ""
+	case err == nil:
+		return value, "", nil
 	case isZstd:
-		return jsonvalue.Value{}, failure + "; stored zstd blob as hex", hex.EncodeToString(stored)
+		return jsonvalue.Value{}, hex.EncodeToString(stored), errors.New(err.Error() + "; stored zstd blob as hex")
 	}
-	return jsonvalue.Value{}, failure, textlines.ValidUTF8(stored)
+	return jsonvalue.Value{}, textlines.ValidUTF8(stored), err
 }
 
 // threadRows emits the rows of one thread: its start, remote, model and
@@ -122,11 +117,10 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row,
 	context := &thread{artifact: artifact, rowid: record.Rowid,
 		sessionID: columnStr(record.Get("id")), project: firstFolder(record.Get("folder_paths")),
 		updated: parser.ColumnTime(record.Get("updated_at"))}
-	value, reason, raw := decodeThread(record)
-	if reason != "" {
+	value, raw, err := decodeThread(record)
+	if err != nil {
 		var problems parser.Problems
-		problems.AddRaw(int(record.Rowid), fmt.Sprintf("unparseable record %d (%s)", record.Rowid,
-			reason), raw)
+		problems.AddRaw(int(record.Rowid), fmt.Sprintf("unparseable record %d (%v)", record.Rowid, err), raw)
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.sessionID, context.project))
 		return
 	}
@@ -134,8 +128,9 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row,
 	if tempDir := value.Get("sandboxed_terminal_temp_dir"); tempDir.IsString() && tempDir.StringValue() != "" {
 		// Its own project path and no session id, so the thread stays
 		// counted under its project.
-		text := fmt.Sprintf("scratch directory: %s (sandboxed terminal temp directory of thread %s)"+
-			" (thread blob, as of updated_at)", tempDir.StringValue(), context.sessionID)
+		text := "scratch directory: " + tempDir.StringValue() +
+			" (sandboxed terminal temp directory of thread " + context.sessionID +
+			") (thread blob, as of updated_at)"
 		emit(p.stateRow(artifact, text, context.updated, record.Rowid, "", tempDir.StringValue()))
 	}
 	var problems parser.Problems

@@ -15,8 +15,9 @@ const userDenial = "Permission to run tool denied by user"
 
 // newDenialPattern returns the pattern of the texts Zed's permission rules
 // give a call they deny with no prompt (crates/agent/src/tool_permissions.rs
-// at 9cd14da). A run of non-space is written with the spaces Python's \S
-// excludes, and \d as any decimal digit, as the original pattern reads them.
+// at 9cd14da). The original is a Rust pattern, whose \S and \d are
+// Unicode classes: a run of non-space excludes every character of
+// parser.Space, and a digit is any decimal digit.
 func newDenialPattern() *regexp.Regexp {
 	word := `[^` + parser.Space + `]+`
 	return regexp.MustCompile(`\A(?s:Blocked by global default: deny` +
@@ -202,7 +203,8 @@ func threadKey(value sqlitefile.Value) string {
 	return columnStr(value)
 }
 
-// columnStr returns a column value as Python's str(value or "") gives it.
+// columnStr returns a column value as row text, "" for an empty value
+// (NULL, zero, or empty text or blob).
 func columnStr(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -210,7 +212,7 @@ func columnStr(value sqlitefile.Value) string {
 	return value.String()
 }
 
-// firstColumn returns the first of the values Python counts as true, as
+// firstColumn returns the first of the values that is not empty, as
 // columnStr gives it, or "".
 func firstColumn(values ...sqlitefile.Value) string {
 	for _, value := range values {
@@ -219,10 +221,4 @@ func firstColumn(values ...sqlitefile.Value) string {
 		}
 	}
 	return ""
-}
-
-// lower returns text in lower case, as Python's str.lower() gives a role
-// or a status word.
-func lower(text string) string {
-	return strings.ToLower(text)
 }

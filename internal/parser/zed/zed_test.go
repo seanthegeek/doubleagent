@@ -10,10 +10,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// The rows of every store are proved against the Python analyzer by the
+// The rows of every store are proved against the recorded cases by the
 // parser replay (internal/parity/replay), over the recorded fixture
-// databases; these tests cover the helpers, with expected values taken from
-// running the analyzer's own functions.
+// databases; these tests cover the helpers.
 
 // thread is the JSON every frame below holds.
 const threadJSON = `{"version":"0.3.0","messages":[]}`
@@ -66,7 +65,7 @@ func decoded(t *testing.T, text string) jsonvalue.Value {
 	return value
 }
 
-func TestHelpersGiveTheAnalyzersText(t *testing.T) {
+func TestHelpersGiveTheRowText(t *testing.T) {
 	tests := []struct {
 		name     string
 		function func(jsonvalue.Value) string

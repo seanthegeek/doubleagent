@@ -66,7 +66,7 @@ func (p *Parser) messages(value jsonvalue.Value, rowid int64, problems *parser.P
 func (p *Parser) message(out *transcript, message jsonvalue.Value) {
 	switch {
 	case message.IsString():
-		out.add(timeline.TurnSystem, lower(message.StringValue()))
+		out.add(timeline.TurnSystem, strings.ToLower(message.StringValue()))
 	case !message.IsObject():
 		out.bad("unknown message variant", message)
 	case message.Has("User"):

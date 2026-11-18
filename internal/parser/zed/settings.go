@@ -2,7 +2,6 @@ package zed
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -40,8 +39,8 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	}
 	timestamp := parser.FileMtime(artifact)
 	for _, entry := range settingsEntries(document) {
-		text := fmt.Sprintf("permission setting: %s=%s (from %s, file mtime)", entry.key,
-			parser.SettingValue(entry.value), artifact.Rel)
+		text := "permission setting: " + entry.key + "=" + parser.SettingValue(entry.value) +
+			" (from " + artifact.Rel + ", file mtime)"
 		emit(p.stateRow(artifact, text, timestamp, 1, "", ""))
 	}
 }
