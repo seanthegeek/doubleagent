@@ -50,7 +50,8 @@ func Differences() []Difference {
 		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's: of two " +
 			"files the recording's parses both read the same record from, the run may keep the row " +
 			"of the other",
-			Outputs: otherOfEqualRows},
+			Outputs: otherOfEqualRows, Unchecked: "whether a case needs it depends on the order " +
+				"the recording machine's file system listed the tree in"},
 	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences())...)
 }
 
