@@ -22,8 +22,8 @@ func (v Value) StringValue() string {
 	return v.text
 }
 
-// Number returns a number's text as the document wrote it ("1.50", "1E5",
-// "-0"), or "" when v is not a number.
+// Number returns a number's text as the document wrote it, whatever its
+// size ("1.50", "1E5", "-0"), or "" when v is not a number.
 func (v Value) Number() json.Number {
 	if v.kind != Number {
 		return ""
@@ -32,7 +32,8 @@ func (v Value) Number() json.Number {
 }
 
 // Int returns the integer v holds and true, or 0 and false when v is not a
-// number written as an integer or does not fit in an int64.
+// number written as an integer (1.0 and 1e0 are not) or is outside the
+// range of an int64.
 func (v Value) Int() (int64, bool) {
 	if !v.IsInt() {
 		return 0, false
@@ -42,7 +43,9 @@ func (v Value) Int() (int64, bool) {
 }
 
 // Float returns the float64 nearest to a number and true, or 0 and false
-// when v is not a number or is beyond the range of a float64.
+// when v is not a number or is too large in size for a float64. A number
+// too small in size rounds to the nearest float64, which may be 0 (1e-400)
+// though the number is not zero: IsEmpty and Equal read the exact value.
 func (v Value) Float() (float64, bool) {
 	if v.kind != Number {
 		return 0, false
@@ -55,7 +58,7 @@ func (v Value) Float() (float64, bool) {
 }
 
 // Text returns v as row text: a string as it is, a number as the document
-// wrote it, "true" or "false", "" for null, and an array or object as
+// wrote it whatever its size, "true" or "false", "" for null, and an array or object as
 // compact JSON (JSON).
 func (v Value) Text() string {
 	switch v.kind {
@@ -71,29 +74,21 @@ func (v Value) Text() string {
 
 // IsEmpty reports whether v is empty, which leaves it out of a row or
 // gives a fallback its place: null, false, a number equal to zero, the
-// empty string, and an array or object with nothing in it.
+// empty string, and an array or object with nothing in it. A number is
+// zero by its exact value, as Equal compares it, so 1e-400 is not empty
+// though Float rounds it to 0.
 func (v Value) IsEmpty() bool {
 	switch v.kind {
 	case Bool:
 		return !v.flag
 	case Number:
-		return isZero(v.text, v.flag)
+		return canonicalNumber(v.text) == "0"
 	case String:
 		return v.text == ""
 	case Array, Object:
 		return v.Len() == 0
 	}
 	return true
-}
-
-// isZero reports whether a number's text is zero by value; a fraction too
-// small for a float64 is zero.
-func isZero(text string, floatForm bool) bool {
-	if !floatForm {
-		return strings.Trim(text, "-0") == ""
-	}
-	value, err := strconv.ParseFloat(text, 64)
-	return err == nil && value == 0
 }
 
 // Len returns the number of items of an array or members of an object, and
