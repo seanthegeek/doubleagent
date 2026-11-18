@@ -711,8 +711,9 @@ cody-model-preferences is not a JSON object` row. A JetBrains chat history that 
 something other than an object is one `parser: chat history is not a JSON object` row; in a
 `state.vscdb`, a `sourcegraph.cody-ai` value that is not an object is one
 `parser: sourcegraph.cody-ai value is not a JSON object` row, and a chat history member that is
-present but not an object, or text that decodes to something else, one
-`parser: cody-local-chatHistory-v2 is not a JSON object` row. A JetBrains chat history
+present but neither null nor an object, or text that decodes to anything but an object (`null`
+included, as for the JetBrains file), one `parser: cody-local-chatHistory-v2 is not a JSON object`
+row; a null member is no history and gives no row. A JetBrains chat history
 (`JetBrains-globalState/cody-local-chatHistory-v2`), model preferences file, editor
 `User/settings.json` or legacy `cody_history.xml` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; the row for

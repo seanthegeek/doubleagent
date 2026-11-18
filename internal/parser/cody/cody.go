@@ -127,7 +127,9 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parser.Options, emi
 
 // stateDatabase emits the rows of the extension's row of a state.vscdb:
 // its history, the history's damage, its model preferences, then the
-// problems met, a value or a history that is not an object among them.
+// problems met, a value or a history that is not an object among them. A
+// history is held to the JetBrains file's rule: written as JSON text, it
+// must decode to an object, null included; a null member is no history.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	state, problems := vscodestate.ReadItem(artifact.DiskPath, itemKey)
 	if state.IsNull() {
@@ -143,10 +145,11 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 		history, _, recovered = recoverHistory(state.StringValue())
 	case state.IsObject():
 		history = state.Get(historyKey)
-		if history.IsString() {
+		fromText := history.IsString()
+		if fromText {
 			history = decodeHistory(history.StringValue(), &problems, &recovered)
 		}
-		if !history.IsNull() && !history.IsObject() {
+		if (fromText || !history.IsNull()) && !history.IsObject() {
 			problems = append(problems, historyKey+" is not a JSON object")
 		}
 	default:
