@@ -133,12 +133,12 @@ func storedResponses(handle *sqlitefile.Database, problems *parser.Problems) ([]
 		data, err := jsonObject(record.Get("data"))
 		if err != nil {
 			problems.AddRaw(int(row.Rowid), "unparseable record "+strconv.FormatInt(row.Rowid, 10)+
-				" (responses.data: "+err.Error()+")", orEmpty(record.Get("data")))
+				" (responses.data: "+err.Error()+")", parser.Text(record.Get("data")))
 			return nil
 		}
 		created, _ := data.Get("response").Get("created_at").Float()
 		stored = append(stored, storedResponse{created: created, rowid: row.Rowid,
-			responseID: orEmpty(record.Get("response_id")), data: data})
+			responseID: parser.Text(record.Get("response_id")), data: data})
 		return nil
 	})
 	slices.SortStableFunc(stored, func(left, right storedResponse) int {

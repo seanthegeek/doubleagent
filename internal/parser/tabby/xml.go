@@ -42,7 +42,9 @@ func (e *element) iter(tag string) []*element {
 	return found
 }
 
-// qualifiedName returns a name as an element tree writes it.
+// qualifiedName returns an element or attribute name as the reader
+// compares it: the local name, preceded by "{<namespace>}" when it has
+// one, so a namespaced name never matches a plain one.
 func qualifiedName(name xml.Name) string {
 	if name.Space == "" {
 		return name.Local
