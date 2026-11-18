@@ -1,0 +1,366 @@
+=== a Windows row staged at its physical path
+kind	collected
+host	
+home	0	<input>/fs/C/Users/bob	C:\x5cUsers\x5cbob	bob		false	false
+staged	0	.pi	<input>/fs/C/Users/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/C/Users/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/C/Users/bob/dotfiles/pi/agent/x
+artifact	0	pi	.pi/agent/x	C:\x5cUsers\x5cbob\x5c.pi\x5cagent\x5cx	<input>/fs/C/Users/bob/dotfiles/pi/agent/x	{"user":"bob","home":"C:\x5c\x5cUsers\x5c\x5cbob","agent":"pi","path":"C:\x5c\x5cUsers\x5c\x5cbob\x5c\x5c.pi\x5c\x5cagent\x5c\x5cx","archive_path":"fs/C/Users/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
+=== a lower-case drive is upper-cased as the collector writes it
+kind	collected
+host	
+home	0	<input>/fs/C/Users/bob	c:\x5cUsers\x5cbob	bob		false	false
+staged	0	.pi	<input>/fs/C/Users/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/C/Users/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/C/Users/bob/dotfiles/pi/agent/x
+artifact	0	pi	.pi/agent/x	c:\x5cUsers\x5cbob\x5c.pi\x5cagent\x5cx	<input>/fs/C/Users/bob/dotfiles/pi/agent/x	{"user":"bob","home":"c:\x5c\x5cUsers\x5c\x5cbob","agent":"pi","path":"c:\x5c\x5cUsers\x5c\x5cbob\x5c\x5c.pi\x5c\x5cagent\x5c\x5cx","archive_path":"fs/C/Users/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
+=== a POSIX row staged at its physical path
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.pi	<input>/fs/home/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/home/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/home/bob/dotfiles/pi/agent/x
+artifact	0	pi	.pi/agent/x	/home/bob/.pi/agent/x	<input>/fs/home/bob/dotfiles/pi/agent/x	{"user":"bob","home":"/home/bob","agent":"pi","path":"/home/bob/.pi/agent/x","archive_path":"fs/home/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
+=== an image home whose first row is staged physically
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/mnt/img/home/bob	bob		false	false
+staged	0	.pi	<input>/fs/home/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/home/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/home/bob/dotfiles/pi/agent/x
+artifact	0	pi	.pi/agent/x	/mnt/img/home/bob/.pi/agent/x	<input>/fs/home/bob/dotfiles/pi/agent/x	{"user":"bob","home":"/mnt/img/home/bob","agent":"pi","path":"/mnt/img/home/bob/.pi/agent/x","archive_path":"fs/home/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
+=== a Windows image home mounted on Linux
+kind	collected
+host	
+home	0	<input>/fs/Users/bob	/mnt/img/Users/bob	bob		false	false
+staged	0	.pi	<input>/fs/Users/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/Users/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/Users/bob/dotfiles/pi/agent/x
+artifact	0	pi	.pi/agent/x	/mnt/img/Users/bob/.pi/agent/x	<input>/fs/Users/bob/dotfiles/pi/agent/x	{"user":"bob","home":"/mnt/img/Users/bob","agent":"pi","path":"/mnt/img/Users/bob/.pi/agent/x","archive_path":"fs/Users/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
+=== a stow-style link is not the target directory
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config	<input>/fs/home/bob/dotfiles/.config
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"user":"bob","home":"/home/bob","agent":"pi","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","type":"file","status":"collected","size":2}
+=== a stow-style link without a summary
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config	<input>/fs/home/bob/dotfiles/.config
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"user":"bob","home":"/home/bob","agent":"pi","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","type":"file","status":"collected","size":2}
+=== the first row ending with its relative path names the directory
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/mnt/img/home/bob	bob		false	false
+staged	0	.pi	<input>/fs/home/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/home/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/home/bob/dotfiles/pi/agent/x
+artifact	0	pi	.pi/agent/x	/mnt/img/home/bob/.pi/agent/x	<input>/fs/home/bob/dotfiles/pi/agent/x	{"user":"bob","home":"/mnt/img/home/bob","agent":"pi","path":"/mnt/img/home/bob/.pi/agent/x","archive_path":"fs/home/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
+artifact	0	pi	.claude/history.jsonl	/mnt/img/home/bob/.claude/history.jsonl	<input>/fs/home/bob/.claude/history.jsonl	{"user":"bob","home":"/mnt/img/home/bob","agent":"pi","path":"/mnt/img/home/bob/.claude/history.jsonl","archive_path":"fs/home/bob/.claude/history.jsonl","type":"file","status":"collected","size":2}
+=== a physically staged file and the directories above it
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.pi	<input>/fs/home/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/home/bob/dotfiles/pi/agent
+staged	0	.pi/agent/sessions	<input>/fs/home/bob/dotfiles/pi/agent/sessions
+staged	0	.pi/agent/sessions/p	<input>/fs/home/bob/dotfiles/pi/agent/sessions/p
+staged	0	.pi/agent/sessions/p/s.jsonl	<input>/fs/home/bob/dotfiles/pi/agent/sessions/p/s.jsonl
+artifact	0	pi	.claude/history.jsonl	/home/bob/.claude/history.jsonl	<input>/fs/home/bob/.claude/history.jsonl	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.claude/history.jsonl","archive_path":"fs/home/bob/.claude/history.jsonl","agent":"pi"}
+artifact	0	pi	.pi/agent/sessions/p/s.jsonl	/home/bob/.pi/agent/sessions/p/s.jsonl	<input>/fs/home/bob/dotfiles/pi/agent/sessions/p/s.jsonl	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.pi/agent/sessions/p/s.jsonl","archive_path":"fs/home/bob/dotfiles/pi/agent/sessions/p/s.jsonl","agent":"pi"}
+=== a link named like its target, with its row
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config	<input>/fs/home/bob/dotfiles/.config
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","agent":"pi"}
+=== a link named like its target, without its row
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config	<input>/fs/home/bob/dotfiles/.config
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","agent":"pi"}
+=== a link row without an archive member still bounds the map
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","agent":"pi"}
+artifact	0	pi	.config/Cursor/User/globalStorage/state.vscdb	/home/bob/.config/Cursor/User/globalStorage/state.vscdb	<input>/fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/Cursor/User/globalStorage/state.vscdb","archive_path":"fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb","agent":"pi"}
+=== a nested link maps the directory holding its files
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config	<input>/fs/home/bob/dotfiles/.config
+staged	0	.config/gh	<input>/fs/home/bob/credentials/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/credentials/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/credentials/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/credentials/gh/hosts.yml","agent":"pi"}
+=== a link below a real directory maps from the link down
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","agent":"pi"}
+artifact	0	pi	.config/Cursor/User/globalStorage/state.vscdb	/home/bob/.config/Cursor/User/globalStorage/state.vscdb	<input>/fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/Cursor/User/globalStorage/state.vscdb","archive_path":"fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb","agent":"pi"}
+=== a link below an excluded link leaves the real directory in place
+kind	collected
+host	
+home	0	<input>/fs/home/dot	/home/dot	bob		false	false
+staged	0	.copilot/repos	<input>/fs/home/dot/dotfiles/repos
+staged	0	.copilot/repos/r1	<input>/fs/home/dot/dotfiles/repos/r1
+artifact	0	pi	.copilot/session-state/s1/workspace.yaml	/home/dot/.copilot/session-state/s1/workspace.yaml	<input>/fs/home/dot/.copilot/session-state/s1/workspace.yaml	{"type":"file","status":"collected","user":"bob","home":"/home/dot","path":"/home/dot/.copilot/session-state/s1/workspace.yaml","archive_path":"fs/home/dot/.copilot/session-state/s1/workspace.yaml","agent":"pi"}
+=== a Windows home staged physically
+kind	collected
+host	
+home	0	<input>/fs/C/Users/bob	C:\x5cUsers\x5cbob	bob		false	false
+staged	0	.pi	<input>/fs/C/Users/bob/dotfiles/pi
+staged	0	.pi/agent	<input>/fs/C/Users/bob/dotfiles/pi/agent
+staged	0	.pi/agent/x	<input>/fs/C/Users/bob/dotfiles/pi/agent/x
+artifact	0	pi	.claude/x	C:\x5cUsers\x5cbob\x5c.claude\x5cx	<input>/fs/C/Users/bob/.claude/x	{"type":"file","status":"collected","user":"bob","home":"C:\x5c\x5cUsers\x5c\x5cbob","path":"C:\x5c\x5cUsers\x5c\x5cbob\x5c\x5c.claude\x5c\x5cx","archive_path":"fs/C/Users/bob/.claude/x","agent":"pi"}
+artifact	0	pi	.pi/agent/x	C:\x5cUsers\x5cbob\x5c.pi\x5cagent\x5cx	<input>/fs/C/Users/bob/dotfiles/pi/agent/x	{"type":"file","status":"collected","user":"bob","home":"C:\x5c\x5cUsers\x5c\x5cbob","path":"C:\x5c\x5cUsers\x5c\x5cbob\x5c\x5c.pi\x5c\x5cagent\x5c\x5cx","archive_path":"fs/C/Users/bob/dotfiles/pi/agent/x","agent":"pi"}
+=== a home with no physical rows maps nothing
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+artifact	0	pi	.claude/history.jsonl	/home/bob/.claude/history.jsonl	<input>/fs/home/bob/.claude/history.jsonl	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.claude/history.jsonl","archive_path":"fs/home/bob/.claude/history.jsonl","agent":"pi"}
+=== a manifest line is trimmed of JSON whitespace only 
+kind	collected
+host	
+note	1 manifest rows did not parse
+problem	/x: missing from the collection
+home	0	<input>/fs				false	false
+=== a manifest line is trimmed of JSON whitespace only 
+kind	collected
+host	
+note	1 manifest rows did not parse
+problem	/x: missing from the collection
+home	0	<input>/fs				false	false
+=== a manifest line is trimmed of JSON whitespace only 
+kind	collected
+host	
+note	1 manifest rows did not parse
+problem	/x: missing from the collection
+home	0	<input>/fs				false	false
+=== a collection of collector 1.12.0 with two projects
+kind	collected
+host	h1
+home	0	<input>/fs/home/alice	/home/alice	alice	h1	false	false
+home	1	<input>/fs/srv/proj	/srv/proj	alice	h1	false	true
+home	2	<input>/fs/srv/shared	/srv/shared	alice	h1	false	true
+artifact	0	claude-code	.claude/settings.json	/home/alice/.claude/settings.json	<input>/fs/home/alice/.claude/settings.json	{"user":"alice","home":"/home/alice","agent":"claude-code","path":"/home/alice/.claude/settings.json","archive_path":"fs/home/alice/.claude/settings.json","type":"file","status":"collected","size":2}
+artifact	1	claude-code	.claude/settings.local.json	/srv/proj/.claude/settings.local.json	<input>/fs/srv/proj/.claude/settings.local.json	{"user":"alice","home":"/srv/proj","agent":"claude-code","path":"/srv/proj/.claude/settings.local.json","archive_path":"fs/srv/proj/.claude/settings.local.json","type":"file","status":"collected","size":2}
+artifact	1	aider	.aider.input.history	/srv/proj/.aider.input.history	<input>/fs/srv/proj/.aider.input.history	{"user":"alice","home":"/srv/proj","agent":"aider","path":"/srv/proj/.aider.input.history","archive_path":"fs/srv/proj/.aider.input.history","type":"file","status":"collected","size":2}
+artifact	1	project	AGENTS.md	/srv/proj/AGENTS.md	<input>/fs/srv/proj/AGENTS.md	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/AGENTS.md","archive_path":"fs/srv/proj/AGENTS.md","type":"file","status":"collected","size":2}
+artifact	2	project	AGENTS.md	/srv/shared/AGENTS.md	<input>/fs/srv/shared/AGENTS.md	{"user":"alice","home":"/srv/shared","agent":"project","path":"/srv/shared/AGENTS.md","archive_path":"fs/srv/shared/AGENTS.md","type":"file","status":"collected","size":2}
+=== the same collection from an earlier collector
+kind	collected
+host	h1
+home	0	<input>/fs/home/alice	/home/alice	alice	h1	false	false
+home	1	<input>/fs/srv/proj	/srv/proj	alice	h1	false	true
+home	2	<input>/fs/srv/shared	/srv/shared	alice	h1	false	true
+artifact	0	claude-code	.claude/settings.json	/home/alice/.claude/settings.json	<input>/fs/home/alice/.claude/settings.json	{"user":"alice","home":"/home/alice","agent":"claude-code","path":"/home/alice/.claude/settings.json","archive_path":"fs/home/alice/.claude/settings.json","type":"file","status":"collected","size":2}
+artifact	1	claude-code	.claude/settings.local.json	/srv/proj/.claude/settings.local.json	<input>/fs/srv/proj/.claude/settings.local.json	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/.claude/settings.local.json","archive_path":"fs/srv/proj/.claude/settings.local.json","type":"file","status":"collected","size":2}
+artifact	1	aider	.aider.input.history	/srv/proj/.aider.input.history	<input>/fs/srv/proj/.aider.input.history	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/.aider.input.history","archive_path":"fs/srv/proj/.aider.input.history","type":"file","status":"collected","size":2}
+artifact	1	project	AGENTS.md	/srv/proj/AGENTS.md	<input>/fs/srv/proj/AGENTS.md	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/AGENTS.md","archive_path":"fs/srv/proj/AGENTS.md","type":"file","status":"collected","size":2}
+artifact	2	project	AGENTS.md	/srv/shared/AGENTS.md	<input>/fs/srv/shared/AGENTS.md	{"user":"alice","home":"/srv/shared","agent":"project","path":"/srv/shared/AGENTS.md","archive_path":"fs/srv/shared/AGENTS.md","type":"file","status":"collected","size":2}
+=== collection.json gives the host and marks its projects
+kind	collected
+host	h1
+home	0	<input>/fs/home/alice	/home/alice	alice	h1	false	false
+home	1	<input>/fs/srv/proj	/srv/proj	alice	h1	false	true
+artifact	0	claude-code	.claude/history.jsonl	/home/alice/.claude/history.jsonl	<input>/fs/home/alice/.claude/history.jsonl	{"user":"alice","home":"/home/alice","agent":"claude-code","path":"/home/alice/.claude/history.jsonl","archive_path":"fs/home/alice/.claude/history.jsonl","type":"file","status":"collected","size":2}
+artifact	1	claude-code	.claude/settings.local.json	/srv/proj/.claude/settings.local.json	<input>/fs/srv/proj/.claude/settings.local.json	{"user":"alice","home":"/srv/proj","agent":"claude-code","path":"/srv/proj/.claude/settings.local.json","archive_path":"fs/srv/proj/.claude/settings.local.json","type":"file","status":"collected","size":2}
+artifact	1	project	AGENTS.md	/srv/proj/AGENTS.md	<input>/fs/srv/proj/AGENTS.md	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/AGENTS.md","archive_path":"fs/srv/proj/AGENTS.md","type":"file","status":"collected","size":2}
+=== a collection before 1.12.0 is re-attributed through the project catalog
+kind	collected
+host	h1
+home	0	<input>/fs/home/alice	/home/alice	alice	h1	false	false
+home	1	<input>/fs/srv/proj	/srv/proj	alice	h1	false	true
+artifact	0	pi	.pi/agent/settings.json	/home/alice/.pi/agent/settings.json	<input>/fs/home/alice/.pi/agent/settings.json	{"user":"alice","home":"/home/alice","agent":"pi","path":"/home/alice/.pi/agent/settings.json","archive_path":"fs/home/alice/.pi/agent/settings.json","type":"file","status":"collected","size":2}
+artifact	1	claude-code	.claude/settings.local.json	/srv/proj/.claude/settings.local.json	<input>/fs/srv/proj/.claude/settings.local.json	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/.claude/settings.local.json","archive_path":"fs/srv/proj/.claude/settings.local.json","type":"file","status":"collected","size":2}
+artifact	1	project	AGENTS.md	/srv/proj/AGENTS.md	<input>/fs/srv/proj/AGENTS.md	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/AGENTS.md","archive_path":"fs/srv/proj/AGENTS.md","type":"file","status":"collected","size":2}
+artifact	1	pi-plans	.pi/approved-plan.md	/srv/proj/.pi/approved-plan.md	<input>/fs/srv/proj/.pi/approved-plan.md	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/.pi/approved-plan.md","archive_path":"fs/srv/proj/.pi/approved-plan.md","type":"file","status":"collected","size":2}
+artifact	1	pi	.pi/notes.txt	/srv/proj/.pi/notes.txt	<input>/fs/srv/proj/.pi/notes.txt	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/.pi/notes.txt","archive_path":"fs/srv/proj/.pi/notes.txt","type":"file","status":"collected","size":2}
+artifact	1	aider	.aider.input.history	/srv/proj/.aider.input.history	<input>/fs/srv/proj/.aider.input.history	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/.aider.input.history","archive_path":"fs/srv/proj/.aider.input.history","type":"file","status":"collected","size":2}
+artifact	1	project	unknown.txt	/srv/proj/unknown.txt	<input>/fs/srv/proj/unknown.txt	{"user":"alice","home":"/srv/proj","agent":"project","path":"/srv/proj/unknown.txt","archive_path":"fs/srv/proj/unknown.txt","type":"file","status":"collected","size":2}
+=== the host option overrides collection.json
+kind	collected
+host	override
+home	0	<input>/fs/home/a	/home/a	a	override	false	false
+artifact	0	claude-code	.claude/x	/home/a/.claude/x	<input>/fs/home/a/.claude/x	{"user":"a","home":"/home/a","agent":"claude-code","path":"/home/a/.claude/x","archive_path":"fs/home/a/.claude/x","type":"file","status":"collected","size":2}
+=== a collected file absent from fs is a problem
+kind	collected
+host	
+problem	/home/a/.claude/x: missing from the collection
+problem	/home/a/.claude/y: missing from the collection
+home	0	<input>/fs/home/a	/home/a	a		false	false
+=== unparseable collection.json leaves a note
+kind	collected
+host	
+note	collection.json unreadable: invalid JSON at line 1, column 14: unexpected end of JSON input
+=== a false collection.json value is no summary and no note
+kind	collected
+host	
+=== a line that is JSON but not an object, and an unreadable size, are bad rows
+kind	collected
+host	
+note	3 manifest rows did not parse
+home	0	<input>/fs/home/a	/home/a			false	false
+artifact	0		.claude/x	/home/a/.claude/x	<input>/fs/home/a/.claude/x	{"path":"/home/a/.claude/x","home":"/home/a","archive_path":"fs/home/a/.claude/x","status":"collected","type":"file","size":" 12 "}
+=== a true collection.json that is not an object leaves a note
+kind	collected
+host	
+note	collection.json unreadable: not a JSON object
+=== an archive path leaving the collection is a problem
+kind	collected
+host	
+problem	/home/a/.claude/x: outside the collection
+problem	/home/a/.claude/y: outside the collection
+home	0	<input>/collection/fs/home/a	/home/a	a		false	false
+staged	0	.claude/x	<input>/outside
+staged	0	.claude/y	<input>/collection/<input>/outside
+=== a home tree attributes each file to the most specific entry
+kind	loose
+host	
+home	0	<input>/home/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude-work/history.jsonl	/alice/.claude-work/history.jsonl	<input>/home/alice/.claude-work/history.jsonl	-
+artifact	0	antigravity	.gemini/antigravity-cli/history.jsonl	/alice/.gemini/antigravity-cli/history.jsonl	<input>/home/alice/.gemini/antigravity-cli/history.jsonl	-
+artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<input>/home/alice/.claude/history.jsonl	-
+artifact	0	claude-code	.claude/settings.json	/alice/.claude/settings.json	<input>/home/alice/.claude/settings.json	-
+artifact	0	gemini-cli	.gemini/settings.json	/alice/.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
+artifact	0	codex-cli	.codex/history.jsonl	/alice/.codex/history.jsonl	<input>/home/alice/.codex/history.jsonl	-
+=== an agent directory as the root makes its parent the home
+kind	loose
+host	
+note	root is a claude-code directory; treating its parent as the home
+home	0	<input>/home/alice		alice		true	false
+artifact	0	claude-code	.claude/history.jsonl	.claude/history.jsonl	<input>/home/alice/.claude/history.jsonl	-
+artifact	0	claude-code	.claude/settings.json	.claude/settings.json	<input>/home/alice/.claude/settings.json	-
+=== a gemini directory as the root keeps its nested antigravity entry
+kind	loose
+host	
+note	root is a gemini-cli directory; treating its parent as the home
+home	0	<input>/home/alice		alice		true	false
+artifact	0	antigravity	.gemini/antigravity-cli/history.jsonl	.gemini/antigravity-cli/history.jsonl	<input>/home/alice/.gemini/antigravity-cli/history.jsonl	-
+artifact	0	gemini-cli	.gemini/settings.json	.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
+=== a directory holding only shared files is not a home
+kind	loose
+host	
+=== a bare home names no user
+kind	loose
+host	
+home	0	<input>/home/alice				true	false
+artifact	0	claude-code	.claude-work/history.jsonl	.claude-work/history.jsonl	<input>/home/alice/.claude-work/history.jsonl	-
+artifact	0	antigravity	.gemini/antigravity-cli/history.jsonl	.gemini/antigravity-cli/history.jsonl	<input>/home/alice/.gemini/antigravity-cli/history.jsonl	-
+artifact	0	claude-code	.claude/history.jsonl	.claude/history.jsonl	<input>/home/alice/.claude/history.jsonl	-
+artifact	0	claude-code	.claude/settings.json	.claude/settings.json	<input>/home/alice/.claude/settings.json	-
+artifact	0	gemini-cli	.gemini/settings.json	.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
+artifact	0	codex-cli	.codex/history.jsonl	.codex/history.jsonl	<input>/home/alice/.codex/history.jsonl	-
+=== an image finds the users of each home convention
+kind	loose
+host	
+home	0	<input>/image/Users/carol	/Users/carol	carol		true	false
+home	1	<input>/image/home/alice	/home/alice	alice		true	false
+home	2	<input>/image/root	/root	root		true	false
+home	3	<input>/image/var/www	/var/www	www		true	false
+artifact	0	codex-cli	.codex/y	/Users/carol/.codex/y	<input>/image/Users/carol/.codex/y	-
+artifact	1	claude-code	.claude/x	/home/alice/.claude/x	<input>/image/home/alice/.claude/x	-
+artifact	2	claude-code	.claude/z	/root/.claude/z	<input>/image/root/.claude/z	-
+artifact	3	claude-code	.claude/w	/var/www/.claude/w	<input>/image/var/www/.claude/w	-
+=== fs without a manifest is taken as the root
+kind	loose
+host	
+note	fs/ found without manifest.jsonl; treating fs/ as the root
+home	0	<input>/extracted/fs/home/alice	/home/alice	alice		true	false
+artifact	0	claude-code	.claude/x	/home/alice/.claude/x	<input>/extracted/fs/home/alice/.claude/x	-
+=== a gzip tar of a collection is read from its manifest
+kind	archive
+host	h1
+home	0	<extract>/fs/home/alice	/home/alice	alice	h1	false	false
+artifact	0	claude-code	.claude/history.jsonl	/home/alice/.claude/history.jsonl	<extract>/fs/home/alice/.claude/history.jsonl	{"user":"alice","home":"/home/alice","agent":"claude-code","path":"/home/alice/.claude/history.jsonl","archive_path":"fs/home/alice/.claude/history.jsonl","type":"file","status":"collected","size":2}
+=== a zip of a collection is read from its manifest
+kind	archive
+host	h1
+home	0	<extract>/fs/home/alice	/home/alice	alice	h1	false	false
+artifact	0	claude-code	.claude/history.jsonl	/home/alice/.claude/history.jsonl	<extract>/fs/home/alice/.claude/history.jsonl	{"user":"alice","home":"/home/alice","agent":"claude-code","path":"/home/alice/.claude/history.jsonl","archive_path":"fs/home/alice/.claude/history.jsonl","type":"file","status":"collected","size":2}
+=== a tar of a home without a manifest is loose
+kind	loose
+host	
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<extract>/alice/.claude/history.jsonl	-
+=== a bzip2 tar is read
+kind	loose
+host	
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<extract>/alice/.claude/history.jsonl	-
+=== a tar with only its end blocks is an empty loose tree
+kind	loose
+host	
+=== a file that is no archive is refused
+error
+=== a tar member climbing out of the directory refuses the archive
+error
+=== a tar member's leading slash is dropped and its inner dot-dot resolved
+kind	loose
+host	
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<extract>/alice/.claude/history.jsonl	-
+=== a link member is skipped and nothing is written through it
+kind	loose
+host	
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/authorized_keys	/alice/.claude/authorized_keys	<extract>/alice/.claude/authorized_keys	-
+=== a later member replaces an earlier one of the same name
+kind	loose
+host	
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
+=== unsafe zip members are skipped
+kind	loose
+host	
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
+artifact	0	claude-code	.claude/y	/alice/.claude/y	<extract>/alice/.claude/y	-
+=== a zip member below a file member is an error
+error
+=== links inside a loose tree are never followed
+kind	loose
+host	
+home	0	<input>/home/alice	/alice	alice		true	false
+home	1	<input>/home/carol	/carol	carol		true	false
+artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<input>/home/alice/.claude/history.jsonl	-
+=== a FIFO matched by a glob is a problem and one inside a directory an artifact
+kind	loose
+host	
+problem	<input>/home/carol/.claude.json: not a directory
+home	0	<input>/home/carol	/carol	carol		true	false
+artifact	0	claude-code	.claude/history.jsonl	/carol/.claude/history.jsonl	<input>/home/carol/.claude/history.jsonl	-
+artifact	0	claude-code	.claude/pipe	/carol/.claude/pipe	<input>/home/carol/.claude/pipe	-
+=== an unlistable directory is a problem once
+kind	loose
+host	
+problem	<input>/home/dave/.claude/locked: permission denied
+home	0	<input>/home/dave	/dave	dave		true	false
+artifact	0	claude-code	.claude/y	/dave/.claude/y	<input>/home/dave/.claude/y	-
+=== an unreadable sidecar is a note
+kind	loose
+host	
+note	WARNING archive sha256 not checked: <input>/c.tar.sha256: permission denied
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
+=== an xz-compressed archive is refused
+error
+=== an input that is neither a file nor a directory is refused
+error
