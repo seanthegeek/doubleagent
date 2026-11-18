@@ -2,9 +2,13 @@ package vscode
 
 import (
 	"maps"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // The mutation log's rules are in research/vscode.md: kind 0 replaces the
@@ -142,40 +146,89 @@ func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 	}
 }
 
-func TestTrackGivesEachPushedRequestTheLineOfItsPush(t *testing.T) {
+func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
 	for _, test := range []struct {
-		name, records string
-		want          requestLines
+		name string
+		log  []string
+		want requestLines
 	}{
-		{"an array pushes each item",
-			`[{"kind":0,"v":{"requests":[{}]}},{"kind":2,"k":["requests"],"v":[{},{}]}]`,
-			requestLines{sessionStart: 0, 0: 0, 1: 1, 2: 1}},
-		{"an object pushes itself",
-			`[{"kind":0,"v":{"requests":[{}]}},{"kind":2,"k":["requests"],"v":{"a":1,"b":2}}]`,
-			requestLines{sessionStart: 0, 0: 0, 1: 1}},
-		{"a string pushes itself",
-			`[{"kind":0,"v":{"requests":[]}},{"kind":2,"k":["requests"],"v":"abc"}]`,
-			requestLines{sessionStart: 0, 0: 1}},
-		{"a truncation replaces the requests after it",
-			`[{"kind":0,"v":{"requests":[{},{}]}},{"kind":2,"k":["requests"],"i":1,"v":[{}]}]`,
-			requestLines{sessionStart: 0, 0: 0, 1: 1}},
-		{"a set by index takes that request",
-			`[{"kind":0,"v":{"requests":[{},{}]}},{"kind":1,"k":["requests",1],"v":{}}]`,
-			requestLines{sessionStart: 0, 0: 0, 1: 1}},
+		{"an array pushes each item", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":2,"k":["requests"],"v":[{},{}]}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2, 2: 2}},
+		{"an object pushes itself", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":2,"k":["requests"],"v":{"a":1,"b":2}}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2}},
+		{"a string pushes itself", []string{`{"kind":0,"v":{"requests":[]}}`,
+			`{"kind":2,"k":["requests"],"v":"abc"}`},
+			requestLines{sessionStart: 1, 0: 2}},
+		{"a push to an absent list makes it", []string{`{"kind":0,"v":{}}`,
+			`{"kind":2,"k":["requests"],"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 2}},
+		{"a truncation replaces the requests after it", []string{`{"kind":0,"v":{"requests":[{},{}]}}`,
+			`{"kind":2,"k":["requests"],"i":1,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2}},
+		{"a truncation to zero replaces every request", []string{`{"kind":0,"v":{"requests":[{},{}]}}`,
+			`{"kind":2,"k":["requests"],"i":0,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 2}},
+		{"a negative truncation counts from the end", []string{`{"kind":0,"v":{"requests":[{},{},{}]}}`,
+			`{"kind":2,"k":["requests"],"i":-1,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 1, 2: 2}},
+		{"a negative truncation past the start replaces every request", []string{
+			`{"kind":0,"v":{"requests":[{},{}]}}`, `{"kind":2,"k":["requests"],"i":-5,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 2}},
+		{"a truncation beyond the end keeps every request", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":2,"k":["requests"],"i":5,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2}},
+		{"a truncation beyond int64 keeps every request", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":2,"k":["requests"],"i":99999999999999999999999,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2}},
+		{"a truncation that is not an integer is no truncation", []string{
+			`{"kind":0,"v":{"requests":[{},{}]}}`, `{"kind":2,"k":["requests"],"i":1.0,"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 1, 2: 2}},
+		{"a set by index takes that request", []string{`{"kind":0,"v":{"requests":[{},{}]}}`,
+			`{"kind":1,"k":["requests",1],"v":{}}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2}},
+		{"a set at the length adds a request", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":1,"k":["requests",1],"v":{}}`},
+			requestLines{sessionStart: 1, 0: 1, 1: 2}},
+		{"a set at a negative index is not applied", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":1,"k":["requests",-1],"v":{}}`},
+			requestLines{sessionStart: 1, 0: 1}},
+		{"a set of the whole list replaces every request", []string{`{"kind":0,"v":{"requests":[{},{}]}}`,
+			`{"kind":1,"k":["requests"],"v":[{}]}`},
+			requestLines{sessionStart: 1, 0: 2}},
+		{"a delete of the list forgets every request", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":3,"k":["requests"]}`},
+			requestLines{sessionStart: 1}},
+		{"a delete moves the later requests down", []string{`{"kind":0,"v":{"requests":[]}}`,
+			`{"kind":2,"k":["requests"],"v":[{}]}`, `{"kind":2,"k":["requests"],"v":[{}]}`,
+			`{"kind":2,"k":["requests"],"v":[{}]}`, `{"kind":3,"k":["requests",0]}`},
+			requestLines{sessionStart: 1, 0: 3, 1: 4}},
+		{"a negative delete counts from the end", []string{`{"kind":0,"v":{"requests":[]}}`,
+			`{"kind":2,"k":["requests"],"v":[{}]}`, `{"kind":2,"k":["requests"],"v":[{}]}`,
+			`{"kind":2,"k":["requests"],"v":[{}]}`, `{"kind":3,"k":["requests",-2]}`},
+			requestLines{sessionStart: 1, 0: 2, 1: 4}},
+		{"a delete out of range changes nothing", []string{`{"kind":0,"v":{"requests":[{}]}}`,
+			`{"kind":3,"k":["requests",1]}`, `{"kind":3,"k":["requests",-2]}`},
+			requestLines{sessionStart: 1, 0: 1}},
+		{"a change inside a request keeps its line", []string{`{"kind":0,"v":{"requests":[{"a":[]}]}}`,
+			`{"kind":1,"k":["requests",0,"b"],"v":1}`, `{"kind":2,"k":["requests",0,"a"],"v":[1]}`,
+			`{"kind":3,"k":["requests",0,"b"]}`},
+			requestLines{sessionStart: 1, 0: 1}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var state *node
-			lines := requestLines{}
-			for i, record := range decoded(t, test.records).Items() {
-				next, err := applyMutation(state, record)
-				if err != nil {
-					t.Fatalf("record %d: %v", i, err)
-				}
-				state = next
-				track(record, state, i, lines)
+			path := filepath.Join(t.TempDir(), "session.jsonl")
+			if err := osfile.WriteFile(path, []byte(strings.Join(test.log, "\n")+"\n"), 0o600); err != nil {
+				t.Fatal(err)
 			}
+			lines := requestLines{}
+			var problems parser.Problems
+			state := replay(path, lines, &problems)
 			if !maps.Equal(lines, test.want) {
-				t.Errorf("lines = %v, want %v", lines, test.want)
+				t.Errorf("lines = %v, want %v (requests %s)", lines, test.want, state.Get("requests").JSON())
+			}
+			if got := int64(state.Get("requests").Len()); len(lines) != int(got)+1 {
+				t.Errorf("%d request lines for %d requests", len(lines)-1, got)
 			}
 		})
 	}
@@ -204,6 +257,7 @@ func TestConfirmedTextReadsEachForm(t *testing.T) {
 
 func FuzzApplyMutation(fuzz *testing.F) {
 	fuzz.Add(`[{"kind":0,"v":{"requests":[]}},{"kind":2,"k":["requests"],"v":[{"a":1}]},{"kind":1,"k":["requests",0,"a"],"v":2}]`)
+	fuzz.Add(`[{"kind":0,"v":{"requests":[{},{},{}]}},{"kind":2,"k":["requests"],"i":-1,"v":[{}]},{"kind":3,"k":["requests",0]}]`)
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		records, err := jsonvalue.DecodeString(text)
 		if err != nil {
@@ -212,9 +266,22 @@ func FuzzApplyMutation(fuzz *testing.F) {
 		var state *node
 		lines := requestLines{}
 		for i, record := range records.Items() {
-			if next, err := applyMutation(state, record); err == nil {
-				state = next
-				track(record, state, i, lines)
+			before := requestCount(state)
+			next, err := applyMutation(state, record)
+			if err != nil {
+				continue
+			}
+			state = next
+			after := requestCount(state)
+			track(record, before, after, i, lines)
+			// Every request has a line and no line outlives its request.
+			if len(lines) != int(after)+1 {
+				t.Fatalf("record %d: %d request lines for %d requests: %v", i, len(lines)-1, after, lines)
+			}
+			for position := range after {
+				if _, ok := lines[position]; !ok {
+					t.Fatalf("record %d: request %d has no line: %v", i, position, lines)
+				}
 			}
 		}
 		_ = state.value()

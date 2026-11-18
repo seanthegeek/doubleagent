@@ -34,13 +34,14 @@ func replay(path string, lines requestLines, problems *parser.Problems) jsonvalu
 		if !record.IsObject() {
 			continue
 		}
+		before := requestCount(state)
 		next, err := applyMutation(state, record)
 		if err != nil {
 			problems.AddRaw(number, "mutation not applied ("+err.Error()+")", parser.LineText(raw))
 			continue
 		}
 		state = next
-		track(record, state, number, lines)
+		track(record, before, requestCount(state), number, lines)
 	}
 	return state.value()
 }
@@ -57,42 +58,55 @@ func requestCount(state *node) int64 {
 	return int64(len(requests.items))
 }
 
-// track remembers the log line that created each request: every request
-// of a replaced state, the requests a push or set of the whole list made,
-// and a request set by its index.
-func track(record jsonvalue.Value, state *node, number int, lines requestLines) {
+// track remembers the log line that created each request, given how many
+// requests there were before and after the record was applied: every
+// request of a replaced state or of a list set whole, the requests a push
+// added at the end of the list (whatever the truncation before it), a
+// request set by its index, and a deleted request's followers moved down
+// one place.
+func track(record jsonvalue.Value, before, after int64, number int, lines requestLines) {
 	kind := record.Get("kind")
 	path := record.Get("k").Items()
 	switch {
 	case isKind(kind, 0):
 		clear(lines)
 		lines[sessionStart] = number
-		for i := range requestCount(state) {
+		for i := range after {
 			lines[i] = number
 		}
-	case len(path) == 1 && path[0].IsString() && path[0].StringValue() == "requests":
-		total := requestCount(state)
+	case len(path) == 1 && isRequests(path[0]):
 		start := int64(0)
 		if isKind(kind, 2) {
-			if given, ok := integer(record.Get("i")); ok {
-				start = given
-			} else {
-				start = total - pushedCount(record.Get("v"))
-			}
+			start = after - pushedCount(record.Get("v"))
 		}
 		for i := range lines {
 			if i >= start {
 				delete(lines, i)
 			}
 		}
-		for i := max(start, 0); i < total; i++ {
+		for i := start; i < after; i++ {
 			lines[i] = number
 		}
-	case isKind(kind, 1) && len(path) == 2 && path[0].IsString() && path[0].StringValue() == "requests" &&
-		path[1].IsInt():
+	case len(path) == 2 && isRequests(path[0]) && isKind(kind, 1) && path[1].IsInt():
 		index, _ := integer(path[1])
 		lines[index] = number
+	case len(path) == 2 && isRequests(path[0]) && isKind(kind, 3):
+		if removed, ok := listIndex(path[1], int(before)); ok {
+			for i := int64(removed); i < after; i++ {
+				if line, ok := lines[i+1]; ok {
+					lines[i] = line
+				} else {
+					delete(lines, i)
+				}
+			}
+			delete(lines, after)
+		}
 	}
+}
+
+// isRequests reports whether a path key is "requests".
+func isRequests(key jsonvalue.Value) bool {
+	return key.IsString() && key.StringValue() == "requests"
 }
 
 // pushedCount returns how many items a push of value adds: each item of
