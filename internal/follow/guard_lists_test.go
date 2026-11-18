@@ -41,7 +41,11 @@ func reviewedImports() map[string]string {
 		// Writes the fleet CSV's records to an io.Writer the caller gives
 		// it; the names used are NewWriter and the Writer's WriteAll, which
 		// take no path.
-		"encoding/csv"}
+		"encoding/csv",
+		// Parses a file: URI from evidence text into its parts
+		// (evidencepath.FromFileURI); the names used are Parse, PathUnescape
+		// and the URL type, which work on text and take no path.
+		"net/url"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}
