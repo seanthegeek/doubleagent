@@ -57,6 +57,11 @@ func TestAHistoryThatIsNotAnObjectIsReported(t *testing.T) {
 		{"a state value that is a number", state, fixture("value-number.vscdb"),
 			[]string{"parser: sourcegraph.cody-ai value is not a JSON object"}},
 		{"a state with no history", state, fixture("no-history.vscdb"), nil},
+		{"a state history that is null", state, fixture("history-null.vscdb"), nil},
+		{"a state history that is text holding null", state, fixture("history-text-null.vscdb"),
+			[]string{"parser: cody-local-chatHistory-v2 is not a JSON object"}},
+		{"a JetBrains history that is null", jetBrains, []byte(`null`),
+			[]string{"parser: chat history is not a JSON object"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
