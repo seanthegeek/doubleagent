@@ -30,6 +30,9 @@ func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 			Raw:     "]"}}, -1},
 		{"a lone bracket", `[`, 0, nil, Problems{{Line: 1,
 			Message: "unparseable record 1 (invalid JSON at line 1, column 2: unexpected end of JSON input)"}}, -1},
+		{"text that ends after a comma has a missing record", "[1, \n", 0, []string{"1"},
+			Problems{{Line: 2, Message: "unparseable record 2 (invalid JSON at line 2, column 1: " +
+				"unexpected end of JSON input)"}}, -1},
 		{"an array after an offset", `x [ {"a":1} , "é"] tail`, 2, []string{`{"a":1}`, `"é"`}, nil,
 			19},
 		{"an array without its bracket", "[1, 2\n", 0, []string{"1", "2"},
@@ -72,6 +75,8 @@ func TestJSONArrayReportsDataAfterTheArray(t *testing.T) {
 			Problems{{Line: 3, Message: "unparseable data after the JSON array"}}},
 		{"a cut-off array reports only the cut", "[1, 2", 2,
 			Problems{{Line: 3, Message: "array cut off after record 2"}}},
+		{"text after an empty array is reported", "[] x", 0,
+			Problems{{Line: 1, Message: "unparseable data after the JSON array"}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
