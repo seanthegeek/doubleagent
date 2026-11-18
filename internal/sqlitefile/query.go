@@ -232,7 +232,7 @@ func (q Query) orderKeys() ([]orderKey, error) {
 		}
 		key := orderKey{position: q.table.shape.columnIndex(fields[0])}
 		if len(fields) == 2 {
-			switch strings.ToUpper(fields[1]) {
+			switch upperASCII(fields[1]) {
 			case "DESC":
 				key.descending = true
 			case "ASC":

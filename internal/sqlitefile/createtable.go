@@ -3,7 +3,6 @@ package sqlitefile
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // Generated says whether a column's value is computed from an expression
@@ -258,7 +257,7 @@ func (p *schemaParser) options(shape *tableShape) error {
 // ASCII case folding as SQL matches identifiers, or -1.
 func (s *tableShape) columnIndex(name string) int {
 	for i, column := range s.columns {
-		if strings.EqualFold(column.Name, name) {
+		if equalFoldASCII(column.Name, name) {
 			return i
 		}
 	}

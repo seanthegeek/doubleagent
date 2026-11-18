@@ -129,10 +129,7 @@ func compareText(left, right []byte, collation string) int {
 func foldBytes(text []byte) []byte {
 	folded := make([]byte, len(text))
 	for i, octet := range text {
-		if octet >= 'A' && octet <= 'Z' {
-			octet += 'a' - 'A'
-		}
-		folded[i] = octet
+		folded[i] = lowerByte(octet)
 	}
 	return folded
 }

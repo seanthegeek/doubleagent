@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
 )
 
 // ErrNoTable reports a table the schema does not hold.
@@ -61,7 +60,7 @@ func (d *Database) Table(name string) (*Table, error) {
 // tableFrom finds and parses the table called name among schema's rows.
 func (d *Database) tableFrom(schema []SchemaRow, name string) (*Table, error) {
 	index := slices.IndexFunc(schema, func(row SchemaRow) bool {
-		return row.Type == "table" && strings.EqualFold(row.Name, name)
+		return row.Type == "table" && equalFoldASCII(row.Name, name)
 	})
 	if index < 0 {
 		return nil, fmt.Errorf("%w: %s", ErrNoTable, name)

@@ -30,7 +30,7 @@ func defaultValue(tokens []token, affinity Affinity) (Value, error) {
 // isKeywordLiteral reports whether a bare word is NULL, TRUE, FALSE or a
 // CURRENT_ keyword, the words that are values rather than names.
 func isKeywordLiteral(literal token) bool {
-	switch strings.ToUpper(literal.text) {
+	switch upperASCII(literal.text) {
 	case "NULL", "TRUE", "FALSE", "CURRENT_TIME", "CURRENT_DATE", "CURRENT_TIMESTAMP":
 		return literal.kind == word
 	}

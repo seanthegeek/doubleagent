@@ -13,7 +13,7 @@ func stopsType(next token) bool {
 	if next.kind != word {
 		return false
 	}
-	switch strings.ToUpper(next.text) {
+	switch upperASCII(next.text) {
 	case "CONSTRAINT", "DEFAULT", "NOT", "NULL", "PRIMARY", "UNIQUE", "CHECK", "REFERENCES",
 		"COLLATE", "AS":
 		return true
@@ -106,7 +106,7 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 		return err
 	case next.isKeyword("COLLATE"):
 		name, err := p.identifier("a collation name")
-		column.Collation = strings.ToUpper(name)
+		column.Collation = upperASCII(name)
 		return err
 	case next.isKeyword("REFERENCES"):
 		return p.foreignKey()
@@ -145,7 +145,7 @@ func (p *schemaParser) columnPrimaryKey(shape *tableShape, column *Column) error
 		return fmt.Errorf("%w: more than one PRIMARY KEY", errSchemaSyntax)
 	}
 	shape.primaryKey = []int{len(shape.columns)}
-	column.RowidAlias = strings.EqualFold(column.DeclaredType, "INTEGER") && !descending
+	column.RowidAlias = equalFoldASCII(column.DeclaredType, "INTEGER") && !descending
 	return nil
 }
 
@@ -325,7 +325,7 @@ func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 	}
 	if len(shape.primaryKey) == 1 {
 		column := &shape.columns[shape.primaryKey[0]]
-		column.RowidAlias = strings.EqualFold(column.DeclaredType, "INTEGER")
+		column.RowidAlias = equalFoldASCII(column.DeclaredType, "INTEGER")
 	}
 	return p.conflictClause()
 }
@@ -409,7 +409,7 @@ func (p *schemaParser) virtualTable() (*tableShape, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.EqualFold(module, "fts5") {
+	if !equalFoldASCII(module, "fts5") {
 		return nil, errors.New("virtual table module " + module + " is not supported")
 	}
 	var arguments []token
@@ -434,7 +434,7 @@ func (s *tableShape) fts5Argument(argument []token) error {
 		return fmt.Errorf("%w: an empty fts5 argument", errSchemaSyntax)
 	}
 	if len(argument) >= 2 && argument[1].isPunctuation("=") {
-		option := strings.ToLower(argument[0].name())
+		option := foldASCII(argument[0].name())
 		if option == "content" || option == "contentless_delete" || option == "contentless_unindexed" {
 			return errors.New("fts5 table " + s.name + " keeps no content table of its own (" + option + "=)")
 		}

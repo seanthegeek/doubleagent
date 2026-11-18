@@ -33,7 +33,7 @@ type token struct {
 
 // isKeyword reports whether the token is the bare word keyword, in any ASCII case.
 func (t token) isKeyword(keyword string) bool {
-	return t.kind == word && strings.EqualFold(t.text, keyword)
+	return t.kind == word && equalFoldASCII(t.text, keyword)
 }
 
 // isPunctuation reports whether the token is the punctuation mark mark.

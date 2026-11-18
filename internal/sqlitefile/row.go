@@ -34,16 +34,44 @@ func newRowShape(columns []*Column) *rowShape {
 	return shape
 }
 
-// foldASCII lowers the ASCII letters of name, the folding SQL applies to
-// identifiers; other characters must match exactly.
+// foldASCII lowers the ASCII letters of name: the folding SQLite applies
+// to table, column, keyword, type, collation and module names alike. Every
+// other character must match exactly, so a letter that Unicode folds onto
+// an ASCII one (the long s onto s, the Kelvin sign onto k) stays apart.
 func foldASCII(name string) string {
-	folded := []byte(name)
-	for i, octet := range folded {
-		if octet >= 'A' && octet <= 'Z' {
-			folded[i] = octet + 'a' - 'A'
+	return string(foldBytes([]byte(name)))
+}
+
+// equalFoldASCII reports whether two names are equal under foldASCII.
+func equalFoldASCII(first, second string) bool {
+	if len(first) != len(second) {
+		return false
+	}
+	for i := range len(first) {
+		if lowerByte(first[i]) != lowerByte(second[i]) {
+			return false
 		}
 	}
-	return string(folded)
+	return true
+}
+
+// upperASCII raises the ASCII letters of name and keeps every other byte.
+func upperASCII(name string) string {
+	raised := []byte(name)
+	for i, octet := range raised {
+		if octet >= 'a' && octet <= 'z' {
+			raised[i] = octet - 'a' + 'A'
+		}
+	}
+	return string(raised)
+}
+
+// lowerByte lowers an ASCII capital and keeps every other byte.
+func lowerByte(octet byte) byte {
+	if octet >= 'A' && octet <= 'Z' {
+		return octet + 'a' - 'A'
+	}
+	return octet
 }
 
 // lookup returns the position of the column called name, or -1.
