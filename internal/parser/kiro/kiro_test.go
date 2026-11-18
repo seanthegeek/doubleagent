@@ -9,9 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The rows of every file are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests port what the Python
-// tests call directly. Expected values come from running the analyzer.
+// The rows of every file are proved against the recorded cases by the
+// parser replay (internal/parity/replay); these tests cover the salvage of
+// a damaged conversation, the history escapes and the result text.
 
 func TestSalvageKeepsTheEntriesBeforeTheDamage(t *testing.T) {
 	tests := []struct {
@@ -34,13 +34,13 @@ func TestSalvageKeepsTheEntriesBeforeTheDamage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state, ok, message := New().salvage(test.text)
+			state, ok, err := New().salvage(test.text)
 			got := ""
 			if ok {
 				got = state.JSON()
 			}
-			if got != test.want || (message != "") != test.wantError {
-				t.Errorf("got %s, %q; want %s, error %v", got, message, test.want, test.wantError)
+			if got != test.want || (err != nil) != test.wantError {
+				t.Errorf("got %s, %v; want %s, error %v", got, err, test.want, test.wantError)
 			}
 		})
 	}
@@ -108,7 +108,8 @@ func TestResultTextJoinsTheBlocksAndAddsTheStatus(t *testing.T) {
 		{`{"content": [{"Text": "a"}, {"Json": {"b": 1, "a": 2}}, {"x": 1}, "s", 3], "status": "Success"}`,
 			"a\n{\"b\":1,\"a\":2}\n{\"x\":1}\ns\n3 [Success]"},
 		{`{"content": [], "status": "Error"}`, "[Error]"},
-		{`{"content": "ab"}`, ""},
+		{`{"content": "ab"}`, "ab"},
+		{`{"content": "ab", "status": "Error"}`, "ab [Error]"},
 		{`{"content": null}`, ""},
 		{`{"content": {"k": 1}, "status": 0}`, ""},
 	}

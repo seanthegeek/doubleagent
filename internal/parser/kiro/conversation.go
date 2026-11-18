@@ -1,6 +1,7 @@
 package kiro
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -20,23 +21,23 @@ const (
 // salvage parses a ConversationState, salvaging what precedes the damage
 // when it does not parse: the conversation_id and every complete history
 // entry before the damage. It returns the state, or false when there is
-// none, and the error message, "" when the whole document parsed.
-func (p *Parser) salvage(text string) (jsonvalue.Value, bool, string) {
+// none, and the error that stopped the decoding, nil when the whole
+// document parsed.
+func (p *Parser) salvage(text string) (jsonvalue.Value, bool, error) {
 	state, err := jsonvalue.DecodeString(text)
 	if err == nil {
 		if state.IsObject() {
-			return state, true, ""
+			return state, true, nil
 		}
-		return jsonvalue.Value{}, false, "not a JSON object"
+		return jsonvalue.Value{}, false, errors.New("not a JSON object")
 	}
-	message := err.Error()
 	found := p.historyStart.FindStringIndex(text)
 	if found == nil {
-		return jsonvalue.Value{}, false, message
+		return jsonvalue.Value{}, false, err
 	}
 	var members []jsonvalue.Member
 	if match := p.conversationID.FindStringSubmatch(text[:found[0]]); match != nil {
-		if decoded, err := jsonvalue.DecodeString(`"` + match[1] + `"`); err == nil {
+		if decoded, decodeErr := jsonvalue.DecodeString(`"` + match[1] + `"`); decodeErr == nil {
 			members = append(members, jsonvalue.Member{Key: "conversation_id", Value: decoded})
 		}
 	}
@@ -48,8 +49,8 @@ func (p *Parser) salvage(text string) (jsonvalue.Value, bool, string) {
 		if i >= len(text) || text[i] == ']' {
 			break
 		}
-		entry, next, err := jsonvalue.DecodePrefix(text, i)
-		if err != nil {
+		entry, next, entryErr := jsonvalue.DecodePrefix(text, i)
+		if entryErr != nil {
 			break
 		}
 		if entry.IsObject() {
@@ -58,7 +59,7 @@ func (p *Parser) salvage(text string) (jsonvalue.Value, bool, string) {
 		i = next
 	}
 	history := jsonvalue.Member{Key: "history", Value: jsonvalue.NewArray(entries...)}
-	return jsonvalue.NewObject(append([]jsonvalue.Member{history}, members...)...), true, message
+	return jsonvalue.NewObject(append([]jsonvalue.Member{history}, members...)...), true, err
 }
 
 // variant unpacks an externally tagged enum, {"Tag": {...}}, as its tag
@@ -75,10 +76,15 @@ func variant(value jsonvalue.Value) (string, jsonvalue.Value) {
 }
 
 // resultText returns the text of a tool use result, its status in
-// brackets after it.
+// brackets after it. The content is a list of blocks; a content that is a
+// string is its own text.
 func resultText(result jsonvalue.Value) string {
 	var parts []string
-	for _, block := range parser.Elements(result.Get("content")) {
+	content := result.Get("content")
+	if content.IsString() {
+		parts = append(parts, content.StringValue())
+	}
+	for _, block := range parser.Elements(content) {
 		switch {
 		case !block.IsObject():
 			parts = append(parts, block.Text())
@@ -176,10 +182,10 @@ func textOrJSON(value jsonvalue.Value) string {
 // line the source line of its rows.
 func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, text, key string,
 	line int, emit parser.Emit) {
-	state, ok, problem := p.salvage(text)
+	state, ok, err := p.salvage(text)
 	if !ok || !state.Get("history").IsArray() {
-		if problem != "" {
-			row := p.SystemRow(artifact, "parser: unparseable conversation: "+problem)
+		if err != nil {
+			row := p.SystemRow(artifact, "parser: unparseable conversation: "+err.Error())
 			row.SourceLine = line
 			row.ProjectPath = key
 			emit(row)
@@ -198,9 +204,9 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 		reader.project = firstCwd(state)
 	}
 	reader.read(state)
-	if problem != "" {
+	if err != nil {
 		row := p.SystemRow(artifact, "parser: truncated conversation, "+
-			strconv.Itoa(state.Get("history").Len())+" history entries recovered: "+problem)
+			strconv.Itoa(state.Get("history").Len())+" history entries recovered: "+err.Error())
 		row.SourceLine = line
 		row.SessionID = reader.sessionID
 		row.ProjectPath = reader.project
