@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The frames under testdata are built by testdata/gen_zst.py; the cut
@@ -142,7 +145,7 @@ func TestDecodingProblemsReadAsTheBinarysOwnZstdMessages(t *testing.T) {
 	}
 }
 
-func TestZstLinesSkipBlankAndNonObjectLinesAndReportBadOnes(t *testing.T) {
+func TestZstLinesSkipBlankLinesAndReportEveryOtherLineThatIsNoObject(t *testing.T) {
 	// A file of plain JSON lines is no zstd stream, so the lines are given
 	// to appendRecord directly, as the decoder hands them over.
 	lines := []string{"{\"a\":1}", "", "  ", "[1]", "{bad", "{\"b\":2}\r"}
@@ -152,11 +155,58 @@ func TestZstLinesSkipBlankAndNonObjectLinesAndReportBadOnes(t *testing.T) {
 		records = appendRecord(records, i+1, []byte(line), &problems)
 	}
 	got, kinds := summary(records, problems)
-	if got != "1,6" || kinds != "5:line" {
-		t.Errorf("got lines %s problems %s, want 1,6 and 5:line", got, kinds)
+	if got != "1,6" || kinds != "4:line,5:line" {
+		t.Errorf("got lines %s problems %s, want 1,6 and 4:line,5:line", got, kinds)
 	}
-	if problems[0].Raw != "{bad" {
-		t.Errorf("got raw %q", problems[0].Raw)
+	if len(problems) == 2 && (problems[0].Raw != "[1]" || problems[1].Raw != "{bad") {
+		t.Errorf("got raw %q and %q", problems[0].Raw, problems[1].Raw)
+	}
+}
+
+func TestACompressedRolloutGivesTheRowsOfThePlainOne(t *testing.T) {
+	home := t.TempDir()
+	directory := ".codex/sessions/2026/01/02/"
+	name := "rollout-2026-01-02T00-00-00-0198f0a1-0000-7000-8000-000000000002.jsonl"
+	plain := filepath.Join(home, filepath.FromSlash(directory+name))
+	if err := osfile.MkdirAll(filepath.Dir(plain), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(plain, readTestdata(t, "mixed-lines.jsonl"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(plain+".zst", readTestdata(t, "mixed-lines.jsonl.zst"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rowsOf := func(rel string) []string {
+		var rows []string
+		artifact := &input.Artifact{Rel: rel, DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+			Home: &input.Home{DiskPath: home}}
+		New().parseRollout(artifact, parser.Options{}, func(row timeline.Row) {
+			rows = append(rows, strconv.Itoa(row.SourceLine)+" "+row.TurnType+" "+row.Text)
+		})
+		return rows
+	}
+	want, got := rowsOf(directory+name), rowsOf(directory+name+".zst")
+	if !slices.Equal(got, want) || len(want) != 4 {
+		t.Errorf("compressed rows %q, plain rows %q: want the same four", got, want)
+	}
+}
+
+func TestLinesCutAcrossManyChunksAreSearchedOnce(t *testing.T) {
+	work := func(chunks int) int {
+		var split lineSplitter
+		lines := 0
+		for range chunks {
+			split.add(bytes.Repeat([]byte("a"), 1024), func(int, []byte) { lines++ })
+		}
+		split.add([]byte("\n"), func(int, []byte) { lines++ })
+		if lines != 1 || split.number != 1 {
+			t.Fatalf("%d lines numbered up to %d, want one", lines, split.number)
+		}
+		return split.scanned
+	}
+	if small, large := work(500), work(1000); small > 500*1024+1 || large > 3*small {
+		t.Errorf("%d then %d bytes searched for 500 and 1000 chunks of 1024: not once each", small, large)
 	}
 }
 

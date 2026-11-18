@@ -8,6 +8,9 @@ file's name says otherwise.
 - block-per-line.jsonl.zst: one frame holding five lines, each flushed as
   its own block, so a cut keeps the lines of the blocks before it.
 - two-frames.jsonl.zst: three lines in one frame and two in a second.
+- mixed-lines.jsonl and mixed-lines.jsonl.zst: the same four lines, plain
+  and compressed: a compacted record, an array, a string and a line that
+  is not JSON.
 """
 
 import json
@@ -44,3 +47,14 @@ with open("two-frames.jsonl.zst", "wb") as handle:
     context = zstandard.ZstdCompressor()
     handle.write(context.compress(b"".join(map(line, LINES[:3]))))
     handle.write(context.compress(b"".join(map(line, LINES[3:]))))
+
+MIXED = (
+    b'{"timestamp":"2025-01-01T00:00:00.000Z","type":"compacted","payload":{"message":"summary"}}\n'
+    b"[1,2]\n"
+    b'"str"\n'
+    b"{bad\n"
+)
+with open("mixed-lines.jsonl", "wb") as handle:
+    handle.write(MIXED)
+with open("mixed-lines.jsonl.zst", "wb") as handle:
+    handle.write(zstandard.ZstdCompressor().compress(MIXED))
