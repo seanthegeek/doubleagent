@@ -56,8 +56,10 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	data, err := jsonvalue.DecodeString(text)
-	for position, entry := range cliEntries(text, data, err == nil, &problems) {
-		if !entry.IsString() || strings.TrimSpace(entry.StringValue()) == "" {
+	var wrong parser.Problems
+	for position, entry := range parser.EntriesOfKindFrom(cliEntries(text, data, err == nil, &problems), "entries",
+		jsonvalue.String, 0, &wrong) {
+		if strings.TrimSpace(entry.StringValue()) == "" {
 			continue
 		}
 		row := p.BaseRow(artifact)
@@ -69,7 +71,7 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 	if err != nil && len(problems) == 0 {
 		problems.Add(0, "cli-history.json unparseable after its entries array")
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	parser.EmitAll(emit, p.ErrorRows(artifact, append(problems, wrong...), "", ""))
 }
 
 // entriesArray finds the entries array of a CLI history that is not JSON.
@@ -254,10 +256,8 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value, source string,
 	emit parser.Emit) string {
 	var problems parser.Problems
-	for i, request := range parser.ArrayMember(state.Get(retryQueueKey), retryQueueKey, 0, &problems) {
-		if !request.IsObject() {
-			continue
-		}
+	for i, request := range parser.EntriesOfKind(state.Get(retryQueueKey), retryQueueKey, jsonvalue.Object, 0,
+		&problems) {
 		event := queuedEvent(request)
 		taskID := event.Get("properties").Get("taskId")
 		retries := "-"

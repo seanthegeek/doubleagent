@@ -45,18 +45,16 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 		return
 	}
 	events := fileEvents(data.Get("files_in_context"), &problems)
-	for position, entry := range parser.ArrayMember(data.Get("model_usage"), "model_usage", 0, &problems) {
-		if entry.IsObject() {
-			events = append(events, metadataEvent{timestamp: timeOrZero(entry),
-				position: position + 1, model: parser.Text(entry.Get("model_id")), usage: entry})
-		}
+	for position, entry := range parser.EntriesOfKind(data.Get("model_usage"), "model_usage", jsonvalue.Object, 0,
+		&problems) {
+		events = append(events, metadataEvent{timestamp: timeOrZero(entry),
+			position: position + 1, model: parser.Text(entry.Get("model_id")), usage: entry})
 	}
-	for position, entry := range parser.ArrayMember(data.Get("environment_history"), "environment_history", 0, &problems) {
-		if entry.IsObject() {
-			events = append(events, metadataEvent{timestamp: timeOrZero(entry),
-				position: position + 1, text: "environment: " + FormatCounts(entry, "os_name",
-					"os_version", "os_arch", "host_name", "host_version", "cline_version")})
-		}
+	for position, entry := range parser.EntriesOfKind(data.Get("environment_history"), "environment_history",
+		jsonvalue.Object, 0, &problems) {
+		events = append(events, metadataEvent{timestamp: timeOrZero(entry),
+			position: position + 1, text: "environment: " + FormatCounts(entry, "os_name",
+				"os_version", "os_arch", "host_name", "host_version", "cline_version")})
 	}
 	slices.SortStableFunc(events, func(left, right metadataEvent) int {
 		return cmp.Compare(left.sortKey(), right.sortKey())
@@ -108,10 +106,7 @@ func eventTexts(event metadataEvent, taskID string, models, modes parser.Tracker
 func fileEvents(files jsonvalue.Value, problems *parser.Problems) []metadataEvent {
 	var events []metadataEvent
 	seen := map[string]bool{}
-	for position, entry := range parser.ArrayMember(files, "files_in_context", 0, problems) {
-		if !entry.IsObject() {
-			continue
-		}
+	for position, entry := range parser.EntriesOfKind(files, "files_in_context", jsonvalue.Object, 0, problems) {
 		keys := slices.Clone(entry.Keys())
 		slices.Sort(keys)
 		for _, key := range keys {

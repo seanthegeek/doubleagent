@@ -86,10 +86,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 		seen[sessionID] = manifest.Get("model").Text()
 	}
 	fallback := read.fallback
-	for position, message := range read.messages {
-		if !message.IsObject() {
-			continue
-		}
+	for position, message := range parser.EntriesOfKindFrom(read.messages, "messages", jsonvalue.Object, 0, &problems) {
 		timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), fallback)
 		fallback = timestamp
 		row := p.BaseRow(artifact)

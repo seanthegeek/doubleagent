@@ -179,10 +179,7 @@ func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	for i, entry := range index.Get("entries").Items() {
-		if !entry.IsObject() {
-			continue
-		}
+	for i, entry := range parser.EntriesOfKind(index.Get("entries"), "entries", jsonvalue.Object, 0, &problems) {
 		taskID, named := parser.Component(parser.Text(entry.Get("id")))
 		if item, ok := parser.Beside(artifact, taskID, itemFile); named && ok && parser.RegularFile(item) {
 			continue

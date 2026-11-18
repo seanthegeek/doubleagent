@@ -664,7 +664,11 @@ empty one gives no row.
 
 A `roo.retryQueue` that is present but not an array, in `workspace-state.json` or a
 `state.vscdb`, is `parser: roo.retryQueue is not a JSON array` (at the file's time); an absent,
-null or empty one gives no row.
+null or empty one gives no row. A `files_in_context`, a `roo.retryQueue`, `tasks/_index.json`
+`entries` or a task's `api_conversation_history.json` or `ui_messages.json` holding entries that
+are not objects, or a `cli-history.json` `entries` holding entries that are not strings, gives one
+row for them all, `parser: <member or file> holds <n> entries that are not JSON objects` (or
+`JSON strings`; `1 entry` for one), the other entries giving their rows.
 
 #### Fixtures
 

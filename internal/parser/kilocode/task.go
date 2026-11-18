@@ -1,6 +1,7 @@
 package kilocode
 
 import (
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -76,10 +77,10 @@ func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems)
 		if read && !document.IsObject() {
 			index.problems.Add(0, "_index.json is not a JSON object")
 		}
-		for _, entry := range parser.ArrayMember(document.Get("entries"), "entries", 0, &index.problems) {
+		for _, entry := range parser.EntriesOfKind(document.Get("entries"), "entries", jsonvalue.Object, 0,
+			&index.problems) {
 			p.Work.Add("index entries read", 1)
-			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.IsObject() &&
-				entry.Get("id").IsString() && !seen {
+			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.Get("id").IsString() && !seen {
 				index.entries[entry.Get("id").StringValue()] = entry
 			}
 		}
@@ -98,6 +99,8 @@ type task struct {
 	project  string
 	started  string
 	options  parser.Options
+	// problems collects the task file's problems.
+	problems *parser.Problems
 }
 
 // row returns a row of the task at line and timestamp, its text compacted.
@@ -117,7 +120,8 @@ func (t *task) row(line int, timestamp, turn, text string) timeline.Row {
 func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	parts := strings.Split(artifact.Rel, "/")
 	var problems parser.Problems
-	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options}
+	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options,
+		problems: &problems}
 	item := p.historyItem(artifact, current.taskID, &problems)
 	current.project = parser.Text(item.Get("workspace"))
 	current.started = taskTime(item.Get("ts"), current.taskID)
@@ -132,10 +136,10 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.taskID, current.project))
 		return
 	}
-	for index, message := range parser.ArrayElements(textlines.ValidUTF8(data), &problems) {
-		if message.IsObject() {
-			parser.EmitAll(emit, current.messageRows(index+1, message))
-		}
+	messages := slices.All(parser.ArrayElements(textlines.ValidUTF8(data), &problems))
+	for index, message := range parser.EntriesOfKindFrom(messages, path.Base(artifact.Rel), jsonvalue.Object, 0,
+		&problems) {
+		parser.EmitAll(emit, current.messageRows(index+1, message))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.taskID, current.project))
 }
@@ -184,7 +188,7 @@ func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row
 		content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 			jsonvalue.Member{Key: "text", Value: content}))
 	}
-	return t.blockRows(position, timestamp, message.Get("role"), content.Items())
+	return t.blockRows(position, timestamp, message.Get("role"), content)
 }
 
 // blocks holds the rows of one message's content blocks as they are built,
@@ -207,12 +211,10 @@ func (b *blocks) add(turn, text string) *timeline.Row {
 // blockRows returns the rows of a message's content blocks, its text
 // blocks joined into one row of the role's turn placed where the first of
 // them was.
-func (t *task) blockRows(position int, timestamp string, role jsonvalue.Value, content []jsonvalue.Value) []timeline.Row {
+func (t *task) blockRows(position int, timestamp string, role jsonvalue.Value, content jsonvalue.Value) []timeline.Row {
 	built := &blocks{owner: t, position: position, timestamp: timestamp, textAt: -1}
-	for _, block := range content {
-		if block.IsObject() {
-			built.block(block)
-		}
+	for _, block := range parser.EntriesOfKind(content, "content", jsonvalue.Object, position, t.problems) {
+		built.block(block)
 	}
 	if len(built.texts) > 0 {
 		built.rows = slices.Insert(built.rows, built.textAt, t.row(position, timestamp, roleTurn(role),

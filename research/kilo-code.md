@@ -1399,7 +1399,11 @@ or `_index.json`, beside the task's rows; one that is read but does not hold a J
 that is not JSON among it) gives `parser: history_item.json is not a JSON object` or
 `parser: _index.json is not a JSON object` there. A `tasks/_index.json` whose `entries` is
 present but not an array gives `parser: entries is not a JSON array` there too (`source_line`
-0); an absent, null or empty one gives no row. A pre-migration
+0); an absent, null or empty one gives no row. Those `entries`, a pre-migration
+`api_conversation_history.json`'s records or a record's `content` holding entries that are not
+objects give one row for them all,
+`parser: <member or file> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A pre-migration
 `api_conversation_history.json` is read record by record: a record that does not decode is
 `parser: unparseable record <N> (<reason>): <text from that record on>`, with every earlier
 record's rows kept, and a file that is not an array, an array cut off after a record or data after

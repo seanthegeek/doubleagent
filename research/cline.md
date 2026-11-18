@@ -1058,7 +1058,11 @@ absent, null or empty one gives no row.
 An SDK `*.messages.json` whose `messages` is present but not an array is
 `parser: messages is not a JSON array`, and a `globalState.json` whose `cloudSessionStatuses` is
 present but not an object is `parser: cloudSessionStatuses is not a JSON object`, each a whole-file
-row at `source_line` 0; an absent, null or empty one gives no row.
+row at `source_line` 0; an absent, null or empty one gives no row. A `task_metadata.json` list, a
+`messages`, or a task's `api_conversation_history.json`, `ui_messages.json` or
+`state/taskHistory.json`, holding entries that are not objects gives one row for them all,
+`parser: <member or file> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 

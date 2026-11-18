@@ -54,8 +54,9 @@ func TestEveryTaskTakesItsIndexEntryFromOneReadOfTheIndex(t *testing.T) {
 			t.Fatalf("task %d gave %+v, want the project %s", i, rows, want)
 		}
 	}
-	if read := subject.Work.Count("index entries read"); read != len(entries) {
+	// The entry 7 is not an object, so it is reported, not read.
+	if read := subject.Work.Count("index entries read"); read != len(entries)-1 {
 		t.Errorf("%d index entries read for %d tasks, want one pass over %d", read, tasks,
-			len(entries))
+			len(entries)-1)
 	}
 }
