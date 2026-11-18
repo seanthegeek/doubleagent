@@ -993,6 +993,11 @@ cannot be read is one whole-file row `parser: <file> could not be read (<reason>
 row, naming `.workspace`, at the session JSONL, database or WebUI transcript that reads it, and that
 file's rows have no project path.
 
+A member present but of the wrong kind is `parser: <member> is not a JSON array` (or `object`): a
+session record's `tool_calls`, a WebUI record's `tool_events` or `edits` (each row at the record's
+line), and, in `pairing.json` at `source_line` 0, `approved` or `pending` as an object and
+`approved.<channel>` as an array. An absent, null or empty one gives no row.
+
 #### Fixtures
 
 Fixture, file `.nanobot/sessions/0123456789abcdef0123456789abcdef/dGVsZWdyYW06MTIzNDU2Nzg5.jsonl`,

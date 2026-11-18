@@ -132,7 +132,7 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parser.Options, em
 		if chat := record.Get("chat_id"); chat.IsString() && chat.StringValue() != "" {
 			sessionID = webuiPrefix + chat.StringValue()
 		}
-		for _, each := range webuiEvents(record, options) {
+		for _, each := range webuiEvents(record, line, options, &state.problems) {
 			row := p.BaseRow(artifact)
 			row.SourceLine = line
 			row.SessionID = sessionID
@@ -154,8 +154,9 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parser.Options, em
 // without them, reasoning, else assistant text), the end of a stream unless
 // it merges into the next, the end of reasoning, finished file edits, a fork
 // marker and a context compaction. The silent events give nothing and any
-// other a `webui event:` row.
-func webuiEvents(record jsonvalue.Value, options parser.Options) []event {
+// other a `webui event:` row. A tool_events or edits that is not an array
+// adds a problem at line.
+func webuiEvents(record jsonvalue.Value, line int, options parser.Options, problems *parser.Problems) []event {
 	name := record.Get("event")
 	text := ""
 	if value := record.Get("text"); value.IsString() {
@@ -171,7 +172,7 @@ func webuiEvents(record jsonvalue.Value, options parser.Options) []event {
 	case "user":
 		return only(timeline.TurnUser, userText(record, text))
 	case "message":
-		return messageEvents(record, text, options)
+		return messageEvents(record, text, options, line, problems)
 	case "stream_end":
 		if text != "" && record.Get("merge_next").IsEmpty() {
 			return only(timeline.TurnAssistant, text)
@@ -183,7 +184,7 @@ func webuiEvents(record jsonvalue.Value, options parser.Options) []event {
 		}
 		return nil
 	case "file_edit":
-		return fileEdits(record)
+		return fileEdits(record, line, problems)
 	case "fork_marker":
 		return only(timeline.TurnSystem, "webui fork marker: the fork starts here")
 	case "context_compaction":
@@ -208,9 +209,10 @@ func userText(record jsonvalue.Value, text string) string {
 
 // messageEvents returns the rows of a message record: its tool events,
 // then its text by kind.
-func messageEvents(record jsonvalue.Value, text string, options parser.Options) []event {
+func messageEvents(record jsonvalue.Value, text string, options parser.Options, line int,
+	problems *parser.Problems) []event {
 	var toolEvents []jsonvalue.Value
-	for _, entry := range parser.Elements(record.Get("tool_events")) {
+	for _, entry := range parser.ArrayMember(record.Get("tool_events"), "tool_events", line, problems) {
 		if entry.IsObject() {
 			toolEvents = append(toolEvents, entry)
 		}
@@ -235,9 +237,9 @@ func messageEvents(record jsonvalue.Value, text string, options parser.Options) 
 
 // fileEdits returns a `file edit:` row per edit of a file_edit record that
 // is past its start.
-func fileEdits(record jsonvalue.Value) []event {
+func fileEdits(record jsonvalue.Value, line int, problems *parser.Problems) []event {
 	var events []event
-	for _, entry := range parser.Elements(record.Get("edits")) {
+	for _, entry := range parser.ArrayMember(record.Get("edits"), "edits", line, problems) {
 		if !entry.IsObject() || parser.IsText(entry.Get("phase"), "start") {
 			continue
 		}

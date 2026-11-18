@@ -38,6 +38,7 @@ type session struct {
 	// of the last `/model <name>` command.
 	preset, requested string
 	models            parser.Tracker
+	problems          *parser.Problems
 }
 
 // row emits a row of the session at the time of the last dated record,
@@ -59,12 +60,13 @@ func (s *session) row(line int, turnType, text, toolName, toolUseID string) {
 // sessionRows emits the rows of one session from its records, the metadata
 // record first, then the messages, as a session JSONL holds them and as the
 // database's rows are rebuilt. It returns the session id: the metadata's
-// key when there is one, else sessionID.
+// key when there is one, else sessionID. A member of the wrong kind adds a
+// problem to problems.
 func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, sessionID,
-	project string, records []numbered, emit parser.Emit) string {
+	project string, records []numbered, emit parser.Emit, problems *parser.Problems) string {
 	state := &session{Parser: p, artifact: artifact, options: options, emit: emit,
 		sessionID: sessionID, project: project, models: parser.Tracker{},
-		switched: p.hasSwitch(records)}
+		switched: p.hasSwitch(records), problems: problems}
 	for _, each := range records {
 		record := each.record
 		recordType, typed := record.Lookup("_type")
@@ -163,7 +165,8 @@ func (s *session) message(line int, record jsonvalue.Value) {
 }
 
 // assistant emits the rows of an assistant message: its reasoning, its
-// text, the `model:` row of a `/model` switch reply, and its tool calls.
+// text, the `model:` row of a `/model` switch reply, and its tool calls; a
+// tool_calls that is not an array adds a problem.
 func (s *session) assistant(line int, record jsonvalue.Value, text string) {
 	if reasoning := record.Get("reasoning_content"); s.options.IncludeThinking &&
 		reasoning.IsString() && reasoning.StringValue() != "" {
@@ -177,7 +180,7 @@ func (s *session) assistant(line int, record jsonvalue.Value, text string) {
 			s.switchRow(line, text, match[1])
 		}
 	}
-	for _, call := range parser.Elements(record.Get("tool_calls")) {
+	for _, call := range parser.ArrayMember(record.Get("tool_calls"), "tool_calls", line, s.problems) {
 		if !call.IsObject() {
 			continue
 		}
