@@ -16,8 +16,10 @@ import (
 	"testing/iotest"
 )
 
-// frameCase is one line of testdata/frames.txt: a frame the Python zstandard
-// package wrote, and the hash and size of what it decodes to.
+// frameCase is one line of testdata/frames.txt: a frame under
+// testdata/frames, and the hash and size of what it decodes to. The frames
+// and the table are built by testdata/gen_frames.py with the reference zstd
+// encoder.
 type frameCase struct {
 	name   string
 	digest string
@@ -54,7 +56,7 @@ func digestOf(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func TestDecodeAllMatchesWhatPythonCompressed(t *testing.T) {
+func TestDecodeAllGivesWhatWasCompressed(t *testing.T) {
 	for _, test := range loadFrames(t) {
 		if test.name == "too-wide-window" {
 			continue
