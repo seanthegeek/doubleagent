@@ -124,7 +124,7 @@ func TestURIPathWritesDrivePathsWithBackslashes(t *testing.T) {
 	}
 }
 
-func FuzzLenientBase64(fuzz *testing.F) {
+func FuzzKeyNamesURLsAndTimeTags(fuzz *testing.F) {
 	fuzz.Add("W3Nydjo6eF0gbWNwX3NlcnZlcl91cmw")
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		_, _, _ = mcpKeyName("p."+text, "p.")
