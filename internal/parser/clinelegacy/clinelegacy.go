@@ -133,9 +133,6 @@ type TaskParser struct {
 	projectKey  string
 	family      Family
 	cache       map[cacheKey]*cachedFile
-	// indexed counts the list items CachedEntry has read, the work a test
-	// holds to one pass per file.
-	indexed int
 }
 
 // NewTaskParser returns the reader of the task files under the storage
@@ -200,7 +197,7 @@ func (p *TaskParser) CachedEntry(path, member, entryID string) jsonvalue.Value {
 		}
 		entries = map[string]jsonvalue.Value{}
 		for _, item := range list.Items() {
-			p.indexed++
+			p.Work.Add("index items read", 1)
 			if _, seen := entries[item.Get("id").Text()]; item.IsObject() && !seen {
 				entries[item.Get("id").Text()] = item
 			}
@@ -220,7 +217,9 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	item := p.family.HistoryItem(task)
 	var ignored parser.Problems
 	metadata, _ := parser.LoadJSON(task.InDir(MetadataFile), &ignored)
-	return newTaskContext(task.TaskID, item, metadata, p.projectKey)
+	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
+	context.work = p.Work
+	return context
 }
 
 // ParseTaskFile emits the rows of one task file: the API history only

@@ -272,7 +272,7 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 func (s *rollout) message(payload jsonvalue.Value) {
 	role := payload.Get("role")
 	if parser.IsText(role, "user") {
-		for _, part := range userParts(payload) {
+		for _, part := range userParts(payload, s.parser.Work) {
 			if part.kind == "" {
 				s.prompt(part.text)
 			} else {
@@ -367,7 +367,7 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 func (s *rollout) guardianLogs(home string) [][]guardianLog {
 	if !s.guardianRead {
 		s.guardian, s.guardianRead = guardianLogs(home, s.guardianParent), true
-		s.parser.guardianReads++
+		s.parser.Work.Add("guardian log reads", 1)
 	}
 	return s.guardian
 }

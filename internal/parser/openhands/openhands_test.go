@@ -253,6 +253,7 @@ func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
 			}
 			home := writeTree(t, t.TempDir(), files)
 			subject := New()
+			subject.Work = parser.CountingWork()
 			var texts []string
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
@@ -265,8 +266,8 @@ func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
 			if len(texts) != 1 || texts[0] != want {
 				t.Errorf("rows %q, want one %q", texts, want)
 			}
-			if subject.legacyListings > 2 {
-				t.Errorf("the events directory was listed %d times, want at most twice", subject.legacyListings)
+			if listings := subject.Work.Count("legacy listings"); listings > 2 {
+				t.Errorf("the events directory was listed %d times, want at most twice", listings)
 			}
 		})
 	}

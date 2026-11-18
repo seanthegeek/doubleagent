@@ -51,7 +51,7 @@ func (p *Parser) cnLog(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	var rows []timeline.Row
 	var posts []*post
-	pending := newPendingPosts()
+	pending := newPendingPosts(p.Work)
 	for line, raw := range parser.Lines(artifact.DiskPath, &problems) {
 		match := logLine.FindStringSubmatch(parser.LineText(raw))
 		if match == nil {
@@ -95,16 +95,17 @@ type postKey struct {
 
 // pendingPosts holds the posts that wait for their result line, oldest
 // first per process and URL, so a result finds its post without a scan of
-// the others. examined counts the posts a result was given to, at most one
-// per result line, which a test reads.
+// the others. work counts the posts a result was given to, at most one per
+// result line, which a test reads.
 type pendingPosts struct {
-	queues   map[postKey][]*post
-	examined int
+	queues map[postKey][]*post
+	work   parser.Work
 }
 
-// newPendingPosts returns an empty set of pending posts.
-func newPendingPosts() *pendingPosts {
-	return &pendingPosts{queues: map[postKey][]*post{}}
+// newPendingPosts returns an empty set of pending posts that counts its
+// work in work.
+func newPendingPosts(work parser.Work) *pendingPosts {
+	return &pendingPosts{queues: map[postKey][]*post{}, work: work}
 }
 
 // add puts a post at the end of its process and URL's queue.
@@ -121,7 +122,7 @@ func (q *pendingPosts) settle(processID, url, status string) {
 	if len(queue) == 0 {
 		return
 	}
-	q.examined++
+	q.work.Add("posts settled", 1)
 	queue[0].status = status
 	if len(queue) == 1 {
 		delete(q.queues, key)

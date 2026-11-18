@@ -11,6 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 )
 
@@ -165,14 +166,14 @@ func TestTheOutputLogCountsEachByteOnceForItsLineNumbers(t *testing.T) {
 	for _, writes := range []int{1000, 2000, 4000} {
 		t.Run(strconv.Itoa(writes)+" writes", func(t *testing.T) {
 			text := strings.Repeat(separator+"Completion:\nok\n", writes)
-			lines := &lineCounter{text: text, line: 1}
+			lines := &lineCounter{text: text, line: 1, work: parser.CountingWork()}
 			for i, location := range logSeparator.FindAllStringIndex(text, -1) {
 				if line, want := lines.lineAt(location[1]), 4*i+3; line != want {
 					t.Fatalf("write %d at line %d, want %d", i+1, line, want)
 				}
 			}
-			if lines.scanned > len(text) {
-				t.Errorf("%d bytes counted in a text of %d", lines.scanned, len(text))
+			if counted := lines.work.Count("bytes counted"); counted == 0 || counted > len(text) {
+				t.Errorf("%d bytes counted in a text of %d", counted, len(text))
 			}
 		})
 	}
@@ -209,15 +210,16 @@ func TestALookupOfAnAskTimeIsABinarySearch(t *testing.T) {
 	}
 	for _, count := range []int{1024, 2048, 4096} {
 		t.Run(strconv.Itoa(count)+" asks", func(t *testing.T) {
-			many := &askIndex{}
+			many := &askIndex{work: parser.CountingWork()}
 			for i := range count {
 				many.times = append(many.times, jsonvalue.NewInt(int64(i)))
 			}
 			for i := range count {
 				many.lastBefore(jsonvalue.NewInt(int64(i)))
 			}
-			if limit := count * (bits.Len(uint(count)) + 1); many.probes > limit {
-				t.Errorf("%d asks compared over %d lookups, want at most %d", many.probes, count, limit)
+			compared, limit := many.work.Count("asks compared"), count*(bits.Len(uint(count))+1)
+			if compared == 0 || compared > limit {
+				t.Errorf("%d asks compared over %d lookups, want at most %d", compared, count, limit)
 			}
 		})
 	}
@@ -238,6 +240,7 @@ func TestATaskFindsItsHistoryEntryThroughOneIndexOfTheState(t *testing.T) {
 		t.Fatal(err)
 	}
 	subject := New()
+	subject.Work = parser.CountingWork()
 	task := func(taskID string) clinelegacy.Task {
 		rel := "User/globalStorage/pearai.pearai-roo-cline/tasks/" + taskID + "/ui_messages.json"
 		return clinelegacy.TaskOf(&input.Artifact{Rel: rel, DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
@@ -258,7 +261,7 @@ func TestATaskFindsItsHistoryEntryThroughOneIndexOfTheState(t *testing.T) {
 	for i := range 200 {
 		subject.HistoryItem(task("t" + strconv.Itoa(i)))
 	}
-	if subject.historyExamined != 202 {
-		t.Errorf("%d history entries examined for 203 tasks, want the 202 entries once", subject.historyExamined)
+	if read := subject.Work.Count("history entries read"); read != 202 {
+		t.Errorf("%d history entries examined for 203 tasks, want the 202 entries once", read)
 	}
 }

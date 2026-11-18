@@ -175,15 +175,16 @@ func TestAChatRunIsReadInOneTestForTextPerLine(t *testing.T) {
 		t.Run(fmt.Sprintf("%d blank lines", blanks), func(t *testing.T) {
 			var rows []timeline.Row
 			reader := &chatReader{parser: New(), artifact: &input.Artifact{Original: "/p/" + chatName},
-				emit: func(row timeline.Row) { rows = append(rows, row) }, models: map[string]string{}}
+				emit: func(row timeline.Row) { rows = append(rows, row) }, models: map[string]string{},
+				work: parser.CountingWork()}
 			reader.line(1, "# aider chat started at 2025-01-01 10:00:00")
 			for number := 2; number <= blanks+1; number++ {
 				reader.line(number, "")
 			}
 			reader.line(blanks+2, "the reply")
 			reader.flush()
-			if reader.textChecks != blanks+1 {
-				t.Errorf("%d tests for text over %d lines, want one per line", reader.textChecks, blanks+1)
+			if checks := reader.work.Count("text checks"); checks != blanks+1 {
+				t.Errorf("%d tests for text over %d lines, want one per line", checks, blanks+1)
 			}
 			if last := rows[len(rows)-1]; last.Text != "the reply" || last.SourceLine != blanks+2 {
 				t.Errorf("last row %q at line %d, want the reply at line %d", last.Text, last.SourceLine, blanks+2)
@@ -312,13 +313,15 @@ func TestAPromptSearchGrowsWithTheLogarithmOfTheEntries(t *testing.T) {
 			for i := range inputs {
 				inputs[i] = InputEntry{Timestamp: "2025-01-01 10:30:00", Text: "prompt " + strconv.Itoa(i%2)}
 			}
-			reader := &chatReader{inputs: inputs, header: "2025-01-01 10:00:00", nextHeader: "2025-01-01 11:00:00"}
+			reader := &chatReader{inputs: inputs, header: "2025-01-01 10:00:00", nextHeader: "2025-01-01 11:00:00",
+				work: parser.CountingWork()}
 			for range count {
 				reader.matchInput("a prompt no entry holds")
 				reader.matchInput("prompt 0")
 			}
-			if limit := 2 * count * 4 * (bits.Len(uint(count)) + 1); reader.inputIndex.steps > limit {
-				t.Errorf("%d steps for %d searches, want at most %d", reader.inputIndex.steps, 2*count, limit)
+			steps, limit := reader.work.Count("search steps"), 2*count*4*(bits.Len(uint(count))+1)
+			if steps == 0 || steps > limit {
+				t.Errorf("%d steps for %d searches, want at most %d", steps, 2*count, limit)
 			}
 		})
 	}

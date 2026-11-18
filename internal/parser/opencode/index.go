@@ -17,8 +17,6 @@ type treeIndex struct {
 	// sessions holds each session file looked up, decoded, null when none
 	// decodes.
 	sessions map[sessionKey]jsonvalue.Value
-	// listings counts the directories listed, the work a test measures.
-	listings int
 }
 
 // sessionKey names a session looked up under one session directory.
@@ -34,10 +32,10 @@ func newTreeIndex() *treeIndex {
 
 // messageNames returns the sorted JSON file names of a message directory,
 // listed on first use.
-func (x *treeIndex) messageNames(directory string) []string {
+func (x *treeIndex) messageNames(directory string, work parser.Work) []string {
 	names, ok := x.messages[directory]
 	if !ok {
-		x.listings++
+		work.Add("directory listings", 1)
 		if listed, found := parser.DirectoryAt(directory); found {
 			names = children(listed)
 		}
@@ -49,14 +47,14 @@ func (x *treeIndex) messageNames(directory string) []string {
 // session returns the session file <project>/<id>.json under the session
 // directory, from the first project directory in name order where it is a
 // regular file that decodes, or null; it is looked up on first use.
-func (x *treeIndex) session(directory, sessionID string) jsonvalue.Value {
+func (x *treeIndex) session(directory, sessionID string, work parser.Work) jsonvalue.Value {
 	key := sessionKey{directory: directory, sessionID: sessionID}
 	if found, ok := x.sessions[key]; ok {
 		return found
 	}
 	projects, ok := x.projects[directory]
 	if !ok {
-		x.listings++
+		work.Add("directory listings", 1)
 		projects = subdirectories(directory)
 		x.projects[directory] = projects
 	}

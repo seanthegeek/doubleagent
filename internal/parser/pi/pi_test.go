@@ -319,7 +319,7 @@ func TestFirstSeenKeepsDistinctTextsInOrderAtOneLookupEach(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			seen := newFirstSeen()
+			seen := newFirstSeen(parser.CountingWork())
 			for _, text := range test.texts {
 				seen.add(text)
 			}
@@ -330,12 +330,13 @@ func TestFirstSeenKeepsDistinctTextsInOrderAtOneLookupEach(t *testing.T) {
 	}
 	for _, count := range []int{1000, 2000, 4000} {
 		t.Run(strconv.Itoa(count)+" distinct texts", func(t *testing.T) {
-			seen := newFirstSeen()
+			seen := newFirstSeen(parser.CountingWork())
 			for i := range count {
 				seen.add("lc-" + strconv.Itoa(i))
 			}
-			if seen.lookups != count || len(seen.order) != count {
-				t.Errorf("%d lookups for %d texts (%d kept), want one each", seen.lookups, count, len(seen.order))
+			if seen.work.Count("lookups") != count || len(seen.order) != count {
+				t.Errorf("%d lookups for %d texts (%d kept), want one each", seen.work.Count("lookups"), count,
+					len(seen.order))
 			}
 		})
 	}

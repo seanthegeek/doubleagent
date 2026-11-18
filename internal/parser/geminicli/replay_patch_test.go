@@ -112,7 +112,7 @@ func TestPatchesChangeTheMessageAsCopyingItEachTimeWould(t *testing.T) {
 	for seed := range uint64(300) {
 		t.Run("patches from seed "+strconv.FormatUint(seed, 10), func(t *testing.T) {
 			source := rand.New(rand.NewPCG(seed, 527))
-			state := newReplay()
+			state := newReplay(parser.Work{})
 			want := jsonvalue.NewNull()
 			for line := 1; line <= 40; line++ {
 				if line == 1 || source.IntN(10) == 0 {
@@ -135,7 +135,7 @@ func TestPatchesChangeTheMessageAsCopyingItEachTimeWould(t *testing.T) {
 
 func TestARecordedMessageIsNotChangedByAPatch(t *testing.T) {
 	recorded := decoded(t, `{"id":"m","type":"gemini","content":"x","toolCalls":[{"id":"a"}]}`)
-	state := newReplay()
+	state := newReplay(parser.Work{})
 	state.apply(1, recorded)
 	state.apply(2, decoded(t, `{"$patch":{"id":"m","content":"y","toolCalls":[{"id":"a","result":"r"}]}}`))
 	if recorded.JSON() != `{"id":"m","type":"gemini","content":"x","toolCalls":[{"id":"a"}]}` {
@@ -166,13 +166,13 @@ func TestEachPatchResultLooksAtOneCall(t *testing.T) {
 			for i := range calls {
 				calls[i] = `{"id":` + test.call(i) + `}`
 			}
-			state := newReplay()
+			state := newReplay(parser.CountingWork())
 			state.apply(1, decoded(t, `{"id":"m","type":"gemini","toolCalls":[`+strings.Join(calls, ",")+`]}`))
 			for i := range size {
 				state.patch(i+2, decoded(t, `{"id":"m","toolCalls":[{"id":`+test.result(size-1-i)+`,"result":"r"}]}`))
 			}
-			if state.compared != size {
-				t.Errorf("%d calls looked at for %d patch results, want one each", state.compared, size)
+			if looked := state.work.Count("tool call lookups"); looked != size {
+				t.Errorf("%d calls looked up for %d patch results, want one each", looked, size)
 			}
 			for i, call := range state.messages.byID["m"].message.Get("toolCalls").Items() {
 				if call.Get("result").StringValue() != "r" {

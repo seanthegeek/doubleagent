@@ -245,6 +245,7 @@ func TestALegacySessionsDirectoriesAreListedOncePerRun(t *testing.T) {
 		t.Run(fmt.Sprintf("a session of %d messages lists two directories", count), func(t *testing.T) {
 			artifacts := legacySession(t, count)
 			shared := New()
+			shared.Work = parser.CountingWork()
 			for _, artifact := range artifacts {
 				var got, want []timeline.Row
 				if err := shared.Parse(artifact, parser.Options{}, func(row timeline.Row) {
@@ -264,9 +265,8 @@ func TestALegacySessionsDirectoriesAreListedOncePerRun(t *testing.T) {
 					t.Fatalf("%s: got %+v, want rows in the session file's directory", artifact.Rel, got)
 				}
 			}
-			if shared.tree.listings != 2 {
-				t.Errorf("%d directory listings, want 2 (the message and the session directory)",
-					shared.tree.listings)
+			if listings := shared.Work.Count("directory listings"); listings != 2 {
+				t.Errorf("%d directory listings, want 2 (the message and the session directory)", listings)
 			}
 		})
 	}

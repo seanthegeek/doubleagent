@@ -8,18 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// countingJoin returns strings.Join counting its calls and the bytes it
-// writes: work that grows with the square of the input when a text is
-// rebuilt per piece, and that equals the output when each is joined once.
-func countingJoin(calls, written *int) func(pieces []string, separator string) string {
-	return func(pieces []string, separator string) string {
-		joined := strings.Join(pieces, separator)
-		*calls++
-		*written += len(joined)
-		return joined
-	}
-}
-
 func TestShellHistoryJoinsContinuedLines(t *testing.T) {
 	tests := []struct {
 		name string
@@ -37,7 +25,7 @@ func TestShellHistoryJoinsContinuedLines(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			got := shellHistoryEntries([]byte(test.data), &problems)
+			got := shellHistoryEntries([]byte(test.data), &problems, parser.Work{})
 			if !slices.Equal(got, test.want) || len(problems) != 0 {
 				t.Errorf("got %+v and %v, want %+v", got, problems, test.want)
 			}
@@ -47,10 +35,10 @@ func TestShellHistoryJoinsContinuedLines(t *testing.T) {
 
 func TestAShellHistoryOfContinuedLinesIsJoinedOnce(t *testing.T) {
 	const lines = 4000
-	calls, written := 0, 0
+	work := parser.CountingWork()
 	var problems parser.Problems
-	got := shellHistoryJoined([]byte(strings.Repeat("abcdefgh\\\n", lines)+"end"), &problems,
-		countingJoin(&calls, &written))
+	got := shellHistoryEntries([]byte(strings.Repeat("abcdefgh\\\n", lines)+"end"), &problems, work)
+	calls, written := work.Count("joins"), work.Count("bytes joined")
 	if len(got) != 1 || calls != 1 || written != len(got[0].command) || written != lines*9+3 {
 		t.Errorf("%d commands, %d joins writing %d bytes; want one join of %d bytes", len(got), calls,
 			written, lines*9+3)
@@ -63,8 +51,9 @@ func TestAMessageOfManyTextPartsIsJoinedOnce(t *testing.T) {
 	for i := range pieces {
 		pieces[i] = run{"", "abcdefgh"}
 	}
-	calls, written := 0, 0
-	got := joinRuns(pieces, countingJoin(&calls, &written))
+	work := parser.CountingWork()
+	got := joinRuns(pieces, work)
+	calls, written := work.Count("joins"), work.Count("bytes joined")
 	if len(got) != 1 || calls != 1 || written != parts*9-1 {
 		t.Errorf("%d runs, %d joins writing %d bytes; want one join of %d bytes", len(got), calls, written,
 			parts*9-1)
@@ -88,7 +77,7 @@ func TestJoinRunsMergesNeighboursOfOneKind(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := joinRuns(test.pieces, strings.Join); !slices.Equal(got, test.want) {
+			if got := joinRuns(test.pieces, parser.Work{}); !slices.Equal(got, test.want) {
 				t.Errorf("got %+v, want %+v", got, test.want)
 			}
 		})

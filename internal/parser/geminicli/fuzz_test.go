@@ -21,7 +21,7 @@ func FuzzSessionReplay(fuzz *testing.F) {
 		fuzz.Add(seed, true)
 	}
 	fuzz.Fuzz(func(t *testing.T, text string, thinking bool) {
-		state := newReplay()
+		state := newReplay(parser.Work{})
 		var problems parser.Problems
 		for line, record := range parser.JSONRecords(parser.SplitLines([]byte(text)), &problems) {
 			state.apply(line, record)
@@ -47,7 +47,7 @@ func FuzzShellHistoryAndTags(fuzz *testing.F) {
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		var problems parser.Problems
-		for _, entry := range shellHistoryEntries([]byte(text), &problems) {
+		for _, entry := range shellHistoryEntries([]byte(text), &problems, parser.Work{}) {
 			if entry.line < 1 {
 				t.Errorf("command %q at line %d", entry.command, entry.line)
 			}

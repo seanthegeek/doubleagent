@@ -66,10 +66,8 @@ type Parser struct {
 	sessionsKey, messagesKey, sessionID, savedAt *regexp.Regexp
 	// firstCheckpoint is the first file by name of each checkpoint
 	// directory listed, so its other files are passed over without a
-	// listing of their own; checkpointListings counts the listings, a
-	// measure of the work that a test reads.
-	firstCheckpoint    map[checkpointKey]string
-	checkpointListings int
+	// listing of their own.
+	firstCheckpoint map[checkpointKey]string
 }
 
 // checkpointKey names a checkpoint directory: the home's path on disk and

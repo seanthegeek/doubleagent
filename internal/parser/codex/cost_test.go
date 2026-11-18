@@ -40,7 +40,7 @@ func TestUserPartsJoinNeighbouringBlocksOfOneKind(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := userParts(textBlocks(test.texts...)); !slices.Equal(got, test.want) {
+			if got := userParts(textBlocks(test.texts...), parser.Work{}); !slices.Equal(got, test.want) {
 				t.Errorf("got %+v, want %+v", got, test.want)
 			}
 		})
@@ -53,12 +53,9 @@ func TestAUserMessageOfManyBlocksIsJoinedOnce(t *testing.T) {
 	for i := range blocks {
 		blocks[i] = userPart{text: "abcdefgh"}
 	}
-	calls, written := 0, 0
-	got := joinParts(blocks, func(texts []string, separator string) string {
-		joined := strings.Join(texts, separator)
-		calls, written = calls+1, written+len(joined)
-		return joined
-	})
+	work := parser.CountingWork()
+	got := joinParts(blocks, work)
+	calls, written := work.Count("joins"), work.Count("bytes joined")
 	if len(got) != 1 || calls != 1 || written != size*9-1 {
 		t.Errorf("%d parts, %d joins writing %d bytes; want one join of %d bytes", len(got), calls, written,
 			size*9-1)
@@ -84,6 +81,7 @@ func TestAGuardianRolloutReadsTheLogDatabasesOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	subject := New()
+	subject.Work = parser.CountingWork()
 	decisions := 0
 	artifact := &input.Artifact{Rel: rel, DiskPath: path, Home: &input.Home{DiskPath: home}}
 	subject.parseRollout(artifact, parser.Options{}, func(row timeline.Row) {
@@ -91,8 +89,8 @@ func TestAGuardianRolloutReadsTheLogDatabasesOnce(t *testing.T) {
 			decisions++
 		}
 	})
-	if decisions != completions || subject.guardianReads != 1 {
-		t.Errorf("%d decisions and %d reads of the logs, want %d and 1", decisions, subject.guardianReads,
+	if reads := subject.Work.Count("guardian log reads"); decisions != completions || reads != 1 {
+		t.Errorf("%d decisions and %d reads of the logs, want %d and 1", decisions, reads,
 			completions)
 	}
 }

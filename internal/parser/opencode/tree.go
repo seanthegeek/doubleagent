@@ -124,7 +124,7 @@ func (p *Parser) sessionScope(root string, sessionID string, old bool, message j
 	if old {
 		session, _ = quietObject(childPath(root, "info", sessionID+".json"))
 	} else if directory, ok := childPath(root, "session"); ok {
-		session = p.tree.session(directory, sessionID)
+		session = p.tree.session(directory, sessionID, p.Work)
 	}
 	projectPath := parser.Text(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
@@ -253,7 +253,7 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 // directory, decoded: one file holds one message, and message ids sort in
 // time order, so the model and agent in force come from it.
 func (p *Parser) previousMessage(directory, name string) (jsonvalue.Value, bool) {
-	siblings := p.tree.messageNames(directory)
+	siblings := p.tree.messageNames(directory, p.Work)
 	position, found := slices.BinarySearch(siblings, name)
 	if !found || position == 0 {
 		return jsonvalue.NewNull(), false

@@ -140,13 +140,16 @@ func TestPairingCostsALogarithmPerRequest(t *testing.T) {
 		execs[i] = logRecord{rowid: i + 1, timestamp: sqlitefile.IntValue(int64(10 * i))}
 	}
 	pairs := newExecPairs(execs)
+	pairs.work = parser.CountingWork()
 	for i := range size {
 		pairs.take(sqlitefile.IntValue(int64(10*(size-i) + 1000000)))
 	}
 	// Per request and group: two binary searches of at most bits.Len(size)
 	// comparisons each, and a tree query reading at most two cells a level.
 	depth := bits.Len(size)
-	if limit := size * 2 * (2*depth + 2*(depth+1)); pairs.steps > limit {
-		t.Errorf("%d steps for %d requests over %d exec rows, over the bound %d", pairs.steps, size, size, limit)
+	steps, limit := pairs.work.Count("pairing steps"), size*2*(2*depth+2*(depth+1))
+	if steps == 0 || steps > limit {
+		t.Errorf("%d steps for %d requests over %d exec rows, over the bound %d", steps, size, size,
+			limit)
 	}
 }

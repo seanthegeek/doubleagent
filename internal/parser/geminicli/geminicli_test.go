@@ -201,6 +201,7 @@ func TestProjectsJSONIsReadOncePerStateOfTheFile(t *testing.T) {
 	write(t, projects, `{"projects": {"/srv/a": "a", "/srv/b": "b"}}`)
 	locate := func(names ...string) string { return filepath.Join(append([]string{base}, names...)...) }
 	subject := New()
+	subject.Work = parser.CountingWork()
 	var problems parser.Problems
 	for i := range lookups {
 		slug, want := "a", "/srv/a"
@@ -211,15 +212,15 @@ func TestProjectsJSONIsReadOncePerStateOfTheFile(t *testing.T) {
 			t.Fatalf("lookup %d gave %q, want %q", i, got, want)
 		}
 	}
-	if subject.projectsRead != 1 {
-		t.Errorf("projects.json decoded %d times for %d lookups, want once", subject.projectsRead, lookups)
+	if reads := subject.Work.Count("projects.json reads"); reads != 1 {
+		t.Errorf("projects.json decoded %d times for %d lookups, want once", reads, lookups)
 	}
 	write(t, projects, `{"projects": {"/srv/a2": "a", "/srv/b": "b"}}`)
 	if got := subject.resolveProject(locate, "a", "", &problems); got != "/srv/a2" {
 		t.Errorf("a changed file gave %q, want the new key", got)
 	}
-	if subject.projectsRead != 2 || len(problems) != 0 {
-		t.Errorf("%d reads and problems %+v after a change, want 2 and none", subject.projectsRead, problems)
+	if reads := subject.Work.Count("projects.json reads"); reads != 2 || len(problems) != 0 {
+		t.Errorf("%d reads and problems %+v after a change, want 2 and none", reads, problems)
 	}
 }
 

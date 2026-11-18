@@ -77,10 +77,6 @@ type Parser struct {
 	*clinelegacy.TaskParser
 	indexes *continuedev.Indexes
 	states  map[stateKey]globalState
-	// historyExamined counts the taskHistory[] entries read into the
-	// indexes, which a test reads: once per entry of a state, however many
-	// tasks look themselves up.
-	historyExamined int
 }
 
 // New returns the parser.
@@ -152,7 +148,7 @@ func (p *Parser) globalState(path string) globalState {
 func (p *Parser) historyIndex(state jsonvalue.Value) map[string]jsonvalue.Value {
 	index := map[string]jsonvalue.Value{}
 	for _, entry := range state.Get("taskHistory").Items() {
-		p.historyExamined++
+		p.Work.Add("history entries read", 1)
 		if !entry.IsObject() {
 			continue
 		}

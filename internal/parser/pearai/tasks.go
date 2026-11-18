@@ -51,11 +51,11 @@ func (p *Parser) taskFile(artifact *input.Artifact, options parser.Options, emit
 }
 
 // askIndex is the ts of each tool call ask of ui_messages.json, in time
-// order, which a decision's tool_use_id names. probes counts the asks a
-// lookup compared, a measure of the work that a test reads.
+// order, which a decision's tool_use_id names. work counts the asks a
+// lookup compared, which a test reads.
 type askIndex struct {
-	times  []jsonvalue.Value
-	probes int
+	times []jsonvalue.Value
+	work  parser.Work
 }
 
 // askTimes returns the asks of the task's ui_messages.json.
@@ -71,7 +71,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) *askIndex {
 	slices.SortStableFunc(asks, func(left, right jsonvalue.Value) int {
 		return cmp.Compare(clinelegacy.OrderOf(left), clinelegacy.OrderOf(right))
 	})
-	return &askIndex{times: asks}
+	return &askIndex{times: asks, work: p.Work}
 }
 
 // apiPermissionRows emits a "permission decision:" row per result of the
@@ -121,7 +121,7 @@ func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
 		return ""
 	}
 	after := sort.Search(len(x.times), func(i int) bool {
-		x.probes++
+		x.work.Add("asks compared", 1)
 		return clinelegacy.OrderOf(x.times[i]) > moment
 	})
 	if after == 0 {

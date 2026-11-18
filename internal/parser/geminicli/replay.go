@@ -41,13 +41,13 @@ type messageLog struct {
 	byID   map[string]*stored
 	placed []placement
 	next   int
-	// visited counts the placements read, the work a test holds to linear.
-	visited int
+	// work counts the placements read, which a test holds to linear.
+	work parser.Work
 }
 
-// newMessageLog returns an empty log.
-func newMessageLog() messageLog {
-	return messageLog{byID: map[string]*stored{}}
+// newMessageLog returns an empty log that counts its work in work.
+func newMessageLog(work parser.Work) messageLog {
+	return messageLog{byID: map[string]*stored{}, work: work}
 }
 
 // place gives a message the next place, at the end of the order.
@@ -101,7 +101,7 @@ func (m *messageLog) dropFrom(target string) int {
 	}
 	removed := 0
 	for _, each := range m.placed[cut:] {
-		m.visited++
+		m.work.Add("placements read", 1)
 		if m.live(each) {
 			delete(m.byID, each.messageID)
 			removed++
@@ -125,7 +125,7 @@ func (m *messageLog) moveToEnd(ids []string) {
 func (m *messageLog) order() []string {
 	ids := make([]string, 0, len(m.byID))
 	for _, each := range m.placed {
-		m.visited++
+		m.work.Add("placements read", 1)
 		if m.live(each) {
 			ids = append(ids, each.messageID)
 		}
@@ -149,14 +149,14 @@ type replay struct {
 	sessionID      string
 	latest         string
 	projectHash    jsonvalue.Value
-	// compared counts the tool calls looked at for a patch's results, the
-	// work a test holds to the size of the patches.
-	compared int
+	// work counts the tool call lookups of patches and the placements read,
+	// which a test holds to the size of the patches and to linear.
+	work parser.Work
 }
 
-// newReplay returns an empty replay.
-func newReplay() *replay {
-	return &replay{messages: newMessageLog()}
+// newReplay returns an empty replay that counts its work in work.
+func newReplay(work parser.Work) *replay {
+	return &replay{messages: newMessageLog(work), work: work}
 }
 
 // seen keeps the latest of the times seen so far.
@@ -282,7 +282,7 @@ func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonval
 // patchedCall returns the first tool call of a patched message whose id
 // equals callID, found by the key of the id.
 func (r *replay) patchedCall(entry *stored, callID jsonvalue.Value) (jsonvalue.Value, bool) {
-	r.compared++
+	r.work.Add("tool call lookups", 1)
 	call, ok := entry.calls[parser.ValueKey(callID)]
 	return call, ok
 }
@@ -294,7 +294,7 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 		r.sessionID = named.StringValue()
 	}
 	if messages := changes.Get("messages"); messages.IsArray() {
-		r.messages = newMessageLog()
+		r.messages = newMessageLog(r.work)
 		r.putAll(messages, line)
 	}
 	r.metadata(changes)

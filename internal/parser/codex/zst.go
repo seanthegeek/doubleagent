@@ -66,8 +66,8 @@ type lineSplitter struct {
 	pending  []byte
 	searched int
 	number   int
-	// scanned counts the bytes searched, the work a test holds to linear.
-	scanned int
+	// work counts the bytes searched, which a test holds to linear.
+	work parser.Work
 }
 
 // add appends a chunk and calls line with the number and bytes of each
@@ -77,11 +77,11 @@ func (s *lineSplitter) add(chunk []byte, line func(number int, raw []byte)) {
 	for {
 		end := bytes.IndexByte(s.pending[s.searched:], '\n')
 		if end < 0 {
-			s.scanned += len(s.pending) - s.searched
+			s.work.Add("bytes searched", len(s.pending)-s.searched)
 			s.searched = len(s.pending)
 			return
 		}
-		s.scanned += end + 1
+		s.work.Add("bytes searched", end+1)
 		end += s.searched
 		s.number++
 		line(s.number, s.pending[:end])

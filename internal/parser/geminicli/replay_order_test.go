@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // referenceLog keeps the replay's order as a slice of ids rewritten by
@@ -134,7 +135,7 @@ func TestThePlacesOfTheReplayKeepTheOrderOfTheRewrittenList(t *testing.T) {
 	for seed := range uint64(300) {
 		t.Run("changes from seed "+strconv.FormatUint(seed, 10), func(t *testing.T) {
 			source := rand.New(rand.NewPCG(seed, 527))
-			placed, reference := newMessageLog(), referenceLog{byID: map[string]*stored{}}
+			placed, reference := newMessageLog(parser.Work{}), referenceLog{byID: map[string]*stored{}}
 			for _, change := range randomChanges(source, 200) {
 				session := "s" + strconv.Itoa(change.line%3)
 				var got, want int
@@ -163,7 +164,7 @@ func TestThePlacesOfTheReplayKeepTheOrderOfTheRewrittenList(t *testing.T) {
 
 func TestTheReplaysOrderReadsEachPlacementOnce(t *testing.T) {
 	const size = 2000
-	placed := newMessageLog()
+	placed := newMessageLog(parser.CountingWork())
 	for i := range size {
 		placed.put(message("m"+strconv.Itoa(i), i), i, "s")
 	}
@@ -178,8 +179,8 @@ func TestTheReplaysOrderReadsEachPlacementOnce(t *testing.T) {
 	order := placed.order()
 	// Each rewind reads only its own placement, and the order reads the
 	// size messages' placements and the size moves'.
-	if len(order) != size || order[size-1] != "m0" || placed.visited != 3*size {
-		t.Errorf("%d placements read for %d messages, %d moves and %d rewinds, want %d", placed.visited,
+	if len(order) != size || order[size-1] != "m0" || placed.work.Count("placements read") != 3*size {
+		t.Errorf("%d placements read for %d messages, %d moves and %d rewinds, want %d", placed.work.Count("placements read"),
 			size, size, size, 3*size)
 	}
 }
