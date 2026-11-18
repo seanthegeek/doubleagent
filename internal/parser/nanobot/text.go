@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
@@ -51,6 +52,44 @@ func DecodeStem(stem string) string {
 		return stem
 	}
 	return string(key)
+}
+
+// markerState names a .workspace file as read: its path, modification
+// time in nanoseconds and size.
+type markerState struct {
+	path        string
+	mtime, size int64
+}
+
+// markerText is a .workspace file read once: its text and the problems
+// reading it added.
+type markerText struct {
+	text     string
+	problems parser.Problems
+}
+
+// marker returns readMarker's text of the .workspace file at path, read
+// once per state of the file for the parser's life, since every session
+// of its namespace and every chat of a WebUI file looks it up; the
+// problems of that read are added for each lookup as a fresh read would.
+func (p *Parser) marker(path string, problems *parser.Problems) string {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return ""
+	}
+	key := markerState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	read, ok := p.markers[key]
+	if !ok {
+		p.Work.Add(".workspace reads", 1)
+		read = &markerText{}
+		read.text = readMarker(path, &read.problems)
+		if p.markers == nil {
+			p.markers = map[markerState]*markerText{}
+		}
+		p.markers[key] = read
+	}
+	*problems = append(*problems, read.problems...)
+	return read.text
 }
 
 // readMarker returns the stripped text of a .workspace file, "" when it is

@@ -21,7 +21,7 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 	var problems parser.Problems
 	project := ""
 	if marker, ok := p.namespaceFile(artifact, ".workspace"); ok {
-		project = readMarker(marker, &problems)
+		project = p.marker(marker, &problems)
 	}
 	var records []numbered
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
@@ -54,7 +54,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	var markerProblems parser.Problems
 	project := ""
 	if marker, ok := parser.Beside(artifact, ".workspace"); ok {
-		project = readMarker(marker, &markerProblems)
+		project = p.marker(marker, &markerProblems)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, markerProblems, "", project))
 	store, err := readSessionStore(artifact.DiskPath)

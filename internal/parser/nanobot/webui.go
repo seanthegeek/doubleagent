@@ -80,7 +80,7 @@ func (w *webui) workspace(sessionID string) string {
 			continue
 		}
 		if marker, ok := namespaceMarker(listed, entry.Name(), name); ok {
-			found[readMarker(marker, &w.problems)] = true
+			found[w.marker(marker, &w.problems)] = true
 		}
 	}
 	delete(found, "")

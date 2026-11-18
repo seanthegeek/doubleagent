@@ -79,6 +79,8 @@ type Parser struct {
 	parser.Base
 	files patterns
 	text  textPatterns
+	// markers holds each .workspace file read, by its state.
+	markers map[markerState]*markerText
 }
 
 // New returns the parser.
