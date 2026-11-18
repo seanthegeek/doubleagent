@@ -13,10 +13,13 @@ on:
 permissions:
   contents: read
 
-# A new push to a branch cancels the run still going for its previous commit.
+# A new push to a pull request or to a unit branch (one piece of work on its
+# way to an integration branch) cancels the run still going for its previous
+# commit. On main and the integration branches a run in progress finishes, so
+# every head that is built on gets a verdict; a newer push waits behind it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || startsWith(github.ref_name, 'unit-') }}
 
 # Linter versions for the lint job. AGENTS.md ("Quality gates") and
 # .githooks/pre-commit list the same versions; change all three together.
@@ -175,7 +178,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # A unit branch is checked on Linux alone; its integration branch
+        # and every pull request run all three platforms.
+        os: ${{ fromJSON(github.event_name == 'push' && startsWith(github.ref_name, 'unit-') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     defaults:
       run:
         shell: bash
@@ -234,7 +239,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # A unit branch is checked on Linux alone; its integration branch
+        # and every pull request run all three platforms.
+        os: ${{ fromJSON(github.event_name == 'push' && startsWith(github.ref_name, 'unit-') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     defaults:
       run:
         shell: bash
@@ -294,7 +301,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # A unit branch is checked on Linux alone; its integration branch
+        # and every pull request run all three platforms.
+        os: ${{ fromJSON(github.event_name == 'push' && startsWith(github.ref_name, 'unit-') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     defaults:
       run:
         shell: bash

@@ -1689,8 +1689,13 @@ status check the ruleset on `main` requires. On the rewrite branch the sh
 smoke matrix, the macOS BSD smoke, the fork budget, the collector's
 shellcheck job and the two PowerShell smoke jobs do not run: the scripts
 are frozen there and the Go binary replaces them, so a change to a script
-on that branch is a defect, not a reason to run them. A new push to a branch
-cancels the run still going for its previous commit.
+on that branch is a defect, not a reason to run them. A new push to a pull
+request or to a `unit-*` branch cancels the run still going for its previous
+commit; on `main` and the integration branches a run in progress finishes
+and the newer push waits behind it, so every head that work is built on gets
+a verdict. A push to a `unit-*` branch runs the three Go jobs on the Ubuntu
+runner alone; its integration branch and every pull request run them on all
+three platforms.
 
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
