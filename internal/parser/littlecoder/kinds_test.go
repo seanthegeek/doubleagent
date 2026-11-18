@@ -2,6 +2,7 @@ package littlecoder
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -100,4 +101,33 @@ func TestASavedMessagesToolCallsThatIsNotAnArrayIsReported(t *testing.T) {
 func TestASnapshotsFileBackupsThatIsNotAnObjectIsReported(t *testing.T) {
 	checkMember(t, ".little-coder/checkpoints/s1/snapshots.json", "file_backups", jsonvalue.Object, `[1]`,
 		func(value string) string { return `[{` + field("file_backups", value) + `"id": "a"}]` })
+}
+
+func TestASnapshotBackupThatIsNotAnObjectIsReportedNotListed(t *testing.T) {
+	const rel = ".little-coder/checkpoints/s1/snapshots.json"
+	tests := []struct {
+		name, backup string
+		problem      bool
+	}{
+		{"an object", `{"backup_filename": "b@v1"}`, false},
+		{"an object without a backup", `{"backup_filename": null}`, false},
+		{"a string", `"b@v1"`, true},
+		{"a number", `1`, true},
+		{"null, a file that did not exist", `null`, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := parseFile(t, rel, `[{"id": "a", "file_backups": {"/p/a.py": `+test.backup+`}}]`)
+			problem := countOf(rows, "parser: file_backups./p/a.py is not a JSON object")
+			listed := 0
+			for _, row := range rows {
+				if strings.Contains(row, "/p/a.py (") {
+					listed++
+				}
+			}
+			if (problem == 1) != test.problem || (listed == 1) == test.problem {
+				t.Errorf("rows %q", rows)
+			}
+		})
+	}
 }

@@ -208,7 +208,8 @@ func isZero(value jsonvalue.Value) bool {
 
 // parseLegacySnapshots emits one row per snapshot of a v0.0.x
 // checkpoints/<session id>/snapshots.json; a snapshot's file_backups that is
-// not an object adds a problem.
+// not an object, or a backup in it that is neither an object nor null (no
+// backup, as a null backup_filename), adds a problem.
 func (p *Parser) parseLegacySnapshots(artifact *input.Artifact, emit parser.Emit) {
 	directorySession := strings.Split(artifact.Rel, "/")[2]
 	var problems parser.Problems
@@ -219,6 +220,10 @@ func (p *Parser) parseLegacySnapshots(artifact *input.Artifact, emit parser.Emit
 		}
 		var files []string
 		for _, backup := range parser.ObjectMember(snapshot.Get("file_backups"), "file_backups", position, &problems) {
+			if !backup.Value.IsObject() && !backup.Value.IsNull() {
+				problems.Add(position, parser.WrongKind("file_backups."+backup.Key, jsonvalue.Object))
+				continue
+			}
 			name := backup.Value.Get("backup_filename")
 			state := "did not exist"
 			if !name.IsEmpty() {
