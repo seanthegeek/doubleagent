@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -182,12 +182,16 @@ func (i *items) plugins(emit parser.Emit) {
 	}
 }
 
-// uriPath returns the percent-decoded path of a file: URI, a Windows drive
-// path in the c:\Users\... form fsPath writes.
+// uriPath returns the path a file: URI names, a Windows drive path in the
+// c:\Users\... form fsPath writes; a URI net/url cannot read is kept as it
+// is.
 func uriPath(uri string) string {
-	path := antigravity.URIPath(uri)
-	if antigravity.IsDrivePath(path) {
-		return strings.ReplaceAll(path[1:], "/", "\\")
+	path, ok := evidencepath.FromFileURI(uri)
+	switch {
+	case !ok:
+		return uri
+	case evidencepath.IsDrivePath(path):
+		return strings.ReplaceAll(path, "/", "\\")
 	}
 	return path
 }

@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
 )
 
 // toolConfirmKinds are the names of ToolConfirmKind, a const enum saved as
@@ -57,7 +57,7 @@ func mdText(value jsonvalue.Value) string {
 // anything else as JSON.
 func uriText(uri jsonvalue.Value) string {
 	if uri.IsString() {
-		return antigravity.URIToPath(uri.StringValue())
+		return uriToPath(uri.StringValue())
 	}
 	if inner, ok := uri.Lookup("uri"); ok {
 		return uriText(inner)
@@ -71,6 +71,16 @@ func uriText(uri jsonvalue.Value) string {
 		return ""
 	}
 	return parser.JSONText(uri)
+}
+
+// uriToPath returns the path a file: URI names (evidencepath.FromFileURI),
+// and any other text, a path already or a URI net/url cannot read, as it
+// is.
+func uriToPath(uri string) string {
+	if path, ok := evidencepath.FromFileURI(uri); ok {
+		return path
+	}
+	return uri
 }
 
 // textOrJSON returns a string as it is and any other value as JSON.
@@ -236,7 +246,7 @@ func editStateText(entry jsonvalue.Value) string {
 		name = parser.SettingValue(state)
 	}
 	info := entry.Get("telemetryInfo")
-	text := "edit state: " + name + " " + orDash(antigravity.URIToPath(parser.Text(entry.Get("resource")))) +
+	text := "edit state: " + name + " " + orDash(uriToPath(parser.Text(entry.Get("resource")))) +
 		" request=" + orDash(parser.Text(info.Get("requestId"))) + " model=" + orDash(parser.Text(info.Get("modelId")))
 	if !entry.Get("isDeleted").IsEmpty() {
 		text += " deleted=true"

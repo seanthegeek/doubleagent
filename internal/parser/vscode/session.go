@@ -8,7 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -64,7 +63,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		}
 	}
 	folder, workspaceFile := p.workspaceFolder(artifact, &problems)
-	project := antigravity.URIToPath(parser.Text(state.Get("workingDirectory")))
+	project := uriToPath(parser.Text(state.Get("workingDirectory")))
 	if project == "" {
 		project = folder
 	}
@@ -131,8 +130,8 @@ func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Proble
 		problems.Add(0, "workspace.json is not a JSON object")
 		return "", ""
 	}
-	return antigravity.URIToPath(parser.Text(data.Get("folder"))),
-		antigravity.URIToPath(parser.Text(data.Get("workspace")))
+	return uriToPath(parser.Text(data.Get("folder"))),
+		uriToPath(parser.Text(data.Get("workspace")))
 }
 
 // tracked emits a system row when a tracked state of the session changes.
