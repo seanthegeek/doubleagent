@@ -2844,7 +2844,11 @@ object is `parser: permissions is not a JSON object`, and one whose `permissions
 A `.claude.json` whose `projects` is not an object is `parser: projects is not a JSON object`, a
 `projects.<path>` that is present and not an object `parser: projects.<path> is not a JSON object`,
 and a project's `allowedTools` that is not an array
-`parser: projects.<path>.allowedTools is not a JSON array`, `<path>` the project's key.
+`parser: projects.<path>.allowedTools is not a JSON array`, `<path>` the project's key. In a
+transcript, a user or assistant record whose `message.content` array holds entries that are not
+objects gives one row for them all at the record's line,
+`parser: message.content holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other blocks giving their rows.
 
 #### Fixtures
 
