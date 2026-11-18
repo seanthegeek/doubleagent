@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -26,7 +27,7 @@ func messagingSources() []string {
 }
 
 // columnValue returns a column value as the decoded value of the same
-// type: a blob as the text Python's str() gives it.
+// type: a blob as its row text (sqlitefile.Value.String).
 func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Integer:
@@ -39,7 +40,7 @@ func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	return jsonvalue.NewNull()
 }
 
-// rowObject returns a row as Python's dict of it: the rowid as _rowid when
+// rowObject returns a row as a JSON object: the rowid as _rowid when
 // selected, then every column by name.
 func rowObject(row sqlitefile.Row) jsonvalue.Value {
 	var members []jsonvalue.Member
@@ -139,7 +140,7 @@ func (s *stateReader) rows(options parser.Options) error {
 		if !ok {
 			session = sessionOf(sessionID)
 		}
-		reader.message(message, session, either(message.Get("id"), jsonvalue.NewInt(0)))
+		reader.message(message, session, message.Get("id"))
 		return nil
 	})
 	if err != nil {
@@ -224,12 +225,11 @@ func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonval
 	return value
 }
 
-// archivedValue reports whether sessions.archived is 1, "1" or true.
+// archivedValue reports whether sessions.archived is 1 (by value, so 1.0
+// too), "1" or true.
 func archivedValue(value jsonvalue.Value) bool {
-	if number, ok := numberValue(value); ok {
-		return number == 1
-	}
-	return isText(value, "1")
+	flag, _ := value.Bool()
+	return flag || jsonvalue.Equal(value, jsonvalue.NewInt(1)) || isText(value, "1")
 }
 
 // sessionRows emits a session's start row, its model rows, and its relay,
@@ -246,7 +246,7 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 		archived = "archived=1"
 	}
 	start := s.parser.system(s.artifact, lineNumber(session.Get("_rowid")), session,
-		timeline.Compact(joinParts("session start", parser.Text(session.Get("title")),
+		timeline.Compact(parser.JoinNonEmpty(" | ", "session start", parser.Text(session.Get("title")),
 			labelled("source=", session.Get("source")),
 			labelled("parent=", session.Get("parent_session_id")),
 			labelled("end=", session.Get("end_reason")), archived, imported)))
@@ -259,7 +259,7 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 		s.emit(copyRow(start, "session relayed: "+source+" chat "+dash(session.Get("chat_id"))+
 			" type "+dash(session.Get("chat_type"))+" thread "+dash(session.Get("thread_id"))+
 			" user "+dash(session.Get("user_id"))+" name "+dash(origin.Get("user_name"))+
-			" display "+dash(either(session.Get("display_name"), origin.Get("chat_name")))+
+			" display "+dash(displayName(session, origin))+
 			" (from state.db sessions, started_at)", start.Model))
 	}
 	if yolo, ok := config.Lookup("yolo_mode"); ok {
@@ -274,8 +274,8 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 	}
 }
 
-// labelled returns label and the value's text when the value is truthy,
-// else "".
+// labelled returns label and the value's text when the value is not
+// empty, else "".
 func labelled(label string, value jsonvalue.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -311,21 +311,24 @@ func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, see
 	}
 }
 
-// jsonText decodes a column read as Python's json.loads(value or "") reads
-// it: the reason is the decoder's error, or "not JSON text" for a number,
-// which is not text to decode.
-func jsonText(value jsonvalue.Value) (jsonvalue.Value, string) {
+// jsonObject decodes a column that stores a JSON object. An empty value
+// reads as empty text, which does not decode; a number is "not JSON
+// text", and a document of another kind "not a JSON object".
+func jsonObject(value jsonvalue.Value) (jsonvalue.Value, error) {
 	if value.IsEmpty() {
 		value = jsonvalue.NewString("")
 	}
 	if !value.IsString() {
-		return jsonvalue.Value{}, "not JSON text"
+		return jsonvalue.Value{}, errors.New("not JSON text")
 	}
 	decoded, err := jsonvalue.DecodeString(value.StringValue())
-	if err != nil {
-		return jsonvalue.Value{}, err.Error()
+	switch {
+	case err != nil:
+		return jsonvalue.Value{}, err
+	case !decoded.IsObject():
+		return jsonvalue.Value{}, errors.New("not a JSON object")
 	}
-	return decoded, ""
+	return decoded, nil
 }
 
 // orEmpty returns str(value or "").
@@ -334,8 +337,8 @@ func orEmpty(value jsonvalue.Value) string {
 }
 
 // retiredRows emits one "session deleted:" row per state_meta deletion
-// fence (key gateway.retired_session.v1.<session id>, matched with LIKE as
-// the analyzer's query does), at its retired_at; " sweep" follows the id
+// fence (key gateway.retired_session.v1.<session id>, matched with SQL's
+// LIKE, so the prefix's letters match in either case), at its retired_at; " sweep" follows the id
 // when a sweep, not a delete, retired it.
 func (s *stateReader) retiredRows() error {
 	table, err := s.handle.Table("state_meta")
@@ -353,13 +356,10 @@ func (s *stateReader) retiredRows() error {
 		if !ok {
 			session = sessionOf(sessionID)
 		}
-		value, reason := jsonText(record.Get("value"))
-		if reason == "" && !value.IsObject() {
-			reason = "not a JSON object"
-		}
-		if reason != "" {
+		value, err := jsonObject(record.Get("value"))
+		if err != nil {
 			s.addError(sessionID, projectOf(session), record.Get("_rowid"), "unparseable record "+
-				record.Get("_rowid").Text()+" (state_meta.value: "+reason+")", orEmpty(record.Get("value")))
+				record.Get("_rowid").Text()+" (state_meta.value: "+err.Error()+")", orEmpty(record.Get("value")))
 			return nil
 		}
 		sweep := ""
@@ -442,15 +442,12 @@ func (s *stateReader) roomRows() error {
 // object, or false after filing a record problem when it does not decode
 // to one.
 func (s *stateReader) roomJSON(event jsonvalue.Value, column string) (jsonvalue.Value, bool) {
-	value, reason := jsonText(event.Get(column))
-	if reason == "" && value.IsObject() {
+	value, err := jsonObject(event.Get(column))
+	if err == nil {
 		return value, true
-	}
-	if reason == "" {
-		reason = "not a JSON object"
 	}
 	rowid := event.Get("_rowid")
 	s.addError("", "", rowid, "unparseable record "+rowid.Text()+" (hosted_room_events."+column+": "+
-		reason+")", orEmpty(event.Get(column)))
+		err.Error()+")", orEmpty(event.Get(column)))
 	return jsonvalue.Value{}, false
 }

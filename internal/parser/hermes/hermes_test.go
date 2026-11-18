@@ -9,10 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// The rows of every store are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests port what the Python
-// tests call directly and cover the helpers, with expected values from
-// running the analyzer's functions on the same inputs.
+// The rows of every store are proved against the recorded cases by the
+// parser replay (internal/parity/replay); these tests cover the helpers
+// that decide a row's fields, and the YAML and cron readers.
 
 func TestYAMLScalarsReadOnlyOneLineStrings(t *testing.T) {
 	tests := []struct {
@@ -69,7 +68,11 @@ func TestFlatListReadsOneTopLevelBlockList(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.text, func(t *testing.T) {
-			entries, problem := New().readFlatList(textlines.Split(test.text), test.key)
+			entries, err := New().readFlatList(textlines.Split(test.text), test.key)
+			problem := ""
+			if err != nil {
+				problem = err.Error()
+			}
 			if got := fmt.Sprintf("%v %q", entries, problem); got != test.want {
 				t.Errorf("got %s, want %s", got, test.want)
 			}
@@ -124,7 +127,7 @@ func TestModelSwitchMarkersNameTheModelAndProvider(t *testing.T) {
 	}
 }
 
-func TestStringHelpersMatchTheAnalyzer(t *testing.T) {
+func TestStringHelpersReadEachForm(t *testing.T) {
 	tests := []struct {
 		name  string
 		got   func(jsonvalue.Value) string

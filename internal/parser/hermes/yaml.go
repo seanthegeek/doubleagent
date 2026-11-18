@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -70,10 +71,10 @@ type listEntry struct {
 }
 
 // readFlatList returns the strings of the top-level YAML block list key,
-// with their lines, and the first problem: the first line that is not a
-// "- <scalar>" item of the list, "" when there is none. An absent key,
-// "key:" with no items and "key: []" give no entries.
-func (p *Parser) readFlatList(lines []string, key string) ([]listEntry, string) {
+// with their lines, and an error naming the first line that is not a
+// "- <scalar>" item of the list. An absent key, "key:" with no items and
+// "key: []" give no entries.
+func (p *Parser) readFlatList(lines []string, key string) ([]listEntry, error) {
 	start := 0
 	for i, line := range lines {
 		if !strings.HasPrefix(line, key+":") {
@@ -87,12 +88,12 @@ func (p *Parser) readFlatList(lines []string, key string) ([]listEntry, string) 
 		switch strings.Trim(rest, textlines.SpaceOrTab) {
 		case "", "[]", "null", "~":
 		default:
-			return nil, "line " + strconv.Itoa(start) + ": " + key + " is not a block list"
+			return nil, errors.New("line " + strconv.Itoa(start) + ": " + key + " is not a block list")
 		}
 		break
 	}
 	if start == 0 {
-		return nil, ""
+		return nil, nil
 	}
 	var entries []listEntry
 	for number := start + 1; number <= len(lines); number++ {
@@ -109,9 +110,9 @@ func (p *Parser) readFlatList(lines []string, key string) ([]listEntry, string) 
 			value, ok = p.yamlScalar(strings.Trim(stripped[2:], textlines.SpaceOrTab))
 		}
 		if !ok {
-			return entries, "line " + strconv.Itoa(number) + ": not a string item of " + key
+			return entries, errors.New("line " + strconv.Itoa(number) + ": not a string item of " + key)
 		}
 		entries = append(entries, listEntry{number, value})
 	}
-	return entries, ""
+	return entries, nil
 }

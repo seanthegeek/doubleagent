@@ -253,7 +253,7 @@ func (m *messageReader) message(message, session, line jsonvalue.Value) {
 		return row
 	}
 	if m.options.IncludeThinking {
-		if reasoning := either(message.Get("reasoning"), message.Get("reasoning_content")); !reasoning.IsEmpty() {
+		if reasoning := parser.FirstNonEmpty(message.Get("reasoning"), message.Get("reasoning_content")); !reasoning.IsEmpty() {
 			m.emit(makeRow(timeline.TurnThinking, reasoning.Text()))
 		}
 	}
@@ -285,7 +285,7 @@ func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 			function = jsonvalue.NewObject()
 		}
 		row := makeRow(timeline.TurnToolUse, callSummary(function.Get("arguments")))
-		row.ToolUseID = parser.Text(either(call.Get("id"), call.Get("call_id")))
+		row.ToolUseID = parser.Text(parser.FirstNonEmpty(call.Get("id"), call.Get("call_id")))
 		row.ToolName = parser.Text(function.Get("name"))
 		m.toolNames[row.ToolUseID] = row.ToolName
 		m.emit(row)
@@ -330,10 +330,10 @@ func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) 
 		return row
 	}
 	old := m.switches[row.SessionID]
-	switchTime, isNumber := numberValue(message.Get("timestamp"))
+	switchTime, isNumber := message.Get("timestamp").Float()
 	if old == "" && isNumber {
 		for _, usage := range m.usage[row.SessionID] {
-			if first, ok := numberValue(usage.Get("first_seen")); ok && first < switchTime {
+			if first, ok := usage.Get("first_seen").Float(); ok && first < switchTime {
 				old = parser.Text(usage.Get("model"))
 			}
 		}
@@ -348,19 +348,4 @@ func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) 
 	}
 	row.Model = model
 	return row
-}
-
-// numberValue returns a number (or a boolean, which Python counts as an
-// integer) as a float.
-func numberValue(value jsonvalue.Value) (float64, bool) {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return 1, true
-		}
-		return 0, true
-	}
-	if !value.IsNumber() {
-		return 0, false
-	}
-	return value.Float()
 }
