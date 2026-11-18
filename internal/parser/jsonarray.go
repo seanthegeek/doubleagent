@@ -22,12 +22,13 @@ func skipJSONWhitespace(text string, offset int) int {
 
 // ArrayAt yields (1-based position, element) from the JSON array that
 // starts at the byte offset of text, after any whitespace, salvaging what it
-// can of a damaged one. An element that does not decode stops the walk and
-// adds "unparseable record <position> (<reason>)" at its position, with the
-// text from the element to the end (TailText) as raw; the elements before it
-// are kept. Text that is not an array adds "not a JSON array" at position 1,
-// an array with no closing bracket "array cut off after record <n>". When
-// end is not nil it is set to the offset after the closing bracket, or -1.
+// can. Text that is not an array adds "not a JSON array" at 1. Where an
+// element is due, after "[" or a comma, one that does not decode, the end
+// of the text included, stops the walk with "unparseable record <position>
+// (<reason>)" and the text from there to the end (TailText) as raw. Where a
+// comma or "]" is due after an element, anything else adds "array cut off
+// after record <n>". The elements before the damage are kept. When end is
+// not nil it is set to the offset after the closing bracket, or -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		setEnd(end, -1)
@@ -75,8 +76,9 @@ func setEnd(end *int, offset int) {
 
 // JSONArray yields the elements of the file at path holding one JSON array,
 // read as ReadText reads an optional file and walked as ArrayAt walks it. A
-// file that cannot be read, a damaged array and data after the array are
-// added to problems.
+// file that cannot be read, a damaged array and data after the array, empty
+// or not, as "unparseable data after the JSON array", are added to
+// problems.
 func JSONArray(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		text, ok := ReadText(path, problems)
@@ -96,14 +98,13 @@ func JSONArray(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] 
 	}
 }
 
-// ArrayElements returns the elements of the JSON array text holds, salvaging
-// what it can of a damaged one, for stores read whole into memory. A bad
-// element stops the walk with "unparseable record <position> (<reason>)" and
-// the text from it to the end (TailText) as raw; text that is no array gives
-// "not a JSON array" at 1; a missing closing bracket, a trailing comma at the
-// end included, gives "array cut off after record <n>" after the last
-// element; data after a non-empty array gives "unexpected data after the
-// array". Data after an empty array is not reported.
+// ArrayElements returns the elements of the JSON array text holds, for
+// stores read whole into memory (Gemini CLI histories, Kilo Code tasks),
+// walked as ArrayAt walks it except for two conditions, named in the words
+// those stores' rows hold: text that ends where an element is due gives
+// "array cut off after record <n>" after the last element, not an
+// unparseable record; data after a non-empty array gives "unexpected data
+// after the array", and data after an empty one nothing.
 func ArrayElements(text string, problems *Problems) []jsonvalue.Value {
 	var elements []jsonvalue.Value
 	cursor := skipJSONWhitespace(text, 0)
