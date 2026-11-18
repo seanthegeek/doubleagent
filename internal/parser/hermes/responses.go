@@ -52,7 +52,8 @@ func (p *Parser) parseResponses(artifact *input.Artifact, options parser.Options
 
 // responseRows emits one response's header row, then the messages of its
 // conversation history that no earlier response of the session held at
-// the same position.
+// the same position. A conversation_history that is not an array adds a
+// problem.
 func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, names map[string]string,
 	seen map[string]map[string]bool, reader *messageReader, problems *parser.Problems) {
 	sessionID := parser.Text(entry.data.Get("session_id"))
@@ -73,7 +74,8 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 		seen[sessionID] = map[string]bool{}
 	}
 	rowid := strconv.FormatInt(entry.rowid, 10)
-	for i, item := range parser.Elements(entry.data.Get("conversation_history")) {
+	for i, item := range parser.ArrayMember(entry.data.Get("conversation_history"),
+		"conversation_history", int(entry.rowid), problems) {
 		if !item.IsObject() {
 			problems.AddRaw(int(entry.rowid), "unparseable record "+rowid+
 				" (responses.data conversation_history "+strconv.Itoa(i)+": not an object)",

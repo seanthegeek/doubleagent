@@ -1710,7 +1710,11 @@ In `state.db` a `sessions.origin_json` or `model_config`, a `state_meta` fence v
 `parser: unparseable record <rowid> (<table>.<column>: <reason>): <value as stored>`, with the
 session's id where there is one, after the file's other rows. In `response_store.db` a `data`
 value is reported the same way (`responses.data`), and a history entry that is not an object as
-`(responses.data conversation_history <index>: not an object)`. `.hermes_history` goes through
+`(responses.data conversation_history <index>: not an object)`; a `conversation_history` that is
+present but not an array is `parser: conversation_history is not a JSON array` (`source_line` the
+row's rowid), and a `connections.json` `quarantined` that is present but not an array is
+`parser: quarantined is not a JSON array` (`source_line` 0); an absent, null or empty one gives no
+row. `.hermes_history` goes through
 the Aider parser's `read_input_history`, whose bad line is `parser: unparseable line (not a
 FileHistory line): <line>`; a trajectory file's line that does not decode, is not an object or has
 no `conversations` list is `parser: unparseable line (<reason>): <line>`. A pairing file or
