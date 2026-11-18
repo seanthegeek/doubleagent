@@ -119,3 +119,25 @@ func TestAMemberThatIsNotAnArrayIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestASandboxTableOfTheWrongKindIsReported(t *testing.T) {
+	tests := []struct {
+		name, text string
+		want       []string
+	}{
+		{"tables", "[modes.plan]\nnetwork = false\n[commands.git]\nallow_network = true\n", nil},
+		{"empty tables", "[modes]\n[commands]\n", nil},
+		{"no tables", "", nil},
+		{"modes as a string", "modes = \"x\"\n", []string{"1 parser: " + sandboxPolicy + " modes is not a table"}},
+		{"commands as an array", "commands = [1]\n", []string{"1 parser: " + sandboxPolicy + " commands is not a table"}},
+		{"a grant as a number", "[commands]\ngit = 1\n",
+			[]string{"1 parser: " + sandboxPolicy + " commands.git is not a table"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRows(t, sandboxPolicy, test.text); !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}

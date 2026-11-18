@@ -189,7 +189,7 @@ func (p *Parser) policy(artifact *input.Artifact, emit parser.Emit) {
 		row("parser: " + artifact.Rel + " rule is not an array")
 	}
 	if artifact.Rel == sandboxPolicy && !artifact.Home.Project {
-		for _, text := range sandboxTexts(document, source) {
+		for _, text := range sandboxTexts(document, artifact.Rel, source) {
 			row(text)
 		}
 	}
@@ -218,16 +218,23 @@ func tableSetting(table *tomldoc.Table, key string) string {
 
 // sandboxTexts returns the row texts of sandbox.toml: one per table of
 // modes, then one per table of commands, each table's keys in file order
-// as the CLI's sandbox policy manager wrote them.
-func sandboxTexts(document *tomldoc.Table, source string) []string {
+// as the CLI's sandbox policy manager wrote them. A modes or commands, or
+// a grant in one, that is present but not a table is a "parser: <file>
+// <key> is not a table" text in its place, as a rule that is not an array.
+func sandboxTexts(document *tomldoc.Table, rel, source string) []string {
 	var out []string
 	for _, section := range []struct{ label, key string }{{"mode", "modes"}, {"command", "commands"}} {
 		table, ok := document.Get(section.key)
-		if !ok || table.Kind() != tomldoc.KindTable {
+		if !ok {
+			continue
+		}
+		if table.Kind() != tomldoc.KindTable {
+			out = append(out, "parser: "+rel+" "+section.key+" is not a table")
 			continue
 		}
 		for _, grant := range table.Table().Entries() {
 			if grant.Value.Kind() != tomldoc.KindTable {
+				out = append(out, "parser: "+rel+" "+section.key+"."+grant.Key+" is not a table")
 				continue
 			}
 			fields := []string{"permission setting: sandbox " + section.label, grant.Key}
