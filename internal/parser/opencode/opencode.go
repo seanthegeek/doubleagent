@@ -62,6 +62,7 @@ type Parser struct {
 	parser.Base
 	nextDatabase string
 	patterns     patterns
+	tree         *treeIndex
 }
 
 // New returns the OpenCode parser.
@@ -82,6 +83,7 @@ func NewFor(config Config) *Parser {
 	return &Parser{
 		Base:         parser.NewBase(config.Agent, config.Agent),
 		nextDatabase: config.NextDatabase,
+		tree:         newTreeIndex(),
 		patterns: patterns{
 			history:    compile(`^` + state + `/prompt-history\.jsonl\z`),
 			stash:      compile(`^` + state + `/prompt-stash\.jsonl\z`),

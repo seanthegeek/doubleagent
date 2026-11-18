@@ -121,21 +121,12 @@ func quietObject(path string, ok bool) (jsonvalue.Value, bool) {
 // that decodes; the project path is its directory, else (new layout) its
 // project file's worktree unless "/", else the message's path.root or
 // path.cwd.
-func sessionScope(root string, sessionID string, old bool, message jsonvalue.Value) *scope {
-	session := jsonvalue.NewNull()
+func (p *Parser) sessionScope(root string, sessionID string, old bool, message jsonvalue.Value) *scope {
+	var session jsonvalue.Value
 	if old {
 		session, _ = quietObject(childPath(root, "info", sessionID+".json"))
 	} else {
-		for _, directory := range subdirectories(filepath.Join(root, "session")) {
-			candidate, ok := childPath(filepath.Join(root, "session", directory), sessionID+".json")
-			if !ok || !parser.RegularFile(candidate) {
-				continue
-			}
-			if found, decoded := quietObject(candidate, true); decoded {
-				session = found
-				break
-			}
-		}
+		session = p.tree.session(filepath.Join(root, "session"), sessionID)
 	}
 	projectPath := parser.Text(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
@@ -229,7 +220,7 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 	var problems parser.Problems
 	message, ok := readObject(artifact.DiskPath, &problems)
 	if !ok {
-		scoped := sessionScope(root.disk, sessionID, old, jsonvalue.NewNull())
+		scoped := p.sessionScope(root.disk, sessionID, old, jsonvalue.NewNull())
 		if len(problems) > 0 {
 			parser.EmitAll(emit, p.ErrorRows(artifact, problems, scoped.sessionID, scoped.projectPath))
 			return
@@ -244,8 +235,8 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 	if messageID == "" {
 		messageID = jsonStem(name)
 	}
-	scoped := sessionScope(root.disk, sessionID, old, message)
-	if previous, ok := previousMessage(parser.Beside(artifact), name); ok {
+	scoped := p.sessionScope(root.disk, sessionID, old, message)
+	if previous, ok := p.previousMessage(parser.Beside(artifact), name); ok {
 		provider, model := messageRef(previous)
 		modelRowText(scoped.models, scoped.sessionID, provider, model)
 		agentRowText(scoped.modes, scoped.sessionID, previous.Get("agent"))
@@ -261,10 +252,10 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 // previousMessage returns the message file before the named one in its
 // directory, decoded: one file holds one message, and message ids sort in
 // time order, so the model and agent in force come from it.
-func previousMessage(directory, name string) (jsonvalue.Value, bool) {
-	siblings := children(directory)
-	position := slices.Index(siblings, name)
-	if position <= 0 {
+func (p *Parser) previousMessage(directory, name string) (jsonvalue.Value, bool) {
+	siblings := p.tree.messageNames(directory)
+	position, found := slices.BinarySearch(siblings, name)
+	if !found || position == 0 {
 		return jsonvalue.NewNull(), false
 	}
 	return quietObject(filepath.Join(directory, siblings[position-1]), true)
