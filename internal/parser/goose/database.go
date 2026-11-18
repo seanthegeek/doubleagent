@@ -268,7 +268,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 		content := readStored(row.Get("content_json"), true).value
 		for _, block := range parser.Elements(content) {
 			data := block.Get("data")
-			if data.IsObject() && isText(data.Get("actionType"), "toolConfirmationResponse") {
+			if data.IsObject() && parser.IsText(data.Get("actionType"), "toolConfirmationResponse") {
 				sessionID := orText(row.Get("session_id"))
 				if answered[sessionID] == nil {
 					answered[sessionID] = map[string]bool{}

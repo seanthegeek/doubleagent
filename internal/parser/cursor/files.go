@@ -23,7 +23,7 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		role := record.Get("role")
-		if !isText(role, "user") && !isText(role, "assistant") {
+		if !parser.IsText(role, "user") && !parser.IsText(role, "assistant") {
 			continue
 		}
 		content := record.Get("message").Get("content")
@@ -33,7 +33,7 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 		}
 		for _, block := range content.Items() {
 			switch {
-			case isText(block.Get("type"), "text") && block.Get("text").IsString():
+			case parser.IsText(block.Get("type"), "text") && block.Get("text").IsString():
 				text := block.Get("text").StringValue()
 				if role.StringValue() == "user" {
 					query, when := unwrapQuery(text)
@@ -43,7 +43,7 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 				} else if text = timeline.Compact(text); text != "" {
 					emit(row(timeline.TurnAssistant, text, "", number))
 				}
-			case isText(block.Get("type"), "tool_use"):
+			case parser.IsText(block.Get("type"), "tool_use"):
 				made := row(timeline.TurnToolUse, parser.JSONText(block.Get("input")), "", number)
 				made.ToolName = parser.Text(block.Get("name"))
 				emit(made)

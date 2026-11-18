@@ -107,16 +107,11 @@ func MessageText(content jsonvalue.Value) string {
 	}
 	parts := make([]jsonvalue.Value, 0, content.Len())
 	for _, part := range content.Items() {
-		if part.IsObject() && isText(part.Get("type"), "imageUrl") {
+		if part.IsObject() && parser.IsText(part.Get("type"), "imageUrl") {
 			part = jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 				jsonvalue.Member{Key: "text", Value: jsonvalue.NewString("[image]")})
 		}
 		parts = append(parts, part)
 	}
 	return parser.TextOf(jsonvalue.NewArray(parts...))
-}
-
-// isText reports whether a value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

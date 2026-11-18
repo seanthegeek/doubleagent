@@ -126,7 +126,7 @@ func (r *messageReader) message(record sqlitefile.Row) {
 		current.finished = parser.ColumnTime(finished)
 	}
 	for _, part := range parts {
-		if part.IsObject() && isText(part.Get("type"), "finish") {
+		if part.IsObject() && parser.IsText(part.Get("type"), "finish") {
 			stamp := part.Get("data").Get("time")
 			if !stamp.IsEmpty() && current.finished == "" {
 				current.finished = timeutil.FromValue(stamp)
@@ -177,11 +177,6 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	parser.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems,
 		current.sessionID, r.store.projectPath))
 	return nil, false
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // part emits the row of one part and the rows it adds after it.
@@ -395,7 +390,7 @@ func hookDecision(hook jsonvalue.Value) string {
 		}
 		hooks = append(hooks, entry)
 		if decision == "halt" && !entry.Get("halt").IsEmpty() ||
-			decision != "halt" && isText(entry.Get("decision"), decision) {
+			decision != "halt" && parser.IsText(entry.Get("decision"), decision) {
 			chosen = append(chosen, entry)
 		}
 	}

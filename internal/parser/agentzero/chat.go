@@ -66,13 +66,13 @@ func walkHistory(node jsonvalue.Value, summaries bool, visit func(summary bool, 
 	}
 	class := node.Get("_cls")
 	switch {
-	case isString(class, "Message"):
+	case parser.IsText(class, "Message"):
 		visit(false, node)
-	case isString(class, "History"):
+	case parser.IsText(class, "History"):
 		for _, name := range []string{"bulks", "topics", "current"} {
 			walkHistory(node.Get(name), summaries, visit)
 		}
-	case isString(class, "Topic") || isString(class, "Bulk") || node.Has("messages") || node.Has("records"):
+	case parser.IsText(class, "Topic") || parser.IsText(class, "Bulk") || node.Has("messages") || node.Has("records"):
 		if summaries && !node.Get("summary").IsEmpty() {
 			visit(true, node.Get("summary"))
 		}
@@ -336,7 +336,7 @@ func zeroAgent(number jsonvalue.Value) bool {
 		value, ok := number.Float()
 		return ok && value == 0
 	}
-	return isString(number, "0")
+	return parser.IsText(number, "0")
 }
 
 // prefix returns text led by its agent: "[agent <n>] " for a subordinate

@@ -27,7 +27,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		}
 		row := p.row(artifact, newScope("", ""), "", line, "", "")
 		row.TurnType = timeline.TurnUser
-		if isText(record.Get("mode"), "shell") {
+		if parser.IsText(record.Get("mode"), "shell") {
 			row.TurnType, row.ToolName = timeline.TurnToolUse, "shell"
 		}
 		row.Text = timeline.Compact(text.StringValue())

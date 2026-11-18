@@ -110,7 +110,7 @@ func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit 
 	deleted := false
 	if current.hasData {
 		entries := r.entries(current)
-		if len(entries) > 0 || !isText(current.data.Get("status"), "none") {
+		if len(entries) > 0 || !parser.IsText(current.data.Get("status"), "none") {
 			r.conversation(stamp, entries)
 		}
 	} else if !current.head.Get("agentLocationHistory").IsEmpty() || current.archived() {
@@ -122,11 +122,6 @@ func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit 
 	}
 	parser.EmitAll(emit, r.owner.ErrorRows(r.artifact, current.problems, current.ident, stamp.path))
 	return deleted
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // stateReader reads the conversations of the primary store.

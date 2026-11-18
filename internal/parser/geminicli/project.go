@@ -74,7 +74,7 @@ func resolveProject(base func(names ...string) string, slug, projectHash string,
 		}
 	}
 	for _, project := range projects {
-		if isText(project.Value, slug) {
+		if parser.IsText(project.Value, slug) {
 			return project.Key
 		}
 	}

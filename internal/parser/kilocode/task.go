@@ -159,7 +159,7 @@ func labelled(label string, value jsonvalue.Value) string {
 // where the first of them was.
 func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row {
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), t.started)
-	if isText(message.Get("type"), "reasoning") {
+	if parser.IsText(message.Get("type"), "reasoning") {
 		if !t.options.IncludeThinking {
 			return nil
 		}
@@ -277,9 +277,4 @@ func textOf(value jsonvalue.Value) string {
 		return value.StringValue()
 	}
 	return ""
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

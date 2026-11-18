@@ -199,22 +199,17 @@ func terminalDecision(content jsonvalue.Value) string {
 		return "approved (" + approval.StringValue() + ")"
 	}
 	switch status := value.Get("status"); {
-	case isText(status, "blocked"):
+	case parser.IsText(status, "blocked"):
 		text := "blocked " + dash(value.Get("error"))
 		if summary := value.Get("user_summary"); !summary.IsEmpty() {
 			text += " user_summary=" + parser.SettingValue(summary)
 		}
 		return text
-	case isText(status, "pending_approval"):
+	case parser.IsText(status, "pending_approval"):
 		return "pending pattern=" + dash(value.Get("pattern_key")) + " smart_denied=" +
 			parser.SettingValue(jsonvalue.NewBool(!value.Get("smart_denied").IsEmpty()))
 	}
 	return ""
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // rewound reports whether a message's active flag marks it rewound: 0,
@@ -228,7 +223,7 @@ func rewound(message jsonvalue.Value) bool {
 		return number == 0
 	}
 	flag, isBool := active.Bool()
-	return isBool && !flag || isText(active, "0")
+	return isBool && !flag || parser.IsText(active, "0")
 }
 
 // message emits the rows of one message: its thinking, its text or tool
@@ -238,7 +233,7 @@ func (m *messageReader) message(message, session, line jsonvalue.Value) {
 	number := lineNumber(line)
 	timestamp := timeutil.FromValue(message.Get("timestamp"))
 	role := parser.Text(message.Get("role"))
-	if isText(message.Get("display_kind"), "model_switch") {
+	if parser.IsText(message.Get("display_kind"), "model_switch") {
 		m.emit(m.switchRow(message, session, number))
 		return
 	}

@@ -62,30 +62,30 @@ func (s *prescan) record(line int, record jsonvalue.Value) {
 	if flag, ok := record.Get("remoteSourced").Bool(); ok && flag {
 		s.remoteLast = line
 	}
-	if isText(recordType, "system") && isText(record.Get("subtype"), "bridge_status") &&
+	if parser.IsText(recordType, "system") && parser.IsText(record.Get("subtype"), "bridge_status") &&
 		!record.Get("url").IsEmpty() {
 		s.bridgeURLs = append(s.bridgeURLs, bridgeStatus{line: line, url: record.Get("url").Text()})
 	}
-	if isText(recordType, "bridge-session") {
+	if parser.IsText(recordType, "bridge-session") {
 		bridgeID := record.Get("bridgeSessionId")
 		named := bridgeID.IsString() && bridgeID.StringValue() != ""
 		s.bridgeLines = append(s.bridgeLines, bridgeLine{line: line, bridgeID: bridgeID.StringValue(),
 			named: named})
 	}
 	switch {
-	case isText(recordType, "attachment"):
+	case parser.IsText(recordType, "attachment"):
 		attachment := record.Get("attachment")
-		if isText(attachment.Get("type"), "queued_command") {
+		if parser.IsText(attachment.Get("type"), "queued_command") {
 			s.deliver(parser.TextOf(attachment.Get("prompt")), line)
 		}
-	case isText(recordType, "user"):
+	case parser.IsText(recordType, "user"):
 		s.user(line, record)
 	}
 }
 
 // user adds a user record's prompt texts to the prescan.
 func (s *prescan) user(line int, record jsonvalue.Value) {
-	if isText(record.Get("entrypoint"), "sdk-cli") && isText(record.Get("promptSource"), "sdk") {
+	if parser.IsText(record.Get("entrypoint"), "sdk-cli") && parser.IsText(record.Get("promptSource"), "sdk") {
 		s.sdkSpawn = true
 	}
 	content := record.Get("message").Get("content")
@@ -94,7 +94,7 @@ func (s *prescan) user(line int, record jsonvalue.Value) {
 		return
 	}
 	for _, block := range content.Items() {
-		if !isText(block.Get("type"), "text") {
+		if !parser.IsText(block.Get("type"), "text") {
 			continue
 		}
 		text := parser.Text(block.Get("text"))

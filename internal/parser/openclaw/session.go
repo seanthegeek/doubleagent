@@ -156,21 +156,21 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 	}
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")),
 		timeutil.FromValue(message.Get("timestamp")), createdAt)
-	if isText(entryType, "session") {
+	if parser.IsText(entryType, "session") {
 		w.start(current, line, timestamp, record)
 		return
 	}
 	if !current.started {
 		w.start(current, line, timestamp, jsonvalue.NewObject())
 	}
-	if identifier := record.Get("id"); current.store != nil && !identifier.IsNull() && !isText(identifier, "") {
+	if identifier := record.Get("id"); current.store != nil && !identifier.IsNull() && !parser.IsText(identifier, "") {
 		current.store.ids[[2]string{current.sessionID, identifier.Text()}] = true
 	}
-	if isText(entryType, "message") {
+	if parser.IsText(entryType, "message") {
 		w.message(current, line, timestamp, record, message)
 		return
 	}
-	if isText(entryType, "model_change") {
+	if parser.IsText(entryType, "model_change") {
 		current.model = parser.Text(record.Get("modelId"))
 		text := pi.SwitchText(current.seen, current.sessionID, current.model, parser.Text(record.Get("provider")))
 		if text != "" {
@@ -186,9 +186,9 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 func entryText(entryType, record jsonvalue.Value) string {
 	field := func(key string) string { return parser.Text(record.Get(key)) }
 	switch {
-	case isText(entryType, "thinking_level_change"):
+	case parser.IsText(entryType, "thinking_level_change"):
 		return "thinking level: " + field("thinkingLevel")
-	case isText(entryType, "compaction"):
+	case parser.IsText(entryType, "compaction"):
 		var tokens []string
 		for _, pair := range [][2]string{{"tokens_before", "tokensBefore"}, {"tokens_after", "tokensAfter"}} {
 			if value, ok := record.Lookup(pair[1]); ok && !value.IsNull() {
@@ -200,17 +200,17 @@ func entryText(entryType, record jsonvalue.Value) string {
 			label += " (" + strings.Join(tokens, " ") + ")"
 		}
 		return label + ": " + field("summary")
-	case isText(entryType, "reset"):
+	case parser.IsText(entryType, "reset"):
 		return "reset: " + field("reason")
-	case isText(entryType, "branch_summary"):
+	case parser.IsText(entryType, "branch_summary"):
 		return "branch summary: " + field("summary")
-	case isText(entryType, "custom"):
+	case parser.IsText(entryType, "custom"):
 		return "custom " + field("customType") + ": " + parser.JSONText(record.Get("data"))
-	case isText(entryType, "custom_message"):
+	case parser.IsText(entryType, "custom_message"):
 		return "custom message " + field("customType") + ": " + parser.TextOf(record.Get("content"))
-	case isText(entryType, "label"):
+	case parser.IsText(entryType, "label"):
 		return "label: " + field("label") + " (entry " + field("targetId") + ")"
-	case isText(entryType, "session_info"):
+	case parser.IsText(entryType, "session_info"):
 		return "session name: " + field("name")
 	}
 	var rest []jsonvalue.Member
@@ -222,9 +222,4 @@ func entryText(entryType, record jsonvalue.Value) string {
 		}
 	}
 	return cmp.Or(parser.Text(entryType), "entry") + ": " + parser.JSONText(jsonvalue.NewObject(rest...))
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

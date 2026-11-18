@@ -189,7 +189,7 @@ func argsText(arguments jsonvalue.Value) string {
 // exitSucceeded reports whether an exit code is no failure: null, a number
 // equal to zero or the text "0".
 func exitSucceeded(value jsonvalue.Value) bool {
-	if value.IsNull() || isString(value, "0") {
+	if value.IsNull() || parser.IsText(value, "0") {
 		return true
 	}
 	if value.IsBool() {
@@ -197,11 +197,6 @@ func exitSucceeded(value jsonvalue.Value) bool {
 	}
 	number, ok := value.Float()
 	return value.IsNumber() && ok && number == 0
-}
-
-// isString reports whether value is the string want.
-func isString(value jsonvalue.Value, want string) bool {
-	return value.IsString() && value.StringValue() == want
 }
 
 // resultText returns the tool_result text of a tool.execution_complete

@@ -83,7 +83,7 @@ func (w *eventWalk) event(kind string, record, data jsonvalue.Value) {
 		w.sessionEvent(kind, data)
 	case kind == "system.message":
 		label := "system prompt"
-		if isString(data.Get("role"), "developer") {
+		if parser.IsText(data.Get("role"), "developer") {
 			label = "developer message"
 		}
 		w.system(label + ": " + data.Get("content").Text())

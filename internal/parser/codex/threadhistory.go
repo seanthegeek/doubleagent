@@ -317,7 +317,7 @@ func threadItemRows(item jsonvalue.Value, row sqlitefile.Row) []threadRow {
 func joinedTexts(values jsonvalue.Value, key string) string {
 	var parts []string
 	for _, value := range values.Items() {
-		if key != "" && isText(value.Get("type"), "text") {
+		if key != "" && parser.IsText(value.Get("type"), "text") {
 			value = value.Get(key)
 		}
 		if value.IsString() && value.StringValue() != "" {

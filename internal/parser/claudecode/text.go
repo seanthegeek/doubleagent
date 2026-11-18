@@ -74,7 +74,7 @@ func ResultText(content jsonvalue.Value) string {
 	var parts []string
 	for _, block := range content.Items() {
 		part := ""
-		if block.IsObject() && isText(block.Get("type"), "tool_reference") {
+		if block.IsObject() && parser.IsText(block.Get("type"), "tool_reference") {
 			part = parser.Text(block.Get("tool_name"))
 		} else {
 			part = parser.TextOf(jsonvalue.NewArray(block))
@@ -130,12 +130,7 @@ func originLabel(kind jsonvalue.Value) string {
 // isMissing reports whether a value is absent, null or an empty string:
 // false and zero are values the agent wrote.
 func isMissing(value jsonvalue.Value) bool {
-	return value.IsNull() || isText(value, "")
-}
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
+	return value.IsNull() || parser.IsText(value, "")
 }
 
 // valueText returns a JSON value as row text, "-" when it is missing or an

@@ -86,14 +86,14 @@ func sessionItem(position int, item, message jsonvalue.Value, sessionID string, 
 		}
 	}
 	switch {
-	case isText(role, "user"):
+	case parser.IsText(role, "user"):
 		if labels := itemLabels(item.Get("contextItems"), "description", "name"); labels != "" {
 			text += "\n[context: " + labels + "]"
 		}
 		if text != "" {
 			row(position, timeline.TurnUser, text, "")
 		}
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		if labels := itemLabels(item.Get("citations"), "url", "title"); labels != "" {
 			text += "\n[citations: " + labels + "]"
 		}
@@ -101,7 +101,7 @@ func sessionItem(position int, item, message jsonvalue.Value, sessionID string, 
 			row(position, timeline.TurnAssistant, text, model)
 		}
 	case text != "":
-		if !isText(role, "system") {
+		if !parser.IsText(role, "system") {
 			text = cmp.Or(parser.Text(role), "unknown") + ": " + text
 		}
 		row(position, timeline.TurnSystem, text, model)

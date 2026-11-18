@@ -181,11 +181,6 @@ func (b *brainLines) row(number int, record jsonvalue.Value, turnType, text, fie
 	return row
 }
 
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
-}
-
 // record emits the rows of one brain line.
 func (b *brainLines) record(number int, record jsonvalue.Value) {
 	kind := parser.Text(record.Get("type"))
@@ -193,7 +188,7 @@ func (b *brainLines) record(number int, record jsonvalue.Value) {
 	switch kind {
 	case "USER_INPUT":
 		turnType := timeline.TurnUser
-		if isText(record.Get("source"), "USER_IMPLICIT") {
+		if parser.IsText(record.Get("source"), "USER_IMPLICIT") {
 			turnType = timeline.TurnSystem
 		}
 		b.calls = nil

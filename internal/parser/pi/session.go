@@ -64,7 +64,7 @@ func (s *Session) fill(records iter.Seq2[int, jsonvalue.Value]) {
 	for line, record := range records {
 		if first {
 			first = false
-			if isText(record.Get("type"), "session") {
+			if parser.IsText(record.Get("type"), "session") {
 				s.Header, s.HeaderLine = record, line
 				continue
 			}
@@ -95,10 +95,4 @@ func entryKeys(path string) map[entryKey]bool {
 		}
 	}
 	return keys
-}
-
-// isText reports whether value is the string text; a value of any other
-// kind is not.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

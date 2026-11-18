@@ -173,7 +173,7 @@ func pasteText(entry jsonvalue.Value, cached func(hash string) (string, bool)) (
 	if !entry.IsObject() {
 		return "", false
 	}
-	if kind, ok := entry.Lookup("type"); ok && !isText(kind, "text") {
+	if kind, ok := entry.Lookup("type"); ok && !parser.IsText(kind, "text") {
 		return "", false
 	}
 	if content := entry.Get("content"); content.IsString() {

@@ -229,7 +229,7 @@ func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonval
 // too), "1" or true.
 func archivedValue(value jsonvalue.Value) bool {
 	flag, _ := value.Bool()
-	return flag || jsonvalue.Equal(value, jsonvalue.NewInt(1)) || isText(value, "1")
+	return flag || jsonvalue.Equal(value, jsonvalue.NewInt(1)) || parser.IsText(value, "1")
 }
 
 // sessionRows emits a session's start row, its model rows, and its relay,

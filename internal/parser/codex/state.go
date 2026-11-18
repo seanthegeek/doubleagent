@@ -306,7 +306,7 @@ func feedbackText(record jsonvalue.Value) string {
 	item := cmp.Or(parser.Text(record.Get("target_item_id")), "-")
 	reviewer := cmp.Or(parser.Text(record.Get("reviewer_thread_id")), "-")
 	decision := record.Get("decision")
-	if isText(record.Get("status"), "denied") && decision.IsString() {
+	if parser.IsText(record.Get("status"), "denied") && decision.IsString() {
 		if verdict, ok := guardianVerdict(decision.StringValue()); ok {
 			return guardianText(verdict, item, reviewer)
 		}

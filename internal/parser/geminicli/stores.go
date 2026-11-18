@@ -52,12 +52,12 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 	requests := map[string]request{}
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		payload, kind := record.Get("payload"), record.Get("type")
-		if !payload.IsObject() || !isText(kind, "console") && !isText(kind, "network") {
+		if !payload.IsObject() || !parser.IsText(kind, "console") && !parser.IsText(kind, "network") {
 			problems.AddRaw(line, "unparseable line (not an activity log record)",
 				parser.JSONText(record))
 			continue
 		}
-		text, ok := activityText(payload, isText(kind, "console"), requests)
+		text, ok := activityText(payload, parser.IsText(kind, "console"), requests)
 		if !ok {
 			continue
 		}

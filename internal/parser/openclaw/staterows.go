@@ -110,7 +110,7 @@ func backupText(run sqlitefile.Row, manifest jsonvalue.Value) string {
 	}
 	target := manifest.Get("target")
 	failed, _ := manifest.Get("pushFailed").Bool()
-	pushed := isText(manifest.Get("kind"), "git") && !target.IsEmpty() && !failed
+	pushed := parser.IsText(manifest.Get("kind"), "git") && !target.IsEmpty() && !failed
 	if location.Len() == 0 && !pushed {
 		return ""
 	}

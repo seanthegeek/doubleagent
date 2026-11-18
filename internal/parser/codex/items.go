@@ -74,7 +74,7 @@ func itemRows(item jsonvalue.Value) []itemRow {
 		return []itemRow{{turnType: timeline.TurnToolResult, when: atEnd,
 			toolName: parser.Text(item.Get("name")), toolUseID: itemID,
 			text: parser.TextOf(item.Get("output"))}}
-	case itemType == "WebSearch" || (itemType == "Extension" && isText(item.Get("kind"), "web.search")):
+	case itemType == "WebSearch" || (itemType == "Extension" && parser.IsText(item.Get("kind"), "web.search")):
 		results := item.Get("results")
 		if results.IsEmpty() {
 			results = jsonvalue.NewArray()
@@ -89,7 +89,7 @@ func itemRows(item jsonvalue.Value) []itemRow {
 // other item as its JSON.
 func systemItemRows(item jsonvalue.Value, itemType string) []itemRow {
 	switch {
-	case itemType == "Extension" && isText(item.Get("kind"), "clock.sleep"):
+	case itemType == "Extension" && parser.IsText(item.Get("kind"), "clock.sleep"):
 		duration := ""
 		if value, ok := item.Lookup("durationMs"); ok {
 			duration = value.Text()
@@ -110,7 +110,7 @@ func systemItemRows(item jsonvalue.Value, itemType string) []itemRow {
 // imageText returns the text of an image generation item, or of an
 // Extension item of another kind, which is shown as its JSON.
 func imageText(item jsonvalue.Value, itemType string) string {
-	if itemType == "Extension" && !isText(item.Get("kind"), "image_gen.generation") {
+	if itemType == "Extension" && !parser.IsText(item.Get("kind"), "image_gen.generation") {
 		return "item Extension: " + parser.JSONText(without(item, "type", "id"))
 	}
 	prompt := parser.Text(parser.FirstNonEmpty(item.Get("revised_prompt"), item.Get("revisedPrompt")))

@@ -14,27 +14,27 @@ func (w *writer) message(current *session, line int, timestamp string, record, m
 	role := message.Get("role")
 	content := parser.TextOf(message.Get("content"))
 	switch {
-	case isText(role, "user"):
+	case parser.IsText(role, "user"):
 		if !message.Get("runtimeContext").IsEmpty() || !message.Get("runtimeContextCarrier").IsEmpty() {
 			w.system(current, line, timestamp, "runtime context: "+content, "")
 		} else {
 			w.emit(w.row(current, line, timestamp, timeline.TurnUser, content))
 		}
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		w.assistant(current, line, timestamp, message)
-	case isText(role, "toolResult"):
+	case parser.IsText(role, "toolResult"):
 		if !message.Get("isError").IsEmpty() {
 			content = "[error] " + content
 		}
 		w.tool(current, line, timestamp, timeline.TurnToolResult, content,
 			parser.Text(message.Get("toolName")), parser.Text(message.Get("toolCallId")))
-	case isText(role, "bashExecution"):
+	case parser.IsText(role, "bashExecution"):
 		w.bash(current, line, timestamp, record, message)
-	case isText(role, "branchSummary"):
+	case parser.IsText(role, "branchSummary"):
 		w.system(current, line, timestamp, "branch summary: "+parser.Text(message.Get("summary")), "")
-	case isText(role, "compactionSummary"):
+	case parser.IsText(role, "compactionSummary"):
 		w.system(current, line, timestamp, "compaction summary: "+parser.Text(message.Get("summary")), "")
-	case isText(role, "custom"):
+	case parser.IsText(role, "custom"):
 		w.system(current, line, timestamp, "custom "+parser.Text(message.Get("customType"))+": "+content, "")
 	default:
 		w.system(current, line, timestamp, cmp.Or(parser.Text(role), "message")+": "+
@@ -92,7 +92,7 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	}
 	stop := message.Get("stopReason")
 	errorMessage := message.Get("errorMessage")
-	if isText(stop, "error") || isText(stop, "aborted") || !errorMessage.IsEmpty() {
+	if parser.IsText(stop, "error") || parser.IsText(stop, "aborted") || !errorMessage.IsEmpty() {
 		w.system(current, line, timestamp, "assistant "+cmp.Or(parser.Text(stop), "error")+": "+
 			parser.Text(errorMessage), model)
 	}
@@ -106,9 +106,9 @@ func (w *writer) block(current *session, line int, timestamp string, block jsonv
 	var row timeline.Row
 	blockType := block.Get("type")
 	switch {
-	case isText(blockType, "text") && !block.Get("text").IsEmpty():
+	case parser.IsText(blockType, "text") && !block.Get("text").IsEmpty():
 		row = w.row(current, line, timestamp, timeline.TurnAssistant, block.Get("text").Text())
-	case isText(blockType, "thinking") && w.options.IncludeThinking:
+	case parser.IsText(blockType, "thinking") && w.options.IncludeThinking:
 		thinking := parser.Text(block.Get("thinking"))
 		if thinking == "" && !block.Get("redacted").IsEmpty() {
 			thinking = "[redacted thinking]"
@@ -117,10 +117,10 @@ func (w *writer) block(current *session, line int, timestamp string, block jsonv
 			return
 		}
 		row = w.row(current, line, timestamp, timeline.TurnThinking, thinking)
-	case isText(blockType, "toolCall"):
+	case parser.IsText(blockType, "toolCall"):
 		row = w.row(current, line, timestamp, timeline.TurnToolUse, ToolArgsText(block.Get("arguments")))
 		row.ToolName, row.ToolUseID = parser.Text(block.Get("name")), parser.Text(block.Get("id"))
-	case isText(blockType, "image"):
+	case parser.IsText(blockType, "image"):
 		row = w.row(current, line, timestamp, timeline.TurnAssistant, "[image]")
 	default:
 		return

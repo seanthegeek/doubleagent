@@ -26,7 +26,7 @@ func TextOf(content jsonvalue.Value) string {
 			case !block.IsObject():
 			case block.Get("text").IsString():
 				parts = append(parts, block.Get("text").StringValue())
-			case isString(block.Get("type"), "image"):
+			case IsText(block.Get("type"), "image"):
 				parts = append(parts, "[image]")
 			}
 		}
@@ -49,11 +49,6 @@ func Text(value jsonvalue.Value) string {
 		return ""
 	}
 	return value.Text()
-}
-
-// isString reports whether value is the string text.
-func isString(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // JSONText returns a value as the JSON a row embeds: compact, keys in the
@@ -83,7 +78,7 @@ func SettingValue(value jsonvalue.Value) string {
 // zero is "0". It is the form parsers give a field of a summary row that may
 // be absent.
 func SettingOrDash(value jsonvalue.Value) string {
-	if value.IsNull() || isString(value, "") {
+	if value.IsNull() || IsText(value, "") {
 		return "-"
 	}
 	return SettingValue(value)

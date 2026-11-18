@@ -87,23 +87,23 @@ func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, 
 func (s *rollout) read() {
 	payload := objectOr(s.record.Get("payload"))
 	switch recordType := s.record.Get("type"); {
-	case isText(recordType, "session_meta"):
+	case parser.IsText(recordType, "session_meta"):
 		s.sessionMeta(payload)
-	case isText(recordType, "turn_context"):
+	case parser.IsText(recordType, "turn_context"):
 		s.turnContext(payload)
-	case isText(recordType, "response_item"):
+	case parser.IsText(recordType, "response_item"):
 		if s.record.Get("metadata").Get("inherited_user_message").IsEmpty() {
 			s.responseItem(payload)
 		}
-	case isText(recordType, "event_msg"):
+	case parser.IsText(recordType, "event_msg"):
 		s.event(payload)
-	case isText(recordType, "compacted"):
+	case parser.IsText(recordType, "compacted"):
 		s.compacted(payload)
-	case isText(recordType, "inter_agent_communication"):
+	case parser.IsText(recordType, "inter_agent_communication"):
 		if !s.carried[parser.Text(payload.Get("id"))] {
 			s.interAgent(payload)
 		}
-	case isText(recordType, "realtime_item"):
+	case parser.IsText(recordType, "realtime_item"):
 		s.realtime(payload)
 	}
 }
@@ -231,7 +231,7 @@ func (s *rollout) systemTexts(texts []string) {
 func (s *rollout) responseItem(payload jsonvalue.Value) {
 	payloadType := payload.Get("type")
 	switch {
-	case isText(payloadType, "message"):
+	case parser.IsText(payloadType, "message"):
 		s.message(payload)
 	case textIn(payloadType, callTypes...):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
@@ -242,21 +242,21 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
 		row.ToolUseID = parser.Text(payload.Get("call_id"))
 		s.put(row, withExit(parser.TextOf(payload.Get("output")), s.exitCodes[row.ToolUseID]))
-	case isText(payloadType, "tool_search_call"):
+	case parser.IsText(payloadType, "tool_search_call"):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = "tool_search"
 		row.ToolUseID = parser.Text(parser.FirstNonEmpty(payload.Get("call_id"), payload.Get("id")))
 		s.put(row, parser.JSONText(payload.Get("arguments")))
-	case isText(payloadType, "tool_search_output"):
+	case parser.IsText(payloadType, "tool_search_output"):
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
 		row.ToolUseID = parser.Text(payload.Get("call_id"))
 		s.put(row, toolNames(payload.Get("tools")))
-	case isText(payloadType, "agent_message"):
+	case parser.IsText(payloadType, "agent_message"):
 		s.agentMessage(payload, agentText(payload))
-	case isText(payloadType, "image_generation_call"):
+	case parser.IsText(payloadType, "image_generation_call"):
 		s.system("image generation: " + parser.Text(payload.Get("revised_prompt")) + " status=" +
 			parser.Text(payload.Get("status")))
-	case isText(payloadType, "reasoning") && s.options.IncludeThinking:
+	case parser.IsText(payloadType, "reasoning") && s.options.IncludeThinking:
 		text := parser.TextOf(payload.Get("summary"))
 		if text == "" {
 			text = parser.TextOf(payload.Get("content"))
@@ -271,7 +271,7 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 // any other role's text as an assistant row or "<role>: <text>".
 func (s *rollout) message(payload jsonvalue.Value) {
 	role := payload.Get("role")
-	if isText(role, "user") {
+	if parser.IsText(role, "user") {
 		for _, part := range userParts(payload) {
 			if part.kind == "" {
 				s.prompt(part.text)
@@ -284,7 +284,7 @@ func (s *rollout) message(payload jsonvalue.Value) {
 	text := parser.TextOf(payload.Get("content"))
 	switch {
 	case text == "":
-	case isText(role, "assistant"):
+	case parser.IsText(role, "assistant"):
 		s.put(s.row(timeline.TurnAssistant, jsonvalue.NewNull()), text)
 	default:
 		s.system(role.Text() + ": " + text)
@@ -304,34 +304,34 @@ func (s *rollout) agentMessage(payload jsonvalue.Value, text string) {
 // event reads an event_msg line.
 func (s *rollout) event(payload jsonvalue.Value) {
 	switch payloadType := payload.Get("type"); {
-	case isText(payloadType, "task_started"):
+	case parser.IsText(payloadType, "task_started"):
 		s.system("task_started turn=" + parser.Text(payload.Get("turn_id")))
 		attribution := payload.Get("turn_attribution")
 		if trigger := attribution.Get("turn_trigger"); attribution.IsObject() && !trigger.IsEmpty() {
 			turn := parser.Text(parser.FirstNonEmpty(payload.Get("turn_id"), attribution.Get("turn_id")))
 			s.system("turn trigger: " + trigger.Text() + " turn=" + turn)
 		}
-	case isText(payloadType, "task_complete"):
+	case parser.IsText(payloadType, "task_complete"):
 		s.system("task_complete turn=" + parser.Text(payload.Get("turn_id")) + " duration_ms=" +
 			parser.Text(payload.Get("duration_ms")))
 		s.guardianDecision(payload)
-	case isText(payloadType, "thread_settings_applied"):
+	case parser.IsText(payloadType, "thread_settings_applied"):
 		s.threadSettings(payload.Get("thread_settings"))
-	case isText(payloadType, "thread_goal_updated"):
+	case parser.IsText(payloadType, "thread_goal_updated"):
 		s.system(goalText(payload))
-	case isText(payloadType, "turn_aborted"):
+	case parser.IsText(payloadType, "turn_aborted"):
 		detail := ""
 		if failure := payload.Get("error"); failure.IsObject() {
 			detail = parser.Text(failure.Get("message"))
 		}
 		s.system(strings.TrimSpace("turn aborted: " + parser.Text(payload.Get("reason")) + " " + detail))
-	case isText(payloadType, "thread_rolled_back"):
+	case parser.IsText(payloadType, "thread_rolled_back"):
 		count := ""
 		if value, ok := payload.Lookup("num_turns"); ok {
 			count = value.Text()
 		}
 		s.system("rolled back " + count + " turns")
-	case isText(payloadType, "item_completed"):
+	case parser.IsText(payloadType, "item_completed"):
 		s.itemCompleted(payload)
 	}
 }
@@ -441,7 +441,7 @@ func (s *rollout) interAgent(payload jsonvalue.Value) {
 // the assistant, or any other item as its JSON.
 func (s *rollout) realtime(payload jsonvalue.Value) {
 	kind, role := payload.Get("type"), payload.Get("role")
-	if isText(kind, "transcript_segment") && textIn(role, "user", "assistant") {
+	if parser.IsText(kind, "transcript_segment") && textIn(role, "user", "assistant") {
 		s.put(s.row(role.StringValue(), jsonvalue.NewNull()), parser.Text(payload.Get("text")))
 		return
 	}

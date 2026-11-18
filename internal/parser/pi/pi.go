@@ -245,14 +245,14 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 	for _, entry := range session.Entries {
 		record := entry.Record
 		switch kind := record.Get("type"); {
-		case isText(kind, "custom_message"):
+		case parser.IsText(kind, "custom_message"):
 			if custom := parser.Text(record.Get("customType")); strings.HasPrefix(custom, "lc-") {
 				types.add(custom)
 			}
-		case isText(kind, "message"):
+		case parser.IsText(kind, "message"):
 			message := record.Get("message")
-			llamacpp = llamacpp || (isText(message.Get("role"), "assistant") &&
-				isText(message.Get("provider"), "llamacpp"))
+			llamacpp = llamacpp || (parser.IsText(message.Get("role"), "assistant") &&
+				parser.IsText(message.Get("provider"), "llamacpp"))
 		}
 	}
 	var why []string

@@ -65,7 +65,7 @@ func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message js
 			builder.add(where, timestamp, timeline.TurnSystem, text)
 		}
 	}
-	builder.parts(parts, isText(message.Get("role"), "user"), timestamp)
+	builder.parts(parts, parser.IsText(message.Get("role"), "user"), timestamp)
 	parser.EmitAll(emit, builder.rows)
 	if failed := message.Get("error"); !failed.IsEmpty() {
 		row := p.row(artifact, scoped, where.file, where.line, timeutil.FirstNonEmpty(
@@ -88,7 +88,7 @@ func (b *partRows) parts(parts []part, user bool, messageTime string) {
 		timestamp := timeutil.FirstNonEmpty(
 			timeutil.FromValue(objectOf(data.Get("time")).Get("start")), each.where.time, messageTime)
 		text := data.Get("text")
-		isPlainText := isText(data.Get("type"), "text") && data.Get("synthetic").IsEmpty() &&
+		isPlainText := parser.IsText(data.Get("type"), "text") && data.Get("synthetic").IsEmpty() &&
 			data.Get("ignored").IsEmpty()
 		if isPlainText && user {
 			if !text.IsEmpty() {

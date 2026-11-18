@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // referencePatch is a patch applied by copying the message and its tool
@@ -21,7 +22,7 @@ func referencePatch(message, patch jsonvalue.Value) (jsonvalue.Value, int) {
 		copied.Set("content", content)
 	}
 	calls := message.Get("toolCalls")
-	if patch.Get("toolCalls").IsArray() && isText(copied.Get("type"), "gemini") && calls.IsArray() {
+	if patch.Get("toolCalls").IsArray() && parser.IsText(copied.Get("type"), "gemini") && calls.IsArray() {
 		items := make([]jsonvalue.Value, 0, calls.Len())
 		for _, call := range calls.Items() {
 			if call.IsObject() {

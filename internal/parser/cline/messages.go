@@ -136,7 +136,7 @@ func (p *Parser) messageRows(base timeline.Row, message, manifest jsonvalue.Valu
 func decisions(content jsonvalue.Value) map[string]string {
 	decided := map[string]string{}
 	for _, block := range content.Items() {
-		if !isText(block.Get("type"), "tool_result") || block.Get("is_error").IsEmpty() {
+		if !parser.IsText(block.Get("type"), "tool_result") || block.Get("is_error").IsEmpty() {
 			continue
 		}
 		if text := denial(block.Get("content")); text != "" {
@@ -168,9 +168,4 @@ func denial(content jsonvalue.Value) string {
 		return "permission decision: blocked reason=" + reason.StringValue()
 	}
 	return ""
-}
-
-// isText reports whether a value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }

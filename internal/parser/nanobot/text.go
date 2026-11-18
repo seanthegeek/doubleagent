@@ -116,8 +116,3 @@ func getOr(object jsonvalue.Value, key, fallback string) string {
 	}
 	return fallback
 }
-
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
-}

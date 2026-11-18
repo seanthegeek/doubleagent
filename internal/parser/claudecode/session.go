@@ -204,13 +204,13 @@ func (s *session) stateRows(record jsonvalue.Value, recordType string) {
 // (a teleported cloud turn), or a record of the VS Code extension.
 func originText(record jsonvalue.Value, scan *prescan) string {
 	entrypoint := record.Get("entrypoint")
-	if isText(entrypoint, "sdk-cli") && scan.sdkSpawn {
+	if parser.IsText(entrypoint, "sdk-cli") && scan.sdkSpawn {
 		return timeline.OriginPrefix + " (Remote Control, entrypoint sdk-cli)"
 	}
 	if flag, ok := record.Get("remoteSourced").Bool(); ok && flag {
 		return timeline.OriginPrefix + " (teleport, remoteSourced)"
 	}
-	if isText(entrypoint, "claude-vscode") {
+	if parser.IsText(entrypoint, "claude-vscode") {
 		return "session origin: local (VS Code extension)"
 	}
 	return ""
@@ -341,7 +341,7 @@ func withoutKeys(record jsonvalue.Value, drop func(string) bool) jsonvalue.Value
 // of all, or the operation and its content.
 func (s *session) queue(record jsonvalue.Value) {
 	content := parser.TextOf(record.Get("content"))
-	if isText(record.Get("operation"), "enqueue") {
+	if parser.IsText(record.Get("operation"), "enqueue") {
 		if lines := s.scan.delivered[content]; len(lines) > 0 {
 			deliveredAt := lines[0]
 			for _, delivered := range lines {

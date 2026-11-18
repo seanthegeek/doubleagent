@@ -74,13 +74,13 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 func (r *record) rows() []timeline.Row {
 	out := r.contextChanges()
 	switch kind := r.value.Get("type"); {
-	case isText(kind, "user"):
+	case parser.IsText(kind, "user"):
 		out = append(out, r.userRows()...)
-	case isText(kind, "assistant"):
+	case parser.IsText(kind, "assistant"):
 		out = append(out, r.assistantRows()...)
-	case isText(kind, "tool_result"):
+	case parser.IsText(kind, "tool_result"):
 		out = append(out, r.toolResultRows()...)
-	case isText(kind, "system"):
+	case parser.IsText(kind, "system"):
 		out = append(out, r.systemRows()...)
 	}
 	return out
@@ -301,7 +301,7 @@ func (r *record) systemRows() []timeline.Row {
 // own event name or the class's default one, or none.
 func (r *record) telemetryDecision(event jsonvalue.Value) []timeline.Row {
 	name := event.Get("event.name")
-	if !event.IsObject() || !isText(name, "qwen-code.tool_call") && !isText(name, "tool_call") ||
+	if !event.IsObject() || !parser.IsText(name, "qwen-code.tool_call") && !parser.IsText(name, "tool_call") ||
 		event.Get("decision").IsEmpty() {
 		return nil
 	}
@@ -330,7 +330,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 		row.SessionID = parser.Text(each.value.Get("sessionId"))
 		kind, message := each.value.Get("type"), each.value.Get("message")
 		var text string
-		if isText(kind, "user") {
+		if parser.IsText(kind, "user") {
 			row.TurnType, text = timeline.TurnUser, textOrJSON(message)
 		} else {
 			row.TurnType = timeline.TurnSystem
@@ -340,7 +340,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 					event = decoded
 				}
 			}
-			if isText(kind, "model_switch") && event.IsObject() {
+			if parser.IsText(kind, "model_switch") && event.IsObject() {
 				text = "model: " + event.Get("fromModel").Text() + " -> " + event.Get("toModel").Text() +
 					" reason=" + event.Get("reason").Text()
 				row.Model = parser.Text(event.Get("toModel"))

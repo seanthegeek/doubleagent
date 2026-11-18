@@ -36,18 +36,13 @@ func (p *Parser) transcript(artifact *input.Artifact, options parser.Options, se
 func initCwd(artifact *input.Artifact) string {
 	var ignored parser.Problems
 	for _, line := range parser.JSONLines(artifact.DiskPath, &ignored) {
-		if isText(line.Get("type"), "system") && isText(line.Get("subtype"), "init") {
+		if parser.IsText(line.Get("type"), "system") && parser.IsText(line.Get("subtype"), "init") {
 			if cwd := line.Get("cwd").Text(); cwd != "" {
 				return cwd
 			}
 		}
 	}
 	return ""
-}
-
-// isText reports whether value is the string want.
-func isText(value jsonvalue.Value, want string) bool {
-	return value.IsString() && value.StringValue() == want
 }
 
 // auditLine is the state of an audit log's parse and the line being read.
@@ -117,15 +112,15 @@ func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session
 // read emits the rows of one audit line, by its type and subtype.
 func (a *auditLine) read(line jsonvalue.Value) {
 	lineType, subtype := line.Get("type"), line.Get("subtype")
-	isSystem := isText(lineType, "system")
+	isSystem := parser.IsText(lineType, "system")
 	switch {
-	case isSystem && (isText(subtype, "permission_request") || isText(subtype, "permission_response") ||
-		isText(subtype, "permission_auto_approved") || isText(subtype, "permission_auto_denied")):
+	case isSystem && (parser.IsText(subtype, "permission_request") || parser.IsText(subtype, "permission_response") ||
+		parser.IsText(subtype, "permission_auto_approved") || parser.IsText(subtype, "permission_auto_denied")):
 		a.permission(line, subtype.StringValue())
-	case isText(lineType, "result"):
+	case parser.IsText(lineType, "result"):
 		a.emit(a.row(timeline.TurnSystem, "result: "+subtype.Text()+" turns="+
 			line.Get("num_turns").Text()+" error="+line.Get("is_error").Text()))
-	case isSystem && isText(subtype, "init"):
+	case isSystem && parser.IsText(subtype, "init"):
 		// The session's model, even when a transcript exists.
 		a.modelRow(line.Get("model").Text())
 		var parts []string
@@ -139,14 +134,14 @@ func (a *auditLine) read(line jsonvalue.Value) {
 			message = "init: " + strings.Join(parts, " ")
 		}
 		a.emit(a.row(timeline.TurnSystem, message))
-	case isSystem && isText(subtype, "model_refusal_fallback"):
+	case isSystem && parser.IsText(subtype, "model_refusal_fallback"):
 		// The subtype is in the bundle, its fields are not recorded: they
 		// are printed as they are.
 		a.emit(a.row(timeline.TurnSystem, "model_refusal_fallback: "+
 			parser.JSONText(withoutEnvelope(line))))
-	case isText(lineType, "user"):
+	case parser.IsText(lineType, "user"):
 		a.user(line)
-	case isText(lineType, "assistant"):
+	case parser.IsText(lineType, "assistant"):
 		a.modelRow(line.Get("message").Get("model").Text())
 		a.assistant(line)
 	}
@@ -236,12 +231,12 @@ func blocks(content jsonvalue.Value) []jsonvalue.Value {
 // when the person typed them in the app, else as context.
 func (a *auditLine) user(line jsonvalue.Value) {
 	synthetic := !line.Get("isSynthetic").IsEmpty()
-	typed := isText(line.Get("client_platform"), "desktop_app") && !synthetic
+	typed := parser.IsText(line.Get("client_platform"), "desktop_app") && !synthetic
 	for _, block := range blocks(line.Get("message").Get("content")) {
 		blockType := block.Get("type")
 		switch {
 		case !block.IsObject():
-		case isText(blockType, "tool_result"):
+		case parser.IsText(blockType, "tool_result"):
 			result := claudecode.ResultText(block.Get("content"))
 			if !block.Get("is_error").IsEmpty() {
 				result = "[error] " + result
@@ -249,7 +244,7 @@ func (a *auditLine) user(line jsonvalue.Value) {
 			row := a.row(timeline.TurnToolResult, result)
 			row.ToolUseID = block.Get("tool_use_id").Text()
 			a.emit(row)
-		case isText(blockType, "text"), isText(blockType, "image"):
+		case parser.IsText(blockType, "text"), parser.IsText(blockType, "image"):
 			body := parser.TextOf(jsonvalue.NewArray(block))
 			switch {
 			case body == "":
@@ -275,16 +270,16 @@ func (a *auditLine) assistant(line jsonvalue.Value) {
 		switch {
 		case !block.IsObject():
 			continue
-		case isText(blockType, "tool_use"):
+		case parser.IsText(blockType, "tool_use"):
 			name := block.Get("name").Text()
 			row = a.row(timeline.TurnToolUse, claudecode.ToolSummary(name, block.Get("input")))
 			row.ToolName = name
 			row.ToolUseID = block.Get("id").Text()
-		case isText(blockType, "text") && !block.Get("text").IsEmpty():
+		case parser.IsText(blockType, "text") && !block.Get("text").IsEmpty():
 			row = a.row(timeline.TurnAssistant, block.Get("text").Text())
-		case isText(blockType, "thinking") && a.options.IncludeThinking && !block.Get("thinking").IsEmpty():
+		case parser.IsText(blockType, "thinking") && a.options.IncludeThinking && !block.Get("thinking").IsEmpty():
 			row = a.row(timeline.TurnThinking, block.Get("thinking").Text())
-		case isText(blockType, "redacted_thinking") && a.options.IncludeThinking:
+		case parser.IsText(blockType, "redacted_thinking") && a.options.IncludeThinking:
 			row = a.row(timeline.TurnThinking, "[redacted]")
 		default:
 			continue

@@ -123,7 +123,7 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 // isEmptySetting reports whether a permission setting is absent: null, an
 // empty string, an empty object or an empty list.
 func isEmptySetting(value jsonvalue.Value) bool {
-	return value.IsNull() || isText(value, "") ||
+	return value.IsNull() || parser.IsText(value, "") ||
 		((value.IsObject() || value.IsArray()) && value.Len() == 0)
 }
 
@@ -155,7 +155,7 @@ func archiveText(entry jsonvalue.Value) string {
 // channel a platform (src/config/sessions/types.ts:60-83; route is a
 // ChannelRouteRef, src/plugin-sdk/channel-route.ts:18-25).
 func deliveryRelay(delivery jsonvalue.Value) string {
-	if !isText(delivery.Get("kind"), "external") {
+	if !parser.IsText(delivery.Get("kind"), "external") {
 		return ""
 	}
 	route, origin := delivery.Get("route"), delivery.Get("origin")

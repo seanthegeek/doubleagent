@@ -197,11 +197,11 @@ func messageEvents(record jsonvalue.Value, text string, options parser.Options) 
 	events := toolEventRows(toolEvents)
 	kind := record.Get("kind")
 	switch {
-	case isText(kind, "reasoning"):
+	case parser.IsText(kind, "reasoning"):
 		if options.IncludeThinking && text != "" {
 			events = append(events, event{turnType: timeline.TurnThinking, text: text})
 		}
-	case isText(kind, "tool_hint"), isText(kind, "progress"):
+	case parser.IsText(kind, "tool_hint"), parser.IsText(kind, "progress"):
 		if text != "" && len(toolEvents) == 0 {
 			label := strings.ReplaceAll(kind.StringValue(), "_", " ")
 			events = append(events, event{turnType: timeline.TurnSystem, text: label + ": " + text})
@@ -217,7 +217,7 @@ func messageEvents(record jsonvalue.Value, text string, options parser.Options) 
 func fileEdits(record jsonvalue.Value) []event {
 	var events []event
 	for _, entry := range parser.Elements(record.Get("edits")) {
-		if !entry.IsObject() || isText(entry.Get("phase"), "start") {
+		if !entry.IsObject() || parser.IsText(entry.Get("phase"), "start") {
 			continue
 		}
 		operation := ""
@@ -242,17 +242,17 @@ func toolEventRows(toolEvents []jsonvalue.Value) []event {
 		name, callID := parser.Text(entry.Get("name")), parser.Text(entry.Get("call_id"))
 		phase := entry.Get("phase")
 		switch {
-		case isText(phase, "start"):
+		case parser.IsText(phase, "start"):
 			events = append(events, event{timeline.TurnToolUse,
 				openclaw.ToolArgsText(entry.Get("arguments")), name, callID})
-		case isText(phase, "end"):
+		case parser.IsText(phase, "end"):
 			result := entry.Get("result")
 			body := parser.JSONText(result)
 			if result.IsString() {
 				body = result.StringValue()
 			}
 			events = append(events, event{timeline.TurnToolResult, body, name, callID})
-		case isText(phase, "error"):
+		case parser.IsText(phase, "error"):
 			events = append(events, event{timeline.TurnToolResult, parser.Text(entry.Get("error")),
 				name, callID})
 		}

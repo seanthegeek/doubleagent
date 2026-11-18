@@ -95,17 +95,12 @@ func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	}
 }
 
-// isText reports whether value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
-}
-
 // message emits the rows of one message: a model change, its text, its
 // tool calls and results, its process steps and its error.
 func (c *chatRows) message(message jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
-	if isText(speaker, "assistant") {
+	if parser.IsText(speaker, "assistant") {
 		model = parser.Text(message.Get("model"))
 	}
 	if change := c.models.Change("model", "model", model); change != "" {
@@ -114,7 +109,7 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	parts := message.Get("content").Items()
 	text := messageText(message, parts)
 	switch {
-	case isText(speaker, "human"):
+	case parser.IsText(speaker, "human"):
 		var files []string
 		for _, entry := range parser.Elements(message.Get("contextFiles")) {
 			if file := fsPath(entry.Get("uri")); entry.IsObject() && file != "" {
@@ -127,7 +122,7 @@ func (c *chatRows) message(message jsonvalue.Value) {
 		if text != "" {
 			c.row(timeline.TurnUser, text, "", "", "")
 		}
-	case text != "" && isText(speaker, "assistant"):
+	case text != "" && parser.IsText(speaker, "assistant"):
 		c.row(timeline.TurnAssistant, text, model, "", "")
 	case text != "":
 		c.row(timeline.TurnSystem, text, model, "", "")
@@ -151,7 +146,7 @@ func messageText(message jsonvalue.Value, parts []jsonvalue.Value) string {
 	}
 	var texts []string
 	for _, part := range parts {
-		if part.IsObject() && isText(part.Get("type"), "text") && !part.Get("text").IsEmpty() {
+		if part.IsObject() && parser.IsText(part.Get("type"), "text") && !part.Get("text").IsEmpty() {
 			texts = append(texts, part.Get("text").Text())
 		}
 	}
@@ -178,7 +173,7 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 	callIDs := map[string]bool{}
 	for _, part := range parts {
 		kind := part.Get("type")
-		if call := part.Get("tool_call"); isText(kind, "tool_call") && call.IsObject() {
+		if call := part.Get("tool_call"); parser.IsText(kind, "tool_call") && call.IsObject() {
 			toolID, name := parser.Text(call.Get("id")), parser.Text(call.Get("name"))
 			callIDs[toolID] = true
 			c.names[toolID] = name
@@ -188,7 +183,7 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 				text = parser.JSONText(args)
 			}
 			c.row(timeline.TurnToolUse, text, model, name, toolID)
-		} else if result := part.Get("tool_result"); isText(kind, "tool_result") && result.IsObject() {
+		} else if result := part.Get("tool_result"); parser.IsText(kind, "tool_result") && result.IsObject() {
 			toolID := parser.Text(result.Get("id"))
 			content := result.Get("content")
 			text := content.StringValue()
@@ -211,7 +206,7 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 	for _, process := range parser.Elements(processes) {
 		kind := process.Get("type")
 		toolID := parser.Text(process.Get("id"))
-		if isText(kind, "confirmation") {
+		if parser.IsText(kind, "confirmation") {
 			lines := []string{confirmationHead(process)}
 			for _, key := range []string{"description", "content"} {
 				if value := process.Get(key); !value.IsEmpty() {
@@ -221,7 +216,7 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 			c.row(timeline.TurnSystem, strings.Join(lines, "\n"), model, c.names[toolID], toolID)
 			continue
 		}
-		if !isText(kind, "tool") || (toolID != "" && callIDs[toolID]) {
+		if !parser.IsText(kind, "tool") || (toolID != "" && callIDs[toolID]) {
 			continue
 		}
 		name := parser.Text(process.Get("title"))
@@ -231,7 +226,7 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 		if !content.IsString() && !content.IsNull() {
 			body = parser.JSONText(content)
 		}
-		if state := process.Get("state"); !state.IsEmpty() && !isText(state, "success") {
+		if state := process.Get("state"); !state.IsEmpty() && !parser.IsText(state, "success") {
 			body = "[" + state.Text() + "] " + body
 		}
 		c.row(timeline.TurnToolUse, body, model, name, toolID)
@@ -255,9 +250,9 @@ func confirmationHead(process jsonvalue.Value) string {
 	}
 	head := "permission decision: confirmation"
 	switch {
-	case isText(state, "error") && shown == rejected:
+	case parser.IsText(state, "error") && shown == rejected:
 		head = "permission decision: rejected confirmation"
-	case isText(state, "pending"):
+	case parser.IsText(state, "pending"):
 		head = "permission decision: approved or unanswered confirmation"
 	}
 	if !state.IsEmpty() {

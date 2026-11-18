@@ -60,7 +60,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 // falling back to whichever of say, ask and type is set.
 func messageKind(message jsonvalue.Value) string {
 	kind := message.Get("ask")
-	if isText(message.Get("type"), "say") {
+	if parser.IsText(message.Get("type"), "say") {
 		kind = message.Get("say")
 	}
 	return parser.Text(parser.FirstNonEmpty(kind, message.Get("say"), message.Get("ask"), message.Get("type")))
@@ -84,11 +84,6 @@ func partialText(text string, message jsonvalue.Value) string {
 		return "[partial]"
 	}
 	return text + " [partial]"
-}
-
-// isText reports whether a value is the string text.
-func isText(value jsonvalue.Value, text string) bool {
-	return value.IsString() && value.StringValue() == text
 }
 
 // Mapped is the row one ui_messages.json message gives: its turn type,
