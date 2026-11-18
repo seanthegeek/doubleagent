@@ -20,7 +20,8 @@ const inputHelp = `
 const detectUsage = `Usage: doubleagent detect [options] INPUT
 
 List the homes, users and agents found in the input. Exit status: 0 when
-agent files were found, 1 when none were, 2 on an error.
+agent files were found or --json was given, 1 when none were, 2 on an
+error.
 ` + inputHelp + `  --json               machine-readable output
   --files              list every attributed file
 `
