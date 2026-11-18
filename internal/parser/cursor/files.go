@@ -91,7 +91,7 @@ func (p *Parser) attempt(artifact *input.Artifact, emit parser.Emit) {
 	if !parser.Present(document.Get("createdAtMs")) {
 		created, source = parser.FileMtime(artifact), source+", file mtime"
 	}
-	text := "mcp oauth attempt: server=" + parser.WithoutCredentials(fieldOf(document.Get("serverUrl"))) + " client_id=" +
+	text := "mcp oauth attempt: server=" + parser.URLText(artifact, fieldOf(document.Get("serverUrl"))) + " client_id=" +
 		fieldOf(document.Get("clientInformation").Get("client_id")) + " workspace=" +
 		fieldOf(document.Get("owner").Get("workspaceId")) + " (from " + source + ")"
 	emit(p.systemAt(artifact, text, created, 1))

@@ -74,6 +74,8 @@ type commandReplay struct {
 	// calls holds the recorded parser calls of the nodes that ran timeline,
 	// which tell difference 107 which files held a record.
 	calls nodeCalls
+	// withheld counts, by entry, the cases that needed difference 230.
+	withheld map[string]int
 }
 
 // replayCommands runs every recorded command case, noting in used the
@@ -98,6 +100,7 @@ func replayCommands(t *testing.T, corpus *Corpus, used neededTally) bool {
 		}
 	}
 	replay.report(t)
+	checkEveryWithheldFormUsed(t, commandScope, replay.withheld, ran == total)
 	return ran == total
 }
 
@@ -109,7 +112,7 @@ func newCommandReplay(t *testing.T, corpus *Corpus) *commandReplay {
 		pythonAgents: caseFiles(t, corpus, "parsers"), deniesAccess: deniesReading(t),
 		trees: corpus.NewWorkTree(t), full: map[string]int{}, partial: map[string]int{},
 		skipped: map[string]int{}, waiting: map[string][]string{}, blocks: map[string]string{},
-		needed: neededTally{}, used: neededTally{}}
+		needed: neededTally{}, used: neededTally{}, withheld: map[string]int{}}
 	for _, agent := range checkEveryAgentHasAParser(t, replay.pythonAgents, parsers.All()) {
 		replay.pending[agent] = true
 	}
@@ -316,7 +319,8 @@ type commandOutput struct {
 }
 
 // run runs the case's command line in this process, in the recorded
-// working directory, with the recorded clock and the run's parsers, and
+// working directory, with the recorded clock and the run's parsers, secrets
+// withheld as every recorded run withheld them (withSecretsWithheld), and
 // returns what it gave and the bytes of each file the recording wrote.
 func (r *commandReplay) run(t *testing.T, node, command string, recorded CommandCase,
 	root string) commandOutput {
@@ -327,10 +331,10 @@ func (r *commandReplay) run(t *testing.T, node, command string, recorded Command
 	args[0] = commandNames[command]
 	rest, moved := difference(t, 121).Arguments(args[0], args[1:])
 	if moved > 0 {
-		args = append([]string{args[0]}, rest...)
 		r.reordered++
 		r.note(node, []int{121})
 	}
+	args = append([]string{args[0]}, withSecretsWithheld(args[0], rest)...)
 	t.Chdir(r.corpus.Expand(recorded.Cwd, root))
 	registry := r.registry
 	if r.registryOverride != nil {
@@ -584,6 +588,9 @@ func (r *commandReplay) compareFull(t *testing.T, node, root string, recorded Co
 	}
 	notes, needed := compareInformation(t, node, root, want, got)
 	r.note(node, needed)
+	if slices.Contains(needed, withheldDifference().Number) {
+		r.noteWithheld(want)
+	}
 	if !notes.checked {
 		return
 	}
@@ -593,6 +600,18 @@ func (r *commandReplay) compareFull(t *testing.T, node, root string, recorded Co
 	}
 	if notes.byKey {
 		r.byKey = append(r.byKey, node)
+	}
+}
+
+// noteWithheld counts, for each command entry of difference 230 whose
+// recorded form shows in the recorded streams or outputs, one case.
+func (r *commandReplay) noteWithheld(want commandOutput) {
+	texts := []string{want.stdout, want.stderr}
+	for _, path := range slices.Sorted(maps.Keys(want.outputs)) {
+		texts = append(texts, want.outputs[path])
+	}
+	for _, label := range withheldEntriesIn(commandScope, strings.Join(texts, "\n")) {
+		r.withheld[label]++
 	}
 }
 

@@ -175,7 +175,7 @@ func (p *Parser) policy(artifact *input.Artifact, emit parser.Emit) {
 	}
 	document, err := tomldoc.Parse(textlines.ValidUTF8(data))
 	if err != nil {
-		row("parser: unreadable " + artifact.Rel + ": " + err.Error())
+		row("parser: unreadable " + artifact.Rel + ": " + parser.ReaderErrorText(artifact, err))
 		return
 	}
 	source := fromFile(artifact)

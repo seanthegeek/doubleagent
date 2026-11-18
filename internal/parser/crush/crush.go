@@ -222,7 +222,8 @@ func configLists(document jsonvalue.Value) []settingList {
 
 // parseConfig emits one "permission setting:" row per standing entry of a
 // crush.json; nothing else in the file is read. A file that is not JSON
-// gives only where it stopped, since the file holds API keys.
+// gives the reader's error through parser.ReaderErrorText, since the file
+// holds API keys.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -235,7 +236,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	if err != nil || !document.IsObject() {
 		text := parser.ProblemPrefix + artifact.Rel + " is not a JSON object"
 		if err != nil {
-			text += " (" + parser.JSONPosition(err) + ")"
+			text += " (" + parser.ReaderErrorText(artifact, err) + ")"
 		}
 		row := p.system(artifact, text, 1)
 		row.TimestampUTC = timestamp

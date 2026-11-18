@@ -16,7 +16,25 @@ const inputOptionsHelp = `  --host HOST          host name to record when the in
   --work-dir DIR       where to extract an archive (default: a temporary
                        directory removed afterwards)
   --keep-extracted     do not delete the extracted archive
+  --no-secrets         replace each secret the output would show with
+                       REDACTED: the credentials in a URL, a token or key
+                       in a settings row, and a reader's error that quotes
+                       a file holding keys
+  --redaction-placeholder TEXT
+                       with --no-secrets, replace each secret with TEXT
+                       rather than REDACTED; "" leaves nothing in its place
   -h, --help           print this text and exit
+`
+
+// secretsHelp is the warning detect and timeline give about the secrets
+// their output holds.
+const secretsHelp = `
+By default the output shows secrets as the evidence holds them, so
+timeline.jsonl, sessions.jsonl, inventory.json and the output of detect
+hold live credentials. --no-secrets cannot guarantee that every credential
+is removed: one written in free text that no rule identifies (a prompt, a
+command line, a tool's output, a pasted file) is shown either way. Review a
+timeline before it is shared, whichever mode wrote it.
 `
 
 // inputHelp is the help of the input and options detect and timeline share.
@@ -30,7 +48,7 @@ agent files were found or --json was given, 1 when none were, 2 on an
 error, 130 when interrupted.
 ` + inputHelp + `  --json               machine-readable output
   --files              list every attributed file
-`
+` + secretsHelp
 
 // timelineUsage is the help text of timeline.
 const timelineUsage = `Usage: doubleagent timeline [options] INPUT OUTPUT_DIR
@@ -56,7 +74,7 @@ error, 130 when interrupted.
   -i, --ignore-case    make --match case-insensitive
 
 WHEN is one of the forms ` + rowfilter.FormsHelp + `.
-`
+` + secretsHelp
 
 // fleetUsage is the help text of fleet.
 const fleetUsage = `Usage: doubleagent fleet [-o CSV] INPUT [INPUT ...]

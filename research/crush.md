@@ -717,9 +717,10 @@ records and are skipped. `projects.json` that does not parse is one whole-file `
 that decodes to something other than an object is `parser: projects.json is not a JSON object`, and
 a `projects` that is present but not an array `parser: projects is not a JSON array` (absent, null
 or empty gives none). So is a `crush.json` that is not a JSON object
-(`parser: <file> is not a JSON object`, followed by
-` (invalid JSON at line <n>, column <n>)` for one that does not decode, without the reader's
-detail, since the file holds API keys). A `projects.json`,
+(`parser: <file> is not a JSON object`, followed for one that does not decode by
+` (<reason>)`, the reader's error in full, or where it stopped
+(`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the file
+holds API keys). A `projects.json`,
 `crush.json` or `crushrc` that cannot be read is one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0, an empty
 time and, for the configuration files, the project the file belongs to. A `messages.parts` value

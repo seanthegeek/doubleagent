@@ -6,6 +6,8 @@ import (
 	"io"
 	"slices"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // InputOptions are the options detect and timeline share: the input and how
@@ -16,6 +18,9 @@ type InputOptions struct {
 	User          string
 	WorkDir       string
 	KeepExtracted bool
+	// Secrets is how the output shows the secrets found in the evidence:
+	// as written, or replaced by a placeholder under --no-secrets.
+	Secrets secrets.Setting
 }
 
 // DetectOptions are the options of detect.
@@ -83,7 +88,30 @@ func inputFlags(command string, options *InputOptions, help *bool) *flag.FlagSet
 		return nil
 	})
 	set.BoolVar(&options.KeepExtracted, "keep-extracted", false, "")
+	set.BoolVar(&options.Secrets.Withhold, "no-secrets", false, "")
+	set.StringVar(&options.Secrets.Placeholder, placeholderOption, "", "")
 	return set
+}
+
+// placeholderOption is the option that names the text a withheld secret is
+// replaced by.
+const placeholderOption = "redaction-placeholder"
+
+// completeSecrets finishes the secrets setting of a parsed command line:
+// the default placeholder when --no-secrets is given without
+// --redaction-placeholder, and the usage error of --redaction-placeholder
+// without --no-secrets, which would otherwise do nothing and suggest that
+// secrets were withheld.
+func completeSecrets(set *flag.FlagSet, options *InputOptions) error {
+	given := false
+	set.Visit(func(option *flag.Flag) { given = given || option.Name == placeholderOption })
+	switch {
+	case given && !options.Secrets.Withhold:
+		return usageError(set.Name(), "--"+placeholderOption+" needs --no-secrets")
+	case !given && options.Secrets.Withhold:
+		options.Secrets.Placeholder = secrets.DefaultPlaceholder
+	}
+	return nil
 }
 
 // detectFlags returns the flag set of detect, reading into options.
@@ -197,9 +225,13 @@ func oneInput(command string, inputs, missing []string) (string, error) {
 func ParseDetect(args []string) (DetectOptions, bool, error) {
 	var options DetectOptions
 	var help bool
-	inputs, err := parse(detectFlags(&options, &help), args)
+	set := detectFlags(&options, &help)
+	inputs, err := parse(set, args)
 	if err != nil || help {
 		return options, help && err == nil, err
+	}
+	if err := completeSecrets(set, &options.InputOptions); err != nil {
+		return options, false, err
 	}
 	options.Input, err = oneInput("detect", inputs, nil)
 	return options, false, err
@@ -210,9 +242,13 @@ func ParseDetect(args []string) (DetectOptions, bool, error) {
 func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	var options TimelineOptions
 	var help bool
-	inputs, err := parse(timelineFlags(&options, &help), args)
+	set := timelineFlags(&options, &help)
+	inputs, err := parse(set, args)
 	if err != nil || help {
 		return options, help && err == nil, err
+	}
+	if err := completeSecrets(set, &options.InputOptions); err != nil {
+		return options, false, err
 	}
 	switch {
 	case len(inputs) == 0:

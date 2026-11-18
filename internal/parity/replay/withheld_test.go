@@ -1,0 +1,291 @@
+//go:build parity
+
+package replay
+
+import (
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/secrets"
+)
+
+// The recordings come from an analyzer that always withheld the secrets of
+// the sites the binary shows by default, each site in its own form. So the
+// replay runs every parser case and every detect and timeline command case
+// with secrets withheld (withheldSecrets, withSecretsWithheld), and the
+// binary's placeholder form is compared with the recording's form through
+// difference 230.
+
+// withheldSecrets returns the setting every replayed parser case runs
+// under: secrets withheld as the default placeholder, as a run with
+// --no-secrets gives.
+func withheldSecrets() secrets.Setting {
+	return secrets.Setting{Withhold: true, Placeholder: secrets.DefaultPlaceholder}
+}
+
+// withSecretsWithheld returns the arguments after a recorded detect or
+// timeline command with --no-secrets ahead of them, so the run withholds
+// secrets as every recorded run did; any other command's arguments are
+// returned as they are.
+func withSecretsWithheld(command string, args []string) []string {
+	if command != "detect" && command != "timeline" {
+		return args
+	}
+	return slices.Concat([]string{"--no-secrets"}, args)
+}
+
+// withheldDifference returns difference 230.
+func withheldDifference() Difference {
+	return Difference{Number: 230, Summary: "a withheld secret is written as the placeholder: at each site of " +
+		"withheldForms, the recording's withheld form and the binary's form with REDACTED become one token " +
+		"that keeps the rest of the row", Text: withheldText(recordedSide), Binary: withheldText(binarySide),
+		Within: 102}
+}
+
+// withheldForm is one site where the recording's form of a secret differs
+// from the binary's withheld form: whose output it is (scope, a parser's
+// rows or a command's own output, and agent, the parser's agent or the
+// command), a name, the lines it may appear on (nil for any), the recorded
+// form and the binary's form with the placeholder, each a pattern that
+// stops at the end of the secret's part so the rest is still compared, and
+// the token both become.
+type withheldForm struct {
+	scope, agent, name string
+	lines              *regexp.Regexp
+	recorded, binary   *regexp.Regexp
+	token              string
+}
+
+// The scopes of withheldForms: the replay whose cases each entry's rows
+// come from, and which checks that some case used it.
+const (
+	parserScope  = "parser"
+	commandScope = "command"
+)
+
+// label returns the name the run's log and its check of every entry use.
+func (f withheldForm) label() string {
+	return f.agent + " " + f.name
+}
+
+// rewrite returns text with the entry's form of one side as its token,
+// only on the entry's lines when it names them, and the count.
+func (f withheldForm) rewrite(from side, text string) (string, int) {
+	pattern := f.binary
+	if from == recordedSide {
+		pattern = f.recorded
+	}
+	found := 0
+	replace := func(part string) string {
+		found += len(pattern.FindAllStringIndex(part, -1))
+		return pattern.ReplaceAllString(part, f.token)
+	}
+	if f.lines == nil {
+		return replace(text), found
+	}
+	return f.lines.ReplaceAllStringFunc(text, replace), found
+}
+
+// withheldForms returns the entries of difference 230. A parser that comes
+// to withhold a secret the recording gave in another form adds an entry,
+// and a run of every case fails for an entry no case of its scope used.
+// The binary's form always holds REDACTED where the secret was, so a
+// binary that shows the secret, or prints the recording's form, still
+// fails.
+func withheldForms() []withheldForm {
+	form := func(agent, name, recorded, binary, token string) withheldForm {
+		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
+			binary: regexp.MustCompile(binary), token: token}
+	}
+	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
+	goJSON := `invalid JSON at line ([0-9]+), column ([0-9]+): ` + secrets.DefaultPlaceholder
+	position := "{withheld at line ${2}, column ${3}}"
+	schemeText := `[a-z][a-z0-9+.-]*://`
+	scheme := "(" + schemeText + ")"
+	return []withheldForm{
+		form("tabby", "config.toml reader error",
+			`(parser: config\.toml is not valid TOML \()(?:`+strings.Join(tomlMessages(), "|")+`)[^"\n]*? `+
+				`\(at line ([0-9]+), column ([0-9]+)\)\)`,
+			`(parser: config\.toml is not valid TOML \()invalid TOML at line ([0-9]+), column ([0-9]+): `+
+				secrets.DefaultPlaceholder+`\)`,
+			"${1}"+position+")"),
+		form("nanobot", "config.json reader error",
+			`(parser: config\.json did not parse: )`+pythonJSON+`("|\n|\z)`,
+			`(parser: config\.json did not parse: )`+goJSON+`("|\n|\z)`,
+			"${1}"+position+"${4}"),
+		// The recording names a crush.json that is not JSON without the
+		// reader's error; the binary adds it, withheld.
+		form("crush", "crush.json reader error",
+			`(parser: [^"\n]*crush\.json is not a JSON object)("|\n|\z)`,
+			`(parser: [^"\n]*crush\.json is not a JSON object)(?: \(invalid JSON at line [0-9]+, column [0-9]+: `+
+				secrets.DefaultPlaceholder+`\))?("|\n|\z)`,
+			"${1}${2}"),
+		form("openclaw", "exec approvals reader error",
+			`(exec_approvals_config raw_json unparseable \()`+pythonJSON+`; text withheld, it holds the approvals `+
+				`socket token\)`,
+			`(exec_approvals_config raw_json unparseable \()`+goJSON+`\)`,
+			"${1}"+position+")"),
+		// The recording printed a repository's remote URLs as written; the
+		// binary run with --no-secrets withholds their user information, on
+		// detect's remotes: line and in the urls and pushurls arrays of
+		// detect --json and inventory.json, one URL per line.
+		{scope: commandScope, agent: "detect and timeline", name: ".git/config remote URL",
+			lines:    regexp.MustCompile(`(?m)^(?:  remotes: [^\n]*|[ \t]*"` + schemeText + `[^"\n]*",?)$`),
+			recorded: regexp.MustCompile(scheme + `[^\s"@/]+@`),
+			binary:   regexp.MustCompile(scheme + secrets.DefaultPlaceholder + `@`), token: "${1}{withheld}@"},
+	}
+}
+
+// withheldText returns the rewrite of difference 230 for one side: each
+// entry's form of that side as its token, and the count.
+func withheldText(from side) func(text string) (string, int) {
+	return func(text string) (string, int) {
+		total := 0
+		for _, entry := range withheldForms() {
+			var found int
+			text, found = entry.rewrite(from, text)
+			total += found
+		}
+		return text, total
+	}
+}
+
+// withheldEntriesIn returns the labels of the entries of scope whose
+// recorded form shows in text.
+func withheldEntriesIn(scope, text string) []string {
+	var labels []string
+	for _, entry := range withheldForms() {
+		if _, found := entry.rewrite(recordedSide, text); found > 0 && entry.scope == scope {
+			labels = append(labels, entry.label())
+		}
+	}
+	return labels
+}
+
+// checkEveryWithheldFormUsed fails the test for each entry of
+// withheldForms of scope that no case of a whole run of that scope's
+// replay needed.
+func checkEveryWithheldFormUsed(t testing.TB, scope string, used map[string]int, whole bool) {
+	t.Helper()
+	if !whole {
+		return
+	}
+	for _, entry := range withheldForms() {
+		if entry.scope != scope {
+			continue
+		}
+		if used[entry.label()] == 0 {
+			t.Errorf("difference 230's entry %s is used by no recorded case: remove it", entry.label())
+			continue
+		}
+		t.Logf("difference 230's entry %s used by %d cases", entry.label(), used[entry.label()])
+	}
+}
+
+func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
+	tomlRecorded := "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))"
+	tomlBinary := "parser: config.toml is not valid TOML (invalid TOML at line 2, column 11: REDACTED)"
+	jsonRecorded := "parser: config.json did not parse: Expecting value: line 1 column 37 (char 36)"
+	jsonBinary := "parser: config.json did not parse: invalid JSON at line 1, column 37: REDACTED"
+	crushRecorded := "parser: .config/crush/crush.json is not a JSON object"
+	crushBinary := crushRecorded + " (invalid JSON at line 1, column 38: REDACTED)"
+	execRecorded := "parser: exec_approvals_config raw_json unparseable (Expecting value: line 1 column 22 " +
+		"(char 21); text withheld, it holds the approvals socket token)"
+	execBinary := "parser: exec_approvals_config raw_json unparseable (invalid JSON at line 1, column 22: REDACTED)"
+	remoteRecorded := "  remotes: origin git@h:o/r.git (push https://alice:TOKEN@github.com/o/r.git)\n"
+	remoteBinary := strings.Replace(remoteRecorded, "alice:TOKEN", "REDACTED", 1)
+	jsonRemote := "          \"urls\": [\n            \"https://alice:TOKEN@github.com/o/r.git\"\n"
+	tests := []struct {
+		name, want, got string
+		agree           bool
+	}{
+		{"a remote in its placeholder form passes", remoteRecorded, remoteBinary, true},
+		{"a remote showing its credentials fails", remoteRecorded, remoteRecorded, false},
+		{"a remote of another host fails", remoteRecorded, strings.Replace(remoteBinary, "github.com", "gitlab.com", 1),
+			false},
+		{"a remote of another name fails", remoteRecorded, strings.Replace(remoteBinary, "origin", "upstream", 1), false},
+		{"a remote URL in JSON in its placeholder form passes", jsonRemote,
+			strings.Replace(jsonRemote, "alice:TOKEN", "REDACTED", 1), true},
+		{"a URL with credentials in a row's text is not this entry's", "{\"text\":\"https://alice:TOKEN@h/\"}\n",
+			"{\"text\":\"https://REDACTED@h/\"}\n", false},
+		{"a TOML error in its placeholder form passes", tomlRecorded, tomlBinary, true},
+		{"a TOML error showing the reader's detail fails", tomlRecorded,
+			strings.Replace(tomlBinary, "REDACTED", `expected value but found "sk" instead`, 1), false},
+		{"a TOML error at another column fails", tomlRecorded, strings.Replace(tomlBinary, "11", "12", 1), false},
+		{"a TOML error of another file fails", tomlRecorded, strings.Replace(tomlBinary, "config", "other", 1), false},
+		{"a JSON error in its placeholder form passes", jsonRecorded, jsonBinary, true},
+		{"a JSON error showing the reader's detail fails", jsonRecorded,
+			strings.Replace(jsonBinary, "REDACTED", "invalid character 's' looking for beginning of value", 1), false},
+		{"a JSON error on another line fails", jsonRecorded, strings.Replace(jsonBinary, "line 1", "line 2", 1), false},
+		{"a JSON error in another placeholder fails", jsonRecorded, strings.Replace(jsonBinary, "REDACTED", "x", 1),
+			false},
+		{"the recording's wording printed by the binary fails", jsonRecorded, jsonRecorded, false},
+		{"a crush.json error in its placeholder form passes", crushRecorded, crushBinary, true},
+		{"a crush.json that is valid JSON passes as written", crushRecorded, crushRecorded, true},
+		{"a crush.json error showing the reader's detail fails", crushRecorded,
+			strings.Replace(crushBinary, "REDACTED", "invalid character 's'", 1), false},
+		{"a crush.json error naming another file fails", crushRecorded,
+			strings.Replace(crushBinary, ".config", ".local", 1), false},
+		{"an exec approvals error in its placeholder form passes", execRecorded, execBinary, true},
+		{"an exec approvals error showing the reader's detail fails", execRecorded,
+			strings.Replace(execBinary, "REDACTED", "invalid character 's'", 1), false},
+		{"an exec approvals error at another column fails", execRecorded,
+			strings.Replace(execBinary, "22", "23", 1), false},
+		{"an exec approvals error of another table fails", execRecorded,
+			strings.Replace(execBinary, "exec_approvals_config", "exec_approvals", 1), false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reporter := &recordingTB{TB: t}
+			want, got := NormaliseRows(reporter, "n", []int{102, 230}, []Row{{Text: Text(test.want)}},
+				[]Row{{Text: Text(test.got)}})
+			if agree := want[0].Text == got[0].Text; agree != test.agree {
+				t.Errorf("agree %v, want %v: %q and %q", agree, test.agree, want[0].Text, got[0].Text)
+			}
+		})
+	}
+}
+
+func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
+	texts := map[string]string{
+		"tabby config.toml reader error":   "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))",
+		"nanobot config.json reader error": "parser: config.json did not parse: Expecting value: line 1 column 1 (char 0)",
+		"crush crush.json reader error":    "parser: crush.json is not a JSON object",
+		"openclaw exec approvals reader error": "parser: exec_approvals_config raw_json unparseable (Expecting value: " +
+			"line 1 column 22 (char 21); text withheld, it holds the approvals socket token)",
+		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
+	}
+	for _, entry := range withheldForms() {
+		t.Run(entry.label(), func(t *testing.T) {
+			text, ok := texts[entry.label()]
+			if !ok {
+				t.Fatal("no sample text for this entry")
+			}
+			if got := withheldEntriesIn(entry.scope, text); !slices.Equal(got, []string{entry.label()}) {
+				t.Errorf("found %q", got)
+			}
+		})
+	}
+}
+
+func TestOnlyDetectAndTimelineGetNoSecrets(t *testing.T) {
+	tests := []struct {
+		command string
+		args    []string
+		want    []string
+	}{
+		{"detect", []string{"--json", "in"}, []string{"--no-secrets", "--json", "in"}},
+		{"timeline", []string{"--", "-in", "out"}, []string{"--no-secrets", "--", "-in", "out"}},
+		{"fleet", []string{"a"}, []string{"a"}},
+		{"catalog", nil, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.command, func(t *testing.T) {
+			if got := withSecretsWithheld(test.command, test.args); !slices.Equal(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}

@@ -599,14 +599,30 @@ for Go files as it does for the others.
   from the evidence cannot lead a parser out of the collection.
   `TestNoParserPackageBuildsAPath` in `internal/follow` fails on such a
   call; the kit, `internal/parser`, is where they are made.
-- **Evidence is shown as written.** In the analysis output a number from the
-  evidence keeps its source text, JSON embedded in a row is compact with the
-  evidence's key order, a boolean is `true` or `false`, and a null is
-  empty. Text is handled by Go's rules: white space is `unicode.IsSpace`,
+- **Evidence is shown as written.** In the analysis output files a number
+  from the evidence keeps its source text, JSON embedded in a row is compact
+  with the evidence's key order, a boolean is `true` or `false`, and a null
+  is empty. Text is handled by Go's rules: white space is `unicode.IsSpace`,
   length counts runes, and invalid UTF-8 becomes U+FFFD, one per bad byte.
   A value is *empty* when it is null, false, zero, an empty string or an
   empty list or object (`jsonvalue.Value.IsEmpty`), and numbers are
-  compared by value (`jsonvalue.Equal`).
+  compared by value (`jsonvalue.Equal`). Secrets are evidence too: a token,
+  key, password or cookie value, the credentials of a URL and a reader's
+  error that quotes a file holding keys are shown as the evidence holds
+  them, since they help establish what an agent reached. Under
+  `timeline --no-secrets` or `detect --no-secrets` each is replaced by one
+  placeholder, `REDACTED` unless `--redaction-placeholder` names another,
+  and the row stays. The parser kit's `SecretText`, `URLText` and
+  `ReaderErrorText` decide, reading the run's setting from the artifact's
+  home; a parser never tests the setting or writes the placeholder itself.
+  An encrypted value (a `secret://` row of an editor's secret storage,
+  OS-keychain ciphertext) stays unread, since ciphertext establishes
+  nothing. Withholding covers only what these functions identify, never
+  free text such as a prompt or a tool's output, and no document claims
+  more. The rule governs the output files, with two exceptions: a fleet CSV
+  text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return
+  is written with a leading `'`, and text printed for a person shows
+  control characters and bytes that are not UTF-8 visibly.
 - **Catalog is data.** The seven tables are one embedded text file in the
   `--list` format; code never holds a path or glob that belongs in a table.
 - **Names and comments.** [Code style](#code-style) holds, with these Go
@@ -907,8 +923,10 @@ plan, and the parser is written from them.
      `local`.
    - **Source-host rows.** A recorded source-host account gives a `system`
      row `source host: <host> account <login>` at the record's time. A cached
-     token is a credential (flagged, never printed); a repository list is a
-     project list.
+     token is a credential: the collectors flag its file, and a row that
+     gives it shows it unless the run withholds secrets, as
+     [Go standards](#go-standards) says under "Evidence is shown as
+     written"; a repository list is a project list.
    - **Research first.** Before the parser is written, each fixed Parser
      plan subsection of the research document names the files and fields
      behind its rows, or says the agent records none. For the model it says

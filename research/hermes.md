@@ -1663,7 +1663,8 @@ connection that is not `local`, `remote backend: <kind> <label> <url, or user@ho
 ` profile=<remoteProfile>` when recorded, and `remote backend quarantined by the app: <reason>
 (from connections.json, file mtime)` per quarantined entry, with no session (`session origin:`
 needs one) and never printing `token` or `headers`; a URL's user name and password, either of which
-can be a token, are shown as `redacted`. It sets no `records_origin`. The
+can be a token, are shown as written, or as `REDACTED` when the run withholds secrets. It sets no
+`records_origin`. The
 single-connection `connection.json` is not read.
 
 #### Scratch directory rows
@@ -1718,8 +1719,11 @@ row. `.hermes_history` goes through
 the Aider parser's `read_input_history`, whose bad line is `parser: unparseable line (not a
 FileHistory line): <line>`; a trajectory file's line that does not decode, is not an object or has
 no `conversations` list is `parser: unparseable line (<reason>): <line>`. A pairing file or
-`connections.json` that does not decode as JSON is one whole-file row and an entry that is not an
-object is its own `unparseable record <N> (not an object)` row; `config.yaml` is under
+`connections.json` that does not decode as JSON is one whole-file row,
+`parser: <file> did not parse (<reason>)`, the reader's error in full, or where it stopped
+(`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since either
+file can hold a token, and an entry that is not an object is its own
+`unparseable record <N> (not an object)` row; `config.yaml` is under
 [Permission rows](#permission-rows).
 
 Malformed `tool_calls`: a value that is not valid JSON, is not a list (a lone object is read as a

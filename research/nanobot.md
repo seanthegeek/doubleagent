@@ -989,7 +989,10 @@ project path.
 
 A JSONL file, the CLI history, `config.json`, `pairing.json`, the WebUI index or a run record that
 cannot be read is one whole-file row `parser: <file> could not be read (<reason>)` through
-`error_rows`, `<file>` its name. A `.workspace` marker that exists but cannot be read gives the same
+`error_rows`, `<file>` its name. A `config.json` that does not decode is
+`parser: config.json did not parse: <reason>`, the reader's error in full, or where it stopped
+(`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the file
+holds API keys. A `.workspace` marker that exists but cannot be read gives the same
 row, naming `.workspace`, at the session JSONL, database or WebUI transcript that reads it, and that
 file's rows have no project path.
 

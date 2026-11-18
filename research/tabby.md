@@ -588,7 +588,8 @@ says which models the server could use, not which one answered:
 `model configured: <group> <model_name or model_id> via <http|local>[ kind=<kind>][
 endpoint=<api_endpoint>][ supported_models=<a,b>] (from config.toml [model.<group>.<http|local>],
 file mtime)`, `<group>` being `completion`, `chat` or `embedding`; `api_key` never reaches a row,
-and an endpoint's user name and password are shown as `redacted`.
+and an endpoint's user name and password are shown as written, or as `REDACTED` when the run
+withholds secrets.
 The tables are read with Python's `tomllib`. These rows are source-derived; not observed on any
 real install.
 
@@ -683,9 +684,11 @@ reported through `error_rows`, a log that cannot be read giving one whole-file r
 to lose. A `config.toml` or an IntelliJ history that cannot be read gives one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, on every Python version and with
 an empty time; a `config.toml` that does not parse gives one row
-`parser: config.toml is not valid TOML (invalid TOML at line <n>, column <n>)`, the reader's
-detail left out since it can quote part of `api_key`, and an IntelliJ history that does not parse
-one row `parser: not a readable XML document (<reason>)`, none carrying the file's text.
+`parser: config.toml is not valid TOML (<reason>)`, the reader's error in full, or where it stopped
+(`invalid TOML at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the error
+can quote part of `api_key`; one refused for its size or nesting depth gives
+`parser: config.toml could not be read (<reason>)`, which quotes nothing from the file; and an
+IntelliJ history that does not parse gives one row `parser: not a readable XML document (<reason>)`.
 
 A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, or whose `-wal`,
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
@@ -765,7 +768,8 @@ any real install:
 - per integration, `source host: <host> integration <display_name> kind=<kind>
   api_base=<api_base or -> (account not recorded; from integrations table, created_at)`, `<host>`
   `github.com` or `gitlab.com` for the hosted kinds and the host of `api_base` for the self-hosted
-  ones, the user name and password of an `api_base` URL shown as `redacted`;
+  ones, the user name and password of an `api_base` URL shown as written, or as `REDACTED` when
+  the run withholds secrets;
 - per cached repository, `source host repository: <git_url> type=<kind> name=<name>
   active=<yes|no> (integration <display_name>; from provided_repositories table, updated_at)`.
 

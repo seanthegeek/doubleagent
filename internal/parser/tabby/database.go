@@ -401,16 +401,18 @@ func (s *store) userEvents() error {
 
 // integrations emits the source-host integrations, then the repositories
 // cached from them. The token column is never selected, and an api_base
-// is shown without the credentials a URL may carry.
+// goes through parser.URLText, which withholds the credentials a URL may
+// carry when the run withholds secrets.
 func (s *store) integrations() error {
 	type named struct{ name, kind string }
 	names := map[string]named{}
 	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
-		kind, apiBase := parser.NonEmptyColumn(integration.Get("kind")), parser.WithoutCredentials(parser.NonEmptyColumn(integration.Get("api_base")))
+		kind, apiBase := parser.NonEmptyColumn(integration.Get("kind")), parser.NonEmptyColumn(integration.Get("api_base"))
 		host := integrationHosts()[kind]
 		if host == "" {
 			host = urlHostname(apiBase)
 		}
+		apiBase = parser.URLText(s.artifact, apiBase)
 		name := parser.NonEmptyColumn(integration.Get("display_name"))
 		names[integration.Get("id").String()] = named{name, kind}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),

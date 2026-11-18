@@ -1,27 +1,38 @@
 package parser
 
-import "testing"
+import (
+	"testing"
 
-func TestWithoutCredentialsRedactsTheUserInformationOfAURL(t *testing.T) {
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
+)
+
+func TestTheKitReadsTheSettingFromTheArtifactsHome(t *testing.T) {
+	_, jsonError := jsonvalue.DecodeString(`{"api_key": sk-1}`)
+	withheld := &input.Home{Secrets: secrets.Setting{Withhold: true, Placeholder: "[x]"}}
 	tests := []struct {
-		name, text, want string
+		name                    string
+		artifact                *input.Artifact
+		value, url, readerError string
 	}{
-		{"a user and password", "https://alice:s3cret@host.example:8443/api?x=1",
-			"https://redacted@host.example:8443/api?x=1"},
-		{"a token as the user name", "https://ghp_TOKEN@github.com/org/repo.git",
-			"https://redacted@github.com/org/repo.git"},
-		{"a password holding an at sign", "http://u:p@ss@host/", "http://redacted@host/"},
-		{"a URL net/url refuses", "https://tok:se cret@host/", "https://redacted@host/"},
-		{"an at sign in the path is kept", "https://host.example/users/@alice", "https://host.example/users/@alice"},
-		{"an at sign in the query is kept", "https://host.example?mail=a@b", "https://host.example?mail=a@b"},
-		{"a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
-		{"text that is not a URL is unchanged", "alice@host", "alice@host"},
-		{"empty text is unchanged", "", ""},
+		{"an artifact without a home shows", &input.Artifact{}, "sk-1", "https://u:p@h/", jsonError.Error()},
+		{"a home of the zero setting shows", &input.Artifact{Home: &input.Home{}}, "sk-1", "https://u:p@h/",
+			jsonError.Error()},
+		{"a home that withholds gives its placeholder", &input.Artifact{Home: withheld}, "[x]", "https://[x]@h/",
+			"invalid JSON at line 1, column 13: [x]"},
+		{"no artifact shows", nil, "sk-1", "https://u:p@h/", jsonError.Error()},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := WithoutCredentials(test.text); got != test.want {
-				t.Errorf("got %q, want %q", got, test.want)
+			if got := SecretText(test.artifact, "sk-1"); got != test.value {
+				t.Errorf("SecretText gave %q, want %q", got, test.value)
+			}
+			if got := URLText(test.artifact, "https://u:p@h/"); got != test.url {
+				t.Errorf("URLText gave %q, want %q", got, test.url)
+			}
+			if got := ReaderErrorText(test.artifact, jsonError); got != test.readerError {
+				t.Errorf("ReaderErrorText gave %q, want %q", got, test.readerError)
 			}
 		})
 	}

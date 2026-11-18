@@ -95,7 +95,7 @@ func (p *Parser) parseAutomation(artifact *input.Artifact, emit parser.Emit) {
 	}
 	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
-		emit(p.ProblemRow(artifact, "unreadable automation.toml: "+err.Error()))
+		emit(p.ProblemRow(artifact, "unreadable automation.toml: "+parser.ReaderErrorText(artifact, err)))
 		return
 	}
 	field := func(key string) string {
@@ -199,7 +199,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	}
 	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
-		emit(p.ProblemRow(artifact, "unreadable config.toml: "+err.Error()))
+		emit(p.ProblemRow(artifact, "unreadable config.toml: "+parser.ReaderErrorText(artifact, err)))
 		return
 	}
 	for _, found := range configSettings(document) {

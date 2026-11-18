@@ -29,6 +29,7 @@ package tabby
 
 import (
 	"cmp"
+	"errors"
 	"regexp"
 	"slices"
 	"strconv"
@@ -188,8 +189,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	}
 	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
-		emit(p.row(artifact, rowSpec{timestamp: timestamp,
-			text: "parser: config.toml is not valid TOML (" + tomlPosition(err) + ")"}))
+		emit(p.row(artifact, rowSpec{timestamp: timestamp, text: configErrorText(artifact, err)}))
 		return
 	}
 	models := jsonvalue.NewNull()
@@ -206,31 +206,30 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		}
 		for _, kind := range []string{"http", "local"} {
 			if body := config.Get(kind); body.IsObject() {
-				emit(p.row(artifact, rowSpec{timestamp: timestamp, text: modelText(group, kind, body)}))
+				emit(p.row(artifact, rowSpec{timestamp: timestamp, text: modelText(artifact, group, kind, body)}))
 			}
 		}
 	}
 }
 
-// tomlPositionPattern matches the start of a TOML error that says where
-// the document breaks the rules.
-var tomlPositionPattern = regexp.MustCompile(`\Ainvalid TOML at line [0-9]+, column [0-9]+`)
-
-// tomlPosition returns where config.toml breaks the TOML rules, "invalid
-// TOML at line <n>, column <n>", without the reader's detail, which can
-// quote part of api_key; an error without a position is "invalid TOML".
-func tomlPosition(err error) string {
-	if position := tomlPositionPattern.FindString(err.Error()); position != "" {
-		return position
+// configErrorText returns the `parser:` text of a config.toml the TOML
+// reader refused: "could not be read (<why>)" for a document over a size or
+// depth limit, which quotes nothing from the file, else "is not valid TOML
+// (<the reader's error>)" through parser.ReaderErrorText, since the
+// reader's detail can quote part of api_key.
+func configErrorText(artifact *input.Artifact, err error) string {
+	var refusal *tomldoc.Error
+	if errors.As(err, &refusal) && refusal.IsLimit() {
+		return "parser: config.toml could not be read (" + err.Error() + ")"
 	}
-	return "invalid TOML"
+	return "parser: config.toml is not valid TOML (" + parser.ReaderErrorText(artifact, err) + ")"
 }
 
 // modelText returns the "model configured:" text of one
 // [model.<group>.<kind>] table: model_name, kind, api_endpoint (without
 // the credentials a URL may carry) and supported_models for the http form,
 // model_id for the local one.
-func modelText(group, kind string, body jsonvalue.Value) string {
+func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
 	if kind == "http" {
 		model = body.Get("model_name")
@@ -239,7 +238,7 @@ func modelText(group, kind string, body jsonvalue.Value) string {
 			parts = append(parts, "kind="+value.Text())
 		}
 		if value := body.Get("api_endpoint"); !value.IsEmpty() {
-			parts = append(parts, "endpoint="+parser.WithoutCredentials(value.Text()))
+			parts = append(parts, "endpoint="+parser.URLText(artifact, value.Text()))
 		}
 		if supported := body.Get("supported_models"); supported.IsArray() && supported.Len() > 0 {
 			var names []string

@@ -161,12 +161,13 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 	return ExitError
 }
 
-// openInput opens the input of detect or timeline and gives every home
-// without a user the --user name, listing a loose tree through env's
-// lister. It returns the work directories the open made, deepest first,
-// for the caller to remove once the input is closed (removeCreated keeps
-// one that holds anything). The message returned with a nil collection is
-// the error line's text.
+// openInput opens the input of detect or timeline, listing a loose tree
+// through env's lister, and gives every home without a user the --user
+// name and every home the run's secrets setting, which the parsers and the
+// repository reader take from it. It returns the work directories the open
+// made, deepest first, for the caller to remove once the input is closed
+// (removeCreated keeps one that holds anything). The message returned with
+// a nil collection is the error line's text.
 func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher,
 	env Environment) (*input.Collection, []string, string) {
 	var created []string
@@ -184,12 +185,11 @@ func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher
 	case err != nil:
 		return nil, created, reason.Describe(options.Input, err)
 	}
-	if options.User != "" {
-		for _, home := range collection.Homes {
-			if home.User == "" {
-				home.User = options.User
-			}
+	for _, home := range collection.Homes {
+		if home.User == "" {
+			home.User = options.User
 		}
+		home.Secrets = options.Secrets
 	}
 	return collection, created, ""
 }

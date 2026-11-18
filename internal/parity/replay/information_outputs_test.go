@@ -105,8 +105,12 @@ func TestEachFormatOfTheBinaryPassesInTheOutputs(t *testing.T) {
 			[]int{differenceJSONValues}},
 		{"sessions.jsonl written by encoding/json", runs["timeline"], "out/sessions.jsonl", binaryJSONLines,
 			[]int{differenceJSONValues}},
+		// The recorded run shows a remote's credentials, which the binary's
+		// run, with --no-secrets as every replayed run, withholds.
 		{"detect --json written by encoding/json", runs["detect-json"], "stdout",
-			func(text string) string { return binaryJSON(text, "\t") }, []int{differenceJSONValues}},
+			func(text string) string {
+				return binaryJSON(strings.Replace(text, "alice:FIXTURE-TOKEN@", "REDACTED@", 1), "\t")
+			}, []int{differenceJSONValues}},
 		{"the CSV written by encoding/csv", changedOutput(runs["fleet"], "o.csv", func(text string) string {
 			return strings.ReplaceAll(strings.Replace(text, ",ws01,", ", ws01,", 1), "\n", "\r\n")
 		}), "o.csv", func(text string) string { return binaryCSV(strings.Replace(text, ", ws01,", ", ws01,", 1)) },

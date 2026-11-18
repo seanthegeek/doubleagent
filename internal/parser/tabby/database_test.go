@@ -23,14 +23,6 @@ func parseDatabase(t *testing.T, name string) []string {
 	return parseFile(t, ".tabby/ee/db.sqlite", string(data))
 }
 
-func TestAnIntegrationsAPIBaseIsShownWithoutItsCredentials(t *testing.T) {
-	want := []string{"source host: gitlab.example integration work kind=gitlab_self_hosted " +
-		"api_base=https://redacted@gitlab.example/api (account not recorded; from integrations table, created_at)"}
-	if got := parseDatabase(t, "integrations.db"); !slices.Equal(got, want) {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
 func TestOnlyAThreadOrPageWithoutItsRowIsMissing(t *testing.T) {
 	var got []string
 	for _, text := range parseDatabase(t, "narrow_tables.db") {

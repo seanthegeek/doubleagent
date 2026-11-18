@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -30,8 +31,15 @@ func parseDatabase(t *testing.T, name string) []string {
 }
 
 // parseFile writes data into a new home at rel and returns the text of
-// every row the parser gives for it.
+// every row the parser gives for it, secrets shown.
 func parseFile(t *testing.T, rel string, data []byte) []string {
+	t.Helper()
+	return parseWith(t, secrets.Setting{}, rel, data)
+}
+
+// parseWith writes data into a new home at rel and returns the text of
+// every row the parser gives for it under the secrets setting.
+func parseWith(t *testing.T, setting secrets.Setting, rel string, data []byte) []string {
 	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
@@ -41,8 +49,8 @@ func parseFile(t *testing.T, rel string, data []byte) []string {
 	if err := osfile.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
-		Agent: "crush", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"},
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "crush",
+		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string
 	err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
@@ -66,14 +74,6 @@ func TestAFileVersionGivesItsContentsLengthInBytes(t *testing.T) {
 		"file version: /w/number.txt version=1 bytes=5 (from crush.db files)",
 		"file version: /w/null.txt version=1 bytes=0 (from crush.db files)",
 	}
-	if !slices.Equal(got, want) {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-func TestACrushJSONThatIsNotJSONGivesOnlyThePosition(t *testing.T) {
-	got := parseFile(t, ".config/crush/crush.json", []byte(`{"providers": {"openai": {"api_key": sk-SECRET}}}`))
-	want := []string{"parser: .config/crush/crush.json is not a JSON object (invalid JSON at line 1, column 38)"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}

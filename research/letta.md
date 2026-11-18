@@ -800,7 +800,8 @@ real install has shown these files):
   (from .letta/transcripts path, first captured_at)`, at the first
   `captured_at` of its `transcript.jsonl`, with `<server>` the
   matching `agents[]` entry's `baseUrl` (its user name and password
-  shown as `redacted`), `api.letta.com` when that entry has none, and
+  shown as written, or as `REDACTED` when the run withholds secrets), `api.letta.com` when
+  that entry has none, and
   `-` when there is no entry;
 - per `sessionsByServer` entry whose key does not start `local:`, in
   `.letta/settings.json` and in each project's

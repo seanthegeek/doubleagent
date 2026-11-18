@@ -34,7 +34,8 @@ func (p *Parser) setting(artifact *input.Artifact, line int, text, timestamp str
 // readJSON returns the JSON document of the artifact, or false after
 // adding a whole-file problem: its unreadable problem, or
 // "<name> did not parse (<reason>)". For a file that holds secrets the
-// reason is only where the document stopped (parser.JSONPosition).
+// reason goes through parser.ReaderErrorText, which withholds the reader's
+// detail when the run withholds secrets.
 func (p *Parser) readJSON(artifact *input.Artifact, name string, holdsSecrets bool,
 	problems *parser.Problems) (jsonvalue.Value, bool) {
 	content, ok := parser.FileBytes(artifact.DiskPath, problems)
@@ -45,7 +46,7 @@ func (p *Parser) readJSON(artifact *input.Artifact, name string, holdsSecrets bo
 	if err != nil {
 		reason := err.Error()
 		if holdsSecrets {
-			reason = parser.JSONPosition(err)
+			reason = parser.ReaderErrorText(artifact, err)
 		}
 		problems.Add(0, name+" did not parse ("+reason+")")
 		return jsonvalue.Value{}, false
@@ -281,7 +282,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 		if parser.IsText(connection.Get("kind"), "local") {
 			continue
 		}
-		emit(p.setting(artifact, position, connectionText(connection)+tail, timestamp))
+		emit(p.setting(artifact, position, connectionText(artifact, connection)+tail, timestamp))
 	}
 	for _, entry := range parser.ArrayMember(document.Get("quarantined"), "quarantined", 0, &problems) {
 		emit(p.setting(artifact, 0, "remote backend quarantined by the app: "+
@@ -291,12 +292,12 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // connectionText returns the "remote backend:" text of one connection: its
-// url without the credentials it may carry (parser.WithoutCredentials),
-// else [user@]host[:port].
-func connectionText(connection jsonvalue.Value) string {
+// url through parser.URLText, which withholds the credentials it may carry
+// when the run withholds secrets, else [user@]host[:port].
+func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string {
 	target := connection.Get("url")
 	if target.IsString() {
-		target = jsonvalue.NewString(parser.WithoutCredentials(target.StringValue()))
+		target = jsonvalue.NewString(parser.URLText(artifact, target.StringValue()))
 	}
 	if host := connection.Get("host"); target.IsEmpty() && !host.IsEmpty() {
 		text := host.Text()

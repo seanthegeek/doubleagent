@@ -150,11 +150,11 @@ func TestArrayDamageStillFailsAChangedRow(t *testing.T) {
 func TestArrayDamageAppliesBeforeTheLibraryWording(t *testing.T) {
 	var order []int
 	for _, entry := range applyingOrder(Differences()) {
-		if entry.Number == 102 || entry.Number == 130 || entry.Number == 160 {
+		if entry.Number == 102 || entry.Number == 160 || entry.Number == 230 {
 			order = append(order, entry.Number)
 		}
 	}
-	if !slices.Equal(order, []int{130, 160, 102}) {
-		t.Errorf("applying order %v, want 130 and 160 before 102", order)
+	if !slices.Equal(order, []int{160, 230, 102}) {
+		t.Errorf("applying order %v, want 160 and 230 before 102", order)
 	}
 }

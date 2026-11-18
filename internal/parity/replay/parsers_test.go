@@ -45,6 +45,8 @@ type parserReplay struct {
 	needed, used neededTally
 	// wrongKind counts, by agent, the parses difference 170 took a row of.
 	wrongKind map[string]int
+	// withheld counts, by entry, the parses that needed difference 230.
+	withheld map[string]int
 }
 
 func TestReplayEveryRecordedCase(t *testing.T) {
@@ -75,7 +77,7 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	started := time.Now()
 	replay := &parserReplay{corpus: corpus, work: corpus.NewWorkTree(t),
 		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}, used: used,
-		wrongKind: map[string]int{}}
+		wrongKind: map[string]int{}, withheld: map[string]int{}}
 	registered := parsers.ByAgent(parsers.All())
 	agents := caseFiles(t, corpus, "parsers")
 	missing := checkEveryAgentHasAParser(t, agents, parsers.All())
@@ -101,6 +103,7 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	}
 	logNeeded(t, "information comparison", replay.needed, rowFormatNumbers())
 	checkEveryWrongKindReportUsed(t, replay.wrongKind, ran == len(agents))
+	checkEveryWithheldFormUsed(t, parserScope, replay.withheld, ran == len(agents))
 	return ran == len(agents)
 }
 
@@ -298,6 +301,11 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		})
 	}
 	r.note(node, slices.Concat(numbers, formats))
+	if slices.Contains(numbers, withheldDifference().Number) {
+		for _, label := range withheldEntriesIn(parserScope, RowsText(want)) {
+			r.withheld[label]++
+		}
+	}
 	return ""
 }
 
@@ -380,7 +388,8 @@ func (c *Corpus) expandRow(row Row, root string) Row {
 
 // inputArtifact returns the artifact a recorded parser call was given, with
 // the root token replaced by root: in the paths the parser opens in this
-// platform's separators, in the texts it copies into rows as recorded.
+// platform's separators, in the texts it copies into rows as recorded. Its
+// home withholds secrets, as the recording's analyzer always did.
 func (c *Corpus) inputArtifact(t *testing.T, recorded Artifact, root string) *input.Artifact {
 	t.Helper()
 	artifact := &input.Artifact{DiskPath: filepath.FromSlash(c.Expand(recorded.DiskPath, root)),
@@ -397,7 +406,7 @@ func (c *Corpus) inputArtifact(t *testing.T, recorded Artifact, root string) *in
 		artifact.Home = &input.Home{DiskPath: filepath.FromSlash(c.Expand(home.DiskPath, root)),
 			Original: c.Expand(home.Original, root), User: string(home.User),
 			Host: string(home.Host), Inferred: home.Inferred, Project: home.Project,
-			StagedPaths: map[string]string{}}
+			StagedPaths: map[string]string{}, Secrets: withheldSecrets()}
 		for rel, staged := range home.StagedPaths {
 			artifact.Home.StagedPaths[rel] = filepath.FromSlash(c.Expand(staged, root))
 		}

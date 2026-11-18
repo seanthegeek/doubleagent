@@ -105,34 +105,10 @@ func TestAnMCPSecretsValueIsNeverSelected(t *testing.T) {
 		t.Fatalf("got %+v, %v; want one key whose value is not read", names, err)
 	}
 	rows, _ := readState(t, "mcp_secret.db")
-	want := "mcp server: srv url=https://redacted@mcp.example.invalid/ (from state.vscdb mcpOAuth.global, file mtime)" +
-		mcpTokens
+	want := "mcp server: srv url=https://tok:s3cret@mcp.example.invalid/ (from state.vscdb mcpOAuth.global, " +
+		"file mtime)" + mcpTokens
 	if len(rows) != 1 || rows[0].Text != want {
 		t.Errorf("got %+v, want one row %q", rows, want)
-	}
-}
-
-func TestAnMCPOAuthAttemptsServerIsShownWithoutItsCredentials(t *testing.T) {
-	const rel = ".config/Cursor/User/globalStorage/mcp-oauth-attempts/a.json"
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	document := `{"serverUrl": "https://tok:s3cret@mcp.example.invalid/", "createdAtMs": 1790845200000}`
-	if err := osfile.WriteFile(path, []byte(document), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "cursor",
-		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
-	var got []string
-	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) }); err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"mcp oauth attempt: server=https://redacted@mcp.example.invalid/ client_id=- workspace=- " +
-		"(from mcp-oauth-attempts/a.json)"}
-	if !slices.Equal(got, want) {
-		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

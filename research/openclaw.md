@@ -1556,8 +1556,10 @@ all fixture only:
   allowlist entry (`allowlist=<pattern>[ argPattern=<argPattern>] source=<source>`) and per MCP
   tool grant (`mcpTools=<server>/<tool> source=<source>`) of `raw_json`'s `defaults` and of each
   `agents.<id>`, `<scope>` being `defaults` or `agents.<id>`. `socket` is never read
-  ([Secrets](#secrets)); a `raw_json` that does not decode is one `parser:` row that withholds the
-  text, since on older builds the text holds the token.
+  ([Secrets](#secrets)); a `raw_json` that does not decode is one row
+  `parser: exec_approvals_config raw_json unparseable (<reason>)`, the reader's error in full, or
+  where it stopped (`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds
+  secrets, since on older builds the text holds the token.
 - `permission setting: standing grant <grant_id> allow-always cron job <cron_job_id> agent <agent_id> binding <operation_binding> approval <minted_by_approval_id> expires=<expires_at_ms> revoked=<revoked_at_ms> uses=<use_count> (from state/openclaw.sqlite operator_approval_standing_grants, created_at_ms)`
   per standing grant.
 - `permission setting: channel <channel_key> account <account_id> allowFrom=<entry> (from state/openclaw.sqlite channel_pairing_allow_entries, updated_at)`

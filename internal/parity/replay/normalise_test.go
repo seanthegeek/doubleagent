@@ -54,7 +54,8 @@ func Differences() []Difference {
 			"of the other",
 			Outputs: otherOfEqualRows, Unchecked: "whether a case needs it depends on the order " +
 				"the recording machine's file system listed the tree in"},
-	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences())...)
+	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences(),
+		[]Difference{withheldDifference()})...)
 }
 
 // retiredUnneeded is why a difference was retired that recorded cases
@@ -76,8 +77,8 @@ func laterDifferences() []Difference {
 		{Number: 122, Summary: "a note counting one manifest row that did not parse says row",
 			Text: oneManifestRowText, Binary: asWritten},
 		{Number: 130, Summary: "a file that holds secrets gives only where it stopped decoding, " +
-			"not the reader's detail: the line and column are compared", Text: secretFileText(recordedSide),
-			Binary: secretFileText(binarySide), Within: 102},
+			"not the reader's detail: the line and column are compared", Retired: "folded into difference 230, " +
+			"since the binary now writes the withheld reader's detail as the placeholder"},
 		{Number: 140, Summary: "the accepted forms of a time name epoch seconds or milliseconds, " +
 			"both of which are read", Text: epochUnitsText(recordedEpochUnits),
 			Binary: epochUnitsText(binaryEpochUnits)},
@@ -98,54 +99,6 @@ var sharedMemoryLine = regexp.MustCompile(`(?m)^parser: [^\n]*-shm could not be 
 // file.
 func sharedMemoryProblem(text string) bool {
 	return sharedMemoryLine.MatchString(text)
-}
-
-// secretFileShapes are the rows of files that hold API keys or tokens,
-// whose reason the binary gives as the position alone, as each side words
-// them, and what each becomes: the recorded reader's message and position,
-// or the binary's position, become one token that keeps the line and
-// column. Each stops at the end of the reason, so the rest of the row is
-// still compared.
-func secretFileShapes() map[side][]libraryShape {
-	shape := func(pattern, replacement string) libraryShape {
-		return libraryShape{pattern: regexp.MustCompile(pattern), replacement: replacement}
-	}
-	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
-	position := "{position line ${2}, column ${3}}"
-	return map[side][]libraryShape{
-		recordedSide: {
-			shape(`(parser: config\.toml is not valid TOML \()(?:`+strings.Join(tomlMessages(), "|")+`)[^"\n]*? `+
-				`\(at line ([0-9]+), column ([0-9]+)\)\)`, "${1}"+position+")"),
-			shape(`(parser: config\.json did not parse: )`+pythonJSON+`("|\n|\z)`, "${1}"+position+"${4}"),
-			shape(`(parser: [^"\n]*crush\.json is not a JSON object)("|\n|\z)`, "${1}${2}"),
-			shape(`(exec_approvals_config raw_json unparseable \()`+pythonJSON+`(; text withheld)`,
-				"${1}"+position+"${4}"),
-		},
-		binarySide: {
-			shape(`(parser: config\.toml is not valid TOML \()invalid TOML at line ([0-9]+), column ([0-9]+)\)`,
-				"${1}"+position+")"),
-			shape(`(parser: config\.json did not parse: )invalid JSON at line ([0-9]+), column ([0-9]+)("|\n|\z)`,
-				"${1}"+position+"${4}"),
-			shape(`(parser: [^"\n]*crush\.json is not a JSON object)(?: \(invalid JSON(?: at line [0-9]+, `+
-				`column [0-9]+)?\))?("|\n|\z)`, "${1}${2}"),
-			shape(`(exec_approvals_config raw_json unparseable \()invalid JSON at line ([0-9]+), column ([0-9]+)`+
-				`(; text withheld)`, "${1}"+position+"${4}"),
-		},
-	}
-}
-
-// secretFileText returns the rewrite of difference 130 for one side: each
-// row of secretFileShapes in its compared form, and the count.
-func secretFileText(from side) func(text string) (string, int) {
-	shapes := secretFileShapes()[from]
-	return func(text string) (string, int) {
-		found := 0
-		for _, shape := range shapes {
-			found += len(shape.pattern.FindAllStringIndex(text, -1))
-			text = shape.pattern.ReplaceAllString(text, shape.replacement)
-		}
-		return text, found
-	}
 }
 
 // asWritten is the rewrite of the binary's side of a difference whose

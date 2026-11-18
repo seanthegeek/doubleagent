@@ -11,13 +11,14 @@ import (
 // migrated exec approvals in exec_approvals_config: each default and
 // per-agent policy field, allowlist entry and MCP tool grant. The socket
 // member holds the approvals socket's token and is never read; a raw_json
-// that does not decode is reported without its text, and a raw_json,
+// that does not decode is reported with the reader's error through
+// parser.ReaderErrorText, since the reader can quote that token, and a raw_json,
 // agents, policy, allowlist or mcpTools of the wrong kind adds a problem.
 func (s *stateRows) execConfig(record sqlitefile.Row) {
 	document, err := jsonvalue.DecodeString(parser.TextColumn(record.Get("raw_json")))
 	if err != nil {
-		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+parser.JSONPosition(err)+
-			"; text withheld, it holds the approvals socket token)")
+		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+
+			parser.ReaderErrorText(s.artifact, err)+")")
 		return
 	}
 	s.execDocument(record.Rowid, document, parser.ColumnTime(record.Get("updated_at_ms")))
