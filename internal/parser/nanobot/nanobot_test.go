@@ -11,9 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of every file are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers the
-// analyzer's tests call directly, with its results.
+// The rows of every file are proved against the recorded cases by the
+// parser replay (internal/parity/replay); these tests cover the helpers
+// that decide a row's fields.
 
 func TestDecodeStemReadsOnlyAnExactEncoding(t *testing.T) {
 	tests := []struct {

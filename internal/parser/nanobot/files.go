@@ -49,8 +49,8 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		row := p.settingRow(artifact, timeutil.FromValue(record.Get("timestamp")),
-			fmt.Sprintf("memory history #%s: %s", getOr(record, "cursor", ""),
-				parser.Text(record.Get("content"))), parser.Text(record.Get("session_key")))
+			"memory history #"+getOr(record, "cursor", "")+": "+
+				parser.Text(record.Get("content")), parser.Text(record.Get("session_key")))
 		row.SourceLine = line
 		row.ProjectPath = project
 		emit(row)
@@ -122,9 +122,9 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		for _, sender := range member.Value.Items() {
-			emit(p.settingRow(artifact, timestamp, fmt.Sprintf(
-				"permission setting: pairing.approved.%s=%s (from %s, file mtime)", member.Key,
-				parser.SettingValue(sender), artifact.Rel), ""))
+			emit(p.settingRow(artifact, timestamp, "permission setting: pairing.approved."+
+				member.Key+"="+parser.SettingValue(sender)+" (from "+artifact.Rel+
+				", file mtime)", ""))
 		}
 	}
 	for _, member := range objectMembers(data.Get("pending")) {
@@ -140,10 +140,10 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 		if value := info.Get("sender_id"); !value.IsEmpty() {
 			sender = value
 		}
-		emit(p.settingRow(artifact, timeutil.FromValue(info.Get("created_at")), fmt.Sprintf(
-			"permission setting: pairing.pending.%s=%s expires_at=%s%s (from %s, created_at)",
-			parser.Text(info.Get("channel")), parser.SettingValue(sender),
-			timeutil.FromValue(info.Get("expires_at")), status, artifact.Rel), ""))
+		emit(p.settingRow(artifact, timeutil.FromValue(info.Get("created_at")), "permission setting: pairing.pending."+
+			parser.Text(info.Get("channel"))+"="+parser.SettingValue(sender)+" expires_at="+
+			timeutil.FromValue(info.Get("expires_at"))+status+" (from "+artifact.Rel+
+			", created_at)", ""))
 	}
 }
 
@@ -217,8 +217,8 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 			entries = setting.Value.Items()
 		}
 		for _, entry := range entries {
-			emit(p.settingRow(artifact, timestamp, fmt.Sprintf("permission setting: %s=%s (from %s,"+
-				" file mtime)", setting.Key, parser.SettingValue(entry), artifact.Rel), ""))
+			emit(p.settingRow(artifact, timestamp, "permission setting: "+setting.Key+"="+
+				parser.SettingValue(entry)+" (from "+artifact.Rel+", file mtime)", ""))
 		}
 	}
 }

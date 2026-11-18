@@ -2,7 +2,6 @@ package nanobot
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -225,10 +224,10 @@ func fileEdits(record jsonvalue.Value) []event {
 		if value := entry.Get("operation"); !value.IsEmpty() {
 			operation = " (" + value.Text() + ")"
 		}
-		text := fmt.Sprintf("file edit: %s %s +%s -%s%s",
-			firstStr(entry.Get("status"), entry.Get("phase")),
-			firstStr(entry.Get("absolute_path"), entry.Get("path")),
-			getOr(entry, "added", "0"), getOr(entry, "deleted", "0"), operation)
+		text := "file edit: " +
+			parser.Text(parser.FirstNonEmpty(entry.Get("status"), entry.Get("phase"))) + " " +
+			parser.Text(parser.FirstNonEmpty(entry.Get("absolute_path"), entry.Get("path"))) + " +" +
+			getOr(entry, "added", "0") + " -" + getOr(entry, "deleted", "0") + operation
 		events = append(events, event{timeline.TurnSystem, text, parser.Text(entry.Get("tool")),
 			parser.Text(entry.Get("call_id"))})
 	}

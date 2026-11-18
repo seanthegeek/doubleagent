@@ -1,6 +1,7 @@
 package nanobot
 
 import (
+	"errors"
 	"slices"
 	"strings"
 
@@ -52,9 +53,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	var markerProblems parser.Problems
 	project := readMarker(parser.Beside(artifact, ".workspace"), &markerProblems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, markerProblems, "", project))
-	store, message := readSessionStore(artifact.DiskPath)
-	if message != "" {
-		emit(p.fileRow(artifact, project, message))
+	store, err := readSessionStore(artifact.DiskPath)
+	if err != nil {
+		emit(p.fileRow(artifact, project, err.Error()))
 		return
 	}
 	type head struct {
@@ -89,16 +90,17 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 }
 
 // readSessionStore reads the sessions and messages of a sessions.sqlite3,
-// or returns the message of the one `parser:` row that replaces them.
-func readSessionStore(path string) (*sessionStore, string) {
+// or an error whose text is the message of the one `parser:` row that
+// replaces them.
+func readSessionStore(path string) (*sessionStore, error) {
 	database, message := parser.OpenDatabase(path)
 	if message != "" {
-		return nil, message
+		return nil, errors.New(message)
 	}
 	defer database.Close()
 	names, err := database.TableNames()
 	if err != nil {
-		return nil, parser.DatabaseError(err)
+		return nil, errors.New(parser.DatabaseError(err))
 	}
 	var missing []string
 	for _, name := range []string{"messages", "sessions"} {
@@ -107,13 +109,13 @@ func readSessionStore(path string) (*sessionStore, string) {
 		}
 	}
 	if len(missing) > 0 {
-		return nil, "no " + strings.Join(missing, " or ") + " table in the session database"
+		return nil, errors.New("no " + strings.Join(missing, " or ") + " table in the session database")
 	}
 	store, err := querySessionStore(database)
 	if err != nil {
-		return nil, parser.DatabaseError(err)
+		return nil, errors.New(parser.DatabaseError(err))
 	}
-	return store, ""
+	return store, nil
 }
 
 // querySessionStore runs the two queries of a session database.
