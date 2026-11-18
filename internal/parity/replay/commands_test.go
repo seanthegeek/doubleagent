@@ -703,7 +703,7 @@ func compareText(t testing.TB, node string, normaliser *textNormaliser, label, w
 	t.Helper()
 	want, got = normaliser.pair(t, node, want, got)
 	if loose {
-		want, got = listingOrder(t, want), listingOrder(t, got)
+		want, got = listingOrder(t, label, want), listingOrder(t, label, got)
 	}
 	if enabled[differenceRoundedTime] {
 		got = rolledOverLines(want, got)
@@ -828,19 +828,49 @@ func textDifferences(text string) []int {
 // listingOrder returns the text of a loose input's output with the order of
 // its homes, files and problems, which is the order a file system lists a
 // directory in, made one: a JSON document's homes, files and problems
-// arrays sorted by their text, and in plain text the lines of each block
-// between blank lines sorted.
-func listingOrder(t testing.TB, text string) string {
-	if strings.HasPrefix(text, "{") {
+// arrays sorted by their text, and in stdout the problem lines, the rows of
+// the homes table and the --files lines sorted. Every other line, and every
+// other output, keeps its order; the rows of timeline.jsonl and
+// sessions.jsonl are compared in order unless rowOrderDiffers.
+func listingOrder(t testing.TB, label, text string) string {
+	switch {
+	case (label == "stdout" || strings.HasSuffix(label, ".json")) && strings.HasPrefix(text, "{"):
 		return sortedJSONArrays(t, text)
+	case label != "stdout":
+		return text
 	}
 	blocks := strings.Split(text, "\n\n")
 	for i, block := range blocks {
-		lines := strings.Split(block, "\n")
-		slices.Sort(lines)
-		blocks[i] = strings.Join(lines, "\n")
+		all := strings.Split(block, "\n")
+		lines := all[:len(strings.Split(strings.TrimRight(block, "\n"), "\n"))]
+		switch {
+		case strings.HasPrefix(block, "user "):
+			slices.Sort(lines[1:])
+		case !slices.ContainsFunc(lines, func(line string) bool { return strings.Count(line, "\t") != 2 }):
+			slices.Sort(lines)
+		default:
+			sortProblemRuns(lines)
+		}
+		blocks[i] = strings.Join(all, "\n")
 	}
 	return strings.Join(blocks, "\n\n")
+}
+
+// sortProblemRuns sorts, in place, each run of neighbouring lines that
+// start with "problem:".
+func sortProblemRuns(lines []string) {
+	problem := func(line string) bool { return strings.HasPrefix(line, "problem:") }
+	for start := 0; start < len(lines); start++ {
+		if !problem(lines[start]) {
+			continue
+		}
+		end := start
+		for end < len(lines) && problem(lines[end]) {
+			end++
+		}
+		slices.Sort(lines[start:end])
+		start = end
+	}
 }
 
 // sortedJSONArrays returns an indented JSON document with its top-level

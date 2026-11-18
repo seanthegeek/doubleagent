@@ -3,6 +3,7 @@
 package replay
 
 import (
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -161,16 +162,54 @@ func TestEachMutationOfRecordedOutputsFails(t *testing.T) {
 		{"a field moved to another column in a table", "detect", "stdout",
 			replaced("codex-cli                 2        10812", "codex-cli             10812            2")},
 		{"two cells of the fleet table exchanged", "fleet", "stdout", replaced("1      2  2026", "2      1  2026")},
+		{"two lines of the timeline summary swapped", "timeline", "stdout", lineSwapped(0, 1)},
+		{"two lines of the detect header swapped", "detect", "stdout", lineSwapped(1, 2)},
+		{"the fleet table's header and first row swapped", "fleet", "stdout", lineSwapped(2, 3)},
+		{"two CSV rows swapped", "fleet", "o.csv", lineSwapped(1, 2)},
+		{"the CSV header and a row swapped", "fleet", "o.csv", lineSwapped(0, 1)},
+	}
+	for _, loose := range []bool{false, true} {
+		for _, test := range tests {
+			if loose && test.name == "two rows swapped" {
+				// A loose tree's rows of equal sort keys keep the listing
+				// order, so their order is compared through the documented
+				// order instead.
+				continue
+			}
+			t.Run(fmt.Sprintf("%s, loose %v", test.name, loose), func(t *testing.T) {
+				want := runs[test.run]
+				want.loose = loose
+				mutated := changedOutput(want, test.label, test.rewrite)
+				if reflect.DeepEqual(mutated, want) {
+					t.Fatal("the mutation changed nothing")
+				}
+				got := binaryForm(mutated)
+				got.loose = loose
+				if !outputsRefused(t, nil, want, got) {
+					t.Error("the comparison accepted the mutation in the binary's form")
+				}
+			})
+		}
+	}
+}
+
+func TestALooseInputSortsOnlyWhatTheListingOrders(t *testing.T) {
+	stdout := "input:   /in\nkind:    loose\nhost:    (unknown)\nproblem: /in/b: x\nproblem: /in/a: x\n\n" +
+		"user  home  agent\nbob   /b    pi\nann   /a    pi\n\nann\tpi\t/a/2\nann\tpi\t/a/1\n"
+	want := "input:   /in\nkind:    loose\nhost:    (unknown)\nproblem: /in/a: x\nproblem: /in/b: x\n\n" +
+		"user  home  agent\nann   /a    pi\nbob   /b    pi\n\nann\tpi\t/a/1\nann\tpi\t/a/2\n"
+	tests := []struct {
+		name, label, text, want string
+	}{
+		{"stdout's problems, homes and files are sorted", "stdout", stdout, want},
+		{"the other stdout lines keep their order", "stdout", "host: h\ninput: /in\n", "host: h\ninput: /in\n"},
+		{"a CSV keeps its order", "o.csv", "agent,hosts\nb,1\na,1\n", "agent,hosts\nb,1\na,1\n"},
+		{"JSON Lines keep their order", "out/timeline.jsonl", "{\"b\":1}\n{\"a\":1}\n", "{\"b\":1}\n{\"a\":1}\n"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			want := runs[test.run]
-			mutated := changedOutput(want, test.label, test.rewrite)
-			if reflect.DeepEqual(mutated, want) {
-				t.Fatal("the mutation changed nothing")
-			}
-			if !outputsRefused(t, nil, want, binaryForm(mutated)) {
-				t.Error("the comparison accepted the mutation in the binary's form")
+			if got := listingOrder(t, test.label, test.text); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
 	}
