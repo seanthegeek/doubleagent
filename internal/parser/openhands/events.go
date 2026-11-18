@@ -113,13 +113,14 @@ func otherRow(kind string, event jsonvalue.Value, row eventRowMaker) {
 }
 
 // thinkingText returns the reasoning of a message or action: its
-// reasoning_content and the text of its thinking blocks.
-func thinkingText(record jsonvalue.Value) string {
+// reasoning_content and the text of its thinking blocks. A thinking_blocks
+// that is not an array adds a problem.
+func thinkingText(record jsonvalue.Value, problems *parser.Problems) string {
 	var parts []string
 	if reasoning := record.Get("reasoning_content"); reasoning.IsString() {
 		parts = append(parts, reasoning.StringValue())
 	}
-	for _, block := range parser.Elements(record.Get("thinking_blocks")) {
+	for _, block := range parser.ArrayMember(record.Get("thinking_blocks"), "thinking_blocks", 1, problems) {
 		if thinking := block.Get("thinking"); thinking.IsString() {
 			parts = append(parts, thinking.StringValue())
 		}
@@ -127,13 +128,22 @@ func thinkingText(record jsonvalue.Value) string {
 	return parser.JoinNonEmpty(" | ", parts...)
 }
 
+// problemRows emits a system row per problem of the event.
+func problemRows(problems parser.Problems, row eventRowMaker) {
+	for _, problem := range problems {
+		row(timeline.TurnSystem, parser.ProblemPrefix+problem.Message, "", "")
+	}
+}
+
 // messageRows emits the rows of a MessageEvent: thinking, the message or the
-// tool result it carries, and its tool calls.
+// tool result it carries, its tool calls, then the problem of a member of
+// the wrong kind.
 func messageRows(event jsonvalue.Value, options parser.Options, row eventRowMaker) {
 	message := event.Get("llm_message")
 	role := parser.Text(parser.FirstNonEmpty(message.Get("role"), event.Get("source")))
+	var problems parser.Problems
 	if options.IncludeThinking {
-		if thinking := thinkingText(message); thinking != "" {
+		if thinking := thinkingText(message, &problems); thinking != "" {
 			row(timeline.TurnThinking, thinking, "", "")
 		}
 	}
@@ -149,28 +159,33 @@ func messageRows(event jsonvalue.Value, options parser.Options, row eventRowMake
 		}
 		row(turn, text, "", "")
 	}
-	for _, call := range parser.Elements(message.Get("tool_calls")) {
+	for _, call := range parser.ArrayMember(message.Get("tool_calls"), "tool_calls", 1, &problems) {
 		function := call.Get("function")
 		row(timeline.TurnToolUse,
 			parser.Text(parser.FirstNonEmpty(call.Get("arguments"), function.Get("arguments"))),
 			parser.Text(parser.FirstNonEmpty(call.Get("name"), function.Get("name"))),
 			parser.Text(call.Get("id")))
 	}
+	problemRows(problems, row)
 }
 
-// actionRows emits the thinking and the tool call of an ActionEvent.
+// actionRows emits the thinking and the tool call of an ActionEvent, then
+// the problem of a thinking_blocks of the wrong kind.
 func actionRows(event jsonvalue.Value, options parser.Options, row eventRowMaker) {
+	var problems parser.Problems
 	if options.IncludeThinking {
-		if thinking := parser.JoinNonEmpty(" | ", parser.TextOf(event.Get("thought")), thinkingText(event)); thinking != "" {
+		if thinking := parser.JoinNonEmpty(" | ", parser.TextOf(event.Get("thought")), thinkingText(event, &problems)); thinking != "" {
 			row(timeline.TurnThinking, thinking, "", "")
 		}
 	}
+
 	text := actionText(event)
 	if risk := event.Get("security_risk"); parser.Present(risk) {
 		text += " security_risk=" + risk.Text()
 	}
 	row(timeline.TurnToolUse, text, parser.Text(event.Get("tool_name")),
 		parser.Text(event.Get("tool_call_id")))
+	problemRows(problems, row)
 }
 
 // actionText returns a terminal action's command, a file edit's "<command>

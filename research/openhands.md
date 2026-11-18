@@ -954,8 +954,17 @@ whole-file `system` row on the conversation's first event file, after the header
 `parser: <file name> could not be read (<reason>)` with `source_line` 0, or
 `parser: <file name> could not be decoded (<reason>)` or `parser: <file name> is not a JSON object`
 with `source_line` 1, each with an empty timestamp and the session id and `project_path` the other
-file still gives. The header then lacks what the file held (title, model, time basis). A missing
-file is not an error, since the CLI writes no `meta.json`. A `prompt_history.json` that cannot be
+file still gives. The header then lacks what the file held (title, model, time basis). A
+conversation with no event file reports these rows on its `base_state.json`; one with neither
+an event file nor a `base_state.json` gives no row for a damaged `meta.json`, since no file of
+it is parsed. A missing file is not an error, since the CLI writes no `meta.json`. A member of
+the wrong kind is one row naming it, the rows it would have held being lost: in
+`base_state.json`, `parser: stats.usage_to_metrics is not a JSON object`,
+`parser: stats.usage_to_metrics.<key>.token_usages is not a JSON array` and
+`parser: blocked_actions is not a JSON object`, reported with the file's other problems; in an
+event, `parser: tool_calls is not a JSON array` or `parser: thinking_blocks is not a JSON array`
+(the latter only when thinking rows are asked for), after the event's rows. An absent, null or
+empty member gives no row. A `prompt_history.json` that cannot be
 read is one whole-file row `parser: <file name> could not be read (<reason>)` through
 `error_rows`. A legacy 0.x `events/<n>.json` that cannot be read gives the session's one row with
 an empty timestamp, followed by one row `parser: <file name> could not be read (<reason>)` with
