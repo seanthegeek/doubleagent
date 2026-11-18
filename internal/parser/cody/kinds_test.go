@@ -179,3 +179,48 @@ func TestStateModelPreferencesThatAreNotAnObjectAreReported(t *testing.T) {
 		})
 	}
 }
+
+func TestHistoryEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
+	const jetBrains = "Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2"
+	const message = `"speaker": "assistant", "text": "ok"`
+	tests := []struct {
+		name, history, want string
+	}{
+		{"chats", `{"a": {"chat": {"c": {"id": "c"}, "d": "x"}}}`, "parser: chat holds 1 entry that is not a JSON object"},
+		{"interactions", `{"a": {"chat": {"c": {"id": "c", "interactions": [{}, "x", 7]}}}}`,
+			"parser: interactions holds 2 entries that are not JSON objects"},
+		{"content", `{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": {` + message +
+			`, "content": ["x"]}}]}}}}`, "parser: content holds 1 entry that is not a JSON object"},
+		{"processes", `{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": {` + message +
+			`, "processes": [7]}}]}}}}`, "parser: processes holds 1 entry that is not a JSON object"},
+		{"a message", `{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": "x"}]}}}}`,
+			"parser: assistantMessage is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := parserRows(parseFile(t, jetBrains, []byte(test.history)))
+			if !slices.Equal(got, []string{test.want}) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestModelPreferenceEntriesOfTheWrongKindAreReported(t *testing.T) {
+	const rel = "Cody-nodejs/JetBrains-globalState/cody-model-preferences"
+	tests := []struct {
+		name, data, want string
+	}{
+		{"an endpoint", `{"https://s.com/": {"selected": {}}, "https://t.com/": 7}`,
+			"parser: cody-model-preferences holds 1 entry that is not a JSON object"},
+		{"a model", `{"https://s.com/": {"selected": {"chat": "m", "edit": 7, "x": {}}}}`,
+			"parser: selected holds 2 entries that are not JSON strings"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := parserRows(parseFile(t, rel, []byte(test.data))); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
