@@ -191,7 +191,7 @@ func FuzzParseCreateTable(fuzz *testing.F) {
 		"CREATE TABLE t(a, b, PRIMARY KEY(b, a)) WITHOUT ROWID, STRICT",
 		"CREATE VIRTUAL TABLE s USING fts5(a UNINDEXED, b, tokenize='porter')",
 		"CREATE TABLE t(a AS (1) STORED, b DEFAULT (CAST(-(1) AS TEXT)) REFERENCES p ON DELETE CASCADE)",
-		WIDENED, "CREATE TABLE t(a DEFAULT -0x7fffffffffffffff, b DEFAULT (((-'1e5'))))"} {
+		widenedTable, "CREATE TABLE t(a DEFAULT -0x7fffffffffffffff, b DEFAULT (((-'1e5'))))"} {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, sql string) {
@@ -211,9 +211,9 @@ func FuzzParseCreateTable(fuzz *testing.F) {
 	})
 }
 
-// WIDENED is a CREATE TABLE text with every form of DEFAULT the
+// widenedTable is a CREATE TABLE text with every form of DEFAULT the
 // generator's widened table holds.
-const WIDENED = "CREATE TABLE widened(a, b DEFAULT CURRENT_TIMESTAMP, c DEFAULT (1+2), d DEFAULT" +
+const widenedTable = "CREATE TABLE widened(a, b DEFAULT CURRENT_TIMESTAMP, c DEFAULT (1+2), d DEFAULT" +
 	" (-(5)), f DEFAULT abc, g REAL DEFAULT 3, i DEFAULT X'41', j TEXT DEFAULT (X'41'), k DEFAULT" +
 	" (+5), l DEFAULT (CAST(1 AS TEXT)), m DEFAULT ('a'||'b'), n INTEGER DEFAULT ('7'))"
 
