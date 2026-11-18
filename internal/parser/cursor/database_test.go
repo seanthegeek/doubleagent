@@ -71,10 +71,9 @@ func TestEachComposerGetsTheChunksUnderItsOwnKeyPrefix(t *testing.T) {
 	for _, row := range rows {
 		got = append(got, row.SessionID+" "+row.Text)
 	}
-	// The key composerConvHeaders:a:b:000000 starts with a's prefix too, so
-	// a reads both chunks, as a key range read for a alone gives them.
-	want := []string{"a parser: missing bubble a1", "a parser: missing bubble ab1",
-		"a:b parser: missing bubble ab1"}
+	// The key composerConvHeaders:a:b:000000 starts with a's prefix too, but
+	// its composer is a:b, so a reads only its own chunk.
+	want := []string{"a parser: missing bubble a1", "a:b parser: missing bubble ab1"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
