@@ -343,25 +343,5 @@ func equalityKey(value jsonvalue.Value) string {
 // the bridge-session records of other bridges either side (a detach, with
 // no id, counting as another bridge), or "-".
 func (s *session) bridgeURL(bridge jsonvalue.Value) string {
-	start, end := 0, -1
-	for _, other := range s.scan.bridgeLines {
-		if other.named && bridge.IsString() && other.bridgeID == bridge.StringValue() {
-			continue
-		}
-		if other.line < s.line {
-			start = max(start, other.line)
-		} else if other.line > s.line && (end < 0 || other.line < end) {
-			end = other.line
-		}
-	}
-	before := "-"
-	for _, status := range s.scan.bridgeURLs {
-		if status.line >= s.line && (end < 0 || status.line < end) {
-			return status.url
-		}
-		if start < status.line && status.line < s.line {
-			before = status.url
-		}
-	}
-	return before
+	return s.scan.bridgeURL(bridge, s.line, s.reader.Work)
 }
