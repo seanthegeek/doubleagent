@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 )
 
 // ErrMalformed is wrapped by every error that reports a damaged database:
@@ -49,6 +50,11 @@ type Database struct {
 	pageCount  uint32
 	autoVacuum bool
 	closers    []io.Closer
+	// schemaOnce reads the schema table the first time it is asked for;
+	// schema holds what it read, or schemaErr why it could not.
+	schemaOnce sync.Once
+	schema     *schemaIndex
+	schemaErr  error
 }
 
 // Open reads the database in files, after playing back a hot journal and

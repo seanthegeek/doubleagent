@@ -105,18 +105,18 @@ func regularFile(path string) bool {
 }
 
 // itemRows returns the ItemTable rows whose key is one of wanted, in key
-// order, or none when the database has no ItemTable.
+// order, or none when the database has no ItemTable, its name matched as
+// SQL matches a table name, in any ASCII case.
 func itemRows(path string, wanted []sqlitefile.Value) ([]sqlitefile.Row, error) {
 	database, err := sqlitefile.OpenPath(path)
 	if err != nil {
 		return nil, err
 	}
 	defer database.Close()
-	tables, err := database.TableNames()
-	if err != nil || !tables["ItemTable"] {
-		return nil, err
-	}
 	table, err := database.Table("ItemTable")
+	if errors.Is(err, sqlitefile.ErrNoTable) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -135,6 +135,12 @@ func TestParseCreateTableRefusesWhatItCannotRead(t *testing.T) {
 		{"an fts5 table without content", "CREATE VIRTUAL TABLE t USING fts5(a, content='')",
 			"no content table"},
 		{"an empty column list", "CREATE TABLE t()", ""},
+		{"a column declared twice", "CREATE TABLE t(id integer primary key, a, a)",
+			"duplicate column name: a"},
+		{"a column declared twice in different case", "CREATE TABLE t(a, b, A)",
+			"duplicate column name: A"},
+		{"an fts5 column declared twice", "CREATE VIRTUAL TABLE t USING fts5(a, A)",
+			"duplicate column name: A"},
 	}
 	for _, test := range cases {
 		t.Run(test.name+" is an error", func(t *testing.T) {
