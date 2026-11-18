@@ -183,14 +183,16 @@ func recordedError(text string) error {
 }
 
 // row returns a recorded row as a timeline row, its paths under the run's
-// root.
+// root. Its text is the recording's, so each recorded wording of a
+// difference of text in it is put in the form the comparison gives both
+// sides: the binary's own wording of the row cannot be known here.
 func (c *recordedCalls) row(row Row) timeline.Row {
 	return timeline.Row{TimestampUTC: c.root(row.TimestampUTC), Host: c.root(row.Host),
 		User: c.root(row.User), Agent: c.root(row.Agent), SessionID: c.root(row.SessionID),
 		ProjectPath: c.root(row.ProjectPath), GitBranch: c.root(row.GitBranch),
 		TurnType: c.root(row.TurnType), Model: c.root(row.Model), ToolName: c.root(row.ToolName),
-		ToolUseID: c.root(row.ToolUseID), Text: c.root(row.Text), SourceFile: c.root(row.SourceFile),
-		SourceLine: row.SourceLine, Recovered: c.root(row.Recovered)}
+		ToolUseID: c.root(row.ToolUseID), Text: recordedWordingForm(c.root(row.Text)),
+		SourceFile: c.root(row.SourceFile), SourceLine: row.SourceLine, Recovered: c.root(row.Recovered)}
 }
 
 // recordedRegistry returns the analyzer's parser list answering from the
@@ -330,6 +332,7 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 	got := r.run(t, node, "timeline", recorded, root)
 	want := r.expected(t, recorded, root)
 	want.held = held
+	want.cut = r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
 	r.compareFull(t, node, root, recorded, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }

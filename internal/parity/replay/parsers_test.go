@@ -43,6 +43,8 @@ type parserReplay struct {
 	deniesAccess bool
 	skipped      map[string]int
 	needed, used neededTally
+	// wrongKind counts, by agent, the parses difference 170 took a row of.
+	wrongKind map[string]int
 }
 
 func TestReplayEveryRecordedCase(t *testing.T) {
@@ -72,7 +74,8 @@ func TestReplayEveryRecordedCase(t *testing.T) {
 func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	started := time.Now()
 	replay := &parserReplay{corpus: corpus, work: corpus.NewWorkTree(t),
-		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}, used: used}
+		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}, used: used,
+		wrongKind: map[string]int{}}
 	registered := parsers.ByAgent(parsers.All())
 	agents := caseFiles(t, corpus, "parsers")
 	missing := checkEveryAgentHasAParser(t, agents, parsers.All())
@@ -97,6 +100,7 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 		t.Logf("not replayed, %s: %d cases", reason, replay.skipped[reason])
 	}
 	logNeeded(t, "information comparison", replay.needed, rowFormatNumbers())
+	checkEveryWrongKindReportUsed(t, replay.wrongKind, ran == len(agents))
 	return ran == len(agents)
 }
 
@@ -271,10 +275,43 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		r.note(node, []int{excluding})
 		return skipExcluded
 	}
-	want, got = NormaliseRows(t, node, numbers, want, got)
-	got, added := addedRows(artifact.Original, want, got)
-	r.note(node, slices.Concat(numbers, added, compareRowInformation(t, node, want, got)))
+	parse := parsedFile{subject.Agent(), artifact.Original, artifact.Rel}
+	cut := r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
+	compare := func(reporter testing.TB, numbers []int) ([]int, []string) {
+		normalWant, normalGot := NormaliseRows(reporter, node, numbers, want, got)
+		normalGot, added, entries := addedRows(parse, normalWant, normalGot)
+		return slices.Concat(added, compareRowInformation(reporter, node, normalWant, normalGot, cut)), entries
+	}
+	reporter := &recordingTB{TB: t}
+	formats, entries := compare(reporter, numbers)
+	for _, message := range reporter.errors {
+		t.Errorf("%s", message)
+	}
+	for _, entry := range entries {
+		r.wrongKind[entry]++
+	}
+	if len(reporter.errors) == 0 {
+		numbers = neededAmong(numbers, func(numbers []int) bool {
+			quiet := &recordingTB{TB: t}
+			compare(quiet, numbers)
+			return len(quiet.errors) == 0
+		})
+	}
+	r.note(node, slices.Concat(numbers, formats))
 	return ""
+}
+
+// neededAmong returns the numbers of a comparison that agrees with all of
+// them without which, each left out alone, it no longer agrees: the
+// differences the case needs, not only those whose shape it shows.
+func neededAmong(numbers []int, agree func(numbers []int) bool) []int {
+	var needed []int
+	for _, number := range numbers {
+		if !agree(slices.DeleteFunc(slices.Clone(numbers), func(each int) bool { return each == number })) {
+			needed = append(needed, number)
+		}
+	}
+	return needed
 }
 
 // note records the differences a case needed, for the log and the run.
@@ -297,27 +334,26 @@ func osErrorTypes() map[string]bool {
 }
 
 // rowDifferences returns the numbers of the documented differences whose
-// shape shows in the recorded rows, and the number of one that excludes the
+// shape shows in the recorded rows, each looked for, in applying order,
+// in what the ones before it left, and the number of one that excludes the
 // case from comparison, or 0.
 func rowDifferences(want []Row) ([]int, int) {
 	var numbers []int
 	text := RowsText(want)
-	for _, entry := range Differences() {
+	rows := slices.Clone(want)
+	for _, entry := range applyingOrder(Differences()) {
 		switch {
 		case entry.Excludes != nil:
 			if entry.Excludes(text) {
 				return nil, entry.Number
 			}
-		case entry.Rows != nil:
-			if _, found := entry.Rows(want); found > 0 {
-				numbers = append(numbers, entry.Number)
-			}
 		case entry.Text != nil:
-			if rewriteRowTexts(slices.Clone(want), entry.Text) > 0 {
+			if rewriteRowTexts(rows, entry.Text) > 0 {
 				numbers = append(numbers, entry.Number)
 			}
 		}
 	}
+	slices.Sort(numbers)
 	return numbers, 0
 }
 

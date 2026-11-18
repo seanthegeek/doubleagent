@@ -213,7 +213,7 @@ func recordKey(line string, ignored []string) (string, string, bool) {
 
 // rowOrderDiffers reports whether a timeline.jsonl or sessions.jsonl of
 // got differs from want's once the documented differences of text are
-// applied, so that only such a case is compared as multisets of lines.
+// applied, so that only such a case is compared sorted by key.
 func rowOrderDiffers(t testing.TB, node string, normaliser *textNormaliser, want,
 	got map[string]string) bool {
 	for path, text := range want {
@@ -235,15 +235,30 @@ func namesOrNone(names []string) string {
 	return strings.Join(names, ", ")
 }
 
-// sortRowLines sorts the lines of each timeline.jsonl and sessions.jsonl
-// of outputs in place, so that two runs are compared as multisets of rows.
-func sortRowLines(outputs map[string]string) {
+// sortRowLinesByKey sorts the lines of each timeline.jsonl and
+// sessions.jsonl of outputs in place, stably, by their documented sort
+// keys, sessions then by source_file. The keys of two rows tie only for
+// rows of one record, which keep their order, so the order inside each
+// file is still compared; what the sort settles is where a row difference
+// 107 moved to the recorded copy's file stands, and the order of sessions
+// whose keys tie, which the listing decides.
+func sortRowLinesByKey(outputs map[string]string) {
 	for path, text := range outputs {
-		if strings.HasSuffix(path, timelineName) || strings.HasSuffix(path, sessionsName) {
-			lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
-			slices.Sort(lines)
-			outputs[path] = strings.Join(lines, "\n") + "\n"
+		compare := compareRowLines
+		switch {
+		case strings.HasSuffix(path, sessionsName):
+			compare = func(left, right string) int {
+				if order := compareSessionLines(left, right); order != 0 {
+					return order
+				}
+				return strings.Compare(readSortFields(left).SourceFile, readSortFields(right).SourceFile)
+			}
+		case !strings.HasSuffix(path, timelineName):
+			continue
 		}
+		lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+		slices.SortStableFunc(lines, compare)
+		outputs[path] = strings.Join(lines, "\n") + "\n"
 	}
 }
 

@@ -11,25 +11,26 @@ import (
 )
 
 // Difference is one analysis difference between the Python analyzer and
-// the binary, numbered from 101 in the milestone plan. Each applies only to
-// its shape: Text rewrites it into a form both sides share, Rows puts its
-// rows in one order, Excludes reports a case no rewriting can match,
-// Outputs rewrites a run's outputs against the recorded ones and the
-// records the recorded parses read, Added takes a row the recording lacks
-// from a parse, Arguments rewrites a command line; each returns what it
-// found. Scope names the texts a difference of format applies to. A retired
-// one keeps its number and applies nowhere; Unchecked says why a run that
-// never uses one does not fail.
+// the binary, numbered from 101. Text rewrites the recorded shape, and
+// Binary the binary's own, into one form, so the binary printing the
+// recorded wording still differs; Excludes reports a case no rewriting can
+// match, Outputs rewrites a run's outputs, Added takes a
+// row the recording lacks, Arguments rewrites a command line; each returns
+// what it found. Scope names the texts a difference of format applies to;
+// Within names a difference that can lie inside this one's rows, which this
+// one applies before. A retired one applies nowhere; Unchecked says why a
+// run that never uses one does not fail.
 type Difference struct {
 	Number    int
 	Summary   string
 	Text      func(text string) (string, int)
-	Rows      func(rows []Row) ([]Row, int)
+	Binary    func(text string) (string, int)
 	Excludes  func(text string) bool
 	Outputs   func(want, got map[string]string, held heldRecords) int
 	Arguments func(command string, args []string) ([]string, int)
 	Scope     string
-	Added     func(file string, want, got []Row) ([]Row, int)
+	Added     func(parse parsedFile, want, got []Row) ([]Row, string)
+	Within    int
 	Retired   string
 	Unchecked string
 }
@@ -39,13 +40,14 @@ func Differences() []Difference {
 	return append([]Difference{
 		{Number: 101, Summary: "usage and help text are the binary's own", Retired: retiredUnused},
 		{Number: 102, Summary: "library and operating-system error wording in parser: rows, " +
-			"problem: lines and error: messages is the binary's own", Text: libraryErrorText},
+			"problem: lines and error: messages is the binary's own", Text: libraryText(recordedSide),
+			Binary: libraryText(binarySide)},
 		{Number: 103, Summary: "--match takes Go regular-expression syntax",
 			Excludes: pythonOnlyPattern},
 		{Number: 104, Summary: "ISO week dates, ordinal dates and non-ASCII digits are not times",
 			Retired: retiredUnused},
 		{Number: 105, Summary: "zed archived worktrees and state.vscdb value problems have one order",
-			Rows: plannerOrder},
+			Retired: retiredUnneeded},
 		{Number: 106, Summary: "an FTS5 table is always readable", Retired: retiredUnused},
 		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's: of two " +
 			"files the recording's parses both read the same record from, the run may keep the row " +
@@ -54,6 +56,10 @@ func Differences() []Difference {
 				"the recording machine's file system listed the tree in"},
 	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences())...)
 }
+
+// retiredUnneeded is why a difference was retired that recorded cases
+// showed the shape of: the replay passes with it turned off.
+const retiredUnneeded = "no recorded case needed it: every case passes without it"
 
 // retiredUnused is why a difference was retired: no recorded case shows
 // its shape, so it could only let a case pass that should fail.
@@ -64,19 +70,23 @@ const retiredUnused = "no recorded case used it"
 func laterDifferences() []Difference {
 	return []Difference{
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
-			Text: quotedValueText},
+			Text: quotedValueText(singleQuoted), Binary: quotedValueText(doubleQuoted)},
 		{Number: 121, Summary: "options come before the input, and timeline's output directory is its second " +
 			"argument", Arguments: optionsFirst},
 		{Number: 122, Summary: "a note counting one manifest row that did not parse says row",
-			Text: oneManifestRowText},
+			Text: oneManifestRowText, Binary: asWritten},
 		{Number: 130, Summary: "a file that holds secrets gives only where it stopped decoding, " +
-			"not the reader's detail", Text: secretFileErrorText},
+			"not the reader's detail: the line and column are compared", Text: secretFileText(recordedSide),
+			Binary: secretFileText(binarySide), Within: 102},
 		{Number: 140, Summary: "the accepted forms of a time name epoch seconds or milliseconds, " +
-			"both of which are read", Text: epochUnitsText},
-		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem",
+			"both of which are read", Text: epochUnitsText(recordedEpochUnits),
+			Binary: epochUnitsText(binaryEpochUnits)},
+		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem: a case " +
+			"whose recording reports one is not compared, and since the recording stopped at that row, " +
+			"such a case says nothing about how the binary reads a database beside an unreadable -shm",
 			Excludes: sharedMemoryProblem},
 		{Number: 160, Summary: "a JSON array that is cut off, or has data after it, is reported in " +
-			"one wording", Text: arrayDamageText},
+			"one wording", Text: arrayDamageText(recordedSide), Binary: arrayDamageText(binarySide), Within: 102},
 	}
 }
 
@@ -90,37 +100,63 @@ func sharedMemoryProblem(text string) bool {
 	return sharedMemoryLine.MatchString(text)
 }
 
-// secretFileErrors are the rows of files that hold API keys or tokens whose
-// reason the binary gives as a position alone, and what each becomes: the
-// recorded reason, or the binary's position, or none, is one token.
-var secretFileErrors = []struct {
-	pattern     *regexp.Regexp
-	replacement string
-}{
-	{regexp.MustCompile(`(parser: config\.toml is not valid TOML \()(?:[^()\n]|\([^()\n]*\))*\)`),
-		"${1}{position})"},
-	{regexp.MustCompile(`(parser: config\.json did not parse: )[^\n]*`), "${1}{position}"},
-	{regexp.MustCompile(`(parser: [^\n]*crush\.json is not a JSON object)(?: \(invalid JSON at line [0-9]+, ` +
-		`column [0-9]+\))?`), "${1}"},
-	{regexp.MustCompile(`(exec_approvals_config raw_json unparseable \()[^;\n]*(; text withheld)`),
-		"${1}{position}${2}"},
+// secretFileShapes are the rows of files that hold API keys or tokens,
+// whose reason the binary gives as the position alone, as each side words
+// them, and what each becomes: the recorded reader's message and position,
+// or the binary's position, become one token that keeps the line and
+// column. Each stops at the end of the reason, so the rest of the row is
+// still compared.
+func secretFileShapes() map[side][]libraryShape {
+	shape := func(pattern, replacement string) libraryShape {
+		return libraryShape{pattern: regexp.MustCompile(pattern), replacement: replacement}
+	}
+	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
+	position := "{position line ${2}, column ${3}}"
+	return map[side][]libraryShape{
+		recordedSide: {
+			shape(`(parser: config\.toml is not valid TOML \()(?:`+strings.Join(tomlMessages(), "|")+`)[^"\n]*? `+
+				`\(at line ([0-9]+), column ([0-9]+)\)\)`, "${1}"+position+")"),
+			shape(`(parser: config\.json did not parse: )`+pythonJSON+`("|\n|\z)`, "${1}"+position+"${4}"),
+			shape(`(parser: [^"\n]*crush\.json is not a JSON object)("|\n|\z)`, "${1}${2}"),
+			shape(`(exec_approvals_config raw_json unparseable \()`+pythonJSON+`(; text withheld)`,
+				"${1}"+position+"${4}"),
+		},
+		binarySide: {
+			shape(`(parser: config\.toml is not valid TOML \()invalid TOML at line ([0-9]+), column ([0-9]+)\)`,
+				"${1}"+position+")"),
+			shape(`(parser: config\.json did not parse: )invalid JSON at line ([0-9]+), column ([0-9]+)("|\n|\z)`,
+				"${1}"+position+"${4}"),
+			shape(`(parser: [^"\n]*crush\.json is not a JSON object)(?: \(invalid JSON(?: at line [0-9]+, `+
+				`column [0-9]+)?\))?("|\n|\z)`, "${1}${2}"),
+			shape(`(exec_approvals_config raw_json unparseable \()invalid JSON at line ([0-9]+), column ([0-9]+)`+
+				`(; text withheld)`, "${1}"+position+"${4}"),
+		},
+	}
 }
 
-// secretFileErrorText rewrites the reason of each secretFileErrors row and
-// returns the count.
-func secretFileErrorText(text string) (string, int) {
-	found := 0
-	for _, shape := range secretFileErrors {
-		text = shape.pattern.ReplaceAllStringFunc(text, func(match string) string {
-			found++
-			return shape.pattern.ReplaceAllString(match, shape.replacement)
-		})
+// secretFileText returns the rewrite of difference 130 for one side: each
+// row of secretFileShapes in its compared form, and the count.
+func secretFileText(from side) func(text string) (string, int) {
+	shapes := secretFileShapes()[from]
+	return func(text string) (string, int) {
+		found := 0
+		for _, shape := range shapes {
+			found += len(shape.pattern.FindAllStringIndex(text, -1))
+			text = shape.pattern.ReplaceAllString(text, shape.replacement)
+		}
+		return text, found
 	}
-	return text, found
+}
+
+// asWritten is the rewrite of the binary's side of a difference whose
+// binary form is the compared form: none.
+func asWritten(text string) (string, int) {
+	return text, 0
 }
 
 // oneManifestRow is the note of one manifest row that did not parse, in
-// either number.
+// either number as recorded; the binary writes the singular, which is
+// compared as written.
 var oneManifestRow = regexp.MustCompile(`(^|[^0-9])1 manifest rows? did not parse`)
 
 // oneManifestRowText writes each note of oneManifestRow in the singular and
@@ -130,41 +166,40 @@ func oneManifestRowText(text string) (string, int) {
 	return oneManifestRow.ReplaceAllString(text, "${1}1 manifest row did not parse"), found
 }
 
-// epochUnits is the epoch entry of the accepted forms an error: message
-// lists after a time it cannot read: "epoch seconds" as recorded, "epoch
-// seconds or milliseconds" as the binary names what it reads.
-var epochUnits = regexp.MustCompile(`(?m)(^error: .*; accepted: .*; 2026-10 or 2026; )` +
-	`epoch seconds(?: or milliseconds)?(; )`)
+// The epoch entry of the accepted forms an error: message lists after a
+// time it cannot read: "epoch seconds" as recorded, "epoch seconds or
+// milliseconds" as the binary names what it reads.
+var (
+	recordedEpochUnits = regexp.MustCompile(`(?m)(^error: .*; accepted: .*; 2026-10 or 2026; )epoch seconds(; )`)
+	binaryEpochUnits   = regexp.MustCompile(`(?m)(^error: .*; accepted: .*; 2026-10 or 2026; )` +
+		`epoch seconds or milliseconds(; )`)
+)
 
-// epochUnitsText writes the epoch entry of epochUnits as one token and
-// returns the count.
-func epochUnitsText(text string) (string, int) {
-	found := 0
-	text = epochUnits.ReplaceAllStringFunc(text, func(match string) string {
-		found++
-		parts := epochUnits.FindStringSubmatch(match)
-		return parts[1] + "{epoch units}" + parts[2]
-	})
-	return text, found
+// epochUnitsText returns the rewrite that writes the epoch entry of
+// pattern as one token, with the count.
+func epochUnitsText(pattern *regexp.Regexp) func(text string) (string, int) {
+	return func(text string) (string, int) {
+		found := len(pattern.FindAllStringIndex(text, -1))
+		return pattern.ReplaceAllString(text, "${1}{epoch units}${2}"), found
+	}
 }
 
-// quotedValue is a value an error: message quotes at the start of its
-// reason, in Python's single quotes or Go's double quotes; a value holding a
-// quote or a backslash, which the two forms escape differently, is left to
-// differ.
-var quotedValue = regexp.MustCompile(`(?m)^(error: (?:cannot read |--match )?)` +
-	`(?:'([^'"\\\n]*)'|"([^'"\\\n]*)")`)
+// A value an error: message quotes at the start of its reason: in
+// Python's single quotes as recorded, in Go's double quotes as the binary
+// writes it. A value holding a quote or a backslash, which the two forms
+// escape differently, is left to differ.
+var (
+	singleQuoted = regexp.MustCompile(`(?m)^(error: (?:cannot read |--match )?)'([^'"\\\n]*)'`)
+	doubleQuoted = regexp.MustCompile(`(?m)^(error: (?:cannot read |--match )?)"([^'"\\\n]*)"`)
+)
 
-// quotedValueText writes each quoted value of quotedValue in one form and
-// returns the count.
-func quotedValueText(text string) (string, int) {
-	found := 0
-	text = quotedValue.ReplaceAllStringFunc(text, func(match string) string {
-		found++
-		parts := quotedValue.FindStringSubmatch(match)
-		return parts[1] + "{quoted " + parts[2] + parts[3] + "}"
-	})
-	return text, found
+// quotedValueText returns the rewrite that writes each quoted value of
+// pattern in one form, with the count.
+func quotedValueText(pattern *regexp.Regexp) func(text string) (string, int) {
+	return func(text string) (string, int) {
+		found := len(pattern.FindAllStringIndex(text, -1))
+		return pattern.ReplaceAllString(text, "${1}{quoted ${2}}"), found
+	}
 }
 
 // difference returns the table entry numbered number.
@@ -179,48 +214,76 @@ func difference(t testing.TB, number int) Difference {
 	return Difference{}
 }
 
-// NormaliseTexts applies the named differences that rewrite text to both
-// texts, and fails the test for a named one that finds nothing in want.
+// applyingOrder returns the stable order the differences of table apply
+// in: each that applies before another (Within) first, then the rest.
+func applyingOrder(table []Difference) []Difference {
+	ordered := slices.Clone(table)
+	slices.SortStableFunc(ordered, func(left, right Difference) int {
+		return cmp.Compare(min(right.Within, 1), min(left.Within, 1))
+	})
+	return ordered
+}
+
+// named returns the entries of table numbered by numbers, in applying
+// order, failing the test for a number the table lacks.
+func named(t testing.TB, table []Difference, numbers []int) []Difference {
+	t.Helper()
+	var entries []Difference
+	for _, entry := range applyingOrder(table) {
+		if slices.Contains(numbers, entry.Number) {
+			entries = append(entries, entry)
+		}
+	}
+	for _, number := range numbers {
+		if !slices.ContainsFunc(entries, func(entry Difference) bool { return entry.Number == number }) {
+			t.Fatalf("no documented difference %d", number)
+		}
+	}
+	return entries
+}
+
+// NormaliseTexts applies the named differences that rewrite text, each
+// side's rewrite to its own text, and fails the test for a named one that
+// finds nothing in want.
 func NormaliseTexts(t testing.TB, node string, numbers []int, want, got string) (string, string) {
 	t.Helper()
-	for _, number := range numbers {
-		entry := difference(t, number)
+	return normaliseTextsOf(t, Differences(), node, numbers, want, got)
+}
+
+// normaliseTextsOf is NormaliseTexts over the differences of table.
+func normaliseTextsOf(t testing.TB, table []Difference, node string, numbers []int, want,
+	got string) (string, string) {
+	t.Helper()
+	for _, entry := range named(t, table, numbers) {
 		if entry.Text == nil {
 			continue
 		}
 		var found int
 		want, found = entry.Text(want)
-		got, _ = entry.Text(got)
+		got, _ = entry.Binary(got)
 		if found == 0 {
 			t.Errorf("%s: difference %d names this case but its text holds nothing to normalise",
-				node, number)
+				node, entry.Number)
 		}
 	}
 	return want, got
 }
 
-// NormaliseRows applies the named differences to two row lists: Rows to the
-// lists, Text to each row's text. It fails the test for a named one that
-// finds nothing in want.
+// NormaliseRows applies the named differences of text to two row lists,
+// each side's rewrite to that side's row texts. It fails the
+// test for a named one that finds nothing in want.
 func NormaliseRows(t testing.TB, node string, numbers []int, want, got []Row) ([]Row, []Row) {
 	t.Helper()
 	want, got = slices.Clone(want), slices.Clone(got)
-	for _, number := range numbers {
-		entry := difference(t, number)
-		found := 0
-		switch {
-		case entry.Rows != nil:
-			want, found = entry.Rows(want)
-			got, _ = entry.Rows(got)
-		case entry.Text != nil:
-			found = rewriteRowTexts(want, entry.Text)
-			rewriteRowTexts(got, entry.Text)
-		default:
+	for _, entry := range named(t, Differences(), numbers) {
+		if entry.Text == nil {
 			continue
 		}
+		found := rewriteRowTexts(want, entry.Text)
+		rewriteRowTexts(got, entry.Binary)
 		if found == 0 {
 			t.Errorf("%s: difference %d names this case but its rows hold nothing to normalise",
-				node, number)
+				node, entry.Number)
 		}
 	}
 	return want, got
@@ -266,75 +329,6 @@ func Excluded(t testing.TB, node string, numbers []int, text string) bool {
 // place of a persisted output that could not be read.
 var errorMarker = regexp.MustCompile(`parser: |^problem: |^error: |\[persisted output `)
 
-// libraryShapes are the library and system error details as Python words
-// them, and as the binary words those it words differently, each replaced
-// by a token naming its source. A detail inside JSON text stops at a quote.
-var libraryShapes = []struct {
-	pattern *regexp.Regexp
-	token   string
-}{
-	// Messages the analyzer worded through Python's exception names, its
-	// UTF-8 codec or its shell splitter, each beside the binary's wording of
-	// the same condition. They come first: the JSON detail after
-	// "JSONDecodeError: " would otherwise be taken alone below.
-	{regexp.MustCompile(`JSONDecodeError: (?:Expecting|Unterminated|Invalid|Extra data|Illegal|Unexpected UTF-8 BOM)` +
-		`[^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
-	{regexp.MustCompile(`\((?:ValueError: not a JSON object|the thread is not a JSON object)\)`),
-		"({thread not an object})"},
-	{regexp.MustCompile(`created_git_worktrees: (?:KeyError: 'created_at_seconds'|no created_at_seconds field)\)`),
-		"created_git_worktrees: {no creation time})"},
-	{regexp.MustCompile(`'utf-8' codec can't decode (?:byte 0x[0-9a-f]{2} in position [0-9]+|` +
-		`bytes in position [0-9]+-[0-9]+): (?:invalid start byte|invalid continuation byte|unexpected end of data)` +
-		`|not valid UTF-8 at byte offset [0-9]+`), "{utf-8 error}"},
-	{regexp.MustCompile(`mutation not applied \(path \[[^()\n]*\] not found\)`),
-		"mutation not applied (path {mutation path} not found)"},
-	{regexp.MustCompile(`unparseable line \((?:No closing quotation|a quote is not closed)\)`),
-		"unparseable line ({unclosed quote})"},
-	// Python's messages start with one of a few words, so a record's key or
-	// a lead-in such as "JSON: " before one is not taken into the detail.
-	{regexp.MustCompile(`(?:Expecting|Unterminated|Invalid|Extra data|Illegal|Unexpected UTF-8 BOM)` +
-		`[^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
-	// The binary's message holds no semicolon, so a note after one stays.
-	{regexp.MustCompile(`invalid JSON at line [0-9]+, column [0-9]+: [^();"\n]*`), "{json error}"},
-	{regexp.MustCompile(`[A-Za-z][^()"\n]*(?: \([^()"\n]*\))?: line [0-9]+, column [0-9]+`),
-		"{xml error}"},
-	{regexp.MustCompile(`[A-Z][^()"\n]* \(at (?:line [0-9]+, column [0-9]+|end of document)\)`),
-		"{toml error}"},
-	{regexp.MustCompile(`invalid TOML at line [0-9]+, column [0-9]+: [^()"\n]*`), "{toml error}"},
-	{regexp.MustCompile(`SQLite error: [^"\n]*`), "SQLite error: {sqlite error}"},
-	{regexp.MustCompile(`database could not be read: [^"\n]*`),
-		"database could not be read: {sqlite error}"},
-	{regexp.MustCompile(`state\.vscdb unreadable: [^"\n]*`), "state.vscdb unreadable: {sqlite error}"},
-	{regexp.MustCompile(`unreadable \([^()"\n]*\)`), "unreadable ({sqlite error})"},
-	{regexp.MustCompile(`zstd: [^"\n]*`), "zstd: {zstd error}"},
-	{regexp.MustCompile(`could not be read \([^()"\n]*\)`), "could not be read ({system error})"},
-	{regexp.MustCompile(`is not a zip archive \([^()"\n]*\)`), "is not a zip archive ({zip error})"},
-	{regexp.MustCompile(`is not base64 \([^()"\n]*\)`), "is not base64 ({base64 error})"},
-}
-
-// libraryErrorText rewrites the library error details of each line's error
-// text, from its marker to the line's end.
-func libraryErrorText(text string) (string, int) {
-	lines := strings.SplitAfter(text, "\n")
-	total := 0
-	for i, line := range lines {
-		location := errorMarker.FindStringIndex(line)
-		if location == nil {
-			continue
-		}
-		rest := line[location[1]:]
-		for _, shape := range libraryShapes {
-			found := len(shape.pattern.FindAllStringIndex(rest, -1))
-			if found > 0 {
-				rest = shape.pattern.ReplaceAllLiteralString(rest, shape.token)
-				total += found
-			}
-		}
-		lines[i] = line[:location[1]] + rest
-	}
-	return strings.Join(lines, ""), total
-}
-
 // matchArgument finds each --match value in a command's arguments, one
 // argument per line.
 var matchArgument = regexp.MustCompile(`(?m)^--match(?:=|\n)(.*)$`)
@@ -352,45 +346,6 @@ func pythonOnlyPattern(text string) bool {
 			return true
 		}
 		if _, err := regexp.Compile(match[1]); err != nil {
-			return true
-		}
-	}
-	return false
-}
-
-// plannerOrderPrefixes start the texts of the rows whose order depended on
-// SQLite's query planner.
-var plannerOrderPrefixes = []string{"archived worktree: ", "ItemTable value for "}
-
-// plannerOrder sorts each run of consecutive rows whose text starts with one
-// of the prefixes by text, and returns how many rows it found.
-func plannerOrder(rows []Row) ([]Row, int) {
-	rows = slices.Clone(rows)
-	found := 0
-	for start := 0; start < len(rows); {
-		end := start
-		for end < len(rows) && plannerOrdered(string(rows[end].Text)) {
-			end++
-		}
-		if end == start {
-			start++
-			continue
-		}
-		found += end - start
-		slices.SortStableFunc(rows[start:end], func(left, right Row) int {
-			return cmp.Compare(left.Text, right.Text)
-		})
-		start = end
-	}
-	return rows, found
-}
-
-// plannerOrdered reports whether a row's text has one of the prefixes; a
-// problem row carries its prefix after "parser: ".
-func plannerOrdered(text string) bool {
-	text = strings.TrimPrefix(text, "parser: ")
-	for _, prefix := range plannerOrderPrefixes {
-		if strings.HasPrefix(text, prefix) {
 			return true
 		}
 	}

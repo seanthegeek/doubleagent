@@ -218,10 +218,10 @@ var (
 )
 
 // rolledOver returns want when got equals it but for whole timestamps each
-// of which is want's or one millisecond earlier, where the analyzer's
-// rounding of the microseconds carried into the next millisecond;
-// otherwise got.
-func rolledOver(want, got string) string {
+// of which is want's, or one millisecond earlier where cut holds got's
+// timestamp, the recording having rounded a time with digits below the
+// millisecond into the next one; otherwise got.
+func rolledOver(want, got string, cut *cutTimes) string {
 	if want == got {
 		return got
 	}
@@ -236,7 +236,7 @@ func rolledOver(want, got string) string {
 	wantEnd, gotEnd := 0, 0
 	for i := range wantAt {
 		if want[wantEnd:wantAt[i][2]] != got[gotEnd:gotAt[i][2]] ||
-			!sameOrOneLater(want[wantAt[i][2]:wantAt[i][3]], got[gotAt[i][2]:gotAt[i][3]]) {
+			!sameOrOneLater(want[wantAt[i][2]:wantAt[i][3]], got[gotAt[i][2]:gotAt[i][3]], cut) {
 			return got
 		}
 		wantEnd, gotEnd = wantAt[i][3], gotAt[i][3]
@@ -247,11 +247,15 @@ func rolledOver(want, got string) string {
 	return want
 }
 
-// sameOrOneLater reports whether the timestamp want equals got or is one
-// millisecond later.
-func sameOrOneLater(want, got string) bool {
+// sameOrOneLater reports whether the timestamp want equals got, or is one
+// millisecond later where cut holds got, a time cut from a source with
+// digits below the millisecond.
+func sameOrOneLater(want, got string, cut *cutTimes) bool {
 	if want == got {
 		return true
+	}
+	if !cut.holds(got) {
+		return false
 	}
 	wantTime, wantErr := time.Parse(time.RFC3339Nano, want)
 	gotTime, gotErr := time.Parse(time.RFC3339Nano, got)
@@ -260,10 +264,10 @@ func sameOrOneLater(want, got string) bool {
 
 // rolledOverLines returns got with each line that equals want's line at
 // the same index but for timestamps rolled over (119) given want's form.
-func rolledOverLines(want, got string) string {
+func rolledOverLines(want, got string, cut *cutTimes) string {
 	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
 	for i := range min(len(wantLines), len(gotLines)) {
-		gotLines[i] = rolledOver(wantLines[i], gotLines[i])
+		gotLines[i] = rolledOver(wantLines[i], gotLines[i], cut)
 	}
 	return strings.Join(gotLines, "\n")
 }
