@@ -161,6 +161,8 @@ type store struct {
 	database *sqlitefile.Database
 	tables   map[string]bool
 	err      error
+	// reads counts the queries run, the work a test measures.
+	reads int
 }
 
 // newStore returns the store of an open database.
@@ -194,6 +196,7 @@ func (s *store) table(name string) *sqlitefile.Table {
 
 // rows returns rows read, nothing when the read failed.
 func (s *store) rows(found []keyed, err error) []keyed {
+	s.reads++
 	if s.keep(err) {
 		return nil
 	}

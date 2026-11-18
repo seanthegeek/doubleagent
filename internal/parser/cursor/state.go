@@ -12,6 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
+// chunkPrefix starts the key of a chunk of a composer's header list.
+const chunkPrefix = "composerConvHeaders:"
+
 // The texts of the rows of a deleted conversation.
 const (
 	deletedText = "conversation deleted (header kept; time is the header's lastUpdatedAt)"
@@ -134,6 +137,10 @@ type stateReader struct {
 	keyValues *sqlitefile.Table
 	options   parser.Options
 	bubbles   map[string]keyed
+	// chunks holds the composerConvHeaders rows sorted by key, once
+	// chunksRead is set.
+	chunks     []keyed
+	chunksRead bool
 }
 
 // loadBubbles reads every bubbleId row once, the first row of each key in
@@ -162,10 +169,7 @@ func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 		}
 		return entries
 	}
-	if r.keyValues == nil {
-		return nil
-	}
-	for _, row := range r.store.rows(prefixed(r.keyValues, "composerConvHeaders:"+current.ident+":")) {
+	for _, row := range r.headerChunks(current.ident) {
 		chunk := decodeRecord(row.rowid, row.key, row.value, &current.problems)
 		for _, entry := range chunk.Items() {
 			if entry.IsObject() {
@@ -174,6 +178,29 @@ func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 		}
 	}
 	return entries
+}
+
+// headerChunks returns a composer's composerConvHeaders:<id>: rows in key
+// order. Every such row is read once, on first use, and sorted by key, so
+// each composer's rows are a range found by binary search.
+func (r *stateReader) headerChunks(ident string) []keyed {
+	if r.keyValues == nil {
+		return nil
+	}
+	if !r.chunksRead {
+		r.chunksRead = true
+		r.chunks = r.store.rows(prefixed(r.keyValues, chunkPrefix))
+		slices.SortStableFunc(r.chunks, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
+	}
+	prefix := chunkPrefix + ident + ":"
+	start, _ := slices.BinarySearchFunc(r.chunks, prefix, func(row keyed, target string) int {
+		return strings.Compare(row.key, target)
+	})
+	end := start
+	for end < len(r.chunks) && strings.HasPrefix(r.chunks[end].key, prefix) {
+		end++
+	}
+	return r.chunks[start:end]
 }
 
 // conversation emits the rows of a conversation: its name, its origin,
