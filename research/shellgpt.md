@@ -451,7 +451,11 @@ for the truncation. The parser yields no deletion rows.
 
 #### Bad-line rows
 
-A truncated array yields the messages before the cut and one `system` row. A line of `.sgptrc`
+A truncated array yields the messages before the cut and one `system` row. In a chat file that
+decodes whole, an element that is not an object is
+`parser: unparseable record <N> (not a JSON object): <the element as JSON>` at its position, and a
+message's `tool_calls` that is present but not an array is
+`parser: tool_calls is not a JSON array`; both come after the messages. A line of `.sgptrc`
 with no `=` yields `parser: unparseable line <n> (no "=" separator; not shown, the file holds the
 API key)`, the line itself left out because the file holds the key; the other lines are still
 read. The response cache is one text per file with nothing to cut. A chat file, `.sgptrc` or

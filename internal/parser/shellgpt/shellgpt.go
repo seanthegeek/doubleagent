@@ -180,14 +180,17 @@ func (p *Parser) parseCache(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // chatState is what one chat file's walk remembers: the function name of each
-// tool call id, and the synthetic id and name of an older function call
-// waiting for its result.
+// tool call id, the synthetic id and name of an older function call
+// waiting for its result, and the problems met.
 type chatState struct {
-	names   map[string]string
-	pending [2]string
+	names    map[string]string
+	problems parser.Problems
+	pending  [2]string
 }
 
-// parseChat emits the rows of one chat file.
+// parseChat emits the rows of one chat file, then the problems of its
+// elements and members of the wrong kind, then the problem of a damaged
+// file.
 func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	sessionID := filepath.Base(artifact.DiskPath)
 	makeRow := func(turn, text, toolName, toolUseID string) timeline.Row {
@@ -205,7 +208,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	messages, failure := loadMessages(textlines.ValidUTF8(content))
+	messages, failure := loadMessages(textlines.ValidUTF8(content), &problems)
 	if !slices.ContainsFunc(messages, func(message jsonvalue.Value) bool { return message.Has("role") }) {
 		text := "parser: not a ShellGPT chat file"
 		if failure != nil {
@@ -218,6 +221,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	for index, message := range messages {
 		walkMessage(message, index, &state, makeRow, emit)
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, append(problems, state.problems...), sessionID, ""))
 	if failure != nil {
 		emit(makeRow(timeline.TurnSystem, "parser: "+failure.Error(), "", ""))
 	}
@@ -257,13 +261,14 @@ func walkMessage(message jsonvalue.Value, index int, state *chatState, makeRow r
 	}
 }
 
-// walkAssistant emits an assistant message's text and its tool calls.
+// walkAssistant emits an assistant message's text and its tool calls; a
+// tool_calls that is not an array adds a problem.
 func walkAssistant(message jsonvalue.Value, index int, content string, state *chatState,
 	makeRow rowMaker, emit parser.Emit) {
 	if strings.TrimSpace(content) != "" {
 		emit(makeRow(timeline.TurnAssistant, content, "", ""))
 	}
-	for _, call := range parser.Elements(message.Get("tool_calls")) {
+	for _, call := range parser.ArrayMember(message.Get("tool_calls"), "tool_calls", 1, &state.problems) {
 		function := call.Get("function")
 		callID := parser.Text(call.Get("id"))
 		name := parser.Text(function.Get("name"))
@@ -282,17 +287,22 @@ func walkAssistant(message jsonvalue.Value, index int, content string, state *ch
 // than an array is not read.
 var errNotArray = errors.New("not a JSON array")
 
+// errNotObject is the reason a chat file's element that is not an object is
+// not read.
+var errNotObject = errors.New("not a JSON object")
+
 // loadMessages decodes a chat file into its messages that are objects, and
 // the error that kept it from decoding whole (nil when it did). A whole
-// array decodes at once; a truncated one is decoded element by element so
-// the messages before the cut survive, and the error says how many did.
-func loadMessages(raw string) ([]jsonvalue.Value, error) {
+// array decodes at once, an element that is not an object adding a problem;
+// a truncated one is decoded element by element so the messages before the
+// cut survive, and the error says how many did.
+func loadMessages(raw string, problems *parser.Problems) ([]jsonvalue.Value, error) {
 	data, err := jsonvalue.DecodeString(raw)
 	if err == nil {
 		if !data.IsArray() {
 			return nil, errNotArray
 		}
-		return objects(data.Items()), nil
+		return objects(data.Items(), problems), nil
 	}
 	text := strings.TrimLeftFunc(raw, unicode.IsSpace)
 	if !strings.HasPrefix(text, "[") {
@@ -302,13 +312,18 @@ func loadMessages(raw string) ([]jsonvalue.Value, error) {
 	return found, fmt.Errorf("truncated after %d message(s): %w", len(found), err)
 }
 
-// objects returns the elements of values that are objects.
-func objects(values []jsonvalue.Value) []jsonvalue.Value {
+// objects returns the elements of values that are objects; each other
+// element adds "unparseable record <position> (not a JSON object)" with the
+// element as JSON.
+func objects(values []jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
 	var found []jsonvalue.Value
-	for _, value := range values {
+	for i, value := range values {
 		if value.IsObject() {
 			found = append(found, value)
+			continue
 		}
+		position := i + 1
+		problems.AddRaw(position, parser.UnparseableRecord(position, errNotObject), parser.JSONText(value))
 	}
 	return found
 }
