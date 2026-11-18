@@ -53,7 +53,8 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 	return storedJSON{value: decoded, raw: text}
 }
 
-// orText returns a column as Python's str(value or "") writes it.
+// orText returns a column as row text, "" for an empty value (NULL, zero,
+// or empty text or blob).
 func orText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -190,7 +191,7 @@ func (d *database) session(session sqlitefile.Row) {
 	row := d.parser.row(d.artifact, rowid, sessionID, workingDir, d.byModel[sessionID],
 		parser.ColumnTime(session.Get("created_at")))
 	row.TurnType = timeline.TurnSystem
-	row.Text = timeline.Compact(joinParts("session start", orText(session.Get("name")),
+	row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "session start", orText(session.Get("name")),
 		orText(session.Get("description")), labelled("type=", session.Get("session_type")),
 		labelled("parent=", session.Get("parent_session_id")),
 		labelled("schedule=", session.Get("schedule_id")),
@@ -211,8 +212,8 @@ func (d *database) session(session sqlitefile.Row) {
 	}
 }
 
-// labelled returns label and the column's text when the column is truthy,
-// else "".
+// labelled returns label and the column's text when the column is not
+// empty, else "".
 func labelled(label string, value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""

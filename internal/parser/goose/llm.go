@@ -1,7 +1,6 @@
 package goose
 
 import (
-	"math"
 	"slices"
 	"strconv"
 
@@ -109,7 +108,7 @@ func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	}
 	row := l.parser.row(l.artifact, number, "", "", l.model, "")
 	row.TurnType = timeline.TurnSystem
-	row.Text = timeline.Compact(joinParts("llm request", strconv.Itoa(len(messages))+" messages", lastUser))
+	row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "llm request", strconv.Itoa(len(messages))+" messages", lastUser))
 	l.request = &row
 }
 
@@ -152,11 +151,11 @@ func mergeDelta(blocks, added []jsonvalue.Value) []jsonvalue.Value {
 	kind := last.Get("type")
 	switch {
 	case isText(kind, "text") && isText(block.Get("type"), "text") &&
-		pyEqual(audience(last), audience(block)):
+		jsonvalue.Equal(audience(last), audience(block)):
 		blocks[len(blocks)-1] = withMember(last, "text",
 			jsonvalue.NewString(parser.Text(last.Get("text"))+parser.Text(block.Get("text"))))
 	case isText(kind, "thinking") && isText(block.Get("type"), "thinking") &&
-		(last.Get("signature").IsEmpty() || pyEqual(block.Get("signature"), last.Get("signature"))):
+		(last.Get("signature").IsEmpty() || jsonvalue.Equal(block.Get("signature"), last.Get("signature"))):
 		merged := withMember(last, "thinking",
 			jsonvalue.NewString(parser.Text(last.Get("thinking"))+parser.Text(block.Get("thinking"))))
 		if signature := block.Get("signature"); !signature.IsEmpty() {
@@ -189,70 +188,4 @@ func withMember(object jsonvalue.Value, key string, value jsonvalue.Value) jsonv
 		}
 	}
 	return jsonvalue.NewObject(append(members, jsonvalue.Member{Key: key, Value: value})...)
-}
-
-// pyEqual reports whether two decoded values are equal as Python's ==
-// compares them: numbers (and booleans, which are 0 and 1) by value,
-// objects by their keys and values whatever the order.
-func pyEqual(left, right jsonvalue.Value) bool {
-	leftNumber, leftIsNumber := numberOf(left)
-	rightNumber, rightIsNumber := numberOf(right)
-	switch {
-	case leftIsNumber || rightIsNumber:
-		if left.IsNumber() && right.IsNumber() && left.IsInt() && right.IsInt() {
-			return left.Number() == right.Number()
-		}
-		return leftIsNumber && rightIsNumber && leftNumber == rightNumber
-	case left.Kind() != right.Kind():
-		return false
-	case left.IsString():
-		return left.StringValue() == right.StringValue()
-	case left.IsArray():
-		return arraysEqual(left.Items(), right.Items())
-	case left.IsObject():
-		return objectsEqual(left, right)
-	}
-	return true
-}
-
-// numberOf returns a number or a boolean as a float.
-func numberOf(value jsonvalue.Value) (float64, bool) {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return 1, true
-		}
-		return 0, true
-	}
-	if !value.IsNumber() {
-		return math.NaN(), false
-	}
-	number, _ := value.Float()
-	return number, true
-}
-
-// arraysEqual compares two arrays item by item.
-func arraysEqual(left, right []jsonvalue.Value) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for i := range left {
-		if !pyEqual(left[i], right[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// objectsEqual compares two objects by their keys and values.
-func objectsEqual(left, right jsonvalue.Value) bool {
-	if left.Len() != right.Len() {
-		return false
-	}
-	for _, member := range left.Members() {
-		other, ok := right.Lookup(member.Key)
-		if !ok || !pyEqual(member.Value, other) {
-			return false
-		}
-	}
-	return true
 }
