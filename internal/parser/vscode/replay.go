@@ -18,8 +18,9 @@ type requestLines map[int64]int
 // replay replays a .jsonl mutation log and returns the session state. A
 // line that does not decode, or whose mutation does not apply, is a problem
 // with the line's text and is skipped; a line holding anything but an
-// object is skipped silently.
-func replay(path string, lines requestLines, problems *parser.Problems) jsonvalue.Value {
+// object is skipped silently. The entries the replay moves are counted in
+// work.
+func replay(path string, lines requestLines, problems *parser.Problems, work parser.Work) jsonvalue.Value {
 	var state *node
 	for number, raw := range parser.Lines(path, problems) {
 		stripped := bytes.TrimSpace(raw)
@@ -35,13 +36,13 @@ func replay(path string, lines requestLines, problems *parser.Problems) jsonvalu
 			continue
 		}
 		before := requestCount(state)
-		next, err := applyMutation(state, record)
+		next, err := applyMutation(state, record, work)
 		if err != nil {
 			problems.AddRaw(number, "mutation not applied ("+err.Error()+")", parser.LineText(raw))
 			continue
 		}
 		state = next
-		track(record, before, requestCount(state), number, lines)
+		track(record, before, requestCount(state), number, lines, work)
 	}
 	return state.value()
 }
@@ -63,8 +64,10 @@ func requestCount(state *node) int64 {
 // request of a replaced state or of a list set whole, the requests a push
 // added at the end of the list (whatever the truncation before it), a
 // request set by its index, and a deleted request's followers moved down
-// one place.
-func track(record jsonvalue.Value, before, after int64, number int, lines requestLines) {
+// one place. Before the record, lines holds a line for each of the before
+// requests and no other, so only those from the first changed one on are
+// looked at; the entries set or moved are counted in work.
+func track(record jsonvalue.Value, before, after int64, number int, lines requestLines, work parser.Work) {
 	kind := record.Get("kind")
 	path := record.Get("k").Items()
 	switch {
@@ -74,19 +77,19 @@ func track(record jsonvalue.Value, before, after int64, number int, lines reques
 		for i := range after {
 			lines[i] = number
 		}
+		work.Add("entries moved", int(after))
 	case len(path) == 1 && isRequests(path[0]):
 		start := int64(0)
 		if isKind(kind, 2) {
 			start = after - pushedCount(record.Get("v"))
 		}
-		for i := range lines {
-			if i >= start {
-				delete(lines, i)
-			}
+		for i := start; i < before; i++ {
+			delete(lines, i)
 		}
 		for i := start; i < after; i++ {
 			lines[i] = number
 		}
+		work.Add("entries moved", int(max(before, after)-start))
 	case len(path) == 2 && isRequests(path[0]) && isKind(kind, 1) && path[1].IsInt():
 		index, _ := integer(path[1])
 		lines[index] = number
@@ -100,6 +103,7 @@ func track(record jsonvalue.Value, before, after int64, number int, lines reques
 				}
 			}
 			delete(lines, after)
+			work.Add("entries moved", int(after)-removed)
 		}
 	}
 }

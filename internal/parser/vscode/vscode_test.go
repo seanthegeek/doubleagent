@@ -1,8 +1,11 @@
 package vscode
 
 import (
+	"fmt"
 	"maps"
+	"math/rand/v2"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -130,7 +133,7 @@ func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 			state := newNode(decoded(t, startState))
 			var err error
 			for _, record := range decoded(t, test.records).Items() {
-				if state, err = applyMutation(state, record); err != nil {
+				if state, err = applyMutation(state, record, parser.Work{}); err != nil {
 					break
 				}
 			}
@@ -223,7 +226,7 @@ func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
 			}
 			lines := requestLines{}
 			var problems parser.Problems
-			state := replay(path, lines, &problems)
+			state := replay(path, lines, &problems, parser.Work{})
 			if !maps.Equal(lines, test.want) {
 				t.Errorf("lines = %v, want %v (requests %s)", lines, test.want, state.Get("requests").JSON())
 			}
@@ -267,13 +270,13 @@ func FuzzApplyMutation(fuzz *testing.F) {
 		lines := requestLines{}
 		for i, record := range records.Items() {
 			before := requestCount(state)
-			next, err := applyMutation(state, record)
+			next, err := applyMutation(state, record, parser.Work{})
 			if err != nil {
 				continue
 			}
 			state = next
 			after := requestCount(state)
-			track(record, before, after, i, lines)
+			track(record, before, after, i, lines, parser.Work{})
 			// Every request has a line and no line outlives its request.
 			if len(lines) != int(after)+1 {
 				t.Fatalf("record %d: %d request lines for %d requests: %v", i, len(lines)-1, after, lines)
@@ -303,6 +306,72 @@ func TestURIToPathReadsFileURIsAndKeepsOtherText(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := uriToPath(test.uri); got != test.want {
 				t.Errorf("uriToPath(%q) = %q, want %q", test.uri, got, test.want)
+			}
+		})
+	}
+}
+
+// growthLog returns a mutation log that pushes n requests one at a time,
+// then sets n keys of one object and deletes them in the order set.
+func growthLog(n int) string {
+	var log strings.Builder
+	log.WriteString(`{"kind":0,"v":{"requests":[],"settings":{}}}` + "\n")
+	for range n {
+		log.WriteString(`{"kind":2,"k":["requests"],"v":[{}]}` + "\n")
+	}
+	for i := range n {
+		fmt.Fprintf(&log, `{"kind":1,"k":["settings","key%d"],"v":%d}`+"\n", i, i)
+	}
+	for i := range n {
+		fmt.Fprintf(&log, `{"kind":3,"k":["settings","key%d"]}`+"\n", i)
+	}
+	return log.String()
+}
+
+func TestReplayWorkGrowsWithTheLogNotItsSquare(t *testing.T) {
+	for _, n := range []int{100, 1000} {
+		t.Run(fmt.Sprintf("%d pushes and %d deleted keys", n, n), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "session.jsonl")
+			if err := osfile.WriteFile(path, []byte(growthLog(n)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			work := parser.CountingWork()
+			lines := requestLines{}
+			var problems parser.Problems
+			state := replay(path, lines, &problems, work)
+			if state.Get("requests").Len() != n || state.Get("settings").Len() != 0 || len(problems) != 0 {
+				t.Fatalf("replay gave %s with problems %v", state.JSON(), problems)
+			}
+			// Each push sets its one request's line and each delete
+			// drops its one key.
+			if got := work.Count("entries moved"); got != 2*n {
+				t.Errorf("moved %d entries, want %d", got, 2*n)
+			}
+		})
+	}
+}
+
+func TestObjectKeysKeepTheOrderAListOfKeysWouldKeep(t *testing.T) {
+	for seed := range uint64(200) {
+		t.Run(fmt.Sprintf("seed %d", seed), func(t *testing.T) {
+			source := rand.New(rand.NewPCG(seed, 527))
+			state := newNode(decoded(t, `{"o":{"b":0,"a":0}}`))
+			want := []string{"b", "a"}
+			for step := range 40 {
+				key := string("abcd"[source.IntN(4)])
+				record := fmt.Sprintf(`{"kind":1,"k":["o",%q],"v":%d}`, key, step)
+				if source.IntN(2) == 0 {
+					record = fmt.Sprintf(`{"kind":3,"k":["o",%q]}`, key)
+					want = slices.DeleteFunc(want, func(each string) bool { return each == key })
+				} else if !slices.Contains(want, key) {
+					want = append(want, key)
+				}
+				if _, err := applyMutation(state, decoded(t, record), parser.Work{}); err != nil {
+					t.Fatal(err)
+				}
+				if got := state.value().Get("o").Keys(); !slices.Equal(got, want) {
+					t.Fatalf("after %s: keys %q, want %q", record, got, want)
+				}
 			}
 		})
 	}

@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // node is a JSON value of a session being rebuilt from its mutation log:
@@ -15,8 +16,12 @@ type node struct {
 	isArray  bool
 	isObject bool
 	items    []*node
-	keys     []string
-	members  map[string]*node
+	// keys holds an object's keys in the order they were added, a deleted
+	// key left in place; slots gives each present key its position in
+	// keys, so a delete need not search the list.
+	keys    []string
+	slots   map[string]int
+	members map[string]*node
 }
 
 // newNode returns a decoded value as a node, its arrays and objects copied.
@@ -29,10 +34,9 @@ func newNode(value jsonvalue.Value) *node {
 		}
 		return created
 	case value.IsObject():
-		created := &node{isObject: true, members: map[string]*node{}}
+		created := &node{isObject: true, slots: map[string]int{}, members: map[string]*node{}}
 		for _, member := range value.Members() {
-			created.keys = append(created.keys, member.Key)
-			created.members[member.Key] = newNode(member.Value)
+			created.add(member.Key, newNode(member.Value))
 		}
 		return created
 	}
@@ -51,13 +55,24 @@ func (n *node) value() jsonvalue.Value {
 		}
 		return jsonvalue.NewArray(items...)
 	case n.isObject:
-		members := make([]jsonvalue.Member, len(n.keys))
+		members := make([]jsonvalue.Member, 0, len(n.members))
 		for i, key := range n.keys {
-			members[i] = jsonvalue.Member{Key: key, Value: n.members[key].value()}
+			if slot, ok := n.slots[key]; ok && slot == i {
+				members = append(members, jsonvalue.Member{Key: key, Value: n.members[key].value()})
+			}
 		}
 		return jsonvalue.NewObject(members...)
 	}
 	return n.scalar
+}
+
+// add gives an object's key the value, a key it does not hold going last.
+func (n *node) add(key string, value *node) {
+	if _, ok := n.members[key]; !ok {
+		n.slots[key] = len(n.keys)
+		n.keys = append(n.keys, key)
+	}
+	n.members[key] = value
 }
 
 // isNull reports whether the node is absent or JSON null.
@@ -157,28 +172,28 @@ func set(parent *node, key jsonvalue.Value, value *node) error {
 		}
 		return nil
 	case parent != nil && parent.isObject && key.IsString():
-		if _, ok := parent.members[key.StringValue()]; !ok {
-			parent.keys = append(parent.keys, key.StringValue())
-		}
-		parent.members[key.StringValue()] = value
+		parent.add(key.StringValue(), value)
 		return nil
 	}
 	return mutationError("cannot set " + key.JSON())
 }
 
 // remove deletes parent[key] when it is there; a key that names nothing,
-// or a parent that cannot lose one, changes nothing.
-func remove(parent *node, key jsonvalue.Value) {
+// or a parent that cannot lose one, changes nothing. It counts in work the
+// keys and items it moves or looks at.
+func remove(parent *node, key jsonvalue.Value, work parser.Work) {
 	switch {
 	case parent == nil:
 	case parent.isObject && key.IsString():
 		if _, ok := parent.members[key.StringValue()]; ok {
 			delete(parent.members, key.StringValue())
-			parent.keys = slices.DeleteFunc(parent.keys, func(each string) bool { return each == key.StringValue() })
+			delete(parent.slots, key.StringValue())
+			work.Add("entries moved", 1)
 		}
 	case parent.isArray:
 		if i, ok := listIndex(key, len(parent.items)); ok {
 			parent.items = slices.Delete(parent.items, i, i+1)
+			work.Add("entries moved", len(parent.items)-i)
 		}
 	}
 }
@@ -186,8 +201,9 @@ func remove(parent *node, key jsonvalue.Value) {
 // applyMutation applies one mutation-log record to state and returns the
 // new state. Kind 0 replaces the state with v; kind 1 sets v at path k; kind
 // 2 truncates the array at k to i items, when i is given, and pushes v
-// (each item of an array); kind 3 deletes the value at k.
-func applyMutation(state *node, record jsonvalue.Value) (*node, error) {
+// (each item of an array); kind 3 deletes the value at k, its work counted
+// in work.
+func applyMutation(state *node, record jsonvalue.Value, work parser.Work) (*node, error) {
 	kind := record.Get("kind")
 	if isKind(kind, 0) {
 		return newNode(record.Get("v")), nil
@@ -200,7 +216,7 @@ func applyMutation(state *node, record jsonvalue.Value) (*node, error) {
 	target := state
 	if len(path) > 0 {
 		var err error
-		if target, err = keyedMutation(state, kind, path, record.Get("v")); target == nil || err != nil {
+		if target, err = keyedMutation(state, kind, path, record.Get("v"), work); target == nil || err != nil {
 			return state, err
 		}
 	}
@@ -223,7 +239,8 @@ func applyMutation(state *node, record jsonvalue.Value) (*node, error) {
 // keyedMutation applies a record of kind 1, 2 or 3 at a non-empty path: a
 // set of value or a delete is done and gives nil, and a push gives the array to push
 // to, made empty at the path when the path holds nothing.
-func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value) (*node, error) {
+func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value,
+	work parser.Work) (*node, error) {
 	parent, err := walk(state, path[:len(path)-1])
 	if err != nil {
 		return nil, err
@@ -233,7 +250,7 @@ func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, va
 	case isKind(kind, 1):
 		return nil, set(parent, key, newNode(value))
 	case isKind(kind, 3):
-		remove(parent, key)
+		remove(parent, key, work)
 		return nil, nil
 	case !isKind(kind, 2):
 		return nil, mutationError("unknown kind " + kind.JSON())
