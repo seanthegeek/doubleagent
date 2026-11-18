@@ -78,10 +78,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		emit(rows.row(timeline.TurnSystem, sessionStartText(state, workspaceFile), state.Get("creationDate"),
 			lines[sessionStart], ""))
 	}
-	for i, request := range parser.ArrayMember(state.Get("requests"), "requests", lines[sessionStart], &problems) {
-		if request.IsObject() {
-			rows.request(request, lines[int64(i)], options)
-		}
+	for i, request := range parser.EntriesOfKind(state.Get("requests"), "requests", jsonvalue.Object,
+		lines[sessionStart], &problems) {
+		rows.request(request, lines[int64(i)], options)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }

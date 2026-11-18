@@ -115,12 +115,11 @@ func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser
 	if !snapshot.IsObject() && !snapshot.IsNull() {
 		problems.Add(0, parser.WrongKind("recentSnapshot", jsonvalue.Object))
 	}
-	for _, entry := range parser.ArrayMember(snapshot.Get("entries"), "recentSnapshot.entries", 0, &problems) {
-		if entry.IsObject() {
-			row := p.systemRow(artifact, sessionID, timestamp, editStateText(entry))
-			row.ProjectPath, row.SourceLine = project, 1
-			emit(row)
-		}
+	for _, entry := range parser.EntriesOfKind(snapshot.Get("entries"), "recentSnapshot.entries", jsonvalue.Object, 0,
+		&problems) {
+		row := p.systemRow(artifact, sessionID, timestamp, editStateText(entry))
+		row.ProjectPath, row.SourceLine = project, 1
+		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }
