@@ -123,3 +123,30 @@ func TestAnEventPastTheDatabasesBudgetIsAProblemRow(t *testing.T) {
 		})
 	}
 }
+
+func TestAnExecApprovalsConfigThatIsNotJSONGivesOnlyThePosition(t *testing.T) {
+	const stateRel = ".openclaw/state/openclaw.sqlite"
+	data, err := osfile.ReadFile(filepath.Join("testdata", "bad_exec_config.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	path := filepath.Join(home, filepath.FromSlash(stateRel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + stateRel, Rel: stateRel, Agent: "openclaw",
+		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
+	var got []string
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) }); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"parser: exec_approvals_config raw_json unparseable (invalid JSON at line 1, column 22; " +
+		"text withheld, it holds the approvals socket token)"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
