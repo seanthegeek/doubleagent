@@ -272,7 +272,8 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		return skipExcluded
 	}
 	want, got = NormaliseRows(t, node, numbers, want, got)
-	r.note(node, append(numbers, compareRowInformation(t, node, want, got)...))
+	got, added := addedRows(artifact.Original, want, got)
+	r.note(node, slices.Concat(numbers, added, compareRowInformation(t, node, want, got)))
 	return ""
 }
 
