@@ -5,16 +5,19 @@
 // is unset), recreate a case's tree under the test's temporary directory with
 // its modes, times and links, and run each recorded parser call and command.
 //
-// The comparison is of information, not bytes: JSON outputs are compared as
-// decoded values (object keys in any order, numbers by value), the CSV as the
-// records encoding/csv reads, stdout tables by column, and a row's text
-// through one canonical form. Each formatting rule the binary follows in
-// place of the analyzer's (true for True, an empty value for None, a number
-// as the evidence wrote it, embedded JSON compact in the evidence's order) is
-// a numbered difference with its own narrow rule and test, and the replay
-// logs how many cases needed each. A difference named for a case that finds
-// nothing to rewrite fails the case, and mutation tests show that a changed
-// word, number, key, row order or dropped row still fails.
+// The comparison is of information, not bytes: JSON outputs and embedded
+// JSON in one canonical form (members sorted by key, a key written twice
+// kept twice, numbers as written), the CSV as the records encoding/csv reads
+// with its blank lines, stdout as written, and a row's text through one
+// canonical form. Each rule the binary follows in place of the analyzer's is
+// a numbered difference with its own narrow rule and test. No case names
+// one: a difference of text, rows or arguments applies wherever its shape
+// shows in the recorded text, an excluding one leaves out a case whose
+// recorded text shows its shape, and a difference of format applies to the
+// texts its scope names. The log counts the cases that used each, and a run
+// of every case fails when a difference that is not retired was used by
+// none. Mutation tests show that a changed word, number, key, row order,
+// line order or dropped row still fails.
 //
 // The recorder ran under a temporary root padded to a fixed length and wrote
 // a placeholder of that length wherever the root appeared, file contents
