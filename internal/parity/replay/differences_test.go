@@ -10,11 +10,15 @@ import (
 )
 
 func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
+	// Numbers rise through the table; a gap is a range given to work not
+	// merged yet.
 	seen := map[int]bool{}
+	previous := 100
 	for i, entry := range Differences() {
-		if entry.Number != 101+i || seen[entry.Number] {
-			t.Errorf("entry %d is numbered %d", i, entry.Number)
+		if entry.Number <= previous || seen[entry.Number] {
+			t.Errorf("entry %d is numbered %d, after %d", i, entry.Number, previous)
 		}
+		previous = entry.Number
 		seen[entry.Number] = true
 		kinds := 0
 		for _, set := range []bool{entry.Text != nil, entry.Rows != nil, entry.Excludes != nil,
@@ -149,6 +153,14 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 			"error: {quoted 2026-13} is out of range\n", 1},
 		{"120 leaves a value holding a quote alone", 120, "error: cannot read \"it's\" as a time\n",
 			"error: cannot read \"it's\" as a time\n", 0},
+		{"140 gives the accepted forms' epoch units one form", 140,
+			"error: cannot read {quoted soon} as a time; accepted: ISO 8601 such as 2026-10-01; 2026-10 or 2026; epoch seconds; today\n",
+			"error: cannot read {quoted soon} as a time; accepted: ISO 8601 such as 2026-10-01; 2026-10 or 2026; {epoch units}; today\n", 1},
+		{"140 gives the binary's epoch units the same form", 140,
+			"error: x; accepted: ISO 8601; 2026-10 or 2026; epoch seconds or milliseconds; today\n",
+			"error: x; accepted: ISO 8601; 2026-10 or 2026; {epoch units}; today\n", 1},
+		{"140 leaves epoch seconds elsewhere alone", 140, "parser: epoch seconds; today",
+			"parser: epoch seconds; today", 0},
 		{"120 leaves a quote inside a row's text alone", 120, "parser: cannot read 'x' here",
 			"parser: cannot read 'x' here", 0},
 	}

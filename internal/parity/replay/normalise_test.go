@@ -57,7 +57,27 @@ func laterDifferences() []Difference {
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
 			Text: quotedValueText},
 		{Number: 121, Summary: "options come before the input", Arguments: optionsFirst},
+		{Number: 140, Summary: "the accepted forms of a time name epoch seconds or milliseconds, " +
+			"both of which are read", Text: epochUnitsText},
 	}
+}
+
+// epochUnits is the epoch entry of the accepted forms an error: message
+// lists after a time it cannot read: "epoch seconds" as recorded, "epoch
+// seconds or milliseconds" as the binary names what it reads.
+var epochUnits = regexp.MustCompile(`(?m)(^error: .*; accepted: .*; 2026-10 or 2026; )` +
+	`epoch seconds(?: or milliseconds)?(; )`)
+
+// epochUnitsText writes the epoch entry of epochUnits as one token and
+// returns the count.
+func epochUnitsText(text string) (string, int) {
+	found := 0
+	text = epochUnits.ReplaceAllStringFunc(text, func(match string) string {
+		found++
+		parts := epochUnits.FindStringSubmatch(match)
+		return parts[1] + "{epoch units}" + parts[2]
+	})
+	return text, found
 }
 
 // quotedValue is a value an error: message quotes at the start of its
