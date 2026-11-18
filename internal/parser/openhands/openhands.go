@@ -223,7 +223,9 @@ func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string 
 }
 
 // parseState emits the standing permission rows of a base_state.json and the
-// model row of a switch made over REST.
+// model row of a switch made over REST. A conversation with no event has no
+// header rows, so this file reports the problems of its meta.json and
+// base_state.json in their place.
 func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 	conv := p.conversation(parser.Beside(artifact))
 	timestamp := parser.FileMtime(artifact)
@@ -237,6 +239,9 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 		row.Text = each.text
 		row.ToolName, row.ToolUseID = each.toolName, each.toolUseID
 		emit(row)
+	}
+	if conv.firstEvent == "" {
+		parser.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
 	}
 }
 
