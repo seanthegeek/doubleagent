@@ -11,8 +11,8 @@ import (
 )
 
 // Parse reads a TOML 1.0 document. The error says where the document breaks
-// the TOML rules, with a line and column, or that it nests deeper than this
-// package reads.
+// the TOML rules, with a line and column, or that it is larger or nests
+// deeper than this package reads.
 func Parse(text string) (*Table, error) {
 	if err := checkShape(text); err != nil {
 		return nil, err

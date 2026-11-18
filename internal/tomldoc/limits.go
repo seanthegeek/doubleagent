@@ -5,18 +5,30 @@ import (
 	"strings"
 )
 
+// maxDocumentBytes is the largest document Parse reads, one mebibyte. The
+// files this package reads (Codex config.toml and automation.toml, Gemini
+// CLI policies/*.toml, Tabby config.toml) are a few kilobytes. The vendored
+// reader allocates several hundred bytes per input byte: a 16 MiB document
+// of nested inline tables was measured at 42 seconds and 2.85 GB resident.
+// One mebibyte bounds one file's cost to about a second while leaving a
+// wide margin for a real file.
+const maxDocumentBytes = 1 << 20
+
 // maxDepth is the deepest path Parse reads: the parts of the table header
 // and of each key on the way to a value, plus one for each array the value
 // lies in. The files this package reads nest a handful of levels. The
-// reader recurses once per array, without a bound of its own, and copies a
-// key's whole path for every key, so its cost grows with this depth for
-// every key of the document.
+// reader recurses once per array and once per inline table, without a
+// bound of its own, and copies a key's whole path for every key, so its
+// cost grows with this depth for every key of the document.
 const maxDepth = 32
 
-// checkShape refuses a document whose paths are deeper than maxDepth, before
-// the reader sees it. A document's size is not limited: with its depth
-// bounded, the reader's cost grows in step with the document.
+// checkShape refuses a document over maxDocumentBytes, or one whose paths
+// are deeper than maxDepth, before the scanner or the reader sees it.
 func checkShape(text string) error {
+	if len(text) > maxDocumentBytes {
+		return fmt.Errorf("TOML document of %d bytes is larger than the %d bytes this reader accepts",
+			len(text), maxDocumentBytes)
+	}
 	scanner := shapeScanner{text: text, line: 1}
 	return scanner.scan()
 }
