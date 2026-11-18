@@ -124,7 +124,8 @@ func textOnly(value jsonvalue.Value) string {
 	return ""
 }
 
-// parseProjects emits one row per project of projects.json.
+// parseProjects emits one row per project of projects.json; a document that
+// is not an object, or a projects that is not an array, adds a problem row.
 func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -137,11 +138,14 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.system(artifact, parser.ProblemPrefix+"projects.json did not parse: "+err.Error(), 0))
 		return
 	}
-	projects := document.Get("projects")
-	if !projects.IsArray() {
+	if !document.IsObject() {
+		emit(p.system(artifact, parser.ProblemPrefix+parser.WrongKind("projects.json", jsonvalue.Object), 0))
 		return
 	}
-	for position, project := range projects.Items() {
+	var found parser.Problems
+	projects := parser.ArrayMember(document.Get("projects"), "projects", 0, &found)
+	parser.EmitAll(emit, p.ErrorRows(artifact, found, "", ""))
+	for position, project := range projects {
 		if !project.IsObject() {
 			continue
 		}
