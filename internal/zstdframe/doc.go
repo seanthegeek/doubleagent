@@ -6,7 +6,9 @@
 // AGENTS.md). This package configures that decoder to run in the calling
 // goroutine, to refuse a frame whose window is above MaxWindowSize, and to
 // refuse output above the caller's limit, and it sorts the decoder's failures
-// into ErrTruncated, ErrCorrupt and ErrTooLarge.
+// into ErrTruncated, ErrCorrupt and ErrTooLarge. Bytes after the last
+// frame are read as the start of another: fewer than the four of a magic
+// number are truncation, four or more that are none are corruption.
 //
 // Dictionaries are not supported: a frame that names one is reported as
 // corrupt.

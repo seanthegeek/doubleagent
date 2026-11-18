@@ -20,9 +20,13 @@ const MaxWindowSize = 128 << 20
 
 var (
 	// ErrTruncated means the input ends inside a frame: the bytes read so far
-	// are a valid start, and more were expected.
+	// are a valid start, and more were expected. A frame starts with a
+	// four-byte magic number, which cannot be judged until it is whole, so
+	// input that ends one to three bytes after the last frame is truncated
+	// whatever those bytes hold.
 	ErrTruncated = errors.New("zstd data ends inside a frame")
-	// ErrCorrupt means the input is not valid zstd data.
+	// ErrCorrupt means the input is not valid zstd data, four or more bytes
+	// after the last frame that are not a frame's magic number included.
 	ErrCorrupt = errors.New("zstd data is corrupt")
 	// ErrTooLarge means the decoded output is larger than the caller allows, or a
 	// frame announces a window above MaxWindowSize.

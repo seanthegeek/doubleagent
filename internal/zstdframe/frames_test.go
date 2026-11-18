@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,6 +28,7 @@ type frameCase struct {
 	frame  []byte
 }
 
+// loadFrames reads every case of testdata/frames.txt with its frame.
 func loadFrames(t testing.TB) []frameCase {
 	t.Helper()
 	file, err := os.Open("testdata/frames.txt")
@@ -51,6 +53,7 @@ func loadFrames(t testing.TB) []frameCase {
 	return cases
 }
 
+// digestOf returns the SHA-256 of data in hexadecimal.
 func digestOf(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
@@ -111,6 +114,7 @@ func TestFramesCoverTheShapesTheAgentsWrite(t *testing.T) {
 	}
 }
 
+// loadNamed returns the frame of the case called name.
 func loadNamed(t testing.TB, name string) []byte {
 	t.Helper()
 	for _, test := range loadFrames(t) {
@@ -186,14 +190,39 @@ func TestCorruptDataIsNotReportedAsTruncated(t *testing.T) {
 	}
 }
 
+// flip returns a copy of data with the low bit of the byte at place flipped.
 func flip(data []byte, place int) []byte {
 	return flip2(data, place, 0x01)
 }
 
+// flip2 returns a copy of data with the bits of mask flipped at place.
 func flip2(data []byte, place int, mask byte) []byte {
 	out := append([]byte{}, data...)
 	out[place] ^= mask
 	return out
+}
+
+func TestBytesAfterTheLastFrameAreReadAsTheStartOfAnother(t *testing.T) {
+	good := loadNamed(t, "size1000-level3")
+	cases := []struct {
+		name string
+		tail []byte
+		want error
+	}{
+		{"one stray byte is truncation", []byte{0x01}, ErrTruncated},
+		{"three stray bytes are truncation", []byte{0x01, 0x02, 0x03}, ErrTruncated},
+		{"three bytes of a magic number are truncation", []byte{0x28, 0xb5, 0x2f}, ErrTruncated},
+		{"four stray bytes are corruption", []byte{0x01, 0x02, 0x03, 0x04}, ErrCorrupt},
+		{"a whole magic number with nothing after it is truncation", []byte{0x28, 0xb5, 0x2f, 0xfd}, ErrTruncated},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := DecodeAll(append(slices.Clone(good), test.tail...), 1<<30)
+			if !errors.Is(err, test.want) {
+				t.Errorf("DecodeAll() error = %v, want %v", err, test.want)
+			}
+		})
+	}
 }
 
 func TestOutputBeyondTheLimitIsRefused(t *testing.T) {
