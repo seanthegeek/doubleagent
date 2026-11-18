@@ -11,8 +11,8 @@ import (
 func reportedDifferences() []Difference {
 	return []Difference{
 		{Number: 170, Summary: "a file that cannot be read as its kind is reported, where the " +
-			"recording is silent: a parse by one of the parsers of wrongKindReports may add one system row " +
-			"of the file it parsed, in that parser's wording", Added: wrongKindReport},
+			"recording is silent, and so is a record member of the wrong kind: a parse by one of the " +
+			"parsers of wrongKindReports may add one system row of the file it parsed, in that parser's wording", Added: wrongKindReport},
 	}
 }
 
@@ -36,6 +36,12 @@ func wrongKindReports() []wrongKindEntry {
 		{"muse-code", func(string) []string {
 			return []string{"parser: not a Muse session log (the first record is neither an envelope nor a " +
 				"retained frame)"}
+		}},
+		// A cloud agent list and a plugin list that hold an object where the
+		// format gives a list, in two recorded cases.
+		{"cursor", func(string) []string {
+			return []string{"parser: cloudAgentRepository.agents.auth0%7Cuser_02 is not a JSON array",
+				"parser: cursor.plugins.installedIds.no-team|no-workspace is not a JSON array"}
 		}},
 	}
 }

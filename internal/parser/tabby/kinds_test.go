@@ -1,7 +1,6 @@
 package tabby
 
 import (
-	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -41,7 +40,8 @@ func problemRows(t *testing.T, rel, agent string, data []byte) []string {
 
 func TestACompletionChoicesThatIsNotAnArrayIsReported(t *testing.T) {
 	const rel = ".tabby/events/2026-01-01.json"
-	const document = `{"user": "1", "ts": 1, "event": {"completion": {"completion_id": "c", "prompt": "p"%s}}}` + "\n"
+	const before, after = `{"user": "1", "ts": 1, "event": {"completion": {"completion_id": "c", "prompt": "p"`,
+		"}}}\n"
 	const wrong = "parser: choices is not a JSON array"
 	tests := []struct {
 		name, member string
@@ -56,7 +56,7 @@ func TestACompletionChoicesThatIsNotAnArrayIsReported(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := problemRows(t, rel, "", []byte(fmt.Sprintf(document, test.member)))
+			got := problemRows(t, rel, "", []byte(before+test.member+after))
 			if !slices.Equal(got, test.want) {
 				t.Errorf("problems %q, want %q", got, test.want)
 			}
