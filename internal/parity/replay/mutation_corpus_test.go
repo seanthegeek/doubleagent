@@ -183,6 +183,9 @@ func outputMutations() []outputMutation {
 			return match[1] + "false"
 		})},
 		{"a CSV field changed", ".csv", firstMatch(`(\n[^\n]*?,)([0-9]+)`, plusOne)},
+		{"two CSV rows swapped", ".csv", lineSwapped(1, 2)},
+		{"the CSV header and a row swapped", ".csv", lineSwapped(0, 1)},
+		{"two stdout lines swapped", "stdout", lineSwapped(0, 1)},
 		{"two cells of a table exchanged", "stdout", firstMatch(`(?m)^(\S+)( {2,})(\S+)( {2,})(\S+)`, func(match []string) string {
 			return match[1] + match[2] + match[5] + match[4] + match[3]
 		})},
