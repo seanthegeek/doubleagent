@@ -86,3 +86,28 @@ func TestAHeaderWithAnEmptyComposerIDClaimsNoBlob(t *testing.T) {
 		t.Errorf("got %+v, want no rows: a header without an id is no conversation", rows)
 	}
 }
+
+func TestAnMCPSecretsValueIsNeverSelected(t *testing.T) {
+	artifact := stateArtifact(t, "mcp_secret.db")
+	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	table, err := database.Table("ItemTable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := keyNames(table, func(row sqlitefile.Row) bool {
+		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
+	})
+	if err != nil || len(names) != 1 || !names[0].value.IsNull() {
+		t.Fatalf("got %+v, %v; want one key whose value is not read", names, err)
+	}
+	rows, _ := readState(t, "mcp_secret.db")
+	want := "mcp server: srv url=https://mcp.example.invalid/ (from state.vscdb mcpOAuth.global, file mtime)" +
+		mcpTokens
+	if len(rows) != 1 || rows[0].Text != want {
+		t.Errorf("got %+v, want one row %q", rows, want)
+	}
+}

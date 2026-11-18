@@ -17,7 +17,7 @@ import (
 
 // The MCP OAuth and plugin keys. An MCP OAuth key's suffix is URL-safe
 // base64 of "[<scope>] <field>"; the mcpOAuth.secret. values are
-// ciphertext and are never read, only their key names.
+// ciphertext and are never selected, only their key names.
 const (
 	mcpGlobalPrefix = "mcpOAuth.global."
 	mcpSecretPrefix = "mcpOAuth.secret."
@@ -60,7 +60,7 @@ func (i *items) mcp(emit parser.Emit) {
 		return
 	}
 	tokens := map[string]bool{}
-	for _, row := range i.store.rows(keyedRows(i.table, func(row sqlitefile.Row) bool {
+	for _, row := range i.store.rows(keyNames(i.table, func(row sqlitefile.Row) bool {
 		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
 	})) {
 		if scope, field, ok := mcpKeyName(row.key, mcpSecretPrefix); ok && field == "mcp_tokens" {
