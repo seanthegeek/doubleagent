@@ -1,10 +1,12 @@
 // Package protowire decodes protocol buffer messages from hand-written
 // schemas. A parser names only the fields it reads, as a table of field
 // number, name and kind per message, and needs no generated code. Unknown
-// fields are skipped. A field that cannot be read in its declared kind is
-// left out of the result, and a nested message that is cut off is left out
-// whole, so one damaged field costs only itself; only a damaged top-level
-// buffer is an error.
+// fields are skipped. A field that cannot be read in its declared kind, a
+// fixed-width field cut short and a packed field holding a damaged varint
+// are left out of the result, and a malformed nested message is left out
+// whole, so one damaged field costs only itself; only a top-level
+// buffer that cannot be followed, or one of more packed values than the
+// limit, is an error.
 //
 // google.golang.org/protobuf decodes through code generated from .proto
 // files; the agents' schemas are unpublished and change, so a parser names
@@ -14,6 +16,7 @@ package protowire
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -62,6 +65,8 @@ type messageSpec struct {
 	byNumber map[uint64]fieldSpec
 }
 
+// isScalar reports whether kind is one of the scalar kinds rather than the
+// name of a nested message.
 func isScalar(kind string) bool {
 	switch kind {
 	case KindString, KindBytes, KindInt, KindBool, KindFloat, KindDouble, KindTimestamp:
@@ -124,5 +129,5 @@ func (s *Schema) Fields(message string) []Field {
 	if spec == nil {
 		return nil
 	}
-	return append([]Field(nil), spec.order...)
+	return slices.Clone(spec.order)
 }

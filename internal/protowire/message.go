@@ -1,6 +1,9 @@
 package protowire
 
-import "math/big"
+import (
+	"math/big"
+	"slices"
+)
 
 // Entry is one decoded field: its name and value. A value is one of string,
 // []byte, *big.Int, bool, float64, *Message, or []any for a repeated field
@@ -19,7 +22,7 @@ type Message struct {
 
 // Entries returns the decoded fields in order.
 func (m *Message) Entries() []Entry {
-	return append([]Entry(nil), m.entries...)
+	return slices.Clone(m.entries)
 }
 
 // Get returns the value of a field and whether the message has it.

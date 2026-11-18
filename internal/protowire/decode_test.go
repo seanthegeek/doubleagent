@@ -2,12 +2,14 @@ package protowire
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -249,8 +251,79 @@ func FuzzDecode(fuzzer *testing.F) {
 	}
 	schema := testSchema(fuzzer)
 	fuzzer.Fuzz(func(t *testing.T, data []byte) {
-		if _, err := schema.Decode(data, "Outer"); err != nil && !errors.Is(err, ErrMalformed) {
+		if _, err := schema.Decode(data, "Outer"); err != nil && !errors.Is(err, ErrMalformed) &&
+			!errors.Is(err, ErrTooLarge) {
 			t.Fatal(err)
+		}
+	})
+}
+
+func TestOneDamagedFieldCostsOnlyItself(t *testing.T) {
+	name := appendDelimited(1, []byte("ok"))
+	cases := []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"a packed field holding a cut-off varint", append(slices.Clone(name), appendDelimited(10, []byte{0x80})...),
+			"{name=" + render("ok") + "}"},
+		{"a packed field of booleans holding a cut-off varint",
+			append(slices.Clone(name), appendDelimited(11, []byte{0x01, 0x80})...), "{name=" + render("ok") + "}"},
+		{"a fixed-width text field cut short", append(slices.Clone(name), 0x09, 'a', 'b'),
+			"{name=" + render("ok") + "}"},
+		{"a fixed-width float cut short", append(slices.Clone(name), 0x2d, 0x01, 0x02),
+			"{name=" + render("ok") + "}"},
+		{"a nested message ending in a fixed-width field cut short",
+			appendDelimited(8, append(appendDelimited(1, []byte("in")), 0x11, 0x01)),
+			"{inner={label=" + render("in") + "}}"},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" is left out", func(t *testing.T) {
+			message, err := testSchema(t).Decode(test.data, "Outer")
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != test.want {
+				t.Errorf("Decode() = %s, want %s", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAZeroTimestampHoldsNoTime(t *testing.T) {
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"a varint of zero", []byte{0x38, 0x00}},
+		{"a Timestamp message of zero seconds", appendDelimited(7, []byte{0x08, 0x00})},
+		{"an empty Timestamp message", appendDelimited(7, nil)},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" gives no time", func(t *testing.T) {
+			message, err := testSchema(t).Decode(test.data, "Outer")
+			if text, ok := message.Text("when"); err != nil || !ok || text != "" {
+				t.Errorf("when = %q, %v (%v); want \"\"", text, ok, err)
+			}
+		})
+	}
+}
+
+func TestPackedValuesAreLimitedPerMessage(t *testing.T) {
+	half := bytes.Repeat([]byte{0x01}, maxPackedValues/2)
+	atLimit := append(appendDelimited(10, half), appendDelimited(8, appendDelimited(3,
+		appendDelimited(1, []byte("x"))))...)
+	atLimit = append(atLimit, appendDelimited(10, half)...)
+	t.Run("a message may hold the most packed values", func(t *testing.T) {
+		message, err := testSchema(t).Decode(atLimit, "Outer")
+		if err != nil || len(message.List("numbers")) != maxPackedValues {
+			t.Errorf("Decode() = %d numbers, %v; want %d", len(message.List("numbers")), err, maxPackedValues)
+		}
+	})
+	t.Run("one packed value more is refused", func(t *testing.T) {
+		_, err := testSchema(t).Decode(append(atLimit, appendDelimited(11, []byte{0x01})...), "Outer")
+		if !errors.Is(err, ErrTooLarge) {
+			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
 		}
 	})
 }

@@ -17,12 +17,14 @@ const (
 )
 
 // rawField is one field as it sits on the wire. A varint field has its
-// number in varint; every other wire type has its bytes in data.
+// number in varint; every other wire type has its bytes in data. cut marks
+// a fixed-width field that the end of its buffer cuts short.
 type rawField struct {
 	number uint64
 	wire   uint64
 	varint uint64
 	data   []byte
+	cut    bool
 }
 
 // readVarint returns the varint at offset and the offset after it. A varint
@@ -47,8 +49,8 @@ func readVarint(data []byte, offset int) (uint64, int, error) {
 }
 
 // readField reads the field at offset. A fixed-width field cut short by the
-// end of the buffer keeps the bytes that are there; the next read then finds
-// the buffer finished.
+// end of the buffer is marked cut, which leaves it out of the message and
+// is no error, since nothing follows it; a cut tag, varint or length is.
 func readField(data []byte, offset int) (rawField, int, error) {
 	tag, offset, err := readVarint(data, offset)
 	if err != nil {
@@ -60,10 +62,10 @@ func readField(data []byte, offset int) (rawField, int, error) {
 		field.varint, offset, err = readVarint(data, offset)
 		return field, offset, err
 	case wireFixed64:
-		field.data, offset = fixedBytes(data, offset, 8)
+		field.data, field.cut, offset = fixedBytes(data, offset, 8)
 		return field, offset, nil
 	case wireFixed32:
-		field.data, offset = fixedBytes(data, offset, 4)
+		field.data, field.cut, offset = fixedBytes(data, offset, 4)
 		return field, offset, nil
 	case wireLength:
 		return readLengthDelimited(field, data, offset)
@@ -71,10 +73,13 @@ func readField(data []byte, offset int) (rawField, int, error) {
 	return rawField{}, offset, fmt.Errorf("%w: unsupported wire type %d", ErrMalformed, field.wire)
 }
 
-// fixedBytes returns up to width bytes at offset and the offset after them.
-func fixedBytes(data []byte, offset, width int) ([]byte, int) {
-	end := min(offset+width, len(data))
-	return data[offset:end], offset + width
+// fixedBytes returns the width bytes at offset, whether the end of data
+// cuts them short, and the offset after them.
+func fixedBytes(data []byte, offset, width int) ([]byte, bool, int) {
+	if width > len(data)-offset {
+		return nil, true, len(data)
+	}
+	return data[offset : offset+width], false, offset + width
 }
 
 // readLengthDelimited reads the length and the bytes it counts.

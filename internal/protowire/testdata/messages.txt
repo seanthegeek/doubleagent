@@ -39,10 +39,10 @@ a timestamp near the date limit	3a0d08ff82d1ffaf0710ff93ebdc03	{when=s"393939392
 a timestamp with rounding up to the next second	3a0c0880e2cfaa0610ff93ebdc03	{when=s"323032332d31312d31345432323a31333a32302e3939395a"}
 a timestamp from a varint	3880e2cfaa06	{when=s"323032332d31312d31345432323a31333a32302e3030305a"}
 a timestamp varint in milliseconds	38fbd095ffbc31	{when=s"323032332d31312d31345432323a31333a32302e3132335a"}
-a timestamp varint of zero	3800	{when=s"313937302d30312d30315430303a30303a30302e3030305a"}
+a timestamp varint of zero	3800	{when=s""}
 a timestamp that is cut off	3a0108	{}
 a timestamp with other fields	3a081801080512027a7a	{when=s"313937302d30312d30315430303a30303a30352e3030305a"}
-a timestamp from a fixed field	3908090000	{when=s"313937302d30312d30315430303a30303a30392e3030305a"}
+a timestamp in a fixed field cut short is left out	3908090000	{}
 a nested message	42050a01611001	{inner={label=s"61";value=1}}
 a nested message seen twice replaces the first	42050a0161100142050a01621002	{inner={label=s"62";value=2}}
 a repeated nested message	4a050a016110014a050a01621002	{items=[{label=s"61";value=1},{label=s"62";value=2}]}
@@ -56,7 +56,7 @@ an empty packed repeated int	5200	{numbers=[]}
 an unpacked repeated int	50045005	{numbers=[4,5]}
 a packed and an unpacked repeated int	500452020506	{numbers=[4,5,6]}
 a packed repeated bool	5a03010007	{flags=[true,false,true]}
-a bad packed run fails the whole message	5201800a0178	ERR
+a bad packed run is left out	5201800a0178	{name=s"78"}
 a bad packed run in a nested message leaves it out	420212004a0212010a0179	{inner={};name=s"79"}
 bytes	620200ff	{raw=x"00ff"}
 bytes from a varint	6005	{raw=x""}
@@ -299,7 +299,7 @@ generated case 220 (append)	2d0000c03f3a0b0880e2cfaa06108194ef3a420b0a02696e10e8
 generated case 221 (cut)	319a9999999999b93f3a0a0880e2	ERR
 generated case 222 (none)	0a0361626312016118012000310000000000000000420b0a02696e10f7b98080b617	{name=s"616263";tags=[s"61"];count=1;flag=false;wide=f0000000000000000;inner={label=s"696e";value=804769504503}}
 generated case 223 (flip)	0a036162631880808080082d0000c03f3a060880e2cfaa064a060a02693010004a060a02693110014a060a0269321082509cab03	{name=s"616263";count=2147483648;ratio=f3ff8000000000000;when=s"323032332d31312d31345432323a31333a32302e3030305a";items=[{label=s"6930";value=0},{label=s"6931";value=1}];numbers=[54684]}
-generated case 224 (append)	0a001202626220012d0000c03f319a9999999999b93f3a060880e2cfaa06420b0a02696e10bae3e6cdc91a3d15d5	{name=s"";tags=[s"6262"];flag=true;ratio=f3ff8000000000000;wide=f3fb999999999999a;when=s"";inner={label=s"696e";value=913112150458}}
+generated case 224 (append)	0a001202626220012d0000c03f319a9999999999b93f3a060880e2cfaa06420b0a02696e10bae3e6cdc91a3d15d5	{name=s"";tags=[s"6262"];flag=true;ratio=f3ff8000000000000;wide=f3fb999999999999a;when=s"323032332d31312d31345432323a31333a32302e3030305a";inner={label=s"696e";value=913112150458}}
 generated case 225 (flip)	0a0668c3a96c6c6f42030a02696e10f4b68ecbb90e4a060a026930100050c3ff155097d711	ERR
 generated case 226 (none)	0a00188080808080808080800120012d9ec97f7f310000000000000000	{name=s"";count=9223372036854775808;flag=true;ratio=f47eff933c0000000;wide=f0000000000000000}
 generated case 227 (none)	180020003a0d08ff82d1ffaf071080cab5ee01	{count=0;flag=false;when=s"393939392d31322d33315432333a35393a35392e3530305a"}
@@ -351,7 +351,7 @@ generated case 272 (none)	0a0668c3a96c6c6f12026262187f319a9999999999b93f3a0b0880
 generated case 273 (none)	1202626212016112026262319a9999999999b93f3a060880e2cfaa06	{tags=[s"6262",s"61",s"6262"];wide=f3fb999999999999a;when=s"323032332d31312d31345432323a31333a32302e3030305a"}
 generated case 274 (flip)	0a0668c3a96c6c6f1801420b0a02696e1099d0e6f1871d	{name=s"68c3a96c6c6f";count=1;inner={label=s"696e";value=998550120473}}
 generated case 275 (append)	18013a0c0880cab5ee0110f9ded2dc036f4a	ERR
-generated case 276 (append)	0a0668c3a96c6c6f1201611801319c7500883ce4377e3a06088094ebdc0350b9af3850d6d90f590d844ace	{name=s"68c3a96c6c6f";tags=[s"61"];count=1;wide=f7e37e43c8800759c;when=s"323030312d30392d30395430313a34363a34302e3030305a";numbers=[923577,257238];flags=[true]}
+generated case 276 (append)	0a0668c3a96c6c6f1201611801319c7500883ce4377e3a06088094ebdc0350b9af3850d6d90f590d844ace	{name=s"68c3a96c6c6f";tags=[s"61"];count=1;wide=f7e37e43c8800759c;when=s"323030312d30392d30395430313a34363a34302e3030305a";numbers=[923577,257238]}
 generated case 277 (flip)	0a0668c7a96c6c6f18808080800820003a06088094ebdc0350d8bd2c	{name=s"68c7a96c6c6f";count=2147483648;flag=false;when=s"323030312d30392d30395430313a34363a34302e3030305a";numbers=[728792]}
 generated case 278 (cut)	0a0361626312026262187f20003159f3f8c21f6ea581420b0a02696e10e4f69ebcca1950cf980b	{name=s"616263";tags=[s"6262"];count=127;flag=false;wide=f81a56e1fc2f8f359;inner={label=s"696e";value=878984018788};numbers=[183375]}
 generated case 279 (none)	12016118ffffffffffffffffff012d000000003a060880e2cfaa0650e4bb0a50fbdb38	{tags=[s"61"];count=18446744073709551615;ratio=f0000000000000000;when=s"323032332d31312d31345432323a31333a32302e3030305a";numbers=[171492,929275]}
