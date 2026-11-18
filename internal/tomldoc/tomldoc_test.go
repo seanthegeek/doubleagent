@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
-	"time"
 )
 
-// render writes a parsed value in the form the oracle script prints.
+// render writes a parsed value as compact text: a table as {key=value;...}
+// and an array as [value,...], keys and strings in hex, a float as its bits,
+// and a temporal value as its kind and its text in hex.
 func render(value Value) string {
 	switch value.Kind() {
 	case KindTable:
@@ -48,50 +48,42 @@ func render(value Value) string {
 	return "s" + hex.EncodeToString([]byte(value.Text()))
 }
 
-// knownDifferences are the oracle cases where this reader and Python's
-// tomllib differ, with what each does.
-func knownDifferences() map[string]string {
-	return map[string]string{
-		"an integer beyond int64":             "Python reads any size of integer; this reader stops at 64 bits",
-		"a UTF-8 byte order mark":             "Python rejects a leading byte order mark; this reader skips it",
-		"an array with a nested inline array": "keys of a table nested in an array's array are sorted, not in document order",
-		"a datetime with a long fraction":     "Python keeps microseconds; this reader keeps every digit the text gives, up to nanoseconds",
-	}
+// document is one line of testdata/documents.txt: a label, a TOML document
+// and its parsed form as render writes it, or ERR for a document Parse
+// refuses.
+type document struct {
+	label, text, structure string
 }
 
-type oracleCase struct {
-	label, text, structure, settings string
-}
-
-func loadOracle(t testing.TB) []oracleCase {
+// loadDocuments reads testdata/documents.txt.
+func loadDocuments(t testing.TB) []document {
 	t.Helper()
-	file, err := os.Open("testdata/oracle.txt")
+	file, err := os.Open("testdata/documents.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer file.Close()
-	var cases []oracleCase
+	var documents []document
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 1<<20), 1<<20)
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), "\t")
-		text, err := hex.DecodeString(parts[1])
-		if err != nil || len(parts) != 4 {
-			t.Fatalf("bad oracle line %q", scanner.Text())
+		if len(parts) != 3 {
+			t.Fatalf("bad document line %q", scanner.Text())
 		}
-		cases = append(cases, oracleCase{parts[0], string(text), parts[2], parts[3]})
+		text, err := hex.DecodeString(parts[1])
+		if err != nil {
+			t.Fatalf("bad document line %q", scanner.Text())
+		}
+		documents = append(documents, document{parts[0], string(text), parts[2]})
 	}
-	return cases
+	return documents
 }
 
-func TestParseMatchesTheTomllibOracle(t *testing.T) {
-	known := knownDifferences()
-	for _, test := range loadOracle(t) {
+func TestParseReadsEachDocument(t *testing.T) {
+	for _, test := range loadDocuments(t) {
 		t.Run(test.label, func(t *testing.T) {
 			table, err := Parse(test.text)
-			if _, differs := known[test.label]; differs {
-				t.Skip(known[test.label])
-			}
 			if test.structure == "ERR" {
 				if err == nil {
 					t.Fatal("want a syntax error")
@@ -101,57 +93,16 @@ func TestParseMatchesTheTomllibOracle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
-			want := oracleTemporals(t, test.structure)
-			if got := render(Value{kind: KindTable, table: table}); got != want {
-				t.Fatalf("got  %s\nwant %s", got, want)
+			if got := render(Value{kind: KindTable, table: table}); got != test.structure {
+				t.Fatalf("got  %s\nwant %s", got, test.structure)
 			}
 		})
 	}
 }
 
-// oracleTemporal is a temporal value in the oracle's rendering: its kind
-// and its text in hex.
-var oracleTemporal = regexp.MustCompile(`(dt|ndt|date|time):([0-9a-f]*)`)
-
-// oracleTemporals returns the oracle's rendering with each date and time,
-// which the oracle wrote as a Python date or time object prints (a space
-// between date and clock, an offset as +HH:MM, six fraction digits), in the
-// RFC 3339 text temporal gives the same value.
-func oracleTemporals(t *testing.T, structure string) string {
-	return oracleTemporal.ReplaceAllStringFunc(structure, func(match string) string {
-		parts := oracleTemporal.FindStringSubmatch(match)
-		text, err := hex.DecodeString(parts[2])
-		if err != nil {
-			t.Fatal(err)
-		}
-		layouts := map[string]string{"dt": "2006-01-02 15:04:05.999999999-07:00",
-			"ndt": "2006-01-02 15:04:05.999999999", "date": time.DateOnly, "time": "15:04:05.999999999"}
-		zones := map[string]string{"ndt": "datetime-local", "date": "date-local", "time": "time-local"}
-		moment, err := time.Parse(layouts[parts[1]], string(text))
-		if err != nil {
-			t.Fatalf("oracle temporal %q: %v", text, err)
-		}
-		if zone, ok := zones[parts[1]]; ok {
-			moment = time.Date(moment.Year(), moment.Month(), moment.Day(), moment.Hour(),
-				moment.Minute(), moment.Second(), moment.Nanosecond(), time.FixedZone(zone, 0))
-		}
-		return parts[1] + ":" + hex.EncodeToString([]byte(temporal(moment).Text()))
-	})
-}
-
-func TestKnownDifferencesAreRealAndNamedInTheOracle(t *testing.T) {
-	cases := map[string]bool{}
-	for _, test := range loadOracle(t) {
-		cases[test.label] = true
-	}
-	for label := range knownDifferences() {
-		if !cases[label] {
-			t.Errorf("no oracle case %q", label)
-		}
-	}
-}
-
-func TestTheDifferencesAreWhatTheyAreSaidToBe(t *testing.T) {
+func TestParseLimits(t *testing.T) {
+	// TOML integers are 64-bit, a leading byte order mark is skipped, and
+	// an inline table nested in an array's array has its keys sorted.
 	if _, err := Parse("a = 9223372036854775808\n"); err == nil {
 		t.Error("an integer beyond int64 should be an error")
 	}
@@ -213,7 +164,7 @@ func TestAccessorsReadValues(t *testing.T) {
 }
 
 func FuzzParse(fuzzer *testing.F) {
-	for _, test := range loadOracle(fuzzer) {
+	for _, test := range loadDocuments(fuzzer) {
 		fuzzer.Add(test.text)
 	}
 	fuzzer.Fuzz(func(t *testing.T, text string) {
