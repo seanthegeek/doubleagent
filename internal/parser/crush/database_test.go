@@ -26,19 +26,26 @@ func parseDatabase(t *testing.T, name string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return parseFile(t, databaseRel, data)
+}
+
+// parseFile writes data into a new home at rel and returns the text of
+// every row the parser gives for it.
+func parseFile(t *testing.T, rel string, data []byte) []string {
+	t.Helper()
 	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(databaseRel))
+	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := osfile.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + databaseRel, Rel: databaseRel,
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
 		Agent: "crush", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string
-	err = New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
+	err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,6 +66,14 @@ func TestAFileVersionGivesItsContentsLengthInBytes(t *testing.T) {
 		"file version: /w/number.txt version=1 bytes=5 (from crush.db files)",
 		"file version: /w/null.txt version=1 bytes=0 (from crush.db files)",
 	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestACrushJSONThatIsNotJSONGivesOnlyThePosition(t *testing.T) {
+	got := parseFile(t, ".config/crush/crush.json", []byte(`{"providers": {"openai": {"api_key": sk-SECRET}}}`))
+	want := []string{"parser: .config/crush/crush.json is not a JSON object (invalid JSON at line 1, column 38)"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
