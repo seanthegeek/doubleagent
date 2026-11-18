@@ -2,7 +2,6 @@ package codex
 
 import (
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -13,28 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
-
-// allocatedBytes returns how many bytes work allocates on the heap, a count
-// that does not depend on the machine's speed.
-func allocatedBytes(work func()) uint64 {
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
-	work()
-	runtime.ReadMemStats(&after)
-	return after.TotalAlloc - before.TotalAlloc
-}
-
-// growsLinearly reports whether the bytes work allocates for twice the size
-// stay under three times those for the size: a reader that rebuilds its
-// text per element allocates four times as much.
-func growsLinearly(t *testing.T, size int, work func(size int)) {
-	t.Helper()
-	small := allocatedBytes(func() { work(size) })
-	large := allocatedBytes(func() { work(2 * size) })
-	if large > 3*small {
-		t.Errorf("%d bytes for size %d against %d for size %d: not linear", large, 2*size, small, size)
-	}
-}
 
 // textBlocks returns a user message payload of input_text blocks.
 func textBlocks(texts ...string) jsonvalue.Value {
@@ -70,14 +47,22 @@ func TestUserPartsJoinNeighbouringBlocksOfOneKind(t *testing.T) {
 	}
 }
 
-func TestAUserMessageOfManyBlocksCostsLinearWork(t *testing.T) {
-	growsLinearly(t, 4000, func(size int) {
-		texts := make([]string, size)
-		for i := range texts {
-			texts[i] = "abcdefgh"
-		}
-		userParts(textBlocks(texts...))
+func TestAUserMessageOfManyBlocksIsJoinedOnce(t *testing.T) {
+	const size = 4000
+	blocks := make([]userPart, size)
+	for i := range blocks {
+		blocks[i] = userPart{text: "abcdefgh"}
+	}
+	calls, written := 0, 0
+	got := joinParts(blocks, func(texts []string, separator string) string {
+		joined := strings.Join(texts, separator)
+		calls, written = calls+1, written+len(joined)
+		return joined
 	})
+	if len(got) != 1 || calls != 1 || written != size*9-1 {
+		t.Errorf("%d parts, %d joins writing %d bytes; want one join of %d bytes", len(got), calls, written,
+			size*9-1)
+	}
 }
 
 func TestAGuardianRolloutReadsTheLogDatabasesOnce(t *testing.T) {

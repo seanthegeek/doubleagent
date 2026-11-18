@@ -35,6 +35,13 @@ type shellCommand struct {
 // backslashes joined to it with a space, that last backslash dropped. A
 // line that is not valid UTF-8 adds a problem and is skipped.
 func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand {
+	return shellHistoryJoined(data, problems, strings.Join)
+}
+
+// shellHistoryJoined is shellHistoryEntries with each command's lines
+// joined by join, once per command.
+func shellHistoryJoined(data []byte, problems *parser.Problems,
+	join func(pieces []string, separator string) string) []shellCommand {
 	var out []shellCommand
 	var pieces []string
 	first := 0
@@ -54,12 +61,12 @@ func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand 
 			continue
 		}
 		if len(pieces) > 0 {
-			out = append(out, shellCommand{first, strings.Join(pieces, " ")})
+			out = append(out, shellCommand{first, join(pieces, " ")})
 		}
 		pieces, first = []string{text}, i+1
 	}
 	if len(pieces) > 0 {
-		out = append(out, shellCommand{first, strings.Join(pieces, " ")})
+		out = append(out, shellCommand{first, join(pieces, " ")})
 	}
 	return out
 }

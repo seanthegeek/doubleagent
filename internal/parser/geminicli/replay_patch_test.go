@@ -142,37 +142,23 @@ func TestARecordedMessageIsNotChangedByAPatch(t *testing.T) {
 	}
 }
 
-func TestPatchesOfAMessageWithManyCallsCostTheirOwnSize(t *testing.T) {
-	work := func(size int) (int, int) {
-		calls := make([]jsonvalue.Value, size)
-		for i := range calls {
-			calls[i] = jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("c" + strconv.Itoa(i))})
-		}
-		message := jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("m")},
-			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("gemini")},
-			jsonvalue.Member{Key: "toolCalls", Value: jsonvalue.NewArray(calls...)})
-		state := newReplay()
-		state.apply(1, message)
-		reference, referenceCompared := message, 0
-		for i := range size {
-			patch := jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("m")},
-				jsonvalue.Member{Key: "toolCalls", Value: jsonvalue.NewArray(jsonvalue.NewObject(
-					jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("c" + strconv.Itoa(size-1-i))},
-					jsonvalue.Member{Key: "result", Value: jsonvalue.NewString("r")}))})
-			state.patch(i+2, patch)
-			var compared int
-			reference, compared = referencePatch(reference, patch)
-			referenceCompared += compared
-		}
-		return state.compared, referenceCompared
+func TestEachPatchResultLooksAtOneCall(t *testing.T) {
+	const size = 1000
+	calls := make([]jsonvalue.Value, size)
+	for i := range calls {
+		calls[i] = jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("c" + strconv.Itoa(i))})
 	}
-	small, smallReference := work(500)
-	large, largeReference := work(1000)
-	if largeReference < 3*smallReference {
-		t.Fatalf("copying each time looked at %d then %d calls: the measure does not tell the two apart",
-			smallReference, largeReference)
+	state := newReplay()
+	state.apply(1, jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("m")},
+		jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("gemini")},
+		jsonvalue.Member{Key: "toolCalls", Value: jsonvalue.NewArray(calls...)}))
+	for i := range size {
+		state.patch(i+2, jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("m")},
+			jsonvalue.Member{Key: "toolCalls", Value: jsonvalue.NewArray(jsonvalue.NewObject(
+				jsonvalue.Member{Key: "id", Value: jsonvalue.NewString("c" + strconv.Itoa(size-1-i))},
+				jsonvalue.Member{Key: "result", Value: jsonvalue.NewString("r")}))}))
 	}
-	if large > 3*small {
-		t.Errorf("%d calls looked at for twice the patches against %d: not linear", large, small)
+	if state.compared != size {
+		t.Errorf("%d calls looked at for %d patch results, want one each", state.compared, size)
 	}
 }

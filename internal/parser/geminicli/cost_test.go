@@ -1,34 +1,22 @@
 package geminicli
 
 import (
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// allocatedBytes returns how many bytes work allocates on the heap, a count
-// that does not depend on the machine's speed.
-func allocatedBytes(work func()) uint64 {
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
-	work()
-	runtime.ReadMemStats(&after)
-	return after.TotalAlloc - before.TotalAlloc
-}
-
-// growsLinearly reports whether the bytes work allocates for twice the size
-// stay under three times those for the size: a reader that rebuilds its
-// text per line allocates four times as much.
-func growsLinearly(t *testing.T, size int, work func(size int)) {
-	t.Helper()
-	small := allocatedBytes(func() { work(size) })
-	large := allocatedBytes(func() { work(2 * size) })
-	if large > 3*small {
-		t.Errorf("%d bytes for size %d against %d for size %d: not linear", large, 2*size, small, size)
+// countingJoin returns strings.Join counting its calls and the bytes it
+// writes: work that grows with the square of the input when a text is
+// rebuilt per piece, and that equals the output when each is joined once.
+func countingJoin(calls, written *int) func(pieces []string, separator string) string {
+	return func(pieces []string, separator string) string {
+		joined := strings.Join(pieces, separator)
+		*calls++
+		*written += len(joined)
+		return joined
 	}
 }
 
@@ -57,21 +45,30 @@ func TestShellHistoryJoinsContinuedLines(t *testing.T) {
 	}
 }
 
-func TestAShellHistoryOfContinuedLinesCostsLinearWork(t *testing.T) {
-	growsLinearly(t, 4000, func(size int) {
-		var problems parser.Problems
-		shellHistoryEntries([]byte(strings.Repeat("abcdefgh\\\n", size)), &problems)
-	})
+func TestAShellHistoryOfContinuedLinesIsJoinedOnce(t *testing.T) {
+	const lines = 4000
+	calls, written := 0, 0
+	var problems parser.Problems
+	got := shellHistoryJoined([]byte(strings.Repeat("abcdefgh\\\n", lines)+"end"), &problems,
+		countingJoin(&calls, &written))
+	if len(got) != 1 || calls != 1 || written != len(got[0].command) || written != lines*9+3 {
+		t.Errorf("%d commands, %d joins writing %d bytes; want one join of %d bytes", len(got), calls,
+			written, lines*9+3)
+	}
 }
 
-func TestAMessageOfManyTextPartsCostsLinearWork(t *testing.T) {
-	growsLinearly(t, 4000, func(size int) {
-		items := make([]jsonvalue.Value, size)
-		for i := range items {
-			items[i] = jsonvalue.NewString("abcdefgh")
-		}
-		contentRuns(jsonvalue.NewArray(items...), true)
-	})
+func TestAMessageOfManyTextPartsIsJoinedOnce(t *testing.T) {
+	const parts = 4000
+	pieces := make([]run, parts)
+	for i := range pieces {
+		pieces[i] = run{"", "abcdefgh"}
+	}
+	calls, written := 0, 0
+	got := joinRuns(pieces, countingJoin(&calls, &written))
+	if len(got) != 1 || calls != 1 || written != parts*9-1 {
+		t.Errorf("%d runs, %d joins writing %d bytes; want one join of %d bytes", len(got), calls, written,
+			parts*9-1)
+	}
 }
 
 func TestJoinRunsMergesNeighboursOfOneKind(t *testing.T) {
@@ -91,7 +88,7 @@ func TestJoinRunsMergesNeighboursOfOneKind(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := joinRuns(test.pieces); !slices.Equal(got, test.want) {
+			if got := joinRuns(test.pieces, strings.Join); !slices.Equal(got, test.want) {
 				t.Errorf("got %+v, want %+v", got, test.want)
 			}
 		})

@@ -134,13 +134,13 @@ func userParts(payload jsonvalue.Value) []userPart {
 		}
 		blocks = append(blocks, userPart{kind: key, text: text})
 	}
-	return joinParts(blocks)
+	return joinParts(blocks, strings.Join)
 }
 
 // joinParts merges consecutive blocks of one kind into one part, joined by
-// LF. Each part's texts are joined once, so a message of many blocks costs
-// work in proportion to its length.
-func joinParts(blocks []userPart) []userPart {
+// LF with join. Each part's texts are joined once, so a message of many
+// blocks costs work in proportion to its length.
+func joinParts(blocks []userPart, join func(texts []string, separator string) string) []userPart {
 	var parts []userPart
 	for start := 0; start < len(blocks); {
 		end := start + 1
@@ -151,7 +151,7 @@ func joinParts(blocks []userPart) []userPart {
 		for _, block := range blocks[start:end] {
 			texts = append(texts, block.text)
 		}
-		parts = append(parts, userPart{kind: blocks[start].kind, text: strings.Join(texts, "\n")})
+		parts = append(parts, userPart{kind: blocks[start].kind, text: join(texts, "\n")})
 		start = end
 	}
 	return parts
