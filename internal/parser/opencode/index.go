@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
@@ -20,6 +21,24 @@ type treeIndex struct {
 	// projectPaths holds the project path each session's side files give,
 	// "" when they give none.
 	projectPaths map[projectKey]string
+	// projectFiles holds each project file a session file read, by its
+	// state, since every session of a project names it.
+	projectFiles map[fileState]*sideRead
+}
+
+// fileState names a file as read: its path, modification time in
+// nanoseconds and size, the key of what is read from it once.
+type fileState struct {
+	path        string
+	mtime, size int64
+}
+
+// sideRead is a side file read once: its decoded value, the error saying
+// why it is not an object, and the problems reading it added.
+type sideRead struct {
+	value    jsonvalue.Value
+	err      error
+	problems parser.Problems
 }
 
 // projectKey names a session looked up under one tree root and layout.
@@ -36,7 +55,8 @@ type sessionKey struct {
 // newTreeIndex returns an empty index.
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string][]string{},
-		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{}}
+		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
+		projectFiles: map[fileState]*sideRead{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,
@@ -85,4 +105,25 @@ func (x *treeIndex) session(directory, sessionID string, work parser.Work) jsonv
 	}
 	x.sessions[key] = session
 	return session
+}
+
+// projectFile returns the project file at path as readSide does, read once
+// per state of the file for the run; the problems of that read are added
+// for each lookup as a fresh read would.
+func (x *treeIndex) projectFile(path string, found bool, problems *parser.Problems,
+	work parser.Work) (jsonvalue.Value, error) {
+	info, err := osfile.Lstat(path)
+	if !found || err != nil {
+		return readSide(path, found, problems)
+	}
+	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	held, ok := x.projectFiles[key]
+	if !ok {
+		work.Add("project file reads", 1)
+		held = &sideRead{}
+		held.value, held.err = readSide(path, true, &held.problems)
+		x.projectFiles[key] = held
+	}
+	*problems = append(*problems, held.problems...)
+	return held.value, held.err
 }

@@ -185,7 +185,7 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 		if ok {
 			file, ok = childPath(root.disk, "project", name)
 		}
-		project, err := readSide(file, ok, &problems)
+		project, err := p.tree.projectFile(file, ok, &problems, p.Work)
 		if err != nil {
 			problems.Add(1, "project file "+name+" could not be read ("+err.Error()+")")
 		}
