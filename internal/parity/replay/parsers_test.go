@@ -34,34 +34,63 @@ const (
 )
 
 // parserReplay is the state of the parser replay across agents: the one
-// work tree, whether this platform enforces a mode that denies reading, and
-// the cases not replayed by reason.
+// work tree, whether this platform enforces a mode that denies reading, the
+// cases not replayed by reason, and the cases that needed each difference,
+// for the log (needed) and across the run (used).
 type parserReplay struct {
 	corpus       *Corpus
 	work         *WorkTree
 	deniesAccess bool
 	skipped      map[string]int
-	needed       neededTally
+	needed, used neededTally
 }
 
-func TestRegisteredParsersReplayEveryRecordedCase(t *testing.T) {
+func TestReplayEveryRecordedCase(t *testing.T) {
 	corpus := Open(t)
+	used := neededTally{}
+	complete := map[string]bool{}
+	replays := []struct {
+		name string
+		run  func(t *testing.T, corpus *Corpus, used neededTally) bool
+	}{
+		{"parsers", replayParsers},
+		{"commands", replayCommands},
+		{"timelines over recorded parser rows", replayTimelinesOverRecordedRows},
+	}
+	for _, each := range replays {
+		t.Run(each.name, func(t *testing.T) { complete[each.name] = each.run(t, corpus, used) })
+	}
+	whole := true
+	for _, each := range replays {
+		whole = whole && complete[each.name]
+	}
+	checkEveryDifferenceUsed(t, Differences(), used, whole)
+}
+
+// replayParsers runs every recorded parser case, noting in used the
+// differences each needed, and reports whether every agent's cases ran.
+func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	started := time.Now()
 	replay := &parserReplay{corpus: corpus, work: corpus.NewWorkTree(t),
-		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}}
+		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}, used: used}
 	registered := parsers.ByAgent(parsers.All())
 	var pending []string
-	replayed := 0
-	for _, agent := range caseFiles(t, corpus, "parsers") {
+	agents := caseFiles(t, corpus, "parsers")
+	replayed, ran := 0, 0
+	for _, agent := range agents {
 		if len(registered[agent]) == 0 {
 			pending = append(pending, fmt.Sprintf("%s (%d cases)", agent, countCases(t, corpus, agent)))
+			ran++
 			continue
 		}
 		if len(registered[agent]) > 1 {
 			t.Fatalf("%d parsers are registered for %s; a case names its parser by agent",
 				len(registered[agent]), agent)
 		}
-		t.Run(agent, func(t *testing.T) { replayed += replay.agent(t, agent) })
+		t.Run(agent, func(t *testing.T) {
+			ran++
+			replayed += replay.agent(t, agent)
+		})
 	}
 	t.Logf("%d parser cases replayed in %v", replayed, time.Since(started).Round(time.Millisecond))
 	for _, reason := range slices.Sorted(maps.Keys(replay.skipped)) {
@@ -70,6 +99,30 @@ func TestRegisteredParsersReplayEveryRecordedCase(t *testing.T) {
 	logNeeded(t, "information comparison", replay.needed, rowFormatNumbers())
 	t.Logf("agents with recorded cases and no parser yet (%d): %s", len(pending),
 		strings.Join(pending, ", "))
+	return ran == len(agents)
+}
+
+// checkEveryDifferenceUsed fails the test for each difference of table,
+// retired ones aside, that no case of the run used, so a rule that loosens
+// the comparison stays only while a recording needs it. It checks only a
+// whole run: a run filtered to some cases, or with a replay this platform
+// skips, cannot tell an unused difference from one its cases left out.
+func checkEveryDifferenceUsed(t testing.TB, table []Difference, used neededTally, whole bool) {
+	t.Helper()
+	if !whole {
+		t.Log("not checked whether every difference is used: the run did not replay every case")
+		return
+	}
+	for _, entry := range table {
+		if entry.Retired != "" {
+			continue
+		}
+		if len(used[entry.Number]) == 0 {
+			t.Errorf("difference %d (%s) is used by no recorded case: retire it", entry.Number, entry.Summary)
+			continue
+		}
+		t.Logf("difference %d used by %d cases", entry.Number, len(used[entry.Number]))
+	}
 }
 
 // countCases returns the number of case lines in an agent's case file,
@@ -215,13 +268,20 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 	if !result.Completed {
 		got = got[:min(len(got), len(want))]
 	}
-	numbers, excluded := rowDifferences(want)
-	if excluded {
+	numbers, excluding := rowDifferences(want)
+	if excluding != 0 {
+		r.note(node, []int{excluding})
 		return skipExcluded
 	}
 	want, got = NormaliseRows(t, node, numbers, want, got)
-	r.needed.note(node, compareRowInformation(t, node, want, got))
+	r.note(node, append(numbers, compareRowInformation(t, node, want, got)...))
 	return ""
+}
+
+// note records the differences a case needed, for the log and the run.
+func (r *parserReplay) note(node string, numbers []int) {
+	r.needed.note(node, numbers)
+	r.used.note(node, numbers)
 }
 
 // osErrorTypes returns the qualified names of Python's OSError and the
@@ -238,16 +298,16 @@ func osErrorTypes() map[string]bool {
 }
 
 // rowDifferences returns the numbers of the documented differences whose
-// shape shows in the recorded rows, and whether one of them excludes the
-// case from comparison.
-func rowDifferences(want []Row) ([]int, bool) {
+// shape shows in the recorded rows, and the number of one that excludes the
+// case from comparison, or 0.
+func rowDifferences(want []Row) ([]int, int) {
 	var numbers []int
 	text := RowsText(want)
 	for _, entry := range Differences() {
 		switch {
 		case entry.Excludes != nil:
 			if entry.Excludes(text) {
-				return nil, true
+				return nil, entry.Number
 			}
 		case entry.Rows != nil:
 			if _, found := entry.Rows(want); found > 0 {
@@ -259,7 +319,7 @@ func rowDifferences(want []Row) ([]int, bool) {
 			}
 		}
 	}
-	return numbers, false
+	return numbers, 0
 }
 
 // replayRow returns a Go row in the replay's row form.

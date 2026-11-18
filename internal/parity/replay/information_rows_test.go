@@ -78,7 +78,6 @@ func TestEachFormatOfTheBinaryPassesUnderItsOwnDifference(t *testing.T) {
 	session := rowHolding(t, rows, "interactive=True")
 	sandbox := rowHolding(t, rows, `sandbox={"type":"workspace-write"}`)
 	mutation := rowHolding(t, rows, `{"kind": 1, "k": ["nowhere", "x"], "v": 1}`)
-	cost := rowHolding(t, rows, "cost=0.0041")
 	tests := []struct {
 		name   string
 		want   []Row
@@ -87,28 +86,12 @@ func TestEachFormatOfTheBinaryPassesUnderItsOwnDifference(t *testing.T) {
 	}{
 		{"a formatted True is true", rows, textChanged(rows, session, replaced("=True", "=true")),
 			[]int{differenceBoolean}},
-		{"a formatted None is empty", textChanged(rows, cost, replaced("cost=0.0041", "cost=None")),
-			textChanged(rows, cost, replaced("cost=0.0041", "cost=")), []int{differenceNull}},
-		{"a float keeps its source text", textChanged(rows, cost, replaced("0.0041", "1.0")),
-			textChanged(rows, cost, replaced("0.0041", "1")), []int{differenceNumber}},
-		{"an exponent keeps its source text", textChanged(rows, cost, replaced("0.0041", "1e+16")),
-			textChanged(rows, cost, replaced("0.0041", "1E16")), []int{differenceNumber}},
 		{"embedded JSON is compact in the evidence's order", rows,
 			textChanged(rows, mutation, replaced(`{"kind": 1, "k": ["nowhere", "x"], "v": 1}`,
 				`{"v":1,"kind":1,"k":["nowhere","x"]}`)), []int{differenceEmbeddedJSON}},
-		{"a number in embedded JSON keeps its source text",
-			textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`, `{"n":1.5,"type":"workspace-write"}`)),
-			textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`, `{"n":1.50,"type":"workspace-write"}`)),
-			[]int{differenceNumber, differenceEmbeddedJSON}},
-		{"a Python list repr is JSON", textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`,
-			`['git', 'it\'s', None]`)), textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`,
-			`["git","it's",null]`)), []int{differenceListRepr}},
-		{"a separator is not trimmed", rows, textChanged(rows, cost, func(text string) string {
-			return text + " \x1c"
-		}), []int{differenceSeparators}},
-		{"a lone surrogate is U+FFFD", textChanged(rows, cost, replaced("cost", "co\xed\xa0\x80st")),
-			textChanged(rows, cost, replaced("cost", "co�st")), []int{differenceLoneSurrogate}},
-		{"a timestamp is not rounded up", rows, timeMoved(rows, cost, -1), []int{differenceRoundedTime}},
+		{"embedded JSON's spacing is not compared", rows,
+			textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`, `{ "type": "workspace-write" }`)),
+			[]int{differenceEmbeddedJSON}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -174,6 +157,27 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 		}()},
 		{"True turned into true in a user's own words", userTrue,
 			textChanged(userTrue, prose, replaced("True", "true"))},
+		{"a number in embedded JSON written another way", textChanged(rows, sandbox, replaced(`{"type"`, `{"n":1.5,"type"`)),
+			textChanged(rows, sandbox, replaced(`{"type"`, `{"n":1.50,"type"`))},
+		{"a float after = written as an integer", textChanged(rows, cost, replaced("0.0041", "1.0")),
+			textChanged(rows, cost, replaced("0.0041", "1"))},
+		{"None after = turned into nothing", textChanged(rows, cost, replaced("cost=0.0041", "cost=None")),
+			textChanged(rows, cost, replaced("cost=0.0041", "cost="))},
+		{"a key written twice once", textChanged(rows, sandbox, replaced(`{"type"`, `{"type":"x","type"`)), rows},
+		{"the first of two values of a key changed",
+			textChanged(rows, sandbox, replaced(`{"type"`, `{"type":"x","type"`)),
+			textChanged(rows, sandbox, replaced(`{"type"`, `{"type":"y","type"`))},
+		{"a list repr in a user's words turned into JSON", textChanged(rows, prose, replaced("fix tests", "{'a': 1}")),
+			textChanged(rows, prose, replaced("fix tests", `{"a":1}`))},
+		{"a separator at the end trimmed", textChanged(rows, cost, func(text string) string { return text + " \x1c" }),
+			rows},
+		{"a lone surrogate turned into U+FFFD", textChanged(rows, cost, replaced("cost", "co\xed\xa0\x80st")),
+			textChanged(rows, cost, replaced("cost", "co\uFFFDst"))},
+		{"a timestamp moved one millisecond earlier", rows, timeMoved(rows, cost, -1)},
+		{"a session id's leading zero dropped", fieldChanged(rows, cost, func(row *Row) { row.SessionID = "007" }),
+			fieldChanged(rows, cost, func(row *Row) { row.SessionID = "7" })},
+		{"None in a formatted field turned into nothing", fieldChanged(rows, cost, func(row *Row) { row.GitBranch = "None" }),
+			fieldChanged(rows, cost, func(row *Row) { row.GitBranch = "" })},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -182,4 +186,11 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 			}
 		})
 	}
+}
+
+// fieldChanged returns a copy of rows with row index changed by change.
+func fieldChanged(rows []Row, index int, change func(row *Row)) []Row {
+	rows = slices.Clone(rows)
+	change(&rows[index])
+	return rows
 }

@@ -9,9 +9,7 @@ import (
 	"testing"
 )
 
-func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
-	// Numbers rise from 101; a gap is a block of numbers given to work not
-	// merged yet.
+func TestTheTableNumbersEachAnalysisDifferenceOnceInOrderFrom101(t *testing.T) {
 	previous := 100
 	for i, entry := range Differences() {
 		if entry.Number <= previous {
@@ -25,7 +23,10 @@ func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
 				kinds++
 			}
 		}
-		if kinds != 1 {
+		switch {
+		case entry.Retired != "" && kinds != 0:
+			t.Errorf("retired difference %d still has a normaliser", entry.Number)
+		case entry.Retired == "" && kinds != 1:
 			t.Errorf("difference %d needs exactly one kind of normaliser", entry.Number)
 		}
 	}
@@ -39,14 +40,6 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		want   string
 		found  int
 	}{
-		{"101 replaces a usage message to the end", 101,
-			"usage: doubleagent [-h]\ndoubleagent: error: bad\n", "{usage}\n", 1},
-		{"101 replaces the binary's usage error and the message line before it", 101,
-			"doubleagent timeline: flag provided but not defined: -x\nUsage: doubleagent timeline [options]\n  -o DIR\n", "{usage}\n", 1},
-		{"101 keeps the lines before a blank line ahead of the binary's usage", 101,
-			"rows: 3\n\nUsage: doubleagent timeline\n", "rows: 3\n\n{usage}\n", 1},
-		{"101 leaves a text without usage alone", 101, "error: no such file\n",
-			"error: no such file\n", 0},
 		{"102 rewrites a JSON decoder detail in a parser row", 102,
 			"parser: unparseable line (Expecting ',' delimiter: line 1 column 5 (char 4)): {\"a\" 1",
 			"parser: unparseable line ({json error}): {\"a\" 1", 1},
@@ -207,12 +200,6 @@ func TestExcludingDifferencesSeeOnlyTheirShape(t *testing.T) {
 		{"103 sees a backreference in the joined form", 103, "--match=(a)\\1", true},
 		{"103 sees a pattern Go cannot compile", 103, "--match\n[z-a]", true},
 		{"103 passes a pattern both read alike", 103, "--match\nfoo|bar", false},
-		{"104 sees an ISO week date", 104, "--since\n2026-W40", true},
-		{"104 sees an ordinal date", 104, "--until\n2026-274", true},
-		{"104 sees a non-ASCII digit", 104, "--since\n٢٠٢٦-10-01", true},
-		{"104 passes a calendar date", 104, "--since\n2026-10-01", false},
-		{"106 sees SQLite without FTS5", 106, "parser: SQLite error: no such module: fts5", true},
-		{"106 passes another SQLite error", 106, "parser: SQLite error: disk I/O error", false},
 		{"150 sees an unreadable -shm file", 150,
 			"parser: state.vscdb-shm could not be read ({system error})", true},
 		{"150 passes an unreadable -wal file", 150,
@@ -252,22 +239,22 @@ func TestANamedDifferenceThatFindsNothingFailsTheCase(t *testing.T) {
 		fails bool
 	}{
 		{"a text difference with its shape passes", func(reporter *recordingTB) {
-			NormaliseTexts(reporter, "n", []int{101}, "usage: x\n", "usage: y\n")
+			NormaliseTexts(reporter, "n", []int{120}, "error: 'x' is bad\n", "error: \"x\" is bad\n")
 		}, false},
 		{"a text difference without its shape fails", func(reporter *recordingTB) {
-			NormaliseTexts(reporter, "n", []int{101}, "x\n", "x\n")
+			NormaliseTexts(reporter, "n", []int{120}, "x\n", "x\n")
 		}, true},
 		{"a row difference without its shape fails", func(reporter *recordingTB) {
 			NormaliseRows(reporter, "n", []int{102}, []Row{{Text: "hello"}}, nil)
 		}, true},
 		{"an excluding difference that shows passes", func(reporter *recordingTB) {
-			Excluded(reporter, "n", []int{104}, "--since\n2026-W01")
+			Excluded(reporter, "n", []int{103}, "--match\nfoo(?=bar)")
 		}, false},
 		{"an excluding difference that does not show fails", func(reporter *recordingTB) {
-			Excluded(reporter, "n", []int{104}, "--since\n2026-01-01")
+			Excluded(reporter, "n", []int{103}, "--match\nfoo|bar")
 		}, true},
 		{"a difference of another kind is left to its own call", func(reporter *recordingTB) {
-			NormaliseTexts(reporter, "n", []int{104}, "x", "x")
+			NormaliseTexts(reporter, "n", []int{103}, "x", "x")
 		}, false},
 	}
 	for _, test := range tests {
@@ -385,6 +372,31 @@ func TestListingOrderChecksTheDocumentedOrder(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			reporter := &recordingTB{TB: t}
 			checkDocumentedOrder(reporter, "n", map[string]string{test.path: strings.Join(test.lines, "\n") + "\n"})
+			if failed := len(reporter.errors) > 0; failed != test.fails {
+				t.Errorf("failed %v, want %v: %v", failed, test.fails, reporter.errors)
+			}
+		})
+	}
+}
+
+func TestADifferenceNoCaseUsedFailsAWholeRun(t *testing.T) {
+	table := []Difference{{Number: 101, Summary: "used", Text: quotedValueText},
+		{Number: 102, Summary: "unused", Text: libraryErrorText},
+		{Number: 103, Summary: "retired", Retired: "no case needs it"}}
+	tests := []struct {
+		name  string
+		used  neededTally
+		whole bool
+		fails bool
+	}{
+		{"every difference used passes", neededTally{101: {"a"}, 102: {"b"}}, true, false},
+		{"a difference no case used fails", neededTally{101: {"a"}}, true, true},
+		{"a filtered run is not checked", neededTally{101: {"a"}}, false, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reporter := &recordingTB{TB: t}
+			checkEveryDifferenceUsed(reporter, table, test.used, test.whole)
 			if failed := len(reporter.errors) > 0; failed != test.fails {
 				t.Errorf("failed %v, want %v: %v", failed, test.fails, reporter.errors)
 			}
