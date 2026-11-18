@@ -21,9 +21,10 @@
 //
 // An agent whose secondary source writes events differently from its
 // primary store declares AgentHooks: another match form, a wider forward
-// window for some rows (bounded by the next secondary row of the same
-// text), or the time a row is matched at. The full rule is in
-// analyzer/docs/output.md under "Secondary sources".
+// window for some rows, or the time a row is matched at. A widened row may
+// not take a primary row at or after the next secondary row of the same
+// text that could take that primary row, so the later line keeps the later
+// record.
 package dedup
 
 import (
