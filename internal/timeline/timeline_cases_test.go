@@ -1,8 +1,7 @@
 package timeline
 
 // The rows and sessions are the documented line forms of timeline.jsonl and
-// sessions.jsonl; the parity-tagged tests compare generated rows and
-// sessions, as decoded values, with the interpreter PARITY_PYTHON names.
+// sessions.jsonl.
 
 // rowLineCase is a row and its timeline.jsonl line.
 type rowLineCase struct {
