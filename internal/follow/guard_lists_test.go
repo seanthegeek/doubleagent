@@ -311,6 +311,18 @@ func allowedCalls() map[string]allowance {
 			"creates the directory of the CSV the analyst names with -o"},
 		{"internal/analyze/fleet.go", "osfile.WriteFile", 1,
 			"writes the CSV the analyst names with -o"},
+		{"internal/analyze/timeline.go", "osfile.ReadDir", 1,
+			"lists the output directory the analyst names, which its lstat showed a directory, " +
+				"to refuse one that is not empty"},
+		{"internal/analyze/timeline.go", "osfile.OpenFile", 1,
+			"creates a probe file under a random name in the output directory, failing if the " +
+				"name exists"},
+		{"internal/analyze/timeline.go", "osfile.Remove", 2,
+			"removes the probe file it made, and a directory the run itself created when the " +
+				"run fails"},
+		{"internal/analyze/timeline.go", "filepath.Dir", 1,
+			"the parents of the output directory the analyst names, as text, to learn which " +
+				"of them the run creates"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names with -o"},
 		{"internal/analyze/timeline.go", "osfile.Create", 1,

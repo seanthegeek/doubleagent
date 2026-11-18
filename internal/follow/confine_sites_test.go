@@ -92,6 +92,10 @@ func siteClasses() map[string]string {
 		"internal/analyze/fleet.go filepath.Dir":       notImage,
 		"internal/analyze/fleet.go osfile.MkdirAll":    notImage,
 		"internal/analyze/fleet.go osfile.WriteFile":   notImage,
+		"internal/analyze/timeline.go osfile.ReadDir":  notImage,
+		"internal/analyze/timeline.go osfile.OpenFile": notImage,
+		"internal/analyze/timeline.go osfile.Remove":   notImage,
+		"internal/analyze/timeline.go filepath.Dir":    notImage,
 		"internal/analyze/timeline.go osfile.MkdirAll": notImage,
 		"internal/analyze/timeline.go osfile.Create":   notImage,
 	}

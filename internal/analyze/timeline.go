@@ -3,10 +3,13 @@ package analyze
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -85,7 +88,9 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
-	if code := checkOutput(options, stderr); code != ExitFound {
+	created, code := prepareOutput(options, stderr)
+	defer removeCreated(created)
+	if code != ExitFound {
 		return code
 	}
 	collection, message := openInput(ctx, options.InputOptions, found, env)
@@ -96,9 +101,6 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: env.Parsers(), found: newScratchFinder(found), output: options.Output,
 		filter: filter}
-	if err := osfile.MkdirAll(run.output, 0o777); err != nil {
-		return printError(ctx, stderr, reason.Describe(run.output, err))
-	}
 	if err := run.parse(ctx); err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
@@ -108,28 +110,91 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	return run.summarise(ctx, stdout, stderr)
 }
 
-// checkOutput checks the output directory before the input is touched. It
-// returns ExitFound, or the exit code of the refusal it printed to stderr. A
-// symbolic link is never followed: one is not a directory.
-func checkOutput(options TimelineOptions, stderr io.Writer) int {
+// prepareOutput checks the output directory before the input is touched and
+// makes it when it is missing. It returns the directories it made, deepest
+// first, and ExitFound, or the exit code of the refusal it printed to stderr.
+// A symbolic link is never followed: one is not a directory.
+func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 	output := options.Output
-	refuse := func(message string) int {
+	refuse := func(message string) ([]string, int) {
 		fmt.Fprintln(stderr, usageError("timeline", message))
-		return ExitError
+		return nil, ExitError
 	}
 	info, err := osfile.Lstat(output)
 	switch {
 	case err == nil && !info.IsDir():
 		return refuse("the output directory " + output + " is not a directory")
-	case err != nil && !errors.Is(err, fs.ErrNotExist):
+	case err == nil:
+		entries, listErr := osfile.ReadDir(output)
+		if listErr != nil {
+			fmt.Fprint(stderr, "error: "+reason.Describe(output, listErr)+"\n")
+			return nil, ExitError
+		}
+		if len(entries) > 0 {
+			return refuse("the output directory " + output + " is not empty")
+		}
+	case !errors.Is(err, fs.ErrNotExist):
 		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
-		return ExitError
+		return nil, ExitError
 	}
 	if info, err := osfile.Lstat(options.Input); err == nil && info.IsDir() &&
 		insideDirectory(output, options.Input) {
 		return refuse("the output directory " + output + " must be outside the input")
 	}
-	return ExitFound
+	created := missingDirectories(output)
+	if err := osfile.MkdirAll(output, 0o777); err != nil {
+		removeCreated(created)
+		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
+		return nil, ExitError
+	}
+	if !probeWrite(output) {
+		removeCreated(created)
+		return refuse("the output directory " + output + " cannot be written to")
+	}
+	return created, ExitFound
+}
+
+// missingDirectories returns path and each of its parents that does not
+// exist yet, deepest first.
+func missingDirectories(path string) []string {
+	var missing []string
+	for {
+		if _, err := osfile.Lstat(path); err == nil {
+			return missing
+		}
+		missing = append(missing, path)
+		parent := filepath.Dir(path)
+		if parent == path {
+			return missing
+		}
+		path = parent
+	}
+}
+
+// removeCreated removes the directories the run made, deepest first. A
+// directory that holds anything, such as an output file, stays.
+func removeCreated(directories []string) {
+	for _, directory := range directories {
+		if osfile.Remove(directory) != nil {
+			return
+		}
+	}
+}
+
+// probeWrite reports whether a new file can be created in directory, by
+// creating a file with a random name that must not exist yet and removing
+// it.
+func probeWrite(directory string) bool {
+	random := make([]byte, 16)
+	_, _ = rand.Read(random)
+	probe := filepath.Join(directory, ".write-probe-"+hex.EncodeToString(random))
+	file, err := osfile.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return false
+	}
+	_ = file.Close()
+	_ = osfile.Remove(probe)
+	return true
 }
 
 // parse collects the rows of every artifact, drops the secondary rows a

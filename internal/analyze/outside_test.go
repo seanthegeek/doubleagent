@@ -27,7 +27,7 @@ func TestAnOutputInsideADirectoryInputIsRefused(t *testing.T) {
 			filepath.Join(tree, "home", "a", ".claude", "out")}, ExitError,
 			"the output directory " + filepath.Join(tree, "home", "a", ".claude", "out") + " must be outside the input"},
 		{"timeline into the input itself", []string{"timeline", tree, tree}, ExitError,
-			"must be outside the input"},
+			"is not empty"},
 		{"fleet into the directory it reads", []string{"fleet", "-o", filepath.Join(inventories, "f.csv"),
 			inventories}, ExitError, "must be outside the input directory " + inventories},
 		{"timeline beside an archive it reads", []string{"timeline", archive, filepath.Join(dir, "out")},
