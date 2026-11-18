@@ -61,7 +61,8 @@ func (p *Parser) stash(artifact *input.Artifact, emit parser.Emit) {
 // pinned emits one "session pinned:" row per id of session.json's pinned
 // list, at the file's modification time. The id stays after the session is
 // deleted, so a pinned session with no other row is a trace of a deleted
-// one. A file that is not a JSON object is one `parser:` row.
+// one. A file that is not a JSON object is one `parser:` row, and a pinned
+// that is not an array is another.
 func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	document, ok := readObject(artifact.DiskPath, &problems)
@@ -75,7 +76,12 @@ func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 			"parser: "+artifact.Rel+" is not a JSON object"))
 		return
 	}
-	for _, identifier := range document.Get("pinned").Items() {
+	var wrongKind parser.Problems
+	ids := parser.ArrayMember(document.Get("pinned"), "pinned", 1, &wrongKind)
+	for _, found := range wrongKind {
+		emit(p.systemRow(artifact, newScope("", ""), found.Line, timestamp, parser.ProblemPrefix+found.Message))
+	}
+	for _, identifier := range ids {
 		if !isFilled(identifier) {
 			continue
 		}

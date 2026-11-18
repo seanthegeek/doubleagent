@@ -1473,6 +1473,13 @@ the session and project the parser knows for it: a part file's row has the part 
 session file that reads it. The session and project files read for a message file's context give
 no row there; their own pass reports them.
 
+A 2.x assistant record whose `content` is present but not an array is a `system` row
+`parser: content is not a JSON array` at the record's rowid, and a tool item whose `state.content`
+is present but not an array is `parser: state.content is not a JSON array` after its tool result;
+a `session.json` whose `pinned` is present but not an array is
+`parser: pinned is not a JSON array` at `source_line` 1. An absent, null or empty member gives no
+row.
+
 ```text
 parser: unparseable record <rowid> (<table>.data: <reason>): <data>
 parser: unparseable record <rowid> (<table>.permission: not a JSON array): <value>
