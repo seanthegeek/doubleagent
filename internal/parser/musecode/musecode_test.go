@@ -43,6 +43,7 @@ func TestMicrosToUTCReadsNumbersAndASCIIDigitTextOnly(t *testing.T) {
 		{"zero", `0`, "1970-01-01T00:00:00.000Z"},
 		{"text with a dot", `"12.5"`, ""},
 		{"a negative integer", `-5`, "1969-12-31T23:59:59.999Z"},
+		{"a number beyond the float64 range is no time", `1e999`, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

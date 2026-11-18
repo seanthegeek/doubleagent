@@ -69,9 +69,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) *askIndex {
 		}
 	}
 	slices.SortStableFunc(asks, func(left, right jsonvalue.Value) int {
-		leftNumber, _ := clinelegacy.NumberOf(left)
-		rightNumber, _ := clinelegacy.NumberOf(right)
-		return cmp.Compare(leftNumber, rightNumber)
+		return cmp.Compare(clinelegacy.OrderOf(left), clinelegacy.OrderOf(right))
 	})
 	return &askIndex{times: asks}
 }
@@ -124,8 +122,7 @@ func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
 	}
 	after := sort.Search(len(x.times), func(i int) bool {
 		x.probes++
-		since, _ := clinelegacy.NumberOf(x.times[i])
-		return since > moment
+		return clinelegacy.OrderOf(x.times[i]) > moment
 	})
 	if after == 0 {
 		return ""

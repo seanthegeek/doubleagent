@@ -49,7 +49,9 @@ func sameValue(left, right jsonvalue.Value) bool {
 	return jsonvalue.Equal(left, right)
 }
 
-// numeric returns a number as a float, and a boolean as 0 or 1.
+// numeric returns a number as a float, and a boolean as 0 or 1; false for
+// any other value and for a number beyond the float64 range, which equals
+// only itself.
 func numeric(value jsonvalue.Value) (float64, bool) {
 	if flag, ok := value.Bool(); ok {
 		if flag {
@@ -57,11 +59,7 @@ func numeric(value jsonvalue.Value) (float64, bool) {
 		}
 		return 0, true
 	}
-	if !value.IsNumber() {
-		return 0, false
-	}
-	number, _ := value.Float()
-	return number, true
+	return value.Float()
 }
 
 // without returns an object's members other than the named keys, as a new

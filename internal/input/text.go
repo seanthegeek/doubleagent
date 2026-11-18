@@ -45,8 +45,8 @@ func parseSize(value jsonvalue.Value) (int64, bool) {
 	case value.IsInt():
 		return value.Int()
 	case value.IsFloat():
-		number, _ := value.Float()
-		if number != number || number >= 9.223372036854775807e18 || number < -9.223372036854775808e18 {
+		number, ok := value.Float()
+		if !ok || number != number || number >= 9.223372036854775807e18 || number < -9.223372036854775808e18 {
 			return 0, false
 		}
 		return int64(number), true

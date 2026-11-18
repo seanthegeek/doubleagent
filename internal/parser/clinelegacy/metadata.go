@@ -24,11 +24,10 @@ type metadataEvent struct {
 	usage     jsonvalue.Value
 }
 
-// sortKey returns the number an event is ordered by: its time when that is
-// a number, else 0.
+// sortKey returns the number an event is ordered by: its time as OrderOf
+// orders it.
 func (e metadataEvent) sortKey() float64 {
-	key, _ := NumberOf(e.timestamp)
-	return key
+	return OrderOf(e.timestamp)
 }
 
 // parseMetadata emits a system row per dated event of task_metadata.json in

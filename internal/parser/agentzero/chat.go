@@ -324,7 +324,7 @@ type chat struct {
 }
 
 // zeroAgent reports whether an agent number is the main agent's: null, zero,
-// false or the text "0".
+// false or the text "0"; a number beyond the float64 range is not zero.
 func zeroAgent(number jsonvalue.Value) bool {
 	switch {
 	case number.IsNull():
@@ -333,8 +333,8 @@ func zeroAgent(number jsonvalue.Value) bool {
 		flag, _ := number.Bool()
 		return !flag
 	case number.IsNumber():
-		value, _ := number.Float()
-		return value == 0
+		value, ok := number.Float()
+		return ok && value == 0
 	}
 	return isString(number, "0")
 }

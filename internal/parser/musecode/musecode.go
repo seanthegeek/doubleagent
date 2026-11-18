@@ -123,7 +123,7 @@ func missing(value jsonvalue.Value) bool {
 }
 
 // exitSucceeded reports whether an exit code is no failure: null, false or
-// a number equal to zero.
+// a number equal to zero; a number beyond the float64 range is not zero.
 func exitSucceeded(value jsonvalue.Value) bool {
 	switch {
 	case value.IsNull():
@@ -132,8 +132,8 @@ func exitSucceeded(value jsonvalue.Value) bool {
 		flag, _ := value.Bool()
 		return !flag
 	case value.IsNumber():
-		number, _ := value.Float()
-		return number == 0
+		number, ok := value.Float()
+		return ok && number == 0
 	}
 	return false
 }
@@ -148,11 +148,15 @@ func fact(payload jsonvalue.Value) jsonvalue.Value {
 }
 
 // microsToUTC returns recorded_at, in microseconds, as UTC; a plain epoch
-// would read numbers of this size as milliseconds.
+// would read numbers of this size as milliseconds. A number beyond the
+// float64 range is no time.
 func microsToUTC(value jsonvalue.Value) string {
 	switch {
 	case value.IsNumber():
-		number, _ := value.Float()
+		number, ok := value.Float()
+		if !ok {
+			return ""
+		}
 		return timeutil.FromEpoch(number / 1_000_000)
 	case value.IsString() && isASCIIDigits(value.StringValue()):
 		number, err := strconv.ParseFloat(value.StringValue(), 64)
@@ -313,13 +317,13 @@ func compareIndex(left, right jsonvalue.Value) int {
 	return 0
 }
 
-// indexNumber returns a child_index as a number for ordering.
+// indexNumber returns a child_index as a number for ordering: true is 1,
+// and the rest as parser.NumberOrder orders them.
 func indexNumber(value jsonvalue.Value) float64 {
 	if flag, ok := value.Bool(); ok && flag {
 		return 1
 	}
-	number, _ := value.Float()
-	return number
+	return parser.NumberOrder(value)
 }
 
 // workspace returns the project path and branch from a session log's

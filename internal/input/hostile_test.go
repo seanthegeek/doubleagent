@@ -107,6 +107,8 @@ func TestParseSizeReadsAnIntegerOrRefuses(t *testing.T) {
 		{"true is one", "true", 1, true},
 		{"a float is cut toward zero", "-2.9", -2, true},
 		{"a float past the range is refused", "1e19", 0, false},
+		{"a number beyond the float64 range is refused", "1e999", 0, false},
+		{"a negative number beyond the float64 range is refused", "-1e999", 0, false},
 		{"a string of digits with spaces", `" 7 "`, 7, true},
 		{"a string with a sign", `"-3"`, -3, true},
 		{"other text is refused", `"1.5"`, 0, false},
