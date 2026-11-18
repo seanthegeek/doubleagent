@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -15,9 +16,6 @@ type InputOptions struct {
 	User          string
 	WorkDir       string
 	KeepExtracted bool
-	// workDirSet tells an empty --work-dir, the current directory, from
-	// none, a temporary directory.
-	workDirSet bool
 }
 
 // DetectOptions are the options of detect.
@@ -78,7 +76,10 @@ func inputFlags(command string, options *InputOptions, help *bool) *flag.FlagSet
 	set.StringVar(&options.Host, "host", "", "")
 	set.StringVar(&options.User, "user", "", "")
 	set.Func("work-dir", "", func(value string) error {
-		options.WorkDir, options.workDirSet = value, true
+		if value == "" {
+			return errors.New("an empty directory name")
+		}
+		options.WorkDir = value
 		return nil
 	})
 	set.BoolVar(&options.KeepExtracted, "keep-extracted", false, "")
@@ -170,6 +171,10 @@ func parse(set *flag.FlagSet, args []string) ([]string, error) {
 	return inputs, nil
 }
 
+// emptyInput is the usage error of an input given as empty text, which
+// would otherwise name the current directory.
+const emptyInput = "the input is empty; name a file or directory"
+
 // oneInput returns the one input of command, or the usage error of inputs
 // that are not one, naming also what else the line misses.
 func oneInput(command string, inputs, missing []string) (string, error) {
@@ -181,6 +186,8 @@ func oneInput(command string, inputs, missing []string) (string, error) {
 		return "", usageError(command, "missing argument: "+strings.Join(missing, ", "))
 	case len(inputs) > 1:
 		return "", usageError(command, "unexpected argument: "+strings.Join(inputs[1:], " "))
+	case inputs[0] == "":
+		return "", usageError(command, emptyInput)
 	}
 	return inputs[0], nil
 }
@@ -210,6 +217,8 @@ func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	switch {
 	case len(inputs) == 0:
 		return options, false, usageError("timeline", "missing argument: input, output directory")
+	case inputs[0] == "":
+		return options, false, usageError("timeline", emptyInput)
 	case len(inputs) == 1 || inputs[1] == "":
 		return options, false, usageError("timeline", "missing argument: output directory")
 	case len(inputs) > 2:
@@ -231,6 +240,8 @@ func ParseFleet(args []string) (FleetOptions, bool, error) {
 		return options, help && err == nil, err
 	case len(inputs) == 0:
 		return options, false, usageError("fleet", "missing argument: input")
+	case slices.Contains(inputs, ""):
+		return options, false, usageError("fleet", emptyInput)
 	}
 	options.Inputs = inputs
 	return options, false, nil

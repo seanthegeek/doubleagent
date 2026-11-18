@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -133,22 +134,26 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 
 // openInput opens the input of detect or timeline and gives every home
 // without a user the --user name, listing a loose tree through env's
-// lister. The message returned with a nil collection is the error line's
-// text.
+// lister. It returns the work directories the open made, deepest first,
+// for the caller to remove once the input is closed (removeCreated keeps
+// one that holds anything). The message returned with a nil collection is
+// the error line's text.
 func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher,
-	env Environment) (*input.Collection, string) {
-	workDir := options.WorkDir
-	if workDir == "" && options.workDirSet {
-		workDir = "."
+	env Environment) (*input.Collection, []string, string) {
+	var created []string
+	if options.WorkDir != "" {
+		// Cleaned once, so the directories made are the ones removed.
+		options.WorkDir = filepath.Clean(options.WorkDir)
+		created = missingDirectories(options.WorkDir)
 	}
-	collection, err := input.Open(ctx, options.Input, input.Options{Matcher: found, WorkDir: workDir,
+	collection, err := input.Open(ctx, options.Input, input.Options{Matcher: found, WorkDir: options.WorkDir,
 		Host: options.Host, ReadDir: env.ReadDir})
 	var inputError *input.Error
 	switch {
 	case errors.As(err, &inputError):
-		return nil, inputError.Message
+		return nil, created, inputError.Message
 	case err != nil:
-		return nil, reason.Describe(options.Input, err)
+		return nil, created, reason.Describe(options.Input, err)
 	}
 	if options.User != "" {
 		for _, home := range collection.Homes {
@@ -157,7 +162,7 @@ func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher
 			}
 		}
 	}
-	return collection, ""
+	return collection, created, ""
 }
 
 // closeInput removes an extracted archive, or names where it was kept. An

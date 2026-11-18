@@ -256,12 +256,9 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
 		return ExitError
 	}
-	for _, given := range options.Inputs {
-		if info, err := osfile.Lstat(given); err == nil && info.IsDir() && insideDirectory(options.Output, given) {
-			fmt.Fprintln(stderr, usageError("fleet", "the output "+options.Output+
-				" must be outside the input directory "+given))
-			return ExitError
-		}
+	if message := fleetOutputRefusal(options.Output, options.Inputs, files); message != "" {
+		fmt.Fprintln(stderr, usageError("fleet", message))
+		return ExitError
 	}
 	var rows [][]string
 	for _, path := range files {
@@ -292,6 +289,26 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 	return ExitFound
 }
 
+// fleetOutputRefusal returns why the CSV may not be written at output, or
+// "": output is a link (never written through), the same file as an input
+// file, given or found in an input directory, or inside an input directory.
+func fleetOutputRefusal(output string, inputs, files []string) string {
+	if isLink(output) {
+		return "the output " + output + " is a symbolic link; give its target"
+	}
+	for _, file := range files {
+		if sameFile(output, file) {
+			return "the output " + output + " is the input file " + file
+		}
+	}
+	for _, given := range inputs {
+		if insideDirectory(output, given) {
+			return "the output " + output + " must be outside the input directory " + given
+		}
+	}
+	return ""
+}
+
 // plural returns noun, with an s unless count is one.
 func plural(count int, noun string) string {
 	if count == 1 {
@@ -302,7 +319,10 @@ func plural(count int, noun string) string {
 
 // writeFleetCSV writes the header and rows to path through encoding/csv
 // with its defaults (fields quoted where needed, lines ending in LF),
-// creating its parent directory.
+// creating its parent directory. An existing regular file is replaced; a
+// link there was refused before the inputs were read, which leaves the
+// moment between that look and this write, when only a process that can
+// write the directory could place one.
 func writeFleetCSV(path string, rows [][]string) error {
 	if parent := filepath.Dir(path); parent != "." {
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {

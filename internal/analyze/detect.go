@@ -219,7 +219,8 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
-	collection, message := openInput(ctx, options.InputOptions, found, env)
+	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env)
+	defer removeCreated(workCreated)
 	if collection == nil {
 		return printError(ctx, stderr, message)
 	}

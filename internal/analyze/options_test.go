@@ -25,7 +25,7 @@ func TestParseTimelineReadsEveryOption(t *testing.T) {
 			[]string{"--include-thinking", "--keep-undated", "-i", "--host", "h1", "--user", "u",
 				"--work-dir", "w", "--keep-extracted", "--since", "2026", "--until", "now", "in", "out"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in", Host: "h1", User: "u",
-				WorkDir: "w", KeepExtracted: true, workDirSet: true}, Output: "out",
+				WorkDir: "w", KeepExtracted: true}, Output: "out",
 				IncludeThinking: true, KeepUndated: true, IgnoreCase: true, Since: "2026",
 				Until: "now"}},
 		{"--ignore-case is -i", []string{"--ignore-case", "in", "out"},
@@ -84,6 +84,11 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 		{"an empty output directory is none", "timeline", []string{"in", ""},
 			"missing argument: output directory"},
 		{"timeline needs both", "timeline", nil, "missing argument: input, output directory"},
+		{"an empty input of timeline is refused", "timeline", []string{"", "out"}, emptyInput},
+		{"an empty input of detect is refused", "detect", []string{""}, emptyInput},
+		{"an empty input of fleet is refused", "fleet", []string{"a", ""}, emptyInput},
+		{"an empty work directory is refused", "detect", []string{"--work-dir=", "in"},
+			`invalid value "" for flag -work-dir: an empty directory name`},
 		{"timeline takes two arguments", "timeline", []string{"in", "out", "extra"},
 			"unexpected argument: extra"},
 		{"timeline names every extra argument", "timeline", []string{"in", "out", "a", "b"},
@@ -166,8 +171,8 @@ func TestParseFleetAndDetect(t *testing.T) {
 	if fleet, _, _ = ParseFleet([]string{"--output=y.csv", "a"}); fleet.Output != "y.csv" {
 		t.Errorf("fleet's --output= gave %q", fleet.Output)
 	}
-	detect, help, err := ParseDetect([]string{"--files", "--json", "--work-dir=", "in"})
-	want := DetectOptions{InputOptions: InputOptions{Input: "in", workDirSet: true}, JSON: true,
+	detect, help, err := ParseDetect([]string{"--files", "--json", "--work-dir=w", "in"})
+	want := DetectOptions{InputOptions: InputOptions{Input: "in", WorkDir: "w"}, JSON: true,
 		Files: true}
 	if err != nil || help || !reflect.DeepEqual(detect, want) {
 		t.Errorf("detect: %+v, %v, %v", detect, help, err)

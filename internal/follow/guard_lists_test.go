@@ -307,15 +307,13 @@ func allowedCalls() map[string]allowance {
 			"lists the output directory the analyst names, which its lstat showed a directory, " +
 				"to refuse one that is not empty"},
 		{"internal/analyze/timeline.go", "osfile.OpenFile", 1,
-			"creates a probe file under a random name in the output directory, failing if the " +
-				"name exists"},
+			"creates a file new in the output directory, failing if anything, a link included, " +
+				"holds its name: the probe file under a random name, and each output file"},
 		{"internal/analyze/timeline.go", "osfile.Remove", 2,
 			"removes the probe file it made, and a directory the run itself created when the " +
 				"run fails"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names with -o"},
-		{"internal/analyze/timeline.go", "osfile.Create", 1,
-			"writes timeline.jsonl, sessions.jsonl and inventory.json in that directory"},
 		{"internal/walk/tree.go", "fsmeta.OpenDir", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {

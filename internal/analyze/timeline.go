@@ -87,12 +87,16 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
+	// Cleaned once, so the directories made and those removed on failure
+	// are the same ones, whatever .. the analyst wrote.
+	options.Output = filepath.Clean(options.Output)
 	created, code := prepareOutput(options, stderr)
 	defer removeCreated(created)
 	if code != ExitFound {
 		return code
 	}
-	collection, message := openInput(ctx, options.InputOptions, found, env)
+	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env)
+	defer removeCreated(workCreated)
 	if collection == nil {
 		return printError(ctx, stderr, message)
 	}
@@ -136,8 +140,7 @@ func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
 		return nil, ExitError
 	}
-	if info, err := osfile.Lstat(options.Input); err == nil && info.IsDir() &&
-		insideDirectory(output, options.Input) {
+	if insideDirectory(output, options.Input) {
 		return refuse("the output directory " + output + " must be outside the input")
 	}
 	created := missingDirectories(output)
@@ -187,7 +190,7 @@ func probeWrite(directory string) bool {
 	random := make([]byte, 16)
 	_, _ = rand.Read(random)
 	probe := filepath.Join(directory, ".write-probe-"+hex.EncodeToString(random))
-	file, err := osfile.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := createNew(probe, 0o600)
 	if err != nil {
 		return false
 	}
@@ -248,10 +251,17 @@ func (r *timelineRun) writeRows() error {
 	})
 }
 
-// writeOutput creates or replaces the file at path and writes it through
-// write, buffered.
+// createNew creates the file at path, failing when anything is there, a
+// link included, so a file is never written through an entry another
+// process placed in the output directory during the run.
+func createNew(path string, perm fs.FileMode) (*os.File, error) {
+	return osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+}
+
+// writeOutput creates the file at path, new, and writes it through write,
+// buffered.
 func writeOutput(path string, write func(w io.Writer) error) error {
-	file, err := osfile.Create(path)
+	file, err := createNew(path, 0o666)
 	if err != nil {
 		return errors.New(reason.Describe(path, err))
 	}
