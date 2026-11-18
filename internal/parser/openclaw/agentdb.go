@@ -190,14 +190,14 @@ func (a *agentDatabase) windowSession(sessionID, key, extra string) *session {
 	if extra != "" {
 		parts = append(parts, extra)
 	}
-	provider := columnStr(window.Get("model_provider"))
+	provider := parser.NonEmptyColumn(window.Get("model_provider"))
 	if provider != "" {
 		parts = append(parts, "model_provider="+provider)
 	}
 	current := newSession(sessionID)
-	current.key = cmp.Or(key, columnStr(window.Get("session_key")))
+	current.key = cmp.Or(key, parser.NonEmptyColumn(window.Get("session_key")))
 	current.extra = strings.Join(parts, " ")
-	current.model = columnStr(window.Get("model"))
+	current.model = parser.NonEmptyColumn(window.Get("model"))
 	current.provider = provider
 	current.store = a.store
 	return current

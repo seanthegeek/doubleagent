@@ -1,9 +1,11 @@
 package opencode
 
 import (
+	"cmp"
 	"errors"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -26,11 +28,11 @@ func (s *store) shareRows() error {
 		return err
 	}
 	for _, row := range rows {
-		identifier := columnText(row.Get("session_id"))
+		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		s.shares[identifier] = true
 		s.emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
-			" share "+orDash(columnText(row.Get("id")))+" url "+
-			orDash(columnText(row.Get("url")))+" (from "+s.label+
+			" share "+cmp.Or(parser.NonEmptyColumn(row.Get("id")), "-")+" url "+
+			cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-")+" (from "+s.label+
 			" session_share, time_created)"))
 	}
 	return nil
@@ -56,7 +58,7 @@ func (s *store) eventShareRows() error {
 	}
 	state := map[string]string{}
 	for _, row := range rows {
-		identifier := columnText(row.Get("aggregate_id"))
+		identifier := parser.NonEmptyColumn(row.Get("aggregate_id"))
 		data, ok := s.decodeColumn(row, "data", "event.data", identifier)
 		if !ok || s.shares[identifier] || state[identifier] == "unshared" {
 			continue
@@ -181,7 +183,7 @@ func (s *store) worktreeRows() error {
 			return err
 		}
 		for _, row := range rows {
-			directory := columnText(row.Get("directory"))
+			directory := parser.NonEmptyColumn(row.Get("directory"))
 			kind := row.Get("type")
 			if directory == "" || seen[directory] || (name == "project_directory" &&
 				(kind.Type != sqlitefile.Text || kind.Text() != "git_worktree")) {
@@ -190,8 +192,8 @@ func (s *store) worktreeRows() error {
 			seen[directory] = true
 			made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), timeline.ScratchPrefix+
 				" "+directory+" (git worktree of "+
-				orDash(s.worktreeOf(row.Get("project_id")))+" strategy="+
-				orDash(columnText(row.Get("strategy")))+") (from "+s.label+" "+name+
+				cmp.Or(s.worktreeOf(row.Get("project_id")), "-")+" strategy="+
+				cmp.Or(parser.NonEmptyColumn(row.Get("strategy")), "-")+") (from "+s.label+" "+name+
 				", time_created)")
 			made.ProjectPath = directory
 			s.emit(made)
@@ -221,18 +223,10 @@ func (s *store) grantRows() error {
 	}
 	for _, row := range rows {
 		made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), "permission setting: "+
-			orDash(columnText(row.Get("action")))+" "+orDash(columnText(row.Get("resource")))+
+			cmp.Or(parser.NonEmptyColumn(row.Get("action")), "-")+" "+cmp.Or(parser.NonEmptyColumn(row.Get("resource")), "-")+
 			"=allow (from "+s.label+" permission, time_created)")
 		made.ProjectPath = s.worktreeOf(row.Get("project_id"))
 		s.emit(made)
 	}
 	return nil
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }

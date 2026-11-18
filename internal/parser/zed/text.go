@@ -74,15 +74,7 @@ func mentionText(mention jsonvalue.Value) string {
 	if !mention.IsObject() {
 		return "[mention]"
 	}
-	return "[mention] " + textOrJSON(mention.Get("uri"))
-}
-
-// textOrJSON returns a string as it is and anything else as CompactJSON.
-func textOrJSON(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
+	return "[mention] " + parser.SettingValue(mention.Get("uri"))
 }
 
 // toolInputText returns a tool use's input as text, unwrapping a
@@ -96,7 +88,7 @@ func toolInputText(toolUse jsonvalue.Value) string {
 	empty := !parser.Present(toolInput) ||
 		(toolInput.IsObject() && toolInput.Len() == 0)
 	if !empty {
-		return textOrJSON(toolInput)
+		return parser.SettingValue(toolInput)
 	}
 	if raw := toolUse.Get("raw_input"); raw.IsString() {
 		return raw.StringValue()
@@ -157,7 +149,7 @@ func acpBlockText(block jsonvalue.Value) string {
 	case parser.IsText(kind, "resource_link") && block.Get("uri").IsString():
 		return "[mention] " + block.Get("uri").StringValue()
 	case parser.IsText(kind, "resource") && block.Get("resource").IsObject():
-		return "[mention] " + textOrJSON(block.Get("resource").Get("uri"))
+		return "[mention] " + parser.SettingValue(block.Get("resource").Get("uri"))
 	case parser.IsText(kind, "image"), parser.IsText(kind, "audio"):
 		return "[" + kind.StringValue() + "]"
 	}
@@ -189,20 +181,11 @@ func threadKey(value sqlitefile.Value) string {
 		raw := value.Bytes
 		return fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:16])
 	}
-	return columnStr(value)
-}
-
-// columnStr returns a column value as row text, "" for an empty value
-// (NULL, zero, or empty text or blob).
-func columnStr(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
+	return parser.NonEmptyColumn(value)
 }
 
 // firstColumn returns the first of the values that is not empty, as
-// columnStr gives it, or "".
+// parser.NonEmptyColumn gives it, or "".
 func firstColumn(values ...sqlitefile.Value) string {
 	for _, value := range values {
 		if !value.IsEmpty() {

@@ -200,13 +200,13 @@ func terminalDecision(content jsonvalue.Value) string {
 	}
 	switch status := value.Get("status"); {
 	case parser.IsText(status, "blocked"):
-		text := "blocked " + dash(value.Get("error"))
+		text := "blocked " + parser.SettingOrDash(value.Get("error"))
 		if summary := value.Get("user_summary"); !summary.IsEmpty() {
 			text += " user_summary=" + parser.SettingValue(summary)
 		}
 		return text
 	case parser.IsText(status, "pending_approval"):
-		return "pending pattern=" + dash(value.Get("pattern_key")) + " smart_denied=" +
+		return "pending pattern=" + parser.SettingOrDash(value.Get("pattern_key")) + " smart_denied=" +
 			parser.SettingValue(jsonvalue.NewBool(!value.Get("smart_denied").IsEmpty()))
 	}
 	return ""

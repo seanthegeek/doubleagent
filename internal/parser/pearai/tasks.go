@@ -167,8 +167,8 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 			text += " number=" + number.Text()
 		}
 		if creator := item.Get("creatorModeConfig"); creator.IsObject() && creator.Len() > 0 {
-			text += " | creator mode: newProjectType=" + orDash(creator.Get("newProjectType")) +
-				" newProjectPath=" + orDash(creator.Get("newProjectPath"))
+			text += " | creator mode: newProjectType=" + parser.TextOrDash(creator.Get("newProjectType")) +
+				" newProjectPath=" + parser.TextOrDash(creator.Get("newProjectPath"))
 		}
 		row.Text = timeline.Compact(text)
 		emit(row)
@@ -182,12 +182,6 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 			emit(row)
 		}
 	}
-}
-
-// orDash returns a value as row text, "-" when it is empty
-// (jsonvalue.Value.IsEmpty).
-func orDash(value jsonvalue.Value) string {
-	return cmp.Or(parser.Text(value), "-")
 }
 
 // permissionTexts are the texts Roo 3.15 opens a tool result with when the

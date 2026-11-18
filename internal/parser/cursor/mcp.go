@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"cmp"
 	"encoding/base64"
 	"regexp"
 	"slices"
@@ -106,7 +107,7 @@ func (i *items) mcpServer(scope string, fields map[string]mcpField, hasTokens bo
 		source = "mcp_oauth_updated_at_ms"
 	}
 	name, _, _ := strings.Cut(scope, "::")
-	text := "mcp server: " + name + " url=" + orDash(timeline.Compact(url)) + " (from state.vscdb mcpOAuth.global, " +
+	text := "mcp server: " + name + " url=" + cmp.Or(timeline.Compact(url), "-") + " (from state.vscdb mcpOAuth.global, " +
 		source + ")"
 	if hasTokens {
 		text += mcpTokens
@@ -140,8 +141,8 @@ func (i *items) plugins(emit parser.Emit) {
 			for _, source := range entry.Get("sources").Items() {
 				sources = append(sources, source.Text())
 			}
-			made := i.system("plugin installed: id="+shown(entry.Get("id"))+" sources="+
-				orDash(strings.Join(sources, ","))+" scope="+orDash(scope)+" "+pluginsSource, i.mtime, row.rowid)
+			made := i.system("plugin installed: id="+parser.SettingOrDash(entry.Get("id"))+" sources="+
+				cmp.Or(strings.Join(sources, ","), "-")+" scope="+cmp.Or(scope, "-")+" "+pluginsSource, i.mtime, row.rowid)
 			if strings.HasPrefix(scope, "file:") {
 				made.ProjectPath = uriPath(scope)
 			}

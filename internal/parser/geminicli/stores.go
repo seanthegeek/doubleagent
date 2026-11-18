@@ -78,7 +78,7 @@ func activityText(payload jsonvalue.Value, console bool, requests map[string]req
 	}
 	switch value := payload.Get("response"); {
 	case console:
-		return "console " + orDash(payload.Get("type")) + ": " + parser.Text(payload.Get("content")), true
+		return "console " + parser.TextOrDash(payload.Get("type")) + ": " + parser.Text(payload.Get("content")), true
 	case payload.Get("method").IsString():
 		named := request{payload.Get("method").StringValue(), urlWithoutQuery(parser.Text(payload.Get("url")))}
 		requests[requestID] = named
@@ -134,9 +134,9 @@ func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options
 	if !toolCall.IsObject() {
 		toolCall = jsonvalue.NewNull()
 	}
-	text := "tool checkpoint: " + orDash(toolCall.Get("name")) + " " +
-		orDash(toolCall.Get("args").Get("file_path")) + " commit " +
-		orDash(document.Get("commitHash")) + " prompt " + orDash(document.Get("messageId")) +
+	text := "tool checkpoint: " + parser.TextOrDash(toolCall.Get("name")) + " " +
+		parser.TextOrDash(toolCall.Get("args").Get("file_path")) + " commit " +
+		parser.TextOrDash(document.Get("commitHash")) + " prompt " + parser.TextOrDash(document.Get("messageId")) +
 		" (from " + artifact.Rel + fromName
 	emit(p.systemRow(artifact, where{0, nameTime(match["time"]), sessionID, project}, text))
 	p.itemRows(artifact, options, document.Get("clientHistory").Items(), project, sessionID,

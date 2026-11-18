@@ -76,16 +76,11 @@ func (p *Parser) chatInteraction(artifact *input.Artifact, feedback bool, emit p
 			if value := record.Get("feedback"); !value.IsNull() {
 				rating = parser.SettingValue(value)
 			}
-			row.Text = "chat feedback: feedback=" + rating + " model=" + orDash(model)
+			row.Text = "chat feedback: feedback=" + rating + " model=" + cmp.Or(model, "-")
 			emit(row)
 		}
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	return cmp.Or(text, "-")
 }
 
 // editInteraction emits an edit request: an "edit interaction:" row, the
@@ -128,13 +123,7 @@ func (p *Parser) editInteraction(artifact *input.Artifact, emit parser.Emit) {
 func (p *Parser) editOutcome(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
-		field := func(key string) string {
-			value := record.Get(key)
-			if !parser.Present(value) {
-				return "-"
-			}
-			return parser.SettingValue(value)
-		}
+		field := func(key string) string { return parser.SettingOrDash(record.Get(key)) }
 		row := p.SystemRow(artifact, "permission decision: edit accepted="+field("accepted")+" file="+
 			field("filepath")+" lines "+field("previousCodeLines")+" -> "+field("newCodeLines"))
 		row.SourceLine = line

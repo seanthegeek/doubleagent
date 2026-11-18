@@ -238,8 +238,8 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 	origin, config := s.columnJSON(session, "origin_json"), s.columnJSON(session, "model_config")
 	imported := ""
 	if from := origin.Get("imported_from"); from.IsObject() {
-		imported = "imported from " + dash(from.Get("tool")) + " " + dash(from.Get("path")) +
-			" session " + dash(from.Get("foreign_session_id"))
+		imported = "imported from " + parser.SettingOrDash(from.Get("tool")) + " " + parser.SettingOrDash(from.Get("path")) +
+			" session " + parser.SettingOrDash(from.Get("foreign_session_id"))
 	}
 	archived := ""
 	if archivedValue(session.Get("archived")) {
@@ -256,10 +256,10 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 	source := parser.Text(session.Get("source"))
 	if slices.Contains(messagingSources(), source) ||
 		!session.Get("chat_id").IsEmpty() && source != "local" && source != "api_server" {
-		s.emit(copyRow(start, "session relayed: "+source+" chat "+dash(session.Get("chat_id"))+
-			" type "+dash(session.Get("chat_type"))+" thread "+dash(session.Get("thread_id"))+
-			" user "+dash(session.Get("user_id"))+" name "+dash(origin.Get("user_name"))+
-			" display "+dash(displayName(session, origin))+
+		s.emit(copyRow(start, "session relayed: "+source+" chat "+parser.SettingOrDash(session.Get("chat_id"))+
+			" type "+parser.SettingOrDash(session.Get("chat_type"))+" thread "+parser.SettingOrDash(session.Get("thread_id"))+
+			" user "+parser.SettingOrDash(session.Get("user_id"))+" name "+parser.SettingOrDash(origin.Get("user_name"))+
+			" display "+parser.SettingOrDash(displayName(session, origin))+
 			" (from state.db sessions, started_at)", start.Model))
 	}
 	if yolo, ok := config.Lookup("yolo_mode"); ok {
@@ -381,8 +381,8 @@ func (s *stateReader) generationRows() error {
 		Each(func(row sqlitefile.Row) error {
 			record := rowObject(row)
 			s.emit(s.parser.system(s.artifact, int(row.Rowid), noSession(), "relay peer: "+
-				dash(record.Get("source"))+" "+dash(record.Get("session_key"))+" generation "+
-				dash(record.Get("generation"))+" (from state.db conversation_generations)"))
+				parser.SettingOrDash(record.Get("source"))+" "+parser.SettingOrDash(record.Get("session_key"))+" generation "+
+				parser.SettingOrDash(record.Get("generation"))+" (from state.db conversation_generations)"))
 			return nil
 		})
 }
@@ -424,9 +424,9 @@ func (s *stateReader) roomRows() error {
 			roomName = jsonvalue.NewString(name)
 		}
 		row := s.parser.system(s.artifact, lineNumber(event.Get("_rowid")), noSession(),
-			"bot mode room "+dash(roomName)+" ("+room+") seq "+dash(event.Get("seq"))+" "+kind+
-				" actor "+dash(actor.Get("kind"))+":"+dash(actor.Get("id"))+" ("+
-				dash(actor.Get("display_name"))+"): "+body)
+			"bot mode room "+parser.SettingOrDash(roomName)+" ("+room+") seq "+parser.SettingOrDash(event.Get("seq"))+" "+kind+
+				" actor "+parser.SettingOrDash(actor.Get("kind"))+":"+parser.SettingOrDash(actor.Get("id"))+" ("+
+				parser.SettingOrDash(actor.Get("display_name"))+"): "+body)
 		row.TimestampUTC = timeutil.FromValue(event.Get("created_at"))
 		s.emit(row)
 		return nil

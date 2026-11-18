@@ -134,7 +134,7 @@ func readLogs(database *sqlitefile.Database) ([]logRecord, error) {
 	for _, row := range rows {
 		records = append(records, logRecord{rowid: int(row.Rowid), timestamp: row.Get("ts"),
 			nanoseconds: row.Get("ts_nanos"), thread: row.Get("thread_id"),
-			target: row.Get("target").Text(), body: columnText(row.Get(body)),
+			target: row.Get("target").Text(), body: parser.NonEmptyColumn(row.Get(body)),
 			kind: logKind(row, body)})
 	}
 	return records, nil
@@ -235,7 +235,7 @@ func feedbackDecision(record logRecord, name string) decision {
 	fields := logFields(record.body)
 	sessionID := fields["thread_id"]
 	if sessionID == "" {
-		sessionID = columnText(record.thread)
+		sessionID = parser.NonEmptyColumn(record.thread)
 	}
 	if strings.HasPrefix(sessionID, noThreadPrefix) {
 		sessionID = ""
@@ -295,7 +295,7 @@ func decisionSession(record logRecord) string {
 	if session := logFields(record.body)["thread_id"]; session != "" {
 		return session
 	}
-	return columnText(record.thread)
+	return parser.NonEmptyColumn(record.thread)
 }
 
 // decisions returns the row of each approval line by rowid, without its
@@ -351,7 +351,7 @@ func guardianLogs(home, parent string) [][]guardianLog {
 		for _, row := range rows {
 			text := row.Get(body)
 			each := guardianLog{row: row, readable: text.Type != sqlitefile.Text || utf8.Valid(text.Bytes)}
-			for _, match := range guardianSpan.FindAllStringSubmatch(columnText(text), -1) {
+			for _, match := range guardianSpan.FindAllStringSubmatch(parser.NonEmptyColumn(text), -1) {
 				fields := logFields(match[1])
 				if call := fields["tool_call_id"]; fields["thread_id"] == parent && call != "" {
 					each.calls = append(each.calls, call)
@@ -461,7 +461,7 @@ func guardianRows(logPath string) ([]sqlitefile.Row, string) {
 // uuid7Time returns the capture time in a UUIDv7's first 48 bits, the
 // milliseconds since the epoch, as a timestamp; "" for any other value.
 func uuid7Time(value sqlitefile.Value) string {
-	hexes := strings.ReplaceAll(columnText(value), "-", "")
+	hexes := strings.ReplaceAll(parser.NonEmptyColumn(value), "-", "")
 	if len(hexes) != 32 || hexes[12] != '7' {
 		return ""
 	}

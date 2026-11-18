@@ -297,8 +297,8 @@ func (s *session) system(record jsonvalue.Value) {
 	case subtype == "turn_duration":
 		detail = record.Get("durationMs").Text() + " ms, " + record.Get("messageCount").Text() + " messages"
 	case subtype == "scheduled_task_fire":
-		s.emit(s.row(timeline.TurnSystem, "scheduled task fired: "+valueText(record, "taskId")+
-			" cron="+valueText(record, "cron")))
+		s.emit(s.row(timeline.TurnSystem, "scheduled task fired: "+parser.SettingOrDash(record.Get("taskId"))+
+			" cron="+parser.SettingOrDash(record.Get("cron"))))
 		return
 	case detail == "":
 		if rest := withoutKeys(record, isSystemEnvelope); rest.Len() > 0 {

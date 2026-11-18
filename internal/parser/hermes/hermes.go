@@ -220,14 +220,6 @@ func copyRow(base timeline.Row, text, model string) timeline.Row {
 	return base
 }
 
-// dash returns a value as row text, "-" when it is absent or empty.
-func dash(value jsonvalue.Value) string {
-	if value.IsNull() || value.IsString() && value.StringValue() == "" {
-		return "-"
-	}
-	return parser.SettingValue(value)
-}
-
 // parseJSONL emits the rows of a sessions/<id>.jsonl copy, whose name is
 // the session id.
 func (p *Parser) parseJSONL(artifact *input.Artifact, options parser.Options, emit parser.Emit) {

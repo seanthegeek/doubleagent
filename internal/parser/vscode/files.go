@@ -1,6 +1,7 @@
 package vscode
 
 import (
+	"cmp"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -31,8 +32,8 @@ func (p *Parser) cloudSessions(artifact *input.Artifact, emit parser.Emit) {
 	}
 	for _, member := range document.Members() {
 		entry := member.Value
-		text := "session synced: remote session " + orDash(parser.Text(entry.Get("cloudSessionId"))) +
-			" task " + orDash(parser.Text(entry.Get("cloudTaskId"))) +
+		text := "session synced: remote session " + cmp.Or(parser.Text(entry.Get("cloudSessionId")), "-") +
+			" task " + cmp.Or(parser.Text(entry.Get("cloudTaskId")), "-") +
 			" (from User/globalStorage/github.copilot-chat/cloudSessions.json, file mtime)"
 		row := p.systemRow(artifact, member.Key, timestamp, text)
 		row.SourceLine = 1

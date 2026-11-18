@@ -1,7 +1,6 @@
 package letta
 
 import (
-	"cmp"
 	"fmt"
 	"strings"
 
@@ -24,12 +23,6 @@ func timeOrDash(value jsonvalue.Value) string {
 		return timestamp
 	}
 	return "-"
-}
-
-// textOrDash returns a value as row text, "-" for an empty value (so
-// false and zero are "-" too, unlike dash).
-func textOrDash(value jsonvalue.Value) string {
-	return cmp.Or(parser.Text(value), "-")
 }
 
 // lineOne returns a system row of the artifact at line 1 with the given
@@ -101,8 +94,8 @@ func syncRows(servers jsonvalue.Value, rel string, put func(sessionID, text stri
 		}
 		entry := server.Value
 		put(parser.Text(entry.Get("conversationId")), "session synced: last session on "+
-			server.Key+" agent "+textOrDash(entry.Get("agentId"))+" conversation "+
-			textOrDash(entry.Get("conversationId"))+" (from "+rel+", file mtime)")
+			server.Key+" agent "+parser.TextOrDash(entry.Get("agentId"))+" conversation "+
+			parser.TextOrDash(entry.Get("conversationId"))+" (from "+rel+", file mtime)")
 	}
 }
 

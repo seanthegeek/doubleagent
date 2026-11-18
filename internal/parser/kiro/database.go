@@ -45,26 +45,17 @@ func (p *Parser) databaseRows(artifact *input.Artifact, options parser.Options,
 		}
 		for position, record := range rows {
 			value := record.Get("value")
-			text := orText(value)
+			text := parser.NonEmptyColumn(value)
 			if value.Type == sqlitefile.Blob {
 				text = textlines.ValidUTF8(value.Bytes)
 			}
-			p.conversation(artifact, options, text, orText(record.Get("key")), position+1, emit)
+			p.conversation(artifact, options, text, parser.NonEmptyColumn(record.Get("key")), position+1, emit)
 		}
 	}
 	if tables["history"] {
 		return p.shellHistory(artifact, database, emit)
 	}
 	return nil
-}
-
-// orText returns a column as row text, "" for an empty value (NULL, zero,
-// or empty text or blob).
-func orText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
 }
 
 // shellHistory emits one "shell history:" row per row of the legacy Fig
@@ -84,7 +75,7 @@ func (p *Parser) shellHistory(artifact *input.Artifact, database *sqlitefile.Dat
 		if record.Has("start_time") {
 			start = record.Get("start_time")
 		}
-		text := "shell history: " + orText(record.Get("command"))
+		text := "shell history: " + parser.NonEmptyColumn(record.Get("command"))
 		extras := ""
 		for _, key := range []string{"exit_code", "shell", "hostname", "duration"} {
 			value := record.Get(key)
@@ -102,8 +93,8 @@ func (p *Parser) shellHistory(artifact *input.Artifact, database *sqlitefile.Dat
 		row := p.SystemRow(artifact, timeline.Compact(text))
 		row.SourceLine = position + 1
 		row.TimestampUTC = parser.ColumnTime(start)
-		row.SessionID = orText(record.Get("session_id"))
-		row.ProjectPath = orText(record.Get("cwd"))
+		row.SessionID = parser.NonEmptyColumn(record.Get("session_id"))
+		row.ProjectPath = parser.NonEmptyColumn(record.Get("cwd"))
 		emit(row)
 	}
 	return nil

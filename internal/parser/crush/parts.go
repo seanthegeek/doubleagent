@@ -74,14 +74,6 @@ func modelText(seen map[string]modelState, sessionID, provider, requested, prism
 	return text
 }
 
-// columnText returns a column's text when it is text, else "".
-func columnText(value sqlitefile.Value) string {
-	if value.Type == sqlitefile.Text {
-		return value.String()
-	}
-	return ""
-}
-
 // message is one message being read: the row and what its parts share.
 type message struct {
 	record             sqlitefile.Row
@@ -104,11 +96,11 @@ func (r *messageReader) base(current *message, timestamp string) timeline.Row {
 // message emits the rows of one message: its model change, then a row per
 // part, each followed by the rows that part adds.
 func (r *messageReader) message(record sqlitefile.Row) {
-	provider := columnText(record.Get("provider"))
-	requested, prism := columnText(record.Get("model")), columnText(record.Get("prism_model_id"))
+	provider := parser.TextColumn(record.Get("provider"))
+	requested, prism := parser.TextColumn(record.Get("model")), parser.TextColumn(record.Get("prism_model_id"))
 	modelID := timeutil.FirstNonEmpty(prism, requested)
-	current := &message{record: record, role: orText(record.Get("role")),
-		sessionID: orText(record.Get("session_id")), model: modelID,
+	current := &message{record: record, role: parser.NonEmptyColumn(record.Get("role")),
+		sessionID: parser.NonEmptyColumn(record.Get("session_id")), model: modelID,
 		created: parser.ColumnTime(record.Get("created_at"))}
 	if provider != "" && modelID != "" {
 		current.model = provider + "/" + modelID
@@ -234,7 +226,7 @@ func (r *messageReader) textPart(current *message, data jsonvalue.Value, row *ti
 	if !data.Get("hidden").IsEmpty() {
 		text = "[hidden] " + text
 	}
-	relay, key := r.relayText(text, orText(current.record.Get("id")))
+	relay, key := r.relayText(text, parser.NonEmptyColumn(current.record.Get("id")))
 	if relay == "" || current.role != timeline.TurnUser || r.relayed[[2]string{current.sessionID, key}] {
 		return text, nil
 	}

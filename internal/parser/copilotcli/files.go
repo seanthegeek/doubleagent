@@ -144,8 +144,8 @@ func (p *Parser) parseWorkspace(artifact *input.Artifact, sessionID string, emit
 		emit(p.row(artifact, 1, timeline.TurnSystem, "session name: "+metadata["name"], set))
 	}
 	emit(p.row(artifact, 1, timeline.TurnSystem, "session metadata: user_named="+
-		orDash(metadata["user_named"])+" forks="+orDash(metadata["fork_count"])+" compactions="+
-		orDash(metadata["summary_count"])+" client="+metadata["client_name"], set))
+		cmp.Or(metadata["user_named"], "-")+" forks="+cmp.Or(metadata["fork_count"], "-")+" compactions="+
+		cmp.Or(metadata["summary_count"], "-")+" client="+metadata["client_name"], set))
 	// A session the app pre-created and never prompted (Copilot Desktop's pool
 	// and probe sessions) has no events.jsonl; its cwd is the agent's, not a
 	// project.
@@ -157,8 +157,8 @@ func (p *Parser) parseWorkspace(artifact *input.Artifact, sessionID string, emit
 	if metadata["mc_session_id"] != "" {
 		set.timestamp = parser.FileMtime(artifact)
 		emit(p.row(artifact, 1, timeline.TurnSystem, "session synced: remote session "+
-			orDash(metadata["mc_session_id"])+" task "+orDash(metadata["mc_task_id"])+" last event "+
-			orDash(metadata["mc_last_event_id"])+" remote_steerable="+orDash(metadata["remote_steerable"])+
+			cmp.Or(metadata["mc_session_id"], "-")+" task "+cmp.Or(metadata["mc_task_id"], "-")+" last event "+
+			cmp.Or(metadata["mc_last_event_id"], "-")+" remote_steerable="+cmp.Or(metadata["remote_steerable"], "-")+
 			" (from workspace.yaml, file mtime)", set))
 	}
 }

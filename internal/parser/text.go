@@ -58,8 +58,9 @@ func JSONText(value jsonvalue.Value) string {
 	return value.JSON()
 }
 
-// SettingValue returns a setting as row text: "true" or "false" for a
-// boolean, a string as it is, anything else as JSONText.
+// SettingValue returns a value as row text the way a setting, or any value
+// a row shows whole, is written: a string as it is, anything else as
+// JSONText, so a boolean is "true" or "false".
 func SettingValue(value jsonvalue.Value) string {
 	if flag, ok := value.Bool(); ok {
 		if flag {

@@ -63,15 +63,6 @@ func valueKey(value sqlitefile.Value) string {
 	return "null"
 }
 
-// orText returns a column as row text, "" for an empty value (NULL, zero,
-// or empty text or blob).
-func orText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
-}
-
 // readCalls returns the tool calls by message, each message's in id order.
 func readCalls(database *sqlitefile.Database) (map[string][]toolCall, error) {
 	calls := map[string][]toolCall{}
@@ -83,7 +74,7 @@ func readCalls(database *sqlitefile.Database) (map[string][]toolCall, error) {
 		OrderBy("message_id", "id").Each(func(row sqlitefile.Row) error {
 		key := valueKey(row.Get("message_id"))
 		calls[key] = append(calls[key], toolCall{callID: row.Get("id"),
-			name: orText(row.Get("function_name")), arguments: row.Get("function_arguments")})
+			name: parser.NonEmptyColumn(row.Get("function_name")), arguments: row.Get("function_arguments")})
 		return nil
 	})
 	return calls, err
@@ -101,7 +92,7 @@ func readAttachments(database *sqlitefile.Database) (map[string][]attachment, er
 		Compute("n", func(row sqlitefile.Row) sqlitefile.Value { return sqlitefile.Length(row.Get("data")) }).
 		OrderBy("message_id", "id").Each(func(row sqlitefile.Row) error {
 		key := valueKey(row.Get("message_id"))
-		files[key] = append(files[key], attachment{filename: orText(row.Get("filename")),
+		files[key] = append(files[key], attachment{filename: parser.NonEmptyColumn(row.Get("filename")),
 			size: row.Get("n").Int})
 		return nil
 	})
@@ -176,17 +167,17 @@ func (m *messageReader) message(message sqlitefile.Row) {
 	if messageID.IsEmpty() {
 		messageID = sqlitefile.IntValue(0)
 	}
-	sessionID := orText(message.Get("chat_id"))
+	sessionID := parser.NonEmptyColumn(message.Get("chat_id"))
 	if !m.state.started || sessionID != m.state.chat {
 		m.state.chat, m.state.started, m.state.pending, m.state.used = sessionID, true, nil, 0
 	}
 	key := valueKey(messageID)
 	timestamp := parser.ColumnTime(message.Get("created_at"))
 	row := m.parser.row(m.artifact, sourceLine(messageID), sessionID, timestamp)
-	switch role := orText(message.Get("role")); role {
+	switch role := parser.NonEmptyColumn(message.Get("role")); role {
 	case "user":
 		parts := []string{}
-		if content := orText(message.Get("content")); content != "" {
+		if content := parser.NonEmptyColumn(message.Get("content")); content != "" {
 			parts = append(parts, content)
 		}
 		for _, file := range m.files[key] {
@@ -202,7 +193,7 @@ func (m *messageReader) message(message sqlitefile.Row) {
 		m.toolResult(message, row)
 	default:
 		row.TurnType = timeline.TurnSystem
-		content := orText(message.Get("content"))
+		content := parser.NonEmptyColumn(message.Get("content"))
 		if role != "system" {
 			content = role + ": " + content
 		}
@@ -214,8 +205,8 @@ func (m *messageReader) message(message sqlitefile.Row) {
 // assistant emits an assistant message's model change, thinking, text and
 // tool calls; base is the row the others start from.
 func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key string) {
-	content, thinking := orText(message.Get("content")), orText(message.Get("thinking"))
-	model := orText(message.Get("model_name"))
+	content, thinking := parser.NonEmptyColumn(message.Get("content")), parser.NonEmptyColumn(message.Get("thinking"))
+	model := parser.NonEmptyColumn(message.Get("model_name"))
 	calls := m.calls[key]
 	build := func(turnType, text string) timeline.Row {
 		row := base
@@ -258,7 +249,7 @@ func (m *messageReader) toolResult(message sqlitefile.Row, row timeline.Row) {
 		row.ToolName = pending[len(pending)-1].name
 	}
 	m.state.used++
-	text := orText(message.Get("content"))
+	text := parser.NonEmptyColumn(message.Get("content"))
 	if text == "" {
 		text = resultFallback(message.Get("tool_result"))
 	}

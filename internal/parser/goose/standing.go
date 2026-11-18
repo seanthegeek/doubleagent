@@ -165,13 +165,7 @@ func (p *Parser) parseSchedule(artifact *input.Artifact, emit parser.Emit) {
 // scheduleText returns the "scheduled task:" text of one job; "-" stands
 // for an absent value, and parameters are added only when the job has any.
 func scheduleText(job jsonvalue.Value, rel string) string {
-	value := func(key string) string {
-		stored := job.Get(key)
-		if stored.IsNull() || stored.IsString() && stored.StringValue() == "" {
-			return "-"
-		}
-		return parser.SettingValue(stored)
-	}
+	value := func(key string) string { return parser.SettingOrDash(job.Get(key)) }
 	flag := func(key string) string {
 		return parser.SettingValue(jsonvalue.NewBool(!job.Get(key).IsEmpty()))
 	}

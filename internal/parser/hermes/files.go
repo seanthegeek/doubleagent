@@ -129,7 +129,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, match []string, emit par
 			continue
 		}
 		emit(p.setting(artifact, position, "permission setting: pairing."+match[2]+"."+user.Key+
-			" user_name="+dash(user.Value.Get("user_name"))+" (from "+name+", approved_at)",
+			" user_name="+parser.SettingOrDash(user.Value.Get("user_name"))+" (from "+name+", approved_at)",
 			timeutil.FromValue(user.Value.Get("approved_at"))))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -229,8 +229,8 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 	head.SourceLine, head.ProjectPath, head.TurnType = number, project, timeline.TurnSystem
 	head.Model = parser.Text(record.Get("model"))
 	head.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-	head.Text = "trajectory: model=" + dash(record.Get("model")) + " completed=" +
-		dash(record.Get("completed")) + " (from " + name + ", timestamp host-local)"
+	head.Text = "trajectory: model=" + parser.SettingOrDash(record.Get("model")) + " completed=" +
+		parser.SettingOrDash(record.Get("completed")) + " (from " + name + ", timestamp host-local)"
 	emit(head)
 	for _, entry := range record.Get("conversations").Items() {
 		row := p.BaseRow(artifact)
@@ -251,7 +251,7 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 				value = parser.JSONText(entry)
 			}
 			row.TurnType = timeline.TurnSystem
-			row.Text = timeline.Compact(dash(sender) + ": " + value)
+			row.Text = timeline.Compact(parser.SettingOrDash(sender) + ": " + value)
 		}
 		emit(row)
 	}
@@ -284,7 +284,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 	}
 	for _, entry := range parser.Elements(document.Get("quarantined")) {
 		emit(p.setting(artifact, 0, "remote backend quarantined by the app: "+
-			dash(entry.Get("reason"))+tail, timestamp))
+			parser.SettingOrDash(entry.Get("reason"))+tail, timestamp))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
@@ -307,8 +307,8 @@ func connectionText(connection jsonvalue.Value) string {
 		}
 		target = jsonvalue.NewString(text)
 	}
-	text := "remote backend: " + dash(connection.Get("kind")) + " " + dash(connection.Get("label")) +
-		" " + dash(target)
+	text := "remote backend: " + parser.SettingOrDash(connection.Get("kind")) + " " + parser.SettingOrDash(connection.Get("label")) +
+		" " + parser.SettingOrDash(target)
 	for _, pair := range [][2]string{{"org", "org"}, {"name", "name"}, {"remoteProfile", "profile"}} {
 		if value := connection.Get(pair[0]); !value.IsEmpty() {
 			text += " " + pair[1] + "=" + parser.SettingValue(value)

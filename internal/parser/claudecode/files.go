@@ -89,8 +89,8 @@ func (r *Reader) ccrTip(artifact *input.Artifact, emit parser.Emit) {
 	}
 	row := r.fileRow(artifact)
 	row.SessionID = session
-	row.Text = timeline.Compact(timeline.SyncedPrefix + " remote event " + valueText(document, "eventId") +
-		" at " + valueText(document, "updatedAt") + " (from " + artifact.Rel + ", file mtime)")
+	row.Text = timeline.Compact(timeline.SyncedPrefix + " remote event " + parser.SettingOrDash(document.Get("eventId")) +
+		" at " + parser.SettingOrDash(document.Get("updatedAt")) + " (from " + artifact.Rel + ", file mtime)")
 	emit(row)
 }
 
@@ -104,8 +104,8 @@ func (r *Reader) bridgePointer(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	row := r.fileRow(artifact)
-	row.Text = timeline.Compact("remote control: environment " + valueText(document, "environmentId") +
-		" session " + valueText(document, "sessionId") + " source=" + valueText(document, "source") +
+	row.Text = timeline.Compact("remote control: environment " + parser.SettingOrDash(document.Get("environmentId")) +
+		" session " + parser.SettingOrDash(document.Get("sessionId")) + " source=" + parser.SettingOrDash(document.Get("source")) +
 		" (from " + artifact.Rel + ", file mtime)")
 	emit(row)
 }
@@ -216,7 +216,7 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 		// accountUuid and orgUuid are identity values: never printed.
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
-		row.Text = timeline.Compact("source host: github status=" + valueText(github, "status") +
+		row.Text = timeline.Compact("source host: github status=" + parser.SettingOrDash(github.Get("status")) +
 			" (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}

@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"cmp"
 	"math"
 	"strconv"
 
@@ -35,7 +36,7 @@ func trackingTables() []trackingTable {
 // columnField returns a column value as row text, "-" when it is NULL or
 // "".
 func columnField(value sqlitefile.Value) string {
-	return orDash(asText(value))
+	return cmp.Or(asText(value), "-")
 }
 
 // joinProject gives a row the session id and, when the home's store knows
@@ -113,11 +114,11 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 			row(cloudOrigin)
 		}
 		if title := timeline.Compact(asText(record.Get("title"))); title != "" {
-			row("conversation index: " + title + " source=" + orDash(source) + " archived=" +
+			row("conversation index: " + title + " source=" + cmp.Or(source, "-") + " archived=" +
 				columnField(record.Get("is_archived")))
 		}
 		if body := timeline.Compact(asText(bodies[valueKey(record.Get("fts_rowid"))])); body != "" {
-			row("cached conversation text (conversation-search.db, source=" + orDash(source) + "): " + body)
+			row("cached conversation text (conversation-search.db, source=" + cmp.Or(source, "-") + "): " + body)
 		}
 	}
 }

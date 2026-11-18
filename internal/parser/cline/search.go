@@ -87,27 +87,18 @@ func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
 	}
 	meta := map[string]sqlitefile.Row{}
 	for _, indexed := range index.indexed {
-		sessionID := columnText(indexed.Get("session_id"))
+		sessionID := parser.NonEmptyColumn(indexed.Get("session_id"))
 		add(sessionID)
 		meta[sessionID] = indexed
 	}
 	for _, document := range index.documents {
-		sessionID := columnText(document.Get("session_id"))
+		sessionID := parser.NonEmptyColumn(document.Get("session_id"))
 		add(sessionID)
 		bySession[sessionID] = append(bySession[sessionID], document)
 	}
 	for _, sessionID := range order {
 		p.searchSession(artifact, sessionID, meta[sessionID], bySession[sessionID], emit)
 	}
-}
-
-// columnText returns a column as row text, "" for an empty value (null,
-// zero, empty text or an empty blob).
-func columnText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
 }
 
 // searchSession emits the index row of one session, then a row per
@@ -119,7 +110,7 @@ func (p *Parser) searchSession(artifact *input.Artifact, sessionID string, index
 	if !hasHead && len(messages) > 0 {
 		first = messages[0]
 	}
-	workspace := columnText(first.Get("workspace_root"))
+	workspace := parser.NonEmptyColumn(first.Get("workspace_root"))
 	project := p.searchProject(artifact, sessionID, workspace)
 	row := p.BaseRow(artifact)
 	row.TimestampUTC = parser.ColumnTime(first.Get("started_at"))

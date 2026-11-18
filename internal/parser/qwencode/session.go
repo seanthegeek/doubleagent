@@ -331,7 +331,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 		kind, message := each.value.Get("type"), each.value.Get("message")
 		var text string
 		if parser.IsText(kind, "user") {
-			row.TurnType, text = timeline.TurnUser, textOrJSON(message)
+			row.TurnType, text = timeline.TurnUser, parser.SettingValue(message)
 		} else {
 			row.TurnType = timeline.TurnSystem
 			event := message
@@ -345,7 +345,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 					" reason=" + event.Get("reason").Text()
 				row.Model = parser.Text(event.Get("toModel"))
 			} else {
-				text = kind.Text() + ": " + textOrJSON(event)
+				text = kind.Text() + ": " + parser.SettingValue(event)
 			}
 		}
 		row.Text = timeline.Compact(text)

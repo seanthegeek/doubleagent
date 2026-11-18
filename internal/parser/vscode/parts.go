@@ -1,6 +1,7 @@
 package vscode
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -83,14 +84,6 @@ func uriToPath(uri string) string {
 	return uri
 }
 
-// textOrJSON returns a string as it is and any other value as JSON.
-func textOrJSON(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
-}
-
 // toolCallText returns a tool invocation's command line or raw input, else
 // its input, else its invocation message.
 func toolCallText(part jsonvalue.Value) string {
@@ -103,7 +96,7 @@ func toolCallText(part jsonvalue.Value) string {
 		return original.Text()
 	}
 	if raw, ok := specific.Lookup("rawInput"); ok {
-		return textOrJSON(raw)
+		return parser.SettingValue(raw)
 	}
 	if input := part.Get("resultDetails").Get("input"); input.IsString() && input.StringValue() != "" {
 		return input.StringValue()
@@ -171,7 +164,7 @@ func detailsOutput(output jsonvalue.Value) string {
 		if output.IsNull() {
 			return ""
 		}
-		return textOrJSON(output)
+		return parser.SettingValue(output)
 	}
 	var values []string
 	for _, item := range output.Items() {
@@ -181,7 +174,7 @@ func detailsOutput(output jsonvalue.Value) string {
 			if !ok {
 				value = item.Get("text")
 			}
-			values = append(values, textOrJSON(value))
+			values = append(values, parser.SettingValue(value))
 		case item.IsString():
 			values = append(values, item.StringValue())
 		}
@@ -246,18 +239,10 @@ func editStateText(entry jsonvalue.Value) string {
 		name = parser.SettingValue(state)
 	}
 	info := entry.Get("telemetryInfo")
-	text := "edit state: " + name + " " + orDash(uriToPath(parser.Text(entry.Get("resource")))) +
-		" request=" + orDash(parser.Text(info.Get("requestId"))) + " model=" + orDash(parser.Text(info.Get("modelId")))
+	text := "edit state: " + name + " " + cmp.Or(uriToPath(parser.Text(entry.Get("resource"))), "-") +
+		" request=" + cmp.Or(parser.Text(info.Get("requestId")), "-") + " model=" + cmp.Or(parser.Text(info.Get("modelId")), "-")
 	if !entry.Get("isDeleted").IsEmpty() {
 		text += " deleted=true"
 	}
 	return text + " (from chatEditingSessions state.json, file mtime)"
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }
