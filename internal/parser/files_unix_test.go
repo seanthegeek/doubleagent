@@ -181,3 +181,21 @@ func TestAnEntryReplacedBetweenTheLookAndTheOpenIsRefused(t *testing.T) {
 		})
 	}
 }
+
+func TestUnderWithNoNamesRefusesALinkAsTheDirectory(t *testing.T) {
+	dir := t.TempDir()
+	plain := filepath.Join(dir, "real")
+	if err := os.Mkdir(plain, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(plain, link); err != nil {
+		t.Fatal(err)
+	}
+	if path, ok := Under(link); ok {
+		t.Errorf("Under(link) = %s, true", path)
+	}
+	if path, ok := Under(plain); !ok || path != plain {
+		t.Errorf("Under(plain) = %s, %v", path, ok)
+	}
+}

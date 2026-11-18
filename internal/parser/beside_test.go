@@ -152,3 +152,25 @@ func TestADirectorysChildIsOneNameBelowIt(t *testing.T) {
 		})
 	}
 }
+
+func TestSidecarNamesOnlyADatabasesOwnFiles(t *testing.T) {
+	database := filepath.Join("home", "state.vscdb")
+	for _, test := range []struct {
+		suffix, want string
+		ok           bool
+	}{
+		{"-wal", database + "-wal", true},
+		{"-shm", database + "-shm", true},
+		{"-journal", database + "-journal", true},
+		{"/../x", "", false},
+		{"-wal/x", "", false},
+		{"", "", false},
+	} {
+		if got, ok := Sidecar(database, test.suffix); got != test.want || ok != test.ok {
+			t.Errorf("Sidecar(%q) = %q, %v; want %q, %v", test.suffix, got, ok, test.want, test.ok)
+		}
+	}
+	if _, ok := Sidecar("", "-wal"); ok {
+		t.Error("Sidecar of no database gave a path")
+	}
+}

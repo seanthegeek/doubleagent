@@ -259,7 +259,8 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked base"},
 		{"internal/parser/files.go", "osfile.ReadDir", 1,
 			"lists a directory of the input its own lstat typed a directory, not a link, at a path " +
-				"the kit built (Beside, Above, Under, Home.PathOf), which refused a link on the way down"},
+				"the kit built (Beside, Above, Under, Home.PathOf, or a Directory's Path or Child), " +
+				"which refused a link on the way down"},
 		{"internal/sqlitefile/path.go", "osfile.Open", 1,
 			"reads a database or sidecar its own lstat typed a regular file, then checks the handle " +
 				"is that file"},

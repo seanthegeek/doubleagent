@@ -54,8 +54,8 @@ func Above(artifact *input.Artifact, levels int, names ...string) (string, bool)
 
 // Under returns names joined below directory, a path Beside, Above,
 // Home.PathOf or a Directory gave, and true; it is false when a name is not
-// one plain component or when directory itself, or any directory on the way
-// down, is a link. The last name is left for the reader, which never
+// one plain component or when directory itself (with no names as with
+// some), or any directory on the way down, is a link. The last name is left for the reader, which never
 // follows it. Each call looks at every level again, so a parser reading
 // many files of one directory takes it once as a Directory instead.
 func Under(directory string, names ...string) (string, bool) {
@@ -65,6 +65,20 @@ func Under(directory string, names ...string) (string, bool) {
 		}
 	}
 	return input.Below(directory, names...)
+}
+
+// Sidecar returns the path of a database's sidecar file, the database's
+// path, a path the kit built, with suffix appended: one of "-wal", "-shm"
+// and "-journal", the files SQLite keeps beside a database under its name.
+// It is false for any other suffix. The sidecar is a sibling of the
+// database, so no directory is passed; its own entry is left for the
+// reader, which never follows it.
+func Sidecar(path, suffix string) (string, bool) {
+	switch suffix {
+	case "-wal", "-shm", "-journal":
+		return path + suffix, path != ""
+	}
+	return "", false
 }
 
 // Directory is a directory a parser reads several entries of: a path the

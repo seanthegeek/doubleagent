@@ -35,8 +35,9 @@ func checkElement(element string) error {
 // joined below base, and the components on the way down are looked at with
 // lstat, base itself too when checkBase is set: a link at any of them is
 // errThroughLink, never followed. The last element is not looked at, so
-// the caller decides what it may be; a component that does not exist ends
-// the look, since nothing can be read through it.
+// the caller decides what it may be, unless there is none: base is then
+// the path and a link there is refused when checkBase is set. A component
+// that does not exist ends the look, since nothing can be read through it.
 func below(base string, elements []string, checkBase bool) (string, error) {
 	for _, element := range elements {
 		if err := checkElement(element); err != nil {
@@ -48,6 +49,9 @@ func below(base string, elements []string, checkBase bool) (string, error) {
 	}
 	path := base
 	if len(elements) == 0 {
+		if info, err := osfile.Lstat(path); checkBase && err == nil && isLink(info) {
+			return "", errThroughLink
+		}
 		return path, nil
 	}
 	for i, element := range elements {

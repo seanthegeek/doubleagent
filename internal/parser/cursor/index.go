@@ -57,7 +57,10 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		return &stateIndex{projects: map[string]project{}, models: map[string]string{}}
 	}
 	size, mtime := fileState(path)
-	logSize, logMtime := fileState(path + "-wal")
+	var logSize, logMtime int64
+	if log, ok := parser.Sidecar(path, "-wal"); ok {
+		logSize, logMtime = fileState(log)
+	}
 	key := [5]int64{size, mtime, logSize, logMtime, 1}
 	if p.index != nil && p.index.path == path && p.index.key == key {
 		return p.index
