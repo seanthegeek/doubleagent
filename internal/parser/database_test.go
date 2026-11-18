@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -118,4 +119,53 @@ func TestColumnTextWritesEachStorageClassAsRowText(t *testing.T) {
 			}
 		})
 	}
+}
+
+// sharedMemoryCase is a state of the -shm file beside a database, made by
+// place at the -shm file's path.
+type sharedMemoryCase struct {
+	name  string
+	place func(t *testing.T, path string)
+}
+
+// checkSharedMemoryCases opens a copy of a database with each state of
+// -shm beside it and fails unless the database opens and reads in full:
+// SQLite rebuilds the -shm file from the log, so OpenDatabase never reads
+// it.
+func checkSharedMemoryCases(t *testing.T, cases []sharedMemoryCase) {
+	t.Helper()
+	data, err := osfile.ReadFile(filepath.Join("..", "sqlitefile", "testdata", "sites.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range cases {
+		t.Run("a database with "+test.name+" beside it opens and reads", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "state.vscdb")
+			if err := osfile.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			test.place(t, path+"-shm")
+			database, err := OpenDatabase(path)
+			if err != nil {
+				t.Fatalf("OpenDatabase() = %v, want the database open", err)
+			}
+			defer database.Close()
+			table, err := database.Table("ItemTable")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rows, err := table.Select("key", "value").All(); err != nil || len(rows) == 0 {
+				t.Errorf("Select().All() = %d rows, %v; want every row", len(rows), err)
+			}
+		})
+	}
+}
+
+func TestADirectoryInPlaceOfTheSharedMemoryFileIsNoProblem(t *testing.T) {
+	checkSharedMemoryCases(t, []sharedMemoryCase{{"a directory named as its -shm file",
+		func(t *testing.T, path string) {
+			if err := osfile.MkdirAll(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}}})
 }
