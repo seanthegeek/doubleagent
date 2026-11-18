@@ -3,6 +3,7 @@ package opencode
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -75,6 +76,57 @@ func TestASessionsSideFilesAreReadOnceForAllItsMessages(t *testing.T) {
 			if reads := subject.Work.Count("session side reads"); rows == 0 || reads != 1 {
 				t.Errorf("%d messages gave %d rows and read the session's side files %d times, want once",
 					messages, rows, reads)
+			}
+		})
+	}
+}
+
+// Every session file of a project names the project's file, so it is read
+// once per state of it for the run, and a damaged one is still reported on
+// each session file as a fresh read would report it.
+func TestAProjectFileIsReadOnceForAllItsSessions(t *testing.T) {
+	const storage = ".local/share/opencode/storage"
+	const sessions = 20
+	tests := []struct {
+		name, project, projectPath, problem string
+	}{
+		{"a whole project file gives each session its worktree", `{"worktree": "/work/proj"}`, "/work/proj", ""},
+		{"a damaged project file is reported on each session", `{"worktree": `, "",
+			"parser: project file p1.json could not be read (invalid JSON at line 1, column 14: " +
+				"unexpected end of JSON input)"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			files := map[string]string{storage + "/project/p1.json": test.project}
+			var rels []string
+			for i := range sessions {
+				rel := fmt.Sprintf("%s/session/p1/ses_%03d.json", storage, i)
+				rels = append(rels, rel)
+				files[rel] = fmt.Sprintf(`{"id": "ses_%03d", "projectID": "p1", "title": "t%d"}`, i, i)
+			}
+			home := writeTree(t, files)
+			subject := New()
+			subject.Work = parser.CountingWork()
+			for _, rel := range rels {
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
+					Home: &input.Home{DiskPath: home}}
+				var problems []string
+				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+					if row.ProjectPath != test.projectPath {
+						t.Errorf("%s: row %q has project %q, want %q", rel, row.Text, row.ProjectPath, test.projectPath)
+					}
+					if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+						problems = append(problems, row.Text)
+					}
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if (test.problem == "") != (len(problems) == 0) || (test.problem != "" && problems[0] != test.problem) {
+					t.Errorf("%s: problems %q, want %q", rel, problems, test.problem)
+				}
+			}
+			if reads := subject.Work.Count("project file reads"); reads != 1 {
+				t.Errorf("%d sessions read the project file %d times, want once", sessions, reads)
 			}
 		})
 	}
