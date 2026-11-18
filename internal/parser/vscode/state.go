@@ -3,6 +3,7 @@ package vscode
 import (
 	"cmp"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -65,14 +66,11 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	if workspace {
 		project, _ = p.workspaceJSON(artifact, 0, &errors)
 	}
-	if state := values[copilotStateKey]; state.IsObject() {
-		p.ownedTaskRows(artifact, state.Get(ownedTasksKey), emit)
-		p.selectedRepoRows(artifact, state.Get(selectedReposKey), emit)
-	}
+	p.copilotStateRows(artifact, values[copilotStateKey], &problems, emit)
 	if !workspace {
 		usages, more := usageItems(artifact.DiskPath)
 		problems = append(problems, more...)
-		p.sourceHostRows(artifact, usages, emit)
+		p.sourceHostRows(artifact, usages, &problems, emit)
 	}
 	timestamp, source := parser.FileMtime(artifact), userRel(artifact.Rel)
 	for _, text := range grantTexts(values, &problems) {
@@ -86,6 +84,26 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, errors, "", project))
+}
+
+// copilotStateRows emits the cloud agent task and selected repository rows
+// of the GitHub.copilot-chat value. A value, ownedTasks or
+// userSelectedRepositories of the wrong kind adds a problem; a value that is
+// not JSON is held as a string, which ReadItems has already reported.
+func (p *Parser) copilotStateRows(artifact *input.Artifact, state jsonvalue.Value, problems *[]string,
+	emit parser.Emit) {
+	if !state.IsObject() {
+		notJSON := vscodestate.ValueProblem + copilotStateKey + " is not valid JSON"
+		reported := slices.ContainsFunc(*problems, func(problem string) bool {
+			return strings.HasPrefix(problem, notJSON)
+		})
+		if !state.IsNull() && !reported {
+			*problems = append(*problems, vscodestate.ValueProblem+parser.WrongKind(copilotStateKey, jsonvalue.Object))
+		}
+		return
+	}
+	p.ownedTaskRows(artifact, state.Get(ownedTasksKey), problems, emit)
+	p.selectedRepoRows(artifact, state.Get(selectedReposKey), problems, emit)
 }
 
 // grantTexts returns the "permission setting:" texts, without the source,
@@ -190,11 +208,18 @@ func usageText(value sqlitefile.Value) string {
 
 // sourceHostRows emits a "source host:" row per extension or MCP server
 // that used a GitHub account, at the usage's lastUsed. The account label
-// is the GitHub login; a GitHub Enterprise label ends " - <host><path>".
-func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, emit parser.Emit) {
+// is the GitHub login; a GitHub Enterprise label ends " - <host><path>". A
+// usage value that is not an array adds a problem.
+func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, problems *[]string, emit parser.Emit) {
 	for _, item := range usages {
 		match := usageKey.FindStringSubmatch(item.key)
-		if match == nil || !item.value.IsArray() {
+		if match == nil {
+			continue
+		}
+		if !item.value.IsArray() {
+			if !item.value.IsNull() {
+				*problems = append(*problems, vscodestate.ValueProblem+parser.WrongKind(item.key, jsonvalue.Array))
+			}
 			continue
 		}
 		provider, label, mcp := match[1], match[2], match[3] != ""
@@ -239,9 +264,14 @@ func scopesText(scopes jsonvalue.Value) string {
 }
 
 // ownedTaskRows emits a "session synced:" and a "session origin: remote"
-// row per owned cloud agent task.
-func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, emit parser.Emit) {
+// row per owned cloud agent task; tasks that is not an object adds a
+// problem.
+func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, problems *[]string,
+	emit parser.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + ownedTasksKey + ", recordedAt)"
+	if !tasks.IsObject() && !tasks.IsNull() {
+		*problems = append(*problems, parser.WrongKind(ownedTasksKey, jsonvalue.Object))
+	}
 	for _, task := range tasks.Members() {
 		recorded, application := task.Value, jsonvalue.NewNull()
 		if task.Value.IsObject() {
@@ -255,9 +285,14 @@ func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, 
 }
 
 // selectedRepoRows emits a "source host repository:" row per repository
-// picked for a cloud agent task.
-func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories jsonvalue.Value, emit parser.Emit) {
+// picked for a cloud agent task; repositories that is not an array adds a
+// problem.
+func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories jsonvalue.Value, problems *[]string,
+	emit parser.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + selectedReposKey + ", timestamp)"
+	if !repositories.IsArray() && !repositories.IsNull() {
+		*problems = append(*problems, parser.WrongKind(selectedReposKey, jsonvalue.Array))
+	}
 	for _, entry := range repositories.Items() {
 		if name := entry.Get("name"); entry.IsObject() && !name.IsEmpty() {
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("timestamp")),

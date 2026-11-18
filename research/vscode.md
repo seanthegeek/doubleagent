@@ -1057,8 +1057,23 @@ read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, and a damaged `state.vscdb`
 or a value that is not JSON is `parser: state.vscdb unreadable: <message>` or
-`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A `cloudSessions.json` that does
-not decode or is not a JSON object is `parser: cloudSessions.json is not a JSON object`, followed
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A member the format gives a kind
+that is present with another (an absent, null or empty one gives no row) is a row through
+`error_rows`: a `.json` or `.jsonl` session whose state is not an object is
+`parser: <file> is not a JSON object` (`<file>` its name) and one whose `requests` is not an array
+`parser: requests is not a JSON array`, both at the line of the session's creation (0 for a `.json`
+session); a chat editing `state.json` whose `recentSnapshot` is not an object or whose
+`recentSnapshot.entries` is not an array is `parser: recentSnapshot is not a JSON object` or
+`parser: recentSnapshot.entries is not a JSON array`. In a profile's `state.vscdb`, a
+`GitHub.copilot-chat` value that is JSON but not an object is
+`parser: ItemTable value for GitHub.copilot-chat is not a JSON object`, a
+`<provider>-<label>-usages` or `-mcpserver-usages` value that is not an array
+`parser: ItemTable value for <key> is not a JSON array`, and, inside `GitHub.copilot-chat`, an
+`ownedTasks` that is not an object or a `userSelectedRepositories` that is not an array
+`parser: github.copilot.cloudAgent.ownedTasks is not a JSON object` or
+`parser: userSelectedRepositories is not a JSON array`, after the grant rows. A
+`cloudSessions.json` that does not decode or is not a JSON object is
+`parser: cloudSessions.json is not a JSON object`, followed
 by the decoder's message in parentheses when it does not decode. A `.json` or `.jsonl` session, a
 chat editing `state.json`, `cloudSessions.json` or `settings.json` that cannot be read is one
 whole-file row `parser: <file> could not be read (<reason>)` through `error_rows`, `source_line` 0

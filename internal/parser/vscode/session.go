@@ -39,7 +39,8 @@ func (s *sessionRows) row(turnType, text string, timestamp jsonvalue.Value, line
 }
 
 // session emits the rows of a chat session file: a .jsonl mutation log
-// replayed, or a .json state.
+// replayed, or a .json state. A state that is not an object, or requests
+// that is not an array, adds a problem.
 func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	lines := requestLines{}
 	var problems parser.Problems
@@ -54,6 +55,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		state = decoded
 	}
 	if !state.IsObject() {
+		if !state.IsNull() {
+			problems.Add(lines[sessionStart], parser.WrongKind(path.Base(artifact.Rel), jsonvalue.Object))
+		}
 		state = jsonvalue.NewObject()
 	}
 	sessionID := parser.Text(state.Get("sessionId"))
@@ -74,7 +78,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		emit(rows.row(timeline.TurnSystem, sessionStartText(state, workspaceFile), state.Get("creationDate"),
 			lines[sessionStart], ""))
 	}
-	for i, request := range state.Get("requests").Items() {
+	for i, request := range parser.ArrayMember(state.Get("requests"), "requests", lines[sessionStart], &problems) {
 		if request.IsObject() {
 			rows.request(request, lines[int64(i)], options)
 		}

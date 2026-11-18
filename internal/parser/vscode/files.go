@@ -94,7 +94,8 @@ func settingTexts(key string, value jsonvalue.Value) []string {
 
 // editing emits an "edit state:" row per file of a chat editing state's
 // latest snapshot, at the file's modification time, with the folder's name
-// as the session id and the workspace's folder as the project.
+// as the session id and the workspace's folder as the project. A
+// recentSnapshot or its entries of the wrong kind adds a problem.
 func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
 	project, _ := p.workspaceJSON(artifact, 2, &problems)
@@ -110,7 +111,11 @@ func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser
 		document = decoded
 	}
 	timestamp := parser.FileMtime(artifact)
-	for _, entry := range document.Get("recentSnapshot").Get("entries").Items() {
+	snapshot := document.Get("recentSnapshot")
+	if !snapshot.IsObject() && !snapshot.IsNull() {
+		problems.Add(0, parser.WrongKind("recentSnapshot", jsonvalue.Object))
+	}
+	for _, entry := range parser.ArrayMember(snapshot.Get("entries"), "recentSnapshot.entries", 0, &problems) {
 		if entry.IsObject() {
 			row := p.systemRow(artifact, sessionID, timestamp, editStateText(entry))
 			row.ProjectPath, row.SourceLine = project, 1
