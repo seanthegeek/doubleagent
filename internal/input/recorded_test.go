@@ -60,10 +60,12 @@ func (d dumper) path(text string) string {
 		if rest, ok := strings.CutPrefix(text, base+string(filepath.Separator)); ok {
 			rest = filepath.ToSlash(rest)
 			// An archive path naming an absolute path is joined below
-			// the collection, so the test directory can appear again.
+			// the collection, so the test directory can appear again:
+			// without its leading slash, or on Windows as C:Users/...
 			for _, root := range d.roots {
-				rest = strings.ReplaceAll(rest, strings.TrimPrefix(filepath.ToSlash(root), "/"),
-					"<input>")
+				slashed := strings.TrimPrefix(filepath.ToSlash(root), "/")
+				rest = strings.ReplaceAll(rest, slashed, "<input>")
+				rest = strings.ReplaceAll(rest, strings.Replace(slashed, ":/", ":", 1), "<input>")
 			}
 			return label + "/" + rest, true
 		}
