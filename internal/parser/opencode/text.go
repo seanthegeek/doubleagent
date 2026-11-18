@@ -81,29 +81,13 @@ func objectOf(value jsonvalue.Value) jsonvalue.Value {
 	return jsonvalue.NewObject()
 }
 
-// firstTruthy returns the first value Python counts as true, else the last.
-func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return values[len(values)-1]
-}
-
 // join returns the non-empty parts joined by single spaces.
 func join(parts ...string) string {
-	kept := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " ")
+	return parser.JoinNonEmpty(" ", parts...)
 }
 
-// labelled returns label followed by the value's text when the value counts
-// as true, else "": the "key=value" parts of a row text.
+// labelled returns label followed by the value's text when the value is
+// not empty, else "": the "key=value" parts of a row text.
 func labelled(label string, value jsonvalue.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -132,22 +116,22 @@ func messageRef(message jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
 		return message.Get("providerID"), message.Get("modelID")
 	}
 	if model := message.Get("model"); model.IsObject() {
-		return model.Get("providerID"), firstTruthy(model.Get("modelID"), model.Get("id"))
+		return model.Get("providerID"), parser.FirstNonEmpty(model.Get("modelID"), model.Get("id"))
 	}
 	return jsonvalue.NewNull(), jsonvalue.NewNull()
 }
 
 // errorText returns an error value as row text: a string as it is; for an
 // object its name (else type) and its data.message (else message) joined,
-// else the object as compact JSON; "" for a value Python counts as false.
+// else the object as compact JSON; "" for an empty value.
 func errorText(raw jsonvalue.Value) string {
 	if raw.IsString() {
 		return raw.StringValue()
 	}
 	failure := objectOf(raw)
 	data := objectOf(failure.Get("data"))
-	name := firstTruthy(failure.Get("name"), failure.Get("type"))
-	message := firstTruthy(data.Get("message"), failure.Get("message"))
+	name := parser.FirstNonEmpty(failure.Get("name"), failure.Get("type"))
+	message := parser.FirstNonEmpty(data.Get("message"), failure.Get("message"))
 	if text := join(parser.Text(name), parser.Text(message)); text != "" {
 		return text
 	}

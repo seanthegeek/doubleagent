@@ -11,9 +11,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers,
-// with the oracle's results.
+// The rows each file gives are proved against the recorded cases by the
+// parser replay (internal/parity/replay); these tests cover the helpers.
 
 // decoded returns the JSON text decoded, failing the test when it is not
 // JSON.

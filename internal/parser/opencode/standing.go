@@ -1,7 +1,7 @@
 package opencode
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -28,9 +28,10 @@ func (s *store) shareRows() error {
 	for _, row := range rows {
 		identifier := columnText(row.Get("session_id"))
 		s.shares[identifier] = true
-		s.emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), fmt.Sprintf(
-			"%s share %s url %s (from %s session_share, time_created)", timeline.SyncedPrefix,
-			orDash(columnText(row.Get("id"))), orDash(columnText(row.Get("url"))), s.label)))
+		s.emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
+			" share "+orDash(columnText(row.Get("id")))+" url "+
+			orDash(columnText(row.Get("url")))+" (from "+s.label+
+			" session_share, time_created)"))
 	}
 	return nil
 }
@@ -82,36 +83,37 @@ func (s *store) eventShareRows() error {
 // adding the problem "unparseable record <rowid> (<label>: <reason>)",
 // with the column's text as raw, for the session id.
 func (s *store) decodeColumn(row sqlitefile.Row, column, label, sessionID string) (jsonvalue.Value, bool) {
-	value, reason, raw := decodeRecord(row.Get(column))
-	if reason != "" {
+	value, raw, err := decodeRecord(row.Get(column))
+	if err != nil {
 		s.failures = append(s.failures, failure{line: int(row.Rowid),
-			message: unparseable(row.Rowid, label, reason), raw: raw, sessionID: sessionID})
+			message: unparseable(row.Rowid, label, err), raw: raw, sessionID: sessionID})
 		return jsonvalue.NewNull(), false
 	}
 	return value, true
 }
 
-// decodeRecord returns a stored JSON value decoded to an object, or the
-// reason it is not one and its text.
-func decodeRecord(stored sqlitefile.Value) (jsonvalue.Value, string, string) {
-	text, reason, ok := columnJSON(stored)
-	if !ok {
-		return jsonvalue.NewNull(), reason, text
+// decodeRecord returns a stored JSON value decoded to an object and the
+// text it was read from, with an error saying why it is not an object.
+func decodeRecord(stored sqlitefile.Value) (jsonvalue.Value, string, error) {
+	text, err := columnJSON(stored)
+	if err != nil {
+		return jsonvalue.NewNull(), text, err
 	}
-	return decodeText(text)
+	value, err := decodeText(text)
+	return value, text, err
 }
 
-// decodeText returns text decoded to a JSON object, or the reason it is
-// not one and the text.
-func decodeText(text string) (jsonvalue.Value, string, string) {
+// decodeText returns text decoded to a JSON object, or an error saying why
+// it is not one.
+func decodeText(text string) (jsonvalue.Value, error) {
 	value, err := jsonvalue.DecodeString(text)
 	if err != nil {
-		return jsonvalue.NewNull(), err.Error(), text
+		return jsonvalue.NewNull(), err
 	}
 	if !value.IsObject() {
-		return jsonvalue.NewNull(), "not a JSON object", text
+		return jsonvalue.NewNull(), errors.New("not a JSON object")
 	}
-	return value, "", text
+	return value, nil
 }
 
 // stateRows emits, per session, a "session archived" row at its
@@ -122,8 +124,8 @@ func (s *store) stateRows() error {
 	for _, each := range s.sessions {
 		scoped, rowid := s.scopeFor(each.identifier), each.row.Rowid
 		if archived := each.row.Get("time_archived"); !archived.IsEmpty() {
-			s.emit(s.systemAt(scoped, rowid, archived, fmt.Sprintf(
-				"session archived (from %s %s, time_archived)", s.label, each.table)))
+			s.emit(s.systemAt(scoped, rowid, archived, "session archived (from "+s.label+" "+
+				each.table+", time_archived)"))
 		}
 		stored := each.row.Get("permission")
 		if stored.IsNull() || (stored.Type == sqlitefile.Text && len(stored.Bytes) == 0) {
@@ -136,13 +138,13 @@ func (s *store) stateRows() error {
 				raw = textlines.ValidUTF8(stored.Bytes)
 			}
 			s.failures = append(s.failures, failure{line: int(rowid), raw: raw, sessionID: each.identifier,
-				message: unparseable(rowid, each.table+".permission", "not a JSON array")})
+				message: unparseable(rowid, each.table+".permission", errors.New("not a JSON array"))})
 			continue
 		}
 		for _, rule := range rules {
-			s.emit(s.systemAt(scoped, rowid, each.row.Get("time_updated"), fmt.Sprintf(
-				"permission setting: session %s %s=%s (from %s %s.permission, time_updated)",
-				rule.permission, rule.pattern, rule.effect, s.label, each.table)))
+			s.emit(s.systemAt(scoped, rowid, each.row.Get("time_updated"), "permission setting: session "+
+				rule.permission+" "+rule.pattern+"="+rule.effect+" (from "+s.label+
+				" "+each.table+".permission, time_updated)"))
 		}
 	}
 	return nil
@@ -186,10 +188,11 @@ func (s *store) worktreeRows() error {
 				continue
 			}
 			seen[directory] = true
-			made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), fmt.Sprintf(
-				"%s %s (git worktree of %s strategy=%s) (from %s %s, time_created)",
-				timeline.ScratchPrefix, directory, orDash(s.worktreeOf(row.Get("project_id"))),
-				orDash(columnText(row.Get("strategy"))), s.label, name))
+			made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), timeline.ScratchPrefix+
+				" "+directory+" (git worktree of "+
+				orDash(s.worktreeOf(row.Get("project_id")))+" strategy="+
+				orDash(columnText(row.Get("strategy")))+") (from "+s.label+" "+name+
+				", time_created)")
 			made.ProjectPath = directory
 			s.emit(made)
 		}
@@ -213,9 +216,9 @@ func (s *store) grantRows() error {
 		return err
 	}
 	for _, row := range rows {
-		made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), fmt.Sprintf(
-			"permission setting: %s %s=allow (from %s permission, time_created)",
-			orDash(columnText(row.Get("action"))), orDash(columnText(row.Get("resource"))), s.label))
+		made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), "permission setting: "+
+			orDash(columnText(row.Get("action")))+" "+orDash(columnText(row.Get("resource")))+
+			"=allow (from "+s.label+" permission, time_created)")
 		made.ProjectPath = s.worktreeOf(row.Get("project_id"))
 		s.emit(made)
 	}

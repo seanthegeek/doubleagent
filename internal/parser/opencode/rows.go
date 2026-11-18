@@ -85,8 +85,7 @@ func agentRowText(seen parser.Tracker, key string, agent jsonvalue.Value) string
 }
 
 // lookup reads one field of a session record, a database row or a JSON
-// object: the value's text as Python's str() writes it and whether Python
-// counts the value as true.
+// object: the value's row text and whether the value is not empty.
 type lookup func(key string) (string, bool)
 
 // jsonLookup reads the fields of a JSON object.

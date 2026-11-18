@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -55,13 +56,14 @@ func childPath(directory string, names ...string) (string, bool) {
 	return filepath.Join(append([]string{directory}, names...)...), true
 }
 
-// hasJSONSuffix reports whether a file name's suffix, as Python's
-// PurePath.suffix gives it (leading dots are not one), is ".json".
+// hasJSONSuffix reports whether a file name ends in the extension ".json";
+// a name of nothing but dots before it, such as ".json", is a dot file
+// without one (parser.Stem).
 func hasJSONSuffix(name string) bool {
-	return strings.HasSuffix(strings.TrimLeft(name, "."), ".json")
+	return path.Ext(name) == ".json" && parser.Stem(name) != name
 }
 
-// jsonStem returns a file name without its ".json" suffix.
+// jsonStem returns a file name without its ".json" extension.
 func jsonStem(name string) string {
 	if hasJSONSuffix(name) {
 		return strings.TrimSuffix(name, ".json")
@@ -142,7 +144,7 @@ func sessionScope(root string, sessionID string, old bool, message jsonvalue.Val
 	}
 	if projectPath == "" {
 		where := objectOf(message.Get("path"))
-		projectPath = parser.Text(firstTruthy(where.Get("root"), where.Get("cwd")))
+		projectPath = parser.Text(parser.FirstNonEmpty(where.Get("root"), where.Get("cwd")))
 	}
 	return newScope(sessionID, projectPath)
 }
@@ -180,9 +182,9 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 		if ok {
 			file, ok = childPath(root.disk, "project", name)
 		}
-		project, reason := readSide(file, ok, &problems)
-		if reason != "" {
-			problems.Add(1, fmt.Sprintf("project file %s could not be read (%s)", name, reason))
+		project, err := readSide(file, ok, &problems)
+		if err != nil {
+			problems.Add(1, fmt.Sprintf("project file %s could not be read (%v)", name, err))
 		}
 		projectPath = worktreeText(project.Get("worktree"))
 	}
@@ -197,19 +199,18 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 }
 
 // readSide returns a JSON file read beside the one parsed, decoded as an
-// object, and why it is not one. A file that is absent, a link or not a
-// regular file is silent; one that cannot be read adds its unreadable
-// problem and gives no reason.
-func readSide(path string, ok bool, problems *parser.Problems) (jsonvalue.Value, string) {
+// object, with an error saying why it is not one. A file that is absent,
+// a link or not a regular file is silent; one that cannot be read adds its
+// unreadable problem and gives no error.
+func readSide(path string, ok bool, problems *parser.Problems) (jsonvalue.Value, error) {
 	if !ok || !parser.RegularFile(path) {
-		return jsonvalue.NewNull(), ""
+		return jsonvalue.NewNull(), nil
 	}
 	data, read := parser.FileBytes(path, problems)
 	if !read {
-		return jsonvalue.NewNull(), ""
+		return jsonvalue.NewNull(), nil
 	}
-	value, reason, _ := decodeText(textlines.ValidUTF8(data))
-	return value, reason
+	return decodeText(textlines.ValidUTF8(data))
 }
 
 // messageFile emits the rows of a legacy message file and its part files:
@@ -290,10 +291,11 @@ func (r treeRoot) partFiles(names []string) ([]part, []failure) {
 			}
 			continue
 		}
-		value, reason, raw := decodeText(textlines.ValidUTF8(data))
-		if reason != "" {
+		raw := textlines.ValidUTF8(data)
+		value, err := decodeText(raw)
+		if err != nil {
 			failures = append(failures, failure{line: 1, raw: raw, sourceFile: source,
-				message: fmt.Sprintf("unparseable part %s (%s)", jsonStem(file), reason)})
+				message: fmt.Sprintf("unparseable part %s (%v)", jsonStem(file), err)})
 			continue
 		}
 		found = append(found, part{data: value, where: origin{file: source, line: 1}})

@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -54,7 +53,7 @@ func (p *Parser) stash(artifact *input.Artifact, emit parser.Emit) {
 		}
 		emit(p.systemRow(artifact, newScope("", ""), line,
 			timeutil.FromValue(record.Get("timestamp")),
-			fmt.Sprintf("prompt stashed (unsent): %s (from %s, timestamp)", stripped, artifact.Rel)))
+			"prompt stashed (unsent): "+stripped+" (from "+artifact.Rel+", timestamp)"))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
@@ -81,7 +80,8 @@ func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		emit(p.systemRow(artifact, newScope(identifier.StringValue(), ""), 1, timestamp,
-			fmt.Sprintf("session pinned: %s (from %s pinned, file mtime)", identifier.StringValue(), artifact.Rel)))
+			"session pinned: "+identifier.StringValue()+" (from "+artifact.Rel+
+				" pinned, file mtime)"))
 	}
 }
 

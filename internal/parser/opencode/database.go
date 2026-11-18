@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -212,7 +213,8 @@ func rowLookup(row sqlitefile.Row) lookup {
 	}
 }
 
-// columnText returns a column value as Python's str(value or "") gives it.
+// columnText returns a column value as row text, "" for an empty value
+// (NULL, zero, or empty text or blob).
 func columnText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -221,8 +223,9 @@ func columnText(value sqlitefile.Value) string {
 }
 
 // valueKey returns a key under which two column values are one key exactly
-// when Python counts them equal as dictionary keys: numbers by value,
-// text and blobs by content and kind, and NULL as itself.
+// when they are equal: numbers by value whatever their storage class (an
+// id stored as 3 and as 3.0 joins), text and blobs by content and kind,
+// and NULL as itself.
 func valueKey(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Integer:
@@ -240,25 +243,26 @@ func valueKey(value sqlitefile.Value) string {
 	return "null"
 }
 
-// columnJSON returns the text of a column that stores JSON, or false with
-// why it is not text: NULL is "no data", a number "not JSON text" with the
-// number as raw text. A blob is decoded as UTF-8 with replacement.
-func columnJSON(value sqlitefile.Value) (string, string, bool) {
+// columnJSON returns the text of a column that stores JSON, with an error
+// saying why it is not text: NULL is "no data", a number "not JSON text"
+// with the number as the text. A blob is decoded as UTF-8 with
+// replacement.
+func columnJSON(value sqlitefile.Value) (string, error) {
 	switch value.Type {
 	case sqlitefile.Null:
-		return "", "no data", false
+		return "", errors.New("no data")
 	case sqlitefile.Blob:
-		return textlines.ValidUTF8(value.Bytes), "", true
+		return textlines.ValidUTF8(value.Bytes), nil
 	case sqlitefile.Text:
-		return value.Text(), "", true
+		return value.Text(), nil
 	}
-	return value.String(), "not JSON text", false
+	return value.String(), errors.New("not JSON text")
 }
 
 // unparseable returns the message of a stored record that does not decode:
 // "unparseable record <rowid> (<table.column>: <reason>)".
-func unparseable(rowid int64, column, reason string) string {
-	return fmt.Sprintf("unparseable record %d (%s: %s)", rowid, column, reason)
+func unparseable(rowid int64, column string, reason error) string {
+	return fmt.Sprintf("unparseable record %d (%s: %v)", rowid, column, reason)
 }
 
 // systemAt returns a system row of the database at line and the column
