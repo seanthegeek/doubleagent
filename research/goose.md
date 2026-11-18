@@ -1505,7 +1505,13 @@ of the lines read before a failure; `history.txt` cannot fail to decode (each li
 after it are still yielded; a `roaming_trust.json` or `schedule.json` that is not JSON or is not the
 type Goose writes (an object, a list) is one `parser: <message>` row at the file's modification
 time, and a `schedule.json` job that is not an object is
-`parser: unparseable record <N> (not a JSON object): <record>`. In `sessions.db` a `content_json`,
+`parser: unparseable record <N> (not a JSON object): <record>`. A `roaming_trust.json` `allowed` or
+`revoked_keys` that is present but not an array is `parser: <key> is not a JSON array` at the
+file's modification time; in a legacy session line a `content` that is neither text nor an array
+is `parser: content is not a JSON array`, and in a request log an `input` or `data` that is not an
+object is `parser: <member> is not a JSON object`, an `input.messages` or `data.content` that is
+not an array (or, for `data.content`, text) is `parser: <member> is not a JSON array`, each at the
+line; an absent, null or empty member gives no row. In `sessions.db` a `content_json`,
 `metadata_json` or `model_config_json` that does not decode, or decodes to another type than Goose
 writes (an array for `content_json`, an object for the other two), is one `system` row through
 `error_rows`: `parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the

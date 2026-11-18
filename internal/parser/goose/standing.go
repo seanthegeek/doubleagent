@@ -113,7 +113,8 @@ func (p *Parser) readJSONFile(artifact *input.Artifact, emit parser.Emit) (jsonv
 }
 
 // parseRoamingTrust emits one "permission setting:" row per allowed peer
-// and revoked key of roaming_trust.json.
+// and revoked key of roaming_trust.json; an allowed or revoked_keys that is
+// not an array adds a problem.
 func (p *Parser) parseRoamingTrust(artifact *input.Artifact, emit parser.Emit) {
 	document, message, ok := p.readJSONFile(artifact, emit)
 	if !ok {
@@ -127,11 +128,15 @@ func (p *Parser) parseRoamingTrust(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.standingRow(artifact, 0, timestamp, parser.ProblemPrefix+message))
 		return
 	}
+	var problems parser.Problems
 	for _, key := range []string{"allowed", "revoked_keys"} {
-		for _, peer := range parser.Elements(document.Get(key)) {
+		for _, peer := range parser.ArrayMember(document.Get(key), key, 0, &problems) {
 			emit(p.standingRow(artifact, 1, timestamp, "permission setting: roaming_trust."+key+"="+
 				parser.SettingValue(peer)+" (from "+artifact.Rel+", file mtime)"))
 		}
+	}
+	for _, found := range problems {
+		emit(p.standingRow(artifact, found.Line, timestamp, parser.ProblemPrefix+found.Message))
 	}
 }
 
