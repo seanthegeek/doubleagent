@@ -3,6 +3,7 @@ package goose
 import (
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -29,7 +30,7 @@ type assembly struct {
 	base      timeline.Row
 	messageID string
 	role      string
-	blocks    []jsonvalue.Value
+	blocks    *streamed
 }
 
 // flush adds the rows of the message assembled so far.
@@ -37,7 +38,7 @@ func (l *llmLog) flush() {
 	if l.current == nil {
 		return
 	}
-	l.reader.blocks(l.current.base, l.current.role, jsonvalue.NewArray(l.current.blocks...), true, nil,
+	l.reader.blocks(l.current.base, l.current.role, jsonvalue.NewArray(l.current.blocks.values()...), true, nil,
 		func(row timeline.Row) { l.pending = append(l.pending, row) })
 	l.current = nil
 }
@@ -122,7 +123,7 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 	}
 	messageID := parser.Text(data.Get("id"))
 	if l.current != nil && messageID != "" && l.current.messageID == messageID {
-		l.current.blocks = mergeDelta(l.current.blocks, content.Items())
+		l.current.blocks.merge(content.Items())
 		return
 	}
 	l.flush()
@@ -135,37 +136,87 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 		role = timeline.TurnAssistant
 	}
 	l.current = &assembly{base: base, messageID: messageID, role: role,
-		blocks: append([]jsonvalue.Value(nil), content.Items()...)}
+		blocks: &streamed{blocks: append([]jsonvalue.Value(nil), content.Items()...), work: l.parser.Work}}
 }
 
-// mergeDelta appends one streamed chunk's blocks to the message assembled
-// so far, as Goose's conversation does for chunks with the same message
-// id: a one-block text chunk extends a last text block of the same
-// audience, a one-block thinking chunk extends a last thinking block that
-// is unsigned or has its signature, and anything else is appended.
-func mergeDelta(blocks, added []jsonvalue.Value) []jsonvalue.Value {
-	if len(added) != 1 || len(blocks) == 0 || !blocks[len(blocks)-1].IsObject() || !added[0].IsObject() {
-		return append(blocks, added...)
+// streamed is the content blocks of a message assembled from streamed
+// chunks. The text that chunks add to the last block is gathered in text
+// and set on the block once, when another block follows or the blocks are
+// read, so a message of many chunks is copied once, not once per chunk.
+type streamed struct {
+	blocks []jsonvalue.Value
+	// field is the member of the last block that text extends, "" when
+	// no chunk has extended it; text starts with the member's own text.
+	field string
+	text  strings.Builder
+	// signature is the signature a thinking chunk gave the last block,
+	// when signed is set.
+	signature jsonvalue.Value
+	signed    bool
+	work      parser.Work
+}
+
+// merge appends one streamed chunk's blocks to the message assembled so
+// far, as Goose's conversation does for chunks with the same message id: a
+// one-block text chunk extends a last text block of the same audience, a
+// one-block thinking chunk extends a last thinking block that is unsigned
+// or has its signature, and anything else is appended.
+func (s *streamed) merge(added []jsonvalue.Value) {
+	if len(added) != 1 || len(s.blocks) == 0 || !s.blocks[len(s.blocks)-1].IsObject() || !added[0].IsObject() {
+		s.close()
+		s.blocks = append(s.blocks, added...)
+		return
 	}
-	last, block := blocks[len(blocks)-1], added[0]
+	last, block := s.blocks[len(s.blocks)-1], added[0]
 	kind := last.Get("type")
+	signature := last.Get("signature")
+	if s.signed {
+		signature = s.signature
+	}
 	switch {
 	case parser.IsText(kind, "text") && parser.IsText(block.Get("type"), "text") &&
 		jsonvalue.Equal(audience(last), audience(block)):
-		blocks[len(blocks)-1] = withMember(last, "text",
-			jsonvalue.NewString(parser.Text(last.Get("text"))+parser.Text(block.Get("text"))))
+		s.extend(last, "text", parser.Text(block.Get("text")))
 	case parser.IsText(kind, "thinking") && parser.IsText(block.Get("type"), "thinking") &&
-		(last.Get("signature").IsEmpty() || jsonvalue.Equal(block.Get("signature"), last.Get("signature"))):
-		merged := withMember(last, "thinking",
-			jsonvalue.NewString(parser.Text(last.Get("thinking"))+parser.Text(block.Get("thinking"))))
-		if signature := block.Get("signature"); !signature.IsEmpty() {
-			merged = withMember(merged, "signature", signature)
+		(signature.IsEmpty() || jsonvalue.Equal(block.Get("signature"), signature)):
+		s.extend(last, "thinking", parser.Text(block.Get("thinking")))
+		if added := block.Get("signature"); !added.IsEmpty() {
+			s.signature, s.signed = added, true
 		}
-		blocks[len(blocks)-1] = merged
 	default:
-		return append(blocks, added...)
+		s.close()
+		s.blocks = append(s.blocks, added...)
 	}
-	return blocks
+}
+
+// extend adds text to the named member of the last block.
+func (s *streamed) extend(last jsonvalue.Value, field, text string) {
+	if s.field == "" {
+		s.field = field
+		s.text.WriteString(parser.Text(last.Get(field)))
+	}
+	s.text.WriteString(text)
+}
+
+// close sets the text and signature gathered for the last block on it.
+func (s *streamed) close() {
+	if s.field == "" {
+		return
+	}
+	s.work.Add("bytes copied", s.text.Len())
+	last := withMember(s.blocks[len(s.blocks)-1], s.field, jsonvalue.NewString(s.text.String()))
+	if s.signed {
+		last = withMember(last, "signature", s.signature)
+	}
+	s.blocks[len(s.blocks)-1] = last
+	s.field, s.signed = "", false
+	s.text.Reset()
+}
+
+// values returns the blocks assembled so far.
+func (s *streamed) values() []jsonvalue.Value {
+	s.close()
+	return s.blocks
 }
 
 // audience returns a block's annotations.audience, JSON null when there is
