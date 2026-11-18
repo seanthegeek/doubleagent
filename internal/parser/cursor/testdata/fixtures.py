@@ -11,6 +11,7 @@ script; rerun it after changing the rows.
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import json
 import sqlite3
@@ -71,11 +72,25 @@ INSERT INTO cursorDiskKV VALUES ('agentKv:blob:00',
 """
 
 
+def mcp_key(prefix: str, scope: str, field: str) -> str:
+    """Return an MCP OAuth key: the prefix, then URL-safe base64 of "[scope] field"."""
+    name = base64.urlsafe_b64encode(f"[{scope}] {field}".encode()).decode().rstrip("=")
+    return prefix + name
+
+
+# An MCP server's URL and its stored tokens, whose value is ciphertext.
+MCP_SECRET = f"""
+INSERT INTO ItemTable VALUES ('{mcp_key("mcpOAuth.secret.", "srv", "mcp_tokens")}', 'ciphertext');
+INSERT INTO ItemTable VALUES ('{mcp_key("mcpOAuth.global.", "srv", "mcp_server_url")}',
+    '"https://mcp.example.invalid/"');
+"""
+
 DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
     "chunked_headers.db": (chunked(), ""),
     "empty_composer_id.db": ([], EMPTY_HEADER),
+    "mcp_secret.db": ([], MCP_SECRET),
 }
 
 

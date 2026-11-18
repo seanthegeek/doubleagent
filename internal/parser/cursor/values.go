@@ -122,6 +122,21 @@ func keyedRows(table *sqlitefile.Table, keep func(sqlitefile.Row) bool, order ..
 	return found, nil
 }
 
+// keyNames returns the keys of the rows of a key-value table the filter
+// keeps, in rowid order, as keyed rows whose value is NULL: the value
+// column is not selected, for values that must never reach a row.
+func keyNames(table *sqlitefile.Table, keep func(sqlitefile.Row) bool) ([]keyed, error) {
+	rows, err := table.Select("key").Where(keep).All()
+	if err != nil {
+		return nil, err
+	}
+	found := make([]keyed, len(rows))
+	for i, row := range rows {
+		found[i] = keyed{rowid: row.Rowid, key: asText(row.Get("key"))}
+	}
+	return found, nil
+}
+
 // prefixed returns the rows of a key-value table whose key starts with
 // prefix, in key order: SQL's key >= prefix and key < the prefix with its
 // last character incremented.
