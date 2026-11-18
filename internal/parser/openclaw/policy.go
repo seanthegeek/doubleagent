@@ -14,7 +14,7 @@ import (
 func (s *stateRows) execConfig(record sqlitefile.Row) {
 	document, err := jsonvalue.DecodeString(columnText(record.Get("raw_json")))
 	if err != nil {
-		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+err.Error()+
+		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+parser.JSONPosition(err)+
 			"; text withheld, it holds the approvals socket token)")
 		return
 	}

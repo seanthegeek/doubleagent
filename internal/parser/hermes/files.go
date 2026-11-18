@@ -33,15 +33,21 @@ func (p *Parser) setting(artifact *input.Artifact, line int, text, timestamp str
 
 // readJSON returns the JSON document of the artifact, or false after
 // adding a whole-file problem: its unreadable problem, or
-// "<name> did not parse (<reason>)".
-func (p *Parser) readJSON(artifact *input.Artifact, name string, problems *parser.Problems) (jsonvalue.Value, bool) {
+// "<name> did not parse (<reason>)". For a file that holds secrets the
+// reason is only where the document stopped (parser.JSONPosition).
+func (p *Parser) readJSON(artifact *input.Artifact, name string, holdsSecrets bool,
+	problems *parser.Problems) (jsonvalue.Value, bool) {
 	content, ok := parser.FileBytes(artifact.DiskPath, problems)
 	if !ok {
 		return jsonvalue.Value{}, false
 	}
 	document, err := jsonvalue.Decode(content)
 	if err != nil {
-		problems.Add(0, name+" did not parse ("+err.Error()+")")
+		reason := err.Error()
+		if holdsSecrets {
+			reason = parser.JSONPosition(err)
+		}
+		problems.Add(0, name+" did not parse ("+reason+")")
 		return jsonvalue.Value{}, false
 	}
 	return document, true
@@ -53,7 +59,7 @@ func (p *Parser) readJSON(artifact *input.Artifact, name string, problems *parse
 // own row.
 func (p *Parser) parsePastes(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document, ok := p.readJSON(artifact, "pastes/pending.json", &problems)
+	document, ok := p.readJSON(artifact, "pastes/pending.json", false, &problems)
 	if ok && !document.IsArray() {
 		problems.Add(0, "pastes/pending.json is not a JSON list")
 	}
@@ -111,7 +117,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 func (p *Parser) parsePairing(artifact *input.Artifact, match []string, emit parser.Emit) {
 	name := match[1] + "/" + match[2] + "-approved.json"
 	var problems parser.Problems
-	document, ok := p.readJSON(artifact, name, &problems)
+	document, ok := p.readJSON(artifact, name, true, &problems)
 	if ok && !document.IsObject() {
 		problems.Add(0, name+" is not a JSON object")
 	}
@@ -257,7 +263,7 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 // profile= when recorded. Tokens and headers are never printed.
 func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document, ok := p.readJSON(artifact, "connections.json", &problems)
+	document, ok := p.readJSON(artifact, "connections.json", true, &problems)
 	connections := document.Get("connections")
 	if ok && !connections.IsArray() {
 		problems.Add(0, "connections.json has no connections list")

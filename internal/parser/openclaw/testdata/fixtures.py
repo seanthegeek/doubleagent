@@ -103,6 +103,25 @@ DATABASES = {
 }
 
 
+# A state database whose exec approvals config does not decode; it holds the socket token.
+BAD_EXEC_CONFIG = """
+PRAGMA page_size = 512;
+CREATE TABLE exec_approvals_config (config_key TEXT NOT NULL PRIMARY KEY, raw_json TEXT NOT NULL,
+  has_socket_token INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL);
+INSERT INTO exec_approvals_config VALUES ('default', '{"socket": {"token": sk-SECRET}}', 1,
+  1790845100000);
+"""
+
+
+def write_state(name: str, script: str) -> None:
+    """Write a state database from its SQL."""
+    path = HERE / name
+    path.unlink(missing_ok=True)
+    with contextlib.closing(sqlite3.connect(path)) as connection:
+        connection.executescript(script)
+        connection.commit()
+
+
 def main() -> None:
     """Rewrite every database of DATABASES in this directory."""
     for name, (archives, chunks) in DATABASES.items():
@@ -124,6 +143,8 @@ def main() -> None:
                     [large_event(seq) for seq in range(3)],
                 )
             connection.commit()
+
+    write_state("bad_exec_config.db", BAD_EXEC_CONFIG)
 
 
 if __name__ == "__main__":
