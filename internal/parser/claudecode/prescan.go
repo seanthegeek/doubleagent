@@ -37,6 +37,9 @@ type prescan struct {
 	bridgeLines []bridgeLine
 	sdkSpawn    bool
 	remoteLast  int
+	// runFirst and runLast hold bridgeRuns of bridgeLines once a URL is
+	// looked up.
+	runFirst, runLast []int
 }
 
 // prescanFile reads a transcript once for its prescan. Its problems are

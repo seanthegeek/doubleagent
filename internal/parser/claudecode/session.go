@@ -2,6 +2,7 @@ package claudecode
 
 import (
 	"cmp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -338,17 +339,18 @@ func withoutKeys(record jsonvalue.Value, drop func(string) bool) jsonvalue.Value
 
 // queue emits the row of a queue-operation record: where an enqueued
 // prompt was delivered, the first delivery after the record else the first
-// of all, or the operation and its content.
+// of all, or the operation and its content. The deliveries are in line
+// order, so the first after the record is found by a binary search.
 func (s *session) queue(record jsonvalue.Value) {
 	content := parser.TextOf(record.Get("content"))
 	if parser.IsText(record.Get("operation"), "enqueue") {
 		if lines := s.scan.delivered[content]; len(lines) > 0 {
 			deliveredAt := lines[0]
-			for _, delivered := range lines {
-				if delivered > s.line {
-					deliveredAt = delivered
-					break
-				}
+			if after := sort.Search(len(lines), func(i int) bool {
+				s.reader.Work.Add("deliveries looked at", 1)
+				return lines[i] > s.line
+			}); after < len(lines) {
+				deliveredAt = lines[after]
 			}
 			s.emit(s.stateRow("prompt queued: delivered at line " + strconv.Itoa(deliveredAt)))
 			return
