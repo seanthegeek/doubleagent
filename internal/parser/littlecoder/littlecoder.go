@@ -56,6 +56,18 @@ type Parser struct {
 	checkpoint, sessionFile, legacySession, legacySnapshots *regexp.Regexp
 	// The keys a session file cut mid-write is searched for.
 	sessionsKey, messagesKey, sessionID, savedAt *regexp.Regexp
+	// firstCheckpoint is the first file by name of each checkpoint
+	// directory listed, so its other files are passed over without a
+	// listing of their own; checkpointListings counts the listings, a
+	// measure of the work.
+	firstCheckpoint    map[checkpointKey]string
+	checkpointListings int
+}
+
+// checkpointKey names a checkpoint directory: the home's path on disk and
+// the directory's name under .little-coder/checkpoints.
+type checkpointKey struct {
+	home, set string
 }
 
 // New returns the parser.
@@ -70,6 +82,7 @@ func New() *Parser {
 		messagesKey:     regexp.MustCompile(`"messages"[ \t\n\r]*:[ \t\n\r]*`),
 		sessionID:       regexp.MustCompile(`"session_id"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"`),
 		savedAt:         regexp.MustCompile(`"saved_at"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"`),
+		firstCheckpoint: map[checkpointKey]string{},
 	}
 }
 
