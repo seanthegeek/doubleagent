@@ -1,7 +1,7 @@
 package claudecode
 
 import (
-	"fmt"
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -248,7 +248,7 @@ func (s *session) content(record jsonvalue.Value, recordType string) {
 	case "attachment":
 		s.attachment(record)
 	case "continued-in":
-		s.emit(s.stateRow("session continued in: " + orDash(parser.Text(record.Get("continuedInSessionId")))))
+		s.emit(s.stateRow("session continued in: " + cmp.Or(parser.Text(record.Get("continuedInSessionId")), "-")))
 	case "bridge-session":
 		s.bridge(record)
 	case "ai-title", "custom-title", "agent-name":
@@ -297,8 +297,8 @@ func (s *session) system(record jsonvalue.Value) {
 	case subtype == "turn_duration":
 		detail = record.Get("durationMs").Text() + " ms, " + record.Get("messageCount").Text() + " messages"
 	case subtype == "scheduled_task_fire":
-		s.emit(s.row(timeline.TurnSystem, fmt.Sprintf("scheduled task fired: %s cron=%s",
-			valueText(record, "taskId"), valueText(record, "cron"))))
+		s.emit(s.row(timeline.TurnSystem, "scheduled task fired: "+valueText(record, "taskId")+
+			" cron="+valueText(record, "cron")))
 		return
 	case detail == "":
 		if rest := withoutKeys(record, isSystemEnvelope); rest.Len() > 0 {

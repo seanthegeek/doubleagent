@@ -1,7 +1,6 @@
 package claudecode
 
 import (
-	"fmt"
 	"path"
 	"strings"
 
@@ -89,9 +88,8 @@ func (r *Reader) ccrTip(artifact *input.Artifact, emit parser.Emit) {
 	}
 	row := r.fileRow(artifact)
 	row.SessionID = session
-	row.Text = timeline.Compact(fmt.Sprintf("%s remote event %s at %s (from %s, file mtime)",
-		timeline.SyncedPrefix, valueText(document, "eventId"), valueText(document, "updatedAt"),
-		artifact.Rel))
+	row.Text = timeline.Compact(timeline.SyncedPrefix + " remote event " + valueText(document, "eventId") +
+		" at " + valueText(document, "updatedAt") + " (from " + artifact.Rel + ", file mtime)")
 	emit(row)
 }
 
@@ -105,10 +103,9 @@ func (r *Reader) bridgePointer(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	row := r.fileRow(artifact)
-	row.Text = timeline.Compact(fmt.Sprintf(
-		"remote control: environment %s session %s source=%s (from %s, file mtime)",
-		valueText(document, "environmentId"), valueText(document, "sessionId"),
-		valueText(document, "source"), artifact.Rel))
+	row.Text = timeline.Compact("remote control: environment " + valueText(document, "environmentId") +
+		" session " + valueText(document, "sessionId") + " source=" + valueText(document, "source") +
+		" (from " + artifact.Rel + ", file mtime)")
 	emit(row)
 }
 
@@ -132,19 +129,19 @@ func (r *Reader) registry(artifact *input.Artifact, emit parser.Emit) {
 	}
 	pid := strings.TrimSuffix(path.Base(artifact.Rel), ".json")
 	row.TimestampUTC = timeutil.FromValue(record.Get("startedAt"))
-	row.SessionID = strOr(record.Get("sessionId"), "")
-	row.ProjectPath = strOr(record.Get("cwd"), "")
-	row.Text = fmt.Sprintf("claude-code process %s %s status=%s entrypoint=%s bridge=%s host_session=%s",
-		strOr(record.Get("pid"), pid), strOr(record.Get("kind"), "-"),
-		strOr(record.Get("status"), "-"), strOr(record.Get("entrypoint"), "-"),
-		strOr(record.Get("bridgeSessionId"), "none"), strOr(record.Get("hostSessionId"), "none"))
+	row.SessionID = record.Get("sessionId").Text()
+	row.ProjectPath = record.Get("cwd").Text()
+	row.Text = "claude-code process " + textOr(record.Get("pid"), pid) + " " + textOr(record.Get("kind"), "-") +
+		" status=" + textOr(record.Get("status"), "-") + " entrypoint=" + textOr(record.Get("entrypoint"), "-") +
+		" bridge=" + textOr(record.Get("bridgeSessionId"), "none") +
+		" host_session=" + textOr(record.Get("hostSessionId"), "none")
 	emit(row)
 	if bridge := record.Get("bridgeSessionId"); bridge.IsString() && bridge.StringValue() != "" {
 		sync := r.fileRow(artifact)
 		sync.SessionID = row.SessionID
 		sync.ProjectPath = row.ProjectPath
-		sync.Text = fmt.Sprintf("%s remote control bridge %s url - (from %s, file mtime)",
-			timeline.SyncedPrefix, bridge.StringValue(), artifact.Rel)
+		sync.Text = timeline.SyncedPrefix + " remote control bridge " + bridge.StringValue() +
+			" url - (from " + artifact.Rel + ", file mtime)"
 		emit(sync)
 	}
 }
@@ -158,8 +155,8 @@ func (r *Reader) StandingRow(artifact *input.Artifact, timestamp, project, key s
 	row.TurnType = timeline.TurnSystem
 	row.TimestampUTC = timestamp
 	row.ProjectPath = project
-	row.Text = timeline.Compact(fmt.Sprintf("%s: %s=%s (from %s, file mtime)", label, key,
-		parser.SettingValue(value), artifact.Rel))
+	row.Text = timeline.Compact(label + ": " + key + "=" + parser.SettingValue(value) +
+		" (from " + artifact.Rel + ", file mtime)")
 	return row
 }
 
@@ -218,8 +215,8 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 		// accountUuid and orgUuid are identity values: never printed.
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
-		row.Text = timeline.Compact(fmt.Sprintf("source host: github status=%s (from %s, file mtime)",
-			valueText(github, "status"), artifact.Rel))
+		row.Text = timeline.Compact("source host: github status=" + valueText(github, "status") +
+			" (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
 	if !isMissing(document.Get(remoteControlMachine)) {
@@ -231,8 +228,8 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 	if value := document.Get(cloudEnvironmentKey); !value.IsNull() {
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
-		row.Text = timeline.Compact(fmt.Sprintf("cloud: %s=%s (from %s, file mtime)",
-			cloudEnvironmentKey, parser.SettingValue(value), artifact.Rel))
+		row.Text = timeline.Compact("cloud: " + cloudEnvironmentKey + "=" + parser.SettingValue(value) +
+			" (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
 }
@@ -255,9 +252,8 @@ func (r *Reader) projectRows(artifact *input.Artifact, timestamp, projectPath st
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
 		row.ProjectPath = projectPath
-		row.Text = timeline.Compact(fmt.Sprintf(
-			"remote control: spawn mode %s for %s (from %s, file mtime)",
-			parser.SettingValue(spawn), projectPath, artifact.Rel))
+		row.Text = timeline.Compact("remote control: spawn mode " + parser.SettingValue(spawn) + " for " +
+			projectPath + " (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
 }

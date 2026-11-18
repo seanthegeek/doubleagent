@@ -1,6 +1,7 @@
 package claudecode
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -16,24 +17,16 @@ import (
 // prompt, the task it was given.
 func (s *session) user(record jsonvalue.Value, isTask bool) {
 	s.userBlocks(record, isTask)
-	source, origin := pythonText(record.Get("promptSource")), pythonText(record.Get("turnOrigin"))
+	source, origin := record.Get("promptSource").Text(), record.Get("turnOrigin").Text()
 	if (source != "" && source != "typed") || (origin != "" && origin != "human") {
-		s.emit(s.row(timeline.TurnSystem, "prompt trigger: promptSource="+orDash(source)+
-			" turnOrigin="+orDash(origin)))
+		s.emit(s.row(timeline.TurnSystem, "prompt trigger: promptSource="+cmp.Or(source, "-")+
+			" turnOrigin="+cmp.Or(origin, "-")))
 	}
 	decision := record.Get("permissionDecision")
 	if !decision.IsNull() || !isMissing(record.Get("toolDenialKind")) ||
 		!isMissing(record.Get("userFeedback")) {
 		s.emit(s.permissionRow(record, decision))
 	}
-}
-
-// pythonText returns a value's str(), "" for null.
-func pythonText(value jsonvalue.Value) string {
-	if value.IsNull() {
-		return ""
-	}
-	return value.Text()
 }
 
 // permissionRow returns the "permission decision:" row of a user record:
@@ -48,10 +41,10 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 			break
 		}
 	}
-	denial := ""
+	var denial strings.Builder
 	for _, key := range []string{"toolDenialKind", "userFeedback"} {
 		if value := record.Get(key); !isMissing(value) {
-			denial += " " + key + "=" + parser.SettingValue(value)
+			denial.WriteString(" " + key + "=" + parser.SettingValue(value))
 		}
 	}
 	text := ""
@@ -63,8 +56,8 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	case !decision.IsObject():
 		text = "permission decision: " + parser.JSONText(decision)
 	default:
-		text = "permission decision: " + strOr(decision.Get("decision"), "-") + " source=" +
-			strOr(decision.Get("source"), "-") + " reason=" + strOr(decision.Get("reasonType"), "-")
+		text = "permission decision: " + textOr(decision.Get("decision"), "-") + " source=" +
+			textOr(decision.Get("source"), "-") + " reason=" + textOr(decision.Get("reasonType"), "-")
 		for _, key := range decision.Keys() {
 			if key != "decision" && key != "source" && key != "reasonType" {
 				text += " " + parser.JSONText(decision)
@@ -72,7 +65,7 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 			}
 		}
 	}
-	row.Text = timeline.Compact(text + denial)
+	row.Text = timeline.Compact(text + denial.String())
 	return row
 }
 
@@ -317,7 +310,7 @@ func (s *session) bridge(record jsonvalue.Value) {
 			name = bridge.Text()
 		}
 		s.emit(s.stateRow("remote control: bridge session " + name + " lastSequenceNum=" +
-			strOr(sequence, "-")))
+			textOr(sequence, "-")))
 	}
 	if !bridge.IsEmpty() && s.firstSeen("sync", key.bridge) {
 		s.emit(s.stateRow(timeline.SyncedPrefix + " remote control bridge " + bridge.Text() + " url " +
@@ -325,9 +318,10 @@ func (s *session) bridge(record jsonvalue.Value) {
 	}
 }
 
-// equalityKey returns a key two values share when Python's == finds them
-// equal: a number or a boolean by its value (1, 1.0 and true are one), a
-// string by its text, anything else by its compact JSON with sorted keys.
+// equalityKey returns a key two values share when they hold the same
+// value: a number by its value, a boolean as the number 0 or 1 (so 1, 1.0
+// and true are one key), a string by its text, and anything else by its
+// JSON text in the evidence's key order.
 func equalityKey(value jsonvalue.Value) string {
 	if flag, ok := value.Bool(); ok {
 		if flag {
