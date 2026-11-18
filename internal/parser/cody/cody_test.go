@@ -7,75 +7,37 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs, except where a comment says the
-// binary refuses a form Python reads.
-
-func TestChatTimeReadsMailDatesAsPythonDoes(t *testing.T) {
-	for _, test := range []struct{ text, want string }{
-		{"Mon, 03 Mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"Mon,03 Mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 3 Mar 2025 10:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 +0530", "2025-03-03T04:30:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 -0500", "2025-03-03T15:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 EST", "2025-03-03T15:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 PDT", "2025-03-03T17:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 -0000", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 XYZ", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 25 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 69 10:00:00 GMT", "1969-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 68 10:00:00 GMT", "2068-03-03T10:00:00.000Z"},
-		{"Monday, 03-Mar-25 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"Mar 03 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 March 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 2025 10.00.05 GMT", "2025-03-03T10:00:05.000Z"},
-		{"03 Mar 2025 10.00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 10:00:00 2025 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 2025 10:00:00+0200", "2025-03-03T08:00:00.000Z"},
-		{"03 Mar 2025 25:00:00 GMT", ""},
-		{"31 Feb 2025 10:00:00 GMT", ""},
-		{"03 Mar 2025 10:00:00 +9999", ""},
-		{"03 Mar 2025 10:00:00 +2359", "2025-03-02T10:01:00.000Z"},
-		{"03 Mar 2025 10:00:00 +0199", "2025-03-03T07:21:00.000Z"},
-		{"03 Mar 2025 10:00:00 est", "2025-03-03T15:00:00.000Z"},
-		{"03 mar 2025 10:00:00 gmt", "2025-03-03T10:00:00.000Z"},
-		{"2025-03-03T10:00:00Z", "2025-03-03T10:00:00.000Z"},
-		{"1741000000000", "2025-03-03T11:06:40.000Z"},
-		{"", ""},
-		{"   ", ""},
-		{"Mon, 03 Mar 2025", ""},
-		{"x, 03 Mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 2025, 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 2025 10:00:00, GMT", "2025-03-03T10:00:00.000Z"},
-		{"03 Xyz 2025 10:00:00 GMT", ""},
-		{"03 Mar -5 10:00:00 GMT", ""},
-		{"03 Mar 0 10:00:00 GMT", "2000-03-03T10:00:00.000Z"},
-		{"03 Mar 2025 1:2:3 GMT", "2025-03-03T01:02:03.000Z"},
-		{"03 Mar 2025 10:00:00:00 GMT", ""},
-		{"Mon, 03 Mar 2025 10:00:00 GMT extra", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 2025 10:00:00 +99999999999999999999", ""},
-		{"03 Mar 99999999999999999999 10:00:00 GMT", ""},
-		{"03 Mar 2025 10:00:00 UT", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 Z", "2025-03-03T10:00:00.000Z"},
-		{"03 Mar 0099 10:00:00 GMT", "1999-03-03T10:00:00.000Z"},
-		{"03 Mar 0001 00:00:00 +0100", "2001-03-02T23:00:00.000Z"},
-		{"03 Mar 2025 10:00:00 +05", "2025-03-03T09:55:00.000Z"},
-		{"03 Mar 2025 10:00:00 05:00", "2025-03-03T10:00:00.000Z"},
-		{"Mon, 03 Mar 2025 10:00:00 -0500 (EST)", "2025-03-03T15:00:00.000Z"},
-		{"03-Mar-2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
-		{"a-b-c 10:00:00 GMT", ""},
-		// Refused: Python upper-cases the ligature U+FB06 to "ST" and reads the
-		// zone as EST; only ASCII names are read here, so the zone is unknown
-		// and the time is UTC.
-		{"03 Mar 2025 10:00:00 E\ufb06", "2025-03-03T10:00:00.000Z"},
-		// Refused: Python's int() reads "1_0" as 10.
-		{"03 Mar 2025 1_0:00:00 GMT", ""},
-		// Refused: Python's int() reads non-ASCII digits.
-		{"03 Mar 2025 \u0661\u0660:00:00 GMT", ""},
+func TestChatTimeReadsTheMailDatesOfRFC5322(t *testing.T) {
+	for _, test := range []struct{ name, text, want string }{
+		{"the form Date.toUTCString writes", "Mon, 03 Mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
+		{"no day name", "03 Mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
+		{"a one-digit day and no seconds", "Mon, 3 Mar 2025 10:00 GMT", "2025-03-03T10:00:00.000Z"},
+		{"a positive offset", "Mon, 03 Mar 2025 10:00:00 +0530", "2025-03-03T04:30:00.000Z"},
+		{"a negative offset", "Mon, 03 Mar 2025 10:00:00 -0500", "2025-03-03T15:00:00.000Z"},
+		{"an offset with a zone comment", "Mon, 03 Mar 2025 10:00:00 -0500 (EST)", "2025-03-03T15:00:00.000Z"},
+		{"minus zero is UTC", "Mon, 03 Mar 2025 10:00:00 -0000", "2025-03-03T10:00:00.000Z"},
+		{"a North American zone name", "Mon, 03 Mar 2025 10:00:00 EST", "2025-03-03T15:00:00.000Z"},
+		{"a daylight zone name", "Mon, 03 Mar 2025 10:00:00 PDT", "2025-03-03T17:00:00.000Z"},
+		{"UT", "03 Mar 2025 10:00:00 UT", "2025-03-03T10:00:00.000Z"},
+		{"UTC", "03 Mar 2025 10:00:00 UTC", "2025-03-03T10:00:00.000Z"},
+		{"an unknown zone name is UTC", "Mon, 03 Mar 2025 10:00:00 XYZ", "2025-03-03T10:00:00.000Z"},
+		{"a zone this host may know is still UTC", "Mon, 03 Mar 2025 10:00:00 CET", "2025-03-03T10:00:00.000Z"},
+		{"a two-digit year from 69 is the twentieth century", "Mon, 03 Mar 69 10:00:00 GMT", "1969-03-03T10:00:00.000Z"},
+		{"a two-digit year to 68 is the twenty-first", "Mon, 03 Mar 68 10:00:00 GMT", "2068-03-03T10:00:00.000Z"},
+		{"a lower-case month", "03 mar 2025 10:00:00 GMT", "2025-03-03T10:00:00.000Z"},
+		{"an offset of a day or more", "03 Mar 2025 10:00:00 +2359", "2025-03-02T10:01:00.000Z"},
+		{"an hour out of range", "03 Mar 2025 25:00:00 GMT", ""},
+		{"a day the month lacks", "31 Feb 2025 10:00:00 GMT", ""},
+		{"no time", "Mon, 03 Mar 2025", ""},
+		{"no zone", "Mon, 03 Mar 2025 10:00:00", ""},
+		{"a long month name", "03 March 2025 10:00:00 GMT", ""},
+		{"a lower-case zone name", "03 Mar 2025 10:00:00 est", ""},
+		{"an ISO time is read by timeutil", "2025-03-03T10:00:00Z", "2025-03-03T10:00:00.000Z"},
+		{"an epoch is read by timeutil", "1741000000000", "2025-03-03T11:06:40.000Z"},
+		{"empty text", "", ""},
+		{"blank text", "   ", ""},
 	} {
-		t.Run(test.text, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			if got := chatTime(test.text, jsonvalue.NewNull()); got != test.want {
 				t.Errorf("chatTime(%q) = %q, want %q", test.text, got, test.want)
 			}
