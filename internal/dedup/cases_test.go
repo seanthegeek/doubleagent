@@ -151,7 +151,7 @@ func copyCases() []deduplicateCase {
 	return cases
 }
 
-// broaderCases are the Python tests that a broader scope among copies never
+// broaderCases test that a broader scope among copies never
 // takes a candidate of another session or project, and that the primary
 // pass stays strict.
 func broaderCases() []deduplicateCase {
