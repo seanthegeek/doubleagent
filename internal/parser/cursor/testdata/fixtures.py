@@ -78,11 +78,12 @@ def mcp_key(prefix: str, scope: str, field: str) -> str:
     return prefix + name
 
 
-# An MCP server's URL and its stored tokens, whose value is ciphertext.
+# An MCP server's URL, which carries a credential, and its stored tokens, whose value is
+# ciphertext.
 MCP_SECRET = f"""
 INSERT INTO ItemTable VALUES ('{mcp_key("mcpOAuth.secret.", "srv", "mcp_tokens")}', 'ciphertext');
 INSERT INTO ItemTable VALUES ('{mcp_key("mcpOAuth.global.", "srv", "mcp_server_url")}',
-    '"https://mcp.example.invalid/"');
+    '"https://tok:s3cret@mcp.example.invalid/"');
 """
 
 DATABASES = {

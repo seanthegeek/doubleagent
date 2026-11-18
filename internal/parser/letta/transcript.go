@@ -83,9 +83,10 @@ func agentSessions(artifact *input.Artifact, agentDirectory string) []projectTim
 }
 
 // server returns the server of a transcript's agent: the baseUrl of its
-// agents[] entry in ~/.letta/settings.json, api.letta.com when the entry has
-// none, "-" when there is no entry or no file. It is a pre-scan: the
-// settings file reports its own problems when it is parsed itself.
+// agents[] entry in ~/.letta/settings.json without the credentials a URL
+// may carry, api.letta.com when the entry has none, "-" when there is no
+// entry or no file. It is a pre-scan: the settings file reports its own
+// problems when it is parsed itself.
 func server(artifact *input.Artifact, agentDirectory string) string {
 	path, ok := homeSideFile(artifact, settingsRel)
 	if !ok {
@@ -96,7 +97,7 @@ func server(artifact *input.Artifact, agentDirectory string) string {
 	for _, entry := range document.Get("agents").Items() {
 		if entry.IsObject() && sanitize(parser.Text(entry.Get("agentId"))) == agentDirectory {
 			if base := parser.Text(entry.Get("baseUrl")); base != "" {
-				return base
+				return parser.WithoutCredentials(base)
 			}
 			return lettaCloud
 		}

@@ -100,6 +100,9 @@ func TestModelTextNamesTheModelAndItsEndpoint(t *testing.T) {
 			"(from config.toml [model.completion.local], file mtime)"},
 		{"chat", "http", `{}`, "model configured: chat - via http (from config.toml " +
 			"[model.chat.http], file mtime)"},
+		{"chat", "http", `{"model_name":"m","api_endpoint":"https://user:s3cret@e/v1"}`,
+			"model configured: chat m via http endpoint=https://redacted@e/v1 (from config.toml " +
+				"[model.chat.http], file mtime)"},
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {

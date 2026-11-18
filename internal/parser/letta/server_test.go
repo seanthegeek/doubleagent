@@ -1,0 +1,42 @@
+package letta
+
+import (
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+)
+
+func TestATranscriptsServerIsShownWithoutItsCredentials(t *testing.T) {
+	home := t.TempDir()
+	const rel = ".letta/transcripts/agent-1/conv-1/transcript.jsonl"
+	files := map[string]string{
+		settingsRel: `{"agents": [{"agentId": "agent-1", "baseUrl": "https://tok:s3cret@letta.example/"}]}`,
+		rel:         `{"captured_at": "2026-10-01T09:00:00Z"}` + "\n",
+	}
+	for name, text := range files {
+		path := filepath.Join(home, filepath.FromSlash(name))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/home/u/" + rel,
+		Rel: rel, Agent: "letta", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"},
+		Manifest: jsonvalue.NewNull()}
+	var got []string
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) }); err != nil {
+		t.Fatal(err)
+	}
+	want := "session synced: server conversation conv-1 agent agent-1 server https://redacted@letta.example/ "
+	if len(got) == 0 || !strings.HasPrefix(got[0], want) {
+		t.Errorf("got %q, want a first row starting %q", got, want)
+	}
+}

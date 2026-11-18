@@ -290,9 +290,13 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // connectionText returns the "remote backend:" text of one connection: its
-// url, else [user@]host[:port].
+// url without the credentials it may carry (parser.WithoutCredentials),
+// else [user@]host[:port].
 func connectionText(connection jsonvalue.Value) string {
 	target := connection.Get("url")
+	if target.IsString() {
+		target = jsonvalue.NewString(parser.WithoutCredentials(target.StringValue()))
+	}
 	if host := connection.Get("host"); target.IsEmpty() && !host.IsEmpty() {
 		text := host.Text()
 		if user := connection.Get("user"); !user.IsEmpty() {
