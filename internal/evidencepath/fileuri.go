@@ -7,16 +7,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// FromFileURI returns the path a file: URI names, as the evidence's machine
-// wrote it, and whether uri is a file: URI (scheme in lower case) that
-// net/url can read. Tabs and line breaks are removed first, as a browser
-// does; the query and fragment are dropped; escapes are decoded, a byte that
-// is not UTF-8 becoming U+FFFD. A drive path loses its leading slash:
-// file:///c%3A/x, file:C:/x and file://C:/x give c:/x, C:/x and C:/x. A
-// server's host (not localhost) stays: file://server/share/x gives
-// //server/share/x, and a server with no path names no file, "". An invalid
-// escape, a malformed host, another control character or an escaped NUL
-// refuses the URI: false. The test table lists every form.
+// FromFileURI returns the path a file: URI (scheme in lower case) names, as
+// its machine wrote it, and true; false when uri is not one net/url reads.
+// Tabs and line breaks are removed first, as a browser does; the query and
+// fragment are dropped; escapes are decoded, a byte not UTF-8 becoming
+// U+FFFD. A drive path loses its leading slash: file:///c%3A/x, file:C:/x
+// and file://C:/x give c:/x, C:/x and C:/x. A server's host (localhost, with
+// or without a port, is no server) stays: file://server/share/x gives
+// //server/share/x; a server with no path gives "". An invalid escape or
+// host, a control character, an escaped NUL, or a network path with no
+// server or a \\?\ or \\.\ prefix gives false. The test table lists every form.
 func FromFileURI(uri string) (string, bool) {
 	if !strings.HasPrefix(uri, "file:") {
 		return "", false
@@ -34,14 +34,14 @@ func FromFileURI(uri string) (string, bool) {
 	switch {
 	case isDriveHost(parsed.Host):
 		filePath = parsed.Host + filePath
-	case isServerHost(parsed.Host) && strings.Trim(filePath, "/") == "":
+	case isServerHost(parsed) && strings.Trim(filePath, "/") == "":
 		filePath = ""
-	case isServerHost(parsed.Host):
+	case isServerHost(parsed):
 		filePath = "//" + parsed.Host + filePath
 	case len(filePath) >= 3 && filePath[0] == '/' && IsASCIILetter(filePath[1]) && filePath[2] == ':':
 		filePath = filePath[1:]
 	}
-	if strings.IndexByte(filePath, 0) >= 0 {
+	if strings.IndexByte(filePath, 0) >= 0 || isDevicePrefix(filePath) {
 		return "", false
 	}
 	return textlines.ValidUTF8([]byte(filePath)), true
@@ -54,7 +54,18 @@ func isDriveHost(host string) bool {
 }
 
 // isServerHost reports whether a URI's host names another machine: not
-// empty and not localhost, in any case, the two forms of this machine.
-func isServerHost(host string) bool {
-	return host != "" && !strings.EqualFold(host, "localhost")
+// empty and not localhost, in any case and with or without a port, the
+// forms of this machine.
+func isServerHost(parsed *url.URL) bool {
+	return parsed.Host != "" && !strings.EqualFold(parsed.Hostname(), "localhost")
+}
+
+// isDevicePrefix reports whether a path is a network path whose server is
+// empty, "?" or ".": nothing, or the start of a Windows extended-length
+// (\\?\) or device (\\.\) path, which no editor's file: URI is known to
+// hold, so it is refused rather than guessed at.
+func isDevicePrefix(filePath string) bool {
+	rest, network := strings.CutPrefix(filePath, "//")
+	server, _, _ := strings.Cut(rest, "/")
+	return network && (server == "" || server == "?" || server == ".")
 }
