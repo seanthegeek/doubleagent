@@ -110,19 +110,19 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
-// file's modification time. A selected or defaults that is not an object
-// adds a problem to problems, at line.
+// file's modification time. Preferences, an endpoint, or a selected or
+// defaults that is not an object, and endpoints or models of another kind
+// add a problem to problems, at line.
 func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
 	emit parser.Emit, problems *parser.Problems) {
 	timestamp := parser.FileMtime(artifact)
-	for _, endpoint := range preferences.Members() {
-		if !endpoint.Value.IsObject() {
-			continue
-		}
+	for key, value := range parser.MembersOfKind(preferences, preferencesKey, jsonvalue.Object, line, problems) {
+		endpoint := jsonvalue.Member{Key: key, Value: value}
 		for _, kind := range []string{"selected", "defaults"} {
-			for _, usage := range parser.ObjectMember(endpoint.Value.Get(kind), kind, line, problems) {
-				model := usage.Value
-				if !model.IsString() || model.StringValue() == "" {
+			for name, model := range parser.MembersOfKind(endpoint.Value.Get(kind), kind, jsonvalue.String, line,
+				problems) {
+				usage := jsonvalue.Member{Key: name, Value: model}
+				if model.StringValue() == "" {
 					continue
 				}
 				row := p.systemRow(artifact, "model setting: "+kind+"."+usage.Key+"="+model.StringValue()+

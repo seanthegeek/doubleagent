@@ -159,12 +159,8 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 	p.historyRows(artifact, history, 0, options, emit, &problems)
 	p.recoveredRows(artifact, recovered, emit)
 	if state.IsObject() {
-		preferences := state.Get(preferencesKey)
-		if !preferences.IsNull() && !preferences.IsObject() {
-			problems = append(problems, parser.WrongKind(preferencesKey, jsonvalue.Object))
-		}
 		var found parser.Problems
-		p.preferenceRows(artifact, preferences, artifact.Rel+" "+preferencesKey, 0, emit, &found)
+		p.preferenceRows(artifact, state.Get(preferencesKey), artifact.Rel+" "+preferencesKey, 0, emit, &found)
 		addProblems(&problems, found)
 	}
 	for _, problem := range problems {

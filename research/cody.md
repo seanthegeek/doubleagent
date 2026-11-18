@@ -717,8 +717,12 @@ row; a null member is no history and gives no row. A member that is present but 
 wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's value
 (`chat history account`), its `chat`, a chat's `interactions`, a message's `content` or `processes`,
 a model preferences value's `selected` or `defaults`, and, in a `state.vscdb`,
-`cody-model-preferences`; an absent, null or empty one gives no row, and each row has the file's
-`source_line`. A JetBrains chat history
+`cody-model-preferences`, and an interaction's `humanMessage` or `assistantMessage`; an absent,
+null or empty one gives no row, and each row has the file's `source_line`. One of these holding
+entries of another kind (chats, interactions, content parts, processes or endpoints that are not
+objects, models that are not strings) gives one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for
+one), the other entries giving their rows. A JetBrains chat history
 (`JetBrains-globalState/cody-local-chatHistory-v2`), model preferences file, editor
 `User/settings.json` or legacy `cody_history.xml` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; the row for
