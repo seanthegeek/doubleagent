@@ -153,24 +153,24 @@ func (p *Parser) setting(artifact *input.Artifact, text string) timeline.Row {
 }
 
 // parseConfig emits one row per integration of .ollama/config.json that
-// sets automode.
+// sets automode; an integrations that is not an object adds a problem row.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	document, err := p.readObject(artifact)
 	if err != nil {
 		emit(p.SystemRow(artifact, err.Error()))
 		return
 	}
-	integrations := document.Get("integrations")
-	if !integrations.IsObject() {
-		return
-	}
-	for _, member := range integrations.Members() {
+	var problems parser.Problems
+	for _, member := range parser.ObjectMember(document.Get("integrations"), "integrations", 0, &problems) {
 		automode, ok := member.Value.Lookup("automode")
 		if !member.Value.IsObject() || !ok {
 			continue
 		}
 		emit(p.setting(artifact, "permission setting: integrations."+member.Key+".automode="+
 			parser.SettingValue(automode)+" (from "+artifact.Rel+", file mtime)"))
+	}
+	for _, found := range problems {
+		emit(p.SystemRow(artifact, parser.ProblemPrefix+found.Message))
 	}
 }
 

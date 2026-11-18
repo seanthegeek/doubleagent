@@ -1005,6 +1005,10 @@ is not a SQLite database is `parser: not a SQLite database` ([Fixtures](#fixture
 `parser: history could not be read (<reason>)`, after the rows of the lines read before the
 failure.
 
+A `.ollama/config.json` `integrations` that is present but not an object is one row
+`parser: integrations is not a JSON object`, after the file's other rows; an absent, null or empty
+one gives no row.
+
 #### Fixtures
 
 Fixture `Library/Application Support/Ollama/db.sqlite`:
