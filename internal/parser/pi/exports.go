@@ -130,7 +130,7 @@ func decodeBase64(text []byte) ([]byte, error) {
 func (p *Parser) parseJSONLExport(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	session := ReadSession(artifact.DiskPath)
 	if !session.HasHeader() {
-		parser.EmitAll(emit, p.ErrorRows(artifact, session.Problems, "", ""))
+		parser.EmitAll(emit, p.ErrorRows(artifact, session.headerless(artifact.Rel), "", ""))
 		return
 	}
 	header := session.Header
@@ -185,7 +185,7 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 	}
 	if data, ok := members["session.jsonl"]; ok {
 		session := ReadSessionBytes(data)
-		problems = append(problems, session.Problems...)
+		problems = append(problems, session.headerless(artifact.Rel+" member session.jsonl")...)
 		if session.HasHeader() {
 			if identifier := session.Header.Get("id"); !identifier.IsEmpty() {
 				sessionID = identifier.Text()

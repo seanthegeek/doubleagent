@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,7 +12,9 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every file kind are proved by the parser replay
@@ -333,6 +336,50 @@ func TestFirstSeenKeepsDistinctTextsInOrderAtOneLookupEach(t *testing.T) {
 			}
 			if seen.lookups != count || len(seen.order) != count {
 				t.Errorf("%d lookups for %d texts (%d kept), want one each", seen.lookups, count, len(seen.order))
+			}
+		})
+	}
+}
+
+func TestASessionFileWithRecordsButNoHeaderIsReported(t *testing.T) {
+	const entry = `{"type": "message", "id": "e1", "message": {"role": "user", "content": "hi"}}` + "\n"
+	const export = "session-2026-01-01T00-00-00-000Z.jsonl"
+	report := zipOf(t, [2]string{"report.json", `{}`}, [2]string{"diagnostics.json", `{}`},
+		[2]string{"session.jsonl", entry})
+	tests := []struct {
+		name, rel string
+		data      []byte
+		want      []string
+	}{
+		{"a session file", ".pi/agent/sessions/--w--/2026_s1.jsonl", []byte(entry),
+			[]string{"parser: .pi/agent/sessions/--w--/2026_s1.jsonl has no session header"}},
+		{"an empty session file", ".pi/agent/sessions/--w--/2026_s2.jsonl", nil, nil},
+		{"a JSONL export", export, []byte(entry), []string{"parser: " + export + " has no session header"}},
+		{"a bug report's session", "pi-bug-report-1.zip", report,
+			[]string{"parser: pi-bug-report-1.zip member session.jsonl has no session header"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(test.rel))
+			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(path, test.data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + test.rel, Rel: test.rel,
+				Home: &input.Home{DiskPath: home, Original: "/h"}}
+			var problems []string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+				if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+					problems = append(problems, row.Text)
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(problems, test.want) {
+				t.Errorf("problem rows %q, want %q", problems, test.want)
 			}
 		})
 	}

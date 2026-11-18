@@ -141,11 +141,12 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 // parseSession emits a session file's start row, its fork row when it
 // copied entries from its parent, its entries' rows, its little-coder row
 // and its bad lines. A file whose first record is not a header is not a
-// session file to pi either: only its bad lines are reported.
+// session file to pi either: only its bad lines and the missing header are
+// reported.
 func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	session := ReadSession(artifact.DiskPath)
 	if !session.HasHeader() {
-		parser.EmitAll(emit, p.ErrorRows(artifact, session.Problems, "", ""))
+		parser.EmitAll(emit, p.ErrorRows(artifact, session.headerless(artifact.Rel), "", ""))
 		return
 	}
 	header := session.Header

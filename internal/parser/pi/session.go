@@ -2,6 +2,7 @@ package pi
 
 import (
 	"iter"
+	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -28,6 +29,16 @@ type Session struct {
 // HasHeader reports whether the session has a header record.
 func (s *Session) HasHeader() bool {
 	return s.Header.IsObject()
+}
+
+// headerless returns the session's problems, with, when it holds records
+// but no header, the whole-file problem that names the file: "<name> has
+// no session header".
+func (s *Session) headerless(name string) parser.Problems {
+	if s.HasHeader() || len(s.Entries) == 0 {
+		return s.Problems
+	}
+	return append(slices.Clone(s.Problems), parser.Problem{Message: name + " has no session header"})
 }
 
 // ReadSession reads a pi-format session file into its header, entries and
