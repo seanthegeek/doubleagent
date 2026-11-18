@@ -75,15 +75,6 @@ func loadDocument(artifact *input.Artifact, problems *parser.Problems) (jsonvalu
 	return document, ""
 }
 
-// orDefault returns a value as row text, or fallback when the value is
-// empty (jsonvalue.Value.IsEmpty).
-func orDefault(value jsonvalue.Value, fallback string) string {
-	if !value.IsEmpty() {
-		return value.Text()
-	}
-	return fallback
-}
-
 // parseTasks emits the rows of the scheduler's tasks.json: per task a
 // "scheduled task:" row at created_at, the prompt as the chat logged it with
 // no time of its own, and the last result at last_run.

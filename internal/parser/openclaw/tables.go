@@ -9,15 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// sourceLine returns a column value as a row's source line: an integer as
-// it is, anything else as 0.
-func sourceLine(value sqlitefile.Value) int {
-	if value.Type == sqlitefile.Integer {
-		return int(value.Int)
-	}
-	return 0
-}
-
 // pending emits the prompts of session_pending_inputs the transcript
 // lacks. One never consumed never reached the transcript and gives its user
 // row and a `pending input:` row; a consumed one gives its user row, marked
@@ -37,7 +28,7 @@ func (a *agentDatabase) pending() error {
 		if !consumed.IsEmpty() && a.store.ids[[2]string{sessionID, consumed.String()}] {
 			continue
 		}
-		line := sourceLine(record.Get("seq"))
+		line := parser.ColumnLine(record.Get("seq"))
 		raw := parser.TextColumn(record.Get("message_json"))
 		message, err := jsonvalue.DecodeString(raw)
 		if err != nil {
@@ -96,7 +87,7 @@ func (a *agentDatabase) fullText() error {
 		} else {
 			text = cmp.Or(role, "message") + ": " + text
 		}
-		row := a.contextRow(sessionID, sourceLine(record.Get("id")),
+		row := a.contextRow(sessionID, parser.ColumnLine(record.Get("id")),
 			parser.ColumnTime(record.Get("c4")), turnType, text)
 		row.Recovered = "yes"
 		a.emit(row)

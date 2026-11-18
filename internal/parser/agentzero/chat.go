@@ -403,7 +403,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 
 // chatRows emits the rows of a chat that decoded.
 func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
-	c.base.SessionID = orDefault(document.Get("id"), fallbackID)
+	c.base.SessionID = parser.TextOr(document.Get("id"), fallbackID)
 	data := document.Get("data")
 	if project := data.Get("project"); !project.IsEmpty() {
 		c.base.ProjectPath = projectOf(project)
@@ -720,8 +720,7 @@ func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeli
 
 // toolLogRows emits the call and the result of a tool log item.
 func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	name := orDefault(parser.FirstNonEmpty(current.kvps.Get("_tool_name"), current.body.Get("tool_name")),
-		current.kind)
+	name := parser.TextOr(parser.FirstNonEmpty(current.kvps.Get("_tool_name"), current.body.Get("tool_name")), current.kind)
 	toolID := current.itemID
 	if toolID == "" {
 		toolID = "log:" + strconv.Itoa(current.line)

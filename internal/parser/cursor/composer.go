@@ -136,20 +136,12 @@ func readComposers(store *store) *composers {
 		sortByRowid(rows)
 		for _, row := range rows {
 			current := found.get(row.key[len("composerData:"):])
-			current.data = objectOf(decodeRecord(row.rowid, row.key, row.value, &current.problems))
+			current.data = parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, &current.problems))
 			current.hasData, current.dataRowid = true, row.rowid
 		}
 	}
 	readHeaders(store, found)
 	return found
-}
-
-// objectOf returns value when it is an object, else an empty object.
-func objectOf(value jsonvalue.Value) jsonvalue.Value {
-	if value.IsObject() {
-		return value
-	}
-	return jsonvalue.NewObject()
 }
 
 // readHeaders attaches each composerHeaders row and its decoded value to
@@ -172,7 +164,7 @@ func readHeaders(store *store, found *composers) {
 		current := found.get(ident.String())
 		current.header = &rows[i]
 		if value := rows[i].Get("value"); !value.IsNull() {
-			current.head = objectOf(decodeRecord(rows[i].Rowid, "composerHeaders "+current.ident, value,
+			current.head = parser.ObjectOrEmpty(decodeRecord(rows[i].Rowid, "composerHeaders "+current.ident, value,
 				&current.problems))
 		}
 	}

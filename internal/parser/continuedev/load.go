@@ -79,24 +79,7 @@ func recoverHistory(text string) []jsonvalue.Value {
 	if location == nil {
 		return nil
 	}
-	var history []jsonvalue.Value
-	position := location[1]
-	for {
-		for position < len(text) && strings.IndexByte(" \t\r\n,", text[position]) >= 0 {
-			position++
-		}
-		if position >= len(text) || text[position] == ']' {
-			return history
-		}
-		item, end, err := jsonvalue.DecodePrefix(text, position)
-		if err != nil {
-			return history
-		}
-		position = end
-		if item.IsObject() {
-			history = append(history, item)
-		}
-	}
+	return parser.ObjectsFrom(text, location[1])
 }
 
 // MessageText returns the text of a chat message's content, image parts

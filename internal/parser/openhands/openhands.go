@@ -135,15 +135,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	return nil
 }
 
-// orDefault returns a value as row text, or fallback when the value is
-// empty (jsonvalue.Value.IsEmpty).
-func orDefault(value jsonvalue.Value, fallback string) string {
-	if !value.IsEmpty() {
-		return value.Text()
-	}
-	return fallback
-}
-
 // nonEmptyText returns a value's string when it is a non-empty string.
 func nonEmptyText(value jsonvalue.Value) (string, bool) {
 	return value.StringValue(), value.IsString() && value.StringValue() != ""

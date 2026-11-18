@@ -368,7 +368,7 @@ func logEntries(path string, problems *parser.Problems) []entry {
 		return nil
 	}
 	text := textlines.ValidUTF8(data)
-	offset := skipWhitespace(text, 0)
+	offset := parser.SkipJSONSpace(text, 0)
 	if offset >= len(text) {
 		return nil
 	}
@@ -378,7 +378,7 @@ func logEntries(path string, problems *parser.Problems) []entry {
 	}
 	var out []entry
 	index := 0
-	for offset = skipWhitespace(text, offset+1); offset < len(text) && text[offset] != ']'; {
+	for offset = parser.SkipJSONSpace(text, offset+1); offset < len(text) && text[offset] != ']'; {
 		index++
 		value, next, err := jsonvalue.DecodePrefix(text, offset)
 		if err != nil {
@@ -388,21 +388,12 @@ func logEntries(path string, problems *parser.Problems) []entry {
 		if value.IsObject() {
 			out = append(out, entry{index, value})
 		}
-		if offset = skipWhitespace(text, next); offset < len(text) && text[offset] == ',' {
-			offset = skipWhitespace(text, offset+1)
+		if offset = parser.SkipJSONSpace(text, next); offset < len(text) && text[offset] == ',' {
+			offset = parser.SkipJSONSpace(text, offset+1)
 		}
 	}
 	if offset >= len(text) {
 		problems.Add(index+1, "unterminated JSON array")
 	}
 	return out
-}
-
-// skipWhitespace returns the first offset at or after offset that is not
-// JSON whitespace.
-func skipWhitespace(text string, offset int) int {
-	for offset < len(text) && strings.IndexByte(" \t\r\n", text[offset]) >= 0 {
-		offset++
-	}
-	return offset
 }

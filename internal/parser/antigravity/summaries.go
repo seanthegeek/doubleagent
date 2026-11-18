@@ -44,7 +44,7 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 	for position, summary := range stored {
 		row := p.BaseRow(artifact)
 		row.SourceLine = position + 1
-		row.SessionID = nonEmptyText(summary.Get("conversation_id"))
+		row.SessionID = parser.NonEmptyColumn(summary.Get("conversation_id"))
 		row.TimestampUTC = parser.ColumnTime(summary.Get("last_modified_time"))
 		row.ProjectPath = firstWorkspace(summary.Get("workspace_uris"))
 		row.TurnType = timeline.TurnSystem
@@ -52,25 +52,16 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 		if table.Has("step_count") {
 			steps = summary.Get("step_count").String()
 		}
-		title := nonEmptyText(summary.Get("title"))
+		title := parser.NonEmptyColumn(summary.Get("title"))
 		if title == "" {
-			title = nonEmptyText(summary.Get("preview"))
+			title = parser.NonEmptyColumn(summary.Get("preview"))
 		}
-		row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "conversation summary", title, nonEmptyText(summary.Get("status")),
-			steps+" steps", prefixed("agent=", nonEmptyText(summary.Get("agent_name"))),
-			prefixed("parent=", nonEmptyText(summary.Get("parent_conversation_id")))))
+		row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "conversation summary", title, parser.NonEmptyColumn(summary.Get("status")),
+			steps+" steps", prefixed("agent=", parser.NonEmptyColumn(summary.Get("agent_name"))),
+			prefixed("parent=", parser.NonEmptyColumn(summary.Get("parent_conversation_id")))))
 		rows = append(rows, row)
 	}
 	return rows, nil
-}
-
-// nonEmptyText returns a column value as row text, "" when it is empty
-// (NULL, zero, or empty text or blob).
-func nonEmptyText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
 }
 
 // firstWorkspace returns the path of the first workspace URI of a

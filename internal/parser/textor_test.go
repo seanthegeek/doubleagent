@@ -6,10 +6,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-func TestTextOrDashGivesADashForAnEmptyValue(t *testing.T) {
+func TestTextOrGivesTheFallbackForAnEmptyValue(t *testing.T) {
 	tests := []struct{ name, json, want string }{
 		{"text", `"a"`, "a"},
-		{"a number", "1.50", "1.50"},
+		{"a number as written", "1.50", "1.50"},
 		{"true", "true", "true"},
 		{"null", "null", "-"},
 		{"the empty string", `""`, "-"},
@@ -24,8 +24,8 @@ func TestTextOrDashGivesADashForAnEmptyValue(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := TextOrDash(value); got != test.want {
-				t.Errorf("TextOrDash(%s) = %q, want %q", test.json, got, test.want)
+			if got := TextOr(value, "-"); got != test.want {
+				t.Errorf("TextOr(%s, \"-\") = %q, want %q", test.json, got, test.want)
 			}
 		})
 	}

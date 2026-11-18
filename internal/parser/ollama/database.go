@@ -1,7 +1,6 @@
 package ollama
 
 import (
-	"math"
 	"strconv"
 	"strings"
 
@@ -43,26 +42,6 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	parser.EmitAll(emit, rows)
 }
 
-// valueKey returns the key under which a column value is looked up:
-// numbers equal in value share one key whatever their storage class, and
-// text and blobs never equal a number.
-func valueKey(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return "n" + strconv.FormatInt(value.Int, 10)
-	case sqlitefile.Float:
-		if value.Float == math.Trunc(value.Float) && math.Abs(value.Float) < 1<<63 {
-			return "n" + strconv.FormatInt(int64(value.Float), 10)
-		}
-		return "f" + strconv.FormatFloat(value.Float, 'g', -1, 64)
-	case sqlitefile.Text:
-		return "t" + string(value.Bytes)
-	case sqlitefile.Blob:
-		return "b" + string(value.Bytes)
-	}
-	return "null"
-}
-
 // readCalls returns the tool calls by message, each message's in id order.
 func readCalls(database *sqlitefile.Database) (map[string][]toolCall, error) {
 	calls := map[string][]toolCall{}
@@ -72,7 +51,7 @@ func readCalls(database *sqlitefile.Database) (map[string][]toolCall, error) {
 	}
 	err = table.Select("id", "message_id", "function_name", "function_arguments").
 		OrderBy("message_id", "id").Each(func(row sqlitefile.Row) error {
-		key := valueKey(row.Get("message_id"))
+		key := parser.ColumnKey(row.Get("message_id"))
 		calls[key] = append(calls[key], toolCall{callID: row.Get("id"),
 			name: parser.NonEmptyColumn(row.Get("function_name")), arguments: row.Get("function_arguments")})
 		return nil
@@ -91,7 +70,7 @@ func readAttachments(database *sqlitefile.Database) (map[string][]attachment, er
 	err = table.Select("message_id", "filename").
 		Compute("n", func(row sqlitefile.Row) sqlitefile.Value { return sqlitefile.Length(row.Get("data")) }).
 		OrderBy("message_id", "id").Each(func(row sqlitefile.Row) error {
-		key := valueKey(row.Get("message_id"))
+		key := parser.ColumnKey(row.Get("message_id"))
 		files[key] = append(files[key], attachment{filename: parser.NonEmptyColumn(row.Get("filename")),
 			size: row.Get("n").Int})
 		return nil
@@ -152,15 +131,6 @@ type messageReader struct {
 	emit     parser.Emit
 }
 
-// sourceLine returns an id column as a row's source line, 0 when it is not
-// an integer.
-func sourceLine(value sqlitefile.Value) int {
-	if value.Type == sqlitefile.Integer {
-		return int(value.Int)
-	}
-	return 0
-}
-
 // message emits the rows of one message.
 func (m *messageReader) message(message sqlitefile.Row) {
 	messageID := message.Get("id")
@@ -171,9 +141,9 @@ func (m *messageReader) message(message sqlitefile.Row) {
 	if !m.state.started || sessionID != m.state.chat {
 		m.state.chat, m.state.started, m.state.pending, m.state.used = sessionID, true, nil, 0
 	}
-	key := valueKey(messageID)
+	key := parser.ColumnKey(messageID)
 	timestamp := parser.ColumnTime(message.Get("created_at"))
-	row := m.parser.row(m.artifact, sourceLine(messageID), sessionID, timestamp)
+	row := m.parser.row(m.artifact, parser.ColumnLine(messageID), sessionID, timestamp)
 	switch role := parser.NonEmptyColumn(message.Get("role")); role {
 	case "user":
 		parts := []string{}
@@ -229,7 +199,7 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 	}
 	for _, call := range calls {
 		row := build(timeline.TurnToolUse, timeline.Compact(callText(call.arguments)))
-		row.SourceLine = sourceLine(call.callID)
+		row.SourceLine = parser.ColumnLine(call.callID)
 		row.ToolName = call.name
 		row.ToolUseID = m.state.chat + ":" + call.callID.String()
 		m.emit(row)

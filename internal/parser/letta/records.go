@@ -94,8 +94,8 @@ func syncRows(servers jsonvalue.Value, rel string, put func(sessionID, text stri
 		}
 		entry := server.Value
 		put(parser.Text(entry.Get("conversationId")), "session synced: last session on "+
-			server.Key+" agent "+parser.TextOrDash(entry.Get("agentId"))+" conversation "+
-			parser.TextOrDash(entry.Get("conversationId"))+" (from "+rel+", file mtime)")
+			server.Key+" agent "+parser.TextOr(entry.Get("agentId"), "-")+" conversation "+
+			parser.TextOr(entry.Get("conversationId"), "-")+" (from "+rel+", file mtime)")
 	}
 }
 

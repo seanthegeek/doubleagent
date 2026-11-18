@@ -17,7 +17,7 @@ import (
 // at.
 func referencePatch(message, patch jsonvalue.Value) (jsonvalue.Value, int) {
 	compared := 0
-	copied := copyObject(message)
+	copied := parser.CopyObject(message)
 	if content := patch.Get("content"); !content.IsNull() {
 		copied.Set("content", content)
 	}
@@ -26,7 +26,7 @@ func referencePatch(message, patch jsonvalue.Value) (jsonvalue.Value, int) {
 		items := make([]jsonvalue.Value, 0, calls.Len())
 		for _, call := range calls.Items() {
 			if call.IsObject() {
-				call = copyObject(call)
+				call = parser.CopyObject(call)
 			}
 			items = append(items, call)
 		}

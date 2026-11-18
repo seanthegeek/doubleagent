@@ -257,7 +257,7 @@ func (r *replay) applyPatch(patch jsonvalue.Value) {
 // patchableCopy returns a copy of a message whose tool calls are copies
 // too, and the first of those calls of each string id.
 func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonvalue.Value) {
-	copied := copyObject(message)
+	copied := parser.CopyObject(message)
 	calls := message.Get("toolCalls")
 	if !calls.IsArray() {
 		return copied, nil
@@ -266,7 +266,7 @@ func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonval
 	items := make([]jsonvalue.Value, 0, calls.Len())
 	for _, call := range calls.Items() {
 		if call.IsObject() {
-			call = copyObject(call)
+			call = parser.CopyObject(call)
 			if _, seen := byID[call.Get("id").StringValue()]; call.Get("id").IsString() && !seen {
 				byID[call.Get("id").StringValue()] = call
 			}
@@ -293,12 +293,6 @@ func (r *replay) patchedCall(entry *stored, calls, callID jsonvalue.Value) (json
 		}
 	}
 	return jsonvalue.NewNull(), false
-}
-
-// copyObject returns a new object holding an object's members, so a
-// change to it leaves the original as it was.
-func copyObject(object jsonvalue.Value) jsonvalue.Value {
-	return jsonvalue.NewObject(object.Members()...)
 }
 
 // set applies a $set: a new session id, a new message list, metadata, and

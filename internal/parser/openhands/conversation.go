@@ -491,7 +491,7 @@ func settingRows(state jsonvalue.Value, actions map[string][2]string) []setting 
 		}
 		rows = append(rows, setting{text: text + tail})
 	}
-	analyzer := orDefault(state.Get("security_analyzer").Get("kind"), "none")
+	analyzer := parser.TextOr(state.Get("security_analyzer").Get("kind"), "none")
 	rows = append(rows, setting{text: "permission setting: security_analyzer=" + analyzer + tail})
 	for _, blocked := range state.Get("blocked_actions").Members() {
 		held := actions[blocked.Key]

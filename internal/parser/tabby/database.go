@@ -152,15 +152,6 @@ func (s *store) readUsers() (map[string]string, error) {
 	return users, err
 }
 
-// sourceLine returns an id column as a row's source line, 0 when it is not
-// an integer.
-func sourceLine(value sqlitefile.Value) int {
-	if value.Type == sqlitefile.Integer {
-		return int(value.Int)
-	}
-	return 0
-}
-
 // digitsLine returns an id read as text as a source line when it is all
 // ASCII digits, else 0.
 func digitsLine(text string) int {
@@ -295,7 +286,7 @@ func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, t
 	if role != timeline.TurnUser && role != timeline.TurnAssistant {
 		text, turnType = role+": "+text, timeline.TurnSystem
 	}
-	return s.parser.row(s.artifact, rowSpec{line: sourceLine(message.Get("id")), sessionID: threadID,
+	return s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(message.Get("id")), sessionID: threadID,
 		projectPath: project, timestamp: parser.ColumnTime(message.Get("created_at")),
 		turnType: turnType, text: text})
 }
@@ -371,7 +362,7 @@ func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments
 			text += " [attachments: " + strings.Join(parts, "; ") + "]"
 		}
 		row := spec
-		row.line, row.turnType, row.text = sourceLine(section.Get("id")), timeline.TurnAssistant, text
+		row.line, row.turnType, row.text = parser.ColumnLine(section.Get("id")), timeline.TurnAssistant, text
 		if created := parser.ColumnTime(section.Get("created_at")); created != "" {
 			row.timestamp = created
 		}
@@ -392,7 +383,7 @@ func labelledColumn(label string, value sqlitefile.Value) string {
 // payload that is not a JSON object.
 func (s *store) userEvents() error {
 	return s.each("user_events", "created_at,id", func(event sqlitefile.Row) {
-		spec := rowSpec{line: sourceLine(event.Get("id")), timestamp: parser.ColumnTime(event.Get("created_at"))}
+		spec := rowSpec{line: parser.ColumnLine(event.Get("id")), timestamp: parser.ColumnTime(event.Get("created_at"))}
 		userID := event.Get("user_id")
 		owner := s.owner(userID)
 		if owner == "" {
@@ -422,7 +413,7 @@ func (s *store) integrations() error {
 		}
 		name := parser.NonEmptyColumn(integration.Get("display_name"))
 		names[integration.Get("id").String()] = named{name, kind}
-		s.emit(s.parser.row(s.artifact, rowSpec{line: sourceLine(integration.Get("id")),
+		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
 			text: "source host: " + cmp.Or(host, "-") + " integration " + cmp.Or(name, "-") + " kind=" + cmp.Or(kind, "-") +
 				" api_base=" + cmp.Or(apiBase, "-") + " (account not recorded; from integrations table, " +
@@ -441,7 +432,7 @@ func (s *store) integrations() error {
 		if owner == "" {
 			owner = "integration_id=" + repository.Get("integration_id").String()
 		}
-		s.emit(s.parser.row(s.artifact, rowSpec{line: sourceLine(repository.Get("id")),
+		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(repository.Get("id")),
 			timestamp: parser.ColumnTime(repository.Get("updated_at")),
 			text: "source host repository: " + cmp.Or(parser.NonEmptyColumn(repository.Get("git_url")), "-") + " type=" +
 				cmp.Or(integration.kind, "-") + " name=" + cmp.Or(parser.NonEmptyColumn(repository.Get("name")), "-") + " active=" +

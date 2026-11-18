@@ -9,7 +9,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -89,23 +88,6 @@ func relayTexts(sessionID string, lastChannel jsonvalue.Value) []string {
 // isMessaging reports whether channel is a messaging platform.
 func isMessaging(channel string) bool {
 	return slices.Contains(messagingChannels(), channel)
-}
-
-// columnValue returns a column value as the JSON value of the record the
-// session database's rows are rebuilt into: a blob as its row text
-// (sqlitefile.Value.String), which reads as no time.
-func columnValue(value sqlitefile.Value) jsonvalue.Value {
-	switch value.Type {
-	case sqlitefile.Null:
-		return jsonvalue.NewNull()
-	case sqlitefile.Integer:
-		return jsonvalue.NewInt(value.Int)
-	case sqlitefile.Float:
-		return jsonvalue.NewFloat(value.Float)
-	case sqlitefile.Text:
-		return jsonvalue.NewString(value.Text())
-	}
-	return jsonvalue.NewString(value.String())
 }
 
 // getOr returns the row text of the member key of object, or fallback when

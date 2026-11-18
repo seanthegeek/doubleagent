@@ -379,8 +379,8 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 		if value := body.Get("elapsed"); !value.IsNull() {
 			elapsed = "elapsed=" + value.Text() + "ms"
 		}
-		spec.text = parser.JoinNonEmpty(" | ", tag+" choice "+index, owner, labelled("kind=", body.Get("kind")),
-			labelled("view=", body.Get("view_id")), elapsed)
+		spec.text = parser.JoinNonEmpty(" | ", tag+" choice "+index, owner, parser.Labelled("kind=", body.Get("kind")),
+			parser.Labelled("view=", body.Get("view_id")), elapsed)
 		emit(p.row(artifact, spec))
 	default:
 		detail := ""
@@ -392,15 +392,6 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	}
 }
 
-// labelled returns label and the value's text when the value is not
-// empty, else "".
-func labelled(label string, value jsonvalue.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return label + value.Text()
-}
-
 // completionRows emits a completion's system row, its prompt as a user row
 // and each choice as an assistant row.
 func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner string,
@@ -410,8 +401,8 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 		segments = jsonvalue.NewObject()
 	}
 	spec.projectPath = parser.Text(segments.Get("git_url"))
-	spec.text = parser.JoinNonEmpty(" | ", "completion", owner, labelled("language=", body.Get("language")),
-		labelled("file=", segments.Get("filepath")), labelled("client=", body.Get("user_agent")))
+	spec.text = parser.JoinNonEmpty(" | ", "completion", owner, parser.Labelled("language=", body.Get("language")),
+		parser.Labelled("file=", segments.Get("filepath")), parser.Labelled("client=", body.Get("user_agent")))
 	emit(p.row(artifact, spec))
 	spec.turnType, spec.text = timeline.TurnUser, parser.Text(body.Get("prompt"))
 	emit(p.row(artifact, spec))

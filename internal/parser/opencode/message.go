@@ -54,10 +54,10 @@ func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message js
 	provider, modelID := messageRef(message)
 	builder := &partRows{owner: p, artifact: artifact, scoped: scoped, model: modelName(provider, modelID),
 		options: options}
-	times := objectOf(message.Get("time"))
+	times := parser.ObjectOrEmpty(message.Get("time"))
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("created")), where.time)
 	if scoped.projectPath == "" {
-		scoped.projectPath = parser.Text(objectOf(message.Get("path")).Get("cwd"))
+		scoped.projectPath = parser.Text(parser.ObjectOrEmpty(message.Get("path")).Get("cwd"))
 	}
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, provider, modelID),
 		agentRowText(scoped.modes, scoped.sessionID, message.Get("agent"))} {
@@ -86,7 +86,7 @@ func (b *partRows) parts(parts []part, user bool, messageTime string) {
 	for _, each := range parts {
 		data := each.data
 		timestamp := timeutil.FirstNonEmpty(
-			timeutil.FromValue(objectOf(data.Get("time")).Get("start")), each.where.time, messageTime)
+			timeutil.FromValue(parser.ObjectOrEmpty(data.Get("time")).Get("start")), each.where.time, messageTime)
 		text := data.Get("text")
 		isPlainText := parser.IsText(data.Get("type"), "text") && data.Get("synthetic").IsEmpty() &&
 			data.Get("ignored").IsEmpty()
@@ -139,12 +139,12 @@ func (b *partRows) part(where origin, data jsonvalue.Value, timestamp string) {
 func partSummary(kind, data jsonvalue.Value) string {
 	switch textOf(kind) {
 	case "step-finish":
-		tokens := objectOf(data.Get("tokens"))
-		return join("step-finish", labelled("reason=", data.Get("reason")),
+		tokens := parser.ObjectOrEmpty(data.Get("tokens"))
+		return join("step-finish", parser.Labelled("reason=", data.Get("reason")),
 			present("cost=", data.Get("cost")), present("tokens_in=", tokens.Get("input")),
 			present("tokens_out=", tokens.Get("output")))
 	case "subtask":
-		return join("subtask", labelled("agent=", data.Get("agent")),
+		return join("subtask", parser.Labelled("agent=", data.Get("agent")),
 			parser.Text(data.Get("description"))+":", parser.Text(data.Get("prompt")))
 	case "compaction":
 		auto := ""
@@ -157,7 +157,7 @@ func partSummary(kind, data jsonvalue.Value) string {
 	case "agent":
 		return join("agent:", parser.Text(data.Get("name")))
 	case "retry":
-		return join("retry", labelled("attempt=", data.Get("attempt")), errorText(data.Get("error")))
+		return join("retry", parser.Labelled("attempt=", data.Get("attempt")), errorText(data.Get("error")))
 	case "patch":
 		var files []string
 		for _, file := range data.Get("files").Items() {
@@ -184,8 +184,8 @@ func present(label string, value jsonvalue.Value) string {
 // tool adds a 1.x tool part's tool_use row, and once the call has finished
 // its tool_result row and, for a refusal, its "permission decision:" row.
 func (b *partRows) tool(where origin, data jsonvalue.Value, timestamp string) {
-	state := objectOf(data.Get("state"))
-	times := objectOf(state.Get("time"))
+	state := parser.ObjectOrEmpty(data.Get("state"))
+	times := parser.ObjectOrEmpty(state.Get("time"))
 	name, callID := parser.Text(data.Get("tool")), parser.Text(data.Get("callID"))
 	summary := ToolSummary(state.Get("input"))
 	if summary == "" {
