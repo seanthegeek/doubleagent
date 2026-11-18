@@ -10,12 +10,3 @@ func FuzzSplitWords(fuzz *testing.F) {
 		_, _ = splitWords(line)
 	})
 }
-
-func FuzzUnescapeHTML(fuzz *testing.F) {
-	for _, seed := range []string{"&amp;&#65;&#x1F600;&ltx;", "&#99999999999999999999999", "&", "&#xD800"} {
-		fuzz.Add(seed)
-	}
-	fuzz.Fuzz(func(t *testing.T, text string) {
-		_ = unescapeHTML(text)
-	})
-}

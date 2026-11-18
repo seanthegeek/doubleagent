@@ -8,11 +8,9 @@ import (
 )
 
 // The rows of the database, the registry and the settings files are proved
-// against the Python analyzer by the parser replay
-// (internal/parity/replay); these tests cover the helpers the analyzer's
-// tests call directly and the two library functions ported here, with
-// expected values from running Python's shlex.split(line, comments=True)
-// and html.unescape on the same inputs.
+// against the recorded cases by the parser replay (internal/parity/replay);
+// these tests cover the shell word splitter of the permissions file, the
+// channel attributes' unescaping and the project path.
 
 func TestShellWordsSplitAsPOSIXQuotingWithComments(t *testing.T) {
 	tests := []struct {
@@ -50,7 +48,11 @@ func TestShellWordsSplitAsPOSIXQuotingWithComments(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.line, func(t *testing.T) {
-			got, gotErr := splitWords(test.line)
+			got, err := splitWords(test.line)
+			gotErr := ""
+			if err != nil {
+				gotErr = err.Error()
+			}
 			if !slices.Equal(got, test.want) || gotErr != test.wantErr {
 				t.Errorf("got %q, %q; want %q, %q", got, gotErr, test.want, test.wantErr)
 			}
@@ -58,54 +60,21 @@ func TestShellWordsSplitAsPOSIXQuotingWithComments(t *testing.T) {
 	}
 }
 
-func TestCharacterReferencesUnescapeAsHTMLDoes(t *testing.T) {
-	tests := []struct {
-		text string
-		want string
-	}{
-		{"plain", "plain"},
-		{"&amp;", "&"},
-		{"&amp", "&"},
-		{"&AMP;", "&"},
-		{"&lt;&gt;&quot;&apos;", "<>\"'"},
-		{"&ampx", "&x"},
-		{"&#65;", "A"},
-		{"&#65", "A"},
-		{"&#x41;", "A"},
-		{"&#X41", "A"},
-		{"&#0;", "�"},
-		{"&#13;", "\x0d"},
-		{"&#128;", "€"},
-		{"&#x80;", "€"},
-		{"&#xD800;", "�"},
-		{"&#1114112;", "�"},
-		{"&#99999999999999999999;", "�"},
-		{"&#1;", ""},
-		{"&#xFFFE;", ""},
-		{"&#x1FFFF;", ""},
-		{"&#xFDD0;", ""},
-		{"&#;", "&#;"},
-		{"&#x;", "&#x;"},
-		{"&", "&"},
-		{"&;", "&;"},
-		{"& x", "& x"},
-		{"&unknown;", "&unknown;"},
-		{"&quotx", "\"x"},
-		{"a&amp;b&lt", "a&b<"},
-		{"&#38;amp;", "&amp;"},
-		{"&ltx;", "<x;"},
-		{"&QUOT", "\""},
-		{"&apos", "&apos"},
-		{"&#x10FFFF;", ""},
-		{"&#127;", ""},
-		{"&#159;", "Ÿ"},
-		{"&#x9F;", "Ÿ"},
-		{"&#11;", ""},
+func TestChannelAttributesAreUnescapedAsCrushEscapesThem(t *testing.T) {
+	tests := []struct{ name, text, want string }{
+		{"the five escaped characters", `&amp;&#39;&lt;&gt;&#34;`, `&'<>"`},
+		{"an escaped ampersand stays one", "&amp;amp;", "&amp;"},
+		{"named references", "&quot;&apos;&lt;", `"'<`},
+		{"text without a reference", "telegram", "telegram"},
 	}
 	for _, test := range tests {
-		t.Run(test.text, func(t *testing.T) {
-			if got := unescapeHTML(test.text); got != test.want {
-				t.Errorf("got %q, want %q", got, test.want)
+		t.Run(test.name, func(t *testing.T) {
+			text := `<channel source="` + test.text + `">hello</channel>`
+			reader := &messageReader{store: &store{parser: New()}}
+			got, _ := reader.relayText(text, "m1")
+			want := "session relayed: channel " + test.want + " (from crush.db message m1)"
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
 			}
 		})
 	}
