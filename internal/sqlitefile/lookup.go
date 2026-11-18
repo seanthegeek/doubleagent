@@ -26,16 +26,19 @@ type lookupMode struct {
 	collation string
 }
 
-// Lookup runs the query and indexes its rows by the column called column,
-// which need not be selected.
+// Lookup runs the query and indexes its rows by the stored column called
+// column, which need not be selected.
 func (q Query) Lookup(column string) (*Lookup, error) {
-	position := q.table.shape.columnIndex(column)
-	if position < 0 {
-		return nil, errorNoColumn(q.table, column)
+	if q.table == nil {
+		return nil, errors.New("query of no table")
+	}
+	position, err := q.table.storedColumn(column)
+	if err != nil {
+		return nil, err
 	}
 	lookup := &Lookup{column: &q.table.shape.columns[position],
 		indexes: map[lookupMode]map[string][]int{}}
-	err := q.run(func(whole, selected Row) error {
+	err = q.run(func(whole, selected Row) error {
 		lookup.keys = append(lookup.keys, whole.value(position))
 		lookup.rows = append(lookup.rows, selected)
 		return nil

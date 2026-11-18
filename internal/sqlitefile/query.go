@@ -48,9 +48,11 @@ type orderKey struct {
 }
 
 // Select starts a query returning the named columns, in that order, or
-// every column in declared order when none is named. "rowid" (or _rowid_
-// or oid) names the rowid where no column has that name, as in SQL. A name
-// the table does not have is an error when the query runs.
+// every stored column in declared order when none is named. "rowid" (or
+// _rowid_ or oid) names the rowid where no column has that name, as in
+// SQL. A name the table does not have, or a virtual generated column,
+// whose value is computed when read and not stored, is an error when the
+// query runs; selecting every column leaves the virtual ones out.
 func (t *Table) Select(columns ...string) Query {
 	return Query{table: t, columns: slices.Clone(columns), limit: -1}
 }
@@ -64,14 +66,14 @@ func (q Query) Compute(name string, compute func(Row) Value) Query {
 }
 
 // Where keeps only the rows for which keep returns true. The Row it is
-// given holds every column of the table, selected or not; several Where
-// calls must all hold.
+// given holds every stored column of the table, selected or not, and no
+// virtual generated column; several Where calls must all hold.
 func (q Query) Where(keep func(Row) bool) Query {
 	q.keep = append(slices.Clone(q.keep), keep)
 	return q
 }
 
-// OrderBy sorts the rows by the keys, each a column name or the rowid,
+// OrderBy sorts the rows by the keys, each a stored column's name or the rowid,
 // followed by " DESC" for a descending key ("ASC" may be written too); a
 // key may also be a comma-separated list, as in SQL.
 // Values are ordered as Compare orders them, text under the column's
@@ -144,30 +146,31 @@ func (q Query) run(visit func(whole, selected Row) error) error {
 }
 
 // projection returns the positions of the selected columns and their
-// shape, refusing a name the table lacks and a virtual generated column,
-// whose value is computed when read and never stored.
+// shape, refusing a name the table lacks and a virtual generated column.
+// Selecting every column leaves the virtual ones out, as their values are
+// not stored.
 func (q Query) projection(columns []*Column) (*projected, error) {
 	result := &projected{}
-	names := q.columns
+	names, skipped := q.columns, false
 	if len(names) == 0 {
 		for _, column := range columns {
+			if column.Generated == VirtualGenerated {
+				skipped = true
+				continue
+			}
 			names = append(names, column.Name)
 		}
 	}
 	var chosen []*Column
 	for _, name := range names {
-		position := q.table.shape.columnIndex(name)
-		if position < 0 && q.table.isRowidName(name) {
+		if q.table.isRowidName(name) {
 			chosen = append(chosen, &Column{Name: name, Affinity: IntegerAffinity})
 			result.positions = append(result.positions, -1)
 			continue
 		}
-		if position < 0 {
-			return nil, errorNoColumn(q.table, name)
-		}
-		if columns[position].Generated == VirtualGenerated {
-			return nil, errors.New("table " + q.table.shape.name + ": column " + name +
-				" is computed when read and is not stored")
+		position, err := q.table.storedColumn(name)
+		if err != nil {
+			return nil, err
 		}
 		renamed := *columns[position]
 		renamed.Name = name
@@ -181,7 +184,7 @@ func (q Query) projection(columns []*Column) (*projected, error) {
 		chosen = append(chosen, &Column{Name: column.name})
 	}
 	result.shape = newRowShape(chosen)
-	if len(q.columns) == 0 && len(q.computed) == 0 {
+	if len(q.columns) == 0 && len(q.computed) == 0 && !skipped {
 		result.shape.layout = q.table.layout
 	}
 	return result, nil
@@ -245,7 +248,7 @@ func (q Query) orderKeys() ([]orderKey, error) {
 		if len(fields) == 0 || len(fields) > 2 {
 			return nil, fmt.Errorf("table %s: cannot sort by %q", q.table.shape.name, text)
 		}
-		key := orderKey{position: q.table.shape.columnIndex(fields[0])}
+		key := orderKey{position: -1}
 		if len(fields) == 2 {
 			switch upperASCII(fields[1]) {
 			case "DESC":
@@ -255,8 +258,11 @@ func (q Query) orderKeys() ([]orderKey, error) {
 				return nil, fmt.Errorf("table %s: cannot sort by %q", q.table.shape.name, text)
 			}
 		}
-		if key.position < 0 && !q.table.isRowidName(fields[0]) {
-			return nil, errorNoColumn(q.table, fields[0])
+		if !q.table.isRowidName(fields[0]) {
+			var err error
+			if key.position, err = q.table.storedColumn(fields[0]); err != nil {
+				return nil, err
+			}
 		}
 		keys = append(keys, key)
 	}
@@ -340,6 +346,21 @@ func compareKeys(left, right Row, keys []orderKey) int {
 		}
 	}
 	return 0
+}
+
+// storedColumn returns the position of the column called name, refusing a
+// name the table lacks and a virtual generated column, whose value is
+// computed when read and never stored.
+func (t *Table) storedColumn(name string) (int, error) {
+	position := t.shape.columnIndex(name)
+	if position < 0 {
+		return -1, errorNoColumn(t, name)
+	}
+	if column := &t.shape.columns[position]; column.Generated == VirtualGenerated {
+		return -1, errors.New("table " + t.shape.name + ": column " + column.Name +
+			" is not stored: its value is computed when read")
+	}
+	return position, nil
 }
 
 // isRowidName reports whether name stands for the rowid in this table: one

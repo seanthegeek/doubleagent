@@ -136,7 +136,7 @@ func (t *Table) Name() string {
 }
 
 // Columns returns the table's columns in declared order, the order of
-// "select *".
+// "select *", virtual generated columns included, which Select leaves out.
 func (t *Table) Columns() []Column {
 	return slices.Clone(t.shape.columns)
 }
@@ -187,10 +187,18 @@ func (t *Table) scan(visit func(row Row) error) error {
 }
 
 // wholeShape returns the shape of rows holding every column of the table
-// in declared order, read from the stored records through the layout.
+// in declared order, read from the stored records through the layout. A
+// virtual generated column keeps its place but cannot be looked up by
+// name, so such a row does not hold it.
 func (t *Table) wholeShape() *rowShape {
 	shape := newRowShape(t.columnPointers())
 	shape.layout = t.layout
+	for i, column := range shape.columns {
+		key := foldASCII(column.Name)
+		if column.Generated == VirtualGenerated && shape.position[key] == i {
+			delete(shape.position, key)
+		}
+	}
 	return shape
 }
 
