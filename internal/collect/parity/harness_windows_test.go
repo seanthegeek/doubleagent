@@ -14,6 +14,10 @@
 // collector writes one (the fixture's lone\xed\xa0\x80.jsonl; the rule
 // matches that name only). Exception 53 (U+2028 and U+2029 written as
 // escapes) needs no rule here: the manifest and summary are compared parsed.
+// Exception 54 (the command line read with Go's flag package: other
+// spellings accepted, and usage errors worded "doubleagent collect: " and
+// flag's message, then the usage) needs none either: the one mistaken line,
+// envscanbad, fails the size check, whose message is unchanged.
 // Every other difference fails the case.
 
 package parity

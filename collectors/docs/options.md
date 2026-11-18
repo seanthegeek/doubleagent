@@ -7,6 +7,13 @@ The options below are every one, with what each changes in the output,
 the exit codes a console task can test, and the environment variables
 each script reads; the short table in the
 [collectors README](../README.md#options) is enough for a first run.
+`doubleagent collect` takes the sh spellings and reads them with Go's
+`flag` package, so it also accepts a long option with one dash
+(`-output DIR`), a value after `=` (`--output=DIR`, `-o=DIR`), a switch
+with `=false` (`--quiet=false`), and `--` to end the options; it prints a
+usage error as `doubleagent collect: ` and the problem on one line, then
+the usage text, and acts on `--help` or `--version` only when nothing
+else on the line is wrong.
 
 ## Option reference
 

@@ -297,9 +297,9 @@ func (state *runState) startLog(context.Context) error {
 			" " + identityText(identity),
 		fmt.Sprintf("hash=crypto/sha256 max_file_size=%dMB full=%s no_secrets=%s no_docker=%s"+
 			" env_scan_home=%s env_scan_max_size=%dMB no_preserve_atime=%s",
-			options.MaxFileBytes/mebibyte, flag(options.Full), flag(options.NoSecrets),
-			flag(options.NoDocker), flag(options.EnvScanHome), options.EnvScanMaxBytes/mebibyte,
-			flag(options.NoPreserveAtime)),
+			options.MaxFileBytes/mebibyte, switchText(options.Full), switchText(options.NoSecrets),
+			switchText(options.NoDocker), switchText(options.EnvScanHome), options.EnvScanMaxBytes/mebibyte,
+			switchText(options.NoPreserveAtime)),
 	}
 	if logsAccessDecision {
 		lines = append(lines, accessDecisionLine(state.accessUpdates, options.NoPreserveAtime))
@@ -321,8 +321,8 @@ func (state *runState) startLog(context.Context) error {
 	return nil
 }
 
-// flag returns 1 or 0, as the sh collector prints an option in the log.
-func flag(set bool) string {
+// switchText returns 1 or 0, as the sh collector prints an option in the log.
+func switchText(set bool) string {
 	if set {
 		return "1"
 	}

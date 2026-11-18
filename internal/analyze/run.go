@@ -4,11 +4,11 @@
 // fleet (saved outputs of collect --inventory merged into one CSV) and
 // catalog (the bundled artifact catalog).
 //
-// Each command has its own option parser, and Run maps what a run found to
-// its exit code: 0 when it found something, 1 when it found nothing, 2 for a
-// command-line mistake or an error, 130 when it was interrupted. Every
-// output file and every table is written by hand in a fixed field order, so
-// analysts can build on them.
+// Each command reads its options with its own flag set, and Run maps what a
+// run found to its exit code: 0 when it found something, 1 when it found
+// nothing, 2 for a command-line mistake or an error, 130 when it was
+// interrupted. Every output file and every table is written by hand in a
+// fixed field order, so analysts can build on them.
 package analyze
 
 import (

@@ -63,7 +63,7 @@ func runIdentity() summary.Identity {
 
 // identityText is the account part of the first log line.
 func identityText(identity summary.Identity) string {
-	return "run_as=" + identity.RunAs + " admin=" + flag(identity.Admin)
+	return "run_as=" + identity.RunAs + " admin=" + switchText(identity.Admin)
 }
 
 // privileged reports whether identity can read every user's profile: a

@@ -41,7 +41,68 @@ func TestParseOptionsReadsEveryOption(t *testing.T) {
 	}
 }
 
-func TestNoPreserveAtimeIsAValuelessSwitch(t *testing.T) {
+// defaultOptions returns the options of an empty command line with change
+// applied.
+func defaultOptions(change func(*Options)) Options {
+	options := Options{OutDir: ".", MaxFileBytes: 256 * mebibyte, EnvScanMaxBytes: mebibyte}
+	change(&options)
+	return options
+}
+
+func TestEveryOptionIsReadInEachSpelling(t *testing.T) {
+	setOut := func(options *Options) { options.OutDir, options.OutDirSet = "out", true }
+	cases := []struct {
+		name string
+		args []string
+		want Options
+	}{
+		{"-o takes the next argument", []string{"-o", "out"}, defaultOptions(setOut)},
+		{"--output takes the next argument", []string{"--output", "out"}, defaultOptions(setOut)},
+		{"--output takes a value after =", []string{"--output=out"}, defaultOptions(setOut)},
+		{"-output with one dash is --output", []string{"-output", "out"}, defaultOptions(setOut)},
+		{"-o takes a value after =", []string{"-o=out"}, defaultOptions(setOut)},
+		{"an empty output is kept as given", []string{"-o", ""},
+			defaultOptions(func(options *Options) { options.OutDir, options.OutDirSet = "", true })},
+		{"-r and --root name the root", []string{"-r", "a", "--root", "img"},
+			defaultOptions(func(options *Options) { options.Root = "img" })},
+		{"-u and --users name the users", []string{"--users", "a,b"},
+			defaultOptions(func(options *Options) { options.UsersFilter = "a,b" })},
+		{"-u is --users", []string{"-u", "bob"},
+			defaultOptions(func(options *Options) { options.UsersFilter = "bob" })},
+		{"-p and --project repeat in order", []string{"-p", "x", "--project", "y", "-p=z", "--project=x"},
+			defaultOptions(func(options *Options) { options.Projects = []string{"x", "y", "z", "x"} })},
+		{"-k and --keep-staging keep the staging", []string{"--keep-staging"},
+			defaultOptions(func(options *Options) { options.KeepStaging = true })},
+		{"-k is --keep-staging", []string{"-k"},
+			defaultOptions(func(options *Options) { options.KeepStaging = true })},
+		{"-q and --quiet are one switch", []string{"--quiet"},
+			defaultOptions(func(options *Options) { options.Quiet = true })},
+		{"a switch takes =false", []string{"-q", "--quiet=false"}, defaultOptions(func(*Options) {})},
+		{"a switch takes =true", []string{"--full=true", "--no-docker=1"},
+			defaultOptions(func(options *Options) { options.Full, options.NoDocker = true, true })},
+		{"the sizes take a value after =", []string{"--max-file-size=2", "-env-scan-max-size", "0"},
+			defaultOptions(func(options *Options) { options.MaxFileBytes, options.EnvScanMaxBytes = 2*mebibyte, 0 })},
+		{"the last size given counts", []string{"--max-file-size", "x", "--max-file-size", "4"},
+			defaultOptions(func(options *Options) { options.MaxFileBytes = 4 * mebibyte })},
+		{"a value may start with a dash", []string{"-o", "-q"},
+			defaultOptions(func(options *Options) { options.OutDir, options.OutDirSet = "-q", true })},
+		{"-- ends the options", []string{"-q", "--"},
+			defaultOptions(func(options *Options) { options.Quiet = true })},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			options, action, err := ParseOptions(test.args)
+			if err != nil || action != ActRun {
+				t.Fatalf("action %v, error %v", action, err)
+			}
+			if !reflect.DeepEqual(options, test.want) {
+				t.Errorf("options %+v, want %+v", options, test.want)
+			}
+		})
+	}
+}
+
+func TestNoPreserveAtimeIsASwitch(t *testing.T) {
 	cases := []struct {
 		name string
 		args []string
@@ -50,6 +111,8 @@ func TestNoPreserveAtimeIsAValuelessSwitch(t *testing.T) {
 		{"it is off by default", nil, false},
 		{"it is set on its own", []string{"--no-preserve-atime"}, true},
 		{"the argument after it is still an option", []string{"--no-preserve-atime", "-q"}, true},
+		{"it takes =1", []string{"--no-preserve-atime=1"}, true},
+		{"it takes =false", []string{"--no-preserve-atime", "--no-preserve-atime=false"}, false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -59,9 +122,6 @@ func TestNoPreserveAtimeIsAValuelessSwitch(t *testing.T) {
 					options.NoPreserveAtime, action, err, test.want)
 			}
 		})
-	}
-	if _, _, err := ParseOptions([]string{"--no-preserve-atime=1"}); err == nil {
-		t.Error("--no-preserve-atime=1 was accepted; the switch takes no value")
 	}
 }
 
@@ -73,55 +133,99 @@ func TestUsageTextNamesNoPreserveAtime(t *testing.T) {
 	}
 }
 
-func TestParseOptionsActionsAndErrors(t *testing.T) {
+func TestParseOptionsActions(t *testing.T) {
 	cases := []struct {
-		name       string
-		args       []string
-		wantAction Action
-		wantStderr string
+		name string
+		args []string
+		want Action
 	}{
-		{"--version", []string{"--version"}, ActVersion, ""},
-		{"-V stops before a later bad option", []string{"-V", "--bogus"}, ActVersion, ""},
-		{"-h", []string{"-h"}, ActHelp, ""},
-		{"--list", []string{"--list"}, ActList, ""},
-		{"--list skips the size check", []string{"--list", "--max-file-size", "x"}, ActList, ""},
-		{"an earlier bad option beats --version", []string{"--bogus", "-V"}, ActRun,
-			"Unknown option: --bogus\nUsage: doubleagent collect [options]\n"},
-		{"a later bad option beats --list", []string{"--list", "--bogus"}, ActRun,
-			"Unknown option: --bogus\n"},
-		{"a missing value shows only the usage", []string{"-o"}, ActRun,
-			"Usage: doubleagent collect [options]\n"},
-		{"a missing size value", []string{"--max-file-size"}, ActRun, "Usage: doubleagent"},
-		{"a non-numeric max size", []string{"--max-file-size", "12x"}, ActRun,
-			"Invalid --max-file-size: 12x\n"},
-		{"an empty max size", []string{"--max-file-size", ""}, ActRun,
-			"Invalid --max-file-size: \n"},
-		{"a negative scan size", []string{"--env-scan-max-size", "-1"}, ActRun,
-			"Invalid --env-scan-max-size: -1\n"},
-		{"a size that overflows", []string{"--max-file-size", "99999999999999999999"}, ActRun,
+		{"--version", []string{"--version"}, ActVersion},
+		{"-V", []string{"-V"}, ActVersion},
+		{"-version with one dash", []string{"-version"}, ActVersion},
+		{"--help", []string{"--help"}, ActHelp},
+		{"-h", []string{"-h"}, ActHelp},
+		{"-help with one dash", []string{"-help"}, ActHelp},
+		{"--list", []string{"--list"}, ActList},
+		{"--version after other options", []string{"-o", "out", "-q", "--version"}, ActVersion},
+		{"--help wins over --version wherever it stands", []string{"-V", "-h"}, ActHelp},
+		{"--version wins over --list", []string{"--list", "-V"}, ActVersion},
+		{"--list skips the size check", []string{"--list", "--max-file-size", "x"}, ActList},
+		{"--version skips the size check", []string{"--max-file-size", "x", "-V"}, ActVersion},
+		{"--list=false runs", []string{"--list", "--list=false"}, ActRun},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			_, action, err := ParseOptions(test.args)
+			if err != nil || action != test.want {
+				t.Errorf("action %v, error %v; want %v", action, err, test.want)
+			}
+		})
+	}
+}
+
+func TestParseOptionsErrors(t *testing.T) {
+	usage := UsageText
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"an unknown option", []string{"--bogus"},
+			"doubleagent collect: flag provided but not defined: -bogus\n" + usage},
+		{"an unknown option before --version", []string{"--bogus", "-V"},
+			"doubleagent collect: flag provided but not defined: -bogus\n" + usage},
+		{"an unknown option after --version", []string{"-V", "--bogus"},
+			"doubleagent collect: flag provided but not defined: -bogus\n" + usage},
+		{"an unknown option after --help", []string{"-h", "--bogus"},
+			"doubleagent collect: flag provided but not defined: -bogus\n" + usage},
+		{"an unknown option after --list", []string{"--list", "--bogus"},
+			"doubleagent collect: flag provided but not defined: -bogus\n" + usage},
+		{"a short option with its value attached", []string{"-oout"},
+			"doubleagent collect: flag provided but not defined: -oout\n" + usage},
+		{"a missing value", []string{"-o"}, "doubleagent collect: flag needs an argument: -o\n" + usage},
+		{"a missing size value", []string{"--max-file-size"},
+			"doubleagent collect: flag needs an argument: -max-file-size\n" + usage},
+		{"a switch with a value that is not a boolean", []string{"-q=x"},
+			"doubleagent collect: invalid boolean value \"x\" for -q: parse error\n" + usage},
+		{"a stray argument", []string{"-q", "stray"}, "doubleagent collect: unexpected argument: stray\n" + usage},
+		{"an argument after --", []string{"--", "-q"}, "doubleagent collect: unexpected argument: -q\n" + usage},
+		{"a lone dash", []string{"-"}, "doubleagent collect: unexpected argument: -\n" + usage},
+		{"a stray argument before --version", []string{"stray", "-V"},
+			"doubleagent collect: unexpected argument: stray\n" + usage},
+		{"a non-numeric max size", []string{"--max-file-size", "12x"}, "Invalid --max-file-size: 12x\n"},
+		{"an empty max size", []string{"--max-file-size", ""}, "Invalid --max-file-size: \n"},
+		{"a negative scan size", []string{"--env-scan-max-size", "-1"}, "Invalid --env-scan-max-size: -1\n"},
+		{"a size that overflows", []string{"--max-file-size", "99999999999999999999"},
 			"Invalid --max-file-size: 99999999999999999999\n"},
 		{"the max size is checked first", []string{"--env-scan-max-size", "q", "--max-file-size", "z"},
-			ActRun, "Invalid --max-file-size: z\n"},
+			"Invalid --max-file-size: z\n"},
 	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			_, action, err := ParseOptions(testCase.args)
-			if testCase.wantStderr == "" {
-				if err != nil || action != testCase.wantAction {
-					t.Fatalf("action %v, error %v", action, err)
-				}
-				return
-			}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			_, action, err := ParseOptions(test.args)
 			var usageError *UsageError
-			if !errors.As(err, &usageError) {
-				t.Fatalf("error %v, want a *UsageError", err)
+			if !errors.As(err, &usageError) || action != ActRun {
+				t.Fatalf("action %v, error %v; want a *UsageError", action, err)
 			}
 			var printed bytes.Buffer
 			usageError.Print(&printed)
-			if !strings.HasPrefix(printed.String(), testCase.wantStderr) {
-				t.Errorf("printed %q, want prefix %q", printed.String(), testCase.wantStderr)
+			if printed.String() != test.want {
+				t.Errorf("printed %q, want %q", printed.String(), test.want)
 			}
 		})
+	}
+}
+
+func TestAUsageErrorPrintsTheWholeUsageOrNone(t *testing.T) {
+	var printed bytes.Buffer
+	(&UsageError{Message: "doubleagent collect: x", ShowUsage: true}).Print(&printed)
+	if printed.String() != "doubleagent collect: x\n"+UsageText {
+		t.Errorf("printed %q", printed.String())
+	}
+	printed.Reset()
+	(&UsageError{Message: "Invalid --max-file-size: z"}).Print(&printed)
+	if printed.String() != "Invalid --max-file-size: z\n" {
+		t.Errorf("printed %q", printed.String())
 	}
 }
 

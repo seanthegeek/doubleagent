@@ -3,6 +3,7 @@
 package collect
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -61,26 +62,21 @@ const (
 
 const mebibyte = 1024 * 1024
 
-// UsageError is a command-line mistake, exit code 1. Message is printed first
-// when it is not empty; the usage text follows when ShowUsage is set.
+// UsageError is a command-line mistake, exit code 1. Message is printed
+// first; the usage text follows when ShowUsage is set.
 type UsageError struct {
 	Message   string
 	ShowUsage bool
 }
 
-// Error returns the message, or a fixed text when only the usage is shown.
+// Error returns the message.
 func (e *UsageError) Error() string {
-	if e.Message == "" {
-		return "missing option value"
-	}
 	return e.Message
 }
 
 // Print writes the message and, when asked, the usage text to W.
 func (e *UsageError) Print(w io.Writer) {
-	if e.Message != "" {
-		fmt.Fprintln(w, e.Message)
-	}
+	fmt.Fprintln(w, e.Message)
 	if e.ShowUsage {
 		fmt.Fprint(w, UsageText)
 	}
@@ -120,41 +116,40 @@ const UsageText = `Usage: doubleagent collect [options]
 Run as root to collect every user's home.
 `
 
-// rawOptions holds the option values as typed, before the sizes are checked.
+// rawOptions holds the option values as typed, before the sizes are checked,
+// and the switches that end the line.
 type rawOptions struct {
 	options Options
 	maxMB   string
 	scanMB  string
 	list    bool
+	version bool
+	help    bool
 }
 
-// ParseOptions reads the arguments after `collect`. As in the sh collector,
-// --version and --help act at their position in the line, so an earlier
-// mistake still fails first, and a bad size is reported only after --list has
-// been seen. The standard flag package does not serve: it accepts -name and
-// --name alike and the -name=value form, where here only the listed spellings
-// exist and --output=dir is an unknown option; it stops at the first word that
-// is not an option, where here every such word is an error; it words its
-// errors itself ("flag provided but not defined"), where here they are the sh
-// collector's text with its usage; and it reports a bad value at its position,
-// where here a size is checked only at the end of the line.
+// ParseOptions reads the arguments after `collect` with the flag package, so
+// each option is also accepted with one dash or two and with its value after
+// `=`. What flag cannot state is checked once the line is read: `collect`
+// takes no argument that is not an option; --help, then --version, then
+// --list end the line whatever their place; and the two sizes are checked
+// last, the max size first, so a bad size is reported only when the line
+// runs a collection.
 func ParseOptions(args []string) (Options, Action, error) {
-	raw := rawOptions{
-		options: Options{OutDir: "."},
-		maxMB:   "256",
-		scanMB:  "1",
+	raw := rawOptions{options: Options{OutDir: "."}, maxMB: "256", scanMB: "1"}
+	set := raw.flagSet()
+	if err := set.Parse(args); err != nil {
+		return Options{}, ActRun, &UsageError{Message: "doubleagent collect: " + err.Error(), ShowUsage: true}
 	}
-	for i := 0; i < len(args); i++ {
-		consumed, action, err := raw.apply(args[i:])
-		if err != nil {
-			return Options{}, ActRun, err
-		}
-		if action != ActRun {
-			return raw.options, action, nil
-		}
-		i += consumed
+	if set.NArg() > 0 {
+		return Options{}, ActRun, &UsageError{
+			Message: "doubleagent collect: unexpected argument: " + set.Arg(0), ShowUsage: true}
 	}
-	if raw.list {
+	switch {
+	case raw.help:
+		return raw.options, ActHelp, nil
+	case raw.version:
+		return raw.options, ActVersion, nil
+	case raw.list:
 		return raw.options, ActList, nil
 	}
 	if err := raw.setSizes(); err != nil {
@@ -163,68 +158,59 @@ func ParseOptions(args []string) (Options, Action, error) {
 	return raw.options, ActRun, nil
 }
 
-// apply handles the option at ARGS[0]. It returns how many value arguments it
-// consumed, and an action other than ActRun when the line ends there.
-func (raw *rawOptions) apply(args []string) (int, Action, error) {
-	switch args[0] {
-	case "-V", "--version":
-		return 0, ActVersion, nil
-	case "-h", "--help":
-		return 0, ActHelp, nil
-	case "-o", "--output", "-r", "--root", "-u", "--users", "-p", "--project",
-		"--max-file-size", "--env-scan-max-size":
-		if len(args) < 2 {
-			return 0, ActRun, &UsageError{ShowUsage: true}
-		}
-		raw.setValue(args[0], args[1])
-		return 1, ActRun, nil
+// flagSet returns the flag set of `collect`, reading into raw. An option with
+// a short and a long name is one variable under two names. Parse prints
+// nothing: ParseOptions words the error and the caller prints it with
+// UsageText, the documented help, which flag's own listing is not.
+func (raw *rawOptions) flagSet() *flag.FlagSet {
+	set := flag.NewFlagSet("collect", flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.Usage = func() {}
+	options := &raw.options
+	output := func(value string) error {
+		options.OutDir, options.OutDirSet = value, true
+		return nil
 	}
-	if !raw.setFlag(args[0]) {
-		return 0, ActRun, &UsageError{Message: "Unknown option: " + args[0], ShowUsage: true}
+	project := func(value string) error {
+		options.Projects = append(options.Projects, value)
+		return nil
 	}
-	return 0, ActRun, nil
+	for _, name := range []string{"o", "output"} {
+		set.Func(name, "", output)
+	}
+	for _, name := range []string{"p", "project"} {
+		set.Func(name, "", project)
+	}
+	stringOption(set, &options.Root, "r", "root")
+	stringOption(set, &options.UsersFilter, "u", "users")
+	stringOption(set, &raw.maxMB, "max-file-size")
+	stringOption(set, &raw.scanMB, "env-scan-max-size")
+	switches := map[*bool][]string{&options.Full: {"full"}, &options.NoSecrets: {"no-secrets"},
+		&options.NoProjects: {"no-projects"}, &options.NoDocker: {"no-docker"},
+		&options.EnvScanHome: {"env-scan-home"}, &options.NoPreserveAtime: {"no-preserve-atime"},
+		&options.KeepStaging: {"k", "keep-staging"}, &options.Inventory: {"inventory"},
+		&options.Quiet: {"q", "quiet"}, &raw.list: {"list"}, &raw.version: {"V", "version"},
+		&raw.help: {"h", "help"}}
+	for target, names := range switches {
+		switchOption(set, target, names...)
+	}
+	return set
 }
 
-// setValue stores VALUE for the option NAME that takes one.
-func (raw *rawOptions) setValue(name, value string) {
-	switch name {
-	case "-o", "--output":
-		raw.options.OutDir, raw.options.OutDirSet = value, true
-	case "-r", "--root":
-		raw.options.Root = value
-	case "-u", "--users":
-		raw.options.UsersFilter = value
-	case "-p", "--project":
-		raw.options.Projects = append(raw.options.Projects, value)
-	case "--max-file-size":
-		raw.maxMB = value
-	case "--env-scan-max-size":
-		raw.scanMB = value
+// stringOption registers target under each of names, keeping its value as
+// the default.
+func stringOption(set *flag.FlagSet, target *string, names ...string) {
+	for _, name := range names {
+		set.StringVar(target, name, *target, "")
 	}
 }
 
-// setFlag sets the option NAME that takes no value and reports whether NAME is
-// one.
-func (raw *rawOptions) setFlag(name string) bool {
-	flags := map[string]*bool{
-		"--full":              &raw.options.Full,
-		"--no-secrets":        &raw.options.NoSecrets,
-		"--no-projects":       &raw.options.NoProjects,
-		"--no-docker":         &raw.options.NoDocker,
-		"--env-scan-home":     &raw.options.EnvScanHome,
-		"--no-preserve-atime": &raw.options.NoPreserveAtime,
-		"-k":                  &raw.options.KeepStaging,
-		"--keep-staging":      &raw.options.KeepStaging,
-		"--inventory":         &raw.options.Inventory,
-		"-q":                  &raw.options.Quiet,
-		"--quiet":             &raw.options.Quiet,
-		"--list":              &raw.list,
+// switchOption registers the boolean target, false by default, under each
+// of names.
+func switchOption(set *flag.FlagSet, target *bool, names ...string) {
+	for _, name := range names {
+		set.BoolVar(target, name, false, "")
 	}
-	flag, ok := flags[name]
-	if ok {
-		*flag = true
-	}
-	return ok
 }
 
 // setSizes converts the two size options from whole MiB to bytes.
