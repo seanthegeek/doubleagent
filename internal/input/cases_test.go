@@ -18,7 +18,7 @@ const bzip2Archive = "425a6839314159265359195c55a10000727d80c9100000c001ff800200
 	"97e63a5264a3cdc88b31110422095a3b0ce9954189a8a8cc9d00fd63cbc2f4be2f708b1122c6a90a7cad714907" +
 	"f177245385090195c55a10"
 
-// syntheticCatalog is the analyzer's small test catalog for project rows.
+// syntheticCatalog is a small catalog for the project rows' tests.
 const syntheticCatalog = `# home artifacts (agent|glob relative to home)
 claude-code|.claude
 pi|.pi
@@ -121,7 +121,7 @@ func homeDirCase(name, home string, rows [][2]string, summary, want string) inpu
 		}}
 }
 
-// homeDirCases are the home-directory derivations of the analyzer's tests.
+// homeDirCases are the cases of a home directory derived from manifest rows.
 func homeDirCases() []inputCase {
 	return []inputCase{
 		homeDirCase("a Windows row staged at its physical path", `C:\Users\bob`,
@@ -191,7 +191,7 @@ func physicalRows() []stagedRow {
 	}
 }
 
-// stagedCases are the staged-path cases of the analyzer's tests.
+// stagedCases are the cases of files staged at another path.
 func stagedCases() []inputCase {
 	hosts := stagedRow{"/home/bob/.config/gh/hosts.yml", "fs/home/bob/dotfiles/.config/gh/hosts.yml", "collected"}
 	cursor := stagedRow{"/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
@@ -377,8 +377,7 @@ func collectionDamageCases() []inputCase {
 	}
 }
 
-// projectAgentsCase is the collection of the analyzer's project-agents
-// tests, in the shape of collector 1.12.0 (newShape) or of an earlier one:
+// projectAgentsCase is a collection with project agents, in the shape of collector 1.12.0 (newShape) or of an earlier one:
 // no projects key and every project row of agent project.
 func projectAgentsCase(newShape bool) inputCase {
 	name := "a collection of collector 1.12.0 with two projects"
