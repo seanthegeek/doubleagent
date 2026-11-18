@@ -213,6 +213,10 @@ func TestEpochMillisReadsOnlyTheTimelineForm(t *testing.T) {
 		{"2026-10-01t08:00:00.000z", 0, false},
 		{"2026-10-01T08:00:00.000Z ", 0, false},
 		{"2026-10-01T08:00:00,123Z", 0, false},
+		{"6000-04-22T08:57:12.+40Z", 0, false},
+		{"7536-11-15T14:20:35.-00Z", 0, false},
+		{"2026-10-01T08:00:00.-1Z", 0, false},
+		{"2026-10-01T08:00:00.+12Z", 0, false},
 	}
 	for _, test := range tests {
 		t.Run(strconv.Quote(test.input), func(t *testing.T) {

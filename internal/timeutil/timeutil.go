@@ -57,16 +57,14 @@ func FromTime(moment time.Time) string {
 }
 
 // EpochMillis returns the milliseconds since the Unix epoch of a timeline
-// timestamp and true; or 0 and false for "" and for text that is not
-// exactly the form FormatUTC writes with a valid date and time in the
-// years 1 to 9999. time.Parse also takes a comma before the fraction, which
-// FormatUTC never writes, so the point is checked first.
+// timestamp and true; or 0 and false for any other text. The rule is a
+// round trip: value is accepted only when FormatUTC, given the time read
+// from it, writes value back byte for byte, so the accepted texts are
+// exactly those FormatUTC writes for the years 1 to 9999. time.Parse alone
+// is wider (a comma or a sign before the fraction digits).
 func EpochMillis(value string) (int64, bool) {
-	if len(value) != len(layout) || value[len("2006-01-02T15:04:05")] != '.' {
-		return 0, false
-	}
 	moment, err := time.Parse(layout, value)
-	if err != nil || moment.Year() < 1 {
+	if err != nil || moment.Year() < 1 || FormatUTC(moment) != value {
 		return 0, false
 	}
 	return moment.UnixMilli(), true
