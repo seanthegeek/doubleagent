@@ -167,7 +167,10 @@ func (r *conversationReader) metadata() error {
 	if err != nil || !ok || blob.Get("data").IsEmpty() {
 		return err
 	}
-	meta, _ := r.owner.decodeMessage(blobOf(blob.Get("data")), "CortexTrajectoryMetadata")
+	meta, ok := r.owner.decodeMessage(blobOf(blob.Get("data")), "CortexTrajectoryMetadata")
+	if !ok {
+		r.problem("parser: the trajectory metadata could not be decoded")
+	}
 	workspace := message{}
 	if workspaces := meta.children("workspaces"); len(workspaces) > 0 {
 		workspace = workspaces[0]
@@ -209,9 +212,11 @@ func (r *conversationReader) generators() error {
 	if err != nil {
 		return err
 	}
-	return table.Select("data").Each(func(row sqlitefile.Row) error {
+	bad := 0
+	err = table.Select("data").Each(func(row sqlitefile.Row) error {
 		generator, ok := r.owner.decodeMessage(blobOf(row.Get("data")), "CortexStepGeneratorMetadata")
 		if !ok {
+			bad++
 			return nil
 		}
 		model := generator.child("chat_model").first("response_model", "model_display_name")
@@ -222,6 +227,18 @@ func (r *conversationReader) generators() error {
 		}
 		return nil
 	})
+	if err == nil && bad > 0 {
+		r.problem("parser: the generator metadata of " + strconv.Itoa(bad) + " row(s) could not be decoded")
+	}
+	return err
+}
+
+// problem keeps a problem row of the conversation, at line 0.
+func (r *conversationReader) problem(text string) {
+	row := r.row(0)
+	row.TurnType = timeline.TurnSystem
+	row.Text = text
+	r.add(row)
 }
 
 // steps reads every step in index order, then says how many could not be
@@ -246,10 +263,7 @@ func (r *conversationReader) steps() error {
 		return err
 	}
 	if bad > 0 {
-		row := r.row(0)
-		row.TurnType = timeline.TurnSystem
-		row.Text = "parser: " + strconv.Itoa(bad) + " step(s) could not be decoded"
-		r.add(row)
+		r.problem("parser: " + strconv.Itoa(bad) + " step(s) could not be decoded")
 	}
 	return nil
 }

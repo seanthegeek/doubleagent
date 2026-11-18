@@ -165,3 +165,47 @@ func TestTheChunksOfATranscriptListTheirDirectoryOnce(t *testing.T) {
 		})
 	}
 }
+
+// parseFile writes data at rel under a new home and returns the texts of
+// the rows the parser gives it.
+func parseFile(t *testing.T, rel string, data []byte) []string {
+	t.Helper()
+	home := t.TempDir()
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+	var texts []string
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+		t.Fatal(err)
+	}
+	return texts
+}
+
+func TestAConversationReportsTheBlobsThatDoNotDecode(t *testing.T) {
+	data, err := osfile.ReadFile(filepath.Join("testdata", "undecodable.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	texts := parseFile(t, ".gemini/antigravity-cli/conversations/undecodable.db", data)
+	want := []string{"parser: the trajectory metadata could not be decoded",
+		"parser: the generator metadata of 2 row(s) could not be decoded", "step unspecified"}
+	if !slices.Equal(texts, want) {
+		t.Errorf("rows %q, want %q", texts, want)
+	}
+}
+
+func TestABrainLineThatIsNotAnObjectIsReported(t *testing.T) {
+	lines := `{"type": "USER_INPUT", "content": "hello"}` + "\n[1]\n\"text\"\n{\"type\":\n"
+	texts := parseFile(t, ".gemini/antigravity-cli/brain/conv1/.system_generated/logs/transcript_full.jsonl",
+		[]byte(lines))
+	want := []string{"hello", "parser: unparseable line (not a JSON object): [1]",
+		`parser: unparseable line (not a JSON object): "text"`}
+	if len(texts) != 4 || !slices.Equal(texts[:3], want) || !strings.HasPrefix(texts[3], "parser: unparseable line (") {
+		t.Errorf("rows %q, want %q and the broken line", texts, want)
+	}
+}

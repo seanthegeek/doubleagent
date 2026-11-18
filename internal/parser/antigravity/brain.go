@@ -2,6 +2,7 @@ package antigravity
 
 import (
 	"bytes"
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +14,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
+
+// errNotObject is the reason a brain line that decodes to something other
+// than an object is reported.
+var errNotObject = errors.New("not a JSON object")
 
 // The two forms of a brain transcript: complete, and shortened.
 const (
@@ -136,13 +141,14 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.
 				continue
 			}
 			record, err := jsonvalue.DecodeString(textlines.ValidUTF8(stripped))
+			if err == nil && !record.IsObject() {
+				err = errNotObject
+			}
 			if err != nil {
 				problems.AddRaw(i+1, parser.UnparseableLine(err), parser.LineText(raw))
 				continue
 			}
-			if record.IsObject() {
-				lines.record(i+1, record)
-			}
+			lines.record(i+1, record)
 		}
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
