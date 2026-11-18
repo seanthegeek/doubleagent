@@ -2,6 +2,7 @@ package copilotcli
 
 import (
 	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -142,12 +143,7 @@ func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 
 // isNoteType reports whether an event type is noted by its main field.
 func isNoteType(kind string) bool {
-	for _, each := range noteTypes {
-		if kind == each {
-			return true
-		}
-	}
-	return strings.HasPrefix(kind, "subagent.")
+	return slices.Contains(noteTypes, kind) || strings.HasPrefix(kind, "subagent.")
 }
 
 // sessionEvent handles session.start, session.resume and
