@@ -565,11 +565,11 @@ and an entry that is not a string, `parser: unparseable record <N> (not a JSON s
 a `snapshots.json` entry that is not an object is
 `parser: unparseable record <N> (not a JSON object): <entry>`. A v0.0.x session file or
 `history.json` cut mid-write yields the messages or sessions before the cut and one
-`parser: unparseable record <N> (<reason>): <the rest>` row, or `parser: array cut off after
-record <N>` when the cut falls where a record is due (`<N>` the records read whole); a `snapshots.json` cut
-the same way does too, and a `config.json` that is not a JSON object is one `parser:` row. A
-v0.0.x session file, `history.json`, `snapshots.json`, `config.json`, `input_history.txt` or the
-prompt history that cannot be read is one whole-file row
+`parser: unparseable record <N> (<reason>): <the rest>` row, or
+`parser: array cut off after record <N>` when the cut falls where a record is due (`<N>` the
+records read whole); a `snapshots.json` cut the same way does too, and a `config.json` that
+is not a JSON object is one `parser:` row. A v0.0.x session file, `history.json`,
+`snapshots.json`, `config.json`, `input_history.txt` or the prompt history that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; an
 `input_history.txt` that fails part way through gives that row after the prompts read before the
 failure, its `source_line` the last line read.
