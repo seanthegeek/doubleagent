@@ -6,18 +6,18 @@ import (
 )
 
 // parentPath returns a cleaned path less its last element, as filepath.Dir
-// gives it: "." for a name alone, the volume and root for an element
-// directly under the root. It stands in for filepath.Dir, which the import
+// gives it: "." for a name alone ("C:." after a drive, a share's volume
+// itself), the volume and root for an element directly under the root. It stands in for filepath.Dir, which the import
 // guard does not allow in this package.
 func parentPath(path string) string {
 	volume := filepath.VolumeName(path)
 	rest := path[len(volume):]
 	last := strings.LastIndexFunc(rest, isSeparator)
 	switch {
-	case last < 0 && volume != "":
+	case last < 0 && len(volume) > 2:
 		return volume
 	case last < 0:
-		return "."
+		return volume + "."
 	case last == 0:
 		return volume + rest[:1]
 	}
