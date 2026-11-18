@@ -11,11 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// nonSpace is one character that is not whitespace by unicode.IsSpace,
-// written out because Go's \s is ASCII only: a field value ends at any
-// Unicode space, the no-break space included.
-const nonSpace = `[^\t\n\v\f\r \x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}` +
-	`\x{202f}\x{205f}\x{3000}]`
+// nonSpace is one character that is not whitespace by unicode.IsSpace: a
+// field value ends at any Unicode space, the no-break space included.
+const nonSpace = `[^` + parser.Space + `]`
 
 // The remote control messages a log line ends with, in the order they are
 // looked for.
