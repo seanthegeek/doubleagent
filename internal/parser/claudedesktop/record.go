@@ -134,9 +134,19 @@ func (s *sessionRecord) sessionRows() {
 	}
 }
 
+// problemRows emits a "parser:" row at line 1 or the problem's own line for
+// each problem, which is how a member of the wrong kind is reported.
+func (p *Parser) problemRows(artifact *input.Artifact, problems parser.Problems, emit parser.Emit) {
+	for _, found := range problems {
+		emit(p.systemRow(artifact, parser.ProblemPrefix+found.Message, found.Line))
+	}
+}
+
 // grants emits one "permission grant:" row per grant entry or key of the
 // record. The record keeps no time per grant, so the rows take
 // lastActivityAt (the grant held by then), else createdAt, and say which.
+// An alwaysAllowedReasons or sessionPermissionUpdates that is not an array
+// adds a problem row.
 func (s *sessionRecord) grants() {
 	timestamp, field := timeutil.FromValue(s.record.Get("lastActivityAt")), "lastActivityAt"
 	if timestamp == "" {
@@ -145,11 +155,13 @@ func (s *sessionRecord) grants() {
 	grant := func(message string) {
 		s.emit(s.row(timeline.TurnSystem, "permission grant: "+message+" (as of "+field+")", timestamp))
 	}
+	var problems parser.Problems
 	for _, key := range []string{"alwaysAllowedReasons", "sessionPermissionUpdates"} {
-		for _, entry := range s.record.Get(key).Items() {
+		for _, entry := range parser.ArrayMember(s.record.Get(key), key, 1, &problems) {
 			grant(key + " " + grantValue(entry))
 		}
 	}
+	s.parser.problemRows(s.artifact, problems, s.emit)
 	for _, key := range []string{"chromePermissionMode", "chromeAllowedDomains", "cuAllowedApps",
 		"cuGrantFlags", "cuFlagsGrantedAt"} {
 		value := s.record.Get(key)
@@ -196,13 +208,16 @@ func (p *Parser) readObject(artifact *input.Artifact, name string, emit parser.E
 }
 
 // scheduled emits one row per task of scheduled-tasks.json, at the task's
-// position in the list. A fresh install's file has no task list yet.
+// position in the list. A fresh install's file has no task list yet. A
+// scheduledTasks that is not an array adds a problem row.
 func (p *Parser) scheduled(artifact *input.Artifact, emit parser.Emit) {
 	document, ok := p.readObject(artifact, "scheduled-tasks.json", emit)
 	if !ok {
 		return
 	}
-	for i, task := range document.Get("scheduledTasks").Items() {
+	var problems parser.Problems
+	defer func() { p.problemRows(artifact, problems, emit) }()
+	for i, task := range parser.ArrayMember(document.Get("scheduledTasks"), "scheduledTasks", 1, &problems) {
 		if !task.IsObject() {
 			continue
 		}
@@ -222,13 +237,15 @@ func (p *Parser) scheduled(artifact *input.Artifact, emit parser.Emit) {
 
 // worktrees emits one row per worktree of git-worktrees.json, at its
 // position. A fresh install's file has no worktrees key until the Code tab
-// creates one.
+// creates one. A worktrees that is not an object adds a problem row.
 func (p *Parser) worktrees(artifact *input.Artifact, emit parser.Emit) {
 	document, ok := p.readObject(artifact, "git-worktrees.json", emit)
 	if !ok {
 		return
 	}
-	for i, member := range document.Get("worktrees").Members() {
+	var problems parser.Problems
+	defer func() { p.problemRows(artifact, problems, emit) }()
+	for i, member := range parser.ObjectMember(document.Get("worktrees"), "worktrees", 1, &problems) {
 		worktree := member.Value
 		if !worktree.IsObject() {
 			continue
@@ -249,7 +266,8 @@ func (p *Parser) worktrees(artifact *input.Artifact, emit parser.Emit) {
 // spaces emits one "permission setting:" row per folder granted to a remote
 // Cowork session in remote-session-spaces.json, keyed by the entry's
 // sessionId, the server's id, which the text keeps; the rows have no
-// session id.
+// session id. An entries, or an entry's folders, that is not an array adds a
+// problem row.
 func (p *Parser) spaces(artifact *input.Artifact, emit parser.Emit) {
 	document, bad, ok := p.code.JSONObject(artifact, "remote-session-spaces.json")
 	if !ok {
@@ -257,16 +275,18 @@ func (p *Parser) spaces(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp := parser.FileMtime(artifact)
-	for _, entry := range document.Get("entries").Items() {
-		folders := entry.Get("folders")
-		if !entry.IsObject() || !folders.IsArray() {
+	var problems parser.Problems
+	defer func() { p.problemRows(artifact, problems, emit) }()
+	for i, entry := range parser.ArrayMember(document.Get("entries"), "entries", 1, &problems) {
+		if !entry.IsObject() {
 			continue
 		}
+		folders := parser.ArrayMember(entry.Get("folders"), "entries.folders", i+1, &problems)
 		key := "entries.folders"
 		if sessionID := entry.Get("sessionId").Text(); sessionID != "" {
 			key = "entries." + sessionID + ".folders"
 		}
-		for _, granted := range folders.Items() {
+		for _, granted := range folders {
 			if !parser.Present(granted) {
 				continue
 			}
