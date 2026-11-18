@@ -13,6 +13,33 @@ import (
 // kindsConversation is the directory of the conversation the tests write.
 const kindsConversation = ".openhands/conversations/0123456789abcdef0123456789abcdef/"
 
+func TestAConversationWithOnlyADamagedMetaFileIsReported(t *testing.T) {
+	const meta = kindsConversation + "meta.json"
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{"meta.json cut off, with nothing else, is reported", map[string]string{meta: `{`},
+			[]string{"parser: meta.json could not be decoded (invalid JSON at line 1, column 2: unexpected end of JSON input)"}},
+		{"meta.json that is not an object, with nothing else, is reported", map[string]string{meta: `[1]`},
+			[]string{"parser: meta.json is not a JSON object"}},
+		{"a whole meta.json gives no row", map[string]string{meta: `{"id": "x"}`}, nil},
+		{"base_state.json reports a damaged meta.json instead",
+			map[string]string{meta: `{`, kindsConversation + "base_state.json": `{}`}, nil},
+		{"the first event reports a damaged meta.json instead", map[string]string{meta: `{`,
+			kindsConversation + "events/event-00000-0123abcd.json": `{"kind": "MessageEvent"}`}, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := writeTree(t, t.TempDir(), test.files)
+			if got := problemTexts(parseRel(t, home, meta)); !slices.Equal(got, test.want) {
+				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestABaseStateMemberOfTheWrongKindIsReported(t *testing.T) {
 	tests := []struct {
 		name, state string

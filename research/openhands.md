@@ -730,7 +730,8 @@ Globs: `.openhands/agent-canvas/dev_conversations/*/events/event-*.json`,
 `.openhands/agent-canvas/conversations/*/events/event-*.json`,
 `.openhands/conversations/*/events/event-*.json`; read the sibling `meta.json` and `base_state.json`
 and every event file once per conversation. The same directories' `base_state.json` is also read
-as an artifact of its own for the standing rows, and
+as an artifact of its own for the standing rows, `meta.json` as one that gives a damaged file's
+row when the conversation has neither an event file nor a `base_state.json`, and
 `.openhands/projects/*/prompt_history.json` as a secondary source. Optional: `bash_events/*`. One
 row per event; an `ActionEvent` also yields a `thinking` row for `thought`/`reasoning_content`.
 Detect and report legacy `sessions/*/events/*.json` without parsing.
@@ -955,11 +956,11 @@ whole-file `system` row on the conversation's first event file, after the header
 `parser: <file name> could not be decoded (<reason>)` or `parser: <file name> is not a JSON object`
 with `source_line` 1, each with an empty timestamp and the session id and `project_path` the other
 file still gives. The header then lacks what the file held (title, model, time basis). A
-conversation with no event file reports these rows on its `base_state.json`; one with neither
-an event file nor a `base_state.json` gives no row for a damaged `meta.json`, since no file of
-it is parsed. A missing file is not an error, since the CLI writes no `meta.json`. A member of
-the wrong kind is one row naming it, the rows it would have held being lost: in
-`base_state.json`, `parser: stats.usage_to_metrics is not a JSON object`,
+conversation with no event file reports these rows on its `base_state.json`, and one with neither
+reports a damaged `meta.json` on that file, its only trace. A missing file is not an error,
+since the CLI writes no `meta.json`. A member of the wrong kind is one row naming it, the rows
+it would have held being lost: in `base_state.json`,
+`parser: stats.usage_to_metrics is not a JSON object`,
 `parser: stats.usage_to_metrics.<key>.token_usages is not a JSON array` and
 `parser: blocked_actions is not a JSON object`, reported with the file's other problems; in an
 event, `parser: tool_calls is not a JSON array` or `parser: thinking_blocks is not a JSON array`
