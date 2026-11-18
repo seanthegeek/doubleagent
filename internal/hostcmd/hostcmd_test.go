@@ -31,6 +31,7 @@ func (fake *Fake) Available(name string) bool {
 
 type missingError struct{ name string }
 
+// Error names the program that is not available.
 func (e *missingError) Error() string { return e.name + ": not available" }
 
 func TestFakeIsARunner(t *testing.T) {

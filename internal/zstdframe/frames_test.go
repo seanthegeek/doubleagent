@@ -351,6 +351,7 @@ func TestADamagedBlockInFullInputIsNeverCalledTruncatedEvenFromAReaderThatReturn
 // dataWithEOF returns its bytes in one read together with io.EOF.
 type dataWithEOF struct{ data []byte }
 
+// Read returns all the bytes left, with io.EOF once none remain.
 func (d *dataWithEOF) Read(buffer []byte) (int, error) {
 	n := copy(buffer, d.data)
 	d.data = d.data[n:]

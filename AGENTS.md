@@ -616,8 +616,11 @@ for Go files as it does for the others.
   parameter; `i`, `j`, `k` and `n` for an index or count in a few lines; `t`
   and `b` in tests. Every exported identifier has a doc comment starting with
   its name, and every unexported function one comment, in the Code style
-  form. A function body stays under 40 lines, never over 60, with the
-  collectors' exceptions.
+  form. `tools/check_code_style.py` fails on a function or method, a test
+  helper included, with no comment on the line directly above it (a
+  `//go:` directive line is passed over); `main`, `init` and the functions
+  `go test` runs are exempt. A function body stays under 40 lines, never
+  over 60, with the collectors' exceptions.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`; no test reads the
   developer's home or the network, and no test runs `collect` without `-r`,

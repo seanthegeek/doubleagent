@@ -12,10 +12,13 @@ type fakeEntry struct {
 	directory bool
 }
 
+// Name returns the entry's name.
 func (e fakeEntry) Name() string { return e.name }
 
+// IsDir reports whether the entry is a directory.
 func (e fakeEntry) IsDir() bool { return e.directory }
 
+// Type returns the directory bit for a directory and nothing for a file.
 func (e fakeEntry) Type() fs.FileMode {
 	if e.directory {
 		return fs.ModeDir
@@ -23,6 +26,7 @@ func (e fakeEntry) Type() fs.FileMode {
 	return 0
 }
 
+// Info has no file to describe and fails.
 func (e fakeEntry) Info() (fs.FileInfo, error) { return nil, fs.ErrInvalid }
 
 func TestStackOrder(t *testing.T) {

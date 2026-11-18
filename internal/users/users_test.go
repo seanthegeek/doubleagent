@@ -19,6 +19,8 @@ type tree struct {
 	links map[string]string
 }
 
+// build makes the tree's directories, files and links under a fresh root and
+// returns the root.
 func (spec tree) build(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
