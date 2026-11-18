@@ -35,7 +35,7 @@ type transcript struct {
 
 // readTranscript reads a messages file: a whole object's messages array,
 // or, for a file cut mid-write, its messages array walked as far as it
-// parses.
+// parses. A messages member that is not an array adds a problem.
 func readTranscript(artifact *input.Artifact, manifest jsonvalue.Value, problems *parser.Problems) transcript {
 	rawText, ok := parser.ReadText(artifact.DiskPath, problems)
 	if !ok {
@@ -43,7 +43,7 @@ func readTranscript(artifact *input.Artifact, manifest jsonvalue.Value, problems
 	}
 	payload, err := jsonvalue.DecodeString(rawText)
 	if err == nil && payload.IsObject() {
-		return transcript{messages: positions(payload.Get("messages").Items()),
+		return transcript{messages: positions(parser.ArrayMember(payload.Get("messages"), "messages", 0, problems)),
 			fallback: timeutil.FirstNonEmpty(timeutil.FromValue(manifest.Get("started_at")),
 				timeutil.FromValue(payload.Get("updated_at")))}
 	}

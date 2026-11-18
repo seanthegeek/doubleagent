@@ -1055,6 +1055,11 @@ A `task_metadata.json` whose `files_in_context`, `model_usage` or `environment_h
 but not an array is `parser: <member> is not a JSON array` (`source_line` 0, the task's id); an
 absent, null or empty one gives no row.
 
+An SDK `*.messages.json` whose `messages` is present but not an array is
+`parser: messages is not a JSON array`, and a `globalState.json` whose `cloudSessionStatuses` is
+present but not an object is `parser: cloudSessionStatuses is not a JSON object`, each a whole-file
+row at `source_line` 0; an absent, null or empty one gives no row.
+
 #### Fixtures
 
 Fixtures (invented content, real field names):
