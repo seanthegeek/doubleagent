@@ -1,13 +1,17 @@
 package openclaw
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -76,5 +80,46 @@ func TestEachColdArchiveReadsItsSessionsChunksInChunkOrder(t *testing.T) {
 	want := []string{"sa a first", "sa a second", "sb b first", "sb b second", "sc c whole"}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestAnEventPastTheDatabasesBudgetIsAProblemRow(t *testing.T) {
+	const decoded = 150000 // each event of zstd_events.db decompresses to 150000 bytes
+	artifact := agentArtifact(t, "zstd_events.db")
+	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := int(database.PageCount()) * database.PageSize() * zed.BudgetRatio
+	database.Close()
+	if total < 2*decoded || total >= 3*decoded {
+		t.Fatalf("the fixture's budget %d does not hold exactly two events", total)
+	}
+	tests := []struct {
+		name  string
+		floor int
+		want  string
+	}{
+		{"the third event passes the budget of the database's size", 0,
+			fmt.Sprintf("parser: event seq 2 could not be decompressed (zstd: not decompressed: this database's "+
+				"blobs reached the limit of %d bytes decompressed in all)", total)},
+		{"the floor holds all three events", zed.BudgetFloor, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			subject := New()
+			subject.budgetFloor = test.floor
+			var problems []string
+			if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+				if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+					problems = append(problems, row.Text)
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if test.want == "" && len(problems) > 0 || test.want != "" && !slices.Equal(problems, []string{test.want}) {
+				t.Errorf("got %q, want %q", problems, test.want)
+			}
+		})
 	}
 }

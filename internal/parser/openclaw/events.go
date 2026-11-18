@@ -47,7 +47,7 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 	raw := row.Get("event_json")
 	data := columnBytes(raw)
 	if raw.IsNull() && !row.Get("event_zstd").IsNull() {
-		decoded, err := maybeZstd(columnBytes(row.Get("event_zstd")))
+		decoded, err := maybeZstd(columnBytes(row.Get("event_zstd")), a.budget)
 		if err != nil {
 			a.startOnce(current, line, createdAt)
 			a.bad(current, line, "event seq "+seq+" could not be decompressed ("+err.Error()+")", createdAt)
@@ -107,7 +107,7 @@ func (a *agentDatabase) archives() error {
 // problems of its lines, each labelled with the blob's label and line.
 // Every row's source line is the rowid of the row that held it.
 func (a *agentDatabase) blob(current *session, line int, label string, blob []byte, timestamp string) {
-	data, err := maybeZstd(blob)
+	data, err := maybeZstd(blob, a.budget)
 	if err != nil {
 		a.bad(current, line, label+" could not be decompressed ("+err.Error()+")", timestamp)
 		return

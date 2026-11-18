@@ -1,8 +1,8 @@
 """Build the openclaw package's test databases.
 
-Run it from any directory:
+Run it with the analyzer's interpreter, which has zstandard, from any directory:
 
-    python3 -I internal/parser/openclaw/testdata/fixtures.py
+    analyzer/.venv/bin/python -I internal/parser/openclaw/testdata/fixtures.py
 
 Each database below is an openclaw-agent.sqlite written by SQLite itself, so the Go tests read
 files SQLite wrote. The cold archive tables have the agent's own schema. Pages are 512 bytes to
@@ -16,10 +16,15 @@ import json
 import sqlite3
 from pathlib import Path
 
+import zstandard
+
 HERE = Path(__file__).resolve().parent
 
 SCHEMA = """
 PRAGMA page_size = 512;
+CREATE TABLE transcript_events (session_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT,
+  created_at INTEGER NOT NULL, event_zstd BLOB, event_utf8_bytes INTEGER, navigation_json TEXT,
+  PRIMARY KEY (session_id, seq));
 CREATE TABLE session_transcript_cold_archives (session_id TEXT NOT NULL PRIMARY KEY,
   generation TEXT NOT NULL, archive_name TEXT NOT NULL UNIQUE, archive_sha256 TEXT NOT NULL,
   event_count INTEGER NOT NULL, raw_bytes INTEGER NOT NULL, archive_bytes INTEGER NOT NULL,
@@ -82,10 +87,19 @@ def grouped() -> tuple[list[tuple], list[tuple]]:
     return archives, chunks
 
 
+def large_event(seq: int) -> tuple:
+    """Return a transcript_events row whose event_zstd decompresses to exactly 150000 bytes."""
+    text = json.dumps({"type": "label", "label": f"event {seq}", "pad": ""})
+    padded = text[:-2] + "x" * (150000 - len(text)) + '"}'
+    blob = zstandard.ZstdCompressor(level=3).compress(padded.encode())
+    return ("s1", seq, None, 1790845200000 + seq, blob, len(padded), None)
+
+
 DATABASES = {
     "cold_archives_2.db": many(2),
     "cold_archives_8.db": many(8),
     "cold_chunks.db": grouped(),
+    "zstd_events.db": ([], []),
 }
 
 
@@ -104,6 +118,11 @@ def main() -> None:
                 "INSERT INTO session_transcript_cold_archive_chunks VALUES (?,?,?,?,?,?,?,?,?,?)",
                 chunks,
             )
+            if name == "zstd_events.db":
+                connection.executemany(
+                    "INSERT INTO transcript_events VALUES (?,?,?,?,?,?,?)",
+                    [large_event(seq) for seq in range(3)],
+                )
             connection.commit()
 
 

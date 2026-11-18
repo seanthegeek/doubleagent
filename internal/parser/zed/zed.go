@@ -60,12 +60,15 @@ type Parser struct {
 	parser.Base
 	files  patterns
 	denial *regexp.Regexp
+	// budgetFloor is the least decompression budget of a database
+	// (BudgetFloor; a test lowers it).
+	budgetFloor int
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{Base: parser.NewBase("zed", "zed"), files: newPatterns(),
-		denial: newDenialPattern()}
+		denial: newDenialPattern(), budgetFloor: BudgetFloor}
 }
 
 // Wants reports whether the artifact is threads.db, a channel's db.sqlite

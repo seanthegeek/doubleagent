@@ -19,13 +19,14 @@ var errEventNotText = errors.New("event_json is not text")
 // zstdMagic starts every zstd frame.
 const zstdMagic = "\x28\xb5\x2f\xfd"
 
-// maybeZstd returns a blob decompressed when it is a zstd frame, and
-// anything else as it is; it fails only for a frame that does not decode.
-func maybeZstd(blob []byte) ([]byte, error) {
+// maybeZstd returns a blob decompressed within budget when it is a zstd
+// frame, and anything else as it is; it fails only for a frame that does
+// not decode or would pass the budget.
+func maybeZstd(blob []byte, budget *zed.Budget) ([]byte, error) {
 	if !bytes.HasPrefix(blob, []byte(zstdMagic)) {
 		return blob, nil
 	}
-	return zed.Decompress(blob)
+	return budget.Decompress(blob)
 }
 
 // numbered is one JSON object line of a blob and its line number.
@@ -115,7 +116,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 	var problems parser.Problems
 	raw, read := parser.FileBytes(artifact.DiskPath, &problems)
 	if read {
-		data, err := maybeZstd(raw)
+		data, err := maybeZstd(raw, zed.NewBudget(int64(len(raw)), p.budgetFloor))
 		if err != nil {
 			out.bad(current, 1, "could not decompress ("+err.Error()+")", "")
 		} else {

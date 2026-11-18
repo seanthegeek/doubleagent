@@ -8,6 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -103,7 +104,7 @@ func FuzzTranscriptBlob(fuzz *testing.F) {
 	fuzz.Fuzz(func(t *testing.T, blob []byte) {
 		out := &writer{Parser: New(), artifact: &input.Artifact{}, options: parser.Options{IncludeThinking: true},
 			emit: func(timeline.Row) {}}
-		data, err := maybeZstd(blob)
+		data, err := maybeZstd(blob, zed.NewBudget(int64(len(blob)), zed.BudgetFloor))
 		if err != nil {
 			return
 		}

@@ -50,12 +50,14 @@ func (p *Parser) threadRow(context *thread, turnType, text, timestamp string) ti
 
 // parseThreads emits the rows of every thread of threads.db, by updated_at.
 // A database error ends the file with its problem row, after the threads
-// read before it.
+// read before it; a thread past the database's decompression budget is
+// one problem row.
 func (p *Parser) parseThreads(artifact *input.Artifact, database *sqlitefile.Database,
 	options parser.Options, emit parser.Emit) {
 	records, err := threadRecords(database)
+	budget := NewBudget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)
 	for _, record := range records {
-		p.threadRows(artifact, record, options, emit)
+		p.threadRows(artifact, record, budget, options, emit)
 	}
 	if err != nil {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
@@ -85,8 +87,9 @@ func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 // decodeThread returns the thread a row's data holds and the raw value to
 // show, or an error saying why it holds none: the raw value is the text of
 // a json row, decoded with replacement, or the stored bytes of a zstd row
-// as lowercase hex, since they have no faithful text form.
-func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, error) {
+// as lowercase hex, since they have no faithful text form. A zstd row is
+// decompressed within the database's budget.
+func decodeThread(record sqlitefile.Row, budget *Budget) (jsonvalue.Value, string, error) {
 	data := record.Get("data")
 	if data.IsNull() {
 		return jsonvalue.Value{}, "", errors.New("no data")
@@ -99,7 +102,7 @@ func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, error) {
 	raw := stored
 	var err error
 	if isZstd {
-		raw, err = Decompress(stored)
+		raw, err = budget.Decompress(stored)
 	}
 	value := jsonvalue.Value{}
 	if err == nil {
@@ -120,12 +123,12 @@ func decodeThread(record sqlitefile.Row) (jsonvalue.Value, string, error) {
 // threadRows emits the rows of one thread: its start, remote, model and
 // grant rows, its scratch directory, its messages, its draft, then the
 // problems met in its blob.
-func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row,
+func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row, budget *Budget,
 	options parser.Options, emit parser.Emit) {
 	context := &thread{artifact: artifact, rowid: record.Rowid,
 		sessionID: columnStr(record.Get("id")), project: firstFolder(record.Get("folder_paths")),
 		updated: parser.ColumnTime(record.Get("updated_at"))}
-	value, raw, err := decodeThread(record)
+	value, raw, err := decodeThread(record, budget)
 	if err != nil {
 		var problems parser.Problems
 		problems.AddRaw(int(record.Rowid), fmt.Sprintf("unparseable record %d (%v)", record.Rowid, err), raw)
