@@ -24,7 +24,7 @@ const policyViolation = "Security Policy Violation"
 
 // sessionFile is the state of one session file's parse: the rows' common
 // fields, the session's model, the model changes seen, the tool names by
-// call id and the calls a tool message answers.
+// call id, the calls a tool message answers and the problems met.
 type sessionFile struct {
 	parser   *Parser
 	artifact *input.Artifact
@@ -35,6 +35,7 @@ type sessionFile struct {
 	models   parser.Tracker
 	names    map[string]string
 	answered map[string]bool
+	problems parser.Problems
 }
 
 // row returns a row of the session at a history position, with a model
@@ -52,8 +53,8 @@ func (s *sessionFile) text(row timeline.Row, text string) {
 }
 
 // session emits the rows of one session file: its start, model, mode and
-// review worktree rows, then each history item's rows, then the problem a
-// damaged file has.
+// review worktree rows, then each history item's rows, then the problems
+// of a member that is not an array and of a damaged file.
 func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	fileID := sessionPattern.FindStringSubmatch(artifact.Rel)[1]
 	var problems parser.Problems
@@ -76,7 +77,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	state.base.ProjectPath = parser.Text(parser.FirstNonEmpty(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))
 	state.model = parser.Text(document.Get("chatModelTitle"))
-	history := document.Get("history").Items()
+	history := parser.ArrayMember(document.Get("history"), "history", 0, &state.problems)
 	state.header(document, entry, len(history))
 	for _, item := range history {
 		message := item.Get("message")
@@ -90,8 +91,11 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		}
 	}
 	if problem != nil {
-		row := state.row(0, "", timeline.TurnSystem)
-		row.Text = parser.ProblemPrefix + problem.Error()
+		state.problems.Add(0, problem.Error())
+	}
+	for _, found := range state.problems {
+		row := state.row(found.Line, "", timeline.TurnSystem)
+		row.Text = parser.ProblemPrefix + found.Message
 		emit(row)
 	}
 }
