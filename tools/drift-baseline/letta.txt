@@ -44,7 +44,6 @@ check_fixture_schema|sample-equals-builder|.letta/transcripts/agent-1a2b/conv-9f
 check_fixture_schema|substitution-undeclared|/srv/old
 check_fixture_schema|substitution-undeclared|/srv/shared
 check_parser_research|key-undocumented|scheduledFor
-check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
 check_parser_research|parser-message-undocumented|parser: %s is not a JSON object with a routes list
 check_parser_research|pattern-undocumented|^\.letta/channels/([^/]+)/routing\.(?:json|yaml)$
 check_parser_research|pattern-undocumented|^\.letta/runs/[^/]+\.jsonl$
