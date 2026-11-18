@@ -15,7 +15,7 @@ func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }
 // path separators as slashes: on POSIX only the slash is one.
 func memberSeparators(name string) string { return name }
 
-// memberNameAllowed reports whether this platform can hold a member name
-// below a directory without it naming another place; on POSIX every name
-// can.
+// memberNameAllowed reports whether this platform can hold a name as one
+// component below a directory without it naming another place; on POSIX
+// every name without a slash can, a backslash included.
 func memberNameAllowed(string) bool { return true }

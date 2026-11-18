@@ -11,8 +11,8 @@ import (
 // The reasons a path built from the evidence's text is refused.
 var (
 	// errOutside is a name that is not one plain component: it is empty,
-	// "." or "..", or holds a separator, a NUL or a character this platform
-	// reads as more than a name.
+	// "." or "..", or holds a slash, a NUL or a character this platform
+	// reads as more than a name (on Windows a backslash or a colon).
 	errOutside = errors.New("outside the collection")
 	// errThroughLink is a path that would pass through a symbolic link (on
 	// Windows, any reparse point) on its way down.
@@ -23,7 +23,7 @@ var (
 // component of a path below a directory.
 func checkElement(element string) error {
 	if element == "" || element == "." || element == ".." ||
-		strings.ContainsAny(element, "/\\\x00") || !memberNameAllowed(element) {
+		strings.ContainsAny(element, "/\x00") || !memberNameAllowed(element) {
 		return errOutside
 	}
 	return nil

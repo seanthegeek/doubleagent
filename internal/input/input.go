@@ -16,18 +16,18 @@
 // every file system.
 //
 // The input's own path is kept as given; the paths found in it are joined
-// to its cleaned form (filepath.Clean), so one input gives one set of paths
-// however its path was spelt. Every path built from the evidence's text (a
-// manifest field, a member name, a name a parser asks Home.PathOf or Below
-// for) goes through one function, below: each element must be one plain
-// component, and each directory on the way down is looked at with lstat, a
-// symbolic link (on Windows any reparse point) refused. A loose tree's walk
-// enters only real directories. os.Root would also keep a path below a
-// directory, but it follows a link that stays inside and bypasses
-// internal/osfile's Windows path form, so the walk is the project's own.
-// Extraction never writes outside its directory: no link, hard link or
-// device member is created, a member's name is confined to the directory,
-// and every file is created new.
+// to its cleaned form, so one input gives one set of paths however its
+// path was spelt. A path built from the evidence's text (a manifest field,
+// a name a parser asks Home.PathOf or Below for) is made by one function,
+// below: each element must be one plain component, and each directory on
+// the way down is looked at with lstat, a link (on Windows any reparse
+// point) refused. os.Root would also keep a path below a directory, but it
+// follows a link that stays inside and bypasses internal/osfile's Windows
+// path form. A loose tree's walk enters only real directories. Extraction
+// creates no link, hard link or device, checks each component of a
+// member's name the same way (checkElement), looks at each directory it
+// makes with lstat and creates every file new; a member whose name cannot
+// be used is skipped with a problem naming the archive and the member.
 package input
 
 import (

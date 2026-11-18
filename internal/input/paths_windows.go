@@ -17,8 +17,8 @@ func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }
 // path separators as slashes: on Windows a backslash is one too.
 func memberSeparators(name string) string { return strings.ReplaceAll(name, `\`, "/") }
 
-// memberNameAllowed reports whether this platform can hold a member name
-// below a directory without it naming another place. On Windows a colon
-// names a drive or an alternate data stream of a file, so a name holding
-// one is refused.
-func memberNameAllowed(name string) bool { return !strings.Contains(name, ":") }
+// memberNameAllowed reports whether this platform can hold a name as one
+// component below a directory without it naming another place. On Windows
+// a backslash separates components, and a colon names a drive or an
+// alternate data stream of a file, so a name holding either is refused.
+func memberNameAllowed(name string) bool { return !strings.ContainsAny(name, `:\`) }

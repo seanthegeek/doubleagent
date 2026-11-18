@@ -707,16 +707,22 @@ func archiveShapeCases() []inputCase {
 					t.Fatalf("error %v", err)
 				}
 			}},
-		{name: "a tar member climbing out of the directory refuses the archive",
+		{name: "a tar member climbing out of the directory is skipped with a problem",
 			build: func(t *testing.T, dir string) string {
 				archive := filepath.Join(dir, "escape.tar.gz")
-				writeFile(t, archive, string(tarBytes(t, true, tarMember{name: "a/../../escape.txt", typeflag: '0', body: "x"})))
+				writeFile(t, archive, string(tarBytes(t, true, tarMember{name: "a/../../escape.txt", typeflag: '0', body: "x"},
+					tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"})))
 				return archive
 			},
 			check: func(t *testing.T, collection *Collection, err error) {
-				var inputError *Error
-				if !errors.As(err, &inputError) || !strings.Contains(err.Error(), ": cannot extract: ") {
-					t.Fatalf("error %v", err)
+				opened(t, err)
+				if len(collection.Problems) != 1 || !strings.HasSuffix(collection.Problems[0],
+					"escape.tar.gz: member a/../../escape.txt not extracted: its name leads out of the extraction directory") {
+					t.Fatalf("problems %q", collection.Problems)
+				}
+				wantEqual(t, "artifacts", len(collection.Artifacts), 1)
+				if _, err := os.Lstat(filepath.Join(filepath.Dir(collection.ExtractedDir()), "escape.txt")); err == nil {
+					t.Fatal("a member was written outside the extraction directory")
 				}
 			}},
 	}
@@ -758,7 +764,7 @@ func archiveMemberCases() []inputCase {
 // zipMemberCases cover the names of zip members.
 func zipMemberCases() []inputCase {
 	return []inputCase{
-		{name: "unsafe zip members are skipped",
+		{name: "unsafe zip members are skipped, each with a problem",
 			build: func(t *testing.T, dir string) string {
 				names := []string{"../escape.txt", "/abs.txt", "C:/drive.txt", `alice\.claude\x`, "alice/.claude/./y"}
 				archive := filepath.Join(dir, "c.zip")
@@ -773,6 +779,14 @@ func zipMemberCases() []inputCase {
 				}
 				slices.Sort(rels)
 				wantSlice(t, "artifacts", rels, []string{".claude/x", ".claude/y"})
+				var problems []string
+				for _, problem := range collection.Problems {
+					problems = append(problems, problem[strings.Index(problem, ": member ")+2:])
+				}
+				wantSlice(t, "problems", problems, []string{
+					"member ../escape.txt not extracted: its name leads out of the extraction directory",
+					"member /abs.txt not extracted: its name leads out of the extraction directory",
+					"member C:/drive.txt not extracted: its name leads out of the extraction directory"})
 			}},
 		{name: "a zip member below a file member is an error",
 			build: func(t *testing.T, dir string) string {

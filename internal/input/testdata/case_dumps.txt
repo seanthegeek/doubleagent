@@ -308,8 +308,12 @@ kind	loose
 host	
 === a file that is no archive is refused
 error
-=== a tar member climbing out of the directory refuses the archive
-error
+=== a tar member climbing out of the directory is skipped with a problem
+kind	loose
+host	
+problem	<input>/escape.tar.gz: member a/../../escape.txt not extracted: its name leads out of the extraction directory
+home	0	<extract>/alice	/alice	alice		true	false
+artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
 === a tar member's leading slash is dropped and its inner dot-dot resolved
 kind	loose
 host	
@@ -325,9 +329,12 @@ kind	loose
 host	
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
-=== unsafe zip members are skipped
+=== unsafe zip members are skipped, each with a problem
 kind	loose
 host	
+problem	<input>/c.zip: member ../escape.txt not extracted: its name leads out of the extraction directory
+problem	<input>/c.zip: member /abs.txt not extracted: its name leads out of the extraction directory
+problem	<input>/c.zip: member C:/drive.txt not extracted: its name leads out of the extraction directory
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
 artifact	0	claude-code	.claude/y	/alice/.claude/y	<extract>/alice/.claude/y	-
