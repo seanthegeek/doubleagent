@@ -78,8 +78,6 @@ func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 	tests := []struct {
 		name, rel, text, want string
 	}{
-		{"CLI history entries", ".roo/cli-history.json", `{"version": 1, "entries": ["hi", 7, {}]}`,
-			"parser: entries holds 2 entries that are not JSON strings"},
 		{"retry queue requests", ".vscode-mock/workspace-storage/h/workspace-state.json",
 			`{"roo.retryQueue": [7]}`, "parser: roo.retryQueue holds 1 entry that is not a JSON object"},
 	}

@@ -56,10 +56,10 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	data, err := jsonvalue.DecodeString(text)
-	var wrong parser.Problems
-	for position, entry := range parser.EntriesOfKindFrom(cliEntries(text, data, err == nil, &problems), "entries",
-		jsonvalue.String, 0, &wrong) {
-		if strings.TrimSpace(entry.StringValue()) == "" {
+	// The CLI's own loadHistory keeps only non-blank strings, so an entry of
+	// another kind is passed over as it passes it over (research/roo-code.md).
+	for position, entry := range cliEntries(text, data, err == nil, &problems) {
+		if !entry.IsString() || strings.TrimSpace(entry.StringValue()) == "" {
 			continue
 		}
 		row := p.BaseRow(artifact)
@@ -71,7 +71,7 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 	if err != nil && len(problems) == 0 {
 		problems.Add(0, "cli-history.json unparseable after its entries array")
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, append(problems, wrong...), "", ""))
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // entriesArray finds the entries array of a CLI history that is not JSON.
