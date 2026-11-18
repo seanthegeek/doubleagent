@@ -24,6 +24,7 @@ package ollama
 
 import (
 	"bytes"
+	"errors"
 	"regexp"
 	"strconv"
 	"unicode/utf8"
@@ -102,8 +103,8 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		if len(bytes.Trim(raw, textlines.ASCIIWhitespace)) == 0 {
 			continue
 		}
-		if message := utf8Problem(raw); message != "" {
-			problems.AddRaw(number, "unparseable line ("+message+")", parser.LineText(raw))
+		if err := utf8Error(raw); err != nil {
+			problems.AddRaw(number, "unparseable line ("+err.Error()+")", parser.LineText(raw))
 			continue
 		}
 		line := string(bytes.Trim(raw, textlines.ASCIIWhitespace))
@@ -120,30 +121,27 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// readObject returns the JSON object of a settings file, or the text of
-// the `parser:` row that replaces its rows.
-func (p *Parser) readObject(artifact *input.Artifact) (jsonvalue.Value, string) {
+// readObject returns the JSON object of a settings file, or an error whose
+// text is that of the `parser:` row that replaces its rows.
+func (p *Parser) readObject(artifact *input.Artifact) (jsonvalue.Value, error) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
-		return jsonvalue.Value{}, parser.ProblemPrefix + problems[0].Message
+		return jsonvalue.Value{}, errors.New(parser.ProblemPrefix + problems[0].Message)
 	}
-	reason := utf8Problem(content)
+	err := utf8Error(content)
 	var document jsonvalue.Value
-	if reason == "" {
-		var err error
-		if document, err = jsonvalue.Decode(content); err != nil {
-			reason = err.Error()
-		}
+	if err == nil {
+		document, err = jsonvalue.Decode(content)
 	}
-	if reason != "" {
-		return jsonvalue.Value{}, parser.ProblemPrefix + artifact.Rel + " is not readable JSON (" +
-			reason + ")"
+	if err != nil {
+		return jsonvalue.Value{}, errors.New(parser.ProblemPrefix + artifact.Rel + " is not readable JSON (" +
+			err.Error() + ")")
 	}
 	if !document.IsObject() {
-		return jsonvalue.Value{}, parser.ProblemPrefix + artifact.Rel + " is not a JSON object"
+		return jsonvalue.Value{}, errors.New(parser.ProblemPrefix + artifact.Rel + " is not a JSON object")
 	}
-	return document, ""
+	return document, nil
 }
 
 // setting returns a "permission setting:" row at the file's mtime.
@@ -157,9 +155,9 @@ func (p *Parser) setting(artifact *input.Artifact, text string) timeline.Row {
 // parseConfig emits one row per integration of .ollama/config.json that
 // sets automode.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
-	document, problem := p.readObject(artifact)
-	if problem != "" {
-		emit(p.SystemRow(artifact, problem))
+	document, err := p.readObject(artifact)
+	if err != nil {
+		emit(p.SystemRow(artifact, err.Error()))
 		return
 	}
 	integrations := document.Get("integrations")
@@ -178,9 +176,9 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 
 // parseProfile emits the autoModeEnabled row of the Claude Desktop profile.
 func (p *Parser) parseProfile(artifact *input.Artifact, emit parser.Emit) {
-	document, problem := p.readObject(artifact)
-	if problem != "" {
-		emit(p.SystemRow(artifact, problem))
+	document, err := p.readObject(artifact)
+	if err != nil {
+		emit(p.SystemRow(artifact, err.Error()))
 		return
 	}
 	if enabled, ok := document.Lookup("autoModeEnabled"); ok {
@@ -190,16 +188,16 @@ func (p *Parser) parseProfile(artifact *input.Artifact, emit parser.Emit) {
 	}
 }
 
-// utf8Problem returns, for data that is not valid UTF-8, where its first
-// invalid sequence starts: "not valid UTF-8 at byte offset <n>", counted
-// from 0. It returns "" for valid UTF-8.
-func utf8Problem(data []byte) string {
+// utf8Error returns, for data that is not valid UTF-8, an error naming
+// where its first invalid sequence starts: "not valid UTF-8 at byte offset
+// <n>", counted from 0. It returns nil for valid UTF-8.
+func utf8Error(data []byte) error {
 	for start := 0; start < len(data); {
 		char, size := utf8.DecodeRune(data[start:])
 		if char == utf8.RuneError && size <= 1 {
-			return "not valid UTF-8 at byte offset " + strconv.Itoa(start)
+			return errors.New("not valid UTF-8 at byte offset " + strconv.Itoa(start))
 		}
 		start += size
 	}
-	return ""
+	return nil
 }

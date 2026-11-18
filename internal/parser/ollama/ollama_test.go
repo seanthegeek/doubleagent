@@ -13,9 +13,9 @@ import (
 )
 
 // The rows of the database, the history and the settings files are proved
-// against the Python analyzer by the parser replay
-// (internal/parity/replay); these tests port what the Python tests call
-// directly. Expected values come from running the analyzer.
+// against the recorded cases by the parser replay (internal/parity/replay);
+// these tests cover the file routing and the helpers that decide a row's
+// text.
 
 func TestWantsOnlyTheFilesOllamaWrites(t *testing.T) {
 	tests := []struct {
@@ -64,7 +64,7 @@ func TestCallTextPrefersTheURLThenTheQuery(t *testing.T) {
 		{"padding around JSON is read", sqlitefile.TextValue(` {"query":"x"} `), "x"},
 		{"NULL is null", sqlitefile.Value{}, "null"},
 		{"an integer is its digits", sqlitefile.IntValue(5), "5"},
-		{"a float is Python's repr", sqlitefile.FloatValue(1.5), "1.5"},
+		{"a float is its shortest form", sqlitefile.FloatValue(1.5), "1.5"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestResultFallbackGivesTheStoredResultAsCompactJSON(t *testing.T) {
 		{"an object is sorted", sqlitefile.TextValue(`{"b":1,"a":[1.0]}`), `{"b":1,"a":[1.0]}`},
 		{"text that is not JSON stays", sqlitefile.TextValue("nope"), "nope"},
 		{"an integer is its digits", sqlitefile.IntValue(5), "5"},
-		{"a float is Python's repr", sqlitefile.FloatValue(2.5), "2.5"},
+		{"a float is its shortest form", sqlitefile.FloatValue(2.5), "2.5"},
 		{"zero as text is JSON zero", sqlitefile.TextValue("0"), "0"},
 	}
 	for _, test := range tests {
@@ -114,7 +114,11 @@ func TestInvalidUTF8IsReportedAtTheOffsetOfItsFirstBadSequence(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := utf8Problem([]byte(test.data)); got != test.want {
+			got := ""
+			if err := utf8Error([]byte(test.data)); err != nil {
+				got = err.Error()
+			}
+			if got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
