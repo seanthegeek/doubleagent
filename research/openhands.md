@@ -964,8 +964,10 @@ not observed on any real install, source-derived (OpenHands/software-agent-sdk a
 [`33d8aa2`](https://github.com/OpenHands/software-agent-sdk/commit/33d8aa29c3078d074799e2fbf5e847aeb2d71360)).
 
 `prompt_history.json` is read as a JSON array element by element: a record that does not decode
-(a file cut mid-write) is one `parser: unparseable record <N> (<reason>): <the text from that
-record to the end of the file>` row after the rows of the records before it, an element that is
+(a file cut inside a record) is one `parser: unparseable record <N> (<reason>): <the text from that
+record to the end of the file>` row after the rows of the records before it, a file cut where a
+record is due is one `parser: array cut off after record <N>` row, `<N>` the records read whole,
+data after the array is `parser: unexpected data after the array`, an element that is
 not an object is `parser: unparseable record <N> (not a JSON object): <the element>`, and a file
 that is not an array or cannot be read is one whole-file `parser:` row.
 

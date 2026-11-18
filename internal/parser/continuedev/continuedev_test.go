@@ -1,12 +1,15 @@
 package continuedev
 
 import (
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 func TestYAMLScalarReadsOnlyAScalarOnItsLine(t *testing.T) {
@@ -244,5 +247,35 @@ func TestAResultSettlesTheOldestPostOfItsProcessAndURL(t *testing.T) {
 	}
 	if pending.examined != 3 {
 		t.Errorf("%d posts settled, want 3", pending.examined)
+	}
+}
+
+// The sessions index reports a damaged array in the kit's wording.
+func TestReadIndexReportsADamagedArrayInTheKitsWording(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		entries  int
+		problems parser.Problems
+	}{
+		{"data after the array", `[{"sessionId": "a"}] x`, 1,
+			parser.Problems{{Line: 2, Message: "unexpected data after the array"}}},
+		{"data after an empty array", `[] x`, 0,
+			parser.Problems{{Line: 1, Message: "unexpected data after the array"}}},
+		{"cut after a comma", `[{"sessionId": "a"},`, 1,
+			parser.Problems{{Line: 2, Message: "array cut off after record 1"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			if err := osfile.WriteFile(path, []byte(test.text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			entries, problems := ReadIndex(path)
+			if len(entries) != test.entries || !slices.Equal(problems, test.problems) {
+				t.Errorf("got %d entries and %+v, want %d and %+v", len(entries), problems,
+					test.entries, test.problems)
+			}
+		})
 	}
 }

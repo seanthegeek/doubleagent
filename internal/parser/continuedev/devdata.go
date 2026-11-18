@@ -191,12 +191,12 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
-	ArrayRecords(text, &problems, func(position int, entry jsonvalue.Value) {
+	for position, entry := range parser.ArrayText(text, &problems) {
 		prompt := entry.Get("text")
 		if !prompt.IsString() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
 				" (not an object with a text)", parser.JSONText(entry))
-			return
+			continue
 		}
 		row := p.BaseRow(artifact)
 		row.SourceLine = position
@@ -204,6 +204,6 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.Compact(prompt.StringValue())
 		emit(row)
-	})
+	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
