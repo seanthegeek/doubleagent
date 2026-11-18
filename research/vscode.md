@@ -1071,7 +1071,11 @@ session); a chat editing `state.json` whose `recentSnapshot` is not an object or
 `parser: ItemTable value for <key> is not a JSON array`, and, inside `GitHub.copilot-chat`, an
 `ownedTasks` that is not an object or a `userSelectedRepositories` that is not an array
 `parser: github.copilot.cloudAgent.ownedTasks is not a JSON object` or
-`parser: userSelectedRepositories is not a JSON array`, after the grant rows. A
+`parser: userSelectedRepositories is not a JSON array`, after the grant rows. One of these arrays
+(`requests`, `recentSnapshot.entries`, a usages value, `userSelectedRepositories`) holding entries
+that are not objects gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A
 `cloudSessions.json` that does not decode or is not a JSON object is
 `parser: cloudSessions.json is not a JSON object`, followed
 by the decoder's message in parentheses when it does not decode. A `.json` or `.jsonl` session, a

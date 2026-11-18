@@ -209,17 +209,12 @@ func usageText(value sqlitefile.Value) string {
 // sourceHostRows emits a "source host:" row per extension or MCP server
 // that used a GitHub account, at the usage's lastUsed. The account label
 // is the GitHub login; a GitHub Enterprise label ends " - <host><path>". A
-// usage value that is not an array adds a problem.
+// usage value that is not an array, or that holds entries that are not
+// objects, adds a problem.
 func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, problems *[]string, emit parser.Emit) {
 	for _, item := range usages {
 		match := usageKey.FindStringSubmatch(item.key)
 		if match == nil {
-			continue
-		}
-		if !item.value.IsArray() {
-			if !item.value.IsNull() {
-				*problems = append(*problems, vscodestate.ValueProblem+parser.WrongKind(item.key, jsonvalue.Array))
-			}
 			continue
 		}
 		provider, label, mcp := match[1], match[2], match[3] != ""
@@ -235,10 +230,9 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 		if mcp {
 			kind, idKey = "mcp_server", "mcpServerId"
 		}
-		for _, entry := range item.value.Items() {
-			if !entry.IsObject() {
-				continue
-			}
+		var found parser.Problems
+		for _, entry := range parser.EntriesOfKind(item.value, vscodestate.ValueProblem+item.key, jsonvalue.Object, 0,
+			&found) {
 			user := entry.Get(idKey)
 			if user.IsEmpty() {
 				user = jsonvalue.NewString("-")
@@ -247,7 +241,18 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 				" scopes=" + scopesText(entry.Get("scopes")) + " (from state.vscdb " + item.key + ", lastUsed)"
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("lastUsed")), text))
 		}
+		*problems = append(*problems, messagesOf(found)...)
 	}
+}
+
+// messagesOf returns the messages of problems, for a list of problem
+// texts that carry no line.
+func messagesOf(problems parser.Problems) []string {
+	texts := make([]string, 0, len(problems))
+	for _, problem := range problems {
+		texts = append(texts, problem.Message)
+	}
+	return texts
 }
 
 // scopesText returns a usage's scopes joined by commas, "-" when they are
@@ -285,18 +290,17 @@ func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, 
 }
 
 // selectedRepoRows emits a "source host repository:" row per repository
-// picked for a cloud agent task; repositories that is not an array adds a
-// problem.
+// picked for a cloud agent task; repositories that is not an array, or
+// that holds entries that are not objects, adds a problem.
 func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories jsonvalue.Value, problems *[]string,
 	emit parser.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + selectedReposKey + ", timestamp)"
-	if !repositories.IsArray() && !repositories.IsNull() {
-		*problems = append(*problems, parser.WrongKind(selectedReposKey, jsonvalue.Array))
-	}
-	for _, entry := range repositories.Items() {
-		if name := entry.Get("name"); entry.IsObject() && !name.IsEmpty() {
+	var found parser.Problems
+	for _, entry := range parser.EntriesOfKind(repositories, selectedReposKey, jsonvalue.Object, 0, &found) {
+		if name := entry.Get("name"); !name.IsEmpty() {
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("timestamp")),
 				"source host repository: "+parser.SettingValue(name)+" type=cloud agent selection "+source))
 		}
 	}
+	*problems = append(*problems, messagesOf(found)...)
 }
