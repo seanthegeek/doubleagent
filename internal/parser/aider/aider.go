@@ -310,6 +310,11 @@ type chatReader struct {
 	buffer      []string
 	lineNumbers []int
 	start       int
+	// hasText is set once a line of the run in progress holds more than
+	// whitespace; textChecks counts the lines tested for it, a measure of
+	// the reader's work that stays one test per line.
+	hasText    bool
+	textChecks int
 }
 
 // parseChat emits the rows of a chat history: a system row per session
@@ -357,14 +362,18 @@ func (c *chatReader) line(number int, line string) {
 	}
 	if kind != c.kind {
 		c.flush()
-		c.kind, c.buffer, c.lineNumbers, c.start = kind, nil, nil, number
+		c.kind, c.buffer, c.lineNumbers, c.start, c.hasText = kind, nil, nil, number, false
 	}
-	if !slices.ContainsFunc(c.buffer, func(held string) bool { return strings.TrimSpace(held) != "" }) {
+	// A run starts at its first line with text: the blank lines before it
+	// are held but do not move its source line.
+	if !c.hasText {
 		c.start = number
 	}
 	if kind != "assistant" {
 		content = strings.TrimRightFunc(content, unicode.IsSpace)
 	}
+	c.textChecks++
+	c.hasText = c.hasText || strings.TrimSpace(content) != ""
 	c.buffer = append(c.buffer, content)
 	c.lineNumbers = append(c.lineNumbers, number)
 }
@@ -372,7 +381,7 @@ func (c *chatReader) line(number int, line string) {
 // startSession ends the run in progress and emits the session's header row.
 func (c *chatReader) startSession(number int, header string) {
 	c.flush()
-	c.kind, c.buffer, c.lineNumbers = "", nil, nil
+	c.kind, c.buffer, c.lineNumbers, c.hasText = "", nil, nil, false
 	c.models = map[string]string{}
 	c.header = header
 	c.headerCount++
