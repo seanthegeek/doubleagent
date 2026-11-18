@@ -27,8 +27,9 @@ func FuzzSessionReplay(fuzz *testing.F) {
 			state.apply(line, record)
 		}
 		models := parser.Tracker{}
-		answered := answeredCalls(&state.messages)
-		for _, messageID := range state.messages.order {
+		order := state.messages.order()
+		answered := answeredCalls(&state.messages, order)
+		for _, messageID := range order {
 			entry := state.messages.byID[messageID]
 			turn := messageTurn{owner: New(), artifact: &input.Artifact{Home: &input.Home{}},
 				options: parser.Options{IncludeThinking: thinking}, line: entry.line}
