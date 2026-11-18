@@ -2,13 +2,14 @@ package sqlitefile
 
 import (
 	"encoding/binary"
+	"math"
 )
 
 // maxPayload is the largest payload a cell may hold ("B-tree Pages").
 const maxPayload = 2147483647
 
 // maxTreeDepth is the most pages a path from a b-tree's root to a leaf may
-// hold: SQLite's cursor keeps at most 20 (BTCURSOR_MAX_DEPTH in btree.c)
+// hold: SQLite's cursor keeps at most 20 (its constant BTCURSOR_MAX_DEPTH)
 // and reports a deeper tree as corrupt, so no valid file holds one.
 const maxTreeDepth = 20
 
@@ -200,6 +201,12 @@ func (r *Rows) Rowid() int64 {
 // columns, after an ALTER TABLE ADD COLUMN; the schema supplies the rest.
 // An overflow page another row of the walk has used is damage.
 func (r *Rows) Record() ([]Value, error) {
+	return r.recordUpTo(math.MaxInt)
+}
+
+// recordUpTo reads the current row's payload as Record does and decodes
+// its first limit values, checking the rest as decodeRecordUpTo does.
+func (r *Rows) recordUpTo(limit int) ([]Value, error) {
 	if r.whole == nil {
 		payload, err := r.readPayload()
 		if err != nil {
@@ -207,7 +214,7 @@ func (r *Rows) Record() ([]Value, error) {
 		}
 		r.whole = payload
 	}
-	return decodeRecord(r.whole)
+	return decodeRecordUpTo(r.whole, limit)
 }
 
 // Err returns the error that ended the walk, or nil at a clean end.

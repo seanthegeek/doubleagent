@@ -6,12 +6,14 @@ import (
 )
 
 // recordLayout is how a table's stored records become its rows. A row keeps
-// its record as decoded and reads a column through its source when asked,
-// so reading a row costs what its record holds, however many columns the
-// table declares.
+// the values of its record up to the last one a column reads, and reads a
+// column through its source when asked, so a row costs no more than its
+// record holds, however many columns the table declares, and no more than
+// the declared columns, however many values the record holds.
 type recordLayout struct {
 	sources []columnSource
-	// read marks the record indexes some column's value is taken from.
+	// read marks the record indexes some column's value is taken from; its
+	// length is how many of a record's values a row keeps.
 	read []bool
 	// failsUpTo is the smallest record index of a column whose default
 	// cannot be evaluated, and invalidUpTo of one whose default is text that

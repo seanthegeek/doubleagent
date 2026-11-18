@@ -11,7 +11,7 @@ type Row struct {
 	Rowid int64
 	shape *rowShape
 	// values holds the row's values in column order, or, when the shape
-	// has a layout, the stored record the layout reads them from.
+	// has a layout, the stored record's values the layout reads them from.
 	values []Value
 }
 
