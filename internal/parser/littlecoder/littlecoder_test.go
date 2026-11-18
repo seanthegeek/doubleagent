@@ -2,11 +2,16 @@ package littlecoder
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every file kind are proved by the parser replay
@@ -92,6 +97,55 @@ func TestImageCountCountsTheItemsOfTheImagesField(t *testing.T) {
 			}
 			if count, ok := imageCount(value); count != test.count || ok != test.ok {
 				t.Errorf("got %d, %v; want %d, %v", count, ok, test.count, test.ok)
+			}
+		})
+	}
+}
+
+// writeFiles writes each file of files, by path relative to home, empty.
+func writeFiles(t *testing.T, home string, rels []string) {
+	t.Helper()
+	for _, rel := range rels {
+		path := filepath.Join(home, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestACheckpointDirectoryListsItsFilesOnceOrTwice(t *testing.T) {
+	const directory = ".little-coder/checkpoints/2026-01-01T00-00-00-000Z_s1.jsonl/"
+	for _, test := range []struct {
+		name     string
+		reversed bool
+	}{{"first file first", false}, {"first file last", true}} {
+		t.Run(test.name, func(t *testing.T) {
+			var rels []string
+			for i := range 200 {
+				rels = append(rels, directory+fmt.Sprintf("file%03d.py", i))
+			}
+			home := t.TempDir()
+			writeFiles(t, home, rels)
+			if test.reversed {
+				slices.Reverse(rels)
+			}
+			subject := New()
+			rows := 0
+			for _, rel := range rels {
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
+					Rel: rel, Home: &input.Home{DiskPath: home, Original: "/h"}}
+				if err := subject.Parse(artifact, parser.Options{}, func(timeline.Row) { rows++ }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if rows != 1 {
+				t.Errorf("%d rows, want one for the directory", rows)
+			}
+			if subject.checkpointListings > 2 {
+				t.Errorf("the directory was listed %d times, want at most twice", subject.checkpointListings)
 			}
 		})
 	}
