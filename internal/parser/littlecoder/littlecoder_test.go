@@ -133,6 +133,7 @@ func TestACheckpointDirectoryListsItsFilesOnceOrTwice(t *testing.T) {
 				slices.Reverse(rels)
 			}
 			subject := New()
+			subject.Work = parser.CountingWork()
 			rows := 0
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
@@ -144,8 +145,8 @@ func TestACheckpointDirectoryListsItsFilesOnceOrTwice(t *testing.T) {
 			if rows != 1 {
 				t.Errorf("%d rows, want one for the directory", rows)
 			}
-			if subject.checkpointListings > 2 {
-				t.Errorf("the directory was listed %d times, want at most twice", subject.checkpointListings)
+			if listings := subject.Work.Count("checkpoint listings"); listings == 0 || listings > 2 {
+				t.Errorf("the directory was listed %d times, want at most twice", listings)
 			}
 		})
 	}

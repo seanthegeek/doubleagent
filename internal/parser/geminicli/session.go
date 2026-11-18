@@ -28,7 +28,7 @@ type numbered struct {
 func (p *Parser) session(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
-	state := newReplay()
+	state := newReplay(p.Work)
 	for _, each := range sessionRecords(artifact, &problems) {
 		state.apply(each.line, each.record)
 	}

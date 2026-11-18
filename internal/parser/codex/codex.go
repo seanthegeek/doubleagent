@@ -51,9 +51,6 @@ type Parser struct {
 	parser.Base
 	settings Settings
 	paths    paths
-	// guardianReads counts the reads of a home's log databases for guardian
-	// reviews, the work a test holds to one per rollout.
-	guardianReads int
 }
 
 // paths are the relative paths and patterns of the files the parser reads,

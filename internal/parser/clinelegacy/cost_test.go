@@ -20,6 +20,7 @@ func TestCachedEntryGivesTheFirstObjectOfTheID(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader := NewTaskParser(parser.NewBase("x", "x"), "x", "", nil)
+	reader.Work = parser.CountingWork()
 	tests := []struct {
 		name, member, entryID, want string
 	}{
@@ -52,13 +53,14 @@ func TestAnIndexOfManyTasksIsReadOncePerFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	reader := NewTaskParser(parser.NewBase("x", "x"), "x", "", nil)
+	reader.Work = parser.CountingWork()
 	for i := range tasks {
 		if entry := reader.CachedEntry(path, "", "t"+strconv.Itoa(i)); !entry.IsObject() {
 			t.Fatalf("task %d has no entry", i)
 		}
 	}
-	if reader.indexed != tasks {
-		t.Errorf("%d items read for %d lookups in an index of %d", reader.indexed, tasks, tasks)
+	if read := reader.Work.Count("index items read"); read != tasks {
+		t.Errorf("%d items read for %d lookups in an index of %d", read, tasks, tasks)
 	}
 }
 
@@ -73,12 +75,14 @@ func TestModelAtIsABinarySearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	context := newTaskContext("t", jsonvalue.NewNull(), metadata, "cwd")
+	context.work = parser.CountingWork()
 	for i := range entries {
 		if got := context.ModelAt(jsonvalue.NewInt(int64(i*10 + 5))); got != "m"+strconv.Itoa(i) {
 			t.Fatalf("ModelAt(%d) = %q", i*10+5, got)
 		}
 	}
-	if limit := entries * (bits.Len(entries) + 1); context.compared > limit {
-		t.Errorf("%d entries looked at for %d lookups, over %d", context.compared, entries, limit)
+	compared, limit := context.work.Count("entries compared"), entries*(bits.Len(entries)+1)
+	if compared == 0 || compared > limit {
+		t.Errorf("%d entries looked at for %d lookups, over %d", compared, entries, limit)
 	}
 }

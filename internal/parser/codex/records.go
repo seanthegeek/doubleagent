@@ -105,7 +105,7 @@ type userPart struct {
 // one kind joined by LF. The kind comes from the content_item_kinds list
 // when it is as long as the content (user.* and unknown are the person's),
 // else from the block's wrapper (contextMarker).
-func userParts(payload jsonvalue.Value) []userPart {
+func userParts(payload jsonvalue.Value, work parser.Work) []userPart {
 	content := payload.Get("content")
 	if content.IsString() {
 		content = jsonvalue.NewArray(jsonvalue.NewObject(
@@ -134,13 +134,13 @@ func userParts(payload jsonvalue.Value) []userPart {
 		}
 		blocks = append(blocks, userPart{kind: key, text: text})
 	}
-	return joinParts(blocks, strings.Join)
+	return joinParts(blocks, work)
 }
 
 // joinParts merges consecutive blocks of one kind into one part, joined by
-// LF with join. Each part's texts are joined once, so a message of many
-// blocks costs work in proportion to its length.
-func joinParts(blocks []userPart, join func(texts []string, separator string) string) []userPart {
+// LF. Each part's texts are joined once, so a message of many blocks costs
+// work in proportion to its length; work counts the joins and their bytes.
+func joinParts(blocks []userPart, work parser.Work) []userPart {
 	var parts []userPart
 	for start := 0; start < len(blocks); {
 		end := start + 1
@@ -151,7 +151,10 @@ func joinParts(blocks []userPart, join func(texts []string, separator string) st
 		for _, block := range blocks[start:end] {
 			texts = append(texts, block.text)
 		}
-		parts = append(parts, userPart{kind: blocks[start].kind, text: join(texts, "\n")})
+		joined := strings.Join(texts, "\n")
+		work.Add("joins", 1)
+		work.Add("bytes joined", len(joined))
+		parts = append(parts, userPart{kind: blocks[start].kind, text: joined})
 		start = end
 	}
 	return parts

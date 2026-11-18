@@ -122,7 +122,7 @@ func (p *Parser) projectIndex(path string, problems *parser.Problems) *projectIn
 	if !ok {
 		index = &projectIndex{byValue: map[string]string{}, byDigest: map[string]int{}}
 		if raw, read := readSmall(path, &index.problems); read && raw != "" {
-			p.projectsRead++
+			p.Work.Add("projects.json reads", 1)
 			if data, err := jsonvalue.DecodeString(raw); err == nil {
 				index.add(data.Get("projects").Members())
 			}

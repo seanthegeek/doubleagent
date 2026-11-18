@@ -55,9 +55,6 @@ var (
 type Parser struct {
 	*opencode.Parser
 	indexes map[indexKey]*taskIndex
-	// indexed counts the _index.json entries read, the work a test holds to
-	// one pass per file.
-	indexed int
 }
 
 // New returns the parser.

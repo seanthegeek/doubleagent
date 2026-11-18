@@ -145,7 +145,7 @@ func (p *Parser) database(artifact *input.Artifact, emit parser.Emit, read func(
 		return
 	}
 	defer database.Close()
-	store := newStore(database)
+	store := newStore(database, p.Work)
 	var rows []timeline.Row
 	read(store, func(row timeline.Row) { rows = append(rows, row) })
 	if store.err != nil {
@@ -161,13 +161,14 @@ type store struct {
 	database *sqlitefile.Database
 	tables   map[string]bool
 	err      error
-	// reads counts the queries run, the work a test measures.
-	reads int
+	// work counts the queries run, which a test measures.
+	work parser.Work
 }
 
-// newStore returns the store of an open database.
-func newStore(database *sqlitefile.Database) *store {
-	created := &store{database: database}
+// newStore returns the store of an open database, counting its queries in
+// work.
+func newStore(database *sqlitefile.Database, work parser.Work) *store {
+	created := &store{database: database, work: work}
 	created.tables, created.err = database.TableNames()
 	return created
 }
@@ -196,7 +197,7 @@ func (s *store) table(name string) *sqlitefile.Table {
 
 // rows returns rows read, nothing when the read failed.
 func (s *store) rows(found []keyed, err error) []keyed {
-	s.reads++
+	s.work.Add("queries", 1)
 	if s.keep(err) {
 		return nil
 	}

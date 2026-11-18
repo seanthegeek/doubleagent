@@ -65,7 +65,7 @@ func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems)
 		index = &taskIndex{entries: map[string]jsonvalue.Value{}}
 		document, _ := readJSON(indexPath, &index.problems)
 		for _, entry := range document.Get("entries").Items() {
-			p.indexed++
+			p.Work.Add("index entries read", 1)
 			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.IsObject() &&
 				entry.Get("id").IsString() && !seen {
 				index.entries[entry.Get("id").StringValue()] = entry

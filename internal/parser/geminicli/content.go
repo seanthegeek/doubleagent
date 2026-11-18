@@ -186,19 +186,21 @@ func contentRuns(content jsonvalue.Value, classify bool) ([]run, []response) {
 			}
 		}
 	}
-	return joinRuns(pieces, strings.Join), responses
+	return joinRuns(pieces, parser.Work{}), responses
 }
 
 // joinRuns merges consecutive pieces of one kind into one run, joined by
-// LF with join, leaving out empty pieces. Each run's texts are joined once,
-// at its end, so a message of many parts costs work in proportion to its
-// length.
-func joinRuns(pieces []run, join func(texts []string, separator string) string) []run {
+// LF, leaving out empty pieces. Each run's texts are joined once, at its
+// end, so a message of many parts costs work in proportion to its length;
+// work counts the joins and their bytes.
+func joinRuns(pieces []run, work parser.Work) []run {
 	var runs []run
 	var texts []string
 	flush := func() {
 		if len(texts) > 0 {
-			runs[len(runs)-1].text = join(texts, "\n")
+			runs[len(runs)-1].text = strings.Join(texts, "\n")
+			work.Add("joins", 1)
+			work.Add("bytes joined", len(runs[len(runs)-1].text))
 		}
 	}
 	for _, piece := range pieces {

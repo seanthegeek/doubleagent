@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -98,9 +99,9 @@ func newStampGroup(execs []logRecord, positions []int, order func(left, right sq
 type execPairs struct {
 	ints, floats stampGroup
 	slots        map[int]int
-	// steps counts the comparisons and tree cells read, the work a test
-	// holds to a logarithm per request.
-	steps int
+	// work counts the comparisons and tree cells read, which a test holds
+	// to a logarithm per request.
+	work parser.Work
 }
 
 // newExecPairs returns the pairing over the exec rows.
@@ -141,7 +142,7 @@ func (p *execPairs) take(stamp sqlitefile.Value) int {
 	for _, each := range []*stampGroup{&p.ints, &p.floats} {
 		low, high := p.window(each, stamp, request)
 		found, read := each.tree.least(low, high)
-		p.steps += read
+		p.work.Add("pairing steps", read)
 		if found < best {
 			best, group = found, each
 		}
@@ -163,7 +164,7 @@ func (p *execPairs) window(group *stampGroup, stamp sqlitefile.Value, request fl
 	}
 	search := func(after func(sqlitefile.Value) bool) int {
 		return sort.Search(len(group.stamps), func(slot int) bool {
-			p.steps++
+			p.work.Add("pairing steps", 1)
 			return after(group.stamps[slot])
 		})
 	}

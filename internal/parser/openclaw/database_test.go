@@ -52,19 +52,21 @@ func readAgent(t *testing.T, name string) ([]timeline.Row, int) {
 	}
 	defer database.Close()
 	var rows []timeline.Row
-	reader := &agentDatabase{writer: &writer{Parser: New(), artifact: artifact,
+	subject := New()
+	subject.Work = parser.CountingWork()
+	reader := &agentDatabase{writer: &writer{Parser: subject, artifact: artifact,
 		emit: func(row timeline.Row) { rows = append(rows, row) }}, database: database,
 		store: newDatabaseState(), windows: windowSet{byID: map[string]sqlitefile.Row{}}}
 	if err := reader.read(); err != nil {
 		t.Fatal(err)
 	}
-	return rows, reader.queries
+	return rows, subject.Work.Count("queries")
 }
 
 func TestTheColdArchiveChunksAreReadOnceWhateverTheNumberOfArchives(t *testing.T) {
 	_, few := readAgent(t, "cold_archives_2.db")
 	_, many := readAgent(t, "cold_archives_8.db")
-	if few != many {
+	if few == 0 || few != many {
 		t.Errorf("2 archives ran %d queries and 8 ran %d; the count must not grow with the archives", few, many)
 	}
 }

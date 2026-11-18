@@ -48,19 +48,19 @@ func readState(t *testing.T, name string) ([]timeline.Row, int) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	store := newStore(database)
+	store := newStore(database, parser.CountingWork())
 	var rows []timeline.Row
 	New().state(artifact, store, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) })
 	if store.err != nil {
 		t.Fatal(store.err)
 	}
-	return rows, store.reads
+	return rows, store.work.Count("queries")
 }
 
 func TestTheHeaderChunksAreReadOnceWhateverTheNumberOfComposers(t *testing.T) {
 	_, few := readState(t, "empty_composers_2.db")
 	_, many := readState(t, "empty_composers_8.db")
-	if few != many {
+	if few == 0 || few != many {
 		t.Errorf("2 composers ran %d queries and 8 ran %d; the count must not grow with the composers", few, many)
 	}
 }

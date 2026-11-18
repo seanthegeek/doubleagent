@@ -34,14 +34,7 @@ type shellCommand struct {
 // blank lines skipped, and a line after one that ends in an odd number of
 // backslashes joined to it with a space, that last backslash dropped. A
 // line that is not valid UTF-8 adds a problem and is skipped.
-func shellHistoryEntries(data []byte, problems *parser.Problems) []shellCommand {
-	return shellHistoryJoined(data, problems, strings.Join)
-}
-
-// shellHistoryJoined is shellHistoryEntries with each command's lines
-// joined by join, once per command.
-func shellHistoryJoined(data []byte, problems *parser.Problems,
-	join func(pieces []string, separator string) string) []shellCommand {
+func shellHistoryEntries(data []byte, problems *parser.Problems, work parser.Work) []shellCommand {
 	var out []shellCommand
 	var pieces []string
 	first := 0
@@ -61,14 +54,23 @@ func shellHistoryJoined(data []byte, problems *parser.Problems,
 			continue
 		}
 		if len(pieces) > 0 {
-			out = append(out, shellCommand{first, join(pieces, " ")})
+			out = append(out, shellCommand{first, joinCommand(pieces, work)})
 		}
 		pieces, first = []string{text}, i+1
 	}
 	if len(pieces) > 0 {
-		out = append(out, shellCommand{first, join(pieces, " ")})
+		out = append(out, shellCommand{first, joinCommand(pieces, work)})
 	}
 	return out
+}
+
+// joinCommand joins the lines of one command with a space, counting the
+// join and its bytes in work.
+func joinCommand(pieces []string, work parser.Work) string {
+	joined := strings.Join(pieces, " ")
+	work.Add("joins", 1)
+	work.Add("bytes joined", len(joined))
+	return joined
 }
 
 // continues reports whether a shell_history line ends in an odd number of
@@ -110,7 +112,7 @@ func (p *Parser) shellHistory(artifact *input.Artifact, match pathMatch, emit pa
 	var problems parser.Problems
 	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
 	data, _ := parser.FileBytes(artifact.DiskPath, &problems)
-	for _, entry := range shellHistoryEntries(data, &problems) {
+	for _, entry := range shellHistoryEntries(data, &problems, p.Work) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = entry.line
 		row.ProjectPath = project

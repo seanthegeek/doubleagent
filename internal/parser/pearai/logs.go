@@ -49,7 +49,7 @@ func (p *Parser) outputLog(artifact *input.Artifact, emit parser.Emit) {
 		problems.AddRaw(1, "unparseable record (before the first separator)", strings.TrimRight(preamble, "\n"))
 	}
 	writes := &logWrites{owner: p, artifact: artifact, emit: emit, models: parser.Tracker{}}
-	lines := &lineCounter{text: raw, line: 1}
+	lines := &lineCounter{text: raw, line: 1, work: p.Work}
 	for i, start := range starts {
 		end := len(raw)
 		if i+1 < len(starts) {
@@ -65,17 +65,18 @@ func (p *Parser) outputLog(artifact *input.Artifact, emit parser.Emit) {
 
 // lineCounter gives the line numbers of offsets of a text met in
 // increasing order, counting the newlines from the last offset only, so
-// each byte is counted once. scanned is the bytes counted, which a test
+// each byte is counted once. work counts the bytes looked at, which a test
 // reads.
 type lineCounter struct {
-	text                  string
-	offset, line, scanned int
+	text         string
+	offset, line int
+	work         parser.Work
 }
 
 // lineAt returns the 1-based line of the text that offset is on.
 func (c *lineCounter) lineAt(offset int) int {
 	c.line += strings.Count(c.text[c.offset:offset], "\n")
-	c.scanned += offset - c.offset
+	c.work.Add("bytes counted", offset-c.offset)
 	c.offset = offset
 	return c.line
 }

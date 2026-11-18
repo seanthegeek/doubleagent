@@ -194,7 +194,7 @@ func TestACompressedRolloutGivesTheRowsOfThePlainOne(t *testing.T) {
 
 func TestLinesCutAcrossManyChunksAreSearchedOnce(t *testing.T) {
 	work := func(chunks int) int {
-		var split lineSplitter
+		split := lineSplitter{work: parser.CountingWork()}
 		lines := 0
 		for range chunks {
 			split.add(bytes.Repeat([]byte("a"), 1024), func(int, []byte) { lines++ })
@@ -203,7 +203,7 @@ func TestLinesCutAcrossManyChunksAreSearchedOnce(t *testing.T) {
 		if lines != 1 || split.number != 1 {
 			t.Fatalf("%d lines numbered up to %d, want one", lines, split.number)
 		}
-		return split.scanned
+		return split.work.Count("bytes searched")
 	}
 	if searched := work(1000); searched != 1000*1024+1 {
 		t.Errorf("%d bytes searched for 1000 chunks of 1024 and a line end, want each once", searched)

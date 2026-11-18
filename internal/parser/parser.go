@@ -154,10 +154,13 @@ func MarksOf(parser Parser) Marks {
 }
 
 // Base holds a parser's agent and name and gives it the rows every parser
-// starts from. A parser embeds it, so Agent and Name come with it.
+// starts from. A parser embeds it, so Agent and Name come with it. Work
+// counts the parser's work for a test, and counts nothing unless one sets
+// it.
 type Base struct {
 	agent string
 	name  string
+	Work  Work
 }
 
 // NewBase returns the Base of a parser for agent, called name.

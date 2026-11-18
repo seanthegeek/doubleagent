@@ -312,10 +312,11 @@ type chatReader struct {
 	lineNumbers []int
 	start       int
 	// hasText is set once a line of the run in progress holds more than
-	// whitespace; textChecks counts the lines tested for it, a measure of
-	// the reader's work that a test reads.
-	hasText    bool
-	textChecks int
+	// whitespace.
+	hasText bool
+	// work counts the lines tested for text and the steps of the input
+	// searches, which tests hold to one per line and to a logarithm.
+	work parser.Work
 }
 
 // parseChat emits the rows of a chat history: a system row per session
@@ -325,7 +326,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	// Pre-scans of this file and of the input history beside it: their errors
 	// are reported when each file is parsed in full.
-	reader := &chatReader{parser: p, artifact: artifact, emit: emit,
+	reader := &chatReader{parser: p, artifact: artifact, emit: emit, work: p.Work,
 		headers: readHeaders(artifact.DiskPath), models: map[string]string{}}
 	if inputPath, ok := parser.Beside(artifact, inputName); ok && parser.RegularFile(inputPath) {
 		var ignored parser.Problems
@@ -373,7 +374,7 @@ func (c *chatReader) line(number int, line string) {
 	if kind != "assistant" {
 		content = strings.TrimRightFunc(content, unicode.IsSpace)
 	}
-	c.textChecks++
+	c.work.Add("text checks", 1)
 	c.hasText = c.hasText || strings.TrimSpace(content) != ""
 	c.buffer = append(c.buffer, content)
 	c.lineNumbers = append(c.lineNumbers, number)
@@ -434,7 +435,7 @@ func normalise(text string) string {
 // timed at or after the next session's header.
 func (c *chatReader) matchInput(text string) {
 	if c.inputIndex == nil {
-		c.inputIndex = newInputIndex(c.inputs)
+		c.inputIndex = newInputIndex(c.inputs, c.work)
 	}
 	index := c.inputIndex
 	stop := len(c.inputs)
@@ -459,11 +460,10 @@ func (c *chatReader) matchInput(text string) {
 // inputIndex holds the input history entries for matchInput: the times of
 // all of them, and by prompt text the positions and times of the entries
 // that hold it, each searchable from a position for the first time at or
-// after a bound. steps counts the search's steps, which a test reads.
+// after a bound.
 type inputIndex struct {
 	all    *stampTree
 	byText map[string]*textEntries
-	steps  int
 }
 
 // textEntries are the positions, in file order, of the entries holding one
@@ -473,8 +473,9 @@ type textEntries struct {
 	tree    *stampTree
 }
 
-// newInputIndex indexes the input history entries, every one timed.
-func newInputIndex(inputs []InputEntry) *inputIndex {
+// newInputIndex indexes the input history entries, every one timed; work
+// counts the steps of its searches.
+func newInputIndex(inputs []InputEntry, work parser.Work) *inputIndex {
 	index := &inputIndex{byText: map[string]*textEntries{}}
 	stamps := make([]string, len(inputs))
 	texts := map[string][]string{}
@@ -489,9 +490,9 @@ func newInputIndex(inputs []InputEntry) *inputIndex {
 		group.entries = append(group.entries, i)
 		texts[key] = append(texts[key], stamps[i])
 	}
-	index.all = newStampTree(stamps, &index.steps)
+	index.all = newStampTree(stamps, work)
 	for key, group := range index.byText {
-		group.tree = newStampTree(texts[key], &index.steps)
+		group.tree = newStampTree(texts[key], work)
 	}
 	return index
 }
@@ -504,11 +505,11 @@ type stampTree struct {
 	size  int
 	count int
 	nodes []string
-	steps *int
+	work  parser.Work
 }
 
-// newStampTree builds the tree of stamps; steps counts the nodes visited.
-func newStampTree(stamps []string, steps *int) *stampTree {
+// newStampTree builds the tree of stamps; work counts the nodes visited.
+func newStampTree(stamps []string, work parser.Work) *stampTree {
 	size := 1
 	for size < len(stamps) {
 		size *= 2
@@ -518,7 +519,7 @@ func newStampTree(stamps []string, steps *int) *stampTree {
 	for i := size - 1; i >= 1; i-- {
 		nodes[i] = max(nodes[2*i], nodes[2*i+1])
 	}
-	return &stampTree{size: size, count: len(stamps), nodes: nodes, steps: steps}
+	return &stampTree{size: size, count: len(stamps), nodes: nodes, work: work}
 }
 
 // first returns the position of the first stamp at or after from that is
@@ -534,7 +535,7 @@ func (t *stampTree) first(from int, bound string) int {
 // search returns the first position in the node's range [low, high) at or
 // after from whose stamp is at least bound, or -1.
 func (t *stampTree) search(node, low, high, from int, bound string) int {
-	*t.steps++
+	t.work.Add("search steps", 1)
 	if high <= from || t.nodes[node] < bound {
 		return -1
 	}

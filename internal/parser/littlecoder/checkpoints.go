@@ -54,7 +54,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	if !found {
 		return
 	}
-	p.checkpointListings++
+	p.Work.Add("checkpoint listings", 1)
 	files := regularFiles(directory)
 	if len(files) > 0 {
 		p.firstCheckpoint[key] = files[0].Name()

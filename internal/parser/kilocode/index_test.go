@@ -40,6 +40,7 @@ func TestEveryTaskTakesItsIndexEntryFromOneReadOfTheIndex(t *testing.T) {
 	tasksDirectory := filepath.Join(home, ".config/Code/User/globalStorage/kilocode.kilo-code/tasks")
 	write(t, filepath.Join(tasksDirectory, "_index.json"), `{"entries": [`+strings.Join(entries, ",")+`]}`)
 	subject := New()
+	subject.Work = parser.CountingWork()
 	for i := range tasks {
 		artifact := taskArtifact(home, "t"+strconv.Itoa(i))
 		write(t, artifact.DiskPath, `[{"role": "user", "content": "hi"}]`)
@@ -53,8 +54,8 @@ func TestEveryTaskTakesItsIndexEntryFromOneReadOfTheIndex(t *testing.T) {
 			t.Fatalf("task %d gave %+v, want the project %s", i, rows, want)
 		}
 	}
-	if subject.indexed != len(entries) {
-		t.Errorf("%d index entries read for %d tasks, want one pass over %d", subject.indexed, tasks,
+	if read := subject.Work.Count("index entries read"); read != len(entries) {
+		t.Errorf("%d index entries read for %d tasks, want one pass over %d", read, tasks,
 			len(entries))
 	}
 }

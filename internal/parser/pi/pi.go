@@ -241,7 +241,7 @@ func SessionStartText(header jsonvalue.Value) string {
 // provider, a checkpoint directory named after the session file. It is
 // empty when nothing points at little-coder.
 func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
-	types := newFirstSeen()
+	types := newFirstSeen(parser.Work{})
 	llamacpp := false
 	for _, entry := range session.Entries {
 		record := entry.Record
@@ -274,22 +274,22 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 }
 
 // firstSeen keeps distinct texts in the order they are first met, through a
-// set, so each text added costs one lookup whatever came before. lookups
-// counts them, a measure of the work that a test reads.
+// set, so each text added costs one lookup whatever came before. work
+// counts the lookups, which a test reads.
 type firstSeen struct {
-	seen    map[string]bool
-	order   []string
-	lookups int
+	seen  map[string]bool
+	order []string
+	work  parser.Work
 }
 
-// newFirstSeen returns an empty firstSeen.
-func newFirstSeen() *firstSeen {
-	return &firstSeen{seen: map[string]bool{}}
+// newFirstSeen returns an empty firstSeen that counts its lookups in work.
+func newFirstSeen(work parser.Work) *firstSeen {
+	return &firstSeen{seen: map[string]bool{}, work: work}
 }
 
 // add keeps text when it has not been met before.
 func (f *firstSeen) add(text string) {
-	f.lookups++
+	f.work.Add("lookups", 1)
 	if !f.seen[text] {
 		f.seen[text] = true
 		f.order = append(f.order, text)

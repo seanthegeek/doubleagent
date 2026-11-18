@@ -95,9 +95,6 @@ func matchPath(pattern *regexp.Regexp, rel string) pathMatch {
 type Parser struct {
 	parser.Base
 	projects map[fileState]*projectIndex
-	// projectsRead counts the projects.json files decoded, the work a test
-	// holds to one read per state of the file.
-	projectsRead int
 }
 
 // New returns the parser.

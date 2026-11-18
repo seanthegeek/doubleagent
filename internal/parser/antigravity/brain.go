@@ -30,15 +30,14 @@ type brainLogs struct {
 	artifact *input.Artifact
 	levels   int // how far above the artifact's directory the logs directory is
 	listed   *chunkListings
+	work     parser.Work
 }
 
 // chunkListings keeps the chunk names of each chunks directory listed, so
 // the many chunk files of one transcript list their directory once; it
-// holds each chunk's name once, as the run's list of files does. listings
-// counts the directories listed, a measure of the work that a test reads.
+// holds each chunk's name once, as the run's list of files does.
 type chunkListings struct {
-	names    map[string][]string
-	listings int
+	names map[string][]string
 }
 
 // newChunkListings returns an empty set of listings.
@@ -72,7 +71,7 @@ func (l brainLogs) chunks(form string) []string {
 	if held, ok := l.listed.names[directory]; ok {
 		return held
 	}
-	l.listed.listings++
+	l.work.Add("chunk listings", 1)
 	listed, ok := parser.DirectoryAt(directory)
 	entries, err := parser.ReadDir(directory)
 	if !ok || err != nil {
@@ -102,9 +101,9 @@ func (l brainLogs) chunks(form string) []string {
 // of preference: transcript_full.jsonl; its chunks, concatenated, so a line
 // cut at a chunk boundary is whole again; transcript.jsonl; its chunks. A
 // chunked form is read through its first chunk present.
-func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkListings,
+func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkListings, work parser.Work,
 	problems *parser.Problems) ([]byte, bool) {
-	logs := brainLogs{artifact: artifact, listed: listed}
+	logs := brainLogs{artifact: artifact, listed: listed, work: work}
 	switch form {
 	case fullForm:
 		return parser.FileBytes(artifact.DiskPath, problems)
@@ -135,7 +134,7 @@ func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkLi
 func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.Options, emit parser.Emit) {
 	sessionID := match[2]
 	var problems parser.Problems
-	blob, ok := brainCopy(artifact, match[3], match[4], p.chunks, &problems)
+	blob, ok := brainCopy(artifact, match[3], match[4], p.chunks, p.Work, &problems)
 	if ok {
 		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit}
 		for i, raw := range bytes.Split(blob, []byte("\n")) {

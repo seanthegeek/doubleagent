@@ -69,10 +69,8 @@ type Parser struct {
 	cache                                    map[cacheKey]*conversation
 	// legacyLowest is the lowest event number of each legacy session's
 	// events directory listed, so its other event files are passed over
-	// without a listing of their own; legacyListings counts the listings,
-	// a measure of the work that a test reads.
-	legacyLowest   map[legacyKey]string
-	legacyListings int
+	// without a listing of their own.
+	legacyLowest map[legacyKey]string
 }
 
 // legacyKey names a legacy session's events directory: the home's path on
@@ -360,7 +358,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 	if lowest, held := p.legacyLowest[key]; held && parser.CompareDigits(match[2], lowest) != 0 {
 		return
 	}
-	p.legacyListings++
+	p.Work.Add("legacy listings", 1)
 	var numbers []string
 	directory, found := parser.Beside(artifact)
 	if entries, err := parser.ReadDir(directory); found && err == nil {

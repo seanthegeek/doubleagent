@@ -35,9 +35,9 @@ type TaskContext struct {
 	Start        string
 	defaultModel string
 	usage        []modelUse
-	// compared counts the entries ModelAt has looked at, the work a test
-	// holds to a binary search.
-	compared int
+	// work counts the entries ModelAt has looked at, which a test holds to
+	// a binary search.
+	work parser.Work
 }
 
 // newTaskContext reads a task's project and models from its index item
@@ -127,7 +127,7 @@ func (c *TaskContext) ModelAt(timestamp jsonvalue.Value) string {
 		return c.usage[0].model
 	}
 	after := sort.Search(len(c.usage), func(i int) bool {
-		c.compared++
+		c.work.Add("entries compared", 1)
 		return c.usage[i].since > moment
 	})
 	return c.usage[max(after-1, 0)].model

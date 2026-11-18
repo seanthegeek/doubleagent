@@ -148,6 +148,7 @@ func TestTheChunksOfATranscriptListTheirDirectoryOnce(t *testing.T) {
 				rels = append(rels, rel)
 			}
 			subject := New()
+			subject.Work = parser.CountingWork()
 			rows := 0
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
@@ -159,8 +160,8 @@ func TestTheChunksOfATranscriptListTheirDirectoryOnce(t *testing.T) {
 			if rows != count {
 				t.Errorf("%d rows, want one per chunk's line, %d", rows, count)
 			}
-			if subject.chunks.listings != 1 {
-				t.Errorf("the chunks directory was listed %d times, want once", subject.chunks.listings)
+			if listings := subject.Work.Count("chunk listings"); listings != 1 {
+				t.Errorf("the chunks directory was listed %d times, want once", listings)
 			}
 		})
 	}
