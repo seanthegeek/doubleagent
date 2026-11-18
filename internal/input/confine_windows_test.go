@@ -83,12 +83,38 @@ func TestAJunctionInsideADirectoryCollectionIsNeverPassedThrough(t *testing.T) {
 
 func TestANameWithAColonIsNotOneComponentOnWindows(t *testing.T) {
 	home := &Home{DiskPath: t.TempDir()}
-	for _, rel := range []string{"a:b", "x/C:", "f.txt:stream"} {
+	for _, rel := range []string{"a:b", "x/C:", "f.txt:stream", `a\..\..\x`} {
 		if path, ok := home.PathOf(rel); ok {
 			t.Errorf("PathOf(%q) = %s", rel, path)
 		}
 	}
 	if err := checkElement("2026-01-01T10:00:00.json"); err == nil || !strings.Contains(err.Error(), "outside") {
 		t.Errorf("checkElement of a name with a colon: %v", err)
+	}
+}
+
+func TestAMemberWhoseNameHoldsAColonIsSkippedWithAProblem(t *testing.T) {
+	const name = "alice/.claude/2026-01-01T10:00:00.json"
+	for _, test := range []struct {
+		archive string
+		data    func(t *testing.T) []byte
+	}{
+		{"c.tar", func(t *testing.T) []byte {
+			return tarBytes(t, false, tarMember{name: name, typeflag: '0', body: "x"},
+				tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"})
+		}},
+		{"c.zip", func(t *testing.T) []byte {
+			return zipBytes(t, []string{name, "alice/.claude/x"}, map[string]string{"alice/.claude/x": "x"})
+		}},
+	} {
+		t.Run("in a "+filepath.Ext(test.archive), func(t *testing.T) {
+			collection, err := openArchiveOf(t, test.archive, test.data(t))
+			opened(t, err)
+			want := test.archive + ": member " + name + " not extracted: " + reasonNotAName
+			if len(collection.Problems) != 1 || !strings.HasSuffix(collection.Problems[0], string(filepath.Separator)+want) {
+				t.Errorf("problems %q, want one ending %q", collection.Problems, want)
+			}
+			wantSlice(t, "artifacts", rels(collection), []string{".claude/x"})
+		})
 	}
 }

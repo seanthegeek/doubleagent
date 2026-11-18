@@ -128,7 +128,7 @@ func TestAnArchivedLinkRowClimbingOutMapsNothing(t *testing.T) {
 
 func TestPathOfRefusesARelativePathThatLeavesTheHome(t *testing.T) {
 	home := &Home{DiskPath: t.TempDir()}
-	for _, rel := range []string{"..", "a/../..", "../outside/x", `a\..\..\x`, "a/\x00/b"} {
+	for _, rel := range []string{"..", "a/../..", "../outside/x", "a/\x00/b"} {
 		if path, ok := home.PathOf(rel); ok {
 			t.Errorf("PathOf(%q) = %s", rel, path)
 		}

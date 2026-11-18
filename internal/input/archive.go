@@ -46,10 +46,12 @@ func openArchive(ctx context.Context, source, workDir string) (*Collection, erro
 		}
 		collection.Notes = append(collection.Notes, note)
 	}
-	if err := extractArchive(ctx, source, destination); err != nil {
+	problems, err := extractArchive(ctx, source, destination)
+	if err != nil {
 		_ = collection.Cleanup()
 		return nil, err
 	}
+	collection.Problems = append(collection.Problems, problems...)
 	if !isCollectionLayout(destination) {
 		collection.Kind = KindLoose
 	}
