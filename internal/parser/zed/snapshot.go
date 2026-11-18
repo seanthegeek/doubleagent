@@ -2,7 +2,6 @@ package zed
 
 import (
 	"cmp"
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -109,8 +108,8 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 		emit(p.threadRow(context, timeline.TurnSystem, text, start))
 	}
 	for _, grant := range threadGrants(value) {
-		text := fmt.Sprintf("permission setting: %s=%s (thread blob, as of updated_at)", grant.key,
-			parser.SettingValue(grant.value))
+		text := "permission setting: " + grant.key + "=" + parser.SettingValue(grant.value) +
+			" (thread blob, as of updated_at)"
 		emit(p.threadRow(context, timeline.TurnSystem, text, ""))
 	}
 }

@@ -19,7 +19,11 @@ func TestAValueThatDoesNotDecodeSaysWhyInPlainWords(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, got := decodeColumn(test.value); got != test.want {
+			got := ""
+			if _, err := decodeColumn(test.value); err != nil {
+				got = err.Error()
+			}
+			if got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -33,13 +37,18 @@ func TestAWorktreeRecordWithoutACreationTimeSaysWhy(t *testing.T) {
 		{"a record that is not an object", `[1]`, "the record is not a JSON object"},
 		{"a record without the seconds", `{"created_at_nanos": 1}`, "no created_at_seconds field"},
 		{"seconds that are not a number", `{"created_at_seconds": "1"}`, "the creation time is not a number"},
+		{"a boolean is not a number", `{"created_at_seconds": true}`, "the creation time is not a number"},
 		{"nanoseconds that are not a number", `{"created_at_seconds": 1, "created_at_subsec_nanos": []}`,
 			"the creation time is not a number"},
 		{"a whole record", `{"created_at_seconds": 1, "created_at_subsec_nanos": 500000000}`, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, got := createdSeconds(decoded(t, test.record)); got != test.want {
+			got := ""
+			if _, err := createdSeconds(decoded(t, test.record)); err != nil {
+				got = err.Error()
+			}
+			if got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

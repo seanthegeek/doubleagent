@@ -169,9 +169,8 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 		emit(p.archivedWorktree(artifact, row, store))
 	}
 	for _, row := range store.terminals {
-		text := fmt.Sprintf("sidebar terminal: %s cwd=%s",
-			firstColumn(row.Get("custom_title"), row.Get("title")),
-			orDash(firstColumn(row.Get("working_directory"))))
+		text := "sidebar terminal: " + firstColumn(row.Get("custom_title"), row.Get("title")) +
+			" cwd=" + orDash(firstColumn(row.Get("working_directory")))
 		emit(p.stateRow(artifact, text, parser.ColumnTime(row.Get("created_at")), row.Rowid, "",
 			firstFolder(row.Get("folder_paths"))))
 	}
@@ -191,9 +190,12 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit p
 		if !row.Get("archived").IsEmpty() {
 			archived = " archived"
 		}
-		text := fmt.Sprintf("external agent thread (no transcript in threads.db): agent=%s title=%s%s",
-			row.Get("agent_id").String(), title, archived)
-		timestamp := parser.ColumnTime(firstTrue(row.Get("interacted_at"), row.Get("updated_at")))
+		text := "external agent thread (no transcript in threads.db): agent=" +
+			row.Get("agent_id").String() + " title=" + title + archived
+		timestamp := parser.ColumnTime(row.Get("updated_at"))
+		if interacted := row.Get("interacted_at"); !interacted.IsEmpty() {
+			timestamp = parser.ColumnTime(interacted)
+		}
 		emit(p.stateRow(artifact, text, timestamp, row.Rowid, sessionID, project))
 	case sessionID != "":
 		text := fmt.Sprintf("sidebar thread: title=%s archived=%t interacted_at=%s main_worktree=%s",
@@ -215,19 +217,9 @@ func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeli
 	if host != "" {
 		host = " host=" + host
 	}
-	text := fmt.Sprintf("permission setting: trusted_worktrees.%s=true%s (from %s trusted_worktrees,"+
-		" file mtime)", path, host, artifact.Rel)
+	text := "permission setting: trusted_worktrees." + path + "=true" + host + " (from " +
+		artifact.Rel + " trusted_worktrees, file mtime)"
 	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, "", path)
-}
-
-// firstTrue returns the first value Python counts as true, else the last.
-func firstTrue(values ...sqlitefile.Value) sqlitefile.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return values[len(values)-1]
 }
 
 // orDash returns text, or "-" when it is empty.

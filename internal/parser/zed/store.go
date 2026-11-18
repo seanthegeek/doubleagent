@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,21 +13,18 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// notText is the reason a key-value entry whose value is not text or a
-// blob does not decode.
-const notText = "the value is not text"
+// errNotText is why a key-value entry whose value is not text or a blob
+// does not decode.
+var errNotText = errors.New("the value is not text")
 
-// decodeColumn decodes a key-value entry's value as JSON, or returns why it
-// does not decode: the value is not text, or the JSON reader's message.
-func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, string) {
+// decodeColumn decodes a key-value entry's value as JSON, or returns an
+// error saying why it does not decode: the value is not text, or the JSON
+// reader's error.
+func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, error) {
 	if value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob {
-		return jsonvalue.Value{}, notText
+		return jsonvalue.Value{}, errNotText
 	}
-	decoded, err := jsonvalue.Decode(value.Bytes)
-	if err != nil {
-		return jsonvalue.Value{}, err.Error()
-	}
-	return decoded, ""
+	return jsonvalue.Decode(value.Bytes)
 }
 
 // draft emits `unsent draft: <text>` for an agent_draft_prompts entry, at
@@ -35,10 +33,9 @@ func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, string) {
 func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *sidebarStore,
 	problems *parser.Problems, emit parser.Emit) {
 	key, value := row.Get("key").String(), row.Get("value")
-	blocks, failure := decodeColumn(value)
-	if failure != "" {
-		label := fmt.Sprintf("unparseable record %d (%s %s: %s)", row.Rowid, draftsNamespace, key,
-			failure)
+	blocks, err := decodeColumn(value)
+	if err != nil {
+		label := fmt.Sprintf("unparseable record %d (%s %s: %v)", row.Rowid, draftsNamespace, key, err)
 		problems.AddRaw(int(row.Rowid), label, value.String())
 		return
 	}
@@ -51,43 +48,31 @@ func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *side
 			row.Rowid, "", firstFolder(side.Get("folder_paths"))))
 		return
 	}
-	text = fmt.Sprintf("unsent draft: %s (from %s %s, file mtime)", text, artifact.Rel,
-		draftsNamespace)
+	text = "unsent draft: " + text + " (from " + artifact.Rel + " " + draftsNamespace +
+		", file mtime)"
 	emit(p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, "", ""))
 }
 
 // createdSeconds returns a created_git_worktrees record's creation time in
-// seconds, created_at_seconds plus created_at_subsec_nanos, or why the
-// record has none.
-func createdSeconds(record jsonvalue.Value) (float64, string) {
+// seconds, created_at_seconds plus created_at_subsec_nanos, or an error
+// saying why the record has none.
+func createdSeconds(record jsonvalue.Value) (float64, error) {
 	if !record.IsObject() {
-		return 0, "the record is not a JSON object"
+		return 0, errors.New("the record is not a JSON object")
 	}
 	seconds, ok := record.Lookup("created_at_seconds")
 	if !ok {
-		return 0, "no created_at_seconds field"
+		return 0, errors.New("no created_at_seconds field")
 	}
-	whole, wholeOK := pythonNumber(seconds)
+	whole, wholeOK := seconds.Float()
 	nanos, nanosOK := 0.0, true
 	if fraction, found := record.Lookup("created_at_subsec_nanos"); found {
-		nanos, nanosOK = pythonNumber(fraction)
+		nanos, nanosOK = fraction.Float()
 	}
 	if !wholeOK || !nanosOK {
-		return 0, "the creation time is not a number"
+		return 0, errors.New("the creation time is not a number")
 	}
-	return whole + nanos/1e9, ""
-}
-
-// pythonNumber returns a JSON number, or a boolean as Python's 0 or 1, as a
-// float.
-func pythonNumber(value jsonvalue.Value) (float64, bool) {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return 1, true
-		}
-		return 0, true
-	}
-	return value.Float()
+	return whole + nanos/1e9, nil
 }
 
 // createdWorktree emits `scratch directory:` for a created_git_worktrees
@@ -97,13 +82,13 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 	store *sidebarStore, problems *parser.Problems, emit parser.Emit) {
 	value := row.Get("value")
 	host, path, _ := strings.Cut(row.Get("key").String(), "\n")
-	record, failure := decodeColumn(value)
+	record, err := decodeColumn(value)
 	seconds := 0.0
-	if failure == "" {
-		seconds, failure = createdSeconds(record)
+	if err == nil {
+		seconds, err = createdSeconds(record)
 	}
-	if failure != "" {
-		label := fmt.Sprintf("unparseable record %d (%s: %s)", row.Rowid, worktreesNamespace, failure)
+	if err != nil {
+		label := fmt.Sprintf("unparseable record %d (%s: %v)", row.Rowid, worktreesNamespace, err)
 		problems.AddRaw(int(row.Rowid), label, value.String())
 		return
 	}
@@ -116,8 +101,8 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 	} else {
 		host = ""
 	}
-	text := fmt.Sprintf("scratch directory: %s (Zed-created git worktree%s%s) (from %s %s,"+
-		" created_at)", path, main, host, artifact.Rel, worktreesNamespace)
+	text := "scratch directory: " + path + " (Zed-created git worktree" + main + host +
+		") (from " + artifact.Rel + " " + worktreesNamespace + ", created_at)"
 	emit(p.stateRow(artifact, text, timeutil.FromEpoch(seconds), row.Rowid, "", path))
 }
 
@@ -164,12 +149,13 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 			sessionID = columnStr(side.Get("session_id"))
 		}
 	}
-	text := fmt.Sprintf("archived worktree: %s of %s branch=%s staged=%s unstaged=%s original=%s"+
-		" ref=refs/archived-worktrees/%s (from %s archived_git_worktrees, file mtime)",
-		columnStr(row.Get("worktree_path")), columnStr(row.Get("main_repo_path")),
-		orDash(columnStr(row.Get("branch_name"))), orDash(columnStr(row.Get("staged_commit_hash"))),
-		orDash(columnStr(row.Get("unstaged_commit_hash"))),
-		orDash(columnStr(row.Get("original_commit_hash"))), row.Get("id").String(), artifact.Rel)
+	text := "archived worktree: " + columnStr(row.Get("worktree_path")) + " of " +
+		columnStr(row.Get("main_repo_path")) + " branch=" +
+		orDash(columnStr(row.Get("branch_name"))) + " staged=" +
+		orDash(columnStr(row.Get("staged_commit_hash"))) + " unstaged=" +
+		orDash(columnStr(row.Get("unstaged_commit_hash"))) + " original=" +
+		orDash(columnStr(row.Get("original_commit_hash"))) + " ref=refs/archived-worktrees/" +
+		row.Get("id").String() + " (from " + artifact.Rel + " archived_git_worktrees, file mtime)"
 	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, sessionID,
 		columnStr(row.Get("main_repo_path")))
 }

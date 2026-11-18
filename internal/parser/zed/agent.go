@@ -2,6 +2,7 @@ package zed
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -32,7 +33,7 @@ func (p *Parser) agentMessage(out *transcript, message jsonvalue.Value) {
 		case member.Value.IsObject():
 			p.toolResult(out, member.Key, member.Value)
 		default:
-			out.bad(fmt.Sprintf("Agent tool_results entry %s is not an object", member.Key),
+			out.bad("Agent tool_results entry "+member.Key+" is not an object",
 				member.Value)
 		}
 	}
@@ -71,7 +72,7 @@ func (p *Parser) agentPart(out *transcript, k int, part, results jsonvalue.Value
 }
 
 // thinkingText returns the text of a Thinking part: an object's text, or
-// any other value as Python's str() writes it.
+// any other value as its row text (jsonvalue.Value.Text).
 func thinkingText(thinking jsonvalue.Value) string {
 	if thinking.IsObject() {
 		return parser.Text(thinking.Get("text"))
@@ -82,7 +83,7 @@ func thinkingText(thinking jsonvalue.Value) string {
 // legacyMessage adds the items of a message of the 0.1.0 and 0.2.0 shape:
 // role and text, segments, tool_uses and tool_results.
 func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
-	role := lower(parser.Text(message.Get("role")))
+	role := strings.ToLower(parser.Text(message.Get("role")))
 	kind := timeline.TurnSystem
 	switch role {
 	case "user":
@@ -100,7 +101,7 @@ func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
 	for k, segment := range parser.Elements(message.Get("segments")) {
 		segmentType := ""
 		if segment.IsObject() {
-			segmentType = lower(parser.Text(segment.Get("type")))
+			segmentType = strings.ToLower(parser.Text(segment.Get("type")))
 		}
 		switch segmentType {
 		case "text":
