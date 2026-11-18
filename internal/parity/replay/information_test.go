@@ -123,7 +123,7 @@ func (n neededTally) note(node string, numbers []int) {
 
 // logNeeded logs, under label, for each of numbers how many cases needed
 // it and the first of them.
-func logNeeded(t *testing.T, label string, tally neededTally, numbers []int) {
+func logNeeded(t testing.TB, label string, tally neededTally, numbers []int) {
 	const named = 3
 	for _, number := range numbers {
 		nodes := tally[number]

@@ -7,6 +7,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
 func TestTheTableNumbersEachAnalysisDifferenceOnceInOrderFrom101(t *testing.T) {
@@ -399,6 +402,39 @@ func TestADifferenceNoCaseUsedFailsAWholeRun(t *testing.T) {
 			checkEveryDifferenceUsed(reporter, table, test.used, test.whole)
 			if failed := len(reporter.errors) > 0; failed != test.fails {
 				t.Errorf("failed %v, want %v: %v", failed, test.fails, reporter.errors)
+			}
+		})
+	}
+}
+
+func TestAnAgentWithoutAParserOrACaseComparedInPartFails(t *testing.T) {
+	without := slices.DeleteFunc(parsers.All(), func(each parser.Parser) bool {
+		return each.Agent() == "shellgpt"
+	})
+	tests := []struct {
+		name    string
+		check   func(reporter *recordingTB)
+		failing bool
+	}{
+		{"every agent with a parser passes", func(reporter *recordingTB) {
+			checkEveryAgentHasAParser(reporter, []string{"shellgpt", "aider"}, parsers.All())
+		}, false},
+		{"an agent whose parser is not registered fails", func(reporter *recordingTB) {
+			checkEveryAgentHasAParser(reporter, []string{"shellgpt", "aider"}, without)
+		}, true},
+		{"cases compared in full pass", func(reporter *recordingTB) {
+			(&commandReplay{full: map[string]int{"timeline": 2}, partial: map[string]int{}}).report(reporter)
+		}, false},
+		{"a case compared in part fails", func(reporter *recordingTB) {
+			(&commandReplay{full: map[string]int{"timeline": 1}, partial: map[string]int{"timeline": 1}}).report(reporter)
+		}, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reporter := &recordingTB{TB: t}
+			test.check(reporter)
+			if failed := len(reporter.errors) > 0; failed != test.failing {
+				t.Errorf("failed %v, want %v: %v", failed, test.failing, reporter.errors)
 			}
 		})
 	}
