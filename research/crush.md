@@ -714,7 +714,9 @@ A `crushrc` is read line by line for its `permissions` lines: such a line that d
 into shell words (an unclosed quote) is one row `parser: unparseable line (<reason>): <line>` with
 `source_line` its line number, and the file's other lines are still read; other lines are not
 records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row, as is
-a `crush.json` that is not a JSON object (`parser: <file> is not a JSON object`). A `projects.json`,
+a `crush.json` that is not a JSON object (`parser: <file> is not a JSON object`, followed by
+` (invalid JSON at line <n>, column <n>)` for one that does not decode, without the reader's
+detail, since the file holds API keys). A `projects.json`,
 `crush.json` or `crushrc` that cannot be read is one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0, an empty
 time and, for the configuration files, the project the file belongs to. A `messages.parts` value

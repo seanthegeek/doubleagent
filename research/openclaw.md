@@ -1534,7 +1534,10 @@ chunk's `archive_blob` in `chunk_index` order; only its `event` records give row
 coming from the `header`; an `event_json` that does not decode is
 `parser: cold archive event seq <seq> unreadable: <reason>`, and a database-stored archive or
 chunk whose `archive_blob` is NULL is
-`parser: cold archive <archive_name> has no stored bytes`. The rows below rest on source alone;
+`parser: cold archive <archive_name> has no stored bytes`. A zstd blob decompresses to at most
+256 MiB, and the blobs of one database to at most 64 times its size (at least 1 GiB) in all; a blob
+past either limit is a `could not be decompressed (<reason>)` row, the reason saying which limit it
+met. The rows below rest on source alone;
 each subsection says which are fixture only.
 
 #### Permission rows
