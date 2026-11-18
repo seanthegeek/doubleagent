@@ -1,14 +1,15 @@
 package crush
 
 import (
+	"errors"
 	"strings"
 )
 
 // The two ways a line fails to split into shell words, as a bad-line row
 // words them.
-const (
-	noClosingQuote = "a quote is not closed"
-	noEscaped      = "a backslash ends the line"
+var (
+	errNoClosingQuote = errors.New("a quote is not closed")
+	errNoEscaped      = errors.New("a backslash ends the line")
 )
 
 // shellSpace is what separates shell words.
@@ -36,9 +37,10 @@ func (s *wordSplitter) finish() {
 // everything to the next one; inside double quotes a backslash escapes only
 // a double quote or a backslash; outside quotes a backslash escapes any
 // character; a # outside quotes, even inside a word, ends the line. No
-// expansion of any kind is done. For an unclosed quote or a backslash at
-// the end it returns why the line does not split.
-func splitWords(line string) ([]string, string) {
+// expansion of any kind is done. The standard library has no shell word
+// splitter. For an unclosed quote or a backslash at the end it returns an
+// error saying why the line does not split.
+func splitWords(line string) ([]string, error) {
 	splitter := &wordSplitter{}
 	for i := 0; i < len(line); i++ {
 		character := line[i]
@@ -47,18 +49,18 @@ func splitWords(line string) ([]string, string) {
 			splitter.finish()
 		case character == '#':
 			splitter.finish()
-			return splitter.words, ""
+			return splitter.words, nil
 		case character == '\\':
 			if i+1 == len(line) {
-				return nil, noEscaped
+				return nil, errNoEscaped
 			}
 			i++
 			splitter.word.WriteByte(line[i])
 			splitter.started = true
 		case character == '\'' || character == '"':
-			end, problem := splitter.quoted(line, i)
-			if problem != "" {
-				return nil, problem
+			end, err := splitter.quoted(line, i)
+			if err != nil {
+				return nil, err
 			}
 			i = end
 		default:
@@ -67,23 +69,23 @@ func splitWords(line string) ([]string, string) {
 		}
 	}
 	splitter.finish()
-	return splitter.words, ""
+	return splitter.words, nil
 }
 
 // quoted adds the quoted text that starts at the quote at offset start of
 // line to the current word and returns the offset of its closing quote,
-// or why the quote does not close.
-func (s *wordSplitter) quoted(line string, start int) (int, string) {
+// or an error saying why the quote does not close.
+func (s *wordSplitter) quoted(line string, start int) (int, error) {
 	quote := line[start]
 	s.started = true
 	for i := start + 1; i < len(line); i++ {
 		character := line[i]
 		switch {
 		case character == quote:
-			return i, ""
+			return i, nil
 		case character == '\\' && quote == '"':
 			if i+1 == len(line) {
-				return 0, noEscaped
+				return 0, errNoEscaped
 			}
 			if next := line[i+1]; next != '"' && next != '\\' {
 				s.word.WriteByte('\\')
@@ -94,5 +96,5 @@ func (s *wordSplitter) quoted(line string, start int) (int, string) {
 			s.word.WriteByte(character)
 		}
 	}
-	return 0, noClosingQuote
+	return 0, errNoClosingQuote
 }

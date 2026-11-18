@@ -98,7 +98,8 @@ func (s *store) system(rowid int64, sessionID, timestamp, text string) timeline.
 	return row
 }
 
-// orText returns a column as Python's str(value or "") writes it.
+// orText returns a column as row text, "" for an empty value (NULL, zero,
+// or empty text or blob).
 func orText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -165,7 +166,7 @@ func (s *store) sessionStart(session sqlitefile.Row) {
 		cost = "cost=" + value.String()
 	}
 	s.emit(s.system(session.Rowid, sessionID, parser.ColumnTime(session.Get("created_at")),
-		timeline.Compact(joinParts("session start", orText(session.Get("title")), parent, count,
+		timeline.Compact(parser.JoinNonEmpty(" | ", "session start", orText(session.Get("title")), parent, count,
 			tokens, cost))))
 	if channel := session.Get("channel"); channel.Type == sqlitefile.Text && len(channel.Bytes) > 0 {
 		s.emit(s.system(session.Rowid, sessionID, updatedOrCreated(session),
@@ -174,7 +175,7 @@ func (s *store) sessionStart(session sqlitefile.Row) {
 	}
 }
 
-// orZero returns a column as Python's str(value or 0) writes it.
+// orZero returns a column as row text, "0" for an empty value.
 func orZero(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return "0"

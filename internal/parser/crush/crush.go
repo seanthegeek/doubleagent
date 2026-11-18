@@ -116,17 +116,6 @@ func (p *Parser) system(artifact *input.Artifact, text string, line int) timelin
 	return row
 }
 
-// joinParts joins the non-empty parts with " | ".
-func joinParts(parts ...string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " | ")
-}
-
 // textOnly returns a value's text when it is a string, else "".
 func textOnly(value jsonvalue.Value) string {
 	if value.IsString() {
@@ -163,7 +152,7 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		if value := project.Get("data_dir"); !value.IsEmpty() {
 			dataDir = "data_dir=" + value.Text()
 		}
-		row.Text = timeline.Compact(joinParts("crush project last accessed", dataDir))
+		row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "crush project last accessed", dataDir))
 		emit(row)
 	}
 }
@@ -199,8 +188,8 @@ type settingList struct {
 	entries jsonvalue.Value
 }
 
-// configLists returns the lists of standing entries of a crush.json in the
-// analyzer's order: permissions.allowed_tools, options.disabled_tools, each
+// configLists returns the lists of standing entries of a crush.json in
+// this order: permissions.allowed_tools, options.disabled_tools, each
 // MCP server's disabled_tools and enabled_tools, and each hook event.
 func configLists(document jsonvalue.Value) []settingList {
 	var lists []settingList
@@ -275,9 +264,9 @@ func (p *Parser) parseCrushrc(artifact *input.Artifact, emit parser.Emit) {
 		if !strings.HasPrefix(strings.TrimLeftFunc(line, unicode.IsSpace), "permissions") {
 			continue
 		}
-		words, problem := splitWords(line)
-		if problem != "" {
-			problems.AddRaw(number, "unparseable line ("+problem+")", line)
+		words, err := splitWords(line)
+		if err != nil {
+			problems.AddRaw(number, "unparseable line ("+err.Error()+")", line)
 			continue
 		}
 		if len(words) < 3 || words[0] != "permissions" || keys[words[1]] == "" {

@@ -1,6 +1,7 @@
 package crush
 
 import (
+	"html"
 	"slices"
 	"strings"
 
@@ -248,7 +249,8 @@ func (r *messageReader) textPart(current *message, data jsonvalue.Value, row *ti
 }
 
 // relayText returns the "session relayed:" text of a message an MCP
-// channel pushed, which starts `<channel source="<server>" <meta>>`, and
+// channel pushed, which starts `<channel source="<server>" <meta>>` with
+// each attribute value HTML-escaped (research/crush.md), and
 // its relay key: the part of the text naming the source, sender and group.
 // Any other message gives two empty strings.
 func (r *messageReader) relayText(text, messageID string) (string, string) {
@@ -258,7 +260,7 @@ func (r *messageReader) relayText(text, messageID string) (string, string) {
 	}
 	attributes := map[string]string{}
 	for _, attribute := range r.store.parser.attribute.FindAllStringSubmatch(match[1], -1) {
-		attributes[attribute[1]] = unescapeHTML(attribute[2])
+		attributes[attribute[1]] = html.UnescapeString(attribute[2])
 	}
 	key := "session relayed: channel " + attributes["source"]
 	for _, name := range []string{"sender", "group"} {
@@ -309,14 +311,14 @@ func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.
 		if stamp := data.Get("time"); !stamp.IsEmpty() {
 			row.TimestampUTC = timeutil.FromValue(stamp)
 		}
-		return joinParts("finish: "+reason, parser.Text(data.Get("message")),
+		return parser.JoinNonEmpty(" | ", "finish: "+reason, parser.Text(data.Get("message")),
 			parser.Text(data.Get("details"))), true
 	case "shell_command":
 		exit := ""
 		if code, ok := data.Lookup("exit_code"); ok {
 			exit = "exit=" + code.Text()
 		}
-		return joinParts("shell: "+parser.Text(data.Get("command")), exit,
+		return parser.JoinNonEmpty(" | ", "shell: "+parser.Text(data.Get("command")), exit,
 			parser.Text(data.Get("output"))), true
 	case "image_url":
 		row.TurnType = current.textType
@@ -327,18 +329,11 @@ func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.
 		return "[image] " + url, true
 	case "binary":
 		row.TurnType = current.textType
-		return "[binary] " + joinParts(firstStr(data, "Path", "path"),
-			firstStr(data, "MIMEType", "mime_type")), true
+		return "[binary] " + parser.JoinNonEmpty(" | ",
+			parser.Text(parser.FirstNonEmpty(data.Get("Path"), data.Get("path"))),
+			parser.Text(parser.FirstNonEmpty(data.Get("MIMEType"), data.Get("mime_type")))), true
 	}
 	return kind + ": " + parser.JSONText(data), true
-}
-
-// firstStr returns str(data[first] or data[second] or "").
-func firstStr(data jsonvalue.Value, first, second string) string {
-	if value := data.Get(first); !value.IsEmpty() {
-		return value.Text()
-	}
-	return parser.Text(data.Get(second))
 }
 
 // metadata returns a tool result's metadata, stored as a JSON string, as
