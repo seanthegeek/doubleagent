@@ -125,11 +125,11 @@ func messageRows(message jsonvalue.Value, put func(turn, text, toolName, toolUse
 	text := parser.TextOf(message.Get("content"))
 	switch message.Get("role").StringValue() {
 	case "user":
-		if images := message.Get("images"); !images.IsEmpty() && sized(images) {
+		if count, ok := imageCount(message.Get("images")); ok && count > 0 {
 			if text != "" {
 				text += "\n"
 			}
-			text += fmt.Sprintf("[%d image(s)]", sizeOf(images))
+			text += fmt.Sprintf("[%d image(s)]", count)
 		}
 		if text != "" {
 			put(timeline.TurnUser, text, "", "")
@@ -153,17 +153,17 @@ func messageRows(message jsonvalue.Value, put func(turn, text, toolName, toolUse
 	}
 }
 
-// sized reports whether Python's len() takes the value: a list, an object
-// or a string.
-func sized(value jsonvalue.Value) bool {
-	return value.IsArray() || value.IsObject() || value.IsString()
-}
-
-// sizeOf returns Python's len() of a sized value: items, members, or code
-// points.
-func sizeOf(value jsonvalue.Value) int {
-	if value.IsString() {
-		return utf8.RuneCountInString(value.StringValue())
+// imageCount returns how many images a saved user message's images field
+// counts, and false when the field is not a list, an object or a string.
+// little-coder writes a list of images (research/little-coder.md); an
+// object counts its members and a string its characters (runes), so a field
+// of another shape still says how much it held.
+func imageCount(value jsonvalue.Value) (int, bool) {
+	switch {
+	case value.IsString():
+		return utf8.RuneCountInString(value.StringValue()), true
+	case value.IsArray(), value.IsObject():
+		return value.Len(), true
 	}
-	return value.Len()
+	return 0, false
 }

@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// The rows of every file kind are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests port the Python test
-// that calls the module's patterns directly and check the routing by path.
+// The rows of every file kind are proved by the parser replay
+// (internal/parity/replay) over the recorded fixtures; these tests cover the
+// patterns that recover a cut file and the routing by path.
 
 func TestRecoveredKeysTakeJSONWhitespaceOnly(t *testing.T) {
 	subject := New()
@@ -64,6 +65,33 @@ func TestWantsLittleCodersOwnFilesAndMarksTheCopiesSecondary(t *testing.T) {
 			}
 			if got := subject.Secondary(artifact); got != test.secondary {
 				t.Errorf("secondary %v, want %v", got, test.secondary)
+			}
+		})
+	}
+}
+
+func TestImageCountCountsTheItemsOfTheImagesField(t *testing.T) {
+	tests := []struct {
+		json  string
+		count int
+		ok    bool
+	}{
+		{`["a.png","b.png"]`, 2, true},
+		{`[]`, 0, true},
+		{`{"a":1}`, 1, true},
+		{`"ab€"`, 3, true},
+		{`null`, 0, false},
+		{`3`, 0, false},
+		{`true`, 0, false},
+	}
+	for _, test := range tests {
+		t.Run(test.json, func(t *testing.T) {
+			value, err := jsonvalue.DecodeString(test.json)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count, ok := imageCount(value); count != test.count || ok != test.ok {
+				t.Errorf("got %d, %v; want %d, %v", count, ok, test.count, test.ok)
 			}
 		})
 	}

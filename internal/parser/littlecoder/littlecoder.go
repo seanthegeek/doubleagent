@@ -14,7 +14,8 @@
 //     when it was collected. Only the directory's listing and the files'
 //     times are read, never their content.
 //
-// The retired v0.0.x Python releases kept their state in .little-coder/:
+// The retired v0.0.x releases, a separate implementation, kept their state
+// in .little-coder/:
 // saved sessions sessions/**/*.json (saved_at in host local time, written
 // as if UTC), sessions/history.json and sessions/mr_sessions/
 // session_latest.json (secondary copies), input_history.txt (secondary),
@@ -180,8 +181,8 @@ func isNullOrEmpty(value jsonvalue.Value) bool {
 	return value.IsNull() || (value.IsString() && value.StringValue() == "")
 }
 
-// isZero reports whether value equals zero as Python compares it, false
-// included.
+// isZero reports whether value is a number equal to zero or false: a
+// Telegram chat id of 0 or false names no chat.
 func isZero(value jsonvalue.Value) bool {
 	return (value.IsNumber() || value.IsBool()) && value.IsEmpty()
 }
