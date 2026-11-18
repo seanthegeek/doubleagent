@@ -175,6 +175,18 @@ func (s *store) sessionStart(session sqlitefile.Row) {
 	}
 }
 
+// byteLength returns the length in bytes of a stored value: a text or blob
+// value's bytes, a number's text, and NULL for NULL.
+func byteLength(value sqlitefile.Value) sqlitefile.Value {
+	switch value.Type {
+	case sqlitefile.Null:
+		return value
+	case sqlitefile.Text, sqlitefile.Blob:
+		return sqlitefile.IntValue(int64(len(value.Bytes)))
+	}
+	return sqlitefile.IntValue(int64(len(value.String())))
+}
+
 // orZero returns a column as row text, "0" for an empty value.
 func orZero(value sqlitefile.Value) string {
 	if value.IsEmpty() {
@@ -208,8 +220,8 @@ func (s *store) mcpRows() error {
 }
 
 // fileRows emits a "file version:" row per files snapshot, giving the
-// stored content's length and never the content, and a "file read:" row per
-// read.
+// stored content's length in bytes and never the content, and a "file
+// read:" row per read.
 func (s *store) fileRows() error {
 	if s.tables["files"] {
 		handle, err := s.database.Table("files")
@@ -218,7 +230,7 @@ func (s *store) fileRows() error {
 		}
 		err = handle.Select("rowid", "session_id", "path", "version", "created_at").
 			Compute("size", func(row sqlitefile.Row) sqlitefile.Value {
-				return sqlitefile.Length(row.Get("content"))
+				return byteLength(row.Get("content"))
 			}).OrderBy("created_at", "rowid").Each(func(record sqlitefile.Row) error {
 			s.emit(s.system(record.Rowid, orText(record.Get("session_id")),
 				parser.ColumnTime(record.Get("created_at")),

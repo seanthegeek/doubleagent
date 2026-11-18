@@ -612,7 +612,8 @@ query over `messages`,
 no search index, no export. Evidence of other kinds: `files` (each version of every file the agent
 wrote, per session) and `read_files` (each file read, per session, with `read_at`), both deleted
 with their session, are parsed, as `file version: <path> version=<n> bytes=<length> (from crush.db
-files)` at the snapshot's `created_at` (the content stays in the database) and `file read: <path>
+files)` at the snapshot's `created_at` (the content stays in the database; `<length>` is its size in
+bytes) and `file read: <path>
 (from crush.db read_files, read_at)` at `read_at`, source-derived; not observed on any real install.
 Neither repeats a transcript event, so neither is secondary. `logs/crush.log` and
 `stats/index.html` ([Data directory files](#data-directory-files)), which outlive the session, are
