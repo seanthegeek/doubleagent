@@ -55,9 +55,13 @@ func projectRepositories(artifacts []*input.Artifact, problems *[]string) map[st
 		}
 		chosen[path] = chooseGitFile(chosen[path], gitFile{head: head, artifact: artifact}, exact)
 	}
+	known := map[string]bool{}
+	for _, line := range *problems {
+		known[line] = true
+	}
 	repositories := map[string]projectGit{}
 	for _, path := range order {
-		repositories[path] = readRepository(chosen[path], problems)
+		repositories[path] = readRepository(chosen[path], problems, known)
 	}
 	return repositories
 }
@@ -77,8 +81,9 @@ func chooseGitFile(files []gitFile, file gitFile, exact bool) []gitFile {
 }
 
 // readRepository reads the chosen files of one project into its remotes and
-// head, adding each problem line not already in problems.
-func readRepository(files []gitFile, problems *[]string) projectGit {
+// head, adding each problem line not already in known, the set of the
+// lines of problems.
+func readRepository(files []gitFile, problems *[]string, known map[string]bool) projectGit {
 	var repository projectGit
 	for _, file := range files {
 		text, failure := readGitText(file.artifact.DiskPath)
@@ -93,7 +98,8 @@ func readRepository(files []gitFile, problems *[]string) projectGit {
 		}
 		for _, message := range messages {
 			line := file.artifact.Original + ": " + message
-			if !slices.Contains(*problems, line) {
+			if !known[line] {
+				known[line] = true
 				*problems = append(*problems, line)
 			}
 		}

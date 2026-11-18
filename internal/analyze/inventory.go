@@ -133,7 +133,7 @@ func newProjectInventory(rows []timeline.Row, sessions []timeline.SessionSummary
 		if inventory.onDisk[key] == nil {
 			inventory.onDisk[key] = &onDisk{git: emptyGit()}
 		}
-		mergeOnDisk(inventory.onDisk[key], file.sharedFiles, file.git, agentList(file.agents))
+		mergeOnDisk(inventory.onDisk[key], file.sharedFiles, file.git, agentList(file.agents.values))
 	}
 	for _, row := range rows {
 		totals, tally := inventory.agentOf(row.ProjectPath, row.Agent)
@@ -149,7 +149,7 @@ func newProjectInventory(rows []timeline.Row, sessions []timeline.SessionSummary
 		inventory.marks[key] = append(inventory.marks[key], session)
 	}
 	for _, file := range files {
-		for _, agent := range file.agents {
+		for _, agent := range file.agents.values {
 			if file.path != "" {
 				inventory.agentOf(file.path, agent.agent)
 			}
@@ -270,10 +270,7 @@ func agentTallies(agents map[string]*agentTally, disk *onDisk) map[string]agentT
 	for agent, tally := range agents {
 		entry := agentTallyJSON{Rows: tally.rows, Sessions: tally.sessions, TurnTypes: tally.turnTypes}
 		if disk != nil {
-			var files fileCounts
-			if index := slices.IndexFunc(disk.agents, func(each fileCounts) bool { return each.agent == agent }); index >= 0 {
-				files = disk.agents[index]
-			}
+			files, _ := disk.agents.get(agent)
 			entry.Files, entry.Bytes = &files.files, &files.bytes
 		}
 		out[agent] = entry

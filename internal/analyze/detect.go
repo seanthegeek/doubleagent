@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 	"strings"
 	"unicode"
@@ -14,7 +15,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
-// fileCounts is the number and total size of one agent's files.
+// fileCounts is the number and total size of one agent's files. A total
+// size beyond the largest int64 is held at that largest value (addBytes).
 type fileCounts struct {
 	agent        string
 	files, bytes int64
@@ -77,17 +79,25 @@ func artifactBytes(artifact *input.Artifact) int64 {
 	return info.Size()
 }
 
-// countAgent adds one artifact to the counts of its agent in list, kept in
+// agentCounts are the file counts of the agents of one home or project, in
 // the order the agents were first met.
-func countAgent(list []fileCounts, agent string, size int64) []fileCounts {
-	index := slices.IndexFunc(list, func(each fileCounts) bool { return each.agent == agent })
-	if index < 0 {
-		list = append(list, fileCounts{agent: agent})
-		index = len(list) - 1
+type agentCounts = firstMet[string, fileCounts]
+
+// countAgent adds one artifact of size bytes to the counts of its agent.
+func countAgent(counts *agentCounts, agent string, size int64) {
+	entry := counts.entry(agent, fileCounts{agent: agent})
+	entry.files++
+	entry.bytes = addBytes(entry.bytes, size)
+}
+
+// addBytes returns total plus size, two sizes that are never negative, held
+// at the largest int64 rather than wrapping to a negative number: a
+// manifest may state any size up to that value for each file.
+func addBytes(total, size int64) int64 {
+	if size > math.MaxInt64-total {
+		return math.MaxInt64
 	}
-	list[index].files++
-	list[index].bytes += size
-	return list
+	return total + size
 }
 
 // withParsers returns counts sorted by agent, each marked with whether a
@@ -105,18 +115,24 @@ func withParsers(counts []fileCounts, parsed map[string]bool) []agentFiles {
 // homeAgents returns one entry per home that is not a project directory, in
 // the collection's order, each with the agents it holds files of.
 func homeAgents(collection *input.Collection, parsed map[string]bool) []homeEntry {
-	counts := map[*input.Home][]fileCounts{}
+	counts := map[*input.Home]*agentCounts{}
 	for _, artifact := range collection.Artifacts {
 		if !artifact.Home.Project {
-			counts[artifact.Home] = countAgent(counts[artifact.Home], artifact.Agent,
-				artifactBytes(artifact))
+			if counts[artifact.Home] == nil {
+				counts[artifact.Home] = &agentCounts{}
+			}
+			countAgent(counts[artifact.Home], artifact.Agent, artifactBytes(artifact))
 		}
 	}
 	var homes []homeEntry
 	for _, home := range collection.Homes {
 		if !home.Project {
+			var agents []fileCounts
+			if counts[home] != nil {
+				agents = counts[home].values
+			}
 			homes = append(homes, homeEntry{user: home.User, home: home.Original,
-				inferred: home.Inferred, agents: withParsers(counts[home], parsed)})
+				inferred: home.Inferred, agents: withParsers(agents, parsed)})
 		}
 	}
 	return homes
@@ -126,7 +142,8 @@ func homeAgents(collection *input.Collection, parsed map[string]bool) []homeEntr
 // path: their users, their agents' files and their shared files.
 func projectGroups(collection *input.Collection, parsed map[string]bool) []projectEntry {
 	groups := map[string]*projectEntry{}
-	counts := map[string][]fileCounts{}
+	counts := map[string]*agentCounts{}
+	users := map[string]map[string]bool{}
 	for _, artifact := range collection.Artifacts {
 		if !artifact.Home.Project {
 			continue
@@ -136,23 +153,25 @@ func projectGroups(collection *input.Collection, parsed map[string]bool) []proje
 		if !ok {
 			group = &projectEntry{path: path, users: []string{}}
 			groups[path] = group
+			counts[path], users[path] = &agentCounts{}, map[string]bool{}
 		}
-		if user := artifact.Home.User; user != "" && !slices.Contains(group.users, user) {
+		if user := artifact.Home.User; user != "" && !users[path][user] {
+			users[path][user] = true
 			group.users = append(group.users, user)
 		}
 		size := artifactBytes(artifact)
 		if artifact.Agent == input.ProjectAgent {
 			group.sharedFiles++
-			group.sharedBytes += size
+			group.sharedBytes = addBytes(group.sharedBytes, size)
 		} else {
-			counts[path] = countAgent(counts[path], artifact.Agent, size)
+			countAgent(counts[path], artifact.Agent, size)
 		}
 	}
 	projects := make([]projectEntry, 0, len(groups))
 	for _, path := range sortedKeys(groups) {
 		group := groups[path]
 		slices.Sort(group.users)
-		group.agents = withParsers(counts[path], parsed)
+		group.agents = withParsers(counts[path].values, parsed)
 		projects = append(projects, *group)
 	}
 	return projects
@@ -300,24 +319,19 @@ type tableRow struct {
 // detectTable returns one row per user, home and agent of the homes that
 // are not project directories, in the order each was first met.
 func detectTable(collection *input.Collection, parsed map[string]bool) []tableRow {
-	var rows []tableRow
+	var rows firstMet[[3]string, tableRow]
 	for _, artifact := range collection.Artifacts {
 		home := artifact.Home
 		if home.Project {
 			continue
 		}
-		index := slices.IndexFunc(rows, func(row tableRow) bool {
-			return row.user == home.User && row.original == home.Original && row.agent == artifact.Agent
-		})
-		if index < 0 {
-			rows = append(rows, tableRow{user: home.User, original: home.Original,
-				home: homePath(home), agent: artifact.Agent, parser: parsed[artifact.Agent]})
-			index = len(rows) - 1
-		}
-		rows[index].files++
-		rows[index].bytes += artifactBytes(artifact)
+		key := [3]string{home.User, home.Original, artifact.Agent}
+		row := rows.entry(key, tableRow{user: home.User, original: home.Original, home: homePath(home),
+			agent: artifact.Agent, parser: parsed[artifact.Agent]})
+		row.files++
+		row.bytes = addBytes(row.bytes, artifactBytes(artifact))
 	}
-	return rows
+	return rows.values
 }
 
 // printHomeTable prints the table of homes and agents, if it has rows.

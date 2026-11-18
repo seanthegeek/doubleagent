@@ -142,8 +142,9 @@ type Artifact struct {
 // Mtime returns the manifest row's mtime, or null when there is none.
 func (a *Artifact) Mtime() jsonvalue.Value { return a.Manifest.Get("mtime") }
 
-// Size returns the manifest row's size as parseSize reads it; a row whose
-// size is refused never becomes an artifact. Loose input gives 0.
+// Size returns the manifest row's size as parseSize reads it, never
+// negative: a row whose size is refused or negative never becomes an
+// artifact. Loose input gives 0.
 func (a *Artifact) Size() int64 {
 	size, _ := parseSize(a.Manifest.Get("size"))
 	return size

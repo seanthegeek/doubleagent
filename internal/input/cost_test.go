@@ -133,3 +133,16 @@ func TestAStagedRowWhosePathClimbsIsAProblemAndMapsNothing(t *testing.T) {
 		t.Errorf("PathOf gave %s for a path holding ..", path)
 	}
 }
+
+func TestACollectedRowWithANegativeSizeIsAProblem(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, collectedRow("a", "/home/a", "pi", "/home/a/.pi/s", "fs/home/a/.pi/s"),
+		jsonRow("user", "a", "home", "/home/a", "agent", "pi", "path", "/home/a/.pi/t",
+			"archive_path", "fs/home/a/.pi/t", "type", "file", "status", "collected", "size", -5))
+	writeFile(t, filepath.Join(dir, "fs", "home", "a", ".pi", "s"), "[]")
+	writeFile(t, filepath.Join(dir, "fs", "home", "a", ".pi", "t"), "[]")
+	collection, err := Open(t.Context(), dir, Options{Matcher: matcherOf(t, "")})
+	opened(t, err)
+	wantProblem(t, collection, "/home/a/.pi/t: "+errNegativeSize.Error())
+	wantSlice(t, "artifacts", rels(collection), []string{".pi/s"})
+}

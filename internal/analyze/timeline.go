@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -209,13 +208,11 @@ func (r *timelineRun) parse(ctx context.Context) error {
 	r.rows, r.dropped = dedup.Deduplicate(result.Primary, result.Secondary, r.registry.Hooks())
 	r.counts = countRows(r.rows)
 	timeline.SortRows(r.rows)
-	r.parsed = nil
+	parsed := map[string]bool{}
 	for key := range r.counts {
-		if !slices.Contains(r.parsed, key[0]) {
-			r.parsed = append(r.parsed, key[0])
-		}
+		parsed[key[0]] = true
 	}
-	slices.Sort(r.parsed)
+	r.parsed = sortedKeys(parsed)
 	if r.filter.Active() {
 		r.rows = r.filter.Apply(r.rows)
 		r.counts = countRows(r.rows)

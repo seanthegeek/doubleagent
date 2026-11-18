@@ -249,6 +249,10 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 		return
 	}
 	collection := load.collection
+	if size, _ := parseSize(row.Get("size")); size < 0 {
+		collection.addProblem(label + ": " + errNegativeSize.Error())
+		return
+	}
 	home, err := load.homeOf(key, row)
 	if err != nil {
 		collection.recordProblem(label + ": home " + key.home + ": " + err.Error())
@@ -284,6 +288,10 @@ const maxPathComponents = 4096
 // is not read.
 var errTooDeep = errors.New("more than " + strconv.Itoa(maxPathComponents) +
 	" path components, not read")
+
+// errNegativeSize is the reason a collected file row whose size is below
+// zero is not read: no file has one, and a total of sizes must not fall.
+var errNegativeSize = errors.New("a negative size, not read")
 
 // tooDeep reports whether a manifest path, split at slashes or backslashes,
 // has more than maxPathComponents non-empty components.

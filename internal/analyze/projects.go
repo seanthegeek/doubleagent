@@ -16,7 +16,7 @@ import (
 // onDisk is what a collection holds of one project path: its agents' files,
 // its shared files and its repository.
 type onDisk struct {
-	agents      []fileCounts
+	agents      agentCounts
 	sharedFiles int64
 	git         projectGit
 }
@@ -32,17 +32,13 @@ type diskEntry struct {
 // path: directories that come to one path summed, the first repository
 // with remotes, and the first with a head, kept.
 func projectFiles(projects []projectEntry, summary jsonvalue.Value) []diskEntry {
-	var entries []diskEntry
+	var entries firstMet[string, diskEntry]
 	for _, project := range projects {
 		key := timeline.CanonicalProjectPath(stripImageRoot(project.path, summary))
-		index := slices.IndexFunc(entries, func(entry diskEntry) bool { return entry.path == key })
-		if index < 0 {
-			entries = append(entries, diskEntry{path: key})
-			index = len(entries) - 1
-		}
-		mergeOnDisk(&entries[index].onDisk, project.sharedFiles, project.git, project.agents)
+		mergeOnDisk(&entries.entry(key, diskEntry{path: key}).onDisk, project.sharedFiles, project.git,
+			project.agents)
 	}
-	return entries
+	return entries.values
 }
 
 // mergeOnDisk adds one directory's shared files, repository and agents to
@@ -56,13 +52,9 @@ func mergeOnDisk(merged *onDisk, shared int64, git projectGit, agents []agentFil
 		merged.git.head = git.head
 	}
 	for _, agent := range agents {
-		index := slices.IndexFunc(merged.agents, func(each fileCounts) bool { return each.agent == agent.agent })
-		if index < 0 {
-			merged.agents = append(merged.agents, fileCounts{agent: agent.agent})
-			index = len(merged.agents) - 1
-		}
-		merged.agents[index].files += agent.files
-		merged.agents[index].bytes += agent.bytes
+		entry := merged.agents.entry(agent.agent, fileCounts{agent: agent.agent})
+		entry.files += agent.files
+		entry.bytes = addBytes(entry.bytes, agent.bytes)
 	}
 }
 

@@ -45,7 +45,8 @@ type homeJSON struct {
 }
 
 // agentJSON is one agent of a home or project: agent, files, bytes and
-// parser.
+// parser. Bytes, like shared_bytes, is held at the largest int64 when the
+// sizes add up to more.
 type agentJSON struct {
 	Agent  string `json:"agent"`
 	Files  int64  `json:"files"`
