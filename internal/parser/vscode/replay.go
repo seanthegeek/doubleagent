@@ -2,15 +2,11 @@ package vscode
 
 import (
 	"bytes"
-	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
-
-// asciiWhitespace is what Python's bytes.strip() removes from a line.
-const asciiWhitespace = " \t\n\r\v\f"
 
 // sessionStart is the key of requestLines that holds the line of the
 // session's own creation.
@@ -26,7 +22,7 @@ type requestLines map[int64]int
 func replay(path string, lines requestLines, problems *parser.Problems) jsonvalue.Value {
 	var state *node
 	for number, raw := range parser.Lines(path, problems) {
-		stripped := bytes.Trim(raw, asciiWhitespace)
+		stripped := bytes.TrimSpace(raw)
 		if len(stripped) == 0 {
 			continue
 		}
@@ -68,7 +64,7 @@ func track(record jsonvalue.Value, state *node, number int, lines requestLines) 
 	kind := record.Get("kind")
 	path := record.Get("k").Items()
 	switch {
-	case equalsInt(kind, 0):
+	case isKind(kind, 0):
 		clear(lines)
 		lines[sessionStart] = number
 		for i := range requestCount(state) {
@@ -77,8 +73,8 @@ func track(record jsonvalue.Value, state *node, number int, lines requestLines) 
 	case len(path) == 1 && path[0].IsString() && path[0].StringValue() == "requests":
 		total := requestCount(state)
 		start := int64(0)
-		if equalsInt(kind, 2) {
-			if given, ok := pyInt(record.Get("i")); ok {
+		if isKind(kind, 2) {
+			if given, ok := integer(record.Get("i")); ok {
 				start = given
 			} else {
 				start = total - pushedCount(record.Get("v"))
@@ -92,20 +88,18 @@ func track(record jsonvalue.Value, state *node, number int, lines requestLines) 
 		for i := max(start, 0); i < total; i++ {
 			lines[i] = number
 		}
-	case equalsInt(kind, 1) && len(path) == 2 && path[0].IsString() && path[0].StringValue() == "requests" &&
-		isIntLike(path[1]):
-		index, _ := pyInt(path[1])
+	case isKind(kind, 1) && len(path) == 2 && path[0].IsString() && path[0].StringValue() == "requests" &&
+		path[1].IsInt():
+		index, _ := integer(path[1])
 		lines[index] = number
 	}
 }
 
-// pushedCount returns len(v or []) for a pushed value: the items of an
-// array, the members of an object, the characters of a string, and 0 for
-// a value Python counts as false. Python cannot take the length of another
-// value; it is counted as 0 here.
+// pushedCount returns how many items a push of value adds: each item of
+// an array, or the value itself as one item.
 func pushedCount(value jsonvalue.Value) int64 {
-	if value.IsString() {
-		return int64(utf8.RuneCountInString(value.StringValue()))
+	if value.IsArray() {
+		return int64(value.Len())
 	}
-	return int64(value.Len())
+	return 1
 }

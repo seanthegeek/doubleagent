@@ -33,7 +33,7 @@ func enumName(value jsonvalue.Value, names []string) (string, int64, bool) {
 
 // mdText returns the text of an IMarkdownString ({value}), a plain string
 // or an array of either: "" for null and for an object whose value is not
-// a string, any other value as Python's str() writes it.
+// a string, any other value as its row text (jsonvalue.Value.Text).
 func mdText(value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
