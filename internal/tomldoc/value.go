@@ -11,9 +11,8 @@
 // whose values hold none; otherwise every inline table in the array has its
 // keys in byte order.
 //
-// Parse refuses a document over a size limit, or whose keys and arrays nest
-// deeper than a depth limit (maxDocumentBytes and maxDepth), before reading
-// it.
+// Parse refuses a document whose keys and arrays nest deeper than a depth
+// limit (maxDepth), before reading it.
 //
 // The module's Decode into a map gives the values but not their order;
 // rows list settings in the file's order, so this package rebuilds it from

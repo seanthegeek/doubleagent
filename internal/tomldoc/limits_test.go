@@ -1,6 +1,7 @@
 package tomldoc
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -123,20 +124,23 @@ func TestParseIgnoresBracketsInStringsAndComments(t *testing.T) {
 	}
 }
 
-func TestParseRefusesADocumentOverTheSizeLimit(t *testing.T) {
-	padding := func(size int) string {
-		text := "a = 1\n#"
-		return text + strings.Repeat("x", size-len(text))
+func TestParseReadsALargeDocumentOfLittleDepth(t *testing.T) {
+	const keys = 200000
+	var text strings.Builder
+	for i := range keys {
+		text.WriteString("k" + strconv.Itoa(i) + " = 1\n")
 	}
-	if _, err := Parse(padding(maxDocumentBytes)); err != nil {
-		t.Fatalf("a document at the limit: %v", err)
+	if text.Len() < 2<<20 {
+		t.Fatalf("the document is only %d bytes", text.Len())
 	}
-	_, err := Parse(padding(maxDocumentBytes + 1))
-	if err == nil || !strings.Contains(err.Error(), "is larger than the") {
-		t.Fatalf("a document one byte over the limit: got %v", err)
+	document, err := Parse(text.String())
+	if err != nil {
+		t.Fatalf("a flat document of %d bytes: %v", text.Len(), err)
+	}
+	if got := document.Len(); got != keys {
+		t.Errorf("read %d keys, want %d", got, keys)
 	}
 }
-
 func TestSettingTextWritesAValueAtTheDepthLimit(t *testing.T) {
 	table, err := Parse(nestedArray(maxDepth - 1))
 	if err != nil {

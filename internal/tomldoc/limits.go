@@ -5,13 +5,6 @@ import (
 	"strings"
 )
 
-// maxDocumentBytes is the largest document Parse reads. The settings and
-// policy files this package reads are a few kilobytes; the reader allocates
-// over a hundred times a document's size, so one MiB leaves a wide margin
-// for a real file while keeping one document's cost to a fraction of a
-// second.
-const maxDocumentBytes = 1 << 20
-
 // maxDepth is the deepest path Parse reads: the parts of the table header
 // and of each key on the way to a value, plus one for each array the value
 // lies in. The files this package reads nest a handful of levels. The
@@ -20,13 +13,10 @@ const maxDocumentBytes = 1 << 20
 // every key of the document.
 const maxDepth = 32
 
-// checkShape refuses a document over maxDocumentBytes, or one whose paths
-// are deeper than maxDepth, before the reader sees it.
+// checkShape refuses a document whose paths are deeper than maxDepth, before
+// the reader sees it. A document's size is not limited: with its depth
+// bounded, the reader's cost grows in step with the document.
 func checkShape(text string) error {
-	if len(text) > maxDocumentBytes {
-		return fmt.Errorf("TOML document of %d bytes is larger than the %d bytes this reader accepts",
-			len(text), maxDocumentBytes)
-	}
 	scanner := shapeScanner{text: text, line: 1}
 	return scanner.scan()
 }
