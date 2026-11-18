@@ -73,16 +73,19 @@ func (l brainLogs) chunks(form string) []string {
 		return held
 	}
 	l.listed.listings++
+	listed, ok := parser.DirectoryAt(directory)
 	entries, err := parser.ReadDir(directory)
-	if err != nil {
+	if !ok || err != nil {
 		l.listed.names[directory] = nil
 		return nil
 	}
 	var names []string
 	for _, entry := range entries {
 		stem, ok := strings.CutSuffix(entry.Name(), ".jsonl")
-		if ok && stem != "" && strings.Trim(stem, "0123456789") == "" &&
-			parser.RegularFile(filepath.Join(directory, entry.Name())) {
+		if !ok || stem == "" || strings.Trim(stem, "0123456789") != "" {
+			continue
+		}
+		if path, named := listed.Child(entry.Name()); named && parser.RegularFile(path) {
 			names = append(names, entry.Name())
 		}
 	}

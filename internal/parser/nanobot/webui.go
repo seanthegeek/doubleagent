@@ -3,7 +3,6 @@ package nanobot
 import (
 	"encoding/base64"
 	"io/fs"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -66,6 +65,10 @@ func (w *webui) workspace(sessionID string) string {
 	if !ok || !named {
 		return ""
 	}
+	listed, ok := parser.DirectoryAt(sessions)
+	if !ok {
+		return ""
+	}
 	entries, err := parser.ReadDir(sessions)
 	if err != nil {
 		return ""
@@ -76,9 +79,8 @@ func (w *webui) workspace(sessionID string) string {
 		if hidden || entry.Type()&fs.ModeSymlink != 0 || !entry.IsDir() {
 			continue
 		}
-		namespace := filepath.Join(sessions, entry.Name())
-		if parser.RegularFile(filepath.Join(namespace, name)) {
-			found[readMarker(filepath.Join(namespace, ".workspace"), &w.problems)] = true
+		if marker, ok := namespaceMarker(listed, entry.Name(), name); ok {
+			found[readMarker(marker, &w.problems)] = true
 		}
 	}
 	delete(found, "")
@@ -89,6 +91,25 @@ func (w *webui) workspace(sessionID string) string {
 		return project
 	}
 	return ""
+}
+
+// namespaceMarker returns the path of the .workspace marker of the session
+// namespace directory namespace of sessions, and true when that directory
+// is not a link and holds the session file name as a regular file.
+func namespaceMarker(sessions parser.Directory, namespace, name string) (string, bool) {
+	path, ok := sessions.Child(namespace)
+	if !ok {
+		return "", false
+	}
+	directory, ok := parser.DirectoryAt(path)
+	if !ok {
+		return "", false
+	}
+	session, ok := directory.Child(name)
+	if !ok || !parser.RegularFile(session) {
+		return "", false
+	}
+	return directory.Child(".workspace")
 }
 
 // parseWebUI emits the rows of a WebUI transcript file, each record's

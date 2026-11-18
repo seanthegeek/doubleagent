@@ -195,7 +195,11 @@ func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"a.json", "b.json", "x..json"}
-	if got := children(directory); !slices.Equal(got, want) {
+	listed, ok := parser.DirectoryAt(directory)
+	if !ok {
+		t.Fatal("the directory was refused")
+	}
+	if got := children(listed); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }

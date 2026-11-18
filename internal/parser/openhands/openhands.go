@@ -234,7 +234,11 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 	if !ok {
 		return
 	}
-	conv := p.conversation(directory)
+	files, ok := filesOf(directory)
+	if !ok {
+		return
+	}
+	conv := p.conversation(files)
 	timestamp := parser.FileMtime(artifact)
 	texts := slices.Clone(conv.settings)
 	if conv.finalModelRow != "" {
@@ -270,7 +274,11 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, em
 	if !found {
 		return
 	}
-	conv := p.conversation(directory)
+	files, found := filesOf(directory)
+	if !found {
+		return
+	}
+	conv := p.conversation(files)
 	name := filepath.Base(artifact.DiskPath)
 	if name == conv.firstEvent {
 		p.headerRows(artifact, conv, emit)

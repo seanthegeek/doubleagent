@@ -2,7 +2,6 @@ package copilotcli
 
 import (
 	"cmp"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -81,7 +80,8 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 	}
 	found := map[string]string{}
 	p.sidebarCache[directory] = found
-	if info, err := osfile.Lstat(directory); err != nil || !info.IsDir() {
+	listed, ok := parser.DirectoryAt(directory)
+	if !ok {
 		return found
 	}
 	entries, err := parser.ReadDir(directory)
@@ -96,8 +96,8 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		path := filepath.Join(directory, name)
-		if !parser.RegularFile(path) {
+		path, named := listed.Child(name)
+		if !named || !parser.RegularFile(path) {
 			continue
 		}
 		// Each sidebar file is also an artifact parseSidebar reports.

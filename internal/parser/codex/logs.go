@@ -402,14 +402,21 @@ func floorDiv(n, divisor int64) int64 {
 // logDatabases returns the paths of the logs_*.sqlite entries of home, in
 // name order; none when home cannot be listed.
 func logDatabases(home string) []string {
+	directory, ok := parser.DirectoryAt(home)
+	if !ok {
+		return nil
+	}
 	entries, err := parser.ReadDir(home)
 	if err != nil {
 		return nil
 	}
 	var paths []string
 	for _, entry := range entries {
-		if matched, _ := path.Match("logs_*.sqlite", entry.Name()); matched {
-			paths = append(paths, filepath.Join(home, entry.Name()))
+		if matched, _ := path.Match("logs_*.sqlite", entry.Name()); !matched {
+			continue
+		}
+		if database, ok := directory.Child(entry.Name()); ok {
+			paths = append(paths, database)
 		}
 	}
 	slices.Sort(paths)

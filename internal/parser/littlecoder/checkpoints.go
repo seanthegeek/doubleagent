@@ -138,9 +138,11 @@ func sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, pars
 		return jsonvalue.NewNull(), nil
 	}
 	sessions, found := artifact.Home.PathOf(".pi/agent/sessions")
+	var listed parser.Directory
 	var directories []string
 	info, err := lstatPresent(sessions)
 	if found && err == nil && isDirectory(info) {
+		listed, _ = parser.DirectoryAt(sessions)
 		var entries []os.DirEntry
 		if entries, err = parser.ReadDir(sessions); err == nil {
 			for _, entry := range entries {
@@ -154,7 +156,11 @@ func sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, pars
 	}
 	var firstFailure parser.Problems
 	for _, directory := range directories {
-		header, failure, found := projectSession(filepath.Join(sessions, directory), sessions, name)
+		project, ok := listed.Child(directory)
+		if !ok {
+			continue
+		}
+		header, failure, found := projectSession(project, sessions, name)
 		if found {
 			return header, failure
 		}
@@ -175,17 +181,20 @@ func projectSession(directory, sessions, name string) (jsonvalue.Value, parser.P
 		return jsonvalue.NewNull(), nil, false
 	}
 	failed := sessions
+	file, named := "", false
 	if err == nil {
 		failed = directory
-		info, err = lstatPresent(filepath.Join(directory, name))
+		if file, named = parser.Under(directory, name); named {
+			info, err = lstatPresent(file)
+		}
 	}
 	if err != nil {
 		return jsonvalue.NewNull(), parser.Problems{{Message: reason.Unreadable(failed, err)}}, false
 	}
-	if info == nil || !info.Mode().IsRegular() {
+	if !named || info == nil || !info.Mode().IsRegular() {
 		return jsonvalue.NewNull(), nil, false
 	}
-	session := pi.ReadSession(filepath.Join(directory, name))
+	session := pi.ReadSession(file)
 	// A problem without raw text concerns the whole file (it could not be
 	// read); a bad line has its raw text and the pi parser reports it.
 	whole := slices.DeleteFunc(slices.Clone(session.Problems), func(problem parser.Problem) bool {

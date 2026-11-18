@@ -64,8 +64,13 @@ func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 		parser.IsLink(org) || parser.IsLink(parent) {
 		return jsonvalue.NewNull(), false
 	}
-	for _, directory := range []string{org, filepath.Join(org, "agent")} {
-		if !parser.IsDirectory(directory) {
+	paths := []string{org}
+	if agent, ok := parser.Under(org, "agent"); ok {
+		paths = append(paths, agent)
+	}
+	for _, path := range paths {
+		directory, ok := parser.DirectoryAt(path)
+		if !ok {
 			continue
 		}
 		for _, candidate := range recordCandidates(directory, name, long) {
@@ -85,11 +90,15 @@ func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 // recordCandidates returns the paths that may hold the record of the
 // session dir called name: <name>.json for a full name, else every
 // local_<name>-*.json, sorted by name.
-func recordCandidates(directory, name string, long bool) []string {
+func recordCandidates(directory parser.Directory, name string, long bool) []string {
 	if long {
-		return []string{filepath.Join(directory, name+".json")}
+		candidate, ok := directory.Child(name + ".json")
+		if !ok {
+			return nil
+		}
+		return []string{candidate}
 	}
-	entries, err := parser.ReadDir(directory)
+	entries, err := parser.ReadDir(directory.Path())
 	if err != nil {
 		return nil
 	}
@@ -104,7 +113,9 @@ func recordCandidates(directory, name string, long bool) []string {
 	slices.Sort(names)
 	candidates := make([]string, 0, len(names))
 	for _, entryName := range names {
-		candidates = append(candidates, filepath.Join(directory, entryName))
+		if candidate, ok := directory.Child(entryName); ok {
+			candidates = append(candidates, candidate)
+		}
 	}
 	return candidates
 }
@@ -113,7 +124,8 @@ func recordCandidates(directory, name string, long bool) []string {
 // plain directory projects holds a regular file named name, or any regular
 // .jsonl file when name is "", through no link.
 func hasTranscriptFile(projects, name string) bool {
-	if !parser.IsDirectory(projects) {
+	directory, ok := parser.DirectoryAt(projects)
+	if !ok {
 		return false
 	}
 	slugs, err := parser.ReadDir(projects)
@@ -121,24 +133,34 @@ func hasTranscriptFile(projects, name string) bool {
 		return false
 	}
 	for _, slug := range slugs {
-		slugPath := filepath.Join(projects, slug.Name())
-		if !parser.IsDirectory(slugPath) {
+		slugPath, ok := directory.Child(slug.Name())
+		if !ok {
 			continue
 		}
-		if name != "" {
-			if parser.RegularFile(filepath.Join(slugPath, name)) {
-				return true
-			}
+		if slugDirectory, ok := parser.DirectoryAt(slugPath); ok && slugHolds(slugDirectory, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// slugHolds reports whether the plain directory slug holds a regular file
+// named name, or any regular .jsonl file when name is "".
+func slugHolds(slug parser.Directory, name string) bool {
+	if name != "" {
+		path, ok := slug.Child(name)
+		return ok && parser.RegularFile(path)
+	}
+	files, err := parser.ReadDir(slug.Path())
+	if err != nil {
+		return false
+	}
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".jsonl") {
 			continue
 		}
-		files, err := parser.ReadDir(slugPath)
-		if err != nil {
-			continue
-		}
-		for _, file := range files {
-			if strings.HasSuffix(file.Name(), ".jsonl") && parser.RegularFile(filepath.Join(slugPath, file.Name())) {
-				return true
-			}
+		if path, ok := slug.Child(file.Name()); ok && parser.RegularFile(path) {
+			return true
 		}
 	}
 	return false
@@ -146,9 +168,17 @@ func hasTranscriptFile(projects, name string) bool {
 
 // hasTranscript reports whether a session dir holds a transcript under
 // .claude/projects/.
-func hasTranscript(sessionDir string) bool {
-	claude := filepath.Join(sessionDir, ".claude")
-	return parser.IsDirectory(sessionDir) && parser.IsDirectory(claude) && hasTranscriptFile(filepath.Join(claude, "projects"), "")
+func hasTranscript(sessionDir parser.Directory) bool {
+	claude, ok := sessionDir.Child(".claude")
+	if !ok {
+		return false
+	}
+	claudeDirectory, ok := parser.DirectoryAt(claude)
+	if !ok {
+		return false
+	}
+	projects, ok := claudeDirectory.Child("projects")
+	return ok && hasTranscriptFile(projects, "")
 }
 
 // folder returns the first folder the person chose for a session or task,
@@ -182,10 +212,13 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	if longName.MatchString(sessionID) {
 		names = append(names, sessionID[len("local_"):len("local_")+8])
 	}
-	for _, directory := range slices.Compact([]string{recordDir, org}) {
+	for _, path := range slices.Compact([]string{recordDir, org}) {
+		directory, ok := parser.DirectoryAt(path)
+		if !ok {
+			continue
+		}
 		for _, name := range names {
-			candidate := filepath.Join(directory, name)
-			if parser.IsDirectory(candidate) && (parser.RegularFile(filepath.Join(candidate, "audit.jsonl")) || hasTranscript(candidate)) {
+			if sessionDirHolds(directory, name) {
 				return true
 			}
 		}
@@ -194,12 +227,26 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	if !named {
 		return false
 	}
-	staging := filepath.Join(org, "imported-staging")
-	if parser.IsDirectory(staging) && parser.RegularFile(filepath.Join(staging, cliID+".jsonl")) {
+	if staged, ok := parser.Under(org, "imported-staging", cliID+".jsonl"); ok && parser.RegularFile(staged) {
 		return true
 	}
 	claude, claudeFound := artifact.Home.PathOf(".claude")
 	projects, projectsFound := artifact.Home.PathOf(".claude/projects")
 	return claudeFound && projectsFound && parser.IsDirectory(claude) &&
 		hasTranscriptFile(projects, cliID+".jsonl")
+}
+
+// sessionDirHolds reports whether the session dir called name in directory
+// is a plain directory holding an audit log or a transcript.
+func sessionDirHolds(directory parser.Directory, name string) bool {
+	path, ok := directory.Child(name)
+	if !ok {
+		return false
+	}
+	session, ok := parser.DirectoryAt(path)
+	if !ok {
+		return false
+	}
+	audit, ok := session.Child("audit.jsonl")
+	return ok && parser.RegularFile(audit) || hasTranscript(session)
 }

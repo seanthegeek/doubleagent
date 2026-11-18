@@ -1,8 +1,6 @@
 package opencode
 
 import (
-	"path/filepath"
-
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -40,7 +38,9 @@ func (x *treeIndex) messageNames(directory string) []string {
 	names, ok := x.messages[directory]
 	if !ok {
 		x.listings++
-		names = children(directory)
+		if listed, found := parser.DirectoryAt(directory); found {
+			names = children(listed)
+		}
 		x.messages[directory] = names
 	}
 	return names
@@ -61,8 +61,13 @@ func (x *treeIndex) session(directory, sessionID string) jsonvalue.Value {
 		x.projects[directory] = projects
 	}
 	session := jsonvalue.NewNull()
+	sessions, _ := parser.DirectoryAt(directory)
 	for _, project := range projects {
-		candidate, ok := childPath(filepath.Join(directory, project), sessionID+".json")
+		projectPath, ok := sessions.Child(project)
+		if !ok {
+			continue
+		}
+		candidate, ok := childPath(projectPath, sessionID+".json")
 		if !ok || !parser.RegularFile(candidate) {
 			continue
 		}

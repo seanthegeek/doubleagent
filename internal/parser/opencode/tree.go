@@ -3,7 +3,6 @@ package opencode
 import (
 	"fmt"
 	"path"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -68,15 +67,18 @@ func jsonStem(name string) string {
 }
 
 // children returns the names of the regular .json files of directory,
-// sorted; none when it cannot be listed or is a link.
-func children(directory string) []string {
-	entries, err := parser.ReadDir(directory)
+// sorted; none when it cannot be listed.
+func children(directory parser.Directory) []string {
+	entries, err := parser.ReadDir(directory.Path())
 	if err != nil {
 		return nil
 	}
 	var names []string
 	for _, entry := range entries {
-		if hasJSONSuffix(entry.Name()) && parser.RegularFile(filepath.Join(directory, entry.Name())) {
+		if !hasJSONSuffix(entry.Name()) {
+			continue
+		}
+		if path, ok := directory.Child(entry.Name()); ok && parser.RegularFile(path) {
 			names = append(names, entry.Name())
 		}
 	}
@@ -118,11 +120,11 @@ func quietObject(path string, ok bool) (jsonvalue.Value, bool) {
 // project file's worktree unless "/", else the message's path.root or
 // path.cwd.
 func (p *Parser) sessionScope(root string, sessionID string, old bool, message jsonvalue.Value) *scope {
-	var session jsonvalue.Value
+	session := jsonvalue.NewNull()
 	if old {
 		session, _ = quietObject(childPath(root, "info", sessionID+".json"))
-	} else {
-		session = p.tree.session(filepath.Join(root, "session"), sessionID)
+	} else if directory, ok := childPath(root, "session"); ok {
+		session = p.tree.session(directory, sessionID)
 	}
 	projectPath := parser.Text(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
@@ -256,14 +258,18 @@ func (p *Parser) previousMessage(directory, name string) (jsonvalue.Value, bool)
 	if !found || position == 0 {
 		return jsonvalue.NewNull(), false
 	}
-	return quietObject(filepath.Join(directory, siblings[position-1]), true)
+	return quietObject(childPath(directory, siblings[position-1]))
 }
 
 // partFiles returns the decoded part files of the directory names leads
 // to below the root, each with its original path, and a failure per part
 // file that cannot be read or decoded.
 func (r treeRoot) partFiles(names []string) ([]part, []failure) {
-	directory, ok := childPath(r.disk, names...)
+	path, ok := childPath(r.disk, names...)
+	if !ok {
+		return nil, nil
+	}
+	directory, ok := parser.DirectoryAt(path)
 	if !ok {
 		return nil, nil
 	}
@@ -272,7 +278,10 @@ func (r treeRoot) partFiles(names []string) ([]part, []failure) {
 	for _, file := range children(directory) {
 		source := r.original + r.separator + strings.Join(append(slices.Clone(names), file), r.separator)
 		var problems parser.Problems
-		data, read := parser.FileBytes(filepath.Join(directory, file), &problems)
+		data, read := []byte(nil), false
+		if path, named := directory.Child(file); named {
+			data, read = parser.FileBytes(path, &problems)
+		}
 		if !read {
 			for _, problem := range problems {
 				failures = append(failures, failure{line: problem.Line, message: problem.Message,

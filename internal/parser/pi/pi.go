@@ -181,8 +181,9 @@ func (p *Parser) parentKeys(artifact *input.Artifact, parent string) map[entryKe
 	if parent == "" {
 		return nil
 	}
+	// Both paths are joins the input built, so one file has one spelling.
 	path, ok := homeFile(artifact, parent, ".pi/")
-	if !ok || filepath.Clean(path) == filepath.Clean(artifact.DiskPath) {
+	if !ok || path == artifact.DiskPath {
 		return nil
 	}
 	if _, read := p.parents[path]; !read {

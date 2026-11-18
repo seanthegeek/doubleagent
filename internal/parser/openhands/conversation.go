@@ -151,17 +151,35 @@ func readObject(path string) jsonvalue.Value {
 	return jsonvalue.NewNull()
 }
 
+// conversationFiles are the paths of a conversation directory's own files.
+type conversationFiles struct {
+	directory, meta, state, events string
+}
+
+// filesOf returns the paths of the files of the conversation directory at
+// path, or false when path is not a directory or is a link: the directory
+// is looked at once here, not once per file read from it.
+func filesOf(path string) (conversationFiles, bool) {
+	directory, ok := parser.DirectoryAt(path)
+	if !ok {
+		return conversationFiles{}, false
+	}
+	files := conversationFiles{directory: path}
+	files.meta, _ = directory.Child("meta.json")
+	files.state, _ = directory.Child("base_state.json")
+	files.events, _ = directory.Child("events")
+	return files, true
+}
+
 // conversation returns the conversation in a directory, loaded once for as
 // long as its files keep their times.
-func (p *Parser) conversation(directory string) *conversation {
-	key := cacheKey{directory: directory,
-		meta:   mtimeOf(filepath.Join(directory, "meta.json")),
-		state:  mtimeOf(filepath.Join(directory, "base_state.json")),
-		events: mtimeOf(filepath.Join(directory, "events"))}
+func (p *Parser) conversation(files conversationFiles) *conversation {
+	key := cacheKey{directory: files.directory, meta: mtimeOf(files.meta), state: mtimeOf(files.state),
+		events: mtimeOf(files.events)}
 	if held, ok := p.cache[key]; ok {
 		return held
 	}
-	loaded := p.load(directory)
+	loaded := p.load(files)
 	if len(p.cache) > cacheLimit {
 		clear(p.cache)
 	}
@@ -169,22 +187,30 @@ func (p *Parser) conversation(directory string) *conversation {
 	return loaded
 }
 
-// eventFile is an event file of a conversation: its name and index.
+// eventFile is an event file of a conversation: its index, name and path.
 type eventFile struct {
-	index, name string
+	index, name, path string
 }
 
-// eventFiles returns the conversation's event files in index order.
-func (p *Parser) eventFiles(directory string) []eventFile {
-	entries, err := parser.ReadDir(filepath.Join(directory, "events"))
+// eventFiles returns the event files of the events directory at path in
+// index order; none when it is not a directory or is a link.
+func (p *Parser) eventFiles(path string) []eventFile {
+	directory, ok := parser.DirectoryAt(path)
+	if !ok {
+		return nil
+	}
+	entries, err := parser.ReadDir(path)
 	if err != nil {
 		return nil
 	}
 	var files []eventFile
 	for _, entry := range entries {
 		match := p.eventName.FindStringSubmatch(entry.Name())
-		if match != nil && entry.Type()&fs.ModeSymlink == 0 {
-			files = append(files, eventFile{match[1], entry.Name()})
+		if match == nil || entry.Type()&fs.ModeSymlink != 0 {
+			continue
+		}
+		if file, ok := directory.Child(entry.Name()); ok {
+			files = append(files, eventFile{match[1], entry.Name(), file})
 		}
 	}
 	slices.SortStableFunc(files, func(left, right eventFile) int {
@@ -197,22 +223,22 @@ func (p *Parser) eventFiles(directory string) []eventFile {
 }
 
 // load reads a conversation's files.
-func (p *Parser) load(directory string) *conversation {
-	conv := &conversation{sessionID: filepath.Base(directory), modelBefore: map[string]string{},
+func (p *Parser) load(paths conversationFiles) *conversation {
+	conv := &conversation{sessionID: filepath.Base(paths.directory), modelBefore: map[string]string{},
 		modelAfter: map[string]modelStep{}, eventModel: map[string]string{},
 		actions: map[string][2]string{}}
-	meta := loadObject(filepath.Join(directory, "meta.json"), &conv.problems)
-	state := loadObject(filepath.Join(directory, "base_state.json"), &conv.problems)
+	meta := loadObject(paths.meta, &conv.problems)
+	state := loadObject(paths.state, &conv.problems)
 	conv.projectPath = parser.Text(parser.FirstNonEmpty(meta.Get("workspace").Get("working_dir"),
 		state.Get("workspace").Get("working_dir")))
 	conv.model = parser.Text(state.Get("agent").Get("llm").Get("model"))
-	files := p.eventFiles(directory)
+	files := p.eventFiles(paths.events)
 	if len(files) > 0 {
 		conv.firstEvent = files[0].name
 	}
 	loaded := make([]loadedEvent, len(files))
 	for i, file := range files {
-		loaded[i] = loadedEvent{file.name, readObject(filepath.Join(directory, "events", file.name))}
+		loaded[i] = loadedEvent{file.name, readObject(file.path)}
 	}
 	first := jsonvalue.NewNull()
 	if len(loaded) > 0 {
