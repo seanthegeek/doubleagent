@@ -1,6 +1,7 @@
 package sqlitefile
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -326,7 +327,7 @@ func compareKeys(left, right Row, keys []orderKey) int {
 	for _, key := range keys {
 		var order int
 		if key.position < 0 {
-			order = cmpInt(left.Rowid, right.Rowid)
+			order = cmp.Compare(left.Rowid, right.Rowid)
 		} else {
 			collation := left.shape.columns[key.position].Collation
 			order = compareCollated(left.value(key.position), right.value(key.position), collation)

@@ -55,9 +55,11 @@ func (v Value) Text() string {
 const maxRecordHeader = 98307
 
 // readVarint decodes the varint at the start of data, as "B-tree Pages"
-// defines it: up to eight bytes of seven bits with the high bit set to go
-// on, then a ninth byte of eight bits. It returns the value and its length,
-// or a length of 0 when data ends first.
+// defines it: up to eight bytes of seven bits, most significant first, with
+// the high bit set to go on, then a ninth byte of eight bits. That is not
+// the varint encoding/binary reads, which puts the least significant bits
+// first and has no eight-bit byte. It returns the value and its length, or
+// a length of 0 when data ends first.
 func readVarint(data []byte) (uint64, int) {
 	var value uint64
 	for i := range 8 {

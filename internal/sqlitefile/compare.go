@@ -2,6 +2,7 @@ package sqlitefile
 
 import (
 	"bytes"
+	"cmp"
 	"math"
 )
 
@@ -39,7 +40,7 @@ func storageRank(value Value) int {
 // application registers itself is not available here.
 func compareCollated(left, right Value, collation string) int {
 	if leftRank, rightRank := storageRank(left), storageRank(right); leftRank != rightRank {
-		return sign(leftRank - rightRank)
+		return cmp.Compare(leftRank, rightRank)
 	}
 	switch left.Type {
 	case Null:
@@ -52,51 +53,18 @@ func compareCollated(left, right Value, collation string) int {
 	return bytes.Compare(left.Bytes, right.Bytes)
 }
 
-// sign returns -1, 0 or 1 by the sign of n.
-func sign(n int) int {
-	switch {
-	case n < 0:
-		return -1
-	case n > 0:
-		return 1
-	}
-	return 0
-}
-
 // compareNumbers compares two numbers exactly, an integer with a float
 // included, as SQLite does without rounding the integer to a float.
 func compareNumbers(left, right Value) int {
 	switch {
 	case left.Type == Integer && right.Type == Integer:
-		return sign(cmpInt(left.Int, right.Int))
+		return cmp.Compare(left.Int, right.Int)
 	case left.Type == Float && right.Type == Float:
-		return sign(cmpFloat(left.Float, right.Float))
+		return cmp.Compare(left.Float, right.Float)
 	case left.Type == Integer:
 		return compareIntFloat(left.Int, right.Float)
 	}
 	return -compareIntFloat(right.Int, left.Float)
-}
-
-// cmpInt returns -1, 0 or 1 as left is less than, equal to or above right.
-func cmpInt(left, right int64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	}
-	return 0
-}
-
-// cmpFloat returns -1, 0 or 1 as left is less than, equal to or above right.
-func cmpFloat(left, right float64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	}
-	return 0
 }
 
 // compareIntFloat compares an integer with a float exactly.
@@ -108,10 +76,10 @@ func compareIntFloat(integer int64, number float64) int {
 		return -1
 	}
 	whole := math.Trunc(number)
-	if order := cmpInt(integer, int64(whole)); order != 0 {
+	if order := cmp.Compare(integer, int64(whole)); order != 0 {
 		return order
 	}
-	return cmpFloat(whole, number)
+	return cmp.Compare(whole, number)
 }
 
 // compareText compares two texts under a collation.

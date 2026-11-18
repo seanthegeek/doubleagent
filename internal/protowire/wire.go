@@ -1,6 +1,7 @@
 package protowire
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 )
@@ -28,24 +29,17 @@ type rawField struct {
 }
 
 // readVarint returns the varint at offset and the offset after it. A varint
-// that needs more than 64 bits is an error.
+// that the end of data cuts off, or that needs more than 64 bits, is an
+// error.
 func readVarint(data []byte, offset int) (uint64, int, error) {
-	var result uint64
-	for i := 0; i < 10; i++ {
-		if offset >= len(data) {
-			return 0, offset, fmt.Errorf("%w: truncated varint at offset %d", ErrMalformed, offset)
-		}
-		next := data[offset]
-		offset++
-		if i == 9 && next > 1 {
-			return 0, offset, fmt.Errorf("%w: varint too long at offset %d", ErrMalformed, offset-10)
-		}
-		result |= uint64(next&0x7F) << (7 * uint(i))
-		if next&0x80 == 0 {
-			return result, offset, nil
-		}
+	value, length := binary.Uvarint(data[offset:])
+	switch {
+	case length == 0:
+		return 0, offset, fmt.Errorf("%w: truncated varint at offset %d", ErrMalformed, offset)
+	case length < 0:
+		return 0, offset, fmt.Errorf("%w: varint too long at offset %d", ErrMalformed, offset)
 	}
-	return 0, offset, fmt.Errorf("%w: varint too long at offset %d", ErrMalformed, offset-10)
+	return value, offset + length, nil
 }
 
 // readField reads the field at offset. A fixed-width field cut short by the
