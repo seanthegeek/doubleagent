@@ -189,7 +189,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
 		emit(p.row(artifact, rowSpec{timestamp: timestamp,
-			text: "parser: config.toml is not valid TOML (" + err.Error() + ")"}))
+			text: "parser: config.toml is not valid TOML (" + tomlPosition(err) + ")"}))
 		return
 	}
 	models := jsonvalue.NewNull()
@@ -210,6 +210,20 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 			}
 		}
 	}
+}
+
+// tomlPositionPattern matches the start of a TOML error that says where
+// the document breaks the rules.
+var tomlPositionPattern = regexp.MustCompile(`\Ainvalid TOML at line [0-9]+, column [0-9]+`)
+
+// tomlPosition returns where config.toml breaks the TOML rules, "invalid
+// TOML at line <n>, column <n>", without the reader's detail, which can
+// quote part of api_key; an error without a position is "invalid TOML".
+func tomlPosition(err error) string {
+	if position := tomlPositionPattern.FindString(err.Error()); position != "" {
+		return position
+	}
+	return "invalid TOML"
 }
 
 // modelText returns the "model configured:" text of one
