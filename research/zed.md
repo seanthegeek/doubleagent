@@ -808,6 +808,12 @@ such row is `system`, carries the thread's `session_id` and
 `source_line`, and follows the thread's other rows. An unknown `User`
 content object stays in the prompt text as JSON.
 
+A thread member that is present but of the wrong kind is `parser: <member> is not a JSON array` (or
+`object`), at the `threads` rowid after the thread's other rows: a legacy message's `segments`,
+`tool_uses` or `tool_results`, the blob's `initial_project_snapshot.worktree_snapshots`,
+`sandbox_grants.write_paths` or `sandbox_grants.network_hosts`, and `initial_project_snapshot` or
+`sandbox_grants` itself when it is not an object. An absent, null or empty one gives no row.
+
 A `scoped_kv_store` value that does not decode (a draft prompt that is not JSON, a worktree
 record without `created_at_seconds`) is `parser: unparseable record <rowid> (<namespace>[ <key>]:
 <error type>: <reason>): <stored value>` at the end of the file's rows, with an empty

@@ -138,7 +138,8 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row, bud
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.sessionID, context.project))
 		return
 	}
-	p.threadState(context, record, value, emit)
+	var problems parser.Problems
+	p.threadState(context, record, value, &problems, emit)
 	if tempDir := value.Get("sandboxed_terminal_temp_dir"); tempDir.IsString() && tempDir.StringValue() != "" {
 		// Its own project path and no session id, so the thread stays
 		// counted under its project.
@@ -147,7 +148,6 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row, bud
 			") (thread blob, as of updated_at)"
 		emit(p.stateRow(artifact, text, context.updated, record.Rowid, "", tempDir.StringValue()))
 	}
-	var problems parser.Problems
 	for _, item := range p.messages(value, record.Rowid, &problems) {
 		if item.turnType == timeline.TurnThinking && !options.IncludeThinking {
 			continue

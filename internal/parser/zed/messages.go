@@ -41,6 +41,13 @@ func (t *transcript) bad(reason string, part jsonvalue.Value) {
 		part.JSON())
 }
 
+// array returns the items of a member of the message that the format makes
+// an array; a member of any other kind but null adds a problem at the
+// thread's rowid.
+func (t *transcript) array(value jsonvalue.Value, member string) []jsonvalue.Value {
+	return parser.ArrayMember(value, member, int(t.rowid), t.problems)
+}
+
 // messages returns the items of a thread's messages in transcript order,
 // adding a message, or a part of one, of a shape not recognised to
 // problems.

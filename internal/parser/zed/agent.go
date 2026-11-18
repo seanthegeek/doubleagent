@@ -81,7 +81,8 @@ func thinkingText(thinking jsonvalue.Value) string {
 }
 
 // legacyMessage adds the items of a message of the 0.1.0 and 0.2.0 shape:
-// role and text, segments, tool_uses and tool_results.
+// role and text, segments, tool_uses and tool_results. A segments that is
+// not an array adds a problem.
 func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
 	role := strings.ToLower(parser.Text(message.Get("role")))
 	kind := timeline.TurnSystem
@@ -98,7 +99,7 @@ func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
 			out.add(kind, text.StringValue())
 		}
 	}
-	for k, segment := range parser.Elements(message.Get("segments")) {
+	for k, segment := range out.array(message.Get("segments"), "segments") {
 		segmentType := ""
 		if segment.IsObject() {
 			segmentType = strings.ToLower(parser.Text(segment.Get("type")))
@@ -117,9 +118,10 @@ func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
 	p.legacyTools(out, message)
 }
 
-// legacyTools adds the tool use and tool result items of a legacy message.
+// legacyTools adds the tool use and tool result items of a legacy message;
+// a tool_uses or tool_results that is not an array adds a problem.
 func (p *Parser) legacyTools(out *transcript, message jsonvalue.Value) {
-	for k, toolUse := range parser.Elements(message.Get("tool_uses")) {
+	for k, toolUse := range out.array(message.Get("tool_uses"), "tool_uses") {
 		if !toolUse.IsObject() {
 			out.bad(fmt.Sprintf("tool_uses[%d] is not an object", k), toolUse)
 			continue
@@ -127,7 +129,7 @@ func (p *Parser) legacyTools(out *transcript, message jsonvalue.Value) {
 		out.items = append(out.items, item{timeline.TurnToolUse, toolInputText(toolUse),
 			parser.Text(toolUse.Get("name")), parser.Text(toolUse.Get("id"))})
 	}
-	for k, result := range parser.Elements(message.Get("tool_results")) {
+	for k, result := range out.array(message.Get("tool_results"), "tool_results") {
 		if !result.IsObject() {
 			out.bad(fmt.Sprintf("tool_results[%d] is not an object", k), result)
 			continue
