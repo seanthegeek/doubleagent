@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -380,5 +381,27 @@ func TestATableDeclaringAColumnTwiceLeavesTheOthersReadable(t *testing.T) {
 	}
 	if rows, err := table.Select("a").All(); err != nil || len(rows) != 1 || rows[0].Get("a").Text() != "kept" {
 		t.Errorf("Select(a) = %v, %v; want the one row", rows, err)
+	}
+}
+
+func TestTablesMayBeLookedUpFromSeveralGoroutines(t *testing.T) {
+	var read int64
+	database := manyTables(t, 20, &read)
+	var group sync.WaitGroup
+	failures := make(chan error, 8)
+	for range 8 {
+		group.Go(func() {
+			for i := range 20 {
+				if _, err := database.Table("t" + strconv.Itoa(i)); err != nil {
+					failures <- err
+					return
+				}
+			}
+		})
+	}
+	group.Wait()
+	close(failures)
+	for err := range failures {
+		t.Error(err)
 	}
 }
