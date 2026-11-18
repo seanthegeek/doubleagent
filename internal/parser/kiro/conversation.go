@@ -129,6 +129,7 @@ type conversation struct {
 	stateModel, source string
 	names              map[string]string
 	lastTimestamp      string
+	problems           parser.Problems
 }
 
 // base returns a row of the conversation at rowTime, else at the last time
@@ -155,11 +156,17 @@ func fill(row timeline.Row, turnType, text string) timeline.Row {
 
 // conversation emits the rows of one serialised ConversationState read
 // from text; key is the working directory the database files it under and
-// line the source line of its rows.
+// line the source line of its rows. A member of the wrong kind adds a
+// problem row, after the conversation's rows.
 func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, text, key string,
 	line int, emit parser.Emit) {
 	state, ok, err := p.salvage(text)
 	if !ok || !state.Get("history").IsArray() {
+		if ok && err == nil {
+			var found parser.Problems
+			parser.ArrayMember(state.Get("history"), "history", line, &found)
+			parser.EmitAll(emit, p.ErrorRows(artifact, found, parser.Text(state.Get("conversation_id")), key))
+		}
 		if err != nil {
 			row := p.SystemRow(artifact, "parser: unparseable conversation: "+err.Error())
 			row.SourceLine = line
@@ -180,6 +187,7 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 		reader.project = firstCwd(state)
 	}
 	reader.read(state)
+	parser.EmitAll(emit, p.ErrorRows(artifact, reader.problems, reader.sessionID, reader.project))
 	if err != nil {
 		row := p.SystemRow(artifact, "parser: truncated conversation, "+
 			strconv.Itoa(state.Get("history").Len())+" history entries recovered: "+err.Error())
@@ -230,7 +238,7 @@ func (c *conversation) read(state jsonvalue.Value) {
 		}
 	}
 	copyModels := parser.Tracker{}
-	for _, copied := range historyCopies(state) {
+	for _, copied := range c.historyCopies(state) {
 		var fresh []jsonvalue.Value
 		for _, entry := range copied.entries {
 			if entry.IsObject() && !seen[entryKey(entry)] {
@@ -265,32 +273,50 @@ type historyCopy struct {
 
 // historyCopies returns each checkpoint's history_snapshot, in checkpoint
 // order, then tangent_state.main_history. The tangent copy has no time of
-// its own.
-func historyCopies(state jsonvalue.Value) []historyCopy {
+// its own. A checkpoint_manager, tangent_state, checkpoints,
+// history_snapshot or main_history of the wrong kind adds a problem.
+func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 	var copies []historyCopy
-	if checkpoints := state.Get("checkpoint_manager").Get("checkpoints"); checkpoints.IsArray() {
-		for _, checkpoint := range checkpoints.Items() {
-			snapshot := checkpoint.Get("history_snapshot")
-			if !checkpoint.IsObject() || !snapshot.IsArray() {
-				continue
-			}
-			head := "checkpoint snapshot: tag=" + parser.Text(checkpoint.Get("tag"))
-			if tool := checkpoint.Get("tool_name"); !tool.IsEmpty() {
-				head += " tool=" + tool.Text()
-			}
-			tail := ""
-			if description := checkpoint.Get("description"); !description.IsEmpty() {
-				tail = ": " + description.Text()
-			}
-			copies = append(copies, historyCopy{head: head, tail: tail,
-				timestamp: timeutil.FromValue(checkpoint.Get("timestamp")), entries: snapshot.Items()})
+	manager := c.objectMember(state.Get("checkpoint_manager"), "checkpoint_manager")
+	checkpoints := parser.ArrayMember(manager.Get("checkpoints"), "checkpoint_manager.checkpoints",
+		c.line, &c.problems)
+	for _, checkpoint := range checkpoints {
+		if !checkpoint.IsObject() {
+			continue
 		}
+		snapshot := checkpoint.Get("history_snapshot")
+		parser.ArrayMember(snapshot, "checkpoint_manager.checkpoints[].history_snapshot", c.line, &c.problems)
+		if !snapshot.IsArray() {
+			continue
+		}
+		head := "checkpoint snapshot: tag=" + parser.Text(checkpoint.Get("tag"))
+		if tool := checkpoint.Get("tool_name"); !tool.IsEmpty() {
+			head += " tool=" + tool.Text()
+		}
+		tail := ""
+		if description := checkpoint.Get("description"); !description.IsEmpty() {
+			tail = ": " + description.Text()
+		}
+		copies = append(copies, historyCopy{head: head, tail: tail,
+			timestamp: timeutil.FromValue(checkpoint.Get("timestamp")), entries: snapshot.Items()})
 	}
-	if main := state.Get("tangent_state").Get("main_history"); main.IsArray() {
+	tangent := c.objectMember(state.Get("tangent_state"), "tangent_state")
+	if main := parser.ArrayMember(tangent.Get("main_history"), "tangent_state.main_history", c.line,
+		&c.problems); len(main) > 0 {
 		copies = append(copies, historyCopy{head: "tangent mode: main conversation held aside,",
-			entries: main.Items()})
+			entries: main})
 	}
 	return copies
+}
+
+// objectMember returns value, a member of the state that the format makes
+// an object, an empty object when it is not one; a value present but not
+// an object adds a problem.
+func (c *conversation) objectMember(value jsonvalue.Value, member string) jsonvalue.Value {
+	if !value.IsNull() && !value.IsObject() {
+		c.problems.Add(c.line, parser.WrongKind(member, jsonvalue.Object))
+	}
+	return parser.ObjectOrEmpty(value)
 }
 
 // summary emits the row of the conversation's latest summary.
@@ -326,19 +352,18 @@ func (c *conversation) pending(pending jsonvalue.Value) {
 
 // entryRows emits the rows of one history entry: a model change, the user
 // content, the assistant's response and tool uses, and a compaction mark.
-// models tracks the model per session for this run over entries.
+// models tracks the model per session for this run over entries. A
+// request_metadata, user, assistant or message_meta_tags of the wrong kind
+// adds a problem.
 func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, emit parser.Emit) {
-	meta := entry.Get("request_metadata")
-	if !meta.IsObject() {
-		meta = jsonvalue.NewObject()
-	}
+	meta := c.objectMember(entry.Get("request_metadata"), "request_metadata")
 	model := c.stateModel
 	if modelID := meta.Get("model_id"); !modelID.IsEmpty() {
 		model = modelID.Text()
 	}
 	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
 	end := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
-	user := entry.Get("user")
+	user := c.objectMember(entry.Get("user"), "user")
 	userTime := ""
 	if user.IsObject() {
 		userTime = timeutil.FromValue(user.Get("timestamp"))
@@ -352,27 +377,31 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, e
 	if user.IsObject() {
 		c.userRows(user.Get("content"), timeutil.FirstNonEmpty(userTime, start), model, emit)
 	}
-	if tag, body := variant(entry.Get("assistant")); tag == "Response" || tag == "ToolUse" {
+	assistant := entry.Get("assistant")
+	if !assistant.IsNull() && !assistant.IsObject() {
+		c.problems.Add(c.line, parser.WrongKind("assistant", jsonvalue.Object))
+	}
+	if tag, body := variant(assistant); tag == "Response" || tag == "ToolUse" {
 		if content := body.Get("content"); !content.IsEmpty() {
 			emit(fill(c.base(end, model), timeline.TurnAssistant, parser.SettingValue(content)))
 		}
 		c.toolUses(body.Get("tool_uses"), end, model, emit)
 	}
-	if tags := meta.Get("message_meta_tags"); tags.IsArray() {
-		for _, tag := range tags.Items() {
-			if tag.IsString() && tag.StringValue() == "Compact" {
-				emit(fill(c.base(end, model), timeline.TurnSystem,
-					"compact: conversation history summarised"))
-				break
-			}
+	for _, tag := range parser.ArrayMember(meta.Get("message_meta_tags"), "request_metadata.message_meta_tags",
+		c.line, &c.problems) {
+		if tag.IsString() && tag.StringValue() == "Compact" {
+			emit(fill(c.base(end, model), timeline.TurnSystem,
+				"compact: conversation history summarised"))
+			break
 		}
 	}
 }
 
 // toolUses emits a tool_use row per call of an assistant message, and
-// remembers each call's tool name for its result.
+// remembers each call's tool name for its result. A tool_uses that is not
+// an array adds a problem.
 func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit parser.Emit) {
-	for _, use := range parser.Elements(uses) {
+	for _, use := range parser.ArrayMember(uses, "tool_uses", c.line, &c.problems) {
 		if !use.IsObject() {
 			continue
 		}
@@ -394,9 +423,10 @@ func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit pa
 
 // userRows emits the rows of a history entry's user content: the prompt,
 // a deny-rule rejection sent as a plain prompt, and each tool result with,
-// for a cancelled call, its permission decision.
+// for a cancelled call, its permission decision. A content that is not an
+// object, or a tool_use_results that is not an array, adds a problem.
 func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string, emit parser.Emit) {
-	tag, body := variant(content)
+	tag, body := variant(c.objectMember(content, "user.content"))
 	prompt := body.Get("prompt")
 	cancelled := tag == "CancelledToolUses"
 	if (tag == "Prompt" || cancelled) && !prompt.IsEmpty() {
@@ -414,7 +444,8 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 	if tag != "ToolUseResults" && !cancelled {
 		return
 	}
-	for _, result := range parser.Elements(body.Get("tool_use_results")) {
+	for _, result := range parser.ArrayMember(body.Get("tool_use_results"), "tool_use_results", c.line,
+		&c.problems) {
 		if !result.IsObject() {
 			continue
 		}

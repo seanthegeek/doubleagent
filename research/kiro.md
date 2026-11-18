@@ -681,7 +681,12 @@ file: a line that is not UTF-8 becomes `parser: unparseable line (not valid UTF-
 through `error_rows`, after the entries around it. A line with an escape rustyline does not write
 is kept as written, as rustyline keeps it. An agent configuration or delegate record that is not a
 JSON object is one row, `parser: agent configuration is not a JSON object` or `parser: delegate
-record is not a JSON object`.
+record is not a JSON object`. A conversation member that is present but of the wrong kind is
+`parser: <member> is not a JSON array` (or `object`) with the conversation's `source_line`, after
+its rows: `history`, `checkpoint_manager.checkpoints`, a checkpoint's `history_snapshot`,
+`tangent_state.main_history`, `request_metadata.message_meta_tags`, `tool_uses` and
+`tool_use_results` as arrays; `checkpoint_manager`, `tangent_state`, `request_metadata`, `user`,
+`user.content` and `assistant` as objects. An absent, null or empty one gives no row.
 
 A `.cli_bash_history`, `/save` export, agent configuration or delegate record that cannot be read
 is one row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
