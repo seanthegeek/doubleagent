@@ -65,6 +65,9 @@ type Parser struct {
 	// records holds the session record found for each session dir looked
 	// up, by home and session dir.
 	records map[recordKey]foundRecord
+	// transcripts holds each .claude/projects directory a Code tab record
+	// looked for its transcript in, indexed once for the run.
+	transcripts map[string]*transcriptIndex
 }
 
 // New returns the parser.

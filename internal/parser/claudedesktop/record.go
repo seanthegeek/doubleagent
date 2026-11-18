@@ -92,7 +92,7 @@ func (p *Parser) record(artifact *input.Artifact, emit parser.Emit) {
 		case !state.code:
 			// Cowork: always, with no time of its own (a secondary source).
 			emit(state.row(timeline.TurnUser, initial, ""))
-		case !sessionCollected(artifact, record):
+		case !p.sessionCollected(artifact, record):
 			// Code tab: its transcript is claude-code's, another agent's,
 			// which deduplication cannot pair with; only when it is absent.
 			emit(state.row(timeline.TurnUser, initial, state.created))
