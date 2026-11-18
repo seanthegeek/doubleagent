@@ -97,3 +97,27 @@ func TestWorktreesThatIsNotAnObjectIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	tests := []struct {
+		name, rel, text, want string
+	}{
+		{"scheduled tasks", cowork + "/scheduled-tasks.json", `{"scheduledTasks": [{"id": "a"}, 7]}`,
+			"parser: scheduledTasks holds 1 entry that is not a JSON object"},
+		{"worktrees", "Library/Application Support/Claude/git-worktrees.json",
+			`{"worktrees": {"a": {"path": "p"}, "b": "x", "c": 7}}`,
+			"parser: worktrees holds 2 entries that are not JSON objects"},
+		{"remote session spaces", cowork + "/remote-session-spaces.json", `{"entries": ["x"]}`,
+			"parser: entries holds 1 entry that is not a JSON object"},
+		{"audit content blocks", cowork + "/" + session + "/audit.jsonl",
+			`{"type": "assistant", "message": {"content": [{"type": "text", "text": "ok"}, 7]}}` + "\n",
+			"parser: message.content holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRowsOf(t, test.rel, test.text); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}

@@ -50,6 +50,8 @@ func TestAnAssistantContentThatIsNotAnArrayIsReported(t *testing.T) {
 		{"an object", `{"type": "text", "text": "hi"}`, []string{wrong}},
 		{"null", `null`, nil},
 		{"an empty array", `[]`, nil},
+		{"items that are not objects", `[{"type": "text", "text": "hi"}, "x", 7]`,
+			[]string{"parser: content holds 2 entries that are not JSON objects"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,6 +78,8 @@ func TestAToolStateContentThatIsNotAnArrayIsReported(t *testing.T) {
 		{"an object", `{"text": "out"}`, []string{wrong}},
 		{"null", `null`, nil},
 		{"an empty array", `[]`, nil},
+		{"chunks that are not objects", `[{"text": "out"}, 7]`,
+			[]string{"parser: state.content holds 1 entry that is not a JSON object"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -107,6 +111,7 @@ func TestAPinnedListThatIsNotAnArrayIsReported(t *testing.T) {
 		{"null", `null`, nil},
 		{"an empty array", `[]`, nil},
 		{"absent", ``, nil},
+		{"ids that are not text", `["ses_1", 7, {}]`, []string{"parser: pinned holds 2 entries that are not JSON strings"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

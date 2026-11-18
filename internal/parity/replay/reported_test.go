@@ -42,6 +42,11 @@ func wrongKindReports() []wrongKindEntry {
 		{"roo-code", func(string) []string {
 			return []string{"parser: entries holds 1 entry that is not a JSON string"}
 		}},
+		// A remote session spaces file whose entries hold a number among
+		// the objects the format gives.
+		{"claude-desktop", func(string) []string {
+			return []string{"parser: entries holds 1 entry that is not a JSON object"}
+		}},
 		// A cloud agent list and a plugin list that hold an object where the
 		// format gives a list, in two recorded cases.
 		{"cursor", func(string) []string {

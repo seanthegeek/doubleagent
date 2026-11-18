@@ -56,6 +56,8 @@ type auditLine struct {
 	line      int
 	timestamp string
 	sessionID string
+	// problems collects the audit log's problems.
+	problems *parser.Problems
 }
 
 // row returns a row of the current line with the turn type and text given
@@ -89,9 +91,9 @@ func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session
 	if found && !record.IsEmpty() {
 		cliID = record.Get("cliSessionId").Text()
 	}
-	state := &auditLine{parser: p, artifact: artifact, options: options, emit: emit,
-		project: project, models: parser.Tracker{}}
 	var problems parser.Problems
+	state := &auditLine{parser: p, artifact: artifact, options: options, emit: emit,
+		project: project, models: parser.Tracker{}, problems: &problems}
 	lastSessionID := cliID
 	for number, line := range parser.JSONLines(artifact.DiskPath, &problems) {
 		state.line = number
@@ -219,9 +221,9 @@ func autoReason(line jsonvalue.Value) string {
 
 // blocks returns a message's content as blocks: a list as it is, anything
 // else as one text block holding it.
-func blocks(content jsonvalue.Value) []jsonvalue.Value {
+func (a *auditLine) blocks(content jsonvalue.Value) []jsonvalue.Value {
 	if content.IsArray() {
-		return content.Items()
+		return parser.ListOfKind(content, "message.content", jsonvalue.Object, a.line, a.problems)
 	}
 	return []jsonvalue.Value{jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 		jsonvalue.Member{Key: "text", Value: content})}
@@ -232,10 +234,9 @@ func blocks(content jsonvalue.Value) []jsonvalue.Value {
 func (a *auditLine) user(line jsonvalue.Value) {
 	synthetic := !line.Get("isSynthetic").IsEmpty()
 	typed := parser.IsText(line.Get("client_platform"), "desktop_app") && !synthetic
-	for _, block := range blocks(line.Get("message").Get("content")) {
+	for _, block := range a.blocks(line.Get("message").Get("content")) {
 		blockType := block.Get("type")
 		switch {
-		case !block.IsObject():
 		case parser.IsText(blockType, "tool_result"):
 			result := claudecode.ResultText(block.Get("content"))
 			if !block.Get("is_error").IsEmpty() {
@@ -264,12 +265,10 @@ func (a *auditLine) user(line jsonvalue.Value) {
 func (a *auditLine) assistant(line jsonvalue.Value) {
 	message := line.Get("message")
 	model := message.Get("model").Text()
-	for _, block := range blocks(message.Get("content")) {
+	for _, block := range a.blocks(message.Get("content")) {
 		blockType := block.Get("type")
 		var row timeline.Row
 		switch {
-		case !block.IsObject():
-			continue
 		case parser.IsText(blockType, "tool_use"):
 			name := block.Get("name").Text()
 			row = a.row(timeline.TurnToolUse, claudecode.ToolSummary(name, block.Get("input")))

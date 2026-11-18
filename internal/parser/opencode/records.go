@@ -127,10 +127,9 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 		b.system(text)
 	}
 	var problems parser.Problems
-	items := parser.ArrayMember(data.Get("content"), "content", 0, &problems)
+	items := parser.ListOfKind(data.Get("content"), "content", jsonvalue.Object, 0, &problems)
 	b.problemRows(problems)
 	for _, item := range items {
-		item = parser.ObjectOrEmpty(item)
 		text := item.Get("text")
 		switch textOf(item.Get("type")) {
 		case "text":
@@ -169,8 +168,9 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 		text = "[error] " + errorText(state.Get("error"))
 	} else {
 		var chunks []string
-		for _, chunk := range parser.ArrayMember(state.Get("content"), "state.content", 0, &problems) {
-			if chunk.IsObject() && !chunk.Get("text").IsNull() {
+		for _, chunk := range parser.EntriesOfKind(state.Get("content"), "state.content", jsonvalue.Object, 0,
+			&problems) {
+			if !chunk.Get("text").IsNull() {
 				chunks = append(chunks, chunk.Get("text").Text())
 			}
 		}

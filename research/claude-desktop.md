@@ -1049,7 +1049,11 @@ A member that is present but of the wrong kind is `parser: <member> is not a JSO
 `object`) at `source_line` 1: `alwaysAllowedReasons` or `sessionPermissionUpdates` of a session
 record, `scheduledTasks`, `entries` of `remote-session-spaces.json` and `worktrees` (an object);
 an entry's `folders` is `parser: entries.folders is not a JSON array` at the entry's position. An
-absent, null or empty member gives no row.
+absent, null or empty member gives no row. A `scheduledTasks`, `entries` or `worktrees` holding
+entries that are not objects gives one row for them all at `source_line` 1, and an audit line's
+`message.content` holding blocks that are not objects one at its line,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 
