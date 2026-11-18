@@ -115,6 +115,9 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parser.Options, emi
 	var problems []string
 	var recovered []recoveredError
 	history := decodeHistory(text, &problems, &recovered)
+	if !history.IsObject() {
+		problems = append(problems, "chat history is not a JSON object")
+	}
 	p.historyRows(artifact, history, 1, options, emit)
 	p.recoveredRows(artifact, recovered, emit)
 	for _, problem := range problems {
@@ -124,7 +127,7 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parser.Options, emi
 
 // stateDatabase emits the rows of the extension's row of a state.vscdb:
 // its history, the history's damage, its model preferences, then the
-// problems met.
+// problems met, a value or a history that is not an object among them.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	state, problems := vscodestate.ReadItem(artifact.DiskPath, itemKey)
 	if state.IsNull() {
@@ -143,6 +146,11 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 		if history.IsString() {
 			history = decodeHistory(history.StringValue(), &problems, &recovered)
 		}
+		if !history.IsNull() && !history.IsObject() {
+			problems = append(problems, historyKey+" is not a JSON object")
+		}
+	default:
+		problems = append(problems, itemKey+" value is not a JSON object")
 	}
 	p.historyRows(artifact, history, 0, options, emit)
 	p.recoveredRows(artifact, recovered, emit)
