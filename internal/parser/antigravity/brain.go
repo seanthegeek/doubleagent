@@ -24,6 +24,21 @@ const (
 type brainLogs struct {
 	artifact *input.Artifact
 	levels   int // how far above the artifact's directory the logs directory is
+	listed   *chunkListings
+}
+
+// chunkListings keeps the chunk names of each chunks directory listed, so
+// the many chunk files of one transcript list their directory once; it
+// holds each chunk's name once, as the run's list of files does. listings
+// counts the directories listed, a measure of the work.
+type chunkListings struct {
+	names    map[string][]string
+	listings int
+}
+
+// newChunkListings returns an empty set of listings.
+func newChunkListings() *chunkListings {
+	return &chunkListings{names: map[string][]string{}}
 }
 
 // path returns the path of names under the logs directory.
@@ -49,8 +64,13 @@ func (l brainLogs) chunks(form string) []string {
 	if directory == "" {
 		return nil
 	}
+	if held, ok := l.listed.names[directory]; ok {
+		return held
+	}
+	l.listed.listings++
 	entries, err := parser.ReadDir(directory)
 	if err != nil {
+		l.listed.names[directory] = nil
 		return nil
 	}
 	var names []string
@@ -64,6 +84,7 @@ func (l brainLogs) chunks(form string) []string {
 	slices.SortStableFunc(names, func(left, right string) int {
 		return parser.CompareDigits(strings.TrimSuffix(left, ".jsonl"), strings.TrimSuffix(right, ".jsonl"))
 	})
+	l.listed.names[directory] = names
 	return names
 }
 
@@ -73,8 +94,9 @@ func (l brainLogs) chunks(form string) []string {
 // of preference: transcript_full.jsonl; its chunks, concatenated, so a line
 // cut at a chunk boundary is whole again; transcript.jsonl; its chunks. A
 // chunked form is read through its first chunk present.
-func brainCopy(artifact *input.Artifact, form, chunkForm string, problems *parser.Problems) ([]byte, bool) {
-	logs := brainLogs{artifact: artifact}
+func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkListings,
+	problems *parser.Problems) ([]byte, bool) {
+	logs := brainLogs{artifact: artifact, listed: listed}
 	switch form {
 	case fullForm:
 		return parser.FileBytes(artifact.DiskPath, problems)
@@ -105,7 +127,7 @@ func brainCopy(artifact *input.Artifact, form, chunkForm string, problems *parse
 func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.Options, emit parser.Emit) {
 	sessionID := match[2]
 	var problems parser.Problems
-	blob, ok := brainCopy(artifact, match[3], match[4], &problems)
+	blob, ok := brainCopy(artifact, match[3], match[4], p.chunks, &problems)
 	if ok {
 		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit}
 		for i, raw := range bytes.Split(blob, []byte("\n")) {

@@ -54,17 +54,19 @@ var (
 const brainTolerance = 600.0
 
 // Parser reads Antigravity's conversations, brain mirror, history and
-// permission files.
+// permission files. It keeps the listings of the chunks directories it
+// has read.
 type Parser struct {
 	parser.Base
 	schema       *protowire.Schema
 	schemaErr    error
 	payloadKinds []string
+	chunks       *chunkListings
 }
 
 // New returns the parser.
 func New() *Parser {
-	created := &Parser{Base: parser.NewBase("antigravity", "antigravity")}
+	created := &Parser{Base: parser.NewBase("antigravity", "antigravity"), chunks: newChunkListings()}
 	created.schema, created.schemaErr = newSchema()
 	if created.schemaErr == nil {
 		created.payloadKinds = payloadKinds(created.schema)
