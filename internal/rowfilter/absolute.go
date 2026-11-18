@@ -62,6 +62,9 @@ func parseAbsolute(text, value string, upper bool) (string, error) {
 	default:
 		next = start.Add(time.Second)
 	}
+	if upper && next.Add(-time.Millisecond).Year() > 9999 {
+		return "", cannotRead(text, "the time is out of range")
+	}
 	return periodBound(start, next, upper), nil
 }
 
@@ -162,7 +165,9 @@ func (d *dateTime) readWeekOrOrdinal(value string) (string, string, bool) {
 
 // setWeekDate sets the date of a week and weekday of d's ISO year, whose
 // first week holds 4 January, and returns a detail for a field out of
-// range, or "".
+// range, or "". Week 53 exists only in a year whose last week holds its
+// last Thursday, so in another year it is refused rather than read as the
+// next year's first week.
 func (d *dateTime) setWeekDate(week, weekday int) string {
 	switch {
 	case week < 1 || week > 53:
@@ -174,6 +179,9 @@ func (d *dateTime) setWeekDate(week, weekday int) string {
 	}
 	fourth := time.Date(d.year, time.January, 4, 0, 0, 0, 0, time.UTC)
 	monday := fourth.AddDate(0, 0, -((int(fourth.Weekday()) + 6) % 7))
+	if year, _ := monday.AddDate(0, 0, 52*7).ISOWeek(); week == 53 && year != d.year {
+		return fmt.Sprintf("week must be in 1..52 for %04d, not %d", d.year, week)
+	}
 	d.setDay(monday.AddDate(0, 0, (week-1)*7+weekday-1))
 	return ""
 }

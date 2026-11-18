@@ -14,8 +14,7 @@
 // a BoundError; nothing is guessed. Dates may be ISO week dates or ordinal
 // dates as well. A lower-case t or another separator, an offset straight
 // after a date, a comma before the fraction, 24:00, fields of one digit and
-// non-ASCII digits are refused. The forms are listed in
-// analyzer/docs/filtering.md under "WHEN forms".
+// non-ASCII digits are refused.
 //
 // Bounds are timestamps in the timeline's own form, so a row is kept by a
 // plain string comparison: since <= timestamp_utc <= until.
@@ -36,8 +35,9 @@ import (
 // FormsHelp lists the accepted WHEN forms; every BoundError ends with it,
 // and the timeline command's help for --until quotes it.
 const FormsHelp = "accepted: ISO 8601 such as 2026-10-01, 2026-10-01T09:30[:SS][Z|+HH:MM] or " +
-	"2026-10-01 09:30[:SS] [+HH:MM|UTC]; 2026-10 or 2026; epoch seconds; today, yesterday, " +
-	"now; or a relative time such as 45m, 36h, 3d, 2w, 6mo, 1y, optionally followed by 'ago'"
+	"2026-10-01 09:30[:SS] [+HH:MM|UTC]; 2026-10 or 2026; epoch seconds or milliseconds; " +
+	"today, yesterday, now; or a relative time such as 45m, 36h, 3d, 2w, 6mo, 1y, " +
+	"optionally followed by 'ago'"
 
 // BoundError is a --since or --until value that is not one of the
 // accepted forms. Its message is the reason, then the accepted forms.
