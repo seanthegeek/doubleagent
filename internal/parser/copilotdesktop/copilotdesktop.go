@@ -143,7 +143,7 @@ func (s *store) created(table string) []sqlitefile.Row {
 	return s.rows(table, "created_at")
 }
 
-// text returns a column as the text Python's _str gives it.
+// text returns a column as row text (parser.ColumnText): "" for NULL.
 func text(value sqlitefile.Value) string {
 	return parser.ColumnText(value)
 }
@@ -165,7 +165,7 @@ func flag(value sqlitefile.Value) string {
 }
 
 // projectIndex is the projects of a database by id, in the order each id
-// was first met, each id holding its last row, as a Python dict does.
+// was first met; an id that two rows share holds the later row.
 type projectIndex struct {
 	order []string
 	byID  map[string]sqlitefile.Row
@@ -189,7 +189,8 @@ func (x projectIndex) pathOf(projectID string) string {
 	return text(x.byID[projectID].Get("main_repo_path"))
 }
 
-// databaseRows emits the rows of every table in the order of the analyzer.
+// databaseRows emits the rows of every table, in this order: accounts,
+// settings, model providers, projects, workspaces, sessions and schedules.
 func (p *Parser) databaseRows(artifact *input.Artifact, reader *store, emit parser.Emit) {
 	projects := newProjectIndex(reader.created("projects"))
 	workspaces := reader.created("workspaces")

@@ -8,12 +8,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// The rows of data.db and the checkpoint refs are proved against the Python
-// analyzer by the parser replay (internal/parity/replay), over the recorded
-// fixture databases; these tests cover the column conversions and the paths
-// the parser wants.
+// The rows of data.db and the checkpoint refs are proved by the parser
+// replay (internal/parity/replay) over the recorded fixture databases; these
+// tests cover the column conversions and the paths the parser wants.
 
-func TestColumnsAreTextAsPythonWritesThem(t *testing.T) {
+func TestColumnsBecomeRowTextADashOrAFlag(t *testing.T) {
 	tests := []struct {
 		name  string
 		value sqlitefile.Value
