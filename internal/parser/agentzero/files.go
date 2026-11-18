@@ -224,7 +224,8 @@ func (p *Parser) scopeText(match []string) string {
 }
 
 // parsePolicy emits a "permission setting:" row per key and list entry of a
-// plugin config: a _tool_access policy or the Orchestrator's settings.
+// plugin config: a _tool_access policy or the Orchestrator's settings. A
+// policy list that is not an array adds a problem.
 func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit parser.Emit) {
 	var problems parser.Problems
 	document, why := loadDocument(artifact, &problems)
@@ -245,12 +246,11 @@ func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit pars
 			}
 		}
 		for _, name := range policyLists {
-			if entries := document.Get(name); entries.IsArray() {
-				for _, entry := range entries.Items() {
-					emit(p.settingRow(artifact, "tool_access."+name+"="+parser.SettingValue(entry)+scope, project))
-				}
+			for _, entry := range parser.ArrayMember(document.Get(name), name, 0, &problems) {
+				emit(p.settingRow(artifact, "tool_access."+name+"="+parser.SettingValue(entry)+scope, project))
 			}
 		}
+		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
 	for _, each := range orchestratorKeys {

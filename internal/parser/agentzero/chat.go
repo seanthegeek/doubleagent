@@ -466,10 +466,16 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 	}
 }
 
-// logItems returns the chat's log items that are objects.
+// logItems returns the chat's log items that are objects; a log that is
+// not an object, or logs that is not an array, adds a problem.
 func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
+	log := document.Get("log")
+	if !log.IsObject() && !log.IsNull() {
+		c.problems.Add(0, parser.WrongKind("log", jsonvalue.Object))
+		return nil
+	}
 	var logs []jsonvalue.Value
-	for _, item := range parser.Elements(document.Get("log").Get("logs")) {
+	for _, item := range parser.ArrayMember(log.Get("logs"), "log.logs", 0, &c.problems) {
 		if item.IsObject() {
 			logs = append(logs, item)
 		}
@@ -478,10 +484,11 @@ func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 }
 
 // agentHistories reads each agent's history, filling the chat's message
-// index and returning its items in order.
+// index and returning its items in order. An agents member that is not an
+// array adds a problem.
 func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
-	for i, agent := range parser.Elements(document.Get("agents")) {
+	for i, agent := range parser.ArrayMember(document.Get("agents"), "agents", 0, &c.problems) {
 		if !agent.IsObject() {
 			continue
 		}
