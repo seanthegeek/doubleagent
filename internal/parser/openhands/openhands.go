@@ -208,7 +208,11 @@ func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string 
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			document, _, _ := loadJSON(filepath.Join(directory, name, glob.file), &parser.Problems{})
+			conversation, reachable := parser.Under(directory, name, glob.file)
+			if !reachable {
+				continue
+			}
+			document, _, _ := loadJSON(conversation, &parser.Problems{})
 			dir, ok := nonEmptyText(document.Get("workspace").Get("working_dir"))
 			if ok && sha256Hex(dir) == digest {
 				return dir

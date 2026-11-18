@@ -45,15 +45,11 @@ func rootOf(artifact *input.Artifact, depth int) (treeRoot, bool) {
 }
 
 // childPath returns the path of names below directory, or false when a
-// name is not a plain file name (parser.Component refuses it). A name read
-// from the evidence never leads outside the tree.
+// name is not a plain file name or a directory on the way is a link
+// (parser.Under). A name read from the evidence never leads outside the
+// tree.
 func childPath(directory string, names ...string) (string, bool) {
-	for _, name := range names {
-		if _, ok := parser.Component(name); !ok {
-			return "", false
-		}
-	}
-	return filepath.Join(append([]string{directory}, names...)...), true
+	return parser.Under(directory, names...)
 }
 
 // hasJSONSuffix reports whether a file name ends in the extension ".json";
