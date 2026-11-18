@@ -37,7 +37,8 @@ type databaseDump struct {
 	err    string
 }
 
-// loadDump parses a dump written by generate.py's dump_queries.
+// loadDump parses a dump of tables and query results: testdata/tables.txt
+// or testdata/fixture_tables.txt.
 func loadDump(t *testing.T, path string) []*databaseDump {
 	t.Helper()
 	data, err := osfile.ReadFile(path)
@@ -179,7 +180,7 @@ func compareSites(t *testing.T, database *Database, expected *databaseDump) {
 		want, dumped := expected.sites[name]
 		switch {
 		case applicable != dumped:
-			t.Errorf("query %s applies = %v, Python ran it = %v (error %v)", name, applicable,
+			t.Errorf("query %s applies = %v, the dump records it = %v (error %v)", name, applicable,
 				dumped, err)
 		case !dumped:
 		case want.err != "":
@@ -220,7 +221,7 @@ func lineDifference(got, want []string) string {
 func TestTablesAndQueriesReadAsSQLiteReadsThem(t *testing.T) {
 	databases := loadDump(t, filepath.Join("testdata", "tables.txt"))
 	if len(databases) < 3 {
-		t.Fatalf("tables.txt holds %d databases; rerun %s", len(databases), generator)
+		t.Fatalf("tables.txt holds %d databases, fewer than testdata holds", len(databases))
 	}
 	for _, expected := range databases {
 		t.Run(expected.name+" reads as SQLite reads it", func(t *testing.T) {

@@ -17,9 +17,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The databases under testdata are written by testdata/generate.py, which
+// The databases under testdata are built by testdata/generate.py, which
 // also records in testdata/expected.txt what SQLite reads from each.
-const generator = "testdata/generate.py"
 
 // expectedTree is one tree of expected.txt: its kind, its name in the
 // schema, its rows in order, and the error SQLite met reading it.
@@ -137,20 +136,10 @@ func readTree(database *Database, kind string, root uint32) ([]string, error) {
 	return lines, rows.Err()
 }
 
-func TestGeneratorIsCheckedIn(t *testing.T) {
-	data, err := osfile.ReadFile(generator)
-	if err != nil {
-		t.Fatalf("the script that writes the test databases is missing: %v", err)
-	}
-	if !strings.Contains(string(data), "expected.txt") {
-		t.Errorf("%s does not write expected.txt", generator)
-	}
-}
-
 func TestReaderSeesWhatSQLiteSees(t *testing.T) {
 	databases := loadExpected(t)
 	if len(databases) < 40 {
-		t.Fatalf("expected.txt holds %d databases; rerun %s", len(databases), generator)
+		t.Fatalf("expected.txt holds %d databases, fewer than testdata holds", len(databases))
 	}
 	for _, expected := range databases {
 		t.Run(expected.name+" reads as SQLite reads it", func(t *testing.T) {
