@@ -32,7 +32,21 @@ INSERT INTO messages (message_id, session_id, role, content_json, created_timest
   VALUES ('m1', 's1', 'user', '[{"type":"text","text":"hello"}]', 1767323045);
 """
 
-DATABASES = {"generated_column.db": GENERATED_COLUMN}
+# A message whose content blocks hold an entry that is not an object.
+BLOCK_KINDS = """
+PRAGMA page_size = 512;
+CREATE TABLE sessions (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '',
+  working_dir TEXT NOT NULL, created_at TIMESTAMP, model_config_json TEXT);
+CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id TEXT,
+  session_id TEXT NOT NULL, role TEXT NOT NULL, content_json TEXT NOT NULL,
+  created_timestamp INTEGER NOT NULL, timestamp TIMESTAMP, tokens INTEGER, metadata_json TEXT);
+INSERT INTO sessions (id, name, working_dir, created_at)
+  VALUES ('s1', 'first', '/w/proj', '2026-01-02 03:04:05');
+INSERT INTO messages (message_id, session_id, role, content_json, created_timestamp)
+  VALUES ('m1', 's1', 'user', '[{"type":"text","text":"hello"}, 7]', 1767323045);
+"""
+
+DATABASES = {"generated_column.db": GENERATED_COLUMN, "block_kinds.db": BLOCK_KINDS}
 
 
 def main() -> None:

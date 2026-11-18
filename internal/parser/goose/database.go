@@ -286,8 +286,10 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 		parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, bad, sessionID, projectPath))
 		return
 	}
+	var wrong parser.Problems
 	reader.blocks(base, parser.NonEmptyColumn(message.Get("role")), content.value, userVisible(meta),
-		answeredOf(answered, sessionID), d.emit)
+		answeredOf(answered, sessionID), &wrong, d.emit)
+	parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, wrong, sessionID, projectPath))
 }
 
 // messageModel returns the model of a message from its inference

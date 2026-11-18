@@ -86,8 +86,12 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 			jsonvalue.Member{Key: "text", Value: content}))
 	}
 	if content.IsArray() {
-		for _, block := range content.Items() {
+		var problems parser.Problems
+		for _, block := range parser.EntriesOfKind(content, "content", jsonvalue.Object, line, &problems) {
 			w.block(current, line, timestamp, block, model)
+		}
+		for _, problem := range problems {
+			w.bad(current, problem.Line, problem.Message, timestamp)
 		}
 	}
 	stop := message.Get("stopReason")
@@ -100,9 +104,6 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 
 // block emits the row of one content block of an assistant message.
 func (w *writer) block(current *session, line int, timestamp string, block jsonvalue.Value, model string) {
-	if !block.IsObject() {
-		return
-	}
 	var row timeline.Row
 	blockType := block.Get("type")
 	switch {

@@ -68,7 +68,13 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 			current.sessionID = parser.Text(record.Get("sessionId"))
 		}
 		inner := record.Get("row")
-		if !parser.IsText(kind, "event") || !inner.IsObject() {
+		if !parser.IsText(kind, "event") {
+			continue
+		}
+		if !inner.IsObject() {
+			if !inner.IsNull() {
+				w.bad(current, line, parser.WrongKind("row", jsonvalue.Object), "")
+			}
 			continue
 		}
 		createdAt := timeutil.FromValue(inner.Get("created_at"))
@@ -78,8 +84,11 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 				" unreadable: "+err.Error(), createdAt)
 			continue
 		}
-		if entry.IsObject() {
+		switch {
+		case entry.IsObject():
 			w.entry(current, line, entry, createdAt)
+		case !entry.IsNull():
+			w.bad(current, line, parser.WrongKind("event_json", jsonvalue.Object), createdAt)
 		}
 	}
 }

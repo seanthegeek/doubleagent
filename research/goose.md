@@ -1506,21 +1506,25 @@ after it are still yielded; a `roaming_trust.json` or `schedule.json` that is no
 type Goose writes (an object, a list) is one `parser: <message>` row at the file's modification
 time, and a `schedule.json` job that is not an object is
 `parser: unparseable record <N> (not a JSON object): <record>`. A `roaming_trust.json` `allowed` or
-`revoked_keys` that is present but not an array is `parser: <key> is not a JSON array` at the
-file's modification time; in a legacy session line a `content` that is neither text nor an array
-is `parser: content is not a JSON array`, and in a request log an `input` or `data` that is not an
-object is `parser: <member> is not a JSON object`, an `input.messages` or `data.content` that is
-not an array (or, for `data.content`, text) is `parser: <member> is not a JSON array`, each at the
-line; an absent, null or empty member gives no row. In `sessions.db` a `content_json`,
-`metadata_json` or `model_config_json` that does not decode, or decodes to another type than Goose
-writes (an array for `content_json`, an object for the other two), is one `system` row through
-`error_rows`: `parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the
-stored text in full, `<N>` the `messages.id` or the `sessions` rowid (also `source_line`), with the
-session's `session_id` and `working_dir` and an empty `timestamp_utc`. A NULL or empty
-`content_json` gives the row with reason `empty` and no value. The rest of the session is still
-yielded: a bad `model_config_json` row follows the session start row and the session has no `model:`
-row; a bad `metadata_json` row precedes the message's content rows, which keep the session's model
-and count as visible; a bad `content_json` row stands in for the message's rows.
+`revoked_keys` that is present but not an array is `parser: <key> is not a JSON array` at the file's
+modification time; in a legacy session line a `content` that is neither text nor an array is
+`parser: content is not a JSON array`, and in a request log an `input` or `data` that is not an
+object is `parser: <member> is not a JSON object`, an `input.messages` or `data.content` that is not
+an array (or, for `data.content`, text) is `parser: <member> is not a JSON array`, each at the line;
+an absent, null or empty member gives no row. A message's content (legacy `content`, `content_json`
+in `sessions.db`, or a request log's `data.content`) holding blocks that are not objects gives one
+row for them all at the line or rowid,
+`parser: <member> holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other blocks giving their rows. In `sessions.db` a `content_json`, `metadata_json` or
+`model_config_json` that does not decode, or decodes to another type than Goose writes (an array for
+`content_json`, an object for the other two), is one `system` row through `error_rows`:
+`parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the stored text in
+full, `<N>` the `messages.id` or the `sessions` rowid (also `source_line`), with the session's
+`session_id` and `working_dir` and an empty `timestamp_utc`. A NULL or empty `content_json` gives
+the row with reason `empty` and no value. The rest of the session is still yielded: a bad
+`model_config_json` row follows the session start row and the session has no `model:` row; a bad
+`metadata_json` row precedes the message's content rows, which keep the session's model and count as
+visible; a bad `content_json` row stands in for the message's rows.
 
 #### Fixtures
 

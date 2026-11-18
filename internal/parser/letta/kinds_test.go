@@ -99,3 +99,24 @@ func TestAnInterruptedTurnsResultsThatIsNotAnArrayIsReported(t *testing.T) {
 		`{"tool_call_id": "a"}`, `[]`,
 		func(value string) string { return `{` + member("results", value) + `"agentId": "a"}` })
 }
+
+func TestEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	tests := []struct {
+		name, rel, text, want string
+	}{
+		{"routes", ".letta/channels/telegram/routing.json", `{"routes": [{"chatId": "1"}, 7]}`,
+			"parser: routes holds 1 entry that is not a JSON object"},
+		{"tasks", ".letta/crons.json", `{"tasks": [{"id": "a"}, "x", 7]}`,
+			"parser: tasks holds 2 entries that are not JSON objects"},
+		{"results", ".letta/listener-state/0123456789abcdef01234567/a_c.json",
+			`{"agentId": "a", "results": [{"tool_call_id": "a"}, 7]}`,
+			"parser: results holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := countOf(parseFile(t, test.rel, test.text), test.want); got != 1 {
+				t.Errorf("%q given %d times, want once", test.want, got)
+			}
+		})
+	}
+}

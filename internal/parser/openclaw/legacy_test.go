@@ -2,6 +2,7 @@ package openclaw
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -69,5 +70,29 @@ func TestALegacySessionsFileIsReadOncePerStateOfIt(t *testing.T) {
 	}
 	if want := "parser: sessions.json is not a JSON object"; !strings.Contains(strings.Join(got, "\n"), want) {
 		t.Errorf("rows %q, want the changed file's %q", got, want)
+	}
+}
+
+func TestTranscriptEntriesOfTheWrongKindAreReported(t *testing.T) {
+	tests := []struct {
+		name, line, want string
+	}{
+		{"content blocks that are not objects",
+			`{"type": "message", "message": {"role": "assistant", "content": [{"type": "text", "text": "ok"}, 7]}}`,
+			"parser: content holds 1 entry that is not a JSON object"},
+		{"a cold archive event whose row is not an object", `{"kind": "event", "row": 7}`,
+			"parser: row is not a JSON object"},
+		{"a cold archive event whose event_json is not an object",
+			`{"kind": "event", "row": {"seq": 1, "event_json": "[1]"}}`, "parser: event_json is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			writeHomeFile(t, home, ".openclaw/sessions/s1.jsonl", test.line+"\n")
+			rows := parseHomeFile(t, New(), home, ".openclaw/sessions/s1.jsonl")
+			if !slices.Contains(rows, test.want) {
+				t.Errorf("rows %q lack %q", rows, test.want)
+			}
+		})
 	}
 }

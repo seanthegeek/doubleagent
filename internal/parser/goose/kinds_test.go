@@ -145,3 +145,29 @@ func TestARequestLogMemberOfTheWrongKindIsReported(t *testing.T) {
 			}, parseFile(t, rel, `{"input": {}}`+"\n"+`{"usage": {}}`+"\n"))
 	})
 }
+
+func TestContentBlocksThatAreNotObjectsAreReportedOncePerMessage(t *testing.T) {
+	tests := []struct {
+		name, rel, text, want string
+	}{
+		{"a legacy message", ".local/share/goose/sessions/s.jsonl",
+			`{"id": "s"}` + "\n" + `{"role": "user", "content": [{"type": "text", "text": "hi"}, 7, "x"]}` + "\n",
+			"parser: content holds 2 entries that are not JSON objects"},
+		{"a request log chunk", ".local/state/goose/logs/llm_request.0.jsonl",
+			`{"input": {"messages": []}}` + "\n" + `{"data": {"id": "m", "role": "assistant", "content": [7]}}` + "\n",
+			"parser: data.content holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := count(parseFile(t, test.rel, test.text), test.want); got != 1 {
+				t.Errorf("%q given %d times, want once", test.want, got)
+			}
+		})
+	}
+	t.Run("a sessions.db message", func(t *testing.T) {
+		rows := parseDatabase(t, "block_kinds.db")
+		if want := "parser: content holds 1 entry that is not a JSON object"; count(rows, want) != 1 {
+			t.Errorf("rows %q, want %q once", rows, want)
+		}
+	})
+}

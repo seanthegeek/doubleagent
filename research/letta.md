@@ -864,7 +864,10 @@ A member that the format makes an array or an object but that is present with an
 `parser:` row at line 1 naming it: `parser: <member> is not a JSON array` for `tasks` of
 `crons.json` and `results` of an interrupted-turn file, and
 `parser: <member> is not a JSON object` for `sessionsByServer` and `permissions` of a settings
-file; an absent, null or empty one gives no row.
+file; an absent, null or empty one gives no row. A `tasks`, `results` or a routing file's `routes`
+holding entries that are not objects gives one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 

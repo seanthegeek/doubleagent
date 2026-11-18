@@ -235,7 +235,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 		}
 		base := p.row(artifact, number, sessionID, projectPath, "", epochJSON(record.Get("created")))
 		reader.blocks(base, parser.Text(record.Get("role")), record.Get("content"),
-			userVisible(record.Get("metadata")), nil, emit)
+			userVisible(record.Get("metadata")), nil, &problems, emit)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, projectPath))
 }

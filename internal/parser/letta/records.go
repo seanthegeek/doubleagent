@@ -133,10 +133,13 @@ func (p *Parser) parseRouting(artifact *input.Artifact, channel string, emit par
 		return
 	}
 	mtime := parser.FileMtime(artifact)
-	for _, route := range routes.Items() {
-		if !route.IsObject() {
-			continue
+	var problems parser.Problems
+	defer func() {
+		for _, found := range problems {
+			emit(p.lineOne(artifact, mtime, parser.ProblemPrefix+found.Message))
 		}
+	}()
+	for _, route := range parser.EntriesOfKind(routes, "routes", jsonvalue.Object, 0, &problems) {
 		created := timeutil.FromValue(route.Get("createdAt"))
 		source := "createdAt"
 		if created == "" {
@@ -170,10 +173,7 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 	}
 	mtime := parser.FileMtime(artifact)
 	var problems parser.Problems
-	for _, task := range parser.ArrayMember(document.Get("tasks"), "tasks", 0, &problems) {
-		if !task.IsObject() {
-			continue
-		}
+	for _, task := range parser.EntriesOfKind(document.Get("tasks"), "tasks", jsonvalue.Object, 0, &problems) {
 		created := timeutil.FromValue(task.Get("created_at"))
 		conversation := parser.Text(task.Get("conversation_id"))
 		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), taskText(task, conversation,
@@ -254,7 +254,7 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 	}
 	var problems parser.Problems
-	results := objects(parser.ArrayMember(document.Get("results"), "results", 0, &problems))
+	results := parser.ListOfKind(document.Get("results"), "results", jsonvalue.Object, 0, &problems)
 	put(timeline.TurnSystem, "", fmt.Sprintf("interrupted turn: agent %s conversation %s run %s "+
 		"tool_calls=%s unstarted=%s results=%d working_directory=%s acting_user=%s (from %s, file mtime)",
 		parser.SettingOrDash(document.Get("agentId")), parser.SettingOrDash(jsonvalue.NewString(sessionID)), parser.SettingOrDash(document.Get("runId")),
@@ -275,17 +275,6 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 	for _, found := range problems {
 		put(timeline.TurnSystem, "", parser.ProblemPrefix+found.Message)
 	}
-}
-
-// objects returns the objects of a list, none for any other value.
-func objects(list []jsonvalue.Value) []jsonvalue.Value {
-	var out []jsonvalue.Value
-	for _, item := range list {
-		if item.IsObject() {
-			out = append(out, item)
-		}
-	}
-	return out
 }
 
 // interruptedDecision returns the `permission decision:` row text of an
