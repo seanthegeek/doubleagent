@@ -32,7 +32,8 @@ func TestLoadMessagesKeepsWhatSurvivesATruncation(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			messages, failure := loadMessages(test.raw)
+			var problems parser.Problems
+			messages, failure := loadMessages(test.raw, &problems)
 			text := ""
 			if failure != nil {
 				text = failure.Error()
