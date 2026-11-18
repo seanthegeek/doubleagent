@@ -43,3 +43,35 @@ func TestAnIndexEntriesMemberThatIsNotAnArrayIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestASideFileThatDoesNotHoldAnObjectIsReported(t *testing.T) {
+	const notIndex = "parser: _index.json is not a JSON object"
+	const notItem = "parser: history_item.json is not a JSON object"
+	tests := []struct {
+		name, item, index string
+		want              []string
+	}{
+		{"an index that is not JSON", "", `{"entries": [`, []string{"hi", notIndex}},
+		{"an index that is an array", "", `[]`, []string{"hi", notIndex}},
+		{"an index that is an object", "", `{}`, []string{"hi"}},
+		{"an item that is not JSON", `{"task":`, `{}`, []string{"hi", notItem}},
+		{"an item that is an array", `[1]`, `{}`, []string{"hi", notItem}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			write(t, filepath.Join(home, ".config/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json"),
+				test.index)
+			artifact := taskArtifact(home, "t")
+			write(t, artifact.DiskPath, `[{"role": "user", "content": "hi"}]`)
+			if test.item != "" {
+				write(t, filepath.Join(filepath.Dir(artifact.DiskPath), "history_item.json"), test.item)
+			}
+			var got []string
+			New().task(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			if !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
