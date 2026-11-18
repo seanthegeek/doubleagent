@@ -23,10 +23,12 @@ var (
 		"previousAllowAllPermissionMode", "allowAllPermissionMode"}
 )
 
-// eventWalk is the state of one pass over an events.jsonl.
+// eventWalk is the state of one pass over an events.jsonl, with the
+// problems of its lines.
 type eventWalk struct {
 	parser     *Parser
 	artifact   *input.Artifact
+	problems   *parser.Problems
 	options    parser.Options
 	emit       parser.Emit
 	sessionID  string
@@ -55,7 +57,8 @@ func (w *eventWalk) system(text string) {
 	w.emit(w.row(timeline.TurnSystem, text, "", "", ""))
 }
 
-// parseEvents emits the rows of one session's events.jsonl.
+// parseEvents emits the rows of one session's events.jsonl, then its
+// problems; an event's data that is not a JSON object is one.
 func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options parser.Options,
 	emit parser.Emit) {
 	var problems parser.Problems
@@ -63,10 +66,13 @@ func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options
 		project: p.fallbackProject(artifact, 0, sessionID),
 		names:   map[string]string{}, requested: map[string]bool{}, models: map[string]string{},
 		modes: parser.Tracker{}}
+	walk.problems = &problems
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		walk.line = number
 		walk.timestamp = timeutil.FromValue(record.Get("timestamp"))
-		walk.event(record.Get("type").Text(), record, record.Get("data"))
+		data := record.Get("data")
+		parser.ObjectMember(data, "data", number, &problems)
+		walk.event(record.Get("type").Text(), record, data)
 	}
 	for _, row := range p.ErrorRows(artifact, problems, sessionID, walk.project) {
 		row.GitBranch = walk.branch
@@ -207,7 +213,7 @@ func (w *eventWalk) userRow(record, data jsonvalue.Value) {
 }
 
 // assistantRows emits an assistant message's reply, reasoning and tool
-// requests.
+// requests; a toolRequests that is not a JSON array is a problem.
 func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 	model, content := data.Get("model").Text(), data.Get("content").Text()
 	if strings.TrimSpace(content) != "" {
@@ -216,13 +222,13 @@ func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 	if w.options.IncludeThinking {
 		thought := data.Get("reasoningText").Text()
 		if thought == "" {
-			thought = reasoningSummaries(data)
+			thought = reasoningSummaries(data, w.line, w.problems)
 		}
 		if thought != "" {
 			w.emit(w.row(timeline.TurnThinking, thought, "", "", model))
 		}
 	}
-	for _, request := range parser.Elements(data.Get("toolRequests")) {
+	for _, request := range parser.ArrayMember(data.Get("toolRequests"), "toolRequests", w.line, w.problems) {
 		callID, name := request.Get("toolCallId").Text(), request.Get("name").Text()
 		if callID != "" {
 			w.names[callID] = name
@@ -233,11 +239,14 @@ func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 }
 
 // reasoningSummaries returns the text of a message's reasoning blocks'
-// summaries, separated by blank lines.
-func reasoningSummaries(data jsonvalue.Value) string {
+// summaries, separated by blank lines. A reasoningBlocks, blocks or
+// summary of the wrong kind adds a problem at line.
+func reasoningSummaries(data jsonvalue.Value, line int, problems *parser.Problems) string {
 	var parts []string
-	for _, block := range parser.Elements(data.Get("reasoningBlocks").Get("blocks")) {
-		for _, summary := range parser.Elements(block.Get("summary")) {
+	reasoning := data.Get("reasoningBlocks")
+	parser.ObjectMember(reasoning, "reasoningBlocks", line, problems)
+	for _, block := range parser.ArrayMember(reasoning.Get("blocks"), "reasoningBlocks.blocks", line, problems) {
+		for _, summary := range parser.ArrayMember(block.Get("summary"), "summary", line, problems) {
 			if body := summary.Get("text"); body.IsString() && body.StringValue() != "" {
 				parts = append(parts, body.StringValue())
 			}
