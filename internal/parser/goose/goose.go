@@ -142,17 +142,6 @@ func systemCopy(base timeline.Row, text string) timeline.Row {
 	return base
 }
 
-// joinParts joins the non-empty parts with " | ".
-func joinParts(parts ...string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, " | ")
-}
-
 // modelName returns "<provider>/<name>", or the name alone when the
 // provider is unknown.
 func modelName(provider, name string) string {
@@ -235,7 +224,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 			row := p.row(artifact, number, sessionID, projectPath, "",
 				timeutil.FromValue(record.Get("created_at")))
 			row.TurnType = timeline.TurnSystem
-			row.Text = timeline.Compact(joinParts("session start (legacy)",
+			row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "session start (legacy)",
 				parser.Text(record.Get("description")), count))
 			emit(row)
 			continue

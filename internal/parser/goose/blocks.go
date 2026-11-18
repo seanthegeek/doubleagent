@@ -20,8 +20,8 @@ type blockReader struct {
 	toolNames map[string]string
 }
 
-// orObject returns value when it is truthy, else an empty object: the
-// `value or {}` of a value read as an object.
+// orObject returns value, or an empty object in place of an empty value,
+// so a lookup on a missing level reads as empty.
 func orObject(value jsonvalue.Value) jsonvalue.Value {
 	if !value.IsEmpty() {
 		return value
@@ -99,7 +99,7 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 		}
 	case kindText == "image" || kindText == "document":
 		row.TurnType = textType
-		text = "[" + kindText + "] " + joinParts(parser.Text(block.Get("name")),
+		text = "[" + kindText + "] " + parser.JoinNonEmpty(" | ", parser.Text(block.Get("name")),
 			parser.Text(block.Get("mimeType")))
 	case kindText == "toolRequest":
 		text = r.toolRequest(&row, block)
@@ -158,7 +158,7 @@ func (r *blockReader) systemBlock(row *timeline.Row, kind string, block jsonvalu
 	case "toolConfirmationRequest":
 		row.ToolName = parser.Text(block.Get("toolName"))
 		row.ToolUseID = parser.Text(block.Get("id"))
-		return joinParts("confirmation requested: "+row.ToolName, parser.Text(block.Get("prompt")),
+		return parser.JoinNonEmpty(" | ", "confirmation requested: "+row.ToolName, parser.Text(block.Get("prompt")),
 			parser.JSONText(orObject(block.Get("arguments"))))
 	case "systemNotification":
 		notification := parser.Text(block.Get("notificationType"))
@@ -183,7 +183,7 @@ func (r *blockReader) actionText(row *timeline.Row, data jsonvalue.Value) string
 	case data.IsObject() && isText(kind, "toolConfirmation"):
 		row.ToolName = parser.Text(data.Get("toolName"))
 		row.ToolUseID = parser.Text(data.Get("id"))
-		return joinParts("permission request: "+row.ToolName, parser.Text(data.Get("prompt")),
+		return parser.JoinNonEmpty(" | ", "permission request: "+row.ToolName, parser.Text(data.Get("prompt")),
 			parser.JSONText(orObject(data.Get("arguments"))))
 	case data.IsObject() && isText(kind, "toolConfirmationResponse"):
 		row.ToolUseID = parser.Text(data.Get("id"))
