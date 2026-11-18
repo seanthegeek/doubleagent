@@ -133,9 +133,9 @@ type stateReader struct {
 	keyValues *sqlitefile.Table
 	options   parser.Options
 	bubbles   map[string]keyed
-	// chunks holds the composerConvHeaders rows sorted by key, once
-	// chunksRead is set.
-	chunks     []keyed
+	// chunks holds the composerConvHeaders rows by composer id, each
+	// composer's in key order, once chunksRead is set.
+	chunks     map[string][]keyed
 	chunksRead bool
 }
 
@@ -176,27 +176,38 @@ func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 	return entries
 }
 
-// headerChunks returns a composer's composerConvHeaders:<id>: rows in key
-// order. Every such row is read once, on first use, and sorted by key, so
-// each composer's rows are a range found by binary search.
+// headerChunks returns a composer's composerConvHeaders:<id>:<NNNNNN> rows
+// in key order. Every such row is read once, on first use, sorted by key
+// and filed under the composer its key names, so a composer whose id is the
+// start of another's (a and a:b) never takes the other's chunks.
 func (r *stateReader) headerChunks(ident string) []keyed {
 	if r.keyValues == nil {
 		return nil
 	}
 	if !r.chunksRead {
 		r.chunksRead = true
-		r.chunks = r.store.rows(prefixed(r.keyValues, chunkPrefix))
-		slices.SortStableFunc(r.chunks, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
+		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix))
+		slices.SortStableFunc(rows, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
+		r.chunks = map[string][]keyed{}
+		for _, row := range rows {
+			if owner, ok := chunkComposer(row.key); ok {
+				r.chunks[owner] = append(r.chunks[owner], row)
+			}
+		}
 	}
-	prefix := chunkPrefix + ident + ":"
-	start, _ := slices.BinarySearchFunc(r.chunks, prefix, func(row keyed, target string) int {
-		return strings.Compare(row.key, target)
-	})
-	end := start
-	for end < len(r.chunks) && strings.HasPrefix(r.chunks[end].key, prefix) {
-		end++
+	return r.chunks[ident]
+}
+
+// chunkComposer returns the composer id a chunk key names, the key being
+// composerConvHeaders:<composerId>:<NNNNNN> with a chunk number of ASCII
+// digits; false for a key of any other form.
+func chunkComposer(key string) (string, bool) {
+	rest, found := strings.CutPrefix(key, chunkPrefix)
+	cut := strings.LastIndexByte(rest, ':')
+	if !found || cut < 0 || cut == len(rest)-1 || strings.Trim(rest[cut+1:], "0123456789") != "" {
+		return "", false
 	}
-	return r.chunks[start:end]
+	return rest[:cut], true
 }
 
 // conversation emits the rows of a conversation: its name, its origin,

@@ -138,3 +138,26 @@ func FuzzKeyNamesURLsAndTimeTags(fuzz *testing.F) {
 		_ = tagTime(strings.ToValidUTF8(text, ""))
 	})
 }
+
+func TestAChunkKeyNamesItsComposerByItsNumber(t *testing.T) {
+	tests := []struct {
+		name, key, want string
+		ok              bool
+	}{
+		{"a plain id", "composerConvHeaders:a:000000", "a", true},
+		{"an id holding a colon", "composerConvHeaders:a:b:000001", "a:b", true},
+		{"an empty id", "composerConvHeaders::000000", "", true},
+		{"a number that is not digits", "composerConvHeaders:a:b", "", false},
+		{"no number", "composerConvHeaders:a:", "", false},
+		{"no colon after the id", "composerConvHeaders:a", "", false},
+		{"a number holding a sign", "composerConvHeaders:a:-1", "", false},
+		{"another key", "bubbleId:a:000000", "", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got, ok := chunkComposer(test.key); got != test.want || ok != test.ok {
+				t.Errorf("got %q, %v; want %q, %v", got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
