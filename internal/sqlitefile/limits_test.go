@@ -137,3 +137,34 @@ func TestShortRecordsReadTheDeclaredDefaults(t *testing.T) {
 			len(values), values[:2], values[len(values)-1])
 	}
 }
+
+func TestDefaultsNestedPastSQLitesParserAreNotEvaluated(t *testing.T) {
+	cases := []struct {
+		name    string
+		nesting func(depth int) string
+		want    int64
+	}{
+		{"parentheses", func(depth int) string {
+			return strings.Repeat("(", depth) + "7" + strings.Repeat(")", depth)
+		}, 7},
+		{"signs in parentheses", func(depth int) string {
+			return "(" + strings.Repeat("- ", depth) + "7)"
+		}, 7},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" up to the limit are evaluated", func(t *testing.T) {
+			shape, err := parseCreateTable("CREATE TABLE t(a DEFAULT " + test.nesting(maxDefaultDepth) + ")")
+			if err != nil || shape.columns[0].defaultErr != nil || shape.columns[0].Default.Int != test.want {
+				t.Errorf("default = %v, %v (%v); want %d", shape.columns[0].Default,
+					shape.columns[0].defaultErr, err, test.want)
+			}
+		})
+		t.Run(test.name+" past the limit are refused", func(t *testing.T) {
+			shape, err := parseCreateTable("CREATE TABLE t(a DEFAULT " + test.nesting(maxDefaultDepth+2) + ")")
+			if err != nil || !errors.Is(shape.columns[0].defaultErr, errDefault) ||
+				!strings.Contains(shape.columns[0].defaultErr.Error(), "more than 100 deep") {
+				t.Errorf("default error = %v (%v), want one naming the limit", shape.columns[0].defaultErr, err)
+			}
+		})
+	}
+}

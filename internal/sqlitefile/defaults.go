@@ -24,7 +24,7 @@ func defaultValue(tokens []token, affinity Affinity) (Value, error) {
 		// DEFAULT name, without parentheses, is the name as a string.
 		return applyAffinity(TextValue(tokens[0].name()), affinity), nil
 	}
-	return evaluateDefault(tokens, affinity)
+	return evaluateDefault(tokens, affinity, 0)
 }
 
 // isKeywordLiteral reports whether a bare word is NULL, TRUE, FALSE or a
@@ -37,11 +37,25 @@ func isKeywordLiteral(literal token) bool {
 	return false
 }
 
-// evaluateDefault evaluates the expression tokens hold.
-func evaluateDefault(tokens []token, affinity Affinity) (Value, error) {
-	tokens = withoutOuterParentheses(tokens)
-	for len(tokens) > 1 && tokens[0].isPunctuation("+") {
-		tokens = withoutOuterParentheses(tokens[1:])
+// maxDefaultDepth is how deeply a DEFAULT value may nest: each pair of
+// parentheses, sign and CAST around the value is one level. A default
+// build of SQLite parses with a stack of 100 entries (YYSTACKDEPTH) and
+// refuses deeper text as a parser stack overflow, so it writes no deeper
+// DEFAULT; the bound keeps evaluating one to a hundred scans of its tokens.
+const maxDefaultDepth = 100
+
+// evaluateDefault evaluates the expression tokens hold, nested depth
+// levels inside the DEFAULT clause.
+func evaluateDefault(tokens []token, affinity Affinity, depth int) (Value, error) {
+	for {
+		if depth > maxDefaultDepth {
+			return Value{}, errTooDeep
+		}
+		inner, ok := unwrapDefault(tokens)
+		if !ok {
+			break
+		}
+		tokens, depth = inner, depth+1
 	}
 	switch {
 	case len(tokens) == 0:
@@ -49,32 +63,39 @@ func evaluateDefault(tokens []token, affinity Affinity) (Value, error) {
 	case len(tokens) == 2 && tokens[0].isPunctuation("-") && tokens[1].kind == number:
 		return numberLiteral(tokens[1].text, true, affinity)
 	case len(tokens) > 1 && tokens[0].isPunctuation("-"):
-		return negatedDefault(tokens[1:], affinity)
+		return negatedDefault(tokens[1:], affinity, depth+1)
 	case len(tokens) > 1 && tokens[0].isKeyword("CAST"):
-		return castDefault(tokens[1:], affinity)
+		return castDefault(tokens[1:], affinity, depth+1)
 	case len(tokens) > 1:
 		return Value{}, nil
 	}
 	return literalDefault(tokens[0], affinity)
 }
 
-// withoutOuterParentheses removes parentheses that enclose all of tokens.
-func withoutOuterParentheses(tokens []token) []token {
-	for len(tokens) >= 2 && tokens[0].isPunctuation("(") && tokens[len(tokens)-1].isPunctuation(")") {
-		depth := 0
-		for i, current := range tokens {
-			if current.isPunctuation("(") {
-				depth++
-			} else if current.isPunctuation(")") {
-				depth--
-			}
-			if depth == 0 && i < len(tokens)-1 {
-				return tokens
-			}
-		}
-		tokens = tokens[1 : len(tokens)-1]
+// errTooDeep is the error of a DEFAULT value nested past maxDefaultDepth.
+var errTooDeep = fmt.Errorf("%w: it nests more than %d deep", errDefault, maxDefaultDepth)
+
+// unwrapDefault removes one level that adds nothing to a value: a pair of
+// parentheses around all of tokens, or a leading plus sign.
+func unwrapDefault(tokens []token) ([]token, bool) {
+	if len(tokens) > 1 && tokens[0].isPunctuation("+") {
+		return tokens[1:], true
 	}
-	return tokens
+	if len(tokens) < 2 || !tokens[0].isPunctuation("(") || !tokens[len(tokens)-1].isPunctuation(")") {
+		return tokens, false
+	}
+	depth := 0
+	for i, current := range tokens {
+		if current.isPunctuation("(") {
+			depth++
+		} else if current.isPunctuation(")") {
+			depth--
+		}
+		if depth == 0 && i < len(tokens)-1 {
+			return tokens, false
+		}
+	}
+	return tokens[1 : len(tokens)-1], true
 }
 
 // literalDefault evaluates one token.
@@ -139,8 +160,8 @@ func integerLiteral(text string) (int64, bool) {
 
 // negatedDefault evaluates "- expression": the operand as a number,
 // negated, then the affinity applied.
-func negatedDefault(operand []token, affinity Affinity) (Value, error) {
-	value, err := evaluateDefault(operand, BlobAffinity)
+func negatedDefault(operand []token, affinity Affinity, depth int) (Value, error) {
+	value, err := evaluateDefault(operand, BlobAffinity, depth)
 	if err != nil || value.Type == Null {
 		return value, err
 	}
@@ -169,7 +190,7 @@ func negatedDefault(operand []token, affinity Affinity) (Value, error) {
 // castDefault evaluates "CAST ( expression AS type )" for the conversions
 // that need no rule beyond affinity: numbers to text, numeric text to a
 // number, text to a blob.
-func castDefault(rest []token, affinity Affinity) (Value, error) {
+func castDefault(rest []token, affinity Affinity, depth int) (Value, error) {
 	if len(rest) < 4 || !rest[0].isPunctuation("(") || !rest[len(rest)-1].isPunctuation(")") {
 		return Value{}, errDefault
 	}
@@ -184,7 +205,7 @@ func castDefault(rest []token, affinity Affinity) (Value, error) {
 		return Value{}, errDefault
 	}
 	target := affinityOf(joinTokens(inner[separator+1:]), false)
-	value, err := evaluateDefault(inner[:separator], target)
+	value, err := evaluateDefault(inner[:separator], target, depth)
 	if err != nil {
 		return Value{}, err
 	}
