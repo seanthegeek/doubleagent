@@ -204,7 +204,8 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // parseLegacy emits the rows of a legacy session file: a header line
-// gives the session start, every other line a message's blocks.
+// gives the session start, every other line a message's blocks; a content
+// that is neither text nor an array adds a problem.
 func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	sessionID := strings.TrimSuffix(path.Base(artifact.Rel), ".jsonl")
@@ -228,6 +229,9 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parser.Options, e
 				parser.Text(record.Get("description")), count))
 			emit(row)
 			continue
+		}
+		if content := record.Get("content"); !content.IsString() {
+			parser.ArrayMember(content, "content", number, &problems)
 		}
 		base := p.row(artifact, number, sessionID, projectPath, "", epochJSON(record.Get("created")))
 		reader.blocks(base, parser.Text(record.Get("role")), record.Get("content"),

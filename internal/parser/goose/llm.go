@@ -12,9 +12,9 @@ import (
 )
 
 // llmLog is the state of one request log being read: the last request's
-// row, the rows after it, the model of the last request, and the message
+// row, the rows after it, the model of the last request, the message
 // being assembled from streamed chunks (its first chunk's row, its id, its
-// role and its content blocks so far).
+// role and its content blocks so far) and the problems met.
 type llmLog struct {
 	parser   *Parser
 	artifact *input.Artifact
@@ -23,6 +23,7 @@ type llmLog struct {
 	pending  []timeline.Row
 	model    string
 	current  *assembly
+	problems parser.Problems
 }
 
 // assembly is a message being assembled from streamed chunks.
@@ -44,12 +45,12 @@ func (l *llmLog) flush() {
 }
 
 // parseLLMLog emits the rows of a request log: the last request's row
-// first, then the messages and errors in order, then the bad lines.
+// first, then the messages and errors in order, then the bad lines and
+// the members of the wrong kind.
 func (p *Parser) parseLLMLog(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	var problems parser.Problems
 	log := &llmLog{parser: p, artifact: artifact, reader: &blockReader{parser: p, artifact: artifact,
 		options: options, toolNames: map[string]string{}}}
-	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
+	for number, record := range parser.JSONLines(artifact.DiskPath, &log.problems) {
 		log.record(number, record)
 	}
 	log.flush()
@@ -57,10 +58,11 @@ func (p *Parser) parseLLMLog(artifact *input.Artifact, options parser.Options, e
 		emit(*log.request)
 	}
 	parser.EmitAll(emit, log.pending)
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	parser.EmitAll(emit, p.ErrorRows(artifact, log.problems, "", ""))
 }
 
-// record reads one line of the log.
+// record reads one line of the log; a data that is not an object adds a
+// problem.
 func (l *llmLog) record(number int, record jsonvalue.Value) {
 	if record.Has("input") || record.Has("model_config") {
 		l.flush()
@@ -68,6 +70,9 @@ func (l *llmLog) record(number int, record jsonvalue.Value) {
 		return
 	}
 	data := record.Get("data")
+	if !data.IsObject() && !data.IsNull() {
+		l.problems.Add(number, parser.WrongKind("data", jsonvalue.Object))
+	}
 	switch {
 	case data.IsObject() && data.Has("content"):
 		l.chunk(number, data)
@@ -85,18 +90,22 @@ func (l *llmLog) record(number int, record jsonvalue.Value) {
 }
 
 // requestRow replaces the request row with the one of a request line,
-// whose model the rows after it take.
+// whose model the rows after it take. An input that is not an object, or
+// an input.messages that is not an array, adds a problem.
 func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	config := orObject(record.Get("model_config"))
 	request := record.Get("input")
 	if !request.IsObject() {
+		if !request.IsNull() {
+			l.problems.Add(number, parser.WrongKind("input", jsonvalue.Object))
+		}
 		request = jsonvalue.NewObject()
 	}
 	l.model = parser.Text(config.Get("model_name"))
 	if l.model == "" {
 		l.model = parser.Text(request.Get("model"))
 	}
-	messages := parser.Elements(request.Get("messages"))
+	messages := parser.ArrayMember(request.Get("messages"), "input.messages", number, &l.problems)
 	lastUser := ""
 	for i := len(messages) - 1; i >= 0; i-- {
 		if message := messages[i]; message.IsObject() && parser.IsText(message.Get("role"), "user") {
@@ -115,10 +124,17 @@ func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 
 // chunk reads one streamed chunk: a chunk of the message being assembled
 // is merged into it, any other starts a new message. A chunk without
-// content (usage or metadata) adds nothing.
+// content (usage or metadata) adds nothing; a content that is neither
+// text nor an array adds a problem.
 func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 	content := textBlocks(data.Get("content"))
-	if !content.IsArray() || content.Len() == 0 {
+	if !content.IsArray() {
+		if !content.IsNull() {
+			l.problems.Add(number, parser.WrongKind("data.content", jsonvalue.Array))
+		}
+		return
+	}
+	if content.Len() == 0 {
 		return
 	}
 	messageID := parser.Text(data.Get("id"))
