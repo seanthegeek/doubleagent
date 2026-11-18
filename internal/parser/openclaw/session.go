@@ -1,6 +1,7 @@
 package openclaw
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -220,18 +221,10 @@ func entryText(entryType, record jsonvalue.Value) string {
 			rest = append(rest, member)
 		}
 	}
-	return orText(parser.Text(entryType), "entry") + ": " + parser.JSONText(jsonvalue.NewObject(rest...))
+	return cmp.Or(parser.Text(entryType), "entry") + ": " + parser.JSONText(jsonvalue.NewObject(rest...))
 }
 
 // isText reports whether value is the string text.
 func isText(value jsonvalue.Value, text string) bool {
 	return value.IsString() && value.StringValue() == text
-}
-
-// orText returns text, or fallback when text is empty.
-func orText(text, fallback string) string {
-	if text == "" {
-		return fallback
-	}
-	return text
 }

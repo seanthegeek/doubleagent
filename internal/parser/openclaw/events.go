@@ -1,6 +1,7 @@
 package openclaw
 
 import (
+	"cmp"
 	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -49,7 +50,7 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 		decoded, err := maybeZstd(columnBytes(row.Get("event_zstd")))
 		if err != nil {
 			a.startOnce(current, line, createdAt)
-			a.bad(current, line, fmt.Sprintf("event seq %s could not be decompressed (%s)", seq, err), createdAt)
+			a.bad(current, line, "event seq "+seq+" could not be decompressed ("+err.Error()+")", createdAt)
 			return
 		}
 		data = decoded
@@ -64,7 +65,7 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 		reason = err.Error()
 	}
 	a.startOnce(current, line, createdAt)
-	a.bad(current, line, fmt.Sprintf("event seq %s unreadable: %s", seq, reason), createdAt)
+	a.bad(current, line, "event seq "+seq+" unreadable: "+reason, createdAt)
 }
 
 // startOnce emits the session-start row unless the session has one.
@@ -91,12 +92,12 @@ func (a *agentDatabase) archives() error {
 		extra := "archive=" + columnStr(row.Get("reason")) + " name=" + name
 		current := a.windowSession(sessionID, columnStr(row.Get("session_key")), extra)
 		line, createdAt := int(row.Rowid), parser.ColumnTime(row.Get("created_at"))
-		a.blob(current, line, "archive "+orText(name, sessionID), columnBytes(row.Get("archive_blob")),
+		a.blob(current, line, "archive "+cmp.Or(name, sessionID), columnBytes(row.Get("archive_blob")),
 			createdAt)
 		if columnText(row.Get("reason")) == "deleted" {
-			a.system(current, line, createdAt, fmt.Sprintf("session deleted: %s archive %s (from"+
-				" openclaw-agent.sqlite session_transcript_archives reason deleted, created_at)",
-				orDash(sessionID), orDash(name)), "")
+			a.system(current, line, createdAt, "session deleted: "+orDash(sessionID)+
+				" archive "+orDash(name)+
+				" (from openclaw-agent.sqlite session_transcript_archives reason deleted, created_at)", "")
 		}
 	}
 	return nil
@@ -139,7 +140,7 @@ func (a *agentDatabase) cold() error {
 		sessionID := columnStr(row.Get("session_id"))
 		current := a.windowSession(sessionID, "", "cold_archive="+columnStr(row.Get("archive_name")))
 		line, archivedAt := int(row.Rowid), parser.ColumnTime(row.Get("archived_at"))
-		blobs := []namedBlob{{orText(columnStr(row.Get("archive_name")), sessionID), row.Get("archive_blob")}}
+		blobs := []namedBlob{{cmp.Or(columnStr(row.Get("archive_name")), sessionID), row.Get("archive_blob")}}
 		if a.names["session_transcript_cold_archive_chunks"] {
 			chunks, err := a.chunks(sessionID)
 			if err != nil {
@@ -176,7 +177,7 @@ func (a *agentDatabase) chunks(sessionID string) ([]namedBlob, error) {
 	})
 	blobs := make([]namedBlob, len(rows))
 	for i, row := range rows {
-		blobs[i] = namedBlob{orText(columnStr(row.Get("archive_name")), sessionID), row.Get("archive_blob")}
+		blobs[i] = namedBlob{cmp.Or(columnStr(row.Get("archive_name")), sessionID), row.Get("archive_blob")}
 	}
 	return blobs, err
 }

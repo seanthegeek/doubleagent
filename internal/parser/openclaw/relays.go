@@ -1,8 +1,6 @@
 package openclaw
 
 import (
-	"fmt"
-
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -26,10 +24,10 @@ func (a *agentDatabase) relays() (map[string]bool, error) {
 			parser.ColumnTime(window.Get("created_at")))
 		channel := columnText(window.Get("channel"))
 		if !relayed[sessionID] && isPlatform(channel) {
-			a.store.attach(sessionID, int(window.Rowid), timestamp, fmt.Sprintf(
-				"session relayed: %s account %s %s (from openclaw-agent.sqlite session_windows,"+
-					" started_at)", channel, orDash(columnStr(window.Get("account_id"))),
-				orDash(columnStr(window.Get("chat_type")))), "")
+			a.store.attach(sessionID, int(window.Rowid), timestamp, "session relayed: "+channel+
+				" account "+orDash(columnStr(window.Get("account_id")))+" "+
+				orDash(columnStr(window.Get("chat_type")))+
+				" (from openclaw-agent.sqlite session_windows, started_at)", "")
 			relayed[sessionID] = true
 		}
 		if columnText(window.Get("hook_external_content_source")) == "gmail" {
@@ -71,10 +69,10 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 			sessionID := columnStr(link.Get("session_id"))
 			field := func(name string) string { return orDash(columnStr(conversation.Get(name))) }
 			a.store.attach(sessionID, int(link.Rowid), parser.ColumnTime(link.Get("first_seen_at")),
-				fmt.Sprintf("session relayed: %s account %s %s peer %s thread %s role %s (from"+
-					" openclaw-agent.sqlite session_conversations and conversations, first_seen_at)",
-					channel, field("account_id"), field("kind"), field("peer_id"), field("thread_id"),
-					orDash(columnStr(link.Get("role")))), "")
+				"session relayed: "+channel+" account "+field("account_id")+" "+
+					field("kind")+" peer "+field("peer_id")+" thread "+field("thread_id")+
+					" role "+orDash(columnStr(link.Get("role")))+
+					" (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)", "")
 			relayed[sessionID] = true
 		}
 	}

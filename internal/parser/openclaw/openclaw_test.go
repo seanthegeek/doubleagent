@@ -11,10 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of every store are proved against the Python analyzer by the
+// The rows of every store are proved against the recorded cases by the
 // parser replay (internal/parity/replay), over the recorded fixture
-// databases and transcripts; these tests cover the routing and helpers,
-// with expected values taken from running the analyzer's own functions.
+// databases and transcripts; these tests cover the routing and helpers.
 
 func TestWantsAndSecondaryFollowTheFileNames(t *testing.T) {
 	tests := []struct {
@@ -59,7 +58,7 @@ func decoded(t *testing.T, text string) jsonvalue.Value {
 	return value
 }
 
-func TestPolicySettingsGiveTheAnalyzersText(t *testing.T) {
+func TestPolicySettingsGiveTheirRowText(t *testing.T) {
 	policy := decoded(t, `{"security": "allowlist", "ask": true, "askFallback": null,`+
 		` "autoAllowSkills": {"a": [1]}, "allowlist": [{"pattern": "ls", "argPattern": "-l",`+
 		` "source": "user"}, {"pattern": null}, "x", {"pattern": 5}],`+

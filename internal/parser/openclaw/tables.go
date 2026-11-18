@@ -1,7 +1,7 @@
 package openclaw
 
 import (
-	"fmt"
+	"cmp"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -53,11 +53,11 @@ func (a *agentDatabase) pending() error {
 			continue
 		}
 		a.emit(row)
-		a.emit(a.contextRow(sessionID, line, timestamp, timeline.TurnSystem, fmt.Sprintf(
-			"pending input: %s, not consumed by the transcript (input %s run %s; from"+
-				" openclaw-agent.sqlite session_pending_inputs, accepted_at)",
-			orDash(columnStr(record.Get("state"))), orDash(columnStr(record.Get("input_id"))),
-			orDash(columnStr(record.Get("run_id"))))))
+		a.emit(a.contextRow(sessionID, line, timestamp, timeline.TurnSystem, "pending input: "+
+			orDash(columnStr(record.Get("state")))+", not consumed by the transcript (input "+
+			orDash(columnStr(record.Get("input_id")))+" run "+
+			orDash(columnStr(record.Get("run_id")))+
+			"; from openclaw-agent.sqlite session_pending_inputs, accepted_at)"))
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func (a *agentDatabase) fullText() error {
 		if role == "user" || role == "assistant" {
 			turnType = role
 		} else {
-			text = orText(role, "message") + ": " + text
+			text = cmp.Or(role, "message") + ": " + text
 		}
 		row := a.contextRow(sessionID, sourceLine(record.Get("id")),
 			parser.ColumnTime(record.Get("c4")), turnType, text)
@@ -147,15 +147,15 @@ func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, s
 	}
 	line := int(row.Rowid)
 	a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
-		fmt.Sprintf("channel delivery: %s %s channel %s conversation %s platform message %s%s"+
-			" (from openclaw-agent.sqlite conversation_deliveries, created_at)",
-			field("operation_kind"), field("status"), orDash(columnStr(channel)),
-			field("conversation_id"), field("platform_message_id"), rejection)))
+		"channel delivery: "+field("operation_kind")+" "+field("status")+" channel "+
+			orDash(columnStr(channel))+" conversation "+field("conversation_id")+
+			" platform message "+field("platform_message_id")+rejection+
+			" (from openclaw-agent.sqlite conversation_deliveries, created_at)"))
 	if reply := row.Get("reply_text"); !reply.IsNull() {
 		a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("reply_timestamp")),
-			timeline.TurnSystem, fmt.Sprintf("channel delivery reply: %s (reply message %s; from"+
-				" openclaw-agent.sqlite conversation_deliveries, reply_timestamp)", reply.String(),
-				field("reply_message_id"))))
+			timeline.TurnSystem, "channel delivery reply: "+reply.String()+" (reply message "+
+				field("reply_message_id")+
+				"; from openclaw-agent.sqlite conversation_deliveries, reply_timestamp)"))
 	}
 }
 
@@ -171,9 +171,10 @@ func (a *agentDatabase) tombstones() error {
 	for _, row := range rows {
 		sessionID := columnStr(row.Get("session_id"))
 		a.emit(a.contextRow(sessionID, int(row.Rowid), parser.ColumnTime(row.Get("created_at")),
-			timeline.TurnSystem, fmt.Sprintf("session forgotten from memory: %s agent %s reason=%s"+
-				" (from openclaw-agent.sqlite memory_session_tombstones, created_at)", orDash(sessionID),
-				orDash(columnStr(row.Get("agent_id"))), orDash(columnStr(row.Get("reason"))))))
+			timeline.TurnSystem, "session forgotten from memory: "+orDash(sessionID)+" agent "+
+				orDash(columnStr(row.Get("agent_id")))+" reason="+
+				orDash(columnStr(row.Get("reason")))+
+				" (from openclaw-agent.sqlite memory_session_tombstones, created_at)"))
 	}
 	return nil
 }

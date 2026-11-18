@@ -1,7 +1,7 @@
 package openclaw
 
 import (
-	"fmt"
+	"cmp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -38,17 +38,18 @@ func (s *stateRows) emitAll() {
 		s.row(record, parser.ColumnTime(record.Get("created_at_ms")), grantText(record), "")
 	}
 	for _, record := range s.data["channel_pairing_allow_entries"] {
-		s.row(record, parser.ColumnTime(record.Get("updated_at")), fmt.Sprintf(
-			"permission setting: channel %s account %s allowFrom=%s (from state/openclaw.sqlite"+
-				" channel_pairing_allow_entries, updated_at)", orDash(columnStr(record.Get("channel_key"))),
-			orDash(columnStr(record.Get("account_id"))), record.Get("entry").String()), "")
+		s.row(record, parser.ColumnTime(record.Get("updated_at")), "permission setting: channel "+
+			orDash(columnStr(record.Get("channel_key")))+" account "+
+			orDash(columnStr(record.Get("account_id")))+" allowFrom="+
+			record.Get("entry").String()+
+			" (from state/openclaw.sqlite channel_pairing_allow_entries, updated_at)", "")
 	}
 	for _, record := range s.data["channel_ingress_events"] {
-		s.row(record, parser.ColumnTime(record.Get("received_at")), fmt.Sprintf(
-			"channel ingress: %s account %s status %s: %s (from state/openclaw.sqlite"+
-				" channel_ingress_events, received_at)", orDash(columnStr(record.Get("channel_id"))),
-			orDash(columnStr(record.Get("account_id"))), orDash(columnStr(record.Get("status"))),
-			record.Get("payload_json").String()), "")
+		s.row(record, parser.ColumnTime(record.Get("received_at")), "channel ingress: "+
+			orDash(columnStr(record.Get("channel_id")))+" account "+
+			orDash(columnStr(record.Get("account_id")))+" status "+
+			orDash(columnStr(record.Get("status")))+": "+record.Get("payload_json").String()+
+			" (from state/openclaw.sqlite channel_ingress_events, received_at)", "")
 	}
 	for _, table := range githubPublicationTables() {
 		for _, record := range s.data[table] {
@@ -113,11 +114,11 @@ func backupText(run sqlitefile.Row, manifest jsonvalue.Value) string {
 	if location.Len() == 0 && !pushed {
 		return ""
 	}
-	return fmt.Sprintf("backup uploaded: %s to %s key %s namespace %s (from state/openclaw.sqlite"+
-		" backup_runs, created_at)", orDash(parser.Text(manifest.Get("kind"))),
-		orDash(orText(parser.Text(location.Get("name")), columnStr(run.Get("archive_path")))),
-		orDash(firstStr(location.Get("key"), target)),
-		orDash(firstStr(location.Get("namespace"), manifest.Get("namespace"))))
+	return "backup uploaded: " + orDash(parser.Text(manifest.Get("kind"))) + " to " +
+		orDash(cmp.Or(parser.Text(location.Get("name")), columnStr(run.Get("archive_path")))) +
+		" key " + orDash(firstStr(location.Get("key"), target)) + " namespace " +
+		orDash(firstStr(location.Get("namespace"), manifest.Get("namespace"))) +
+		" (from state/openclaw.sqlite backup_runs, created_at)"
 }
 
 // approvalRow returns the `permission decision:` row of one
@@ -130,11 +131,11 @@ func (s *stateRows) approvalRow(record sqlitefile.Row) timeline.Row {
 		field = "resolved_at_ms"
 	}
 	value := func(name string) string { return orDash(columnStr(record.Get(name))) }
-	decision := orDash(orText(columnStr(record.Get("decision")), columnStr(record.Get("status"))))
-	row := s.stateRow(s.artifact, record.Rowid, parser.ColumnTime(record.Get(field)), fmt.Sprintf(
-		"permission decision: %s status=%s kind=%s resolver=%s reason=%s approval %s"+
-			" (from state/openclaw.sqlite operator_approvals, %s)", decision, value("status"),
-		value("kind"), value("resolver_kind"), value("terminal_reason"), value("approval_id"), field),
+	decision := orDash(cmp.Or(columnStr(record.Get("decision")), columnStr(record.Get("status"))))
+	row := s.stateRow(s.artifact, record.Rowid, parser.ColumnTime(record.Get(field)), "permission decision: "+
+		decision+" status="+value("status")+" kind="+value("kind")+" resolver="+
+		value("resolver_kind")+" reason="+value("terminal_reason")+" approval "+
+		value("approval_id")+" (from state/openclaw.sqlite operator_approvals, "+field+")",
 		columnStr(record.Get("source_session_id")))
 	row.ToolName = columnStr(record.Get("source_tool_name"))
 	row.ToolUseID = columnStr(record.Get("source_tool_call_id"))
@@ -150,12 +151,12 @@ func grantText(record sqlitefile.Row) string {
 	if count := record.Get("use_count"); !count.IsNull() {
 		uses = count.String()
 	}
-	return fmt.Sprintf("permission setting: standing grant %s allow-always cron job %s agent %s"+
-		" binding %s approval %s expires=%s revoked=%s uses=%s (from state/openclaw.sqlite"+
-		" operator_approval_standing_grants, created_at_ms)", value("grant_id"), value("cron_job_id"),
-		value("agent_id"), value("operation_binding"), value("minted_by_approval_id"),
-		orDash(parser.ColumnTime(record.Get("expires_at_ms"))),
-		orDash(parser.ColumnTime(record.Get("revoked_at_ms"))), uses)
+	return "permission setting: standing grant " + value("grant_id") +
+		" allow-always cron job " + value("cron_job_id") + " agent " + value("agent_id") +
+		" binding " + value("operation_binding") + " approval " + value("minted_by_approval_id") +
+		" expires=" + orDash(parser.ColumnTime(record.Get("expires_at_ms"))) + " revoked=" +
+		orDash(parser.ColumnTime(record.Get("revoked_at_ms"))) + " uses=" + uses +
+		" (from state/openclaw.sqlite operator_approval_standing_grants, created_at_ms)"
 }
 
 // publicationText returns the `source host:` text of a GitHub publication
@@ -167,8 +168,8 @@ func publicationText(table string, record sqlitefile.Row) string {
 	if identifier := record.Get("identity_account_id"); !identifier.IsNull() {
 		account = identifier.String()
 	}
-	return fmt.Sprintf("source host: github account %s id %s identity %s; publication %s repository"+
-		" %s branch %s pull request %s (from state/openclaw.sqlite %s, created_at_ms)",
-		value("identity_login"), account, value("identity_source"), value("status"),
-		value("repository"), value("branch"), value("pull_request_url"), table)
+	return "source host: github account " + value("identity_login") + " id " + account +
+		" identity " + value("identity_source") + "; publication " + value("status") +
+		" repository " + value("repository") + " branch " + value("branch") + " pull request " +
+		value("pull_request_url") + " (from state/openclaw.sqlite " + table + ", created_at_ms)"
 }

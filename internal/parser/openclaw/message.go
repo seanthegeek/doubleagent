@@ -37,8 +37,8 @@ func (w *writer) message(current *session, line int, timestamp string, record, m
 	case isText(role, "custom"):
 		w.system(current, line, timestamp, "custom "+parser.Text(message.Get("customType"))+": "+content, "")
 	default:
-		w.system(current, line, timestamp, orText(parser.Text(role), "message")+": "+
-			orText(content, parser.JSONText(message)), "")
+		w.system(current, line, timestamp, cmp.Or(parser.Text(role), "message")+": "+
+			cmp.Or(content, parser.JSONText(message)), "")
 	}
 }
 
@@ -93,7 +93,7 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	stop := message.Get("stopReason")
 	errorMessage := message.Get("errorMessage")
 	if isText(stop, "error") || isText(stop, "aborted") || !errorMessage.IsEmpty() {
-		w.system(current, line, timestamp, "assistant "+orText(parser.Text(stop), "error")+": "+
+		w.system(current, line, timestamp, "assistant "+cmp.Or(parser.Text(stop), "error")+": "+
 			parser.Text(errorMessage), model)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-func TestToolArgsTextGivesTheAnalyzersText(t *testing.T) {
+func TestToolArgsTextGivesTheRowText(t *testing.T) {
 	tests := []struct {
 		name      string
 		arguments string

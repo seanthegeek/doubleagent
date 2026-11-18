@@ -3,7 +3,6 @@ package openclaw
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -72,8 +71,8 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 		createdAt := timeutil.FromValue(inner.Get("created_at"))
 		entry, err := eventJSON(inner.Get("event_json"))
 		if err != nil {
-			w.bad(current, line, fmt.Sprintf("cold archive event seq %s unreadable: %s",
-				inner.Get("seq").Text(), err), createdAt)
+			w.bad(current, line, "cold archive event seq "+inner.Get("seq").Text()+
+				" unreadable: "+err.Error(), createdAt)
 			continue
 		}
 		if entry.IsObject() {
@@ -109,7 +108,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 	case name.copy != "":
 		current.extra = "copy=" + strings.TrimLeft(name.copy, ".")
 	}
-	keyError := ""
+	var keyError error
 	if ok {
 		current.key, keyError = legacyKey(artifact, current.sessionID)
 	}
@@ -123,37 +122,37 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 			out.records(current, blobLines(data, &problems), 0)
 		}
 	}
-	if keyError != "" {
-		problems.Add(0, keyError)
+	if keyError != nil {
+		problems.Add(0, keyError.Error())
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.sessionID, current.cwd))
 }
 
 // legacyKey returns the session key of sessionID from the sibling legacy
-// sessions.json, or the message of the `parser:` row of a sessions.json
-// that cannot be read, does not decode or is not a JSON object. A missing
-// file is no error.
-func legacyKey(artifact *input.Artifact, sessionID string) (string, string) {
+// sessions.json, or an error whose text is the message of the `parser:`
+// row of a sessions.json that cannot be read, does not decode or is not a
+// JSON object. A missing file is no error.
+func legacyKey(artifact *input.Artifact, sessionID string) (string, error) {
 	store := parser.Beside(artifact, "sessions.json")
 	if !parser.RegularFile(store) {
-		return "", ""
+		return "", nil
 	}
 	var problems parser.Problems
 	content, ok := parser.FileBytes(store, &problems)
 	if !ok {
-		return "", problems[0].Message
+		return "", errors.New(problems[0].Message)
 	}
 	data, err := jsonvalue.Decode(content)
 	switch {
 	case err != nil:
-		return "", "sessions.json unparseable (" + err.Error() + ")"
+		return "", errors.New("sessions.json unparseable (" + err.Error() + ")")
 	case !data.IsObject():
-		return "", "sessions.json is not a JSON object"
+		return "", errors.New("sessions.json is not a JSON object")
 	}
 	for _, member := range data.Members() {
 		if entry := member.Value; entry.IsObject() && isText(entry.Get("sessionId"), sessionID) {
-			return member.Key, ""
+			return member.Key, nil
 		}
 	}
-	return "", ""
+	return "", nil
 }
