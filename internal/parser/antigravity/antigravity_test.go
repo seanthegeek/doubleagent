@@ -1,11 +1,16 @@
 package antigravity
 
 import (
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // varintField returns a varint field in wire form.
@@ -122,4 +127,41 @@ func FuzzStepRendering(fuzz *testing.F) {
 		}
 		_ = permissionTexts(step.child("permissions"))
 	})
+}
+
+func TestTheChunksOfATranscriptListTheirDirectoryOnce(t *testing.T) {
+	const logs = ".gemini/antigravity-cli/brain/conv1/.system_generated/logs/"
+	for _, count := range []int{10, 100, 400} {
+		t.Run(strconv.Itoa(count)+" chunks", func(t *testing.T) {
+			home := t.TempDir()
+			var rels []string
+			for i := range count {
+				line := `{"type": "USER_INPUT", "content": "prompt ` + strconv.Itoa(i) + `"}` + "\n"
+				rel := logs + "chunks/transcript_full/" + strconv.Itoa(i) + ".jsonl"
+				path := filepath.Join(home, filepath.FromSlash(rel))
+				if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := osfile.WriteFile(path, []byte(line), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				rels = append(rels, rel)
+			}
+			subject := New()
+			rows := 0
+			for _, rel := range rels {
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
+					Rel: rel, Home: &input.Home{DiskPath: home}}
+				if err := subject.Parse(artifact, parser.Options{}, func(timeline.Row) { rows++ }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if rows != count {
+				t.Errorf("%d rows, want one per chunk's line, %d", rows, count)
+			}
+			if subject.chunks.listings != 1 {
+				t.Errorf("the chunks directory was listed %d times, want once", subject.chunks.listings)
+			}
+		})
+	}
 }
