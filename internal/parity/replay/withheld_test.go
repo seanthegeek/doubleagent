@@ -188,6 +188,13 @@ func withheldForms() []withheldForm {
 			`(account: [^"\n]* )token_present=true("|\n|\z)`,
 			`(account: [^"\n]* )token=`+secrets.DefaultPlaceholder+`("|\n|\z)`,
 			"${1}{withheld token}${2}"),
+		// The recording gave a desktop connection without the token stored
+		// in plain text beside it; the binary adds it, withheld.
+		form("hermes", "connections.json token",
+			`(remote backend: [^"\n]*?)( \(from connections\.json, file mtime\))`,
+			`(remote backend: [^"\n]*?)(?: token=`+secrets.DefaultPlaceholder+`)?( \(from connections\.json, `+
+				`file mtime\))`,
+			"${1}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -311,6 +318,9 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	accountRecorded := "account: ana host=github.com kind=github default=1 token_present=true"
 	accountBinary := "account: ana host=github.com kind=github default=1 token=REDACTED"
 	accountAbsent := "account: ana host=github.com kind=github default=1 token_present=false"
+	connectionRecorded := "remote backend: remote Homelab https://hermes.example.net (from connections.json, " +
+		"file mtime)"
+	connectionBinary := strings.Replace(connectionRecorded, " (from", " token=REDACTED (from", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -356,6 +366,13 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"an account token of another login fails", accountRecorded, strings.Replace(accountBinary, "ana", "bo", 1),
 			false},
 		{"an absent account token passes as written", accountAbsent, accountAbsent, true},
+		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
+		{"a connection's token shown fails", connectionRecorded,
+			strings.Replace(connectionBinary, "REDACTED", "not-real", 1), false},
+		{"a connection of another URL fails", connectionRecorded,
+			strings.Replace(connectionBinary, "hermes.example.net", "other.example", 1), false},
+		{"a connection's token in another placeholder fails", connectionRecorded,
+			strings.Replace(connectionBinary, "REDACTED", "x", 1), false},
 		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
 	}
 	for _, test := range tests {
@@ -377,7 +394,9 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 		"crush crush.json reader error":    "parser: crush.json is not a JSON object",
 		"openclaw exec approvals reader error": "parser: exec_approvals_config raw_json unparseable (Expecting value: " +
 			"line 1 column 22 (char 21); text withheld, it holds the approvals socket token)",
-		"copilot-desktop account token":              "account: ana host=github.com kind=github default=1 token_present=true",
+		"copilot-desktop account token": "account: ana host=github.com kind=github default=1 token_present=true",
+		"hermes connections.json token": "remote backend: remote Homelab https://hermes.example.net " +
+			"(from connections.json, file mtime)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {

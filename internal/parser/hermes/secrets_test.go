@@ -77,3 +77,46 @@ func TestARemoteBackendsURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
 		})
 	}
 }
+
+func TestAConnectionsPlainTokenAndHeadersAreShownUnlessWithheld(t *testing.T) {
+	document := `{"connections": [{"kind": "remote", "label": "work", "url": "https://hermes.example/", ` +
+		`"token": {"encoding": "plain", "value": "FIXTURE-TOKEN"}, ` +
+		`"headers": {"encoding": "plain", "value": "{\"X-Key\": \"FIXTURE-HEADER\"}"}}, ` +
+		`{"kind": "cloud", "label": "cloud", "url": "https://c.example/", ` +
+		`"token": {"encoding": "safeStorage", "value": "Y2lwaGVydGV4dA=="}}]}`
+	shown := []string{"token=FIXTURE-TOKEN headers={\"X-Key\": \"FIXTURE-HEADER\"}", "token=REDACTED headers=REDACTED",
+		"token=[withheld] headers=[withheld]", "token= headers="}
+	for i, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := parseWith(t, mode.setting, ".config/Hermes/connections.json", document)
+			want := []string{
+				"remote backend: remote work https://hermes.example/ " + shown[i] + " (from connections.json, file mtime)",
+				"remote backend: cloud cloud https://c.example/ (from connections.json, file mtime)",
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+			if mode.setting.Withhold && strings.Contains(strings.Join(got, "\n"), "FIXTURE") {
+				t.Errorf("a withheld run shows a secret: %q", got)
+			}
+		})
+	}
+}
+
+func TestAnUploadedDebugReportsURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
+	document := `[{"url": "https://paste.example/r/1?token=FIXTURE-TOKEN&x=1", "expire_at": 1790845200}]`
+	urls := []string{"FIXTURE-TOKEN", "REDACTED", "[withheld]", ""}
+	for i, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := parseWith(t, mode.setting, ".hermes/pastes/pending.json", document)
+			want := []string{"debug report uploaded: https://paste.example/r/1?token=" + urls[i] +
+				"&x=1 (from pastes/pending.json, expire_at minus 6 hours)"}
+			if !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+			if mode.setting.Withhold && strings.Contains(strings.Join(got, "\n"), "FIXTURE") {
+				t.Errorf("a withheld run shows a secret: %q", got)
+			}
+		})
+	}
+}

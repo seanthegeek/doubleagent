@@ -1429,6 +1429,11 @@ files) carry secrets too. `request_dump_*` files are redacted before writing
 `sessions.origin_json` holds messaging user and chat identifiers. The same holds for the copies
 of `state.db` in `state-snapshots/` and [State database copies](#state-database-copies).
 
+The desktop app's `connections.json` token and headers, when the app stored them in plain text,
+are shown in the `remote backend:` row as written, as are the credentials of a remote backend's or
+an uploaded debug report's URL; `timeline --no-secrets` and `detect --no-secrets` replace each with
+the placeholder ([Sync, relay and origin rows](#sync-relay-and-origin-rows)).
+
 ### Parser plan
 
 Inputs, under any Hermes home (a home's `.hermes`, `.hermes<suffix>`, `AppData/Local/hermes`,
@@ -1637,7 +1642,8 @@ The parser yields no `session synced:` row and leaves `records_sync` off. It rea
 `pastes/pending.json` and yields one `system` row per entry, `debug report uploaded: <url> (from
 pastes/pending.json, expire_at minus 6 hours)`, timestamped `expire_at` minus 21600 seconds with
 an empty `session_id`, which shows that logs left the host in the last day and marks no session;
-bad entries are under [Bad-line rows](#bad-line-rows).
+`timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with the
+placeholder. Bad entries are under [Bad-line rows](#bad-line-rows).
 
 Relay: a gateway session's messages also live on the messaging platform, which is the channel the
 user typed in, not a sync; `sessions.chat_id`, `origin_json` and `messages.platform_message_id`
@@ -1660,10 +1666,13 @@ The parser reads `connections.json`
 ([Desktop connection registry](#desktop-connection-registry)) and yields one `system` row per
 connection that is not `local`, `remote backend: <kind> <label> <url, or user@host:port for ssh>
 (from connections.json, file mtime)` followed by ` org=<org>`, ` name=<name>` and
-` profile=<remoteProfile>` when recorded, and `remote backend quarantined by the app: <reason>
-(from connections.json, file mtime)` per quarantined entry, with no session (`session origin:`
-needs one) and never printing `token` or `headers`; a URL's user name and password, either of which
-can be a token, are shown as written, or as `REDACTED` when the run withholds secrets. It sets no
+` profile=<remoteProfile>` when recorded, then ` token=<token>` and ` headers=<headers>` when the
+app stored them in plain text (`{"encoding": "plain", "value": ...}`; an envelope of another
+encoding is the key store's ciphertext and is not read), and `remote backend quarantined by the
+app: <reason> (from connections.json, file mtime)` per quarantined entry, with no session
+(`session origin:` needs one). The token, the headers and a URL's user name and password, any of
+which can be a credential, are shown as written; `timeline --no-secrets` and `detect --no-secrets`
+replace each with the placeholder. It sets no
 `records_origin`. The
 single-connection `connection.json` is not read.
 

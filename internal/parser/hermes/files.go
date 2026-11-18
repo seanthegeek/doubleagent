@@ -76,7 +76,7 @@ func (p *Parser) parsePastes(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		row := p.system(artifact, position, noSession(), "debug report uploaded: "+
-			entry.Get("url").Text()+" (from pastes/pending.json, expire_at minus 6 hours)")
+			parser.URLText(artifact, entry.Get("url").Text())+" (from pastes/pending.json, expire_at minus 6 hours)")
 		expire := entry.Get("expire_at")
 		if seconds, ok := expire.Int(); ok && expire.IsInt() {
 			row.TimestampUTC = timeutil.FromInt(seconds - pasteLifetime)
@@ -260,9 +260,9 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 
 // parseConnections emits the desktop app's remote backends and the entries
 // it quarantined, at the file's mtime: one "remote backend:" row per
-// connection that is not the app's own local runtime, with org=, name= and
-// profile= when recorded. Tokens and headers are never printed. A
-// quarantined that is not an array adds a problem.
+// connection that is not the app's own local runtime, with org=, name=,
+// profile=, token= and headers= when recorded. A quarantined that is not an
+// array adds a problem.
 func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	document, ok := p.readJSON(artifact, "connections.json", true, &problems)
@@ -292,8 +292,8 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // connectionText returns the "remote backend:" text of one connection: its
-// url through parser.URLText, which withholds the credentials it may carry
-// when the run withholds secrets, else [user@]host[:port].
+// url through parser.URLText, else [user@]host[:port], and the token and
+// headers stored in plain text through parser.SecretText.
 func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string {
 	target := connection.Get("url")
 	if target.IsString() {
@@ -316,5 +316,22 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 			text += " " + pair[1] + "=" + parser.SettingValue(value)
 		}
 	}
+	for _, name := range []string{"token", "headers"} {
+		if value, ok := plainSecret(connection.Get(name)); ok {
+			text += " " + name + "=" + parser.SecretText(artifact, value)
+		}
+	}
 	return text
+}
+
+// plainSecret returns the value of a connection's secret envelope that the
+// app wrote in plain text, {"encoding": "plain", "value": <secret>}: a
+// string as it is, JSON as compact text. An envelope of another encoding is
+// ciphertext of the operating system's key store and is not read.
+func plainSecret(envelope jsonvalue.Value) (string, bool) {
+	value := envelope.Get("value")
+	if !parser.IsText(envelope.Get("encoding"), "plain") || value.IsEmpty() {
+		return "", false
+	}
+	return parser.Text(value), true
 }
