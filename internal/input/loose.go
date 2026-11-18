@@ -1,6 +1,7 @@
 package input
 
 import (
+	"context"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -35,7 +36,7 @@ type hit struct {
 // discoverLoose finds the homes of a loose tree by catalog hits and makes
 // their files artifacts. fs/ without a manifest is taken as the root; a
 // root that is itself an agent directory makes its parent the one home.
-func (c *Collection) discoverLoose(matcher *catalog.Matcher) error {
+func (c *Collection) discoverLoose(ctx context.Context, matcher *catalog.Matcher) error {
 	tree := c.Root
 	if lstatMode(joinPath(c.Root, "fs")).IsDir() {
 		if _, err := osfile.Lstat(joinPath(c.Root, "manifest.jsonl")); err != nil {
@@ -43,17 +44,17 @@ func (c *Collection) discoverLoose(matcher *catalog.Matcher) error {
 			c.Notes = append(c.Notes, "fs/ found without manifest.jsonl; treating fs/ as the root")
 		}
 	}
-	if c.agentDirectoryRoot(matcher, tree) {
-		return nil
+	if found, err := c.agentDirectoryRoot(ctx, matcher, tree); found || err != nil {
+		return err
 	}
-	c.walkForHomes(matcher, directory{path: tree})
-	return nil
+	return c.walkForHomes(ctx, matcher, directory{path: tree})
 }
 
 // agentDirectoryRoot handles a tree that is an agent directory (~/.claude
 // copied on its own): its parent is the home, restricted to the tree, and
 // nothing inside it is a home. It reports whether the tree was one.
-func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree string) bool {
+func (c *Collection) agentDirectoryRoot(ctx context.Context, matcher *catalog.Matcher,
+	tree string) (bool, error) {
 	name := filepath.Base(tree)
 	for i := range matcher.Home {
 		pattern := &matcher.Home[i]
@@ -66,10 +67,9 @@ func (c *Collection) agentDirectoryRoot(matcher *catalog.Matcher, tree string) b
 		c.Homes = append(c.Homes, home)
 		hits := []hit{{pattern: pattern, path: tree, rel: []string{name}}}
 		hits = append(hits, c.nestedMatches(matcher, tree)...)
-		c.addHits(home, hits)
-		return true
+		return true, c.addHits(ctx, home, hits)
 	}
-	return false
+	return false, nil
 }
 
 // resolvedParent returns the elements of the tree's parent once its links
@@ -85,9 +85,12 @@ func resolvedParent(tree string) []string {
 // entries in name order: a directory holding a name that may begin a
 // catalog glob and a real agent's hit is a home and is not entered
 // further; links are never entered.
-func (c *Collection) walkForHomes(matcher *catalog.Matcher, start directory) {
+func (c *Collection) walkForHomes(ctx context.Context, matcher *catalog.Matcher, start directory) error {
 	stack := []directory{start}
 	for len(stack) > 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		entries, err := c.listDirectory(current.path)
@@ -100,12 +103,15 @@ func (c *Collection) walkForHomes(matcher *catalog.Matcher, start directory) {
 			if hasAgentHit(hits) {
 				home := makeHome(current, c.Host)
 				c.Homes = append(c.Homes, home)
-				c.addHits(home, hits)
+				if err := c.addHits(ctx, home, hits); err != nil {
+					return err
+				}
 				continue
 			}
 		}
 		stack = append(stack, subdirectories(current, entries)...)
 	}
+	return nil
 }
 
 // holdsFirstSegment reports whether any entry's name matches the first

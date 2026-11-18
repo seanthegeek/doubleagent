@@ -1,6 +1,7 @@
 package input
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -23,7 +24,7 @@ const tempNameCharacters = "abcdefghijklmnopqrstuvwxyz0123456789_"
 // returns its collection: kind archive when it unpacked to manifest.jsonl
 // and fs/ at the top, loose otherwise. A `.sha256` file beside the archive
 // is checked, its result a note.
-func openArchive(source, workDir string) (*Collection, error) {
+func openArchive(ctx context.Context, source, workDir string) (*Collection, error) {
 	// Opened once first, so an unreadable archive fails with its reason
 	// before a directory is made.
 	file, err := osfile.Open(source)
@@ -45,7 +46,7 @@ func openArchive(source, workDir string) (*Collection, error) {
 		}
 		collection.Notes = append(collection.Notes, note)
 	}
-	if err := extractArchive(source, destination); err != nil {
+	if err := extractArchive(ctx, source, destination); err != nil {
 		_ = collection.Cleanup()
 		return nil, err
 	}

@@ -84,7 +84,7 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 	case "fleet":
 		var options FleetOptions
 		options, help, err = ParseFleet(args[1:])
-		run = func() int { return runFleet(options, stdout, stderr) }
+		run = func() int { return runFleet(ctx, options, stdout, stderr) }
 	case "catalog":
 		var options CatalogOptions
 		options, help, err = ParseCatalog(args[1:])
@@ -134,13 +134,13 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 // without a user the --user name, listing a loose tree through env's
 // lister. The message returned with a nil collection is the error line's
 // text.
-func openInput(options InputOptions, found *catalog.Matcher,
+func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher,
 	env Environment) (*input.Collection, string) {
 	workDir := options.WorkDir
 	if workDir == "" && options.workDirSet {
 		workDir = "."
 	}
-	collection, err := input.Open(options.Input, input.Options{Matcher: found, WorkDir: workDir,
+	collection, err := input.Open(ctx, options.Input, input.Options{Matcher: found, WorkDir: workDir,
 		Host: options.Host, ReadDir: env.ReadDir})
 	var inputError *input.Error
 	switch {
@@ -159,9 +159,11 @@ func openInput(options InputOptions, found *catalog.Matcher,
 	return collection, ""
 }
 
-// closeInput removes an extracted archive, or names where it was kept.
-func closeInput(collection *input.Collection, keep bool, stderr io.Writer) {
-	if !keep {
+// closeInput removes an extracted archive, or names where it was kept. An
+// interrupted run removes it whatever --keep-extracted says, as a run
+// leaves nothing half made behind.
+func closeInput(ctx context.Context, collection *input.Collection, keep bool, stderr io.Writer) {
+	if !keep || ctx.Err() != nil {
 		_ = collection.Cleanup()
 		return
 	}

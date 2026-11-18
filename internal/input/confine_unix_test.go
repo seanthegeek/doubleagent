@@ -39,7 +39,7 @@ func TestALinkedDirectoryInsideADirectoryCollectionIsNeverPassedThrough(t *testi
 			root := filepath.Join(dir, "collection")
 			writeManifest(t, root, test.rows(root)...)
 			symlink(t, outside, filepath.Join(root, filepath.FromSlash(test.link)))
-			collection, err := Open(root, Options{Matcher: matcherOf(t, "")})
+			collection, err := Open(t.Context(), root, Options{Matcher: matcherOf(t, "")})
 			opened(t, err)
 			wantConfined(t, collection)
 			wantProblem(t, collection, test.problem)

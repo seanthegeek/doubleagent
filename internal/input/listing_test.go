@@ -99,7 +99,7 @@ func TestALooseTreeOpensInOneOrderWhateverTheListingOrder(t *testing.T) {
 	writeTree(t, dir, files)
 	var orders [2][]string
 	for i, reverse := range []bool{false, true} {
-		collection, err := Open(filepath.Join(dir, "home"),
+		collection, err := Open(t.Context(), filepath.Join(dir, "home"),
 			Options{Matcher: matcherOf(t, ""), ReadDir: reversedListing(reverse)})
 		opened(t, err)
 		orders[i] = openedOrder(collection)

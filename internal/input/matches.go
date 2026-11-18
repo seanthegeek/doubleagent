@@ -1,6 +1,7 @@
 package input
 
 import (
+	"context"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -76,13 +77,13 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base string, re
 // specific pattern claims a file first (.gemini/antigravity-cli before the
 // enclosing .gemini), as the collectors' nested-claim rule does, and each
 // file is attributed once.
-func (c *Collection) addHits(home *Home, hits []hit) {
+func (c *Collection) addHits(ctx context.Context, home *Home, hits []hit) error {
 	slices.SortStableFunc(hits, func(first, second hit) int {
 		return second.pattern.Depth() - first.pattern.Depth()
 	})
 	seen := map[string]bool{}
 	for _, found := range hits {
-		c.walkFiles(found.path, found.rel, func(diskPath string, rel []string) {
+		err := c.walkFiles(ctx, found.path, found.rel, func(diskPath string, rel []string) {
 			if seen[diskPath] {
 				return
 			}
@@ -95,30 +96,39 @@ func (c *Collection) addHits(home *Home, hits []hit) {
 			c.Artifacts = append(c.Artifacts, &Artifact{DiskPath: diskPath, Original: original,
 				Rel: relText, Agent: found.pattern.Agent, Home: home})
 		})
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // walkFiles calls yield for start when it is a regular file, or for every
 // file below it when it is a directory, top-down in name order; links
 // are never followed or yielded. A start that is neither, or a directory
-// that cannot be listed, is a problem.
-func (c *Collection) walkFiles(start string, rel []string, yield func(string, []string)) {
+// that cannot be listed, is a problem. It stops with ctx's error once that
+// is cancelled.
+func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
+	yield func(string, []string)) error {
 	info, err := osfile.Lstat(start)
 	switch {
 	case err != nil:
 		c.recordProblem(describeError(start, err))
-		return
+		return nil
 	case info.Mode()&fs.ModeSymlink != 0:
-		return
+		return nil
 	case info.Mode().IsRegular():
 		yield(start, rel)
-		return
+		return nil
 	case !info.IsDir():
 		c.recordProblem(describeError(start, errNotDirectory))
-		return
+		return nil
 	}
 	stack := []directory{{path: start, rel: rel}}
 	for len(stack) > 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		current := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		entries, err := c.listDirectory(current.path)
@@ -133,4 +143,5 @@ func (c *Collection) walkFiles(start string, rel []string, yield func(string, []
 		}
 		stack = append(stack, subdirectories(current, entries)...)
 	}
+	return nil
 }

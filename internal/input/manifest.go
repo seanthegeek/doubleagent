@@ -2,6 +2,7 @@ package input
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/fs"
 	"strconv"
@@ -47,7 +48,7 @@ type manifestLoad struct {
 
 // loadCollected reads collection.json and manifest.jsonl under the root and
 // attributes every collected file row to its home.
-func (c *Collection) loadCollected(matcher *catalog.Matcher) error {
+func (c *Collection) loadCollected(ctx context.Context, matcher *catalog.Matcher) error {
 	c.readSummary()
 	if c.Host == "" && !c.Summary.IsEmpty() {
 		c.Host = textOf(c.Summary.Get("hostname"))
@@ -63,6 +64,9 @@ func (c *Collection) loadCollected(matcher *catalog.Matcher) error {
 	c.Manifest = rows
 	load := newManifestLoad(c, matcher)
 	for _, row := range rows {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		load.add(row)
 	}
 	load.finish()

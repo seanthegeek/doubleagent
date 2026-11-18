@@ -200,13 +200,16 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
-	collection, message := openInput(options.InputOptions, found, env)
+	collection, message := openInput(ctx, options.InputOptions, found, env)
 	if collection == nil {
 		return printError(ctx, stderr, message)
 	}
-	defer closeInput(collection, options.KeepExtracted, stderr)
+	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
 	parsed := parserAgents(env.Parsers())
 	detected := detect(collection, parsed, &collection.Problems)
+	if ctx.Err() != nil {
+		return printError(ctx, stderr, "")
+	}
 	if options.JSON {
 		_ = writeJSON(stdout, detectDocument(detected, collection, options.Files))
 		return ExitFound
