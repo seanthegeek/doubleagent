@@ -180,7 +180,7 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	if !found {
 		return false
 	}
-	sessionID := text(record.Get("sessionId"))
+	sessionID := record.Get("sessionId").Text()
 	if sessionID == "" {
 		sessionID = strings.TrimSuffix(filepath.Base(artifact.Rel), ".json")
 	}
@@ -199,7 +199,7 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 			}
 		}
 	}
-	cliID, named := parser.Component(text(record.Get("cliSessionId")))
+	cliID, named := parser.Component(record.Get("cliSessionId").Text())
 	if !named {
 		return false
 	}
