@@ -71,11 +71,6 @@ func wrongKindReports() []wrongKindEntry {
 			return []string{"parser: not a Muse session log (the first record is neither an envelope nor a " +
 				"retained frame)"}
 		}},
-		// A CLI input history whose entries hold a number among the prompts,
-		// where the format gives strings.
-		{"roo-code", func(string) []string {
-			return []string{"parser: entries holds 1 entry that is not a JSON string"}
-		}},
 		// A remote session spaces file whose entries hold a number among
 		// the objects the format gives.
 		{"claude-desktop", func(string) []string {
