@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// syntheticCatalog is the small catalog the analyzer's project and claim
-// tests use, with one home entry whose segment is a class.
+// syntheticCatalog is the small catalog of the project and claim tests,
+// with one home entry whose segment is a class.
 const syntheticCatalog = `# home artifacts (agent|glob relative to home)
 claude-code|.claude
 pi|.pi
