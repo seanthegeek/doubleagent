@@ -14,9 +14,9 @@ import (
 // what SQLite reads from each in testdata/fixture_tables.txt, are built by
 // testdata/fixture_tables.py.
 
-// unpackDatabases writes the files of testdata/fixture_databases.tar.gz
-// under directory.
-func unpackDatabases(t *testing.T, directory string) {
+// archivedFiles returns the files of testdata/fixture_databases.tar.gz by
+// their slash-separated names.
+func archivedFiles(t *testing.T) map[string][]byte {
 	t.Helper()
 	file, err := os.Open(filepath.Join("testdata", "fixture_databases.tar.gz"))
 	if err != nil {
@@ -27,11 +27,12 @@ func unpackDatabases(t *testing.T, directory string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	files := map[string][]byte{}
 	reader := tar.NewReader(compressed)
 	for {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
-			return
+			return files
 		}
 		if err != nil {
 			t.Fatal(err)
@@ -39,11 +40,18 @@ func unpackDatabases(t *testing.T, directory string) {
 		if header.Typeflag != tar.TypeReg {
 			t.Fatalf("%s: not a regular file", header.Name)
 		}
-		data, err := io.ReadAll(reader)
-		if err != nil {
+		if files[header.Name], err = io.ReadAll(reader); err != nil {
 			t.Fatal(err)
 		}
-		target := filepath.Join(directory, filepath.FromSlash(header.Name))
+	}
+}
+
+// unpackDatabases writes the files of testdata/fixture_databases.tar.gz
+// under directory.
+func unpackDatabases(t *testing.T, directory string) {
+	t.Helper()
+	for name, data := range archivedFiles(t) {
+		target := filepath.Join(directory, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			t.Fatal(err)
 		}
