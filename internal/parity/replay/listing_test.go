@@ -40,9 +40,10 @@ type filePair struct {
 // system's, so where deduplication kept one of two copies of a row that
 // differ only in source_file and source_line, the two may keep different
 // copies. It rewrites, in got's outputs, each such row to the recorded
-// copy, and each session that differs only in a source_file one of those
-// rows moved, and returns how many rows it rewrote.
-func otherOfEqualRows(want, got map[string]string) int {
+// copy when held shows that the recording's parse of got's file read the
+// same record, and each session that differs only in a source_file one of
+// those rows moved, and returns how many rows it rewrote.
+func otherOfEqualRows(want, got map[string]string, held heldRecords) int {
 	total := 0
 	for path, recorded := range want {
 		directory, found := strings.CutSuffix(path, timelineName)
@@ -51,12 +52,12 @@ func otherOfEqualRows(want, got map[string]string) int {
 		}
 		var pairs []filePair
 		got[path], pairs = rewriteCopies(recorded, got[path], []string{"source_file", "source_line"},
-			func(filePair) bool { return true })
+			func(pair filePair, wanted string) bool { return held[pair.got][recordIdentity(wanted)] })
 		total += len(pairs)
 		sessions := directory + sessionsName
 		if _, ok := want[sessions]; ok && len(pairs) > 0 {
 			got[sessions], _ = rewriteCopies(want[sessions], got[sessions], []string{"source_file"},
-				func(pair filePair) bool { return slices.Contains(pairs, pair) })
+				func(pair filePair, _ string) bool { return slices.Contains(pairs, pair) })
 		}
 	}
 	return total
@@ -66,7 +67,7 @@ func otherOfEqualRows(want, got map[string]string) int {
 // want that got lacks when the two JSON records are equal but for the
 // ignored keys, come from different source files and allowed accepts the
 // pair. It returns the rewritten text and the pairs it rewrote.
-func rewriteCopies(want, got string, ignored []string, allowed func(filePair) bool) (string,
+func rewriteCopies(want, got string, ignored []string, allowed func(pair filePair, wanted string) bool) (string,
 	[]filePair) {
 	gotLines := strings.Split(got, "\n")
 	wantOnly, gotOnly := unmatchedLines(strings.Split(want, "\n"), gotLines)
@@ -82,7 +83,7 @@ func rewriteCopies(want, got string, ignored []string, allowed func(filePair) bo
 		}
 		for j, gotKey := range gotKeys {
 			pair := filePair{wantKey.file, gotKey.file}
-			if gotKey.ok && gotKey.key == wantKey.key && gotKey.file != wantKey.file && allowed(pair) {
+			if gotKey.ok && gotKey.key == wantKey.key && gotKey.file != wantKey.file && allowed(pair, wanted) {
 				gotLines[gotOnly[j]] = wanted
 				gotOnly, gotKeys = slices.Delete(gotOnly, j, j+1), slices.Delete(gotKeys, j, j+1)
 				pairs = append(pairs, pair)
@@ -91,6 +92,63 @@ func rewriteCopies(want, got string, ignored []string, allowed func(filePair) bo
 		}
 	}
 	return strings.Join(gotLines, "\n"), pairs
+}
+
+// heldRecords holds, by source file, the identities of the records a
+// case's recorded parses read from it.
+type heldRecords map[string]map[string]bool
+
+// heldBy returns the records the recorded parses of one run read, by
+// source file, with root in place of the recording's root; each record is
+// held in its compared form under every set of the row differences of
+// format, the forms a timeline line is compared in.
+func heldBy(calls *recordedCalls) heldRecords {
+	held := heldRecords{}
+	numbers := rowFormatNumbers()
+	var sets []enabledSet
+	for mask := range 1 << len(numbers) {
+		enabled := enabledSet{}
+		for i, number := range numbers {
+			enabled[number] = mask&(1<<i) != 0
+		}
+		sets = append(sets, enabled)
+	}
+	for _, queue := range calls.parses {
+		for _, recorded := range queue {
+			for _, row := range recorded.Result.Rows {
+				file := calls.root(row.SourceFile)
+				if held[file] == nil {
+					held[file] = map[string]bool{}
+				}
+				turnType := calls.root(row.TurnType)
+				for _, enabled := range sets {
+					held[file][identity(calls.root(row.TimestampUTC),
+						wholeValueForm(calls.root(row.SessionID), enabled), turnType,
+						rowTextForm(turnType, calls.root(row.Text), enabled))] = true
+				}
+			}
+		}
+	}
+	return held
+}
+
+// identity returns what names a record across two copies of it.
+func identity(timestamp, sessionID, turnType, text string) string {
+	return encodeJSON([]string{timestamp, sessionID, turnType, text}, "")
+}
+
+// recordIdentity returns the identity of a timeline line's record.
+func recordIdentity(line string) string {
+	var fields struct {
+		TimestampUTC string `json:"timestamp_utc"`
+		SessionID    string `json:"session_id"`
+		TurnType     string `json:"turn_type"`
+		Text         string `json:"text"`
+	}
+	if json.Unmarshal([]byte(line), &fields) != nil {
+		return ""
+	}
+	return identity(fields.TimestampUTC, fields.SessionID, fields.TurnType, fields.Text)
 }
 
 // lineKey is what recordKey gives for one line, read once.
