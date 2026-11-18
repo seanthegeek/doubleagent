@@ -3,11 +3,14 @@ package tomldoc
 import (
 	"bufio"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
 )
 
 // render writes a parsed value as compact text: a table as {key=value;...}
@@ -167,6 +170,10 @@ func FuzzParse(fuzzer *testing.F) {
 	for _, test := range loadDocuments(fuzzer) {
 		fuzzer.Add(test.text)
 	}
+	for _, text := range []string{nestedArray(maxDepth), nestedInline(maxDepth),
+		"[" + dottedKey(maxDepth+1) + "]\n", nestedArray(100000)} {
+		fuzzer.Add(text)
+	}
 	fuzzer.Fuzz(func(t *testing.T, text string) {
 		table, err := Parse(text)
 		if err != nil {
@@ -176,4 +183,34 @@ func FuzzParse(fuzzer *testing.F) {
 			SettingText(entry.Value)
 		}
 	})
+}
+
+func TestSyntaxErrorKeepsTheReadersError(t *testing.T) {
+	_, err := Parse("a = \n")
+	var parseErr toml.ParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("got %v, want the reader's ParseError as the cause", err)
+	}
+}
+
+func TestInlineTableKeyOrder(t *testing.T) {
+	tests := []struct {
+		name, text, want string
+	}{
+		{"an inline table in a key's array keeps document order", "y = [1, {z=1,a=2}]\n", "{79=[1,{7a=1;61=2}]}"},
+		{"a sibling holding a table sorts the keys", "y = [1, {z=1,a=2}, [{c=1}]]\n", "{79=[1,{61=2;7a=1},[{63=1}]]}"},
+		{"an inline table holding a table sorts the keys", "y = [{z=1,a={b=1}}]\n", "{79=[{61={62=1};7a=1}]}"},
+		{"an array inside an array sorts the keys", "y = [[{z=1,a=2}]]\n", "{79=[[{61=2;7a=1}]]}"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			table, err := Parse(test.text)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := render(Value{kind: KindTable, table: table}); got != test.want {
+				t.Fatalf("got %s, want %s", got, test.want)
+			}
+		})
+	}
 }
