@@ -43,9 +43,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	parser.EmitAll(emit, rows)
 }
 
-// valueKey returns the key a column value has in a Python dict: numbers
-// equal in value share one key whatever their type, and text and blobs
-// never equal a number.
+// valueKey returns the key under which a column value is looked up:
+// numbers equal in value share one key whatever their storage class, and
+// text and blobs never equal a number.
 func valueKey(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Integer:
@@ -63,7 +63,8 @@ func valueKey(value sqlitefile.Value) string {
 	return "null"
 }
 
-// orText returns a column as Python's str(value or "") writes it.
+// orText returns a column as row text, "" for an empty value (NULL, zero,
+// or empty text or blob).
 func orText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
