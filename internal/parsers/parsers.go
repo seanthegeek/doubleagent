@@ -56,10 +56,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// constructors returns the constructor of every parser, in registry order:
-// the order of the analyzer's parser list, which decides the order of rows
-// whose sort keys tie. A new parser adds its line at its place in that
-// order.
+// constructors returns the constructor of every parser, in registry order,
+// which decides the order of rows whose sort keys tie and so is part of the
+// output: a new parser adds its line at its place, and no line moves.
 func constructors() []func() parser.Parser {
 	return []func() parser.Parser{
 		func() parser.Parser { return claudecode.New() },
@@ -123,9 +122,9 @@ func ByAgent(list []parser.Parser) map[string][]parser.Parser {
 }
 
 // NoTranscripts returns the catalog agents whose collected files hold
-// nothing to parse, which the analyzer reports as collected only rather
-// than as parsers still to write: the "collected" rows of the agent table
-// in docs/agents.md.
+// nothing to parse, which the analysis summary reports as collected only
+// rather than as parsers still to write: the "collected" rows of the agent
+// table in docs/agents.md.
 func NoTranscripts() []string {
 	return []string{
 		"camel-ai", // an OAuth token and config; its chats are under the working directory

@@ -58,7 +58,7 @@ func names(list []parser.Parser) []string {
 	return found
 }
 
-func TestRegistryRoutesAnArtifactAsTheAnalyzerDoes(t *testing.T) {
+func TestRegistryOffersAnArtifactToItsAgentsParsersThenItsReaders(t *testing.T) {
 	codex := &stub{Base: parser.NewBase("codex-cli", "codex")}
 	desktop := &readerStub{stub{Base: parser.NewBase("chatgpt-desktop", "desktop"),
 		reads: []string{"codex-cli", "codex-cli"}}}
