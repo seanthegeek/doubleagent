@@ -21,7 +21,7 @@ func TestTheTableNumbersEachAnalysisDifferenceOnceInOrderFrom101(t *testing.T) {
 		previous = entry.Number
 		kinds := 0
 		for _, set := range []bool{entry.Text != nil, entry.Rows != nil, entry.Excludes != nil,
-			entry.Outputs != nil, entry.Arguments != nil, entry.Scope != ""} {
+			entry.Outputs != nil, entry.Arguments != nil, entry.Scope != "", entry.Added != nil} {
 			if set {
 				kinds++
 			}

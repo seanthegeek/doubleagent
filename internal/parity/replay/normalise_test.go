@@ -15,7 +15,8 @@ import (
 // its shape: Text rewrites each place it occurs into a form both sides
 // share, Rows puts rows of the shape into one order, Excludes reports a case
 // no rewriting can match, Outputs rewrites a run's output files against the
-// recorded ones and the records the recorded parses read, Arguments a command's recorded arguments; each returns how
+// recorded ones and the records the recorded parses read, Added takes
+// from a parse's rows a row the recording lacks, Arguments a command's recorded arguments; each returns how
 // many places it found. A difference of format names in Scope the texts it
 // applies to. A retired one keeps its number, which the plan cites, says in
 // Retired why, and applies nowhere.
@@ -28,6 +29,7 @@ type Difference struct {
 	Outputs   func(want, got map[string]string, held heldRecords) int
 	Arguments func(command string, args []string) ([]string, int)
 	Scope     string
+	Added     func(file string, want, got []Row) ([]Row, int)
 	Retired   string
 }
 
@@ -48,7 +50,7 @@ func Differences() []Difference {
 			"files the recording's parses both read the same record from, the run may keep the row " +
 			"of the other",
 			Outputs: otherOfEqualRows},
-	}, append(formatDifferences(), laterDifferences()...)...)
+	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences())...)
 }
 
 // retiredUnused is why a difference was retired: no recorded case shows
