@@ -112,9 +112,9 @@ func safeNames() map[string][]string {
 		// The running account's own record, looked up by the system.
 		"os/user": {"Current"},
 		// Text operations on a path; none touches the file system.
-		// Dir is text too, but it climbs, so each file that calls it is
-		// counted on allowedCalls.
-		"path/filepath": {"Base", "Clean", "IsAbs", "Join", "Separator", "SplitList", "ToSlash",
+		// A parser package may use none of the names that build a path:
+		// TestNoParserPackageBuildsAPath.
+		"path/filepath": {"Base", "Clean", "Dir", "IsAbs", "Join", "Separator", "SplitList", "ToSlash",
 			"VolumeName"},
 		// Constants, a signal, an attribute record type, and error numbers
 		// with their type, which internal/reason compares errors against.
@@ -257,9 +257,6 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked base"},
-		{"internal/parser/beside.go", "filepath.Dir", 2,
-			"the directory of an artifact without a home, which only a test builds, as text, " +
-				"climbing no further than the artifact lies below its home; no parser calls it itself"},
 		{"internal/parser/files.go", "osfile.ReadDir", 1,
 			"lists a directory of the input its own lstat typed a directory, not a link, at a path " +
 				"the kit built (Beside, Above, Under, Home.PathOf), which refused a link on the way down"},
@@ -300,13 +297,8 @@ func allowedCalls() map[string]allowance {
 			"removes a regular file an earlier member of the same archive wrote"},
 		{"internal/input/extract.go", "osfile.Chtimes", 2,
 			"sets the time of a file or directory the extraction made, from its member"},
-		{"internal/input/loose.go", "filepath.Dir", 3,
-			"the parent of the analyst's own input directory, as text, when that directory " +
-				"is itself an agent's directory"},
 		{"internal/input/loose.go", "stage.PhysicalDir", 1,
 			"resolves the input directory the analyst names, for the owner of its parent"},
-		{"internal/analyze/fleet.go", "filepath.Dir", 1,
-			"the directory of the output file the analyst named, as text, to create it"},
 		{"internal/analyze/fleet.go", "osfile.MkdirAll", 1,
 			"creates the directory of the CSV the analyst names with -o"},
 		{"internal/analyze/fleet.go", "osfile.WriteFile", 1,
@@ -320,9 +312,6 @@ func allowedCalls() map[string]allowance {
 		{"internal/analyze/timeline.go", "osfile.Remove", 2,
 			"removes the probe file it made, and a directory the run itself created when the " +
 				"run fails"},
-		{"internal/analyze/timeline.go", "filepath.Dir", 1,
-			"the parents of the output directory the analyst names, as text, to learn which " +
-				"of them the run creates"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names with -o"},
 		{"internal/analyze/timeline.go", "osfile.Create", 1,

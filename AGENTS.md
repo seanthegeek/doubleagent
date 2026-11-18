@@ -583,6 +583,16 @@ for Go files as it does for the others.
   a package's `testdata` that build binary fixtures Go cannot build without
   using the code under test (SQLite databases, zstd frames, archives),
   which no test or CI step runs.
+- **A parser package builds no disk path itself.** Outside its tests it
+  calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`, `Rel`,
+  `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`, and takes every path it
+  opens from the artifact, from the kit's `Beside`, `Above`, `Under` or
+  `Home.PathOf`, or from the `Child` of a `parser.Directory`, which
+  `DirectoryAt` gives after finding a plain directory. Every directory on
+  the way down has then been looked at and a link refused, so a name read
+  from the evidence cannot lead a parser out of the collection.
+  `TestNoParserPackageBuildsAPath` in `internal/follow` fails on such a
+  call; the kit, `internal/parser`, is where they are made.
 - **Evidence is shown as written.** In the analysis output a number from the
   evidence keeps its source text, JSON embedded in a row is compact with the
   evidence's key order, a boolean is `true` or `false`, and a null is

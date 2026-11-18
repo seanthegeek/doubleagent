@@ -69,7 +69,6 @@ func siteClasses() map[string]string {
 		// A database the analyzer reads from a collection it was given.
 		"internal/sqlitefile/path.go osfile.Open": notImage,
 		// The files and directories a parser reads from that collection.
-		"internal/parser/beside.go filepath.Dir":  notImage,
 		"internal/parser/files.go osfile.ReadDir": notImage,
 		// The analyzer's input: the analyst's own archive or directory, read
 		// with no image root, and the extraction directory it makes.
@@ -86,16 +85,13 @@ func siteClasses() map[string]string {
 		"internal/input/extract.go osfile.OpenFile":  notImage,
 		"internal/input/extract.go osfile.Remove":    notImage,
 		"internal/input/extract.go osfile.Chtimes":   notImage,
-		"internal/input/loose.go filepath.Dir":       notImage,
 		"internal/input/loose.go stage.PhysicalDir":  notImage,
 		// The analysis commands' outputs, where the analyst names them.
-		"internal/analyze/fleet.go filepath.Dir":       notImage,
 		"internal/analyze/fleet.go osfile.MkdirAll":    notImage,
 		"internal/analyze/fleet.go osfile.WriteFile":   notImage,
 		"internal/analyze/timeline.go osfile.ReadDir":  notImage,
 		"internal/analyze/timeline.go osfile.OpenFile": notImage,
 		"internal/analyze/timeline.go osfile.Remove":   notImage,
-		"internal/analyze/timeline.go filepath.Dir":    notImage,
 		"internal/analyze/timeline.go osfile.MkdirAll": notImage,
 		"internal/analyze/timeline.go osfile.Create":   notImage,
 	}
