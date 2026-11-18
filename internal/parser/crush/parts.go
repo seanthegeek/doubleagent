@@ -118,7 +118,7 @@ func (r *messageReader) message(record sqlitefile.Row) {
 		current.finished = parser.ColumnTime(finished)
 	}
 	for _, part := range parts {
-		if part.IsObject() && parser.IsText(part.Get("type"), "finish") {
+		if parser.IsText(part.Get("type"), "finish") {
 			stamp := part.Get("data").Get("time")
 			if !stamp.IsEmpty() && current.finished == "" {
 				current.finished = timeutil.FromValue(stamp)
@@ -130,9 +130,7 @@ func (r *messageReader) message(record sqlitefile.Row) {
 		current.textType = current.role
 	}
 	for _, part := range parts {
-		if part.IsObject() {
-			r.part(current, part)
-		}
+		r.part(current, part)
 	}
 }
 
@@ -160,7 +158,7 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	case !parts.IsArray():
 		reason = "not a JSON array"
 	default:
-		return parts.Items(), true
+		return r.objectParts(current, parts), true
 	}
 	rowid := current.record.Rowid
 	var problems parser.Problems
@@ -169,6 +167,17 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	parser.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems,
 		current.sessionID, r.store.projectPath))
 	return nil, false
+}
+
+// objectParts returns the parts of a message that are objects, after
+// emitting one row for those that are not, at the message's rowid.
+func (r *messageReader) objectParts(current *message, parts jsonvalue.Value) []jsonvalue.Value {
+	var problems parser.Problems
+	objects := parser.ListOfKind(parts, "message "+current.record.Get("id").String()+" parts", jsonvalue.Object,
+		int(current.record.Rowid), &problems)
+	parser.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems, current.sessionID,
+		r.store.projectPath))
+	return objects
 }
 
 // part emits the row of one part and the rows it adds after it.

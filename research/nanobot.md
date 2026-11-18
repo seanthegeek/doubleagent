@@ -999,7 +999,10 @@ file's rows have no project path.
 A member present but of the wrong kind is `parser: <member> is not a JSON array` (or `object`): a
 session record's `tool_calls`, a WebUI record's `tool_events` or `edits` (each row at the record's
 line), and, in `pairing.json` at `source_line` 0, `approved` or `pending` as an object and
-`approved.<channel>` as an array. An absent, null or empty one gives no row.
+`approved.<channel>` as an array. An absent, null or empty one gives no row. A `tool_calls`,
+`tool_events`, `edits` or `pending` holding entries that are not objects gives one row for them
+all at the same place, `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 

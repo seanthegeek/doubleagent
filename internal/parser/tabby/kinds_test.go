@@ -53,6 +53,8 @@ func TestACompletionChoicesThatIsNotAnArrayIsReported(t *testing.T) {
 		{"null", `, "choices": null`, nil},
 		{"an empty array", `, "choices": []`, nil},
 		{"absent", ``, nil},
+		{"entries that are not objects", `, "choices": [{"text": "x"}, "y", 7]`,
+			[]string{"parser: choices holds 2 entries that are not JSON objects"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -130,11 +130,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 				", file mtime)", ""))
 		}
 	}
-	for _, member := range parser.ObjectMember(data.Get("pending"), "pending", 0, &problems) {
-		info := member.Value
-		if !info.IsObject() {
-			continue
-		}
+	for _, info := range parser.MembersOfKind(data.Get("pending"), "pending", jsonvalue.Object, 0, &problems) {
 		status := ""
 		if value := info.Get("delivery_status"); !value.IsEmpty() {
 			status = " delivery_status=" + value.Text()

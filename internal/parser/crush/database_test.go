@@ -88,3 +88,11 @@ func TestATableWithAVirtualGeneratedColumnIsRead(t *testing.T) {
 		t.Errorf("got %q, want the message and no problem", rows)
 	}
 }
+
+func TestMessagePartsThatAreNotObjectsAreReportedOnce(t *testing.T) {
+	rows := parseDatabase(t, "part_kinds.db")
+	want := "parser: message m1 parts holds 1 entry that is not a JSON object"
+	if !slices.Contains(rows, want) || !slices.Contains(rows, "hello") {
+		t.Errorf("rows %q, want the text and %q", rows, want)
+	}
+}

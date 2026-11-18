@@ -76,3 +76,26 @@ func TestAMemberThatIsNotTheRightKindIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
+	tests := []struct {
+		name, rel, document, want string
+	}{
+		{"tool_calls", ".nanobot/sessions/s.jsonl",
+			`{"role": "assistant", "content": "ok", "tool_calls": [7, "x"]}` + "\n",
+			"parser: tool_calls holds 2 entries that are not JSON objects"},
+		{"tool_events", ".nanobot/webui/w.jsonl", `{"event": "message", "text": "hi", "tool_events": [7]}` + "\n",
+			"parser: tool_events holds 1 entry that is not a JSON object"},
+		{"edits", ".nanobot/webui/w.jsonl", `{"event": "file_edit", "edits": ["x"]}` + "\n",
+			"parser: edits holds 1 entry that is not a JSON object"},
+		{"pending", ".nanobot/pairing.json", `{"pending": {"a": {"channel": "t"}, "b": 7}}`,
+			"parser: pending holds 1 entry that is not a JSON object"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRows(t, test.rel, test.document); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}

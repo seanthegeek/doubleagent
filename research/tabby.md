@@ -703,7 +703,9 @@ A completion event whose `choices` is present but not an array is
 `parser: <event> is not a JSON object` at the event's line, before the event's row. A
 `state.vscdb` whose `edit.recentlyCommand` is present but not an array is
 `parser: edit.recentlyCommand is not a JSON array` with `source_line` 0. An absent, null or empty
-one gives no row.
+one gives no row. A `choices` holding entries that are not objects is one row for them all at the
+event's line, `parser: choices holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other choices giving their rows.
 
 #### Fixtures
 
