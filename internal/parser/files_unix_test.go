@@ -3,11 +3,13 @@
 package parser
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 )
@@ -105,5 +107,41 @@ func TestNoPathTheKitBuildsPassesThroughALinkedDirectory(t *testing.T) {
 	}
 	if _, err := ReadDir(directory); err == nil {
 		t.Error("ReadDir listed the link")
+	}
+}
+
+func TestAnEntryReplacedBetweenTheLookAndTheOpenIsRefused(t *testing.T) {
+	looked := writeFile(t, "looked.json", []byte("{}"))
+	info, err := os.Lstat(looked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pipe := filepath.Join(t.TempDir(), "pipe")
+	if err := syscall.Mkfifo(pipe, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	other := writeFile(t, "other.json", []byte("{}"))
+	for _, test := range []struct{ name, path string }{
+		{"a named pipe in the file's place returns at once", pipe},
+		{"another file in its place is refused", other},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			done := make(chan error, 1)
+			go func() {
+				file, err := openLooked(test.path, info)
+				if err == nil {
+					file.Close()
+				}
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				if !errors.Is(err, errChanged) {
+					t.Errorf("error %v, want %v", err, errChanged)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("the open is waiting on the named pipe")
+			}
+		})
 	}
 }
