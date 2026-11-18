@@ -229,8 +229,9 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var wrong parser.Problems
-	for i, entry := range parser.ArrayMember(document.Get("commandHistory"), "commandHistory", 1, &wrong) {
-		if entry.IsString() && strings.TrimSpace(entry.StringValue()) != "" {
+	for i, entry := range parser.EntriesOfKind(document.Get("commandHistory"), "commandHistory", jsonvalue.String, 1,
+		&wrong) {
+		if strings.TrimSpace(entry.StringValue()) != "" {
 			emit(p.row(artifact, i+1, timeline.TurnUser, entry.StringValue(), columns{}))
 		}
 	}

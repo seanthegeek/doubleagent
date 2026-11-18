@@ -78,6 +78,8 @@ func TestACommandHistoryThatIsNotAnArrayIsReported(t *testing.T) {
 			{"an object", `{"a": "run tests"}`, []string{wrong}},
 			{"null", `null`, nil},
 			{"empty", `[]`, nil},
+			{"entries that are not text among prompts", `["run tests", 3, {}]`,
+				[]string{"run tests", "parser: commandHistory holds 2 entries that are not JSON strings"}},
 		})
 }
 

@@ -1168,7 +1168,9 @@ array `parser: toolRequests is not a JSON array`, at the event's line after the 
 or `parser: summary is not a JSON array` the same way. In the JSON files, after their rows and at
 `source_line` 1 with the time of the file's other problem row: a `snapshots` of the rewind index
 or a `commandHistory` that is not an array is `parser: snapshots is not a JSON array` or
-`parser: commandHistory is not a JSON array`; a `locations` of `permissions-config.json` that is
+`parser: commandHistory is not a JSON array`, and a `commandHistory` holding entries that are not
+strings one row for them all, `parser: commandHistory holds <n> entries that are not JSON strings`
+(`1 entry that is not a JSON string` for one); a `locations` of `permissions-config.json` that is
 not an object is `parser: locations is not a JSON object`, a location that is not an object
 `parser: locations.<path> is not a JSON object`, and its `tool_approvals` or
 `allowed_directories` that is not an array `parser: locations.<path>.<key> is not a JSON array`;

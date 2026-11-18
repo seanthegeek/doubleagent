@@ -100,3 +100,18 @@ func TestAGlobalConfigProjectMemberOfTheWrongKindIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestContentBlocksThatAreNotObjectsAreReportedOncePerRecord(t *testing.T) {
+	const rel = ".claude/projects/-w-p/0b9e1c2d-3f4a-4b5c-8d6e-7f8091a2b3c4.jsonl"
+	transcript := `{"type": "user", "sessionId": "s1", "message": {"role": "user", ` +
+		`"content": [{"type": "text", "text": "hi"}, "x"]}}` + "\n" +
+		`{"type": "assistant", "sessionId": "s1", "message": {"role": "assistant", "model": "m", ` +
+		`"content": [{"type": "text", "text": "ok"}, 1, 2]}}` + "\n"
+	got := parsedTexts(t, rel, transcript)
+	for _, want := range []string{"hi", "ok", "parser: message.content holds 1 entry that is not a JSON object",
+		"parser: message.content holds 2 entries that are not JSON objects"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("rows %q lack %q", got, want)
+		}
+	}
+}

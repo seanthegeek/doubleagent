@@ -92,9 +92,8 @@ func (s *session) userBlocks(record jsonvalue.Value, isTask bool) {
 	if saved.IsString() && results == 1 {
 		savedPath = saved.StringValue()
 	}
-	for _, block := range content.Items() {
+	for _, block := range parser.EntriesOfKind(content, "message.content", jsonvalue.Object, s.line, &s.problems) {
 		switch blockType := block.Get("type"); {
-		case !block.IsObject():
 		case parser.IsText(blockType, "tool_result"):
 			s.toolResult(block, savedPath)
 		case parser.IsText(blockType, "text"), parser.IsText(blockType, "image"):
@@ -179,10 +178,8 @@ func (s *session) assistant(record jsonvalue.Value) {
 		}
 		return
 	}
-	for _, block := range content.Items() {
-		if block.IsObject() {
-			s.assistantBlock(record, block, model)
-		}
+	for _, block := range parser.EntriesOfKind(content, "message.content", jsonvalue.Object, s.line, &s.problems) {
+		s.assistantBlock(record, block, model)
 	}
 }
 
