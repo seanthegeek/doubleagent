@@ -153,6 +153,7 @@ func (p *Parser) summary(artifact *input.Artifact, emit parser.Emit) {
 // todos emits one "todo:" row per item of a session's todo file, at the
 // file's time. The session is the file's sessionId, else its name;
 // "default", the file a process without a session id writes, names none.
+// A todos that is not an array adds a problem.
 func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	name := parser.Stem(fileName(artifact))
@@ -172,7 +173,7 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 		sessionID = ""
 	}
 	mtime := parser.FileMtime(artifact)
-	for i, item := range document.Get("todos").Items() {
+	for i, item := range parser.ArrayMember(document.Get("todos"), "todos", 0, &problems) {
 		if !item.IsObject() {
 			problems.Add(i+1, "todo "+strconv.Itoa(i+1)+" is not a JSON object")
 			continue
@@ -209,7 +210,8 @@ func groupNames(groups jsonvalue.Value) map[string]string {
 
 // organization emits one "session organization:" row per session of the
 // Web Shell's grouping file: its group (by name when the file lists it),
-// colour and pin time, at the entry's updatedAt.
+// colour and pin time, at the entry's updatedAt. A sessions that is not an
+// object adds a problem.
 func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	document, ok := readObject(artifact, &problems)
@@ -218,7 +220,7 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	names := groupNames(document.Get("groups"))
-	for i, session := range document.Get("sessions").Members() {
+	for i, session := range parser.ObjectMember(document.Get("sessions"), "sessions", 0, &problems) {
 		entry := session.Value
 		if !entry.IsObject() {
 			problems.Add(i+1, "session "+session.Key+" is not a JSON object")

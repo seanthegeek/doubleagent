@@ -1577,6 +1577,16 @@ sidecar or a `session-organization.v1.json` that is not a JSON object is one who
 `parser: <file> is not a JSON object` row, a todo file's and a sidecar's with the session's id;
 inside them, an item that is not an object is its own row (`parser: todo <N> is not a JSON object`,
 `parser: pull request <N> is not a JSON object`, `parser: session <id> is not a JSON object`).
+A todo file's `todos` or a `.pr.json` sidecar's `prs` that is present but not an array is
+`parser: <member> is not a JSON array`, and a `session-organization.v1.json` whose `sessions` is
+present but not an object `parser: sessions is not a JSON object`, each with `source_line` 0. A
+`settings.json` whose `permissions` is present but not an object is
+`parser: permissions is not a JSON object`, and one whose `permissions.allow`, `permissions.ask`
+or `permissions.deny` is present but not an array `parser: <member> is not a JSON array`, with
+`source_line` 0. A transcript record's `message` that is present but not an object is
+`parser: message is not a JSON object`, and its `message.parts` that is present but not an array
+`parser: message.parts is not a JSON array`, at the record's line.
+An absent, null or empty member gives no row.
 
 A transcript, its `.worktree.json` or `.pr.json` sidecar, `usage_record.jsonl`, `logs.json`, the
 token usage log, a todo file, the session organization, `PROJECT_SUMMARY.md`, a channel routes,

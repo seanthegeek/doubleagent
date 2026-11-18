@@ -21,7 +21,7 @@ type sessionState struct {
 }
 
 // record is one ChatRecord being read, with the parser and artifact its
-// rows belong to.
+// rows belong to and the problems of the file.
 type record struct {
 	owner    *Parser
 	artifact *input.Artifact
@@ -29,6 +29,7 @@ type record struct {
 	state    *sessionState
 	line     int
 	value    jsonvalue.Value
+	problems *parser.Problems
 }
 
 // row returns a row of the record: its line, time, cwd and git branch,
@@ -45,7 +46,8 @@ func (r *record) row(turn, text string) timeline.Row {
 }
 
 // session emits the rows of one chat file, then its worktree sidecar's
-// scratch directory row, then a row per problem.
+// scratch directory row, then a row per problem, among them each message
+// member of the wrong kind.
 func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	state := &sessionState{models: parser.Tracker{}, modes: parser.Tracker{}}
@@ -60,7 +62,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 			state.project = cwd.Text()
 		}
 		current := &record{owner: p, artifact: artifact, options: options, state: state, line: line,
-			value: value}
+			value: value, problems: &problems}
 		parser.EmitAll(emit, current.rows())
 	}
 	if state.first != nil {
@@ -116,7 +118,7 @@ func (r *record) contextChanges() []timeline.Row {
 // its text quotes.
 func (r *record) userRows() []timeline.Row {
 	var texts []string
-	for _, part := range messageParts(r.value) {
+	for _, part := range r.parts() {
 		if part.Get("text").IsString() && part.Get("thought").IsEmpty() {
 			texts = append(texts, part.Get("text").StringValue())
 		}
@@ -151,7 +153,7 @@ func (r *record) assistantRows() []timeline.Row {
 		row.Model = model
 		out = append(out, row)
 	}
-	for _, part := range messageParts(r.value) {
+	for _, part := range r.parts() {
 		var row timeline.Row
 		text := part.Get("text")
 		switch call := part.Get("functionCall"); {
@@ -181,7 +183,7 @@ func (r *record) assistantRows() []timeline.Row {
 func (r *record) toolResultRows() []timeline.Row {
 	result := r.value.Get("toolCallResult")
 	first := jsonvalue.NewObject()
-	for _, part := range messageParts(r.value) {
+	for _, part := range r.parts() {
 		if response := part.Get("functionResponse"); response.IsObject() {
 			first = response
 			break
