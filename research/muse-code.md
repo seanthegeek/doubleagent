@@ -963,6 +963,11 @@ of the log's rows,
 reading continues. A `retained_frame` child whose `record_json` does not
 decode gets the same row with the reason prefixed
 `retained_frame child: ` and the child's `record_json` text as the line.
+A `session.jsonl` whose first record is neither an envelope nor a
+`retained_frame` is not read further and gives one row,
+`parser: not a Muse session log (the first record is neither an envelope nor a retained frame)`,
+at that record's line. A `tui-history.jsonl` line that is JSON but neither a
+string nor an object is `parser: unparseable line (not a JSON string or object): <the line>`.
 
 A `session.jsonl` that cannot be read is one whole-file row
 `parser: session.jsonl could not be read (<reason>)` through `error_rows`; a `tui-history.jsonl` or

@@ -218,9 +218,13 @@ type envelope struct {
 	record jsonvalue.Value
 }
 
+// notMuse is the problem of a session log whose first record is not Muse.
+const notMuse = "not a Muse session log (the first record is neither an envelope nor a retained frame)"
+
 // records yields every envelope of the log at path with its line number,
 // the children of each frame unpacked in child order and the markers
-// dropped. It stops at once when the first record is not Muse.
+// dropped. It stops at once when the first record is not Muse, which adds
+// that problem.
 func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		first := true
@@ -228,6 +232,7 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Va
 			if first {
 				first = false
 				if !record.Has("retained_frame") && !(record.Has("stream") && record.Has("payload_type")) {
+					problems.Add(number, notMuse)
 					return
 				}
 			}
@@ -967,6 +972,8 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		case record.IsObject() && pending != nil:
 			send(pending, record)
 			pending = nil
+		case !record.IsObject():
+			problems.AddRaw(number, "unparseable line (not a JSON string or object)", parser.LineText(raw))
 		}
 	}
 	if pending != nil {
