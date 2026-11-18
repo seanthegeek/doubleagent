@@ -24,23 +24,6 @@ func asText(value sqlitefile.Value) string {
 	return value.String()
 }
 
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
-}
-
-// shown returns a decoded value as row text: "-" when it is null or "",
-// else as a setting.
-func shown(value jsonvalue.Value) string {
-	if value.IsNull() || (value.IsString() && value.StringValue() == "") {
-		return "-"
-	}
-	return parser.SettingValue(value)
-}
-
 // firstOrLast returns the first of values that is not empty, else the
 // last one: a time field falls back to the next, and the last is read even
 // when it is empty, so a zero time still reads as the epoch.
@@ -51,14 +34,6 @@ func firstOrLast(values ...jsonvalue.Value) jsonvalue.Value {
 		}
 	}
 	return values[len(values)-1]
-}
-
-// textOrJSON returns a string as it is and any other value as JSON.
-func textOrJSON(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
 }
 
 // plain returns a short ItemTable value's JSON value when it decodes, else

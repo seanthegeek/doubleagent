@@ -98,7 +98,7 @@ func decodeThread(record sqlitefile.Row, budget *Budget) (jsonvalue.Value, strin
 	if data.Type != sqlitefile.Blob && data.Type != sqlitefile.Text {
 		stored = []byte(data.String())
 	}
-	isZstd := strings.ToLower(columnStr(record.Get("data_type"))) == "zstd"
+	isZstd := strings.ToLower(parser.NonEmptyColumn(record.Get("data_type"))) == "zstd"
 	raw := stored
 	var err error
 	if isZstd {
@@ -126,7 +126,7 @@ func decodeThread(record sqlitefile.Row, budget *Budget) (jsonvalue.Value, strin
 func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row, budget *Budget,
 	options parser.Options, emit parser.Emit) {
 	context := &thread{artifact: artifact, rowid: record.Rowid,
-		sessionID: columnStr(record.Get("id")), project: firstFolder(record.Get("folder_paths")),
+		sessionID: parser.NonEmptyColumn(record.Get("id")), project: firstFolder(record.Get("folder_paths")),
 		updated: parser.ColumnTime(record.Get("updated_at"))}
 	value, raw, err := decodeThread(record, budget)
 	if err != nil {

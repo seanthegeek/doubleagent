@@ -192,18 +192,8 @@ func sessionRules(text string) ([]rule, bool) {
 		default:
 			continue
 		}
-		found = append(found, rule{permission: ruleField(entry, keys[0]),
-			pattern: ruleField(entry, keys[1]), effect: ruleField(entry, keys[2])})
+		found = append(found, rule{permission: parser.SettingOrDash(entry.Get(keys[0])),
+			pattern: parser.SettingOrDash(entry.Get(keys[1])), effect: parser.SettingOrDash(entry.Get(keys[2]))})
 	}
 	return found, true
-}
-
-// ruleField returns a rule's field as text, "-" when it is missing, null or
-// the empty string.
-func ruleField(entry jsonvalue.Value, key string) string {
-	value := entry.Get(key)
-	if value.IsNull() || parser.IsText(value, "") {
-		return "-"
-	}
-	return value.Text()
 }

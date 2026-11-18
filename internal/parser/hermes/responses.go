@@ -65,8 +65,8 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 		name = jsonvalue.NewString(value)
 	}
 	header := p.system(artifact, int(entry.rowid), sessionOf(sessionID), "api server response "+
-		entry.responseID+" status="+dash(response.Get("status"))+" model="+dash(response.Get("model"))+
-		" conversation="+dash(name)+" (from response_store.db responses, created_at)")
+		entry.responseID+" status="+parser.SettingOrDash(response.Get("status"))+" model="+parser.SettingOrDash(response.Get("model"))+
+		" conversation="+parser.SettingOrDash(name)+" (from response_store.db responses, created_at)")
 	header.TimestampUTC = timeutil.FromValue(response.Get("created_at"))
 	reader.emit(header)
 	if seen[sessionID] == nil {

@@ -32,13 +32,13 @@ func (a *agentDatabase) pending() error {
 		return err
 	}
 	for _, record := range rows {
-		sessionID := columnStr(record.Get("session_id"))
+		sessionID := parser.NonEmptyColumn(record.Get("session_id"))
 		consumed := record.Get("consumed_event_id")
 		if !consumed.IsEmpty() && a.store.ids[[2]string{sessionID, consumed.String()}] {
 			continue
 		}
 		line := sourceLine(record.Get("seq"))
-		raw := columnText(record.Get("message_json"))
+		raw := parser.TextColumn(record.Get("message_json"))
 		message, err := jsonvalue.DecodeString(raw)
 		if err != nil {
 			a.problems.AddRaw(line, "session_pending_inputs message_json unparseable ("+err.Error()+")", raw)
@@ -54,9 +54,9 @@ func (a *agentDatabase) pending() error {
 		}
 		a.emit(row)
 		a.emit(a.contextRow(sessionID, line, timestamp, timeline.TurnSystem, "pending input: "+
-			orDash(columnStr(record.Get("state")))+", not consumed by the transcript (input "+
-			orDash(columnStr(record.Get("input_id")))+" run "+
-			orDash(columnStr(record.Get("run_id")))+
+			cmp.Or(parser.NonEmptyColumn(record.Get("state")), "-")+", not consumed by the transcript (input "+
+			cmp.Or(parser.NonEmptyColumn(record.Get("input_id")), "-")+" run "+
+			cmp.Or(parser.NonEmptyColumn(record.Get("run_id")), "-")+
 			"; from openclaw-agent.sqlite session_pending_inputs, accepted_at)"))
 	}
 	return nil
@@ -81,11 +81,11 @@ func (a *agentDatabase) fullText() error {
 		return err
 	}
 	for _, record := range rows {
-		sessionID, messageID := columnStr(record.Get("c1")), columnStr(record.Get("c2"))
+		sessionID, messageID := parser.NonEmptyColumn(record.Get("c1")), parser.NonEmptyColumn(record.Get("c2"))
 		if messageID != "" && a.store.ids[[2]string{sessionID, messageID}] {
 			continue
 		}
-		role := columnStr(record.Get("c3"))
+		role := parser.NonEmptyColumn(record.Get("c3"))
 		text := ""
 		if value := record.Get("c0"); !value.IsNull() {
 			text = timeline.Compact(value.String())
@@ -132,7 +132,7 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 	}
 	for _, row := range rows {
 		for _, conversation := range byID.Find(row, "conversation_id") {
-			a.delivery(row, conversation.Get("channel"), current[columnStr(row.Get("source_session_key"))])
+			a.delivery(row, conversation.Get("channel"), current[parser.NonEmptyColumn(row.Get("source_session_key"))])
 		}
 	}
 	return nil
@@ -140,7 +140,7 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 
 // delivery emits the rows of one delivery to a conversation of channel.
 func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, sessionID string) {
-	field := func(name string) string { return orDash(columnStr(row.Get(name))) }
+	field := func(name string) string { return cmp.Or(parser.NonEmptyColumn(row.Get(name)), "-") }
 	rejection := ""
 	if value := row.Get("rejection_error"); !value.IsEmpty() {
 		rejection = " error=" + value.String()
@@ -148,7 +148,7 @@ func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, s
 	line := int(row.Rowid)
 	a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
 		"channel delivery: "+field("operation_kind")+" "+field("status")+" channel "+
-			orDash(columnStr(channel))+" conversation "+field("conversation_id")+
+			cmp.Or(parser.NonEmptyColumn(channel), "-")+" conversation "+field("conversation_id")+
 			" platform message "+field("platform_message_id")+rejection+
 			" (from openclaw-agent.sqlite conversation_deliveries, created_at)"))
 	if reply := row.Get("reply_text"); !reply.IsNull() {
@@ -169,11 +169,11 @@ func (a *agentDatabase) tombstones() error {
 		return err
 	}
 	for _, row := range rows {
-		sessionID := columnStr(row.Get("session_id"))
+		sessionID := parser.NonEmptyColumn(row.Get("session_id"))
 		a.emit(a.contextRow(sessionID, int(row.Rowid), parser.ColumnTime(row.Get("created_at")),
-			timeline.TurnSystem, "session forgotten from memory: "+orDash(sessionID)+" agent "+
-				orDash(columnStr(row.Get("agent_id")))+" reason="+
-				orDash(columnStr(row.Get("reason")))+
+			timeline.TurnSystem, "session forgotten from memory: "+cmp.Or(sessionID, "-")+" agent "+
+				cmp.Or(parser.NonEmptyColumn(row.Get("agent_id")), "-")+" reason="+
+				cmp.Or(parser.NonEmptyColumn(row.Get("reason")), "-")+
 				" (from openclaw-agent.sqlite memory_session_tombstones, created_at)"))
 	}
 	return nil

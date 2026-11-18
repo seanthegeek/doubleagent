@@ -1,6 +1,7 @@
 package openclaw
 
 import (
+	"cmp"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -22,15 +23,15 @@ func (a *agentDatabase) relays() (map[string]bool, error) {
 		window := a.windows.byID[sessionID]
 		timestamp := timeutil.FirstNonEmpty(parser.ColumnTime(window.Get("started_at")),
 			parser.ColumnTime(window.Get("created_at")))
-		channel := columnText(window.Get("channel"))
+		channel := parser.TextColumn(window.Get("channel"))
 		if !relayed[sessionID] && isPlatform(channel) {
 			a.store.attach(sessionID, int(window.Rowid), timestamp, "session relayed: "+channel+
-				" account "+orDash(columnStr(window.Get("account_id")))+" "+
-				orDash(columnStr(window.Get("chat_type")))+
+				" account "+cmp.Or(parser.NonEmptyColumn(window.Get("account_id")), "-")+" "+
+				cmp.Or(parser.NonEmptyColumn(window.Get("chat_type")), "-")+
 				" (from openclaw-agent.sqlite session_windows, started_at)", "")
 			relayed[sessionID] = true
 		}
-		if columnText(window.Get("hook_external_content_source")) == "gmail" {
+		if parser.TextColumn(window.Get("hook_external_content_source")) == "gmail" {
 			a.store.attach(sessionID, int(window.Rowid), timestamp, "session relayed: gmail hook"+
 				" (from openclaw-agent.sqlite session_windows hook_external_content_source,"+
 				" started_at)", "")
@@ -62,16 +63,16 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 	}
 	for _, link := range links {
 		for _, conversation := range byID.Find(link, "conversation_id") {
-			channel := columnText(conversation.Get("channel"))
+			channel := parser.TextColumn(conversation.Get("channel"))
 			if !isPlatform(channel) {
 				continue
 			}
-			sessionID := columnStr(link.Get("session_id"))
-			field := func(name string) string { return orDash(columnStr(conversation.Get(name))) }
+			sessionID := parser.NonEmptyColumn(link.Get("session_id"))
+			field := func(name string) string { return cmp.Or(parser.NonEmptyColumn(conversation.Get(name)), "-") }
 			a.store.attach(sessionID, int(link.Rowid), parser.ColumnTime(link.Get("first_seen_at")),
 				"session relayed: "+channel+" account "+field("account_id")+" "+
 					field("kind")+" peer "+field("peer_id")+" thread "+field("thread_id")+
-					" role "+orDash(columnStr(link.Get("role")))+
+					" role "+cmp.Or(parser.NonEmptyColumn(link.Get("role")), "-")+
 					" (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)", "")
 			relayed[sessionID] = true
 		}

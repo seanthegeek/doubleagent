@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -309,7 +310,7 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 			continue
 		}
 		content := blob.Get("content")
-		haystack := textOrJSON(content)
+		haystack := parser.SettingValue(content)
 		for _, current := range deleted {
 			if !strings.Contains(haystack, current.ident) {
 				continue
@@ -325,7 +326,7 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 			}
 			label := "system prompt"
 			if role != "system" {
-				label = orDash(role) + " message"
+				label = cmp.Or(role, "-") + " message"
 			}
 			stamp.add(timeline.TurnSystem, label+": "+text, "", row.rowid, "")
 		}

@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -37,7 +38,7 @@ func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64
 	}
 	resultText := ""
 	if result := tool.Get("result"); parser.Present(result) {
-		resultText = timeline.Compact(textOrJSON(result))
+		resultText = timeline.Compact(parser.SettingValue(result))
 	}
 	rejected := parser.IsText(extra.Get("status"), "rejected") && !pending
 	if resultText != "" || rejected {
@@ -64,7 +65,7 @@ func reviewText(name string, tool, extra, review jsonvalue.Value) (string, bool)
 
 // fieldOf returns a decoded value as row text, "-" when it is null or "".
 func fieldOf(value jsonvalue.Value) string {
-	return orDash(value.Text())
+	return cmp.Or(value.Text(), "-")
 }
 
 // optionIDs returns the ids of a prompt's allowlist options.
@@ -85,8 +86,8 @@ func pendingText(name string, extra, review jsonvalue.Value) string {
 	for _, ident := range optionIDs(review) {
 		ids = append(ids, ident.Text())
 	}
-	return "permission prompt pending: " + orDash(name) + " reason=" + fieldOf(extra.Get("blockReason")) +
-		" options=" + orDash(strings.Join(ids, ","))
+	return "permission prompt pending: " + cmp.Or(name, "-") + " reason=" + fieldOf(extra.Get("blockReason")) +
+		" options=" + cmp.Or(strings.Join(ids, ","), "-")
 }
 
 // permissionText returns the "permission decision:" text of an answered

@@ -127,16 +127,6 @@ func originLabel(kind jsonvalue.Value) string {
 	return ""
 }
 
-// valueText returns a JSON value as row text, "-" when it is missing or an
-// empty string.
-func valueText(document jsonvalue.Value, key string) string {
-	value := document.Get(key)
-	if !parser.Present(value) {
-		return "-"
-	}
-	return parser.SettingValue(value)
-}
-
 // textOr returns the value's row text, or missing when it is null or an
 // empty string.
 func textOr(value jsonvalue.Value, missing string) string {

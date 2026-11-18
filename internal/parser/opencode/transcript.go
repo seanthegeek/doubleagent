@@ -20,7 +20,7 @@ func (s *store) sessionMessageIDs() (map[string]bool, error) {
 	}
 	rows, err := table.Select("session_id").All()
 	for _, row := range rows {
-		ids[columnText(row.Get("session_id"))] = true
+		ids[parser.NonEmptyColumn(row.Get("session_id"))] = true
 	}
 	return ids, err
 }
@@ -50,7 +50,7 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 	}
 	var parts *sqlitefile.Lookup
 	for _, row := range rows {
-		identifier := columnText(row.Get("session_id"))
+		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		covered[identifier] = true
 		if skip[identifier] {
 			continue
@@ -136,7 +136,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 		return err
 	}
 	for _, row := range rows {
-		identifier := columnText(row.Get("session_id"))
+		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		if skip[identifier] {
 			continue
 		}
@@ -145,12 +145,12 @@ func (s *store) v2Messages(skip map[string]bool) error {
 			continue
 		}
 		kind := row.Get("type")
-		found := items[columnText(row.Get("id"))]
+		found := items[parser.NonEmptyColumn(row.Get("id"))]
 		if len(found) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
 			data.Has("content") {
 			data.Set("content", jsonvalue.NewArray(found...))
 		}
-		name := columnText(kind)
+		name := parser.NonEmptyColumn(kind)
 		if name == "" {
 			name = parser.Text(data.Get("type"))
 		}
@@ -178,7 +178,7 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 		return nil, err
 	}
 	for _, row := range rows {
-		identifier := columnText(row.Get("session_id"))
+		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		if skip[identifier] {
 			continue
 		}
@@ -189,7 +189,7 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 		if kind := row.Get("type"); !kind.IsEmpty() {
 			data.Set("type", columnValue(kind))
 		}
-		message := columnText(row.Get("message_id"))
+		message := parser.NonEmptyColumn(row.Get("message_id"))
 		items[message] = append(items[message], data)
 	}
 	return items, nil

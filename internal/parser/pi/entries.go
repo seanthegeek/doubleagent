@@ -39,7 +39,7 @@ func ArgsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsObject() {
 		for _, key := range argumentKeys() {
 			if value := arguments.Get(key); parser.Present(value) {
-				return textOrJSON(value)
+				return parser.SettingValue(value)
 			}
 		}
 		return parser.JSONText(arguments)
@@ -47,15 +47,7 @@ func ArgsSummary(arguments jsonvalue.Value) string {
 	if !parser.Present(arguments) {
 		return ""
 	}
-	return textOrJSON(arguments)
-}
-
-// textOrJSON returns a string as it is and anything else as compact JSON.
-func textOrJSON(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
+	return parser.SettingValue(arguments)
 }
 
 // exitSucceeded reports whether a bash exit code is no failure: null, false

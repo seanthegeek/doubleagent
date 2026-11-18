@@ -1,6 +1,7 @@
 package openclaw
 
 import (
+	"cmp"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -12,7 +13,7 @@ import (
 // member holds the approvals socket's token and is never read; a raw_json
 // that does not decode is reported without its text.
 func (s *stateRows) execConfig(record sqlitefile.Row) {
-	document, err := jsonvalue.DecodeString(columnText(record.Get("raw_json")))
+	document, err := jsonvalue.DecodeString(parser.TextColumn(record.Get("raw_json")))
 	if err != nil {
 		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+parser.JSONPosition(err)+
 			"; text withheld, it holds the approvals socket token)")
@@ -62,14 +63,14 @@ func policySettings(policy jsonvalue.Value) []string {
 				argument = " argPattern=" + value.Text()
 			}
 			out = append(out, "allowlist="+pattern.Text()+argument+" source="+
-				orDash(parser.Text(entry.Get("source"))))
+				cmp.Or(parser.Text(entry.Get("source")), "-"))
 		}
 	}
 	for _, grant := range parser.Elements(policy.Get("mcpTools")) {
 		if grant.IsObject() {
-			out = append(out, "mcpTools="+orDash(parser.Text(grant.Get("server")))+"/"+
-				orDash(parser.Text(grant.Get("tool")))+" source="+
-				orDash(parser.Text(grant.Get("source"))))
+			out = append(out, "mcpTools="+cmp.Or(parser.Text(grant.Get("server")), "-")+"/"+
+				cmp.Or(parser.Text(grant.Get("tool")), "-")+" source="+
+				cmp.Or(parser.Text(grant.Get("source")), "-"))
 		}
 	}
 	return out

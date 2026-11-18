@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"strings"
@@ -111,7 +112,7 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 // path, else from the first archived worktree at the path, else "".
 func (s *sidebarStore) mainRepository(path string) string {
 	for _, entry := range s.sidebar {
-		folders := columnStr(entry.Get("folder_paths"))
+		folders := parser.NonEmptyColumn(entry.Get("folder_paths"))
 		if !entry.Get("main_worktree_paths").IsEmpty() && containsLine(folders, path) {
 			if main := firstFolder(entry.Get("main_worktree_paths")); main != "" {
 				return main
@@ -146,16 +147,16 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 	sessionID := ""
 	if !row.thread.IsEmpty() {
 		if side, ok := store.byKey[threadKey(row.thread)]; ok {
-			sessionID = columnStr(side.Get("session_id"))
+			sessionID = parser.NonEmptyColumn(side.Get("session_id"))
 		}
 	}
-	text := "archived worktree: " + columnStr(row.Get("worktree_path")) + " of " +
-		columnStr(row.Get("main_repo_path")) + " branch=" +
-		orDash(columnStr(row.Get("branch_name"))) + " staged=" +
-		orDash(columnStr(row.Get("staged_commit_hash"))) + " unstaged=" +
-		orDash(columnStr(row.Get("unstaged_commit_hash"))) + " original=" +
-		orDash(columnStr(row.Get("original_commit_hash"))) + " ref=refs/archived-worktrees/" +
+	text := "archived worktree: " + parser.NonEmptyColumn(row.Get("worktree_path")) + " of " +
+		parser.NonEmptyColumn(row.Get("main_repo_path")) + " branch=" +
+		cmp.Or(parser.NonEmptyColumn(row.Get("branch_name")), "-") + " staged=" +
+		cmp.Or(parser.NonEmptyColumn(row.Get("staged_commit_hash")), "-") + " unstaged=" +
+		cmp.Or(parser.NonEmptyColumn(row.Get("unstaged_commit_hash")), "-") + " original=" +
+		cmp.Or(parser.NonEmptyColumn(row.Get("original_commit_hash")), "-") + " ref=refs/archived-worktrees/" +
 		row.Get("id").String() + " (from " + artifact.Rel + " archived_git_worktrees, file mtime)"
 	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, sessionID,
-		columnStr(row.Get("main_repo_path")))
+		parser.NonEmptyColumn(row.Get("main_repo_path")))
 }

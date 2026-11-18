@@ -25,15 +25,6 @@ func argumentKeys() []string {
 		"prompt", "description"}
 }
 
-// textOrJSON returns a string as it is and any other value as compact
-// JSON.
-func textOrJSON(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
-}
-
 // orElse returns value, or fallback, whatever it holds, when value is
 // empty (jsonvalue.Value.IsEmpty).
 func orElse(value, fallback jsonvalue.Value) jsonvalue.Value {
@@ -49,7 +40,7 @@ func argsSummary(arguments jsonvalue.Value) string {
 	if arguments.IsObject() {
 		for _, key := range argumentKeys() {
 			if value := arguments.Get(key); parser.Present(value) {
-				return textOrJSON(value)
+				return parser.SettingValue(value)
 			}
 		}
 		return parser.JSONText(arguments)
@@ -57,7 +48,7 @@ func argsSummary(arguments jsonvalue.Value) string {
 	if !parser.Present(arguments) {
 		return ""
 	}
-	return textOrJSON(arguments)
+	return parser.SettingValue(arguments)
 }
 
 // messageParts returns the object parts of a record's message.
@@ -86,7 +77,7 @@ func responseText(response jsonvalue.Value) string {
 	if !parser.Present(response) {
 		return ""
 	}
-	return textOrJSON(response)
+	return parser.SettingValue(response)
 }
 
 // systemText returns the row text of a system record: its subtype and a

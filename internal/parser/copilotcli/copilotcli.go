@@ -151,11 +151,6 @@ func (p *Parser) problem(artifact *input.Artifact, text, timestamp string) timel
 	return p.row(artifact, 1, timeline.TurnSystem, text, columns{timestamp: timestamp})
 }
 
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	return cmp.Or(text, "-")
-}
-
 // argumentKeys are the arguments of a tool call that stand for the call, in
 // the order they are tried.
 var argumentKeys = []string{"command", "url", "query", "path", "input"}
@@ -248,8 +243,8 @@ var decisionKeys = [][2]string{{"locationKey", "location"}, {"approval", "approv
 // or -> ..." for a permission.completed event.
 func decisionText(data jsonvalue.Value) string {
 	result := data.Get("result")
-	line := "permission decision: " + orDash(result.Get("kind").Text()) + " source=" +
-		orDash(data.Get("decisionSource").Text())
+	line := "permission decision: " + cmp.Or(result.Get("kind").Text(), "-") + " source=" +
+		cmp.Or(data.Get("decisionSource").Text(), "-")
 	for _, key := range decisionKeys {
 		value := result.Get(key[0])
 		empty := !parser.Present(value) || (value.IsArray() && value.Len() == 0) ||

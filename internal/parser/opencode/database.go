@@ -182,7 +182,7 @@ func (s *store) scopeFor(identifier string) *scope {
 	if where, ok := s.sessionAt[identifier]; ok {
 		record = s.sessions[where].row
 	}
-	path := columnText(record.Get("directory"))
+	path := parser.NonEmptyColumn(record.Get("directory"))
 	if path == "" {
 		path = s.worktreeOf(record.Get("project_id"))
 	}
@@ -198,7 +198,7 @@ func (s *store) worktreeOf(identifier sqlitefile.Value) string {
 	if !ok {
 		return ""
 	}
-	worktree := columnText(project.Get("worktree"))
+	worktree := parser.NonEmptyColumn(project.Get("worktree"))
 	if worktree == "/" {
 		return ""
 	}
@@ -211,15 +211,6 @@ func rowLookup(row sqlitefile.Row) lookup {
 		value := row.Get(key)
 		return value.String(), !value.IsEmpty()
 	}
-}
-
-// columnText returns a column value as row text, "" for an empty value
-// (NULL, zero, or empty text or blob).
-func columnText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
 }
 
 // valueKey returns a key under which two column values are one key exactly

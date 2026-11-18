@@ -142,7 +142,7 @@ func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parser.
 func (p *Parser) fileRefRows(reader *store, stamps *stamper) {
 	for _, file := range reader.rows("session_files", "first_seen_at") {
 		stamps.stamp(stored(file, "session_id"), file.Rowid, timeline.TurnSystem,
-			"file changed: "+stored(file, "file_path")+" tool="+orDash(stored(file, "tool_name")),
+			"file changed: "+stored(file, "file_path")+" tool="+cmp.Or(stored(file, "tool_name"), "-"),
 			file.Get("first_seen_at"), "")
 	}
 	for _, ref := range reader.rows("session_refs", "created_at") {

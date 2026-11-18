@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -179,7 +180,7 @@ func enrolledText(key string, byKey map[string]keyed) string {
 	if name.IsString() {
 		text = name.StringValue()
 	}
-	return "remote agent host enrolled: " + orDash(timeline.Compact(text)) + " (from state.vscdb " + key +
+	return "remote agent host enrolled: " + cmp.Or(timeline.Compact(text), "-") + " (from state.vscdb " + key +
 		", file mtime; on by default, a paired device leaves no local record)"
 }
 
@@ -242,6 +243,6 @@ func githubText(login, key string, usages []jsonvalue.Value) string {
 			}
 		}
 	}
-	return "source host: github account " + login + " scopes=" + orDash(strings.Join(scopes, ",")) +
+	return "source host: github account " + login + " scopes=" + cmp.Or(strings.Join(scopes, ","), "-") +
 		" (from state.vscdb key " + key + ")"
 }

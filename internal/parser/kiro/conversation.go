@@ -169,14 +169,6 @@ func fill(row timeline.Row, turnType, text string) timeline.Row {
 	return row
 }
 
-// textOrJSON returns a string value's text, anything else as compact JSON.
-func textOrJSON(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
-}
-
 // conversation emits the rows of one serialised ConversationState read
 // from text; key is the working directory the database files it under and
 // line the source line of its rows.
@@ -329,7 +321,7 @@ func (c *conversation) summary(summary jsonvalue.Value) {
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")),
 		timeutil.FromValue(meta.Get("request_start_timestamp_ms")))
 	c.emit(fill(c.base(timestamp, parser.Text(meta.Get("model_id"))), timeline.TurnSystem,
-		"summary: "+textOrJSON(summary.Index(0))))
+		"summary: "+parser.SettingValue(summary.Index(0))))
 }
 
 // pending emits the row of the message typed but not sent.
@@ -378,7 +370,7 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, e
 	}
 	if tag, body := variant(entry.Get("assistant")); tag == "Response" || tag == "ToolUse" {
 		if content := body.Get("content"); !content.IsEmpty() {
-			emit(fill(c.base(end, model), timeline.TurnAssistant, textOrJSON(content)))
+			emit(fill(c.base(end, model), timeline.TurnAssistant, parser.SettingValue(content)))
 		}
 		c.toolUses(body.Get("tool_uses"), end, model, emit)
 	}
@@ -408,7 +400,7 @@ func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit pa
 		c.names[toolID] = toolName
 		row := c.base(end, model)
 		row.ToolName, row.ToolUseID = toolName, toolID
-		arguments := textOrJSON(use.Get("args"))
+		arguments := parser.SettingValue(use.Get("args"))
 		if orig := use.Get("orig_name"); !orig.IsEmpty() && !(orig.IsString() && orig.StringValue() == toolName) {
 			arguments = "orig_name=" + orig.Text() + " " + arguments
 		}

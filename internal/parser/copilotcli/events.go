@@ -161,9 +161,9 @@ func (w *eventWalk) sessionEvent(kind string, data jsonvalue.Value) {
 	}
 	switch kind {
 	case "session.start":
-		w.system("session start: copilot " + orDash(data.Get("copilotVersion").Text()) +
-			" producer=" + orDash(data.Get("producer").Text()) + " cwd=" +
-			orDash(context.Get("cwd").Text()))
+		w.system("session start: copilot " + cmp.Or(data.Get("copilotVersion").Text(), "-") +
+			" producer=" + cmp.Or(data.Get("producer").Text(), "-") + " cwd=" +
+			cmp.Or(context.Get("cwd").Text(), "-"))
 	case "session.resume":
 		w.system("session resumed")
 	}
@@ -267,11 +267,11 @@ func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
 		w.emit(w.row(timeline.TurnSystem, decisionText(data), w.names[callID], callID, ""))
 	case "permission.carriedForward":
 		w.emit(w.row(timeline.TurnSystem, "permission decision: carried-forward source="+
-			orDash(data.Get("decisionSource").Text()), w.names[callID], callID, ""))
+			cmp.Or(data.Get("decisionSource").Text(), "-"), w.names[callID], callID, ""))
 	case "session.permissions_changed":
 		w.permissionsChanged(data)
 	case "session.mode_changed":
-		old, next := orDash(data.Get("previousMode").Text()), orDash(data.Get("newMode").Text())
+		old, next := cmp.Or(data.Get("previousMode").Text(), "-"), cmp.Or(data.Get("newMode").Text(), "-")
 		w.system("agent mode: " + old + " -> " + next)
 		w.permission.agent = data.Get("newMode").Text()
 		if w.permission.mode != "" {
@@ -285,7 +285,7 @@ func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
 func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
 	request := data.Get("permissionRequest")
 	callID := request.Get("toolCallId").Text()
-	line := "permission request: " + orDash(request.Get("kind").Text())
+	line := "permission request: " + cmp.Or(request.Get("kind").Text(), "-")
 	if target := requestTarget(request); target != "" {
 		line += " " + target
 	}
@@ -318,15 +318,15 @@ func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
 		}
 	}
 	if allowAll {
-		old, next := orDash(data.Get("previousAllowAllPermissionMode").Text()),
+		old, next := cmp.Or(data.Get("previousAllowAllPermissionMode").Text(), "-"),
 			data.Get("allowAllPermissionMode").Text()
-		w.system("permission mode: allow-all " + old + " -> " + orDash(next))
+		w.system("permission mode: allow-all " + old + " -> " + cmp.Or(next, "-"))
 		if next != "" {
 			w.permission.mode = "allow-all " + next
 		}
 	} else {
-		w.system("permission mode: " + orDash(data.Get("previousMode").Text()) + " -> " +
-			orDash(data.Get("mode").Text()))
+		w.system("permission mode: " + cmp.Or(data.Get("previousMode").Text(), "-") + " -> " +
+			cmp.Or(data.Get("mode").Text(), "-"))
 		w.permission.mode = data.Get("mode").Text()
 	}
 	if w.permission.mode != "" {
@@ -341,7 +341,7 @@ func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 	var next, suffix string
 	if kind == "session.auto_mode_resolved" {
 		next = data.Get("chosenModel").Text()
-		suffix = " (auto, " + orDash(data.Get("routingMethod").Text()) + ")"
+		suffix = " (auto, " + cmp.Or(data.Get("routingMethod").Text(), "-") + ")"
 	} else {
 		next = data.Get("newModel").Text()
 		for _, key := range []string{"cause", "source"} {
@@ -371,7 +371,7 @@ func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 // " error=<error>" when present; each payload is compact JSON in full, "{}"
 // when absent.
 func hookText(kind string, data jsonvalue.Value) string {
-	hook := orDash(data.Get("hookType").Text())
+	hook := cmp.Or(data.Get("hookType").Text(), "-")
 	if kind == "hook.start" {
 		payload := "{}"
 		if input := data.Get("input"); !input.IsNull() {
@@ -418,7 +418,7 @@ func shutdownText(data jsonvalue.Value) string {
 	} else {
 		listed = files.Text()
 	}
-	parts := []string{"session end:", orDash(data.Get("shutdownType").Text())}
+	parts := []string{"session end:", cmp.Or(data.Get("shutdownType").Text(), "-")}
 	if reason := data.Get("errorReason"); parser.Present(reason) {
 		parts = append(parts, reason.Text())
 	}

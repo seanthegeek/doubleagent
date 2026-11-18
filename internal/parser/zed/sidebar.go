@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 
@@ -170,7 +171,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 	}
 	for _, row := range store.terminals {
 		text := "sidebar terminal: " + firstColumn(row.Get("custom_title"), row.Get("title")) +
-			" cwd=" + orDash(firstColumn(row.Get("working_directory")))
+			" cwd=" + cmp.Or(firstColumn(row.Get("working_directory")), "-")
 		emit(p.stateRow(artifact, text, parser.ColumnTime(row.Get("created_at")), row.Rowid, "",
 			firstFolder(row.Get("folder_paths"))))
 	}
@@ -183,7 +184,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit parser.Emit) {
 	title := firstColumn(row.Get("title_override"), row.Get("title"))
 	project := firstFolder(row.Get("folder_paths"))
-	sessionID := columnStr(row.Get("session_id"))
+	sessionID := parser.NonEmptyColumn(row.Get("session_id"))
 	switch {
 	case !row.Get("agent_id").IsEmpty():
 		archived := ""
@@ -199,8 +200,8 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit p
 		emit(p.stateRow(artifact, text, timestamp, row.Rowid, sessionID, project))
 	case sessionID != "":
 		text := fmt.Sprintf("sidebar thread: title=%s archived=%t interacted_at=%s main_worktree=%s",
-			title, !row.Get("archived").IsEmpty(), orDash(parser.ColumnTime(row.Get("interacted_at"))),
-			orDash(firstFolder(row.Get("main_worktree_paths"))))
+			title, !row.Get("archived").IsEmpty(), cmp.Or(parser.ColumnTime(row.Get("interacted_at")), "-"),
+			cmp.Or(firstFolder(row.Get("main_worktree_paths")), "-"))
 		emit(p.stateRow(artifact, text, parser.ColumnTime(row.Get("updated_at")), row.Rowid,
 			sessionID, project))
 	}
@@ -209,8 +210,8 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit p
 // trustedRow returns the `permission setting:` row of one trusted project
 // path.
 func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeline.Row {
-	path := columnStr(row.Get("absolute_path"))
-	host := columnStr(row.Get("host_name"))
+	path := parser.NonEmptyColumn(row.Get("absolute_path"))
+	host := parser.NonEmptyColumn(row.Get("host_name"))
 	if host != "" && !row.Get("user_name").IsEmpty() {
 		host = row.Get("user_name").String() + "@" + host
 	}
@@ -220,12 +221,4 @@ func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeli
 	text := "permission setting: trusted_worktrees." + path + "=true" + host + " (from " +
 		artifact.Rel + " trusted_worktrees, file mtime)"
 	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, "", path)
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }

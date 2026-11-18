@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -33,7 +34,7 @@ func TestColumnsBecomeRowTextADashOrAFlag(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := text(test.value); got != test.text {
+			if got := parser.ColumnText(test.value); got != test.text {
 				t.Errorf("text %q, want %q", got, test.text)
 			}
 			if got := dash(test.value); got != test.dash {

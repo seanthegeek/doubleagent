@@ -56,15 +56,6 @@ func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]
 	return table.Select(columns...).OrderBy("rowid").All()
 }
 
-// columnText returns a column as row text, "" for an empty value (null,
-// zero, empty text or an empty blob).
-func columnText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
-}
-
 // compactColumn returns a column's text compacted, "" for NULL.
 func compactColumn(value sqlitefile.Value) string {
 	if value.IsNull() {
@@ -98,7 +89,7 @@ func readThreads(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 		if order := sqlitefile.Compare(createdKey(left), createdKey(right)); order != 0 {
 			return order
 		}
-		return strings.Compare(columnText(left.Get("id")), columnText(right.Get("id")))
+		return strings.Compare(parser.NonEmptyColumn(left.Get("id")), parser.NonEmptyColumn(right.Get("id")))
 	})
 	return threads, nil
 }
@@ -114,15 +105,15 @@ func createdKey(thread sqlitefile.Row) sqlitefile.Value {
 
 // isSubagentThread reports whether a threads row is a subagent's.
 func isSubagentThread(thread sqlitefile.Row) bool {
-	source := columnText(thread.Get("source"))
+	source := parser.NonEmptyColumn(thread.Get("source"))
 	return isColumnText(thread.Get("thread_source"), "subagent") ||
 		(strings.HasPrefix(source, "{") && strings.Contains(source, `"subagent"`))
 }
 
 // threadText returns the "thread record:" text of a threads row.
 func threadText(thread sqlitefile.Row) string {
-	parts := []string{"thread record: " + columnText(thread.Get("id")) + " title=" +
-		columnText(thread.Get("title")) + " rollout=" + columnText(thread.Get("rollout_path"))}
+	parts := []string{"thread record: " + parser.NonEmptyColumn(thread.Get("id")) + " title=" +
+		parser.NonEmptyColumn(thread.Get("title")) + " rollout=" + parser.NonEmptyColumn(thread.Get("rollout_path"))}
 	for _, field := range [][2]string{{"name", "name"}, {"git_branch", "branch"}, {"model", "model"}} {
 		if value := thread.Get(field[0]); !value.IsEmpty() {
 			parts = append(parts, field[1]+"="+value.String())
@@ -141,8 +132,8 @@ func (p *Parser) stamp(artifact *input.Artifact, thread *sqlitefile.Row, session
 	row := p.BaseRow(artifact)
 	row.SessionID = sessionID
 	if thread != nil {
-		row.ProjectPath = columnText(thread.Get("cwd"))
-		row.GitBranch = columnText(thread.Get("git_branch"))
+		row.ProjectPath = parser.NonEmptyColumn(thread.Get("cwd"))
+		row.GitBranch = parser.NonEmptyColumn(thread.Get("git_branch"))
 	}
 	return row
 }
@@ -200,7 +191,7 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 func threadsByID(threads []sqlitefile.Row) map[string]*sqlitefile.Row {
 	byID := make(map[string]*sqlitefile.Row, len(threads))
 	for i := range threads {
-		byID[columnText(threads[i].Get("id"))] = &threads[i]
+		byID[parser.NonEmptyColumn(threads[i].Get("id"))] = &threads[i]
 	}
 	return byID
 }
@@ -225,7 +216,7 @@ func enrollmentText(enrollment sqlitefile.Row) string {
 func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row, emit parser.Emit) {
 	for i := range threads {
 		thread := &threads[i]
-		sessionID := columnText(thread.Get("id"))
+		sessionID := parser.NonEmptyColumn(thread.Get("id"))
 		row := p.stamp(artifact, thread, sessionID)
 		row.SourceLine = int(thread.Rowid)
 		row.TurnType = timeline.TurnSystem
@@ -266,7 +257,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 		}
 		sessionID := parser.Text(record.Get("reviewed_thread_id"))
 		if sessionID == "" {
-			sessionID = columnText(entry.Get("thread_id"))
+			sessionID = parser.NonEmptyColumn(entry.Get("thread_id"))
 		}
 		row := p.stamp(artifact, threads[sessionID], sessionID)
 		row.SourceLine = rowid

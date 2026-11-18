@@ -1,6 +1,7 @@
 package goose
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -51,15 +52,6 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 		return storedJSON{reason: "not a JSON object", raw: text}
 	}
 	return storedJSON{value: decoded, raw: text}
-}
-
-// orText returns a column as row text, "" for an empty value (NULL, zero,
-// or empty text or blob).
-func orText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
 }
 
 // sourceLine returns an id column as a row's source line, 0 when it is not
@@ -183,16 +175,16 @@ func (d *database) session(session sqlitefile.Row) {
 	if config.value.IsObject() {
 		modelValue = parser.Text(config.value.Get("model_name"))
 	}
-	sessionID := orText(session.Get("id"))
-	provider := orText(session.Get("provider_name"))
+	sessionID := parser.NonEmptyColumn(session.Get("id"))
+	provider := parser.NonEmptyColumn(session.Get("provider_name"))
 	d.byModel[sessionID] = modelName(provider, modelValue)
 	d.sessions[sessionID] = session
-	workingDir := orText(session.Get("working_dir"))
+	workingDir := parser.NonEmptyColumn(session.Get("working_dir"))
 	row := d.parser.row(d.artifact, rowid, sessionID, workingDir, d.byModel[sessionID],
 		parser.ColumnTime(session.Get("created_at")))
 	row.TurnType = timeline.TurnSystem
-	row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "session start", orText(session.Get("name")),
-		orText(session.Get("description")), labelled("type=", session.Get("session_type")),
+	row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "session start", parser.NonEmptyColumn(session.Get("name")),
+		parser.NonEmptyColumn(session.Get("description")), labelled("type=", session.Get("session_type")),
 		labelled("parent=", session.Get("parent_session_id")),
 		labelled("schedule=", session.Get("schedule_id")),
 		labelled("archived=", session.Get("archived_at"))))
@@ -207,7 +199,7 @@ func (d *database) session(session sqlitefile.Row) {
 		}
 		d.emit(systemCopy(row, text))
 	}
-	if text := d.modes.Change("permission mode", sessionID, orText(session.Get("goose_mode"))); text != "" {
+	if text := d.modes.Change("permission mode", sessionID, parser.NonEmptyColumn(session.Get("goose_mode"))); text != "" {
 		d.emit(systemCopy(row, text))
 	}
 }
@@ -231,26 +223,18 @@ func (p *Parser) gatewayText(session sqlitefile.Row) string {
 		return ""
 	}
 	platform, userID := "", ""
-	if match := p.gateway.FindStringSubmatch(orText(session.Get("working_dir"))); match != nil {
+	if match := p.gateway.FindStringSubmatch(parser.NonEmptyColumn(session.Get("working_dir"))); match != nil {
 		platform, userID = match[1], match[2]
 	}
-	namePlatform, display, _ := strings.Cut(orText(session.Get("name")), "/")
+	namePlatform, display, _ := strings.Cut(parser.NonEmptyColumn(session.Get("name")), "/")
 	if platform == "" {
 		platform = namePlatform
 	}
 	if display == userID {
 		display = ""
 	}
-	return "session relayed: gateway " + dash(platform) + " user " + dash(userID) + " display " +
-		dash(display) + " (from sessions.db session_type gateway, created_at)"
-}
-
-// dash returns text, or "-" when it is empty.
-func dash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
+	return "session relayed: gateway " + cmp.Or(platform, "-") + " user " + cmp.Or(userID, "-") + " display " +
+		cmp.Or(display, "-") + " (from sessions.db session_type gateway, created_at)"
 }
 
 // answered maps each session id to the tool request ids its
@@ -269,7 +253,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 		for _, block := range parser.Elements(content) {
 			data := block.Get("data")
 			if data.IsObject() && parser.IsText(data.Get("actionType"), "toolConfirmationResponse") {
-				sessionID := orText(row.Get("session_id"))
+				sessionID := parser.NonEmptyColumn(row.Get("session_id"))
 				if answered[sessionID] == nil {
 					answered[sessionID] = map[string]bool{}
 				}
@@ -285,8 +269,8 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 // of its content blocks.
 func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	answered map[string]map[string]bool) {
-	sessionID := orText(message.Get("session_id"))
-	projectPath := orText(d.sessions[sessionID].Get("working_dir"))
+	sessionID := parser.NonEmptyColumn(message.Get("session_id"))
+	projectPath := parser.NonEmptyColumn(d.sessions[sessionID].Get("working_dir"))
 	record := message.Get("id")
 	if record.IsEmpty() {
 		record = sqlitefile.IntValue(0)
@@ -321,7 +305,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 		parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, bad, sessionID, projectPath))
 		return
 	}
-	reader.blocks(base, orText(message.Get("role")), content.value, userVisible(meta),
+	reader.blocks(base, parser.NonEmptyColumn(message.Get("role")), content.value, userVisible(meta),
 		answeredOf(answered, sessionID), d.emit)
 }
 

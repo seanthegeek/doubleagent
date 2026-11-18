@@ -111,7 +111,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 	for _, entry := range problems {
 		project := ""
 		if entry.thread != nil {
-			project = columnText(entry.thread.Get("cwd"))
+			project = parser.NonEmptyColumn(entry.thread.Get("cwd"))
 		}
 		parser.EmitAll(emit, p.ErrorRows(artifact, parser.Problems{entry.problem}, entry.sessionID,
 			project))
@@ -149,7 +149,7 @@ func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thr
 func (p *Parser) turnRow(artifact *input.Artifact, event historyEvent, thread *sqlitefile.Row,
 	emit parser.Emit) {
 	turn := event.row
-	turnID := columnText(turn.Get("turn_id"))
+	turnID := parser.NonEmptyColumn(turn.Get("turn_id"))
 	when, text := turn.Get("started_at"), "task_started turn="+turnID
 	if event.kind == turnEnd {
 		status := turn.Get("status")
@@ -157,7 +157,7 @@ func (p *Parser) turnRow(artifact *input.Artifact, event historyEvent, thread *s
 			return
 		}
 		when = turn.Get("completed_at")
-		text = "task_complete turn=" + turnID + " duration_ms=" + columnText(turn.Get("duration_ms"))
+		text = "task_complete turn=" + turnID + " duration_ms=" + parser.NonEmptyColumn(turn.Get("duration_ms"))
 	}
 	row := p.stamp(artifact, thread, event.threadID)
 	row.SourceLine = int(turn.Rowid)
@@ -199,7 +199,7 @@ func historyEvents(turns, items []sqlitefile.Row) []historyEvent {
 	}
 	events := make([]historyEvent, 0, 2*len(turns)+len(items))
 	for _, turn := range turns {
-		threadID, start := columnText(turn.Get("thread_id")), ordinalOf(turn)
+		threadID, start := parser.NonEmptyColumn(turn.Get("thread_id")), ordinalOf(turn)
 		end := turn.Get("rollout_end_ordinal")
 		if end.IsNull() {
 			key := valueKey(turn.Get("thread_id")) + "\x00" + valueKey(turn.Get("turn_id"))
@@ -213,7 +213,7 @@ func historyEvents(turns, items []sqlitefile.Row) []historyEvent {
 			historyEvent{threadID, end, turnEnd, turn})
 	}
 	for _, item := range items {
-		events = append(events, historyEvent{columnText(item.Get("thread_id")), ordinalOf(item),
+		events = append(events, historyEvent{parser.NonEmptyColumn(item.Get("thread_id")), ordinalOf(item),
 			turnItem, item})
 	}
 	slices.SortStableFunc(events, compareEvents)

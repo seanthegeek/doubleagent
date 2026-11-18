@@ -120,7 +120,7 @@ func startText(record sqlitefile.Row, value jsonvalue.Value) string {
 	parts := []string{"thread start:"}
 	title := parser.Text(value.Get("title"))
 	if title == "" {
-		title = columnStr(record.Get("summary"))
+		title = parser.NonEmptyColumn(record.Get("summary"))
 	}
 	if title != "" {
 		parts = append(parts, title)

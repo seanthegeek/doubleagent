@@ -1,6 +1,7 @@
 package tabby
 
 import (
+	"cmp"
 	"path"
 	"strconv"
 	"strings"
@@ -138,7 +139,7 @@ func (s *store) readUsers() (map[string]string, error) {
 		return users, nil
 	}
 	err := s.each("users", "id", func(user sqlitefile.Row) {
-		label := orText(user.Get("email"))
+		label := parser.NonEmptyColumn(user.Get("email"))
 		if name := user.Get("name"); !name.IsEmpty() {
 			if label != "" {
 				label += " (" + name.String() + ")"
@@ -149,15 +150,6 @@ func (s *store) readUsers() (map[string]string, error) {
 		users[user.Get("id").String()] = label
 	})
 	return users, err
-}
-
-// orText returns a column as row text, "" for an empty value (NULL, zero,
-// or empty text or blob).
-func orText(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
-	}
-	return value.String()
 }
 
 // sourceLine returns an id column as a row's source line, 0 when it is not
@@ -291,7 +283,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 // messageRow returns the row of one thread message.
 func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, threadID,
 	project string) timeline.Row {
-	role, text := orText(message.Get("role")), orText(message.Get("content"))
+	role, text := parser.NonEmptyColumn(message.Get("role")), parser.NonEmptyColumn(message.Get("content"))
 	parts := attachmentParts(attachment)
 	if source := message.Get("code_source_id"); !source.IsEmpty() {
 		parts = append([]string{"code_source " + source.String()}, parts...)
@@ -412,7 +404,7 @@ func (s *store) userEvents() error {
 			s.emit(s.parser.row(s.artifact, spec))
 			return
 		}
-		s.parser.eventRows(s.artifact, spec, "user="+owner, payload, orText(event.Get("kind")), s.emit)
+		s.parser.eventRows(s.artifact, spec, "user="+owner, payload, parser.NonEmptyColumn(event.Get("kind")), s.emit)
 	})
 }
 
@@ -423,17 +415,17 @@ func (s *store) integrations() error {
 	type named struct{ name, kind string }
 	names := map[string]named{}
 	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
-		kind, apiBase := orText(integration.Get("kind")), parser.WithoutCredentials(orText(integration.Get("api_base")))
+		kind, apiBase := parser.NonEmptyColumn(integration.Get("kind")), parser.WithoutCredentials(parser.NonEmptyColumn(integration.Get("api_base")))
 		host := integrationHosts()[kind]
 		if host == "" {
 			host = urlHostname(apiBase)
 		}
-		name := orText(integration.Get("display_name"))
+		name := parser.NonEmptyColumn(integration.Get("display_name"))
 		names[integration.Get("id").String()] = named{name, kind}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: sourceLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
-			text: "source host: " + dash(host) + " integration " + dash(name) + " kind=" + dash(kind) +
-				" api_base=" + dash(apiBase) + " (account not recorded; from integrations table, " +
+			text: "source host: " + cmp.Or(host, "-") + " integration " + cmp.Or(name, "-") + " kind=" + cmp.Or(kind, "-") +
+				" api_base=" + cmp.Or(apiBase, "-") + " (account not recorded; from integrations table, " +
 				"created_at)"}))
 	})
 	if err != nil || !s.tables["provided_repositories"] {
@@ -451,16 +443,8 @@ func (s *store) integrations() error {
 		}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: sourceLine(repository.Get("id")),
 			timestamp: parser.ColumnTime(repository.Get("updated_at")),
-			text: "source host repository: " + dash(orText(repository.Get("git_url"))) + " type=" +
-				dash(integration.kind) + " name=" + dash(orText(repository.Get("name"))) + " active=" +
+			text: "source host repository: " + cmp.Or(parser.NonEmptyColumn(repository.Get("git_url")), "-") + " type=" +
+				cmp.Or(integration.kind, "-") + " name=" + cmp.Or(parser.NonEmptyColumn(repository.Get("name")), "-") + " active=" +
 				active + " (integration " + owner + "; from provided_repositories table, updated_at)"}))
 	})
-}
-
-// dash returns text, or "-" when it is empty.
-func dash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }

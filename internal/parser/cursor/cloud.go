@@ -1,6 +1,7 @@
 package cursor
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -85,9 +86,9 @@ func (i *items) cloud(emit parser.Emit) {
 		if repo.IsObject() {
 			target := repo.Get("url").Text()
 			if target == "" {
-				target = orDash(repo.Get("name").Text())
+				target = cmp.Or(repo.Get("name").Text(), "-")
 			}
-			emit(i.system("source host repository: "+target+" type="+shown(repo.Get("type"))+" "+reposSource,
+			emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+reposSource,
 				i.mtime, found.rowid))
 		}
 	}
@@ -126,10 +127,10 @@ func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser
 // cloudText returns the "cloud agent:" text of a cloud agent, "-" for an
 // absent value.
 func cloudText(agent jsonvalue.Value) string {
-	return "cloud agent: " + orDash(timeline.CompactValue(agent.Get("name"))) + " repo=" + shown(agent.Get("repoUrl")) +
-		" status=" + shown(agent.Get("status")) + " workflowStatus=" + shown(agent.Get("workflowStatus")) +
-		" archived=" + shown(agent.Get("isArchived")) + " killed=" + shown(agent.Get("isKilled")) +
-		" vmStarted=" + shown(agent.Get("hasStartedVm")) + " " + cloudSource
+	return "cloud agent: " + cmp.Or(timeline.CompactValue(agent.Get("name")), "-") + " repo=" + parser.SettingOrDash(agent.Get("repoUrl")) +
+		" status=" + parser.SettingOrDash(agent.Get("status")) + " workflowStatus=" + parser.SettingOrDash(agent.Get("workflowStatus")) +
+		" archived=" + parser.SettingOrDash(agent.Get("isArchived")) + " killed=" + parser.SettingOrDash(agent.Get("isKilled")) +
+		" vmStarted=" + parser.SettingOrDash(agent.Get("hasStartedVm")) + " " + cloudSource
 }
 
 // mcpAuth emits a "permission decision:" row per cloud agent MCP
@@ -155,7 +156,7 @@ func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
 		}
 		agentID, callID := resolution.Get("agentId").Text(), resolution.Get("toolCallId").Text()
 		row := i.system("permission decision: "+fieldOf(resolution.Get("userDecision"))+
-			" mcp auth for cloud agent "+orDash(agentID)+" tool_call="+orDash(callID)+" "+mcpAuthSource,
+			" mcp auth for cloud agent "+cmp.Or(agentID, "-")+" tool_call="+cmp.Or(callID, "-")+" "+mcpAuthSource,
 			i.mtime, found.rowid)
 		row.SessionID, row.ToolUseID = agentID, callID
 		if agent, ok := known[agentID]; ok {
