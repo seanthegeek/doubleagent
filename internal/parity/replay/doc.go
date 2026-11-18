@@ -15,8 +15,8 @@
 // shows in the recorded text, an excluding one leaves out a case whose
 // recorded text shows its shape, and a difference of format applies to the
 // texts its scope names. The log counts the cases that used each, and a run
-// of every case fails when a difference that is not retired was used by
-// none. Mutation tests show that a changed word, number, key, row order,
+// of every case fails when a difference was used by none, unless it is
+// retired or its use depends on the recording's clock. Mutation tests show that a changed word, number, key, row order,
 // line order or dropped row still fails.
 //
 // The recorder ran under a temporary root padded to a fixed length and wrote

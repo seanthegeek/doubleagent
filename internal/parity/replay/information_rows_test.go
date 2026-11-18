@@ -92,6 +92,7 @@ func TestEachFormatOfTheBinaryPassesUnderItsOwnDifference(t *testing.T) {
 		{"embedded JSON's spacing is not compared", rows,
 			textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`, `{ "type": "workspace-write" }`)),
 			[]int{differenceEmbeddedJSON}},
+		{"a timestamp is not rounded up", rows, timeMoved(rows, session, -1), []int{differenceRoundedTime}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -173,7 +174,10 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 			rows},
 		{"a lone surrogate turned into U+FFFD", textChanged(rows, cost, replaced("cost", "co\xed\xa0\x80st")),
 			textChanged(rows, cost, replaced("cost", "co\uFFFDst"))},
-		{"a timestamp moved one millisecond earlier", rows, timeMoved(rows, cost, -1)},
+		{"a time quoted in a row's text moved one millisecond earlier",
+			textChanged(rows, cost, func(text string) string { return text + " at 2026-09-10T08:00:00.500Z" }),
+			textChanged(rows, cost, func(text string) string { return text + " at 2026-09-10T08:00:00.499Z" })},
+		{"a timestamp moved one millisecond later", rows, timeMoved(rows, cost, 1)},
 		{"a session id's leading zero dropped", fieldChanged(rows, cost, func(row *Row) { row.SessionID = "007" }),
 			fieldChanged(rows, cost, func(row *Row) { row.SessionID = "7" })},
 		{"None in a formatted field turned into nothing", fieldChanged(rows, cost, func(row *Row) { row.GitBranch = "None" }),
