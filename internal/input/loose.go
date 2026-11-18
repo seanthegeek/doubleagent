@@ -2,6 +2,7 @@ package input
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -114,7 +115,7 @@ func (c *Collection) walkForHomes(ctx context.Context, matcher *catalog.Matcher,
 				continue
 			}
 		}
-		stack = append(stack, subdirectories(current, entries)...)
+		stack = append(stack, c.subdirectories(current, entries)...)
 	}
 	return nil
 }
@@ -143,17 +144,34 @@ func hasAgentHit(hits []hit) bool {
 }
 
 // subdirectories returns the real directories among entries, links left
-// out, in reverse name order, for a stack that pops them in order.
-func subdirectories(parent directory, entries []fs.DirEntry) []directory {
+// out, in reverse name order, for a stack that pops them in order. A
+// directory the system redirects (realDirectory) is left out too, with a
+// problem, since no lookup below it would be allowed through it.
+func (c *Collection) subdirectories(parent directory, entries []fs.DirEntry) []directory {
 	var children []directory
 	for i := len(entries) - 1; i >= 0; i-- {
-		if entries[i].IsDir() {
-			name := entries[i].Name()
+		name := entries[i].Name()
+		switch {
+		case realDirectory(entries[i].Type()):
 			children = append(children, directory{path: joinPath(parent.path, name),
 				rel: appendPart(parent.rel, name)})
+		case entries[i].Type()&fs.ModeIrregular != 0 && entries[i].IsDir():
+			c.recordProblem(describeError(joinPath(parent.path, name), errRedirected))
 		}
 	}
 	return children
+}
+
+// errRedirected is the reason a directory marked irregular is not entered:
+// on Windows a reparse point other than a link, such as a cloud file
+// placeholder, which the system may resolve elsewhere.
+var errRedirected = errors.New("a directory the file system redirects, not entered")
+
+// realDirectory reports whether mode is a directory's own, neither a link
+// nor marked irregular: the directories the walk enters, and the only ones
+// below and parser.DirectoryAt take.
+func realDirectory(mode fs.FileMode) bool {
+	return mode.IsDir() && mode&(fs.ModeSymlink|fs.ModeIrregular) == 0
 }
 
 // appendPart returns parts with part appended, never sharing parts' array.

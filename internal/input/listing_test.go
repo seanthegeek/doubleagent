@@ -115,3 +115,50 @@ func TestALooseTreeOpensInOneOrderWhateverTheListingOrder(t *testing.T) {
 		t.Errorf("bob's sessions are not in name order: %q", orders[0])
 	}
 }
+
+// redirectedEntry is a directory entry the system marks irregular, as
+// Windows marks a reparse point that is not a link.
+type redirectedEntry struct{ fs.DirEntry }
+
+// IsDir reports that the entry is a directory.
+func (redirectedEntry) IsDir() bool { return true }
+
+// Type returns a directory marked irregular.
+func (redirectedEntry) Type() fs.FileMode { return fs.ModeDir | fs.ModeIrregular }
+
+func TestTheWalkNeverEntersADirectoryTheSystemRedirects(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "alice", ".claude", "history.jsonl"), "{}")
+	writeFile(t, filepath.Join(dir, "alice", ".claude", "projects", "p", "s.jsonl"), "{}")
+	redirected := filepath.Join(dir, "alice", ".claude", "projects")
+	readDir := func(path string) ([]fs.DirEntry, error) {
+		entries, err := osfile.ReadDir(path)
+		for i, entry := range entries {
+			if filepath.Join(path, entry.Name()) == redirected {
+				entries[i] = redirectedEntry{entry}
+			}
+		}
+		return entries, err
+	}
+	collection, err := Open(t.Context(), dir, Options{Matcher: matcherOf(t, ""), ReadDir: readDir})
+	opened(t, err)
+	wantSlice(t, "artifacts", rels(collection), []string{".claude/history.jsonl"})
+	wantSlice(t, "problems", collection.Problems, []string{redirected + ": " + errRedirected.Error()})
+}
+
+func TestRealDirectoryTakesOnlyAPlainDirectory(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		mode fs.FileMode
+		want bool
+	}{
+		{"a directory", fs.ModeDir, true},
+		{"a link to a directory", fs.ModeDir | fs.ModeSymlink, false},
+		{"a directory marked irregular", fs.ModeDir | fs.ModeIrregular, false},
+		{"a file", 0, false},
+	} {
+		if got := realDirectory(test.mode); got != test.want {
+			t.Errorf("%s: realDirectory = %v, want %v", test.name, got, test.want)
+		}
+	}
+}

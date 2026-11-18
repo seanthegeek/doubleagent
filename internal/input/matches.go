@@ -65,7 +65,7 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base string, re
 	last := index+1 == pattern.Depth()
 	for _, entry := range entries {
 		name := entry.Name()
-		if !pattern.MatchSegment(index, name) || (!last && !entry.IsDir()) {
+		if !pattern.MatchSegment(index, name) || (!last && !realDirectory(entry.Type())) {
 			continue
 		}
 		hits = c.expand(pattern, index+1, joinPath(base, name), appendPart(rel, name), cache, hits)
@@ -123,6 +123,9 @@ func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
 	case !info.IsDir():
 		c.recordProblem(describeError(start, errNotDirectory))
 		return nil
+	case !realDirectory(info.Mode()):
+		c.recordProblem(describeError(start, errRedirected))
+		return nil
 	}
 	stack := []directory{{path: start, rel: rel}}
 	for len(stack) > 0 {
@@ -141,7 +144,7 @@ func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
 				yield(joinPath(current.path, entry.Name()), appendPart(current.rel, entry.Name()))
 			}
 		}
-		stack = append(stack, subdirectories(current, entries)...)
+		stack = append(stack, c.subdirectories(current, entries)...)
 	}
 	return nil
 }
