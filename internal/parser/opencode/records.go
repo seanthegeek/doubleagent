@@ -73,6 +73,14 @@ func (b *recordRows) system(text string) {
 	}
 }
 
+// problemRows emits a "parser:" row for each problem, which is how a member
+// of the wrong kind is reported.
+func (b *recordRows) problemRows(problems parser.Problems) {
+	for _, found := range problems {
+		b.add(timeline.TurnSystem, parser.ProblemPrefix+found.Message, "")
+	}
+}
+
 // recordSummary returns the system row text of a record that is neither a
 // message nor a switch of model or agent.
 func recordSummary(kind string, data jsonvalue.Value) string {
@@ -109,7 +117,8 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 }
 
 // assistant emits an assistant record's model and agent changes, the rows
-// of its content items and its error.
+// of its content items and its error. A content that is not an array adds a
+// problem row.
 func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 	scoped := b.scoped
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
@@ -117,7 +126,10 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 		agentRowText(scoped.modes, scoped.sessionID, data.Get("agent"))} {
 		b.system(text)
 	}
-	for _, item := range data.Get("content").Items() {
+	var problems parser.Problems
+	items := parser.ArrayMember(data.Get("content"), "content", 0, &problems)
+	b.problemRows(problems)
+	for _, item := range items {
 		item = parser.ObjectOrEmpty(item)
 		text := item.Get("text")
 		switch textOf(item.Get("type")) {
@@ -140,7 +152,8 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 
 // tool emits a 2.x tool item's tool_use row, and once the call has
 // finished its tool_result row and, for a refusal, its
-// "permission decision:" row.
+// "permission decision:" row. A state.content that is not an array adds a
+// problem row.
 func (b *recordRows) tool(item jsonvalue.Value) {
 	state, times := parser.ObjectOrEmpty(item.Get("state")), parser.ObjectOrEmpty(item.Get("time"))
 	name, callID := parser.Text(item.Get("name")), parser.Text(item.Get("id"))
@@ -151,11 +164,12 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 		return
 	}
 	var text string
+	var problems parser.Problems
 	if status == "error" {
 		text = "[error] " + errorText(state.Get("error"))
 	} else {
 		var chunks []string
-		for _, chunk := range state.Get("content").Items() {
+		for _, chunk := range parser.ArrayMember(state.Get("content"), "state.content", 0, &problems) {
 			if chunk.IsObject() && !chunk.Get("text").IsNull() {
 				chunks = append(chunks, chunk.Get("text").Text())
 			}
@@ -165,6 +179,7 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 	result := b.add(timeline.TurnToolResult, text, timeutil.FirstNonEmpty(
 		timeutil.FromValue(times.Get("completed")), timeutil.FromValue(times.Get("ran"))),
 		name, callID)
+	b.problemRows(problems)
 	if status != "error" {
 		return
 	}
