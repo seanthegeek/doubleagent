@@ -12,7 +12,8 @@ import (
 )
 
 // FuzzDataDatabase reads data.db from any bytes, starting from a database
-// of every table the session rows join: the parser gives rows or a problem
+// of every table the session rows join (testdata/data.db, built by
+// testdata/gen_data.py): the parser gives rows or a problem
 // row, never a panic, and every row's text is valid UTF-8.
 func FuzzDataDatabase(fuzz *testing.F) {
 	seed, err := osfile.ReadFile(filepath.Join("testdata", "data.db"))

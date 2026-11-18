@@ -78,8 +78,8 @@ type Parser struct {
 	indexes *continuedev.Indexes
 	states  map[stateKey]globalState
 	// historyExamined counts the taskHistory[] entries read into the
-	// indexes, a measure of the work: once per entry of a state, however
-	// many tasks look themselves up.
+	// indexes, which a test reads: once per entry of a state, however many
+	// tasks look themselves up.
 	historyExamined int
 }
 

@@ -223,6 +223,7 @@ func TestALookupOfAnAskTimeIsABinarySearch(t *testing.T) {
 	}
 }
 
+// testdata/state.vscdb is built by testdata/gen_state.py.
 func TestATaskFindsItsHistoryEntryThroughOneIndexOfTheState(t *testing.T) {
 	home := t.TempDir()
 	data, err := osfile.ReadFile(filepath.Join("testdata", "state.vscdb"))

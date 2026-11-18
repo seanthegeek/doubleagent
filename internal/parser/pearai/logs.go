@@ -64,8 +64,8 @@ func (p *Parser) outputLog(artifact *input.Artifact, emit parser.Emit) {
 
 // lineCounter gives the line numbers of offsets of a text met in
 // increasing order, counting the newlines from the last offset only, so
-// each byte is counted once. scanned is the bytes counted, a measure of
-// the work.
+// each byte is counted once. scanned is the bytes counted, which a test
+// reads.
 type lineCounter struct {
 	text                  string
 	offset, line, scanned int

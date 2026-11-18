@@ -95,8 +95,8 @@ type postKey struct {
 
 // pendingPosts holds the posts that wait for their result line, oldest
 // first per process and URL, so a result finds its post without a scan of
-// the others. examined counts the posts a result was given to, a measure
-// of the work that stays at most one per result line.
+// the others. examined counts the posts a result was given to, at most one
+// per result line, which a test reads.
 type pendingPosts struct {
 	queues   map[postKey][]*post
 	examined int

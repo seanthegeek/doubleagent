@@ -52,7 +52,7 @@ func (p *Parser) taskFile(artifact *input.Artifact, options parser.Options, emit
 
 // askIndex is the ts of each tool call ask of ui_messages.json, in time
 // order, which a decision's tool_use_id names. probes counts the asks a
-// lookup compared, a measure of the work.
+// lookup compared, a measure of the work that a test reads.
 type askIndex struct {
 	times  []jsonvalue.Value
 	probes int

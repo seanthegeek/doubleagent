@@ -287,7 +287,7 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 
 // firstSeen keeps distinct texts in the order they are first met, through a
 // set, so each text added costs one lookup whatever came before. lookups
-// counts them, a measure of the work.
+// counts them, a measure of the work that a test reads.
 type firstSeen struct {
 	seen    map[string]bool
 	order   []string

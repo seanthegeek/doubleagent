@@ -31,6 +31,7 @@ func parseFile(t *testing.T, rel string, data []byte) []string {
 	return texts
 }
 
+// The state.vscdb fixtures under testdata are built by testdata/gen_state.py.
 func TestAHistoryThatIsNotAnObjectIsReported(t *testing.T) {
 	const jetBrains = "Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2"
 	const state = "Code/User/globalStorage/state.vscdb"
