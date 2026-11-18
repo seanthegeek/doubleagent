@@ -8,6 +8,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -112,7 +113,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 	}
 	var keyError error
 	if ok {
-		current.key, keyError = legacyKey(artifact, current.sessionID)
+		current.key, keyError = p.legacyKey(artifact, current.sessionID)
 	}
 	var problems parser.Problems
 	raw, read := parser.FileBytes(artifact.DiskPath, &problems)
@@ -133,28 +134,64 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 // legacyKey returns the session key of sessionID from the sibling legacy
 // sessions.json, or an error whose text is the message of the `parser:`
 // row of a sessions.json that cannot be read, does not decode or is not a
-// JSON object. A missing file is no error.
-func legacyKey(artifact *input.Artifact, sessionID string) (string, error) {
+// JSON object. A missing file is no error. The file is read once per state
+// of it for the parser's life, since every transcript beside it asks.
+func (p *Parser) legacyKey(artifact *input.Artifact, sessionID string) (string, error) {
 	store, found := parser.Beside(artifact, "sessions.json")
 	if !found || !parser.RegularFile(store) {
 		return "", nil
 	}
-	var problems parser.Problems
-	content, ok := parser.FileBytes(store, &problems)
+	info, err := osfile.Lstat(store)
+	if err != nil {
+		return "", nil
+	}
+	key := fileState{path: store, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	index, ok := p.legacyIndexes[key]
 	if !ok {
-		return "", errors.New(problems[0].Message)
+		index = p.readLegacyIndex(store)
+		if p.legacyIndexes == nil {
+			p.legacyIndexes = map[fileState]*legacyIndex{}
+		}
+		p.legacyIndexes[key] = index
+	}
+	return index.keys[sessionID], index.err
+}
+
+// fileState names a file as read: its path, modification time in
+// nanoseconds and size, the key of what is read from it once.
+type fileState struct {
+	path        string
+	mtime, size int64
+}
+
+// legacyIndex is a legacy sessions.json read once: the first member key of
+// each sessionId, and the error reading or decoding it met.
+type legacyIndex struct {
+	keys map[string]string
+	err  error
+}
+
+// readLegacyIndex reads and indexes the sessions.json at path.
+func (p *Parser) readLegacyIndex(path string) *legacyIndex {
+	p.Work.Add("sessions.json reads", 1)
+	var problems parser.Problems
+	content, ok := parser.FileBytes(path, &problems)
+	if !ok {
+		return &legacyIndex{err: errors.New(problems[0].Message)}
 	}
 	data, err := jsonvalue.Decode(content)
 	switch {
 	case err != nil:
-		return "", fmt.Errorf("sessions.json unparseable (%w)", err)
+		return &legacyIndex{err: fmt.Errorf("sessions.json unparseable (%w)", err)}
 	case !data.IsObject():
-		return "", errors.New("sessions.json is not a JSON object")
+		return &legacyIndex{err: errors.New("sessions.json is not a JSON object")}
 	}
+	index := &legacyIndex{keys: map[string]string{}}
 	for _, member := range data.Members() {
-		if entry := member.Value; entry.IsObject() && parser.IsText(entry.Get("sessionId"), sessionID) {
-			return member.Key, nil
+		sessionID := member.Value.Get("sessionId")
+		if _, held := index.keys[sessionID.StringValue()]; member.Value.IsObject() && sessionID.IsString() && !held {
+			index.keys[sessionID.StringValue()] = member.Key
 		}
 	}
-	return "", nil
+	return index
 }

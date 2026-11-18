@@ -93,6 +93,8 @@ type Parser struct {
 	// budgetFloor is the least decompression budget of a database or file
 	// (zed.BudgetFloor; a test lowers it).
 	budgetFloor int
+	// legacyIndexes holds each legacy sessions.json read, by its state.
+	legacyIndexes map[fileState]*legacyIndex
 }
 
 // New returns the parser.
