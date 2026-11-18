@@ -65,7 +65,8 @@ func laterDifferences() []Difference {
 	return []Difference{
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
 			Text: quotedValueText},
-		{Number: 121, Summary: "options come before the input", Arguments: optionsFirst},
+		{Number: 121, Summary: "options come before the input, and timeline's output directory is its second " +
+			"argument", Arguments: optionsFirst},
 		{Number: 122, Summary: "a note counting one manifest row that did not parse says row",
 			Text: oneManifestRowText},
 		{Number: 130, Summary: "a file that holds secrets gives only where it stopped decoding, " +

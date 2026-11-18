@@ -7,48 +7,40 @@ import (
 )
 
 func TestParseTimelineReadsEveryOption(t *testing.T) {
+	both := InputOptions{Input: "in"}
 	tests := []struct {
 		name string
 		args []string
 		want TimelineOptions
 	}{
-		{"the input follows the options", []string{"--since", "2026-10-01", "-o", "out", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", Since: "2026-10-01"}},
-		{"--output is -o", []string{"--output", "out", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
-		{"-output with one dash is --output", []string{"-output", "out", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
-		{"-o takes a value after =", []string{"-o=out", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
+		{"the input and the output directory follow the options",
+			[]string{"--since", "2026-10-01", "in", "out"},
+			TimelineOptions{InputOptions: both, Output: "out", Since: "2026-10-01"}},
+		{"no options", []string{"in", "out"}, TimelineOptions{InputOptions: both, Output: "out"}},
 		{"repeatable options keep every value in order",
-			[]string{"--agent", "aider", "--output=out", "--agent", "pi", "--match", "a",
-				"--match=b", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out",
+			[]string{"--agent", "aider", "--agent", "pi", "--match", "a", "--match=b", "in", "out"},
+			TimelineOptions{InputOptions: both, Output: "out",
 				Agents: []string{"aider", "pi"}, Match: []string{"a", "b"}}},
 		{"flags and the shared input options are read",
 			[]string{"--include-thinking", "--keep-undated", "-i", "--host", "h1", "--user", "u",
-				"--work-dir", "w", "--keep-extracted", "-o", "out", "--since", "2026",
-				"--until", "now", "in"},
+				"--work-dir", "w", "--keep-extracted", "--since", "2026", "--until", "now", "in", "out"},
 			TimelineOptions{InputOptions: InputOptions{Input: "in", Host: "h1", User: "u",
 				WorkDir: "w", KeepExtracted: true, workDirSet: true}, Output: "out",
 				IncludeThinking: true, KeepUndated: true, IgnoreCase: true, Since: "2026",
 				Until: "now"}},
-		{"--ignore-case is -i", []string{"-o", "out", "--ignore-case", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", IgnoreCase: true}},
-		{"a switch takes =false", []string{"-o", "out", "-i", "--ignore-case=false", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out"}},
+		{"--ignore-case is -i", []string{"--ignore-case", "in", "out"},
+			TimelineOptions{InputOptions: both, Output: "out", IgnoreCase: true}},
+		{"a switch takes =false", []string{"-i", "--ignore-case=false", "in", "out"},
+			TimelineOptions{InputOptions: both, Output: "out"}},
 		{"a value may start with a dash or hold a space",
-			[]string{"-o", "out", "--match", "-1", "--match", "-a b", "--match", "--x", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out",
-				Match: []string{"-1", "-a b", "--x"}}},
-		{"after -- every argument is an input", []string{"-o", "out", "--", "-in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "-in"}, Output: "out"}},
-		{"a lone dash is an input", []string{"-o", "out", "-"},
+			[]string{"--match", "-1", "--match", "-a b", "--match", "--x", "in", "out"},
+			TimelineOptions{InputOptions: both, Output: "out", Match: []string{"-1", "-a b", "--x"}}},
+		{"after -- every argument is a positional", []string{"--", "-in", "-out"},
+			TimelineOptions{InputOptions: InputOptions{Input: "-in"}, Output: "-out"}},
+		{"a lone dash is a positional", []string{"-", "out"},
 			TimelineOptions{InputOptions: InputOptions{Input: "-"}, Output: "out"}},
-		{"-- may be a value after =", []string{"-o", "out", "--match=--", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "out", Match: []string{"--"}}},
-		{"-- may be -o's value", []string{"-o", "--", "in"},
-			TimelineOptions{InputOptions: InputOptions{Input: "in"}, Output: "--"}},
+		{"-- may be a value after =", []string{"--match=--", "in", "out"},
+			TimelineOptions{InputOptions: both, Output: "out", Match: []string{"--"}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -87,14 +79,26 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 		args    []string
 		want    string
 	}{
-		{"timeline needs its output", "timeline", []string{"in"}, "missing argument: -o/--output"},
-		{"an empty output is no output", "timeline", []string{"-o", "", "in"}, "missing argument: -o/--output"},
-		{"timeline needs its input", "timeline", []string{"-o", "x"}, "missing argument: input"},
-		{"timeline needs both", "timeline", nil, "missing argument: input, -o/--output"},
-		{"an option's value is missing at the end", "timeline", []string{"-o"}, "flag needs an argument: -o"},
+		{"timeline needs its output directory", "timeline", []string{"in"},
+			"missing argument: output directory"},
+		{"an empty output directory is none", "timeline", []string{"in", ""},
+			"missing argument: output directory"},
+		{"timeline needs both", "timeline", nil, "missing argument: input, output directory"},
+		{"timeline takes two arguments", "timeline", []string{"in", "out", "extra"},
+			"unexpected argument: extra"},
+		{"timeline names every extra argument", "timeline", []string{"in", "out", "a", "b"},
+			"unexpected argument: a b"},
+		{"-o is not an option of timeline", "timeline", []string{"-o", "out", "in"},
+			"flag provided but not defined: -o"},
+		{"--output is not an option of timeline", "timeline", []string{"--output", "out", "in"},
+			"flag provided but not defined: -output"},
+		{"--output= is not an option of timeline", "timeline", []string{"--output=out", "in"},
+			"flag provided but not defined: -output"},
+		{"an option's value is missing at the end", "timeline", []string{"--since"},
+			"flag needs an argument: -since"},
 		{"an unknown option is refused", "detect", []string{"--bogus", "in"},
 			"flag provided but not defined: -bogus"},
-		{"a short option with its value attached is refused", "timeline", []string{"-oout", "in"},
+		{"a short option with its value attached is refused", "timeline", []string{"-oout", "in", "out"},
 			"flag provided but not defined: -oout"},
 		{"a negative number is not an input", "detect", []string{"-1"}, "flag provided but not defined: -1"},
 		{"--version is not an analysis option", "timeline", []string{"--version"},
@@ -112,13 +116,13 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 			"options go before the input; --json is after it"},
 		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"},
 			"options go before the input; --host is after it"},
-		{"timeline with options after the input", "timeline", []string{"in", "--since", "2026-10-01", "-o", "out"},
+		{"timeline with options after the input", "timeline", []string{"in", "out", "--since", "2026-10-01"},
 			"options go before the input; --since is after it"},
-		{"timeline with --help after the input", "timeline", []string{"-o", "x", "in", "--help"},
+		{"timeline with --help after the input", "timeline", []string{"in", "out", "--help"},
 			"options go before the input; --help is after it"},
-		{"timeline with an unknown option after the input", "timeline", []string{"-o", "x", "in", "--bogus"},
+		{"timeline with an unknown option after the input", "timeline", []string{"in", "out", "--bogus"},
 			"options go before the input; --bogus is after it"},
-		{"-o's value -- does not end the options", "timeline", []string{"-o", "--", "in", "--json"},
+		{"a value -- does not end the options", "timeline", []string{"--since", "--", "in", "out", "--json"},
 			"options go before the input; --json is after it"},
 		{"fleet with -o between its inputs", "fleet", []string{"a", "-o", "x.csv", "b"},
 			"options go before the input; -o is after it"},
@@ -183,7 +187,7 @@ func TestFlagSetTellsWhichOptionsTakeAValue(t *testing.T) {
 		switchValue, ok := option.Value.(interface{ IsBoolFlag() bool })
 		return !ok || !switchValue.IsBoolFlag()
 	}
-	if !takesValue("timeline", "o") || !takesValue("timeline", "match") || !takesValue("detect", "work-dir") {
+	if !takesValue("timeline", "since") || !takesValue("timeline", "match") || !takesValue("detect", "work-dir") {
 		t.Error("a value option reads as a switch")
 	}
 	if takesValue("detect", "json") || takesValue("timeline", "i") || takesValue("catalog", "agents") {
@@ -195,7 +199,7 @@ func TestFlagSetTellsWhichOptionsTakeAValue(t *testing.T) {
 }
 
 func TestHelpIsAskedForAmongTheOptions(t *testing.T) {
-	for _, args := range [][]string{{"-h"}, {"--help"}, {"-help"}, {"-o", "x", "-h", "in"}} {
+	for _, args := range [][]string{{"-h"}, {"--help"}, {"-help"}, {"--since", "x", "-h", "in", "out"}} {
 		if _, help, err := ParseTimeline(args); !help || err != nil {
 			t.Errorf("%q: help %v, error %v", args, help, err)
 		}
@@ -203,7 +207,7 @@ func TestHelpIsAskedForAmongTheOptions(t *testing.T) {
 }
 
 func TestAMistakeAmongTheOptionsBeatsHelp(t *testing.T) {
-	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"-h", "-o"}, {"-h", "in", "--json"}} {
+	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"-h", "-o", "x"}, {"-h", "in", "--json"}} {
 		if _, help, err := ParseTimeline(args); help || err == nil {
 			t.Errorf("%q: help %v, error %v; want a usage error", args, help, err)
 		}
