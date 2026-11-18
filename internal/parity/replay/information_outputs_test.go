@@ -57,10 +57,14 @@ func outputsAgree(t *testing.T, want, got commandOutput) (bool, []int) {
 	})
 }
 
-// outputsRefused compares two runs once under every difference of format
-// and reports whether they still differ.
+// outputsRefused compares two runs once under every difference of format,
+// and a loose run's rows against the documented order, as the command
+// replay does, and reports whether they still differ.
 func outputsRefused(t *testing.T, want, got commandOutput) bool {
 	reporter := &recordingTB{TB: t}
+	if want.loose && holdsTimeline(want.outputs) {
+		checkDocumentedOrder(reporter, "n", got.outputs)
+	}
 	compareOutputs(reporter, "n", recordedRoot, outputForms{setOf(commandFormatNumbers())}, nil, want, got)
 	return len(reporter.errors) > 0
 }
@@ -156,12 +160,6 @@ func TestEachMutationOfRecordedOutputsFails(t *testing.T) {
 	}
 	for _, loose := range []bool{false, true} {
 		for _, test := range tests {
-			if loose && test.name == "two rows swapped" {
-				// A loose tree's rows of equal sort keys keep the listing
-				// order, so their order is compared through the documented
-				// order instead.
-				continue
-			}
 			t.Run(fmt.Sprintf("%s, loose %v", test.name, loose), func(t *testing.T) {
 				want := runs[test.run]
 				want.loose = loose
@@ -235,8 +233,10 @@ func TestJSONAndCSVOutputsKeepWhatDecodingWouldLose(t *testing.T) {
 			`{"rows": 9, "rows": 2}` + "\n", true},
 		{"the two values swapped are refused", "out/inventory.json", twice, `{"rows": 2, "rows": 1}` + "\n", true},
 		{"a count written as a float is refused", "out/inventory.json", `{"rows": 3}`, `{"rows": 3.0}`, true},
-		{"a timestamp one millisecond earlier passes", "out/sessions.jsonl",
+		{"a timestamp one millisecond earlier from a cut time passes", "out/sessions.jsonl",
 			`{"first_timestamp_utc":"2026-09-10T08:00:00.500Z"}`, `{"first_timestamp_utc":"2026-09-10T08:00:00.499Z"}`, false},
+		{"a timestamp one millisecond earlier from another time is refused", "out/sessions.jsonl",
+			`{"first_timestamp_utc":"2026-09-10T08:00:01.500Z"}`, `{"first_timestamp_utc":"2026-09-10T08:00:01.499Z"}`, true},
 		{"a time quoted in a text one millisecond earlier is refused", "out/sessions.jsonl",
 			`{"text":"at 2026-09-10T08:00:00.500Z"}`, `{"text":"at 2026-09-10T08:00:00.499Z"}`, true},
 		{"the CSV with its own line ends passes", "o.csv", csvText, "agent,hosts\nzed,1\n", false},
@@ -248,7 +248,8 @@ func TestJSONAndCSVOutputsKeepWhatDecodingWouldLose(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			want := commandOutput{outputs: map[string]string{test.label: test.want}}
+			want := commandOutput{outputs: map[string]string{test.label: test.want},
+				cut: fixedCutTimes("2026-09-10T08:00:00.499Z")}
 			got := commandOutput{outputs: map[string]string{test.label: test.got}}
 			if refused := outputsRefused(t, want, got); refused != test.refused {
 				t.Errorf("refused %v, want %v", refused, test.refused)

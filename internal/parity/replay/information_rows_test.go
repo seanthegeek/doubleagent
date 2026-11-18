@@ -56,8 +56,14 @@ func rowHolding(t *testing.T, rows []Row, part string) int {
 // rowsAgree compares two row lists as the parser replay does and returns
 // whether they agree and the differences of format they needed.
 func rowsAgree(t *testing.T, want, got []Row) (bool, []int) {
+	return rowsAgreeCut(t, want, got, nil)
+}
+
+// rowsAgreeCut is rowsAgree for a case whose sources hold the times of
+// cut, which difference 119 may find one millisecond earlier.
+func rowsAgreeCut(t *testing.T, want, got []Row, cut *cutTimes) (bool, []int) {
 	reporter := &recordingTB{TB: t}
-	needed := compareRowInformation(reporter, "n", want, got)
+	needed := compareRowInformation(reporter, "n", want, got, cut)
 	return len(reporter.errors) == 0, needed
 }
 
@@ -92,11 +98,13 @@ func TestEachFormatOfTheBinaryPassesUnderItsOwnDifference(t *testing.T) {
 		{"embedded JSON's spacing is not compared", rows,
 			textChanged(rows, sandbox, replaced(`{"type":"workspace-write"}`, `{ "type": "workspace-write" }`)),
 			[]int{differenceEmbeddedJSON}},
-		{"a timestamp is not rounded up", rows, timeMoved(rows, session, -1), []int{differenceRoundedTime}},
+		{"a timestamp cut from a time below the millisecond is not rounded up", rows, timeMoved(rows, session, -1),
+			[]int{differenceRoundedTime}},
 	}
+	cut := fixedCutTimes(movedTimestamp(string(rows[session].TimestampUTC), -1))
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			agree, needed := rowsAgree(t, test.want, test.got)
+			agree, needed := rowsAgreeCut(t, test.want, test.got, cut)
 			if !agree || !slices.Equal(needed, test.needed) {
 				t.Errorf("agree %v needing %v, want agreement needing %v", agree, needed, test.needed)
 			}
