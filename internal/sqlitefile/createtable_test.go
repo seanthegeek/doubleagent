@@ -216,3 +216,59 @@ func FuzzParseCreateTable(fuzz *testing.F) {
 const WIDENED = "CREATE TABLE widened(a, b DEFAULT CURRENT_TIMESTAMP, c DEFAULT (1+2), d DEFAULT" +
 	" (-(5)), f DEFAULT abc, g REAL DEFAULT 3, i DEFAULT X'41', j TEXT DEFAULT (X'41'), k DEFAULT" +
 	" (+5), l DEFAULT (CAST(1 AS TEXT)), m DEFAULT ('a'||'b'), n INTEGER DEFAULT ('7'))"
+
+func TestPrimaryKeyItemsFollowSQLitesGrammar(t *testing.T) {
+	// Each form was checked against the sqlite3 command-line tool: a key
+	// item is a column name, inside any parentheses, with any number of
+	// COLLATE clauses, then ASC or DESC, and AUTOINCREMENT after a single
+	// INTEGER column of a table with rowids.
+	accepted := []struct {
+		name, key string
+		want      []int
+		alias     bool
+	}{
+		{"AUTOINCREMENT after the column", "PRIMARY KEY(id AUTOINCREMENT)", []int{0}, true},
+		{"AUTOINCREMENT after a descending column", "PRIMARY KEY(id DESC AUTOINCREMENT)", []int{0}, true},
+		{"AUTOINCREMENT after a collation and an order", "PRIMARY KEY(id COLLATE nocase ASC AUTOINCREMENT)",
+			[]int{0}, true},
+		{"a collation inside parentheses", "PRIMARY KEY((id COLLATE nocase))", []int{0}, true},
+		{"a collation after parentheses", "PRIMARY KEY((id) COLLATE nocase DESC)", []int{0}, true},
+		{"two collations", "PRIMARY KEY(id COLLATE nocase COLLATE binary)", []int{0}, true},
+		{"a quoted name and a string", "PRIMARY KEY(\"ID\", 'x')", []int{0, 1}, false},
+		{"one column listed twice", "PRIMARY KEY(id, id)", []int{0}, false},
+	}
+	for _, test := range accepted {
+		t.Run(test.name+" is read", func(t *testing.T) {
+			shape, err := parseCreateTable("CREATE TABLE t(id INTEGER, x, " + test.key + ")")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(shape.primaryKey, test.want) || shape.columns[0].RowidAlias != test.alias {
+				t.Errorf("key = %v, alias %v; want %v, alias %v", shape.primaryKey, shape.columns[0].RowidAlias,
+					test.want, test.alias)
+			}
+		})
+	}
+	refused := []struct {
+		name, sql string
+	}{
+		{"AUTOINCREMENT on a key of two columns", "CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id, x AUTOINCREMENT))"},
+		{"AUTOINCREMENT before the last column", "CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id AUTOINCREMENT, x))"},
+		{"AUTOINCREMENT twice", "CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id AUTOINCREMENT AUTOINCREMENT))"},
+		{"AUTOINCREMENT on a TEXT key", "CREATE TABLE t(id TEXT, x, PRIMARY KEY(id AUTOINCREMENT))"},
+		{"AUTOINCREMENT on a TEXT column key", "CREATE TABLE t(id TEXT PRIMARY KEY AUTOINCREMENT)"},
+		{"AUTOINCREMENT on a descending column key", "CREATE TABLE t(id INTEGER PRIMARY KEY DESC AUTOINCREMENT)"},
+		{"AUTOINCREMENT in a WITHOUT ROWID table",
+			"CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id AUTOINCREMENT)) WITHOUT ROWID"},
+		{"two sort orders", "CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id ASC DESC))"},
+		{"a NULLS clause", "CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id NULLS FIRST))"},
+		{"an expression", "CREATE TABLE t(id INTEGER, x, PRIMARY KEY(id+0))"},
+	}
+	for _, test := range refused {
+		t.Run(test.name+" is refused", func(t *testing.T) {
+			if _, err := parseCreateTable(test.sql); !errors.Is(err, errSchemaSyntax) {
+				t.Errorf("parseCreateTable(%q) error = %v, want a schema error", test.sql, err)
+			}
+		})
+	}
+}

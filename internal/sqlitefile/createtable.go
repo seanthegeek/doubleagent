@@ -50,6 +50,8 @@ type tableShape struct {
 	withoutRowid bool
 	strict       bool
 	primaryKey   []int
+	// autoincrement is set when the rowid alias is AUTOINCREMENT.
+	autoincrement bool
 	// fts5 is set for a CREATE VIRTUAL TABLE ... USING fts5 statement.
 	fts5 bool
 }
@@ -307,6 +309,9 @@ func (s *tableShape) finish() error {
 	}
 	if s.withoutRowid && len(s.primaryKey) == 0 {
 		return fmt.Errorf("%w: a WITHOUT ROWID table has no PRIMARY KEY", errSchemaSyntax)
+	}
+	if s.withoutRowid && s.autoincrement {
+		return fmt.Errorf("%w: AUTOINCREMENT is not allowed on a WITHOUT ROWID table", errSchemaSyntax)
 	}
 	return nil
 }

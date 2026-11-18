@@ -127,7 +127,8 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 
 // columnPrimaryKey reads the rest of a PRIMARY KEY column constraint. The
 // column is the rowid alias when its type is exactly INTEGER and the key is
-// not DESC ("ROWIDs and the INTEGER PRIMARY KEY").
+// not DESC ("ROWIDs and the INTEGER PRIMARY KEY"), and only the rowid alias
+// may be AUTOINCREMENT.
 func (p *schemaParser) columnPrimaryKey(shape *tableShape, column *Column) error {
 	if err := p.expect("KEY"); err != nil {
 		return err
@@ -139,12 +140,22 @@ func (p *schemaParser) columnPrimaryKey(shape *tableShape, column *Column) error
 	if err := p.conflictClause(); err != nil {
 		return err
 	}
-	p.accept("AUTOINCREMENT")
+	autoincrement := p.accept("AUTOINCREMENT")
 	if len(shape.primaryKey) > 0 {
 		return fmt.Errorf("%w: more than one PRIMARY KEY", errSchemaSyntax)
 	}
 	shape.primaryKey = []int{len(shape.columns)}
 	column.RowidAlias = equalFoldASCII(column.DeclaredType, "INTEGER") && !descending
+	return shape.setAutoincrement(autoincrement, column.RowidAlias)
+}
+
+// setAutoincrement records an AUTOINCREMENT key, which SQLite allows only
+// on the rowid alias.
+func (s *tableShape) setAutoincrement(autoincrement, rowidAlias bool) error {
+	if autoincrement && !rowidAlias {
+		return fmt.Errorf("%w: AUTOINCREMENT is only allowed on an INTEGER PRIMARY KEY", errSchemaSyntax)
+	}
+	s.autoincrement = autoincrement
 	return nil
 }
 
@@ -301,6 +312,8 @@ func (p *schemaParser) tableConstraint(shape *tableShape) error {
 }
 
 // tablePrimaryKey reads the column list of a PRIMARY KEY table constraint.
+// A list of one INTEGER column makes it the rowid alias, whatever its sort
+// order, and only then may AUTOINCREMENT follow it.
 func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 	inner, err := p.group()
 	if err != nil {
@@ -314,9 +327,10 @@ func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 		return fmt.Errorf("%w: PRIMARY KEY lists more than %d columns", errSchemaSyntax, maxColumns)
 	}
 	listed := map[int]bool{}
-	for _, item := range items {
-		name, ok := keyColumnName(item)
-		if !ok {
+	autoincrement := false
+	for i, item := range items {
+		name, last, ok := keyColumn(item)
+		if !ok || last && i < len(items)-1 {
 			return fmt.Errorf("%w: PRIMARY KEY holds an expression", errSchemaSyntax)
 		}
 		index := shape.columnIndex(name)
@@ -327,44 +341,99 @@ func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 			listed[index] = true
 			shape.primaryKey = append(shape.primaryKey, index)
 		}
+		autoincrement = last
 	}
-	if len(shape.primaryKey) == 1 {
+	alias := false
+	if len(items) == 1 {
 		column := &shape.columns[shape.primaryKey[0]]
 		column.RowidAlias = equalFoldASCII(column.DeclaredType, "INTEGER")
+		alias = column.RowidAlias
+	}
+	if err := shape.setAutoincrement(autoincrement, alias); err != nil {
+		return err
 	}
 	return p.conflictClause()
 }
 
-// keyColumnName reads one item of a key's column list: a column name, in
-// any number of parentheses, then an optional COLLATE name and ASC or DESC.
-// Any other item is an expression, which SQLite refuses in a PRIMARY KEY.
-func keyColumnName(item []token) (string, bool) {
-	end := 0
-	for depth := 0; end < len(item); end++ {
-		if item[end].isPunctuation("(") {
-			depth++
-		} else if item[end].isPunctuation(")") {
-			depth--
+// keyColumn reads one item of a PRIMARY KEY's column list as SQLite's
+// grammar has it: a column name, inside any parentheses that hold only it
+// and COLLATE clauses, then any COLLATE clauses, then ASC or DESC, then
+// AUTOINCREMENT. It returns the name and whether AUTOINCREMENT ends the
+// item; any other item is an expression, which SQLite refuses in a key.
+func keyColumn(item []token) (string, bool, bool) {
+	matches := closingParentheses(item)
+	start, end := 0, len(item)
+	var rest []token
+	for outer := true; start < end; outer = false {
+		termEnd := start + 1
+		if item[start].isPunctuation("(") {
+			termEnd = matches[start] + 1
+		} else if !isName(item[start]) {
+			return "", false, false
 		}
-		if depth == 0 {
-			break
+		if termEnd <= start || termEnd > end {
+			return "", false, false
 		}
+		after := withoutCollations(item[termEnd:end])
+		if outer {
+			rest = after
+		} else if len(after) > 0 {
+			return "", false, false
+		}
+		if termEnd == start+1 {
+			autoincrement, ok := keyItemEnd(rest)
+			return item[start].name(), autoincrement, ok
+		}
+		start, end = start+1, termEnd-1
 	}
-	if end >= len(item) {
-		return "", false
-	}
-	name := withoutOuterParentheses(item[:end+1])
-	rest := item[end+1:]
-	if len(name) != 1 || name[0].kind != word && name[0].kind != quoted && name[0].kind != stringToken {
-		return "", false
-	}
-	if len(rest) >= 2 && rest[0].isKeyword("COLLATE") {
-		rest = rest[2:]
-	}
-	if len(rest) == 1 && (rest[0].isKeyword("ASC") || rest[0].isKeyword("DESC")) {
+	return "", false, false
+}
+
+// keyItemEnd reads what may follow a key column and its collations: ASC or
+// DESC, then AUTOINCREMENT. It reports whether AUTOINCREMENT is there and
+// whether nothing else is.
+func keyItemEnd(rest []token) (bool, bool) {
+	if len(rest) > 0 && (rest[0].isKeyword("ASC") || rest[0].isKeyword("DESC")) {
 		rest = rest[1:]
 	}
-	return name[0].name(), len(rest) == 0
+	autoincrement := len(rest) > 0 && rest[0].isKeyword("AUTOINCREMENT")
+	if autoincrement {
+		rest = rest[1:]
+	}
+	return autoincrement, len(rest) == 0
+}
+
+// withoutCollations removes the COLLATE name clauses that start tokens.
+func withoutCollations(tokens []token) []token {
+	for len(tokens) >= 2 && tokens[0].isKeyword("COLLATE") && isName(tokens[1]) {
+		tokens = tokens[2:]
+	}
+	return tokens
+}
+
+// isName reports whether the token can be a name: a bare word, a quoted
+// identifier or a string.
+func isName(current token) bool {
+	return current.kind == word || current.kind == quoted || current.kind == stringToken
+}
+
+// closingParentheses returns, for each opening parenthesis of tokens, the
+// index of the one that closes it, and -1 for one left open and for every
+// other token, in one pass however deeply they nest.
+func closingParentheses(tokens []token) []int {
+	matches := make([]int, len(tokens))
+	var open []int
+	for i, current := range tokens {
+		matches[i] = -1
+		switch {
+		case current.isPunctuation("("):
+			open = append(open, i)
+		case current.isPunctuation(")") && len(open) > 0:
+			matches[open[len(open)-1]] = i
+			open = open[:len(open)-1]
+		}
+	}
+	return matches
 }
 
 // splitTopLevel splits tokens at the commas outside parentheses.
