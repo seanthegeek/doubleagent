@@ -36,8 +36,9 @@ func (p *Parser) historyItem(artifact *input.Artifact, taskID string, problems *
 	return jsonvalue.NewObject()
 }
 
-// indexKey identifies one state of a tasks' _index.json: its path,
-// modification time in nanoseconds and size.
+// indexKey identifies one state of a side file read once, a tasks' _index.json
+// or a memory folder's manifest.json: its path, modification time in
+// nanoseconds and size.
 type indexKey struct {
 	path        string
 	mtime, size int64

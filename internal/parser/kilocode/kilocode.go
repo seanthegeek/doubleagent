@@ -55,6 +55,9 @@ var (
 type Parser struct {
 	*opencode.Parser
 	indexes map[indexKey]*taskIndex
+	// manifests holds each memory folder's manifest.json read, by its
+	// state.
+	manifests map[indexKey]*manifestFile
 }
 
 // New returns the parser.

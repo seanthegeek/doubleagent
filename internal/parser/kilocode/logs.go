@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -123,7 +124,7 @@ func (p *Parser) digest(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	project := ""
 	if manifest, found := parser.Above(artifact, 1, "manifest.json"); found {
-		project = manifestRoot(manifest, &problems)
+		project = p.manifestRoot(manifest, &problems)
 	}
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
@@ -170,10 +171,41 @@ func digestFields(lines []string) (map[string]string, int) {
 	return fields, -1
 }
 
-// manifestRoot returns the canonical project root of a memory folder's
+// manifestFile is a manifest.json read once: its canonical root and the
+// problems reading it added.
+type manifestFile struct {
+	root     string
+	problems parser.Problems
+}
+
+// manifestRoot returns readManifest's root of the manifest.json at path,
+// read once per state of the file for the parser's life, since every
+// digest of the memory folder looks it up; the problems of that read are
+// added for each lookup as a fresh read would.
+func (p *Parser) manifestRoot(path string, problems *parser.Problems) string {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return ""
+	}
+	key := indexKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	read, ok := p.manifests[key]
+	if !ok {
+		p.Work.Add("manifest.json reads", 1)
+		read = &manifestFile{}
+		read.root = readManifest(path, &read.problems)
+		if p.manifests == nil {
+			p.manifests = map[indexKey]*manifestFile{}
+		}
+		p.manifests[key] = read
+	}
+	*problems = append(*problems, read.problems...)
+	return read.root
+}
+
+// readManifest returns the canonical project root of a memory folder's
 // manifest.json, or "". An absent manifest, or one without canonical, is
 // silent; one that cannot be read or is not a JSON object adds a problem.
-func manifestRoot(path string, problems *parser.Problems) string {
+func readManifest(path string, problems *parser.Problems) string {
 	if !parser.RegularFile(path) {
 		return ""
 	}
