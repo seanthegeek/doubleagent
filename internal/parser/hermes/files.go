@@ -260,7 +260,8 @@ func (p *Parser) trajectoryRows(artifact *input.Artifact, number int, project, n
 // parseConnections emits the desktop app's remote backends and the entries
 // it quarantined, at the file's mtime: one "remote backend:" row per
 // connection that is not the app's own local runtime, with org=, name= and
-// profile= when recorded. Tokens and headers are never printed.
+// profile= when recorded. Tokens and headers are never printed. A
+// quarantined that is not an array adds a problem.
 func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	document, ok := p.readJSON(artifact, "connections.json", true, &problems)
@@ -282,7 +283,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 		}
 		emit(p.setting(artifact, position, connectionText(connection)+tail, timestamp))
 	}
-	for _, entry := range parser.Elements(document.Get("quarantined")) {
+	for _, entry := range parser.ArrayMember(document.Get("quarantined"), "quarantined", 0, &problems) {
 		emit(p.setting(artifact, 0, "remote backend quarantined by the app: "+
 			parser.SettingOrDash(entry.Get("reason"))+tail, timestamp))
 	}
