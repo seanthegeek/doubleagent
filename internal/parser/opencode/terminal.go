@@ -77,7 +77,7 @@ func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var wrongKind parser.Problems
-	ids := parser.ArrayMember(document.Get("pinned"), "pinned", 1, &wrongKind)
+	ids := parser.ListOfKind(document.Get("pinned"), "pinned", jsonvalue.String, 1, &wrongKind)
 	for _, found := range wrongKind {
 		emit(p.systemRow(artifact, newScope("", ""), found.Line, timestamp, parser.ProblemPrefix+found.Message))
 	}

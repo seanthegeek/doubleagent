@@ -1478,7 +1478,10 @@ A 2.x assistant record whose `content` is present but not an array is a `system`
 is present but not an array is `parser: state.content is not a JSON array` after its tool result;
 a `session.json` whose `pinned` is present but not an array is
 `parser: pinned is not a JSON array` at `source_line` 1. An absent, null or empty member gives no
-row.
+row. A `content` or `state.content` holding items that are not objects, or a `pinned` holding ids
+that are not strings, gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for
+one), the other entries giving their rows.
 
 ```text
 parser: unparseable record <rowid> (<table>.data: <reason>): <data>

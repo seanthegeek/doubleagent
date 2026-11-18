@@ -217,10 +217,8 @@ func (p *Parser) scheduled(artifact *input.Artifact, emit parser.Emit) {
 	}
 	var problems parser.Problems
 	defer func() { p.problemRows(artifact, problems, emit) }()
-	for i, task := range parser.ArrayMember(document.Get("scheduledTasks"), "scheduledTasks", 1, &problems) {
-		if !task.IsObject() {
-			continue
-		}
+	for i, task := range parser.EntriesOfKind(document.Get("scheduledTasks"), "scheduledTasks", jsonvalue.Object, 1,
+		&problems) {
 		when := task.Get("cronExpression").Text()
 		if task.Get("cronExpression").IsEmpty() {
 			when = timeutil.FromValue(task.Get("fireAt"))
@@ -245,17 +243,18 @@ func (p *Parser) worktrees(artifact *input.Artifact, emit parser.Emit) {
 	}
 	var problems parser.Problems
 	defer func() { p.problemRows(artifact, problems, emit) }()
-	for i, member := range parser.ObjectMember(document.Get("worktrees"), "worktrees", 1, &problems) {
-		worktree := member.Value
-		if !worktree.IsObject() {
-			continue
-		}
+	worktrees := document.Get("worktrees")
+	positions := map[string]int{}
+	for i, member := range worktrees.Members() {
+		positions[member.Key] = i + 1
+	}
+	for key, worktree := range parser.MembersOfKind(worktrees, "worktrees", jsonvalue.Object, 1, &problems) {
 		message := "worktree created: " + worktree.Get("path").Text() + " branch=" +
 			worktree.Get("branch").Text() + " from=" + worktree.Get("sourceBranch").Text()
 		if leased := worktree.Get("leasedBy"); !leased.IsEmpty() {
 			message += " leased by " + leased.Text()
 		}
-		row := p.systemRow(artifact, message, i+1)
+		row := p.systemRow(artifact, message, positions[key])
 		row.TimestampUTC = timeutil.FromValue(worktree.Get("createdAt"))
 		row.ProjectPath = worktree.Get("baseRepo").Text()
 		row.GitBranch = worktree.Get("branch").Text()
@@ -277,10 +276,7 @@ func (p *Parser) spaces(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
 	defer func() { p.problemRows(artifact, problems, emit) }()
-	for i, entry := range parser.ArrayMember(document.Get("entries"), "entries", 1, &problems) {
-		if !entry.IsObject() {
-			continue
-		}
+	for i, entry := range parser.EntriesOfKind(document.Get("entries"), "entries", jsonvalue.Object, 1, &problems) {
 		folders := parser.ArrayMember(entry.Get("folders"), "entries.folders", i+1, &problems)
 		key := "entries.folders"
 		if sessionID := entry.Get("sessionId").Text(); sessionID != "" {
