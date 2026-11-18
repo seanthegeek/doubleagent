@@ -1045,6 +1045,12 @@ its own row at `source_line` 1: `parser: session record is not a JSON object`,
 `parser: unreadable scheduled-tasks.json`, `parser: unreadable git-worktrees.json` or
 `parser: remote-session-spaces.json is not a JSON object`.
 
+A member that is present but of the wrong kind is `parser: <member> is not a JSON array` (or
+`object`) at `source_line` 1: `alwaysAllowedReasons` or `sessionPermissionUpdates` of a session
+record, `scheduledTasks`, `entries` of `remote-session-spaces.json` and `worktrees` (an object);
+an entry's `folders` is `parser: entries.folders is not a JSON array` at the entry's position. An
+absent, null or empty member gives no row.
+
 #### Fixtures
 
 Synthetic fixture records:
