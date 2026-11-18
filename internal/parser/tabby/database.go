@@ -2,6 +2,7 @@ package tabby
 
 import (
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -101,15 +102,9 @@ type selection struct {
 	columns []string
 }
 
-// has reports whether the selection holds the column, as a row's dict
-// holds the key.
+// has reports whether the selection holds the column.
 func (s selection) has(column string) bool {
-	for _, name := range s.columns {
-		if name == column {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.columns, column)
 }
 
 // each runs visit over the rows of table restricted to its whitelisted
@@ -242,7 +237,7 @@ func (s *store) parents(table, order string, children *grouped) ([]parent, error
 }
 
 // owner returns a user's label by the id column, "" when unknown; a
-// missing column reads as None.
+// missing column reads as NULL.
 func (s *store) owner(value sqlitefile.Value) string {
 	return s.users[value.String()]
 }
