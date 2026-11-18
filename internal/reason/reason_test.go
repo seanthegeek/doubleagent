@@ -153,3 +153,28 @@ func errorChain(err error) string {
 	}
 	return strings.Join(parts, " <- ")
 }
+
+func TestForGivesAWrapperItsOwnTextWhenItHoldsNoCause(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"a path error with no cause", &fs.PathError{Op: "open", Path: "/p"}, "open /p"},
+		{"a link error with no cause", &os.LinkError{Op: "rename", Old: "a", New: "b"},
+			"rename a b"},
+		{"a system call error with no cause", &os.SyscallError{Syscall: "getdents"}, "getdents"},
+		{"a wrapped path error with no cause",
+			fmt.Errorf("reading: %w", &fs.PathError{Op: "open", Path: "/p"}), "open /p"},
+		{"a path error over a system call error with no cause",
+			&fs.PathError{Op: "open", Path: "/p", Err: &os.SyscallError{Syscall: "openat"}},
+			"openat"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := For(test.err); got != test.want {
+				t.Errorf("For gave %q, want %q", got, test.want)
+			}
+		})
+	}
+}
