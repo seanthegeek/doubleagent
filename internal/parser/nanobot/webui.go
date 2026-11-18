@@ -226,12 +226,7 @@ func userText(record jsonvalue.Value, text string) string {
 // then its text by kind.
 func messageEvents(record jsonvalue.Value, text string, options parser.Options, line int,
 	problems *parser.Problems) []event {
-	var toolEvents []jsonvalue.Value
-	for _, entry := range parser.ArrayMember(record.Get("tool_events"), "tool_events", line, problems) {
-		if entry.IsObject() {
-			toolEvents = append(toolEvents, entry)
-		}
-	}
+	toolEvents := parser.ListOfKind(record.Get("tool_events"), "tool_events", jsonvalue.Object, line, problems)
 	events := toolEventRows(toolEvents)
 	kind := record.Get("kind")
 	switch {
@@ -254,8 +249,8 @@ func messageEvents(record jsonvalue.Value, text string, options parser.Options, 
 // is past its start.
 func fileEdits(record jsonvalue.Value, line int, problems *parser.Problems) []event {
 	var events []event
-	for _, entry := range parser.ArrayMember(record.Get("edits"), "edits", line, problems) {
-		if !entry.IsObject() || parser.IsText(entry.Get("phase"), "start") {
+	for _, entry := range parser.EntriesOfKind(record.Get("edits"), "edits", jsonvalue.Object, line, problems) {
+		if parser.IsText(entry.Get("phase"), "start") {
 			continue
 		}
 		operation := ""

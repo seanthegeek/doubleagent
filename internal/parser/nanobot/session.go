@@ -180,10 +180,8 @@ func (s *session) assistant(line int, record jsonvalue.Value, text string) {
 			s.switchRow(line, text, match[1])
 		}
 	}
-	for _, call := range parser.ArrayMember(record.Get("tool_calls"), "tool_calls", line, s.problems) {
-		if !call.IsObject() {
-			continue
-		}
+	for _, call := range parser.EntriesOfKind(record.Get("tool_calls"), "tool_calls", jsonvalue.Object, line,
+		s.problems) {
 		function := call.Get("function")
 		s.row(line, timeline.TurnToolUse, openclaw.ToolArgsText(function.Get("arguments")),
 			parser.Text(function.Get("name")), parser.Text(call.Get("id")))

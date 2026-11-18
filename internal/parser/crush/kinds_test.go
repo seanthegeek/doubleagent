@@ -45,6 +45,8 @@ func TestAProjectsMemberThatIsNotAnArrayIsReported(t *testing.T) {
 		{"an empty array", `{"projects": []}`, nil},
 		{"absent", `{}`, nil},
 		{"a project", `{"projects": [{"path": "/p"}]}`, []string{"crush project last accessed"}},
+		{"entries that are not objects", `{"projects": [{"path": "/p"}, "x", 7]}`,
+			[]string{"parser: projects holds 2 entries that are not JSON objects", "crush project last accessed"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

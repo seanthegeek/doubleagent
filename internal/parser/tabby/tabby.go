@@ -404,11 +404,9 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 	spec.turnType, spec.text = timeline.TurnUser, parser.Text(body.Get("prompt"))
 	emit(p.row(artifact, spec))
 	var found parser.Problems
-	for _, choice := range parser.ArrayMember(body.Get("choices"), "choices", spec.line, &found) {
-		if choice.IsObject() {
-			spec.turnType, spec.text = timeline.TurnAssistant, parser.Text(choice.Get("text"))
-			emit(p.row(artifact, spec))
-		}
+	for _, choice := range parser.EntriesOfKind(body.Get("choices"), "choices", jsonvalue.Object, spec.line, &found) {
+		spec.turnType, spec.text = timeline.TurnAssistant, parser.Text(choice.Get("text"))
+		emit(p.row(artifact, spec))
 	}
 	for _, problem := range found {
 		emit(p.row(artifact, rowSpec{line: problem.Line, sessionID: spec.sessionID, timestamp: spec.timestamp,

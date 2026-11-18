@@ -716,7 +716,9 @@ into shell words (an unclosed quote) is one row `parser: unparseable line (<reas
 records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row. One
 that decodes to something other than an object is `parser: projects.json is not a JSON object`, and
 a `projects` that is present but not an array `parser: projects is not a JSON array` (absent, null
-or empty gives none). So is a `crush.json` that is not a JSON object
+or empty gives none), and one holding entries that are not objects one row for them all,
+`parser: projects holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one). So is a `crush.json` that is not a JSON object
 (`parser: <file> is not a JSON object`, followed by
 ` (invalid JSON at line <n>, column <n>)` for one that does not decode, without the reader's
 detail, since the file holds API keys). A `projects.json`,
@@ -727,7 +729,10 @@ that does not decode (not JSON, or JSON that is not an array) is one `system` ro
 `parser: unparseable record <rowid> (message <id> parts: <reason>): <parts>`, carrying the stored
 value in full, with the message's session and project, an empty timestamp and `source_line` set to
 the rowid; the session's other messages are still yielded
-([issue 166](https://github.com/seanthegeek/doubleagent/issues/166)).
+([issue 166](https://github.com/seanthegeek/doubleagent/issues/166)). A `messages.parts` array
+holding entries that are not objects gives one row for them all, in the same place,
+`parser: message <id> parts holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), before the message's rows from its other parts.
 
 A `crush.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that

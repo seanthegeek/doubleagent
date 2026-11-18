@@ -143,12 +143,9 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var found parser.Problems
-	projects := parser.ArrayMember(document.Get("projects"), "projects", 0, &found)
+	projects := parser.EntriesOfKind(document.Get("projects"), "projects", jsonvalue.Object, 0, &found)
 	parser.EmitAll(emit, p.ErrorRows(artifact, found, "", ""))
 	for position, project := range projects {
-		if !project.IsObject() {
-			continue
-		}
 		row := p.system(artifact, "", position+1)
 		row.TimestampUTC = timeutil.FromValue(project.Get("last_accessed"))
 		row.ProjectPath = parser.Text(project.Get("path"))

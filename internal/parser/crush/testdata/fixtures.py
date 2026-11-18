@@ -42,7 +42,20 @@ INSERT INTO messages (id, session_id, role, parts, created_at)
     VALUES ('m1', 's1', 'user', '[{"type":"text","data":{"text":"hello"}}]', 1760000001);
 """
 
-DATABASES = {"file_versions.db": FILE_VERSIONS, "generated_column.db": GENERATED_COLUMN}
+# A message whose parts hold an entry that is not an object.
+PART_KINDS = """
+PRAGMA page_size = 512;
+CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, created_at INTEGER);
+CREATE TABLE messages (id TEXT, session_id TEXT, role TEXT, parts TEXT, created_at INTEGER);
+INSERT INTO sessions VALUES ('s1', 'first', 1760000000);
+INSERT INTO messages VALUES ('m1', 's1', 'user', '[{"type":"text","data":{"text":"hello"}}, "x"]', 1760000001);
+"""
+
+DATABASES = {
+    "file_versions.db": FILE_VERSIONS,
+    "generated_column.db": GENERATED_COLUMN,
+    "part_kinds.db": PART_KINDS,
+}
 
 
 def main() -> None:
