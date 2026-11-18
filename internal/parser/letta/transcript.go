@@ -22,19 +22,38 @@ type projectTime struct {
 // sessionProject returns the project of a transcript line captured at
 // timestamp: that of the agent's earliest sessions.jsonl line at or after
 // it (the exit line of the CLI session the turn belongs to), else, when no
-// line is later, that of the latest line before it.
-func sessionProject(sessions []projectTime, timestamp string) string {
-	if timestamp == "" {
+// line is later, that of the latest line before it. The lines are sorted
+// by time, so it is a binary search; work counts its comparisons.
+func sessionProject(sessions []projectTime, timestamp string, work parser.Work) string {
+	if timestamp == "" || len(sessions) == 0 {
 		return ""
 	}
-	before := ""
-	for _, session := range sessions {
-		if session.timestamp >= timestamp {
-			return session.project
-		}
-		before = session.project
+	next := sort.Search(len(sessions), func(i int) bool {
+		work.Add("session comparisons", 1)
+		return sessions[i].timestamp >= timestamp
+	})
+	return sessions[min(next, len(sessions)-1)].project
+}
+
+// fileState names a side file as read: its path, modification time in
+// nanoseconds and size, the key of what is read from it once.
+type fileState struct {
+	path        string
+	mtime, size int64
+}
+
+// sideFileState returns the state of the home's side file rel, false when
+// homeSideFile refuses it.
+func sideFileState(artifact *input.Artifact, rel string) (fileState, bool) {
+	path, ok := homeSideFile(artifact, rel)
+	if !ok {
+		return fileState{}, false
 	}
-	return before
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return fileState{}, false
+	}
+	return fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}, true
 }
 
 // homeSideFile returns where the home holds rel, a file beside the one
@@ -63,52 +82,92 @@ func homeSideFile(artifact *input.Artifact, rel string) (string, bool) {
 }
 
 // agentSessions returns (time, project) of the agent's sessions.jsonl lines
-// that name a project and a time, sorted by time then project.
-func agentSessions(artifact *input.Artifact, agentDirectory string) []projectTime {
-	path, ok := homeSideFile(artifact, sessionsRel)
+// that name a project and a time, sorted by time then project. The file is
+// read once per state for every agent, since each transcript looks itself
+// up in it; work counts the reads.
+func (p *Parser) agentSessions(artifact *input.Artifact, agentDirectory string) []projectTime {
+	state, ok := sideFileState(artifact, sessionsRel)
 	if !ok {
 		return nil
 	}
-	var sessions []projectTime
+	byAgent, held := p.sessions[state]
+	if !held {
+		p.Work.Add("sessions.jsonl reads", 1)
+		byAgent = readSessions(state.path)
+		p.sessions[state] = byAgent
+	}
+	return byAgent[agentDirectory]
+}
+
+// readSessions returns the sessions.jsonl lines at path that name a
+// project and a time, by agent directory, each agent's sorted by time then
+// project. The file's problems are its own parse's to report.
+func readSessions(path string) map[string][]projectTime {
+	byAgent := map[string][]projectTime{}
 	var ignored parser.Problems
 	for _, record := range parser.JSONLines(path, &ignored) {
-		if sanitize(parser.Text(record.Get("agent_id"))) != agentDirectory || record.Get("project").IsEmpty() {
+		if record.Get("project").IsEmpty() {
 			continue
 		}
 		if timestamp := timeutil.FromValue(record.Get("timestamp")); timestamp != "" {
-			sessions = append(sessions, projectTime{timestamp, record.Get("project").Text()})
+			agent := sanitize(parser.Text(record.Get("agent_id")))
+			byAgent[agent] = append(byAgent[agent], projectTime{timestamp, record.Get("project").Text()})
 		}
 	}
-	sort.Slice(sessions, func(i, j int) bool {
-		if sessions[i].timestamp != sessions[j].timestamp {
-			return sessions[i].timestamp < sessions[j].timestamp
-		}
-		return sessions[i].project < sessions[j].project
-	})
-	return sessions
+	for _, sessions := range byAgent {
+		sort.Slice(sessions, func(i, j int) bool {
+			if sessions[i].timestamp != sessions[j].timestamp {
+				return sessions[i].timestamp < sessions[j].timestamp
+			}
+			return sessions[i].project < sessions[j].project
+		})
+	}
+	return byAgent
 }
 
 // server returns the server of a transcript's agent: the baseUrl of its
-// agents[] entry in ~/.letta/settings.json without the credentials a URL
-// may carry, api.letta.com when the entry has none, "-" when there is no
-// entry or no file. It is a pre-scan: the settings file reports its own
-// problems when it is parsed itself.
-func server(artifact *input.Artifact, agentDirectory string) string {
-	path, ok := homeSideFile(artifact, settingsRel)
+// first agents[] entry in ~/.letta/settings.json without the credentials a
+// URL may carry, api.letta.com when the entry has none, "-" when there is
+// no entry or no file. It is a pre-scan: the settings file reports its own
+// problems when it is parsed itself. The file is read once per state for
+// every agent; work counts the reads.
+func (p *Parser) server(artifact *input.Artifact, agentDirectory string) string {
+	state, ok := sideFileState(artifact, settingsRel)
 	if !ok {
 		return "-"
 	}
+	byAgent, held := p.servers[state]
+	if !held {
+		p.Work.Add("settings.json reads", 1)
+		byAgent = readServers(state.path)
+		p.servers[state] = byAgent
+	}
+	if found, ok := byAgent[agentDirectory]; ok {
+		return found
+	}
+	return "-"
+}
+
+// readServers returns the server of each agent directory the settings file
+// at path names, from the first agents[] entry naming it.
+func readServers(path string) map[string]string {
+	byAgent := map[string]string{}
 	var ignored parser.Problems
 	document, _ := readSettings(path, &ignored)
 	for _, entry := range document.Get("agents").Items() {
-		if entry.IsObject() && sanitize(parser.Text(entry.Get("agentId"))) == agentDirectory {
-			if base := parser.Text(entry.Get("baseUrl")); base != "" {
-				return parser.WithoutCredentials(base)
-			}
-			return lettaCloud
+		if !entry.IsObject() {
+			continue
+		}
+		agent := sanitize(parser.Text(entry.Get("agentId")))
+		if _, seen := byAgent[agent]; seen {
+			continue
+		}
+		byAgent[agent] = lettaCloud
+		if base := parser.Text(entry.Get("baseUrl")); base != "" {
+			byAgent[agent] = parser.WithoutCredentials(base)
 		}
 	}
-	return "-"
+	return byAgent
 }
 
 // readSettings returns a Letta JSON file as an object, or false when it
@@ -154,18 +213,18 @@ func (w *transcriptRows) put(turn, text, toolName string) {
 // agent, by its `session synced:` row at the first line.
 func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conversation string,
 	options parser.Options, emit parser.Emit) {
-	sessions := agentSessions(artifact, agentDirectory)
+	sessions := p.agentSessions(artifact, agentDirectory)
 	serverSide := !strings.HasPrefix(agentDirectory, localAgentPrefix)
 	writer := &transcriptRows{parser: p, artifact: artifact, conversation: conversation, emit: emit}
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		writer.line = line
 		writer.timestamp = timeutil.FromValue(record.Get("captured_at"))
-		writer.project = sessionProject(sessions, writer.timestamp)
+		writer.project = sessionProject(sessions, writer.timestamp, p.Work)
 		if serverSide {
 			serverSide = false
 			writer.put(timeline.TurnSystem, "session synced: server conversation "+conversation+
-				" agent "+agentDirectory+" server "+server(artifact, agentDirectory)+
+				" agent "+agentDirectory+" server "+p.server(artifact, agentDirectory)+
 				" (from .letta/transcripts path, first captured_at)", "")
 		}
 		writer.record(record, options)

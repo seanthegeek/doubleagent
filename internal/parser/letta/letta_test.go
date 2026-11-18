@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // The rows of every file kind are proved against the recorded cases by the
@@ -66,7 +67,7 @@ func TestSessionProjectTakesTheNextSessionElseTheLast(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.timestamp, func(t *testing.T) {
-			if got := sessionProject(sessions, test.timestamp); got != test.want {
+			if got := sessionProject(sessions, test.timestamp, parser.Work{}); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
