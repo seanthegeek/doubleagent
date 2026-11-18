@@ -40,7 +40,7 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"101 replaces a usage message to the end", 101,
 			"usage: doubleagent [-h]\ndoubleagent: error: bad\n", "{usage}\n", 1},
 		{"101 replaces the binary's usage error and the message line before it", 101,
-			"Unknown option: --x\nUsage: doubleagent timeline [options]\n  -o DIR\n", "{usage}\n", 1},
+			"doubleagent timeline: flag provided but not defined: -x\nUsage: doubleagent timeline [options]\n  -o DIR\n", "{usage}\n", 1},
 		{"101 keeps the lines before a blank line ahead of the binary's usage", 101,
 			"rows: 3\n\nUsage: doubleagent timeline\n", "rows: 3\n\n{usage}\n", 1},
 		{"101 leaves a text without usage alone", 101, "error: no such file\n",

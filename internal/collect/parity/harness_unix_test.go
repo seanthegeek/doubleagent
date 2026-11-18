@@ -66,6 +66,20 @@
 //     line. normalSummary removes the whitespace between tokens from both and
 //     compares the fields in order, so key order, values and number text are
 //     still compared; a text it cannot parse is compared as it is.
+//   - exception 54: the command line. The binary reads it with Go's flag
+//     package. It also accepts a long option with one dash and a value after
+//     `=` (`-output DIR`, `--output=DIR`, `-o=DIR`), a switch with `=true` or
+//     `=false` (`--quiet=false`), `-help`, and `--`, which ends the options;
+//     the sh collector refuses each as an unknown option. A mistake anywhere on the line is a usage error
+//     even after --help or --version, which the sh collector obeys at their
+//     place. Its usage errors are one line, "doubleagent collect: " and
+//     flag's message ("flag provided but not defined: -bogus", "flag needs
+//     an argument: -o", or "unexpected argument: X" for an argument that is
+//     not an option), then the usage text, where the sh collector prints
+//     "Unknown option: X" or, for a missing value, the usage alone. Exit
+//     codes, stdout and the size messages are the same. No case runs a
+//     mistaken line, so the harness normalises nothing for it; the option
+//     tests in internal/collect and cmd/doubleagent cover the binary's side.
 
 package parity
 

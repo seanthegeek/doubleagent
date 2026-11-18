@@ -52,7 +52,13 @@ func reviewedImports() map[string]string {
 		// Decodes the character references of evidence text (a Crush channel
 		// message's attribute values); the name used is UnescapeString,
 		// which works on text and takes no path.
-		"html"}
+		"html",
+		// Reads the command line of each subcommand from the argument list
+		// it is given; the names used are NewFlagSet, ContinueOnError and the
+		// FlagSet's SetOutput (always io.Discard), Usage, StringVar, BoolVar,
+		// Func, Parse, Visit, Arg, Args and NArg, and the Flag type, none of
+		// which takes a path.
+		"flag"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}
