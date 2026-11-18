@@ -19,12 +19,12 @@
 package chatgptdesktop
 
 import (
-	"fmt"
+	"cmp"
+	"errors"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // The database's path relative to the home, and the table read.
@@ -61,9 +61,9 @@ func (p *Parser) Wants(artifact *input.Artifact) bool {
 
 // Parse emits three system rows per ChatGPT conversation of the table.
 func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.Emit) error {
-	records, message := readCatalog(artifact.DiskPath)
-	if message != "" {
-		emit(p.ProblemRow(artifact, message))
+	records, err := readCatalog(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
 		return nil
 	}
 	for _, record := range records {
@@ -74,30 +74,30 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 	return nil
 }
 
-// readCatalog returns every row of the catalog table in rowid order, or the
-// message of the problem row that replaces them.
-func readCatalog(path string) ([]sqlitefile.Row, string) {
+// readCatalog returns every row of the catalog table in rowid order, or an
+// error whose text is the message of the problem row that replaces them.
+func readCatalog(path string) ([]sqlitefile.Row, error) {
 	database, message := parser.OpenDatabase(path)
 	if message != "" {
-		return nil, message
+		return nil, errors.New(message)
 	}
 	defer database.Close()
 	names, err := database.TableNames()
 	if err != nil {
-		return nil, parser.DatabaseError(err)
+		return nil, errors.New(parser.DatabaseError(err))
 	}
 	if !names[catalogTable] {
-		return nil, "no " + catalogTable + " table"
+		return nil, errors.New("no " + catalogTable + " table")
 	}
 	table, err := database.Table(catalogTable)
 	if err != nil {
-		return nil, parser.DatabaseError(err)
+		return nil, errors.New(parser.DatabaseError(err))
 	}
 	records, err := table.Select().OrderBy("rowid").All()
 	if err != nil {
-		return nil, parser.DatabaseError(err)
+		return nil, errors.New(parser.DatabaseError(err))
 	}
-	return records, ""
+	return records, nil
 }
 
 // conversationRows emits the three rows of one conversation.
@@ -109,19 +109,20 @@ func (p *Parser) conversationRows(artifact *input.Artifact, record sqlitefile.Ro
 	created := parser.ColumnTime(record.Get("source_created_at"))
 	updated := parser.ColumnTime(record.Get("source_updated_at"))
 	texts := []string{
-		fmt.Sprintf("account conversation: %s origin=%s created=%s updated=%s host=%s (from %s %s)",
-			shown(record.Get("display_title")), shown(record.Get("conversation_origin")),
-			orDash(created), orDash(updated), shown(record.Get("host_id")), databaseRel,
-			catalogTable),
-		"session origin: remote chatgpt.com conversation " + orDash(threadID) +
+		"account conversation: " + shown(record.Get("display_title")) +
+			" origin=" + shown(record.Get("conversation_origin")) +
+			" created=" + cmp.Or(created, "-") + " updated=" + cmp.Or(updated, "-") +
+			" host=" + shown(record.Get("host_id")) +
+			" (from " + databaseRel + " " + catalogTable + ")",
+		"session origin: remote chatgpt.com conversation " + cmp.Or(threadID, "-") +
 			" (listed at sign-in; its transcript is server-side)",
-		"session synced: chatgpt.com holds conversation " + orDash(threadID) +
+		"session synced: chatgpt.com holds conversation " + cmp.Or(threadID, "-") +
 			", no local transcript",
 	}
 	for _, text := range texts {
 		row := p.SystemRow(artifact, text)
 		row.SessionID = threadID
-		row.TimestampUTC = timeutil.FirstNonEmpty(updated, created)
+		row.TimestampUTC = cmp.Or(updated, created)
 		emit(row)
 	}
 }
@@ -132,14 +133,6 @@ func shown(value sqlitefile.Value) string {
 		return "-"
 	}
 	return value.String()
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }
 
 // The interfaces the registry looks for, checked when the package builds.

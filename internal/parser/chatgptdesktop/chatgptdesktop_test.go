@@ -12,7 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The conversation rows themselves are proved against the Python analyzer
+// The conversation rows themselves are proved against the recorded cases
 // by the parser replay (internal/parity/replay), over the recorded fixture
 // databases; these tests cover what needs no database built by SQLite.
 
