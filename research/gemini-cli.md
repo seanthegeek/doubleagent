@@ -1965,8 +1965,10 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per
   `modes` table and one row
   `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`
-  per `commands` grant, the keys in file order. A project's `sandbox.toml` is an ordinary policy
-  file.
+  per `commands` grant, the keys in file order; a `modes` or `commands`, or a grant in one, that is
+  present but not a table is one `parser: <file> <key> is not a table` row in its place (`<key>`
+  `modes`, `commands` or `<modes|commands>.<name>`). A project's `sandbox.toml` is an ordinary
+  policy file.
 - `settings.json`, in the home and in a project: one
   `permission setting: <key>=<value> (from <file>, file mtime)` row per entry of
   `tools.sandboxAllowedPaths`, `tools.core`, `tools.allowed`, `tools.confirmationRequired`,
