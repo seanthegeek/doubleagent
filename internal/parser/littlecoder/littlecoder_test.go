@@ -150,3 +150,36 @@ func TestACheckpointDirectoryListsItsFilesOnceOrTwice(t *testing.T) {
 		})
 	}
 }
+
+func TestAnArrayEntryOfTheWrongKindIsReported(t *testing.T) {
+	tests := []struct {
+		name, rel, text string
+		want            []string
+	}{
+		{"a prompt that is not a string", historyRel, `["first", 5, "", {"a": 1}]`, []string{"first",
+			"parser: unparseable record 2 (not a JSON string): 5",
+			`parser: unparseable record 4 (not a JSON string): {"a":1}`}},
+		{"a snapshot that is not an object", ".little-coder/checkpoints/s1/snapshots.json", `[[1]]`,
+			[]string{"parser: unparseable record 1 (not a JSON object): [1]"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(test.rel))
+			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(path, []byte(test.text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + test.rel, Rel: test.rel, Home: &input.Home{DiskPath: home}}
+			var texts []string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(texts, test.want) {
+				t.Errorf("rows %q, want %q", texts, test.want)
+			}
+		})
+	}
+}
