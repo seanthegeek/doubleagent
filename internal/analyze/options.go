@@ -1,166 +1,11 @@
 package analyze
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"io"
-	"slices"
 	"strings"
 )
-
-// UsageError is a command-line mistake: an unknown option, an option without
-// its value, a missing or extra input. It is printed as collect prints its
-// own: the message on one line, then the command's usage text; it gives
-// exit code 2.
-type UsageError struct {
-	Command string
-	Message string
-}
-
-// Error returns the message.
-func (e *UsageError) Error() string {
-	return e.Message
-}
-
-// Print writes the message, then the command's usage text, to w.
-func (e *UsageError) Print(w io.Writer) {
-	fmt.Fprintln(w, e.Message)
-	fmt.Fprint(w, usageOf(e.Command))
-}
-
-// commandLine is the flag set of one command and the rules flag cannot
-// state, checked once the line is read: how many inputs the command takes
-// (at least one when needsInput is set, at most one unless many is) and the
-// option one of whose names must be given. Parse prints nothing: parse words
-// the error and the caller prints it with the command's documented usage
-// text, which flag's own listing is not.
-type commandLine struct {
-	command    string
-	set        *flag.FlagSet
-	help       bool
-	required   []string
-	needsInput bool
-	many       bool
-}
-
-// newCommandLine returns the command line of command with -h and --help.
-func newCommandLine(command string) *commandLine {
-	line := &commandLine{command: command, set: flag.NewFlagSet(command, flag.ContinueOnError)}
-	line.set.SetOutput(io.Discard)
-	line.set.Usage = func() {}
-	line.switchOption(&line.help, "h", "help")
-	return line
-}
-
-// stringOption registers target under each of names.
-func (c *commandLine) stringOption(target *string, names ...string) {
-	for _, name := range names {
-		c.set.StringVar(target, name, *target, "")
-	}
-}
-
-// listOption registers target under each of names; every use adds a value.
-func (c *commandLine) listOption(target *[]string, names ...string) {
-	for _, name := range names {
-		c.set.Func(name, "", func(value string) error {
-			*target = append(*target, value)
-			return nil
-		})
-	}
-}
-
-// switchOption registers the boolean target under each of names.
-func (c *commandLine) switchOption(target *bool, names ...string) {
-	for _, name := range names {
-		c.set.BoolVar(target, name, false, "")
-	}
-}
-
-// usageError returns the usage error of message, worded as collect words its
-// own: the binary and command name first.
-func (c *commandLine) usageError(message string) *UsageError {
-	return &UsageError{c.command, "doubleagent " + c.command + ": " + message}
-}
-
-// parse reads args with one call of the flag set's Parse, so the options
-// come before the inputs, and returns the inputs, and whether the help was
-// asked for, which is answered before the inputs are checked.
-func (c *commandLine) parse(args []string) ([]string, bool, error) {
-	if err := c.set.Parse(args); err != nil {
-		return nil, false, c.usageError(err.Error())
-	}
-	if c.help {
-		return nil, true, nil
-	}
-	return c.set.Args(), false, c.check(args, c.set.Args())
-}
-
-// misplacedOption returns the first input that reads as an option, which
-// flag left among the inputs because it came after one, or "". After a
-// "--" every argument is an input, whatever it starts with.
-func misplacedOption(args, inputs []string) string {
-	if consumed := len(args) - len(inputs); consumed > 0 && args[consumed-1] == "--" {
-		return ""
-	}
-	for _, input := range inputs {
-		if len(input) > 1 && strings.HasPrefix(input, "-") {
-			return input
-		}
-	}
-	return ""
-}
-
-// check returns the usage error of a line, args, that has an option after
-// an input, misses an input or the required option, or has inputs the
-// command does not take.
-func (c *commandLine) check(args, inputs []string) error {
-	if option := misplacedOption(args, inputs); option != "" {
-		return c.usageError("options go before the input; " + option + " is after it")
-	}
-	if missing := c.missing(inputs); len(missing) > 0 {
-		return c.usageError("missing argument: " + strings.Join(missing, ", "))
-	}
-	var extras []string
-	switch {
-	case !c.needsInput:
-		extras = inputs
-	case !c.many && len(inputs) > 1:
-		extras = inputs[1:]
-	}
-	if len(extras) > 0 {
-		return c.usageError("unexpected argument: " + strings.Join(extras, " "))
-	}
-	return nil
-}
-
-// missing returns what the line lacks: "input" when the command needs one
-// and none was given, and the required option's spellings when none of its
-// names was given.
-func (c *commandLine) missing(inputs []string) []string {
-	var missing []string
-	if c.needsInput && len(inputs) == 0 {
-		missing = append(missing, "input")
-	}
-	given := map[string]bool{}
-	c.set.Visit(func(option *flag.Flag) { given[option.Name] = true })
-	if len(c.required) > 0 && !slices.ContainsFunc(c.required, func(name string) bool { return given[name] }) {
-		var spellings []string
-		for _, name := range c.required {
-			spellings = append(spellings, spelling(name))
-		}
-		missing = append(missing, strings.Join(spellings, "/"))
-	}
-	return missing
-}
-
-// spelling returns the option name as the usage text spells it: one dash
-// before a one-letter name, two before a longer one.
-func spelling(name string) string {
-	if len(name) == 1 {
-		return "-" + name
-	}
-	return "--" + name
-}
 
 // InputOptions are the options detect and timeline share: the input and how
 // it is opened.
@@ -207,57 +52,76 @@ type CatalogOptions struct {
 	Agents bool
 }
 
-// inputLine returns the command line of the options detect and timeline
-// share, reading into options.
-func inputLine(command string, options *InputOptions) *commandLine {
-	line := newCommandLine(command)
-	line.switchOption(&options.KeepExtracted, "keep-extracted")
-	line.stringOption(&options.Host, "host")
-	line.stringOption(&options.User, "user")
-	line.set.Func("work-dir", "", func(value string) error {
+// newFlagSet returns the flag set of command with -h and --help, which set
+// help. It prints nothing: a mistake comes back as a usage error.
+func newFlagSet(command string, help *bool) *flag.FlagSet {
+	set := flag.NewFlagSet(command, flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.BoolVar(help, "h", false, "")
+	set.BoolVar(help, "help", false, "")
+	return set
+}
+
+// appendTo returns the function of an option that adds each use's value to
+// list.
+func appendTo(list *[]string) func(string) error {
+	return func(value string) error {
+		*list = append(*list, value)
+		return nil
+	}
+}
+
+// inputFlags returns the flag set of detect or timeline with the options
+// both take, reading into options.
+func inputFlags(command string, options *InputOptions, help *bool) *flag.FlagSet {
+	set := newFlagSet(command, help)
+	set.StringVar(&options.Host, "host", "", "")
+	set.StringVar(&options.User, "user", "", "")
+	set.Func("work-dir", "", func(value string) error {
 		options.WorkDir, options.workDirSet = value, true
 		return nil
 	})
-	line.needsInput = true
-	return line
+	set.BoolVar(&options.KeepExtracted, "keep-extracted", false, "")
+	return set
 }
 
-// detectLine returns the command line of detect, reading into options.
-func detectLine(options *DetectOptions) *commandLine {
-	line := inputLine("detect", &options.InputOptions)
-	line.switchOption(&options.JSON, "json")
-	line.switchOption(&options.Files, "files")
-	return line
+// detectFlags returns the flag set of detect, reading into options.
+func detectFlags(options *DetectOptions, help *bool) *flag.FlagSet {
+	set := inputFlags("detect", &options.InputOptions, help)
+	set.BoolVar(&options.JSON, "json", false, "")
+	set.BoolVar(&options.Files, "files", false, "")
+	return set
 }
 
-// timelineLine returns the command line of timeline, reading into options.
-func timelineLine(options *TimelineOptions) *commandLine {
-	line := inputLine("timeline", &options.InputOptions)
-	line.stringOption(&options.Output, "o", "output")
-	line.listOption(&options.Agents, "agent")
-	line.stringOption(&options.Since, "since")
-	line.stringOption(&options.Until, "until")
-	line.listOption(&options.Match, "match")
-	line.switchOption(&options.IncludeThinking, "include-thinking")
-	line.switchOption(&options.KeepUndated, "keep-undated")
-	line.switchOption(&options.IgnoreCase, "i", "ignore-case")
-	line.required = []string{"o", "output"}
-	return line
+// timelineFlags returns the flag set of timeline, reading into options.
+func timelineFlags(options *TimelineOptions, help *bool) *flag.FlagSet {
+	set := inputFlags("timeline", &options.InputOptions, help)
+	set.StringVar(&options.Output, "o", "", "")
+	set.StringVar(&options.Output, "output", "", "")
+	set.Func("agent", "", appendTo(&options.Agents))
+	set.StringVar(&options.Since, "since", "", "")
+	set.StringVar(&options.Until, "until", "", "")
+	set.Func("match", "", appendTo(&options.Match))
+	set.BoolVar(&options.IncludeThinking, "include-thinking", false, "")
+	set.BoolVar(&options.KeepUndated, "keep-undated", false, "")
+	set.BoolVar(&options.IgnoreCase, "i", false, "")
+	set.BoolVar(&options.IgnoreCase, "ignore-case", false, "")
+	return set
 }
 
-// fleetLine returns the command line of fleet, reading into options.
-func fleetLine(options *FleetOptions) *commandLine {
-	line := newCommandLine("fleet")
-	line.stringOption(&options.Output, "o", "output")
-	line.needsInput, line.many = true, true
-	return line
+// fleetFlags returns the flag set of fleet, reading into options.
+func fleetFlags(options *FleetOptions, help *bool) *flag.FlagSet {
+	set := newFlagSet("fleet", help)
+	set.StringVar(&options.Output, "o", DefaultFleetName, "")
+	set.StringVar(&options.Output, "output", DefaultFleetName, "")
+	return set
 }
 
-// catalogLine returns the command line of catalog, reading into options.
-func catalogLine(options *CatalogOptions) *commandLine {
-	line := newCommandLine("catalog")
-	line.switchOption(&options.Agents, "agents")
-	return line
+// catalogFlags returns the flag set of catalog, reading into options.
+func catalogFlags(options *CatalogOptions, help *bool) *flag.FlagSet {
+	set := newFlagSet("catalog", help)
+	set.BoolVar(&options.Agents, "agents", false, "")
+	return set
 }
 
 // FlagSet returns a new flag set of the analysis command, holding its
@@ -266,54 +130,120 @@ func catalogLine(options *CatalogOptions) *commandLine {
 func FlagSet(command string) *flag.FlagSet {
 	switch command {
 	case "detect":
-		return detectLine(&DetectOptions{}).set
+		return detectFlags(&DetectOptions{}, new(bool))
 	case "timeline":
-		return timelineLine(&TimelineOptions{}).set
+		return timelineFlags(&TimelineOptions{}, new(bool))
 	case "fleet":
-		return fleetLine(&FleetOptions{}).set
+		return fleetFlags(&FleetOptions{}, new(bool))
 	case "catalog":
-		return catalogLine(&CatalogOptions{}).set
+		return catalogFlags(&CatalogOptions{}, new(bool))
 	}
 	return nil
+}
+
+// usageError returns the usage error Run prints for a mistake on the
+// command line: the binary's and command's names and message, then the
+// command's usage text.
+func usageError(command, message string) error {
+	return errors.New("doubleagent " + command + ": " + message + "\n" +
+		strings.TrimSuffix(usageOf(command), "\n"))
+}
+
+// parse reads args into set and returns the inputs, the arguments after the
+// options. An input that starts with a dash is an option placed after the
+// first input, which the commands refuse, unless "--" ended the options.
+func parse(set *flag.FlagSet, args []string) ([]string, error) {
+	if err := set.Parse(args); err != nil {
+		return nil, usageError(set.Name(), err.Error())
+	}
+	inputs := set.Args()
+	// The options before a last "--" read again without an error only when
+	// that "--" ended them: as an option's value it leaves the option short.
+	options := args[:len(args)-len(inputs)]
+	if last := len(options) - 1; last >= 0 && options[last] == "--" &&
+		FlagSet(set.Name()).Parse(options[:last]) == nil {
+		return inputs, nil
+	}
+	for _, input := range inputs {
+		if len(input) > 1 && input[0] == '-' {
+			return nil, usageError(set.Name(), "options go before the input; "+input+" is after it")
+		}
+	}
+	return inputs, nil
+}
+
+// oneInput returns the one input of command, or the usage error of inputs
+// that are not one, naming also what else the line misses.
+func oneInput(command string, inputs, missing []string) (string, error) {
+	if len(inputs) == 0 {
+		missing = append([]string{"input"}, missing...)
+	}
+	switch {
+	case len(missing) > 0:
+		return "", usageError(command, "missing argument: "+strings.Join(missing, ", "))
+	case len(inputs) > 1:
+		return "", usageError(command, "unexpected argument: "+strings.Join(inputs[1:], " "))
+	}
+	return inputs[0], nil
 }
 
 // ParseDetect reads the arguments after `detect`. It reports whether the
 // help was asked for.
 func ParseDetect(args []string) (DetectOptions, bool, error) {
 	var options DetectOptions
-	inputs, help, err := detectLine(&options).parse(args)
-	if help || err != nil {
-		return options, help, err
+	var help bool
+	inputs, err := parse(detectFlags(&options, &help), args)
+	if err != nil || help {
+		return options, help && err == nil, err
 	}
-	options.Input = inputs[0]
-	return options, false, nil
+	options.Input, err = oneInput("detect", inputs, nil)
+	return options, false, err
 }
 
 // ParseTimeline reads the arguments after `timeline`. It reports whether
 // the help was asked for.
 func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	var options TimelineOptions
-	inputs, help, err := timelineLine(&options).parse(args)
-	if help || err != nil {
-		return options, help, err
+	var help bool
+	inputs, err := parse(timelineFlags(&options, &help), args)
+	if err != nil || help {
+		return options, help && err == nil, err
 	}
-	options.Input = inputs[0]
-	return options, false, nil
+	var missing []string
+	if options.Output == "" {
+		missing = []string{"-o/--output"}
+	}
+	options.Input, err = oneInput("timeline", inputs, missing)
+	return options, false, err
 }
 
 // ParseFleet reads the arguments after `fleet`. It reports whether the help
 // was asked for.
 func ParseFleet(args []string) (FleetOptions, bool, error) {
-	options := FleetOptions{Output: DefaultFleetName}
-	inputs, help, err := fleetLine(&options).parse(args)
+	var options FleetOptions
+	var help bool
+	inputs, err := parse(fleetFlags(&options, &help), args)
+	switch {
+	case err != nil || help:
+		return options, help && err == nil, err
+	case len(inputs) == 0:
+		return options, false, usageError("fleet", "missing argument: input")
+	}
 	options.Inputs = inputs
-	return options, help, err
+	return options, false, nil
 }
 
 // ParseCatalog reads the arguments after `catalog`. It reports whether the
 // help was asked for.
 func ParseCatalog(args []string) (CatalogOptions, bool, error) {
 	var options CatalogOptions
-	_, help, err := catalogLine(&options).parse(args)
-	return options, help, err
+	var help bool
+	inputs, err := parse(catalogFlags(&options, &help), args)
+	switch {
+	case err != nil || help:
+		return options, help && err == nil, err
+	case len(inputs) > 0:
+		return options, false, usageError("catalog", "unexpected argument: "+strings.Join(inputs, " "))
+	}
+	return options, false, nil
 }
