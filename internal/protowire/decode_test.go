@@ -309,19 +309,60 @@ func TestAZeroTimestampHoldsNoTime(t *testing.T) {
 	}
 }
 
-func TestPackedValuesAreLimitedPerMessage(t *testing.T) {
-	half := bytes.Repeat([]byte{0x01}, maxPackedValues/2)
-	atLimit := append(appendDelimited(10, half), appendDelimited(8, appendDelimited(3,
-		appendDelimited(1, []byte("x"))))...)
-	atLimit = append(atLimit, appendDelimited(10, half)...)
-	t.Run("a message may hold the most packed values", func(t *testing.T) {
-		message, err := testSchema(t).Decode(atLimit, "Outer")
-		if err != nil || len(message.List("numbers")) != maxPackedValues {
-			t.Errorf("Decode() = %d numbers, %v; want %d", len(message.List("numbers")), err, maxPackedValues)
+// repeatedFields returns count copies of one field's bytes.
+func repeatedFields(field []byte, count int) []byte {
+	return bytes.Repeat(field, count)
+}
+
+func TestValuesAreLimitedPerMessage(t *testing.T) {
+	half := maxValues / 2
+	cases := []struct {
+		name string
+		// fields returns a message of count values of the kind.
+		fields func(count int) []byte
+		list   string
+	}{
+		{"packed integers", func(count int) []byte {
+			return append(appendDelimited(10, bytes.Repeat([]byte{0x01}, count-half)),
+				appendDelimited(10, bytes.Repeat([]byte{0x01}, half))...)
+		}, "numbers"},
+		{"integers written one field each", func(count int) []byte {
+			return repeatedFields([]byte{0x50, 0x01}, count)
+		}, "numbers"},
+		{"packed and separate integers together", func(count int) []byte {
+			return append(appendDelimited(10, bytes.Repeat([]byte{0x01}, half)),
+				repeatedFields([]byte{0x50, 0x01}, count-half)...)
+		}, "numbers"},
+		{"strings written one field each", func(count int) []byte {
+			return repeatedFields([]byte{0x12, 0x00}, count)
+		}, "tags"},
+		{"nested messages written one field each", func(count int) []byte {
+			return repeatedFields([]byte{0x4a, 0x00}, count)
+		}, "items"},
+	}
+	for _, test := range cases {
+		t.Run("a message may hold the most "+test.name, func(t *testing.T) {
+			message, err := testSchema(t).Decode(test.fields(maxValues), "Outer")
+			if err != nil || len(message.List(test.list)) != maxValues {
+				t.Errorf("Decode() = %d values, %v; want %d", len(message.List(test.list)), err, maxValues)
+			}
+		})
+		t.Run("one more of the "+test.name+" is refused", func(t *testing.T) {
+			_, err := testSchema(t).Decode(test.fields(maxValues+1), "Outer")
+			if !errors.Is(err, ErrTooLarge) || !strings.Contains(err.Error(), "more than 1048576 values") {
+				t.Errorf("Decode() error = %v, want ErrTooLarge naming the limit", err)
+			}
+		})
+	}
+	t.Run("a plain field written again and again counts each time", func(t *testing.T) {
+		_, err := testSchema(t).Decode(repeatedFields([]byte{0x18, 0x01}, maxValues+1), "Outer")
+		if !errors.Is(err, ErrTooLarge) {
+			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
 		}
 	})
-	t.Run("one packed value more is refused", func(t *testing.T) {
-		_, err := testSchema(t).Decode(append(atLimit, appendDelimited(11, []byte{0x01})...), "Outer")
+	t.Run("the values of nested messages count toward the same limit", func(t *testing.T) {
+		inner := appendDelimited(8, repeatedFields([]byte{0x10, 0x01}, half))
+		_, err := testSchema(t).Decode(append(inner, repeatedFields([]byte{0x50, 0x01}, half)...), "Outer")
 		if !errors.Is(err, ErrTooLarge) {
 			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
 		}

@@ -5,8 +5,9 @@
 // fixed-width field cut short and a packed field holding a damaged varint
 // are left out of the result, and a malformed nested message is left out
 // whole, so one damaged field costs only itself; only a top-level
-// buffer that cannot be followed, or one of more packed values than the
-// limit, is an error.
+// buffer that cannot be followed, or a message of more than 1,048,576
+// values (every scalar, packed value and nested message, repeated or not,
+// at any depth), is an error.
 //
 // google.golang.org/protobuf decodes through code generated from .proto
 // files; the agents' schemas are unpublished and change, so a parser names
