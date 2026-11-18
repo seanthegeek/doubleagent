@@ -15,8 +15,8 @@ import (
 )
 
 // specParser is a parser that emits the rows testdata/timeline_spec.json
-// gives for the files it names, as the analyzer's fake parsers in
-// testdata/timeline_oracle.py do.
+// gives for the files it names, so the timeline command's deduplication,
+// filters, sessions and inventory.json are tested without real transcripts.
 type specParser struct {
 	parser.Base
 	spec jsonvalue.Value
@@ -89,7 +89,7 @@ func readTestData(t *testing.T, name string) jsonvalue.Value {
 	return value
 }
 
-// timelineFiles is the collection of testdata/timeline_oracle.py.
+// timelineFiles are the files of the collection the timeline runs read.
 var timelineFiles = []collectedFile{
 	{"alice", "/home/alice", "codex-cli", ".codex/sessions/a.jsonl", "x\n"},
 	{"alice", "/home/alice", "codex-cli", ".codex/history.jsonl", "y\n"},
@@ -104,8 +104,8 @@ var timelineFiles = []collectedFile{
 	{"alice", "/srv/empty", "project", "AGENTS.md", "# x\n"},
 }
 
-// timelineRuns are the runs of testdata/timeline_oracle.py: a name and the
-// arguments after the output directory.
+// timelineRuns are the timeline runs of testdata/timeline_expected.json: a
+// name and the arguments after the output directory.
 var timelineRuns = []struct {
 	name string
 	args []string
@@ -117,7 +117,7 @@ var timelineRuns = []struct {
 	{"none", []string{"--agent", "aider"}},
 }
 
-func TestTimelineMatchesTheAnalyzerOverFakeParsers(t *testing.T) {
+func TestTimelineOverSpecParsers(t *testing.T) {
 	spec, expected := readTestData(t, "timeline_spec.json"), readTestData(t, "timeline_expected.json")
 	work := t.TempDir()
 	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{

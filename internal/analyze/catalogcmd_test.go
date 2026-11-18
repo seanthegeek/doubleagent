@@ -15,7 +15,7 @@ import (
 )
 
 // catalogAgents are the home agents of the bundled catalog in table order,
-// as the analyzer's Catalog.agents lists them.
+// each listed once.
 var catalogAgents = []string{"claude-code", "claude-desktop", "gemini-cli", "antigravity",
 	"codex-cli", "chatgpt-desktop", "copilot-cli", "copilot", "copilot-desktop", "cursor",
 	"vscode", "cline", "roo-code", "kilo-code", "continue", "cody", "twinny", "windsurf", "aider",

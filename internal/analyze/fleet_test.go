@@ -14,7 +14,7 @@ import (
 )
 
 // fleetText is a saved inventory output with every shape the reader meets;
-// the expected rows, junk count and rollup are the analyzer's for it.
+// the expected rows, junk count and rollup are what fleet reads from it.
 const fleetText = "\xef\xbb\xbf" + `{"type":"agent","host":"orphan","user":"u0","agent":"aider","files":1}` + "\r\n" +
 	"banner line\r" +
 	`{"type":"host","host":"ws1","collector":"1.6.0","mode":"live","at":"2026-10-01T09:00:00Z","users_scanned":2}` + "\n" +
@@ -30,7 +30,7 @@ const fleetText = "\xef\xbb\xbf" + `{"type":"agent","host":"orphan","user":"u0",
 	"{bad json\n" +
 	"\xff\xfe junk"
 
-func TestFleetRowsReadEachRecordShapeAsTheAnalyzerDoes(t *testing.T) {
+func TestFleetRowsReadEachRecordShape(t *testing.T) {
 	text := strings.TrimPrefix(textlines.ValidUTF8([]byte(fleetText)), "\uFEFF")
 	rows, junk := fleetRows(text)
 	want := [][]string{

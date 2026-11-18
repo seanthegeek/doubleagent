@@ -9,7 +9,7 @@ import (
 )
 
 // detectFiles is a collection of two homes and a project with a repository;
-// the expected outputs below are the analyzer's over the same files.
+// the expected outputs below are detect's over these files.
 var detectFiles = []collectedFile{
 	{"alice", "/home/alice", "codex-cli", ".codex/sessions/a.jsonl", "x\n"},
 	{"alice", "/home/alice", "claude-code", ".claude/settings.json", "{}\n"},
@@ -48,7 +48,7 @@ bob	project	/srv/proj/AGENTS.md
 
 const detectJSONText = "{\n  \"input\": \"{ROOT}/col\",\n  \"kind\": \"collected\",\n  \"host\": \"h1\",\n  \"notes\": [],\n  \"homes\": [\n    {\n      \"user\": \"alice\",\n      \"home\": \"/home/alice\",\n      \"inferred\": false,\n      \"agents\": [\n        {\n          \"agent\": \"claude-code\",\n          \"files\": 1,\n          \"bytes\": 3,\n          \"parser\": true\n        },\n        {\n          \"agent\": \"codex-cli\",\n          \"files\": 1,\n          \"bytes\": 2,\n          \"parser\": true\n        }\n      ]\n    },\n    {\n      \"user\": \"bob\",\n      \"home\": \"/home/bob\",\n      \"inferred\": false,\n      \"agents\": [\n        {\n          \"agent\": \"aider\",\n          \"files\": 1,\n          \"bytes\": 8,\n          \"parser\": true\n        }\n      ]\n    }\n  ],\n  \"projects\": [\n    {\n      \"path\": \"/srv/proj\",\n      \"users\": [\n        \"alice\",\n        \"bob\"\n      ],\n      \"agents\": [\n        {\n          \"agent\": \"claude-code\",\n          \"files\": 1,\n          \"bytes\": 3,\n          \"parser\": true\n        }\n      ],\n      \"shared_files\": 3,\n      \"shared_bytes\": 74,\n      \"remotes\": [\n        {\n          \"name\": \"origin\",\n          \"urls\": [\n            \"git@example.com:a/p.git\"\n          ],\n          \"pushurls\": []\n        }\n      ],\n      \"head\": \"main\"\n    }\n  ],\n  \"problems\": []\n}\n"
 
-func TestDetectMatchesTheAnalyzer(t *testing.T) {
+func TestDetectReportsEachHomeAndProject(t *testing.T) {
 	work := t.TempDir()
 	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
 		member("hostname", jsonvalue.NewString("h1")),
