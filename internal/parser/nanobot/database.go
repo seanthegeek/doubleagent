@@ -28,7 +28,7 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 		records = append(records, numbered{line, record})
 	}
 	sessionID := p.sessionRows(artifact, options, DecodeStem(group(p.files.session, match, "stem")),
-		project, records, emit)
+		project, records, emit, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }
 
@@ -88,7 +88,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	for _, each := range heads {
 		var problems parser.Problems
 		records := databaseRecords(each.session, store.messages[each.key], &problems)
-		sessionID := p.sessionRows(artifact, options, each.key, project, records, emit)
+		sessionID := p.sessionRows(artifact, options, each.key, project, records, emit, &problems)
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 	}
 }

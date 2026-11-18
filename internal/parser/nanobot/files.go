@@ -112,7 +112,8 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 
 // parsePairing emits a row per approved chat sender, at the file's
 // modification time, and per pending request, at its created_at; a pending
-// request's pairing code is not shown.
+// request's pairing code is not shown. An approved or pending that is not
+// an object, or an approved list that is not an array, adds a problem row.
 func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 	data, problem, ok := p.loadObject(artifact, "pairing.json")
 	if !ok {
@@ -120,17 +121,15 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp := parser.FileMtime(artifact)
-	for _, member := range data.Get("approved").Members() {
-		if !member.Value.IsArray() {
-			continue
-		}
-		for _, sender := range member.Value.Items() {
+	var problems parser.Problems
+	for _, member := range parser.ObjectMember(data.Get("approved"), "approved", 0, &problems) {
+		for _, sender := range parser.ArrayMember(member.Value, "approved."+member.Key, 0, &problems) {
 			emit(p.settingRow(artifact, timestamp, "permission setting: pairing.approved."+
 				member.Key+"="+parser.SettingValue(sender)+" (from "+artifact.Rel+
 				", file mtime)", ""))
 		}
 	}
-	for _, member := range data.Get("pending").Members() {
+	for _, member := range parser.ObjectMember(data.Get("pending"), "pending", 0, &problems) {
 		info := member.Value
 		if !info.IsObject() {
 			continue
@@ -148,6 +147,7 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 			timeutil.FromValue(info.Get("expires_at"))+status+" (from "+artifact.Rel+
 			", created_at)", ""))
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // configToolKeys are the tools settings of config.json that grant or
