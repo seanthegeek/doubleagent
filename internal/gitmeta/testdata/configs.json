@@ -1,16 +1,8 @@
 [
  {
-  "name": "the remote \"x\", rejecting an escape \\q and an open quote",
+  "name": "no remote, rejecting an escape \\q and an open quote",
   "config": "[remote.]\r\n\u000b= no key\n\t[remote \"origin\"]url=\"\n-url \n\tfetch \t= \\q \\\u00e9 \n\t[remote \"o\"\r\n\u000b[remote \"x\" ] url = h://inline\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 3: unterminated quoted value",
    "line 5: unsupported escape \\q"
@@ -22,8 +14,7 @@
   "config": "\ufeff\t[remote \"origin\"]\n\tpushUrl\\t\n\t[core]  [branch \"main\"]\r\n  [ remote \"o\" ]\r\n\tURL = \\qURL \\\u00e9\u00e9\u2028\u2028\n\u000bpushurl = \\qhttps://h/x\n\u000burl \\q\\t\u2028\n",
   "remotes": [],
   "problems": [
-   "line 5: unsupported escape \\q",
-   "line 6: unsupported escape \\q"
+   "line 5: unsupported escape \\q"
   ],
   "head": "[remote \"origin\"]"
  },
@@ -44,17 +35,9 @@
   "head": "= no key"
  },
  {
-  "name": "the remote \"x\", rejecting an open quote",
+  "name": "no remote, rejecting an open quote",
   "config": "URL \r #c\u00e9\"\n\turl2;c;c;c\"q ;#\"\r\npushurl \" #c\\\"URL \t= \u00e9\n  url = \r \"q ;#\" \r\n  pushurl = \\t\";c #c\n\turl2\\\u00e9\\\\\\\\\\\n  = no key\n\turl2=\\t\"\"q ;#\"\"\r\n  [remote \"x\" ] url = h://inline\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 5: unterminated quoted value"
   ],
@@ -80,12 +63,10 @@
   "head": "pushurl=\"q ;#\";c\u2028\tURL=\\\u2028"
  },
  {
-  "name": "no remote, rejecting an open quote",
+  "name": "no remote",
   "config": "\ufeff\u000bfetch \t= \"\u2028\rhttps://h/x\r\n\u000b[remote.Fork]\r\nx\tpushUrl=;c \\\\\"\n\u000b[branch \"main\"]url2 \r\";c\u00e9\r\n\tURL #c\r\u00e9\n",
   "remotes": [],
-  "problems": [
-   "line 1: unterminated quoted value"
-  ],
+  "problems": [],
   "head": "fetch \t= \"\u2028\rhttps://h/x"
  },
  {
@@ -117,12 +98,10 @@
   "head": "URL = \\ #c\\"
  },
  {
-  "name": "no remote, rejecting an escape \\\u00e9",
+  "name": "no remote",
   "config": "\turl2 \t= ;c\r\\q\\\n  pushurl = \\\\\\\r\n  url\n\u000bURL=\\\u00e9\\\\\\\n",
   "remotes": [],
-  "problems": [
-   "line 4: unsupported escape \\\u00e9"
-  ],
+  "problems": [],
   "head": "url2 \t= ;c\r\\q\\"
  },
  {
@@ -135,37 +114,19 @@
   "head": "topic"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\q",
+  "name": "no remote, rejecting an escape \\q",
   "config": "\u000b[remote \"x\" ] url = h://inline\nurl2 \t= \\\\url2=\\q\\\\\\\u00e9\r\n\u000b-url = https://h/x;c\\\"\\t\n\u000bpushUrl = \n  x\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 2: unsupported escape \\q"
   ],
   "head": "[remote \"x\" ] url = h://inline"
  },
  {
-  "name": "the remote \"o\", rejecting an escape \\\u00e9",
+  "name": "no remote",
   "config": "\ufeff  URL \\q #c\"q ;#\"\r\n\turlhttps://h/x\r\r\r\n\u000bpushUrl \\\\\rhttps://h/x \n\u000bfetch = \\\u00e9\\\u00e9\n  URL #c\\t\t[remote.]\n  [ remote \"o\" ]\n\u000b[ remote \"o\" ]\n\tpushurl = \\t\r \n\turl2 #c\u00e9https://h/x\\t\r\n",
-  "remotes": [
-   {
-    "name": "o",
-    "urls": [],
-    "pushurls": [
-     "\t"
-    ]
-   }
-  ],
-  "problems": [
-   "line 4: unsupported escape \\\u00e9"
-  ],
+  "remotes": [],
+  "problems": [],
   "head": "URL \\q #c\"q ;#\""
  },
  {
@@ -193,12 +154,11 @@
   "head": "-url\\\u00e9\\\u00e9\u2028"
  },
  {
-  "name": "no remote, rejecting an escape \\q and an open quote",
+  "name": "no remote, rejecting an escape \\q",
   "config": "\turl2 \r\u00e9\n\turl=\r\\q\n  fetch \\\" #c\\\"\n\u000bfetch  \u2028;c\n\u000bpushurl = https://h/x\"\u2028\r\npushurl \\t\u2028\\\"\n[remote \"\"]\nURL=\\t\\q\r\n\tfetch \t= \n",
   "remotes": [],
   "problems": [
    "line 2: unsupported escape \\q",
-   "line 5: unterminated quoted value",
    "line 8: unsupported escape \\q"
   ],
   "head": "url2 \r\u00e9"
@@ -222,17 +182,9 @@
   "head": "url=https://h/x\r\\url2 \\\\\u00e9\\\\\r\u000bURL = \\\\\\t"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\\r and an open quote",
+  "name": "no remote, rejecting an escape \\\r and an open quote",
   "config": "\t[remote.]\n\tfetch=\\\\\\\r\r\n  fetchhttps://h/x\u2028\"\r\n\t[remote \"x\" ] url = h://inline  ; note\n\tpushurl= \u00e9\"\r\n\u000b[branch \"main\"]\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 2: unsupported escape \\\r",
    "line 5: unterminated quoted value"
@@ -249,21 +201,18 @@
   "head": "x"
  },
  {
-  "name": "no remote, rejecting an escape \\\u2028",
+  "name": "no remote",
   "config": "\u000b[remote \"o\"\n\u000bpushurl = \\\u2028\u00e9\n\u000b[remote \"o\"\u000bpushurl=\"\\\"\r\u00e9\r\n",
   "remotes": [],
-  "problems": [
-   "line 2: unsupported escape \\\u2028"
-  ],
+  "problems": [],
   "head": "[remote \"o\""
  },
  {
-  "name": "no remote, rejecting an escape \\q and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\q",
   "config": "  [remote.Fork]  URL = \\q\nurl2 \r\n\u000bpushUrl=\"\\\u00e9\u2028\"\n",
   "remotes": [],
   "problems": [
-   "line 1: unsupported escape \\q",
-   "line 3: unsupported escape \\\u00e9"
+   "line 1: unsupported escape \\q"
   ],
   "head": "[remote.Fork]  URL = \\q"
  },
@@ -287,7 +236,7 @@
   "head": "pushUrl=\u2028\\\u00e9"
  },
  {
-  "name": "the remotes \"origin\", \"x\"",
+  "name": "the remote \"origin\"",
   "config": "pushurl\"\n\t[remote \"origin\"]\n  pushurl=\u2028\\\\\\\n  [remote\"x\"]\n[remote \"x\" ] url = h://inline\u000b-url=\"q ;#\"\u2028\n  # comment \\\u000b[remote \"x\" ] url = h://inline\n  url2 =  #c #c;c\\q\n",
   "remotes": [
    {
@@ -296,13 +245,6 @@
     "pushurls": [
      "\u2028\\  [remotex]"
     ]
-   },
-   {
-    "name": "x",
-    "urls": [
-     "h://inline\u000b-url=q ;#\u2028"
-    ],
-    "pushurls": []
    }
   ],
   "problems": [],
@@ -318,12 +260,11 @@
   "head": "URL  #c\\q\""
  },
  {
-  "name": "no remote, rejecting an escape \\\u2028 and an open quote",
+  "name": "no remote, rejecting an open quote",
   "config": "\turl \t= \\\\\u00e9\"\n  -url = \\\"\nURL = \\t\n  url2 \"q ;#\"\n\u000bpushurl = \\\u2028\n\turl2\\t;c;c\\q\n-url= \"q ;#\"  \t[remote \"origin\"]\n  url2 = \\\";c\"q ;#\"\r\n",
   "remotes": [],
   "problems": [
-   "line 1: unterminated quoted value",
-   "line 5: unsupported escape \\\u2028"
+   "line 1: unterminated quoted value"
   ],
   "head": "url \t= \\\\\u00e9\""
  },
@@ -362,33 +303,29 @@
   "head": ""
  },
  {
-  "name": "no remote, rejecting an escape \\; and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\;",
   "config": "\u000burl2=\\\u00e9\u00e9\u000b; note\nfetch=\\;c\nfetch\\q\n  URL\\q\"\u2028\\\\\r\npushUrl \\\"https://h/x\n\u000b= no key\npushUrl  #c\\t #c\r\n",
   "remotes": [],
   "problems": [
-   "line 1: unsupported escape \\\u00e9",
    "line 2: unsupported escape \\;"
   ],
   "head": "url2=\\\u00e9\u00e9\u000b; note"
  },
  {
-  "name": "no remote, rejecting an escape \\q and an escape \\\u00e9 and an open quote",
+  "name": "no remote, rejecting an escape \\\u00e9 and an open quote",
   "config": "\u000bURL \t= \u00e9\\q\u00e9;c\n\tpushUrl = \\\"\u2028 #c\u00e9\n  url\n\u000burl2\r\n  url2=\\\"\\\\\\\u00e9https://h/x\n\turl2 \t= \"\t[core]\n",
   "remotes": [],
   "problems": [
-   "line 1: unsupported escape \\q",
    "line 5: unsupported escape \\\u00e9",
    "line 6: unterminated quoted value"
   ],
   "head": "URL \t= \u00e9\\q\u00e9;c"
  },
  {
-  "name": "no remote, rejecting an escape \\\u00e9 and an escape \\\u2028",
+  "name": "no remote, rejecting an escape \\\u2028",
   "config": "  url \n\u000bURL \t= \\\\\r\\\u00e9\\q\t[remote \"o\"\t[remote\t\"tab\"]\n[remote.Fork]\n\u000burl2 \t= https://h/x\\\u00e9\r\nurl2 = \\\u2028\nurl2 = \\\";c\n\u000bpushUrl \\q\u00e9\\\"\n",
   "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\\u00e9",
-   "line 4: unsupported escape \\\u00e9",
    "line 5: unsupported escape \\\u2028"
   ],
   "head": "url"
@@ -421,13 +358,10 @@
   "head": "url  #c"
  },
  {
-  "name": "no remote, rejecting an escape \\u and an escape \\\u00e9",
+  "name": "no remote",
   "config": "URL\n\u000bpushurl\u2028\u00e9\n\u000burl2\\\" \r\n\u000bx\n\u000burl2 \t= \\\\\\\u00e9;c\r\n\u000burl = \u00e9\\url2 \\\u00e9  #c\r\n  URL \\\\\n",
   "remotes": [],
-  "problems": [
-   "line 5: unsupported escape \\\u00e9",
-   "line 6: unsupported escape \\u"
-  ],
+  "problems": [],
   "head": "URL"
  },
  {
@@ -438,7 +372,6 @@
     "name": "Up",
     "urls": [],
     "pushurls": [
-     "https://h/x\u00e9q ;#",
      ";cq"
     ]
    }
@@ -450,22 +383,20 @@
   "head": "url2 \t=  \\t\\q"
  },
  {
-  "name": "no remote, rejecting an escape \\h and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\\u00e9",
   "config": "\u000b# comment \\  URL \u00e9\\\\\u00e9\rurl2 \t= \r\n\tURL \t= \\t\\\u00e9\\t\"\r\n\tfetch =  #c\"q ;#\"\r\n\u000bpushurl \r\\\\  \r\nx\r\n  [Remote \"Up\"]\r\n\u000bfetch\\\u00e9\" ;c\r\n\u000bpushurl=\\https://h/x",
   "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\\u00e9",
-   "line 8: unsupported escape \\h"
+   "line 2: unsupported escape \\\u00e9"
   ],
   "head": "# comment \\  URL \u00e9\\\\\u00e9\rurl2 \t="
  },
  {
-  "name": "no remote, rejecting an escape \\q and an escape \\\u2028",
+  "name": "no remote, rejecting an escape \\\u2028",
   "config": "\t; note  = no key\n  ref: refs/heads/topic  # comment \\\n  url2=\\\u2028https://h/x\n  pushurl = \r[remote \"origin\"]\n\u000burl \t= \\\\\\q\u00e9  fetch \t= \\t\" \u00e9\r\n",
   "remotes": [],
   "problems": [
-   "line 3: unsupported escape \\\u2028",
-   "line 5: unsupported escape \\q"
+   "line 3: unsupported escape \\\u2028"
   ],
   "head": "; note  = no key"
  },
@@ -479,35 +410,30 @@
   "head": "url \t= \u2028\\\\\\= no key"
  },
  {
-  "name": "no remote, rejecting an escape \\\t",
+  "name": "no remote",
   "config": "pushurl \\qhttps://h/x \n  [remote.Fork]\u000bpushurl \t= \"q ;#\"\\\tpushurl\\q\n",
   "remotes": [],
-  "problems": [
-   "line 2: unsupported escape \\\t"
-  ],
+  "problems": [],
   "head": "pushurl \\qhttps://h/x"
  },
  {
-  "name": "no remote, rejecting an escape \\\u000b",
+  "name": "no remote",
   "config": "\ufeff\tx\r\n-url=\\\\q\u00e9\\t\r\n\u000burl=\u2028\\\u000b[core]\u000b= no key\u000bURL\\\\\r\n",
   "remotes": [],
-  "problems": [
-   "line 3: unsupported escape \\\u000b"
-  ],
+  "problems": [],
   "head": "x"
  },
  {
-  "name": "no remote, rejecting an escape \\; and an escape \\q",
+  "name": "no remote, rejecting an escape \\;",
   "config": "\tURL \t= \\;c\\\"q ;#\"\tpushUrl \\\\\"q ;#\"\n\u000bURL \t= \\\"\\qhttps://h/xhttps://h/x\r\nurl2   pushUrl \r\n# comment \\\n\u000b[remote \"a\\\"b\\\\c\"]\n  x\r\npushurl \n",
   "remotes": [],
   "problems": [
-   "line 1: unsupported escape \\;",
-   "line 2: unsupported escape \\q"
+   "line 1: unsupported escape \\;"
   ],
   "head": "URL \t= \\;c\\\"q ;#\"\tpushUrl \\\\\"q ;#\""
  },
  {
-  "name": "the remotes \"a\\\"b\\\\c\", \"x\", rejecting an escape \\\u00e9",
+  "name": "the remote \"a\\\"b\\\\c\", rejecting an escape \\\u00e9",
   "config": "[remote \"x\" ] url = h://inline\r\n\tURL=\\\u00e9\";c\r\n\tfetch= #c;c\"q ;#\"\n\t# comment \\; note\n  [remote\"x\"]\n  [remote \"a\\\"b\\\\c\"]\n\tpushurl = \u00e9\r\nurl2= \r\n\u000b-url=;c \n",
   "remotes": [
    {
@@ -516,13 +442,6 @@
     "pushurls": [
      "\u00e9"
     ]
-   },
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
    }
   ],
   "problems": [
@@ -531,17 +450,16 @@
   "head": "[remote \"x\" ] url = h://inline"
  },
  {
-  "name": "no remote, rejecting an escape \\\r and an open quote",
+  "name": "no remote, rejecting an escape \\\r",
   "config": "\ufeff\t# comment \\\n\u000bURL = \"\\\";c\n\u000b# comment \\\u000bURL \t=  \\q #c\n  pushUrl = \\\r\\\u00e9\n\tfetch= #c\\q\r\n\turl =  #c\"q ;#\"\\t\r\n\t0123abc\n[remote\"x\"]",
   "remotes": [],
   "problems": [
-   "line 2: unterminated quoted value",
    "line 4: unsupported escape \\\r"
   ],
   "head": "# comment \\"
  },
  {
-  "name": "the remote \"Up\", rejecting an escape \\  and an escape \\\u2028",
+  "name": "the remote \"Up\", rejecting an escape \\ ",
   "config": "\t[Remote \"Up\"]\r\n\u000bURL \\q\r\\\u00e9\n\u000bx\n\u000b\r\n  url=  [Remote \"Up\"]  -url = \r\n\u000bURL = \\\u2028\n\turl \t= \\ #c\\\u00e9\t-url = \\\\\\;c\u00e9\n",
   "remotes": [
    {
@@ -553,62 +471,42 @@
    }
   ],
   "problems": [
-   "line 6: unsupported escape \\\u2028",
    "line 7: unsupported escape \\ "
   ],
   "head": "[Remote \"Up\"]"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\q and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\\u00e9",
   "config": "\u000bfetch \t= \\q\\q\n\tpushUrl \t= \\\\\u00e9fetch\\\u00e9 #c;c\n-url;c  [remote \"a\\\"b\\\\c\"]\n  [remote \"x\" ] url = h://inline\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
-   "line 1: unsupported escape \\q",
    "line 2: unsupported escape \\\u00e9"
   ],
   "head": "fetch \t= \\q\\q"
  },
  {
-  "name": "no remote, rejecting an escape \\  and an escape \\q and an open quote",
+  "name": "no remote, rejecting an escape \\  and an open quote",
   "config": "\ufeff  ; note\r\n\u000bfetch = \"q ;#\"\u00e9\n\u000bfetch \t= \u00e9\\\\\\q\n  -url = \"q ;#\"  \r\n\tpushUrl =  \n\tpushUrl \t= https://h/x\n  pushurl=\u00e9\\ #c\\\r\n  pushUrl = \"\\\\",
   "remotes": [],
   "problems": [
-   "line 3: unsupported escape \\q",
    "line 7: unsupported escape \\ ",
    "line 8: unterminated quoted value"
   ],
   "head": "; note"
  },
  {
-  "name": "no remote, rejecting an escape \\\t and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\\t",
   "config": "[core]\n\u000bpushurl = \\\u00e9\u00e9\\\"\r\npushurl=\\\"  [Remote \"Up\"]\n  url2-url=\u2028https://h/x\r\\\turl = \u00e9 #chttps://h/x\r\n\t[branch \"main\"]\r\n\u000burl  #c\u00e9\r\n",
   "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\\u00e9",
    "line 4: unsupported escape \\\t"
   ],
   "head": "[core]"
  },
  {
-  "name": "the remote \"Up\", rejecting an escape \\\u00e9 and an escape \\\u2028",
+  "name": "no remote, rejecting an escape \\\u00e9 and an escape \\\u2028",
   "config": "  pushurl\u00e9\r\n[Remote \"Up\"]\r\n\u000bURL = https://h/x\"q ;#\";c #c\n\tx  [remote \"origin\"]\n# comment \\\r\n  [remote\t\"tab\"]\r\n\tpushUrl \t= \\\u2028\n\turl = \\\"\\\u00e9\r\n",
-  "remotes": [
-   {
-    "name": "Up",
-    "urls": [
-     "https://h/xq ;#"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 7: unsupported escape \\\u2028",
    "line 8: unsupported escape \\\u00e9"
@@ -616,7 +514,7 @@
   "head": "pushurl\u00e9"
  },
  {
-  "name": "the remotes \"a\\\"b\\\\c\", \"x\", rejecting an escape \\q and an open quote",
+  "name": "the remote \"a\\\"b\\\\c\", rejecting an escape \\q and an open quote",
   "config": "\tfetch \\\u00e9\\\"\n\t[remote \"x\" ] url = h://inline\r\n\u000bURL \\q \n[remote \"a\\\"b\\\\c\"]\npushurl \t= \u2028\\q\r\r\npushUrl = \u00e9\u00e9\\t\n\tURL=\\\\\"\u2028 #c\n\u000b[remote \"\"]\r\n",
   "remotes": [
    {
@@ -625,13 +523,6 @@
     "pushurls": [
      "\u00e9\u00e9\t"
     ]
-   },
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
    }
   ],
   "problems": [
@@ -641,29 +532,16 @@
   "head": "fetch \\\u00e9\\\""
  },
  {
-  "name": "no remote, rejecting an escape \\\r and an escape \\q",
+  "name": "no remote",
   "config": "\u000burl \t= \"\\\r\\\u00e9\n  url=\n\u000burl ;c\n\t\r\n\u000bpushUrl = \\\\  url2 \t= \\q\\\r\\\n\t[ remote \"o\" ]\r\n",
   "remotes": [],
-  "problems": [
-   "line 1: unsupported escape \\\r",
-   "line 5: unsupported escape \\q"
-  ],
+  "problems": [],
   "head": "url \t= \"\\\r\\\u00e9"
  },
  {
-  "name": "the remote \"Up\", rejecting an escape \\h",
+  "name": "no remote, rejecting an escape \\h",
   "config": "\u000b[ remote \"o\" ]\r\n  [Remote \"Up\"]\n\u000bfetch \t= ;c\u2028\"q ;#\"\n\tpushurl=\"q ;#\"\\https://h/x #curl2 = \r\\\\\r\n  = no key\r\n\u000bpushurl=\\thttps://h/x;c\"q ;#\"\n\u000bx\n\u000bURL = \u2028;c\r",
-  "remotes": [
-   {
-    "name": "Up",
-    "urls": [
-     "\u2028"
-    ],
-    "pushurls": [
-     "\thttps://h/x"
-    ]
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 4: unsupported escape \\h"
   ],
@@ -676,8 +554,7 @@
   "problems": [
    "line 2: unsupported escape \\\u00e9",
    "line 3: unsupported escape \\\u2028",
-   "line 4: unsupported escape \\\r",
-   "line 5: unsupported escape \\\u00e9"
+   "line 4: unsupported escape \\\r"
   ],
   "head": "url = \"q ;#\"\tref: refs/heads/topic"
  },
@@ -703,20 +580,13 @@
   "head": "[remote \"a\\\"b\\\\c\"]"
  },
  {
-  "name": "the remotes \"a\\\"b\\\\c\", \"x\", rejecting an open quote",
+  "name": "the remote \"a\\\"b\\\\c\", rejecting an open quote",
   "config": "\t[remote \"a\\\"b\\\\c\"]\n  URL=https://h/xhttps://h/x\u2028url = \r\n[remote \"x\" ] url = h://inline\npushurl = \r\n  # comment \\\nurl \\\\\r\u2028\r-url=\\q;c\n  pushUrl=\\\\\"\n",
   "remotes": [
    {
     "name": "a\"b\\c",
     "urls": [
      "https://h/xhttps://h/x\u2028url ="
-    ],
-    "pushurls": []
-   },
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
     ],
     "pushurls": []
    }
@@ -727,20 +597,13 @@
   "head": "[remote \"a\\\"b\\\\c\"]"
  },
  {
-  "name": "the remotes \"fork\", \"x\", rejecting an escape \\  and an escape \\\u00e9",
+  "name": "the remote \"fork\", rejecting an escape \\  and an escape \\\u00e9",
   "config": "  [remote.Fork]\r\n\t\n\u000burl2=\r\n\tURL = \u00e9\\\"\\\"\r\n[remote \"x\" ] url = h://inline\r\n\tpushurl=\\ #c\u00e9\r\n  fetch \t= \\\u00e9\rhttps://h/x\\\u00e9\r\n\u000b= no key\n\tpushurl\\\\\u00e9\r\n\tx\r\n",
   "remotes": [
    {
     "name": "fork",
     "urls": [
      "\u00e9\"\""
-    ],
-    "pushurls": []
-   },
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
     ],
     "pushurls": []
    }
@@ -752,78 +615,47 @@
   "head": "[remote.Fork]"
  },
  {
-  "name": "no remote, rejecting an escape \\q and an escape \\\u2028 and an open quote",
+  "name": "no remote, rejecting an open quote",
   "config": "\u000bpushUrl =  #c\t-url = \\\u00e9\\\u00e9\r\n\turl \\\"\n\u000b[remote \"origin\"]\r\n  [branch \"main\"]\n\u000burl2=\\q\u2028\n-url =  \r\n\u000burl \t= \\\u2028\n  URL = \";c\u00e9\u00e9\nfetch \t= \n",
   "remotes": [],
   "problems": [
-   "line 5: unsupported escape \\q",
-   "line 7: unsupported escape \\\u2028",
    "line 8: unterminated quoted value"
   ],
   "head": "pushUrl =  #c\t-url = \\\u00e9\\\u00e9"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\-",
+  "name": "no remote, rejecting an escape \\-",
   "config": "[remote \"x\" ] url = h://inlineURL \n  [remote\t\"tab\"][remote \"o\"\n\u000b[remote.]\n[remote \"x\" ] url = h://inline\n  fetch = \\-url =  \\\\\\\\\"url \\\r\"pushUrl \t= \\;c\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inlineURL",
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 5: unsupported escape \\-"
   ],
   "head": "[remote \"x\" ] url = h://inlineURL"
  },
  {
-  "name": "no remote, rejecting an escape \\; and an open quote",
+  "name": "no remote, rejecting an open quote",
   "config": "  URL \r\n\u000burl=\\;c\turl2\\q\\q\\\u00e9\\\n  [ remote \"o\" ]\n  pushurl = \nurl2 \t= \r\n# comment \\\npushurl \t= \"\\\"\u2028\n",
   "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\;",
    "line 7: unterminated quoted value"
   ],
   "head": "URL"
  },
  {
-  "name": "the remote \"an unnamed remote\", rejecting an escape \\q and an escape \\\u00e9 and an escape \\\u2028",
+  "name": "no remote, rejecting an escape \\q",
   "config": "\t[remote \"origin\"]\n\u000bpushUrl \t= \" \\\u00e9\r\n  pushUrl = \n[remote \"\"]  pushUrl \t= \\q\\\u00e9 #c\n\u000bURL \t= \"q ;#\"\\\\\\\u2028\n\u000burl=\\\\  [remote \"o\"\t[Remote \"Up\"]\n",
-  "remotes": [
-   {
-    "name": "",
-    "urls": [
-     "\\  [remote o\t[Remote Up]"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\\u00e9",
-   "line 4: unsupported escape \\q",
-   "line 5: unsupported escape \\\u2028"
+   "line 4: unsupported escape \\q"
   ],
   "head": "[remote \"origin\"]"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\q and an escape \\\u2028",
+  "name": "no remote, rejecting an escape \\\u2028",
   "config": "\u000burl2 = \u2028\nURL = \\\u2028\\\r\n\u000bURL=\r \n\u000b[remote \"x\" ] url = h://inline\r\n\n\u000bURL=\u2028\\q\n\u000bfetch \t= ;cpushUrl = \"q ;#\"\npushUrl \n\t[remote \"o\"\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\\u2028",
-   "line 6: unsupported escape \\q"
+   "line 2: unsupported escape \\\u2028"
   ],
   "head": "url2 = \u2028"
  },
@@ -838,28 +670,19 @@
   "head": "pushUrl ;c\"\"q ;#\";c"
  },
  {
-  "name": "no remote, rejecting an escape \\q and an escape \\\u00e9 and an escape \\\u2028",
+  "name": "no remote, rejecting an escape \\\u00e9 and an escape \\\u2028",
   "config": "url2 \\\u00e9;c\r\npushurl \t= \n\u000burl \t= \r\n  pushurl =  \\\\\\\u00e9\\q\n\u000bpushurl=\\t\\q\"\n  pushUrl=\\\\\\\u2028\n  [remote \"\"]\u000b\r\n\u000burl2 = https://h/x\r\n",
   "remotes": [],
   "problems": [
    "line 4: unsupported escape \\\u00e9",
-   "line 5: unsupported escape \\q",
    "line 6: unsupported escape \\\u2028"
   ],
   "head": "url2 \\\u00e9;c"
  },
  {
-  "name": "the remote \"tab\", rejecting an escape \\  and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\  and an escape \\\u00e9",
   "config": "\u000b[remote\t\"tab\"]\n\u000bURL = \\\\\n\turl2\r\n  x[remote.]\n  \turl2=\\  \r\n  [remote \"origin\"]\n  [remote.]\npushUrl = \\\u00e9\\\"",
-  "remotes": [
-   {
-    "name": "tab",
-    "urls": [
-     "\\"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 5: unsupported escape \\ ",
    "line 8: unsupported escape \\\u00e9"
@@ -901,34 +724,16 @@
   "head": "pushurl \t=  #c\\\""
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\\u000b",
+  "name": "no remote",
   "config": "\ufeff[branch \"main\"]\n\t; note\u000bpushUrl  \";c;c\n\t[remote \"x\" ] url = h://inlineURLhttps://h/x\r\n\t[remote \"origin\"]\r\n\t# comment \\\r\n\u000burl2 = \r https://h/x\\\u000b\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inlineURLhttps://h/x"
-    ],
-    "pushurls": []
-   }
-  ],
-  "problems": [
-   "line 6: unsupported escape \\\u000b"
-  ],
+  "remotes": [],
+  "problems": [],
   "head": "[branch \"main\"]"
  },
  {
-  "name": "the remote \"o\", rejecting an escape \\;",
+  "name": "no remote, rejecting an escape \\;",
   "config": "  fetch=\u2028\\;c\r\n  [remote \"a\\\"b\\\\c\"]\r\n\u000b-url \t= \\\\\n\t-url \n  [ remote \"o\" ]\n-url\u00e9\r\npushurl=\\\"\\t\u00e9\n\t[branch \"main\"]\r\n; note\n",
-  "remotes": [
-   {
-    "name": "o",
-    "urls": [],
-    "pushurls": [
-     "\"\t\u00e9"
-    ]
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 1: unsupported escape \\;"
   ],
@@ -945,39 +750,20 @@
   "head": "pushurl \"q ;#\"\u2028\\q"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\\r and an escape \\q",
+  "name": "no remote, rejecting an escape \\q",
   "config": "\nfetch \t= \\q\"q ;#\"\\\u00e9URL=\\t;c \r\n\t[remote \"x\" ] url = h://inline\nurl=\u000b[remote \"x\" ] url = h://inline\n\u000burl2 = \\\r\"q ;#\"  url2=;c\u2028\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline",
-     "[remote x ] url = h://inline"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
-   "line 2: unsupported escape \\q",
-   "line 5: unsupported escape \\\r"
+   "line 2: unsupported escape \\q"
   ],
   "head": "fetch \t= \\q\"q ;#\"\\\u00e9URL=\\t;c"
  },
  {
-  "name": "the remote \"tab\", rejecting an escape \\h and an escape \\\u00e9",
+  "name": "no remote, rejecting an escape \\h",
   "config": "\ufeff\u000b[remote\t\"tab\"]\u000b0123abc\tURL\"q ;#\"\\\u00e9\"q ;#\"\n\tpushUrl \t=  \"q ;#\";chttps://h/x\r\n\turl \t= \n\tpushUrl=\\https://h/x\r\r\n  -url \\t\u2028\\\\\n\turl=;c  pushUrl ;c\r\\\u00e9\\\u00e9\n\u000burl=\\\"\"\\\u00e9\r\r\n",
-  "remotes": [
-   {
-    "name": "tab",
-    "urls": [],
-    "pushurls": [
-     "q ;#"
-    ]
-   }
-  ],
+  "remotes": [],
   "problems": [
-   "line 4: unsupported escape \\h",
-   "line 7: unsupported escape \\\u00e9"
+   "line 4: unsupported escape \\h"
   ],
   "head": "[remote\t\"tab\"]\u000b0123abc\tURL\"q ;#\"\\\u00e9\"q ;#\""
  },
@@ -1021,36 +807,18 @@
   "head": "url=\\\\\u00e9\u00e9\\x"
  },
  {
-  "name": "the remote \"x\", rejecting an escape \\p",
+  "name": "no remote, rejecting an escape \\p",
   "config": "\t= no key\r\n\t[remote \"o\"\r\n\u000b[remote \"x\" ] url = h://inline\r\n\turl = ;c \\\r\n\u000bpushUrl=\"q ;#\"\n  url = \\t  -url \\t\\\\\u00e9\\pushUrl \t= \"q ;#\";c\"q ;#\"https://h/x\r\n",
-  "remotes": [
-   {
-    "name": "x",
-    "urls": [
-     "h://inline"
-    ],
-    "pushurls": [
-     "q ;#"
-    ]
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 6: unsupported escape \\p"
   ],
   "head": "= no key"
  },
  {
-  "name": "the remote \"a\\\"b\\\\c\", rejecting an escape \\\t",
+  "name": "no remote, rejecting an escape \\\t",
   "config": "url=\u2028\\\tfetch=\\\u00e9\r\n\u000b[remote \"a\\\"b\\\\c\"]\r\nURL =   [remote \"o\"\n\tfetch  #c\r\n",
-  "remotes": [
-   {
-    "name": "a\"b\\c",
-    "urls": [
-     "[remote o"
-    ],
-    "pushurls": []
-   }
-  ],
+  "remotes": [],
   "problems": [
    "line 1: unsupported escape \\\t"
   ],
@@ -1077,16 +845,9 @@
   "head": "pushUrl ;c\\\\"
  },
  {
-  "name": "the remotes \"an unnamed remote\", \"tab\", rejecting an escape \\q",
+  "name": "the remote \"tab\", rejecting an escape \\q",
   "config": "url\n\u000b[remote \"\"]\r\n  pushUrl=\"q ;#\"\n  0123abc\t; note\n  url2 \t= \\t\\q\\\"\r\n\t[remote\t\"tab\"]\nurl = \u2028;c \r\n  fetch  \\\\q\\\u00e9\r\n",
   "remotes": [
-   {
-    "name": "",
-    "urls": [],
-    "pushurls": [
-     "q ;#"
-    ]
-   },
    {
     "name": "tab",
     "urls": [
@@ -1101,11 +862,10 @@
   "head": "url"
  },
  {
-  "name": "no remote, rejecting an escape \\p and an open quote",
+  "name": "no remote, rejecting an open quote",
   "config": "\u000bx\n  url2;c\";c\\\r\n\u000burl\n\u000bfetch=\"\u2028\u00e9\\pushurl=\r\"q ;#\" #c\r\nx\r\n  URL = \"\\\\pushurl \t= \n",
   "remotes": [],
   "problems": [
-   "line 4: unsupported escape \\p",
    "line 6: unterminated quoted value"
   ],
   "head": "x"

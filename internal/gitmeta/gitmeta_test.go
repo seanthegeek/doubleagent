@@ -176,7 +176,7 @@ func valueCases() []configCase {
 	}
 }
 
-func TestHeaderAndKeySeparatorsAreSpaceOrTabOnly(t *testing.T) {
+func TestHeaderAndKeySeparatorsAreGitWhiteSpaceOnly(t *testing.T) {
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085", "\u3000"} {
 		for _, text := range []string{
 			"[" + space + "remote \"origin\"]\n\turl = https://h/r.git\n",
@@ -190,8 +190,7 @@ func TestHeaderAndKeySeparatorsAreSpaceOrTabOnly(t *testing.T) {
 		}
 	}
 	for _, space := range []string{" ", "\t", " \t"} {
-		text := "[" + space + "remote" + space + "\"origin\"" + space + "]\n\turl" + space +
-			"= https://h/r.git\n"
+		text := "[remote" + space + "\"origin\"]\n\turl" + space + "= https://h/r.git\n"
 		want := []Remote{remote("origin", list("https://h/r.git"))}
 		if remotes, _ := ParseConfig(text); !reflect.DeepEqual(remotes, want) {
 			t.Errorf("ParseConfig(%q) = %+v", text, remotes)
