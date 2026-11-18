@@ -154,10 +154,13 @@ func integerIfExact(value Value) Value {
 	return value
 }
 
-// numberText returns an Integer or Float as SQLite writes it as text: an
+// numberText returns an Integer or Float as text, after SQLite 3.53: an
 // integer in decimal; a float with 15 significant digits when they read
 // back as the same number, else 17, in exponent form below 1e-4 or from
-// 1e17, and always with a fraction or an exponent.
+// 1e17, and always with a fraction or an exponent. SQLite makes the digits
+// and tests the read-back with its own arithmetic, so for some floats its
+// text has 17 digits where this has 15, or another last digit; SQLite 3.51
+// always writes 15. The text functions and TEXT affinity read numbers so.
 func numberText(value Value) string {
 	if value.Type == Integer {
 		return strconv.FormatInt(value.Int, 10)
