@@ -67,7 +67,7 @@ func TestPolicySettingsGiveTheirRowText(t *testing.T) {
 	want := []string{"security=allowlist", "ask=true", `autoAllowSkills={"a":[1]}`,
 		"allowlist=ls argPattern=-l source=user", "allowlist=5 source=-", "mcpTools=s/- source=-",
 		"mcpTools=-/- source=-"}
-	if got := policySettings(policy); !slices.Equal(got, want) {
+	if got := policySettings(policy, "defaults", 0, &parser.Problems{}); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
