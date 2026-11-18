@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // failedTurns returns diagnostics holding n failed assistant turns.
@@ -26,8 +27,9 @@ func TestABugReportsTextIsBuiltWithoutCopyingItPerTurn(t *testing.T) {
 	const turns = 4000
 	diagnostics := failedTurns(t, turns)
 	var before, after runtime.MemStats
+	var problems parser.Problems
 	runtime.ReadMemStats(&before)
-	text := bugReportRowText(jsonvalue.NewObject(), diagnostics, "(from r)")
+	text := bugReportRowText(jsonvalue.NewObject(), diagnostics, "(from r)", &problems)
 	runtime.ReadMemStats(&after)
 	if got := strings.Count(text, "\nfailed assistant turn e at t: stopReason=error boom"); got != turns {
 		t.Fatalf("the text has %d turn lines, want %d", got, turns)
