@@ -12,72 +12,71 @@ import (
 // The numbered differences of format, which the information comparison
 // applies where a recorded text and the binary's differ.
 const (
-	differenceJSONValues    = 108
-	differenceLoneSurrogate = 109
-	differenceCSVRecords    = 110
-	differenceTableColumns  = 111
-	differencePathAsGiven   = 112
-	differenceBoolean       = 113
-	differenceNull          = 114
-	differenceNumber        = 115
-	differenceEmbeddedJSON  = 116
-	differenceListRepr      = 117
-	differenceSeparators    = 118
-	differenceRoundedTime   = 119
+	differenceJSONValues   = 108
+	differenceCSVRecords   = 110
+	differenceBoolean      = 113
+	differenceEmbeddedJSON = 116
 )
 
 // The scopes a difference of format names: the texts it applies to.
 const (
 	scopeOutputs = "the JSON outputs and detect --json"
-	scopeAll     = "row texts and the JSON outputs"
 	scopeCSV     = "the fleet CSV"
-	scopeTables  = "stdout tables"
-	scopeStreams = "stdout, stderr and the outputs"
 	scopeRows    = "row texts and the formatted fields of a row"
-	scopeTimes   = "timestamps in rows, outputs and tables"
 )
 
+// retiredFormat is why a difference of format was retired.
+const retiredFormat = "no recorded case needed it, and it loosened every comparison"
+
 // formatDifferences returns the differences of format, 108 onward, each with
-// the rule of the plan it lets the binary follow.
+// the rule of the plan it lets the binary follow. A retired one keeps its
+// number and applies nowhere.
 func formatDifferences() []Difference {
 	return []Difference{
-		{Number: differenceJSONValues, Summary: "JSON output is written by encoding/json: it is compared " +
-			"as decoded values (escaping, spacing, final newline, key order in an object)", Scope: scopeOutputs},
-		{Number: differenceLoneSurrogate, Summary: "a lone surrogate becomes U+FFFD as the standard " +
-			"library does", Scope: scopeAll},
+		{Number: differenceJSONValues, Summary: "JSON output is written by encoding/json: a JSON " +
+			"output is compared with each object's members sorted by key, a key written twice kept " +
+			"twice, and spacing, escaping and the final newline not compared; numbers are compared " +
+			"as written", Scope: scopeOutputs},
+		{Number: 109, Summary: "a lone surrogate becomes U+FFFD as the standard library does",
+			Retired: retiredFormat},
 		{Number: differenceCSVRecords, Summary: "the CSV uses encoding/csv's defaults: it is compared as " +
-			"the records encoding/csv reads", Scope: scopeCSV},
-		{Number: differenceTableColumns, Summary: "length and padding count runes: a table is compared " +
-			"by column, not by its padding", Scope: scopeTables},
-		{Number: differencePathAsGiven, Summary: "a path is printed as given", Scope: scopeStreams},
-		{Number: differenceBoolean, Summary: "a boolean is true or false", Scope: scopeRows},
-		{Number: differenceNull, Summary: "a null is empty", Scope: scopeRows},
-		{Number: differenceNumber, Summary: "a number from the evidence keeps its source text: numbers " +
-			"are compared by value", Scope: scopeRows},
-		{Number: differenceEmbeddedJSON, Summary: "JSON embedded in a row is compact, keys in the " +
-			"evidence's order", Scope: scopeRows},
-		{Number: differenceListRepr, Summary: "a list or object in a row is JSON, not Python's repr",
+			"the records encoding/csv reads, its quoting and line ends not compared; a blank line " +
+			"is compared", Scope: scopeCSV},
+		{Number: 111, Summary: "length and padding count runes: a table is compared by column, not by " +
+			"its padding", Retired: retiredFormat},
+		{Number: 112, Summary: "a path is printed as given", Retired: retiredFormat},
+		{Number: differenceBoolean, Summary: "a boolean is true or false: a formatted field, or a " +
+			"value after = or \": \" outside prose, compares True and False with true and false",
 			Scope: scopeRows},
-		{Number: differenceSeparators, Summary: "whitespace is unicode.IsSpace: U+001C to U+001F are " +
-			"not trimmed", Scope: scopeRows},
-		{Number: differenceRoundedTime, Summary: "a timestamp's fraction is cut to the millisecond, " +
-			"never rounded up into the next one", Scope: scopeTimes},
+		{Number: 114, Summary: "a null is empty", Retired: retiredFormat},
+		{Number: 115, Summary: "a number from the evidence keeps its source text: numbers are " +
+			"compared by value", Retired: retiredFormat},
+		{Number: differenceEmbeddedJSON, Summary: "JSON embedded in a row is compact, keys in the " +
+			"evidence's order: a JSON object or array in a row's text is compared with each object's " +
+			"members sorted by key, a key written twice kept twice, spacing not compared and numbers " +
+			"as written", Scope: scopeRows},
+		{Number: 117, Summary: "a list or object in a row is JSON, not Python's repr", Retired: retiredFormat},
+		{Number: 118, Summary: "whitespace is unicode.IsSpace: U+001C to U+001F are not trimmed",
+			Retired: retiredFormat},
+		{Number: 119, Summary: "a timestamp's fraction is cut to the millisecond, never rounded up " +
+			"into the next one", Retired: retiredFormat},
 	}
 }
 
 // rowFormatNumbers are the differences of format a parser case's rows are
 // compared under.
 func rowFormatNumbers() []int {
-	return []int{differenceLoneSurrogate, differenceBoolean, differenceNull, differenceNumber,
-		differenceEmbeddedJSON, differenceListRepr, differenceSeparators, differenceRoundedTime}
+	return []int{differenceBoolean, differenceEmbeddedJSON}
 }
 
 // commandFormatNumbers are the differences of format a command case is
-// compared under: all of them.
+// compared under: all that are not retired.
 func commandFormatNumbers() []int {
 	var numbers []int
 	for _, entry := range formatDifferences() {
-		numbers = append(numbers, entry.Number)
+		if entry.Retired == "" {
+			numbers = append(numbers, entry.Number)
+		}
 	}
 	return numbers
 }
@@ -168,27 +167,21 @@ func informationRows(want, got []Row, enabled enabledSet) ([]Row, []Row) {
 	for i := range min(len(want), len(got)) {
 		if want[i] != got[i] {
 			want[i], got[i] = rowForm(want[i], enabled), rowForm(got[i], enabled)
-			if enabled[differenceRoundedTime] {
-				got[i].TimestampUTC = Text(rolledOver(string(want[i].TimestampUTC), string(got[i].TimestampUTC)))
-				got[i].Text = Text(rolledOver(string(want[i].Text), string(got[i].Text)))
-			}
 		}
 	}
 	return want, got
 }
 
 // rowForm returns a row with its text in the compared form and each
-// formatted field as a whole value; the other fields lose only a lone
-// surrogate.
+// formatted field as a whole value; the other fields are kept.
 func rowForm(row Row, enabled enabledSet) Row {
 	whole := func(text Text) Text { return Text(wholeValueForm(string(text), enabled)) }
-	plain := func(text Text) Text { return Text(surrogateForm(string(text), enabled)) }
-	return Row{TimestampUTC: plain(row.TimestampUTC), Host: whole(row.Host), User: whole(row.User),
-		Agent: plain(row.Agent), SessionID: whole(row.SessionID), ProjectPath: whole(row.ProjectPath),
-		GitBranch: whole(row.GitBranch), TurnType: plain(row.TurnType), Model: whole(row.Model),
-		ToolName: whole(row.ToolName), ToolUseID: whole(row.ToolUseID),
-		Text:       Text(rowTextForm(string(row.TurnType), string(row.Text), enabled)),
-		SourceFile: plain(row.SourceFile), SourceLine: row.SourceLine, Recovered: plain(row.Recovered)}
+	row.Host, row.User, row.SessionID, row.ProjectPath = whole(row.Host), whole(row.User),
+		whole(row.SessionID), whole(row.ProjectPath)
+	row.GitBranch, row.Model, row.ToolName, row.ToolUseID = whole(row.GitBranch), whole(row.Model),
+		whole(row.ToolName), whole(row.ToolUseID)
+	row.Text = Text(rowTextForm(string(row.TurnType), string(row.Text), enabled))
+	return row
 }
 
 // formattedFields are the fields of a timeline row or session, beside its

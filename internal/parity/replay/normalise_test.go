@@ -8,19 +8,17 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"unicode"
 )
 
-// Difference is one analysis difference: a numbered documented difference
-// between the Python analyzer and the binary (the milestone plan, 101
-// onward, numbered apart from the collector's parity exceptions). Each
-// applies only to its own shape: Text rewrites each place the shape occurs
-// in a text into a form both sides share, Rows puts rows of the shape into
-// one order, Excludes reports a case no rewriting can match, which is not
-// compared, Outputs rewrites a run's output files against the recorded
-// ones, Arguments a command's recorded arguments before the binary runs
-// them. Each returns how many places it found. A difference of format
-// names in Scope the texts information_test.go applies it to.
+// Difference is one analysis difference between the Python analyzer and
+// the binary, numbered from 101 in the milestone plan. Each applies only to
+// its shape: Text rewrites each place it occurs into a form both sides
+// share, Rows puts rows of the shape into one order, Excludes reports a case
+// no rewriting can match, Outputs rewrites a run's output files against the
+// recorded ones, Arguments a command's recorded arguments; each returns how
+// many places it found. A difference of format names in Scope the texts it
+// applies to. A retired one keeps its number, which the plan cites, says in
+// Retired why, and applies nowhere.
 type Difference struct {
 	Number    int
 	Summary   string
@@ -30,25 +28,30 @@ type Difference struct {
 	Outputs   func(want, got map[string]string) int
 	Arguments func(command string, args []string) ([]string, int)
 	Scope     string
+	Retired   string
 }
 
 // Differences returns the table of documented differences, a fresh slice.
 func Differences() []Difference {
 	return append([]Difference{
-		{Number: 101, Summary: "usage and help text are the binary's own", Text: usageText},
+		{Number: 101, Summary: "usage and help text are the binary's own", Retired: retiredUnused},
 		{Number: 102, Summary: "library and operating-system error wording in parser: rows, " +
 			"problem: lines and error: messages is the binary's own", Text: libraryErrorText},
 		{Number: 103, Summary: "--match takes Go regular-expression syntax",
 			Excludes: pythonOnlyPattern},
 		{Number: 104, Summary: "ISO week dates, ordinal dates and non-ASCII digits are not times",
-			Excludes: unacceptedTime},
+			Retired: retiredUnused},
 		{Number: 105, Summary: "zed archived worktrees and state.vscdb value problems have one order",
 			Rows: plannerOrder},
-		{Number: 106, Summary: "an FTS5 table is always readable", Excludes: fts5Unreadable},
+		{Number: 106, Summary: "an FTS5 table is always readable", Retired: retiredUnused},
 		{Number: 107, Summary: "a loose tree is listed in name order, not the file system's",
 			Outputs: otherOfEqualRows},
 	}, append(formatDifferences(), laterDifferences()...)...)
 }
+
+// retiredUnused is why a difference was retired: no recorded case shows
+// its shape, so it could only let a case pass that should fail.
+const retiredUnused = "no recorded case used it"
 
 // laterDifferences returns the differences numbered after the differences
 // of format, 120 onward.
@@ -173,25 +176,6 @@ func Excluded(t testing.TB, node string, numbers []int, text string) bool {
 	return false
 }
 
-// usageLine starts the usage text of a command-line parser: Python's
-// "usage: " line, or the binary's "Usage: " line.
-var usageLine = regexp.MustCompile(`(?m)^[uU]sage: `)
-
-// usageText replaces everything from a usage line to the end of the text,
-// and before the binary's "Usage: " line the one message line collect's
-// parser prints ahead of it.
-func usageText(text string) (string, int) {
-	location := usageLine.FindStringIndex(text)
-	if location == nil {
-		return text, 0
-	}
-	start := location[0]
-	if text[start] == 'U' && start > 1 && text[start-2] != '\n' {
-		start = strings.LastIndexByte(text[:start-1], '\n') + 1
-	}
-	return text[:start] + "{usage}\n", 1
-}
-
 // errorMarker finds where a line's error text starts: a parser: row, a
 // problem: line, an error: message, or the note a tool result carries in
 // place of a persisted output that could not be read.
@@ -289,29 +273,6 @@ func pythonOnlyPattern(text string) bool {
 	return false
 }
 
-// boundArgument finds each --since or --until value, one argument per line.
-var boundArgument = regexp.MustCompile(`(?m)^--(?:since|until)(?:=|\n)(.*)$`)
-
-// weekOrOrdinal is an ISO 8601 week date or ordinal date.
-var weekOrOrdinal = regexp.MustCompile(`^[0-9]{4}-?(?:W[0-9]{2}(?:-?[1-7])?|[0-9]{3})(?:[T ]|\z)`)
-
-// unacceptedTime reports whether a --since or --until value is a week date,
-// an ordinal date, or holds a digit outside ASCII.
-func unacceptedTime(text string) bool {
-	for _, match := range boundArgument.FindAllStringSubmatch(text, -1) {
-		value := strings.TrimSpace(match[1])
-		if weekOrOrdinal.MatchString(value) {
-			return true
-		}
-		for _, character := range value {
-			if unicode.IsDigit(character) && character > unicode.MaxASCII {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // plannerOrderPrefixes start the texts of the rows whose order depended on
 // SQLite's query planner.
 var plannerOrderPrefixes = []string{"archived worktree: ", "ItemTable value for "}
@@ -349,12 +310,6 @@ func plannerOrdered(text string) bool {
 		}
 	}
 	return false
-}
-
-// fts5Unreadable reports whether the expected text shows Python's SQLite
-// without the FTS5 module failing on a table.
-func fts5Unreadable(text string) bool {
-	return strings.Contains(text, "no such module: fts5")
 }
 
 // ArgumentsText returns a command case's arguments one per line, the text

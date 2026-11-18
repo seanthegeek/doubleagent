@@ -65,26 +65,36 @@ type commandReplay struct {
 	looseTimelines int
 	multisets      []string
 	equalRows      []string
-	// needed holds the cases that needed each difference of format.
-	needed neededTally
+	// needed holds the cases that needed each difference, for the log;
+	// used gathers the same across every replay of the run.
+	needed, used neededTally
 	// reordered counts the cases whose options difference 121 moved ahead
 	// of the input.
 	reordered int
 }
 
-func TestCommandsReplayEveryRecordedCase(t *testing.T) {
+// replayCommands runs every recorded command case, noting in used the
+// differences each needed, and reports whether every case ran: a run
+// filtered to some of them, or skipped on this platform, gives false.
+func replayCommands(t *testing.T, corpus *Corpus, used neededTally) bool {
 	if runtime.GOOS == "windows" {
 		t.Skip("command cases print the POSIX paths of the recording; they run on Linux and macOS")
 	}
-	corpus := Open(t)
 	replay := newCommandReplay(t, corpus)
+	replay.used = used
+	total, ran := 0, 0
 	for _, command := range caseFiles(t, corpus, "commands") {
 		for _, recorded := range corpus.CommandCases(t, command) {
+			total++
 			name := fmt.Sprintf("%s/%d", command, recorded.Seq)
-			t.Run(name, func(t *testing.T) { replay.replay(t, command, recorded) })
+			t.Run(name, func(t *testing.T) {
+				ran++
+				replay.replay(t, command, recorded)
+			})
 		}
 	}
 	replay.report(t)
+	return ran == total
 }
 
 // newCommandReplay returns the replay's state: the Python parser agents
@@ -96,7 +106,7 @@ func newCommandReplay(t *testing.T, corpus *Corpus) *commandReplay {
 		pythonAgents: caseFiles(t, corpus, "parsers"), deniesAccess: deniesReading(t),
 		trees: corpus.NewWorkTree(t), full: map[string]int{}, partial: map[string]int{},
 		skipped: map[string]int{}, waiting: map[string][]string{}, blocks: map[string]string{},
-		needed: neededTally{}}
+		needed: neededTally{}, used: neededTally{}}
 	for _, agent := range replay.pythonAgents {
 		if len(registered[agent]) == 0 {
 			replay.pending[agent] = true
@@ -142,7 +152,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	}
 	root := r.corpus.Materialise(t, recorded.Tree, recorded.Times)
 	before := filesUnder(root)
-	got := r.run(t, command, recorded, root)
+	got := r.run(t, node, command, recorded, root)
 	want := r.expected(t, recorded, root)
 	if archiveHoldsRoot(recorded, want, root) {
 		r.skipped[commandArchivedRoot]++
@@ -232,6 +242,7 @@ func (r *commandReplay) notComparable(t *testing.T, node string, recorded Comman
 	case recorded.Error != nil:
 		return commandCrashed
 	case Excluded(t, node, excludingNumbers(ArgumentsText(recorded)), ArgumentsText(recorded)):
+		r.note(node, excludingNumbers(ArgumentsText(recorded)))
 		return commandExcluded
 	}
 	if recorded.Tree != "" && !r.deniesAccess {
@@ -258,6 +269,12 @@ func excludingNumbers(text string) []int {
 	return numbers
 }
 
+// note records the differences a case needed, for the log and the run.
+func (r *commandReplay) note(node string, numbers []int) {
+	r.needed.note(node, numbers)
+	r.used.note(node, numbers)
+}
+
 // commandOutput is what a run gave, or what the recording says it gave:
 // the exit code, the two streams and each output file's bytes by its
 // root-relative path.
@@ -271,7 +288,7 @@ type commandOutput struct {
 // run runs the case's command line in this process, in the recorded
 // working directory, with the recorded clock and the run's parsers, and
 // returns what it gave and the bytes of each file the recording wrote.
-func (r *commandReplay) run(t *testing.T, command string, recorded CommandCase,
+func (r *commandReplay) run(t *testing.T, node, command string, recorded CommandCase,
 	root string) commandOutput {
 	args := make([]string, len(recorded.Argv))
 	for i, argument := range recorded.Argv {
@@ -282,6 +299,7 @@ func (r *commandReplay) run(t *testing.T, command string, recorded CommandCase,
 	if moved > 0 {
 		args = append([]string{args[0]}, rest...)
 		r.reordered++
+		r.note(node, []int{121})
 	}
 	t.Chdir(r.corpus.Expand(recorded.Cwd, root))
 	registry := r.registry
@@ -534,12 +552,8 @@ func (r *commandReplay) compareFull(t *testing.T, node, root string, recorded Co
 	if got.exit != want.exit {
 		t.Errorf("%s: exit %d, want %d", node, got.exit, want.exit)
 	}
-	arguments := make([]string, len(recorded.Argv))
-	for i, argument := range recorded.Argv {
-		arguments[i] = r.corpus.Expand(argument, root)
-	}
-	notes, needed := compareInformation(t, node, root, arguments, want, got)
-	r.needed.note(node, needed)
+	notes, needed := compareInformation(t, node, root, want, got)
+	r.note(node, needed)
 	if !notes.checked {
 		return
 	}
@@ -563,13 +577,14 @@ type looseNotes struct {
 // compareInformation compares a run's streams and outputs with the
 // recorded ones as information, under every difference of format, reports
 // what still differs, and returns the loose tree's notes and the
-// differences of format the case needed. arguments is the command line.
-func compareInformation(t testing.TB, node, root string, arguments []string,
-	want, got commandOutput) (looseNotes, []int) {
+// differences the case needed: of format, those it fails without; of text,
+// those whose shape its recorded texts show; and 107 where it rewrote a
+// row.
+func compareInformation(t testing.TB, node, root string, want, got commandOutput) (looseNotes, []int) {
 	t.Helper()
-	normaliser := &textNormaliser{cache: map[[2]string]normalisedTexts{}}
+	normaliser := &textNormaliser{cache: map[[2]string]normalisedTexts{}, applied: map[int]bool{}}
 	compare := func(reporter testing.TB, enabled enabledSet) looseNotes {
-		return compareOutputs(reporter, node, root, outputForms{enabled, arguments}, normaliser, want, got)
+		return compareOutputs(reporter, node, root, outputForms{enabled}, normaliser, want, got)
 	}
 	reporter := &recordingTB{TB: t}
 	notes := compare(reporter, setOf(commandFormatNumbers()))
@@ -579,11 +594,17 @@ func compareInformation(t testing.TB, node, root string, arguments []string,
 	if len(reporter.errors) > 0 {
 		return notes, nil
 	}
-	return notes, neededDifferences(commandFormatNumbers(), func(enabled enabledSet) bool {
+	needed := neededDifferences(commandFormatNumbers(), func(enabled enabledSet) bool {
 		quiet := &recordingTB{TB: t}
 		compare(quiet, enabled)
 		return len(quiet.errors) == 0
 	})
+	needed = append(needed, slices.Collect(maps.Keys(normaliser.applied))...)
+	if notes.equalRows > 0 {
+		needed = append(needed, 107)
+	}
+	slices.Sort(needed)
+	return notes, needed
 }
 
 // compareOutputs compares both streams and every output file in their
@@ -605,7 +626,7 @@ func compareOutputs(t testing.TB, node, root string, forms outputForms, normalis
 	}
 	for _, label := range slices.Sorted(maps.Keys(wantTexts)) {
 		compareText(t, node, normaliser, label, wantTexts[label], gotTexts[label],
-			want.loose && label != "stderr", forms.enabled)
+			want.loose && label != "stderr")
 	}
 	return notes
 }
@@ -668,8 +689,8 @@ func comparePart(t *testing.T, node string, want, got commandOutput) {
 	if want.exit == analyze.ExitError && got.exit != want.exit {
 		t.Errorf("%s: exit %d, want %d", node, got.exit, want.exit)
 	}
-	compareText(t, node, nil, "stderr", want.stderr, got.stderr, false, nil)
-	compareText(t, node, nil, "stdout header", headerLines(want.stdout), headerLines(got.stdout), false, nil)
+	compareText(t, node, nil, "stderr", want.stderr, got.stderr, false)
+	compareText(t, node, nil, "stdout header", headerLines(want.stdout), headerLines(got.stdout), false)
 	for path := range want.outputs {
 		if strings.HasPrefix(got.outputs[path], "(not written: ") {
 			t.Errorf("%s: %s %s", node, path, got.outputs[path])
@@ -696,31 +717,30 @@ func headerLines(text string) string {
 }
 
 // compareText compares one text after the analysis differences its
-// recorded form shows; for a loose input the listing order is normalised,
-// and under difference 119 a timestamp Python rounded up is let stand.
+// recorded form shows; for a loose input the listing order is normalised.
 func compareText(t testing.TB, node string, normaliser *textNormaliser, label, want, got string,
-	loose bool, enabled enabledSet) {
+	loose bool) {
 	t.Helper()
 	want, got = normaliser.pair(t, node, want, got)
 	if loose {
-		want, got = listingOrder(t, label, want), listingOrder(t, label, got)
-	}
-	if enabled[differenceRoundedTime] {
-		got = rolledOverLines(want, got)
+		want, got = listingOrder(label, want), listingOrder(label, got)
 	}
 	DiffText(t, node, label, want, got)
 }
 
 // textNormaliser applies normalisedPair, keeping each result, with what
 // it reported, for the next comparison of the same case under other
-// differences of format; a nil one keeps nothing.
+// differences of format, and gathers in applied the differences it
+// applied; a nil one keeps nothing.
 type textNormaliser struct {
-	cache map[[2]string]normalisedTexts
+	cache   map[[2]string]normalisedTexts
+	applied map[int]bool
 }
 
 // normalisedTexts is one result of normalisedPair and what it reported.
 type normalisedTexts struct {
 	want, got string
+	numbers   []int
 	errors    []string
 }
 
@@ -728,26 +748,32 @@ type normalisedTexts struct {
 func (n *textNormaliser) pair(t testing.TB, node, want, got string) (string, string) {
 	t.Helper()
 	if n == nil {
-		return normalisedPair(t, node, want, got)
+		want, got, _ = normalisedPair(t, node, want, got)
+		return want, got
 	}
 	key := [2]string{want, got}
 	result, ok := n.cache[key]
 	if !ok {
 		reporter := &recordingTB{TB: t}
-		result.want, result.got = normalisedPair(reporter, node, want, got)
+		result.want, result.got, result.numbers = normalisedPair(reporter, node, want, got)
 		result.errors = reporter.errors
 		n.cache[key] = result
 	}
 	for _, message := range result.errors {
 		t.Errorf("%s", message)
 	}
+	for _, number := range result.numbers {
+		n.applied[number] = true
+	}
 	return result.want, result.got
 }
 
 // normalisedPair returns a recorded text and the run's after the
-// documented differences the recorded one shows.
-func normalisedPair(t testing.TB, node, want, got string) (string, string) {
-	return normaliseCommandTexts(t, node, textDifferences(want), want, got)
+// documented differences the recorded one shows, and their numbers.
+func normalisedPair(t testing.TB, node, want, got string) (string, string, []int) {
+	numbers := textDifferences(want)
+	want, got = normaliseCommandTexts(t, node, numbers, want, got)
+	return want, got, numbers
 }
 
 // commandDifferences returns the table of documented differences as the
@@ -832,10 +858,10 @@ func textDifferences(text string) []int {
 // the homes table and the --files lines sorted. Every other line, and every
 // other output, keeps its order; the rows of timeline.jsonl and
 // sessions.jsonl are compared in order unless rowOrderDiffers.
-func listingOrder(t testing.TB, label, text string) string {
+func listingOrder(label, text string) string {
 	switch {
 	case (label == "stdout" || strings.HasSuffix(label, ".json")) && strings.HasPrefix(text, "{"):
-		return sortedJSONArrays(t, text)
+		return sortedJSONArrays(text)
 	case label != "stdout":
 		return text
 	}
@@ -873,32 +899,29 @@ func sortProblemRuns(lines []string) {
 	}
 }
 
-// sortedJSONArrays returns an indented JSON document with its top-level
-// homes, files and problems arrays sorted by each element's text.
-func sortedJSONArrays(t testing.TB, text string) string {
-	var document map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(text), &document); err != nil {
+// sortedJSONArrays returns a JSON document in its canonical form with its
+// top-level homes, files and problems arrays sorted by each element's
+// text; a text that does not decode as an object is kept as it is.
+func sortedJSONArrays(text string) string {
+	document, ok := readWholeJSON(text)
+	if !ok || document.container != '{' {
 		return text
 	}
+	rest := jsonValue{container: '{'}
 	var sorted []string
-	for _, key := range []string{"homes", "files", "problems"} {
-		var items []json.RawMessage
-		if json.Unmarshal(document[key], &items) != nil {
+	for _, member := range document.members {
+		if member.value.container != '[' || !slices.Contains([]string{"homes", "files", "problems"}, member.key) {
+			rest.members = append(rest.members, member)
 			continue
 		}
-		texts := make([]string, len(items))
-		for i, item := range items {
-			texts[i] = string(item)
+		texts := make([]string, len(member.value.items))
+		for i, item := range member.value.items {
+			texts[i] = item.canonical()
 		}
 		slices.Sort(texts)
-		sorted = append(sorted, key+": "+strings.Join(texts, "\n"))
-		delete(document, key)
+		sorted = append(sorted, member.key+": "+strings.Join(texts, "\n"))
 	}
-	rest, err := json.Marshal(document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(rest) + "\n" + strings.Join(sorted, "\n")
+	return indented(rest.canonical(), "  ") + "\n" + strings.Join(sorted, "\n")
 }
 
 func TestRootKeyOrderSortsOnlyAnInventoryWithPathsUnderTheRoot(t *testing.T) {

@@ -49,18 +49,19 @@ func changedOutput(run commandOutput, label string, rewrite func(string) string)
 
 // outputsAgree compares two runs as the command replay does, and returns
 // whether they agree and the differences of format they needed.
-func outputsAgree(t *testing.T, arguments []string, want, got commandOutput) (bool, []int) {
+func outputsAgree(t *testing.T, want, got commandOutput) (bool, []int) {
 	reporter := &recordingTB{TB: t}
-	_, needed := compareInformation(reporter, "n", recordedRoot, arguments, want, got)
-	return len(reporter.errors) == 0, needed
+	_, needed := compareInformation(reporter, "n", recordedRoot, want, got)
+	return len(reporter.errors) == 0, slices.DeleteFunc(needed, func(number int) bool {
+		return !slices.Contains(commandFormatNumbers(), number)
+	})
 }
 
 // outputsRefused compares two runs once under every difference of format
 // and reports whether they still differ.
-func outputsRefused(t *testing.T, arguments []string, want, got commandOutput) bool {
+func outputsRefused(t *testing.T, want, got commandOutput) bool {
 	reporter := &recordingTB{TB: t}
-	compareOutputs(reporter, "n", recordedRoot, outputForms{setOf(commandFormatNumbers()), arguments}, nil,
-		want, got)
+	compareOutputs(reporter, "n", recordedRoot, outputForms{setOf(commandFormatNumbers())}, nil, want, got)
 	return len(reporter.errors) > 0
 }
 
@@ -87,45 +88,29 @@ func lineDropped(index int) func(string) string {
 
 func TestEachFormatOfTheBinaryPassesInTheOutputs(t *testing.T) {
 	runs := recordedRuns(t)
-	firstRow := strings.SplitN(runs["timeline"].outputs["out/timeline.jsonl"], "\n", 2)[0]
-	surrogate := strings.Replace(firstRow, "task: fix tests", `task: fix \ud800 tests`, 1) + "\n"
 	tests := []struct {
-		name      string
-		run       commandOutput
-		label     string
-		rewrite   func(string) string
-		arguments []string
-		needed    []int
+		name    string
+		run     commandOutput
+		label   string
+		rewrite func(string) string
+		needed  []int
 	}{
 		{"inventory.json written by encoding/json", runs["timeline"], "out/inventory.json",
-			func(text string) string { return binaryJSON(text, "  ") }, nil, []int{differenceJSONValues}},
+			func(text string) string { return binaryJSON(text, "  ") }, []int{differenceJSONValues}},
 		{"timeline.jsonl written by encoding/json", runs["timeline"], "out/timeline.jsonl", binaryJSONLines,
-			nil, []int{differenceJSONValues}},
+			[]int{differenceJSONValues}},
 		{"sessions.jsonl written by encoding/json", runs["timeline"], "out/sessions.jsonl", binaryJSONLines,
-			nil, []int{differenceJSONValues}},
+			[]int{differenceJSONValues}},
 		{"detect --json written by encoding/json", runs["detect-json"], "stdout",
-			func(text string) string { return binaryJSON(text, "\t") }, nil, []int{differenceJSONValues}},
-		{"a lone surrogate as U+FFFD", changedOutput(runs["timeline"], "out/timeline.jsonl",
-			func(string) string { return surrogate }), "out/timeline.jsonl",
-			replaced(`\ud800`, "�"), nil, []int{differenceJSONValues, differenceLoneSurrogate}},
+			func(text string) string { return binaryJSON(text, "\t") }, []int{differenceJSONValues}},
 		{"the CSV written by encoding/csv", changedOutput(runs["fleet"], "o.csv", func(text string) string {
 			return strings.ReplaceAll(strings.Replace(text, ",ws01,", ", ws01,", 1), "\n", "\r\n")
 		}), "o.csv", func(text string) string { return binaryCSV(strings.Replace(text, ", ws01,", ", ws01,", 1)) },
-			nil, []int{differenceCSVRecords}},
-		{"the detect table padded to other widths", runs["detect"], "stdout", binaryTable, nil,
-			[]int{differenceTableColumns}},
-		{"the fleet table padded to other widths", runs["fleet"], "stdout", binaryTable, nil,
-			[]int{differenceTableColumns}},
-		{"the timeline summary padded to other widths", runs["timeline"], "stdout", binaryTable, nil,
-			[]int{differenceTableColumns}},
-		{"a path printed as given", runs["detect"], "stdout", replaced(recordedRemote, recordedRemote+"/"),
-			[]string{"detect", recordedRemote + "/"}, []int{differencePathAsGiven}},
-		{"a timestamp not rounded up", runs["timeline"], "out/timeline.jsonl",
-			replaced("10:00:01.000Z", "10:00:00.999Z"), nil, []int{differenceRoundedTime}},
+			[]int{differenceCSVRecords}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			agree, needed := outputsAgree(t, test.arguments, test.run, changedOutput(test.run, test.label, test.rewrite))
+			agree, needed := outputsAgree(t, test.run, changedOutput(test.run, test.label, test.rewrite))
 			if !agree || !slices.Equal(needed, test.needed) {
 				t.Errorf("agree %v needing %v, want agreement needing %v", agree, needed, test.needed)
 			}
@@ -153,6 +138,7 @@ func TestEachMutationOfRecordedOutputsFails(t *testing.T) {
 		{"a removed key", "timeline", inventory, replaced(`  "sessions": 3,`+"\n", "")},
 		{"an added key", "timeline", inventory, replaced(`  "sessions": 3,`, `  "sessions": 3, "x": 0,`)},
 		{"a changed number", "timeline", inventory, replaced(`"sessions": 3,`, `"sessions": 4,`)},
+		{"a count written as a float", "timeline", inventory, replaced(`"sessions": 3,`, `"sessions": 3.0,`)},
 		{"two array elements swapped", "detect-json", "stdout", func(text string) string {
 			text = strings.Replace(text, `"git@github.com:alice/proj.git"`, "{first}", 1)
 			text = strings.Replace(text, `"https://mirror.example.com/alice/proj.git"`, `"git@github.com:alice/proj.git"`, 1)
@@ -185,7 +171,7 @@ func TestEachMutationOfRecordedOutputsFails(t *testing.T) {
 				}
 				got := binaryForm(mutated)
 				got.loose = loose
-				if !outputsRefused(t, nil, want, got) {
+				if !outputsRefused(t, want, got) {
 					t.Error("the comparison accepted the mutation in the binary's form")
 				}
 			})
@@ -208,7 +194,7 @@ func TestALooseInputSortsOnlyWhatTheListingOrders(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := listingOrder(t, test.label, test.text); got != test.want {
+			if got := listingOrder(test.label, test.text); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -217,7 +203,7 @@ func TestALooseInputSortsOnlyWhatTheListingOrders(t *testing.T) {
 
 // binaryForm returns a run with every text as the binary is to write it.
 func binaryForm(run commandOutput) commandOutput {
-	form := commandOutput{stdout: binaryTable(run.stdout), outputs: map[string]string{}}
+	form := commandOutput{stdout: run.stdout, outputs: map[string]string{}}
 	if strings.HasPrefix(run.stdout, "{") {
 		form.stdout = binaryJSON(run.stdout, "  ")
 	}
@@ -234,4 +220,35 @@ func binaryForm(run commandOutput) commandOutput {
 		}
 	}
 	return form
+}
+
+func TestJSONAndCSVOutputsKeepWhatDecodingWouldLose(t *testing.T) {
+	twice := `{"rows": 1, "rows": 2}` + "\n"
+	csvText := "agent,hosts\r\nzed,1\r\n"
+	tests := []struct {
+		name, label, want, got string
+		refused                bool
+	}{
+		{"a key written twice compares each value", "out/inventory.json", twice, `{"rows":1,"rows":2}`, false},
+		{"a key written twice once is refused", "out/inventory.json", twice, `{"rows": 2}` + "\n", true},
+		{"the first of two values changed is refused", "out/inventory.json", twice,
+			`{"rows": 9, "rows": 2}` + "\n", true},
+		{"the two values swapped are refused", "out/inventory.json", twice, `{"rows": 2, "rows": 1}` + "\n", true},
+		{"a count written as a float is refused", "out/inventory.json", `{"rows": 3}`, `{"rows": 3.0}`, true},
+		{"the CSV with its own line ends passes", "o.csv", csvText, "agent,hosts\nzed,1\n", false},
+		{"an added blank CSV line is refused", "o.csv", csvText, "agent,hosts\n\nzed,1\n", true},
+		{"an added blank line at the CSV's end is refused", "o.csv", csvText, "agent,hosts\nzed,1\n\n", true},
+		{"a dropped blank CSV line is refused", "o.csv", "agent,hosts\r\n\r\nzed,1\r\n", "agent,hosts\nzed,1\n", true},
+		{"a blank line inside a quoted field is the field's", "o.csv", "agent,note\r\nzed,\"a\r\n\r\nb\"\r\n",
+			"agent,note\nzed,\"a\n\nb\"\n", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			want := commandOutput{outputs: map[string]string{test.label: test.want}}
+			got := commandOutput{outputs: map[string]string{test.label: test.got}}
+			if refused := outputsRefused(t, want, got); refused != test.refused {
+				t.Errorf("refused %v, want %v", refused, test.refused)
+			}
+		})
+	}
 }

@@ -58,22 +58,9 @@ func binaryCSV(text string) string {
 	return written.String()
 }
 
-// binaryTable returns a table with each run of two or more spaces between
-// columns widened by three and a trailing space on each line that holds
-// text, as a table padded to other widths would be.
-func binaryTable(text string) string {
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			lines[i] = columnGap.ReplaceAllStringFunc(line, func(gap string) string { return gap + "   " }) + " "
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
 // binaryRowText returns a row's text as the binary is to write it: each
 // JSON span compact in its own key order with numbers as written, and,
-// outside prose, a formatted True or False in lower case and None empty.
+// outside prose, a formatted True or False in lower case.
 func binaryRowText(turnType, text string) string {
 	var form strings.Builder
 	for i := 0; i < len(text); {
@@ -94,14 +81,8 @@ func binaryRowText(turnType, text string) string {
 	if isProse(turnType) {
 		return text
 	}
-	return formattedScalar.ReplaceAllStringFunc(text, func(match string) string {
-		parts := formattedScalar.FindStringSubmatch(match)
-		switch parts[2] {
-		case "True", "False":
-			parts[2] = strings.ToLower(parts[2])
-		case "None":
-			parts[2] = ""
-		}
-		return parts[1] + parts[2] + parts[3]
+	return formattedBoolean.ReplaceAllStringFunc(text, func(match string) string {
+		parts := formattedBoolean.FindStringSubmatch(match)
+		return parts[1] + strings.ToLower(parts[2]) + parts[3]
 	})
 }

@@ -204,17 +204,13 @@ func TestEveryRecordedRunFailsEachMutationAndPassesTheBinarysForm(t *testing.T) 
 			runs++
 			node := fmt.Sprintf("%s (seq %d)", recorded.Node, recorded.Seq)
 			want := replay.expected(t, recorded, recordedRoot)
-			arguments := make([]string, len(recorded.Argv))
-			for i, argument := range recorded.Argv {
-				arguments[i] = corpus.Expand(argument, recordedRoot)
-			}
-			agree, needed := outputsAgree(t, arguments, want, runForm(want, want))
+			agree, needed := outputsAgree(t, want, runForm(want, want))
 			if !agree {
 				t.Errorf("%s: the binary's form of the run is refused", node)
 			}
 			formNeeded.note(node, needed)
 			for _, mutation := range outputMutations() {
-				if mutatedRun(want, mutation, arguments, t, refused) {
+				if mutatedRun(want, mutation, t, refused) {
 					t.Errorf("%s: %s is accepted", node, mutation.name)
 				}
 			}
@@ -231,8 +227,7 @@ func TestEveryRecordedRunFailsEachMutationAndPassesTheBinarysForm(t *testing.T) 
 // mutatedRun applies a mutation to each text of a run it names, and
 // reports whether the comparison accepted a changed run; each refusal is
 // counted under the mutation's name.
-func mutatedRun(want commandOutput, mutation outputMutation, arguments []string, t *testing.T,
-	refused map[string]int) bool {
+func mutatedRun(want commandOutput, mutation outputMutation, t *testing.T, refused map[string]int) bool {
 	labels := append([]string{"stdout"}, slices.Sorted(maps.Keys(want.outputs))...)
 	for _, label := range labels {
 		if !strings.HasSuffix(label, mutation.suffix) ||
@@ -244,7 +239,7 @@ func mutatedRun(want commandOutput, mutation outputMutation, arguments []string,
 		if mutated.stdout == want.stdout && maps.Equal(mutated.outputs, want.outputs) {
 			continue
 		}
-		if !outputsRefused(t, arguments, want, runForm(mutated, want)) {
+		if !outputsRefused(t, want, runForm(mutated, want)) {
 			return true
 		}
 		refused[mutation.name]++

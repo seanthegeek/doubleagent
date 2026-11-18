@@ -268,20 +268,25 @@ func (n nodeCalls) forRun(recorded CommandCase, root func(Text) string) *recorde
 	return calls
 }
 
-func TestTimelineCommandsOverRecordedParserRows(t *testing.T) {
+// replayTimelinesOverRecordedRows runs every recorded timeline case over
+// the rows its recorded parser calls gave, noting in used the differences
+// each needed, and reports whether every case ran.
+func replayTimelinesOverRecordedRows(t *testing.T, corpus *Corpus, used neededTally) bool {
 	if runtime.GOOS == "windows" {
 		t.Skip("command cases print the POSIX paths of the recording; they run on Linux and macOS")
 	}
-	corpus := Open(t)
 	replay := newCommandReplay(t, corpus)
+	replay.used = used
 	cases := corpus.CommandCases(t, "timeline")
 	nodes := map[string]bool{}
 	for _, recorded := range cases {
 		nodes[recorded.Node] = true
 	}
 	calls := readNodeCalls(t, corpus, nodes)
+	ran := 0
 	for _, recorded := range cases {
 		t.Run(fmt.Sprint(recorded.Seq), func(t *testing.T) {
+			ran++
 			node := fmt.Sprintf("%s (seq %d)", recorded.Node, recorded.Seq)
 			if reason := replay.notComparable(t, node, recorded); reason != "" {
 				replay.skipped[reason]++
@@ -292,6 +297,7 @@ func TestTimelineCommandsOverRecordedParserRows(t *testing.T) {
 	}
 	t.Logf("%d timeline cases compared over the recorded parser rows", replay.full["timeline"])
 	replay.report(t)
+	return ran == len(cases)
 }
 
 // replayRecordedRows runs one timeline case with the recorded parsers and
@@ -313,7 +319,7 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 	r.full["timeline"]++
 	defer r.noteBlocks(t, recorded, nil)
 	before := filesUnder(root)
-	got := r.run(t, "timeline", recorded, root)
+	got := r.run(t, node, "timeline", recorded, root)
 	want := r.expected(t, recorded, root)
 	r.compareFull(t, node, root, recorded, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
