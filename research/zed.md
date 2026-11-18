@@ -813,7 +813,10 @@ A thread member that is present but of the wrong kind is `parser: <member> is no
 `tool_uses` or `tool_results`, the blob's `initial_project_snapshot.worktree_snapshots`,
 `sandbox_grants.write_paths` or `sandbox_grants.network_hosts`, and `initial_project_snapshot`,
 `model` or `sandbox_grants` itself when it is not an object. An absent, null or empty one gives no
-row.
+row. An `initial_project_snapshot.worktree_snapshots` holding entries that are not objects gives
+one row for them all at the same place,
+`parser: initial_project_snapshot.worktree_snapshots holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one).
 
 A `scoped_kv_store` value that does not decode (a draft prompt that is not JSON, a worktree
 record without `created_at_seconds`) is `parser: unparseable record <rowid> (<namespace>[ <key>]:

@@ -105,3 +105,11 @@ func TestAThreadStateMemberOfTheWrongKindIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestWorktreeSnapshotsThatAreNotObjectsAreReportedOnce(t *testing.T) {
+	got := threadProblems(t, `{"initial_project_snapshot": {"worktree_snapshots": [{"worktree_path": "/w"}, "x", 7]}}`)
+	want := []string{"initial_project_snapshot.worktree_snapshots holds 2 entries that are not JSON objects"}
+	if !slices.Equal(got, want) {
+		t.Errorf("problems %q, want %q", got, want)
+	}
+}
