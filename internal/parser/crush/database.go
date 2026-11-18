@@ -69,18 +69,15 @@ func (s *store) rows(options parser.Options) error {
 	return s.fileRows()
 }
 
-// each runs visit over the rows of table, with every column and the rowid,
-// in the given order.
+// each runs visit over the rows of table, with every stored column and the
+// rowid, in the given order. A virtual generated column, computed when read,
+// is left out, as selecting every column leaves it out.
 func (s *store) each(table string, order []string, visit func(sqlitefile.Row)) error {
 	handle, err := s.database.Table(table)
 	if err != nil {
 		return err
 	}
-	columns := []string{"rowid"}
-	for _, column := range handle.Columns() {
-		columns = append(columns, column.Name)
-	}
-	return handle.Select(columns...).OrderBy(order...).Each(func(row sqlitefile.Row) error {
+	return handle.Select().OrderBy(order...).Each(func(row sqlitefile.Row) error {
 		visit(row)
 		return nil
 	})

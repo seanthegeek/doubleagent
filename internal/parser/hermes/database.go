@@ -77,26 +77,31 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	}
 }
 
-// each runs visit over the rows of table as objects, with the rowid first
-// when withRowid is set, filtered by keep when not nil, in the order.
+// each runs visit over the rows of table as objects, every stored column
+// with the rowid first as _rowid when withRowid is set, filtered by keep
+// when not nil, in the order. A virtual generated column, computed when
+// read, is left out, as selecting every column leaves it out.
 func (s *stateReader) each(table string, withRowid bool, keep func(sqlitefile.Row) bool,
 	order []string, visit func(jsonvalue.Value) error) error {
 	handle, err := s.handle.Table(table)
 	if err != nil {
 		return err
 	}
-	var columns []string
-	if withRowid {
-		columns = append(columns, "rowid")
+	if withRowid && handle.WithoutRowid() {
+		return errors.New("table " + handle.Name() + ": no such column: rowid")
 	}
-	for _, column := range handle.Columns() {
-		columns = append(columns, column.Name)
-	}
-	query := handle.Select(columns...)
+	query := handle.Select()
 	if keep != nil {
 		query = query.Where(keep)
 	}
-	return query.OrderBy(order...).Each(func(row sqlitefile.Row) error { return visit(rowObject(row)) })
+	return query.OrderBy(order...).Each(func(row sqlitefile.Row) error {
+		record := rowObject(row)
+		if withRowid {
+			rowid := jsonvalue.Member{Key: "_rowid", Value: parser.ColumnValue(sqlitefile.IntValue(row.Rowid))}
+			record = jsonvalue.NewObject(append([]jsonvalue.Member{rowid}, record.Members()...)...)
+		}
+		return visit(record)
+	})
 }
 
 // rows emits the database's rows, stopping at the first error.

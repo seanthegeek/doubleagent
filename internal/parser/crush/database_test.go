@@ -78,3 +78,13 @@ func TestACrushJSONThatIsNotJSONGivesOnlyThePosition(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+// A virtual generated column is computed when read and not stored, so
+// reading every column of its table leaves it out and reads the rest.
+func TestATableWithAVirtualGeneratedColumnIsRead(t *testing.T) {
+	rows := parseDatabase(t, "generated_column.db")
+	if !slices.ContainsFunc(rows, func(text string) bool { return strings.Contains(text, "hello") }) ||
+		slices.ContainsFunc(rows, func(text string) bool { return strings.HasPrefix(text, parser.ProblemPrefix) }) {
+		t.Errorf("got %q, want the message and no problem", rows)
+	}
+}
