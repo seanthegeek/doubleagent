@@ -69,6 +69,8 @@ func laterDifferences() []Difference {
 			Text: oneManifestRowText},
 		{Number: 130, Summary: "a file that holds secrets gives only where it stopped decoding, " +
 			"not the reader's detail", Text: secretFileErrorText},
+		{Number: 140, Summary: "the accepted forms of a time name epoch seconds or milliseconds, " +
+			"both of which are read", Text: epochUnitsText},
 		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem",
 			Excludes: sharedMemoryProblem},
 	}
@@ -122,6 +124,24 @@ var oneManifestRow = regexp.MustCompile(`(^|[^0-9])1 manifest rows? did not pars
 func oneManifestRowText(text string) (string, int) {
 	found := len(oneManifestRow.FindAllStringIndex(text, -1))
 	return oneManifestRow.ReplaceAllString(text, "${1}1 manifest row did not parse"), found
+}
+
+// epochUnits is the epoch entry of the accepted forms an error: message
+// lists after a time it cannot read: "epoch seconds" as recorded, "epoch
+// seconds or milliseconds" as the binary names what it reads.
+var epochUnits = regexp.MustCompile(`(?m)(^error: .*; accepted: .*; 2026-10 or 2026; )` +
+	`epoch seconds(?: or milliseconds)?(; )`)
+
+// epochUnitsText writes the epoch entry of epochUnits as one token and
+// returns the count.
+func epochUnitsText(text string) (string, int) {
+	found := 0
+	text = epochUnits.ReplaceAllStringFunc(text, func(match string) string {
+		found++
+		parts := epochUnits.FindStringSubmatch(match)
+		return parts[1] + "{epoch units}" + parts[2]
+	})
+	return text, found
 }
 
 // quotedValue is a value an error: message quotes at the start of its
