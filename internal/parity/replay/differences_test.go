@@ -10,12 +10,14 @@ import (
 )
 
 func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
-	seen := map[int]bool{}
+	// Numbers rise from 101; a gap is a block of numbers given to work not
+	// merged yet.
+	previous := 100
 	for i, entry := range Differences() {
-		if entry.Number != 101+i || seen[entry.Number] {
-			t.Errorf("entry %d is numbered %d", i, entry.Number)
+		if entry.Number <= previous {
+			t.Errorf("entry %d is numbered %d, after %d", i, entry.Number, previous)
 		}
-		seen[entry.Number] = true
+		previous = entry.Number
 		kinds := 0
 		for _, set := range []bool{entry.Text != nil, entry.Rows != nil, entry.Excludes != nil,
 			entry.Outputs != nil, entry.Arguments != nil, entry.Scope != ""} {
@@ -187,6 +189,10 @@ func TestExcludingDifferencesSeeOnlyTheirShape(t *testing.T) {
 		{"104 passes a calendar date", 104, "--since\n2026-10-01", false},
 		{"106 sees SQLite without FTS5", 106, "parser: SQLite error: no such module: fts5", true},
 		{"106 passes another SQLite error", 106, "parser: SQLite error: disk I/O error", false},
+		{"150 sees an unreadable -shm file", 150,
+			"parser: state.vscdb-shm could not be read ({system error})", true},
+		{"150 passes an unreadable -wal file", 150,
+			"parser: state.vscdb-wal could not be read ({system error})", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

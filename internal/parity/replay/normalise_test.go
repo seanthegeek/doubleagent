@@ -57,7 +57,19 @@ func laterDifferences() []Difference {
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
 			Text: quotedValueText},
 		{Number: 121, Summary: "options come before the input", Arguments: optionsFirst},
+		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem",
+			Excludes: sharedMemoryProblem},
 	}
+}
+
+// sharedMemoryLine is a parser row reporting a database's -shm file as
+// unreadable, which the binary never reads.
+var sharedMemoryLine = regexp.MustCompile(`(?m)^parser: [^\n]*-shm could not be read \(`)
+
+// sharedMemoryProblem reports whether the rows report an unreadable -shm
+// file.
+func sharedMemoryProblem(text string) bool {
+	return sharedMemoryLine.MatchString(text)
 }
 
 // quotedValue is a value an error: message quotes at the start of its
