@@ -1158,6 +1158,24 @@ but is not a JSON object is one row at `source_line` 1:
 `parser: settings.json is not a JSON object` or
 `parser: sidebar file is not a JSON object`; a sidebar file gives no other row.
 
+A member the format gives a kind that is present with another is a problem row; an absent, null
+or empty one gives no row. In `events.jsonl`, an event's `data` that is not an object is
+`parser: data is not a JSON object`, and an `assistant.message`'s `toolRequests` that is not an
+array `parser: toolRequests is not a JSON array`, at the event's line after the file's rows; with
+`include_thinking` and no `reasoningText`, a `reasoningBlocks` that is not an object, or a
+`reasoningBlocks.blocks` or a block's `summary` that is not an array, is
+`parser: reasoningBlocks is not a JSON object`, `parser: reasoningBlocks.blocks is not a JSON array`
+or `parser: summary is not a JSON array` the same way. In the JSON files, after their rows and at
+`source_line` 1 with the time of the file's other problem row: a `snapshots` of the rewind index
+or a `commandHistory` that is not an array is `parser: snapshots is not a JSON array` or
+`parser: commandHistory is not a JSON array`; a `locations` of `permissions-config.json` that is
+not an object is `parser: locations is not a JSON object`, a location that is not an object
+`parser: locations.<path> is not a JSON object`, and its `tool_approvals` or
+`allowed_directories` that is not an array `parser: locations.<path>.<key> is not a JSON array`;
+an `allowedUrls` or `deniedUrls` of `settings.json` that is not an array is
+`parser: <key> is not a JSON array`. A `sessionIds` of a sidebar file that is not an array adds
+nothing to the project join and gives no row, since the sidebar file has no rows to lose.
+
 #### Fixtures
 
 Sample fixture

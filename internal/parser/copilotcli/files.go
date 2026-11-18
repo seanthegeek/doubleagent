@@ -163,7 +163,17 @@ func (p *Parser) parseWorkspace(artifact *input.Artifact, sessionID string, emit
 	}
 }
 
-// parseSnapshots emits the rows of a session's rewind snapshot index.
+// problemRows emits a "parser:" row per problem of a whole JSON file, at
+// line 1 and a time, as the row of a file that is not a JSON object is.
+func (p *Parser) problemRows(artifact *input.Artifact, problems parser.Problems, timestamp string,
+	emit parser.Emit) {
+	for _, problem := range problems {
+		emit(p.problem(artifact, parser.ProblemPrefix+problem.Message, timestamp))
+	}
+}
+
+// parseSnapshots emits the rows of a session's rewind snapshot index; a
+// snapshots that is not a JSON array is a problem.
 func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
 	document := readJSON(artifact.DiskPath, &problems)
@@ -176,7 +186,8 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		return
 	}
 	project := p.fallbackProject(artifact, 1, sessionID)
-	for i, snapshot := range parser.Elements(document.Get("snapshots")) {
+	var wrong parser.Problems
+	for i, snapshot := range parser.ArrayMember(document.Get("snapshots"), "snapshots", 1, &wrong) {
 		number := i + 1
 		set := columns{timestamp: timeutil.FromValue(snapshot.Get("timestamp")), sessionID: sessionID,
 			project: project}
@@ -196,6 +207,7 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		}
 		emit(p.row(artifact, number, timeline.TurnSystem, line, set))
 	}
+	p.problemRows(artifact, wrong, "", emit)
 }
 
 // countText returns a count as text, "0" when it is missing or empty.
@@ -203,7 +215,8 @@ func countText(value jsonvalue.Value) string {
 	return cmp.Or(value.Text(), "0")
 }
 
-// parseHistory emits one user row per prompt of command-history-state.json.
+// parseHistory emits one user row per prompt of command-history-state.json;
+// a commandHistory that is not a JSON array is a problem.
 func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	document := readJSON(artifact.DiskPath, &problems)
@@ -215,11 +228,13 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.problem(artifact, "parser: command history is not a JSON object", ""))
 		return
 	}
-	for i, entry := range parser.Elements(document.Get("commandHistory")) {
+	var wrong parser.Problems
+	for i, entry := range parser.ArrayMember(document.Get("commandHistory"), "commandHistory", 1, &wrong) {
 		if entry.IsString() && strings.TrimSpace(entry.StringValue()) != "" {
 			emit(p.row(artifact, i+1, timeline.TurnUser, entry.StringValue(), columns{}))
 		}
 	}
+	p.problemRows(artifact, wrong, "", emit)
 }
 
 // settingRow returns the "permission setting:" row of one standing grant.
@@ -231,7 +246,8 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, val
 }
 
 // parsePermissions emits one row per standing grant of
-// permissions-config.json.
+// permissions-config.json; a locations, location or grant list of the
+// wrong kind is a problem.
 func (p *Parser) parsePermissions(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -244,20 +260,22 @@ func (p *Parser) parsePermissions(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.problem(artifact, "parser: permissions-config.json is not a JSON object", timestamp))
 		return
 	}
-	for _, location := range document.Get("locations").Members() {
+	var wrong parser.Problems
+	for _, location := range parser.ObjectMember(document.Get("locations"), "locations", 1, &wrong) {
+		member := "locations." + location.Key
+		parser.ObjectMember(location.Value, member, 1, &wrong)
 		for _, key := range []string{"tool_approvals", "allowed_directories"} {
-			if items := location.Value.Get(key); items.IsArray() {
-				for _, item := range items.Items() {
-					emit(p.settingRow(artifact, timestamp, "locations."+location.Key+"."+key, item,
-						location.Key))
-				}
+			for _, item := range parser.ArrayMember(location.Value.Get(key), member+"."+key, 1, &wrong) {
+				emit(p.settingRow(artifact, timestamp, member+"."+key, item, location.Key))
 			}
 		}
 	}
+	p.problemRows(artifact, wrong, timestamp, emit)
 }
 
 // parseSettings emits one row per allowed or denied URL of settings.json,
-// which is JSON with comments.
+// which is JSON with comments; a list that is not a JSON array is a
+// problem.
 func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -271,13 +289,13 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.problem(artifact, "parser: settings.json is not a JSON object", timestamp))
 		return
 	}
+	var wrong parser.Problems
 	for _, key := range []string{"allowedUrls", "deniedUrls"} {
-		if items := document.Get(key); items.IsArray() {
-			for _, item := range items.Items() {
-				emit(p.settingRow(artifact, timestamp, key, item, ""))
-			}
+		for _, item := range parser.ArrayMember(document.Get(key), key, 1, &wrong) {
+			emit(p.settingRow(artifact, timestamp, key, item, ""))
 		}
 	}
+	p.problemRows(artifact, wrong, timestamp, emit)
 }
 
 // parseLog emits a "signed in:" row per sign-in line of a process log.
