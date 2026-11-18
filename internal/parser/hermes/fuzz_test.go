@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-func FuzzHandWrittenReaders(fuzz *testing.F) {
+func FuzzConfigAndCronReaders(fuzz *testing.F) {
 	for _, seed := range []string{"command_allowlist:\n  - 'a''b'\n  - \"c\\u00e9\" # x\n",
 		"**Prompt Characters:** 5\n## Prompt\n\nhéllo\n\n**Response Characters:** 3\n## Response\n\nwör\n",
 		"## Prompt\n\n## Response\n\n", `"a\`} {
