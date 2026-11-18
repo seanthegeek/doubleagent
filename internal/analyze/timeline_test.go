@@ -130,7 +130,7 @@ func TestTimelineOverSpecParsers(t *testing.T) {
 	for _, run := range timelineRuns {
 		t.Run(run.name, func(t *testing.T) {
 			output := filepath.Join(work, "out-"+run.name)
-			args := append(append([]string{"timeline", "-o", output}, run.args...), collection)
+			args := append(append([]string{"timeline"}, run.args...), collection, output)
 			code, stdout, stderr := runCommand(env, args...)
 			want := expected.Get(run.name)
 			if wantCode, _ := want.Get("exit").Int(); int64(code) != wantCode {
@@ -215,7 +215,7 @@ func TestTimelineRefusesBadFiltersBeforeOpeningTheInput(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			args := append(append([]string{"timeline", "-o", filepath.Join(work, "out")}, test.args...), missing)
+			args := append(append([]string{"timeline"}, test.args...), missing, filepath.Join(work, "out"))
 			code, stdout, stderr := runCommand(testEnvironment(), args...)
 			if code != ExitError || stdout != "" || !strings.HasPrefix(stderr, test.stderr) {
 				t.Errorf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
@@ -233,8 +233,8 @@ func TestTimelineReportsAnOutputItCannotMake(t *testing.T) {
 	if err := osfile.MkdirAll(filepath.Join(work, "in"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	code, _, stderr := runCommand(testEnvironment(), "timeline", "-o",
-		filepath.Join(work, "file", "out"), filepath.Join(work, "in"))
+	code, _, stderr := runCommand(testEnvironment(), "timeline",
+		filepath.Join(work, "in"), filepath.Join(work, "file", "out"))
 	if code != ExitError || !strings.HasPrefix(showRoot(stderr, work), "error: {ROOT}/file") {
 		t.Errorf("exit %d, stderr %q", code, stderr)
 	}

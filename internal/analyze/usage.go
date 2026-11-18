@@ -2,11 +2,14 @@ package analyze
 
 import "github.com/seanthegeek/doubleagent/internal/rowfilter"
 
-// inputHelp is the help of the options detect and timeline share.
-const inputHelp = `
+// inputArgumentHelp is the help of the input detect and timeline share.
+const inputArgumentHelp = `
   INPUT                collector archive (.tar.gz or .zip), extracted
                        collection, or any directory
-  --host HOST          host name to record when the input has no
+`
+
+// inputOptionsHelp is the help of the options detect and timeline share.
+const inputOptionsHelp = `  --host HOST          host name to record when the input has no
                        collection.json
   --user USER          user name to record for a home whose owner cannot be
                        inferred
@@ -15,6 +18,9 @@ const inputHelp = `
   --keep-extracted     do not delete the extracted archive
   -h, --help           print this text and exit
 `
+
+// inputHelp is the help of the input and options detect and timeline share.
+const inputHelp = inputArgumentHelp + inputOptionsHelp
 
 // detectUsage is the help text of detect.
 const detectUsage = `Usage: doubleagent detect [options] INPUT
@@ -27,13 +33,13 @@ error.
 `
 
 // timelineUsage is the help text of timeline.
-const timelineUsage = `Usage: doubleagent timeline [options] -o DIR INPUT
+const timelineUsage = `Usage: doubleagent timeline [options] INPUT OUTPUT_DIR
 
 Parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json.
 Exit status: 0 when rows were written, 1 when there were none, 2 on an
 error.
-` + inputHelp + `  -o, --output DIR     output directory
-  --include-thinking   emit thinking and reasoning blocks as rows of type
+` + inputArgumentHelp + `  OUTPUT_DIR           a new or empty directory for the output files
+` + inputOptionsHelp + `  --include-thinking   emit thinking and reasoning blocks as rows of type
                        thinking
   --agent AGENT        only parse this agent (repeatable); default is every
                        agent with a parser

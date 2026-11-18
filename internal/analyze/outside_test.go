@@ -23,16 +23,16 @@ func TestAnOutputInsideADirectoryInputIsRefused(t *testing.T) {
 		code    int
 		message string
 	}{
-		{"timeline into the directory it reads", []string{"timeline", "-o",
-			filepath.Join(tree, "home", "a", ".claude", "out"), tree}, ExitError,
+		{"timeline into the directory it reads", []string{"timeline", tree,
+			filepath.Join(tree, "home", "a", ".claude", "out")}, ExitError,
 			"the output directory " + filepath.Join(tree, "home", "a", ".claude", "out") + " must be outside the input"},
-		{"timeline into the input itself", []string{"timeline", "-o", tree, tree}, ExitError,
+		{"timeline into the input itself", []string{"timeline", tree, tree}, ExitError,
 			"must be outside the input"},
 		{"fleet into the directory it reads", []string{"fleet", "-o", filepath.Join(inventories, "f.csv"),
 			inventories}, ExitError, "must be outside the input directory " + inventories},
-		{"timeline beside an archive it reads", []string{"timeline", "-o", filepath.Join(dir, "out"), archive},
+		{"timeline beside an archive it reads", []string{"timeline", archive, filepath.Join(dir, "out")},
 			ExitFound, ""},
-		{"timeline into a sibling of the input", []string{"timeline", "-o", tree + "-out", tree}, ExitFound, ""},
+		{"timeline into a sibling of the input", []string{"timeline", tree, tree + "-out"}, ExitFound, ""},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

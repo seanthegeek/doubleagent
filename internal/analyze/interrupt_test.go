@@ -38,8 +38,8 @@ func TestAnInterruptedCommandExits130AndLeavesNothingExtracted(t *testing.T) {
 			return []string{"detect", "--work-dir", filepath.Join(dir, "work"), "--keep-extracted", archive}
 		}},
 		{"timeline", func(dir, archive string) []string {
-			return []string{"timeline", "--work-dir", filepath.Join(dir, "work"), "-o",
-				filepath.Join(dir, "out"), archive}
+			return []string{"timeline", "--work-dir", filepath.Join(dir, "work"), archive,
+				filepath.Join(dir, "out")}
 		}},
 		{"fleet", func(dir, _ string) []string {
 			inventory := filepath.Join(dir, "inventory.jsonl")

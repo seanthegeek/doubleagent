@@ -96,8 +96,6 @@ func detectFlags(options *DetectOptions, help *bool) *flag.FlagSet {
 // timelineFlags returns the flag set of timeline, reading into options.
 func timelineFlags(options *TimelineOptions, help *bool) *flag.FlagSet {
 	set := inputFlags("timeline", &options.InputOptions, help)
-	set.StringVar(&options.Output, "o", "", "")
-	set.StringVar(&options.Output, "output", "", "")
 	set.Func("agent", "", appendTo(&options.Agents))
 	set.StringVar(&options.Since, "since", "", "")
 	set.StringVar(&options.Until, "until", "", "")
@@ -200,8 +198,8 @@ func ParseDetect(args []string) (DetectOptions, bool, error) {
 	return options, false, err
 }
 
-// ParseTimeline reads the arguments after `timeline`. It reports whether
-// the help was asked for.
+// ParseTimeline reads the arguments after `timeline`: the options, the input
+// and the output directory. It reports whether the help was asked for.
 func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	var options TimelineOptions
 	var help bool
@@ -209,12 +207,17 @@ func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	if err != nil || help {
 		return options, help && err == nil, err
 	}
-	var missing []string
-	if options.Output == "" {
-		missing = []string{"-o/--output"}
+	switch {
+	case len(inputs) == 0:
+		return options, false, usageError("timeline", "missing argument: input, output directory")
+	case len(inputs) == 1 || inputs[1] == "":
+		return options, false, usageError("timeline", "missing argument: output directory")
+	case len(inputs) > 2:
+		return options, false, usageError("timeline", "unexpected argument: "+
+			strings.Join(inputs[2:], " "))
 	}
-	options.Input, err = oneInput("timeline", inputs, missing)
-	return options, false, err
+	options.Input, options.Output = inputs[0], inputs[1]
+	return options, false, nil
 }
 
 // ParseFleet reads the arguments after `fleet`. It reports whether the help

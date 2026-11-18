@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -84,16 +85,14 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
+	if code := checkOutput(options, stderr); code != ExitFound {
+		return code
+	}
 	collection, message := openInput(ctx, options.InputOptions, found, env)
 	if collection == nil {
 		return printError(ctx, stderr, message)
 	}
 	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
-	if collection.Kind != input.KindArchive && insideDirectory(options.Output, collection.Root) {
-		fmt.Fprintln(stderr, usageError("timeline", "the output directory "+options.Output+
-			" must be outside the input"))
-		return ExitError
-	}
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: env.Parsers(), found: newScratchFinder(found), output: options.Output,
 		filter: filter}
@@ -107,6 +106,30 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 		return printError(ctx, stderr, err.Error())
 	}
 	return run.summarise(ctx, stdout, stderr)
+}
+
+// checkOutput checks the output directory before the input is touched. It
+// returns ExitFound, or the exit code of the refusal it printed to stderr. A
+// symbolic link is never followed: one is not a directory.
+func checkOutput(options TimelineOptions, stderr io.Writer) int {
+	output := options.Output
+	refuse := func(message string) int {
+		fmt.Fprintln(stderr, usageError("timeline", message))
+		return ExitError
+	}
+	info, err := osfile.Lstat(output)
+	switch {
+	case err == nil && !info.IsDir():
+		return refuse("the output directory " + output + " is not a directory")
+	case err != nil && !errors.Is(err, fs.ErrNotExist):
+		fmt.Fprint(stderr, "error: "+reason.Describe(output, err)+"\n")
+		return ExitError
+	}
+	if info, err := osfile.Lstat(options.Input); err == nil && info.IsDir() &&
+		insideDirectory(output, options.Input) {
+		return refuse("the output directory " + output + " must be outside the input")
+	}
+	return ExitFound
 }
 
 // parse collects the rows of every artifact, drops the secondary rows a

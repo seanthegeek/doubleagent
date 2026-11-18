@@ -43,7 +43,7 @@ func TestNeighbourLookupsNeverLeaveTheCollection(t *testing.T) {
 	collection := writeDisagreeingCollection(t, dir)
 	output := filepath.Join(dir, "out")
 	var stdout, stderr bytes.Buffer
-	code := Run(context.Background(), []string{"timeline", "-o", output, collection}, System(),
+	code := Run(context.Background(), []string{"timeline", collection, output}, System(),
 		&stdout, &stderr)
 	if code != ExitFound {
 		t.Fatalf("exit %d: %s", code, stderr.String())
