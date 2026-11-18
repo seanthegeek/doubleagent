@@ -248,6 +248,10 @@ func TestBoundErrorMessages(t *testing.T) {
 		{"2026-10-01T09:30+02:60", "cannot read \"2026-10-01T09:30+02:60\" as a time (offset " +
 			"minutes must be in 0..59, not 60)"},
 		{"2026-W54-1", "cannot read \"2026-W54-1\" as a time (week must be in 1..53, not 54)"},
+		{"2025-W53", "cannot read \"2025-W53\" as a time (week must be in 1..52 for 2025, not 53)"},
+		{"2025-W53-7", "cannot read \"2025-W53-7\" as a time (week must be in 1..52 for 2025, " +
+			"not 53)"},
+		{"2025W531", "cannot read \"2025W531\" as a time (week must be in 1..52 for 2025, not 53)"},
 		{"2026-366", "cannot read \"2026-366\" as a time (ordinal day must be in 1..365 for " +
 			"2026, not 366)"},
 		{"9999-W52-7", "cannot read \"9999-W52-7\" as a time (year must be in 1..9999, not " +
@@ -268,5 +272,26 @@ func TestBoundErrorMessages(t *testing.T) {
 				t.Errorf("error %v\nwant %s", err, want)
 			}
 		})
+	}
+}
+
+func TestUntilRefusesAPeriodThatEndsAfterTheYear9999(t *testing.T) {
+	text := "9999-12-31T23-00:30"
+	if got, err := ParseBound(text, false, testNow()); err != nil || got != "9999-12-31T23:30:00.000Z" {
+		t.Errorf("since: got %q, %v", got, err)
+	}
+	_, err := ParseBound(text, true, testNow())
+	want := "cannot read \"" + text + "\" as a time (the time is out of range); " + FormsHelp
+	if err == nil || err.Error() != want {
+		t.Errorf("until: error %v\nwant %s", err, want)
+	}
+}
+
+func TestFormsHelpNamesEveryEpochUnit(t *testing.T) {
+	if !strings.Contains(FormsHelp, "epoch seconds or milliseconds") {
+		t.Errorf("FormsHelp names only some epoch units: %s", FormsHelp)
+	}
+	if got, err := ParseBound("1790000000123", false, testNow()); err != nil || got != "2026-09-21T14:13:20.123Z" {
+		t.Errorf("epoch milliseconds: got %q, %v", got, err)
 	}
 }
