@@ -8,7 +8,8 @@
 //     value may be quoted, holds the escapes \\, \", \n, \t and \b, ends at
 //     a # or ; outside quotes, loses only its unprotected surrounding
 //     whitespace, and continues after a backslash that ends the line
-//     outside a comment. A pair may follow its header on one line. A line
+//     outside a comment. A pair, or another header, may follow a header on
+//     one line. White space is git's: space, tab, CR and LF. A line
 //     that is neither a header nor a pair, and the keys after a malformed
 //     header, are skipped; a value git rejects (an unterminated quote, an
 //     unknown escape) is dropped and reported.
@@ -16,8 +17,9 @@
 //     else the commit hash of a detached HEAD.
 //
 // Both readers take the file's text decoded as UTF-8 with invalid bytes
-// replaced (textlines.ValidUTF8), split lines at LF or CRLF only, drop a
-// leading byte-order mark and trim ASCII whitespace only, as git does.
+// replaced (textlines.ValidUTF8), split lines at LF or CRLF only, as git
+// does, and drop a leading byte-order mark; HEAD's ref is trimmed of ASCII
+// white space.
 // Finding the files among a collection's artifacts is the caller's job.
 //
 // Running git, or a Git library, would open a repository found in
@@ -60,14 +62,15 @@ func ParseConfig(text string) ([]Remote, []string) {
 	current, inRemote := "", false
 	lines := physicalLines(text)
 	for index := 0; index < len(lines); index++ {
-		line := strings.TrimLeft(lines[index], textlines.ASCIISpace)
-		if strings.HasPrefix(line, "[") {
-			found, ok := readHeader(line)
+		line, ok := strings.TrimLeft(lines[index], gitSpace), true
+		for ok && strings.HasPrefix(line, "[") {
+			var found header
+			found, ok = readHeader(line)
 			current, inRemote = found.remote()
-			if !ok {
-				continue // unterminated or malformed: its keys belong to no section
-			}
-			line = strings.TrimLeft(line[found.end:], textlines.ASCIISpace)
+			line = strings.TrimLeft(line[found.end:], gitSpace)
+		}
+		if !ok {
+			continue // unterminated or malformed: its keys belong to no section
 		}
 		key, value, hasValue := readKey(line)
 		if !hasValue {

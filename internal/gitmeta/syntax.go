@@ -3,8 +3,6 @@ package gitmeta
 import (
 	"strings"
 	"unicode/utf8"
-
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // header is a section header that was read: its name lowered, its quoted
@@ -17,38 +15,45 @@ type header struct {
 
 // remote returns the remote a header opens and true, or false for any
 // other section: [remote "<name>"] keeps the name's case, and the dotted
-// [remote.<name>] has it lowered, as git lowers it.
+// [remote.<name>] has it lowered, as git lowers it. git names a remote by
+// everything between "remote." and the key, so [remote.<a> "<b>"] opens
+// the remote <a>.<b>.
 func (h header) remote() (string, bool) {
-	if h.quoted {
-		return h.subsection, h.section == "remote"
+	if h.quoted && h.section == "remote" {
+		return h.subsection, true
 	}
 	name, ok := strings.CutPrefix(h.section, "remote.")
+	if h.quoted {
+		name += "." + h.subsection
+	}
 	return name, ok && name != ""
 }
 
 // readHeader reads a section header at the start of line: [, then a name
-// of letters, digits, points and hyphens, optionally a quoted subsection
-// after spaces or tabs, then ]. git allows only space and tab around the
-// name, so any other character makes the header malformed and false is
-// returned.
+// of letters, digits, points and hyphens, then ] or a quoted subsection
+// after white space and then ]. git allows white space only between the
+// name and the subsection, so any other character, or white space anywhere
+// else, makes the header malformed and false is returned.
 func readHeader(line string) (header, bool) {
-	position := skipBlanks(line, 1)
-	nameEnd := position
+	nameEnd := 1
 	for nameEnd < len(line) && isNameByte(line[nameEnd], true) {
 		nameEnd++
 	}
-	if nameEnd == position {
+	if nameEnd == 1 {
 		return header{}, false
 	}
-	found := header{section: strings.ToLower(line[position:nameEnd])}
-	position = nameEnd
-	if quoteStart := skipBlanks(line, position); quoteStart > position &&
-		quoteStart < len(line) && line[quoteStart] == '"' {
-		if subsection, after, ok := readSubsection(line, quoteStart+1); ok {
-			found.subsection, found.quoted, position = subsection, true, after
+	found := header{section: strings.ToLower(line[1:nameEnd])}
+	position := nameEnd
+	if quoteStart := len(line) - len(strings.TrimLeft(line[nameEnd:], gitSpace)); quoteStart > nameEnd {
+		if quoteStart >= len(line) || line[quoteStart] != '"' {
+			return header{}, false
 		}
+		subsection, after, ok := readSubsection(line, quoteStart+1)
+		if !ok {
+			return header{}, false
+		}
+		found.subsection, found.quoted, position = subsection, true, after
 	}
-	position = skipBlanks(line, position)
 	if position >= len(line) || line[position] != ']' {
 		return header{}, false
 	}
@@ -214,8 +219,11 @@ func escapeOf(char byte) (byte, bool) {
 	return 0, false
 }
 
-// isSpace reports whether char is ASCII whitespace a line-level trim
-// takes.
+// gitSpace is git's white space: space, tab, CR and LF, not form feed or
+// vertical tab.
+const gitSpace = " \t\r\n"
+
+// isSpace reports whether char is git's white space.
 func isSpace(char byte) bool {
-	return strings.IndexByte(textlines.ASCIISpace, char) >= 0
+	return strings.IndexByte(gitSpace, char) >= 0
 }
