@@ -14,6 +14,7 @@
 package copilotcli
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"unicode/utf8"
@@ -30,12 +31,9 @@ import (
 // of the log are up to a turn's length earlier.
 const turnTolerance = 3600.0
 
-// whitespace is Python's \s for text and notSpace its \S.
-const (
-	whitespace = `\t-\r \x1c-\x1f\x{85}\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}` +
-		`\x{205f}\x{3000}`
-	notSpace = `[^` + whitespace + `]`
-)
+// notSpace matches one character that is not whitespace by
+// unicode.IsSpace.
+const notSpace = `[^` + parser.Space + `]`
 
 // Parser reads the Copilot CLI's files. It keeps the session-to-directory
 // joins of the sidebar directories it has read.
@@ -153,18 +151,6 @@ func (p *Parser) problem(artifact *input.Artifact, text, timestamp string) timel
 	return p.row(artifact, 1, timeline.TurnSystem, text, columns{timestamp: timestamp})
 }
 
-// text returns a value as text: "" for null, a string as it is, anything
-// else as compact JSON.
-func text(value jsonvalue.Value) string {
-	switch {
-	case value.IsNull():
-		return ""
-	case value.IsString():
-		return value.StringValue()
-	}
-	return parser.JSONText(value)
-}
-
 // blank reports whether value is null or empty text.
 func blank(value jsonvalue.Value) bool {
 	return value.IsNull() || (value.IsString() && value.StringValue() == "")
@@ -172,20 +158,7 @@ func blank(value jsonvalue.Value) bool {
 
 // orDash returns text, or "-" when it is empty.
 func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
-}
-
-// firstNonEmpty returns the first of the texts that is not empty.
-func firstNonEmpty(texts ...string) string {
-	for _, each := range texts {
-		if each != "" {
-			return each
-		}
-	}
-	return ""
+	return cmp.Or(text, "-")
 }
 
 // argumentKeys are the arguments of a tool call that stand for the call, in
@@ -202,7 +175,7 @@ func argsText(arguments jsonvalue.Value) string {
 	case arguments.IsObject():
 		for _, key := range argumentKeys {
 			if value := arguments.Get(key); !blank(value) {
-				return text(value)
+				return value.Text()
 			}
 		}
 		if arguments.Len() > 0 {
@@ -210,12 +183,12 @@ func argsText(arguments jsonvalue.Value) string {
 		}
 		return ""
 	}
-	return text(arguments)
+	return arguments.Text()
 }
 
-// isNoneOrZero reports whether value is null, zero as a number or the text "0":
-// the exit codes that are not a failure.
-func isNoneOrZero(value jsonvalue.Value) bool {
+// exitSucceeded reports whether an exit code is no failure: null, a number
+// equal to zero or the text "0".
+func exitSucceeded(value jsonvalue.Value) bool {
 	if value.IsNull() || isString(value, "0") {
 		return true
 	}
@@ -238,16 +211,16 @@ func isString(value jsonvalue.Value, want string) bool {
 // detailedContent on a tie.
 func resultText(data jsonvalue.Value) string {
 	result := data.Get("result")
-	detailed, concise := text(result.Get("detailedContent")), text(result.Get("content"))
+	detailed, concise := result.Get("detailedContent").Text(), result.Get("content").Text()
 	body := detailed
 	if utf8.RuneCountInString(concise) > utf8.RuneCountInString(detailed) {
 		body = concise
 	}
-	if code := data.Get("shellExecution").Get("exitCode"); !isNoneOrZero(code) && !code.IsBool() {
+	if code := data.Get("shellExecution").Get("exitCode"); !exitSucceeded(code) && !code.IsBool() {
 		body = "[exit " + code.Text() + "] " + body
 	}
 	if success, ok := data.Get("success").Bool(); ok && !success {
-		if message := text(data.Get("error").Get("message")); message != "" {
+		if message := data.Get("error").Get("message").Text(); message != "" {
 			if body != "" {
 				body += "\n"
 			}
@@ -262,10 +235,10 @@ func resultText(data jsonvalue.Value) string {
 func requestTarget(request jsonvalue.Value) string {
 	for _, key := range []string{"fullCommandText", "url", "fileName", "path"} {
 		if value := request.Get(key); !blank(value) {
-			return text(value)
+			return value.Text()
 		}
 	}
-	server, tool := text(request.Get("serverName")), text(request.Get("toolName"))
+	server, tool := request.Get("serverName").Text(), request.Get("toolName").Text()
 	switch {
 	case server != "":
 		return server + "/" + tool
@@ -285,8 +258,8 @@ var decisionKeys = [][2]string{{"locationKey", "location"}, {"approval", "approv
 // or -> ..." for a permission.completed event.
 func decisionText(data jsonvalue.Value) string {
 	result := data.Get("result")
-	line := "permission decision: " + orDash(text(result.Get("kind"))) + " source=" +
-		orDash(text(data.Get("decisionSource")))
+	line := "permission decision: " + orDash(result.Get("kind").Text()) + " source=" +
+		orDash(data.Get("decisionSource").Text())
 	for _, key := range decisionKeys {
 		value := result.Get(key[0])
 		empty := blank(value) || (value.IsArray() && value.Len() == 0) ||

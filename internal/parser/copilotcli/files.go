@@ -1,6 +1,7 @@
 package copilotcli
 
 import (
+	"cmp"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -98,13 +99,13 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 		}
 		// Each sidebar file is also an artifact parseSidebar reports.
 		document := readJSON(path, &parser.Problems{})
-		cwd, sessions := text(document.Get("cwd")), document.Get("sessionIds")
+		cwd, sessions := document.Get("cwd").Text(), document.Get("sessionIds")
 		if cwd == "" || !sessions.IsArray() {
 			continue
 		}
 		for _, session := range sessions.Items() {
-			if _, set := found[text(session)]; !set {
-				found[text(session)] = cwd
+			if _, set := found[session.Text()]; !set {
+				found[session.Text()] = cwd
 			}
 		}
 	}
@@ -133,9 +134,9 @@ func (p *Parser) parseWorkspace(artifact *input.Artifact, sessionID string, emit
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	sessionID = firstNonEmpty(metadata["id"], sessionID)
+	sessionID = cmp.Or(metadata["id"], sessionID)
 	set := columns{timestamp: timeutil.FromText(metadata["created_at"]), sessionID: sessionID,
-		project: firstNonEmpty(metadata["cwd"], p.sidebarJoin(artifact)[sessionID])}
+		project: cmp.Or(metadata["cwd"], p.sidebarJoin(artifact)[sessionID])}
 	if metadata["name"] != "" {
 		emit(p.row(artifact, 1, timeline.TurnSystem, "session name: "+metadata["name"], set))
 	}
@@ -177,12 +178,12 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		set := columns{timestamp: timeutil.FromValue(snapshot.Get("timestamp")), sessionID: sessionID,
 			project: project}
 		if message := snapshot.Get("userMessage"); !blank(message) {
-			emit(p.row(artifact, number, timeline.TurnUser, text(message), set))
+			emit(p.row(artifact, number, timeline.TurnUser, message.Text(), set))
 		}
 		var paths []string
 		for _, entry := range snapshot.Get("files").Members() {
 			if path := entry.Value.Get("path"); !path.IsEmpty() {
-				paths = append(paths, text(path))
+				paths = append(paths, path.Text())
 			}
 		}
 		line := "rewind snapshot: " + countText(snapshot.Get("fileCount")) + " files +" +
@@ -196,10 +197,7 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 
 // countText returns a count as text, "0" when it is missing or empty.
 func countText(value jsonvalue.Value) string {
-	if shown := text(value); shown != "" {
-		return shown
-	}
-	return "0"
+	return cmp.Or(value.Text(), "0")
 }
 
 // parseHistory emits one user row per prompt of command-history-state.json.

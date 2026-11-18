@@ -1,6 +1,7 @@
 package copilotcli
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -48,7 +49,7 @@ func (s *store) has(table string) bool {
 	return s.tables[table]
 }
 
-// stored returns a column as the text Python's _str gives it.
+// stored returns a column as row text (parser.ColumnText): "" for NULL.
 func stored(row sqlitefile.Row, column string) string {
 	return parser.ColumnText(row.Get(column))
 }
@@ -99,7 +100,7 @@ func (s *stamper) stamp(sessionID string, line int64, turn, text string, timesta
 	session := s.sessions[sessionID]
 	s.emit(s.parser.row(s.artifact, int(line), turn, text, columns{
 		timestamp: parser.ColumnTime(timestamp), sessionID: sessionID,
-		project: firstNonEmpty(stored(session, "cwd"), s.sidebar[sessionID]),
+		project: cmp.Or(stored(session, "cwd"), s.sidebar[sessionID]),
 		branch:  stored(session, "branch"), toolUseID: toolUseID}))
 }
 

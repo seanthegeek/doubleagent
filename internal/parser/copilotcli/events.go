@@ -1,6 +1,7 @@
 package copilotcli
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -45,7 +46,7 @@ type eventWalk struct {
 func (w *eventWalk) row(turn, text, toolName, toolUseID, model string) timeline.Row {
 	return w.parser.row(w.artifact, w.line, turn, text, columns{timestamp: w.timestamp,
 		sessionID: w.sessionID, project: w.project, branch: w.branch,
-		model: firstNonEmpty(model, w.model), toolName: toolName, toolUseID: toolUseID})
+		model: cmp.Or(model, w.model), toolName: toolName, toolUseID: toolUseID})
 }
 
 // system emits a system row of the event being read.
@@ -64,7 +65,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		walk.line = number
 		walk.timestamp = timeutil.FromValue(record.Get("timestamp"))
-		walk.event(text(record.Get("type")), record, record.Get("data"))
+		walk.event(record.Get("type").Text(), record, record.Get("data"))
 	}
 	for _, row := range p.ErrorRows(artifact, problems, sessionID, walk.project) {
 		row.GitBranch = walk.branch
@@ -84,21 +85,21 @@ func (w *eventWalk) event(kind string, record, data jsonvalue.Value) {
 		if isString(data.Get("role"), "developer") {
 			label = "developer message"
 		}
-		w.system(label + ": " + text(data.Get("content")))
+		w.system(label + ": " + data.Get("content").Text())
 	case kind == "user.message":
 		w.userRow(record, data)
 	case kind == "assistant.message":
 		w.assistantRows(data)
 	case kind == "assistant.reasoning":
 		if w.options.IncludeThinking && !data.Get("content").IsEmpty() {
-			w.emit(w.row(timeline.TurnThinking, text(data.Get("content")), "", "", ""))
+			w.emit(w.row(timeline.TurnThinking, data.Get("content").Text(), "", "", ""))
 		}
 	case kind == "tool.execution_start" || kind == "tool.user_requested":
 		w.toolStart(kind, data)
 	case kind == "tool.execution_complete":
-		callID := text(data.Get("toolCallId"))
+		callID := data.Get("toolCallId").Text()
 		w.emit(w.row(timeline.TurnToolResult, resultText(data), w.names[callID], callID,
-			text(data.Get("model"))))
+			data.Get("model").Text()))
 	case strings.HasPrefix(kind, "permission.") || kind == "session.permissions_changed" ||
 		kind == "session.mode_changed":
 		w.permissionRows(kind, data)
@@ -115,25 +116,25 @@ func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 	case kind == "session.info":
 		w.system(infoText(data))
 	case kind == "model.message":
-		callModel := text(data.Get("modelCall").Get("model"))
+		callModel := data.Get("modelCall").Get("model").Text()
 		w.emit(w.row(timeline.TurnSystem, "utility model "+callModel+": "+
-			text(data.Get("message").Get("content")), "", "", callModel))
+			data.Get("message").Get("content").Text(), "", "", callModel))
 	case kind == "session.compaction_complete":
-		w.system("compaction summary: " + text(data.Get("summaryContent")))
+		w.system("compaction summary: " + data.Get("summaryContent").Text())
 	case kind == "abort" || kind == "session.error" || kind == "session.warning":
-		w.system(kind + ": " + firstNonEmpty(text(data.Get("reason")), text(data.Get("message")),
+		w.system(kind + ": " + cmp.Or(data.Get("reason").Text(), data.Get("message").Text(),
 			parser.JSONText(data)))
 	case kind == "hook.start" || kind == "hook.end":
-		w.emit(w.row(timeline.TurnSystem, hookText(kind, data), "", text(data.Get("parentToolCallId")), ""))
+		w.emit(w.row(timeline.TurnSystem, hookText(kind, data), "", data.Get("parentToolCallId").Text(), ""))
 	case isNoteType(kind):
 		main := ""
 		for _, key := range noteKeys {
 			if value := data.Get(key); !blank(value) {
-				main = text(value)
+				main = value.Text()
 				break
 			}
 		}
-		w.system(kind + ": " + firstNonEmpty(main, parser.JSONText(data)))
+		w.system(kind + ": " + cmp.Or(main, parser.JSONText(data)))
 	case kind == "session.shutdown":
 		w.system(shutdownText(data))
 	}
@@ -157,16 +158,16 @@ func (w *eventWalk) sessionEvent(kind string, data jsonvalue.Value) {
 		context = data.Get("context")
 	}
 	if !context.Get("cwd").IsEmpty() {
-		w.project = text(context.Get("cwd"))
+		w.project = context.Get("cwd").Text()
 	}
 	if context.Has("branch") || kind == "session.context_changed" {
-		w.branch = text(context.Get("branch"))
+		w.branch = context.Get("branch").Text()
 	}
 	switch kind {
 	case "session.start":
-		w.system("session start: copilot " + orDash(text(data.Get("copilotVersion"))) +
-			" producer=" + orDash(text(data.Get("producer"))) + " cwd=" +
-			orDash(text(context.Get("cwd"))))
+		w.system("session start: copilot " + orDash(data.Get("copilotVersion").Text()) +
+			" producer=" + orDash(data.Get("producer").Text()) + " cwd=" +
+			orDash(context.Get("cwd").Text()))
 	case "session.resume":
 		w.system("session resumed")
 	}
@@ -175,7 +176,7 @@ func (w *eventWalk) sessionEvent(kind string, data jsonvalue.Value) {
 // toolStart emits the tool_use row of a tool the model or the user started,
 // once per call id.
 func (w *eventWalk) toolStart(kind string, data jsonvalue.Value) {
-	callID, name := text(data.Get("toolCallId")), text(data.Get("toolName"))
+	callID, name := data.Get("toolCallId").Text(), data.Get("toolName").Text()
 	if _, held := w.names[callID]; callID != "" && name != "" && !held {
 		w.names[callID] = name
 	}
@@ -187,13 +188,13 @@ func (w *eventWalk) toolStart(kind string, data jsonvalue.Value) {
 	if kind == "tool.user_requested" {
 		body = "user requested: " + body
 	}
-	w.emit(w.row(timeline.TurnToolUse, body, name, callID, text(data.Get("model"))))
+	w.emit(w.row(timeline.TurnToolUse, body, name, callID, data.Get("model").Text()))
 }
 
 // userRow emits a user message: a user row for a typed prompt, else a system
 // row naming what sent it.
 func (w *eventWalk) userRow(record, data jsonvalue.Value) {
-	content, source := text(data.Get("content")), text(data.Get("source"))
+	content, source := data.Get("content").Text(), data.Get("source").Text()
 	label := ""
 	switch {
 	case !data.Get("isAutopilotContinuation").IsEmpty():
@@ -212,12 +213,12 @@ func (w *eventWalk) userRow(record, data jsonvalue.Value) {
 // assistantRows emits an assistant message's reply, reasoning and tool
 // requests.
 func (w *eventWalk) assistantRows(data jsonvalue.Value) {
-	model, content := text(data.Get("model")), text(data.Get("content"))
+	model, content := data.Get("model").Text(), data.Get("content").Text()
 	if strings.TrimSpace(content) != "" {
 		w.emit(w.row(timeline.TurnAssistant, content, "", "", model))
 	}
 	if w.options.IncludeThinking {
-		thought := text(data.Get("reasoningText"))
+		thought := data.Get("reasoningText").Text()
 		if thought == "" {
 			thought = reasoningSummaries(data)
 		}
@@ -226,7 +227,7 @@ func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 		}
 	}
 	for _, request := range parser.Elements(data.Get("toolRequests")) {
-		callID, name := text(request.Get("toolCallId")), text(request.Get("name"))
+		callID, name := request.Get("toolCallId").Text(), request.Get("name").Text()
 		if callID != "" {
 			w.names[callID] = name
 			w.requested[callID] = true
@@ -262,7 +263,7 @@ func (w *eventWalk) modeValue() string {
 // event. The tracked mode is "<permissionMode> agent=<agentMode>"; the two
 // change events update their half of it.
 func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
-	callID := text(data.Get("toolCallId"))
+	callID := data.Get("toolCallId").Text()
 	switch kind {
 	case "permission.requested":
 		w.permissionRequest(data)
@@ -270,13 +271,13 @@ func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
 		w.emit(w.row(timeline.TurnSystem, decisionText(data), w.names[callID], callID, ""))
 	case "permission.carriedForward":
 		w.emit(w.row(timeline.TurnSystem, "permission decision: carried-forward source="+
-			orDash(text(data.Get("decisionSource"))), w.names[callID], callID, ""))
+			orDash(data.Get("decisionSource").Text()), w.names[callID], callID, ""))
 	case "session.permissions_changed":
 		w.permissionsChanged(data)
 	case "session.mode_changed":
-		old, next := orDash(text(data.Get("previousMode"))), orDash(text(data.Get("newMode")))
+		old, next := orDash(data.Get("previousMode").Text()), orDash(data.Get("newMode").Text())
 		w.system("agent mode: " + old + " -> " + next)
-		w.permission.agent = text(data.Get("newMode"))
+		w.permission.agent = data.Get("newMode").Text()
 		if w.permission.mode != "" {
 			w.modes[w.sessionID] = w.modeValue()
 		}
@@ -287,20 +288,20 @@ func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
 // when the request shows the mode changed.
 func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
 	request := data.Get("permissionRequest")
-	callID := text(request.Get("toolCallId"))
-	line := "permission request: " + orDash(text(request.Get("kind")))
+	callID := request.Get("toolCallId").Text()
+	line := "permission request: " + orDash(request.Get("kind").Text())
 	if target := requestTarget(request); target != "" {
 		line += " " + target
 	}
 	if intention := request.Get("intention"); !blank(intention) {
-		line += " intention=" + text(intention)
+		line += " intention=" + intention.Text()
 	}
 	w.emit(w.row(timeline.TurnSystem, line, w.names[callID], callID, ""))
 	if !data.Get("permissionMode").IsEmpty() {
-		w.permission.mode = text(data.Get("permissionMode"))
+		w.permission.mode = data.Get("permissionMode").Text()
 	}
 	if !data.Get("agentMode").IsEmpty() {
-		w.permission.agent = text(data.Get("agentMode"))
+		w.permission.agent = data.Get("agentMode").Text()
 	}
 	if w.permission.mode == "" {
 		return
@@ -321,16 +322,16 @@ func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
 		}
 	}
 	if allowAll {
-		old, next := orDash(text(data.Get("previousAllowAllPermissionMode"))),
-			text(data.Get("allowAllPermissionMode"))
+		old, next := orDash(data.Get("previousAllowAllPermissionMode").Text()),
+			data.Get("allowAllPermissionMode").Text()
 		w.system("permission mode: allow-all " + old + " -> " + orDash(next))
 		if next != "" {
 			w.permission.mode = "allow-all " + next
 		}
 	} else {
-		w.system("permission mode: " + orDash(text(data.Get("previousMode"))) + " -> " +
-			orDash(text(data.Get("mode"))))
-		w.permission.mode = text(data.Get("mode"))
+		w.system("permission mode: " + orDash(data.Get("previousMode").Text()) + " -> " +
+			orDash(data.Get("mode").Text()))
+		w.permission.mode = data.Get("mode").Text()
 	}
 	if w.permission.mode != "" {
 		w.modes[w.sessionID] = w.modeValue()
@@ -343,23 +344,23 @@ func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
 func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 	var next, suffix string
 	if kind == "session.auto_mode_resolved" {
-		next = text(data.Get("chosenModel"))
-		suffix = " (auto, " + orDash(text(data.Get("routingMethod"))) + ")"
+		next = data.Get("chosenModel").Text()
+		suffix = " (auto, " + orDash(data.Get("routingMethod").Text()) + ")"
 	} else {
-		next = text(data.Get("newModel"))
+		next = data.Get("newModel").Text()
 		for _, key := range []string{"cause", "source"} {
 			if value := data.Get(key); !blank(value) {
-				suffix += " " + key + "=" + text(value)
+				suffix += " " + key + "=" + value.Text()
 			}
 		}
 		if effort := data.Get("reasoningEffort"); !blank(effort) {
-			suffix += " effort=" + text(effort)
+			suffix += " effort=" + effort.Text()
 		}
 	}
 	if next == "" {
 		return
 	}
-	old := firstNonEmpty(w.models[w.sessionID], text(data.Get("previousModel")))
+	old := cmp.Or(w.models[w.sessionID], data.Get("previousModel").Text())
 	w.models[w.sessionID] = next
 	w.model = next
 	line := "model: " + next
@@ -374,7 +375,7 @@ func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 // " error=<error>" when present; each payload is compact JSON in full, "{}"
 // when absent.
 func hookText(kind string, data jsonvalue.Value) string {
-	hook := orDash(text(data.Get("hookType")))
+	hook := orDash(data.Get("hookType").Text())
 	if kind == "hook.start" {
 		payload := "{}"
 		if input := data.Get("input"); !input.IsNull() {
@@ -399,10 +400,10 @@ func hookText(kind string, data jsonvalue.Value) string {
 // infoText returns "session.info <infoType>: <message>" and the url and tip
 // present.
 func infoText(data jsonvalue.Value) string {
-	line := "session.info " + text(data.Get("infoType")) + ": " + text(data.Get("message"))
+	line := "session.info " + data.Get("infoType").Text() + ": " + data.Get("message").Text()
 	for _, key := range []string{"url", "tip"} {
 		if value := data.Get(key); !blank(value) {
-			line += " " + key + "=" + text(value)
+			line += " " + key + "=" + value.Text()
 		}
 	}
 	return line
@@ -415,16 +416,16 @@ func shutdownText(data jsonvalue.Value) string {
 	if files.IsArray() {
 		names := make([]string, 0, files.Len())
 		for _, path := range files.Items() {
-			names = append(names, text(path))
+			names = append(names, path.Text())
 		}
 		listed = strings.Join(names, ", ")
 	} else {
-		listed = text(files)
+		listed = files.Text()
 	}
-	parts := []string{"session end:", orDash(text(data.Get("shutdownType")))}
+	parts := []string{"session end:", orDash(data.Get("shutdownType").Text())}
 	if reason := data.Get("errorReason"); !blank(reason) {
-		parts = append(parts, text(reason))
+		parts = append(parts, reason.Text())
 	}
-	parts = append(parts, "files modified: "+firstNonEmpty(listed, "none"))
+	parts = append(parts, "files modified: "+cmp.Or(listed, "none"))
 	return strings.Join(parts, " ")
 }
