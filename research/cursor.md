@@ -2349,7 +2349,8 @@ A cloud agent is a conversation of remote origin, held by the vendor
   [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources);
 - from each element of an `ItemTable` key beginning `cloudAgentRepository.agents.` (the suffix,
   the account id in either the `auth0|user_<id>` or the URL-encoded `auth0%7Cuser_<id>` form, is
-  not matched; a value that is not a JSON list is skipped), with `session_id` the `bcId` and
+  not matched; a value that is not a JSON array is a problem row, see
+  [Bad-line rows](#bad-line-rows)), with `session_id` the `bcId` and
   `project_path` the `repoUrl`: `cloud agent: <name> repo=<repoUrl> status=<status>
   workflowStatus=<workflowStatus> archived=<isArchived> killed=<isKilled>
   vmStarted=<hasStartedVm> (from state.vscdb cloudAgentRepository.agents, rowUpdatedAtMs)` at
@@ -2416,9 +2417,25 @@ deletion row is yielded for it.
 #### Bad-line rows
 
 The transcript JSONL is read with `iter_jsonl`, and each bad line becomes its own `system` row
-through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (when it should be)
-is appended to the errors list with its rowid and key, and a header entry with no bubble row has
-its own row (table above). A database that cannot be read, or whose `-wal`, `-shm` or `-journal`
+through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (when it should be) is
+appended to the errors list with its rowid and key, and a header entry with no bubble row has its
+own row (table above). A value or member the format gives a kind that is present with another (an
+absent, null or empty one gives no row) is a row through `error_rows` at the value's rowid: a
+`cloudAgentRepository.agents.<account>`, `cloudEnvironmentTemplate.githubRepos`,
+`cursor.plugins.installedIds.<team>|<scope>` or `composerConvHeaders:<id>:<NNNNNN>` value that is
+not an array is `parser: <key> is not a JSON array` (`<key>` the row's key), a `composerData:<id>`
+value or the settings blob that is not an object is `parser: <key> is not a JSON object`, a
+`fullConversationHeadersOnly` that is not an array is
+`parser: fullConversationHeadersOnly is not a JSON array`, a settings blob's `composerState`,
+`aiSettings` or `aiSettings.modelLastUsedAt` that is not an object is
+`parser: <member> is not a JSON object`, and a standing list or `modes4` of `composerState` that is
+not an array is `parser: <list> is not a JSON array`. A transcript line whose `message` is not an
+object is `parser: message is not a JSON object`, and one whose `message.content` is neither text
+nor an array `parser: message.content is not a JSON array`, at its line. A `cli-config.json` whose
+`permissions` is not an object, or whose `permissions.allow` or `permissions.deny` is not an array,
+is a whole-file row after its setting rows, `parser: permissions is not a JSON object` or
+`parser: permissions.<key> is not a JSON array`, with `source_line` 0; `permissions.json`, which the
+user writes, is read as it is. A database that cannot be read, or whose `-wal`, `-shm` or `-journal`
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
 error one `parser: SQLite error: <message>` row. `cli-config.json` or `permissions.json` that is not

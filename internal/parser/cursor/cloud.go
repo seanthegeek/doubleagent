@@ -33,8 +33,8 @@ type cloudAgent struct {
 }
 
 // readCloudAgents returns every element with a bcId of the cloud agent
-// lists, in key order. A value that is not a JSON list is skipped, one
-// that starts as a list and does not decode is a problem.
+// lists, in key order. A value that does not decode, or is not a JSON
+// array, is a problem.
 func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 	table := store.table("ItemTable")
 	if table == nil {
@@ -42,10 +42,7 @@ func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 	}
 	var found []cloudAgent
 	for _, row := range store.rows(substrPrefixed(table, cloudAgentsPrefix)) {
-		if !lstripsToList(asText(row.value)) {
-			continue
-		}
-		for _, agent := range decodeRecord(row.rowid, row.key, row.value, problems).Items() {
+		for _, agent := range listRecord(row, problems) {
 			if agent.IsObject() && !agent.Get("bcId").IsEmpty() {
 				found = append(found, cloudAgent{rowid: row.rowid, agent: agent})
 			}
@@ -67,7 +64,8 @@ func cloudModel(agent jsonvalue.Value) (string, string) {
 
 // cloud emits the rows of the cloud agent lists, the MCP authorisations
 // and the repository list. An agent's origin row is left to
-// conversation-search.db when that has a cloud-cache row for it.
+// conversation-search.db when that has a cloud-cache row for it. A
+// repository list that is not a JSON array is a problem.
 func (i *items) cloud(emit parser.Emit) {
 	if i.table == nil {
 		return
@@ -82,7 +80,7 @@ func (i *items) cloud(emit parser.Emit) {
 	if !ok {
 		return
 	}
-	for _, repo := range decodeRecord(found.rowid, githubReposKey, found.value, i.problems).Items() {
+	for _, repo := range listRecord(found, i.problems) {
 		if repo.IsObject() {
 			target := repo.Get("url").Text()
 			if target == "" {

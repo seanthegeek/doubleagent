@@ -11,7 +11,8 @@ import (
 )
 
 // transcript emits the rows of an agent transcript: prompts at their time
-// tag, replies and tool calls without a time.
+// tag, replies and tool calls without a time. A message that is not a JSON
+// object, or content that is neither text nor a JSON array, is a problem.
 func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 	sessionID := transcriptPattern.FindStringSubmatch(artifact.Rel)[1]
 	found := p.homeIndex(artifact).projects[sessionID]
@@ -26,12 +27,14 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 		if !parser.IsText(role, "user") && !parser.IsText(role, "assistant") {
 			continue
 		}
-		content := record.Get("message").Get("content")
+		message := record.Get("message")
+		parser.ObjectMember(message, "message", number, &problems)
+		content := message.Get("content")
 		if content.IsString() {
 			content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 				jsonvalue.Member{Key: "text", Value: content}))
 		}
-		for _, block := range content.Items() {
+		for _, block := range parser.ArrayMember(content, "message.content", number, &problems) {
 			switch {
 			case parser.IsText(block.Get("type"), "text") && block.Get("text").IsString():
 				text := block.Get("text").StringValue()
@@ -95,7 +98,8 @@ func (p *Parser) attempt(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // settingsFile emits a "permission setting:" row per permission setting
-// of .cursor/cli-config.json or .cursor/permissions.json.
+// of .cursor/cli-config.json or .cursor/permissions.json, then the
+// problems of cli-config.json members of the wrong kind.
 func (p *Parser) settingsFile(artifact *input.Artifact, emit parser.Emit) {
 	project := ""
 	if artifact.Home != nil && artifact.Home.Project {
@@ -105,9 +109,10 @@ func (p *Parser) settingsFile(artifact *input.Artifact, emit parser.Emit) {
 	if !ok {
 		return
 	}
+	var problems parser.Problems
 	settings := permissionsSettings(document)
 	if cliConfigPattern.MatchString(artifact.Rel) {
-		settings = cliConfigSettings(document)
+		settings = cliConfigSettings(document, &problems)
 	}
 	mtime := parser.FileMtime(artifact)
 	for _, setting := range settings {
@@ -116,6 +121,7 @@ func (p *Parser) settingsFile(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = project
 		emit(row)
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
 // listSettings returns "<label>=<value>" per item of an array.
@@ -128,15 +134,21 @@ func listSettings(label string, list jsonvalue.Value) []string {
 }
 
 // cliConfigSettings returns "<key>=<value>" per setting of
-// .cursor/cli-config.json that governs permissions.
-func cliConfigSettings(document jsonvalue.Value) []string {
+// .cursor/cli-config.json that governs permissions. The CLI writes the
+// file, so a permissions, permissions.allow or permissions.deny of the
+// wrong kind adds a whole-file problem.
+func cliConfigSettings(document jsonvalue.Value, problems *parser.Problems) []string {
 	var out []string
 	if value, ok := document.Lookup("approvalMode"); ok {
 		out = append(out, "approvalMode="+parser.SettingValue(value))
 	}
 	permissions := document.Get("permissions")
-	out = append(out, listSettings("permissions.allow", permissions.Get("allow"))...)
-	out = append(out, listSettings("permissions.deny", permissions.Get("deny"))...)
+	parser.ObjectMember(permissions, "permissions", 0, problems)
+	for _, key := range []string{"allow", "deny"} {
+		label := "permissions." + key
+		parser.ArrayMember(permissions.Get(key), label, 0, problems)
+		out = append(out, listSettings(label, permissions.Get(key))...)
+	}
 	if value, ok := document.Get("sandbox").Lookup("mode"); ok {
 		out = append(out, "sandbox.mode="+parser.SettingValue(value))
 	}
