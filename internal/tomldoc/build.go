@@ -10,9 +10,9 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Parse reads a TOML 1.0 document. The error says where the document breaks
-// the TOML rules, with a line and column, or that it is larger or nests
-// deeper than this package reads.
+// Parse reads a TOML 1.0 document. The error, an *Error, says where the
+// document breaks the TOML rules, with a line and column, or that it is
+// larger or nests deeper than this package reads.
 func Parse(text string) (*Table, error) {
 	if err := checkShape(text); err != nil {
 		return nil, err
@@ -33,7 +33,8 @@ func Parse(text string) (*Table, error) {
 func decode(text string) (mapping map[string]any, keys []toml.Key, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			mapping, keys, err = nil, nil, fmt.Errorf("invalid TOML: the reader failed on this input: %v", recovered)
+			mapping, keys, err = nil, nil, &Error{Kind: InvalidSyntax,
+				text: fmt.Sprintf("invalid TOML: the reader failed on this input: %v", recovered)}
 		}
 	}()
 	meta, err := toml.Decode(text, &mapping)
@@ -43,27 +44,18 @@ func decode(text string) (mapping map[string]any, keys []toml.Key, err error) {
 	return mapping, meta.Keys(), nil
 }
 
-// syntaxError is a reader failure worded as this package's own error, with
-// the line and column, keeping the reader's error as its cause.
-type syntaxError struct {
-	text  string
-	cause error
-}
-
-// Error returns the worded failure.
-func (e *syntaxError) Error() string { return e.text }
-
-// Unwrap returns the reader's own error.
-func (e *syntaxError) Unwrap() error { return e.cause }
-
-// newSyntaxError words a reader failure.
+// newSyntaxError words a reader failure as this package's own error, with
+// the line and column when the reader gave them, keeping the reader's error
+// as its cause.
 func newSyntaxError(err error) error {
 	var parseErr toml.ParseError
 	if errors.As(err, &parseErr) {
-		return &syntaxError{fmt.Sprintf("invalid TOML at line %d, column %d: %s",
-			parseErr.Position.Line, parseErr.Position.Col, parseErr.Message), err}
+		return &Error{Kind: InvalidSyntax, Line: parseErr.Position.Line,
+			Column: parseErr.Position.Col, cause: err,
+			text: fmt.Sprintf("invalid TOML at line %d, column %d: %s", parseErr.Position.Line,
+				parseErr.Position.Col, parseErr.Message)}
 	}
-	return fmt.Errorf("invalid TOML: %w", err)
+	return &Error{Kind: InvalidSyntax, text: "invalid TOML: " + err.Error(), cause: err}
 }
 
 // builder rebuilds the document's order. The reader gives every key path in

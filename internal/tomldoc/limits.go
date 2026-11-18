@@ -26,8 +26,9 @@ const maxDepth = 32
 // are deeper than maxDepth, before the scanner or the reader sees it.
 func checkShape(text string) error {
 	if len(text) > maxDocumentBytes {
-		return fmt.Errorf("TOML document of %d bytes is larger than the %d bytes this reader accepts",
-			len(text), maxDocumentBytes)
+		return &Error{Kind: TooLarge, text: fmt.Sprintf(
+			"TOML document of %d bytes is larger than the %d bytes this reader accepts",
+			len(text), maxDocumentBytes)}
 	}
 	scanner := shapeScanner{text: text, line: 1}
 	return scanner.scan()
@@ -95,8 +96,9 @@ func (s *shapeScanner) scan() error {
 		}
 		s.position++
 		if depth > maxDepth {
-			return fmt.Errorf("TOML document nests keys, tables and arrays more than %d levels deep at line %d",
-				maxDepth, s.line)
+			return &Error{Kind: TooDeep, Line: s.line, text: fmt.Sprintf(
+				"TOML document nests keys, tables and arrays more than %d levels deep at line %d",
+				maxDepth, s.line)}
 		}
 	}
 	return nil

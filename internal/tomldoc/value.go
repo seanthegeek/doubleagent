@@ -13,7 +13,7 @@
 //
 // Parse refuses a document over a size limit, or whose keys and arrays nest
 // deeper than a depth limit (maxDocumentBytes and maxDepth), before reading
-// it.
+// it, with an *Error that says which.
 //
 // The module's Decode into a map gives the values but not their order;
 // rows list settings in the file's order, so this package rebuilds it from
