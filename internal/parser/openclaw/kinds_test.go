@@ -80,3 +80,12 @@ func TestAnExecApprovalsMemberOfTheWrongKindIsReported(t *testing.T) {
 		}
 	})
 }
+
+func TestExecApprovalsListEntriesThatAreNotObjectsAreReportedOnce(t *testing.T) {
+	got := execProblems(t, `{"defaults": {"allowlist": ["x"]}, "agents": {"main": {"mcpTools": [7, 8]}}}`)
+	want := []string{"defaults.allowlist holds 1 entry that is not a JSON object",
+		"agents.main.mcpTools holds 2 entries that are not JSON objects"}
+	if !slices.Equal(got, want) {
+		t.Errorf("problems %q, want %q", got, want)
+	}
+}

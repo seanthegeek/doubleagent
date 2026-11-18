@@ -40,7 +40,7 @@ func (l *llmLog) flush() {
 		return
 	}
 	l.reader.blocks(l.current.base, l.current.role, jsonvalue.NewArray(l.current.blocks.values()...), true, nil,
-		func(row timeline.Row) { l.pending = append(l.pending, row) })
+		&l.problems, func(row timeline.Row) { l.pending = append(l.pending, row) })
 	l.current = nil
 }
 
@@ -137,9 +137,10 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 	if content.Len() == 0 {
 		return
 	}
+	blocks := parser.ListOfKind(content, "data.content", jsonvalue.Object, number, &l.problems)
 	messageID := parser.Text(data.Get("id"))
 	if l.current != nil && messageID != "" && l.current.messageID == messageID {
-		l.current.blocks.merge(content.Items())
+		l.current.blocks.merge(blocks)
 		return
 	}
 	l.flush()
@@ -152,7 +153,7 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 		role = timeline.TurnAssistant
 	}
 	l.current = &assembly{base: base, messageID: messageID, role: role,
-		blocks: &streamed{blocks: append([]jsonvalue.Value(nil), content.Items()...), work: l.parser.Work}}
+		blocks: &streamed{blocks: blocks, work: l.parser.Work}}
 }
 
 // streamed is the content blocks of a message assembled from streamed

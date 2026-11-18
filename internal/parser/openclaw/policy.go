@@ -67,8 +67,9 @@ func policySettings(policy jsonvalue.Value, name string, line int, problems *par
 			out = append(out, key+"="+value.Text())
 		}
 	}
-	for _, entry := range parser.ArrayMember(policy.Get("allowlist"), name+".allowlist", line, problems) {
-		if pattern := entry.Get("pattern"); entry.IsObject() && !pattern.IsNull() {
+	for _, entry := range parser.EntriesOfKind(policy.Get("allowlist"), name+".allowlist", jsonvalue.Object, line,
+		problems) {
+		if pattern := entry.Get("pattern"); !pattern.IsNull() {
 			argument := ""
 			if value := entry.Get("argPattern"); !value.IsEmpty() {
 				argument = " argPattern=" + value.Text()
@@ -77,12 +78,11 @@ func policySettings(policy jsonvalue.Value, name string, line int, problems *par
 				cmp.Or(parser.Text(entry.Get("source")), "-"))
 		}
 	}
-	for _, grant := range parser.ArrayMember(policy.Get("mcpTools"), name+".mcpTools", line, problems) {
-		if grant.IsObject() {
-			out = append(out, "mcpTools="+cmp.Or(parser.Text(grant.Get("server")), "-")+"/"+
-				cmp.Or(parser.Text(grant.Get("tool")), "-")+" source="+
-				cmp.Or(parser.Text(grant.Get("source")), "-"))
-		}
+	for _, grant := range parser.EntriesOfKind(policy.Get("mcpTools"), name+".mcpTools", jsonvalue.Object, line,
+		problems) {
+		out = append(out, "mcpTools="+cmp.Or(parser.Text(grant.Get("server")), "-")+"/"+
+			cmp.Or(parser.Text(grant.Get("tool")), "-")+" source="+
+			cmp.Or(parser.Text(grant.Get("source")), "-"))
 	}
 	return out
 }
