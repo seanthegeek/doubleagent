@@ -218,3 +218,16 @@ func TestAMistakeAmongTheOptionsBeatsHelp(t *testing.T) {
 		}
 	}
 }
+
+func TestEachHelpGivesEveryExitStatus(t *testing.T) {
+	for _, command := range []string{"detect", "timeline", "fleet"} {
+		t.Run(command, func(t *testing.T) {
+			help := strings.Join(strings.Fields(usageOf(command)), " ")
+			for _, status := range []string{"0 when", "1 when", "2 on an error", "130 when interrupted"} {
+				if !strings.Contains(help, status) {
+					t.Errorf("the help does not give %q", status)
+				}
+			}
+		})
+	}
+}

@@ -12,24 +12,24 @@ import (
 
 func TestTimelineRefusesAnOutputUnderALinkToItsInput(t *testing.T) {
 	work := t.TempDir()
-	real := filepath.Join(work, "realin")
-	writeFile(t, filepath.Join(real, "keep"), "x")
+	realDir := filepath.Join(work, "realin")
+	writeFile(t, filepath.Join(realDir, "keep"), "x")
 	link := filepath.Join(work, "linkin")
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(realDir, link); err != nil {
 		t.Fatal(err)
 	}
 	for name, args := range map[string][]string{
 		"the input given through the link":  {"timeline", link, filepath.Join(link, "out3")},
-		"the output given through the link": {"timeline", real, filepath.Join(link, "out3")},
+		"the output given through the link": {"timeline", realDir, filepath.Join(link, "out3")},
 		"the input through the link, the output by its real name": {"timeline", link,
-			filepath.Join(real, "out3")},
+			filepath.Join(realDir, "out3")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			code, _, stderr := runCommand(testEnvironment(), args...)
 			if code != ExitError || !strings.Contains(stderr, "must be outside the input") {
 				t.Errorf("exit %d, stderr %q", code, stderr)
 			}
-			if lstatExists(filepath.Join(real, "out3")) {
+			if lstatExists(filepath.Join(realDir, "out3")) {
 				t.Error("the output was made inside the input")
 			}
 		})

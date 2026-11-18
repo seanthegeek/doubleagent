@@ -27,7 +27,7 @@ const detectUsage = `Usage: doubleagent detect [options] INPUT
 
 List the homes, users and agents found in the input. Exit status: 0 when
 agent files were found or --json was given, 1 when none were, 2 on an
-error.
+error, 130 when interrupted.
 ` + inputHelp + `  --json               machine-readable output
   --files              list every attributed file
 `
@@ -37,7 +37,7 @@ const timelineUsage = `Usage: doubleagent timeline [options] INPUT OUTPUT_DIR
 
 Parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json.
 Exit status: 0 when rows were written, 1 when there were none, 2 on an
-error.
+error, 130 when interrupted.
 ` + inputArgumentHelp + `  OUTPUT_DIR           a new or empty directory for the output files
 ` + inputOptionsHelp + `  --include-thinking   emit thinking and reasoning blocks as rows of type
                        thinking
@@ -63,7 +63,8 @@ const fleetUsage = `Usage: doubleagent fleet [-o CSV] INPUT [INPUT ...]
 
 Merge saved outputs of collect --inventory, or directories of them, into one
 CSV with a row per host and agent, and print a rollup per agent. Exit
-status: 0 when rows were written, 1 when there were none, 2 on an error.
+status: 0 when rows were written, 1 when there were none, 2 on an error,
+130 when interrupted.
 
   INPUT                a saved stdout of collect --inventory, or a directory
                        of them
