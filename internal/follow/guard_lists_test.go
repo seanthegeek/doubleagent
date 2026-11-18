@@ -42,9 +42,12 @@ func reviewedImports() map[string]string {
 		// it; the names used are NewWriter and the Writer's WriteAll, which
 		// take no path.
 		"encoding/csv",
-		// Parses a file: URI from evidence text into its parts
-		// (evidencepath.FromFileURI); the names used are Parse, PathUnescape
-		// and the URL type, which work on text and take no path.
+		// Parses URLs from evidence text into their parts: a file: URI
+		// (evidencepath.FromFileURI), a repository or server address
+		// (cursor, qwencode, tabby) and a percent-escaped project name
+		// (geminicli); the names used are Parse and PathUnescape, with the
+		// parsed URL's fields and Hostname and EscapedPath methods, which
+		// work on text and take no path.
 		"net/url",
 		// Reads a mail date from evidence text (Cody's chat ids); the one
 		// name used is ParseDate, which works on text and takes no path.
@@ -55,9 +58,9 @@ func reviewedImports() map[string]string {
 		"html",
 		// Reads the command line of each subcommand from the argument list
 		// it is given; the names used are NewFlagSet, ContinueOnError and the
-		// FlagSet's SetOutput (always io.Discard), Usage, StringVar, BoolVar,
-		// Func, Parse, Visit, Arg, Args and NArg, and the Flag type, none of
-		// which takes a path.
+		// FlagSet type with its SetOutput (always io.Discard), StringVar,
+		// BoolVar, Func, Parse, Name, Arg, Args and NArg, none of which takes
+		// a path.
 		"flag"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
