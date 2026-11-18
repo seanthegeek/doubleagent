@@ -168,7 +168,8 @@ func (s *store) readUsers() (map[string]string, error) {
 	return users, err
 }
 
-// orText returns a column as Python's str(value or "") writes it.
+// orText returns a column as row text, "" for an empty value (NULL, zero,
+// or empty text or blob).
 func orText(value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""
@@ -299,7 +300,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	}
 	s.emit(s.parser.row(s.artifact, rowSpec{line: digitsLine(thread.parentID), sessionID: thread.parentID,
 		projectPath: project, timestamp: parser.ColumnTime(thread.row.Get("created_at")),
-		text: joinParts(parts...)}))
+		text: parser.JoinNonEmpty(" | ", parts...)}))
 	for i, message := range messages {
 		s.emit(s.messageRow(message, attachments[i], thread.parentID, project))
 	}
@@ -370,7 +371,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 		missing = "page row missing"
 	}
 	start := spec
-	start.text = joinParts("page start", labelledColumn("title ", page.row.Get("title")), author,
+	start.text = parser.JoinNonEmpty(" | ", "page start", labelledColumn("title ", page.row.Get("title")), author,
 		labelledColumn("code_source ", page.row.Get("code_source_id")), missing)
 	s.emit(s.parser.row(s.artifact, start))
 	if content := page.row.Get("content"); !content.IsEmpty() {
@@ -405,7 +406,7 @@ func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments
 }
 
 // labelledColumn returns label and the column's text when the column is
-// truthy, else "".
+// not empty, else "".
 func labelledColumn(label string, value sqlitefile.Value) string {
 	if value.IsEmpty() {
 		return ""

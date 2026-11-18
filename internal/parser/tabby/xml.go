@@ -70,9 +70,9 @@ func parseXML(data []byte) (*element, error) {
 			if root != nil && len(open) == 0 {
 				return nil, xmlError(decoder, "a second root element")
 			}
-			node, problem := newElement(token)
-			if problem != "" {
-				return nil, xmlError(decoder, problem)
+			node, err := newElement(token)
+			if err != nil {
+				return nil, xmlError(decoder, err.Error())
 			}
 			if len(open) == 0 {
 				root = node
@@ -95,20 +95,21 @@ func parseXML(data []byte) (*element, error) {
 	return root, nil
 }
 
-// newElement returns the element a start tag opens, or why it is refused:
-// an attribute given twice. Namespace declarations are not attributes.
-func newElement(token xml.StartElement) (*element, string) {
+// newElement returns the element a start tag opens, or an error saying why
+// it is refused: an attribute given twice. Namespace declarations are not
+// attributes.
+func newElement(token xml.StartElement) (*element, error) {
 	node := &element{tag: qualifiedName(token.Name), attributes: map[string]string{}}
 	for _, attribute := range token.Attr {
 		name := qualifiedName(attribute.Name)
 		if _, seen := node.attributes[name]; seen {
-			return nil, "an attribute given twice"
+			return nil, errors.New("an attribute given twice")
 		}
 		if attribute.Name.Space != "xmlns" && attribute.Name.Local != "xmlns" {
 			node.attributes[name] = attribute.Value
 		}
 	}
-	return node, ""
+	return node, nil
 }
 
 // xmlError words a reading failure with the line and column the decoder
