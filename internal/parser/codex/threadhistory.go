@@ -85,7 +85,7 @@ func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, error) 
 
 // parseThreadHistory emits the rows of thread_history_1.sqlite: the turns
 // and their items in rollout order, thread by thread, then a problem row
-// per item that does not decode.
+// per item that does not decode or holds a member of the wrong kind.
 func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	turns, items, err := readThreadHistory(artifact.DiskPath)
 	if err != nil {
@@ -106,7 +106,9 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 			problems = append(problems, itemProblem{event.threadID, thread, problem})
 			continue
 		}
-		p.itemEventRows(artifact, event, thread, item, options, tasked, emit)
+		for _, problem := range p.itemEventRows(artifact, event, thread, item, options, tasked, emit) {
+			problems = append(problems, itemProblem{event.threadID, thread, problem})
+		}
 	}
 	for _, entry := range problems {
 		project := ""
@@ -120,10 +122,12 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 
 // itemEventRows emits the rows of one thread item. A subagent thread's
 // first user message is its task; tasked holds the threads whose first
-// user message has been seen.
+// user message has been seen. It returns the problems of the item's
+// members of the wrong kind.
 func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thread *sqlitefile.Row,
-	item jsonvalue.Value, options parser.Options, tasked map[string]bool, emit parser.Emit) {
-	for _, part := range threadItemRows(item, event.row) {
+	item jsonvalue.Value, options parser.Options, tasked map[string]bool, emit parser.Emit) parser.Problems {
+	var problems parser.Problems
+	for _, part := range threadItemRows(item, event.row, &problems) {
 		if part.turnType == timeline.TurnThinking && !options.IncludeThinking {
 			continue
 		}
@@ -142,6 +146,7 @@ func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thr
 		row.Text = timeline.Compact(text)
 		emit(row)
 	}
+	return problems
 }
 
 // turnRow emits the row of a turn's start, or of the end of a turn that
@@ -270,8 +275,13 @@ type threadRow struct {
 // item_json is item: a user message, an agent message or reasoning at the
 // item's completion, nothing for a hook prompt or a compaction, and any
 // other item renamed to the turn-item form and read as itemRows reads it.
-// A time the row does not record is its creation time.
-func threadItemRows(item jsonvalue.Value, row sqlitefile.Row) []threadRow {
+// A time the row does not record is its creation time. A user message's
+// content, or a reasoning's summary or content, that is not an array adds
+// a problem at the rowid.
+func threadItemRows(item jsonvalue.Value, row sqlitefile.Row, problems *parser.Problems) []threadRow {
+	list := func(member string) []jsonvalue.Value {
+		return parser.ArrayMember(item.Get(member), member, int(row.Rowid), problems)
+	}
 	created := row.Get("created_at_ms")
 	started, completed := row.Get("started_at_ms"), row.Get("completed_at_ms")
 	if started.IsNull() {
@@ -288,13 +298,13 @@ func threadItemRows(item jsonvalue.Value, row sqlitefile.Row) []threadRow {
 	}
 	switch itemType := parser.Text(item.Get("type")); itemType {
 	case "userMessage":
-		return one(timeline.TurnUser, joinedTexts(item.Get("content"), "text"))
+		return one(timeline.TurnUser, joinedTexts(list("content"), "text"))
 	case "agentMessage":
 		return one(timeline.TurnAssistant, parser.Text(item.Get("text")))
 	case "reasoning":
-		text := joinedTexts(item.Get("summary"), "")
+		text, content := joinedTexts(list("summary"), ""), list("content")
 		if text == "" {
-			text = joinedTexts(item.Get("content"), "")
+			text = joinedTexts(content, "")
 		}
 		return one(timeline.TurnThinking, text)
 	case "hookPrompt", "contextCompaction":
@@ -312,11 +322,10 @@ func threadItemRows(item jsonvalue.Value, row sqlitefile.Row) []threadRow {
 }
 
 // joinedTexts returns the strings of a list joined by LF, taking key of
-// each member that is a text block when key is given; "" for a value that
-// is not a list.
-func joinedTexts(values jsonvalue.Value, key string) string {
+// each member that is a text block when key is given.
+func joinedTexts(values []jsonvalue.Value, key string) string {
 	var parts []string
-	for _, value := range values.Items() {
+	for _, value := range values {
 		if key != "" && parser.IsText(value.Get("type"), "text") {
 			value = value.Get(key)
 		}
