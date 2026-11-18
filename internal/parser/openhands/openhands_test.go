@@ -3,6 +3,8 @@ package openhands
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -189,4 +191,44 @@ func parseRel(t *testing.T, home, rel string) []timeline.Row {
 		t.Fatal(err)
 	}
 	return rows
+}
+
+// problemTexts returns the texts of the rows that report a problem.
+func problemTexts(rows []timeline.Row) []string {
+	var texts []string
+	for _, row := range rows {
+		if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+			texts = append(texts, row.Text)
+		}
+	}
+	return texts
+}
+
+func TestAConversationWithNoEventReportsItsFilesOnItsState(t *testing.T) {
+	const conversation = ".openhands/conversations/0123456789abcdef0123456789abcdef/"
+	const event = conversation + "events/event-00000-0123abcd.json"
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  []string
+	}{
+		{"a state cut off", map[string]string{conversation + "base_state.json": `{"agent": {"llm": {"model": "gpt`},
+			[]string{"parser: base_state.json could not be decoded (invalid JSON at line 1, column 33: unexpected end of JSON input)"}},
+		{"a state that is not an object", map[string]string{conversation + "base_state.json": `[1]`},
+			[]string{"parser: base_state.json is not a JSON object"}},
+		{"a damaged meta.json", map[string]string{conversation + "base_state.json": `{}`,
+			conversation + "meta.json": `{`},
+			[]string{"parser: meta.json could not be decoded (invalid JSON at line 1, column 2: unexpected end of JSON input)"}},
+		{"a whole state", map[string]string{conversation + "base_state.json": `{"agent":{"llm":{"model":"m"}}}`}, nil},
+		{"the first event reports them instead", map[string]string{conversation + "base_state.json": `[1]`,
+			event: `{"kind": "MessageEvent"}`}, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := writeTree(t, t.TempDir(), test.files)
+			if got := problemTexts(parseRel(t, home, conversation+"base_state.json")); !slices.Equal(got, test.want) {
+				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+		})
+	}
 }
