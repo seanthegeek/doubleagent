@@ -1,6 +1,7 @@
 package input
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +11,10 @@ func FuzzParseManifest(fuzz *testing.F) {
 	fuzz.Add([]byte(collectedRow("a", "/home/a", "claude-code", "/home/a/.claude/x", "fs/home/a/.claude/x") + "\n"))
 	fuzz.Add([]byte("[1]\n\xff\xfe{\"size\": \"1_0\", \"status\": \"collected\", \"type\": \"file\"}\r\n \n{"))
 	fuzz.Fuzz(func(t *testing.T, data []byte) {
-		rows, bad := parseManifest(data)
+		rows, bad, _, err := parseManifest(t.Context(), bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
 		for _, row := range rows {
 			if !row.IsObject() {
 				t.Fatalf("kept a row that is not an object: %v", row.JSON())

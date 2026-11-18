@@ -57,6 +57,8 @@ func laterDifferences() []Difference {
 		{Number: 120, Summary: "a value an error: message quotes is in Go's double-quoted form",
 			Text: quotedValueText},
 		{Number: 121, Summary: "options come before the input", Arguments: optionsFirst},
+		{Number: 122, Summary: "a note counting one manifest row that did not parse says row",
+			Text: oneManifestRowText},
 		{Number: 130, Summary: "a file that holds secrets gives only where it stopped decoding, " +
 			"not the reader's detail", Text: secretFileErrorText},
 		{Number: 150, Summary: "a database's -shm file is never read, so it is never a problem",
@@ -101,6 +103,17 @@ func secretFileErrorText(text string) (string, int) {
 		})
 	}
 	return text, found
+}
+
+// oneManifestRow is the note of one manifest row that did not parse, in
+// either number.
+var oneManifestRow = regexp.MustCompile(`(^|[^0-9])1 manifest rows? did not parse`)
+
+// oneManifestRowText writes each note of oneManifestRow in the singular and
+// returns the count.
+func oneManifestRowText(text string) (string, int) {
+	found := len(oneManifestRow.FindAllStringIndex(text, -1))
+	return oneManifestRow.ReplaceAllString(text, "${1}1 manifest row did not parse"), found
 }
 
 // quotedValue is a value an error: message quotes at the start of its

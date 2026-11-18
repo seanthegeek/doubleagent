@@ -262,7 +262,7 @@ func manifestCases() []inputCase {
 			},
 			check: func(t *testing.T, collection *Collection, err error) {
 				opened(t, err)
-				wantSlice(t, "notes", collection.Notes, []string{"1 manifest rows did not parse"})
+				wantSlice(t, "notes", collection.Notes, []string{"1 manifest row did not parse"})
 				wantSlice(t, "problems", collection.Problems, []string{"/x: missing from the collection"})
 			}})
 	}

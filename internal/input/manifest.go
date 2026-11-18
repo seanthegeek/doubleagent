@@ -1,15 +1,16 @@
 package input
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -53,13 +54,12 @@ func (c *Collection) loadCollected(ctx context.Context, matcher *catalog.Matcher
 	if c.Host == "" && !c.Summary.IsEmpty() {
 		c.Host = textOf(c.Summary.Get("hostname"))
 	}
-	data, err := osfile.ReadFile(joinPath(c.Root, "manifest.jsonl"))
+	rows, bad, err := c.readManifest(ctx)
 	if err != nil {
 		return err
 	}
-	rows, bad := parseManifest(data)
 	if bad > 0 {
-		c.Notes = append(c.Notes, strconv.Itoa(bad)+" manifest rows did not parse")
+		c.Notes = append(c.Notes, strconv.Itoa(bad)+" manifest "+plural(bad, "row")+" did not parse")
 	}
 	c.Manifest = rows
 	load := newManifestLoad(c, matcher)
@@ -73,35 +73,63 @@ func (c *Collection) loadCollected(ctx context.Context, matcher *catalog.Matcher
 	return nil
 }
 
-// parseManifest splits manifest bytes into rows: each LF-ended line decoded
-// as UTF-8 with replacement and trimmed of JSON whitespace, blank lines
-// skipped. A line that is not a JSON object, or a collected file row whose
-// size int() would refuse, is counted as bad instead of kept.
-func parseManifest(data []byte) (rows []jsonvalue.Value, bad int) {
+// readManifest reads manifest.jsonl under the root as a stream through
+// parseManifest; a line too long to be a row is a problem naming its
+// number.
+func (c *Collection) readManifest(ctx context.Context) ([]jsonvalue.Value, int, error) {
+	path := joinPath(c.Root, "manifest.jsonl")
+	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer file.Close()
+	rows, bad, long, err := parseManifest(ctx, file)
+	if err != nil {
+		return nil, 0, &fs.PathError{Op: "read", Path: path, Err: err}
+	}
+	for _, number := range long {
+		c.Problems = append(c.Problems, "manifest.jsonl line "+strconv.Itoa(number)+": longer than "+
+			strconv.Itoa(maxManifestLine)+" bytes, not read")
+	}
+	return rows, bad, nil
+}
+
+// plural returns noun, with an s unless count is one.
+func plural(count int, noun string) string {
+	if count == 1 {
+		return noun
+	}
+	return noun + "s"
+}
+
+// parseManifest reads manifest rows from r: each line decoded as UTF-8 with
+// replacement and trimmed of JSON whitespace, blank lines skipped. A line
+// that is not a JSON object, or a collected file row whose size parseSize
+// refuses, is counted as bad instead of kept; the numbers of the lines
+// longer than maxManifestLine are returned apart.
+func parseManifest(ctx context.Context, r io.Reader) (rows []jsonvalue.Value, bad int, long []int, err error) {
 	rows = []jsonvalue.Value{}
-	for len(data) > 0 {
-		line := data
-		if end := bytes.IndexByte(data, '\n'); end >= 0 {
-			line, data = data[:end], data[end+1:]
-		} else {
-			data = nil
+	err = readLines(ctx, r, maxManifestLine, func(number int, line []byte, tooLong bool) {
+		if tooLong {
+			long = append(long, number)
+			return
 		}
 		text := strings.Trim(textlines.ValidUTF8(line), jsonSpace)
 		if text == "" {
-			continue
+			return
 		}
 		row, err := jsonvalue.DecodeString(text)
 		if err != nil || !row.IsObject() || !sizeReadable(row) {
 			bad++
-			continue
+			return
 		}
 		rows = append(rows, row)
-	}
-	return rows, bad
+	})
+	return rows, bad, long, err
 }
 
 // sizeReadable reports whether a row that becomes an artifact has a size
-// int() accepts; other rows are not asked.
+// parseSize reads; other rows are not asked.
 func sizeReadable(row jsonvalue.Value) bool {
 	if !isText(row.Get("status"), "collected") || !isText(row.Get("type"), "file") {
 		return true
@@ -110,16 +138,20 @@ func sizeReadable(row jsonvalue.Value) bool {
 	return ok
 }
 
+// maxSummary is the largest collection.json read; the collector's is a few
+// kilobytes, its project list included.
+const maxSummary = 16 << 20
+
 // readSummary reads collection.json when it is a regular file. A file that
-// is not strict UTF-8, not JSON, or a JSON value that is true but not an
-// object leaves a note and no summary; a false value (null, [], {}) is no
-// summary and no note.
+// is larger than maxSummary, not strict UTF-8, not JSON, or a JSON value
+// that is true but not an object leaves a note and no summary; a false
+// value (null, [], {}) is no summary and no note.
 func (c *Collection) readSummary() {
 	path := joinPath(c.Root, "collection.json")
 	if !lstatMode(path).IsRegular() {
 		return
 	}
-	data, err := osfile.ReadFile(path)
+	data, err := readBounded(path, maxSummary)
 	if err != nil {
 		c.Notes = append(c.Notes, "collection.json unreadable: "+errorReason(err))
 		return
@@ -132,6 +164,28 @@ func (c *Collection) readSummary() {
 	if summary.IsObject() {
 		c.Summary = summary
 	}
+}
+
+// errTooLarge is the reason a file larger than its bound is not read.
+var errTooLarge = errors.New("larger than the analyzer reads")
+
+// readBounded returns the content of the regular file at path, or
+// errTooLarge, after reading at most limit+1 bytes, when it holds more
+// than limit.
+func readBounded(path string, limit int64) ([]byte, error) {
+	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, &fs.PathError{Op: "read", Path: path, Err: err}
+	}
+	if int64(len(data)) > limit {
+		return nil, errTooLarge
+	}
+	return data, nil
 }
 
 // decodeSummary decodes collection.json bytes as strict UTF-8 JSON.
