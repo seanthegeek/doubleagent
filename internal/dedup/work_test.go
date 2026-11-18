@@ -110,6 +110,8 @@ func otherWorkCases() []workCase {
 				}
 				return primary, secondaryOf(secondary)
 			}},
+		{name: "widened rows each candidate bounded by its own session", hooks: sampleHooks(),
+			build: boundedBySessions},
 		{name: "primary rows in descending time", build: func(n int) ([]timeline.Row, []Secondary) {
 			rows := make([]timeline.Row, n)
 			for i := range rows {
@@ -133,6 +135,51 @@ func TestDeduplicateWorkGrowsWithTheRows(t *testing.T) {
 			t.Logf("%d steps for %d rows, %d for %d", smaller, small, larger, 4*small)
 			if larger > 5*smaller {
 				t.Fatalf("work grew from %d to %d steps for four times the rows", smaller, larger)
+			}
+		})
+	}
+}
+
+// boundedBySessions returns n primary rows of one text, each in a session
+// of its own, a secondary row in each of those sessions that bounds the
+// primary row there, and n widened rows of no scope before them all, so
+// that every widened row may take none of the n candidates. Each bounding
+// row takes its own session's primary row, and each widened row is then a
+// copy of a bounding row.
+func boundedBySessions(n int) ([]timeline.Row, []Secondary) {
+	primary, secondary := make([]timeline.Row, n), make([]timeline.Row, 2*n)
+	for i := range primary {
+		session := fmt.Sprint("s", i)
+		primary[i] = repeated(1000+i, "/t/p.jsonl", i)
+		secondary[i] = repeated(500, "/h/s.jsonl", i)
+		primary[i].SessionID, secondary[i].SessionID = session, session
+		secondary[n+i] = repeated(0, "/h/w.jsonl", i)
+	}
+	for _, rows := range [][]timeline.Row{primary, secondary} {
+		for i := range rows {
+			rows[i].Agent, rows[i].Text = "hooked", "/x"
+		}
+	}
+	return primary, secondaryOf(secondary)
+}
+
+func TestWidenedRowsLookAtNoCandidateTheirBoundsRefuse(t *testing.T) {
+	tests := []struct {
+		rows, steps int
+	}{
+		{1000, 20035},
+		{4000, 80035},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprint(test.rows, " candidates each bounded by its own session"), func(t *testing.T) {
+			primary, secondary := boundedBySessions(test.rows)
+			kept, counts, steps := deduplicate(primary, secondary, sampleHooks())
+			if counts["hooked"] != 2*test.rows || len(kept) != test.rows {
+				t.Fatalf("dropped %v and kept %d rows, want %d dropped and %d kept", counts,
+					len(kept), 2*test.rows, test.rows)
+			}
+			if steps != test.steps {
+				t.Errorf("%d steps, want %d", steps, test.steps)
 			}
 		})
 	}

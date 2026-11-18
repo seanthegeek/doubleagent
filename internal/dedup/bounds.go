@@ -59,10 +59,13 @@ func (m matcher) newBounds(secondary []Secondary) *bounds {
 	return limits
 }
 
-// after returns the earliest time after millis of a secondary row of the
-// same text that could take a candidate of a session and project, and
-// false when there is none.
-func (b *bounds) after(text identity, millis int64, session, project string) (int64, bool) {
+// latestUpTo returns the latest time at or before millis of a secondary
+// row of the same text that could take a candidate of a session and
+// project, and false when there is none. A widened row at a time may take
+// the candidate at millis exactly when this is at or before its own time:
+// no such row lies after the widened row and at or before the candidate.
+func (b *bounds) latestUpTo(text identity, millis int64, session, project string) (int64,
+	bool) {
 	lists := [][]int64{b.byNone[text]}
 	if session != "" {
 		lists = append(lists, b.bySession[scopedText{text, session}])
@@ -70,7 +73,7 @@ func (b *bounds) after(text identity, millis int64, session, project string) (in
 	if project != "" {
 		lists = append(lists, b.byProjectOnly[scopedText{text, project}])
 	}
-	later, found := int64(0), false
+	latest, found := int64(0), false
 	for _, times := range lists {
 		position, _ := slices.BinarySearchFunc(times, millis, func(moment, target int64) int {
 			if moment <= target {
@@ -78,41 +81,28 @@ func (b *bounds) after(text identity, millis int64, session, project string) (in
 			}
 			return 1
 		})
-		if position < len(times) && (!found || times[position] < later) {
-			later, found = times[position], true
+		if position > 0 && (!found || times[position-1] > latest) {
+			latest, found = times[position-1], true
 		}
 	}
-	return later, found
+	return latest, found
 }
 
-// forwardBound is the bound of one widened row at millis: the time from
-// which it may not take a candidate.
+// forwardBound is the bound of one widened row at millis: it may not take a
+// candidate when a secondary row of its text that could take that candidate
+// lies after millis and at or before the candidate.
 type forwardBound struct {
-	limits  *bounds
-	text    identity
-	millis  int64
-	primary []timeline.Row
-}
-
-// forCandidate returns the bound for the candidate at a primary row index.
-func (f *forwardBound) forCandidate(index int) (int64, bool) {
-	candidate := f.primary[index]
-	return f.limits.after(f.text, f.millis, candidate.SessionID, candidate.ProjectPath)
-}
-
-// shared returns a bound that holds for every candidate filed under where:
-// each one's own bound is at most this.
-func (f *forwardBound) shared(where scope) (int64, bool) {
-	return f.limits.after(f.text, f.millis, where.session, where.project)
+	limits *bounds
+	text   identity
+	millis int64
 }
 
 // candidateBound returns the bound of a widened row, or nil when the row is
 // undated.
-func (m matcher) candidateBound(limits *bounds, primary []timeline.Row,
-	row timeline.Row) *forwardBound {
+func (m matcher) candidateBound(limits *bounds, row timeline.Row) *forwardBound {
 	millis, dated := m.matchTime(row, true)
 	if !dated {
 		return nil
 	}
-	return &forwardBound{limits, m.byText(row), millis, primary}
+	return &forwardBound{limits, m.byText(row), millis}
 }

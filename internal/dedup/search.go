@@ -152,21 +152,18 @@ func (r *refusal) classOf(byFile map[string]map[int]int) map[int]int {
 
 // search is one secondary row's lookup in one pass: the candidates it
 // refuses for their file, and for a widened row the bound past which it may
-// not take a candidate, with cutoff, a time from which every candidate it
-// looks at is past its bound.
+// not take a candidate. A bound is given only against the primary store,
+// where no file is refused.
 type search struct {
-	state     *pass
-	refused   *refusal
-	bound     *forwardBound
-	cutoff    int64
-	hasCutoff bool
+	state   *pass
+	refused *refusal
+	bound   *forwardBound
 }
 
 // accept says whether the candidate at position may be taken, recording a
 // refusal that holds for every later lookup: a taken candidate, or one from
-// the refused file. ahead is true for a candidate after the row's time,
-// the only ones a bound can refuse.
-func (q *search) accept(list *candidateList, position int, ahead bool) bool {
+// the refused file.
+func (q *search) accept(list *candidateList, position int) bool {
 	q.state.steps++
 	entry := list.stamps[position]
 	switch {
@@ -176,9 +173,6 @@ func (q *search) accept(list *candidateList, position int, ahead bool) bool {
 	case q.refused != nil && q.state.rows[entry.index].SourceFile == q.refused.file:
 		list.markFile(q.refused.file, position)
 		return false
-	case ahead && q.bound != nil:
-		limit, ok := q.bound.forCandidate(entry.index)
-		return !ok || entry.millis < limit
 	}
 	return true
 }
@@ -223,11 +217,11 @@ func (q *search) behindRow(list *candidateList, millis, low, high int64) (stamp,
 	end := min(firstFrom(list.stamps, millis), firstAfter(list.stamps, high))
 	position := list.previous(end-1, q.refused, steps)
 	for ; position >= lowest; position = list.previous(position-1, q.refused, steps) {
-		if !q.accept(list, position, false) {
+		if !q.accept(list, position) {
 			continue
 		}
 		earliest := list.next(firstFrom(list.stamps, list.stamps[position].millis), q.refused, steps)
-		for !q.accept(list, earliest, false) {
+		for !q.accept(list, earliest) {
 			earliest = list.next(earliest+1, q.refused, steps)
 		}
 		return list.stamps[earliest], true
@@ -240,17 +234,41 @@ func (q *search) behindRow(list *candidateList, millis, low, high int64) (stamp,
 func (q *search) aheadOfRow(list *candidateList, millis, low, high int64) (stamp, bool) {
 	steps := &q.state.steps
 	end := firstAfter(list.stamps, high)
-	if q.hasCutoff {
-		end = min(end, firstFrom(list.stamps, q.cutoff))
-	}
 	start := max(firstFrom(list.stamps, millis), firstFrom(list.stamps, low))
+	if q.bound != nil {
+		return q.boundedAhead(list, start, end)
+	}
 	position := list.next(start, q.refused, steps)
 	for ; position < end; position = list.next(position+1, q.refused, steps) {
-		if q.accept(list, position, true) {
+		if q.accept(list, position) {
 			return list.stamps[position], true
 		}
 	}
 	return stamp{}, false
+}
+
+// boundedAhead returns the first candidate from position start to before
+// end that a widened row may take under its bound, through the list's
+// blockTree for the row's text, closing there each candidate found taken.
+func (q *search) boundedAhead(list *candidateList, start, end int) (stamp, bool) {
+	key := treeKey{list, q.bound.text}
+	tree := q.state.trees[key]
+	if tree == nil {
+		tree = newBlockTree(list, q.bound, q.state.rows, q.state.used, &q.state.steps)
+		q.state.trees[key] = tree
+	}
+	for {
+		position := tree.first(start, end, q.bound.millis, &q.state.steps)
+		if position < 0 {
+			return stamp{}, false
+		}
+		if !q.state.used[list.stamps[position].index] {
+			return list.stamps[position], true
+		}
+		tree.close(position)
+		list.markTaken(position)
+		start = position + 1
+	}
 }
 
 // firstIn returns the first candidate of a list, in its order, that the row
@@ -259,7 +277,7 @@ func (q *search) firstIn(list *candidateList) (stamp, bool) {
 	steps := &q.state.steps
 	position := list.next(0, q.refused, steps)
 	for ; position < len(list.stamps); position = list.next(position+1, q.refused, steps) {
-		if q.accept(list, position, false) {
+		if q.accept(list, position) {
 			return list.stamps[position], true
 		}
 	}

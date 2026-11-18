@@ -69,19 +69,21 @@ func scopePlaces(session, project string) [][]scope {
 }
 
 // pass is one matching pass: the candidates filed by key, the rows their
-// indices name, which of them are taken, how many rows were filed, and the
-// work its lookups did.
+// indices name, which of them are taken, how many rows were filed, the
+// blockTrees widened rows have needed, and the work its lookups did.
 type pass struct {
 	buckets map[bucketKey]*bucket
 	rows    []timeline.Row
 	used    []bool
 	filed   int
+	trees   map[treeKey]*blockTree
 	steps   int
 }
 
 // newPass returns an empty pass over candidate rows.
 func newPass(rows []timeline.Row) *pass {
-	return &pass{buckets: map[bucketKey]*bucket{}, rows: rows, used: make([]bool, len(rows))}
+	return &pass{buckets: map[bucketKey]*bucket{}, rows: rows, used: make([]bool, len(rows)),
+		trees: map[treeKey]*blockTree{}}
 }
 
 // seal sorts the settled candidates once every one is filed.
@@ -123,9 +125,6 @@ func (m matcher) find(state *pass, row timeline.Row, tolerance float64, broaden 
 		query.refused = &refusal{row.SourceFile}
 	}
 	for _, entry := range m.lookups(row, broaden) {
-		if bound != nil && len(entry.keys) == 1 {
-			query.cutoff, query.hasCutoff = bound.shared(entry.keys[0].scope)
-		}
 		index, ok := m.pair(query, state.partsOf(entry), row, tolerance, forward, !broaden)
 		if ok {
 			return index, true
@@ -184,7 +183,7 @@ func (m matcher) againstPrimary(primary []timeline.Row, secondary []Secondary, l
 		seconds, widened := forward[secondaryIndex]
 		var bound *forwardBound
 		if limits != nil && widened {
-			bound = m.candidateBound(limits, primary, item.Row)
+			bound = m.candidateBound(limits, item.Row)
 		}
 		index, ok := m.find(state, item.Row, item.Tolerance, false, bound,
 			window{seconds, widened})
