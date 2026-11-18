@@ -111,7 +111,8 @@ func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems)
 }
 
 // toolCheckpoint emits a "tool checkpoint:" row timed by the file's name,
-// then the rows of its clientHistory items, which carry no time.
+// then the rows of its clientHistory items, which carry no time. A
+// clientHistory that is not an array adds a problem.
 func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
@@ -139,8 +140,8 @@ func (p *Parser) toolCheckpoint(artifact *input.Artifact, options parser.Options
 		parser.TextOr(document.Get("commitHash"), "-") + " prompt " + parser.TextOr(document.Get("messageId"), "-") +
 		" (from " + artifact.Rel + fromName
 	emit(p.systemRow(artifact, where{0, nameTime(match["time"]), sessionID, project}, text))
-	p.itemRows(artifact, options, document.Get("clientHistory").Items(), project, sessionID,
-		&problems, emit)
+	history := parser.ArrayMember(document.Get("clientHistory"), "clientHistory", 0, &problems)
+	p.itemRows(artifact, options, history, project, sessionID, &problems, emit)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }
 
@@ -184,7 +185,7 @@ func (p *Parser) clipboardImage(artifact *input.Artifact, match pathMatch, emit 
 // errorReport emits an "error report:" row timed by the file's name, then
 // the rows of the request's history items, which carry no time. The
 // context is the Content list sent, or an object whose requestContents
-// holds it.
+// holds it; a list of any other kind adds a problem.
 func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
@@ -204,11 +205,12 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, m
 		text += "\n" + stack.StringValue()
 	}
 	emit(p.systemRow(artifact, where{0, nameTime(match["time"]), "", project}, text))
-	context := document.Get("context")
+	context, member := document.Get("context"), "context"
 	if context.IsObject() {
-		context = context.Get("requestContents")
+		context, member = context.Get("requestContents"), "context.requestContents"
 	}
-	p.itemRows(artifact, options, context.Items(), project, "", &problems, emit)
+	history := parser.ArrayMember(context, member, 0, &problems)
+	p.itemRows(artifact, options, history, project, "", &problems, emit)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
