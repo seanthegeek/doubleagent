@@ -2,7 +2,7 @@ package jsonvalue
 
 import (
 	"encoding/json"
-	"math/big"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -48,7 +48,10 @@ func (v Value) Float() (float64, bool) {
 		return 0, false
 	}
 	value, err := strconv.ParseFloat(v.text, 64)
-	return value, err == nil
+	if err != nil {
+		return 0, false
+	}
+	return value, true
 }
 
 // Text returns v as row text: a string as it is, a number as the document
@@ -211,7 +214,8 @@ func (object *members) find(key string) int {
 }
 
 // Equal reports whether two values hold the same information: numbers
-// equal by value (1, 1.0 and 1e0 are equal), strings and booleans exactly,
+// equal by value, exactly, whatever their size (1, 1.0 and 1e0 are equal,
+// 0.1 and 0.10000000000000001 are not), strings and booleans exactly,
 // arrays item by item in order, and objects with the same keys holding equal
 // values whatever their order.
 func Equal(left, right Value) bool {
@@ -256,19 +260,86 @@ func objectsEqual(left, right Value) bool {
 	return true
 }
 
-// numbersEqual compares two numbers by value: two integers exactly, and
-// otherwise as the nearest float64 of each.
+// numbersEqual compares two numbers by value.
 func numbersEqual(left, right Value) bool {
-	if left.text == right.text {
-		return true
+	return left.text == right.text || canonicalNumber(left.text) == canonicalNumber(right.text)
+}
+
+// canonicalNumber returns a JSON number's value in one spelling, so two
+// numbers are equal by value exactly when these are equal: "0" for a zero
+// of either sign, otherwise an optional minus, the significant digits with
+// no leading or trailing zero, "e" and the power of ten of the last digit
+// (100 is "1e2", 1.50 is "15e-1"). It works on the text alone, so its cost
+// grows in step with the number's length however large the number is.
+func canonicalNumber(text string) string {
+	sign := ""
+	if after, negative := strings.CutPrefix(text, "-"); negative {
+		sign, text = "-", after
 	}
-	if !left.flag && !right.flag {
-		var leftInt, rightInt big.Int
-		_, leftOK := leftInt.SetString(left.text, 10)
-		_, rightOK := rightInt.SetString(right.text, 10)
-		return leftOK && rightOK && leftInt.Cmp(&rightInt) == 0
+	mantissa, exponent := text, ""
+	if position := strings.IndexAny(text, "eE"); position >= 0 {
+		mantissa, exponent = text[:position], text[position+1:]
 	}
-	leftFloat, leftErr := strconv.ParseFloat(left.text, 64)
-	rightFloat, rightErr := strconv.ParseFloat(right.text, 64)
-	return leftErr == nil && rightErr == nil && leftFloat == rightFloat
+	whole, fraction, _ := strings.Cut(mantissa, ".")
+	digits := strings.TrimLeft(whole+fraction, "0")
+	if digits == "" {
+		return "0"
+	}
+	significant := strings.TrimRight(digits, "0")
+	shift := int64(len(digits)-len(significant)) - int64(len(fraction))
+	return sign + significant + "e" + addToExponent(exponent, shift)
+}
+
+// decimalDigits is the most digits an exponent may have to be read as an
+// int64 with room to add a shift, which is at most a number's length.
+const decimalDigits = 18
+
+// addToExponent returns a JSON exponent ("", "7", "+07", "-3") plus shift,
+// as decimal text with no leading zero. An exponent too long for an int64
+// is at least 10^18 in size, more than any shift, so the shift changes only
+// its last digits and never its sign.
+func addToExponent(exponent string, shift int64) string {
+	negative := strings.HasPrefix(exponent, "-")
+	digits := strings.TrimLeft(strings.TrimLeft(exponent, "+-"), "0")
+	if len(digits) <= decimalDigits {
+		value, _ := strconv.ParseInt("0"+digits, 10, 64)
+		if negative {
+			value = -value
+		}
+		return strconv.FormatInt(value+shift, 10)
+	}
+	if negative {
+		shift = -shift
+	}
+	head, tail := digits[:len(digits)-decimalDigits], digits[len(digits)-decimalDigits:]
+	low, _ := strconv.ParseInt(tail, 10, 64)
+	switch low += shift; {
+	case low >= 1e18:
+		head, low = stepDecimal(head, 1), low-1e18
+	case low < 0:
+		head, low = stepDecimal(head, -1), low+1e18
+	}
+	result := strings.TrimLeft(head+fmt.Sprintf("%018d", low), "0")
+	if negative {
+		return "-" + result
+	}
+	return result
+}
+
+// stepDecimal returns a positive decimal plus one, or minus one, with a
+// carry or borrow through its digits; a borrow may leave a leading zero.
+func stepDecimal(digits string, step int) string {
+	out := []byte(digits)
+	for i := len(out) - 1; i >= 0; i-- {
+		switch {
+		case step > 0 && out[i] == '9':
+			out[i] = '0'
+		case step < 0 && out[i] == '0':
+			out[i] = '9'
+		default:
+			out[i] = byte(int(out[i]) + step)
+			return string(out)
+		}
+	}
+	return "1" + string(out)
 }
