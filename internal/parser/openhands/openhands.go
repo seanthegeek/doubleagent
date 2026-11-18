@@ -25,6 +25,7 @@
 package openhands
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -121,45 +122,13 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	return nil
 }
 
-// join returns the non-empty parts joined by " | ".
-func join(parts ...string) string {
-	return joinWith(" | ", parts)
-}
-
-// joinSpace returns the non-empty parts joined by a space.
-func joinSpace(parts ...string) string {
-	return joinWith(" ", parts)
-}
-
-// joinWith returns the non-empty parts joined by separator.
-func joinWith(separator string, parts []string) string {
-	var kept []string
-	for _, part := range parts {
-		if part != "" {
-			kept = append(kept, part)
-		}
-	}
-	return strings.Join(kept, separator)
-}
-
-// orDefault returns a value as text, or fallback when Python counts it as
-// false.
+// orDefault returns a value as row text, or fallback when the value is
+// empty (jsonvalue.Value.IsEmpty).
 func orDefault(value jsonvalue.Value, fallback string) string {
 	if !value.IsEmpty() {
 		return value.Text()
 	}
 	return fallback
-}
-
-// firstTruthy returns the first of the values that is true in Python, else
-// null.
-func firstTruthy(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values {
-		if !value.IsEmpty() {
-			return value
-		}
-	}
-	return jsonvalue.NewNull()
 }
 
 // isString reports whether value is the string want.
@@ -170,15 +139,6 @@ func isString(value jsonvalue.Value, want string) bool {
 // nonEmptyText returns a value's string when it is a non-empty string.
 func nonEmptyText(value jsonvalue.Value) (string, bool) {
 	return value.StringValue(), value.IsString() && value.StringValue() != ""
-}
-
-// compareNumbers orders two digit strings as numbers of any size.
-func compareNumbers(left, right string) int {
-	left, right = strings.TrimLeft(left, "0"), strings.TrimLeft(right, "0")
-	if len(left) != len(right) {
-		return len(left) - len(right)
-	}
-	return strings.Compare(left, right)
 }
 
 // mtimeOf returns a file's modification time in nanoseconds, 0 when it
@@ -300,21 +260,24 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, em
 		p.headerRows(artifact, conv, emit)
 	}
 	var problems parser.Problems
-	event, decoded, reason := loadJSON(artifact.DiskPath, &problems)
+	event, decoded, err := loadJSON(artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, conv.sessionID, conv.projectPath))
 		return
 	}
 	if !decoded || !event.IsObject() {
 		row := p.row(artifact, conv, timeline.TurnSystem)
-		row.Text = "parser: event file " + firstNonEmpty(reason, "is not a JSON object")
+		if err == nil {
+			err = errFileNotObject
+		}
+		row.Text = "parser: event file " + err.Error()
 		emit(row)
 		return
 	}
 	timestamp := conv.timestamp(event.Get("timestamp"))
 	model, found := conv.eventModel[name]
 	if !found {
-		model = firstNonEmpty(conv.initialModel, conv.model)
+		model = cmp.Or(conv.initialModel, conv.model)
 	}
 	var rows []timeline.Row
 	if before, ok := conv.modelBefore[name]; ok {
@@ -336,16 +299,6 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, em
 	}
 }
 
-// firstNonEmpty returns the first of the texts that is not empty.
-func firstNonEmpty(texts ...string) string {
-	for _, each := range texts {
-		if each != "" {
-			return each
-		}
-	}
-	return ""
-}
-
 // headerRows emits the conversation's start row, its initial model and
 // scratch rows, and the problems met reading its meta.json and
 // base_state.json.
@@ -364,7 +317,7 @@ func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit p
 		}
 		row := p.row(artifact, conv, timeline.TurnSystem)
 		row.TimestampUTC = conv.created
-		row.Model = firstNonEmpty(conv.initialModel, conv.model)
+		row.Model = cmp.Or(conv.initialModel, conv.model)
 		row.Text = text
 		emit(row)
 	}
@@ -385,7 +338,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 			}
 		}
 	}
-	if len(numbers) > 0 && compareNumbers(match[2], slices.MinFunc(numbers, compareNumbers)) != 0 {
+	if len(numbers) > 0 && parser.CompareDigits(match[2], slices.MinFunc(numbers, parser.CompareDigits)) != 0 {
 		return
 	}
 	var problems parser.Problems

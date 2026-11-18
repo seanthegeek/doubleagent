@@ -11,10 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of every file kind are proved against the Python analyzer by the
-// parser replay (internal/parity/replay), over the recorded fixtures; these
-// tests port what the Python tests call directly. Expected values come from
-// running the analyzer's functions.
+// The rows of every file kind are proved by the parser replay
+// (internal/parity/replay) over the recorded fixtures; these tests cover the
+// helpers the rows are built from.
 
 func TestNaiveReadsAZonelessISOTimeAndNothingElse(t *testing.T) {
 	tests := []struct {
@@ -26,16 +25,17 @@ func TestNaiveReadsAZonelessISOTimeAndNothingElse(t *testing.T) {
 		{"microseconds", "2026-10-01T08:00:00.123456", "2026-10-01T08:00:00.123456"},
 		{"seconds", "2026-10-01T08:00:00", "2026-10-01T08:00:00.000000"},
 		{"a space separator", "2026-10-01 08:00:00", "2026-10-01T08:00:00.000000"},
-		{"any one separator character", "2026-10-01X08:00:00", "2026-10-01T08:00:00.000000"},
+		{"another separator character", "2026-10-01X08:00:00", ""},
 		{"a lower case t", "2026-10-01t08:00:00", "2026-10-01T08:00:00.000000"},
 		{"a date alone", "2026-10-01", "2026-10-01T00:00:00.000000"},
-		{"an hour alone", "2026-10-01T08", "2026-10-01T08:00:00.000000"},
+		{"an hour alone", "2026-10-01T08", ""},
 		{"hours and minutes", "2026-10-01T08:30", "2026-10-01T08:30:00.000000"},
 		{"one fraction digit", "2026-10-01T08:00:00.1", "2026-10-01T08:00:00.100000"},
 		{"four fraction digits", "2026-10-01T08:00:00.1234", "2026-10-01T08:00:00.123400"},
 		{"a comma fraction", "2026-10-01T08:00:00,5", "2026-10-01T08:00:00.500000"},
 		{"a long fraction is cut", "2026-10-01T08:00:00.123456789012", "2026-10-01T08:00:00.123456"},
-		{"hour 24 is the next midnight", "2026-10-01T24:00:00", "2026-10-02T00:00:00.000000"},
+		{"hour 24", "2026-10-01T24:00:00", ""},
+		{"a zero year", "0000-01-01T00:00:00", ""},
 		{"the first year", "0001-01-01T00:00:00", "0001-01-01T00:00:00.000000"},
 		{"trailing space is padding", "2026-10-01T08:00:00 ", "2026-10-01T08:00:00.000000"},
 		{"Z means a zone", "2026-10-01T08:00:00Z", ""},
@@ -66,7 +66,7 @@ func TestNaiveReadsAZonelessISOTimeAndNothingElse(t *testing.T) {
 	}
 }
 
-func TestFloorDivideIsPythonsFloatFloorDivision(t *testing.T) {
+func TestFloorDivideFloorsFromTheRemainder(t *testing.T) {
 	tests := []struct {
 		left float64
 		want float64
@@ -118,22 +118,6 @@ func TestFormatOffsetWritesSignedHoursAndMinutes(t *testing.T) {
 	}
 }
 
-func TestCompareNumbersOrdersDigitStringsOfAnySize(t *testing.T) {
-	tests := []struct {
-		left, right string
-		want        int
-	}{
-		{"00001", "1", 0}, {"00002", "00010", -1}, {"99999", "100000", -1},
-		{"123456789012345678901234567890", "123456789012345678901234567891", -1}, {"2", "1", 1},
-	}
-	for _, test := range tests {
-		if got := compareNumbers(test.left, test.right); (got > 0) != (test.want > 0) ||
-			(got < 0) != (test.want < 0) {
-			t.Errorf("compareNumbers(%q, %q) = %d, want sign %d", test.left, test.right, got, test.want)
-		}
-	}
-}
-
 func TestWantsEventStateHistoryAndLegacyFiles(t *testing.T) {
 	const conversation = "0123456789abcdef0123456789abcdef"
 	const digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -169,7 +153,7 @@ func TestAJSONFileWithAByteOrderMarkDoesNotDecode(t *testing.T) {
 	if err := osfile.WriteFile(path, []byte("\xef\xbb\xbf{}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, decoded, reason := loadJSON(path, new(parser.Problems)); decoded || reason == "" {
-		t.Errorf("decoded %v with reason %q", decoded, reason)
+	if _, decoded, err := loadJSON(path, new(parser.Problems)); decoded || err == nil {
+		t.Errorf("decoded %v with error %v", decoded, err)
 	}
 }

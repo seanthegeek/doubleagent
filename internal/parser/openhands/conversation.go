@@ -1,20 +1,23 @@
 package openhands
 
 import (
+	"cmp"
 	"errors"
+	"fmt"
 	"io/fs"
 	"math"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -83,31 +86,35 @@ func ignoredLookupError(err error) bool {
 		errors.Is(err, syscall.ELOOP)
 }
 
+// errFileNotObject is the problem of a JSON file that holds something other
+// than an object.
+var errFileNotObject = errors.New("is not a JSON object")
+
 // loadJSON returns the JSON in the regular file at path and whether it
-// decoded, or why it did not: "could not be decoded (<reason>)". A file that
-// exists but cannot be read adds its unreadable problem to problems. A
-// missing file, a link or a directory gives nothing and no reason, since the
-// CLI writes no meta.json and that is not an error.
-func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, string) {
+// decoded, or the error that says why it did not: "could not be decoded
+// (<reason>)". A file that exists but cannot be read adds its unreadable
+// problem to problems. A missing file, a link or a directory gives nothing
+// and no error, since the CLI writes no meta.json and that is not an error.
+func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		if !ignoredLookupError(err) {
 			problems.AddUnreadable(0, path, err)
 		}
-		return jsonvalue.NewNull(), false, ""
+		return jsonvalue.NewNull(), false, nil
 	}
 	if !info.Mode().IsRegular() {
-		return jsonvalue.NewNull(), false, ""
+		return jsonvalue.NewNull(), false, nil
 	}
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
-		return jsonvalue.NewNull(), false, ""
+		return jsonvalue.NewNull(), false, nil
 	}
 	value, err := jsonvalue.Decode(data)
 	if err != nil {
-		return jsonvalue.NewNull(), false, "could not be decoded (" + err.Error() + ")"
+		return jsonvalue.NewNull(), false, fmt.Errorf("could not be decoded (%w)", err)
 	}
-	return value, true, ""
+	return value, true, nil
 }
 
 // loadObject returns the JSON object in the file at path, else null. A file
@@ -116,16 +123,16 @@ func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, st
 // line 1.
 func loadObject(path string, problems *parser.Problems) jsonvalue.Value {
 	var unread parser.Problems
-	value, decoded, reason := loadJSON(path, &unread)
+	value, decoded, err := loadJSON(path, &unread)
 	if len(unread) > 0 {
 		*problems = append(*problems, unread...)
 		return jsonvalue.NewNull()
 	}
-	if reason == "" && decoded && !value.IsObject() {
-		reason = "is not a JSON object"
+	if err == nil && decoded && !value.IsObject() {
+		err = errFileNotObject
 	}
-	if reason != "" {
-		problems.Add(1, filepath.Base(path)+" "+reason)
+	if err != nil {
+		problems.Add(1, filepath.Base(path)+" "+err.Error())
 	}
 	if value.IsObject() {
 		return value
@@ -181,7 +188,7 @@ func (p *Parser) eventFiles(directory string) []eventFile {
 		}
 	}
 	slices.SortStableFunc(files, func(left, right eventFile) int {
-		if order := compareNumbers(left.index, right.index); order != 0 {
+		if order := parser.CompareDigits(left.index, right.index); order != 0 {
 			return order
 		}
 		return strings.Compare(left.name, right.name)
@@ -196,7 +203,7 @@ func (p *Parser) load(directory string) *conversation {
 		actions: map[string][2]string{}}
 	meta := loadObject(filepath.Join(directory, "meta.json"), &conv.problems)
 	state := loadObject(filepath.Join(directory, "base_state.json"), &conv.problems)
-	conv.projectPath = parser.Text(firstTruthy(meta.Get("workspace").Get("working_dir"),
+	conv.projectPath = parser.Text(parser.FirstNonEmpty(meta.Get("workspace").Get("working_dir"),
 		state.Get("workspace").Get("working_dir")))
 	conv.model = parser.Text(state.Get("agent").Get("llm").Get("model"))
 	files := p.eventFiles(directory)
@@ -238,9 +245,11 @@ func (c *conversation) anchor(meta, first jsonvalue.Value) {
 	}
 }
 
-// floorDivide returns the floor of left over right as Python's float //
-// computes it, from the remainder, so a quotient that rounds up in a plain
-// division does not.
+// floorDivide returns the floor of left over right, computed from the
+// remainder (math.Mod) rather than from left/right, whose rounding can
+// carry a quotient just below an integer up to it: 899.9999999999999 over
+// 900 is 0 quarters, not 1. Once the remainder is taken away the quotient
+// is a whole number up to rounding error, so it is rounded to the nearest.
 func floorDivide(left, right float64) float64 {
 	remainder := math.Mod(left, right)
 	quotient := (left - remainder) / right
@@ -272,11 +281,11 @@ func header(conv *conversation, meta, state jsonvalue.Value, events int, first j
 		}
 		return ""
 	}
-	model := firstNonEmpty(conv.initialModel, conv.model)
+	model := cmp.Or(conv.initialModel, conv.model)
 	if model != "" {
 		model = "model=" + model
 	}
-	return join("conversation start", parser.Text(meta.Get("title")), labelled("id", meta.Get("id")),
+	return parser.JoinNonEmpty(" | ", "conversation start", parser.Text(meta.Get("title")), labelled("id", meta.Get("id")),
 		labelled("parent", meta.Get("parent_conversation_id")),
 		labelled("forked_from", meta.Get("forked_from_conversation_id")), model,
 		labelled("status", state.Get("execution_status")), strconv.Itoa(events)+" events", basis)
@@ -284,20 +293,12 @@ func header(conv *conversation, meta, state jsonvalue.Value, events int, first j
 
 // formatOffset returns an offset in seconds as "UTC+HH:MM".
 func formatOffset(seconds int) string {
-	sign := "+"
+	sign := '+'
 	if seconds < 0 {
-		sign = "-"
+		sign = '-'
 		seconds = -seconds
 	}
-	return "UTC" + sign + pad2(seconds/3600) + ":" + pad2(seconds%3600/60)
-}
-
-// pad2 returns a number as two digits at least.
-func pad2(number int) string {
-	if number < 10 {
-		return "0" + strconv.Itoa(number)
-	}
-	return strconv.Itoa(number)
+	return fmt.Sprintf("UTC%c%02d:%02d", sign, seconds/3600, seconds%3600/60)
 }
 
 // aware returns the time of a text timeutil reads, else false.
@@ -313,83 +314,33 @@ func aware(value jsonvalue.Value) (time.Time, bool) {
 	return moment, err == nil
 }
 
-// naive returns the time of an ISO 8601 text that has no zone, else false:
-// a date, optionally followed by one separator character and an hour with
-// optional minutes, seconds and a fraction.
+// naiveShape is the shape of a time written with no zone: a date, or a
+// date and a time to the minute, second or fraction, as timeutil's forms
+// without the Z or offset (a T, t or space before the time). time.Parse is
+// given only text of this shape, since it would also take a one-digit hour.
+var naiveShape = regexp.MustCompile(`\A[0-9]{4}-[0-9]{2}-[0-9]{2}` +
+	`(?:[Tt ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:[.,][0-9]+)?)?)?\z`)
+
+// naive returns the time of a text holding a time with no zone, else false.
+// OpenHands writes an event's timestamp in host local time with
+// microseconds and no zone (research/openhands.md, "Joins and
+// timestamps"); the fraction is cut to microseconds and ASCII whitespace
+// around the text is ignored.
 func naive(value jsonvalue.Value) (time.Time, bool) {
-	if !value.IsString() || value.StringValue() == "" {
+	text := strings.Trim(value.StringValue(), textlines.ASCIIWhitespace)
+	if !value.IsString() || !naiveShape.MatchString(text) {
 		return time.Time{}, false
 	}
-	text := strings.Trim(value.StringValue(), " \t\n\r\f\v")
-	if len(text) < 10 || !digitsAt(text, 0, 4) || text[4] != '-' || !digitsAt(text, 5, 2) ||
-		text[7] != '-' || !digitsAt(text, 8, 2) {
-		return time.Time{}, false
+	if len(text) > 10 {
+		text = text[:10] + "T" + text[11:]
 	}
-	year, month, day := number(text[0:4]), number(text[5:7]), number(text[8:10])
-	rest := text[10:]
-	hour, minute, second, nanos := 0, 0, 0, 0
-	if rest != "" {
-		_, width := utf8.DecodeRuneInString(rest)
-		var ok bool
-		if hour, minute, second, nanos, ok = clock(rest[width:]); !ok {
-			return time.Time{}, false
+	for _, layout := range []string{"2006-01-02", "2006-01-02T15:04", "2006-01-02T15:04:05"} {
+		moment, err := time.Parse(layout, text)
+		if err == nil && moment.Year() >= 1 {
+			return moment.Truncate(time.Microsecond), true
 		}
 	}
-	moment := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-	if year < 1 || month < 1 || month > 12 || day < 1 || moment.Day() != day ||
-		int(moment.Month()) != month {
-		return time.Time{}, false
-	}
-	return moment.Add(time.Duration(hour)*time.Hour + time.Duration(minute)*time.Minute +
-		time.Duration(second)*time.Second + time.Duration(nanos)), true
-}
-
-// digitsAt reports whether count ASCII digits start at offset.
-func digitsAt(text string, offset, count int) bool {
-	if len(text) < offset+count {
-		return false
-	}
-	for _, char := range []byte(text[offset : offset+count]) {
-		if char < '0' || char > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-// number returns the value of ASCII digits.
-func number(digits string) int {
-	value, _ := strconv.Atoi(digits)
-	return value
-}
-
-// clock reads "HH[:MM[:SS[.f]]]", a fraction kept to microseconds, and
-// returns its parts and whether the text is exactly that. An hour of 24 is
-// the next midnight, as Python reads it.
-func clock(text string) (hour, minute, second, nanos int, ok bool) {
-	if !digitsAt(text, 0, 2) {
-		return 0, 0, 0, 0, false
-	}
-	hour, text = number(text[0:2]), text[2:]
-	if strings.HasPrefix(text, ":") && digitsAt(text, 1, 2) {
-		minute, text = number(text[1:3]), text[3:]
-		if strings.HasPrefix(text, ":") && digitsAt(text, 1, 2) {
-			second, text = number(text[1:3]), text[3:]
-			if text != "" && (text[0] == '.' || text[0] == ',') {
-				digits := len(text) - len(strings.TrimLeft(text[1:], "0123456789")) - 1
-				if digits < 1 {
-					return 0, 0, 0, 0, false
-				}
-				nanos = number((text[1:1+min(digits, 6)] + "000000")[:6]) * 1000
-				text = text[1+digits:]
-			}
-		}
-	}
-	if text != "" || minute > 59 || second > 59 || hour > 24 ||
-		(hour == 24 && (minute != 0 || second != 0 || nanos != 0)) {
-		return 0, 0, 0, 0, false
-	}
-	return hour, minute, second, nanos, true
+	return time.Time{}, false
 }
 
 // timestamp returns an event time as UTC: a naive time less the host's
@@ -510,7 +461,7 @@ func switchOf(event jsonvalue.Value) (string, string) {
 		return "", ""
 	}
 	suffix := ""
-	if profile, ok := nonEmptyText(firstTruthy(observation.Get("profile_name"), observation.Get("model"))); ok {
+	if profile, ok := nonEmptyText(parser.FirstNonEmpty(observation.Get("profile_name"), observation.Get("model"))); ok {
 		suffix = " profile=" + profile
 	}
 	if class := observation.Get("chosen_class"); !class.IsEmpty() {
