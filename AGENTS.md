@@ -1865,6 +1865,11 @@ skipped without it. Never add a `python3` requirement to the collector.
   writes its exit code to a file (`...; echo "exit $?" >"$out.rc"`) and the
   wait is for every `.rc` file. Never poll with `pgrep -f` or `ps | grep`,
   which match the waiting shell itself.
+- Never wait by searching a log for a line that says the job ended
+  (`until grep -q '^ok' "$log"; do sleep 15; done`). A job that ends another
+  way, or that prints its result in another form, never writes that line: a
+  compiled test binary ends with `PASS` where `go test` prints `ok`, and a
+  job that is killed prints nothing. The loop then waits for ever.
 - Bound every wait (`timeout 1800 ...`, or a loop of N rounds); a timeout
   is a failure.
 - Read results from the output files, not from whether the watcher ended.
