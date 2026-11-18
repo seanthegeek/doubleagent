@@ -81,3 +81,14 @@ func WrongEntries(member string, want jsonvalue.Kind, n int) string {
 	}
 	return member + " holds " + strconv.Itoa(n) + " entries that are not JSON " + kindName(want) + "s"
 }
+
+// ListOfKind returns the entries EntriesOfKind gives, in order, for a
+// parser that keeps them as a list, under the same rule.
+func ListOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
+	problems *Problems) []jsonvalue.Value {
+	var entries []jsonvalue.Value
+	for _, entry := range EntriesOfKind(value, member, want, line, problems) {
+		entries = append(entries, entry)
+	}
+	return entries
+}

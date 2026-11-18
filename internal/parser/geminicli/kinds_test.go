@@ -141,3 +141,25 @@ func TestASandboxTableOfTheWrongKindIsReported(t *testing.T) {
 		})
 	}
 }
+
+func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
+	for _, test := range sessionKindCases() {
+		t.Run(test.name, func(t *testing.T) {
+			entries, kind := `[7, "x"]`, "objects"
+			if strings.HasSuffix(test.name, "Ids") {
+				entries, kind = `[{}, 7]`, "strings"
+			}
+			want := []string{strings.Replace(test.want, " is not a JSON array",
+				" holds 2 entries that are not JSON "+kind, 1)}
+			if got := problemRows(t, test.rel, strings.ReplaceAll(test.document, "@", entries)); !slices.Equal(got, want) {
+				t.Errorf("problem rows %q, want %q", got, want)
+			}
+		})
+	}
+	t.Run("logs.json", func(t *testing.T) {
+		got := problemRows(t, ".gemini/tmp/proj/logs.json", `[{"sessionId": "s", "message": "hi"}, "x"]`)
+		if want := []string{"0 parser: logs.json holds 1 entry that is not a JSON object"}; !slices.Equal(got, want) {
+			t.Errorf("problem rows %q, want %q", got, want)
+		}
+	})
+}

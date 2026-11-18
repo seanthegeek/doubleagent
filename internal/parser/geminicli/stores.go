@@ -237,10 +237,8 @@ func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, 
 		emit(p.systemRow(artifact, place, "parser: logs.json is not a JSON array"))
 		return
 	}
-	for i, record := range records.Items() {
-		if !record.IsObject() {
-			continue
-		}
+	var problems parser.Problems
+	for i, record := range parser.EntriesOfKind(records, "logs.json", jsonvalue.Object, 0, &problems) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = i + 1
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
@@ -249,5 +247,8 @@ func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, 
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("message"))
 		emit(row)
+	}
+	for _, problem := range problems {
+		emit(p.systemRow(artifact, place, parser.ProblemPrefix+problem.Message))
 	}
 }

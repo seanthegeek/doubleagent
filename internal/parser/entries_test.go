@@ -116,3 +116,16 @@ func TestABreakStillLeavesTheReport(t *testing.T) {
 		t.Errorf("problems %v, want %v", problems, want)
 	}
 }
+
+func TestListOfKindKeepsTheEntriesInOrder(t *testing.T) {
+	value, err := jsonvalue.DecodeString(`["a", 1, "b"]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var problems Problems
+	got := ListOfKind(value, "ids", jsonvalue.String, 4, &problems)
+	want := Problems{{Line: 4, Message: "ids holds 1 entry that is not a JSON string"}}
+	if len(got) != 2 || got[0].StringValue() != "a" || got[1].StringValue() != "b" || !slices.Equal(problems, want) {
+		t.Errorf("got %v and %v, want [a b] and %v", got, problems, want)
+	}
+}

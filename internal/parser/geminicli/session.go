@@ -173,7 +173,7 @@ func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	if change := models.Change("model", t.sessionID, t.model); change != "" {
 		out = append(out, t.row(timeline.TurnSystem, change, ""))
 	}
-	thoughts := parser.ArrayMember(message.Get("thoughts"), "thoughts", t.line, &t.problems)
+	thoughts := parser.ListOfKind(message.Get("thoughts"), "thoughts", jsonvalue.Object, t.line, &t.problems)
 	if t.options.IncludeThinking {
 		out = append(out, t.thinkingRows(thoughts, content)...)
 	}
@@ -222,9 +222,6 @@ func (t *messageTurn) userRows(content jsonvalue.Value, answered map[string]bool
 func (t *messageTurn) thinkingRows(thoughts []jsonvalue.Value, content jsonvalue.Value) []timeline.Row {
 	var out []timeline.Row
 	for _, entry := range thoughts {
-		if !entry.IsObject() {
-			continue
-		}
 		text := parser.Text(entry.Get("description"))
 		if subject := parser.Text(entry.Get("subject")); subject != "" {
 			text = subject + ": " + text
@@ -244,11 +241,10 @@ func (t *messageTurn) thinkingRows(thoughts []jsonvalue.Value, content jsonvalue
 func (t *messageTurn) toolCalls(message jsonvalue.Value) []jsonvalue.Value {
 	var calls []jsonvalue.Value
 	seen := map[string]bool{}
-	for _, call := range parser.ArrayMember(message.Get("toolCalls"), "toolCalls", t.line, &t.problems) {
-		if call.IsObject() {
-			calls = append(calls, call)
-			seen[parser.Text(call.Get("id"))] = true
-		}
+	for _, call := range parser.EntriesOfKind(message.Get("toolCalls"), "toolCalls", jsonvalue.Object, t.line,
+		&t.problems) {
+		calls = append(calls, call)
+		seen[parser.Text(call.Get("id"))] = true
 	}
 	for _, part := range parts(message.Get("content")) {
 		call := part.Get("functionCall")
