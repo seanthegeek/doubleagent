@@ -3,6 +3,8 @@ package zed
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"math"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/zstdframe"
@@ -13,6 +15,19 @@ import (
 // small hostile frame cannot make the parser allocate without bound.
 const MaxDecompressed = 256 << 20
 
+// The decompression budget of one database, which bounds the work its
+// blobs cause in all, since MaxDecompressed bounds only one blob:
+// BudgetRatio times the database's size, and at least BudgetFloor.
+const (
+	// BudgetRatio is far above what zstd gives for the JSON text agents
+	// store, which rarely compresses past 20 to 1, so only a frame built to
+	// expand meets it.
+	BudgetRatio = 64
+	// BudgetFloor lets a small database hold four blobs of the largest
+	// size one blob may have.
+	BudgetFloor = 4 * MaxDecompressed
+)
+
 // Decompress returns the content of a zstd blob as Zed and OpenClaw write
 // it: one frame, with or without its content size in the header. A frame
 // cut off before its end gives the whole blocks decoded before the cut and
@@ -20,9 +35,24 @@ const MaxDecompressed = 256 << 20
 // compression. Data that is not zstd, is corrupt, or decodes to more than
 // MaxDecompressed bytes is an error in the binary's own words.
 func Decompress(blob []byte) ([]byte, error) {
+	out, _, err := decompress(blob, MaxDecompressed)
+	if errors.Is(err, zstdframe.ErrTooLarge) {
+		return nil, errBlobTooLarge
+	}
+	return out, err
+}
+
+// errBlobTooLarge reports a blob that decodes to more than MaxDecompressed
+// bytes.
+var errBlobTooLarge = errors.New("zstd: the content is larger than the decoder allows")
+
+// decompress returns the content of a zstd blob decoded up to limit bytes
+// and how many bytes were decoded, the content returned or not; past the
+// limit the error wraps zstdframe.ErrTooLarge.
+func decompress(blob []byte, limit int) ([]byte, int, error) {
 	var out bytes.Buffer
 	err := zstdframe.DecodeStream(bytes.NewReader(blob), func(chunk []byte) error {
-		if out.Len()+len(chunk) > MaxDecompressed {
+		if out.Len()+len(chunk) > limit {
 			return zstdframe.ErrTooLarge
 		}
 		out.Write(chunk)
@@ -30,10 +60,47 @@ func Decompress(blob []byte) ([]byte, error) {
 	})
 	switch {
 	case err == nil, errors.Is(err, zstdframe.ErrTruncated):
-		return out.Bytes(), nil
+		return out.Bytes(), out.Len(), nil
 	case errors.Is(err, zstdframe.ErrTooLarge):
-		return nil, errors.New("zstd: the content is larger than the decoder allows")
+		return nil, limit, err
 	}
 	detail := strings.TrimPrefix(err.Error(), zstdframe.ErrCorrupt.Error()+": ")
-	return nil, errors.New("zstd: corrupt data (" + detail + ")")
+	return nil, out.Len(), errors.New("zstd: corrupt data (" + detail + ")")
+}
+
+// Budget is what is left of the bytes the blobs of one database may
+// decompress to in all. Once it is spent, every further blob is refused
+// with an error that says so.
+type Budget struct {
+	total, left int
+}
+
+// NewBudget returns the budget of a database of size bytes: BudgetRatio
+// times its size, and at least floor (BudgetFloor outside the tests).
+func NewBudget(size int64, floor int) *Budget {
+	total := floor
+	if size > int64(math.MaxInt/BudgetRatio) {
+		total = math.MaxInt
+	} else if size > 0 {
+		total = max(total, int(size)*BudgetRatio)
+	}
+	return &Budget{total: total, left: total}
+}
+
+// Decompress decompresses a blob as Decompress does, also refusing one
+// that would take the database past its budget. The bytes a blob decodes,
+// refused or not, are taken from the budget.
+func (b *Budget) Decompress(blob []byte) ([]byte, error) {
+	limit := min(MaxDecompressed, b.left)
+	out, decoded, err := decompress(blob, limit)
+	b.left -= decoded
+	if !errors.Is(err, zstdframe.ErrTooLarge) {
+		return out, err
+	}
+	if limit == MaxDecompressed {
+		return nil, errBlobTooLarge
+	}
+	b.left = 0
+	return nil, fmt.Errorf("zstd: not decompressed: this database's blobs reached the limit of %d bytes "+
+		"decompressed in all", b.total)
 }

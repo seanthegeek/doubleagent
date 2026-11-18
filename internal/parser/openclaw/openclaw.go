@@ -30,6 +30,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 )
 
 // The state directory and the sessions directory below a home, and the
@@ -89,11 +90,15 @@ func (p *Parser) matchTranscript(rel string) (transcriptName, bool) {
 type Parser struct {
 	parser.Base
 	files patterns
+	// budgetFloor is the least decompression budget of a database or file
+	// (zed.BudgetFloor; a test lowers it).
+	budgetFloor int
 }
 
 // New returns the parser.
 func New() *Parser {
-	return &Parser{Base: parser.NewBase("openclaw", "openclaw"), files: newPatterns()}
+	return &Parser{Base: parser.NewBase("openclaw", "openclaw"), files: newPatterns(),
+		budgetFloor: zed.BudgetFloor}
 }
 
 // Marks says the parser records synced and relayed sessions.

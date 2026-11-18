@@ -6,6 +6,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -31,6 +32,8 @@ type agentDatabase struct {
 	chunksBySession map[string][]sqlitefile.Row
 	// queries counts the queries run, the work a test measures.
 	queries int
+	// budget is what the database's compressed blobs may still decode to.
+	budget *zed.Budget
 }
 
 // table returns the rows a query over the named table gives.
@@ -57,7 +60,8 @@ func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parser.Opt
 	defer database.Close()
 	reader := &agentDatabase{writer: &writer{Parser: p, artifact: artifact, options: options,
 		emit: emit}, database: database, store: newDatabaseState(),
-		windows: windowSet{byID: map[string]sqlitefile.Row{}}}
+		windows: windowSet{byID: map[string]sqlitefile.Row{}},
+		budget:  zed.NewBudget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)}
 	if err := reader.read(); err != nil {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return

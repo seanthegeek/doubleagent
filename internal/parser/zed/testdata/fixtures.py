@@ -1,8 +1,8 @@
 """Build the zed package's test databases.
 
-Run it from any directory:
+Run it with the analyzer's interpreter, which has zstandard, from any directory:
 
-    python3 -I internal/parser/zed/testdata/fixtures.py
+    analyzer/.venv/bin/python -I internal/parser/zed/testdata/fixtures.py
 
 Each database below is a threads.db written by SQLite itself with the agent's own schema, so the
 Go tests read files SQLite wrote. Pages are 512 bytes to keep the files small. No test runs this
@@ -15,6 +15,8 @@ import contextlib
 import json
 import sqlite3
 from pathlib import Path
+
+import zstandard
 
 HERE = Path(__file__).resolve().parent
 
@@ -33,6 +35,15 @@ def thread(number: int) -> tuple[str, str, str, str, bytes]:
     blob = json.dumps({"version": "0.3.0", "title": f"thread {number:03d}", "messages": []})
     updated = f"2026-03-01T09:{59 - number % 60:02d}:00.000000000+00:00"
     return f"t{number:03d}", f"thread {number:03d}", updated, "json", blob.encode()
+
+
+def large_thread(number: int) -> tuple[str, str, str, str, bytes]:
+    """Return a zstd thread row whose blob decompresses to exactly 40000 bytes."""
+    text = json.dumps({"version": "0.3.0", "title": f"large {number}", "messages": [], "pad": ""})
+    padded = text[:-2] + "x" * (40000 - len(text)) + '"}'
+    blob = zstandard.ZstdCompressor(level=3).compress(padded.encode())
+    updated = f"2026-03-01T10:0{number}:00.000000000+00:00"
+    return f"z{number}", f"large {number}", updated, "zstd", blob
 
 
 def write(name: str, rows: list[tuple[str, str, str, str, bytes]]) -> Path:
@@ -62,6 +73,7 @@ def main() -> None:
     threads = [thread(number) for number in range(THREAD_COUNT)]
     write("threads.db", threads)
     damage(write("damaged_threads.db", threads))
+    write("large_threads.db", [large_thread(number) for number in range(3)])
 
 
 if __name__ == "__main__":
