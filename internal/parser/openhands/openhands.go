@@ -65,8 +65,8 @@ var conversationGlobs = []struct {
 // Parser reads OpenHands files. It keeps the conversations it has loaded.
 type Parser struct {
 	parser.Base
-	event, eventName, state, history, legacy *regexp.Regexp
-	cache                                    map[cacheKey]*conversation
+	event, eventName, state, meta, history, legacy *regexp.Regexp
+	cache                                          map[cacheKey]*conversation
 	// legacyLowest is the lowest event number of each legacy session's
 	// events directory listed, so its other event files are passed over
 	// without a listing of their own.
@@ -99,6 +99,7 @@ func New() *Parser {
 		event:     regexp.MustCompile(`\A` + conversations + `events/event-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
 		eventName: regexp.MustCompile(`\Aevent-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
 		state:     regexp.MustCompile(`\A` + conversations + `base_state\.json\z`),
+		meta:      regexp.MustCompile(`\A` + conversations + `meta\.json\z`),
 		history:   regexp.MustCompile(`\A\.openhands/projects/([0-9a-f]{64})/prompt_history\.json\z`),
 		legacy: regexp.MustCompile(
 			`\A\.openhands/(?:sessions|users/[^/]+/conversations)/([^/]+)/events/([0-9]+)\.json\z`),
@@ -107,12 +108,12 @@ func New() *Parser {
 	}
 }
 
-// Wants reports whether the artifact is an event file, base_state.json, a
-// prompt history or a legacy event.
+// Wants reports whether the artifact is an event file, base_state.json,
+// meta.json, a prompt history or a legacy event.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
 	rel := artifact.Rel
 	return p.event.MatchString(rel) || p.legacy.MatchString(rel) || p.state.MatchString(rel) ||
-		p.history.MatchString(rel)
+		p.meta.MatchString(rel) || p.history.MatchString(rel)
 }
 
 // Secondary reports whether the artifact is the CLI's prompt history.
@@ -130,6 +131,8 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 		p.parseHistory(artifact, emit)
 	case p.state.MatchString(rel):
 		p.parseState(artifact, emit)
+	case p.meta.MatchString(rel):
+		p.parseMeta(artifact, emit)
 	default:
 		p.parseEvent(artifact, options, emit)
 	}
@@ -277,6 +280,24 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 	}
 	if conv.firstEvent == "" {
+		parser.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
+	}
+}
+
+// parseMeta emits the problems of a conversation that has neither an event
+// file nor a base_state.json, which would otherwise report them: a damaged
+// meta.json is then the conversation's only trace. Otherwise it emits
+// nothing, since meta.json gives no rows of its own.
+func (p *Parser) parseMeta(artifact *input.Artifact, emit parser.Emit) {
+	directory, ok := parser.Beside(artifact)
+	if !ok {
+		return
+	}
+	files, ok := filesOf(directory)
+	if !ok || parser.RegularFile(files.state) {
+		return
+	}
+	if conv := p.conversation(files); conv.firstEvent == "" {
 		parser.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
 	}
 }

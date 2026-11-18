@@ -134,7 +134,7 @@ func TestWantsEventStateHistoryAndLegacyFiles(t *testing.T) {
 		{".openhands/conversations/" + conversation + "/events/event-0001-abcdef12.json", false, false},
 		{".openhands/conversations/" + conversation + "/events/event-00001-abc.json", false, false},
 		{".openhands/conversations/" + conversation + "/base_state.json", true, false},
-		{".openhands/conversations/" + conversation + "/meta.json", false, false},
+		{".openhands/conversations/" + conversation + "/meta.json", true, false},
 		{".openhands/projects/" + digest + "/prompt_history.json", true, true},
 		{".openhands/projects/ABC/prompt_history.json", false, false},
 		{".openhands/sessions/s1/events/3.json", true, false},
