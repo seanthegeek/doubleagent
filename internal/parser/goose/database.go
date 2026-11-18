@@ -176,7 +176,7 @@ func (d *database) session(session sqlitefile.Row) {
 	config := readStored(session.Get("model_config_json"), false)
 	var problems parser.Problems
 	if config.reason != "" {
-		problems.AddRaw(rowid, "unparseable record "+itoa(rowid)+" (sessions.model_config_json: "+
+		problems.AddRaw(rowid, "unparseable record "+strconv.Itoa(rowid)+" (sessions.model_config_json: "+
 			config.reason+")", config.raw)
 	}
 	modelValue := ""
@@ -219,11 +219,6 @@ func labelled(label string, value sqlitefile.Value) string {
 		return ""
 	}
 	return label + value.String()
-}
-
-// itoa returns n in decimal.
-func itoa(n int) string {
-	return strconv.Itoa(n)
 }
 
 // gatewayText returns the "session relayed:" text of a gateway session, ""
@@ -271,7 +266,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 		return sqlitefile.Like(row.Get("content_json"), "%toolConfirmationResponse%")
 	}).Each(func(row sqlitefile.Row) error {
 		content := readStored(row.Get("content_json"), true).value
-		for _, block := range arrayItems(content) {
+		for _, block := range parser.Elements(content) {
 			data := block.Get("data")
 			if data.IsObject() && isText(data.Get("actionType"), "toolConfirmationResponse") {
 				sessionID := orText(row.Get("session_id"))
@@ -284,14 +279,6 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 		return nil
 	})
 	return answered, err
-}
-
-// arrayItems returns the items of an array, nothing for any other value.
-func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
-	if value.IsArray() {
-		return value.Items()
-	}
-	return nil
 }
 
 // message emits a message's model change, its bad-value rows and the rows

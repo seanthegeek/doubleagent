@@ -35,7 +35,7 @@ func TestToolSummaryNamesTheCallsAction(t *testing.T) {
 		{"a file path", `{"filePath": "/a"}`, "/a"},
 		{"a search joins pattern and path", `{"pattern": "foo", "path": "/src"}`, "foo | /src"},
 		{"an empty path is not joined", `{"pattern": "foo", "path": ""}`, "foo"},
-		{"an unknown input is sorted JSON", `{"z": 1, "a": 2}`, `{"z":1,"a":2}`},
+		{"an unknown input is compact JSON in its own key order", `{"z": 1, "a": 2}`, `{"z":1,"a":2}`},
 		{"null is empty", `null`, ""},
 		{"an empty string is empty", `""`, ""},
 		{"an empty object is empty", `{}`, ""},

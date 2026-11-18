@@ -20,8 +20,10 @@ package kiro
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"regexp"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -78,7 +80,7 @@ func (p *Parser) Wants(artifact *input.Artifact) bool {
 	case p.database.MatchString(rel), p.history.MatchString(rel), p.agent.MatchString(rel),
 		p.subagent.MatchString(rel):
 		return true
-	case p.sessions.MatchString(rel) || len(rel) < 5 || rel[len(rel)-5:] != ".json":
+	case p.sessions.MatchString(rel) || !strings.HasSuffix(rel, ".json"):
 		return false
 	}
 	return sniffExport(artifact.DiskPath)
@@ -96,7 +98,7 @@ func sniffExport(path string) bool {
 	defer file.Close()
 	head := make([]byte, sniffBytes)
 	n, err := io.ReadFull(file, head)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
 	head = head[:n]

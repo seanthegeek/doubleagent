@@ -55,7 +55,7 @@ func policySettings(policy jsonvalue.Value) []string {
 			out = append(out, key+"="+value.Text())
 		}
 	}
-	for _, entry := range arrayItems(policy.Get("allowlist")) {
+	for _, entry := range parser.Elements(policy.Get("allowlist")) {
 		if pattern := entry.Get("pattern"); entry.IsObject() && !pattern.IsNull() {
 			argument := ""
 			if value := entry.Get("argPattern"); !value.IsEmpty() {
@@ -65,7 +65,7 @@ func policySettings(policy jsonvalue.Value) []string {
 				orDash(parser.Text(entry.Get("source"))))
 		}
 	}
-	for _, grant := range arrayItems(policy.Get("mcpTools")) {
+	for _, grant := range parser.Elements(policy.Get("mcpTools")) {
 		if grant.IsObject() {
 			out = append(out, "mcpTools="+orDash(parser.Text(grant.Get("server")))+"/"+
 				orDash(parser.Text(grant.Get("tool")))+" source="+
@@ -73,12 +73,4 @@ func policySettings(policy jsonvalue.Value) []string {
 		}
 	}
 	return out
-}
-
-// arrayItems returns the items of an array, none for anything else.
-func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
-	if !value.IsArray() {
-		return nil
-	}
-	return value.Items()
 }

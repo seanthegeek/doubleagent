@@ -18,11 +18,6 @@ func permissionKeys() []string {
 	return []string{"mode", "allow", "deny", "ask", "alwaysAsk", "additionalDirectories"}
 }
 
-// dash returns a record value as row text, "-" when absent or empty.
-func dash(value jsonvalue.Value) string {
-	return parser.SettingOrDash(value)
-}
-
 // timeOrDash returns a record value as a timestamp, "-" when it is none.
 func timeOrDash(value jsonvalue.Value) string {
 	if timestamp := timeutil.FromValue(value); timestamp != "" {
@@ -148,11 +143,11 @@ func (p *Parser) parseRouting(artifact *input.Artifact, channel string, emit par
 			source = "file mtime"
 		}
 		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), "session relayed: "+
-			channel+" chat "+dash(route.Get("chatId"))+" type "+dash(route.Get("chatType"))+
-			" thread "+dash(route.Get("threadId"))+" account "+dash(route.Get("accountId"))+
-			" agent "+dash(route.Get("agentId"))+" enabled="+dash(route.Get("enabled"))+
-			" outbound="+dash(route.Get("outboundEnabled"))+" detached="+
-			dash(route.Get("detached"))+" updated="+timeOrDash(route.Get("updatedAt"))+
+			channel+" chat "+parser.SettingOrDash(route.Get("chatId"))+" type "+parser.SettingOrDash(route.Get("chatType"))+
+			" thread "+parser.SettingOrDash(route.Get("threadId"))+" account "+parser.SettingOrDash(route.Get("accountId"))+
+			" agent "+parser.SettingOrDash(route.Get("agentId"))+" enabled="+parser.SettingOrDash(route.Get("enabled"))+
+			" outbound="+parser.SettingOrDash(route.Get("outboundEnabled"))+" detached="+
+			parser.SettingOrDash(route.Get("detached"))+" updated="+timeOrDash(route.Get("updatedAt"))+
 			" (from "+artifact.Rel+", "+source+")")
 		row.SessionID = parser.Text(route.Get("conversationId"))
 		emit(row)
@@ -190,7 +185,7 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 
 // taskText returns the `scheduled task:` row text of one task.
 func taskText(task jsonvalue.Value, conversation string, created bool, rel string) string {
-	field := func(key string) string { return dash(task.Get(key)) }
+	field := func(key string) string { return parser.SettingOrDash(task.Get(key)) }
 	source := "file mtime"
 	if created {
 		source = "created_at"
@@ -199,7 +194,7 @@ func taskText(task jsonvalue.Value, conversation string, created bool, rel strin
 		field("status") + " cron=" + field("cron") + " timezone=" + field("timezone") +
 		" recurring=" + field("recurring") + " scheduled_for=" +
 		timeOrDash(task.Get("scheduled_for")) + " agent=" + field("agent_id") + " conversation=" +
-		dash(jsonvalue.NewString(conversation)) + " fire_count=" + field("fire_count") +
+		parser.SettingOrDash(jsonvalue.NewString(conversation)) + " fire_count=" + field("fire_count") +
 		" last_fired=" + timeOrDash(task.Get("last_fired_at")) + " last_run=" +
 		timeOrDash(task.Get("last_run_at")) + " outcome=" + field("last_run_outcome") + " reason=" +
 		field("last_run_reason") + " error=" + field("last_run_error") + " cancel_reason=" +
@@ -212,7 +207,7 @@ func taskText(task jsonvalue.Value, conversation string, created bool, rel strin
 func (p *Parser) parseRuns(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
-		field := func(key string) string { return dash(record.Get(key)) }
+		field := func(key string) string { return parser.SettingOrDash(record.Get(key)) }
 		row := p.SystemRow(artifact, timeline.Compact("scheduled task run: "+field("jobId")+
 			" action="+field("action")+" status="+field("status")+" outcome="+
 			field("outcome")+" reason="+field("reason")+" agent="+field("agentId")+
@@ -255,9 +250,9 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 	results := objects(document.Get("results"))
 	put(timeline.TurnSystem, "", fmt.Sprintf("interrupted turn: agent %s conversation %s run %s "+
 		"tool_calls=%s unstarted=%s results=%d working_directory=%s acting_user=%s (from %s, file mtime)",
-		dash(document.Get("agentId")), dash(jsonvalue.NewString(sessionID)), dash(document.Get("runId")),
+		parser.SettingOrDash(document.Get("agentId")), parser.SettingOrDash(jsonvalue.NewString(sessionID)), parser.SettingOrDash(document.Get("runId")),
 		joinedIDs(document.Get("toolCallIds")), joinedIDs(document.Get("unstartedToolCallIds")),
-		len(results), dash(jsonvalue.NewString(cwd)), dash(document.Get("actingUserId")), artifact.Rel))
+		len(results), parser.SettingOrDash(jsonvalue.NewString(cwd)), parser.SettingOrDash(document.Get("actingUserId")), artifact.Rel))
 	for _, result := range results {
 		callID := parser.Text(result.Get("tool_call_id"))
 		if result.Has("approve") {
@@ -290,7 +285,7 @@ func interruptedDecision(result jsonvalue.Value, rel string) string {
 	if approved, isBool := result.Get("approve").Bool(); isBool && approved {
 		decision = "approve"
 	}
-	return "permission decision: " + decision + " reason=" + dash(result.Get("reason")) +
+	return "permission decision: " + decision + " reason=" + parser.SettingOrDash(result.Get("reason")) +
 		" (from " + rel + ", interrupted turn, file mtime)"
 }
 

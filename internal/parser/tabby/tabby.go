@@ -315,7 +315,7 @@ func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parser.Emit) {
 	switch {
 	case state.IsObject():
 		var commands []string
-		for _, entry := range arrayItems(state.Get(vscodeHistoryKey)) {
+		for _, entry := range parser.Elements(state.Get(vscodeHistoryKey)) {
 			if command := commandText(entry); command != "" {
 				commands = append(commands, command)
 			}
@@ -415,7 +415,7 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 	emit(p.row(artifact, spec))
 	spec.turnType, spec.text = timeline.TurnUser, parser.Text(body.Get("prompt"))
 	emit(p.row(artifact, spec))
-	for _, choice := range arrayItems(body.Get("choices")) {
+	for _, choice := range parser.Elements(body.Get("choices")) {
 		if choice.IsObject() {
 			spec.turnType, spec.text = timeline.TurnAssistant, parser.Text(choice.Get("text"))
 			emit(p.row(artifact, spec))

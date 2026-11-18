@@ -259,7 +259,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	project := projectOf(attachments)
 	var questions []string
 	if value, ok := jsonColumn(thread.row.Get("relevant_questions")); ok {
-		for _, question := range arrayItems(value) {
+		for _, question := range parser.Elements(value) {
 			questions = append(questions, question.Text())
 		}
 	}

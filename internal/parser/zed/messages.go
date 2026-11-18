@@ -38,7 +38,7 @@ func (t *transcript) add(turnType, text string) {
 // 1-based position in messages.
 func (t *transcript) bad(reason string, part jsonvalue.Value) {
 	t.problems.AddRaw(int(t.rowid), fmt.Sprintf("unparseable record %d (%s)", t.position, reason),
-		recordJSON(part))
+		part.JSON())
 }
 
 // messages returns the items of a thread's messages in transcript order,
@@ -51,7 +51,7 @@ func (p *Parser) messages(value jsonvalue.Value, rowid int64, problems *parser.P
 	}
 	if !messages.IsArray() {
 		problems.AddRaw(int(rowid), "unparseable record 0 (messages is not a list)",
-			recordJSON(messages))
+			messages.JSON())
 		return nil
 	}
 	out := &transcript{problems: problems, rowid: rowid}

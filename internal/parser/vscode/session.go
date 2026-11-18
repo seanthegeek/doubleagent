@@ -134,7 +134,7 @@ func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Proble
 		uriToPath(parser.Text(data.Get("workspace")))
 }
 
-// tracked emits a system row when a tracked state of the session changes.
+// change emits a system row when a tracked state of the session changes.
 func (s *sessionRows) change(label, key, value string, timestamp jsonvalue.Value, line int, model string) {
 	if text := s.tracked.Change(label, key, value); text != "" {
 		s.emit(s.row(timeline.TurnSystem, text, timestamp, line, model))

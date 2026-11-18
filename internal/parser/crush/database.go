@@ -1,8 +1,6 @@
 package crush
 
 import (
-	"strconv"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -258,9 +256,4 @@ func (s *store) fileRows() error {
 					" (from crush.db read_files, read_at)")))
 			return nil
 		})
-}
-
-// rowidText returns a rowid in decimal.
-func rowidText(rowid int64) string {
-	return strconv.FormatInt(rowid, 10)
 }

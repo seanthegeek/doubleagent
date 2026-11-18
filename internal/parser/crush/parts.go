@@ -3,6 +3,7 @@ package crush
 import (
 	"html"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -171,7 +172,7 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	}
 	rowid := current.record.Rowid
 	var problems parser.Problems
-	problems.AddRaw(int(rowid), "unparseable record "+rowidText(rowid)+" (message "+
+	problems.AddRaw(int(rowid), "unparseable record "+strconv.FormatInt(rowid, 10)+" (message "+
 		current.record.Get("id").String()+" parts: "+reason+")", raw)
 	parser.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems,
 		current.sessionID, r.store.projectPath))

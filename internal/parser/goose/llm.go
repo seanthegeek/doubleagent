@@ -95,7 +95,7 @@ func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	if l.model == "" {
 		l.model = parser.Text(request.Get("model"))
 	}
-	messages := arrayItems(request.Get("messages"))
+	messages := parser.Elements(request.Get("messages"))
 	lastUser := ""
 	for i := len(messages) - 1; i >= 0; i-- {
 		if message := messages[i]; message.IsObject() && isText(message.Get("role"), "user") {
