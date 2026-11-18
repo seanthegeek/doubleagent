@@ -1,7 +1,6 @@
 package nanobot
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -57,7 +56,7 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parser.Emit) {
 	if response := record.Get("response"); response.IsString() && response.StringValue() != "" {
 		row(end, timeline.TurnAssistant, response.StringValue())
 	}
-	if failure := firstStr(record.Get("error"), record.Get("last_error")); failure != "" {
+	if failure := parser.Text(parser.FirstNonEmpty(record.Get("error"), record.Get("last_error"))); failure != "" {
 		run.status += " error=" + failure
 	}
 	row(end, timeline.TurnSystem, run.status)
@@ -73,14 +72,15 @@ func cronRun(record jsonvalue.Value, end string) runRecord {
 	}
 	runID := parser.Text(record.Get("run_id"))
 	start := end
-	if parts := rsplit(runID, ":", 2); len(parts) == 3 && isASCIIDigits(parts[1]) {
+	if parts := strings.Split(runID, ":"); len(parts) >= 3 && isASCIIDigits(parts[len(parts)-2]) {
 		start = ""
-		if epoch, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+		if epoch, err := strconv.ParseInt(parts[len(parts)-2], 10, 64); err == nil {
 			start = timeutil.FromInt(epoch)
 		}
 	}
-	status := fmt.Sprintf("cron run: job %s (%s) run %s status=%s", parser.Text(record.Get("job_name")),
-		parser.Text(record.Get("job_id")), runID, parser.Text(record.Get("status")))
+	status := "cron run: job " + parser.Text(record.Get("job_name")) + " (" +
+		parser.Text(record.Get("job_id")) + ") run " + runID + " status=" +
+		parser.Text(record.Get("status"))
 	return runRecord{prompt: prompt, start: start, status: status}
 }
 
@@ -93,25 +93,12 @@ func triggerRun(record jsonvalue.Value, end string) runRecord {
 	}
 	prompt := "Local trigger received: " + label + "\n\n" + parser.Text(record.Get("content"))
 	start := timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at_ms")), end)
-	status := fmt.Sprintf("trigger run: trigger %s (%s) delivery %s status=%s attempts=%s",
-		parser.Text(record.Get("trigger_name")), parser.Text(record.Get("trigger_id")),
-		firstStr(record.Get("delivery_id"), record.Get("run_id")), parser.Text(record.Get("status")),
-		getOr(record, "attempts", ""))
+	status := "trigger run: trigger " + parser.Text(record.Get("trigger_name")) + " (" +
+		parser.Text(record.Get("trigger_id")) + ") delivery " +
+		parser.Text(parser.FirstNonEmpty(record.Get("delivery_id"), record.Get("run_id"))) +
+		" status=" + parser.Text(record.Get("status")) + " attempts=" +
+		getOr(record, "attempts", "")
 	return runRecord{prompt: prompt, start: start, status: status}
-}
-
-// rsplit splits text at the last n separators, as Python's str.rsplit.
-func rsplit(text, separator string, n int) []string {
-	var tail []string
-	for range n {
-		cut := strings.LastIndex(text, separator)
-		if cut < 0 {
-			break
-		}
-		tail = append([]string{text[cut+len(separator):]}, tail...)
-		text = text[:cut]
-	}
-	return append([]string{text}, tail...)
 }
 
 // isASCIIDigits reports whether text is one or more ASCII digits.

@@ -21,8 +21,8 @@ type textPatterns struct {
 	resolved     *regexp.Regexp
 }
 
-// newTextPatterns compiles the patterns. Spaces are the ones Python's \s
-// and \S name in text.
+// newTextPatterns compiles the patterns. A space is any character of
+// parser.Space.
 func newTextPatterns() textPatterns {
 	space, other := `[`+parser.Space+`]`, `[^`+parser.Space+`]`
 	return textPatterns{
@@ -92,8 +92,8 @@ func isMessaging(channel string) bool {
 }
 
 // columnValue returns a column value as the JSON value of the record the
-// session database's rows are rebuilt into: a blob as the text Python's
-// str() writes for it, which reads as no time and prints the same.
+// session database's rows are rebuilt into: a blob as its row text
+// (sqlitefile.Value.String), which reads as no time.
 func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	switch value.Type {
 	case sqlitefile.Null:
@@ -108,19 +108,8 @@ func columnValue(value sqlitefile.Value) jsonvalue.Value {
 	return jsonvalue.NewString(value.String())
 }
 
-// firstStr returns the first of the values Python counts as true as its
-// str(), or "".
-func firstStr(values ...jsonvalue.Value) string {
-	for _, value := range values {
-		if !value.IsEmpty() {
-			return value.Text()
-		}
-	}
-	return ""
-}
-
-// getOr returns the str() of the member key of object, or fallback when the
-// object has no such member: Python's "%s" % record.get(key, fallback).
+// getOr returns the row text of the member key of object, or fallback when
+// the object has no such member (a member that is null gives "").
 func getOr(object jsonvalue.Value, key, fallback string) string {
 	if value, ok := object.Lookup(key); ok {
 		return value.Text()

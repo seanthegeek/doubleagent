@@ -1,7 +1,6 @@
 package nanobot
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -128,9 +127,9 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 	}
 	scope := meta.Get("workspace_scope")
 	if scope.IsObject() && (!scope.Get("access_mode").IsEmpty() || !scope.Get("project_path").IsEmpty()) {
-		s.row(line, timeline.TurnSystem, fmt.Sprintf("permission mode: access_mode=%s project=%s"+
-			" (from session metadata workspace_scope)", parser.Text(scope.Get("access_mode")),
-			parser.Text(scope.Get("project_path"))), "", "")
+		s.row(line, timeline.TurnSystem, "permission mode: access_mode="+
+			parser.Text(scope.Get("access_mode"))+" project="+
+			parser.Text(scope.Get("project_path"))+" (from session metadata workspace_scope)", "", "")
 	}
 }
 
