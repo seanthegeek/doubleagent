@@ -182,11 +182,11 @@ func (c conversationRows) changes(changes jsonvalue.Value, model string) {
 }
 
 // splitThink returns a message's text without its reasoning blocks, and the
-// reasoning texts that are not blank. It stands for Python's
-// re.sub(r"<(think|thinking)>(.*?)(?:</\1>|$)", ..., flags=re.S), whose
-// backreference Go's engine has no form for: a block opens at <think> or
-// <thinking> and ends at the first matching close tag, else just before a
-// final LF, else at the end.
+// reasoning texts that are not blank. A block opens at <think> or <thinking>
+// and ends at the first close tag of the same name, else just before a
+// final LF, else at the end of the text; a close tag of the other name is
+// part of the block. Matching the close tag to the open one needs a
+// backreference, which Go's regexp has no form for, so the scan is by hand.
 func splitThink(content string) (string, []string) {
 	var out strings.Builder
 	var thoughts []string

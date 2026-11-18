@@ -6,12 +6,7 @@ import (
 	"testing"
 )
 
-// The expected values in this file come from running the Python helpers
-// of the same names on the same inputs.
-
-// splitThink stands for re.sub over `<(think|thinking)>(.*?)(?:</\1>|$)`
-// with re.S, whose backreference Go's engine has no form for.
-func TestSplitThinkTakesOutReasoningBlocksAsPythonsPatternDoes(t *testing.T) {
+func TestSplitThinkTakesOutReasoningBlocksClosedByTheirOwnTag(t *testing.T) {
 	for _, test := range []struct {
 		name, content, text string
 		thoughts            []string
