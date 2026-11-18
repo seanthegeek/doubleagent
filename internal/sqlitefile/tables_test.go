@@ -128,7 +128,9 @@ func dumpTable(database *Database, name string) ([]string, []string, error) {
 	}
 	var columns []string
 	for _, column := range table.Columns() {
-		columns = append(columns, column.Name)
+		if column.Generated != VirtualGenerated {
+			columns = append(columns, column.Name)
+		}
 	}
 	var lines []string
 	for _, row := range rows {
@@ -141,34 +143,56 @@ func dumpTable(database *Database, name string) ([]string, []string, error) {
 	return columns, lines, nil
 }
 
-// unreadable lists the tables this package refuses although SQLite reads
-// them, with the reason, so a test fails on any other refusal.
-func unreadable() map[string]string {
-	return map[string]string{
-		"computed": "a virtual generated column is computed by SQL when read",
+// leftOut lists, per table, the columns SQLite's "select *" returns that
+// Select leaves out: virtual generated columns, whose values are computed
+// by SQL when read.
+func leftOut() map[string][]string {
+	return map[string][]string{"computed": {"b"}}
+}
+
+// withoutLeftOut returns a dumped table's columns and rows without the
+// columns leftOut names for it.
+func withoutLeftOut(table *tableDump) ([]string, []string) {
+	omitted := leftOut()[table.name]
+	if len(omitted) == 0 {
+		return table.columns, table.rows
 	}
+	var keep []int
+	var columns []string
+	for i, column := range table.columns {
+		if !slices.Contains(omitted, column) {
+			keep = append(keep, i)
+			columns = append(columns, column)
+		}
+	}
+	var rows []string
+	for _, row := range table.rows {
+		words := strings.Fields(row)
+		kept := []string{words[0]}
+		for _, i := range keep {
+			kept = append(kept, words[i+1])
+		}
+		rows = append(rows, strings.Join(kept, " "))
+	}
+	return columns, rows
 }
 
 // compareTables checks every table of a dumped database against the reader.
 func compareTables(t *testing.T, database *Database, expected *databaseDump) {
 	for _, table := range expected.tables {
 		columns, rows, err := dumpTable(database, table.name)
+		wantColumns, wantRows := withoutLeftOut(table)
 		switch {
-		case unreadable()[table.name] != "":
-			if err == nil {
-				t.Errorf("table %s read, but this package should refuse it: %s", table.name,
-					unreadable()[table.name])
-			}
 		case table.err != "":
 			if err == nil {
 				t.Errorf("table %s read without error; SQLite reports %q", table.name, table.err)
 			}
 		case err != nil:
 			t.Errorf("table %s: %v", table.name, err)
-		case !slices.Equal(columns, table.columns):
-			t.Errorf("table %s columns = %q, want %q", table.name, columns, table.columns)
-		case !slices.Equal(rows, table.rows):
-			t.Errorf("table %s rows:\n%s", table.name, lineDifference(rows, table.rows))
+		case !slices.Equal(columns, wantColumns):
+			t.Errorf("table %s columns = %q, want %q", table.name, columns, wantColumns)
+		case !slices.Equal(rows, wantRows):
+			t.Errorf("table %s rows:\n%s", table.name, lineDifference(rows, wantRows))
 		}
 	}
 }

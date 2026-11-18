@@ -102,7 +102,6 @@ func TestQueryErrorsNameTheProblem(t *testing.T) {
 		{"an empty sort key", mixed.Select().OrderBy("x,"), "cannot sort by"},
 		{"a rowid sort in a WITHOUT ROWID table", keyed.Select().OrderBy("rowid"), "no such column: rowid"},
 		{"a rowid selection in a WITHOUT ROWID table", keyed.Select("rowid"), "no such column: rowid"},
-		{"a virtual generated column", tableOf(t, "schema.db", "computed").Select(), "computed when read"},
 		{"a query of no table", Query{}, "no table"},
 	}
 	for _, test := range cases {
@@ -336,6 +335,81 @@ func FuzzTables(fuzz *testing.F) {
 			for _, column := range table.Columns() {
 				_, _ = table.Select(column.Name).OrderBy(column.Name + " desc").All()
 			}
+		}
+	})
+}
+
+// generatedTable returns a table with a stored and a virtual generated
+// column, whose records hold a, b and d: (1, 2, 'one') and (2, 4, 'two').
+func generatedTable(t *testing.T) *Table {
+	t.Helper()
+	pages := newTestPages(4096)
+	root := pages.add()
+	pages.setPage(root, leafTable, [][]byte{
+		tableLeafCell(1, testRecord(IntValue(1), IntValue(2), TextValue("one"))),
+		tableLeafCell(2, testRecord(IntValue(2), IntValue(4), TextValue("two"))),
+	}, 0)
+	pages.setSchema(schemaTable{"g", root,
+		"CREATE TABLE g(a, b AS (a*2) STORED, c AS (a*3) VIRTUAL, d)"})
+	table, err := openOrFail(t, pages.bytes(), nil, nil).Table("g")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return table
+}
+
+func TestAVirtualColumnIsAnErrorWhereverItIsNamed(t *testing.T) {
+	table := generatedTable(t)
+	cases := []struct {
+		name string
+		run  func() error
+	}{
+		{"selecting it", func() error { _, err := table.Select("a", "c").All(); return err }},
+		{"sorting by it", func() error { _, err := table.Select("a").OrderBy("c DESC").All(); return err }},
+		{"sorting by it in a list of keys", func() error {
+			_, err := table.Select("a").OrderBy("a, c").All()
+			return err
+		}},
+		{"indexing a lookup by it", func() error { _, err := table.Select("a").Lookup("C"); return err }},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" is an error naming the column", func(t *testing.T) {
+			err := test.run()
+			if err == nil || !strings.Contains(err.Error(), "column c is not stored") {
+				t.Errorf("error = %v, want one saying column c is not stored", err)
+			}
+		})
+	}
+}
+
+func TestAVirtualColumnIsLeftOutOfTheRows(t *testing.T) {
+	table := generatedTable(t)
+	t.Run("selecting every column leaves it out", func(t *testing.T) {
+		rows, err := table.Select().All()
+		if err != nil || len(rows) != 2 {
+			t.Fatalf("Select().All() = %d rows, %v; want 2", len(rows), err)
+		}
+		if got := rows[1].Columns(); !slices.Equal(got, []string{"a", "b", "d"}) {
+			t.Errorf("Columns() = %q, want a, b and d", got)
+		}
+		values := rows[1].Values()
+		if len(values) != 3 || values[1].Int != 4 || values[2].Text() != "two" || rows[1].Has("c") {
+			t.Errorf("Values() = %v, want 2, 4, two and no c", values)
+		}
+	})
+	t.Run("a row given to Where does not hold it", func(t *testing.T) {
+		rows, err := table.Select("a").Where(func(row Row) bool {
+			return !row.Has("c") && row.Get("c").IsNull() && !row.Equals("c", IntValue(6)) &&
+				row.Get("d").Text() != ""
+		}).All()
+		if err != nil || len(rows) != 2 {
+			t.Errorf("Where() kept %d rows, %v; want both", len(rows), err)
+		}
+	})
+	t.Run("a stored generated column reads as any other", func(t *testing.T) {
+		rows, err := table.Select("b").OrderBy("b DESC").All()
+		if err != nil || len(rows) != 2 || rows[0].Get("b").Int != 4 {
+			t.Errorf("Select(b) = %v, %v; want 4 then 2", rows, err)
 		}
 	})
 }
