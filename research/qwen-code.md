@@ -1586,7 +1586,11 @@ or `permissions.deny` is present but not an array `parser: <member> is not a JSO
 `source_line` 0. A transcript record's `message` that is present but not an object is
 `parser: message is not a JSON object`, and its `message.parts` that is present but not an array
 `parser: message.parts is not a JSON array`, at the record's line.
-An absent, null or empty member gives no row.
+An absent, null or empty member gives no row. A `message.parts` holding parts that are not
+objects, or a session organization's `groups` holding groups that are not, gives one row for them
+all at the same place, `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), and a `groups` that is present but not an array
+`parser: groups is not a JSON array` at `source_line` 0.
 
 A transcript, its `.worktree.json` or `.pr.json` sidecar, `usage_record.jsonl`, `logs.json`, the
 token usage log, a todo file, the session organization, `PROJECT_SUMMARY.md`, a channel routes,

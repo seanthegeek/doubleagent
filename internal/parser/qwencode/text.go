@@ -52,21 +52,15 @@ func argsSummary(arguments jsonvalue.Value) string {
 }
 
 // parts returns the object parts of the record's message. A message that
-// is not an object, or its parts that is not an array, adds a problem at
-// the record's line.
+// is not an object, its parts that is not an array, or parts that are not
+// objects add a problem at the record's line.
 func (r *record) parts() []jsonvalue.Value {
 	message := r.value.Get("message")
 	if !message.IsObject() && !message.IsNull() {
 		r.problems.Add(r.line, parser.WrongKind("message", jsonvalue.Object))
 		return nil
 	}
-	var out []jsonvalue.Value
-	for _, part := range parser.ArrayMember(message.Get("parts"), "message.parts", r.line, r.problems) {
-		if part.IsObject() {
-			out = append(out, part)
-		}
-	}
-	return out
+	return parser.ListOfKind(message.Get("parts"), "message.parts", jsonvalue.Object, r.line, r.problems)
 }
 
 // responseText returns the text of a function response's response: its

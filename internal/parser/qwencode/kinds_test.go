@@ -83,6 +83,23 @@ func kindCases() []kindCase {
 		{"message.parts", session, record + `, "message": {"role": "model", "parts": @}}`,
 			record + `, "message": {"role": "model"}}`, "1 parser: message.parts is not a JSON array",
 			wrongArrays, `[]`},
+		{"groups", ".qwen/projects/p/session-organization.v1.json", `{"schemaVersion": 1, "groups": @}`,
+			`{"schemaVersion": 1}`, "0 parser: groups is not a JSON array", wrongArrays, `[]`},
+	}
+}
+
+func TestEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
+	for _, test := range kindCases() {
+		if test.name != "message.parts" && test.name != "groups" {
+			continue
+		}
+		t.Run(test.name, func(t *testing.T) {
+			got := problemsOf(parsedRows(t, test.rel, strings.ReplaceAll(test.document, "@", `[{}, "x", 7]`)))
+			want := strings.Replace(test.want, " is not a JSON array", " holds 2 entries that are not JSON objects", 1)
+			if len(got) != 1 || got[0] != want {
+				t.Errorf("problem rows %q, want %q", got, want)
+			}
+		})
 	}
 }
 

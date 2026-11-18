@@ -197,11 +197,12 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // groupNames returns the Web Shell's group names by id: each group with an
-// id, by its name, else its id; a later group of the same id wins.
-func groupNames(groups jsonvalue.Value) map[string]string {
+// id, by its name, else its id; a later group of the same id wins. Groups
+// that are not objects add a problem.
+func groupNames(groups jsonvalue.Value, problems *parser.Problems) map[string]string {
 	names := map[string]string{}
-	for _, group := range groups.Items() {
-		if groupID := group.Get("id"); group.IsObject() && !groupID.IsEmpty() {
+	for _, group := range parser.EntriesOfKind(groups, "groups", jsonvalue.Object, 0, problems) {
+		if groupID := group.Get("id"); !groupID.IsEmpty() {
 			names[groupID.Text()] = parser.FirstNonEmpty(group.Get("name"), groupID).Text()
 		}
 	}
@@ -219,7 +220,7 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	names := groupNames(document.Get("groups"))
+	names := groupNames(document.Get("groups"), &problems)
 	for i, session := range parser.ObjectMember(document.Get("sessions"), "sessions", 0, &problems) {
 		entry := session.Value
 		if !entry.IsObject() {
