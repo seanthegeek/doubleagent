@@ -278,9 +278,15 @@ func FuzzApplyMutation(fuzz *testing.F) {
 			state = next
 			after := requestCount(state)
 			track(record, before, after, i, lines, parser.Work{})
-			// Every request has a line and no line outlives its request.
-			if len(lines) != int(after)+1 {
-				t.Fatalf("record %d: %d request lines for %d requests: %v", i, len(lines)-1, after, lines)
+			// Every request has a line and no line outlives its request; the
+			// session start has a line once a state has been set whole, which
+			// a log may never do.
+			requestEntries := len(lines)
+			if _, started := lines[sessionStart]; started {
+				requestEntries--
+			}
+			if requestEntries != int(after) {
+				t.Fatalf("record %d: %d request lines for %d requests: %v", i, requestEntries, after, lines)
 			}
 			for position := range after {
 				if _, ok := lines[position]; !ok {
