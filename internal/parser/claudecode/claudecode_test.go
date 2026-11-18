@@ -14,9 +14,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows each file gives are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers the
-// analyzer's own tests call directly, with the oracle's results.
+// The rows each file gives are proved by the parser replay
+// (internal/parity/replay); these tests cover the helpers on their own.
 
 func TestWantsTheClaudeCodeFilesOnly(t *testing.T) {
 	tests := []struct {
@@ -77,7 +76,7 @@ func TestToolSummaryNamesTheCallsAction(t *testing.T) {
 		{"an input that is not an object is JSON", "Unknown", `"raw"`, `"raw"`},
 		{"an empty field is not present", "Bash", `{"command": ""}`, `{"command":""}`},
 		{"a null field falls back to the common ones", "Bash", `{"command": null, "description": "d"}`, "d"},
-		{"a number is written as Python writes it", "Read", `{"file_path": 5}`, "5"},
+		{"a number is written as the evidence wrote it", "Read", `{"file_path": 5}`, "5"},
 		{"a task joins description and prompt", "Agent", `{"description": "x", "prompt": "y"}`, "x | y"},
 		{"the common fields are tried in order", "Mystery", `{"query": "q", "url": "u"}`, "u"},
 		{"a null input is null", "Bash", `null`, "null"},
@@ -270,7 +269,7 @@ func TestHistoryCommandsMatchTheirRecordsUnderTheHooks(t *testing.T) {
 	}
 }
 
-func TestSidecarPathsFollowPythonsPathRules(t *testing.T) {
+func TestSidecarPathsAreTheSessionsOwnDirectory(t *testing.T) {
 	tests := []struct {
 		rel, want string
 	}{
@@ -287,9 +286,6 @@ func TestSidecarPathsFollowPythonsPathRules(t *testing.T) {
 		if want := filepath.Join(home, filepath.FromSlash(test.want)); !ok || got != want {
 			t.Errorf("sessionDir(%q) = %q, %v, want %q", test.rel, got, ok, want)
 		}
-	}
-	if got := withoutSuffix("name."); got != "name." {
-		t.Errorf("withoutSuffix of a name ending in a dot = %q", got)
 	}
 	for hash, want := range map[string]bool{"abc123XYZ": true, "": false, "a.b": false, "a\n": false,
 		"../x": false} {

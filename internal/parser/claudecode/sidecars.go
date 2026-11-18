@@ -34,23 +34,13 @@ func isLink(path string) bool {
 	return err == nil && info.Mode()&fs.ModeSymlink != 0
 }
 
-// withoutSuffix returns a file name without its suffix, the part from its
-// last dot when the dot is neither first nor last.
-func withoutSuffix(name string) string {
-	dot := strings.LastIndexByte(name, '.')
-	if dot <= 0 || dot == len(name)-1 {
-		return name
-	}
-	return name[:dot]
-}
-
 // sessionDir returns the directory that holds a transcript's sidecars:
 // <session>/ beside a session file, or the directory above subagents/ for a
 // subagent's file. It is false when no subagents/ directory lies below the
 // artifact's home.
 func sessionDir(artifact *input.Artifact) (string, bool) {
 	if !subagentPattern.MatchString(artifact.Rel) {
-		return parser.Beside(artifact, withoutSuffix(filepath.Base(artifact.DiskPath))), true
+		return parser.Beside(artifact, parser.Stem(filepath.Base(artifact.DiskPath))), true
 	}
 	for levels := 0; ; levels++ {
 		directory, ok := parser.Above(artifact, levels)

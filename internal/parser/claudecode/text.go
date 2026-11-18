@@ -127,8 +127,8 @@ func originLabel(kind jsonvalue.Value) string {
 	return ""
 }
 
-// isMissing reports whether a value is absent, null or an empty string,
-// the values Python's `in (None, "")` tests for.
+// isMissing reports whether a value is absent, null or an empty string:
+// false and zero are values the agent wrote.
 func isMissing(value jsonvalue.Value) bool {
 	return value.IsNull() || isText(value, "")
 }
@@ -148,21 +148,13 @@ func valueText(document jsonvalue.Value, key string) string {
 	return parser.SettingValue(value)
 }
 
-// strOr returns the value's str(), or missing when it is null or an empty
-// string.
-func strOr(value jsonvalue.Value, missing string) string {
+// textOr returns the value's row text, or missing when it is null or an
+// empty string.
+func textOr(value jsonvalue.Value, missing string) string {
 	if isMissing(value) {
 		return missing
 	}
 	return value.Text()
-}
-
-// orDash returns text, or "-" when it is empty.
-func orDash(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }
 
 // Match forms of a slash command in the transcript, and of a pasted text.
