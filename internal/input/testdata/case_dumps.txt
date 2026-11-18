@@ -138,19 +138,19 @@ artifact	0	pi	.claude/history.jsonl	/home/bob/.claude/history.jsonl	<input>/fs/h
 === a manifest line is trimmed of JSON whitespace only 
 kind	collected
 host	
-note	1 manifest rows did not parse
+note	1 manifest row did not parse
 problem	/x: missing from the collection
 home	0	<input>/fs				false	false
 === a manifest line is trimmed of JSON whitespace only 
 kind	collected
 host	
-note	1 manifest rows did not parse
+note	1 manifest row did not parse
 problem	/x: missing from the collection
 home	0	<input>/fs				false	false
 === a manifest line is trimmed of JSON whitespace only 
 kind	collected
 host	
-note	1 manifest rows did not parse
+note	1 manifest row did not parse
 problem	/x: missing from the collection
 home	0	<input>/fs				false	false
 === a collection of collector 1.12.0 with two projects

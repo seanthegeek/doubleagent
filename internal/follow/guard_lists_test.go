@@ -295,8 +295,6 @@ func allowedCalls() map[string]allowance {
 			"removes a regular file an earlier member of the same archive wrote"},
 		{"internal/input/extract.go", "osfile.Chtimes", 2,
 			"sets the time of a file or directory the extraction made, from its member"},
-		{"internal/input/manifest.go", "osfile.ReadFile", 2,
-			"reads manifest.jsonl and collection.json, each typed a regular file by its lstat"},
 		{"internal/input/loose.go", "filepath.Dir", 3,
 			"the parent of the analyst's own input directory, as text, when that directory " +
 				"is itself an agent's directory"},

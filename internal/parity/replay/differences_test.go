@@ -151,6 +151,12 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 			"error: cannot read \"it's\" as a time\n", 0},
 		{"120 leaves a quote inside a row's text alone", 120, "parser: cannot read 'x' here",
 			"parser: cannot read 'x' here", 0},
+		{"122 writes the plural note of one manifest row in the singular", 122,
+			"note:      1 manifest rows did not parse\n", "note:      1 manifest row did not parse\n", 1},
+		{"122 finds the singular note too", 122, `"notes": ["1 manifest row did not parse"]`,
+			`"notes": ["1 manifest row did not parse"]`, 1},
+		{"122 leaves a note of eleven rows alone", 122, "note: 11 manifest rows did not parse",
+			"note: 11 manifest rows did not parse", 0},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
