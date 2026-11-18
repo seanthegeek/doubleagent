@@ -1,12 +1,16 @@
 package pearai
 
 import (
+	"math/bits"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 )
 
@@ -171,5 +175,89 @@ func TestTheOutputLogCountsEachByteOnceForItsLineNumbers(t *testing.T) {
 				t.Errorf("%d bytes counted in a text of %d", lines.scanned, len(text))
 			}
 		})
+	}
+}
+
+// decoded returns JSON text decoded, failing the test on an error.
+func decoded(t *testing.T, text string) jsonvalue.Value {
+	t.Helper()
+	value, err := jsonvalue.DecodeString(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func TestALookupOfAnAskTimeIsABinarySearch(t *testing.T) {
+	asks := &askIndex{}
+	for _, stamp := range []string{"10", "20", "20", "30"} {
+		asks.times = append(asks.times, decoded(t, stamp))
+	}
+	tests := []struct{ name, timestamp, want string }{
+		{"before every ask", "5", ""},
+		{"at an ask", "10", "10"},
+		{"between two asks", "25", "20"},
+		{"after every ask", "99", "30"},
+		{"a time that is not a number", `"25"`, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := asks.lastBefore(decoded(t, test.timestamp)); got != test.want {
+				t.Errorf("lastBefore(%s) = %q, want %q", test.timestamp, got, test.want)
+			}
+		})
+	}
+	for _, count := range []int{1024, 2048, 4096} {
+		t.Run(strconv.Itoa(count)+" asks", func(t *testing.T) {
+			many := &askIndex{}
+			for i := range count {
+				many.times = append(many.times, jsonvalue.NewInt(int64(i)))
+			}
+			for i := range count {
+				many.lastBefore(jsonvalue.NewInt(int64(i)))
+			}
+			if limit := count * (bits.Len(uint(count)) + 1); many.probes > limit {
+				t.Errorf("%d asks compared over %d lookups, want at most %d", many.probes, count, limit)
+			}
+		})
+	}
+}
+
+func TestATaskFindsItsHistoryEntryThroughOneIndexOfTheState(t *testing.T) {
+	home := t.TempDir()
+	data, err := osfile.ReadFile(filepath.Join("testdata", "state.vscdb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := filepath.Join(home, "User", "globalStorage", "state.vscdb")
+	if err := osfile.MkdirAll(filepath.Dir(state), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(state, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	subject := New()
+	task := func(taskID string) clinelegacy.Task {
+		rel := "User/globalStorage/pearai.pearai-roo-cline/tasks/" + taskID + "/ui_messages.json"
+		return clinelegacy.TaskOf(&input.Artifact{Rel: rel, DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+			Home: &input.Home{DiskPath: home}})
+	}
+	tests := []struct{ name, taskID, want string }{
+		{"a task in the history", "t5", "task 5"},
+		{"the first entry of an id stands", "t7", "task 7"},
+		{"a task missing from the history", "t999", ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := subject.HistoryItem(task(test.taskID)).Get("task").Text(); got != test.want {
+				t.Errorf("task %q, want %q", got, test.want)
+			}
+		})
+	}
+	for i := range 200 {
+		subject.HistoryItem(task("t" + strconv.Itoa(i)))
+	}
+	if subject.historyExamined != 202 {
+		t.Errorf("%d history entries examined for 203 tasks, want the 202 entries once", subject.historyExamined)
 	}
 }

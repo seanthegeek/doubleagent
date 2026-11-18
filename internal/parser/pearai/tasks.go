@@ -3,6 +3,7 @@ package pearai
 import (
 	"cmp"
 	"slices"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -30,11 +31,8 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
 	if !found {
 		return jsonvalue.NewNull()
 	}
-	state := p.globalState(database).value
-	for _, entry := range state.Get("taskHistory").Items() {
-		if entry.IsObject() && entry.Get("id").Text() == task.TaskID {
-			return entry
-		}
+	if entry, found := p.globalState(database).history[task.TaskID]; found {
+		return entry
 	}
 	return jsonvalue.NewNull()
 }
@@ -52,9 +50,16 @@ func (p *Parser) taskFile(artifact *input.Artifact, options parser.Options, emit
 	p.ParseTaskFile(artifact, options, emit)
 }
 
-// askTimes returns, in time order, the ts of each tool call ask of
-// ui_messages.json, which a decision's tool_use_id names.
-func (p *Parser) askTimes(task clinelegacy.Task) []jsonvalue.Value {
+// askIndex is the ts of each tool call ask of ui_messages.json, in time
+// order, which a decision's tool_use_id names. probes counts the asks a
+// lookup compared, a measure of the work.
+type askIndex struct {
+	times  []jsonvalue.Value
+	probes int
+}
+
+// askTimes returns the asks of the task's ui_messages.json.
+func (p *Parser) askTimes(task clinelegacy.Task) *askIndex {
 	var asks []jsonvalue.Value
 	for _, message := range p.CachedJSON(task.InDir(clinelegacy.UIFile)).Items() {
 		stamp := message.Get("ts")
@@ -68,7 +73,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) []jsonvalue.Value {
 		rightNumber, _ := clinelegacy.NumberOf(right)
 		return cmp.Compare(leftNumber, rightNumber)
 	})
-	return asks
+	return &askIndex{times: asks}
 }
 
 // apiPermissionRows emits a "permission decision:" row per result of the
@@ -101,7 +106,7 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 				timeutil.FirstNonEmpty(timeutil.FromValue(timestamp), context.Start), "")
 			row.TurnType = timeline.TurnSystem
 			row.ToolName = name
-			row.ToolUseID = lastAskBefore(asks, timestamp)
+			row.ToolUseID = asks.lastBefore(timestamp)
 			row.Text = "permission decision: " + decision
 			emit(row)
 		}
@@ -109,21 +114,23 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
 }
 
-// lastAskBefore returns the latest ask time at or before a message's time,
+// lastBefore returns the latest ask time at or before a message's time,
 // as its number text, or "" when there is none or the time is not a
-// number.
-func lastAskBefore(asks []jsonvalue.Value, timestamp jsonvalue.Value) string {
+// number. The asks are in time order, so a binary search finds it.
+func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
 	moment, ok := clinelegacy.NumberOf(timestamp)
 	if !ok || !clinelegacy.IsNumber(timestamp) {
 		return ""
 	}
-	found := ""
-	for _, ask := range asks {
-		if since, _ := clinelegacy.NumberOf(ask); since <= moment {
-			found = ask.Text()
-		}
+	after := sort.Search(len(x.times), func(i int) bool {
+		x.probes++
+		since, _ := clinelegacy.NumberOf(x.times[i])
+		return since > moment
+	})
+	if after == 0 {
+		return ""
 	}
-	return found
+	return x.times[after-1].Text()
 }
 
 // blockText returns a text block's text, or null for any other block.

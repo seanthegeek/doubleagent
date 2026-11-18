@@ -62,11 +62,13 @@ type stateKey struct {
 	size  int64
 }
 
-// globalState is the extension's global state read from state.vscdb, and
-// the problems met.
+// globalState is the extension's global state read from state.vscdb, the
+// problems met, and its taskHistory[] entries by task id, the first entry
+// of an id standing.
 type globalState struct {
 	value    jsonvalue.Value
 	problems []string
+	history  map[string]jsonvalue.Value
 }
 
 // Parser reads PearAI's chat sessions, agent tasks, editor state and chat
@@ -75,6 +77,10 @@ type Parser struct {
 	*clinelegacy.TaskParser
 	indexes *continuedev.Indexes
 	states  map[stateKey]globalState
+	// historyExamined counts the taskHistory[] entries read into the
+	// indexes, a measure of the work: once per entry of a state, however
+	// many tasks look themselves up.
+	historyExamined int
 }
 
 // New returns the parser.
@@ -137,8 +143,25 @@ func (p *Parser) globalState(path string) globalState {
 		return found
 	}
 	value, problems := vscodestate.ReadItem(path, extensionID)
-	p.states[key] = globalState{value: value, problems: problems}
+	p.states[key] = globalState{value: value, problems: problems, history: p.historyIndex(value)}
 	return p.states[key]
+}
+
+// historyIndex returns the taskHistory[] objects of a global state by
+// task id, the first entry of an id standing.
+func (p *Parser) historyIndex(state jsonvalue.Value) map[string]jsonvalue.Value {
+	index := map[string]jsonvalue.Value{}
+	for _, entry := range state.Get("taskHistory").Items() {
+		p.historyExamined++
+		if !entry.IsObject() {
+			continue
+		}
+		taskID := entry.Get("id").Text()
+		if _, held := index[taskID]; !held {
+			index[taskID] = entry
+		}
+	}
+	return index
 }
 
 // The interfaces the registry looks for, checked when the package builds.
