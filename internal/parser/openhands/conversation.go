@@ -245,7 +245,7 @@ func (p *Parser) load(paths conversationFiles) *conversation {
 		first = loaded[0].event
 	}
 	conv.trackModels(state, loaded)
-	conv.settings = settingRows(state, conv.actions)
+	conv.settings = settingRows(state, conv.actions, &conv.problems)
 	conv.scratch = scratchText(conv.projectPath)
 	conv.anchor(meta, first)
 	conv.header = header(conv, meta, state, len(files), first)
@@ -400,11 +400,14 @@ type loadedEvent struct {
 }
 
 // responseModels returns the model of each response id, from the token
-// usages of base_state.json's stats; the first model of an id stands.
-func responseModels(state jsonvalue.Value) map[string]string {
+// usages of base_state.json's stats; the first model of an id stands. A
+// usage_to_metrics or token_usages of the wrong kind adds a problem.
+func responseModels(state jsonvalue.Value, problems *parser.Problems) map[string]string {
 	byResponse := map[string]string{}
-	for _, metrics := range state.Get("stats").Get("usage_to_metrics").Members() {
-		for _, usage := range parser.Elements(metrics.Value.Get("token_usages")) {
+	usages := state.Get("stats").Get("usage_to_metrics")
+	for _, metrics := range parser.ObjectMember(usages, "stats.usage_to_metrics", 1, problems) {
+		member := "stats.usage_to_metrics." + metrics.Key + ".token_usages"
+		for _, usage := range parser.ArrayMember(metrics.Value.Get("token_usages"), member, 1, problems) {
 			response, model := usage.Get("response_id"), usage.Get("model")
 			if responseID, ok := nonEmptyText(response); ok {
 				if name, ok := nonEmptyText(model); ok {
@@ -425,7 +428,7 @@ func responseModels(state jsonvalue.Value) map[string]string {
 // agent.llm.model differs from the last model the events show, since a
 // switch over REST leaves no event.
 func (c *conversation) trackModels(state jsonvalue.Value, loaded []loadedEvent) {
-	byResponse := responseModels(state)
+	byResponse := responseModels(state, &c.problems)
 	initial, switched := "", false
 	for _, each := range loaded {
 		if next, _ := switchOf(each.event); next != "" {
@@ -499,8 +502,9 @@ func switchOf(event jsonvalue.Value) (string, string) {
 // settingRows returns each "permission setting:" row of base_state.json:
 // the confirmation policy, the security analyzer ("none" when the key is
 // absent, since the file is written without null fields) and one per
-// hook-blocked action, joined to its tool call when the events name it.
-func settingRows(state jsonvalue.Value, actions map[string][2]string) []setting {
+// hook-blocked action, joined to its tool call when the events name it. A
+// blocked_actions that is not an object adds a problem.
+func settingRows(state jsonvalue.Value, actions map[string][2]string, problems *parser.Problems) []setting {
 	if state.IsEmpty() {
 		return nil
 	}
@@ -519,7 +523,7 @@ func settingRows(state jsonvalue.Value, actions map[string][2]string) []setting 
 	}
 	analyzer := parser.TextOr(state.Get("security_analyzer").Get("kind"), "none")
 	rows = append(rows, setting{text: "permission setting: security_analyzer=" + analyzer + tail})
-	for _, blocked := range state.Get("blocked_actions").Members() {
+	for _, blocked := range parser.ObjectMember(state.Get("blocked_actions"), "blocked_actions", 1, problems) {
 		held := actions[blocked.Key]
 		rows = append(rows, setting{"permission setting: blocked_actions." + blocked.Key + "=" +
 			parser.SettingValue(blocked.Value) + tail, held[0], held[1]})
