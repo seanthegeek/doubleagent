@@ -230,7 +230,9 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 		}
 		source := artifact.Rel + " ItemTable " + key
 		if workspace {
-			p.retryQueueRows(artifact, state, source, emit)
+			if problem := p.retryQueueRows(artifact, state, source, emit); problem != "" {
+				problems = append(problems, problem)
+			}
 		} else {
 			p.globalStateRows(artifact, state, source, emit)
 		}
@@ -247,9 +249,12 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 // retryQueueRows emits one row per request the Roo Code Cloud client queued
 // after a failed upload. Only the event type, the task id, the URL and the
 // retry state are written: the request's headers carry a bearer token and
-// its body the event.
-func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value, source string, emit parser.Emit) {
-	for i, request := range state.Get(retryQueueKey).Items() {
+// its body the event. A retry queue that is not an array emits no row and
+// returns the problem text saying so; otherwise it returns "".
+func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value, source string,
+	emit parser.Emit) string {
+	var problems parser.Problems
+	for i, request := range parser.ArrayMember(state.Get(retryQueueKey), retryQueueKey, 0, &problems) {
 		if !request.IsObject() {
 			continue
 		}
@@ -276,6 +281,10 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 		row.SessionID = parser.Text(taskID)
 		emit(row)
 	}
+	if len(problems) > 0 {
+		return problems[0].Message
+	}
+	return ""
 }
 
 // queuedEvent returns the JSON event body of a queued request, or null
