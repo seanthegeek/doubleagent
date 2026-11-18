@@ -2615,7 +2615,7 @@ are decoded, and no `mcpOAuth.secret.*` value is read:
   mcpOAuth.global, file mtime)` at the file's modification time, followed by ` tokens=stored
   (ciphertext, not read)` when an `mcpOAuth.secret` key for the same scope has the field
   `mcp_tokens`; the `oauth-attempt:` scopes and the `mcpOAuth.extensionMigrationComplete` key
-  yield nothing;
+  yield nothing, and a URL's user name and password are shown as `redacted`;
 - for each entry of a `cursor.plugins.installedIds.<team>|<scope>` key, `plugin installed:
   id=<id> sources=<sources, comma-separated> scope=<scope> (from state.vscdb
   cursor.plugins.installedIds, file mtime)` at the file's modification time, the scope the
@@ -2625,7 +2625,8 @@ are decoded, and no `mcpOAuth.secret.*` value is read:
   `workspaceIdentifier.uri.fsPath`);
 - for each `User/globalStorage/mcp-oauth-attempts/<uuid>.json`, `mcp oauth attempt:
   server=<serverUrl> client_id=<clientInformation.client_id> workspace=<owner.workspaceId>
-  (from mcp-oauth-attempts/<file>)` at `createdAtMs`, or, when it has none, the same text
+  (from mcp-oauth-attempts/<file>)`, a URL's user name and password shown as `redacted`, at
+  `createdAtMs`, or, when it has none, the same text
   ending `(from mcp-oauth-attempts/<file>, file mtime)` at the file's modification time; a file
   that is not JSON is one `parser: unreadable <rel>: <reason>` row and one that is JSON but not
   an object one `parser: <rel> is not a JSON object` row ([Bad-line rows](#bad-line-rows)).

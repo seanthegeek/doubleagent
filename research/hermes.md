@@ -1662,7 +1662,8 @@ connection that is not `local`, `remote backend: <kind> <label> <url, or user@ho
 (from connections.json, file mtime)` followed by ` org=<org>`, ` name=<name>` and
 ` profile=<remoteProfile>` when recorded, and `remote backend quarantined by the app: <reason>
 (from connections.json, file mtime)` per quarantined entry, with no session (`session origin:`
-needs one) and never printing `token` or `headers`. It sets no `records_origin`. The
+needs one) and never printing `token` or `headers`; a URL's user name and password, either of which
+can be a token, are shown as `redacted`. It sets no `records_origin`. The
 single-connection `connection.json` is not read.
 
 #### Scratch directory rows

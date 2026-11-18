@@ -787,10 +787,13 @@ inside a thread blob. A `settings.json` or `global_settings.json` that cannot be
 time. A database file that cannot be read, or whose `-wal`, `-shm` or `-journal`
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, and a SQLite
-error while reading one `parser: SQLite error: <error>` row. A `data` blob that does not decode to a
-JSON object is `parser: unparseable record <rowid> (<reason>): <stored value>`, the stored value
-being a `json` row's text or a `zstd` row's compressed bytes as lowercase hex (a truncated frame can
-decompress to nothing), the reason then ending `stored zstd blob as hex`.
+error while reading one `parser: SQLite error: <error>` row, after the threads read before it. A
+`data` blob that does not decode to a JSON object is
+`parser: unparseable record <rowid> (<reason>): <stored value>`, the stored value being a `json`
+row's text or a `zstd` row's compressed bytes as lowercase hex (a truncated frame can decompress to
+nothing), the reason then ending `stored zstd blob as hex`. One blob decompresses to at most
+256 MiB, and the blobs of one database to at most 64 times its size (at least 1 GiB) in all; a blob
+past either limit is such a row, its reason saying which limit it met.
 
 A `messages[]` item of no known variant, a `Compaction` with
 neither `Summary` nor `ProviderNative`, an `Agent` content item of no
