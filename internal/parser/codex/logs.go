@@ -2,7 +2,6 @@ package codex
 
 import (
 	"cmp"
-	"errors"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -170,7 +170,7 @@ func readLogDatabase(path string) ([]logRecord, error) {
 // databaseError returns an error met reading a database as an error whose
 // text is its problem row (parser.DatabaseError).
 func databaseError(err error) error {
-	return errors.New(parser.DatabaseError(err))
+	return reason.Wrap(parser.DatabaseError(err), err)
 }
 
 // parseLogs emits the rows of logs_<N>.sqlite: one per sent /feedback

@@ -116,7 +116,7 @@ func scanToken(text string) (token, int, error) {
 	case octet == '[':
 		end := strings.IndexByte(text, ']')
 		if end < 0 {
-			return token{}, 0, fmt.Errorf("unterminated [ identifier")
+			return token{}, 0, errors.New("unterminated [ identifier")
 		}
 		return token{kind: quoted, text: text[:end+1], value: text[1:end]}, end + 1, nil
 	case (octet == 'x' || octet == 'X') && len(text) > 1 && text[1] == '\'':
@@ -168,7 +168,7 @@ func scanQuoted(text string, quote byte, kind tokenKind) (token, int, error) {
 func scanBlob(text string) (token, int, error) {
 	end := strings.IndexByte(text[2:], '\'')
 	if end < 0 {
-		return token{}, 0, fmt.Errorf("unterminated blob literal")
+		return token{}, 0, errors.New("unterminated blob literal")
 	}
 	digits := text[2 : 2+end]
 	if len(digits)%2 != 0 || strings.IndexFunc(digits, notHexDigit) >= 0 {

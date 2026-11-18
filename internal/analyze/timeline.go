@@ -279,7 +279,7 @@ func createNew(path string, perm fs.FileMode) (*os.File, error) {
 func writeOutput(path string, write func(w io.Writer) error) error {
 	file, err := createNew(path, 0o666)
 	if err != nil {
-		return errors.New(reason.Describe(path, err))
+		return reason.Wrap(reason.Describe(path, err), err)
 	}
 	buffered := bufio.NewWriter(file)
 	err = write(buffered)
@@ -290,7 +290,7 @@ func writeOutput(path string, write func(w io.Writer) error) error {
 		err = closeErr
 	}
 	if err != nil {
-		return errors.New(reason.Describe(path, err))
+		return reason.Wrap(reason.Describe(path, err), err)
 	}
 	return nil
 }

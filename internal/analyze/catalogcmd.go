@@ -17,7 +17,7 @@ func runCatalog(options CatalogOptions, env Environment, stdout, stderr io.Write
 	}
 	found, err := matcher()
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
+		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
 		return ExitError
 	}
 	parsed := parsers.ByAgent(env.Parsers().All())

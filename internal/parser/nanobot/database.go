@@ -8,6 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -98,12 +99,12 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 func readSessionStore(path string) (*sessionStore, error) {
 	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	defer database.Close()
 	names, err := database.TableNames()
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	var missing []string
 	for _, name := range []string{"messages", "sessions"} {
@@ -116,7 +117,7 @@ func readSessionStore(path string) (*sessionStore, error) {
 	}
 	store, err := querySessionStore(database)
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	return store, nil
 }

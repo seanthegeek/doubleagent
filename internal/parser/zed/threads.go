@@ -115,7 +115,7 @@ func decodeThread(record sqlitefile.Row, budget *Budget) (jsonvalue.Value, strin
 	case err == nil:
 		return value, "", nil
 	case isZstd:
-		return jsonvalue.Value{}, hex.EncodeToString(stored), errors.New(err.Error() + "; stored zstd blob as hex")
+		return jsonvalue.Value{}, hex.EncodeToString(stored), fmt.Errorf("%w; stored zstd blob as hex", err)
 	}
 	return jsonvalue.Value{}, textlines.ValidUTF8(stored), err
 }

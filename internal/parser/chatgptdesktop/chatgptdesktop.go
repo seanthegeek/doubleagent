@@ -24,6 +24,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -79,23 +80,23 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 func readCatalog(path string) ([]sqlitefile.Row, error) {
 	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	defer database.Close()
 	names, err := database.TableNames()
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	if !names[catalogTable] {
 		return nil, errors.New("no " + catalogTable + " table")
 	}
 	table, err := database.Table(catalogTable)
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	records, err := table.Select().OrderBy("rowid").All()
 	if err != nil {
-		return nil, errors.New(parser.DatabaseError(err))
+		return nil, reason.Wrap(parser.DatabaseError(err), err)
 	}
 	return records, nil
 }
