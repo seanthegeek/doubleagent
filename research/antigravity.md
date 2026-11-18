@@ -1756,10 +1756,13 @@ Not stated.
 
 A `steps.permissions` blob that does not decode is one `system` row,
 `parser: the permissions of step <idx> could not be decoded`, and the
-step's other rows stand ([issue 92](https://github.com/seanthegeek/doubleagent/issues/92)). Each
-`history.jsonl` and brain mirror line that does not decode is its own `system` row carrying the
-line, and the lines around it are still read; a brain chunk can cut a line at a
-chunk boundary ([Transcript stores](#transcript-stores)).
+step's other rows stand ([issue 92](https://github.com/seanthegeek/doubleagent/issues/92)). A
+`trajectory_metadata_blob` that does not decode is one row
+`parser: the trajectory metadata could not be decoded`, and `gen_metadata` rows that do not are
+one row `parser: the generator metadata of <n> row(s) could not be decoded`; the conversation's
+steps are still read. Each `history.jsonl` and brain mirror line that does not decode, or that is
+not a JSON object, is its own `system` row carrying the line, and the lines around it are still
+read; a brain chunk can cut a line at a chunk boundary ([Transcript stores](#transcript-stores)).
 
 A `conversation_summaries.db` or `conversations/<id>.db` that cannot be read, or whose `-wal`,
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
