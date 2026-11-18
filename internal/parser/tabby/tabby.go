@@ -343,7 +343,9 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 
 // eventRows emits the rows of one event, read from either store: a
 // completion with its prompt and choices, a view, select or dismiss of a
-// choice, or any other event as its JSON. spec gives the line and time.
+// choice, or any other event as its JSON. spec gives the line and time. A
+// completion, view, select or dismiss whose body is present but not an
+// object is a problem row before the event's own row.
 func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string, event jsonvalue.Value,
 	kind string, emit parser.Emit) {
 	if event.Len() != 1 {
@@ -352,9 +354,13 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 		return
 	}
 	member := event.Members()[0]
-	tag, body := member.Key, member.Value
-	if !body.IsObject() {
-		body = jsonvalue.NewObject()
+	tag, raw := member.Key, member.Value
+	body := parser.ObjectOrEmpty(raw)
+	if known := tag == "completion" || slices.Contains([]string{"view", "select", "dismiss"}, tag); known &&
+		!raw.IsObject() && !raw.IsNull() {
+		problem := spec
+		problem.text = parser.ProblemPrefix + parser.WrongKind(tag, jsonvalue.Object)
+		emit(p.row(artifact, problem))
 	}
 	spec.sessionID = parser.Text(body.Get("completion_id"))
 	switch {

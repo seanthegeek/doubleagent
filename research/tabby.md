@@ -695,7 +695,9 @@ A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, o
 `parser: state.vscdb unreadable: <message>`.
 
 A completion event whose `choices` is present but not an array is
-`parser: choices is not a JSON array` at the event's line, after the completion's rows. A
+`parser: choices is not a JSON array` at the event's line, after the completion's rows, and a
+`completion`, `view`, `select` or `dismiss` event whose body is present but not an object is
+`parser: <event> is not a JSON object` at the event's line, before the event's row. A
 `state.vscdb` whose `edit.recentlyCommand` is present but not an array is
 `parser: edit.recentlyCommand is not a JSON array` with `source_line` 0. An absent, null or empty
 one gives no row.
