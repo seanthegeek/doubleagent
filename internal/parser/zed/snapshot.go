@@ -12,10 +12,13 @@ import (
 )
 
 // worktreeSnapshots returns the worktree snapshots of a project snapshot
-// that are objects.
-func worktreeSnapshots(snapshot jsonvalue.Value) []jsonvalue.Value {
+// that are objects; a worktree_snapshots that is not an array adds a
+// problem at line.
+func worktreeSnapshots(snapshot jsonvalue.Value, line int, problems *parser.Problems) []jsonvalue.Value {
 	var worktrees []jsonvalue.Value
-	for _, worktree := range parser.Elements(snapshot.Get("worktree_snapshots")) {
+	items := parser.ArrayMember(snapshot.Get("worktree_snapshots"), "initial_project_snapshot.worktree_snapshots",
+		line, problems)
+	for _, worktree := range items {
 		if worktree.IsObject() {
 			worktrees = append(worktrees, worktree)
 		}
@@ -66,11 +69,14 @@ func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
 
 // threadState fills in the thread's project, branch, model and time, and
 // emits its start row, its `git remote:` and `model:` rows and one
-// `permission setting:` row per thread-scoped grant.
+// `permission setting:` row per thread-scoped grant. An
+// initial_project_snapshot, worktree_snapshots or sandbox_grants of the
+// wrong kind adds a problem.
 func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonvalue.Value,
-	emit parser.Emit) {
-	snapshot := parser.ObjectOrEmpty(value.Get("initial_project_snapshot"))
-	worktrees := worktreeSnapshots(snapshot)
+	problems *parser.Problems, emit parser.Emit) {
+	line := int(record.Rowid)
+	snapshot := objectOrReport(value.Get("initial_project_snapshot"), "initial_project_snapshot", line, problems)
+	worktrees := worktreeSnapshots(snapshot, line, problems)
 	if context.project == "" && len(worktrees) > 0 {
 		context.project = parser.Text(worktrees[0].Get("worktree_path"))
 	}
@@ -99,7 +105,7 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 		}
 		emit(p.threadRow(context, timeline.TurnSystem, text, start))
 	}
-	for _, grant := range threadGrants(value) {
+	for _, grant := range threadGrants(value, line, problems) {
 		text := "permission setting: " + grant.key + "=" + parser.SettingValue(grant.value) +
 			" (thread blob, as of updated_at)"
 		emit(p.threadRow(context, timeline.TurnSystem, text, ""))
@@ -126,23 +132,31 @@ func startText(record sqlitefile.Row, value jsonvalue.Value) string {
 	return strings.Join(parts, " ")
 }
 
+// objectOrReport returns value as an object, an empty one when it is not
+// an object; a value that is not null and not an object adds the problem
+// "<member> is not a JSON object" at line.
+func objectOrReport(value jsonvalue.Value, member string, line int, problems *parser.Problems) jsonvalue.Value {
+	if !value.IsNull() && !value.IsObject() {
+		problems.Add(line, parser.WrongKind(member, jsonvalue.Object))
+	}
+	return parser.ObjectOrEmpty(value)
+}
+
 // threadGrants returns the thread-scoped grants: the agent profile, each
 // granted write path and network host, and each sandbox escape flag that is
-// set (DbSandboxGrants, db.rs:91-122 at a84689073d29).
-func threadGrants(value jsonvalue.Value) []setting {
+// set (DbSandboxGrants, db.rs:91-122 at a84689073d29). A sandbox_grants
+// that is not an object, or a write_paths or network_hosts that is not an
+// array, adds a problem at line.
+func threadGrants(value jsonvalue.Value, line int, problems *parser.Problems) []setting {
 	var grants []setting
 	if profile, ok := value.Lookup("profile"); ok && parser.Present(profile) {
 		grants = append(grants, setting{"profile", profile})
 	}
-	sandbox := value.Get("sandbox_grants")
-	if !sandbox.IsObject() {
-		return grants
-	}
+	sandbox := objectOrReport(value.Get("sandbox_grants"), "sandbox_grants", line, problems)
 	for _, key := range []string{"write_paths", "network_hosts"} {
-		if entries := sandbox.Get(key); entries.IsArray() {
-			for _, entry := range entries.Items() {
-				grants = append(grants, setting{"sandbox_grants." + key, entry})
-			}
+		member := "sandbox_grants." + key
+		for _, entry := range parser.ArrayMember(sandbox.Get(key), member, line, problems) {
+			grants = append(grants, setting{member, entry})
 		}
 	}
 	for _, key := range sandboxFlags() {
