@@ -11,34 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// text returns a value's str(), "" for null.
-func text(value jsonvalue.Value) string {
-	if value.IsNull() {
-		return ""
-	}
-	return value.Text()
-}
-
-// boolText returns true or false as JSON spells them, any other value's
-// str(), and "" for null.
-func boolText(value jsonvalue.Value) string {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return "true"
-		}
-		return "false"
-	}
-	return text(value)
-}
-
-// orDash returns value, or "-" when it is empty.
-func orDash(value string) string {
-	if value == "" {
-		return "-"
-	}
-	return value
-}
-
 // transcript emits the rows of a transcript in Claude Code's format. When
 // the session record names a folder, every row but a scratch directory's
 // takes it as project path. session, the session dir relative to the home,
@@ -65,7 +37,7 @@ func initCwd(artifact *input.Artifact) string {
 	var ignored parser.Problems
 	for _, line := range parser.JSONLines(artifact.DiskPath, &ignored) {
 		if isText(line.Get("type"), "system") && isText(line.Get("subtype"), "init") {
-			if cwd := text(line.Get("cwd")); cwd != "" {
+			if cwd := line.Get("cwd").Text(); cwd != "" {
 				return cwd
 			}
 		}
@@ -116,11 +88,11 @@ func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session
 		project = initCwd(artifact)
 	}
 	if project == "" && found && !record.IsEmpty() {
-		project = text(record.Get("cwd"))
+		project = record.Get("cwd").Text()
 	}
 	cliID := ""
 	if found && !record.IsEmpty() {
-		cliID = text(record.Get("cliSessionId"))
+		cliID = record.Get("cliSessionId").Text()
 	}
 	state := &auditLine{parser: p, artifact: artifact, options: options, emit: emit,
 		project: project, models: parser.Tracker{}}
@@ -130,7 +102,7 @@ func (p *Parser) audit(artifact *input.Artifact, options parser.Options, session
 		state.line = number
 		state.sessionID = cliID
 		if state.sessionID == "" {
-			state.sessionID = text(line.Get("session_id"))
+			state.sessionID = line.Get("session_id").Text()
 		}
 		if state.sessionID != "" {
 			lastSessionID = state.sessionID
@@ -151,11 +123,11 @@ func (a *auditLine) read(line jsonvalue.Value) {
 		isText(subtype, "permission_auto_approved") || isText(subtype, "permission_auto_denied")):
 		a.permission(line, subtype.StringValue())
 	case isText(lineType, "result"):
-		a.emit(a.row(timeline.TurnSystem, "result: "+text(subtype)+" turns="+
-			text(line.Get("num_turns"))+" error="+boolText(line.Get("is_error"))))
+		a.emit(a.row(timeline.TurnSystem, "result: "+subtype.Text()+" turns="+
+			line.Get("num_turns").Text()+" error="+line.Get("is_error").Text()))
 	case isSystem && isText(subtype, "init"):
 		// The session's model, even when a transcript exists.
-		a.modelRow(text(line.Get("model")))
+		a.modelRow(line.Get("model").Text())
 		var parts []string
 		for _, key := range []string{"cwd", "model"} {
 			if value := line.Get(key); !value.IsEmpty() {
@@ -175,7 +147,7 @@ func (a *auditLine) read(line jsonvalue.Value) {
 	case isText(lineType, "user"):
 		a.user(line)
 	case isText(lineType, "assistant"):
-		a.modelRow(text(line.Get("message").Get("model")))
+		a.modelRow(line.Get("message").Get("model").Text())
 		a.assistant(line)
 	}
 }
@@ -206,7 +178,7 @@ func withoutEnvelope(line jsonvalue.Value) jsonvalue.Value {
 // permission emits the row of a permission request, a response, or an
 // automatic approval or denial with what decided it.
 func (a *auditLine) permission(line jsonvalue.Value, subtype string) {
-	tool := text(line.Get("tool_name"))
+	tool := line.Get("tool_name").Text()
 	message := ""
 	switch subtype {
 	case "permission_request":
@@ -216,8 +188,8 @@ func (a *auditLine) permission(line jsonvalue.Value, subtype string) {
 		}
 		message = "permission request: " + tool + " " + summary
 	case "permission_response":
-		message = "permission response: " + tool + " " + text(line.Get("decision")) + " granted=" +
-			boolText(line.Get("granted"))
+		message = "permission response: " + tool + " " + line.Get("decision").Text() + " granted=" +
+			line.Get("granted").Text()
 	default:
 		word := "denied"
 		if subtype == "permission_auto_approved" {
@@ -275,7 +247,7 @@ func (a *auditLine) user(line jsonvalue.Value) {
 				result = "[error] " + result
 			}
 			row := a.row(timeline.TurnToolResult, result)
-			row.ToolUseID = text(block.Get("tool_use_id"))
+			row.ToolUseID = block.Get("tool_use_id").Text()
 			a.emit(row)
 		case isText(blockType, "text"), isText(blockType, "image"):
 			body := parser.TextOf(jsonvalue.NewArray(block))
@@ -296,7 +268,7 @@ func (a *auditLine) user(line jsonvalue.Value) {
 // when asked for, thinking.
 func (a *auditLine) assistant(line jsonvalue.Value) {
 	message := line.Get("message")
-	model := text(message.Get("model"))
+	model := message.Get("model").Text()
 	for _, block := range blocks(message.Get("content")) {
 		blockType := block.Get("type")
 		var row timeline.Row
@@ -304,14 +276,14 @@ func (a *auditLine) assistant(line jsonvalue.Value) {
 		case !block.IsObject():
 			continue
 		case isText(blockType, "tool_use"):
-			name := text(block.Get("name"))
+			name := block.Get("name").Text()
 			row = a.row(timeline.TurnToolUse, claudecode.ToolSummary(name, block.Get("input")))
 			row.ToolName = name
-			row.ToolUseID = text(block.Get("id"))
+			row.ToolUseID = block.Get("id").Text()
 		case isText(blockType, "text") && !block.Get("text").IsEmpty():
-			row = a.row(timeline.TurnAssistant, text(block.Get("text")))
+			row = a.row(timeline.TurnAssistant, block.Get("text").Text())
 		case isText(blockType, "thinking") && a.options.IncludeThinking && !block.Get("thinking").IsEmpty():
-			row = a.row(timeline.TurnThinking, text(block.Get("thinking")))
+			row = a.row(timeline.TurnThinking, block.Get("thinking").Text())
 		case isText(blockType, "redacted_thinking") && a.options.IncludeThinking:
 			row = a.row(timeline.TurnThinking, "[redacted]")
 		default:

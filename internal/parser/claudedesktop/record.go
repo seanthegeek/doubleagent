@@ -1,6 +1,7 @@
 package claudedesktop
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -53,15 +54,15 @@ func (s *sessionRecord) row(turnType, message, timestamp string) timeline.Row {
 	row := s.parser.BaseRow(s.artifact)
 	row.SourceLine = 1
 	row.TimestampUTC = timestamp
-	row.SessionID = text(s.record.Get("cliSessionId"))
+	row.SessionID = s.record.Get("cliSessionId").Text()
 	row.ProjectPath = folder(s.record)
 	if row.ProjectPath == "" {
-		row.ProjectPath = timeutil.FirstNonEmpty(text(s.record.Get("originCwd")), text(s.record.Get("cwd")))
+		row.ProjectPath = timeutil.FirstNonEmpty(s.record.Get("originCwd").Text(), s.record.Get("cwd").Text())
 	}
 	if s.code {
-		row.GitBranch = text(s.record.Get("branch"))
+		row.GitBranch = s.record.Get("branch").Text()
 	}
-	row.Model = text(s.record.Get("model"))
+	row.Model = s.record.Get("model").Text()
 	row.TurnType = turnType
 	row.Text = timeline.Compact(message)
 	return row
@@ -86,7 +87,7 @@ func (p *Parser) record(artifact *input.Artifact, emit parser.Emit) {
 		created: timeutil.FromValue(record.Get("createdAt"))}
 	state.sessionRows()
 	state.grants()
-	if initial := text(record.Get("initialMessage")); initial != "" {
+	if initial := record.Get("initialMessage").Text(); initial != "" {
 		switch {
 		case !state.code:
 			// Cowork: always, with no time of its own (a secondary source).
@@ -98,8 +99,8 @@ func (p *Parser) record(artifact *input.Artifact, emit parser.Emit) {
 		}
 	}
 	if !record.Get("error").IsEmpty() {
-		message := text(record.Get("error"))
-		if category := text(record.Get("errorCategory")); category != "" {
+		message := record.Get("error").Text()
+		if category := record.Get("errorCategory").Text(); category != "" {
 			message = category + ": " + message
 		}
 		emit(state.row(timeline.TurnSystem, "session error: "+message,
@@ -111,11 +112,11 @@ func (p *Parser) record(artifact *input.Artifact, emit parser.Emit) {
 // of a Remote Control session live when the app quit to update.
 func (s *sessionRecord) sessionRows() {
 	record := s.record
-	modeEffort := " permission_mode=" + orDash(text(record.Get("permissionMode"))) +
-		" effort=" + orDash(text(record.Get("effort")))
+	modeEffort := " permission_mode=" + cmp.Or(record.Get("permissionMode").Text(), "-") +
+		" effort=" + cmp.Or(record.Get("effort").Text(), "-")
 	if !s.code {
-		s.emit(s.row(timeline.TurnSystem, fmt.Sprintf(`desktop session: %s "%s"`,
-			text(record.Get("sessionType")), text(record.Get("title")))+modeEffort, s.created))
+		s.emit(s.row(timeline.TurnSystem, "desktop session: "+record.Get("sessionType").Text()+
+			` "`+record.Get("title").Text()+`"`+modeEffort, s.created))
 		return
 	}
 	spawn, bridges := record.Get("remoteControlSpawn"), 0
@@ -123,7 +124,7 @@ func (s *sessionRecord) sessionRows() {
 		bridges = ids.Len()
 	}
 	s.emit(s.row(timeline.TurnSystem, fmt.Sprintf(`desktop code session: "%s" remote_control=%s `+
-		"bridges=%d spawned_remotely=%s steered_remotely=%s", text(record.Get("title")),
+		"bridges=%d spawned_remotely=%s steered_remotely=%s", record.Get("title").Text(),
 		flag(record.Get("remoteControlUserEnabled")), bridges,
 		flag(jsonvalue.NewBool(spawn.IsObject() && spawn.Len() > 0)),
 		flag(record.Get("steeredByRemoteClient")))+modeEffort, s.created))
@@ -205,17 +206,16 @@ func (p *Parser) scheduled(artifact *input.Artifact, emit parser.Emit) {
 		if !task.IsObject() {
 			continue
 		}
-		when := text(task.Get("cronExpression"))
+		when := task.Get("cronExpression").Text()
 		if task.Get("cronExpression").IsEmpty() {
 			when = timeutil.FromValue(task.Get("fireAt"))
 		}
-		row := p.systemRow(artifact, fmt.Sprintf(
-			"scheduled task: %s %s enabled=%s permission_mode=%s model=%s", text(task.Get("id")), when,
-			boolText(task.Get("enabled")), orDash(text(task.Get("permissionMode"))),
-			orDash(text(task.Get("model")))), i+1)
+		row := p.systemRow(artifact, "scheduled task: "+task.Get("id").Text()+" "+when+" enabled="+
+			task.Get("enabled").Text()+" permission_mode="+cmp.Or(task.Get("permissionMode").Text(), "-")+
+			" model="+cmp.Or(task.Get("model").Text(), "-"), i+1)
 		row.TimestampUTC = timeutil.FromValue(task.Get("createdAt"))
-		row.Model = text(task.Get("model"))
-		row.ProjectPath = timeutil.FirstNonEmpty(text(task.Get("cwd")), folder(task))
+		row.Model = task.Get("model").Text()
+		row.ProjectPath = timeutil.FirstNonEmpty(task.Get("cwd").Text(), folder(task))
 		emit(row)
 	}
 }
@@ -233,15 +233,15 @@ func (p *Parser) worktrees(artifact *input.Artifact, emit parser.Emit) {
 		if !worktree.IsObject() {
 			continue
 		}
-		message := "worktree created: " + text(worktree.Get("path")) + " branch=" +
-			text(worktree.Get("branch")) + " from=" + text(worktree.Get("sourceBranch"))
+		message := "worktree created: " + worktree.Get("path").Text() + " branch=" +
+			worktree.Get("branch").Text() + " from=" + worktree.Get("sourceBranch").Text()
 		if leased := worktree.Get("leasedBy"); !leased.IsEmpty() {
 			message += " leased by " + leased.Text()
 		}
 		row := p.systemRow(artifact, message, i+1)
 		row.TimestampUTC = timeutil.FromValue(worktree.Get("createdAt"))
-		row.ProjectPath = text(worktree.Get("baseRepo"))
-		row.GitBranch = text(worktree.Get("branch"))
+		row.ProjectPath = worktree.Get("baseRepo").Text()
+		row.GitBranch = worktree.Get("branch").Text()
 		emit(row)
 	}
 }
@@ -263,14 +263,14 @@ func (p *Parser) spaces(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		key := "entries.folders"
-		if sessionID := text(entry.Get("sessionId")); sessionID != "" {
+		if sessionID := entry.Get("sessionId").Text(); sessionID != "" {
 			key = "entries." + sessionID + ".folders"
 		}
 		for _, granted := range folders.Items() {
 			if granted.IsNull() || isText(granted, "") {
 				continue
 			}
-			emit(p.code.StandingRow(artifact, timestamp, text(granted), key, granted,
+			emit(p.code.StandingRow(artifact, timestamp, granted.Text(), key, granted,
 				claudecode.PermissionSetting))
 		}
 	}

@@ -9,9 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the routing and
-// the record lookup, with the oracle's results.
+// The rows each file gives are proved by the parser replay
+// (internal/parity/replay); these tests cover the routing and the record
+// lookup.
 
 // The two session trees of the tests, and a session dir's full name.
 const (
@@ -89,7 +89,7 @@ func TestARecordIsFoundWhereTheCollectionStagedTheSessionsOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 	collected := &input.Home{DiskPath: home, StagedPaths: map[string]string{cowork: staged}}
-	if record, found := findRecord(collected, cowork+"/"+session); !found || text(record.Get("title")) != "staged" {
+	if record, found := findRecord(collected, cowork+"/"+session); !found || record.Get("title").Text() != "staged" {
 		t.Errorf("got %v, %v; want the staged org's record", record, found)
 	}
 	if _, found := findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); found {
@@ -123,7 +123,7 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 			}
 			home := &input.Home{DiskPath: filepath.Dir(org)}
 			record, _ := findRecord(home, filepath.Base(org)+"/"+test.sessionDir)
-			if got := text(record.Get("title")); got != test.want {
+			if got := record.Get("title").Text(); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
