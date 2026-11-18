@@ -19,11 +19,17 @@ import (
 // historyItem returns a pre-fork task's history item: history_item.json in
 // its directory, else its entry in the tasks' _index.json, else an empty
 // object. The task directory is the artifact's own. Either file that is
-// there but cannot be read adds a problem.
+// there but cannot be read, or does not hold a JSON object (text that is
+// not JSON among it), adds a problem.
 func (p *Parser) historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) jsonvalue.Value {
 	item := jsonvalue.NewNull()
 	if itemPath, ok := parser.Beside(artifact, "history_item.json"); ok && parser.RegularFile(itemPath) {
-		item, _ = readJSON(itemPath, problems)
+		if read, ok := readJSON(itemPath, problems); ok {
+			item = read
+			if !item.IsObject() {
+				problems.Add(0, "history_item.json is not a JSON object")
+			}
+		}
 	}
 	if item.IsObject() {
 		return item
@@ -54,8 +60,9 @@ type taskIndex struct {
 // indexEntry returns the entry of the _index.json at indexPath whose id is
 // the string taskID. The file is read and indexed once per state for the
 // parser's life, since every task file below it looks it up, and the
-// problems of that read are added for each lookup as a fresh read would; an
-// entries member that is not an array is one of them.
+// problems of that read are added for each lookup as a fresh read would; a
+// file that does not hold a JSON object, and an entries member that is not
+// an array, are among them.
 func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	info, err := osfile.Lstat(indexPath)
 	if err != nil {
@@ -65,7 +72,10 @@ func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems)
 	index, ok := p.indexes[key]
 	if !ok {
 		index = &taskIndex{entries: map[string]jsonvalue.Value{}}
-		document, _ := readJSON(indexPath, &index.problems)
+		document, read := readJSON(indexPath, &index.problems)
+		if read && !document.IsObject() {
+			index.problems.Add(0, "_index.json is not a JSON object")
+		}
 		for _, entry := range parser.ArrayMember(document.Get("entries"), "entries", 0, &index.problems) {
 			p.Work.Add("index entries read", 1)
 			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.IsObject() &&
