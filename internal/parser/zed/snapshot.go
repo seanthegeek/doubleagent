@@ -12,18 +12,11 @@ import (
 )
 
 // worktreeSnapshots returns the worktree snapshots of a project snapshot
-// that are objects; a worktree_snapshots that is not an array adds a
-// problem at line.
+// that are objects; a worktree_snapshots that is not an array, or that
+// holds entries that are not objects, adds a problem at line.
 func worktreeSnapshots(snapshot jsonvalue.Value, line int, problems *parser.Problems) []jsonvalue.Value {
-	var worktrees []jsonvalue.Value
-	items := parser.ArrayMember(snapshot.Get("worktree_snapshots"), "initial_project_snapshot.worktree_snapshots",
-		line, problems)
-	for _, worktree := range items {
-		if worktree.IsObject() {
-			worktrees = append(worktrees, worktree)
-		}
-	}
-	return worktrees
+	return parser.ListOfKind(snapshot.Get("worktree_snapshots"), "initial_project_snapshot.worktree_snapshots",
+		jsonvalue.Object, line, problems)
 }
 
 // branchAndRemote returns the git branch of a thread, the project's own
