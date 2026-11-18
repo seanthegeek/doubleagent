@@ -1,0 +1,55 @@
+# Reports known vulnerabilities in the Go module's dependencies and in the Go
+# standard library to the repository's code scanning alerts, with
+# govulncheck, which lists only the ones the binary's code can reach.
+#
+# The CI workflow already runs govulncheck on every change and fails on a
+# finding. A vulnerability is often published long after the code that has
+# it was written, so this workflow also runs once a week and on demand, and
+# records what it finds where the other security alerts are.
+name: govulncheck
+
+on:
+  schedule:
+    # Mondays at 06:17 UTC; a scheduled workflow runs on the default branch.
+    - cron: "17 6 * * 1"
+  push:
+    branches: [main, go-rewrite, "go-rewrite-*"]
+    paths:
+      - go.mod
+      - go.sum
+      - "vendor/**"
+      - .github/workflows/govulncheck.yml
+  workflow_dispatch:
+
+# The job reads the repository and writes code scanning alerts, nothing else.
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: govulncheck-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    env:
+      # internal/zstdframe does not compile without these tags; the CI
+      # workflow sets the same ones for every go command.
+      GOFLAGS: "-tags=noasm,nounsafe"
+    steps:
+      # The action checks the repository out, installs the Go version go.mod
+      # names and the latest govulncheck, and runs it over every package. In
+      # the SARIF format it succeeds whatever it finds; the alerts are the
+      # result.
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          output-format: sarif
+          output-file: govulncheck.sarif
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: govulncheck.sarif
+          category: govulncheck

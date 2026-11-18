@@ -1707,6 +1707,13 @@ a verdict. A push to a `unit-*` branch runs the three Go jobs on the Ubuntu
 runner alone; its integration branch and every pull request run them on all
 three platforms.
 
+A second workflow, [`.github/workflows/govulncheck.yml`](.github/workflows/govulncheck.yml),
+runs `govulncheck` through `golang/govulncheck-action` once a week, on
+demand and when `go.mod`, `go.sum` or `vendor/` change, and uploads what it
+finds to the repository's code scanning alerts. The CI run fails a change
+that has a known vulnerability; the weekly run finds one published after the
+code was written.
+
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
 a pull request changed since its merge base into these categories, and a
