@@ -535,7 +535,7 @@ for the hook events),
 `deniedUrls`; one `permission setting: ... (from <file>, file mtime)` row
 per entry at the file's modification time), `logs/process-*.log` (the
 sign-in line), and `sidebar-sessions-state/*.json` (a project-path join,
-no rows). Secondary sources: `session-store.db` (SQLite with WAL sidecars;
+no rows but a problem row for a file that is not a JSON object). Secondary sources: `session-store.db` (SQLite with WAL sidecars;
 `sessions`, `turns`, `session_files`, `session_refs`, `checkpoints`,
 `forge_trajectory_events`; one-hour window, since a turn is stamped when
 it ends), `session-state/<id>/rewind-file-snapshots/index.json` (each
