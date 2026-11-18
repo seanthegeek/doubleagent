@@ -390,7 +390,8 @@ func TestListingOrderChecksTheDocumentedOrder(t *testing.T) {
 func TestADifferenceNoCaseUsedFailsAWholeRun(t *testing.T) {
 	table := []Difference{{Number: 101, Summary: "used", Text: quotedValueText},
 		{Number: 102, Summary: "unused", Text: libraryErrorText},
-		{Number: 103, Summary: "retired", Retired: "no case needs it"}}
+		{Number: 103, Summary: "retired", Retired: "no case needs it"},
+		{Number: 104, Summary: "unchecked", Text: libraryErrorText, Unchecked: "needed only at some times"}}
 	tests := []struct {
 		name  string
 		used  neededTally

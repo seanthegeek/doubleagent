@@ -12,14 +12,14 @@ import (
 
 // Difference is one analysis difference between the Python analyzer and
 // the binary, numbered from 101 in the milestone plan. Each applies only to
-// its shape: Text rewrites each place it occurs into a form both sides
-// share, Rows puts rows of the shape into one order, Excludes reports a case
-// no rewriting can match, Outputs rewrites a run's output files against the
-// recorded ones and the records the recorded parses read, Added takes
-// from a parse's rows a row the recording lacks, Arguments a command's recorded arguments; each returns how
-// many places it found. A difference of format names in Scope the texts it
-// applies to. A retired one keeps its number, which the plan cites, says in
-// Retired why, and applies nowhere.
+// its shape: Text rewrites it into a form both sides share, Rows puts its
+// rows in one order, Excludes reports a case no rewriting can match,
+// Outputs rewrites a run's outputs against the recorded ones and the
+// records the recorded parses read, Added takes a row the recording lacks
+// from a parse, Arguments rewrites a command line; each returns what it
+// found. Scope names the texts a difference of format applies to. A retired
+// one keeps its number and applies nowhere; Unchecked says why a run that
+// never uses one does not fail.
 type Difference struct {
 	Number    int
 	Summary   string
@@ -31,6 +31,7 @@ type Difference struct {
 	Scope     string
 	Added     func(file string, want, got []Row) ([]Row, int)
 	Retired   string
+	Unchecked string
 }
 
 // Differences returns the table of documented differences, a fresh slice.

@@ -652,7 +652,7 @@ func compareOutputs(t testing.TB, node, root string, forms outputForms, normalis
 	}
 	for _, label := range slices.Sorted(maps.Keys(wantTexts)) {
 		compareText(t, node, normaliser, label, wantTexts[label], gotTexts[label],
-			want.loose && label != "stderr")
+			want.loose && label != "stderr", forms.enabled)
 	}
 	return notes
 }
@@ -715,8 +715,8 @@ func comparePart(t *testing.T, node string, want, got commandOutput) {
 	if want.exit == analyze.ExitError && got.exit != want.exit {
 		t.Errorf("%s: exit %d, want %d", node, got.exit, want.exit)
 	}
-	compareText(t, node, nil, "stderr", want.stderr, got.stderr, false)
-	compareText(t, node, nil, "stdout header", headerLines(want.stdout), headerLines(got.stdout), false)
+	compareText(t, node, nil, "stderr", want.stderr, got.stderr, false, nil)
+	compareText(t, node, nil, "stdout header", headerLines(want.stdout), headerLines(got.stdout), false, nil)
 	for path := range want.outputs {
 		if strings.HasPrefix(got.outputs[path], "(not written: ") {
 			t.Errorf("%s: %s %s", node, path, got.outputs[path])
@@ -743,13 +743,17 @@ func headerLines(text string) string {
 }
 
 // compareText compares one text after the analysis differences its
-// recorded form shows; for a loose input the listing order is normalised.
+// recorded form shows; for a loose input the listing order is normalised,
+// and under difference 119 a timestamp rounded up is let stand.
 func compareText(t testing.TB, node string, normaliser *textNormaliser, label, want, got string,
-	loose bool) {
+	loose bool, enabled enabledSet) {
 	t.Helper()
 	want, got = normaliser.pair(t, node, want, got)
 	if loose {
 		want, got = listingOrder(label, want), listingOrder(label, got)
+	}
+	if enabled[differenceRoundedTime] {
+		got = rolledOverLines(want, got)
 	}
 	DiffText(t, node, label, want, got)
 }

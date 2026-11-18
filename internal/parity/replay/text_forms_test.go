@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 )
 
 // proseTurns are the turn types whose text a person or a tool wrote as it
@@ -207,3 +208,62 @@ func encodeJSON(value any, indent string) string {
 
 // timestampText is a timestamp as the outputs write one.
 var timestampText = regexp.MustCompile(`[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z`)
+
+// Timestamps that are values of their own, not a time quoted inside a
+// text: in a line of JSON, a whole string after a key or in an array; in
+// any other line, a whole word.
+var (
+	jsonTimestamp = regexp.MustCompile(`[:,\[] ?"(` + timestampText.String() + `)"`)
+	wordTimestamp = regexp.MustCompile(`(?:^|\s)(` + timestampText.String() + `)(?:\s|$)`)
+)
+
+// rolledOver returns want when got equals it but for whole timestamps each
+// of which is want's or one millisecond earlier, where the analyzer's
+// rounding of the microseconds carried into the next millisecond;
+// otherwise got.
+func rolledOver(want, got string) string {
+	if want == got {
+		return got
+	}
+	whole := wordTimestamp
+	if trimmed := strings.TrimLeft(want, " "); strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, `"`) {
+		whole = jsonTimestamp
+	}
+	wantAt, gotAt := whole.FindAllStringSubmatchIndex(want, -1), whole.FindAllStringSubmatchIndex(got, -1)
+	if len(wantAt) == 0 || len(wantAt) != len(gotAt) {
+		return got
+	}
+	wantEnd, gotEnd := 0, 0
+	for i := range wantAt {
+		if want[wantEnd:wantAt[i][2]] != got[gotEnd:gotAt[i][2]] ||
+			!sameOrOneLater(want[wantAt[i][2]:wantAt[i][3]], got[gotAt[i][2]:gotAt[i][3]]) {
+			return got
+		}
+		wantEnd, gotEnd = wantAt[i][3], gotAt[i][3]
+	}
+	if want[wantEnd:] != got[gotEnd:] {
+		return got
+	}
+	return want
+}
+
+// sameOrOneLater reports whether the timestamp want equals got or is one
+// millisecond later.
+func sameOrOneLater(want, got string) bool {
+	if want == got {
+		return true
+	}
+	wantTime, wantErr := time.Parse(time.RFC3339Nano, want)
+	gotTime, gotErr := time.Parse(time.RFC3339Nano, got)
+	return wantErr == nil && gotErr == nil && wantTime.Sub(gotTime) == time.Millisecond
+}
+
+// rolledOverLines returns got with each line that equals want's line at
+// the same index but for timestamps rolled over (119) given want's form.
+func rolledOverLines(want, got string) string {
+	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
+	for i := range min(len(wantLines), len(gotLines)) {
+		gotLines[i] = rolledOver(wantLines[i], gotLines[i])
+	}
+	return strings.Join(gotLines, "\n")
+}

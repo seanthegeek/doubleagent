@@ -16,6 +16,7 @@ const (
 	differenceCSVRecords   = 110
 	differenceBoolean      = 113
 	differenceEmbeddedJSON = 116
+	differenceRoundedTime  = 119
 )
 
 // The scopes a difference of format names: the texts it applies to.
@@ -23,6 +24,7 @@ const (
 	scopeOutputs = "the JSON outputs and detect --json"
 	scopeCSV     = "the fleet CSV"
 	scopeRows    = "row texts and the formatted fields of a row"
+	scopeTimes   = "a row's timestamp and the timestamps of output lines"
 )
 
 // retiredFormat is why a difference of format was retired.
@@ -58,15 +60,18 @@ func formatDifferences() []Difference {
 		{Number: 117, Summary: "a list or object in a row is JSON, not Python's repr", Retired: retiredFormat},
 		{Number: 118, Summary: "whitespace is unicode.IsSpace: U+001C to U+001F are not trimmed",
 			Retired: retiredFormat},
-		{Number: 119, Summary: "a timestamp's fraction is cut to the millisecond, never rounded up " +
-			"into the next one", Retired: retiredFormat},
+		{Number: differenceRoundedTime, Summary: "a timestamp's fraction is cut to the millisecond, " +
+			"never rounded up into the next one: a row's timestamp, or a timestamp that is a whole " +
+			"JSON string or a whole word of an output line otherwise equal, may be one millisecond " +
+			"earlier", Scope: scopeTimes, Unchecked: "whether a case needs it depends on the clock " +
+			"when the recording ran, since a file's time rounds up about half the time"},
 	}
 }
 
 // rowFormatNumbers are the differences of format a parser case's rows are
 // compared under.
 func rowFormatNumbers() []int {
-	return []int{differenceBoolean, differenceEmbeddedJSON}
+	return []int{differenceBoolean, differenceEmbeddedJSON, differenceRoundedTime}
 }
 
 // commandFormatNumbers are the differences of format a command case is
@@ -167,6 +172,10 @@ func informationRows(want, got []Row, enabled enabledSet) ([]Row, []Row) {
 	for i := range min(len(want), len(got)) {
 		if want[i] != got[i] {
 			want[i], got[i] = rowForm(want[i], enabled), rowForm(got[i], enabled)
+			if enabled[differenceRoundedTime] && sameOrOneLater(string(want[i].TimestampUTC),
+				string(got[i].TimestampUTC)) {
+				got[i].TimestampUTC = want[i].TimestampUTC
+			}
 		}
 	}
 	return want, got

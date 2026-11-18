@@ -112,7 +112,7 @@ func checkEveryDifferenceUsed(t testing.TB, table []Difference, used neededTally
 		return
 	}
 	for _, entry := range table {
-		if entry.Retired != "" {
+		if entry.Retired != "" || entry.Unchecked != "" {
 			continue
 		}
 		if len(used[entry.Number]) == 0 {
