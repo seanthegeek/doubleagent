@@ -310,17 +310,18 @@ func (p *Parser) warningDecision(item jsonvalue.Value) (string, string) {
 // from, what the history holds, the models seen and the first failure that
 // stops the parse.
 type chat struct {
-	parser      *Parser
-	artifact    *input.Artifact
-	options     parser.Options
-	emit        parser.Emit
-	base        timeline.Row
-	history     map[string]historyEntry
-	models      parser.Tracker
-	messagesDir string
-	hasMessages bool
-	problems    parser.Problems
-	failure     error
+	parser   *Parser
+	artifact *input.Artifact
+	options  parser.Options
+	emit     parser.Emit
+	base     timeline.Row
+	history  map[string]historyEntry
+	models   parser.Tracker
+	// messages is the messages directory beside the chat, the zero
+	// Directory when there is none.
+	messages parser.Directory
+	problems parser.Problems
+	failure  error
 }
 
 // zeroAgent reports whether an agent number is the main agent's: null, zero,
@@ -395,10 +396,21 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		return state.failure
 	}
 	if !legacy {
-		state.messagesDir, state.hasMessages = parser.Beside(artifact, "messages")
+		state.messages = messagesBeside(artifact)
 	}
 	state.chatRows(document, fallbackID)
 	return state.failure
+}
+
+// messagesBeside returns the messages directory beside a chat file, the
+// zero Directory when there is none or it is a link.
+func messagesBeside(artifact *input.Artifact) parser.Directory {
+	path, found := parser.Beside(artifact, "messages")
+	if !found {
+		return parser.Directory{}
+	}
+	messages, _ := parser.DirectoryAt(path)
+	return messages
 }
 
 // chatRows emits the rows of a chat that decoded.
@@ -583,15 +595,14 @@ func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
 // when there is none. A file that exists but cannot be read adds its
 // unreadable problem; a failure to look for it stops the parse.
 func (c *chat) messageFile(content jsonvalue.Value) string {
-	if !c.hasMessages || !content.IsObject() || content.Get("file").IsEmpty() {
+	if !content.IsObject() || content.Get("file").IsEmpty() {
 		return ""
 	}
 	name := strings.ReplaceAll(content.Get("file").Text(), `\`, "/")
-	name, named := parser.Component(name[strings.LastIndex(name, "/")+1:])
+	path, named := c.messages.Child(name[strings.LastIndex(name, "/")+1:])
 	if !named {
 		return ""
 	}
-	path := filepath.Join(c.messagesDir, name)
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		if !absentLookup(err) {

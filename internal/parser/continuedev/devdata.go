@@ -22,11 +22,11 @@ func (p *Parser) devIndex(artifact *input.Artifact) map[string]jsonvalue.Value {
 	if parent, found := parser.Above(artifact, 1); found && filepath.Base(parent) == ".continue" {
 		levels = 1
 	}
-	sessions, found := parser.Above(artifact, levels, "sessions")
+	index, found := parser.Above(artifact, levels, "sessions", IndexName)
 	if !found {
 		return nil
 	}
-	return p.indexes.Index(sessions)
+	return p.indexes.Index(index)
 }
 
 // recordText returns a prompt or completion as row text: a string as it

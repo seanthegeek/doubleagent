@@ -1,7 +1,6 @@
 package continuedev
 
 import (
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,23 +32,23 @@ func NewIndexes() *Indexes {
 	return &Indexes{read: map[string]index{}}
 }
 
-// get returns the index at path, reading it on first use. A path is one
-// key however it was spelled.
+// get returns the index at path, reading it on first use. Every path is
+// one the parser kit or the input built, which joins its parts with one
+// separator and no dot element, so one file has one spelling and one key.
 func (x *Indexes) get(path string) index {
-	key := filepath.Clean(path)
-	if found, ok := x.read[key]; ok {
+	if found, ok := x.read[path]; ok {
 		return found
 	}
 	entries, problems := ReadIndex(path)
-	x.read[key] = index{entries: entries, problems: problems}
-	return x.read[key]
+	x.read[path] = index{entries: entries, problems: problems}
+	return x.read[path]
 }
 
-// Index returns the entries, by session id, of the sessions.json in the
-// directory at path: none when it is absent or unreadable, which is
-// reported once, by Errors on the index's own artifact.
-func (x *Indexes) Index(directory string) map[string]jsonvalue.Value {
-	return x.get(filepath.Join(directory, IndexName)).entries
+// Index returns the entries, by session id, of the sessions.json index at
+// path: none when it is absent or unreadable, which is reported once, by
+// Errors on the index's own artifact.
+func (x *Indexes) Index(path string) map[string]jsonvalue.Value {
+	return x.get(path).entries
 }
 
 // Errors returns the problems of the index at path, a new list each call.

@@ -8,6 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -150,8 +151,8 @@ func settingsModel(header string) string {
 func (p *Parser) devChat(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	var index map[string]jsonvalue.Value
-	if sessions, found := parser.Above(artifact, 1, "sessions"); found {
-		index = p.indexes.Index(sessions)
+	if path, found := parser.Above(artifact, 1, "sessions", continuedev.IndexName); found {
+		index = p.indexes.Index(path)
 	}
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		base := p.BaseRow(artifact)

@@ -77,12 +77,15 @@ func TestAContextIDThatIsNotAFileNameIsADeletedChat(t *testing.T) {
 
 func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 	directory := t.TempDir()
-	messages := filepath.Join(directory, "chats", "ctx", "messages")
 	writeFile(t, directory, "chats/ctx/messages/1.txt", "kept")
 	writeFile(t, directory, "chats/ctx/x", "outside")
+	messages, ok := parser.DirectoryAt(filepath.Join(directory, "chats", "ctx", "messages"))
+	if !ok {
+		t.Fatal("the messages directory was refused")
+	}
 	for _, name := range []string{"..", ".", "x/", "../x", `..\x`, "a\x00b"} {
 		t.Run(name, func(t *testing.T) {
-			state := &chat{messagesDir: messages, hasMessages: true}
+			state := &chat{messages: messages}
 			content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(name)})
 			got := state.messageFile(content)
 			if got != "" || state.failure != nil || len(state.problems) > 0 {
@@ -90,7 +93,7 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 			}
 		})
 	}
-	state := &chat{messagesDir: messages, hasMessages: true}
+	state := &chat{messages: messages}
 	content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(`a\1.txt`)})
 	if got := state.messageFile(content); got != "kept" {
 		t.Errorf("a plain name after a backslash gave %q", got)

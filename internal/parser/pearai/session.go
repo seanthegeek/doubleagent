@@ -27,8 +27,8 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	base := p.BaseRow(artifact)
 	base.SessionID = cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	var entry jsonvalue.Value
-	if directory, ok := parser.Beside(artifact); ok {
-		entry = p.indexes.Index(directory)[base.SessionID]
+	if index, ok := parser.Beside(artifact, continuedev.IndexName); ok {
+		entry = p.indexes.Index(index)[base.SessionID]
 	}
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
 	base.ProjectPath = parser.Text(parser.FirstNonEmpty(document.Get("workspaceDirectory"),
