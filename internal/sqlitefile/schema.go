@@ -1,6 +1,9 @@
 package sqlitefile
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // SchemaRow is one row of the schema table on page 1 ("Storage Of The SQL
 // Database Schema"): Type is table, index, view or trigger; TableName the
@@ -15,9 +18,46 @@ type SchemaRow struct {
 	SQL       string
 }
 
+// schemaIndex is the schema table as read once per database: its rows, and
+// the position of the first table row of each folded name.
+type schemaIndex struct {
+	rows   []SchemaRow
+	tables map[string]int
+}
+
 // Schema returns the schema table's rows in b-tree order, the order SQLite
-// lists them. An empty database has none.
+// lists them. An empty database has none. The table is read once per
+// Database; each call returns its own copy of the rows.
 func (d *Database) Schema() ([]SchemaRow, error) {
+	index, err := d.schemaIndex()
+	if err != nil {
+		return nil, err
+	}
+	return slices.Clone(index.rows), nil
+}
+
+// schemaIndex returns the schema table, reading it on first use.
+func (d *Database) schemaIndex() (*schemaIndex, error) {
+	d.schemaOnce.Do(func() {
+		rows, err := d.readSchema()
+		if err != nil {
+			d.schemaErr = err
+			return
+		}
+		index := &schemaIndex{rows: rows, tables: map[string]int{}}
+		for i, row := range rows {
+			key := foldASCII(row.Name)
+			if _, taken := index.tables[key]; row.Type == "table" && !taken {
+				index.tables[key] = i
+			}
+		}
+		d.schema = index
+	})
+	return d.schema, d.schemaErr
+}
+
+// readSchema walks the schema table's b-tree and converts its rows.
+func (d *Database) readSchema() ([]SchemaRow, error) {
 	if d.pageCount == 0 {
 		return nil, nil
 	}

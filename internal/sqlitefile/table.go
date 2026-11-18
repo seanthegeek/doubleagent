@@ -27,14 +27,15 @@ type Table struct {
 // TableNames returns the names of the schema's tables, as SQL's
 // "select name from sqlite_master where type='table'" lists them: virtual
 // tables, their shadow tables and SQLite's own tables included. Names keep
-// their case; the map holds each one as true.
+// their case; the map holds each one as true. To ask whether a table
+// exists, use HasTable, which matches a name as SQL does.
 func (d *Database) TableNames() (map[string]bool, error) {
-	schema, err := d.Schema()
+	index, err := d.schemaIndex()
 	if err != nil {
 		return nil, err
 	}
 	names := map[string]bool{}
-	for _, row := range schema {
+	for _, row := range index.rows {
 		if row.Type == "table" {
 			names[row.Name] = true
 		}
@@ -42,35 +43,44 @@ func (d *Database) TableNames() (map[string]bool, error) {
 	return names, nil
 }
 
+// HasTable reports whether the schema holds a table called name, matched
+// as Table matches it: ASCII letters in any case.
+func (d *Database) HasTable(name string) (bool, error) {
+	index, err := d.schemaIndex()
+	if err != nil {
+		return false, err
+	}
+	_, ok := index.tables[foldASCII(name)]
+	return ok, nil
+}
+
 // Table returns the table called name, matched as SQL matches a table
 // name (ASCII letters in any case). It fails with ErrNoTable when there is
 // none, and with an error naming the table when its CREATE TABLE text
-// cannot be read, declares more than the 2000 columns SQLite allows, or
-// is a virtual table of a module other than fts5.
+// cannot be read, declares a column twice or more than the 2000 columns
+// SQLite allows, or is a virtual table of a module other than fts5.
 func (d *Database) Table(name string) (*Table, error) {
-	schema, err := d.Schema()
+	index, err := d.schemaIndex()
 	if err != nil {
 		return nil, err
 	}
-	return d.tableFrom(schema, name)
+	return d.tableFrom(index, name)
 }
 
-// tableFrom finds and parses the table called name among schema's rows.
-func (d *Database) tableFrom(schema []SchemaRow, name string) (*Table, error) {
-	index := slices.IndexFunc(schema, func(row SchemaRow) bool {
-		return row.Type == "table" && equalFoldASCII(row.Name, name)
-	})
-	if index < 0 {
+// tableFrom finds and parses the table called name in the schema.
+func (d *Database) tableFrom(index *schemaIndex, name string) (*Table, error) {
+	position, ok := index.tables[foldASCII(name)]
+	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNoTable, name)
 	}
-	row := schema[index]
+	row := index.rows[position]
 	shape, err := parseCreateTable(row.SQL)
 	if err != nil {
 		return nil, fmt.Errorf("table %s: %w", row.Name, err)
 	}
 	table := &Table{database: d, shape: shape, root: row.RootPage}
 	if shape.fts5 {
-		return table, d.attachContent(schema, table)
+		return table, d.attachContent(index, table)
 	}
 	if row.RootPage == 0 {
 		return nil, malformed("table %s has no root page", row.Name)
@@ -82,8 +92,8 @@ func (d *Database) tableFrom(schema []SchemaRow, name string) (*Table, error) {
 // attachContent finds an fts5 table's content table and maps each declared
 // column to the content table's column c<i> ("The Table Contents (%_content
 // table)" in https://www.sqlite.org/fts5.html).
-func (d *Database) attachContent(schema []SchemaRow, table *Table) error {
-	content, err := d.tableFrom(schema, table.shape.name+"_content")
+func (d *Database) attachContent(index *schemaIndex, table *Table) error {
+	content, err := d.tableFrom(index, table.shape.name+"_content")
 	if err != nil {
 		return fmt.Errorf("fts5 table %s: %w", table.shape.name, err)
 	}

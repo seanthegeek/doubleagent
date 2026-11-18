@@ -1,6 +1,7 @@
 package vscodestate
 
 import (
+	"bytes"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -126,5 +127,33 @@ func TestStateDatabasePathsAndEditors(t *testing.T) {
 	editors[0] = "changed"
 	if EditorAgents()[0] != "vscode" || len(editors) != 6 {
 		t.Error("EditorAgents should return a fresh list of the six editors")
+	}
+}
+
+func TestReadItemsFindsItemTableInAnyASCIICase(t *testing.T) {
+	cases := []struct {
+		name, spelling string
+		found          bool
+	}{
+		{"a table named ITEMTABLE is read", "ITEMTABLE", true},
+		{"a table named itemtable is read", "itemtable", true},
+		{"a table named ItemTablf is not read", "ItemTablf", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			path := stateCopy(t)
+			data, err := osfile.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			renamed := bytes.ReplaceAll(data, []byte("ItemTable"), []byte(test.spelling))
+			if err := osfile.WriteFile(path, renamed, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			values, problems := ReadItems(path, []string{"cloudAgentRepository.agents.u1"})
+			if found := len(values) == 1; found != test.found || problems != nil {
+				t.Errorf("ReadItems() = %v, %q; want found %v", values, problems, test.found)
+			}
+		})
 	}
 }

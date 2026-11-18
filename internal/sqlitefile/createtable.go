@@ -45,7 +45,7 @@ type Column struct {
 type tableShape struct {
 	name    string
 	columns []Column
-	// byName maps each folded column name to the first column of that name.
+	// byName maps each folded column name to its column.
 	byName       map[string]int
 	withoutRowid bool
 	strict       bool
@@ -274,7 +274,8 @@ func (s *tableShape) columnIndex(name string) int {
 	return -1
 }
 
-// addColumn appends a column, refusing one past maxColumns.
+// addColumn appends a column, refusing one past maxColumns and a name
+// already declared in any ASCII case, which SQLite refuses too.
 func (s *tableShape) addColumn(column Column) error {
 	if len(s.columns) == maxColumns {
 		return fmt.Errorf("%w: table %s has more than %d columns", errSchemaSyntax, s.name, maxColumns)
@@ -282,9 +283,11 @@ func (s *tableShape) addColumn(column Column) error {
 	if s.byName == nil {
 		s.byName = map[string]int{}
 	}
-	if _, taken := s.byName[foldASCII(column.Name)]; !taken {
-		s.byName[foldASCII(column.Name)] = len(s.columns)
+	key := foldASCII(column.Name)
+	if _, taken := s.byName[key]; taken {
+		return fmt.Errorf("%w: duplicate column name: %s", errSchemaSyntax, column.Name)
 	}
+	s.byName[key] = len(s.columns)
 	s.columns = append(s.columns, column)
 	return nil
 }

@@ -287,3 +287,98 @@ func TestAWhereRowHoldsOnlyTheDeclaredColumns(t *testing.T) {
 		t.Errorf("Where saw %d rows, %v; want 2", seen, err)
 	}
 }
+
+// manyTables returns a database of count tables, t0 to t<count-1>, each
+// of one column holding no rows, and a table named Messages holding one
+// row; reads through it add to read.
+func manyTables(t *testing.T, count int, read *int64) *Database {
+	t.Helper()
+	pages := newTestPages(maxPageSize)
+	tables := make([]schemaTable, 0, count+1)
+	for i := range count {
+		root := pages.add()
+		pages.setPage(root, leafTable, nil, 0)
+		name := "t" + strconv.Itoa(i)
+		tables = append(tables, schemaTable{name, root, "CREATE TABLE " + name + "(a)"})
+	}
+	root := pages.add()
+	pages.setPage(root, leafTable, [][]byte{tableLeafCell(1, testRecord(TextValue("kept")))}, 0)
+	tables = append(tables, schemaTable{"Messages", root, "CREATE TABLE Messages(body)"})
+	pages.setSchema(tables...)
+	database, err := Open(countedFiles(read, pages.bytes(), nil, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return database
+}
+
+func TestTheSchemaIsReadOncePerDatabase(t *testing.T) {
+	var read int64
+	database := manyTables(t, 200, &read)
+	if _, err := database.Table("t0"); err != nil {
+		t.Fatal(err)
+	}
+	once := read
+	for i := range 200 {
+		if _, err := database.Table("t" + strconv.Itoa(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := database.TableNames(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.HasTable("absent"); err != nil {
+		t.Fatal(err)
+	}
+	if read != once {
+		t.Errorf("200 more table lookups read %d bytes, want none after the first read %d", read-once, once)
+	}
+}
+
+func TestHasTableMatchesANameAsSQLDoes(t *testing.T) {
+	var read int64
+	database := manyTables(t, 2, &read)
+	cases := []struct {
+		name string
+		want bool
+	}{
+		{"Messages", true},
+		{"messages", true},
+		{"MESSAGES", true},
+		{"me\u017fsages", false},
+		{"t1", true},
+		{"absent", false},
+	}
+	for _, test := range cases {
+		t.Run("a table called "+test.name+" is found as SQL finds it", func(t *testing.T) {
+			if got, err := database.HasTable(test.name); err != nil || got != test.want {
+				t.Errorf("HasTable(%s) = %v, %v; want %v", test.name, got, err, test.want)
+			}
+			_, err := database.Table(test.name)
+			if found := err == nil; found != test.want {
+				t.Errorf("Table(%s) error = %v, want found %v as HasTable says", test.name, err, test.want)
+			}
+		})
+	}
+}
+
+func TestATableDeclaringAColumnTwiceLeavesTheOthersReadable(t *testing.T) {
+	pages := newTestPages(4096)
+	twice, kept := pages.add(), pages.add()
+	pages.setPage(twice, leafTable, [][]byte{tableLeafCell(1, testRecord(IntValue(1), IntValue(2)))}, 0)
+	pages.setPage(kept, leafTable, [][]byte{tableLeafCell(1, testRecord(TextValue("kept")))}, 0)
+	pages.setSchema(schemaTable{"twice", twice, "CREATE TABLE twice(id integer primary key, a, a)"},
+		schemaTable{"kept", kept, "CREATE TABLE kept(a)"})
+	database := openOrFail(t, pages.bytes(), nil, nil)
+	if _, err := database.Table("twice"); !errors.Is(err, errSchemaSyntax) ||
+		!strings.Contains(err.Error(), "duplicate column name: a") {
+		t.Errorf("Table(twice) error = %v, want the duplicate column refused", err)
+	}
+	table, err := database.Table("kept")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := table.Select("a").All(); err != nil || len(rows) != 1 || rows[0].Get("a").Text() != "kept" {
+		t.Errorf("Select(a) = %v, %v; want the one row", rows, err)
+	}
+}
