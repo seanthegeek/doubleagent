@@ -9,14 +9,14 @@ import (
 
 // The parsers' queries, rewritten with the helpers as a parser would write
 // them. Each runs over any database holding its tables and returns the rows
-// in the column order of the Python query it replaces (named in its comment),
-// and whether the database has what it reads. generate.py and
-// fixture_tables.py run the Python query on the same files.
+// in the column order of the SQL query given in its comment, and whether the
+// database has what it reads. testdata/tables.txt and
+// testdata/fixture_tables.txt record what SQLite returns for each query.
 
 // siteFunction is one rewritten query.
 type siteFunction func(database *Database) ([][]Value, bool, error)
 
-// sites returns the rewritten queries by the names the Python dumps use.
+// sites returns the rewritten queries by the names the dumps use.
 func sites() map[string]siteFunction {
 	return map[string]siteFunction{
 		"chatgpt_desktop":   chatgptDesktopSite,
@@ -68,7 +68,7 @@ func withRowid(rows []Row) [][]Value {
 	return out
 }
 
-// chatgptDesktopSite is chatgpt_desktop.py:81:
+// chatgptDesktopSite is the ChatGPT desktop parser's query:
 // select rowid as _rowid, * from local_thread_catalog order by rowid.
 func chatgptDesktopSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "local_thread_catalog")
@@ -79,7 +79,7 @@ func chatgptDesktopSite(database *Database) ([][]Value, bool, error) {
 	return withRowid(rows), true, err
 }
 
-// cursorPrefixedSite is cursor.py:244: select rowid, key, value from
+// cursorPrefixedSite is the Cursor parser's query: select rowid, key, value from
 // cursorDiskKV where key >= ? and key < ? order by key.
 func cursorPrefixedSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "cursorDiskKV")
@@ -96,7 +96,7 @@ func cursorPrefixedSite(database *Database) ([][]Value, bool, error) {
 	return withRowid(rows), true, err
 }
 
-// cursorOneSite is cursor.py:252: select rowid, value from cursorDiskKV where key = ?.
+// cursorOneSite is the Cursor parser's query: select rowid, value from cursorDiskKV where key = ?.
 func cursorOneSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "cursorDiskKV")
 	if !ok || err != nil {
@@ -108,7 +108,7 @@ func cursorOneSite(database *Database) ([][]Value, bool, error) {
 	return withRowid(rows), true, err
 }
 
-// cursorSubstrSite is cursor.py:382: select rowid, key, value from ItemTable
+// cursorSubstrSite is the Cursor parser's query: select rowid, key, value from ItemTable
 // where substr(key, 1, ?) = ? order by key.
 func cursorSubstrSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "ItemTable")
@@ -123,7 +123,7 @@ func cursorSubstrSite(database *Database) ([][]Value, bool, error) {
 	return withRowid(rows), true, err
 }
 
-// zedJoinSite is zed.py:396: select a.rowid, a.*, t.thread_id from
+// zedJoinSite is the Zed parser's query: select a.rowid, a.*, t.thread_id from
 // archived_git_worktrees a left join thread_archived_worktrees t on
 // t.archived_worktree_id = a.id order by a.id, with one worktree's links
 // ordered by thread id (difference 55).
@@ -154,7 +154,7 @@ func zedJoinSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// openclawJoinSite is openclaw.py:1042: session_conversations l join
+// openclawJoinSite is the OpenClaw parser's query: session_conversations l join
 // conversations c using (conversation_id) order by l.first_seen_at, l.rowid.
 func openclawJoinSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "session_conversations", "conversations")
@@ -179,7 +179,7 @@ func openclawJoinSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// openclawColdSite is openclaw.py:1645-1662: the sqlite-stored cold
+// openclawColdSite is the OpenClaw parser's query: the sqlite-stored cold
 // archives by archived_at, each followed by its chunks (a WITHOUT ROWID
 // table) by chunk_index.
 func openclawColdSite(database *Database) ([][]Value, bool, error) {
@@ -213,7 +213,7 @@ func openclawColdSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// codexLogsSite is codex_state.py:626: the logs rows whose target and body
+// codexLogsSite is the Codex state parser's query: the logs rows whose target and body
 // marker match one of the kinds, (target = ? and instr(body, ?) > 0) or ...
 func codexLogsSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "logs")
@@ -259,7 +259,7 @@ func codexLogsSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// gooseLikeSite is goose.py:689: select session_id, content_json from
+// gooseLikeSite is the Goose parser's query: select session_id, content_json from
 // messages where content_json like '%toolConfirmationResponse%'.
 func gooseLikeSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "messages")
@@ -281,7 +281,7 @@ func valuesOf(rows []Row) [][]Value {
 	return out
 }
 
-// hermesNamesSite is hermes.py:1118: select name, response_id from
+// hermesNamesSite is the Hermes parser's query: select name, response_id from
 // conversations, which the parser folds into a map where the last
 // duplicate wins.
 func hermesNamesSite(database *Database) ([][]Value, bool, error) {
@@ -293,7 +293,7 @@ func hermesNamesSite(database *Database) ([][]Value, bool, error) {
 	return valuesOf(rows), true, err
 }
 
-// clineFTSSite is cline.py:741: select <columns> from session_search order
+// clineFTSSite is the Cline parser's query: select <columns> from session_search order
 // by rowid, an fts5 table read from its content table.
 func clineFTSSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "session_search")
@@ -305,7 +305,7 @@ func clineFTSSite(database *Database) ([][]Value, bool, error) {
 	return valuesOf(rows), true, err
 }
 
-// opencodeMessagesSite is opencode.py:816: session_message ordered by
+// opencodeMessagesSite is the OpenCode parser's query: session_message ordered by
 // session_id, seq, time_created, ties in rowid order.
 func opencodeMessagesSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "session_message")
@@ -317,7 +317,7 @@ func opencodeMessagesSite(database *Database) ([][]Value, bool, error) {
 	return withRowid(rows), true, err
 }
 
-// crushFilesSite is crush.py:470: select rowid, session_id, path, version,
+// crushFilesSite is the Crush parser's query: select rowid, session_id, path, version,
 // length(content) as size, created_at from files order by created_at, rowid.
 func crushFilesSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "files")
@@ -335,7 +335,7 @@ func crushFilesSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// functionsSite computes generate.py's functions query over samples. The
+// functionsSite computes the functions query of tables.txt over samples. The
 // functions read the stored values, which may be invalid text, so it reads
 // them through the table's scan rather than a selection.
 func functionsSite(database *Database) ([][]Value, bool, error) {
@@ -385,7 +385,7 @@ func sqlBool(truth bool) Value {
 	return IntValue(0)
 }
 
-// comparisonsSite computes generate.py's comparisons query over mixed: SQL
+// comparisonsSite computes the comparisons query of tables.txt over mixed: SQL
 // comparisons with the column's affinity applied to the literal.
 func comparisonsSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "mixed")
