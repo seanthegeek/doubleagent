@@ -315,17 +315,19 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 // name a deleted composer; a blob that is not JSON is protobuf, not an
 // error.
 func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
+	idents := make([]string, len(deleted))
+	for i, current := range deleted {
+		idents[i] = current.ident
+	}
+	named := newTextSet(idents, r.store.work)
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
 		blob, err := jsonvalue.DecodeString(asText(row.value))
 		if err != nil || !blob.Has("content") {
 			continue
 		}
 		content := blob.Get("content")
-		haystack := parser.SettingValue(content)
-		for _, current := range deleted {
-			if !strings.Contains(haystack, current.ident) {
-				continue
-			}
+		for _, position := range named.find(parser.SettingValue(content)) {
+			current := deleted[position]
 			stamp := r.owner.newStamper(r.artifact, current, emit)
 			role := parser.Text(blob.Get("role"))
 			text := timeline.Compact(parser.TextOf(content))
