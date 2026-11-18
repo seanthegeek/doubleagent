@@ -1,6 +1,9 @@
 package evidencepath
 
-import "testing"
+import (
+	"testing"
+	"unicode/utf8"
+)
 
 func TestFromFileURIReadsEachFormEditorsWrite(t *testing.T) {
 	tests := []struct {
@@ -34,4 +37,15 @@ func TestFromFileURIReadsEachFormEditorsWrite(t *testing.T) {
 			}
 		})
 	}
+}
+
+func FuzzFromFileURIGivesValidText(fuzz *testing.F) {
+	for _, seed := range []string{"file:///c%3A/x", "file://h/a%FF", "file:C:/a", "file:///a%zz", "file:"} {
+		fuzz.Add(seed)
+	}
+	fuzz.Fuzz(func(t *testing.T, uri string) {
+		if path, ok := FromFileURI(uri); ok && !utf8.ValidString(path) {
+			t.Errorf("FromFileURI(%q) = %q, which is not valid UTF-8", uri, path)
+		}
+	})
 }
