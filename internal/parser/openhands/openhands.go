@@ -71,6 +71,9 @@ type Parser struct {
 	// events directory listed, so its other event files are passed over
 	// without a listing of their own.
 	legacyLowest map[legacyKey]string
+	// projects holds, per .openhands directory, the working directory of
+	// each digest its conversations name.
+	projects map[string]map[string]string
 }
 
 // legacyKey names a legacy session's events directory: the home's path on
@@ -188,12 +191,35 @@ var errNotObject = errors.New("not a JSON object")
 // directory, two levels above the history file, whose SHA-256 is
 // digest, else "". The directories are the
 // conversations' workspace.working_dir, and the digest is the name the CLI
-// gives a project's directory under projects/.
+// gives a project's directory under projects/. The conversations are read
+// once per .openhands directory for the run, since each project's history
+// looks its digest up among all of them.
 func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string {
+	base, found := parser.Above(artifact, 2)
+	if !found {
+		return ""
+	}
+	index, ok := p.projects[base]
+	if !ok {
+		index = p.projectIndex(artifact)
+		if p.projects == nil {
+			p.projects = map[string]map[string]string{}
+		}
+		p.projects[base] = index
+	}
+	return index[digest]
+}
+
+// projectIndex returns, by SHA-256, the first working directory each
+// digest names among the conversations under the .openhands directory two
+// levels above the history file, in the order of conversationGlobs and
+// then of the conversations' names.
+func (p *Parser) projectIndex(artifact *input.Artifact) map[string]string {
+	index := map[string]string{}
 	for _, glob := range conversationGlobs {
 		directory, found := parser.Above(artifact, 2, glob.directory...)
 		if !found {
-			return ""
+			return index
 		}
 		entries, err := parser.ReadDir(directory)
 		if err != nil {
@@ -213,14 +239,15 @@ func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string 
 			if !reachable {
 				continue
 			}
+			p.Work.Add("conversations read for projects", 1)
 			document, _, _ := loadJSON(conversation, &parser.Problems{})
 			dir, ok := nonEmptyText(document.Get("workspace").Get("working_dir"))
-			if ok && sha256Hex(dir) == digest {
-				return dir
+			if _, seen := index[sha256Hex(dir)]; ok && !seen {
+				index[sha256Hex(dir)] = dir
 			}
 		}
 	}
-	return ""
+	return index
 }
 
 // parseState emits the standing permission rows of a base_state.json and the
