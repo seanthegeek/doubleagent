@@ -1,0 +1,22 @@
+[
+ {"path": "C:\\uC /xUx.C", "canonical": "C:\\uC \\xUx.C", "key": "c:\\uc \\xux.c", "windows": true},
+ {"path": "", "canonical": "", "key": "", "windows": false},
+ {"path": "\\\\/ ??Cxuc?", "canonical": "\\\\ ??Cxuc?", "key": "\\\\ ??cxuc?", "windows": true},
+ {"path": "C:\\?\\:c.n", "canonical": "C:\\?\\:c.n", "key": "c:\\?\\:c.n", "windows": true},
+ {"path": "\\\\ xxN?", "canonical": "\\\\ xxN?", "key": "\\\\ xxn?", "windows": true},
+ {"path": "\\\\ x\\\\::", "canonical": "\\\\ x\\::", "key": "\\\\ x\\::", "windows": true},
+ {"path": "\\\\?\\UNC\\.\\. ", "canonical": "\\\\.\\. ", "key": "\\\\.\\. ", "windows": true},
+ {"path": "\\\\?\\unc//\\C?", "canonical": "\\\\?\\unc//\\C?", "key": "\\\\?\\unc//\\C?", "windows": false},
+ {"path": "\\\\?\\N", "canonical": "\\\\?\\N", "key": "\\\\?\\N", "windows": false},
+ {"path": "\\\\?\\UNC\\", "canonical": "\\\\?\\UNC\\", "key": "\\\\?\\UNC\\", "windows": false},
+ {"path": "\\\\?\\UNC\\/.uxC u", "canonical": "\\\\.uxC u", "key": "\\\\.uxc u", "windows": true},
+ {"path": "\\\\?", "canonical": "\\\\?", "key": "\\\\?", "windows": true},
+ {"path": "\\\\ Nc:/ c", "canonical": "\\\\ Nc:\\ c", "key": "\\\\ nc:\\ c", "windows": true},
+ {"path": "\\\\? ??x", "canonical": "\\\\? ??x", "key": "\\\\? ??x", "windows": true},
+ {"path": "\\\\", "canonical": "\\\\", "key": "\\\\", "windows": false},
+ {"path": "n://", "canonical": "N:\\", "key": "n:\\", "windows": true},
+ {"path": "\\\\?\\U:\\C", "canonical": "U:\\C", "key": "u:\\c", "windows": true},
+ {"path": "\\\\U?", "canonical": "\\\\U?", "key": "\\\\u?", "windows": true},
+ {"path": "\\\\n\\\\/", "canonical": "\\\\n", "key": "\\\\n", "windows": true},
+ {"path": "\\\\?\\\\\\u:.x/  ", "canonical": "\\\\u:.x\\  ", "key": "\\\\u:.x\\  ", "windows": true}
+]
