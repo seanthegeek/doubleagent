@@ -1,5 +1,5 @@
-// Package input opens what the analyst points the analyzer at and turns it
-// into attributed artifacts. Three shapes are accepted:
+// Package input opens what the analyst points the analysis commands at and
+// turns it into attributed artifacts. Three shapes are accepted:
 //
 //   - a collector archive (a tar, plain, gzip or bzip2 compressed, or a zip),
 //     extracted to a new temporary directory first;
