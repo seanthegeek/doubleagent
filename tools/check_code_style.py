@@ -40,7 +40,7 @@ import re
 import subprocess
 import sys
 import tokenize
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from typing import NamedTuple
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -138,7 +138,15 @@ GO_TOKEN = re.compile(
 )
 GO_VERB = re.compile(r"%(?:%|[-+# 0]*(?:\d+|\*)?(?:\.(?:\d+|\*)?)?(?:\[\d+\])?[a-zA-Z])")
 GO_FORMAT_CALLS = {"Sprintf": "`+`", "Errorf": "`errors.New` and `+`"}
-GO_FORMAT_MESSAGE = "fmt.%s only joins strings (every verb is %%s); use %s"
+GO_FORMAT_MESSAGE = "fmt.%s only joins strings (every verb is %%s, or %%v of err); use %s"
+GO_NO_VERB_CALLS = {"Sprintf": "the string itself", "Errorf": "`errors.New`"}
+GO_NO_VERB_MESSAGE = "fmt.%s has no verb to fill; use %s"
+GO_ERRORS_NEW_FORMAT_MESSAGE = (
+    "errors.New(fmt.Sprintf(...)) makes an error from a format; use fmt.Errorf"
+)
+GO_DROPPED_CAUSE_MESSAGE = (
+    "errors.New makes an error from another error's text and drops it; wrap it with %w"
+)
 GO_WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
 GO_KEYWORDS = {
     "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough",
@@ -743,40 +751,164 @@ def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Itera
     yield run[0], message % (len(run), cap)
 
 
-def go_format_text(tokens: list[GoToken], start: int) -> tuple[str, int] | None:
+def go_literal_text(tokens: list[GoToken], start: int) -> tuple[str, int] | None:
     """Return the string literals joined by `+` from `start`, and the index after them.
 
-    None when the argument there is not made of string literals alone.
+    None when there is no string literal there.
     """
     parts: list[str] = []
     index = start
-    while tokens[index].kind in ("string", "raw", "linecomment") or tokens[index].text == "+":
+    while index < len(tokens) and (
+        tokens[index].kind in ("string", "raw") or tokens[index].text == "+"
+    ):
         if tokens[index].kind in ("string", "raw"):
             parts.append(tokens[index].text[1:-1])
         index += 1
-    if not parts or tokens[index].text not in (",", ")"):
+    if not parts:
         return None
     return "".join(parts), index
+
+
+def go_string_constants(tokens: list[GoToken]) -> dict[str, str]:
+    """Return the text of each constant the file declares as string literals alone.
+
+    `const layout = "%s: %s"` and the same entry in a `const (...)` block count; a constant of
+    another type, or one whose value is more than literals joined by `+`, does not.
+    """
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    constants: dict[str, str] = {}
+    for index, token in enumerate(code):
+        if token.text != "const" or index + 1 >= len(code):
+            continue
+        if code[index + 1].text == "(":
+            starts = list(go_block_starts(code, index + 1))
+        else:
+            starts = [index + 1]
+        for start in starts:
+            names, after = go_names_at(code, start, "variable")
+            if len(names) != 1 or after >= len(code):
+                continue
+            if code[after].text == "string":
+                after += 1
+            if after >= len(code) or code[after].text != "=":
+                continue
+            literal = go_literal_text(code, after + 1)
+            if literal is None:
+                continue
+            text, end = literal
+            ends_entry = end >= len(code) or code[end].line != code[end - 1].end_line
+            if ends_entry or code[end].text in (")", ";"):
+                constants[names[0].name] = text
+    return constants
+
+
+def go_format_argument(tokens: list[GoToken], start: int, constants: dict[str, str]) -> str | None:
+    """Return the format text of the first argument at `start`, None when it is not known.
+
+    The format is known when the argument is string literals joined by `+`, or the name of a
+    string constant of the same file.
+    """
+    literal = go_literal_text(tokens, start)
+    if literal is not None:
+        text, end = literal
+        return text if end < len(tokens) and tokens[end].text in (",", ")") else None
+    name = tokens[start]
+    if name.kind == "ident" and name.text in constants and tokens[start + 1].text in (",", ")"):
+        return constants[name.text]
+    return None
+
+
+def go_is_call(tokens: list[GoToken], index: int, package: str, names: Collection[str]) -> bool:
+    """Return True when the tokens at `index` start a call `package.Name(` of one of `names`."""
+    return (
+        index >= 2
+        and index + 1 < len(tokens)
+        and tokens[index].text in names
+        and tokens[index + 1].text == "("
+        and tokens[index - 1].text == "."
+        and tokens[index - 2].text == package
+    )
+
+
+def go_plain_verbs(call: str, verbs: list[str], arguments: list[list[GoToken]]) -> bool:
+    """Return True when every verb only copies text into the result.
+
+    A verb does when it is a plain `%s`, or, in `fmt.Sprintf`, a `%v` whose argument is the
+    error `err`, which writes `err.Error()`. `arguments` are the call's arguments after the
+    format; in `fmt.Errorf` the error is wrapped with `%w` instead.
+    """
+    for position, verb in enumerate(verbs):
+        if verb == "%s":
+            continue
+        argument = arguments[position] if position < len(arguments) else []
+        is_error = len(argument) == 1 and argument[0].text == "err"
+        if not (call == "Sprintf" and verb == "%v" and is_error):
+            return False
+    return True
+
+
+def go_format_message(
+    call: str, verbs: list[str], arguments: list[list[GoToken]], in_errors_new: bool
+) -> str | None:
+    """Return the finding for a `fmt.Sprintf` or `fmt.Errorf` call, None when it passes."""
+    if in_errors_new:
+        return GO_ERRORS_NEW_FORMAT_MESSAGE
+    if not verbs:
+        return GO_NO_VERB_MESSAGE % (call, GO_NO_VERB_CALLS[call])
+    if go_plain_verbs(call, verbs, arguments):
+        return GO_FORMAT_MESSAGE % (call, GO_FORMAT_CALLS[call])
+    return None
 
 
 def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     """Yield a finding for each `fmt.Sprintf` or `fmt.Errorf` that only joins strings.
 
     A format whose verbs are all a plain `%s` converts, quotes and pads nothing, so the
-    strings are joined with `+` (and the error made with `errors.New`). A `%s` of an error or
-    of a value with a String method is written as its `Error()` or `String()` call.
+    strings are joined with `+` (and the error made with `errors.New`). A `%s` or `%v` of an
+    error, or a `%s` of a value with a String method, is written as its `Error()` or `String()`
+    call. A format with no verb (`%%` is not one) is the text itself, and
+    `errors.New(fmt.Sprintf(...))` is `fmt.Errorf`. The format is read from a string literal or
+    from a string constant the same file declares.
     """
-    for index in range(2, len(tokens) - 2):
-        token = tokens[index]
-        is_call = token.text in GO_FORMAT_CALLS and tokens[index + 1].text == "("
-        if not is_call or tokens[index - 1].text != "." or tokens[index - 2].text != "fmt":
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    constants = go_string_constants(tokens)
+    for index in range(2, len(code) - 2):
+        token = code[index]
+        if not go_is_call(code, index, "fmt", GO_FORMAT_CALLS):
             continue
-        format_text = go_format_text(tokens, index + 2)
+        format_text = go_format_argument(code, index + 2, constants)
         if format_text is None:
             continue
-        verbs = [verb for verb in GO_VERB.findall(format_text[0]) if verb != "%%"]
-        if verbs and all(verb == "%s" for verb in verbs):
-            yield token.line, GO_FORMAT_MESSAGE % (token.text, GO_FORMAT_CALLS[token.text])
+        verbs = [verb for verb in GO_VERB.findall(format_text) if verb != "%%"]
+        arguments = go_split(code, index + 2, go_close(code, index + 1))[1:]
+        in_errors_new = token.text == "Sprintf" and go_is_call(code, index - 4, "errors", {"New"})
+        message = go_format_message(token.text, verbs, arguments, in_errors_new)
+        if message:
+            yield token.line, message
+
+
+def go_dropped_cause_findings(tokens: list[GoToken]) -> Iterator[Finding]:
+    """Yield a finding for each `errors.New` whose text is made from an error.
+
+    An argument that names `err` or calls `.Error()` copies an error's words into a new error
+    and drops the error itself, so `errors.Is` and `errors.As` no longer find it. Library code
+    wraps it with `%w` instead.
+    """
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    for index in range(2, len(code) - 1):
+        if not go_is_call(code, index, "errors", {"New"}):
+            continue
+        close = go_close(code, index + 1)
+        argument = code[index + 2 : close]
+        names_error = any(token.kind == "ident" and token.text == "err" for token in argument)
+        calls_error = any(
+            argument[position].text == "."
+            and argument[position + 1].text == "Error"
+            and argument[position + 2].text == "("
+            for position in range(len(argument) - 2)
+        )
+        if names_error or calls_error:
+            yield code[index].line, GO_DROPPED_CAUSE_MESSAGE
 
 
 def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
@@ -789,6 +921,7 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
             yield binding.line, message
     yield from go_comment_findings(tokens)
     yield from go_format_findings(tokens)
+    yield from go_dropped_cause_findings(tokens)
 
 
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {

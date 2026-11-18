@@ -566,9 +566,15 @@ for Go files as it does for the others.
 - **One way to build a string.** Use `fmt.Sprintf` (or `Errorf`, `Fprintf`)
   when a value needs converting, quoting or padding. When every value is
   already a string, join with `+`, with `strings.Join` for a list, or with a
-  `strings.Builder` in a loop, and make the error with `errors.New`.
+  `strings.Builder` in a loop, and make the error with `errors.New`; an
+  error in a string is its `err.Error()`. `errors.New` never takes its text
+  from another error, which would drop that error from the chain: wrap it
+  with `%w`, or with `reason.Wrap` where the message words it its own way.
   `tools/check_code_style.py` fails on a `fmt.Sprintf` or `fmt.Errorf`
-  whose verbs are all a plain `%s`.
+  that has no verb or whose verbs are all a plain `%s` (or, in `Sprintf`, a
+  `%v` of `err`), with the format written out or held in a string constant
+  of the same file; on `errors.New(fmt.Sprintf(...))`; and on an
+  `errors.New` whose argument names `err` or calls `.Error()`.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.

@@ -237,3 +237,100 @@ def test_a_format_call_that_only_joins_strings_is_reported() -> None:
             message.split()[0][4:] for _, message in findings(source) if "only joins" in message
         ]
         assert calls == expected, statement
+
+
+def format_messages(body: str) -> list[str]:
+    """Return the format and error-text findings of Go `body` inside a function, in line order."""
+    source = "package p\n\nfunc run() {\n" + body + "\n}\n"
+    words = ("only joins", "no verb", "fmt.Errorf", "drops it")
+    return [message for _, message in findings(source) if any(word in message for word in words)]
+
+
+NO_VERB_CASES = [
+    ('\treturn fmt.Errorf("no rows")', ["fmt.Errorf has no verb to fill; use `errors.New`"]),
+    (
+        '\ttext := fmt.Sprintf("no " +\n\t\t"verbs")',
+        ["fmt.Sprintf has no verb to fill; use the string itself"],
+    ),
+    ('\ttext := fmt.Sprintf("100%%")', ["fmt.Sprintf has no verb to fill; use the string itself"]),
+    ('\ttext := fmt.Sprintf("%d%%", count)', []),
+    ('\treturn errors.New("no rows")', []),
+]
+
+
+def test_a_format_call_with_no_verb_is_reported() -> None:
+    for body, expected in NO_VERB_CASES:
+        assert format_messages(body) == expected, body
+
+
+ERRORS_NEW_FORMAT = "errors.New(fmt.Sprintf(...)) makes an error from a format; use fmt.Errorf"
+ERRORS_NEW_FORMAT_CASES = [
+    ('\treturn errors.New(fmt.Sprintf("table %v in %s", name, path))', [ERRORS_NEW_FORMAT]),
+    ('\treturn errors.New(fmt.Sprintf("%d rows", count))', [ERRORS_NEW_FORMAT]),
+    ('\treturn fmt.Errorf("table %v in %s", name, path)', []),
+    ("\treturn errors.New(text)", []),
+    ('\ttext := fmt.Sprintf("table %v in %s", name, path)', []),
+]
+
+
+def test_errors_new_of_a_sprintf_is_reported() -> None:
+    for body, expected in ERRORS_NEW_FORMAT_CASES:
+        assert format_messages(body) == expected, body
+
+
+JOINS = "fmt.Sprintf only joins strings (every verb is %s, or %v of err); use `+`"
+CONSTANT_FORMAT_CASES = [
+    ('const layout = "%s: %s"\n', "fmt.Sprintf(layout, agent, path)", [JOINS]),
+    (
+        'const (\n\tfirst = 1\n\tlayout = "%s: " +\n\t\t"%s"\n)\n',
+        "fmt.Sprintf(layout, a, b)",
+        [JOINS],
+    ),
+    ('const layout string = "%s"\n', "fmt.Sprintf(layout, agent)", [JOINS]),
+    ('const layout = "%d: %s"\n', "fmt.Sprintf(layout, count, path)", []),
+    ('var layout = "%s: %s"\n', "fmt.Sprintf(layout, agent, path)", []),
+    ('const layout Format = "%s: %s"\n', "fmt.Sprintf(layout, agent, path)", []),
+    ('const layout = prefix + "%s"\n', "fmt.Sprintf(layout, agent)", []),
+    ('const layout = "%s: %s"\n', "fmt.Sprintf(other, agent, path)", []),
+]
+
+
+def test_a_format_held_in_a_constant_of_the_file_is_read() -> None:
+    for declaration, call, expected in CONSTANT_FORMAT_CASES:
+        source = "package p\n\n" + declaration + "\nfunc run() {\n\ttext := " + call + "\n}\n"
+        messages = [message for _, message in findings(source) if "only joins" in message]
+        assert messages == expected, declaration + call
+
+
+PERCENT_V_CASES = [
+    ('\ttext := fmt.Sprintf("file %s (%v)", name, err)', [JOINS]),
+    ('\ttext := fmt.Sprintf("(%v)", err)', [JOINS]),
+    ('\ttext := fmt.Sprintf("file %s (%v)", name, count)', []),
+    ('\ttext := fmt.Sprintf("file %s (%v)", name, err.Error())', []),
+    ('\ttext := fmt.Sprintf("file %[1]v", err)', []),
+    ('\treturn fmt.Errorf("file %s (%v)", name, err)', []),
+]
+
+
+def test_a_percent_v_of_the_error_in_sprintf_only_joins_strings() -> None:
+    for body, expected in PERCENT_V_CASES:
+        assert format_messages(body) == expected, body
+
+
+DROPPED = "errors.New makes an error from another error's text and drops it; wrap it with %w"
+DROPPED_CAUSE_CASES = [
+    ('\treturn errors.New("bad (" + err.Error() + ")")', [DROPPED]),
+    ("\treturn errors.New(describe(path, err))", [DROPPED]),
+    ("\treturn errors.New(closeErr.Error() + text)", [DROPPED]),
+    ("\treturn errors.New(\n\t\tprefix +\n\t\t\terr.Error())", [DROPPED]),
+    ("\treturn errors.New(problems[0].Message)", []),
+    ("\treturn errors.New(errorText)", []),
+    ('\treturn errors.New("no " + name + " table")', []),
+    ('\treturn fmt.Errorf("bad (%w)", err)', []),
+    ("\treturn wrap(describe(path, err), err)", []),
+]
+
+
+def test_errors_new_of_an_error_text_is_reported() -> None:
+    for body, expected in DROPPED_CAUSE_CASES:
+        assert format_messages(body) == expected, body

@@ -3,6 +3,7 @@ package openclaw
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -146,7 +147,7 @@ func legacyKey(artifact *input.Artifact, sessionID string) (string, error) {
 	data, err := jsonvalue.Decode(content)
 	switch {
 	case err != nil:
-		return "", errors.New("sessions.json unparseable (" + err.Error() + ")")
+		return "", fmt.Errorf("sessions.json unparseable (%w)", err)
 	case !data.IsObject():
 		return "", errors.New("sessions.json is not a JSON object")
 	}

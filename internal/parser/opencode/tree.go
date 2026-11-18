@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"fmt"
 	"path"
 	"slices"
 	"strings"
@@ -173,7 +172,7 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 		}
 		project, err := readSide(file, ok, &problems)
 		if err != nil {
-			problems.Add(1, fmt.Sprintf("project file %s could not be read (%v)", name, err))
+			problems.Add(1, "project file "+name+" could not be read ("+err.Error()+")")
 		}
 		projectPath = worktreeText(project.Get("worktree"))
 	}
@@ -293,7 +292,7 @@ func (r treeRoot) partFiles(names []string) ([]part, []failure) {
 		value, err := decodeText(raw)
 		if err != nil {
 			failures = append(failures, failure{line: 1, raw: raw, sourceFile: source,
-				message: fmt.Sprintf("unparseable part %s (%v)", jsonStem(file), err)})
+				message: "unparseable part " + jsonStem(file) + " (" + err.Error() + ")"})
 			continue
 		}
 		found = append(found, part{data: value, where: origin{file: source, line: 1}})

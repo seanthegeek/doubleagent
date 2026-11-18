@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
@@ -28,7 +29,7 @@ func openDatabase(path, name string) (*sqlitefile.Database, error) {
 	case errors.Is(err, sqlitefile.ErrNotDatabase):
 		return nil, errors.New(name + " is not a SQLite database")
 	}
-	return nil, errors.New(parser.DatabaseError(err))
+	return nil, reason.Wrap(parser.DatabaseError(err), err)
 }
 
 // unreadable returns the error of a database that failed while it was

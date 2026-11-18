@@ -1,7 +1,6 @@
 package openhands
 
 import (
-	"fmt"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -87,7 +86,7 @@ func TestFloorDivideFloorsFromTheRemainder(t *testing.T) {
 }
 
 func TestScratchTextNeedsAPathBelowTheWorktreeRoot(t *testing.T) {
-	const want = "scratch directory: %s (conversation worktree under the Agent Server's " +
+	const worktreeNote = " (conversation worktree under the Agent Server's " +
 		"default conversation_worktree_root /tmp/conversation-worktrees)"
 	tests := []struct {
 		directory string
@@ -104,7 +103,7 @@ func TestScratchTextNeedsAPathBelowTheWorktreeRoot(t *testing.T) {
 		t.Run(test.directory, func(t *testing.T) {
 			expected := ""
 			if test.scratch {
-				expected = fmt.Sprintf(want, test.directory)
+				expected = "scratch directory: " + test.directory + worktreeNote
 			}
 			if got := scratchText(test.directory); got != expected {
 				t.Errorf("got %q, want %q", got, expected)

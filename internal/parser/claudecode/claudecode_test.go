@@ -113,10 +113,12 @@ func TestResultTextReadsToolReferencesAndBlocks(t *testing.T) {
 	}
 }
 
-// commandBlock is a slash command's tag form in a transcript, with the
-// command name twice and the arguments to fill in.
-const commandBlock = "<command-name>/%s</command-name>\n            <command-message>%s" +
-	"</command-message>\n            <command-args>%s</command-args>"
+// commandBlock returns a slash command's tag form in a transcript, which
+// holds the command name twice and then its arguments.
+func commandBlock(name, arguments string) string {
+	return "<command-name>/" + name + "</command-name>\n            <command-message>" + name +
+		"</command-message>\n            <command-args>" + arguments + "</command-args>"
+}
 
 func TestMatchFormPairsCommandsAndPastesWithTheirHistoryLines(t *testing.T) {
 	tests := []struct {
@@ -124,11 +126,11 @@ func TestMatchFormPairsCommandsAndPastesWithTheirHistoryLines(t *testing.T) {
 		turn, text     string
 		wantTurn, want string
 	}{
-		{"a slash command record", "system", "slash command: " + fmt.Sprintf(commandBlock, "model", "model", ""),
+		{"a slash command record", "system", "slash command: " + commandBlock("model", ""),
 			"user", "/model"},
-		{"a local command record", "system", "local_command: " + fmt.Sprintf(commandBlock, "help", "help", ""),
+		{"a local command record", "system", "local_command: " + commandBlock("help", ""),
 			"user", "/help"},
-		{"a command with arguments", "system", "slash command: " + fmt.Sprintf(commandBlock, "a", "a", "x"),
+		{"a command with arguments", "system", "slash command: " + commandBlock("a", "x"),
 			"user", "/a x"},
 		{"arguments collapse their whitespace", "system",
 			"slash command: <command-name>model</command-name><command-args>  a  b </command-args>",
@@ -158,7 +160,7 @@ func TestMatchFormPairsCommandsAndPastesWithTheirHistoryLines(t *testing.T) {
 func TestMatchFormKeepsWhitespaceDistinctions(t *testing.T) {
 	pairs := [][2]timeline.Row{
 		{{TurnType: "user", Text: "echo a b"}, {TurnType: "user", Text: "echo ab"}},
-		{{TurnType: "system", Text: "slash command: " + fmt.Sprintf(commandBlock, "a", "a", "x y")},
+		{{TurnType: "system", Text: "slash command: " + commandBlock("a", "x y")},
 			{TurnType: "user", Text: "/a xy"}},
 	}
 	for _, pair := range pairs {

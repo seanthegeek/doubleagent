@@ -245,7 +245,7 @@ func normalManifest(text string) string {
 		}
 		row, err := normalRow(line)
 		if err != nil {
-			row = fmt.Sprintf("unparsable row (%v): %s", err, line)
+			row = "unparsable row (" + err.Error() + "): " + line
 		}
 		rows = append(rows, row)
 	}
@@ -294,7 +294,7 @@ func normalSummary(text string, binary bool) string {
 	decoder.UseNumber()
 	var summary map[string]any
 	if err := decoder.Decode(&summary); err != nil {
-		return fmt.Sprintf("unparsable collection.json (%v): %s", err, text)
+		return "unparsable collection.json (" + err.Error() + "): " + text
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
 		return "collection.json holds more than one value: " + text
@@ -320,7 +320,7 @@ func normalSummary(text string, binary bool) string {
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(summary); err != nil {
-		return fmt.Sprintf("collection.json not encodable (%v)", err)
+		return "collection.json not encodable (" + err.Error() + ")"
 	}
 	return out.String()
 }

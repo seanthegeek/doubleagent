@@ -25,6 +25,7 @@ package ollama
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"unicode/utf8"
@@ -135,8 +136,7 @@ func (p *Parser) readObject(artifact *input.Artifact) (jsonvalue.Value, error) {
 		document, err = jsonvalue.Decode(content)
 	}
 	if err != nil {
-		return jsonvalue.Value{}, errors.New(parser.ProblemPrefix + artifact.Rel + " is not readable JSON (" +
-			err.Error() + ")")
+		return jsonvalue.Value{}, fmt.Errorf("%s%s is not readable JSON (%w)", parser.ProblemPrefix, artifact.Rel, err)
 	}
 	if !document.IsObject() {
 		return jsonvalue.Value{}, errors.New(parser.ProblemPrefix + artifact.Rel + " is not a JSON object")
