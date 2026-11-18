@@ -138,9 +138,17 @@ func (s *store) readProjects() error {
 	}
 	rows, err := table.Select().All()
 	for _, row := range rows {
-		s.projects[parser.ColumnKey(row.Get("id"))] = row
+		s.addProject(row)
 	}
 	return err
+}
+
+// addProject indexes one project row by its id. A row whose id is NULL is
+// left out: NULL equals nothing in SQL, so no session's project_id finds it.
+func (s *store) addProject(row sqlitefile.Row) {
+	if key := parser.ColumnKey(row.Get("id")); key != "" {
+		s.projects[key] = row
+	}
 }
 
 // readSessions reads session_v2 then session, each ordered by its time
@@ -189,10 +197,11 @@ func (s *store) scopeFor(identifier string) *scope {
 }
 
 // worktreeOf returns the worktree of the project with the given id, "" when
-// there is none or it is "/".
+// there is none or it is "/"; a NULL id has no project.
 func (s *store) worktreeOf(identifier sqlitefile.Value) string {
-	project, ok := s.projects[parser.ColumnKey(identifier)]
-	if !ok {
+	key := parser.ColumnKey(identifier)
+	project, ok := s.projects[key]
+	if key == "" || !ok {
 		return ""
 	}
 	worktree := parser.NonEmptyColumn(project.Get("worktree"))

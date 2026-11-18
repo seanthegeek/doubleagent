@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -57,5 +58,21 @@ func TestTheFirstLayoutOfThePermissionTableLeavesTheTranscriptWhole(t *testing.T
 					t.Errorf("got %q, want %q", got, want)
 				}
 			})
+	}
+}
+
+// A NULL id equals nothing in SQL, not even another NULL, so a session
+// whose project_id is NULL has no project, though a project row's id is
+// NULL too.
+func TestANullProjectIDMatchesNoProject(t *testing.T) {
+	nullProject := sqlitefile.Row{}
+	reading := &store{projects: map[string]sqlitefile.Row{}}
+	reading.addProject(nullProject)
+	if len(reading.projects) != 0 {
+		t.Errorf("a project with a NULL id was indexed: %v", reading.projects)
+	}
+	reading.projects[parser.ColumnKey(sqlitefile.Value{})] = nullProject
+	if got := reading.worktreeOf(sqlitefile.Value{}); got != "" {
+		t.Errorf("a NULL project_id found the worktree %q", got)
 	}
 }
