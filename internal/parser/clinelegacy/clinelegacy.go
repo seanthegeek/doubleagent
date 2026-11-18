@@ -30,6 +30,7 @@ package clinelegacy
 import (
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -89,15 +90,17 @@ func TaskOf(artifact *input.Artifact) Task {
 }
 
 // InDir returns the disk path of a file beside the artifact, in the task
-// directory.
+// directory, or "" when the kit refuses it; every reader treats "" as a
+// file that is not there.
 func (t Task) InDir(name string) string {
-	return parser.Beside(t.Artifact, name)
+	path, _ := parser.Beside(t.Artifact, name)
+	return path
 }
 
 // InRoot returns the disk path of a path under the storage root, or false
 // when the root lies outside the artifact's home.
 func (t Task) InRoot(rel string) (string, bool) {
-	return parser.Above(t.Artifact, t.RootLevels, rel)
+	return parser.Above(t.Artifact, t.RootLevels, strings.Split(rel, "/")...)
 }
 
 // InRootParent returns the disk path of a file in the directory that holds

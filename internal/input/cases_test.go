@@ -176,7 +176,9 @@ func stagedCase(name, home string, rows []stagedRow, want []string, pathOf map[s
 			homeDirOf(t, collection)
 			wantSlice(t, "staged paths", stagedKeys(collection), want)
 			for rel, archivePath := range pathOf {
-				wantEqual(t, "PathOf("+rel+")", collection.Homes[0].PathOf(rel), joinPath(collection.Root, archivePath))
+				got, ok := collection.Homes[0].PathOf(rel)
+				wantEqual(t, "PathOf("+rel+") found", ok, true)
+				wantEqual(t, "PathOf("+rel+")", got, joinPath(collection.Root, archivePath))
 			}
 		}}
 }

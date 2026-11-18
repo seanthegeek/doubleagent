@@ -1,7 +1,6 @@
 package claudedesktop
 
 import (
-	"io/fs"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
@@ -20,18 +18,6 @@ var (
 	longName  = regexp.MustCompile(`^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z`)
 	shortName = regexp.MustCompile(`^[0-9a-f]{8}\z`)
 )
-
-// isLink reports whether path's own entry is a symbolic link.
-func isLink(path string) bool {
-	info, err := osfile.Lstat(path)
-	return err == nil && info.Mode()&fs.ModeSymlink != 0
-}
-
-// isPlainDir reports whether path's own entry is a directory, not a link.
-func isPlainDir(path string) bool {
-	info, err := osfile.Lstat(path)
-	return err == nil && info.IsDir()
-}
 
 // orgDir returns the org dir that holds a session record's directory dir,
 // the artifact's own: dir itself, or the dir above it when it is an agent/
@@ -66,18 +52,20 @@ func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 		return jsonvalue.NewNull(), false
 	}
 	parentRel := path.Dir(session)
-	parent := home.PathOf(parentRel)
-	org := parent
+	parent, parentFound := home.PathOf(parentRel)
+	org, orgFound := parent, parentFound
 	if filepath.Base(parent) == "agent" {
-		org = home.PathOf(path.Dir(parentRel))
+		org, orgFound = home.PathOf(path.Dir(parentRel))
 	}
-	name := filepath.Base(home.PathOf(session))
+	sessionPath, sessionFound := home.PathOf(session)
+	name := filepath.Base(sessionPath)
 	long := longName.MatchString(name)
-	if !long && !shortName.MatchString(name) || isLink(org) || isLink(parent) {
+	if !parentFound || !orgFound || !sessionFound || !long && !shortName.MatchString(name) ||
+		parser.IsLink(org) || parser.IsLink(parent) {
 		return jsonvalue.NewNull(), false
 	}
 	for _, directory := range []string{org, filepath.Join(org, "agent")} {
-		if !isPlainDir(directory) {
+		if !parser.IsDirectory(directory) {
 			continue
 		}
 		for _, candidate := range recordCandidates(directory, name, long) {
@@ -125,7 +113,7 @@ func recordCandidates(directory, name string, long bool) []string {
 // plain directory projects holds a regular file named name, or any regular
 // .jsonl file when name is "", through no link.
 func hasTranscriptFile(projects, name string) bool {
-	if !isPlainDir(projects) {
+	if !parser.IsDirectory(projects) {
 		return false
 	}
 	slugs, err := parser.ReadDir(projects)
@@ -134,7 +122,7 @@ func hasTranscriptFile(projects, name string) bool {
 	}
 	for _, slug := range slugs {
 		slugPath := filepath.Join(projects, slug.Name())
-		if !isPlainDir(slugPath) {
+		if !parser.IsDirectory(slugPath) {
 			continue
 		}
 		if name != "" {
@@ -160,7 +148,7 @@ func hasTranscriptFile(projects, name string) bool {
 // .claude/projects/.
 func hasTranscript(sessionDir string) bool {
 	claude := filepath.Join(sessionDir, ".claude")
-	return isPlainDir(sessionDir) && isPlainDir(claude) && hasTranscriptFile(filepath.Join(claude, "projects"), "")
+	return parser.IsDirectory(sessionDir) && parser.IsDirectory(claude) && hasTranscriptFile(filepath.Join(claude, "projects"), "")
 }
 
 // folder returns the first folder the person chose for a session or task,
@@ -175,7 +163,10 @@ func folder(record jsonvalue.Value) string {
 // Code tab in ~/.claude/projects/*/. An id from the record that is not a
 // plain file name names nothing collected.
 func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
-	recordDir := parser.Beside(artifact)
+	recordDir, found := parser.Beside(artifact)
+	if !found {
+		return false
+	}
 	org, found := orgDir(artifact, recordDir)
 	if !found {
 		return false
@@ -194,7 +185,7 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 	for _, directory := range slices.Compact([]string{recordDir, org}) {
 		for _, name := range names {
 			candidate := filepath.Join(directory, name)
-			if isPlainDir(candidate) && (parser.RegularFile(filepath.Join(candidate, "audit.jsonl")) || hasTranscript(candidate)) {
+			if parser.IsDirectory(candidate) && (parser.RegularFile(filepath.Join(candidate, "audit.jsonl")) || hasTranscript(candidate)) {
 				return true
 			}
 		}
@@ -204,9 +195,11 @@ func sessionCollected(artifact *input.Artifact, record jsonvalue.Value) bool {
 		return false
 	}
 	staging := filepath.Join(org, "imported-staging")
-	if isPlainDir(staging) && parser.RegularFile(filepath.Join(staging, cliID+".jsonl")) {
+	if parser.IsDirectory(staging) && parser.RegularFile(filepath.Join(staging, cliID+".jsonl")) {
 		return true
 	}
-	return isPlainDir(artifact.Home.PathOf(".claude")) &&
-		hasTranscriptFile(artifact.Home.PathOf(".claude/projects"), cliID+".jsonl")
+	claude, claudeFound := artifact.Home.PathOf(".claude")
+	projects, projectsFound := artifact.Home.PathOf(".claude/projects")
+	return claudeFound && projectsFound && parser.IsDirectory(claude) &&
+		hasTranscriptFile(projects, cliID+".jsonl")
 }

@@ -8,6 +8,8 @@ import (
 	"slices"
 	"syscall"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
 )
 
 func TestReadersNeverFollowALinkOrOpenAPipe(t *testing.T) {
@@ -67,5 +69,41 @@ func TestAFileItsOwnerCannotReadIsOneProblem(t *testing.T) {
 	problems = nil
 	if _, ok := ReadText(path, &problems); ok || !slices.Equal(problems, want) {
 		t.Errorf("ReadText gave %v, %+v", ok, problems)
+	}
+}
+
+func TestNoPathTheKitBuildsPassesThroughALinkedDirectory(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(root, "outside")
+	if err := os.MkdirAll(filepath.Join(outside, "tool-results"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "tool-results", "a.txt"), []byte("planted"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sessions := filepath.Join(root, "home", ".agent", "sessions")
+	if err := os.MkdirAll(sessions, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(sessions, "one")); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{Rel: ".agent/sessions/one.jsonl", DiskPath: filepath.Join(sessions, "one.jsonl"),
+		Home: &input.Home{DiskPath: filepath.Join(root, "home")}}
+	if path, ok := Beside(artifact, "one", "tool-results", "a.txt"); ok {
+		t.Errorf("Beside passed through the link to %s", path)
+	}
+	if path, ok := artifact.Home.PathOf(".agent/sessions/one/tool-results/a.txt"); ok {
+		t.Errorf("PathOf passed through the link to %s", path)
+	}
+	directory, ok := Beside(artifact, "one")
+	if !ok {
+		t.Fatal("the link itself, the last element, is the reader's to refuse")
+	}
+	if path, ok := Under(directory, "tool-results", "a.txt"); ok {
+		t.Errorf("Under passed through the link to %s", path)
+	}
+	if _, err := ReadDir(directory); err == nil {
+		t.Error("ReadDir listed the link")
 	}
 }

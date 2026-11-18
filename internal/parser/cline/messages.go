@@ -72,7 +72,10 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 	directory := path.Dir(artifact.Rel)
 	sessionID := path.Base(directory)
 	var ignored, problems parser.Problems
-	manifest, _ := parser.LoadJSON(parser.Beside(artifact, sessionID+".json"), &ignored)
+	manifest := jsonvalue.NewNull()
+	if manifestPath, ok := parser.Beside(artifact, sessionID+".json"); ok {
+		manifest, _ = parser.LoadJSON(manifestPath, &ignored)
+	}
 	project := parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))
 	read := readTranscript(artifact, manifest, &problems)
 	seen := parser.Tracker{}

@@ -146,7 +146,7 @@ func (p *Parser) namespaceFile(artifact *input.Artifact, name string) (string, b
 	if group(p.files.session, match, "sub") != "" {
 		return parser.Above(artifact, 1, name)
 	}
-	return parser.Beside(artifact, name), true
+	return parser.Beside(artifact, name)
 }
 
 // frozen reports whether the artifact is a session file the namespace's

@@ -40,8 +40,8 @@ func homeState(artifact *input.Artifact) string {
 		return ""
 	}
 	for _, parent := range ideParents() {
-		path := artifact.Home.PathOf(parent + "/User/globalStorage/state.vscdb")
-		if parser.RegularFile(path) {
+		if path, ok := artifact.Home.PathOf(parent + "/User/globalStorage/state.vscdb"); ok &&
+			parser.RegularFile(path) {
 			return path
 		}
 	}
@@ -97,8 +97,8 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 // gives their origin rows; none when it is missing or cannot be read.
 func cloudCachedIDs(artifact *input.Artifact) map[string]bool {
 	ids := map[string]bool{}
-	path := parser.Beside(artifact, "conversation-search.db")
-	if sqlitefile.Problem(path) != nil {
+	path, ok := parser.Beside(artifact, "conversation-search.db")
+	if !ok || sqlitefile.Problem(path) != nil {
 		return ids
 	}
 	database, err := sqlitefile.OpenPath(path)

@@ -23,7 +23,6 @@ package pi
 
 import (
 	"fmt"
-	"io/fs"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -211,26 +210,14 @@ func homeFile(artifact *input.Artifact, original, marker string) (string, bool) 
 	}
 	for _, rel := range rels {
 		parts := slices.DeleteFunc(strings.Split(rel, "/"), func(part string) bool { return part == "" })
-		if len(parts) == 0 || slices.Contains(parts, "..") || linkOnTheWay(home, parts) {
+		if len(parts) == 0 {
 			continue
 		}
-		if current := home.PathOf(strings.Join(parts, "/")); parser.RegularFile(current) {
+		if current, ok := home.PathOf(strings.Join(parts, "/")); ok && parser.RegularFile(current) {
 			return current, true
 		}
 	}
 	return "", false
-}
-
-// linkOnTheWay reports whether any leading run of parts is a symbolic link
-// in the home.
-func linkOnTheWay(home *input.Home, parts []string) bool {
-	for depth := 1; depth <= len(parts); depth++ {
-		info, err := osfile.Lstat(home.PathOf(strings.Join(parts[:depth], "/")))
-		if err == nil && info.Mode()&fs.ModeSymlink != 0 {
-			return true
-		}
-	}
-	return false
 }
 
 // SessionStartText returns the `session start:` row text of a session
@@ -277,8 +264,8 @@ func littleCoderMarkers(artifact *input.Artifact, session *Session) []string {
 	}
 	if artifact.Home != nil {
 		name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:]
-		checkpoint := artifact.Home.PathOf(".little-coder/checkpoints/" + name)
-		if info, err := osfile.Lstat(checkpoint); err == nil && info.IsDir() {
+		checkpoint, found := artifact.Home.PathOf(".little-coder/checkpoints/" + name)
+		if info, err := osfile.Lstat(checkpoint); found && err == nil && info.IsDir() {
 			why = append(why, "checkpoints in ~/.little-coder/checkpoints/"+filepath.Base(checkpoint))
 		}
 	}

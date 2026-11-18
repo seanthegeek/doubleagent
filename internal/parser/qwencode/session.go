@@ -225,8 +225,8 @@ func (r *record) toolResultRows() []timeline.Row {
 func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problems *parser.Problems,
 	emit parser.Emit) {
 	name := strings.TrimSuffix(fileName(artifact), ".jsonl") + ".worktree.json"
-	sidecar := parser.Beside(artifact, name)
-	if !parser.RegularFile(sidecar) {
+	sidecar, found := parser.Beside(artifact, name)
+	if !found || !parser.RegularFile(sidecar) {
 		return
 	}
 	data, ok := parser.FileBytes(sidecar, problems)

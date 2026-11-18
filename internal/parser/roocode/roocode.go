@@ -187,8 +187,8 @@ func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 		if !entry.IsObject() {
 			continue
 		}
-		if taskID, named := parser.Component(parser.Text(entry.Get("id"))); named &&
-			parser.RegularFile(parser.Beside(artifact, taskID, itemFile)) {
+		taskID, named := parser.Component(parser.Text(entry.Get("id")))
+		if item, ok := parser.Beside(artifact, taskID, itemFile); named && ok && parser.RegularFile(item) {
 			continue
 		}
 		p.historyRows(artifact, entry, i+1, emit)

@@ -16,21 +16,25 @@
 // every file system.
 //
 // The input's own path is kept as given; the paths found in it are joined
-// to its cleaned form (filepath.Clean) by filepath.Join, so one input gives
-// one set of paths however its path was spelt. Nothing here follows a
-// symbolic link inside the input, and extraction never writes outside its
-// directory: no link, hard link or device member is created, a member's name
-// is confined to the directory, and every file is created new.
-// archive/tar and archive/zip only read members; they create no file and
-// leave a member's name, type and size for the caller to check, so the
-// extraction makes those checks itself, a member name with stricter rules
-// than filepath.IsLocal (any ".." element of a zip name is refused).
+// to its cleaned form (filepath.Clean), so one input gives one set of paths
+// however its path was spelt. Every path built from the evidence's text (a
+// manifest field, a member name, a name a parser asks Home.PathOf or Below
+// for) goes through one function, below: each element must be one plain
+// component, and each directory on the way down is looked at with lstat, a
+// symbolic link (on Windows any reparse point) refused. A loose tree's walk
+// enters only real directories. os.Root would also keep a path below a
+// directory, but it follows a link that stays inside and bypasses
+// internal/osfile's Windows path form, so the walk is the project's own.
+// Extraction never writes outside its directory: no link, hard link or
+// device member is created, a member's name is confined to the directory,
+// and every file is created new.
 package input
 
 import (
 	"errors"
 	"io/fs"
 	"path/filepath"
+	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -88,23 +92,29 @@ type Home struct {
 	// archived away from DiskPath/rel, at a symlinked directory's physical
 	// location, to where the collection holds it; empty for loose input.
 	StagedPaths map[string]string
+	// ownDirectory is set when DiskPath is a directory the input's walk
+	// found, or the input itself, so a lookup below it need not look at it.
+	ownDirectory bool
 }
 
 // PathOf returns where the collection holds rel, a path relative to the
-// home with slashes and no leading slash: the mapped location of rel or of
-// its longest mapped ancestor with the rest of rel below it, else
-// DiskPath/rel.
-func (h *Home) PathOf(rel string) string {
-	if len(h.StagedPaths) == 0 {
-		return joinPath(h.DiskPath, rel)
-	}
-	parts := splitSlash(rel)
-	for depth := len(parts); depth > 0; depth-- {
+// home with slashes (empty and "." elements, which name no further place,
+// are dropped), and true: the mapped
+// location of rel or of its longest mapped ancestor with the rest of rel
+// below it, else DiskPath/rel. It is false when an element of rel is not
+// one plain component (such as "..", or a name holding a backslash) or when the way
+// down passes through a link, so every path it gives lies below the home
+// or a staged location; the last element is left for the reader.
+func (h *Home) PathOf(rel string) (string, bool) {
+	parts := slices.DeleteFunc(splitSlash(rel), func(part string) bool { return part == "" || part == "." })
+	for depth := len(parts); depth > 0 && len(h.StagedPaths) > 0; depth-- {
 		if mapped, ok := h.StagedPaths[joinSlash(parts[:depth])]; ok {
-			return joinPath(mapped, parts[depth:]...)
+			path, err := below(mapped, parts[depth:], true)
+			return path, err == nil
 		}
 	}
-	return joinPath(h.DiskPath, rel)
+	path, err := below(h.DiskPath, parts, !h.ownDirectory)
+	return path, err == nil
 }
 
 // Artifact is one attributed file of the input.

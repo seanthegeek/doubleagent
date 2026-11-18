@@ -86,11 +86,16 @@ func archivedInPlace(home *Home, root, rel, archivePath string) bool {
 // directory that moved it, map to their place in the archive. That
 // directory is the deepest ancestor of rel among links; without one (an
 // excluded link has no row) the components are matched from the right
-// while equal, and the walk stops below a directory in inPlace.
-func mapStagedPath(home *Home, root string, row archivedRow, links, inPlace map[string]bool) {
+// while equal, and the walk stops below a directory in inPlace. A location
+// inside refuses is a problem of the row and maps nothing.
+func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPlace map[string]bool) {
 	relParts := splitNonEmpty(row.rel)
 	parts := archiveParts(row.archivePath)
-	if len(relParts) == 0 || archivedInPlace(home, root, row.rel, row.archivePath) {
+	if len(relParts) == 0 || archivedInPlace(home, load.collection.Root, row.rel, row.archivePath) {
+		return
+	}
+	if startsOutside(row.archivePath) {
+		load.collection.recordProblem(row.label + ": " + errOutside.Error())
 		return
 	}
 	equal := 0
@@ -112,8 +117,14 @@ func mapStagedPath(home *Home, root string, row archivedRow, links, inPlace map[
 	}
 	for depth := 0; depth <= limit; depth++ {
 		key := joinSlash(relParts[:len(relParts)-depth])
-		if _, ok := home.StagedPaths[key]; !ok {
-			home.StagedPaths[key] = joinPath(root, parts[:len(parts)-depth]...)
+		if _, ok := home.StagedPaths[key]; ok {
+			continue
 		}
+		staged, err := load.collection.inside(parts[:len(parts)-depth]...)
+		if err != nil {
+			load.collection.recordProblem(row.label + ": " + err.Error())
+			return
+		}
+		home.StagedPaths[key] = staged
 	}
 }

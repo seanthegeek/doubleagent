@@ -51,7 +51,10 @@ type sessionStore struct {
 // .workspace marker beside it.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var markerProblems parser.Problems
-	project := readMarker(parser.Beside(artifact, ".workspace"), &markerProblems)
+	project := ""
+	if marker, ok := parser.Beside(artifact, ".workspace"); ok {
+		project = readMarker(marker, &markerProblems)
+	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, markerProblems, "", project))
 	store, err := readSessionStore(artifact.DiskPath)
 	if err != nil {

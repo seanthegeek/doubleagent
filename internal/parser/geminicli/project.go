@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/url"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -32,9 +31,12 @@ func inBase(artifact *input.Artifact, match pathMatch) func(names ...string) str
 	if artifact.Home == nil {
 		return func(...string) string { return "" }
 	}
-	base := artifact.Home.PathOf(match["base"])
+	base, found := artifact.Home.PathOf(match["base"])
 	return func(names ...string) string {
-		return filepath.Join(append([]string{base}, names...)...)
+		if path, ok := parser.Under(base, names...); found && ok {
+			return path
+		}
+		return ""
 	}
 }
 

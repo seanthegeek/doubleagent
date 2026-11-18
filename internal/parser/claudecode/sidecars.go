@@ -1,14 +1,12 @@
 package claudecode
 
 import (
-	"io/fs"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -28,19 +26,13 @@ var (
 	pastePattern = regexp.MustCompile(`\[Pasted text #([0-9]+)(?: \+[0-9]+ lines)?\]`)
 )
 
-// isLink reports whether path's own entry is a symbolic link.
-func isLink(path string) bool {
-	info, err := osfile.Lstat(path)
-	return err == nil && info.Mode()&fs.ModeSymlink != 0
-}
-
 // sessionDir returns the directory that holds a transcript's sidecars:
 // <session>/ beside a session file, or the directory above subagents/ for a
 // subagent's file. It is false when no subagents/ directory lies below the
 // artifact's home.
 func sessionDir(artifact *input.Artifact) (string, bool) {
 	if !subagentPattern.MatchString(artifact.Rel) {
-		return parser.Beside(artifact, parser.Stem(filepath.Base(artifact.DiskPath))), true
+		return parser.Beside(artifact, parser.Stem(filepath.Base(artifact.DiskPath)))
 	}
 	for levels := 0; ; levels++ {
 		directory, ok := parser.Above(artifact, levels)
@@ -76,9 +68,8 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, problems *p
 		!found || parts[len(parts)-3] != filepath.Base(directory) || !named {
 		return note
 	}
-	results := filepath.Join(directory, "tool-results")
-	output := filepath.Join(results, name)
-	if isLink(directory) || isLink(results) || !parser.RegularFile(output) {
+	output, reachable := parser.Under(directory, "tool-results", name)
+	if !reachable || !parser.RegularFile(output) {
 		return note
 	}
 	data, err := parser.ReadFile(output)
@@ -110,9 +101,8 @@ func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool
 	if !isPasteHash(hash) {
 		return "", false
 	}
-	cache := filepath.Join(historyDir, "paste-cache")
-	cacheFile := filepath.Join(cache, hash+".txt")
-	if isLink(cache) || !parser.RegularFile(cacheFile) {
+	cacheFile, reachable := parser.Under(historyDir, "paste-cache", hash+".txt")
+	if !reachable || !parser.RegularFile(cacheFile) {
 		return "", false
 	}
 	data, err := parser.ReadFile(cacheFile)

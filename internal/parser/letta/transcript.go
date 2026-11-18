@@ -44,13 +44,19 @@ func homeSideFile(artifact *input.Artifact, rel string) (string, bool) {
 	if artifact.Home == nil {
 		return "", false
 	}
-	path := artifact.Home.PathOf(rel)
+	path, found := artifact.Home.PathOf(rel)
+	if !found {
+		return "", false
+	}
 	info, err := osfile.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() {
 		return "", false
 	}
-	if letta, err := osfile.Lstat(artifact.Home.PathOf(".letta")); err == nil &&
-		letta.Mode()&fs.ModeSymlink != 0 {
+	letta, found := artifact.Home.PathOf(".letta")
+	if !found {
+		return "", false
+	}
+	if info, err := osfile.Lstat(letta); err == nil && info.Mode()&fs.ModeSymlink != 0 {
 		return "", false
 	}
 	return path, true

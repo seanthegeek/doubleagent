@@ -256,7 +256,10 @@ func readHeaders(path string) []string {
 // The chat history is a pre-scan: the parser reports its errors when it
 // parses that file in full.
 func sessionFor(artifact *input.Artifact) func(timestamp string) string {
-	headers := readHeaders(parser.Beside(artifact, chatName))
+	var headers []string
+	if chatPath, ok := parser.Beside(artifact, chatName); ok {
+		headers = readHeaders(chatPath)
+	}
 	slices.Sort(headers)
 	chat := sibling(artifact.Original, chatName)
 	return func(timestamp string) string {
@@ -318,8 +321,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	// are reported when each file is parsed in full.
 	reader := &chatReader{parser: p, artifact: artifact, emit: emit,
 		headers: readHeaders(artifact.DiskPath), models: map[string]string{}}
-	inputPath := parser.Beside(artifact, inputName)
-	if parser.RegularFile(inputPath) {
+	if inputPath, ok := parser.Beside(artifact, inputName); ok && parser.RegularFile(inputPath) {
 		var ignored parser.Problems
 		for _, entry := range ReadInputHistory(inputPath, &ignored) {
 			if entry.Timestamp != "" {

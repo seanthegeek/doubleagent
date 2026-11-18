@@ -25,8 +25,8 @@ func TestBesideNamesAFileNextToTheArtifact(t *testing.T) {
 	}
 	for _, each := range cases {
 		t.Run(each.name, func(t *testing.T) {
-			if got := Beside(artifact, each.names...); got != each.want {
-				t.Errorf("Beside gave %q, want %q", got, each.want)
+			if got, ok := Beside(artifact, each.names...); got != each.want || !ok {
+				t.Errorf("Beside gave %q, %v; want %q", got, ok, each.want)
 			}
 		})
 	}
@@ -62,5 +62,60 @@ func TestAboveStopsAtTheArtifactsHome(t *testing.T) {
 				t.Errorf("Above gave %q, %v; want %q, %v", got, ok, each.want, each.ok)
 			}
 		})
+	}
+}
+
+// homeArtifact returns an artifact of a home at root/home whose path below
+// the home is rel and whose disk path is diskPath below root.
+func homeArtifact(root, rel, diskPath string, staged map[string]string) *input.Artifact {
+	home := &input.Home{DiskPath: filepath.Join(root, "home"), StagedPaths: staged}
+	return &input.Artifact{Rel: rel, DiskPath: filepath.Join(root, filepath.FromSlash(diskPath)), Home: home}
+}
+
+func TestNeighboursAreFoundBelowTheHomeWhateverTheDiskPathSays(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	shallow := homeArtifact(root, "a/b/c/d/x.json", "x.json", nil)
+	staged := homeArtifact(root, ".pi/agent/s.jsonl", "home/dotfiles/pi/agent/s.jsonl",
+		map[string]string{".pi": filepath.Join(home, "dotfiles", "pi"),
+			".pi/agent": filepath.Join(home, "dotfiles", "pi", "agent")})
+	cases := []struct {
+		name     string
+		artifact *input.Artifact
+		levels   int
+		names    []string
+		want     string
+		ok       bool
+	}{
+		{"a shallow disk path climbs the home's own directories", shallow, 4, []string{"_index.json"},
+			filepath.Join(home, "_index.json"), true},
+		{"a shallow disk path cannot climb past the home", shallow, 5, nil, "", false},
+		{"a name that climbs is refused", shallow, 0, []string{"..", "..", "etc"}, "", false},
+		{"a name holding a slash is refused", shallow, 0, []string{"../../etc"}, "", false},
+		{"an empty name is refused", shallow, 0, []string{""}, "", false},
+		{"a staged file's neighbour is where the home's layout holds it", staged, 0, []string{"x"},
+			filepath.Join(home, "dotfiles", "pi", "agent", "x"), true},
+		{"a staged file's parent is the staged parent", staged, 1, []string{"settings.json"},
+			filepath.Join(home, "dotfiles", "pi", "settings.json"), true},
+	}
+	for _, each := range cases {
+		t.Run(each.name, func(t *testing.T) {
+			got, ok := Above(each.artifact, each.levels, each.names...)
+			if got != each.want || ok != each.ok {
+				t.Errorf("Above gave %q, %v; want %q, %v", got, ok, each.want, each.ok)
+			}
+		})
+	}
+}
+
+func TestUnderRefusesANameThatIsNotOneComponent(t *testing.T) {
+	directory := t.TempDir()
+	for _, names := range [][]string{{".."}, {"a/b"}, {`a\b`}, {"a", ""}, {"a\x00"}} {
+		if path, ok := Under(directory, names...); ok {
+			t.Errorf("Under(%q) gave %q", names, path)
+		}
+	}
+	if path, ok := Under(directory, "a", "b"); !ok || path != filepath.Join(directory, "a", "b") {
+		t.Errorf("Under gave %q, %v", path, ok)
 	}
 }
