@@ -578,7 +578,9 @@ failure, its `source_line` the last line read.
 In a v0.0.x saved session a `messages` or a message's `tool_calls` that is present but not an array
 is `parser: messages is not a JSON array` or `parser: tool_calls is not a JSON array`, and in a
 `snapshots.json` snapshot a `file_backups` that is present but not an object is
-`parser: file_backups is not a JSON object`; the row's `source_line` is the message's position, or
+`parser: file_backups is not a JSON object`, and a backup in it that is neither an object nor
+null (a null one is listed as `did not exist`) is `parser: file_backups.<path> is not a JSON object`
+and is not listed; the row's `source_line` is the message's position, or
 the session's in `history.json`, or 0 for the `messages` of a session file. An absent, null or
 empty member gives no row.
 
