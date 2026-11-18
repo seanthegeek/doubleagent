@@ -25,8 +25,8 @@ func argumentKeys() []string {
 		"prompt", "description"}
 }
 
-// isSet reports whether a value is neither null nor the empty string, the
-// test Python's `value not in (None, "")` makes.
+// isSet reports whether a value is neither null nor the empty string: false
+// and zero are values the agent wrote, and are shown.
 func isSet(value jsonvalue.Value) bool {
 	return !value.IsNull() && !(value.IsString() && value.StringValue() == "")
 }
@@ -40,28 +40,18 @@ func textOrJSON(value jsonvalue.Value) string {
 	return parser.JSONText(value)
 }
 
-// orElse returns the first value Python counts as true, else the last, as
-// Python's `a or b` does.
-func orElse(values ...jsonvalue.Value) jsonvalue.Value {
-	for _, value := range values[:len(values)-1] {
-		if !value.IsEmpty() {
-			return value
-		}
+// orElse returns value, or fallback, whatever it holds, when value is
+// empty (jsonvalue.Value.IsEmpty).
+func orElse(value, fallback jsonvalue.Value) jsonvalue.Value {
+	if value.IsEmpty() {
+		return fallback
 	}
-	return values[len(values)-1]
+	return value
 }
 
 // isText reports whether value is the string text.
 func isText(value jsonvalue.Value, text string) bool {
 	return value.IsString() && value.StringValue() == text
-}
-
-// dash returns a value as row text, "-" when it is null or empty.
-func dash(value jsonvalue.Value) string {
-	if !isSet(value) {
-		return "-"
-	}
-	return value.Text()
 }
 
 // argsSummary returns the most identifying argument of a function call,
@@ -125,7 +115,7 @@ func systemText(subtype string, payload jsonvalue.Value) string {
 	case "turn_result":
 		detail = field("state") + " " + field("resultText")
 	case "rewind":
-		detail = "truncated " + payload.Get("truncatedCount").Text() + " record(s)"
+		detail = parser.JoinNonEmpty(" ", "truncated", payload.Get("truncatedCount").Text(), "record(s)")
 	case "chat_compression":
 		if info := payload.Get("info"); !info.IsNull() {
 			detail = parser.JSONText(info)

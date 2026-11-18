@@ -11,10 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows each file gives are proved against the Python analyzer by the
-// parser replay (internal/parity/replay); these tests cover the helpers the
-// analyzer's own tests call directly and the deduplication hooks, with the
-// oracle's results.
+// The rows each file gives are proved by the parser replay
+// (internal/parity/replay); these tests cover the helpers on their own and
+// the deduplication hooks.
 
 func TestTheParserDeclaresItsMarksAndSecondarySources(t *testing.T) {
 	subject := New()
@@ -82,7 +81,7 @@ func TestInjectedOriginNamesWhatTheUserDidNotType(t *testing.T) {
 func TestSystemTextSummarisesThePayloadOfEachSubtype(t *testing.T) {
 	tests := []struct{ subtype, payload, want string }{
 		{"slash_command", `{"phase": "start", "rawCommand": "/x"}`, "slash_command: start /x"},
-		{"rewind", `null`, "rewind: truncated  record(s)"},
+		{"rewind", `null`, "rewind: truncated record(s)"},
 		{"rewind", `{"truncatedCount": 3}`, "rewind: truncated 3 record(s)"},
 		{"custom_title", `{"customTitle": "  T "}`, "custom_title: T"},
 		{"chat_compression", `{"info": {"b": 1}}`, `chat_compression: {"b":1}`},
@@ -159,36 +158,28 @@ func TestGroupHistoryRowsMatchAtTheirClearUnderTheirOwnForm(t *testing.T) {
 	}
 }
 
-func TestSplitURLFindsTheHostAndPathAsPythonDoes(t *testing.T) {
-	tests := []struct{ url, hostname, path string }{
-		{"https://github.com/o/r/pull/1", "github.com", "/o/r/pull/1"},
-		{"HTTPS://User@GitHub.COM:443/o/r?q#f", "github.com", "/o/r"},
-		{"//h/x", "h", "/x"},
-		{"github.com/o/r", "", "github.com/o/r"},
-		{" \t\x01https://h/a/b", "h", "/a/b"},
-		{"ht\ntps://h/a", "h", "/a"},
-		{"1http://h/x", "", "1http://h/x"},
-		{"a+b://H/x", "h", "/x"},
-		{"https://[::1]:8/x", "::1", "/x"},
-		{"https://[FE80::1%Zone]/x", "fe80::1%Zone", "/x"},
-		{"", "", ""},
-		{"mailto:x@y", "", "x@y"},
-		{"https://h", "h", ""},
-		{"x:/y", "", "/y"},
+func TestSplitURLFindsTheHostAndPath(t *testing.T) {
+	tests := []struct{ name, url, hostname, path string }{
+		{"a pull request URL", "https://github.com/o/r/pull/1", "github.com", "/o/r/pull/1"},
+		{"user, port, query and fragment are dropped", "HTTPS://User@GitHub.COM:443/o/r?q#f", "github.com", "/o/r"},
+		{"a URL without a scheme", "//h/x", "h", "/x"},
+		{"text without a host is all path", "github.com/o/r", "", "github.com/o/r"},
+		{"an escape stays as written", "https://h/a%20b/c", "h", "/a%20b/c"},
+		{"an IPv6 host loses its brackets and port", "https://[::1]:8/x", "::1", "/x"},
+		{"an IPv6 zone is decoded", "https://[FE80::1%25en0]/x", "fe80::1%en0", "/x"},
+		{"no URL gives nothing", "", "", ""},
+		{"an opaque URL has no path", "mailto:x@y", "", ""},
+		{"no path is empty", "https://h", "h", ""},
+		{"a control character is refused", " \t\x01https://h/a/b", "", ""},
+		{"a line break is refused", "ht\ntps://h/a", "", ""},
+		{"an invalid escape is refused", "https://h/a%zz", "", ""},
 	}
 	for _, test := range tests {
-		if got := splitURL(test.url); got != (urlParts{test.hostname, test.path}) {
-			t.Errorf("splitURL(%q) = %+v, want %q %q", test.url, got, test.hostname, test.path)
-		}
-	}
-}
-
-func TestStemDropsTheLastSuffixAsPythonDoes(t *testing.T) {
-	for name, want := range map[string]string{"a.json": "a", "a.b.json": "a.b", "x.": "x",
-		".json": ".json", "noext": "noext", "..json": "..json"} {
-		if got := stem(name); got != want {
-			t.Errorf("stem(%q) = %q, want %q", name, got, want)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			if got := splitURL(test.url); got != (urlParts{test.hostname, test.path}) {
+				t.Errorf("splitURL(%q) = %+v, want %q %q", test.url, got, test.hostname, test.path)
+			}
+		})
 	}
 }
 

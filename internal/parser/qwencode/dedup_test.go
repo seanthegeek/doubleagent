@@ -13,12 +13,12 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The deduplications the analyzer's Qwen Code tests run over the parser's
-// rows, recorded with Python's results by testdata/dedup_cases.py, run
-// again through the Go deduplicator with the hooks the parser declares,
-// its group history match form and time. The secondary rows kept, in order,
-// and the counts dropped must match.
-func TestDeduplicationOfTheSecondarySourcesMatchesPython(t *testing.T) {
+// The recorded deduplications of the parser's rows (testdata/dedup_cases.py
+// wrote them with their results) run again through the Go deduplicator
+// with the hooks the parser declares, its group history match form and
+// time. The secondary rows kept, in order, and the counts dropped must
+// match the recorded ones.
+func TestDeduplicationOfTheSecondarySourcesMatchesTheRecordedResults(t *testing.T) {
 	data, err := osfile.ReadFile("testdata/dedup_cases.jsonl")
 	if err != nil {
 		t.Fatal(err)

@@ -1,6 +1,7 @@
 package qwencode
 
 import (
+	"cmp"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,14 +46,14 @@ func (p *Parser) tokenUsage(artifact *input.Artifact, emit parser.Emit) {
 		var counts []string
 		for _, pair := range [][2]string{{"input", "inputTokens"}, {"output", "outputTokens"},
 			{"cached", "cachedTokens"}, {"thoughts", "thoughtsTokens"}, {"total", "totalTokens"}} {
-			counts = append(counts, pair[0]+" "+dash(record.Get(pair[1])))
+			counts = append(counts, pair[0]+" "+parser.SettingOrDash(record.Get(pair[1])))
 		}
 		duration := "-"
 		if value := record.Get("apiDurationMs"); isSet(value) {
 			duration = value.Text() + "ms"
 		}
-		text := "token usage: model " + dash(record.Get("model")) + " auth " +
-			dash(record.Get("authType")) + " source " + dash(record.Get("source")) + " tokens " +
+		text := "token usage: model " + parser.SettingOrDash(record.Get("model")) + " auth " +
+			parser.SettingOrDash(record.Get("authType")) + " source " + parser.SettingOrDash(record.Get("source")) + " tokens " +
 			strings.Join(counts, " ") + " api " + duration + " (from " + fileName(artifact) + ")"
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("timestamp")), text)
 		row.SessionID = parser.Text(record.Get("sessionId"))
@@ -111,11 +112,11 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 			} else if ok {
 				state = "cleared, time not recorded"
 			}
-			sender := parser.Text(orElse(entry.Get("senderName"), entry.Get("senderId")))
+			sender := parser.Text(parser.FirstNonEmpty(entry.Get("senderName"), entry.Get("senderId")))
 			text = "group message: [" + sender + "] " + parser.Text(entry.Get("text")) + " (" + state + ")"
 			timestamp = timeutil.FromValue(entry.Get("timestamp"))
 		case isText(record.Get("type"), "clear"):
-			text = "group history cleared: " + orDash(record.Get("key")) + " (from " +
+			text = "group history cleared: " + cmp.Or(parser.Text(record.Get("key")), "-") + " (from " +
 				fileName(artifact) + ", recordedAt)"
 			timestamp = timeutil.FromValue(record.Get("recordedAt"))
 		default:
@@ -130,14 +131,6 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 		return left.Line - right.Line
 	})
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// orDash returns a value as Python's "%s" % (value or "-") writes it.
-func orDash(value jsonvalue.Value) string {
-	if text := parser.Text(value); text != "" {
-		return text
-	}
-	return "-"
 }
 
 // summary emits the one "project summary" row of a .qwen/PROJECT_SUMMARY.md:
@@ -157,21 +150,12 @@ func (p *Parser) summary(artifact *input.Artifact, emit parser.Emit) {
 	emit(row)
 }
 
-// stem returns a file name without its last suffix, as a path's stem is
-// in Python: the name up to its last dot, unless that leaves only dots.
-func stem(name string) string {
-	if dot := strings.LastIndexByte(name, '.'); dot >= 0 && strings.TrimLeft(name[:dot], ".") != "" {
-		return name[:dot]
-	}
-	return name
-}
-
 // todos emits one "todo:" row per item of a session's todo file, at the
 // file's time. The session is the file's sessionId, else its name;
 // "default", the file a process without a session id writes, names none.
 func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	name := stem(fileName(artifact))
+	name := parser.Stem(fileName(artifact))
 	sessionID := name
 	if name == "default" {
 		sessionID = ""
@@ -201,8 +185,8 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 		if blockedBy == "" {
 			blockedBy = "-"
 		}
-		text := "todo: [" + dash(item.Get("status")) + "] " + parser.Text(item.Get("content")) +
-			" (id " + dash(item.Get("id")) + ", blocked by " + blockedBy + ", from todos/" +
+		text := "todo: [" + parser.SettingOrDash(item.Get("status")) + "] " + parser.Text(item.Get("content")) +
+			" (id " + parser.SettingOrDash(item.Get("id")) + ", blocked by " + blockedBy + ", from todos/" +
 			fileName(artifact) + ", file mtime)"
 		row := p.systemRow(artifact, i+1, mtime, text)
 		row.SessionID = sessionID
@@ -217,7 +201,7 @@ func groupNames(groups jsonvalue.Value) map[string]string {
 	names := map[string]string{}
 	for _, group := range groups.Items() {
 		if groupID := group.Get("id"); group.IsObject() && !groupID.IsEmpty() {
-			names[groupID.Text()] = orElse(group.Get("name"), groupID).Text()
+			names[groupID.Text()] = parser.FirstNonEmpty(group.Get("name"), groupID).Text()
 		}
 	}
 	return names
@@ -251,7 +235,7 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 		if pinned == "" {
 			pinned = "no"
 		}
-		text := "session organization: group " + group + " color " + dash(entry.Get("color")) +
+		text := "session organization: group " + group + " color " + parser.SettingOrDash(entry.Get("color")) +
 			" pinned " + pinned + " (from session-organization.v1.json, updatedAt)"
 		row := p.systemRow(artifact, i+1, timeutil.FromValue(entry.Get("updatedAt")), text)
 		row.SessionID = session.Key

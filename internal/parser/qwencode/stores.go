@@ -1,6 +1,7 @@
 package qwencode
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -36,23 +37,15 @@ func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 		if len(segments) >= 2 {
 			repository = segments[0] + "/" + segments[1]
 		}
-		text := "source host: " + orText(address.hostname) + " repository " + repository +
-			" pull request " + orText(url) + " state " + dash(pullRequest.Get("state")) + " source " +
-			dash(pullRequest.Get("source")) + " issues " + orText(issueNumbers(pullRequest.Get("issues"))) +
-			" (from " + name + ", createdAt)"
+		text := "source host: " + cmp.Or(address.hostname, "-") + " repository " + repository +
+			" pull request " + cmp.Or(url, "-") + " state " + parser.SettingOrDash(pullRequest.Get("state")) +
+			" source " + parser.SettingOrDash(pullRequest.Get("source")) + " issues " +
+			cmp.Or(issueNumbers(pullRequest.Get("issues")), "-") + " (from " + name + ", createdAt)"
 		row := p.systemRow(artifact, i+1, timeutil.FromValue(pullRequest.Get("createdAt")), text)
 		row.SessionID = sessionID
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
-}
-
-// orText returns text, or "-" when it is empty.
-func orText(text string) string {
-	if text == "" {
-		return "-"
-	}
-	return text
 }
 
 // issueNumbers returns the numbers of a pull request's issues, joined by
@@ -76,13 +69,13 @@ func (p *Parser) audit(artifact *input.Artifact, emit parser.Emit) {
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		failure := ""
 		if !record.Get("failurePhase").IsEmpty() || !record.Get("failureError").IsEmpty() {
-			failure = " failure " + dash(record.Get("failurePhase")) + ": " +
-				dash(record.Get("failureError"))
+			failure = " failure " + parser.SettingOrDash(record.Get("failurePhase")) + ": " +
+				parser.SettingOrDash(record.Get("failureError"))
 		}
-		text := "source host: github repository " + dash(record.Get("repository")) + " actor " +
-			dash(record.Get("actor")) + " publication " + dash(record.Get("outcome")) + " trigger " +
-			dash(record.Get("triggerKind")) + " number " + dash(record.Get("number")) + " comment " +
-			dash(record.Get("commentUrl")) + failure + " (from " + fileName(artifact) + ", at)"
+		text := "source host: github repository " + parser.SettingOrDash(record.Get("repository")) + " actor " +
+			parser.SettingOrDash(record.Get("actor")) + " publication " + parser.SettingOrDash(record.Get("outcome")) + " trigger " +
+			parser.SettingOrDash(record.Get("triggerKind")) + " number " + parser.SettingOrDash(record.Get("number")) + " comment " +
+			parser.SettingOrDash(record.Get("commentUrl")) + failure + " (from " + fileName(artifact) + ", at)"
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("at")), text)
 		row.SessionID = parser.Text(record.Get("sessionId"))
 		emit(row)
@@ -126,9 +119,9 @@ func (p *Parser) channelRoutes(artifact *input.Artifact, name string, emit parse
 			}
 			row.TimestampUTC, when = mtime, "file mtime"
 		}
-		row.Text = timeline.RelayedPrefix + " channel " + dash(target.Get("channelName")) + " chat " +
-			dash(target.Get("chatId")) + " sender " + dash(target.Get("senderId")) + " thread " +
-			dash(target.Get("threadId")) + " (from " + name + ", " + when + ")"
+		row.Text = timeline.RelayedPrefix + " channel " + parser.SettingOrDash(target.Get("channelName")) + " chat " +
+			parser.SettingOrDash(target.Get("chatId")) + " sender " + parser.SettingOrDash(target.Get("senderId")) + " thread " +
+			parser.SettingOrDash(target.Get("threadId")) + " (from " + name + ", " + when + ")"
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -196,8 +189,8 @@ func (p *Parser) usage(artifact *input.Artifact, emit parser.Emit) {
 		}
 		project := parser.Text(record.Get("project"))
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("startTime")),
-			"session usage: project "+orText(project)+" duration "+duration+" models "+models+
-				" tools "+orText(strings.Join(counts, ","))+" (from usage_record.jsonl, startTime)")
+			"session usage: project "+cmp.Or(project, "-")+" duration "+duration+" models "+models+
+				" tools "+cmp.Or(strings.Join(counts, ","), "-")+" (from usage_record.jsonl, startTime)")
 		row.SessionID, row.ProjectPath = parser.Text(record.Get("sessionId")), project
 		emit(row)
 	}

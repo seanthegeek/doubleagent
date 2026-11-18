@@ -207,7 +207,7 @@ func (r *record) toolResultRows() []timeline.Row {
 	}
 	row := r.row(timeline.TurnToolResult, text)
 	row.ToolName = parser.Text(first.Get("name"))
-	row.ToolUseID = parser.Text(orElse(result.Get("callId"), first.Get("id")))
+	row.ToolUseID = parser.Text(parser.FirstNonEmpty(result.Get("callId"), first.Get("id")))
 	out := []timeline.Row{row}
 	if status == "cancelled" || status == "awaiting_approval" {
 		decision := r.row(timeline.TurnSystem, "permission decision: "+status)
@@ -278,11 +278,13 @@ func (r *record) systemRows() []timeline.Row {
 			if text == "" {
 				text = "permission mode: " + mode
 			}
+			parts := []string{text}
 			for _, key := range []string{"prePlanMode", "planExecutionMode"} {
 				if value := payload.Get(key); !value.IsEmpty() {
-					text += " " + key + "=" + value.Text()
+					parts = append(parts, key+"="+value.Text())
 				}
 			}
+			text = strings.Join(parts, " ")
 		}
 	}
 	row := r.row(timeline.TurnSystem, text)
