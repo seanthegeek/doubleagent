@@ -46,3 +46,12 @@ func ObjectMember(value jsonvalue.Value, member string, line int, problems *Prob
 	}
 	return value.Members()
 }
+
+// ObjectOrEmptyMember returns value, a member of a record that the format
+// makes an object, or an empty object when it is not one, adding the
+// problem WrongKind(member, Object) at line for a present member of
+// another kind; an absent or null member is silent.
+func ObjectOrEmptyMember(value jsonvalue.Value, member string, line int, problems *Problems) jsonvalue.Value {
+	ObjectMember(value, member, line, problems)
+	return ObjectOrEmpty(value)
+}

@@ -55,6 +55,11 @@ func TestAMemberOfTheWrongKindIsAProblemAndAnAbsentOneIsNot(t *testing.T) {
 			var arrayProblems, objectProblems Problems
 			items := ArrayMember(record.Get("m"), "m", 3, &arrayProblems)
 			members := ObjectMember(record.Get("m"), "m", 3, &objectProblems)
+			var orEmptyProblems Problems
+			object := ObjectOrEmptyMember(record.Get("m"), "m", 3, &orEmptyProblems)
+			if !object.IsObject() || object.Len() != len(members) || !slices.Equal(orEmptyProblems, objectProblems) {
+				t.Errorf("ObjectOrEmptyMember gave %s and %v", object.JSON(), orEmptyProblems)
+			}
 			wantArray, wantObject := Problems(nil), Problems(nil)
 			if test.arrayReport {
 				wantArray = Problems{{Line: 3, Message: "m is not a JSON array"}}

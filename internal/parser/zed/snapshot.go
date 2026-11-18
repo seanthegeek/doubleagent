@@ -75,7 +75,7 @@ func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
 func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonvalue.Value,
 	problems *parser.Problems, emit parser.Emit) {
 	line := int(record.Rowid)
-	snapshot := objectOrReport(value.Get("initial_project_snapshot"), "initial_project_snapshot", line, problems)
+	snapshot := parser.ObjectOrEmptyMember(value.Get("initial_project_snapshot"), "initial_project_snapshot", line, problems)
 	worktrees := worktreeSnapshots(snapshot, line, problems)
 	if context.project == "" && len(worktrees) > 0 {
 		context.project = parser.Text(worktrees[0].Get("worktree_path"))
@@ -132,16 +132,6 @@ func startText(record sqlitefile.Row, value jsonvalue.Value) string {
 	return strings.Join(parts, " ")
 }
 
-// objectOrReport returns value as an object, an empty one when it is not
-// an object; a value that is not null and not an object adds the problem
-// "<member> is not a JSON object" at line.
-func objectOrReport(value jsonvalue.Value, member string, line int, problems *parser.Problems) jsonvalue.Value {
-	if !value.IsNull() && !value.IsObject() {
-		problems.Add(line, parser.WrongKind(member, jsonvalue.Object))
-	}
-	return parser.ObjectOrEmpty(value)
-}
-
 // threadGrants returns the thread-scoped grants: the agent profile, each
 // granted write path and network host, and each sandbox escape flag that is
 // set (DbSandboxGrants, db.rs:91-122 at a84689073d29). A sandbox_grants
@@ -152,7 +142,7 @@ func threadGrants(value jsonvalue.Value, line int, problems *parser.Problems) []
 	if profile, ok := value.Lookup("profile"); ok && parser.Present(profile) {
 		grants = append(grants, setting{"profile", profile})
 	}
-	sandbox := objectOrReport(value.Get("sandbox_grants"), "sandbox_grants", line, problems)
+	sandbox := parser.ObjectOrEmptyMember(value.Get("sandbox_grants"), "sandbox_grants", line, problems)
 	for _, key := range []string{"write_paths", "network_hosts"} {
 		member := "sandbox_grants." + key
 		for _, entry := range parser.ArrayMember(sandbox.Get(key), member, line, problems) {
