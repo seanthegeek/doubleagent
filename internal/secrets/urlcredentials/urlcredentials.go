@@ -20,11 +20,11 @@
 //     alone (Credential.NameOnly).
 //  6. The query starts at the first ? or # after the first URL's authority
 //     (sections 3.4 and 3.5) and runs to the token's end; in it, the first
-//     ? or # after a later URL's authority (a redirect target) starts that
-//     URL's parameters too. Any other ? is part of a value.
+//     # after a later URL's authority (a redirect target) starts its fragment.
 //  7. Parameters split at & and ;, at # before the fragment, and at JSON's
-//     escaped \u0026 or \U0026; \/ (an escaped slash) is part of a value and
-//     any other backslash ends one.
+//     escaped \u0026 or \U0026; \/ is part of a value and any other
+//     backslash ends one. Any other ? starts a name, as & does, but ends no
+//     value, so a value holding a ? and any name inside it go whole.
 //  8. A parameter's value, after its first =, is a credential when it is not
 //     empty and its name, percent-escapes decoded and ASCII case ignored, is
 //     one credentialParameters lists.
