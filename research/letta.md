@@ -666,7 +666,9 @@ gateway modules were removed.
 ### Secrets
 
 `thinkingSignature` and `textSignature` are opaque provider blobs. Tool arguments and results can
-hold pasted keys. V1 `sqlite.db` table `providers` column `api_key`
+hold pasted keys. A settings file's `env` values and `refreshToken` are shown in its
+`stored credentials:` row ([Sync, relay and origin rows](#sync-relay-and-origin-rows)), and
+`--no-secrets` replaces each with the placeholder. V1 `sqlite.db` table `providers` column `api_key`
 ([0.11.7 orm/provider.py:30-32](https://github.com/letta-ai/letta/blob/bf9356ceaf8ac4c80f1b418f209ad49b04986885/letta/orm/provider.py#L30-L32)).
 
 ### Parser plan
@@ -809,7 +811,15 @@ real install has shown these files):
   session on <key> agent <agentId> conversation <conversationId> (from
   <file>, file mtime)`, at the file's modification time, with
   `session_id` the conversation id and, for the project file,
-  `project_path` the project.
+  `project_path` the project; the key's credentials, if it carries any,
+  are shown as written and replaced with the placeholder under
+  `timeline --no-secrets` and `detect --no-secrets`.
+
+Each settings file, `.config/letta/settings.json` included, that holds an `env` value or a
+`refreshToken`, the API key and refresh token the CLI writes there when the keychain cannot hold
+them ([Credentials](#credentials)), also gives one `system` row at its modification time,
+`stored credentials: env.<name>=<value> ... refreshToken=<refreshToken> (from <file>, file
+mtime)`, each value shown as written and replaced with the placeholder under `--no-secrets`.
 
 Memfs pushes the agent's memory to the server's git endpoint (see
 [Server-side session markers](#server-side-session-markers)); a commit there is memory, not a

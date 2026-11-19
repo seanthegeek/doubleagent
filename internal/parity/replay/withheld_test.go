@@ -73,6 +73,8 @@ func withheldRows() []withheldRow {
 			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_HOST=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_ID=" + secrets.DefaultPlaceholder + " (from .agent-zero/.env, file mtime)"},
+		{"letta", "settings API key", "stored credentials: env.LETTA_API_KEY=" + secrets.DefaultPlaceholder +
+			" (from .letta/settings.json, file mtime)"},
 		{"twinny", "inference provider API key", "model provider: p1 label=Ollama provider=ollama type=chat " +
 			"model=qwen2.5-coder:7b apiKey=" + secrets.DefaultPlaceholder +
 			" (from rjmacarthy.twinny twinny.inference-providers, file mtime)"},

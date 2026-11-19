@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
+	"github.com/seanthegeek/doubleagent/internal/parser/letta"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
 	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
@@ -67,6 +68,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 			out[i] = tabbyRows{concrete, filter}
 		case *twinny.Parser:
 			out[i] = twinnyRows{concrete, filter}
+		case *letta.Parser:
+			out[i] = lettaRows{concrete, filter}
 		}
 	}
 	return out
@@ -105,6 +108,18 @@ type twinnyRows struct {
 
 // Parse parses the artifact through the filter.
 func (p twinnyRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// lettaRows is the Letta parser with its parses passed through an
+// addedRowFilter.
+type lettaRows struct {
+	*letta.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p lettaRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 

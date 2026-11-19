@@ -51,8 +51,10 @@ func (p *Parser) readDocument(artifact *input.Artifact, emit parser.Emit,
 // parseSettings emits the sync and permission rows of a settings file, at
 // its modification time: one sync row per sessionsByServer entry whose key
 // does not start "local:" (not in the legacy file, which Letta reads only
-// for its permissions), then one row per permissions entry. A
-// sessionsByServer or permissions that is not an object adds a problem row.
+// for its permissions), then one row per permissions entry, then one
+// "stored credentials:" row of each env value and the refreshToken, each
+// through parser.SecretText. A sessionsByServer or permissions that is not
+// an object adds a problem row.
 func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	project := ""
 	if artifact.Home != nil && artifact.Home.Project {
@@ -76,7 +78,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	}
 	var problems parser.Problems
 	if artifact.Rel != legacySettingsRel {
-		syncRows(parser.ObjectMember(document.Get("sessionsByServer"), "sessionsByServer", 0, &problems),
+		syncRows(artifact, parser.ObjectMember(document.Get("sessionsByServer"), "sessionsByServer", 0, &problems),
 			artifact.Rel, put)
 	}
 	permissions := document.Get("permissions")
@@ -87,21 +89,42 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 				" (from "+artifact.Rel+", file mtime)")
 		}
 	}
+	if stored := storedCredentials(artifact, document); stored != "" {
+		put("", "stored credentials: "+stored+" (from "+artifact.Rel+", file mtime)")
+	}
 	for _, found := range problems {
 		put("", parser.ProblemPrefix+found.Message)
 	}
 }
 
+// storedCredentials returns "<key>=<value>" of each env member and of the
+// refreshToken of a settings file, joined by spaces, each value through
+// parser.SecretText, or "" when it holds none: the file the CLI writes the
+// API key and refresh token into when the keychain cannot hold them.
+func storedCredentials(artifact *input.Artifact, document jsonvalue.Value) string {
+	var parts []string
+	for _, member := range document.Get("env").Members() {
+		if value := parser.Text(member.Value); value != "" {
+			parts = append(parts, "env."+member.Key+"="+parser.SecretText(artifact, value))
+		}
+	}
+	if token := parser.Text(document.Get("refreshToken")); token != "" {
+		parts = append(parts, "refreshToken="+parser.SecretText(artifact, token))
+	}
+	return strings.Join(parts, " ")
+}
+
 // syncRows writes, through put, one `session synced:` row per entry of a
-// settings file's sessionsByServer members whose key does not start "local:".
-func syncRows(servers []jsonvalue.Member, rel string, put func(sessionID, text string)) {
+// settings file's sessionsByServer members whose key does not start
+// "local:", the server's URL through parser.URLText.
+func syncRows(artifact *input.Artifact, servers []jsonvalue.Member, rel string, put func(sessionID, text string)) {
 	for _, server := range servers {
 		if strings.HasPrefix(server.Key, "local:") {
 			continue
 		}
 		entry := server.Value
 		put(parser.Text(entry.Get("conversationId")), "session synced: last session on "+
-			server.Key+" agent "+parser.TextOr(entry.Get("agentId"), "-")+" conversation "+
+			parser.URLText(artifact, server.Key)+" agent "+parser.TextOr(entry.Get("agentId"), "-")+" conversation "+
 			parser.TextOr(entry.Get("conversationId"), "-")+" (from "+rel+", file mtime)")
 	}
 }

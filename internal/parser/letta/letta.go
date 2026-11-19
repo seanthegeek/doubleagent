@@ -12,9 +12,9 @@
 //     named agent-local-... is a server conversation: a `session synced:`
 //     row.
 //   - sessions.jsonl, settings.json, the legacy .config/letta/settings.json
-//     and a project's settings.local.json (only sessionsByServer,
-//     permissions and agents[] are read: env and the token keys hold
-//     credentials), channels/<channel>/routing.json or routing.yaml (read as
+//     and a project's settings.local.json (sessionsByServer, permissions,
+//     agents[], and env and refreshToken, the credentials, through
+//     parser.SecretText), channels/<channel>/routing.json or routing.yaml (read as
 //     JSON), crons.json, runs/<task id>.jsonl and
 //     listener-state/<24 hex>/<agent>_<conversation>.json.
 //
