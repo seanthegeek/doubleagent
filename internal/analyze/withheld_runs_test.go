@@ -113,6 +113,9 @@ func withheldLeakFixtures(t *testing.T) []struct {
 		{"a Hermes remote backend given by host", []collectedFile{{"alice", home, "hermes",
 			".config/Hermes/connections.json", `{"connections": [{"kind": "ssh", "label": "box", ` +
 				`"host": "https://u:FIXTURE-PW@box.example", "user": "alice", "port": 22}]}`}}, "FIXTURE-PW"},
+		{"an Agent Zero chat that is not JSON", []collectedFile{{"alice", home, "agent-zero",
+			"agent-zero/usr/chats/ctx/chat.json", `{"data": {"telegram_bot_cfg": {"token": "FIXTURE-\q"}}}`}},
+			"invalid escape sequence"},
 		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
 			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
 			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",

@@ -413,7 +413,9 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 	reason := ""
 	switch {
 	case err != nil:
-		reason = err.Error()
+		// The file holds the bot token and model API keys the parser shows,
+		// and the reader's error can quote it.
+		reason = parser.ReaderErrorText(artifact, err)
 	case !document.IsObject():
 		reason = "top level is not an object"
 	}
