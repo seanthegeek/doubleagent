@@ -207,3 +207,72 @@ func TestFleetKeepsTheDirectoriesItMadeWhenTheWriteSucceeds(t *testing.T) {
 		t.Errorf("the CSV was not written (%v)", err)
 	}
 }
+
+func TestFleetRemovesNothingWhenTheOutputParentHoldsADotElement(t *testing.T) {
+	tests := []struct {
+		name string
+		// parent is written after the work directory; made lists what the
+		// run makes there and must remain, kept what was there before.
+		parent string
+		made   []string
+		kept   []string
+	}{
+		{"a .. after a missing directory", "/x/../keep", []string{"x"}, []string{"keep"}},
+		{"a .. after a new directory", "/a/b/../c", []string{"a/b", "a/c"}, nil},
+		{"a . element", "/./O/new", []string{"O/new"}, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			work := t.TempDir()
+			writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)
+			for _, kept := range test.kept {
+				if err := os.MkdirAll(filepath.Join(work, kept), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if strings.HasPrefix(test.parent, "/a/") {
+				if err := os.Mkdir(filepath.Join(work, "a"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			output := work + test.parent + "/x.csv/"
+			code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", output, filepath.Join(work, "inv"))
+			if code != ExitError {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			for _, kept := range test.kept {
+				if info, err := osfile.Lstat(filepath.Join(work, kept)); err != nil || !info.IsDir() {
+					t.Errorf("%s was there before and is gone (%v)", kept, err)
+				}
+			}
+			for _, made := range test.made {
+				if info, err := osfile.Lstat(filepath.Join(work, made)); err != nil || !info.IsDir() {
+					t.Errorf("%s was made and must be left, not removed (%v)", made, err)
+				}
+			}
+		})
+	}
+}
+
+func TestFleetRemovesWhatItMadeBelowALinkedDirectoryWhenTheWriteFails(t *testing.T) {
+	work := t.TempDir()
+	writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)
+	target := filepath.Join(work, "target")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(work, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", link+"/new/x.csv/", filepath.Join(work, "inv"))
+	if code != ExitError {
+		t.Errorf("exit %d, stderr %q", code, stderr)
+	}
+	if entries, err := os.ReadDir(target); err != nil || len(entries) != 0 {
+		t.Errorf("the link's target holds %v (%v), want it empty", entries, err)
+	}
+	if info, err := osfile.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the link is gone (%v)", err)
+	}
+}
