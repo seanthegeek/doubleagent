@@ -727,7 +727,14 @@ for one). So is a `crush.json` that is not a JSON object
 (`parser: <file> is not a JSON object`, followed for one that does not decode by
 ` (<reason>)`, the reader's error in full, or where it stopped
 (`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the file
-holds API keys). A `projects.json`,
+holds API keys). In a `crush.json`, after its rows and at `source_line` 1, a `permissions`,
+`options`, `mcp`, `hooks` or `providers` that is present but not an object is
+`parser: <member> is not a JSON object`, a `permissions.allowed_tools`, `options.disabled_tools`,
+`mcp.<name>.disabled_tools` or `enabled_tools`, or `hooks.<event>` that is present but not an
+array `parser: <member> is not a JSON array`, and an `mcp` or `providers` holding servers or
+providers that are not objects one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one); an absent, null or empty member gives no row. A `projects.json`,
 `crush.json` or `crushrc` that cannot be read is one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0, an empty
 time and, for the configuration files, the project the file belongs to. A `messages.parts` value

@@ -192,28 +192,24 @@ type settingList struct {
 
 // configLists returns the lists of standing entries of a crush.json in
 // this order: permissions.allowed_tools, options.disabled_tools, each
-// MCP server's disabled_tools and enabled_tools, and each hook event.
-func configLists(document jsonvalue.Value) []settingList {
+// MCP server's disabled_tools and enabled_tools, and each hook event. A
+// permissions, options, mcp or hooks that is not an object, and MCP servers
+// that are not objects, add a problem at line 1.
+func configLists(document jsonvalue.Value, problems *parser.Problems) []settingList {
 	var lists []settingList
 	for _, pair := range [][2]string{{"permissions", "allowed_tools"}, {"options", "disabled_tools"}} {
-		if block := document.Get(pair[0]); block.IsObject() {
+		block := document.Get(pair[0])
+		if parser.ObjectMember(block, pair[0], 1, problems); block.IsObject() {
 			lists = append(lists, settingList{pair[0] + "." + pair[1], block.Get(pair[1])})
 		}
 	}
-	if mcp := document.Get("mcp"); mcp.IsObject() {
-		for _, server := range mcp.Members() {
-			if !server.Value.IsObject() {
-				continue
-			}
-			for _, key := range []string{"disabled_tools", "enabled_tools"} {
-				lists = append(lists, settingList{"mcp." + server.Key + "." + key, server.Value.Get(key)})
-			}
+	for name, server := range parser.MembersOfKind(document.Get("mcp"), "mcp", jsonvalue.Object, 1, problems) {
+		for _, key := range []string{"disabled_tools", "enabled_tools"} {
+			lists = append(lists, settingList{"mcp." + name + "." + key, server.Get(key)})
 		}
 	}
-	if hooks := document.Get("hooks"); hooks.IsObject() {
-		for _, event := range hooks.Members() {
-			lists = append(lists, settingList{"hooks." + event.Key, event.Value})
-		}
+	for _, event := range parser.ObjectMember(document.Get("hooks"), "hooks", 1, problems) {
+		lists = append(lists, settingList{"hooks." + event.Key, event.Value})
 	}
 	return lists
 }
@@ -222,7 +218,8 @@ func configLists(document jsonvalue.Value) []settingList {
 // crush.json, then one "stored credentials:" row of each provider's
 // api_key through parser.SecretText; nothing else in the file is read. A
 // file that is not JSON gives the reader's error through
-// parser.ReaderErrorText, since the file holds API keys.
+// parser.ReaderErrorText, since the file holds API keys; a member of the
+// wrong kind on the way to those rows gives a problem row after them.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -243,23 +240,28 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 		return
 	}
-	for _, list := range configLists(document) {
-		if !list.entries.IsArray() {
-			continue
-		}
-		for _, entry := range list.entries.Items() {
+	var wrong parser.Problems
+	for _, list := range configLists(document, &wrong) {
+		for _, entry := range parser.ArrayMember(list.entries, list.key, 1, &wrong) {
 			emit(p.settingRow(artifact, timestamp, list.key, entry, artifact.Rel, 1))
 		}
 	}
 	var keys []string
-	for _, provider := range document.Get("providers").Members() {
-		if key := parser.Text(provider.Value.Get("api_key")); key != "" {
-			keys = append(keys, "providers."+provider.Key+".api_key="+parser.SecretText(artifact, key))
+	for name, provider := range parser.MembersOfKind(document.Get("providers"), "providers", jsonvalue.Object, 1,
+		&wrong) {
+		if key := parser.Text(provider.Get("api_key")); key != "" {
+			keys = append(keys, "providers."+name+".api_key="+parser.SecretText(artifact, key))
 		}
 	}
 	if len(keys) > 0 {
 		row := p.system(artifact, "stored credentials: "+strings.Join(keys, " ")+" (from "+artifact.Rel+
 			", file mtime)", 1)
+		row.TimestampUTC = timestamp
+		row.ProjectPath = p.configProject(artifact)
+		emit(row)
+	}
+	for _, problem := range wrong {
+		row := p.system(artifact, parser.ProblemPrefix+problem.Message, problem.Line)
 		row.TimestampUTC = timestamp
 		row.ProjectPath = p.configProject(artifact)
 		emit(row)
