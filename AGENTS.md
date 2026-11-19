@@ -573,8 +573,10 @@ for Go files as it does for the others.
   `tools/check_code_style.py` fails on a `fmt.Sprintf` or `fmt.Errorf`
   that has no verb or whose verbs are all a plain `%s` (or, in `Sprintf`, a
   `%v` of `err`), with the format written out or held in a string constant
-  of the same file; on `errors.New(fmt.Sprintf(...))`; and on an
-  `errors.New` whose argument names `err` or calls `.Error()`.
+  of the same file; on `errors.New(fmt.Sprintf(...))`; on an
+  `errors.New` whose argument names `err` or calls `.Error()`; and on a
+  `fmt.Errorf` that gives such an argument, or a name ending in `Err`, a
+  verb other than `%w`.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.

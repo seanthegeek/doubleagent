@@ -137,7 +137,10 @@ GO_TOKEN = re.compile(
     re.DOTALL | re.VERBOSE,
 )
 GO_VERB = re.compile(r"%(?:%|[-+# 0]*(?:\d+|\*)?(?:\.(?:\d+|\*)?)?(?:\[\d+\])?[a-zA-Z])")
-GO_FORMAT_CALLS = {"Sprintf": "`+`", "Errorf": "`errors.New` and `+`"}
+GO_FORMAT_CALLS = {
+    "Sprintf": "`+`",
+    "Errorf": "`errors.New` and `+`, or wrap an error among the values with %w (or reason.Wrap)",
+}
 GO_FORMAT_MESSAGE = "fmt.%s only joins strings (every verb is %%s, or %%v of err); use %s"
 GO_NO_VERB_CALLS = {"Sprintf": "the string itself", "Errorf": "`errors.New`"}
 GO_NO_VERB_MESSAGE = "fmt.%s has no verb to fill; use %s"
@@ -147,6 +150,10 @@ GO_ERRORS_NEW_FORMAT_MESSAGE = (
 GO_NO_COMMENT_MESSAGE = "%s %r has no comment directly above it"
 GO_DROPPED_CAUSE_MESSAGE = (
     "errors.New makes an error from another error's text and drops it; wrap it with %w"
+)
+GO_ERRORF_DROPPED_MESSAGE = (
+    "fmt.Errorf formats an error with a verb other than %w and drops it from the chain;"
+    " wrap it with %w (or reason.Wrap)"
 )
 GO_WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
 GO_KEYWORDS = {
@@ -848,12 +855,45 @@ def go_plain_verbs(call: str, verbs: list[str], arguments: list[list[GoToken]]) 
     return True
 
 
+def go_names_an_error(argument: list[GoToken]) -> bool:
+    """Return True when a call argument is plainly an error or an error's text.
+
+    It is when it is the one name `err` or a name ending in `Err` (`closeErr`), or when it calls
+    `.Error()`. Other errors cannot be told from the text and are left alone.
+    """
+    if len(argument) == 1 and argument[0].kind == "ident":
+        return argument[0].text == "err" or argument[0].text.endswith("Err")
+    return any(
+        argument[position].text == "."
+        and argument[position + 1].text == "Error"
+        and argument[position + 2].text == "("
+        for position in range(len(argument) - 2)
+    )
+
+
+def go_errorf_drops_error(verbs: list[str], arguments: list[list[GoToken]]) -> bool:
+    """Return True when a `fmt.Errorf` formats an error with a verb other than `%w`.
+
+    Only such a verb copies the error's words into the new error and leaves the error out of
+    the chain `errors.Is` and `errors.As` follow. A format with an explicit argument index
+    (`%[2]v`) is not paired with its arguments and is left alone.
+    """
+    if any("[" in verb for verb in verbs):
+        return False
+    return any(
+        verb != "%w" and go_names_an_error(argument)
+        for verb, argument in zip(verbs, arguments, strict=False)
+    )
+
+
 def go_format_message(
     call: str, verbs: list[str], arguments: list[list[GoToken]], in_errors_new: bool
 ) -> str | None:
     """Return the finding for a `fmt.Sprintf` or `fmt.Errorf` call, None when it passes."""
     if in_errors_new:
         return GO_ERRORS_NEW_FORMAT_MESSAGE
+    if call == "Errorf" and go_errorf_drops_error(verbs, arguments):
+        return GO_ERRORF_DROPPED_MESSAGE
     if not verbs:
         return GO_NO_VERB_MESSAGE % (call, GO_NO_VERB_CALLS[call])
     if go_plain_verbs(call, verbs, arguments):
