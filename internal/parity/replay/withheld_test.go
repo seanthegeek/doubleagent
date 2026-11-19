@@ -210,6 +210,12 @@ func (f withheldForm) rowRewrite(from side, agent, text string) (string, int) {
 	return f.replace(from, text, true)
 }
 
+// marker returns the text that stands, in the compared form, where the
+// binary adds a part the recording never printed.
+func (f withheldForm) marker() string {
+	return "{added " + f.name + "}"
+}
+
 // replace returns text with every match of the entry's pattern of one side
 // as its token, and the count. With mandatory, the binary's text must hold
 // the part an entry says the binary adds: a parse's rows are held to it.
@@ -218,6 +224,11 @@ func (f withheldForm) rowRewrite(from side, agent, text string) (string, int) {
 // apart; the parser replay compares those parses row by row.
 func (f withheldForm) replace(from side, text string, mandatory bool) (string, int) {
 	if from == binarySide && f.added != nil {
+		// A text already in the compared form, the recording's wording as
+		// the binary's form test gives it, keeps its one marker.
+		if strings.Contains(text, f.marker()) {
+			return text, 0
+		}
 		stripped := f.added.ReplaceAllString(text, "")
 		if mandatory && stripped == text || !f.recorded.MatchString(stripped) {
 			return text, 0
@@ -247,7 +258,7 @@ func withheldForms() []withheldForm {
 	// marked.
 	adds := func(agent, name, recorded, added string) withheldForm {
 		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
-			added: regexp.MustCompile(added), token: "${1}{added " + name + "}${2}"}
+			added: regexp.MustCompile(added), token: "${1}" + withheldForm{name: name}.marker() + "${2}"}
 	}
 	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
 	goJSON := `invalid JSON at line ([0-9]+), column ([0-9]+): ` + secrets.DefaultPlaceholder
@@ -332,9 +343,11 @@ func withheldForms() []withheldForm {
 		// key=redacted; the binary withholds an 8-byte URL credential in
 		// every string, so a pi thinking row the agent wrote as [redacted]
 		// reads [REDACTED] in that run.
-		form("pi", "thinking row equal to a recorded key",
-			`(^|"text":")\[redacted\]("|\z)`, `(^|"text":")\[`+secrets.DefaultPlaceholder+`\]("|\z)`,
-			"${1}{a key's text}${2}"),
+		{scope: commandScope, agent: "pi", name: "thinking row equal to a recorded key",
+			lines:    regexp.MustCompile(`(?m)^.*"agent": ?"pi".*$`),
+			recorded: regexp.MustCompile(`("text": ?")\[redacted\](")`),
+			binary:   regexp.MustCompile(`("text": ?")\[(?:redacted|` + secrets.DefaultPlaceholder + `)\](")`),
+			token:    "${1}{a key's text}${2}"},
 		// The recording cut a network request's URL at its query, which can
 		// carry an API key; the binary gives the whole URL, the key
 		// withheld. Only the queries of the recorded logs are taken, so a
@@ -668,8 +681,12 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
 		{"a chat.json error in its placeholder form passes", chatRecorded, chatBinary, true},
 		{"a settings line in its placeholder form passes", lineRecorded, lineBinary, true},
-		{"a thinking row equal to a recorded key passes", "[redacted]", "[REDACTED]", true},
-		{"a thinking row holding more than the key fails", "[redacted]", "[REDACTED] x", false},
+		{"a thinking row equal to a recorded key passes", `{"agent":"pi","text":"[redacted]"}`,
+			`{"agent":"pi","text":"[REDACTED]"}`, true},
+		{"a thinking row of another agent fails", `{"agent":"zed","text":"[redacted]"}`,
+			`{"agent":"zed","text":"[REDACTED]"}`, false},
+		{"a thinking row holding more than the key fails", `{"agent":"pi","text":"[redacted]"}`,
+			`{"agent":"pi","text":"[REDACTED] x"}`, false},
 		{"a settings line shown fails", lineRecorded, strings.Replace(lineBinary, "REDACTED", "sk-1", 1), false},
 		{"a settings line of another number fails", lineRecorded, strings.Replace(lineBinary, "line 1", "line 2", 1),
 			false},
@@ -739,7 +756,7 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 		"agent-zero chat.json reader error": "parser: chat.json did not parse (Expecting value: line 1 column 1 " +
 			"(char 0)); log items recovered without history",
 		"crush crush.json reader error":           "parser: crush.json is not a JSON object",
-		"pi thinking row equal to a recorded key": "[redacted]",
+		"pi thinking row equal to a recorded key": `{"agent":"pi","text":"[redacted]"}`,
 		"shellgpt settings line without an equals sign": `parser: unparseable line 1 (no "=" separator; not shown, ` +
 			`the file holds the API key)`,
 		"openclaw exec approvals reader error": "parser: exec_approvals_config raw_json unparseable (Expecting value: " +
