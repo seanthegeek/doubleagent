@@ -81,14 +81,12 @@ func (i *items) cloud(emit parser.Emit) {
 		return
 	}
 	for _, repo := range objectEntries(found, i.problems) {
-		if repo.IsObject() {
-			target := repo.Get("url").Text()
-			if target == "" {
-				target = cmp.Or(repo.Get("name").Text(), "-")
-			}
-			emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+reposSource,
-				i.mtime, found.rowid))
+		target := repo.Get("url").Text()
+		if target == "" {
+			target = cmp.Or(repo.Get("name").Text(), "-")
 		}
+		emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+reposSource,
+			i.mtime, found.rowid))
 	}
 }
 
