@@ -2,18 +2,17 @@
 // completion events, the model config and the editors' inline-edit command
 // histories.
 //
-// Tabby is a self-hosted server, so its stores sit under the server
-// account's home: the user column is that account, and the person who
-// chatted is named in each thread's system row. Paths start at .tabby/, or
-// at the server root itself when the collection base is a container
+// Tabby is self-hosted: its stores sit under the server account's home,
+// the user column is that account, and each thread's system row names who
+// chatted. Paths start at .tabby/, or at the server root of a container
 // volume's _data. Files read:
 //
 //   - ee/db.sqlite or ee/dev-db.sqlite, and the ee/*db.backup-<date>.sqlite
 //     copies made before each migration, a secondary source that can hold
 //     threads since deleted. Only the columns of tableColumns are read, each
 //     when the table has it; of the secret-bearing columns, only a user's
-//     auth_token and an integration's access_token, through
-//     parser.SecretText.
+//     auth_token, as a "tabby user:" row, and an integration's
+//     access_token, through parser.SecretText.
 //   - events/<date>.json, one log entry per line (user, ts, event), a
 //     secondary source: the server writes each event here and to
 //     user_events.
@@ -21,7 +20,9 @@
 //     table at the file's time, api_key through parser.SecretText.
 //   - The IntelliJ plugin's options/intellij-tabby-command-history.xml and
 //     the VS Code extension's edit.recentlyCommand in the editor's
-//     state.vscdb, secondary sources with no times.
+//     state.vscdb, secondary sources with no times ("inline edit command
+//     history:" then a row per command), and that state's
+//     server.serverRecords, a "tabby server:" row per endpoint with a token.
 //
 // The session id is the thread id, page:<id> or the completion_id; the
 // project path is the first attached code[].git_url (Tabby records no local
