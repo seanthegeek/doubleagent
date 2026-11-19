@@ -21,15 +21,17 @@ func decode(t *testing.T, text string) jsonvalue.Value {
 	return value
 }
 
-// The expected values are the row research/cline.md gives each message
-// kind.
-func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
-	for _, test := range []struct {
-		name, kind, message string
-		first               bool
-		want                Mapped
-		ok                  bool
-	}{
+// A mapUICase is one message kind, its message and the row it gives.
+type mapUICase struct {
+	name, kind, message string
+	first               bool
+	want                Mapped
+	ok                  bool
+}
+
+// mapUICases returns the cases of TestMapUIGivesTheRowOfEachMessageKind.
+func mapUICases() []mapUICase {
+	return []mapUICase{
 		{"the first text is the user's task with its images counted", "text",
 			`{"text": "hello", "images": ["a", "b"]}`, true,
 			Mapped{"user", "hello | [2 image(s)]", ""}, true},
@@ -78,7 +80,13 @@ func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 		{"structured text is compact JSON", "error", `{"text": {"a": [1, 2.0]}}`, false,
 			Mapped{"system", `error: {"a":[1,2.0]}`, ""}, true},
 		{"empty reasoning is skipped", "reasoning", `{"text": ""}`, false, Mapped{"thinking", "", ""}, false},
-	} {
+	}
+}
+
+// The expected values are the row research/cline.md gives each message
+// kind.
+func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
+	for _, test := range mapUICases() {
 		t.Run(test.name, func(t *testing.T) {
 			got, ok := MapUI(test.kind, decode(t, test.message), test.first)
 			if ok != test.ok || (ok && got != test.want) {

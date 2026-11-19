@@ -32,10 +32,14 @@ func decoded(t *testing.T, text string) jsonvalue.Value {
 	return value
 }
 
-func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
-	for _, test := range []struct {
-		name, records, failure, want string
-	}{
+// A mutationCase is a record list, the failure it ends with and the state it gives.
+type mutationCase struct {
+	name, records, failure, want string
+}
+
+// mutationCases returns the cases of TestApplyMutationChangesTheStateOrSaysWhyNot.
+func mutationCases() []mutationCase {
+	return []mutationCase{
 		{"the test's sequence",
 			`[{"kind":0,"v":{"a":[1,2,3],"b":{"c":1}}},{"kind":2,"k":["a"],"v":[9],"i":1},{"kind":1,"k":["b","c"],"v":2},{"kind":3,"k":["b"]},{"kind":2,"k":["new"],"v":[1]}]`,
 			"", `{"a":[1,9],"new":[1]}`},
@@ -90,6 +94,12 @@ func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 		{"a set into a string",
 			`[{"kind":1,"k":["s",0],"v":1}]`,
 			"cannot set 0", ""},
+	}
+}
+
+// mutationPathAndKindCases returns the cases of paths the state does not have and of kinds that are not one.
+func mutationPathAndKindCases() []mutationCase {
+	return []mutationCase{
 		{"a string is a leaf a walk cannot pass",
 			`[{"kind":1,"k":["s",0,0],"v":1}]`,
 			`path ["s",0] not found`, ""},
@@ -129,7 +139,11 @@ func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 		{"a false kind is not kind zero",
 			`[{"kind":false,"v":[1]}]`,
 			"bad path null", ""},
-	} {
+	}
+}
+
+func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
+	for _, test := range slices.Concat(mutationCases(), mutationPathAndKindCases()) {
 		t.Run(test.name, func(t *testing.T) {
 			state := newNode(decoded(t, startState), 0)
 			var err error
@@ -150,12 +164,16 @@ func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 	}
 }
 
-func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		log  []string
-		want requestLines
-	}{
+// A trackCase is a log and the line each request is given.
+type trackCase struct {
+	name string
+	log  []string
+	want requestLines
+}
+
+// trackCases returns the cases of TestTrackGivesEachRequestTheLineThatMadeIt.
+func trackCases() []trackCase {
+	return []trackCase{
 		{"an array pushes each item", []string{`{"kind":0,"v":{"requests":[{}]}}`,
 			`{"kind":2,"k":["requests"],"v":[{},{}]}`},
 			requestLines{sessionStart: 1, 0: 1, 1: 2, 2: 2}},
@@ -189,6 +207,12 @@ func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
 		{"a truncation that is not an integer is no truncation", []string{
 			`{"kind":0,"v":{"requests":[{},{}]}}`, `{"kind":2,"k":["requests"],"i":1.0,"v":[{}]}`},
 			requestLines{sessionStart: 1, 0: 1, 1: 1, 2: 2}},
+	}
+}
+
+// trackEditCases returns the cases of sets, deletes and changes inside a request.
+func trackEditCases() []trackCase {
+	return []trackCase{
 		{"a set by index takes that request", []string{`{"kind":0,"v":{"requests":[{},{}]}}`,
 			`{"kind":1,"k":["requests",1],"v":{}}`},
 			requestLines{sessionStart: 1, 0: 1, 1: 2}},
@@ -219,7 +243,11 @@ func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
 			`{"kind":1,"k":["requests",0,"b"],"v":1}`, `{"kind":2,"k":["requests",0,"a"],"v":[1]}`,
 			`{"kind":3,"k":["requests",0,"b"]}`},
 			requestLines{sessionStart: 1, 0: 1}},
-	} {
+	}
+}
+
+func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
+	for _, test := range slices.Concat(trackCases(), trackEditCases()) {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "session.jsonl")
 			if err := osfile.WriteFile(path, []byte(strings.Join(test.log, "\n")+"\n"), 0o600); err != nil {

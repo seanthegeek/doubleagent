@@ -2,6 +2,7 @@ package gitmeta
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -52,7 +53,7 @@ type configCase struct {
 }
 
 func TestParseConfig(t *testing.T) {
-	for _, test := range append(configCases(), valueCases()...) {
+	for _, test := range slices.Concat(configCases(), edgeConfigCases(), valueCases()) {
 		t.Run(test.name, func(t *testing.T) {
 			remotes, problems := ParseConfig(test.text)
 			if test.remotes == nil {
@@ -126,6 +127,12 @@ func configCases() []configCase {
 				"[remote. \"\"]\n\turl = /srv/point\n[remote]\n\turl = /srv/none\n",
 			[]Remote{remote("", list("/srv/dotted", "/srv/quoted")),
 				remote(".", list("/srv/point"))}, nil},
+	}
+}
+
+// edgeConfigCases are the tests of headers with odd subsections and of configs with nothing to list.
+func edgeConfigCases() []configCase {
+	return []configCase{
 		{"a subsection needs a blank before its quote", "[remote\"x\"]\n\turl = /srv/x\n",
 			nil, nil},
 		{"an empty config has no remotes", "", nil, nil},
