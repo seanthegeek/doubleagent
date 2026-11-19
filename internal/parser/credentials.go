@@ -22,12 +22,15 @@ import (
 // never writes the placeholder and never hides a value by its own wording.
 
 // SecretText returns a secret value read from the evidence (a token, an
-// API key, a password, a cookie) as written, and records it: one of
-// secrets.EverywhereLength bytes or more is replaced in every string of the
-// output, a shorter one only in the text of this parse's rows. A value
-// that is empty once the white space around it is removed is no secret.
+// API key, a password, a cookie) as written, and records it in each form a
+// row can hold it (recordForms). The secret itself, the value without the
+// white space around it or, after a Bearer or Basic scheme, the credentials
+// that follow, decides where every form is replaced: in every string of the
+// output when it is secrets.EverywhereLength bytes or more, else only in
+// the text of this parse's rows. A value that is empty once the white space
+// around it is removed is no secret.
 func SecretText(artifact *input.Artifact, value string) string {
-	recordForms(recorderOf(artifact).Value, value)
+	recordForms(recorderOf(artifact), value, false)
 	return value
 }
 
@@ -42,7 +45,7 @@ func SecretText(artifact *input.Artifact, value string) string {
 func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
 	text := Text(value)
 	recorder := recorderOf(artifact)
-	recordForms(recorder.Value, text)
+	recordForms(recorder, text, false)
 	if !value.IsString() {
 		recordStrings(recorder, value, "")
 	}
@@ -60,11 +63,7 @@ func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value, name strin
 		recordStrings(recorder, member.Value, member.Key)
 	}
 	if value.IsString() {
-		record := recorder.RowValue
-		if credentialName(name) {
-			record = recorder.Value
-		}
-		recordForms(record, value.Text())
+		recordForms(recorder, value.Text(), !credentialName(name))
 	}
 }
 
@@ -84,14 +83,17 @@ func credentialName(name string) bool {
 	return urlcredentials.IsCredentialName(name)
 }
 
-// recordForms records through record a secret value in each form a row
-// can hold it: as it is, without the white space around it, and, for an
-// HTTP authorization value of the Bearer (RFC 6750) or Basic (RFC 7617)
-// scheme, its credentials after the scheme, which are the secret a log or
-// another header shows alone; and each of those as compact JSON writes it
-// inside quotes, where that differs, since a row that shows evidence as
-// compact JSON holds it so.
-func recordForms(record func(string), value string) {
+// recordForms records a secret value in each form a row can hold it: as
+// it is, without the white space around it, and, for an HTTP authorization
+// value of the Bearer (RFC 6750) or Basic (RFC 7617) scheme, its
+// credentials after the scheme, which are the secret a log or another
+// header shows alone; and each of those as compact JSON writes it inside
+// quotes, where that differs, since a row that shows evidence as compact
+// JSON holds it so. The last of the unescaped forms is the secret itself,
+// and its length alone decides the reach of every form, so a form that
+// escaping or white space makes longer reaches no further than the secret.
+// With rowOnly every form is replaced only in this parse's rows.
+func recordForms(recorder *secrets.Recorder, value string, rowOnly bool) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return
@@ -100,6 +102,10 @@ func recordForms(record func(string), value string) {
 	if scheme, credentials, found := strings.Cut(trimmed, " "); found &&
 		(strings.EqualFold(scheme, "Bearer") || strings.EqualFold(scheme, "Basic")) {
 		forms = append(forms, strings.TrimSpace(credentials))
+	}
+	record := recorder.Value
+	if rowOnly || len(forms[len(forms)-1]) < secrets.EverywhereLength {
+		record = recorder.RowValue
 	}
 	for _, form := range forms {
 		record(form)

@@ -631,13 +631,16 @@ for Go files as it does for the others.
   `timeline --no-secrets` or `detect --no-secrets` each is replaced by one
   placeholder, `REDACTED` unless `--redaction-placeholder` names another,
   and each kind reaches its own strings. A value `SecretText` identifies
-  of 8 bytes or more is replaced in every string of the output, a shorter
-  one only in the `text` field of the rows of the parse that identified it
+  is replaced, in each form a row can hold it, in every string of the
+  output when the secret itself (the value without the white space around
+  it, or the credentials after a `Bearer` or `Basic` scheme) is 8 bytes or
+  more, and otherwise only in the `text` field of the rows of the parse that identified it
   (never in a timestamp, host, user, agent, session id, project path or
   other field, nor in sessions or inventory). A reader's detail is
   replaced, whatever its length, only in the `text` field of the rows and
   in the problem lines of its own parse. A URL's credentials are replaced by their bytes where the
-  URL holds them, and in every string too when 8 bytes or longer; user
+  URL holds them, and in every string too when 8 bytes or longer with JSON's
+  escaped slashes read as slashes; user
   information that is only `:` is none. The row stays. An encrypted value (a
   `secret://` row of an editor's secret storage, OS-keychain ciphertext)
   stays unread, since ciphertext establishes

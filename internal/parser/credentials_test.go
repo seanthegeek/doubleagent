@@ -150,3 +150,32 @@ func TestAHeadersObjectRecordsOnlyCredentialHeadersForEveryString(t *testing.T) 
 		}
 	}
 }
+
+func TestTheSecretItselfDecidesWhereEachOfItsFormsIsReplaced(t *testing.T) {
+	tests := []struct {
+		name, value string
+		everywhere  []string
+	}{
+		{"a short value whose JSON form is long", `a"b"c"d`, nil},
+		{"short control characters whose JSON form is long", "\x01\x02", nil},
+		{"a short value with white space around it", "  abcd   ", nil},
+		{"a short credential after a scheme", "Bearer abc1234", nil},
+		{"a long credential after a scheme", "Bearer fake-0001", []string{"Bearer fake-0001", "fake-0001"}},
+		{"a long value and its JSON form", `fake"q-01`, []string{`fake"q-01`, `fake\"q-01`}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+			artifact := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+			found, _ := Within(artifact, func(Emit) error { SecretText(artifact, test.value); return nil },
+				func(timeline.Row) {})
+			if got := recorder.EverywhereTexts(); !slices.Equal(got, test.everywhere) {
+				t.Errorf("replaced in every string: %q, want %q", got, test.everywhere)
+			}
+			row := `{"note":` + jsonvalue.NewString(test.value).JSON() + `}`
+			if got := recorder.RowText(row, found); got != `{"note":"P"}` {
+				t.Errorf("the parse's row %q is written %q", row, got)
+			}
+		})
+	}
+}

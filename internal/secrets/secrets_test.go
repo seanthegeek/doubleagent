@@ -265,6 +265,27 @@ func TestALongURLCredentialIsReplacedWithItsSlashesEscapedOrNot(t *testing.T) {
 	}
 }
 
+func TestTheDecodedCredentialDecidesWhereAnEscapedOneIsReplaced(t *testing.T) {
+	tests := []struct {
+		name, text string
+		everywhere []string
+	}{
+		{"a short credential written with escaped slashes", `https:\/\/h\/?token=ab\/cd\/e`, nil},
+		{"the same credential written plainly", "https://h/?token=ab/cd/e", nil},
+		{"a long credential written with escaped slashes", `https:\/\/h\/?token=ab\/cd\/ef`,
+			[]string{"ab/cd/ef", `ab\/cd\/ef`}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := NewRecorder(withheld())
+			recorder.Collect(test.text)
+			if got := recorder.EverywhereTexts(); !slices.Equal(got, test.everywhere) {
+				t.Errorf("replaced in every string: %q, want %q", got, test.everywhere)
+			}
+		})
+	}
+}
+
 func TestALongCredentialEndingALinkIsReplacedInEveryString(t *testing.T) {
 	recorder := NewRecorder(withheld())
 	output := []string{"see [the share](https://h/s?token=fake-secret-value-0001) now",
