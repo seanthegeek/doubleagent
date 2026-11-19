@@ -337,7 +337,10 @@ func fleetOutputRefusal(output string, inputs, files []string) string {
 		}
 	}
 	for _, given := range inputs {
-		if insideDirectory(output, given) {
+		switch inside, err := insideDirectory(output, given); {
+		case err != nil:
+			return "the output " + output + " must be outside the input directory " + given + untold(err)
+		case inside:
 			return "the output " + output + " must be outside the input directory " + given
 		}
 	}

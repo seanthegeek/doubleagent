@@ -1,11 +1,13 @@
 package analyze
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 )
 
 // The analyst's output and inputs are compared by what they name, never by
@@ -18,6 +20,18 @@ import (
 // the link's target, so the text is never cleaned (absolutePath,
 // outputParent). maxClimb bounds the climb: no real path is deeper.
 const maxClimb = 4096
+
+// errClimb is the refusal of an output whose climb passed maxClimb. A
+// climb that fails on the way (a path grown past the system's limit, a
+// parent that cannot be read) cannot tell either, and refuses with the
+// error met.
+var errClimb = errors.New("the climb to the root passed its bound")
+
+// untold returns the end of the refusal of an output whose place the climb
+// could not tell: why, after the rule the refusal states.
+func untold(err error) string {
+	return " (where it lies could not be told: " + reason.For(err) + ")"
+}
 
 // absolutePath returns path made absolute against the working directory as
 // the platform resolves it (absoluteText); "" when the working directory
@@ -34,36 +48,37 @@ func absolutePath(path string) string {
 }
 
 // insideDirectory reports whether path, existing or not, is the directory
-// directory or lies below it, by the rule above.
-func insideDirectory(path, directory string) bool {
+// directory or lies below it, by the rule above, with the error the climb
+// met, or errClimb, when it cannot tell.
+func insideDirectory(path, directory string) (bool, error) {
 	path, directory = absolutePath(path), absolutePath(directory)
 	if path == "" || directory == "" {
-		return false
+		return false, nil
 	}
 	target, err := namedEntry(directory)
 	if err != nil || !target.IsDir() {
-		return false
+		return false, nil
 	}
 	current := nearestExisting(path)
 	if current == "" {
-		return false
+		return false, nil
 	}
 	info, err := namedEntry(current)
 	for range maxClimb {
 		if err != nil {
-			return false
+			return false, err
 		}
 		if os.SameFile(info, target) {
-			return true
+			return true, nil
 		}
 		parent := parentEntry(current)
 		parentInfo, parentErr := namedEntry(parent)
 		if parentErr == nil && os.SameFile(parentInfo, info) {
-			return false
+			return false, nil
 		}
 		current, info, err = parent, parentInfo, parentErr
 	}
-	return false
+	return false, errClimb
 }
 
 // nearestExisting returns path or its nearest ancestor that exists, by
