@@ -675,12 +675,16 @@ so it carries the bot `token` and, in webhook mode, `webhook_secret`, in clear t
 ([`plugins/_telegram_integration/extensions/python/job_loop/_10_telegram_bot.py:57-59`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/extensions/python/job_loop/_10_telegram_bot.py#L57-L59),[`82-89`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/extensions/python/job_loop/_10_telegram_bot.py#L82-L89),
 [`plugins/_telegram_integration/default_config.yaml:2-9`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/default_config.yaml#L2-L9)).
 The transcript cannot be flagged, so `token` and `webhook_secret` are the keys to redact before
-sharing a `chat.json`. The same values are in the plugin's configuration file
+sharing a `chat.json`; the parser shows both in the chat's `session relayed:` row, and
+`timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder. The same values
+are in the plugin's configuration file
 ([Credentials](#credentials)).
 
 A chat's `data.chat_model_override` can hold an `api_key` in each slot of a custom choice made from
-the connector ([Model override](#model-override)), in clear text in `chat.json`; the parser prints
-only each slot's provider and name. An ad hoc task's `token` in `usr/scheduler/tasks.json` is a
+the connector ([Model override](#model-override)), in clear text in `chat.json`; the parser shows
+it after the slot's provider and name, and `--no-secrets` replaces it with the placeholder. Every
+value of the connector's `~/.agent-zero/.env` is shown the same way. An ad hoc task's `token` in
+`usr/scheduler/tasks.json` is a
 random 19-digit number the task is created with, whose use was not traced
 ([Scheduler tasks](#scheduler-tasks)); the parser does not read it.
 
@@ -789,9 +793,12 @@ real install:
 `data.acp_model_id`, and `model: requested <choice> (chat override, as of
 file mtime)` from `data.chat_model_override`, where `<choice>` is
 `preset <preset_name>`, or `<slot>=<provider>/<name>` for each slot of a
-custom choice (`chat`, `utility`, `embedding`), or the top-level
-`<provider>/<name>`, or `custom configuration`; the object itself is never
-printed, since it can hold an `api_key`
+custom choice (`chat`, `utility`, `embedding`), each followed by
+` <slot>.api_key=<api_key>` and ` <slot>.api_base=<api_base>` when set, or the
+top-level `<provider>/<name>` with ` api_key=` and ` api_base=`, or
+`custom configuration`. The key is shown as written and the base URL's
+credentials too; `timeline --no-secrets` and `detect --no-secrets` replace the
+key, and the credentials the URL carries, with the placeholder
 ([Model override](#model-override), [Editor sessions](#editor-sessions)).
 A cleared override (`null`) gives no row.
 
@@ -863,12 +870,14 @@ chat on a third party's server, and `chat.json` records each
   messages; no Discord, Slack or other channel exists at [`ff2a5b9`](https://github.com/agent0ai/agent-zero/commit/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a) (grepped for `discord`,
   `slack`, `mattermost` and `signal-cli`: only an unrelated office helper matches).
   The parser yields one row per chat and channel with the keys:
-  `session relayed: telegram bot <telegram_bot> chat <telegram_chat_id> user <telegram_user_id> @<telegram_username or -> (from chat.json data, file mtime)`,
+  `session relayed: telegram bot <telegram_bot> chat <telegram_chat_id> user <telegram_user_id> @<telegram_username or -> token=<token> webhook_secret=<webhook_secret> (from chat.json data, file mtime)`,
   `session relayed: whatsapp chat <wa_chat_id> number <wa_sender_number or -> (from chat.json data, file mtime)`
   or
   `session relayed: email thread <email_thread_id or -> from <email_sender or -> (from chat.json data, file mtime)`,
-  timestamped by the file's modification time, and never prints `telegram_bot_cfg` (it holds the bot
-  token, [Secrets](#secrets)). Fixture only. Deleting the chat removes the folder, but
+  timestamped by the file's modification time; ` token=` and ` webhook_secret=` are
+  `telegram_bot_cfg`'s bot token and webhook secret ([Secrets](#secrets)), each when set, shown as
+  written and replaced with the placeholder under `timeline --no-secrets` and
+  `detect --no-secrets`. Fixture only. Deleting the chat removes the folder, but
   Telegram's `state.json` still maps the user and chat to the old `ctxid` until that user writes
   again
   ([`plugins/_telegram_integration/helpers/handler.py:376-387`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/helpers/handler.py#L376-L387)),
@@ -882,9 +891,15 @@ written together by
 yields
 `session origin: remote agent-zero instance <AGENT_ZERO_LAST_CONTEXT_HOST> context <AGENT_ZERO_LAST_CONTEXT_ID> (from .agent-zero/.env, file mtime)`
 with `session_id` the context id, at the file's modification time, and sets `records_origin`;
-source-derived; not observed on any real install. It reads only those two keys of a file the
-collector flags as a secret, strips quotes as the connector's own reader does
-([`51-66`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L51-L66)), and puts no other line in a row.
+source-derived; not observed on any real install. Before it, the file gives one row of every
+`<key>=<value>` line in file order,
+`connector settings: <key>=<value> ... (from .agent-zero/.env, file mtime)`, since the file the
+collector flags as a secret holds the computer-use restore token beside the instance URL. Quotes
+are stripped as the connector's own reader does
+([`51-66`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L51-L66)).
+Every value is shown as written, and so are the credentials of the origin's host URL;
+`timeline --no-secrets` and `detect --no-secrets` replace each value, and the credentials the host
+URL carries, with the placeholder.
 
 #### Scratch directory rows
 
@@ -983,7 +998,7 @@ message in a formatted error, `Responses MCP approval required`,
   "utility":{"provider":"ollama","name":"qwen3"}}}
 ```
 
-Fixture `~/.agent-zero/.env`, with keys the parser must not read:
+Fixture `~/.agent-zero/.env`:
 
 ```text
 AGENT_ZERO_HOST=http://localhost:50080

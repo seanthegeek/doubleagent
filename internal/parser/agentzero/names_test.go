@@ -145,22 +145,30 @@ func connectorTexts(t *testing.T, text string) []string {
 	return texts
 }
 
-func TestTheConnectorEnvGivesTheLastContextOnly(t *testing.T) {
+func TestTheConnectorEnvGivesItsSettingsAndTheLastContext(t *testing.T) {
 	const origin = "session origin: remote agent-zero instance h:5080 context c1 " +
 		"(from .agent-zero/.env, file mtime)"
+	const tail = " (from .agent-zero/.env, file mtime)"
 	tests := []struct {
 		name string
 		text string
 		want []string
 	}{
 		{"LF lines", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\nAGENT_ZERO_LAST_CONTEXT_ID=c1\n",
-			[]string{origin}},
+			[]string{"connector settings: AGENT_ZERO_LAST_CONTEXT_HOST=h:5080 AGENT_ZERO_LAST_CONTEXT_ID=c1" + tail,
+				origin}},
 		{"CRLF lines with quotes and spaces", " AGENT_ZERO_LAST_CONTEXT_HOST = \"h:5080\"\r\n" +
-			"AGENT_ZERO_LAST_CONTEXT_ID='c1'\r\nAGENT_ZERO_TOKEN=secret\r\n", []string{origin}},
+			"AGENT_ZERO_LAST_CONTEXT_ID='c1'\r\nAGENT_ZERO_TOKEN=secret\r\n",
+			[]string{"connector settings: AGENT_ZERO_LAST_CONTEXT_HOST=h:5080 AGENT_ZERO_LAST_CONTEXT_ID=c1 " +
+				"AGENT_ZERO_TOKEN=secret" + tail, origin}},
 		{"no final LF", "AGENT_ZERO_LAST_CONTEXT_ID=c1\nAGENT_ZERO_LAST_CONTEXT_HOST=h:5080",
-			[]string{origin}},
-		{"a missing id gives no row", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\n", nil},
-		{"an empty value gives no row", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\nAGENT_ZERO_LAST_CONTEXT_ID=\n", nil},
+			[]string{"connector settings: AGENT_ZERO_LAST_CONTEXT_ID=c1 AGENT_ZERO_LAST_CONTEXT_HOST=h:5080" + tail,
+				origin}},
+		{"a missing id gives no origin", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\n",
+			[]string{"connector settings: AGENT_ZERO_LAST_CONTEXT_HOST=h:5080" + tail}},
+		{"an empty value gives no origin", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\nAGENT_ZERO_LAST_CONTEXT_ID=\n",
+			[]string{"connector settings: AGENT_ZERO_LAST_CONTEXT_HOST=h:5080 AGENT_ZERO_LAST_CONTEXT_ID=" + tail}},
+		{"a file without a setting gives no row", "# a comment\n=value\n\n", nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -181,9 +181,9 @@ func (p *Parser) recoverLogs(raw string) []jsonvalue.Value {
 
 // remoteCopyTexts returns the "session synced:" and "session relayed:" texts
 // of a chat: a synced text names a provider response chain, a relayed text a
-// Telegram, WhatsApp or email chat. The Telegram bot configuration, which
-// holds the bot token, is never read.
-func remoteCopyTexts(chat, data jsonvalue.Value) []string {
+// Telegram, WhatsApp or email chat, with the Telegram bot's token and
+// webhook secret through parser.SecretText.
+func remoteCopyTexts(artifact *input.Artifact, chat, data jsonvalue.Value) []string {
 	var texts []string
 	for i, agent := range parser.Elements(chat.Get("agents")) {
 		state := agent.Get("data").Get("responses_state")
@@ -204,9 +204,15 @@ func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 			" (from chat.json agents[].data.responses_state, file mtime)")
 	}
 	if slices.ContainsFunc(telegramKeys, func(name string) bool { return parser.Present(data.Get(name)) }) {
-		texts = append(texts, "session relayed: telegram bot "+key(data, "telegram_bot")+" chat "+
-			key(data, "telegram_chat_id")+" user "+key(data, "telegram_user_id")+" @"+
-			key(data, "telegram_username")+" (from chat.json data, file mtime)")
+		text := "session relayed: telegram bot " + key(data, "telegram_bot") + " chat " +
+			key(data, "telegram_chat_id") + " user " + key(data, "telegram_user_id") + " @" +
+			key(data, "telegram_username")
+		for _, name := range []string{"token", "webhook_secret"} {
+			if secret := parser.Text(data.Get("telegram_bot_cfg").Get(name)); secret != "" {
+				text += " " + name + "=" + parser.SecretText(artifact, secret)
+			}
+		}
+		texts = append(texts, text+" (from chat.json data, file mtime)")
 	}
 	if parser.Present(data.Get("wa_chat_id")) {
 		texts = append(texts, "session relayed: whatsapp chat "+key(data, "wa_chat_id")+" number "+
@@ -221,7 +227,7 @@ func remoteCopyTexts(chat, data jsonvalue.Value) []string {
 }
 
 // modelName returns "<provider>/<name>" of a model configuration, or ""
-// when it names neither. The api_key and api_base are never read.
+// when it names neither.
 func modelName(config jsonvalue.Value) string {
 	var parts []string
 	for _, name := range []string{"provider", "name"} {
@@ -234,9 +240,9 @@ func modelName(config jsonvalue.Value) string {
 
 // overrideText returns the model data.chat_model_override requests, as row
 // text: a preset by its name, a custom configuration by the provider and
-// name of each slot. A custom configuration from the connector can carry an
-// api_key, so the object itself is never printed.
-func overrideText(override jsonvalue.Value) string {
+// name of each slot, each followed by the api_key and api_base a custom
+// configuration from the connector can carry.
+func overrideText(artifact *input.Artifact, override jsonvalue.Value) string {
 	if !override.IsObject() || override.Len() == 0 {
 		return ""
 	}
@@ -246,13 +252,27 @@ func overrideText(override jsonvalue.Value) string {
 	var slots []string
 	for _, slot := range overrides {
 		if config := override.Get(slot); config.IsObject() && modelName(config) != "" {
-			slots = append(slots, slot+"="+modelName(config))
+			slots = append(slots, slot+"="+modelName(config)+endpointText(artifact, config, slot+"."))
 		}
 	}
 	if len(slots) > 0 {
 		return strings.Join(slots, " ")
 	}
-	return cmp.Or(modelName(override), "custom configuration")
+	return cmp.Or(modelName(override), "custom configuration") + endpointText(artifact, override, "")
+}
+
+// endpointText returns " <prefix>api_key=<key> <prefix>api_base=<url>" of
+// a model configuration, each part when it is set: the key through
+// parser.SecretText, the URL through parser.URLText.
+func endpointText(artifact *input.Artifact, config jsonvalue.Value, prefix string) string {
+	var text string
+	if key := parser.Text(config.Get("api_key")); key != "" {
+		text += " " + prefix + "api_key=" + parser.SecretText(artifact, key)
+	}
+	if base := parser.Text(config.Get("api_base")); base != "" {
+		text += " " + prefix + "api_base=" + parser.URLText(artifact, base)
+	}
+	return text
 }
 
 // chatSetting is the text of an editor-session or chat-model row and the
@@ -265,7 +285,7 @@ type chatSetting struct {
 // data, each value the latest as of the file's modification time; ACP is the
 // Agent Client Protocol an editor session uses. Only the scratch directory
 // row names its own project path.
-func chatSettingRows(data jsonvalue.Value) []chatSetting {
+func chatSettingRows(artifact *input.Artifact, data jsonvalue.Value) []chatSetting {
 	var rows []chatSetting
 	if mode := data.Get("acp_mode"); !mode.IsEmpty() {
 		rows = append(rows, chatSetting{"permission mode: " + mode.Text() + " (acp, as of file mtime)", ""})
@@ -273,7 +293,7 @@ func chatSettingRows(data jsonvalue.Value) []chatSetting {
 	if model := data.Get("acp_model_id"); !model.IsEmpty() {
 		rows = append(rows, chatSetting{"model: requested " + model.Text() + " (acp, as of file mtime)", ""})
 	}
-	if requested := overrideText(data.Get("chat_model_override")); requested != "" {
+	if requested := overrideText(artifact, data.Get("chat_model_override")); requested != "" {
 		rows = append(rows, chatSetting{"model: requested " + requested +
 			" (chat override, as of file mtime)", ""})
 	}
@@ -454,10 +474,10 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 	start := c.row(timeline.TurnSystem, text, 0, "")
 	start.TimestampUTC = timeutil.FromValue(document.Get("created_at"))
 	c.emit(start)
-	for _, text := range remoteCopyTexts(document, data) {
+	for _, text := range remoteCopyTexts(c.artifact, document, data) {
 		c.emit(c.row(timeline.TurnSystem, text, 0, parser.FileMtime(c.artifact)))
 	}
-	for _, setting := range chatSettingRows(data) {
+	for _, setting := range chatSettingRows(c.artifact, data) {
 		row := c.row(timeline.TurnSystem, setting.text, 0, parser.FileMtime(c.artifact))
 		if setting.project != "" {
 			row.ProjectPath = setting.project

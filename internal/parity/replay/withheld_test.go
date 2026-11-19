@@ -69,6 +69,10 @@ func (r withheldRow) label() string {
 // case fails for an entry no case used.
 func withheldRows() []withheldRow {
 	return []withheldRow{
+		{"agent-zero", "connector settings", "connector settings: AGENT_ZERO_HOST=" + secrets.DefaultPlaceholder +
+			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
+			" AGENT_ZERO_LAST_CONTEXT_HOST=" + secrets.DefaultPlaceholder +
+			" AGENT_ZERO_LAST_CONTEXT_ID=" + secrets.DefaultPlaceholder + " (from .agent-zero/.env, file mtime)"},
 		{"openclaw", "exec approvals socket token", "permission setting: socket.token=" +
 			secrets.DefaultPlaceholder + " (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)"},
 	}
@@ -195,6 +199,20 @@ func withheldForms() []withheldForm {
 			`(remote backend: [^"\n]*?)(?: token=`+secrets.DefaultPlaceholder+`)?( \(from connections\.json, `+
 				`file mtime\))`,
 			"${1}${2}"),
+		// The recording gave a Telegram chat's relay without the bot's token
+		// and webhook secret; the binary adds them, withheld.
+		form("agent-zero", "telegram bot token",
+			`(session relayed: telegram bot [^"\n]*?)( \(from chat\.json data, file mtime\))`,
+			`(session relayed: telegram bot [^"\n]*?)(?: token=`+secrets.DefaultPlaceholder+`)?`+
+				`(?: webhook_secret=`+secrets.DefaultPlaceholder+`)?( \(from chat\.json data, file mtime\))`,
+			"${1}${2}"),
+		// The recording gave a chat override's slots without the API key a
+		// slot holds; the binary adds it after the slot, withheld.
+		form("agent-zero", "model override API key",
+			`(model: requested [^"\n]*?)( \(chat override, as of file mtime\))`,
+			`(model: requested [^"\n]*?)(?: (?:chat|utility|embedding)\.api_key=`+secrets.DefaultPlaceholder+
+				`)?((?: [^"\n]*?)? \(chat override, as of file mtime\))`,
+			"${1}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -263,34 +281,34 @@ func checkEveryWithheldFormUsed(t testing.TB, scope string, used map[string]int,
 }
 
 func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
-	const file, rel = "/h/.openclaw/state/openclaw.sqlite", ".openclaw/state/openclaw.sqlite"
-	parse := parsedFile{"openclaw", file, rel}
-	setting := Row{TurnType: "system", SourceFile: file, SourceLine: 1,
-		Text: "permission setting: defaults.security=deny (from state/openclaw.sqlite exec_approvals_config, " +
-			"updated_at_ms)"}
-	socket := setting
-	socket.Text = "permission setting: socket.token=REDACTED (from state/openclaw.sqlite exec_approvals_config, " +
-		"updated_at_ms)"
-	shown := socket
-	shown.Text = Text(strings.Replace(string(socket.Text), "REDACTED", "FIXTURE-TOKEN", 1))
-	elsewhere := socket
-	elsewhere.SourceFile = "/h/other.sqlite"
-	notSystem := socket
+	const file, rel = "/h/.agent-zero/.env", ".agent-zero/.env"
+	parse := parsedFile{"agent-zero", file, rel}
+	origin := Row{TurnType: "system", SourceFile: file, SessionID: "RemCtx01",
+		Text: "session origin: remote agent-zero instance https://a0.example.net context RemCtx01 " +
+			"(from .agent-zero/.env, file mtime)"}
+	settings := Row{TurnType: "system", SourceFile: file, Text: Text(withheldRows()[0].text)}
+	shown := settings
+	shown.Text = Text(strings.Replace(string(settings.Text), "REDACTED", "fixture-restore-token", 1))
+	elsewhere := settings
+	elsewhere.SourceFile = "/h/other.env"
+	notSystem := settings
 	notSystem.TurnType = "user"
+	changed := origin
+	changed.Text = Text(strings.Replace(string(origin.Text), "RemCtx01", "RemCtx02", 1))
 	tests := []struct {
 		name      string
 		parse     parsedFile
 		want, got []Row
 		agree     bool
 	}{
-		{"an added withheld socket token passes", parse, []Row{setting}, []Row{socket, setting}, true},
-		{"an added socket token shown fails", parse, []Row{setting}, []Row{shown, setting}, false},
-		{"the row added twice fails", parse, []Row{setting}, []Row{socket, socket, setting}, false},
-		{"the row of another file fails", parse, []Row{setting}, []Row{elsewhere, setting}, false},
-		{"the row as another turn fails", parse, []Row{setting}, []Row{notSystem, setting}, false},
-		{"the row added by another agent's parse fails", parsedFile{"hermes", file, rel}, []Row{setting},
-			[]Row{socket, setting}, false},
-		{"a changed row beside it fails", parse, []Row{setting}, []Row{socket, shown}, false},
+		{"an added withheld settings row passes", parse, []Row{origin}, []Row{settings, origin}, true},
+		{"the settings row showing a secret fails", parse, []Row{origin}, []Row{shown, origin}, false},
+		{"the row added twice fails", parse, []Row{origin}, []Row{settings, settings, origin}, false},
+		{"the row of another file fails", parse, []Row{origin}, []Row{elsewhere, origin}, false},
+		{"the row as another turn fails", parse, []Row{origin}, []Row{notSystem, origin}, false},
+		{"the row added by another agent's parse fails", parsedFile{"hermes", file, rel}, []Row{origin},
+			[]Row{settings, origin}, false},
+		{"a changed row beside it fails", parse, []Row{origin}, []Row{settings, changed}, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -321,6 +339,10 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	connectionRecorded := "remote backend: remote Homelab https://hermes.example.net (from connections.json, " +
 		"file mtime)"
 	connectionBinary := strings.Replace(connectionRecorded, " (from", " token=REDACTED (from", 1)
+	telegramRecorded := "session relayed: telegram bot opsbot chat 1 user 2 @ana (from chat.json data, file mtime)"
+	telegramBinary := strings.Replace(telegramRecorded, " (from", " token=REDACTED (from", 1)
+	overrideRecorded := "model: requested chat=openrouter/m utility=ollama/q (chat override, as of file mtime)"
+	overrideBinary := strings.Replace(overrideRecorded, " utility", " chat.api_key=REDACTED utility", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -366,6 +388,15 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"an account token of another login fails", accountRecorded, strings.Replace(accountBinary, "ana", "bo", 1),
 			false},
 		{"an absent account token passes as written", accountAbsent, accountAbsent, true},
+		{"a bot token in its placeholder form passes", telegramRecorded, telegramBinary, true},
+		{"a bot token shown fails", telegramRecorded, strings.Replace(telegramBinary, "REDACTED", "123:AA", 1), false},
+		{"a bot of another chat fails", telegramRecorded, strings.Replace(telegramBinary, "chat 1", "chat 9", 1),
+			false},
+		{"a slot's API key in its placeholder form passes", overrideRecorded, overrideBinary, true},
+		{"a slot's API key shown fails", overrideRecorded, strings.Replace(overrideBinary, "REDACTED", "sk-1", 1),
+			false},
+		{"a slot of another model fails", overrideRecorded, strings.Replace(overrideBinary, "ollama/q", "ollama/r", 1),
+			false},
 		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
 		{"a connection's token shown fails", connectionRecorded,
 			strings.Replace(connectionBinary, "REDACTED", "not-real", 1), false},
@@ -397,6 +428,10 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 		"copilot-desktop account token": "account: ana host=github.com kind=github default=1 token_present=true",
 		"hermes connections.json token": "remote backend: remote Homelab https://hermes.example.net " +
 			"(from connections.json, file mtime)",
+		"agent-zero telegram bot token": "session relayed: telegram bot opsbot chat 1 user 2 @ana " +
+			"(from chat.json data, file mtime)",
+		"agent-zero model override API key": "model: requested chat=openrouter/m utility=ollama/q " +
+			"(chat override, as of file mtime)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {

@@ -30,7 +30,7 @@ var (
 	orchestratorKeys = [][2]string{{"codex", "bypass_sandbox"}, {"claude", "permission_mode"},
 		{"claude", "allowed_tools"}, {"cursor", "force"}, {"grok", "always_approve"},
 		{"hermes", "yolo"}, {"opencode", "auto"}}
-	// lastContextKeys are the connector .env keys read, and only these.
+	// lastContextKeys are the connector .env keys of the last chat used.
 	lastContextKeys = []string{"AGENT_ZERO_LAST_CONTEXT_HOST", "AGENT_ZERO_LAST_CONTEXT_ID"}
 )
 
@@ -278,9 +278,10 @@ func (p *Parser) parseToggle(artifact *input.Artifact, match []string, emit pars
 	emit(p.settingRow(artifact, text, projectOf(jsonvalue.NewString(groupOf(p.toggle, match, "project")))))
 }
 
-// parseConnector emits the "session origin:" row of the A0 CLI connector's
-// ~/.agent-zero/.env. The file is a secret: only the last chat's host and id
-// are read, as the connector reads them, and no other line reaches a row.
+// parseConnector emits the rows of the A0 CLI connector's ~/.agent-zero/.env:
+// one "connector settings:" row of every key in file order, each value
+// through parser.SecretText since the file holds credentials, and the
+// "session origin:" row of the last chat's host and id.
 func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -293,16 +294,26 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 	// end of a value, as the connector's own reader strips them
 	// (research/agent-zero.md, "Origin").
 	values := map[string]string{}
+	var settings []string
 	for line := range strings.Lines(textlines.ValidUTF8(content)) {
 		name, value, found := strings.Cut(strings.TrimSpace(line), "=")
 		name = strings.TrimSpace(name)
-		if found && (name == lastContextKeys[0] || name == lastContextKeys[1]) {
-			values[name] = strings.Trim(strings.TrimSpace(value), `"'`)
+		if !found || name == "" {
+			continue
 		}
+		value = strings.Trim(strings.TrimSpace(value), `"'`)
+		settings = append(settings, name+"="+parser.SecretText(artifact, value))
+		if name == lastContextKeys[0] || name == lastContextKeys[1] {
+			values[name] = value
+		}
+	}
+	if len(settings) > 0 {
+		emit(p.fileRow(artifact, "connector settings: "+strings.Join(settings, " ")+
+			" (from .agent-zero/.env, file mtime)", parser.FileMtime(artifact), "", ""))
 	}
 	host, contextID := values[lastContextKeys[0]], values[lastContextKeys[1]]
 	if host != "" && contextID != "" {
-		emit(p.fileRow(artifact, "session origin: remote agent-zero instance "+host+" context "+
-			contextID+" (from .agent-zero/.env, file mtime)", parser.FileMtime(artifact), contextID, ""))
+		emit(p.fileRow(artifact, "session origin: remote agent-zero instance "+parser.URLText(artifact, host)+
+			" context "+contextID+" (from .agent-zero/.env, file mtime)", parser.FileMtime(artifact), contextID, ""))
 	}
 }

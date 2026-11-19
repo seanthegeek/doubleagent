@@ -112,7 +112,7 @@ func TestParseAIReadsAnObjectOrTextHoldingOne(t *testing.T) {
 	}
 }
 
-func TestOverrideTextNamesAPresetOrTheSlotsWithoutKeys(t *testing.T) {
+func TestOverrideTextNamesAPresetOrTheSlots(t *testing.T) {
 	tests := []struct {
 		json string
 		want string
@@ -128,7 +128,7 @@ func TestOverrideTextNamesAPresetOrTheSlotsWithoutKeys(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.json, func(t *testing.T) {
-			if got := overrideText(decoded(t, test.json)); got != test.want {
+			if got := overrideText(nil, decoded(t, test.json)); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -263,7 +263,7 @@ func TestTheConnectorEnvLosesEveryQuoteAtEitherEndOfAValue(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := "session origin: remote agent-zero instance " + test.want + " context c1 (from .agent-zero/.env, file mtime)"
-			if len(texts) != 1 || texts[0] != want {
+			if len(texts) != 2 || texts[1] != want {
 				t.Errorf("rows %q, want %q", texts, want)
 			}
 		})

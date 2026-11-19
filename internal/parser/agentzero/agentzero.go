@@ -12,9 +12,9 @@
 // assistant, thinking, tool_use, tool_result and system rows, and model,
 // permission, sync, relay, origin and scheduled-task rows.
 //
-// Fields read are those listed in research/agent-zero.md; the Telegram bot
-// configuration, a task's token and system prompt, and every .env key but the
-// last context's host and id are never read.
+// Fields read are those listed in research/agent-zero.md; a task's token and
+// system prompt are never read. A Telegram bot's token, a model override's
+// API key and every .env value are shown through parser.SecretText.
 package agentzero
 
 import (
