@@ -36,8 +36,11 @@ type Difference struct {
 	Added              func(parse parsedFile, want, got []Row) ([]Row, string)
 	Wanted             func(agent, rel string) bool
 	Within             int
-	Retired            string
-	Unchecked          string
+	// After names a difference whose added row this one's added row
+	// needs; this one takes its row first, while that row is there.
+	After     int
+	Retired   string
+	Unchecked string
 }
 
 // Differences returns the table of documented differences, a fresh slice.
