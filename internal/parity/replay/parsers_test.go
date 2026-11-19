@@ -279,7 +279,7 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		r.note(node, []int{excluding})
 		return skipExcluded
 	}
-	parse := parsedFile{agent: subject.Agent(), file: artifact.Original, rel: artifact.Rel,
+	parse := parsedFile{agent: subject.Agent(), file: artifact.Original, disk: artifact.DiskPath, rel: artifact.Rel,
 		home: artifact.Home, mtime: parser.FileMtime(artifact)}
 	cut := r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
 	compare := func(reporter testing.TB, numbers []int) ([]int, []string) {

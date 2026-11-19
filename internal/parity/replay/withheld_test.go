@@ -112,7 +112,7 @@ func withheldRows() []withheldRow {
 		{"twinny", "active chat provider API key", "model provider: active chat p1 apiKey=" +
 			secrets.DefaultPlaceholder + " (from rjmacarthy.twinny twinny.active-chat-provider, file mtime)", addedRow{time: fileTime}},
 		{"tabby", "user auth token", "tabby user: alice@example.com (Alice) id=1 auth_token=" +
-			secrets.DefaultPlaceholder + " (from users table, created_at)", addedRow{time: tableTime, line: 1}},
+			secrets.DefaultPlaceholder + " (from users table, created_at)", addedRow{cell: tableCell{"users", "created_at", "1"}, line: 1}},
 		{"tabby", "server record token", "tabby server: http://localhost:8080 token=" + secrets.DefaultPlaceholder +
 			" (from state.vscdb TabbyML.vscode-tabby server.serverRecords, no times)", addedRow{}},
 	}

@@ -4,12 +4,13 @@ package replay
 
 import (
 	"cmp"
-	"regexp"
+	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
 // reportedDifferences returns the differences numbered 170 onward.
@@ -143,53 +144,55 @@ func takeReport(reports []wrongKindEntry, parse parsedFile, want, got []Row) ([]
 }
 
 // parsedFile names one parse: the agent of its parser, the artifact's
-// original path and home-relative path, its home and the file's
-// modification time as the binary writes it.
+// original path, its path on disk and its home-relative path, its home and
+// the file's modification time as the binary writes it.
 type parsedFile struct {
-	agent, file, rel string
-	home             *input.Home
-	mtime            string
+	agent, file, disk, rel string
+	home                   *input.Home
+	mtime                  string
 }
 
 // The rules of an addedRow that derive a field from the case rather than
-// give it: the parsed file's modification time; a time the file's own table
-// gives (a well-formed time no later than the file's modification time and
-// no more than a day before it, since the recorder wrote the database the
-// day the case ran); the home's path; and the session id and project of
-// the recorded rows of the parse.
+// give it: the parsed file's modification time; the home's path; and the
+// session id and project of the recorded rows of the parse.
 const (
-	fileTime       = "{file mtime}"
-	tableTime      = "{a time of the file's table}"
-	homePath       = "{the home's path}"
-	parseSession   = "{the parse's session}"
-	parseProject   = "{the parse's project}"
-	timestampShape = `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$`
+	fileTime     = "{file mtime}"
+	homePath     = "{the home's path}"
+	parseSession = "{the parse's session}"
+	parseProject = "{the parse's project}"
 )
 
 // addedRow is the rest of a row a difference lets a parse add, beside its
 // text: its time, session id, project and source line, each given or one of
-// the rules above ("" for an empty field). The turn is system, the agent
-// the parser's, the source file the parsed file, the host and user its
-// home's, and every other field empty, so the row is compared whole.
+// the rules above ("" for an empty field), or a time the parsed database
+// holds (cell). The turn is system, the agent the parser's, the source file
+// the parsed file, the host and user its home's, and every other field
+// empty, so the row is compared whole.
 type addedRow struct {
 	time, session, project string
 	line                   int
+	cell                   tableCell
+}
+
+// tableCell names the cell of the parsed database that gives an added row's
+// time: the table, the column, and the id of the row.
+type tableCell struct {
+	table, column, rowID string
 }
 
 // matches returns whether a row is the whole row a parse may add with text
-// under rule, want being the recorded rows of the parse.
+// under rule, want being the recorded rows of the parse. A rule whose time
+// the parse cannot give matches no row.
 func (p parsedFile) matches(text string, rule addedRow, want []Row) func(Row) bool {
+	timestamp, ok := p.addedTime(rule)
+	if !ok {
+		return func(Row) bool { return false }
+	}
 	expected := Row{TurnType: "system", Agent: Text(p.agent), SourceFile: Text(p.file), Text: Text(text),
 		SessionID: Text(rule.session), ProjectPath: Text(rule.project), SourceLine: rule.line,
-		TimestampUTC: Text(rule.time)}
+		TimestampUTC: Text(timestamp)}
 	if p.home != nil {
 		expected.Host, expected.User = Text(p.home.Host), Text(p.home.User)
-	}
-	switch rule.time {
-	case fileTime:
-		expected.TimestampUTC = Text(p.mtime)
-	case tableTime:
-		expected.TimestampUTC = ""
 	}
 	session, project := parseSessionOf(want)
 	switch rule.project {
@@ -204,31 +207,43 @@ func (p parsedFile) matches(text string, rule addedRow, want []Row) func(Row) bo
 	if rule.session == parseSession {
 		expected.SessionID = session
 	}
-	return func(row Row) bool {
-		if rule.time == tableTime {
-			if !p.withinADayBefore(string(row.TimestampUTC)) {
-				return false
-			}
-			row.TimestampUTC = ""
-		}
-		return row == expected
-	}
+	return func(row Row) bool { return row == expected }
 }
 
-// withinADayBefore reports whether a time has the binary's shape and lies
-// no later than the parsed file's modification time and no more than a day
-// before it.
-func (p parsedFile) withinADayBefore(text string) bool {
-	if !regexp.MustCompile(timestampShape).MatchString(text) {
-		return false
+// addedTime returns the time an added row under rule has, and false when
+// the rule names a cell the parsed file does not hold.
+func (p parsedFile) addedTime(rule addedRow) (string, bool) {
+	switch {
+	case rule.cell != tableCell{}:
+		timestamp := p.cellTime(rule.cell)
+		return timestamp, timestamp != ""
+	case rule.time == fileTime:
+		return p.mtime, true
 	}
-	written, err := time.Parse(time.RFC3339Nano, text)
-	modified, mtimeErr := time.Parse(time.RFC3339Nano, p.mtime)
-	if err != nil || mtimeErr != nil {
-		return false
+	return rule.time, true
+}
+
+// cellTime returns the time a cell of the parsed database holds, converted
+// as the parser kit converts every column time (parser.ColumnTime), or ""
+// when the file is not such a database or holds no such row. The database
+// is read with the project's own reader; the replay of every recorded row
+// of a table checks the conversion.
+func (p parsedFile) cellTime(cell tableCell) string {
+	database, err := sqlitefile.OpenPath(p.disk)
+	if err != nil {
+		return ""
 	}
-	gap := modified.Sub(written)
-	return gap >= 0 && gap <= 24*time.Hour
+	defer func() { _ = database.Close() }()
+	table, err := database.Table(cell.table)
+	if err != nil || !table.Has("id") || !table.Has(cell.column) {
+		return ""
+	}
+	row, found, err := table.Select("id", cell.column).
+		Where(func(row sqlitefile.Row) bool { return row.Get("id").String() == cell.rowID }).First()
+	if err != nil || !found {
+		return ""
+	}
+	return parser.ColumnTime(row.Get(cell.column))
 }
 
 // parseSessionOf returns the session id and project of the first recorded
@@ -392,6 +407,47 @@ func TestDifference241LetsAParseAddASecondListsEntryReportOnly(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got, _, _ := addedRows(test.parse, test.want, test.got)
 			if agree, _ := rowsAgree(t, test.want, got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
+	}
+}
+
+func TestATableTimeIsTheTimeTheDatabaseHoldsForTheRowsUser(t *testing.T) {
+	const file, rel = "/h/.tabby/ee/db.sqlite", ".tabby/ee/db.sqlite"
+	database := filepath.Join("testdata", "tabby", "users.db")
+	parse := parsedFile{agent: "tabby", file: file, disk: database, rel: rel, mtime: "2026-09-01T09:00:00.152Z"}
+	var text string
+	for _, entry := range withheldRows() {
+		if entry.label() == "tabby user auth token" {
+			text = entry.text
+		}
+	}
+	created := Row{TurnType: "system", Agent: "tabby", SourceFile: file, SourceLine: 1, Text: Text(text),
+		TimestampUTC: "2026-09-01T09:00:00.000Z"}
+	timed := func(timestamp string) Row {
+		row := created
+		row.TimestampUTC = Text(timestamp)
+		return row
+	}
+	tests := []struct {
+		name  string
+		parse parsedFile
+		row   Row
+		agree bool
+	}{
+		{"the user's created_at passes", parse, created, true},
+		{"two seconds before it fails", parse, timed("2026-09-01T08:59:58.000Z"), false},
+		{"an hour before it, another user's created_at, fails", parse, timed("2026-09-01T08:00:00.000Z"), false},
+		{"the file's modification time fails", parse, timed(parse.mtime), false},
+		{"no time fails", parse, timed(""), false},
+		{"a file that is not the database adds no row", parsedFile{agent: "tabby", file: file,
+			disk: filepath.Join("testdata", "tabby", "users.py"), rel: rel, mtime: parse.mtime}, created, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _, _ := addedRows(test.parse, nil, []Row{test.row})
+			if agree, _ := rowsAgree(t, nil, got); agree != test.agree {
 				t.Errorf("agree %v, want %v", agree, test.agree)
 			}
 		})
