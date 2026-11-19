@@ -841,7 +841,7 @@ func TestAWithheldFormAppliesOnlyToItsAgentsRows(t *testing.T) {
 	}
 }
 
-func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
+func TestEachWithheldFormIsFoundInItsRecordedTextAndFailsAsTheBinarys(t *testing.T) {
 	texts := map[string]string{
 		"tabby config.toml reader error":   "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))",
 		"nanobot config.json reader error": "parser: config.json did not parse: Expecting value: line 1 column 1 (char 0)",
@@ -886,6 +886,14 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			}
 			if !slices.Equal(got, []string{entry.label()}) {
 				t.Errorf("found %q", got)
+			}
+			agent := ""
+			if entry.scope == parserScope {
+				agent = entry.agent
+			}
+			run := caseRun{inputs: func(*regexp.Regexp) bool { return true }, requests: sampleRequests()}
+			if withheldAgreeIn(t, run, agent, text, text) {
+				t.Error("the recording's form passes as the binary's")
 			}
 		})
 	}
