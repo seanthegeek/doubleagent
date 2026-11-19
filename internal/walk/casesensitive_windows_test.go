@@ -54,6 +54,53 @@ func TestNoRowPointsAtAnotherEntrysStagedBytes(t *testing.T) {
 	}
 }
 
+// stagedRows is what the rows of a staging run say: the paths seen, the
+// archive paths used, the rows refused for a taken staged path, and the paths
+// whose member the staging tree spells otherwise.
+type stagedRows struct {
+	seen      map[string]bool
+	members   map[string]bool
+	refused   int
+	respelled []string
+}
+
+// scanStagedRows reads the rows the recorder holds, checking each collected
+// row's hash against the bytes staged under its archive path.
+func scanStagedRows(t *testing.T, collector *Collector, recorder *events) stagedRows {
+	t.Helper()
+	rows := stagedRows{seen: map[string]bool{}, members: map[string]bool{}}
+	seen, members := rows.seen, rows.members
+	for _, row := range recorder.rows(t) {
+		path := row["path"].(string)
+		seen[path] = true
+		if archived, _ := row["archive_path"].(string); archived != "" {
+			members[archived] = true
+		}
+		if row["archive_path"] == "" && strings.Contains(row["error"].(string), "takes its name for another") {
+			rows.refused++
+		}
+		if row["archive_path"] == "" {
+			continue
+		}
+		// The archive takes its member names from the staging tree's own
+		// spelling, which every row's archive path must match byte for byte.
+		member := collector.Stager.Dir + "/" + row["archive_path"].(string)
+		if spelled := fsmeta.OnDiskPath(collector.Stager.Dir, member); spelled != member {
+			rows.respelled = append(rows.respelled, path)
+		}
+		if row["status"] != "collected" {
+			continue
+		}
+		staged, err := os.ReadFile(syspath.ToNative(member))
+		sum := sha256.Sum256(staged)
+		if err != nil || hex.EncodeToString(sum[:]) != row["sha256"] {
+			t.Errorf("row of %s points at %s, which holds %q (%v), not the bytes it hashed",
+				path, row["archive_path"], staged, err)
+		}
+	}
+	return rows
+}
+
 // stagesBothOrRefuses walks a case-sensitive directory holding three pairs
 // of entries differing only in case, into a staging directory marked
 // case-sensitive or not, and checks the rows against the staged tree.
@@ -76,38 +123,8 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	collector.Stager.FoldsCase = stage.FoldsCase(collector.Stager.Dir + "/fs")
 	table := []catalog.Entry{{Agent: "tool", Glob: "cs"}}
 	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
-	seen := map[string]bool{}
-	members := map[string]bool{}
-	refused := 0
-	var respelled []string // rows whose member the staging tree spells otherwise
-	for _, row := range recorder.rows(t) {
-		path := row["path"].(string)
-		seen[path] = true
-		if archived, _ := row["archive_path"].(string); archived != "" {
-			members[archived] = true
-		}
-		if row["archive_path"] == "" && strings.Contains(row["error"].(string), "takes its name for another") {
-			refused++
-		}
-		if row["archive_path"] == "" {
-			continue
-		}
-		// The archive takes its member names from the staging tree's own
-		// spelling, which every row's archive path must match byte for byte.
-		member := collector.Stager.Dir + "/" + row["archive_path"].(string)
-		if spelled := fsmeta.OnDiskPath(collector.Stager.Dir, member); spelled != member {
-			respelled = append(respelled, path)
-		}
-		if row["status"] != "collected" {
-			continue
-		}
-		staged, err := os.ReadFile(syspath.ToNative(member))
-		sum := sha256.Sum256(staged)
-		if err != nil || hex.EncodeToString(sum[:]) != row["sha256"] {
-			t.Errorf("row of %s points at %s, which holds %q (%v), not the bytes it hashed",
-				path, row["archive_path"], staged, err)
-		}
-	}
+	rows := scanStagedRows(t, collector, recorder)
+	seen, members, refused, respelled := rows.seen, rows.members, rows.refused, rows.respelled
 	wantRefused, wantMembers := 5, 7
 	if marked {
 		wantRefused, wantMembers = 0, 12
