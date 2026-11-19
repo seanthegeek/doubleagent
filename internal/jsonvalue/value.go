@@ -9,10 +9,12 @@
 // with U+FFFD. NaN and Infinity are not JSON and do not decode.
 //
 // Decode reads a whole document, DecodePrefix one value followed by other
-// text. Arrays and objects nest at most 10,000 deep, the token reader's own
-// limit; the value is built without recursion, so a deeper document is an
-// error, never a stack overflow. Errors wrap the standard library's and give
-// the byte offset, line and column where reading stopped.
+// text. Arrays and objects nest at most 10,000 deep: the decoder counts the
+// levels itself and refuses a deeper document with an error ("exceeded max
+// depth" at its opening bracket), and it builds the value without
+// recursion, so reading never overflows the stack. Errors wrap the
+// standard library's and give the byte offset, line and column where
+// reading stopped.
 //
 // Text gives a value as row text: a string as it is, a number as written,
 // true or false, nothing for null, and an array or object as compact JSON.
