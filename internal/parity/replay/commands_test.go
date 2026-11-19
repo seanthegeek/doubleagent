@@ -185,6 +185,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	want := r.expected(t, recorded, root)
 	want.held = heldBy(r.calls.forRun(recorded, func(text Text) string { return r.corpus.Expand(text, root) }))
 	want.cut = r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
+	want.inputs = treeHolds(root, before)
 	if archiveHoldsRoot(recorded, want, root) {
 		r.skipped[commandArchivedRoot]++
 		return
@@ -321,6 +322,9 @@ type commandOutput struct {
 	cut *cutTimes
 	// source is, for the binary's side, where the run's texts come from.
 	source runSource
+	// inputs is, for a recorded run, whether a file of the case's input
+	// tree holds a match of a pattern; nil when the tree is not known.
+	inputs func(pattern *regexp.Regexp) bool
 }
 
 // runSource is where the texts of the binary's side of a command case come
@@ -341,21 +345,46 @@ const (
 )
 
 // caseRun is what decides how one command case's texts are rewritten: the
-// source of the binary's side.
+// source of the binary's side, and what the case's input tree holds (nil
+// when not known).
 type caseRun struct {
 	source runSource
+	inputs func(pattern *regexp.Regexp) bool
 }
 
 // applies reports whether an entry of difference 230 or 232 rewrites the
 // case's texts: an entry for a parser's rows only where the binary's
-// parsers gave them.
+// parsers gave them, and an entry with a cause only in a run of the
+// binary's parsers over an input tree that holds the cause.
 func (c caseRun) applies(form withheldForm) bool {
+	if form.cause != nil && (c.source != parsedRun || c.inputs == nil || !c.inputs(form.cause)) {
+		return false
+	}
 	return c.source != recordedRowsRun || form.scope != parserScope
 }
 
-// caseRunOf returns the caseRun of comparing a recorded run with got.
-func caseRunOf(got commandOutput) caseRun {
-	return caseRun{source: got.source}
+// caseRunOf returns the caseRun of comparing the recorded run want with
+// got.
+func caseRunOf(want, got commandOutput) caseRun {
+	return caseRun{source: got.source, inputs: want.inputs}
+}
+
+// treeHolds returns whether a file of a case's input tree, the files under
+// root by root-relative path, holds a match of a pattern; each pattern is
+// looked for once.
+func treeHolds(root string, files map[string]bool) func(pattern *regexp.Regexp) bool {
+	held := map[string]bool{}
+	return func(pattern *regexp.Regexp) bool {
+		found, seen := held[pattern.String()]
+		if !seen {
+			found = slices.ContainsFunc(slices.Sorted(maps.Keys(files)), func(name string) bool {
+				data, err := osfile.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
+				return err == nil && pattern.Match(data)
+			})
+			held[pattern.String()] = found
+		}
+		return found
+	}
 }
 
 // run runs the case's command line in this process, in the recorded
@@ -635,7 +664,7 @@ func (r *commandReplay) compareFull(t *testing.T, node, root string, recorded Co
 	notes, needed := compareInformation(t, node, root, want, got)
 	r.note(node, needed)
 	if slices.Contains(needed, withheldDifference().Number) {
-		r.noteWithheld(want)
+		r.noteWithheld(want, caseRunOf(want, got))
 	}
 	if !notes.checked {
 		return
@@ -649,14 +678,15 @@ func (r *commandReplay) compareFull(t *testing.T, node, root string, recorded Co
 	}
 }
 
-// noteWithheld counts, for each command entry of difference 230 whose
-// recorded form shows in the recorded streams or outputs, one case.
-func (r *commandReplay) noteWithheld(want commandOutput) {
+// noteWithheld counts, for each command entry of difference 230 that
+// applies in run and whose recorded form shows in the recorded streams or
+// outputs, one case.
+func (r *commandReplay) noteWithheld(want commandOutput, run caseRun) {
 	texts := []string{want.stdout, want.stderr}
 	for _, path := range slices.Sorted(maps.Keys(want.outputs)) {
 		texts = append(texts, want.outputs[path])
 	}
-	for _, label := range withheldEntriesIn(commandScope, strings.Join(texts, "\n")) {
+	for _, label := range withheldEntriesIn(commandScope, strings.Join(texts, "\n"), run) {
 		r.withheld[label]++
 	}
 }
@@ -677,7 +707,7 @@ type looseNotes struct {
 // row.
 func compareInformation(t testing.TB, node, root string, want, got commandOutput) (looseNotes, []int) {
 	t.Helper()
-	normaliser := newTextNormaliser(caseRunOf(got), nil)
+	normaliser := newTextNormaliser(caseRunOf(want, got), nil)
 	compare := func(reporter testing.TB, enabled enabledSet) looseNotes {
 		return compareOutputs(reporter, node, root, outputForms{enabled}, normaliser, want, got)
 	}
@@ -696,7 +726,7 @@ func compareInformation(t testing.TB, node, root string, want, got commandOutput
 	})
 	needed = append(needed, neededAmong(slices.Sorted(maps.Keys(normaliser.applied)), func(numbers []int) bool {
 		quiet := &recordingTB{TB: t}
-		without := newTextNormaliser(caseRunOf(got), setOf(numbers))
+		without := newTextNormaliser(caseRunOf(want, got), setOf(numbers))
 		compareOutputs(quiet, node, root, outputForms{setOf(commandFormatNumbers())}, without, want, got)
 		return len(quiet.errors) == 0
 	})...)
@@ -716,7 +746,7 @@ func compareInformation(t testing.TB, node, root string, want, got commandOutput
 func compareOutputs(t testing.TB, node, root string, forms outputForms, normaliser *textNormaliser,
 	want, got commandOutput) looseNotes {
 	if normaliser == nil {
-		normaliser = newTextNormaliser(caseRunOf(got), nil)
+		normaliser = newTextNormaliser(caseRunOf(want, got), nil)
 	}
 	wantTexts, gotTexts := comparedTexts(t, root, forms, want, want), comparedTexts(t, root, forms, got, want)
 	var notes looseNotes

@@ -164,6 +164,9 @@ type withheldForm struct {
 	recorded, binary   *regexp.Regexp
 	token              string
 	adds               bool
+	// cause, for a command entry, is what a file of the case's input tree
+	// must hold for the entry to apply (caseRun.applies).
+	cause *regexp.Regexp
 }
 
 // addsForm returns a parser's entry for a site where the binary adds a part
@@ -334,15 +337,16 @@ func withheldForms() []withheldForm {
 		// The recording gave a session's share without its secret.
 		addsForm("opencode", "share secret", `session synced: share [^"\n]* url [^ "\n]*`,
 			` secret=`+secrets.DefaultPlaceholder, ` \(from [^"\n]* session_share, time_created\)`),
-		// A recorded home holds a Gemini CLI request whose URL gives
-		// key=redacted; the binary withholds an 8-byte URL credential in
-		// every string, so a pi thinking row the agent wrote as [redacted]
-		// reads [REDACTED] in that run.
+		// The binary withholds a URL credential of 8 bytes or more wherever
+		// the output holds it, so in a run over a tree holding a Gemini CLI
+		// request whose URL gives key=redacted, a pi thinking row the agent
+		// wrote as [redacted] reads [REDACTED]. The entry applies only in a
+		// case whose input tree holds such a request.
 		{scope: commandScope, agent: "pi", name: "thinking row equal to a recorded key",
 			lines:    regexp.MustCompile(`(?m)^.*"agent": ?"pi".*$`),
 			recorded: regexp.MustCompile(`("text": ?")\[redacted\](")`),
-			binary:   regexp.MustCompile(`("text": ?")\[(?:redacted|` + secrets.DefaultPlaceholder + `)\](")`),
-			token:    "${1}{a key's text}${2}"},
+			binary:   regexp.MustCompile(`("text": ?")\[` + secrets.DefaultPlaceholder + `\](")`),
+			token:    "${1}{a key's text}${2}", cause: regexp.MustCompile(`https?://[^\s"?]*\?(?:[^\s"#]*&)?key=redacted\b`)},
 		// The recording cut a network request's URL at its query, which can
 		// carry an API key; the binary gives the whole URL, the key
 		// withheld. Only the queries of the recorded logs are taken, so a
@@ -417,11 +421,14 @@ func rowEntriesIn(forms []withheldForm, rows []Row) []string {
 	return labels
 }
 
-// withheldEntriesIn returns the labels of the entries of scope whose
-// recorded form shows in text.
-func withheldEntriesIn(scope, text string) []string {
+// withheldEntriesIn returns the labels of the entries of scope that apply
+// in run and whose recorded form shows in text.
+func withheldEntriesIn(scope, text string, run caseRun) []string {
 	var labels []string
 	for _, entry := range withheldForms() {
+		if !run.applies(entry) {
+			continue
+		}
 		if _, found := entry.rewrite(recordedSide, text); found > 0 && entry.scope == scope {
 			labels = append(labels, entry.label())
 		}
@@ -680,12 +687,6 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
 		{"a chat.json error in its placeholder form passes", chatRecorded, chatBinary, true},
 		{"a settings line in its placeholder form passes", lineRecorded, lineBinary, true},
-		{"a thinking row equal to a recorded key passes", `{"agent":"pi","text":"[redacted]"}`,
-			`{"agent":"pi","text":"[REDACTED]"}`, true},
-		{"a thinking row of another agent fails", `{"agent":"zed","text":"[redacted]"}`,
-			`{"agent":"zed","text":"[REDACTED]"}`, false},
-		{"a thinking row holding more than the key fails", `{"agent":"pi","text":"[redacted]"}`,
-			`{"agent":"pi","text":"[REDACTED] x"}`, false},
 		{"a settings line shown fails", lineRecorded, strings.Replace(lineBinary, "REDACTED", "sk-1", 1), false},
 		{"a settings line of another number fails", lineRecorded, strings.Replace(lineBinary, "line 1", "line 2", 1),
 			false},
@@ -809,7 +810,7 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			if !ok {
 				t.Fatal("no sample text for this entry")
 			}
-			got := withheldEntriesIn(entry.scope, text)
+			got := withheldEntriesIn(entry.scope, text, caseRun{inputs: func(*regexp.Regexp) bool { return true }})
 			if entry.scope == parserScope {
 				got = rowEntriesIn(withheldForms(), []Row{{Agent: Text(entry.agent), Text: Text(text)}})
 			}
@@ -870,6 +871,44 @@ func TestTheBinarysSideOfACommandRunIsReadByWhereItsTextsComeFrom(t *testing.T) 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if agree, _ := outputsAgree(t, want, test.got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
+	}
+}
+
+func TestAThinkingRowEqualToAKeyIsWithheldOnlyWhereTheInputsHoldTheKey(t *testing.T) {
+	request := []byte(`{"url":"https://oauth2.googleapis.com/token?key=redacted","method":"POST"}`)
+	holding := func(pattern *regexp.Regexp) bool { return pattern.Match(request) }
+	without := func(*regexp.Regexp) bool { return false }
+	line := func(agent, text string) string {
+		return `{"agent":"` + agent + `","text":"` + text + `"}` + "\n"
+	}
+	tests := []struct {
+		name      string
+		inputs    func(*regexp.Regexp) bool
+		want, got string
+		agree     bool
+	}{
+		{"the row withheld in a run over the request passes", holding, line("pi", "[redacted]"),
+			line("pi", "[REDACTED]"), true},
+		{"the row as written in a run over the request fails", holding, line("pi", "[redacted]"),
+			line("pi", "[redacted]"), false},
+		{"the row withheld in a run without the request fails", without, line("pi", "[redacted]"),
+			line("pi", "[REDACTED]"), false},
+		{"the row as written in a run without the request passes", without, line("pi", "[redacted]"),
+			line("pi", "[redacted]"), true},
+		{"the row withheld where the inputs are not known fails", nil, line("pi", "[redacted]"),
+			line("pi", "[REDACTED]"), false},
+		{"another agent's row withheld fails", holding, line("zed", "[redacted]"), line("zed", "[REDACTED]"), false},
+		{"a row holding more than the key fails", holding, line("pi", "[redacted]"), line("pi", "[REDACTED] x"),
+			false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			want := commandOutput{outputs: map[string]string{"out/timeline.jsonl": test.want}, inputs: test.inputs}
+			got := commandOutput{outputs: map[string]string{"out/timeline.jsonl": test.got}}
+			if agree, _ := outputsAgree(t, want, got); agree != test.agree {
 				t.Errorf("agree %v, want %v", agree, test.agree)
 			}
 		})
