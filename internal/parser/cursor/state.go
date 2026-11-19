@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textset"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -336,14 +337,14 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 	for i, current := range deleted {
 		idents[i] = current.ident
 	}
-	named := newTextSet(idents, r.store.work)
+	named := textset.New(idents, r.store.work)
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
 		blob, err := jsonvalue.DecodeString(asText(row.value))
 		if err != nil || !blob.Has("content") {
 			continue
 		}
 		content := blob.Get("content")
-		for _, position := range named.find(parser.SettingValue(content)) {
+		for _, position := range named.Find(parser.SettingValue(content)) {
 			current := deleted[position]
 			stamp := r.owner.newStamper(r.artifact, current, emit)
 			role := parser.Text(blob.Get("role"))
