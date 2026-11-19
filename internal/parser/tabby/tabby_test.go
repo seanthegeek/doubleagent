@@ -204,6 +204,14 @@ func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string
 // parseAs is parseWith for an artifact the catalog gives agent.
 func parseAs(t *testing.T, setting secrets.Setting, agent, rel, text string) []string {
 	t.Helper()
+	return parseAsBy(t, parsertest.Parse, setting, agent, rel, text)
+}
+
+// parseAsBy is parseAs parsing through parse, a function of package
+// parsertest.
+func parseAsBy(t *testing.T, parse func(testing.TB, parser.Parser, *input.Artifact, parser.Options,
+	parser.Emit) error, setting secrets.Setting, agent, rel, text string) []string {
+	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -216,7 +224,7 @@ func parseAs(t *testing.T, setting secrets.Setting, agent, rel, text string) []s
 		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string
-	if err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+	if err := parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
 		t.Fatal(err)
 	}
 	return texts

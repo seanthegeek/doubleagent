@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
@@ -38,7 +39,7 @@ func TestAnotherFileThatIsNotJSONGivesTheReadersDetailWhateverTheSetting(t *test
 		"invalid character 'x' looking for beginning of value"}
 	withheld := secrets.Setting{Withhold: true, Placeholder: secrets.DefaultPlaceholder}
 	for _, setting := range []secrets.Setting{{}, withheld} {
-		if got := parseWith(t, setting, rel, "{x"); !slices.Equal(got, want) {
+		if got := parseBy(t, parsertest.ParseWithoutSecrets, setting, rel, "{x"); !slices.Equal(got, want) {
 			t.Errorf("under %+v got %q, want %q: only config.json's error is withheld", setting, got, want)
 		}
 	}

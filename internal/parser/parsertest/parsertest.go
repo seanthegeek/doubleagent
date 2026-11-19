@@ -9,9 +9,12 @@
 // secrets, and the rows must be the same in both modes, field for field
 // and in order, and so must the sessions built from them; the rows written
 // must be the rows with exactly the recorded secrets and the credentials of
-// their URLs replaced, as a separate, plain search gives them; and no recorded secret of
-// secrets.EverywhereLength bytes or more may remain in them. Only tests
-// import it.
+// their URLs replaced, each where it reaches (internal/secrets), as a
+// separate, plain search gives them, with any placeholder, the empty one
+// included, and in every string of a row; no recorded secret of
+// secrets.EverywhereLength bytes or more may remain in them; and a parse
+// run by Parse or Run must identify a secret, one run by ParseWithoutSecrets
+// or RunWithoutSecrets none. Only tests import it.
 package parsertest
 
 import (
@@ -31,15 +34,44 @@ import (
 func Parse(test testing.TB, each parser.Parser, artifact *input.Artifact, options parser.Options,
 	emit parser.Emit) error {
 	test.Helper()
-	return Run(test, artifact, func(inner parser.Emit) error { return each.Parse(artifact, options, inner) }, emit)
+	return run(test, artifact, func(inner parser.Emit) error { return each.Parse(artifact, options, inner) }, emit,
+		true)
+}
+
+// ParseWithoutSecrets runs one parse of artifact by each as RunWithoutSecrets
+// does.
+func ParseWithoutSecrets(test testing.TB, each parser.Parser, artifact *input.Artifact, options parser.Options,
+	emit parser.Emit) error {
+	test.Helper()
+	return run(test, artifact, func(inner parser.Emit) error { return each.Parse(artifact, options, inner) }, emit,
+		false)
 }
 
 // Run runs produce as one parse of a run whose recorder is the artifact's
 // home's (none shows secrets), then passes emit each row produce emitted as
 // the output writes it, once the parse has ended and so every secret it
 // identifies is recorded. It returns produce's error. Under a recorder it
-// checks the rule of the package comment and fails test where it breaks.
+// checks the rule of the package comment, and that the parse identifies a
+// secret or its rows hold a URL credential, and fails test where either
+// breaks.
 func Run(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emit) error, emit parser.Emit) error {
+	test.Helper()
+	return run(test, artifact, produce, emit, true)
+}
+
+// RunWithoutSecrets is Run for a fixture that holds no secret: under a
+// recorder the parse must identify nothing and its rows hold no URL
+// credential.
+func RunWithoutSecrets(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emit) error,
+	emit parser.Emit) error {
+	test.Helper()
+	return run(test, artifact, produce, emit, false)
+}
+
+// run is Run, checking that the parse finds a secret when holdsSecrets
+// and none when not.
+func run(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emit) error, emit parser.Emit,
+	holdsSecrets bool) error {
 	test.Helper()
 	var recorder *secrets.Recorder
 	if artifact.Home != nil {
@@ -57,7 +89,12 @@ func Run(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emi
 		row.Collect(recorder)
 	}
 	if recorder != nil {
-		for _, message := range slices.Concat(bothModes(shown, rows), written(recorder, found, rows)) {
+		broken := slices.Concat(bothModes(shown, rows), written(recorder, found, rows))
+		if identified := len(found.Secrets()) > 0 || holdsURLCredential(rows); identified != holdsSecrets {
+			broken = append(broken, fmt.Sprintf("the parse identified a secret: %v, want %v (recorded %q)",
+				identified, holdsSecrets, found.Secrets()))
+		}
+		for _, message := range broken {
 			test.Error(message)
 		}
 	}
@@ -65,6 +102,19 @@ func Run(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emi
 		emit(row.Withheld(recorder))
 	}
 	return err
+}
+
+// holdsURLCredential reports whether a string of rows holds a URL's
+// credential.
+func holdsURLCredential(rows []timeline.Row) bool {
+	for _, row := range rows {
+		for _, field := range row.Strings() {
+			if len(secrets.URLCredentials(field)) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // bothModes returns what breaks the rule that the rows of a withheld run
@@ -91,28 +141,33 @@ func bothModes(shown, rows []timeline.Row) []string {
 
 // written returns what breaks the rule that a written row is its raw row
 // with exactly these replaced, found by a plain search: in every string,
-// the credentials of its URLs where they stand and the secrets of
-// secrets.EverywhereLength bytes or more (the parse's values and the URL
-// credentials of every row); in the text alone, the parse's shorter values
-// and its readers' details too. No long secret may remain.
+// the credentials of its URLs where they stand and the texts the run
+// replaces everywhere (the secrets of secrets.EverywhereLength bytes or
+// more: this parse's values, the URL credentials of its rows and those
+// other parses recorded); in the text alone, the parse's shorter values and
+// its readers' details too. No long secret of this parse may remain.
 func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.Row) []string {
-	var broken, everywhere []string
+	var broken, long []string
+	placeholder := recorder.Setting().Placeholder
+	empty := placeholder == ""
 	for _, value := range found.Values() {
 		if len(value) >= secrets.EverywhereLength {
-			everywhere = append(everywhere, value)
+			long = append(long, value)
 		}
 	}
+	everywhere := recorder.EverywhereTexts()
 	for _, row := range rows {
 		for _, field := range row.Strings() {
-			for _, credential := range secrets.URLCredentials(field) {
-				if len(credential) >= secrets.EverywhereLength {
-					everywhere = append(everywhere, credential)
-				}
-			}
+			long, everywhere = urlCredentialTexts(field, empty, long, everywhere)
 		}
 	}
+	everywhere = slices.Concat(everywhere, long)
 	inText := slices.Concat(everywhere, found.Values(), found.ReaderDetails())
-	placeholder := recorder.Setting().Placeholder
+	if empty {
+		for _, detail := range found.ReaderDetails() {
+			inText = append(inText, ": "+detail)
+		}
+	}
 	for _, row := range rows {
 		raw, output := row.Strings(), row.Withheld(recorder).Strings()
 		for i, field := range raw {
@@ -120,12 +175,12 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 			if i == len(raw)-1 {
 				searched = inText
 			}
-			want := replaced(field, searched, secrets.URLCredentialRanges(field, false), placeholder)
-			if placeholder != "" && output[i] != want {
+			if want := replaced(field, searched, secrets.URLCredentialRanges(field, empty), placeholder); output[i] !=
+				want {
 				broken = append(broken, fmt.Sprintf("%q is written %q, want %q (searched %q)", field, output[i], want,
 					searched))
 			}
-			for _, secret := range everywhere {
+			for _, secret := range long {
 				if strings.Contains(output[i], secret) && !strings.Contains(placeholder, secret) {
 					broken = append(broken, fmt.Sprintf("%q is written %q, which holds %q", field, output[i], secret))
 				}
@@ -133,6 +188,24 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 		}
 	}
 	return broken
+}
+
+// urlCredentialTexts adds to long the URL credentials of text of
+// secrets.EverywhereLength bytes or more, and to everywhere each of them as
+// an empty placeholder matches it: user information with its @ too, told
+// from another credential by the range an empty placeholder replaces.
+func urlCredentialTexts(text string, empty bool, long, everywhere []string) ([]string, []string) {
+	plain, withParts := secrets.URLCredentialRanges(text, false), secrets.URLCredentialRanges(text, true)
+	for i, each := range plain {
+		if each[1]-each[0] < secrets.EverywhereLength {
+			continue
+		}
+		long = append(long, text[each[0]:each[1]])
+		if empty && withParts[i][1] != each[1] {
+			everywhere = append(everywhere, text[withParts[i][0]:withParts[i][1]])
+		}
+	}
+	return long, everywhere
 }
 
 // replaced returns text with every occurrence of each of secrets and each

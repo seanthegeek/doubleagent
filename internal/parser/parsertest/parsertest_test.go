@@ -1,6 +1,8 @@
 package parsertest
 
 import (
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -79,5 +81,93 @@ func TestTheWrittenRowIsCheckedAgainstAPlainSearch(t *testing.T) {
 	unrecorded := []timeline.Row{{Text: "sk-FIXTURE-LONG", Secrets: &secrets.Found{}}}
 	if broken := written(recorder, &secrets.Found{}, unrecorded); broken != nil {
 		t.Errorf("a row of nothing recorded is broken: %q", broken)
+	}
+}
+
+func TestAWrittenRowIsComparedExactlyWithEveryPlaceholder(t *testing.T) {
+	for _, placeholder := range []string{"P", ""} {
+		t.Run("placeholder "+strconv.Quote(placeholder), func(t *testing.T) {
+			recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: placeholder})
+			own := recorder.Begin()
+			recorder.Value("pw7")
+			recorder.End()
+			other := recorder.Begin()
+			recorder.End()
+			row := timeline.Row{Text: "password pw7 at https://ci:pw8@h/", Model: "pw7", Secrets: own}
+			if broken := written(recorder, own, []timeline.Row{row}); broken != nil {
+				t.Errorf("a row written by the rule is broken: %q", broken)
+			}
+			// The same row carrying another parse's record is written with
+			// the short secret kept, which the check refuses.
+			row.Secrets = other
+			if broken := written(recorder, own, []timeline.Row{row}); len(broken) != 1 {
+				t.Errorf("a row that keeps a short secret gave %q, want one break", broken)
+			}
+		})
+	}
+}
+
+// recording is a testing.TB that keeps the errors reported to it.
+type recording struct {
+	testing.TB
+	errors []string
+}
+
+// Error keeps the error.
+func (r *recording) Error(args ...any) { r.errors = append(r.errors, fmt.Sprint(args...)) }
+
+// Helper marks nothing.
+func (r *recording) Helper() {}
+
+func TestAParseIsHeldToWhetherItsFixtureHoldsASecret(t *testing.T) {
+	identifies := func(artifact *input.Artifact) func(parser.Emit) error {
+		return func(emit parser.Emit) error {
+			emit(timeline.Row{SessionID: "s", Text: "key=" + parser.SecretText(artifact, "fake-secret-value-0001")})
+			return nil
+		}
+	}
+	plain := func(*input.Artifact) func(parser.Emit) error {
+		return func(emit parser.Emit) error { emit(timeline.Row{SessionID: "s", Text: "no secret"}); return nil }
+	}
+	tests := []struct {
+		name    string
+		run     func(testing.TB, *input.Artifact, func(parser.Emit) error, parser.Emit) error
+		produce func(*input.Artifact) func(parser.Emit) error
+		broken  bool
+	}{
+		{"a parse that identifies a secret passes Run", Run, identifies, false},
+		{"a parse that identifies nothing fails Run", Run, plain, true},
+		{"a parse that identifies nothing passes RunWithoutSecrets", RunWithoutSecrets, plain, false},
+		{"a parse that identifies a secret fails RunWithoutSecrets", RunWithoutSecrets, identifies, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+			artifact := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+			reporter := &recording{TB: t}
+			_ = test.run(reporter, artifact, test.produce(artifact), func(timeline.Row) {})
+			if (len(reporter.errors) > 0) != test.broken {
+				t.Errorf("errors %q, want broken %v", reporter.errors, test.broken)
+			}
+		})
+	}
+}
+
+func TestAValueOneParseIdentifiesIsReplacedInAnotherParsesRows(t *testing.T) {
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	first := &input.Artifact{Home: &input.Home{User: "alice", Secrets: recorder}}
+	second := &input.Artifact{Home: &input.Home{User: "bob", Secrets: recorder}}
+	_ = Run(t, first, func(emit parser.Emit) error {
+		emit(timeline.Row{SessionID: "s", Text: "key=" + parser.SecretText(first, "fake-secret-value-0001") +
+			" pin=" + parser.SecretText(first, "pw7")})
+		return nil
+	}, func(timeline.Row) {})
+	var written []timeline.Row
+	_ = RunWithoutSecrets(t, second, func(emit parser.Emit) error {
+		emit(timeline.Row{SessionID: "fake-secret-value-0001", Text: "saw fake-secret-value-0001 and pw7"})
+		return nil
+	}, func(row timeline.Row) { written = append(written, row) })
+	if len(written) != 1 || written[0].Text != "saw P and pw7" || written[0].SessionID != "P" {
+		t.Errorf("the other parse's row is written %+v", written)
 	}
 }
