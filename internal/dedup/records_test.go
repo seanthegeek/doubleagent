@@ -107,3 +107,56 @@ func TestCarryingAndWritingDuplicatesRecordsGrowsWithTheRowsNotWithWhatTheRecord
 			smallWork, work)
 	}
 }
+
+// formWork deduplicates one primary row of 100*n bytes against n short
+// copies, each in its own file and of its own parse that recorded one short
+// value, which a Form hook pairs with the long row, and writes the kept
+// rows. It returns the rows kept, the bytes the replacement indexed and
+// searched writing them, and whether every value was replaced.
+func formWork(n int) (int, int, bool) {
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	var long strings.Builder
+	for i := range n {
+		chunk := fmt.Sprintf("/x v%04d ", i)
+		long.WriteString(chunk + strings.Repeat("a", 100-len(chunk)))
+	}
+	primary := primaryRow(baseTime, set("text", long.String()))
+	primary.Secrets = recorder.Begin()
+	recorder.End()
+	copies := make([]timeline.Row, n)
+	for i := range copies {
+		copies[i] = historyRow(baseTime, set("text", "/x"), set("file", fmt.Sprintf("/b/%d/history.jsonl", i)))
+		copies[i].Secrets = recorder.Begin()
+		recorder.Value(fmt.Sprintf("v%04d", i))
+		recorder.End()
+	}
+	hooks := Hooks{"claude-code": AgentHooks{Form: func(row timeline.Row) (string, string) {
+		if strings.HasPrefix(row.Text, "/x v0000") {
+			return row.TurnType, "/x"
+		}
+		return row.TurnType, row.Text
+	}}}
+	kept, _ := Deduplicate(rows(primary), withTolerance(2, copies...), hooks)
+	work := counter{}
+	recorder.CountWork(work)
+	replaced := true
+	for _, row := range kept {
+		written := recorder.RowText(row.Text, row.Secrets)
+		replaced = replaced && strings.Count(written, "/x P ") == n
+	}
+	return len(kept), work["bytes indexed"] + work["bytes searched"], replaced
+}
+
+func TestWritingARowKeptForManyShortCopiesCostsItsLengthPlusTheirRecords(t *testing.T) {
+	smallKept, small, smallReplaced := formWork(500)
+	kept, work, replaced := formWork(1000)
+	if smallKept != 1 || kept != 1 || !smallReplaced || !replaced {
+		t.Fatalf("kept %d and %d rows, every value replaced: %t and %t", smallKept, kept, smallReplaced, replaced)
+	}
+	// The row is searched once for all its copies' records, which are
+	// indexed once: 100 bytes of text and 5 of values per copy.
+	if small != 105*500 || work != 105*1000 {
+		t.Errorf("writing the row indexed and searched %d and %d bytes for 500 and 1000 copies, want %d and %d",
+			small, work, 105*500, 105*1000)
+	}
+}

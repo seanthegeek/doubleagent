@@ -20,6 +20,9 @@ type Recorder struct {
 	current, everywhere *Found
 	outer               []*Found
 	work                textset.Counter
+	// joined is the matcher replace last built for the records a row
+	// lists, kept for the next row that lists the same ones.
+	joined joinedMatcher
 }
 
 // NewRecorder returns the recorder of a run with setting, nil when the
@@ -231,9 +234,10 @@ type placed struct {
 // which records nothing of its own.
 type Found struct {
 	// forms holds each form by the text it matches and where; texts lists
-	// the texts of each reach in the order recorded.
+	// the texts of each reach in the order recorded, and size their bytes.
 	forms map[placed]form
 	texts [reaches][]string
+	size  [reaches]int
 	// matchers holds the matcher of each reach's texts, built when first
 	// needed and again once more are recorded (matched counts them).
 	matchers [reaches]*textset.Set
@@ -262,6 +266,7 @@ func (f *Found) add(secret form, where reach) {
 	}
 	f.forms[key] = secret
 	f.texts[where] = append(f.texts[where], key.text)
+	f.size[where] += len(key.text)
 }
 
 // Secrets returns the distinct secrets recorded, sorted; nil for a nil
