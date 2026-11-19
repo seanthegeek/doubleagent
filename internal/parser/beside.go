@@ -54,9 +54,10 @@ func Above(artifact *input.Artifact, levels int, names ...string) (string, bool)
 
 // Under returns names joined below directory, a path Beside, Above,
 // Home.PathOf or a Directory gave, and true; it is false when a name is not
-// one plain component or when directory itself (with no names as with
-// some), or any directory on the way down, is a link. The last name is left for the reader, which never
-// follows it. Each call looks at every level again, so a parser reading
+// one plain component, or when directory itself or any directory on the
+// way down is a link; directory is looked at whether or not names are
+// given. The last name is left for the reader, which never follows it.
+// Each call looks at every level again, so a parser reading
 // many files of one directory takes it once as a Directory instead.
 func Under(directory string, names ...string) (string, bool) {
 	for _, name := range names {
