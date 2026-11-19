@@ -5,6 +5,7 @@ package replay
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -268,26 +269,30 @@ func TestACommandRunKeepsAnAddedRowThatDiffersInAnyField(t *testing.T) {
 	}
 	artifact := usersArtifact("/h/.crush/crush.json")
 	whole := wholeAddedRow(entry, artifact)
-	changed := func(change func(row *timeline.Row)) timeline.Row {
-		row := whole
-		change(&row)
-		return row
-	}
-	tests := []struct {
+	type rowCase struct {
 		name  string
 		row   timeline.Row
 		taken bool
-	}{
-		{"the whole row is taken", whole, true},
-		{"a row at another time is kept", changed(func(row *timeline.Row) { row.TimestampUTC = "1999-01-01T00:00:00.000Z" }),
-			false},
-		{"a row in a session is kept", changed(func(row *timeline.Row) { row.SessionID = "WRONG" }), false},
-		{"a row of another project is kept", changed(func(row *timeline.Row) { row.ProjectPath = "/wrong" }), false},
-		{"a row of another user is kept", changed(func(row *timeline.Row) { row.User = "mallory" }), false},
-		{"a row of another host is kept", changed(func(row *timeline.Row) { row.Host = "evil" }), false},
-		{"a row at another line is kept", changed(func(row *timeline.Row) { row.SourceLine = 99 }), false},
-		{"a row naming a model is kept", changed(func(row *timeline.Row) { row.Model = "m" }), false},
-		{"a row of another agent is kept", changed(func(row *timeline.Row) { row.Agent = "nanobot" }), false},
+	}
+	tests := []rowCase{{"the whole row is taken", whole, true}}
+	// Every column of a row, each field the output writes, is changed in
+	// turn, so a column added to the row type is changed too.
+	columns := reflect.TypeFor[timeline.Row]()
+	for i := range columns.NumField() {
+		if columns.Field(i).Tag.Get("json") == "-" {
+			continue
+		}
+		row := whole
+		value := reflect.ValueOf(&row).Elem().Field(i)
+		switch value.Kind() {
+		case reflect.String:
+			value.SetString(value.String() + "-changed")
+		case reflect.Int:
+			value.SetInt(value.Int() + 99)
+		default:
+			t.Fatalf("no change is written for the column %s of kind %s", columns.Field(i).Name, value.Kind())
+		}
+		tests = append(tests, rowCase{"a row with another " + columns.Field(i).Name + " is kept", row, false})
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
