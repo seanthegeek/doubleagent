@@ -120,13 +120,13 @@ From the same file, each agent's `data.responses_state` (a turn chained
 on a provider-stored response marks the chat synced) and the chat's
 Telegram, WhatsApp and email `data` keys (a relayed chat, so the parser
 records relay state and `sessions.jsonl` `relayed` reads `yes` or `no`);
-the bot configuration in `data.telegram_bot_cfg`, which holds its token,
-is never read into a row. Also from the same file: permission decisions
+the bot's token and webhook secret from `data.telegram_bot_cfg` are shown
+in the relay row. Also from the same file: permission decisions
 from `warning` log items (a tool blocked by a policy, a provider MCP
 approval denied automatically, an Infection Check verdict), an editor
 (ACP) session's mode, model and container working directory, with its
 workspace `data.acp_cwd` as the project path, and the per-chat model
-override, printed without its API key. Beside the chats, in the same
+override, with the API key and base URL of each slot that holds them. Beside the chats, in the same
 install or volume: `usr/scheduler/tasks.json` (a
 [secondary source](../analyzer/docs/output.md#secondary-sources): each
 task's prompt and last result), the Telegram plugin's `state.json` (a
@@ -134,10 +134,10 @@ secondary source: a mapped chat that is gone gives a `session deleted:`
 row), the `_tool_access` and `_orchestrator` `config.json` files and the
 `.toggle-0` and `.toggle-1` switches of `_infection_check` and
 `_orchestrator` at every plugin scope (standing permission settings);
-and, in the home, the A0 CLI connector's `.agent-zero/.env`, of which only
-the last chat's host and id are read (a chat on a remote instance, so the
-parser records origin and `sessions.jsonl` `origin` reads `remote` or
-`local`).
+and, in the home, the A0 CLI connector's `.agent-zero/.env`: one
+`connector settings:` row of every key, and the last chat's host and id
+(a chat on a remote instance, so the parser records origin and
+`sessions.jsonl` `origin` reads `remote` or `local`).
 
 Validated against: Source at [e3051fb](https://github.com/agent0ai/agent-zero/commit/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec), synthetic fixture; the permission, model, editor-session, scheduler, Telegram map and plugin files from source at [ff2a5b9](https://github.com/agent0ai/agent-zero/commit/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a) and the connector's `.env` from agent0ai/a0-connector at [3741c88](https://github.com/agent0ai/a0-connector/commit/3741c8809f1f99b4efee2ed1a24234a98bf896d4), synthetic fixture.
 
@@ -569,8 +569,8 @@ parser records no sync state) and `inventory.json` counts them in
 ### `copilot-desktop`
 
 Files read: `.copilot/data.db` (SQLite with WAL sidecars), one `system`
-row per record of `accounts` (`account:`, with whether a token is
-present, never the token), `settings` (`desktop settings:`, at the file's
+row per record of `accounts` (`account:`, with its token, or that none
+is stored), `settings` (`desktop settings:`, at the file's
 modification time), `model_providers`, `projects` (`project added:`, with
 `project_path` the clone's `main_repo_path`), `worktrees`, `workspaces`
 (with the source and created pull requests), `sessions` (`desktop
@@ -613,7 +613,7 @@ as a project artifact, or under a home when Crush ran in `~`),
 every `crush.json` scope (`.config/crush/crush.json`,
 `.local/share/crush/crush.json`, `AppData/Local/crush/crush.json`,
 `.crush/crush.json`, a project's `crush.json` and `.crush.json`) for its
-standing permission entries only, so provider keys are never emitted; and
+standing permission entries and its providers' API keys; and
 the `permissions` lines of `.config/crush/crushrc` and a project's
 `crushrc` and `.crushrc`.
 
@@ -860,7 +860,8 @@ per server; `agents[]` `baseUrl` names a transcript's server). Since the
 2026-10-21 review, source-derived: the `permissions` object of
 `.letta/settings.json`, `.config/letta/settings.json` and a project's
 `.letta/settings.json` and `.letta/settings.local.json` (one
-`permission setting:` row per entry),
+`permission setting:` row per entry, and a `stored credentials:` row of a
+settings file's `env` values and `refreshToken`),
 `.letta/channels/<channel>/routing.json` (one `session relayed:` row per
 route), `.letta/crons.json` and `.letta/runs/<task id>.jsonl` (scheduled
 tasks and their runs), and `.letta/listener-state/<hash>/<agent>_<conversation>.json`
@@ -885,8 +886,9 @@ save time in host local time), `sessions/history.json` and
 `sessions/mr_sessions/session_latest.json` (secondary copies of them),
 `.little-coder/input_history.txt` (secondary, prompts without
 timestamps), `.little-coder/checkpoints/<id>/snapshots.json` (one
-`system` row per snapshot) and three keys of `.little-coder/config.json`
-(the gist sync, the Telegram relay and the permission mode).
+`system` row per snapshot) and `.little-coder/config.json` (the gist
+sync, the Telegram relay, the permission mode and the provider keys and
+tokens).
 
 Validated against: Source at [89d4fa0](https://github.com/itayinbarr/little-coder/commit/89d4fa0af864230527ab75d12604ed0eb320e6df), synthetic fixture; the v0.0.x layout from source at [424f7a4](https://github.com/itayinbarr/little-coder/commit/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03) (tag `v0.0.5`), synthetic fixture.
 
@@ -923,7 +925,8 @@ database imported and which are never written again; the WebUI transcript
 15-hour window); and the WebUI sidebar cache
 `.nanobot*/sessions/<workspace-id>/.webui_session_index.json`. Settings:
 `.nanobot*/config.json` (the workspace restriction, the exec sandbox and
-its allow and deny lists, the channel `allowFrom` lists; no other key) and
+its allow and deny lists, the channel `allowFrom` lists, and the provider
+keys, MCP server environment values and channel secrets) and
 `.nanobot*/pairing.json` (approved and pending chat senders), one
 `permission setting:` row per entry.
 
@@ -1003,7 +1006,7 @@ table `session_transcript_fts_content` the entries the transcript lost,
 `session_transcript_archives` the deletions and
 `memory_session_tombstones` the sessions forgotten from memory.
 `state/openclaw.sqlite` also gives `operator_approvals`,
-`exec_approvals_config` (never its socket token),
+`exec_approvals_config` (each setting with the approvals socket's token),
 `operator_approval_standing_grants`, `channel_pairing_allow_entries`,
 `channel_ingress_events` and the three GitHub publication request tables.
 A PostgreSQL engine anchor in place of either database is one row.
@@ -1020,8 +1023,8 @@ columns, WAL sidecars; in a 1.x database V1 `message`/`part`, V2
 `session_v2` and `session_message`, with an assistant message's
 `session_part` items, and the 1.x tables for sessions that
 `session_message` does not hold; `session_share` and the
-`session.updated.1` rows of `event` for `session synced:` rows, never
-the share `secret`), with `opencode-next.db`, the pre-release 2.0
+`session.updated.1` rows of `event` for `session synced:` rows, with the
+share `secret`), with `opencode-next.db`, the pre-release 2.0
 database, read as a secondary source; legacy JSON
 `storage/session/*/*.json` and `storage/message/*/*.json` with their
 `part/` files and the `storage/project/` file of a session's project, and
@@ -1159,7 +1162,8 @@ project's `.roo/mcp.json`. For Roo Code Cloud (releases up to 3.53.0): the
 settings cache in the same global state and the retry queue in the
 workspace state (the extension's row of `User/workspaceStorage/<hash>/state.vscdb`
 and the CLI's `.vscode-mock/workspace-storage/<hash>/workspace-state.json`);
-the queue's bearer token and message bodies are never emitted.
+the queue's bearer token is shown and its message bodies are never
+emitted.
 
 Validated against: Source at [b867ec91](https://github.com/RooCodeInc/Roo-Code/commit/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16), synthetic fixture; the Roo Code Cloud settings cache and retry queue from source at [44f6bba2](https://github.com/RooCodeInc/Roo-Code/commit/44f6bba250235a98a21403df8b2ff64dfb5421c0) (version 3.53.0, the last release with the cloud client), synthetic fixture.
 
@@ -1171,9 +1175,9 @@ Files read: Files directly under a `chat_cache/` directory:
 temp directory given as loose input. One JSON array of OpenAI messages per
 chat, `tool_calls` and the pre-1.5.0 `function_call` shape; no timestamp,
 model or working directory is recorded, so those columns stay empty.
-`.config/shell_gpt/.sgptrc` (four keys only: `DEFAULT_MODEL`,
-`OPENAI_USE_FUNCTIONS`, `DEFAULT_EXECUTE_SHELL_CMD`, `SHELL_INTERACTION`;
-the API key is never read into a row), the function store
+`.config/shell_gpt/.sgptrc` (five keys only: `DEFAULT_MODEL`,
+`OPENAI_USE_FUNCTIONS`, `DEFAULT_EXECUTE_SHELL_CMD`, `SHELL_INTERACTION`
+and the API key, `OPENAI_API_KEY`), the function store
 `.config/shell_gpt/functions/*.py` (file names only) and the response
 cache `AppData/Local/Temp/shell_gpt/cache/<md5>` (secondary).
 
@@ -1185,7 +1189,8 @@ Files read: Server-side: `.tabby/ee/db.sqlite` or `dev-db.sqlite` (SQLite
 with WAL sidecars; `threads`, `thread_messages`, `user_events`, the
 AI-written `pages` and `page_sections`, the source-host `integrations` and
 their cached `provided_repositories`, thread owner from `users.email`;
-secret columns never read), the pre-migration backups
+of the secret columns only a user's `auth_token` and an integration's
+`access_token`), the pre-migration backups
 `ee/db.backup-YYYYMMDD.sqlite` (may hold threads since deleted;
 secondary), the completion event log `.tabby/events/YYYY-MM-DD.json`
 (full prompt and generated text; secondary, pairs with `user_events`) and
@@ -1209,8 +1214,9 @@ Files read: The `rjmacarthy.twinny` row of a VS Code or fork
 `User/globalStorage/state.vscdb` (`twinny.conversations`, the standing
 Always run grants, the agent-mode and auto-run switches and
 `twinny.teamPolicy`). Messages have no time of their own: every row
-carries the conversation's `updatedAt`. Provider `apiKey`s and the ChatGPT
-plan profile in the same value are never emitted. As secondary sources,
+carries the conversation's `updatedAt`. Each provider's `apiKey` gives a
+`model provider:` row; the ChatGPT plan profile in the same value is never
+emitted. As secondary sources,
 the `agent-changes/<id>.json` records under
 `User/workspaceStorage/<id>/rjmacarthy.twinny/` (or
 `User/globalStorage/rjmacarthy.twinny/`), which carry the project root,
