@@ -3,6 +3,7 @@ package analyze
 import (
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 )
@@ -34,3 +35,15 @@ func outputParent(path string) string {
 // by the text before it, so filepath.Join, which also keeps a drive-relative
 // C: as it is, names the directory that was listed.
 func belowGiven(directory, name string) string { return filepath.Join(directory, name) }
+
+// outputNameRefusal returns why an output path cannot be used, or "". On
+// Windows a colon after the drive names an alternate data stream of a
+// file (an archive member holding one is refused the same way), so an
+// output with one could be written as a stream onto an input file or
+// directory, which the outside-the-input check cannot see.
+func outputNameRefusal(output string) string {
+	if strings.Contains(output[len(filepath.VolumeName(output)):], ":") {
+		return "the output " + output + " cannot hold a colon after its drive"
+	}
+	return ""
+}

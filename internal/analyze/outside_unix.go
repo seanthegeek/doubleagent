@@ -50,3 +50,7 @@ func belowGiven(directory, name string) string {
 	}
 	return directory + "/" + name
 }
+
+// outputNameRefusal returns why an output path cannot be used, or "": on
+// Linux and macOS a colon is an ordinary character of a name.
+func outputNameRefusal(string) string { return "" }
