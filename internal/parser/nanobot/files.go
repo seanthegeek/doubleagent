@@ -15,8 +15,8 @@ import (
 // loadObject returns the JSON object of a whole-file artifact, or false
 // and the `parser:` row that says why there is none; what names the file
 // in that row. For config.json, which holds API keys, the reason goes
-// through parser.ReaderErrorText, which withholds the reader's detail when
-// the run withholds secrets.
+// through parser.ReaderErrorText, which returns it as written and records
+// the reader's detail for the output to replace under --no-secrets.
 func (p *Parser) loadObject(artifact *input.Artifact, what string) (jsonvalue.Value, timeline.Row, bool) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
