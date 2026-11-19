@@ -109,38 +109,39 @@ func (r *timelineRun) collectOutput() {
 // summary. It exits 1 when no row was written.
 func runTimeline(ctx context.Context, options TimelineOptions, env Environment, stdout,
 	stderr io.Writer) int {
+	// Made before anything is printed, so every message goes through it.
+	out := output{secrets.NewRecorder(options.Secrets)}
 	filter, err := buildFilter(options, env.Now)
 	if err != nil {
-		return printError(ctx, stderr, err.Error())
+		return out.printError(ctx, stderr, err.Error())
 	}
 	found, err := matcher()
 	if err != nil {
-		return printError(ctx, stderr, err.Error())
+		return out.printError(ctx, stderr, err.Error())
 	}
 	registry := env.Parsers()
 	if unknown := unknownAgent(registry, options.Agents); unknown != "" {
-		return printError(ctx, stderr, "--agent "+unknown+": no parser reads this agent")
+		return out.printError(ctx, stderr, "--agent "+unknown+": no parser reads this agent")
 	}
 	// Cleaned once, so the directories made and those removed on failure
 	// are the same ones, whatever .. the analyst wrote.
 	options.Output = filepath.Clean(options.Output)
-	created, code := prepareOutput(options, stderr)
+	created, code := prepareOutput(options, out, stderr)
 	defer removeCreated(created)
 	if code != ExitFound {
 		return code
 	}
-	recorder := secrets.NewRecorder(options.Secrets)
-	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, recorder)
+	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, out.recorder)
 	defer removeCreated(workCreated)
 	if collection == nil {
-		return printError(ctx, stderr, message)
+		return out.printError(ctx, stderr, message)
 	}
-	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
+	defer closeInput(ctx, collection, options.KeepExtracted, out, stderr)
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: registry, found: newScratchFinder(found), output: options.Output,
-		filter: filter, out: output{recorder}}
+		filter: filter, out: out}
 	if err := run.parse(ctx); err != nil {
-		return printError(ctx, stderr, run.out.text(err.Error()))
+		return out.printError(ctx, stderr, err.Error())
 	}
 	// Everything the output holds is read for URL credentials before any of
 	// it is written, so a long one is replaced in every output string.
@@ -148,7 +149,7 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	run.detected = detectWith(collection, parserAgents(registry), run.repositories)
 	run.collectOutput()
 	if err := run.writeRows(); err != nil {
-		return printError(ctx, stderr, run.out.text(err.Error()))
+		return out.printError(ctx, stderr, err.Error())
 	}
 	return run.summarise(ctx, stdout, stderr)
 }
@@ -169,10 +170,10 @@ func unknownAgent(registry *parsers.Registry, agents []string) string {
 // makes it when it is missing. It returns the directories it made, deepest
 // first, and ExitFound, or the exit code of the refusal it printed to stderr.
 // A symbolic link is never followed: one is not a directory.
-func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
+func prepareOutput(options TimelineOptions, out output, stderr io.Writer) ([]string, int) {
 	output := options.Output
 	refuse := func(message string) ([]string, int) {
-		fmt.Fprintln(stderr, usageError("timeline", message))
+		fmt.Fprintln(stderr, out.text(usageError("timeline", message).Error()))
 		return nil, ExitError
 	}
 	info, err := osfile.Lstat(output)
@@ -182,14 +183,14 @@ func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 	case err == nil:
 		entries, listErr := osfile.ReadDir(output)
 		if listErr != nil {
-			fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, listErr))+"\n")
+			fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, listErr))+"\n")
 			return nil, ExitError
 		}
 		if len(entries) > 0 {
 			return refuse("the output directory " + output + " is not empty")
 		}
 	case !errors.Is(err, fs.ErrNotExist):
-		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
+		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, err))+"\n")
 		return nil, ExitError
 	}
 	if insideDirectory(output, filepath.Clean(options.Input)) {
@@ -198,7 +199,7 @@ func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 	created := missingDirectories(output)
 	if err := osfile.MkdirAll(output, 0o777); err != nil {
 		removeCreated(created)
-		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
+		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, err))+"\n")
 		return nil, ExitError
 	}
 	if !probeWrite(output) {
@@ -358,7 +359,7 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 	if err := writeOutput(r.outputPath(InventoryFile), func(w io.Writer) error {
 		return writeJSON(w, inventory)
 	}); err != nil {
-		return printError(ctx, stderr, r.out.text(err.Error()))
+		return r.out.printError(ctx, stderr, err.Error())
 	}
 	r.printTotals(stdout, agents)
 	if len(r.rows) == 0 {

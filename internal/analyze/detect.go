@@ -216,21 +216,22 @@ func detectWith(collection *input.Collection, parsed map[string]bool,
 // or, with --json, as one JSON object.
 func runDetect(ctx context.Context, options DetectOptions, env Environment, stdout,
 	stderr io.Writer) int {
+	// Made before anything is printed, so every message goes through it.
+	out := output{secrets.NewRecorder(options.Secrets)}
 	found, err := matcher()
 	if err != nil {
-		return printError(ctx, stderr, err.Error())
+		return out.printError(ctx, stderr, err.Error())
 	}
-	out := output{secrets.NewRecorder(options.Secrets)}
 	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, out.recorder)
 	defer removeCreated(workCreated)
 	if collection == nil {
-		return printError(ctx, stderr, message)
+		return out.printError(ctx, stderr, message)
 	}
-	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
+	defer closeInput(ctx, collection, options.KeepExtracted, out, stderr)
 	parsed := parserAgents(env.Parsers())
 	detected := detect(collection, parsed, &collection.Problems)
 	if ctx.Err() != nil {
-		return printError(ctx, stderr, "")
+		return out.printError(ctx, stderr, "")
 	}
 	// Everything detect prints is in its document with the files listed, so
 	// that is read for URL credentials before anything is printed.

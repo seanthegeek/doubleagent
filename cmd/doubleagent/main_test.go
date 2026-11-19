@@ -24,6 +24,8 @@ func runCases() []runCase {
 		{"-V is --version", []string{"-V"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"--help prints the usage on stdout", []string{"--help"}, exitOK, "Usage: doubleagent", ""},
 		{"an unknown command is a usage error", []string{"frobnicate"}, exitUsage, "", "Unknown command: frobnicate"},
+		{"an unknown command is printed with its control characters shown", []string{"frob\x1b[2Jnicate"},
+			exitUsage, "", "Unknown command: frob\\x1b[2Jnicate"},
 		{"collect --version", []string{"collect", "--version"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"collect -h prints the collect usage", []string{"collect", "-h"}, exitOK, "Usage: doubleagent collect [options]", ""},
 		{"collect --list prints the catalog", []string{"collect", "--list"}, exitOK, "# home artifacts", ""},
