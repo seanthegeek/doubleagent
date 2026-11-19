@@ -1,4 +1,4 @@
-package secrets
+package urlcredentials
 
 // credentialParameter is a query or fragment parameter whose value is a
 // credential, by name, and where that is documented.

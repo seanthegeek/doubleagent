@@ -11,8 +11,8 @@
 // reader's detail, is identified by the parser through the parser kit
 // (parser.SecretText, parser.ReaderErrorText), which records it in the
 // run's Recorder and returns the text as written; a URL's credentials are
-// found by the output stage in every string it writes (by hand, as net/url
-// refuses a bad percent-escape and finds no URL inside longer text). Every
+// found by the output stage in every string it writes (package
+// urlcredentials holds the grammar it reads URLs by). Every
 // row is the same in both modes. Replacement happens once, where a command
 // writes its output, each kind reaching its own strings: a value of
 // EverywhereLength bytes or more every string, a shorter one only the text

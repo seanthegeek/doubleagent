@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
 	"github.com/seanthegeek/doubleagent/internal/textset"
 )
 
@@ -89,14 +90,14 @@ func (r *Recorder) Value(value string) {
 // replaced in every string, not only where the URL holds it; Text replaces
 // a shorter one where the URL holds it only.
 func (r *Recorder) Collect(text string) {
-	if r == nil || !mayHoldURL(text) {
+	if r == nil {
 		return
 	}
-	identifyURLs(text, func(secret credential) {
-		if value := text[secret.start:secret.end]; len(value) >= EverywhereLength {
+	identifyURLs(text, func(secret urlcredentials.Credential) {
+		if value := text[secret.Start:secret.End]; len(value) >= EverywhereLength {
 			r.everywhere.add(form{secret: value}, everyString)
-			if secret.after > 0 {
-				r.everywhere.add(form{secret: value, after: text[secret.end : secret.end+secret.after]},
+			if secret.After > 0 {
+				r.everywhere.add(form{secret: value, after: text[secret.End : secret.End+secret.After]},
 					everyString)
 			}
 		}
