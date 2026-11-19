@@ -88,9 +88,10 @@ func siteClasses() map[string]string {
 		"internal/input/loose.go stage.PhysicalDir":  notImage,
 		// The analysis commands' outputs, where the analyst names them.
 		"internal/analyze/fleet.go osfile.MkdirAll":    notImage,
-		"internal/analyze/fleet.go osfile.WriteFile":   notImage,
+		"internal/analyze/fleet.go osfile.Rename":      notImage,
+		"internal/analyze/fleet.go osfile.Remove":      notImage,
 		"internal/analyze/timeline.go osfile.ReadDir":  notImage,
-		"internal/analyze/timeline.go osfile.OpenFile": notImage,
+		"internal/analyze/output.go osfile.OpenFile":   notImage,
 		"internal/analyze/timeline.go osfile.Remove":   notImage,
 		"internal/analyze/timeline.go osfile.MkdirAll": notImage,
 		// The analyst's input and output paths, compared to keep the output

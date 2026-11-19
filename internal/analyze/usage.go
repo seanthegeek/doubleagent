@@ -104,6 +104,10 @@ input directory, judged where the system puts it when the file is written:
 on Linux and macOS a .. after a link leads up from the link's target, and
 on Windows a .. cancels the name written before it. It is refused too when
 where it lies cannot be told, such as through a junction or link on Windows.
+The CSV is written to a new file beside it, named doubleagent-fleet-*.partial,
+then moved into its place, so an existing CSV is replaced whole, never
+written into, and its directory must be writable. A .partial file left
+behind by a run killed while writing can be deleted.
 
 A CSV cell that begins with =, +, -, @, a tab or a carriage return is
 written with a ' in front, so a spreadsheet shows it as text; the saved
