@@ -143,7 +143,7 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 	case tar.TypeXGlobalHeader, tar.TypeSymlink, tar.TypeLink, tar.TypeChar, tar.TypeBlock,
 		tar.TypeFifo:
 		return nil, nil
-	case tar.TypeDir, tar.TypeReg, tar.TypeCont:
+	case tar.TypeDir, tar.TypeReg, tar.TypeCont, tar.TypeGNUSparse:
 	default:
 		return nil, cannotExtract(path, "a member is of a type that cannot be extracted")
 	}
@@ -178,7 +178,10 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 }
 
 // isSparse reports whether header describes a sparse file, in the old GNU
-// form or the PAX one.
+// form or the PAX one. archive/tar keeps the old form's type letter, 'S',
+// in the header (handleSparseFile in archive/tar/reader.go), so the switch
+// in extractTarMember lets it through to this check; the PAX form is a
+// regular member whose PAXRecords hold GNU.sparse. keys.
 func isSparse(header *tar.Header) bool {
 	if header.Typeflag == tar.TypeGNUSparse {
 		return true
