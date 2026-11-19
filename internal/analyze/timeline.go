@@ -197,9 +197,15 @@ func prepareOutput(options TimelineOptions, out output, stderr io.Writer) ([]str
 		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, err))+"\n")
 		return nil, ExitError
 	}
-	switch inside, err := insideDirectory(output, filepath.Clean(options.Input)); {
+	inputPath, err := input.Absolute(options.Input)
+	inside := false
+	if err == nil {
+		inside, err = insideDirectory(output, inputPath)
+	}
+	switch {
 	case err != nil:
-		return refuse("the output directory " + output + " must be outside the input" + untold(err))
+		return refuse("cannot tell whether the output directory " + output + " is outside the input: " +
+			reason.Describe(output, err))
 	case inside:
 		return refuse("the output directory " + output + " must be outside the input")
 	}

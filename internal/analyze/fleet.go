@@ -326,7 +326,8 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 
 // fleetOutputRefusal returns why the CSV may not be written at output, or
 // "": output is a link (never written through), the same file as an input
-// file, given or found in an input directory, or inside an input directory.
+// file, given or found in an input directory, inside an input directory,
+// or where it cannot be told whether it is (insideDirectory).
 func fleetOutputRefusal(output string, inputs, files []string) string {
 	if isLink(output) {
 		return "the output " + output + " is a symbolic link; give its target"
@@ -339,7 +340,8 @@ func fleetOutputRefusal(output string, inputs, files []string) string {
 	for _, given := range inputs {
 		switch inside, err := insideDirectory(output, given); {
 		case err != nil:
-			return "the output " + output + " must be outside the input directory " + given + untold(err)
+			return "cannot tell whether the output " + output + " is outside the input directory " + given +
+				": " + reason.Describe(output, err)
 		case inside:
 			return "the output " + output + " must be outside the input directory " + given
 		}

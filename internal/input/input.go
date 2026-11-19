@@ -335,6 +335,11 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	return collection, nil
 }
 
+// Absolute returns the path an input given as path is read at, by
+// absolute's rule, so a check of the input's place sees the directory
+// that is read.
+func Absolute(path string) (string, error) { return absolute(path) }
+
 // absolute returns path joined to the working directory when relative, and
 // cleaned. Every path of the input is built from it: on Windows only an
 // absolute path takes the extended form that keeps a name ending in a dot

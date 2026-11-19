@@ -112,6 +112,80 @@ func TestFleetComparesItsOutputByWhereTheFileSystemPutsIt(t *testing.T) {
 	}
 }
 
+func TestTimelineJudgesItsOutputAfterCleaningItsText(t *testing.T) {
+	// timeline writes its output at the cleaned text, so a .. after a link
+	// cancels the link's name, and the check judges that same place.
+	work := t.TempDir()
+	input := filepath.Join(work, "in")
+	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
+	writeFile(t, filepath.Join(work, "elsewhere", "keep"), "")
+	writeFile(t, filepath.Join(input, "sub", "keep"), "")
+	for link, target := range map[string]string{filepath.Join(work, "lnk"): filepath.Join(input, "sub"),
+		filepath.Join(input, "away"): filepath.Join(work, "elsewhere")} {
+		if err := os.Symlink(target, link); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tests := []struct {
+		name, output, written string
+		refused               bool
+	}{
+		{"a link into the input and .. after it", spelt(work, "lnk", "..", "out1"),
+			filepath.Join(work, "out1"), false},
+		{"a link out of the input and .. after it", spelt(input, "away", "..", "out2"),
+			filepath.Join(input, "out2"), true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), "timeline", input, test.output)
+			refused := code == ExitError && strings.Contains(stderr, "must be outside the input")
+			if refused != test.refused || !refused && code == ExitError {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			if lstatExists(test.written) == test.refused {
+				t.Errorf("%s exists: %v", test.written, lstatExists(test.written))
+			}
+		})
+	}
+}
+
+func TestAnOutputPastALinkToNothingIsRefusedAsUntold(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "in")
+	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
+	dangling := filepath.Join(work, "dangling")
+	if err := os.Symlink(filepath.Join(work, "nothing"), dangling); err != nil {
+		t.Fatal(err)
+	}
+	for name, test := range map[string]struct {
+		args    []string
+		message string
+	}{
+		"timeline": {[]string{"timeline", input, filepath.Join(dangling, "out")},
+			"cannot tell whether the output directory " + filepath.Join(dangling, "out") +
+				" is outside the input: "},
+		"fleet": {[]string{"fleet", "-o", filepath.Join(dangling, "f.csv"), input},
+			"cannot tell whether the output " + filepath.Join(dangling, "f.csv") +
+				" is outside the input directory " + input + ": "},
+	} {
+		t.Run(name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), test.args...)
+			if code != ExitError || !strings.Contains(stderr, test.message) ||
+				strings.Contains(stderr, "must be outside") {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+		})
+	}
+	if lstatExists(filepath.Join(work, "nothing")) {
+		t.Error("the link's target was made")
+	}
+	// An input through a link to nothing is the read's error to give.
+	code, _, stderr := runCommand(testEnvironment(), "timeline", dangling, filepath.Join(work, "out"))
+	if code != ExitError || strings.Contains(stderr, "cannot tell") {
+		t.Errorf("an input through a link to nothing: exit %d, stderr %q", code, stderr)
+	}
+}
+
 func TestTheParentOfAnOutputIsItsTextUpToTheLastSlash(t *testing.T) {
 	for _, test := range []struct{ name, path, want string }{
 		{"a .. after a link is kept", "/w/lnk/../out.csv", "/w/lnk/.."},

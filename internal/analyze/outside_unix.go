@@ -3,39 +3,32 @@
 package analyze
 
 import (
-	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
-
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// namedEntry returns what path names: its own entry, or for a link to a
-// directory that directory, which an lstat of path/. reaches since only
-// the last component is left unfollowed.
-func namedEntry(path string) (fs.FileInfo, error) {
-	info, err := osfile.Lstat(path)
-	if err != nil || info.Mode()&fs.ModeSymlink == 0 {
-		return info, err
+// absolute returns path made absolute by putting the working directory in
+// front of a relative one, without cleaning the text: the kernel steps up
+// from a ".." after a link from the link's target, so cleaning the text
+// would name another place than the one the write opens. resolve follows
+// the names as the kernel does.
+func absolute(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
 	}
-	if followed, err := osfile.Lstat(path + "/."); err == nil {
-		return followed, nil
+	working, err := os.Getwd()
+	if err != nil {
+		return "", err
 	}
-	return info, nil
+	return working + "/" + path, nil
 }
 
-// parentEntry returns the path of the directory holding path's entry as
-// the file system has it, through its .. entry, not by cutting the text.
-func parentEntry(path string) string { return path + "/.." }
-
-// absoluteText returns path, joined to working when working is not empty,
-// as text: Unix resolves a ".." after a link through the link's target, so
-// cleaning the text would name another place than the one opened.
-func absoluteText(path, working string) string {
-	if working == "" {
-		return path
-	}
-	return working + "/" + path
-}
+// followLink returns the place the link at path, already absolute, leads
+// to. filepath.EvalSymlinks follows it and each link on the way, a ".." in
+// a target stepping up from the place reached so far, and fails on a
+// target that does not exist (walkSymlinks in path/filepath/symlink.go).
+func followLink(path string) (string, error) { return filepath.EvalSymlinks(path) }
 
 // outputParent returns the directory the file system puts path's last
 // element in: path up to its last slash, as written, so a ".." after a link

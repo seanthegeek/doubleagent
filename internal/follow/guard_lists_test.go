@@ -330,6 +330,14 @@ func allowedCalls() map[string]allowance {
 				"run fails"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names with -o"},
+		{"internal/analyze/outside_unix.go", "filepath.EvalSymlinks", 1,
+			"resolves a link on the input or output path the analyst typed for timeline or fleet, " +
+				"to compare where the two lie: what it gives is only lstat'ed, never opened, read " +
+				"or written"},
+		{"internal/analyze/outside_windows.go", "filepath.Abs", 1,
+			"makes absolute, as Windows places it, an input or output path the analyst typed for " +
+				"timeline or fleet, to compare where the two lie: what it gives is only lstat'ed, " +
+				"never opened, read or written"},
 		{"internal/walk/tree.go", "fsmeta.OpenDir", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {

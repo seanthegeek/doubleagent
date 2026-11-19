@@ -5,95 +5,132 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/reason"
 )
 
-// The analyst's output and inputs are compared by what they name, never by
-// their text alone: an existing path stands for its entry (a link to a
-// directory for the directory), two paths are one file when os.SameFile
-// says so, and a missing output stands for its nearest existing ancestor,
-// which lies inside an input directory when it or a directory above it,
-// climbed through the file system's own parent entries, is the input. A
-// path is taken as it is opened: on Unix a ".." after a link leads up from
-// the link's target, so the text is never cleaned (absolutePath,
-// outputParent). maxClimb bounds the climb: no real path is deeper.
-const maxClimb = 4096
+// The rule: timeline and fleet never write inside an input directory.
+// Each path is made absolute as the command's own calls take it
+// (absolute), then followed from its root as the file system follows it
+// (resolve), except that on Windows no link or junction is followed. The
+// output is inside when the place it leads to, or a directory above it, is
+// the input: the same text, or by os.SameFile, which also matches another
+// letter case on macOS or Windows. Each step up is filepath.Dir of an
+// absolute path, so the text only gets shorter. Where the output's place
+// cannot be told, it is refused as such; an input that is a file (an
+// archive) or missing holds nothing.
 
-// errClimb is the refusal of an output whose climb passed maxClimb. A
-// climb that fails on the way (a path grown past the system's limit, a
-// parent that cannot be read) cannot tell either, and refuses with the
-// error met.
-var errClimb = errors.New("the climb to the root passed its bound")
+// errNotFollowed is the reason a path cannot be followed past an entry:
+// one that is neither a directory nor a link, or on Windows a link
+// (followLink). A Windows junction is never followed: os.Lstat gives it
+// neither the directory nor the link mode (fileStat.mode in
+// os/types_windows.go).
+var errNotFollowed = errors.New("the check enters only directories, and symbolic links outside Windows")
 
-// untold returns the end of the refusal of an output whose place the climb
-// could not tell: why, after the rule the refusal states.
-func untold(err error) string {
-	return " (where it lies could not be told: " + reason.For(err) + ")"
+// errBelowFile is resolve's stop at a regular file with a name after it.
+var errBelowFile = errors.New("a name follows a regular file")
+
+// place is where resolve's path leads: its absolute path and its entry,
+// nil when it does not exist yet or is a root whose entry cannot be read.
+type place struct {
+	path    string
+	info    fs.FileInfo
+	missing bool
 }
 
-// absolutePath returns path made absolute against the working directory as
-// the platform resolves it (absoluteText); "" when the working directory
-// cannot be read.
-func absolutePath(path string) string {
-	if filepath.IsAbs(path) {
-		return absoluteText(path, "")
+// resolve follows path, already absolute, name by name: a directory is
+// entered, a ".." steps up from the place reached so far, and a name not
+// there yet is kept as written, as the write will create it. A link is
+// replaced by the place followLink gives for it. At a regular file with a
+// name after it, resolve stops with errBelowFile: the write fails there
+// with "not a directory", naming the file, so the check leaves that error
+// to the write.
+func resolve(path string) (place, error) {
+	volume := filepath.VolumeName(path)
+	current := place{path: volume + string(filepath.Separator)}
+	if info, err := osfile.Lstat(current.path); err == nil {
+		current.info = info
 	}
-	working, err := os.Getwd()
-	if err != nil {
-		return ""
+	for name := range strings.SplitSeq(path[len(volume):], string(filepath.Separator)) {
+		if name == "" || name == "." {
+			continue
+		}
+		if current.info != nil && !current.info.IsDir() {
+			if current.info.Mode().IsRegular() {
+				return current, &fs.PathError{Op: "resolve", Path: current.path, Err: errBelowFile}
+			}
+			return current, &fs.PathError{Op: "resolve", Path: current.path, Err: errNotFollowed}
+		}
+		next := filepath.Join(current.path, name)
+		info, err := osfile.Lstat(next)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			current = place{path: next, missing: true}
+			continue
+		case err != nil:
+			return current, err
+		case info.Mode()&fs.ModeSymlink != 0:
+			if next, err = followLink(next); err != nil {
+				return current, err
+			}
+			if info, err = osfile.Lstat(next); err != nil {
+				return current, err
+			}
+		}
+		current = place{path: next, info: info}
 	}
-	return absoluteText(path, working)
+	return current, nil
 }
 
 // insideDirectory reports whether path, existing or not, is the directory
-// directory or lies below it, by the rule above, with the error the climb
-// met, or errClimb, when it cannot tell.
+// directory or lies below it, by the rule above, or the error that kept it
+// from telling. directory is given as the command reads it; one that is
+// missing, or reached through a link to nothing, is left to the read to
+// report.
 func insideDirectory(path, directory string) (bool, error) {
-	path, directory = absolutePath(path), absolutePath(directory)
-	if path == "" || directory == "" {
+	target, err := resolvedAbsolute(directory)
+	switch {
+	case errors.Is(err, errBelowFile), errors.Is(err, fs.ErrNotExist),
+		err == nil && (target.missing || target.info != nil && target.info.Mode().IsRegular()):
 		return false, nil
+	case err != nil:
+		return false, err
+	case target.info != nil && !target.info.IsDir():
+		return false, &fs.PathError{Op: "resolve", Path: target.path, Err: errNotFollowed}
 	}
-	target, err := namedEntry(directory)
-	if err != nil || !target.IsDir() {
+	output, err := resolvedAbsolute(path)
+	switch {
+	case errors.Is(err, errBelowFile):
 		return false, nil
+	case err != nil:
+		return false, err
 	}
-	current := nearestExisting(path)
-	if current == "" {
-		return false, nil
-	}
-	info, err := namedEntry(current)
-	for range maxClimb {
-		if err != nil {
-			return false, err
-		}
-		if os.SameFile(info, target) {
+	for current := output.path; ; current = filepath.Dir(current) {
+		if current == target.path {
 			return true, nil
 		}
-		parent := parentEntry(current)
-		parentInfo, parentErr := namedEntry(parent)
-		if parentErr == nil && os.SameFile(parentInfo, info) {
+		info, err := osfile.Lstat(current)
+		root := filepath.Dir(current) == current
+		switch {
+		case err == nil && target.info != nil && os.SameFile(info, target.info):
+			return true, nil
+		case err != nil && !errors.Is(err, fs.ErrNotExist) && !root:
+			return false, err
+		}
+		if root {
 			return false, nil
 		}
-		current, info, err = parent, parentInfo, parentErr
 	}
-	return false, errClimb
 }
 
-// nearestExisting returns path or its nearest ancestor that exists, by
-// lstat, or "" when none does; each ancestor is outputParent's.
-func nearestExisting(path string) string {
-	for {
-		if _, err := osfile.Lstat(path); err == nil {
-			return path
-		}
-		parent := outputParent(path)
-		if parent == path || parent == "" {
-			return ""
-		}
-		path = parent
+// resolvedAbsolute returns where path leads, made absolute and resolved.
+func resolvedAbsolute(path string) (place, error) {
+	absolutePath, err := absolute(path)
+	if err != nil {
+		return place{}, err
 	}
+	return resolve(absolutePath)
 }
 
 // sameFile reports whether two existing paths name one file, neither

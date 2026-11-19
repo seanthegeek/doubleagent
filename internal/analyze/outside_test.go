@@ -59,8 +59,8 @@ func TestAnOutputInsideADirectoryInputIsRefused(t *testing.T) {
 // deepTree makes directories d/d/... below root, one more level each until
 // the system refuses a longer path or 2000 levels stand, and returns the
 // one halfway down: its path leaves room for the files written in it, and
-// climbing from it to root by parent entries, three bytes longer a level,
-// passes the longest path the system takes.
+// text that climbs from it to the file system's root by adding /.. per
+// level passes the longest path the system takes.
 func deepTree(t *testing.T, root string) string {
 	t.Helper()
 	var levels []string
@@ -78,21 +78,134 @@ func deepTree(t *testing.T, root string) string {
 }
 
 func TestAnOutputDeepInsideADirectoryInputIsRefused(t *testing.T) {
-	// A climb that cannot go on refuses: the check cannot tell where the
-	// output lies.
 	tree := filepath.Join(t.TempDir(), "loose")
 	writeFile(t, filepath.Join(tree, "home", "a", ".claude", "history.jsonl"), "{}\n")
 	parent := deepTree(t, tree)
 	deep, csv := filepath.Join(parent, "out"), filepath.Join(parent, "f.csv")
 	for _, args := range [][]string{{"timeline", tree, deep}, {"fleet", "-o", csv, tree}} {
-		var stdout, stderr bytes.Buffer
-		code := Run(context.Background(), args, System(), &stdout, &stderr)
-		if code != ExitError || !strings.Contains(stderr.String(), "outside the input") {
-			t.Errorf("%s exited %d: %q", args[0], code, stderr.String())
+		code, _, stderr := runCommand(testEnvironment(), args...)
+		if code != ExitError || !strings.Contains(stderr, "must be outside the input") {
+			t.Errorf("%s exited %d: %q", args[0], code, stderr)
 		}
 	}
 	for _, unwritten := range []string{deep, csv} {
-		if _, err := osfile.Lstat(unwritten); err == nil {
+		if lstatExists(unwritten) {
+			t.Errorf("%s was written into the input", unwritten)
+		}
+	}
+}
+
+func TestADeepOutputOutsideTheInputIsWritten(t *testing.T) {
+	work := t.TempDir()
+	tree := filepath.Join(work, "loose")
+	writeFile(t, filepath.Join(tree, "home", "a", ".claude", "history.jsonl"), "{}\n")
+	inventories := filepath.Join(work, "inventories")
+	writeFile(t, filepath.Join(inventories, "h.jsonl"), hostLine)
+	parent := deepTree(t, filepath.Join(work, "elsewhere"))
+	relative, err := filepath.Rel(work, parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name, output, written string
+		args                  []string
+	}{
+		{"timeline, absolute", filepath.Join(parent, "out1"), filepath.Join(parent, "out1", TimelineFile),
+			[]string{"timeline", tree}},
+		{"timeline, relative", filepath.Join(relative, "out2"), filepath.Join(parent, "out2", TimelineFile),
+			[]string{"timeline", tree}},
+		{"fleet, absolute", filepath.Join(parent, "f1.csv"), filepath.Join(parent, "f1.csv"),
+			[]string{"fleet", inventories}},
+		{"fleet, relative", filepath.Join(relative, "f2.csv"), filepath.Join(parent, "f2.csv"),
+			[]string{"fleet", inventories}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Chdir(work)
+			args := []string{test.args[0], test.args[1], test.output}
+			if test.args[0] == "fleet" {
+				args = []string{"fleet", "-o", test.output, test.args[1]}
+			}
+			code, _, stderr := runCommand(testEnvironment(), args...)
+			if code == ExitError || !lstatExists(test.written) {
+				t.Errorf("exit %d, %s written: %v, stderr %q", code, test.written, lstatExists(test.written),
+					stderr)
+			}
+		})
+	}
+}
+
+func TestAnOutputBesideTheInputIsJudgedByWholeNames(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "case")
+	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
+	writeFile(t, filepath.Join(work, "case2", "keep"), "")
+	tests := []struct {
+		name, written string
+		args          []string
+	}{
+		{"timeline into a directory whose name starts with the input's",
+			filepath.Join(work, "case2", "out", TimelineFile),
+			[]string{"timeline", input, filepath.Join(work, "case2", "out")}},
+		{"timeline into a directory not made yet, its parents missing too",
+			filepath.Join(work, "new", "a", "b", "out", TimelineFile),
+			[]string{"timeline", input, filepath.Join(work, "new", "a", "b", "out")}},
+		{"fleet into a directory whose name starts with the input's", filepath.Join(work, "case2", "f.csv"),
+			[]string{"fleet", "-o", filepath.Join(work, "case2", "f.csv"), input}},
+		{"fleet into a directory not made yet, its parents missing too",
+			filepath.Join(work, "new2", "a", "b", "f.csv"),
+			[]string{"fleet", "-o", filepath.Join(work, "new2", "a", "b", "f.csv"), input}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), test.args...)
+			if code == ExitError || !lstatExists(test.written) {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+		})
+	}
+}
+
+func TestAnOutputBelowAFileFailsAsNotADirectory(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "inv")
+	writeFile(t, filepath.Join(input, "h.jsonl"), hostLine)
+	file := filepath.Join(work, "file.tar.gz")
+	writeFile(t, file, "x")
+	for name, args := range map[string][]string{
+		"timeline": {"timeline", input, filepath.Join(file, "out")},
+		"fleet":    {"fleet", "-o", filepath.Join(file, "out.csv"), input},
+	} {
+		t.Run(name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), args...)
+			if code != ExitError || !strings.HasPrefix(stderr, "error: "+file) ||
+				!strings.HasSuffix(stderr, ": not a directory\n") {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+		})
+	}
+}
+
+func TestAnOutputInAnotherCaseOfTheInputIsRefusedWhereCaseIsIgnored(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "case")
+	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
+	if !sameFile(input, filepath.Join(work, "CASE")) {
+		t.Skip("this file system tells letter case apart")
+	}
+	for name, args := range map[string][]string{
+		"timeline": {"timeline", input, filepath.Join(work, "CASE", "out")},
+		"fleet":    {"fleet", "-o", filepath.Join(work, "CASE", "f.csv"), input},
+	} {
+		t.Run(name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), args...)
+			if code != ExitError || !strings.Contains(stderr, "must be outside the input") {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+		})
+	}
+	for _, unwritten := range []string{filepath.Join(input, "out"), filepath.Join(input, "f.csv")} {
+		if lstatExists(unwritten) {
 			t.Errorf("%s was written into the input", unwritten)
 		}
 	}

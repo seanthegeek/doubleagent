@@ -137,6 +137,7 @@ func TestFleetRefusesAnOutputInsideAnInputByAnySpelling(t *testing.T) {
 			"out.csv", []string{spelt("..", "in")}},
 		{"an output through .. inside the input", work, spelt("in", "sub", "..", "out.csv"),
 			[]string{"in"}},
+		{"the default output given from inside the input", input, "", []string{"."}},
 	}
 	if _, err := os.Lstat(filepath.Join(work, "IN")); err == nil {
 		tests = append(tests, struct {
@@ -149,12 +150,17 @@ func TestFleetRefusesAnOutputInsideAnInputByAnySpelling(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Chdir(test.directory)
 			args := append([]string{"fleet", "-o", test.output}, test.inputs...)
+			if test.output == "" {
+				args = append([]string{"fleet"}, test.inputs...)
+			}
 			code, _, stderr := runCommand(testEnvironment(), args...)
 			if code != ExitError || !strings.Contains(stderr, "must be outside the input directory") {
 				t.Errorf("exit %d, stderr %q", code, stderr)
 			}
-			if lstatExists(filepath.Join(input, "out.csv")) {
-				t.Error("the CSV was written inside the input")
+			for _, name := range []string{"out.csv", DefaultFleetName} {
+				if lstatExists(filepath.Join(input, name)) {
+					t.Errorf("%s was written inside the input", name)
+				}
 			}
 		})
 	}
