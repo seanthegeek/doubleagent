@@ -54,9 +54,9 @@ type grammarCase struct {
 	name, text, want string
 }
 
-// grammarCases returns the cases of each rule of the URL grammar, at least
-// one that replaces and one that keeps.
-func grammarCases() []grammarCase {
+// urlFindingAndSchemeCases returns the cases of rules 1 and 2: how a text
+// splits into tokens, and where a URL starts.
+func urlFindingAndSchemeCases() []grammarCase {
 	return []grammarCase{
 		{1, "every URL in a text", "from https://a:b@one/x to http://c:d@two/y",
 			"from https://REDACTED@one/x to http://REDACTED@two/y"},
@@ -82,6 +82,13 @@ func grammarCases() []grammarCase {
 		{2, "the SCP form of a git remote is kept", "git@github.com:o/r.git", "git@github.com:o/r.git"},
 		{2, "a query outside a URL is kept", "a?token=b", "a?token=b"},
 		{2, "a Windows path is kept", `C:\Users\alice@corp\notes.txt`, `C:\Users\alice@corp\notes.txt`},
+	}
+}
+
+// urlEndCases returns the cases of rule 3: which punctuation ends the value
+// being read.
+func urlEndCases() []grammarCase {
+	return []grammarCase{
 		{3, "punctuation after a URL is not part of it", "POST https://h/t?key=k1: failed, see https://u:pw9@h/.",
 			"POST https://h/t?key=REDACTED: failed, see https://REDACTED@h/."},
 		{3, "a Markdown link's closing parenthesis ends its URL", "see [the share](https://h/s?token=LONGTOKEN123) now",
@@ -118,6 +125,13 @@ func grammarCases() []grammarCase {
 			"--origins=https://a.example,https://b.example/x,https://c.example"},
 		{3, "JSON text with a mail address is kept", `{"url":"https://example.com/x","mail":"alice@example.com"}`,
 			`{"url":"https://example.com/x","mail":"alice@example.com"}`},
+	}
+}
+
+// urlAuthorityCases returns the cases of rules 4 and 5: where the authority
+// ends, and which user information is a credential.
+func urlAuthorityCases() []grammarCase {
+	return []grammarCase{
 		{4, "a slash ends the authority, so what follows is a path",
 			"https://AKIA:wJalr/K7MDENG/bPxRf@host/x", "https://AKIA:wJalr/K7MDENG/bPxRf@host/x"},
 		{4, "an at sign in the path is kept", "https://host.example/users/@alice", "https://host.example/users/@alice"},
@@ -150,6 +164,13 @@ func grammarCases() []grammarCase {
 			"see https://:@host/ at 10:30: done"},
 		{5, "a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
 		{5, "an IPv6 host is kept", "http://[2001:db8::1]:8080/x?q=1", "http://[2001:db8::1]:8080/x?q=1"},
+	}
+}
+
+// urlQueryAndFragmentCases returns the cases of rules 6 and 7: where the query and
+// the fragment start, and how parameters split.
+func urlQueryAndFragmentCases() []grammarCase {
+	return []grammarCase{
 		{6, "a parameter after a redirect target with a path", "https://h/x?next=https://other/&access_token=ya29.T0K",
 			"https://h/x?next=https://other/&access_token=REDACTED"},
 		{6, "a parameter after a redirect target without a path", "https://h/x?next=https://other&access_token=ya29.T0K",
@@ -197,6 +218,13 @@ func grammarCases() []grammarCase {
 			"https://h/?token=REDACTED&x=1"},
 		{7, "a question mark before a name that is no credential is kept", "https://h/?q=what?page=2",
 			"https://h/?q=what?page=2"},
+	}
+}
+
+// urlCredentialParameterCases returns the cases of rule 8: which parameters hold a
+// credential.
+func urlCredentialParameterCases() []grammarCase {
+	return []grammarCase{
 		{8, "a token in the query", "https://host/share/session?token=abc123",
 			"https://host/share/session?token=REDACTED"},
 		{8, "an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
@@ -217,6 +245,13 @@ func grammarCases() []grammarCase {
 		{8, "a short code is kept elsewhere in the string", "https://h/?code=1 and 1+1=2",
 			"https://h/?code=REDACTED and 1+1=2"},
 	}
+}
+
+// grammarCases returns the cases of each rule of the URL grammar, at least
+// one that replaces and one that keeps.
+func grammarCases() []grammarCase {
+	return slices.Concat(urlFindingAndSchemeCases(), urlEndCases(), urlAuthorityCases(),
+		urlQueryAndFragmentCases(), urlCredentialParameterCases())
 }
 
 func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
