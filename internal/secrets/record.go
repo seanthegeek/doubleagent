@@ -245,12 +245,14 @@ type placed struct {
 // which records nothing of its own.
 type Found struct {
 	// forms holds each form by the text it matches and where; texts lists
-	// the texts of each reach in the order recorded, and size their bytes.
-	forms map[placed]form
-	texts [reaches][]string
-	size  [reaches]int
+	// the texts of each reach in the order recorded, and size their bytes;
+	// changes counts each text recorded and each form made plain.
+	forms   map[placed]form
+	texts   [reaches][]string
+	size    [reaches]int
+	changes [reaches]int
 	// matchers holds the matcher of each reach's texts, built when first
-	// needed and again once more are recorded (matched counts them).
+	// needed and again after any change (matched is changes then).
 	matchers [reaches]*textset.Set
 	matched  [reaches]int
 	// listed holds the parses' records a list WithDuplicates made stands
@@ -259,8 +261,9 @@ type Found struct {
 }
 
 // add records one form replaced in where; of a text recorded both plain
-// and with a part, the plain form is kept, since it withholds more. A nil
-// Found (no parse running) records nothing.
+// and with a part, the plain form is kept, since it withholds more. A new
+// text and a form made plain are each a change, which a matcher built
+// before it does not match. A nil Found (no parse running) records nothing.
 func (f *Found) add(secret form, where reach) {
 	if f == nil {
 		return
@@ -272,10 +275,14 @@ func (f *Found) add(secret form, where reach) {
 	if earlier, ok := f.forms[key]; ok {
 		if !earlier.plain() {
 			f.forms[key] = secret
+			if secret.plain() {
+				f.changes[where]++
+			}
 		}
 		return
 	}
 	f.forms[key] = secret
+	f.changes[where]++
 	f.texts[where] = append(f.texts[where], key.text)
 	f.size[where] += len(key.text)
 }
