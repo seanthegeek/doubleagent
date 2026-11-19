@@ -88,6 +88,10 @@ func grammarCases() []grammarCase {
 			"see [the share](https://h/s?token=REDACTED) now"},
 		{3, "a bracket opened inside the URL is part of it", "https://h/w(1)?token=t0k(2)x",
 			"https://h/w(1)?token=REDACTED"},
+		{3, "a bracket opened in another parameter closes nothing in this one", "https://h/?q=(a&token=INSIDE)",
+			"https://h/?q=(a&token=REDACTED)"},
+		{3, "a bracket opened in the path closes nothing in a value", "see (https://h/w(?token=t0k)",
+			"see (https://h/w(?token=REDACTED)"},
 		{3, "a closing brace with no opening one ends a URL", `{u:https://h/?token=t0k}`,
 			`{u:https://h/?token=REDACTED}`},
 		{3, "a comma before a scheme ends a URL", "https://h/a,b?token=abc,https://c:d@two/y",
@@ -695,8 +699,8 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 // token (rule 1); SECRET ends no authority (/, ?, #, a backslash) but may
 // hold what ends a value (rule 3), which user information takes whole;
 // SECRET2 ends no parameter (&, ;, #, a backslash), starts no URL, ends no
-// value (a single quote, a closing bracket that closes none opened since
-// the URL began) and names no credential after a ? in it (rule 7).
+// value (a single quote, a closing bracket that closes none opened earlier
+// in it) and names no credential after a ? in it (rule 7).
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
 		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}, {"pa)ss", "a(b)c"}, {"it's", "x]y"},
@@ -713,11 +717,10 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			return
 		}
 		before := scheme + "://user:" + secret + "@" + host + "/" + path + "?token="
-		again := before + secret2 + "#" + fragment + "?code="
-		if closesUnopened(before, secret2) || closesUnopened(again, secret2) {
+		if closesUnopened(secret2) {
 			return
 		}
-		text := again + secret2 + "&x=1"
+		text := before + secret2 + "#" + fragment + "?code=" + secret2 + "&x=1"
 		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
 			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
 		}
@@ -757,12 +760,12 @@ func namesACredential(value string) bool {
 	return false
 }
 
-// closesUnopened reports whether a closing bracket in value closes none of
-// its kind opened in before or earlier in value, which rule 3 of the URL
-// grammar says ends a value.
-func closesUnopened(before, value string) bool {
+// closesUnopened reports whether a closing bracket in value, the whole of
+// a query parameter's value, closes none of its kind opened earlier in it,
+// which rule 3 of the URL grammar says ends the value.
+func closesUnopened(value string) bool {
 	var open [3]int
-	for i, char := range []byte(before + value) {
+	for _, char := range []byte(value) {
 		bracket := strings.IndexByte("([{)]}", char)
 		switch {
 		case bracket < 0:
@@ -770,7 +773,7 @@ func closesUnopened(before, value string) bool {
 			open[bracket]++
 		case open[bracket-3] > 0:
 			open[bracket-3]--
-		case i >= len(before):
+		default:
 			return true
 		}
 	}
