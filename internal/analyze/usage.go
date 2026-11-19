@@ -73,7 +73,9 @@ const timelineUsage = `Usage: doubleagent timeline [options] INPUT OUTPUT_DIR
 Parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json.
 Exit status: 0 when rows were written, 1 when there were none, 2 on an
 error, 130 when interrupted.
-` + inputArgumentHelp + `  OUTPUT_DIR           a new or empty directory for the output files
+` + inputArgumentHelp + `  OUTPUT_DIR           a new or empty directory for the output files; its
+                       path is cleaned by name before it is judged and
+                       written, so link/../out names out
 ` + inputOptionsHelp + `  --include-thinking   emit thinking and reasoning blocks as rows of type
                        thinking
   --agent AGENT        only parse this agent (repeatable); default is every

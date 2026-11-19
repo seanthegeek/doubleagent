@@ -70,3 +70,25 @@ func TestTimelineRefusesADirectoryItCannotWriteTo(t *testing.T) {
 		})
 	}
 }
+
+func TestTimelineCleansItsOutputPathByNameBeforeWritingIt(t *testing.T) {
+	work := t.TempDir()
+	writeFile(t, filepath.Join(work, "lt", "alice", ".claude", "history.jsonl"), historyLine)
+	if err := os.MkdirAll(filepath.Join(work, "deep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(work, "deep"), filepath.Join(work, "link")); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(work)
+	code, _, stderr := runCommand(testEnvironment(), "timeline", "lt", filepath.Join("link", "..", "out"))
+	if code == ExitError {
+		t.Errorf("exit %d, stderr %q", code, stderr)
+	}
+	if !lstatExists(filepath.Join(work, "out", "timeline.jsonl")) {
+		t.Error("the output was not written to out, the name the cleaned path gives")
+	}
+	if lstatExists(filepath.Join(work, "deep", "timeline.jsonl")) {
+		t.Error("the output was written beside the link's target")
+	}
+}
