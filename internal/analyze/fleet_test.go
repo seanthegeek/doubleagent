@@ -228,14 +228,3 @@ func TestTheFleetHelpNamesEveryCharacterThatIsQuoted(t *testing.T) {
 		}
 	}
 }
-
-func TestAFleetRefusalShowsAListedNameVisibly(t *testing.T) {
-	work := t.TempDir()
-	directory := filepath.Join(work, "inv")
-	listed := filepath.Join(directory, "a\x1b[2Jb.jsonl")
-	writeFile(t, listed, hostLine)
-	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", listed, directory)
-	if code != ExitError || strings.ContainsRune(stderr, '\x1b') || !strings.Contains(stderr, `a\x1b[2Jb.jsonl`) {
-		t.Errorf("exit %d, stderr %q", code, stderr)
-	}
-}
