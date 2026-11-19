@@ -51,7 +51,7 @@ func checkExtraction(t *testing.T, dir string, data []byte) {
 	if err := os.Mkdir(destination, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = extractArchive(t.Context(), archive, destination)
+	_, _ = extractArchive(t.Context(), archive, archive, destination)
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("the test directory holds %d entries (%v)", len(entries), err)

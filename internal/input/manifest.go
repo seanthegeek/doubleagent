@@ -324,7 +324,8 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) (*Home, error
 			return nil, err
 		}
 		home = &Home{DiskPath: diskPath, Original: key.home, User: key.user, Host: load.collection.Host,
-			Project: load.projects[key.home], StagedPaths: map[string]string{}}
+			Project: load.projects[key.home], StagedPaths: map[string]string{},
+			names: load.collection.names}
 		load.homes[key] = home
 		load.order = append(load.order, key)
 		load.provisional[key] = provisional

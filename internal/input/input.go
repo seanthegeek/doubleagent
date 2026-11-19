@@ -15,9 +15,9 @@
 // the order the file system lists them in, so one tree gives one result on
 // every file system.
 //
-// The input's own path is kept as given; the paths found in it are joined
-// to its absolute, cleaned form, so one input gives one set of paths
-// however its path was spelt. A path built from the evidence's text (a manifest field,
+// The paths found in the input are joined to its absolute, cleaned form, so
+// one input gives one set of paths however its path was spelt; a message
+// names them under the input as given (Collection.ShownPath). A path built from the evidence's text (a manifest field,
 // a name a parser asks Home.PathOf or Below for) is made by one function,
 // below: each element must be one plain component, and each directory on
 // the way down is looked at with lstat, a link (on Windows any reparse
@@ -106,6 +106,19 @@ type Home struct {
 	// input, whose parent stands as the home: every path PathOf gives
 	// starts with it, since the rest of the parent is not the input.
 	tree string
+	// names gives DiskPath the name ListedPath prints it by.
+	names *inputNames
+}
+
+// ListedPath returns the path the commands list the home under: its path
+// on the source host, else where it is on disk, named as the analyst named
+// the input (Collection.ShownPath), never by the absolute path it is
+// opened by.
+func (h *Home) ListedPath() string {
+	if h.Original != "" {
+		return h.Original
+	}
+	return h.names.path(h.DiskPath)
 }
 
 // PathOf returns where the collection holds rel, a path relative to the
@@ -200,6 +213,21 @@ type Collection struct {
 	// readDir lists a directory of a loose tree before listDirectory sorts
 	// it.
 	readDir func(path string) ([]fs.DirEntry, error)
+	// names gives the paths below the input, and below the extraction
+	// directory, the names the commands print them by.
+	names *inputNames
+}
+
+// ShownPath returns path, a path below the input or the extraction
+// directory, as the commands print it: under the input as the analyst
+// named it, cleaned, and under the extraction directory as --work-dir
+// named it. Every other path is returned as it is.
+func (c *Collection) ShownPath(path string) string { return c.names.path(path) }
+
+// describe returns the problem line for err at path, the path named as
+// ShownPath gives it.
+func (c *Collection) describe(path string, err error) string {
+	return describeError(c.names.path(path), err)
 }
 
 // ExtractedDir returns the directory the archive was extracted to, or ""
@@ -268,23 +296,26 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	if err != nil {
 		return nil, err
 	}
+	names := &inputNames{}
+	names.add(source, filepath.Clean(path))
 	info, err := osfile.Stat(source)
 	if err != nil {
-		return nil, err
+		return nil, names.error(err)
 	}
 	var collection *Collection
 	switch {
 	case info.IsDir():
 		collection, err = openDirectory(source)
 	case info.Mode().IsRegular():
-		collection, err = openArchive(ctx, source, options.WorkDir)
+		collection, err = openArchive(ctx, source, options.WorkDir, names)
 	default:
 		err = &Error{Message: path + " is neither a regular file nor a directory"}
 	}
 	if err != nil {
-		return nil, err
+		return nil, names.error(err)
 	}
 	collection.Source = path
+	collection.names = names
 	if options.Host != "" {
 		collection.Host = options.Host
 	}
@@ -299,7 +330,7 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	}
 	if err != nil {
 		_ = collection.Cleanup()
-		return nil, err
+		return nil, names.error(err)
 	}
 	return collection, nil
 }

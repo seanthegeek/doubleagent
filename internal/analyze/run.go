@@ -203,6 +203,6 @@ func closeInput(ctx context.Context, collection *input.Collection, keep bool, st
 		return
 	}
 	if extracted := collection.ExtractedDir(); extracted != "" {
-		fmt.Fprint(stderr, "extracted to: "+extracted+"\n")
+		fmt.Fprint(stderr, "extracted to: "+shown(collection.ShownPath(extracted))+"\n")
 	}
 }
