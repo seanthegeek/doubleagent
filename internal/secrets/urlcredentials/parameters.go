@@ -22,7 +22,8 @@ func credentialParameters() []credentialParameter {
 		{"apikey", "API keys passed in a query string, as the agents' research documents record"},
 		{"api-key", "API keys passed in a query string, as the agents' research documents record"},
 		{"secret", "a shared secret passed in a query string, as the agents' exports redact it"},
-		{"client_secret", oauth + "; GitHub OAuth; Microsoft identity platform, authorization code flow"},
+		{"client_secret", "RFC 6749 section 2.3.1 (the client password); GitHub OAuth; Microsoft identity " +
+			"platform, authorization code flow"},
 		{"client_assertion", "Microsoft identity platform, authorization code flow: a signed JWT that " +
 			"authenticates the client"},
 		{"password", "a password passed in a query string, as the agents' exports redact it"},
