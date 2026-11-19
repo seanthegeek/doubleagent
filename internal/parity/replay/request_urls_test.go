@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"maps"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -103,16 +102,16 @@ func fileRequests(path string) func() requestURLs {
 	}
 }
 
-// treeRequests returns the requests the files of a case's input tree, the
-// files under root by root-relative path, record, read when first asked
-// for.
+// treeRequests returns the requests the regular files of a case's input
+// tree, the files under root by root-relative path, record, read when
+// first asked for.
 func treeRequests(root string, files map[string]bool) func() requestURLs {
 	var urls requestURLs
 	return func() requestURLs {
 		if urls == nil {
 			urls = requestURLs{}
 			for _, name := range slices.Sorted(maps.Keys(files)) {
-				if data, err := osfile.ReadFile(filepath.Join(root, filepath.FromSlash(name))); err == nil {
+				if data, ok := inputFileBytes(root, name); ok {
 					addRequests(urls, data)
 				}
 			}

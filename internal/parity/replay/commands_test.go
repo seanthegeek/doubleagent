@@ -375,22 +375,35 @@ func caseRunOf(want, got commandOutput) caseRun {
 	return caseRun{source: got.source, inputs: want.inputs, requests: want.requests}
 }
 
-// treeHolds returns whether a file of a case's input tree, the files under
-// root by root-relative path, holds a match of a pattern; each pattern is
-// looked for once.
+// treeHolds returns whether a regular file of a case's input tree, the
+// files under root by root-relative path, holds a match of a pattern; each
+// pattern is looked for once.
 func treeHolds(root string, files map[string]bool) func(pattern *regexp.Regexp) bool {
 	held := map[string]bool{}
 	return func(pattern *regexp.Regexp) bool {
 		found, seen := held[pattern.String()]
 		if !seen {
 			found = slices.ContainsFunc(slices.Sorted(maps.Keys(files)), func(name string) bool {
-				data, err := osfile.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
-				return err == nil && pattern.Match(data)
+				data, ok := inputFileBytes(root, name)
+				return ok && pattern.Match(data)
 			})
 			held[pattern.String()] = found
 		}
 		return found
 	}
+}
+
+// inputFileBytes returns the bytes of name, root-relative, in a case's
+// input tree, and false when it is not a regular file: the binary never
+// follows a link, so what a link names is no input of the run.
+func inputFileBytes(root, name string) ([]byte, bool) {
+	path := filepath.Join(root, filepath.FromSlash(name))
+	info, err := osfile.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, false
+	}
+	data, err := osfile.ReadFile(path)
+	return data, err == nil
 }
 
 // run runs the case's command line in this process, in the recorded
