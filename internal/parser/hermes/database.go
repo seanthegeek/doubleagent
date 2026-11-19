@@ -27,12 +27,13 @@ func messagingSources() []string {
 }
 
 // rowObject returns a row as a JSON object: the rowid as _rowid when
-// selected, then every column by name.
+// selected, then every column by parser.ColumnName, so a column the
+// database spells in another ASCII case is found under the schema's name.
 func rowObject(row sqlitefile.Row) jsonvalue.Value {
 	var members []jsonvalue.Member
 	for i, column := range row.Columns() {
-		key := column
-		if i == 0 && column == "rowid" {
+		key := parser.ColumnName(column)
+		if i == 0 && key == "rowid" {
 			key = "_rowid"
 		}
 		members = append(members, jsonvalue.Member{Key: key, Value: parser.ColumnValue(row.Values()[i])})
