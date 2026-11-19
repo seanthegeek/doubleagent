@@ -72,6 +72,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	if project == "" {
 		project = folder
 	}
+	// A folder that is not a file URI stays a URI, which can carry
+	// credentials (a remote's user information).
+	project = parser.URLText(artifact, project)
 	rows := &sessionRows{owner: p, artifact: artifact, sessionID: sessionID, project: project, emit: emit,
 		tracked: parser.Tracker{}}
 	if state.Len() > 0 {

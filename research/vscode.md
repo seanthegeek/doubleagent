@@ -857,7 +857,7 @@ thinking part, one `tool_use` plus `tool_result` per `toolInvocationSerialized`.
 | --- | --- |
 | timestamp_utc | `timestamp` for the user row, `responseTimestamp` for response parts (ms) |
 | session_id | `sessionId` |
-| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path); never `workspace` |
+| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path; another URI, such as a remote's, stays a URI, whose credentials `--no-secrets` replaces with the placeholder); never `workspace` |
 | git_branch | empty |
 | model | `modelId` |
 | tool_name, tool_use_id | `toolId`, `toolCallId` |
@@ -1142,8 +1142,10 @@ parser writes, source-derived; not observed on any real install:
   <key>, lastUsed)` per entry of each `github-<login>-usages` key, and the same with
   `mcp_server=<mcpServerId>` per entry of `github-<login>-mcpserver-usages`, at `lastUsed`, with
   an empty `session_id`. `<host>` is `github.com`, or for a `github-enterprise-<label>-usages` key
-  the part of the label after ` - `. The `<provider>-<label>` and `<extension id>-<provider>` keys
-  name the same login and are not read.
+  the part of the label after ` - `, a host and path whose credentials, if any, are shown as
+  written there and in `<key>`; `timeline --no-secrets` and `detect --no-secrets` replace them
+  with the placeholder. The `<provider>-<label>` and `<extension id>-<provider>` keys name the same
+  login and are not read.
 - `source host repository: <owner>/<repo> type=cloud agent selection (from state.vscdb
   GitHub.copilot-chat userSelectedRepositories, timestamp)` per entry of `userSelectedRepositories`,
   at its `timestamp`, with an empty `session_id`.

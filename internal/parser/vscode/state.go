@@ -208,7 +208,8 @@ func usageText(value sqlitefile.Value) string {
 
 // sourceHostRows emits a "source host:" row per extension or MCP server
 // that used a GitHub account, at the usage's lastUsed. The account label
-// is the GitHub login; a GitHub Enterprise label ends " - <host><path>". A
+// is the GitHub login; a GitHub Enterprise label ends " - <host><path>",
+// shown, in the host and in the key the row names, through parser.URLText. A
 // usage value that is not an array, or that holds entries that are not
 // objects, adds a problem.
 func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, problems *[]string, emit parser.Emit) {
@@ -221,7 +222,7 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 		host, login := "github.com", label
 		if provider == "github-enterprise" {
 			if cut := strings.LastIndex(label, " - "); cut > 0 {
-				login, host = label[:cut], label[cut+len(" - "):]
+				login, host = label[:cut], parser.URLText(artifact, label[cut+len(" - "):])
 			} else {
 				host = provider
 			}
@@ -238,7 +239,8 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 				user = jsonvalue.NewString("-")
 			}
 			text := "source host: " + host + " account " + login + " " + kind + "=" + parser.SettingValue(user) +
-				" scopes=" + scopesText(entry.Get("scopes")) + " (from state.vscdb " + item.key + ", lastUsed)"
+				" scopes=" + scopesText(entry.Get("scopes")) + " (from state.vscdb " + parser.URLText(artifact, item.key) +
+				", lastUsed)"
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("lastUsed")), text))
 		}
 		*problems = append(*problems, messagesOf(found)...)
