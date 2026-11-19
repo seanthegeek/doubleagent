@@ -15,16 +15,17 @@
 // text, rewriting the recorded wording on the recording's side and the
 // binary's own on the binary's, so the binary printing the recorded wording
 // still fails; an excluding one leaves out a case whose recorded text shows
-// its shape, and a difference of format applies to the texts its scope names.
+// its shape, a difference of format applies to the texts its scope names, one
+// of outputs lets a loose tree's run keep the other of two equal rows, and a
+// wanted one names a file a parser may want that the recording's did not.
 // A difference of format, text or rows counts as used by a case that fails
-// without it; one of arguments, added rows or exclusion by a case it changed.
+// without it; one of arguments, outputs, wanted files, added rows or
+// exclusion by a case it changed.
 // A run of every case fails when a difference was used by none, unless it is
 // retired or marked unchecked with its reason. A loose tree's timeline is
-// compared sorted by its documented keys, the rows of one record in their
-// order, and its documented order is checked on its own. Mutation tests show that a
-// changed word, number, key, row order, line order or dropped row still fails.
-//
-// The recorder wrote a placeholder of fixed length wherever its root appeared,
-// file contents included; Materialise and Expand put back a root of the same
-// length, so no offset inside a binary file moves.
+// compared sorted by its documented keys, a record's rows in their order and
+// that order checked on its own; mutation tests show a changed word, number,
+// key or order, or a dropped row, still fails. The recorder wrote a
+// fixed-length placeholder for its root, file contents included; Materialise
+// and Expand put back a root of that length, so no binary offset moves.
 package replay
