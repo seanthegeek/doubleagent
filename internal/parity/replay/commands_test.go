@@ -793,7 +793,7 @@ func compareText(t testing.TB, node string, normaliser *textNormaliser, label, w
 		want, got = listingOrder(label, want), listingOrder(label, got)
 	}
 	if enabled[differenceRoundedTime] {
-		got = rolledOverLines(want, got, cut)
+		want, got = rolledOverLines(want, got, cut)
 	}
 	DiffText(t, node, label, want, got)
 }

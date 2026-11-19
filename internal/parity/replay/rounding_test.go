@@ -22,8 +22,10 @@ const millisecondLayout = "2006-01-02T15:04:05.000Z"
 // earlier than the recorded one (difference 119). The set is built when
 // first asked for, since few comparisons need it; a nil one holds none.
 type cutTimes struct {
-	build func() map[string]bool
-	times map[string]bool
+	build func() (map[string]bool, map[string]bool)
+	// times holds every cut time, mtimes those of the files' modification
+	// times alone.
+	times, mtimes map[string]bool
 }
 
 // holds reports whether timestamp is a time of a source with digits below
@@ -33,18 +35,36 @@ func (c *cutTimes) holds(timestamp string) bool {
 		return false
 	}
 	if c.times == nil {
-		c.times = c.build()
+		c.times, c.mtimes = c.build()
 	}
 	return c.times[timestamp]
 }
 
-// fixedCutTimes returns a set holding the given cut timestamps.
+// holdsModified reports whether timestamp is a file's modification time
+// with digits below the millisecond, cut.
+func (c *cutTimes) holdsModified(timestamp string) bool {
+	if !c.holds(timestamp) {
+		return false
+	}
+	return c.mtimes[timestamp]
+}
+
+// fixedCutTimes returns a set holding the given cut timestamps, none of
+// them a file's modification time.
 func fixedCutTimes(timestamps ...string) *cutTimes {
 	set := map[string]bool{}
 	for _, timestamp := range timestamps {
 		set[timestamp] = true
 	}
-	return &cutTimes{times: set}
+	return &cutTimes{times: set, mtimes: map[string]bool{}}
+}
+
+// fixedModifiedTimes returns a set holding the given cut timestamps, each
+// a file's modification time.
+func fixedModifiedTimes(timestamps ...string) *cutTimes {
+	set := fixedCutTimes(timestamps...)
+	set.mtimes = set.times
+	return set
 }
 
 // cutTimesOf returns the cutTimes of a recorded tree and its times object;
@@ -53,19 +73,20 @@ func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
 	if tree == "" {
 		return nil
 	}
-	return &cutTimes{build: func() map[string]bool {
-		set := map[string]bool{}
+	return &cutTimes{build: func() (map[string]bool, map[string]bool) {
+		set, modified := map[string]bool{}, map[string]bool{}
 		if times != "" {
 			if mtimes, err := c.ReadTimes(times); err == nil {
 				for _, mtime := range mtimes {
 					if mtime%int64(time.Millisecond) != 0 {
-						set[time.Unix(0, mtime).UTC().Format(millisecondLayout)] = true
+						cut := time.Unix(0, mtime).UTC().Format(millisecondLayout)
+						set[cut], modified[cut] = true, true
 					}
 				}
 			}
 		}
 		c.addWrittenTimes(tree, set)
-		return set
+		return set, modified
 	}}
 }
 

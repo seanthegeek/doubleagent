@@ -262,12 +262,48 @@ func sameOrOneLater(want, got string, cut *cutTimes) bool {
 	return wantErr == nil && gotErr == nil && wantTime.Sub(gotTime) == time.Millisecond
 }
 
-// rolledOverLines returns got with each line that equals want's line at
-// the same index but for timestamps rolled over (119) given want's form.
-func rolledOverLines(want, got string, cut *cutTimes) string {
+// rolledOverLines returns want and got with each line of got that equals
+// want's line at the same index but for timestamps rolled over (119) given
+// want's form. A file's modification time rolled over can also move its
+// row among rows of the millisecond it was rounded into, so a line of got
+// whose only timestamp is such a time and that equals an unmatched line of
+// want elsewhere, one millisecond later, is taken out of both sides; every
+// other line keeps its place and is compared in order.
+func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
 	for i := range min(len(wantLines), len(gotLines)) {
 		gotLines[i] = rolledOver(wantLines[i], gotLines[i], cut)
 	}
-	return strings.Join(gotLines, "\n")
+	matched := func(i int) bool { return i < len(wantLines) && i < len(gotLines) && wantLines[i] == gotLines[i] }
+	takenWant, takenGot := map[int]bool{}, map[int]bool{}
+	for i, line := range gotLines {
+		if matched(i) || !movedModifiedTime(line, cut) {
+			continue
+		}
+		for j, candidate := range wantLines {
+			if !takenWant[j] && !matched(j) && candidate != line && rolledOver(candidate, line, cut) == candidate {
+				takenWant[j], takenGot[i] = true, true
+				break
+			}
+		}
+	}
+	return strings.Join(without(wantLines, takenWant), "\n"), strings.Join(without(gotLines, takenGot), "\n")
+}
+
+// movedModifiedTime reports whether a line holds exactly one timestamp and
+// it is a file's modification time with digits below the millisecond, cut.
+func movedModifiedTime(line string, cut *cutTimes) bool {
+	found := jsonTimestamp.FindAllStringSubmatch(line, -1)
+	return len(found) == 1 && cut.holdsModified(found[0][1])
+}
+
+// without returns lines but those whose index is in taken.
+func without(lines []string, taken map[int]bool) []string {
+	kept := make([]string, 0, len(lines))
+	for i, line := range lines {
+		if !taken[i] {
+			kept = append(kept, line)
+		}
+	}
+	return kept
 }

@@ -168,3 +168,43 @@ func TestNeededAmongKeepsOnlyWhatTheComparisonFailsWithout(t *testing.T) {
 		t.Errorf("got %v, want [130]", got)
 	}
 }
+
+func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.T) {
+	// A file modified at .3005 ms: the recording rounded its row to .301,
+	// the binary cut it to .300, where a row of a record already stands.
+	record := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/a.jsonl", 1)
+	recordedFile := recordLine("2026-01-01T00:00:00.301Z", "u", "system", "parser: broken.json is not JSON",
+		"/r/broken.json", 0)
+	binaryFile := strings.Replace(recordedFile, ".301Z", ".300Z", 1)
+	after := recordLine("2026-01-01T00:00:00.302Z", "u", "user", "bye", "/r/a.jsonl", 2)
+	modified := fixedModifiedTimes("2026-01-01T00:00:00.300Z")
+	twoEarlier := strings.Replace(recordedFile, ".301Z", ".299Z", 1)
+	later := strings.Replace(recordedFile, ".301Z", ".302Z", 1)
+	tests := []struct {
+		name  string
+		got   []string
+		cut   *cutTimes
+		agree bool
+	}{
+		{"the file's row cut and moved before the record's passes", []string{binaryFile, record, after}, modified,
+			true},
+		{"the file's row cut in its recorded place passes", []string{record, binaryFile, after}, modified, true},
+		{"two milliseconds earlier fails", []string{twoEarlier, record, after},
+			fixedModifiedTimes("2026-01-01T00:00:00.299Z"), false},
+		{"one millisecond the other way fails", []string{record, after, later},
+			fixedModifiedTimes("2026-01-01T00:00:00.302Z"), false},
+		{"a time from a record rather than a file's modification time fails", []string{binaryFile, record, after},
+			fixedCutTimes("2026-01-01T00:00:00.300Z"), false},
+		{"the other rows swapped still fail", []string{binaryFile, after, record}, modified, false},
+		{"the moved row with another text fails", []string{strings.Replace(binaryFile, "broken", "other", 1), record,
+			after}, modified, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if agree := timelinesAgree(t, false, []string{record, recordedFile, after}, test.got, test.cut); agree !=
+				test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
+	}
+}
