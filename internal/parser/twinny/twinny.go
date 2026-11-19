@@ -162,9 +162,9 @@ func (p *Parser) problemRows(artifact *input.Artifact, problems *parser.Problems
 }
 
 // providerRows emits, at the file's modification time, one "model
-// provider:" row per provider of twinny.inference-providers, named by its
-// id, else by its key there, and per active provider that holds an API
-// key, the key through parser.SecretText; then a row per provider list or
+// provider:" row per provider that holds an API key, of either kind: one
+// of twinny.inference-providers, named by its id, else by its key there,
+// or an active provider, the key through parser.SecretText; then a row per provider list or
 // provider of the wrong kind.
 func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	timestamp := ""
