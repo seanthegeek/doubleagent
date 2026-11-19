@@ -184,6 +184,10 @@ type Collection struct {
 	// the tree itself (loose input).
 	Root string
 	Host string
+	// Directory is the input directory's entry as Open reached it, a link
+	// followed as the analyst chose it, so a caller can tell another path
+	// that names the same directory (os.SameFile); nil for an archive.
+	Directory fs.FileInfo
 	// Manifest holds the manifest rows that parsed, in file order; nil for
 	// loose input.
 	Manifest []jsonvalue.Value
@@ -315,6 +319,9 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	}
 	collection.Source = path
 	collection.names = names
+	if info.IsDir() {
+		collection.Directory = info
+	}
 	if options.Host != "" {
 		collection.Host = options.Host
 	}

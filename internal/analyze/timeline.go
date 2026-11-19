@@ -130,17 +130,23 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	// Cleaned once, so the directories made and those removed on failure
 	// are the same ones, whatever .. the analyst wrote.
 	options.Output = filepath.Clean(options.Output)
-	created, code := prepareOutput(options, out, stderr)
-	defer removeCreated(created)
-	if code != ExitFound {
+	if code := checkOutput(options.Output, out, stderr); code != ExitFound {
 		return code
 	}
+	// The input is opened, and read, before anything is made at the output,
+	// so an input that cannot be read stops the run with its own error and
+	// leaves nothing behind.
 	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, out.recorder)
 	defer removeCreated(workCreated)
 	if collection == nil {
 		return out.printError(ctx, stderr, message)
 	}
 	defer closeInput(ctx, collection, options.KeepExtracted, out, stderr)
+	created, code := prepareOutput(options.Output, collection.Directory, out, stderr)
+	defer removeCreated(created)
+	if code != ExitFound {
+		return code
+	}
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: registry, found: newScratchFinder(found), output: options.Output,
 		filter: filter, out: out}
@@ -170,54 +176,59 @@ func unknownAgent(registry *parsers.Registry, agents []string) string {
 	return ""
 }
 
-// prepareOutput checks the output directory before the input is touched and
-// makes it when it is missing. It returns the directories it made, deepest
-// first, and ExitFound, or the exit code of the refusal it printed to stderr.
-// A symbolic link is never followed: one is not a directory.
-func prepareOutput(options TimelineOptions, out output, stderr io.Writer) ([]string, int) {
-	output := options.Output
-	refuse := func(message string) ([]string, int) {
-		fmt.Fprintln(stderr, out.text(usageError("timeline", message).Error()))
-		return nil, ExitError
-	}
-	info, err := osfile.Lstat(output)
+// checkOutput refuses an output that is not a directory or not empty,
+// before the input is touched, and returns ExitFound, or the exit code of
+// the refusal it printed to stderr. A symbolic link is never followed: one
+// is not a directory.
+func checkOutput(directory string, out output, stderr io.Writer) int {
+	info, err := osfile.Lstat(directory)
 	switch {
 	case err == nil && !info.IsDir():
-		return refuse("the output directory " + output + " is not a directory")
+		return refuseOutput(out, stderr, "the output directory "+directory+" is not a directory")
 	case err == nil:
-		entries, listErr := osfile.ReadDir(output)
+		entries, listErr := osfile.ReadDir(directory)
 		if listErr != nil {
-			fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, listErr))+"\n")
-			return nil, ExitError
+			fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(directory, listErr))+"\n")
+			return ExitError
 		}
 		if len(entries) > 0 {
-			return refuse("the output directory " + output + " is not empty")
+			return refuseOutput(out, stderr, "the output directory "+directory+" is not empty")
 		}
 	case !errors.Is(err, fs.ErrNotExist):
-		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, err))+"\n")
-		return nil, ExitError
+		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(directory, err))+"\n")
+		return ExitError
 	}
-	inputPath, err := input.Absolute(options.Input)
-	inside := false
-	if err == nil {
-		inside, err = insideDirectory(output, inputPath)
-	}
-	switch {
+	return ExitFound
+}
+
+// refuseOutput prints timeline's usage error with message and returns its
+// exit code.
+func refuseOutput(out output, stderr io.Writer, message string) int {
+	fmt.Fprintln(stderr, out.text(usageError("timeline", message).Error()))
+	return ExitError
+}
+
+// prepareOutput refuses an output inside the input directory, given by the
+// entry its read reached (nil for an archive), and makes the output when it
+// is missing. It returns the directories it made, deepest first, and
+// ExitFound, or the exit code of the refusal it printed to stderr.
+func prepareOutput(directory string, inputDirectory fs.FileInfo, out output, stderr io.Writer) ([]string, int) {
+	switch inside, err := insideDirectory(directory, inputDirectory); {
 	case err != nil:
-		return refuse("cannot tell whether the output directory " + output + " is outside the input: " +
-			reason.Describe(output, err))
+		return nil, refuseOutput(out, stderr, "cannot tell whether the output directory "+directory+
+			" is outside the input: "+reason.Describe(directory, err))
 	case inside:
-		return refuse("the output directory " + output + " must be outside the input")
+		return nil, refuseOutput(out, stderr, "the output directory "+directory+" must be outside the input")
 	}
-	created := missingDirectories(output)
-	if err := osfile.MkdirAll(output, 0o777); err != nil {
+	created := missingDirectories(directory)
+	if err := osfile.MkdirAll(directory, 0o777); err != nil {
 		removeCreated(created)
-		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(output, err))+"\n")
+		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(directory, err))+"\n")
 		return nil, ExitError
 	}
-	if !probeWrite(output) {
+	if !probeWrite(directory) {
 		removeCreated(created)
-		return refuse("the output directory " + output + " cannot be written to")
+		return nil, refuseOutput(out, stderr, "the output directory "+directory+" cannot be written to")
 	}
 	return created, ExitFound
 }

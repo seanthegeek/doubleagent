@@ -51,31 +51,41 @@ type fleetError struct {
 func (e *fleetError) Error() string { return e.message }
 
 // fleetInputs returns each input that is a file, and the regular files of
-// each input that is a directory, sorted by name and not read recursively.
-// An input that is a link, or neither a file nor a directory, is refused.
-func fleetInputs(inputs []string) ([]string, error) {
+// each input that is a directory, sorted by name and not read recursively,
+// with the directories listed. An input that is a link, or neither a file
+// nor a directory, is refused.
+func fleetInputs(inputs []string) ([]string, []inputDirectory, error) {
 	var files []string
+	var directories []inputDirectory
 	for _, given := range inputs {
 		path := given
 		info, err := osfile.Lstat(path)
 		switch {
 		case err != nil:
-			return nil, &fleetError{reason.Describe(path, err)}
+			return nil, nil, &fleetError{reason.Describe(path, err)}
 		case info.Mode().Type() == 0:
 			files = append(files, path)
 		case info.Mode()&fs.ModeSymlink != 0:
-			return nil, &fleetError{path + " is a symlink; give its target"}
+			return nil, nil, &fleetError{path + " is a symlink; give its target"}
 		case info.IsDir():
 			listed, err := directoryFiles(path)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			files = append(files, listed...)
+			directories = append(directories, inputDirectory{path, info})
 		default:
-			return nil, &fleetError{path + " is neither a regular file nor a directory"}
+			return nil, nil, &fleetError{path + " is neither a regular file nor a directory"}
 		}
 	}
-	return files, nil
+	return files, directories, nil
+}
+
+// inputDirectory is an input directory of fleet: its path as given and the
+// entry its lstat found, which the output is compared with.
+type inputDirectory struct {
+	path string
+	info fs.FileInfo
 }
 
 // directoryFiles returns the regular files directly in directory, sorted
@@ -286,12 +296,12 @@ func rollup(rows [][]fleetCell) []agentTotal {
 // rows written and the rollup per agent. It stops, writing nothing, once
 // ctx is cancelled, looked at before each input file.
 func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Writer) int {
-	files, err := fleetInputs(options.Inputs)
+	files, directories, err := fleetInputs(options.Inputs)
 	if err != nil {
 		fmt.Fprint(stderr, "error: "+shown(err.Error())+"\n")
 		return ExitError
 	}
-	if message := fleetOutputRefusal(options.Output, options.Inputs, files); message != "" {
+	if message := fleetOutputRefusal(options.Output, directories, files); message != "" {
 		fmt.Fprintln(stderr, usageError("fleet", message))
 		return ExitError
 	}
@@ -328,7 +338,7 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 // "": output is a link (never written through), the same file as an input
 // file, given or found in an input directory, inside an input directory,
 // or where it cannot be told whether it is (insideDirectory).
-func fleetOutputRefusal(output string, inputs, files []string) string {
+func fleetOutputRefusal(output string, directories []inputDirectory, files []string) string {
 	if isLink(output) {
 		return "the output " + output + " is a symbolic link; give its target"
 	}
@@ -337,13 +347,13 @@ func fleetOutputRefusal(output string, inputs, files []string) string {
 			return "the output " + output + " is the input file " + file
 		}
 	}
-	for _, given := range inputs {
-		switch inside, err := insideDirectory(output, given); {
+	for _, directory := range directories {
+		switch inside, err := insideDirectory(output, directory.info); {
 		case err != nil:
-			return "cannot tell whether the output " + output + " is outside the input directory " + given +
-				": " + reason.Describe(output, err)
+			return "cannot tell whether the output " + output + " is outside the input directory " +
+				directory.path + ": " + reason.Describe(output, err)
 		case inside:
-			return "the output " + output + " must be outside the input directory " + given
+			return "the output " + output + " must be outside the input directory " + directory.path
 		}
 	}
 	return ""
