@@ -21,11 +21,14 @@ const inputOptionsHelp = `  --host HOST          host name to record when the in
                        the output writes it, and the value of a URL
                        parameter named as a credential (token, key, sig
                        and the like); and the tokens, keys and reader
-                       errors the parsers identify. One of 8 bytes or more
-                       is replaced everywhere it appears in the output, a
-                       shorter one where it was found: in the string that
-                       holds the URL, or in the rows of the file it came
-                       from
+                       errors the parsers identify. A token, key or URL
+                       credential of 8 bytes or more is replaced
+                       everywhere it appears in the output; a shorter URL
+                       credential only where the URL holds it, and a
+                       shorter token or key only in the text of the rows
+                       of the parse that read it. A reader's error is
+                       replaced only in the text of its parse's rows and
+                       in its problem lines
   --redaction-placeholder TEXT
                        with --no-secrets, replace each secret with TEXT
                        rather than REDACTED; "" leaves nothing in its place

@@ -80,15 +80,9 @@ func bothModes(shown, rows []timeline.Row) []string {
 		broken = append(broken, fmt.Sprintf("the rows differ between the modes:\nshown    %+v\nwithheld %+v",
 			shown, raw))
 	}
-	withoutRecords := func(sessions []timeline.SessionSummary) []timeline.SessionSummary {
-		for i := range sessions {
-			sessions[i].Secrets = nil
-		}
-		return sessions
-	}
 	marks := timeline.MarkAgents{}
-	if left, right := withoutRecords(timeline.Summarise(shown, marks)),
-		withoutRecords(timeline.Summarise(rows, marks)); !reflect.DeepEqual(left, right) {
+	if left, right := timeline.Summarise(shown, marks), timeline.Summarise(rows, marks); !reflect.DeepEqual(left,
+		right) {
 		broken = append(broken, fmt.Sprintf("the sessions differ between the modes:\nshown    %+v\nwithheld %+v",
 			left, right))
 	}
@@ -96,40 +90,44 @@ func bothModes(shown, rows []timeline.Row) []string {
 }
 
 // written returns what breaks the rule that a written row is its raw row
-// with exactly the parse's recorded secrets and the credentials of URLs
-// replaced (those in the row, and the long ones of every row), holding no
-// long one.
+// with exactly these replaced, found by a plain search: in every string,
+// the credentials of its URLs where they stand and the secrets of
+// secrets.EverywhereLength bytes or more (the parse's values and the URL
+// credentials of every row); in the text alone, the parse's shorter values
+// and its readers' details too. No long secret may remain.
 func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.Row) []string {
-	var broken []string
-	recorded := found.Secrets()
+	var broken, everywhere []string
+	for _, value := range found.Values() {
+		if len(value) >= secrets.EverywhereLength {
+			everywhere = append(everywhere, value)
+		}
+	}
 	for _, row := range rows {
-		for _, field := range []string{row.Text, row.SessionID, row.ProjectPath, row.SourceFile} {
+		for _, field := range row.Strings() {
 			for _, credential := range secrets.URLCredentials(field) {
 				if len(credential) >= secrets.EverywhereLength {
-					recorded = append(recorded, credential)
+					everywhere = append(everywhere, credential)
 				}
 			}
 		}
 	}
-	var everywhere []string
-	for _, secret := range recorded {
-		if len(secret) >= secrets.EverywhereLength {
-			everywhere = append(everywhere, secret)
-		}
-	}
+	inText := slices.Concat(everywhere, found.Values(), found.ReaderDetails())
 	placeholder := recorder.Setting().Placeholder
 	for _, row := range rows {
-		output := row.Withheld(recorder)
-		for i, raw := range []string{row.Text, row.SessionID, row.ProjectPath, row.SourceFile} {
-			got := []string{output.Text, output.SessionID, output.ProjectPath, output.SourceFile}[i]
-			want := replaced(raw, slices.Concat(recorded, secrets.URLCredentials(raw)), placeholder)
-			if placeholder != "" && got != want {
-				broken = append(broken, fmt.Sprintf("%q is written %q, want %q (recorded %q)", raw, got, want,
-					recorded))
+		raw, output := row.Strings(), row.Withheld(recorder).Strings()
+		for i, field := range raw {
+			searched := everywhere
+			if i == len(raw)-1 {
+				searched = inText
+			}
+			want := replaced(field, searched, secrets.URLCredentialRanges(field, false), placeholder)
+			if placeholder != "" && output[i] != want {
+				broken = append(broken, fmt.Sprintf("%q is written %q, want %q (searched %q)", field, output[i], want,
+					searched))
 			}
 			for _, secret := range everywhere {
-				if strings.Contains(got, secret) && !strings.Contains(placeholder, secret) {
-					broken = append(broken, fmt.Sprintf("%q is written %q, which holds %q", raw, got, secret))
+				if strings.Contains(output[i], secret) && !strings.Contains(placeholder, secret) {
+					broken = append(broken, fmt.Sprintf("%q is written %q, which holds %q", field, output[i], secret))
 				}
 			}
 		}
@@ -137,24 +135,28 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 	return broken
 }
 
-// replaced returns text with each of secrets replaced by placeholder, the
-// longest at the leftmost position first, found by comparing each in turn.
-func replaced(text string, secrets []string, placeholder string) string {
-	var out strings.Builder
-	for i := 0; i < len(text); {
-		longest := 0
+// replaced returns text with every occurrence of each of secrets and each
+// of ranges ([start, end) byte ranges) replaced by placeholder, the
+// occurrences found by comparing each secret at each position: ranges that
+// share a byte are one, replaced once, and two that only touch are two.
+func replaced(text string, secrets []string, ranges [][2]int, placeholder string) string {
+	for i := range len(text) {
 		for _, secret := range secrets {
-			if strings.HasPrefix(text[i:], secret) && len(secret) > longest {
-				longest = len(secret)
+			if secret != "" && strings.HasPrefix(text[i:], secret) {
+				ranges = append(ranges, [2]int{i, i + len(secret)})
 			}
 		}
-		if longest == 0 {
-			out.WriteByte(text[i])
-			i++
-			continue
-		}
-		out.WriteString(placeholder)
-		i += longest
 	}
+	slices.SortFunc(ranges, func(left, right [2]int) int { return left[0] - right[0] })
+	var out strings.Builder
+	written, end := 0, -1
+	for _, each := range ranges {
+		if each[0] >= end {
+			out.WriteString(text[written:each[0]] + placeholder)
+		}
+		end = max(end, each[1])
+		written = end
+	}
+	out.WriteString(text[written:])
 	return out.String()
 }

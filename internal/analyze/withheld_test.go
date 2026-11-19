@@ -39,8 +39,9 @@ func fillValue(value reflect.Value, text string) {
 }
 
 func TestEveryStringOfAJSONOutputGoesThroughTheReplacement(t *testing.T) {
+	const secret = "fake-secret-value-0001"
 	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
-	recorder.Value("s3c")
+	recorder.Value(secret)
 	out := output{recorder}
 	tests := []struct {
 		name     string
@@ -53,33 +54,34 @@ func TestEveryStringOfAJSONOutputGoesThroughTheReplacement(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			document := reflect.ValueOf(test.document).Elem()
-			fillValue(document, "s3c")
+			fillValue(document, secret)
 			var written bytes.Buffer
 			if err := writeJSON(&written, out.document(document.Interface())); err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(written.String(), "s3c") || !strings.Contains(written.String(), `"P"`) {
+			if strings.Contains(written.String(), secret) || !strings.Contains(written.String(), `"P"`) {
 				t.Errorf("the secret is written:\n%s", written.String())
 			}
 		})
 	}
 }
 
-func TestEachProjectObjectIsWithheldWithTheRecordsOfItsParses(t *testing.T) {
+func TestAProjectObjectReplacesOnlyTheSecretsThatReachEveryString(t *testing.T) {
 	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
-	found := recorder.Begin()
+	recorder.Begin()
 	recorder.Value("pw1")
+	recorder.Value("fake-secret-value-0001")
 	recorder.End()
 	out := output{recorder}
 	value := projectValueJSON{Agents: map[string]agentTallyJSON{}}
-	entries := projectObjects{{path: "/srv/pw1-a", value: value, secrets: []*secrets.Found{found}},
-		{path: "/srv/pw1-b", value: value}, {path: "/srv/pw1-a", value: value, secrets: []*secrets.Found{found}}}
+	entries := projectObjects{{path: "/srv/fake-secret-value-0001/a", value: value}, {path: "/srv/pw1-b", value: value},
+		{path: "/srv/fake-secret-value-0001/a", value: value}}
 	var written bytes.Buffer
 	if err := writeJSON(&written, out.projects(entries)); err != nil {
 		t.Fatal(err)
 	}
-	want := "{\n  \"/srv/P-a\": {\n"
-	if got := written.String(); !strings.HasPrefix(got, want) || strings.Count(got, `"/srv/P-a"`) != 2 ||
+	want := "{\n  \"/srv/P/a\": {\n"
+	if got := written.String(); !strings.HasPrefix(got, want) || strings.Count(got, `"/srv/P/a"`) != 2 ||
 		!strings.Contains(got, `"/srv/pw1-b"`) {
 		t.Errorf("got\n%s", got)
 	}

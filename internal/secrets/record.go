@@ -8,16 +8,15 @@ import (
 )
 
 // Recorder is one run's record of the secrets identified in it, and the
-// one function that replaces them in the output (Text). A nil Recorder is
-// a run that shows secrets: it records nothing and Text returns the text
-// as written.
+// functions that replace them in the output (Text, RowText, ProblemText).
+// A nil Recorder is a run that shows secrets: it records nothing and each
+// function returns the text as written.
 type Recorder struct {
 	setting Setting
-	// current is the parse running, command what is identified outside
-	// any parse (a command's own reading, such as a repository's remotes),
-	// and everywhere every secret of EverywhereLength bytes or more.
-	current, command, everywhere *Found
-	work                         textset.Counter
+	// current is the record of the parse running, nil between parses, and
+	// everywhere holds every secret replaced in every string.
+	current, everywhere *Found
+	work                textset.Counter
 }
 
 // NewRecorder returns the recorder of a run with setting, nil when the
@@ -26,7 +25,7 @@ func NewRecorder(setting Setting) *Recorder {
 	if !setting.Withhold {
 		return nil
 	}
-	return &Recorder{setting: setting, command: &Found{}, everywhere: &Found{}}
+	return &Recorder{setting: setting, everywhere: &Found{}}
 }
 
 // Setting returns the run's setting, the zero setting for a nil Recorder.
@@ -48,8 +47,7 @@ func (r *Recorder) Begin() *Found {
 	return r.current
 }
 
-// End ends the parse Begin started; what is identified next is the
-// command's own.
+// End ends the parse Begin started.
 func (r *Recorder) End() {
 	if r != nil {
 		r.current = nil
@@ -65,37 +63,41 @@ func (r *Recorder) Current() *Found {
 	return r.current
 }
 
-// Command returns the secrets identified outside any parse, which the
-// command's own output (its summary, inventory.json, detect's report)
-// replaces; nil for a nil Recorder.
-func (r *Recorder) Command() *Found {
-	if r == nil {
-		return nil
-	}
-	return r.command
-}
-
 // Value records a secret value read from the evidence (a token, key,
-// password or cookie). An empty value is no secret.
+// password or cookie). One of EverywhereLength bytes or more is replaced in
+// every string of the output; a shorter one only in the text of the rows
+// of the parse running (RowText), so a one-letter password never touches a
+// timestamp, a host or a session id. Outside a parse a shorter one is
+// replaced nowhere. An empty value is no secret.
 func (r *Recorder) Value(value string) {
-	r.add(form{secret: value})
+	if r == nil || value == "" {
+		return
+	}
+	secret := form{secret: value}
+	if len(value) >= EverywhereLength {
+		r.everywhere.add(secret, everyString)
+		r.current.add(secret, listedOnly)
+		return
+	}
+	r.current.add(secret, rowText)
 }
 
 // Collect reads one string the output will write for the credentials of
 // the URLs in it (identifyURLs says which) and records each of
 // EverywhereLength bytes or more as replaced everywhere. A command collects
 // every string of its output before it writes any, so such a credential is
-// replaced in every string, not only in the one that holds the URL; Text
-// replaces a shorter one where the URL holds it.
+// replaced in every string, not only where the URL holds it; Text replaces
+// a shorter one where the URL holds it only.
 func (r *Recorder) Collect(text string) {
 	if r == nil || !mayHoldURL(text) {
 		return
 	}
 	identifyURLs(text, func(secret credential) {
 		if value := text[secret.start:secret.end]; len(value) >= EverywhereLength {
-			r.everywhere.add(form{secret: value})
+			r.everywhere.add(form{secret: value}, everyString)
 			if secret.after > 0 {
-				r.everywhere.add(form{secret: value, after: text[secret.end : secret.end+secret.after]})
+				r.everywhere.add(form{secret: value, after: text[secret.end : secret.end+secret.after]},
+					everyString)
 			}
 		}
 	}, r.work)
@@ -104,42 +106,25 @@ func (r *Recorder) Collect(text string) {
 // ReaderError records the detail of err, the error a JSON, TOML or XML
 // reader gave for a file that may hold secrets, which can quote the file:
 // the text after the position the reader names ("invalid JSON at line 3,
-// column 9: "), or the whole message of an error of another kind. A TOML
-// document refused for a size or depth limit (tomldoc.Error.IsLimit)
-// quotes nothing from the file and records nothing.
+// column 9: "), or the whole message of an error of another kind. The
+// detail is often the reader's own wording ("unexpected end of JSON
+// input"), so whatever its length it is replaced only in the rows and the
+// problem lines of the parse running, never elsewhere. A TOML document
+// refused for a size or depth limit (tomldoc.Error.IsLimit) quotes nothing
+// from the file and records nothing.
 func (r *Recorder) ReaderError(err error) {
-	if r == nil || err == nil {
-		return
-	}
-	if isLimit(err) {
+	if r == nil || err == nil || isLimit(err) {
 		return
 	}
 	message := err.Error()
 	if !isReaderError(err) {
-		r.add(form{secret: message})
+		r.current.add(form{secret: message}, parseProblem)
 		return
 	}
 	if _, detail, found := strings.Cut(message, ": "); found {
-		r.add(form{secret: detail})
+		r.current.add(form{secret: detail}, parseProblem)
 		// With an empty placeholder the ": " before the detail goes too.
-		r.add(form{before: ": ", secret: detail})
-	}
-}
-
-// add records one form of a secret in the parse running, or the command's
-// record, and in everywhere when the secret is long enough. An empty
-// secret is no secret.
-func (r *Recorder) add(secret form) {
-	if r == nil || secret.secret == "" {
-		return
-	}
-	scope := r.current
-	if scope == nil {
-		scope = r.command
-	}
-	scope.add(secret)
-	if len(secret.secret) >= EverywhereLength {
-		r.everywhere.add(secret)
+		r.current.add(form{before: ": ", secret: detail}, parseProblem)
 	}
 }
 
@@ -162,48 +147,95 @@ func (f form) plain() bool {
 	return f.before == "" && f.after == ""
 }
 
-// Found is what one parse, or a command outside any parse, identified.
-type Found struct {
-	// forms holds each form by the text it matches; all lists the texts in
-	// the order recorded, and local those of the secrets shorter than
-	// EverywhereLength.
-	forms      map[string]form
-	all, local []string
-	// matcher is built over local (over every text for everywhere) when
-	// first needed, and again once more are recorded.
-	matcher      *textset.Set
-	matcherTexts int
+// reach is where the output replaces a recorded text.
+type reach uint8
+
+const (
+	// everyString is every string of the output: a secret of
+	// EverywhereLength bytes or more, recorded in the run's everywhere.
+	everyString reach = iota
+	// rowText is the text of the rows of the parse that recorded it: a
+	// shorter secret value.
+	rowText
+	// parseProblem is the text of the rows and the problem lines of the
+	// parse that recorded it: a reader's detail, whatever its length.
+	parseProblem
+	// listedOnly is a secret the parse recorded that everywhere replaces;
+	// the parse lists it (Secrets) and matches nothing for it.
+	listedOnly
+	reaches
+)
+
+// placed is a recorded text and where it is replaced.
+type placed struct {
+	text  string
+	where reach
 }
 
-// add records one form; of a text recorded both plain and with a part, the
-// plain form is kept, since it withholds more.
-func (f *Found) add(secret form) {
-	text := secret.text()
-	if f.forms == nil {
-		f.forms = map[string]form{}
+// Found is what one parse identified, or, for the run's everywhere, the
+// secrets replaced in every string.
+type Found struct {
+	// forms holds each form by the text it matches and where; texts lists
+	// the texts of each reach in the order recorded.
+	forms map[placed]form
+	texts [reaches][]string
+	// matchers holds the matcher of each reach's texts, built when first
+	// needed and again once more are recorded (matched counts them).
+	matchers [reaches]*textset.Set
+	matched  [reaches]int
+}
+
+// add records one form replaced in where; of a text recorded both plain
+// and with a part, the plain form is kept, since it withholds more. A nil
+// Found (no parse running) records nothing.
+func (f *Found) add(secret form, where reach) {
+	if f == nil {
+		return
 	}
-	if earlier, ok := f.forms[text]; ok {
+	key := placed{secret.text(), where}
+	if f.forms == nil {
+		f.forms = map[placed]form{}
+	}
+	if earlier, ok := f.forms[key]; ok {
 		if !earlier.plain() {
-			f.forms[text] = secret
+			f.forms[key] = secret
 		}
 		return
 	}
-	f.forms[text] = secret
-	f.all = append(f.all, text)
-	if len(secret.secret) < EverywhereLength {
-		f.local = append(f.local, text)
-	}
+	f.forms[key] = secret
+	f.texts[where] = append(f.texts[where], key.text)
 }
 
 // Secrets returns the distinct secrets recorded, sorted; nil for a nil
 // Found.
 func (f *Found) Secrets() []string {
+	return f.secretsIn(func(reach) bool { return true })
+}
+
+// Values returns the distinct secret values recorded (Value), sorted; nil
+// for a nil Found.
+func (f *Found) Values() []string {
+	return f.secretsIn(func(where reach) bool { return where == rowText || where == listedOnly })
+}
+
+// ReaderDetails returns the distinct readers' details recorded, sorted,
+// which the output replaces in the parse's rows and problem lines whatever
+// their length; nil for a nil Found.
+func (f *Found) ReaderDetails() []string {
+	return f.secretsIn(func(where reach) bool { return where == parseProblem })
+}
+
+// secretsIn returns the distinct secrets of the forms recorded in a reach
+// that holds, sorted; nil for a nil Found.
+func (f *Found) secretsIn(holds func(reach) bool) []string {
 	if f == nil {
 		return nil
 	}
 	unique := map[string]bool{}
-	for _, each := range f.forms {
-		unique[each.secret] = true
+	for key, each := range f.forms {
+		if holds(key.where) {
+			unique[each.secret] = true
+		}
 	}
 	secrets := make([]string, 0, len(unique))
 	for secret := range unique {

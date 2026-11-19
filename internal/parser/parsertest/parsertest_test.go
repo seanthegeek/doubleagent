@@ -73,7 +73,7 @@ func TestTheWrittenRowIsCheckedAgainstAPlainSearch(t *testing.T) {
 	if broken := written(recorder, found, rows); broken != nil {
 		t.Errorf("broken %q", broken)
 	}
-	if got := replaced("user:password password", found.Secrets(), "P"); got != "P P" {
+	if got := replaced("user:password password", found.Secrets(), nil, "P"); got != "P P" {
 		t.Errorf("the plain search gave %q", got)
 	}
 	unrecorded := []timeline.Row{{Text: "sk-FIXTURE-LONG", Secrets: &secrets.Found{}}}

@@ -1,37 +1,65 @@
 package secrets
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/textset"
 )
 
-// Text returns text, one string the output writes, as the run shows it: as
-// written, or with the credentials of the URLs in it, the secrets of scopes
-// (the parses whose rows it comes from, or the command's record) and every
+// Text returns text, one string the output writes that is neither the
+// text of a row nor a problem line (a field of a row or a session, a key or
+// value of inventory.json, a line of a summary or an error), as the run
+// shows it: as written, or with the credentials of the URLs in it and every
 // secret of EverywhereLength bytes or more replaced by the placeholder.
-// Secrets that overlap are one replaced range (replaceRanges), so a secret
-// inside a longer one (a password inside user:password) goes with it. The output is
+func (r *Recorder) Text(text string) string {
+	return r.replace(text, nil)
+}
+
+// RowText returns text, the text of a row of the parse whose record is
+// parse, as the run shows it: as Text does, and with the parse's shorter
+// secret values and its readers' details replaced too.
+func (r *Recorder) RowText(text string, parse *Found) string {
+	return r.replace(text, parse, rowText, parseProblem)
+}
+
+// ProblemText returns text, a problem line of the parse whose record is
+// parse (nil for a line of no parse), as the run shows it: as Text does,
+// and with the parse's readers' details replaced too.
+func (r *Recorder) ProblemText(text string, parse *Found) string {
+	return r.replace(text, parse, parseProblem)
+}
+
+// replace returns text with the credentials of its URLs, the secrets of
+// everywhere and those parse recorded in each of reaches replaced. Secrets
+// that overlap are one replaced range (replaceRanges), so a secret inside a
+// longer one (a password inside user:password) goes with it. The output is
 // built from the original and the placeholder, never read again. The cost
-// is the text's length once per scope and once for everywhere, after each
-// record's matcher is built once.
-func (r *Recorder) Text(text string, scopes ...*Found) string {
+// is the text's length once for the URLs and once per record that holds a
+// text to replace, after each record's matcher is built once.
+func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	if r == nil || text == "" {
 		return text
 	}
-	sources := r.sources(scopes)
+	emptyPlaceholder := r.setting.Placeholder == ""
+	var matchers []*textset.Set
+	if len(r.everywhere.texts[everyString]) > 0 {
+		matchers = append(matchers, r.everywhere.matcherOf(everyString, emptyPlaceholder, r.work))
+	}
+	for _, where := range reaches {
+		if parse != nil && len(parse.texts[where]) > 0 {
+			matchers = append(matchers, parse.matcherOf(where, emptyPlaceholder, r.work))
+		}
+	}
 	var inText []credential
 	if mayHoldURL(text) {
 		identifyURLs(text, func(secret credential) { inText = append(inText, secret) }, r.work)
 	}
-	if len(sources) == 0 && len(inText) == 0 {
+	if len(matchers) == 0 && len(inText) == 0 {
 		return text
 	}
-	emptyPlaceholder := r.setting.Placeholder == ""
 	longest := make([]int, len(text))
-	for _, source := range sources {
-		source.matcherOf(source == r.everywhere, emptyPlaceholder, r.work).Longest(text, longest)
+	for _, matcher := range matchers {
+		matcher.Longest(text, longest)
 	}
 	// The credentials of a URL are replaced where the URL holds them,
 	// whatever their length, by their byte range: the same letters
@@ -70,37 +98,19 @@ func replaceRanges(text string, longest []int, placeholder string) string {
 	return out.String()
 }
 
-// sources returns everywhere and the distinct scopes that hold a secret
-// they would replace, or none when no record holds one.
-func (r *Recorder) sources(scopes []*Found) []*Found {
-	var sources []*Found
-	if len(r.everywhere.all) > 0 {
-		sources = append(sources, r.everywhere)
-	}
-	for _, scope := range scopes {
-		if scope != nil && len(scope.local) > 0 && !slices.Contains(sources, scope) {
-			sources = append(sources, scope)
-		}
-	}
-	return sources
-}
-
-// matcherOf returns the matcher of the record's texts (every text for
-// everywhere, else those of short secrets; the forms with a part only for an
-// empty placeholder), building it again only when texts were recorded since.
-func (f *Found) matcherOf(everywhere, withParts bool, work textset.Counter) *textset.Set {
-	texts := f.local
-	if everywhere {
-		texts = f.all
-	}
-	if f.matcher == nil || f.matcherTexts != len(texts) {
+// matcherOf returns the matcher of the record's texts replaced in where
+// (the forms with a part only for an empty placeholder), building it again
+// only when texts were recorded since.
+func (f *Found) matcherOf(where reach, withParts bool, work textset.Counter) *textset.Set {
+	texts := f.texts[where]
+	if f.matchers[where] == nil || f.matched[where] != len(texts) {
 		var matched []string
 		for _, text := range texts {
-			if withParts || f.forms[text].plain() {
+			if withParts || f.forms[placed{text, where}].plain() {
 				matched = append(matched, text)
 			}
 		}
-		f.matcher, f.matcherTexts = textset.NewBackward(matched, work), len(texts)
+		f.matchers[where], f.matched[where] = textset.NewBackward(matched, work), len(texts)
 	}
-	return f.matcher
+	return f.matchers[where]
 }

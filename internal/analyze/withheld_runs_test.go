@@ -152,3 +152,38 @@ func TestAWithheldRunWritesNoIdentifiedSecretAndCountsAsTheDefaultRunDoes(t *tes
 		})
 	}
 }
+
+func TestAReadersDetailIsReplacedOnlyInItsOwnParse(t *testing.T) {
+	const phrase = "unexpected end of JSON input"
+	transcript := `{"type":"user","sessionId":"s1","uuid":"u1","timestamp":"2026-10-01T00:00:00Z",` +
+		`"cwd":"/srv/proj","message":{"role":"user","content":"we saw ` + phrase + ` again"}}` + "\n"
+	files := []collectedFile{
+		{"alice", "/home/alice", "crush", ".config/crush/crush.json",
+			`{"providers": {"openai": {"api_key": "fake-secret-value-0001"`},
+		{"alice", "/home/alice", "claude-code",
+			".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl", transcript}}
+	withheld := outputsOf(t, files, "--no-secrets")
+	if !strings.Contains(withheld.rows, "we saw "+phrase+" again") {
+		t.Errorf("another parse's row lost the reader's wording:\n%s", withheld.rows)
+	}
+	for _, line := range strings.Split(withheld.rows, "\n") {
+		if strings.Contains(line, `"agent":"crush"`) && strings.Contains(line, phrase) {
+			t.Errorf("the reader's detail stands in its own parse's row: %s", line)
+		}
+	}
+}
+
+func TestAShortKeyIsReplacedOnlyInTheTextOfItsParsesRows(t *testing.T) {
+	files := []collectedFile{{"alice", "/home/alice", "crush", ".config/crush/crush.json",
+		`{"providers": {"openai": {"api_key": "1"}}}`}}
+	withheld := outputsOf(t, files, "--no-secrets")
+	// The time, the host (h1) and every other field keep their 1s: the
+	// one placeholder is the key's, in the text.
+	if !strings.Contains(withheld.rows, `"host":"h1"`) || strings.Count(withheld.rows, "REDACTED") != 1 ||
+		!strings.Contains(withheld.rows, "api_key=REDACTED") {
+		t.Errorf("the withheld run wrote\n%s", withheld.rows)
+	}
+	if strings.Contains(withheld.sessions+withheld.inventory, "REDACTED") {
+		t.Errorf("the key is replaced outside the rows' text:\n%s\n%s", withheld.sessions, withheld.inventory)
+	}
+}

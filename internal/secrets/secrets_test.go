@@ -21,14 +21,14 @@ func withheld() Setting {
 }
 
 // identified runs identify as one parse of a run with setting and returns
-// text as the output writes it in a row of that parse, and the secrets the
-// parse recorded.
+// text as the output writes it as the text of a row of that parse, and the
+// secrets the parse recorded.
 func identified(setting Setting, text string, identify func(recorder *Recorder)) (string, []string) {
 	recorder := NewRecorder(setting)
 	found := recorder.Begin()
 	identify(recorder)
 	recorder.End()
-	return recorder.Text(text, found), found.Secrets()
+	return recorder.RowText(text, found), found.Secrets()
 }
 
 // urlText returns text as the output writes it with setting, and the
@@ -218,31 +218,35 @@ func TestTheLongestSecretAtAPositionIsReplacedWhole(t *testing.T) {
 	}
 }
 
-func TestAShortSecretIsReplacedInItsParseAndALongOneEverywhere(t *testing.T) {
+func TestEachKindOfSecretIsReplacedOnlyWhereItReaches(t *testing.T) {
 	recorder := NewRecorder(withheld())
 	first := recorder.Begin()
 	recorder.Value("pw1")
-	recorder.Value("sk-FIXTURE-long")
+	recorder.Value("fake-secret-value-0001")
+	recorder.ReaderError(errors.New("unexpected end of JSON input"))
 	recorder.End()
 	second := recorder.Begin()
 	recorder.End()
-	recorder.Value("ci:git5")
-	const text = "pw1 sk-FIXTURE-long ci:git5"
+	recorder.Value("pw2")
+	const text = "pw1 fake-secret-value-0001 unexpected end of JSON input pw2"
 	tests := []struct {
-		name   string
-		scopes []*Found
-		want   string
+		name, got, want string
 	}{
-		{"in a row of the parse that found them", []*Found{first}, "REDACTED REDACTED ci:git5"},
-		{"in a row of another parse", []*Found{second}, "pw1 REDACTED ci:git5"},
-		{"in the command's own output", []*Found{recorder.Command()}, "pw1 REDACTED REDACTED"},
-		{"in a session of both parses", []*Found{first, second, first}, "REDACTED REDACTED ci:git5"},
-		{"with no scope", nil, "pw1 REDACTED ci:git5"},
+		{"the text of a row of the parse that found them", recorder.RowText(text, first),
+			"REDACTED REDACTED REDACTED pw2"},
+		{"a problem line of that parse", recorder.ProblemText(text, first), "pw1 REDACTED REDACTED pw2"},
+		{"the text of a row of another parse", recorder.RowText(text, second),
+			"pw1 REDACTED unexpected end of JSON input pw2"},
+		{"a problem line of another parse", recorder.ProblemText(text, second),
+			"pw1 REDACTED unexpected end of JSON input pw2"},
+		{"any other string", recorder.Text(text), "pw1 REDACTED unexpected end of JSON input pw2"},
+		{"the text of a row of no parse", recorder.RowText(text, nil),
+			"pw1 REDACTED unexpected end of JSON input pw2"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := recorder.Text(text, test.scopes...); got != test.want {
-				t.Errorf("got %q, want %q", got, test.want)
+			if test.got != test.want {
+				t.Errorf("got %q, want %q", test.got, test.want)
 			}
 		})
 	}
@@ -258,8 +262,11 @@ func TestARunThatShowsSecretsRecordsNothing(t *testing.T) {
 	recorder.Collect("https://ci:FIXTURE-PW@h/")
 	recorder.ReaderError(errors.New("x"))
 	recorder.End()
-	if got := recorder.Text("sk-FIXTURE", found, recorder.Command()); got != "sk-FIXTURE" || found.Secrets() != nil {
-		t.Errorf("got %q, recorded %q", got, found.Secrets())
+	for _, got := range []string{recorder.Text("sk-FIXTURE"), recorder.RowText("sk-FIXTURE", found),
+		recorder.ProblemText("sk-FIXTURE", found)} {
+		if got != "sk-FIXTURE" || found.Secrets() != nil {
+			t.Errorf("got %q, recorded %q", got, found.Secrets())
+		}
 	}
 	if recorder.Setting() != (Setting{}) {
 		t.Errorf("setting %+v", recorder.Setting())
@@ -368,7 +375,7 @@ func outputWork(rows int) int {
 		recorder.Collect(text)
 	}
 	for _, text := range output {
-		recorder.Text(text, found)
+		recorder.RowText(text, found)
 	}
 	return work["bytes read"] + work["bytes searched"]
 }
@@ -407,7 +414,7 @@ func replaceWork(n int) (int, int, int) {
 		text.WriteString(long + " " + short + " plain text between them ")
 	}
 	recorder.End()
-	got := recorder.Text(text.String(), found)
+	got := recorder.RowText(text.String(), found)
 	return len(text.String()), work["bytes searched"], strings.Count(got, DefaultPlaceholder)
 }
 
@@ -470,7 +477,7 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 		// The output also withholds the credentials of the text's URLs where
 		// they stand.
 		ranges := URLCredentialRanges(text, placeholder == "")
-		if got, want := recorder.Text(text, found), reference(text, secrets, ranges, placeholder); got != want {
+		if got, want := recorder.RowText(text, found), reference(text, secrets, ranges, placeholder); got != want {
 			t.Errorf("%q with %q as %q: got %q, want %q", text, secrets, placeholder, got, want)
 		}
 	})

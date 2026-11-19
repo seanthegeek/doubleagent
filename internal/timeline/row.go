@@ -67,8 +67,8 @@ type Row struct {
 	// deduplication, so the primary store does not hold the event.
 	Recovered string `json:"recovered"`
 	// Secrets is what the parse that gave the row identified, which the
-	// output replaces in it (Withheld); nil in a run that shows secrets. It
-	// is no column.
+	// output replaces in its text (Withheld); nil in a run that shows
+	// secrets. It is no column.
 	Secrets *secrets.Found `json:"-"`
 }
 

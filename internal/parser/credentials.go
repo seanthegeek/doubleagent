@@ -17,7 +17,9 @@ import (
 // never writes the placeholder and never hides a value by its own wording.
 
 // SecretText returns a secret value read from the evidence (a token, an
-// API key, a password, a cookie) as written, and records it. An empty
+// API key, a password, a cookie) as written, and records it: one of
+// secrets.EverywhereLength bytes or more is replaced in every string of the
+// output, a shorter one only in the text of this parse's rows. An empty
 // value is no secret.
 func SecretText(artifact *input.Artifact, value string) string {
 	recorderOf(artifact).Value(value)
@@ -27,7 +29,8 @@ func SecretText(artifact *input.Artifact, value string) string {
 // ReaderErrorText returns the message of a JSON, TOML or XML reader's error
 // for a file that holds secrets in full, and records the reader's detail,
 // which can quote the file, so the output keeps where the reader stopped
-// ("invalid JSON at line 3, column 9") and replaces the rest. A TOML
+// ("invalid JSON at line 3, column 9") and replaces the rest in the text of
+// this parse's rows and in its problem lines, nowhere else. A TOML
 // document refused for a size or depth limit quotes nothing and records
 // nothing.
 func ReaderErrorText(artifact *input.Artifact, err error) string {
