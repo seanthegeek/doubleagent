@@ -185,6 +185,13 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 	peerC := recordLine("2026-01-01T00:00:00.301Z", "u", "user", "again", "/r/c.jsonl", 3)
 	peerD := recordLine("2026-01-01T00:00:00.301Z", "u", "user", "again", "/r/d.jsonl", 3)
 	late := recordLine("2026-01-01T09:00:00.000Z", "u", "user", "later", "/r/a.jsonl", 4)
+	// A settings file that gives several rows at its line 0, each at the
+	// file's modification time.
+	settings := func(text string) string {
+		return recordLine("2026-01-01T00:00:00.301Z", "u", "system", text, "/r/b.json", 0)
+	}
+	first, second, third := settings("settings one"), settings("settings two"), settings("settings three")
+	cut := func(line string) string { return strings.Replace(line, ".301Z", ".300Z", 1) }
 	recorded := []string{record, recordedFile, after}
 	tests := []struct {
 		name      string
@@ -222,6 +229,19 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 			[]string{record, after, binaryFile}, modified, false},
 		{"the file's row moved past a row hours later fails", []string{record, recordedFile, after, late},
 			[]string{record, after, late, binaryFile}, modified, false},
+		{"two rows of one file and line moved together pass", []string{laterFile, first, second, late},
+			[]string{cut(first), cut(second), laterFile, late}, modified, true},
+		{"two rows of one file and line moved together and swapped fail", []string{laterFile, first, second, late},
+			[]string{cut(second), cut(first), laterFile, late}, modified, false},
+		{"two rows of one file and line swapped past another row fail", []string{laterFile, peer, first, second, late},
+			[]string{cut(second), cut(first), laterFile, peer, late}, modified, false},
+		{"three rows of one file and line moved together pass", []string{laterFile, first, second, third, late},
+			[]string{cut(first), cut(second), cut(third), laterFile, late}, modified, true},
+		{"three rows of one file and line moved together, the last two swapped, fail",
+			[]string{laterFile, first, second, third, late},
+			[]string{cut(first), cut(third), cut(second), laterFile, late}, modified, false},
+		{"one of two rows of one file and line moved, the other left behind, fails",
+			[]string{laterFile, first, second, late}, []string{cut(first), laterFile, cut(second), late}, modified, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -240,18 +260,23 @@ func TestAMovedRowPassesOnlyRowsThatSortAfterItTowardsTheStart(t *testing.T) {
 		name          string
 		got           []string
 		moved, target int
+		taken         map[int]bool
 		want          bool
 	}{
-		{"towards the start past a row that sorts after it", []string{cutRow, after}, 0, 1, true},
-		{"towards the start past a row that sorts before it", []string{cutRow, before}, 0, 1, false},
-		{"towards the start past a row that sorts the same", []string{cutRow, cutRow}, 0, 1, false},
-		{"towards the end", []string{before, cutRow}, 1, 0, false},
-		{"in its own place", []string{cutRow}, 0, 0, false},
-		{"to a place past the end", []string{cutRow, after}, 0, 2, false},
+		{"towards the start past a row that sorts after it", []string{cutRow, after}, 0, 1, nil, true},
+		{"towards the start past a row that sorts before it", []string{cutRow, before}, 0, 1, nil, false},
+		{"towards the start past a row that sorts the same", []string{cutRow, cutRow}, 0, 1, nil, false},
+		{"towards the start past a row that sorts the same and moved too", []string{cutRow, cutRow, after}, 0, 2,
+			map[int]bool{1: true}, true},
+		{"a moved row does not excuse another it passed", []string{cutRow, cutRow, before}, 0, 2,
+			map[int]bool{1: true}, false},
+		{"towards the end", []string{before, cutRow}, 1, 0, nil, false},
+		{"in its own place", []string{cutRow}, 0, 0, nil, false},
+		{"to a place past the end", []string{cutRow, after}, 0, 2, nil, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := movedEarlier(test.got, test.moved, test.target); got != test.want {
+			if got := movedEarlier(test.got, test.moved, test.target, test.taken); got != test.want {
 				t.Errorf("got %v, want %v", got, test.want)
 			}
 		})
