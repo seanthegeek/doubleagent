@@ -86,14 +86,17 @@ func (r *Recorder) Value(value string) {
 // EverywhereLength bytes or more as replaced everywhere. A command collects
 // every string of its output before it writes any, so such a credential is
 // replaced in every string, not only in the one that holds the URL; Text
-// replaces a shorter one in the string where it stands.
+// replaces a shorter one where the URL holds it.
 func (r *Recorder) Collect(text string) {
 	if r == nil || !mayHoldURL(text) {
 		return
 	}
-	identifyURLs(text, func(secret form) {
-		if len(secret.secret) >= EverywhereLength {
-			r.everywhere.add(secret)
+	identifyURLs(text, func(secret credential) {
+		if value := text[secret.start:secret.end]; len(value) >= EverywhereLength {
+			r.everywhere.add(form{secret: value})
+			if secret.after > 0 {
+				r.everywhere.add(form{secret: value, after: text[secret.end : secret.end+secret.after]})
+			}
 		}
 	}, r.work)
 }

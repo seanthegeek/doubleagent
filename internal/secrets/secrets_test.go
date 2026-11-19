@@ -106,6 +106,14 @@ func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
 		{"a query outside a URL is kept", "a?token=b", "a?token=b"},
 		{"punctuation after a URL is not part of it", "POST https://h/t?key=k1: failed, see https://u:pw9@h/.",
 			"POST https://h/t?key=REDACTED: failed, see https://REDACTED@h/."},
+		{"a short parameter value is replaced only where the URL holds it",
+			`{"cmd":"curl https://h/x?auth=true","enabled":true,"note":"true story"}`,
+			`{"cmd":"curl https://h/x?auth=REDACTED","enabled":true,"note":"true story"}`},
+		{"a short code is kept elsewhere in the string", "https://h/?code=1 and 1+1=2",
+			"https://h/?code=REDACTED and 1+1=2"},
+		{"a short password is kept elsewhere in the string", "https://pw:pw@h/ pw", "https://REDACTED@h/ pw"},
+		{"user information that is only a colon is none", "see https://:@host/ at 10:30: done",
+			"see https://:@host/ at 10:30: done"},
 		{"a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
 		{"empty text is unchanged", "", ""},
 	}
@@ -417,28 +425,29 @@ func TestReplacingReadsTheTextOncePerRecordWhateverTheNumberOfSecrets(t *testing
 	}
 }
 
-// reference returns text with every occurrence of each of secrets
-// replaced, found by comparing each secret at each position: occurrences
-// that share a byte are one range, replaced by one placeholder, and two
-// that only touch are two.
-func reference(text string, secrets []string, placeholder string) string {
-	var out strings.Builder
-	written, end := 0, -1
+// reference returns text with every occurrence of each of secrets and
+// each of ranges ([start, end) byte ranges) replaced, the occurrences found
+// by comparing each secret at each position: ranges that share a byte are
+// one, replaced by one placeholder, and two that only touch are two.
+func reference(text string, secrets []string, ranges [][2]int, placeholder string) string {
 	for i := range len(text) {
 		for _, secret := range secrets {
-			if secret == "" || !strings.HasPrefix(text[i:], secret) {
-				continue
+			if secret != "" && strings.HasPrefix(text[i:], secret) {
+				ranges = append(ranges, [2]int{i, i + len(secret)})
 			}
-			if i >= end {
-				out.WriteString(text[written:i] + placeholder)
-			}
-			end = max(end, i+len(secret))
-			written = end
 		}
 	}
-	if written < len(text) {
-		out.WriteString(text[written:])
+	slices.SortFunc(ranges, func(left, right [2]int) int { return left[0] - right[0] })
+	var out strings.Builder
+	written, end := 0, -1
+	for _, each := range ranges {
+		if each[0] >= end {
+			out.WriteString(text[written:each[0]] + placeholder)
+		}
+		end = max(end, each[1])
+		written = end
 	}
+	out.WriteString(text[written:])
 	return out.String()
 }
 
@@ -458,15 +467,10 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 			recorder.Value(secret)
 		}
 		recorder.End()
-		// The output also withholds the credentials of the text's URLs; with
-		// an empty placeholder the at sign after user information goes with
-		// it, which the plain reference does not model.
-		credentials := URLCredentials(text)
-		if placeholder == "" && len(credentials) > 0 {
-			return
-		}
-		if got, want := recorder.Text(text, found), reference(text, slices.Concat(secrets, credentials),
-			placeholder); got != want {
+		// The output also withholds the credentials of the text's URLs where
+		// they stand.
+		ranges := URLCredentialRanges(text, placeholder == "")
+		if got, want := recorder.Text(text, found), reference(text, secrets, ranges, placeholder); got != want {
 			t.Errorf("%q with %q as %q: got %q, want %q", text, secrets, placeholder, got, want)
 		}
 	})
@@ -475,8 +479,9 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 // FuzzURLsWithholdsBothSecrets holds that for
 // scheme://user:SECRET@host/path?token=SECRET2#fragment exactly the user
 // information, the password and SECRET2 are recorded and the output is the
-// URL with them replaced, and that with withholding off nothing is
-// recorded. SECRET holds no byte that ends an authority (/, ?, #, a
+// URL with the user information and SECRET2 replaced where they stand, the
+// same bytes elsewhere in the URL kept, and that with withholding off
+// nothing is recorded. SECRET holds no byte that ends an authority (/, ?, #, a
 // backslash) and SECRET2 none that ends a parameter (&, ;, #, a backslash)
 // and no "://", which starts another URL; neither holds a delimiter.
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
@@ -498,14 +503,14 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
 		}
 		want := []string{"user:" + secret, secret, secret2}
+		slices.Sort(want)
 		for _, placeholder := range []string{DefaultPlaceholder, ""} {
 			got, recorded := urlText(Setting{Withhold: true, Placeholder: placeholder}, text)
-			expected := reference(text, append(slices.Clone(want), "user:"+secret+"@"), "\x00")
-			expected = strings.ReplaceAll(expected, "\x00", placeholder)
-			if placeholder != "" {
-				expected = reference(text, want, placeholder)
+			userInfo := placeholder + "@"
+			if placeholder == "" {
+				userInfo = ""
 			}
-			slices.Sort(want)
+			expected := scheme + "://" + userInfo + host + "/" + path + "?token=" + placeholder + "#" + fragment
 			if got != expected || !slices.Equal(recorded, slices.Compact(slices.Clone(want))) {
 				t.Errorf("withheld with %q: %q gave %q and recorded %q, want %q and %q", placeholder, text, got,
 					recorded, expected, want)

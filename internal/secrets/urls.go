@@ -7,6 +7,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textset"
 )
 
+// credential is one credential a URL holds in a text: the bytes
+// text[start:end], and after, the number of bytes that follow it which an
+// empty placeholder takes away with it (the @ after user information).
+type credential struct {
+	start, end, after int
+}
+
 // identifyURLs adds to found the credentials of every scheme://authority URL
 // in text, read by RFC 3986: a scheme is a letter then letters, digits, +,
 // - and . (section 3.1); the authority follows "//" and ends at the next /,
@@ -17,13 +24,13 @@ import (
 // user name (git@, ci@) stays and a token in its place goes. The value of
 // each query or fragment parameter credentialParameters names is one too
 // (parameters). Credentials written without a scheme are not identified.
-func identifyURLs(text string, found func(form), work textset.Counter) {
+func identifyURLs(text string, found func(credential), work textset.Counter) {
 	for start := 0; start < len(text); {
 		end := start
 		for end < len(text) && !isDelimiter(text[end]) {
 			end++
 		}
-		identifyToken(text[start:end], found, work)
+		identifyToken(text[start:end], start, found, work)
 		for start = end; start < len(text) && isDelimiter(text[start]); start++ {
 		}
 	}
@@ -41,12 +48,34 @@ func mayHoldURL(text string) bool {
 // against them.
 func URLCredentials(text string) []string {
 	var found []string
-	identifyURLs(text, func(secret form) {
-		if !slices.Contains(found, secret.secret) {
-			found = append(found, secret.secret)
+	identifyURLs(text, func(secret credential) {
+		if value := text[secret.start:secret.end]; !slices.Contains(found, value) {
+			found = append(found, value)
 		}
 	}, nil)
 	return found
+}
+
+// URLCredentialRanges returns the byte ranges, [start, end), that the
+// output replaces in text for the credentials of its URLs, in the order
+// found, for a test that checks the output against them; with an empty
+// placeholder the range of user information takes its @.
+func URLCredentialRanges(text string, emptyPlaceholder bool) [][2]int {
+	var ranges [][2]int
+	identifyURLs(text, func(secret credential) {
+		ranges = append(ranges, [2]int{secret.start, secret.replacedEnd(emptyPlaceholder)})
+	}, nil)
+	return ranges
+}
+
+// replacedEnd returns where the bytes the output replaces for the
+// credential end: after the bytes an empty placeholder takes with it, or
+// at the credential's end.
+func (c credential) replacedEnd(emptyPlaceholder bool) int {
+	if emptyPlaceholder {
+		return c.end + c.after
+	}
+	return c.end
 }
 
 // isDelimiter reports whether a byte ends a URL inside longer text: white
@@ -67,7 +96,7 @@ func count(work textset.Counter, n int) {
 // delimiters. A URL ends where the next one's scheme begins, so each byte
 // belongs to one URL and the token is read a fixed number of times. The
 // separator "://" may also be written with JSON's escaped slashes (:\/\/).
-func identifyToken(token string, found func(form), work textset.Counter) {
+func identifyToken(token string, offset int, found func(credential), work textset.Counter) {
 	// Punctuation that ends a run of text ends a URL there (RFC 3986
 	// appendix C warns of punctuation mistaken for part of a URI), so in
 	// "POST https://h/x?key=k: failed" the key's value is k.
@@ -92,7 +121,7 @@ func identifyToken(token string, found func(form), work textset.Counter) {
 		if k+1 < len(starts) {
 			end = starts[k+1][0]
 		}
-		identifyURL(token[start[1]:end], found, work)
+		identifyURL(token[start[1]:end], offset+start[1], found, work)
 	}
 	count(work, len(token))
 }
@@ -138,10 +167,12 @@ func isLetter(char byte) bool {
 	return 'a' <= char && char <= 'z' || 'A' <= char && char <= 'Z'
 }
 
-// identifyURL adds the credentials of one URL from after its separator: its
-// user information and its credential parameters. A backslash, which no
-// URL holds, ends the authority too, so an escaped slash does.
-func identifyURL(rest string, found func(form), work textset.Counter) {
+// identifyURL adds the credentials of one URL from after its separator,
+// which stands at byte offset of the text: its user information and its
+// credential parameters. A backslash, which no URL holds, ends the
+// authority too, so an escaped slash does. User information that is only
+// a colon names no user and no password and is none.
+func identifyURL(rest string, offset int, found func(credential), work textset.Counter) {
 	end := strings.IndexAny(rest, `/?#\`)
 	if end < 0 {
 		end = len(rest)
@@ -151,17 +182,16 @@ func identifyURL(rest string, found func(form), work textset.Counter) {
 	if atSign := strings.LastIndexByte(authority, '@'); atSign > 0 {
 		userInfo := authority[:atSign]
 		colon := strings.IndexByte(userInfo, ':')
-		if colon >= 0 || len(userInfo) >= EverywhereLength {
-			found(form{secret: userInfo})
+		if userInfo != ":" && (colon >= 0 || len(userInfo) >= EverywhereLength) {
 			// With an empty placeholder the @ goes with the user
 			// information, so https://u:p@host becomes https://host.
-			found(form{secret: userInfo, after: "@"})
+			found(credential{start: offset, end: offset + atSign, after: 1})
 		}
-		if colon >= 0 {
-			found(form{secret: userInfo[colon+1:]})
+		if colon >= 0 && colon+1 < atSign {
+			found(credential{start: offset + colon + 1, end: offset + atSign})
 		}
 	}
-	parameters(rest[end:], found, work)
+	parameters(rest[end:], offset+end, found, work)
 }
 
 // parameters adds the value of each credential parameter of the query and
@@ -170,7 +200,7 @@ func identifyURL(rest string, found func(form), work textset.Counter) {
 // parameters split at & and ;, a name before the first = and its value
 // after. A value is a secret when the name, its percent-escapes decoded,
 // is one credentialParameters names; an empty value is none.
-func parameters(text string, found func(form), work textset.Counter) {
+func parameters(text string, offset int, found func(credential), work textset.Counter) {
 	start := strings.IndexAny(text, "?#")
 	count(work, len(text))
 	if start < 0 {
@@ -184,7 +214,7 @@ func parameters(text string, found func(form), work textset.Counter) {
 		}
 		name, value, assigned := strings.Cut(text[i:end], "=")
 		if assigned && value != "" && isCredentialParameter(decodedName(name)) {
-			found(form{secret: value})
+			found(credential{start: offset + end - len(value), end: offset + end})
 		}
 		if end < len(text) && text[end] == '#' {
 			fragment = true
