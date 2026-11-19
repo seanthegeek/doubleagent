@@ -10,7 +10,9 @@
 //     local time with an offset.
 //   - .ollama/history, the `ollama run` REPL's line history, one entry per
 //     line with no time, session or model, a line starting with / a
-//     "slash command:" row; a line that is not UTF-8 is a bad line.
+//     "slash command:" row; a line that is not UTF-8 is a bad line. The
+//     file keeps only the last 100 entries and splits a pasted multi-line
+//     prompt across lines, one entry per line.
 //   - .ollama/config.json (integrations.<name>.automode) and the Claude
 //     Desktop third-party profile Ollama's launcher writes
 //     (autoModeEnabled), as "permission setting:" rows at the file's mtime.
