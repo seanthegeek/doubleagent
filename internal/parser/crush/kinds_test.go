@@ -3,6 +3,7 @@ package crush
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -52,6 +53,45 @@ func TestAProjectsMemberThatIsNotAnArrayIsReported(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := parseProjectsFile(t, test.document); !slices.Equal(got, test.want) {
 				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestACrushJSONMemberOfTheWrongKindIsReported(t *testing.T) {
+	const rel = ".config/crush/crush.json"
+	tests := []struct {
+		name, config string
+		want         []string
+	}{
+		{"lists that are not arrays", `{"permissions": {"allowed_tools": "bash"}, "options": {"disabled_tools": {"x": 1}}, ` +
+			`"mcp": {"s": {"enabled_tools": 5}}, "hooks": {"PreToolUse": {"command": "true"}}}`,
+			[]string{"parser: permissions.allowed_tools is not a JSON array",
+				"parser: options.disabled_tools is not a JSON array",
+				"parser: mcp.s.enabled_tools is not a JSON array",
+				"parser: hooks.PreToolUse is not a JSON array"}},
+		{"blocks that are not objects", `{"permissions": "all", "options": [1], "mcp": [1], "hooks": [1]}`,
+			[]string{"parser: permissions is not a JSON object", "parser: options is not a JSON object",
+				"parser: mcp is not a JSON object", "parser: hooks is not a JSON object"}},
+		{"servers that are not objects", `{"mcp": {"s": "x", "t": 1, "u": {}}}`,
+			[]string{"parser: mcp holds 2 entries that are not JSON objects"}},
+		{"providers that are not an object", `{"providers": ["sk-1"]}`,
+			[]string{"parser: providers is not a JSON object"}},
+		{"a provider that is a string", `{"providers": {"openai": "sk-2"}}`,
+			[]string{"parser: providers holds 1 entry that is not a JSON object"}},
+		{"members null or empty", `{"permissions": {"allowed_tools": null}, "mcp": {}, "hooks": null, "providers": {}}`,
+			nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var got []string
+			for _, text := range parseFile(t, rel, []byte(test.config)) {
+				if strings.HasPrefix(text, parser.ProblemPrefix) {
+					got = append(got, text)
+				}
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
 			}
 		})
 	}
