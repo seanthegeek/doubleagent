@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -51,17 +52,23 @@ func profilesUnder(root string, entries ...string) fakeProfiles {
 	return profiles
 }
 
-func TestFind(t *testing.T) {
-	cases := []struct {
-		name     string
-		dirs     []string
-		files    []string
-		profiles []string
-		image    bool
-		filter   string
-		homes    []string
-		skipped  []string
-	}{
+// A findCase is a tree, the profiles the registry lists, the -u list, and the
+// homes and skipped profiles find reports for them.
+type findCase struct {
+	name     string
+	dirs     []string
+	files    []string
+	profiles []string
+	image    bool
+	filter   string
+	homes    []string
+	skipped  []string
+}
+
+// findCases returns the cases of TestFind about which profiles and homes are
+// listed, and in what order.
+func findCases() []findCase {
+	return []findCase{
 		{
 			name:     "profiles come first, then the Users and home directories",
 			dirs:     []string{"Users/alice", "Users/bob", "home/carol", "srv/dave"},
@@ -98,6 +105,13 @@ func TestFind(t *testing.T) {
 			profiles: []string{"S-1-5-18=Users/Default User", "S-1-5-21-1=Users/Temp.WIN"},
 			homes:    []string{"alice:/Users/alice"},
 		},
+	}
+}
+
+// findFilterCases returns the cases of TestFind about the -u list, about
+// candidates that are files or gone, and about an image.
+func findFilterCases() []findCase {
+	return []findCase{
 		{
 			name:   "the -u list ignores case and empty items",
 			dirs:   []string{"Users/alice", "Users/bob"},
@@ -129,7 +143,10 @@ func TestFind(t *testing.T) {
 				"c:/usr/home/c", "d:/export/home/d"},
 		},
 	}
-	for _, testCase := range cases {
+}
+
+func TestFind(t *testing.T) {
+	for _, testCase := range slices.Concat(findCases(), findFilterCases()) {
 		t.Run(testCase.name, func(t *testing.T) {
 			root := writeTree(t, testCase.dirs, testCase.files)
 			var reader profileReader = profilesUnder(root, testCase.profiles...)
