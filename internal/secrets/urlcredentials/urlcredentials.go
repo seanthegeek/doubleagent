@@ -1,33 +1,33 @@
 // Package urlcredentials finds the credentials of the URLs in a text. Where
-// net/url parses one URL and refuses a bad percent-escape, it finds URLs
-// inside longer text (a command line, JSON, Markdown) by this grammar. The
-// parts that cite RFC 3986 follow it; the rest are this package's own:
+// net/url parses one URL, it finds URLs inside longer text (a command line,
+// JSON, Markdown) by these rules; those citing RFC 3986 follow it, the rest
+// are this package's own, and where in doubt they find more, not less:
 //
 //  1. Text splits into tokens at white space, double quotes and angle
-//     brackets (appendix C), and at single quotes and backticks.
+//     brackets (appendix C), and at backticks; nothing is read across them.
 //  2. A URL starts at a scheme, a letter then letters, digits, +, - and .
 //     (section 3.1), directly followed by "://" or JSON's escaped `:\/\/`.
-//  3. A URL ends where its token ends, at a ), ] or } that closes no
-//     bracket opened inside the URL, or at a comma directly before a scheme;
-//     a URL that starts before it ends is inside it. The punctuation . , : ;
-//     ! ? at its end belongs to the sentence, not to it.
+//  3. A single quote, a ), ] or } that closes no bracket opened since the
+//     token's first URL began, a comma directly before a scheme, and the
+//     punctuation . , : ; ! ? before one of them or the token's end end the
+//     value being read (rule 8) but not the reading: rules 4 to 7 go on.
 //  4. The authority follows the separator and ends at the first /, ? or #
-//     or where the URL ends (section 3.2), and at a backslash or the scheme
-//     of a URL inside it.
-//  5. The user information is what stands before the authority's last @
-//     (section 3.2.1). With a colon (user:password) it is a credential
-//     whole, and its password one too, unless it is the colon alone; without
-//     one it is a user name alone (Credential.NameOnly).
-//  6. The query starts at the first ? after the authority of a URL that is
-//     inside no other, and the fragment at #; both run on to where that URL
-//     ends, over the URLs inside it (a redirect target), which have no
-//     query of their own.
-//  7. Parameters split at & and ;, at # in the query, and at JSON's escaped
-//     \u0026 or \U0026; \/ (an escaped slash) is part of a value and any
-//     other backslash ends one.
+//     (section 3.2), a backslash, the next URL's scheme or the token's end.
+//  5. The user information is what stands before an @ in the authority
+//     (section 3.2.1); taking the last @ is this package's choice. With a
+//     colon (user:password) it is a credential whole, and its password one
+//     too, unless it is the colon alone; without one it is a user name
+//     alone (Credential.NameOnly).
+//  6. The query starts at the first ? or # after the first URL's authority
+//     (sections 3.4 and 3.5) and runs to the token's end; in it, the first
+//     ? or # after a later URL's authority (a redirect target) starts that
+//     URL's parameters too. Any other ? is part of a value.
+//  7. Parameters split at & and ;, at # before the fragment, and at JSON's
+//     escaped \u0026 or \U0026; \/ (an escaped slash) is part of a value and
+//     any other backslash ends one.
 //  8. A parameter's value, after its first =, is a credential when it is not
-//     empty and its name, its percent-escapes decoded and ASCII case
-//     ignored, is one credentialParameters lists.
+//     empty and its name, percent-escapes decoded and ASCII case ignored, is
+//     one credentialParameters lists.
 package urlcredentials
 
 import (
@@ -79,9 +79,9 @@ func Find(text string, found func(Credential), work textset.Counter) {
 
 // isDelimiter reports whether a byte ends a token (rule 1): white space, a
 // double quote and angle brackets, which RFC 3986 appendix C names, and a
-// single quote and a backtick, which quote a URL on a command line.
+// backtick, which quotes a command in Markdown and on a command line.
 func isDelimiter(char byte) bool {
-	return strings.IndexByte(" \t\n\v\f\r\"'<>`", char) >= 0
+	return strings.IndexByte(" \t\n\v\f\r\"<>`", char) >= 0
 }
 
 // count adds n bytes read to work, when it counts.
@@ -99,16 +99,20 @@ type urlStart struct {
 
 // identifyToken adds the credentials of the URLs in text[from:], a token
 // that ends where text ends (rule 1): it finds every URL's start (rule 2),
-// then reads each outer URL to its end (rule 3) with the URLs inside it.
+// the user information of each (rules 4 and 5), then the parameters of
+// the query that runs from the first URL's authority (rules 3 and 6 to 8).
 func identifyToken(text string, from int, found func(Credential), work textset.Counter) {
 	starts := urlStarts(text, from, work)
-	for k := 0; k < len(starts); {
-		end, next := urlEnd(text, starts, k, work)
-		identifyURL(text[:end], starts[k:next], found, work)
-		k = next
-		for k < len(starts) && starts[k].scheme < end {
-			k++
+	if len(starts) > 0 {
+		authorityEnds := make([]int, len(starts))
+		for k := range starts {
+			limit := len(text)
+			if k+1 < len(starts) {
+				limit = starts[k+1].scheme
+			}
+			authorityEnds[k] = userInformation(text[:limit], starts[k].authority, found, work)
 		}
+		parameters(text, starts, authorityEnds, found, work)
 	}
 	count(work, len(text)-from)
 }
@@ -133,34 +137,6 @@ func urlStarts(text string, from int, work textset.Counter) []urlStart {
 		i += separator - 1
 	}
 	return starts
-}
-
-// urlEnd returns where the URL that starts at starts[k] ends (rule 3), and
-// the index in starts of the first URL that starts at or after that end,
-// or of the first after a comma that ends it; those between are inside it.
-func urlEnd(text string, starts []urlStart, k int, work textset.Counter) (int, int) {
-	var open [3]int
-	next := k + 1
-	end := starts[k].scheme
-	for ; end < len(text); end++ {
-		if next < len(starts) && end == starts[next].scheme-1 && text[end] == ',' {
-			break
-		}
-		if next < len(starts) && end == starts[next].scheme {
-			next++
-		}
-		if bracket := strings.IndexByte("([{)]}", text[end]); bracket >= 3 {
-			if open[bracket-3] == 0 {
-				break
-			}
-			open[bracket-3]--
-		} else if bracket >= 0 {
-			open[bracket]++
-		}
-	}
-	count(work, end-starts[k].scheme)
-	trimmed := strings.TrimRight(text[starts[k].scheme:end], ".,:;!?")
-	return starts[k].scheme + len(trimmed), next
 }
 
 // separatorAt returns the length of the separator that starts at byte i of
@@ -203,26 +179,10 @@ func isLetter(char byte) bool {
 	return 'a' <= char && char <= 'z' || 'A' <= char && char <= 'Z'
 }
 
-// identifyURL adds the credentials of an outer URL that ends where text
-// ends, starts[0], and of the URLs inside it, the rest of starts: the user
-// information of each (rules 4 and 5) and the outer URL's parameters
-// (rules 6 to 8).
-func identifyURL(text string, starts []urlStart, found func(Credential), work textset.Counter) {
-	authorityEnd := len(text)
-	for k := len(starts) - 1; k >= 0; k-- {
-		limit := len(text)
-		if k+1 < len(starts) {
-			limit = starts[k+1].scheme
-		}
-		authorityEnd = userInformation(text[:limit], starts[k].authority, found, work)
-	}
-	parameters(text, authorityEnd, found, work)
-}
-
 // userInformation adds the credentials of the user information of the
 // authority that starts at byte start of text, ending at the first /, ?, #
-// or backslash or where text ends (rules 4 and 5), and returns where it
-// ends.
+// or backslash or where text ends, the next URL's scheme or the token's end
+// (rules 4 and 5), and returns where it ends.
 func userInformation(text string, start int, found func(Credential), work textset.Counter) int {
 	end := len(text)
 	if stop := strings.IndexAny(text[start:], `/?#\`); stop >= 0 {
@@ -244,51 +204,6 @@ func userInformation(text string, start int, found func(Credential), work textse
 		found(Credential{Start: start + colon + 1, End: start + atSign})
 	}
 	return end
-}
-
-// parameters adds the value of each credential parameter of the query and
-// fragment of a URL that ends where text ends, read from byte from, its
-// authority's end (rules 6 to 8).
-func parameters(text string, from int, found func(Credential), work textset.Counter) {
-	count(work, len(text)-from)
-	start := strings.IndexAny(text[from:], "?#")
-	if start < 0 {
-		return
-	}
-	start += from
-	fragment := text[start] == '#'
-	for i := start + 1; i <= len(text); {
-		end, separator := parameterEnd(text, i, fragment)
-		name, value, assigned := strings.Cut(text[i:end], "=")
-		if assigned && value != "" && isCredentialParameter(decodedName(name)) {
-			found(Credential{Start: end - len(value), End: end})
-		}
-		if end < len(text) && text[end] == '#' {
-			fragment = true
-		}
-		i = end + separator
-	}
-}
-
-// parameterEnd returns where the parameter that starts at byte i of text
-// ends and the length of what ends it (rule 7): & or ;, # in a query,
-// \u0026 or \U0026, or a backslash not before a slash; 1 at the end of the
-// text.
-func parameterEnd(text string, i int, fragment bool) (int, int) {
-	for end := i; end < len(text); end++ {
-		switch char := text[end]; {
-		case char == '&' || char == ';' || char == '#' && !fragment:
-			return end, 1
-		case char != '\\':
-		case strings.HasPrefix(text[end:], `\/`):
-			end++
-		case strings.HasPrefix(text[end:], `\u0026`) || strings.HasPrefix(text[end:], `\U0026`):
-			return end, 6
-		default:
-			return end, 1
-		}
-	}
-	return len(text), 1
 }
 
 // decodedName returns a parameter's name with each %XX escape decoded and
