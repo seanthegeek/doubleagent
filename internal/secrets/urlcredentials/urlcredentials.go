@@ -1,19 +1,19 @@
 // Package urlcredentials finds the credentials of the URLs in a text. Where
 // net/url parses one URL and refuses a bad percent-escape, it finds URLs
-// inside longer text (a command line, JSON, Markdown) by this grammar, RFC
-// 3986 for the URL itself:
+// inside longer text (a command line, JSON, Markdown) by this grammar. The
+// parts that cite RFC 3986 follow it; the rest are this package's own:
 //
-//  1. Text splits into tokens at white space, double and single quotes,
-//     backticks and angle brackets (RFC 3986 appendix C).
+//  1. Text splits into tokens at white space, double quotes and angle
+//     brackets (appendix C), and at single quotes and backticks.
 //  2. A URL starts at a scheme, a letter then letters, digits, +, - and .
 //     (section 3.1), directly followed by "://" or JSON's escaped `:\/\/`.
 //  3. A URL ends where its token ends, at a ), ] or } that closes no
 //     bracket opened inside the URL, or at a comma directly before a scheme;
 //     a URL that starts before it ends is inside it. The punctuation . , : ;
-//     ! ? at its end is not part of it (appendix C).
-//  4. The authority follows the separator and ends at the first /, ?, # or
-//     backslash, at the scheme of a URL inside it, or where the URL ends
-//     (section 3.2).
+//     ! ? at its end belongs to the sentence, not to it.
+//  4. The authority follows the separator and ends at the first /, ? or #
+//     or where the URL ends (section 3.2), and at a backslash or the scheme
+//     of a URL inside it.
 //  5. The user information is what stands before the authority's last @
 //     (section 3.2.1). With a colon (user:password) it is a credential
 //     whole, and its password one too, unless it is the colon alone; without
