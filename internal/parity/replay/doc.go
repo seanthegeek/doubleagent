@@ -19,13 +19,13 @@
 // of outputs lets a loose tree's run keep the other of two equal rows, and a
 // wanted one names a file a parser may want that the recording's did not.
 // A difference of format, text or rows counts as used by a case that fails
-// without it; one of arguments, outputs, wanted files, added rows or
-// exclusion by a case it changed.
-// A run of every case fails when a difference was used by none, unless it is
-// retired or marked unchecked with its reason. A loose tree's timeline is
-// compared sorted by its documented keys, a record's rows in their order and
-// that order checked on its own; mutation tests show a changed word, number,
-// key or order, or a dropped row, still fails. The recorder wrote a
-// fixed-length placeholder for its root, file contents included; Materialise
-// and Expand put back a root of that length, so no binary offset moves.
+// without it; one of arguments, outputs, wanted files, added rows or exclusion
+// by a case it changed. A run of every case fails when one was used by none,
+// unless it is retired or marked unchecked with its reason. A loose tree's
+// timeline is compared sorted by its documented keys, a record's rows in their
+// order; every timeline and sessions file, run or recorded, is checked for the
+// documented order. Mutation tests show a changed word, number, key or order,
+// or a dropped row, still fails. The recorder wrote a fixed-length placeholder
+// for its root, file contents included; Materialise and Expand put back a root
+// of that length, so no binary offset moves.
 package replay
