@@ -113,28 +113,29 @@ func (f *Found) appendMatchers(matchers []*textset.Set, reaches []reach, withPar
 
 // joinedMatcher is one matcher of the texts several records hold in some
 // reaches, with what it was built from: the records, the reaches, whether
-// forms with a part count, and how many texts the records held then.
+// forms with a part count, and the sum of the records' changes there then,
+// which grows with any change, since each record's count only grows.
 type joinedMatcher struct {
 	records   []*Found
 	reaches   []reach
 	withParts bool
-	held      int
+	changes   int
 	set       *textset.Set
 }
 
 // matcherOf returns the matcher of the texts records hold in reaches,
-// building it again only when the records, the reaches or the texts held
+// building it again only when the records, the reaches or what they hold
 // differ from the last call's; a row usually lists the same records as the
 // row before.
 func (j *joinedMatcher) matcherOf(records []*Found, reaches []reach, withParts bool,
 	work textset.Counter) *textset.Set {
-	held := 0
+	changes := 0
 	for _, record := range records {
 		for _, where := range reaches {
-			held += len(record.texts[where])
+			changes += record.changes[where]
 		}
 	}
-	if j.set != nil && held == j.held && withParts == j.withParts && slices.Equal(records, j.records) &&
+	if j.set != nil && changes == j.changes && withParts == j.withParts && slices.Equal(records, j.records) &&
 		slices.Equal(reaches, j.reaches) {
 		return j.set
 	}
@@ -144,7 +145,7 @@ func (j *joinedMatcher) matcherOf(records []*Found, reaches []reach, withParts b
 			texts = record.matchedTexts(texts, where, withParts)
 		}
 	}
-	*j = joinedMatcher{slices.Clone(records), slices.Clone(reaches), withParts, held,
+	*j = joinedMatcher{slices.Clone(records), slices.Clone(reaches), withParts, changes,
 		textset.NewBackward(texts, work)}
 	return j.set
 }
@@ -179,11 +180,11 @@ func replaceRanges(text string, longest []int, placeholder string) string {
 
 // matcherOf returns the matcher of the record's texts replaced in where
 // (the forms with a part only for an empty placeholder), building it again
-// only when texts were recorded since.
+// only when a text was recorded or a form made plain since.
 func (f *Found) matcherOf(where reach, withParts bool, work textset.Counter) *textset.Set {
-	if f.matchers[where] == nil || f.matched[where] != len(f.texts[where]) {
+	if f.matchers[where] == nil || f.matched[where] != f.changes[where] {
 		f.matchers[where] = textset.NewBackward(f.matchedTexts(nil, where, withParts), work)
-		f.matched[where] = len(f.texts[where])
+		f.matched[where] = f.changes[where]
 	}
 	return f.matchers[where]
 }

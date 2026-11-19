@@ -919,3 +919,41 @@ func TestARowsListOfRecordsHoldsEachParsesRecordOnce(t *testing.T) {
 		t.Error("a record listed alone is not the record itself")
 	}
 }
+
+func TestAFormRecordedPlainAfterAReplacementIsMatchedFromThen(t *testing.T) {
+	// A URL's user information is recorded with its @ as a form with a
+	// part, which a placeholder that is not empty does not match; recording
+	// the same text plain later, after a string has been written, changes
+	// what is matched without changing how many texts are recorded.
+	recorder := NewRecorder(Setting{Withhold: true, Placeholder: "P"})
+	recorder.Collect("see https://ci:fake-pass-0001@h/")
+	const text = "ci:fake-pass-0001@ x"
+	if got := recorder.Text(text); got != "P@ x" {
+		t.Fatalf("before: got %q, want %q", got, "P@ x")
+	}
+	recorder.Value("ci:fake-pass-0001@")
+	if got := recorder.Text(text); got != "P x" {
+		t.Errorf("after: got %q, want %q", got, "P x")
+	}
+	// A row longer than what each record it lists holds shares one
+	// matcher of them all.
+	parse, other := recorder.Begin(), recorder.Begin()
+	recorder.Value("pw7")
+	recorder.End()
+	recorder.ReaderError(errors.New("fake-detail-0002"))
+	recorder.End()
+	parse.add(form{secret: "fake-detail-0003"}, parseProblem)
+	parse.add(form{before: ": ", secret: "fake-detail-0003"}, parseProblem)
+	row := WithDuplicates(parse, []*Found{other})
+	const line, rest = "x: fake-detail-0003", " and more text, so the row is longer than either record"
+	if got := recorder.RowText(line+rest, row); got != "x: P"+rest {
+		t.Fatalf("before: got %q", got)
+	}
+	if recorder.joined.set == nil {
+		t.Fatal("the row's records were not searched with one shared matcher")
+	}
+	parse.add(form{secret: ": fake-detail-0003"}, parseProblem)
+	if got := recorder.RowText(line+rest, row); got != "xP"+rest {
+		t.Errorf("after: got %q, want %q", got, "xP"+rest)
+	}
+}
