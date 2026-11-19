@@ -72,7 +72,7 @@ func withheldDifference() Difference {
 	return Difference{Number: 230, Summary: "a withheld secret is written as the placeholder: at each site of " +
 		"withheldForms, the recording's withheld form and the binary's form with the placeholder become one token " +
 		"that keeps the rest of the row; where the recording cut a URL at its query, its row takes the URL " +
-		"the case's input gives, its key as the placeholder, and the binary's row is compared with it as written",
+		"the case's input gives, its credentials as the placeholder, and the binary's row is compared with it as written",
 		Text: formsText(withheldForms(), recordedSide, caseRun{}), Binary: formsText(withheldForms(), binarySide,
 			caseRun{}), RowText: withheldRowText(recordedSide, caseRun{}),
 		RowBinary: withheldRowText(binarySide, caseRun{}),
@@ -313,8 +313,9 @@ func (f withheldForm) complete(from side, text string, run caseRun) (string, int
 // Each of the binary's forms holds the placeholder where the secret was,
 // so a binary that shows the secret, or prints the recording's form,
 // still fails. The Gemini CLI request URL is completed instead: the
-// recorded row takes the URL the case's input gives, its key as the
-// placeholder, so a binary that drops, shows or repeats a part of it fails.
+// recorded row takes the URL the case's input gives, its credentials as
+// the placeholder, so a binary that drops, shows or repeats a part of it
+// fails.
 func withheldForms() []withheldForm {
 	form := func(agent, name, recorded, binary, token string) withheldForm {
 		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
@@ -411,8 +412,8 @@ func withheldForms() []withheldForm {
 			token:    "${1}{a key's text}${2}", cause: regexp.MustCompile(`https?://[^\s"?]*\?(?:[^\s"#]*&)?key=redacted\b`)},
 		// The recording cut a network request's URL at its query, which can
 		// carry an API key; the binary gives the whole URL as the request's
-		// record in the input holds it, the key withheld (requestURL). An
-		// error row has a colon after the URL.
+		// record in the input holds it, its credentials withheld
+		// (requestURL). An error row has a colon after the URL.
 		{scope: parserScope, agent: "gemini-cli", name: "network request URL",
 			recorded: regexp.MustCompile(`(network (?:request|response|error): [A-Z]+ )(https?://[^ ?#"\n]*?)` +
 				`(:? (?:[^"\n]*? )?\(request ([^ )"\n]*)\))`),
