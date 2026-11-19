@@ -626,8 +626,10 @@ model is `request_metadata.model_id`; an entry without one falls back to
 fields serialised with the whole state rather than per-request records.
 
 The agent file's `model` ([Permission records](#permission-records)) and the `chat.defaultModel`
-key of the data directory's `settings.json` ([Per-user storage](#per-user-storage)) are defaults,
-one `system` row each at the file's modification time.
+key of the data directory's `settings.json` ([Per-user storage](#per-user-storage)) are where Kiro
+stores a default model, but the parser gives no row for either: from an agent file it reads only
+`allowedTools` and `toolsSettings`, and it does not read `settings.json`. An `allowedTools` that is
+not an array or a `toolsSettings` that is not an object gives no row and no problem row.
 
 #### Past-use rows and secondary sources
 
