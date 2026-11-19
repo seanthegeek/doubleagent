@@ -330,6 +330,7 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 	held := heldBy(run)
 	before := filesUnder(root)
 	got := r.run(t, node, "timeline", recorded, root)
+	got.source = recordedRowsRun
 	want := r.expected(t, recorded, root)
 	want.held = held
 	want.cut = r.corpus.cutTimesOf(recorded.Tree, recorded.Times)

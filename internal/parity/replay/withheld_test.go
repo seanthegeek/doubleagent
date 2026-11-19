@@ -61,7 +61,8 @@ func withSecretsWithheld(command string, args []string) []string {
 func withheldDifference() Difference {
 	return Difference{Number: 230, Summary: "a withheld secret is written as the placeholder: at each site of " +
 		"withheldForms, the recording's withheld form and the binary's form with REDACTED become one token " +
-		"that keeps the rest of the row", Text: withheldText(recordedSide), Binary: withheldText(binarySide),
+		"that keeps the rest of the row", Text: formsText(withheldForms(), recordedSide, caseRun{}),
+		Binary:  formsText(withheldForms(), binarySide, caseRun{}),
 		RowText: withheldRowText(recordedSide), RowBinary: withheldRowText(binarySide),
 		Within: 102}
 }
@@ -156,15 +157,27 @@ func withheldRowLabels(taken string) []string {
 // form and the binary's form with the placeholder, each a pattern that
 // stops at the end of the secret's part so the rest is still compared, and
 // the token both become. A site where the binary adds a part the recording
-// never printed has added, the part, in place of a binary form: the binary's
-// text is the recorded form only once the part is taken out, so a binary
-// that leaves the part out still fails.
+// never printed (adds, built by addsForm) has the marker in its token.
 type withheldForm struct {
 	scope, agent, name string
 	lines              *regexp.Regexp
 	recorded, binary   *regexp.Regexp
-	added              *regexp.Regexp
 	token              string
+	adds               bool
+}
+
+// addsForm returns a parser's entry for a site where the binary adds a part
+// the recording never printed, at one place: the recorded row is first
+// then second, the binary's row first, the part once, then second, and
+// both become first, the entry's marker, then second. So a binary that
+// leaves the part out, writes it twice, writes it elsewhere or writes
+// another part still fails. Neither pattern may hold a capturing group.
+func addsForm(agent, name, first, part, second string) withheldForm {
+	form := withheldForm{scope: parserScope, agent: agent, name: name, adds: true,
+		recorded: regexp.MustCompile("(" + first + ")(" + second + ")"),
+		binary:   regexp.MustCompile("(" + first + ")" + part + "(" + second + ")")}
+	form.token = "${1}" + form.marker() + "${2}"
+	return form
 }
 
 // The scopes of withheldForms: the replay whose cases each entry's rows
@@ -189,11 +202,11 @@ func (f withheldForm) rewrite(from side, text string) (string, int) {
 		lines = regexp.MustCompile(`(?m)^.*"agent": ?"` + regexp.QuoteMeta(f.agent) + `".*$`)
 	}
 	if lines == nil {
-		return f.replace(from, text, false)
+		return f.replace(from, text)
 	}
 	found := 0
 	text = lines.ReplaceAllStringFunc(text, func(part string) string {
-		part, count := f.replace(from, part, false)
+		part, count := f.replace(from, part)
 		found += count
 		return part
 	})
@@ -207,7 +220,7 @@ func (f withheldForm) rowRewrite(from side, agent, text string) (string, int) {
 	if f.scope != parserScope || f.agent != agent {
 		return text, 0
 	}
-	return f.replace(from, text, true)
+	return f.replace(from, text)
 }
 
 // marker returns the text that stands, in the compared form, where the
@@ -217,27 +230,16 @@ func (f withheldForm) marker() string {
 }
 
 // replace returns text with every match of the entry's pattern of one side
-// as its token, and the count. With mandatory, the binary's text must hold
-// the part an entry says the binary adds: a parse's rows are held to it.
-// A command's outputs are not, since some recorded cases hold the same row
-// from inputs with and without the secret, which nothing in the row tells
-// apart; the parser replay compares those parses row by row.
-func (f withheldForm) replace(from side, text string, mandatory bool) (string, int) {
-	if from == binarySide && f.added != nil {
-		// A text already in the compared form, the recording's wording as
-		// the binary's form test gives it, keeps its one marker.
-		if strings.Contains(text, f.marker()) {
-			return text, 0
+// as its token, and the count.
+func (f withheldForm) replace(from side, text string) (string, int) {
+	pattern := f.recorded
+	if from == binarySide {
+		pattern = f.binary
+		if f.adds {
+			// The binary never writes the marker, so a text that holds it is
+			// kept from comparing equal to the recording's compared form.
+			text = strings.ReplaceAll(text, f.marker(), "{written "+f.name+"}")
 		}
-		stripped := f.added.ReplaceAllString(text, "")
-		if mandatory && stripped == text || !f.recorded.MatchString(stripped) {
-			return text, 0
-		}
-		text = stripped
-	}
-	pattern := f.binary
-	if from == recordedSide || f.added != nil {
-		pattern = f.recorded
 	}
 	return pattern.ReplaceAllString(text, f.token), len(pattern.FindAllStringIndex(text, -1))
 }
@@ -252,13 +254,6 @@ func withheldForms() []withheldForm {
 	form := func(agent, name, recorded, binary, token string) withheldForm {
 		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
 			binary: regexp.MustCompile(binary), token: token}
-	}
-	// adds is a site where the binary adds a part the recording never
-	// printed: the recorded pattern's two groups, the part between them
-	// marked.
-	adds := func(agent, name, recorded, added string) withheldForm {
-		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
-			added: regexp.MustCompile(added), token: "${1}" + withheldForm{name: name}.marker() + "${2}"}
 	}
 	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
 	goJSON := `invalid JSON at line ([0-9]+), column ([0-9]+): ` + secrets.DefaultPlaceholder
@@ -301,44 +296,44 @@ func withheldForms() []withheldForm {
 			"${1}{withheld token}${2}"),
 		// The recording names a crush.json that is not JSON without the
 		// reader's error; the binary adds it, withheld.
-		adds("crush", "crush.json reader error", `(parser: [^"\n]*crush\.json is not a JSON object)("|\n|\z)`,
-			` \(invalid JSON at line [0-9]+, column [0-9]+: `+secrets.DefaultPlaceholder+`\)`),
+		addsForm("crush", "crush.json reader error", `parser: [^"\n]*crush\.json is not a JSON object`,
+			` \(invalid JSON at line [0-9]+, column [0-9]+: `+secrets.DefaultPlaceholder+`\)`, `"|\n|\z`),
 		// The recording gave a desktop connection without the token and
-		// headers stored in plain text beside it; the binary adds them.
-		adds("hermes", "connections.json token",
-			`(remote backend: remote [^"\n]*?)( \(from connections\.json, file mtime\))`,
-			` (?:token|headers)=`+secrets.DefaultPlaceholder),
+		// headers stored in plain text beside it; the binary adds them. The
+		// recorded files hold a token and no headers.
+		addsForm("hermes", "connections.json token", `remote backend: remote [^"\n]*?`,
+			` token=`+secrets.DefaultPlaceholder, ` \(from connections\.json, file mtime\)`),
 		// The recording gave a Telegram chat's relay without the bot's token
-		// and webhook secret; the binary adds them.
-		adds("agent-zero", "telegram bot token",
-			`(session relayed: telegram bot [^"\n]*?)( \(from chat\.json data, file mtime\))`,
-			` (?:token|webhook_secret)=`+secrets.DefaultPlaceholder),
+		// and webhook secret; the binary adds them. The recorded files hold
+		// a token and no webhook secret.
+		addsForm("agent-zero", "telegram bot token", `session relayed: telegram bot [^"\n]*?`,
+			` token=`+secrets.DefaultPlaceholder, ` \(from chat\.json data, file mtime\)`),
 		// The recording gave a chat override's slots without the API key a
-		// slot holds; the binary adds it after the slot.
-		adds("agent-zero", "model override API key",
-			`(model: requested (?:chat|utility|embedding)=[^"\n]*?)( \(chat override, as of file mtime\))`,
-			` (?:chat|utility|embedding)\.api_key=`+secrets.DefaultPlaceholder),
+		// slot holds; the binary adds it after the slot. The recorded files
+		// hold a key for the chat slot alone.
+		addsForm("agent-zero", "model override chat API key", `model: requested chat=[^ "\n]*`,
+			` chat\.api_key=`+secrets.DefaultPlaceholder, ` [^"\n]*?\(chat override, as of file mtime\)`),
 		// The recording gave a retried upload without its bearer token; the
 		// binary adds it after the URL.
-		adds("roo-code", "retry queue bearer token",
-			`(cloud upload queued: [^"\n]*? url=[^ "\n]*)( [^"\n]*?\(Roo Code Cloud retry queue, )`,
-			` Authorization=`+secrets.DefaultPlaceholder),
+		addsForm("roo-code", "retry queue bearer token", `cloud upload queued: [^"\n]*? url=[^ "\n]*`,
+			` Authorization=`+secrets.DefaultPlaceholder, ` [^"\n]*?\(Roo Code Cloud retry queue, `),
 		// The recording gave the exec approvals settings without the
 		// approvals socket's token; the binary adds it to each.
-		adds("openclaw", "exec approvals socket token",
-			`(permission setting: [^"\n]*?)( \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\))`,
-			` socket\.token=`+secrets.DefaultPlaceholder),
+		addsForm("openclaw", "exec approvals socket token", `permission setting: [^"\n]*?`,
+			` socket\.token=`+secrets.DefaultPlaceholder,
+			` \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\)`),
 		// The recording gave an integration without its access token.
-		adds("tabby", "integration access token",
-			`(source host: [^"\n]* api_base=[^ "\n]*)( \(account not recorded; from integrations table, created_at\))`,
-			` access_token=`+secrets.DefaultPlaceholder),
-		// The recording gave a configured model without its API key.
-		adds("tabby", "config.toml API key",
-			`(model configured: [^"\n]* via http [^"\n]*?)( \(from config\.toml \[model\.)`, ` api_key=`+secrets.DefaultPlaceholder),
+		addsForm("tabby", "integration access token", `source host: [^"\n]* api_base=[^ "\n]*`,
+			` access_token=`+secrets.DefaultPlaceholder,
+			` \(account not recorded; from integrations table, created_at\)`),
+		// The recording gave a configured model without its API key, which
+		// the binary writes after the kind and the endpoint.
+		addsForm("tabby", "config.toml API key",
+			`model configured: [^"\n]* via http(?: kind=[^ "\n]*)?(?: endpoint=[^ "\n]*)?`,
+			` api_key=`+secrets.DefaultPlaceholder, `(?: supported_models=[^ "\n]*)? \(from config\.toml \[model\.`),
 		// The recording gave a session's share without its secret.
-		adds("opencode", "share secret",
-			`(session synced: share [^"\n]* url [^ "\n]*)( \(from [^"\n]* session_share, time_created\))`,
-			` secret=`+secrets.DefaultPlaceholder),
+		addsForm("opencode", "share secret", `session synced: share [^"\n]* url [^ "\n]*`,
+			` secret=`+secrets.DefaultPlaceholder, ` \(from [^"\n]* session_share, time_created\)`),
 		// A recorded home holds a Gemini CLI request whose URL gives
 		// key=redacted; the binary withholds an 8-byte URL credential in
 		// every string, so a pi thinking row the agent wrote as [redacted]
@@ -368,12 +363,16 @@ func withheldForms() []withheldForm {
 	}
 }
 
-// withheldText returns the rewrite of difference 230 for one side: each
-// entry's form of that side as its token, and the count.
-func withheldText(from side) func(text string) (string, int) {
+// formsText returns the rewrite of a command case's texts for one side by
+// the entries of forms that apply in run: each entry's form of that side as
+// its token, and the count.
+func formsText(forms []withheldForm, from side, run caseRun) func(text string) (string, int) {
 	return func(text string) (string, int) {
 		total := 0
-		for _, entry := range withheldForms() {
+		for _, entry := range forms {
+			if !run.applies(entry) {
+				continue
+			}
 			var found int
 			text, found = entry.rewrite(from, text)
 			total += found
@@ -702,6 +701,28 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a share without the secret the binary adds fails", shareRecorded, shareRecorded, false},
 		{"a crush.json error without the reader's error the binary adds fails", crushRecorded, crushRecorded,
 			false},
+		{"a retried upload's token written twice fails", retryRecorded,
+			strings.Replace(retryBinary, " lastError", " Authorization=REDACTED lastError", 1), false},
+		{"a retried upload's token after the error fails", retryRecorded,
+			strings.Replace(retryRecorded, " (Roo Code", " Authorization=REDACTED (Roo Code", 1), false},
+		{"a connection's token written twice fails", connectionRecorded,
+			strings.Replace(connectionBinary, " (from", " token=REDACTED (from", 1), false},
+		{"a connection's headers in place of its token fail", connectionRecorded,
+			strings.Replace(connectionBinary, " token=", " headers=", 1), false},
+		{"a connection's headers twice fail", connectionRecorded,
+			strings.Replace(connectionBinary, " token=REDACTED", " headers=REDACTED headers=REDACTED", 1), false},
+		{"a bot's webhook secret in place of its token fails", telegramRecorded,
+			strings.Replace(telegramBinary, " token=", " webhook_secret=", 1), false},
+		{"a slot's API key after another slot fails", overrideRecorded,
+			strings.Replace(overrideRecorded, " (chat", " utility.api_key=REDACTED (chat", 1), false},
+		{"a model's API key after its supported models fails", modelRecorded,
+			strings.Replace(modelRecorded, " (from", " api_key=REDACTED (from", 1), false},
+		{"a share's secret before its URL fails", shareRecorded,
+			strings.Replace(shareRecorded, " url", " secret=REDACTED url", 1), false},
+		{"a socket token written twice fails", socketRecorded,
+			strings.Replace(socketBinary, " (from", " socket.token=REDACTED (from", 1), false},
+		{"a retried upload holding the compared form's marker fails", retryRecorded,
+			strings.Replace(retryRecorded, " lastError", "{added retry queue bearer token} lastError", 1), false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -766,7 +787,7 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			"(from connections.json, file mtime)",
 		"agent-zero telegram bot token": "session relayed: telegram bot opsbot chat 1 user 2 @ana " +
 			"(from chat.json data, file mtime)",
-		"agent-zero model override API key": "model: requested chat=openrouter/m utility=ollama/q " +
+		"agent-zero model override chat API key": "model: requested chat=openrouter/m utility=ollama/q " +
 			"(chat override, as of file mtime)",
 		"roo-code retry queue bearer token": "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
 			"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
@@ -814,6 +835,42 @@ func TestOnlyDetectAndTimelineGetNoSecrets(t *testing.T) {
 		t.Run(test.command, func(t *testing.T) {
 			if got := withSecretsWithheld(test.command, test.args); !slices.Equal(got, test.want) {
 				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTheBinarysSideOfACommandRunIsReadByWhereItsTextsComeFrom(t *testing.T) {
+	retry := "cloud upload queued: Task Message task=t type=telemetry retries=2 url=https://app.example/api/events " +
+		"lastError=fetch failed (Roo Code Cloud retry queue, from f roo.retryQueue, request timestamp)"
+	line := func(text string) commandOutput {
+		return commandOutput{outputs: map[string]string{"out/timeline.jsonl": `{"agent":"roo-code","text":"` + text +
+			`"}` + "\n"}}
+	}
+	want := line(retry)
+	compared := runForm(want, want)
+	written := line(strings.Replace(retry, " lastError", "{added retry queue bearer token} lastError", 1))
+	recordedRows := line(retry)
+	recordedRows.source = recordedRowsRun
+	tests := []struct {
+		name  string
+		got   commandOutput
+		agree bool
+	}{
+		{"the binary's form built from the recording passes", compared, true},
+		{"the binary writing the compared form's marker fails", written, false},
+		{"the binary's own row passes", line(strings.Replace(retry, " lastError", " Authorization=REDACTED lastError", 1)),
+			true},
+		{"the binary's own row without the token fails", line(retry), false},
+		{"a run over the recording's parser rows passes as recorded", recordedRows, true},
+	}
+	if !strings.Contains(compared.outputs["out/timeline.jsonl"], "{added retry queue bearer token}") {
+		t.Fatalf("the compared form %q holds no marker", compared.outputs["out/timeline.jsonl"])
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if agree, _ := outputsAgree(t, want, test.got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
 			}
 		})
 	}
