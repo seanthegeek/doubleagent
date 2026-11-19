@@ -34,8 +34,12 @@ func syntheticMatcher(t *testing.T) *Matcher {
 	return matcher
 }
 
-func TestSegmentExpressionMatchesAsTheAnalyzerGlobDoes(t *testing.T) {
-	// Expected results from doubleagent.catalog.glob_segment_to_regex(...).fullmatch.
+func TestSegmentExpressionMatchesAsTheCatalogGlobRulesSay(t *testing.T) {
+	// A segment matches one whole name: a star any run of characters but a
+	// slash, a leading dot included; a question mark any one character; a
+	// class one listed character, ! negating it, an unclosed bracket and a
+	// backslash inside a class taken literally; everything else literally,
+	// case counting.
 	cases := []struct {
 		name, segment, subject string
 		want                   bool

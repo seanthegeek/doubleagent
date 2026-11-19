@@ -58,7 +58,7 @@ func TestACollectionSummaryLargerThanItsBoundIsANote(t *testing.T) {
 	writeFile(t, dir+"/collection.json", `{"hostname": "`+strings.Repeat("h", maxSummary)+`"}`)
 	collection, err := Open(t.Context(), dir, Options{Matcher: matcherOf(t, "")})
 	opened(t, err)
-	wantSlice(t, "notes", collection.Notes, []string{"collection.json unreadable: larger than the analyzer reads"})
+	wantSlice(t, "notes", collection.Notes, []string{"collection.json unreadable: larger than doubleagent reads"})
 }
 
 func TestAManifestThatIsADirectoryLeavesANote(t *testing.T) {

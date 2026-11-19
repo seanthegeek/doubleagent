@@ -627,7 +627,7 @@ func archiveCollectionCases() []inputCase {
 				wantEqual(t, "kind", collection.Kind, KindArchive)
 				wantEqual(t, "host", collection.Host, "h1")
 				wantEqual(t, "artifacts", len(collection.Artifacts), 1)
-				if !strings.HasPrefix(filepath.Base(collection.ExtractedDir()), "cac-analyzer-") {
+				if !strings.HasPrefix(filepath.Base(collection.ExtractedDir()), "doubleagent-") {
 					t.Fatalf("extraction directory %s", collection.ExtractedDir())
 				}
 			}},
