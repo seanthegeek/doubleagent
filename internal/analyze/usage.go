@@ -90,6 +90,10 @@ status: 0 when rows were written, 1 when there were none, 2 on an error,
                        current directory)
   -h, --help           print this text and exit
 
+The CSV is refused when it is a symbolic link, an input file, or inside an
+input directory, judged where the file system puts it: a .. after a link
+leads up from the link's target, as it does when the file is written.
+
 A cell that begins with =, +, - or @ is written with a ' in front, so a
 spreadsheet shows it as text; the saved inventories keep it as written.
 `

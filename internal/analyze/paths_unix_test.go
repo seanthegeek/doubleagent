@@ -72,3 +72,61 @@ func TestAnOutputFileIsNeverWrittenThroughALink(t *testing.T) {
 		t.Errorf("fleet wrote through the link: %q", data)
 	}
 }
+
+func TestFleetComparesItsOutputByWhereTheFileSystemPutsIt(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "in")
+	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
+	writeFile(t, filepath.Join(input, "sub", "keep"), "")
+	writeFile(t, filepath.Join(work, "elsewhere", "sub", "keep"), "")
+	for link, target := range map[string]string{"lnk": filepath.Join(input, "sub"),
+		"away": filepath.Join(work, "elsewhere", "sub")} {
+		if err := os.Symlink(target, filepath.Join(work, link)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tests := []struct {
+		name, output, written string
+		refused               bool
+	}{
+		{"a link into the input and .. after it", spelt(work, "lnk", "..", "out.csv"),
+			filepath.Join(input, "out.csv"), true},
+		{"a new directory below a link into the input and ..", spelt(work, "lnk", "..", "new", "out.csv"),
+			filepath.Join(input, "new"), true},
+		{"a link out of the input and .. after it", spelt(work, "away", "..", "out.csv"),
+			filepath.Join(work, "elsewhere", "out.csv"), false},
+		{"a new directory below a link out of the input and ..", spelt(work, "away", "..", "new", "out.csv"),
+			filepath.Join(work, "elsewhere", "new", "out.csv"), false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", test.output, input)
+			refused := code == ExitError && strings.Contains(stderr, "must be outside the input directory")
+			if refused != test.refused || !refused && code != ExitFound {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			if lstatExists(test.written) == test.refused {
+				t.Errorf("%s exists: %v", test.written, lstatExists(test.written))
+			}
+		})
+	}
+}
+
+func TestTheParentOfAnOutputIsItsTextUpToTheLastSlash(t *testing.T) {
+	for _, test := range []struct{ name, path, want string }{
+		{"a .. after a link is kept", "/w/lnk/../out.csv", "/w/lnk/.."},
+		{"a trailing slash is passed over", "/w/dir/", "/w"},
+		{"doubled slashes are one separator", "/w//out.csv", "/w"},
+		{"a file at the root", "/out.csv", "/"},
+		{"the root", "/", "/"},
+		{"a file at the root after doubled slashes", "//out.csv", "/"},
+		{"a name of one element", "out.csv", ""},
+		{"a relative path", "a/out.csv", "a"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := outputParent(test.path); got != test.want {
+				t.Errorf("outputParent(%q) = %q, want %q", test.path, got, test.want)
+			}
+		})
+	}
+}
