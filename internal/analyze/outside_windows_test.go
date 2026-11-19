@@ -214,3 +214,42 @@ func TestAnInputWithoutADriveOrARootIsReadWhereWindowsPlacesIt(t *testing.T) {
 		})
 	}
 }
+
+func TestAnOutputHoldingAColonAfterItsDriveIsRefused(t *testing.T) {
+	// A colon after the drive names a stream of a file or directory, which
+	// would be written onto the input itself.
+	work := t.TempDir()
+	input := filepath.Join(work, "inv")
+	writeFile(t, filepath.Join(input, "a.json"), hostLine)
+	tests := []struct {
+		name, stream string
+		args         []string
+	}{
+		{"fleet onto a stream of the input directory", input + ":x.csv",
+			[]string{"fleet", "-o", input + ":x.csv", input}},
+		{"fleet onto a stream of an input file", filepath.Join(input, "a.json") + ":x",
+			[]string{"fleet", "-o", filepath.Join(input, "a.json") + ":x", input}},
+		{"fleet onto a stream given relative to the working directory", input + ":y.csv",
+			[]string{"fleet", "-o", "inv:y.csv", "inv"}},
+		{"timeline onto a stream of the input directory", input + ":out",
+			[]string{"timeline", input, input + ":out"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Chdir(work)
+			code, _, stderr := runCommand(testEnvironment(), test.args...)
+			if code != ExitError || !strings.Contains(stderr, "cannot hold a colon after its drive") ||
+				!strings.Contains(stderr, "\nUsage: doubleagent ") {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			if lstatExists(test.stream) {
+				t.Errorf("the stream %s was written", test.stream)
+			}
+		})
+	}
+	// The drive's own colon is no stream.
+	output := filepath.Join(work, "elsewhere", "f.csv")
+	if code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", output, input); code == ExitError {
+		t.Errorf("an output with only its drive's colon: exit %d, stderr %q", code, stderr)
+	}
+}

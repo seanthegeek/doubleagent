@@ -286,7 +286,11 @@ func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	if err := completeSecrets(set, &options.InputOptions); err != nil {
 		return options, false, err
 	}
-	if message := timelineArguments(inputs); message != "" {
+	message := timelineArguments(inputs)
+	if message == "" {
+		message = outputNameRefusal(inputs[1])
+	}
+	if message != "" {
 		return options, false, argumentError(set, options.InputOptions, message)
 	}
 	options.Input, options.Output = inputs[0], inputs[1]
@@ -328,6 +332,8 @@ func ParseFleet(args []string) (FleetOptions, bool, error) {
 		return options, false, usageError("fleet", emptyInput)
 	case options.Output == "":
 		return options, false, usageError("fleet", emptyOutput)
+	case outputNameRefusal(options.Output) != "":
+		return options, false, usageError("fleet", outputNameRefusal(options.Output))
 	}
 	options.Inputs = inputs
 	return options, false, nil
