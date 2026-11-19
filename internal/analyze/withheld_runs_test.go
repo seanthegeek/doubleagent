@@ -204,3 +204,30 @@ func TestAShortKeyIsReplacedOnlyInTheTextOfItsParsesRows(t *testing.T) {
 		t.Errorf("the key is replaced outside the rows' text:\n%s\n%s", withheld.sessions, withheld.inventory)
 	}
 }
+
+func TestAnOptionsCredentialsAreReplacedInTheErrorItGives(t *testing.T) {
+	const url = "https://u:fake-secret-value-0001@h.example/"
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	work := t.TempDir()
+	input, output := filepath.Join(work, "missing"), filepath.Join(work, "out")
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"a pattern that does not compile", []string{"timeline", "--no-secrets", "--match", url + "(", input, output}},
+		{"an agent no parser reads", []string{"timeline", "--no-secrets", "--agent", url, input, output}},
+		{"a time that cannot be read", []string{"timeline", "--no-secrets", "--since", url, input, output}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := runCommand(env, test.args...)
+			if code != ExitError || !strings.HasPrefix(stderr, "error: ") {
+				t.Fatalf("exited %d: %q", code, stderr)
+			}
+			if strings.Contains(stderr, "fake-secret-value-0001") {
+				t.Errorf("the error shows the credential: %q", stderr)
+			}
+		})
+	}
+}

@@ -35,6 +35,12 @@ func shown(text string) string {
 	return out.String()
 }
 
+// Shown returns text as the analysis commands print it for a person
+// (shown), for the binary's own messages that echo what it was given.
+func Shown(text string) string {
+	return shown(text)
+}
+
 // needsShowing reports whether text holds a byte shown changes: below
 // 0x20, DEL, or one at or above 0x80, which may begin a C1 control or a
 // byte that is not UTF-8.

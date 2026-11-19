@@ -164,8 +164,8 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 
 // openInput opens the input of detect or timeline, listing a loose tree
 // through env's lister, and gives every home without a user the --user
-// name and every home the run's secrets recorder, in which the parsers and
-// the repository reader record what they identify. It returns the work directories the open
+// name and every home the run's secrets recorder, in which the parsers
+// record what they identify. It returns the work directories the open
 // made, deepest first, for the caller to remove once the input is closed
 // (removeCreated keeps one that holds anything). The message returned with
 // a nil collection is the error line's text.
@@ -198,12 +198,12 @@ func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher
 // closeInput removes an extracted archive, or names where it was kept. An
 // interrupted run removes it whatever --keep-extracted says, as a run
 // leaves nothing half made behind.
-func closeInput(ctx context.Context, collection *input.Collection, keep bool, stderr io.Writer) {
+func closeInput(ctx context.Context, collection *input.Collection, keep bool, out output, stderr io.Writer) {
 	if !keep || ctx.Err() != nil {
 		_ = collection.Cleanup()
 		return
 	}
 	if extracted := collection.ExtractedDir(); extracted != "" {
-		fmt.Fprint(stderr, "extracted to: "+shown(collection.ShownPath(extracted))+"\n")
+		fmt.Fprint(stderr, "extracted to: "+out.shown(collection.ShownPath(extracted))+"\n")
 	}
 }

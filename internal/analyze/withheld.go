@@ -2,7 +2,9 @@ package analyze
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"reflect"
 	"slices"
 	"strings"
@@ -27,6 +29,13 @@ func (o output) text(text string) string {
 // text gives it, then shown.
 func (o output) shown(text string) string {
 	return shown(o.text(text))
+}
+
+// printError writes an error message as the command's output writes it
+// (printError), so a value the analyst gave, a --match pattern or an
+// --agent name holding a URL's credentials, is replaced like any other.
+func (o output) printError(ctx context.Context, stderr io.Writer, message string) int {
+	return printError(ctx, stderr, o.text(message))
 }
 
 // shownAll returns each text of texts as shown gives it.

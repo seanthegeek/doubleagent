@@ -70,7 +70,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if slices.Contains(analyze.Commands(), args[0]) {
 		return runAnalyze(args, stdout, stderr)
 	}
-	io.WriteString(stderr, "Unknown command: "+args[0]+"\n\n"+usageText)
+	io.WriteString(stderr, "Unknown command: "+analyze.Shown(args[0])+"\n\n"+usageText)
 	return exitUsage
 }
 
