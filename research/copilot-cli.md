@@ -1166,7 +1166,11 @@ array `parser: toolRequests is not a JSON array`, at the event's line after the 
 `reasoningBlocks.blocks` or a block's `summary` that is not an array, is
 `parser: reasoningBlocks is not a JSON object`, `parser: reasoningBlocks.blocks is not a JSON array`
 or `parser: summary is not a JSON array` the same way, a `summary` wrong in more than one block of
-the event being one row, `parser: summary is not a JSON array in <n> entries`. In the JSON files,
+the event being one row, `parser: summary is not a JSON array in <n> entries`; entries of
+`reasoningBlocks.blocks` that are not objects are one row,
+`parser: reasoningBlocks.blocks holds <n> entries that are not JSON objects`, and entries of a
+`summary` that are not objects one row for all the event's blocks,
+`parser: summary holds <n> entries that are not JSON objects`. In the JSON files,
 after their rows and at `source_line` 1 with the time of the file's other problem row: a `snapshots`
 of the rewind index or a `commandHistory` that is not an array is
 `parser: snapshots is not a JSON array` or `parser: commandHistory is not a JSON array`, and a
