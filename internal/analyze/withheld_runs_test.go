@@ -3,6 +3,7 @@ package analyze
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -229,5 +230,72 @@ func TestAnOptionsCredentialsAreReplacedInTheErrorItGives(t *testing.T) {
 				t.Errorf("the error shows the credential: %q", stderr)
 			}
 		})
+	}
+}
+
+// timelineOf writes files as a collection whose collection.json lists
+// projects and runs timeline over it with options, returning
+// timeline.jsonl and inventory.json.
+func timelineOf(t *testing.T, projects []string, files []collectedFile, options ...string) (string, string) {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1")), member("projects", stringArray(projects))}, files)
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	if code, _, stderr := runCommand(env, append(append([]string{"timeline"}, options...), collection,
+		output)...); code > ExitNothing {
+		t.Fatalf("timeline exited %d: %s", code, stderr)
+	}
+	var written []string
+	for _, name := range []string{TimelineFile, InventoryFile} {
+		data, err := osfile.ReadFile(filepath.Join(output, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		written = append(written, string(data))
+	}
+	return written[0], written[1]
+}
+
+func TestACollectedProjectsURLCredentialsAreReplacedInEveryString(t *testing.T) {
+	files := []collectedFile{{"alice", "/home/alice", "claude-code",
+		".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+		quoting("the pass is fake-secret-value-0001 and fake-secret-value-0002")}}
+	projects := []string{"/srv/https://carol:fake-secret-value-0001@h.example/x",
+		"C:/w/https://u:fake-secret-value-0002@h/x"}
+	rows, inventory := timelineOf(t, projects, files, "--no-secrets")
+	if strings.Contains(rows+inventory, "fake-secret-value-") {
+		t.Errorf("the withheld run writes a project's credential:\n%s\n%s", rows, inventory)
+	}
+}
+
+func TestInventoryProjectsKeepTheirOrderWhenWithheld(t *testing.T) {
+	projects := []string{"/p/https://z:Z@h", "/p/https://b@h", "/p/https://y:Y@h"}
+	keys := func(inventory string) []string {
+		document, err := jsonvalue.DecodeString(inventory)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var names []string
+		for _, entry := range document.Get("projects").Members() {
+			names = append(names, entry.Key)
+		}
+		return names
+	}
+	files := []collectedFile{{"alice", "/home/alice", "claude-code",
+		".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl", quoting("hello")}}
+	_, shown := timelineOf(t, projects, files)
+	_, withheld := timelineOf(t, projects, files, "--no-secrets")
+	if got := keys(shown); !slices.Equal(got, []string{"/p/https://b@h", "/p/https://y:Y@h", "/p/https://z:Z@h",
+		"/srv/proj"}) {
+		t.Fatalf("the default run's keys are %q", got)
+	}
+	// The withheld run's two replaced keys are one name, which a reader
+	// keeps once; the name kept as written still comes first.
+	user, replaced := strings.Index(withheld, `"/p/https://b@h": {`), strings.Index(withheld, `"/p/https://REDACTED@h": {`)
+	if user < 0 || replaced < user || strings.Count(withheld, `"/p/https://REDACTED@h": {`) != 2 {
+		t.Errorf("the withheld run's keys are in another order:\n%s", withheld)
 	}
 }

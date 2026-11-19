@@ -85,8 +85,10 @@ type timelineRun struct {
 // collectOutput reads every string the run's output will hold for the
 // credentials of the URLs in it (secrets.Recorder.Collect): the rows and
 // sessions, which are all in memory, the problems, what detect finds, the
-// match patterns and the output directory. inventory.json and the summary
-// are made of these.
+// match patterns, the output directory, and the project paths of
+// collection.json and of project homes as the input spells them and as
+// inventory.json names them. inventory.json and the summary are made of
+// these.
 func (r *timelineRun) collectOutput() {
 	recorder := r.out.recorder
 	if recorder == nil {
@@ -98,7 +100,8 @@ func (r *timelineRun) collectOutput() {
 	for _, session := range r.sessions {
 		session.Collect(recorder)
 	}
-	for _, text := range slices.Concat(r.problems, r.options.Match, []string{r.output}) {
+	for _, text := range slices.Concat(r.problems, r.options.Match, []string{r.output},
+		collectionProjectTexts(r.collection), collectedProjects(r.collection)) {
 		recorder.Collect(text)
 	}
 	r.out.collect(newDetectionJSON(r.detected))
