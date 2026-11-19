@@ -79,6 +79,8 @@ func withheldRows() []withheldRow {
 			" (from .config/shell_gpt/.sgptrc, file mtime)"},
 		{"crush", "provider API key", "stored credentials: providers.anthropic.api_key=" + secrets.DefaultPlaceholder +
 			" (from .crush/crush.json, file mtime)"},
+		{"nanobot", "provider API key", "stored credentials: providers.openai.apiKey=" + secrets.DefaultPlaceholder +
+			" (from .nanobot/config.json, file mtime)"},
 		{"twinny", "inference provider API key", "model provider: p1 label=Ollama provider=ollama type=chat " +
 			"model=qwen2.5-coder:7b apiKey=" + secrets.DefaultPlaceholder +
 			" (from rjmacarthy.twinny twinny.inference-providers, file mtime)"},

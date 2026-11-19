@@ -180,8 +180,9 @@ func firstKey(object jsonvalue.Value, names []string) (string, jsonvalue.Value, 
 
 // parseConfig emits one `permission setting:` row per standing setting of
 // config.json, at its modification time: only the settings that grant or
-// restrict the agent, named as the file spells them, since the file holds
-// API keys. A list gives one row per entry.
+// restrict the agent, named as the file spells them. A list gives one row
+// per entry. Then one `stored credentials:` row gives the credentials the
+// file holds (configCredentials), each through parser.SecretText.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	data, problem, ok := p.loadObject(artifact, "config.json")
 	if !ok {
@@ -213,4 +214,42 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 				parser.SettingValue(entry)+" (from "+artifact.Rel+", file mtime)", ""))
 		}
 	}
+	var stored []string
+	for _, credential := range configCredentials(data) {
+		stored = append(stored, credential.Key+"="+parser.SecretText(artifact, parser.Text(credential.Value)))
+	}
+	if len(stored) > 0 {
+		emit(p.settingRow(artifact, timestamp, "stored credentials: "+strings.Join(stored, " ")+" (from "+
+			artifact.Rel+", file mtime)", ""))
+	}
+}
+
+// configCredentials returns the credentials of config.json that are set,
+// named as the file spells them: each provider's API key, each MCP
+// server's env value and the Feishu and Linear channel secrets
+// (research/nanobot.md, "Credentials").
+func configCredentials(data jsonvalue.Value) []jsonvalue.Member {
+	var found []jsonvalue.Member
+	add := func(prefix string, object jsonvalue.Value, names []string) {
+		if name, value, ok := firstKey(object, names); ok && parser.Text(value) != "" {
+			found = append(found, jsonvalue.Member{Key: prefix + name, Value: value})
+		}
+	}
+	for _, provider := range data.Get("providers").Members() {
+		add("providers."+provider.Key+".", provider.Value, []string{"apiKey", "api_key"})
+	}
+	tools := data.Get("tools")
+	if name, servers, ok := firstKey(tools, []string{"mcpServers", "mcp_servers"}); ok {
+		for _, server := range servers.Members() {
+			for _, variable := range server.Value.Get("env").Members() {
+				add("tools."+name+"."+server.Key+".env.", server.Value.Get("env"), []string{variable.Key})
+			}
+		}
+	}
+	channels := data.Get("channels")
+	for _, names := range [][]string{{"appSecret", "app_secret"}, {"verificationToken", "verification_token"}} {
+		add("channels.feishu.", channels.Get("feishu"), names)
+	}
+	add("channels.linear.", channels.Get("linear"), []string{"clientSecret", "client_secret"})
+	return found
 }

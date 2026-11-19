@@ -12,6 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
 	"github.com/seanthegeek/doubleagent/internal/parser/crush"
 	"github.com/seanthegeek/doubleagent/internal/parser/letta"
+	"github.com/seanthegeek/doubleagent/internal/parser/nanobot"
 	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
 	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
@@ -76,6 +77,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 			out[i] = shellgptRows{concrete, filter}
 		case *crush.Parser:
 			out[i] = crushRows{concrete, filter}
+		case *nanobot.Parser:
+			out[i] = nanobotRows{concrete, filter}
 		}
 	}
 	return out
@@ -150,6 +153,18 @@ type crushRows struct {
 
 // Parse parses the artifact through the filter.
 func (p crushRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// nanobotRows is the nanobot parser with its parses passed through an
+// addedRowFilter.
+type nanobotRows struct {
+	*nanobot.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p nanobotRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 
