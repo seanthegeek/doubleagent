@@ -145,3 +145,65 @@ func TestFleetRefusesToReplaceAnOutputInADirectoryItCannotWrite(t *testing.T) {
 		t.Errorf("the output now holds %q (%v)", data, err)
 	}
 }
+
+// failingOutput is an output name whose last element ends in a slash: its
+// directories can be made, but no file can be written there.
+func failingOutput(parent string) string { return filepath.Join(parent, "x.csv") + "/" }
+
+func TestFleetRemovesTheDirectoriesItMadeWhenTheWriteFails(t *testing.T) {
+	work := t.TempDir()
+	writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)
+	existing := filepath.Join(work, "O")
+	if err := os.Mkdir(existing, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct{ name, parent string }{
+		{"two new directories", filepath.Join(existing, "newA", "b")},
+		{"one new directory", filepath.Join(existing, "newB")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", failingOutput(test.parent),
+				filepath.Join(work, "inv"))
+			if code != ExitError {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			if _, err := osfile.Lstat(test.parent); err == nil {
+				t.Errorf("%s was made and left behind", test.parent)
+			}
+			if entries, err := os.ReadDir(existing); err != nil || len(entries) != 0 {
+				t.Errorf("%s holds %v (%v), want it empty", existing, entries, err)
+			}
+		})
+	}
+}
+
+func TestFleetLeavesAnExistingDirectoryWhenTheWriteFails(t *testing.T) {
+	work := t.TempDir()
+	writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)
+	existing := filepath.Join(work, "O", "kept")
+	if err := os.MkdirAll(existing, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", failingOutput(existing),
+		filepath.Join(work, "inv"))
+	if code != ExitError {
+		t.Errorf("exit %d, stderr %q", code, stderr)
+	}
+	if info, err := osfile.Lstat(existing); err != nil || !info.IsDir() {
+		t.Errorf("the existing directory is gone (%v)", err)
+	}
+}
+
+func TestFleetKeepsTheDirectoriesItMadeWhenTheWriteSucceeds(t *testing.T) {
+	work := t.TempDir()
+	writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)
+	output := filepath.Join(work, "O", "newA", "b", "x.csv")
+	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", output, filepath.Join(work, "inv"))
+	if code != ExitFound {
+		t.Errorf("exit %d, stderr %q", code, stderr)
+	}
+	if info, err := osfile.Lstat(output); err != nil || !info.Mode().IsRegular() {
+		t.Errorf("the CSV was not written (%v)", err)
+	}
+}

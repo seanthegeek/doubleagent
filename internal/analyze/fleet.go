@@ -376,20 +376,13 @@ func plural(count int, noun string) string {
 // writeFleetCSV writes the header and rows to path through encoding/csv
 // with its defaults (fields quoted where needed, lines ending in LF),
 // creating its parent directory, the one outputParent names, so the file
-// goes where fleetOutputRefusal looked. The CSV is written to a new file
-// beside path and moved over it (replaceFile), so an existing file at path
-// is replaced, never written into: a second name of an evidence file (a
-// hard link) passes the outside-the-input check, which judges where the
-// name lies, and writing through it would change the evidence. A link at
-// path was refused before the inputs were read; one placed after that look
-// is replaced itself, its target untouched.
+// goes where fleetOutputRefusal looked. The CSV goes to a new file beside
+// path and is moved over it (replaceFile), so an existing file at path is
+// replaced, never written into: a hard link to evidence passes the
+// outside-the-input check, which judges where a name lies. When the write
+// fails, the directories this run made are removed, deepest first and only
+// while empty (removeCreated); one already there is never removed.
 func writeFleetCSV(path string, rows [][]fleetCell) error {
-	parent := outputParent(path)
-	if parent != "" {
-		if err := osfile.MkdirAll(parent, 0o777); err != nil {
-			return err
-		}
-	}
 	records := [][]string{FleetColumns()}
 	for _, row := range rows {
 		record := make([]string, len(row))
@@ -402,7 +395,20 @@ func writeFleetCSV(path string, rows [][]fleetCell) error {
 	if err := csv.NewWriter(&out).WriteAll(records); err != nil {
 		return err
 	}
-	return replaceFile(path, parent, out.Bytes(), fleetTemporaryName)
+	parent := outputParent(path)
+	var created []string
+	if parent != "" {
+		created = missingDirectories(parent)
+		if err := osfile.MkdirAll(parent, 0o777); err != nil {
+			removeCreated(created)
+			return err
+		}
+	}
+	if err := replaceFile(path, parent, out.Bytes(), fleetTemporaryName); err != nil {
+		removeCreated(created)
+		return err
+	}
+	return nil
 }
 
 // fleetTemporaryPrefix and fleetTemporarySuffix surround the random part
