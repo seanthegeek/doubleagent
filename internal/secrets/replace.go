@@ -21,22 +21,23 @@ func (r *Recorder) Text(text string, scopes ...*Found) string {
 		return text
 	}
 	sources := r.sources(scopes)
+	var inText []credential
 	if mayHoldURL(text) {
-		inText := &Found{}
-		identifyURLs(text, inText.add, r.work)
-		if len(inText.all) > 0 {
-			// The credentials of a URL are replaced in the string that holds
-			// it whatever their length, so this record is matched in full.
-			inText.local = inText.all
-			sources = append(sources, inText)
-		}
+		identifyURLs(text, func(secret credential) { inText = append(inText, secret) }, r.work)
 	}
-	if len(sources) == 0 {
+	if len(sources) == 0 && len(inText) == 0 {
 		return text
 	}
+	emptyPlaceholder := r.setting.Placeholder == ""
 	longest := make([]int, len(text))
 	for _, source := range sources {
-		source.matcherOf(source == r.everywhere, r.setting.Placeholder == "", r.work).Longest(text, longest)
+		source.matcherOf(source == r.everywhere, emptyPlaceholder, r.work).Longest(text, longest)
+	}
+	// The credentials of a URL are replaced where the URL holds them,
+	// whatever their length, by their byte range: the same letters
+	// elsewhere in the string are not a credential.
+	for _, secret := range inText {
+		longest[secret.start] = max(longest[secret.start], secret.replacedEnd(emptyPlaceholder)-secret.start)
 	}
 	return replaceRanges(text, longest, r.setting.Placeholder)
 }

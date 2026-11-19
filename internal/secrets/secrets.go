@@ -15,7 +15,8 @@
 // stage in every string it writes. Every row a parser returns is the same in
 // both modes. Replacement happens once, where a command writes its output
 // (Recorder.Text): a recorded value in the rows of the parse that recorded
-// it, a URL's credentials in the string that holds the URL, and either of
+// it, a URL's credentials where the URL holds them (by their bytes, not by
+// their value), and either of
 // EverywhereLength bytes or more in every string of the output. A parser
 // never tests the setting or writes the placeholder itself.
 //
