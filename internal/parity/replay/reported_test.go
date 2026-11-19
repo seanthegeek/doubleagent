@@ -3,6 +3,7 @@
 package replay
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"testing"
@@ -25,28 +26,45 @@ func entryReportDifferences() []Difference {
 	return []Difference{
 		{Number: 241, Summary: "a list whose entries are not all of the kind the format gives is " +
 			"reported once per list, so a parse that difference 170 lets add one such row may add one " +
-			"more for a second list of secondEntryReports, in that parser's wording", Added: secondEntryReport},
+			"more for a second list of secondEntryReports, in that parser's wording", Added: secondEntryReport,
+			After: 170},
 	}
+}
+
+// secondListEntry is a report of difference 241: the second list's report,
+// and the text of the first list's report, which wrongKindReports holds, it
+// comes after.
+type secondListEntry struct {
+	wrongKindEntry
+	after string
 }
 
 // secondEntryReports returns the reports difference 241 takes: one entry
 // per parser whose recorded cases hold two lists with entries of the wrong
-// kind, the agent and the text of the second list's report.
-func secondEntryReports() []wrongKindEntry {
-	return []wrongKindEntry{
+// kind.
+func secondEntryReports() []secondListEntry {
+	return []secondListEntry{
 		// A bug report whose diagnostics crashes and assistant turns both
 		// hold an entry that is not an object.
-		{"pi", func(string) []string {
+		{wrongKindEntry{"pi", func(string) []string {
 			return []string{"parser: diagnostics.crashes holds 1 entry that is not a JSON object"}
 		}, addedRow{session: parseSession, project: parseProject}},
+			"parser: diagnostics.assistant holds 1 entry that is not a JSON object"},
 	}
 }
 
-// secondEntryReport takes from got the first system row of the parsed file
-// whose text is one of the agent's secondEntryReports texts and that want
-// does not hold, as wrongKindReport takes its own.
+// secondEntryReport takes from got, as wrongKindReport takes its own, the
+// first system row of the parsed file whose text is one of the agent's
+// secondEntryReports texts and that want does not hold, when got also
+// holds the first list's report, which difference 170 takes after it.
 func secondEntryReport(parse parsedFile, want, got []Row) ([]Row, string) {
-	return takeReport(secondEntryReports(), parse, want, got)
+	var reports []wrongKindEntry
+	for _, entry := range secondEntryReports() {
+		if _, first := takeRow(parse.matches(entry.after, entry.row, want), want, got); first && entry.agent == parse.agent {
+			reports = append(reports, entry.wrongKindEntry)
+		}
+	}
+	return takeReport(reports, parse, want, got)
 }
 
 // wrongKindEntry is one report of a file of the wrong kind that the binary
@@ -240,7 +258,13 @@ func takeRow(matches func(Row) bool, want []Row, got []Row) ([]Row, bool) {
 func addedRows(parse parsedFile, want, got []Row) ([]Row, []int, []string) {
 	var numbers []int
 	var entries []string
-	for _, entry := range Differences() {
+	table := Differences()
+	// A difference whose row comes after another's added row applies first,
+	// while that row is still there for it to find.
+	slices.SortStableFunc(table, func(left, right Difference) int {
+		return cmp.Compare(min(right.After, 1), min(left.After, 1))
+	})
+	for _, entry := range table {
 		if entry.Added == nil {
 			continue
 		}
@@ -261,7 +285,11 @@ func checkEveryWrongKindReportUsed(t testing.TB, used map[string]int, whole bool
 	if !whole {
 		return
 	}
-	for number, entries := range map[int][]wrongKindEntry{170: wrongKindReports(), 241: secondEntryReports()} {
+	var second []wrongKindEntry
+	for _, entry := range secondEntryReports() {
+		second = append(second, entry.wrongKindEntry)
+	}
+	for number, entries := range map[int][]wrongKindEntry{170: wrongKindReports(), 241: second} {
 		for _, entry := range entries {
 			if used[entry.label()] == 0 {
 				t.Errorf("difference %d's report %s is used by no recorded case: remove it", number, entry.label())
@@ -351,7 +379,9 @@ func TestDifference241LetsAParseAddASecondListsEntryReportOnly(t *testing.T) {
 		agree     bool
 	}{
 		{"a report of each list passes", piParse, []Row{entry}, []Row{entry, assistant, crashes}, true},
-		{"a report of the second list alone passes", piParse, []Row{entry}, []Row{entry, crashes}, true},
+		{"a report of the second list alone fails", piParse, []Row{entry}, []Row{entry, crashes}, false},
+		{"a report of the second list before the first's passes", piParse, []Row{entry}, []Row{entry, crashes, assistant},
+			true},
 		{"the second list's report twice fails", piParse, []Row{entry}, []Row{entry, crashes, crashes}, false},
 		{"a report of another count fails", piParse, []Row{entry}, []Row{entry, twoCrashes}, false},
 		{"the report added by another agent's parse fails", parsedFile{agent: "cline", file: file, rel: rel}, []Row{entry},
