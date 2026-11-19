@@ -856,13 +856,17 @@ def go_plain_verbs(call: str, verbs: list[str], arguments: list[list[GoToken]]) 
 
 
 def go_names_an_error(argument: list[GoToken]) -> bool:
-    """Return True when a call argument is plainly an error or an error's text.
+    """Return True when a call argument names an error or calls `.Error()`.
 
-    It is when it is the one name `err` or a name ending in `Err` (`closeErr`), or when it calls
-    `.Error()`. Other errors cannot be told from the text and are left alone.
+    It names one when any name in it is `err` (so `err`, `current.err` and `wrap(err)`), or ends
+    in `Err` (`closeErr`), or when it calls `.Error()`. Other errors cannot be told from the
+    text and are left alone. `errors.New` and `fmt.Errorf` use this one test.
     """
-    if len(argument) == 1 and argument[0].kind == "ident":
-        return argument[0].text == "err" or argument[0].text.endswith("Err")
+    if any(
+        token.kind == "ident" and (token.text == "err" or token.text.endswith("Err"))
+        for token in argument
+    ):
+        return True
     return any(
         argument[position].text == "."
         and argument[position + 1].text == "Error"
@@ -931,7 +935,7 @@ def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
 def go_dropped_cause_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     """Yield a finding for each `errors.New` whose text is made from an error.
 
-    An argument that names `err` or calls `.Error()` copies an error's words into a new error
+    An argument that names an error (see `go_names_an_error`) copies an error's words into a new error
     and drops the error itself, so `errors.Is` and `errors.As` no longer find it. Library code
     wraps it with `%w` instead.
     """
@@ -941,14 +945,7 @@ def go_dropped_cause_findings(tokens: list[GoToken]) -> Iterator[Finding]:
             continue
         close = go_close(code, index + 1)
         argument = code[index + 2 : close]
-        names_error = any(token.kind == "ident" and token.text == "err" for token in argument)
-        calls_error = any(
-            argument[position].text == "."
-            and argument[position + 1].text == "Error"
-            and argument[position + 2].text == "("
-            for position in range(len(argument) - 2)
-        )
-        if names_error or calls_error:
+        if go_names_an_error(argument):
             yield code[index].line, GO_DROPPED_CAUSE_MESSAGE
 
 

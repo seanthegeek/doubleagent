@@ -574,9 +574,10 @@ for Go files as it does for the others.
   that has no verb or whose verbs are all a plain `%s` (or, in `Sprintf`, a
   `%v` of `err`), with the format written out or held in a string constant
   of the same file; on `errors.New(fmt.Sprintf(...))`; on an
-  `errors.New` whose argument names `err` or calls `.Error()`; and on a
-  `fmt.Errorf` that gives such an argument, or a name ending in `Err`, a
-  verb other than `%w`.
+  `errors.New` whose argument names an error, which is any name `err`
+  (also as `current.err` or inside `wrap(err)`), any name ending in `Err`,
+  or a call of `.Error()`; and on a `fmt.Errorf` that gives such an
+  argument a verb other than `%w`.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.
