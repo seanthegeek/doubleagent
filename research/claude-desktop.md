@@ -961,8 +961,8 @@ without saying which key is which, so a list is one row per entry,
 `permission grant: <key> <entry>`, an object one row per member,
 `permission grant: <key>.<member>=<value>`, and any other non-empty value one row,
 `permission grant: <key>=<value>`; the fixture's values are invented. A `webFetchAllowedUrls`
-URL's credentials, in a list entry or an object's member name, are shown as written; `timeline --no-secrets` and `detect --no-secrets` replace
-them with the placeholder. Not read:
+URL's credentials, in a list entry or an object's member name, are shown as written;
+`timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder. Not read:
 `remoteMcpServersConfig` (it can carry server credentials) and `chromePermsBeforeUnsupervised`.
 `preferences.remoteChatFolderGrants` is not in the session record but in
 `claude_desktop_config.json`, a secret-glob file (its `mcpServers.*.env` can embed API keys), so the
