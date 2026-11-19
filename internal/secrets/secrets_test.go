@@ -698,6 +698,7 @@ func TestEachShapeOfURLTextCostsItsLengthAFixedNumberOfTimes(t *testing.T) {
 		{"schemes", "", "://"},
 		{"at signs", "https://", "@"},
 		{"names", "https://h/?", "a=b&token=c&"},
+		{"names in one parameter", "https://h/?", "?a="},
 		{"tokens", "", "https://u:p@h/?token=a "},
 		{"white space", "https://h/?token=a", " \t\n"},
 		{"escaped separators", "", `:\/\/`},
