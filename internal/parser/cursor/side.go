@@ -48,7 +48,8 @@ func joinProject(artifact *input.Artifact, row *timeline.Row, sessionID string, 
 // ftsBodies returns the conversation_fts_content id -> c1 (the body; c0 is
 // the title). The full-text table's content table is read as a plain
 // table, so the module is never needed; none when it or a column is
-// missing.
+// missing. A row whose id is NULL is left out: NULL equals nothing in
+// SQL, so no conversation's fts_rowid finds it.
 func ftsBodies(store *store) map[string]sqlitefile.Value {
 	bodies := map[string]sqlitefile.Value{}
 	table := store.table("conversation_fts_content")
@@ -60,7 +61,9 @@ func ftsBodies(store *store) map[string]sqlitefile.Value {
 		return bodies
 	}
 	for _, row := range rows {
-		bodies[parser.ColumnKey(row.Get("id"))] = row.Get("c1")
+		if key := parser.ColumnKey(row.Get("id")); key != "" {
+			bodies[key] = row.Get("c1")
+		}
 	}
 	return bodies
 }
@@ -94,7 +97,8 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 			row("conversation index: " + title + " source=" + cmp.Or(source, "-") + " archived=" +
 				columnField(record.Get("is_archived")))
 		}
-		if body := timeline.Compact(asText(bodies[parser.ColumnKey(record.Get("fts_rowid"))])); body != "" {
+		key := parser.ColumnKey(record.Get("fts_rowid"))
+		if body := timeline.Compact(asText(bodies[key])); key != "" && body != "" {
 			row("cached conversation text (conversation-search.db, source=" + cmp.Or(source, "-") + "): " + body)
 		}
 	}
