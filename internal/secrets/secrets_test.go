@@ -250,6 +250,21 @@ func TestAURLsShortCredentialsAreReplacedWhereTheyStandAndLongOnesEverywhere(t *
 	}
 }
 
+func TestALongURLCredentialIsReplacedWithItsSlashesEscapedOrNot(t *testing.T) {
+	recorder := NewRecorder(withheld())
+	output := []string{`{"next":"https:\/\/h\/v1?sig=fake\/sig-0001"}`, "https://h/v1?token=fake/token-0002",
+		"fake/sig-0001 and fake\\/token-0002"}
+	for _, text := range output {
+		recorder.Collect(text)
+	}
+	want := []string{`{"next":"https:\/\/h\/v1?sig=REDACTED"}`, "https://h/v1?token=REDACTED", "REDACTED and REDACTED"}
+	for i, text := range output {
+		if got := recorder.Text(text); got != want[i] {
+			t.Errorf("%q: got %q, want %q", text, got, want[i])
+		}
+	}
+}
+
 func TestALongCredentialEndingALinkIsReplacedInEveryString(t *testing.T) {
 	recorder := NewRecorder(withheld())
 	output := []string{"see [the share](https://h/s?token=fake-secret-value-0001) now",

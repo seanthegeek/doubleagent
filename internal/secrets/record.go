@@ -123,14 +123,18 @@ func (r *Recorder) Value(value string) {
 // EverywhereLength bytes or more as replaced everywhere. A command collects
 // every string of its output before it writes any, so such a credential is
 // replaced in every string, not only where the URL holds it; Text replaces
-// a shorter one where the URL holds it only.
+// a shorter one where the URL holds it only. A slash in a credential is
+// written \/ where JSON escapes it, so both forms are recorded.
 func (r *Recorder) Collect(text string) {
 	if r == nil {
 		return
 	}
 	identifyURLs(text, func(secret urlcredentials.Credential) {
 		if value := text[secret.Start:secret.End]; len(value) >= EverywhereLength {
-			r.everywhere.add(form{secret: value}, everyString)
+			decoded := strings.ReplaceAll(value, `\/`, "/")
+			for _, each := range []string{value, decoded, strings.ReplaceAll(decoded, "/", `\/`)} {
+				r.everywhere.add(form{secret: each}, everyString)
+			}
 			if secret.After > 0 {
 				r.everywhere.add(form{secret: value, after: text[secret.End : secret.End+secret.After]},
 					everyString)
