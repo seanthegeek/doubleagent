@@ -120,6 +120,8 @@ func refusedCommandLines() []refusedCommandLine {
 		{"a switch takes no value that is not a boolean", "detect", []string{"--json=yes", "in"},
 			`invalid boolean value "yes" for -json: parse error`},
 		{"fleet needs an input", "fleet", nil, "missing argument: input"},
+		{"an empty -o of fleet is refused", "fleet", []string{"-o", "", "a"}, emptyOutput},
+		{"an empty --output= of fleet is refused", "fleet", []string{"--output=", "a"}, emptyOutput},
 		{"catalog takes no input", "catalog", []string{"x"}, "unexpected argument: x"},
 		{"catalog refuses an unknown option", "catalog", []string{"--bogus"},
 			"flag provided but not defined: -bogus"},
