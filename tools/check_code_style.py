@@ -855,17 +855,32 @@ def go_plain_verbs(call: str, verbs: list[str], arguments: list[list[GoToken]]) 
     return True
 
 
+GO_ERROR_VARIABLE = re.compile(r"^[eE]rr[A-Z]")
+
+
+def go_error_names(argument: list[GoToken]) -> set[str]:
+    """Return the names in a call argument that name an error.
+
+    A name is `err`, ends in `Err` (`closeErr`), or starts with `err` or `Err` and a capital
+    (`errNotFound`, and `ErrNotExist` in `fs.ErrNotExist`), the spellings of a package's error
+    variables. Other errors cannot be told from the text and are left alone.
+    """
+    return {
+        token.text
+        for token in argument
+        if token.kind == "ident"
+        and (token.text == "err" or token.text.endswith("Err") or GO_ERROR_VARIABLE.match(token.text))
+    }
+
+
 def go_names_an_error(argument: list[GoToken]) -> bool:
     """Return True when a call argument names an error or calls `.Error()`.
 
-    It names one when any name in it is `err` (so `err`, `current.err` and `wrap(err)`), or ends
-    in `Err` (`closeErr`), or when it calls `.Error()`. Other errors cannot be told from the
-    text and are left alone. `errors.New` and `fmt.Errorf` use this one test.
+    It names one when any name in it is an error's name (see `go_error_names`: `err`,
+    `current.err`, `wrap(err)`, `closeErr`, `errNotFound`, `fs.ErrNotExist`), or when it calls
+    `.Error()`. `errors.New` and `fmt.Errorf` use this one test.
     """
-    if any(
-        token.kind == "ident" and (token.text == "err" or token.text.endswith("Err"))
-        for token in argument
-    ):
+    if go_error_names(argument):
         return True
     return any(
         argument[position].text == "."
@@ -880,12 +895,20 @@ def go_errorf_drops_error(verbs: list[str], arguments: list[list[GoToken]]) -> b
 
     Only such a verb copies the error's words into the new error and leaves the error out of
     the chain `errors.Is` and `errors.As` follow. A format with an explicit argument index
-    (`%[2]v`) is not paired with its arguments and is left alone.
+    (`%[2]v`) is not paired with its arguments and is left alone. So is a `%t`, which formats
+    a boolean, and an argument whose error names are all given to a `%w` of the same call,
+    where the error stays in the chain (`fmt.Errorf("%s: %w", pathOf(err), err)`).
     """
     if any("[" in verb for verb in verbs):
         return False
+    wrapped: set[str] = set()
+    for verb, argument in zip(verbs, arguments, strict=False):
+        if verb == "%w":
+            wrapped |= go_error_names(argument)
     return any(
-        verb != "%w" and go_names_an_error(argument)
+        verb not in {"%w", "%t"}
+        and go_names_an_error(argument)
+        and not (go_error_names(argument) and go_error_names(argument) <= wrapped)
         for verb, argument in zip(verbs, arguments, strict=False)
     )
 

@@ -576,8 +576,10 @@ for Go files as it does for the others.
   of the same file; on `errors.New(fmt.Sprintf(...))`; on an
   `errors.New` whose argument names an error, which is any name `err`
   (also as `current.err` or inside `wrap(err)`), any name ending in `Err`,
-  or a call of `.Error()`; and on a `fmt.Errorf` that gives such an
-  argument a verb other than `%w`.
+  any name starting with `err` or `Err` and a capital (`errNotFound`,
+  `fs.ErrNotExist`), or a call of `.Error()`; and on a `fmt.Errorf` that
+  gives such an argument a verb other than `%w`, except a `%t` and an
+  argument whose error names the same call also gives to a `%w`.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.
