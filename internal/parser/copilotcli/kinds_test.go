@@ -151,6 +151,11 @@ func TestAnEventMemberOfTheWrongKindIsReported(t *testing.T) {
 		{"reasoning null and empty", `{"reasoningBlocks": {"blocks": [{"summary": []}, {"summary": null}]}}`, nil},
 		{"summary as a number in three blocks", `{"reasoningBlocks": {"blocks": [{"summary": 3}, {"summary": 4}, ` +
 			`{"summary": "x"}]}}`, []string{"parser: summary is not a JSON array in 3 entries"}},
+		{"blocks that are not objects", `{"reasoningBlocks": {"blocks": ["a", 7, {"summary": []}]}}`,
+			[]string{"parser: reasoningBlocks.blocks holds 2 entries that are not JSON objects"}},
+		{"summaries that are not objects across blocks", `{"reasoningBlocks": {"blocks": [` +
+			`{"summary": [{}, "a", 9]}, {"summary": [true, {}]}]}}`,
+			[]string{"parser: summary holds 3 entries that are not JSON objects"}},
 	})
 }
 

@@ -240,15 +240,17 @@ func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 
 // reasoningSummaries returns the text of a message's reasoning blocks'
 // summaries, separated by blank lines. A reasoningBlocks or blocks of the
-// wrong kind adds a problem at line, and so does a summary of the wrong
-// kind, once however many blocks hold it so.
+// wrong kind adds a problem at line, and so does a block that is not an
+// object; a summary of the wrong kind, or one that is not an object, is one
+// problem however many blocks hold it so.
 func reasoningSummaries(data jsonvalue.Value, line int, problems *parser.Problems) string {
 	var parts []string
 	var tally parser.EntryTally
 	reasoning := data.Get("reasoningBlocks")
 	parser.ObjectMember(reasoning, "reasoningBlocks", line, problems)
-	for _, block := range parser.ArrayMember(reasoning.Get("blocks"), "reasoningBlocks.blocks", line, problems) {
-		for _, summary := range tally.ArrayMember(block.Get("summary"), "summary") {
+	for _, block := range parser.EntriesOfKind(reasoning.Get("blocks"), "reasoningBlocks.blocks",
+		jsonvalue.Object, line, problems) {
+		for _, summary := range tally.EntriesOfKind(block.Get("summary"), "summary", jsonvalue.Object) {
 			if body := summary.Get("text"); body.IsString() && body.StringValue() != "" {
 				parts = append(parts, body.StringValue())
 			}
