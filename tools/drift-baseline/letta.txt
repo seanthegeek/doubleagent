@@ -17,7 +17,6 @@ check_fixture_schema|key-undocumented|cache_write_tokens
 check_fixture_schema|key-undocumented|cached_input_tokens
 check_fixture_schema|key-undocumented|command
 check_fixture_schema|key-undocumented|completion_tokens
-check_fixture_schema|key-undocumented|env
 check_fixture_schema|key-undocumented|expires_at
 check_fixture_schema|key-undocumented|failed_count
 check_fixture_schema|key-undocumented|firedAt
