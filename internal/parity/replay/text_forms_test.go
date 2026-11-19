@@ -254,12 +254,15 @@ func sameOrOneLater(want, got string, cut *cutTimes) bool {
 	if want == got {
 		return true
 	}
-	if !cut.holds(got) {
-		return false
-	}
-	wantTime, wantErr := time.Parse(time.RFC3339Nano, want)
-	gotTime, gotErr := time.Parse(time.RFC3339Nano, got)
-	return wantErr == nil && gotErr == nil && wantTime.Sub(gotTime) == time.Millisecond
+	return cut.holds(got) && oneLater(want, got)
+}
+
+// oneLater reports whether the timestamp later is one millisecond after
+// the timestamp base.
+func oneLater(later, base string) bool {
+	laterTime, laterErr := time.Parse(time.RFC3339Nano, later)
+	baseTime, baseErr := time.Parse(time.RFC3339Nano, base)
+	return laterErr == nil && baseErr == nil && laterTime.Sub(baseTime) == time.Millisecond
 }
 
 // rolledOverLines returns want and got with each line of got that equals
@@ -267,8 +270,10 @@ func sameOrOneLater(want, got string, cut *cutTimes) bool {
 // want's form. A file's modification time rolled over can also move its
 // row among rows of the millisecond it was rounded into, so a line of got
 // whose only timestamp is such a time and that equals an unmatched line of
-// want elsewhere, one millisecond later, is taken out of both sides; every
-// other line keeps its place and is compared in order.
+// want elsewhere, one millisecond later, is taken out of both sides when
+// every line of got it moved past is of that millisecond or the cut one
+// (amongRoundedRows); every other line keeps its place and is compared in
+// order.
 func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
 	for i := range min(len(wantLines), len(gotLines)) {
@@ -281,7 +286,8 @@ func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 			continue
 		}
 		for j, candidate := range wantLines {
-			if !takenWant[j] && !matched(j) && candidate != line && rolledOver(candidate, line, cut) == candidate {
+			if !takenWant[j] && !matched(j) && candidate != line && rolledOver(candidate, line, cut) == candidate &&
+				amongRoundedRows(gotLines, i, j) {
 				takenWant[j], takenGot[i] = true, true
 				break
 			}
@@ -295,6 +301,34 @@ func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 func movedModifiedTime(line string, cut *cutTimes) bool {
 	found := jsonTimestamp.FindAllStringSubmatch(line, -1)
 	return len(found) == 1 && cut.holdsModified(found[0][1])
+}
+
+// amongRoundedRows reports whether each line of got that a line at moved
+// passed on its way from target, the place its recorded line holds, has
+// whole timestamps, and each is the moved line's time or one millisecond
+// later: the rows of the millisecond a modification time was cut to and
+// the one the recording rounded it into.
+func amongRoundedRows(got []string, moved, target int) bool {
+	low, high := target, moved-1
+	if target > moved {
+		low, high = moved+1, target
+	}
+	if high >= len(got) {
+		return false
+	}
+	cutTime := jsonTimestamp.FindStringSubmatch(got[moved])[1]
+	for _, line := range got[low : high+1] {
+		found := jsonTimestamp.FindAllStringSubmatch(line, -1)
+		if len(found) == 0 {
+			return false
+		}
+		for _, timestamp := range found {
+			if timestamp[1] != cutTime && !oneLater(timestamp[1], cutTime) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // without returns lines but those whose index is in taken.
