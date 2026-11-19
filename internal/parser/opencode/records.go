@@ -129,6 +129,7 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 	var problems parser.Problems
 	items := parser.ListOfKind(data.Get("content"), "content", jsonvalue.Object, 0, &problems)
 	b.problemRows(problems)
+	var tally parser.EntryTally
 	for _, item := range items {
 		text := item.Get("text")
 		switch textOf(item.Get("type")) {
@@ -141,9 +142,12 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 				b.add(timeline.TurnThinking, text.Text(), "")
 			}
 		case "tool":
-			b.tool(item)
+			b.tool(item, &tally)
 		}
 	}
+	var wrong parser.Problems
+	tally.Report(0, &wrong)
+	b.problemRows(wrong)
 	if failure := data.Get("error"); !failure.IsEmpty() {
 		b.add(timeline.TurnSystem, "error: "+errorText(failure), "")
 	}
@@ -151,9 +155,9 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 
 // tool emits a 2.x tool item's tool_use row, and once the call has
 // finished its tool_result row and, for a refusal, its
-// "permission decision:" row. A state.content that is not an array adds a
-// problem row.
-func (b *recordRows) tool(item jsonvalue.Value) {
+// "permission decision:" row. A state.content of the wrong kind is counted
+// in tally, so the record gives one problem row for every tool item.
+func (b *recordRows) tool(item jsonvalue.Value, tally *parser.EntryTally) {
 	state, times := parser.ObjectOrEmpty(item.Get("state")), parser.ObjectOrEmpty(item.Get("time"))
 	name, callID := parser.Text(item.Get("name")), parser.Text(item.Get("id"))
 	b.add(timeline.TurnToolUse, ToolSummary(state.Get("input")),
@@ -163,13 +167,11 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 		return
 	}
 	var text string
-	var problems parser.Problems
 	if status == "error" {
 		text = "[error] " + errorText(state.Get("error"))
 	} else {
 		var chunks []string
-		for _, chunk := range parser.EntriesOfKind(state.Get("content"), "state.content", jsonvalue.Object, 0,
-			&problems) {
+		for _, chunk := range tally.EntriesOfKind(state.Get("content"), "state.content", jsonvalue.Object) {
 			if !chunk.Get("text").IsNull() {
 				chunks = append(chunks, chunk.Get("text").Text())
 			}
@@ -179,7 +181,6 @@ func (b *recordRows) tool(item jsonvalue.Value) {
 	result := b.add(timeline.TurnToolResult, text, timeutil.FirstNonEmpty(
 		timeutil.FromValue(times.Get("completed")), timeutil.FromValue(times.Get("ran"))),
 		name, callID)
-	b.problemRows(problems)
 	if status != "error" {
 		return
 	}

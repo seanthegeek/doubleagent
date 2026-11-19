@@ -196,6 +196,9 @@ type chatState struct {
 	names    map[string]string
 	problems parser.Problems
 	pending  [2]string
+	// tally counts the tool_calls of the wrong kind, reported once for
+	// the file, whose messages all take line 1.
+	tally parser.EntryTally
 }
 
 // parseChat emits the rows of one chat file, then the problems of its
@@ -231,6 +234,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 	for index, message := range messages {
 		walkMessage(message, index, &state, makeRow, emit)
 	}
+	state.tally.Report(1, &state.problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, append(problems, state.problems...), sessionID, ""))
 	if failure != nil {
 		emit(makeRow(timeline.TurnSystem, "parser: "+failure.Error(), "", ""))
@@ -272,13 +276,13 @@ func walkMessage(message jsonvalue.Value, index int, state *chatState, makeRow r
 }
 
 // walkAssistant emits an assistant message's text and its tool calls; a
-// tool_calls that is not an array adds a problem.
+// tool_calls that is not an array is counted in the state's tally.
 func walkAssistant(message jsonvalue.Value, index int, content string, state *chatState,
 	makeRow rowMaker, emit parser.Emit) {
 	if strings.TrimSpace(content) != "" {
 		emit(makeRow(timeline.TurnAssistant, content, "", ""))
 	}
-	for _, call := range parser.ArrayMember(message.Get("tool_calls"), "tool_calls", 1, &state.problems) {
+	for _, call := range state.tally.ArrayMember(message.Get("tool_calls"), "tool_calls") {
 		function := call.Get("function")
 		callID := parser.Text(call.Get("id"))
 		name := parser.Text(function.Get("name"))

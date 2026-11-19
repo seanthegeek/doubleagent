@@ -35,8 +35,9 @@ func (c conversationRows) row(turnType, text, model, toolName, toolUseID string)
 }
 
 // conversation emits the rows of one conversation: a heading system row,
-// the problem of a messages member that is not an array, then each
-// message's rows.
+// the problem of a messages member that is not an array, each message's
+// rows, then one problem per member of the messages of the wrong kind,
+// however many messages hold it so.
 func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parser.Options,
 	emit parser.Emit) {
 	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
@@ -57,16 +58,21 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 	rows.row(timeline.TurnSystem, heading, "", "", "")
 	rows.problems(problems)
 	models := parser.Tracker{} // per conversation, so the key needs no session id
+	var tally parser.EntryTally
 	for _, message := range messages {
-		rows.message(message, models, options)
+		rows.message(message, models, options, &tally)
 	}
+	var wrong parser.Problems
+	tally.Report(0, &wrong)
+	rows.problems(wrong)
 }
 
 // message emits the rows of one message: a model change, its reasoning,
 // its text, its tool steps, its file changes and what the secret shield
-// withheld. A toolSteps, changes or changes.files of the wrong kind adds
-// a problem.
-func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker, options parser.Options) {
+// withheld. A toolSteps, changes or changes.files of the wrong kind is
+// counted in tally.
+func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker, options parser.Options,
+	tally *parser.EntryTally) {
 	role := message.Get("role")
 	meta := message.Get("meta")
 	model := parser.Text(meta.Get("model"))
@@ -91,14 +97,12 @@ func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker
 		text = strings.TrimSpace(text + "\n[" + strconv.Itoa(images.Len()) + " image(s)]")
 	}
 	c.text(role, text, model)
-	var problems parser.Problems
-	for _, step := range parser.ArrayMember(message.Get("toolSteps"), "toolSteps", 0, &problems) {
+	for _, step := range tally.ArrayMember(message.Get("toolSteps"), "toolSteps") {
 		if step.IsObject() {
 			c.toolStep(step, model)
 		}
 	}
-	c.changes(message.Get("changes"), model, &problems)
-	c.problems(problems)
+	c.changes(message.Get("changes"), model, tally)
 	if withheld := meta.Get("withheld"); !withheld.IsEmpty() {
 		c.row(timeline.TurnSystem, "secret shield withheld: "+parser.JSONText(withheld), model, "", "")
 	}
@@ -183,15 +187,12 @@ func (c conversationRows) problems(problems parser.Problems) {
 }
 
 // changes emits a "file changed:" row per changed file of a reply, and
-// adds a problem for a changes or changes.files of the wrong kind.
-func (c conversationRows) changes(changes jsonvalue.Value, model string, problems *parser.Problems) {
-	if !changes.IsObject() {
-		if !changes.IsNull() {
-			problems.Add(0, parser.WrongKind("changes", jsonvalue.Object))
-		}
+// counts in tally a changes or changes.files of the wrong kind.
+func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *parser.EntryTally) {
+	if !tally.Check(changes, "changes", jsonvalue.Object) || changes.IsNull() {
 		return
 	}
-	for _, entry := range parser.ArrayMember(changes.Get("files"), "changes.files", 0, problems) {
+	for _, entry := range tally.ArrayMember(changes.Get("files"), "changes.files") {
 		if entry.IsObject() {
 			c.row(timeline.TurnSystem, fileChangeText(changes.Get("id"), entry), model, "", "")
 		}

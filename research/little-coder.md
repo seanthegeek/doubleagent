@@ -591,7 +591,11 @@ the session's in `history.json`, or 0 for the `messages` of a session file. An a
 empty member gives no row. A `history.json` `sessions`, a `messages` or a `tool_calls` holding
 entries that are not objects gives one row for them all at the same place,
 `parser: <member> holds <n> entries that are not JSON objects`
-(`1 entry that is not a JSON object` for one), the other entries giving their rows.
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. In
+`history.json`, where every message of a session takes the session's position, a `tool_calls` of
+the wrong kind is one row for the session however many messages hold it so: more than one gives
+`parser: tool_calls is not a JSON array in <n> entries`, and their entries that are not objects are
+counted together in one `holds <n> entries` row.
 
 A pi session file a checkpoint directory names that cannot be read gives the checkpoint row without
 the `session file not collected` clause, followed by one row

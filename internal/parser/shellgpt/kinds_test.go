@@ -56,6 +56,9 @@ func TestAChatElementOrToolCallsOfTheWrongKindIsReported(t *testing.T) {
 			[]string{"parser: tool_calls is not a JSON array"}},
 		{"tool_calls null or empty", `[{"role": "assistant", "tool_calls": null}, {"role": "assistant", "tool_calls": []}]`, nil},
 		{"every element an object", `[` + user + `]`, nil},
+		{"tool_calls as a string in three messages", `[{"role": "assistant", "tool_calls": "c"}, ` +
+			`{"role": "assistant", "tool_calls": 1}, {"role": "assistant", "tool_calls": {}}]`,
+			[]string{"parser: tool_calls is not a JSON array in 3 entries"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

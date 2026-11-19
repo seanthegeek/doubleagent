@@ -194,17 +194,21 @@ func (r *replay) rewind(line int, target string) {
 
 // patch applies a $patch: its own message change and those of its
 // updates, then the removals and the new order of the ids it names. An
-// updates, removeIds or orderIds that is not an array adds a problem.
+// updates, removeIds or orderIds that is not an array adds a problem, and
+// so does a toolCalls of the wrong kind, once however many updates hold it
+// so.
 func (r *replay) patch(line int, patch jsonvalue.Value) {
+	var tally parser.EntryTally
 	if patch.Get("id").IsString() {
-		r.applyPatch(line, patch, "$patch.toolCalls")
+		r.applyPatch(patch, "$patch.toolCalls", &tally)
 	}
 	for _, update := range parser.EntriesOfKind(patch.Get("updates"), "$patch.updates", jsonvalue.Object, line,
 		&r.problems) {
 		if update.Get("id").IsString() {
-			r.applyPatch(line, update, "$patch.updates[].toolCalls")
+			r.applyPatch(update, "$patch.updates[].toolCalls", &tally)
 		}
 	}
+	tally.Report(line, &r.problems)
 	removeIDs := parser.ListOfKind(patch.Get("removeIds"), "$patch.removeIds", jsonvalue.String, line, &r.problems)
 	orderIDs := parser.ListOfKind(patch.Get("orderIds"), "$patch.orderIds", jsonvalue.String, line, &r.problems)
 	if removed := texts(removeIDs); len(removed) > 0 {
@@ -231,11 +235,11 @@ func texts(items []jsonvalue.Value) []string {
 // patch gives a result for. The message as recorded is never changed: the
 // first patch replaces it with a copy, tool calls included, which later
 // patches change in place, so a patch costs work in proportion to its own
-// size, not the message's. A toolCalls of the patch that is not an array
-// adds a problem at line, naming it as member, whether or not the message
-// is present.
-func (r *replay) applyPatch(line int, patch jsonvalue.Value, member string) {
-	toolPatches := parser.ListOfKind(patch.Get("toolCalls"), member, jsonvalue.Object, line, &r.problems)
+// size, not the message's. A toolCalls of the patch of the wrong kind is
+// counted in tally, naming it as member, whether or not the message is
+// present.
+func (r *replay) applyPatch(patch jsonvalue.Value, member string, tally *parser.EntryTally) {
+	toolPatches := tally.ListOfKind(patch.Get("toolCalls"), member, jsonvalue.Object)
 	entry, ok := r.messages.byID[patch.Get("id").StringValue()]
 	if !ok {
 		return

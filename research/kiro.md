@@ -692,7 +692,11 @@ as an object (`parser: user.content.<variant> is not a JSON object`,
 One of these arrays, other than `message_meta_tags`, holding entries that are not objects gives
 one row for them all at the same place,
 `parser: <member> holds <n> entries that are not JSON objects`
-(`1 entry that is not a JSON object` for one), the other entries giving their rows.
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A member that
+every history entry or checkpoint holds is reported once for the conversation however many entries
+get it wrong: one wrong entry gives the rows above, more give
+`parser: <member> is not a JSON object in <n> entries` (or `array`), and the entries of the wrong
+kind its arrays hold are counted together over every entry, in one `holds <n> entries` row.
 
 A `.cli_bash_history`, `/save` export, agent configuration or delegate record that cannot be read
 is one row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.

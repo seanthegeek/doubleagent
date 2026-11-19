@@ -2230,7 +2230,12 @@ replay), a `$patch` record's `$patch.updates`, `$patch.removeIds`, `$patch.order
 or empty member gives no row. Any of these holding entries that are not objects (strings for the
 two id lists) gives one row for them all at the same line,
 `parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for
-one), and so does a `logs.json` holding records that are not objects, at `source_line` 0. A
+one), and so does a `logs.json` holding records that are not objects, at `source_line` 0. The
+messages of a legacy session file, or of one `$set` record, and the updates of one `$patch` record
+share their record's line, so a `toolCalls` or `thoughts` of the wrong kind is one row for that
+line however many of them hold it so: more than one gives
+`parser: <member> is not a JSON array in <n> entries`, and their entries of the wrong kind are
+counted together in one `holds <n> entries` row. A
 `memory/`
 file that is not valid UTF-8 is one `parser: <name> is not UTF-8 text` row.
 

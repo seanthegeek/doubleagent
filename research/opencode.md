@@ -1481,7 +1481,10 @@ no row there; their own pass reports them.
 
 A 2.x assistant record whose `content` is present but not an array is a `system` row
 `parser: content is not a JSON array` at the record's rowid, and a tool item whose `state.content`
-is present but not an array is `parser: state.content is not a JSON array` after its tool result;
+is present but not an array is `parser: state.content is not a JSON array` after the record's
+rows, one row for the record however many of its tool items hold it so (more than one gives
+`parser: state.content is not a JSON array in <n> entries`, and their chunks that are not objects
+are counted together in one `holds <n> entries` row);
 a `session.json` whose `pinned` is present but not an array is
 `parser: pinned is not a JSON array` at `source_line` 1. An absent, null or empty member gives no
 row. A `content` or `state.content` holding items that are not objects, or a `pinned` holding ids

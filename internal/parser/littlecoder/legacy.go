@@ -90,8 +90,9 @@ func firstGroup(match []string) string {
 // legacyRows emits a `session saved:` row, then each message's rows, all at
 // the session's saved_at. sessionPosition is the session's position in
 // history.json, which every row takes as its line, or 0 for a session file,
-// whose rows take their message's position. A message's tool_calls that is
-// not an array adds a problem.
+// whose rows take their message's position. A message's tool_calls of the
+// wrong kind adds a problem at its message's position in a session file,
+// and once for the session at its position in history.json.
 func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
 	messages iter.Seq2[int, jsonvalue.Value], sessionID, savedAt string, sessionPosition int,
 	problems *parser.Problems, emit parser.Emit) {
@@ -112,21 +113,22 @@ func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
 		" input_tokens="+dash(session.Get("total_input_tokens"))+" output_tokens="+
 		dash(session.Get("total_output_tokens"))+" (saved_at "+dash(jsonvalue.NewString(savedAt))+
 		", host local time)", "", "")
+	var tally parser.EntryTally
 	for position, message := range parser.EntriesOfKindFrom(messages, "messages", jsonvalue.Object, sessionPosition,
 		problems) {
-		line := position
-		if sessionPosition != 0 {
-			line = sessionPosition
-		}
-		messageRows(message, line, problems, func(turn, text, toolName, toolUseID string) {
+		messageRows(message, &tally, func(turn, text, toolName, toolUseID string) {
 			put(position, turn, text, toolName, toolUseID)
 		})
+		if sessionPosition == 0 {
+			tally.Report(position, problems)
+		}
 	}
+	tally.Report(sessionPosition, problems)
 }
 
 // messageRows writes, through put, the rows of one saved message by its
-// role; a tool_calls that is not an array adds a problem at line.
-func messageRows(message jsonvalue.Value, line int, problems *parser.Problems,
+// role; a tool_calls of the wrong kind is counted in tally.
+func messageRows(message jsonvalue.Value, tally *parser.EntryTally,
 	put func(turn, text, toolName, toolUseID string)) {
 	text := parser.TextOf(message.Get("content"))
 	switch message.Get("role").StringValue() {
@@ -144,8 +146,7 @@ func messageRows(message jsonvalue.Value, line int, problems *parser.Problems,
 		if text != "" {
 			put(timeline.TurnAssistant, text, "", "")
 		}
-		for _, call := range parser.EntriesOfKind(message.Get("tool_calls"), "tool_calls", jsonvalue.Object, line,
-			problems) {
+		for _, call := range tally.EntriesOfKind(message.Get("tool_calls"), "tool_calls", jsonvalue.Object) {
 			put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parser.Text(call.Get("name")),
 				parser.Text(call.Get("id")))
 		}

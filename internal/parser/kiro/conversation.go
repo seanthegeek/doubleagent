@@ -60,12 +60,12 @@ func variant(value jsonvalue.Value) (string, jsonvalue.Value) {
 }
 
 // variantOf is variant for a member of a history entry; a variant whose
-// body is present but not an object, which the format never writes, adds
-// the problem "<member>.<tag> is not a JSON object".
+// body is present but not an object, which the format never writes, is
+// counted in c.entries as "<member>.<tag>".
 func (c *conversation) variantOf(value jsonvalue.Value, member string) (string, jsonvalue.Value) {
 	tag, body := variant(value)
-	if raw := value.Get(tag); tag != "" && !raw.IsNull() && !raw.IsObject() {
-		c.problems.Add(c.line, parser.WrongKind(member+"."+tag, jsonvalue.Object))
+	if tag != "" {
+		c.entries.Check(value.Get(tag), member+"."+tag, jsonvalue.Object)
 	}
 	return tag, body
 }
@@ -141,6 +141,9 @@ type conversation struct {
 	names              map[string]string
 	lastTimestamp      string
 	problems           parser.Problems
+	// entries counts the problems of the members of history entries and
+	// checkpoints, each reported once for the conversation.
+	entries parser.EntryTally
 }
 
 // base returns a row of the conversation at rowTime, else at the last time
@@ -198,6 +201,7 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 		reader.project = firstCwd(state)
 	}
 	reader.read(state)
+	reader.entries.Report(line, &reader.problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, reader.problems, reader.sessionID, reader.project))
 	if err != nil {
 		row := p.SystemRow(artifact, "parser: truncated conversation, "+
@@ -284,8 +288,9 @@ type historyCopy struct {
 
 // historyCopies returns each checkpoint's history_snapshot, in checkpoint
 // order, then tangent_state.main_history. The tangent copy has no time of
-// its own. A checkpoint_manager, tangent_state, checkpoints,
-// history_snapshot or main_history of the wrong kind adds a problem.
+// its own. A checkpoint_manager, tangent_state, checkpoints or
+// main_history of the wrong kind adds a problem; a history_snapshot of the
+// wrong kind is counted in c.entries.
 func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 	var copies []historyCopy
 	manager := parser.ObjectOrEmptyMember(state.Get("checkpoint_manager"), "checkpoint_manager", c.line, &c.problems)
@@ -293,8 +298,8 @@ func (c *conversation) historyCopies(state jsonvalue.Value) []historyCopy {
 		jsonvalue.Object, c.line, &c.problems)
 	for _, checkpoint := range checkpoints {
 		snapshot := checkpoint.Get("history_snapshot")
-		entries := parser.ListOfKind(snapshot, "checkpoint_manager.checkpoints[].history_snapshot", jsonvalue.Object,
-			c.line, &c.problems)
+		entries := c.entries.ListOfKind(snapshot, "checkpoint_manager.checkpoints[].history_snapshot",
+			jsonvalue.Object)
 		if !snapshot.IsArray() {
 			continue
 		}
@@ -353,16 +358,16 @@ func (c *conversation) pending(pending jsonvalue.Value) {
 // content, the assistant's response and tool uses, and a compaction mark.
 // models tracks the model per session for this run over entries. A
 // request_metadata, user, assistant or message_meta_tags of the wrong kind
-// adds a problem.
+// is counted in c.entries.
 func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, emit parser.Emit) {
-	meta := parser.ObjectOrEmptyMember(entry.Get("request_metadata"), "request_metadata", c.line, &c.problems)
+	meta := c.entries.ObjectOrEmptyMember(entry.Get("request_metadata"), "request_metadata")
 	model := c.stateModel
 	if modelID := meta.Get("model_id"); !modelID.IsEmpty() {
 		model = modelID.Text()
 	}
 	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
 	end := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
-	user := parser.ObjectOrEmptyMember(entry.Get("user"), "user", c.line, &c.problems)
+	user := c.entries.ObjectOrEmptyMember(entry.Get("user"), "user")
 	userTime := ""
 	if user.IsObject() {
 		userTime = timeutil.FromValue(user.Get("timestamp"))
@@ -377,17 +382,14 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, e
 		c.userRows(user.Get("content"), timeutil.FirstNonEmpty(userTime, start), model, emit)
 	}
 	assistant := entry.Get("assistant")
-	if !assistant.IsNull() && !assistant.IsObject() {
-		c.problems.Add(c.line, parser.WrongKind("assistant", jsonvalue.Object))
-	}
+	c.entries.Check(assistant, "assistant", jsonvalue.Object)
 	if tag, body := c.variantOf(assistant, "assistant"); tag == "Response" || tag == "ToolUse" {
 		if content := body.Get("content"); !content.IsEmpty() {
 			emit(fill(c.base(end, model), timeline.TurnAssistant, parser.SettingValue(content)))
 		}
 		c.toolUses(body.Get("tool_uses"), end, model, emit)
 	}
-	for _, tag := range parser.ArrayMember(meta.Get("message_meta_tags"), "request_metadata.message_meta_tags",
-		c.line, &c.problems) {
+	for _, tag := range c.entries.ArrayMember(meta.Get("message_meta_tags"), "request_metadata.message_meta_tags") {
 		if tag.IsString() && tag.StringValue() == "Compact" {
 			emit(fill(c.base(end, model), timeline.TurnSystem,
 				"compact: conversation history summarised"))
@@ -398,9 +400,9 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parser.Tracker, e
 
 // toolUses emits a tool_use row per call of an assistant message, and
 // remembers each call's tool name for its result. A tool_uses that is not
-// an array adds a problem.
+// an array is counted in c.entries.
 func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit parser.Emit) {
-	for _, use := range parser.EntriesOfKind(uses, "tool_uses", jsonvalue.Object, c.line, &c.problems) {
+	for _, use := range c.entries.EntriesOfKind(uses, "tool_uses", jsonvalue.Object) {
 		toolID := parser.Text(use.Get("id"))
 		toolName := parser.Text(use.Get("name"))
 		if toolName == "" {
@@ -420,10 +422,10 @@ func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit pa
 // userRows emits the rows of a history entry's user content: the prompt,
 // a deny-rule rejection sent as a plain prompt, and each tool result with,
 // for a cancelled call, its permission decision. A content that is not an
-// object, or a tool_use_results that is not an array, adds a problem.
+// object, or a tool_use_results that is not an array, is counted in
+// c.entries.
 func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string, emit parser.Emit) {
-	tag, body := c.variantOf(parser.ObjectOrEmptyMember(content, "user.content", c.line, &c.problems),
-		"user.content")
+	tag, body := c.variantOf(c.entries.ObjectOrEmptyMember(content, "user.content"), "user.content")
 	prompt := body.Get("prompt")
 	cancelled := tag == "CancelledToolUses"
 	if (tag == "Prompt" || cancelled) && !prompt.IsEmpty() {
@@ -441,8 +443,8 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 	if tag != "ToolUseResults" && !cancelled {
 		return
 	}
-	for _, result := range parser.EntriesOfKind(body.Get("tool_use_results"), "tool_use_results", jsonvalue.Object,
-		c.line, &c.problems) {
+	for _, result := range c.entries.EntriesOfKind(body.Get("tool_use_results"), "tool_use_results",
+		jsonvalue.Object) {
 		row := c.base(timestamp, model)
 		row.ToolUseID = parser.Text(result.Get("tool_use_id"))
 		row.ToolName = c.names[row.ToolUseID]

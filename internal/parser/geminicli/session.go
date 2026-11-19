@@ -49,16 +49,26 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 	models := parser.Tracker{}
 	order := state.messages.order()
 	answered := answeredCalls(&state.messages, order)
+	// tallies holds a count per line, since the messages of a legacy file
+	// or of one $set record share their record's line.
+	tallies := map[int]*parser.EntryTally{}
+	var lines []int
 	for _, messageID := range order {
 		entry := state.messages.byID[messageID]
 		sessionID := entry.sessionID
 		if sessionID == "" {
 			sessionID = state.sessionID
 		}
+		if tallies[entry.line] == nil {
+			tallies[entry.line] = &parser.EntryTally{}
+			lines = append(lines, entry.line)
+		}
 		turn := messageTurn{owner: p, artifact: artifact, options: options, line: entry.line,
-			sessionID: sessionID, project: project}
+			sessionID: sessionID, project: project, tally: tallies[entry.line]}
 		parser.EmitAll(emit, turn.rows(entry.message, models, answered))
-		problems = append(problems, turn.problems...)
+	}
+	for _, line := range lines {
+		tallies[line].Report(line, &problems)
 	}
 	for _, each := range state.events {
 		emit(p.systemRow(artifact, where{each.line, each.timestamp, each.sessionID, project}, each.text))
@@ -125,7 +135,8 @@ func answeredCalls(messages *messageLog, order []string) map[string]bool {
 }
 
 // messageTurn is where the rows of one replayed message go: its line,
-// session and project, and the problems its members of the wrong kind add.
+// session and project, and the count of its members of the wrong kind,
+// shared by the messages of its line.
 type messageTurn struct {
 	owner              *Parser
 	artifact           *input.Artifact
@@ -133,7 +144,7 @@ type messageTurn struct {
 	line               int
 	sessionID, project string
 	timestamp, model   string
-	problems           parser.Problems
+	tally              *parser.EntryTally
 }
 
 // row returns a row of the message at when, else at the message's time.
@@ -149,8 +160,8 @@ func (t *messageTurn) row(turn, text, when string) timeline.Row {
 // rows returns the rows of one replayed message: a user message's runs and
 // its unanswered responses, a model message's model change, thinking,
 // text, tool calls and results, or an info, error or warning message as
-// one system row. A model message's thoughts or toolCalls that is not an
-// array adds a problem.
+// one system row. A model message's thoughts or toolCalls of the wrong
+// kind is counted in the tally.
 func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	answered map[string]bool) []timeline.Row {
 	kind := message.Get("type")
@@ -173,7 +184,7 @@ func (t *messageTurn) rows(message jsonvalue.Value, models parser.Tracker,
 	if change := models.Change("model", t.sessionID, t.model); change != "" {
 		out = append(out, t.row(timeline.TurnSystem, change, ""))
 	}
-	thoughts := parser.ListOfKind(message.Get("thoughts"), "thoughts", jsonvalue.Object, t.line, &t.problems)
+	thoughts := t.tally.ListOfKind(message.Get("thoughts"), "thoughts", jsonvalue.Object)
 	if t.options.IncludeThinking {
 		out = append(out, t.thinkingRows(thoughts, content)...)
 	}
@@ -236,13 +247,12 @@ func (t *messageTurn) thinkingRows(thoughts []jsonvalue.Value, content jsonvalue
 
 // toolCalls returns a model message's tool calls: its toolCalls objects,
 // then each functionCall part of its content whose id none of them has,
-// as a call of that id, name and args. A toolCalls that is not an array
-// adds a problem.
+// as a call of that id, name and args. A toolCalls of the wrong kind is
+// counted in the tally.
 func (t *messageTurn) toolCalls(message jsonvalue.Value) []jsonvalue.Value {
 	var calls []jsonvalue.Value
 	seen := map[string]bool{}
-	for _, call := range parser.EntriesOfKind(message.Get("toolCalls"), "toolCalls", jsonvalue.Object, t.line,
-		&t.problems) {
+	for _, call := range t.tally.EntriesOfKind(message.Get("toolCalls"), "toolCalls", jsonvalue.Object) {
 		calls = append(calls, call)
 		seen[parser.Text(call.Get("id"))] = true
 	}
