@@ -1312,8 +1312,10 @@ says a share keeps a public copy while the original stays private.
 The marker is the `storage/session_share/<sessionID>.json` file
 ([Cloud session marker](#cloud-session-marker)). The parser yields one `system` row per file,
 `session synced: kilo session <id> ingest <ingestPath> share <url or -> (from storage/session_share/<sessionID>.json, file mtime)`,
-timestamped by the file's modification time, with the session id from the file name; a file that
-is not a JSON object is one `parser:` row. The OpenCode reader also yields the event rows of
+timestamped by the file's modification time, with the session id from the file name; the link's
+credentials, if it carries any, are shown as written, and `timeline --no-secrets` and
+`detect --no-secrets` replace them with the placeholder. A file that is not a JSON object is one
+`parser:` row. The OpenCode reader also yields the event rows of
 [Sync, relay and origin rows of `opencode.md`](opencode.md#sync-relay-and-origin-rows) from
 `kilo.db` (`session.share_url` itself is not read). These rows are fixture only: no real install
 has shown the marker file. What a delete does to the file and the remote copy is in
