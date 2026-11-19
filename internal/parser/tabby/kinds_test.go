@@ -115,3 +115,27 @@ func TestAnEventBodyThatIsNotAnObjectIsReported(t *testing.T) {
 		})
 	}
 }
+
+// The state.vscdb fixtures under testdata are built by testdata/gen_state.py.
+func TestServerRecordsOfTheWrongKindAreReported(t *testing.T) {
+	const rel = ".config/Code/User/globalStorage/state.vscdb"
+	tests := []struct {
+		fixture string
+		want    []string
+	}{
+		{"servers-list", []string{"parser: server.serverRecords is not a JSON object"}},
+		{"servers-string", []string{"parser: server.serverRecords holds 1 entry that is not a JSON object"}},
+		{"command-empty", nil},
+	}
+	for _, test := range tests {
+		t.Run(test.fixture, func(t *testing.T) {
+			data, err := osfile.ReadFile(filepath.Join("testdata", test.fixture+".vscdb"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := problemRows(t, rel, "vscode", data); !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}

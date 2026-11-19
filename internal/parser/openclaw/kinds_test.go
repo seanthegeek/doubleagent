@@ -40,6 +40,7 @@ func TestAnExecApprovalsMemberOfTheWrongKindIsReported(t *testing.T) {
 		build        func(value string) string
 	}{
 		{"agents", "agents", object, `[1]`, func(text string) string { return `{"agents": ` + text + `}` }},
+		{"socket", "socket", object, `[1]`, func(text string) string { return `{"socket": ` + text + `}` }},
 		{"defaults", "defaults", object, `[1]`, func(text string) string { return `{"defaults": ` + text + `}` }},
 		{"an agent", "agents.main", object, `[1]`, func(text string) string { return `{"agents": {"main": ` + text + `}}` }},
 		{"allowlist", "defaults.allowlist", array, `{"pattern": "ls"}`,

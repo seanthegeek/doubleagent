@@ -928,23 +928,24 @@ Nothing local says whether the provider deleted its stored responses
 
 #### Bad-line rows
 
-No file is read line by line. A `chat.json` that does not parse yields a whole-file row plus the
-log items the parser can recover. `tasks.json` is a JSON array reader: a task that is not an object
+No file is read line by line. A `chat.json` that does not parse yields a whole-file row plus the log
+items the parser can recover. `tasks.json` is a JSON array reader: a task that is not an object
 gives `parser: unparseable record <N> (not a JSON object): <record>` and the tasks around it are
 still read, and a file that is not JSON or has no `tasks` list gives one
 `parser: scheduler tasks file ...` row. `state.json` and the policy files give one whole-file
-`parser:` row when they are not JSON objects; a `_tool_access` policy's `allowed` or `blocked`
-that is present but not an array is `parser: <list> is not a JSON array`. A `chat.json` whose
-`log` is present but not an object is `parser: log is not a JSON object`, and one whose
-`log.logs` or `agents` is present but not an array is `parser: log.logs is not a JSON array` or
-`parser: agents is not a JSON array`, after the chat's other rows; an absent, null or empty
-member gives no row. The connector's `.env` gives no bad-line rows: it is
-a secret file, and the connector's own reader skips a line without `=` too. Any of these files that
-cannot be read is one row `parser: <file> could not be read (<reason>)`, `<file>` its name, a
-`chat.json` row carrying the chat directory's name as its session id. A message file under
-`messages/` that exists but cannot be read gives the same row, naming the message file, at the
-`chat.json` that names it, after the chat's other rows, and its tool result falls back to the
-history or log text.
+`parser:` row when they are not JSON objects; a `_tool_access` policy's `allowed` or `blocked` that
+is present but not an array is `parser: <list> is not a JSON array`. A `chat.json` whose `log`,
+`data`, `data.telegram_bot_cfg`, `data.chat_model_override` or a slot of the override (`chat`,
+`utility`, `embedding`) is present but not an object is `parser: <member> is not a JSON object`
+(`log`, `data`, `telegram_bot_cfg`, `chat_model_override`, `chat_model_override.<slot>`), and one
+whose `log.logs` or `agents` is present but not an array is `parser: log.logs is not a JSON array`
+or `parser: agents is not a JSON array`, after the chat's other rows; an absent, null or empty
+member gives no row. The connector's `.env` gives no bad-line rows: it is a secret file, and the
+connector's own reader skips a line without `=` too. Any of these files that cannot be read is one
+row `parser: <file> could not be read (<reason>)`, `<file>` its name, a `chat.json` row carrying the
+chat directory's name as its session id. A message file under `messages/` that exists but cannot be
+read gives the same row, naming the message file, at the `chat.json` that names it, after the chat's
+other rows, and its tool result falls back to the history or log text.
 
 #### Fixtures
 

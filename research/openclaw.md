@@ -1792,17 +1792,17 @@ name of the file that failed; one that is not a SQLite database is `parser: not 
 for the agent database and `parser: state/openclaw.sqlite is not a SQLite database` for the state
 database.
 
-In an `exec_approvals_config` row a `raw_json` that decodes but is not an object, an `agents` that
-is present but not an object, a `defaults` or `agents.<id>` policy that is not an object, and an
-`allowlist` or `mcpTools` that is not an array are each one row at the row's `rowid`:
+In an `exec_approvals_config` row a `raw_json` that decodes but is not an object, a `socket` or an
+`agents` that is present but not an object, a `defaults` or `agents.<id>` policy that is not an
+object, and an `allowlist` or `mcpTools` that is not an array are each one row at the row's `rowid`:
 `parser: <member> is not a JSON object` or `parser: <member> is not a JSON array`, `<member>`
-`raw_json`, `agents`, `defaults`, `agents.<id>`, or the policy's name followed by `.allowlist` or
-`.mcpTools`; an absent, null or empty one gives no row. An `allowlist` or `mcpTools` holding
-entries that are not objects, and an assistant message's `content` holding blocks that are not,
-gives one row for them all, `parser: <member> holds <n> entries that are not JSON objects`
-(`1 entry that is not a JSON object` for one). A cold archive `event` record whose `row` is
-present but not an object is `parser: row is not a JSON object`, and one whose `event_json`
-decodes to something other than an object `parser: event_json is not a JSON object`, at its line.
+`raw_json`, `socket`, `agents`, `defaults`, `agents.<id>`, or the policy's name followed by
+`.allowlist` or `.mcpTools`; an absent, null or empty one gives no row. An `allowlist` or `mcpTools`
+holding entries that are not objects, and an assistant message's `content` holding blocks that are
+not, gives one row for them all, `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one). A cold archive `event` record whose `row` is present
+but not an object is `parser: row is not a JSON object`, and one whose `event_json` decodes to
+something other than an object `parser: event_json is not a JSON object`, at its line.
 
 #### Fixtures
 

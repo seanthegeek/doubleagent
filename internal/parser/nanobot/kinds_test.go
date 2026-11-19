@@ -99,3 +99,49 @@ func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 		})
 	}
 }
+
+func TestAConfigMemberOnTheWayToACredentialOfTheWrongKindIsReported(t *testing.T) {
+	const rel = ".nanobot/config.json"
+	tests := []struct {
+		name, document string
+		want           []string
+	}{
+		{"providers as a list", `{"providers": ["sk-1"]}`, []string{"parser: providers is not a JSON object"}},
+		{"a provider that is a string", `{"providers": {"openai": "sk-1", "local": {}}}`,
+			[]string{"parser: providers holds 1 entry that is not a JSON object"}},
+		{"MCP servers as a list", `{"tools": {"mcpServers": ["gh"]}}`,
+			[]string{"parser: tools.mcpServers is not a JSON object"}},
+		{"an MCP server that is a string", `{"tools": {"mcp_servers": {"gh": "x"}}}`,
+			[]string{"parser: tools.mcp_servers holds 1 entry that is not a JSON object"}},
+		{"an MCP env that is a string", `{"tools": {"mcpServers": {"gh": {"env": "T=a"}}}}`,
+			[]string{"parser: tools.mcpServers.gh.env is not a JSON object"}},
+		{"members null or empty", `{"providers": {}, "tools": {"mcpServers": {"gh": {"env": null}}}}`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRows(t, rel, test.document); !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAConfigSettingsBlockOfTheWrongKindIsReported(t *testing.T) {
+	const rel = ".nanobot/config.json"
+	tests := []struct {
+		name, document string
+		want           []string
+	}{
+		{"tools as a list", `{"tools": [1]}`, []string{"parser: tools is not a JSON object"}},
+		{"tools.exec as a string", `{"tools": {"exec": "on"}}`, []string{"parser: tools.exec is not a JSON object"}},
+		{"channels as a list", `{"channels": []}`, []string{"parser: channels is not a JSON object"}},
+		{"a channel setting beside the channels", `{"channels": {"sendProgress": true, "telegram": {}}}`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRows(t, rel, test.document); !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
