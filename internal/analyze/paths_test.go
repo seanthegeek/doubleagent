@@ -123,6 +123,34 @@ func TestAWorkDirectoryTheRunMadeIsRemovedWithItsExtraction(t *testing.T) {
 	}
 }
 
+func TestAnExistingWorkOrOutputDirectoryNamedThroughDotDotIsNotRemoved(t *testing.T) {
+	work := t.TempDir()
+	notArchive := filepath.Join(work, "not-an-archive")
+	writeFile(t, notArchive, "neither tar nor zip")
+	archive := filepath.Join(work, "home.tar")
+	writeHomeArchive(t, archive)
+	through := spelt(work, "x", "..", "keep")
+	for name, args := range map[string][]string{
+		"a failed detect":        {"detect", "--work-dir", through, notArchive},
+		"a detect that worked":   {"detect", "--work-dir", through, archive},
+		"a timeline that works":  {"timeline", "--work-dir", through, archive, filepath.Join(work, "o")},
+		"a timeline that failed": {"timeline", filepath.Join(work, "missing"), through},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := os.MkdirAll(filepath.Join(work, "keep"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			runCommand(testEnvironment(), args...)
+			if !lstatExists(filepath.Join(work, "keep")) {
+				t.Error("the directory that was there before is gone")
+			}
+			if lstatExists(filepath.Join(work, "x")) {
+				t.Error("a directory was made for the name before the ..")
+			}
+		})
+	}
+}
+
 func TestFleetRefusesAnOutputInsideAnInputByAnySpelling(t *testing.T) {
 	work := t.TempDir()
 	input := filepath.Join(work, "in")

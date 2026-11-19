@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -374,14 +375,14 @@ func plural(count int, noun string) string {
 }
 
 // writeFleetCSV writes the header and rows to path through encoding/csv
-// with its defaults (fields quoted where needed, lines ending in LF),
-// creating its parent directory, the one outputParent names, so the file
-// goes where fleetOutputRefusal looked. The CSV goes to a new file beside
-// path and is moved over it (replaceFile), so an existing file at path is
-// replaced, never written into: a hard link to evidence passes the
-// outside-the-input check, which judges where a name lies. When the write
-// fails, the directories this run made are removed, deepest first and only
-// while empty (removeCreated); one already there is never removed.
+// (fields quoted where needed, lines ending in LF), creating the parent
+// directory outputParent names. The CSV goes to a new file beside path and
+// is moved over it (replaceFile), so an existing file is replaced, never
+// written into. When the write fails, the directories this run made are
+// removed, deepest first and only while empty (removeCreated), but only if
+// the parent as written has no . or .. element: path is not cleaned, so
+// the system resolves a .., and the names above a missing directory are
+// then not its parents. Otherwise nothing is removed.
 func writeFleetCSV(path string, rows [][]fleetCell) error {
 	records := [][]string{FleetColumns()}
 	for _, row := range rows {
@@ -398,7 +399,9 @@ func writeFleetCSV(path string, rows [][]fleetCell) error {
 	parent := outputParent(path)
 	var created []string
 	if parent != "" {
-		created = missingDirectories(parent)
+		if !hasDotElement(parent) {
+			created = missingDirectories(parent)
+		}
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {
 			removeCreated(created)
 			return err
@@ -409,6 +412,18 @@ func writeFleetCSV(path string, rows [][]fleetCell) error {
 		return err
 	}
 	return nil
+}
+
+// hasDotElement reports whether path, as written, has an element that is
+// . or ..: the system resolves it where the name before it lies, which a
+// step up by name (filepath.Dir) does not.
+func hasDotElement(path string) bool {
+	for _, element := range strings.Split(filepath.ToSlash(path), "/") {
+		if element == "." || element == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 // fleetTemporaryPrefix and fleetTemporarySuffix surround the random part
