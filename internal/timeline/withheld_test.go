@@ -2,6 +2,7 @@ package timeline
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/secrets"
@@ -105,20 +106,19 @@ func TestEveryStringOfARowAndASessionGoesThroughTheReplacement(t *testing.T) {
 
 func TestStringsListsEveryStringFieldOfARow(t *testing.T) {
 	var row Row
-	fillStrings(&row, "x")
-	count := 0
-	for field := range reflect.TypeFor[Row]().Fields() {
-		if field.Type.Kind() == reflect.String {
-			count++
+	fields := reflect.ValueOf(&row).Elem()
+	var want []string
+	for field, value := range fields.Fields() {
+		if value.Kind() == reflect.String {
+			value.SetString(field.Name)
+			if field.Name != "Text" {
+				want = append(want, field.Name)
+			}
 		}
 	}
-	texts := row.Strings()
-	if len(texts) != count || count == 0 {
-		t.Errorf("%d strings of %d string fields", len(texts), count)
-	}
-	for _, text := range texts {
-		if text != "x" {
-			t.Errorf("Strings gives %q", texts)
-		}
+	// Each field holds its own name, so a field listed twice in place of
+	// another shows; the text comes last.
+	if want = append(want, "Text"); !slices.Equal(row.Strings(), want) {
+		t.Errorf("Strings gives %q, want %q", row.Strings(), want)
 	}
 }
