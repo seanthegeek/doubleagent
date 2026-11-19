@@ -14,7 +14,8 @@ import (
 
 // pullRequests emits one "source host:" row per pull request a session's
 // .pr.json binds, its host and repository taken from the pull request's
-// url, at its createdAt. A prs that is not an array adds a problem.
+// url, at its createdAt. A prs or issues that is not an array, or issues
+// holding entries that are not objects, adds a problem.
 func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	name := fileName(artifact)
@@ -40,7 +41,7 @@ func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 		text := "source host: " + cmp.Or(address.hostname, "-") + " repository " + repository +
 			" pull request " + cmp.Or(url, "-") + " state " + parser.SettingOrDash(pullRequest.Get("state")) +
 			" source " + parser.SettingOrDash(pullRequest.Get("source")) + " issues " +
-			cmp.Or(issueNumbers(pullRequest.Get("issues")), "-") + " (from " + name + ", createdAt)"
+			cmp.Or(issueNumbers(pullRequest.Get("issues"), i+1, &problems), "-") + " (from " + name + ", createdAt)"
 		row := p.systemRow(artifact, i+1, timeutil.FromValue(pullRequest.Get("createdAt")), text)
 		row.SessionID = sessionID
 		emit(row)
@@ -49,11 +50,12 @@ func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // issueNumbers returns the numbers of a pull request's issues, joined by
-// commas.
-func issueNumbers(issues jsonvalue.Value) string {
+// commas. An issues that is not an array, or that holds entries that are
+// not objects, adds a problem at line.
+func issueNumbers(issues jsonvalue.Value, line int, problems *parser.Problems) string {
 	var numbers []string
-	for _, issue := range issues.Items() {
-		if number := issue.Get("number"); issue.IsObject() && !number.IsNull() {
+	for _, issue := range parser.EntriesOfKind(issues, "issues", jsonvalue.Object, line, problems) {
+		if number := issue.Get("number"); !number.IsNull() {
 			numbers = append(numbers, number.Text())
 		}
 	}

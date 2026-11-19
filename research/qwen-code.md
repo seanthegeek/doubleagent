@@ -1590,7 +1590,10 @@ An absent, null or empty member gives no row. A `message.parts` holding parts th
 objects, or a session organization's `groups` holding groups that are not, gives one row for them
 all at the same place, `parser: <member> holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one), and a `groups` that is present but not an array
-`parser: groups is not a JSON array` at `source_line` 0.
+`parser: groups is not a JSON array` at `source_line` 0. A `.pr.json` pull request's `issues`
+holding issues that are not objects gives the same one row, `parser: issues holds <n> entries that
+are not JSON objects`, and an `issues` that is present but not an array
+`parser: issues is not a JSON array`, each at the pull request's line.
 
 A transcript, its `.worktree.json` or `.pr.json` sidecar, `usage_record.jsonl`, `logs.json`, the
 token usage log, a todo file, the session organization, `PROJECT_SUMMARY.md`, a channel routes,

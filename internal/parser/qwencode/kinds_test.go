@@ -2,6 +2,7 @@ package qwencode
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -128,5 +129,27 @@ func TestTheRecordOfAMessageOfTheWrongKindIsKept(t *testing.T) {
 	want := []string{"1 ", "1 parser: message is not a JSON object"}
 	if len(rows) != len(want) || rows[0] != want[0] || rows[1] != want[1] {
 		t.Errorf("rows %q, want %q", rows, want)
+	}
+}
+
+func TestAPullRequestsIssuesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
+	const rel = ".qwen/projects/p/chats/0123456789abcdef0123456789abcdef.pr.json"
+	tests := []struct {
+		name, issues string
+		want         []string
+	}{
+		{"entries that are not objects", `[{"number": 3}, "x", 7]`,
+			[]string{"1 parser: issues holds 2 entries that are not JSON objects"}},
+		{"an issues that is not an array", `"x"`, []string{"1 parser: issues is not a JSON array"}},
+		{"objects only", `[{"number": 3}]`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := problemsOf(parsedRows(t, rel, `{"prs": [{"url": "https://github.com/o/r/pull/7", "issues": `+
+				test.issues+`}]}`))
+			if !slices.Equal(got, test.want) {
+				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+		})
 	}
 }
