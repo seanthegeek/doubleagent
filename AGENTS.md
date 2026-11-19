@@ -582,8 +582,11 @@ for Go files as it does for the others.
   in `err` (`current.err`), a chain ending in an exported name that starts
   with `Err` and a capital (`fs.ErrNotExist`), a call of `.Error()`, or a
   name ending in `Err` or starting with `err` and a capital that the same
-  file declares with the type `error` or assigns from `errors.New`,
-  `errors.Join` or `fmt.Errorf`. An error only inside a larger expression
+  file declares with the type `error` (every name of a group such as
+  `readErr, writeErr error`) or assigns from `errors.New`, `errors.Join`
+  or `fmt.Errorf` (in `count, readErr := 1, errors.New("x")` the names
+  and values are paired by position, and only when there are as many of
+  one as of the other). An error only inside a larger expression
   (`wrap(err)`), a name assigned from another call, and a format with a
   `%[n]` index or a `*` width or precision are left alone.
 - **Tests follow the same standards.** Every rule in this section and in

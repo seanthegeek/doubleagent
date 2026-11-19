@@ -452,6 +452,116 @@ def test_a_name_is_an_error_only_where_the_file_shows_it(body: str, expected: li
     assert format_messages(body) == expected
 
 
+def errorf_findings(source: str) -> list[str]:
+    """Return the findings of Go `source` that say a fmt.Errorf drops an error."""
+    return [message for _, message in findings(source) if "drops it" in message]
+
+
+def grouped_source(declarations: str, signature: str, argument: str) -> str:
+    """Return a file with `declarations`, and a function with `signature` that formats `argument`."""
+    return (
+        "package p\n\n"
+        + declarations
+        + "\n// f formats.\nfunc f("
+        + signature
+        + ') error {\n\treturn fmt.Errorf("x: %v", '
+        + argument
+        + ")\n}\n"
+    )
+
+
+# A name in a group that shares one type is declared with it, whatever its place in the group.
+GROUPED_DECLARATION_CASES = [
+    ("", "readErr, writeErr error", "readErr", [ERRORF_DROPPED]),
+    ("", "readErr, writeErr error", "writeErr", [ERRORF_DROPPED]),
+    ("", "count int, readErr, writeErr error", "readErr", [ERRORF_DROPPED]),
+    ("", "count int, readErr, writeErr error", "writeErr", [ERRORF_DROPPED]),
+    ("", "readErr,\n\twriteErr error", "readErr", [ERRORF_DROPPED]),
+    ("var readErr, writeErr error\n", "", "readErr", [ERRORF_DROPPED]),
+    ("var readErr, writeErr error\n", "", "writeErr", [ERRORF_DROPPED]),
+    ("var (\n\treadErr, writeErr error\n)\n", "", "readErr", [ERRORF_DROPPED]),
+    ("var (\n\treadErr, writeErr error\n)\n", "", "writeErr", [ERRORF_DROPPED]),
+    ("var (\n\tcount int\n\tfirst, readErr error\n)\n", "", "first", []),
+    ("var (\n\tcount int\n\tfirst, readErr error\n)\n", "", "readErr", [ERRORF_DROPPED]),
+    ("type state struct{ readErr, writeErr error }\n", "", "current.readErr", [ERRORF_DROPPED]),
+    ("type state struct{ readErr, writeErr error }\n", "", "current.writeErr", [ERRORF_DROPPED]),
+    (
+        "type state struct {\n\treadErr, writeErr error\n}\n",
+        "",
+        "current.readErr",
+        [ERRORF_DROPPED],
+    ),
+    # A group of another type, and a name of an earlier group, are not errors.
+    ("var readErr, count int\n", "", "readErr", []),
+    ("var count, readErr int\n", "", "readErr", []),
+    ("", "readErr, n int, e error", "readErr", []),
+    ("", "readErr int, closeErr error", "readErr", []),
+    ("", "readErr int, closeErr error", "closeErr", [ERRORF_DROPPED]),
+    # `e` does not end in `Err` or start with `err` and a capital, so it is never taken as an error.
+    ("", "readErr, n int, e error", "e", []),
+]
+
+
+@pytest.mark.parametrize(
+    ("declarations", "signature", "argument", "expected"), GROUPED_DECLARATION_CASES
+)
+def test_every_name_of_a_group_declared_with_the_type_error_is_an_error(
+    declarations: str, signature: str, argument: str, expected: list[str]
+) -> None:
+    assert errorf_findings(grouped_source(declarations, signature, argument)) == expected
+
+
+GROUPED_ASSIGNMENT_CASES = [
+    (
+        '\tcount, readErr := 1, errors.New("x")\n\treturn fmt.Errorf("x: %v", readErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\treadErr, count := errors.New("x"), 1\n\treturn fmt.Errorf("x: %v", readErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\tfirst, bErr = x, fmt.Errorf("y %d", 1)\n\treturn fmt.Errorf("x: %v", bErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\tbErr, first = fmt.Errorf("y %d", 1), x\n\treturn fmt.Errorf("x: %v", bErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\tvar count, readErr = 1, errors.New("x")\n\treturn fmt.Errorf("x: %v", readErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\tcount, readErr :=\n\t\t1,\n\t\terrors.New("x")\n\treturn fmt.Errorf("x: %v", readErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\tstate.count, readErr = 1, errors.New("x")\n\treturn fmt.Errorf("x: %v", readErr)',
+        [ERRORF_DROPPED],
+    ),
+    # The names are paired by position: the error is not the name's value.
+    ('\treadErr, count := 1, errors.New("x")\n\treturn fmt.Errorf("x: %v", readErr)', []),
+    ('\tcount, readErr := 1, errors.New("x")\n\treturn fmt.Errorf("x: %v", count)', []),
+    # With a different number of values than names the pairing cannot be read from the tokens.
+    ('\tcount, readErr := load(errors.New("x"))\n\treturn fmt.Errorf("x: %v", readErr)', []),
+    ('\tcount, readErr := readAll()\n\treturn fmt.Errorf("x: %v", readErr)', []),
+    ('\tcount, readErr := 1, file.Close()\n\treturn fmt.Errorf("x: %v", readErr)', []),
+    ('\tx, hasErr := 1, true\n\treturn fmt.Errorf("x: %v", hasErr)', []),
+    (
+        '\tif x, readErr := 1, errors.New("x"); x > 0 {\n\t}\n\treturn fmt.Errorf("%v", readErr)',
+        [ERRORF_DROPPED],
+    ),
+]
+
+
+@pytest.mark.parametrize(("body", "expected"), GROUPED_ASSIGNMENT_CASES)
+def test_names_and_values_of_one_assignment_are_paired_by_position(
+    body: str, expected: list[str]
+) -> None:
+    assert format_messages(body) == expected
+
+
 # A width or precision taken from an argument shifts the pairing of verbs and arguments, and an
 # explicit index reorders it; such a format is left alone.
 UNPAIRED_FORMAT_CASES = [

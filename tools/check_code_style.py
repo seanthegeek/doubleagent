@@ -873,30 +873,142 @@ GO_ERROR_NAME = re.compile(r"Err$|^err[A-Z]")
 GO_ERROR_MAKERS = (("errors", "New"), ("errors", "Join"), ("fmt", "Errorf"))
 
 
+GO_NAME_LIST_STARTS = {"(", ",", "{", ";", "var"}
+
+
+def go_name_list(code: list[GoToken], last: int) -> list[GoToken]:
+    """Return the names of the comma-separated list that ends at the name at `last`.
+
+    In `readErr, writeErr error` the list that ends at `writeErr` holds both names. A name
+    joins the list only when it follows `(`, `,`, `{`, `;` or `var`, or starts a line; the type
+    of the group before (`int` in `count int, closeErr error`) follows a name and does not.
+    """
+    names = [code[last]]
+    index = last
+    while index >= 2 and code[index - 1].text == "," and code[index - 2].kind == "ident":
+        member = code[index - 2]
+        if not (member.first or index < 3 or code[index - 3].text in GO_NAME_LIST_STARTS):
+            break
+        names.append(member)
+        index -= 2
+    return names
+
+
+def go_item_ranges(code: list[GoToken], start: int, end: int) -> list[tuple[int, int]]:
+    """Return the (start, end) token ranges of the items between `start` and `end`, split at `,`."""
+    ranges: list[tuple[int, int]] = []
+    depth = 0
+    item = start
+    for index in range(start, end):
+        token = code[index]
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        elif token.kind == "punct" and token.text == "," and depth == 0:
+            ranges.append((item, index))
+            item = index + 1
+    if item < end:
+        ranges.append((item, end))
+    return ranges
+
+
+def go_assignment_left(code: list[GoToken], operator: int) -> list[tuple[int, int]]:
+    """Return the token ranges of the comma-separated items left of the assignment at `operator`.
+
+    The items are the names, selectors and indexed values that start the statement: the walk
+    back from the operator stops at a keyword (`var`, `if`), a `;`, an enclosing bracket, or a
+    line that does not continue a list with a `,`.
+    """
+    index = operator - 1
+    depth = 0
+    start = operator
+    while index >= 0:
+        token = code[index]
+        if token.kind == "punct" and token.text in ")]}":
+            depth += 1
+        elif token.kind == "punct" and token.text in "([{":
+            depth -= 1
+            if depth < 0:
+                break
+        elif depth == 0 and not (
+            (token.kind == "ident" and token.text not in GO_KEYWORDS)
+            or token.text in {",", ".", "*"}
+        ):
+            break
+        start = index
+        if depth == 0 and token.first and (index == 0 or code[index - 1].text != ","):
+            break
+        index -= 1
+    return go_item_ranges(code, start, operator)
+
+
+def go_assignment_right(code: list[GoToken], operator: int) -> list[tuple[int, int]]:
+    """Return the token ranges of the comma-separated items right of the assignment at `operator`.
+
+    The statement ends at a `;`, at a closing bracket that is not its own, or at a line end
+    that does not continue with a `,` or an operator.
+    """
+    depth = 0
+    end = operator + 1
+    while end < len(code):
+        token = code[end]
+        if depth == 0 and (token.text == ";" or token.text in ")]}"):
+            break
+        if depth == 0 and token.first and end > operator + 1:
+            before = code[end - 1]
+            if before.kind != "punct" or before.text in ")]}":
+                break
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        end += 1
+    return go_item_ranges(code, operator + 1, end)
+
+
+def go_is_error_maker_call(code: list[GoToken], start: int) -> bool:
+    """Return True when the tokens at `start` begin a call of `errors.New`, `errors.Join` or `fmt.Errorf`."""
+    return any(go_is_call(code, start + 2, package, {name}) for package, name in GO_ERROR_MAKERS)
+
+
+def go_assigned_errors(code: list[GoToken], operator: int) -> Iterator[str]:
+    """Yield the names that the assignment at `operator` gives the result of an error maker.
+
+    The names on the left are paired with the values on the right by position, and only when
+    both sides have the same number of items: a call on the right that returns several values
+    cannot be paired from the tokens.
+    """
+    left = go_assignment_left(code, operator)
+    right = go_assignment_right(code, operator)
+    if len(left) != len(right):
+        return
+    for (target, target_end), (value, _) in zip(left, right, strict=True):
+        is_name = target_end - target == 1 and code[target].kind == "ident"
+        if is_name and go_is_error_maker_call(code, value):
+            yield code[target].text
+
+
 def go_declared_errors(tokens: list[GoToken]) -> set[str]:
     """Return the names ending in `Err` or starting with `err` and a capital that are errors.
 
     A name is listed when the file declares it with the type `error` (`var closeErr error`, a
     parameter, a result or a struct field) or assigns it the result of `errors.New`,
-    `errors.Join` or `fmt.Errorf`. A name assigned from any other call (`closeErr :=
-    file.Close()`) is not listed: the text does not show whether the call returns an error, so
-    the name is left alone. Names are not told apart by scope.
+    `errors.Join` or `fmt.Errorf`. Every name of a group that shares a type is declared with it
+    (`readErr, writeErr error`); in `count, readErr := 1, errors.New("x")` names and values are
+    paired by position when there are as many of one as of the other. A name assigned from any
+    other call (`closeErr := file.Close()`) is not listed. Names are not told apart by scope.
     """
     code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
     names: set[str] = set()
     for index in range(1, len(code) - 1):
         token = code[index]
-        before = code[index - 1]
-        if before.kind != "ident" or not GO_ERROR_NAME.search(before.text):
-            continue
-        if token.kind == "ident" and token.text == "error":
-            names.add(before.text)
+        if code[index - 1].kind == "ident" and token.kind == "ident" and token.text == "error":
+            names.update(name.text for name in go_name_list(code, index - 1))
         is_assignment = token.text == ":=" or (token.text == "=" and code[index + 1].text != "=")
-        if is_assignment and any(
-            go_is_call(code, index + 3, package, {name}) for package, name in GO_ERROR_MAKERS
-        ):
-            names.add(before.text)
-    return names
+        if is_assignment:
+            names.update(go_assigned_errors(code, index))
+    return {name for name in names if GO_ERROR_NAME.search(name)}
 
 
 def go_is_selector_chain(argument: list[GoToken]) -> bool:
