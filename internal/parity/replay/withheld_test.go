@@ -318,8 +318,8 @@ func parserForm(agent, name, recorded, binary, token string) withheldForm {
 }
 
 // withheldInPlaceForms returns the entries of difference 230 in which the binary
-// writes the placeholder where the recording wrote the reader's detail or said
-// that a token was present.
+// writes the placeholder where the recording wrote the reader's detail, said
+// that a token was present, or wrote a note that a line was not shown.
 func withheldInPlaceForms() []withheldForm {
 	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
 	goJSON := `invalid JSON at line ([0-9]+), column ([0-9]+): ` + replayPlaceholder
