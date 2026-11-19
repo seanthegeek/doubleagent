@@ -14,7 +14,8 @@
 // finished_at or the finish part's time. A finish part is a row only when
 // the turn ended abnormally or carries a message. projects.json gives one
 // row per project; crush.json and the crushrc "permissions allow|deny"
-// lines give "permission setting:" rows at the file's mtime. No git branch
+// lines give "permission setting:" rows at the file's mtime, and crush.json
+// a "stored credentials:" row of its providers' API keys. No git branch
 // is recorded. See research/crush.md.
 package crush
 
@@ -218,9 +219,10 @@ func configLists(document jsonvalue.Value) []settingList {
 }
 
 // parseConfig emits one "permission setting:" row per standing entry of a
-// crush.json; nothing else in the file is read. A file that is not JSON
-// gives the reader's error through parser.ReaderErrorText, since the file
-// holds API keys.
+// crush.json, then one "stored credentials:" row of each provider's
+// api_key through parser.SecretText; nothing else in the file is read. A
+// file that is not JSON gives the reader's error through
+// parser.ReaderErrorText, since the file holds API keys.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -248,6 +250,19 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		for _, entry := range list.entries.Items() {
 			emit(p.settingRow(artifact, timestamp, list.key, entry, artifact.Rel, 1))
 		}
+	}
+	var keys []string
+	for _, provider := range document.Get("providers").Members() {
+		if key := parser.Text(provider.Value.Get("api_key")); key != "" {
+			keys = append(keys, "providers."+provider.Key+".api_key="+parser.SecretText(artifact, key))
+		}
+	}
+	if len(keys) > 0 {
+		row := p.system(artifact, "stored credentials: "+strings.Join(keys, " ")+" (from "+artifact.Rel+
+			", file mtime)", 1)
+		row.TimestampUTC = timestamp
+		row.ProjectPath = p.configProject(artifact)
+		emit(row)
 	}
 }
 

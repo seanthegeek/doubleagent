@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
+	"github.com/seanthegeek/doubleagent/internal/parser/crush"
 	"github.com/seanthegeek/doubleagent/internal/parser/letta"
 	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
@@ -73,6 +74,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 			out[i] = lettaRows{concrete, filter}
 		case *shellgpt.Parser:
 			out[i] = shellgptRows{concrete, filter}
+		case *crush.Parser:
+			out[i] = crushRows{concrete, filter}
 		}
 	}
 	return out
@@ -135,6 +138,18 @@ type shellgptRows struct {
 
 // Parse parses the artifact through the filter.
 func (p shellgptRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// crushRows is the Crush parser with its parses passed through an
+// addedRowFilter.
+type crushRows struct {
+	*crush.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p crushRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 

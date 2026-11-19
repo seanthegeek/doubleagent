@@ -533,7 +533,9 @@ field; `goose_db_version` table. The one record shape added between those commit
 
 `crush.json` `providers.<name>.api_key`
 ([`config.go:102`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/config.go#L102))
-at `~/.config/crush/`, `~/.local/share/crush/` and `<project>/.crush/`. `reasoning.signature` and
+at `~/.config/crush/`, `~/.local/share/crush/` and `<project>/.crush/`; the parser shows each in a
+`stored credentials:` row, which `--no-secrets` replaces with the placeholder. `reasoning.signature`
+and
 `thought_signature` are opaque provider blobs. Tool input and output can contain pasted tokens.
 
 ### Parser plan
@@ -582,8 +584,11 @@ on a `permissions deny` line as `options.disabled_tools=<tool>`, with `(from <fi
 mtime)`; from `crush.db`, `mcp_enabled_servers=<name>` and `mcp_disabled_servers=<name>` at the
 database file's modification time. The `crushrc` reader takes only lines whose first word is
 `permissions`, as written, so a line inside a condition that never ran still yields its rows. A
-workspace `.crush/crush.json` and a project file carry the project as `project_path`; no other
-`crush.json` key is read, so provider keys and tokens never reach a row.
+workspace `.crush/crush.json` and a project file carry the project as `project_path`. After a
+`crush.json`'s setting rows, one `stored credentials: providers.<name>.api_key=<api_key> ...
+(from <file>, file mtime)` row gives every provider's `api_key` that is set, as written, with the
+same `project_path`; `timeline --no-secrets` and `detect --no-secrets` replace each key with the
+placeholder. No other `crush.json` key is read.
 
 #### Model rows
 
