@@ -110,6 +110,9 @@ func withheldLeakFixtures(t *testing.T) []struct {
 			".config/Claude/local-agent-mode-sessions/a/o/local_c0c0c0c0-1111-4222-8333-444444444444.json",
 			`{"sessionId": "local_c0c0c0c0-1111-4222-8333-444444444444", "createdAt": 1790845200000, ` +
 				`"webFetchAllowedUrls": {"https://ci:s3cret@docs.example/": true}}`}}, "s3cret"},
+		{"a Hermes remote backend given by host", []collectedFile{{"alice", home, "hermes",
+			".config/Hermes/connections.json", `{"connections": [{"kind": "ssh", "label": "box", ` +
+				`"host": "https://u:FIXTURE-PW@box.example", "user": "alice", "port": 22}]}`}}, "FIXTURE-PW"},
 		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
 			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
 			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",

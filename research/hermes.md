@@ -1672,7 +1672,9 @@ encoding is the key store's ciphertext and is not read), and `remote backend qua
 app: <reason> (from connections.json, file mtime)` per quarantined entry, with no session
 (`session origin:` needs one). The token, the headers and a URL's user name and password, any of
 which can be a credential, are shown as written; `timeline --no-secrets` and `detect --no-secrets`
-replace each with the placeholder. It sets no
+replace each with the placeholder. The `[user@]host[:port]` form is read as a URL text too, so a
+`host` that is itself a URL with a user name and password has them replaced, while a plain
+`alice@box` stays as written, a user name alone being no credential. It sets no
 `records_origin`. The
 single-connection `connection.json` is not read.
 
