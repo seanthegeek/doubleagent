@@ -3,6 +3,7 @@ package codex
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -59,5 +60,63 @@ func TestATOMLFileThatDoesNotParseGivesTheReadersDetailUnlessWithheld(t *testing
 				}
 			})
 		}
+	}
+}
+
+// secretSchemes are the texts a URL whose credentials are ci:s3cret starts
+// with when shown, and when withheld as REDACTED, as another placeholder
+// and as an empty one.
+func secretSchemes() []struct {
+	name    string
+	setting secrets.Setting
+	scheme  string
+} {
+	return []struct {
+		name    string
+		setting secrets.Setting
+		scheme  string
+	}{
+		{"shown by default", secrets.Setting{}, "https://ci:s3cret@"},
+		{"withheld as REDACTED", secrets.Setting{Withhold: true, Placeholder: secrets.DefaultPlaceholder},
+			"https://REDACTED@"},
+		{"withheld as another placeholder", secrets.Setting{Withhold: true, Placeholder: "[withheld]"},
+			"https://[withheld]@"},
+		{"withheld as an empty placeholder", secrets.Setting{Withhold: true}, "https://"},
+	}
+}
+
+// remoteRows returns the texts that are git remote: rows.
+func remoteRows(texts []string) []string {
+	var remotes []string
+	for _, text := range texts {
+		if strings.HasPrefix(text, timeline.GitRemotePrefix) {
+			remotes = append(remotes, text)
+		}
+	}
+	return remotes
+}
+
+func TestARemoteURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
+	const rollout = ".codex/sessions/2026/01/02/rollout-2026-01-02T00-00-00-0198f0a1-0000-7000-8000-000000000001.jsonl"
+	const meta = `{"timestamp": "2026-01-02T00:00:00Z", "type": "session_meta", "payload": {"id": "s1", ` +
+		`"cwd": "/w", "git": {"repository_url": "https://ci:s3cret@github.com/o/r.git"}}}` + "\n"
+	database, err := osfile.ReadFile(filepath.Join("testdata", "secrets.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range secretSchemes() {
+		t.Run(mode.name, func(t *testing.T) {
+			want := []string{timeline.GitRemotePrefix + mode.scheme + "github.com/o/r.git"}
+			for _, file := range []struct{ rel, text string }{{rollout, meta},
+				{".codex/state_5.sqlite", string(database)}} {
+				got := parseWith(t, mode.setting, file.rel, file.text)
+				if remotes := remoteRows(got); !slices.Equal(remotes, want) {
+					t.Errorf("%s: got %q, want %q", file.rel, remotes, want)
+				}
+				if mode.setting.Withhold && strings.Contains(strings.Join(got, "\n"), "s3cret") {
+					t.Errorf("%s: a withheld run shows the password: %q", file.rel, got)
+				}
+			}
+		})
 	}
 }

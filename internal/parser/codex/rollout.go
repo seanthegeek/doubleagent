@@ -175,7 +175,7 @@ func (s *rollout) sessionMeta(payload jsonvalue.Value) {
 	}
 	s.put(s.row(timeline.TurnSystem, when), strings.Join(start, " "))
 	if url := git.Get("repository_url"); url.IsString() && strings.TrimSpace(url.StringValue()) != "" {
-		s.put(s.row(timeline.TurnSystem, when), timeline.GitRemotePrefix+url.StringValue())
+		s.put(s.row(timeline.TurnSystem, when), timeline.GitRemotePrefix+parser.URLText(s.artifact, url.StringValue()))
 	}
 	s.lineage(payload, when)
 }
