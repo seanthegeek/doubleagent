@@ -19,7 +19,7 @@ or a `#!` line naming a shell), or in the FILE arguments, it checks that:
   and the smoke tests' dated fixture-block labels (`# YYYY-MM-DD <topic> (#n)`) are exempt;
 - a run of whole-line comments is at most ten lines long, the file header and a block holding
   the collectors' reader's guide excepted; a docstring is at most ten lines, a module's thirty;
-  a Go doc comment (the `//` run directly above a declaration) is at most ten lines.
+  a Go doc comment is at most ten lines, a Go function body 60 (`GO_LONG_FUNCTIONS` excepted).
 
 Quoted text on an sh, PowerShell or Go line is neither a comment nor scanned for names, and a
 comment line inside an sh here-document is skipped. ruff's pydocstyle rules check the form of
@@ -167,6 +167,34 @@ GO_ALLOWED_NAMES = {"_", "ok", "err", "ctx", "i", "j", "k", "n"}
 GO_TEST_NAMES = {"t", "b"}
 GO_IO_PARAMETERS = {"w": "io.Writer", "r": "io.Reader"}
 GO_MAX_RECEIVER_LENGTH = 2
+# A function body is the lines between its braces; AGENTS.md says it stays under 40, never over 60.
+GO_MAX_FUNCTION_LINES = 60
+GO_LONG_FUNCTION_MESSAGE = "%s %r has a body of %d lines, over the limit of %d"
+# Functions over the limit that a later change splits; each is a file of the repository and a
+# function name. Temporary: an entry that no longer names a function over the limit fails the
+# tests, and the list is meant to become empty.
+GO_LONG_FUNCTIONS = {
+    ("internal/analyze/withheld_runs_test.go", "withheldLeakFixtures"),
+    ("internal/dedup/cases_test.go", "timeCases"),
+    ("internal/dedup/cases_test.go", "copyCases"),
+    ("internal/dedup/dedup_test.go", "scopeCases"),
+    ("internal/follow/confine_sites_test.go", "siteClasses"),
+    ("internal/follow/guard_lists_test.go", "reviewedImports"),
+    ("internal/follow/guard_lists_test.go", "allowedCalls"),
+    ("internal/parity/replay/information_rows_test.go", "TestEachMutationOfRecordedRowsFails"),
+    ("internal/parity/replay/library_shapes_test.go", "libraryShapes"),
+    ("internal/parity/replay/text_differences_test.go", "TestTextDifferencesRewriteOnlyTheirShape"),
+    (
+        "internal/parity/replay/tightened_test.go",
+        "TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow",
+    ),
+    ("internal/parity/replay/withheld_test.go", "withheldForms"),
+    (
+        "internal/parity/replay/withheld_test.go",
+        "TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse",
+    ),
+    ("internal/secrets/secrets_test.go", "grammarCases"),
+}
 # A token that ends a line without ending the declaration that started on it.
 GO_CONTINUATION = {",", "+", "-", "*", "/", "%", "&", "|", "^", "=", ".", "&&", "||", "<", ">"}
 
@@ -1071,6 +1099,60 @@ def go_function_comment_findings(tokens: list[GoToken], is_test: bool) -> Iterat
             yield token.line, GO_NO_COMMENT_MESSAGE % (kind, name)
 
 
+def go_body_open(code: list[GoToken], start: int) -> int | None:
+    """Return the index of the `{` that opens the body of the `func` at `start`, None if none.
+
+    The signature's brackets are skipped, and so is the `{` of a `struct` or `interface` type
+    in it. A declaration with no body ends where the next declaration starts.
+    """
+    depth = 0
+    index = start + 1
+    while index < len(code):
+        token = code[index]
+        if token.kind == "punct" and token.text in "([":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]":
+            depth -= 1
+        elif depth == 0 and token.text == "{":
+            if code[index - 1].text not in {"struct", "interface"}:
+                return index
+            index = go_close(code, index)
+        elif depth == 0 and token.first and token.text in {"func", "type", "var", "const"}:
+            return None
+        index += 1
+    return None
+
+
+def go_long_functions(tokens: list[GoToken]) -> Iterator[tuple[int, str, bool, int]]:
+    """Yield the line, name, whether a method and body length of each top-level function.
+
+    The length is the number of lines between the braces of the body.
+    """
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    position = {id(token): index for index, token in enumerate(code)}
+    for token, name, has_receiver in go_declared_functions(tokens):
+        opening = go_body_open(code, position[id(token)])
+        if opening is not None:
+            closing = go_close(code, opening)
+            yield token.line, name, has_receiver, code[closing].line - code[opening].end_line - 1
+
+
+def go_function_length_findings(path: pathlib.Path, tokens: list[GoToken]) -> Iterator[Finding]:
+    """Yield a finding for each function or method whose body is over `GO_MAX_FUNCTION_LINES`.
+
+    A function listed in `GO_LONG_FUNCTIONS` for this file is passed over.
+    """
+    for line, name, has_receiver, length in go_long_functions(tokens):
+        if length > GO_MAX_FUNCTION_LINES and (go_relative(path), name) not in GO_LONG_FUNCTIONS:
+            kind = "method" if has_receiver else "function"
+            yield line, GO_LONG_FUNCTION_MESSAGE % (kind, name, length, GO_MAX_FUNCTION_LINES)
+
+
+def go_relative(path: pathlib.Path) -> str:
+    """Return `path` as a `/`-separated path from the repository root when it is inside it."""
+    return pathlib.PurePath(display(path)).as_posix()
+
+
 def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     """Yield the findings of one Go file."""
     tokens = go_tokens(source)
@@ -1083,6 +1165,7 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     yield from go_format_findings(tokens)
     yield from go_dropped_cause_findings(tokens)
     yield from go_function_comment_findings(tokens, is_test)
+    yield from go_function_length_findings(path, tokens)
 
 
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {

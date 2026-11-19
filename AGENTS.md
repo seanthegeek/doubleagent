@@ -667,7 +667,10 @@ for Go files as it does for the others.
   helper included, with no comment on the line directly above it (a
   `//go:` directive line is passed over); `main`, `init` and the functions
   `go test` runs are exempt. A function body stays under 40 lines, never
-  over 60, with the collectors' exceptions.
+  over 60, with the collectors' exceptions. The body is the lines between
+  its braces; the checker fails on a Go function or method over 60 lines,
+  the collectors' exceptions not applying, except the few that
+  `GO_LONG_FUNCTIONS` lists and a later change splits.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`; no test reads the
   developer's home or the network, and no test runs `collect` without `-r`,

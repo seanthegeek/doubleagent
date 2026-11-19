@@ -548,3 +548,99 @@ def test_a_function_literal_is_not_a_declaration() -> None:
         line = source.count("\n") + 1
         expected = [(line, "function 'step' has no comment directly above it")]
         assert missing_comments(source + "func step() {}\n") == expected, source
+
+
+def long_bodies(source: str, name: str = "sample.go") -> list[str]:
+    """Return the function-length findings of Go `source` as a file called `name`."""
+    return [message for _, message in findings(source, name) if "body of" in message]
+
+
+def function_of(lines: int, header: str = "func run() {") -> str:
+    """Return a Go file whose one commented function has a body of `lines` lines."""
+    return "package p\n\n// run runs.\n" + header + "\n" + "\tcount++\n" * lines + "}\n"
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        (0, []),
+        (40, []),
+        (60, []),
+        (61, ["function 'run' has a body of 61 lines, over the limit of 60"]),
+        (200, ["function 'run' has a body of 200 lines, over the limit of 60"]),
+    ],
+)
+def test_a_function_body_over_sixty_lines_is_reported(lines: int, expected: list[str]) -> None:
+    assert long_bodies(function_of(lines)) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            function_of(61, "func (row Row) run() {"),
+            ["method 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (
+            function_of(61, "func run(left, right int) (result struct{ count int }) {"),
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (
+            function_of(61, "func run[Item any](items []Item) interface{ Len() int } {"),
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (
+            function_of(61, "func run(call func(int) int, table [3]int) (count int, err error) {"),
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        # Lines of a multi-line raw string and of nested blocks and literals are body lines.
+        (
+            "package p\n\n// run runs.\nfunc run() {\n\ttext := `\n" + "x\n" * 60 + "`\n}\n",
+            ["function 'run' has a body of 62 lines, over the limit of 60"],
+        ),
+        (
+            "package p\n\n// run runs.\nfunc run() {\n\tdone := func() {\n"
+            + "\t\tcount++\n" * 57
+            + "\t}\n\tdone()\n}\n",
+            [],
+        ),
+        # A short function after a long literal or a body-less declaration is not charged for it.
+        (
+            "package p\n\n// first has no body.\nfunc first()\n\n// run runs.\nfunc run() {\n"
+            + "\tcount++\n" * 61
+            + "}\n",
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (
+            "package p\n\n// first is short.\nfunc first() {\n\tcount++\n}\n\n// run runs.\nfunc run() {\n"
+            + "\tcount++\n" * 3
+            + "}\n",
+            [],
+        ),
+    ],
+)
+def test_the_length_of_a_body_is_read_from_its_own_braces(source: str, expected: list[str]) -> None:
+    assert long_bodies(source) == expected
+
+
+def test_a_test_function_is_held_to_the_same_limit() -> None:
+    source = function_of(61, "func TestRun(t *testing.T) {")
+    assert len(long_bodies(source, "run_test.go")) == 1
+
+
+def test_a_listed_function_is_passed_over_in_its_own_file_only() -> None:
+    path, name = sorted(style.GO_LONG_FUNCTIONS)[0]
+    source = function_of(61, "func %s() {" % name)
+    assert long_bodies(source, str(style.ROOT / path)) == []
+    assert len(long_bodies(source, str(style.ROOT / "internal/other/other_test.go"))) == 1
+    assert len(long_bodies(function_of(61), str(style.ROOT / path))) == 1
+
+
+@pytest.mark.parametrize(("path", "name"), sorted(style.GO_LONG_FUNCTIONS))
+def test_every_listed_function_is_still_over_the_limit(path: str, name: str) -> None:
+    source = (style.ROOT / path).read_text(encoding="utf-8")
+    lengths = {
+        function: length
+        for _, function, _, length in style.go_long_functions(style.go_tokens(source))
+    }
+    assert lengths.get(name, 0) > style.GO_MAX_FUNCTION_LINES, path
