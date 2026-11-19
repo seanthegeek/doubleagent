@@ -25,7 +25,7 @@ const incomplete = "{a request the input does not record}"
 // requestURL returns the URL the binary is to write for the request
 // requestID, whose URL the recording cut to base: the one URL the case's
 // input records for the request, when it is base or base and a query or
-// fragment, its key withheld (withheldKeyURL); otherwise incomplete.
+// fragment, its credentials withheld (withheldURL); otherwise incomplete.
 func (c caseRun) requestURL(requestID, base string) string {
 	if c.requests == nil {
 		return incomplete
@@ -35,29 +35,30 @@ func (c caseRun) requestURL(requestID, base string) string {
 		!strings.HasPrefix(urls[0], base+"#") {
 		return incomplete
 	}
-	return withheldKeyURL(urls[0])
+	return withheldURL(urls[0])
 }
 
-// withheldKeyURL returns url with the value of each query parameter named
-// key, the Google API key parameter, as replayPlaceholder; an empty value
-// is none.
-func withheldKeyURL(url string) string {
-	address, fragment, hasFragment := strings.Cut(url, "#")
-	base, query, hasQuery := strings.Cut(address, "?")
-	if !hasQuery {
-		return url
-	}
-	parameters := strings.Split(query, "&")
-	for i, parameter := range parameters {
-		if name, value, _ := strings.Cut(parameter, "="); strings.EqualFold(name, "key") && value != "" {
-			parameters[i] = name + "=" + replayPlaceholder
+// withheldURL returns url with each of its credentials as replayPlaceholder:
+// the byte ranges secrets.URLCredentialRanges gives, the ranges the binary
+// withholds, so what counts as a credential (user information, the
+// parameters of the query and fragment named in the binary's table) is the
+// binary's own rule. Ranges that share a byte are one, as one secret held
+// inside another goes with it; ranges that only touch stay two.
+func withheldURL(url string) string {
+	ranges := secrets.URLCredentialRanges(url, false)
+	slices.SortFunc(ranges, func(left, right [2]int) int { return left[0] - right[0] })
+	var written strings.Builder
+	end := 0
+	for i := 0; i < len(ranges); {
+		start, stop := ranges[i][0], ranges[i][1]
+		for i++; i < len(ranges) && ranges[i][0] < stop; i++ {
+			stop = max(stop, ranges[i][1])
 		}
+		written.WriteString(url[end:start] + replayPlaceholder)
+		end = stop
 	}
-	written := base + "?" + strings.Join(parameters, "&")
-	if hasFragment {
-		written += "#" + fragment
-	}
-	return written
+	written.WriteString(url[end:])
+	return written.String()
 }
 
 // requestRecord is the part of a line of an activity log that names a
@@ -132,6 +133,8 @@ func sampleRequests() func() requestURLs {
 {"type": "network", "payload": {"id": "t4r8z", "response": {"status": 200}}}
 {"type": "network", "payload": {"id": "twice", "method": "GET", "url": "https://a.example/x?key=1"}}
 {"type": "network", "payload": {"id": "twice", "method": "GET", "url": "https://a.example/x?key=2"}}
+{"type": "network", "payload": {"id": "f7m2c", "method": "GET", "url": "https://h.example/cb#access_token=FIXTURE&state=s"}}
+{"type": "network", "payload": {"id": "p9w4e", "method": "GET", "url": "https://h.example/v1?apikey=FIXTURE&alt=sse"}}
 `))
 	return func() requestURLs { return urls }
 }
@@ -144,6 +147,10 @@ func TestAGeminiRequestRowIsComparedWithTheURLTheInputRecords(t *testing.T) {
 	plain := "network request: GET https://play.example/log (request g1h2j)"
 	failed := "network error: POST https://oauth2.googleapis.com/token: socket hang up (request t4r8z)"
 	failedBinary := strings.Replace(failed, "/token:", "/token?key="+replayPlaceholder+":", 1)
+	fragment := "network request: GET https://h.example/cb (request f7m2c)"
+	fragmentBinary := strings.Replace(fragment, "/cb", "/cb#access_token="+replayPlaceholder+"&state=s", 1)
+	apiKey := "network request: GET https://h.example/v1 (request p9w4e)"
+	apiKeyBinary := strings.Replace(apiKey, "/v1", "/v1?apikey="+replayPlaceholder+"&alt=sse", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -169,6 +176,14 @@ func TestAGeminiRequestRowIsComparedWithTheURLTheInputRecords(t *testing.T) {
 		{"a request the input does not record fails", strings.Replace(plain, "g1h2j", "zzzzz", 1),
 			strings.Replace(plain, "g1h2j", "zzzzz", 1), false},
 		{"a request of another path fails", keyed, strings.Replace(keyedBinary, "/token", "/tokens", 1), false},
+		{"a token in the fragment withheld passes", fragment, fragmentBinary, true},
+		{"a token in the fragment shown fails", fragment, strings.Replace(fragment, "/cb", "/cb#access_token=FIXTURE&state=s",
+			1), false},
+		{"a token in the fragment withheld with the rest of the fragment fails", fragment,
+			strings.Replace(fragment, "/cb", "/cb#"+replayPlaceholder, 1), false},
+		{"another parameter of the binary's table withheld passes", apiKey, apiKeyBinary, true},
+		{"another parameter of the binary's table shown fails", apiKey, strings.Replace(apiKey, "/v1",
+			"/v1?apikey=FIXTURE&alt=sse", 1), false},
 		{"a request whose id the input gives two URLs fails",
 			"network request: GET https://a.example/x (request twice)",
 			"network request: GET https://a.example/x?key=" + replayPlaceholder + " (request twice)", false},
@@ -190,7 +205,7 @@ func TestAGeminiRequestRowOfAnUnknownInputNeverAgrees(t *testing.T) {
 	}
 }
 
-func TestOnlyAKeyParameterOfAURLIsWithheld(t *testing.T) {
+func TestARequestURLIsWithheldAsTheBinarysURLRuleFindsItsCredentials(t *testing.T) {
 	tests := []struct {
 		name, url, want string
 	}{
@@ -199,12 +214,20 @@ func TestOnlyAKeyParameterOfAURLIsWithheld(t *testing.T) {
 			"https://h/p?alt=sse&Key=" + replayPlaceholder + "&x=1"},
 		{"a key before a fragment", "https://h/p?key=AIza#f", "https://h/p?key=" + replayPlaceholder + "#f"},
 		{"an empty key", "https://h/p?key=&x=1", "https://h/p?key=&x=1"},
-		{"no query", "https://h/p#key=AIza", "https://h/p#key=AIza"},
-		{"a parameter that only ends in key", "https://h/p?apikey=AIza", "https://h/p?apikey=AIza"},
+		{"a key in the fragment", "https://h/p#key=AIza", "https://h/p#key=" + replayPlaceholder},
+		{"an access token in the fragment", "https://h/cb#access_token=t0k&state=s",
+			"https://h/cb#access_token=" + replayPlaceholder + "&state=s"},
+		{"an apikey", "https://h/p?apikey=AIza", "https://h/p?apikey=" + replayPlaceholder},
+		{"a name the table does not hold", "https://h/p?monkey=AIza", "https://h/p?monkey=AIza"},
+		{"two credentials", "https://h/p?token=a&sig=b", "https://h/p?token=" + replayPlaceholder + "&sig=" +
+			replayPlaceholder},
+		{"a user name and a password, withheld once", "https://u:pw@h/p", "https://" + replayPlaceholder + "@h/p"},
+		{"a short user name", "https://git@h/p", "https://git@h/p"},
+		{"no credential", "https://h/p?alt=sse", "https://h/p?alt=sse"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := withheldKeyURL(test.url); got != test.want {
+			if got := withheldURL(test.url); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
