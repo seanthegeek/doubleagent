@@ -3,6 +3,7 @@ package geminicli
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -47,6 +48,49 @@ func TestAPolicyThatDoesNotParseGivesTheReadersDetailUnlessWithheld(t *testing.T
 			}
 			if !slices.Equal(got, []string{test.want}) {
 				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestANetworkRequestsURLIsWholeWithItsKeyShownUnlessWithheld(t *testing.T) {
+	const rel = ".gemini/tmp/0123456789abcdef/logs/session-s1.jsonl"
+	const log = `{"type": "network", "timestamp": "2026-01-01T00:00:00Z", "sessionId": "s1", "payload": ` +
+		`{"id": "r1", "method": "POST", "url": "https://h.example/v1/models?alt=sse&key=FIXTURE-KEY#frag"}}` + "\n"
+	tests := []struct {
+		name    string
+		setting secrets.Setting
+		key     string
+	}{
+		{"shown by default", secrets.Setting{}, "FIXTURE-KEY"},
+		{"withheld as REDACTED", secrets.Setting{Withhold: true, Placeholder: secrets.DefaultPlaceholder}, "REDACTED"},
+		{"withheld as another placeholder", secrets.Setting{Withhold: true, Placeholder: "[withheld]"}, "[withheld]"},
+		{"withheld as an empty placeholder", secrets.Setting{Withhold: true}, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(rel))
+			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(path, []byte(log), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Agent: "gemini-cli",
+				Home: &input.Home{DiskPath: home, Secrets: test.setting}, Manifest: jsonvalue.NewNull()}
+			var got []string
+			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"network request: POST https://h.example/v1/models?alt=sse&key=" + test.key +
+				"#frag (request r1)"}
+			if !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+			if test.setting.Withhold && strings.Contains(strings.Join(got, "\n"), "FIXTURE") {
+				t.Errorf("a withheld run shows the key: %q", got)
 			}
 		})
 	}

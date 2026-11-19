@@ -1754,8 +1754,9 @@ error reports and the activity log's `network` payloads hold full tool output an
 bodies, which can include secrets the agent read. In the activity log the request `headers`
 other than the three the CLI redacts, any `url` query string (an API key can ride there), and
 the request and response `body` of a non-chat request, such as a token refresh's
-`refresh_token` and the `access_token` it returns, can hold credentials; the parser prints none
-of them ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
+`refresh_token` and the `access_token` it returns, can hold credentials. The parser prints the
+whole `url`, whose credentials `--no-secrets` replaces with the placeholder, and none of the
+others ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
 `google_accounts.json` and Clearcut's account email are identities.
 
 ### Parser plan
@@ -2084,8 +2085,10 @@ Three stores repeat nothing of the session file in the rows read from them and a
   `method` is `network request: <method> <url> (request <id>)`, one holding a `response`
   `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
   holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
-  from the request record of the same `id` and `-` for a value the file lacks. `<url>` stops
-  before its query string, and a `chunk` record gives no row. The conversation turns in the
+  from the request record of the same `id` and `-` for a value the file lacks. `<url>` is the
+  whole URL, its query and fragment included, an API key in the query (`key=`) shown as written;
+  `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with
+  the placeholder. A `chunk` record gives no row. The conversation turns in the
   request `body` and the response `body` are not read: which requests form one chat, which items
   the CLI adds itself (the environment context, the compression summary and its acknowledgement,
   retry prompts), the event form of a stored stream and when a reply is repeated by the next

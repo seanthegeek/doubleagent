@@ -200,14 +200,6 @@ func nameTime(text string) string {
 		found[5] + "Z")
 }
 
-// urlWithoutQuery returns a request URL up to its query string or
-// fragment, which can carry an API key.
-func urlWithoutQuery(url string) string {
-	url, _, _ = strings.Cut(url, "?")
-	url, _, _ = strings.Cut(url, "#")
-	return url
-}
-
 // unquote decodes the escapes of a checkpoint's tag, which the agent
 // writes with encodeURIComponent (research/gemini-cli.md), through
 // url.PathUnescape; a byte that is not UTF-8 becomes U+FFFD. A name with an

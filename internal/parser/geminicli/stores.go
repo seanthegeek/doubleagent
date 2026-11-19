@@ -35,8 +35,8 @@ func (p *Parser) systemRow(artifact *input.Artifact, place where, text string) t
 	return row
 }
 
-// request is the method and query-less URL of a network request of the
-// activity log.
+// request is the method and URL of a network request of the activity log,
+// the URL as a row shows it.
 type request struct {
 	method, url string
 }
@@ -45,7 +45,8 @@ type request struct {
 // console record as "console <type>: <content>", a network record naming a
 // method as "network request:", one with a response as "network
 // response:" and one with an error as "network error:"; a streamed chunk
-// gives none. Header values and bodies are never read into a row.
+// gives none. A URL goes through parser.URLText, since its query can carry
+// an API key; header values and bodies are never read into a row.
 func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
 	project := p.projectOf(artifact, match, &problems)
@@ -57,7 +58,7 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 				parser.JSONText(record))
 			continue
 		}
-		text, ok := activityText(payload, parser.IsText(kind, "console"), requests)
+		text, ok := activityText(artifact, payload, parser.IsText(kind, "console"), requests)
 		if !ok {
 			continue
 		}
@@ -68,9 +69,11 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, match["session"], project))
 }
 
-// activityText returns the row text of one activity log record, or false
-// for a record that gives no row, remembering each request it names.
-func activityText(payload jsonvalue.Value, console bool, requests map[string]request) (string, bool) {
+// activityText returns the row text of one activity log record of
+// artifact, or false for a record that gives no row, remembering each
+// request it names.
+func activityText(artifact *input.Artifact, payload jsonvalue.Value, console bool, requests map[string]request) (string,
+	bool) {
 	requestID := parser.Text(payload.Get("id"))
 	answered, known := requests[requestID]
 	if !known {
@@ -80,7 +83,7 @@ func activityText(payload jsonvalue.Value, console bool, requests map[string]req
 	case console:
 		return "console " + parser.TextOr(payload.Get("type"), "-") + ": " + parser.Text(payload.Get("content")), true
 	case payload.Get("method").IsString():
-		named := request{payload.Get("method").StringValue(), urlWithoutQuery(parser.Text(payload.Get("url")))}
+		named := request{payload.Get("method").StringValue(), parser.URLText(artifact, parser.Text(payload.Get("url")))}
 		requests[requestID] = named
 		return "network request: " + named.method + " " + named.url + " (request " + requestID + ")", true
 	case value.IsObject():

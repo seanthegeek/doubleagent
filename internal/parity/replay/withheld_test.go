@@ -272,6 +272,15 @@ func withheldForms() []withheldForm {
 			`(session synced: share [^"\n]* url [^ "\n]*)(?: secret=`+secrets.DefaultPlaceholder+`)?`+
 				`( \(from [^"\n]* session_share, time_created\))`,
 			"${1}${2}"),
+		// The recording cut a network request's URL at its query, which can
+		// carry an API key; the binary gives the whole URL, the key
+		// withheld. Only the queries of the recorded logs are taken, so a
+		// key shown, or another parameter, still fails.
+		form("gemini-cli", "network request URL",
+			`(network (?:request|response|error): [A-Z]+ https?://[^ ?#"\n]*)`,
+			`(network (?:request|response|error): [A-Z]+ https?://[^ ?#"\n]*)`+
+				`(?:\?(?:alt=sse|key=`+secrets.DefaultPlaceholder+`)(?:&(?:alt=sse|key=`+secrets.DefaultPlaceholder+`))*)?`,
+			"${1}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -449,6 +458,8 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	shareRecorded := "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
 		"(from opencode-beta.db session_share, time_created)"
 	shareBinary := strings.Replace(shareRecorded, " (from", " secret=REDACTED (from", 1)
+	networkRecorded := "network request: POST https://oauth2.googleapis.com/token (request t4r8z)"
+	networkBinary := strings.Replace(networkRecorded, "/token", "/token?key=REDACTED", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -514,6 +525,14 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, "REDACTED", "tok", 1), false},
 		{"a socket token beside another setting fails", socketRecorded,
 			strings.Replace(socketBinary, "allowlist", "full", 1), false},
+		{"a request's withheld key passes", networkRecorded, networkBinary, true},
+		{"a request's query of the recorded logs passes", networkRecorded,
+			strings.Replace(networkRecorded, "/token", "/token?alt=sse", 1), true},
+		{"a request's key shown fails", networkRecorded, strings.Replace(networkBinary, "REDACTED", "AIza1", 1), false},
+		{"a request's other parameter fails", networkRecorded,
+			strings.Replace(networkRecorded, "/token", "/token?x=1", 1), false},
+		{"a request to another path fails", networkRecorded, strings.Replace(networkBinary, "/token", "/tokens", 1),
+			false},
 		{"a share's secret in its placeholder form passes", shareRecorded, shareBinary, true},
 		{"a share's secret shown fails", shareRecorded, strings.Replace(shareBinary, "REDACTED", "sec", 1), false},
 		{"a share of another id fails", shareRecorded, strings.Replace(shareBinary, "SHARE05 url", "SHARE06 url", 1),
@@ -572,6 +591,7 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			"(from config.toml [model.chat.http], file mtime)",
 		"opencode share secret": "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
 			"(from opencode-beta.db session_share, time_created)",
+		"gemini-cli network request URL":             "network request: POST https://oauth2.googleapis.com/token (request t4r8z)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {
