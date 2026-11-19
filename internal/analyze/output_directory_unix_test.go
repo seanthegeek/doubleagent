@@ -33,6 +33,11 @@ func TestTimelineRefusesADirectoryItCannotWriteTo(t *testing.T) {
 		t.Skip("the superuser can write to any directory")
 	}
 	work := t.TempDir()
+	// A readable input, since the output is made only once the input is read.
+	input := filepath.Join(work, "input")
+	if err := osfile.MkdirAll(input, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		name   string
 		output func(readOnly string) string
@@ -58,7 +63,7 @@ func TestTimelineRefusesADirectoryItCannotWriteTo(t *testing.T) {
 			t.Cleanup(func() { _ = os.Chmod(readOnly, 0o755) })
 			output := test.output(readOnly)
 			wantText := test.want(output)
-			code, _, stderr := runCommand(testEnvironment(), "timeline", filepath.Join(work, "missing"), output)
+			code, _, stderr := runCommand(testEnvironment(), "timeline", input, output)
 			if code != ExitError || !strings.HasPrefix(stderr, wantText) {
 				t.Fatalf("exit %d, stderr %q does not hold %q", code, stderr, wantText)
 			}

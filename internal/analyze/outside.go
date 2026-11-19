@@ -10,16 +10,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The rule: timeline and fleet never write inside an input directory.
-// Each path is made absolute as the command's own calls take it
-// (absolute), then followed from its root as the file system follows it
-// (resolve), except that on Windows no link or junction is followed. The
-// output is inside when the place it leads to, or a directory above it, is
-// the input: the same text, or by os.SameFile, which also matches another
-// letter case on macOS or Windows. Each step up is filepath.Dir of an
-// absolute path, so the text only gets shorter. Where the output's place
-// cannot be told, it is refused as such; an input that is a file (an
-// archive) or missing holds nothing.
+// The rule: timeline and fleet never write inside an input directory,
+// known by the entry its own read reached, however its path was spelled.
+// The output's path is made absolute as the command's calls take it
+// (absolute) and followed from its root as the file system follows it
+// (resolve), except that on Windows no link or junction is followed. It is
+// inside when the place it leads to, or a directory above it, is that entry
+// by os.SameFile, which also matches another letter case on macOS or
+// Windows; where that place cannot be told, it is refused as such. Nothing
+// about the input is judged: an archive holds nothing, and an input the
+// read could not reach has already stopped the command with its own error.
 
 // errNotFollowed is the reason a path cannot be followed past an entry:
 // one that is neither a directory nor a link, or on Windows a link
@@ -34,9 +34,8 @@ var errBelowFile = errors.New("a name follows a regular file")
 // place is where resolve's path leads: its absolute path and its entry,
 // nil when it does not exist yet or is a root whose entry cannot be read.
 type place struct {
-	path    string
-	info    fs.FileInfo
-	missing bool
+	path string
+	info fs.FileInfo
 }
 
 // resolve follows path, already absolute, name by name: a directory is
@@ -66,7 +65,7 @@ func resolve(path string) (place, error) {
 		info, err := osfile.Lstat(next)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
-			current = place{path: next, missing: true}
+			current = place{path: next}
 			continue
 		case err != nil:
 			return current, err
@@ -85,21 +84,17 @@ func resolve(path string) (place, error) {
 
 // insideDirectory reports whether path, existing or not, is the directory
 // directory or lies below it, by the rule above, or the error that kept it
-// from telling. directory is given as the command reads it; one that is
-// missing, or reached through a link to nothing, is left to the read to
-// report.
-func insideDirectory(path, directory string) (bool, error) {
-	target, err := resolvedAbsolute(directory)
-	switch {
-	case errors.Is(err, errBelowFile), errors.Is(err, fs.ErrNotExist),
-		err == nil && (target.missing || target.info != nil && target.info.Mode().IsRegular()):
+// from telling where path leads. directory is the input's own entry as its
+// read reached it; one that is not a directory holds nothing.
+func insideDirectory(path string, directory fs.FileInfo) (bool, error) {
+	if directory == nil || !directory.IsDir() {
 		return false, nil
-	case err != nil:
-		return false, err
-	case target.info != nil && !target.info.IsDir():
-		return false, &fs.PathError{Op: "resolve", Path: target.path, Err: errNotFollowed}
 	}
-	output, err := resolvedAbsolute(path)
+	absolutePath, err := absolute(path)
+	if err != nil {
+		return false, err
+	}
+	output, err := resolve(absolutePath)
 	switch {
 	case errors.Is(err, errBelowFile):
 		return false, nil
@@ -107,13 +102,10 @@ func insideDirectory(path, directory string) (bool, error) {
 		return false, err
 	}
 	for current := output.path; ; current = filepath.Dir(current) {
-		if current == target.path {
-			return true, nil
-		}
 		info, err := osfile.Lstat(current)
 		root := filepath.Dir(current) == current
 		switch {
-		case err == nil && target.info != nil && os.SameFile(info, target.info):
+		case err == nil && os.SameFile(info, directory):
 			return true, nil
 		case err != nil && !errors.Is(err, fs.ErrNotExist) && !root:
 			return false, err
@@ -122,15 +114,6 @@ func insideDirectory(path, directory string) (bool, error) {
 			return false, nil
 		}
 	}
-}
-
-// resolvedAbsolute returns where path leads, made absolute and resolved.
-func resolvedAbsolute(path string) (place, error) {
-	absolutePath, err := absolute(path)
-	if err != nil {
-		return place{}, err
-	}
-	return resolve(absolutePath)
 }
 
 // sameFile reports whether two existing paths name one file, neither

@@ -137,9 +137,11 @@ func TestAnOutputThroughAJunctionIsRefusedAsUntold(t *testing.T) {
 		{"a junction to the input", filepath.Join(work, "into"), true, "cannot tell whether the output"},
 		{"a junction elsewhere", filepath.Join(work, "away"), true, "cannot tell whether the output"},
 	})
+	// The input is known by the directory its read reaches through the
+	// junction, so an output inside that directory is refused as inside.
 	code, _, stderr := runCommand(testEnvironment(), "timeline", filepath.Join(work, "into"),
 		filepath.Join(input, "out"))
-	if code != ExitError || !strings.Contains(stderr, "cannot tell whether the output") {
+	if code != ExitError || !strings.Contains(stderr, "must be outside the input") {
 		t.Errorf("an input given through a junction: exit %d, stderr %q", code, stderr)
 	}
 	if lstatExists(filepath.Join(input, "out")) {
