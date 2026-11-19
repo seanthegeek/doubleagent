@@ -120,29 +120,28 @@ func (p *Parser) state(artifact *input.Artifact, options parser.Options, emit pa
 	}
 }
 
-// globalRows emits each conversation, then the standing grants. A
-// conversations value that is neither an object nor a list adds a problem.
+// globalRows emits each conversation, then the standing grants and the
+// providers. A conversations value that is neither an object nor a list,
+// or that holds conversations that are not objects, adds a problem.
 func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, options parser.Options,
 	emit parser.Emit) {
-	var listed []jsonvalue.Value
-	switch all := state.Get(conversationsKey); {
-	case all.IsObject():
-		for _, member := range all.Members() {
-			listed = append(listed, member.Value)
-		}
-	case all.IsArray():
-		listed = all.Items()
-	case !all.IsNull():
-		emit(p.ProblemRow(artifact, parser.WrongKind(conversationsKey, jsonvalue.Object)))
-	}
+	var problems parser.Problems
 	var conversations []jsonvalue.Value
 	ids := map[string]bool{}
-	for _, conversation := range listed {
-		if conversation.IsObject() {
-			conversations = append(conversations, conversation)
-			ids[conversation.Get("id").Text()] = true
+	keep := func(conversation jsonvalue.Value) {
+		conversations = append(conversations, conversation)
+		ids[conversation.Get("id").Text()] = true
+	}
+	if all := state.Get(conversationsKey); all.IsArray() {
+		for _, conversation := range parser.EntriesOfKind(all, conversationsKey, jsonvalue.Object, 0, &problems) {
+			keep(conversation)
+		}
+	} else {
+		for _, conversation := range parser.MembersOfKind(all, conversationsKey, jsonvalue.Object, 0, &problems) {
+			keep(conversation)
 		}
 	}
+	p.problemRows(artifact, &problems, emit)
 	active := state.Get(activeKey)
 	if active.IsObject() && !active.Get("messages").IsEmpty() && !ids[active.Get("id").Text()] {
 		conversations = append(conversations, active)
@@ -154,9 +153,19 @@ func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, opt
 	p.providerRows(artifact, state, emit)
 }
 
+// problemRows emits a row per problem and empties the list.
+func (p *Parser) problemRows(artifact *input.Artifact, problems *parser.Problems, emit parser.Emit) {
+	for _, problem := range *problems {
+		emit(p.ProblemRow(artifact, problem.Message))
+	}
+	*problems = nil
+}
+
 // providerRows emits, at the file's modification time, one "model
-// provider:" row per provider of twinny.inference-providers and per active
-// provider that holds an API key, the key through parser.SecretText.
+// provider:" row per provider of twinny.inference-providers, named by its
+// id, else by its key there, and per active provider that holds an API
+// key, the key through parser.SecretText; then a row per provider list or
+// provider of the wrong kind.
 func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	timestamp := ""
 	row := func(text string, provider jsonvalue.Value, source string) {
@@ -170,9 +179,10 @@ func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, e
 		emit(p.systemRow(artifact, timestamp, timeline.Compact(text+" apiKey="+parser.SecretText(artifact, key)+
 			" (from "+itemKey+" "+source+", file mtime)")))
 	}
-	for _, member := range state.Get(providersKey).Members() {
-		provider := member.Value
-		text := "model provider: " + member.Key
+	var problems parser.Problems
+	for providerKey, provider := range parser.MembersOfKind(state.Get(providersKey), providersKey, jsonvalue.Object,
+		0, &problems) {
+		text := "model provider: " + cmp.Or(parser.Text(provider.Get("id")), providerKey)
 		for _, field := range [][2]string{{"label", "label"}, {"provider", "provider"}, {"type", "type"},
 			{"modelName", "model"}} {
 			if value := parser.Text(provider.Get(field[0])); value != "" {
@@ -184,8 +194,10 @@ func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, e
 	for _, kind := range []string{"chat", "fim", "embeddings"} {
 		source := "twinny.active-" + kind + "-provider"
 		provider := state.Get(source)
+		parser.ObjectMember(provider, source, 0, &problems)
 		row("model provider: active "+kind+" "+cmp.Or(parser.Text(provider.Get("id")), "-"), provider, source)
 	}
+	p.problemRows(artifact, &problems, emit)
 }
 
 // systemRow returns a system row of the artifact at timestamp.

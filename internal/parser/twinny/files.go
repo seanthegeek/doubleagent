@@ -67,10 +67,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		root = value.StringValue()
 	}
 	timestamp := timeutil.FromValue(record.Get("createdAt"))
-	for _, entry := range parser.ArrayMember(record.Get("files"), "files", 0, &problems) {
-		if !entry.IsObject() {
-			continue
-		}
+	for _, entry := range parser.EntriesOfKind(record.Get("files"), "files", jsonvalue.Object, 0, &problems) {
 		row := p.systemRow(artifact, timestamp, fileChangeText(record.Get("id"), entry))
 		row.ProjectPath = root
 		emit(row)
