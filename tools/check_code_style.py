@@ -504,8 +504,10 @@ def go_close(tokens: list[GoToken], start: int) -> int:
     return len(tokens) - 1
 
 
-def go_split(tokens: list[GoToken], start: int, end: int) -> list[list[GoToken]]:
-    """Split the tokens between `start` and `end` (exclusive) at their top-level commas."""
+def go_split(
+    tokens: list[GoToken], start: int, end: int, separator: str = ","
+) -> list[list[GoToken]]:
+    """Split the tokens between `start` and `end` (exclusive) at their top-level `separator`."""
     groups: list[list[GoToken]] = [[]]
     depth = 0
     for token in tokens[start:end]:
@@ -513,7 +515,7 @@ def go_split(tokens: list[GoToken], start: int, end: int) -> list[list[GoToken]]
             depth += 1
         elif token.kind == "punct" and token.text in ")]}":
             depth -= 1
-        if token.kind == "punct" and token.text == "," and depth == 0:
+        if token.kind == "punct" and token.text == separator and depth == 0:
             groups.append([])
         else:
             groups[-1].append(token)
@@ -855,73 +857,106 @@ def go_plain_verbs(call: str, verbs: list[str], arguments: list[list[GoToken]]) 
     return True
 
 
-GO_ERROR_VARIABLE = re.compile(r"^[eE]rr[A-Z]")
+GO_EXPORTED_ERROR = re.compile(r"^Err[A-Z]")
+GO_ERROR_NAME = re.compile(r"Err$|^err[A-Z]")
+GO_ERROR_MAKERS = (("errors", "New"), ("errors", "Join"), ("fmt", "Errorf"))
 
 
-def go_error_names(argument: list[GoToken]) -> set[str]:
-    """Return the names in a call argument that name an error.
+def go_declared_errors(tokens: list[GoToken]) -> set[str]:
+    """Return the names ending in `Err` or starting with `err` and a capital that are errors.
 
-    A name is `err`, ends in `Err` (`closeErr`), or starts with `err` or `Err` and a capital
-    (`errNotFound`, and `ErrNotExist` in `fs.ErrNotExist`), the spellings of a package's error
-    variables. Other errors cannot be told from the text and are left alone.
+    A name is listed when the file declares it with the type `error` (`var closeErr error`, a
+    parameter, a result or a struct field) or assigns it the result of `errors.New`,
+    `errors.Join` or `fmt.Errorf`. A name assigned from any other call (`closeErr :=
+    file.Close()`) is not listed: the text does not show whether the call returns an error, so
+    the name is left alone. Names are not told apart by scope.
     """
-    return {
-        token.text
-        for token in argument
-        if token.kind == "ident"
-        and (
-            token.text == "err" or token.text.endswith("Err") or GO_ERROR_VARIABLE.match(token.text)
-        )
-    }
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    names: set[str] = set()
+    for index in range(1, len(code) - 1):
+        token = code[index]
+        before = code[index - 1]
+        if before.kind != "ident" or not GO_ERROR_NAME.search(before.text):
+            continue
+        if token.kind == "ident" and token.text == "error":
+            names.add(before.text)
+        is_assignment = token.text == ":=" or (token.text == "=" and code[index + 1].text != "=")
+        if is_assignment and any(
+            go_is_call(code, index + 3, package, {name}) for package, name in GO_ERROR_MAKERS
+        ):
+            names.add(before.text)
+    return names
 
 
-def go_names_an_error(argument: list[GoToken]) -> bool:
-    """Return True when a call argument names an error or calls `.Error()`.
-
-    It names one when any name in it is an error's name (see `go_error_names`: `err`,
-    `current.err`, `wrap(err)`, `closeErr`, `errNotFound`, `fs.ErrNotExist`), or when it calls
-    `.Error()`. `errors.New` and `fmt.Errorf` use this one test.
-    """
-    if go_error_names(argument):
-        return True
-    return any(
-        argument[position].text == "."
-        and argument[position + 1].text == "Error"
-        and argument[position + 2].text == "("
-        for position in range(len(argument) - 2)
+def go_is_selector_chain(argument: list[GoToken]) -> bool:
+    """Return True when the tokens are a name, or names joined by dots (`current.err`)."""
+    return (
+        len(argument) % 2 == 1
+        and all(token.kind == "ident" for token in argument[::2])
+        and all(token.text == "." for token in argument[1::2])
     )
 
 
-def go_errorf_drops_error(verbs: list[str], arguments: list[list[GoToken]]) -> bool:
+def go_names_an_error(argument: list[GoToken], declared: set[str]) -> bool:
+    """Return True when a call argument, or one `+` operand of one, is an error.
+
+    It is only when the whole of it is: a call of `.Error()`; the name `err` or a chain ending
+    in `err` (`current.err`); a chain ending in an exported name that starts with `Err` and a
+    capital (`fs.ErrNotExist`); or a name or chain ending in a name `go_declared_errors` lists.
+    An error only inside a larger expression (`wrap(err)`, `list[0]`) is not named.
+    """
+    if len(argument) >= 4 and [token.text for token in argument[-4:]] == [".", "Error", "(", ")"]:
+        return True
+    if not go_is_selector_chain(argument):
+        return False
+    last = argument[-1].text
+    if last == "err":
+        return True
+    if len(argument) > 1 and GO_EXPORTED_ERROR.match(last):
+        return True
+    return last in declared
+
+
+def go_argument_text(argument: list[GoToken]) -> str:
+    """Return the token text of a call argument, to compare two arguments for sameness."""
+    return " ".join(token.text for token in argument)
+
+
+def go_errorf_drops_error(
+    verbs: list[str], arguments: list[list[GoToken]], declared: set[str]
+) -> bool:
     """Return True when a `fmt.Errorf` formats an error with a verb other than `%w`.
 
     Only such a verb copies the error's words into the new error and leaves the error out of
-    the chain `errors.Is` and `errors.As` follow. A format with an explicit argument index
-    (`%[2]v`) is not paired with its arguments and is left alone. So is a `%t`, which formats
-    a boolean, and an argument whose error names are all given to a `%w` of the same call,
-    where the error stays in the chain (`fmt.Errorf("%s: %w", pathOf(err), err)`).
+    the chain `errors.Is` and `errors.As` follow. An argument is an error as
+    `go_names_an_error` says; one whose whole text is also given to a `%w` of the same call
+    stays in the chain and passes. A format with an explicit argument index (`%[2]v`) or a
+    width or precision taken from an argument (`%*d`) is not paired with its arguments and is
+    left alone.
     """
-    if any("[" in verb for verb in verbs):
+    if any("[" in verb or "*" in verb for verb in verbs):
         return False
-    wrapped: set[str] = set()
-    for verb, argument in zip(verbs, arguments, strict=False):
-        if verb == "%w":
-            wrapped |= go_error_names(argument)
+    pairs = list(zip(verbs, arguments, strict=False))
+    wrapped = {go_argument_text(argument) for verb, argument in pairs if verb == "%w"}
     return any(
-        verb not in {"%w", "%t"}
-        and go_names_an_error(argument)
-        and not (go_error_names(argument) and go_error_names(argument) <= wrapped)
-        for verb, argument in zip(verbs, arguments, strict=False)
+        verb != "%w"
+        and go_names_an_error(argument, declared)
+        and go_argument_text(argument) not in wrapped
+        for verb, argument in pairs
     )
 
 
 def go_format_message(
-    call: str, verbs: list[str], arguments: list[list[GoToken]], in_errors_new: bool
+    call: str,
+    verbs: list[str],
+    arguments: list[list[GoToken]],
+    in_errors_new: bool,
+    declared: set[str],
 ) -> str | None:
     """Return the finding for a `fmt.Sprintf` or `fmt.Errorf` call, None when it passes."""
     if in_errors_new:
         return GO_ERRORS_NEW_FORMAT_MESSAGE
-    if call == "Errorf" and go_errorf_drops_error(verbs, arguments):
+    if call == "Errorf" and go_errorf_drops_error(verbs, arguments, declared):
         return GO_ERRORF_DROPPED_MESSAGE
     if not verbs:
         return GO_NO_VERB_MESSAGE % (call, GO_NO_VERB_CALLS[call])
@@ -942,6 +977,7 @@ def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     """
     code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
     constants = go_string_constants(tokens)
+    declared = go_declared_errors(tokens)
     for index in range(2, len(code) - 2):
         token = code[index]
         if not go_is_call(code, index, "fmt", GO_FORMAT_CALLS):
@@ -952,7 +988,7 @@ def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
         verbs = [verb for verb in GO_VERB.findall(format_text) if verb != "%%"]
         arguments = go_split(code, index + 2, go_close(code, index + 1))[1:]
         in_errors_new = token.text == "Sprintf" and go_is_call(code, index - 4, "errors", {"New"})
-        message = go_format_message(token.text, verbs, arguments, in_errors_new)
+        message = go_format_message(token.text, verbs, arguments, in_errors_new, declared)
         if message:
             yield token.line, message
 
@@ -960,17 +996,18 @@ def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
 def go_dropped_cause_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     """Yield a finding for each `errors.New` whose text is made from an error.
 
-    An argument that names an error (see `go_names_an_error`) copies an error's words into a new error
-    and drops the error itself, so `errors.Is` and `errors.As` no longer find it. Library code
-    wraps it with `%w` instead.
+    A `+` operand of the argument that is an error (see `go_names_an_error`) copies an error's
+    words into a new error and drops the error itself, so `errors.Is` and `errors.As` no longer
+    find it. Library code wraps it with `%w` instead.
     """
     code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    declared = go_declared_errors(tokens)
     for index in range(2, len(code) - 1):
         if not go_is_call(code, index, "errors", {"New"}):
             continue
         close = go_close(code, index + 1)
-        argument = code[index + 2 : close]
-        if go_names_an_error(argument):
+        operands = go_split(code, index + 2, close, "+")
+        if any(go_names_an_error(operand, declared) for operand in operands):
             yield code[index].line, GO_DROPPED_CAUSE_MESSAGE
 
 

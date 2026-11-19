@@ -6,6 +6,7 @@ import pathlib
 import tempfile
 
 import check_code_style as style
+import pytest
 
 
 def findings(source: str, name: str = "sample.go") -> list[tuple[int, str]]:
@@ -230,13 +231,13 @@ FORMAT_CASES = [
 ]
 
 
-def test_a_format_call_that_only_joins_strings_is_reported() -> None:
-    for statement, expected in FORMAT_CASES:
-        source = "package p\n\nfunc run() {\n\t" + statement + "\n}\n"
-        calls = [
-            message.split()[0][4:] for _, message in findings(source) if "only joins" in message
-        ]
-        assert calls == expected, statement
+@pytest.mark.parametrize(("statement", "expected"), FORMAT_CASES)
+def test_a_format_call_that_only_joins_strings_is_reported(
+    statement: str, expected: list[str]
+) -> None:
+    source = "package p\n\nfunc run() {\n\t" + statement + "\n}\n"
+    calls = [message.split()[0][4:] for _, message in findings(source) if "only joins" in message]
+    assert calls == expected
 
 
 def format_messages(body: str) -> list[str]:
@@ -258,9 +259,9 @@ NO_VERB_CASES = [
 ]
 
 
-def test_a_format_call_with_no_verb_is_reported() -> None:
-    for body, expected in NO_VERB_CASES:
-        assert format_messages(body) == expected, body
+@pytest.mark.parametrize(("body", "expected"), NO_VERB_CASES)
+def test_a_format_call_with_no_verb_is_reported(body: str, expected: list[str]) -> None:
+    assert format_messages(body) == expected
 
 
 ERRORS_NEW_FORMAT = "errors.New(fmt.Sprintf(...)) makes an error from a format; use fmt.Errorf"
@@ -273,9 +274,9 @@ ERRORS_NEW_FORMAT_CASES = [
 ]
 
 
-def test_errors_new_of_a_sprintf_is_reported() -> None:
-    for body, expected in ERRORS_NEW_FORMAT_CASES:
-        assert format_messages(body) == expected, body
+@pytest.mark.parametrize(("body", "expected"), ERRORS_NEW_FORMAT_CASES)
+def test_errors_new_of_a_sprintf_is_reported(body: str, expected: list[str]) -> None:
+    assert format_messages(body) == expected
 
 
 JOINS = "fmt.Sprintf only joins strings (every verb is %s, or %v of err); use `+`"
@@ -295,11 +296,13 @@ CONSTANT_FORMAT_CASES = [
 ]
 
 
-def test_a_format_held_in_a_constant_of_the_file_is_read() -> None:
-    for declaration, call, expected in CONSTANT_FORMAT_CASES:
-        source = "package p\n\n" + declaration + "\nfunc run() {\n\ttext := " + call + "\n}\n"
-        messages = [message for _, message in findings(source) if "only joins" in message]
-        assert messages == expected, declaration + call
+@pytest.mark.parametrize(("declaration", "call", "expected"), CONSTANT_FORMAT_CASES)
+def test_a_format_held_in_a_constant_of_the_file_is_read(
+    declaration: str, call: str, expected: list[str]
+) -> None:
+    source = "package p\n\n" + declaration + "\nfunc run() {\n\ttext := " + call + "\n}\n"
+    messages = [message for _, message in findings(source) if "only joins" in message]
+    assert messages == expected
 
 
 PERCENT_V_CASES = [
@@ -312,32 +315,42 @@ PERCENT_V_CASES = [
 ]
 
 
-def test_a_percent_v_of_the_error_in_sprintf_only_joins_strings() -> None:
-    for body, expected in PERCENT_V_CASES:
-        assert format_messages(body) == expected, body
+@pytest.mark.parametrize(("body", "expected"), PERCENT_V_CASES)
+def test_a_percent_v_of_the_error_in_sprintf_only_joins_strings(
+    body: str, expected: list[str]
+) -> None:
+    assert format_messages(body) == expected
 
 
 DROPPED = "errors.New makes an error from another error's text and drops it; wrap it with %w"
 DROPPED_CAUSE_CASES = [
+    # Operands that are errors by the exact rule of `go_names_an_error`.
     ('\treturn errors.New("bad (" + err.Error() + ")")', [DROPPED]),
-    ("\treturn errors.New(describe(path, err))", [DROPPED]),
     ("\treturn errors.New(closeErr.Error() + text)", [DROPPED]),
     ("\treturn errors.New(\n\t\tprefix +\n\t\t\terr.Error())", [DROPPED]),
     ('\treturn errors.New("bad (" + current.err.Error() + ")")', [DROPPED]),
-    ('\treturn errors.New("bad " + state.closeErr)', [DROPPED]),
-    ("\treturn errors.New(problems[0].Message)", []),
-    ("\treturn errors.New(errorText)", []),
     ('\treturn errors.New("lookup: " + errNotFound.Error())', [DROPPED]),
     ('\treturn errors.New("open: " + fs.ErrNotExist)', [DROPPED]),
+    ('\treturn errors.New("bad " + current.err)', [DROPPED]),
+    ("\treturn errors.New(err)", [DROPPED]),
+    ('\tvar closeErr error\n\treturn errors.New("bad " + state.closeErr)', [DROPPED]),
+    # Spellings alone, and an error only inside a larger expression, are not errors.
+    ('\treturn errors.New("bad " + state.closeErr)', []),
+    ("\treturn errors.New(describe(path, err))", []),
+    ('\treturn errors.New("saw " + strconv.Itoa(errCount) + " errors")', []),
+    ('\terrCount := 3\n\treturn errors.New("saw " + errCount)', []),
+    ("\treturn errors.New(problems[0].Message)", []),
+    ("\treturn errors.New(errorText)", []),
+    ("\treturn errors.New(ctx.Err())", []),
     ('\treturn errors.New("no " + name + " table")', []),
     ('\treturn fmt.Errorf("bad (%w)", err)', []),
     ("\treturn wrap(describe(path, err), err)", []),
 ]
 
 
-def test_errors_new_of_an_error_text_is_reported() -> None:
-    for body, expected in DROPPED_CAUSE_CASES:
-        assert format_messages(body) == expected, body
+@pytest.mark.parametrize(("body", "expected"), DROPPED_CAUSE_CASES)
+def test_errors_new_of_an_error_text_is_reported(body: str, expected: list[str]) -> None:
+    assert format_messages(body) == expected
 
 
 ERRORF_JOINS = (
@@ -354,31 +367,105 @@ ERRORF_CASES = [
     ('\treturn fmt.Errorf("file %s (%v)", name, err)', [ERRORF_DROPPED]),
     ('\treturn fmt.Errorf("x: %s", err)', [ERRORF_DROPPED]),
     ('\treturn fmt.Errorf("x: %s", err.Error())', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("%d rows: %v", count, closeErr)', [ERRORF_DROPPED]),
     ('\treturn fmt.Errorf("%d rows: %q", count, err.Error())', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("%v, then %w", firstErr, err)', [ERRORF_DROPPED]),
     ('\treturn fmt.Errorf("read: %v", current.err)', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("read: %s", wrap(err))', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("read: %v", state.closeErr)', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("lookup %s: %v", name, errNotFound)', [ERRORF_DROPPED]),
     ('\treturn fmt.Errorf("open: %v", fs.ErrNotExist)', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("stage %s: %w", pathOf(err), err)', []),
-    ('\treturn fmt.Errorf("%d attempts: %w", attempts(err), err)', []),
-    ('\treturn fmt.Errorf("%t: %w", isErr, cause)', []),
-    ('\treturn fmt.Errorf("%s: %w", pathOf(err), cause)', [ERRORF_DROPPED]),
-    ('\treturn fmt.Errorf("first: %v", failures[0])', []),
+    ('\treturn fmt.Errorf("open: %v", state.ErrBad)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("%v: %w", first.err, second.err)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("%s: %w", second.err.Error(), first.err)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("%v: %w", err, err)', []),
+    ('\treturn fmt.Errorf("%v: %w", current.err, current.err)', []),
+    ('\treturn fmt.Errorf("%w: %w", first.err, second.err)', []),
     ('\treturn fmt.Errorf("read: %w", current.err)', []),
     ('\treturn fmt.Errorf("read %s: %w", path, err)', []),
     ('\treturn fmt.Errorf("%v and %w", name, err)', []),
     ('\treturn fmt.Errorf("%d rows of %v", count, name)', []),
     ('\treturn fmt.Errorf("%[2]v: %[1]w", err, path)', []),
     ('\ttext := fmt.Sprintf("%d rows: %v", count, err)', []),
+    ('\treturn fmt.Errorf("first: %v", failures[0])', []),
+    ('\treturn fmt.Errorf("read: %v", ctx.Err())', []),
+    # An error only inside a larger expression is not named by it.
+    ('\treturn fmt.Errorf("read: %q", wrap(err))', []),
+    ('\treturn fmt.Errorf("stage %s: %w", pathOf(err), err)', []),
+    ('\treturn fmt.Errorf("%d attempts: %w", attempts(err), err)', []),
+    ('\treturn fmt.Errorf("%s: %w", pathOf(err), cause)', []),
 ]
 
 
-def test_an_errorf_that_drops_an_error_from_the_chain_is_reported() -> None:
-    for body, expected in ERRORF_CASES:
-        assert format_messages(body) == expected, body
+@pytest.mark.parametrize(("body", "expected"), ERRORF_CASES)
+def test_an_errorf_that_drops_an_error_from_the_chain_is_reported(
+    body: str, expected: list[str]
+) -> None:
+    assert format_messages(body) == expected
+
+
+# A name ending in `Err` or starting with `err` and a capital is an error only where the file
+# shows it: declared with the type `error`, or assigned from errors.New, errors.Join or
+# fmt.Errorf.
+DECLARED_ERROR_CASES = [
+    ('\tvar closeErr error\n\treturn fmt.Errorf("close: %v", closeErr)', [ERRORF_DROPPED]),
+    ('\tvar errClose error\n\treturn fmt.Errorf("close: %v", errClose)', [ERRORF_DROPPED]),
+    ('\tvar first, closeErr error\n\treturn fmt.Errorf("close: %v", closeErr)', [ERRORF_DROPPED]),
+    (
+        '\tcloseErr := errors.New("closed")\n\treturn fmt.Errorf("x: %v", closeErr)',
+        [ERRORF_DROPPED],
+    ),
+    ('\tvar errGone = errors.New("gone")\n\treturn fmt.Errorf("x: %v", errGone)', [ERRORF_DROPPED]),
+    (
+        '\tvar errGone = fmt.Errorf("gone %d", 1)\n\treturn fmt.Errorf("x: %s", errGone)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\tcloseErr = errors.Join(first, second)\n\treturn fmt.Errorf("x: %v", closeErr)',
+        [ERRORF_DROPPED],
+    ),
+    (
+        '\ttype state struct{ closeErr error }\n\treturn fmt.Errorf("x: %v", current.closeErr)',
+        [ERRORF_DROPPED],
+    ),
+    ('\tcloseErr := errors.New("closed")\n\treturn fmt.Errorf("x: %w", closeErr)', []),
+    (
+        '\tcloseErr := errors.New("closed")\n\treturn fmt.Errorf("x: %v: %w", closeErr, closeErr)',
+        [],
+    ),
+    ('\tcloseErr := errors.New("closed")\n\treturn fmt.Errorf("x: %d", closeCount)', []),
+    # Not shown to be an error: another call's result, a count, a message, a boolean.
+    ('\tcloseErr := file.Close()\n\treturn fmt.Errorf("x: %v", closeErr)', []),
+    ('\tcount, closeErr := readAll()\n\treturn fmt.Errorf("x: %v", closeErr)', []),
+    ('\treturn fmt.Errorf("x: %v", closeErr)', []),
+    ('\treturn fmt.Errorf("%d errors in %s", errCount, name)', []),
+    ('\treturn fmt.Errorf("saw %q", errMsg)', []),
+    ('\treturn fmt.Errorf("bad line %d", errLine)', []),
+    ('\treturn fmt.Errorf("check failed (hasErr=%v)", hasErr)', []),
+    ('\thasErr := true\n\treturn fmt.Errorf("check failed (hasErr=%v)", hasErr)', []),
+    ('\tvar errCount int\n\treturn fmt.Errorf("x: %v", errCount)', []),
+    (
+        '\tcloseErr := errors.New("closed")\n\tif closeErr == nil {\n\t}\n\treturn fmt.Errorf("x: %v", other)',
+        [],
+    ),
+    ('\tvar errorText string\n\treturn fmt.Errorf("x: %v", errorText)', []),
+]
+
+
+@pytest.mark.parametrize(("body", "expected"), DECLARED_ERROR_CASES)
+def test_a_name_is_an_error_only_where_the_file_shows_it(body: str, expected: list[str]) -> None:
+    assert format_messages(body) == expected
+
+
+# A width or precision taken from an argument shifts the pairing of verbs and arguments, and an
+# explicit index reorders it; such a format is left alone.
+UNPAIRED_FORMAT_CASES = [
+    '\treturn fmt.Errorf("%*d: %v", width, count, err)',
+    '\treturn fmt.Errorf("%.*f: %v", digits, value, err)',
+    '\treturn fmt.Errorf("%-*s %v", width, name, err)',
+    '\treturn fmt.Errorf("%[2]v: %[1]v", err, path)',
+    '\treturn fmt.Errorf("%*d rows: %v", err, count, name)',
+]
+
+
+@pytest.mark.parametrize("body", UNPAIRED_FORMAT_CASES)
+def test_a_format_with_a_starred_or_indexed_verb_is_left_alone(body: str) -> None:
+    assert format_messages(body) == []
 
 
 def test_following_the_errorf_advice_passes_the_dropped_cause_rule() -> None:
