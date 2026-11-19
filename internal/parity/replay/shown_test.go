@@ -19,7 +19,12 @@ import (
 func shownDifference() Difference {
 	return Difference{Number: 232, Summary: "an identity the recording left out of a row is shown: at each " +
 		"site of shownForms, the recording's row and the binary's row with the identity become one token " +
-		"that keeps the rest of the row", Text: shownText(recordedSide), Binary: shownText(binarySide), Within: 102}
+		"that keeps the rest of the row", Text: shownText(recordedSide), Binary: shownText(binarySide),
+		RowText: func(agent, text string) (string, int) {
+			return rowRewriteAll(shownForms(), recordedSide, agent, text)
+		}, RowBinary: func(agent, text string) (string, int) {
+			return rowRewriteAll(shownForms(), binarySide, agent, text)
+		}, Within: 102}
 }
 
 // shownForms returns the entries of difference 232, each a parser's site
@@ -39,11 +44,10 @@ func shownForms() []withheldForm {
 			"remote control: machine id {id}${1}"),
 		// The recording gave the GitHub connection without its account
 		// and organisation ids.
-		form("claude-code", "GitHub connection ids",
-			`(source host: github status=[^ "\n]*)( \(from [^"\n]*\.claude\.json, file mtime\))`,
-			`(source host: github status=[^ "\n]*)(?: account=[0-9A-Za-z-]+)?(?: org=[0-9A-Za-z-]+)?`+
-				`( \(from [^"\n]*\.claude\.json, file mtime\))`,
-			"${1}${2}"),
+		{scope: parserScope, agent: "claude-code", name: "GitHub connection ids",
+			recorded: regexp.MustCompile(`(source host: github status=[^ "\n]*)( \(from [^"\n]*\.claude\.json, ` +
+				`file mtime\))`),
+			added: regexp.MustCompile(` (?:account|org)=[0-9A-Za-z-]+`), token: "${1}{added ids}${2}"},
 	}
 }
 
@@ -62,15 +66,9 @@ func shownText(from side) func(text string) (string, int) {
 }
 
 // shownEntriesIn returns the labels of the entries whose recorded form
-// shows in text.
-func shownEntriesIn(text string) []string {
-	var labels []string
-	for _, entry := range shownForms() {
-		if _, found := entry.rewrite(recordedSide, text); found > 0 {
-			labels = append(labels, entry.label())
-		}
-	}
-	return labels
+// shows in a row of their agent among rows.
+func shownEntriesIn(rows []Row) []string {
+	return rowEntriesIn(shownForms(), rows)
 }
 
 // checkEveryShownFormUsed fails the test for each entry of shownForms that
@@ -104,7 +102,7 @@ func TestAShownIdentityIsComparedWithTheRecordingsRowWithoutIt(t *testing.T) {
 		{"a machine id that is not an id fails", machineRecorded,
 			strings.Replace(machineBinary, "0f0e0d0c-0000-4000-8000-000000000001", "REDACTED x", 1), false},
 		{"the GitHub connection's ids pass", githubRecorded, githubBinary, true},
-		{"the GitHub connection without ids passes", githubRecorded, githubRecorded, true},
+		{"the GitHub connection without the ids the binary adds fails", githubRecorded, githubRecorded, false},
 		{"the GitHub connection of another status fails", githubRecorded,
 			strings.Replace(githubBinary, "connected", "error", 1), false},
 		{"the GitHub connection with another field fails", githubRecorded,
@@ -113,8 +111,8 @@ func TestAShownIdentityIsComparedWithTheRecordingsRowWithoutIt(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			reporter := &recordingTB{TB: t}
-			want, got := NormaliseRows(reporter, "n", []int{102, 232}, []Row{{Text: Text(test.want)}},
-				[]Row{{Text: Text(test.got)}})
+			want, got := NormaliseRows(reporter, "n", []int{102, 232}, []Row{{Agent: "claude-code", Text: Text(test.want)}},
+				[]Row{{Agent: "claude-code", Text: Text(test.got)}})
 			if agree := want[0].Text == got[0].Text; agree != test.agree {
 				t.Errorf("agree %v, want %v: %q and %q", agree, test.agree, want[0].Text, got[0].Text)
 			}
@@ -133,7 +131,7 @@ func TestEachShownFormIsFoundInItsRecordedText(t *testing.T) {
 			if !ok {
 				t.Fatal("no sample text for this entry")
 			}
-			if got := shownEntriesIn(text); !slices.Equal(got, []string{entry.label()}) {
+			if got := shownEntriesIn([]Row{{Agent: Text(entry.agent), Text: Text(text)}}); !slices.Equal(got, []string{entry.label()}) {
 				t.Errorf("found %q", got)
 			}
 		})

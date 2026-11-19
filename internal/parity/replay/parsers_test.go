@@ -265,14 +265,54 @@ func (r *parserReplay) compareWants(t *testing.T, node string, subject parser.Pa
 
 // compareParse runs one parse and compares its rows with the recorded
 // ones as information, after the documented differences they show are
-// normalised. A parse
-// the recording did not run to its end is compared over the rows it gave.
+// normalised. A parse the recording did not run to its end is compared over
+// the rows it gave.
 func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Parser,
 	artifact *input.Artifact, recorded ParserCase) string {
 	t.Helper()
+	want, got, skip := r.runParse(t, node, subject, artifact, recorded)
+	if skip != "" {
+		return skip
+	}
+	numbers, excluding := rowDifferences(want)
+	if excluding != 0 {
+		r.note(node, []int{excluding})
+		return skipExcluded
+	}
+	parse := parsedFile{agent: subject.Agent(), file: artifact.Original, rel: artifact.Rel,
+		home: artifact.Home, mtime: parser.FileMtime(artifact)}
+	cut := r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
+	compare := func(reporter testing.TB, numbers []int) ([]int, []string) {
+		normalWant, normalGot := NormaliseRows(reporter, node, numbers, want, got)
+		normalGot, added, entries := addedRows(parse, normalWant, normalGot)
+		return slices.Concat(added, compareRowInformation(reporter, node, normalWant, normalGot, cut)), entries
+	}
+	reporter := &recordingTB{TB: t}
+	formats, entries := compare(reporter, numbers)
+	for _, message := range reporter.errors {
+		t.Errorf("%s", message)
+	}
+	if len(reporter.errors) == 0 {
+		numbers = neededAmong(numbers, func(numbers []int) bool {
+			quiet := &recordingTB{TB: t}
+			compare(quiet, numbers)
+			return len(quiet.errors) == 0
+		})
+	}
+	r.note(node, slices.Concat(numbers, formats))
+	r.countEntries(numbers, entries, want)
+	return ""
+}
+
+// runParse runs one recorded parse as a run with --no-secrets does and
+// returns the recorded rows and the binary's, or why the case is not
+// replayed; an error raised on one side only fails the test.
+func (r *parserReplay) runParse(t *testing.T, node string, subject parser.Parser, artifact *input.Artifact,
+	recorded ParserCase) ([]Row, []Row, string) {
+	t.Helper()
 	result := recorded.Result
 	if result.Error != nil && !osErrorTypes()[string(result.Error.Type)] {
-		return skipCrash
+		return nil, nil, skipCrash
 	}
 	var options parser.Options
 	if recorded.Options != nil {
@@ -293,23 +333,13 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 	if !result.Completed {
 		got = got[:min(len(got), len(want))]
 	}
-	numbers, excluding := rowDifferences(want)
-	if excluding != 0 {
-		r.note(node, []int{excluding})
-		return skipExcluded
-	}
-	parse := parsedFile{subject.Agent(), artifact.Original, artifact.Rel}
-	cut := r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
-	compare := func(reporter testing.TB, numbers []int) ([]int, []string) {
-		normalWant, normalGot := NormaliseRows(reporter, node, numbers, want, got)
-		normalGot, added, entries := addedRows(parse, normalWant, normalGot)
-		return slices.Concat(added, compareRowInformation(reporter, node, normalWant, normalGot, cut)), entries
-	}
-	reporter := &recordingTB{TB: t}
-	formats, entries := compare(reporter, numbers)
-	for _, message := range reporter.errors {
-		t.Errorf("%s", message)
-	}
+	return want, got, ""
+}
+
+// countEntries counts, for the run's check that every entry is used, the
+// entries of differences 170, 231 and 241 that took a row and those of 230
+// and 232 that a case needing the difference shows.
+func (r *parserReplay) countEntries(numbers []int, entries []string, want []Row) {
 	for _, entry := range entries {
 		if labels := withheldRowLabels(entry); len(labels) > 0 {
 			for _, label := range labels {
@@ -319,25 +349,16 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 		}
 		r.wrongKind[entry]++
 	}
-	if len(reporter.errors) == 0 {
-		numbers = neededAmong(numbers, func(numbers []int) bool {
-			quiet := &recordingTB{TB: t}
-			compare(quiet, numbers)
-			return len(quiet.errors) == 0
-		})
-	}
-	r.note(node, slices.Concat(numbers, formats))
 	if slices.Contains(numbers, withheldDifference().Number) {
-		for _, label := range withheldEntriesIn(parserScope, RowsText(want)) {
+		for _, label := range rowEntriesIn(withheldForms(), want) {
 			r.withheld[label]++
 		}
 	}
 	if slices.Contains(numbers, shownDifference().Number) {
-		for _, label := range shownEntriesIn(RowsText(want)) {
+		for _, label := range shownEntriesIn(want) {
 			r.shown[label]++
 		}
 	}
-	return ""
 }
 
 // neededAmong returns the numbers of a comparison that agrees with all of
@@ -387,7 +408,7 @@ func rowDifferences(want []Row) ([]int, int) {
 				return nil, entry.Number
 			}
 		case entry.Text != nil:
-			if rewriteRowTexts(rows, entry.Text) > 0 {
+			if rewriteRowTexts(rows, entry.rowRewrite(recordedSide)) > 0 {
 				numbers = append(numbers, entry.Number)
 			}
 		}

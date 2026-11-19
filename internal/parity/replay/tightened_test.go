@@ -108,8 +108,9 @@ func TestWrittenTimesBelowTheMillisecondAreFound(t *testing.T) {
 }
 
 func TestDifference230ComparesTheRestOfTheRowAndThePosition(t *testing.T) {
-	recorded := recordLine("2026-01-01T00:00:00.000Z", "alice", "system",
-		"parser: config.json did not parse: Expecting value: line 1 column 11 (char 10)", "/r/config.json", 0)
+	recorded := strings.Replace(recordLine("2026-01-01T00:00:00.000Z", "alice", "system",
+		"parser: config.json did not parse: Expecting value: line 1 column 11 (char 10)", "/r/config.json", 0),
+		`"agent":"codex-cli"`, `"agent":"nanobot"`, 1)
 	binary := strings.Replace(recorded, "Expecting value: line 1 column 11 (char 10)",
 		"invalid JSON at line 1, column 11: REDACTED", 1)
 	tests := []struct {
@@ -124,6 +125,7 @@ func TestDifference230ComparesTheRestOfTheRowAndThePosition(t *testing.T) {
 		{"another time fails", strings.Replace(binary, "2026-01-01T00:00:00.000Z", "1999-09-09T09:09:09.000Z", 1),
 			false},
 		{"another column fails", strings.Replace(binary, "column 11", "column 12", 1), false},
+		{"another agent's row fails", strings.Replace(binary, `"agent":"nanobot"`, `"agent":"codex-cli"`, 1), false},
 		{"a read error in place of the position fails", strings.Replace(binary,
 			"invalid JSON at line 1, column 11: REDACTED", "permission denied", 1), false},
 	}

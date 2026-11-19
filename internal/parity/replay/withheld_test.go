@@ -62,6 +62,7 @@ func withheldDifference() Difference {
 	return Difference{Number: 230, Summary: "a withheld secret is written as the placeholder: at each site of " +
 		"withheldForms, the recording's withheld form and the binary's form with REDACTED become one token " +
 		"that keeps the rest of the row", Text: withheldText(recordedSide), Binary: withheldText(binarySide),
+		RowText: withheldRowText(recordedSide), RowBinary: withheldRowText(binarySide),
 		Within: 102}
 }
 
@@ -78,6 +79,7 @@ func withheldRowsDifference() Difference {
 // secret.
 type withheldRow struct {
 	agent, name, text string
+	row               addedRow
 }
 
 // label returns the name the run's log and its check of every entry use.
@@ -92,27 +94,27 @@ func withheldRows() []withheldRow {
 	return []withheldRow{
 		{"agent-zero", "connector settings", "connector settings: AGENT_ZERO_HOST=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
-			" AGENT_ZERO_LAST_CONTEXT_HOST=" + secrets.DefaultPlaceholder +
-			" AGENT_ZERO_LAST_CONTEXT_ID=" + secrets.DefaultPlaceholder + " (from .agent-zero/.env, file mtime)"},
+			" AGENT_ZERO_LAST_CONTEXT_HOST=https://a0.example.net AGENT_ZERO_LAST_CONTEXT_ID=RemCtx01" +
+			" (from .agent-zero/.env, file mtime)", addedRow{time: fileTime}},
 		{"letta", "settings API key", "stored credentials: env.LETTA_API_KEY=" + secrets.DefaultPlaceholder +
-			" (from .letta/settings.json, file mtime)"},
+			" (from .letta/settings.json, file mtime)", addedRow{time: fileTime, line: 1}},
 		{"shellgpt", "API key", "stored credentials: OPENAI_API_KEY=" + secrets.DefaultPlaceholder +
-			" (from .config/shell_gpt/.sgptrc, file mtime)"},
+			" (from .config/shell_gpt/.sgptrc, file mtime)", addedRow{time: fileTime, line: 1}},
 		{"crush", "provider API key", "stored credentials: providers.anthropic.api_key=" + secrets.DefaultPlaceholder +
-			" (from .crush/crush.json, file mtime)"},
+			" (from .crush/crush.json, file mtime)", addedRow{time: fileTime, project: homePath, line: 1}},
 		{"nanobot", "provider API key", "stored credentials: providers.openai.apiKey=" + secrets.DefaultPlaceholder +
-			" (from .nanobot/config.json, file mtime)"},
+			" (from .nanobot/config.json, file mtime)", addedRow{time: fileTime}},
 		{"little-coder", "legacy config tokens", "stored credentials: gist_token=" + secrets.DefaultPlaceholder +
-			" telegram_token=" + secrets.DefaultPlaceholder + " (from .little-coder/config.json, file mtime)"},
+			" telegram_token=" + secrets.DefaultPlaceholder + " (from .little-coder/config.json, file mtime)", addedRow{time: fileTime, line: 1}},
 		{"twinny", "inference provider API key", "model provider: p1 label=Ollama provider=ollama type=chat " +
 			"model=qwen2.5-coder:7b apiKey=" + secrets.DefaultPlaceholder +
-			" (from rjmacarthy.twinny twinny.inference-providers, file mtime)"},
+			" (from rjmacarthy.twinny twinny.inference-providers, file mtime)", addedRow{time: fileTime}},
 		{"twinny", "active chat provider API key", "model provider: active chat p1 apiKey=" +
-			secrets.DefaultPlaceholder + " (from rjmacarthy.twinny twinny.active-chat-provider, file mtime)"},
+			secrets.DefaultPlaceholder + " (from rjmacarthy.twinny twinny.active-chat-provider, file mtime)", addedRow{time: fileTime}},
 		{"tabby", "user auth token", "tabby user: alice@example.com (Alice) id=1 auth_token=" +
-			secrets.DefaultPlaceholder + " (from users table, created_at)"},
+			secrets.DefaultPlaceholder + " (from users table, created_at)", addedRow{time: tableTime, line: 1}},
 		{"tabby", "server record token", "tabby server: http://localhost:8080 token=" + secrets.DefaultPlaceholder +
-			" (from state.vscdb TabbyML.vscode-tabby server.serverRecords, no times)"},
+			" (from state.vscdb TabbyML.vscode-tabby server.serverRecords, no times)", addedRow{}},
 	}
 }
 
@@ -127,12 +129,8 @@ func withheldRowAdded(parse parsedFile, want, got []Row) ([]Row, string) {
 		if entry.agent != parse.agent {
 			continue
 		}
-		index := slices.IndexFunc(got, func(row Row) bool {
-			return row.TurnType == "system" && string(row.SourceFile) == parse.file &&
-				string(row.Text) == entry.text && !slices.Contains(want, row)
-		})
-		if index >= 0 {
-			got = slices.Delete(slices.Clone(got), index, index+1)
+		var taken bool
+		if got, taken = takeRow(parse.matches(entry.text, entry.row, want), want, got); taken {
 			labels = append(labels, entry.label())
 		}
 	}
@@ -157,11 +155,15 @@ func withheldRowLabels(taken string) []string {
 // command), a name, the lines it may appear on (nil for any), the recorded
 // form and the binary's form with the placeholder, each a pattern that
 // stops at the end of the secret's part so the rest is still compared, and
-// the token both become.
+// the token both become. A site where the binary adds a part the recording
+// never printed has added, the part, in place of a binary form: the binary's
+// text is the recorded form only once the part is taken out, so a binary
+// that leaves the part out still fails.
 type withheldForm struct {
 	scope, agent, name string
 	lines              *regexp.Regexp
 	recorded, binary   *regexp.Regexp
+	added              *regexp.Regexp
 	token              string
 }
 
@@ -177,22 +179,56 @@ func (f withheldForm) label() string {
 	return f.agent + " " + f.name
 }
 
-// rewrite returns text with the entry's form of one side as its token,
-// only on the entry's lines when it names them, and the count.
+// rewrite returns a command's output text with the entry's form of one
+// side as its token, and the count: a command entry's on its lines, a
+// parser entry's on the lines of its agent's rows only (a timeline.jsonl
+// line naming the agent).
 func (f withheldForm) rewrite(from side, text string) (string, int) {
-	pattern := f.binary
-	if from == recordedSide {
-		pattern = f.recorded
+	lines := f.lines
+	if f.scope == parserScope {
+		lines = regexp.MustCompile(`(?m)^.*"agent": ?"` + regexp.QuoteMeta(f.agent) + `".*$`)
+	}
+	if lines == nil {
+		return f.replace(from, text, false)
 	}
 	found := 0
-	replace := func(part string) string {
-		found += len(pattern.FindAllStringIndex(part, -1))
-		return pattern.ReplaceAllString(part, f.token)
+	text = lines.ReplaceAllStringFunc(text, func(part string) string {
+		part, count := f.replace(from, part, false)
+		found += count
+		return part
+	})
+	return text, found
+}
+
+// rowRewrite returns the text of a row of agent's parser with a parser
+// entry's form of one side as its token, and the count; another agent's
+// row, and every row for a command entry, is left as it is.
+func (f withheldForm) rowRewrite(from side, agent, text string) (string, int) {
+	if f.scope != parserScope || f.agent != agent {
+		return text, 0
 	}
-	if f.lines == nil {
-		return replace(text), found
+	return f.replace(from, text, true)
+}
+
+// replace returns text with every match of the entry's pattern of one side
+// as its token, and the count. With mandatory, the binary's text must hold
+// the part an entry says the binary adds: a parse's rows are held to it.
+// A command's outputs are not, since some recorded cases hold the same row
+// from inputs with and without the secret, which nothing in the row tells
+// apart; the parser replay compares those parses row by row.
+func (f withheldForm) replace(from side, text string, mandatory bool) (string, int) {
+	if from == binarySide && f.added != nil {
+		stripped := f.added.ReplaceAllString(text, "")
+		if mandatory && stripped == text || !f.recorded.MatchString(stripped) {
+			return text, 0
+		}
+		text = stripped
 	}
-	return f.lines.ReplaceAllStringFunc(text, replace), found
+	pattern := f.binary
+	if from == recordedSide || f.added != nil {
+		pattern = f.recorded
+	}
+	return pattern.ReplaceAllString(text, f.token), len(pattern.FindAllStringIndex(text, -1))
 }
 
 // withheldForms returns the entries of difference 230. A parser that comes
@@ -206,6 +242,13 @@ func withheldForms() []withheldForm {
 		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
 			binary: regexp.MustCompile(binary), token: token}
 	}
+	// adds is a site where the binary adds a part the recording never
+	// printed: the recorded pattern's two groups, the part between them
+	// marked.
+	adds := func(agent, name, recorded, added string) withheldForm {
+		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
+			added: regexp.MustCompile(added), token: "${1}{added " + name + "}${2}"}
+	}
 	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
 	goJSON := `invalid JSON at line ([0-9]+), column ([0-9]+): ` + secrets.DefaultPlaceholder
 	position := "{withheld at line ${2}, column ${3}}"
@@ -218,17 +261,22 @@ func withheldForms() []withheldForm {
 			`(parser: config\.toml is not valid TOML \()invalid TOML at line ([0-9]+), column ([0-9]+): `+
 				secrets.DefaultPlaceholder+`\)`,
 			"${1}"+position+")"),
+		// The binary gives an Agent Zero chat.json reader's error through
+		// ReaderErrorText, the file holding the bot token and API keys.
+		form("agent-zero", "chat.json reader error",
+			`(parser: chat\.json did not parse \()`+pythonJSON+`(\); log items recovered without history)`,
+			`(parser: chat\.json did not parse \()`+goJSON+`(\); log items recovered without history)`,
+			"${1}"+position+"${4}"),
+		// The recording left out a .sgptrc line without "=", the file holding
+		// the API key; the binary gives it through SecretText, withheld.
+		form("shellgpt", "settings line without an equals sign",
+			`(parser: unparseable line [0-9]+ \(no "=" separator); not shown, the file holds the API key\)`,
+			`(parser: unparseable line [0-9]+ \(no "=" separator)\): `+secrets.DefaultPlaceholder,
+			"${1}{withheld line})"),
 		form("nanobot", "config.json reader error",
 			`(parser: config\.json did not parse: )`+pythonJSON+`("|\n|\z)`,
 			`(parser: config\.json did not parse: )`+goJSON+`("|\n|\z)`,
 			"${1}"+position+"${4}"),
-		// The recording names a crush.json that is not JSON without the
-		// reader's error; the binary adds it, withheld.
-		form("crush", "crush.json reader error",
-			`(parser: [^"\n]*crush\.json is not a JSON object)("|\n|\z)`,
-			`(parser: [^"\n]*crush\.json is not a JSON object)(?: \(invalid JSON at line [0-9]+, column [0-9]+: `+
-				secrets.DefaultPlaceholder+`\))?("|\n|\z)`,
-			"${1}${2}"),
 		form("openclaw", "exec approvals reader error",
 			`(exec_approvals_config raw_json unparseable \()`+pythonJSON+`; text withheld, it holds the approvals `+
 				`socket token\)`,
@@ -240,61 +288,53 @@ func withheldForms() []withheldForm {
 			`(account: [^"\n]* )token_present=true("|\n|\z)`,
 			`(account: [^"\n]* )token=`+secrets.DefaultPlaceholder+`("|\n|\z)`,
 			"${1}{withheld token}${2}"),
-		// The recording gave a desktop connection without the token stored
-		// in plain text beside it; the binary adds it, withheld.
-		form("hermes", "connections.json token",
-			`(remote backend: [^"\n]*?)( \(from connections\.json, file mtime\))`,
-			`(remote backend: [^"\n]*?)(?: token=`+secrets.DefaultPlaceholder+`)?( \(from connections\.json, `+
-				`file mtime\))`,
-			"${1}${2}"),
+		// The recording names a crush.json that is not JSON without the
+		// reader's error; the binary adds it, withheld.
+		adds("crush", "crush.json reader error", `(parser: [^"\n]*crush\.json is not a JSON object)("|\n|\z)`,
+			` \(invalid JSON at line [0-9]+, column [0-9]+: `+secrets.DefaultPlaceholder+`\)`),
+		// The recording gave a desktop connection without the token and
+		// headers stored in plain text beside it; the binary adds them.
+		adds("hermes", "connections.json token",
+			`(remote backend: remote [^"\n]*?)( \(from connections\.json, file mtime\))`,
+			` (?:token|headers)=`+secrets.DefaultPlaceholder),
 		// The recording gave a Telegram chat's relay without the bot's token
-		// and webhook secret; the binary adds them, withheld.
-		form("agent-zero", "telegram bot token",
+		// and webhook secret; the binary adds them.
+		adds("agent-zero", "telegram bot token",
 			`(session relayed: telegram bot [^"\n]*?)( \(from chat\.json data, file mtime\))`,
-			`(session relayed: telegram bot [^"\n]*?)(?: token=`+secrets.DefaultPlaceholder+`)?`+
-				`(?: webhook_secret=`+secrets.DefaultPlaceholder+`)?( \(from chat\.json data, file mtime\))`,
-			"${1}${2}"),
+			` (?:token|webhook_secret)=`+secrets.DefaultPlaceholder),
 		// The recording gave a chat override's slots without the API key a
-		// slot holds; the binary adds it after the slot, withheld.
-		form("agent-zero", "model override API key",
-			`(model: requested [^"\n]*?)( \(chat override, as of file mtime\))`,
-			`(model: requested [^"\n]*?)(?: (?:chat|utility|embedding)\.api_key=`+secrets.DefaultPlaceholder+
-				`)?((?: [^"\n]*?)? \(chat override, as of file mtime\))`,
-			"${1}${2}"),
+		// slot holds; the binary adds it after the slot.
+		adds("agent-zero", "model override API key",
+			`(model: requested (?:chat|utility|embedding)=[^"\n]*?)( \(chat override, as of file mtime\))`,
+			` (?:chat|utility|embedding)\.api_key=`+secrets.DefaultPlaceholder),
 		// The recording gave a retried upload without its bearer token; the
-		// binary adds it after the URL, withheld.
-		form("roo-code", "retry queue bearer token",
+		// binary adds it after the URL.
+		adds("roo-code", "retry queue bearer token",
 			`(cloud upload queued: [^"\n]*? url=[^ "\n]*)( [^"\n]*?\(Roo Code Cloud retry queue, )`,
-			`(cloud upload queued: [^"\n]*? url=[^ "\n]*)(?: Authorization=`+secrets.DefaultPlaceholder+`)?`+
-				`( [^"\n]*?\(Roo Code Cloud retry queue, )`,
-			"${1}${2}"),
+			` Authorization=`+secrets.DefaultPlaceholder),
 		// The recording gave the exec approvals settings without the
-		// approvals socket's token; the binary adds it to each, withheld.
-		form("openclaw", "exec approvals socket token",
+		// approvals socket's token; the binary adds it to each.
+		adds("openclaw", "exec approvals socket token",
 			`(permission setting: [^"\n]*?)( \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\))`,
-			`(permission setting: [^"\n]*?)(?: socket\.token=`+secrets.DefaultPlaceholder+`)?`+
-				`( \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\))`,
-			"${1}${2}"),
-		// The recording gave an integration without its access token; the
-		// binary adds it, withheld.
-		form("tabby", "integration access token",
+			` socket\.token=`+secrets.DefaultPlaceholder),
+		// The recording gave an integration without its access token.
+		adds("tabby", "integration access token",
 			`(source host: [^"\n]* api_base=[^ "\n]*)( \(account not recorded; from integrations table, created_at\))`,
-			`(source host: [^"\n]* api_base=[^ "\n]*)(?: access_token=`+secrets.DefaultPlaceholder+`)?`+
-				`( \(account not recorded; from integrations table, created_at\))`,
-			"${1}${2}"),
-		// The recording gave a configured model without its API key; the
-		// binary adds it, withheld.
-		form("tabby", "config.toml API key",
-			`(model configured: [^"\n]*?)( [^"\n]*\(from config\.toml \[model\.)`,
-			`(model configured: [^"\n]*?) api_key=`+secrets.DefaultPlaceholder+`( [^"\n]*\(from config\.toml \[model\.)`,
-			"${1}${2}"),
-		// The recording gave a session's share without its secret; the
-		// binary adds it, withheld.
-		form("opencode", "share secret",
+			` access_token=`+secrets.DefaultPlaceholder),
+		// The recording gave a configured model without its API key.
+		adds("tabby", "config.toml API key",
+			`(model configured: [^"\n]* via http [^"\n]*?)( \(from config\.toml \[model\.)`, ` api_key=`+secrets.DefaultPlaceholder),
+		// The recording gave a session's share without its secret.
+		adds("opencode", "share secret",
 			`(session synced: share [^"\n]* url [^ "\n]*)( \(from [^"\n]* session_share, time_created\))`,
-			`(session synced: share [^"\n]* url [^ "\n]*)(?: secret=`+secrets.DefaultPlaceholder+`)?`+
-				`( \(from [^"\n]* session_share, time_created\))`,
-			"${1}${2}"),
+			` secret=`+secrets.DefaultPlaceholder),
+		// A recorded home holds a Gemini CLI request whose URL gives
+		// key=redacted; the binary withholds an 8-byte URL credential in
+		// every string, so a pi thinking row the agent wrote as [redacted]
+		// reads [REDACTED] in that run.
+		form("pi", "thinking row equal to a recorded key",
+			`(^|"text":")\[redacted\]("|\z)`, `(^|"text":")\[`+secrets.DefaultPlaceholder+`\]("|\z)`,
+			"${1}{a key's text}${2}"),
 		// The recording cut a network request's URL at its query, which can
 		// carry an API key; the binary gives the whole URL, the key
 		// withheld. Only the queries of the recorded logs are taken, so a
@@ -327,6 +367,42 @@ func withheldText(from side) func(text string) (string, int) {
 		}
 		return text, total
 	}
+}
+
+// withheldRowText returns the rewrite of difference 230 of a row's text for
+// one side: each parser entry of the row's agent's form of that side as its
+// token, and the count.
+func withheldRowText(from side) func(agent, text string) (string, int) {
+	return func(agent, text string) (string, int) {
+		return rowRewriteAll(withheldForms(), from, agent, text)
+	}
+}
+
+// rowRewriteAll returns text rewritten by each form's rowRewrite, and the
+// count.
+func rowRewriteAll(forms []withheldForm, from side, agent, text string) (string, int) {
+	total := 0
+	for _, entry := range forms {
+		var found int
+		text, found = entry.rowRewrite(from, agent, text)
+		total += found
+	}
+	return text, total
+}
+
+// rowEntriesIn returns the labels of the forms whose recorded form shows in
+// a row of rows of the form's own agent.
+func rowEntriesIn(forms []withheldForm, rows []Row) []string {
+	var labels []string
+	for _, entry := range forms {
+		for _, row := range rows {
+			if _, found := entry.rowRewrite(recordedSide, string(row.Agent), string(row.Text)); found > 0 {
+				labels = append(labels, entry.label())
+				break
+			}
+		}
+	}
+	return labels
 }
 
 // withheldEntriesIn returns the labels of the entries of scope whose
@@ -373,11 +449,11 @@ func checkEveryWithheldFormUsed(t testing.TB, scope string, used map[string]int,
 
 func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
 	const file, rel = "/h/.agent-zero/.env", ".agent-zero/.env"
-	parse := parsedFile{"agent-zero", file, rel}
+	parse := parsedFile{agent: "agent-zero", file: file, rel: rel}
 	origin := Row{TurnType: "system", SourceFile: file, SessionID: "RemCtx01",
 		Text: "session origin: remote agent-zero instance https://a0.example.net context RemCtx01 " +
 			"(from .agent-zero/.env, file mtime)"}
-	settings := Row{TurnType: "system", SourceFile: file, Text: Text(withheldRows()[0].text)}
+	settings := Row{TurnType: "system", Agent: "agent-zero", SourceFile: file, Text: Text(withheldRows()[0].text)}
 	shown := settings
 	shown.Text = Text(strings.Replace(string(settings.Text), "REDACTED", "fixture-restore-token", 1))
 	elsewhere := settings
@@ -386,6 +462,11 @@ func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
 	notSystem.TurnType = "user"
 	changed := origin
 	changed.Text = Text(strings.Replace(string(origin.Text), "RemCtx01", "RemCtx02", 1))
+	dated, inSession, atLine, ofMallory := settings, settings, settings, settings
+	dated.TimestampUTC = "1999-01-01T00:00:00.000Z"
+	inSession.SessionID = "WRONG-SESSION"
+	atLine.SourceLine = 99
+	ofMallory.User = "mallory"
 	tests := []struct {
 		name      string
 		parse     parsedFile
@@ -397,9 +478,13 @@ func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
 		{"the row added twice fails", parse, []Row{origin}, []Row{settings, settings, origin}, false},
 		{"the row of another file fails", parse, []Row{origin}, []Row{elsewhere, origin}, false},
 		{"the row as another turn fails", parse, []Row{origin}, []Row{notSystem, origin}, false},
-		{"the row added by another agent's parse fails", parsedFile{"hermes", file, rel}, []Row{origin},
+		{"the row added by another agent's parse fails", parsedFile{agent: "hermes", file: file, rel: rel}, []Row{origin},
 			[]Row{settings, origin}, false},
 		{"a changed row beside it fails", parse, []Row{origin}, []Row{settings, changed}, false},
+		{"the row at another time fails", parse, []Row{origin}, []Row{dated, origin}, false},
+		{"the row in a session fails", parse, []Row{origin}, []Row{inSession, origin}, false},
+		{"the row at another line fails", parse, []Row{origin}, []Row{atLine, origin}, false},
+		{"the row of another user fails", parse, []Row{origin}, []Row{ofMallory, origin}, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -413,11 +498,11 @@ func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
 
 func TestAParseMayAddOneRowOfEachWithheldRowEntry(t *testing.T) {
 	const file, rel = "/h/User/globalStorage/state.vscdb", "User/globalStorage/state.vscdb"
-	parse := parsedFile{"twinny", file, rel}
+	parse := parsedFile{agent: "twinny", file: file, rel: rel}
 	var rows []Row
 	for _, entry := range withheldRows() {
 		if entry.agent == "twinny" {
-			rows = append(rows, Row{TurnType: "system", SourceFile: file, Text: Text(entry.text)})
+			rows = append(rows, Row{TurnType: "system", Agent: "twinny", SourceFile: file, Text: Text(entry.text)})
 		}
 	}
 	if len(rows) != 2 {
@@ -483,6 +568,12 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	shareBinary := strings.Replace(shareRecorded, " (from", " secret=REDACTED (from", 1)
 	networkRecorded := "network request: POST https://oauth2.googleapis.com/token (request t4r8z)"
 	networkBinary := strings.Replace(networkRecorded, "/token", "/token?key=REDACTED", 1)
+	lineRecorded := `parser: unparseable line 1 (no "=" separator; not shown, the file holds the API key)`
+	lineBinary := `parser: unparseable line 1 (no "=" separator): REDACTED`
+	chatRecorded := "parser: chat.json did not parse (Expecting value: line 1 column 3317 (char 3316)); " +
+		"log items recovered without history"
+	chatBinary := "parser: chat.json did not parse (invalid JSON at line 1, column 3317: REDACTED); " +
+		"log items recovered without history"
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -509,7 +600,6 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			false},
 		{"the recording's wording printed by the binary fails", jsonRecorded, jsonRecorded, false},
 		{"a crush.json error in its placeholder form passes", crushRecorded, crushBinary, true},
-		{"a crush.json that is valid JSON passes as written", crushRecorded, crushRecorded, true},
 		{"a crush.json error showing the reader's detail fails", crushRecorded,
 			strings.Replace(crushBinary, "REDACTED", "invalid character 's'", 1), false},
 		{"a crush.json error naming another file fails", crushRecorded,
@@ -576,16 +666,69 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a connection's token in another placeholder fails", connectionRecorded,
 			strings.Replace(connectionBinary, "REDACTED", "x", 1), false},
 		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
+		{"a chat.json error in its placeholder form passes", chatRecorded, chatBinary, true},
+		{"a settings line in its placeholder form passes", lineRecorded, lineBinary, true},
+		{"a thinking row equal to a recorded key passes", "[redacted]", "[REDACTED]", true},
+		{"a thinking row holding more than the key fails", "[redacted]", "[REDACTED] x", false},
+		{"a settings line shown fails", lineRecorded, strings.Replace(lineBinary, "REDACTED", "sk-1", 1), false},
+		{"a settings line of another number fails", lineRecorded, strings.Replace(lineBinary, "line 1", "line 2", 1),
+			false},
+		{"a chat.json error showing the reader's detail fails", chatRecorded,
+			strings.Replace(chatBinary, "REDACTED", "invalid character 's'", 1), false},
+		{"a connection without the token the binary adds fails", connectionRecorded, connectionRecorded, false},
+		{"a bot without the token the binary adds fails", telegramRecorded, telegramRecorded, false},
+		{"a slot without the API key the binary adds fails", overrideRecorded, overrideRecorded, false},
+		{"a retried upload without the token the binary adds fails", retryRecorded, retryRecorded, false},
+		{"settings without the socket token the binary adds fail", socketRecorded, socketRecorded, false},
+		{"an integration without the token the binary adds fails", integrationRecorded, integrationRecorded, false},
+		{"a model without the API key the binary adds fails", modelRecorded, modelRecorded, false},
+		{"a share without the secret the binary adds fails", shareRecorded, shareRecorded, false},
+		{"a crush.json error without the reader's error the binary adds fails", crushRecorded, crushRecorded,
+			false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			reporter := &recordingTB{TB: t}
-			want, got := NormaliseRows(reporter, "n", []int{102, 230}, []Row{{Text: Text(test.want)}},
-				[]Row{{Text: Text(test.got)}})
-			if agree := want[0].Text == got[0].Text; agree != test.agree {
-				t.Errorf("agree %v, want %v: %q and %q", agree, test.agree, want[0].Text, got[0].Text)
+			if agree := withheldAgree(t, recordedAgent(test.want), test.want, test.got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
 			}
 		})
+	}
+}
+
+// recordedAgent returns the agent of the first parser entry of difference
+// 230 whose recorded form shows in text, or "" for none.
+func recordedAgent(text string) string {
+	for _, entry := range withheldForms() {
+		if _, found := entry.rowRewrite(recordedSide, entry.agent, text); found > 0 {
+			return entry.agent
+		}
+	}
+	return ""
+}
+
+// withheldAgree reports whether a recorded and a binary text agree under
+// differences 102 and 230: as a row of agent's parser, or as a command's
+// output for no agent.
+func withheldAgree(t *testing.T, agent, want, got string) bool {
+	t.Helper()
+	reporter := &recordingTB{TB: t}
+	if agent == "" {
+		normalWant, normalGot := NormaliseTexts(reporter, "n", []int{102, 230}, want, got)
+		return normalWant == normalGot
+	}
+	normalWant, normalGot := NormaliseRows(reporter, "n", []int{102, 230},
+		[]Row{{Agent: Text(agent), Text: Text(want)}}, []Row{{Agent: Text(agent), Text: Text(got)}})
+	return normalWant[0].Text == normalGot[0].Text
+}
+
+func TestAWithheldFormAppliesOnlyToItsAgentsRows(t *testing.T) {
+	recorded := "remote backend: remote Homelab https://hermes.example.net (from connections.json, file mtime)"
+	binary := strings.Replace(recorded, " (from", " token=REDACTED (from", 1)
+	if !withheldAgree(t, "hermes", recorded, binary) {
+		t.Error("a row of the entry's agent does not pass")
+	}
+	if withheldAgree(t, "cline", recorded, binary) {
+		t.Error("a row of another agent passes")
 	}
 }
 
@@ -593,7 +736,12 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 	texts := map[string]string{
 		"tabby config.toml reader error":   "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))",
 		"nanobot config.json reader error": "parser: config.json did not parse: Expecting value: line 1 column 1 (char 0)",
-		"crush crush.json reader error":    "parser: crush.json is not a JSON object",
+		"agent-zero chat.json reader error": "parser: chat.json did not parse (Expecting value: line 1 column 1 " +
+			"(char 0)); log items recovered without history",
+		"crush crush.json reader error":           "parser: crush.json is not a JSON object",
+		"pi thinking row equal to a recorded key": "[redacted]",
+		"shellgpt settings line without an equals sign": `parser: unparseable line 1 (no "=" separator; not shown, ` +
+			`the file holds the API key)`,
 		"openclaw exec approvals reader error": "parser: exec_approvals_config raw_json unparseable (Expecting value: " +
 			"line 1 column 22 (char 21); text withheld, it holds the approvals socket token)",
 		"copilot-desktop account token": "account: ana host=github.com kind=github default=1 token_present=true",
@@ -623,7 +771,11 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			if !ok {
 				t.Fatal("no sample text for this entry")
 			}
-			if got := withheldEntriesIn(entry.scope, text); !slices.Equal(got, []string{entry.label()}) {
+			got := withheldEntriesIn(entry.scope, text)
+			if entry.scope == parserScope {
+				got = rowEntriesIn(withheldForms(), []Row{{Agent: Text(entry.agent), Text: Text(text)}})
+			}
+			if !slices.Equal(got, []string{entry.label()}) {
 				t.Errorf("found %q", got)
 			}
 		})

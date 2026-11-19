@@ -21,19 +21,23 @@ import (
 // can lie in this one's rows, which this one applies before. A retired one
 // applies nowhere; Unchecked says why a run that never uses one passes.
 type Difference struct {
-	Number    int
-	Summary   string
-	Text      func(text string) (string, int)
-	Binary    func(text string) (string, int)
-	Excludes  func(text string) bool
-	Outputs   func(want, got map[string]string, held heldRecords) int
-	Arguments func(command string, args []string) ([]string, int)
-	Scope     string
-	Added     func(parse parsedFile, want, got []Row) ([]Row, string)
-	Wanted    func(agent, rel string) bool
-	Within    int
-	Retired   string
-	Unchecked string
+	Number  int
+	Summary string
+	Text    func(text string) (string, int)
+	Binary  func(text string) (string, int)
+	// RowText and RowBinary, when set, rewrite a row's text knowing the
+	// row's agent, for a difference whose entries each belong to one
+	// parser; Text and Binary then rewrite a command's outputs.
+	RowText, RowBinary func(agent, text string) (string, int)
+	Excludes           func(text string) bool
+	Outputs            func(want, got map[string]string, held heldRecords) int
+	Arguments          func(command string, args []string) ([]string, int)
+	Scope              string
+	Added              func(parse parsedFile, want, got []Row) ([]Row, string)
+	Wanted             func(agent, rel string) bool
+	Within             int
+	Retired            string
+	Unchecked          string
 }
 
 // Differences returns the table of documented differences, a fresh slice.
@@ -233,8 +237,8 @@ func NormaliseRows(t testing.TB, node string, numbers []int, want, got []Row) ([
 		if entry.Text == nil {
 			continue
 		}
-		found := rewriteRowTexts(want, entry.Text)
-		rewriteRowTexts(got, entry.Binary)
+		found := rewriteRowTexts(want, entry.rowRewrite(recordedSide))
+		rewriteRowTexts(got, entry.rowRewrite(binarySide))
 		if found == 0 {
 			t.Errorf("%s: difference %d names this case but its rows hold nothing to normalise",
 				node, entry.Number)
@@ -243,12 +247,26 @@ func NormaliseRows(t testing.TB, node string, numbers []int, want, got []Row) ([
 	return want, got
 }
 
+// rowRewrite returns the rewrite of a row's text by the difference for one
+// side: RowText or RowBinary when set, else Text or Binary, which take no
+// agent.
+func (d Difference) rowRewrite(from side) func(agent, text string) (string, int) {
+	byAgent, plain := d.RowText, d.Text
+	if from == binarySide {
+		byAgent, plain = d.RowBinary, d.Binary
+	}
+	if byAgent != nil {
+		return byAgent
+	}
+	return func(_, text string) (string, int) { return plain(text) }
+}
+
 // rewriteRowTexts rewrites each row's text in place and returns the count of
 // places rewritten.
-func rewriteRowTexts(rows []Row, rewrite func(string) (string, int)) int {
+func rewriteRowTexts(rows []Row, rewrite func(agent, text string) (string, int)) int {
 	total := 0
 	for i := range rows {
-		text, found := rewrite(string(rows[i].Text))
+		text, found := rewrite(string(rows[i].Agent), string(rows[i].Text))
 		rows[i].Text = Text(text)
 		total += found
 	}

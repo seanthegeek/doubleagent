@@ -3,17 +3,34 @@
 package replay
 
 import (
+	"slices"
 	"testing"
 )
 
-// rewriteOf returns the text rewrite of difference number for one side.
+// rewriteOf returns the text rewrite of difference number for one side. A
+// difference whose entries belong to one parser each rewrites the text as a
+// row of the agent of the first entry either of whose forms shows in it,
+// and as a command's output when none does.
 func rewriteOf(t *testing.T, number int, from side) func(text string) (string, int) {
 	t.Helper()
 	entry := difference(t, number)
+	plain := entry.Text
 	if from == binarySide {
-		return entry.Binary
+		plain = entry.Binary
 	}
-	return entry.Text
+	if entry.RowText == nil {
+		return plain
+	}
+	return func(text string) (string, int) {
+		for _, form := range slices.Concat(withheldForms(), shownForms()) {
+			_, recorded := form.rowRewrite(recordedSide, form.agent, text)
+			_, binary := form.rowRewrite(binarySide, form.agent, text)
+			if recorded+binary > 0 {
+				return entry.rowRewrite(from)(form.agent, text)
+			}
+		}
+		return plain(text)
+	}
 }
 
 func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
@@ -170,14 +187,15 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"230 stops at the end of the text in a line of JSON", 230, binarySide,
 			`{"text":"parser: config.json did not parse: invalid JSON at line 1, column 11: REDACTED","user":"alice"}`,
 			`{"text":"parser: config.json did not parse: {withheld at line 1, column 11}","user":"alice"}`, 1},
-		{"230 drops the binary's withheld reason of a crush.json", 230, binarySide,
+		{"230 marks the binary's withheld reason of a crush.json", 230, binarySide,
 			"parser: .config/crush/crush.json is not a JSON object (invalid JSON at line 1, column 3: REDACTED)",
-			"parser: .config/crush/crush.json is not a JSON object", 1},
+			"parser: .config/crush/crush.json is not a JSON object{added crush.json reader error}", 1},
 		{"230 keeps a crush.json reason that shows the reader's detail", 230, binarySide,
 			"parser: .config/crush/crush.json is not a JSON object (invalid JSON at line 1, column 3: x)",
 			"parser: .config/crush/crush.json is not a JSON object (invalid JSON at line 1, column 3: x)", 0},
-		{"230 finds a recorded crush.json row", 230, recordedSide,
-			"parser: .config/crush/crush.json is not a JSON object", "parser: .config/crush/crush.json is not a JSON object", 1},
+		{"230 marks a recorded crush.json row", 230, recordedSide,
+			"parser: .config/crush/crush.json is not a JSON object",
+			"parser: .config/crush/crush.json is not a JSON object{added crush.json reader error}", 1},
 		{"230 gives an exec config's recorded reason and note its position", 230, recordedSide,
 			"parser: exec_approvals_config raw_json unparseable (Expecting ',' delimiter: line 1 column 60 (char 59); " +
 				"text withheld, it holds the approvals socket token)",
