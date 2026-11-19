@@ -37,11 +37,12 @@ type recoveredError struct {
 	sessionID     string
 }
 
-// historyMark is where an account or a chat starts in a damaged history.
+// historyMark is where an account or a chat starts in a damaged history,
+// and where its key starts.
 type historyMark struct {
-	offset int
-	isChat bool
-	name   string
+	offset, keyStart int
+	isChat           bool
+	name             string
 }
 
 // historyMarks returns the accounts and chats of a history's text, in text
@@ -49,10 +50,11 @@ type historyMark struct {
 func historyMarks(text string) []historyMark {
 	var marks []historyMark
 	for _, found := range accountKey.FindAllStringSubmatchIndex(text, -1) {
-		marks = append(marks, historyMark{offset: found[0], name: text[found[2]:found[3]]})
+		marks = append(marks, historyMark{offset: found[0], keyStart: found[0], name: text[found[2]:found[3]]})
 	}
 	for _, found := range dateKey.FindAllStringSubmatchIndex(text, -1) {
-		marks = append(marks, historyMark{offset: found[1], isChat: true, name: text[found[2]:found[3]]})
+		marks = append(marks, historyMark{offset: found[1], keyStart: found[0], isChat: true,
+			name: text[found[2]:found[3]]})
 	}
 	slices.SortStableFunc(marks, func(left, right historyMark) int {
 		if order := cmp.Compare(left.offset, right.offset); order != 0 {
@@ -72,7 +74,8 @@ func historyMarks(text string) []historyMark {
 // recoverHistory returns the chats that can be read from a damaged
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
-// Date.toUTCString() date; it belongs to the account key before it.
+// Date.toUTCString() date; it belongs to the account key before it, and
+// runs to the next account or chat key.
 func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
 	history := jsonvalue.NewObject()
 	var found []recoveredError
@@ -84,11 +87,11 @@ func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
 			account = mark.name
 			continue
 		}
-		end := len(text)
+		end, shownEnd := len(text), len(text)
 		if i+1 < len(marks) {
-			end = marks[i+1].offset
+			end, shownEnd = marks[i+1].offset, marks[i+1].keyStart
 		}
-		chat, problems := recoverChat(text, mark, end)
+		chat, problems := recoverChat(text, mark, end, shownEnd)
 		for _, problem := range problems {
 			found = append(found, recoveredError{problem: problem, account: account, chat: mark.name})
 		}
@@ -106,12 +109,16 @@ func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
 
 // recoverChat returns the chat whose key ends at mark, read up to end: its
 // id, the interactions that decode and its title when it decodes, and the
-// problems of its damaged interactions.
-func recoverChat(text string, mark historyMark, end int) (jsonvalue.Value, parser.Problems) {
+// problems of its damaged interactions. The interactions array is walked
+// past end when an interaction holds a key that looks like a chat's, but a
+// damaged interaction's record is shown only up to shownEnd, where the next
+// key starts, and not at all when it starts after that: each part of the
+// text is shown once however many chats are damaged.
+func recoverChat(text string, mark historyMark, end, shownEnd int) (jsonvalue.Value, parser.Problems) {
 	var problems parser.Problems
 	interactions := []jsonvalue.Value{}
 	if found := interactionsKey.FindStringIndex(text[mark.offset:end]); found != nil {
-		for _, value := range parser.ArrayAt(text, mark.offset+found[1], &problems, nil) {
+		for _, value := range parser.ArrayAtShownTo(text, mark.offset+found[1], shownEnd, &problems, nil) {
 			if value.IsObject() {
 				interactions = append(interactions, value)
 			}
