@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -78,24 +77,10 @@ type agentTally struct {
 }
 
 // projectTally counts the rows and sessions of one project, in total and
-// per agent, and keeps the records of the parses that gave them, which the
-// output replaces in the project's object.
+// per agent.
 type projectTally struct {
 	rows, sessions int
 	agents         map[string]*agentTally
-	secrets        []*secrets.Found
-	known          map[*secrets.Found]bool
-}
-
-// addSecrets adds the records of the parses behind a row or session to the
-// project's, each once.
-func (t *projectTally) addSecrets(found ...*secrets.Found) {
-	for _, each := range found {
-		if each != nil && !t.known[each] {
-			t.known[each] = true
-			t.secrets = append(t.secrets, each)
-		}
-	}
 }
 
 // projectInventory groups rows, sessions and files by project key.
@@ -115,7 +100,7 @@ func (p *projectInventory) group(path string) *projectTally {
 		p.names[key] = path
 	}
 	if p.groups[key] == nil {
-		p.groups[key] = &projectTally{agents: map[string]*agentTally{}, known: map[*secrets.Found]bool{}}
+		p.groups[key] = &projectTally{agents: map[string]*agentTally{}}
 	}
 	return p.groups[key]
 }
@@ -152,14 +137,12 @@ func newProjectInventory(rows []timeline.Row, sessions []timeline.SessionSummary
 	}
 	for _, row := range rows {
 		totals, tally := inventory.agentOf(row.ProjectPath, row.Agent)
-		totals.addSecrets(row.Secrets)
 		totals.rows++
 		tally.rows++
 		tally.turnTypes[row.TurnType]++
 	}
 	for _, session := range sessions {
 		totals, tally := inventory.agentOf(session.ProjectPath, session.Agent)
-		totals.addSecrets(session.Secrets...)
 		totals.sessions++
 		tally.sessions++
 		key := timeline.ProjectKey(session.ProjectPath)
@@ -185,12 +168,10 @@ func agentList(counts []fileCounts) []agentFiles {
 }
 
 // projectEntryJSON is one project's object of inventory.json, with its
-// display path and the records of the parses whose rows and sessions it
-// counts.
+// display path.
 type projectEntryJSON struct {
-	path    string
-	value   projectValueJSON
-	secrets []*secrets.Found
+	path  string
+	value projectValueJSON
 }
 
 // projectValueJSON is the object of a project path, or of the rows outside
@@ -234,7 +215,7 @@ func (p *projectInventory) entries(marks []sessionMark,
 	slices.SortFunc(keys, func(left, right string) int { return strings.Compare(p.names[left], p.names[right]) })
 	out := make([]projectEntryJSON, len(keys))
 	for i, key := range keys {
-		out[i] = projectEntryJSON{p.names[key], p.entry(key, marks, remotes), p.groups[key].secrets}
+		out[i] = projectEntryJSON{p.names[key], p.entry(key, marks, remotes)}
 	}
 	return out
 }

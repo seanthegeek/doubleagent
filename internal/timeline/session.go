@@ -3,8 +3,6 @@ package timeline
 import (
 	"slices"
 	"strings"
-
-	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // SessionSummary is one line of sessions.jsonl, built from a session's rows
@@ -35,9 +33,6 @@ type SessionSummary struct {
 	// when some are, "no" when none are and the agent's parser reads a
 	// secondary source, "" otherwise. System rows are not event rows.
 	Recovered string `json:"recovered"`
-	// Secrets is what the parses that gave the session's rows identified,
-	// which the output replaces in it (Withheld). It is no column.
-	Secrets []*secrets.Found `json:"-"`
 }
 
 // SessionColumns returns the field names of sessions.jsonl in order.
@@ -71,7 +66,6 @@ type sessionBuilder struct {
 	eventRows     int
 	recoveredRows int
 	scratchPath   string
-	secrets       map[*secrets.Found]bool
 }
 
 // Summarise returns one summary per host, user, agent and session id of
@@ -121,7 +115,6 @@ func newSessionBuilder(row *Row) *sessionBuilder {
 			SessionID: row.SessionID, Models: []string{}},
 		sources: map[string]int{},
 		models:  map[string]bool{},
-		secrets: map[*secrets.Found]bool{},
 	}
 }
 
@@ -159,10 +152,6 @@ func (b *sessionBuilder) add(row *Row) {
 		}
 	} else if summary.ProjectPath == "" {
 		summary.ProjectPath = row.ProjectPath
-	}
-	if row.Secrets != nil && !b.secrets[row.Secrets] {
-		b.secrets[row.Secrets] = true
-		summary.Secrets = append(summary.Secrets, row.Secrets)
 	}
 	b.countTurn(row)
 }

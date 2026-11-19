@@ -43,43 +43,82 @@ func unreplaced(value any, want string) []string {
 	return names
 }
 
+// withoutText returns the names of the fields unreplaced finds other than
+// the row's text.
+func withoutText(names []string) []string {
+	var others []string
+	for _, name := range names {
+		if name != "text" {
+			others = append(others, name)
+		}
+	}
+	return others
+}
+
 func TestEveryStringOfARowAndASessionGoesThroughTheReplacement(t *testing.T) {
+	const long, short = "fake-secret-value-0001", "s3c"
 	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
 	found := recorder.Begin()
-	recorder.Value("s3c")
+	recorder.Value(long)
+	recorder.Value(short)
 	recorder.End()
-	t.Run("a row", func(t *testing.T) {
+	t.Run("a long secret in every field of a row", func(t *testing.T) {
 		row := Row{Secrets: found}
-		fillStrings(&row, "s3c")
+		fillStrings(&row, long)
 		if names := unreplaced(row.Withheld(recorder), "P"); names != nil {
 			t.Errorf("these fields keep the secret: %q", names)
 		}
-		if names := unreplaced(row.Withheld(nil), "s3c"); names != nil {
+		if names := unreplaced(row.Withheld(nil), long); names != nil {
 			t.Errorf("without a recorder these fields changed: %q", names)
 		}
 	})
-	t.Run("a session", func(t *testing.T) {
-		session := SessionSummary{Secrets: []*secrets.Found{found}}
-		fillStrings(&session, "s3c")
+	t.Run("a long secret in every field of a session", func(t *testing.T) {
+		var session SessionSummary
+		fillStrings(&session, long)
 		if names := unreplaced(session.Withheld(recorder), "P"); names != nil {
 			t.Errorf("these fields keep the secret: %q", names)
 		}
 	})
+	t.Run("a short secret only in the text of a row of its parse", func(t *testing.T) {
+		row := Row{Secrets: found}
+		fillStrings(&row, short)
+		withheld := row.Withheld(recorder)
+		if names := withoutText(unreplaced(withheld, short)); names != nil || withheld.Text != "P" {
+			t.Errorf("these fields changed: %q; the text is %q", names, withheld.Text)
+		}
+	})
+	t.Run("a short secret in no field of a session", func(t *testing.T) {
+		var session SessionSummary
+		fillStrings(&session, short)
+		if names := unreplaced(session.Withheld(recorder), short); names != nil {
+			t.Errorf("these fields changed: %q", names)
+		}
+	})
 	t.Run("a row of another parse keeps a short secret", func(t *testing.T) {
 		row := Row{Secrets: &secrets.Found{}}
-		fillStrings(&row, "s3c")
-		if names := unreplaced(row.Withheld(recorder), "s3c"); names != nil {
+		fillStrings(&row, short)
+		if names := unreplaced(row.Withheld(recorder), short); names != nil {
 			t.Errorf("these fields changed: %q", names)
 		}
 	})
 }
 
-func TestASessionCarriesTheRecordsOfItsRowsOnce(t *testing.T) {
-	first, second := &secrets.Found{}, &secrets.Found{}
-	rows := []Row{{SessionID: "s", Secrets: first}, {SessionID: "s", Secrets: second}, {SessionID: "s", Secrets: first},
-		{SessionID: "s"}}
-	summaries := Summarise(rows, MarkAgents{})
-	if len(summaries) != 1 || !reflect.DeepEqual(summaries[0].Secrets, []*secrets.Found{first, second}) {
-		t.Errorf("summaries %+v", summaries)
+func TestStringsListsEveryStringFieldOfARow(t *testing.T) {
+	var row Row
+	fillStrings(&row, "x")
+	count := 0
+	for field := range reflect.TypeFor[Row]().Fields() {
+		if field.Type.Kind() == reflect.String {
+			count++
+		}
+	}
+	texts := row.Strings()
+	if len(texts) != count || count == 0 {
+		t.Errorf("%d strings of %d string fields", len(texts), count)
+	}
+	for _, text := range texts {
+		if text != "x" {
+			t.Errorf("Strings gives %q", texts)
+		}
 	}
 }

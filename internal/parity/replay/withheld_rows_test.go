@@ -50,7 +50,7 @@ func (f *addedRowFilter) emit(agent string, artifact *input.Artifact, emit parse
 	return func(row timeline.Row) {
 		// The row is compared as the output writes it, with the secrets
 		// the parse has identified so far.
-		text := recorder.Text(row.Text, recorder.Current())
+		text := recorder.RowText(row.Text, recorder.Current())
 		if row.TurnType == timeline.TurnSystem && row.SourceFile == artifact.Original && waiting[text] {
 			delete(waiting, text)
 			f.taken++

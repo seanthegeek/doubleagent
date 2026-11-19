@@ -622,13 +622,19 @@ for Go files as it does for the others.
   every string it writes, free text included. Every row is therefore the
   same in both modes, and grouping, joining, deduplicating, sorting and
   counting see the same values. Replacement happens once, where output is
-  written (`secrets.Recorder.Text`, reached through `timeline.Row.Withheld`
-  and the commands' own writers): under `timeline --no-secrets` or
-  `detect --no-secrets` the credentials of any URL in the output are
-  replaced by one placeholder, `REDACTED` unless `--redaction-placeholder`
-  names another, wherever the URL is written, a recorded value in the rows
-  of the parse that identified it, and either everywhere in the output
-  when it is 8 bytes or longer; the row stays. An encrypted value (a
+  written (`secrets.Recorder.Text`, `RowText` and `ProblemText`, reached
+  through `timeline.Row.Withheld` and the commands' own writers): under
+  `timeline --no-secrets` or `detect --no-secrets` each is replaced by one
+  placeholder, `REDACTED` unless `--redaction-placeholder` names another,
+  and each kind reaches its own strings. A value `SecretText` identifies
+  of 8 bytes or more is replaced in every string of the output, a shorter
+  one only in the `text` field of the rows of the parse that identified it
+  (never in a timestamp, host, user, agent, session id, project path or
+  other field, nor in sessions or inventory). A reader's detail is
+  replaced, whatever its length, only in the `text` field of the rows and
+  in the problem lines of its own parse. A URL's credentials are replaced by their bytes where the
+  URL holds them, and in every string too when 8 bytes or longer; user
+  information that is only `:` is none. The row stays. An encrypted value (a
   `secret://` row of an editor's secret storage, OS-keychain ciphertext)
   stays unread, since ciphertext establishes
   nothing. Withholding covers only a URL's credentials and what these

@@ -12,25 +12,21 @@ import (
 
 // output is how a command writes the strings of its own output (the
 // summary it prints, inventory.json, detect's report) under the run's
-// secrets setting: each through the recorder's Text, with the command's own
-// record and the records of the parses the string comes from.
+// secrets setting: each through the recorder's Text, and a problem line
+// through its ProblemText.
 type output struct {
 	recorder *secrets.Recorder
 }
 
-// text returns text as the command's output writes it, with the secrets of
-// scopes (the parses it comes from) and the command's own replaced.
-func (o output) text(text string, scopes ...*secrets.Found) string {
-	if o.recorder == nil {
-		return text
-	}
-	return o.recorder.Text(text, append(slices.Clone(scopes), o.recorder.Command())...)
+// text returns text as the command's output writes it.
+func (o output) text(text string) string {
+	return o.recorder.Text(text)
 }
 
 // shown returns text as the command prints it for a person: withheld as
 // text gives it, then shown.
-func (o output) shown(text string, scopes ...*secrets.Found) string {
-	return shown(o.text(text, scopes...))
+func (o output) shown(text string) string {
+	return shown(o.text(text))
 }
 
 // shownAll returns each text of texts as shown gives it.
@@ -44,14 +40,13 @@ func (o output) shownAll(texts []string) []string {
 
 // document returns a copy of document, a value encoding/json writes, with
 // every string in it (a field, an item of a list, a key or value of a map,
-// behind a pointer) through text with scopes, so no string of a JSON output
-// misses the replacement. A field encoding/json skips is copied as it is.
-func (o output) document(document any, scopes ...*secrets.Found) any {
+// behind a pointer) through text, so no string of a JSON output misses the
+// replacement. A field encoding/json skips is copied as it is.
+func (o output) document(document any) any {
 	if o.recorder == nil {
 		return document
 	}
-	replace := func(text string) string { return o.text(text, scopes...) }
-	return withheldValue(reflect.ValueOf(document), replace).Interface()
+	return withheldValue(reflect.ValueOf(document), o.text).Interface()
 }
 
 // collect reads every string in document, a value encoding/json writes,

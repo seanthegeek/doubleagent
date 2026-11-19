@@ -186,10 +186,9 @@ type inventoryAgentJSON struct {
 	RecoveredSessions int `json:"recovered_sessions"`
 }
 
-// inventory returns inventory.json's document as written: each project
-// object, scratch directories and the rows outside any project included,
-// with the secrets of the parses whose rows and sessions it counts
-// withheld, and every other string with the command's own.
+// inventory returns inventory.json's document as written under the run's
+// secrets setting: each project object, scratch directories and the rows
+// outside any project included.
 func (r *timelineRun) inventory(detected detection, agents []agentFiles) inventoryJSON {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
 	files := projectFiles(detected.projects, r.collection.Summary)
@@ -210,12 +209,12 @@ func (r *timelineRun) inventory(detected detection, agents []agentFiles) invento
 	outside := outsideProjects(entries, marks)
 	withheld.Projects = r.out.projects(projectsWhere(entries, scratch, false))
 	withheld.ScratchDirectories = r.out.projects(projectsWhere(entries, scratch, true))
-	withheld.OutsideProjects = r.out.document(outside.value, outside.secrets...).(projectValueJSON)
+	withheld.OutsideProjects = r.out.document(outside.value).(projectValueJSON)
 	return withheld
 }
 
 // withheldProblems returns the problem lines as the output writes them,
-// each with the secrets of the parse that gave it.
+// each with the readers' details of the parse that gave it.
 func (r *timelineRun) withheldProblems() []string {
 	problems := make([]string, len(r.problems))
 	for i, problem := range r.problems {
@@ -223,18 +222,16 @@ func (r *timelineRun) withheldProblems() []string {
 		if i < len(r.problemSecrets) {
 			found = r.problemSecrets[i]
 		}
-		problems[i] = r.out.text(problem, found)
+		problems[i] = r.out.recorder.ProblemText(problem, found)
 	}
 	return problems
 }
 
-// projects returns the project objects as the output writes them: each
-// path and object with the secrets of the parses it counts.
+// projects returns the project objects as the output writes them.
 func (o output) projects(entries projectObjects) projectObjects {
 	withheld := make(projectObjects, len(entries))
 	for i, entry := range entries {
-		withheld[i] = projectEntryJSON{path: o.text(entry.path, entry.secrets...),
-			value: o.document(entry.value, entry.secrets...).(projectValueJSON)}
+		withheld[i] = projectEntryJSON{path: o.text(entry.path), value: o.document(entry.value).(projectValueJSON)}
 	}
 	return withheld
 }

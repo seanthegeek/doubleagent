@@ -7,22 +7,19 @@
 // --no-secrets, detect --no-secrets), each is replaced by one placeholder,
 // REDACTED unless the analyst names another.
 //
-// Identifying and replacing are apart. A value that is secret because of
-// the field it stands in, or a reader's detail, is identified by the parser
-// through the parser kit (parser.SecretText, parser.ReaderErrorText), which
-// records it in the run's Recorder and returns the text as written; the
-// credentials of a URL, which the text alone shows, are found by the output
-// stage in every string it writes. Every row a parser returns is the same in
-// both modes. Replacement happens once, where a command writes its output
-// (Recorder.Text): a recorded value in the rows of the parse that recorded
-// it, a URL's credentials where the URL holds them (by their bytes, not by
-// their value), and either of
-// EverywhereLength bytes or more in every string of the output. A parser
-// never tests the setting or writes the placeholder itself.
-//
-// A URL is cut by hand rather than read with net/url, which refuses one with
-// a bad percent-escape and finds no URL inside longer text such as a
-// command line.
+// Identifying and replacing are apart. A value secret by its field, or a
+// reader's detail, is identified by the parser through the parser kit
+// (parser.SecretText, parser.ReaderErrorText), which records it in the
+// run's Recorder and returns the text as written; a URL's credentials are
+// found by the output stage in every string it writes (by hand, as net/url
+// refuses a bad percent-escape and finds no URL inside longer text). Every
+// row is the same in both modes. Replacement happens once, where a command
+// writes its output, each kind reaching its own strings: a value of
+// EverywhereLength bytes or more every string, a shorter one only the text
+// of the rows of its parse (RowText); a reader's detail, whatever its
+// length, only the text of the rows and the problem lines of its parse
+// (ProblemText); a URL's credentials the bytes where the URL holds them,
+// and every string too when EverywhereLength bytes or more.
 //
 // Withholding covers only what is identified. A credential written in free
 // text that nothing identifies (a prompt, a command line, a tool's output, a
@@ -34,12 +31,12 @@ package secrets
 // the analyst names another.
 const DefaultPlaceholder = "REDACTED"
 
-// EverywhereLength is the length in bytes from which a recorded secret is
-// replaced in every string of the output, not only in the rows of the parse
-// that identified it. A shorter secret (a one-letter password, a three-digit
-// code) would replace the same letters wherever they stand in unrelated
-// text; eight bytes is the shortest of the generated tokens and keys the
-// agents store and rarely a word.
+// EverywhereLength is the length in bytes from which a secret value or a
+// URL credential is replaced in every string of the output, not only in the
+// text of the rows of the parse that identified it or where the URL holds
+// it. A shorter secret (a one-letter password, a three-digit code) would
+// replace the same letters wherever they stand in unrelated text; eight
+// bytes is the shortest of the generated tokens and keys the agents store.
 const EverywhereLength = 8
 
 // Setting is how one analysis run shows secrets. Its zero value shows
