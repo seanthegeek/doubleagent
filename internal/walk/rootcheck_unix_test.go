@@ -126,57 +126,22 @@ func reachedImage(t *testing.T) (base, viaLink string) {
 	return base, viaLink
 }
 
-// checkReachedPath checks Reached on one path under a root given as
-// rootGiven, against what the kernel resolves.
-func checkReachedPath(t *testing.T, check RootCheck, rootGiven, base, rel string) {
-	t.Helper()
-	prefix := strings.TrimSuffix(rootGiven, "/")
-	if prefix == "" {
-		prefix = base
-	}
-	given := strings.TrimSuffix(rootGiven, "/")
-	if strings.HasPrefix(rel, "noexec") && os.Geteuid() == 0 {
-		t.Skip("root searches any directory, so the kernel resolves noexec/..")
-	}
-	path := prefix + "/" + rel
-	got := check.Reached(path)
-	kernel, kernelErr := os.Stat(path)
-	if !hasDotComponent(rel) {
-		if got != path {
-			t.Errorf("Reached(%s) = %s, want it unchanged", path, got)
-		}
-		return
-	}
-	if kernelErr != nil {
-		if got != path {
-			t.Errorf("the kernel cannot resolve %s (%v), Reached gave %s", path,
-				kernelErr, got)
-		}
-		return
-	}
-	real, err := filepath.EvalSymlinks(path)
-	mustDo(t, err)
-	real, err = filepath.Abs(real)
-	mustDo(t, err)
-	if _, inside := stage.Under(real, base); rootGiven != "" && !inside {
-		if got != path {
-			t.Errorf("Reached(%s) = %s; the kernel reaches %s, outside the root, "+
-				"so it should come back as written", path, got, real)
-		}
-		return
-	}
-	if hasDotComponent(got) {
-		t.Fatalf("Reached(%s) = %s, still dotted", path, got)
-	}
-	if info, err := os.Stat(got); err != nil || !os.SameFile(info, kernel) {
-		t.Errorf("Reached(%s) = %s, which is not the kernel's %s", path, got, real)
-	}
-	if given != "" && got != given && !strings.HasPrefix(got, given+"/") {
-		t.Errorf("Reached(%s) = %s, not spelled under the root as given %s", path, got,
-			given)
-	}
-	if given != "" && strings.HasPrefix(got, given+"//") {
-		t.Errorf("Reached(%s) = %s, a doubled separator after the root", path, got)
+// reachedPaths are the paths, relative to a root, that TestReachedAgreesWithTheKernel
+// gives Reached.
+func reachedPaths() []string {
+	return []string{"home/bob", "srv/dotlink/../frank", "home/./bob", "home/nope/../bob",
+		"srv/file.txt/../../home/bob", "home/bob/../nope", "home/..", "home/bob/../..",
+		"srv/dotlink/../../srv/frank", "..", "srv/dotlink/../../..", "srv/dotlink/..",
+		"srv/file.txt/", "srv/file.txt/.", "srv/fifo/.", "srv/file.txt/./..", "noexec/..",
+		"noexec/../home/bob", "noexec/.", "noexec/./", "noexec//.", "noexec/"}
+}
+
+// reachedRoots are the ways TestReachedAgreesWithTheKernel gives the image
+// root: none, plain, through a link, with a trailing slash, and relative.
+func reachedRoots(base, viaLink string) []struct{ name, given string } {
+	return []struct{ name, given string }{
+		{"live", ""}, {"plain", base}, {"through a link", viaLink},
+		{"with a trailing slash", base + "/"}, {"relative", filepath.Base(base)},
 	}
 }
 
@@ -189,20 +154,60 @@ func checkReachedPath(t *testing.T, check RootCheck, rootGiven, base, rel string
 // the same directory, spelled under the root as given in image mode.
 func TestReachedAgreesWithTheKernel(t *testing.T) {
 	base, viaLink := reachedImage(t)
-	paths := []string{"home/bob", "srv/dotlink/../frank", "home/./bob", "home/nope/../bob",
-		"srv/file.txt/../../home/bob", "home/bob/../nope", "home/..", "home/bob/../..",
-		"srv/dotlink/../../srv/frank", "..", "srv/dotlink/../../..", "srv/dotlink/..",
-		"srv/file.txt/", "srv/file.txt/.", "srv/fifo/.", "srv/file.txt/./..", "noexec/..",
-		"noexec/../home/bob", "noexec/.", "noexec/./", "noexec//.", "noexec/"}
 	t.Chdir(filepath.Dir(base))
-	for _, root := range []struct{ name, given string }{
-		{"live", ""}, {"plain", base}, {"through a link", viaLink},
-		{"with a trailing slash", base + "/"}, {"relative", filepath.Base(base)},
-	} {
+	paths := reachedPaths()
+	for _, root := range reachedRoots(base, viaLink) {
 		check := NewRootCheck(root.given)
+		prefix := strings.TrimSuffix(root.given, "/")
+		if prefix == "" {
+			prefix = base
+		}
+		given := strings.TrimSuffix(root.given, "/")
 		for _, rel := range paths {
 			t.Run(root.name+"/"+rel, func(t *testing.T) {
-				checkReachedPath(t, check, root.given, base, rel)
+				if strings.HasPrefix(rel, "noexec") && os.Geteuid() == 0 {
+					t.Skip("root searches any directory, so the kernel resolves noexec/..")
+				}
+				path := prefix + "/" + rel
+				got := check.Reached(path)
+				kernel, kernelErr := os.Stat(path)
+				if !hasDotComponent(rel) {
+					if got != path {
+						t.Errorf("Reached(%s) = %s, want it unchanged", path, got)
+					}
+					return
+				}
+				if kernelErr != nil {
+					if got != path {
+						t.Errorf("the kernel cannot resolve %s (%v), Reached gave %s", path,
+							kernelErr, got)
+					}
+					return
+				}
+				real, err := filepath.EvalSymlinks(path)
+				mustDo(t, err)
+				real, err = filepath.Abs(real)
+				mustDo(t, err)
+				if _, inside := stage.Under(real, base); root.given != "" && !inside {
+					if got != path {
+						t.Errorf("Reached(%s) = %s; the kernel reaches %s, outside the root, "+
+							"so it should come back as written", path, got, real)
+					}
+					return
+				}
+				if hasDotComponent(got) {
+					t.Fatalf("Reached(%s) = %s, still dotted", path, got)
+				}
+				if info, err := os.Stat(got); err != nil || !os.SameFile(info, kernel) {
+					t.Errorf("Reached(%s) = %s, which is not the kernel's %s", path, got, real)
+				}
+				if given != "" && got != given && !strings.HasPrefix(got, given+"/") {
+					t.Errorf("Reached(%s) = %s, not spelled under the root as given %s", path, got,
+						given)
+				}
+				if given != "" && strings.HasPrefix(got, given+"//") {
+					t.Errorf("Reached(%s) = %s, a doubled separator after the root", path, got)
+				}
 			})
 		}
 	}
