@@ -33,8 +33,8 @@ func SecretText(artifact *input.Artifact, value string) string {
 // SecretJSONText returns a secret value read from a JSON document as row
 // text (Text: a string as it is, an array or object as compact JSON, a
 // headers object for one) and records it whole and, inside an array or
-// object, each string in it as SecretText does and as the compact JSON
-// writes it when that differs, so each is replaced wherever it stands.
+// object, each string in it, in each form recordForms gives, so each is
+// replaced wherever it stands.
 func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
 	text := Text(value)
 	recorder := recorderOf(artifact)
@@ -45,8 +45,7 @@ func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
 	return text
 }
 
-// recordStrings records each string inside value, an array or object: as
-// it is and as compact JSON writes it inside quotes.
+// recordStrings records each string inside value, an array or object.
 func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value) {
 	for _, item := range value.Items() {
 		recordStrings(recorder, item)
@@ -56,8 +55,6 @@ func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value) {
 	}
 	if value.IsString() {
 		recordForms(recorder, value.Text())
-		quoted := value.JSON()
-		recordForms(recorder, quoted[1:len(quoted)-1])
 	}
 }
 
@@ -65,17 +62,25 @@ func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value) {
 // is, without the white space around it, and, for an HTTP authorization
 // value of the Bearer (RFC 6750) or Basic (RFC 7617) scheme, its
 // credentials after the scheme, which are the secret a log or another
-// header shows alone.
+// header shows alone; and each of those as compact JSON writes it inside
+// quotes, where that differs, since a row that shows evidence as compact
+// JSON holds it so.
 func recordForms(recorder *secrets.Recorder, value string) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return
 	}
-	recorder.Value(value)
-	recorder.Value(trimmed)
+	forms := []string{value, trimmed}
 	if scheme, credentials, found := strings.Cut(trimmed, " "); found &&
 		(strings.EqualFold(scheme, "Bearer") || strings.EqualFold(scheme, "Basic")) {
-		recorder.Value(strings.TrimSpace(credentials))
+		forms = append(forms, strings.TrimSpace(credentials))
+	}
+	for _, form := range forms {
+		recorder.Value(form)
+		quoted := jsonvalue.NewString(form).JSON()
+		if escaped := quoted[1 : len(quoted)-1]; escaped != form {
+			recorder.Value(escaped)
+		}
 	}
 }
 

@@ -83,8 +83,13 @@ func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
 		}, []string{"ZmFrZTpzZWNyZXQ=", "basic ZmFrZTpzZWNyZXQ="}},
 		{"a headers object, each header and its JSON form", func(artifact *input.Artifact) string {
 			return SecretJSONText(artifact, headers)
-		}, []string{"Bearer fake-header-secret-0001", headers.JSON(), `fake-"quoted"-0002`,
-			`fake-\"quoted\"-0002`, "fake-header-secret-0001"}},
+		}, []string{"Bearer fake-header-secret-0001", headers.JSON(), quotedInJSON(headers.JSON()),
+			`fake-"quoted"-0002`, `fake-\"quoted\"-0002`, "fake-header-secret-0001"}},
+		{"a value as compact JSON escapes it, in each form", func(artifact *input.Artifact) string {
+			return SecretText(artifact, "Bearer fake-\"sec\\ret\u2028-0003 ")
+		}, []string{"Bearer fake-\"sec\\ret\u2028-0003 ", "Bearer fake-\"sec\\ret\u2028-0003",
+			"fake-\"sec\\ret\u2028-0003", `Bearer fake-\"sec\\ret\u2028-0003 `, `Bearer fake-\"sec\\ret\u2028-0003`,
+			`fake-\"sec\\ret\u2028-0003`}},
 		{"a value of white space alone is none", func(artifact *input.Artifact) string {
 			return SecretText(artifact, " \t ")
 		}, nil},
@@ -102,4 +107,11 @@ func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
 			}
 		})
 	}
+}
+
+// quotedInJSON returns text as compact JSON writes it inside a string's
+// quotes.
+func quotedInJSON(text string) string {
+	quoted := jsonvalue.NewString(text).JSON()
+	return quoted[1 : len(quoted)-1]
 }
