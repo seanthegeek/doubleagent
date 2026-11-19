@@ -48,3 +48,14 @@ func outputParent(path string) string {
 	}
 	return "/"
 }
+
+// belowGiven returns the path of name in directory, written as directory
+// was given with one slash before name and nothing cleaned: filepath.Join
+// would remove a ".." the kernel resolves from a link's target, naming
+// another directory than the one listed.
+func belowGiven(directory, name string) string {
+	if strings.HasSuffix(directory, "/") {
+		return directory + name
+	}
+	return directory + "/" + name
+}
