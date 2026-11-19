@@ -443,6 +443,8 @@ The v0.0.x Python releases kept, in `~/.little-coder/config.json`, the provider 
 ([cloudsave.py:9-12](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/cloudsave.py#L9-L12),
 [little_coder.py:1371-1384](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/little_coder.py#L1371-L1384),
 [config.py:6-7](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/config.py#L6-L7)).
+The parser shows them in a `stored credentials:` row ([Permission rows](#permission-rows)), and
+`--no-secrets` replaces each with the placeholder.
 
 ### Parser plan
 
@@ -477,7 +479,11 @@ v0.0.x: a refused call's `tool` message `Denied: user rejected this operation` i
 `permission decision: denied (Denied: user rejected this operation)` with the call's `tool_name`
 and `tool_use_id`, and `config.json` `permission_mode` is one `system` row `permission setting:
 permission_mode=<value> (from .little-coder/config.json, file mtime)` at the file's modification
-time ([v0.0.x session files](#v00x-session-files)). All these rows are source-derived; not observed
+time ([v0.0.x session files](#v00x-session-files)). After the file's other rows, its
+`<provider>_api_key`, `telegram_token` and `gist_token` values that are set give one `system` row
+`stored credentials: <key>=<value> ... (from .little-coder/config.json, file mtime)` in file order
+([Secrets](#secrets)), each shown as written and replaced with the placeholder under
+`timeline --no-secrets` and `detect --no-secrets`. All these rows are source-derived; not observed
 on any real install.
 
 #### Model rows

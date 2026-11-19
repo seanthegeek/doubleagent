@@ -19,8 +19,9 @@
 // saved sessions sessions/**/*.json (saved_at in host local time, written
 // as if UTC), sessions/history.json and sessions/mr_sessions/
 // session_latest.json (secondary copies), input_history.txt (secondary),
-// config.json (only the gist id, the Telegram chat id and the permission
-// mode are read, never a token or a key) and checkpoints/<session
+// config.json (the gist id, the Telegram chat id, the permission mode and
+// the provider keys and tokens, these through parser.SecretText) and
+// checkpoints/<session
 // id>/snapshots.json. A file cut mid-write keeps the messages before the
 // cut. See research/little-coder.md.
 package littlecoder
@@ -169,7 +170,9 @@ func (p *Parser) parseInputHistory(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // parseLegacyConfig emits the gist, Telegram chat and permission mode rows
-// of config.json, at the file's modification time.
+// of config.json, at the file's modification time, then one "stored
+// credentials:" row of its <provider>_api_key, telegram_token and
+// gist_token values in file order, each through parser.SecretText.
 func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -197,6 +200,17 @@ func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parser.Emit) {
 	}
 	if mode := document.Get("permission_mode"); parser.Present(mode) {
 		put(timeline.Compact("permission setting: permission_mode=" + parser.SettingOrDash(mode) + source))
+	}
+	var stored []string
+	for _, member := range document.Members() {
+		credential := strings.HasSuffix(member.Key, "_api_key") || member.Key == "telegram_token" ||
+			member.Key == "gist_token"
+		if value := parser.Text(member.Value); credential && value != "" {
+			stored = append(stored, member.Key+"="+parser.SecretText(artifact, value))
+		}
+	}
+	if len(stored) > 0 {
+		put(timeline.Compact("stored credentials: " + strings.Join(stored, " ") + source))
 	}
 }
 

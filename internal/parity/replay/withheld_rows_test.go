@@ -12,6 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
 	"github.com/seanthegeek/doubleagent/internal/parser/crush"
 	"github.com/seanthegeek/doubleagent/internal/parser/letta"
+	"github.com/seanthegeek/doubleagent/internal/parser/littlecoder"
 	"github.com/seanthegeek/doubleagent/internal/parser/nanobot"
 	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
@@ -79,6 +80,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 			out[i] = crushRows{concrete, filter}
 		case *nanobot.Parser:
 			out[i] = nanobotRows{concrete, filter}
+		case *littlecoder.Parser:
+			out[i] = littleCoderRows{concrete, filter}
 		}
 	}
 	return out
@@ -165,6 +168,18 @@ type nanobotRows struct {
 
 // Parse parses the artifact through the filter.
 func (p nanobotRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// littleCoderRows is the little-coder parser with its parses passed through an
+// addedRowFilter.
+type littleCoderRows struct {
+	*littlecoder.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p littleCoderRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 
