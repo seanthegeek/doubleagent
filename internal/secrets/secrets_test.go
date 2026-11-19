@@ -669,7 +669,9 @@ func reference(text string, secrets []string, ranges [][2]int, placeholder strin
 // FuzzTextReplacesExactlyTheRecordedSecrets holds that the output of a row
 // is its text with exactly the recorded secrets and the credentials of its
 // URLs replaced, the longest at the leftmost position first, whatever the
-// secrets, the text and the placeholder.
+// secrets, the text and the placeholder. Each secret is recorded by a parse
+// of its own and the row lists them all, as a row kept for duplicates does,
+// so records searched alone and records searched together both take part.
 func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 	fuzz.Add("user:password and password", "password\x00user:password", "R")
 	fuzz.Add("aaaa", "a\x00aa\x00aaa", "")
@@ -677,11 +679,13 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 	fuzz.Fuzz(func(t *testing.T, text, joined, placeholder string) {
 		secrets := strings.Split(joined, "\x00")
 		recorder := NewRecorder(Setting{Withhold: true, Placeholder: placeholder})
-		found := recorder.Begin()
+		var parses []*Found
 		for _, secret := range secrets {
+			parses = append(parses, recorder.Begin())
 			recorder.Value(secret)
+			recorder.End()
 		}
-		recorder.End()
+		found := WithDuplicates(nil, parses)
 		// The output also withholds the credentials of the text's URLs where
 		// they stand.
 		ranges := URLCredentialRanges(text, placeholder == "")
