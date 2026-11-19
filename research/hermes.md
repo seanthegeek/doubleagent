@@ -1677,8 +1677,9 @@ header whose name carries a credential (`Authorization`, `Proxy-Authorization`, 
 `Set-Cookie`, `X-API-Key`, or the name of a URL parameter that carries one, such as
 `access_token`; case ignored), as written and as the compact JSON escapes it, and the credentials
 after a `Bearer` or `Basic` scheme are identified too, so the token is replaced where another row
-quotes it alone. Any other header value, such as `Content-Type: application/json`, is replaced
-only in this parse's rows, never in another agent's text. Numbers and booleans are not replaced.
+quotes it alone. Any other header value, such as `Content-Type: application/json`, is not a
+secret on its own and is replaced only as part of the whole headers text, so a short one never
+changes the URL or any other part of the row. Numbers and booleans are not replaced.
 The output withholds a URL's credentials wherever the URL is
 written, so a `host` that is itself a URL with a user name and password has them replaced in the
 `[user@]host[:port]` form too, while a plain `alice@box` stays as written, a user name alone being

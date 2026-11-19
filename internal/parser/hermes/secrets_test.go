@@ -103,6 +103,17 @@ func TestAConnectionsPlainTokenAndHeadersAreShownUnlessWithheld(t *testing.T) {
 	}
 }
 
+func TestAHeaderThatNamesNoCredentialIsReplacedOnlyWithTheWholeHeaders(t *testing.T) {
+	document := `{"connections": [{"kind": "remote", "label": "work", "url": "https://hermes.example:18642/", ` +
+		`"headers": {"encoding": "plain", "value": {"X-Version": "1"}}}]}`
+	got := parseWith(t, secrets.Setting{Withhold: true, Placeholder: "P"}, ".config/Hermes/connections.json", document)
+	want := []string{"remote backend: remote work https://hermes.example:18642/ headers=P " +
+		"(from connections.json, file mtime)"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestAnUploadedDebugReportsURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
 	document := `[{"url": "https://paste.example/r/1?token=FIXTURE-TOKEN&x=1", "expire_at": 1790845200}]`
 	urls := []string{"FIXTURE-TOKEN", "REDACTED", "[withheld]", ""}
