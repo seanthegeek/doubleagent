@@ -140,14 +140,15 @@ func (r *Recorder) RowValue(value string) {
 // every string of its output before it writes any, so such a credential is
 // replaced in every string, not only where the URL holds it; Text replaces
 // a shorter one where the URL holds it only. A slash in a credential is
-// written \/ where JSON escapes it, so both forms are recorded.
+// written \/ where JSON escapes it, so both forms are recorded, and the
+// length of the credential with its slashes unescaped decides for both.
 func (r *Recorder) Collect(text string) {
 	if r == nil {
 		return
 	}
 	identifyURLs(text, func(secret urlcredentials.Credential) {
-		if value := text[secret.Start:secret.End]; len(value) >= EverywhereLength {
-			decoded := strings.ReplaceAll(value, `\/`, "/")
+		value := text[secret.Start:secret.End]
+		if decoded := strings.ReplaceAll(value, `\/`, "/"); len(decoded) >= EverywhereLength {
 			for _, each := range []string{value, decoded, strings.ReplaceAll(decoded, "/", `\/`)} {
 				r.everywhere.add(form{secret: each}, everyString)
 			}
