@@ -142,7 +142,9 @@ func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]
 // secondary row (intoSecondary), itself kept (at keptAt) or dropped in turn;
 // the chain is followed to the row kept, each link once. A kept row lists
 // the records (secrets.WithDuplicates) rather than holding a merged copy,
-// so carrying costs the number of rows dropped, not what their records hold.
+// so carrying costs the number of rows dropped, not what their records hold;
+// writing the row costs its length a fixed number of times plus, per record
+// listed, at most the smaller of the record's size and the row's length.
 func carryRecords(kept []timeline.Row, secondary []Secondary, intoPrimary, intoSecondary, keptAt map[int]int) {
 	target := map[int]int{}
 	carried := map[int][]*secrets.Found{}

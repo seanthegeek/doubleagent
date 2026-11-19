@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
@@ -37,8 +38,8 @@ func (r *Recorder) ProblemText(text string, parse *Found) string {
 // (replaceRanges), so a secret inside a longer one (a password inside
 // user:password) goes with it. The output is built from the original and
 // the placeholder, never read again. The cost is the text's length once
-// for the URLs and once per record that holds a text to replace, after
-// each record's matcher is built once.
+// for the URLs and a fixed number of times for the matchers (parseMatchers),
+// plus the bytes of the records' texts that are indexed for it.
 func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	if r == nil || text == "" {
 		return text
@@ -48,13 +49,7 @@ func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	if len(r.everywhere.texts[everyString]) > 0 {
 		matchers = append(matchers, r.everywhere.matcherOf(everyString, emptyPlaceholder, r.work))
 	}
-	for _, record := range parse.Records() {
-		for _, where := range reaches {
-			if len(record.texts[where]) > 0 {
-				matchers = append(matchers, record.matcherOf(where, emptyPlaceholder, r.work))
-			}
-		}
-	}
+	matchers = r.parseMatchers(matchers, len(text), parse, reaches, emptyPlaceholder)
 	var inText []urlcredentials.Credential
 	identifyURLs(text, func(secret urlcredentials.Credential) { inText = append(inText, secret) }, r.work)
 	if len(matchers) == 0 && len(inText) == 0 {
@@ -71,6 +66,87 @@ func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 		longest[secret.Start] = max(longest[secret.Start], secret.ReplacedEnd(emptyPlaceholder)-secret.Start)
 	}
 	return replaceRanges(text, longest, r.setting.Placeholder)
+}
+
+// parseMatchers appends to matchers those that search a text of length
+// bytes for the secrets each record parse lists holds in reaches. A lone
+// record, or a listed one holding more bytes there than the text, is
+// searched with its own matchers, each built once in the run; the other
+// listed records share one matcher of all their texts. So a row costs its
+// length a fixed number of times, plus, for each listed record, the smaller
+// of its bytes and the row's length, however many records it lists.
+func (r *Recorder) parseMatchers(matchers []*textset.Set, length int, parse *Found, reaches []reach,
+	withParts bool) []*textset.Set {
+	records := parse.Records()
+	var joined []*Found
+	for _, record := range records {
+		size := 0
+		for _, where := range reaches {
+			size += record.size[where]
+		}
+		if size > 0 && len(records) > 1 && size <= length {
+			joined = append(joined, record)
+			continue
+		}
+		matchers = record.appendMatchers(matchers, reaches, withParts, r.work)
+	}
+	if len(joined) == 1 {
+		return joined[0].appendMatchers(matchers, reaches, withParts, r.work)
+	}
+	if len(joined) > 1 {
+		matchers = append(matchers, r.joined.matcherOf(joined, reaches, withParts, r.work))
+	}
+	return matchers
+}
+
+// appendMatchers appends to matchers the record's matcher of each of
+// reaches that holds a text.
+func (f *Found) appendMatchers(matchers []*textset.Set, reaches []reach, withParts bool,
+	work textset.Counter) []*textset.Set {
+	for _, where := range reaches {
+		if len(f.texts[where]) > 0 {
+			matchers = append(matchers, f.matcherOf(where, withParts, work))
+		}
+	}
+	return matchers
+}
+
+// joinedMatcher is one matcher of the texts several records hold in some
+// reaches, with what it was built from: the records, the reaches, whether
+// forms with a part count, and how many texts the records held then.
+type joinedMatcher struct {
+	records   []*Found
+	reaches   []reach
+	withParts bool
+	held      int
+	set       *textset.Set
+}
+
+// matcherOf returns the matcher of the texts records hold in reaches,
+// building it again only when the records, the reaches or the texts held
+// differ from the last call's; a row usually lists the same records as the
+// row before.
+func (j *joinedMatcher) matcherOf(records []*Found, reaches []reach, withParts bool,
+	work textset.Counter) *textset.Set {
+	held := 0
+	for _, record := range records {
+		for _, where := range reaches {
+			held += len(record.texts[where])
+		}
+	}
+	if j.set != nil && held == j.held && withParts == j.withParts && slices.Equal(records, j.records) &&
+		slices.Equal(reaches, j.reaches) {
+		return j.set
+	}
+	var texts []string
+	for _, record := range records {
+		for _, where := range reaches {
+			texts = record.matchedTexts(texts, where, withParts)
+		}
+	}
+	*j = joinedMatcher{slices.Clone(records), slices.Clone(reaches), withParts, held,
+		textset.NewBackward(texts, work)}
+	return j.set
 }
 
 // replaceRanges returns text with each range of secrets replaced by
@@ -105,15 +181,20 @@ func replaceRanges(text string, longest []int, placeholder string) string {
 // (the forms with a part only for an empty placeholder), building it again
 // only when texts were recorded since.
 func (f *Found) matcherOf(where reach, withParts bool, work textset.Counter) *textset.Set {
-	texts := f.texts[where]
-	if f.matchers[where] == nil || f.matched[where] != len(texts) {
-		var matched []string
-		for _, text := range texts {
-			if withParts || f.forms[placed{text, where}].plain() {
-				matched = append(matched, text)
-			}
-		}
-		f.matchers[where], f.matched[where] = textset.NewBackward(matched, work), len(texts)
+	if f.matchers[where] == nil || f.matched[where] != len(f.texts[where]) {
+		f.matchers[where] = textset.NewBackward(f.matchedTexts(nil, where, withParts), work)
+		f.matched[where] = len(f.texts[where])
 	}
 	return f.matchers[where]
+}
+
+// matchedTexts appends to texts the record's texts replaced in where that
+// a matcher matches: every one with withParts, else the plain forms only.
+func (f *Found) matchedTexts(texts []string, where reach, withParts bool) []string {
+	for _, text := range f.texts[where] {
+		if withParts || f.forms[placed{text, where}].plain() {
+			texts = append(texts, text)
+		}
+	}
+	return texts
 }
