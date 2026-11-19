@@ -50,3 +50,15 @@ func TestATableSpelledInAnotherCaseIsRead(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+// SQL matches a column name in any ASCII case, so a database whose columns
+// are spelled in another case gives the rows it gives as written.
+func TestAColumnSpelledInAnotherCaseIsRead(t *testing.T) {
+	want := rowsOfTableCaseDatabase(t, "column_case.db")
+	if len(want) == 0 {
+		t.Fatal("the database as written gave no rows")
+	}
+	if got := rowsOfTableCaseDatabase(t, "column_case_respelled.db"); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

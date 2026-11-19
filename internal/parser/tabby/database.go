@@ -99,21 +99,16 @@ func (s *store) rows() error {
 // each runs visit over the rows of table restricted to its whitelisted
 // columns, ordered by the comma-separated order columns the table has. A
 // table with none of the columns gives no rows. A column counts as present
-// when "PRAGMA table_info" would list it under exactly that name.
+// when "PRAGMA table_info" would list it under that name in any ASCII case,
+// as SQL finds it (sqlitefile.Table.Has).
 func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 	handle, err := s.database.Table(table)
 	if err != nil {
 		return err
 	}
-	have := map[string]bool{}
-	for _, column := range handle.Columns() {
-		if column.Generated == sqlitefile.NotGenerated {
-			have[column.Name] = true
-		}
-	}
 	var chosen []string
 	for _, column := range tableColumns()[table] {
-		if have[column] {
+		if handle.Has(column) {
 			chosen = append(chosen, column)
 		}
 	}
@@ -122,7 +117,7 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 	}
 	var keys []string
 	for _, column := range strings.Split(order, ",") {
-		if have[strings.TrimSpace(column)] {
+		if handle.Has(strings.TrimSpace(column)) {
 			keys = append(keys, column)
 		}
 	}
