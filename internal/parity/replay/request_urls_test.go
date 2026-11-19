@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -38,14 +39,34 @@ func (c caseRun) requestURL(requestID, base string) string {
 	return withheldURL(urls[0])
 }
 
-// withheldURL returns url with each of its credentials as replayPlaceholder:
-// the byte ranges secrets.URLCredentialRanges gives, the ranges the binary
-// withholds, so what counts as a credential (user information, the
-// parameters of the query and fragment named in the binary's table) is the
-// binary's own rule. Ranges that share a byte are one, as one secret held
-// inside another goes with it; ranges that only touch stay two.
+// shownCredential stands in a recorded row for a request URL in which the
+// binary's ranges leave out a credential the replay itself requires
+// withheld (requiredCredentials), so the row never agrees and the case
+// fails.
+const shownCredential = "{a credential the binary would show}"
+
+// withheldURL returns url with each of its credentials as replayPlaceholder
+// (withheldURLBy, by the ranges secrets.URLCredentialRanges gives, the
+// ranges the binary withholds).
 func withheldURL(url string) string {
-	ranges := secrets.URLCredentialRanges(url, false)
+	return withheldURLBy(url, secrets.URLCredentialRanges)
+}
+
+// withheldURLBy returns url with each byte range credentialRanges gives as
+// replayPlaceholder, so what counts as a credential beyond the replay's own
+// minimum is the binary's rule; or shownCredential when a range of
+// requiredCredentials lies inside none of them. Ranges that share a byte
+// are one, as one secret held inside another goes with it; ranges that
+// only touch stay two.
+func withheldURLBy(url string, credentialRanges func(text string, emptyPlaceholder bool) [][2]int) string {
+	ranges := credentialRanges(url, false)
+	for _, required := range requiredCredentials(url) {
+		if !slices.ContainsFunc(ranges, func(given [2]int) bool {
+			return given[0] <= required[0] && required[1] <= given[1]
+		}) {
+			return shownCredential
+		}
+	}
 	slices.SortFunc(ranges, func(left, right [2]int) int { return left[0] - right[0] })
 	var written strings.Builder
 	end := 0
@@ -59,6 +80,78 @@ func withheldURL(url string) string {
 	}
 	written.WriteString(url[end:])
 	return written.String()
+}
+
+// urlScheme is a URL's scheme and separator at the start of a text: a
+// letter, then letters, digits, +, - and ., then "://".
+var urlScheme = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://`)
+
+// requiredCredentials returns the byte ranges of a request URL that the
+// binary must withhold whatever its own table says, the replay's minimum:
+// user information holding a colon, unless it is the colon alone, and the
+// value of each parameter named exactly key, which the recorded Gemini CLI
+// logs carry Google's API key in and the recording cut, so it holds
+// nothing to compare. A value is taken up to its first byte other than a
+// letter, digit, - or _, where the binary may end one. The URL is read up
+// to white space, a double quote, an angle bracket or a backtick.
+func requiredCredentials(url string) [][2]int {
+	if end := strings.IndexAny(url, " \t\n\v\f\r\"<>`"); end >= 0 {
+		url = url[:end]
+	}
+	scheme := urlScheme.FindString(url)
+	if scheme == "" {
+		return nil
+	}
+	var required [][2]int
+	authorityEnd := len(url)
+	if end := strings.IndexAny(url[len(scheme):], "/?#\\"); end >= 0 {
+		authorityEnd = len(scheme) + end
+	}
+	if lastAt := strings.LastIndexByte(url[:authorityEnd], '@'); lastAt >= len(scheme) {
+		if userInfo := url[len(scheme):lastAt]; strings.Contains(userInfo, ":") && userInfo != ":" {
+			required = append(required, [2]int{len(scheme), lastAt})
+		}
+	}
+	if query := strings.IndexAny(url[authorityEnd:], "?#"); query >= 0 {
+		required = append(required, keyValues(url, authorityEnd+query)...)
+	}
+	return required
+}
+
+// keyValueBytes are the bytes of a key's value that requiredCredentials
+// takes: letters, digits, - and _.
+const keyValueBytes = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+// keyValues returns the ranges of the values of the parameters named key in
+// url's query and fragment, which start at from, the first ? or # after
+// the authority: a name starts after each
+// ?, & and ;, and after the first # alone, where every reading of a URL
+// starts one.
+func keyValues(url string, from int) [][2]int {
+	var values [][2]int
+	fragment := false
+	for i := from; i < len(url); i++ {
+		if url[i] == '#' {
+			if fragment {
+				continue
+			}
+			fragment = true
+		} else if strings.IndexByte("?&;", url[i]) < 0 {
+			continue
+		}
+		if !strings.HasPrefix(url[i+1:], "key=") {
+			continue
+		}
+		start := i + 1 + len("key=")
+		end := start
+		for end < len(url) && strings.IndexByte(keyValueBytes, url[end]) >= 0 {
+			end++
+		}
+		if end > start {
+			values = append(values, [2]int{start, end})
+		}
+	}
+	return values
 }
 
 // requestRecord is the part of a line of an activity log that names a
@@ -228,6 +321,73 @@ func TestARequestURLIsWithheldAsTheBinarysURLRuleFindsItsCredentials(t *testing.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if got := withheldURL(test.url); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTheReplayRequiresAKeyAndAPasswordWithheldWhateverTheBinarysTable(t *testing.T) {
+	tests := []struct {
+		name, url string
+		want      [][2]int
+	}{
+		{"a key", "https://h/p?key=AIza", [][2]int{{16, 20}}},
+		{"a key after another parameter", "https://h/p?alt=sse&key=AIza", [][2]int{{24, 28}}},
+		{"a key after a semicolon", "https://h/p?a=1;key=AIza", [][2]int{{20, 24}}},
+		{"a key in the fragment", "https://h/p#key=AIza", [][2]int{{16, 20}}},
+		{"a key after the first #", "https://h/p?a=1#key=AIza", [][2]int{{20, 24}}},
+		{"a key's value up to a byte that may end it", "https://h/p?key=AI-z_a.", [][2]int{{16, 22}}},
+		{"two keys", "https://h/p?key=a&key=b", [][2]int{{16, 17}, {22, 23}}},
+		{"an empty key", "https://h/p?key=&x=1", nil},
+		{"a name holding key", "https://h/p?apikey=AIza&monkey=b", nil},
+		{"a key of another case", "https://h/p?Key=AIza", nil},
+		{"a key in the path", "https://h/p;key=AIza", nil},
+		{"a user name and a password", "https://u:pw@h/p", [][2]int{{8, 12}}},
+		{"a password alone", "https://:pw@h/p", [][2]int{{8, 11}}},
+		{"user information up to the last @", "https://a@b:c@h/p", [][2]int{{8, 13}}},
+		{"an upper-case scheme", "HTTPS://u:pw@h/p?key=k", [][2]int{{8, 12}, {21, 22}}},
+		{"a user name alone", "https://user@h/p", nil},
+		{"the colon alone", "https://:@h/p", nil},
+		{"an @ after the authority", "https://h/p?a=u:pw@x", nil},
+		{"no scheme", "h/p?key=AIza", nil},
+		{"a key after white space", "https://h/p ?key=AIza", nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := requiredCredentials(test.url); !slices.Equal(got, test.want) {
+				t.Errorf("got %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestARequestURLWhoseRangesLeaveOutARequiredCredentialIsNeverWritten(t *testing.T) {
+	given := func(ranges ...[2]int) func(string, bool) [][2]int {
+		return func(string, bool) [][2]int { return ranges }
+	}
+	tests := []struct {
+		name, url string
+		ranges    func(string, bool) [][2]int
+		want      string
+	}{
+		{"a key withheld", "https://h/p?key=AIza", given([2]int{16, 20}), "https://h/p?key=" + replayPlaceholder},
+		{"a key not withheld", "https://h/p?key=AIza", given(), shownCredential},
+		{"a key withheld in part", "https://h/p?key=AIza", given([2]int{16, 18}), shownCredential},
+		{"a key withheld within a wider range", "https://h/p?key=AIza", given([2]int{12, 20}),
+			"https://h/p?" + replayPlaceholder},
+		{"another parameter withheld and the key not", "https://h/p?sig=s&key=AIza", given([2]int{16, 17}),
+			shownCredential},
+		{"a password not withheld", "https://u:pw@h/p", given(), shownCredential},
+		{"a password withheld alone", "https://u:pw@h/p", given([2]int{10, 12}), shownCredential},
+		{"user information withheld", "https://u:pw@h/p", given([2]int{8, 12}), "https://" + replayPlaceholder + "@h/p"},
+		{"a parameter the replay does not require, as the ranges give", "https://h/p?alt=sse", given([2]int{16, 19}),
+			"https://h/p?alt=" + replayPlaceholder},
+		{"no credential and no range", "https://h/p?alt=sse", given(), "https://h/p?alt=sse"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := withheldURLBy(test.url, test.ranges); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
