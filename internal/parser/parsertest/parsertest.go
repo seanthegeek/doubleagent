@@ -11,10 +11,10 @@
 // must be the rows with exactly the recorded secrets and the credentials of
 // their URLs replaced, each where it reaches (internal/secrets), as a
 // separate, plain search gives them, with any placeholder, the empty one
-// included, and in every string of a row; no recorded secret of
-// secrets.EverywhereLength bytes or more may remain in them; and a parse
-// run by Parse or Run must identify a secret, one run by ParseWithoutSecrets
-// or RunWithoutSecrets none. Only tests import it.
+// included, and in every string of a row; no secret the run replaces in
+// every string may remain in them; and a parse run by Parse or Run must
+// identify a secret, one run by ParseWithoutSecrets or RunWithoutSecrets
+// none. Only tests import it.
 package parsertest
 
 import (
@@ -142,26 +142,22 @@ func bothModes(shown, rows []timeline.Row) []string {
 // written returns what breaks the rule that a written row is its raw row
 // with exactly these replaced, found by a plain search: in every string,
 // the credentials of its URLs where they stand and the texts the run
-// replaces everywhere (the secrets of secrets.EverywhereLength bytes or
-// more: this parse's values, the URL credentials of its rows and those
-// other parses recorded); in the text alone, the parse's shorter values and
-// its readers' details too. No long secret of this parse may remain.
+// replaces everywhere (Recorder.EverywhereTexts), with this parse's values
+// the run replaces everywhere (Found.EverywhereValues) and the URL
+// credentials of its rows that reach every string
+// (secrets.URLCredentialEverywhere); in the text alone, the parse's other
+// values and its readers' details too. Those long ones may not remain.
 func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.Row) []string {
-	var broken, long []string
+	var broken []string
 	placeholder := recorder.Setting().Placeholder
 	empty := placeholder == ""
-	for _, value := range found.Values() {
-		if len(value) >= secrets.EverywhereLength {
-			long = append(long, value)
-		}
-	}
-	everywhere := recorder.EverywhereTexts()
+	long := found.EverywhereValues()
 	for _, row := range rows {
 		for _, field := range row.Strings() {
-			long, everywhere = urlCredentialTexts(field, empty, long, everywhere)
+			long = longURLCredentials(field, long)
 		}
 	}
-	everywhere = slices.Concat(everywhere, long)
+	everywhere := slices.Concat(recorder.EverywhereTexts(), long)
 	inText := slices.Concat(everywhere, found.Values(), found.ReaderDetails())
 	if empty {
 		for _, detail := range found.ReaderDetails() {
@@ -190,22 +186,15 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 	return broken
 }
 
-// urlCredentialTexts adds to long the URL credentials of text of
-// secrets.EverywhereLength bytes or more, and to everywhere each of them as
-// an empty placeholder matches it: user information with its @ too, told
-// from another credential by the range an empty placeholder replaces.
-func urlCredentialTexts(text string, empty bool, long, everywhere []string) ([]string, []string) {
-	plain, withParts := secrets.URLCredentialRanges(text, false), secrets.URLCredentialRanges(text, true)
-	for i, each := range plain {
-		if each[1]-each[0] < secrets.EverywhereLength {
-			continue
-		}
-		long = append(long, text[each[0]:each[1]])
-		if empty && withParts[i][1] != each[1] {
-			everywhere = append(everywhere, text[withParts[i][0]:withParts[i][1]])
+// longURLCredentials adds to long the URL credentials of text that the
+// output replaces in every string (secrets.URLCredentialEverywhere).
+func longURLCredentials(text string, long []string) []string {
+	for _, each := range secrets.URLCredentialRanges(text, false) {
+		if credential := text[each[0]:each[1]]; secrets.URLCredentialEverywhere(credential) {
+			long = append(long, credential)
 		}
 	}
-	return long, everywhere
+	return long
 }
 
 // replaced returns text with every occurrence of each of secrets and each

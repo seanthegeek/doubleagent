@@ -148,7 +148,8 @@ func (r *Recorder) Collect(text string) {
 	}
 	identifyURLs(text, func(secret urlcredentials.Credential) {
 		value := text[secret.Start:secret.End]
-		if decoded := strings.ReplaceAll(value, `\/`, "/"); len(decoded) >= EverywhereLength {
+		if URLCredentialEverywhere(value) {
+			decoded := strings.ReplaceAll(value, `\/`, "/")
 			for _, each := range []string{value, decoded, strings.ReplaceAll(decoded, "/", `\/`)} {
 				r.everywhere.add(form{secret: each}, everyString)
 			}
@@ -158,6 +159,13 @@ func (r *Recorder) Collect(text string) {
 			}
 		}
 	}, r.work)
+}
+
+// URLCredentialEverywhere reports whether Collect records a URL credential
+// as written in a text to be replaced in every string: when it is
+// EverywhereLength bytes or more with each \/ read as /.
+func URLCredentialEverywhere(credential string) bool {
+	return len(strings.ReplaceAll(credential, `\/`, "/")) >= EverywhereLength
 }
 
 // ReaderError records the detail of err, the error a JSON, TOML or XML
@@ -280,6 +288,12 @@ func (f *Found) Secrets() []string {
 // for a nil Found.
 func (f *Found) Values() []string {
 	return f.secretsIn(func(where reach) bool { return where == rowText || where == listedOnly })
+}
+
+// EverywhereValues returns the distinct secret values recorded (Value) that
+// the run replaces in every string, sorted; nil for a nil Found.
+func (f *Found) EverywhereValues() []string {
+	return f.secretsIn(func(where reach) bool { return where == listedOnly })
 }
 
 // ReaderDetails returns the distinct readers' details recorded, sorted,
