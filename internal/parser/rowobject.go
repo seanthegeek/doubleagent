@@ -25,12 +25,21 @@ func ColumnName(name string) string {
 // by ColumnValue. A parser that reads the row as a record looks a column
 // up by the name the agent's schema gives it, in lower case, so it finds
 // the column however the database at hand spells it.
-func RowObject(row sqlitefile.Row) jsonvalue.Value {
-	var members []jsonvalue.Member
-	for i, column := range row.Columns() {
-		members = append(members, jsonvalue.Member{Key: ColumnName(column), Value: ColumnValue(row.Values()[i])})
+func RowObject(row columnsAndValues) jsonvalue.Value {
+	columns, values := row.Columns(), row.Values()
+	members := make([]jsonvalue.Member, len(columns))
+	for i, column := range columns {
+		members[i] = jsonvalue.Member{Key: ColumnName(column), Value: ColumnValue(values[i])}
 	}
 	return jsonvalue.NewObject(members...)
+}
+
+// columnsAndValues is what RowObject reads of a row: a sqlitefile.Row, or
+// a test's stand-in that counts the values built. Values builds every
+// column afresh on each call, so RowObject calls it once per row.
+type columnsAndValues interface {
+	Columns() []string
+	Values() []sqlitefile.Value
 }
 
 // ColumnOf returns the column of table that SQL finds under name, in any

@@ -26,19 +26,17 @@ func messagingSources() []string {
 		"wecom", "wecom_callback", "weixin", "bluebubbles", "qqbot", "yuanbao", "relay"}
 }
 
-// rowObject returns a row as a JSON object: the rowid as _rowid when
-// selected, then every column by parser.ColumnName, so a column the
-// database spells in another ASCII case is found under the schema's name.
+// rowObject returns a row as parser.RowObject does, with the rowid, when
+// it is the first column selected, keyed _rowid.
 func rowObject(row sqlitefile.Row) jsonvalue.Value {
-	var members []jsonvalue.Member
-	for i, column := range row.Columns() {
-		key := parser.ColumnName(column)
-		if i == 0 && key == "rowid" {
-			key = "_rowid"
-		}
-		members = append(members, jsonvalue.Member{Key: key, Value: parser.ColumnValue(row.Values()[i])})
+	record := parser.RowObject(row)
+	members := record.Members()
+	if len(members) == 0 || members[0].Key != "rowid" {
+		return record
 	}
-	return jsonvalue.NewObject(members...)
+	renamed := slices.Clone(members)
+	renamed[0].Key = "_rowid"
+	return jsonvalue.NewObject(renamed...)
 }
 
 // recordError is a problem of one stored record, reported after the file's

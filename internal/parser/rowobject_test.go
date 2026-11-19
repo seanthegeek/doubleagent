@@ -2,7 +2,10 @@ package parser
 
 import (
 	"path/filepath"
+	"strconv"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
 func TestARowObjectKeysEachColumnByTheNameSQLFindsItBy(t *testing.T) {
@@ -37,6 +40,48 @@ func TestARowObjectKeysEachColumnByTheNameSQLFindsItBy(t *testing.T) {
 			column, found := ColumnOf(table, test.column)
 			if found != test.found || column.Name != test.want {
 				t.Errorf("ColumnOf(%q) = %q, %v; want %q, %v", test.column, column.Name, found, test.want, test.found)
+			}
+		})
+	}
+}
+
+// countedRow is a row of width columns that counts the values its Values
+// builds: each call builds every column afresh, as a row read through a
+// table's record layout does.
+type countedRow struct {
+	width int
+	built *int
+}
+
+// Columns returns the names c0 to c<width-1>.
+func (r countedRow) Columns() []string {
+	names := make([]string, r.width)
+	for i := range names {
+		names[i] = "c" + strconv.Itoa(i)
+	}
+	return names
+}
+
+// Values returns width integers, counting each one built.
+func (r countedRow) Values() []sqlitefile.Value {
+	values := make([]sqlitefile.Value, r.width)
+	for i := range values {
+		values[i] = sqlitefile.IntValue(int64(i))
+	}
+	*r.built += r.width
+	return values
+}
+
+func TestARowObjectBuildsEachColumnsValueOnce(t *testing.T) {
+	for _, width := range []int{10, 2000} {
+		t.Run("a row of "+strconv.Itoa(width)+" columns builds that many values", func(t *testing.T) {
+			built := 0
+			object := RowObject(countedRow{width: width, built: &built})
+			if built != width {
+				t.Errorf("RowObject built %d values, want %d", built, width)
+			}
+			if last := object.Get("c" + strconv.Itoa(width-1)).JSON(); last != strconv.Itoa(width-1) {
+				t.Errorf("the last column is %s, want %d", last, width-1)
 			}
 		})
 	}
