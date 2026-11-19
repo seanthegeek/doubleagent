@@ -63,6 +63,16 @@ def chunked() -> list[tuple[str, str]]:
     ]
 
 
+def stray_chunks() -> list[tuple[str, str]]:
+    """Return composer a with its chunk, and two chunk keys whose number is not digits."""
+    return [
+        composer("a"),
+        chunk("a", "a1"),
+        ("composerConvHeaders:a:b", json.dumps([{"bubbleId": "x1", "type": 1}])),
+        ("composerConvHeaders:a:", json.dumps([{"bubbleId": "x2", "type": 1}])),
+    ]
+
+
 # A header with an empty composer id, archived as a delete leaves it, and a
 # JSON agentKv blob naming no composer.
 EMPTY_HEADER = """
@@ -111,6 +121,7 @@ DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
     "chunked_headers.db": (chunked(), ""),
+    "stray_chunks.db": (stray_chunks(), ""),
     "empty_composer_id.db": ([], EMPTY_HEADER),
     "mcp_secret.db": ([], MCP_SECRET),
     "header_kinds.db": ([], HEADER_KINDS),

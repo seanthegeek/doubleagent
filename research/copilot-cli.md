@@ -1176,9 +1176,11 @@ of the rewind index or a `commandHistory` that is not an array is
 not an object is `parser: locations is not a JSON object`, a location that is not an object
 `parser: locations.<path> is not a JSON object`, and its `tool_approvals` or `allowed_directories`
 that is not an array `parser: locations.<path>.<key> is not a JSON array`; an `allowedUrls` or
-`deniedUrls` of `settings.json` that is not an array is `parser: <key> is not a JSON array`. A
-`sessionIds` of a sidebar file that is not an array adds nothing to the project join and gives no
-row, since the sidebar file has no rows to lose.
+`deniedUrls` of `settings.json` that is not an array is `parser: <key> is not a JSON array`, and one
+holding entries that are not strings one row for them all, the other entries giving their rows,
+`parser: <key> holds <n> entries that are not JSON strings` (`1 entry that is not a JSON string` for
+one). A `sessionIds` of a sidebar file that is not an array adds nothing to the project join and
+gives no row, since the sidebar file has no rows to lose.
 
 #### Fixtures
 
