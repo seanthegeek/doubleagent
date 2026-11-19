@@ -46,9 +46,13 @@ func (o output) shownAll(texts []string) []string {
 }
 
 // document returns a copy of document, a value encoding/json writes, with
-// every string in it (a field, an item of a list, a key or value of a map,
-// behind a pointer) through text, so no string of a JSON output misses the
-// replacement. A field encoding/json skips is copied as it is.
+// every string in it (a field, an item of a list or array, a key or value
+// of a map, behind a pointer) through text, so no string of a JSON output
+// misses the replacement. A field encoding/json skips is copied as it is.
+// It cannot reach the fields behind an embedded pointer of an unexported
+// type, nor what a type's own MarshalJSON writes, so an output type holds
+// neither (TestEveryOutputTypeHoldsOnlyKindsTheCopyReaches), projectObjects
+// excepted, which output.projects replaces.
 func (o output) document(document any) any {
 	if o.recorder == nil {
 		return document
@@ -90,6 +94,12 @@ func withheldValue(value reflect.Value, replace func(string) string) reflect.Val
 			return value
 		}
 		copied := reflect.MakeSlice(value.Type(), value.Len(), value.Len())
+		for i := range value.Len() {
+			copied.Index(i).Set(withheldValue(value.Index(i), replace))
+		}
+		return copied
+	case reflect.Array:
+		copied := reflect.New(value.Type()).Elem()
 		for i := range value.Len() {
 			copied.Index(i).Set(withheldValue(value.Index(i), replace))
 		}
