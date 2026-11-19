@@ -8,7 +8,12 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 )
+
+// belowFileReason is the reason the write of an output below a regular file
+// fails with: os.MkdirAll reports ENOTDIR, which is "not a directory" here.
+const belowFileReason = reason.NotDirectory
 
 func TestAnInputTheCheckCannotReachGivesTheReadsOwnError(t *testing.T) {
 	if os.Geteuid() == 0 {

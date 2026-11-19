@@ -11,7 +11,14 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 )
+
+// belowFileReason is the reason the write of an output below a regular file
+// fails with, naming that file: os.MkdirAll reports ENOTDIR, which on
+// Windows is ERROR_PATH_NOT_FOUND (syscall/zerrors_windows.go), and
+// reason.For words that code "no such file or directory".
+const belowFileReason = reason.NotFound
 
 // makeJunction makes link a junction to the directory target without
 // running a program: it creates an empty directory and sets on it the
