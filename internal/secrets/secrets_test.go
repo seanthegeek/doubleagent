@@ -167,8 +167,8 @@ func urlAuthorityCases() []grammarCase {
 	}
 }
 
-// urlQueryAndFragmentCases returns the cases of rules 6 and 7: where the query and
-// the fragment start, and how parameters split.
+// urlQueryAndFragmentCases returns the cases of rule 6: where the query and the
+// fragment start, and which separators end a value.
 func urlQueryAndFragmentCases() []grammarCase {
 	return []grammarCase{
 		{6, "a parameter after a redirect target with a path", "https://h/x?next=https://other/&access_token=ya29.T0K",
@@ -190,59 +190,85 @@ func urlQueryAndFragmentCases() []grammarCase {
 			"https://h/?next=https://i/cb?code=REDACTED&state=x"},
 		{6, "a redirect target's query in a fragment", "https://h/#next=https://i/?token=abc",
 			"https://h/#next=https://i/?token=REDACTED"},
-		{7, "parameters split at semicolons", "https://h/?x=1;sig=abc;y=2", "https://h/?x=1;sig=REDACTED;y=2"},
-		{7, "a parameter after JSON's escaped ampersand",
+		{6, "parameters split at semicolons", "https://h/?x=1;sig=abc;y=2", "https://h/?x=1;sig=REDACTED;y=2"},
+		{6, "a parameter after JSON's escaped ampersand",
 			`{\"next\":\"https://api.example/v1/items?page=2\u0026access_token=ya29.T0K\"}`,
 			`{\"next\":\"https://api.example/v1/items?page=2\u0026access_token=REDACTED\"}`},
-		{7, "an escaped ampersand in capitals", `https://h/?a=1\U0026token=t0k`, `https://h/?a=1\U0026token=REDACTED`},
-		{7, "an escaped slash is part of a value", `https:\/\/api.example\/v1?sig=ab\/cdEF+ij\/k\u0026x=1`,
+		{6, "an escaped ampersand in capitals", `https://h/?a=1\U0026token=t0k`, `https://h/?a=1\U0026token=REDACTED`},
+		{6, "an escaped slash is part of a value", `https:\/\/api.example\/v1?sig=ab\/cdEF+ij\/k\u0026x=1`,
 			`https:\/\/api.example\/v1?sig=REDACTED\u0026x=1`},
-		{7, "another backslash ends a value", `https://h/?token=t0k\nnext`, `https://h/?token=REDACTED\nnext`},
-		{7, "a backslash ends a parameter, so what follows names another", `https://h/?x=1\ntoken=t0k`,
+		{6, "another backslash ends a value", `https://h/?token=t0k\nnext`, `https://h/?token=REDACTED\nnext`},
+		{6, "a backslash ends a parameter, so what follows names another", `https://h/?x=1\ntoken=t0k`,
 			`https://h/?x=1\ntoken=t0k`},
-		{7, "a hash ends a query parameter", "https://h/?token=t0k#x=1", "https://h/?token=REDACTED#x=1"},
-		{7, "a question mark in the fragment starts a parameter's name", "https://h/#x?token=t0k",
-			"https://h/#x?token=REDACTED"},
-		{7, "a token after a path in the fragment",
-			"https://app.example/#/callback?access_token=fake-hash-router-token-0001&state=x",
-			"https://app.example/#/callback?access_token=REDACTED&state=x"},
-		{7, "a token after a second question mark in the query", "https://app.example/?a=1?token=fake-second-q-0003",
-			"https://app.example/?a=1?token=REDACTED"},
-		{7, "a code after a path in the fragment of a URL with a query",
-			"https://app.example/?state=x#/cb?code=fake-code-0005", "https://app.example/?state=x#/cb?code=REDACTED"},
-		{7, "a code after a question mark in a named fragment", "https://app.example/path#section?code=fake-code-0004",
-			"https://app.example/path#section?code=REDACTED"},
-		{7, "a question mark inside a credential is part of it", "https://h/?token=fake?tail-0006&x=1",
-			"https://h/?token=REDACTED&x=1"},
-		{7, "a credential named inside another is replaced with it", "https://h/?token=ab?key=fake-0007&x=1",
-			"https://h/?token=REDACTED&x=1"},
-		{7, "a question mark before a name that is no credential is kept", "https://h/?q=what?page=2",
-			"https://h/?q=what?page=2"},
+		{6, "a hash ends a query parameter", "https://h/?token=t0k#x=1", "https://h/?token=REDACTED#x=1"},
 	}
 }
 
-// urlCredentialParameterCases returns the cases of rule 8: which parameters hold a
+// urlNameCases returns the cases of rule 6 about a question mark and a
+// later hash: each starts a name and ends no value.
+func urlNameCases() []grammarCase {
+	return []grammarCase{
+		{6, "a question mark in the fragment starts a parameter's name", "https://h/#x?token=t0k",
+			"https://h/#x?token=REDACTED"},
+		{6, "a token after a path in the fragment",
+			"https://app.example/#/callback?access_token=fake-hash-router-token-0001&state=x",
+			"https://app.example/#/callback?access_token=REDACTED&state=x"},
+		{6, "a token after a second question mark in the query", "https://app.example/?a=1?token=fake-second-q-0003",
+			"https://app.example/?a=1?token=REDACTED"},
+		{6, "a code after a path in the fragment of a URL with a query",
+			"https://app.example/?state=x#/cb?code=fake-code-0005", "https://app.example/?state=x#/cb?code=REDACTED"},
+		{6, "a code after a question mark in a named fragment", "https://app.example/path#section?code=fake-code-0004",
+			"https://app.example/path#section?code=REDACTED"},
+		{6, "a question mark inside a credential is part of it", "https://h/?token=fake?tail-0006&x=1",
+			"https://h/?token=REDACTED&x=1"},
+		{6, "a credential named inside another is replaced with it", "https://h/?token=ab?key=fake-0007&x=1",
+			"https://h/?token=REDACTED&x=1"},
+		{6, "a question mark before a name that is no credential is kept", "https://h/?q=what?page=2",
+			"https://h/?q=what?page=2"},
+		{6, "a token after a second hash in the fragment",
+			"http://localhost:8080/#/callback#access_token=fake-hash-token-0001&token_type=bearer",
+			"http://localhost:8080/#/callback#access_token=REDACTED&token_type=bearer"},
+		{6, "a code after a second hash in the fragment of a URL with a query",
+			"https://h/?state=x#/cb#code=fake-code-0005", "https://h/?state=x#/cb#code=REDACTED"},
+		{6, "a hash inside a credential in the fragment is part of it", "https://h/#access_token=fake#tail-0008&x=1",
+			"https://h/#access_token=REDACTED&x=1"},
+		{6, "a credential named after a hash inside another is replaced with it",
+			"https://h/#token=ab#key=fake-0009&x=1", "https://h/#token=REDACTED&x=1"},
+		{6, "a later hash before a name that is no credential is kept", "https://h/#/cb#state=x&page=2",
+			"https://h/#/cb#state=x&page=2"},
+		{6, "a redirect target's fragment after its query in a fragment",
+			"https://h/#next=https://i/?x=1#token=fake-0010", "https://h/#next=https://i/?x=1#token=REDACTED"},
+		{6, "a bracket opened before a question mark is counted after it", "https://h/?x=(a?token=fake-0011)b",
+			"https://h/?x=(a?token=REDACTED"},
+		{6, "a bracket opened before a later hash is counted after it", "https://h/#x=(a#token=fake-0012)b",
+			"https://h/#x=(a#token=REDACTED"},
+		{6, "a hash after a redirect target in the fragment ends no value", "https://h/#token=https://i/cb#fake-0013",
+			"https://h/#token=REDACTED"},
+	}
+}
+
+// urlCredentialParameterCases returns the cases of rule 7: which parameters hold a
 // credential.
 func urlCredentialParameterCases() []grammarCase {
 	return []grammarCase{
-		{8, "a token in the query", "https://host/share/session?token=abc123",
+		{7, "a token in the query", "https://host/share/session?token=abc123",
 			"https://host/share/session?token=REDACTED"},
-		{8, "an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
+		{7, "an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
 			"https://h/v1?alt=json&key=REDACTED&x=1"},
-		{8, "a parameter name in another case", "https://h/?Access_Token=abc#x", "https://h/?Access_Token=REDACTED#x"},
-		{8, "a parameter name with a percent-escape", "https://h/?%74oken=abc", "https://h/?%74oken=REDACTED"},
-		{8, "a signed URL's AWS parameters",
+		{7, "a parameter name in another case", "https://h/?Access_Token=abc#x", "https://h/?Access_Token=REDACTED#x"},
+		{7, "a parameter name with a percent-escape", "https://h/?%74oken=abc", "https://h/?%74oken=REDACTED"},
+		{7, "a signed URL's AWS parameters",
 			"https://b.s3.example/k?X-Amz-Credential=AKIAFIXTURE&X-Amz-Signature=f00d",
 			"https://b.s3.example/k?X-Amz-Credential=REDACTED&X-Amz-Signature=REDACTED"},
-		{8, "a value holding an equals sign", "https://h/?token=a=b&x=1", "https://h/?token=REDACTED&x=1"},
-		{8, "a name folded outside ASCII is kept", "https://h/?\u212aey=abc", "https://h/?\u212aey=abc"},
-		{8, "a parameter whose name only holds a credential name is kept", "https://h/?tokens=1&monkey=2",
+		{7, "a value holding an equals sign", "https://h/?token=a=b&x=1", "https://h/?token=REDACTED&x=1"},
+		{7, "a name folded outside ASCII is kept", "https://h/?\u212aey=abc", "https://h/?\u212aey=abc"},
+		{7, "a parameter whose name only holds a credential name is kept", "https://h/?tokens=1&monkey=2",
 			"https://h/?tokens=1&monkey=2"},
-		{8, "an empty credential value is kept", "https://h/?token=&x=1", "https://h/?token=&x=1"},
-		{8, "a short parameter value is replaced only where the URL holds it",
+		{7, "an empty credential value is kept", "https://h/?token=&x=1", "https://h/?token=&x=1"},
+		{7, "a short parameter value is replaced only where the URL holds it",
 			`{"cmd":"curl https://h/x?auth=true","enabled":true,"note":"true story"}`,
 			`{"cmd":"curl https://h/x?auth=REDACTED","enabled":true,"note":"true story"}`},
-		{8, "a short code is kept elsewhere in the string", "https://h/?code=1 and 1+1=2",
+		{7, "a short code is kept elsewhere in the string", "https://h/?code=1 and 1+1=2",
 			"https://h/?code=REDACTED and 1+1=2"},
 	}
 }
@@ -251,7 +277,7 @@ func urlCredentialParameterCases() []grammarCase {
 // one that replaces and one that keeps.
 func grammarCases() []grammarCase {
 	return slices.Concat(urlFindingAndSchemeCases(), urlEndCases(), urlAuthorityCases(),
-		urlQueryAndFragmentCases(), urlCredentialParameterCases())
+		urlQueryAndFragmentCases(), urlNameCases(), urlCredentialParameterCases())
 }
 
 func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
@@ -289,8 +315,8 @@ func TestEveryRuleOfTheURLGrammarHasACaseThatReplacesAndOneThatKeeps(t *testing.
 			t.Errorf("rule %d has no case that keeps a text", rule)
 		}
 	}
-	if rules != 8 {
-		t.Errorf("the grammar has %d rules; the cases were written for 8", rules)
+	if rules != 7 {
+		t.Errorf("the grammar has %d rules; the cases were written for 7", rules)
 	}
 }
 
@@ -621,22 +647,29 @@ func TestIdentifyingURLsReadsTheTextAFixedNumberOfTimes(t *testing.T) {
 	}
 }
 
-// nestedNamesWork returns the bytes of the credentials found in a query of
-// k credential names, each after a question mark inside the value of the
-// one before.
-func nestedNamesWork(k int) int {
+// nestedNamesWork returns the bytes of the credentials found in a query or
+// fragment that starts at separator, a question mark or a hash, and holds k
+// credential names, each after another separator inside the value of the
+// one before, which ends no value there.
+func nestedNamesWork(separator string, k int) int {
 	total := 0
-	for _, value := range URLCredentials("https://h/?" + strings.Repeat("token=fake?", k) + "&x=1") {
+	for _, value := range URLCredentials("https://h/" + separator + strings.Repeat("token=fake"+separator, k) + "&x=1") {
 		total += len(value)
 	}
 	return total
 }
 
 func TestACredentialNamedInsideAnotherIsPartOfIt(t *testing.T) {
-	// The first name's value holds every later one, which adds nothing.
-	if small, double := nestedNamesWork(500), nestedNamesWork(1000); small != 11*500-6 || double != 11*1000-6 {
-		t.Errorf("found %d and %d bytes of credentials for 500 and 1000 names, want %d and %d", small, double,
-			11*500-6, 11*1000-6)
+	for _, separator := range []string{"?", "#"} {
+		t.Run(separator, func(t *testing.T) {
+			// The first name's value holds every later one, which adds
+			// nothing.
+			small, double := nestedNamesWork(separator, 500), nestedNamesWork(separator, 1000)
+			if small != 11*500-6 || double != 11*1000-6 {
+				t.Errorf("found %d and %d bytes of credentials for 500 and 1000 names, want %d and %d", small, double,
+					11*500-6, 11*1000-6)
+			}
+		})
 	}
 }
 
@@ -731,7 +764,7 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 }
 
 // FuzzURLsWithholdsBothSecrets holds that for
-// scheme://user:SECRET@host/path?token=SECRET2#fragment?code=SECRET2&x=1
+// scheme://user:SECRET@host/path?token=SECRET2#fragment?code=SECRET2&x=1#/cb#id_token=SECRET2&z=1
 // exactly the user information, its password and SECRET2 are recorded and
 // replaced where they stand, the rest kept, and nothing is recorded with
 // withholding off. By the URL grammar's rules, neither secret ends the
@@ -739,7 +772,7 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 // hold what ends a value (rule 3), which user information takes whole;
 // SECRET2 ends no parameter (&, ;, #, a backslash), starts no URL, ends no
 // value (a single quote, a closing bracket that closes none opened earlier
-// in it) and names no credential after a ? in it (rule 7).
+// in it) and names no credential after a ? in it (rule 6).
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
 		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}, {"pa)ss", "a(b)c"}, {"it's", "x]y"},
@@ -759,7 +792,7 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 		if closesUnopened(secret2) {
 			return
 		}
-		text := before + secret2 + "#" + fragment + "?code=" + secret2 + "&x=1"
+		text := before + secret2 + "#" + fragment + "?code=" + secret2 + "&x=1#/cb#id_token=" + secret2 + "&z=1"
 		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
 			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
 		}
@@ -772,7 +805,7 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 				userInfo = ""
 			}
 			expected := scheme + "://" + userInfo + host + "/" + path + "?token=" + placeholder + "#" + fragment +
-				"?code=" + placeholder + "&x=1"
+				"?code=" + placeholder + "&x=1#/cb#id_token=" + placeholder + "&z=1"
 			if got != expected || !slices.Equal(recorded, slices.Compact(slices.Clone(want))) {
 				t.Errorf("withheld with %q: %q gave %q and recorded %q, want %q and %q", placeholder, text, got,
 					recorded, expected, want)
@@ -788,7 +821,7 @@ func onlyOf(text, allowed string, least int) bool {
 }
 
 // namesACredential reports whether a ? in value is followed by the name of
-// a credential parameter and =, which rule 7 of the URL grammar reads as
+// a credential parameter and =, which rule 6 of the URL grammar reads as
 // naming a credential.
 func namesACredential(value string) bool {
 	for _, part := range strings.Split(value, "?")[1:] {
