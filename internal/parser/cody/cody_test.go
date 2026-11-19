@@ -162,7 +162,17 @@ func FuzzLegacyReader(fuzz *testing.F) {
 
 func FuzzRecoverHistory(fuzz *testing.F) {
 	fuzz.Add(`{"a": {"chat": {"Wed, 01 Oct 2026 08:00:00 GMT": {"interactions": [{"x": 1}, {"y": `)
+	fuzz.Add(damagedChats(6))
+	fuzz.Add(`{"a": {"chat": {"Mon, 05 Jan 2026 00:00:00 GMT": {"interactions": [x]},` +
+		`"Tue, 06 Jan 2026 00:00:00 GMT": {"interactions": [{"Wed, 07 Jan 2026 00:00:00 GMT": {}}, y]}`)
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		_, _, _ = recoverHistory(text)
+		_, _, recovered := recoverHistory(text)
+		shown := 0
+		for _, entry := range recovered {
+			shown += len(entry.problem.Raw)
+		}
+		if shown > len(text) {
+			t.Errorf("the damaged interactions show %d bytes of a %d-byte text", shown, len(text))
+		}
 	})
 }
