@@ -152,3 +152,31 @@ func TestSavedEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
 		})
 	}
 }
+
+func TestToolCallsOfTheWrongKindInManyMessagesOfAHistorySessionAreOneProblem(t *testing.T) {
+	tests := []struct {
+		name, calls, want string
+		count             int
+	}{
+		{"tool_calls that are not arrays", `7`, "parser: tool_calls is not a JSON array in 3 entries", 1},
+		{"tool_calls holding entries that are not objects", `[7]`,
+			"parser: tool_calls holds 3 entries that are not JSON objects", 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			message := `{"role": "assistant", "content": "hi", "tool_calls": ` + test.calls + `}`
+			text := `{"sessions": [{"session_id": "s", "messages": [` + message + `, ` + message + `, ` + message + `]}]}`
+			if got := countOf(parseFile(t, legacyHistoryRel, text), test.want); got != test.count {
+				t.Errorf("%q given %d times, want %d", test.want, got, test.count)
+			}
+		})
+	}
+	t.Run("a session file reports each message at its own position", func(t *testing.T) {
+		message := `{"role": "assistant", "content": "hi", "tool_calls": 7}`
+		text := `{"session_id": "s", "messages": [` + message + `, ` + message + `]}`
+		if got := countOf(parseFile(t, ".little-coder/sessions/s.json", text),
+			"parser: tool_calls is not a JSON array"); got != 2 {
+			t.Errorf("given %d times, want once per message", got)
+		}
+	})
+}

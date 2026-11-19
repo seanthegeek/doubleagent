@@ -15,39 +15,38 @@ const rejected = "Command rejected"
 
 // historyRows emits the rows of every chat of every account of a history.
 // A chat key found under more than one account takes the account before
-// it in its session id. An account that is not an object, or a chat list,
-// interactions, content or processes member of the wrong kind, adds a
-// problem to problems, at line.
+// it in its session id. Accounts that are not objects add one problem to
+// problems, at line, and so does each of the chat list, interactions,
+// message, content and processes members however many entries hold it of
+// the wrong kind.
 func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
 	options parser.Options, emit parser.Emit, problems *[]string) {
 	if !history.IsObject() {
 		return
 	}
 	var found parser.Problems
+	var tally parser.EntryTally
 	seen := map[string]int{}
 	for _, account := range history.Members() {
 		for _, chatID := range account.Value.Get("chat").Keys() {
 			seen[chatID]++
 		}
 	}
-	for _, account := range history.Members() {
-		if !account.Value.IsObject() && !account.Value.IsNull() {
-			found.Add(line, parser.WrongKind("chat history account", jsonvalue.Object))
-		}
-		chats := parser.MembersOfKind(account.Value.Get("chat"), "chat", jsonvalue.Object, line, &found)
-		for chatKey, chat := range chats {
+	for accountKey, account := range parser.MembersOfKind(history, "chat history", jsonvalue.Object, line, &found) {
+		for chatKey, chat := range tally.MembersOfKind(account.Get("chat"), "chat", jsonvalue.Object) {
 			sessionID := parser.Text(chat.Get("id"))
 			if sessionID == "" {
 				sessionID = chatKey
 			}
 			if seen[chatKey] > 1 {
-				sessionID = account.Key + "/" + sessionID
+				sessionID = accountKey + "/" + sessionID
 			}
 			rows := chatRows{owner: p, artifact: artifact, sessionID: sessionID, line: line, emit: emit,
-				names: map[string]string{}, models: parser.Tracker{}, problems: &found}
-			rows.chat(account.Key, chat)
+				names: map[string]string{}, models: parser.Tracker{}, tally: &tally}
+			rows.chat(accountKey, chat)
 		}
 	}
+	tally.Report(line, &found)
 	addProblems(problems, found)
 }
 
@@ -67,9 +66,9 @@ type chatRows struct {
 	sessionID string
 	line      int
 	emit      parser.Emit
-	names     map[string]string // tool names by call id
-	models    parser.Tracker    // per chat, so the key needs no session id
-	problems  *parser.Problems  // of the whole history, at the history's line
+	names     map[string]string  // tool names by call id
+	models    parser.Tracker     // per chat, so the key needs no session id
+	tally     *parser.EntryTally // of the whole history, reported at the history's line
 }
 
 // row emits a row of the chat with its text compacted.
@@ -88,16 +87,17 @@ func (c *chatRows) row(turnType, text, model, toolName, toolUseID string) {
 
 // chat emits a heading row, its account key (<endpoint>-<username>)
 // through parser.URLText, then the rows of each interaction's human and
-// assistant messages; an interactions that is not an array adds a problem.
+// assistant messages; an interactions that is not an array is counted in
+// the tally.
 func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parser.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
-	interactions := parser.ListOfKind(chat.Get("interactions"), "interactions", jsonvalue.Object, c.line, c.problems)
+	interactions := c.tally.ListOfKind(chat.Get("interactions"), "interactions", jsonvalue.Object)
 	c.row(timeline.TurnSystem, "chat: "+parser.Text(chat.Get("chatTitle"))+" | account="+parser.URLText(c.artifact, account)+
 		" | interactions="+strconv.Itoa(len(interactions)), "", "", "")
 	for _, interaction := range interactions {
 		for _, key := range []string{"humanMessage", "assistantMessage"} {
 			message := interaction.Get(key)
-			parser.ObjectMember(message, key, c.line, c.problems)
+			c.tally.ObjectMember(message, key)
 			if message.IsObject() {
 				c.message(message)
 			}
@@ -107,7 +107,7 @@ func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 
 // message emits the rows of one message: a model change, its text, its
 // tool calls and results, its process steps and its error; a content or
-// processes that is not an array adds a problem.
+// processes that is not an array is counted in the tally.
 func (c *chatRows) message(message jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
@@ -117,7 +117,7 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	if change := c.models.Change("model", "model", model); change != "" {
 		c.row(timeline.TurnSystem, change, model, "", "")
 	}
-	parts := parser.ListOfKind(message.Get("content"), "content", jsonvalue.Object, c.line, c.problems)
+	parts := c.tally.ListOfKind(message.Get("content"), "content", jsonvalue.Object)
 	text := messageText(message, parts)
 	switch {
 	case parser.IsText(speaker, "human"):
@@ -214,7 +214,7 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 // per confirmation step and a tool row per tool step that no content part
 // already called.
 func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool, model string) {
-	for _, process := range parser.EntriesOfKind(processes, "processes", jsonvalue.Object, c.line, c.problems) {
+	for _, process := range c.tally.EntriesOfKind(processes, "processes", jsonvalue.Object) {
 		kind := process.Get("type")
 		toolID := parser.Text(process.Get("id"))
 		if parser.IsText(kind, "confirmation") {

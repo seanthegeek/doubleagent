@@ -184,3 +184,30 @@ func TestPolicyRulesThatAreNotTablesAreReportedOncePerArray(t *testing.T) {
 		})
 	}
 }
+
+func TestAMemberOfTheWrongKindInManyMessagesOfOneLineIsOneProblem(t *testing.T) {
+	const jsonl = ".gemini/tmp/proj/chats/session-1.jsonl"
+	const header = `{"sessionId": "s", "projectHash": "h", "startTime": "2026-01-01T00:00:00Z"}` + "\n"
+	message := func(messageID, member string) string {
+		return `{"id": "` + messageID + `", "type": "gemini", "content": "hi", "` + member + `": 7}`
+	}
+	tests := []struct {
+		name, rel, document, want string
+	}{
+		{"the messages of a legacy file", ".gemini/tmp/proj/chats/session-1.json",
+			`{"sessionId": "s", "messages": [` + message("a", "toolCalls") + `, ` + message("b", "toolCalls") +
+				`, ` + message("c", "toolCalls") + `]}`, "1 parser: toolCalls is not a JSON array in 3 entries"},
+		{"the messages of one $set record", jsonl, header + `{"$set": {"messages": [` + message("a", "thoughts") +
+			`, ` + message("b", "thoughts") + `]}}`, "2 parser: thoughts is not a JSON array in 2 entries"},
+		{"the updates of one $patch record", jsonl, header + `{"id": "m1", "type": "gemini", "content": "hi"}` +
+			"\n" + `{"$patch": {"updates": [{"id": "m1", "toolCalls": 7}, {"id": "m2", "toolCalls": "x"}]}}`,
+			"3 parser: $patch.updates[].toolCalls is not a JSON array in 2 entries"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRows(t, test.rel, test.document); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("problem rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}

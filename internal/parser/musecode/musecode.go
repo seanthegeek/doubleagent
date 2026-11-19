@@ -661,25 +661,26 @@ func (w *walk) hasModel() bool {
 }
 
 // userIntent emits the prompt of an accepted user intent that no run
-// started. A model_messages or a message's content that is not an array
-// adds a problem.
+// started. A model_messages that is not an array adds a problem, and so
+// does a message's content of the wrong kind, once however many messages
+// hold it so.
 func (w *walk) userIntent(step *recordStep) {
 	intent := parser.Text(step.payload.Get("intent_id"))
 	if intent == "" || w.startedRuns[intent] {
 		return
 	}
 	var parts []string
+	var tally parser.EntryTally
 	messages := parser.EntriesOfKind(step.payload.Get("model_messages"), "model_messages", jsonvalue.Object,
 		step.line, w.problems)
 	for _, message := range messages {
-		blocks := parser.EntriesOfKind(message.Get("content"), "model_messages.content", jsonvalue.Object,
-			step.line, w.problems)
-		for _, block := range blocks {
+		for _, block := range tally.EntriesOfKind(message.Get("content"), "model_messages.content", jsonvalue.Object) {
 			if body := block.Get("text"); body.IsString() {
 				parts = append(parts, body.StringValue())
 			}
 		}
 	}
+	tally.Report(step.line, w.problems)
 	if len(parts) == 0 {
 		return
 	}

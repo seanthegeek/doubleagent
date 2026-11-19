@@ -2,6 +2,8 @@ package musecode
 
 import (
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -132,6 +134,32 @@ func TestEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := countOf(parseFile(t, test.rel, test.text), test.want); got != 1 {
 				t.Errorf("%q given %d times, want once", test.want, got)
+			}
+		})
+	}
+}
+
+func TestAMessageContentOfTheWrongKindInManyMessagesIsOneProblem(t *testing.T) {
+	tests := []struct {
+		name, messages, want string
+	}{
+		{"contents that are not arrays", `[{"content": 7}, {"content": "x"}, {"content": {}}]`,
+			"parser: model_messages.content is not a JSON array in 3 entries"},
+		{"contents holding entries that are not objects", `[{"content": [7]}, {"content": ["x", 8]}]`,
+			"parser: model_messages.content holds 3 entries that are not JSON objects"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := parseFile(t, sessionRel, sessionLog("runtime.user_intent.accepted",
+				`{"model_messages": `+test.messages+`, "intent_id": "i"}`))
+			var problems []string
+			for _, row := range rows {
+				if strings.HasPrefix(row, "parser: ") {
+					problems = append(problems, row)
+				}
+			}
+			if !slices.Equal(problems, []string{test.want}) {
+				t.Errorf("problems %q, want %q", problems, test.want)
 			}
 		})
 	}

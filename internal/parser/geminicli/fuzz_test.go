@@ -32,7 +32,7 @@ func FuzzSessionReplay(fuzz *testing.F) {
 		for _, messageID := range order {
 			entry := state.messages.byID[messageID]
 			turn := messageTurn{owner: New(), artifact: &input.Artifact{Home: &input.Home{}},
-				options: parser.Options{IncludeThinking: thinking}, line: entry.line}
+				options: parser.Options{IncludeThinking: thinking}, line: entry.line, tally: &parser.EntryTally{}}
 			if len(turn.rows(entry.message, models, answered)) == 0 {
 				t.Errorf("message %q gave no row", messageID)
 			}

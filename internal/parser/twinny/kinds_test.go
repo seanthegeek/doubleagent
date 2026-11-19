@@ -80,6 +80,9 @@ func TestAGlobalStateMemberOfTheWrongKindIsReported(t *testing.T) {
 		{"changes.files as a string", conversation + `"changes": {"files": "a"}}]}}}`,
 			[]string{"parser: changes.files is not a JSON array"}},
 		{"members null or empty", conversation + `"toolSteps": null, "changes": {"files": []}}]}}}`, nil},
+		{"toolSteps and changes of the wrong kind in three messages", `{"twinny.conversations": {"c": {"id": "c", ` +
+			`"messages": [{"toolSteps": 1, "changes": []}, {"toolSteps": "x", "changes": 2}, {"toolSteps": {}}]}}}`,
+			[]string{"parser: toolSteps is not a JSON array in 3 entries", "parser: changes is not a JSON object in 2 entries"}},
 		{"team policy as a list", `{"twinny.teamPolicy": [1]}`,
 			[]string{"parser: twinny.teamPolicy is not a JSON object"}},
 		{"team policy null", `{"twinny.teamPolicy": null}`, nil},

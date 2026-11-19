@@ -113,3 +113,46 @@ func TestConversationEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T
 		})
 	}
 }
+
+// repeatedEntries returns a history of n copies of entry, joined as a JSON
+// array.
+func repeatedEntries(entry string, n int) string {
+	return "[" + strings.TrimSuffix(strings.Repeat(entry+",", n), ",") + "]"
+}
+
+func TestAMemberOfTheWrongKindInManyEntriesIsOneProblem(t *testing.T) {
+	const prompt = `"user": {"content": {"Prompt": {"prompt": "hi"}}}`
+	tests := []struct {
+		name, entry, want string
+	}{
+		{"request_metadata", `{` + prompt + `, "request_metadata": 7}`,
+			"request_metadata is not a JSON object in 300 entries"},
+		{"user", `{"user": 7}`, "user is not a JSON object in 300 entries"},
+		{"assistant", `{` + prompt + `, "assistant": 7}`, "assistant is not a JSON object in 300 entries"},
+		{"an assistant variant's body", `{` + prompt + `, "assistant": {"Response": 7}}`,
+			"assistant.Response is not a JSON object in 300 entries"},
+		{"message_meta_tags", `{` + prompt + `, "request_metadata": {"message_meta_tags": 7}}`,
+			"request_metadata.message_meta_tags is not a JSON array in 300 entries"},
+		{"tool_uses entries", `{` + prompt + `, "assistant": {"Response": {"content": "x", "tool_uses": [7]}}}`,
+			"tool_uses holds 300 entries that are not JSON objects"},
+		{"tool_use_results entries", `{"user": {"content": {"ToolUseResults": {"tool_use_results": [7]}}}}`,
+			"tool_use_results holds 300 entries that are not JSON objects"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := conversationProblems(`{"history": ` + repeatedEntries(test.entry, 300) + `}`)
+			if want := []string{"parser: " + test.want}; !slices.Equal(got, want) {
+				t.Errorf("problems %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestAHistorySnapshotOfTheWrongKindInManyCheckpointsIsOneProblem(t *testing.T) {
+	checkpoints := repeatedEntries(`{"tag": "1", "history_snapshot": 7}`, 300)
+	got := conversationProblems(`{"history": [], "checkpoint_manager": {"checkpoints": ` + checkpoints + `}}`)
+	want := []string{"parser: checkpoint_manager.checkpoints[].history_snapshot is not a JSON array in 300 entries"}
+	if !slices.Equal(got, want) {
+		t.Errorf("problems %q, want %q", got, want)
+	}
+}

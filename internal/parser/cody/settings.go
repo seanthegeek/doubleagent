@@ -111,17 +111,19 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
 // file's modification time, the endpoint through parser.URLText.
-// Preferences, an endpoint, or a selected or
-// defaults that is not an object, and endpoints or models of another kind
-// add a problem to problems, at line.
+// Preferences that are not an object, and endpoints of another kind, add a
+// problem to problems, at line; a selected or defaults that is not an
+// object, or that holds models of another kind, adds one however many
+// endpoints hold it so.
 func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
 	emit parser.Emit, problems *parser.Problems) {
 	timestamp := parser.FileMtime(artifact)
+	var tally parser.EntryTally
+	defer tally.Report(line, problems)
 	for key, value := range parser.MembersOfKind(preferences, preferencesKey, jsonvalue.Object, line, problems) {
 		endpoint := jsonvalue.Member{Key: key, Value: value}
 		for _, kind := range []string{"selected", "defaults"} {
-			for name, model := range parser.MembersOfKind(endpoint.Value.Get(kind), kind, jsonvalue.String, line,
-				problems) {
+			for name, model := range tally.MembersOfKind(endpoint.Value.Get(kind), kind, jsonvalue.String) {
 				usage := jsonvalue.Member{Key: name, Value: model}
 				if model.StringValue() == "" {
 					continue

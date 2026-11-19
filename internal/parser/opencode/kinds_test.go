@@ -98,6 +98,15 @@ func TestAToolStateContentThatIsNotAnArrayIsReported(t *testing.T) {
 	})
 }
 
+func TestAToolStateContentOfTheWrongKindInManyToolItemsIsOneProblem(t *testing.T) {
+	item := `{"type": "tool", "id": "c", "name": "bash", "state": {"status": "completed", "content": 7}}`
+	data := `{"content": [` + item + `, ` + item + `, ` + item + `]}`
+	want := []string{"parser: state.content is not a JSON array in 3 entries"}
+	if got := assistantProblems(t, data); !slices.Equal(got, want) {
+		t.Errorf("rows %q, want %q", got, want)
+	}
+}
+
 func TestAPinnedListThatIsNotAnArrayIsReported(t *testing.T) {
 	const rel = ".local/state/opencode/session.json"
 	const wrong = "parser: pinned is not a JSON array"

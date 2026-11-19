@@ -102,7 +102,6 @@ func TestAHistoryMemberThatIsNotTheRightKindIsReported(t *testing.T) {
 		name, member, history string
 		array                 bool
 	}{
-		{"an account", "chat history account", `{"a": %s}`, false},
 		{"chat", "chat", `{"a": {"chat": %s}}`, false},
 		{"interactions", "interactions", `{"a": {"chat": {"c": {"id": "c", "interactions": %s}}}}`, true},
 		{"content", "content",
@@ -187,6 +186,8 @@ func TestHistoryEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 		name, history, want string
 	}{
 		{"chats", `{"a": {"chat": {"c": {"id": "c"}, "d": "x"}}}`, "parser: chat holds 1 entry that is not a JSON object"},
+		{"accounts", `{"a": {"chat": {}}, "b": "x", "c": null}`,
+			"parser: chat history holds 2 entries that are not JSON objects"},
 		{"interactions", `{"a": {"chat": {"c": {"id": "c", "interactions": [{}, "x", 7]}}}}`,
 			"parser: interactions holds 2 entries that are not JSON objects"},
 		{"content", `{"a": {"chat": {"c": {"id": "c", "interactions": [{"assistantMessage": {` + message +
@@ -222,5 +223,60 @@ func TestModelPreferenceEntriesOfTheWrongKindAreReported(t *testing.T) {
 				t.Errorf("problems %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+// repeatedMembers returns a JSON object of n members, named m0 onward,
+// each holding value.
+func repeatedMembers(value string, n int) string {
+	members := make([]string, n)
+	for i := range members {
+		members[i] = fmt.Sprintf(`"m%d": %s`, i, value)
+	}
+	return "{" + strings.Join(members, ", ") + "}"
+}
+
+// repeatedItems returns a JSON array of n copies of value.
+func repeatedItems(value string, n int) string {
+	return "[" + strings.TrimSuffix(strings.Repeat(value+", ", n), ", ") + "]"
+}
+
+func TestAMemberOfTheWrongKindInManyEntriesOfAHistoryIsOneProblem(t *testing.T) {
+	const jetBrains = "Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2"
+	const message = `"speaker": "assistant", "text": "ok"`
+	tests := []struct {
+		name, history, want string
+	}{
+		{"accounts that are not objects", repeatedMembers(`7`, 4),
+			"chat history holds 4 entries that are not JSON objects"},
+		{"a chat of every account", repeatedMembers(`{"chat": 7}`, 4), "chat is not a JSON object in 4 entries"},
+		{"interactions of every chat", `{"a": {"chat": ` + repeatedMembers(`{"interactions": 7}`, 4) + `}}`,
+			"interactions is not a JSON array in 4 entries"},
+		{"a message of every interaction", `{"a": {"chat": {"c": {"interactions": ` +
+			repeatedItems(`{"humanMessage": 7}`, 4) + `}}}}`, "humanMessage is not a JSON object in 4 entries"},
+		{"content of every message", `{"a": {"chat": {"c": {"interactions": ` +
+			repeatedItems(`{"assistantMessage": {`+message+`, "content": [7]}}`, 4) + `}}}}`,
+			"content holds 4 entries that are not JSON objects"},
+		{"processes of every message", `{"a": {"chat": {"c": {"interactions": ` +
+			repeatedItems(`{"assistantMessage": {`+message+`, "processes": 7}}`, 4) + `}}}}`,
+			"processes is not a JSON array in 4 entries"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := parserRows(parseFile(t, jetBrains, []byte(test.history)))
+			if want := []string{"parser: " + test.want}; !slices.Equal(got, want) {
+				t.Errorf("problems %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestAModelListOfTheWrongKindInManyEndpointsIsOneProblem(t *testing.T) {
+	const rel = "Cody-nodejs/JetBrains-globalState/cody-model-preferences"
+	data := repeatedMembers(`{"selected": 7, "defaults": {"chat": 7}}`, 4)
+	want := []string{"parser: selected is not a JSON object in 4 entries",
+		"parser: defaults holds 4 entries that are not JSON strings"}
+	if got := parserRows(parseFile(t, rel, []byte(data))); !slices.Equal(got, want) {
+		t.Errorf("problems %q, want %q", got, want)
 	}
 }
