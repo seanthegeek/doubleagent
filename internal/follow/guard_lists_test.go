@@ -333,7 +333,7 @@ func allowedCalls() map[string]allowance {
 			"removes the probe file it made, and a directory the run itself created when the " +
 				"run fails"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
-			"creates the output directory the analyst names with -o"},
+			"creates the output directory the analyst names as OUTPUT_DIR"},
 		{"internal/analyze/outside_unix.go", "filepath.EvalSymlinks", 1,
 			"resolves a link on the output path the analyst typed for timeline or fleet, to tell " +
 				"whether it lies inside an input directory: what it gives is only lstat'ed and " +
