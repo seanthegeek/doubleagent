@@ -2,13 +2,14 @@ package dedup
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// timeCases are the tests of the time rule and of one-to-one
-// matching against the primary store.
-func timeCases() []deduplicateCase {
+// nearestLineCases are the tests that a line takes the primary row
+// nearest to it, and a primary row the nearest line.
+func nearestLineCases() []deduplicateCase {
 	var cut, history []timeline.Row
 	for _, second := range []int{10, 20, 30} {
 		cut = append(cut, primaryRow(fmt.Sprintf("2026-10-01T10:00:%02d.500Z", second),
@@ -20,10 +21,6 @@ func timeCases() []deduplicateCase {
 	}
 	first := historyRow("2026-10-01T10:00:01.500Z", set("line", 1))
 	second := historyRow("2026-10-01T10:00:03.500Z", set("line", 2))
-	late := primaryRow("2026-10-01T11:00:00.000Z", set("line", 9))
-	early := primaryRow("2026-10-01T09:00:00.000Z", set("line", 4))
-	dated := historyRow("2026-10-01T11:00:01.000Z", set("line", 2))
-	undated := historyRow("", set("line", 1))
 	return []deduplicateCase{
 		{name: "each primary row takes the history line nearest to it",
 			primary: cut, secondary: withTolerance(ToleranceSeconds, history...),
@@ -31,6 +28,13 @@ func timeCases() []deduplicateCase {
 		{name: "a line takes the nearest primary row, leaving the next line unmatched",
 			primary:   rows(primaryRow(baseTime), primaryRow("2026-10-01T10:00:01.800Z")),
 			secondary: withTolerance(ToleranceSeconds, second, first), want: rows(second)},
+	}
+}
+
+// windowEdgeCases are the tests of a line at and just past the edge of
+// the default time window.
+func windowEdgeCases() []deduplicateCase {
+	return []deduplicateCase{
 		{name: "a line two seconds after its primary row matches",
 			primary:   rows(primaryRow(baseTime)),
 			secondary: withTolerance(ToleranceSeconds, historyRow("2026-10-01T10:00:02.000Z"))},
@@ -45,6 +49,17 @@ func timeCases() []deduplicateCase {
 			primary:   rows(primaryRow(baseTime)),
 			secondary: withTolerance(ToleranceSeconds, historyRow("2026-10-01T09:59:57.999Z")),
 			want:      rows(historyRow("2026-10-01T09:59:57.999Z"))},
+	}
+}
+
+// undatedLineCases are the tests of lines and primary rows with no
+// timestamp, and of the pairing of an undated line one to one.
+func undatedLineCases() []deduplicateCase {
+	late := primaryRow("2026-10-01T11:00:00.000Z", set("line", 9))
+	early := primaryRow("2026-10-01T09:00:00.000Z", set("line", 4))
+	dated := historyRow("2026-10-01T11:00:01.000Z", set("line", 2))
+	undated := historyRow("", set("line", 1))
+	return []deduplicateCase{
 		{name: "a timestamped line never matches an undated primary row",
 			primary: rows(primaryRow("")), secondary: withTolerance(ToleranceSeconds, historyRow(baseTime)),
 			want: rows(historyRow(baseTime))},
@@ -68,6 +83,13 @@ func timeCases() []deduplicateCase {
 				historyRow("", set("line", 1)), historyRow("2026-10-01T10:00:01.000Z",
 					set("line", 2))),
 			want: rows(historyRow("", set("line", 1)))},
+	}
+}
+
+// toleranceCases are the tests of a tolerance other than the default,
+// and of each line keeping its own.
+func toleranceCases() []deduplicateCase {
+	return []deduplicateCase{
 		{name: "a ten-minute tolerance matches a line five minutes away",
 			primary:   rows(primaryRow(baseTime)),
 			secondary: withTolerance(600, historyRow("2026-10-01T10:05:00.000Z"))},
@@ -85,19 +107,14 @@ func timeCases() []deduplicateCase {
 	}
 }
 
-// copyCases are the tests of copies among secondary rows, of tool
-// rows paired on their id and of parser: rows.
-func copyCases() []deduplicateCase {
+// copiesAmongSecondaryCases are the tests of copies among secondary rows
+// that no primary row stands beside.
+func copiesAmongSecondaryCases() []deduplicateCase {
 	copyA := historyRow("", set("file", backupA))
 	copyB := historyRow("", set("file", backupB))
 	stampA := historyRow(baseTime, set("file", backupA))
 	far := historyRow("2026-10-01T10:00:02.001Z", set("file", backupB))
-	loose := historyRow("", set("session", ""), set("project", ""), set("file", backupA))
-	parser := "parser: unreadable (Permission denied)"
-	parserRow := historyRow("", set("turn", "system"), set("text", parser))
-	parserBackup := historyRow("", set("turn", "system"), set("text", parser),
-		set("file", backupA))
-	cases := []deduplicateCase{
+	return []deduplicateCase{
 		{name: "two undated backups of one history keep the first",
 			secondary: withTolerance(ToleranceSeconds, copyA, copyB), want: rows(copyA),
 			dropped: map[string]int{"claude-code": 1}},
@@ -112,6 +129,21 @@ func copyCases() []deduplicateCase {
 			secondary: withTolerance(ToleranceSeconds, historyRow("2026-10-01T10:00:01.000Z",
 				set("file", backupA)), historyRow(baseTime, set("file", backupB))),
 			want: rows(historyRow(baseTime, set("file", backupB)))},
+	}
+}
+
+// copiesOfPrimaryAndParserCases are the tests of copies of a primary event,
+// of a copy that takes a primary row, and of parser: rows.
+func copiesOfPrimaryAndParserCases() []deduplicateCase {
+	copyA := historyRow("", set("file", backupA))
+	copyB := historyRow("", set("file", backupB))
+	stampA := historyRow(baseTime, set("file", backupA))
+	loose := historyRow("", set("session", ""), set("project", ""), set("file", backupA))
+	parser := "parser: unreadable (Permission denied)"
+	parserRow := historyRow("", set("turn", "system"), set("text", parser))
+	parserBackup := historyRow("", set("turn", "system"), set("text", parser),
+		set("file", backupA))
+	return []deduplicateCase{
 		{name: "three copies of a primary event collapse onto it and each other",
 			primary: rows(primaryRow(baseTime)), secondary: withTolerance(ToleranceSeconds, stampA,
 				historyRow("2026-10-01T10:00:00.500Z", set("file", backupB)),
@@ -143,8 +175,13 @@ func copyCases() []deduplicateCase {
 			secondary: withTolerance(ToleranceSeconds, parserRow, parserBackup, historyRow(baseTime)),
 			want:      rows(parserRow, parserBackup), dropped: map[string]int{"claude-code": 1}},
 	}
-	cases = append(cases, broaderCases()...)
-	cases = append(cases, repeatCases()...)
+}
+
+// copyCases are the tests of copies among secondary rows, of tool
+// rows paired on their id and of parser: rows.
+func copyCases() []deduplicateCase {
+	cases := slices.Concat(copiesAmongSecondaryCases(), copiesOfPrimaryAndParserCases(),
+		broaderCases(), repeatCases())
 	for _, turnType := range []string{timeline.TurnToolUse, timeline.TurnToolResult} {
 		cases = append(cases, toolCases(turnType)...)
 	}

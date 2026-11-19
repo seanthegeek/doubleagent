@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -100,52 +101,9 @@ type deduplicateCase struct {
 // rows is shorthand for a slice of rows.
 func rows(list ...timeline.Row) []timeline.Row { return list }
 
-func TestDeduplicate(t *testing.T) {
-	for _, test := range append(append(scopeCases(), timeCases()...), copyCases()...) {
-		t.Run(test.name, func(t *testing.T) {
-			check(t, test)
-		})
-	}
-}
-
-// check runs one case and compares the rows kept and the counts.
-func check(t *testing.T, test deduplicateCase) {
-	t.Helper()
-	primaryCopy := append([]timeline.Row(nil), test.primary...)
-	secondaryCopy := append([]Secondary(nil), test.secondary...)
-	kept, dropped := Deduplicate(test.primary, test.secondary, nil)
-	want := test.kept
-	if want == nil {
-		want = append([]timeline.Row{}, test.primary...)
-		for _, row := range test.want {
-			want = append(want, recovered(row))
-		}
-	}
-	if !reflect.DeepEqual(kept, want) {
-		t.Errorf("kept:\n%s\nwant:\n%s", describe(kept), describe(want))
-	}
-	if test.dropped != nil && !maps.Equal(dropped, test.dropped) {
-		t.Errorf("dropped %v, want %v", dropped, test.dropped)
-	}
-	if !reflect.DeepEqual(primaryCopy, test.primary) ||
-		!reflect.DeepEqual(secondaryCopy, test.secondary) {
-		t.Error("Deduplicate changed its arguments")
-	}
-}
-
-// describe lists rows one per line for a failure message.
-func describe(list []timeline.Row) string {
-	text := ""
-	for _, row := range list {
-		text += fmt.Sprintf("  %s %s %q %s:%d %q\n", row.TimestampUTC, row.TurnType, row.Text,
-			row.SourceFile, row.SourceLine, row.Recovered)
-	}
-	return text
-}
-
-// scopeCases are the tests of identity and scope.
-func scopeCases() []deduplicateCase {
-	history := historyRow(baseTime)
+// sessionAndProjectScopeCases are the tests of how a row's session and project
+// decide whether it matches a primary row.
+func sessionAndProjectScopeCases() []deduplicateCase {
 	return []deduplicateCase{
 		{name: "a history row with the transcript's session matches it",
 			primary:   rows(primaryRow(baseTime)),
@@ -193,6 +151,13 @@ func scopeCases() []deduplicateCase {
 			secondary: withTolerance(ToleranceSeconds, historyRow("", set("session", ""), set("project", ""),
 				set("user", "bob"))),
 			want: rows(historyRow("", set("session", ""), set("project", ""), set("user", "bob")))},
+	}
+}
+
+// differingFieldCases are the tests that a row differing in text, turn type,
+// user, host or agent never matches.
+func differingFieldCases() []deduplicateCase {
+	return []deduplicateCase{
 		{name: "an undated row with other text is kept",
 			primary:   rows(primaryRow(baseTime)),
 			secondary: withTolerance(ToleranceSeconds, historyRow("", set("text", "delete the logs!"))),
@@ -213,6 +178,14 @@ func scopeCases() []deduplicateCase {
 		{name: "a different agent never matches", primary: rows(primaryRow(baseTime)),
 			secondary: withTolerance(ToleranceSeconds, historyRow(baseTime, set("agent", "codex-cli"))),
 			want:      rows(historyRow(baseTime, set("agent", "codex-cli")))},
+	}
+}
+
+// countAndOrderCases are the tests of the counts of dropped rows and of the
+// order of the rows kept.
+func countAndOrderCases() []deduplicateCase {
+	history := historyRow(baseTime)
+	return []deduplicateCase{
 		{name: "two identical primary rows both stay",
 			primary:   rows(primaryRow(baseTime, set("line", 2)), primaryRow(baseTime, set("line", 9))),
 			secondary: withTolerance(ToleranceSeconds, history),
@@ -237,4 +210,49 @@ func scopeCases() []deduplicateCase {
 			want: rows(historyRow("2026-10-01T11:00:00.000Z", set("text", "late")),
 				historyRow("2026-10-01T09:00:00.000Z", set("text", "early")))},
 	}
+}
+
+func TestDeduplicate(t *testing.T) {
+	cases := slices.Concat(sessionAndProjectScopeCases(), differingFieldCases(), countAndOrderCases(),
+		nearestLineCases(), windowEdgeCases(), undatedLineCases(), toleranceCases(), copyCases())
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			check(t, test)
+		})
+	}
+}
+
+// check runs one case and compares the rows kept and the counts.
+func check(t *testing.T, test deduplicateCase) {
+	t.Helper()
+	primaryCopy := append([]timeline.Row(nil), test.primary...)
+	secondaryCopy := append([]Secondary(nil), test.secondary...)
+	kept, dropped := Deduplicate(test.primary, test.secondary, nil)
+	want := test.kept
+	if want == nil {
+		want = append([]timeline.Row{}, test.primary...)
+		for _, row := range test.want {
+			want = append(want, recovered(row))
+		}
+	}
+	if !reflect.DeepEqual(kept, want) {
+		t.Errorf("kept:\n%s\nwant:\n%s", describe(kept), describe(want))
+	}
+	if test.dropped != nil && !maps.Equal(dropped, test.dropped) {
+		t.Errorf("dropped %v, want %v", dropped, test.dropped)
+	}
+	if !reflect.DeepEqual(primaryCopy, test.primary) ||
+		!reflect.DeepEqual(secondaryCopy, test.secondary) {
+		t.Error("Deduplicate changed its arguments")
+	}
+}
+
+// describe lists rows one per line for a failure message.
+func describe(list []timeline.Row) string {
+	text := ""
+	for _, row := range list {
+		text += fmt.Sprintf("  %s %s %q %s:%d %q\n", row.TimestampUTC, row.TurnType, row.Text,
+			row.SourceFile, row.SourceLine, row.Recovered)
+	}
+	return text
 }
