@@ -1,0 +1,134 @@
+package analyze
+
+import (
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
+)
+
+// runOutputs is what one run of detect, detect --json and timeline over a
+// collection printed and wrote, by output.
+type runOutputs struct {
+	detect, detectJSON, summary, rows, sessions, inventory string
+}
+
+// all returns every output joined.
+func (o runOutputs) all() string {
+	return strings.Join([]string{o.detect, o.detectJSON, o.summary, o.rows, o.sessions, o.inventory}, "\n")
+}
+
+// outputsOf writes files as a collection and runs detect, detect --json and
+// timeline over it with options, returning what each printed or wrote.
+func outputsOf(t *testing.T, files []collectedFile, options ...string) runOutputs {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1")),
+		member("projects", stringArray([]string{"/srv/proj"}))}, files)
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	var printed []string
+	for _, args := range [][]string{{"detect"}, {"detect", "--json"}, {"timeline"}} {
+		line := append(append(args, options...), collection)
+		if args[0] == "timeline" {
+			line = append(line, output)
+		}
+		code, stdout, stderr := runCommand(env, line...)
+		if code > ExitNothing || stderr != "" {
+			t.Fatalf("%q exited %d: %s", line, code, stderr)
+		}
+		printed = append(printed, strings.ReplaceAll(stdout, work, "{WORK}"))
+	}
+	read := func(name string) string {
+		data, err := osfile.ReadFile(filepath.Join(output, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	return runOutputs{printed[0], printed[1], printed[2], read(TimelineFile), read(SessionsFile), read(InventoryFile)}
+}
+
+// countLines are the lines of the summary that count rows, sessions and
+// dropped duplicates.
+var countLines = regexp.MustCompile(`(?m)^(?:dropped|rows|sessions): .*$|^ {11}\S+ +\S+ +[0-9]+$`)
+
+// withheldLeakFixtures returns collections in which a secret is identified at
+// one place of a parse's rows and the same value stands elsewhere in them,
+// each with that secret.
+func withheldLeakFixtures(t *testing.T) []struct {
+	name   string
+	files  []collectedFile
+	secret string
+} {
+	t.Helper()
+	database, err := osfile.ReadFile(filepath.Join("..", "parser", "codex", "testdata", "secrets.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const home = "/home/alice"
+	vscodeWorkspace := ".config/Code/User/workspaceStorage/h/"
+	cody := "Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2"
+	return []struct {
+		name   string
+		files  []collectedFile
+		secret string
+	}{
+		{"a Claude Code bridge record printed whole", []collectedFile{{"alice", home, "claude-code",
+			".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+			`{"type":"system","subtype":"bridge_status","url":"https://claude.example/code?token=FIXTURE-BRIDGE"}` +
+				"\n" + `{"type":"bridge-session","sessionId":"s1","bridgeSessionId":"b1","lastSequenceNum":1}` + "\n"}},
+			"FIXTURE-BRIDGE"},
+		{"a VS Code workspace folder used in four places", []collectedFile{
+			{"alice", home, "vscode", vscodeWorkspace + "workspace.json",
+				`{"folder":"vscode-remote://ci:s3cret@devbox.example/w",` +
+					`"workspace":"vscode-remote://ci:s3cret@devbox.example/w.code-workspace"}`},
+			{"alice", home, "vscode", vscodeWorkspace + "chatSessions/s1.json",
+				`{"version": 3, "sessionId": "s1", "creationDate": 1790845200000, "requests": []}`},
+			{"alice", home, "vscode", vscodeWorkspace + "chatEditingSessions/k/state.json",
+				`{"recentSnapshot": {"entries": [{"resource": "file:///w/a.go"}]}}`}}, "s3cret"},
+		{"a Cody account key inside a session id", []collectedFile{{"alice", home, "cody", cody,
+			`{"https://ci:s3cret@sg.example/-ana": {"chat": {"c1": {"id": "2026-01-01T00:00:00.000Z", ` +
+				`"chatTitle": "t", "interactions": []}}}, "https://sg.example/-bob": {"chat": {"c1": ` +
+				`{"id": "2026-01-01T00:00:00.000Z", "chatTitle": "u", "interactions": []}}}}`}}, "s3cret"},
+		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
+			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
+			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",
+				`{"timestamp": "2026-01-02T03:04:05Z", "type": "session_meta", "payload": {"id": "t1", ` +
+					`"cwd": "/w/proj", "git": {"repository_url": "https://ci:OTHER@github.com/o/r.git"}}}` + "\n"}},
+			"s3cret"},
+	}
+}
+
+func TestAWithheldRunWritesNoIdentifiedSecretAndCountsAsTheDefaultRunDoes(t *testing.T) {
+	for _, fixture := range withheldLeakFixtures(t) {
+		t.Run(fixture.name, func(t *testing.T) {
+			shown := outputsOf(t, fixture.files)
+			withheld := outputsOf(t, fixture.files, "--no-secrets")
+			if !strings.Contains(shown.all(), fixture.secret) {
+				t.Fatalf("the default run does not show %q:\n%s", fixture.secret, shown.all())
+			}
+			if strings.Contains(withheld.all(), fixture.secret) {
+				t.Errorf("the withheld run writes %q:\n%s", fixture.secret, withheld.all())
+			}
+			shownCounts := strings.Join(countLines.FindAllString(shown.summary, -1), "\n")
+			if withheldCounts := strings.Join(countLines.FindAllString(withheld.summary, -1), "\n"); withheldCounts !=
+				shownCounts {
+				t.Errorf("the withheld run counts\n%s\nthe default run\n%s", withheldCounts, shownCounts)
+			}
+			for _, pair := range [][2]string{{shown.rows, withheld.rows}, {shown.sessions, withheld.sessions}} {
+				if strings.Count(pair[0], "\n") != strings.Count(pair[1], "\n") {
+					t.Errorf("the withheld run wrote %d lines where the default run wrote %d",
+						strings.Count(pair[1], "\n"), strings.Count(pair[0], "\n"))
+				}
+			}
+		})
+	}
+}

@@ -160,13 +160,14 @@ func TestSortRowsPutsUndatedRowsLastAndKeepsTies(t *testing.T) {
 func TestColumnsNameTheFieldsInOrder(t *testing.T) {
 	check := func(t *testing.T, value any, columns []string) {
 		kind := reflect.TypeOf(value)
-		if kind.NumField() != len(columns) {
-			t.Fatalf("%s has %d fields for %d columns", kind.Name(), kind.NumField(), len(columns))
-		}
-		for i, column := range columns {
-			if tag := kind.Field(i).Tag.Get("json"); tag != column {
-				t.Errorf("field %d of %s is written as %q, column %s", i, kind.Name(), tag, column)
+		var written []string
+		for i := range kind.NumField() {
+			if tag := kind.Field(i).Tag.Get("json"); tag != "-" {
+				written = append(written, tag)
 			}
+		}
+		if !slices.Equal(written, columns) {
+			t.Errorf("%s is written as %q, the columns are %q", kind.Name(), written, columns)
 		}
 	}
 	t.Run("the row's fields follow the timeline columns", func(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -30,10 +31,12 @@ func TestAThreadsRemoteURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			context := &thread{rowid: 7, artifact: &input.Artifact{Home: &input.Home{Secrets: test.setting}}}
+			context := &thread{rowid: 7, artifact: &input.Artifact{Home: &input.Home{Secrets: secrets.NewRecorder(test.setting)}}}
 			var got []string
-			New().threadState(context, sqlitefile.Row{Rowid: 7}, decoded(t, blob), &problems,
-				func(row timeline.Row) { got = append(got, row.Text) })
+			_ = parsertest.Run(t, context.artifact, func(emit parser.Emit) error {
+				New().threadState(context, sqlitefile.Row{Rowid: 7}, decoded(t, blob), &problems, emit)
+				return nil
+			}, func(row timeline.Row) { got = append(got, row.Text) })
 			if want := timeline.GitRemotePrefix + test.scheme + "github.com/o/r.git"; !slices.Contains(got, want) {
 				t.Errorf("got %q, want a row %q", got, want)
 			}

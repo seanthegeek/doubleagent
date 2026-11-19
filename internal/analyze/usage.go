@@ -16,10 +16,13 @@ const inputOptionsHelp = `  --host HOST          host name to record when the in
   --work-dir DIR       where to extract an archive (default: a temporary
                        directory removed afterwards)
   --keep-extracted     do not delete the extracted archive
-  --no-secrets         replace each secret the output would show with
-                       REDACTED: the credentials in a URL, a token or key
-                       in a settings row, and a reader's error that quotes
-                       a file holding keys
+  --no-secrets         replace each identified secret with REDACTED: the
+                       credentials in a URL that has a scheme, the value of
+                       a URL parameter named as a credential (token, key,
+                       sig and the like), and the tokens, keys and reader
+                       errors the parsers identify; one of 8 bytes or more
+                       is replaced everywhere it appears in the output, a
+                       shorter one in the rows of the file it came from
   --redaction-placeholder TEXT
                        with --no-secrets, replace each secret with TEXT
                        rather than REDACTED; "" leaves nothing in its place

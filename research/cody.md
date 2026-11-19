@@ -556,7 +556,7 @@ and secondary rows below, the editor's `User/settings.json`,
 | Column | Source |
 | --- | --- |
 | timestamp_utc | chat `id` parsed as RFC 1123 date, for every row of the chat |
-| session_id | chat `id` (prefix with the account key if ids collide across accounts; the key is an identifier there and is not changed under `--no-secrets`) |
+| session_id | chat `id` (prefix with the account key if ids collide across accounts; the key's credentials, identified in the `account=` text, are replaced there too under `--no-secrets`, and sessions group the same in both modes) |
 | project_path | empty, or the common parent of `contextFiles[].uri.fsPath` |
 | git_branch | empty |
 | turn_type | `human` → user; `assistant` → assistant; `system` → system; `tool_call` part → tool_use; `tool_result` part → tool_result; `processes[]` with `type:"tool"` → tool_use |

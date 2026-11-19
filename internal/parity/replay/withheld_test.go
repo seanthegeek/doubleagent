@@ -8,7 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The recordings come from an analyzer that always withheld the secrets of
@@ -23,6 +26,24 @@ import (
 // --no-secrets gives.
 func withheldSecrets() secrets.Setting {
 	return secrets.Setting{Withhold: true, Placeholder: secrets.DefaultPlaceholder}
+}
+
+// parseWithheld runs one parse of artifact as a run with --no-secrets does
+// (parser.Collect, the artifact's home holding the run's recorder) and
+// returns its rows as timeline.jsonl writes them, through the function the
+// timeline command writes each row with (timeline.Row.Withheld).
+func parseWithheld(subject parser.Parser, artifact *input.Artifact, options parser.Options) ([]Row, error) {
+	recorder := secrets.NewRecorder(withheldSecrets())
+	if artifact.Home != nil {
+		artifact.Home.Secrets = recorder
+	}
+	var rows []timeline.Row
+	_, err := parser.Collect(subject, artifact, options, func(row timeline.Row) { rows = append(rows, row) })
+	got := make([]Row, len(rows))
+	for i, row := range rows {
+		got[i] = replayRow(row.Withheld(recorder))
+	}
+	return got, err
 }
 
 // withSecretsWithheld returns the arguments after a recorded detect or

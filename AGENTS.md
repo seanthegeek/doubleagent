@@ -611,13 +611,20 @@ for Go files as it does for the others.
   compared by value (`jsonvalue.Equal`). Secrets are evidence too: a token,
   key, password or cookie value, the credentials of a URL and a reader's
   error that quotes a file holding keys are shown as the evidence holds
-  them, since they help establish what an agent reached. Under
-  `timeline --no-secrets` or `detect --no-secrets` each is replaced by one
-  placeholder, `REDACTED` unless `--redaction-placeholder` names another,
-  and the row stays. The parser kit's `SecretText`, `URLText` and
-  `ReaderErrorText` decide, reading the run's setting from the artifact's
-  home; a parser never tests the setting or writes the placeholder itself.
-  An encrypted value (a `secret://` row of an editor's secret storage,
+  them, since they help establish what an agent reached. A parser returns
+  text as written in both modes and identifies each secret through the
+  kit's `SecretText`, `URLText` and `ReaderErrorText`, which record it in
+  the run's recorder as a secret of that parse; a parser never tests the
+  setting, never writes the placeholder and never hides a value by a
+  wording of its own. Every row is therefore the same in both modes, and
+  grouping, joining, deduplicating, sorting and counting see the same
+  values. Replacement happens once, where output is written
+  (`secrets.Recorder.Text`, reached through `timeline.Row.Withheld` and
+  the commands' own writers): under `timeline --no-secrets` or
+  `detect --no-secrets` a recorded secret is replaced by one placeholder,
+  `REDACTED` unless `--redaction-placeholder` names another, in the rows of
+  the parse that identified it, and everywhere in the output when it is 8
+  bytes or longer; the row stays. An encrypted value (a `secret://` row of an editor's secret storage,
   OS-keychain ciphertext) stays unread, since ciphertext establishes
   nothing. Withholding covers only what these functions identify, never
   free text such as a prompt or a tool's output, and no document claims

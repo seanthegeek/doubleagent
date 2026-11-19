@@ -53,6 +53,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/vscode"
 	"github.com/seanthegeek/doubleagent/internal/parser/zed"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -213,11 +214,14 @@ type Secondary = dedup.Secondary
 
 // Result is what Collect gathers: the rows of primary sources and of
 // secondary sources, each in parse order, and the problem lines, the
-// collection's own first.
+// collection's own first. ProblemSecrets holds, for each problem line,
+// what the parse that failed identified (nil for the collection's own),
+// which the output replaces in the line.
 type Result struct {
-	Primary   []timeline.Row
-	Secondary []Secondary
-	Problems  []string
+	Primary        []timeline.Row
+	Secondary      []Secondary
+	Problems       []string
+	ProblemSecrets []*secrets.Found
 }
 
 // Collect parses every artifact of the collection with every parser that is
@@ -230,7 +234,8 @@ type Result struct {
 // with the context's error when it is cancelled, checked per artifact.
 func (r *Registry) Collect(ctx context.Context, collection *input.Collection,
 	options parser.Options, agents []string) (Result, error) {
-	result := Result{Problems: slices.Clone(collection.Problems)}
+	result := Result{Problems: slices.Clone(collection.Problems),
+		ProblemSecrets: make([]*secrets.Found, len(collection.Problems))}
 	for _, artifact := range collection.Artifacts {
 		if err := ctx.Err(); err != nil {
 			return result, err
@@ -247,8 +252,8 @@ func (r *Registry) Collect(ctx context.Context, collection *input.Collection,
 	return result, nil
 }
 
-// collectOne runs one parser over one artifact and adds its rows, or its
-// problem, to result.
+// collectOne runs one parser over one artifact as one parse (parser.Collect)
+// and adds its rows, or its problem, to result.
 func (r *Registry) collectOne(each parser.Parser, artifact *input.Artifact,
 	options parser.Options, result *Result) {
 	secondary := parser.IsSecondary(each, artifact)
@@ -256,7 +261,7 @@ func (r *Registry) collectOne(each parser.Parser, artifact *input.Artifact,
 	if secondary {
 		tolerance = parser.Tolerance(each, artifact)
 	}
-	err := each.Parse(artifact, options, func(row timeline.Row) {
+	found, err := parser.Collect(each, artifact, options, func(row timeline.Row) {
 		row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
 		if secondary {
 			result.Secondary = append(result.Secondary, Secondary{Row: row, Tolerance: tolerance})
@@ -266,5 +271,6 @@ func (r *Registry) collectOne(each parser.Parser, artifact *input.Artifact,
 	})
 	if err != nil {
 		result.Problems = append(result.Problems, artifact.Original+": "+reason.For(err))
+		result.ProblemSecrets = append(result.ProblemSecrets, found)
 	}
 }

@@ -71,7 +71,7 @@ func TestEveryTextWriterShowsControlCharactersVisibly(t *testing.T) {
 				agents: []agentFiles{{fileCounts: fileCounts{agent: value.text, files: 1}}},
 				git:    projectGit{remotes: []gitmeta.Remote{{Name: value.text, URLs: []string{value.text}}}}}}}
 			var detect bytes.Buffer
-			printDetect(&detect, detected, collection, map[string]bool{}, true)
+			printDetect(&detect, output{}, detected, collection, map[string]bool{}, true)
 			wantShownOnly(t, detect.String(), "host:    "+value.want+"\n", "\t")
 			wantShownOnly(t, detect.String(), value.want+"\t"+value.want+"\t"+value.want+"\n", "\t")
 			wantShownOnly(t, detect.String(), "  remotes: "+value.want+" "+value.want+"\n", "\t")
@@ -95,7 +95,7 @@ func TestEveryTextWriterShowsControlCharactersVisibly(t *testing.T) {
 
 func TestATableIsAlignedByRunesOfTheShownText(t *testing.T) {
 	var out bytes.Buffer
-	printHomeTable(&out, []tableRow{{user: "a\x1b", home: "/h", agent: "x"}, {user: "e\u0301", home: "/h",
+	printHomeTable(&out, output{}, []tableRow{{user: "a\x1b", home: "/h", agent: "x"}, {user: "e\u0301", home: "/h",
 		agent: "x"}})
 	lines := strings.Split(out.String(), "\n")
 	first, second := strings.Index(lines[2], "/h"), strings.Index(lines[3], "/h")

@@ -25,6 +25,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
@@ -163,13 +164,13 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 
 // openInput opens the input of detect or timeline, listing a loose tree
 // through env's lister, and gives every home without a user the --user
-// name and every home the run's secrets setting, which the parsers and the
-// repository reader take from it. It returns the work directories the open
+// name and every home the run's secrets recorder, in which the parsers and
+// the repository reader record what they identify. It returns the work directories the open
 // made, deepest first, for the caller to remove once the input is closed
 // (removeCreated keeps one that holds anything). The message returned with
 // a nil collection is the error line's text.
 func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher,
-	env Environment) (*input.Collection, []string, string) {
+	env Environment, recorder *secrets.Recorder) (*input.Collection, []string, string) {
 	var created []string
 	if options.WorkDir != "" {
 		// Cleaned once, so the directories made are the ones removed.
@@ -189,7 +190,7 @@ func openInput(ctx context.Context, options InputOptions, found *catalog.Matcher
 		if home.User == "" {
 			home.User = options.User
 		}
-		home.Secrets = options.Secrets
+		home.Secrets = recorder
 	}
 	return collection, created, ""
 }

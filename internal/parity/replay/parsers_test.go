@@ -278,8 +278,7 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 	if recorded.Options != nil {
 		options.IncludeThinking = recorded.Options.IncludeThinking
 	}
-	var got []Row
-	err := subject.Parse(artifact, options, func(row timeline.Row) { got = append(got, replayRow(row)) })
+	got, err := parseWithheld(subject, artifact, options)
 	want := make([]Row, len(result.Rows))
 	for i, row := range result.Rows {
 		want[i] = r.corpus.expandRow(row, r.work.Root)
@@ -438,7 +437,7 @@ func (c *Corpus) inputArtifact(t *testing.T, recorded Artifact, root string) *in
 		artifact.Home = &input.Home{DiskPath: filepath.FromSlash(c.Expand(home.DiskPath, root)),
 			Original: c.Expand(home.Original, root), User: string(home.User),
 			Host: string(home.Host), Inferred: home.Inferred, Project: home.Project,
-			StagedPaths: map[string]string{}, Secrets: withheldSecrets()}
+			StagedPaths: map[string]string{}}
 		for rel, staged := range home.StagedPaths {
 			artifact.Home.StagedPaths[rel] = filepath.FromSlash(c.Expand(staged, root))
 		}

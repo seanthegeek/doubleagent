@@ -3,7 +3,6 @@ package analyze
 import (
 	"flag"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -181,7 +180,7 @@ func TestDetectAndTimelineShowSecretsUnlessWithheld(t *testing.T) {
 	}
 }
 
-func TestTheSettingReachesEveryHome(t *testing.T) {
+func TestTheRecorderReachesEveryHome(t *testing.T) {
 	work := t.TempDir()
 	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
 		member("projects", stringArray([]string{"/srv/proj"}))}, secretFiles)
@@ -190,8 +189,9 @@ func TestTheSettingReachesEveryHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	setting := secrets.Setting{Withhold: true, Placeholder: "p"}
+	recorder := secrets.NewRecorder(setting)
 	opened, _, message := openInput(t.Context(), InputOptions{Input: collection, Secrets: setting}, found,
-		testEnvironment())
+		testEnvironment(), recorder)
 	if opened == nil {
 		t.Fatal(message)
 	}
@@ -200,8 +200,8 @@ func TestTheSettingReachesEveryHome(t *testing.T) {
 		t.Fatal("no artifacts")
 	}
 	for _, artifact := range opened.Artifacts {
-		if !reflect.DeepEqual(artifact.Home.Secrets, setting) {
-			t.Errorf("%s: home setting %+v", artifact.Original, artifact.Home.Secrets)
+		if artifact.Home.Secrets != recorder {
+			t.Errorf("%s: home recorder %p, want %p", artifact.Original, artifact.Home.Secrets, recorder)
 		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -40,9 +41,9 @@ func TestAPolicyThatDoesNotParseGivesTheReadersDetailUnlessWithheld(t *testing.T
 				t.Fatal(err)
 			}
 			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Agent: "gemini-cli",
-				Home: &input.Home{DiskPath: home, Secrets: test.setting}, Manifest: jsonvalue.NewNull()}
+				Home: &input.Home{DiskPath: home, Secrets: secrets.NewRecorder(test.setting)}, Manifest: jsonvalue.NewNull()}
 			var got []string
-			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -78,9 +79,9 @@ func TestANetworkRequestsURLIsWholeWithItsKeyShownUnlessWithheld(t *testing.T) {
 				t.Fatal(err)
 			}
 			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Agent: "gemini-cli",
-				Home: &input.Home{DiskPath: home, Secrets: test.setting}, Manifest: jsonvalue.NewNull()}
+				Home: &input.Home{DiskPath: home, Secrets: secrets.NewRecorder(test.setting)}, Manifest: jsonvalue.NewNull()}
 			var got []string
-			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
 			if err != nil {
 				t.Fatal(err)
 			}

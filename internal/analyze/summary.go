@@ -8,6 +8,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -111,9 +112,9 @@ func markNames() [4][2]string {
 // printTotals prints the agents, rows, sessions and inventory lines.
 func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
-	fmt.Fprint(w, "agents:    "+shown(agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
+	fmt.Fprint(w, "agents:    "+r.out.shown(agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
 		collectedOnly))+"\n")
-	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), shown(r.outputPath(TimelineFile)))
+	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), r.out.shown(r.outputPath(TimelineFile)))
 	keys := make([][2]string, 0, len(r.counts))
 	for key := range r.counts {
 		keys = append(keys, key)
@@ -125,7 +126,7 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 		return strings.Compare(left[1], right[1])
 	})
 	for _, key := range keys {
-		fmt.Fprintf(w, "           %-14s %-12s %d\n", shown(key[0]), shown(key[1]), r.counts[key])
+		fmt.Fprintf(w, "           %-14s %-12s %d\n", r.out.shown(key[0]), r.out.shown(key[1]), r.counts[key])
 	}
 	var marks []string
 	for i, count := range markCounts(r.sessions) {
@@ -137,34 +138,34 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 	if len(marks) > 0 {
 		marked = " (" + strings.Join(marks, ", ") + ")"
 	}
-	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), shown(r.outputPath(SessionsFile)), marked)
-	fmt.Fprint(w, "inventory: "+shown(r.outputPath(InventoryFile))+
+	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), r.out.shown(r.outputPath(SessionsFile)), marked)
+	fmt.Fprint(w, "inventory: "+r.out.shown(r.outputPath(InventoryFile))+
 		" (homes, projects, scratch directories, counts per agent, problems)\n")
 }
 
 // inventoryJSON is inventory.json, its keys in the documented order.
 type inventoryJSON struct {
-	Version            string                      `json:"doubleagent_version"`
-	Input              string                      `json:"input"`
-	Kind               string                      `json:"kind"`
-	Host               string                      `json:"host"`
-	Notes              []string                    `json:"notes"`
-	Problems           []string                    `json:"problems"`
-	Rows               int                         `json:"rows"`
-	Sessions           int                         `json:"sessions"`
-	Parsed             []string                    `json:"parsed"`
-	DetectedNotParsed  []string                    `json:"detected_not_parsed"`
-	NoRows             []string                    `json:"no_rows"`
-	Homes              []inventoryHomeJSON         `json:"homes"`
-	Projects           map[string]projectValueJSON `json:"projects"`
-	OutsideProjects    projectValueJSON            `json:"outside_projects"`
-	Deduplicated       map[string]int              `json:"deduplicated"`
-	CollectedOnly      []string                    `json:"collected_only"`
-	SyncedSessions     int                         `json:"synced_sessions"`
-	RelayedSessions    int                         `json:"relayed_sessions"`
-	RemoteSessions     int                         `json:"remote_sessions"`
-	RecoveredSessions  int                         `json:"recovered_sessions"`
-	ScratchDirectories map[string]projectValueJSON `json:"scratch_directories"`
+	Version            string              `json:"doubleagent_version"`
+	Input              string              `json:"input"`
+	Kind               string              `json:"kind"`
+	Host               string              `json:"host"`
+	Notes              []string            `json:"notes"`
+	Problems           []string            `json:"problems"`
+	Rows               int                 `json:"rows"`
+	Sessions           int                 `json:"sessions"`
+	Parsed             []string            `json:"parsed"`
+	DetectedNotParsed  []string            `json:"detected_not_parsed"`
+	NoRows             []string            `json:"no_rows"`
+	Homes              []inventoryHomeJSON `json:"homes"`
+	Projects           projectObjects      `json:"projects"`
+	OutsideProjects    projectValueJSON    `json:"outside_projects"`
+	Deduplicated       map[string]int      `json:"deduplicated"`
+	CollectedOnly      []string            `json:"collected_only"`
+	SyncedSessions     int                 `json:"synced_sessions"`
+	RelayedSessions    int                 `json:"relayed_sessions"`
+	RemoteSessions     int                 `json:"remote_sessions"`
+	RecoveredSessions  int                 `json:"recovered_sessions"`
+	ScratchDirectories projectObjects      `json:"scratch_directories"`
 }
 
 // inventoryHomeJSON is one home of inventory.json: a home whose agents carry
@@ -185,9 +186,10 @@ type inventoryAgentJSON struct {
 	RecoveredSessions int `json:"recovered_sessions"`
 }
 
-// inventory returns inventory.json's document. The projects and scratch
-// directories are keyed by display path, which encoding/json writes in
-// sorted order, the order entries gives them.
+// inventory returns inventory.json's document as written: each project
+// object, scratch directories and the rows outside any project included,
+// with the secrets of the parses whose rows and sessions it counts
+// withheld, and every other string with the command's own.
 func (r *timelineRun) inventory(detected detection, agents []agentFiles) inventoryJSON {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
 	files := projectFiles(detected.projects, r.collection.Summary)
@@ -196,15 +198,45 @@ func (r *timelineRun) inventory(detected detection, agents []agentFiles) invento
 	entries := projects.entries(marks, recordedRemotes(r.rows, r.sessions))
 	scratch := r.found.scratchKeys(r.collection, r.rows)
 	counts := markCounts(r.sessions)
-	return inventoryJSON{Version: r.env.Version, Input: detected.input, Kind: detected.kind,
+	document := inventoryJSON{Version: r.env.Version, Input: detected.input, Kind: detected.kind,
 		Host: detected.host, Notes: list(detected.notes), Problems: list(r.problems),
 		Rows: len(r.rows), Sessions: len(r.sessions), Parsed: list(r.parsed),
 		DetectedNotParsed: list(unparsed), NoRows: list(noRows),
-		Homes: r.homesWithMarks(detected.homes), Projects: projectsWhere(entries, scratch, false),
-		OutsideProjects: outsideProjects(entries, marks), Deduplicated: droppedCounts(r.dropped),
+		Homes: r.homesWithMarks(detected.homes), Deduplicated: droppedCounts(r.dropped),
 		CollectedOnly: list(collectedOnly), SyncedSessions: counts[0], RelayedSessions: counts[1],
-		RemoteSessions: counts[2], RecoveredSessions: counts[3],
-		ScratchDirectories: projectsWhere(entries, scratch, true)}
+		RemoteSessions: counts[2], RecoveredSessions: counts[3]}
+	withheld := r.out.document(document).(inventoryJSON)
+	withheld.Problems = r.withheldProblems()
+	outside := outsideProjects(entries, marks)
+	withheld.Projects = r.out.projects(projectsWhere(entries, scratch, false))
+	withheld.ScratchDirectories = r.out.projects(projectsWhere(entries, scratch, true))
+	withheld.OutsideProjects = r.out.document(outside.value, outside.secrets...).(projectValueJSON)
+	return withheld
+}
+
+// withheldProblems returns the problem lines as the output writes them,
+// each with the secrets of the parse that gave it.
+func (r *timelineRun) withheldProblems() []string {
+	problems := make([]string, len(r.problems))
+	for i, problem := range r.problems {
+		var found *secrets.Found
+		if i < len(r.problemSecrets) {
+			found = r.problemSecrets[i]
+		}
+		problems[i] = r.out.text(problem, found)
+	}
+	return problems
+}
+
+// projects returns the project objects as the output writes them: each
+// path and object with the secrets of the parses it counts.
+func (o output) projects(entries projectObjects) projectObjects {
+	withheld := make(projectObjects, len(entries))
+	for i, entry := range entries {
+		withheld[i] = projectEntryJSON{path: o.text(entry.path, entry.secrets...),
+			value: o.document(entry.value, entry.secrets...).(projectValueJSON)}
+	}
+	return withheld
 }
 
 // homesWithMarks returns the homes array of inventory.json: each agent
@@ -238,12 +270,11 @@ func (r *timelineRun) homesWithMarks(homes []homeEntry) []inventoryHomeJSON {
 
 // projectsWhere returns the projects of the project paths that are scratch
 // directories, or of those that are not; the empty path is in neither.
-func projectsWhere(entries []projectEntryJSON, scratch map[string]bool,
-	isScratch bool) map[string]projectValueJSON {
-	projects := map[string]projectValueJSON{}
+func projectsWhere(entries []projectEntryJSON, scratch map[string]bool, isScratch bool) projectObjects {
+	projects := projectObjects{}
 	for _, entry := range entries {
 		if entry.path != "" && scratch[timeline.ProjectKey(entry.path)] == isScratch {
-			projects[entry.path] = entry.value
+			projects = append(projects, entry)
 		}
 	}
 	return projects
@@ -251,13 +282,13 @@ func projectsWhere(entries []projectEntryJSON, scratch map[string]bool,
 
 // outsideProjects returns the entry of the rows and sessions with no
 // project path, or an empty one.
-func outsideProjects(entries []projectEntryJSON, marks []sessionMark) projectValueJSON {
+func outsideProjects(entries []projectEntryJSON, marks []sessionMark) projectEntryJSON {
 	for _, entry := range entries {
 		if entry.path == "" {
-			return entry.value
+			return entry
 		}
 	}
-	return newProjectValue(0, 0, map[string]agentTallyJSON{}, make([]string, len(marks)))
+	return projectEntryJSON{value: newProjectValue(0, 0, map[string]agentTallyJSON{}, make([]string, len(marks)))}
 }
 
 // droppedCounts returns the deduplicated object: per agent with rows

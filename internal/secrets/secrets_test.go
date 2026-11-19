@@ -3,6 +3,8 @@ package secrets
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"unicode"
@@ -18,123 +20,215 @@ func withheld() Setting {
 	return Setting{Withhold: true, Placeholder: DefaultPlaceholder}
 }
 
-func TestURLsReplacesOnlyTheCredentialsOfEachURL(t *testing.T) {
+// identified runs identify as one parse of a run with setting and returns
+// text as the output writes it in a row of that parse, and the secrets the
+// parse recorded.
+func identified(setting Setting, text string, identify func(recorder *Recorder)) (string, []string) {
+	recorder := NewRecorder(setting)
+	found := recorder.Begin()
+	identify(recorder)
+	recorder.End()
+	return recorder.Text(text, found), found.Secrets()
+}
+
+// urlText returns text as a row of the parse that gave it to URLs writes it
+// with setting, and the secrets recorded.
+func urlText(setting Setting, text string) (string, []string) {
+	return identified(setting, text, func(recorder *Recorder) { recorder.URLs(text) })
+}
+
+func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
 	tests := []struct {
 		name, text, want string
 	}{
 		{"a user name and password", "https://user:pass@host.example:8443/api?x=1",
 			"https://REDACTED@host.example:8443/api?x=1"},
-		{"a token as the user name", "https://ghp_TOKEN@github.com/org/repo.git",
+		{"a token as the user name", "https://ghp_FIXTURE@github.com/org/repo.git",
 			"https://REDACTED@github.com/org/repo.git"},
 		{"an installation token and its user", "https://x-access-token:ghs_abc@github.com/o/r.git",
 			"https://REDACTED@github.com/o/r.git"},
-		{"a user name before an IPv6 host", "http://tok@[::1]:8080/x", "http://REDACTED@[::1]:8080/x"},
-		{"a password and an IPv6 host", "http://u:p@[2001:db8::1]/x", "http://REDACTED@[2001:db8::1]/x"},
+		{"a short user name alone is kept", "ssh://git@github.com/o/r.git", "ssh://git@github.com/o/r.git"},
+		{"a seven-byte user name alone is kept", "https://ci-user@h/x", "https://ci-user@h/x"},
+		{"an eight-byte user name alone is withheld", "https://ci-users@h/x", "https://REDACTED@h/x"},
+		{"a user name before an IPv6 host", "http://tok@[::1]:8080/x", "http://tok@[::1]:8080/x"},
+		{"a password and an IPv6 host", "http://u:pw9@[2001:db8::1]/x", "http://REDACTED@[2001:db8::1]/x"},
 		{"an empty password", "https://user:@host/x", "https://REDACTED@host/x"},
-		{"a password holding an at sign", "http://u:p@ss@host/", "http://REDACTED@host/"},
+		{"the last at sign ends the user information", "http://u:p@ss@host/", "http://REDACTED@host/"},
 		{"a password holding a percent-escape", "https://u:p%40s%2Fs@host/x", "https://REDACTED@host/x"},
 		{"a password holding a colon", "https://u:a:b@host/x", "https://REDACTED@host/x"},
-		{"a password holding slashes", "https://AKIA:wJalr/K7MDENG/bPxRf@host/x", "https://REDACTED@host/x"},
-		{"a password holding a question mark", "https://x-access-token:ab?cd@github.com/o/r",
-			"https://REDACTED@github.com/o/r"},
-		{"a password holding a hash", "https://user:p#ss@host/x", "https://REDACTED@host/x"},
-		{"a password holding a slash then two at signs", "https://u:p/x@y@host/@path", "https://REDACTED@host/@path"},
-		{"a password holding a scheme separator", "https://u:ab://c@host/x", "https://REDACTED@host/x"},
+		{"a slash ends the authority, so what follows is a path",
+			"https://AKIA:wJalr/K7MDENG/bPxRf@host/x", "https://AKIA:wJalr/K7MDENG/bPxRf@host/x"},
 		{"a URL net/url refuses", "https://tok:se%ZZcret@host/", "https://REDACTED@host/"},
-		{"a URL with a user name and another scheme", "ssh://git@github.com/o/r.git",
-			"ssh://REDACTED@github.com/o/r.git"},
 		{"an at sign in the path is kept", "https://host.example/users/@alice", "https://host.example/users/@alice"},
 		{"an at sign after a colon in the path is kept", "https://host/a:b/c@d", "https://host/a:b/c@d"},
 		{"an at sign in the query is kept", "https://host.example?mail=a@b", "https://host.example?mail=a@b"},
 		{"an at sign in the fragment is kept", "https://host.example/#a:b@c", "https://host.example/#a:b@c"},
-		{"a port and an at sign in the path are kept", "http://localhost:5173/@vite/client",
-			"http://localhost:5173/@vite/client"},
-		{"a dotted host's port and an at sign in the path are kept", "https://host.example:80/users/@name",
-			"https://host.example:80/users/@name"},
-		{"a single-label host with a port and an at sign in the path is withheld", "http://devbox:8080/@x",
-			"http://REDACTED@x"},
-		{"an IPv6 host with an at sign in its path is kept", "http://[::1]:80/a@b", "http://[::1]:80/a@b"},
-		{"every URL in a text", "from https://a:b@one/x to http://c@two/y",
+		{"every URL in a text", "from https://a:b@one/x to http://c:d@two/y",
 			"from https://REDACTED@one/x to http://REDACTED@two/y"},
 		{"a URL in a command line", "git clone https://oauth2:glpat-xyz@gitlab.com/o/r.git dir",
 			"git clone https://REDACTED@gitlab.com/o/r.git dir"},
-		{"a URL in JSON text", `{"url":"https://u:p@h/x","next":"me@example.com"}`,
+		{"a URL in JSON text", `{"url":"https://u:pw9@h/x","next":"me@example.com"}`,
 			`{"url":"https://REDACTED@h/x","next":"me@example.com"}`},
-		{"a URL inside the query of another", "https://h/a?next=https://u:p@i/",
+		{"a URL written with JSON's escaped slashes", `https:\/\/u:pw9@h\/x`, `https:\/\/REDACTED@h\/x`},
+		{"a URL inside the query of another", "https://h/a?next=https://u:pw9@i/",
 			"https://h/a?next=https://REDACTED@i/"},
-		{"a password without a scheme", "user:secret@proxy.example:3128", "REDACTED@proxy.example:3128"},
-		{"a password without a scheme after an option", "--proxy=user:secret@proxy:3128",
-			"--proxy=REDACTED@proxy:3128"},
-		{"a password without a scheme in brackets", "(user:secret@proxy)", "(REDACTED@proxy)"},
+		{"a separator without a scheme is no URL", "://u:p@h/", "://u:p@h/"},
+		{"credentials without a scheme are kept", "user:secret@proxy.example:3128", "user:secret@proxy.example:3128"},
+		{"credentials without a scheme after a URL are kept", "https://a/x,user:pw@proxy:3128",
+			"https://a/x,user:pw@proxy:3128"},
+		{"a time before an at sign is kept", "meet at 12:30@home", "meet at 12:30@home"},
+		{"a package version is kept", "node:18@latest", "node:18@latest"},
+		{"an image digest is kept", "image:tag@sha256:abc", "image:tag@sha256:abc"},
+		{"a mail header is kept", "From:alice@example.com", "From:alice@example.com"},
+		{"an error naming an address is kept", "Error:foo@bar", "Error:foo@bar"},
 		{"the SCP form of a git remote is kept", "git@github.com:o/r.git", "git@github.com:o/r.git"},
-		{"a mail address is kept", "alice@host", "alice@host"},
-		{"a mailto address is kept", "mailto:alice@host.example", "mailto:alice@host.example"},
 		{"a token in the query", "https://host/share/session?token=abc123", "https://host/share/session?token=REDACTED"},
 		{"an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
 			"https://h/v1?alt=json&key=REDACTED&x=1"},
+		{"parameters split at semicolons", "https://h/?x=1;sig=abc;y=2", "https://h/?x=1;sig=REDACTED;y=2"},
 		{"a parameter name in another case", "https://h/?Access_Token=abc#x", "https://h/?Access_Token=REDACTED#x"},
+		{"a parameter name with a percent-escape", "https://h/?%74oken=abc", "https://h/?%74oken=REDACTED"},
+		{"a signed URL's AWS parameters", "https://b.s3.example/k?X-Amz-Credential=AKIAFIXTURE&X-Amz-Signature=f00d",
+			"https://b.s3.example/k?X-Amz-Credential=REDACTED&X-Amz-Signature=REDACTED"},
+		{"a name folded outside ASCII is kept", "https://h/?\u212aey=abc", "https://h/?\u212aey=abc"},
 		{"a token in the fragment", "https://h/cb#access_token=abc&token_type=bearer",
 			"https://h/cb#access_token=REDACTED&token_type=bearer"},
-		{"credentials and a query token together", "https://u:p@h/x?token=t#f", "https://REDACTED@h/x?token=REDACTED#f"},
+		{"credentials and a query token together", "https://u:pw9@h/x?token=t0k#f", "https://REDACTED@h/x?token=REDACTED#f"},
 		{"a parameter whose name only holds a credential name is kept", "https://h/?tokens=1&monkey=2",
 			"https://h/?tokens=1&monkey=2"},
 		{"an empty credential value is kept", "https://h/?token=&x=1", "https://h/?token=&x=1"},
 		{"a query outside a URL is kept", "a?token=b", "a?token=b"},
 		{"a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
-		{"a host string is unchanged", "api.example.com:443", "api.example.com:443"},
 		{"empty text is unchanged", "", ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := withheld().URLs(test.text); got != test.want {
+			if got, _ := urlText(withheld(), test.text); got != test.want {
 				t.Errorf("withheld: got %q, want %q", got, test.want)
 			}
-			if got := (Setting{}).URLs(test.text); got != test.text {
-				t.Errorf("shown: got %q, want the text as written", got)
+			if got, recorded := urlText(Setting{}, test.text); got != test.text || recorded != nil {
+				t.Errorf("shown: got %q and recorded %q, want the text as written and nothing", got, recorded)
 			}
 		})
 	}
 }
 
-func TestAnotherPlaceholderStandsWhereTheCredentialsWere(t *testing.T) {
+func TestAPasswordIsRecordedWithItsUserAndOnItsOwn(t *testing.T) {
+	_, recorded := urlText(withheld(), "https://ci:s3cret@h/x?token=t0k")
+	if want := []string{"ci:s3cret", "s3cret", "t0k"}; !slices.Equal(recorded, want) {
+		t.Errorf("recorded %q, want %q", recorded, want)
+	}
+}
+
+func TestAnyPlaceholderStandsWhereTheSecretWasAndIsNotReadAgain(t *testing.T) {
+	const text = "https://ci:s3cret@github.com/o/r.git?token=REDACTED"
 	tests := []struct {
-		name, placeholder, text, want string
+		name, placeholder, want string
 	}{
-		{"a named placeholder", "[secret]", "https://u:p@h/x?key=k", "https://[secret]@h/x?key=[secret]"},
-		{"an empty placeholder drops the at sign", "", "https://x-access-token:ghs_abc@github.com/o/r.git",
-			"https://github.com/o/r.git"},
-		{"an empty placeholder leaves a query value empty", "", "https://h/?token=abc&x=1", "https://h/?token=&x=1"},
-		{"an empty placeholder without a scheme", "", "user:secret@proxy:3128", "proxy:3128"},
+		{"the default", DefaultPlaceholder, "https://REDACTED@github.com/o/r.git?token=REDACTED"},
+		{"an empty placeholder takes the at sign too", "", "https://github.com/o/r.git?token="},
+		{"verbs", "%s%v", "https://%s%v@github.com/o/r.git?token=%s%v"},
+		{"a line end", "\n", "https://\n@github.com/o/r.git?token=\n"},
+		{"a quote", `"`, `https://"@github.com/o/r.git?token="`},
+		{"a group reference", "$1", "https://$1@github.com/o/r.git?token=$1"},
+		{"a parameter", "&key=V", "https://&key=V@github.com/o/r.git?token=&key=V"},
+		{"a whole URL", "https://x:y@z/?token=t", "https://https://x:y@z/?token=t@github.com/o/r.git?token=" +
+			"https://x:y@z/?token=t"},
+		{"the placeholder when a secret is the placeholder", "REDACTED",
+			"https://REDACTED@github.com/o/r.git?token=REDACTED"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			setting := Setting{Withhold: true, Placeholder: test.placeholder}
-			if got := setting.URLs(test.text); got != test.want {
+			if got, _ := urlText(setting, text); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
 	}
 }
 
-func TestValueIsShownOrReplaced(t *testing.T) {
+func TestAnEmptyPlaceholderGivesTheURLWithoutItsUserInformation(t *testing.T) {
+	got, _ := urlText(Setting{Withhold: true}, "https://x-access-token:ghs_FIXTURE@github.com/o/r.git")
+	if got != "https://github.com/o/r.git" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestTheLongestSecretAtAPositionIsReplacedWhole(t *testing.T) {
 	tests := []struct {
 		name    string
-		setting Setting
-		value   string
+		secrets []string
+		text    string
 		want    string
 	}{
-		{"shown by default", Setting{}, "sk-live-123", "sk-live-123"},
-		{"replaced when withheld", withheld(), "sk-live-123", "REDACTED"},
-		{"replaced by another placeholder", Setting{Withhold: true, Placeholder: "***"}, "sk-live-123", "***"},
-		{"replaced by an empty placeholder", Setting{Withhold: true}, "sk-live-123", ""},
-		{"an empty value stays empty", withheld(), "", ""},
+		{"a password inside its user and password", []string{"password", "user:password"},
+			"user:password and password", "R and R"},
+		{"the same, recorded the other way round", []string{"user:password", "password"},
+			"user:password and password", "R and R"},
+		{"of two that overlap the one met first", []string{"abcd", "cdef"}, "abcdef", "Ref"},
+		{"a secret repeated", []string{"tok"}, "toktoktok", "RRR"},
+		{"a one-letter secret wherever it stands", []string{"p"}, "a pup", "a RuR"},
+		{"nothing recorded leaves the text", nil, "user:password", "user:password"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := test.setting.Value(test.value); got != test.want {
+			got, _ := identified(Setting{Withhold: true, Placeholder: "R"}, test.text, func(recorder *Recorder) {
+				for _, secret := range test.secrets {
+					recorder.Value(secret)
+				}
+			})
+			if got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestAShortSecretIsReplacedInItsParseAndALongOneEverywhere(t *testing.T) {
+	recorder := NewRecorder(withheld())
+	first := recorder.Begin()
+	recorder.Value("pw1")
+	recorder.Value("sk-FIXTURE-long")
+	recorder.End()
+	second := recorder.Begin()
+	recorder.End()
+	recorder.URLs("https://ci:git5@h/")
+	const text = "pw1 sk-FIXTURE-long ci:git5"
+	tests := []struct {
+		name   string
+		scopes []*Found
+		want   string
+	}{
+		{"in a row of the parse that found them", []*Found{first}, "REDACTED REDACTED ci:git5"},
+		{"in a row of another parse", []*Found{second}, "pw1 REDACTED ci:git5"},
+		{"in the command's own output", []*Found{recorder.Command()}, "pw1 REDACTED REDACTED"},
+		{"in a session of both parses", []*Found{first, second, first}, "REDACTED REDACTED ci:git5"},
+		{"with no scope", nil, "pw1 REDACTED ci:git5"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := recorder.Text(text, test.scopes...); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestARunThatShowsSecretsRecordsNothing(t *testing.T) {
+	recorder := NewRecorder(Setting{Placeholder: "x"})
+	if recorder != nil {
+		t.Fatal("a run that shows secrets has a recorder")
+	}
+	found := recorder.Begin()
+	recorder.Value("sk-FIXTURE")
+	recorder.URLs("https://u:p@h/")
+	recorder.ReaderError(errors.New("x"))
+	recorder.End()
+	if got := recorder.Text("sk-FIXTURE", found, recorder.Command()); got != "sk-FIXTURE" || found.Secrets() != nil {
+		t.Errorf("got %q, recorded %q", got, found.Secrets())
+	}
+	if recorder.Setting() != (Setting{}) {
+		t.Errorf("setting %+v", recorder.Setting())
 	}
 }
 
@@ -157,7 +251,7 @@ func readerErrors(t *testing.T) (jsonError, tomlError, xmlError, limitError erro
 	return jsonError, tomlError, xmlError, limitError
 }
 
-func TestReaderErrorGivesThePositionAndThePlaceholderWhenWithheld(t *testing.T) {
+func TestAReadersDetailIsRecordedAndItsPositionKept(t *testing.T) {
 	jsonError, tomlError, xmlError, limitError := readerErrors(t)
 	var limit *tomldoc.Error
 	if !errors.As(limitError, &limit) || !limit.IsLimit() {
@@ -169,28 +263,28 @@ func TestReaderErrorGivesThePositionAndThePlaceholderWhenWithheld(t *testing.T) 
 		err     error
 		want    string
 	}{
-		{"a JSON error is in full by default", Setting{}, jsonError, jsonError.Error()},
-		{"a JSON error is its position when withheld", withheld(), jsonError,
-			"invalid JSON at line 1, column 13: REDACTED"},
-		{"a TOML error is in full by default", Setting{}, tomlError, tomlError.Error()},
-		{"a TOML error is its position when withheld", withheld(), tomlError,
-			"invalid TOML at line 1, column 11: REDACTED"},
-		{"an XML error is its line when withheld", withheld(), xmlError, "invalid XML at line 2: REDACTED"},
+		{"a JSON error keeps its position", withheld(), jsonError, "invalid JSON at line 1, column 13: REDACTED"},
+		{"a TOML error keeps its position", withheld(), tomlError, "invalid TOML at line 1, column 11: REDACTED"},
+		{"an XML error keeps its line", withheld(), xmlError, "XML syntax error on line 2: REDACTED"},
 		{"another placeholder follows the position", Setting{Withhold: true, Placeholder: "***"}, jsonError,
 			"invalid JSON at line 1, column 13: ***"},
 		{"an empty placeholder leaves the position alone", Setting{Withhold: true}, tomlError,
 			"invalid TOML at line 1, column 11"},
-		{"a TOML limit is in full when withheld", withheld(), limitError, limitError.Error()},
-		{"an error of another kind is the placeholder", withheld(), errors.New("sk-live-123"), "error: REDACTED"},
+		{"a TOML limit is in full", withheld(), limitError, limitError.Error()},
+		{"an error of another kind is the placeholder", withheld(), errors.New("sk-live-123"), "REDACTED"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.setting.ReaderError(test.err)
+			message := test.err.Error()
+			got, _ := identified(test.setting, message, func(recorder *Recorder) { recorder.ReaderError(test.err) })
 			if got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
-			if test.setting.Withhold && quotesTheDocument(got) {
+			if quotesTheDocument(got) {
 				t.Errorf("the withheld message %q quotes the document", got)
+			}
+			if shown, _ := identified(Setting{}, message, func(recorder *Recorder) { recorder.ReaderError(test.err) }); shown != message {
+				t.Errorf("shown: %q", shown)
 			}
 		})
 	}
@@ -205,19 +299,121 @@ func quotesTheDocument(message string) bool {
 		strings.Contains(message, "sk-live")
 }
 
+// counter is a textset.Counter that keeps its counts by name.
+type counter map[string]int
+
+// Add counts n units of the named work.
+func (c counter) Add(name string, n int) { c[name] += n }
+
+// identifyWork returns the bytes read identifying the URLs of k copies of a
+// unit dense in separators, at signs and parameters.
+func identifyWork(k int) int {
+	work := counter{}
+	text := "https://h/" + strings.Repeat("x://a@b?c&d#e=f&token=g;", k) + strings.Repeat("&", k) +
+		strings.Repeat("://", k) + strings.Repeat("@", k)
+	recorder := NewRecorder(withheld())
+	recorder.work = work
+	recorder.URLs(text)
+	return work["bytes read"]
+}
+
+func TestIdentifyingURLsReadsTheTextAFixedNumberOfTimes(t *testing.T) {
+	small, double, quadruple := identifyWork(5000), identifyWork(10000), identifyWork(20000)
+	// The work is a fixed cost plus a cost per unit: doubling the units
+	// doubles what the units cost, exactly.
+	if quadruple-double != 2*(double-small) || double-small <= 0 {
+		t.Errorf("read %d, %d and %d bytes for 5000, 10000 and 20000 units: not linear", small, double, quadruple)
+	}
+}
+
+// replaceWork returns the bytes searched and the fallbacks taken replacing
+// n recorded secrets in a text holding each of them, once with their parse
+// as the scope.
+func replaceWork(n int) (int, int, int) {
+	work := counter{}
+	recorder := NewRecorder(withheld())
+	recorder.work = work
+	found := recorder.Begin()
+	var text strings.Builder
+	for i := range n {
+		long, short := fmt.Sprintf("sk-FIXTURE-%06d", i), fmt.Sprintf("p%05d", i)
+		recorder.Value(long)
+		recorder.Value(short)
+		text.WriteString(long + " " + short + " plain text between them ")
+	}
+	recorder.End()
+	got := recorder.Text(text.String(), found)
+	return len(text.String()), work["bytes searched"], strings.Count(got, DefaultPlaceholder)
+}
+
+func TestReplacingReadsTheTextOncePerRecordWhateverTheNumberOfSecrets(t *testing.T) {
+	for _, n := range []int{500, 5000} {
+		t.Run(fmt.Sprintf("%d secrets", n), func(t *testing.T) {
+			length, searched, replaced := replaceWork(n)
+			// Once for the secrets replaced everywhere and once for the
+			// parse's short ones.
+			if searched != 2*length || replaced != 2*n {
+				t.Errorf("searched %d bytes of %d and replaced %d, want %d and %d", searched, length, replaced,
+					2*length, 2*n)
+			}
+		})
+	}
+}
+
+// reference returns text with each of secrets replaced by placeholder, the
+// longest at the leftmost position first, found by comparing each.
+func reference(text string, secrets []string, placeholder string) string {
+	var out strings.Builder
+	for i := 0; i < len(text); {
+		longest := 0
+		for _, secret := range secrets {
+			if secret != "" && strings.HasPrefix(text[i:], secret) && len(secret) > longest {
+				longest = len(secret)
+			}
+		}
+		if longest == 0 {
+			out.WriteByte(text[i])
+			i++
+			continue
+		}
+		out.WriteString(placeholder)
+		i += longest
+	}
+	return out.String()
+}
+
+// FuzzTextReplacesExactlyTheRecordedSecrets holds that the output of a row
+// is its text with exactly the recorded secrets replaced, the longest at the
+// leftmost position first, whatever the secrets, the text and the
+// placeholder.
+func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
+	fuzz.Add("user:password and password", "password\x00user:password", "R")
+	fuzz.Add("aaaa", "a\x00aa\x00aaa", "")
+	fuzz.Add("x&key=y", "y", "&key=y")
+	fuzz.Fuzz(func(t *testing.T, text, joined, placeholder string) {
+		secrets := strings.Split(joined, "\x00")
+		recorder := NewRecorder(Setting{Withhold: true, Placeholder: placeholder})
+		found := recorder.Begin()
+		for _, secret := range secrets {
+			recorder.Value(secret)
+		}
+		recorder.End()
+		if got, want := recorder.Text(text, found), reference(text, secrets, placeholder); got != want {
+			t.Errorf("%q with %q as %q: got %q, want %q", text, secrets, placeholder, got, want)
+		}
+	})
+}
+
 // FuzzURLsWithholdsBothSecrets holds that for
-// scheme://user:SECRET@host/path?token=SECRET2#fragment the withheld text is
-// that URL with REDACTED (or nothing) in place of both secrets, so neither
-// survives, and that with withholding off the text is returned byte for
-// byte. A secret holds any printable text without the delimiters that end a
-// URL in text (white space, quotes, angle brackets, a backtick, a
-// backslash); SECRET2 also holds no & or #, which end a parameter's value.
-// A SECRET holding an @ followed later by /, ? or # is left out: it reads
-// as user information ending at that @ and a path (userInfoEnd).
+// scheme://user:SECRET@host/path?token=SECRET2#fragment exactly the user
+// information, the password and SECRET2 are recorded and the output is the
+// URL with them replaced, and that with withholding off nothing is
+// recorded. SECRET holds no byte that ends an authority (/, ?, #, a
+// backslash) and SECRET2 none that ends a parameter (&, ;, #, a backslash)
+// and no "://", which starts another URL; neither holds a delimiter.
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
-	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok/en+abc=", "a?b"}, {"ab?cd", "x/y:z"},
-		{"p#ss", "@@"}, {"a@b", "://"}, {"x:y", "%41"}, {"1234/5678", "u:p@h"}, {"%40/?#:", "é"},
-		{"ab://c", "https://u:p@h/?token=q"}} {
+	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
+		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}} {
 		fuzz.Add("https", seed[0], "host.example", "/path", seed[1], "frag")
 	}
 	fuzz.Fuzz(func(t *testing.T, scheme, secret, host, path, secret2, fragment string) {
@@ -225,22 +421,26 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			!onlyOf(host, "abcdefghijklmnopqrstuvwxyz0123456789.-", 1) ||
 			!onlyOf(path, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._~-", 0) ||
 			!onlyOf(fragment, "abcdefghijklmnopqrstuvwxyz0123456789", 0) ||
-			!printable(secret, "") || !printable(secret2, "&#") || len(secret) < 4 || len(secret2) < 4 {
-			return
-		}
-		if atSign := strings.IndexByte(secret, '@'); atSign >= 0 && strings.ContainsAny(secret[atSign:], "/?#") {
+			!printable(secret, `/?#\`) || !printable(secret2, `&;#\`) || strings.Contains(secret2, "://") ||
+			secret == "" || secret2 == "" {
 			return
 		}
 		text := scheme + "://user:" + secret + "@" + host + "/" + path + "?token=" + secret2 + "#" + fragment
-		if got := (Setting{}).URLs(text); got != text {
-			t.Fatalf("shown: %q gave %q", text, got)
+		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
+			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
 		}
+		want := []string{"user:" + secret, secret, secret2}
 		for _, placeholder := range []string{DefaultPlaceholder, ""} {
-			want := scheme + "://" + withAtSign(placeholder) + host + "/" + path + "?token=" + placeholder +
-				"#" + fragment
-			got := Setting{Withhold: true, Placeholder: placeholder}.URLs(text)
-			if got != want {
-				t.Errorf("withheld with %q: %q gave %q, want %q", placeholder, text, got, want)
+			got, recorded := urlText(Setting{Withhold: true, Placeholder: placeholder}, text)
+			expected := reference(text, append(slices.Clone(want), "user:"+secret+"@"), "\x00")
+			expected = strings.ReplaceAll(expected, "\x00", placeholder)
+			if placeholder != "" {
+				expected = reference(text, want, placeholder)
+			}
+			slices.Sort(want)
+			if got != expected || !slices.Equal(recorded, slices.Compact(slices.Clone(want))) {
+				t.Errorf("withheld with %q: %q gave %q and recorded %q, want %q and %q", placeholder, text, got,
+					recorded, expected, want)
 			}
 		}
 	})

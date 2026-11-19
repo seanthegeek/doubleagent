@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -55,9 +56,9 @@ func parseStateDatabase(t *testing.T, name string, setting secrets.Setting) []st
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + stateRel, Rel: stateRel,
 		Agent: "openclaw", Manifest: jsonvalue.NewNull(),
-		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting}}
+		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)}}
 	var got []string
-	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) }); err != nil {
+	if err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) }); err != nil {
 		t.Fatal(err)
 	}
 	return got

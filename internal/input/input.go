@@ -95,10 +95,10 @@ type Home struct {
 	// archived away from DiskPath/rel, at a symlinked directory's physical
 	// location, to where the collection holds it; empty for loose input.
 	StagedPaths map[string]string
-	// Secrets is how the analysis output shows the secrets found in the
-	// home's files, which the parser kit reads for every row it gives a
-	// secret; the zero value shows them as written.
-	Secrets secrets.Setting
+	// Secrets records the secrets the parser kit identifies in the home's
+	// files, for the output to replace; every home of a run shares the
+	// run's recorder, and nil (a run that shows secrets) records nothing.
+	Secrets *secrets.Recorder
 	// ownDirectory is set when DiskPath is a directory the input's walk
 	// found, or the input itself, so a lookup below it need not look at it.
 	ownDirectory bool

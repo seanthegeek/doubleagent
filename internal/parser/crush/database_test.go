@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -50,10 +51,10 @@ func parseWith(t *testing.T, setting secrets.Setting, rel string, data []byte) [
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "crush",
-		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting},
+		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string
-	err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
+	err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -45,9 +46,9 @@ func TestATranscriptsServerShowsItsCredentialsUnlessWithheld(t *testing.T) {
 			}
 			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
 				Original: "/home/u/" + rel, Rel: rel, Agent: "letta", Manifest: jsonvalue.NewNull(),
-				Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: test.setting}}
+				Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(test.setting)}}
 			var got []string
-			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
 			if err != nil {
 				t.Fatal(err)
 			}

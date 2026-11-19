@@ -41,6 +41,12 @@ func reviewedImports() map[string]string {
 		// UseNumber, Token and InputOffset, and the Delim, Number,
 		// SyntaxError and Token types, none of which takes a path.
 		"encoding/json",
+		// Copies the documents the analysis commands write as JSON with each
+		// string put through the replacement of withheld secrets
+		// (analyze/withheld.go); the names used are ValueOf, New, MakeSlice,
+		// MakeMapWithSize and the Value and Type methods, which work on
+		// values in memory and take no path.
+		"reflect",
 		// Writes the fleet CSV's records to an io.Writer the caller gives
 		// it; the names used are NewWriter and the Writer's WriteAll, which
 		// take no path.

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // The turn types a row's TurnType holds.
@@ -65,6 +66,10 @@ type Row struct {
 	// Recovered is "yes" for a row of a secondary source that survived
 	// deduplication, so the primary store does not hold the event.
 	Recovered string `json:"recovered"`
+	// Secrets is what the parse that gave the row identified, which the
+	// output replaces in it (Withheld); nil in a run that shows secrets. It
+	// is no column.
+	Secrets *secrets.Found `json:"-"`
 }
 
 // Columns returns the field names of timeline.jsonl in order.

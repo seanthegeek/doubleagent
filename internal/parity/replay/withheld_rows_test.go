@@ -18,6 +18,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
 	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -45,14 +46,26 @@ func (f *addedRowFilter) emit(agent string, artifact *input.Artifact, emit parse
 			waiting[entry.text] = true
 		}
 	}
+	recorder := recorderOf(artifact)
 	return func(row timeline.Row) {
-		if row.TurnType == timeline.TurnSystem && row.SourceFile == artifact.Original && waiting[row.Text] {
-			delete(waiting, row.Text)
+		// The row is compared as the output writes it, with the secrets
+		// the parse has identified so far.
+		text := recorder.Text(row.Text, recorder.Current())
+		if row.TurnType == timeline.TurnSystem && row.SourceFile == artifact.Original && waiting[text] {
+			delete(waiting, text)
 			f.taken++
 			return
 		}
 		emit(row)
 	}
+}
+
+// recorderOf returns the recorder of the artifact's home, nil for none.
+func recorderOf(artifact *input.Artifact) *secrets.Recorder {
+	if artifact.Home == nil {
+		return nil
+	}
+	return artifact.Home.Secrets
 }
 
 // withoutAddedRows returns list with the parser of each agent that has an

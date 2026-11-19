@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // fileCounts is the number and total size of one agent's files. A total
@@ -219,7 +220,8 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 	if err != nil {
 		return printError(ctx, stderr, err.Error())
 	}
-	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env)
+	out := output{secrets.NewRecorder(options.Secrets)}
+	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, out.recorder)
 	defer removeCreated(workCreated)
 	if collection == nil {
 		return printError(ctx, stderr, message)
@@ -231,10 +233,10 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 		return printError(ctx, stderr, "")
 	}
 	if options.JSON {
-		_ = writeJSON(stdout, detectDocument(detected, collection, options.Files))
+		_ = writeJSON(stdout, out.document(detectDocument(detected, collection, options.Files)))
 		return ExitFound
 	}
-	return printDetect(stdout, detected, collection, parsed, options.Files)
+	return printDetect(stdout, out, detected, collection, parsed, options.Files)
 }
 
 // detectJSON is the document detect --json prints: the detection, the
@@ -268,36 +270,36 @@ func detectDocument(detected detection, collection *input.Collection, files bool
 
 // printDetect prints the tables of detect and returns 1 when the input
 // holds no agent files.
-func printDetect(w io.Writer, detected detection, collection *input.Collection,
+func printDetect(w io.Writer, out output, detected detection, collection *input.Collection,
 	parsed map[string]bool, files bool) int {
-	fmt.Fprint(w, "input:   "+shown(collection.Source)+"\n")
+	fmt.Fprint(w, "input:   "+out.shown(collection.Source)+"\n")
 	kind := collection.Kind
 	if kind == input.KindLoose {
 		kind += " (no manifest; user and home inferred from paths)"
 	}
 	fmt.Fprint(w, "kind:    "+kind+"\n")
-	fmt.Fprint(w, "host:    "+shown(orUnknown(collection.Host))+"\n")
+	fmt.Fprint(w, "host:    "+out.shown(orUnknown(collection.Host))+"\n")
 	for _, note := range collection.Notes {
-		fmt.Fprint(w, "note:    "+shown(note)+"\n")
+		fmt.Fprint(w, "note:    "+out.shown(note)+"\n")
 	}
 	for _, problem := range collection.Problems {
-		fmt.Fprint(w, "problem: "+shown(problem)+"\n")
+		fmt.Fprint(w, "problem: "+out.shown(problem)+"\n")
 	}
 	table := detectTable(collection, parsed)
 	if len(table) == 0 && len(detected.projects) == 0 {
 		fmt.Fprintln(w, "no agent artifacts found")
 		return ExitNothing
 	}
-	printHomeTable(w, table)
+	printHomeTable(w, out, table)
 	if len(detected.projects) > 0 {
 		fmt.Fprintln(w)
-		printProjectTable(w, detected.projects)
+		printProjectTable(w, out, detected.projects)
 	}
 	if files {
 		fmt.Fprintln(w)
 		for _, artifact := range collection.Artifacts {
-			fmt.Fprint(w, shown(artifact.Home.User)+"\t"+shown(artifact.Agent)+"\t"+
-				shown(artifact.Original)+"\n")
+			fmt.Fprint(w, out.shown(artifact.Home.User)+"\t"+out.shown(artifact.Agent)+"\t"+
+				out.shown(artifact.Original)+"\n")
 		}
 	}
 	return ExitFound
@@ -337,7 +339,7 @@ func detectTable(collection *input.Collection, parsed map[string]bool) []tableRo
 }
 
 // printHomeTable prints the table of homes and agents, if it has rows.
-func printHomeTable(w io.Writer, rows []tableRow) {
+func printHomeTable(w io.Writer, out output, rows []tableRow) {
 	if len(rows) == 0 {
 		return
 	}
@@ -349,8 +351,8 @@ func printHomeTable(w io.Writer, rows []tableRow) {
 		if user == "" {
 			user = "?"
 		}
-		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", shown(user), shown(row.home),
-			shown(row.agent), row.files, row.bytes, parserLabel(row.parser))
+		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", out.shown(user), out.shown(row.home),
+			out.shown(row.agent), row.files, row.bytes, parserLabel(row.parser))
 	}
 }
 
@@ -365,15 +367,15 @@ func parserLabel(parser bool) string {
 // printProjectTable prints one line per agent of each project, a (shared)
 // line for its shared files and a remotes: line when its repository has
 // remotes; the path and users stand on the project's first line only.
-func printProjectTable(w io.Writer, projects []projectEntry) {
+func printProjectTable(w io.Writer, out output, projects []projectEntry) {
 	printProjectLine(w, "project", "users", "agent", "files", "bytes", "parser")
 	for _, project := range projects {
 		first := true
 		line := func(agent, files, size, parser string) {
 			path, users := "", ""
 			if first {
-				path = fmt.Sprintf("%.40s", shown(project.path))
-				users = strings.Join(shownAll(project.users), ",")
+				path = fmt.Sprintf("%.40s", out.shown(project.path))
+				users = strings.Join(out.shownAll(project.users), ",")
 				if users == "" {
 					users = "?"
 				}
@@ -382,14 +384,14 @@ func printProjectTable(w io.Writer, projects []projectEntry) {
 			printProjectLine(w, path, users, agent, files, size, parser)
 		}
 		for _, agent := range project.agents {
-			line(shown(agent.agent), fmt.Sprint(agent.files), fmt.Sprint(agent.bytes),
+			line(out.shown(agent.agent), fmt.Sprint(agent.files), fmt.Sprint(agent.bytes),
 				parserLabel(agent.parser))
 		}
 		if project.sharedFiles > 0 {
 			line("(shared)", fmt.Sprint(project.sharedFiles), fmt.Sprint(project.sharedBytes), "")
 		}
 		if len(project.git.remotes) > 0 {
-			fmt.Fprint(w, "  remotes: "+shown(remotesText(project.git.remotes))+"\n")
+			fmt.Fprint(w, "  remotes: "+out.shown(remotesText(project.git.remotes))+"\n")
 		}
 	}
 }

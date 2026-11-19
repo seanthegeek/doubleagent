@@ -21,6 +21,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -71,7 +72,12 @@ type timelineRun struct {
 	parsed     []string
 	dropped    map[string]int
 	problems   []string
-	sessions   []timeline.SessionSummary
+	// problemSecrets holds, for each problem a parse gave, what that parse
+	// identified; a problem past its end is the command's own.
+	problemSecrets []*secrets.Found
+	sessions       []timeline.SessionSummary
+	repositories   map[string]projectGit
+	out            output
 }
 
 // runTimeline parses every artifact of the input into the timeline,
@@ -99,7 +105,8 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if code != ExitFound {
 		return code
 	}
-	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env)
+	recorder := secrets.NewRecorder(options.Secrets)
+	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, recorder)
 	defer removeCreated(workCreated)
 	if collection == nil {
 		return printError(ctx, stderr, message)
@@ -107,12 +114,15 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	defer closeInput(ctx, collection, options.KeepExtracted, stderr)
 	run := &timelineRun{options: options, env: env, collection: collection,
 		registry: registry, found: newScratchFinder(found), output: options.Output,
-		filter: filter}
+		filter: filter, out: output{recorder}}
 	if err := run.parse(ctx); err != nil {
-		return printError(ctx, stderr, err.Error())
+		return printError(ctx, stderr, run.out.text(err.Error()))
 	}
+	// The repositories are read before any output is written, so a long
+	// secret in a remote URL is replaced in the rows too.
+	run.repositories = projectRepositories(collection.Artifacts, &run.problems)
 	if err := run.writeRows(); err != nil {
-		return printError(ctx, stderr, err.Error())
+		return printError(ctx, stderr, run.out.text(err.Error()))
 	}
 	return run.summarise(ctx, stdout, stderr)
 }
@@ -223,7 +233,7 @@ func (r *timelineRun) parse(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.problems = result.Problems
+	r.problems, r.problemSecrets = result.Problems, result.ProblemSecrets
 	r.rows, r.dropped = dedup.Deduplicate(result.Primary, result.Secondary, r.registry.Hooks())
 	r.counts = countRows(r.rows)
 	timeline.SortRows(r.rows)
@@ -254,16 +264,32 @@ func (r *timelineRun) outputPath(name string) string {
 	return filepath.Join(r.output, name)
 }
 
-// writeRows writes timeline.jsonl and sessions.jsonl.
+// writeRows writes timeline.jsonl and sessions.jsonl, each row and session
+// as it is written under the run's secrets setting (timeline.Row.Withheld).
 func (r *timelineRun) writeRows() error {
+	recorder := r.out.recorder
 	err := writeOutput(r.outputPath(TimelineFile), func(w io.Writer) error {
-		return timeline.WriteRows(w, r.rows)
+		if recorder == nil {
+			return timeline.WriteRows(w, r.rows)
+		}
+		withheld := make([]timeline.Row, 1)
+		for _, row := range r.rows {
+			withheld[0] = row.Withheld(recorder)
+			if err := timeline.WriteRows(w, withheld); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return err
 	}
 	return writeOutput(r.outputPath(SessionsFile), func(w io.Writer) error {
-		return timeline.WriteSessions(w, r.sessions)
+		withheld := make([]timeline.SessionSummary, len(r.sessions))
+		for i, session := range r.sessions {
+			withheld[i] = session.Withheld(recorder)
+		}
+		return timeline.WriteSessions(w, withheld)
 	})
 }
 
@@ -300,15 +326,14 @@ func writeOutput(path string, write func(w io.Writer) error) error {
 // exit code.
 func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) int {
 	parsed := parserAgents(r.registry)
-	repositories := projectRepositories(r.collection.Artifacts, &r.problems)
-	detected := detectWith(r.collection, parsed, repositories)
+	detected := detectWith(r.collection, parsed, r.repositories)
 	r.printHeader(stdout)
 	agents := detectedAgents(detected)
 	inventory := r.inventory(detected, agents)
 	if err := writeOutput(r.outputPath(InventoryFile), func(w io.Writer) error {
 		return writeJSON(w, inventory)
 	}); err != nil {
-		return printError(ctx, stderr, err.Error())
+		return printError(ctx, stderr, r.out.text(err.Error()))
 	}
 	r.printTotals(stdout, agents)
 	if len(r.rows) == 0 {
@@ -320,12 +345,12 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 // printHeader prints the input, host, notes, problems, filters and the
 // dropped duplicates.
 func (r *timelineRun) printHeader(w io.Writer) {
-	fmt.Fprint(w, "input:     "+shown(r.collection.Source)+" ("+r.collection.Kind+")\n")
-	fmt.Fprint(w, "host:      "+shown(orUnknown(r.collection.Host))+"\n")
+	fmt.Fprint(w, "input:     "+r.out.shown(r.collection.Source)+" ("+r.collection.Kind+")\n")
+	fmt.Fprint(w, "host:      "+r.out.shown(orUnknown(r.collection.Host))+"\n")
 	for _, note := range r.collection.Notes {
-		fmt.Fprint(w, "note:      "+shown(note)+"\n")
+		fmt.Fprint(w, "note:      "+r.out.shown(note)+"\n")
 	}
-	for _, problem := range r.problems {
+	for _, problem := range r.withheldProblems() {
 		fmt.Fprint(w, "problem:   "+shown(problem)+"\n")
 	}
 	filter := r.filter
@@ -342,13 +367,13 @@ func (r *timelineRun) printHeader(w io.Writer) {
 		if r.options.IgnoreCase {
 			ignoring = " (ignore case)"
 		}
-		fmt.Fprint(w, "match:     "+shown(strings.Join(r.options.Match, " | "))+ignoring+"\n")
+		fmt.Fprint(w, "match:     "+r.out.shown(strings.Join(r.options.Match, " | "))+ignoring+"\n")
 	}
 	if filter.Active() {
 		fmt.Fprintf(w, "filtered:  %d outside the window, %d without a timestamp, %d not matching\n",
 			filter.DroppedWindow, filter.DroppedUndated, filter.DroppedMatch)
 	}
-	fmt.Fprint(w, "dropped:   "+droppedSummary(r.dropped)+"\n")
+	fmt.Fprint(w, "dropped:   "+r.out.shown(droppedSummary(r.dropped))+"\n")
 }
 
 // orText returns text, or fallback for an empty one.

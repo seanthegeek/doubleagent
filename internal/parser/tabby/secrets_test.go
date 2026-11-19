@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -171,10 +172,10 @@ func TestACompletionsAndAnAttachmentsRepositoryURLShowTheirCredentialsUnlessWith
 				t.Fatal(err)
 			}
 			artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "tabby",
-				Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: mode.setting},
+				Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(mode.setting)},
 				Manifest: jsonvalue.NewNull()}
 			var projects []string
-			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+			err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) {
 				projects = append(projects, row.ProjectPath)
 			})
 			if err != nil {
@@ -187,7 +188,13 @@ func TestACompletionsAndAnAttachmentsRepositoryURLShowTheirCredentialsUnlessWith
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := attachmentParts(artifact, value)
+			var got []string
+			_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
+				for _, part := range attachmentParts(artifact, value) {
+					emit(timeline.Row{Text: part})
+				}
+				return nil
+			}, func(row timeline.Row) { got = append(got, row.Text) })
 			want := []string{"code " + mode.scheme + "github.com/o/r a.go", "doc d " + mode.scheme + "docs.example/d"}
 			if !slices.Equal(got, want) {
 				t.Errorf("got %q, want %q", got, want)

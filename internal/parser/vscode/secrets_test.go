@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -51,10 +52,10 @@ func parseSecrets(t *testing.T, setting secrets.Setting, rel, text string) []tim
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "vscode",
-		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting},
+		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
 	var rows []timeline.Row
-	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+	if err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 		t.Fatal(err)
 	}
 	return rows
@@ -78,11 +79,13 @@ func TestAnEnterpriseHostAndASessionsFolderShowTheirCredentialsUnlessWithheld(t 
 	for _, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
 			var got []string
-			artifact := &input.Artifact{Home: &input.Home{Secrets: mode.setting}}
+			artifact := &input.Artifact{Home: &input.Home{Secrets: secrets.NewRecorder(mode.setting)}}
 			var problems []string
-			New().sourceHostRows(artifact, []usage{{key: "github-enterprise-ana - https://ci:s3cret@ghe.example/x-usages",
-				value: decoded(t, `[{"extensionId": "e", "lastUsed": 1790845200000}]`)}}, &problems,
-				func(row timeline.Row) { got = append(got, row.Text) })
+			_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
+				New().sourceHostRows(artifact, []usage{{key: "github-enterprise-ana - https://ci:s3cret@ghe.example/x-usages",
+					value: decoded(t, `[{"extensionId": "e", "lastUsed": 1790845200000}]`)}}, &problems, emit)
+				return nil
+			}, func(row timeline.Row) { got = append(got, row.Text) })
 			want := []string{"source host: " + mode.scheme + "ghe.example/x account ana extension=e scopes=- " +
 				"(from state.vscdb github-enterprise-ana - " + mode.scheme + "ghe.example/x-usages, lastUsed)"}
 			checkSecretRows(t, mode, got, want, "s3cret")

@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -44,10 +45,10 @@ func parseDatabaseWith(t *testing.T, name string, setting secrets.Setting) []str
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + databaseRel, Rel: databaseRel,
-		Agent: "opencode", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting},
+		Agent: "opencode", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string
-	err = New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
+	err = parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
 	if err != nil {
 		t.Fatal(err)
 	}

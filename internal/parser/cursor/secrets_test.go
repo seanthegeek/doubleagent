@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -52,15 +53,17 @@ func TestAnMCPServersURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
 	for _, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
 			artifact := stateArtifact(t, "mcp_secret.db")
-			artifact.Home.Secrets = mode.setting
+			artifact.Home.Secrets = secrets.NewRecorder(mode.setting)
 			database, err := sqlitefile.OpenPath(artifact.DiskPath)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer database.Close()
 			var got []string
-			New().state(artifact, newStore(database, parser.CountingWork()), parser.Options{},
-				func(row timeline.Row) { got = append(got, row.Text) })
+			_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
+				New().state(artifact, newStore(database, parser.CountingWork()), parser.Options{}, emit)
+				return nil
+			}, func(row timeline.Row) { got = append(got, row.Text) })
 			want := []string{"mcp server: srv url=" + mode.url + " (from state.vscdb mcpOAuth.global, file mtime)" +
 				mcpTokens}
 			if !slices.Equal(got, want) {
@@ -85,10 +88,10 @@ func TestAnMCPOAuthAttemptsServerShowsItsCredentialsUnlessWithheld(t *testing.T)
 				t.Fatal(err)
 			}
 			artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "cursor",
-				Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: mode.setting},
+				Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(mode.setting)},
 				Manifest: jsonvalue.NewNull()}
 			var got []string
-			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -107,10 +110,10 @@ func TestACloudAgentsRepositoryURLShowsItsCredentialsUnlessWithheld(t *testing.T
 	for i, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
 			artifact := stateArtifact(t, "cloud_repository.db")
-			artifact.Home.Secrets = mode.setting
+			artifact.Home.Secrets = secrets.NewRecorder(mode.setting)
 			var got []string
 			var projects []string
-			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+			err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) {
 				got = append(got, row.Text)
 				projects = append(projects, row.ProjectPath)
 			})

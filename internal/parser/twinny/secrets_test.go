@@ -7,6 +7,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -32,9 +33,12 @@ func TestAProvidersAPIKeyIsShownUnlessWithheld(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			artifact := writeArtifact(t, "User/globalStorage/state.vscdb", "")
-			artifact.Home.Secrets = test.setting
+			artifact.Home.Secrets = secrets.NewRecorder(test.setting)
 			var got []string
-			New().globalRows(artifact, state, parser.Options{}, func(row timeline.Row) { got = append(got, row.Text) })
+			_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
+				New().globalRows(artifact, state, parser.Options{}, emit)
+				return nil
+			}, func(row timeline.Row) { got = append(got, row.Text) })
 			want := []string{
 				"model provider: p1 label=Ollama provider=ollama type=chat model=qwen apiKey=" + test.key +
 					" (from rjmacarthy.twinny twinny.inference-providers, file mtime)",

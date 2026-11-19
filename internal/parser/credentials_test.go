@@ -1,38 +1,61 @@
 package parser
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-func TestTheKitReadsTheSettingFromTheArtifactsHome(t *testing.T) {
+func TestTheKitReturnsTheTextAsWrittenAndRecordsTheSecretsInTheParse(t *testing.T) {
 	_, jsonError := jsonvalue.DecodeString(`{"api_key": sk-1}`)
-	withheld := &input.Home{Secrets: secrets.Setting{Withhold: true, Placeholder: "[x]"}}
+	withheld := secrets.Setting{Withhold: true, Placeholder: "[x]"}
 	tests := []struct {
-		name                    string
-		artifact                *input.Artifact
-		value, url, readerError string
+		name     string
+		home     *input.Home
+		recorded []string
+		texts    []string
 	}{
-		{"an artifact without a home shows", &input.Artifact{}, "sk-1", "https://u:p@h/", jsonError.Error()},
-		{"a home of the zero setting shows", &input.Artifact{Home: &input.Home{}}, "sk-1", "https://u:p@h/",
-			jsonError.Error()},
-		{"a home that withholds gives its placeholder", &input.Artifact{Home: withheld}, "[x]", "https://[x]@h/",
-			"invalid JSON at line 1, column 13: [x]"},
-		{"no artifact shows", nil, "sk-1", "https://u:p@h/", jsonError.Error()},
+		{"an artifact without a home records nothing", nil, nil,
+			[]string{"sk-1", "https://u:pw7@h/", jsonError.Error()}},
+		{"a run that shows secrets records nothing", &input.Home{}, nil,
+			[]string{"sk-1", "https://u:pw7@h/", jsonError.Error()}},
+		{"a run that withholds records each and the output replaces it",
+			&input.Home{Secrets: secrets.NewRecorder(withheld)},
+			[]string{"invalid character 's' looking for beginning of value", "pw7", "sk-1", "u:pw7"},
+			[]string{"[x]", "https://[x]@h/", "invalid JSON at line 1, column 13: [x]"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := SecretText(test.artifact, "sk-1"); got != test.value {
-				t.Errorf("SecretText gave %q, want %q", got, test.value)
+			artifact := &input.Artifact{Home: test.home}
+			var rows []timeline.Row
+			found, err := Within(artifact, func(emit Emit) error {
+				for _, text := range []string{SecretText(artifact, "sk-1"), URLText(artifact, "https://u:pw7@h/"),
+					ReaderErrorText(artifact, jsonError)} {
+					emit(timeline.Row{Text: text})
+				}
+				return nil
+			}, func(row timeline.Row) { rows = append(rows, row) })
+			if err != nil {
+				t.Fatal(err)
 			}
-			if got := URLText(test.artifact, "https://u:p@h/"); got != test.url {
-				t.Errorf("URLText gave %q, want %q", got, test.url)
+			raw := []string{"sk-1", "https://u:pw7@h/", jsonError.Error()}
+			var recorder *secrets.Recorder
+			if test.home != nil {
+				recorder = test.home.Secrets
 			}
-			if got := ReaderErrorText(test.artifact, jsonError); got != test.readerError {
-				t.Errorf("ReaderErrorText gave %q, want %q", got, test.readerError)
+			var texts []string
+			for i, row := range rows {
+				if row.Text != raw[i] || row.Secrets != found {
+					t.Errorf("row %d: %q with record %p, want %q with %p", i, row.Text, row.Secrets, raw[i], found)
+				}
+				texts = append(texts, row.Withheld(recorder).Text)
+			}
+			if !slices.Equal(found.Secrets(), test.recorded) || !slices.Equal(texts, test.texts) {
+				t.Errorf("recorded %q and wrote %q, want %q and %q", found.Secrets(), texts, test.recorded, test.texts)
 			}
 		})
 	}

@@ -46,12 +46,3 @@ func needsShowing(text string) bool {
 	}
 	return false
 }
-
-// shownAll returns each text of texts as shown gives it.
-func shownAll(texts []string) []string {
-	out := make([]string, len(texts))
-	for i, text := range texts {
-		out[i] = shown(text)
-	}
-	return out
-}
