@@ -266,9 +266,9 @@ and `disableBypassPermissionsMode` in `.claude/settings.json` and
 `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` in
 `.claude.json`; a `retention setting: cleanupPeriodDays=<n> (from
 <file>, file mtime)` row when a settings file sets the retention
-period, and a `source host: github status=<status> (from .claude.json,
-file mtime)` row from `.claude.json` `githubWebConnectionStatusCache`
-(2.1.310 and later; the account and organisation ids are not printed);
+period, and a `source host: github status=<status> account=<accountUuid>
+org=<orgUuid> (from .claude.json, file mtime)` row from `.claude.json`
+`githubWebConnectionStatusCache` (2.1.310 and later);
 no other key of either file being read; the same files
 under a `.claude-<name>` config home moved with `CLAUDE_CONFIG_DIR` (such
 as `.claude-work/projects/...`). The transcripts also give a `session
@@ -299,7 +299,7 @@ recorded without a decision is `permission decision: reject (interrupted)
 toolDenialKind=user-rejected`; a `/loop` firing is `scheduled task fired:
 <taskId> cron=<cron>`; `settings.json` `model` gives `model setting:
 <alias> (from settings.json, file mtime)`; and `.claude.json` gives
-`remote control: machine id set`, `remote control: spawn mode <mode> for
+`remote control: machine id <uuid>`, `remote control: spawn mode <mode> for
 <path>` and `cloud: hasRemoteEnvironment=<bool>` rows.
 
 Validated against: Real installs, Claude Code 2.1.286 to 2.1.289 on Linux

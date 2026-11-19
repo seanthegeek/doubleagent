@@ -56,7 +56,7 @@ func Differences() []Difference {
 			Outputs: otherOfEqualRows, Unchecked: "whether a case needs it depends on the order " +
 				"the recording machine's file system listed the tree in"},
 	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences(),
-		[]Difference{withheldDifference(), withheldRowsDifference()}, wantedDifferences(), entryReportDifferences())...)
+		[]Difference{withheldDifference(), withheldRowsDifference(), shownDifference()}, wantedDifferences(), entryReportDifferences())...)
 }
 
 // retiredUnneeded is why a difference was retired that recorded cases

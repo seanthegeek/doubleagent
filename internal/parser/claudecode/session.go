@@ -268,7 +268,7 @@ func (s *session) content(record jsonvalue.Value, recordType string) {
 			url = parser.Text(record.Get("prNumber"))
 		}
 		if s.firstSeen("pr", url) {
-			s.emit(s.stateRow("pr-link: " + url))
+			s.emit(s.stateRow("pr-link: " + parser.URLText(s.artifact, url)))
 		}
 	case "queue-operation":
 		s.queue(record)

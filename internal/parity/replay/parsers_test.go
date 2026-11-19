@@ -47,6 +47,8 @@ type parserReplay struct {
 	wrongKind map[string]int
 	// withheld counts, by entry, the parses that needed difference 230.
 	withheld map[string]int
+	// shown counts, by entry, the parses that needed difference 232.
+	shown map[string]int
 }
 
 func TestReplayEveryRecordedCase(t *testing.T) {
@@ -77,7 +79,7 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	started := time.Now()
 	replay := &parserReplay{corpus: corpus, work: corpus.NewWorkTree(t),
 		deniesAccess: deniesReading(t), skipped: map[string]int{}, needed: neededTally{}, used: used,
-		wrongKind: map[string]int{}, withheld: map[string]int{}}
+		wrongKind: map[string]int{}, withheld: map[string]int{}, shown: map[string]int{}}
 	registered := parsers.ByAgent(parsers.All())
 	agents := caseFiles(t, corpus, "parsers")
 	missing := checkEveryAgentHasAParser(t, agents, parsers.All())
@@ -104,6 +106,7 @@ func replayParsers(t *testing.T, corpus *Corpus, used neededTally) bool {
 	logNeeded(t, "information comparison", replay.needed, rowFormatNumbers())
 	checkEveryWrongKindReportUsed(t, replay.wrongKind, ran == len(agents))
 	checkEveryWithheldFormUsed(t, parserScope, replay.withheld, ran == len(agents))
+	checkEveryShownFormUsed(t, replay.shown, ran == len(agents))
 	return ran == len(agents)
 }
 
@@ -326,6 +329,11 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 	if slices.Contains(numbers, withheldDifference().Number) {
 		for _, label := range withheldEntriesIn(parserScope, RowsText(want)) {
 			r.withheld[label]++
+		}
+	}
+	if slices.Contains(numbers, shownDifference().Number) {
+		for _, label := range shownEntriesIn(RowsText(want)) {
+			r.shown[label]++
 		}
 	}
 	return ""

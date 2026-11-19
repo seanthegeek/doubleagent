@@ -2598,7 +2598,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | a session whose lines carry `entrypoint` `claude-vscode` | `system`, `session origin: local (VS Code extension)`; `promptSource` `sdk` on such a prompt is not a remote mark on its own |
 | `user` record with `promptSource` set and not `typed`, or `turnOrigin` set and not `human` | after the record's rows, a `system` row `prompt trigger: promptSource=<promptSource> turnOrigin=<turnOrigin>`, `-` for a missing key; the pairs seen on Windows 2.1.309 are `promptSource=suggestion_accepted turnOrigin=human`, `promptSource=system turnOrigin=task_notification` (a subagent's or a background command's end), `promptSource=queued turnOrigin=human` (the Remote Control phone), `promptSource=system turnOrigin=scheduled` (a `/loop` firing) and `promptSource=sdk turnOrigin=human` (the VS Code extension); `origin.kind` still picks the label above |
 | `continued-in` | `system`, `session continued in: <continuedInSessionId>`, at the record's `timestamp` |
-| `bridge-session` | `system`, `remote control: bridge session <bridgeSessionId or none> lastSequenceNum=<lastSequenceNum or ->`, written when the (id, sequence) pair changes, `none` being the detach; the owner uuids are never printed. At the first record naming an id, once per session and bridge id, `session synced: remote control bridge <bridgeSessionId> url <url>` ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
+| `bridge-session` | `system`, `remote control: bridge session <bridgeSessionId or none> lastSequenceNum=<lastSequenceNum or ->`, written when the (id, sequence) pair changes, `none` being the detach; the owner uuids are never printed. At the first record naming an id, once per session and bridge id, `session synced: remote control bridge <bridgeSessionId> url <url>` ([Sync, relay and origin rows](#sync-relay-and-origin-rows)), the URL's credentials replaced with the placeholder under `--no-secrets` |
 | `attachment` `environment` with `snapshot.scratchpadDirectory` | `system`, `scratch directory: <path> (session scratchpad, from the environment attachment)`, once per session and path, `project_path` the scratchpad path ([Scratch directory rows](#scratch-directory-rows)) |
 | `user` `permissionMode`, `permission-mode` record | one tracker per session id in the file: the first value is a `system` row `permission mode: <mode>`, a later different value `permission mode: <old> -> <new>`, before the line's other rows; a `user` line's row takes its timestamp, a `permission-mode` record (no timestamp) the latest one seen; an unchanged value, such as a re-appended state record, yields nothing; a subagent file has its own tracker |
 | `assistant` `message.model` (not `<synthetic>`, not an API error) | before the line's rows, `model: <id>` at the session's first one and `model: <old> -> <new>` on each change, with ` requested=<requestedModel>` when that key is set and differs; `model` column the new model; a subagent file has its own tracker |
@@ -2617,7 +2617,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `attachment`, other types | skip: model context (system prompt, tool lists, reminders, environment and model snapshots, skill and agent listings); `remote_session_change` (the session's PR and commit) is skipped too |
 | `ai-title`, `custom-title`, `agent-name` | `system`, `session title: <value>`, once per distinct value per session |
 | `relocated` | `system`, `cwd changed: <relocatedCwd>`; every later row of the file takes it as `project_path` |
-| `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins) |
+| `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins); `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with the placeholder |
 | `queue-operation` | `system`, `queue <operation>: <content>`; an `enqueue` whose `content` a `queued_command` attachment or a `user` record of the file delivers is `prompt queued: delivered at line N` at the enqueue's own timestamp, N being the first delivering line after it (else the first), so the typing time is kept and the prompt text appears once, on the delivering row |
 | every other type ([Record schema](#record-schema) table) | skip |
 | `history.jsonl` line | `user`, each paste placeholder in `display` expanded ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
@@ -2625,7 +2625,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `projects/<key>/<session id>/ccr-tip.json` | one `system` row at the file's modification time, `session synced: remote event <eventId> at <updatedAt> (from <path>, file mtime)`, `session_id` the directory's session ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/bridge-pointer.json` | one `system` row at the file's modification time, `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>, file mtime)` |
 | `settings.json`, `settings.local.json` (user, `.claude-<name>`, or a project's) | one `system` row per `permissions.allow`, `deny`, `ask` and `additionalDirectories` entry, then one for `permissions.defaultMode` and `permissions.disableBypassPermissionsMode` when set: `permission setting: permissions.<key>=<value> (from <path relative to the home or project>, file mtime)`, a non-string value as compact JSON; `timestamp_utc` the manifest `mtime`, else the file's own; `session_id` empty; `project_path` the project directory for a `project` artifact, else empty; `source_line` 1; beside them, when `cleanupPeriodDays` is set, one `system` row `retention setting: cleanupPeriodDays=<n> (from <path>, file mtime)` at the same time, since the value decides what the retention sweep removes ([What survives a delete](#what-survives-a-delete)); when `model` is a non-empty string, one `system` row `model setting: model=<alias> (from <path>, file mtime)` at the same time ([Model rows](#model-rows)); no other key read; a file that is not a JSON object is one `system` row `parser: settings file is not a JSON object` |
-| `.claude.json`, `.claude-<name>/.claude.json` | per `projects.<path>`: one row per `allowedTools` entry, then one each for `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` when present, `permission setting: <key>=<value> (from .claude.json, file mtime)`, `project_path` the `<path>` key, times as above; when `githubWebConnectionStatusCache` is present (2.1.310), one `system` row `source host: github status=<status> (from .claude.json, file mtime)` at the file's modification time, its `accountUuid` and `orgUuid` never printed ([Sync, relay and origin rows](#sync-relay-and-origin-rows)); at the same time, `remote control: machine id set` when `remoteControlMachineId` is present, `remote control: spawn mode <mode> for <path>` per `projects.<path>.remoteControlSpawnMode`, and `cloud: hasRemoteEnvironment=<value> (from .claude.json, file mtime)`, no uuid printed; nothing else in the file is read (it holds the account's OAuth details); `.claude.json.backup*` is not wanted |
+| `.claude.json`, `.claude-<name>/.claude.json` | per `projects.<path>`: one row per `allowedTools` entry, then one each for `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` when present, `permission setting: <key>=<value> (from .claude.json, file mtime)`, `project_path` the `<path>` key, times as above; when `githubWebConnectionStatusCache` is present (2.1.310), one `system` row `source host: github status=<status> account=<accountUuid> org=<orgUuid> (from .claude.json, file mtime)` at the file's modification time, ` account=` and ` org=` each when set ([Sync, relay and origin rows](#sync-relay-and-origin-rows)); at the same time, `remote control: machine id <remoteControlMachineId>` when it is present, the ids being identities rather than credentials and so shown under `--no-secrets` too, `remote control: spawn mode <mode> for <path>` per `projects.<path>.remoteControlSpawnMode`, and `cloud: hasRemoteEnvironment=<value> (from .claude.json, file mtime)`; nothing else in the file is read (it holds the account's OAuth details); `.claude.json.backup*` is not wanted |
 
 Columns:
 
@@ -2756,9 +2756,11 @@ first line; its `ccr-tip.json` gives
 modification time, with the session's own id; the project's `bridge-pointer.json` gives
 `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>,
 file mtime)` with an empty session id (`pid` and `procStart` are not printed); and `.claude.json`
-gives `remote control: machine id set (from .claude.json, file mtime)` and
-`remote control: spawn mode <mode> for <path> (from .claude.json, file mtime)`, with no uuid
-printed. A teleported cloud session gets `session origin: remote (teleport, remoteSourced)` once,
+gives `remote control: machine id <remoteControlMachineId> (from .claude.json, file mtime)`, the
+uuid shown as written since it identifies the machine rather than granting access (the Python
+analyzer wrote `remote control: machine id set (from .claude.json, file mtime)` without it), and
+`remote control: spawn mode <mode> for <path> (from .claude.json, file mtime)`. A teleported cloud
+session gets `session origin: remote (teleport, remoteSourced)` once,
 with `session synced: cloud session (teleported: remoteSourced records replayed from the vendor's
 copy)` beside it (the vendor holds the conversation, so `synced` reads `yes`),
 at its first line with `remoteSourced`; its replayed `environment` attachment, naming the cloud
@@ -2778,8 +2780,9 @@ session of this agent. The agent records
 no relay, so the parser does not set `records_relay`. The `remote_session_change` attachment,
 present in plain local sessions with nothing to link, is skipped. The source host is
 a row since 2.1.310: `.claude.json` `githubWebConnectionStatusCache` gives one `system` row
-`source host: github status=<status> (from .claude.json, file mtime)` at the file's modification
-time, the account and organisation uuids not printed
+`source host: github status=<status> account=<accountUuid> org=<orgUuid> (from .claude.json, file
+mtime)` at the file's modification time, the account and organisation uuids shown as written,
+since they are identities and not credentials
 ([Source-host integration](#source-host-integration)); 2.1.309 wrote no such key, so its homes
 have no such row. The GitHub account's login and token stay in `gh`'s store, which is not
 collected, and `githubRepoPaths` is not read.

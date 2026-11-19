@@ -11,8 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// The settings and ~/.claude.json keys read. Of the Remote Control keys,
-// the machine id is an identity value and is never printed, only noted.
+// The settings and ~/.claude.json keys read. The Remote Control machine id
+// and the GitHub connection's account and organisation ids are identity
+// values, not credentials, and are shown as written.
 const (
 	retentionKey          = "cleanupPeriodDays"
 	modelKey              = "model"
@@ -231,17 +232,22 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parser.Emit) {
 		r.projectRows(artifact, timestamp, member.Key, member.Value, &problems, emit)
 	}
 	if github := document.Get(githubStatusKey); github.IsObject() {
-		// accountUuid and orgUuid are identity values: never printed.
+		text := "source host: github status=" + parser.SettingOrDash(github.Get("status"))
+		for _, pair := range [][2]string{{"accountUuid", "account"}, {"orgUuid", "org"}} {
+			if value := github.Get(pair[0]); parser.Present(value) {
+				text += " " + pair[1] + "=" + parser.SettingValue(value)
+			}
+		}
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
-		row.Text = timeline.Compact("source host: github status=" + parser.SettingOrDash(github.Get("status")) +
-			" (from " + artifact.Rel + ", file mtime)")
+		row.Text = timeline.Compact(text + " (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
-	if parser.Present(document.Get(remoteControlMachine)) {
+	if machine := document.Get(remoteControlMachine); parser.Present(machine) {
 		row := r.fileRow(artifact)
 		row.TimestampUTC = timestamp
-		row.Text = "remote control: machine id set (from " + artifact.Rel + ", file mtime)"
+		row.Text = timeline.Compact("remote control: machine id " + parser.SettingValue(machine) + " (from " +
+			artifact.Rel + ", file mtime)")
 		emit(row)
 	}
 	if value := document.Get(cloudEnvironmentKey); !value.IsNull() {
