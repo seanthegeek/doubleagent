@@ -50,44 +50,57 @@ func parameters(text string, starts []urlStart, authorityEnds []int, found func(
 	}
 }
 
-// parameter reads the parameter that starts at byte start, adds its value
-// when it is a credential, and returns where the next one starts.
+// parameter reads the parameter that starts at byte start, adds the value
+// of each credential named in it, and returns where the next one starts. A
+// name is read from the parameter's start and again after each ? (rule 7)
+// up to the first = after it. A credential's value runs to the end of the
+// parameter, or to the first byte of rule 3 after its start, and a name
+// read inside it is part of it, so each byte is in one value at most.
 func (q *query) parameter(start int) int {
-	valueEnd := -1
+	nameStart, named, valueStart := start, false, -1
 	for i := start; i < len(q.text); i++ {
 		q.passAuthorities(i)
 		if length := q.separatorAt(i); length > 0 {
-			q.add(start, i, valueEnd)
+			q.add(valueStart, i, false)
 			return i + length
 		}
-		if q.endsValue(i) && valueEnd < 0 {
-			valueEnd = i
+		if q.endsValue(i) {
+			q.add(valueStart, i, true)
+			valueStart = -1
+		}
+		switch q.text[i] {
+		case '?':
+			nameStart, named = i+1, false
+			q.redirect = false
+		case '=':
+			if !named && valueStart < 0 && isCredentialParameter(decodedName(q.text[nameStart:i])) {
+				valueStart = i + 1
+			}
+			named = true
 		}
 	}
-	q.add(start, len(q.text), valueEnd)
+	q.add(valueStart, len(q.text), true)
 	return len(q.text) + 1
 }
 
-// add adds the value of the parameter text[start:end] when its name is a
-// credential's (rule 8). A value that a byte of rule 3 (at valueEnd, or -1)
-// or the token's end ended loses the punctuation at its end.
-func (q *query) add(start, end, valueEnd int) {
-	trim := valueEnd >= 0 || end == len(q.text)
-	if valueEnd >= 0 {
-		end = valueEnd
+// add adds as a credential the value text[start:end], unless start is -1
+// or the value is empty (rule 8). A value that a byte of rule 3 or the
+// token's end ended (trim) loses the punctuation at its end.
+func (q *query) add(start, end int, trim bool) {
+	if start < 0 {
+		return
 	}
-	name, value, assigned := strings.Cut(q.text[start:end], "=")
+	value := q.text[start:end]
 	if trim {
 		value = strings.TrimRight(value, ".,:;!?")
 	}
-	if assigned && value != "" && isCredentialParameter(decodedName(name)) {
-		valueStart := start + len(name) + 1
-		q.found(Credential{Start: valueStart, End: valueStart + len(value)})
+	if value != "" {
+		q.found(Credential{Start: start, End: start + len(value)})
 	}
 }
 
 // passAuthorities notes each later URL whose authority ends by byte i, so
-// the first ? or # after it starts parameters (rule 6).
+// the first # after it starts parameters (rule 6).
 func (q *query) passAuthorities(i int) {
 	for q.nextAuthority < len(q.authorityEnds) && q.authorityEnds[q.nextAuthority] <= i {
 		q.redirect = true
@@ -96,14 +109,14 @@ func (q *query) passAuthorities(i int) {
 }
 
 // separatorAt returns the length of what ends a parameter at byte i
-// (rules 6 and 7), or 0: the first ? or # after a later URL's authority, &
-// or ;, # before the fragment, \u0026 or \U0026, or a backslash not before
-// a slash.
+// (rules 6 and 7), or 0: the first # after a later URL's authority, & or ;,
+// # before the fragment, \u0026 or \U0026, or a backslash not before a
+// slash.
 func (q *query) separatorAt(i int) int {
 	switch char := q.text[i]; {
-	case q.redirect && (char == '?' || char == '#'):
+	case q.redirect && char == '#':
 		q.redirect = false
-		q.fragment = q.fragment || char == '#'
+		q.fragment = true
 		return 1
 	case char == '#' && !q.fragment:
 		q.fragment = true

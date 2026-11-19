@@ -14,6 +14,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
 	"github.com/seanthegeek/doubleagent/internal/tomldoc"
 )
 
@@ -156,7 +157,8 @@ func grammarCases() []grammarCase {
 			"https://h/cb#access_token=REDACTED&token_type=bearer"},
 		{6, "credentials and a query token together", "https://u:pw9@h/x?token=t0k#f",
 			"https://REDACTED@h/x?token=REDACTED#f"},
-		{6, "a question mark in the fragment starts no query", "https://h/#x?token=t0k", "https://h/#x?token=t0k"},
+		{6, "a redirect target's query without a credential is kept", "https://h/?next=https://i/?page=2#top",
+			"https://h/?next=https://i/?page=2#top"},
 		{6, "a redirect target's own query", "https://h/?next=https://i/?token=abc",
 			"https://h/?next=https://i/?token=REDACTED"},
 		{6, "a code in a redirect target's query", "https://h/?next=https://i/cb?code=AUTHCODE123&state=x",
@@ -174,6 +176,23 @@ func grammarCases() []grammarCase {
 		{7, "a backslash ends a parameter, so what follows names another", `https://h/?x=1\ntoken=t0k`,
 			`https://h/?x=1\ntoken=t0k`},
 		{7, "a hash ends a query parameter", "https://h/?token=t0k#x=1", "https://h/?token=REDACTED#x=1"},
+		{7, "a question mark in the fragment starts a parameter's name", "https://h/#x?token=t0k",
+			"https://h/#x?token=REDACTED"},
+		{7, "a token after a path in the fragment",
+			"https://app.example/#/callback?access_token=fake-hash-router-token-0001&state=x",
+			"https://app.example/#/callback?access_token=REDACTED&state=x"},
+		{7, "a token after a second question mark in the query", "https://app.example/?a=1?token=fake-second-q-0003",
+			"https://app.example/?a=1?token=REDACTED"},
+		{7, "a code after a path in the fragment of a URL with a query",
+			"https://app.example/?state=x#/cb?code=fake-code-0005", "https://app.example/?state=x#/cb?code=REDACTED"},
+		{7, "a code after a question mark in a named fragment", "https://app.example/path#section?code=fake-code-0004",
+			"https://app.example/path#section?code=REDACTED"},
+		{7, "a question mark inside a credential is part of it", "https://h/?token=fake?tail-0006&x=1",
+			"https://h/?token=REDACTED&x=1"},
+		{7, "a credential named inside another is replaced with it", "https://h/?token=ab?key=fake-0007&x=1",
+			"https://h/?token=REDACTED&x=1"},
+		{7, "a question mark before a name that is no credential is kept", "https://h/?q=what?page=2",
+			"https://h/?q=what?page=2"},
 		{8, "a token in the query", "https://host/share/session?token=abc123",
 			"https://host/share/session?token=REDACTED"},
 		{8, "an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
@@ -563,6 +582,25 @@ func TestIdentifyingURLsReadsTheTextAFixedNumberOfTimes(t *testing.T) {
 	}
 }
 
+// nestedNamesWork returns the bytes of the credentials found in a query of
+// k credential names, each after a question mark inside the value of the
+// one before.
+func nestedNamesWork(k int) int {
+	total := 0
+	for _, value := range URLCredentials("https://h/?" + strings.Repeat("token=fake?", k) + "&x=1") {
+		total += len(value)
+	}
+	return total
+}
+
+func TestACredentialNamedInsideAnotherIsPartOfIt(t *testing.T) {
+	// The first name's value holds every later one, which adds nothing.
+	if small, double := nestedNamesWork(500), nestedNamesWork(1000); small != 11*500-6 || double != 11*1000-6 {
+		t.Errorf("found %d and %d bytes of credentials for 500 and 1000 names, want %d and %d", small, double,
+			11*500-6, 11*1000-6)
+	}
+}
+
 // replaceWork returns the bytes searched and the fallbacks taken replacing
 // n recorded secrets in a text holding each of them, once with their parse
 // as the scope.
@@ -650,15 +688,15 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 }
 
 // FuzzURLsWithholdsBothSecrets holds that for
-// scheme://user:SECRET@host/path?token=SECRET2#fragment exactly the user
-// information, its password and SECRET2 are recorded and replaced where
-// they stand, the rest kept, and nothing is recorded with withholding off.
-// By the URL grammar's rules, neither secret ends the token (rule 1);
-// SECRET ends no authority (/, ?, #, a backslash) but may hold what ends a
-// value (rule 3), which user information takes whole; SECRET2 ends no
-// parameter (&, ;, #, a backslash), starts no URL and ends no value (a
-// single quote, a closing bracket that closes none opened since the URL
-// began).
+// scheme://user:SECRET@host/path?token=SECRET2#fragment?code=SECRET2&x=1
+// exactly the user information, its password and SECRET2 are recorded and
+// replaced where they stand, the rest kept, and nothing is recorded with
+// withholding off. By the URL grammar's rules, neither secret ends the
+// token (rule 1); SECRET ends no authority (/, ?, #, a backslash) but may
+// hold what ends a value (rule 3), which user information takes whole;
+// SECRET2 ends no parameter (&, ;, #, a backslash), starts no URL, ends no
+// value (a single quote, a closing bracket that closes none opened since
+// the URL began) and names no credential after a ? in it (rule 7).
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
 		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}, {"pa)ss", "a(b)c"}, {"it's", "x]y"},
@@ -671,14 +709,15 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			!onlyOf(path, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._~-", 0) ||
 			!onlyOf(fragment, "abcdefghijklmnopqrstuvwxyz0123456789", 0) ||
 			!printable(secret, `/?#\`) || !printable(secret2, `&;#\'`) || strings.Contains(secret2, "://") ||
-			secret == "" || secret2 == "" {
+			secret == "" || secret2 == "" || namesACredential(secret2) {
 			return
 		}
 		before := scheme + "://user:" + secret + "@" + host + "/" + path + "?token="
-		if closesUnopened(before, secret2) {
+		again := before + secret2 + "#" + fragment + "?code="
+		if closesUnopened(before, secret2) || closesUnopened(again, secret2) {
 			return
 		}
-		text := before + secret2 + "#" + fragment
+		text := again + secret2 + "&x=1"
 		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
 			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
 		}
@@ -690,7 +729,8 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			if placeholder == "" {
 				userInfo = ""
 			}
-			expected := scheme + "://" + userInfo + host + "/" + path + "?token=" + placeholder + "#" + fragment
+			expected := scheme + "://" + userInfo + host + "/" + path + "?token=" + placeholder + "#" + fragment +
+				"?code=" + placeholder + "&x=1"
 			if got != expected || !slices.Equal(recorded, slices.Compact(slices.Clone(want))) {
 				t.Errorf("withheld with %q: %q gave %q and recorded %q, want %q and %q", placeholder, text, got,
 					recorded, expected, want)
@@ -703,6 +743,18 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 // allowed.
 func onlyOf(text, allowed string, least int) bool {
 	return len(text) >= least && strings.Trim(text, allowed) == ""
+}
+
+// namesACredential reports whether a ? in value is followed by the name of
+// a credential parameter and =, which rule 7 of the URL grammar reads as
+// naming a credential.
+func namesACredential(value string) bool {
+	for _, part := range strings.Split(value, "?")[1:] {
+		if name, _, found := strings.Cut(part, "="); found && urlcredentials.IsCredentialName(name) {
+			return true
+		}
+	}
+	return false
 }
 
 // closesUnopened reports whether a closing bracket in value closes none of
