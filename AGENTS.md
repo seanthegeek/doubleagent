@@ -574,12 +574,18 @@ for Go files as it does for the others.
   that has no verb or whose verbs are all a plain `%s` (or, in `Sprintf`, a
   `%v` of `err`), with the format written out or held in a string constant
   of the same file; on `errors.New(fmt.Sprintf(...))`; on an
-  `errors.New` whose argument names an error, which is any name `err`
-  (also as `current.err` or inside `wrap(err)`), any name ending in `Err`,
-  any name starting with `err` or `Err` and a capital (`errNotFound`,
-  `fs.ErrNotExist`), or a call of `.Error()`; and on a `fmt.Errorf` that
-  gives such an argument a verb other than `%w`, except a `%t` and an
-  argument whose error names the same call also gives to a `%w`.
+  `errors.New` with an operand (a part of its argument joined with `+`)
+  that is an error, and on a `fmt.Errorf` that gives such an argument a
+  verb other than `%w`, unless the same argument is also given to a `%w`.
+  The checker reads tokens, not types, so it takes an argument as an error
+  only when the whole argument is the name `err`, a chain of names ending
+  in `err` (`current.err`), a chain ending in an exported name that starts
+  with `Err` and a capital (`fs.ErrNotExist`), a call of `.Error()`, or a
+  name ending in `Err` or starting with `err` and a capital that the same
+  file declares with the type `error` or assigns from `errors.New`,
+  `errors.Join` or `fmt.Errorf`. An error only inside a larger expression
+  (`wrap(err)`), a name assigned from another call, and a format with a
+  `%[n]` index or a `*` width or precision are left alone.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.
