@@ -370,7 +370,7 @@ func (t *Table) isRowidName(name string) bool {
 	if t.shape.withoutRowid || t.shape.columnIndex(name) >= 0 {
 		return false
 	}
-	switch foldASCII(name) {
+	switch FoldASCII(name) {
 	case "rowid", "_rowid_", "oid":
 		return true
 	}

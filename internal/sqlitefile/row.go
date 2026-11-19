@@ -30,7 +30,7 @@ func newRowShape(columns []*Column) *rowShape {
 	shape := &rowShape{columns: columns, position: map[string]int{}}
 	for i, column := range columns {
 		shape.names = append(shape.names, column.Name)
-		key := foldASCII(column.Name)
+		key := FoldASCII(column.Name)
 		if _, taken := shape.position[key]; !taken {
 			shape.position[key] = i
 		}
@@ -38,15 +38,16 @@ func newRowShape(columns []*Column) *rowShape {
 	return shape
 }
 
-// foldASCII lowers the ASCII letters of name: the folding SQLite applies
+// FoldASCII lowers the ASCII letters of name: the folding SQLite applies
 // to table, column, keyword, type, collation and module names alike. Every
-// other character must match exactly, so a letter that Unicode folds onto
-// an ASCII one (the long s onto s, the Kelvin sign onto k) stays apart.
-func foldASCII(name string) string {
+// other byte is kept as it is, so a letter that Unicode folds onto an
+// ASCII one (the long s onto s, the Kelvin sign onto k) stays apart, and
+// so do two names differing in a byte that is not valid UTF-8.
+func FoldASCII(name string) string {
 	return string(foldBytes([]byte(name)))
 }
 
-// equalFoldASCII reports whether two names are equal under foldASCII.
+// equalFoldASCII reports whether two names are equal under FoldASCII.
 func equalFoldASCII(first, second string) bool {
 	if len(first) != len(second) {
 		return false
@@ -91,7 +92,7 @@ func (r Row) lookup(name string) int {
 	if r.shape == nil {
 		return -1
 	}
-	if position, ok := r.shape.position[foldASCII(name)]; ok {
+	if position, ok := r.shape.position[FoldASCII(name)]; ok {
 		return position
 	}
 	return -1

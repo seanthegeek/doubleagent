@@ -46,7 +46,7 @@ func (d *Database) schemaIndex() (*schemaIndex, error) {
 		}
 		index := &schemaIndex{rows: rows, tables: map[string]int{}}
 		for i, row := range rows {
-			key := foldASCII(row.Name)
+			key := FoldASCII(row.Name)
 			if _, taken := index.tables[key]; row.Type == "table" && !taken {
 				index.tables[key] = i
 			}

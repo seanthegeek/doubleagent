@@ -498,7 +498,7 @@ func (s *tableShape) fts5Argument(argument []token) error {
 		return fmt.Errorf("%w: an empty fts5 argument", errSchemaSyntax)
 	}
 	if len(argument) >= 2 && argument[1].isPunctuation("=") {
-		option := foldASCII(argument[0].name())
+		option := FoldASCII(argument[0].name())
 		if option == "content" || option == "contentless_delete" || option == "contentless_unindexed" {
 			return errors.New("fts5 table " + s.name + " keeps no content table of its own (" + option + "=)")
 		}

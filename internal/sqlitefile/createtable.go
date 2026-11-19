@@ -268,7 +268,7 @@ func (p *schemaParser) options(shape *tableShape) error {
 // columnIndex returns the index of the column called name, matched with
 // ASCII case folding as SQL matches identifiers, or -1.
 func (s *tableShape) columnIndex(name string) int {
-	if index, ok := s.byName[foldASCII(name)]; ok {
+	if index, ok := s.byName[FoldASCII(name)]; ok {
 		return index
 	}
 	return -1
@@ -283,7 +283,7 @@ func (s *tableShape) addColumn(column Column) error {
 	if s.byName == nil {
 		s.byName = map[string]int{}
 	}
-	key := foldASCII(column.Name)
+	key := FoldASCII(column.Name)
 	if _, taken := s.byName[key]; taken {
 		return fmt.Errorf("%w: duplicate column name: %s", errSchemaSyntax, column.Name)
 	}

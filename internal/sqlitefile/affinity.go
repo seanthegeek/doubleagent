@@ -116,7 +116,7 @@ func isRangeError(err error) bool {
 // wellFormedNumber reports whether text is digits with an optional
 // fraction and exponent, holding at least one digit before the exponent.
 func wellFormedNumber(text string) bool {
-	mantissa, exponent, hasExponent := strings.Cut(foldASCII(text), "e")
+	mantissa, exponent, hasExponent := strings.Cut(FoldASCII(text), "e")
 	whole, fraction, _ := strings.Cut(mantissa, ".")
 	if whole+fraction == "" || !allDigits(whole) || !allDigits(fraction) {
 		return false

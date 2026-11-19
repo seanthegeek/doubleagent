@@ -86,3 +86,27 @@ func TestARowObjectBuildsEachColumnsValueOnce(t *testing.T) {
 		})
 	}
 }
+
+func TestAColumnNameFoldsOnlyASCIILetters(t *testing.T) {
+	tests := []struct {
+		name, first, second string
+		same                bool
+	}{
+		{"names differing in ASCII case are one name", "NaMe", "nAme", true},
+		{"names differing in a byte that is not UTF-8 stay apart", "Na\xffme", "na\xfeme", false},
+		{"a byte that is not UTF-8 is kept as it is", "Na\xffme", "na\xffme", true},
+		{"a letter outside ASCII is not folded", "Kınd", "kind", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			first, second := ColumnName(test.first), ColumnName(test.second)
+			if (first == second) != test.same {
+				t.Errorf("ColumnName(%x) = %x, ColumnName(%x) = %x; want same = %v",
+					test.first, first, test.second, second, test.same)
+			}
+		})
+	}
+	if got := ColumnName("Na\xffme"); got != "na\xffme" {
+		t.Errorf("ColumnName(%x) = %x, want the bytes with N lowered", "Na\xffme", got)
+	}
+}

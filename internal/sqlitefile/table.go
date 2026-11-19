@@ -50,7 +50,7 @@ func (d *Database) HasTable(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, ok := index.tables[foldASCII(name)]
+	_, ok := index.tables[FoldASCII(name)]
 	return ok, nil
 }
 
@@ -73,7 +73,7 @@ func (d *Database) Table(name string) (*Table, error) {
 // refusing it ends the lookup after one step where a content table names
 // itself or a ring of them.
 func (d *Database) tableFrom(index *schemaIndex, name string, content bool) (*Table, error) {
-	position, ok := index.tables[foldASCII(name)]
+	position, ok := index.tables[FoldASCII(name)]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNoTable, name)
 	}
@@ -211,7 +211,7 @@ func (t *Table) wholeShape() *rowShape {
 	shape := newRowShape(t.columnPointers())
 	shape.layout = t.layout
 	for i, column := range shape.columns {
-		key := foldASCII(column.Name)
+		key := FoldASCII(column.Name)
 		if column.Generated == VirtualGenerated && shape.position[key] == i {
 			delete(shape.position, key)
 		}
