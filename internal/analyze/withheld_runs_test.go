@@ -106,6 +106,10 @@ func withheldLeakFixtures(t *testing.T) []struct {
 			`{"https://ci:s3cret@sg.example/-ana": {"chat": {"c1": {"id": "2026-01-01T00:00:00.000Z", ` +
 				`"chatTitle": "t", "interactions": []}}}, "https://sg.example/-bob": {"chat": {"c1": ` +
 				`{"id": "2026-01-01T00:00:00.000Z", "chatTitle": "u", "interactions": []}}}}`}}, "s3cret"},
+		{"a Claude Desktop fetch grant written as an object", []collectedFile{{"alice", home, "claude-desktop",
+			".config/Claude/local-agent-mode-sessions/a/o/local_c0c0c0c0-1111-4222-8333-444444444444.json",
+			`{"sessionId": "local_c0c0c0c0-1111-4222-8333-444444444444", "createdAt": 1790845200000, ` +
+				`"webFetchAllowedUrls": {"https://ci:s3cret@docs.example/": true}}`}}, "s3cret"},
 		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
 			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
 			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",
