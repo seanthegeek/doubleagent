@@ -12,8 +12,10 @@
 // files (the content's length only) and read_files. Parts carry no time:
 // they take the message's created_at, except tool calls and results, at
 // finished_at or the finish part's time. A finish part is a row only when
-// the turn ended abnormally or carries a message. projects.json gives one
-// row per project; crush.json and the crushrc "permissions allow|deny"
+// the turn ended abnormally or carries a message. Beside the turns the
+// database gives "model:", "permission decision:", "session relayed:",
+// "session deleted:", "file version:" and "file read:" rows. projects.json
+// gives one row per project; crush.json and the crushrc "permissions allow|deny"
 // lines give "permission setting:" rows at the file's mtime, and crush.json
 // a "stored credentials:" row of its providers' API keys. No git branch
 // is recorded. See research/crush.md.

@@ -1062,9 +1062,11 @@ The agent records a source-host token but no connected account, so the parser yi
   `tools.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN`
   ([`webui/mcp_presets.json:331-367`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/webui/mcp_presets.json#L331-L367);
   [`webui/mcp_presets_api.py:1086-1088`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/webui/mcp_presets_api.py#L1086-L1088));
-  the collector flags the whole file ([Credentials](#credentials)), and the parser reads no key
-  of `tools.mcpServers`. The token's account and the repositories it reaches are server-side
-  only.
+  the collector flags the whole file ([Credentials](#credentials)), and the parser shows the
+  token in the file's `stored credentials:` row
+  (`tools.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN=<token>`,
+  [Permission rows](#permission-rows)) but gives no `source host:` row for it. The token's account
+  and the repositories it reaches are server-side only.
 - The GitHub Copilot model provider's sign-in (`nanobot provider login github-copilot`, a
   device-code OAuth flow with scope `read:user`) serves model calls, not repository access; its
   token and the account's login are in `github-copilot.json` outside `.nanobot*`

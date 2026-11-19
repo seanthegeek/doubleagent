@@ -12,8 +12,10 @@
 //   - memory/history.jsonl, primary; webui/<key>.jsonl and its .segments/,
 //     history/cli_history, cron/runs/*.json and triggers/runs/*.json under a
 //     workspace, and .webui_session_index.json, secondary.
-//   - config.json (only the keys that grant or restrict the agent; it holds
-//     API keys) and pairing.json.
+//   - config.json: the keys that grant or restrict the agent, as
+//     "permission setting:" rows, and the provider keys, MCP server env
+//     values and channel secrets it holds, as one "stored credentials:"
+//     row; and pairing.json.
 //
 // The session files hold naive host local time, emitted as if UTC; the
 // WebUI and run records carry true UTC, hence their wider matching window.
