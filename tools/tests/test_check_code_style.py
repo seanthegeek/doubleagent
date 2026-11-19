@@ -308,7 +308,7 @@ PERCENT_V_CASES = [
     ('\ttext := fmt.Sprintf("file %s (%v)", name, count)', []),
     ('\ttext := fmt.Sprintf("file %s (%v)", name, err.Error())', []),
     ('\ttext := fmt.Sprintf("file %[1]v", err)', []),
-    ('\treturn fmt.Errorf("file %s (%v)", name, err)', []),
+    ('\treturn fmt.Errorf("file %s (%w)", name, err)', []),
 ]
 
 
@@ -334,6 +334,41 @@ DROPPED_CAUSE_CASES = [
 def test_errors_new_of_an_error_text_is_reported() -> None:
     for body, expected in DROPPED_CAUSE_CASES:
         assert format_messages(body) == expected, body
+
+
+ERRORF_JOINS = (
+    "fmt.Errorf only joins strings (every verb is %s, or %v of err); use `errors.New` and `+`,"
+    " or wrap an error among the values with %w (or reason.Wrap)"
+)
+ERRORF_DROPPED = (
+    "fmt.Errorf formats an error with a verb other than %w and drops it from the chain;"
+    " wrap it with %w (or reason.Wrap)"
+)
+ERRORF_CASES = [
+    ('\treturn fmt.Errorf("x: %s", cause)', [ERRORF_JOINS]),
+    ('\treturn fmt.Errorf("read %s: %v", path, err)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("file %s (%v)", name, err)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("x: %s", err)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("x: %s", err.Error())', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("%d rows: %v", count, closeErr)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("%d rows: %q", count, err.Error())', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("%v, then %w", firstErr, err)', [ERRORF_DROPPED]),
+    ('\treturn fmt.Errorf("read %s: %w", path, err)', []),
+    ('\treturn fmt.Errorf("%v and %w", name, err)', []),
+    ('\treturn fmt.Errorf("%d rows of %v", count, name)', []),
+    ('\treturn fmt.Errorf("%[2]v: %[1]w", err, path)', []),
+    ('\ttext := fmt.Sprintf("%d rows: %v", count, err)', []),
+]
+
+
+def test_an_errorf_that_drops_an_error_from_the_chain_is_reported() -> None:
+    for body, expected in ERRORF_CASES:
+        assert format_messages(body) == expected, body
+
+
+def test_following_the_errorf_advice_passes_the_dropped_cause_rule() -> None:
+    assert format_messages('\treturn fmt.Errorf("x: %w", cause)') == []
+    assert format_messages('\treturn errors.New("x: " + cause.Error())') == [DROPPED]
 
 
 def missing_comments(source: str, name: str = "sample.go") -> list[tuple[int, str]]:
