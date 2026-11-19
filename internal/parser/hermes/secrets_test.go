@@ -103,6 +103,34 @@ func TestAConnectionsPlainTokenAndHeadersAreShownUnlessWithheld(t *testing.T) {
 	}
 }
 
+func TestACredentialHeaderStoredAsJSONTextIsReplacedWhereQuotedAlone(t *testing.T) {
+	headers := map[string]string{
+		"an object":    `{"Authorization": "Bearer fake-header-token-0001", "X-Key": "1"}`,
+		"JSON text":    `"{\"Authorization\": \"Bearer fake-header-token-0001\", \"X-Key\": \"1\"}"`,
+		"text no JSON": `"Authorization: Bearer fake-header-token-0001"`,
+	}
+	for name, value := range headers {
+		t.Run(name, func(t *testing.T) {
+			recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+			document := `{"connections": [{"kind": "remote", "label": "work", "url": "https://hermes.example:18642/", ` +
+				`"headers": {"encoding": "plain", "value": ` + value + `}}]}`
+			got := parseRecorded(t, recorder, ".config/Hermes/connections.json", document)
+			want := []string{"remote backend: remote work https://hermes.example:18642/ headers=P " +
+				"(from connections.json, file mtime)"}
+			if !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+			quoted, wantQuoted := recorder.Text("log: Bearer fake-header-token-0001"), "log: P"
+			if name == "text no JSON" {
+				wantQuoted = "log: Bearer fake-header-token-0001"
+			}
+			if quoted != wantQuoted {
+				t.Errorf("another string quoting the token is written %q, want %q", quoted, wantQuoted)
+			}
+		})
+	}
+}
+
 func TestAHeaderThatNamesNoCredentialIsReplacedOnlyWithTheWholeHeaders(t *testing.T) {
 	document := `{"connections": [{"kind": "remote", "label": "work", "url": "https://hermes.example:18642/", ` +
 		`"headers": {"encoding": "plain", "value": {"X-Version": "1"}}}]}`

@@ -294,7 +294,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 
 // connectionText returns the "remote backend:" text of one connection: its
 // url, else [user@]host[:port], and the token and headers stored in plain
-// text through parser.SecretJSONText.
+// text through parser.SecretJSONText (headersText).
 func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string {
 	target := connection.Get("url")
 	if host := connection.Get("host"); target.IsEmpty() && !host.IsEmpty() {
@@ -314,9 +314,27 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 			text += " " + pair[1] + "=" + parser.SettingValue(value)
 		}
 	}
-	for _, name := range []string{"token", "headers"} {
-		if value, ok := plainSecret(connection.Get(name)); ok {
-			text += " " + name + "=" + parser.SecretJSONText(artifact, value)
+	if value, ok := plainSecret(connection.Get("token")); ok {
+		text += " token=" + parser.SecretJSONText(artifact, value)
+	}
+	if value, ok := plainSecret(connection.Get("headers")); ok {
+		text += " headers=" + headersText(artifact, value)
+	}
+	return text
+}
+
+// headersText returns a connection's plain headers as the row shows them,
+// through parser.SecretJSONText. The app may store the headers object as
+// JSON text inside the envelope; text that decodes as an object is shown
+// as written and its object's credential headers are recorded too, as
+// those of an object stored as one are. The decoding is this parser's,
+// since only this envelope is known to hold an object as text; a secret
+// elsewhere that happens to read as JSON is not taken apart.
+func headersText(artifact *input.Artifact, value jsonvalue.Value) string {
+	text := parser.SecretJSONText(artifact, value)
+	if value.IsString() {
+		if decoded, err := jsonvalue.DecodeString(text); err == nil && decoded.IsObject() {
+			parser.SecretJSONText(artifact, decoded)
 		}
 	}
 	return text
@@ -326,7 +344,7 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 // app wrote in plain text, {"encoding": "plain", "value": <secret>}, which
 // the row shows as parser.SecretJSONText gives it (a headers object as
 // compact text, the value of each header that names a credential recorded
-// too). An envelope of another encoding is ciphertext of the operating
+// too; headersText for headers stored as JSON text). An envelope of another encoding is ciphertext of the operating
 // system's key store and is not read.
 func plainSecret(envelope jsonvalue.Value) (jsonvalue.Value, bool) {
 	value := envelope.Get("value")

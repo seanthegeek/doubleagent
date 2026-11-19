@@ -1672,8 +1672,9 @@ encoding is the key store's ciphertext and is not read), and `remote backend qua
 app: <reason> (from connections.json, file mtime)` per quarantined entry, with no session
 (`session origin:` needs one). The token, the headers and a URL's user name and password, any of
 which can be a credential, are shown as written; `timeline --no-secrets` and `detect --no-secrets`
-replace each with the placeholder. A headers object is shown as compact JSON. The value of each
-header whose name carries a credential (`Authorization`, `Proxy-Authorization`, `Cookie`,
+replace each with the placeholder. A headers object is shown as compact JSON, and headers stored
+as JSON text inside the envelope as written; text that does not read as a JSON object is one value.
+In either form of the object, the value of each header whose name carries a credential (`Authorization`, `Proxy-Authorization`, `Cookie`,
 `Set-Cookie`, `X-API-Key`, or the name of a URL parameter that carries one, such as
 `access_token`; case ignored), as written and as the compact JSON escapes it, and the credentials
 after a `Bearer` or `Basic` scheme are identified too, so the token is replaced where another row
