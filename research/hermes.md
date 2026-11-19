@@ -1672,9 +1672,13 @@ encoding is the key store's ciphertext and is not read), and `remote backend qua
 app: <reason> (from connections.json, file mtime)` per quarantined entry, with no session
 (`session origin:` needs one). The token, the headers and a URL's user name and password, any of
 which can be a credential, are shown as written; `timeline --no-secrets` and `detect --no-secrets`
-replace each with the placeholder. A headers object is shown as compact JSON; each header value
-in it, as written and as the compact JSON escapes it, and the credentials after a `Bearer` or
-`Basic` scheme are identified too, so the token is replaced where another row quotes it alone.
+replace each with the placeholder. A headers object is shown as compact JSON. The value of each
+header whose name carries a credential (`Authorization`, `Proxy-Authorization`, `Cookie`,
+`Set-Cookie`, `X-API-Key`, or the name of a URL parameter that carries one, such as
+`access_token`; case ignored), as written and as the compact JSON escapes it, and the credentials
+after a `Bearer` or `Basic` scheme are identified too, so the token is replaced where another row
+quotes it alone. Any other header value, such as `Content-Type: application/json`, is replaced
+only in this parse's rows, never in another agent's text. Numbers and booleans are not replaced.
 The output withholds a URL's credentials wherever the URL is
 written, so a `host` that is itself a URL with a user name and password has them replaced in the
 `[user@]host[:port]` form too, while a plain `alice@box` stays as written, a user name alone being

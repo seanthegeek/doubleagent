@@ -325,8 +325,9 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 // plainSecret returns the value of a connection's secret envelope that the
 // app wrote in plain text, {"encoding": "plain", "value": <secret>}, which
 // the row shows as parser.SecretJSONText gives it (a headers object as
-// compact text, each header recorded too). An envelope of another encoding
-// is ciphertext of the operating system's key store and is not read.
+// compact text, the value of each header that names a credential recorded
+// too). An envelope of another encoding is ciphertext of the operating
+// system's key store and is not read.
 func plainSecret(envelope jsonvalue.Value) (jsonvalue.Value, bool) {
 	value := envelope.Get("value")
 	if !parser.IsText(envelope.Get("encoding"), "plain") || value.IsEmpty() {

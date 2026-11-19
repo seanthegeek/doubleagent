@@ -6,6 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -26,46 +27,71 @@ import (
 // output, a shorter one only in the text of this parse's rows. A value
 // that is empty once the white space around it is removed is no secret.
 func SecretText(artifact *input.Artifact, value string) string {
-	recordForms(recorderOf(artifact), value)
+	recordForms(recorderOf(artifact).Value, value)
 	return value
 }
 
 // SecretJSONText returns a secret value read from a JSON document as row
 // text (Text: a string as it is, an array or object as compact JSON, a
-// headers object for one) and records it whole and, inside an array or
-// object, each string in it, in each form recordForms gives, so each is
-// replaced wherever it stands.
+// headers object for one) and records it whole as SecretText does. Inside
+// an array or object, a string under a member that names a credential
+// (credentialName) is recorded as SecretText records a value, and any
+// other string only for the text of this parse's rows, whatever its
+// length, so a header such as Content-Type: application/json is never
+// replaced in another parse's rows. Numbers and booleans are not recorded.
 func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
 	text := Text(value)
 	recorder := recorderOf(artifact)
-	recordForms(recorder, text)
+	recordForms(recorder.Value, text)
 	if !value.IsString() {
-		recordStrings(recorder, value)
+		recordStrings(recorder, value, "")
 	}
 	return text
 }
 
-// recordStrings records each string inside value, an array or object.
-func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value) {
+// recordStrings records each string inside value, an array or object,
+// under the name of the member that holds it, or of the nearest member
+// around an array that does.
+func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value, name string) {
 	for _, item := range value.Items() {
-		recordStrings(recorder, item)
+		recordStrings(recorder, item, name)
 	}
 	for _, member := range value.Members() {
-		recordStrings(recorder, member.Value)
+		recordStrings(recorder, member.Value, member.Key)
 	}
 	if value.IsString() {
-		recordForms(recorder, value.Text())
+		record := recorder.RowValue
+		if credentialName(name) {
+			record = recorder.Value
+		}
+		recordForms(record, value.Text())
 	}
 }
 
-// recordForms records a secret value in each form a row can hold it: as it
-// is, without the white space around it, and, for an HTTP authorization
-// value of the Bearer (RFC 6750) or Basic (RFC 7617) scheme, its
-// credentials after the scheme, which are the secret a log or another
-// header shows alone; and each of those as compact JSON writes it inside
-// quotes, where that differs, since a row that shows evidence as compact
-// JSON holds it so.
-func recordForms(recorder *secrets.Recorder, value string) {
+// credentialName reports whether a JSON member's name, ASCII case
+// ignored, names a credential: a parameter whose value is one
+// (urlcredentials.IsCredentialName), or an HTTP header that carries one:
+// Authorization and Proxy-Authorization (RFC 9110 sections 11.6.2 and
+// 11.7.2), Cookie and Set-Cookie (RFC 6265 sections 5.4 and 4.1), and
+// X-API-Key, the header the Anthropic API and Amazon API Gateway read an
+// API key from.
+func credentialName(name string) bool {
+	for _, header := range []string{"authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key"} {
+		if strings.EqualFold(name, header) {
+			return true
+		}
+	}
+	return urlcredentials.IsCredentialName(name)
+}
+
+// recordForms records through record a secret value in each form a row
+// can hold it: as it is, without the white space around it, and, for an
+// HTTP authorization value of the Bearer (RFC 6750) or Basic (RFC 7617)
+// scheme, its credentials after the scheme, which are the secret a log or
+// another header shows alone; and each of those as compact JSON writes it
+// inside quotes, where that differs, since a row that shows evidence as
+// compact JSON holds it so.
+func recordForms(record func(string), value string) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return
@@ -76,10 +102,10 @@ func recordForms(recorder *secrets.Recorder, value string) {
 		forms = append(forms, strings.TrimSpace(credentials))
 	}
 	for _, form := range forms {
-		recorder.Value(form)
+		record(form)
 		quoted := jsonvalue.NewString(form).JSON()
 		if escaped := quoted[1 : len(quoted)-1]; escaped != form {
-			recorder.Value(escaped)
+			record(escaped)
 		}
 	}
 }

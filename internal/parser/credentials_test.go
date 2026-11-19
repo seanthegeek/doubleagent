@@ -115,3 +115,38 @@ func quotedInJSON(text string) string {
 	quoted := jsonvalue.NewString(text).JSON()
 	return quoted[1 : len(quoted)-1]
 }
+
+func TestAHeadersObjectRecordsOnlyCredentialHeadersForEveryString(t *testing.T) {
+	headers, err := jsonvalue.DecodeString(`{"Authorization": "Bearer fake-header-secret-0001", ` +
+		`"cookie": ["sid=fake-cookie-0004"], "Content-Type": "application/json", "X-Trace": "fake-trace-id-0005", ` +
+		`"Access_Token": "fake-token-0006", "n": 12345678, "b": true}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	artifact := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+	found, _ := Within(artifact, func(Emit) error { SecretJSONText(artifact, headers); return nil },
+		func(timeline.Row) {})
+	everywhere, recorded := recorder.EverywhereTexts(), found.Secrets()
+	for _, text := range []string{"fake-header-secret-0001", "sid=fake-cookie-0004", "fake-token-0006"} {
+		if !slices.Contains(everywhere, text) {
+			t.Errorf("%q, a credential header's value, is not replaced in every string", text)
+		}
+	}
+	for _, text := range []string{"application/json", "fake-trace-id-0005"} {
+		if slices.Contains(everywhere, text) || !slices.Contains(recorded, text) {
+			t.Errorf("%q is replaced in every string, or not in the parse's rows", text)
+		}
+		if got := recorder.Text(text); got != text {
+			t.Errorf("another string gives %q", got)
+		}
+		if got := recorder.RowText(text, found); got != "P" {
+			t.Errorf("the parse's row text gives %q", got)
+		}
+	}
+	for _, text := range []string{"12345678", "true"} {
+		if slices.Contains(recorded, text) {
+			t.Errorf("the number or boolean %q is recorded", text)
+		}
+	}
+}

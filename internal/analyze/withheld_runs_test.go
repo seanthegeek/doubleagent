@@ -241,6 +241,20 @@ func TestAnOptionsCredentialsAreReplacedInTheErrorItGives(t *testing.T) {
 	}
 }
 
+func TestAHermesHeaderThatNamesNoCredentialIsKeptInOtherRows(t *testing.T) {
+	files := []collectedFile{
+		{"alice", "/home/alice", "hermes", ".config/Hermes/connections.json", `{"connections": [{"kind": "remote", ` +
+			`"label": "work", "url": "https://hermes.example/", "headers": {"encoding": "plain", "value": ` +
+			`{"Authorization": "Bearer fake-hermes-tok-0003", "Content-Type": "application/json"}}}]}`},
+		{"alice", "/home/alice", "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+			quoting("secrets: fake-hermes-tok-0003 | application/json")}}
+	withheld := outputsOf(t, files, "--no-secrets")
+	if !strings.Contains(withheld.rows, `"secrets: REDACTED | application/json"`) ||
+		strings.Contains(withheld.all(), "fake-hermes-tok-0003") {
+		t.Errorf("the withheld rows are\n%s", withheld.rows)
+	}
+}
+
 // timelineOf writes files as a collection whose collection.json lists
 // projects and runs timeline over it with options, returning
 // timeline.jsonl and inventory.json.
