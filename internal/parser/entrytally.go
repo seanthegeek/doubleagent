@@ -16,6 +16,20 @@ import (
 // per member, in the order first met.
 type EntryTally struct {
 	tallies []tally
+	// position maps a member's key to its place in tallies, so finding the
+	// tally of a member costs the same however many members were met.
+	position map[tallyKey]int
+	// lookups counts the position lookups add made, one per call, so a
+	// test can check that each call costs one.
+	lookups int
+}
+
+// tallyKey names one tally: the member, the kind wanted and whether it
+// counts entries of a list.
+type tallyKey struct {
+	member  string
+	want    jsonvalue.Kind
+	entries bool
 }
 
 // tally is the count of one member: of the entries whose member is not of
@@ -30,12 +44,16 @@ type tally struct {
 
 // add counts n more for a member.
 func (t *EntryTally) add(member string, want jsonvalue.Kind, entries bool, n int) {
-	for i := range t.tallies {
-		if each := &t.tallies[i]; each.member == member && each.want == want && each.entries == entries {
-			each.count += n
-			return
-		}
+	key := tallyKey{member: member, want: want, entries: entries}
+	t.lookups++
+	if i, found := t.position[key]; found {
+		t.tallies[i].count += n
+		return
 	}
+	if t.position == nil {
+		t.position = make(map[tallyKey]int)
+	}
+	t.position[key] = len(t.tallies)
 	t.tallies = append(t.tallies, tally{member: member, want: want, entries: entries, count: n})
 }
 
@@ -140,6 +158,7 @@ func (t *EntryTally) Report(line int, problems *Problems) {
 		}
 	}
 	t.tallies = nil
+	t.position = nil
 }
 
 // WrongKindIn returns the problem text of a member that is not of the kind

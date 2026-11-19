@@ -156,3 +156,18 @@ func TestAHistorySnapshotOfTheWrongKindInManyCheckpointsIsOneProblem(t *testing.
 		t.Errorf("problems %q, want %q", got, want)
 	}
 }
+
+func TestEachDifferentVariantTagWithABodyOfTheWrongKindIsItsOwnProblemInOrder(t *testing.T) {
+	const n = 3000
+	var entries []string
+	var want []string
+	for i := range n {
+		tag := fmt.Sprintf("Tag%d", i)
+		entries = append(entries, fmt.Sprintf(`{"user": {"content": {%q: 1}}}`, tag))
+		want = append(want, "parser: user.content."+tag+" is not a JSON object")
+	}
+	got := conversationProblems(`{"history": [` + strings.Join(entries, ",") + `]}`)
+	if len(got) != n || got[0] != want[0] || got[n-1] != want[n-1] {
+		t.Errorf("%d problems, first %q, want %d with first %q", len(got), got[:min(1, len(got))], n, want[0])
+	}
+}

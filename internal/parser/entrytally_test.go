@@ -2,6 +2,7 @@ package parser
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -80,5 +81,27 @@ func TestAHundredThousandEntriesOfTheWrongKindInAnEntryTallyAreOneProblem(t *tes
 		{Message: "names holds 100000 entries that are not JSON strings"}}
 	if !slices.Equal(problems, want) {
 		t.Errorf("got %v, want %v", problems, want)
+	}
+}
+
+func TestAnEntryTallyLooksUpAMemberOnceWhateverNumberOfMembersWereMet(t *testing.T) {
+	for _, members := range []int{1000, 4000} {
+		var tally EntryTally
+		for i := range members {
+			tally.Check(jsonvalue.NewString("x"), "member"+strconv.Itoa(i), jsonvalue.Object)
+		}
+		// A second pass meets every member again.
+		for i := range members {
+			tally.Check(jsonvalue.NewString("x"), "member"+strconv.Itoa(i), jsonvalue.Object)
+		}
+		if want := 2 * members; tally.lookups != want {
+			t.Errorf("%d members: %d lookups, want %d", members, tally.lookups, want)
+		}
+		var problems Problems
+		tally.Report(1, &problems)
+		if len(problems) != members || problems[0].Message != "member0 is not a JSON object in 2 entries" ||
+			problems[members-1].Message != "member"+strconv.Itoa(members-1)+" is not a JSON object in 2 entries" {
+			t.Errorf("%d members: %d problems, want one per member in the order first met", members, len(problems))
+		}
 	}
 }
