@@ -36,6 +36,18 @@ INSERT INTO part VALUES ('prt_1', 'msg_1', 'ses_1', 1700000000500, 1700000000500
     '{"type":"text","text":"hello there"}');
 """
 
+# A 1.x database whose session is shared: the share's URL carries a credential beside its secret,
+# and an event records the share of another session.
+SHARED_SESSION = ONE_SESSION + """
+CREATE TABLE session_share (session_id text PRIMARY KEY, id text, secret text, url text,
+    time_created integer, time_updated integer);
+INSERT INTO session_share VALUES ('ses_1', 'shr_1', 'FIXTURE-SHARE-SECRET',
+    'https://opncd.example/s/shr_1?token=s3cret', 1700000002000, 1700000002000);
+CREATE TABLE event (id text PRIMARY KEY, aggregate_id text, seq integer, type text, data text);
+INSERT INTO event VALUES ('evt_1', 'ses_2', 1, 'session.updated.1',
+    '{"info":{"share":{"url":"https://ci:s3cret@opncd.example/s/shr_2"},"time":{"updated":1700000003000}}}');
+"""
+
 DATABASES = {
     "no_permission_table.db": ONE_SESSION,
     # The first layout of the permission table, which every early 1.x database had.
@@ -45,6 +57,7 @@ DATABASES = {
     + """CREATE TABLE permission (project_id text PRIMARY KEY, data text NOT NULL,
         time_created integer, time_updated integer);
     INSERT INTO permission VALUES ('p1', '{}', 1700000000000, 1700000000000);""",
+    "shared_session.db": SHARED_SESSION,
 }
 
 

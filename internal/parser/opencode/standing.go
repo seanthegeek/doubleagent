@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -13,7 +14,9 @@ import (
 )
 
 // shareRows emits a "session synced:" row per session_share row, ordered
-// by its time then session. The share's secret is never read.
+// by its time then session: the share's URL through parser.URLText and,
+// in a 1.x database, the secret that authorises changes to the public
+// copy through parser.SecretText.
 func (s *store) shareRows() error {
 	if !s.tables.Has("session_share") {
 		return nil
@@ -22,8 +25,11 @@ func (s *store) shareRows() error {
 	if err != nil {
 		return err
 	}
-	rows, err := table.Select("session_id", "id", "url", "time_created").
-		OrderBy("time_created, session_id").All()
+	columns := []string{"session_id", "id", "url", "time_created"}
+	if table.Has("secret") {
+		columns = append(columns, "secret")
+	}
+	rows, err := table.Select(columns...).OrderBy("time_created, session_id").All()
 	if err != nil {
 		return err
 	}
@@ -32,10 +38,19 @@ func (s *store) shareRows() error {
 		s.shares[identifier] = true
 		s.emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
 			" share "+cmp.Or(parser.NonEmptyColumn(row.Get("id")), "-")+" url "+
-			cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-")+" (from "+s.label+
-			" session_share, time_created)"))
+			parser.URLText(s.artifact, cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-"))+
+			shareSecret(s.artifact, row.Get("secret"))+" (from "+s.label+" session_share, time_created)"))
 	}
 	return nil
+}
+
+// shareSecret returns " secret=<secret>" of a share's secret column through
+// parser.SecretText, "" when it is NULL or empty.
+func shareSecret(artifact *input.Artifact, value sqlitefile.Value) string {
+	if secret := parser.NonEmptyColumn(value); secret != "" {
+		return " secret=" + parser.SecretText(artifact, secret)
+	}
+	return ""
 }
 
 // eventShareRows emits, for a session with no session_share row, the share
@@ -68,7 +83,7 @@ func (s *store) eventShareRows() error {
 		var text string
 		switch _, known := state[identifier]; {
 		case !url.IsEmpty() && !known:
-			state[identifier], text = "shared", timeline.SyncedPrefix+" share url "+url.Text()
+			state[identifier], text = "shared", timeline.SyncedPrefix+" share url "+parser.URLText(s.artifact, url.Text())
 		case url.IsEmpty() && state[identifier] == "shared":
 			state[identifier], text = "unshared", "session unshared"
 		default:

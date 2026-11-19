@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -22,6 +23,13 @@ const databaseRel = ".local/share/opencode/opencode.db"
 // parseDatabase copies the named testdata database into a new home at
 // databaseRel and returns the text of every row the parser gives for it.
 func parseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	return parseDatabaseWith(t, name, secrets.Setting{})
+}
+
+// parseDatabaseWith is parseDatabase in a run that shows secrets as
+// setting says.
+func parseDatabaseWith(t *testing.T, name string, setting secrets.Setting) []string {
 	t.Helper()
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
 	if err != nil {
@@ -36,7 +44,7 @@ func parseDatabase(t *testing.T, name string) []string {
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + databaseRel, Rel: databaseRel,
-		Agent: "opencode", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"},
+		Agent: "opencode", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string
 	err = New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })

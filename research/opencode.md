@@ -1236,7 +1236,9 @@ In `opencode.db` (and `opencode-<channel>.db`, `opencode-next.db`):
   `control_account.refresh_token`, with the account's `email` and `url`, the OpenCode console
   account ([`schema.gen.ts:16-39`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/schema.gen.ts#L16-L39)).
 - `session_share.secret` in a 1.x database, the per-share secret that authorises sync to and
-  deletion of the public copy ([1.x share records](#1x-share-records)).
+  deletion of the public copy ([1.x share records](#1x-share-records)); the parser shows it in the
+  share's `session synced:` row, and `--no-secrets` replaces it with the placeholder. The
+  `credential`, `account` and `control_account` tables are not read.
 - Tool `input` and output text, `shell` output and `user` text can hold pasted tokens.
 
 ### Parser plan
@@ -1408,17 +1410,21 @@ A shared 1.x session posted every session, message, part, diff and model update 
 secret to `<base>/api/share/<id>/sync`, the base `https://opncd.ai`, the config's `enterprise.url`
 or a signed-in console account's URL
 ([`packages/opencode/src/share/share-next.ts:179-222`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/share/share-next.ts#L179-L222)).
-The parser reads the 1.x share records of a database, never `secret`: one row per `session_share`
-row at its `time_created`; for a session with no `session_share` row whose `session.updated.1`
-events carry `info.share.url`, a synced row at that event's `info.time.updated` and an unshared
-row at the first later event without `share`. The database name in the text is the file's own
-(`opencode-<channel>.db` for a channel database):
+The parser reads the 1.x share records of a database: one row per `session_share` row at its
+`time_created`, which ends ` secret=<secret>` when the column is set; for a session with no
+`session_share` row whose `session.updated.1` events carry `info.share.url`, a synced row at that
+event's `info.time.updated` and an unshared row at the first later event without `share`. The
+database name in the text is the file's own (`opencode-<channel>.db` for a channel database):
 
 ```text
+session synced: share <id> url <url> secret=<secret> (from opencode.db session_share, time_created)
 session synced: share <id> url <url> (from opencode.db session_share, time_created)
 session synced: share url <url> (from opencode.db event session.updated.1, info.time.updated)
 session unshared (from opencode.db event session.updated.1, info.time.updated)
 ```
+
+The secret and the credentials a share URL carries are shown as written; `timeline --no-secrets`
+and `detect --no-secrets` replace each with the placeholder.
 
 These rows are fixture only. A 2.x database keeps no event payloads
 ([Event log](#event-log)), so the event-based rows appear only for a 1.x database not yet opened by

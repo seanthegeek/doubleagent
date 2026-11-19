@@ -265,6 +265,13 @@ func withheldForms() []withheldForm {
 			`(model configured: [^"\n]*?)( [^"\n]*\(from config\.toml \[model\.)`,
 			`(model configured: [^"\n]*?) api_key=`+secrets.DefaultPlaceholder+`( [^"\n]*\(from config\.toml \[model\.)`,
 			"${1}${2}"),
+		// The recording gave a session's share without its secret; the
+		// binary adds it, withheld.
+		form("opencode", "share secret",
+			`(session synced: share [^"\n]* url [^ "\n]*)( \(from [^"\n]* session_share, time_created\))`,
+			`(session synced: share [^"\n]* url [^ "\n]*)(?: secret=`+secrets.DefaultPlaceholder+`)?`+
+				`( \(from [^"\n]* session_share, time_created\))`,
+			"${1}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -439,6 +446,9 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	modelRecorded := "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +
 		"supported_models=m (from config.toml [model.chat.http], file mtime)"
 	modelBinary := strings.Replace(modelRecorded, " supported", " api_key=REDACTED supported", 1)
+	shareRecorded := "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
+		"(from opencode-beta.db session_share, time_created)"
+	shareBinary := strings.Replace(shareRecorded, " (from", " secret=REDACTED (from", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -504,6 +514,10 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, "REDACTED", "tok", 1), false},
 		{"a socket token beside another setting fails", socketRecorded,
 			strings.Replace(socketBinary, "allowlist", "full", 1), false},
+		{"a share's secret in its placeholder form passes", shareRecorded, shareBinary, true},
+		{"a share's secret shown fails", shareRecorded, strings.Replace(shareBinary, "REDACTED", "sec", 1), false},
+		{"a share of another id fails", shareRecorded, strings.Replace(shareBinary, "SHARE05 url", "SHARE06 url", 1),
+			false},
 		{"a model's API key in its placeholder form passes", modelRecorded, modelBinary, true},
 		{"a model's API key shown fails", modelRecorded, strings.Replace(modelBinary, "REDACTED", "sk-1", 1), false},
 		{"a model of another endpoint fails", modelRecorded, strings.Replace(modelBinary, "h/v1", "g/v1", 1), false},
@@ -556,6 +570,8 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			"(account not recorded; from integrations table, created_at)",
 		"tabby config.toml API key": "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +
 			"(from config.toml [model.chat.http], file mtime)",
+		"opencode share secret": "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
+			"(from opencode-beta.db session_share, time_created)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {
