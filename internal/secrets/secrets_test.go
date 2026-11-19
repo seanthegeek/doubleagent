@@ -664,3 +664,32 @@ func TestAParseStartedInsideAnotherGivesTheOuterParseItsRecordBack(t *testing.T)
 		t.Error("a parse is running after both ended")
 	}
 }
+
+func TestARowsListOfRecordsHoldsEachParsesRecordOnce(t *testing.T) {
+	recorder := NewRecorder(withheld())
+	first, second := recorder.Begin(), recorder.Begin()
+	recorder.End()
+	recorder.End()
+	both := WithDuplicates(first, []*Found{second})
+	tests := []struct {
+		name string
+		got  *Found
+		want []*Found
+	}{
+		{"nothing listed is no record", WithDuplicates(nil, []*Found{nil}), nil},
+		{"a record listed with itself is that record", WithDuplicates(first, []*Found{first, nil}), []*Found{first}},
+		{"a list inside a list is its records", WithDuplicates(second, []*Found{both, first}),
+			[]*Found{second, first}},
+		{"two records", both, []*Found{first, second}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.got.Records(); !slices.Equal(got, test.want) {
+				t.Errorf("lists %p, want %p", got, test.want)
+			}
+		})
+	}
+	if WithDuplicates(first, []*Found{first}) != first {
+		t.Error("a record listed alone is not the record itself")
+	}
+}

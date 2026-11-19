@@ -50,7 +50,8 @@ type step struct {
 }
 
 // New returns the set of texts, counting in work (nil counts nothing) the
-// bytes each search reads and the fallbacks it takes.
+// bytes of the texts it is built from, the bytes each search reads and the
+// fallbacks it and the building take.
 func New(texts []string, work Counter) *Set {
 	return build(texts, work, false)
 }
@@ -78,6 +79,7 @@ func build(texts []string, work Counter, backward bool) *Set {
 			current = child
 		}
 		set.ends[current] = append(set.ends[current], position)
+		set.count("bytes indexed", len(text))
 	}
 	set.link()
 	return set

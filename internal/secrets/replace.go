@@ -18,7 +18,8 @@ func (r *Recorder) Text(text string) string {
 
 // RowText returns text, the text of a row of the parse whose record is
 // parse, as the run shows it: as Text does, and with the parse's shorter
-// secret values and its readers' details replaced too.
+// secret values and its readers' details replaced too; for a row kept for
+// dropped duplicates (WithDuplicates), those of each parse it stands for.
 func (r *Recorder) RowText(text string, parse *Found) string {
 	return r.replace(text, parse, rowText, parseProblem)
 }
@@ -31,12 +32,13 @@ func (r *Recorder) ProblemText(text string, parse *Found) string {
 }
 
 // replace returns text with the credentials of its URLs, the secrets of
-// everywhere and those parse recorded in each of reaches replaced. Secrets
-// that overlap are one replaced range (replaceRanges), so a secret inside a
-// longer one (a password inside user:password) goes with it. The output is
-// built from the original and the placeholder, never read again. The cost
-// is the text's length once for the URLs and once per record that holds a
-// text to replace, after each record's matcher is built once.
+// everywhere and those each parse parse stands for (Records) recorded in
+// each of reaches replaced. Secrets that overlap are one replaced range
+// (replaceRanges), so a secret inside a longer one (a password inside
+// user:password) goes with it. The output is built from the original and
+// the placeholder, never read again. The cost is the text's length once
+// for the URLs and once per record that holds a text to replace, after
+// each record's matcher is built once.
 func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	if r == nil || text == "" {
 		return text
@@ -46,9 +48,11 @@ func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	if len(r.everywhere.texts[everyString]) > 0 {
 		matchers = append(matchers, r.everywhere.matcherOf(everyString, emptyPlaceholder, r.work))
 	}
-	for _, where := range reaches {
-		if parse != nil && len(parse.texts[where]) > 0 {
-			matchers = append(matchers, parse.matcherOf(where, emptyPlaceholder, r.work))
+	for _, record := range parse.Records() {
+		for _, where := range reaches {
+			if len(record.texts[where]) > 0 {
+				matchers = append(matchers, record.matcherOf(where, emptyPlaceholder, r.work))
+			}
 		}
 	}
 	var inText []urlcredentials.Credential
