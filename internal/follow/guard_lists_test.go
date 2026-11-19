@@ -317,14 +317,18 @@ func allowedCalls() map[string]allowance {
 			"resolves the input directory the analyst names, for the owner of its parent"},
 		{"internal/analyze/fleet.go", "osfile.MkdirAll", 1,
 			"creates the directory of the CSV the analyst names with -o"},
-		{"internal/analyze/fleet.go", "osfile.WriteFile", 1,
-			"writes the CSV the analyst names with -o"},
+		{"internal/analyze/fleet.go", "osfile.Rename", 1,
+			"moves the temporary file it created new beside the CSV the analyst names with -o onto " +
+				"that name, replacing an existing file there rather than writing into it"},
+		{"internal/analyze/fleet.go", "osfile.Remove", 1,
+			"removes the temporary file it created new beside the CSV when writing or moving it fails"},
 		{"internal/analyze/timeline.go", "osfile.ReadDir", 1,
 			"lists the output directory the analyst names, which its lstat showed a directory, " +
 				"to refuse one that is not empty"},
-		{"internal/analyze/timeline.go", "osfile.OpenFile", 1,
-			"creates a file new in the output directory, failing if anything, a link included, " +
-				"holds its name: the probe file under a random name, and each output file"},
+		{"internal/analyze/output.go", "osfile.OpenFile", 1,
+			"creates a file new, failing if anything, a link included, holds its name: timeline's " +
+				"probe file under a random name and each output file in its output directory, and " +
+				"fleet's temporary file under a random name beside the CSV"},
 		{"internal/analyze/timeline.go", "osfile.Remove", 2,
 			"removes the probe file it made, and a directory the run itself created when the " +
 				"run fails"},

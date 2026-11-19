@@ -77,6 +77,7 @@ func TestWrappersReachTheEntryNamedNotItsNeighbour(t *testing.T) {
 		{"MkdirAll makes a child inside the directory with a trailing dot", checkMkdirAllDot},
 		{"Remove deletes the directory with a trailing dot and keeps its neighbour", checkRemoveDot},
 		{"RemoveAll deletes the tree with a trailing dot and keeps its neighbour", checkRemoveAllDot},
+		{"Rename moves the file with a trailing space to a name with a trailing dot", checkRenameSpaceToDot},
 		{"Chtimes dates the file with a trailing space and not its neighbour", checkChtimesSpace},
 	}
 	for _, test := range cases {
@@ -241,6 +242,20 @@ func checkRemoveAllDot(t *testing.T, root string) {
 	if existsAt(root, "x.") || textAt(t, root, `x\plain-entry`) != "plain" {
 		t.Errorf("after RemoveAll(x.): x. exists %v, want false and x\\plain-entry intact",
 			existsAt(root, "x."))
+	}
+}
+
+// checkRenameSpaceToDot checks that Rename moves the file with a trailing
+// space, not its neighbour, to a name with a trailing dot, not to the name
+// without it, both paths reaching the entry they name.
+func checkRenameSpaceToDot(t *testing.T, root string) {
+	if err := Rename(filepath.Join(root, "y "), filepath.Join(root, "w.")); err != nil {
+		t.Fatal(err)
+	}
+	if existsAt(root, "y ") || existsAt(root, "w") || textAt(t, root, "w.") != "space-content" ||
+		textAt(t, root, "y") != "plain" {
+		t.Errorf("after Rename(y , w.): y  exists %v, w exists %v, want both false, w. holding "+
+			"the moved content and y its own", existsAt(root, "y "), existsAt(root, "w"))
 	}
 }
 

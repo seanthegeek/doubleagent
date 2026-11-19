@@ -37,6 +37,7 @@ func missingParentCalls() []wrapperCall {
 		{"ReadFile", func(path string) error { _, err := ReadFile(path); return err }},
 		{"WriteFile", func(path string) error { return WriteFile(path, []byte("x"), 0o644) }},
 		{"Remove", Remove},
+		{"Rename", func(path string) error { return Rename(path, path+"-renamed") }},
 		{"Chtimes", func(path string) error { return Chtimes(path, time.Now(), time.Now()) }},
 	}
 }
@@ -93,6 +94,7 @@ func TestWrappersActLikeOsOnAnOrdinaryPath(t *testing.T) {
 		{"MkdirTemp makes two new directories under its pattern, in the native form", checkMkdirTemp},
 		{"Remove deletes a file and refuses a directory that holds one", checkRemove},
 		{"RemoveAll deletes a tree", checkRemoveAll},
+		{"Rename replaces an existing file and refuses a directory", checkRename},
 		{"Chtimes sets the modification time", checkChtimes},
 	}
 	for _, test := range cases {
@@ -280,6 +282,31 @@ func checkRemoveAll(t *testing.T, root string) {
 	}
 	if _, err := os.Lstat(filepath.Join(root, "tree")); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("tree still there after RemoveAll: %v", err)
+	}
+}
+
+// checkRename checks that Rename moves a file over an existing one, which
+// then holds the moved content, and fails onto a directory, leaving both.
+func checkRename(t *testing.T, root string) {
+	writeText(t, filepath.Join(root, "new"), "new")
+	writeText(t, filepath.Join(root, "old"), "old and longer")
+	if err := Rename(filepath.Join(root, "new"), filepath.Join(root, "old")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(root, "new")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the moved name is still there after Rename: %v", err)
+	}
+	if text := readText(t, filepath.Join(root, "old")); text != "new" {
+		t.Errorf("the replaced file holds %q, want %q", text, "new")
+	}
+	if err := os.Mkdir(filepath.Join(root, "directory"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Rename(filepath.Join(root, "old"), filepath.Join(root, "directory")); err == nil {
+		t.Error("Rename onto a directory succeeded, want an error")
+	}
+	if text := readText(t, filepath.Join(root, "old")); text != "new" {
+		t.Errorf("the file Rename failed to move holds %q, want %q", text, "new")
 	}
 }
 

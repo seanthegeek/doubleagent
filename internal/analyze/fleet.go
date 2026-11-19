@@ -5,12 +5,17 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"crypto/rand"
 	"encoding/csv"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -371,12 +376,16 @@ func plural(count int, noun string) string {
 // writeFleetCSV writes the header and rows to path through encoding/csv
 // with its defaults (fields quoted where needed, lines ending in LF),
 // creating its parent directory, the one outputParent names, so the file
-// goes where fleetOutputRefusal looked. An existing regular file is
-// replaced; a link there was refused before the inputs were read, which
-// leaves the moment between that look and this write, when only a process
-// that can write the directory could place one.
+// goes where fleetOutputRefusal looked. The CSV is written to a new file
+// beside path and moved over it (replaceFile), so an existing file at path
+// is replaced, never written into: a second name of an evidence file (a
+// hard link) passes the outside-the-input check, which judges where the
+// name lies, and writing through it would change the evidence. A link at
+// path was refused before the inputs were read; one placed after that look
+// is replaced itself, its target untouched.
 func writeFleetCSV(path string, rows [][]fleetCell) error {
-	if parent := outputParent(path); parent != "" {
+	parent := outputParent(path)
+	if parent != "" {
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {
 			return err
 		}
@@ -393,7 +402,100 @@ func writeFleetCSV(path string, rows [][]fleetCell) error {
 	if err := csv.NewWriter(&out).WriteAll(records); err != nil {
 		return err
 	}
-	return osfile.WriteFile(path, out.Bytes(), 0o666)
+	return replaceFile(path, parent, out.Bytes(), fleetTemporaryName)
+}
+
+// fleetTemporaryPrefix and fleetTemporarySuffix surround the random part
+// of the name of the file fleet writes its CSV to before moving it over
+// the output, so a file left behind by a run that was killed says what it
+// is: a fleet CSV not finished, safe to delete.
+const (
+	fleetTemporaryPrefix = "doubleagent-fleet-"
+	fleetTemporarySuffix = ".partial"
+)
+
+// fleetTemporaryAttempts is how many temporary names replaceFile tries.
+// Each name holds 64 random bits, so a second name is needed only when a
+// file left by an earlier run holds the first; a name taken that many
+// times in a row means the directory refuses every new name.
+const fleetTemporaryAttempts = 10
+
+// errNoTemporaryName is replaceFile's error when every name it tried was
+// taken.
+var errNoTemporaryName = errors.New("every temporary name tried beside it was taken")
+
+// fleetTemporaryName returns a new name for fleet's temporary file: the
+// prefix, 16 random hexadecimal digits and the suffix.
+func fleetTemporaryName() string {
+	random := make([]byte, 8)
+	_, _ = rand.Read(random)
+	return fleetTemporaryPrefix + hex.EncodeToString(random) + fleetTemporarySuffix
+}
+
+// replaceFile puts data at path as a new file: it creates a file named by
+// temporaryName in parent, the directory the system puts path's last
+// element in (outputParent; "" is the working directory), writes data there
+// and renames it to path. Lying beside path, the temporary file is on its
+// file system for the rename, and the outside-the-input check made on path
+// holds for it: that check compares the directories a name lies in with
+// the input, and both names lie in the same ones. A taken name is passed
+// over, as createNew never opens an existing entry. On any failure the
+// temporary file is removed and whatever was at path is left as it was;
+// the error names path, as a write to it would.
+func replaceFile(path, parent string, data []byte, temporaryName func() string) error {
+	temporary, file, err := createTemporary(parent, temporaryName)
+	if err != nil {
+		return outputError(path, err)
+	}
+	_, err = file.Write(data)
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = osfile.Rename(temporary, path)
+	}
+	if err != nil {
+		_ = osfile.Remove(temporary)
+		return outputError(path, err)
+	}
+	return nil
+}
+
+// createTemporary creates a new file in parent under a name from
+// temporaryName, trying up to fleetTemporaryAttempts names while each is
+// taken, and returns its path and the open file.
+func createTemporary(parent string, temporaryName func() string) (string, *os.File, error) {
+	for range fleetTemporaryAttempts {
+		temporary := temporaryName()
+		if parent != "" {
+			temporary = belowGiven(parent, temporary)
+		}
+		file, err := createNew(temporary, 0o666)
+		if !errors.Is(err, fs.ErrExist) {
+			return temporary, file, err
+		}
+	}
+	return "", nil, errNoTemporaryName
+}
+
+// outputError returns err as an error of writing path itself, its cause
+// kept: the temporary file is the command's own detail. An output that is
+// a directory gives "is a directory", what opening it for writing gives,
+// where the rename reports EEXIST (os.Rename on Unix) or ERROR_ACCESS_DENIED
+// (MoveFileEx on Windows).
+func outputError(path string, err error) error {
+	var pathError *fs.PathError
+	var linkError *os.LinkError
+	switch {
+	case errors.As(err, &pathError):
+		err = pathError.Err
+	case errors.As(err, &linkError):
+		err = linkError.Err
+	}
+	if info, statErr := osfile.Lstat(path); statErr == nil && info.IsDir() {
+		err = syscall.EISDIR
+	}
+	return &fs.PathError{Op: "write", Path: path, Err: err}
 }
 
 // printFleet prints how many rows from how many hosts were written, and the

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -342,13 +341,6 @@ func (r *timelineRun) writeRows() error {
 		}
 		return timeline.WriteSessions(w, withheld)
 	})
-}
-
-// createNew creates the file at path, failing when anything is there, a
-// link included, so a file is never written through an entry another
-// process placed in the output directory during the run.
-func createNew(path string, perm fs.FileMode) (*os.File, error) {
-	return osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 }
 
 // writeOutput creates the file at path, new, and writes it through write,

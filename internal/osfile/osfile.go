@@ -121,6 +121,20 @@ func Remove(path string) error {
 	return syspath.NativeErrors(os.Remove(syspath.Extended(path)))
 }
 
+// Rename renames oldPath to newPath, as os.Rename does, both in their
+// extended form. An existing file at newPath loses that name to the moved
+// entry and is never written into: on Unix rename(2) replaces the name in
+// one step, so another name of that file (a hard link) keeps the old
+// content, and a symbolic link there is itself replaced, not its target; on
+// Windows MoveFileEx with MOVEFILE_REPLACE_EXISTING replaces it
+// (internal/syscall/windows/syscall_windows.go), failing while another
+// program holds it open without allowing its deletion. A directory at
+// newPath is an error on both (os/file.go, os/file_unix.go). The error is
+// an *os.LinkError with both names in native form.
+func Rename(oldPath, newPath string) error {
+	return syspath.NativeErrors(os.Rename(syspath.Extended(oldPath), syspath.Extended(newPath)))
+}
+
 // RemoveAll removes path and everything under it, as os.RemoveAll does.
 func RemoveAll(path string) error {
 	return syspath.NativeErrors(os.RemoveAll(syspath.Extended(path)))
