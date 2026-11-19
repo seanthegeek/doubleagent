@@ -77,10 +77,13 @@ func TestFleetReadsTheFilesOfTheDirectoryItListed(t *testing.T) {
 // (1024) takes in one call.
 const longPathText = 4200
 
-func TestFleetJudgesARelativeOutputFromAWorkingDirectoryPastThePathLimit(t *testing.T) {
+// enterPastPathLimit makes the working directory longer than longPathText.
+// Each level is entered by its own short name, so the working directory
+// grows past the limit that its absolute path could not be used beyond. It
+// skips the test where the system refuses.
+func enterPastPathLimit(t *testing.T) {
+	t.Helper()
 	t.Chdir(t.TempDir())
-	// Each level is entered by its own short name, so the working directory
-	// grows past the limit that its absolute path could not be used beyond.
 	name := strings.Repeat("d", 200)
 	for depth := 0; depth*(len(name)+1) < longPathText; depth++ {
 		if err := os.Mkdir(name, 0o700); err != nil {
@@ -90,6 +93,10 @@ func TestFleetJudgesARelativeOutputFromAWorkingDirectoryPastThePathLimit(t *test
 			t.Skip("the system refuses to enter a deeper directory:", err)
 		}
 	}
+}
+
+func TestFleetJudgesARelativeOutputFromAWorkingDirectoryPastThePathLimit(t *testing.T) {
+	enterPastPathLimit(t)
 	writeFile(t, filepath.Join("inv", "a.json"), hostLine)
 	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", "out.csv", "inv")
 	if code != ExitFound || !lstatExists("out.csv") {
@@ -100,5 +107,28 @@ func TestFleetJudgesARelativeOutputFromAWorkingDirectoryPastThePathLimit(t *test
 	if code != ExitError || !strings.Contains(stderr, "must be outside the input directory inv") ||
 		lstatExists(inside) {
 		t.Errorf("an output inside the input: exit %d, stderr %q", code, stderr)
+	}
+}
+
+func TestDetectAndTimelineCannotReadARelativeInputPastThePathLimit(t *testing.T) {
+	enterPastPathLimit(t)
+	writeFile(t, filepath.Join("in", "a.json"), hostLine)
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"detect", []string{"detect", "in"}},
+		{"timeline", []string{"timeline", "in", "tabs"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, _, stderr := runCommand(testEnvironment(), test.args...)
+			if code != ExitError || stderr != "error: in: "+reason.NameTooLong+"\n" {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			if lstatExists("tabs") {
+				t.Error("the output directory was created")
+			}
+		})
 	}
 }

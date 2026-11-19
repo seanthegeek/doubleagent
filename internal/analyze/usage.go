@@ -35,6 +35,14 @@ const inputOptionsHelp = `  --host HOST          host name to record when the in
   -h, --help           print this text and exit
 `
 
+// inputLimitHelp is the note detect and timeline give about a relative
+// input: it is read at its absolute path, which the system limits.
+const inputLimitHelp = `
+On Linux and macOS an input is read at its absolute path, so a relative
+INPUT fails with "file name too long" when the working directory plus INPUT
+is longer than the system's path length; give it from a shorter directory.
+`
+
 // secretsHelp is the warning detect and timeline give about the secrets
 // their output holds.
 const secretsHelp = `
@@ -57,7 +65,7 @@ agent files were found or --json was given, 1 when none were, 2 on an
 error, 130 when interrupted.
 ` + inputHelp + `  --json               machine-readable output
   --files              list every attributed file
-` + secretsHelp
+` + inputLimitHelp + secretsHelp
 
 // timelineUsage is the help text of timeline.
 const timelineUsage = `Usage: doubleagent timeline [options] INPUT OUTPUT_DIR
@@ -83,7 +91,7 @@ error, 130 when interrupted.
   -i, --ignore-case    make --match case-insensitive
 
 WHEN is one of the forms ` + rowfilter.FormsHelp + `.
-` + secretsHelp
+` + inputLimitHelp + secretsHelp
 
 // fleetUsage is the help text of fleet.
 const fleetUsage = `Usage: doubleagent fleet [-o CSV] INPUT [INPUT ...]
