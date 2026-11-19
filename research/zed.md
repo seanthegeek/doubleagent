@@ -620,7 +620,8 @@ The thread start is followed, at its time, by `git remote: <url>` (`system`), th
 `git_state.remote_url` of the thread blob's `initial_project_snapshot` worktree whose
 `worktree_path` is the thread's project, else of the first worktree, as for `git_branch`
 ([Record schema](#record-schema); [issue 253](https://github.com/seanthegeek/doubleagent/issues/253)).
-Source-derived; not observed on any real install.
+The URL's credentials are shown as written; `timeline --no-secrets` and `detect --no-secrets`
+replace them with the placeholder. Source-derived; not observed on any real install.
 
 Model and permission rows ([issue 96](https://github.com/seanthegeek/doubleagent/issues/96) and
 [issue 97](https://github.com/seanthegeek/doubleagent/issues/97)), all `system`, come after the
