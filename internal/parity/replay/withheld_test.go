@@ -73,8 +73,6 @@ func withheldRows() []withheldRow {
 			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_HOST=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_ID=" + secrets.DefaultPlaceholder + " (from .agent-zero/.env, file mtime)"},
-		{"openclaw", "exec approvals socket token", "permission setting: socket.token=" +
-			secrets.DefaultPlaceholder + " (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)"},
 	}
 }
 
@@ -220,6 +218,13 @@ func withheldForms() []withheldForm {
 			`(cloud upload queued: [^"\n]*? url=[^ "\n]*)(?: Authorization=`+secrets.DefaultPlaceholder+`)?`+
 				`( [^"\n]*?\(Roo Code Cloud retry queue, )`,
 			"${1}${2}"),
+		// The recording gave the exec approvals settings without the
+		// approvals socket's token; the binary adds it to each, withheld.
+		form("openclaw", "exec approvals socket token",
+			`(permission setting: [^"\n]*?)( \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\))`,
+			`(permission setting: [^"\n]*?)(?: socket\.token=`+secrets.DefaultPlaceholder+`)?`+
+				`( \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\))`,
+			"${1}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -354,6 +359,9 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
 		"roo.retryQueue, request timestamp)"
 	retryBinary := strings.Replace(retryRecorded, " lastError", " Authorization=REDACTED lastError", 1)
+	socketRecorded := "permission setting: defaults.security=allowlist (from state/openclaw.sqlite " +
+		"exec_approvals_config, updated_at_ms)"
+	socketBinary := strings.Replace(socketRecorded, " (from", " socket.token=REDACTED (from", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -415,6 +423,10 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			strings.Replace(retryBinary, "api/events", "api/other", 1), false},
 		{"a retried upload of another error fails", retryRecorded,
 			strings.Replace(retryBinary, "fetch failed", "timeout", 1), false},
+		{"a socket token in its placeholder form passes", socketRecorded, socketBinary, true},
+		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, "REDACTED", "tok", 1), false},
+		{"a socket token beside another setting fails", socketRecorded,
+			strings.Replace(socketBinary, "allowlist", "full", 1), false},
 		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
 		{"a connection's token shown fails", connectionRecorded,
 			strings.Replace(connectionBinary, "REDACTED", "not-real", 1), false},
@@ -453,6 +465,8 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 		"roo-code retry queue bearer token": "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
 			"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
 			"roo.retryQueue, request timestamp)",
+		"openclaw exec approvals socket token": "permission setting: defaults.security=allowlist " +
+			"(from state/openclaw.sqlite exec_approvals_config, updated_at_ms)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {

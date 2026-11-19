@@ -119,6 +119,8 @@ CREATE TABLE exec_approvals_config (config_key TEXT NOT NULL PRIMARY KEY, raw_js
 INSERT INTO exec_approvals_config VALUES ('default', '{"version": 1, "socket": {"path":
   "/home/u/.openclaw/exec.sock", "token": "FIXTURE-SOCKET-TOKEN"}, "defaults": {"security": "deny"}}', 1,
   1790845100000);
+INSERT INTO exec_approvals_config VALUES ('bare', '{"version": 1, "socket": {"token":
+  "FIXTURE-SOCKET-TOKEN"}}', 1, 1790845100000);
 """
 
 STATE_URLS = """
