@@ -221,21 +221,33 @@ func TestAnOptionsCredentialsAreReplacedInTheErrorItGives(t *testing.T) {
 	work := t.TempDir()
 	input, output := filepath.Join(work, "missing"), filepath.Join(work, "out")
 	tests := []struct {
-		name string
-		args []string
+		name, prefix string
+		args         []string
 	}{
-		{"a pattern that does not compile", []string{"timeline", "--no-secrets", "--match", url + "(", input, output}},
-		{"an agent no parser reads", []string{"timeline", "--no-secrets", "--agent", url, input, output}},
-		{"a time that cannot be read", []string{"timeline", "--no-secrets", "--since", url, input, output}},
+		{"a pattern that does not compile", "error: ", []string{"timeline", "--match", url + "(", input, output}},
+		{"an agent no parser reads", "error: ", []string{"timeline", "--agent", url, input, output}},
+		{"a time that cannot be read", "error: ", []string{"timeline", "--since", url, input, output}},
+		{"an argument after timeline's output", "doubleagent timeline: unexpected argument: ",
+			[]string{"timeline", input, output, url}},
+		{"an option after timeline's input", "doubleagent timeline: options go before the input; ",
+			[]string{"timeline", input, "-" + url, output}},
+		{"an argument after detect's input", "doubleagent detect: unexpected argument: ",
+			[]string{"detect", input, url}},
+		{"an option after detect's input", "doubleagent detect: options go before the input; ",
+			[]string{"detect", input, "-" + url}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			code, _, stderr := runCommand(env, test.args...)
-			if code != ExitError || !strings.HasPrefix(stderr, "error: ") {
+			withheld := append([]string{test.args[0], "--no-secrets"}, test.args[1:]...)
+			code, _, stderr := runCommand(env, withheld...)
+			if code != ExitError || !strings.HasPrefix(stderr, test.prefix) {
 				t.Fatalf("exited %d: %q", code, stderr)
 			}
 			if strings.Contains(stderr, "fake-secret-value-0001") {
 				t.Errorf("the error shows the credential: %q", stderr)
+			}
+			if _, _, shown := runCommand(env, test.args...); !strings.Contains(shown, "fake-secret-value-0001") {
+				t.Errorf("without --no-secrets the error does not show the argument as typed: %q", shown)
 			}
 		})
 	}

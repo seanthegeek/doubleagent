@@ -103,8 +103,7 @@ const placeholderOption = "redaction-placeholder"
 // without --no-secrets, which would otherwise do nothing and suggest that
 // secrets were withheld.
 func completeSecrets(set *flag.FlagSet, options *InputOptions) error {
-	given := false
-	set.Visit(func(option *flag.Flag) { given = given || option.Name == placeholderOption })
+	given := placeholderGiven(set)
 	switch {
 	case given && !options.Secrets.Withhold:
 		return usageError(set.Name(), "--"+placeholderOption+" needs --no-secrets")
@@ -112,6 +111,26 @@ func completeSecrets(set *flag.FlagSet, options *InputOptions) error {
 		options.Secrets.Placeholder = secrets.DefaultPlaceholder
 	}
 	return nil
+}
+
+// placeholderGiven reports whether a parsed command line gave
+// --redaction-placeholder.
+func placeholderGiven(set *flag.FlagSet) bool {
+	given := false
+	set.Visit(func(option *flag.Flag) { given = given || option.Name == placeholderOption })
+	return given
+}
+
+// argumentError returns the usage error of a mistake in the arguments of
+// detect or timeline once their options are read, with the message
+// withheld as the run withholds secrets, since an argument the analyst
+// typed can hold a URL's credentials.
+func argumentError(set *flag.FlagSet, options InputOptions, message string) error {
+	setting := options.Secrets
+	if setting.Withhold && !placeholderGiven(set) {
+		setting.Placeholder = secrets.DefaultPlaceholder
+	}
+	return usageError(set.Name(), secrets.NewRecorder(setting).Text(message))
 }
 
 // detectFlags returns the flag set of detect, reading into options.
@@ -177,47 +196,46 @@ func usageError(command, message string) error {
 }
 
 // parse reads args into set and returns the inputs, the arguments after the
-// options. An input that starts with a dash is an option placed after the
-// first input, which the commands refuse, unless "--" ended the options.
-func parse(set *flag.FlagSet, args []string) ([]string, error) {
+// options, or the usage error of the option parser. An input that starts
+// with a dash is an option placed after the first input, which the
+// commands refuse, unless "--" ended the options: misplaced is then the
+// message that says so, which the command gives as its own usage error.
+func parse(set *flag.FlagSet, args []string) (inputs []string, misplaced string, err error) {
 	if err := set.Parse(args); err != nil {
-		return nil, usageError(set.Name(), err.Error())
+		return nil, "", usageError(set.Name(), err.Error())
 	}
-	inputs := set.Args()
+	inputs = set.Args()
 	// The options before a last "--" read again without an error only when
 	// that "--" ended them: as an option's value it leaves the option short.
 	options := args[:len(args)-len(inputs)]
 	if last := len(options) - 1; last >= 0 && options[last] == "--" &&
 		FlagSet(set.Name()).Parse(options[:last]) == nil {
-		return inputs, nil
+		return inputs, "", nil
 	}
 	for _, input := range inputs {
 		if len(input) > 1 && input[0] == '-' {
-			return nil, usageError(set.Name(), "options go before the input; "+input+" is after it")
+			return nil, "options go before the input; " + input + " is after it", nil
 		}
 	}
-	return inputs, nil
+	return inputs, "", nil
 }
 
 // emptyInput is the usage error of an input given as empty text, which
 // would otherwise name the current directory.
 const emptyInput = "the input is empty; name a file or directory"
 
-// oneInput returns the one input of command, or the usage error of inputs
-// that are not one, naming also what else the line misses.
-func oneInput(command string, inputs, missing []string) (string, error) {
-	if len(inputs) == 0 {
-		missing = append([]string{"input"}, missing...)
-	}
+// oneInput returns the one input of a command, or the message of the
+// usage error of inputs that are not one.
+func oneInput(inputs []string) (string, string) {
 	switch {
-	case len(missing) > 0:
-		return "", usageError(command, "missing argument: "+strings.Join(missing, ", "))
+	case len(inputs) == 0:
+		return "", "missing argument: input"
 	case len(inputs) > 1:
-		return "", usageError(command, "unexpected argument: "+strings.Join(inputs[1:], " "))
+		return "", "unexpected argument: " + strings.Join(inputs[1:], " ")
 	case inputs[0] == "":
-		return "", usageError(command, emptyInput)
+		return "", emptyInput
 	}
-	return inputs[0], nil
+	return inputs[0], ""
 }
 
 // ParseDetect reads the arguments after `detect`. It reports whether the
@@ -226,15 +244,24 @@ func ParseDetect(args []string) (DetectOptions, bool, error) {
 	var options DetectOptions
 	var help bool
 	set := detectFlags(&options, &help)
-	inputs, err := parse(set, args)
-	if err != nil || help {
-		return options, help && err == nil, err
+	inputs, misplaced, err := parse(set, args)
+	switch {
+	case err != nil:
+		return options, false, err
+	case misplaced != "":
+		return options, false, argumentError(set, options.InputOptions, misplaced)
+	case help:
+		return options, true, nil
 	}
 	if err := completeSecrets(set, &options.InputOptions); err != nil {
 		return options, false, err
 	}
-	options.Input, err = oneInput("detect", inputs, nil)
-	return options, false, err
+	input, message := oneInput(inputs)
+	if message != "" {
+		return options, false, argumentError(set, options.InputOptions, message)
+	}
+	options.Input = input
+	return options, false, nil
 }
 
 // ParseTimeline reads the arguments after `timeline`: the options, the input
@@ -243,26 +270,39 @@ func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 	var options TimelineOptions
 	var help bool
 	set := timelineFlags(&options, &help)
-	inputs, err := parse(set, args)
-	if err != nil || help {
-		return options, help && err == nil, err
+	inputs, misplaced, err := parse(set, args)
+	switch {
+	case err != nil:
+		return options, false, err
+	case misplaced != "":
+		return options, false, argumentError(set, options.InputOptions, misplaced)
+	case help:
+		return options, true, nil
 	}
 	if err := completeSecrets(set, &options.InputOptions); err != nil {
 		return options, false, err
 	}
-	switch {
-	case len(inputs) == 0:
-		return options, false, usageError("timeline", "missing argument: input, output directory")
-	case inputs[0] == "":
-		return options, false, usageError("timeline", emptyInput)
-	case len(inputs) == 1 || inputs[1] == "":
-		return options, false, usageError("timeline", "missing argument: output directory")
-	case len(inputs) > 2:
-		return options, false, usageError("timeline", "unexpected argument: "+
-			strings.Join(inputs[2:], " "))
+	if message := timelineArguments(inputs); message != "" {
+		return options, false, argumentError(set, options.InputOptions, message)
 	}
 	options.Input, options.Output = inputs[0], inputs[1]
 	return options, false, nil
+}
+
+// timelineArguments returns the message of the usage error of timeline's
+// arguments when they are not an input and an output directory, or "".
+func timelineArguments(inputs []string) string {
+	switch {
+	case len(inputs) == 0:
+		return "missing argument: input, output directory"
+	case inputs[0] == "":
+		return emptyInput
+	case len(inputs) == 1 || inputs[1] == "":
+		return "missing argument: output directory"
+	case len(inputs) > 2:
+		return "unexpected argument: " + strings.Join(inputs[2:], " ")
+	}
+	return ""
 }
 
 // ParseFleet reads the arguments after `fleet`. It reports whether the help
@@ -270,10 +310,14 @@ func ParseTimeline(args []string) (TimelineOptions, bool, error) {
 func ParseFleet(args []string) (FleetOptions, bool, error) {
 	var options FleetOptions
 	var help bool
-	inputs, err := parse(fleetFlags(&options, &help), args)
+	inputs, misplaced, err := parse(fleetFlags(&options, &help), args)
 	switch {
-	case err != nil || help:
-		return options, help && err == nil, err
+	case err != nil:
+		return options, false, err
+	case misplaced != "":
+		return options, false, usageError("fleet", misplaced)
+	case help:
+		return options, true, nil
 	case len(inputs) == 0:
 		return options, false, usageError("fleet", "missing argument: input")
 	case slices.Contains(inputs, ""):
@@ -288,10 +332,14 @@ func ParseFleet(args []string) (FleetOptions, bool, error) {
 func ParseCatalog(args []string) (CatalogOptions, bool, error) {
 	var options CatalogOptions
 	var help bool
-	inputs, err := parse(catalogFlags(&options, &help), args)
+	inputs, misplaced, err := parse(catalogFlags(&options, &help), args)
 	switch {
-	case err != nil || help:
-		return options, help && err == nil, err
+	case err != nil:
+		return options, false, err
+	case misplaced != "":
+		return options, false, usageError("catalog", misplaced)
+	case help:
+		return options, true, nil
 	case len(inputs) > 0:
 		return options, false, usageError("catalog", "unexpected argument: "+strings.Join(inputs, " "))
 	}
