@@ -103,9 +103,10 @@ func (r *Recorder) EverywhereTexts() []string {
 // every string of the output; a shorter one only in the text of the rows
 // of the parse running (RowText), so a one-letter password never touches a
 // timestamp, a host or a session id. Outside a parse a shorter one is
-// replaced nowhere. An empty value is no secret.
+// replaced nowhere. A value that is empty once the white space around it
+// is removed is no secret.
 func (r *Recorder) Value(value string) {
-	if r == nil || value == "" {
+	if r == nil || strings.TrimSpace(value) == "" {
 		return
 	}
 	secret := form{secret: value}

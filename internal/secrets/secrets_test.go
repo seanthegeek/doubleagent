@@ -325,6 +325,8 @@ func TestTheLongestSecretAtAPositionIsReplacedWhole(t *testing.T) {
 		{"a secret repeated", []string{"tok"}, "toktoktok", "RRR"},
 		{"a one-letter secret wherever it stands", []string{"p"}, "a pup", "a RuR"},
 		{"nothing recorded leaves the text", nil, "user:password", "user:password"},
+		{"white space alone is no secret", []string{" ", "\t\n"}, "api_key=  (from config) see the docs",
+			"api_key=  (from config) see the docs"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -559,14 +561,15 @@ func TestReplacingReadsTheTextOncePerRecordWhateverTheNumberOfSecrets(t *testing
 	}
 }
 
-// reference returns text with every occurrence of each of secrets and
-// each of ranges ([start, end) byte ranges) replaced, the occurrences found
-// by comparing each secret at each position: ranges that share a byte are
-// one, replaced by one placeholder, and two that only touch are two.
+// reference returns text with every occurrence of each of secrets but one
+// of white space alone, which is no secret, and each of ranges ([start,
+// end) byte ranges) replaced, the occurrences found by comparing each
+// secret at each position: ranges that share a byte are one, replaced by
+// one placeholder, and two that only touch are two.
 func reference(text string, secrets []string, ranges [][2]int, placeholder string) string {
 	for i := range len(text) {
 		for _, secret := range secrets {
-			if secret != "" && strings.HasPrefix(text[i:], secret) {
+			if strings.TrimSpace(secret) != "" && strings.HasPrefix(text[i:], secret) {
 				ranges = append(ranges, [2]int{i, i + len(secret)})
 			}
 		}

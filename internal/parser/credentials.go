@@ -23,8 +23,8 @@ import (
 // SecretText returns a secret value read from the evidence (a token, an
 // API key, a password, a cookie) as written, and records it: one of
 // secrets.EverywhereLength bytes or more is replaced in every string of the
-// output, a shorter one only in the text of this parse's rows. An empty
-// value is no secret.
+// output, a shorter one only in the text of this parse's rows. A value
+// that is empty once the white space around it is removed is no secret.
 func SecretText(artifact *input.Artifact, value string) string {
 	recordForms(recorderOf(artifact), value)
 	return value
@@ -67,8 +67,11 @@ func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value) {
 // credentials after the scheme, which are the secret a log or another
 // header shows alone.
 func recordForms(recorder *secrets.Recorder, value string) {
-	recorder.Value(value)
 	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return
+	}
+	recorder.Value(value)
 	recorder.Value(trimmed)
 	if scheme, credentials, found := strings.Cut(trimmed, " "); found &&
 		(strings.EqualFold(scheme, "Bearer") || strings.EqualFold(scheme, "Basic")) {
