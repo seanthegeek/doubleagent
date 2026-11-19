@@ -556,7 +556,7 @@ and secondary rows below, the editor's `User/settings.json`,
 | Column | Source |
 | --- | --- |
 | timestamp_utc | chat `id` parsed as RFC 1123 date, for every row of the chat |
-| session_id | chat `id` (prefix with the account key if ids collide across accounts) |
+| session_id | chat `id` (prefix with the account key if ids collide across accounts; the key is an identifier there and is not changed under `--no-secrets`) |
 | project_path | empty, or the common parent of `contextFiles[].uri.fsPath` |
 | git_branch | empty |
 | turn_type | `human` → user; `assistant` → assistant; `system` → system; `tool_call` part → tool_use; `tool_result` part → tool_result; `processes[]` with `type:"tool"` → tool_use |
@@ -615,7 +615,10 @@ All rows are `system` ([issue 96](https://github.com/seanthegeek/doubleagent/iss
 `cody-model-preferences` ([cody-model-preferences](#cody-model-preferences)), from the
 `sourcegraph.cody-ai` row and from the JetBrains file of that name, gives one `model setting:
 <selected|defaults>.<usage>=<id> endpoint=<endpoint> (from <file>, file mtime)` per entry, the
-user's `selected` before the server's `defaults`, with ` cody-model-preferences` after the file
+user's `selected` before the server's `defaults`, the endpoint's credentials, if it carries any,
+replaced with the placeholder under `timeline --no-secrets` and `detect --no-secrets` (as are those
+of the account key, `<endpoint>-<username>`, in each chat's `chat: <title> | account=<key> |
+interactions=<n>` heading row), with ` cody-model-preferences` after the file
 name for the database row, the `model` column the id, an empty `session_id` and the file's
 modification time, since the value records no time. The legacy XML's chat model (the `model`
 inside its `llm` element, else the deprecated `model`) gives `model: <id>` before the chat's

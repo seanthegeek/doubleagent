@@ -110,7 +110,8 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
-// file's modification time. Preferences, an endpoint, or a selected or
+// file's modification time, the endpoint through parser.URLText.
+// Preferences, an endpoint, or a selected or
 // defaults that is not an object, and endpoints or models of another kind
 // add a problem to problems, at line.
 func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
@@ -126,7 +127,7 @@ func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.
 					continue
 				}
 				row := p.systemRow(artifact, "model setting: "+kind+"."+usage.Key+"="+model.StringValue()+
-					" endpoint="+endpoint.Key+" (from "+source+", file mtime)", line)
+					" endpoint="+parser.URLText(artifact, endpoint.Key)+" (from "+source+", file mtime)", line)
 				row.TimestampUTC = timestamp
 				row.Model = model.StringValue()
 				emit(row)

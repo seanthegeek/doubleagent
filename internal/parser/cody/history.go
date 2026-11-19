@@ -86,12 +86,13 @@ func (c *chatRows) row(turnType, text, model, toolName, toolUseID string) {
 	c.emit(row)
 }
 
-// chat emits a heading row, then the rows of each interaction's human and
+// chat emits a heading row, its account key (<endpoint>-<username>)
+// through parser.URLText, then the rows of each interaction's human and
 // assistant messages; an interactions that is not an array adds a problem.
 func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parser.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
 	interactions := parser.ListOfKind(chat.Get("interactions"), "interactions", jsonvalue.Object, c.line, c.problems)
-	c.row(timeline.TurnSystem, "chat: "+parser.Text(chat.Get("chatTitle"))+" | account="+account+
+	c.row(timeline.TurnSystem, "chat: "+parser.Text(chat.Get("chatTitle"))+" | account="+parser.URLText(c.artifact, account)+
 		" | interactions="+strconv.Itoa(len(interactions)), "", "", "")
 	for _, interaction := range interactions {
 		for _, key := range []string{"humanMessage", "assistantMessage"} {
