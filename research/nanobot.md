@@ -788,7 +788,10 @@ so the row names the key as the file spells it. After them one `stored credentia
 set, as the file spells their keys: each `providers.<name>.apiKey`, each value of a
 `tools.mcpServers.<name>.env`, and `channels.feishu.appSecret`, `channels.feishu.verificationToken`
 and `channels.linear.clientSecret`; each value is shown as written, and `timeline --no-secrets` and
-`detect --no-secrets` replace it with the placeholder. The API server's `apiKey`, whose place in
+`detect --no-secrets` replace it with the placeholder. An MCP server's `env` holds whatever
+variables the user gives the server, and this page names none that holds no credential, so every
+value of it is taken for one; a short value such as `1` is then replaced only in this row's text.
+The API server's `apiKey`, whose place in
 the file this page does not give, and every other key are not read
 ([`config/schema.py:428-458`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config/schema.py#L428-L458);
 [`agent/tools/shell_config.py:11-28`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/agent/tools/shell_config.py#L11-L28);

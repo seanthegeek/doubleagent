@@ -99,3 +99,17 @@ func TestASettingsFilesServerAndStoredCredentialsAreShownUnlessWithheld(t *testi
 		})
 	}
 }
+
+func TestASettingsFilesEnvServerURLAndSwitchesAreNoSecrets(t *testing.T) {
+	const settings = `{"env": {"LETTA_BASE_URL": "http://localhost:8283", "LETTA_CODE_TELEM": "0", ` +
+		`"LETTA_API_KEY": "sk-FIXTURE", "MY_TOKEN": "FIXTURE-USER"}}`
+	for _, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := textsOf(parseSecrets(t, mode.setting, ".letta/settings.json", settings))
+			want := []string{"stored credentials: env.LETTA_BASE_URL=http://localhost:8283 env.LETTA_CODE_TELEM=0 " +
+				"env.LETTA_API_KEY=" + mode.shown("sk-FIXTURE") + " env.MY_TOKEN=" + mode.shown("FIXTURE-USER") +
+				" (from .letta/settings.json, file mtime)"}
+			checkSecretRows(t, mode, got, want, "FIXTURE")
+		})
+	}
+}
