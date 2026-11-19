@@ -403,8 +403,12 @@ without times:
   stored under the component name `com.tabbyml.intellijtabby.inlineChat.CommandHistory`. The XML
   layout inside the file (a `<component name=...>` holding `<option name="history">` and a list of
   `<option value=...>` elements) is the IntelliJ platform's serialisation of a `BaseState` list, not
-  something Tabby's source spells out. Where the IDE writes the file is in
-  [IntelliJ plugin](#intellij-plugin).
+  something Tabby's source spells out. The platform writes each component's state under its own
+  `<component>` element, so the nearest component above an element is the one whose state holds
+  it. The parser gives the value of every element below a `history` option whose nearest component
+  is the plugin's, each element once in document order: one under two nested history options or
+  components is given once, and one under another component nested inside the plugin's is not
+  given. Where the IDE writes the file is in [IntelliJ plugin](#intellij-plugin).
 - VS Code: `edit.recentlyCommand` in the extension's global state, the `TabbyML.vscode-tabby` row of
   `state.vscdb`, a list of JSON-encoded commands, newest first, capped by the `chatEdit.history`
   advanced setting (default 20). Each entry is `JSON.stringify` of `{command, context}`, `context`
@@ -692,7 +696,10 @@ an empty time; a `config.toml` that does not parse gives one row
 (`invalid TOML at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the error
 can quote part of `api_key`; one refused for its size or nesting depth gives
 `parser: config.toml could not be read (<reason>)`, which quotes nothing from the file; and an
-IntelliJ history that does not parse gives one row `parser: not a readable XML document (<reason>)`.
+IntelliJ history that does not parse gives one row `parser: not a readable XML document (<reason>)`,
+among them one nesting elements more than 64 deep, whose reason is
+`elements nested more than 64 deep: line <n>, column <n>`; the platform writes the history five
+elements deep.
 
 A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, or whose `-wal`,
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,

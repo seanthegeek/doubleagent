@@ -24,24 +24,6 @@ func (e *element) attribute(name string) (string, bool) {
 	return value, ok
 }
 
-// iter returns the element and every element below it, in document order,
-// that have the tag; "" takes every element.
-func (e *element) iter(tag string) []*element {
-	var found []*element
-	pending := []*element{e}
-	for len(pending) > 0 {
-		next := pending[len(pending)-1]
-		pending = pending[:len(pending)-1]
-		if tag == "" || next.tag == tag {
-			found = append(found, next)
-		}
-		for i := len(next.children) - 1; i >= 0; i-- {
-			pending = append(pending, next.children[i])
-		}
-	}
-	return found
-}
-
 // qualifiedName returns an element or attribute name as the reader
 // compares it: the local name, preceded by "{<namespace>}" when it has
 // one, so a namespaced name never matches a plain one.
@@ -52,9 +34,17 @@ func qualifiedName(name xml.Name) string {
 	return "{" + name.Space + "}" + name.Local
 }
 
+// maxXMLDepth is the deepest nesting of elements parseXML reads. The IDE
+// writes the command history five elements deep (application, component,
+// option, list, option); the bound leaves room for any other layout of
+// the platform's while keeping a document's tree, and the walks over it,
+// from growing with a nesting no real file has.
+const maxXMLDepth = 64
+
 // parseXML reads a well-formed XML document of one root element into its
 // tree. Text outside the root other than white space, a second root, no
-// root at all or an attribute given twice is an error, worded "<what>: line <n>, column <n>".
+// root at all, an attribute given twice or elements nested deeper than
+// maxXMLDepth is an error, worded "<what>: line <n>, column <n>".
 func parseXML(data []byte) (*element, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	var root *element
@@ -71,6 +61,9 @@ func parseXML(data []byte) (*element, error) {
 		case xml.StartElement:
 			if root != nil && len(open) == 0 {
 				return nil, xmlError(decoder, "a second root element")
+			}
+			if len(open) == maxXMLDepth {
+				return nil, xmlError(decoder, "elements nested more than "+strconv.Itoa(maxXMLDepth)+" deep")
 			}
 			node, err := newElement(token)
 			if err != nil {

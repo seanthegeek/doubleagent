@@ -2,6 +2,7 @@ package tabby
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -132,6 +133,9 @@ func TestXMLThatIsNotOneWellFormedDocumentIsRefused(t *testing.T) {
 		{"a declaration before the root is read", "<?xml version=\"1.0\"?>\n<a/>", false, ""},
 		{"an attribute given twice is refused", `<a x="1" x="2"/>`, true, "an attribute given twice: "},
 		{"a comment before the root is read", "<!-- c --><a><b value=\"v\"/></a>\n", false, ""},
+		{"elements nested to the limit are read", nestedElements(maxXMLDepth), false, ""},
+		{"elements nested past the limit are refused", nestedElements(maxXMLDepth + 1), true,
+			"elements nested more than " + strconv.Itoa(maxXMLDepth) + " deep: "},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -147,6 +151,12 @@ func TestXMLThatIsNotOneWellFormedDocumentIsRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// nestedElements returns a document of depth elements, each inside the
+// last.
+func nestedElements(depth int) string {
+	return strings.Repeat("<a>", depth) + strings.Repeat("</a>", depth)
 }
 
 func TestEditorStateIsWantedOnlyForAnEditorsGlobalState(t *testing.T) {
