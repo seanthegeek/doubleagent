@@ -148,7 +148,7 @@ func projectGroups(collection *input.Collection, parsed map[string]bool) []proje
 		if !artifact.Home.Project {
 			continue
 		}
-		path := homePath(artifact.Home)
+		path := artifact.Home.ListedPath()
 		group, ok := groups[path]
 		if !ok {
 			group = &projectEntry{path: path, users: []string{}}
@@ -328,7 +328,7 @@ func detectTable(collection *input.Collection, parsed map[string]bool) []tableRo
 			continue
 		}
 		key := [3]string{home.User, home.Original, artifact.Agent}
-		row := rows.entry(key, tableRow{user: home.User, original: home.Original, home: homePath(home),
+		row := rows.entry(key, tableRow{user: home.User, original: home.Original, home: home.ListedPath(),
 			agent: artifact.Agent, parser: parsed[artifact.Agent]})
 		row.files++
 		row.bytes = addBytes(row.bytes, artifactBytes(artifact))

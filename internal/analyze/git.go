@@ -48,7 +48,7 @@ func projectRepositories(artifacts []*input.Artifact, problems *[]string) map[st
 			continue
 		}
 		exact := artifact.Rel == gitmeta.ConfigRel || artifact.Rel == gitmeta.HeadRel
-		path := homePath(artifact.Home)
+		path := artifact.Home.ListedPath()
 		if _, ok := chosen[path]; !ok {
 			order = append(order, path)
 			chosen[path] = nil
@@ -153,13 +153,4 @@ func asciiLower(text string) string {
 		}
 	}
 	return string(lowered)
-}
-
-// homePath returns the path a home is listed under: its path on the source
-// host, else where it is on disk.
-func homePath(home *input.Home) string {
-	if home.Original != "" {
-		return home.Original
-	}
-	return home.DiskPath
 }

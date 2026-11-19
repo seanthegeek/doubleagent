@@ -67,8 +67,10 @@ func (c *Collection) agentDirectoryRoot(ctx context.Context, matcher *catalog.Ma
 		if pattern.Depth() != 1 || pattern.Agent == sharedAgent || !pattern.MatchSegment(0, name) {
 			continue
 		}
-		home := &Home{DiskPath: filepath.Dir(tree), User: userFromParts(resolvedParent(tree)),
-			Host: c.Host, Inferred: true, ownDirectory: true, tree: name}
+		parent := filepath.Dir(tree)
+		c.names.add(parent, shownParent(c.names.path(tree)))
+		home := &Home{DiskPath: parent, User: userFromParts(resolvedParent(tree)),
+			Host: c.Host, Inferred: true, ownDirectory: true, tree: name, names: c.names}
 		c.Notes = append(c.Notes, "root is a "+pattern.Agent+" directory; treating its parent as the home")
 		c.Homes = append(c.Homes, home)
 		hits := []hit{{pattern: pattern, path: tree, rel: []string{name}}}
@@ -101,13 +103,13 @@ func (c *Collection) walkForHomes(ctx context.Context, matcher *catalog.Matcher,
 		stack = stack[:len(stack)-1]
 		entries, err := c.listDirectory(current.path)
 		if err != nil {
-			c.recordProblem(describeError(current.path, err))
+			c.recordProblem(c.describe(current.path, err))
 			continue
 		}
 		if holdsFirstSegment(matcher, entries) {
 			hits := c.matchesInHome(matcher, current.path)
 			if hasAgentHit(hits) {
-				home := makeHome(current, c.Host)
+				home := makeHome(current, c.Host, c.names)
 				c.Homes = append(c.Homes, home)
 				if err := c.addHits(ctx, home, hits); err != nil {
 					return err
@@ -156,7 +158,7 @@ func (c *Collection) subdirectories(parent directory, entries []fs.DirEntry) []d
 			children = append(children, directory{path: joinPath(parent.path, name),
 				rel: appendPart(parent.rel, name)})
 		case entries[i].Type()&fs.ModeIrregular != 0 && entries[i].IsDir():
-			c.recordProblem(describeError(joinPath(parent.path, name), errRedirected))
+			c.recordProblem(c.describe(joinPath(parent.path, name), errRedirected))
 		}
 	}
 	return children
@@ -182,7 +184,7 @@ func appendPart(parts []string, part string) []string {
 // makeHome returns the inferred home at a walked directory: its user from
 // the home-parent conventions, else the directory's name (a directory that
 // holds agent state is usually named after its owner) unless it is fs.
-func makeHome(place directory, host string) *Home {
+func makeHome(place directory, host string, names *inputNames) *Home {
 	user := userFromParts(place.rel)
 	if user == "" && len(place.rel) > 0 && place.rel[len(place.rel)-1] != "fs" {
 		user = place.rel[len(place.rel)-1]
@@ -192,7 +194,7 @@ func makeHome(place directory, host string) *Home {
 		original = "/" + joinSlash(place.rel)
 	}
 	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true,
-		ownDirectory: true}
+		ownDirectory: true, names: names}
 }
 
 // userFromParts returns the owner of a home from its path components, or

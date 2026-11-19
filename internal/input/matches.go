@@ -58,7 +58,7 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base string, re
 		var err error
 		if entries, err = c.listDirectory(key); err != nil {
 			entries = nil
-			c.recordProblem(describeError(key, err))
+			c.recordProblem(c.describe(key, err))
 		}
 		cache[key] = entries
 	}
@@ -113,7 +113,7 @@ func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
 	info, err := osfile.Lstat(start)
 	switch {
 	case err != nil:
-		c.recordProblem(describeError(start, err))
+		c.recordProblem(c.describe(start, err))
 		return nil
 	case info.Mode()&fs.ModeSymlink != 0:
 		return nil
@@ -121,10 +121,10 @@ func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
 		yield(start, rel)
 		return nil
 	case !info.IsDir():
-		c.recordProblem(describeError(start, errNotDirectory))
+		c.recordProblem(c.describe(start, errNotDirectory))
 		return nil
 	case !realDirectory(info.Mode()):
-		c.recordProblem(describeError(start, errRedirected))
+		c.recordProblem(c.describe(start, errRedirected))
 		return nil
 	}
 	stack := []directory{{path: start, rel: rel}}
@@ -136,7 +136,7 @@ func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
 		stack = stack[:len(stack)-1]
 		entries, err := c.listDirectory(current.path)
 		if err != nil {
-			c.recordProblem(describeError(current.path, err))
+			c.recordProblem(c.describe(current.path, err))
 			continue
 		}
 		for _, entry := range entries {

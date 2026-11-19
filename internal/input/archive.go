@@ -17,8 +17,10 @@ import (
 // openArchive extracts the archive at source into a new directory and
 // returns its collection: kind archive when it unpacked to manifest.jsonl
 // and fs/ at the top, loose otherwise. A `.sha256` file beside the archive
-// is checked, its result a note.
-func openArchive(ctx context.Context, source, workDir string) (*Collection, error) {
+// is checked, its result a note. Messages name the archive, its sha256
+// file and the new directory as names gives them, the new directory's
+// name added to it.
+func openArchive(ctx context.Context, source, workDir string, names *inputNames) (*Collection, error) {
 	// Opened once first, so an unreadable archive fails with its reason
 	// before a directory is made.
 	file, err := osfile.Open(source)
@@ -30,17 +32,23 @@ func openArchive(ctx context.Context, source, workDir string) (*Collection, erro
 	if err != nil {
 		return nil, err
 	}
+	if workDir == "" {
+		names.add(destination, destination)
+	} else {
+		names.add(destination, filepath.Join(workDir, filepath.Base(destination)))
+	}
 	collection := &Collection{Source: source, Kind: KindArchive, Root: destination, extracted: destination}
+	shown := names.path(source)
 	sidecar := source + ".sha256"
 	if info, err := osfile.Stat(sidecar); err == nil && info.Mode().IsRegular() {
-		note, err := verifySidecar(source, sidecar)
+		note, err := verifySidecar(source, sidecar, shown+".sha256")
 		if err != nil {
 			_ = collection.Cleanup()
 			return nil, err
 		}
 		collection.Notes = append(collection.Notes, note)
 	}
-	out, err := extractArchive(ctx, source, destination)
+	out, err := extractArchive(ctx, source, shown, destination)
 	if err != nil {
 		_ = collection.Cleanup()
 		return nil, err
@@ -77,14 +85,15 @@ func makeExtractionDir(workDir string) (string, error) {
 	return osfile.MkdirTemp(base, pattern)
 }
 
-// verifySidecar returns the note for the archive's sha256 file: verified,
-// a warning that the digests differ, or a warning that the file could not
-// be read. The expected digest is the file's first run of characters up to
-// ASCII whitespace. An archive that cannot be read is an error.
-func verifySidecar(archive, sidecar string) (string, error) {
+// verifySidecar returns the note for the archive's sha256 file, which a
+// note names as shownSidecar: verified, a warning that the digests differ,
+// or a warning that the file could not be read. The expected digest is the
+// file's first run of characters up to ASCII whitespace. An archive that
+// cannot be read is an error.
+func verifySidecar(archive, sidecar, shownSidecar string) (string, error) {
 	data, err := osfile.ReadFile(sidecar)
 	if err != nil {
-		return "WARNING archive sha256 not checked: " + describeError(sidecar, err), nil
+		return "WARNING archive sha256 not checked: " + describeError(shownSidecar, err), nil
 	}
 	expected := ""
 	if fields := strings.FieldsFunc(textlines.ValidUTF8(data), isASCIIWhitespace); len(fields) > 0 {

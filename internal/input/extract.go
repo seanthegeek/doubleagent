@@ -24,14 +24,15 @@ const (
 	zipEmptySignature = "PK\x05\x06"
 )
 
-// extractArchive extracts the zip or tar archive at path into destination,
+// extractArchive extracts the zip or tar archive at path, which messages
+// name as shown, into destination,
 // a new empty directory, and returns the extraction: a problem line for
 // each member it skipped and the entries it made. The archive's kind is told from its first bytes, never its end:
 // a file that starts as a zip and that archive/zip reads is a zip, any
 // other file is tried as a tar. A file that is neither, or a damaged
 // archive, is an *Error; a member that cannot be written is the
 // operating-system error.
-func extractArchive(ctx context.Context, path, destination string) (*extraction, error) {
+func extractArchive(ctx context.Context, path, shown, destination string) (*extraction, error) {
 	file, err := osfile.Open(path)
 	if err != nil {
 		return nil, err
@@ -39,9 +40,9 @@ func extractArchive(ctx context.Context, path, destination string) (*extraction,
 	defer file.Close()
 	info, err := file.Stat()
 	if err != nil {
-		return nil, &fs.PathError{Op: "stat", Path: path, Err: err}
+		return nil, &fs.PathError{Op: "stat", Path: shown, Err: err}
 	}
-	out := newExtraction(destination, path)
+	out := newExtraction(destination, shown)
 	magic := make([]byte, 4)
 	n, _ := file.ReadAt(magic, 0)
 	if start := string(magic[:n]); start == zipLocalSignature || start == zipEmptySignature {
@@ -50,13 +51,13 @@ func extractArchive(ctx context.Context, path, destination string) (*extraction,
 			archive.RegisterDecompressor(zipBzip2Method, func(r io.Reader) io.ReadCloser {
 				return io.NopCloser(bzip2.NewReader(r))
 			})
-			return out, extractZip(ctx, archive.File, path, out)
+			return out, extractZip(ctx, archive.File, shown, out)
 		}
 		if !errors.Is(err, zip.ErrFormat) {
-			return nil, cannotExtract(path, zipReason(err))
+			return nil, cannotExtract(shown, zipReason(err))
 		}
 	}
-	return out, extractTar(ctx, file, path, out)
+	return out, extractTar(ctx, file, shown, out)
 }
 
 // notAnArchive returns the error for a file that is neither archive.
