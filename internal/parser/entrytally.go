@@ -19,9 +19,6 @@ type EntryTally struct {
 	// position maps a member's key to its place in tallies, so finding the
 	// tally of a member costs the same however many members were met.
 	position map[tallyKey]int
-	// lookups counts the position lookups add made, one per call, so a
-	// test can check that each call costs one.
-	lookups int
 }
 
 // tallyKey names one tally: the member, the kind wanted and whether it
@@ -45,7 +42,6 @@ type tally struct {
 // add counts n more for a member.
 func (t *EntryTally) add(member string, want jsonvalue.Kind, entries bool, n int) {
 	key := tallyKey{member: member, want: want, entries: entries}
-	t.lookups++
 	if i, found := t.position[key]; found {
 		t.tallies[i].count += n
 		return

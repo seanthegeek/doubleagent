@@ -84,24 +84,23 @@ func TestAHundredThousandEntriesOfTheWrongKindInAnEntryTallyAreOneProblem(t *tes
 	}
 }
 
-func TestAnEntryTallyLooksUpAMemberOnceWhateverNumberOfMembersWereMet(t *testing.T) {
-	for _, members := range []int{1000, 4000} {
-		var tally EntryTally
+func TestAnEntryTallyReportsManyMembersInTheOrderFirstMet(t *testing.T) {
+	const members = 2000
+	var tally EntryTally
+	// Two passes meet every member twice.
+	for range 2 {
 		for i := range members {
 			tally.Check(jsonvalue.NewString("x"), "member"+strconv.Itoa(i), jsonvalue.Object)
 		}
-		// A second pass meets every member again.
-		for i := range members {
-			tally.Check(jsonvalue.NewString("x"), "member"+strconv.Itoa(i), jsonvalue.Object)
-		}
-		if want := 2 * members; tally.lookups != want {
-			t.Errorf("%d members: %d lookups, want %d", members, tally.lookups, want)
-		}
-		var problems Problems
-		tally.Report(1, &problems)
-		if len(problems) != members || problems[0].Message != "member0 is not a JSON object in 2 entries" ||
-			problems[members-1].Message != "member"+strconv.Itoa(members-1)+" is not a JSON object in 2 entries" {
-			t.Errorf("%d members: %d problems, want one per member in the order first met", members, len(problems))
+	}
+	var problems Problems
+	tally.Report(1, &problems)
+	if len(problems) != members {
+		t.Fatalf("%d problems, want one per member (%d)", len(problems), members)
+	}
+	for i, problem := range problems {
+		if want := "member" + strconv.Itoa(i) + " is not a JSON object in 2 entries"; problem.Message != want {
+			t.Fatalf("problem %d is %q, want %q", i, problem.Message, want)
 		}
 	}
 }
