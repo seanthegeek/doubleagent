@@ -5,6 +5,7 @@ package replay
 import (
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -406,12 +407,28 @@ func withheldForms() []withheldForm {
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
-		// detect --json and inventory.json, one URL per line.
+		// detect --json and inventory.json, one URL per line. User
+		// information runs to the last @ of the authority (remoteUserInfo);
+		// it is withheld when it holds a colon and is not the colon alone,
+		// or, a user name alone, when it is secrets.EverywhereLength bytes
+		// or more, so ssh://git@host is printed as written.
 		{scope: commandScope, agent: "detect and timeline", name: ".git/config remote URL",
 			lines:    regexp.MustCompile(`(?m)^(?:  remotes: [^\n]*|[ \t]*"` + schemeText + `[^"\n]*",?)$`),
-			recorded: regexp.MustCompile(scheme + `[^\s"@/]+@`),
+			recorded: regexp.MustCompile(scheme + remoteUserInfo() + `@`),
 			binary:   regexp.MustCompile(scheme + replayPlaceholder + `@`), token: "${1}{withheld}@"},
 	}
+}
+
+// remoteUserInfo returns the pattern of the user information of a URL that
+// the binary withholds, up to its last @ in the authority, which ends at
+// white space, a double quote, an angle bracket, a backtick, /, ?, # or a
+// backslash: with a colon and more than the colon alone, or without one and
+// at least secrets.EverywhereLength bytes long.
+func remoteUserInfo() string {
+	authority := "[^\\s\"<>`/?#\\\\]"
+	name := "[^\\s\"<>`/?#\\\\:]"
+	return "(?:" + authority + "+:" + authority + "*|:" + authority + "+|" + name + "{" +
+		strconv.Itoa(secrets.EverywhereLength) + ",})"
 }
 
 // withheldIn returns table with difference 230's rewrites of texts and of
@@ -792,6 +809,42 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if agree := withheldAgree(t, recordedAgent(test.want), test.want, test.got); agree != test.agree {
 				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
+	}
+}
+
+func TestARemoteURLIsComparedWithItsUserInformationWithheldOnlyWhereTheRuleWithholdsIt(t *testing.T) {
+	tests := []struct {
+		name, url, userInfo string
+		withheld            bool
+	}{
+		{"a user name of three bytes", "ssh://git@github.com/o/r.git", "git", false},
+		{"a user name of seven bytes", "https://abcdefg@github.com/o/r.git", "abcdefg", false},
+		{"a user name of eight bytes", "https://abcdefgh@github.com/o/r.git", "abcdefgh", true},
+		{"a user name and a password", "https://alice:TOKEN@github.com/o/r.git", "alice:TOKEN", true},
+		{"a password alone", "https://:pw@github.com/o/r.git", ":pw", true},
+		{"a user name and an empty password", "https://user:@github.com/o/r.git", "user:", true},
+		{"the colon alone", "https://:@github.com/o/r.git", ":", false},
+		{"user information up to the last @", "https://a@b:c@github.com/o/r.git", "a@b:c", true},
+		{"a short user name before a port", "ssh://git@github.com:22/o/r.git", "git", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, recorded := range []string{"  remotes: origin " + test.url + "\n",
+				"          \"urls\": [\n            \"" + test.url + "\"\n"} {
+				withheld := strings.Replace(recorded, test.userInfo+"@", replayPlaceholder+"@", 1)
+				if agree := withheldAgree(t, "", recorded, recorded); agree == test.withheld {
+					t.Errorf("%q as written: agree %v, want %v", recorded, agree, !test.withheld)
+				}
+				if agree := withheldAgree(t, "", recorded, withheld); agree != test.withheld {
+					t.Errorf("%q withheld: agree %v, want %v", recorded, agree, test.withheld)
+				}
+				recorder := secrets.NewRecorder(withheldSecrets())
+				recorder.Collect(recorded)
+				if binary := recorder.Text(recorded); !withheldAgree(t, "", recorded, binary) {
+					t.Errorf("the binary's own text %q fails", binary)
+				}
 			}
 		})
 	}
