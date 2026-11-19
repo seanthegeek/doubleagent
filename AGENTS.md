@@ -680,7 +680,8 @@ for Go files as it does for the others.
   over 60, with the collectors' exceptions. The body is the lines between
   its braces; the checker fails on a Go function or method, or a function
   literal a package variable is assigned (`var run = func() {`, without
-  a written type), over 60 lines, the collectors' exceptions not
+  a written type, also among several names and values or in parentheses),
+  over 60 lines, the collectors' exceptions not
   applying, except the three reviewed lists in `internal/follow` that
   `GO_LONG_FUNCTIONS` names, each audited as a whole and read best
   unbroken.
