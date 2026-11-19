@@ -4,10 +4,13 @@ package replay
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
 	"github.com/seanthegeek/doubleagent/internal/parser/crush"
@@ -26,8 +29,9 @@ import (
 // summary on stdout), so a row of withheldRows that the recording never
 // gave would change every count of a case whose tree holds its file. The
 // command replay therefore takes such a row at the parse that gives it,
-// under difference 231's own rule, before the run counts and writes its
-// rows; the parser replay compares the row itself.
+// under difference 231's own rule (parsedFile.matches, the whole row),
+// before the run counts and writes its rows; the parser replay compares
+// the row itself.
 
 // addedRowFilter takes, from each parse of a command run, the first row of
 // withheldRows that the parse gives, and counts the parses it took one
@@ -38,23 +42,30 @@ type addedRowFilter struct {
 
 // emit returns the emit of one parse of artifact by agent's parser: it
 // passes each row on but, for each entry of withheldRows for agent, the
-// first system row of the artifact whose text is the entry's.
+// first row that is the whole row the entry lets the parse add.
 func (f *addedRowFilter) emit(agent string, artifact *input.Artifact, emit parser.Emit) parser.Emit {
-	waiting := map[string]bool{}
+	parse := parsedFile{agent: agent, file: artifact.Original, disk: artifact.DiskPath, rel: artifact.Rel,
+		home: artifact.Home, mtime: parser.FileMtime(artifact)}
+	var waiting []func(Row) bool
 	for _, entry := range withheldRows() {
 		if entry.agent == agent {
-			waiting[entry.text] = true
+			waiting = append(waiting, parse.matches(entry.text, entry.row, nil))
 		}
 	}
 	recorder := recorderOf(artifact)
 	return func(row timeline.Row) {
-		// The row is compared as the output writes it, with the secrets
-		// the parse has identified so far.
-		text := recorder.RowText(row.Text, recorder.Current())
-		if row.TurnType == timeline.TurnSystem && row.SourceFile == artifact.Original && waiting[text] {
-			delete(waiting, text)
-			f.taken++
-			return
+		// The row is compared as the output writes it (timeline.Row.Withheld:
+		// its text by RowText with the parse's record so far, every other
+		// field by Text).
+		written := row
+		written.Secrets = recorder.Current()
+		candidate := replayRow(written.Withheld(recorder))
+		for i, matches := range waiting {
+			if matches(candidate) {
+				waiting = slices.Delete(waiting, i, i+1)
+				f.taken++
+				return
+			}
 		}
 		emit(row)
 	}
@@ -196,6 +207,33 @@ func (p littleCoderRows) Parse(artifact *input.Artifact, options parser.Options,
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 
+// wholeAddedRow returns the row an entry of withheldRows lets a parse of
+// artifact add, as its parser emits it: the artifact's file is the users
+// database under testdata, whose first user a table time names.
+func wholeAddedRow(entry withheldRow, artifact *input.Artifact) timeline.Row {
+	row := timeline.Row{TurnType: timeline.TurnSystem, Agent: entry.agent, SourceFile: artifact.Original,
+		Host: artifact.Home.Host, User: artifact.Home.User, Text: entry.text, SourceLine: entry.row.line,
+		TimestampUTC: entry.row.time, SessionID: entry.row.session, ProjectPath: entry.row.project}
+	switch {
+	case entry.row.cell != tableCell{}:
+		row.TimestampUTC = "2026-09-01T09:00:00.000Z"
+	case entry.row.time == fileTime:
+		row.TimestampUTC = parser.FileMtime(artifact)
+	}
+	if entry.row.project == homePath {
+		row.ProjectPath = artifact.Home.Original
+	}
+	return row
+}
+
+// usersArtifact returns an artifact at original whose file on disk is the
+// users database under testdata, in a home of bob on mini.local.
+func usersArtifact(original string) *input.Artifact {
+	return &input.Artifact{Original: original, DiskPath: filepath.Join("testdata", "tabby", "users.db"),
+		Rel: strings.TrimPrefix(original, "/h/"), Manifest: jsonvalue.NewNull(),
+		Home: &input.Home{Original: "/h", User: "bob", Host: "mini.local"}}
+}
+
 func TestEveryAgentOfAWithheldRowHasAStandInThatTakesIt(t *testing.T) {
 	registered := parsers.ByAgent(parsers.All())
 	for _, entry := range withheldRows() {
@@ -205,10 +243,10 @@ func TestEveryAgentOfAWithheldRowHasAStandInThatTakesIt(t *testing.T) {
 			if len(standIns) != 1 || fmt.Sprintf("%T", standIns[0]) == fmt.Sprintf("%T", registered[entry.agent][0]) {
 				t.Fatalf("the agent's parsers are %T, not one stand-in", standIns)
 			}
-			artifact := &input.Artifact{Original: "/h/f"}
+			artifact := usersArtifact("/h/f")
 			var kept []timeline.Row
 			emit := filter.emit(entry.agent, artifact, func(row timeline.Row) { kept = append(kept, row) })
-			row := timeline.Row{TurnType: timeline.TurnSystem, SourceFile: "/h/f", Text: entry.text}
+			row := wholeAddedRow(entry, artifact)
 			other := row
 			other.SourceFile = "/h/g"
 			for _, each := range []timeline.Row{other, row, row} {
@@ -216,6 +254,48 @@ func TestEveryAgentOfAWithheldRowHasAStandInThatTakesIt(t *testing.T) {
 			}
 			if !slices.Equal(kept, []timeline.Row{other, row}) || filter.taken != 1 {
 				t.Errorf("kept %v and took %d, want the other file's row and the second", kept, filter.taken)
+			}
+		})
+	}
+}
+
+func TestACommandRunKeepsAnAddedRowThatDiffersInAnyField(t *testing.T) {
+	var entry withheldRow
+	for _, each := range withheldRows() {
+		if each.label() == "crush provider API key" {
+			entry = each
+		}
+	}
+	artifact := usersArtifact("/h/.crush/crush.json")
+	whole := wholeAddedRow(entry, artifact)
+	changed := func(change func(row *timeline.Row)) timeline.Row {
+		row := whole
+		change(&row)
+		return row
+	}
+	tests := []struct {
+		name  string
+		row   timeline.Row
+		taken bool
+	}{
+		{"the whole row is taken", whole, true},
+		{"a row at another time is kept", changed(func(row *timeline.Row) { row.TimestampUTC = "1999-01-01T00:00:00.000Z" }),
+			false},
+		{"a row in a session is kept", changed(func(row *timeline.Row) { row.SessionID = "WRONG" }), false},
+		{"a row of another project is kept", changed(func(row *timeline.Row) { row.ProjectPath = "/wrong" }), false},
+		{"a row of another user is kept", changed(func(row *timeline.Row) { row.User = "mallory" }), false},
+		{"a row of another host is kept", changed(func(row *timeline.Row) { row.Host = "evil" }), false},
+		{"a row at another line is kept", changed(func(row *timeline.Row) { row.SourceLine = 99 }), false},
+		{"a row naming a model is kept", changed(func(row *timeline.Row) { row.Model = "m" }), false},
+		{"a row of another agent is kept", changed(func(row *timeline.Row) { row.Agent = "nanobot" }), false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			filter := &addedRowFilter{}
+			var kept []timeline.Row
+			filter.emit(entry.agent, artifact, func(row timeline.Row) { kept = append(kept, row) })(test.row)
+			if taken := filter.taken == 1 && len(kept) == 0; taken != test.taken || filter.taken+len(kept) != 1 {
+				t.Errorf("took %d and kept %d, want taken %v", filter.taken, len(kept), test.taken)
 			}
 		})
 	}
