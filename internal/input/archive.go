@@ -69,12 +69,12 @@ func openArchive(ctx context.Context, source, workDir string, names *inputNames)
 }
 
 // makeExtractionDir creates a new directory with a random name, prefixed
-// cac- under workDir (created when missing) or cac-analyzer- under the
+// cac- under workDir (created when missing) or doubleagent- under the
 // system's temporary directory, and returns its absolute path.
 func makeExtractionDir(workDir string) (string, error) {
 	base, pattern := workDir, "cac-*"
 	if workDir == "" {
-		base, pattern = os.TempDir(), "cac-analyzer-*"
+		base, pattern = os.TempDir(), "doubleagent-*"
 	} else if err := osfile.MkdirAll(workDir, 0o777); err != nil {
 		return "", err
 	}

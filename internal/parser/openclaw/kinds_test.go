@@ -11,8 +11,8 @@ import (
 
 // execProblems runs execDocument on the approvals file text, a stored row
 // with rowid 4, and returns the texts of the problems it adds. The
-// approvals file is the SQLite column's text, which only a Python
-// generator could put in a database, so the function is called directly.
+// approvals file is the SQLite column's text, which no fixture this test
+// can build puts in a database, so the function is called directly.
 func execProblems(t *testing.T, text string) []string {
 	t.Helper()
 	document, err := jsonvalue.DecodeString(text)

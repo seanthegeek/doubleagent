@@ -167,7 +167,7 @@ func (c *Collection) readSummary() {
 }
 
 // errTooLarge is the reason a file larger than its bound is not read.
-var errTooLarge = errors.New("larger than the analyzer reads")
+var errTooLarge = errors.New("larger than doubleagent reads")
 
 // readBounded returns the content of the regular file at path, or
 // errTooLarge, after reading at most limit+1 bytes, when it holds more

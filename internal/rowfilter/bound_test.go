@@ -131,7 +131,7 @@ func acceptedCases() []struct{ text, since, until string } {
 	}
 }
 
-// rejectedCases are values both analyzers refuse.
+// rejectedCases are values the time filter refuses: not one of its forms.
 func rejectedCases() []string {
 	return []string{
 		"2026274 09:30 UTC", "2026-W40T09", "2026W40-1", "2026-W401", "2026-W54-1",

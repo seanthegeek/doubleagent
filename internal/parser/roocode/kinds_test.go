@@ -33,8 +33,8 @@ func parseFile(t *testing.T, rel, text string) []string {
 }
 
 // The same table drives the workspace-state.json file and, through
-// retryQueueRows, the state of a state.vscdb, which only a Python
-// generator could build.
+// retryQueueRows, the state of a state.vscdb, which only a fixture
+// script outside the test could build.
 func TestARetryQueueThatIsNotAnArrayIsReported(t *testing.T) {
 	const rel = ".vscode-mock/workspace-storage/h/workspace-state.json"
 	const wrong = "parser: roo.retryQueue is not a JSON array"
