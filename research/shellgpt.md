@@ -344,8 +344,10 @@ messages.
 
 The API key is never written into chat files; it is in `.sgptrc`
 ([`config.py:63-69`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L63-L69)), beside
-the settings the parser reads ([Permission rows](#permission-rows)), so the parser reads only
-those named keys and never puts another key, value or line of that file in a row.
+the settings the parser reads ([Permission rows](#permission-rows)). The parser reads only those
+named keys and the key itself, which it shows in a `stored credentials:` row that
+`timeline --no-secrets` and `detect --no-secrets` replace with the placeholder, and puts no other
+key, value or line of that file in a row.
 Tool messages contain raw shell output and can contain anything the commands printed.
 
 ### Parser plan
@@ -384,9 +386,11 @@ Standing: the `.sgptrc` switches and the function store described in
 `OPENAI_USE_FUNCTIONS`, `DEFAULT_EXECUTE_SHELL_CMD` and `SHELL_INTERACTION` present in the file, in
 file order, and one `permission setting: function <file name> (from .config/shell_gpt/functions,
 file mtime)` row per file in the function store, without reading the code; each at its file's
-modification time with an empty `session_id`. Source-derived; not observed on any real install.
-`.sgptrc` is a secret glob, so a `--no-secrets` collection lacks it, and an environment variable
-that overrode a key at run time leaves no trace in the file.
+modification time with an empty `session_id`. In file order among them, an `OPENAI_API_KEY` gives
+`stored credentials: OPENAI_API_KEY=<key> (from .config/shell_gpt/.sgptrc, file mtime)`, the key
+shown as written and replaced with the placeholder under `--no-secrets`. Source-derived; not
+observed on any real install. `.sgptrc` is a secret glob, so a `--no-secrets` collection lacks it,
+and an environment variable that overrode a key at run time leaves no trace in the file.
 
 #### Model rows
 

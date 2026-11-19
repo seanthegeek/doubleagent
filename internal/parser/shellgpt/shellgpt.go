@@ -8,8 +8,9 @@
 //     by a "function" message). A function call has no id, so it gets
 //     "function_call_<array index>", shared with the "function" message after
 //     it.
-//   - .config/shell_gpt/.sgptrc: KEY=value lines. Only the permission keys and
-//     the default model reach a row, since the file holds the API key.
+//   - .config/shell_gpt/.sgptrc: KEY=value lines. The permission keys, the
+//     default model and the API key reach a row, the key through
+//     parser.SecretText; no other line does.
 //   - .config/shell_gpt/functions/*.py: one "permission setting:" row per
 //     file, at its modification time; the code is not read.
 //   - shell_gpt/cache/<md5>: one response string per file, a secondary source
@@ -37,13 +38,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// permissionKeys are the .sgptrc keys read besides the model; every other key
-// (the API key above all) is skipped.
+// permissionKeys are the .sgptrc keys read besides the model and the API
+// key; every other key is skipped.
 var permissionKeys = []string{"OPENAI_USE_FUNCTIONS", "DEFAULT_EXECUTE_SHELL_CMD",
 	"SHELL_INTERACTION"}
 
-// modelKey is the .sgptrc key that names the default model.
-const modelKey = "DEFAULT_MODEL"
+// The .sgptrc keys that name the default model and hold the API key.
+const (
+	modelKey  = "DEFAULT_MODEL"
+	apiKeyKey = "OPENAI_API_KEY"
+)
 
 // Parser reads ShellGPT's files.
 type Parser struct {
@@ -106,8 +110,8 @@ func (p *Parser) systemRow(artifact *input.Artifact, timestamp, text string) tim
 	return row
 }
 
-// parseSettings emits one row per permission key and default model of the
-// settings file, then its problems.
+// parseSettings emits one row per permission key, default model and API
+// key of the settings file, then its problems.
 func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -124,6 +128,11 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 			emit(row)
 			continue
 		}
+		if setting.key == apiKeyKey {
+			emit(p.systemRow(artifact, timestamp, "stored credentials: "+setting.key+"="+
+				parser.SecretText(artifact, setting.value)+" (from "+artifact.Rel+", file mtime)"))
+			continue
+		}
 		emit(p.systemRow(artifact, timestamp, "permission setting: "+setting.key+"="+
 			setting.value+" (from "+artifact.Rel+", file mtime)"))
 	}
@@ -135,7 +144,8 @@ type setting struct {
 	key, value string
 }
 
-// readSettings returns the permission and model settings in file order. A
+// readSettings returns the permission, model and API key settings in file
+// order. A
 // non-blank line without "=" adds a problem; the raw line is never kept,
 // since the file holds the API key.
 func readSettings(raw string, problems *parser.Problems) []setting {
@@ -153,7 +163,7 @@ func readSettings(raw string, problems *parser.Problems) []setting {
 			continue
 		}
 		key, value, _ := strings.Cut(strings.TrimSpace(line), "=")
-		if key == modelKey || slices.Contains(permissionKeys, key) {
+		if key == modelKey || key == apiKeyKey || slices.Contains(permissionKeys, key) {
 			found = append(found, setting{key, value})
 		}
 	}
