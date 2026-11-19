@@ -213,6 +213,13 @@ func withheldForms() []withheldForm {
 			`(model: requested [^"\n]*?)(?: (?:chat|utility|embedding)\.api_key=`+secrets.DefaultPlaceholder+
 				`)?((?: [^"\n]*?)? \(chat override, as of file mtime\))`,
 			"${1}${2}"),
+		// The recording gave a retried upload without its bearer token; the
+		// binary adds it after the URL, withheld.
+		form("roo-code", "retry queue bearer token",
+			`(cloud upload queued: [^"\n]*? url=[^ "\n]*)( [^"\n]*?\(Roo Code Cloud retry queue, )`,
+			`(cloud upload queued: [^"\n]*? url=[^ "\n]*)(?: Authorization=`+secrets.DefaultPlaceholder+`)?`+
+				`( [^"\n]*?\(Roo Code Cloud retry queue, )`,
+			"${1}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -343,6 +350,10 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	telegramBinary := strings.Replace(telegramRecorded, " (from", " token=REDACTED (from", 1)
 	overrideRecorded := "model: requested chat=openrouter/m utility=ollama/q (chat override, as of file mtime)"
 	overrideBinary := strings.Replace(overrideRecorded, " utility", " chat.api_key=REDACTED utility", 1)
+	retryRecorded := "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
+		"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
+		"roo.retryQueue, request timestamp)"
+	retryBinary := strings.Replace(retryRecorded, " lastError", " Authorization=REDACTED lastError", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -397,6 +408,13 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			false},
 		{"a slot of another model fails", overrideRecorded, strings.Replace(overrideBinary, "ollama/q", "ollama/r", 1),
 			false},
+		{"a retried upload's token in its placeholder form passes", retryRecorded, retryBinary, true},
+		{"a retried upload's token shown fails", retryRecorded,
+			strings.Replace(retryBinary, "REDACTED", "Bearer eyJ", 1), false},
+		{"a retried upload of another URL fails", retryRecorded,
+			strings.Replace(retryBinary, "api/events", "api/other", 1), false},
+		{"a retried upload of another error fails", retryRecorded,
+			strings.Replace(retryBinary, "fetch failed", "timeout", 1), false},
 		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
 		{"a connection's token shown fails", connectionRecorded,
 			strings.Replace(connectionBinary, "REDACTED", "not-real", 1), false},
@@ -432,6 +450,9 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			"(from chat.json data, file mtime)",
 		"agent-zero model override API key": "model: requested chat=openrouter/m utility=ollama/q " +
 			"(chat override, as of file mtime)",
+		"roo-code retry queue bearer token": "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
+			"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
+			"roo.retryQueue, request timestamp)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {

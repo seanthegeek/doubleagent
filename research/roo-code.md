@@ -469,7 +469,9 @@ to 3.53.0 each `roo.retryQueue` request of the workspace state
 ([Roo Code Cloud state](#roo-code-cloud-state-releases-up-to-3530)) holds the Roo Code Cloud session
 token in `options.headers.Authorization` and a task message in `options.body`; the extension's
 state row and the CLI's `workspace-state.json` are collected unflagged, so that key is the one to
-redact. An MCP server entry's `env` and `headers` can hold keys
+redact; the parser shows it in the `cloud upload queued:` row, and `--no-secrets` replaces it with
+the placeholder ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). An MCP server entry's
+`env` and `headers` can hold keys
 ([Credentials](#credentials)).
 
 ### Parser plan
@@ -621,10 +623,12 @@ were uploaded or shared, so the parser writes no `session synced:` row and does 
 - From the workspace state (an editor's `User/workspaceStorage/<hash>/state.vscdb` row or the CLI's
   `workspace-state.json`), one row per `roo.retryQueue` request: `cloud upload queued: <event
   type, else operation, else -> task=<properties.taskId or -> type=<type> retries=<retryCount>
-  url=<url>`, then ` lastError=<lastError>` when set, then `(Roo Code Cloud retry queue, from
-  <file> roo.retryQueue, request timestamp)`, at the request's `timestamp` with the task as
-  `session_id`: an upload that had not reached the service. The headers and the body are never
-  written.
+  url=<url>`, then ` Authorization=<options.headers.Authorization>` and
+  ` lastError=<lastError>` when set, then `(Roo Code Cloud retry queue, from <file>
+  roo.retryQueue, request timestamp)`, at the request's `timestamp` with the task as `session_id`:
+  an upload that had not reached the service. The bearer token and the URL's credentials are shown
+  as written; `timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder.
+  The other headers and the body are never written.
 
 Relay and origin: the agent records none.
 

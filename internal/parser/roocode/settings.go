@@ -249,10 +249,11 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // retryQueueRows emits one row per request the Roo Code Cloud client queued
-// after a failed upload. Only the event type, the task id, the URL and the
-// retry state are written: the request's headers carry a bearer token and
-// its body the event. A retry queue that is not an array emits no row and
-// returns the problem text saying so; otherwise it returns "".
+// after a failed upload: the event type, the task id, the retry state, the
+// URL through parser.URLText and the Authorization header, the session's
+// bearer token, through parser.SecretText; the body, the event, is not
+// written. A retry queue that is not an array emits no row and returns the
+// problem text saying so; otherwise it returns "".
 func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value, source string,
 	emit parser.Emit) string {
 	var problems parser.Problems
@@ -269,7 +270,10 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 			"task=" + cmp.Or(parser.Text(taskID), "-"),
 			"type=" + cmp.Or(parser.Text(request.Get("type")), "-"),
 			"retries=" + retries,
-			"url=" + cmp.Or(parser.Text(request.Get("url")), "-"),
+			"url=" + parser.URLText(artifact, cmp.Or(parser.Text(request.Get("url")), "-")),
+		}
+		if authorization := parser.Text(request.Get("options").Get("headers").Get("Authorization")); authorization != "" {
+			parts = append(parts, "Authorization="+parser.SecretText(artifact, authorization))
 		}
 		if lastError := request.Get("lastError"); !lastError.IsEmpty() {
 			parts = append(parts, "lastError="+lastError.Text())

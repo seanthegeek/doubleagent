@@ -12,8 +12,8 @@
 //   - the global state (the extension's row of the editor's state.vscdb, or
 //     the CLI's global-state.json): the standing permission keys and the
 //     Roo Code Cloud settings cache as setting rows; the workspace state's
-//     roo.retryQueue[], one "cloud upload queued:" row per request, never
-//     its headers or body, which carry a bearer token;
+//     roo.retryQueue[], one "cloud upload queued:" row per request with
+//     its bearer token through parser.SecretText, never its body;
 //   - .roo/cli-settings.json, settings/mcp_settings.json and a project's
 //     .roo/mcp.json (mcpServers.<name>.alwaysAllow only);
 //   - .roo/cli-history.json, a secondary source repeating the tasks'
