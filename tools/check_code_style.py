@@ -1220,18 +1220,54 @@ def go_body_open(code: list[GoToken], start: int) -> int | None:
     return None
 
 
+def go_package_literals(code: list[GoToken]) -> Iterator[tuple[int, str]]:
+    """Yield the index of the `func` and the name of each function literal a package variable holds.
+
+    That is `var run = func() {` at the top level or inside a `var (` block, and the same with
+    the `func` on the line after the `=`. A variable with a type written (`var run handler =
+    func() {`) is not read, and a literal inside a function body is part of its body.
+    """
+    openers: list[int] = []
+    for index, token in enumerate(code):
+        if token.kind == "punct" and token.text in "([{":
+            openers.append(index)
+        elif token.kind == "punct" and token.text in ")]}" and openers:
+            openers.pop()
+        is_literal = token.text == "func" and index >= 2 and code[index - 1].text == "="
+        name = code[index - 2] if is_literal else None
+        if name is None or name.kind != "ident":
+            continue
+        if not (name.first or code[index - 3].text == "var"):
+            continue
+        in_var_block = len(openers) == 1 and code[openers[0]].text == "(" and openers[0] > 0
+        if not openers or (in_var_block and code[openers[0] - 1].text == "var"):
+            yield index, name.text
+
+
 def go_long_functions(tokens: list[GoToken]) -> Iterator[tuple[int, str, bool, int]]:
     """Yield the line, name, whether a method and body length of each top-level function.
 
-    The length is the number of lines between the braces of the body.
+    That is each declared function and method, and each function literal a package variable
+    holds, named by the variable. The length is the number of lines between the braces of the
+    body.
     """
     code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
     position = {id(token): index for index, token in enumerate(code)}
-    for token, name, has_receiver in go_declared_functions(tokens):
-        opening = go_body_open(code, position[id(token)])
+    starts = [
+        (position[id(token)], name, has_receiver)
+        for token, name, has_receiver in go_declared_functions(tokens)
+    ]
+    starts += [(index, name, False) for index, name in go_package_literals(code)]
+    for start, name, has_receiver in sorted(starts):
+        opening = go_body_open(code, start)
         if opening is not None:
             closing = go_close(code, opening)
-            yield token.line, name, has_receiver, code[closing].line - code[opening].end_line - 1
+            yield (
+                code[start].line,
+                name,
+                has_receiver,
+                code[closing].line - code[opening].end_line - 1,
+            )
 
 
 def go_function_length_findings(path: pathlib.Path, tokens: list[GoToken]) -> Iterator[Finding]:
