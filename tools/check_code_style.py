@@ -869,7 +869,9 @@ def go_error_names(argument: list[GoToken]) -> set[str]:
         token.text
         for token in argument
         if token.kind == "ident"
-        and (token.text == "err" or token.text.endswith("Err") or GO_ERROR_VARIABLE.match(token.text))
+        and (
+            token.text == "err" or token.text.endswith("Err") or GO_ERROR_VARIABLE.match(token.text)
+        )
     }
 
 
