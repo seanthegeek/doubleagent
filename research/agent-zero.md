@@ -894,9 +894,12 @@ with `session_id` the context id, at the file's modification time, and sets `rec
 source-derived; not observed on any real install. Before it, the file gives one row of every
 `<key>=<value>` line in file order,
 `connector settings: <key>=<value> ... (from .agent-zero/.env, file mtime)`, since the file the
-collector flags as a secret holds the computer-use restore token beside the instance URL. Quotes
-are stripped as the connector's own reader does
-([`51-66`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L51-L66)).
+collector flags as a secret holds the computer-use restore token beside the instance URL. The
+file is read as the connector's own reader reads it
+([`51-66`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L51-L66)):
+a line that starts with `#` after its leading white space is a comment and gives no key, a line
+without `=` gives none, quotes are stripped from either end of a value, and an `export` prefix
+stays part of the key (`export KEY=value` is the key `export KEY`), since that reader keeps it.
 Every value is shown as written, and so are the credentials of the origin's host URL;
 `timeline --no-secrets` and `detect --no-secrets` replace each value, and the credentials the host
 URL carries, with the placeholder.
