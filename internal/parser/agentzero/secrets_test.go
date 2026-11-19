@@ -68,7 +68,7 @@ func checkWithheld(t *testing.T, mode secretMode, texts []string) {
 	}
 }
 
-func TestEveryConnectorSettingIsShownUnlessWithheld(t *testing.T) {
+func TestOnlyTheConnectorsRestoreTokenIsWithheld(t *testing.T) {
 	const env = "AGENT_ZERO_HOST=http://localhost:50080\n" +
 		"AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=FIXTURE-TOKEN\n" +
 		"not a setting\n" +
@@ -80,7 +80,7 @@ func TestEveryConnectorSettingIsShownUnlessWithheld(t *testing.T) {
 			host := hosts[i] + "a0.example.net"
 			got := parseWith(t, mode.setting, ".agent-zero/.env", env)
 			want := []string{
-				"connector settings: AGENT_ZERO_HOST=" + mode.shown("http://localhost:50080") +
+				"connector settings: AGENT_ZERO_HOST=http://localhost:50080" +
 					" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + mode.shown("FIXTURE-TOKEN") +
 					" AGENT_ZERO_LAST_CONTEXT_HOST=" + host + " AGENT_ZERO_LAST_CONTEXT_ID=RemCtx01" +
 					" (from .agent-zero/.env, file mtime)",
@@ -145,6 +145,30 @@ func TestAChatThatIsNotJSONGivesTheReadersDetailUnlessWithheld(t *testing.T) {
 			got := parseWith(t, mode.setting, "agent-zero/usr/chats/ctx/chat.json", chat)
 			if !slices.Contains(got, wants[i]) {
 				t.Errorf("got %q, want a row %q", got, wants[i])
+			}
+		})
+	}
+}
+
+func TestTheConnectorsHostAndFlagsStayWholeWhenWithheld(t *testing.T) {
+	// The last chat's host is the instance's own, and a flag is one byte:
+	// neither is a credential, so both rows read the same in every mode.
+	const env = "AGENT_ZERO_HOST=http://localhost:50080\nAGENT_ZERO_REMOTE_EXEC=1\n" +
+		"export AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=FIXTURE-TOKEN\n" +
+		"AGENT_ZERO_LAST_CONTEXT_HOST=http://localhost:50080\nAGENT_ZERO_LAST_CONTEXT_ID='RemCtx01'\n"
+	for _, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := parseWith(t, mode.setting, ".agent-zero/.env", env)
+			want := []string{
+				"connector settings: AGENT_ZERO_HOST=http://localhost:50080 AGENT_ZERO_REMOTE_EXEC=1" +
+					" export AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + mode.shown("FIXTURE-TOKEN") +
+					" AGENT_ZERO_LAST_CONTEXT_HOST=http://localhost:50080 AGENT_ZERO_LAST_CONTEXT_ID=RemCtx01" +
+					" (from .agent-zero/.env, file mtime)",
+				"session origin: remote agent-zero instance http://localhost:50080 context RemCtx01" +
+					" (from .agent-zero/.env, file mtime)",
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
 			}
 		})
 	}

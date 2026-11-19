@@ -92,7 +92,7 @@ func (r withheldRow) label() string {
 // case fails for an entry no case used.
 func withheldRows() []withheldRow {
 	return []withheldRow{
-		{"agent-zero", "connector settings", "connector settings: AGENT_ZERO_HOST=" + secrets.DefaultPlaceholder +
+		{"agent-zero", "connector settings", "connector settings: AGENT_ZERO_HOST=http://localhost:50080" +
 			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_HOST=https://a0.example.net AGENT_ZERO_LAST_CONTEXT_ID=RemCtx01" +
 			" (from .agent-zero/.env, file mtime)", addedRow{time: fileTime}},

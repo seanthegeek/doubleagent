@@ -682,8 +682,8 @@ are in the plugin's configuration file
 
 A chat's `data.chat_model_override` can hold an `api_key` in each slot of a custom choice made from
 the connector ([Model override](#model-override)), in clear text in `chat.json`; the parser shows
-it after the slot's provider and name, and `--no-secrets` replaces it with the placeholder. Every
-value of the connector's `~/.agent-zero/.env` is shown the same way. An ad hoc task's `token` in
+it after the slot's provider and name, and `--no-secrets` replaces it with the placeholder. The
+connector's `~/.agent-zero/.env` restore token is shown the same way. An ad hoc task's `token` in
 `usr/scheduler/tasks.json` is a
 random 19-digit number the task is created with, whose use was not traced
 ([Scheduler tasks](#scheduler-tasks)); the parser does not read it.
@@ -901,9 +901,13 @@ a line that starts with `#` after its leading white space is a comment and gives
 without `=` gives none, quotes are stripped from either end of a value, and an `export` prefix
 stays part of the key (`export KEY=value` is the key `export KEY`), since that reader keeps it.
 Every value is shown as written, and so are the credentials of the origin's host URL;
-`timeline --no-secrets` and `detect --no-secrets` replace each value but the last chat's host and
-id, which are no credentials and so read the same in this row and the `session origin:` row, and
-replace the credentials the host URL carries with the placeholder.
+`timeline --no-secrets` and `detect --no-secrets` replace only the value of
+`AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN` (with or without the `export` prefix), the one credential
+the connector writes there
+([`config.py:22`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L22)),
+and the credentials a URL carries. The instance URL, the last chat's host and id and the
+remote-exec and computer-use flags are no credentials and read the same in both modes, and the
+host the same in this row and the `session origin:` row.
 
 #### Scratch directory rows
 
