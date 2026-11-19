@@ -636,6 +636,14 @@ def test_a_listed_function_is_passed_over_in_its_own_file_only() -> None:
     assert len(long_bodies(function_of(61), str(style.ROOT / path))) == 1
 
 
+def test_only_the_three_reviewed_lists_are_exempt_from_the_limit() -> None:
+    assert {
+        ("internal/follow/confine_sites_test.go", "siteClasses"),
+        ("internal/follow/guard_lists_test.go", "reviewedImports"),
+        ("internal/follow/guard_lists_test.go", "allowedCalls"),
+    } == style.GO_LONG_FUNCTIONS
+
+
 @pytest.mark.parametrize(("path", "name"), sorted(style.GO_LONG_FUNCTIONS))
 def test_every_listed_function_is_still_over_the_limit(path: str, name: str) -> None:
     source = (style.ROOT / path).read_text(encoding="utf-8")

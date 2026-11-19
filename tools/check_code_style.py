@@ -170,30 +170,13 @@ GO_MAX_RECEIVER_LENGTH = 2
 # A function body is the lines between its braces; AGENTS.md says it stays under 40, never over 60.
 GO_MAX_FUNCTION_LINES = 60
 GO_LONG_FUNCTION_MESSAGE = "%s %r has a body of %d lines, over the limit of %d"
-# Functions over the limit that a later change splits; each is a file of the repository and a
-# function name. Temporary: an entry that no longer names a function over the limit fails the
-# tests, and the list is meant to become empty.
+# Functions over the limit that stay as they are: each is one reviewed list that is audited as a
+# whole, and reads best unbroken. Each entry is a file of the repository and a function name. An
+# entry that no longer names a function over the limit fails the tests.
 GO_LONG_FUNCTIONS = {
-    ("internal/analyze/withheld_runs_test.go", "withheldLeakFixtures"),
-    ("internal/dedup/cases_test.go", "timeCases"),
-    ("internal/dedup/cases_test.go", "copyCases"),
-    ("internal/dedup/dedup_test.go", "scopeCases"),
     ("internal/follow/confine_sites_test.go", "siteClasses"),
     ("internal/follow/guard_lists_test.go", "reviewedImports"),
     ("internal/follow/guard_lists_test.go", "allowedCalls"),
-    ("internal/parity/replay/information_rows_test.go", "TestEachMutationOfRecordedRowsFails"),
-    ("internal/parity/replay/library_shapes_test.go", "libraryShapes"),
-    ("internal/parity/replay/text_differences_test.go", "TestTextDifferencesRewriteOnlyTheirShape"),
-    (
-        "internal/parity/replay/tightened_test.go",
-        "TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow",
-    ),
-    ("internal/parity/replay/withheld_test.go", "withheldForms"),
-    (
-        "internal/parity/replay/withheld_test.go",
-        "TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse",
-    ),
-    ("internal/secrets/secrets_test.go", "grammarCases"),
 }
 # A token that ends a line without ending the declaration that started on it.
 GO_CONTINUATION = {",", "+", "-", "*", "/", "%", "&", "|", "^", "=", ".", "&&", "||", "<", ">"}
