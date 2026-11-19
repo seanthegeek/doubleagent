@@ -235,6 +235,8 @@ func TestAnOptionsCredentialsAreReplacedInTheErrorItGives(t *testing.T) {
 			[]string{"detect", input, url}},
 		{"an option after detect's input", "doubleagent detect: options go before the input; ",
 			[]string{"detect", input, "-" + url}},
+		{"a timeline input path holding a URL", "error: ", []string{"timeline", work + "/" + url + "x", output}},
+		{"a detect input path holding a URL", "error: ", []string{"detect", work + "/" + url + "x"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

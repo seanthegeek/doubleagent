@@ -218,6 +218,7 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 	stderr io.Writer) int {
 	// Made before anything is printed, so every message goes through it.
 	out := output{secrets.NewRecorder(options.Secrets)}
+	out.collectTyped(options.Input, options.WorkDir)
 	found, err := matcher()
 	if err != nil {
 		return out.printError(ctx, stderr, err.Error())

@@ -114,6 +114,7 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	stderr io.Writer) int {
 	// Made before anything is printed, so every message goes through it.
 	out := output{secrets.NewRecorder(options.Secrets)}
+	out.collectTyped(options.Input, options.Output, options.WorkDir)
 	filter, err := buildFilter(options, env.Now)
 	if err != nil {
 		return out.printError(ctx, stderr, err.Error())

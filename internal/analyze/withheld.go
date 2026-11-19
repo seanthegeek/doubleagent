@@ -36,6 +36,16 @@ func (o output) printError(ctx context.Context, stderr io.Writer, message string
 	return printError(ctx, stderr, o.text(message))
 }
 
+// collectTyped reads each path the analyst typed, as typed, for the
+// credentials of the URLs in it, before the command cleans the path and
+// a URL's // with it, so a long one is replaced where the cleaned path is
+// printed too.
+func (o output) collectTyped(paths ...string) {
+	for _, path := range paths {
+		o.recorder.Collect(path)
+	}
+}
+
 // shownAll returns each text of texts as shown gives it.
 func (o output) shownAll(texts []string) []string {
 	out := make([]string, len(texts))
