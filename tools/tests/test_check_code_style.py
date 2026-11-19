@@ -822,6 +822,12 @@ def literal_of(lines: int, opening: str, closing: str = "}") -> str:
         (60, "var (\n\trun, stop = func() {", "}, func() {}\n)", []),
         (61, "var (\n\trun, stop = func() {", "}, func() {}\n)", [LONG_RUN]),
         (61, "var run, stop handler = func() {", "}, func() {}", []),  # a type is written
+        # A comment before the name on its line does not hide the literal.
+        (60, "var (\n\t/* doc */ run = func() {", "}\n)", []),
+        (61, "var (\n\t/* doc */ run = func() {", "}\n)", [LONG_RUN]),
+        (61, "var (\n\tstop = next\n\t/* doc */ run = func() {", "}\n)", [LONG_RUN]),
+        (60, "/* doc */ var run = func() {", "}", []),
+        (61, "/* doc */ var run = func() {", "}", [LONG_RUN]),
         # A literal in a call, a struct field or a function body is not a package variable's own.
         (61, "var run = wrap(func() {", "})", []),
         (61, "var run = table{handler: func() {", "}}", []),
@@ -831,6 +837,13 @@ def test_a_function_literal_a_package_variable_holds_is_measured(
     lines: int, opening: str, closing: str, expected: list[str]
 ) -> None:
     assert long_bodies(literal_of(lines, opening, closing)) == expected
+
+
+@pytest.mark.parametrize(("lines", "expected"), [(60, []), (61, [LONG_RUN])])
+def test_a_comment_before_func_on_its_line_does_not_hide_the_function(
+    lines: int, expected: list[str]
+) -> None:
+    assert long_bodies(function_of(lines, "/* doc */ func run() {")) == expected
 
 
 def test_a_declared_function_after_a_long_literal_is_measured_by_its_own_body() -> None:

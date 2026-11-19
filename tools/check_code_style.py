@@ -495,6 +495,21 @@ def go_tokens(source: str) -> list[GoToken]:
     return tokens
 
 
+def go_code_tokens(tokens: list[GoToken]) -> list[GoToken]:
+    """Return a Go file's tokens without its comments, each first when no code precedes it.
+
+    A token is marked as starting its line when no other code token comes before it there: a
+    comment before a token on the same line (`/* doc */ run = func() {`) does not stop the
+    token from starting the line's code, so every check that looks for a statement's first
+    token reads the line as if the comment were not there.
+    """
+    code: list[GoToken] = []
+    for token in tokens:
+        if token.kind not in {"linecomment", "blockcomment"}:
+            code.append(token._replace(first=not code or code[-1].end_line != token.line))
+    return code
+
+
 def go_is_name(token: GoToken) -> bool:
     """Return True for an identifier that is not a keyword."""
     return token.kind == "ident" and token.text not in GO_KEYWORDS
@@ -691,7 +706,7 @@ def go_interface_methods(tokens: list[GoToken], open_index: int) -> Iterator[GoB
 
 def go_bindings(tokens: list[GoToken]) -> Iterator[GoBinding]:
     """Yield every name a Go file binds."""
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    code = go_code_tokens(tokens)
     for index, token in enumerate(code):
         if token.text == ":=":
             yield from go_short_declaration(code, index)
@@ -796,7 +811,7 @@ def go_string_constants(tokens: list[GoToken]) -> dict[str, str]:
     `const layout = "%s: %s"` and the same entry in a `const (...)` block count; a constant of
     another type, or one whose value is more than literals joined by `+`, does not.
     """
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    code = go_code_tokens(tokens)
     constants: dict[str, str] = {}
     for index, token in enumerate(code):
         if token.text != "const" or index + 1 >= len(code):
@@ -999,7 +1014,7 @@ def go_declared_errors(tokens: list[GoToken]) -> set[str]:
     paired by position when there are as many of one as of the other. A name assigned from any
     other call (`closeErr := file.Close()`) is not listed. Names are not told apart by scope.
     """
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    code = go_code_tokens(tokens)
     names: set[str] = set()
     for index in range(1, len(code) - 1):
         token = code[index]
@@ -1101,7 +1116,7 @@ def go_format_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     `errors.New(fmt.Sprintf(...))` is `fmt.Errorf`. The format is read from a string literal or
     from a string constant the same file declares.
     """
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    code = go_code_tokens(tokens)
     constants = go_string_constants(tokens)
     declared = go_declared_errors(tokens)
     for index in range(2, len(code) - 2):
@@ -1126,7 +1141,7 @@ def go_dropped_cause_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     words into a new error and drops the error itself, so `errors.Is` and `errors.As` no longer
     find it. Library code wraps it with `%w` instead.
     """
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    code = go_code_tokens(tokens)
     declared = go_declared_errors(tokens)
     for index in range(2, len(code) - 1):
         if not go_is_call(code, index, "errors", {"New"}):
@@ -1143,7 +1158,16 @@ def go_declared_functions(tokens: list[GoToken]) -> Iterator[tuple[GoToken, str,
     A declaration's `func` starts its line outside every bracket; a function literal is inside a
     body or a declaration, or follows `=` or another operator.
     """
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    code = go_code_tokens(tokens)
+    for index, name, has_receiver in go_declarations_in(code):
+        yield code[index], name, has_receiver
+
+
+def go_declarations_in(code: list[GoToken]) -> Iterator[tuple[int, str, bool]]:
+    """Yield the `func` index, name and whether it has a receiver of each top-level declaration.
+
+    `code` is a file's tokens as `go_code_tokens` returns them.
+    """
     depth = 0
     for index, token in enumerate(code):
         if token.kind == "punct" and token.text in "([{":
@@ -1158,7 +1182,7 @@ def go_declared_functions(tokens: list[GoToken]) -> Iterator[tuple[GoToken, str,
         if has_receiver:
             after = go_close(code, after) + 1
         if after < len(code) and go_is_name(code[after]):
-            yield token, code[after].text, has_receiver
+            yield index, code[after].text, has_receiver
 
 
 def go_is_test_function(name: str) -> bool:
@@ -1277,12 +1301,8 @@ def go_long_functions(tokens: list[GoToken]) -> Iterator[tuple[int, str, bool, i
     holds, named by the variable. The length is the number of lines between the braces of the
     body.
     """
-    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
-    position = {id(token): index for index, token in enumerate(code)}
-    starts = [
-        (position[id(token)], name, has_receiver)
-        for token, name, has_receiver in go_declared_functions(tokens)
-    ]
+    code = go_code_tokens(tokens)
+    starts = list(go_declarations_in(code))
     starts += [(index, name, False) for index, name in go_package_literals(code)]
     for start, name, has_receiver in sorted(starts):
         opening = go_body_open(code, start)
