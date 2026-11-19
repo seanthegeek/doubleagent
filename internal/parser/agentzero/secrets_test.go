@@ -74,16 +74,18 @@ func TestEveryConnectorSettingIsShownUnlessWithheld(t *testing.T) {
 		"not a setting\n" +
 		"AGENT_ZERO_LAST_CONTEXT_HOST=https://ci:FIXTURE-PASSWORD@a0.example.net\n" +
 		"AGENT_ZERO_LAST_CONTEXT_ID='RemCtx01'\n"
-	for _, mode := range secretModes() {
+	hosts := []string{"https://ci:FIXTURE-PASSWORD@", "https://REDACTED@", "https://[withheld]@", "https://"}
+	for i, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
+			host := hosts[i] + "a0.example.net"
 			got := parseWith(t, mode.setting, ".agent-zero/.env", env)
 			want := []string{
 				"connector settings: AGENT_ZERO_HOST=" + mode.shown("http://localhost:50080") +
 					" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + mode.shown("FIXTURE-TOKEN") +
-					" AGENT_ZERO_LAST_CONTEXT_HOST=" + mode.shown("https://ci:FIXTURE-PASSWORD@a0.example.net") +
-					" AGENT_ZERO_LAST_CONTEXT_ID=" + mode.shown("RemCtx01") + " (from .agent-zero/.env, file mtime)",
-				"session origin: remote agent-zero instance " + mode.shown("https://ci:FIXTURE-PASSWORD@a0.example.net") + " context " +
-					mode.shown("RemCtx01") + " (from .agent-zero/.env, file mtime)",
+					" AGENT_ZERO_LAST_CONTEXT_HOST=" + host + " AGENT_ZERO_LAST_CONTEXT_ID=RemCtx01" +
+					" (from .agent-zero/.env, file mtime)",
+				"session origin: remote agent-zero instance " + host + " context RemCtx01" +
+					" (from .agent-zero/.env, file mtime)",
 			}
 			if !slices.Equal(got, want) {
 				t.Errorf("got %q, want %q", got, want)

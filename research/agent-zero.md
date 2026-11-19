@@ -901,8 +901,9 @@ a line that starts with `#` after its leading white space is a comment and gives
 without `=` gives none, quotes are stripped from either end of a value, and an `export` prefix
 stays part of the key (`export KEY=value` is the key `export KEY`), since that reader keeps it.
 Every value is shown as written, and so are the credentials of the origin's host URL;
-`timeline --no-secrets` and `detect --no-secrets` replace each value, and the credentials the host
-URL carries, with the placeholder.
+`timeline --no-secrets` and `detect --no-secrets` replace each value but the last chat's host and
+id, which are no credentials and so read the same in this row and the `session origin:` row, and
+replace the credentials the host URL carries with the placeholder.
 
 #### Scratch directory rows
 
