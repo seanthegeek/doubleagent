@@ -169,6 +169,10 @@ func TestTheConnectorEnvGivesItsSettingsAndTheLastContext(t *testing.T) {
 		{"an empty value gives no origin", "AGENT_ZERO_LAST_CONTEXT_HOST=h:5080\nAGENT_ZERO_LAST_CONTEXT_ID=\n",
 			[]string{"connector settings: AGENT_ZERO_LAST_CONTEXT_HOST=h:5080 AGENT_ZERO_LAST_CONTEXT_ID=" + tail}},
 		{"a file without a setting gives no row", "# a comment\n=value\n\n", nil},
+		{"a commented-out setting is not a setting", "# OLD_KEY=old\n  #AGENT_ZERO_LAST_CONTEXT_ID=c0\n" +
+			"AGENT_ZERO_TOKEN=t\n", []string{"connector settings: AGENT_ZERO_TOKEN=t" + tail}},
+		{"an export prefix stays in the name, as the connector reads it", "export AGENT_ZERO_TOKEN=t\n",
+			[]string{"connector settings: export AGENT_ZERO_TOKEN=t" + tail}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

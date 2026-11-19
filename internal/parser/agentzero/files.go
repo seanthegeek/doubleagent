@@ -291,11 +291,15 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 	}
 	// A line ends at LF; the CR of a CRLF line and the whitespace around a
 	// key or value are trimmed, then every single or double quote at either
-	// end of a value, as the connector's own reader strips them
-	// (research/agent-zero.md, "Origin").
+	// end of a value, as the connector's own reader strips them; a line that
+	// starts with # is a comment, and an export prefix stays part of the key,
+	// as that reader keeps it (research/agent-zero.md, "Origin").
 	values := map[string]string{}
 	var settings []string
 	for line := range strings.Lines(textlines.ValidUTF8(content)) {
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
 		name, value, found := strings.Cut(strings.TrimSpace(line), "=")
 		name = strings.TrimSpace(name)
 		if !found || name == "" {
