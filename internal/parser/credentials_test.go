@@ -60,3 +60,43 @@ func TestTheKitReturnsTheTextAsWrittenAndTheOutputReplacesWhatItRecords(t *testi
 		})
 	}
 }
+
+func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
+	headers, err := jsonvalue.DecodeString(`{"Authorization": "Bearer fake-header-secret-0001", ` +
+		`"X-Key": "fake-\"quoted\"-0002"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		identify func(artifact *input.Artifact) string
+		recorded []string
+	}{
+		{"a value with white space around it", func(artifact *input.Artifact) string {
+			return SecretText(artifact, "  fake-secret-value-0001 ")
+		}, []string{"  fake-secret-value-0001 ", "fake-secret-value-0001"}},
+		{"an authorization value and its credentials", func(artifact *input.Artifact) string {
+			return SecretText(artifact, "Bearer fake-secret-value-0001")
+		}, []string{"Bearer fake-secret-value-0001", "fake-secret-value-0001"}},
+		{"a basic authorization value in another case", func(artifact *input.Artifact) string {
+			return SecretText(artifact, "basic ZmFrZTpzZWNyZXQ=")
+		}, []string{"ZmFrZTpzZWNyZXQ=", "basic ZmFrZTpzZWNyZXQ="}},
+		{"a headers object, each header and its JSON form", func(artifact *input.Artifact) string {
+			return SecretJSONText(artifact, headers)
+		}, []string{"Bearer fake-header-secret-0001", headers.JSON(), `fake-"quoted"-0002`,
+			`fake-\"quoted\"-0002`, "fake-header-secret-0001"}},
+		{"a string from JSON as it is", func(artifact *input.Artifact) string {
+			return SecretJSONText(artifact, jsonvalue.NewString("fake-secret-value-0001"))
+		}, []string{"fake-secret-value-0001"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			artifact := &input.Artifact{Home: &input.Home{Secrets: secrets.NewRecorder(
+				secrets.Setting{Withhold: true, Placeholder: "P"})}}
+			found, _ := Within(artifact, func(Emit) error { test.identify(artifact); return nil }, func(timeline.Row) {})
+			if got, want := found.Secrets(), slices.Sorted(slices.Values(test.recorded)); !slices.Equal(got, want) {
+				t.Errorf("recorded %q, want %q", got, want)
+			}
+		})
+	}
+}

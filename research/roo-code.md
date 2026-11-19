@@ -627,7 +627,8 @@ were uploaded or shared, so the parser writes no `session synced:` row and does 
   ` lastError=<lastError>` when set, then `(Roo Code Cloud retry queue, from <file>
   roo.retryQueue, request timestamp)`, at the request's `timestamp` with the task as `session_id`:
   an upload that had not reached the service. The bearer token and the URL's credentials are shown
-  as written; `timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder.
+  as written; `timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder,
+  the token alone too where another row quotes it without its `Bearer` scheme.
   The other headers and the body are never written.
 
 Relay and origin: the agent records none.
