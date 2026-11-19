@@ -269,10 +269,12 @@ func oneLater(later, base string) bool {
 // want's line at the same index but for timestamps rolled over (119) given
 // want's form. The binary sorts a row whose file's modification time it cut
 // to T where the recording rounded it to T+1 ms where the timeline order
-// puts a row of T, so such a line of got that equals an unmatched later
-// line of want, one millisecond later, is taken out of both sides when
-// every line of got it moved past sorts after it (movedEarlier); every
-// other line keeps its place and is compared in order.
+// puts a row of T. Such a line of got that equals an unmatched later line of
+// want, one millisecond later, is taken out of both sides when every line
+// it moved past sorts after it or moved too (movedEarlier); lines are taken
+// from the last up, each from a recorded place before every one taken so
+// far, so rows that moved together keep their recorded order. Every other
+// line keeps its place and is compared in order.
 func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
 	written := slices.Clone(gotLines)
@@ -281,14 +283,18 @@ func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 	}
 	matched := func(i int) bool { return i < len(wantLines) && i < len(gotLines) && wantLines[i] == gotLines[i] }
 	takenWant, takenGot := map[int]bool{}, map[int]bool{}
-	for i, line := range gotLines {
+	firstTaken := len(wantLines)
+	for i := len(gotLines) - 1; i >= 0; i-- {
+		line := gotLines[i]
 		if matched(i) || !movedModifiedTime(line, cut) {
 			continue
 		}
-		for j, candidate := range wantLines {
-			if !takenWant[j] && !matched(j) && candidate != line && rolledOver(candidate, line, cut) == candidate &&
-				movedEarlier(written, i, j) {
+		for j := firstTaken - 1; j > i; j-- {
+			candidate := wantLines[j]
+			if !matched(j) && candidate != line && rolledOver(candidate, line, cut) == candidate &&
+				movedEarlier(written, i, j, takenGot) {
 				takenWant[j], takenGot[i] = true, true
+				firstTaken = j
 				break
 			}
 		}
@@ -305,14 +311,15 @@ func movedModifiedTime(line string, cut *cutTimes) bool {
 
 // movedEarlier reports whether the line of got at moved stands before
 // target, the place its recorded line holds, and sorts before each line it
-// passed on the way (compareRowLines): a row given an earlier time moves
-// only towards the start, past the rows the timeline order puts after it.
-func movedEarlier(got []string, moved, target int) bool {
+// passed on the way (compareRowLines) but those of taken, rows that moved
+// too: a row given an earlier time moves only towards the start, past the
+// rows the timeline order puts after it.
+func movedEarlier(got []string, moved, target int, taken map[int]bool) bool {
 	if moved >= target || target >= len(got) {
 		return false
 	}
-	for _, line := range got[moved+1 : target+1] {
-		if compareRowLines(got[moved], line) >= 0 {
+	for passed := moved + 1; passed <= target; passed++ {
+		if !taken[passed] && compareRowLines(got[moved], got[passed]) >= 0 {
 			return false
 		}
 	}
