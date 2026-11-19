@@ -13,8 +13,8 @@ type query struct {
 	starts        []urlStart
 	authorityEnds []int
 	found         func(Credential)
-	// open counts the (, [ and { opened since the first URL began and not
-	// closed yet.
+	// open counts the (, [ and { opened in the parameter being read and
+	// not closed yet.
 	open [3]int
 	// nextURL is the first URL whose scheme starts after the byte read;
 	// nextAuthority the first later URL whose authority has not ended.
@@ -37,9 +37,6 @@ func parameters(text string, starts []urlStart, authorityEnds []int, found func(
 	start += authorityEnds[0]
 	scan := &query{text: text, starts: starts, authorityEnds: authorityEnds, found: found,
 		fragment: text[start] == '#', nextAuthority: 1}
-	for i := starts[0].scheme; i < start; i++ {
-		scan.endsValue(i)
-	}
 	// A later URL whose authority ends before the query starts has the
 	// query's own ? or # as its first.
 	for scan.nextAuthority < len(starts) && authorityEnds[scan.nextAuthority] <= start {
@@ -58,6 +55,7 @@ func parameters(text string, starts []urlStart, authorityEnds []int, found func(
 // read inside it is part of it, so each byte is in one value at most.
 func (q *query) parameter(start int) int {
 	nameStart, named, valueStart := start, false, -1
+	q.open = [3]int{}
 	for i := start; i < len(q.text); i++ {
 		q.passAuthorities(i)
 		if length := q.separatorAt(i); length > 0 {
@@ -132,8 +130,8 @@ func (q *query) separatorAt(i int) int {
 }
 
 // endsValue reports whether byte i ends the value being read (rule 3): a
-// single quote, a closing bracket that closes none opened since the first
-// URL began, or a comma directly before a scheme. It counts the brackets
+// single quote, a closing bracket that closes none opened earlier in its
+// parameter, or a comma directly before a scheme. It counts the brackets
 // opened and closed on the way, so it reads each byte once and in order.
 func (q *query) endsValue(i int) bool {
 	for q.nextURL < len(q.starts) && q.starts[q.nextURL].scheme <= i {

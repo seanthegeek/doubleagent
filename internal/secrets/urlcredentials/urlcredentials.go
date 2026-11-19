@@ -7,8 +7,8 @@
 //     brackets (appendix C), and at backticks; nothing is read across them.
 //  2. A URL starts at a scheme, a letter then letters, digits, +, - and .
 //     (section 3.1), directly followed by "://" or JSON's escaped `:\/\/`.
-//  3. A single quote, a ), ] or } that closes no bracket opened since the
-//     token's first URL began, a comma directly before a scheme, and the
+//  3. A single quote, a ), ] or } that closes no bracket opened earlier in
+//     its query parameter, a comma directly before a scheme, and the
 //     punctuation . , : ; ! ? before one of them or the token's end end the
 //     value being read (rule 8) but not the reading: rules 4 to 7 go on.
 //  4. The authority follows the separator and ends at the first /, ? or #
