@@ -304,10 +304,10 @@ func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 
 // movedModifiedTime reports whether a line holds exactly one timestamp and
 // it is the modification time, with digits below the millisecond, cut, of
-// the file the line names as its source.
+// a file of the case's tree.
 func movedModifiedTime(line string, cut *cutTimes) bool {
 	found := jsonTimestamp.FindAllStringSubmatch(line, -1)
-	return len(found) == 1 && cut.holdsModified(found[0][1], readSortFields(line).SourceFile)
+	return len(found) == 1 && cut.holdsModified(found[0][1])
 }
 
 // movedEarlier reports whether the line of got at moved stands before

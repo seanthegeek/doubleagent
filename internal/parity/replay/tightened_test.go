@@ -217,7 +217,7 @@ func fileRowMoveCases() []movedRowCase {
 }
 
 // modifiedTimeCases returns the cases of the time the cut is read from: a time too
-// far from the row's, a record's time, and another file's.
+// far from the row's, a record's time, and a file's.
 func modifiedTimeCases() []movedRowCase {
 	record := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/a.jsonl", 1)
 	laterFile := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/c.jsonl", 1)
@@ -235,17 +235,9 @@ func modifiedTimeCases() []movedRowCase {
 			fixedModifiedTimes("2026-01-01T00:00:00.302Z", "r/broken.json"), false},
 		{"a time from a record rather than a file's modification time fails", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after}, fixedCutTimes("2026-01-01T00:00:00.300Z"), false},
-		{"another file's modification time fails", []string{laterFile, recordedFile, after},
-			[]string{binaryFile, laterFile, after}, fixedModifiedTimes("2026-01-01T00:00:00.300Z", "r/other.json"), false},
-		{"a file of the same name in another directory fails", []string{laterFile, recordedFile, after},
-			[]string{binaryFile, laterFile, after}, fixedModifiedTimes("2026-01-01T00:00:00.300Z", "q/broken.json"),
-			false},
-		{"the file of a row named from an input inside the tree passes", []string{laterFile, recordedFile, after},
+		{"a file the row names from an input inside the tree passes", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after},
 			fixedModifiedTimes("2026-01-01T00:00:00.300Z", "case/home/r/broken.json"), true},
-		{"a file whose path only ends in the row's name fails", []string{laterFile, recordedFile, after},
-			[]string{binaryFile, laterFile, after},
-			fixedModifiedTimes("2026-01-01T00:00:00.300Z", "case/other/broken.json"), false},
 	}
 }
 

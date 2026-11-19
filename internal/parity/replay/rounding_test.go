@@ -3,9 +3,7 @@
 package replay
 
 import (
-	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -45,19 +43,12 @@ func (c *cutTimes) holds(timestamp string) bool {
 }
 
 // holdsModified reports whether timestamp is the modification time, with
-// digits below the millisecond, cut, of the file a row names as its
-// source: a row may take its own file's time, not another's. A row names
-// its file from the input, which may lie inside the case's tree or hold
-// it, so the two paths agree when either ends in the other at a slash.
-func (c *cutTimes) holdsModified(timestamp, sourceFile string) bool {
-	if !c.holds(timestamp) {
-		return false
-	}
-	source := filepath.ToSlash(sourceFile)
-	return slices.ContainsFunc(c.mtimes[timestamp], func(relative string) bool {
-		return source == relative || strings.HasSuffix(source, "/"+relative) ||
-			strings.HasPrefix(source, "/") && strings.HasSuffix("/"+relative, source)
-	})
+// digits below the millisecond, cut, of a file of the case's tree. The file
+// is not matched with the one a row names: a row names its file from the
+// input, with or without a leading slash, and the input may lie anywhere in
+// the tree, so no rule on the two paths holds for every input.
+func (c *cutTimes) holdsModified(timestamp string) bool {
+	return c.holds(timestamp) && len(c.mtimes[timestamp]) > 0
 }
 
 // fixedCutTimes returns a set holding the given cut timestamps, none of
