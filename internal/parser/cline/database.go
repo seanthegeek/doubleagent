@@ -38,15 +38,6 @@ func unreadable(name string, err error) error {
 	return fmt.Errorf("%s unreadable (%w)", name, err)
 }
 
-// rowObject returns a database row as an object of its columns.
-func rowObject(row sqlitefile.Row) jsonvalue.Value {
-	object := jsonvalue.NewObject()
-	for _, column := range row.Columns() {
-		object.Set(column, parser.ColumnValue(row.Get(column)))
-	}
-	return object
-}
-
 // readSessions returns every row of the sessions table in rowid order, an
 // empty list when there is no such table, or an error whose text is the
 // row that replaces them.
@@ -84,7 +75,7 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 	}
 	keys := append(startKeys(), "ended_at", "exit_code")
 	for _, record := range rows {
-		session := rowObject(record)
+		session := parser.RowObject(record)
 		if manifestPresent(artifact, parser.Text(session.Get("session_id"))) {
 			continue
 		}
