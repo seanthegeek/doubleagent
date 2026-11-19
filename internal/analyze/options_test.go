@@ -84,7 +84,7 @@ type refusedCommandLine struct {
 // refusedCommandLines returns the command lines the analysis commands
 // refuse.
 func refusedCommandLines() []refusedCommandLine {
-	return []refusedCommandLine{
+	lines := []refusedCommandLine{
 		{"timeline needs its output directory", "timeline", []string{"in"},
 			"missing argument: output directory"},
 		{"an empty output directory is none", "timeline", []string{"in", ""},
@@ -125,6 +125,14 @@ func refusedCommandLines() []refusedCommandLine {
 		{"catalog takes no input", "catalog", []string{"x"}, "unexpected argument: x"},
 		{"catalog refuses an unknown option", "catalog", []string{"--bogus"},
 			"flag provided but not defined: -bogus"},
+	}
+	return append(lines, misplacedOptionLines()...)
+}
+
+// misplacedOptionLines returns the command lines refused for an option
+// that stands after the input.
+func misplacedOptionLines() []refusedCommandLine {
+	return []refusedCommandLine{
 		{"detect with a switch after the input", "detect", []string{"in", "--json"},
 			"options go before the input; --json is after it"},
 		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"},
