@@ -81,13 +81,13 @@ func TestCallTextPrefersTheShellCommand(t *testing.T) {
 func TestReadSettingsKeepsOnlyPermissionAndModelKeys(t *testing.T) {
 	raw := "A=1\nDEFAULT_MODEL=gpt\r\nbad line\n# c\n  OPENAI_USE_FUNCTIONS = x \n\nSHELL_INTERACTION=true=1"
 	var problems parser.Problems
-	got := readSettings(raw, &problems)
+	got := readSettings(&input.Artifact{}, raw, &problems)
 	want := []setting{{"DEFAULT_MODEL", "gpt"}, {"SHELL_INTERACTION", "true=1"}}
 	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Errorf("got %v, want %v", got, want)
 	}
 	if len(problems) != 1 || problems[0].Line != 3 || problems[0].Raw != "" ||
-		problems[0].Message != `unparseable line 3 (no "=" separator; not shown, the file holds the API key)` {
+		problems[0].Message != `unparseable line 3 (no "=" separator): bad line` {
 		t.Errorf("got problems %+v", problems)
 	}
 }

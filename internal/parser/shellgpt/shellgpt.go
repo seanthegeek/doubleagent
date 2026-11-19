@@ -119,7 +119,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	if content, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		raw = textlines.ValidUTF8(content)
 	}
-	for _, setting := range readSettings(raw, &problems) {
+	for _, setting := range readSettings(artifact, raw, &problems) {
 		if setting.key == modelKey {
 			text := "model: " + setting.value + " (configured default, from " + artifact.Rel +
 				", file mtime)"
@@ -145,10 +145,10 @@ type setting struct {
 }
 
 // readSettings returns the permission, model and API key settings in file
-// order. A
-// non-blank line without "=" adds a problem; the raw line is never kept,
-// since the file holds the API key.
-func readSettings(raw string, problems *parser.Problems) []setting {
+// order. A non-blank line without "=" adds a problem that gives the line
+// through parser.SecretText, since the file holds the API key and such a
+// line can be a key pasted alone.
+func readSettings(artifact *input.Artifact, raw string, problems *parser.Problems) []setting {
 	var found []setting
 	raw = strings.ReplaceAll(raw, "\r\n", "\n")
 	raw = strings.ReplaceAll(raw, "\r", "\n")
@@ -158,8 +158,8 @@ func readSettings(raw string, problems *parser.Problems) []setting {
 			continue
 		}
 		if !strings.Contains(line, "=") {
-			problems.Add(number, "unparseable line "+strconv.Itoa(number)+
-				` (no "=" separator; not shown, the file holds the API key)`)
+			problems.Add(number, "unparseable line "+strconv.Itoa(number)+` (no "=" separator): `+
+				parser.SecretText(artifact, line))
 			continue
 		}
 		key, value, _ := strings.Cut(strings.TrimSpace(line), "=")

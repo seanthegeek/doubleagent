@@ -461,10 +461,11 @@ decodes whole, an element that is not an object is
 message's `tool_calls` that is present but not an array is
 `parser: tool_calls is not a JSON array`, one row for the file however many messages hold it so
 (`parser: tool_calls is not a JSON array in <n> entries` for more than one); both come after the
-messages. A line of `.sgptrc`
-with no `=` yields `parser: unparseable line <n> (no "=" separator; not shown, the file holds the
-API key)`, the line itself left out because the file holds the key; the other lines are still
-read. The response cache is one text per file with nothing to cut. A chat file, `.sgptrc` or
+messages. A line of `.sgptrc` with no `=` yields
+`parser: unparseable line <n> (no "=" separator): <the line>`, the line shown as written and, since
+the file holds the key and such a line can be a key pasted alone, replaced with the placeholder
+under `timeline --no-secrets` and `detect --no-secrets`; the other lines are still read. The
+response cache is one text per file with nothing to cut. A chat file, `.sgptrc` or
 response cache file that cannot be read is one row `parser: <file> could not be read (<reason>)`,
 `<file>` its name, the chat file's row carrying its session id.
 

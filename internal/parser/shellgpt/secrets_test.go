@@ -97,3 +97,15 @@ func TestTheAPIKeyIsShownUnlessWithheldBesideTheOtherSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestALineWithoutAnEqualsSignIsShownUnlessWithheld(t *testing.T) {
+	const rel = ".config/shell_gpt/.sgptrc"
+	for _, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := textsOf(parseSecrets(t, mode.setting, rel, "sk-FIXTURE-PASTED\nDEFAULT_MODEL=gpt-4o\n"))
+			want := []string{"model: gpt-4o (configured default, from " + rel + ", file mtime)",
+				`parser: unparseable line 1 (no "=" separator): ` + mode.shown("sk-FIXTURE-PASTED")}
+			checkSecretRows(t, mode, got, want, "FIXTURE")
+		})
+	}
+}
