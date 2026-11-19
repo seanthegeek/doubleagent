@@ -18,7 +18,7 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 	found := p.homeIndex(artifact).projects[sessionID]
 	row := func(turnType, text, when string, line int) timeline.Row {
 		made := p.row(artifact, turnType, text, when, int64(line))
-		made.SessionID, made.ProjectPath, made.GitBranch = sessionID, found.path, found.branch
+		made.SessionID, made.ProjectPath, made.GitBranch = sessionID, found.pathFor(artifact), found.branch
 		return made
 	}
 	var problems parser.Problems

@@ -11,6 +11,18 @@ import (
 type project struct {
 	path   string
 	branch string
+	// remote marks a cloud agent's project, a repository URL, which a row
+	// shows through parser.URLText.
+	remote bool
+}
+
+// pathFor returns the project's path as a row of artifact shows it: a
+// repository URL through parser.URLText, a local path as it is.
+func (found project) pathFor(artifact *input.Artifact) string {
+	if found.remote {
+		return parser.URLText(artifact, found.path)
+	}
+	return found.path
 }
 
 // stateIndex is what the side files of a home need from its state.vscdb:
@@ -74,13 +86,13 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	store := newStore(database, p.Work)
 	for _, current := range readComposers(store).list {
 		path, branch := current.project()
-		p.index.projects[current.ident] = project{path, branch}
+		p.index.projects[current.ident] = project{path: path, branch: branch}
 	}
 	var ignored parser.Problems
 	for _, found := range readCloudAgents(store, &ignored) {
 		ident := found.agent.Get("bcId").Text()
 		if _, seen := p.index.projects[ident]; !seen {
-			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text()}
+			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text(), remote: true}
 		}
 		if _, seen := p.index.models[ident]; !seen {
 			p.index.models[ident], _ = cloudModel(found.agent)

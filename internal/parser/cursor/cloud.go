@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -81,7 +82,7 @@ func (i *items) cloud(emit parser.Emit) {
 		return
 	}
 	for _, repo := range objectEntries(found, i.problems) {
-		target := repo.Get("url").Text()
+		target := parser.URLText(i.artifact, repo.Get("url").Text())
 		if target == "" {
 			target = cmp.Or(repo.Get("name").Text(), "-")
 		}
@@ -100,7 +101,7 @@ func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser
 	created := firstOrLast(agent.Get("createdAt"), agent.Get("rowUpdatedAtMs"))
 	row := func(text string, when jsonvalue.Value) {
 		made := i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(when), found.rowid)
-		made.SessionID, made.ProjectPath, made.Model = ident, repo, model
+		made.SessionID, made.ProjectPath, made.Model = ident, parser.URLText(i.artifact, repo), model
 		emit(made)
 	}
 	if !cached[ident] {
@@ -117,13 +118,14 @@ func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser
 	if github := githubRepository(repo); github != "" {
 		row("source host: github.com "+github+" (cloud agent)", created)
 	}
-	row(cloudText(agent), firstOrLast(agent.Get("rowUpdatedAtMs"), created))
+	row(cloudText(i.artifact, agent), firstOrLast(agent.Get("rowUpdatedAtMs"), created))
 }
 
 // cloudText returns the "cloud agent:" text of a cloud agent, "-" for an
-// absent value.
-func cloudText(agent jsonvalue.Value) string {
-	return "cloud agent: " + cmp.Or(timeline.CompactValue(agent.Get("name")), "-") + " repo=" + parser.SettingOrDash(agent.Get("repoUrl")) +
+// absent value, the repository URL through parser.URLText.
+func cloudText(artifact *input.Artifact, agent jsonvalue.Value) string {
+	return "cloud agent: " + cmp.Or(timeline.CompactValue(agent.Get("name")), "-") + " repo=" +
+		parser.URLText(artifact, parser.SettingOrDash(agent.Get("repoUrl"))) +
 		" status=" + parser.SettingOrDash(agent.Get("status")) + " workflowStatus=" + parser.SettingOrDash(agent.Get("workflowStatus")) +
 		" archived=" + parser.SettingOrDash(agent.Get("isArchived")) + " killed=" + parser.SettingOrDash(agent.Get("isKilled")) +
 		" vmStarted=" + parser.SettingOrDash(agent.Get("hasStartedVm")) + " " + cloudSource
@@ -156,7 +158,7 @@ func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
 			i.mtime, found.rowid)
 		row.SessionID, row.ToolUseID = agentID, callID
 		if agent, ok := known[agentID]; ok {
-			row.ProjectPath = agent.Get("repoUrl").Text()
+			row.ProjectPath = parser.URLText(i.artifact, agent.Get("repoUrl").Text())
 			row.Model, _ = cloudModel(agent)
 		}
 		emit(row)

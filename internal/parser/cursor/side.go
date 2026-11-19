@@ -36,12 +36,12 @@ func columnField(value sqlitefile.Value) string {
 	return cmp.Or(asText(value), "-")
 }
 
-// joinProject gives a row the session id and, when the home's store knows
-// it, its project and branch.
-func joinProject(row *timeline.Row, sessionID string, index *stateIndex) {
+// joinProject gives a row of artifact the session id and, when the home's
+// store knows it, its project and branch.
+func joinProject(artifact *input.Artifact, row *timeline.Row, sessionID string, index *stateIndex) {
 	row.SessionID = sessionID
 	if found, ok := index.projects[sessionID]; ok {
-		row.ProjectPath, row.GitBranch = found.path, found.branch
+		row.ProjectPath, row.GitBranch = found.pathFor(artifact), found.branch
 	}
 }
 
@@ -82,7 +82,7 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 		sessionID := asText(record.Get("id"))
 		row := func(text string) {
 			made := p.row(artifact, timeline.TurnSystem, text, parser.ColumnTime(record.Get("updated_at")), record.Rowid)
-			joinProject(&made, sessionID, index)
+			joinProject(artifact, &made, sessionID, index)
 			made.Model = index.models[sessionID]
 			emit(made)
 		}
@@ -115,7 +115,7 @@ func (p *Parser) tracking(artifact *input.Artifact, store *store, emit parser.Em
 		for _, record := range records {
 			text, when, sessionID := trackingText(tracked.name, record)
 			row := p.row(artifact, timeline.TurnSystem, text, parser.ColumnTime(when), record.Rowid)
-			joinProject(&row, sessionID, index)
+			joinProject(artifact, &row, sessionID, index)
 			row.Model = asText(record.Get("model"))
 			if tracked.name == "scored_commits" {
 				row.GitBranch = asText(record.Get("branchName"))

@@ -95,6 +95,18 @@ INSERT INTO ItemTable VALUES ('{mcp_key("mcpOAuth.global.", "srv", "mcp_server_u
     '"https://tok:s3cret@mcp.example.invalid/"');
 """
 
+# A cloud agent whose repository URL carries a credential, the MCP authorisation answer that
+# joins it on the agent's id, and the repository list naming the same URL.
+CLOUD_REPOSITORY = """
+INSERT INTO ItemTable VALUES ('cloudAgentRepository.agents.acct', '[{"bcId": "bc-1", "name": "fix",
+    "repoUrl": "https://ci:s3cret@github.com/o/r", "status": "done", "createdAt": 1790845200000,
+    "rowUpdatedAtMs": 1790845300000}]');
+INSERT INTO ItemTable VALUES ('cloudAgentRepository.mcpAuthResolution',
+    '[{"agentId": "bc-1", "toolCallId": "t1", "userDecision": "approved"}]');
+INSERT INTO ItemTable VALUES ('cloudEnvironmentTemplate.githubRepos',
+    '[{"url": "https://ci:s3cret@github.com/o/r", "type": "github"}]');
+"""
+
 DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
@@ -102,6 +114,7 @@ DATABASES = {
     "empty_composer_id.db": ([], EMPTY_HEADER),
     "mcp_secret.db": ([], MCP_SECRET),
     "header_kinds.db": ([], HEADER_KINDS),
+    "cloud_repository.db": ([], CLOUD_REPOSITORY),
 }
 
 

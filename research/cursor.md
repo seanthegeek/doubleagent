@@ -2360,7 +2360,10 @@ A cloud agent is a conversation of remote origin, held by the vendor
   `session origin: remote cursor cloud agent` at `createdAt` only when no `conversation-search.db`
   row yielded it for the same `bcId`; and `session synced: cursor cloud agent <bcId> (vendor copy;
   from state.vscdb cloudAgentRepository.agents)` at `createdAt`, else `rowUpdatedAtMs`, since the
-  vendor holds the conversation;
+  vendor holds the conversation. The `repoUrl` of the `repo=` field and of `project_path` (here,
+  on the agent's MCP authorisation row and on the side files' rows that join the agent by its id)
+  is shown as written; `timeline --no-secrets` and `detect --no-secrets` replace the credentials it
+  carries with the placeholder;
 - for an agent started as a new project in a temporary Origin repository (the second agent of
   [Cloud agents](#cloud-agents)), the same rows, with `project_path` its
   `origin.cursor.com/git/<namespace>/tmp-<hex>` `repoUrl` and no `source host:` row, since the
@@ -2369,7 +2372,8 @@ A cloud agent is a conversation of remote origin, held by the vendor
 - from each element of `cloudEnvironmentTemplate.githubRepos`, the repository list the account
   may reach through Cursor Origin, `source host repository: <url or name> type=<type> (from
   state.vscdb cloudEnvironmentTemplate.githubRepos, file mtime)` at the file's modification time,
-  with an empty `session_id`.
+  with an empty `session_id`, the URL's credentials replaced with the placeholder under
+  `--no-secrets`.
 
 `bcCachedDetails:bc-<uuid>` yields nothing until it is decoded
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)). The `status`,

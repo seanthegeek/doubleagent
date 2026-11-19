@@ -101,3 +101,42 @@ func TestAnMCPOAuthAttemptsServerShowsItsCredentialsUnlessWithheld(t *testing.T)
 		})
 	}
 }
+
+func TestACloudAgentsRepositoryURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
+	schemes := []string{"https://ci:s3cret@", "https://REDACTED@", "https://[withheld]@", "https://"}
+	for i, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			artifact := stateArtifact(t, "cloud_repository.db")
+			artifact.Home.Secrets = mode.setting
+			var got []string
+			var projects []string
+			err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+				got = append(got, row.Text)
+				projects = append(projects, row.ProjectPath)
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			repository := schemes[i] + "github.com/o/r"
+			want := []string{
+				cloudOrigin,
+				"session synced: cursor cloud agent bc-1 (vendor copy; from state.vscdb cloudAgentRepository.agents)",
+				"source host: github.com o/r (cloud agent)",
+				"cloud agent: fix repo=" + repository + " status=done workflowStatus=- archived=- killed=- " +
+					"vmStarted=- " + cloudSource,
+				"permission decision: approved mcp auth for cloud agent bc-1 tool_call=t1 " + mcpAuthSource,
+				"source host repository: " + repository + " type=github " + reposSource,
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+			// The decision joins its agent on the agent's id, so it takes
+			// the agent's project as every row of the agent shows it.
+			wantProjects := []string{repository, repository, repository, repository, repository, ""}
+			if !slices.Equal(projects, wantProjects) {
+				t.Errorf("projects %q, want %q", projects, wantProjects)
+			}
+			checkWithheld(t, mode, slices.Concat(got, projects))
+		})
+	}
+}
