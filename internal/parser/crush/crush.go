@@ -273,8 +273,10 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 // parseCrushrc emits one "permission setting:" row per tool on a crushrc
 // "permissions allow" or "permissions deny" line: allow adds to
 // permissions.allowed_tools, deny to options.disabled_tools. Such a line is
-// read as written, whatever condition is around it; one that does not
-// split into shell words is a bad line.
+// read as written, whatever condition is around it. A line is split into
+// words when it starts, after blanks, with the text "permissions" (so
+// permissions_note='x also is), and one that does not split into shell
+// words is a bad line; only a first word of exactly "permissions" gives rows.
 func (p *Parser) parseCrushrc(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)

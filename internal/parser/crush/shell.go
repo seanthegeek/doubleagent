@@ -32,14 +32,16 @@ func (s *wordSplitter) finish() {
 	s.started = false
 }
 
-// splitWords splits a line into words as POSIX sh quoting reads them, with
-// comments: words separate at space, tab, CR and LF; single quotes keep
-// everything to the next one; inside double quotes a backslash escapes only
-// a double quote or a backslash; outside quotes a backslash escapes any
-// character; a # outside quotes, even inside a word, ends the line. No
-// expansion of any kind is done. The standard library has no shell word
-// splitter. For an unclosed quote or a backslash at the end it returns an
-// error saying why the line does not split.
+// splitWords splits a line into words the way POSIX sh quoting does, with
+// one difference: a # outside quotes starts a comment that ends the line
+// wherever it is, even in the middle of a word (view#1 is the word view),
+// where sh starts a comment only at the beginning of a word. Words separate
+// at space, tab, CR and LF; single quotes keep everything to the next one;
+// inside double quotes a backslash escapes only a double quote or a
+// backslash; outside quotes a backslash escapes any character. No expansion
+// of any kind is done. The standard library has no shell word splitter. For
+// an unclosed quote or a backslash at the end it returns an error saying why
+// the line does not split.
 func splitWords(line string) ([]string, error) {
 	splitter := &wordSplitter{}
 	for i := 0; i < len(line); i++ {
