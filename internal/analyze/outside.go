@@ -12,10 +12,10 @@ import (
 
 // The rule: timeline and fleet never write inside an input directory,
 // known by the entry its own read reached, however its path was spelled.
-// The output's path is made absolute as the command's calls take it
-// (absolute) and followed from its root as the file system follows it
-// (resolve), except that on Windows no link or junction is followed. It is
-// inside when the place it leads to, or a directory above it, is that entry
+// The output's path is taken as the command's calls take it (placed) and
+// followed from its start as the file system follows it (resolve), except
+// that on Windows no link or junction is followed. It is inside when the
+// place it leads to, or a directory above it (above), is that entry
 // by os.SameFile, which also matches another letter case on macOS or
 // Windows; where that place cannot be told, it is refused as such. Nothing
 // about the input is judged: an archive holds nothing, and an input the
@@ -31,14 +31,16 @@ var errNotFollowed = errors.New("the check enters only directories, and symbolic
 // errBelowFile is resolve's stop at a regular file with a name after it.
 var errBelowFile = errors.New("a name follows a regular file")
 
-// place is where resolve's path leads: its absolute path and its entry,
-// nil when it does not exist yet or is a root whose entry cannot be read.
+// place is where resolve's path leads: its path and its entry, nil when it
+// does not exist yet or is a root whose entry cannot be read.
 type place struct {
 	path string
 	info fs.FileInfo
 }
 
-// resolve follows path, already absolute, name by name: a directory is
+// resolve follows path name by name from the root, or from the working
+// directory for a relative path, which is never written in front of it:
+// that could make the text longer than the system takes. A directory is
 // entered, a ".." steps up from the place reached so far, and a name not
 // there yet is kept as written, as the write will create it. A link is
 // replaced by the place followLink gives for it. At a regular file with a
@@ -47,7 +49,10 @@ type place struct {
 // to the write.
 func resolve(path string) (place, error) {
 	volume := filepath.VolumeName(path)
-	current := place{path: volume + string(filepath.Separator)}
+	current := place{path: "."}
+	if filepath.IsAbs(path) {
+		current.path = volume + string(filepath.Separator)
+	}
 	if info, err := osfile.Lstat(current.path); err == nil {
 		current.info = info
 	}
@@ -90,30 +95,64 @@ func insideDirectory(path string, directory fs.FileInfo) (bool, error) {
 	if directory == nil || !directory.IsDir() {
 		return false, nil
 	}
-	absolutePath, err := absolute(path)
+	placedPath, err := placed(path)
 	if err != nil {
 		return false, err
 	}
-	output, err := resolve(absolutePath)
+	output, err := resolve(placedPath)
 	switch {
 	case errors.Is(err, errBelowFile):
 		return false, nil
 	case err != nil:
 		return false, err
 	}
-	for current := output.path; ; current = filepath.Dir(current) {
+	for current := output.path; ; {
 		info, err := osfile.Lstat(current)
-		root := filepath.Dir(current) == current
+		parent, top := above(current, info)
 		switch {
 		case err == nil && os.SameFile(info, directory):
 			return true, nil
-		case err != nil && !errors.Is(err, fs.ErrNotExist) && !root:
+		case err != nil && !errors.Is(err, fs.ErrNotExist) && !top:
 			return false, err
-		}
-		if root {
+		case top:
 			return false, nil
 		}
+		current = parent
 	}
+}
+
+// above returns the directory above current, whose entry is info (nil when
+// it could not be read), as text that names it, and whether current is
+// already the top of the file system. An absolute path steps up by
+// filepath.Dir, so its text only gets shorter. A relative path, which
+// resolve leaves cleaned and free of links, steps up by filepath.Dir until
+// only ".." names are left, then by one ".." more, until ".." is current
+// itself: so a working directory longer than the system takes is climbed
+// without its text.
+func above(current string, info fs.FileInfo) (string, bool) {
+	if filepath.IsAbs(current) {
+		parent := filepath.Dir(current)
+		return parent, parent == current
+	}
+	if !onlyUp(current) {
+		return filepath.Dir(current), false
+	}
+	parent := filepath.Join(current, "..")
+	if info == nil {
+		return parent, true
+	}
+	parentInfo, err := osfile.Lstat(parent)
+	return parent, err == nil && os.SameFile(info, parentInfo)
+}
+
+// onlyUp reports whether a cleaned relative path is "." or only ".." names.
+func onlyUp(path string) bool {
+	for name := range strings.SplitSeq(path, string(filepath.Separator)) {
+		if name != ".." {
+			return path == "."
+		}
+	}
+	return true
 }
 
 // sameFile reports whether two existing paths name one file, neither

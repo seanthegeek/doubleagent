@@ -7,10 +7,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 )
 
-// absolute returns path made absolute as the command's own file calls take
+// placed returns path made absolute as the command's own file calls take
 // it: input.Absolute, the rule the input is read by, so the output and the
-// input are placed by one function.
-func absolute(path string) (string, error) { return input.Absolute(path) }
+// input are placed by one function. Every Windows file call takes the
+// \\?\ form, which has no length limit.
+func placed(path string) (string, error) { return input.Absolute(path) }
 
 // followLink refuses to follow the link at path: on Windows the check
 // follows no link, so a path through one is refused as untold. Every

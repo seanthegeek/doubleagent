@@ -72,3 +72,33 @@ func TestFleetReadsTheFilesOfTheDirectoryItListed(t *testing.T) {
 		t.Errorf("exit %d, stderr %q, CSV %q (%v)", code, stderr, data, err)
 	}
 }
+
+// longPathText is more than the longest path Linux (4096 bytes) or macOS
+// (1024) takes in one call.
+const longPathText = 4200
+
+func TestFleetJudgesARelativeOutputFromAWorkingDirectoryPastThePathLimit(t *testing.T) {
+	t.Chdir(t.TempDir())
+	// Each level is entered by its own short name, so the working directory
+	// grows past the limit that its absolute path could not be used beyond.
+	name := strings.Repeat("d", 200)
+	for depth := 0; depth*(len(name)+1) < longPathText; depth++ {
+		if err := os.Mkdir(name, 0o700); err != nil {
+			t.Skip("the system refuses a deeper directory:", err)
+		}
+		if err := os.Chdir(name); err != nil {
+			t.Skip("the system refuses to enter a deeper directory:", err)
+		}
+	}
+	writeFile(t, filepath.Join("inv", "a.json"), hostLine)
+	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", "out.csv", "inv")
+	if code != ExitFound || !lstatExists("out.csv") {
+		t.Errorf("an output beside the input: exit %d, stderr %q", code, stderr)
+	}
+	inside := filepath.Join("inv", "f.csv")
+	code, _, stderr = runCommand(testEnvironment(), "fleet", "-o", inside, "inv")
+	if code != ExitError || !strings.Contains(stderr, "must be outside the input directory inv") ||
+		lstatExists(inside) {
+		t.Errorf("an output inside the input: exit %d, stderr %q", code, stderr)
+	}
+}
