@@ -282,8 +282,9 @@ func (r *parserReplay) compareParse(t *testing.T, node string, subject parser.Pa
 	parse := parsedFile{agent: subject.Agent(), file: artifact.Original, disk: artifact.DiskPath, rel: artifact.Rel,
 		home: artifact.Home, mtime: parser.FileMtime(artifact)}
 	cut := r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
+	table := withheldIn(Differences(), caseRun{requests: fileRequests(artifact.DiskPath)})
 	compare := func(reporter testing.TB, numbers []int) ([]int, []string) {
-		normalWant, normalGot := NormaliseRows(reporter, node, numbers, want, got)
+		normalWant, normalGot := normaliseRowsOf(reporter, table, node, numbers, want, got)
 		normalGot, added, entries := addedRows(parse, normalWant, normalGot)
 		return slices.Concat(added, compareRowInformation(reporter, node, normalWant, normalGot, cut)), entries
 	}

@@ -186,6 +186,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	want.held = heldBy(r.calls.forRun(recorded, func(text Text) string { return r.corpus.Expand(text, root) }))
 	want.cut = r.corpus.cutTimesOf(recorded.Tree, recorded.Times)
 	want.inputs = treeHolds(root, before)
+	want.requests = treeRequests(root, before)
 	if archiveHoldsRoot(recorded, want, root) {
 		r.skipped[commandArchivedRoot]++
 		return
@@ -325,6 +326,9 @@ type commandOutput struct {
 	// inputs is, for a recorded run, whether a file of the case's input
 	// tree holds a match of a pattern; nil when the tree is not known.
 	inputs func(pattern *regexp.Regexp) bool
+	// requests is, for a recorded run, the network requests the files of
+	// the case's input tree record; nil when the tree is not known.
+	requests func() requestURLs
 }
 
 // runSource is where the texts of the binary's side of a command case come
@@ -344,12 +348,14 @@ const (
 	comparedRun
 )
 
-// caseRun is what decides how one command case's texts are rewritten: the
-// source of the binary's side, and what the case's input tree holds (nil
-// when not known).
+// caseRun is what decides how one case's texts are rewritten: the source
+// of the binary's side, and what the case's input holds (nil when not
+// known): whether a file holds a match of a pattern, and the network
+// requests its files record.
 type caseRun struct {
-	source runSource
-	inputs func(pattern *regexp.Regexp) bool
+	source   runSource
+	inputs   func(pattern *regexp.Regexp) bool
+	requests func() requestURLs
 }
 
 // applies reports whether an entry of difference 230 or 232 rewrites the
@@ -366,7 +372,7 @@ func (c caseRun) applies(form withheldForm) bool {
 // caseRunOf returns the caseRun of comparing the recorded run want with
 // got.
 func caseRunOf(want, got commandOutput) caseRun {
-	return caseRun{source: got.source, inputs: want.inputs}
+	return caseRun{source: got.source, inputs: want.inputs, requests: want.requests}
 }
 
 // treeHolds returns whether a file of a case's input tree, the files under

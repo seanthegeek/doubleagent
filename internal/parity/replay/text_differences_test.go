@@ -23,8 +23,8 @@ func rewriteOf(t *testing.T, number int, from side) func(text string) (string, i
 	}
 	return func(text string) (string, int) {
 		for _, form := range slices.Concat(withheldForms(), shownForms()) {
-			_, recorded := form.rowRewrite(recordedSide, form.agent, text)
-			_, binary := form.rowRewrite(binarySide, form.agent, text)
+			_, recorded := form.rowRewrite(recordedSide, form.agent, text, caseRun{})
+			_, binary := form.rowRewrite(binarySide, form.agent, text, caseRun{})
 			if recorded+binary > 0 {
 				return entry.rowRewrite(from)(form.agent, text)
 			}

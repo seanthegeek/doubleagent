@@ -70,10 +70,12 @@ func withSecretsWithheld(command string, args []string) []string {
 func withheldDifference() Difference {
 	return Difference{Number: 230, Summary: "a withheld secret is written as the placeholder: at each site of " +
 		"withheldForms, the recording's withheld form and the binary's form with the placeholder become one token " +
-		"that keeps the rest of the row", Text: formsText(withheldForms(), recordedSide, caseRun{}),
-		Binary:  formsText(withheldForms(), binarySide, caseRun{}),
-		RowText: withheldRowText(recordedSide), RowBinary: withheldRowText(binarySide),
-		Within: 102}
+		"that keeps the rest of the row; where the recording cut a URL at its query, its row takes the URL " +
+		"the case's input gives, its key as the placeholder, and the binary's row is compared with it as written",
+		Text: formsText(withheldForms(), recordedSide, caseRun{}), Binary: formsText(withheldForms(), binarySide,
+			caseRun{}), RowText: withheldRowText(recordedSide, caseRun{}),
+		RowBinary: withheldRowText(binarySide, caseRun{}),
+		Within:    102}
 }
 
 // withheldRowsDifference returns difference 231.
@@ -175,6 +177,11 @@ type withheldForm struct {
 	// cause, for a command entry, is what a file of the case's input tree
 	// must hold for the entry to apply (caseRun.applies).
 	cause *regexp.Regexp
+	// completed, when set, takes the place of token and binary: it gives,
+	// for the submatches of a match of recorded, the text the binary is to
+	// write there, from the case's input, and the binary's text is
+	// compared as written.
+	completed func(match []string, run caseRun) string
 }
 
 // addsForm returns a parser's entry for a site where the binary adds a part
@@ -207,17 +214,17 @@ func (f withheldForm) label() string {
 // side as its token, and the count: a command entry's on its lines, a
 // parser entry's on the lines of its agent's rows only (a timeline.jsonl
 // line naming the agent).
-func (f withheldForm) rewrite(from side, text string) (string, int) {
+func (f withheldForm) rewrite(from side, text string, run caseRun) (string, int) {
 	lines := f.lines
 	if f.scope == parserScope {
 		lines = regexp.MustCompile(`(?m)^.*"agent": ?"` + regexp.QuoteMeta(f.agent) + `".*$`)
 	}
 	if lines == nil {
-		return f.replace(from, text)
+		return f.replace(from, text, run)
 	}
 	found := 0
 	text = lines.ReplaceAllStringFunc(text, func(part string) string {
-		part, count := f.replace(from, part)
+		part, count := f.replace(from, part, run)
 		found += count
 		return part
 	})
@@ -227,11 +234,11 @@ func (f withheldForm) rewrite(from side, text string) (string, int) {
 // rowRewrite returns the text of a row of agent's parser with a parser
 // entry's form of one side as its token, and the count; another agent's
 // row, and every row for a command entry, is left as it is.
-func (f withheldForm) rowRewrite(from side, agent, text string) (string, int) {
+func (f withheldForm) rowRewrite(from side, agent, text string, run caseRun) (string, int) {
 	if f.scope != parserScope || f.agent != agent {
 		return text, 0
 	}
-	return f.replace(from, text)
+	return f.replace(from, text, run)
 }
 
 // marker returns the text that stands, in the compared form, where the
@@ -241,8 +248,13 @@ func (f withheldForm) marker() string {
 }
 
 // replace returns text with every match of the entry's pattern of one side
-// as its token, and the count.
-func (f withheldForm) replace(from side, text string) (string, int) {
+// as its token, and the count; for an entry the input completes, the
+// recorded side's matches as completed gives them, and the binary's side
+// as it is.
+func (f withheldForm) replace(from side, text string, run caseRun) (string, int) {
+	if f.completed != nil {
+		return f.complete(from, text, run)
+	}
 	pattern := f.recorded
 	if from == binarySide {
 		pattern = f.binary
@@ -255,12 +267,38 @@ func (f withheldForm) replace(from side, text string) (string, int) {
 	return pattern.ReplaceAllString(text, f.token), len(pattern.FindAllStringIndex(text, -1))
 }
 
+// complete returns the recorded side's text with each match of the
+// entry's recorded pattern as completed gives it in run, and the count;
+// the binary's side is returned as it is, with none.
+func (f withheldForm) complete(from side, text string, run caseRun) (string, int) {
+	if from == binarySide {
+		return text, 0
+	}
+	var written strings.Builder
+	end := 0
+	found := f.recorded.FindAllStringSubmatchIndex(text, -1)
+	for _, bounds := range found {
+		match := make([]string, len(bounds)/2)
+		for i := range match {
+			if bounds[2*i] >= 0 {
+				match[i] = text[bounds[2*i]:bounds[2*i+1]]
+			}
+		}
+		written.WriteString(text[end:bounds[0]] + f.completed(match, run))
+		end = bounds[1]
+	}
+	written.WriteString(text[end:])
+	return written.String(), len(found)
+}
+
 // withheldForms returns the entries of difference 230. A parser that comes
 // to withhold a secret the recording gave in another form adds an entry,
 // and a run of every case fails for an entry no case of its scope used.
-// The binary's form always holds the placeholder where the secret was, so a
-// binary that shows the secret, or prints the recording's form, still
-// fails.
+// Each of the binary's forms holds the placeholder where the secret was,
+// so a binary that shows the secret, or prints the recording's form,
+// still fails. The Gemini CLI request URL is completed instead: the
+// recorded row takes the URL the case's input gives, its key as the
+// placeholder, so a binary that drops, shows or repeats a part of it fails.
 func withheldForms() []withheldForm {
 	form := func(agent, name, recorded, binary, token string) withheldForm {
 		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
@@ -356,14 +394,15 @@ func withheldForms() []withheldForm {
 			binary:   regexp.MustCompile(`("text": ?")\[` + replayPlaceholder + `\](")`),
 			token:    "${1}{a key's text}${2}", cause: regexp.MustCompile(`https?://[^\s"?]*\?(?:[^\s"#]*&)?key=redacted\b`)},
 		// The recording cut a network request's URL at its query, which can
-		// carry an API key; the binary gives the whole URL, the key
-		// withheld. Only the queries of the recorded logs are taken, so a
-		// key shown, or another parameter, still fails.
-		form("gemini-cli", "network request URL",
-			`(network (?:request|response|error): [A-Z]+ https?://[^ ?#"\n]*)`,
-			`(network (?:request|response|error): [A-Z]+ https?://[^ ?#"\n]*)`+
-				`(?:\?(?:alt=sse|key=`+replayPlaceholder+`)(?:&(?:alt=sse|key=`+replayPlaceholder+`))*)?`,
-			"${1}"),
+		// carry an API key; the binary gives the whole URL as the request's
+		// record in the input holds it, the key withheld (requestURL). An
+		// error row has a colon after the URL.
+		{scope: parserScope, agent: "gemini-cli", name: "network request URL",
+			recorded: regexp.MustCompile(`(network (?:request|response|error): [A-Z]+ )(https?://[^ ?#"\n]*?)` +
+				`(:? (?:[^"\n]*? )?\(request ([^ )"\n]*)\))`),
+			completed: func(match []string, run caseRun) string {
+				return match[1] + run.requestURL(match[4], match[2]) + match[3]
+			}},
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -373,6 +412,21 @@ func withheldForms() []withheldForm {
 			recorded: regexp.MustCompile(scheme + `[^\s"@/]+@`),
 			binary:   regexp.MustCompile(scheme + replayPlaceholder + `@`), token: "${1}{withheld}@"},
 	}
+}
+
+// withheldIn returns table with difference 230's rewrites of texts and of
+// rows those of run.
+func withheldIn(table []Difference, run caseRun) []Difference {
+	table = slices.Clone(table)
+	for i := range table {
+		if table[i].Number == withheldDifference().Number {
+			table[i].Text, table[i].Binary = formsText(withheldForms(), recordedSide, run),
+				formsText(withheldForms(), binarySide, run)
+			table[i].RowText, table[i].RowBinary = withheldRowText(recordedSide, run),
+				withheldRowText(binarySide, run)
+		}
+	}
+	return table
 }
 
 // formsText returns the rewrite of a command case's texts for one side by
@@ -386,7 +440,7 @@ func formsText(forms []withheldForm, from side, run caseRun) func(text string) (
 				continue
 			}
 			var found int
-			text, found = entry.rewrite(from, text)
+			text, found = entry.rewrite(from, text, run)
 			total += found
 		}
 		return text, total
@@ -394,21 +448,21 @@ func formsText(forms []withheldForm, from side, run caseRun) func(text string) (
 }
 
 // withheldRowText returns the rewrite of difference 230 of a row's text for
-// one side: each parser entry of the row's agent's form of that side as its
-// token, and the count.
-func withheldRowText(from side) func(agent, text string) (string, int) {
+// one side in run: each parser entry of the row's agent's form of that side
+// as its token, and the count.
+func withheldRowText(from side, run caseRun) func(agent, text string) (string, int) {
 	return func(agent, text string) (string, int) {
-		return rowRewriteAll(withheldForms(), from, agent, text)
+		return rowRewriteAll(withheldForms(), from, agent, text, run)
 	}
 }
 
-// rowRewriteAll returns text rewritten by each form's rowRewrite, and the
-// count.
-func rowRewriteAll(forms []withheldForm, from side, agent, text string) (string, int) {
+// rowRewriteAll returns text rewritten by each form's rowRewrite in run, and
+// the count.
+func rowRewriteAll(forms []withheldForm, from side, agent, text string, run caseRun) (string, int) {
 	total := 0
 	for _, entry := range forms {
 		var found int
-		text, found = entry.rowRewrite(from, agent, text)
+		text, found = entry.rowRewrite(from, agent, text, run)
 		total += found
 	}
 	return text, total
@@ -420,7 +474,7 @@ func rowEntriesIn(forms []withheldForm, rows []Row) []string {
 	var labels []string
 	for _, entry := range forms {
 		for _, row := range rows {
-			if _, found := entry.rowRewrite(recordedSide, string(row.Agent), string(row.Text)); found > 0 {
+			if _, found := entry.rowRewrite(recordedSide, string(row.Agent), string(row.Text), caseRun{}); found > 0 {
 				labels = append(labels, entry.label())
 				break
 			}
@@ -437,7 +491,7 @@ func withheldEntriesIn(scope, text string, run caseRun) []string {
 		if !run.applies(entry) {
 			continue
 		}
-		if _, found := entry.rewrite(recordedSide, text); found > 0 && entry.scope == scope {
+		if _, found := entry.rewrite(recordedSide, text, run); found > 0 && entry.scope == scope {
 			labels = append(labels, entry.label())
 		}
 	}
@@ -598,8 +652,6 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	shareRecorded := "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
 		"(from opencode-beta.db session_share, time_created)"
 	shareBinary := strings.Replace(shareRecorded, " (from", " secret="+replayPlaceholder+" (from", 1)
-	networkRecorded := "network request: POST https://oauth2.googleapis.com/token (request t4r8z)"
-	networkBinary := strings.Replace(networkRecorded, "/token", "/token?key="+replayPlaceholder, 1)
 	lineRecorded := `parser: unparseable line 1 (no "=" separator; not shown, the file holds the API key)`
 	lineBinary := `parser: unparseable line 1 (no "=" separator): ` + replayPlaceholder
 	chatRecorded := "parser: chat.json did not parse (Expecting value: line 1 column 3317 (char 3316)); " +
@@ -670,14 +722,6 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, replayPlaceholder, "tok", 1), false},
 		{"a socket token beside another setting fails", socketRecorded,
 			strings.Replace(socketBinary, "allowlist", "full", 1), false},
-		{"a request's withheld key passes", networkRecorded, networkBinary, true},
-		{"a request's query of the recorded logs passes", networkRecorded,
-			strings.Replace(networkRecorded, "/token", "/token?alt=sse", 1), true},
-		{"a request's key shown fails", networkRecorded, strings.Replace(networkBinary, replayPlaceholder, "AIza1", 1), false},
-		{"a request's other parameter fails", networkRecorded,
-			strings.Replace(networkRecorded, "/token", "/token?x=1", 1), false},
-		{"a request to another path fails", networkRecorded, strings.Replace(networkBinary, "/token", "/tokens", 1),
-			false},
 		{"a share's secret in its placeholder form passes", shareRecorded, shareBinary, true},
 		{"a share's secret shown fails", shareRecorded, strings.Replace(shareBinary, replayPlaceholder, "sec", 1), false},
 		{"a share of another id fails", shareRecorded, strings.Replace(shareBinary, "SHARE05 url", "SHARE06 url", 1),
@@ -757,7 +801,7 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 // 230 whose recorded form shows in text, or "" for none.
 func recordedAgent(text string) string {
 	for _, entry := range withheldForms() {
-		if _, found := entry.rowRewrite(recordedSide, entry.agent, text); found > 0 {
+		if _, found := entry.rowRewrite(recordedSide, entry.agent, text, caseRun{}); found > 0 {
 			return entry.agent
 		}
 	}
@@ -766,15 +810,22 @@ func recordedAgent(text string) string {
 
 // withheldAgree reports whether a recorded and a binary text agree under
 // differences 102 and 230: as a row of agent's parser, or as a command's
-// output for no agent.
+// output for no agent, of a case whose input records sampleRequests.
 func withheldAgree(t *testing.T, agent, want, got string) bool {
 	t.Helper()
+	return withheldAgreeIn(t, caseRun{requests: sampleRequests()}, agent, want, got)
+}
+
+// withheldAgreeIn is withheldAgree for a case of run.
+func withheldAgreeIn(t *testing.T, run caseRun, agent, want, got string) bool {
+	t.Helper()
 	reporter := &recordingTB{TB: t}
+	table := withheldIn(Differences(), run)
 	if agent == "" {
-		normalWant, normalGot := NormaliseTexts(reporter, "n", []int{102, 230}, want, got)
+		normalWant, normalGot := normaliseTextsOf(reporter, table, "n", []int{102, 230}, want, got)
 		return normalWant == normalGot
 	}
-	normalWant, normalGot := NormaliseRows(reporter, "n", []int{102, 230},
+	normalWant, normalGot := normaliseRowsOf(reporter, table, "n", []int{102, 230},
 		[]Row{{Agent: Text(agent), Text: Text(want)}}, []Row{{Agent: Text(agent), Text: Text(got)}})
 	return normalWant[0].Text == normalGot[0].Text
 }
@@ -942,7 +993,10 @@ func TestNoEntryOrSourceOfThePackageWritesTheDefaultPlaceholder(t *testing.T) {
 	}
 	var texts []string
 	for _, entry := range slices.Concat(withheldForms(), shownForms()) {
-		texts = append(texts, entry.binary.String(), entry.token)
+		texts = append(texts, entry.token)
+		if entry.binary != nil {
+			texts = append(texts, entry.binary.String())
+		}
 	}
 	for _, entry := range withheldRows() {
 		texts = append(texts, entry.text)

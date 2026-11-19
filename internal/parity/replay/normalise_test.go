@@ -235,8 +235,15 @@ func normaliseTextsOf(t testing.TB, table []Difference, node string, numbers []i
 // test for a named one that finds nothing in want.
 func NormaliseRows(t testing.TB, node string, numbers []int, want, got []Row) ([]Row, []Row) {
 	t.Helper()
+	return normaliseRowsOf(t, Differences(), node, numbers, want, got)
+}
+
+// normaliseRowsOf is NormaliseRows over the differences of table.
+func normaliseRowsOf(t testing.TB, table []Difference, node string, numbers []int, want,
+	got []Row) ([]Row, []Row) {
+	t.Helper()
 	want, got = slices.Clone(want), slices.Clone(got)
-	for _, entry := range named(t, Differences(), numbers) {
+	for _, entry := range named(t, table, numbers) {
 		if entry.Text == nil {
 			continue
 		}

@@ -22,9 +22,9 @@ func shownDifference() Difference {
 		"that keeps the rest of the row", Text: formsText(shownForms(), recordedSide, caseRun{}),
 		Binary: formsText(shownForms(), binarySide, caseRun{}),
 		RowText: func(agent, text string) (string, int) {
-			return rowRewriteAll(shownForms(), recordedSide, agent, text)
+			return rowRewriteAll(shownForms(), recordedSide, agent, text, caseRun{})
 		}, RowBinary: func(agent, text string) (string, int) {
-			return rowRewriteAll(shownForms(), binarySide, agent, text)
+			return rowRewriteAll(shownForms(), binarySide, agent, text, caseRun{})
 		}, Within: 102}
 }
 
