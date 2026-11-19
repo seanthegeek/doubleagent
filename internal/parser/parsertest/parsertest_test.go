@@ -171,3 +171,66 @@ func TestAValueOneParseIdentifiesIsReplacedInAnotherParsesRows(t *testing.T) {
 		t.Errorf("the other parse's row is written %+v", written)
 	}
 }
+
+func TestTheHarnessJudgesReachAsTheOutputDoes(t *testing.T) {
+	tests := []struct {
+		name    string
+		produce func(artifact *input.Artifact) func(parser.Emit) error
+	}{
+		{"a short credential after Bearer is replaced in the row's text alone",
+			func(artifact *input.Artifact) func(parser.Emit) error {
+				return func(emit parser.Emit) error {
+					emit(timeline.Row{SessionID: "s", Text: "auth " + parser.SecretText(artifact, "Bearer abc1234"),
+						Model: "Bearer abc1234"})
+					return nil
+				}
+			}},
+		{"a URL credential short once its slashes are unescaped is replaced where the URL holds it",
+			func(*input.Artifact) func(parser.Emit) error {
+				return func(emit parser.Emit) error {
+					emit(timeline.Row{SessionID: "s", Text: `x ab\/cd\/e`, Model: `see https:\/\/h\/?token=ab\/cd\/e`})
+					return nil
+				}
+			}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+			artifact := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+			reporter := &recording{TB: t}
+			_ = Run(reporter, artifact, test.produce(artifact), func(timeline.Row) {})
+			if reporter.errors != nil {
+				t.Errorf("a parse written by the output's own rule is refused: %q", reporter.errors)
+			}
+		})
+	}
+}
+
+func TestTheHarnessRefusesASecretLeftWhereItReaches(t *testing.T) {
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	found := recorder.Begin()
+	recorder.Value("fake-long-secret-0001")
+	recorder.End()
+	// A run whose output stage lost the long secret leaves it in a field
+	// that is not the row's text.
+	lost := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	rows := []timeline.Row{{SessionID: "fake-long-secret-0001", Text: "x", Secrets: found}}
+	if broken := written(lost, found, rows); len(broken) == 0 {
+		t.Error("a long secret left in the session id passes")
+	}
+	// A row written without its parse's record keeps a short credential in
+	// its own text.
+	recorder = secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	own := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+	var text string
+	found, _ = parser.Within(own, func(parser.Emit) error {
+		text = "auth " + parser.SecretText(own, "Bearer abc1234")
+		return nil
+	}, func(timeline.Row) {})
+	other := recorder.Begin()
+	recorder.End()
+	rows = []timeline.Row{{SessionID: "s", Text: text, Secrets: other}}
+	if broken := written(recorder, found, rows); len(broken) == 0 {
+		t.Error("a short credential left in its own row's text passes")
+	}
+}
