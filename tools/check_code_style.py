@@ -1052,12 +1052,12 @@ def go_errorf_drops_error(
 ) -> bool:
     """Return True when a `fmt.Errorf` formats an error with a verb other than `%w`.
 
-    Only such a verb copies the error's words into the new error and leaves the error out of
-    the chain `errors.Is` and `errors.As` follow. An argument is an error as
+    A verb that copies the error's words (`%v`, `%s`, `%q`) leaves the error out of the chain
+    `errors.Is` and `errors.As` follow. `%T` writes the error's type name and `%p` its address,
+    not its words, so those two verbs are left alone. An argument is an error as
     `go_names_an_error` says; one whose whole text is also given to a `%w` of the same call
     stays in the chain and passes. A format with an explicit argument index (`%[2]v`) or a
-    width or precision taken from an argument (`%*d`) is not paired with its arguments and is
-    left alone.
+    width or precision taken from an argument (`%*d`) is not paired and is left alone.
     """
     if any("[" in verb or "*" in verb for verb in verbs):
         return False
@@ -1065,6 +1065,7 @@ def go_errorf_drops_error(
     wrapped = {go_argument_text(argument) for verb, argument in pairs if verb == "%w"}
     return any(
         verb != "%w"
+        and not verb.endswith(("T", "p"))
         and go_names_an_error(argument, declared)
         and go_argument_text(argument) not in wrapped
         for verb, argument in pairs

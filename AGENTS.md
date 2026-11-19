@@ -576,7 +576,8 @@ for Go files as it does for the others.
   of the same file; on `errors.New(fmt.Sprintf(...))`; on an
   `errors.New` with an operand (a part of its argument joined with `+`)
   that is an error, and on a `fmt.Errorf` that gives such an argument a
-  verb other than `%w`, unless the same argument is also given to a `%w`.
+  verb that copies its words (any verb other than `%w`, `%T` and `%p`),
+  unless the same argument is also given to a `%w`.
   The checker reads tokens, not types, so it takes an argument as an error
   only when the whole argument is the name `err`, a chain of names ending
   in `err` (`current.err`), a qualified exported name that starts with
@@ -589,8 +590,9 @@ for Go files as it does for the others.
   the names and values are paired by position, and only when there are as
   many of one as of the other). An error only inside a larger expression
   (`wrap(err)`), a name assigned from another call, a bare `ErrGone` the
-  file does not declare (it may be a constant or a type), and a format
-  with a `%[n]` index or a `*` width or precision are left alone.
+  file does not declare (it may be a constant or a type), an error given to
+  `%T` or `%p`, and a format with a `%[n]` index or a `*` width or
+  precision are left alone.
 - **Tests follow the same standards.** Every rule in this section and in
   [Code style](#code-style) applies to `_test.go` files as it does to
   package code, in every package.
