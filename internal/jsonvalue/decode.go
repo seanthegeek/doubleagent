@@ -40,6 +40,17 @@ func (e *Error) Unwrap() error { return e.Err }
 // errExtraData is the cause of an error for text after a whole document.
 var errExtraData = errors.New("extra data after the value")
 
+// maxDepth is how deep arrays and objects may nest. A value deeper than
+// this is refused, so the writer, Equal and IsEmpty, which recurse once
+// per level, stay within a bounded stack; the number is the token
+// reader's own limit where it has one, so both builds refuse the same
+// documents with the same error.
+const maxDepth = 10_000
+
+// errTooDeep is the cause of an error for an array or object that opens
+// deeper than maxDepth, worded as the token reader words its own.
+var errTooDeep = errors.New("exceeded max depth")
+
 // newError returns the error for reading text up to byte offset.
 func newError(text string, offset int, cause error) *Error {
 	before := text[:min(max(offset, 0), len(text))]
@@ -107,7 +118,8 @@ type frame struct {
 
 // readValue reads one value from decoder, which reads text from byte
 // start, building arrays and objects on a stack of its own rather than by
-// recursion.
+// recursion. An array or object that opens below maxDepth others is
+// refused at its opening bracket.
 func readValue(decoder *json.Decoder, text string, start int) (Value, error) {
 	var stack []*frame
 	for {
@@ -119,6 +131,9 @@ func readValue(decoder *json.Decoder, text string, start int) (Value, error) {
 		switch typed := token.(type) {
 		case json.Delim:
 			if typed == '{' || typed == '[' {
+				if len(stack) == maxDepth {
+					return Value{}, newError(text, start+int(decoder.InputOffset())-1, errTooDeep)
+				}
 				stack = append(stack, openFrame(typed))
 				continue
 			}

@@ -92,7 +92,7 @@ func TestAnErrorNamesItsLineAndColumnInCharacters(t *testing.T) {
 	}
 }
 
-func TestDecodeReadsAnyDepthUpToTheReadersLimitWithoutRecursion(t *testing.T) {
+func TestDecodeReadsAnyDepthUpToItsLimitWithoutRecursion(t *testing.T) {
 	deep := func(levels int) string {
 		return strings.Repeat(`{"a":[`, levels) + strings.Repeat(`]}`, levels)
 	}

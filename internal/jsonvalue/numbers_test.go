@@ -184,3 +184,48 @@ func TestCanonicalNumberSpellsEachValueOneWay(t *testing.T) {
 		})
 	}
 }
+
+// nestedObjects returns objects nested levels deep around one number,
+// each the value of the key "a".
+func nestedObjects(levels int) string {
+	return strings.Repeat(`{"a":`, levels) + "1" + strings.Repeat("}", levels)
+}
+
+func TestArraysAndObjectsNestAtMostTenThousandDeep(t *testing.T) {
+	tests := []struct {
+		name, text, want, prefixWant string
+	}{
+		{"arrays at the limit decode", nested(10_000), "", ""},
+		{"objects at the limit decode", nestedObjects(10_000), "", ""},
+		{"arrays one past the limit are refused", nested(10_001),
+			"invalid JSON at line 1, column 10001: exceeded max depth",
+			"invalid JSON at line 1, column 10002: exceeded max depth"},
+		{"objects one past the limit are refused", nestedObjects(10_001),
+			"invalid JSON at line 1, column 50001: exceeded max depth",
+			"invalid JSON at line 1, column 50002: exceeded max depth"},
+		{"an object holding arrays to one past the limit is refused", `{"a":` + nested(10_000) + `}`,
+			"invalid JSON at line 1, column 10005: exceeded max depth",
+			"invalid JSON at line 1, column 10006: exceeded max depth"},
+		{"the place counts lines", "\n " + nested(10_001),
+			"invalid JSON at line 2, column 10002: exceeded max depth",
+			"invalid JSON at line 2, column 10002: exceeded max depth"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := DecodeString(test.text); errorText(err) != test.want {
+				t.Errorf("DecodeString gave %q, want %q", errorText(err), test.want)
+			}
+			if _, _, err := DecodePrefix("x"+test.text, 1); errorText(err) != test.prefixWant {
+				t.Errorf("DecodePrefix gave %q, want %q", errorText(err), test.prefixWant)
+			}
+		})
+	}
+}
+
+// errorText returns err's text, or "" for no error.
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
