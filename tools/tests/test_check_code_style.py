@@ -763,6 +763,64 @@ def test_the_length_of_a_body_is_read_from_its_own_braces(source: str, expected:
     assert long_bodies(source) == expected
 
 
+def literal_of(lines: int, opening: str, closing: str = "}") -> str:
+    """Return a Go file whose package variable holds a function literal of `lines` body lines."""
+    return "package p\n\n" + opening + "\n" + "\tcount++\n" * lines + closing + "\n"
+
+
+@pytest.mark.parametrize(
+    ("lines", "opening", "closing", "expected"),
+    [
+        (60, "var run = func() {", "}", []),
+        (
+            61,
+            "var run = func() {",
+            "}",
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (60, "var run = func(left, right int) (count int) {", "}", []),
+        (
+            61,
+            "var run = func(left, right int) (count int) {",
+            "}",
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (61, "var run handler = func() {", "}", []),  # not read: the type is written
+        (
+            61,
+            "var run =\n\tfunc() {",
+            "}",
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (
+            61,
+            "var (\n\trun = func() {",
+            "}\n)",
+            ["function 'run' has a body of 61 lines, over the limit of 60"],
+        ),
+        (60, "var (\n\trun = func() {", "}\n)", []),
+        (
+            61,
+            "var run = func() int {",
+            "\treturn 1\n}()",
+            ["function 'run' has a body of 62 lines, over the limit of 60"],
+        ),
+        # A literal in a call, a struct field or a function body is not a package variable's own.
+        (61, "var run = wrap(func() {", "})", []),
+        (61, "var run = table{handler: func() {", "}}", []),
+    ],
+)
+def test_a_function_literal_a_package_variable_holds_is_measured(
+    lines: int, opening: str, closing: str, expected: list[str]
+) -> None:
+    assert long_bodies(literal_of(lines, opening, closing)) == expected
+
+
+def test_a_declared_function_after_a_long_literal_is_measured_by_its_own_body() -> None:
+    source = literal_of(61, "var run = func() {") + "\n// next is short.\nfunc next() {\n}\n"
+    assert long_bodies(source) == ["function 'run' has a body of 61 lines, over the limit of 60"]
+
+
 def test_a_test_function_is_held_to_the_same_limit() -> None:
     source = function_of(61, "func TestRun(t *testing.T) {")
     assert len(long_bodies(source, "run_test.go")) == 1
