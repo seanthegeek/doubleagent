@@ -624,8 +624,10 @@ neither is history.
 Each provider of `twinny.inference-providers` that holds an `apiKey` gives one `system` row at the
 file's modification time, `model provider: <id> label=<label> provider=<provider> type=<type>
 model=<modelName> apiKey=<apiKey> (from rjmacarthy.twinny twinny.inference-providers, file
-mtime)`, each field when set, and each of `twinny.active-chat-provider`, `-fim-provider` and
-`-embeddings-provider` that holds one gives `model provider: active <chat|fim|embeddings> <id>
+mtime)`, each field when set and `<id>` the provider's `id`, else the key it is filed under (the
+fixture files each provider under its own `id`), and each of `twinny.active-chat-provider`,
+`-fim-provider` and `-embeddings-provider` that holds one gives
+`model provider: active <chat|fim|embeddings> <id>
 apiKey=<apiKey> (from rjmacarthy.twinny twinny.active-<kind>-provider, file mtime)`. The key is
 shown as written; `timeline --no-secrets` and `detect --no-secrets` replace it with the
 placeholder. A provider without a key gives no row.
@@ -732,8 +734,16 @@ the value. A member of the wrong kind is one row naming it, the rows it would ha
 however many messages hold it so, `parser: toolSteps is not a JSON array`,
 `parser: changes is not a JSON object` or `parser: changes.files is not a JSON array`
 (`... in <n> entries` for more than one message); an
-agent-changes record's `files` that is not an array is `parser: files is not a JSON array`. An
-absent, null or empty member gives no row.
+agent-changes record's `files` that is not an array is `parser: files is not a JSON array`; a
+`twinny.inference-providers` that is not an object is
+`parser: twinny.inference-providers is not a JSON object`, and a `twinny.active-chat-provider`,
+`-fim-provider` or `-embeddings-provider` that is not one
+`parser: twinny.active-<kind>-provider is not a JSON object`, after the provider rows. An absent,
+null or empty member gives no row. A `twinny.conversations` (object or list),
+`twinny.inference-providers`, `messages`, `toolSteps`, `changes.files` or agent-changes `files`
+holding entries that are not objects gives one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other entries giving their rows.
 
 #### Fixtures
 

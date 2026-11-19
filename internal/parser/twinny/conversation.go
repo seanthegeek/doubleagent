@@ -45,10 +45,9 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 		sessionID: parser.Text(conversation.Get("id"))}
 	var problems parser.Problems
 	var messages []jsonvalue.Value
-	for _, message := range parser.ArrayMember(conversation.Get("messages"), "messages", 0, &problems) {
-		if message.IsObject() {
-			messages = append(messages, message)
-		}
+	for _, message := range parser.EntriesOfKind(conversation.Get("messages"), "messages", jsonvalue.Object, 0,
+		&problems) {
+		messages = append(messages, message)
 	}
 	heading := "conversation: " + parser.Text(conversation.Get("title")) + " | messages=" +
 		strconv.Itoa(len(messages))
@@ -97,10 +96,8 @@ func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker
 		text = strings.TrimSpace(text + "\n[" + strconv.Itoa(images.Len()) + " image(s)]")
 	}
 	c.text(role, text, model)
-	for _, step := range tally.ArrayMember(message.Get("toolSteps"), "toolSteps") {
-		if step.IsObject() {
-			c.toolStep(step, model)
-		}
+	for _, step := range tally.EntriesOfKind(message.Get("toolSteps"), "toolSteps", jsonvalue.Object) {
+		c.toolStep(step, model)
 	}
 	c.changes(message.Get("changes"), model, tally)
 	if withheld := meta.Get("withheld"); !withheld.IsEmpty() {
@@ -192,10 +189,8 @@ func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *
 	if !tally.Check(changes, "changes", jsonvalue.Object) || changes.IsNull() {
 		return
 	}
-	for _, entry := range tally.ArrayMember(changes.Get("files"), "changes.files") {
-		if entry.IsObject() {
-			c.row(timeline.TurnSystem, fileChangeText(changes.Get("id"), entry), model, "", "")
-		}
+	for _, entry := range tally.EntriesOfKind(changes.Get("files"), "changes.files", jsonvalue.Object) {
+		c.row(timeline.TurnSystem, fileChangeText(changes.Get("id"), entry), model, "", "")
 	}
 }
 

@@ -107,6 +107,8 @@ func TestAnAgentChangesFilesThatIsNotAnArrayIsReported(t *testing.T) {
 		{"a number", `2`, []string{"parser: files is not a JSON array"}},
 		{"null", `null`, nil},
 		{"empty", `[]`, nil},
+		{"entries that are not objects", `[{"path": "a"}, "b", 3]`,
+			[]string{"parser: files holds 2 entries that are not JSON objects"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -117,6 +119,63 @@ func TestAnAgentChangesFilesThatIsNotAnArrayIsReported(t *testing.T) {
 			}
 			if got := problemTexts(rows); !slices.Equal(got, test.want) {
 				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAProviderOrConversationOfTheWrongKindIsReported(t *testing.T) {
+	tests := []struct {
+		name, state string
+		want        []string
+	}{
+		{"providers as a list", `{"twinny.inference-providers": ["p1"]}`,
+			[]string{"parser: twinny.inference-providers is not a JSON object"}},
+		{"a provider that is a string", `{"twinny.inference-providers": {"p1": "key-in-a-string", "p2": {}}}`,
+			[]string{"parser: twinny.inference-providers holds 1 entry that is not a JSON object"}},
+		{"providers null", `{"twinny.inference-providers": null}`, nil},
+		{"an active chat provider that is a string", `{"twinny.active-chat-provider": "x"}`,
+			[]string{"parser: twinny.active-chat-provider is not a JSON object"}},
+		{"an active fim provider that is a list", `{"twinny.active-fim-provider": []}`,
+			[]string{"parser: twinny.active-fim-provider is not a JSON object"}},
+		{"an active embeddings provider that is null", `{"twinny.active-embeddings-provider": null}`, nil},
+		{"conversations holding values that are not objects", `{"twinny.conversations": {"c": "x", "d": 3}}`,
+			[]string{"parser: twinny.conversations holds 2 entries that are not JSON objects"}},
+		{"a conversation list holding a string", `{"twinny.conversations": ["x", {"id": "c"}]}`,
+			[]string{"parser: twinny.conversations holds 1 entry that is not a JSON object"}},
+		{"messages, steps and changed files that are not objects", `{"twinny.conversations": {"c": {"id": "c", ` +
+			`"messages": [7, {"toolSteps": ["x"], "changes": {"files": [1, 2]}}]}}}`,
+			[]string{"parser: messages holds 1 entry that is not a JSON object",
+				"parser: toolSteps holds 1 entry that is not a JSON object",
+				"parser: changes.files holds 2 entries that are not JSON objects"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := globalProblems(t, test.state); !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAProviderRowNamesTheProvidersID(t *testing.T) {
+	tests := []struct {
+		name, providers, want string
+	}{
+		{"the id, not the key it is filed under", `{"key-1": {"id": "p1", "apiKey": "k"}}`, "model provider: p1 "},
+		{"the key when the provider has no id", `{"key-1": {"apiKey": "k"}}`, "model provider: key-1 "},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state, err := jsonvalue.DecodeString(`{"twinny.inference-providers": ` + test.providers + `}`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rows []string
+			New().globalRows(writeArtifact(t, "User/globalStorage/state.vscdb", ""), state, parser.Options{},
+				func(row timeline.Row) { rows = append(rows, row.Text) })
+			if len(rows) != 1 || !strings.HasPrefix(rows[0], test.want) {
+				t.Errorf("rows %q, want one starting %q", rows, test.want)
 			}
 		})
 	}
