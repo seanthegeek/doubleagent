@@ -118,6 +118,16 @@ func withheldLeakFixtures(t *testing.T) []struct {
 			"invalid escape sequence"},
 		{"a ShellGPT settings line without an equals sign", []collectedFile{{"alice", home, "shellgpt",
 			".config/shell_gpt/.sgptrc", "sk-FIXTURE-PASTED\nDEFAULT_MODEL=gpt-4o\n"}}, "sk-FIXTURE-PASTED"},
+		{"a Hermes headers object whose bearer token a chat quotes alone", []collectedFile{
+			{"alice", home, "hermes", ".config/Hermes/connections.json", `{"connections": [{"kind": "remote", ` +
+				`"label": "work", "url": "https://hermes.example/", "headers": {"encoding": "plain", ` +
+				`"value": {"Authorization": "Bearer fake-header-secret-0001"}}}]}`},
+			{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+				quoting("the header fake-header-secret-0001 was sent")}}, "fake-header-secret-0001"},
+		{"a ShellGPT key pasted with spaces after it that a chat quotes", []collectedFile{
+			{"alice", home, "shellgpt", ".config/shell_gpt/.sgptrc", "fake-secret-sgpt-0001  \nDEFAULT_MODEL=gpt-4o\n"},
+			{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+				quoting("pasted fake-secret-sgpt-0001 too")}}, "fake-secret-sgpt-0001"},
 		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
 			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
 			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",
@@ -125,6 +135,13 @@ func withheldLeakFixtures(t *testing.T) []struct {
 					`"cwd": "/w/proj", "git": {"repository_url": "https://ci:OTHER@github.com/o/r.git"}}}` + "\n"}},
 			"s3cret"},
 	}
+}
+
+// quoting returns a Claude Code transcript line of a user prompt that says
+// text.
+func quoting(text string) string {
+	return `{"type":"user","sessionId":"s1","uuid":"u1","timestamp":"2026-10-01T00:00:00Z",` +
+		`"cwd":"/srv/proj","message":{"role":"user","content":"` + text + `"}}` + "\n"
 }
 
 func TestAWithheldRunWritesNoIdentifiedSecretAndCountsAsTheDefaultRunDoes(t *testing.T) {

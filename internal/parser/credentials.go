@@ -1,7 +1,10 @@
 package parser
 
 import (
+	"strings"
+
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -22,8 +25,54 @@ import (
 // output, a shorter one only in the text of this parse's rows. An empty
 // value is no secret.
 func SecretText(artifact *input.Artifact, value string) string {
-	recorderOf(artifact).Value(value)
+	recordForms(recorderOf(artifact), value)
 	return value
+}
+
+// SecretJSONText returns a secret value read from a JSON document as row
+// text (Text: a string as it is, an array or object as compact JSON, a
+// headers object for one) and records it whole and, inside an array or
+// object, each string in it as SecretText does and as the compact JSON
+// writes it when that differs, so each is replaced wherever it stands.
+func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
+	text := Text(value)
+	recorder := recorderOf(artifact)
+	recordForms(recorder, text)
+	if !value.IsString() {
+		recordStrings(recorder, value)
+	}
+	return text
+}
+
+// recordStrings records each string inside value, an array or object: as
+// it is and as compact JSON writes it inside quotes.
+func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value) {
+	for _, item := range value.Items() {
+		recordStrings(recorder, item)
+	}
+	for _, member := range value.Members() {
+		recordStrings(recorder, member.Value)
+	}
+	if value.IsString() {
+		recordForms(recorder, value.Text())
+		quoted := value.JSON()
+		recordForms(recorder, quoted[1:len(quoted)-1])
+	}
+}
+
+// recordForms records a secret value in each form a row can hold it: as it
+// is, without the white space around it, and, for an HTTP authorization
+// value of the Bearer (RFC 6750) or Basic (RFC 7617) scheme, its
+// credentials after the scheme, which are the secret a log or another
+// header shows alone.
+func recordForms(recorder *secrets.Recorder, value string) {
+	recorder.Value(value)
+	trimmed := strings.TrimSpace(value)
+	recorder.Value(trimmed)
+	if scheme, credentials, found := strings.Cut(trimmed, " "); found &&
+		(strings.EqualFold(scheme, "Bearer") || strings.EqualFold(scheme, "Basic")) {
+		recorder.Value(strings.TrimSpace(credentials))
+	}
 }
 
 // ReaderErrorText returns the message of a JSON, TOML or XML reader's error

@@ -292,8 +292,8 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // connectionText returns the "remote backend:" text of one connection: its
-// url, else [user@]host[:port], and the token and
-// headers stored in plain text through parser.SecretText.
+// url, else [user@]host[:port], and the token and headers stored in plain
+// text through parser.SecretJSONText.
 func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string {
 	target := connection.Get("url")
 	if host := connection.Get("host"); target.IsEmpty() && !host.IsEmpty() {
@@ -315,20 +315,21 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 	}
 	for _, name := range []string{"token", "headers"} {
 		if value, ok := plainSecret(connection.Get(name)); ok {
-			text += " " + name + "=" + parser.SecretText(artifact, value)
+			text += " " + name + "=" + parser.SecretJSONText(artifact, value)
 		}
 	}
 	return text
 }
 
 // plainSecret returns the value of a connection's secret envelope that the
-// app wrote in plain text, {"encoding": "plain", "value": <secret>}: a
-// string as it is, JSON as compact text. An envelope of another encoding is
-// ciphertext of the operating system's key store and is not read.
-func plainSecret(envelope jsonvalue.Value) (string, bool) {
+// app wrote in plain text, {"encoding": "plain", "value": <secret>}, which
+// the row shows as parser.SecretJSONText gives it (a headers object as
+// compact text, each header recorded too). An envelope of another encoding
+// is ciphertext of the operating system's key store and is not read.
+func plainSecret(envelope jsonvalue.Value) (jsonvalue.Value, bool) {
 	value := envelope.Get("value")
 	if !parser.IsText(envelope.Get("encoding"), "plain") || value.IsEmpty() {
-		return "", false
+		return jsonvalue.Value{}, false
 	}
-	return parser.Text(value), true
+	return value, true
 }
