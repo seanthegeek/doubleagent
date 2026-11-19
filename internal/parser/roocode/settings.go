@@ -214,11 +214,13 @@ func (p *Parser) mcp(artifact *input.Artifact, emit parser.Emit) {
 
 // stateDatabase emits the rows of the extension's state in an editor's
 // global or workspace state.vscdb. A value problem never echoes the value,
-// since the workspace state's retry queue holds a bearer token; it keeps
-// the file's time, and a whole-file problem carries none.
+// since the workspace state's retry queue holds a bearer token; it and a
+// retry queue's problem keep the file's time, as in workspace-state.json,
+// and a whole-file problem carries none.
 func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 	values, problems := vscodestate.ReadItems(artifact.DiskPath, extensionKeys())
 	workspace := workspaceDatabase.MatchString(artifact.Rel)
+	queueProblems := map[string]bool{}
 	for _, key := range extensionKeys() {
 		state, found := values[key]
 		if !found || state.IsNull() {
@@ -234,15 +236,19 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
 		if workspace {
 			if problem := p.retryQueueRows(artifact, state, source, emit); problem != "" {
 				problems = append(problems, problem)
+				queueProblems[problem] = true
 			}
 		} else {
 			p.globalStateRows(artifact, state, source, emit)
 		}
 	}
 	for _, problem := range problems {
-		if strings.HasPrefix(problem, vscodestate.ValueProblem) {
+		switch {
+		case strings.HasPrefix(problem, vscodestate.ValueProblem):
 			emit(p.badFile(artifact, vscodestate.ShownProblem(problem)))
-		} else {
+		case queueProblems[problem]:
+			emit(p.badFile(artifact, problem))
+		default:
 			emit(p.ProblemRow(artifact, problem))
 		}
 	}

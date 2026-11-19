@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -33,8 +34,8 @@ func parseFile(t *testing.T, rel, text string) []string {
 }
 
 // The same table drives the workspace-state.json file and, through
-// retryQueueRows, the state of a state.vscdb, which only a fixture
-// script outside the test could build.
+// retryQueueRows, the state of a state.vscdb; the databases of
+// testdata/gen_state.py check the rows a state.vscdb gives.
 func TestARetryQueueThatIsNotAnArrayIsReported(t *testing.T) {
 	const rel = ".vscode-mock/workspace-storage/h/workspace-state.json"
 	const wrong = "parser: roo.retryQueue is not a JSON array"
@@ -85,6 +86,57 @@ func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := parseFile(t, test.rel, test.text); !slices.Contains(got, test.want) {
 				t.Errorf("rows %q lack %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestARetryQueueProblemCarriesTheFilesTime(t *testing.T) {
+	const jsonRel = ".vscode-mock/workspace-storage/h/workspace-state.json"
+	const databaseRel = ".config/Code/User/workspaceStorage/abc/state.vscdb"
+	fixture := func(name string) []byte {
+		data, err := osfile.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	const notArray = "parser: roo.retryQueue is not a JSON array"
+	const notObjects = "parser: roo.retryQueue holds 1 entry that is not a JSON object"
+	tests := []struct {
+		name, rel string
+		data      []byte
+		want      string
+	}{
+		{"a workspace-state.json retry queue that is a number", jsonRel, []byte(`{"roo.retryQueue": 5}`), notArray},
+		{"a state.vscdb retry queue that is a number", databaseRel, fixture("retry-queue-number.vscdb"), notArray},
+		{"a workspace-state.json retry queue holding a number", jsonRel, []byte(`{"roo.retryQueue": [7]}`), notObjects},
+		{"a state.vscdb retry queue holding a number", databaseRel, fixture("retry-queue-entries.vscdb"), notObjects},
+	}
+	moment := time.Date(2024, time.January, 2, 3, 4, 5, 0, time.UTC)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(test.rel))
+			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(path, test.data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.Chtimes(path, moment, moment); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + test.rel, Rel: test.rel,
+				Home: &input.Home{DiskPath: home}}
+			var got [][2]string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+				got = append(got, [2]string{row.TimestampUTC, row.Text})
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if want := [][2]string{{"2024-01-02T03:04:05.000Z", test.want}}; !slices.Equal(got, want) {
+				t.Errorf("rows %q, want %q", got, want)
 			}
 		})
 	}

@@ -673,7 +673,8 @@ null or empty one gives no row. A `files_in_context`, a `roo.retryQueue`, `tasks
 `entries` or a task's `api_conversation_history.json` or `ui_messages.json` holding entries that
 are not objects gives one row for them all,
 `parser: <member or file> holds <n> entries that are not JSON objects`
-(`1 entry that is not a JSON object` for one), the other entries giving their rows. A
+(`1 entry that is not a JSON object` for one; a `roo.retryQueue` one, in either file, at the
+file's time), the other entries giving their rows. A
 `cli-history.json` entry that is not a string is passed over without a row, as the CLI's
 `loadHistory` passes it over.
 
