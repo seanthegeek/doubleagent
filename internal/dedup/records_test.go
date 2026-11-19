@@ -2,6 +2,7 @@ package dedup
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -35,7 +36,11 @@ func TestARowKeptForADuplicateCarriesTheDuplicatesRecordToo(t *testing.T) {
 	if got := recorder.RowText(kept[0].Text, kept[0].Secrets); got != "use P and P" {
 		t.Errorf("the kept row's text is written %q", got)
 	}
-	if primary.Secrets != primaryRecord || len(primaryRecord.Secrets()) != 0 {
+	want := []*secrets.Found{primaryRecord, firstCopy, secondCopy}
+	if got := kept[0].Secrets.Records(); !slices.Equal(got, want) {
+		t.Errorf("the kept row lists the records %p, want its own and each copy's, %p", got, want)
+	}
+	if len(primaryRecord.Secrets()) != 0 {
 		t.Error("the primary row's own record changed")
 	}
 }
