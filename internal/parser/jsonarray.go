@@ -18,6 +18,16 @@ import (
 // end (TailText) as raw. When end is not nil it is set to the offset after
 // the closing bracket, or -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
+	return ArrayAtShownTo(text, offset, len(text), problems, end)
+}
+
+// ArrayAtShownTo walks the array as ArrayAt does, but the raw text of an
+// element that does not decode runs only to the byte offset shownEnd, and
+// an element that starts at or after shownEnd has none. A caller that walks
+// several arrays of one text passes the end of each array's own part, so
+// the text the problems show adds up to no more than the text itself.
+func ArrayAtShownTo(text string, offset, shownEnd int, problems *Problems,
+	end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		setEnd(end, -1)
 		cursor := SkipJSONSpace(text, max(offset, 0))
@@ -38,7 +48,11 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 			}
 			value, next, err := jsonvalue.DecodePrefix(text, start)
 			if err != nil {
-				problems.AddRaw(position, UnparseableRecord(position, err), TailText(text, start))
+				raw := ""
+				if start < shownEnd {
+					raw = TailText(text[:min(shownEnd, len(text))], start)
+				}
+				problems.AddRaw(position, UnparseableRecord(position, err), raw)
 				return
 			}
 			if !yield(position, value) {

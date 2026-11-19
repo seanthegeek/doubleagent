@@ -62,6 +62,35 @@ func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 	}
 }
 
+func TestArrayAtShownToShowsABadRecordOnlyUpToItsEnd(t *testing.T) {
+	const text = `[1, {"a": ] next part`
+	reason := "unparseable record 2 (invalid JSON at line 1, column 11: invalid character ']' after object key:value pair)"
+	tests := []struct {
+		name     string
+		shownEnd int
+		raw      string
+	}{
+		{"the end of the text shows the rest", len(text), `{"a": ] next part`},
+		{"an end inside the record shows its start", 9, `{"a":`},
+		{"an end at the record's start shows nothing", 4, ""},
+		{"an end before the record shows nothing", 1, ""},
+		{"an end past the text shows the rest", len(text) + 5, `{"a": ] next part`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var problems Problems
+			var items []string
+			for _, value := range ArrayAtShownTo(text, 0, test.shownEnd, &problems, nil) {
+				items = append(items, value.JSON())
+			}
+			want := Problems{{Line: 2, Message: reason, Raw: test.raw}}
+			if !slices.Equal(items, []string{"1"}) || !slices.Equal(problems, want) {
+				t.Errorf("got %q, %+v; want [1], %+v", items, problems, want)
+			}
+		})
+	}
+}
+
 func TestJSONArrayReportsDataAfterTheArray(t *testing.T) {
 	tests := []struct {
 		name     string

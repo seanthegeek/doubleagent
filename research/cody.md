@@ -706,7 +706,11 @@ that a delete does not reach ([What survives a delete](#what-survives-a-delete))
 
 Each input is one JSON value; the parser recovers a damaged history chat by chat, with one `parser:`
 row for what it cannot read and one `parser: unparseable record <N> (<reason>): <record>` row,
-carrying the chat's session id, for the first interaction of a chat that does not decode. The legacy
+carrying the chat's session id, for the first interaction of a chat that does not decode. The
+record runs from that interaction to where the next account or chat key starts (to the end of the
+text for the last chat), so each part of a damaged history is shown once however many chats are
+damaged; an interaction that starts after that key, because the walk read on through an interaction
+holding a key shaped like a chat's date, gives the row without its record. The legacy
 XML is read incrementally, so the chats before a cut or damaged part are yielded, followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
