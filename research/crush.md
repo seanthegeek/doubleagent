@@ -586,7 +586,9 @@ database file's modification time. The `crushrc` reader takes a line that starts
 with the text `permissions` and gives rows when its first word is exactly `permissions`, as
 written, so a line inside a condition that never ran still yields its rows. A `#` outside quotes
 ends the line even inside a word (`permissions allow view#1 edit` gives `view` only), where a shell
-starts a comment only at the start of a word. A
+starts a comment only at the start of a word. Inside double quotes a backslash escapes only a double
+quote or a backslash and is kept before anything else, `$` and a backquote included
+(`permissions allow "a\$b"` gives `a\$b`), where a shell drops it before those two. A
 workspace `.crush/crush.json` and a project file carry the project as `project_path`. After a
 `crush.json`'s setting rows, one `stored credentials: providers.<name>.api_key=<api_key> ...
 (from <file>, file mtime)` row gives every provider's `api_key` that is set, as written, with the

@@ -83,3 +83,26 @@ func TestAHashInsideACrushrcWordEndsTheLine(t *testing.T) {
 		})
 	}
 }
+
+func TestABackslashInsideDoubleQuotesEscapesOnlyAQuoteOrABackslash(t *testing.T) {
+	tests := []struct {
+		name, text string
+		want       []string
+	}{
+		{"before a dollar it is kept", "permissions allow \"a\\$b\"\n",
+			[]string{"permission setting: permissions.allowed_tools=a\\$b"}},
+		{"before a backquote it is kept", "permissions allow \"c\\`d\"\n",
+			[]string{"permission setting: permissions.allowed_tools=c\\`d"}},
+		{"before a double quote it escapes it", "permissions allow \"e\\\"f\"\n",
+			[]string{"permission setting: permissions.allowed_tools=e\"f"}},
+		{"before a backslash it escapes it", "permissions allow \"g\\\\h\"\n",
+			[]string{"permission setting: permissions.allowed_tools=g\\h"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := parseCrushrcFile(t, test.text); !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
