@@ -536,6 +536,28 @@ func readerErrors(t *testing.T) (jsonError, tomlError, xmlError, limitError erro
 	return jsonError, tomlError, xmlError, limitError
 }
 
+func TestAnEmptyPlaceholderTakesTheSeparatorBeforeAnyReaderErrorWithIt(t *testing.T) {
+	_, tomlError, _, _ := readerErrors(t)
+	tests := []struct {
+		name string
+		err  error
+		text string
+		want string
+	}{
+		{"a reader's error", tomlError, "parser: x.toml: " + tomlError.Error(), "parser: x.toml: invalid TOML at line 1, column 11"},
+		{"an error of another kind", errors.New("disk said no"), "parser: x.json: disk said no", "parser: x.json"},
+		{"an error of another kind not after a separator", errors.New("disk said no"), "parser (disk said no)", "parser ()"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _ := identified(Setting{Withhold: true}, test.text, func(recorder *Recorder) { recorder.ReaderError(test.err) })
+			if got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestAReadersDetailIsRecordedAndItsPositionKept(t *testing.T) {
 	jsonError, tomlError, xmlError, limitError := readerErrors(t)
 	var limit *tomldoc.Error

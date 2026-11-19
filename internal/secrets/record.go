@@ -172,8 +172,9 @@ func URLCredentialEverywhere(credential string) bool {
 // ReaderError records the detail of err, the error a JSON, TOML or XML
 // reader gave for a file that may hold secrets, which can quote the file:
 // the text after the position the reader names ("invalid JSON at line 3,
-// column 9: "), or the whole message of an error of another kind. The
-// detail is often the reader's own wording ("unexpected end of JSON
+// column 9: "), or the whole message of an error of another kind. With an empty
+// placeholder the ": " before either goes too.
+// The detail is often the reader's own wording ("unexpected end of JSON
 // input"), so whatever its length it is replaced only in the rows and the
 // problem lines of the parse running, never elsewhere. A TOML document
 // refused for a size or depth limit (tomldoc.Error.IsLimit) quotes nothing
@@ -182,16 +183,16 @@ func (r *Recorder) ReaderError(err error) {
 	if r == nil || err == nil || isLimit(err) {
 		return
 	}
-	message := err.Error()
-	if !isReaderError(err) {
-		r.current.add(form{secret: message}, parseProblem)
-		return
+	detail := err.Error()
+	if isReaderError(err) {
+		var found bool
+		if _, detail, found = strings.Cut(detail, ": "); !found {
+			return
+		}
 	}
-	if _, detail, found := strings.Cut(message, ": "); found {
-		r.current.add(form{secret: detail}, parseProblem)
-		// With an empty placeholder the ": " before the detail goes too.
-		r.current.add(form{before: ": ", secret: detail}, parseProblem)
-	}
+	r.current.add(form{secret: detail}, parseProblem)
+	// With an empty placeholder the ": " before the detail goes too.
+	r.current.add(form{before: ": ", secret: detail}, parseProblem)
 }
 
 // form is one way a secret stands in the text: the secret alone, or with

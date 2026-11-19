@@ -1,6 +1,7 @@
 package parsertest
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -104,6 +105,23 @@ func TestAWrittenRowIsComparedExactlyWithEveryPlaceholder(t *testing.T) {
 				t.Errorf("a row that keeps a short secret gave %q, want one break", broken)
 			}
 		})
+	}
+}
+
+func TestAWrittenRowLeavesNoSeparatorBeforeAnyReaderErrorUnderAnEmptyPlaceholder(t *testing.T) {
+	artifact := &input.Artifact{Home: &input.Home{}}
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true})
+	artifact.Home.Secrets = recorder
+	var rows []timeline.Row
+	found, _ := parser.Within(artifact, func(emit parser.Emit) error {
+		emit(timeline.Row{SessionID: "s", Text: "parser: x.json: " + parser.ReaderErrorText(artifact, errors.New("disk said no"))})
+		return nil
+	}, func(row timeline.Row) { rows = append(rows, row) })
+	if got := rows[0].Withheld(recorder).Text; got != "parser: x.json" {
+		t.Errorf("the output is %q, want no separator left", got)
+	}
+	if broken := written(recorder, found, rows); broken != nil {
+		t.Errorf("the reference disagrees with the output: %q", broken)
 	}
 }
 
