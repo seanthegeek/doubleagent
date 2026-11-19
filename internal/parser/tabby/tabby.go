@@ -11,7 +11,9 @@
 //   - ee/db.sqlite or ee/dev-db.sqlite, and the ee/*db.backup-<date>.sqlite
 //     copies made before each migration, a secondary source that can hold
 //     threads since deleted. Only the columns of tableColumns are read, each
-//     when the table has it; the secret-bearing columns never are.
+//     when the table has it; of the secret-bearing columns, only a user's
+//     auth_token and an integration's access_token, through
+//     parser.SecretText.
 //   - events/<date>.json, one log entry per line (user, ts, event), a
 //     secondary source: the server writes each event here and to
 //     user_events.
