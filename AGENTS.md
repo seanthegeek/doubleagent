@@ -614,7 +614,8 @@ for Go files as it does for the others.
   them, since they help establish what an agent reached. A parser returns
   text as written in both modes and identifies only values that are secret
   because of the field they stand in (a token, key, password or cookie,
-  through the kit's `SecretText`) and reader errors that can quote a file
+  through the kit's `SecretText`, or `SecretJSONText` for one read as JSON,
+  which records each form a row can hold it in) and reader errors that can quote a file
   holding secrets (`ReaderErrorText`), which record them in the run's
   recorder as secrets of that parse; a parser never tests the setting,
   never writes the placeholder and never hides a value by a wording of its
