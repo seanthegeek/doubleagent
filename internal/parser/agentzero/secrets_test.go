@@ -95,6 +95,20 @@ func TestOnlyTheConnectorsRestoreTokenIsWithheld(t *testing.T) {
 	}
 }
 
+func TestTheRestoreTokenIsWithheldAfterExportAndAnyWhiteSpace(t *testing.T) {
+	const env = "export\tAGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=FIXTURE-TOKEN\n" +
+		"export  AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN = 'FIXTURE-TOKEN2'\n"
+	for _, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := parseWith(t, mode.setting, ".agent-zero/.env", env)
+			checkWithheld(t, mode, got)
+			if len(got) != 1 {
+				t.Fatalf("got %q, want one row", got)
+			}
+		})
+	}
+}
+
 func TestAChatsBotTokenAndModelKeyAreShownUnlessWithheld(t *testing.T) {
 	const chat = `{"id": "ctx", "name": "c", "created_at": "2026-01-01T00:00:00Z", "agents": [], "logs": [], ` +
 		`"data": {"telegram_bot": "opsbot", "telegram_chat_id": 7, "telegram_user_id": 8, ` +

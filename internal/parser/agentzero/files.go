@@ -284,6 +284,16 @@ func (p *Parser) parseToggle(artifact *input.Artifact, match []string, emit pars
 // (research/agent-zero.md, "Host-side companions").
 const restoreTokenKey = "AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN"
 
+// isRestoreTokenName reports whether a .env key is the restore token's, bare
+// or after the word export and any white space.
+func isRestoreTokenName(name string) bool {
+	words := strings.Fields(name)
+	if len(words) == 2 && words[0] == "export" {
+		words = words[1:]
+	}
+	return len(words) == 1 && words[0] == restoreTokenKey
+}
+
 // parseConnector emits the rows of the A0 CLI connector's ~/.agent-zero/.env:
 // one "connector settings:" row of every key in file order, the restore
 // token through parser.SecretText (with an export prefix too) and every
@@ -314,7 +324,7 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 		}
 		value = strings.Trim(strings.TrimSpace(value), `"'`)
 		values[name] = value
-		if strings.TrimSpace(strings.TrimPrefix(name, "export ")) == restoreTokenKey {
+		if isRestoreTokenName(name) {
 			value = parser.SecretText(artifact, value)
 		}
 		settings = append(settings, name+"="+value)
