@@ -2151,6 +2151,7 @@ entry.
 | `composerHeaders` `isArchived` 1 with its `composerData` present | `system`, `conversation archived` at `lastUpdatedAt` |
 | `composerHeaders` row with no `composerData` and not a draft | `system`, `conversation deleted` at `lastUpdatedAt` ([Deletion rows](#deletion-rows)) |
 | header entry with no bubble row | `system`, `parser: missing bubble <bubbleId>`, at the entry's `createdAt` |
+| `composerConvHeaders:` rows whose key does not end in `:` and a chunk number of ASCII digits, so they name no composer, once a composer's chunks are read | one `system` row for the file with no session, `parser: <n> composerConvHeaders keys have no chunk number and are not read` (`parser: 1 composerConvHeaders key has no chunk number and is not read` for one) |
 | settings blob and `cli-config.json`, `permissions.json` | `system` permission and model rows ([Permission rows](#permission-rows), [Model rows](#model-rows)) |
 | `ai-code-tracking.db`, `conversation-search.db`, transcript JSONL, `agentKv` blobs | [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources) |
 | a cloud agent: the `cloud-cache` row of `conversation-search.db`, its element of `cloudAgentRepository.agents.*`, and `cloudEnvironmentTemplate.githubRepos` | [Sync, relay and origin rows](#sync-relay-and-origin-rows) |

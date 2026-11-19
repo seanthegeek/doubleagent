@@ -3,6 +3,7 @@ package cursor
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -94,6 +95,9 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 		reader.blobs(deleted, emit)
 	}
 	var problems parser.Problems
+	if reader.strayChunks > 0 {
+		problems.Add(0, strayChunksText(reader.strayChunks))
+	}
 	items := p.itemRows(artifact, store, &problems)
 	items.standing(emit)
 	items.integrations(emit)
@@ -134,9 +138,11 @@ type stateReader struct {
 	options   parser.Options
 	bubbles   map[string]keyed
 	// chunks holds the composerConvHeaders rows by composer id, each
-	// composer's in key order, once chunksRead is set.
-	chunks     map[string][]keyed
-	chunksRead bool
+	// composer's in key order, once chunksRead is set; strayChunks counts
+	// the rows whose key names no composer.
+	chunks      map[string][]keyed
+	chunksRead  bool
+	strayChunks int
 }
 
 // loadBubbles reads every bubbleId row once, the first row of each key in
@@ -178,7 +184,8 @@ func (r *stateReader) entries(current *composer) []jsonvalue.Value {
 // headerChunks returns a composer's composerConvHeaders:<id>:<NNNNNN> rows
 // in key order. Every such row is read once, on first use, sorted by key
 // and filed under the composer its key names, so a composer whose id is the
-// start of another's (a and a:b) never takes the other's chunks.
+// start of another's (a and a:b) never takes the other's chunks; a row whose
+// key has no chunk number names no composer and is only counted.
 func (r *stateReader) headerChunks(ident string) []keyed {
 	if r.keyValues == nil {
 		return nil
@@ -191,10 +198,21 @@ func (r *stateReader) headerChunks(ident string) []keyed {
 		for _, row := range rows {
 			if owner, ok := chunkComposer(row.key); ok {
 				r.chunks[owner] = append(r.chunks[owner], row)
+			} else {
+				r.strayChunks++
 			}
 		}
 	}
 	return r.chunks[ident]
+}
+
+// strayChunksText returns the problem text of n composerConvHeaders rows
+// whose key has no chunk number, so no composer reads them.
+func strayChunksText(n int) string {
+	if n == 1 {
+		return "1 " + strings.TrimSuffix(chunkPrefix, ":") + " key has no chunk number and is not read"
+	}
+	return strconv.Itoa(n) + " " + strings.TrimSuffix(chunkPrefix, ":") + " keys have no chunk number and are not read"
 }
 
 // chunkComposer returns the composer id a chunk key names, the key being

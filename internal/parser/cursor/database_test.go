@@ -80,6 +80,19 @@ func TestEachComposerGetsTheChunksUnderItsOwnKeyPrefix(t *testing.T) {
 	}
 }
 
+func TestChunkKeysThatNameNoComposerAreReportedOnce(t *testing.T) {
+	rows, _ := readState(t, "stray_chunks.db")
+	var got []string
+	for _, row := range rows {
+		got = append(got, row.SessionID+" "+row.Text)
+	}
+	want := []string{"a parser: missing bubble a1",
+		" parser: 2 composerConvHeaders keys have no chunk number and are not read"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestAHeaderWithAnEmptyComposerIDClaimsNoBlob(t *testing.T) {
 	rows, _ := readState(t, "empty_composer_id.db")
 	if len(rows) != 0 {

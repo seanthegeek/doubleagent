@@ -118,6 +118,11 @@ func TestAURLListThatIsNotAnArrayIsReported(t *testing.T) {
 			{"deniedUrls as an object", `"deniedUrls": {"a": 1}`, []string{"parser: deniedUrls is not a JSON array"}},
 			{"lists null and empty", `"allowedUrls": null, "deniedUrls": []`, nil},
 			{"lists absent", `"other": 1`, nil},
+			{"entries that are not strings", `"allowedUrls": ["https://a.example/", {"url": "https://b.example/"}, ` +
+				`["https://c.example/"]], "deniedUrls": [7]`,
+				[]string{"permission setting: allowedUrls=https://a.example/ (from .copilot/settings.json, file mtime)",
+					"parser: allowedUrls holds 2 entries that are not JSON strings",
+					"parser: deniedUrls holds 1 entry that is not a JSON string"}},
 		})
 }
 
