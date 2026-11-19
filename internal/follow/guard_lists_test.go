@@ -43,9 +43,12 @@ func reviewedImports() map[string]string {
 		"encoding/json",
 		// Copies the documents the analysis commands write as JSON with each
 		// string put through the replacement of withheld secrets
-		// (analyze/withheld.go); the names used are ValueOf, New, MakeSlice,
-		// MakeMapWithSize and the Value and Type methods, which work on
-		// values in memory and take no path.
+		// (analyze/withheld.go: ValueOf, New, MakeSlice, MakeMapWithSize,
+		// the Value type and its methods, the Type methods and the Kind
+		// constants String, Pointer, Interface, Slice, Array, Map and
+		// Struct), and compares the sessions of a parser test's two modes
+		// (parser/parsertest/parsertest.go, a package only tests import:
+		// DeepEqual); all work on values in memory and take no path.
 		"reflect",
 		// Writes the fleet CSV's records to an io.Writer the caller gives
 		// it; the names used are NewWriter and the Writer's WriteAll, which
