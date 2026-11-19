@@ -224,6 +224,10 @@ func parse(set *flag.FlagSet, args []string) (inputs []string, misplaced string,
 // would otherwise name the current directory.
 const emptyInput = "the input is empty; name a file or directory"
 
+// emptyOutput is the usage error of fleet's -o given as empty text, which
+// names no file.
+const emptyOutput = "the output is empty; name a file"
+
 // oneInput returns the one input of a command, or the message of the
 // usage error of inputs that are not one.
 func oneInput(inputs []string) (string, string) {
@@ -322,6 +326,8 @@ func ParseFleet(args []string) (FleetOptions, bool, error) {
 		return options, false, usageError("fleet", "missing argument: input")
 	case slices.Contains(inputs, ""):
 		return options, false, usageError("fleet", emptyInput)
+	case options.Output == "":
+		return options, false, usageError("fleet", emptyOutput)
 	}
 	options.Inputs = inputs
 	return options, false, nil
