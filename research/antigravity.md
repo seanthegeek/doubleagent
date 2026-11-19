@@ -1392,7 +1392,9 @@ slashes: on the Windows install (**observed**, CLI 1.3.5 and app 2.23.1,
 and `C:\users\sean\demo2`. The timeline writes every Windows
 `project_path` in one canonical form
 ([`project_path` in `analyzer/docs/output.md`](../analyzer/docs/output.md#timelinejsonl));
-the parser itself does not change them.
+the parser itself does not change them. A workspace URI that is not a `file:` URI, such as a
+remote's, stays a URI; its credentials, if it carries any, are shown as written, and
+`timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder.
 
 Which surface wrote a conversation is recorded twice: the data directory
 the database sits in, and `trajectory_meta.source`, an

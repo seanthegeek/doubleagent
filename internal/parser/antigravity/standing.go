@@ -16,7 +16,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = number
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.ProjectPath = uriPath(parser.Text(record.Get("workspace")))
+		row.ProjectPath = parser.URLText(artifact, uriPath(parser.Text(record.Get("workspace"))))
 		row.SessionID = parser.Text(record.Get("conversationId"))
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("display"))
@@ -55,7 +55,7 @@ func (p *Parser) standing(artifact *input.Artifact, emit parser.Emit) {
 	for i, found := range entries {
 		row := p.SystemRow(artifact, timeline.Compact("permission setting: "+found.key+"="+
 			parser.SettingValue(found.value)+" (from "+artifact.Rel+", file mtime)"))
-		row.SourceLine, row.TimestampUTC, row.ProjectPath = i+1, mtime, found.project
+		row.SourceLine, row.TimestampUTC, row.ProjectPath = i+1, mtime, parser.URLText(artifact, found.project)
 		emit(row)
 	}
 	for _, found := range problems {

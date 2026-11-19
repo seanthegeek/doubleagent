@@ -99,11 +99,12 @@ type conversationReader struct {
 	rows      []timeline.Row
 }
 
-// row returns a row of the conversation at a step's index.
+// row returns a row of the conversation at a step's index, its project
+// (a workspace URI when it is not a file URI) through parser.URLText.
 func (r *conversationReader) row(index int64) timeline.Row {
 	row := r.owner.BaseRow(r.artifact)
 	row.SourceLine = int(index)
-	row.SessionID, row.ProjectPath, row.GitBranch = r.sessionID, r.project, r.branch
+	row.SessionID, row.ProjectPath, row.GitBranch = r.sessionID, parser.URLText(r.artifact, r.project), r.branch
 	return row
 }
 
