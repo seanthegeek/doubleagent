@@ -107,7 +107,7 @@ func TestEachFormatOfTheBinaryPassesInTheOutputs(t *testing.T) {
 		// run, with --no-secrets as every replayed run, withholds.
 		{"detect --json written by encoding/json", runs["detect-json"], "stdout",
 			func(text string) string {
-				return binaryJSON(strings.Replace(text, "alice:FIXTURE-TOKEN@", "REDACTED@", 1), "\t")
+				return binaryJSON(strings.Replace(text, "alice:FIXTURE-TOKEN@", replayPlaceholder+"@", 1), "\t")
 			}, []int{differenceJSONValues}},
 		{"the CSV written by encoding/csv", changedOutput(runs["fleet"], "o.csv", func(text string) string {
 			return strings.ReplaceAll(strings.Replace(text, ",ws01,", ", ws01,", 1), "\n", "\r\n")

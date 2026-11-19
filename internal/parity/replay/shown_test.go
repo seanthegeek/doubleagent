@@ -92,7 +92,7 @@ func TestAShownIdentityIsComparedWithTheRecordingsRowWithoutIt(t *testing.T) {
 		{"a machine id of another file fails", machineRecorded,
 			strings.Replace(machineBinary, ".claude.json", ".claude-work/.claude.json", 1), false},
 		{"a machine id that is not an id fails", machineRecorded,
-			strings.Replace(machineBinary, "0f0e0d0c-0000-4000-8000-000000000001", "REDACTED x", 1), false},
+			strings.Replace(machineBinary, "0f0e0d0c-0000-4000-8000-000000000001", replayPlaceholder+" x", 1), false},
 		{"the GitHub connection's ids pass", githubRecorded, githubBinary, true},
 		{"the GitHub connection without the ids the binary adds fails", githubRecorded, githubRecorded, false},
 		{"the GitHub connection of another status fails", githubRecorded,
