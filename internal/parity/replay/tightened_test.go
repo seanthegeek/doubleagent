@@ -167,10 +167,23 @@ func TestNeededAmongKeepsOnlyWhatTheComparisonFailsWithout(t *testing.T) {
 	}
 }
 
-func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.T) {
-	// A file modified at .3005 ms: the recording rounded its row to .301,
-	// the binary cut it to .300, so the binary sorts the row among the rows
-	// of .300 by file and line, before every row of .301.
+// movedRowCase is one case of a row cut to the millisecond and moved: the rows
+// recorded, the rows the binary wrote, the times the cut is read from, and
+// whether the comparison agrees.
+//
+// A file modified at .3005 ms: the recording rounded its row to .301, the
+// binary cut it to .300, so the binary sorts the row among the rows of .300 by
+// file and line, before every row of .301.
+type movedRowCase struct {
+	name      string
+	want, got []string
+	cut       *cutTimes
+	agree     bool
+}
+
+// fileRowMoveCases returns the cases of the row of a file cut and moved among the
+// rows of the milliseconds around it.
+func fileRowMoveCases() []movedRowCase {
 	record := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/a.jsonl", 1)
 	laterFile := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/c.jsonl", 1)
 	recordedFile := recordLine("2026-01-01T00:00:00.301Z", "u", "system", "parser: broken.json is not JSON",
@@ -178,27 +191,12 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 	binaryFile := strings.Replace(recordedFile, ".301Z", ".300Z", 1)
 	after := recordLine("2026-01-01T00:00:00.302Z", "u", "user", "bye", "/r/a.jsonl", 2)
 	modified := fixedModifiedTimes("2026-01-01T00:00:00.300Z", "r/broken.json", "r/b.json")
-	twoEarlier := strings.Replace(recordedFile, ".301Z", ".299Z", 1)
-	later := strings.Replace(recordedFile, ".301Z", ".302Z", 1)
 	early := recordLine("2026-01-01T00:00:00.299Z", "u", "user", "early", "/r/z.jsonl", 1)
 	peer := recordLine("2026-01-01T00:00:00.301Z", "u", "user", "again", "/r/a.jsonl", 3)
 	peerC := recordLine("2026-01-01T00:00:00.301Z", "u", "user", "again", "/r/c.jsonl", 3)
 	peerD := recordLine("2026-01-01T00:00:00.301Z", "u", "user", "again", "/r/d.jsonl", 3)
-	late := recordLine("2026-01-01T09:00:00.000Z", "u", "user", "later", "/r/a.jsonl", 4)
-	// A settings file that gives several rows at its line 0, each at the
-	// file's modification time.
-	settings := func(text string) string {
-		return recordLine("2026-01-01T00:00:00.301Z", "u", "system", text, "/r/b.json", 0)
-	}
-	first, second, third := settings("settings one"), settings("settings two"), settings("settings three")
-	cut := func(line string) string { return strings.Replace(line, ".301Z", ".300Z", 1) }
 	recorded := []string{record, recordedFile, after}
-	tests := []struct {
-		name      string
-		want, got []string
-		cut       *cutTimes
-		agree     bool
-	}{
+	return []movedRowCase{
 		{"the file's row cut and moved before a row of a later file passes", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after}, modified, true},
 		{"the file's row cut in its recorded place passes", recorded, []string{record, binaryFile, after}, modified, true},
@@ -215,6 +213,22 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 		{"the file's row moved later past rows of the millisecond it was rounded into fails",
 			[]string{record, recordedFile, peerC, peerD, after}, []string{record, peerC, peerD, binaryFile, after},
 			modified, false},
+	}
+}
+
+// modifiedTimeCases returns the cases of the time the cut is read from: a time too
+// far from the row's, a record's time, and another file's.
+func modifiedTimeCases() []movedRowCase {
+	record := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/a.jsonl", 1)
+	laterFile := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/c.jsonl", 1)
+	recordedFile := recordLine("2026-01-01T00:00:00.301Z", "u", "system", "parser: broken.json is not JSON",
+		"/r/broken.json", 0)
+	binaryFile := strings.Replace(recordedFile, ".301Z", ".300Z", 1)
+	after := recordLine("2026-01-01T00:00:00.302Z", "u", "user", "bye", "/r/a.jsonl", 2)
+	twoEarlier := strings.Replace(recordedFile, ".301Z", ".299Z", 1)
+	later := strings.Replace(recordedFile, ".301Z", ".302Z", 1)
+	recorded := []string{record, recordedFile, after}
+	return []movedRowCase{
 		{"two milliseconds earlier fails", recorded, []string{twoEarlier, record, after},
 			fixedModifiedTimes("2026-01-01T00:00:00.299Z", "r/broken.json"), false},
 		{"one millisecond the other way fails", recorded, []string{record, after, later},
@@ -226,6 +240,22 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 		{"a file of the same name in another directory fails", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after}, fixedModifiedTimes("2026-01-01T00:00:00.300Z", "q/broken.json"),
 			false},
+	}
+}
+
+// otherRowCases returns the cases in which a row other than the cut one moves, or
+// the cut row moves too far or changes its text.
+func otherRowCases() []movedRowCase {
+	record := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/a.jsonl", 1)
+	laterFile := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/c.jsonl", 1)
+	recordedFile := recordLine("2026-01-01T00:00:00.301Z", "u", "system", "parser: broken.json is not JSON",
+		"/r/broken.json", 0)
+	binaryFile := strings.Replace(recordedFile, ".301Z", ".300Z", 1)
+	after := recordLine("2026-01-01T00:00:00.302Z", "u", "user", "bye", "/r/a.jsonl", 2)
+	modified := fixedModifiedTimes("2026-01-01T00:00:00.300Z", "r/broken.json", "r/b.json")
+	late := recordLine("2026-01-01T09:00:00.000Z", "u", "user", "later", "/r/a.jsonl", 4)
+	recorded := []string{record, recordedFile, after}
+	return []movedRowCase{
 		{"the other rows swapped still fail", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, after, laterFile}, modified, false},
 		{"the moved row with another text fails", []string{laterFile, recordedFile, after},
@@ -234,6 +264,24 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 			[]string{record, after, binaryFile}, modified, false},
 		{"the file's row moved past a row hours later fails", []string{record, recordedFile, after, late},
 			[]string{record, after, late, binaryFile}, modified, false},
+	}
+}
+
+// rowsOfOneFileAndLineCases returns the cases of several rows of one file and line
+// moved together, swapped or left behind.
+func rowsOfOneFileAndLineCases() []movedRowCase {
+	laterFile := recordLine("2026-01-01T00:00:00.300Z", "u", "user", "hi", "/r/c.jsonl", 1)
+	peer := recordLine("2026-01-01T00:00:00.301Z", "u", "user", "again", "/r/a.jsonl", 3)
+	late := recordLine("2026-01-01T09:00:00.000Z", "u", "user", "later", "/r/a.jsonl", 4)
+	modified := fixedModifiedTimes("2026-01-01T00:00:00.300Z", "r/broken.json", "r/b.json")
+	// A settings file that gives several rows at its line 0, each at the
+	// file's modification time.
+	settings := func(text string) string {
+		return recordLine("2026-01-01T00:00:00.301Z", "u", "system", text, "/r/b.json", 0)
+	}
+	first, second, third := settings("settings one"), settings("settings two"), settings("settings three")
+	cut := func(line string) string { return strings.Replace(line, ".301Z", ".300Z", 1) }
+	return []movedRowCase{
 		{"two rows of one file and line moved together pass", []string{laterFile, first, second, late},
 			[]string{cut(first), cut(second), laterFile, late}, modified, true},
 		{"two rows of one file and line moved together and swapped fail", []string{laterFile, first, second, late},
@@ -248,6 +296,10 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 		{"one of two rows of one file and line moved, the other left behind, fails",
 			[]string{laterFile, first, second, late}, []string{cut(first), laterFile, cut(second), late}, modified, false},
 	}
+}
+
+func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.T) {
+	tests := slices.Concat(fileRowMoveCases(), modifiedTimeCases(), otherRowCases(), rowsOfOneFileAndLineCases())
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if agree := timelinesAgree(t, false, test.want, test.got, test.cut); agree != test.agree {

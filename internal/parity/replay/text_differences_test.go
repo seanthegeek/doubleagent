@@ -33,15 +33,23 @@ func rewriteOf(t *testing.T, number int, from side) func(text string) (string, i
 	}
 }
 
-func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
-	tests := []struct {
-		name   string
-		number int
-		side   side
-		text   string
-		want   string
-		found  int
-	}{
+// textDifferenceCase is one case of a difference that rewrites text: the text
+// of one side rewritten as the difference's number rewrites it, the rewrite
+// wanted, and the places found.
+type textDifferenceCase struct {
+	name   string
+	number int
+	side   side
+	text   string
+	want   string
+	found  int
+}
+
+// jsonReaderCases returns the cases of difference 102 for the readers of JSON: the
+// decoders' details, a thread that is not an object, a worktree record without
+// its seconds, and the analysis commands' own wording.
+func jsonReaderCases() []textDifferenceCase {
+	return []textDifferenceCase{
 		{"102 rewrites a recorded JSON decoder detail keeping its position", 102, recordedSide,
 			"parser: unparseable line (Expecting ',' delimiter: line 1 column 5 (char 4)): {\"a\" 1",
 			"parser: unparseable line ({json error}): {\"a\" 1", 1},
@@ -52,6 +60,71 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"102 rewrites the binary's end of JSON input", 102, binarySide,
 			"parser: unparseable record 2 (invalid JSON at line 1, column 9: unexpected end of JSON input): [1,",
 			"parser: unparseable record 2 ({json error}): [1,", 1},
+		{"102 leaves a lead-in in capitals before the recorded JSON detail", 102, recordedSide,
+			"parser: unparseable record 4 (tool_calls is not valid JSON: Expecting value: line 1 column 1 (char 0)): nope",
+			"parser: unparseable record 4 (tool_calls is not valid JSON: {json error}): nope", 1},
+		{"102 leaves a record's key before the recorded JSON detail", 102, recordedSide,
+			"parser: unparseable record 14 (bubbleId:Ab: Expecting value: line 1 column 1 (char 0)): x",
+			"parser: unparseable record 14 (bubbleId:Ab: {json error}): x", 1},
+		{"102 leaves a note after the binary's JSON detail", 102, binarySide,
+			"parser: unparseable record 2 (invalid JSON at line 1, column 1: invalid character '(' looking for " +
+				"beginning of value; stored zstd blob as hex): 28b5",
+			"parser: unparseable record 2 ({json error}; stored zstd blob as hex): 28b5", 1},
+		{"102 rewrites Python's JSON error with its class name", 102, recordedSide,
+			"parser: unparseable record 2 (JSONDecodeError: Expecting value: line 1 column 1 (char 0); stored zstd " +
+				"blob as hex): 28b5",
+			"parser: unparseable record 2 ({json error}; stored zstd blob as hex): 28b5", 1},
+		{"102 rewrites Python's thread that is not an object", 102, recordedSide,
+			`parser: unparseable record 2 (ValueError: not a JSON object): ["not"]`,
+			`parser: unparseable record 2 ({thread not an object}): ["not"]`, 1},
+		{"102 rewrites the binary's thread that is not an object", 102, binarySide,
+			`parser: unparseable record 2 (the thread is not a JSON object): ["not"]`,
+			`parser: unparseable record 2 ({thread not an object}): ["not"]`, 1},
+		{"102 rewrites Python's worktree record without its seconds", 102, recordedSide,
+			`parser: unparseable record 6 (created_git_worktrees: KeyError: 'created_at_seconds'): {}`,
+			`parser: unparseable record 6 (created_git_worktrees: {no creation time}): {}`, 1},
+		{"102 rewrites the binary's worktree record without its seconds", 102, binarySide,
+			`parser: unparseable record 6 (created_git_worktrees: no created_at_seconds field): {}`,
+			`parser: unparseable record 6 (created_git_worktrees: {no creation time}): {}`, 1},
+		{"102 leaves the analysis commands' own wording alone", 102, recordedSide,
+			"parser: unparseable line (not a JSON object): [1]", "parser: unparseable line (not a JSON object): [1]", 0},
+	}
+}
+
+// textReaderCases returns the cases of difference 102 for the readers of UTF-8
+// text and of command lines, and for the path of a mutation not applied.
+func textReaderCases() []textDifferenceCase {
+	return []textDifferenceCase{
+		{"102 rewrites Python's UTF-8 codec error", 102, recordedSide,
+			"parser: unparseable line ('utf-8' codec can't decode byte 0xc3 in position 0: invalid continuation byte): x",
+			"parser: unparseable line ({utf-8 error}): x", 1},
+		{"102 rewrites the binary's UTF-8 error", 102, binarySide,
+			"parser: unparseable line (not valid UTF-8 at byte offset 10): x",
+			"parser: unparseable line ({utf-8 error}): x", 1},
+		{"102 leaves a UTF-8 error that names no offset alone", 102, binarySide,
+			"parser: unparseable line (not valid UTF-8): x", "parser: unparseable line (not valid UTF-8): x", 0},
+		{"102 writes Python's path of a mutation not applied as its elements", 102, recordedSide,
+			`parser: mutation not applied (path ['nowhere', 0] not found): {"kind": 1}`,
+			`parser: mutation not applied (path {mutation path <nowhere> 0} not found): {"kind": 1}`, 1},
+		{"102 writes the binary's path of a mutation not applied as its elements", 102, binarySide,
+			`parser: mutation not applied (path ["nowhere",0] not found): {"kind": 1}`,
+			`parser: mutation not applied (path {mutation path <nowhere> 0} not found): {"kind": 1}`, 1},
+		{"102 reads the binary's path inside a line of JSON", 102, binarySide,
+			`{"text":"parser: mutation not applied (path [\"nowhere\"] not found)"}`,
+			`{"text":"parser: mutation not applied (path {mutation path <nowhere>} not found)"}`, 1},
+		{"102 rewrites Python's unclosed quote", 102, recordedSide,
+			"parser: unparseable line (No closing quotation): permissions allow 'x",
+			"parser: unparseable line ({unclosed quote}): permissions allow 'x", 1},
+		{"102 rewrites the binary's unclosed quote", 102, binarySide,
+			"parser: unparseable line (a quote is not closed): permissions allow 'x",
+			"parser: unparseable line ({unclosed quote}): permissions allow 'x", 1},
+	}
+}
+
+// databaseAndSystemErrorCases returns the cases of difference 102 for SQLite
+// databases and for a system error, each up to the end of its detail.
+func databaseAndSystemErrorCases() []textDifferenceCase {
+	return []textDifferenceCase{
 		{"102 rewrites a SQLite error up to a JSON quote", 102, recordedSide,
 			`{"text":"parser: SQLite error: file is not a database","source_line":0}`,
 			`{"text":"parser: SQLite error: {sqlite error}","source_line":0}`, 1},
@@ -65,6 +138,24 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"102 leaves the binary's system error as written", 102, binarySide,
 			"parser: settings.json could not be read (permission denied)",
 			"parser: settings.json could not be read (permission denied)", 0},
+		{"102 rewrites the database detail of an unreadable OpenCode store", 102, recordedSide,
+			"parser: database could not be read: file is not a database",
+			"parser: database could not be read: {sqlite error}", 1},
+		{"102 rewrites the database detail of an unreadable editor state store", 102, eitherSide,
+			"parser: state.vscdb unreadable: database disk image is malformed",
+			"parser: state.vscdb unreadable: {sqlite error}", 1},
+		{"the note for an unreadable persisted output keeps its form", 102, recordedSide,
+			"output\n[persisted output could not be read (Permission denied)]",
+			"output\n[persisted output could not be read (permission denied)]", 1},
+		{"102 leaves an assistant row that quotes an error alone", 102, recordedSide,
+			"SQLite error: file is not a database", "SQLite error: file is not a database", 0},
+	}
+}
+
+// archiveAndMarkupReaderCases returns the cases of difference 102 for the readers of
+// TOML, zip, base64 and XML.
+func archiveAndMarkupReaderCases() []textDifferenceCase {
+	return []textDifferenceCase{
 		{"102 rewrites the binary's TOML reader detail in a parser row", 102, binarySide,
 			"parser: unreadable automation.toml: invalid TOML at line 2, column 20: strings cannot contain newlines",
 			"parser: unreadable automation.toml: {toml error}", 1},
@@ -89,74 +180,19 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"102 rewrites the binary's base64 decoder detail", 102, binarySide,
 			"parser: session data is not base64 (invalid base64 data at byte 4)",
 			"parser: session data is not base64 ({base64 error})", 1},
-		{"102 rewrites the database detail of an unreadable OpenCode store", 102, recordedSide,
-			"parser: database could not be read: file is not a database",
-			"parser: database could not be read: {sqlite error}", 1},
-		{"102 leaves a lead-in in capitals before the recorded JSON detail", 102, recordedSide,
-			"parser: unparseable record 4 (tool_calls is not valid JSON: Expecting value: line 1 column 1 (char 0)): nope",
-			"parser: unparseable record 4 (tool_calls is not valid JSON: {json error}): nope", 1},
-		{"102 leaves a record's key before the recorded JSON detail", 102, recordedSide,
-			"parser: unparseable record 14 (bubbleId:Ab: Expecting value: line 1 column 1 (char 0)): x",
-			"parser: unparseable record 14 (bubbleId:Ab: {json error}): x", 1},
-		{"102 rewrites the database detail of an unreadable editor state store", 102, eitherSide,
-			"parser: state.vscdb unreadable: database disk image is malformed",
-			"parser: state.vscdb unreadable: {sqlite error}", 1},
-		{"102 leaves a note after the binary's JSON detail", 102, binarySide,
-			"parser: unparseable record 2 (invalid JSON at line 1, column 1: invalid character '(' looking for " +
-				"beginning of value; stored zstd blob as hex): 28b5",
-			"parser: unparseable record 2 ({json error}; stored zstd blob as hex): 28b5", 1},
-		{"the note for an unreadable persisted output keeps its form", 102, recordedSide,
-			"output\n[persisted output could not be read (Permission denied)]",
-			"output\n[persisted output could not be read (permission denied)]", 1},
 		{"102 rewrites a recorded XML parse error", 102, recordedSide,
 			"parser: cody_history.xml did not parse; read 0 chat(s) (not well-formed (invalid token): line 1, column 5)",
 			"parser: cody_history.xml did not parse; read 0 chat(s) ({xml error})", 1},
 		{"102 rewrites the binary's XML parse error", 102, binarySide,
 			"parser: cody_history.xml did not parse; read 0 chat(s) (expected element name after <: line 1, column 2)",
 			"parser: cody_history.xml did not parse; read 0 chat(s) ({xml error})", 1},
-		{"102 rewrites Python's JSON error with its class name", 102, recordedSide,
-			"parser: unparseable record 2 (JSONDecodeError: Expecting value: line 1 column 1 (char 0); stored zstd " +
-				"blob as hex): 28b5",
-			"parser: unparseable record 2 ({json error}; stored zstd blob as hex): 28b5", 1},
-		{"102 rewrites Python's thread that is not an object", 102, recordedSide,
-			`parser: unparseable record 2 (ValueError: not a JSON object): ["not"]`,
-			`parser: unparseable record 2 ({thread not an object}): ["not"]`, 1},
-		{"102 rewrites the binary's thread that is not an object", 102, binarySide,
-			`parser: unparseable record 2 (the thread is not a JSON object): ["not"]`,
-			`parser: unparseable record 2 ({thread not an object}): ["not"]`, 1},
-		{"102 rewrites Python's worktree record without its seconds", 102, recordedSide,
-			`parser: unparseable record 6 (created_git_worktrees: KeyError: 'created_at_seconds'): {}`,
-			`parser: unparseable record 6 (created_git_worktrees: {no creation time}): {}`, 1},
-		{"102 rewrites the binary's worktree record without its seconds", 102, binarySide,
-			`parser: unparseable record 6 (created_git_worktrees: no created_at_seconds field): {}`,
-			`parser: unparseable record 6 (created_git_worktrees: {no creation time}): {}`, 1},
-		{"102 rewrites Python's UTF-8 codec error", 102, recordedSide,
-			"parser: unparseable line ('utf-8' codec can't decode byte 0xc3 in position 0: invalid continuation byte): x",
-			"parser: unparseable line ({utf-8 error}): x", 1},
-		{"102 rewrites the binary's UTF-8 error", 102, binarySide,
-			"parser: unparseable line (not valid UTF-8 at byte offset 10): x",
-			"parser: unparseable line ({utf-8 error}): x", 1},
-		{"102 leaves a UTF-8 error that names no offset alone", 102, binarySide,
-			"parser: unparseable line (not valid UTF-8): x", "parser: unparseable line (not valid UTF-8): x", 0},
-		{"102 writes Python's path of a mutation not applied as its elements", 102, recordedSide,
-			`parser: mutation not applied (path ['nowhere', 0] not found): {"kind": 1}`,
-			`parser: mutation not applied (path {mutation path <nowhere> 0} not found): {"kind": 1}`, 1},
-		{"102 writes the binary's path of a mutation not applied as its elements", 102, binarySide,
-			`parser: mutation not applied (path ["nowhere",0] not found): {"kind": 1}`,
-			`parser: mutation not applied (path {mutation path <nowhere> 0} not found): {"kind": 1}`, 1},
-		{"102 reads the binary's path inside a line of JSON", 102, binarySide,
-			`{"text":"parser: mutation not applied (path [\"nowhere\"] not found)"}`,
-			`{"text":"parser: mutation not applied (path {mutation path <nowhere>} not found)"}`, 1},
-		{"102 rewrites Python's unclosed quote", 102, recordedSide,
-			"parser: unparseable line (No closing quotation): permissions allow 'x",
-			"parser: unparseable line ({unclosed quote}): permissions allow 'x", 1},
-		{"102 rewrites the binary's unclosed quote", 102, binarySide,
-			"parser: unparseable line (a quote is not closed): permissions allow 'x",
-			"parser: unparseable line ({unclosed quote}): permissions allow 'x", 1},
-		{"102 leaves the analysis commands' own wording alone", 102, recordedSide,
-			"parser: unparseable line (not a JSON object): [1]", "parser: unparseable line (not a JSON object): [1]", 0},
-		{"102 leaves an assistant row that quotes an error alone", 102, recordedSide,
-			"SQLite error: file is not a database", "SQLite error: file is not a database", 0},
+	}
+}
+
+// quotedValueCases returns the cases of difference 120: a value quoted in a
+// message of either side.
+func quotedValueCases() []textDifferenceCase {
+	return []textDifferenceCase{
 		{"120 writes Python's quoted value in one form", 120, recordedSide,
 			"error: cannot read 'last friday' as a time; accepted: 'ago'\n",
 			"error: cannot read {quoted last friday} as a time; accepted: 'ago'\n", 1},
@@ -169,6 +205,13 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 			"error: cannot read \"it's\" as a time\n", 0},
 		{"120 leaves a quote inside a row's text alone", 120, recordedSide, "parser: cannot read 'x' here",
 			"parser: cannot read 'x' here", 0},
+	}
+}
+
+// withheldReasonCases returns the cases of difference 230: a reader's reason
+// that the binary withholds, written with its position.
+func withheldReasonCases() []textDifferenceCase {
+	return []textDifferenceCase{
 		{"230 gives a TOML config's recorded reason its position", 230, recordedSide,
 			"parser: config.toml is not valid TOML (Illegal character '\\n' (at line 2, column 25))",
 			"parser: config.toml is not valid TOML ({withheld at line 2, column 25})", 1},
@@ -206,6 +249,13 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"230 leaves another file's reason alone", 230, binarySide,
 			"parser: projects.json did not parse: invalid JSON at line 1, column 2: " + replayPlaceholder,
 			"parser: projects.json did not parse: invalid JSON at line 1, column 2: " + replayPlaceholder, 0},
+	}
+}
+
+// epochUnitAndPluralCases returns the cases of difference 140, the wording of the
+// epoch units, and of difference 122, the plural of a manifest note.
+func epochUnitAndPluralCases() []textDifferenceCase {
+	return []textDifferenceCase{
 		{"140 gives the recorded epoch units one form", 140, recordedSide,
 			"error: cannot read {quoted soon} as a time; accepted: ISO 8601 such as 2026-10-01; 2026-10 or 2026; " +
 				"epoch seconds; today\n",
@@ -223,6 +273,11 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		{"122 leaves a note of eleven rows alone", 122, recordedSide, "note: 11 manifest rows did not parse",
 			"note: 11 manifest rows did not parse", 0},
 	}
+}
+
+func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
+	tests := slices.Concat(jsonReaderCases(), textReaderCases(), databaseAndSystemErrorCases(),
+		archiveAndMarkupReaderCases(), quotedValueCases(), withheldReasonCases(), epochUnitAndPluralCases())
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sides := []side{test.side}

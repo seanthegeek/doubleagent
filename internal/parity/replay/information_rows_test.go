@@ -129,21 +129,22 @@ func timeMoved(rows []Row, index, milliseconds int) []Row {
 	return rows
 }
 
-func TestEachMutationOfRecordedRowsFails(t *testing.T) {
-	rows := recordedRows(t)
+// mutationCase is a change to the recorded rows that the comparison must not
+// accept: the rows wanted, and the rows got.
+type mutationCase struct {
+	name      string
+	want, got []Row
+}
+
+// mutatedTextCases returns the changes to one row's text, in plain text, embedded
+// JSON and a parser row.
+func mutatedTextCases(t *testing.T, rows []Row) []mutationCase {
 	session := rowHolding(t, rows, "interactive=True")
-	prose := rowHolding(t, rows, "fix tests | [1 image(s)]")
 	sandbox := rowHolding(t, rows, `sandbox={"type":"workspace-write"}`)
 	mutation := rowHolding(t, rows, `{"kind": 1, "k": ["nowhere", "x"], "v": 1}`)
 	array := rowHolding(t, rows, `["oops",{"id":"call_8"`)
 	cost := rowHolding(t, rows, "cost=0.0041")
-	swapped := slices.Clone(rows)
-	swapped[cost-1], swapped[cost] = swapped[cost], swapped[cost-1]
-	userTrue := textChanged(rows, prose, replaced("fix tests", "True"))
-	tests := []struct {
-		name      string
-		want, got []Row
-	}{
+	return []mutationCase{
 		{"a changed word in a text", rows, textChanged(rows, session, replaced("fix tests", "fix bests"))},
 		{"a changed digit in a number inside embedded JSON", rows, textChanged(rows, mutation, replaced(`"v": 1`, `"v": 2`))},
 		{"a changed number after =", rows, textChanged(rows, cost, replaced("cost=0.0041", "cost=0.0042"))},
@@ -155,6 +156,17 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 			head, rest, _ := strings.Cut(text, `["oops",`)
 			return head + "[" + strings.TrimSuffix(rest, "]") + `,"oops"]`
 		})},
+	}
+}
+
+// mutatedRowCases returns the changes to the rows as a whole and to a row's fields:
+// a row dropped or moved, true turned into false, a time or a line moved.
+func mutatedRowCases(t *testing.T, rows []Row) []mutationCase {
+	session := rowHolding(t, rows, "interactive=True")
+	cost := rowHolding(t, rows, "cost=0.0041")
+	swapped := slices.Clone(rows)
+	swapped[cost-1], swapped[cost] = swapped[cost], swapped[cost-1]
+	return []mutationCase{
 		{"a row dropped", rows, slices.Delete(slices.Clone(rows), cost, cost+1)},
 		{"two rows swapped", rows, swapped},
 		{"true turned into false", rows, textChanged(rows, session, replaced("=True", "=False"))},
@@ -164,6 +176,17 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 			changed[cost].SourceLine++
 			return changed
 		}()},
+	}
+}
+
+// rewrittenValueCases returns the changes that write a value another way, or keep
+// a key twice, where the comparison must still tell the two sides apart.
+func rewrittenValueCases(t *testing.T, rows []Row) []mutationCase {
+	prose := rowHolding(t, rows, "fix tests | [1 image(s)]")
+	sandbox := rowHolding(t, rows, `sandbox={"type":"workspace-write"}`)
+	cost := rowHolding(t, rows, "cost=0.0041")
+	userTrue := textChanged(rows, prose, replaced("fix tests", "True"))
+	return []mutationCase{
 		{"True turned into true in a user's own words", userTrue,
 			textChanged(userTrue, prose, replaced("True", "true"))},
 		{"a number in embedded JSON written another way", textChanged(rows, sandbox, replaced(`{"type"`, `{"n":1.5,"type"`)),
@@ -176,6 +199,16 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 		{"the first of two values of a key changed",
 			textChanged(rows, sandbox, replaced(`{"type"`, `{"type":"x","type"`)),
 			textChanged(rows, sandbox, replaced(`{"type"`, `{"type":"y","type"`))},
+	}
+}
+
+// rewrittenTextCases returns the changes that rewrite a user's words, a separator,
+// a character, a time or a field, where the comparison must still tell the two
+// sides apart.
+func rewrittenTextCases(t *testing.T, rows []Row) []mutationCase {
+	prose := rowHolding(t, rows, "fix tests | [1 image(s)]")
+	cost := rowHolding(t, rows, "cost=0.0041")
+	return []mutationCase{
 		{"a list repr in a user's words turned into JSON", textChanged(rows, prose, replaced("fix tests", "{'a': 1}")),
 			textChanged(rows, prose, replaced("fix tests", `{"a":1}`))},
 		{"a separator at the end trimmed", textChanged(rows, cost, func(text string) string { return text + " \x1c" }),
@@ -191,6 +224,12 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 		{"None in a formatted field turned into nothing", fieldChanged(rows, cost, func(row *Row) { row.GitBranch = "None" }),
 			fieldChanged(rows, cost, func(row *Row) { row.GitBranch = "" })},
 	}
+}
+
+func TestEachMutationOfRecordedRowsFails(t *testing.T) {
+	rows := recordedRows(t)
+	tests := slices.Concat(mutatedTextCases(t, rows), mutatedRowCases(t, rows), rewrittenValueCases(t, rows),
+		rewrittenTextCases(t, rows))
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if agree, _ := rowsAgree(t, test.want, test.got); agree {

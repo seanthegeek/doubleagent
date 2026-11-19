@@ -4,6 +4,7 @@ package replay
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -113,70 +114,95 @@ func quotedAlternatives(texts []string) string {
 // read before the damage, or a Tabby history.
 const xmlFrame = `((?:cody_history\.xml did not parse; read [0-9]+ chat\(s\)|not a readable XML document) \()`
 
-// libraryShapes returns the shapes of difference 102. A shape on one side
-// only is the wording of that side's reader; the other side's reader words
-// the same condition in its own shape, which gives the same form.
-func libraryShapes() []libraryShape {
-	shape := func(pattern, replacement string, side side) libraryShape {
-		return libraryShape{regexp.MustCompile(pattern), replacement, side}
-	}
+// shapeOf returns the shape of difference 102 that rewrites what pattern finds
+// as replacement in the text one side's reader wrote.
+func shapeOf(pattern, replacement string, side side) libraryShape {
+	return libraryShape{regexp.MustCompile(pattern), replacement, side}
+}
+
+// textReaderShapes returns the shapes of difference 102 for the readers of JSON, of
+// UTF-8 text and of command lines. A shape on one side only is the wording of
+// that side's reader; the other side's reader words the same condition in its
+// own shape, which gives the same form.
+func textReaderShapes() []libraryShape {
 	return []libraryShape{
-		shape(`(?:JSONDecodeError: )?(?:`+strings.Join(pythonJSONMessages(), "|")+`): line ([0-9]+) column ([0-9]+) `+
+		shapeOf(`(?:JSONDecodeError: )?(?:`+strings.Join(pythonJSONMessages(), "|")+`): line ([0-9]+) column ([0-9]+) `+
 			`\(char [0-9]+\)`, "{json error}", recordedSide),
-		shape(`invalid JSON at line [0-9]+, column [0-9]+: (?:`+strings.Join(goJSONDetails(), "|")+`)`,
+		shapeOf(`invalid JSON at line [0-9]+, column [0-9]+: (?:`+strings.Join(goJSONDetails(), "|")+`)`,
 			"{json error}", binarySide),
-		shape(`\(ValueError: not a JSON object\)`, "({thread not an object})", recordedSide),
-		shape(`\(the thread is not a JSON object\)`, "({thread not an object})", binarySide),
-		shape(`created_git_worktrees: KeyError: 'created_at_seconds'\)`,
+		shapeOf(`\(ValueError: not a JSON object\)`, "({thread not an object})", recordedSide),
+		shapeOf(`\(the thread is not a JSON object\)`, "({thread not an object})", binarySide),
+		shapeOf(`created_git_worktrees: KeyError: 'created_at_seconds'\)`,
 			"created_git_worktrees: {no creation time})", recordedSide),
-		shape(`created_git_worktrees: no created_at_seconds field\)`,
+		shapeOf(`created_git_worktrees: no created_at_seconds field\)`,
 			"created_git_worktrees: {no creation time})", binarySide),
-		shape(`'utf-8' codec can't decode (?:byte 0x[0-9a-f]{2} in position [0-9]+|bytes in position [0-9]+-[0-9]+): `+
+		shapeOf(`'utf-8' codec can't decode (?:byte 0x[0-9a-f]{2} in position [0-9]+|bytes in position [0-9]+-[0-9]+): `+
 			`(?:invalid start byte|invalid continuation byte|unexpected end of data)`, "{utf-8 error}", recordedSide),
-		shape(`not valid UTF-8 at byte offset [0-9]+`, "{utf-8 error}", binarySide),
-		shape(`unparseable line \(No closing quotation\)`, "unparseable line ({unclosed quote})", recordedSide),
-		shape(`unparseable line \(a quote is not closed\)`, "unparseable line ({unclosed quote})", binarySide),
-		shape(xmlFrame+quotedAlternatives(expatMessages())+`: line [0-9]+, column [0-9]+\)`+rowEnd,
+		shapeOf(`not valid UTF-8 at byte offset [0-9]+`, "{utf-8 error}", binarySide),
+		shapeOf(`unparseable line \(No closing quotation\)`, "unparseable line ({unclosed quote})", recordedSide),
+		shapeOf(`unparseable line \(a quote is not closed\)`, "unparseable line ({unclosed quote})", binarySide),
+	}
+}
+
+// markupReaderShapes returns the shapes of difference 102 for the readers of XML
+// and TOML.
+func markupReaderShapes() []libraryShape {
+	return []libraryShape{
+		shapeOf(xmlFrame+quotedAlternatives(expatMessages())+`: line [0-9]+, column [0-9]+\)`+rowEnd,
 			"${1}{xml error})${2}${3}", recordedSide),
-		shape(xmlFrame+`(?:`+strings.Join(goXMLMessages(), "|")+`): line [0-9]+, column [0-9]+\)`+rowEnd,
+		shapeOf(xmlFrame+`(?:`+strings.Join(goXMLMessages(), "|")+`): line [0-9]+, column [0-9]+\)`+rowEnd,
 			"${1}{xml error})${2}${3}", binarySide),
-		shape(`(?:`+strings.Join(tomlMessages(), "|")+`)[^"\n]*? \(at (?:line [0-9]+, column [0-9]+|end of document)\)`+
+		shapeOf(`(?:`+strings.Join(tomlMessages(), "|")+`)[^"\n]*? \(at (?:line [0-9]+, column [0-9]+|end of document)\)`+
 			rowEnd, "{toml error}${1}${2}", recordedSide),
-		shape(`invalid TOML at line [0-9]+, column [0-9]+: [^"\n]*?`+rowEnd, "{toml error}${1}${2}", binarySide),
-		shape(`zstd: file ends inside a zstd frame`+rowEnd, "zstd: {zstd cut off}${1}${2}", recordedSide),
-		shape(`zstd: the file ends inside a zstd frame`+rowEnd, "zstd: {zstd cut off}${1}${2}", binarySide),
-		shape(`zstd: zstd decompressor error: [^"\n]*?`+rowEnd, "zstd: {zstd error}${1}${2}", recordedSide),
-		shape(`zstd: (?:corrupt data \([^()"\n]*\)|a frame needs a window larger than the decoder allows)`+rowEnd,
+		shapeOf(`invalid TOML at line [0-9]+, column [0-9]+: [^"\n]*?`+rowEnd, "{toml error}${1}${2}", binarySide),
+	}
+}
+
+// archiveReaderShapes returns the shapes of difference 102 for the readers of
+// zstd, zip, base64 and compressed data.
+func archiveReaderShapes() []libraryShape {
+	return []libraryShape{
+		shapeOf(`zstd: file ends inside a zstd frame`+rowEnd, "zstd: {zstd cut off}${1}${2}", recordedSide),
+		shapeOf(`zstd: the file ends inside a zstd frame`+rowEnd, "zstd: {zstd cut off}${1}${2}", binarySide),
+		shapeOf(`zstd: zstd decompressor error: [^"\n]*?`+rowEnd, "zstd: {zstd error}${1}${2}", recordedSide),
+		shapeOf(`zstd: (?:corrupt data \([^()"\n]*\)|a frame needs a window larger than the decoder allows)`+rowEnd,
 			"zstd: {zstd error}${1}${2}", binarySide),
-		shape(`is not a zip archive \(File is not a zip file\)`, "is not a zip archive ({not a zip})", recordedSide),
-		shape(`is not a zip archive \(not a valid zip archive\)`, "is not a zip archive ({not a zip})", binarySide),
-		shape(`is not base64 \((?:Only base64 data is allowed|Incorrect padding|Excess data after padding|`+
+		shapeOf(`is not a zip archive \(File is not a zip file\)`, "is not a zip archive ({not a zip})", recordedSide),
+		shapeOf(`is not a zip archive \(not a valid zip archive\)`, "is not a zip archive ({not a zip})", binarySide),
+		shapeOf(`is not base64 \((?:Only base64 data is allowed|Incorrect padding|Excess data after padding|`+
 			`Leading padding not allowed|Discontinuous padding not allowed|Invalid base64-encoded string: [^()"\n]*)\)`,
 			"is not base64 ({base64 error})", recordedSide),
-		shape(`is not base64 \(invalid base64 data at byte [0-9]+\)`, "is not base64 ({base64 error})",
+		shapeOf(`is not base64 \(invalid base64 data at byte [0-9]+\)`, "is not base64 ({base64 error})",
 			binarySide),
-		shape(`(could not be read \()Error -?[0-9]+ while decompressing data: [^()"\n]*\)`,
+		shapeOf(`(could not be read \()Error -?[0-9]+ while decompressing data: [^()"\n]*\)`,
 			"${1}{damaged compressed data})", recordedSide),
-		shape(`(could not be read \()damaged compressed data at byte [0-9]+\)`, "${1}{damaged compressed data})",
+		shapeOf(`(could not be read \()damaged compressed data at byte [0-9]+\)`, "${1}{damaged compressed data})",
 			binarySide),
-		shape(`(could not be read \()Bad CRC-32 for file '[^'"\n]*'\)`, "${1}{checksum mismatch})", recordedSide),
-		shape(`(could not be read \()checksum mismatch\)`, "${1}{checksum mismatch})", binarySide),
-		shape(`(could not be read \()Compressed file ended before the end-of-stream marker was reached\)`,
+		shapeOf(`(could not be read \()Bad CRC-32 for file '[^'"\n]*'\)`, "${1}{checksum mismatch})", recordedSide),
+		shapeOf(`(could not be read \()checksum mismatch\)`, "${1}{checksum mismatch})", binarySide),
+		shapeOf(`(could not be read \()Compressed file ended before the end-of-stream marker was reached\)`,
 			"${1}{data cut off})", recordedSide),
-		shape(`(could not be read \()data cut off\)`, "${1}{data cut off})", binarySide),
-		shape(`(member [^"\n]* could not be read \()Bad magic number for file header\)`, "${1}{not a zip member})",
+		shapeOf(`(could not be read \()data cut off\)`, "${1}{data cut off})", binarySide),
+		shapeOf(`(member [^"\n]* could not be read \()Bad magic number for file header\)`, "${1}{not a zip member})",
 			recordedSide),
-		shape(`(member [^"\n]* could not be read \()not a valid zip archive\)`, "${1}{not a zip member})", binarySide),
-		shape(`(member [^"\n]* could not be read \()negative seek value -[0-9]+\)`, "${1}{offset before the start})",
+		shapeOf(`(member [^"\n]* could not be read \()not a valid zip archive\)`, "${1}{not a zip member})", binarySide),
+		shapeOf(`(member [^"\n]* could not be read \()negative seek value -[0-9]+\)`, "${1}{offset before the start})",
 			recordedSide),
-		shape(`(member [^"\n]* could not be read \()header placed before the start of the archive\)`,
+		shapeOf(`(member [^"\n]* could not be read \()header placed before the start of the archive\)`,
 			"${1}{offset before the start})", binarySide),
-		shape(`SQLite error: [^"\n]*?`+rowEnd, "SQLite error: {sqlite error}${1}${2}", eitherSide),
-		shape(`database could not be read: [^"\n]*?`+rowEnd, "database could not be read: {sqlite error}${1}${2}",
+	}
+}
+
+// sqliteReaderShapes returns the shapes of difference 102 for the readers of SQLite
+// databases, each written the same on either side.
+func sqliteReaderShapes() []libraryShape {
+	return []libraryShape{
+		shapeOf(`SQLite error: [^"\n]*?`+rowEnd, "SQLite error: {sqlite error}${1}${2}", eitherSide),
+		shapeOf(`database could not be read: [^"\n]*?`+rowEnd, "database could not be read: {sqlite error}${1}${2}",
 			eitherSide),
-		shape(`state\.vscdb unreadable: [^"\n]*?`+rowEnd, "state.vscdb unreadable: {sqlite error}${1}${2}",
+		shapeOf(`state\.vscdb unreadable: [^"\n]*?`+rowEnd, "state.vscdb unreadable: {sqlite error}${1}${2}",
 			eitherSide),
-		shape(`unreadable \([^()"\n]*\)`, "unreadable ({sqlite error})", eitherSide),
+		shapeOf(`unreadable \([^()"\n]*\)`, "unreadable ({sqlite error})", eitherSide),
 	}
 }
 
@@ -185,7 +211,7 @@ func libraryShapes() []libraryShape {
 // its marker to the line's end, and the mutation path and system message
 // in their compared forms.
 func libraryText(from side) func(text string) (string, int) {
-	shapes := libraryShapes()
+	shapes := slices.Concat(textReaderShapes(), markupReaderShapes(), archiveReaderShapes(), sqliteReaderShapes())
 	return func(text string) (string, int) {
 		lines := strings.SplitAfter(text, "\n")
 		total := 0

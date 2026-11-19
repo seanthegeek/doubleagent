@@ -307,27 +307,23 @@ func (f withheldForm) complete(from side, text string, run caseRun) (string, int
 	return written.String(), len(found)
 }
 
-// withheldForms returns the entries of difference 230. A parser that comes
-// to withhold a secret the recording gave in another form adds an entry,
-// and a run of every case fails for an entry no case of its scope used.
-// Each of the binary's forms holds the placeholder where the secret was,
-// so a binary that shows the secret, or prints the recording's form,
-// still fails. The Gemini CLI request URL is completed instead: the
-// recorded row takes the URL the case's input gives, its credentials as
-// the placeholder, so a binary that drops, shows or repeats a part of it
-// fails.
-func withheldForms() []withheldForm {
-	form := func(agent, name, recorded, binary, token string) withheldForm {
-		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
-			binary: regexp.MustCompile(binary), token: token}
-	}
+// parserForm returns the entry of difference 230 for a parser whose reader
+// error or token the binary withholds: the form of the recording and of the
+// binary, and the token both are rewritten to.
+func parserForm(agent, name, recorded, binary, token string) withheldForm {
+	return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
+		binary: regexp.MustCompile(binary), token: token}
+}
+
+// withheldInPlaceForms returns the entries of difference 230 in which the binary
+// writes the placeholder where the recording wrote the reader's detail or said
+// that a token was present.
+func withheldInPlaceForms() []withheldForm {
 	pythonJSON := `(?:` + strings.Join(pythonJSONMessages(), "|") + `): line ([0-9]+) column ([0-9]+) \(char [0-9]+\)`
 	goJSON := `invalid JSON at line ([0-9]+), column ([0-9]+): ` + replayPlaceholder
 	position := "{withheld at line ${2}, column ${3}}"
-	schemeText := `[a-z][a-z0-9+.-]*://`
-	scheme := "(" + schemeText + ")"
 	return []withheldForm{
-		form("tabby", "config.toml reader error",
+		parserForm("tabby", "config.toml reader error",
 			`(parser: config\.toml is not valid TOML \()(?:`+strings.Join(tomlMessages(), "|")+`)[^"\n]*? `+
 				`\(at line ([0-9]+), column ([0-9]+)\)\)`,
 			`(parser: config\.toml is not valid TOML \()invalid TOML at line ([0-9]+), column ([0-9]+): `+
@@ -335,31 +331,38 @@ func withheldForms() []withheldForm {
 			"${1}"+position+")"),
 		// The binary gives an Agent Zero chat.json reader's error through
 		// ReaderErrorText, the file holding the bot token and API keys.
-		form("agent-zero", "chat.json reader error",
+		parserForm("agent-zero", "chat.json reader error",
 			`(parser: chat\.json did not parse \()`+pythonJSON+`(\); log items recovered without history)`,
 			`(parser: chat\.json did not parse \()`+goJSON+`(\); log items recovered without history)`,
 			"${1}"+position+"${4}"),
 		// The recording left out a .sgptrc line without "=", the file holding
 		// the API key; the binary gives it through SecretText, withheld.
-		form("shellgpt", "settings line without an equals sign",
+		parserForm("shellgpt", "settings line without an equals sign",
 			`(parser: unparseable line [0-9]+ \(no "=" separator); not shown, the file holds the API key\)`,
 			`(parser: unparseable line [0-9]+ \(no "=" separator)\): `+replayPlaceholder,
 			"${1}{withheld line})"),
-		form("nanobot", "config.json reader error",
+		parserForm("nanobot", "config.json reader error",
 			`(parser: config\.json did not parse: )`+pythonJSON+`("|\n|\z)`,
 			`(parser: config\.json did not parse: )`+goJSON+`("|\n|\z)`,
 			"${1}"+position+"${4}"),
-		form("openclaw", "exec approvals reader error",
+		parserForm("openclaw", "exec approvals reader error",
 			`(exec_approvals_config raw_json unparseable \()`+pythonJSON+`; text withheld, it holds the approvals `+
 				`socket token\)`,
 			`(exec_approvals_config raw_json unparseable \()`+goJSON+`\)`,
 			"${1}"+position+")"),
 		// The recording said only that an account's token was present; the
 		// binary gives the token, withheld.
-		form("copilot-desktop", "account token",
+		parserForm("copilot-desktop", "account token",
 			`(account: [^"\n]* )token_present=true("|\n|\z)`,
 			`(account: [^"\n]* )token=`+replayPlaceholder+`("|\n|\z)`,
 			"${1}{withheld token}${2}"),
+	}
+}
+
+// addedPartForms returns the entries of difference 230 in which the binary adds
+// a part, a token or a reader's error, that the recording never printed.
+func addedPartForms() []withheldForm {
+	return []withheldForm{
 		// The recording names a crush.json that is not JSON without the
 		// reader's error; the binary adds it, withheld.
 		addsForm("crush", "crush.json reader error", `parser: [^"\n]*crush\.json is not a JSON object`,
@@ -400,6 +403,16 @@ func withheldForms() []withheldForm {
 		// The recording gave a session's share without its secret.
 		addsForm("opencode", "share secret", `session synced: share [^"\n]* url [^ "\n]*`,
 			` secret=`+replayPlaceholder, ` \(from [^"\n]* session_share, time_created\)`),
+	}
+}
+
+// commandAndURLForms returns the entries of difference 230 that read a command's
+// output or a URL: a pi row that equals a recorded key, a network request's URL,
+// and the user information of a repository's remote URLs.
+func commandAndURLForms() []withheldForm {
+	schemeText := `[a-z][a-z0-9+.-]*://`
+	scheme := "(" + schemeText + ")"
+	return []withheldForm{
 		// The binary withholds a URL credential of 8 bytes or more wherever
 		// the output holds it, so in a run over a tree holding a Gemini CLI
 		// request whose URL gives key=redacted, a pi thinking row the agent
@@ -433,6 +446,19 @@ func withheldForms() []withheldForm {
 			recorded: regexp.MustCompile(scheme + remoteUserInfo() + `@`),
 			binary:   regexp.MustCompile(scheme + replayPlaceholder + `@`), token: "${1}{withheld}@"},
 	}
+}
+
+// withheldForms returns the entries of difference 230. A parser that comes
+// to withhold a secret the recording gave in another form adds an entry,
+// and a run of every case fails for an entry no case of its scope used.
+// Each of the binary's forms holds the placeholder where the secret was,
+// so a binary that shows the secret, or prints the recording's form,
+// still fails. The Gemini CLI request URL is completed instead: the
+// recorded row takes the URL the case's input gives, its credentials as
+// the placeholder, so a binary that drops, shows or repeats a part of it
+// fails.
+func withheldForms() []withheldForm {
+	return slices.Concat(withheldInPlaceForms(), addedPartForms(), commandAndURLForms())
 }
 
 // remoteUserInfo returns the pattern of the user information of a URL that
@@ -646,55 +672,20 @@ func TestAParseMayAddOneRowOfEachWithheldRowEntry(t *testing.T) {
 	}
 }
 
-func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
-	tomlRecorded := "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))"
-	tomlBinary := "parser: config.toml is not valid TOML (invalid TOML at line 2, column 11: " + replayPlaceholder + ")"
-	jsonRecorded := "parser: config.json did not parse: Expecting value: line 1 column 37 (char 36)"
-	jsonBinary := "parser: config.json did not parse: invalid JSON at line 1, column 37: " + replayPlaceholder
-	crushRecorded := "parser: .config/crush/crush.json is not a JSON object"
-	crushBinary := crushRecorded + " (invalid JSON at line 1, column 38: " + replayPlaceholder + ")"
-	execRecorded := "parser: exec_approvals_config raw_json unparseable (Expecting value: line 1 column 22 " +
-		"(char 21); text withheld, it holds the approvals socket token)"
-	execBinary := "parser: exec_approvals_config raw_json unparseable (invalid JSON at line 1, column 22: " + replayPlaceholder + ")"
+// withheldCase is one case of the comparison of a withheld secret: the text
+// recorded, the text the binary wrote, and whether the comparison agrees.
+type withheldCase struct {
+	name, want, got string
+	agree           bool
+}
+
+// remoteCases returns the cases of the remote URLs of a repository, where the
+// binary withholds the user information of a URL.
+func remoteCases() []withheldCase {
 	remoteRecorded := "  remotes: origin git@h:o/r.git (push https://alice:TOKEN@github.com/o/r.git)\n"
 	remoteBinary := strings.Replace(remoteRecorded, "alice:TOKEN", replayPlaceholder, 1)
 	jsonRemote := "          \"urls\": [\n            \"https://alice:TOKEN@github.com/o/r.git\"\n"
-	accountRecorded := "account: ana host=github.com kind=github default=1 token_present=true"
-	accountBinary := "account: ana host=github.com kind=github default=1 token=" + replayPlaceholder
-	accountAbsent := "account: ana host=github.com kind=github default=1 token_present=false"
-	connectionRecorded := "remote backend: remote Homelab https://hermes.example.net (from connections.json, " +
-		"file mtime)"
-	connectionBinary := strings.Replace(connectionRecorded, " (from", " token="+replayPlaceholder+" (from", 1)
-	telegramRecorded := "session relayed: telegram bot opsbot chat 1 user 2 @ana (from chat.json data, file mtime)"
-	telegramBinary := strings.Replace(telegramRecorded, " (from", " token="+replayPlaceholder+" (from", 1)
-	overrideRecorded := "model: requested chat=openrouter/m utility=ollama/q (chat override, as of file mtime)"
-	overrideBinary := strings.Replace(overrideRecorded, " utility", " chat.api_key="+replayPlaceholder+" utility", 1)
-	retryRecorded := "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
-		"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
-		"roo.retryQueue, request timestamp)"
-	retryBinary := strings.Replace(retryRecorded, " lastError", " Authorization="+replayPlaceholder+" lastError", 1)
-	socketRecorded := "permission setting: defaults.security=allowlist (from state/openclaw.sqlite " +
-		"exec_approvals_config, updated_at_ms)"
-	socketBinary := strings.Replace(socketRecorded, " (from", " socket.token="+replayPlaceholder+" (from", 1)
-	integrationRecorded := "source host: github.com integration acme kind=github api_base=- " +
-		"(account not recorded; from integrations table, created_at)"
-	integrationBinary := strings.Replace(integrationRecorded, " (account", " access_token="+replayPlaceholder+" (account", 1)
-	modelRecorded := "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +
-		"supported_models=m (from config.toml [model.chat.http], file mtime)"
-	modelBinary := strings.Replace(modelRecorded, " supported", " api_key="+replayPlaceholder+" supported", 1)
-	shareRecorded := "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
-		"(from opencode-beta.db session_share, time_created)"
-	shareBinary := strings.Replace(shareRecorded, " (from", " secret="+replayPlaceholder+" (from", 1)
-	lineRecorded := `parser: unparseable line 1 (no "=" separator; not shown, the file holds the API key)`
-	lineBinary := `parser: unparseable line 1 (no "=" separator): ` + replayPlaceholder
-	chatRecorded := "parser: chat.json did not parse (Expecting value: line 1 column 3317 (char 3316)); " +
-		"log items recovered without history"
-	chatBinary := "parser: chat.json did not parse (invalid JSON at line 1, column 3317: " + replayPlaceholder + "); " +
-		"log items recovered without history"
-	tests := []struct {
-		name, want, got string
-		agree           bool
-	}{
+	return []withheldCase{
 		{"a remote in its placeholder form passes", remoteRecorded, remoteBinary, true},
 		{"a remote showing its credentials fails", remoteRecorded, remoteRecorded, false},
 		{"a remote of another host fails", remoteRecorded, strings.Replace(remoteBinary, "github.com", "gitlab.com", 1),
@@ -704,6 +695,23 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			strings.Replace(jsonRemote, "alice:TOKEN", replayPlaceholder, 1), true},
 		{"a URL with credentials in a row's text is not this entry's", "{\"text\":\"https://alice:TOKEN@h/\"}\n",
 			"{\"text\":\"https://" + replayPlaceholder + "@h/\"}\n", false},
+		{"a remote written as the compared form's text fails", remoteRecorded,
+			strings.Replace(remoteRecorded, "alice:TOKEN@", "{withheld}@", 1), false},
+	}
+}
+
+// tomlJSONAndChatErrorCases returns the cases of the reader errors of a TOML
+// config, a JSON config and a chat.json, each withheld at its position.
+func tomlJSONAndChatErrorCases() []withheldCase {
+	tomlRecorded := "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))"
+	tomlBinary := "parser: config.toml is not valid TOML (invalid TOML at line 2, column 11: " + replayPlaceholder + ")"
+	jsonRecorded := "parser: config.json did not parse: Expecting value: line 1 column 37 (char 36)"
+	jsonBinary := "parser: config.json did not parse: invalid JSON at line 1, column 37: " + replayPlaceholder
+	chatRecorded := "parser: chat.json did not parse (Expecting value: line 1 column 3317 (char 3316)); " +
+		"log items recovered without history"
+	chatBinary := "parser: chat.json did not parse (invalid JSON at line 1, column 3317: " + replayPlaceholder + "); " +
+		"log items recovered without history"
+	return []withheldCase{
 		{"a TOML error in its placeholder form passes", tomlRecorded, tomlBinary, true},
 		{"a TOML error showing the reader's detail fails", tomlRecorded,
 			strings.Replace(tomlBinary, replayPlaceholder, `expected value but found "sk" instead`, 1), false},
@@ -716,6 +724,25 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a JSON error in another placeholder fails", jsonRecorded, strings.Replace(jsonBinary, replayPlaceholder, "x", 1),
 			false},
 		{"the recording's wording printed by the binary fails", jsonRecorded, jsonRecorded, false},
+		{"a chat.json error in its placeholder form passes", chatRecorded, chatBinary, true},
+		{"a chat.json error showing the reader's detail fails", chatRecorded,
+			strings.Replace(chatBinary, replayPlaceholder, "invalid character 's'", 1), false},
+		{"a JSON error written as the compared form's text fails", jsonRecorded,
+			"parser: config.json did not parse: {withheld at line 1, column 37}", false},
+	}
+}
+
+// crushExecAndSettingsLineCases returns the cases of the crush.json and exec approvals
+// reader errors and of a settings line the binary withholds.
+func crushExecAndSettingsLineCases() []withheldCase {
+	crushRecorded := "parser: .config/crush/crush.json is not a JSON object"
+	crushBinary := crushRecorded + " (invalid JSON at line 1, column 38: " + replayPlaceholder + ")"
+	execRecorded := "parser: exec_approvals_config raw_json unparseable (Expecting value: line 1 column 22 " +
+		"(char 21); text withheld, it holds the approvals socket token)"
+	execBinary := "parser: exec_approvals_config raw_json unparseable (invalid JSON at line 1, column 22: " + replayPlaceholder + ")"
+	lineRecorded := `parser: unparseable line 1 (no "=" separator; not shown, the file holds the API key)`
+	lineBinary := `parser: unparseable line 1 (no "=" separator): ` + replayPlaceholder
+	return []withheldCase{
 		{"a crush.json error in its placeholder form passes", crushRecorded, crushBinary, true},
 		{"a crush.json error showing the reader's detail fails", crushRecorded,
 			strings.Replace(crushBinary, replayPlaceholder, "invalid character 's'", 1), false},
@@ -728,6 +755,26 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			strings.Replace(execBinary, "22", "23", 1), false},
 		{"an exec approvals error of another table fails", execRecorded,
 			strings.Replace(execBinary, "exec_approvals_config", "exec_approvals", 1), false},
+		{"a settings line in its placeholder form passes", lineRecorded, lineBinary, true},
+		{"a settings line shown fails", lineRecorded, strings.Replace(lineBinary, replayPlaceholder, "sk-1", 1), false},
+		{"a settings line of another number fails", lineRecorded, strings.Replace(lineBinary, "line 1", "line 2", 1),
+			false},
+		{"a crush.json error without the reader's error the binary adds fails", crushRecorded, crushRecorded,
+			false},
+		{"a reader's error a parser wrote as the default placeholder fails", crushRecorded,
+			strings.Replace(crushBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
+	}
+}
+
+// accountAndBotTokenCases returns the cases of an account token and of a bot's
+// token, which the binary writes as the placeholder.
+func accountAndBotTokenCases() []withheldCase {
+	accountRecorded := "account: ana host=github.com kind=github default=1 token_present=true"
+	accountBinary := "account: ana host=github.com kind=github default=1 token=" + replayPlaceholder
+	accountAbsent := "account: ana host=github.com kind=github default=1 token_present=false"
+	telegramRecorded := "session relayed: telegram bot opsbot chat 1 user 2 @ana (from chat.json data, file mtime)"
+	telegramBinary := strings.Replace(telegramRecorded, " (from", " token="+replayPlaceholder+" (from", 1)
+	return []withheldCase{
 		{"an account token in its placeholder form passes", accountRecorded, accountBinary, true},
 		{"an account token shown fails", accountRecorded,
 			strings.Replace(accountBinary, replayPlaceholder, "FIXTURE-TOKEN", 1), false},
@@ -739,11 +786,64 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a bot token shown fails", telegramRecorded, strings.Replace(telegramBinary, replayPlaceholder, "123:AA", 1), false},
 		{"a bot of another chat fails", telegramRecorded, strings.Replace(telegramBinary, "chat 1", "chat 9", 1),
 			false},
+		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
+		{"a bot without the token the binary adds fails", telegramRecorded, telegramRecorded, false},
+		{"a bot's webhook secret in place of its token fails", telegramRecorded,
+			strings.Replace(telegramBinary, " token=", " webhook_secret=", 1), false},
+		{"an account token written as the compared form's text fails", accountRecorded,
+			strings.Replace(accountRecorded, "token_present=true", "{withheld token}", 1), false},
+		{"an account token a parser wrote as the default placeholder fails", accountRecorded,
+			strings.Replace(accountBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
+	}
+}
+
+// connectionAndSlotKeyCases returns the cases of a connection's token and of a
+// chat slot's API key, which the binary adds.
+func connectionAndSlotKeyCases() []withheldCase {
+	connectionRecorded := "remote backend: remote Homelab https://hermes.example.net (from connections.json, " +
+		"file mtime)"
+	connectionBinary := strings.Replace(connectionRecorded, " (from", " token="+replayPlaceholder+" (from", 1)
+	overrideRecorded := "model: requested chat=openrouter/m utility=ollama/q (chat override, as of file mtime)"
+	overrideBinary := strings.Replace(overrideRecorded, " utility", " chat.api_key="+replayPlaceholder+" utility", 1)
+	return []withheldCase{
 		{"a slot's API key in its placeholder form passes", overrideRecorded, overrideBinary, true},
 		{"a slot's API key shown fails", overrideRecorded, strings.Replace(overrideBinary, replayPlaceholder, "sk-1", 1),
 			false},
 		{"a slot of another model fails", overrideRecorded, strings.Replace(overrideBinary, "ollama/q", "ollama/r", 1),
 			false},
+		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
+		{"a connection's token shown fails", connectionRecorded,
+			strings.Replace(connectionBinary, replayPlaceholder, "not-real", 1), false},
+		{"a connection of another URL fails", connectionRecorded,
+			strings.Replace(connectionBinary, "hermes.example.net", "other.example", 1), false},
+		{"a connection's token in another placeholder fails", connectionRecorded,
+			strings.Replace(connectionBinary, replayPlaceholder, "x", 1), false},
+		{"a connection without the token the binary adds fails", connectionRecorded, connectionRecorded, false},
+		{"a slot without the API key the binary adds fails", overrideRecorded, overrideRecorded, false},
+		{"a connection's token written twice fails", connectionRecorded,
+			strings.Replace(connectionBinary, " (from", " token="+replayPlaceholder+" (from", 1), false},
+		{"a connection's headers in place of its token fail", connectionRecorded,
+			strings.Replace(connectionBinary, " token=", " headers=", 1), false},
+		{"a connection's headers twice fail", connectionRecorded,
+			strings.Replace(connectionBinary, " token="+replayPlaceholder, " headers="+replayPlaceholder+" headers="+replayPlaceholder, 1), false},
+		{"a slot's API key after another slot fails", overrideRecorded,
+			strings.Replace(overrideRecorded, " (chat", " utility.api_key="+replayPlaceholder+" (chat", 1), false},
+		{"a token a parser wrote as the default placeholder fails", connectionRecorded,
+			strings.Replace(connectionBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
+	}
+}
+
+// retryQueueAndSocketTokenCases returns the cases of a retried upload's token and of
+// the approvals socket's token, which the binary adds.
+func retryQueueAndSocketTokenCases() []withheldCase {
+	retryRecorded := "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
+		"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
+		"roo.retryQueue, request timestamp)"
+	retryBinary := strings.Replace(retryRecorded, " lastError", " Authorization="+replayPlaceholder+" lastError", 1)
+	socketRecorded := "permission setting: defaults.security=allowlist (from state/openclaw.sqlite " +
+		"exec_approvals_config, updated_at_ms)"
+	socketBinary := strings.Replace(socketRecorded, " (from", " socket.token="+replayPlaceholder+" (from", 1)
+	return []withheldCase{
 		{"a retried upload's token in its placeholder form passes", retryRecorded, retryBinary, true},
 		{"a retried upload's token shown fails", retryRecorded,
 			strings.Replace(retryBinary, replayPlaceholder, "Bearer eyJ", 1), false},
@@ -755,6 +855,32 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, replayPlaceholder, "tok", 1), false},
 		{"a socket token beside another setting fails", socketRecorded,
 			strings.Replace(socketBinary, "allowlist", "full", 1), false},
+		{"a retried upload without the token the binary adds fails", retryRecorded, retryRecorded, false},
+		{"settings without the socket token the binary adds fail", socketRecorded, socketRecorded, false},
+		{"a retried upload's token written twice fails", retryRecorded,
+			strings.Replace(retryBinary, " lastError", " Authorization="+replayPlaceholder+" lastError", 1), false},
+		{"a retried upload's token after the error fails", retryRecorded,
+			strings.Replace(retryRecorded, " (Roo Code", " Authorization="+replayPlaceholder+" (Roo Code", 1), false},
+		{"a socket token written twice fails", socketRecorded,
+			strings.Replace(socketBinary, " (from", " socket.token="+replayPlaceholder+" (from", 1), false},
+		{"a retried upload holding the compared form's marker fails", retryRecorded,
+			strings.Replace(retryRecorded, " lastError", "{added retry queue bearer token} lastError", 1), false},
+	}
+}
+
+// integrationModelAndShareCases returns the cases of an integration's token, a model's
+// API key and a share's secret, which the binary adds.
+func integrationModelAndShareCases() []withheldCase {
+	integrationRecorded := "source host: github.com integration acme kind=github api_base=- " +
+		"(account not recorded; from integrations table, created_at)"
+	integrationBinary := strings.Replace(integrationRecorded, " (account", " access_token="+replayPlaceholder+" (account", 1)
+	modelRecorded := "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +
+		"supported_models=m (from config.toml [model.chat.http], file mtime)"
+	modelBinary := strings.Replace(modelRecorded, " supported", " api_key="+replayPlaceholder+" supported", 1)
+	shareRecorded := "session synced: share SHARE05 url https://opncd.ai/share/SHARE05 " +
+		"(from opencode-beta.db session_share, time_created)"
+	shareBinary := strings.Replace(shareRecorded, " (from", " secret="+replayPlaceholder+" (from", 1)
+	return []withheldCase{
 		{"a share's secret in its placeholder form passes", shareRecorded, shareBinary, true},
 		{"a share's secret shown fails", shareRecorded, strings.Replace(shareBinary, replayPlaceholder, "sec", 1), false},
 		{"a share of another id fails", shareRecorded, strings.Replace(shareBinary, "SHARE05 url", "SHARE06 url", 1),
@@ -767,66 +893,20 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			strings.Replace(integrationBinary, replayPlaceholder, "ghp_x", 1), false},
 		{"an integration of another kind fails", integrationRecorded,
 			strings.Replace(integrationBinary, "kind=github", "kind=gitlab", 1), false},
-		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
-		{"a connection's token shown fails", connectionRecorded,
-			strings.Replace(connectionBinary, replayPlaceholder, "not-real", 1), false},
-		{"a connection of another URL fails", connectionRecorded,
-			strings.Replace(connectionBinary, "hermes.example.net", "other.example", 1), false},
-		{"a connection's token in another placeholder fails", connectionRecorded,
-			strings.Replace(connectionBinary, replayPlaceholder, "x", 1), false},
-		{"an absent account token said to be present fails", accountAbsent, accountBinary, false},
-		{"a chat.json error in its placeholder form passes", chatRecorded, chatBinary, true},
-		{"a settings line in its placeholder form passes", lineRecorded, lineBinary, true},
-		{"a settings line shown fails", lineRecorded, strings.Replace(lineBinary, replayPlaceholder, "sk-1", 1), false},
-		{"a settings line of another number fails", lineRecorded, strings.Replace(lineBinary, "line 1", "line 2", 1),
-			false},
-		{"a chat.json error showing the reader's detail fails", chatRecorded,
-			strings.Replace(chatBinary, replayPlaceholder, "invalid character 's'", 1), false},
-		{"a connection without the token the binary adds fails", connectionRecorded, connectionRecorded, false},
-		{"a bot without the token the binary adds fails", telegramRecorded, telegramRecorded, false},
-		{"a slot without the API key the binary adds fails", overrideRecorded, overrideRecorded, false},
-		{"a retried upload without the token the binary adds fails", retryRecorded, retryRecorded, false},
-		{"settings without the socket token the binary adds fail", socketRecorded, socketRecorded, false},
 		{"an integration without the token the binary adds fails", integrationRecorded, integrationRecorded, false},
 		{"a model without the API key the binary adds fails", modelRecorded, modelRecorded, false},
 		{"a share without the secret the binary adds fails", shareRecorded, shareRecorded, false},
-		{"a crush.json error without the reader's error the binary adds fails", crushRecorded, crushRecorded,
-			false},
-		{"a retried upload's token written twice fails", retryRecorded,
-			strings.Replace(retryBinary, " lastError", " Authorization="+replayPlaceholder+" lastError", 1), false},
-		{"a retried upload's token after the error fails", retryRecorded,
-			strings.Replace(retryRecorded, " (Roo Code", " Authorization="+replayPlaceholder+" (Roo Code", 1), false},
-		{"a connection's token written twice fails", connectionRecorded,
-			strings.Replace(connectionBinary, " (from", " token="+replayPlaceholder+" (from", 1), false},
-		{"a connection's headers in place of its token fail", connectionRecorded,
-			strings.Replace(connectionBinary, " token=", " headers=", 1), false},
-		{"a connection's headers twice fail", connectionRecorded,
-			strings.Replace(connectionBinary, " token="+replayPlaceholder, " headers="+replayPlaceholder+" headers="+replayPlaceholder, 1), false},
-		{"a bot's webhook secret in place of its token fails", telegramRecorded,
-			strings.Replace(telegramBinary, " token=", " webhook_secret=", 1), false},
-		{"a slot's API key after another slot fails", overrideRecorded,
-			strings.Replace(overrideRecorded, " (chat", " utility.api_key="+replayPlaceholder+" (chat", 1), false},
 		{"a model's API key after its supported models fails", modelRecorded,
 			strings.Replace(modelRecorded, " (from", " api_key="+replayPlaceholder+" (from", 1), false},
 		{"a share's secret before its URL fails", shareRecorded,
 			strings.Replace(shareRecorded, " url", " secret="+replayPlaceholder+" url", 1), false},
-		{"a socket token written twice fails", socketRecorded,
-			strings.Replace(socketBinary, " (from", " socket.token="+replayPlaceholder+" (from", 1), false},
-		{"a retried upload holding the compared form's marker fails", retryRecorded,
-			strings.Replace(retryRecorded, " lastError", "{added retry queue bearer token} lastError", 1), false},
-		{"an account token written as the compared form's text fails", accountRecorded,
-			strings.Replace(accountRecorded, "token_present=true", "{withheld token}", 1), false},
-		{"a remote written as the compared form's text fails", remoteRecorded,
-			strings.Replace(remoteRecorded, "alice:TOKEN@", "{withheld}@", 1), false},
-		{"a JSON error written as the compared form's text fails", jsonRecorded,
-			"parser: config.json did not parse: {withheld at line 1, column 37}", false},
-		{"a reader's error a parser wrote as the default placeholder fails", crushRecorded,
-			strings.Replace(crushBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
-		{"a token a parser wrote as the default placeholder fails", connectionRecorded,
-			strings.Replace(connectionBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
-		{"an account token a parser wrote as the default placeholder fails", accountRecorded,
-			strings.Replace(accountBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
 	}
+}
+
+func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
+	tests := slices.Concat(remoteCases(), tomlJSONAndChatErrorCases(), crushExecAndSettingsLineCases(),
+		accountAndBotTokenCases(), connectionAndSlotKeyCases(), retryQueueAndSocketTokenCases(),
+		integrationModelAndShareCases())
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if agree := withheldAgree(t, recordedAgent(test.want), test.want, test.got); agree != test.agree {
