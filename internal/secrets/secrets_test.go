@@ -641,3 +641,26 @@ func printable(text, banned string) bool {
 	}
 	return true
 }
+
+func TestAParseStartedInsideAnotherGivesTheOuterParseItsRecordBack(t *testing.T) {
+	recorder := NewRecorder(withheld())
+	outer := recorder.Begin()
+	recorder.Value("pw1")
+	inner := recorder.Begin()
+	recorder.Value("pw2")
+	recorder.End()
+	recorder.Value("pw3")
+	if recorder.Current() != outer {
+		t.Error("the outer parse is not running after the inner one ended")
+	}
+	recorder.End()
+	if got, want := outer.Secrets(), []string{"pw1", "pw3"}; !slices.Equal(got, want) {
+		t.Errorf("the outer parse recorded %q, want %q", got, want)
+	}
+	if got, want := inner.Secrets(), []string{"pw2"}; !slices.Equal(got, want) {
+		t.Errorf("the inner parse recorded %q, want %q", got, want)
+	}
+	if recorder.Current() != nil {
+		t.Error("a parse is running after both ended")
+	}
+}
