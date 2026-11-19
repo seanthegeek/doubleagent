@@ -3,6 +3,7 @@ package secrets
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
 	"github.com/seanthegeek/doubleagent/internal/textset"
 )
 
@@ -50,10 +51,8 @@ func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 			matchers = append(matchers, parse.matcherOf(where, emptyPlaceholder, r.work))
 		}
 	}
-	var inText []credential
-	if mayHoldURL(text) {
-		identifyURLs(text, func(secret credential) { inText = append(inText, secret) }, r.work)
-	}
+	var inText []urlcredentials.Credential
+	identifyURLs(text, func(secret urlcredentials.Credential) { inText = append(inText, secret) }, r.work)
 	if len(matchers) == 0 && len(inText) == 0 {
 		return text
 	}
@@ -65,7 +64,7 @@ func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	// whatever their length, by their byte range: the same letters
 	// elsewhere in the string are not a credential.
 	for _, secret := range inText {
-		longest[secret.start] = max(longest[secret.start], secret.replacedEnd(emptyPlaceholder)-secret.start)
+		longest[secret.Start] = max(longest[secret.Start], secret.ReplacedEnd(emptyPlaceholder)-secret.Start)
 	}
 	return replaceRanges(text, longest, r.setting.Placeholder)
 }

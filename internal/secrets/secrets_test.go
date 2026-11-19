@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -11,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/tomldoc"
 )
 
@@ -43,82 +46,127 @@ func urlText(setting Setting, text string) (string, []string) {
 	return recorder.Text(text), found
 }
 
-func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
-	tests := []struct {
-		name, text, want string
-	}{
-		{"a user name and password", "https://user:pass@host.example:8443/api?x=1",
-			"https://REDACTED@host.example:8443/api?x=1"},
-		{"a token as the user name", "https://ghp_FIXTURE@github.com/org/repo.git",
-			"https://REDACTED@github.com/org/repo.git"},
-		{"an installation token and its user", "https://x-access-token:ghs_abc@github.com/o/r.git",
-			"https://REDACTED@github.com/o/r.git"},
-		{"a short user name alone is kept", "ssh://git@github.com/o/r.git", "ssh://git@github.com/o/r.git"},
-		{"a seven-byte user name alone is kept", "https://ci-user@h/x", "https://ci-user@h/x"},
-		{"an eight-byte user name alone is withheld", "https://ci-users@h/x", "https://REDACTED@h/x"},
-		{"a user name before an IPv6 host", "http://tok@[::1]:8080/x", "http://tok@[::1]:8080/x"},
-		{"a password and an IPv6 host", "http://u:pw9@[2001:db8::1]/x", "http://REDACTED@[2001:db8::1]/x"},
-		{"an empty password", "https://user:@host/x", "https://REDACTED@host/x"},
-		{"the last at sign ends the user information", "http://u:p@ss@host/", "http://REDACTED@host/"},
-		{"a password holding a percent-escape", "https://u:p%40s%2Fs@host/x", "https://REDACTED@host/x"},
-		{"a password holding a colon", "https://u:a:b@host/x", "https://REDACTED@host/x"},
-		{"a slash ends the authority, so what follows is a path",
-			"https://AKIA:wJalr/K7MDENG/bPxRf@host/x", "https://AKIA:wJalr/K7MDENG/bPxRf@host/x"},
-		{"a URL net/url refuses", "https://tok:se%ZZcret@host/", "https://REDACTED@host/"},
-		{"an at sign in the path is kept", "https://host.example/users/@alice", "https://host.example/users/@alice"},
-		{"an at sign after a colon in the path is kept", "https://host/a:b/c@d", "https://host/a:b/c@d"},
-		{"an at sign in the query is kept", "https://host.example?mail=a@b", "https://host.example?mail=a@b"},
-		{"an at sign in the fragment is kept", "https://host.example/#a:b@c", "https://host.example/#a:b@c"},
-		{"every URL in a text", "from https://a:b@one/x to http://c:d@two/y",
+// grammarCase is one case of the URL grammar of identifyURLs: the number
+// of the rule it holds to, and a text with how the output writes it.
+type grammarCase struct {
+	rule             int
+	name, text, want string
+}
+
+// grammarCases returns the cases of each rule of the URL grammar, at least
+// one that replaces and one that keeps.
+func grammarCases() []grammarCase {
+	return []grammarCase{
+		{1, "every URL in a text", "from https://a:b@one/x to http://c:d@two/y",
 			"from https://REDACTED@one/x to http://REDACTED@two/y"},
-		{"a URL in a command line", "git clone https://oauth2:glpat-xyz@gitlab.com/o/r.git dir",
+		{1, "a URL in a command line", "git clone https://oauth2:glpat-xyz@gitlab.com/o/r.git dir",
 			"git clone https://REDACTED@gitlab.com/o/r.git dir"},
-		{"a URL in JSON text", `{"url":"https://u:pw9@h/x","next":"me@example.com"}`,
+		{1, "a URL in JSON text", `{"url":"https://u:pw9@h/x","next":"me@example.com"}`,
 			`{"url":"https://REDACTED@h/x","next":"me@example.com"}`},
-		{"a URL written with JSON's escaped slashes", `https:\/\/u:pw9@h\/x`, `https:\/\/REDACTED@h\/x`},
-		{"a URL inside the query of another", "https://h/a?next=https://u:pw9@i/",
-			"https://h/a?next=https://REDACTED@i/"},
-		{"a separator without a scheme is no URL", "://u:p@h/", "://u:p@h/"},
-		{"credentials without a scheme are kept", "user:secret@proxy.example:3128", "user:secret@proxy.example:3128"},
-		{"credentials without a scheme after a URL are kept", "https://a/x,user:pw@proxy:3128",
-			"https://a/x,user:pw@proxy:3128"},
-		{"a time before an at sign is kept", "meet at 12:30@home", "meet at 12:30@home"},
-		{"a package version is kept", "node:18@latest", "node:18@latest"},
-		{"an image digest is kept", "image:tag@sha256:abc", "image:tag@sha256:abc"},
-		{"a mail header is kept", "From:alice@example.com", "From:alice@example.com"},
-		{"an error naming an address is kept", "Error:foo@bar", "Error:foo@bar"},
-		{"the SCP form of a git remote is kept", "git@github.com:o/r.git", "git@github.com:o/r.git"},
-		{"a token in the query", "https://host/share/session?token=abc123", "https://host/share/session?token=REDACTED"},
-		{"an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
-			"https://h/v1?alt=json&key=REDACTED&x=1"},
-		{"parameters split at semicolons", "https://h/?x=1;sig=abc;y=2", "https://h/?x=1;sig=REDACTED;y=2"},
-		{"a parameter name in another case", "https://h/?Access_Token=abc#x", "https://h/?Access_Token=REDACTED#x"},
-		{"a parameter name with a percent-escape", "https://h/?%74oken=abc", "https://h/?%74oken=REDACTED"},
-		{"a signed URL's AWS parameters", "https://b.s3.example/k?X-Amz-Credential=AKIAFIXTURE&X-Amz-Signature=f00d",
-			"https://b.s3.example/k?X-Amz-Credential=REDACTED&X-Amz-Signature=REDACTED"},
-		{"a name folded outside ASCII is kept", "https://h/?\u212aey=abc", "https://h/?\u212aey=abc"},
-		{"a token in the fragment", "https://h/cb#access_token=abc&token_type=bearer",
-			"https://h/cb#access_token=REDACTED&token_type=bearer"},
-		{"credentials and a query token together", "https://u:pw9@h/x?token=t0k#f", "https://REDACTED@h/x?token=REDACTED#f"},
-		{"a parameter whose name only holds a credential name is kept", "https://h/?tokens=1&monkey=2",
-			"https://h/?tokens=1&monkey=2"},
-		{"an empty credential value is kept", "https://h/?token=&x=1", "https://h/?token=&x=1"},
-		{"a query outside a URL is kept", "a?token=b", "a?token=b"},
-		{"punctuation after a URL is not part of it", "POST https://h/t?key=k1: failed, see https://u:pw9@h/.",
+		{1, "a quote ends a URL", `'https://h/?token=t0k'x`, `'https://h/?token=REDACTED'x`},
+		{1, "empty text is unchanged", "", ""},
+		{2, "a URL written with JSON's escaped slashes", `https:\/\/u:pw9@h\/x`, `https:\/\/REDACTED@h\/x`},
+		{2, "a scheme in capitals", "HTTPS://u:pw9@h/", "HTTPS://REDACTED@h/"},
+		{2, "a separator without a scheme is no URL", "://u:p@h/", "://u:p@h/"},
+		{2, "credentials without a scheme are kept", "user:secret@proxy.example:3128",
+			"user:secret@proxy.example:3128"},
+		{2, "a time before an at sign is kept", "meet at 12:30@home", "meet at 12:30@home"},
+		{2, "a package version is kept", "node:18@latest", "node:18@latest"},
+		{2, "an image digest is kept", "image:tag@sha256:abc", "image:tag@sha256:abc"},
+		{2, "a mail header is kept", "From:alice@example.com", "From:alice@example.com"},
+		{2, "an error naming an address is kept", "Error:foo@bar", "Error:foo@bar"},
+		{2, "the SCP form of a git remote is kept", "git@github.com:o/r.git", "git@github.com:o/r.git"},
+		{2, "a query outside a URL is kept", "a?token=b", "a?token=b"},
+		{3, "punctuation after a URL is not part of it", "POST https://h/t?key=k1: failed, see https://u:pw9@h/.",
 			"POST https://h/t?key=REDACTED: failed, see https://REDACTED@h/."},
-		{"a short parameter value is replaced only where the URL holds it",
+		{3, "a Markdown link's closing parenthesis ends its URL", "see [the share](https://h/s?token=LONGTOKEN123) now",
+			"see [the share](https://h/s?token=REDACTED) now"},
+		{3, "a bracket opened inside the URL is part of it", "https://h/w(1)?token=t0k(2)x",
+			"https://h/w(1)?token=REDACTED"},
+		{3, "a closing brace with no opening one ends a URL", `{u:https://h/?token=t0k}`,
+			`{u:https://h/?token=REDACTED}`},
+		{3, "a comma before a scheme ends a URL", "https://h/a,b?token=abc,https://c:d@two/y",
+			"https://h/a,b?token=REDACTED,https://REDACTED@two/y"},
+		{3, "a comma not before a scheme is part of a value", "https://h/?token=a,b c", "https://h/?token=REDACTED c"},
+		{3, "credentials without a scheme after a URL are kept", "https://a/x,user:pw@proxy:3128",
+			"https://a/x,user:pw@proxy:3128"},
+		{4, "a slash ends the authority, so what follows is a path",
+			"https://AKIA:wJalr/K7MDENG/bPxRf@host/x", "https://AKIA:wJalr/K7MDENG/bPxRf@host/x"},
+		{4, "an at sign in the path is kept", "https://host.example/users/@alice", "https://host.example/users/@alice"},
+		{4, "an at sign after a colon in the path is kept", "https://host/a:b/c@d", "https://host/a:b/c@d"},
+		{4, "an at sign in the query is kept", "https://host.example?mail=a@b", "https://host.example?mail=a@b"},
+		{4, "an at sign in the fragment is kept", "https://host.example/#a:b@c", "https://host.example/#a:b@c"},
+		{4, "an escaped slash ends the authority", `https:\/\/h\/u:p@x`, `https:\/\/h\/u:p@x`},
+		{4, "a URL inside the query of another", "https://h/a?next=https://u:pw9@i/",
+			"https://h/a?next=https://REDACTED@i/"},
+		{5, "a user name and password", "https://user:pass@host.example:8443/api?x=1",
+			"https://REDACTED@host.example:8443/api?x=1"},
+		{5, "a token as the user name", "https://ghp_FIXTURE@github.com/org/repo.git",
+			"https://REDACTED@github.com/org/repo.git"},
+		{5, "an installation token and its user", "https://x-access-token:ghs_abc@github.com/o/r.git",
+			"https://REDACTED@github.com/o/r.git"},
+		{5, "a short user name alone is kept", "ssh://git@github.com/o/r.git", "ssh://git@github.com/o/r.git"},
+		{5, "a seven-byte user name alone is kept", "https://ci-user@h/x", "https://ci-user@h/x"},
+		{5, "an eight-byte user name alone is withheld", "https://ci-users@h/x", "https://REDACTED@h/x"},
+		{5, "a user name before an IPv6 host", "http://tok@[::1]:8080/x", "http://tok@[::1]:8080/x"},
+		{5, "a password and an IPv6 host", "http://u:pw9@[2001:db8::1]/x", "http://REDACTED@[2001:db8::1]/x"},
+		{5, "an empty password", "https://user:@host/x", "https://REDACTED@host/x"},
+		{5, "the last at sign ends the user information", "http://u:p@ss@host/", "http://REDACTED@host/"},
+		{5, "a password holding a percent-escape", "https://u:p%40s%2Fs@host/x", "https://REDACTED@host/x"},
+		{5, "a password holding a colon", "https://u:a:b@host/x", "https://REDACTED@host/x"},
+		{5, "a URL net/url refuses", "https://tok:se%ZZcret@host/", "https://REDACTED@host/"},
+		{5, "a short password is kept elsewhere in the string", "https://pw:pw@h/ pw", "https://REDACTED@h/ pw"},
+		{5, "user information that is only a colon is none", "see https://:@host/ at 10:30: done",
+			"see https://:@host/ at 10:30: done"},
+		{5, "a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
+		{6, "a parameter after a redirect target with a path", "https://h/x?next=https://other/&access_token=ya29.T0K",
+			"https://h/x?next=https://other/&access_token=REDACTED"},
+		{6, "a parameter after a redirect target without a path", "https://h/x?next=https://other&access_token=ya29.T0K",
+			"https://h/x?next=https://other&access_token=REDACTED"},
+		{6, "a client secret after a redirect URI",
+			"https://login.example/authorize?redirect_uri=https://app.example/cb&client_secret=S3CR3Tvalue",
+			"https://login.example/authorize?redirect_uri=https://app.example/cb&client_secret=REDACTED"},
+		{6, "a token in the fragment", "https://h/cb#access_token=abc&token_type=bearer",
+			"https://h/cb#access_token=REDACTED&token_type=bearer"},
+		{6, "credentials and a query token together", "https://u:pw9@h/x?token=t0k#f",
+			"https://REDACTED@h/x?token=REDACTED#f"},
+		{6, "a question mark in the fragment starts no query", "https://h/#x?token=t0k", "https://h/#x?token=t0k"},
+		{7, "parameters split at semicolons", "https://h/?x=1;sig=abc;y=2", "https://h/?x=1;sig=REDACTED;y=2"},
+		{7, "a parameter after JSON's escaped ampersand",
+			`{\"next\":\"https://api.example/v1/items?page=2\u0026access_token=ya29.T0K\"}`,
+			`{\"next\":\"https://api.example/v1/items?page=2\u0026access_token=REDACTED\"}`},
+		{7, "an escaped ampersand in capitals", `https://h/?a=1\U0026token=t0k`, `https://h/?a=1\U0026token=REDACTED`},
+		{7, "an escaped slash is part of a value", `https:\/\/api.example\/v1?sig=ab\/cdEF+ij\/k\u0026x=1`,
+			`https:\/\/api.example\/v1?sig=REDACTED\u0026x=1`},
+		{7, "another backslash ends a value", `https://h/?token=t0k\nnext`, `https://h/?token=REDACTED\nnext`},
+		{7, "a backslash ends a parameter, so what follows names another", `https://h/?x=1\ntoken=t0k`,
+			`https://h/?x=1\ntoken=t0k`},
+		{7, "a hash ends a query parameter", "https://h/?token=t0k#x=1", "https://h/?token=REDACTED#x=1"},
+		{8, "a token in the query", "https://host/share/session?token=abc123",
+			"https://host/share/session?token=REDACTED"},
+		{8, "an API key in the query beside other parameters", "https://h/v1?alt=json&key=AIza123&x=1",
+			"https://h/v1?alt=json&key=REDACTED&x=1"},
+		{8, "a parameter name in another case", "https://h/?Access_Token=abc#x", "https://h/?Access_Token=REDACTED#x"},
+		{8, "a parameter name with a percent-escape", "https://h/?%74oken=abc", "https://h/?%74oken=REDACTED"},
+		{8, "a signed URL's AWS parameters",
+			"https://b.s3.example/k?X-Amz-Credential=AKIAFIXTURE&X-Amz-Signature=f00d",
+			"https://b.s3.example/k?X-Amz-Credential=REDACTED&X-Amz-Signature=REDACTED"},
+		{8, "a value holding an equals sign", "https://h/?token=a=b&x=1", "https://h/?token=REDACTED&x=1"},
+		{8, "a name folded outside ASCII is kept", "https://h/?\u212aey=abc", "https://h/?\u212aey=abc"},
+		{8, "a parameter whose name only holds a credential name is kept", "https://h/?tokens=1&monkey=2",
+			"https://h/?tokens=1&monkey=2"},
+		{8, "an empty credential value is kept", "https://h/?token=&x=1", "https://h/?token=&x=1"},
+		{8, "a short parameter value is replaced only where the URL holds it",
 			`{"cmd":"curl https://h/x?auth=true","enabled":true,"note":"true story"}`,
 			`{"cmd":"curl https://h/x?auth=REDACTED","enabled":true,"note":"true story"}`},
-		{"a short code is kept elsewhere in the string", "https://h/?code=1 and 1+1=2",
+		{8, "a short code is kept elsewhere in the string", "https://h/?code=1 and 1+1=2",
 			"https://h/?code=REDACTED and 1+1=2"},
-		{"a short password is kept elsewhere in the string", "https://pw:pw@h/ pw", "https://REDACTED@h/ pw"},
-		{"user information that is only a colon is none", "see https://:@host/ at 10:30: done",
-			"see https://:@host/ at 10:30: done"},
-		{"a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
-		{"empty text is unchanged", "", ""},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+}
+
+func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
+	for _, test := range grammarCases() {
+		t.Run(fmt.Sprintf("rule %d: %s", test.rule, test.name), func(t *testing.T) {
 			if got, _ := urlText(withheld(), test.text); got != test.want {
 				t.Errorf("withheld: got %q, want %q", got, test.want)
 			}
@@ -129,6 +177,33 @@ func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
 	}
 }
 
+func TestEveryRuleOfTheURLGrammarHasACaseThatReplacesAndOneThatKeeps(t *testing.T) {
+	source, err := osfile.ReadFile(filepath.Join("urlcredentials", "urlcredentials.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules := len(regexp.MustCompile(`(?m)^//  [0-9]+\. `).FindAll(source, -1))
+	replaces, keeps := map[int]bool{}, map[int]bool{}
+	for _, test := range grammarCases() {
+		if test.rule < 1 || test.rule > rules {
+			t.Errorf("%q holds to rule %d of %d", test.name, test.rule, rules)
+		}
+		replaces[test.rule] = replaces[test.rule] || test.want != test.text
+		keeps[test.rule] = keeps[test.rule] || test.want == test.text
+	}
+	for rule := 1; rule <= rules; rule++ {
+		if !replaces[rule] {
+			t.Errorf("rule %d has no case that replaces", rule)
+		}
+		if !keeps[rule] {
+			t.Errorf("rule %d has no case that keeps a text", rule)
+		}
+	}
+	if rules != 8 {
+		t.Errorf("the grammar has %d rules; the cases were written for 8", rules)
+	}
+}
+
 func TestAURLsShortCredentialsAreReplacedWhereTheyStandAndLongOnesEverywhere(t *testing.T) {
 	recorder := NewRecorder(withheld())
 	output := []string{"see https://ci:pw7@h/ and https://ci:FIXTURE-PW@g/", "pw7 ci:FIXTURE-PW"}
@@ -136,6 +211,21 @@ func TestAURLsShortCredentialsAreReplacedWhereTheyStandAndLongOnesEverywhere(t *
 		recorder.Collect(text)
 	}
 	want := []string{"see https://REDACTED@h/ and https://REDACTED@g/", "pw7 REDACTED"}
+	for i, text := range output {
+		if got := recorder.Text(text); got != want[i] {
+			t.Errorf("%q: got %q, want %q", text, got, want[i])
+		}
+	}
+}
+
+func TestALongCredentialEndingALinkIsReplacedInEveryString(t *testing.T) {
+	recorder := NewRecorder(withheld())
+	output := []string{"see [the share](https://h/s?token=fake-secret-value-0001) now",
+		"used fake-secret-value-0001 again"}
+	for _, text := range output {
+		recorder.Collect(text)
+	}
+	want := []string{"see [the share](https://h/s?token=REDACTED) now", "used REDACTED again"}
 	for i, text := range output {
 		if got := recorder.Text(text); got != want[i] {
 			t.Errorf("%q: got %q, want %q", text, got, want[i])
@@ -346,12 +436,15 @@ type counter map[string]int
 // Add counts n units of the named work.
 func (c counter) Add(name string, n int) { c[name] += n }
 
-// identifyWork returns the bytes read identifying the URLs of k copies of a
-// unit dense in separators, at signs and parameters.
+// identifyWork returns the bytes read identifying the URLs of k copies of
+// units dense in what each rule of the grammar reads: separators, at
+// signs, parameters, brackets, commas before a scheme and JSON escapes.
 func identifyWork(k int) int {
 	work := counter{}
 	text := "https://h/" + strings.Repeat("x://a@b?c&d#e=f&token=g;", k) + strings.Repeat("&", k) +
-		strings.Repeat("://", k) + strings.Repeat("@", k)
+		strings.Repeat("://", k) + strings.Repeat("@", k) + " " +
+		strings.Repeat(`(z:\/\/a:b@c?token=d\/e\u0026f=g),`, k) + strings.Repeat("(", k) + strings.Repeat(")", k) +
+		" " + strings.Repeat(",y://u:p@h/?a=1", k) + strings.Repeat(`\`, k)
 	recorder := NewRecorder(withheld())
 	recorder.work = work
 	recorder.Collect(text)
@@ -490,7 +583,8 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 // same bytes elsewhere in the URL kept, and that with withholding off
 // nothing is recorded. SECRET holds no byte that ends an authority (/, ?, #, a
 // backslash) and SECRET2 none that ends a parameter (&, ;, #, a backslash)
-// and no "://", which starts another URL; neither holds a delimiter.
+// and no "://", which starts another URL; neither holds a delimiter or a
+// closing bracket, which ends a URL.
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
 		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}} {
@@ -501,7 +595,7 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			!onlyOf(host, "abcdefghijklmnopqrstuvwxyz0123456789.-", 1) ||
 			!onlyOf(path, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._~-", 0) ||
 			!onlyOf(fragment, "abcdefghijklmnopqrstuvwxyz0123456789", 0) ||
-			!printable(secret, `/?#\`) || !printable(secret2, `&;#\`) || strings.Contains(secret2, "://") ||
+			!printable(secret, `/?#\)]}`) || !printable(secret2, `&;#\)]}`) || strings.Contains(secret2, "://") ||
 			secret == "" || secret2 == "" {
 			return
 		}
@@ -533,14 +627,15 @@ func onlyOf(text, allowed string, least int) bool {
 }
 
 // printable reports whether text is valid UTF-8 of printable characters
-// holding no URL delimiter and none of the bytes in banned.
+// holding no byte that ends a token (rule 1 of the URL grammar) and none of
+// the bytes in banned.
 func printable(text, banned string) bool {
 	if !utf8.ValidString(text) {
 		return false
 	}
 	for _, character := range text {
 		if !unicode.IsPrint(character) || character < utf8.RuneSelf &&
-			(isDelimiter(byte(character)) || strings.ContainsRune(banned, character)) {
+			strings.ContainsRune(" \t\n\v\f\r\"'<>`"+banned, character) {
 			return false
 		}
 	}
