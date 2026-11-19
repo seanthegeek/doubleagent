@@ -278,11 +278,17 @@ func (p *Parser) parseToggle(artifact *input.Artifact, match []string, emit pars
 	emit(p.settingRow(artifact, text, projectOf(jsonvalue.NewString(groupOf(p.toggle, match, "project")))))
 }
 
+// restoreTokenKey is the connector .env key of the computer-use restore
+// token, the one credential the connector writes there; its other keys are
+// the instance URL, the last chat's host and id and on/off flags
+// (research/agent-zero.md, "Host-side companions").
+const restoreTokenKey = "AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN"
+
 // parseConnector emits the rows of the A0 CLI connector's ~/.agent-zero/.env:
-// one "connector settings:" row of every key in file order, each value
-// through parser.SecretText since the file holds credentials (the last
-// chat's host and id excepted, which are none), and the
-// "session origin:" row of the last chat's host and id.
+// one "connector settings:" row of every key in file order, the restore
+// token through parser.SecretText (with an export prefix too) and every
+// other value as written, and the "session origin:" row of the last chat's
+// host and id.
 func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	content, ok := parser.FileBytes(artifact.DiskPath, &problems)
@@ -307,14 +313,11 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		value = strings.Trim(strings.TrimSpace(value), `"'`)
-		// The last chat's host and id are no credentials; the session
-		// origin row shows them too, so both rows show them alike.
-		if name == lastContextKeys[0] || name == lastContextKeys[1] {
-			values[name] = value
-			settings = append(settings, name+"="+value)
-			continue
+		values[name] = value
+		if strings.TrimSpace(strings.TrimPrefix(name, "export ")) == restoreTokenKey {
+			value = parser.SecretText(artifact, value)
 		}
-		settings = append(settings, name+"="+parser.SecretText(artifact, value))
+		settings = append(settings, name+"="+value)
 	}
 	if len(settings) > 0 {
 		emit(p.fileRow(artifact, "connector settings: "+strings.Join(settings, " ")+
