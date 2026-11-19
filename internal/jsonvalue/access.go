@@ -82,7 +82,7 @@ func (v Value) IsEmpty() bool {
 	case Bool:
 		return !v.flag
 	case Number:
-		return canonicalNumber(v.text) == "0"
+		return CanonicalNumber(v.text) == "0"
 	case String:
 		return v.text == ""
 	case Array, Object:
@@ -257,16 +257,17 @@ func objectsEqual(left, right Value) bool {
 
 // numbersEqual compares two numbers by value.
 func numbersEqual(left, right Value) bool {
-	return left.text == right.text || canonicalNumber(left.text) == canonicalNumber(right.text)
+	return left.text == right.text || CanonicalNumber(left.text) == CanonicalNumber(right.text)
 }
 
-// canonicalNumber returns a JSON number's value in one spelling, so two
-// numbers are equal by value exactly when these are equal: "0" for a zero
-// of either sign, otherwise an optional minus, the significant digits with
-// no leading or trailing zero, "e" and the power of ten of the last digit
-// (100 is "1e2", 1.50 is "15e-1"). It works on the text alone, so its cost
-// grows in step with the number's length however large the number is.
-func canonicalNumber(text string) string {
+// CanonicalNumber returns the text of a JSON number's value in one
+// spelling, so two numbers are equal by value (Equal) exactly when these
+// texts are equal: "0" for a zero of either sign, otherwise an optional
+// minus, the significant digits with no leading or trailing zero, "e" and
+// the power of ten of the last digit (100 is "1e2", 1.50 is "15e-1"). It
+// works on the text alone, so its cost grows in step with the number's
+// length however large the number is.
+func CanonicalNumber(text string) string {
 	sign := ""
 	if after, negative := strings.CutPrefix(text, "-"); negative {
 		sign, text = "-", after
