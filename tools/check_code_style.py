@@ -1224,9 +1224,11 @@ def go_body_open(code: list[GoToken], start: int) -> int | None:
 def go_package_literals(code: list[GoToken]) -> Iterator[tuple[int, str]]:
     """Yield the index of the `func` and the name of each function literal a package variable holds.
 
-    That is `var run = func() {` at the top level or inside a `var (` block, and the same with
-    the `func` on the line after the `=`. A variable with a type written (`var run handler =
-    func() {`) is not read, and a literal inside a function body is part of its body.
+    That is `var run = func() {` at the top level or inside a `var (` block, the same with the
+    `func` on the line after the `=` or in parentheses, and a literal among several values
+    (`var run, stop = func() {`, `}, func() {}`), where each name is paired with its value by
+    position. A variable with a type written (`var run handler = func() {`) is not read, and a
+    literal inside a function body is part of its body.
     """
     openers: list[int] = []
     for index, token in enumerate(code):
@@ -1234,15 +1236,38 @@ def go_package_literals(code: list[GoToken]) -> Iterator[tuple[int, str]]:
             openers.append(index)
         elif token.kind == "punct" and token.text in ")]}" and openers:
             openers.pop()
-        is_literal = token.text == "func" and index >= 2 and code[index - 1].text == "="
-        name = code[index - 2] if is_literal else None
-        if name is None or name.kind != "ident":
-            continue
-        if not (name.first or code[index - 3].text == "var"):
-            continue
-        in_var_block = len(openers) == 1 and code[openers[0]].text == "(" and openers[0] > 0
-        if not openers or (in_var_block and code[openers[0] - 1].text == "var"):
-            yield index, name.text
+        elif token.text == "=" and go_is_package_var_context(code, openers):
+            yield from go_literals_of_assignment(code, index)
+
+
+def go_is_package_var_context(code: list[GoToken], openers: list[int]) -> bool:
+    """Return True when the open brackets are none (top level) or one `var (` block."""
+    if not openers:
+        return True
+    opener = openers[0]
+    return (
+        len(openers) == 1
+        and code[opener].text == "("
+        and opener > 0
+        and code[opener - 1].text == "var"
+    )
+
+
+def go_literals_of_assignment(code: list[GoToken], operator: int) -> Iterator[tuple[int, str]]:
+    """Yield the (`func` index, name) of each literal the `var` assignment at `operator` holds."""
+    left = go_assignment_left(code, operator)
+    right = go_assignment_right(code, operator)
+    if not left or len(left) != len(right):
+        return
+    head = left[0][0]
+    names = all(end - start == 1 and code[start].kind == "ident" for start, end in left)
+    if not names or not (code[head].first or (head > 0 and code[head - 1].text == "var")):
+        return
+    for (target, _), (value, value_end) in zip(left, right, strict=True):
+        while value < value_end and code[value].text == "(":
+            value += 1
+        if value < value_end and code[value].text == "func":
+            yield value, code[target].text
 
 
 def go_long_functions(tokens: list[GoToken]) -> Iterator[tuple[int, str, bool, int]]:

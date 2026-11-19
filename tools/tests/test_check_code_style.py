@@ -767,6 +767,9 @@ def test_the_length_of_a_body_is_read_from_its_own_braces(source: str, expected:
     assert long_bodies(source) == expected
 
 
+LONG_RUN = "function 'run' has a body of 61 lines, over the limit of 60"
+
+
 def literal_of(lines: int, opening: str, closing: str = "}") -> str:
     """Return a Go file whose package variable holds a function literal of `lines` body lines."""
     return "package p\n\n" + opening + "\n" + "\tcount++\n" * lines + closing + "\n"
@@ -809,6 +812,16 @@ def literal_of(lines: int, opening: str, closing: str = "}") -> str:
             "\treturn 1\n}()",
             ["function 'run' has a body of 62 lines, over the limit of 60"],
         ),
+        # Several names, and a parenthesised literal, are read as a single name is.
+        (60, "var run, stop = func() {", "}, func() {}", []),
+        (61, "var run, stop = func() {", "}, func() {}", [LONG_RUN]),
+        (60, "var stop, run = func() {}, func() {", "}", []),
+        (61, "var stop, run = func() {}, func() {", "}", [LONG_RUN]),
+        (60, "var run = (func() {", "})", []),
+        (61, "var run = (func() {", "})", [LONG_RUN]),
+        (60, "var (\n\trun, stop = func() {", "}, func() {}\n)", []),
+        (61, "var (\n\trun, stop = func() {", "}, func() {}\n)", [LONG_RUN]),
+        (61, "var run, stop handler = func() {", "}, func() {}", []),  # a type is written
         # A literal in a call, a struct field or a function body is not a package variable's own.
         (61, "var run = wrap(func() {", "})", []),
         (61, "var run = table{handler: func() {", "}}", []),
