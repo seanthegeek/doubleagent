@@ -15,7 +15,7 @@
 // the order the file system lists them in, so one tree gives one result on
 // every file system.
 //
-// The paths found in the input are joined to its absolute form (Absolute),
+// The paths found in the input are joined to its absolute form (absolute),
 // so one input gives one set of paths however its path was spelt; a message
 // names them under the input as given (Collection.ShownPath). A path built from the evidence's text (a manifest field,
 // a name a parser asks Home.PathOf or Below for) is made by one function,
@@ -341,9 +341,10 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	return collection, nil
 }
 
-// Absolute returns the path an input given as path is read at, by
-// absolute's rule for this platform, so a check of the input's place sees
-// the directory that is read. Every path of the input is built from it.
+// Absolute places a path the analyst typed by the rule the input is read
+// by (absolute, per platform). The outside-the-input check calls it on the
+// OUTPUT, not the input, so on Windows the output is placed where the
+// commands write it.
 func Absolute(path string) (string, error) { return absolute(path) }
 
 // openDirectory returns the collection of a directory input, after a

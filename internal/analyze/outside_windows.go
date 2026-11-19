@@ -9,8 +9,8 @@ import (
 )
 
 // placed returns path made absolute as the command's own file calls take
-// it: input.Absolute, the rule the input is read by, so the output and the
-// input are placed by one function. Every Windows file call takes the
+// it: input.Absolute, the rule the input is read by, so the output is
+// placed where the commands write it. Every Windows file call takes the
 // \\?\ form, which has no length limit.
 func placed(path string) (string, error) { return input.Absolute(path) }
 
