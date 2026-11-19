@@ -61,27 +61,22 @@ func outputsOf(t *testing.T, files []collectedFile, options ...string) runOutput
 // dropped duplicates.
 var countLines = regexp.MustCompile(`(?m)^(?:dropped|rows|sessions): .*$|^ {11}\S+ +\S+ +[0-9]+$`)
 
-// withheldLeakFixtures returns collections in which a secret is identified at
-// one place of a parse's rows and the same value stands elsewhere in them,
-// each with that secret.
-func withheldLeakFixtures(t *testing.T) []struct {
+// withheldLeakFixture is a collection in which a secret is identified at one
+// place of a parse's rows and the same value stands elsewhere in them, with
+// that secret.
+type withheldLeakFixture struct {
 	name   string
 	files  []collectedFile
 	secret string
-} {
-	t.Helper()
-	database, err := osfile.ReadFile(filepath.Join("..", "parser", "codex", "testdata", "secrets.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+}
+
+// withheldLeakInOneAgentFixtures returns the collections in which the secret
+// stands only in the files of one agent.
+func withheldLeakInOneAgentFixtures() []withheldLeakFixture {
 	const home = "/home/alice"
 	vscodeWorkspace := ".config/Code/User/workspaceStorage/h/"
 	cody := "Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2"
-	return []struct {
-		name   string
-		files  []collectedFile
-		secret string
-	}{
+	return []withheldLeakFixture{
 		{"a Claude Code bridge record printed whole", []collectedFile{{"alice", home, "claude-code",
 			".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
 			`{"type":"system","subtype":"bridge_status","url":"https://claude.example/code?token=FIXTURE-BRIDGE"}` +
@@ -119,6 +114,14 @@ func withheldLeakFixtures(t *testing.T) []struct {
 			"invalid escape sequence"},
 		{"a ShellGPT settings line without an equals sign", []collectedFile{{"alice", home, "shellgpt",
 			".config/shell_gpt/.sgptrc", "sk-FIXTURE-PASTED\nDEFAULT_MODEL=gpt-4o\n"}}, "sk-FIXTURE-PASTED"},
+	}
+}
+
+// withheldLeakQuotedByChatFixtures returns the collections in which a chat
+// quotes a secret that another agent's file holds.
+func withheldLeakQuotedByChatFixtures() []withheldLeakFixture {
+	const home = "/home/alice"
+	return []withheldLeakFixture{
 		{"a Hermes headers object whose bearer token a chat quotes alone", []collectedFile{
 			{"alice", home, "hermes", ".config/Hermes/connections.json", `{"connections": [{"kind": "remote", ` +
 				`"label": "work", "url": "https://hermes.example/", "headers": {"encoding": "plain", ` +
@@ -137,6 +140,18 @@ func withheldLeakFixtures(t *testing.T) []struct {
 					`"cwd":"/srv/proj","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1",` +
 					`"name":"Custom","input":{"keys":["fake-crush-key\"sec\\ret-0002"]}}]}}` + "\n"}},
 			"fake-crush-key"},
+	}
+}
+
+// withheldLeakInCodexRemoteFixtures returns the collection of a Codex remote
+// whose rows differ only in their credentials.
+func withheldLeakInCodexRemoteFixtures(t *testing.T) []withheldLeakFixture {
+	t.Helper()
+	database, err := osfile.ReadFile(filepath.Join("..", "parser", "codex", "testdata", "secrets.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return []withheldLeakFixture{
 		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
 			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
 			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",
@@ -154,7 +169,9 @@ func quoting(text string) string {
 }
 
 func TestAWithheldRunWritesNoIdentifiedSecretAndCountsAsTheDefaultRunDoes(t *testing.T) {
-	for _, fixture := range withheldLeakFixtures(t) {
+	fixtures := slices.Concat(withheldLeakInOneAgentFixtures(), withheldLeakQuotedByChatFixtures(),
+		withheldLeakInCodexRemoteFixtures(t))
+	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			shown := outputsOf(t, fixture.files)
 			withheld := outputsOf(t, fixture.files, "--no-secrets")
