@@ -72,8 +72,8 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	if project == "" {
 		project = folder
 	}
-	// A folder that is not a file URI stays a URI, which can carry
-	// credentials (a remote's user information).
+	// A working directory that is not a file URI stays a URI, which can
+	// carry credentials (a remote's user information).
 	project = parser.URLText(artifact, project)
 	rows := &sessionRows{owner: p, artifact: artifact, sessionID: sessionID, project: project, emit: emit,
 		tracked: parser.Tracker{}}
@@ -156,7 +156,9 @@ func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *p
 		p.workspaces[key] = read
 	}
 	*problems = append(*problems, read.problems...)
-	return read.folder, read.workspace
+	// Each parse that uses the workspace identifies its credentials, so
+	// every row naming it (chat, editing and state rows) is withheld alike.
+	return parser.URLText(artifact, read.folder), parser.URLText(artifact, read.workspace)
 }
 
 // readWorkspace returns the folder and workspace file of the workspace.json

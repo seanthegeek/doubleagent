@@ -94,6 +94,14 @@ func withheldLeakFixtures(t *testing.T) []struct {
 				`{"version": 3, "sessionId": "s1", "creationDate": 1790845200000, "requests": []}`},
 			{"alice", home, "vscode", vscodeWorkspace + "chatEditingSessions/k/state.json",
 				`{"recentSnapshot": {"entries": [{"resource": "file:///w/a.go"}]}}`}}, "s3cret"},
+		{"a VS Code workspace folder with a short password used in four places", []collectedFile{
+			{"alice", home, "vscode", vscodeWorkspace + "workspace.json",
+				`{"folder":"vscode-remote://ci:pw7@devbox.example/w",` +
+					`"workspace":"vscode-remote://ci:pw7@devbox.example/w.code-workspace"}`},
+			{"alice", home, "vscode", vscodeWorkspace + "chatSessions/s1.json",
+				`{"version": 3, "sessionId": "s1", "creationDate": 1790845200000, "requests": []}`},
+			{"alice", home, "vscode", vscodeWorkspace + "chatEditingSessions/k/state.json",
+				`{"recentSnapshot": {"entries": [{"resource": "file:///w/a.go"}]}}`}}, "pw7"},
 		{"a Cody account key inside a session id", []collectedFile{{"alice", home, "cody", cody,
 			`{"https://ci:s3cret@sg.example/-ana": {"chat": {"c1": {"id": "2026-01-01T00:00:00.000Z", ` +
 				`"chatTitle": "t", "interactions": []}}}, "https://sg.example/-bob": {"chat": {"c1": ` +

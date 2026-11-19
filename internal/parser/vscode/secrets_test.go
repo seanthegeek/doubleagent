@@ -94,11 +94,9 @@ func TestAnEnterpriseHostAndASessionsFolderShowTheirCredentialsUnlessWithheld(t 
 			for _, row := range rows {
 				projects = append(projects, row.ProjectPath)
 			}
-			if len(projects) == 0 || projects[0] != "vscode-remote://"+strings.TrimPrefix(mode.scheme, "https://")+
-				"devbox.example/w" {
-				t.Errorf("projects %q", projects)
-			}
-			checkSecretRows(t, mode, projects, projects, "s3cret")
+			project := "vscode-remote://" + strings.TrimPrefix(mode.scheme, "https://") + "devbox.example/w"
+			want = slices.Repeat([]string{project}, max(len(projects), 1))
+			checkSecretRows(t, mode, projects, want, "s3cret")
 		})
 	}
 }
