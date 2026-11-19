@@ -869,7 +869,7 @@ def go_plain_verbs(call: str, verbs: list[str], arguments: list[list[GoToken]]) 
 
 
 GO_EXPORTED_ERROR = re.compile(r"^Err[A-Z]")
-GO_ERROR_NAME = re.compile(r"Err$|^err[A-Z]")
+GO_ERROR_NAME = re.compile(r"Err$|^err[A-Z]|^Err[A-Z]")
 GO_ERROR_MAKERS = (("errors", "New"), ("errors", "Join"), ("fmt", "Errorf"))
 
 
@@ -990,7 +990,7 @@ def go_assigned_errors(code: list[GoToken], operator: int) -> Iterator[str]:
 
 
 def go_declared_errors(tokens: list[GoToken]) -> set[str]:
-    """Return the names ending in `Err` or starting with `err` and a capital that are errors.
+    """Return the names ending in `Err` or starting with `err` or `Err` and a capital that are errors.
 
     A name is listed when the file declares it with the type `error` (`var closeErr error`, a
     parameter, a result or a struct field) or assigns it the result of `errors.New`,
@@ -1024,9 +1024,11 @@ def go_names_an_error(argument: list[GoToken], declared: set[str]) -> bool:
     """Return True when a call argument, or one `+` operand of one, is an error.
 
     It is only when the whole of it is: a call of `.Error()`; the name `err` or a chain ending
-    in `err` (`current.err`); a chain ending in an exported name that starts with `Err` and a
-    capital (`fs.ErrNotExist`); or a name or chain ending in a name `go_declared_errors` lists.
-    An error only inside a larger expression (`wrap(err)`, `list[0]`) is not named.
+    in `err` (`current.err`); a chain of two or more names ending in one that starts with `Err`
+    and a capital (`fs.ErrNotExist`); or a name or chain ending in a name `go_declared_errors`
+    lists, which includes a bare `ErrGone` the file declares as an error. A bare `ErrGone` the
+    file does not declare may be a constant, a type or another package's value, and is left
+    alone, as is an error only inside a larger expression (`wrap(err)`, `list[0]`).
     """
     if len(argument) >= 4 and [token.text for token in argument[-4:]] == [".", "Error", "(", ")"]:
         return True

@@ -562,6 +562,36 @@ def test_names_and_values_of_one_assignment_are_paired_by_position(
     assert format_messages(body) == expected
 
 
+SENTINEL_CASES = [
+    ('\tvar ErrGone = errors.New("gone")\n\treturn fmt.Errorf("x: %v", ErrGone)', [ERRORF_DROPPED]),
+    (
+        '\tvar ErrGone = fmt.Errorf("gone %d", 1)\n\treturn fmt.Errorf("x: %s", ErrGone)',
+        [ERRORF_DROPPED],
+    ),
+    ('\tvar ErrGone error\n\treturn fmt.Errorf("x: %v", ErrGone)', [ERRORF_DROPPED]),
+    (
+        '\tvar (\n\t\tErrGone = errors.New("gone")\n\t)\n\treturn fmt.Errorf("x: %v", ErrGone)',
+        [ERRORF_DROPPED],
+    ),
+    ('\tvar First, ErrGone error\n\treturn fmt.Errorf("x: %v", ErrGone)', [ERRORF_DROPPED]),
+    ('\tvar ErrGone = errors.New("gone")\n\treturn fmt.Errorf("x: %w", ErrGone)', []),
+    ('\tvar ErrGone = errors.New("gone")\n\treturn fmt.Errorf("x: %v: %w", ErrGone, ErrGone)', []),
+    # A bare name the file does not declare as an error may be anything.
+    ('\treturn fmt.Errorf("x: %v", ErrGone)', []),
+    ('\tvar ErrLimit = 3\n\treturn fmt.Errorf("x: %v", ErrLimit)', []),
+    ('\tvar ErrGone = file.Close()\n\treturn fmt.Errorf("x: %v", ErrGone)', []),
+    # A qualified name still counts without a declaration.
+    ('\treturn fmt.Errorf("x: %v", other.ErrGone)', [ERRORF_DROPPED]),
+]
+
+
+@pytest.mark.parametrize(("body", "expected"), SENTINEL_CASES)
+def test_a_bare_exported_error_name_counts_only_where_the_file_declares_it(
+    body: str, expected: list[str]
+) -> None:
+    assert format_messages(body) == expected
+
+
 # A width or precision taken from an argument shifts the pairing of verbs and arguments, and an
 # explicit index reorders it; such a format is left alone.
 UNPAIRED_FORMAT_CASES = [
