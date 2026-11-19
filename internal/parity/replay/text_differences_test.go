@@ -208,8 +208,10 @@ func quotedValueCases() []textDifferenceCase {
 	}
 }
 
-// withheldReasonCases returns the cases of difference 230: a reader's reason
-// that the binary withholds, written with its position.
+// withheldReasonCases returns the cases of difference 230 for a reader's
+// reason: one the binary withholds is written with its position, a
+// crush.json's is marked as the part the binary adds, and a reason that
+// shows the reader's detail, or another file's reason, is left alone.
 func withheldReasonCases() []textDifferenceCase {
 	return []textDifferenceCase{
 		{"230 gives a TOML config's recorded reason its position", 230, recordedSide,
