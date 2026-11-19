@@ -28,3 +28,8 @@ func outputParent(path string) string {
 	}
 	return ""
 }
+
+// belowGiven returns the path of name in directory. Windows resolves a ".."
+// by the text before it, so filepath.Join, which also keeps a drive-relative
+// C: as it is, names the directory that was listed.
+func belowGiven(directory, name string) string { return filepath.Join(directory, name) }

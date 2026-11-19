@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -89,7 +88,9 @@ type inputDirectory struct {
 }
 
 // directoryFiles returns the regular files directly in directory, sorted
-// by name; a link is not a regular file.
+// by name; a link is not a regular file. Each path is the name below
+// directory as the system finds it (belowGiven), so it names a file of the
+// directory that was listed.
 func directoryFiles(directory string) ([]string, error) {
 	entries, err := parser.ReadDir(directory)
 	if err != nil {
@@ -104,7 +105,7 @@ func directoryFiles(directory string) ([]string, error) {
 	slices.Sort(names)
 	files := make([]string, len(names))
 	for i, name := range names {
-		files[i] = filepath.Join(directory, name)
+		files[i] = belowGiven(directory, name)
 	}
 	return files, nil
 }
