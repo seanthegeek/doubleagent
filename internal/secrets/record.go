@@ -118,6 +118,19 @@ func (r *Recorder) Value(value string) {
 	r.current.add(secret, rowText)
 }
 
+// RowValue records a value replaced only in the text of the rows of the
+// parse running, whatever its length: a string that stands inside a secret
+// value but is not known to be a secret itself (a header that names no
+// credential), so it is replaced where the parse's rows show the value and
+// nowhere else. A value that is empty once the white space around it is
+// removed is no secret.
+func (r *Recorder) RowValue(value string) {
+	if r == nil || strings.TrimSpace(value) == "" {
+		return
+	}
+	r.current.add(form{secret: value}, rowText)
+}
+
 // Collect reads one string the output will write for the credentials of
 // the URLs in it (identifyURLs says which) and records each of
 // EverywhereLength bytes or more as replaced everywhere. A command collects
