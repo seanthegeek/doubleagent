@@ -10,10 +10,9 @@ import (
 // Text returns text, one string the output writes, as the run shows it: as
 // written, or with the credentials of the URLs in it, the secrets of scopes
 // (the parses whose rows it comes from, or the command's record) and every
-// secret of EverywhereLength bytes or more replaced by the placeholder. Text is
-// read once, left to right, the longest recorded text starting at each
-// position replaced and reading going on after it, so a secret inside a
-// longer one (a password inside user:password) goes with it. The output is
+// secret of EverywhereLength bytes or more replaced by the placeholder.
+// Secrets that overlap are one replaced range (replaceRanges), so a secret
+// inside a longer one (a password inside user:password) goes with it. The output is
 // built from the original and the placeholder, never read again. The cost
 // is the text's length once per scope and once for everywhere, after each
 // record's matcher is built once.
@@ -39,22 +38,34 @@ func (r *Recorder) Text(text string, scopes ...*Found) string {
 	for _, source := range sources {
 		source.matcherOf(source == r.everywhere, r.setting.Placeholder == "", r.work).Longest(text, longest)
 	}
+	return replaceRanges(text, longest, r.setting.Placeholder)
+}
+
+// replaceRanges returns text with each range of secrets replaced by
+// placeholder, where longest[i] is the length of the longest secret that
+// starts at byte i. Secrets that share a byte are one range, so a secret
+// that begins inside another and ends after it goes whole, and two that
+// only touch are two ranges. Each byte is looked at once.
+func replaceRanges(text string, longest []int, placeholder string) string {
 	var out strings.Builder
-	start := 0
+	written := 0
 	for i := 0; i < len(text); {
 		if longest[i] == 0 {
 			i++
 			continue
 		}
-		out.WriteString(text[start:i])
-		out.WriteString(r.setting.Placeholder)
-		i += longest[i]
-		start = i
+		end := i + longest[i]
+		for k := i + 1; k < end; k++ {
+			end = max(end, k+longest[k])
+		}
+		out.WriteString(text[written:i])
+		out.WriteString(placeholder)
+		i, written = end, end
 	}
-	if start == 0 {
+	if written == 0 {
 		return text
 	}
-	out.WriteString(text[start:])
+	out.WriteString(text[written:])
 	return out.String()
 }
 

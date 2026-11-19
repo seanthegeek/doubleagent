@@ -187,7 +187,11 @@ func TestTheLongestSecretAtAPositionIsReplacedWhole(t *testing.T) {
 			"user:password and password", "R and R"},
 		{"the same, recorded the other way round", []string{"user:password", "password"},
 			"user:password and password", "R and R"},
-		{"of two that overlap the one met first", []string{"abcd", "cdef"}, "abcdef", "Ref"},
+		{"two that overlap are one replaced range", []string{"abcd", "cdef"}, "abcdef", "R"},
+		{"a second that starts inside the first and ends after it", []string{"AAAABBBB", "BBBBCCCCDDDD"},
+			"x AAAABBBBCCCCDDDD y", "x R y"},
+		{"a chain of overlaps is one range", []string{"abc", "cde", "efg"}, "abcdefg!", "R!"},
+		{"one inside another is one range", []string{"abcdef", "cd"}, "abcdef cd", "R R"},
 		{"a secret repeated", []string{"tok"}, "toktoktok", "RRR"},
 		{"a one-letter secret wherever it stands", []string{"p"}, "a pup", "a RuR"},
 		{"nothing recorded leaves the text", nil, "user:password", "user:password"},
@@ -413,24 +417,27 @@ func TestReplacingReadsTheTextOncePerRecordWhateverTheNumberOfSecrets(t *testing
 	}
 }
 
-// reference returns text with each of secrets replaced by placeholder, the
-// longest at the leftmost position first, found by comparing each.
+// reference returns text with every occurrence of each of secrets
+// replaced, found by comparing each secret at each position: occurrences
+// that share a byte are one range, replaced by one placeholder, and two
+// that only touch are two.
 func reference(text string, secrets []string, placeholder string) string {
 	var out strings.Builder
-	for i := 0; i < len(text); {
-		longest := 0
+	written, end := 0, -1
+	for i := range len(text) {
 		for _, secret := range secrets {
-			if secret != "" && strings.HasPrefix(text[i:], secret) && len(secret) > longest {
-				longest = len(secret)
+			if secret == "" || !strings.HasPrefix(text[i:], secret) {
+				continue
 			}
+			if i >= end {
+				out.WriteString(text[written:i] + placeholder)
+			}
+			end = max(end, i+len(secret))
+			written = end
 		}
-		if longest == 0 {
-			out.WriteByte(text[i])
-			i++
-			continue
-		}
-		out.WriteString(placeholder)
-		i += longest
+	}
+	if written < len(text) {
+		out.WriteString(text[written:])
 	}
 	return out.String()
 }
