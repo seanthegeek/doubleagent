@@ -171,21 +171,28 @@ func (s *sessionRecord) grants() {
 		grant(key + "=" + grantValue(value))
 	}
 	// Cowork's tool, network and folder grants: which key is a list and
-	// which an object is not determined, so either is read.
+	// which an object is not determined, so either is read. An allowed URL
+	// goes through parser.URLText.
 	for _, key := range []string{"approvedToolNames", "webFetchAllowedUrls", "egressAllowedDomains",
 		"userApprovedFileAccessPaths", "enabledMcpTools", "fileDeleteApprovedMounts"} {
 		value := s.record.Get(key)
+		shown := func(entry jsonvalue.Value) string {
+			if key == "webFetchAllowedUrls" {
+				return parser.URLText(s.artifact, grantValue(entry))
+			}
+			return grantValue(entry)
+		}
 		switch {
 		case value.IsArray():
 			for _, entry := range value.Items() {
-				grant(key + " " + grantValue(entry))
+				grant(key + " " + shown(entry))
 			}
 		case value.IsObject():
 			for _, member := range value.Members() {
-				grant(key + "." + member.Key + "=" + grantValue(member.Value))
+				grant(key + "." + member.Key + "=" + shown(member.Value))
 			}
 		case parser.Present(value):
-			grant(key + "=" + grantValue(value))
+			grant(key + "=" + shown(value))
 		}
 	}
 }
