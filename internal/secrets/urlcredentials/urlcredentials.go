@@ -62,19 +62,21 @@ func MayHold(text string) bool {
 
 // Find calls found with the credentials of every URL in text, in the order
 // of the grammar of the package comment, counting the bytes it reads in
-// work (nil counts nothing). Each byte is read a fixed number of times,
-// however the URLs nest; credentials without a scheme are not found.
+// work (nil counts nothing): each loop counts the bytes it steps over as it
+// steps over them, so each byte is read a fixed number of times however the
+// URLs nest. Credentials without a scheme are not found.
 func Find(text string, found func(Credential), work textset.Counter) {
 	for start := 0; start < len(text); {
 		end := start
 		for end < len(text) && !isDelimiter(text[end]) {
 			end++
+			count(work, 1)
 		}
 		identifyToken(text[:end], start, found, work)
 		for start = end; start < len(text) && isDelimiter(text[start]); start++ {
+			count(work, 1)
 		}
 	}
-	count(work, len(text))
 }
 
 // isDelimiter reports whether a byte ends a token (rule 1): white space, a
@@ -117,7 +119,6 @@ func identifyToken(text string, from int, found func(Credential), work textset.C
 		}
 		parameters(text, starts, firstAuthorityEnd, found, work)
 	}
-	count(work, len(text)-from)
 }
 
 // urlStarts returns the start of every URL in text[from:] (rule 2). A
@@ -127,6 +128,7 @@ func urlStarts(text string, from int, work textset.Counter) []urlStart {
 	var starts []urlStart
 	scanned := from
 	for i := from; i < len(text); i++ {
+		count(work, 1)
 		separator := separatorAt(text, i)
 		if separator == 0 {
 			continue
@@ -135,7 +137,7 @@ func urlStarts(text string, from int, work textset.Counter) []urlStart {
 		if start >= 0 {
 			starts = append(starts, urlStart{start, i + separator})
 		}
-		count(work, read)
+		count(work, read+separator-1)
 		scanned = i + separator
 		i += separator - 1
 	}
@@ -191,12 +193,16 @@ func userInformation(text string, start int, found func(Credential), work textse
 	if stop := strings.IndexAny(text[start:], `/?#\`); stop >= 0 {
 		end = start + stop
 	}
-	count(work, end-start)
+	// The search for the end read start to end, and the search for the last
+	// @ reads the same bytes again: one pass over the span each, however
+	// many @ it holds.
+	count(work, 2*(end-start))
 	atSign := strings.LastIndexByte(text[start:end], '@')
 	if atSign <= 0 {
 		return end
 	}
 	userInfo := text[start : start+atSign]
+	count(work, atSign)
 	colon := strings.IndexByte(userInfo, ':')
 	if userInfo != ":" {
 		// With an empty placeholder the @ goes with the user information,

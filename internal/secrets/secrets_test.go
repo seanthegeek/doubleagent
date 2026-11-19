@@ -647,6 +647,54 @@ func TestIdentifyingURLsReadsTheTextAFixedNumberOfTimes(t *testing.T) {
 	}
 }
 
+// shapeWork returns the bytes read identifying the URLs of a text made of
+// prefix, k copies of unit, and suffix.
+func shapeWork(prefix, unit, suffix string, k int) int {
+	work := counter{}
+	recorder := NewRecorder(withheld())
+	recorder.work = work
+	recorder.Collect(prefix + strings.Repeat(unit, k) + suffix)
+	return work["bytes read"]
+}
+
+func TestEachShapeOfURLTextCostsItsLengthAFixedNumberOfTimes(t *testing.T) {
+	shapes := []struct{ name, prefix, unit string }{
+		{"ampersands", "https://h/?token=a", "&"},
+		{"semicolons", "https://h/?token=a", ";"},
+		{"question marks", "https://h/?token=a", "?"},
+		{"hashes", "https://h/?token=a", "#"},
+		{"question marks in a fragment", "https://h/#token=a", "?"},
+		{"hashes in a fragment", "https://h/#token=a", "#"},
+		{"JSON ampersands", "https://h/?token=a", `\u0026`},
+		{"backslashes", "https://h/?token=a", `\`},
+		{"nested URLs", "https://h/?token=a", "x://a@b?c=d"},
+		{"nested URLs in a fragment", "https://h/#token=a", "x://a:b@c#d="},
+		{"brackets", "https://h/?token=a", "(["},
+		{"closing brackets", "https://h/?token=a", ")]}"},
+		{"single quotes", "https://h/?token=a", "'"},
+		{"commas before a scheme", "https://h/?token=a", ",y://u:p@h/"},
+		{"schemes", "", "://"},
+		{"at signs", "https://", "@"},
+		{"names", "https://h/?", "a=b&token=c&"},
+		{"tokens", "", "https://u:p@h/?token=a "},
+		{"white space", "https://h/?token=a", " \t\n"},
+		{"escaped separators", "", `:\/\/`},
+	}
+	for _, shape := range shapes {
+		t.Run(shape.name, func(t *testing.T) {
+			// Every byte of the unit is read the same number of times
+			// wherever it stands, so each unit after the first adds the
+			// same work, exactly, however many there are.
+			one, two := shapeWork(shape.prefix, shape.unit, "", 1), shapeWork(shape.prefix, shape.unit, "", 2)
+			small, large := shapeWork(shape.prefix, shape.unit, "", 1000), shapeWork(shape.prefix, shape.unit, "", 2000)
+			if two <= one || large-small != 1000*(two-one) {
+				t.Errorf("read %d, %d, %d and %d bytes for 1, 2, 1000 and 2000 units: not a fixed cost per unit",
+					one, two, small, large)
+			}
+		})
+	}
+}
+
 // nestedNamesWork returns the bytes of the credentials found in a query or
 // fragment that starts at separator, a question mark or a hash, and holds k
 // credential names, each after another separator inside the value of the
