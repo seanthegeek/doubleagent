@@ -67,8 +67,8 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value,
 
 // startRows emits a start row, then its model row and its blob upload row
 // when the session has them.
-func (p *Parser) startRows(start timeline.Row, session, meta jsonvalue.Value, source string,
-	emit parser.Emit) {
+func (p *Parser) startRows(artifact *input.Artifact, start timeline.Row, session, meta jsonvalue.Value,
+	source string, emit parser.Emit) {
 	emit(start)
 	if model := parser.Text(session.Get("model")); model != "" {
 		row := start
@@ -80,15 +80,16 @@ func (p *Parser) startRows(start timeline.Row, session, meta jsonvalue.Value, so
 		row.Text = timeline.Compact(row.Text)
 		emit(row)
 	}
-	if row, ok := blobUpload(start, meta, source); ok {
+	if row, ok := blobUpload(artifact, start, meta, source); ok {
 		emit(row)
 	}
 }
 
 // blobUpload returns the "session synced:" row of a metadata
 // enterprise.blobUpload object, with the start row's time, session and
-// project, or false when the metadata has none.
-func blobUpload(start timeline.Row, meta jsonvalue.Value, source string) (timeline.Row, bool) {
+// project and the endpoint through parser.URLText, or false when the
+// metadata has none.
+func blobUpload(artifact *input.Artifact, start timeline.Row, meta jsonvalue.Value, source string) (timeline.Row, bool) {
 	blob := meta.Get(blobUploadKey)
 	if !blob.IsObject() {
 		return timeline.Row{}, false
@@ -101,7 +102,7 @@ func blobUpload(start timeline.Row, meta jsonvalue.Value, source string) (timeli
 	row := start
 	row.Text = "session synced: enterprise prompt upload to " + parser.SettingOrDash(storage.Get("adapterType")) +
 		" bucket " + parser.SettingOrDash(storage.Get("bucket")) + " object sessions/" + user + "/" +
-		start.SessionID + "/messages.json endpoint=" + parser.SettingOrDash(storage.Get("endpoint")) +
+		start.SessionID + "/messages.json endpoint=" + parser.URLText(artifact, parser.SettingOrDash(storage.Get("endpoint"))) +
 		" region=" + parser.SettingOrDash(storage.Get("region")) + " account=" + parser.SettingOrDash(storage.Get("accountId")) +
 		" (from " + source + " " + blobUploadKey + ", started_at)"
 	return row, true
@@ -127,7 +128,7 @@ func (p *Parser) manifest(artifact *input.Artifact, emit parser.Emit) {
 	meta := session.Get("metadata")
 	addMetadata(session, meta)
 	start := p.sessionStart(artifact, session, 0, "started_at", "session start", startKeys())
-	p.startRows(start, session, meta, path.Base(artifact.Rel)+" metadata", emit)
+	p.startRows(artifact, start, session, meta, path.Base(artifact.Rel)+" metadata", emit)
 	if !session.Get("ended_at").IsEmpty() {
 		emit(p.sessionStart(artifact, session, 0, "ended_at", "session end",
 			[]string{"status", "exit_code"}))

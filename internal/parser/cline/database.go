@@ -91,7 +91,7 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 		meta := metadataJSON(record.Get("metadata_json"))
 		addMetadata(session, meta)
 		start := p.sessionStart(artifact, session, int(record.Rowid), "started_at", "session index", keys)
-		p.startRows(start, session, meta, "sessions.db sessions.metadata_json", emit)
+		p.startRows(artifact, start, session, meta, "sessions.db sessions.metadata_json", emit)
 	}
 }
 

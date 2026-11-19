@@ -117,7 +117,7 @@ func (p *Parser) cloudRows(artifact *input.Artifact, sessionID, timestamp, detai
 
 // pendingStarts emits a pair of Cline Cloud rows per record of a
 // pending-start file, {sessionId, account, endpoint}, at the file's
-// modification time.
+// modification time, the endpoint through parser.URLText.
 func (p *Parser) pendingStarts(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
@@ -136,7 +136,7 @@ func (p *Parser) pendingStarts(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		detail := "sandbox start pending account=" + parser.SettingOrDash(record.Get("account")) + " endpoint=" +
-			parser.SettingOrDash(record.Get("endpoint"))
+			parser.URLText(artifact, parser.SettingOrDash(record.Get("endpoint")))
 		p.cloudRows(artifact, record.Get("sessionId").StringValue(), timestamp, detail,
 			artifact.Rel+", file mtime", position, emit)
 	}

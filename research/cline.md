@@ -927,7 +927,9 @@ session. For a session whose manifest is gone, the `sessions.db` row
 yields the same text ending `(from sessions.db sessions.metadata_json
 enterprise.blobUpload, started_at)` at that row's `started_at`. The
 parser sets `records_sync`, so an SDK session without the key is `synced`
-`no`. Fixture only: no real install has shown the key.
+`no`. The endpoint's credentials are shown as written; `timeline --no-secrets`
+and `detect --no-secrets` replace them with the placeholder. Fixture only: no
+real install has shown the key.
 
 For the VS Code
 extension's legacy tasks the marker is the upload queue
@@ -1002,7 +1004,8 @@ since the vendor holds the session. Each record of a
 `cloud-pending-starts/*.json` file yields the same pair at the file's
 modification time, the origin row reading `sandbox start pending
 account=<account> endpoint=<endpoint>` in place of the status and both
-ending `(from <file>, file mtime)`; a file that is not a JSON array is one
+ending `(from <file>, file mtime)`, the endpoint's credentials replaced with
+the placeholder under `--no-secrets`; a file that is not a JSON array is one
 `parser:` row and a record without a `sessionId` one row each. The
 `cloudTaskTarget` is one `cloud task target: target=<target>
 repository_id=<repositoryId> branch=<branch> (from
