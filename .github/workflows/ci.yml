@@ -289,9 +289,11 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-  # The replay: every recorded case runs through the binary's own code on
-  # the three runners and is compared with what Python produced
-  # (internal/parity/replay).
+  # The replay: the recorded cases run through the binary's own code and are
+  # compared with what Python produced (internal/parity/replay). The parser
+  # cases run on the three runners. The command cases run on Linux and macOS
+  # only, because the recordings print POSIX paths, so the check that every
+  # documented difference is used is skipped on Windows.
   replay:
     name: Replay the analyzer corpus on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

@@ -26,7 +26,7 @@ func problemTexts(rows []timeline.Row) []string {
 
 // assistantProblems returns the "parser:" rows of a 2.x assistant record
 // with the given data, which the database fixtures cannot give since a
-// session_message table is built by a Python generator.
+// session_message table is built by a fixture script.
 func assistantProblems(t *testing.T, data string) []string {
 	t.Helper()
 	value, err := jsonvalue.DecodeString(data)
