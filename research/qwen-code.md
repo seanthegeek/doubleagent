@@ -1659,7 +1659,9 @@ Rows (parsed, primary; source-derived, not observed on any real install):
   one `system` row at its `createdAt`, the session the file's name: `source host: <host>
   repository <owner>/<repo> pull request <url> state <state> source <source> issues
   <number>,<number> (from <sessionId>.pr.json, createdAt)`, the host and repository taken from
-  the `url`'s host and first two path segments, `-` for a part not recorded.
+  the `url`'s host and first two path segments, `-` for a part not recorded. The URL's
+  credentials are shown as written; `timeline --no-secrets` and `detect --no-secrets` replace them
+  with the placeholder, as they do for the audit row's comment URL.
 
 ## Confidence
 
