@@ -158,7 +158,7 @@ func TestEachMutationOfRecordedRowsFails(t *testing.T) {
 		{"a row dropped", rows, slices.Delete(slices.Clone(rows), cost, cost+1)},
 		{"two rows swapped", rows, swapped},
 		{"true turned into false", rows, textChanged(rows, session, replaced("=True", "=False"))},
-		{"a timestamp moved by two milliseconds", rows, timeMoved(rows, cost, 2)},
+		{"a timestamp two milliseconds later", rows, timeMoved(rows, cost, 2)},
 		{"a source_line changed", rows, func() []Row {
 			changed := slices.Clone(rows)
 			changed[cost].SourceLine++

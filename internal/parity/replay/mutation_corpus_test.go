@@ -37,7 +37,7 @@ func rowMutations() []rowMutation {
 			rows[0].SourceLine++
 			return rows, true
 		}},
-		{"a timestamp moved by two milliseconds", func(rows []Row) ([]Row, bool) {
+		{"a timestamp two milliseconds later", func(rows []Row) ([]Row, bool) {
 			index := slices.IndexFunc(rows, func(row Row) bool { return timestampText.MatchString(string(row.TimestampUTC)) })
 			if index < 0 {
 				return nil, false
