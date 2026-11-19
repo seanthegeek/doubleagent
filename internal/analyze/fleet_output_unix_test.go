@@ -178,6 +178,23 @@ func TestFleetRemovesTheDirectoriesItMadeWhenTheWriteFails(t *testing.T) {
 	}
 }
 
+func TestFleetRemovesTheDirectoriesItMadeWhenOneBelowThemCannotBeMade(t *testing.T) {
+	// A name longer than a file system takes stops MkdirAll after it made
+	// the directory above: that one is removed although the one below it,
+	// first on the list, was never made.
+	work := t.TempDir()
+	writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)
+	made := filepath.Join(work, "n1")
+	output := filepath.Join(made, strings.Repeat("z", 300), "x.csv")
+	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", output, filepath.Join(work, "inv"))
+	if code != ExitError {
+		t.Errorf("exit %d, stderr %q", code, stderr)
+	}
+	if _, err := osfile.Lstat(made); err == nil {
+		t.Errorf("%s was made and left behind", made)
+	}
+}
+
 func TestFleetLeavesAnExistingDirectoryWhenTheWriteFails(t *testing.T) {
 	work := t.TempDir()
 	writeFile(t, filepath.Join(work, "inv", "a.json"), hostLine)

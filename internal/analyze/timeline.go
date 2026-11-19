@@ -250,12 +250,12 @@ func missingDirectories(path string) []string {
 }
 
 // removeCreated removes the directories the run made, deepest first. A
-// directory that holds anything, such as an output file, stays.
+// directory that holds anything, such as an output file, stays, and so
+// does one that was never made: each is tried, since the deepest ones are
+// missing when making them stopped part-way.
 func removeCreated(directories []string) {
 	for _, directory := range directories {
-		if osfile.Remove(directory) != nil {
-			return
-		}
+		_ = osfile.Remove(directory)
 	}
 }
 
