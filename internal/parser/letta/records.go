@@ -2,6 +2,7 @@ package letta
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -98,15 +99,21 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // storedCredentials returns "<key>=<value>" of each env member and of the
-// refreshToken of a settings file, joined by spaces, each value through
-// parser.SecretText, or "" when it holds none: the file the CLI writes the
-// API key and refresh token into when the keychain cannot hold them. An
-// env that is not an object adds a problem.
+// refreshToken of a settings file, joined by spaces, or "" when it holds
+// none: the file the CLI writes the API key and refresh token into when the
+// keychain cannot hold them. The refresh token and each env value go
+// through parser.SecretText but those of the variables the CLI reads that
+// hold no credential (plainEnvVariables). An env that is not an object adds
+// a problem.
 func storedCredentials(artifact *input.Artifact, document jsonvalue.Value, problems *parser.Problems) string {
 	var parts []string
 	for _, member := range parser.ObjectMember(document.Get("env"), "env", 0, problems) {
-		if value := parser.Text(member.Value); value != "" {
-			parts = append(parts, "env."+member.Key+"="+parser.SecretText(artifact, value))
+		value := parser.Text(member.Value)
+		if value != "" && !slices.Contains(plainEnvVariables(), member.Key) {
+			value = parser.SecretText(artifact, value)
+		}
+		if value != "" {
+			parts = append(parts, "env."+member.Key+"="+value)
 		}
 	}
 	if token := parser.Text(document.Get("refreshToken")); token != "" {
@@ -364,4 +371,17 @@ func sessionText(record jsonvalue.Value) string {
 	}
 	return "letta session start: agent=" + field("agent_id") + " provider=" + field("provider") +
 		" model=" + field("model") + " project=" + field("project")
+}
+
+// plainEnvVariables returns the environment variables Letta Code reads that
+// hold no credential, which a settings file's env shows as written: a
+// server URL, directories and files, and switches (research/letta.md,
+// "Relocation variables"). Any other variable an env sets, the user's own
+// included, may be a key and is identified.
+func plainEnvVariables() []string {
+	return []string{"LETTA_BASE_URL", "LETTA_CODE_TELEM", "DO_NOT_TRACK", "LETTA_ENABLE_WINDOWS_AUTO_REFLECTION",
+		"LETTA_MEMORY_DIR", "MEMORY_DIR", "LETTA_LISTENER_PERF_FILE", "LETTA_TUI_PERF_FILE",
+		"LETTA_LOCAL_BACKEND_EXPERIMENTAL", "LETTA_HOME", "LETTA_LOCAL_BACKEND_DIR", "LETTA_TRANSCRIPT_ROOT",
+		"LETTA_ARTIFACTS_DIR", "LETTA_MODS_DIR", "LETTA_EXTENSIONS_DIR", "LETTA_DEBUG_FILE", "XDG_CONFIG_HOME",
+		"LETTA_DIR", "MEMGPT_CONFIG_PATH"}
 }
