@@ -62,6 +62,15 @@ func (r *Recorder) End() {
 	r.outer = r.outer[:len(r.outer)-1]
 }
 
+// CountWork makes the recorder count in work the bytes it reads finding
+// URLs, building matchers and searching texts, for a test that holds the
+// cost of writing an output to a bound by a count.
+func (r *Recorder) CountWork(work textset.Counter) {
+	if r != nil {
+		r.work = work
+	}
+}
+
 // Current returns the record of the parse running, nil when none is, for a
 // test that looks at a parse's rows as they are emitted.
 func (r *Recorder) Current() *Found {
@@ -199,7 +208,9 @@ type placed struct {
 }
 
 // Found is what one parse identified, or, for the run's everywhere, the
-// secrets replaced in every string.
+// secrets replaced in every string; or, made by WithDuplicates, the list of
+// the parses' records a row kept for its dropped duplicates stands for,
+// which records nothing of its own.
 type Found struct {
 	// forms holds each form by the text it matches and where; texts lists
 	// the texts of each reach in the order recorded.
@@ -209,6 +220,9 @@ type Found struct {
 	// needed and again once more are recorded (matched counts them).
 	matchers [reaches]*textset.Set
 	matched  [reaches]int
+	// listed holds the parses' records a list WithDuplicates made stands
+	// for, nil for a parse's own record.
+	listed []*Found
 }
 
 // add records one form replaced in where; of a text recorded both plain
@@ -258,9 +272,11 @@ func (f *Found) secretsIn(holds func(reach) bool) []string {
 		return nil
 	}
 	unique := map[string]bool{}
-	for key, each := range f.forms {
-		if holds(key.where) {
-			unique[each.secret] = true
+	for _, parse := range f.Records() {
+		for key, each := range parse.forms {
+			if holds(key.where) {
+				unique[each.secret] = true
+			}
 		}
 	}
 	secrets := make([]string, 0, len(unique))
@@ -271,24 +287,41 @@ func (f *Found) secretsIn(holds func(reach) bool) []string {
 	return secrets
 }
 
-// Merge returns a record of what first and second identified, each kept
-// where it was recorded to be replaced, for a row that stands for rows of
-// both parses (a row kept for a duplicate that deduplication dropped);
-// first or second when the other is nil or the two are one.
-func Merge(first, second *Found) *Found {
-	if second == nil || second == first {
-		return first
-	}
-	if first == nil {
-		return second
-	}
-	merged := &Found{}
-	for _, record := range []*Found{first, second} {
-		for where, texts := range record.texts {
-			for _, text := range texts {
-				merged.add(record.forms[placed{text, reach(where)}], reach(where))
+// WithDuplicates returns the record of a row kept for rows deduplication
+// dropped as its duplicates: a short list of own and each of dropped (a
+// parse's record, or one WithDuplicates made), each parse's record once,
+// so the row's text is replaced for each parse as that parse's rows are.
+// The records are listed, not copied, so the list costs its length however
+// much each record holds. It is own when nothing else is listed, and nil
+// when nothing is.
+func WithDuplicates(own *Found, dropped []*Found) *Found {
+	var listed []*Found
+	seen := map[*Found]bool{}
+	for _, record := range append([]*Found{own}, dropped...) {
+		for _, parse := range record.Records() {
+			if !seen[parse] {
+				seen[parse] = true
+				listed = append(listed, parse)
 			}
 		}
 	}
-	return merged
+	switch {
+	case len(listed) == 0:
+		return nil
+	case len(listed) == 1:
+		return listed[0]
+	}
+	return &Found{listed: listed}
+}
+
+// Records returns the records of the parses f stands for: f itself, or
+// the list WithDuplicates made; nil for a nil Found.
+func (f *Found) Records() []*Found {
+	switch {
+	case f == nil:
+		return nil
+	case f.listed != nil:
+		return f.listed
+	}
+	return []*Found{f}
 }

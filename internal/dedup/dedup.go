@@ -140,20 +140,21 @@ func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]
 // row's parse identified is replaced in the text that stands for both. A
 // dropped row pairs with a primary row (intoPrimary) or with another
 // secondary row (intoSecondary), itself kept (at keptAt) or dropped in turn;
-// the chain is followed to the row kept, each link once.
+// the chain is followed to the row kept, each link once. A kept row lists
+// the records (secrets.WithDuplicates) rather than holding a merged copy,
+// so carrying costs the number of rows dropped, not what their records hold.
 func carryRecords(kept []timeline.Row, secondary []Secondary, intoPrimary, intoSecondary, keptAt map[int]int) {
 	target := map[int]int{}
-	merged := map[[2]*secrets.Found]*secrets.Found{}
+	carried := map[int][]*secrets.Found{}
 	for index, item := range secondary {
 		if _, isKept := keptAt[index]; isKept || item.Row.Secrets == nil {
 			continue
 		}
-		row := &kept[keptPosition(index, intoPrimary, intoSecondary, keptAt, target)]
-		pair := [2]*secrets.Found{row.Secrets, item.Row.Secrets}
-		if merged[pair] == nil {
-			merged[pair] = secrets.Merge(pair[0], pair[1])
-		}
-		row.Secrets = merged[pair]
+		position := keptPosition(index, intoPrimary, intoSecondary, keptAt, target)
+		carried[position] = append(carried[position], item.Row.Secrets)
+	}
+	for position, records := range carried {
+		kept[position].Secrets = secrets.WithDuplicates(kept[position].Secrets, records)
 	}
 }
 

@@ -1,9 +1,12 @@
 package dedup
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 func TestARowKeptForADuplicateCarriesTheDuplicatesRecordToo(t *testing.T) {
@@ -45,5 +48,62 @@ func TestARowKeptWithoutDuplicatesKeepsItsOwnRecord(t *testing.T) {
 	kept, _ := Deduplicate(rows(primary), withTolerance(2, other), nil)
 	if len(kept) != 2 || kept[0].Secrets != record || kept[1].Secrets != nil {
 		t.Errorf("kept %+v", kept)
+	}
+}
+
+// counter is a textset.Counter that keeps its counts by name.
+type counter map[string]int
+
+// Add counts n units of the named work.
+func (c counter) Add(name string, n int) { c[name] += n }
+
+// carryWork deduplicates n primary rows, each of its own parse, against n
+// copies of them from one parse that recorded n values, one in each copy's
+// text, and writes the kept rows. It returns the records the kept rows
+// list, the bytes the replacement indexed and searched writing them, and
+// whether each kept row's text was written with its value replaced.
+func carryWork(n int) (int, int, bool) {
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	primary := make([]timeline.Row, n)
+	for i := range primary {
+		primary[i] = primaryRow(baseTime, set("text", fmt.Sprintf("message %06d uses k%05d", i, i)))
+		primary[i].Secrets = recorder.Begin()
+		recorder.End()
+	}
+	copied := recorder.Begin()
+	secondary := make([]timeline.Row, n)
+	for i := range secondary {
+		recorder.Value(fmt.Sprintf("k%05d", i))
+		secondary[i] = historyRow(baseTime, set("text", primary[i].Text))
+		secondary[i].Secrets = copied
+	}
+	recorder.End()
+	kept, _ := Deduplicate(primary, withTolerance(2, secondary...), nil)
+	listed, replaced := 0, len(kept) == n
+	work := counter{}
+	recorder.CountWork(work)
+	for _, row := range kept {
+		listed += len(row.Secrets.Records())
+		written := recorder.RowText(row.Text, row.Secrets)
+		replaced = replaced && strings.HasSuffix(written, " uses P")
+	}
+	return listed, work["bytes indexed"] + work["bytes searched"], replaced
+}
+
+func TestCarryingAndWritingDuplicatesRecordsGrowsWithTheRowsNotWithWhatTheRecordsHold(t *testing.T) {
+	smallListed, smallWork, smallReplaced := carryWork(500)
+	listed, work, replaced := carryWork(1000)
+	if !smallReplaced || !replaced {
+		t.Fatal("a kept row's text keeps the value its dropped copy's parse recorded")
+	}
+	// Each kept row lists its own record and the copies' one, and every
+	// text is the same length, so twice the rows is exactly twice the work.
+	if smallListed != 2*500 || listed != 2*smallListed {
+		t.Errorf("the kept rows list %d and %d records for 500 and 1000 rows, want 1000 and 2000", smallListed,
+			listed)
+	}
+	if work != 2*smallWork || smallWork <= 0 {
+		t.Errorf("writing the rows indexed and searched %d and %d bytes for 500 and 1000 rows: not linear",
+			smallWork, work)
 	}
 }
