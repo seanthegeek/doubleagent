@@ -73,6 +73,11 @@ func withheldRows() []withheldRow {
 			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_HOST=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_ID=" + secrets.DefaultPlaceholder + " (from .agent-zero/.env, file mtime)"},
+		{"twinny", "inference provider API key", "model provider: p1 label=Ollama provider=ollama type=chat " +
+			"model=qwen2.5-coder:7b apiKey=" + secrets.DefaultPlaceholder +
+			" (from rjmacarthy.twinny twinny.inference-providers, file mtime)"},
+		{"twinny", "active chat provider API key", "model provider: active chat p1 apiKey=" +
+			secrets.DefaultPlaceholder + " (from rjmacarthy.twinny twinny.active-chat-provider, file mtime)"},
 		{"tabby", "user auth token", "tabby user: alice@example.com (Alice) id=1 auth_token=" +
 			secrets.DefaultPlaceholder + " (from users table, created_at)"},
 		{"tabby", "server record token", "tabby server: http://localhost:8080 token=" + secrets.DefaultPlaceholder +
@@ -353,6 +358,37 @@ func TestAWithheldSecretsRowIsTheOnlyRowItLetsAParseAdd(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got, _, _ := addedRows(test.parse, test.want, test.got)
 			if agree, _ := rowsAgree(t, test.want, got); agree != test.agree {
+				t.Errorf("agree %v, want %v", agree, test.agree)
+			}
+		})
+	}
+}
+
+func TestAParseMayAddOneRowOfEachWithheldRowEntry(t *testing.T) {
+	const file, rel = "/h/User/globalStorage/state.vscdb", "User/globalStorage/state.vscdb"
+	parse := parsedFile{"twinny", file, rel}
+	var rows []Row
+	for _, entry := range withheldRows() {
+		if entry.agent == "twinny" {
+			rows = append(rows, Row{TurnType: "system", SourceFile: file, Text: Text(entry.text)})
+		}
+	}
+	if len(rows) != 2 {
+		t.Fatalf("%d entries for twinny, want 2", len(rows))
+	}
+	tests := []struct {
+		name  string
+		got   []Row
+		agree bool
+	}{
+		{"a row of each entry passes", rows, true},
+		{"one row of one entry passes", rows[:1], true},
+		{"a row of one entry twice fails", []Row{rows[0], rows[0]}, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, _, _ := addedRows(parse, nil, test.got)
+			if agree, _ := rowsAgree(t, nil, got); agree != test.agree {
 				t.Errorf("agree %v, want %v", agree, test.agree)
 			}
 		})

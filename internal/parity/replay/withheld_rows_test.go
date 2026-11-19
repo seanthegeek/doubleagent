@@ -11,6 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
+	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -64,6 +65,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 			out[i] = agentZeroRows{concrete, filter}
 		case *tabby.Parser:
 			out[i] = tabbyRows{concrete, filter}
+		case *twinny.Parser:
+			out[i] = twinnyRows{concrete, filter}
 		}
 	}
 	return out
@@ -90,6 +93,18 @@ type tabbyRows struct {
 
 // Parse parses the artifact through the filter.
 func (p tabbyRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// twinnyRows is the Twinny parser with its parses passed through an
+// addedRowFilter.
+type twinnyRows struct {
+	*twinny.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p twinnyRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 

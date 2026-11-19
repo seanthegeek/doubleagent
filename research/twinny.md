@@ -537,7 +537,9 @@ No version field on conversations. `updatedAt` is absent on conversations from o
 The same `rjmacarthy.twinny` JSON holds `twinny.inference-providers` and the
 `twinny.active-*-provider` objects, each with `apiKey`
 ([types.ts:255-272](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/types.ts#L255-L272)).
-Redact `apiKey` wherever it appears in the value. `twinny.chatgpt-plan.profile` names the signed-in
+Redact `apiKey` wherever it appears in the value; the parser shows it in a `model provider:` row
+([Model rows](#model-rows)), and `timeline --no-secrets` and `detect --no-secrets` replace it with
+the placeholder. `twinny.chatgpt-plan.profile` names the signed-in
 OpenAI account (`email`, `subject`, `name`) and is an identity value to redact; the parser never
 reads it. Gateway tokens and P2P seeds are separate encrypted `secret://`
 rows. In the editor's `User/settings.json`, redact `twinny.githubToken` and the `env` values of
@@ -618,6 +620,15 @@ so for a team pool it names the teammate's machine that answered. The current se
 kept as `twinny-global-context-twinny.selectedModel` and in `twinny.active-chat-provider`
 ([src/extension/providers/store.ts:92-100](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/providers/store.ts#L92-L100));
 neither is history.
+
+Each provider of `twinny.inference-providers` that holds an `apiKey` gives one `system` row at the
+file's modification time, `model provider: <id> label=<label> provider=<provider> type=<type>
+model=<modelName> apiKey=<apiKey> (from rjmacarthy.twinny twinny.inference-providers, file
+mtime)`, each field when set, and each of `twinny.active-chat-provider`, `-fim-provider` and
+`-embeddings-provider` that holds one gives `model provider: active <chat|fim|embeddings> <id>
+apiKey=<apiKey> (from rjmacarthy.twinny twinny.active-<kind>-provider, file mtime)`. The key is
+shown as written; `timeline --no-secrets` and `detect --no-secrets` replace it with the
+placeholder. A provider without a key gives no row.
 
 #### Past-use rows and secondary sources
 

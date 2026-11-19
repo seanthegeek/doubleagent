@@ -17,11 +17,12 @@
 // The catalog gives the state database to the editor whose User directory
 // holds it, so the parser reads every editor agent's. Messages carry no
 // time: every row of a conversation takes its updatedAt, and source_line
-// is 0. Provider API keys share the value and are never read. See
-// research/twinny.md.
+// is 0. Each provider holding an API key gives a "model provider:" row with
+// the key through parser.SecretText. See research/twinny.md.
 package twinny
 
 import (
+	"cmp"
 	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -38,6 +39,7 @@ const (
 	activeKey        = "twinny.active-conversation"
 	globalPrefix     = "twinny-global-context-"
 	teamPolicyKey    = "twinny.teamPolicy"
+	providersKey     = "twinny.inference-providers"
 	workspacePrefix  = "twinny-workspace-context-"
 	standingSource   = "(from state.vscdb rjmacarthy.twinny, file mtime)"
 )
@@ -149,6 +151,41 @@ func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, opt
 		p.conversation(artifact, conversation, options, emit)
 	}
 	p.standingRows(artifact, state, emit)
+	p.providerRows(artifact, state, emit)
+}
+
+// providerRows emits, at the file's modification time, one "model
+// provider:" row per provider of twinny.inference-providers and per active
+// provider that holds an API key, the key through parser.SecretText.
+func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
+	timestamp := ""
+	row := func(text string, provider jsonvalue.Value, source string) {
+		key := parser.Text(provider.Get("apiKey"))
+		if key == "" {
+			return
+		}
+		if timestamp == "" {
+			timestamp = parser.FileMtime(artifact)
+		}
+		emit(p.systemRow(artifact, timestamp, timeline.Compact(text+" apiKey="+parser.SecretText(artifact, key)+
+			" (from "+itemKey+" "+source+", file mtime)")))
+	}
+	for _, member := range state.Get(providersKey).Members() {
+		provider := member.Value
+		text := "model provider: " + member.Key
+		for _, field := range [][2]string{{"label", "label"}, {"provider", "provider"}, {"type", "type"},
+			{"modelName", "model"}} {
+			if value := parser.Text(provider.Get(field[0])); value != "" {
+				text += " " + field[1] + "=" + value
+			}
+		}
+		row(text, provider, providersKey)
+	}
+	for _, kind := range []string{"chat", "fim", "embeddings"} {
+		source := "twinny.active-" + kind + "-provider"
+		provider := state.Get(source)
+		row("model provider: active "+kind+" "+cmp.Or(parser.Text(provider.Get("id")), "-"), provider, source)
+	}
 }
 
 // systemRow returns a system row of the artifact at timestamp.
