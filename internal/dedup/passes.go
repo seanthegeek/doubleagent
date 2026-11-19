@@ -164,11 +164,12 @@ func (m matcher) processingOrder(secondary []Secondary, byScope bool) []int {
 	return append(order, undated...)
 }
 
-// againstPrimary returns the indices of the secondary rows that pair with
-// a primary row. Each row looks only under its own scope; a row in forward
-// looks up to that many seconds after it, before the bound limits gives.
+// againstPrimary returns, by the index of each secondary row that pairs
+// with a primary row, the index of that primary row. Each row looks only
+// under its own scope; a row in forward looks up to that many seconds after
+// it, before the bound limits gives.
 func (m matcher) againstPrimary(primary []timeline.Row, secondary []Secondary, limits *bounds,
-	forward map[int]float64) []int {
+	forward map[int]float64) map[int]int {
 	state := newPass(primary)
 	for index, row := range primary {
 		if !isParserRow(row) {
@@ -177,7 +178,7 @@ func (m matcher) againstPrimary(primary []timeline.Row, secondary []Secondary, l
 		}
 	}
 	state.seal()
-	var matched []int
+	matched := map[int]int{}
 	for _, secondaryIndex := range m.processingOrder(secondary, true) {
 		item := secondary[secondaryIndex]
 		seconds, widened := forward[secondaryIndex]
@@ -189,18 +190,19 @@ func (m matcher) againstPrimary(primary []timeline.Row, secondary []Secondary, l
 			window{seconds, widened})
 		if ok {
 			state.used[index] = true
-			matched = append(matched, secondaryIndex)
+			matched[secondaryIndex] = index
 		}
 	}
 	*m.steps += state.steps
 	return matched
 }
 
-// amongSecondary returns the indices of the secondary rows not in matched
-// that pair with another secondary row. A candidate is a row a primary row
-// took or one tested before, from another file; each is taken once, and a
-// row also looks under broader scopes.
-func (m matcher) amongSecondary(secondary []Secondary, matched map[int]bool) []int {
+// amongSecondary returns, by the index of each secondary row not in
+// matched that pairs with another secondary row, the index of that other
+// row. A candidate is a row a primary row took or one tested before, from
+// another file; each is taken once, and a row also looks under broader
+// scopes.
+func (m matcher) amongSecondary(secondary []Secondary, matched map[int]bool) map[int]int {
 	rows := make([]timeline.Row, len(secondary))
 	for index, item := range secondary {
 		rows[index] = item.Row
@@ -216,7 +218,7 @@ func (m matcher) amongSecondary(secondary []Secondary, matched map[int]bool) []i
 		m.add(state, rows[index], index, millis, dated, false)
 	}
 	state.seal()
-	var copies []int
+	copies := map[int]int{}
 	for _, index := range m.processingOrder(secondary, false) {
 		if matched[index] {
 			continue
@@ -224,7 +226,7 @@ func (m matcher) amongSecondary(secondary []Secondary, matched map[int]bool) []i
 		item := secondary[index]
 		if candidate, ok := m.find(state, item.Row, item.Tolerance, true, nil, window{}); ok {
 			state.used[candidate] = true
-			copies = append(copies, index)
+			copies[index] = candidate
 		}
 		millis, dated := m.matchTime(item.Row, false)
 		m.add(state, item.Row, index, millis, dated, true)
