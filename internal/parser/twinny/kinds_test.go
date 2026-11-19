@@ -133,6 +133,12 @@ func TestAProviderOrConversationOfTheWrongKindIsReported(t *testing.T) {
 			[]string{"parser: twinny.inference-providers is not a JSON object"}},
 		{"a provider that is a string", `{"twinny.inference-providers": {"p1": "key-in-a-string", "p2": {}}}`,
 			[]string{"parser: twinny.inference-providers holds 1 entry that is not a JSON object"}},
+		{"several providers of the wrong kind are one row, an active provider of the wrong kind one row each",
+			`{"twinny.inference-providers": {"p1": 1, "p2": "x", "p3": [], "p4": {}}, ` +
+				`"twinny.active-chat-provider": 5, "twinny.active-fim-provider": 6}`,
+			[]string{"parser: twinny.inference-providers holds 3 entries that are not JSON objects",
+				"parser: twinny.active-chat-provider is not a JSON object",
+				"parser: twinny.active-fim-provider is not a JSON object"}},
 		{"providers null", `{"twinny.inference-providers": null}`, nil},
 		{"an active chat provider that is a string", `{"twinny.active-chat-provider": "x"}`,
 			[]string{"parser: twinny.active-chat-provider is not a JSON object"}},
