@@ -63,8 +63,11 @@ func grammarCases() []grammarCase {
 			"git clone https://REDACTED@gitlab.com/o/r.git dir"},
 		{1, "a URL in JSON text", `{"url":"https://u:pw9@h/x","next":"me@example.com"}`,
 			`{"url":"https://REDACTED@h/x","next":"me@example.com"}`},
-		{1, "a quote ends a URL", `'https://h/?token=t0k'x`, `'https://h/?token=REDACTED'x`},
+		{1, "a backtick ends a URL", "run `curl https://h/?token=t0k`now", "run `curl https://h/?token=REDACTED`now"},
 		{1, "empty text is unchanged", "", ""},
+		{1, "a mail address after a URL in the same sentence is kept",
+			"see https://example.com/docs, or write to alice@example.com.",
+			"see https://example.com/docs, or write to alice@example.com."},
 		{2, "a URL written with JSON's escaped slashes", `https:\/\/u:pw9@h\/x`, `https:\/\/REDACTED@h\/x`},
 		{2, "a scheme in capitals", "HTTPS://u:pw9@h/", "HTTPS://REDACTED@h/"},
 		{2, "a separator without a scheme is no URL", "://u:p@h/", "://u:p@h/"},
@@ -77,6 +80,7 @@ func grammarCases() []grammarCase {
 		{2, "an error naming an address is kept", "Error:foo@bar", "Error:foo@bar"},
 		{2, "the SCP form of a git remote is kept", "git@github.com:o/r.git", "git@github.com:o/r.git"},
 		{2, "a query outside a URL is kept", "a?token=b", "a?token=b"},
+		{2, "a Windows path is kept", `C:\Users\alice@corp\notes.txt`, `C:\Users\alice@corp\notes.txt`},
 		{3, "punctuation after a URL is not part of it", "POST https://h/t?key=k1: failed, see https://u:pw9@h/.",
 			"POST https://h/t?key=REDACTED: failed, see https://REDACTED@h/."},
 		{3, "a Markdown link's closing parenthesis ends its URL", "see [the share](https://h/s?token=LONGTOKEN123) now",
@@ -90,12 +94,33 @@ func grammarCases() []grammarCase {
 		{3, "a comma not before a scheme is part of a value", "https://h/?token=a,b c", "https://h/?token=REDACTED c"},
 		{3, "credentials without a scheme after a URL are kept", "https://a/x,user:pw@proxy:3128",
 			"https://a/x,user:pw@proxy:3128"},
+		{3, "a single quote ends a value", `'https://h/?token=t0k'x`, `'https://h/?token=REDACTED'x`},
+		{3, "a closing parenthesis inside user information", "https://user:pa)ss@host/x", "https://REDACTED@host/x"},
+		{3, "a single quote inside user information", "https://user:it's@host/x", "https://REDACTED@host/x"},
+		{3, "a parameter after a closing parenthesis in a value", "https://h/?q=a)b&access_token=ya29.LONGTOKEN",
+			"https://h/?q=a)b&access_token=REDACTED"},
+		{3, "a parameter after a single quote in a value", "https://h/search?q=it's&token=abcdef",
+			"https://h/search?q=it's&token=REDACTED"},
+		{3, "a single-quoted URL on a command line", "curl -s 'https://h/v1?api_key=fake-key-1' -o 'out@1.json'",
+			"curl -s 'https://h/v1?api_key=REDACTED' -o 'out@1.json'"},
+		{3, "single-quoted URLs on a command line are kept", "git clone 'https://example.com/o/r.git' 'my dir@2'",
+			"git clone 'https://example.com/o/r.git' 'my dir@2'"},
+		{3, "Markdown links are kept", "see [docs](https://example.com/a) and [b](https://example.org/x?q=1).",
+			"see [docs](https://example.com/a) and [b](https://example.org/x?q=1)."},
+		{3, "a Markdown list of links is kept", "- [a](https://example.com/x)\n- [b](https://example.org/y)",
+			"- [a](https://example.com/x)\n- [b](https://example.org/y)"},
+		{3, "a comma-separated list of URLs is kept", "--origins=https://a.example,https://b.example/x,https://c.example",
+			"--origins=https://a.example,https://b.example/x,https://c.example"},
+		{3, "JSON text with a mail address is kept", `{"url":"https://example.com/x","mail":"alice@example.com"}`,
+			`{"url":"https://example.com/x","mail":"alice@example.com"}`},
 		{4, "a slash ends the authority, so what follows is a path",
 			"https://AKIA:wJalr/K7MDENG/bPxRf@host/x", "https://AKIA:wJalr/K7MDENG/bPxRf@host/x"},
 		{4, "an at sign in the path is kept", "https://host.example/users/@alice", "https://host.example/users/@alice"},
 		{4, "an at sign after a colon in the path is kept", "https://host/a:b/c@d", "https://host/a:b/c@d"},
 		{4, "an at sign in the query is kept", "https://host.example?mail=a@b", "https://host.example?mail=a@b"},
 		{4, "an at sign in the fragment is kept", "https://host.example/#a:b@c", "https://host.example/#a:b@c"},
+		{4, "an empty authority before a Windows path is kept", "file:///C:/Users/alice@corp/notes.txt",
+			"file:///C:/Users/alice@corp/notes.txt"},
 		{4, "an escaped slash ends the authority", `https:\/\/h\/u:p@x`, `https:\/\/h\/u:p@x`},
 		{4, "a URL inside the query of another", "https://h/a?next=https://u:pw9@i/",
 			"https://h/a?next=https://REDACTED@i/"},
@@ -119,6 +144,7 @@ func grammarCases() []grammarCase {
 		{5, "user information that is only a colon is none", "see https://:@host/ at 10:30: done",
 			"see https://:@host/ at 10:30: done"},
 		{5, "a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
+		{5, "an IPv6 host is kept", "http://[2001:db8::1]:8080/x?q=1", "http://[2001:db8::1]:8080/x?q=1"},
 		{6, "a parameter after a redirect target with a path", "https://h/x?next=https://other/&access_token=ya29.T0K",
 			"https://h/x?next=https://other/&access_token=REDACTED"},
 		{6, "a parameter after a redirect target without a path", "https://h/x?next=https://other&access_token=ya29.T0K",
@@ -131,6 +157,12 @@ func grammarCases() []grammarCase {
 		{6, "credentials and a query token together", "https://u:pw9@h/x?token=t0k#f",
 			"https://REDACTED@h/x?token=REDACTED#f"},
 		{6, "a question mark in the fragment starts no query", "https://h/#x?token=t0k", "https://h/#x?token=t0k"},
+		{6, "a redirect target's own query", "https://h/?next=https://i/?token=abc",
+			"https://h/?next=https://i/?token=REDACTED"},
+		{6, "a code in a redirect target's query", "https://h/?next=https://i/cb?code=AUTHCODE123&state=x",
+			"https://h/?next=https://i/cb?code=REDACTED&state=x"},
+		{6, "a redirect target's query in a fragment", "https://h/#next=https://i/?token=abc",
+			"https://h/#next=https://i/?token=REDACTED"},
 		{7, "parameters split at semicolons", "https://h/?x=1;sig=abc;y=2", "https://h/?x=1;sig=REDACTED;y=2"},
 		{7, "a parameter after JSON's escaped ampersand",
 			`{\"next\":\"https://api.example/v1/items?page=2\u0026access_token=ya29.T0K\"}`,
@@ -438,10 +470,12 @@ func (c counter) Add(name string, n int) { c[name] += n }
 
 // identifyWork returns the bytes read identifying the URLs of k copies of
 // units dense in what each rule of the grammar reads: separators, at
-// signs, parameters, brackets, commas before a scheme and JSON escapes.
+// signs, parameters, brackets, quotes, redirect targets, commas before a
+// scheme and JSON escapes.
 func identifyWork(k int) int {
 	work := counter{}
 	text := "https://h/" + strings.Repeat("x://a@b?c&d#e=f&token=g;", k) + strings.Repeat("&", k) +
+		strings.Repeat("q=a)b'c]d}e&n=y://i/?code=z&", k) + strings.Repeat("y://u:p)q'r@s?t=1", k) +
 		strings.Repeat("://", k) + strings.Repeat("@", k) + " " +
 		strings.Repeat(`(z:\/\/a:b@c?token=d\/e\u0026f=g),`, k) + strings.Repeat("(", k) + strings.Repeat(")", k) +
 		" " + strings.Repeat(",y://u:p@h/?a=1", k) + strings.Repeat(`\`, k)
@@ -578,16 +612,18 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 
 // FuzzURLsWithholdsBothSecrets holds that for
 // scheme://user:SECRET@host/path?token=SECRET2#fragment exactly the user
-// information, the password and SECRET2 are recorded and the output is the
-// URL with the user information and SECRET2 replaced where they stand, the
-// same bytes elsewhere in the URL kept, and that with withholding off
-// nothing is recorded. SECRET holds no byte that ends an authority (/, ?, #, a
-// backslash) and SECRET2 none that ends a parameter (&, ;, #, a backslash)
-// and no "://", which starts another URL; neither holds a delimiter or a
-// closing bracket, which ends a URL.
+// information, its password and SECRET2 are recorded and replaced where
+// they stand, the rest kept, and nothing is recorded with withholding off.
+// By the URL grammar's rules, neither secret ends the token (rule 1);
+// SECRET ends no authority (/, ?, #, a backslash) but may hold what ends a
+// value (rule 3), which user information takes whole; SECRET2 ends no
+// parameter (&, ;, #, a backslash), starts no URL and ends no value (a
+// single quote, a closing bracket that closes none opened since the URL
+// began).
 func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
-		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}} {
+		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}, {"pa)ss", "a(b)c"}, {"it's", "x]y"},
+		{"a(b]", "c)d"}, {"},x", "[x]"}} {
 		fuzz.Add("https", seed[0], "host.example", "/path", seed[1], "frag")
 	}
 	fuzz.Fuzz(func(t *testing.T, scheme, secret, host, path, secret2, fragment string) {
@@ -595,11 +631,15 @@ func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
 			!onlyOf(host, "abcdefghijklmnopqrstuvwxyz0123456789.-", 1) ||
 			!onlyOf(path, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._~-", 0) ||
 			!onlyOf(fragment, "abcdefghijklmnopqrstuvwxyz0123456789", 0) ||
-			!printable(secret, `/?#\)]}`) || !printable(secret2, `&;#\)]}`) || strings.Contains(secret2, "://") ||
+			!printable(secret, `/?#\`) || !printable(secret2, `&;#\'`) || strings.Contains(secret2, "://") ||
 			secret == "" || secret2 == "" {
 			return
 		}
-		text := scheme + "://user:" + secret + "@" + host + "/" + path + "?token=" + secret2 + "#" + fragment
+		before := scheme + "://user:" + secret + "@" + host + "/" + path + "?token="
+		if closesUnopened(before, secret2) {
+			return
+		}
+		text := before + secret2 + "#" + fragment
 		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
 			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
 		}
@@ -626,6 +666,26 @@ func onlyOf(text, allowed string, least int) bool {
 	return len(text) >= least && strings.Trim(text, allowed) == ""
 }
 
+// closesUnopened reports whether a closing bracket in value closes none of
+// its kind opened in before or earlier in value, which rule 3 of the URL
+// grammar says ends a value.
+func closesUnopened(before, value string) bool {
+	var open [3]int
+	for i, char := range []byte(before + value) {
+		bracket := strings.IndexByte("([{)]}", char)
+		switch {
+		case bracket < 0:
+		case bracket < 3:
+			open[bracket]++
+		case open[bracket-3] > 0:
+			open[bracket-3]--
+		case i >= len(before):
+			return true
+		}
+	}
+	return false
+}
+
 // printable reports whether text is valid UTF-8 of printable characters
 // holding no byte that ends a token (rule 1 of the URL grammar) and none of
 // the bytes in banned.
@@ -635,7 +695,7 @@ func printable(text, banned string) bool {
 	}
 	for _, character := range text {
 		if !unicode.IsPrint(character) || character < utf8.RuneSelf &&
-			strings.ContainsRune(" \t\n\v\f\r\"'<>`"+banned, character) {
+			strings.ContainsRune(" \t\n\v\f\r\"<>`"+banned, character) {
 			return false
 		}
 	}
