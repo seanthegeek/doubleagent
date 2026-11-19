@@ -81,7 +81,7 @@ func member(name, value string) string {
 }
 
 func TestASettingsMemberThatIsNotAnObjectIsReported(t *testing.T) {
-	for _, name := range []string{"sessionsByServer", "permissions"} {
+	for _, name := range []string{"sessionsByServer", "permissions", "env"} {
 		t.Run(name, func(t *testing.T) {
 			checkKind(t, ".letta/settings.json", name, jsonvalue.Object, `[1]`, `{}`,
 				func(value string) string { return `{` + member(name, value) + `"x": 1}` })

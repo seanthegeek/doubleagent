@@ -182,7 +182,8 @@ func firstKey(object jsonvalue.Value, names []string) (string, jsonvalue.Value, 
 // config.json, at its modification time: only the settings that grant or
 // restrict the agent, named as the file spells them. A list gives one row
 // per entry. Then one `stored credentials:` row gives the credentials the
-// file holds (configCredentials), each through parser.SecretText.
+// file holds (configCredentials), each through parser.SecretText, then a
+// problem row per member of the wrong kind on the way to those rows.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	data, problem, ok := p.loadObject(artifact, "config.json")
 	if !ok {
@@ -197,10 +198,13 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 			}
 		}
 	}
-	tools := data.Get("tools")
+	var problems parser.Problems
+	tools := parser.ObjectOrEmptyMember(data.Get("tools"), "tools", 0, &problems)
 	add("tools.", tools, configToolKeys())
-	add("tools.exec.", tools.Get("exec"), configExecKeys())
-	for _, member := range data.Get("channels").Members() {
+	add("tools.exec.", parser.ObjectOrEmptyMember(tools.Get("exec"), "tools.exec", 0, &problems), configExecKeys())
+	// channels holds settings beside the channel objects (sendProgress), so
+	// a member that is not an object is not reported.
+	for _, member := range parser.ObjectMember(data.Get("channels"), "channels", 0, &problems) {
 		add("channels."+member.Key+".", member.Value, [][]string{{"allowFrom", "allow_from"}})
 	}
 	timestamp := parser.FileMtime(artifact)
@@ -215,34 +219,39 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		}
 	}
 	var stored []string
-	for _, credential := range configCredentials(data) {
+	for _, credential := range configCredentials(data, &problems) {
 		stored = append(stored, credential.Key+"="+parser.SecretText(artifact, parser.Text(credential.Value)))
 	}
 	if len(stored) > 0 {
 		emit(p.settingRow(artifact, timestamp, "stored credentials: "+strings.Join(stored, " ")+" (from "+
 			artifact.Rel+", file mtime)", ""))
 	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // configCredentials returns the credentials of config.json that are set,
 // named as the file spells them: each provider's API key, each MCP
 // server's env value and the Feishu and Linear channel secrets
-// (research/nanobot.md, "Credentials").
-func configCredentials(data jsonvalue.Value) []jsonvalue.Member {
+// (research/nanobot.md, "Credentials"). A providers, MCP server list or
+// MCP env that is not an object, and providers or servers that are not
+// objects, add a problem.
+func configCredentials(data jsonvalue.Value, problems *parser.Problems) []jsonvalue.Member {
 	var found []jsonvalue.Member
 	add := func(prefix string, object jsonvalue.Value, names []string) {
 		if name, value, ok := firstKey(object, names); ok && parser.Text(value) != "" {
 			found = append(found, jsonvalue.Member{Key: prefix + name, Value: value})
 		}
 	}
-	for _, provider := range data.Get("providers").Members() {
-		add("providers."+provider.Key+".", provider.Value, []string{"apiKey", "api_key"})
+	for name, provider := range parser.MembersOfKind(data.Get("providers"), "providers", jsonvalue.Object, 0,
+		problems) {
+		add("providers."+name+".", provider, []string{"apiKey", "api_key"})
 	}
 	tools := data.Get("tools")
 	if name, servers, ok := firstKey(tools, []string{"mcpServers", "mcp_servers"}); ok {
-		for _, server := range servers.Members() {
-			for _, variable := range server.Value.Get("env").Members() {
-				add("tools."+name+"."+server.Key+".env.", server.Value.Get("env"), []string{variable.Key})
+		for server, settings := range parser.MembersOfKind(servers, "tools."+name, jsonvalue.Object, 0, problems) {
+			env := settings.Get("env")
+			for _, variable := range parser.ObjectMember(env, "tools."+name+"."+server+".env", 0, problems) {
+				add("tools."+name+"."+server+".env.", env, []string{variable.Key})
 			}
 		}
 	}

@@ -300,14 +300,15 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parser.Emit
 // VS Code extension's state in an editor's state.vscdb, its endpoint
 // through parser.URLText and its token through parser.SecretText, then the
 // command history, then a row per problem, never echoing the value, which
-// holds those tokens. A history that is not an array adds a problem.
+// holds those tokens. A history that is not an array, and server records
+// of the wrong kind, add a problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parser.Emit) {
 	state, problems := vscodestate.ReadItem(artifact.DiskPath, vscodeItemKey)
 	switch {
 	case state.IsObject():
-		p.serverRows(artifact, state.Get(vscodeServersKey), emit)
-		var commands []string
 		var found parser.Problems
+		p.serverRows(artifact, state.Get(vscodeServersKey), emit, &found)
+		var commands []string
 		for _, entry := range parser.ArrayMember(state.Get(vscodeHistoryKey), vscodeHistoryKey, 0, &found) {
 			if command := commandText(entry); command != "" {
 				commands = append(commands, command)
@@ -429,11 +430,13 @@ var (
 
 // serverRows emits one "tabby server:" row per member of the extension's
 // server records, an object of endpoint to {token}, that holds a token.
-// The rows have no time: the records hold none.
-func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parser.Emit) {
-	for _, record := range records.Members() {
-		if token := parser.Text(record.Value.Get("token")); token != "" {
-			emit(p.row(artifact, rowSpec{text: "tabby server: " + parser.URLText(artifact, record.Key) + " token=" +
+// The rows have no time: the records hold none. Records that are not an
+// object, or that hold a record that is not one, add a problem to found.
+func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parser.Emit,
+	found *parser.Problems) {
+	for endpoint, record := range parser.MembersOfKind(records, vscodeServersKey, jsonvalue.Object, 0, found) {
+		if token := parser.Text(record.Get("token")); token != "" {
+			emit(p.row(artifact, rowSpec{text: "tabby server: " + parser.URLText(artifact, endpoint) + " token=" +
 				parser.SecretText(artifact, token) + " (from state.vscdb " + vscodeItemKey + " " + vscodeServersKey +
 				", no times)"}))
 		}

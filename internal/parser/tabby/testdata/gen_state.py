@@ -11,7 +11,8 @@ edit.recentlyCommand member is, by file name:
 - command-empty.vscdb: an empty array.
 
 server-records.vscdb holds a server.serverRecords object of one endpoint with a token beside
-an empty history.
+an empty history; servers-list.vscdb holds a server.serverRecords that is a list, and
+servers-string.vscdb one whose endpoint holds a string in place of its record.
 """
 
 import json
@@ -28,6 +29,8 @@ DATABASES = {
         "server.serverRecords": {"https://ci:s3cret@tabby.example/": {"token": "auth_FIXTURE"}},
         "edit.recentlyCommand": [],
     },
+    "servers-list.vscdb": {"server.serverRecords": ["https://tabby.example/"]},
+    "servers-string.vscdb": {"server.serverRecords": {"https://tabby.example/": "auth_FIXTURE"}},
 }
 
 

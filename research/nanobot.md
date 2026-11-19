@@ -1003,10 +1003,14 @@ file's rows have no project path.
 
 A member present but of the wrong kind is `parser: <member> is not a JSON array` (or `object`): a
 session record's `tool_calls`, a WebUI record's `tool_events` or `edits` (each row at the record's
-line), and, in `pairing.json` at `source_line` 0, `approved` or `pending` as an object and
-`approved.<channel>` as an array. An absent, null or empty one gives no row. A `tool_calls`,
-`tool_events`, `edits` or `pending` holding entries that are not objects gives one row for them
-all at the same place, `parser: <member> holds <n> entries that are not JSON objects`
+line), in `pairing.json` at `source_line` 0, `approved` or `pending` as an object and
+`approved.<channel>` as an array, and in `config.json` at `source_line` 0, after its rows, `tools`,
+`tools.exec`, `channels`, `providers`, `tools.mcpServers` (or `tools.mcp_servers`) and a server's
+`env` (`tools.mcpServers.<name>.env`) as objects. An absent, null or empty one gives no row. A
+`tool_calls`, `tool_events`, `edits` or `pending`, and a `config.json` `providers` or MCP server
+list, holding entries that are not objects gives one row for them all at the same place (a
+`channels` member that is not an object is a setting beside the channels, such as
+`sendProgress`, and gives none), `parser: <member> holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures

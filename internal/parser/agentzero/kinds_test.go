@@ -53,6 +53,14 @@ func TestAChatMemberOfTheWrongKindIsReported(t *testing.T) {
 		{"null members", `"log": {"logs": null}, "agents": null`, nil},
 		{"empty members", `"log": {"logs": []}, "agents": []`, nil},
 		{"absent members", `"log": {}`, nil},
+		{"a telegram bot configuration as a string", `"data": {"telegram_bot": "b", "telegram_bot_cfg": "123:x"}`,
+			[]string{"parser: telegram_bot_cfg is not a JSON object"}},
+		{"a model override as a string", `"data": {"chat_model_override": "gpt"}`,
+			[]string{"parser: chat_model_override is not a JSON object"}},
+		{"a model override slot as a list", `"data": {"chat_model_override": {"chat": [1]}}`,
+			[]string{"parser: chat_model_override.chat is not a JSON object"}},
+		{"data as a list", `"data": [1]`, []string{"parser: data is not a JSON object"}},
+		{"null data members", `"data": {"telegram_bot_cfg": null, "chat_model_override": {"chat": null}}`, nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

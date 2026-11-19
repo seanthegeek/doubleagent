@@ -182,8 +182,9 @@ func (p *Parser) recoverLogs(raw string) []jsonvalue.Value {
 // remoteCopyTexts returns the "session synced:" and "session relayed:" texts
 // of a chat: a synced text names a provider response chain, a relayed text a
 // Telegram, WhatsApp or email chat, with the Telegram bot's token and
-// webhook secret through parser.SecretText.
-func remoteCopyTexts(artifact *input.Artifact, chat, data jsonvalue.Value) []string {
+// webhook secret through parser.SecretText. A telegram_bot_cfg that is not
+// an object adds a problem.
+func remoteCopyTexts(artifact *input.Artifact, chat, data jsonvalue.Value, problems *parser.Problems) []string {
 	var texts []string
 	for i, agent := range parser.Elements(chat.Get("agents")) {
 		state := agent.Get("data").Get("responses_state")
@@ -207,6 +208,7 @@ func remoteCopyTexts(artifact *input.Artifact, chat, data jsonvalue.Value) []str
 		text := "session relayed: telegram bot " + key(data, "telegram_bot") + " chat " +
 			key(data, "telegram_chat_id") + " user " + key(data, "telegram_user_id") + " @" +
 			key(data, "telegram_username")
+		parser.ObjectMember(data.Get("telegram_bot_cfg"), "telegram_bot_cfg", 0, problems)
 		for _, name := range []string{"token", "webhook_secret"} {
 			if secret := parser.Text(data.Get("telegram_bot_cfg").Get(name)); secret != "" {
 				text += " " + name + "=" + parser.SecretText(artifact, secret)
@@ -284,8 +286,9 @@ type chatSetting struct {
 // chatSettingRows returns the editor-session and chat-model rows of a chat's
 // data, each value the latest as of the file's modification time; ACP is the
 // Agent Client Protocol an editor session uses. Only the scratch directory
-// row names its own project path.
-func chatSettingRows(artifact *input.Artifact, data jsonvalue.Value) []chatSetting {
+// row names its own project path. A chat_model_override, or a slot of it,
+// that is not an object adds a problem.
+func chatSettingRows(artifact *input.Artifact, data jsonvalue.Value, problems *parser.Problems) []chatSetting {
 	var rows []chatSetting
 	if mode := data.Get("acp_mode"); !mode.IsEmpty() {
 		rows = append(rows, chatSetting{"permission mode: " + mode.Text() + " (acp, as of file mtime)", ""})
@@ -293,7 +296,12 @@ func chatSettingRows(artifact *input.Artifact, data jsonvalue.Value) []chatSetti
 	if model := data.Get("acp_model_id"); !model.IsEmpty() {
 		rows = append(rows, chatSetting{"model: requested " + model.Text() + " (acp, as of file mtime)", ""})
 	}
-	if requested := overrideText(artifact, data.Get("chat_model_override")); requested != "" {
+	override := data.Get("chat_model_override")
+	parser.ObjectMember(override, "chat_model_override", 0, problems)
+	for _, slot := range overrides {
+		parser.ObjectMember(override.Get(slot), "chat_model_override."+slot, 0, problems)
+	}
+	if requested := overrideText(artifact, override); requested != "" {
 		rows = append(rows, chatSetting{"model: requested " + requested +
 			" (chat override, as of file mtime)", ""})
 	}
@@ -436,7 +444,7 @@ func messagesBeside(artifact *input.Artifact) parser.Directory {
 // chatRows emits the rows of a chat that decoded.
 func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
 	c.base.SessionID = parser.TextOr(document.Get("id"), fallbackID)
-	data := document.Get("data")
+	data := parser.ObjectOrEmptyMember(document.Get("data"), "data", 0, &c.problems)
 	if project := data.Get("project"); !project.IsEmpty() {
 		c.base.ProjectPath = projectOf(project)
 	}
@@ -474,10 +482,10 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 	start := c.row(timeline.TurnSystem, text, 0, "")
 	start.TimestampUTC = timeutil.FromValue(document.Get("created_at"))
 	c.emit(start)
-	for _, text := range remoteCopyTexts(c.artifact, document, data) {
+	for _, text := range remoteCopyTexts(c.artifact, document, data, &c.problems) {
 		c.emit(c.row(timeline.TurnSystem, text, 0, parser.FileMtime(c.artifact)))
 	}
-	for _, setting := range chatSettingRows(c.artifact, data) {
+	for _, setting := range chatSettingRows(c.artifact, data, &c.problems) {
 		row := c.row(timeline.TurnSystem, setting.text, 0, parser.FileMtime(c.artifact))
 		if setting.project != "" {
 			row.ProjectPath = setting.project

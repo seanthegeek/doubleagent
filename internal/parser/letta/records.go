@@ -89,7 +89,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 				" (from "+artifact.Rel+", file mtime)")
 		}
 	}
-	if stored := storedCredentials(artifact, document); stored != "" {
+	if stored := storedCredentials(artifact, document, &problems); stored != "" {
 		put("", "stored credentials: "+stored+" (from "+artifact.Rel+", file mtime)")
 	}
 	for _, found := range problems {
@@ -100,10 +100,11 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 // storedCredentials returns "<key>=<value>" of each env member and of the
 // refreshToken of a settings file, joined by spaces, each value through
 // parser.SecretText, or "" when it holds none: the file the CLI writes the
-// API key and refresh token into when the keychain cannot hold them.
-func storedCredentials(artifact *input.Artifact, document jsonvalue.Value) string {
+// API key and refresh token into when the keychain cannot hold them. An
+// env that is not an object adds a problem.
+func storedCredentials(artifact *input.Artifact, document jsonvalue.Value, problems *parser.Problems) string {
 	var parts []string
-	for _, member := range document.Get("env").Members() {
+	for _, member := range parser.ObjectMember(document.Get("env"), "env", 0, problems) {
 		if value := parser.Text(member.Value); value != "" {
 			parts = append(parts, "env."+member.Key+"="+parser.SecretText(artifact, value))
 		}

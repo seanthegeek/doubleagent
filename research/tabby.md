@@ -711,12 +711,16 @@ A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, o
 A completion event whose `choices` is present but not an array is
 `parser: choices is not a JSON array` at the event's line, after the completion's rows, and a
 `completion`, `view`, `select` or `dismiss` event whose body is present but not an object is
-`parser: <event> is not a JSON object` at the event's line, before the event's row. A
-`state.vscdb` whose `edit.recentlyCommand` is present but not an array is
-`parser: edit.recentlyCommand is not a JSON array` with `source_line` 0. An absent, null or empty
-one gives no row. A `choices` holding entries that are not objects is one row for them all at the
-event's line, `parser: choices holds <n> entries that are not JSON objects`
-(`1 entry that is not a JSON object` for one), the other choices giving their rows.
+`parser: <event> is not a JSON object` at the event's line, before the event's row. A `state.vscdb`
+whose `edit.recentlyCommand` is present but not an array is
+`parser: edit.recentlyCommand is not a JSON array` with `source_line` 0, and one whose
+`server.serverRecords` is present but not an object
+`parser: server.serverRecords is not a JSON object`, or, holding records that are not objects, one
+row for them all, `parser: server.serverRecords holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one). An absent, null or empty one gives no row. A
+`choices` holding entries that are not objects is one row for them all at the event's line,
+`parser: choices holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other choices giving their rows.
 
 #### Fixtures
 

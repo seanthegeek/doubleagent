@@ -13,8 +13,8 @@ import (
 // approvals socket's token through parser.SecretText when the file holds
 // one; a raw_json that does not decode is reported with the reader's error
 // through parser.ReaderErrorText, since the reader can quote that token,
-// and a raw_json, agents, policy, allowlist or mcpTools of the wrong kind
-// adds a problem.
+// and a raw_json, socket, agents, policy, allowlist or mcpTools of the
+// wrong kind adds a problem.
 func (s *stateRows) execConfig(record sqlitefile.Row) {
 	document, err := jsonvalue.DecodeString(parser.TextColumn(record.Get("raw_json")))
 	if err != nil {
@@ -38,6 +38,7 @@ func (s *stateRows) execDocument(rowid int64, document jsonvalue.Value, timestam
 	line := int(rowid)
 	parser.ObjectMember(document, "raw_json", line, &s.problems)
 	socket := ""
+	parser.ObjectMember(document.Get("socket"), "socket", line, &s.problems)
 	if token := parser.Text(document.Get("socket").Get("token")); token != "" {
 		socket = " socket.token=" + parser.SecretText(s.artifact, token)
 	}
