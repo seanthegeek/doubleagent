@@ -14,9 +14,11 @@ import (
 // function returns the text as written.
 type Recorder struct {
 	setting Setting
-	// current is the record of the parse running, nil between parses, and
-	// everywhere holds every secret replaced in every string.
+	// current is the record of the parse running, nil between parses;
+	// outer holds the records of the parses it started inside, innermost
+	// last; everywhere holds every secret replaced in every string.
 	current, everywhere *Found
+	outer               []*Found
 	work                textset.Counter
 }
 
@@ -38,21 +40,26 @@ func (r *Recorder) Setting() Setting {
 }
 
 // Begin starts one parse: what is identified until End is the parse's, the
-// Found it returns, which the rows of the parse carry to the output. It is
-// nil for a nil Recorder.
+// Found it returns, which the rows of the parse carry to the output. A
+// parse begun inside another is the inner one until it ends. It is nil for
+// a nil Recorder.
 func (r *Recorder) Begin() *Found {
 	if r == nil {
 		return nil
 	}
+	r.outer = append(r.outer, r.current)
 	r.current = &Found{}
 	return r.current
 }
 
-// End ends the parse Begin started.
+// End ends the parse Begin last started; the parse it began inside, if
+// any, is running again.
 func (r *Recorder) End() {
-	if r != nil {
-		r.current = nil
+	if r == nil || len(r.outer) == 0 {
+		return
 	}
+	r.current = r.outer[len(r.outer)-1]
+	r.outer = r.outer[:len(r.outer)-1]
 }
 
 // Current returns the record of the parse running, nil when none is, for a
