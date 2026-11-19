@@ -122,11 +122,11 @@ func (r *Recorder) Value(value string) {
 }
 
 // RowValue records a value replaced only in the text of the rows of the
-// parse running, whatever its length: a string that stands inside a secret
-// value but is not known to be a secret itself (a header that names no
-// credential), so it is replaced where the parse's rows show the value and
-// nowhere else. A value that is empty once the white space around it is
-// removed is no secret.
+// parse running, whatever its own length: a form of a secret shorter than
+// EverywhereLength (the secret with white space around it, with its Bearer
+// or Basic scheme, or JSON-escaped, as parser.SecretText records it), which
+// reaches no further than the secret itself. A value that is empty once the
+// white space around it is removed is no secret.
 func (r *Recorder) RowValue(value string) {
 	if r == nil || strings.TrimSpace(value) == "" {
 		return
@@ -141,7 +141,8 @@ func (r *Recorder) RowValue(value string) {
 // replaced in every string, not only where the URL holds it; Text replaces
 // a shorter one where the URL holds it only. A slash in a credential is
 // written \/ where JSON escapes it, so both forms are recorded, and the
-// length of the credential with its slashes unescaped decides for both.
+// length of the credential with its slashes unescaped decides for both
+// (URLCredentialEverywhere).
 func (r *Recorder) Collect(text string) {
 	if r == nil {
 		return
@@ -220,7 +221,8 @@ const (
 	// EverywhereLength bytes or more, recorded in the run's everywhere.
 	everyString reach = iota
 	// rowText is the text of the rows of the parse that recorded it: a
-	// shorter secret value.
+	// secret value shorter than EverywhereLength (Value), or any form of
+	// one (RowValue).
 	rowText
 	// parseProblem is the text of the rows and the problem lines of the
 	// parse that recorded it: a reader's detail, whatever its length.
@@ -284,8 +286,9 @@ func (f *Found) Secrets() []string {
 	return f.secretsIn(func(reach) bool { return true })
 }
 
-// Values returns the distinct secret values recorded (Value), sorted; nil
-// for a nil Found.
+// Values returns the distinct secret values recorded (Value and RowValue),
+// whether they are replaced in every string or in the parse's rows alone,
+// sorted; nil for a nil Found.
 func (f *Found) Values() []string {
 	return f.secretsIn(func(where reach) bool { return where == rowText || where == listedOnly })
 }
