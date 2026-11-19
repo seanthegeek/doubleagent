@@ -3,7 +3,9 @@
 package replay
 
 import (
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,10 +24,12 @@ const millisecondLayout = "2006-01-02T15:04:05.000Z"
 // earlier than the recorded one (difference 119). The set is built when
 // first asked for, since few comparisons need it; a nil one holds none.
 type cutTimes struct {
-	build func() (map[string]bool, map[string]bool)
-	// times holds every cut time, mtimes those of the files' modification
-	// times alone.
-	times, mtimes map[string]bool
+	build func() (map[string]bool, map[string][]string)
+	// times holds every cut time; mtimes gives, for each that is a
+	// modification time, the files modified then, by their path under the
+	// root with forward slashes.
+	times  map[string]bool
+	mtimes map[string][]string
 }
 
 // holds reports whether timestamp is a time of a source with digits below
@@ -40,13 +44,17 @@ func (c *cutTimes) holds(timestamp string) bool {
 	return c.times[timestamp]
 }
 
-// holdsModified reports whether timestamp is a file's modification time
-// with digits below the millisecond, cut.
-func (c *cutTimes) holdsModified(timestamp string) bool {
+// holdsModified reports whether timestamp is the modification time, with
+// digits below the millisecond, cut, of the file a row names as its
+// source: a row may take its own file's time, not another's.
+func (c *cutTimes) holdsModified(timestamp, sourceFile string) bool {
 	if !c.holds(timestamp) {
 		return false
 	}
-	return c.mtimes[timestamp]
+	source := filepath.ToSlash(sourceFile)
+	return slices.ContainsFunc(c.mtimes[timestamp], func(relative string) bool {
+		return source == relative || strings.HasSuffix(source, "/"+relative)
+	})
 }
 
 // fixedCutTimes returns a set holding the given cut timestamps, none of
@@ -56,14 +64,14 @@ func fixedCutTimes(timestamps ...string) *cutTimes {
 	for _, timestamp := range timestamps {
 		set[timestamp] = true
 	}
-	return &cutTimes{times: set, mtimes: map[string]bool{}}
+	return &cutTimes{times: set, mtimes: map[string][]string{}}
 }
 
-// fixedModifiedTimes returns a set holding the given cut timestamps, each
-// a file's modification time.
-func fixedModifiedTimes(timestamps ...string) *cutTimes {
-	set := fixedCutTimes(timestamps...)
-	set.mtimes = set.times
+// fixedModifiedTimes returns a set holding the cut timestamp as the
+// modification time of each of files, given by their path under the root.
+func fixedModifiedTimes(timestamp string, files ...string) *cutTimes {
+	set := fixedCutTimes(timestamp)
+	set.mtimes[timestamp] = files
 	return set
 }
 
@@ -73,14 +81,15 @@ func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
 	if tree == "" {
 		return nil
 	}
-	return &cutTimes{build: func() (map[string]bool, map[string]bool) {
-		set, modified := map[string]bool{}, map[string]bool{}
+	return &cutTimes{build: func() (map[string]bool, map[string][]string) {
+		set, modified := map[string]bool{}, map[string][]string{}
 		if times != "" {
 			if mtimes, err := c.ReadTimes(times); err == nil {
-				for _, mtime := range mtimes {
+				for relative, mtime := range mtimes {
 					if mtime%int64(time.Millisecond) != 0 {
 						cut := time.Unix(0, mtime).UTC().Format(millisecondLayout)
-						set[cut], modified[cut] = true, true
+						set[cut] = true
+						modified[cut] = append(modified[cut], relative)
 					}
 				}
 			}

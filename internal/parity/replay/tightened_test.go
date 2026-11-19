@@ -177,7 +177,7 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 		"/r/broken.json", 0)
 	binaryFile := strings.Replace(recordedFile, ".301Z", ".300Z", 1)
 	after := recordLine("2026-01-01T00:00:00.302Z", "u", "user", "bye", "/r/a.jsonl", 2)
-	modified := fixedModifiedTimes("2026-01-01T00:00:00.300Z")
+	modified := fixedModifiedTimes("2026-01-01T00:00:00.300Z", "r/broken.json", "r/b.json")
 	twoEarlier := strings.Replace(recordedFile, ".301Z", ".299Z", 1)
 	later := strings.Replace(recordedFile, ".301Z", ".302Z", 1)
 	early := recordLine("2026-01-01T00:00:00.299Z", "u", "user", "early", "/r/z.jsonl", 1)
@@ -216,11 +216,16 @@ func TestAModificationTimeRoundedIntoTheNextMillisecondMayMoveItsRow(t *testing.
 			[]string{record, recordedFile, peerC, peerD, after}, []string{record, peerC, peerD, binaryFile, after},
 			modified, false},
 		{"two milliseconds earlier fails", recorded, []string{twoEarlier, record, after},
-			fixedModifiedTimes("2026-01-01T00:00:00.299Z"), false},
+			fixedModifiedTimes("2026-01-01T00:00:00.299Z", "r/broken.json"), false},
 		{"one millisecond the other way fails", recorded, []string{record, after, later},
-			fixedModifiedTimes("2026-01-01T00:00:00.302Z"), false},
+			fixedModifiedTimes("2026-01-01T00:00:00.302Z", "r/broken.json"), false},
 		{"a time from a record rather than a file's modification time fails", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after}, fixedCutTimes("2026-01-01T00:00:00.300Z"), false},
+		{"another file's modification time fails", []string{laterFile, recordedFile, after},
+			[]string{binaryFile, laterFile, after}, fixedModifiedTimes("2026-01-01T00:00:00.300Z", "r/other.json"), false},
+		{"a file of the same name in another directory fails", []string{laterFile, recordedFile, after},
+			[]string{binaryFile, laterFile, after}, fixedModifiedTimes("2026-01-01T00:00:00.300Z", "q/broken.json"),
+			false},
 		{"the other rows swapped still fail", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, after, laterFile}, modified, false},
 		{"the moved row with another text fails", []string{laterFile, recordedFile, after},
