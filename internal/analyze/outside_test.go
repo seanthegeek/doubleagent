@@ -179,7 +179,7 @@ func TestAnOutputBelowAFileFailsAsNotADirectory(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			code, _, stderr := runCommand(testEnvironment(), args...)
 			if code != ExitError || !strings.HasPrefix(stderr, "error: "+file) ||
-				!strings.HasSuffix(stderr, ": not a directory\n") {
+				!strings.HasSuffix(stderr, ": "+belowFileReason+"\n") {
 				t.Errorf("exit %d, stderr %q", code, stderr)
 			}
 		})
