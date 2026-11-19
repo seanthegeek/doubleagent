@@ -317,7 +317,7 @@ func (p *Parser) parseConnector(artifact *input.Artifact, emit parser.Emit) {
 	}
 	host, contextID := values[lastContextKeys[0]], values[lastContextKeys[1]]
 	if host != "" && contextID != "" {
-		emit(p.fileRow(artifact, "session origin: remote agent-zero instance "+parser.URLText(artifact, host)+
+		emit(p.fileRow(artifact, "session origin: remote agent-zero instance "+host+
 			" context "+contextID+" (from .agent-zero/.env, file mtime)", parser.FileMtime(artifact), contextID, ""))
 	}
 }

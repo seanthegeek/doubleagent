@@ -11,16 +11,15 @@ import (
 type project struct {
 	path   string
 	branch string
-	// remote marks a cloud agent's project, a repository URL, which a row
-	// shows through parser.URLText.
+	// remote marks a cloud agent's project, a repository URL.
 	remote bool
 }
 
 // pathFor returns the project's path as a row of artifact shows it: a
-// repository URL through parser.URLText, a local path as it is.
+// repository URL or a local path, as it is.
 func (found project) pathFor(artifact *input.Artifact) string {
 	if found.remote {
-		return parser.URLText(artifact, found.path)
+		return found.path
 	}
 	return found.path
 }

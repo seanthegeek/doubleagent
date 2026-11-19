@@ -311,7 +311,7 @@ func (s *session) bridge(record jsonvalue.Value) {
 	}
 	if !bridge.IsEmpty() && s.firstSeen("sync", key.bridge) {
 		s.emit(s.stateRow(timeline.SyncedPrefix + " remote control bridge " + bridge.Text() + " url " +
-			parser.URLText(s.artifact, s.bridgeURL(bridge))))
+			s.bridgeURL(bridge)))
 	}
 }
 

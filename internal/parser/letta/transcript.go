@@ -126,9 +126,8 @@ func readSessions(path string) map[string][]projectTime {
 }
 
 // server returns the server of a transcript's agent: the baseUrl of its
-// first agents[] entry in ~/.letta/settings.json through parser.URLText,
-// which withholds the credentials a URL may carry when the run withholds
-// secrets, api.letta.com when the entry has none, "-" when there is
+// first agents[] entry in ~/.letta/settings.json, api.letta.com when the
+// entry has none, "-" when there is
 // no entry or no file. It is a pre-scan: the settings file reports its own
 // problems when it is parsed itself. The file is read once per state for
 // every agent; work counts the reads.
@@ -144,7 +143,7 @@ func (p *Parser) server(artifact *input.Artifact, agentDirectory string) string 
 		p.servers[state] = byAgent
 	}
 	if found, ok := byAgent[agentDirectory]; ok {
-		return parser.URLText(artifact, found)
+		return found
 	}
 	return "-"
 }

@@ -229,8 +229,8 @@ func configErrorText(artifact *input.Artifact, err error) string {
 }
 
 // modelText returns the "model configured:" text of one
-// [model.<group>.<kind>] table: model_name, kind, api_endpoint through
-// parser.URLText, api_key through parser.SecretText and supported_models
+// [model.<group>.<kind>] table: model_name, kind, api_endpoint, api_key
+// through parser.SecretText and supported_models
 // for the http form, model_id for the local one.
 func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
@@ -241,7 +241,7 @@ func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Valu
 			parts = append(parts, "kind="+value.Text())
 		}
 		if value := body.Get("api_endpoint"); !value.IsEmpty() {
-			parts = append(parts, "endpoint="+parser.URLText(artifact, value.Text()))
+			parts = append(parts, "endpoint="+value.Text())
 		}
 		if value := body.Get("api_key"); !value.IsEmpty() {
 			parts = append(parts, "api_key="+parser.SecretText(artifact, value.Text()))
@@ -298,8 +298,8 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parser.Emit
 }
 
 // parseVSCodeState emits a "tabby server:" row per server record of the
-// VS Code extension's state in an editor's state.vscdb, its endpoint
-// through parser.URLText and its token through parser.SecretText, then the
+// VS Code extension's state in an editor's state.vscdb, its endpoint and
+// its token through parser.SecretText, then the
 // command history, then a row per problem, never echoing the value, which
 // holds those tokens. A history that is not an array, and server records
 // of the wrong kind, add a problem.
@@ -405,7 +405,7 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 	if !segments.IsObject() {
 		segments = jsonvalue.NewObject()
 	}
-	spec.projectPath = parser.URLText(artifact, parser.Text(segments.Get("git_url")))
+	spec.projectPath = parser.Text(segments.Get("git_url"))
 	spec.text = parser.JoinNonEmpty(" | ", "completion", owner, parser.Labelled("language=", body.Get("language")),
 		parser.Labelled("file=", segments.Get("filepath")), parser.Labelled("client=", body.Get("user_agent")))
 	emit(p.row(artifact, spec))
@@ -437,7 +437,7 @@ func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, e
 	found *parser.Problems) {
 	for endpoint, record := range parser.MembersOfKind(records, vscodeServersKey, jsonvalue.Object, 0, found) {
 		if token := parser.Text(record.Get("token")); token != "" {
-			emit(p.row(artifact, rowSpec{text: "tabby server: " + parser.URLText(artifact, endpoint) + " token=" +
+			emit(p.row(artifact, rowSpec{text: "tabby server: " + endpoint + " token=" +
 				parser.SecretText(artifact, token) + " (from state.vscdb " + vscodeItemKey + " " + vscodeServersKey +
 				", no times)"}))
 		}

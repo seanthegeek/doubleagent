@@ -76,7 +76,7 @@ func (p *Parser) parsePastes(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		row := p.system(artifact, position, noSession(), "debug report uploaded: "+
-			parser.URLText(artifact, entry.Get("url").Text())+" (from pastes/pending.json, expire_at minus 6 hours)")
+			entry.Get("url").Text()+" (from pastes/pending.json, expire_at minus 6 hours)")
 		expire := entry.Get("expire_at")
 		if seconds, ok := expire.Int(); ok && expire.IsInt() {
 			row.TimestampUTC = timeutil.FromInt(seconds - pasteLifetime)
@@ -292,13 +292,10 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // connectionText returns the "remote backend:" text of one connection: its
-// url, else [user@]host[:port], through parser.URLText, and the token and
+// url, else [user@]host[:port], and the token and
 // headers stored in plain text through parser.SecretText.
 func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string {
 	target := connection.Get("url")
-	if target.IsString() {
-		target = jsonvalue.NewString(parser.URLText(artifact, target.StringValue()))
-	}
 	if host := connection.Get("host"); target.IsEmpty() && !host.IsEmpty() {
 		text := host.Text()
 		if user := connection.Get("user"); !user.IsEmpty() {
@@ -307,7 +304,7 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 		if port := connection.Get("port"); !port.IsEmpty() {
 			text += ":" + port.Text()
 		}
-		target = jsonvalue.NewString(parser.URLText(artifact, text))
+		target = jsonvalue.NewString(text)
 	}
 	text := "remote backend: " + parser.SettingOrDash(connection.Get("kind")) + " " + parser.SettingOrDash(connection.Get("label")) +
 		" " + parser.SettingOrDash(target)

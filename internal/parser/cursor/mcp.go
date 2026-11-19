@@ -99,7 +99,6 @@ func (i *items) mcpServer(scope string, fields map[string]mcpField, hasTokens bo
 	if server.value.IsString() {
 		url = server.value.StringValue()
 	}
-	url = parser.URLText(i.artifact, url)
 	updated := fields["mcp_oauth_updated_at_ms"].value
 	hasTime := updated.IsNumber()
 	source := "file mtime"

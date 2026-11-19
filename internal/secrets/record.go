@@ -81,12 +81,21 @@ func (r *Recorder) Value(value string) {
 	r.add(form{secret: value})
 }
 
-// URLs records the credentials of each URL in text (identifyURLs says
-// which).
-func (r *Recorder) URLs(text string) {
-	if r != nil {
-		identifyURLs(text, r.add, r.work)
+// Collect reads one string the output will write for the credentials of
+// the URLs in it (identifyURLs says which) and records each of
+// EverywhereLength bytes or more as replaced everywhere. A command collects
+// every string of its output before it writes any, so such a credential is
+// replaced in every string, not only in the one that holds the URL; Text
+// replaces a shorter one in the string where it stands.
+func (r *Recorder) Collect(text string) {
+	if r == nil || !mayHoldURL(text) {
+		return
 	}
+	identifyURLs(text, func(secret form) {
+		if len(secret.secret) >= EverywhereLength {
+			r.everywhere.add(secret)
+		}
+	}, r.work)
 }
 
 // ReaderError records the detail of err, the error a JSON, TOML or XML

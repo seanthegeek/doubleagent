@@ -87,7 +87,7 @@ func (p *Parser) startRows(artifact *input.Artifact, start timeline.Row, session
 
 // blobUpload returns the "session synced:" row of a metadata
 // enterprise.blobUpload object, with the start row's time, session and
-// project and the endpoint through parser.URLText, or false when the
+// project and the endpoint, or false when the
 // metadata has none.
 func blobUpload(artifact *input.Artifact, start timeline.Row, meta jsonvalue.Value, source string) (timeline.Row, bool) {
 	blob := meta.Get(blobUploadKey)
@@ -102,7 +102,7 @@ func blobUpload(artifact *input.Artifact, start timeline.Row, meta jsonvalue.Val
 	row := start
 	row.Text = "session synced: enterprise prompt upload to " + parser.SettingOrDash(storage.Get("adapterType")) +
 		" bucket " + parser.SettingOrDash(storage.Get("bucket")) + " object sessions/" + user + "/" +
-		start.SessionID + "/messages.json endpoint=" + parser.URLText(artifact, parser.SettingOrDash(storage.Get("endpoint"))) +
+		start.SessionID + "/messages.json endpoint=" + parser.SettingOrDash(storage.Get("endpoint")) +
 		" region=" + parser.SettingOrDash(storage.Get("region")) + " account=" + parser.SettingOrDash(storage.Get("accountId")) +
 		" (from " + source + " " + blobUploadKey + ", started_at)"
 	return row, true

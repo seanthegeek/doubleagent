@@ -10,7 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-func TestTheKitReturnsTheTextAsWrittenAndRecordsTheSecretsInTheParse(t *testing.T) {
+func TestTheKitReturnsTheTextAsWrittenAndTheOutputReplacesWhatItRecords(t *testing.T) {
 	_, jsonError := jsonvalue.DecodeString(`{"api_key": sk-1}`)
 	withheld := secrets.Setting{Withhold: true, Placeholder: "[x]"}
 	tests := []struct {
@@ -25,7 +25,7 @@ func TestTheKitReturnsTheTextAsWrittenAndRecordsTheSecretsInTheParse(t *testing.
 			[]string{"sk-1", "https://u:pw7@h/", jsonError.Error()}},
 		{"a run that withholds records each and the output replaces it",
 			&input.Home{Secrets: secrets.NewRecorder(withheld)},
-			[]string{"invalid character 's' looking for beginning of value", "pw7", "sk-1", "u:pw7"},
+			[]string{"invalid character 's' looking for beginning of value", "sk-1"},
 			[]string{"[x]", "https://[x]@h/", "invalid JSON at line 1, column 13: [x]"}},
 	}
 	for _, test := range tests {
@@ -33,7 +33,7 @@ func TestTheKitReturnsTheTextAsWrittenAndRecordsTheSecretsInTheParse(t *testing.
 			artifact := &input.Artifact{Home: test.home}
 			var rows []timeline.Row
 			found, err := Within(artifact, func(emit Emit) error {
-				for _, text := range []string{SecretText(artifact, "sk-1"), URLText(artifact, "https://u:pw7@h/"),
+				for _, text := range []string{SecretText(artifact, "sk-1"), "https://u:pw7@h/",
 					ReaderErrorText(artifact, jsonError)} {
 					emit(timeline.Row{Text: text})
 				}

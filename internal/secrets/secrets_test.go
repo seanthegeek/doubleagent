@@ -31,10 +31,16 @@ func identified(setting Setting, text string, identify func(recorder *Recorder))
 	return recorder.Text(text, found), found.Secrets()
 }
 
-// urlText returns text as a row of the parse that gave it to URLs writes it
-// with setting, and the secrets recorded.
+// urlText returns text as the output writes it with setting, and the
+// credentials of its URLs, sorted, when the setting withholds.
 func urlText(setting Setting, text string) (string, []string) {
-	return identified(setting, text, func(recorder *Recorder) { recorder.URLs(text) })
+	recorder := NewRecorder(setting)
+	var found []string
+	if recorder != nil {
+		found = URLCredentials(text)
+		slices.Sort(found)
+	}
+	return recorder.Text(text), found
 }
 
 func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
@@ -98,6 +104,8 @@ func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
 			"https://h/?tokens=1&monkey=2"},
 		{"an empty credential value is kept", "https://h/?token=&x=1", "https://h/?token=&x=1"},
 		{"a query outside a URL is kept", "a?token=b", "a?token=b"},
+		{"punctuation after a URL is not part of it", "POST https://h/t?key=k1: failed, see https://u:pw9@h/.",
+			"POST https://h/t?key=REDACTED: failed, see https://REDACTED@h/."},
 		{"a URL without credentials is unchanged", "http://localhost:8080", "http://localhost:8080"},
 		{"empty text is unchanged", "", ""},
 	}
@@ -110,6 +118,20 @@ func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
 				t.Errorf("shown: got %q and recorded %q, want the text as written and nothing", got, recorded)
 			}
 		})
+	}
+}
+
+func TestAURLsShortCredentialsAreReplacedWhereTheyStandAndLongOnesEverywhere(t *testing.T) {
+	recorder := NewRecorder(withheld())
+	output := []string{"see https://ci:pw7@h/ and https://ci:FIXTURE-PW@g/", "pw7 ci:FIXTURE-PW"}
+	for _, text := range output {
+		recorder.Collect(text)
+	}
+	want := []string{"see https://REDACTED@h/ and https://REDACTED@g/", "pw7 REDACTED"}
+	for i, text := range output {
+		if got := recorder.Text(text); got != want[i] {
+			t.Errorf("%q: got %q, want %q", text, got, want[i])
+		}
 	}
 }
 
@@ -192,7 +214,7 @@ func TestAShortSecretIsReplacedInItsParseAndALongOneEverywhere(t *testing.T) {
 	recorder.End()
 	second := recorder.Begin()
 	recorder.End()
-	recorder.URLs("https://ci:git5@h/")
+	recorder.Value("ci:git5")
 	const text = "pw1 sk-FIXTURE-long ci:git5"
 	tests := []struct {
 		name   string
@@ -221,7 +243,7 @@ func TestARunThatShowsSecretsRecordsNothing(t *testing.T) {
 	}
 	found := recorder.Begin()
 	recorder.Value("sk-FIXTURE")
-	recorder.URLs("https://u:p@h/")
+	recorder.Collect("https://ci:FIXTURE-PW@h/")
 	recorder.ReaderError(errors.New("x"))
 	recorder.End()
 	if got := recorder.Text("sk-FIXTURE", found, recorder.Command()); got != "sk-FIXTURE" || found.Secrets() != nil {
@@ -313,8 +335,39 @@ func identifyWork(k int) int {
 		strings.Repeat("://", k) + strings.Repeat("@", k)
 	recorder := NewRecorder(withheld())
 	recorder.work = work
-	recorder.URLs(text)
+	recorder.Collect(text)
 	return work["bytes read"]
+}
+
+// outputWork returns the bytes read collecting and then writing an output
+// of rows strings, each dense in URLs, parameters and recorded secrets.
+func outputWork(rows int) int {
+	work := counter{}
+	recorder := NewRecorder(withheld())
+	recorder.work = work
+	found := recorder.Begin()
+	recorder.Value("sk-FIXTURE-0001")
+	recorder.End()
+	output := make([]string, rows)
+	for i := range output {
+		output[i] = fmt.Sprintf("row %06d https://u%06d:pw@h/x?token=t%06d&a=b#key=k x://y@z sk-FIXTURE-0001", i, i, i)
+	}
+	for _, text := range output {
+		recorder.Collect(text)
+	}
+	for _, text := range output {
+		recorder.Text(text, found)
+	}
+	return work["bytes read"] + work["bytes searched"]
+}
+
+func TestWritingAnOutputCostsItsLengthAFixedNumberOfTimes(t *testing.T) {
+	small, double, quadruple := outputWork(1000), outputWork(2000), outputWork(4000)
+	// Each row is the same length, so doubling the rows doubles what they
+	// cost, exactly, the long secrets collected from them included.
+	if quadruple-double != 2*(double-small) || double-small <= 0 {
+		t.Errorf("read %d, %d and %d bytes for 1000, 2000 and 4000 rows: not linear", small, double, quadruple)
+	}
 }
 
 func TestIdentifyingURLsReadsTheTextAFixedNumberOfTimes(t *testing.T) {

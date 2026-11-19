@@ -264,15 +264,15 @@ func overrideText(artifact *input.Artifact, override jsonvalue.Value) string {
 }
 
 // endpointText returns " <prefix>api_key=<key> <prefix>api_base=<url>" of
-// a model configuration, each part when it is set: the key through
-// parser.SecretText, the URL through parser.URLText.
+// a model configuration, each part when it is set, the key through
+// parser.SecretText.
 func endpointText(artifact *input.Artifact, config jsonvalue.Value, prefix string) string {
 	var text string
 	if key := parser.Text(config.Get("api_key")); key != "" {
 		text += " " + prefix + "api_key=" + parser.SecretText(artifact, key)
 	}
 	if base := parser.Text(config.Get("api_base")); base != "" {
-		text += " " + prefix + "api_base=" + parser.URLText(artifact, base)
+		text += " " + prefix + "api_base=" + base
 	}
 	return text
 }

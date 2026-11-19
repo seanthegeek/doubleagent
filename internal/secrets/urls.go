@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/textset"
@@ -29,6 +30,25 @@ func identifyURLs(text string, found func(form), work textset.Counter) {
 	count(work, len(text))
 }
 
+// mayHoldURL reports whether text holds a scheme separator, written plain
+// or with JSON's escaped slashes, without which it holds no URL.
+func mayHoldURL(text string) bool {
+	return strings.Contains(text, "://") || strings.Contains(text, `:\/\/`)
+}
+
+// URLCredentials returns the credentials identifyURLs finds in text, each
+// secret once in the order found, for a test that checks the output
+// against them.
+func URLCredentials(text string) []string {
+	var found []string
+	identifyURLs(text, func(secret form) {
+		if !slices.Contains(found, secret.secret) {
+			found = append(found, secret.secret)
+		}
+	}, nil)
+	return found
+}
+
 // isDelimiter reports whether a byte ends a URL inside longer text: white
 // space, a double quote and angle brackets, which RFC 3986 appendix C names,
 // and a single quote and a backtick, which quote a URL on a command line.
@@ -48,6 +68,10 @@ func count(work textset.Counter, n int) {
 // belongs to one URL and the token is read a fixed number of times. The
 // separator "://" may also be written with JSON's escaped slashes (:\/\/).
 func identifyToken(token string, found func(form), work textset.Counter) {
+	// Punctuation that ends a run of text ends a URL there (RFC 3986
+	// appendix C warns of punctuation mistaken for part of a URI), so in
+	// "POST https://h/x?key=k: failed" the key's value is k.
+	token = strings.TrimRight(token, ".,:;!?")
 	var starts [][2]int
 	scanned := 0
 	for i := 0; i < len(token); i++ {

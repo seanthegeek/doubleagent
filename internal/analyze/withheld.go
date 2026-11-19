@@ -54,6 +54,18 @@ func (o output) document(document any, scopes ...*secrets.Found) any {
 	return withheldValue(reflect.ValueOf(document), replace).Interface()
 }
 
+// collect reads every string in document, a value encoding/json writes,
+// for the credentials of the URLs in it (secrets.Recorder.Collect).
+func (o output) collect(document any) {
+	if o.recorder == nil {
+		return
+	}
+	withheldValue(reflect.ValueOf(document), func(text string) string {
+		o.recorder.Collect(text)
+		return text
+	})
+}
+
 // withheldValue returns a copy of value with every string through replace.
 func withheldValue(value reflect.Value, replace func(string) string) reflect.Value {
 	switch value.Kind() {

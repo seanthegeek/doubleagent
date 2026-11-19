@@ -612,22 +612,28 @@ for Go files as it does for the others.
   key, password or cookie value, the credentials of a URL and a reader's
   error that quotes a file holding keys are shown as the evidence holds
   them, since they help establish what an agent reached. A parser returns
-  text as written in both modes and identifies each secret through the
-  kit's `SecretText`, `URLText` and `ReaderErrorText`, which record it in
-  the run's recorder as a secret of that parse; a parser never tests the
-  setting, never writes the placeholder and never hides a value by a
-  wording of its own. Every row is therefore the same in both modes, and
-  grouping, joining, deduplicating, sorting and counting see the same
-  values. Replacement happens once, where output is written
-  (`secrets.Recorder.Text`, reached through `timeline.Row.Withheld` and
-  the commands' own writers): under `timeline --no-secrets` or
-  `detect --no-secrets` a recorded secret is replaced by one placeholder,
-  `REDACTED` unless `--redaction-placeholder` names another, in the rows of
-  the parse that identified it, and everywhere in the output when it is 8
-  bytes or longer; the row stays. An encrypted value (a `secret://` row of an editor's secret storage,
-  OS-keychain ciphertext) stays unread, since ciphertext establishes
-  nothing. Withholding covers only what these functions identify, never
-  free text such as a prompt or a tool's output, and no document claims
+  text as written in both modes and identifies only values that are secret
+  because of the field they stand in (a token, key, password or cookie,
+  through the kit's `SecretText`) and reader errors that can quote a file
+  holding secrets (`ReaderErrorText`), which record them in the run's
+  recorder as secrets of that parse; a parser never tests the setting,
+  never writes the placeholder and never hides a value by a wording of its
+  own. A URL's credentials need no parser: the output stage finds them in
+  every string it writes, free text included. Every row is therefore the
+  same in both modes, and grouping, joining, deduplicating, sorting and
+  counting see the same values. Replacement happens once, where output is
+  written (`secrets.Recorder.Text`, reached through `timeline.Row.Withheld`
+  and the commands' own writers): under `timeline --no-secrets` or
+  `detect --no-secrets` the credentials of any URL in the output are
+  replaced by one placeholder, `REDACTED` unless `--redaction-placeholder`
+  names another, wherever the URL is written, a recorded value in the rows
+  of the parse that identified it, and either everywhere in the output
+  when it is 8 bytes or longer; the row stays. An encrypted value (a
+  `secret://` row of an editor's secret storage, OS-keychain ciphertext)
+  stays unread, since ciphertext establishes
+  nothing. Withholding covers only a URL's credentials and what these
+  functions identify; any other credential in free text, such as a token
+  pasted into a prompt or a tool's output, is shown, and no document claims
   more. The rule governs the output files, with two exceptions: a fleet CSV
   text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return
   is written with a leading `'`, and text printed for a person shows

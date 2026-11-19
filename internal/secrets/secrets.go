@@ -7,13 +7,15 @@
 // --no-secrets, detect --no-secrets), each is replaced by one placeholder,
 // REDACTED unless the analyst names another.
 //
-// Identifying and replacing are apart. A parser identifies a secret through
-// the parser kit (parser.SecretText, parser.URLText, parser.ReaderErrorText),
-// which records it in the run's Recorder and returns the text as written, so
-// every row a parser returns is the same in both modes and grouping,
-// joining, deduplicating and sorting see the same values. Replacement
-// happens once, where a command writes its output (Recorder.Text): a secret
-// is replaced in the rows of the parse that identified it, and one of
+// Identifying and replacing are apart. A value that is secret because of
+// the field it stands in, or a reader's detail, is identified by the parser
+// through the parser kit (parser.SecretText, parser.ReaderErrorText), which
+// records it in the run's Recorder and returns the text as written; the
+// credentials of a URL, which the text alone shows, are found by the output
+// stage in every string it writes. Every row a parser returns is the same in
+// both modes. Replacement happens once, where a command writes its output
+// (Recorder.Text): a recorded value in the rows of the parse that recorded
+// it, a URL's credentials in the string that holds the URL, and either of
 // EverywhereLength bytes or more in every string of the output. A parser
 // never tests the setting or writes the placeholder itself.
 //

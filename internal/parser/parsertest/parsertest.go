@@ -8,8 +8,8 @@
 // the rule the design rests on: the parse is run a second time showing
 // secrets, and the rows must be the same in both modes, field for field
 // and in order, and so must the sessions built from them; the rows written
-// must be the rows with exactly the recorded secrets replaced, as a
-// separate, plain search gives them; and no recorded secret of
+// must be the rows with exactly the recorded secrets and the credentials of
+// their URLs replaced, as a separate, plain search gives them; and no recorded secret of
 // secrets.EverywhereLength bytes or more may remain in them. Only tests
 // import it.
 package parsertest
@@ -53,6 +53,9 @@ func Run(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emi
 	}
 	var rows []timeline.Row
 	found, err := parser.Within(artifact, produce, func(row timeline.Row) { rows = append(rows, row) })
+	for _, row := range rows {
+		row.Collect(recorder)
+	}
 	if recorder != nil {
 		for _, message := range slices.Concat(bothModes(shown, rows), written(recorder, found, rows)) {
 			test.Error(message)
@@ -93,10 +96,21 @@ func bothModes(shown, rows []timeline.Row) []string {
 }
 
 // written returns what breaks the rule that a written row is its raw row
-// with exactly the parse's recorded secrets replaced, holding no long one.
+// with exactly the parse's recorded secrets and the credentials of URLs
+// replaced (those in the row, and the long ones of every row), holding no
+// long one.
 func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.Row) []string {
 	var broken []string
 	recorded := found.Secrets()
+	for _, row := range rows {
+		for _, field := range []string{row.Text, row.SessionID, row.ProjectPath, row.SourceFile} {
+			for _, credential := range secrets.URLCredentials(field) {
+				if len(credential) >= secrets.EverywhereLength {
+					recorded = append(recorded, credential)
+				}
+			}
+		}
+	}
 	var everywhere []string
 	for _, secret := range recorded {
 		if len(secret) >= secrets.EverywhereLength {
@@ -108,7 +122,8 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 		output := row.Withheld(recorder)
 		for i, raw := range []string{row.Text, row.SessionID, row.ProjectPath, row.SourceFile} {
 			got := []string{output.Text, output.SessionID, output.ProjectPath, output.SourceFile}[i]
-			if want := replaced(raw, recorded, placeholder); placeholder != "" && got != want {
+			want := replaced(raw, slices.Concat(recorded, secrets.URLCredentials(raw)), placeholder)
+			if placeholder != "" && got != want {
 				broken = append(broken, fmt.Sprintf("%q is written %q, want %q (recorded %q)", raw, got, want,
 					recorded))
 			}

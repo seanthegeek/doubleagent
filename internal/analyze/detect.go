@@ -232,6 +232,9 @@ func runDetect(ctx context.Context, options DetectOptions, env Environment, stdo
 	if ctx.Err() != nil {
 		return printError(ctx, stderr, "")
 	}
+	// Everything detect prints is in its document with the files listed, so
+	// that is read for URL credentials before anything is printed.
+	out.collect(detectDocument(detected, collection, true))
 	if options.JSON {
 		_ = writeJSON(stdout, out.document(detectDocument(detected, collection, options.Files)))
 		return ExitFound

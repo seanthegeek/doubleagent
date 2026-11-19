@@ -60,8 +60,7 @@ func (s *stateRows) emitAll() {
 	s.projects()
 }
 
-// projects emits a `git remote:` row per project with an origin, shown
-// through parser.URLText.
+// projects emits a `git remote:` row per project with an origin.
 func (s *stateRows) projects() {
 	for _, record := range s.data["projects"] {
 		origin := ""
@@ -72,7 +71,7 @@ func (s *stateRows) projects() {
 			continue
 		}
 		row := s.stateRow(s.artifact, record.Rowid, parser.ColumnTime(record.Get("created_at_ms")),
-			timeline.GitRemotePrefix+parser.URLText(s.artifact, origin), "")
+			timeline.GitRemotePrefix+origin, "")
 		row.ProjectPath = parser.NonEmptyColumn(record.Get("repo_root"))
 		s.emit(row)
 	}
@@ -100,8 +99,7 @@ func (s *stateRows) backups() {
 
 // backupText returns the `backup uploaded:` text of a successful upload or
 // Git backup, else "": a failed run, a local archive or a Git push that
-// failed gives none. The key, a Git backup's remote URL, goes through
-// parser.URLText.
+// failed gives none. The key is a Git backup's remote URL.
 func backupText(artifact *input.Artifact, run sqlitefile.Row, manifest jsonvalue.Value) string {
 	if parser.TextColumn(run.Get("status")) != "ok" {
 		return ""
@@ -118,7 +116,7 @@ func backupText(artifact *input.Artifact, run sqlitefile.Row, manifest jsonvalue
 	}
 	return "backup uploaded: " + cmp.Or(parser.Text(manifest.Get("kind")), "-") + " to " +
 		cmp.Or(cmp.Or(parser.Text(location.Get("name")), parser.NonEmptyColumn(run.Get("archive_path"))), "-") +
-		" key " + parser.URLText(artifact, cmp.Or(firstStr(location.Get("key"), target), "-")) + " namespace " +
+		" key " + cmp.Or(firstStr(location.Get("key"), target), "-") + " namespace " +
 		cmp.Or(firstStr(location.Get("namespace"), manifest.Get("namespace")), "-") +
 		" (from state/openclaw.sqlite backup_runs, created_at)"
 }
@@ -163,7 +161,7 @@ func grantText(record sqlitefile.Row) string {
 
 // publicationText returns the `source host:` text of a GitHub publication
 // request: the account the Gateway pushed or opened the pull request as,
-// and what it published, the pull request's URL through parser.URLText.
+// and what it published, with the pull request's URL.
 func publicationText(artifact *input.Artifact, table string, record sqlitefile.Row) string {
 	value := func(name string) string { return cmp.Or(parser.NonEmptyColumn(record.Get(name)), "-") }
 	account := "-"
@@ -173,5 +171,5 @@ func publicationText(artifact *input.Artifact, table string, record sqlitefile.R
 	return "source host: github account " + value("identity_login") + " id " + account +
 		" identity " + value("identity_source") + "; publication " + value("status") +
 		" repository " + value("repository") + " branch " + value("branch") + " pull request " +
-		parser.URLText(artifact, value("pull_request_url")) + " (from state/openclaw.sqlite " + table + ", created_at_ms)"
+		value("pull_request_url") + " (from state/openclaw.sqlite " + table + ", created_at_ms)"
 }

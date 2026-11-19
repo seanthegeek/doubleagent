@@ -50,14 +50,14 @@ func location(filepath, startLine jsonvalue.Value) string {
 
 // attachmentParts returns short descriptions of what was attached to a
 // message: code from a repository, code from the client, documents and a
-// file list, each repository and document URL through parser.URLText.
+// file list, with each repository and document URL.
 func attachmentParts(artifact *input.Artifact, attachment jsonvalue.Value) []string {
 	var parts []string
 	for _, code := range parser.Elements(attachment.Get("code")) {
 		if !code.IsObject() {
 			continue
 		}
-		repository := parser.URLText(artifact, parser.Text(code.Get("git_url")))
+		repository := parser.Text(code.Get("git_url"))
 		if commit := code.Get("commit"); !commit.IsEmpty() {
 			repository += "@" + commit.Text()
 		}
@@ -75,7 +75,7 @@ func attachmentParts(artifact *input.Artifact, attachment jsonvalue.Value) []str
 			continue
 		}
 		label := parser.Text(parser.FirstNonEmpty(doc.Get("title"), doc.Get("sha")))
-		link := parser.URLText(artifact, parser.Text(parser.FirstNonEmpty(doc.Get("link"), doc.Get("page_link"))))
+		link := parser.Text(parser.FirstNonEmpty(doc.Get("link"), doc.Get("page_link")))
 		parts = append(parts, strings.ReplaceAll(parser.JoinNonEmpty(" | ", "doc", label, link), " | ", " "))
 	}
 	if files := attachment.Get("code_file_list"); files.IsObject() && files.Get("file_list").IsArray() {
@@ -111,12 +111,11 @@ func firstGitURL(attachment jsonvalue.Value) string {
 	return ""
 }
 
-// projectOf returns the first git URL any of the attachments names, as a
-// row of artifact shows it: through parser.URLText.
+// projectOf returns the first git URL any of the attachments names.
 func projectOf(artifact *input.Artifact, attachments []jsonvalue.Value) string {
 	for _, attachment := range attachments {
 		if url := firstGitURL(attachment); url != "" {
-			return parser.URLText(artifact, url)
+			return url
 		}
 	}
 	return ""

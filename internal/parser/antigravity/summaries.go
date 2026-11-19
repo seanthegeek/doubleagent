@@ -46,7 +46,7 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 		row.SourceLine = position + 1
 		row.SessionID = parser.NonEmptyColumn(summary.Get("conversation_id"))
 		row.TimestampUTC = parser.ColumnTime(summary.Get("last_modified_time"))
-		row.ProjectPath = parser.URLText(artifact, firstWorkspace(summary.Get("workspace_uris")))
+		row.ProjectPath = firstWorkspace(summary.Get("workspace_uris"))
 		row.TurnType = timeline.TurnSystem
 		steps := "0"
 		if table.Has("step_count") {

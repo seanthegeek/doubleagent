@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -77,7 +78,30 @@ type timelineRun struct {
 	problemSecrets []*secrets.Found
 	sessions       []timeline.SessionSummary
 	repositories   map[string]projectGit
+	detected       detection
 	out            output
+}
+
+// collectOutput reads every string the run's output will hold for the
+// credentials of the URLs in it (secrets.Recorder.Collect): the rows and
+// sessions, which are all in memory, the problems, what detect finds, the
+// match patterns and the output directory. inventory.json and the summary
+// are made of these.
+func (r *timelineRun) collectOutput() {
+	recorder := r.out.recorder
+	if recorder == nil {
+		return
+	}
+	for _, row := range r.rows {
+		row.Collect(recorder)
+	}
+	for _, session := range r.sessions {
+		session.Collect(recorder)
+	}
+	for _, text := range slices.Concat(r.problems, r.options.Match, []string{r.output}) {
+		recorder.Collect(text)
+	}
+	r.out.collect(newDetectionJSON(r.detected))
 }
 
 // runTimeline parses every artifact of the input into the timeline,
@@ -118,9 +142,11 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 	if err := run.parse(ctx); err != nil {
 		return printError(ctx, stderr, run.out.text(err.Error()))
 	}
-	// The repositories are read before any output is written, so a long
-	// secret in a remote URL is replaced in the rows too.
+	// Everything the output holds is read for URL credentials before any of
+	// it is written, so a long one is replaced in every output string.
 	run.repositories = projectRepositories(collection.Artifacts, &run.problems)
+	run.detected = detectWith(collection, parserAgents(registry), run.repositories)
+	run.collectOutput()
 	if err := run.writeRows(); err != nil {
 		return printError(ctx, stderr, run.out.text(err.Error()))
 	}
@@ -325,8 +351,7 @@ func writeOutput(path string, write func(w io.Writer) error) error {
 // inventory.json between its agents and rows lines' inputs, returning the
 // exit code.
 func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) int {
-	parsed := parserAgents(r.registry)
-	detected := detectWith(r.collection, parsed, r.repositories)
+	detected := r.detected
 	r.printHeader(stdout)
 	agents := detectedAgents(detected)
 	inventory := r.inventory(detected, agents)

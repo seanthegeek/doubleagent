@@ -14,7 +14,7 @@ import (
 )
 
 // shareRows emits a "session synced:" row per session_share row, ordered
-// by its time then session: the share's URL through parser.URLText and,
+// by its time then session: the share's URL and,
 // in a 1.x database, the secret that authorises changes to the public
 // copy through parser.SecretText.
 func (s *store) shareRows() error {
@@ -38,7 +38,7 @@ func (s *store) shareRows() error {
 		s.shares[identifier] = true
 		s.emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
 			" share "+cmp.Or(parser.NonEmptyColumn(row.Get("id")), "-")+" url "+
-			parser.URLText(s.artifact, cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-"))+
+			cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-")+
 			shareSecret(s.artifact, row.Get("secret"))+" (from "+s.label+" session_share, time_created)"))
 	}
 	return nil
@@ -83,7 +83,7 @@ func (s *store) eventShareRows() error {
 		var text string
 		switch _, known := state[identifier]; {
 		case !url.IsEmpty() && !known:
-			state[identifier], text = "shared", timeline.SyncedPrefix+" share url "+parser.URLText(s.artifact, url.Text())
+			state[identifier], text = "shared", timeline.SyncedPrefix+" share url "+url.Text()
 		case url.IsEmpty() && state[identifier] == "shared":
 			state[identifier], text = "unshared", "session unshared"
 		default:

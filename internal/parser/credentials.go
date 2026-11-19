@@ -6,14 +6,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The three functions below are the only way a parser puts a secret into
-// a row. Each returns the text as written, in every run, and records what
-// in it is secret in the run's recorder, read from the artifact's home
-// (input.Home.Secrets), as a secret of the parse running. Every row a
-// parser returns is therefore the same with and without --no-secrets;
-// the output replaces the recorded secrets where it is written
-// (internal/secrets). A parser never tests the setting, never writes the
-// placeholder and never hides a value by a wording of its own.
+// The two functions below are the only way a parser puts a secret into a
+// row: a value secret because of its field (a token, key, password or
+// cookie) and a reader's error that can quote a file holding secrets. Each
+// returns the text as written in every run and records the secret in the
+// run's recorder (input.Home.Secrets) as one of the parse running; a URL's
+// credentials need no call, the output finds them in every string. Rows are
+// the same with and without --no-secrets, and the output replaces secrets
+// where it is written (internal/secrets). A parser never tests the setting,
+// never writes the placeholder and never hides a value by its own wording.
 
 // SecretText returns a secret value read from the evidence (a token, an
 // API key, a password, a cookie) as written, and records it. An empty
@@ -21,19 +22,6 @@ import (
 func SecretText(artifact *input.Artifact, value string) string {
 	recorderOf(artifact).Value(value)
 	return value
-}
-
-// URLText returns a URL, a host string or text holding URLs as written,
-// and records the credentials of each URL that has a scheme: its user
-// information (whole when it holds a colon, the password also on its own;
-// alone only from secrets.EverywhereLength bytes), and the value of a
-// query or fragment parameter named as a credential (token, key, sig,
-// X-Amz-Signature and the others of the table in internal/secrets).
-// Credentials written without a scheme are not identified. A URL written
-// with JSON's escaped slashes (https:\/\/) is read too.
-func URLText(artifact *input.Artifact, text string) string {
-	recorderOf(artifact).URLs(text)
-	return text
 }
 
 // ReaderErrorText returns the message of a JSON, TOML or XML reader's error

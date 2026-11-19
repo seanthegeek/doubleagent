@@ -95,7 +95,6 @@ func readRepository(files []gitFile, problems *[]string, known map[string]bool) 
 			repository.head = gitmeta.ParseHead(text)
 		default:
 			repository.remotes, messages = gitmeta.ParseConfig(text)
-			identifyRemotes(repository.remotes, file.artifact)
 		}
 		for _, message := range messages {
 			line := file.artifact.Original + ": " + message
@@ -109,21 +108,6 @@ func readRepository(files []gitFile, problems *[]string, known map[string]bool) 
 		repository.remotes = []gitmeta.Remote{}
 	}
 	return repository
-}
-
-// identifyRemotes puts each url and pushurl of remotes through
-// parser.URLText, which records a URL's credentials in the run's recorder of
-// the home that holds the repository's .git/config. They are read outside
-// any parse, so they are the command's own: replaced in its output, and in
-// the rows too from secrets.EverywhereLength bytes.
-func identifyRemotes(remotes []gitmeta.Remote, artifact *input.Artifact) {
-	for _, remote := range remotes {
-		for _, urls := range [][]string{remote.URLs, remote.PushURLs} {
-			for _, url := range urls {
-				parser.URLText(artifact, url)
-			}
-		}
-	}
 }
 
 // readGitText returns a whole repository file as text, invalid UTF-8

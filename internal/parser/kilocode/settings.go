@@ -146,7 +146,7 @@ func (p *Parser) retention(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // share emits the "session synced:" row of a cloud session marker at the
-// file's modification time, the share link through parser.URLText; a file
+// file's modification time, with the share link; a file
 // that is not a JSON object gives one `parser:` row instead.
 func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
@@ -165,7 +165,7 @@ func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parser.E
 		return
 	}
 	row.Text = timeline.Compact(timeline.SyncedPrefix + " kilo session " + parser.SettingOrDash(document.Get("id")) +
-		" ingest " + parser.SettingOrDash(document.Get("ingestPath")) + " share " + parser.URLText(artifact, parser.SettingOrDash(document.Get("url"))) +
+		" ingest " + parser.SettingOrDash(document.Get("ingestPath")) + " share " + parser.SettingOrDash(document.Get("url")) +
 		" (from " + rel + ", file mtime)")
 	emit(row)
 }

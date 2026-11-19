@@ -117,7 +117,7 @@ func storedCredentials(artifact *input.Artifact, document jsonvalue.Value, probl
 
 // syncRows writes, through put, one `session synced:` row per entry of a
 // settings file's sessionsByServer members whose key does not start
-// "local:", the server's URL through parser.URLText.
+// "local:", with the server's URL.
 func syncRows(artifact *input.Artifact, servers []jsonvalue.Member, rel string, put func(sessionID, text string)) {
 	for _, server := range servers {
 		if strings.HasPrefix(server.Key, "local:") {
@@ -125,7 +125,7 @@ func syncRows(artifact *input.Artifact, servers []jsonvalue.Member, rel string, 
 		}
 		entry := server.Value
 		put(parser.Text(entry.Get("conversationId")), "session synced: last session on "+
-			parser.URLText(artifact, server.Key)+" agent "+parser.TextOr(entry.Get("agentId"), "-")+" conversation "+
+			server.Key+" agent "+parser.TextOr(entry.Get("agentId"), "-")+" conversation "+
 			parser.TextOr(entry.Get("conversationId"), "-")+" (from "+rel+", file mtime)")
 	}
 }

@@ -45,8 +45,9 @@ type request struct {
 // console record as "console <type>: <content>", a network record naming a
 // method as "network request:", one with a response as "network
 // response:" and one with an error as "network error:"; a streamed chunk
-// gives none. A URL goes through parser.URLText, since its query can carry
-// an API key; header values and bodies are never read into a row.
+// gives none. A URL is written whole, its query included (the output
+// withholds an API key in it); header values and bodies are never read
+// into a row.
 func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
 	project := p.projectOf(artifact, match, &problems)
@@ -83,7 +84,7 @@ func activityText(artifact *input.Artifact, payload jsonvalue.Value, console boo
 	case console:
 		return "console " + parser.TextOr(payload.Get("type"), "-") + ": " + parser.Text(payload.Get("content")), true
 	case payload.Get("method").IsString():
-		named := request{payload.Get("method").StringValue(), parser.URLText(artifact, parser.Text(payload.Get("url")))}
+		named := request{payload.Get("method").StringValue(), parser.Text(payload.Get("url"))}
 		requests[requestID] = named
 		return "network request: " + named.method + " " + named.url + " (request " + requestID + ")", true
 	case value.IsObject():

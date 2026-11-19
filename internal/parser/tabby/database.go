@@ -404,8 +404,7 @@ func (s *store) userEvents() error {
 
 // integrations emits the source-host integrations, then the repositories
 // cached from them. An integration's access_token goes through
-// parser.SecretText and its api_base and a repository's git_url through
-// parser.URLText.
+// parser.SecretText.
 func (s *store) integrations() error {
 	type named struct{ name, kind string }
 	names := map[string]named{}
@@ -415,7 +414,6 @@ func (s *store) integrations() error {
 		if host == "" {
 			host = urlHostname(apiBase)
 		}
-		apiBase = parser.URLText(s.artifact, apiBase)
 		name := parser.NonEmptyColumn(integration.Get("display_name"))
 		names[integration.Get("id").String()] = named{name, kind}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),
@@ -439,7 +437,7 @@ func (s *store) integrations() error {
 		}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(repository.Get("id")),
 			timestamp: parser.ColumnTime(repository.Get("updated_at")),
-			text: "source host repository: " + parser.URLText(s.artifact, cmp.Or(parser.NonEmptyColumn(repository.Get("git_url")), "-")) + " type=" +
+			text: "source host repository: " + cmp.Or(parser.NonEmptyColumn(repository.Get("git_url")), "-") + " type=" +
 				cmp.Or(integration.kind, "-") + " name=" + cmp.Or(parser.NonEmptyColumn(repository.Get("name")), "-") + " active=" +
 				active + " (integration " + owner + "; from provided_repositories table, updated_at)"}))
 	})

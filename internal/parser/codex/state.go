@@ -222,7 +222,7 @@ func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row, 
 		emit(row)
 		if origin := compactColumn(thread.Get("git_origin_url")); origin != "" {
 			remote := row
-			remote.Text = timeline.GitRemotePrefix + parser.URLText(artifact, origin)
+			remote.Text = timeline.GitRemotePrefix + origin
 			emit(remote)
 		}
 		first := compactColumn(thread.Get("first_user_message"))

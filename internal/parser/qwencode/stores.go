@@ -14,7 +14,7 @@ import (
 
 // pullRequests emits one "source host:" row per pull request a session's
 // .pr.json binds, its host and repository taken from the pull request's
-// url, shown through parser.URLText, at its createdAt. A prs or issues that
+// url, at its createdAt. A prs or issues that
 // is not an array, or issues holding entries that are not objects, adds a
 // problem.
 func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
@@ -40,7 +40,7 @@ func (p *Parser) pullRequests(artifact *input.Artifact, emit parser.Emit) {
 			repository = segments[0] + "/" + segments[1]
 		}
 		text := "source host: " + cmp.Or(address.hostname, "-") + " repository " + repository +
-			" pull request " + parser.URLText(artifact, cmp.Or(url, "-")) + " state " +
+			" pull request " + cmp.Or(url, "-") + " state " +
 			parser.SettingOrDash(pullRequest.Get("state")) + " source " + parser.SettingOrDash(pullRequest.Get("source")) +
 			" issues " + cmp.Or(issueNumbers(pullRequest.Get("issues"), i+1, &problems), "-") +
 			" (from " + name + ", createdAt)"
@@ -66,7 +66,7 @@ func issueNumbers(issues jsonvalue.Value, line int, problems *parser.Problems) s
 
 // audit emits one "source host: github" row per publication record of the
 // GitHub channel. The actor is the GitHub login the reply answered, where
-// recorded, and the comment's URL is shown through parser.URLText; the
+// recorded, and the comment's URL is shown; the
 // reply's body is recorded only as its hash and length, left out.
 func (p *Parser) audit(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
@@ -79,7 +79,7 @@ func (p *Parser) audit(artifact *input.Artifact, emit parser.Emit) {
 		text := "source host: github repository " + parser.SettingOrDash(record.Get("repository")) + " actor " +
 			parser.SettingOrDash(record.Get("actor")) + " publication " + parser.SettingOrDash(record.Get("outcome")) + " trigger " +
 			parser.SettingOrDash(record.Get("triggerKind")) + " number " + parser.SettingOrDash(record.Get("number")) + " comment " +
-			parser.URLText(artifact, parser.SettingOrDash(record.Get("commentUrl"))) + failure + " (from " + fileName(artifact) + ", at)"
+			parser.SettingOrDash(record.Get("commentUrl")) + failure + " (from " + fileName(artifact) + ", at)"
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("at")), text)
 		row.SessionID = parser.Text(record.Get("sessionId"))
 		emit(row)

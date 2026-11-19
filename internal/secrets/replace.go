@@ -8,9 +8,9 @@ import (
 )
 
 // Text returns text, one string the output writes, as the run shows it: as
-// written, or with the secrets of scopes (the parses whose rows it comes
-// from, or the command's record) and every secret of EverywhereLength bytes
-// or more replaced by the placeholder, the one place it is written. Text is
+// written, or with the credentials of the URLs in it, the secrets of scopes
+// (the parses whose rows it comes from, or the command's record) and every
+// secret of EverywhereLength bytes or more replaced by the placeholder. Text is
 // read once, left to right, the longest recorded text starting at each
 // position replaced and reading going on after it, so a secret inside a
 // longer one (a password inside user:password) goes with it. The output is
@@ -22,6 +22,16 @@ func (r *Recorder) Text(text string, scopes ...*Found) string {
 		return text
 	}
 	sources := r.sources(scopes)
+	if mayHoldURL(text) {
+		inText := &Found{}
+		identifyURLs(text, inText.add, r.work)
+		if len(inText.all) > 0 {
+			// The credentials of a URL are replaced in the string that holds
+			// it whatever their length, so this record is matched in full.
+			inText.local = inText.all
+			sources = append(sources, inText)
+		}
+	}
 	if len(sources) == 0 {
 		return text
 	}

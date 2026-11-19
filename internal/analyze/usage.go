@@ -17,12 +17,15 @@ const inputOptionsHelp = `  --host HOST          host name to record when the in
                        directory removed afterwards)
   --keep-extracted     do not delete the extracted archive
   --no-secrets         replace each identified secret with REDACTED: the
-                       credentials in a URL that has a scheme, the value of
-                       a URL parameter named as a credential (token, key,
-                       sig and the like), and the tokens, keys and reader
-                       errors the parsers identify; one of 8 bytes or more
+                       credentials of any URL that has a scheme, wherever
+                       the output writes it, and the value of a URL
+                       parameter named as a credential (token, key, sig
+                       and the like); and the tokens, keys and reader
+                       errors the parsers identify. One of 8 bytes or more
                        is replaced everywhere it appears in the output, a
-                       shorter one in the rows of the file it came from
+                       shorter one where it was found: in the string that
+                       holds the URL, or in the rows of the file it came
+                       from
   --redaction-placeholder TEXT
                        with --no-secrets, replace each secret with TEXT
                        rather than REDACTED; "" leaves nothing in its place

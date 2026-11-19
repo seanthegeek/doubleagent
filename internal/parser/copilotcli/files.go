@@ -275,7 +275,7 @@ func (p *Parser) parsePermissions(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // parseSettings emits one row per allowed or denied URL of settings.json,
-// which is JSON with comments, each URL through parser.URLText; a list that
+// which is JSON with comments; a list that
 // is not a JSON array, or entries that are not strings, are a problem.
 func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
@@ -293,9 +293,6 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	var wrong parser.Problems
 	for _, key := range []string{"allowedUrls", "deniedUrls"} {
 		for _, item := range parser.EntriesOfKind(document.Get(key), key, jsonvalue.String, 1, &wrong) {
-			if item.IsString() {
-				item = jsonvalue.NewString(parser.URLText(artifact, item.StringValue()))
-			}
 			emit(p.settingRow(artifact, timestamp, key, item, ""))
 		}
 	}
