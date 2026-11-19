@@ -168,13 +168,12 @@ func withheldRowLabels(taken string) []string {
 // form and the binary's form with the placeholder, each a pattern that
 // stops at the end of the secret's part so the rest is still compared, and
 // the token both become. A site where the binary adds a part the recording
-// never printed (adds, built by addsForm) has the marker in its token.
+// never printed (built by addsForm) has the marker in its token.
 type withheldForm struct {
 	scope, agent, name string
 	lines              *regexp.Regexp
 	recorded, binary   *regexp.Regexp
 	token              string
-	adds               bool
 	// cause, for a command entry, is what a file of the case's input tree
 	// must hold for the entry to apply (caseRun.applies).
 	cause *regexp.Regexp
@@ -192,7 +191,7 @@ type withheldForm struct {
 // leaves the part out, writes it twice, writes it elsewhere or writes
 // another part still fails. Neither pattern may hold a capturing group.
 func addsForm(agent, name, first, part, second string) withheldForm {
-	form := withheldForm{scope: parserScope, agent: agent, name: name, adds: true,
+	form := withheldForm{scope: parserScope, agent: agent, name: name,
 		recorded: regexp.MustCompile("(" + first + ")(" + second + ")"),
 		binary:   regexp.MustCompile("(" + first + ")" + part + "(" + second + ")")}
 	form.token = "${1}" + form.marker() + "${2}"
@@ -259,13 +258,29 @@ func (f withheldForm) replace(from side, text string, run caseRun) (string, int)
 	pattern := f.recorded
 	if from == binarySide {
 		pattern = f.binary
-		if f.adds {
-			// The binary never writes the marker, so a text that holds it is
-			// kept from comparing equal to the recording's compared form.
-			text = strings.ReplaceAll(text, f.marker(), "{written "+f.name+"}")
+		// The binary never writes the token's own text, so a text that
+		// holds it is kept from comparing equal to the recording's compared
+		// form.
+		if own := f.tokenText(); own != "" {
+			text = strings.ReplaceAll(text, own, "{written "+strings.TrimPrefix(own, "{"))
 		}
 	}
 	return pattern.ReplaceAllString(text, f.token), len(pattern.FindAllStringIndex(text, -1))
+}
+
+// submatchReference is a reference to a submatch in a token.
+var submatchReference = regexp.MustCompile(`\$\{[0-9]+\}`)
+
+// tokenText returns the first part of the entry's token that is its own
+// text rather than a submatch of the text it replaces, such as
+// "{withheld token}" or an addsForm entry's marker, or "" for none.
+func (f withheldForm) tokenText() string {
+	for _, part := range submatchReference.Split(f.token, -1) {
+		if part != "" {
+			return part
+		}
+	}
+	return ""
 }
 
 // complete returns the recorded side's text with each match of the
@@ -798,6 +813,12 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 			strings.Replace(socketBinary, " (from", " socket.token="+replayPlaceholder+" (from", 1), false},
 		{"a retried upload holding the compared form's marker fails", retryRecorded,
 			strings.Replace(retryRecorded, " lastError", "{added retry queue bearer token} lastError", 1), false},
+		{"an account token written as the compared form's text fails", accountRecorded,
+			strings.Replace(accountRecorded, "token_present=true", "{withheld token}", 1), false},
+		{"a remote written as the compared form's text fails", remoteRecorded,
+			strings.Replace(remoteRecorded, "alice:TOKEN@", "{withheld}@", 1), false},
+		{"a JSON error written as the compared form's text fails", jsonRecorded,
+			"parser: config.json did not parse: {withheld at line 1, column 37}", false},
 		{"a reader's error a parser wrote as the default placeholder fails", crushRecorded,
 			strings.Replace(crushBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
 		{"a token a parser wrote as the default placeholder fails", connectionRecorded,
@@ -894,8 +915,10 @@ func TestAWithheldFormAppliesOnlyToItsAgentsRows(t *testing.T) {
 	}
 }
 
-func TestEachWithheldFormIsFoundInItsRecordedTextAndFailsAsTheBinarys(t *testing.T) {
-	texts := map[string]string{
+// withheldFormSamples returns, by entry label, a recorded text in which
+// each entry of withheldForms shows.
+func withheldFormSamples() map[string]string {
+	return map[string]string{
 		"tabby config.toml reader error":   "parser: config.toml is not valid TOML (Invalid value (at line 2, column 11))",
 		"nanobot config.json reader error": "parser: config.json did not parse: Expecting value: line 1 column 1 (char 0)",
 		"agent-zero chat.json reader error": "parser: chat.json did not parse (Expecting value: line 1 column 1 " +
@@ -927,6 +950,10 @@ func TestEachWithheldFormIsFoundInItsRecordedTextAndFailsAsTheBinarys(t *testing
 		"gemini-cli network request URL":             "network request: POST https://oauth2.googleapis.com/token (request t4r8z)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
+}
+
+func TestEachWithheldFormIsFoundInItsRecordedTextAndFailsAsTheBinarys(t *testing.T) {
+	texts := withheldFormSamples()
 	for _, entry := range withheldForms() {
 		t.Run(entry.label(), func(t *testing.T) {
 			text, ok := texts[entry.label()]
@@ -947,6 +974,18 @@ func TestEachWithheldFormIsFoundInItsRecordedTextAndFailsAsTheBinarys(t *testing
 			run := caseRun{inputs: func(*regexp.Regexp) bool { return true }, requests: sampleRequests()}
 			if withheldAgreeIn(t, run, agent, text, text) {
 				t.Error("the recording's form passes as the binary's")
+			}
+			if entry.completed != nil {
+				// The binary's side of a completed entry is compared as written
+				// with the text completed gives; there is no token to write.
+				return
+			}
+			compared, _ := entry.rewrite(recordedSide, text, run)
+			if entry.scope == parserScope {
+				compared, _ = entry.rowRewrite(recordedSide, entry.agent, text, run)
+			}
+			if withheldAgreeIn(t, run, agent, text, compared) {
+				t.Errorf("the compared form %q written by the binary passes", compared)
 			}
 		})
 	}
