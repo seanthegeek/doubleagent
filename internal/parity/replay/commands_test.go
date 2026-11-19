@@ -76,6 +76,9 @@ type commandReplay struct {
 	calls nodeCalls
 	// withheld counts, by entry, the cases that needed difference 230.
 	withheld map[string]int
+	// added takes the rows of difference 231 from the parses of the run
+	// in progress.
+	added *addedRowFilter
 }
 
 // replayCommands runs every recorded command case, noting in used the
@@ -336,6 +339,7 @@ func (r *commandReplay) run(t *testing.T, node, command string, recorded Command
 	}
 	args = append([]string{args[0]}, withSecretsWithheld(args[0], rest)...)
 	t.Chdir(r.corpus.Expand(recorded.Cwd, root))
+	r.added = &addedRowFilter{}
 	registry := r.registry
 	if r.registryOverride != nil {
 		registry = r.registryOverride
@@ -344,6 +348,9 @@ func (r *commandReplay) run(t *testing.T, node, command string, recorded Command
 		Version: r.recordedVersion(t, recorded, root)}
 	var stdout, stderr bytes.Buffer
 	exit := analyze.Run(context.Background(), args, env, &stdout, &stderr)
+	if r.added.taken > 0 {
+		r.note(node, []int{withheldRowsDifference().Number})
+	}
 	got := commandOutput{exit: exit, stdout: stdout.String(), stderr: stderr.String(),
 		outputs: map[string]string{}}
 	for path := range recorded.Outputs {
@@ -357,12 +364,14 @@ func (r *commandReplay) run(t *testing.T, node, command string, recorded Command
 	return got
 }
 
-// registry returns the run's parsers: every registered parser, and for
-// each Python parser agent without one a stand-in that wants no artifact,
-// so the parser columns and the agents line say what the analyzer says
-// while that agent's rows are still missing.
+// registry returns the run's parsers: every registered parser, each whose
+// agent has a row of difference 231 taking that row from its parses
+// (withoutAddedRows), and for each Python parser agent without one a
+// stand-in that wants no artifact, so the parser columns and the agents
+// line say what the analyzer says while that agent's rows are still
+// missing.
 func (r *commandReplay) registry() *parsers.Registry {
-	list := parsers.All()
+	list := withoutAddedRows(parsers.All(), r.added)
 	for _, agent := range r.pythonAgents {
 		if r.pending[agent] {
 			list = append(list, pendingParser{parser.NewBase(agent, "pending")})

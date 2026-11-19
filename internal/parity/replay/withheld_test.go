@@ -47,8 +47,8 @@ func withheldDifference() Difference {
 // withheldRowsDifference returns difference 231.
 func withheldRowsDifference() Difference {
 	return Difference{Number: 231, Summary: "a secret the recording never printed and had no row for is " +
-		"shown in a row of its own: a parse may add one row of withheldRows, exactly as written there, " +
-		"with REDACTED where the secret was", Added: withheldRowAdded}
+		"shown in a row of its own: a parse may add one row of each entry of withheldRows, exactly as " +
+		"written there, with REDACTED where the secret was", Added: withheldRowAdded}
 }
 
 // withheldRow is a row the binary adds for a secret the recording never
@@ -76,11 +76,13 @@ func withheldRows() []withheldRow {
 	}
 }
 
-// withheldRowAdded takes from got the first system row of the parsed file
-// whose text is the text of one of the agent's withheldRows and that want
-// does not hold, and returns the rest and that entry's label, or "". A
-// parse may add one such row; a second stays and is compared.
+// withheldRowAdded takes from got, for each of the agent's withheldRows,
+// the first system row of the parsed file whose text is the entry's and
+// that want does not hold, and returns the rest and the labels of the
+// entries it took a row for, one per line, or "". A parse may add one row
+// of each entry; a second stays and is compared.
 func withheldRowAdded(parse parsedFile, want, got []Row) ([]Row, string) {
+	var labels []string
 	for _, entry := range withheldRows() {
 		if entry.agent != parse.agent {
 			continue
@@ -90,15 +92,23 @@ func withheldRowAdded(parse parsedFile, want, got []Row) ([]Row, string) {
 				string(row.Text) == entry.text && !slices.Contains(want, row)
 		})
 		if index >= 0 {
-			return slices.Delete(slices.Clone(got), index, index+1), entry.label()
+			got = slices.Delete(slices.Clone(got), index, index+1)
+			labels = append(labels, entry.label())
 		}
 	}
-	return got, ""
+	return got, strings.Join(labels, "\n")
 }
 
-// isWithheldRowLabel reports whether label names an entry of withheldRows.
-func isWithheldRowLabel(label string) bool {
-	return slices.ContainsFunc(withheldRows(), func(entry withheldRow) bool { return entry.label() == label })
+// withheldRowLabels returns the labels of the entries of withheldRows that
+// taken, the text withheldRowAdded returns, names.
+func withheldRowLabels(taken string) []string {
+	var labels []string
+	for _, label := range strings.Split(taken, "\n") {
+		if slices.ContainsFunc(withheldRows(), func(entry withheldRow) bool { return entry.label() == label }) {
+			labels = append(labels, label)
+		}
+	}
+	return labels
 }
 
 // withheldForm is one site where the recording's form of a secret differs
