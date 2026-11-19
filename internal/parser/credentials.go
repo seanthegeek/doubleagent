@@ -30,7 +30,7 @@ import (
 // the text of this parse's rows. A value that is empty once the white space
 // around it is removed is no secret.
 func SecretText(artifact *input.Artifact, value string) string {
-	recordForms(recorderOf(artifact), value, false)
+	recordForms(recorderOf(artifact), value)
 	return value
 }
 
@@ -38,14 +38,15 @@ func SecretText(artifact *input.Artifact, value string) string {
 // text (Text: a string as it is, an array or object as compact JSON, a
 // headers object for one) and records it whole as SecretText does. Inside
 // an array or object, a string under a member that names a credential
-// (credentialName) is recorded as SecretText records a value, and any
-// other string only for the text of this parse's rows, whatever its
-// length, so a header such as Content-Type: application/json is never
-// replaced in another parse's rows. Numbers and booleans are not recorded.
+// (credentialName) is recorded as SecretText records a value, so it is
+// replaced where another string quotes it alone. Any other string, such as
+// the value of a Content-Type or X-Version header, is no secret on its own
+// and is replaced only as part of the whole text, so a short one never
+// changes the rest of the row. Numbers and booleans are not recorded.
 func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
 	text := Text(value)
 	recorder := recorderOf(artifact)
-	recordForms(recorder, text, false)
+	recordForms(recorder, text)
 	if !value.IsString() {
 		recordStrings(recorder, value, "")
 	}
@@ -53,8 +54,8 @@ func SecretJSONText(artifact *input.Artifact, value jsonvalue.Value) string {
 }
 
 // recordStrings records each string inside value, an array or object,
-// under the name of the member that holds it, or of the nearest member
-// around an array that does.
+// whose name names a credential: the name of the member that holds it, or
+// of the nearest member around an array that does.
 func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value, name string) {
 	for _, item := range value.Items() {
 		recordStrings(recorder, item, name)
@@ -62,8 +63,8 @@ func recordStrings(recorder *secrets.Recorder, value jsonvalue.Value, name strin
 	for _, member := range value.Members() {
 		recordStrings(recorder, member.Value, member.Key)
 	}
-	if value.IsString() {
-		recordForms(recorder, value.Text(), !credentialName(name))
+	if value.IsString() && credentialName(name) {
+		recordForms(recorder, value.Text())
 	}
 }
 
@@ -92,8 +93,7 @@ func credentialName(name string) bool {
 // JSON holds it so. The last of the unescaped forms is the secret itself,
 // and its length alone decides the reach of every form, so a form that
 // escaping or white space makes longer reaches no further than the secret.
-// With rowOnly every form is replaced only in this parse's rows.
-func recordForms(recorder *secrets.Recorder, value string, rowOnly bool) {
+func recordForms(recorder *secrets.Recorder, value string) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return
@@ -104,7 +104,7 @@ func recordForms(recorder *secrets.Recorder, value string, rowOnly bool) {
 		forms = append(forms, strings.TrimSpace(credentials))
 	}
 	record := recorder.Value
-	if rowOnly || len(forms[len(forms)-1]) < secrets.EverywhereLength {
+	if len(forms[len(forms)-1]) < secrets.EverywhereLength {
 		record = recorder.RowValue
 	}
 	for _, form := range forms {

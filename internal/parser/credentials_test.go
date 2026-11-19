@@ -63,7 +63,7 @@ func TestTheKitReturnsTheTextAsWrittenAndTheOutputReplacesWhatItRecords(t *testi
 
 func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
 	headers, err := jsonvalue.DecodeString(`{"Authorization": "Bearer fake-header-secret-0001", ` +
-		`"X-Key": "fake-\"quoted\"-0002"}`)
+		`"X-API-Key": "fake-\"quoted\"-0002"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func quotedInJSON(text string) string {
 	return quoted[1 : len(quoted)-1]
 }
 
-func TestAHeadersObjectRecordsOnlyCredentialHeadersForEveryString(t *testing.T) {
+func TestAHeadersObjectRecordsOnlyCredentialHeadersOnTheirOwn(t *testing.T) {
 	headers, err := jsonvalue.DecodeString(`{"Authorization": "Bearer fake-header-secret-0001", ` +
 		`"cookie": ["sid=fake-cookie-0004"], "Content-Type": "application/json", "X-Trace": "fake-trace-id-0005", ` +
 		`"Access_Token": "fake-token-0006", "n": 12345678, "b": true}`)
@@ -134,13 +134,10 @@ func TestAHeadersObjectRecordsOnlyCredentialHeadersForEveryString(t *testing.T) 
 		}
 	}
 	for _, text := range []string{"application/json", "fake-trace-id-0005"} {
-		if slices.Contains(everywhere, text) || !slices.Contains(recorded, text) {
-			t.Errorf("%q is replaced in every string, or not in the parse's rows", text)
+		if slices.Contains(recorded, text) {
+			t.Errorf("%q, a header that names no credential, is recorded on its own", text)
 		}
-		if got := recorder.Text(text); got != text {
-			t.Errorf("another string gives %q", got)
-		}
-		if got := recorder.RowText(text, found); got != "P" {
+		if got := recorder.RowText("port "+text, found); got != "port "+text {
 			t.Errorf("the parse's row text gives %q", got)
 		}
 	}
