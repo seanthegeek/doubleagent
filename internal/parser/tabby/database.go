@@ -13,20 +13,20 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// tableColumns are the only columns ever read. No secret-bearing column is
-// listed: of the tables holding one, users and integrations are read
-// without it.
+// tableColumns are the only columns ever read. Of the secret-bearing
+// columns, a user's auth_token and an integration's access_token are read
+// and shown through parser.SecretText; the tables holding the others are
+// not read.
 func tableColumns() map[string][]string {
 	return map[string][]string{
-		"users":   {"id", "email", "name"},
+		"users":   {"id", "email", "name", "auth_token", "created_at"},
 		"threads": {"id", "is_ephemeral", "user_id", "created_at", "updated_at", "relevant_questions"},
 		"thread_messages": {"id", "thread_id", "role", "content", "code_source_id", "attachment",
 			"code_attachments", "client_code_attachments", "doc_attachments", "created_at"},
-		"user_events":   {"id", "user_id", "kind", "created_at", "payload"},
-		"pages":         {"id", "author_id", "title", "content", "code_source_id", "created_at"},
-		"page_sections": {"id", "page_id", "title", "content", "position", "attachment", "created_at"},
-		// integrations.access_token is never selected.
-		"integrations":          {"id", "kind", "display_name", "api_base", "created_at"},
+		"user_events":           {"id", "user_id", "kind", "created_at", "payload"},
+		"pages":                 {"id", "author_id", "title", "content", "code_source_id", "created_at"},
+		"page_sections":         {"id", "page_id", "title", "content", "position", "attachment", "created_at"},
+		"integrations":          {"id", "kind", "display_name", "api_base", "access_token", "created_at"},
 		"provided_repositories": {"id", "integration_id", "name", "git_url", "active", "updated_at"},
 	}
 }
@@ -132,7 +132,9 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 	})
 }
 
-// readUsers returns each user's label, "<email> (<name>)", by id.
+// readUsers returns each user's label, "<email> (<name>)", by id, and
+// emits a "tabby user:" row with the auth_token of each user that has one,
+// the token through parser.SecretText.
 func (s *store) readUsers() (map[string]string, error) {
 	users := map[string]string{}
 	if !s.tables.Has("users") {
@@ -148,6 +150,12 @@ func (s *store) readUsers() (map[string]string, error) {
 			}
 		}
 		users[user.Get("id").String()] = label
+		if token := parser.NonEmptyColumn(user.Get("auth_token")); token != "" {
+			s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(user.Get("id")),
+				timestamp: parser.ColumnTime(user.Get("created_at")),
+				text: "tabby user: " + cmp.Or(label, "-") + " id=" + user.Get("id").String() + " auth_token=" +
+					parser.SecretText(s.artifact, token) + " (from users table, created_at)"}))
+		}
 	})
 	return users, err
 }
@@ -239,7 +247,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	for i, message := range messages {
 		attachments[i] = messageAttachment(message)
 	}
-	project := projectOf(attachments)
+	project := projectOf(s.artifact, attachments)
 	var questions []string
 	if value, ok := jsonColumn(thread.row.Get("relevant_questions")); ok {
 		for _, question := range parser.Elements(value) {
@@ -275,7 +283,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, threadID,
 	project string) timeline.Row {
 	role, text := parser.NonEmptyColumn(message.Get("role")), parser.NonEmptyColumn(message.Get("content"))
-	parts := attachmentParts(attachment)
+	parts := attachmentParts(s.artifact, attachment)
 	if source := message.Get("code_source_id"); !source.IsEmpty() {
 		parts = append([]string{"code_source " + source.String()}, parts...)
 	}
@@ -324,7 +332,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 		attachments[i] = attachment
 	}
 	spec := rowSpec{line: digitsLine(page.parentID), sessionID: "page:" + page.parentID,
-		projectPath: projectOf(attachments), timestamp: parser.ColumnTime(page.row.Get("created_at"))}
+		projectPath: projectOf(s.artifact, attachments), timestamp: parser.ColumnTime(page.row.Get("created_at"))}
 	authorID, author := page.row.Get("author_id"), ""
 	if owner := s.owner(authorID); owner != "" {
 		author = "author " + owner
@@ -358,7 +366,7 @@ func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments
 			}
 		}
 		text := strings.Join(pieces, "\n\n")
-		if parts := attachmentParts(attachments[i]); len(parts) > 0 {
+		if parts := attachmentParts(s.artifact, attachments[i]); len(parts) > 0 {
 			text += " [attachments: " + strings.Join(parts, "; ") + "]"
 		}
 		row := spec
@@ -400,9 +408,9 @@ func (s *store) userEvents() error {
 }
 
 // integrations emits the source-host integrations, then the repositories
-// cached from them. The token column is never selected, and an api_base
-// goes through parser.URLText, which withholds the credentials a URL may
-// carry when the run withholds secrets.
+// cached from them. An integration's access_token goes through
+// parser.SecretText and its api_base and a repository's git_url through
+// parser.URLText.
 func (s *store) integrations() error {
 	type named struct{ name, kind string }
 	names := map[string]named{}
@@ -418,8 +426,8 @@ func (s *store) integrations() error {
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
 			text: "source host: " + cmp.Or(host, "-") + " integration " + cmp.Or(name, "-") + " kind=" + cmp.Or(kind, "-") +
-				" api_base=" + cmp.Or(apiBase, "-") + " (account not recorded; from integrations table, " +
-				"created_at)"}))
+				" api_base=" + cmp.Or(apiBase, "-") + accessToken(s.artifact, integration.Get("access_token")) +
+				" (account not recorded; from integrations table, created_at)"}))
 	})
 	if err != nil || !s.tables.Has("provided_repositories") {
 		return err
@@ -436,8 +444,17 @@ func (s *store) integrations() error {
 		}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(repository.Get("id")),
 			timestamp: parser.ColumnTime(repository.Get("updated_at")),
-			text: "source host repository: " + cmp.Or(parser.NonEmptyColumn(repository.Get("git_url")), "-") + " type=" +
+			text: "source host repository: " + parser.URLText(s.artifact, cmp.Or(parser.NonEmptyColumn(repository.Get("git_url")), "-")) + " type=" +
 				cmp.Or(integration.kind, "-") + " name=" + cmp.Or(parser.NonEmptyColumn(repository.Get("name")), "-") + " active=" +
 				active + " (integration " + owner + "; from provided_repositories table, updated_at)"}))
 	})
+}
+
+// accessToken returns " access_token=<token>" of an integration's token
+// column through parser.SecretText, "" when it is NULL or empty.
+func accessToken(artifact *input.Artifact, value sqlitefile.Value) string {
+	if token := parser.NonEmptyColumn(value); token != "" {
+		return " access_token=" + parser.SecretText(artifact, token)
+	}
+	return ""
 }

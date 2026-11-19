@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
+	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -61,6 +62,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 		switch concrete := each.(type) {
 		case *agentzero.Parser:
 			out[i] = agentZeroRows{concrete, filter}
+		case *tabby.Parser:
+			out[i] = tabbyRows{concrete, filter}
 		}
 	}
 	return out
@@ -75,6 +78,18 @@ type agentZeroRows struct {
 
 // Parse parses the artifact through the filter.
 func (p agentZeroRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// tabbyRows is the Tabby parser with its parses passed through an
+// addedRowFilter.
+type tabbyRows struct {
+	*tabby.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p tabbyRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 

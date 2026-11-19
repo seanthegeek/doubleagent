@@ -534,7 +534,11 @@ old columns. Event log lines have no version.
 [:142-152](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L142-L152)),
 `ldap_credential.bind_password`
 ([:249-266](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L249-L266)).
-Redact those columns. Completion prompts and `clipboard` segments can carry pasted secrets.
+Redact those columns. The parser reads `users.auth_token` and `integrations.access_token`, the
+`api_key` of each `config.toml` model and the VS Code extension's `server.serverRecords` tokens, and
+shows each as written ([Parser plan](#parser-plan)); `timeline --no-secrets` and
+`detect --no-secrets` replace each with the placeholder. The tables holding the other columns above
+are not read. Completion prompts and `clipboard` segments can carry pasted secrets.
 
 ### Parser plan
 
@@ -551,7 +555,7 @@ source-derived; not observed on any real install.
 | --- | --- |
 | timestamp_utc | `thread_messages.created_at`; event log `ts` (ms) |
 | session_id | `threads.id`; for completions `completion_id` |
-| project_path | `attachment.code[0].git_url` or `segments.git_url`, else empty |
+| project_path | `attachment.code[0].git_url` or `segments.git_url`, else empty; `--no-secrets` replaces the credentials the URL carries with the placeholder |
 | git_branch | empty |
 | turn_type | `role`; completion `prompt` → user, `choices[].text` → assistant; view/select/dismiss → system |
 | model | empty (not recorded) |
@@ -586,10 +590,10 @@ The configured models are in `.tabby/config.toml`: `[model.completion]`, `[model
 The parser yields one `system` row per configured model at the file's modification time, which
 says which models the server could use, not which one answered:
 `model configured: <group> <model_name or model_id> via <http|local>[ kind=<kind>][
-endpoint=<api_endpoint>][ supported_models=<a,b>] (from config.toml [model.<group>.<http|local>],
-file mtime)`, `<group>` being `completion`, `chat` or `embedding`; `api_key` never reaches a row,
-and an endpoint's user name and password are shown as written, or as `REDACTED` when the run
-withholds secrets.
+endpoint=<api_endpoint>][ api_key=<api_key>][ supported_models=<a,b>] (from config.toml
+[model.<group>.<http|local>], file mtime)`, `<group>` being `completion`, `chat` or `embedding`;
+the `api_key` and an endpoint's user name and password are shown as written, and
+`timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder.
 The tables are read with Python's `tomllib`. These rows are source-derived; not observed on any
 real install.
 
@@ -610,7 +614,7 @@ Also read, source-derived; not observed on any real install:
 | --- | --- | --- |
 | `pages`, `page_sections` in the database files ([Pages](#pages)) | primary in `db.sqlite`, secondary in a backup (the role is per file) | `page start \| title <title> \| author <email (name)> \| code_source <id>` as `system`, then the page `content` and each section (`<title>`, a blank line, `<content>`, the attachment summary) as `assistant`, in `position` order; `session_id` `page:<id>`, `project_path` the first `code[].git_url` of the sections, times the page's and each section's `created_at` |
 | `intellij-tabby-command-history.xml` ([Editor command histories](#editor-command-histories)) | secondary | `inline edit command history: <N> commands, newest first (from intellij-tabby-command-history.xml, no times)`, then one `user` row per command, `source_line` its position, empty timestamp |
-| `state.vscdb`, row `TabbyML.vscode-tabby`, key `edit.recentlyCommand` | secondary | the same leading row `(from state.vscdb TabbyML.vscode-tabby edit.recentlyCommand, no times)`, then one `user` row per command with ` [context: <uri>; ...]` appended when the entry names files |
+| `state.vscdb`, row `TabbyML.vscode-tabby`, key `edit.recentlyCommand` | secondary | the same leading row `(from state.vscdb TabbyML.vscode-tabby edit.recentlyCommand, no times)`, then one `user` row per command with ` [context: <uri>; ...]` appended when the entry names files; before them, one `system` row per `server.serverRecords` endpoint with a token, `tabby server: <endpoint> token=<token> (from state.vscdb TabbyML.vscode-tabby server.serverRecords, no times)`, `--no-secrets` replacing the token and the endpoint's credentials with the placeholder |
 
 A page has no thread id, so it does not pair with the thread it came from. The command histories
 pair with nothing, since the server logs an inline edit only as an empty `chat_completion` event,
@@ -763,17 +767,21 @@ Tabby records a source-host integration server-side, in the database it already 
 ([Source-host integrations](#source-host-integrations)): the connection's kind, its display name,
 its API base and its token, and the cached list of repositories the token reaches. No column names
 the connected account, and no thread is bound to a repository row. The token is a column of
-`db.sqlite` and its backups, never selected ([Secrets](#secrets)); no editor client holds a
-source-host token. The parser yields, at the record's own time and source-derived; not observed on
-any real install:
+`db.sqlite` and its backups ([Secrets](#secrets)); no editor client holds a source-host token.
+The parser yields, at the record's own time and source-derived; not observed on any real install:
 
 - per integration, `source host: <host> integration <display_name> kind=<kind>
-  api_base=<api_base or -> (account not recorded; from integrations table, created_at)`, `<host>`
-  `github.com` or `gitlab.com` for the hosted kinds and the host of `api_base` for the self-hosted
-  ones, the user name and password of an `api_base` URL shown as written, or as `REDACTED` when
-  the run withholds secrets;
+  api_base=<api_base or -> access_token=<access_token> (account not recorded; from integrations
+  table, created_at)`, ` access_token=` when the column is set, `<host>` `github.com` or
+  `gitlab.com` for the hosted kinds and the host of `api_base` for the self-hosted ones, the token
+  and the user name and password of an `api_base` URL shown as written and replaced with the
+  placeholder under `timeline --no-secrets` and `detect --no-secrets`;
 - per cached repository, `source host repository: <git_url> type=<kind> name=<name>
-  active=<yes|no> (integration <display_name>; from provided_repositories table, updated_at)`.
+  active=<yes|no> (integration <display_name>; from provided_repositories table, updated_at)`,
+  the URL's credentials replaced under `--no-secrets` as above;
+- per user with an API token, first, `tabby user: <email> (<name>) id=<id> auth_token=<auth_token>
+  (from users table, created_at)` at the user's `created_at`, the token replaced under
+  `--no-secrets` as above.
 
 The rows from a backup repeat the live database's and pair with them. The administrator's sign-in
 through GitHub or GitLab OAuth (`oauth_credential`) is the server's own login for its users, not an

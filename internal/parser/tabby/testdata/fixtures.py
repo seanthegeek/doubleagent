@@ -44,7 +44,15 @@ INSERT INTO page_sections VALUES (5, 3, 'One', 'body', 0, '2026-10-01 09:00:03')
 INSERT INTO page_sections VALUES (6, 4, 'Lost', 'body', 0, '2026-10-01 09:00:04');
 """
 
-DATABASES = {"integrations.db": INTEGRATIONS, "narrow_tables.db": NARROW_TABLES}
+# A user whose API token is stored.
+USERS = """
+PRAGMA page_size = 512;
+CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, name TEXT, auth_token TEXT,
+    created_at TIMESTAMP);
+INSERT INTO users VALUES (1, 'ana@example.com', 'Ana', 'auth_FIXTURE', '2026-10-01 09:00:00');
+"""
+
+DATABASES = {"integrations.db": INTEGRATIONS, "narrow_tables.db": NARROW_TABLES, "users.db": USERS}
 
 
 def main() -> None:

@@ -9,6 +9,9 @@ edit.recentlyCommand member is, by file name:
 - command-object.vscdb: an object.
 - command-null.vscdb: null.
 - command-empty.vscdb: an empty array.
+
+server-records.vscdb holds a server.serverRecords object of one endpoint with a token beside
+an empty history.
 """
 
 import json
@@ -21,6 +24,10 @@ DATABASES = {
     "command-object.vscdb": {"edit.recentlyCommand": {"command": "go"}},
     "command-null.vscdb": {"edit.recentlyCommand": None},
     "command-empty.vscdb": {"edit.recentlyCommand": []},
+    "server-records.vscdb": {
+        "server.serverRecords": {"https://ci:s3cret@tabby.example/": {"token": "auth_FIXTURE"}},
+        "edit.recentlyCommand": [],
+    },
 }
 
 

@@ -84,7 +84,7 @@ func TestAttachmentPartsDescribeEachKindOfAttachment(t *testing.T) {
 	}
 	want := []string{"code g x@abc f.go:3", "code", "code u p", "client_code c.go:0",
 		"client_code", "doc T L", "doc s P", "doc", "code_file_list 2 files"}
-	if got := attachmentParts(attachment); strings.Join(got, "|") != strings.Join(want, "|") {
+	if got := attachmentParts(nil, attachment); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
@@ -187,6 +187,12 @@ func parseFile(t *testing.T, rel, text string) []string {
 // every row the parser gives for it under the secrets setting.
 func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string {
 	t.Helper()
+	return parseAs(t, setting, "tabby", rel, text)
+}
+
+// parseAs is parseWith for an artifact the catalog gives agent.
+func parseAs(t *testing.T, setting secrets.Setting, agent, rel, text string) []string {
+	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -195,7 +201,7 @@ func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string
 	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "tabby",
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: agent,
 		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: setting},
 		Manifest: jsonvalue.NewNull()}
 	var texts []string

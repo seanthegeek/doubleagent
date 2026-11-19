@@ -73,6 +73,10 @@ func withheldRows() []withheldRow {
 			" AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_HOST=" + secrets.DefaultPlaceholder +
 			" AGENT_ZERO_LAST_CONTEXT_ID=" + secrets.DefaultPlaceholder + " (from .agent-zero/.env, file mtime)"},
+		{"tabby", "user auth token", "tabby user: alice@example.com (Alice) id=1 auth_token=" +
+			secrets.DefaultPlaceholder + " (from users table, created_at)"},
+		{"tabby", "server record token", "tabby server: http://localhost:8080 token=" + secrets.DefaultPlaceholder +
+			" (from state.vscdb TabbyML.vscode-tabby server.serverRecords, no times)"},
 	}
 }
 
@@ -235,6 +239,19 @@ func withheldForms() []withheldForm {
 			`(permission setting: [^"\n]*?)(?: socket\.token=`+secrets.DefaultPlaceholder+`)?`+
 				`( \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\))`,
 			"${1}${2}"),
+		// The recording gave an integration without its access token; the
+		// binary adds it, withheld.
+		form("tabby", "integration access token",
+			`(source host: [^"\n]* api_base=[^ "\n]*)( \(account not recorded; from integrations table, created_at\))`,
+			`(source host: [^"\n]* api_base=[^ "\n]*)(?: access_token=`+secrets.DefaultPlaceholder+`)?`+
+				`( \(account not recorded; from integrations table, created_at\))`,
+			"${1}${2}"),
+		// The recording gave a configured model without its API key; the
+		// binary adds it, withheld.
+		form("tabby", "config.toml API key",
+			`(model configured: [^"\n]*?)( [^"\n]*\(from config\.toml \[model\.)`,
+			`(model configured: [^"\n]*?) api_key=`+secrets.DefaultPlaceholder+`( [^"\n]*\(from config\.toml \[model\.)`,
+			"${1}${2}"),
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
@@ -372,6 +389,12 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	socketRecorded := "permission setting: defaults.security=allowlist (from state/openclaw.sqlite " +
 		"exec_approvals_config, updated_at_ms)"
 	socketBinary := strings.Replace(socketRecorded, " (from", " socket.token=REDACTED (from", 1)
+	integrationRecorded := "source host: github.com integration acme kind=github api_base=- " +
+		"(account not recorded; from integrations table, created_at)"
+	integrationBinary := strings.Replace(integrationRecorded, " (account", " access_token=REDACTED (account", 1)
+	modelRecorded := "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +
+		"supported_models=m (from config.toml [model.chat.http], file mtime)"
+	modelBinary := strings.Replace(modelRecorded, " supported", " api_key=REDACTED supported", 1)
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -437,6 +460,14 @@ func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, "REDACTED", "tok", 1), false},
 		{"a socket token beside another setting fails", socketRecorded,
 			strings.Replace(socketBinary, "allowlist", "full", 1), false},
+		{"a model's API key in its placeholder form passes", modelRecorded, modelBinary, true},
+		{"a model's API key shown fails", modelRecorded, strings.Replace(modelBinary, "REDACTED", "sk-1", 1), false},
+		{"a model of another endpoint fails", modelRecorded, strings.Replace(modelBinary, "h/v1", "g/v1", 1), false},
+		{"an integration's token in its placeholder form passes", integrationRecorded, integrationBinary, true},
+		{"an integration's token shown fails", integrationRecorded,
+			strings.Replace(integrationBinary, "REDACTED", "ghp_x", 1), false},
+		{"an integration of another kind fails", integrationRecorded,
+			strings.Replace(integrationBinary, "kind=github", "kind=gitlab", 1), false},
 		{"a connection's token in its placeholder form passes", connectionRecorded, connectionBinary, true},
 		{"a connection's token shown fails", connectionRecorded,
 			strings.Replace(connectionBinary, "REDACTED", "not-real", 1), false},
@@ -477,6 +508,10 @@ func TestEachWithheldFormIsFoundInItsRecordedText(t *testing.T) {
 			"roo.retryQueue, request timestamp)",
 		"openclaw exec approvals socket token": "permission setting: defaults.security=allowlist " +
 			"(from state/openclaw.sqlite exec_approvals_config, updated_at_ms)",
+		"tabby integration access token": "source host: github.com integration acme kind=github api_base=- " +
+			"(account not recorded; from integrations table, created_at)",
+		"tabby config.toml API key": "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +
+			"(from config.toml [model.chat.http], file mtime)",
 		"detect and timeline .git/config remote URL": "  remotes: origin https://u:p@h/r.git\n",
 	}
 	for _, entry := range withheldForms() {

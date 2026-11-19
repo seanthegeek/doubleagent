@@ -16,7 +16,7 @@
 //     secondary source: the server writes each event here and to
 //     user_events.
 //   - config.toml: one "model configured:" row per [model.<group>.<http|local>]
-//     table at the file's time; api_key is never read.
+//     table at the file's time, api_key through parser.SecretText.
 //   - The IntelliJ plugin's options/intellij-tabby-command-history.xml and
 //     the VS Code extension's edit.recentlyCommand in the editor's
 //     state.vscdb, secondary sources with no times.
@@ -56,6 +56,7 @@ const (
 	intellijComponent = "com.tabbyml.intellijtabby.inlineChat.CommandHistory"
 	vscodeItemKey     = "TabbyML.vscode-tabby"
 	vscodeHistoryKey  = "edit.recentlyCommand"
+	vscodeServersKey  = "server.serverRecords"
 )
 
 // Parser reads Tabby's databases, event logs, config and command histories.
@@ -177,8 +178,7 @@ func tomlValue(value tomldoc.Value) jsonvalue.Value {
 }
 
 // parseConfig emits one row per configured model of config.toml, at the
-// file's mtime. Only the model tables' names, kinds and endpoints are read;
-// api_key never reaches a row.
+// file's mtime: the model tables' names, kinds, endpoints and API keys.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
@@ -226,9 +226,9 @@ func configErrorText(artifact *input.Artifact, err error) string {
 }
 
 // modelText returns the "model configured:" text of one
-// [model.<group>.<kind>] table: model_name, kind, api_endpoint (without
-// the credentials a URL may carry) and supported_models for the http form,
-// model_id for the local one.
+// [model.<group>.<kind>] table: model_name, kind, api_endpoint through
+// parser.URLText, api_key through parser.SecretText and supported_models
+// for the http form, model_id for the local one.
 func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
 	if kind == "http" {
@@ -239,6 +239,9 @@ func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Valu
 		}
 		if value := body.Get("api_endpoint"); !value.IsEmpty() {
 			parts = append(parts, "endpoint="+parser.URLText(artifact, value.Text()))
+		}
+		if value := body.Get("api_key"); !value.IsEmpty() {
+			parts = append(parts, "api_key="+parser.SecretText(artifact, value.Text()))
 		}
 		if supported := body.Get("supported_models"); supported.IsArray() && supported.Len() > 0 {
 			var names []string
@@ -291,14 +294,16 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parser.Emit
 	}
 }
 
-// parseVSCodeState emits the VS Code extension's command history from an
-// editor's state.vscdb, then a row per problem, never echoing the value:
-// the same row holds the extension's endpoint tokens. A history that is
-// not an array adds a problem.
+// parseVSCodeState emits a "tabby server:" row per server record of the
+// VS Code extension's state in an editor's state.vscdb, its endpoint
+// through parser.URLText and its token through parser.SecretText, then the
+// command history, then a row per problem, never echoing the value, which
+// holds those tokens. A history that is not an array adds a problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parser.Emit) {
 	state, problems := vscodestate.ReadItem(artifact.DiskPath, vscodeItemKey)
 	switch {
 	case state.IsObject():
+		p.serverRows(artifact, state.Get(vscodeServersKey), emit)
 		var commands []string
 		var found parser.Problems
 		for _, entry := range parser.ArrayMember(state.Get(vscodeHistoryKey), vscodeHistoryKey, 0, &found) {
@@ -396,7 +401,7 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 	if !segments.IsObject() {
 		segments = jsonvalue.NewObject()
 	}
-	spec.projectPath = parser.Text(segments.Get("git_url"))
+	spec.projectPath = parser.URLText(artifact, parser.Text(segments.Get("git_url")))
 	spec.text = parser.JoinNonEmpty(" | ", "completion", owner, parser.Labelled("language=", body.Get("language")),
 		parser.Labelled("file=", segments.Get("filepath")), parser.Labelled("client=", body.Get("user_agent")))
 	emit(p.row(artifact, spec))
@@ -419,3 +424,16 @@ var (
 	_ parser.AgentReader     = (*Parser)(nil)
 	_ parser.SecondaryReader = (*Parser)(nil)
 )
+
+// serverRows emits one "tabby server:" row per member of the extension's
+// server records, an object of endpoint to {token}, that holds a token.
+// The rows have no time: the records hold none.
+func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parser.Emit) {
+	for _, record := range records.Members() {
+		if token := parser.Text(record.Value.Get("token")); token != "" {
+			emit(p.row(artifact, rowSpec{text: "tabby server: " + parser.URLText(artifact, record.Key) + " token=" +
+				parser.SecretText(artifact, token) + " (from state.vscdb " + vscodeItemKey + " " + vscodeServersKey +
+				", no times)"}))
+		}
+	}
+}
