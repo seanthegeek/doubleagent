@@ -95,8 +95,8 @@ func TestAProjectObjectReplacesOnlyTheSecretsThatReachEveryString(t *testing.T) 
 }
 
 // unreachable returns where in typ, a type an output is written from
-// (named place),
-// a string lies that the copy of output.document cannot reach: behind an
+// (named place), a string lies that the copy of output.document cannot
+// reach: behind an
 // embedded pointer of an unexported type, or inside a type that writes
 // itself (json.Marshaler) other than allowed; seen holds the types walked.
 func unreachable(typ reflect.Type, place string, allowed []reflect.Type, seen map[reflect.Type]bool) []string {

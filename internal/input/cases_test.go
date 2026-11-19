@@ -840,8 +840,8 @@ func TestCleanupRemovesTheExtractionDirectory(t *testing.T) {
 	collection, err := Open(t.Context(), archive, Options{Matcher: matcherOf(t, ""), WorkDir: work})
 	opened(t, err)
 	extracted := collection.ExtractedDir()
-	if filepath.Dir(extracted) != work || !strings.HasPrefix(filepath.Base(extracted), "cac-") {
-		t.Fatalf("extracted to %s, want a cac- directory in %s", extracted, work)
+	if filepath.Dir(extracted) != work || !strings.HasPrefix(filepath.Base(extracted), "doubleagent-") {
+		t.Fatalf("extracted to %s, want a doubleagent- directory in %s", extracted, work)
 	}
 	if err := collection.Cleanup(); err != nil {
 		t.Fatal(err)
