@@ -16,8 +16,9 @@ func testNow() time.Time {
 // An acceptedCase is an accepted value with its --since and --until bounds.
 type acceptedCase struct{ text, since, until string }
 
-// acceptedCases are the accepted dates, week dates, ordinal dates and
-// ages.
+// acceptedCases are the accepted dates, week dates, ordinal dates, date-times
+// with and without a zone, epoch values, the words today, yesterday and now,
+// and ages: the first half of the accepted values.
 func acceptedCases() []acceptedCase {
 	return []acceptedCase{
 		{"2026-10-01", "2026-10-01T00:00:00.000Z", "2026-10-01T23:59:59.999Z"},
@@ -80,8 +81,9 @@ func acceptedCases() []acceptedCase {
 	}
 }
 
-// acceptedOtherFormCases returns the accepted compact forms, zones, epoch
-// values, ages and edge dates that follow the first half of acceptedCases.
+// acceptedOtherFormCases returns the second half of the accepted values: the
+// compact forms, zones, epoch values, ages and edge dates that acceptedCases
+// does not hold.
 func acceptedOtherFormCases() []acceptedCase {
 	return []acceptedCase{
 		{"20261001", "2026-10-01T00:00:00.000Z", "2026-10-01T23:59:59.999Z"},
