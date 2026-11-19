@@ -58,13 +58,11 @@ func outputsAgree(t *testing.T, want, got commandOutput) (bool, []int) {
 }
 
 // outputsRefused compares two runs once under every difference of format,
-// and a loose run's rows against the documented order, as the command
-// replay does, and reports whether they still differ.
+// and the run's rows against the documented order, as the command replay
+// does, and reports whether they still differ.
 func outputsRefused(t *testing.T, want, got commandOutput) bool {
 	reporter := &recordingTB{TB: t}
-	if want.loose && holdsTimeline(want.outputs) {
-		checkDocumentedOrder(reporter, "n", got.outputs)
-	}
+	checkRunOrder(reporter, "n", want, got)
 	compareOutputs(reporter, "n", recordedRoot, outputForms{setOf(commandFormatNumbers())}, nil, want, got)
 	return len(reporter.errors) > 0
 }

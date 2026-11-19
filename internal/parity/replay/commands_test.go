@@ -650,14 +650,12 @@ func hasKey(entries map[string]string, key string) bool {
 }
 
 // compareFull compares the exit code, and both streams and every output
-// file as information. A loose tree's timeline and sessions must be in the
-// documented order. root is the run's root, which stands where the
-// recording's stood.
+// file as information. The run's timeline and sessions must be in the
+// documented order (checkRunOrder). root is the run's root, which stands
+// where the recording's stood.
 func (r *commandReplay) compareFull(t *testing.T, node, root string, recorded CommandCase,
 	want, got commandOutput) {
-	if want.loose && holdsTimeline(want.outputs) {
-		checkDocumentedOrder(t, node, got.outputs)
-	}
+	checkRunOrder(t, node, want, got)
 	if got.exit != want.exit {
 		t.Errorf("%s: exit %d, want %d", node, got.exit, want.exit)
 	}

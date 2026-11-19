@@ -65,7 +65,8 @@ func formatDifferences() []Difference {
 			"JSON string or a whole word of an output line otherwise equal, may be one millisecond " +
 			"earlier when it is the cut time of a source with digits below the millisecond: a file's " +
 			"modification time, or a time a file writes as text with more than three fraction digits; a row whose " +
-			"modification time is so cut may also move among the rows of that millisecond and the one after it",
+			"modification time is so cut may also move towards the start, past only rows the timeline order " +
+			"puts after it, to the place that order gives the cut time",
 			Scope: scopeTimes, Unchecked: "whether a case needs it depends on the modification times the " +
 				"recording's files were given when it ran, which a new recording changes"},
 	}

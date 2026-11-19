@@ -262,6 +262,19 @@ func sortRowLinesByKey(outputs map[string]string) {
 	}
 }
 
+// checkRunOrder fails the test when the timeline and sessions of a case
+// whose recording wrote a timeline are not in the documented order, the
+// recording's or got's, the run's. Every recorded timeline is in that
+// order, so the binary is held to it in every case, not only where a loose
+// tree's listing order lets the rows be compared sorted.
+func checkRunOrder(t testing.TB, node string, want, got commandOutput) {
+	t.Helper()
+	if holdsTimeline(want.outputs) {
+		checkDocumentedOrder(t, node+" (recorded)", want.outputs)
+		checkDocumentedOrder(t, node, got.outputs)
+	}
+}
+
 // checkDocumentedOrder fails the test when a run's timeline.jsonl or
 // sessions.jsonl is not in the order the analyzer sorts them in: rows by
 // undated last, time, source file and source line; sessions by first time,

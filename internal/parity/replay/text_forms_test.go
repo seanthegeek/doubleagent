@@ -267,15 +267,15 @@ func oneLater(later, base string) bool {
 
 // rolledOverLines returns want and got with each line of got that equals
 // want's line at the same index but for timestamps rolled over (119) given
-// want's form. A file's modification time rolled over can also move its
-// row among rows of the millisecond it was rounded into, so a line of got
-// whose only timestamp is such a time and that equals an unmatched line of
-// want elsewhere, one millisecond later, is taken out of both sides when
-// every line of got it moved past is of that millisecond or the cut one
-// (amongRoundedRows); every other line keeps its place and is compared in
-// order.
+// want's form. The binary sorts a row whose file's modification time it cut
+// to T where the recording rounded it to T+1 ms where the timeline order
+// puts a row of T, so such a line of got that equals an unmatched later
+// line of want, one millisecond later, is taken out of both sides when
+// every line of got it moved past sorts after it (movedEarlier); every
+// other line keeps its place and is compared in order.
 func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 	wantLines, gotLines := strings.Split(want, "\n"), strings.Split(got, "\n")
+	written := slices.Clone(gotLines)
 	for i := range min(len(wantLines), len(gotLines)) {
 		gotLines[i] = rolledOver(wantLines[i], gotLines[i], cut)
 	}
@@ -287,7 +287,7 @@ func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 		}
 		for j, candidate := range wantLines {
 			if !takenWant[j] && !matched(j) && candidate != line && rolledOver(candidate, line, cut) == candidate &&
-				amongRoundedRows(gotLines, i, j) {
+				movedEarlier(written, i, j) {
 				takenWant[j], takenGot[i] = true, true
 				break
 			}
@@ -303,29 +303,17 @@ func movedModifiedTime(line string, cut *cutTimes) bool {
 	return len(found) == 1 && cut.holdsModified(found[0][1])
 }
 
-// amongRoundedRows reports whether each line of got that a line at moved
-// passed on its way from target, the place its recorded line holds, has
-// whole timestamps, and each is the moved line's time or one millisecond
-// later: the rows of the millisecond a modification time was cut to and
-// the one the recording rounded it into.
-func amongRoundedRows(got []string, moved, target int) bool {
-	low, high := target, moved-1
-	if target > moved {
-		low, high = moved+1, target
-	}
-	if high >= len(got) {
+// movedEarlier reports whether the line of got at moved stands before
+// target, the place its recorded line holds, and sorts before each line it
+// passed on the way (compareRowLines): a row given an earlier time moves
+// only towards the start, past the rows the timeline order puts after it.
+func movedEarlier(got []string, moved, target int) bool {
+	if moved >= target || target >= len(got) {
 		return false
 	}
-	cutTime := jsonTimestamp.FindStringSubmatch(got[moved])[1]
-	for _, line := range got[low : high+1] {
-		found := jsonTimestamp.FindAllStringSubmatch(line, -1)
-		if len(found) == 0 {
+	for _, line := range got[moved+1 : target+1] {
+		if compareRowLines(got[moved], line) >= 0 {
 			return false
-		}
-		for _, timestamp := range found {
-			if timestamp[1] != cutTime && !oneLater(timestamp[1], cutTime) {
-				return false
-			}
 		}
 	}
 	return true
