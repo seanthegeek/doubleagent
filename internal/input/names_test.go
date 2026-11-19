@@ -8,8 +8,10 @@ import (
 func TestAPathBelowTheInputIsNamedAsTheInputWasGiven(t *testing.T) {
 	absolute := filepath.Join(string(filepath.Separator)+"work", "case")
 	root := string(filepath.Separator)
+	current := filepath.Join(string(filepath.Separator)+"here", "now")
 	names := &inputNames{}
 	names.add(absolute, "case")
+	names.add(current, ".")
 	names.add(root, "top")
 	tests := []struct {
 		name, path, want string
@@ -19,6 +21,8 @@ func TestAPathBelowTheInputIsNamedAsTheInputWasGiven(t *testing.T) {
 		{"a sibling whose name starts with the input's", absolute + "-other",
 			filepath.Join("top", "work", "case-other")},
 		{"a path below a root directory", filepath.Join(root, "x"), filepath.Join("top", "x")},
+		{"a path below an input given as the working directory", filepath.Join(current, "home", "bob"),
+			filepath.Join("home", "bob")},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -38,7 +38,7 @@ func (n *inputNames) path(path string) string {
 		case strings.HasSuffix(pair[0], string(filepath.Separator)):
 			return filepath.Join(pair[1], rest)
 		case strings.HasPrefix(rest, string(filepath.Separator)):
-			return pair[1] + rest
+			return filepath.Join(pair[1], rest)
 		}
 	}
 	return path
