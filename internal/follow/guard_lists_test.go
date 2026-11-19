@@ -330,8 +330,8 @@ func allowedCalls() map[string]allowance {
 				"probe file under a random name and each output file in its output directory, and " +
 				"fleet's temporary file under a random name beside the CSV"},
 		{"internal/analyze/timeline.go", "osfile.Remove", 2,
-			"removes the probe file it made, and a directory the run itself created when the " +
-				"run fails"},
+			"removes the probe file it made, and the directories that timeline, fleet, or the " +
+				"work directory of detect and timeline created, once the run leaves them empty"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names as OUTPUT_DIR"},
 		{"internal/analyze/outside_unix.go", "filepath.EvalSymlinks", 1,
