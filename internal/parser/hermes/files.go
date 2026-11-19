@@ -34,8 +34,9 @@ func (p *Parser) setting(artifact *input.Artifact, line int, text, timestamp str
 // readJSON returns the JSON document of the artifact, or false after
 // adding a whole-file problem: its unreadable problem, or
 // "<name> did not parse (<reason>)". For a file that holds secrets the
-// reason goes through parser.ReaderErrorText, which withholds the reader's
-// detail when the run withholds secrets.
+// reason goes through parser.ReaderErrorText, which returns it as written
+// and records the reader's detail for the output to replace under
+// --no-secrets.
 func (p *Parser) readJSON(artifact *input.Artifact, name string, holdsSecrets bool,
 	problems *parser.Problems) (jsonvalue.Value, bool) {
 	content, ok := parser.FileBytes(artifact.DiskPath, problems)

@@ -46,8 +46,8 @@ type request struct {
 // method as "network request:", one with a response as "network
 // response:" and one with an error as "network error:"; a streamed chunk
 // gives none. A URL is written whole, its query included (the output
-// withholds an API key in it); header values and bodies are never read
-// into a row.
+// replaces an API key in it under --no-secrets); header values and bodies
+// are never read into a row.
 func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
 	project := p.projectOf(artifact, match, &problems)
