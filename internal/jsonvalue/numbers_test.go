@@ -164,3 +164,23 @@ func smallExponent(text string) bool {
 	position := strings.IndexAny(text, "eE")
 	return position < 0 || len(strings.TrimLeft(text[position+1:], "+-")) <= 3
 }
+
+func TestCanonicalNumberSpellsEachValueOneWay(t *testing.T) {
+	tests := []struct {
+		name, number, want string
+	}{
+		{"a zero", `-0.000e5`, "0"},
+		{"an integer with trailing zeros", `100`, "1e2"},
+		{"a fraction with a trailing zero", `1.50`, "15e-1"},
+		{"a negative number with a plus exponent", `-12E+03`, "-12e3"},
+		{"a leading zero of a fraction", `0.001`, "1e-3"},
+		{"an exponent of many digits with a borrow", `0.0001e1000000000000000000003`, "1e999999999999999999999"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := CanonicalNumber(test.number); got != test.want {
+				t.Errorf("CanonicalNumber(%s) = %s, want %s", test.number, got, test.want)
+			}
+		})
+	}
+}
