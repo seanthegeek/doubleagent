@@ -100,8 +100,9 @@ status: 0 when rows were written, 1 when there were none, 2 on an error,
   -h, --help           print this text and exit
 
 The CSV is refused when it is a symbolic link, an input file, or inside an
-input directory, judged where the file system puts it: a .. after a link
-leads up from the link's target, as it does when the file is written.
+input directory, judged where the system puts it when the file is written:
+on Linux and macOS a .. after a link leads up from the link's target, and
+on Windows a .. cancels the name written before it.
 
 A CSV cell that begins with =, +, -, @, a tab or a carriage return is
 written with a ' in front, so a spreadsheet shows it as text; the saved
