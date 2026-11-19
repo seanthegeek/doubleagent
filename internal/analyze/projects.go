@@ -82,9 +82,18 @@ func stripImageRoot(path string, summary jsonvalue.Value) string {
 // paths on the source host: collection.json's projects and the homes that
 // are project directories, each in its one spelling, sorted and each once.
 func collectedProjects(collection *input.Collection) []string {
-	summary := collection.Summary
+	unique := map[string]bool{}
+	for _, path := range collectionProjectTexts(collection) {
+		unique[timeline.CanonicalProjectPath(stripImageRoot(path, collection.Summary))] = true
+	}
+	return sortedKeys(unique)
+}
+
+// collectionProjectTexts returns collection.json's projects and the homes
+// that are project directories as the input spells them.
+func collectionProjectTexts(collection *input.Collection) []string {
 	var paths []string
-	for _, listed := range summary.Get("projects").Items() {
+	for _, listed := range collection.Summary.Get("projects").Items() {
 		if !listed.IsEmpty() {
 			paths = append(paths, listed.Text())
 		}
@@ -94,11 +103,7 @@ func collectedProjects(collection *input.Collection) []string {
 			paths = append(paths, home.Original)
 		}
 	}
-	unique := map[string]bool{}
-	for _, path := range paths {
-		unique[timeline.CanonicalProjectPath(stripImageRoot(path, summary))] = true
-	}
-	return sortedKeys(unique)
+	return paths
 }
 
 // scratchFinder tells a project path that is a scratch directory, one that

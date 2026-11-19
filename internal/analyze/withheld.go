@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"reflect"
-	"slices"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
@@ -147,23 +145,21 @@ func withholdFields(fields reflect.Value, replace func(string) string) {
 }
 
 // projectObjects is a JSON object of project objects by display path, in
-// the byte order of the paths. Two paths that become one when their
-// secrets are withheld are both written, under that one key, so no
+// the order given: the byte order of the paths as the evidence spells them
+// (projectInventory.entries), so withholding secrets, which changes the
+// paths written, changes no key's place. Two paths that become one when
+// their secrets are withheld are both written, under that one key, so no
 // project's counts are lost.
 type projectObjects []projectEntryJSON
 
 // MarshalJSON writes the object, its keys and values as encoding/json
 // writes them with HTML characters not escaped.
 func (p projectObjects) MarshalJSON() ([]byte, error) {
-	sorted := slices.Clone(p)
-	slices.SortStableFunc(sorted, func(left, right projectEntryJSON) int {
-		return strings.Compare(left.path, right.path)
-	})
 	var out bytes.Buffer
 	encoder := json.NewEncoder(&out)
 	encoder.SetEscapeHTML(false)
 	out.WriteByte('{')
-	for i, entry := range sorted {
+	for i, entry := range p {
 		if i > 0 {
 			out.WriteByte(',')
 		}

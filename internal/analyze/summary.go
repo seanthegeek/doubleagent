@@ -266,7 +266,8 @@ func (r *timelineRun) homesWithMarks(homes []homeEntry) []inventoryHomeJSON {
 }
 
 // projectsWhere returns the projects of the project paths that are scratch
-// directories, or of those that are not; the empty path is in neither.
+// directories, or of those that are not, in the byte order of the paths;
+// the empty path is in neither.
 func projectsWhere(entries []projectEntryJSON, scratch map[string]bool, isScratch bool) projectObjects {
 	projects := projectObjects{}
 	for _, entry := range entries {
@@ -274,6 +275,9 @@ func projectsWhere(entries []projectEntryJSON, scratch map[string]bool, isScratc
 			projects = append(projects, entry)
 		}
 	}
+	// Sorted by the path as the evidence spells it, before any secret in it
+	// is replaced, so both modes write the keys in one order.
+	slices.SortStableFunc(projects, func(left, right projectEntryJSON) int { return strings.Compare(left.path, right.path) })
 	return projects
 }
 
