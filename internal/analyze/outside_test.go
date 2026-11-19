@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 func TestAnOutputInsideADirectoryInputIsRefused(t *testing.T) {
@@ -49,6 +51,48 @@ func TestAnOutputInsideADirectoryInputIsRefused(t *testing.T) {
 	for _, unwritten := range []string{filepath.Join(tree, "home", "a", ".claude", "out"),
 		filepath.Join(tree, TimelineFile), filepath.Join(inventories, "f.csv")} {
 		if _, err := os.Lstat(unwritten); err == nil {
+			t.Errorf("%s was written into the input", unwritten)
+		}
+	}
+}
+
+// deepTree makes directories d/d/... below root, one more level each until
+// the system refuses a longer path or 2000 levels stand, and returns the
+// one halfway down: its path leaves room for the files written in it, and
+// climbing from it to root by parent entries, three bytes longer a level,
+// passes the longest path the system takes.
+func deepTree(t *testing.T, root string) string {
+	t.Helper()
+	var levels []string
+	for current := root; len(levels) < 2000; {
+		current = filepath.Join(current, "d")
+		if err := osfile.MkdirAll(current, 0o700); err != nil {
+			break
+		}
+		levels = append(levels, current)
+	}
+	if len(levels) < 100 {
+		t.Fatalf("only %d levels could be made", len(levels))
+	}
+	return levels[len(levels)/2]
+}
+
+func TestAnOutputDeepInsideADirectoryInputIsRefused(t *testing.T) {
+	// A climb that cannot go on refuses: the check cannot tell where the
+	// output lies.
+	tree := filepath.Join(t.TempDir(), "loose")
+	writeFile(t, filepath.Join(tree, "home", "a", ".claude", "history.jsonl"), "{}\n")
+	parent := deepTree(t, tree)
+	deep, csv := filepath.Join(parent, "out"), filepath.Join(parent, "f.csv")
+	for _, args := range [][]string{{"timeline", tree, deep}, {"fleet", "-o", csv, tree}} {
+		var stdout, stderr bytes.Buffer
+		code := Run(context.Background(), args, System(), &stdout, &stderr)
+		if code != ExitError || !strings.Contains(stderr.String(), "outside the input") {
+			t.Errorf("%s exited %d: %q", args[0], code, stderr.String())
+		}
+	}
+	for _, unwritten := range []string{deep, csv} {
+		if _, err := osfile.Lstat(unwritten); err == nil {
 			t.Errorf("%s was written into the input", unwritten)
 		}
 	}
