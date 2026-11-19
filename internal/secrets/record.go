@@ -252,3 +252,25 @@ func (f *Found) secretsIn(holds func(reach) bool) []string {
 	slices.Sort(secrets)
 	return secrets
 }
+
+// Merge returns a record of what first and second identified, each kept
+// where it was recorded to be replaced, for a row that stands for rows of
+// both parses (a row kept for a duplicate that deduplication dropped);
+// first or second when the other is nil or the two are one.
+func Merge(first, second *Found) *Found {
+	if second == nil || second == first {
+		return first
+	}
+	if first == nil {
+		return second
+	}
+	merged := &Found{}
+	for _, record := range []*Found{first, second} {
+		for where, texts := range record.texts {
+			for _, text := range texts {
+				merged.add(record.forms[placed{text, reach(where)}], reach(where))
+			}
+		}
+	}
+	return merged
+}
