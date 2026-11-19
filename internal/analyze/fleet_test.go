@@ -42,8 +42,8 @@ func TestFleetRowsReadEachRecordShape(t *testing.T) {
 		{"ws2", "", "", "", "", "", "", "", "", "", "", ""},
 		{"ws3", "", "", "", "carol", "claude-code", "", "", "", "2026-11-01T00:00:00.000Z", "", ""},
 	}
-	if !reflect.DeepEqual(rows, want) || junk != 5 {
-		t.Errorf("rows %q, junk %d\nwant %q, junk 5", rows, junk, want)
+	if got := cellTexts(rows, fleetCell.csvText); !reflect.DeepEqual(got, want) || junk != 5 {
+		t.Errorf("rows %q, junk %d\nwant %q, junk 5", got, junk, want)
 	}
 	totals := rollup(rows)
 	wantTotals := []agentTotal{{"claude-code", 2, 2, "2026-11-01T00:00:00.000Z"}, {"aider", 1, 1, ""},
@@ -174,7 +174,68 @@ func TestFleetWritesEvidenceTextAsTextAndNumbersAsNumbers(t *testing.T) {
 		`{"type":"agent","user":"-u","agent":"a","files":-5,"bytes":"-6","last":"=x","evidence":["@x","-y"]}`)
 	want := [][]string{{"'=cmd|' /C calc'!A0", "'+1", "'@m", "", "'-u", "a", "-5", "'-6", "", "", "",
 		`["@x","-y"]`}}
-	if !reflect.DeepEqual(rows, want) {
-		t.Errorf("rows %q\nwant %q", rows, want)
+	if got := cellTexts(rows, fleetCell.csvText); !reflect.DeepEqual(got, want) {
+		t.Errorf("CSV rows %q\nwant %q", got, want)
+	}
+	wantText := [][]string{{"=cmd|' /C calc'!A0", "+1", "@m", "", "-u", "a", "-5", "-6", "", "", "",
+		`["@x","-y"]`}}
+	text := func(cell fleetCell) string { return cell.text }
+	if got := cellTexts(rows, text); !reflect.DeepEqual(got, wantText) {
+		t.Errorf("rows %q\nwant %q", got, wantText)
+	}
+}
+
+// cellTexts returns each cell of rows as text gives it.
+func cellTexts(rows [][]fleetCell, text func(fleetCell) string) [][]string {
+	out := make([][]string, len(rows))
+	for i, row := range rows {
+		out[i] = make([]string, len(row))
+		for j, cell := range row {
+			out[i][j] = text(cell)
+		}
+	}
+	return out
+}
+
+func TestTheSpreadsheetQuoteIsInTheCSVOnly(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "inv.txt")
+	writeFile(t, input, `{"type":"host","host":"=h"}`+"\n"+
+		`{"type":"agent","user":"u","agent":"-cmd","last":"2026-11-01T00:00:00Z"}`+"\n")
+	output := filepath.Join(work, "fleet.csv")
+	code, stdout, stderr := runCommand(testEnvironment(), "fleet", "-o", output, input)
+	if code != ExitFound || !strings.Contains(stdout, "\n-cmd ") || strings.Contains(stdout, "'") {
+		t.Errorf("exit %d, stdout:\n%s\nstderr: %q", code, stdout, stderr)
+	}
+	data, err := osfile.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "'=h,,,,u,'-cmd,"; !strings.Contains(string(data), want) {
+		t.Errorf("CSV %q does not hold %q", data, want)
+	}
+}
+
+func TestTheFleetHelpNamesEveryCharacterThatIsQuoted(t *testing.T) {
+	for _, character := range []string{"=", "+", "-", "@", "tab", "carriage return"} {
+		if !strings.Contains(strings.Join(strings.Fields(fleetUsage), " "), character) {
+			t.Errorf("the fleet help does not name %q", character)
+		}
+	}
+	for _, text := range []string{"=", "+", "-", "@", "\t", "\r"} {
+		if spreadsheetText(text+"x") != "'"+text+"x" {
+			t.Errorf("a cell that begins with %q is not quoted", text)
+		}
+	}
+}
+
+func TestAFleetRefusalShowsAListedNameVisibly(t *testing.T) {
+	work := t.TempDir()
+	directory := filepath.Join(work, "inv")
+	listed := filepath.Join(directory, "a\x1b[2Jb.jsonl")
+	writeFile(t, listed, hostLine)
+	code, _, stderr := runCommand(testEnvironment(), "fleet", "-o", listed, directory)
+	if code != ExitError || strings.ContainsRune(stderr, '\x1b') || !strings.Contains(stderr, `a\x1b[2Jb.jsonl`) {
+		t.Errorf("exit %d, stderr %q", code, stderr)
 	}
 }

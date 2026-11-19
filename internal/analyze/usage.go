@@ -94,8 +94,9 @@ The CSV is refused when it is a symbolic link, an input file, or inside an
 input directory, judged where the file system puts it: a .. after a link
 leads up from the link's target, as it does when the file is written.
 
-A cell that begins with =, +, - or @ is written with a ' in front, so a
-spreadsheet shows it as text; the saved inventories keep it as written.
+A CSV cell that begins with =, +, -, @, a tab or a carriage return is
+written with a ' in front, so a spreadsheet shows it as text; the saved
+inventories and the rollup printed here keep it as written.
 `
 
 // catalogUsage is the help text of catalog.

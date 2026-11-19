@@ -99,18 +99,35 @@ func directoryFiles(directory string) ([]string, error) {
 	return files, nil
 }
 
-// fleetRows returns the CSV rows of one saved inventory output and how many
+// fleetCell is one cell of a fleet row: its text as the record holds it,
+// which the rollup counts and the terminal shows, and whether it is a JSON
+// number, which the CSV writes as it is (csvText).
+type fleetCell struct {
+	text   string
+	number bool
+}
+
+// csvText returns the cell as the CSV writes it: a number as written, other
+// text through spreadsheetText.
+func (c fleetCell) csvText() string {
+	if c.number {
+		return c.text
+	}
+	return spreadsheetText(c.text)
+}
+
+// fleetRows returns the rows of one saved inventory output and how many
 // of its non-blank lines are not inventory records. A host line opens a run
 // whose agent lines follow it; a host without agent lines gets a row of its
 // own, and an agent line before any host line keeps only its host field.
-func fleetRows(text string) ([][]string, int) {
-	var rows [][]string
+func fleetRows(text string) ([][]fleetCell, int) {
+	var rows [][]fleetCell
 	junk := 0
-	var host []string
+	var host []fleetCell
 	hostHasAgents := false
 	closeHost := func() {
 		if host != nil && !hostHasAgents {
-			rows = append(rows, append(slices.Clone(host), make([]string, len(agentFields()))...))
+			rows = append(rows, append(slices.Clone(host), make([]fleetCell, len(agentFields()))...))
 		}
 	}
 	for _, line := range inputLines(text) {
@@ -124,7 +141,7 @@ func fleetRows(text string) ([][]string, int) {
 			closeHost()
 			host, hostHasAgents = cells(record, hostFields()), false
 		default:
-			head := []string{cell("host", record.Get("host")), "", "", ""}
+			head := []fleetCell{cell("host", record.Get("host")), {}, {}, {}}
 			if host != nil {
 				head, hostHasAgents = slices.Clone(host), true
 			}
@@ -188,28 +205,28 @@ func inventoryRecord(line string) (jsonvalue.Value, bool) {
 	return record, true
 }
 
-// cells returns the CSV cells of a record's fields.
-func cells(record jsonvalue.Value, fields []string) []string {
-	out := make([]string, len(fields))
+// cells returns the cells of a record's fields.
+func cells(record jsonvalue.Value, fields []string) []fleetCell {
+	out := make([]fleetCell, len(fields))
 	for i, field := range fields {
 		out[i] = cell(field, record.Get(field))
 	}
 	return out
 }
 
-// cell returns one field's CSV cell: "" for a missing or null value, a
-// time field as a timeline timestamp, a number as written, anything else as
-// its row text (Text); text passes through spreadsheetText.
-func cell(field string, value jsonvalue.Value) string {
+// cell returns one field's cell: "" for a missing or null value, a time
+// field as a timeline timestamp, a number as written, anything else as its
+// row text (Text).
+func cell(field string, value jsonvalue.Value) fleetCell {
 	switch {
 	case value.IsNull():
-		return ""
+		return fleetCell{}
 	case field == "at" || field == "first" || field == "last":
-		return spreadsheetText(timeutil.FromValue(value))
+		return fleetCell{text: timeutil.FromValue(value)}
 	case value.IsNumber():
-		return value.Text()
+		return fleetCell{text: value.Text(), number: true}
 	}
-	return spreadsheetText(value.Text())
+	return fleetCell{text: value.Text()}
 }
 
 // spreadsheetText returns a cell's text with a single quote in front when
@@ -237,22 +254,22 @@ type agentTotal struct {
 
 // rollup returns one total per agent of the rows, sorted by hosts, then
 // users, both descending, then by agent.
-func rollup(rows [][]string) []agentTotal {
+func rollup(rows [][]fleetCell) []agentTotal {
 	const hostIndex, userIndex, agentIndex, lastIndex = 0, 4, 5, 9
 	hosts := map[string]map[string]bool{}
 	users := map[string]map[[2]string]bool{}
 	latest := map[string]string{}
 	for _, row := range rows {
-		agent := row[agentIndex]
+		agent, host := row[agentIndex].text, row[hostIndex].text
 		if agent == "" {
 			continue
 		}
 		if hosts[agent] == nil {
 			hosts[agent], users[agent] = map[string]bool{}, map[[2]string]bool{}
 		}
-		hosts[agent][row[hostIndex]] = true
-		users[agent][[2]string{row[hostIndex], row[userIndex]}] = true
-		latest[agent] = max(latest[agent], row[lastIndex])
+		hosts[agent][host] = true
+		users[agent][[2]string{host, row[userIndex].text}] = true
+		latest[agent] = max(latest[agent], row[lastIndex].text)
 	}
 	totals := make([]agentTotal, 0, len(hosts))
 	for agent := range hosts {
@@ -278,7 +295,7 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 		fmt.Fprintln(stderr, usageError("fleet", message))
 		return ExitError
 	}
-	var rows [][]string
+	var rows [][]fleetCell
 	for _, path := range files {
 		if ctx.Err() != nil {
 			return printError(ctx, stderr, "")
@@ -342,25 +359,34 @@ func plural(count int, noun string) string {
 // replaced; a link there was refused before the inputs were read, which
 // leaves the moment between that look and this write, when only a process
 // that can write the directory could place one.
-func writeFleetCSV(path string, rows [][]string) error {
+func writeFleetCSV(path string, rows [][]fleetCell) error {
 	if parent := outputParent(path); parent != "" {
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {
 			return err
 		}
 	}
+	records := [][]string{FleetColumns()}
+	for _, row := range rows {
+		record := make([]string, len(row))
+		for i, cell := range row {
+			record[i] = cell.csvText()
+		}
+		records = append(records, record)
+	}
 	var out bytes.Buffer
-	if err := csv.NewWriter(&out).WriteAll(append([][]string{FleetColumns()}, rows...)); err != nil {
+	if err := csv.NewWriter(&out).WriteAll(records); err != nil {
 		return err
 	}
 	return osfile.WriteFile(path, out.Bytes(), 0o666)
 }
 
 // printFleet prints how many rows from how many hosts were written, and the
-// rollup per agent when there is one.
-func printFleet(w io.Writer, rows [][]string, output string) {
+// rollup per agent when there is one, the cells' text as the records hold
+// it: the spreadsheet quote is the CSV's alone.
+func printFleet(w io.Writer, rows [][]fleetCell, output string) {
 	hosts := map[string]bool{}
 	for _, row := range rows {
-		hosts[row[0]] = true
+		hosts[row[0].text] = true
 	}
 	fmt.Fprintf(w, "rows:   %d from %d %s in %s\n", len(rows), len(hosts), plural(len(hosts), "host"),
 		shown(output))

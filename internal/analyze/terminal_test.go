@@ -82,8 +82,9 @@ func TestEveryTextWriterShowsControlCharactersVisibly(t *testing.T) {
 			wantShownOnly(t, header.String(), "problem:   "+value.want+"\n", "")
 			wantShownOnly(t, header.String(), "note:      "+value.want+"\n", "")
 			var fleet bytes.Buffer
-			printFleet(&fleet, [][]string{{value.text, "", "", "", value.text, value.text, "1", "", "", value.text,
-				"", ""}}, value.text)
+			text := fleetCell{text: value.text}
+			printFleet(&fleet, [][]fleetCell{{text, {}, {}, {}, text, text, {text: "1", number: true}, {}, {},
+				text, {}, {}}}, value.text)
 			wantShownOnly(t, fleet.String(), value.want, "")
 			var errors bytes.Buffer
 			printError(context.Background(), &errors, value.text)
