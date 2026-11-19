@@ -482,7 +482,7 @@ for Go files as it does for the others.
   | --- | --- | --- |
   | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; on Windows the calls the standard library does not expose: file handles opened without following a reparse point, the reparse tag that tells a symlink or junction from a socket, file owners through the security descriptor and account lookup, final paths of handles, directory symlinks, file times set on a handle, and the registry; pure Go. |
   | `github.com/BurntSushi/toml` | v1.5.0 | Reading TOML 1.0 documents (Codex and Gemini CLI settings and policies, Tabby's config) as `tomllib` does, with the tables' keys in document order, which the module reports beside its values; v1.6.0 reads TOML 1.1 and is not used; pure Go with no dependencies. |
-  | `github.com/klauspost/compress` | v1.20.4 | Decoding zstd data (Codex session files, Zed thread blobs), which Go has no public package for (the standard library's decoder is `internal/zstd`, which no outside package can import); only its `zstd` package is used, with `huff0`, `fse`, `cpuinfo`, `le`, `regmask`, `snapref` and `xxhash` beneath it. It has no cgo and requires no other module (its `go.mod` has no `require`). It is not pure Go: on `amd64` and `arm64` the Go toolchain would link its assembly for the sequence decoder, the Huffman decoder, the match-length copy and xxhash (four `.s` files on `arm64`; six on `amd64`, one of them for CPU feature detection), and the module reads memory through `unsafe` pointers in `internal/le` on `amd64`, `arm64`, `ppc64le` and `riscv64`; the `noasm` build tag removes the assembly and `nounsafe` the `unsafe` reads, and every build and test of the project sets both (see "Build tags" above), so neither is linked. `internal/zstdframe` runs the decoder in the calling goroutine (concurrency 1) with a 128 MiB window limit. |
+  | `github.com/klauspost/compress` | v1.20.4 | Decoding zstd data (Codex session files, Zed thread blobs), which Go has no public package for (the standard library's decoder is `internal/zstd`, which no outside package can import); only its `zstd` package is used, with the module's root package, `huff0`, `fse`, `cpuinfo`, `le`, `regmask`, `snapref` and `xxhash` beneath it. It has no cgo and requires no other module (its `go.mod` has no `require`). It is not pure Go: on `amd64` and `arm64` the Go toolchain would link its assembly for the sequence decoder, the FSE table builder, the Huffman decoder and xxhash, and on `amd64` the match-length copy and CPU feature detection too (four `.s` files on `arm64`, six on `amd64`), and the module reads memory through `unsafe` pointers in `internal/le` on `amd64`, `arm64`, `ppc64le` and `riscv64`; the `noasm` build tag removes the assembly and `nounsafe` the `unsafe` reads, and every build and test of the project sets both (see "Build tags" above), so neither is linked. `internal/zstdframe` runs the decoder in the calling goroutine (concurrency 1) with a 128 MiB window limit. |
 
 - **File system calls.** Every file under `internal/` that is built for
   Windows opens, lists, stats, creates and removes paths through
@@ -1715,9 +1715,12 @@ the Go gates, tests and six-target build and the parity job (the binary
 against the sh collector over the smoke image) on Ubuntu, macOS and Windows;
 the `record` job, which runs the analyzer's test suite once with the recorder
 plugin (`analyzer/tests/recorder`) and saves every parser, input and command
-call as a corpus, and the `replay` job, which runs each recorded case through
-the binary's code on the three runners (`internal/parity/replay`, build tag
-`parity`, corpus directory in `PARITY_CORPUS`);
+call as a corpus, and the `replay` job, which runs the recorded cases through
+the binary's code (`internal/parity/replay`, build tag `parity`, corpus
+directory in `PARITY_CORPUS`): the parser cases on the three runners, and
+the command cases and the timelines over the recorded parser rows on Linux
+and macOS only, since the recordings print POSIX paths; the check that every
+numbered difference is used needs every case, so the Windows runner skips it;
 the lint and site jobs of [Quality gates](#quality-gates); and a `CI result`
 job that fails when any of them failed or was cancelled. CI also runs on a
 push to a `go-rewrite-*` integration branch or a `unit-*` branch of the
