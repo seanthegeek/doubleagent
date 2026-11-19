@@ -6,14 +6,19 @@ import (
 	"testing"
 )
 
-func TestRun(t *testing.T) {
-	cases := []struct {
-		name       string
-		args       []string
-		wantCode   int
-		wantStdout string
-		wantStderr string
-	}{
+// runCase is one command line with the exit code it gives and a text its
+// stdout and its stderr each hold.
+type runCase struct {
+	name       string
+	args       []string
+	wantCode   int
+	wantStdout string
+	wantStderr string
+}
+
+// runCases returns the command lines TestRun runs.
+func runCases() []runCase {
+	return []runCase{
 		{"no command prints the usage on stderr", nil, exitUsage, "", "Usage: doubleagent"},
 		{"--version prints the version", []string{"--version"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"-V is --version", []string{"-V"}, exitOK, "doubleagent 0.0.0-dev", ""},
@@ -53,7 +58,10 @@ func TestRun(t *testing.T) {
 		{"an option after the input exits 2", []string{"timeline", "in", "out", "--since", "x"}, exitFatal, "",
 			"doubleagent timeline: options go before the input; --since is after it\nUsage: doubleagent timeline"},
 	}
-	for _, testCase := range cases {
+}
+
+func TestRun(t *testing.T) {
+	for _, testCase := range runCases() {
 		t.Run(testCase.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(testCase.args, &stdout, &stderr)

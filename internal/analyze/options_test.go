@@ -72,13 +72,19 @@ func parseError(command string, args []string) error {
 	return err
 }
 
-func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
-	tests := []struct {
-		name    string
-		command string
-		args    []string
-		want    string
-	}{
+// refusedCommandLine is a command line a command refuses, with the first
+// line of its usage error after the command's name.
+type refusedCommandLine struct {
+	name    string
+	command string
+	args    []string
+	want    string
+}
+
+// refusedCommandLines returns the command lines the analysis commands
+// refuse.
+func refusedCommandLines() []refusedCommandLine {
+	return []refusedCommandLine{
 		{"timeline needs its output directory", "timeline", []string{"in"},
 			"missing argument: output directory"},
 		{"an empty output directory is none", "timeline", []string{"in", ""},
@@ -138,7 +144,10 @@ func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
 		{"catalog with --agents after an argument", "catalog", []string{"x", "--agents"},
 			"options go before the input; --agents is after it"},
 	}
-	for _, test := range tests {
+}
+
+func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {
+	for _, test := range refusedCommandLines() {
 		t.Run(test.name, func(t *testing.T) {
 			err := parseError(test.command, test.args)
 			if err == nil {
