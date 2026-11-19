@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -64,25 +65,46 @@ func expected(root string, entries ...string) []Home {
 	return homes
 }
 
-func TestEnumerateImage(t *testing.T) {
-	systemHomes := []string{"bin", "sbin", "usr", "usr/bin", "usr/sbin", "dev", "dev/null",
+// An enumerateCase is a tree and passwd file, the -u list, and the users
+// and homes Enumerate finds in it.
+type enumerateCase struct {
+	name   string
+	tree   tree
+	passwd string
+	filter string
+	want   []string
+	// windowsWant replaces want on Windows when set, where there is no
+	// passwd file, the -u list ignores case, Users comes before home and
+	// a directory's names come in listing order (NTFS: by upper case).
+	windowsWant []string
+}
+
+// systemHomes are home directories of system and shared profiles that no
+// enumeration lists.
+func systemHomes() []string {
+	return []string{"bin", "sbin", "usr", "usr/bin", "usr/sbin", "dev", "dev/null",
 		"proc", "sys", "nonexistent", "var/empty", "Users/Shared", "Users/Public",
 		"Users/Default", "Users/All Users", "Users/Default User"}
-	systemPasswd := "sys:x:1:1::/:/bin/false\n"
-	for _, home := range systemHomes {
-		systemPasswd += "svc:x:2:2::/" + home + ":/bin/false\n"
+}
+
+// systemPasswd is a passwd file with one user for each of systemHomes.
+func systemPasswd() string {
+	passwd := "sys:x:1:1::/:/bin/false\n"
+	for _, home := range systemHomes() {
+		passwd += "svc:x:2:2::/" + home + ":/bin/false\n"
 	}
-	cases := []struct {
-		name   string
-		tree   tree
-		passwd string
-		filter string
-		want   []string
-		// windowsWant replaces want on Windows when set, where there is no
-		// passwd file, the -u list ignores case, Users comes before home and
-		// a directory's names come in listing order (NTFS: by upper case).
-		windowsWant []string
-	}{
+	return passwd
+}
+
+// enumerateCases returns the cases of TestEnumerateImage.
+func enumerateCases() []enumerateCase {
+	return slices.Concat(enumerateListingCases(), enumerateFilterCases())
+}
+
+// enumerateListingCases returns the cases of which homes are listed and
+// which are dropped.
+func enumerateListingCases() []enumerateCase {
+	return []enumerateCase{
 		{
 			name:   "passwd users and glob users in enumeration order",
 			tree:   tree{dirs: []string{"home/alice", "home/bob", "Users/carol", "root", "var/root", "usr/home/dave", "export/home/erin", "srv/zed"}},
@@ -94,8 +116,8 @@ func TestEnumerateImage(t *testing.T) {
 		},
 		{
 			name:        "every system and shared profile home is dropped",
-			tree:        tree{dirs: append([]string{"home/alice"}, append(systemHomes, "Users/carol")...)},
-			passwd:      systemPasswd + "alice:x:1000:1000::/home/alice:/bin/sh\n",
+			tree:        tree{dirs: append([]string{"home/alice"}, append(systemHomes(), "Users/carol")...)},
+			passwd:      systemPasswd() + "alice:x:1000:1000::/home/alice:/bin/sh\n",
 			want:        []string{"alice:/home/alice", "carol:/Users/carol"},
 			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice"},
 		},
@@ -125,6 +147,12 @@ func TestEnumerateImage(t *testing.T) {
 			want:        []string{"al:/home/alice"},
 			windowsWant: []string{"alice:/home/alice"},
 		},
+	}
+}
+
+// enumerateFilterCases returns the cases of the order of names and of the -u list.
+func enumerateFilterCases() []enumerateCase {
+	return []enumerateCase{
 		{
 			name:        "names sort bytewise, upper case before lower case, but not on Windows",
 			tree:        tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
@@ -163,7 +191,10 @@ func TestEnumerateImage(t *testing.T) {
 			want: []string{"nl:/home/nl"},
 		},
 	}
-	for _, testCase := range cases {
+}
+
+func TestEnumerateImage(t *testing.T) {
+	for _, testCase := range enumerateCases() {
 		t.Run(testCase.name, func(t *testing.T) {
 			root := testCase.tree.build(t)
 			if testCase.passwd != "" {

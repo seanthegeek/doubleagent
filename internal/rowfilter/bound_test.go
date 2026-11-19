@@ -2,6 +2,7 @@ package rowfilter
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,10 +13,13 @@ func testNow() time.Time {
 	return time.Date(2026, 3, 31, 14, 5, 9, 123_000_000, time.UTC)
 }
 
-// acceptedCases are accepted values with their --since and --until
-// bounds.
-func acceptedCases() []struct{ text, since, until string } {
-	return []struct{ text, since, until string }{
+// An acceptedCase is an accepted value with its --since and --until bounds.
+type acceptedCase struct{ text, since, until string }
+
+// acceptedCases are the accepted dates, week dates, ordinal dates and
+// ages.
+func acceptedCases() []acceptedCase {
+	return []acceptedCase{
 		{"2026-10-01", "2026-10-01T00:00:00.000Z", "2026-10-01T23:59:59.999Z"},
 		{"2026-W40-1", "2026-09-28T00:00:00.000Z", "2026-09-28T23:59:59.999Z"},
 		{"2026W401", "2026-09-28T00:00:00.000Z", "2026-09-28T23:59:59.999Z"},
@@ -73,6 +77,13 @@ func acceptedCases() []struct{ text, since, until string } {
 		{"6 months ago", "2025-09-30T14:05:09.123Z", "2025-09-30T14:05:09.123Z"},
 		{"1y", "2025-03-31T14:05:09.123Z", "2025-03-31T14:05:09.123Z"},
 		{"2 years", "2024-03-31T14:05:09.123Z", "2024-03-31T14:05:09.123Z"},
+	}
+}
+
+// acceptedOtherFormCases returns the accepted compact forms, zones, epoch
+// values, ages and edge dates that follow the first half of acceptedCases.
+func acceptedOtherFormCases() []acceptedCase {
+	return []acceptedCase{
 		{"20261001", "2026-10-01T00:00:00.000Z", "2026-10-01T23:59:59.999Z"},
 		{"20261001T0930", "2026-10-01T09:30:00.000Z", "2026-10-01T09:30:59.999Z"},
 		{"2026-10-01T0930", "2026-10-01T09:30:00.000Z", "2026-10-01T09:30:59.999Z"},
@@ -197,7 +208,7 @@ func refusedCases() []string {
 }
 
 func TestParseBound(t *testing.T) {
-	for _, test := range acceptedCases() {
+	for _, test := range slices.Concat(acceptedCases(), acceptedOtherFormCases()) {
 		t.Run("reads "+test.text, func(t *testing.T) {
 			since, err := ParseBound(test.text, false, testNow())
 			if err != nil || since != test.since {
