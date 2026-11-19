@@ -209,13 +209,8 @@ func guardianRows(logPath string) ([]guardianLog, bool) {
 		}
 		logs = append(logs, each)
 	}
-	textTimes := false
-	for _, column := range table.Columns() {
-		if column.Name == "ts" {
-			textTimes = column.Affinity == sqlitefile.TextAffinity
-		}
-	}
-	return logs, textTimes
+	column, found := parser.ColumnOf(table, "ts")
+	return logs, found && column.Affinity == sqlitefile.TextAffinity
 }
 
 // guardianFile is the index of one log database, kept for one state of

@@ -42,14 +42,11 @@ func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]
 		return nil, err
 	}
 	var columns []string
-	for _, column := range table.Columns() {
-		if column.Generated == sqlitefile.NotGenerated && slices.Contains(wanted, column.Name) {
-			columns = append(columns, column.Name)
+	for _, column := range wanted {
+		if table.Has(column) {
+			columns = append(columns, column)
 		}
 	}
-	slices.SortStableFunc(columns, func(left, right string) int {
-		return slices.Index(wanted, left) - slices.Index(wanted, right)
-	})
 	if len(columns) == 0 {
 		return nil, errors.New("table " + name + " has none of the columns read")
 	}

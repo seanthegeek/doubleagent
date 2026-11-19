@@ -84,7 +84,8 @@ func logFields(body string) map[string]string {
 
 // logsTableOf returns the logs table and the name of its body column, or
 // nil when the database has no such table or it lacks the body or target
-// column. The body is feedback_log_body, message in the first migration.
+// column, each found in any ASCII case as SQL finds it. The body is
+// feedback_log_body, message in the first migration.
 func logsTableOf(database *sqlitefile.Database) (*sqlitefile.Table, string, error) {
 	names, err := parser.TablesOf(database)
 	if err != nil || !names.Has(logsTable) {
@@ -94,17 +95,11 @@ func logsTableOf(database *sqlitefile.Database) (*sqlitefile.Table, string, erro
 	if err != nil {
 		return nil, "", err
 	}
-	have := map[string]bool{}
-	for _, column := range table.Columns() {
-		if column.Generated == sqlitefile.NotGenerated {
-			have[column.Name] = true
-		}
-	}
 	body := bodyColumn
-	if !have[body] {
+	if !table.Has(body) {
 		body = firstBodyColumn
 	}
-	if !have[body] || !have["target"] {
+	if !table.Has(body) || !table.Has("target") {
 		return nil, "", nil
 	}
 	return table, body, nil
@@ -117,10 +112,9 @@ func readLogs(database *sqlitefile.Database) ([]logRecord, error) {
 		return nil, err
 	}
 	columns := []string{"target", body}
-	for _, column := range table.Columns() {
-		if slices.Contains([]string{"ts", "ts_nanos", "thread_id"}, column.Name) &&
-			column.Generated == sqlitefile.NotGenerated {
-			columns = append(columns, column.Name)
+	for _, column := range []string{"ts", "ts_nanos", "thread_id"} {
+		if table.Has(column) {
+			columns = append(columns, column)
 		}
 	}
 	rows, err := table.Select(columns...).Where(func(row sqlitefile.Row) bool {

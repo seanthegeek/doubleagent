@@ -17,7 +17,13 @@ import (
 // returns the text of every row the parser gives for it.
 func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	t.Helper()
-	const rel = ".codex/state_5.sqlite"
+	return rowsOfDatabaseAt(t, ".codex/state_5.sqlite", name)
+}
+
+// rowsOfDatabaseAt copies the named testdata database into a new home at
+// rel and returns the text of every row the parser gives for it.
+func rowsOfDatabaseAt(t *testing.T, rel, name string) []string {
+	t.Helper()
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
@@ -48,5 +54,22 @@ func TestATableSpelledInAnotherCaseIsRead(t *testing.T) {
 	}
 	if got := rowsOfTableCaseDatabase(t, "table_case_respelled.db"); !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// SQL matches a column name in any ASCII case, so a state or logs database
+// whose columns are spelled in another case gives the rows it gives as
+// written.
+func TestAColumnSpelledInAnotherCaseIsRead(t *testing.T) {
+	for _, rel := range []string{".codex/state_5.sqlite", ".codex/logs_1.sqlite"} {
+		t.Run(rel, func(t *testing.T) {
+			want := rowsOfDatabaseAt(t, rel, "column_case.db")
+			if len(want) == 0 {
+				t.Fatal("the database as written gave no rows")
+			}
+			if got := rowsOfDatabaseAt(t, rel, "column_case_respelled.db"); !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
 	}
 }
