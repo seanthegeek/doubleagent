@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/json"
 	"reflect"
 	"slices"
@@ -96,20 +97,24 @@ func TestAProjectObjectReplacesOnlyTheSecretsThatReachEveryString(t *testing.T) 
 
 // unreachable returns where in typ, a type an output is written from
 // (named place), a string lies that the copy of output.document cannot
-// reach: behind an
-// embedded pointer of an unexported type, or inside a type that writes
-// itself (json.Marshaler) other than allowed; seen holds the types walked.
+// reach or that encoding/json writes from other than a string: behind an
+// embedded pointer of an unexported type, inside a type that writes itself
+// (json.Marshaler or encoding.TextMarshaler, as a value or a map key)
+// other than allowed, in a byte slice (written as base64) or in a field
+// with the ,string option; seen holds the types walked.
 func unreachable(typ reflect.Type, place string, allowed []reflect.Type, seen map[reflect.Type]bool) []string {
 	if seen[typ] {
 		return nil
 	}
 	seen[typ] = true
-	marshaler := reflect.TypeFor[json.Marshaler]()
-	if typ.Implements(marshaler) || reflect.PointerTo(typ).Implements(marshaler) {
+	if writesItself(typ) {
 		if slices.Contains(allowed, typ) {
 			return nil
 		}
 		return []string{place + " (" + typ.String() + " writes itself)"}
+	}
+	if typ.Kind() == reflect.Slice && typ.Elem().Kind() == reflect.Uint8 {
+		return []string{place + " (a byte slice, written as base64)"}
 	}
 	var found []string
 	switch typ.Kind() {
@@ -126,12 +131,25 @@ func unreachable(typ reflect.Type, place string, allowed []reflect.Type, seen ma
 			case field.Tag.Get("json") == "-" || !field.IsExported() && !field.Anonymous:
 			case field.Anonymous && !field.IsExported() && field.Type.Kind() == reflect.Pointer:
 				found = append(found, place+"."+field.Name+" (an embedded pointer of an unexported type)")
+			case slices.Contains(strings.Split(field.Tag.Get("json"), ",")[1:], "string"):
+				found = append(found, place+"."+field.Name+" (the ,string option, written as a string of its JSON)")
 			default:
 				found = append(found, unreachable(field.Type, place+"."+field.Name, allowed, seen)...)
 			}
 		}
 	}
 	return found
+}
+
+// writesItself reports whether encoding/json writes a value of typ, or of
+// a pointer to it, through a method of its own.
+func writesItself(typ reflect.Type) bool {
+	for _, method := range []reflect.Type{reflect.TypeFor[json.Marshaler](), reflect.TypeFor[encoding.TextMarshaler]()} {
+		if typ.Implements(method) || reflect.PointerTo(typ).Implements(method) {
+			return true
+		}
+	}
+	return false
 }
 
 // projectObjectsType is the one type that writes itself in an output,
@@ -156,6 +174,12 @@ type selfWriting struct{ C string }
 // MarshalJSON writes the type as an empty object.
 func (selfWriting) MarshalJSON() ([]byte, error) { return []byte("{}"), nil }
 
+// textOnly is a type that writes itself as text.
+type textOnly struct{ hidden string }
+
+// MarshalText writes the type's hidden string.
+func (t textOnly) MarshalText() ([]byte, error) { return []byte(t.hidden), nil }
+
 func TestTheTypeCheckFindsEachKindTheCopyCannotReach(t *testing.T) {
 	tests := []struct {
 		name string
@@ -166,6 +190,12 @@ func TestTheTypeCheckFindsEachKindTheCopyCannotReach(t *testing.T) {
 		{"an interface", reflect.TypeFor[struct{ I any }]()},
 		{"one inside an array", reflect.TypeFor[struct{ A [2]selfWriting }]()},
 		{"one inside a map", reflect.TypeFor[struct{ M map[string]selfWriting }]()},
+		{"a byte slice", reflect.TypeFor[struct{ Raw []byte }]()},
+		{"a type that writes itself as text", reflect.TypeFor[struct{ T textOnly }]()},
+		{"a map keyed by a type that writes itself as text", reflect.TypeFor[struct{ K map[textOnly]int }]()},
+		{"a field written as a string of its JSON", reflect.TypeFor[struct {
+			Quoted int `json:"quoted,omitempty,string"`
+		}]()},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

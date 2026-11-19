@@ -50,8 +50,10 @@ func (o output) shownAll(texts []string) []string {
 // of a map, behind a pointer) through text, so no string of a JSON output
 // misses the replacement. A field encoding/json skips is copied as it is.
 // It cannot reach the fields behind an embedded pointer of an unexported
-// type, nor what a type's own MarshalJSON writes, so an output type holds
-// neither (TestEveryOutputTypeHoldsOnlyKindsTheCopyReaches), projectObjects
+// type, nor what a type's own MarshalJSON or MarshalText writes (as a value
+// or a map key), nor text encoding/json writes from a byte slice (base64)
+// or a field with the ,string option, so an output type holds none of
+// these (TestEveryOutputTypeHoldsOnlyKindsTheCopyReaches), projectObjects
 // excepted, which output.projects replaces.
 func (o output) document(document any) any {
 	if o.recorder == nil {
