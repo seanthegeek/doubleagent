@@ -320,6 +320,9 @@ func FuzzTables(fuzz *testing.F) {
 	for _, name := range []string{"schema.db", "sites.db", "shapes.db", "page_512.db"} {
 		fuzz.Add(testdataBytes(fuzz, name))
 	}
+	for _, schema := range ftsSchemas {
+		fuzz.Add(ftsDatabase(schema.tables))
+	}
 	fuzz.Fuzz(func(_ *testing.T, main []byte) {
 		database, err := OpenBytes(main, nil, nil)
 		if err != nil {
@@ -412,4 +415,57 @@ func TestAVirtualColumnIsLeftOutOfTheRows(t *testing.T) {
 			t.Errorf("Select(b) = %v, %v; want 4 then 2", rows, err)
 		}
 	})
+}
+
+// ftsSchemas are schemas of fts5 tables, each with no rows, by what their
+// content tables are: the content table of each but the first is itself a
+// virtual table, a table naming itself as its own content or a ring of two.
+var ftsSchemas = []struct {
+	name   string
+	tables []schemaTable
+}{
+	{"an fts5 table over an ordinary content table", []schemaTable{
+		{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
+		{"f_content", 2, "CREATE TABLE f_content(id INTEGER PRIMARY KEY, c0)"}}},
+	{"an fts5 table whose content row names the same fts5 table", []schemaTable{
+		{"ItemTable", 0, "CREATE VIRTUAL TABLE z USING fts5(key, value)"},
+		{"z_content", 0, "CREATE VIRTUAL TABLE z USING fts5(a)"}}},
+	{"two fts5 tables each the content of the other", []schemaTable{
+		{"a", 0, "CREATE VIRTUAL TABLE b USING fts5(x)"},
+		{"b_content", 0, "CREATE VIRTUAL TABLE c USING fts5(x)"},
+		{"c_content", 0, "CREATE VIRTUAL TABLE b USING fts5(x)"}}},
+	{"an fts5 table over an fts5 table over an ordinary one", []schemaTable{
+		{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
+		{"f_content", 0, "CREATE VIRTUAL TABLE g USING fts5(c0, id)"},
+		{"g_content", 2, "CREATE TABLE g_content(id INTEGER PRIMARY KEY, c0, c1)"}}},
+}
+
+// ftsDatabase returns a database of tables whose page 2, the root any of
+// them names, is an empty table leaf.
+func ftsDatabase(tables []schemaTable) []byte {
+	pages := newTestPages(smallPage)
+	pages.setPage(pages.add(), leafTable, nil, 0)
+	pages.setSchema(tables...)
+	return pages.bytes()
+}
+
+func TestAnFTS5ContentTableIsAnOrdinaryTable(t *testing.T) {
+	for i, test := range ftsSchemas {
+		t.Run(test.name+" is read only when its content table is ordinary", func(t *testing.T) {
+			database := openOrFail(t, ftsDatabase(test.tables), nil, nil)
+			for _, schema := range test.tables {
+				if strings.HasSuffix(schema.name, "_content") {
+					continue
+				}
+				_, err := database.Table(schema.name)
+				if i == 0 && err != nil {
+					t.Errorf("Table(%s) = %v, want the table", schema.name, err)
+				}
+				if i > 0 && (!errors.Is(err, ErrMalformed) || !strings.Contains(err.Error(), "virtual table")) {
+					t.Errorf("Table(%s) = %v, want ErrMalformed saying the content is a virtual table",
+						schema.name, err)
+				}
+			}
+		})
+	}
 }

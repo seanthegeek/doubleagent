@@ -64,11 +64,15 @@ func (d *Database) Table(name string) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	return d.tableFrom(index, name)
+	return d.tableFrom(index, name, false)
 }
 
-// tableFrom finds and parses the table called name in the schema.
-func (d *Database) tableFrom(index *schemaIndex, name string) (*Table, error) {
+// tableFrom finds and parses the table called name in the schema, as an
+// fts5 table's content table when content is true. fts5 keeps its rows
+// in an ordinary stored table, so a virtual content table is damage, and
+// refusing it ends the lookup after one step where a content table names
+// itself or a ring of them.
+func (d *Database) tableFrom(index *schemaIndex, name string, content bool) (*Table, error) {
 	position, ok := index.tables[foldASCII(name)]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNoTable, name)
@@ -79,6 +83,9 @@ func (d *Database) tableFrom(index *schemaIndex, name string) (*Table, error) {
 		return nil, fmt.Errorf("table %s: %w", row.Name, err)
 	}
 	table := &Table{database: d, shape: shape, root: row.RootPage}
+	if shape.fts5 && content {
+		return nil, malformed("its content table %s is a virtual table", row.Name)
+	}
 	if shape.fts5 {
 		return table, d.attachContent(index, table)
 	}
@@ -93,7 +100,7 @@ func (d *Database) tableFrom(index *schemaIndex, name string) (*Table, error) {
 // column to the content table's column c<i> ("The Table Contents (%_content
 // table)" in https://www.sqlite.org/fts5.html).
 func (d *Database) attachContent(index *schemaIndex, table *Table) error {
-	content, err := d.tableFrom(index, table.shape.name+"_content")
+	content, err := d.tableFrom(index, table.shape.name+"_content", true)
 	if err != nil {
 		return fmt.Errorf("fts5 table %s: %w", table.shape.name, err)
 	}
