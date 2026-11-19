@@ -323,6 +323,7 @@ func FuzzTables(fuzz *testing.F) {
 	for _, schema := range ftsSchemas {
 		fuzz.Add(ftsDatabase(schema.tables))
 	}
+	fuzz.Add(computedContent("VIRTUAL"))
 	fuzz.Fuzz(func(_ *testing.T, main []byte) {
 		database, err := OpenBytes(main, nil, nil)
 		if err != nil {
@@ -468,4 +469,41 @@ func TestAnFTS5ContentTableIsAnOrdinaryTable(t *testing.T) {
 			}
 		})
 	}
+}
+
+// computedContent returns a database whose fts5 table f reads its column x
+// from a content column c0 generated as the given kind (VIRTUAL or
+// STORED), with one row, whose record holds the stored values.
+func computedContent(kind string) []byte {
+	pages := newTestPages(smallPage)
+	root := pages.add()
+	record := testRecord(Value{}, TextValue("d"))
+	if kind == "STORED" {
+		record = testRecord(Value{}, TextValue("computed"), TextValue("d"))
+	}
+	pages.setPage(root, leafTable, [][]byte{tableLeafCell(1, record)}, 0)
+	pages.setSchema(schemaTable{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
+		schemaTable{"f_content", root,
+			"CREATE TABLE f_content(id INTEGER PRIMARY KEY, c0 AS ('computed') " + kind + ", d)"})
+	return pages.bytes()
+}
+
+func TestAnFTS5ColumnReadsOnlyAStoredContentColumn(t *testing.T) {
+	t.Run("a column computed when read is refused as not stored", func(t *testing.T) {
+		database := openOrFail(t, computedContent("VIRTUAL"), nil, nil)
+		_, err := database.Table("f")
+		if err == nil || !strings.Contains(err.Error(), "column c0 is not stored") {
+			t.Errorf("Table(f) = %v, want an error saying column c0 is not stored", err)
+		}
+	})
+	t.Run("a generated column stored in the record is read", func(t *testing.T) {
+		table, err := openOrFail(t, computedContent("STORED"), nil, nil).Table("f")
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := table.Select("x").All()
+		if err != nil || len(rows) != 1 || rows[0].Get("x").Text() != "computed" {
+			t.Errorf("Select(x) = %v, %v; want the one stored value", rows, err)
+		}
+	})
 }

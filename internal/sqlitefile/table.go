@@ -58,7 +58,9 @@ func (d *Database) HasTable(name string) (bool, error) {
 // name (ASCII letters in any case). It fails with ErrNoTable when there is
 // none, and with an error naming the table when its CREATE TABLE text
 // cannot be read, declares a column twice or more than the 2000 columns
-// SQLite allows, or is a virtual table of a module other than fts5.
+// SQLite allows, or is a virtual table of a module other than fts5, and
+// for an fts5 table whose content table is missing, is itself virtual, or
+// lacks the id column or a stored c<i> column.
 func (d *Database) Table(name string) (*Table, error) {
 	index, err := d.schemaIndex()
 	if err != nil {
@@ -98,7 +100,8 @@ func (d *Database) tableFrom(index *schemaIndex, name string, content bool) (*Ta
 
 // attachContent finds an fts5 table's content table and maps each declared
 // column to the content table's column c<i> ("The Table Contents (%_content
-// table)" in https://www.sqlite.org/fts5.html).
+// table)" in https://www.sqlite.org/fts5.html). A c<i> computed when read
+// is refused, as naming it in the content table itself is.
 func (d *Database) attachContent(index *schemaIndex, table *Table) error {
 	content, err := d.tableFrom(index, table.shape.name+"_content", true)
 	if err != nil {
@@ -109,9 +112,13 @@ func (d *Database) attachContent(index *schemaIndex, table *Table) error {
 	}
 	sources := make([]columnSource, len(table.shape.columns))
 	for i := range table.shape.columns {
-		index := content.shape.columnIndex("c" + strconv.Itoa(i))
-		if index < 0 {
-			return fmt.Errorf("fts5 table %s: its content table has no column c%d", table.shape.name, i)
+		name := "c" + strconv.Itoa(i)
+		if content.shape.columnIndex(name) < 0 {
+			return errors.New("fts5 table " + table.shape.name + ": its content table has no column " + name)
+		}
+		index, err := content.storedColumn(name)
+		if err != nil {
+			return fmt.Errorf("fts5 table %s: %w", table.shape.name, err)
 		}
 		sources[i] = content.layout.sources[index]
 	}
