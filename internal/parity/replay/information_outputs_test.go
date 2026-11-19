@@ -139,7 +139,7 @@ func TestEachMutationOfRecordedOutputsFails(t *testing.T) {
 		{"a row dropped", "timeline", timeline, lineDropped(3)},
 		{"two rows swapped", "timeline", timeline, lineSwapped(2, 3)},
 		{"a source_line changed", "timeline", timeline, replaced(`"source_line":0`, `"source_line":1`)},
-		{"a timestamp moved by two milliseconds", "timeline", timeline,
+		{"a timestamp two milliseconds later", "timeline", timeline,
 			replaced("10:00:01.000Z", "10:00:01.002Z")},
 		{"a session's turn counts changed", "timeline", sessions, replaced(`"user_turns":1`, `"user_turns":2`)},
 		{"true turned into false", "timeline", inventory, replaced(`"inferred": true`, `"inferred": false`)},
