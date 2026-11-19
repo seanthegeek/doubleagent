@@ -156,7 +156,7 @@ func prepareOutput(options TimelineOptions, stderr io.Writer) ([]string, int) {
 		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
 		return nil, ExitError
 	}
-	if insideDirectory(output, options.Input) {
+	if insideDirectory(output, filepath.Clean(options.Input)) {
 		return refuse("the output directory " + output + " must be outside the input")
 	}
 	created := missingDirectories(output)

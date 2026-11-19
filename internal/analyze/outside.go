@@ -10,25 +10,27 @@ import (
 
 // The analyst's output and inputs are compared by what they name, never by
 // their text alone: an existing path stands for its entry (a link to a
-// directory for the directory, as the analyst chose it), and two paths are
-// one file when os.SameFile says so, which also catches another spelling
-// and a hard link. An output that does not exist yet stands for its nearest
-// existing ancestor, and lies inside an input directory when that ancestor
-// or a directory above it, climbed through the file system's own parent
-// entries, is the input. maxClimb bounds the climb: no real path is deeper.
+// directory for the directory), two paths are one file when os.SameFile
+// says so, and a missing output stands for its nearest existing ancestor,
+// which lies inside an input directory when it or a directory above it,
+// climbed through the file system's own parent entries, is the input. A
+// path is taken as it is opened: on Unix a ".." after a link leads up from
+// the link's target, so the text is never cleaned (absolutePath,
+// outputParent). maxClimb bounds the climb: no real path is deeper.
 const maxClimb = 4096
 
-// absolutePath returns path made absolute against the working directory
-// and cleaned, as text; "" when the working directory cannot be read.
+// absolutePath returns path made absolute against the working directory as
+// the platform resolves it (absoluteText); "" when the working directory
+// cannot be read.
 func absolutePath(path string) string {
-	if !filepath.IsAbs(path) {
-		working, err := os.Getwd()
-		if err != nil {
-			return ""
-		}
-		path = filepath.Join(working, path)
+	if filepath.IsAbs(path) {
+		return absoluteText(path, "")
 	}
-	return filepath.Clean(path)
+	working, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return absoluteText(path, working)
 }
 
 // insideDirectory reports whether path, existing or not, is the directory
@@ -65,14 +67,14 @@ func insideDirectory(path, directory string) bool {
 }
 
 // nearestExisting returns path or its nearest ancestor that exists, by
-// lstat, or "" when none does.
+// lstat, or "" when none does; each ancestor is outputParent's.
 func nearestExisting(path string) string {
 	for {
 		if _, err := osfile.Lstat(path); err == nil {
 			return path
 		}
-		parent := filepath.Dir(path)
-		if parent == path {
+		parent := outputParent(path)
+		if parent == path || parent == "" {
 			return ""
 		}
 		path = parent

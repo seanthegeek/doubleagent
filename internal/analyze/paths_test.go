@@ -122,3 +122,40 @@ func TestAWorkDirectoryTheRunMadeIsRemovedWithItsExtraction(t *testing.T) {
 		})
 	}
 }
+
+func TestFleetRefusesAnOutputInsideAnInputByAnySpelling(t *testing.T) {
+	work := t.TempDir()
+	input := filepath.Join(work, "in")
+	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
+	writeFile(t, filepath.Join(input, "sub", "keep"), "")
+	tests := []struct {
+		name, directory, output string
+		inputs                  []string
+	}{
+		{"a relative output given from inside the input", input, "out.csv", []string{"."}},
+		{"a relative output given from inside the input, the input by its own name", input,
+			"out.csv", []string{spelt("..", "in")}},
+		{"an output through .. inside the input", work, spelt("in", "sub", "..", "out.csv"),
+			[]string{"in"}},
+	}
+	if _, err := os.Lstat(filepath.Join(work, "IN")); err == nil {
+		tests = append(tests, struct {
+			name, directory, output string
+			inputs                  []string
+		}{"an output in another case on a file system that ignores case", work,
+			filepath.Join("IN", "out.csv"), []string{"in"}})
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Chdir(test.directory)
+			args := append([]string{"fleet", "-o", test.output}, test.inputs...)
+			code, _, stderr := runCommand(testEnvironment(), args...)
+			if code != ExitError || !strings.Contains(stderr, "must be outside the input directory") {
+				t.Errorf("exit %d, stderr %q", code, stderr)
+			}
+			if lstatExists(filepath.Join(input, "out.csv")) {
+				t.Error("the CSV was written inside the input")
+			}
+		})
+	}
+}

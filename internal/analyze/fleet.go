@@ -337,12 +337,13 @@ func plural(count int, noun string) string {
 
 // writeFleetCSV writes the header and rows to path through encoding/csv
 // with its defaults (fields quoted where needed, lines ending in LF),
-// creating its parent directory. An existing regular file is replaced; a
-// link there was refused before the inputs were read, which leaves the
-// moment between that look and this write, when only a process that can
-// write the directory could place one.
+// creating its parent directory, the one outputParent names, so the file
+// goes where fleetOutputRefusal looked. An existing regular file is
+// replaced; a link there was refused before the inputs were read, which
+// leaves the moment between that look and this write, when only a process
+// that can write the directory could place one.
 func writeFleetCSV(path string, rows [][]string) error {
-	if parent := filepath.Dir(path); parent != "." {
+	if parent := outputParent(path); parent != "" {
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {
 			return err
 		}
