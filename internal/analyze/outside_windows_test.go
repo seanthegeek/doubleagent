@@ -196,7 +196,7 @@ func TestAnInputWithoutADriveOrARootIsReadWhereWindowsPlacesIt(t *testing.T) {
 			}
 			t.Chdir(test.working)
 			code, stdout, stderr := runCommand(System(), "detect", test.input)
-			if code != ExitFound || !strings.Contains(stdout, test.input+" ") {
+			if code != ExitFound || !strings.Contains(stdout, "input:   "+test.input+"\n") {
 				t.Errorf("detect: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 			}
 			output := filepath.Join(work, test.output)
