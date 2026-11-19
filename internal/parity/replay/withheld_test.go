@@ -412,7 +412,7 @@ func addedPartForms() []withheldForm {
 // output or a URL: a pi row that equals a recorded key, a network request's URL,
 // and the user information of a repository's remote URLs.
 func commandAndURLForms() []withheldForm {
-	schemeText := `[a-z][a-z0-9+.-]*://`
+	schemeText := `[A-Za-z][A-Za-z0-9+.-]*://`
 	scheme := "(" + schemeText + ")"
 	return []withheldForm{
 		// The binary withholds a URL credential of 8 bytes or more wherever
@@ -439,11 +439,11 @@ func commandAndURLForms() []withheldForm {
 		// The recording printed a repository's remote URLs as written; the
 		// binary run with --no-secrets withholds their user information, on
 		// detect's remotes: line and in the urls and pushurls arrays of
-		// detect --json and inventory.json, one URL per line. User
-		// information runs to the last @ of the authority (remoteUserInfo);
-		// it is withheld when it holds a colon and is not the colon alone,
-		// or, a user name alone, when it is secrets.EverywhereLength bytes
-		// or more, so ssh://git@host is printed as written.
+		// detect --json and inventory.json, one URL per line, as
+		// remoteUserInfo describes, so ssh://git@host is printed as written.
+		// A scheme takes letters of either case, as the binary's URL grammar
+		// does. Only user information is covered: a remote whose query holds
+		// a credential parameter the binary withholds fails.
 		{scope: commandScope, agent: "detect and timeline", name: ".git/config remote URL",
 			lines:    regexp.MustCompile(`(?m)^(?:  remotes: [^\n]*|[ \t]*"` + schemeText + `[^"\n]*",?)$`),
 			recorded: regexp.MustCompile(scheme + remoteUserInfo() + `@`),
@@ -688,6 +688,9 @@ func remoteCases() []withheldCase {
 	remoteRecorded := "  remotes: origin git@h:o/r.git (push https://alice:TOKEN@github.com/o/r.git)\n"
 	remoteBinary := strings.Replace(remoteRecorded, "alice:TOKEN", replayPlaceholder, 1)
 	jsonRemote := "          \"urls\": [\n            \"https://alice:TOKEN@github.com/o/r.git\"\n"
+	upperRecorded := strings.Replace(remoteRecorded, "https://", "HTTPS://", 1)
+	upperJSON := strings.Replace(jsonRemote, "https://", "HTTPS://", 1)
+	queryRecorded := "  remotes: origin https://h/o/r.git?access_token=abcdefghij\n"
 	return []withheldCase{
 		{"a remote in its placeholder form passes", remoteRecorded, remoteBinary, true},
 		{"a remote showing its credentials fails", remoteRecorded, remoteRecorded, false},
@@ -700,6 +703,15 @@ func remoteCases() []withheldCase {
 			"{\"text\":\"https://" + replayPlaceholder + "@h/\"}\n", false},
 		{"a remote written as the compared form's text fails", remoteRecorded,
 			strings.Replace(remoteRecorded, "alice:TOKEN@", "{withheld}@", 1), false},
+		{"a remote of an upper-case scheme in its placeholder form passes", upperRecorded,
+			strings.Replace(upperRecorded, "alice:TOKEN", replayPlaceholder, 1), true},
+		{"a remote URL in JSON of an upper-case scheme in its placeholder form passes", upperJSON,
+			strings.Replace(upperJSON, "alice:TOKEN", replayPlaceholder, 1), true},
+		{"a remote of an upper-case scheme showing its credentials fails", upperRecorded, upperRecorded, false},
+		// The entry covers user information alone: a credential parameter
+		// withheld in a remote's query is a difference no entry takes.
+		{"a remote whose query parameter is withheld fails", queryRecorded,
+			strings.Replace(queryRecorded, "abcdefghij", replayPlaceholder, 1), false},
 	}
 }
 
@@ -933,6 +945,8 @@ func TestARemoteURLIsComparedWithItsUserInformationWithheldOnlyWhereTheRuleWithh
 		{"the colon alone", "https://:@github.com/o/r.git", ":", false},
 		{"user information up to the last @", "https://a@b:c@github.com/o/r.git", "a@b:c", true},
 		{"a short user name before a port", "ssh://git@github.com:22/o/r.git", "git", false},
+		{"an upper-case scheme", "HTTPS://alice:TOKEN@github.com/o/r.git", "alice:TOKEN", true},
+		{"a scheme of mixed case", "Git+SSH://alice:TOKEN@github.com/o/r.git", "alice:TOKEN", true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -952,6 +966,21 @@ func TestARemoteURLIsComparedWithItsUserInformationWithheldOnlyWhereTheRuleWithh
 				}
 			}
 		})
+	}
+}
+
+func TestARemoteWhoseQueryHoldsACredentialFailsAsTheBinaryWritesIt(t *testing.T) {
+	for _, recorded := range []string{"  remotes: origin https://h/o/r.git?access_token=abcdefghij\n",
+		"          \"urls\": [\n            \"https://h/o/r.git?access_token=abcdefghij\"\n"} {
+		recorder := secrets.NewRecorder(withheldSecrets())
+		recorder.Collect(recorded)
+		binary := recorder.Text(recorded)
+		if binary == recorded {
+			t.Fatalf("the binary does not withhold the parameter of %q", recorded)
+		}
+		if withheldAgree(t, "", recorded, binary) {
+			t.Errorf("the binary's own text %q passes, which the remote URL entry does not cover", binary)
+		}
 	}
 }
 
