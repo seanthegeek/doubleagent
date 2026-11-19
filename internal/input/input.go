@@ -15,8 +15,8 @@
 // the order the file system lists them in, so one tree gives one result on
 // every file system.
 //
-// The paths found in the input are joined to its absolute, cleaned form, so
-// one input gives one set of paths however its path was spelt; a message
+// The paths found in the input are joined to its absolute form (Absolute),
+// so one input gives one set of paths however its path was spelt; a message
 // names them under the input as given (Collection.ShownPath). A path built from the evidence's text (a manifest field,
 // a name a parser asks Home.PathOf or Below for) is made by one function,
 // below: each element must be one plain component, and each directory on
@@ -34,7 +34,6 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 
@@ -336,24 +335,9 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 }
 
 // Absolute returns the path an input given as path is read at, by
-// absolute's rule, so a check of the input's place sees the directory
-// that is read.
+// absolute's rule for this platform, so a check of the input's place sees
+// the directory that is read. Every path of the input is built from it.
 func Absolute(path string) (string, error) { return absolute(path) }
-
-// absolute returns path joined to the working directory when relative, and
-// cleaned. Every path of the input is built from it: on Windows only an
-// absolute path takes the extended form that keeps a name ending in a dot
-// or a space apart from the name without it.
-func absolute(path string) (string, error) {
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path), nil
-	}
-	working, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(working, path), nil
-}
 
 // openDirectory returns the collection of a directory input, after a
 // listing shows it readable: an unlistable input is an error, not an empty

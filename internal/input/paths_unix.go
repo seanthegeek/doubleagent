@@ -2,7 +2,11 @@
 
 package input
 
-import "strings"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 // samePath reports whether two cleaned paths name one place: byte for
 // byte on POSIX.
@@ -19,3 +23,16 @@ func memberSeparators(name string) string { return name }
 // component below a directory without it naming another place; on POSIX
 // every name without a slash can, a backslash included.
 func memberNameAllowed(string) bool { return true }
+
+// absolute returns path cleaned, joined to the working directory first when
+// it does not start with a slash.
+func absolute(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+	working, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(working, path), nil
+}

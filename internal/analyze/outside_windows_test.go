@@ -164,3 +164,44 @@ func TestAnOutputThroughADirectorySymlinkIsRefusedAsUntold(t *testing.T) {
 		{"a symlink elsewhere", filepath.Join(work, "away"), true, "cannot tell whether the output"},
 	})
 }
+
+func TestAnInputWithoutADriveOrARootIsReadWhereWindowsPlacesIt(t *testing.T) {
+	// \tree names tree on the working directory's drive and C:tree names it
+	// in drive C's current directory, not a directory below the working
+	// directory; the read and the outside-the-input check both take it there.
+	work := t.TempDir()
+	tree := filepath.Join(work, "tree")
+	writeFile(t, filepath.Join(tree, ".claude", "history.jsonl"), historyLine)
+	elsewhere := filepath.Join(work, "elsewhere")
+	writeFile(t, filepath.Join(elsewhere, "keep"), "")
+	volume := filepath.VolumeName(work)
+	tests := []struct{ name, working, input, output string }{
+		{"rooted without a drive", elsewhere, tree[len(volume):], "rooted"},
+		{"on the current drive without a root", work, volume + "tree", "drive"},
+		{"relative", work, "tree", "relative"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if len(volume) != 2 || volume[1] != ':' {
+				t.Skip("the temporary directory is not on a drive letter:", work)
+			}
+			t.Chdir(test.working)
+			code, stdout, stderr := runCommand(System(), "detect", test.input)
+			if code != ExitFound || !strings.Contains(stdout, test.input+" ") {
+				t.Errorf("detect: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+			}
+			output := filepath.Join(work, test.output)
+			code, _, stderr = runCommand(System(), "timeline", test.input, output)
+			if code == ExitError || !lstatExists(filepath.Join(output, "timeline.jsonl")) {
+				t.Errorf("timeline: exit %d, stderr %q", code, stderr)
+			}
+			code, _, stderr = runCommand(System(), "timeline", test.input, filepath.Join(tree, "out"))
+			if code != ExitError || !strings.Contains(stderr, "must be outside the input") {
+				t.Errorf("timeline into the input: exit %d, stderr %q", code, stderr)
+			}
+			if lstatExists(filepath.Join(tree, "out")) {
+				t.Error("timeline wrote inside the input")
+			}
+		})
+	}
+}

@@ -334,10 +334,11 @@ func allowedCalls() map[string]allowance {
 			"resolves a link on the input or output path the analyst typed for timeline or fleet, " +
 				"to compare where the two lie: what it gives is only lstat'ed, never opened, read " +
 				"or written"},
-		{"internal/analyze/outside_windows.go", "filepath.Abs", 1,
-			"makes absolute, as Windows places it, an input or output path the analyst typed for " +
-				"timeline or fleet, to compare where the two lie: what it gives is only lstat'ed, " +
-				"never opened, read or written"},
+		{"internal/input/paths_windows.go", "filepath.Abs", 1,
+			"makes absolute, as Windows itself places it, a path the analyst typed that has no drive " +
+				"and root and is not a UNC path: an analysis command's input, which is read there, " +
+				"the work directory an archive is extracted under, made there, and the output of " +
+				"timeline or fleet, whose place the outside-the-input check compares with the input's"},
 		{"internal/walk/tree.go", "fsmeta.OpenDir", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {

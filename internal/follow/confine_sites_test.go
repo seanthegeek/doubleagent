@@ -94,9 +94,10 @@ func siteClasses() map[string]string {
 		"internal/analyze/timeline.go osfile.Remove":   notImage,
 		"internal/analyze/timeline.go osfile.MkdirAll": notImage,
 		// The analyst's input and output paths, compared to keep the output
-		// out of the input.
+		// out of the input; on Windows the input is read, and the work
+		// directory made, at the place the same call gives.
 		"internal/analyze/outside_unix.go filepath.EvalSymlinks": notImage,
-		"internal/analyze/outside_windows.go filepath.Abs":       notImage,
+		"internal/input/paths_windows.go filepath.Abs":           notImage,
 	}
 }
 
