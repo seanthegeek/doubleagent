@@ -19,7 +19,8 @@ import (
 func shownDifference() Difference {
 	return Difference{Number: 232, Summary: "an identity the recording left out of a row is shown: at each " +
 		"site of shownForms, the recording's row and the binary's row with the identity become one token " +
-		"that keeps the rest of the row", Text: shownText(recordedSide), Binary: shownText(binarySide),
+		"that keeps the rest of the row", Text: formsText(shownForms(), recordedSide, caseRun{}),
+		Binary: formsText(shownForms(), binarySide, caseRun{}),
 		RowText: func(agent, text string) (string, int) {
 			return rowRewriteAll(shownForms(), recordedSide, agent, text)
 		}, RowBinary: func(agent, text string) (string, int) {
@@ -36,6 +37,7 @@ func shownForms() []withheldForm {
 		return withheldForm{scope: parserScope, agent: agent, name: name, recorded: regexp.MustCompile(recorded),
 			binary: regexp.MustCompile(binary), token: token}
 	}
+	const githubTail = ` \(from [^"\n]*\.claude\.json, file mtime\)`
 	return []withheldForm{
 		// The recording said only that the machine id was set.
 		form("claude-code", "remote control machine id",
@@ -43,25 +45,13 @@ func shownForms() []withheldForm {
 			`remote control: machine id [0-9A-Fa-f-]+( \(from [^"\n]*\.claude\.json, file mtime\))`,
 			"remote control: machine id {id}${1}"),
 		// The recording gave the GitHub connection without its account
-		// and organisation ids.
-		{scope: parserScope, agent: "claude-code", name: "GitHub connection ids",
-			recorded: regexp.MustCompile(`(source host: github status=[^ "\n]*)( \(from [^"\n]*\.claude\.json, ` +
-				`file mtime\))`),
-			added: regexp.MustCompile(` (?:account|org)=[0-9A-Za-z-]+`), token: "${1}{added ids}${2}"},
-	}
-}
-
-// shownText returns the rewrite of difference 232 for one side: each
-// entry's form of that side as its token, and the count.
-func shownText(from side) func(text string) (string, int) {
-	return func(text string) (string, int) {
-		total := 0
-		for _, entry := range shownForms() {
-			var found int
-			text, found = entry.rewrite(from, text)
-			total += found
-		}
-		return text, total
+		// and organisation ids. Of the recorded files, the connected one
+		// holds both ids and the one with no status the account's alone; a
+		// connection of another status has no entry.
+		addsForm("claude-code", "GitHub connection account and organisation ids", `source host: github status=connected`,
+			` account=[0-9A-Za-z-]+ org=[0-9A-Za-z-]+`, githubTail),
+		addsForm("claude-code", "GitHub connection account id", `source host: github status=-`,
+			` account=[0-9A-Za-z-]+`, githubTail),
 	}
 }
 
@@ -92,6 +82,8 @@ func TestAShownIdentityIsComparedWithTheRecordingsRowWithoutIt(t *testing.T) {
 	machineBinary := "remote control: machine id 0f0e0d0c-0000-4000-8000-000000000001 (from .claude.json, file mtime)"
 	githubRecorded := "source host: github status=connected (from .claude.json, file mtime)"
 	githubBinary := "source host: github status=connected account=a1b2 org=c3d4 (from .claude.json, file mtime)"
+	unknownRecorded := "source host: github status=- (from .claude.json, file mtime)"
+	unknownBinary := "source host: github status=- account=a1b2 (from .claude.json, file mtime)"
 	tests := []struct {
 		name, want, got string
 		agree           bool
@@ -107,6 +99,19 @@ func TestAShownIdentityIsComparedWithTheRecordingsRowWithoutIt(t *testing.T) {
 			strings.Replace(githubBinary, "connected", "error", 1), false},
 		{"the GitHub connection with another field fails", githubRecorded,
 			strings.Replace(githubBinary, " org=", " user=", 1), false},
+		{"the connected GitHub connection without its organisation id fails", githubRecorded,
+			strings.Replace(githubBinary, " org=c3d4", "", 1), false},
+		{"the connected GitHub connection without its account id fails", githubRecorded,
+			strings.Replace(githubBinary, " account=a1b2", "", 1), false},
+		{"the ids written twice fail", githubRecorded,
+			strings.Replace(githubBinary, " (from", " account=a1b2 org=c3d4 (from", 1), false},
+		{"the ids after the file fail", githubRecorded,
+			strings.Replace(githubRecorded, "file mtime)", "file mtime) account=a1b2 org=c3d4", 1), false},
+		{"a GitHub connection with no status and its account id passes", unknownRecorded, unknownBinary, true},
+		{"a GitHub connection with no status and both ids fails", unknownRecorded,
+			strings.Replace(unknownBinary, " (from", " org=c3d4 (from", 1), false},
+		{"a GitHub connection of another status fails", strings.Replace(unknownRecorded, "=-", "=error", 1),
+			strings.Replace(unknownBinary, "=-", "=error", 1), false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -122,8 +127,10 @@ func TestAShownIdentityIsComparedWithTheRecordingsRowWithoutIt(t *testing.T) {
 
 func TestEachShownFormIsFoundInItsRecordedText(t *testing.T) {
 	texts := map[string]string{
-		"claude-code remote control machine id": "remote control: machine id set (from .claude.json, file mtime)",
-		"claude-code GitHub connection ids":     "source host: github status=- (from .claude.json, file mtime)",
+		"claude-code remote control machine id":    "remote control: machine id set (from .claude.json, file mtime)",
+		"claude-code GitHub connection account id": "source host: github status=- (from .claude.json, file mtime)",
+		"claude-code GitHub connection account and organisation ids": "source host: github status=connected " +
+			"(from .claude.json, file mtime)",
 	}
 	for _, entry := range shownForms() {
 		t.Run(entry.label(), func(t *testing.T) {

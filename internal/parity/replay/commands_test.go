@@ -319,6 +319,43 @@ type commandOutput struct {
 	// cut is, for a recorded run, the times difference 119 may find one
 	// millisecond earlier.
 	cut *cutTimes
+	// source is, for the binary's side, where the run's texts come from.
+	source runSource
+}
+
+// runSource is where the texts of the binary's side of a command case come
+// from, which decides how the differences of text read them.
+type runSource int
+
+const (
+	// parsedRun is a run of the binary over the case's tree.
+	parsedRun runSource = iota
+	// recordedRowsRun is a timeline run over the recording's parser rows,
+	// which hold what the recording printed, so the entries of
+	// differences 230 and 232 for a parser's rows apply on neither side.
+	recordedRowsRun
+	// comparedRun is a run a test built from a recording with every text
+	// already in the compared form, which the binary's side of a
+	// difference of text then leaves as it is.
+	comparedRun
+)
+
+// caseRun is what decides how one command case's texts are rewritten: the
+// source of the binary's side.
+type caseRun struct {
+	source runSource
+}
+
+// applies reports whether an entry of difference 230 or 232 rewrites the
+// case's texts: an entry for a parser's rows only where the binary's
+// parsers gave them.
+func (c caseRun) applies(form withheldForm) bool {
+	return c.source != recordedRowsRun || form.scope != parserScope
+}
+
+// caseRunOf returns the caseRun of comparing a recorded run with got.
+func caseRunOf(got commandOutput) caseRun {
+	return caseRun{source: got.source}
 }
 
 // run runs the case's command line in this process, in the recorded
@@ -352,7 +389,7 @@ func (r *commandReplay) run(t *testing.T, node, command string, recorded Command
 		r.note(node, []int{withheldRowsDifference().Number})
 	}
 	got := commandOutput{exit: exit, stdout: stdout.String(), stderr: stderr.String(),
-		outputs: map[string]string{}}
+		outputs: map[string]string{}, source: parsedRun}
 	for path := range recorded.Outputs {
 		data, err := osfile.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
 		if err != nil {
@@ -640,7 +677,7 @@ type looseNotes struct {
 // row.
 func compareInformation(t testing.TB, node, root string, want, got commandOutput) (looseNotes, []int) {
 	t.Helper()
-	normaliser := &textNormaliser{cache: map[[2]string]normalisedTexts{}, applied: map[int]bool{}}
+	normaliser := newTextNormaliser(caseRunOf(got), nil)
 	compare := func(reporter testing.TB, enabled enabledSet) looseNotes {
 		return compareOutputs(reporter, node, root, outputForms{enabled}, normaliser, want, got)
 	}
@@ -659,8 +696,7 @@ func compareInformation(t testing.TB, node, root string, want, got commandOutput
 	})
 	needed = append(needed, neededAmong(slices.Sorted(maps.Keys(normaliser.applied)), func(numbers []int) bool {
 		quiet := &recordingTB{TB: t}
-		without := &textNormaliser{cache: map[[2]string]normalisedTexts{}, applied: map[int]bool{},
-			only: setOf(numbers)}
+		without := newTextNormaliser(caseRunOf(got), setOf(numbers))
 		compareOutputs(quiet, node, root, outputForms{setOf(commandFormatNumbers())}, without, want, got)
 		return len(quiet.errors) == 0
 	})...)
@@ -679,6 +715,9 @@ func compareInformation(t testing.TB, node, root string, want, got commandOutput
 // run's own order is checked against the documented one on its own.
 func compareOutputs(t testing.TB, node, root string, forms outputForms, normaliser *textNormaliser,
 	want, got commandOutput) looseNotes {
+	if normaliser == nil {
+		normaliser = newTextNormaliser(caseRunOf(got), nil)
+	}
 	wantTexts, gotTexts := comparedTexts(t, root, forms, want, want), comparedTexts(t, root, forms, got, want)
 	var notes looseNotes
 	if want.loose && holdsTimeline(want.outputs) {
@@ -798,16 +837,25 @@ func compareText(t testing.TB, node string, normaliser *textNormaliser, label, w
 	DiffText(t, node, label, want, got)
 }
 
-// textNormaliser applies normalisedPair, keeping each result, with what
-// it reported, for the next comparison of the same case under other
-// differences of format, and gathers in applied the differences it
-// applied; a nil one keeps nothing.
+// textNormaliser applies normalisedPair under the differences of one case
+// (table), keeping each result, with what it reported, for the next
+// comparison of the same case under other differences of format, and
+// gathers in applied the differences it applied; a nil one keeps nothing
+// and applies commandDifferences.
 type textNormaliser struct {
 	cache   map[[2]string]normalisedTexts
 	applied map[int]bool
 	// only, when set, holds the differences of text it may apply; the
 	// others are left out, to learn whether a case needs them.
-	only enabledSet
+	only  enabledSet
+	table []Difference
+}
+
+// newTextNormaliser returns a textNormaliser of the differences run calls
+// for, among only when it is set.
+func newTextNormaliser(run caseRun, only enabledSet) *textNormaliser {
+	return &textNormaliser{cache: map[[2]string]normalisedTexts{}, applied: map[int]bool{}, only: only,
+		table: caseDifferences(run)}
 }
 
 // normalisedTexts is one result of normalisedPair and what it reported.
@@ -821,14 +869,14 @@ type normalisedTexts struct {
 func (n *textNormaliser) pair(t testing.TB, node, want, got string) (string, string) {
 	t.Helper()
 	if n == nil {
-		want, got, _ = normalisedPair(t, node, want, got, nil)
+		want, got, _ = normalisedPair(t, node, commandDifferences(), want, got, nil)
 		return want, got
 	}
 	key := [2]string{want, got}
 	result, ok := n.cache[key]
 	if !ok {
 		reporter := &recordingTB{TB: t}
-		result.want, result.got, result.numbers = normalisedPair(reporter, node, want, got, n.only)
+		result.want, result.got, result.numbers = normalisedPair(reporter, node, n.table, want, got, n.only)
 		result.errors = reporter.errors
 		n.cache[key] = result
 	}
@@ -842,15 +890,37 @@ func (n *textNormaliser) pair(t testing.TB, node, want, got string) (string, str
 }
 
 // normalisedPair returns a recorded text and the run's after the
-// documented differences the recorded one shows, among only when it is
-// set, and their numbers.
-func normalisedPair(t testing.TB, node, want, got string, only enabledSet) (string, string, []int) {
-	numbers := textDifferences(want)
+// differences of table the recorded one shows, among only when it is set,
+// and their numbers.
+func normalisedPair(t testing.TB, node string, table []Difference, want, got string,
+	only enabledSet) (string, string, []int) {
+	numbers := textDifferences(table, want)
 	if only != nil {
 		numbers = slices.DeleteFunc(numbers, func(number int) bool { return !only[number] })
 	}
-	want, got = normaliseCommandTexts(t, node, numbers, want, got)
+	want, got = normaliseTextsOf(t, table, node, numbers, want, got)
 	return want, got, numbers
+}
+
+// caseDifferences returns commandDifferences as one case calls for:
+// differences 230 and 232 by the entries that apply in run, and for a run
+// already in the compared form, no rewrite of the binary's side.
+func caseDifferences(run caseRun) []Difference {
+	table := commandDifferences()
+	for i := range table {
+		switch table[i].Number {
+		case withheldDifference().Number:
+			table[i].Text, table[i].Binary = formsText(withheldForms(), recordedSide, run),
+				formsText(withheldForms(), binarySide, run)
+		case shownDifference().Number:
+			table[i].Text, table[i].Binary = formsText(shownForms(), recordedSide, run),
+				formsText(shownForms(), binarySide, run)
+		}
+		if run.source == comparedRun && table[i].Binary != nil {
+			table[i].Binary = asWritten
+		}
+	}
+	return table
 }
 
 // commandDifferences returns the table of documented differences as the
@@ -897,12 +967,12 @@ func systemMessageText(text string) (string, int) {
 	return text, found
 }
 
-// textDifferences returns the numbers of the rewriting differences whose
-// recorded shape shows in text, each looked for, in applying order, in
-// what the ones before it left.
-func textDifferences(text string) []int {
+// textDifferences returns the numbers of the rewriting differences of
+// table whose recorded shape shows in text, each looked for, in applying
+// order, in what the ones before it left.
+func textDifferences(table []Difference, text string) []int {
 	var numbers []int
-	for _, entry := range applyingOrder(commandDifferences()) {
+	for _, entry := range applyingOrder(table) {
 		if entry.Text != nil {
 			var found int
 			if text, found = entry.Text(text); found > 0 {
@@ -1021,7 +1091,7 @@ func TestDifference102RewritesACommandsSystemMessage(t *testing.T) {
 		{"a problem line's message is compared under 102", python, binary, []int{102}, false, true},
 		{"the binary printing the capitalised message fails", python, python, []int{102}, false, false},
 		{"a JSON string's message is compared under 102", pythonJSON, binaryJSON, []int{102}, false, true},
-		{"the shape names difference 102", python, binary, textDifferences(python), false, true},
+		{"the shape names difference 102", python, binary, textDifferences(commandDifferences(), python), false, true},
 		{"another capitalised word is not a system message", "problem:   /x: Permission granted\n",
 			"problem:   /x: permission granted\n", []int{102}, true, false},
 		{"102 named on a text without its shape fails the case", "rows: 3\n", "rows: 3\n", []int{102},

@@ -261,7 +261,8 @@ func mutatedRun(want commandOutput, mutation outputMutation, t *testing.T, refus
 // runForm returns a run in the binary's form, with the recorded run's
 // exit, stderr and kind of input. The binary's own wording of a condition
 // cannot be built from the recording, so each recorded wording of a
-// difference of text is first put in the form the comparison gives both.
+// difference of text is first put in the form the comparison gives both,
+// and the run says so (comparedRun).
 func runForm(run, recorded commandOutput) commandOutput {
 	run.stdout = recordedWordingForm(run.stdout)
 	run.outputs = maps.Clone(run.outputs)
@@ -270,5 +271,6 @@ func runForm(run, recorded commandOutput) commandOutput {
 	}
 	form := binaryForm(run)
 	form.exit, form.stderr, form.loose = recorded.exit, recordedWordingForm(recorded.stderr), recorded.loose
+	form.source = comparedRun
 	return form
 }
