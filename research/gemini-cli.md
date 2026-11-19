@@ -1960,7 +1960,9 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   JSON), `project_path` the project for a workspace file. Read with Python's `tomllib`; a file
   `tomllib` cannot read (the corrupt one a `.bak` preserves) is one
   `parser: unreadable <file>: <reason>` row, and a `rule` key that is not an array one
-  `parser: <file> rule is not an array` row. `safety_checker` tables are not read.
+  `parser: <file> rule is not an array` row; a `rule` array holding entries that are not tables
+  gives, after the rules, one `parser: <file> rule holds <n> entries that are not tables` row
+  (`1 entry that is not a table` for one) for them all. `safety_checker` tables are not read.
 - `~/.gemini/policies/sandbox.toml`, which has no `rule` table: one row
   `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per
   `modes` table and one row

@@ -163,3 +163,24 @@ func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 		}
 	})
 }
+
+func TestPolicyRulesThatAreNotTablesAreReportedOncePerArray(t *testing.T) {
+	const rel = ".gemini/policies/p.toml"
+	tests := []struct {
+		name, text string
+		want       []string
+	}{
+		{"tables only", "[[rule]]\ndecision = \"allow\"\n", nil},
+		{"one entry that is not a table", "rule = [{decision = \"allow\"}, 7]\n",
+			[]string{"1 parser: " + rel + " rule holds 1 entry that is not a table"}},
+		{"two entries that are not tables", "rule = [\"x\", {decision = \"deny\"}, 7]\n",
+			[]string{"1 parser: " + rel + " rule holds 2 entries that are not tables"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := problemRows(t, rel, test.text); !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}

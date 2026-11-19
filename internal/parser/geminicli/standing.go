@@ -1,6 +1,7 @@
 package geminicli
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -161,7 +162,9 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // policy emits one row per [[rule]] table of a policy file, and for the
-// home's sandbox.toml one per sandbox mode and command grant.
+// home's sandbox.toml one per sandbox mode and command grant. A rule
+// array holding entries that are not tables gives one row for them all
+// after the rules (wrongTables).
 func (p *Parser) policy(artifact *input.Artifact, emit parser.Emit) {
 	timestamp, project := parser.FileMtime(artifact), homeProject(artifact)
 	var problems parser.Problems
@@ -180,10 +183,16 @@ func (p *Parser) policy(artifact *input.Artifact, emit parser.Emit) {
 	}
 	source := fromFile(artifact)
 	if rules, ok := document.Get("rule"); ok && rules.Kind() == tomldoc.KindArray {
+		wrong := 0
 		for _, rule := range rules.Items() {
-			if rule.Kind() == tomldoc.KindTable {
-				row(ruleText(rule.Table(), source))
+			if rule.Kind() != tomldoc.KindTable {
+				wrong++
+				continue
 			}
+			row(ruleText(rule.Table(), source))
+		}
+		if wrong > 0 {
+			row("parser: " + artifact.Rel + " " + wrongTables("rule", wrong))
 		}
 	} else if ok {
 		row("parser: " + artifact.Rel + " rule is not an array")
@@ -193,6 +202,17 @@ func (p *Parser) policy(artifact *input.Artifact, emit parser.Emit) {
 			row(text)
 		}
 	}
+}
+
+// wrongTables returns the problem text of a TOML array whose entries
+// include some that are not tables: "<member> holds <n> entries that are
+// not tables", or "holds 1 entry that is not a table", the TOML form of
+// parser.WrongEntries.
+func wrongTables(member string, n int) string {
+	if n == 1 {
+		return member + " holds 1 entry that is not a table"
+	}
+	return member + " holds " + strconv.Itoa(n) + " entries that are not tables"
 }
 
 // ruleText returns the row text of one [[rule]] table: its decision and
