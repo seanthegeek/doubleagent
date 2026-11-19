@@ -129,6 +129,14 @@ func withheldLeakFixtures(t *testing.T) []struct {
 			{"alice", home, "shellgpt", ".config/shell_gpt/.sgptrc", "fake-secret-sgpt-0001  \nDEFAULT_MODEL=gpt-4o\n"},
 			{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
 				quoting("pasted fake-secret-sgpt-0001 too")}}, "fake-secret-sgpt-0001"},
+		{"a Crush key holding a quote and a backslash that a tool call quotes as JSON", []collectedFile{
+			{"alice", home, "crush", ".config/crush/crush.json",
+				`{"providers": {"b": {"api_key": "fake-crush-key\"sec\\ret-0002"}}}`},
+			{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+				`{"type":"assistant","sessionId":"s1","uuid":"u2","timestamp":"2026-10-01T00:00:01Z",` +
+					`"cwd":"/srv/proj","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1",` +
+					`"name":"Custom","input":{"keys":["fake-crush-key\"sec\\ret-0002"]}}]}}` + "\n"}},
+			"fake-crush-key"},
 		{"a Codex remote whose rows differ only in their credentials", []collectedFile{
 			{"alice", "/home/u", "codex-cli", ".codex/state_5.sqlite", string(database)},
 			{"alice", "/home/u", "codex-cli", ".codex/sessions/rollout-t1.jsonl",
