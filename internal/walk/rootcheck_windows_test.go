@@ -146,7 +146,15 @@ func TestTheRootCheckFollowsLinksAsWindowsDoes(t *testing.T) {
 	}
 }
 
-func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
+// Lone surrogates, which Go names in WTF-8.
+const loneD800, loneD801 = "\xed\xa0\x80", "\xed\xa1\x80"
+
+// nastyPathsImage builds an image root with links and names the root check
+// must refuse or pass: junctions and links out of the root, links to the
+// system volume by names os.Readlink does not turn into a drive path, and
+// lone-surrogate names. It returns the image root.
+func nastyPathsImage(t *testing.T) string {
+	t.Helper()
 	root, outside := physicalTemp(t), physicalTemp(t)
 	writeFiles(t, root, "Users/alice/a/b/f", "Users/alice/keep")
 	writeFiles(t, outside, "x", "secret/x")
@@ -167,10 +175,14 @@ func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
 	// unit, and a directory named U+D801 holding a file inside the image.
 	// Decoding L's target to U+FFFD would have the walk look for another
 	// name than the one Windows follows.
-	const loneD800, loneD801 = "\xed\xa0\x80", "\xed\xa1\x80"
 	makeJunction(t, systemDrive()+"/Windows", root+"/Users/alice/"+loneD800)
 	makeSymlink(t, loneD800, root+"/Users/alice/L", true)
 	writeFiles(t, root, "Users/alice/"+loneD801+"/f")
+	return root
+}
+
+func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
+	root := nastyPathsImage(t)
 	check := NewRootCheck(root)
 	t.Run("a link to a lone surrogate", func(t *testing.T) {
 		full := root + "/Users/alice/L/win.ini"
