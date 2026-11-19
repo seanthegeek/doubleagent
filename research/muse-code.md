@@ -978,8 +978,9 @@ A `children`, `model_messages` or `model_messages.content` holding entries that 
 or a `projects` holding projects that are not, gives one row for them all at the same place,
 `parser: <member> holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one), and a frame child whose `record_json` decodes to
-something other than an object
-`parser: unparseable line (retained_frame child: record_json is not a JSON object): <record_json>`.
+something other than an object or null gives
+`parser: unparseable line (retained_frame child: record_json is not a JSON object): <record_json>`;
+one whose `record_json` is the text `null` gives no row.
 
 A `session.jsonl` that cannot be read is one whole-file row
 `parser: session.jsonl could not be read (<reason>)` through `error_rows`; a `tui-history.jsonl` or

@@ -253,8 +253,10 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Va
 }
 
 // frameChildren returns the envelopes held in a retained frame's children,
-// in child_index order. A child that does not decode, or a children that is
-// not an array, adds a problem.
+// in child_index order. A child that does not decode or decodes to
+// something other than an object, or a children that is not an array,
+// adds a problem; a child whose record_json is the text null is passed
+// over without one.
 func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
 	children := parser.ListOfKind(frame.Get("children"), "children", jsonvalue.Object, number, problems)
 	slices.SortStableFunc(children, func(left, right jsonvalue.Value) int {

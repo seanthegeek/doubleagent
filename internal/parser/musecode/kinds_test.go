@@ -1,6 +1,7 @@
 package musecode
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -92,6 +93,30 @@ func TestAFrameChildrenThatIsNotAnArrayIsReported(t *testing.T) {
 	checkMember(t, sessionRel, "children", jsonvalue.Array, `{"child_index": 0}`, func(value string) string {
 		return `{` + field("children", value) + `"retained_frame": "session_permission_transaction"}` + "\n"
 	})
+}
+
+func TestAFrameChildThatDecodesToAnythingButAnObjectOrNullIsReported(t *testing.T) {
+	const wrong = "parser: unparseable line (retained_frame child: record_json is not a JSON object): "
+	for _, test := range []struct {
+		name, record string
+		want         []string
+	}{
+		{"a child that decodes to null gives no row", "null", nil},
+		{"a child that decodes to a number", "7", []string{wrong + "7"}},
+		{"a child that decodes to a list", "[1]", []string{wrong + "[1]"}},
+		{"a child that decodes to a string", `"s"`, []string{wrong + `"s"`}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := json.Marshal(test.record)
+			if err != nil {
+				t.Fatal(err)
+			}
+			log := `{"retained_frame": {}, "children": [{"child_index": 0, "record_json": ` + string(encoded) + `}]}` + "\n"
+			if got := parseFile(t, sessionRel, log); !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
 }
 
 func TestAUserIntentMemberThatIsNotAnArrayIsReported(t *testing.T) {
