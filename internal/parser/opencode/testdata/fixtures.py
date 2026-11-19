@@ -38,7 +38,9 @@ INSERT INTO part VALUES ('prt_1', 'msg_1', 'ses_1', 1700000000500, 1700000000500
 
 # A 1.x database whose session is shared: the share's URL carries a credential beside its secret,
 # and an event records the share of another session.
-SHARED_SESSION = ONE_SESSION + """
+SHARED_SESSION = (
+    ONE_SESSION
+    + """
 CREATE TABLE session_share (session_id text PRIMARY KEY, id text, secret text, url text,
     time_created integer, time_updated integer);
 INSERT INTO session_share VALUES ('ses_1', 'shr_1', 'FIXTURE-SHARE-SECRET',
@@ -47,6 +49,7 @@ CREATE TABLE event (id text PRIMARY KEY, aggregate_id text, seq integer, type te
 INSERT INTO event VALUES ('evt_1', 'ses_2', 1, 'session.updated.1',
     '{"info":{"share":{"url":"https://ci:s3cret@opncd.example/s/shr_2"},"time":{"updated":1700000003000}}}');
 """
+)
 
 DATABASES = {
     "no_permission_table.db": ONE_SESSION,
