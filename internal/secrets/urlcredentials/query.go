@@ -19,7 +19,9 @@ type query struct {
 	nextURL int
 	// fragment is set once the fragment has begun.
 	fragment bool
-	// work counts the bytes each loop of the query visits as it visits them.
+	// work counts the bytes each loop of the query visits as it visits them,
+	// except endsValue's step past the URLs behind the byte, which a counted
+	// loop's reading bounds.
 	work textset.Counter
 }
 
