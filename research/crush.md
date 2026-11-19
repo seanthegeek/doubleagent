@@ -582,8 +582,11 @@ at the file's modification time, with an empty `session_id`
 from a `crushrc`, each tool on a `permissions allow` line as `permissions.allowed_tools=<tool>` and
 on a `permissions deny` line as `options.disabled_tools=<tool>`, with `(from <file> line <n>, file
 mtime)`; from `crush.db`, `mcp_enabled_servers=<name>` and `mcp_disabled_servers=<name>` at the
-database file's modification time. The `crushrc` reader takes only lines whose first word is
-`permissions`, as written, so a line inside a condition that never ran still yields its rows. A
+database file's modification time. The `crushrc` reader takes a line that starts, after blanks,
+with the text `permissions` and gives rows when its first word is exactly `permissions`, as
+written, so a line inside a condition that never ran still yields its rows. A `#` outside quotes
+ends the line even inside a word (`permissions allow view#1 edit` gives `view` only), where a shell
+starts a comment only at the start of a word. A
 workspace `.crush/crush.json` and a project file carry the project as `project_path`. After a
 `crush.json`'s setting rows, one `stored credentials: providers.<name>.api_key=<api_key> ...
 (from <file>, file mtime)` row gives every provider's `api_key` that is set, as written, with the
@@ -715,9 +718,10 @@ is only a time the parent still existed before. The log, the stats page and the 
 
 #### Bad-line rows
 
-A `crushrc` is read line by line for its `permissions` lines: such a line that does not split
-into shell words (an unclosed quote) is one row `parser: unparseable line (<reason>): <line>` with
-`source_line` its line number, and the file's other lines are still read; other lines are not
+A `crushrc` is read line by line for the lines that start with the text `permissions`: such a
+line, `permissions_note='multi` included, that does not split into shell words (an unclosed
+quote) is one row `parser: unparseable line (<reason>): <line>` with `source_line` its line
+number, and the file's other lines are still read; other lines are not
 records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row. One
 that decodes to something other than an object is `parser: projects.json is not a JSON object`, and
 a `projects` that is present but not an array `parser: projects is not a JSON array` (absent, null
