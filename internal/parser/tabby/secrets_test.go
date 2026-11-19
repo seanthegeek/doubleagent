@@ -101,7 +101,8 @@ func TestAConfigOverTheReadersLimitCouldNotBeReadWhateverTheSetting(t *testing.T
 		"than 32 levels deep at line 1)"}
 	for _, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
-			if got := parseWith(t, mode.setting, ".tabby/config.toml", config); !slices.Equal(got, want) {
+			got := parseAsBy(t, parsertest.ParseWithoutSecrets, mode.setting, "tabby", ".tabby/config.toml", config)
+			if !slices.Equal(got, want) {
 				t.Errorf("got %q, want %q", got, want)
 			}
 		})

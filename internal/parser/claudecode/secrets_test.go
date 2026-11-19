@@ -43,6 +43,14 @@ func secretModes() []secretMode {
 // the parser gives for it in a run that shows secrets as setting says.
 func parseSecrets(t *testing.T, setting secrets.Setting, rel, text string) []timeline.Row {
 	t.Helper()
+	return parseSecretsBy(t, parsertest.Parse, setting, rel, text)
+}
+
+// parseSecretsBy is parseSecrets parsing through parse, a function of
+// package parsertest.
+func parseSecretsBy(t *testing.T, parse func(testing.TB, parser.Parser, *input.Artifact, parser.Options,
+	parser.Emit) error, setting secrets.Setting, rel, text string) []timeline.Row {
+	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -55,7 +63,7 @@ func parseSecrets(t *testing.T, setting secrets.Setting, rel, text string) []tim
 		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
 	var rows []timeline.Row
-	if err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+	if err := parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 		t.Fatal(err)
 	}
 	return rows
@@ -117,7 +125,7 @@ func TestTheMachineAndGitHubAccountIdsAreShownWhateverTheSetting(t *testing.T) {
 		"remote control: machine id 0f0e0d0c-0000-4000-8000-000000000001 (from .claude.json, file mtime)"}
 	for _, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
-			got := textsOf(parseSecrets(t, mode.setting, ".claude.json", config))
+			got := textsOf(parseSecretsBy(t, parsertest.ParseWithoutSecrets, mode.setting, ".claude.json", config))
 			if !slices.Equal(got, want) {
 				t.Errorf("got %q, want %q", got, want)
 			}

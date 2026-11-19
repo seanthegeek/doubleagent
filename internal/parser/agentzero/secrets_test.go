@@ -132,3 +132,20 @@ func TestATopLevelModelConfigurationShowsItsKeyAndBase(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestAChatThatIsNotJSONGivesTheReadersDetailUnlessWithheld(t *testing.T) {
+	const chat = `{"data": {"telegram_bot_cfg": {"token": FIXTURE-BOT-TOKEN}}}`
+	const position = "parser: chat.json did not parse (invalid JSON at line 1, column 41"
+	const detail = "invalid character 'F' looking for beginning of value"
+	const recovered = "); log items recovered without history"
+	wants := []string{position + ": " + detail + recovered, position + ": REDACTED" + recovered,
+		position + ": [withheld]" + recovered, position + recovered}
+	for i, mode := range secretModes() {
+		t.Run(mode.name, func(t *testing.T) {
+			got := parseWith(t, mode.setting, "agent-zero/usr/chats/ctx/chat.json", chat)
+			if !slices.Contains(got, wants[i]) {
+				t.Errorf("got %q, want a row %q", got, wants[i])
+			}
+		})
+	}
+}

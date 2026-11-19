@@ -71,6 +71,24 @@ func (r *Recorder) Current() *Found {
 	return r.current
 }
 
+// EverywhereTexts returns the texts the run replaces in every string, as
+// its placeholder matches them (with an empty one, a URL's user
+// information with its @ too), sorted, for a test that checks the output
+// against them; nil for a nil Recorder.
+func (r *Recorder) EverywhereTexts() []string {
+	if r == nil {
+		return nil
+	}
+	var texts []string
+	for key, each := range r.everywhere.forms {
+		if r.setting.Placeholder == "" || each.plain() {
+			texts = append(texts, key.text)
+		}
+	}
+	slices.Sort(texts)
+	return slices.Compact(texts)
+}
+
 // Value records a secret value read from the evidence (a token, key,
 // password or cookie). One of EverywhereLength bytes or more is replaced in
 // every string of the output; a shorter one only in the text of the rows
