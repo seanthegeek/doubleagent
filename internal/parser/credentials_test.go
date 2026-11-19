@@ -85,6 +85,9 @@ func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
 			return SecretJSONText(artifact, headers)
 		}, []string{"Bearer fake-header-secret-0001", headers.JSON(), `fake-"quoted"-0002`,
 			`fake-\"quoted\"-0002`, "fake-header-secret-0001"}},
+		{"a value of white space alone is none", func(artifact *input.Artifact) string {
+			return SecretText(artifact, " \t ")
+		}, nil},
 		{"a string from JSON as it is", func(artifact *input.Artifact) string {
 			return SecretJSONText(artifact, jsonvalue.NewString("fake-secret-value-0001"))
 		}, []string{"fake-secret-value-0001"}},
