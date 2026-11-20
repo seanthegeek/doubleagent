@@ -87,7 +87,8 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 		heads = append(heads, head{key, nil})
 	}
 	// A key is the sessions table's key, so only damage repeats one: its
-	// messages go with its first row, and each later row gives its own rows.
+	// messages go with its first row, and each later row gives its own rows,
+	// counted for the problem row only when the key has messages to leave out.
 	shown, repeats := map[string]bool{}, 0
 	for _, each := range heads {
 		var problems parser.Problems
