@@ -288,3 +288,40 @@ func TestTheStateDatabaseIsReadOnceForEveryLogDatabaseBesideIt(t *testing.T) {
 		t.Errorf("read the changed state database %d times in all, want 2", reads)
 	}
 }
+
+// guardianHomeWork parses n guardian review rollouts in one Codex home
+// beside n log databases and n other files, and returns the listings of
+// the home and the looks at a log database's state the parses made.
+func guardianHomeWork(t *testing.T, n int) (int, int) {
+	t.Helper()
+	home := t.TempDir()
+	for i := range n {
+		writeFile(t, home, ".codex/logs_"+strconv.Itoa(i)+".sqlite", "not a database")
+		writeFile(t, home, ".codex/other_"+strconv.Itoa(i), "")
+	}
+	subject := New()
+	subject.Work = parser.CountingWork()
+	for i := range n {
+		threadID := fmt.Sprintf("0198f0a1-0000-7000-8000-%012d", i)
+		rel := ".codex/sessions/rollout-2026-01-02T00-00-00-" + threadID + ".jsonl"
+		path := writeFile(t, home, rel, `{"type":"session_meta","timestamp":"2026-01-02T00:00:00Z","payload":{`+
+			`"id":"`+threadID+`","thread_source":"guardian_review","parent_thread_id":"parent",`+
+			`"timestamp":"2026-01-02T00:00:00.000Z"}}`+"\n"+
+			`{"type":"event_msg","timestamp":"2026-01-02T00:00:05Z","payload":{`+
+			`"type":"task_complete","last_agent_message":"{\"outcome\":\"allow\"}"}}`)
+		subject.parseRollout(&input.Artifact{Rel: rel, DiskPath: path, Home: &input.Home{DiskPath: home}},
+			parser.Options{}, func(timeline.Row) {})
+	}
+	return subject.Work.Count("codex home listings"), subject.Work.Count("guardian log databases read")
+}
+
+func TestAHomeIsListedAndItsLogDatabasesReadOnceForEveryGuardianRollout(t *testing.T) {
+	for _, n := range []int{20, 40} {
+		t.Run(strconv.Itoa(n)+" rollouts beside as many log databases", func(t *testing.T) {
+			listings, reads := guardianHomeWork(t, n)
+			if listings != 1 || reads != n {
+				t.Errorf("%d listings of the home and %d database reads, want 1 and %d", listings, reads, n)
+			}
+		})
+	}
+}
