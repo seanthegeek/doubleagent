@@ -32,11 +32,13 @@ type Column struct {
 	// Default is what a record too short to hold the column reads as, the
 	// state of rows written before an ALTER TABLE ADD COLUMN.
 	Default Value
-	// defaultExpression holds the DEFAULT clause's tokens, evaluated once
-	// the affinity is known; defaultErr is set when it is a form SQLite
-	// rejects, and reading a short record that needs it fails with it.
-	defaultExpression []token
-	defaultErr        error
+	// defaultText holds the DEFAULT clause's text after the keyword, its
+	// tokens scanned and evaluated once the whole statement is read and
+	// the affinity known, so a statement refused later has kept none of
+	// them; defaultErr is set when it is a form SQLite rejects, and
+	// reading a short record that needs it fails with it.
+	defaultText string
+	defaultErr  error
 }
 
 // tableShape is a parsed CREATE TABLE statement: the columns in declared
@@ -192,20 +194,31 @@ func (p *schemaParser) group() ([]token, error) {
 // skipGroup moves past a parenthesised run of tokens, nested parentheses
 // included, keeping none of them.
 func (p *schemaParser) skipGroup() error {
+	_, err := p.skipGroupItems()
+	return err
+}
+
+// skipGroupItems moves past a parenthesised run of tokens as skipGroup
+// does and returns how many items its commas outside nested parentheses
+// part it into, as splitTopLevel parts the tokens inside the pair.
+func (p *schemaParser) skipGroupItems() (int, error) {
 	if !p.acceptPunctuation("(") {
-		return p.unexpected("(")
+		return 0, p.unexpected("(")
 	}
+	items := 1
 	for depth := 1; !p.atEnd(); {
 		switch current := p.next(); {
 		case current.isPunctuation("("):
 			depth++
 		case current.isPunctuation(")"):
 			if depth--; depth == 0 {
-				return nil
+				return items, nil
 			}
+		case current.isPunctuation(",") && depth == 1:
+			items++
 		}
 	}
-	return fmt.Errorf("%w: a parenthesis is not closed", errSchemaSyntax)
+	return 0, fmt.Errorf("%w: a parenthesis is not closed", errSchemaSyntax)
 }
 
 // parseCreateTable parses the SQL text of a table's schema row. A token
@@ -361,10 +374,10 @@ func (s *tableShape) finish() error {
 	for i := range s.columns {
 		column := &s.columns[i]
 		column.Affinity = affinityOf(column.DeclaredType, s.strict)
-		if column.defaultExpression != nil {
-			column.Default, column.defaultErr = defaultValue(column.defaultExpression,
+		if column.defaultText != "" {
+			column.Default, column.defaultErr = defaultValue(scanAll(column.defaultText),
 				column.Affinity)
-			column.defaultExpression = nil
+			column.defaultText = ""
 		}
 		if s.withoutRowid {
 			column.RowidAlias = false

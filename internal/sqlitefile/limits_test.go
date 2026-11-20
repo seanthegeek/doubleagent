@@ -428,6 +428,12 @@ func TestARefusedStatementHoldsNoTokensPastTheRefusal(t *testing.T) {
 		{"columns past the limit", "more than 2000 columns", func(count int) string {
 			return "CREATE TABLE t(" + columnList(count) + ")"
 		}, 4 << 20},
+		{"a long DEFAULT before a string left open", "unterminated", func(count int) string {
+			return "CREATE TABLE t(a DEFAULT (" + strings.Repeat("1+", count) + "1), b 'x)"
+		}, 64 << 10},
+		{"a PRIMARY KEY past the limit", "PRIMARY KEY lists more than 2000 columns", func(count int) string {
+			return "CREATE TABLE t(a, PRIMARY KEY (" + strings.Repeat("a, ", count) + "a))"
+		}, 64 << 10},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -435,6 +441,7 @@ func TestARefusedStatementHoldsNoTokensPastTheRefusal(t *testing.T) {
 				sql := test.sql(count)
 				var err error
 				allocated := bytesAllocatedBy(func() { _, err = parseCreateTable(sql) })
+				t.Logf("a %d-byte statement allocated %d bytes", len(sql), allocated)
 				if err == nil || !strings.Contains(err.Error(), test.want) || allocated > test.bound {
 					t.Errorf("a %d-byte statement allocated %d bytes and gave %v; want at most %d bytes and %q",
 						len(sql), allocated, err, test.bound, test.want)

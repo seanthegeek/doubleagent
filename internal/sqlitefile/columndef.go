@@ -100,8 +100,8 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 	case next.isKeyword("CHECK"):
 		return p.skipGroup()
 	case next.isKeyword("DEFAULT"):
-		expression, err := p.defaultClause()
-		column.defaultExpression = expression
+		text, err := p.defaultClause()
+		column.defaultText = text
 		return err
 	case next.isKeyword("COLLATE"):
 		name, err := p.identifier("a collation name")
@@ -189,28 +189,40 @@ func (p *schemaParser) conflictClause() error {
 	return p.unexpected("a conflict resolution")
 }
 
-// defaultClause returns the tokens of a DEFAULT value: a parenthesised
-// expression with its parentheses, a signed term, or one literal or name.
-func (p *schemaParser) defaultClause() ([]token, error) {
+// defaultClause moves past a DEFAULT value, a parenthesised expression, a
+// signed term, or one literal or name, and returns its text, keeping none
+// of its tokens.
+func (p *schemaParser) defaultClause() (string, error) {
+	start := p.offset
 	next := p.peek()
 	switch {
 	case next.isPunctuation("("):
-		opening := p.peek()
-		inner, err := p.group()
-		if err != nil {
-			return nil, err
+		if err := p.skipGroup(); err != nil {
+			return "", err
 		}
-		return append(append([]token{opening}, inner...), token{kind: punctuation, text: ")"}), nil
 	case next.isPunctuation("+") || next.isPunctuation("-"):
-		sign := p.next()
+		p.next()
 		if term := p.peek(); term.kind == punctuation || term.kind == 0 {
-			return nil, p.unexpected("a default value")
+			return "", p.unexpected("a default value")
 		}
-		return []token{sign, p.next()}, nil
+		p.next()
 	case next.kind == punctuation || next.kind == 0:
-		return nil, p.unexpected("a default value")
+		return "", p.unexpected("a default value")
+	default:
+		p.next()
 	}
-	return []token{p.next()}, nil
+	return p.text[start:p.offset], nil
+}
+
+// scanAll returns the tokens of text, which has been scanned before
+// without error.
+func scanAll(text string) []token {
+	parser := newSchemaParser(text)
+	var tokens []token
+	for !parser.atEnd() {
+		tokens = append(tokens, parser.next())
+	}
+	return tokens
 }
 
 // foreignKey reads the rest of a REFERENCES clause: the parent table, its
@@ -310,21 +322,28 @@ func (p *schemaParser) tableConstraint(shape *tableShape) error {
 	return p.unexpected("a table constraint")
 }
 
-// tablePrimaryKey reads the column list of a PRIMARY KEY table constraint.
-// A list of one INTEGER column makes it the rowid alias, whatever its sort
-// order, and only then may AUTOINCREMENT follow it.
+// tablePrimaryKey reads the column list of a PRIMARY KEY table constraint,
+// counting its items before keeping their tokens, so a list past
+// maxColumns is refused having held none. A list of one INTEGER column
+// makes it the rowid alias, whatever its sort order, and only then may
+// AUTOINCREMENT follow it.
 func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
+	start := p.offset
+	count, err := p.skipGroupItems()
+	switch {
+	case err != nil:
+		return err
+	case len(shape.primaryKey) > 0:
+		return fmt.Errorf("%w: more than one PRIMARY KEY", errSchemaSyntax)
+	case count > maxColumns:
+		return fmt.Errorf("%w: PRIMARY KEY lists more than %d columns", errSchemaSyntax, maxColumns)
+	}
+	p.offset = start
 	inner, err := p.group()
 	if err != nil {
 		return err
 	}
-	if len(shape.primaryKey) > 0 {
-		return fmt.Errorf("%w: more than one PRIMARY KEY", errSchemaSyntax)
-	}
 	items := splitTopLevel(inner)
-	if len(items) > maxColumns {
-		return fmt.Errorf("%w: PRIMARY KEY lists more than %d columns", errSchemaSyntax, maxColumns)
-	}
 	listed := map[int]bool{}
 	autoincrement := false
 	for i, item := range items {
