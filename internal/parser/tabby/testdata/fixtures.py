@@ -81,11 +81,48 @@ def repeated_ids(count: int) -> str:
     return "\n".join(lines)
 
 
+# The length of the long values below, over the 4,096 bytes a carried value is cut to.
+LONG = 5000
+
+
+def long_user(count: int) -> str:
+    """Return the SQL of a database whose one user, of a 5,000-byte name, owns count threads."""
+    lines = [
+        "PRAGMA page_size = 512;",
+        "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, name TEXT, auth_token TEXT, created_at TIMESTAMP);",
+        f"INSERT INTO users VALUES (1, 'ana@example.com', '{'n' * LONG}', NULL, '2026-10-01 09:00:00');",
+        "CREATE TABLE threads (id INTEGER PRIMARY KEY, user_id INTEGER, created_at TIMESTAMP);",
+    ]
+    lines += [
+        f"INSERT INTO threads VALUES ({i}, 1, '2026-10-01 09:00:00');" for i in range(1, count + 1)
+    ]
+    return "\n".join(lines)
+
+
+def long_integration(count: int) -> str:
+    """Return the SQL of a database whose one integration, of a 5,000-byte name and kind, has count repositories."""
+    lines = [
+        "PRAGMA page_size = 512;",
+        "CREATE TABLE integrations (id INTEGER PRIMARY KEY, kind TEXT, display_name TEXT, access_token TEXT,"
+        " api_base TEXT, created_at TIMESTAMP);",
+        f"INSERT INTO integrations VALUES (1, '{'k' * LONG}', '{'n' * LONG}', NULL, NULL, '2026-10-01 09:00:00');",
+        "CREATE TABLE provided_repositories (id INTEGER PRIMARY KEY, integration_id INTEGER, name TEXT,"
+        " git_url TEXT, active INTEGER, updated_at TIMESTAMP);",
+    ]
+    lines += [
+        f"INSERT INTO provided_repositories VALUES ({i}, 1, 'r{i}', NULL, 1, '2026-10-01 09:00:00');"
+        for i in range(1, count + 1)
+    ]
+    return "\n".join(lines)
+
+
 def scripts() -> dict[str, str]:
     """Return the SQL of every database, by file name."""
     built = dict(DATABASES)
     for count in (10, 40):
         built[f"repeated_ids_{count}.db"] = repeated_ids(count)
+        built[f"long_user_{count}.db"] = long_user(count)
+        built[f"long_integration_{count}.db"] = long_integration(count)
     return built
 
 
