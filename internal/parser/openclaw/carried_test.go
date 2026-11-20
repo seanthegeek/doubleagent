@@ -69,6 +69,26 @@ func TestAWindowsValuesAreCutOnceForEveryGenerationThatCopiesThem(t *testing.T) 
 	}
 }
 
+func TestAnArchivesNameIsCutWhereEachOfItsBadLinesNamesIt(t *testing.T) {
+	texts := parsedTexts(t, "archive_label.db")
+	var lines int
+	for _, text := range problemsOf(texts) {
+		if !strings.HasPrefix(text, parser.ProblemPrefix+"archive aaaa") {
+			continue
+		}
+		lines++
+		if most := parser.CarriedLimit + 256; len(text) > most {
+			t.Errorf("a problem row of %d bytes, more than %d: %.80q", len(text), most, text)
+		}
+	}
+	if lines != 5 {
+		t.Errorf("%d problem rows of the archive's lines, want 5", lines)
+	}
+	if want := cutProblem("archive name"); !slices.Contains(texts, want) {
+		t.Errorf("rows lack %q", want)
+	}
+}
+
 func TestEachCopyOfALegacyTranscriptCutsItsLongSessionKeyOnce(t *testing.T) {
 	home := t.TempDir()
 	key := strings.Repeat("k", longValue)

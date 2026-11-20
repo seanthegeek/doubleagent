@@ -231,6 +231,17 @@ CREATE TABLE session_transcript_archives (session_id TEXT NOT NULL, generation T
     )
 )
 
+# One archive whose name is 10000 bytes and whose blob holds five lines that are not JSON, each
+# reported under the archive's name.
+ARCHIVE_LABEL = (
+    WINDOW_ARCHIVES.split("INSERT", 1)[0]
+    + f"""INSERT INTO session_transcript_archives VALUES ('s', 'g', 'k', 'reset', 'jsonl',
+  CAST('x1' || char(10) || 'x2' || char(10) || 'x3' || char(10) || 'x4' || char(10) || 'x5' AS BLOB),
+  '', {LONG.format(letter="a")}, 1, NULL);
+"""
+)
+
+
 def write_state(name: str, script: str) -> None:
     """Write a state database from its SQL."""
     path = HERE / name
@@ -271,6 +282,7 @@ def main() -> None:
     for count in (10, 40):
         write_state(f"conversations_repeated_{count}.db", conversations(count))
     write_state("window_archives.db", WINDOW_ARCHIVES)
+    write_state("archive_label.db", ARCHIVE_LABEL)
 
 
 if __name__ == "__main__":
