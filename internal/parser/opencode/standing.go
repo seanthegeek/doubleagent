@@ -185,12 +185,22 @@ func permissionRules(stored sqlitefile.Value) ([]rule, int, bool) {
 	return nil, 0, false
 }
 
+// cutRows emits the problem rows of the values carried cut.
+func (s *store) cutRows(carried *parser.Carried) {
+	var problems parser.Problems
+	carried.Report(0, &problems)
+	parser.EmitAll(s.emit, s.owner.ErrorRows(s.artifact, problems, "", ""))
+}
+
 // worktreeRows emits a "scratch directory:" row per worktree OpenCode
 // made: the worktree table's rows, then project_directory's of type
 // git_worktree, each table ordered by time and directory, a directory
 // named once.
 func (s *store) worktreeRows() error {
 	seen := map[string]bool{}
+	// Each worktree's row repeats its project's worktree.
+	carried := parser.NewCarried(s.artifact)
+	defer s.cutRows(carried)
 	for _, name := range []string{"worktree", "project_directory"} {
 		if !s.tables.Has(name) {
 			continue
@@ -213,7 +223,7 @@ func (s *store) worktreeRows() error {
 			seen[directory] = true
 			made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), timeline.ScratchPrefix+
 				" "+directory+" (git worktree of "+
-				cmp.Or(s.worktreeOf(row.Get("project_id")), "-")+" strategy="+
+				cmp.Or(carried.Cut("project worktree", s.worktreeOf(row.Get("project_id"))), "-")+" strategy="+
 				cmp.Or(parser.NonEmptyColumn(row.Get("strategy")), "-")+") (from "+s.label+" "+name+
 				", time_created)")
 			made.ProjectPath = directory

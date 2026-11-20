@@ -126,16 +126,20 @@ func (i *items) plugins(emit parser.Emit) {
 	if i.table == nil {
 		return
 	}
+	carried := parser.NewCarried(i.artifact)
+	defer carried.Report(0, i.problems)
 	for _, row := range i.store.rows(substrPrefixed(i.table, pluginsPrefix)) {
 		suffix := row.key[len(pluginsPrefix):]
 		scope := suffix[strings.LastIndex(suffix, "|")+1:]
+		// Each entry's row repeats the key's scope.
+		shown := carried.Cut("plugin scope", scope)
 		for _, entry := range objectEntries(row, i.problems) {
 			var sources []string
 			for _, source := range entry.Get("sources").Items() {
 				sources = append(sources, source.Text())
 			}
 			made := i.system("plugin installed: id="+parser.SettingOrDash(entry.Get("id"))+" sources="+
-				cmp.Or(strings.Join(sources, ","), "-")+" scope="+cmp.Or(scope, "-")+" "+pluginsSource, i.mtime, row.rowid)
+				cmp.Or(strings.Join(sources, ","), "-")+" scope="+cmp.Or(shown, "-")+" "+pluginsSource, i.mtime, row.rowid)
 			if strings.HasPrefix(scope, "file:") {
 				made.ProjectPath = uriPath(scope)
 			}

@@ -361,6 +361,8 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 		idents[i] = current.ident
 	}
 	named := textset.New(idents, r.store.work)
+	// The first composer's id stands in the row of each other one it names.
+	carried := parser.NewCarried(r.artifact)
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
 		blob, err := jsonvalue.DecodeString(asText(row.value))
 		if err != nil || !blob.Has("content") {
@@ -375,9 +377,12 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 		r.blob(r.owner.newStamper(r.artifact, first, emit), blob, row.rowid)
 		for _, position := range positions[1:] {
 			r.owner.newStamper(r.artifact, deleted[position], emit).add(timeline.TurnSystem,
-				sharedBlobText(first.ident), "", row.rowid, "")
+				sharedBlobText(carried.Cut("session id", first.ident)), "", row.rowid, "")
 		}
 	}
+	var problems parser.Problems
+	carried.Report(0, &problems)
+	parser.EmitAll(emit, r.owner.ErrorRows(r.artifact, problems, "", ""))
 }
 
 // sharedBlobText returns the text of the row of a deleted composer whose

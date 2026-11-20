@@ -45,6 +45,9 @@ type store struct {
 	tables   parser.Tables
 	users    map[string]string
 	emit     parser.Emit
+	// carried cuts what a join copies onto many rows: a user's label and
+	// an integration's name and kind.
+	carried *parser.Carried
 }
 
 // parseDatabase emits the rows of a database or a backup of one: a backup
@@ -67,9 +70,15 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 		return
 	}
 	defer database.Close()
-	reader := &store{parser: p, artifact: artifact, database: database, emit: emit}
+	reader := &store{parser: p, artifact: artifact, database: database, emit: emit,
+		carried: parser.NewCarried(artifact)}
 	if err := reader.rows(); err != nil {
 		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + parser.DatabaseError(err)}))
+	}
+	var problems parser.Problems
+	reader.carried.Report(0, &problems)
+	for _, problem := range problems {
+		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + problem.Message}))
 	}
 }
 
@@ -210,9 +219,10 @@ func (s *store) parents(table, order string, children *grouped) ([]parent, error
 }
 
 // owner returns a user's label by the id column, "" when unknown; a
-// missing column reads as NULL.
+// missing column reads as NULL. The label is cut by the store's carried,
+// since each of the user's rows repeats it.
 func (s *store) owner(value sqlitefile.Value) string {
-	return s.users[value.String()]
+	return s.carried.Cut("user label", s.users[value.String()])
 }
 
 // threads emits each thread's start row and its messages.
@@ -415,7 +425,9 @@ func (s *store) integrations() error {
 			host = urlHostname(apiBase)
 		}
 		name := parser.NonEmptyColumn(integration.Get("display_name"))
-		names[integration.Get("id").String()] = named{name, kind}
+		// Each repository's row repeats its integration's name and kind.
+		names[integration.Get("id").String()] = named{s.carried.Cut("integration name", name),
+			s.carried.Cut("integration kind", kind)}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
 			text: "source host: " + cmp.Or(host, "-") + " integration " + cmp.Or(name, "-") + " kind=" + cmp.Or(kind, "-") +

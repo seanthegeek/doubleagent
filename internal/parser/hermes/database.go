@@ -393,12 +393,25 @@ func (s *stateReader) generationRows() error {
 		})
 }
 
+// cutRows emits the problem rows of the values carried cut.
+func (s *stateReader) cutRows(carried *parser.Carried) {
+	var problems parser.Problems
+	carried.Report(0, &problems)
+	for _, problem := range problems {
+		s.emit(s.parser.system(s.artifact, 0, noSession(), parser.ProblemPrefix+problem.Message))
+	}
+}
+
 // roomRows emits one system row per Bot Mode room event, at its
 // created_at: the text of a message.user or message.member event, the
 // payload as compact JSON for the other kinds. Whether a room message is
-// also a messages row is not known, so these are never user rows.
+// also a messages row is not known, so these are never user rows. A room's
+// name, which each of its events' rows repeats, is cut by the kit
+// (parser.Carried).
 func (s *stateReader) roomRows() error {
 	names := map[string]string{}
+	carried := parser.NewCarried(s.artifact)
+	defer s.cutRows(carried)
 	if s.tables.Has("hosted_rooms") {
 		table, err := s.handle.Table("hosted_rooms")
 		if err != nil {
@@ -406,7 +419,7 @@ func (s *stateReader) roomRows() error {
 		}
 		err = table.Select("room_id", "name").Each(func(row sqlitefile.Row) error {
 			record := rowObject(row)
-			names[record.Get("room_id").Text()] = parser.Text(record.Get("name"))
+			names[record.Get("room_id").Text()] = carried.Cut("room name", parser.Text(record.Get("name")))
 			return nil
 		})
 		if err != nil {

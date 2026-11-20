@@ -241,9 +241,13 @@ func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, e
 	switch policy := state.Get(teamPolicyKey); {
 	case policy.IsObject():
 		stamp()
-		flatten(teamPolicyKey, policy, func(key, value string) {
+		carried := parser.NewCarried(artifact)
+		flatten(teamPolicyKey, policy, carried, func(key, value string) {
 			emit(p.systemRow(artifact, timestamp, "permission setting: "+key+"="+value+" "+standingSource))
 		})
+		var problems parser.Problems
+		carried.Report(0, &problems)
+		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 	case !policy.IsNull():
 		emit(p.ProblemRow(artifact, parser.WrongKind(teamPolicyKey, jsonvalue.Object)))
 	}
@@ -251,18 +255,19 @@ func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, e
 
 // flatten passes (dotted key, value text) for each leaf of value to yield,
 // one pair per array entry; a null leaf outside an array gives nothing.
-func flatten(prefix string, value jsonvalue.Value, yield func(key, value string)) {
+// The key written before each member or entry is cut by carried.
+func flatten(prefix string, value jsonvalue.Value, carried *parser.Carried, yield func(key, value string)) {
 	switch {
 	case value.IsObject():
 		for _, member := range value.Members() {
-			flatten(prefix+"."+member.Key, member.Value, yield)
+			flatten(carried.Cut("settings key", prefix)+"."+member.Key, member.Value, carried, yield)
 		}
 	case value.IsArray():
 		for _, item := range value.Items() {
 			if item.IsObject() || item.IsArray() {
-				yield(prefix, parser.JSONText(item))
+				yield(carried.Cut("settings key", prefix), parser.JSONText(item))
 			} else {
-				yield(prefix, parser.SettingValue(item))
+				yield(carried.Cut("settings key", prefix), parser.SettingValue(item))
 			}
 		}
 	case !value.IsNull():

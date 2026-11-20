@@ -202,14 +202,22 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.ProblemRow(artifact, "unreadable config.toml: "+parser.ReaderErrorText(artifact, err)))
 		return
 	}
+	carried := parser.NewCarried(artifact)
 	for _, found := range configSettings(document) {
 		project := base
 		if found.parts[0] == "projects" {
 			project = found.parts[1]
 		}
-		text := strings.Join(found.parts, ".") + "=" + tomldoc.SettingText(found.value)
+		// A table's key stands before each key below it.
+		shown := slices.Clone(found.parts)
+		for i := range len(shown) - 1 {
+			shown[i] = carried.Cut("settings key", shown[i])
+		}
+		text := strings.Join(shown, ".") + "=" + tomldoc.SettingText(found.value)
 		emit(p.setting(artifact, text, 0, project))
 	}
+	carried.Report(0, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
 }
 
 // configPermissionPaths are the standing permission keys of config.toml,

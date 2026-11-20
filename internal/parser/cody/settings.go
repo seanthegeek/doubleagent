@@ -26,13 +26,14 @@ type setting struct {
 }
 
 // leaves appends (dotted key, value) per leaf of a settings value; an
-// empty object is a leaf.
-func leaves(out []setting, prefix string, value jsonvalue.Value) []setting {
+// empty object is a leaf. The key written before each member is cut by
+// carried.
+func leaves(out []setting, prefix string, value jsonvalue.Value, carried *parser.Carried) []setting {
 	if !value.IsObject() || value.Len() == 0 {
 		return append(out, setting{prefix, value})
 	}
 	for _, member := range value.Members() {
-		out = leaves(out, prefix+"."+member.Key, member.Value)
+		out = leaves(out, carried.Cut("settings key", prefix)+"."+member.Key, member.Value, carried)
 	}
 	return out
 }
@@ -40,11 +41,11 @@ func leaves(out []setting, prefix string, value jsonvalue.Value) []setting {
 // settingsEntries returns the permission entries of an editor's
 // settings.json: every leaf of the permission keys, and disabled and
 // disabledTools of each MCP server, never its headers, env, url or command.
-func settingsEntries(document jsonvalue.Value) []setting {
+func settingsEntries(document jsonvalue.Value, carried *parser.Carried) []setting {
 	var out []setting
 	for _, key := range permissionKeys() {
 		if value, ok := document.Lookup(key); ok {
-			out = leaves(out, key, value)
+			out = leaves(out, key, value, carried)
 		}
 	}
 	for _, server := range document.Get(mcpKey).Members() {
@@ -78,12 +79,17 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	timestamp := parser.FileMtime(artifact)
-	for _, entry := range settingsEntries(document) {
+	carried := parser.NewCarried(artifact)
+	for _, entry := range settingsEntries(document, carried) {
 		text := "permission setting: " + entry.key + "=" + parser.SettingValue(entry.value) +
 			" (from " + artifact.Rel + ", file mtime)"
 		row := p.systemRow(artifact, timeline.Compact(text), 1)
 		row.TimestampUTC = timestamp
 		emit(row)
+	}
+	carried.Report(1, &problems)
+	for _, problem := range problems {
+		emit(p.systemRow(artifact, parser.ProblemPrefix+problem.Message, 1))
 	}
 }
 
@@ -120,8 +126,11 @@ func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.
 	timestamp := parser.FileMtime(artifact)
 	var tally parser.EntryTally
 	defer tally.Report(line, problems)
+	carried := parser.NewCarried(artifact)
+	defer carried.Report(line, problems)
 	for key, value := range parser.MembersOfKind(preferences, preferencesKey, jsonvalue.Object, line, problems) {
-		endpoint := jsonvalue.Member{Key: key, Value: value}
+		// Each model's row repeats its endpoint.
+		endpoint := jsonvalue.Member{Key: carried.Cut("endpoint", key), Value: value}
 		for _, kind := range []string{"selected", "defaults"} {
 			for name, model := range tally.MembersOfKind(endpoint.Value.Get(kind), kind, jsonvalue.String) {
 				usage := jsonvalue.Member{Key: name, Value: model}

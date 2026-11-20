@@ -189,9 +189,14 @@ func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *
 	if !tally.Check(changes, "changes", jsonvalue.Object) || changes.IsNull() {
 		return
 	}
+	carried := parser.NewCarried(c.artifact)
+	changeID := replyID(carried, changes.Get("id"))
 	for _, entry := range tally.EntriesOfKind(changes.Get("files"), "changes.files", jsonvalue.Object) {
-		c.row(timeline.TurnSystem, fileChangeText(changes.Get("id"), entry), model, "", "")
+		c.row(timeline.TurnSystem, fileChangeText(changeID, entry), model, "", "")
 	}
+	var problems parser.Problems
+	carried.Report(0, &problems)
+	c.problems(problems)
 }
 
 // splitThink returns a message's text without its reasoning blocks, and the
