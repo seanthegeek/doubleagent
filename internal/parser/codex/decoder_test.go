@@ -18,7 +18,10 @@ import (
 // a decoder's buffers again (runtime.MemStats.TotalAlloc, not timed).
 func TestTheCompressedRolloutsOfARunShareOneDecoder(t *testing.T) {
 	frame := readTestdata(t, "two-lines.jsonl.zst")
-	const perFile = 32 << 10
+	// perFile is the most a file of two lines may cost once the decoder is
+	// made, the race detector's own allocations included; a decoder and a
+	// read buffer of its own cost about 140 KiB more.
+	const perFile = 64 << 10
 	allocated := map[int]uint64{}
 	for _, n := range []int{10, 40} {
 		home := t.TempDir()

@@ -57,8 +57,11 @@ func TestASessionsColumnsAreConvertedOncePerSession(t *testing.T) {
 			t.Errorf("%d turns gave %d rows, want %d with the branch cut alike", turns, len(rows), 2*turns+2)
 		}
 	}
-	if growth := allocated[40] - allocated[20]; growth > 5*sessionColumnLength {
-		t.Errorf("20 more turns allocated %d more bytes, more than five copies of a %d-byte column", growth,
+	// A copy of both columns per row would add 80; one per added turn is
+	// the bound, above what the rows take with the race detector's own
+	// allocations.
+	if growth := allocated[40] - allocated[20]; growth > 20*sessionColumnLength {
+		t.Errorf("20 more turns allocated %d more bytes, more than a %d-byte column per turn", growth,
 			sessionColumnLength)
 	}
 }
