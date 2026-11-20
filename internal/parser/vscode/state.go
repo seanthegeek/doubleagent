@@ -213,6 +213,7 @@ func usageText(value sqlitefile.Value) string {
 // usage value that is not an array, or that holds entries that are not
 // objects, adds a problem.
 func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, problems *[]string, emit parser.Emit) {
+	carried := parser.NewCarried(artifact)
 	for _, item := range usages {
 		match := usageKey.FindStringSubmatch(item.key)
 		if match == nil {
@@ -232,19 +233,25 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 			kind, idKey = "mcp_server", "mcpServerId"
 		}
 		var found parser.Problems
-		for _, entry := range parser.EntriesOfKind(item.value, vscodestate.ValueProblem+item.key, jsonvalue.Object, 0,
-			&found) {
+		entries := parser.EntriesOfKind(item.value, vscodestate.ValueProblem+item.key, jsonvalue.Object, 0, &found)
+		// Each entry's row repeats the usage's key and account.
+		key, host, login := carried.Cut("usage key", item.key), carried.Cut("usage account", host),
+			carried.Cut("usage account", login)
+		for _, entry := range entries {
 			user := entry.Get(idKey)
 			if user.IsEmpty() {
 				user = jsonvalue.NewString("-")
 			}
 			text := "source host: " + host + " account " + login + " " + kind + "=" + parser.SettingValue(user) +
-				" scopes=" + scopesText(entry.Get("scopes")) + " (from state.vscdb " + item.key +
+				" scopes=" + scopesText(entry.Get("scopes")) + " (from state.vscdb " + key +
 				", lastUsed)"
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("lastUsed")), text))
 		}
 		*problems = append(*problems, messagesOf(found)...)
 	}
+	var cut parser.Problems
+	carried.Report(0, &cut)
+	*problems = append(*problems, messagesOf(cut)...)
 }
 
 // messagesOf returns the messages of problems, for a list of problem
