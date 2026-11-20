@@ -89,10 +89,10 @@ func TestARecordIsFoundWhereTheCollectionStagedTheSessionsOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 	collected := &input.Home{DiskPath: home, StagedPaths: map[string]string{cowork: staged}}
-	if record, found := findRecord(collected, cowork+"/"+session); !found || record.Get("title").Text() != "staged" {
+	if record, found := New().findRecord(collected, cowork+"/"+session); !found || record.Get("title").Text() != "staged" {
 		t.Errorf("got %v, %v; want the staged org's record", record, found)
 	}
-	if _, found := findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); found {
+	if _, found := New().findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); found {
 		t.Error("a record was found in a home that holds none")
 	}
 }
@@ -122,7 +122,7 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 				t.Fatal(err)
 			}
 			home := &input.Home{DiskPath: filepath.Dir(org)}
-			record, _ := findRecord(home, filepath.Base(org)+"/"+test.sessionDir)
+			record, _ := New().findRecord(home, filepath.Base(org)+"/"+test.sessionDir)
 			if got := record.Get("title").Text(); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}

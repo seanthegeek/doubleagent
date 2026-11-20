@@ -86,10 +86,36 @@ func TestARecordIsNeverFoundThroughALinkedAgentDirectory(t *testing.T) {
 			if test.linked {
 				linkOutside(t, home, cowork+"/agent")
 			}
-			found, _ := findRecord(&input.Home{DiskPath: home}, cowork+"/c0c0c0c0")
+			found, _ := New().findRecord(&input.Home{DiskPath: home}, cowork+"/c0c0c0c0")
 			if got := found.Get("title").Text(); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestAShortNameFindsNoRecordInAnOrgDirThatCannotBeListed(t *testing.T) {
+	home := t.TempDir()
+	writeEmpty(t, home, cowork+"/c0c0c0c0/audit.jsonl")
+	writeEmpty(t, home, cowork+"/"+session+".json")
+	if err := os.WriteFile(filepath.Join(home, filepath.FromSlash(cowork), session+".json"),
+		[]byte(`{"title": "short"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	org := filepath.Join(home, filepath.FromSlash(cowork))
+	// Searchable but not readable: each entry can be looked at, none listed.
+	if err := os.Chmod(org, 0o300); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(org, 0o700) })
+	subject := New()
+	for _, name := range []string{"c0c0c0c0", "c0c0c0c0"} {
+		if record, found := subject.findRecord(&input.Home{DiskPath: home}, cowork+"/"+name); found {
+			t.Errorf("found %v through a listing that cannot be made", record)
+		}
+	}
+	if record, found := subject.findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); !found ||
+		record.Get("title").Text() != "short" {
+		t.Errorf("the full name's record: got %v, %v", record, found)
 	}
 }
