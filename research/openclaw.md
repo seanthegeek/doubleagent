@@ -1532,7 +1532,13 @@ types other than `message` give `system` rows: `thinking level: <thinkingLevel>`
 `branchSummary` or `compactionSummary` message is `branch summary: <summary>` or
 `compaction summary: <summary>`. A cold archive stored in the database is read from its
 `archive_blob`, or, when `session_transcript_cold_archive_chunks` has rows for it, from each
-chunk's `archive_blob` in `chunk_index` order; only its `event` records give rows, the session id
+chunk's `archive_blob` in `chunk_index` order. The chunks name only their `session_id` (no
+generation or archive name joins a chunk to one archive), and `session_id` is the key of
+`session_transcript_cold_archives`, which the chunks' foreign key names
+([`openclaw-agent-schema.sql:511-512`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L511-L512),
+[`:538-540`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L538-L540)), so the chunks are read once, for the first archive of their
+session by `archived_at`; a second archive of one session, which only a table without that key
+can hold, is read from its own `archive_blob`. Only its `event` records give rows, the session id
 coming from the `header`; an `event_json` that does not decode is
 `parser: cold archive event seq <seq> unreadable: <reason>`, and a database-stored archive or
 chunk whose `archive_blob` is NULL is
@@ -1659,8 +1665,9 @@ itself and marks what it keeps `recovered`; all fixture only ([Past-use tables](
 - `session_transcript_fts`, read from `session_transcript_fts_content` as a plain table: a `user`
   or `assistant` row (else `system`, `<role>: <text>`) per indexed entry whose
   `(session_id, message_id)` no transcript row carries, recovered.
-- `conversation_deliveries` joined to `conversations`, with `session_id` the current generation of
-  `source_session_key`:
+- `conversation_deliveries` joined to `conversations` (the first row of the `conversation_id`, the
+  table's key ([`openclaw-agent-schema.sql:192-193`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L192-L193)), so a second row of one id is not joined to every delivery again), with
+  `session_id` the current generation of `source_session_key`:
   `channel delivery: <operation_kind> <status> channel <channel> conversation <conversation_id> platform message <platform_message_id> (from openclaw-agent.sqlite conversation_deliveries, created_at)`,
   with ` error=<rejection_error>` before the parenthesis for a rejected send, and, when a platform
   message replied to the delivery,
@@ -1730,7 +1737,8 @@ Relay (`records_relay`; fixture only): the records are under
 [Joins and timestamps](#joins-and-timestamps). After a generation's start row the parser yields
 one
 `session relayed: <channel> account <account_id> <kind> peer <peer_id> thread <thread_id> role <role> (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)`
-row per `session_conversations` link, at `first_seen_at`; for a generation with no such link,
+row per `session_conversations` link, at `first_seen_at`, joined to the first `conversations` row
+of its `conversation_id`; for a generation with no such link,
 `session relayed: <channel> account <account_id> <chat_type> (from openclaw-agent.sqlite session_windows, started_at)`
 from its window; and for a session with neither, from an `entry_json.delivery` of kind `external`,
 `session relayed: <route.channel> account <account> <origin.chatType> from <origin.from> to <origin.to> (from openclaw-agent.sqlite session_nodes.entry_json delivery, updated_at)`.

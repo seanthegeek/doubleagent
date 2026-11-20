@@ -2,6 +2,7 @@ package openclaw
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -123,5 +124,54 @@ func TestAnEventPastTheDatabasesBudgetIsAProblemRow(t *testing.T) {
 				t.Errorf("got %q, want %q", problems, test.want)
 			}
 		})
+	}
+}
+
+// rowCounts returns the number of rows of each kind of text a database
+// gives: by the text's first word for system rows, else by turn type.
+func rowCounts(t *testing.T, name string) map[string]int {
+	t.Helper()
+	rows, _ := readAgent(t, name)
+	counts := map[string]int{}
+	for _, row := range rows {
+		kind := row.TurnType
+		if row.TurnType == timeline.TurnSystem {
+			kind, _, _ = strings.Cut(row.Text, ":")
+		}
+		counts[kind]++
+	}
+	return counts
+}
+
+func TestEachColdArchiveChunkIsReadOnceHoweverManyArchivesItsSessionHas(t *testing.T) {
+	for _, size := range []int{10, 40} {
+		got := rowCounts(t, fmt.Sprintf("cold_repeated_%d.db", size))
+		want := map[string]int{timeline.TurnUser: size, "parser": size - 1, "session start": 1}
+		if !maps.Equal(got, want) {
+			t.Errorf("%d archives of one session with %d chunks: got %v, want %v", size, size, got, want)
+		}
+	}
+}
+
+func TestTheChunksOfASessionGoToItsFirstArchiveAndALaterOneReadsItsOwnBytes(t *testing.T) {
+	rows, _ := readAgent(t, "cold_generations.db")
+	var got []string
+	for _, row := range rows {
+		if row.TurnType == timeline.TurnUser {
+			got = append(got, row.Text)
+		}
+	}
+	if want := []string{"first", "second", "g2 own"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestAConversationIdOfSeveralRowsJoinsOnlyItsFirstRow(t *testing.T) {
+	for _, size := range []int{10, 40} {
+		got := rowCounts(t, fmt.Sprintf("conversations_repeated_%d.db", size))
+		want := map[string]int{"session relayed": size, "channel delivery": size}
+		if !maps.Equal(got, want) {
+			t.Errorf("%d rows of one conversation, %d links and deliveries: got %v, want %v", size, size, got, want)
+		}
 	}
 }

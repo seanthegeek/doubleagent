@@ -38,9 +38,11 @@ CREATE TABLE session_transcript_cold_archive_chunks (session_id TEXT NOT NULL,
 """
 
 
-def archive(session: str, name: str, archived_at: int, blob: bytes | None) -> tuple:
+def archive(
+    session: str, name: str, archived_at: int, blob: bytes | None, generation: str = "g1"
+) -> tuple:
     """Return a sqlite-stored cold archive row."""
-    return (session, "g1", name, "0" * 64, 1, 0, 0, 1, archived_at, "sqlite", blob)
+    return (session, generation, name, "0" * 64, 1, 0, 0, 1, archived_at, "sqlite", blob)
 
 
 def chunk(session: str, index: int, name: str, blob: bytes | None) -> tuple:
@@ -87,6 +89,55 @@ def grouped() -> tuple[list[tuple], list[tuple]]:
     return archives, chunks
 
 
+def repeated(count: int) -> tuple[list[tuple], list[tuple]]:
+    """Return count archives of one session, which the agent's schema does not allow, and count chunks."""
+    archives = [archive("s", f"a{number}", number, None) for number in range(count)]
+    chunks = [
+        chunk("s", number, f"c{number}", cold_jsonl("s", f"event {number}"))
+        for number in range(count)
+    ]
+    return archives, chunks
+
+
+def generations() -> tuple[list[tuple], list[tuple]]:
+    """Return two archives of one session of two generations, the second with its own bytes, and two chunks."""
+    archives = [
+        archive("s", "archive-g1", 1, None, "g1"),
+        archive("s", "archive-g2", 2, cold_jsonl("s", "g2 own"), "g2"),
+    ]
+    chunks = [
+        chunk("s", 0, "c0", cold_jsonl("s", "first")),
+        chunk("s", 1, "c1", cold_jsonl("s", "second")),
+    ]
+    return archives, chunks
+
+
+def conversations(count: int) -> str:
+    """Return the SQL of count conversations rows of one conversation_id, and as many links and deliveries.
+
+    conversation_id is the key of the agent's conversations table; a table without that key is the only
+    way one id can name several rows.
+    """
+    rows = [
+        "PRAGMA page_size = 512;",
+        "CREATE TABLE conversations (conversation_id TEXT, channel TEXT, account_id TEXT, kind TEXT,"
+        " peer_id TEXT, thread_id TEXT);",
+        "CREATE TABLE session_conversations (session_id TEXT, role TEXT, first_seen_at INTEGER,"
+        " conversation_id TEXT);",
+        "CREATE TABLE conversation_deliveries (conversation_id TEXT, created_at INTEGER,"
+        " source_session_key TEXT, operation_kind TEXT, status TEXT, platform_message_id TEXT);",
+    ]
+    for number in range(count):
+        rows.append(
+            f"INSERT INTO conversations VALUES ('c', 'telegram', 'acct', 'dm', 'p{number}', NULL);"
+        )
+        rows.append(f"INSERT INTO session_conversations VALUES ('s', 'primary', {number}, 'c');")
+        rows.append(
+            f"INSERT INTO conversation_deliveries VALUES ('c', {number}, 'k', 'send', 'sent', 'm{number}');"
+        )
+    return "\n".join(rows)
+
+
 def large_event(seq: int) -> tuple:
     """Return a transcript_events row whose event_zstd decompresses to exactly 150000 bytes."""
     text = json.dumps({"type": "label", "label": f"event {seq}", "pad": ""})
@@ -100,6 +151,18 @@ DATABASES = {
     "cold_archives_8.db": many(8),
     "cold_chunks.db": grouped(),
     "zstd_events.db": ([], []),
+}
+
+# A cold archives table without the key on session_id, so one session holds several archives.
+DUPLICATE_SCHEMA = SCHEMA.replace(
+    "session_transcript_cold_archives (session_id TEXT NOT NULL PRIMARY KEY,",
+    "session_transcript_cold_archives (session_id TEXT NOT NULL,",
+)
+
+DUPLICATE_DATABASES = {
+    "cold_repeated_10.db": repeated(10),
+    "cold_repeated_40.db": repeated(40),
+    "cold_generations.db": generations(),
 }
 
 
@@ -149,12 +212,15 @@ def write_state(name: str, script: str) -> None:
 
 
 def main() -> None:
-    """Rewrite every database of DATABASES in this directory."""
-    for name, (archives, chunks) in DATABASES.items():
+    """Rewrite every database of DATABASES and DUPLICATE_DATABASES in this directory."""
+    schemas = {name: SCHEMA for name in DATABASES} | {
+        name: DUPLICATE_SCHEMA for name in DUPLICATE_DATABASES
+    }
+    for name, (archives, chunks) in (DATABASES | DUPLICATE_DATABASES).items():
         path = HERE / name
         path.unlink(missing_ok=True)
         with contextlib.closing(sqlite3.connect(path)) as connection:
-            connection.executescript(SCHEMA)
+            connection.executescript(schemas[name])
             connection.executemany(
                 "INSERT INTO session_transcript_cold_archives VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 archives,
@@ -173,6 +239,8 @@ def main() -> None:
     write_state("bad_exec_config.db", BAD_EXEC_CONFIG)
     write_state("exec_config_socket.db", EXEC_CONFIG_WITH_SOCKET)
     write_state("state_urls.db", STATE_URLS)
+    for count in (10, 40):
+        write_state(f"conversations_repeated_{count}.db", conversations(count))
 
 
 if __name__ == "__main__":

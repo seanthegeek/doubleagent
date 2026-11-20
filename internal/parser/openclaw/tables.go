@@ -122,7 +122,7 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 		return err
 	}
 	for _, row := range rows {
-		for _, conversation := range byID.Find(row, "conversation_id") {
+		if conversation, found := firstConversation(byID, row); found {
 			a.delivery(row, conversation.Get("channel"), current[parser.NonEmptyColumn(row.Get("source_session_key"))])
 		}
 	}
