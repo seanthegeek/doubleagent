@@ -1051,7 +1051,9 @@ an object is `parser: unparseable line (not a JSON object): <line>`. A set or pu
 value together would nest the session's arrays and objects deeper than 10,000 levels, the deepest a
 JSON document is read, is
 `parser: mutation not applied (the record nests the state deeper than 10000 levels): <line>` and
-changes nothing, so the rows of the state before it stay; a `.json` session that does
+changes nothing, so the rows of the state before it stay. A delete or a record of another kind adds
+nothing, so it is never refused for depth: its path, however long, is only looked up, and one the
+state does not hold is `path <k> not found`. A `.json` session that does
 not decode is
 `parser: file is not valid JSON (<reason>)`; `workspace.json` errors are under
 [Scratch directory rows](#scratch-directory-rows). A chat editing `state.json` that does not

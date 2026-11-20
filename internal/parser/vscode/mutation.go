@@ -239,7 +239,7 @@ func applyMutation(state *node, record jsonvalue.Value, line int, work parser.Wo
 		return state, mutationError("bad path " + pathValue.JSON())
 	}
 	added, height := addedNodes(kind, record.Get("v"), line)
-	if len(path)+height > jsonvalue.MaxDepth {
+	if (isKind(kind, 1) || isKind(kind, 2)) && len(path)+height > jsonvalue.MaxDepth {
 		return state, errTooDeep
 	}
 	target := state
