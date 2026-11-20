@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -97,11 +98,35 @@ func (s *scanningFinder) scratchKeys(collection *input.Collection, rows []timeli
 	}
 	for _, path := range paths {
 		key := timeline.ProjectKey(path)
-		if path != "" && !keys[key] && (s.underProjectEntry(key) || s.finder.underHomeClaim(key, homes)) {
+		if path != "" && !keys[key] && (s.underProjectEntry(key) || s.underHomeClaim(key, homes)) {
 			keys[key] = true
 		}
 	}
 	return keys
+}
+
+// underHomeClaim is scratchFinder.underHomeClaim as it was before the homes
+// were looked up by key: every home is compared with every path.
+func (s *scanningFinder) underHomeClaim(key string, homes []string) bool {
+	for _, home := range homes {
+		windows := timeline.IsWindowsPath(home)
+		separator := "/"
+		if windows {
+			separator = `\`
+		}
+		homeKey := timeline.ProjectKey(home)
+		prefix := homeKey
+		if !strings.HasSuffix(prefix, separator) {
+			prefix += separator
+		}
+		if key != homeKey && !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		if s.finder.found.ClaimsHomePath(key[len(homeKey):], windows) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // pathComponents returns the components generated paths are made of: the
@@ -229,5 +254,70 @@ func TestEachPathIsAnsweredOnceInWorkThatGrowsWithItsLength(t *testing.T) {
 	if once := tests[[2]int{1000, 2000}]; once > 2000 || tests[[2]int{1000, 4000}] > 2*once+2 {
 		t.Errorf("2000 components tried %d expressions and 4000 %d, want at most one a component",
 			once, tests[[2]int{1000, 4000}])
+	}
+}
+
+// Looking the homes up by key answers every path as comparing it with
+// every home does: homes nested in one another, Windows and POSIX homes,
+// homes with a trailing separator, and paths in, under and beside them.
+func TestTheHomeLookupAnswersAsComparingEveryHomeDoes(t *testing.T) {
+	finder := testFinder(t)
+	scanning := newScanningFinder(finder)
+	random := rand.New(rand.NewPCG(5, 6))
+	claimed := 0
+	for range 3000 {
+		var homes []string
+		indexed := homeKeys{}
+		for range 1 + random.IntN(4) {
+			home := randomPath(random)
+			if cut := strings.LastIndexAny(home, `/\`); cut > 0 && random.IntN(3) == 0 {
+				home = home[:cut]
+			}
+			homes = append(homes, home)
+			indexed.add(home)
+		}
+		for range 5 {
+			path := homes[random.IntN(len(homes))] + randomPath(random)
+			if random.IntN(4) == 0 {
+				path = randomPath(random)
+			}
+			key := timeline.ProjectKey(path)
+			got, want := finder.underHomeClaim(key, indexed), scanning.underHomeClaim(key, homes)
+			if got != want {
+				t.Fatalf("%q in homes %q: the lookup says %v, comparing every home %v", path, homes, got, want)
+			}
+			if got {
+				claimed++
+			}
+		}
+	}
+	if claimed < 100 {
+		t.Errorf("only %d paths were claimed, too few to compare", claimed)
+	}
+}
+
+// A path is compared with the homes in a number of lookups that grows with
+// its components, whatever the number of homes, so n homes and n paths
+// cost n lookups a component, not n times n.
+func TestTheHomeLookupsGrowWithThePathsNotTheHomes(t *testing.T) {
+	lookups := map[int]int{}
+	for _, count := range []int{500, 1000} {
+		finder := testFinder(t)
+		prefix := strings.Repeat("/d", 100)
+		collection := &input.Collection{}
+		var rows []timeline.Row
+		for i := range count {
+			collection.Homes = append(collection.Homes, &input.Home{Original: prefix + "/home" + strconv.Itoa(i)})
+			rows = append(rows, timeline.Row{ProjectPath: prefix + "/work" + strconv.Itoa(i) + "/src",
+				TurnType: timeline.TurnUser})
+		}
+		if keys := finder.scratchKeys(collection, rows); len(keys) != 0 {
+			t.Fatalf("scratch keys %v, want none", keys)
+		}
+		lookups[count] = finder.homeLookups
+	}
+	if lookups[1000] > 2*lookups[500]+10 || lookups[500] > 500*2*103 {
+		t.Errorf("500 homes and paths made %d lookups and 1000 made %d, want about two a component of each path",
+			lookups[500], lookups[1000])
 	}
 }

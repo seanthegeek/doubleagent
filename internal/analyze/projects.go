@@ -110,12 +110,14 @@ func collectionProjectTexts(collection *input.Collection) []string {
 // scratchFinder tells a project path that is a scratch directory, one that
 // belongs to an agent rather than to the user, from the catalog: the
 // project entries' segments compiled exact and without regard to case, and
-// the home claims. tests counts the segment expressions tried, so a test
-// can see the work a run does.
+// the home claims. tests counts the segment expressions tried, and
+// homeLookups the home keys looked up, so a test can see the work a run
+// does.
 type scratchFinder struct {
-	found   *catalog.Matcher
-	entries [2]entryIndex
-	tests   int
+	found       *catalog.Matcher
+	entries     [2]entryIndex
+	tests       int
+	homeLookups int
 }
 
 // entryIndex holds the project entries of one case mode by their first
@@ -191,10 +193,10 @@ func (f *scratchFinder) scratchKeys(collection *input.Collection, rows []timelin
 			keys[timeline.ProjectKey(row.ProjectPath)] = true
 		}
 	}
-	var homes []string
+	homes := homeKeys{}
 	for _, home := range collection.Homes {
 		if home.Original != "" && !home.Project {
-			homes = append(homes, stripImageRoot(home.Original, collection.Summary))
+			homes.add(stripImageRoot(home.Original, collection.Summary))
 		}
 	}
 	paths := collectedProjects(collection)
@@ -256,26 +258,56 @@ func (f *scratchFinder) matchesAll(segments []*regexp.Regexp, parts []string) bo
 	return true
 }
 
+// homeKeys holds the homes of a run, paths on the source host, by their
+// project key: for each key whether a home of that key is a Windows path,
+// each answer once.
+type homeKeys map[string][]bool
+
+// add records a home.
+func (h homeKeys) add(home string) {
+	key, windows := timeline.ProjectKey(home), timeline.IsWindowsPath(home)
+	if !slices.Contains(h[key], windows) {
+		h[key] = append(h[key], windows)
+	}
+}
+
 // underHomeClaim reports whether a project key lies in or under a
-// directory a home entry claims in one of the homes, paths on the source
-// host; a Windows home is compared in its key form and without regard to
-// case.
-func (f *scratchFinder) underHomeClaim(key string, homes []string) bool {
-	for _, home := range homes {
-		windows := timeline.IsWindowsPath(home)
+// directory a home entry claims in one of the homes; a Windows home is
+// compared in its key form and without regard to case. A home holding the
+// key ends just before or just after one of its separators, or is the key
+// itself, so the homes are looked up once per component, whatever their
+// number.
+func (f *scratchFinder) underHomeClaim(key string, homes homeKeys) bool {
+	if f.claimedUnder(key, key, homes) {
+		return true
+	}
+	for i := range len(key) {
+		if key[i] != '/' && key[i] != '\\' {
+			continue
+		}
+		if f.claimedUnder(key, key[:i], homes) || f.claimedUnder(key, key[:i+1], homes) {
+			return true
+		}
+	}
+	return false
+}
+
+// claimedUnder reports whether homeKey is the key of a home of homes that
+// holds key, the key itself or a path under it by the home's separator,
+// and a home entry claims the rest of key in that home.
+func (f *scratchFinder) claimedUnder(key, homeKey string, homes homeKeys) bool {
+	f.homeLookups++
+	for _, windows := range homes[homeKey] {
 		separator := "/"
 		if windows {
 			separator = `\`
 		}
-		homeKey := timeline.ProjectKey(home)
 		prefix := homeKey
 		if !strings.HasSuffix(prefix, separator) {
 			prefix += separator
 		}
-		if key != homeKey && !strings.HasPrefix(key, prefix) {
-			continue
-		}
-		if f.found.ClaimsHomePath(key[len(homeKey):], windows) != "" {
+		if (key == homeKey || strings.HasPrefix(key, prefix)) &&
+			f.found.ClaimsHomePath(key[len(homeKey):], windows) != "" {
 			return true
 		}
 	}
