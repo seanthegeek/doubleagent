@@ -57,7 +57,8 @@ func readAgent(t *testing.T, name string) ([]timeline.Row, int) {
 	subject.Work = parser.CountingWork()
 	reader := &agentDatabase{writer: &writer{Parser: subject, artifact: artifact,
 		emit: func(row timeline.Row) { rows = append(rows, row) }}, database: database,
-		store: newDatabaseState(), windows: windowSet{byID: map[string]sqlitefile.Row{}}}
+		store: newDatabaseState(), windows: windowSet{byID: map[string]sqlitefile.Row{}},
+		carried: parser.NewCarried(artifact), described: map[string]windowText{}}
 	if err := reader.read(); err != nil {
 		t.Fatal(err)
 	}

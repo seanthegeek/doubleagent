@@ -121,8 +121,13 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 		current.extra = "copy=" + strings.TrimLeft(name.copy, ".")
 	}
 	var keyError error
+	// The session key is the one sessions.json gives every copy and
+	// archive of the session.
+	carried := parser.NewCarried(artifact)
 	if ok {
-		current.key, keyError = p.legacyKey(artifact, current.sessionID)
+		var key string
+		key, keyError = p.legacyKey(artifact, current.sessionID)
+		current.key = carried.Cut("session key", key)
 	}
 	var problems parser.Problems
 	raw, read := parser.FileBytes(artifact.DiskPath, &problems)
@@ -137,6 +142,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 	if keyError != nil {
 		problems.Add(0, keyError.Error())
 	}
+	carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.sessionID, current.cwd))
 }
 

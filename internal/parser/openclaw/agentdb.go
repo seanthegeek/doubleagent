@@ -32,6 +32,18 @@ type agentDatabase struct {
 	chunksBySession map[string][]sqlitefile.Row
 	// budget is what the database's compressed blobs may still decode to.
 	budget *zed.Budget
+	// carried cuts the values every generation of a session copies from
+	// its window, and described holds them cut, by session id, so each is
+	// cut once however many generations copy it.
+	carried   *parser.Carried
+	described map[string]windowText
+}
+
+// windowText is what each generation of a session copies from its window
+// into its rows' text: the session key, the "<column>=<value>" words of the
+// window's columns, the model and the model provider, each cut.
+type windowText struct {
+	key, columns, model, provider string
 }
 
 // table returns the rows a query over the named table gives.
@@ -59,11 +71,13 @@ func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parser.Opt
 	reader := &agentDatabase{writer: &writer{Parser: p, artifact: artifact, options: options,
 		emit: emit}, database: database, store: newDatabaseState(),
 		windows: windowSet{byID: map[string]sqlitefile.Row{}},
-		budget:  p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)}
+		budget:  p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor),
+		carried: parser.NewCarried(artifact), described: map[string]windowText{}}
 	if err := reader.read(); err != nil {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return
 	}
+	reader.carried.Report(0, &reader.problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, reader.problems, "", ""))
 }
 
@@ -174,31 +188,51 @@ func anchorMessage(database *sqlitefile.Database, label string) string {
 
 // windowSession returns the session of a generation, described by its
 // window: its channel, account, chat type, reason, previous session, parent
-// key, spawner and display name, then extra, then its model provider.
+// key, spawner and display name, then extra, then its model provider. key,
+// the generation's own session key, stands before the window's.
 func (a *agentDatabase) windowSession(sessionID, key, extra string) *session {
-	window := a.windows.byID[sessionID]
+	described := a.describe(sessionID)
 	var parts []string
+	for _, part := range []string{described.columns, extra} {
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+	if described.provider != "" {
+		parts = append(parts, "model_provider="+described.provider)
+	}
+	current := newSession(sessionID)
+	current.key = cmp.Or(key, described.key)
+	current.extra = strings.Join(parts, " ")
+	current.model = described.model
+	current.provider = described.provider
+	current.store = a.store
+	return current
+}
+
+// describe returns what the generations of sessionID copy from its window,
+// each value cut ("session_windows.<column>") the first time it is asked
+// for.
+func (a *agentDatabase) describe(sessionID string) windowText {
+	if described, ok := a.described[sessionID]; ok {
+		return described
+	}
+	window := a.windows.byID[sessionID]
+	cut := func(column, value string) string { return a.carried.Cut("session_windows."+column, value) }
+	described := windowText{key: cut("session_key", parser.NonEmptyColumn(window.Get("session_key")))}
+	var columns []string
 	for _, column := range []string{"channel", "account_id", "chat_type", "reason",
 		"previous_session_id", "parent_session_key", "spawned_by", "display_name"} {
 		value := window.Get(column)
 		if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-			parts = append(parts, column+"="+value.String())
+			columns = append(columns, column+"="+cut(column, value.String()))
 		}
 	}
-	if extra != "" {
-		parts = append(parts, extra)
-	}
-	provider := parser.NonEmptyColumn(window.Get("model_provider"))
-	if provider != "" {
-		parts = append(parts, "model_provider="+provider)
-	}
-	current := newSession(sessionID)
-	current.key = cmp.Or(key, parser.NonEmptyColumn(window.Get("session_key")))
-	current.extra = strings.Join(parts, " ")
-	current.model = parser.NonEmptyColumn(window.Get("model"))
-	current.provider = provider
-	current.store = a.store
-	return current
+	described.columns = strings.Join(columns, " ")
+	described.provider = cut("model_provider", parser.NonEmptyColumn(window.Get("model_provider")))
+	described.model = cut("model", parser.NonEmptyColumn(window.Get("model")))
+	a.described[sessionID] = described
+	return described
 }
 
 // contextRow returns a row of a table read after the transcripts, with its

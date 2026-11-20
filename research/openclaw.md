@@ -1520,7 +1520,13 @@ Each session opens with a `system` row
 the window columns being `channel`, `account_id`, `chat_type`, `reason`, `previous_session_id`,
 `parent_session_key`, `spawned_by`, `display_name` and `model_provider` as `<column>=<value>` when
 set; an archive blob adds `archive=<reason> name=<archive_name>`, a cold archive
-`cold_archive=<archive_name>`, and a copy file `archive=<reason>.<ts>` or `copy=<suffix>`. Entry
+`cold_archive=<archive_name>`, and a copy file `archive=<reason>.<ts>` or `copy=<suffix>`. Every
+generation of a session copies its window, and every copy file its `sessions.json` key, so a window
+value (`session_key`, a column above, `model`, `model_provider`) or a `sessions.json` key longer
+than 4,096 bytes is written cut, as the output cuts any value copied onto many rows, with one
+`parser: session_windows.<column> longer than 4096 bytes, cut to 4096 bytes (<n> times)` row per
+column at the end of the database (`parser: session key ...` at the end of the file); later model
+rows compare with the cut model. Entry
 types other than `message` give `system` rows: `thinking level: <thinkingLevel>`,
 `compaction (tokens_before=<tokensBefore> tokens_after=<tokensAfter>): <summary>`,
 `reset: <reason>`, `branch summary: <summary>`, `custom <customType>: <data>`,
