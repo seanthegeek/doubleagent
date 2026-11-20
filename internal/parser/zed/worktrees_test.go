@@ -1,7 +1,9 @@
 package zed
 
 import (
+	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -63,6 +65,64 @@ func TestCreatedWorktreesFindTheirRepositoryInOneIndex(t *testing.T) {
 				if !strings.Contains(text, "(Zed-created git worktree of /w/main)") {
 					t.Errorf("row %d is %q, want the sidebar thread's main worktree", i, text)
 				}
+			}
+		})
+	}
+}
+
+// sidebarRows parses the named testdata db.sqlite and returns its rows.
+func sidebarRows(t *testing.T, name string) []timeline.Row {
+	t.Helper()
+	const rel = ".local/share/zed/db/0-stable/db.sqlite"
+	data, err := osfile.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "zed",
+		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+		t.Fatal(err)
+	}
+	return rows
+}
+
+// An archived worktree's id is its table's key, so a repeated one is
+// damage: the id's thread links join its first row, in id order, each
+// later row gives its own unlinked row, and the table one problem row, so
+// the rows grow with the table rather than with the square of it.
+func TestARepeatedArchivedWorktreeIDJoinsItsLinksOnce(t *testing.T) {
+	for _, count := range []int{10, 40} {
+		t.Run(strconv.Itoa(count)+" rows of one id and as many links", func(t *testing.T) {
+			var got []string
+			for _, row := range sidebarRows(t, "repeated_worktree_"+strconv.Itoa(count)+".db") {
+				switch {
+				case strings.HasPrefix(row.Text, "archived worktree: "):
+					path, _, _ := strings.Cut(strings.TrimPrefix(row.Text, "archived worktree: "), " ")
+					got = append(got, path+" "+row.SessionID)
+				case strings.HasPrefix(row.Text, "parser: "):
+					got = append(got, row.Text)
+				}
+			}
+			var want []string
+			for i := range count {
+				want = append(want, fmt.Sprintf("/w/copy0 s%03d", i))
+			}
+			for i := 1; i < count; i++ {
+				want = append(want, fmt.Sprintf("/w/copy%d ", i))
+			}
+			want = append(want, fmt.Sprintf("parser: archived_git_worktrees holds %d rows repeating an earlier "+
+				"row's id; its linked threads are shown once", count-1))
+			if !slices.Equal(got, want) {
+				t.Errorf("%d rows %q, want %d rows %q", len(got), got[:min(len(got), 3)], len(want), want[:3])
 			}
 		})
 	}
