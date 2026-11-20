@@ -993,7 +993,12 @@ table under [Past use and secondary sources](#past-use-rows-and-secondary-source
 A `sessions.sqlite3` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
 one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
-project path.
+project path. A `sessions` table holding rows that repeat an earlier row's key, which nanobot
+never writes (the key is the table's primary key), gives the key's messages with its first row in
+`created_at` then key order; each later row of the key gives its own `session start:` row, and one
+row after the database's other rows, with the workspace's project path, no session and
+`source_line` 0, counts them (`1 row` for one):
+`parser: sessions holds <n> rows repeating an earlier row's key; its messages are shown once`.
 
 The WebUI index, `.webui_session_index.json`, that does not decode is one whole-file row
 `parser: .webui_session_index.json did not parse: <reason>`, one that is not a JSON object

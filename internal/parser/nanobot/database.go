@@ -3,6 +3,7 @@ package nanobot
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -85,12 +86,36 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	for _, key := range orphans {
 		heads = append(heads, head{key, nil})
 	}
+	// A key is the sessions table's key, so only damage repeats one: its
+	// messages go with its first row, and each later row gives its own rows.
+	shown, repeats := map[string]bool{}, 0
 	for _, each := range heads {
 		var problems parser.Problems
-		records := databaseRecords(each.session, store.messages[each.key], &problems)
+		messages := store.messages[each.key]
+		if shown[each.key] && len(messages) > 0 {
+			messages = nil
+			repeats++
+		}
+		shown[each.key] = true
+		records := databaseRecords(each.session, messages, &problems)
 		sessionID := p.sessionRows(artifact, options, each.key, project, records, emit, &problems)
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 	}
+	if repeats > 0 {
+		var problems parser.Problems
+		problems.Add(0, repeatedKeys(repeats))
+		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
+	}
+}
+
+// repeatedKeys returns the problem text of n sessions rows that repeat an
+// earlier row's key and so give their rows without the key's messages.
+func repeatedKeys(n int) string {
+	rows := "1 row repeating"
+	if n > 1 {
+		rows = strconv.Itoa(n) + " rows repeating"
+	}
+	return "sessions holds " + rows + " an earlier row's key; its messages are shown once"
 }
 
 // readSessionStore reads the sessions and messages of a sessions.sqlite3,
