@@ -2,6 +2,7 @@ package vscode
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -12,15 +13,19 @@ import (
 // session's own creation.
 const sessionStart = -1
 
+// errNotObject is the reason a log line holding a JSON value other than an
+// object is a problem, worded as the kit's JSON line reader words it.
+var errNotObject = errors.New("not a JSON object")
+
 // requestLines maps a request's position to the log line that created it.
 type requestLines map[int64]int
 
 // replay replays a .jsonl mutation log and returns the session state,
 // filling lines with the log line that made each request and the line of
-// the session's own creation. A line that does not decode, or whose
-// mutation does not apply, is a problem with the line's text and is
-// skipped; a line holding anything but an object is skipped silently. The
-// entries the replay changes are counted in work.
+// the session's own creation. A line that does not decode, holds a JSON
+// value other than an object, or whose mutation does not apply, is a
+// problem with the line's text and is skipped. The entries the replay
+// changes are counted in work.
 func replay(path string, lines requestLines, problems *parser.Problems, work parser.Work) jsonvalue.Value {
 	var state *node
 	started, startLine := false, 0
@@ -30,11 +35,11 @@ func replay(path string, lines requestLines, problems *parser.Problems, work par
 			continue
 		}
 		record, err := jsonvalue.DecodeString(textlines.ValidUTF8(stripped))
+		if err == nil && !record.IsObject() {
+			err = errNotObject
+		}
 		if err != nil {
 			problems.AddRaw(number, parser.UnparseableLine(err), parser.LineText(raw))
-			continue
-		}
-		if !record.IsObject() {
 			continue
 		}
 		next, err := applyMutation(state, record, number, work)
