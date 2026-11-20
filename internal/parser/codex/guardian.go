@@ -272,8 +272,10 @@ func databaseState(path string) [4]int64 {
 	if info, err := osfile.Lstat(path); err == nil {
 		state[0], state[1] = info.Size(), info.ModTime().UnixNano()
 	}
-	if info, err := osfile.Lstat(path + "-wal"); err == nil {
-		state[2], state[3] = info.Size(), info.ModTime().UnixNano()
+	if log, ok := parser.Sidecar(path, "-wal"); ok {
+		if info, err := osfile.Lstat(log); err == nil {
+			state[2], state[3] = info.Size(), info.ModTime().UnixNano()
+		}
 	}
 	return state
 }
