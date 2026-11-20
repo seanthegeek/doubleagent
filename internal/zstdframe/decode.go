@@ -78,20 +78,60 @@ func (t *trackedReader) Read(buffer []byte) (int, error) {
 // announces a window above MaxWindowSize, and the reader's own error when
 // reading fails; it is what emit returned when emit fails.
 func DecodeStream(r io.Reader, emit func(chunk []byte) error) error {
-	tracked := &trackedReader{source: r}
-	decoder, err := zstd.NewReader(tracked,
+	decoder, err := NewDecoder()
+	if err != nil {
+		return err
+	}
+	defer decoder.Close()
+	return decoder.DecodeStream(r, MaxWindowSize, emit)
+}
+
+// Decoder decodes one zstd input after another as DecodeStream does, keeping
+// its buffers from one input to the next. The window buffer, which the
+// decoder makes as large as a frame's announced window before reading its
+// blocks, is made again only for a frame announcing a larger window than
+// any before it, so decoding many small inputs costs their output and one
+// window, not a window each. A Decoder is for one goroutine at a time.
+type Decoder struct {
+	decoder *zstd.Decoder
+	chunk   []byte
+}
+
+// NewDecoder returns a Decoder that runs in the calling goroutine.
+func NewDecoder() (*Decoder, error) {
+	decoder, err := zstd.NewReader(nil,
 		zstd.WithDecoderConcurrency(1),
 		zstd.WithDecoderMaxWindow(MaxWindowSize),
 		zstd.WithDecoderLowmem(true))
 	if err != nil {
+		return nil, fmt.Errorf("start zstd decoder: %w", err)
+	}
+	return &Decoder{decoder: decoder, chunk: make([]byte, chunkSize)}, nil
+}
+
+// Close releases the decoder's buffers; the Decoder cannot be used after.
+func (d *Decoder) Close() {
+	d.decoder.Close()
+}
+
+// DecodeStream decodes the frames of r as the package's DecodeStream does,
+// with one more limit: a frame announcing a window above maxWindow is
+// refused with ErrTooLarge, before its window is made. maxWindow is taken
+// as at least the 1 KiB every frame may announce and at most MaxWindowSize.
+// The decoder checks the window at every frame's header, so a later frame
+// of r is held to it too.
+func (d *Decoder) DecodeStream(r io.Reader, maxWindow uint64, emit func(chunk []byte) error) error {
+	tracked := &trackedReader{source: r}
+	maxWindow = min(max(maxWindow, zstd.MinWindowSize), MaxWindowSize)
+	if err := d.decoder.ResetWithOptions(tracked, zstd.WithDecoderMaxWindow(maxWindow)); err != nil {
 		return fmt.Errorf("start zstd decoder: %w", err)
 	}
-	defer decoder.Close()
-	chunk := make([]byte, chunkSize)
+	// A reset to no reader drops the decoder's hold on r and its bytes.
+	defer d.decoder.Reset(nil)
 	for {
-		n, err := decoder.Read(chunk)
+		n, err := d.decoder.Read(d.chunk)
 		if n > 0 {
-			if emitErr := emit(chunk[:n]); emitErr != nil {
+			if emitErr := emit(d.chunk[:n]); emitErr != nil {
 				return emitErr
 			}
 		}

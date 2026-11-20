@@ -15,8 +15,8 @@ import (
 // small hostile frame cannot make the parser allocate without bound.
 const MaxDecompressed = 256 << 20
 
-// The decompression budget of one database, which bounds the work its
-// blobs cause in all, since MaxDecompressed bounds only one blob:
+// The decompression budget of one database, which bounds the bytes its
+// blobs decompress to in all, since MaxDecompressed bounds only one blob:
 // BudgetRatio times the database's size, and at least BudgetFloor.
 const (
 	// BudgetRatio is far above what zstd gives for the JSON text agents
@@ -35,7 +35,12 @@ const (
 // compression. Data that is not zstd, is corrupt, or decodes to more than
 // MaxDecompressed bytes is an error in the binary's own words.
 func Decompress(blob []byte) ([]byte, error) {
-	out, _, err := decompress(blob, MaxDecompressed)
+	decoder, err := zstdframe.NewDecoder()
+	if err != nil {
+		return nil, err
+	}
+	defer decoder.Close()
+	out, _, err := decompress(decoder, blob, MaxDecompressed)
 	if errors.Is(err, zstdframe.ErrTooLarge) {
 		return nil, errBlobTooLarge
 	}
@@ -48,10 +53,14 @@ var errBlobTooLarge = errors.New("zstd: the content is larger than the decoder a
 
 // decompress returns the content of a zstd blob decoded up to limit bytes
 // and how many bytes were decoded, the content returned or not; past the
-// limit the error wraps zstdframe.ErrTooLarge.
-func decompress(blob []byte, limit int) ([]byte, int, error) {
+// limit the error wraps zstdframe.ErrTooLarge. A frame announcing a window
+// above limit is refused the same way before its window is made: a window
+// holds output already decoded, so a frame that needs a larger one would
+// pass the limit anyway, and one that only announces it would make the
+// decoder reserve memory its content never uses.
+func decompress(decoder *zstdframe.Decoder, blob []byte, limit int) ([]byte, int, error) {
 	var out bytes.Buffer
-	err := zstdframe.DecodeStream(bytes.NewReader(blob), func(chunk []byte) error {
+	err := decoder.DecodeStream(bytes.NewReader(blob), uint64(limit), func(chunk []byte) error {
 		if out.Len()+len(chunk) > limit {
 			return zstdframe.ErrTooLarge
 		}
@@ -70,9 +79,15 @@ func decompress(blob []byte, limit int) ([]byte, int, error) {
 
 // Budget is what is left of the bytes the blobs of one database may
 // decompress to in all. Once it is spent, every further blob is refused
-// with an error that says so.
+// with an error that says so. Its blobs share one decoder, so the window a
+// frame announces is reserved once for the database, not once per blob,
+// and is never larger than what is left of the budget.
 type Budget struct {
 	total, left int
+	// decoder is made for the first blob and kept for the others. It runs
+	// in the calling goroutine and holds only memory, so a Budget needs no
+	// closing.
+	decoder *zstdframe.Decoder
 }
 
 // NewBudget returns the budget of a database of size bytes: BudgetRatio
@@ -88,11 +103,19 @@ func NewBudget(size int64, floor int) *Budget {
 }
 
 // Decompress decompresses a blob as Decompress does, also refusing one
-// that would take the database past its budget. The bytes a blob decodes,
-// refused or not, are taken from the budget.
+// that would take the database past its budget or whose frame announces a
+// window above what is left of it. The bytes a blob decodes, refused or
+// not, are taken from the budget.
 func (b *Budget) Decompress(blob []byte) ([]byte, error) {
+	if b.decoder == nil {
+		decoder, err := zstdframe.NewDecoder()
+		if err != nil {
+			return nil, err
+		}
+		b.decoder = decoder
+	}
 	limit := min(MaxDecompressed, b.left)
-	out, decoded, err := decompress(blob, limit)
+	out, decoded, err := decompress(b.decoder, blob, limit)
 	b.left -= decoded
 	if !errors.Is(err, zstdframe.ErrTooLarge) {
 		return out, err
