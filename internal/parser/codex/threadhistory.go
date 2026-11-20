@@ -60,7 +60,7 @@ type historyEvent struct {
 // with its thread, reported under that thread after the other rows.
 type itemProblem struct {
 	sessionID string
-	thread    *sqlitefile.Row
+	thread    *threadRecord
 	problem   parser.Problem
 }
 
@@ -113,7 +113,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 	for _, entry := range problems {
 		project := ""
 		if entry.thread != nil {
-			project = parser.NonEmptyColumn(entry.thread.Get("cwd"))
+			project = entry.thread.cwd
 		}
 		parser.EmitAll(emit, p.ErrorRows(artifact, parser.Problems{entry.problem}, entry.sessionID,
 			project))
@@ -124,7 +124,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 // first user message is its task; tasked holds the threads whose first
 // user message has been seen. It returns the problems of the item's
 // members of the wrong kind.
-func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thread *sqlitefile.Row,
+func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thread *threadRecord,
 	item jsonvalue.Value, options parser.Options, tasked map[string]bool, emit parser.Emit) parser.Problems {
 	var problems parser.Problems
 	for _, part := range threadItemRows(item, event.row, &problems) {
@@ -138,7 +138,7 @@ func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thr
 		row.ToolName, row.ToolUseID = part.toolName, part.toolUseID
 		text := part.text
 		if part.turnType == timeline.TurnUser {
-			if thread != nil && isSubagentThread(*thread) && !tasked[event.threadID] {
+			if thread != nil && isSubagentThread(thread.Row) && !tasked[event.threadID] {
 				row.TurnType, text = timeline.TurnSystem, "subagent task: "+text
 			}
 			tasked[event.threadID] = true
@@ -151,7 +151,7 @@ func (p *Parser) itemEventRows(artifact *input.Artifact, event historyEvent, thr
 
 // turnRow emits the row of a turn's start, or of the end of a turn that
 // completed or failed.
-func (p *Parser) turnRow(artifact *input.Artifact, event historyEvent, thread *sqlitefile.Row,
+func (p *Parser) turnRow(artifact *input.Artifact, event historyEvent, thread *threadRecord,
 	emit parser.Emit) {
 	turn := event.row
 	turnID := parser.NonEmptyColumn(turn.Get("turn_id"))

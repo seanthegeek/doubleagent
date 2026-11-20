@@ -175,7 +175,7 @@ func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
-	threads := map[string]*sqlitefile.Row{}
+	threads := map[string]*threadRecord{}
 	if len(records) > 0 {
 		threads = p.siblingThreads(artifact)
 	}
@@ -192,7 +192,7 @@ func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
 		} else {
 			continue
 		}
-		var thread *sqlitefile.Row
+		var thread *threadRecord
 		if found.sessionID != "" {
 			thread = threads[found.sessionID]
 		}
