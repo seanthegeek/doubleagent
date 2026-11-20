@@ -210,12 +210,15 @@ func (w *transcriptRows) put(turn, text, toolName string) {
 }
 
 // parseTranscript emits the rows of a transcript, preceded, for a server
-// agent, by its `session synced:` row at the first line.
+// agent, by its `session synced:` row at the first line. The server comes
+// from settings.json, one value every transcript of the agent repeats, so
+// it is cut as a carried value, with its problem at that line.
 func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conversation string,
 	options parser.Options, emit parser.Emit) {
 	sessions := p.agentSessions(artifact, agentDirectory)
 	serverSide := !strings.HasPrefix(agentDirectory, localAgentPrefix)
 	writer := &transcriptRows{parser: p, artifact: artifact, conversation: conversation, emit: emit}
+	carried := parser.NewCarried(artifact)
 	var problems parser.Problems
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		writer.line = line
@@ -224,8 +227,9 @@ func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conve
 		if serverSide {
 			serverSide = false
 			writer.put(timeline.TurnSystem, "session synced: server conversation "+conversation+
-				" agent "+agentDirectory+" server "+p.server(artifact, agentDirectory)+
+				" agent "+agentDirectory+" server "+carried.Cut("server", p.server(artifact, agentDirectory))+
 				" (from .letta/transcripts path, first captured_at)", "")
+			carried.Report(line, &problems)
 		}
 		writer.record(record, options)
 	}
