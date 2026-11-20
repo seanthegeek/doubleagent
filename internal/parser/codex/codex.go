@@ -56,6 +56,8 @@ type Parser struct {
 	// read, by path.
 	guardians map[string][]*guardianIndex
 	threads   map[string]*threadsFile
+	// zst reads every compressed rollout of the run (zstRecords).
+	zst *zstReader
 }
 
 // paths are the relative paths and patterns of the files the parser reads,

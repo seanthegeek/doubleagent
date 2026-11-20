@@ -76,7 +76,7 @@ func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, 
 	}
 	var records []numberedRecord
 	if strings.HasSuffix(artifact.Rel, ".zst") {
-		records = zstRecords(artifact.DiskPath, &problems)
+		records = p.zstRecords(artifact.DiskPath, &problems)
 	} else {
 		for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 			records = append(records, numberedRecord{line: line, value: record})

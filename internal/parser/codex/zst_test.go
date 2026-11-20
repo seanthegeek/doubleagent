@@ -22,6 +22,16 @@ import (
 // problems as line:kind, where kind is zstd for a decoding problem and line
 // for a line that is not JSON.
 
+// testReader returns a zstReader for one test.
+func testReader(t *testing.T) *zstReader {
+	t.Helper()
+	reader, err := newZstReader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return reader
+}
+
 // cutRun is one run of cut lengths that read alike.
 type cutRun struct {
 	from     int
@@ -83,7 +93,7 @@ func TestACutStreamKeepsTheLinesOfItsWholeBlocks(t *testing.T) {
 			want := file.runs[run]
 			t.Run(fmt.Sprintf("%s cut at %d bytes", file.name, n), func(t *testing.T) {
 				var problems parser.Problems
-				records := zstRecordsOf(bytes.NewReader(data[:n]), "cut.jsonl.zst", &problems)
+				records := testReader(t).records(bytes.NewReader(data[:n]), "cut.jsonl.zst", &problems)
 				lines, kinds := summary(records, problems)
 				if lines != want.lines || kinds != want.problems {
 					t.Errorf("got lines %s problems %s, want %s and %s", lines, kinds, want.lines,
@@ -113,7 +123,7 @@ func (f *failingReader) Read(buffer []byte) (int, error) {
 func TestAReadThatFailsKeepsTheEarlierLinesAndNamesTheFile(t *testing.T) {
 	var problems parser.Problems
 	reader := &failingReader{data: readTestdata(t, "two-lines.jsonl.zst")}
-	records := zstRecordsOf(reader, filepath.Join("home", "rollout.jsonl.zst"), &problems)
+	records := testReader(t).records(reader, filepath.Join("home", "rollout.jsonl.zst"), &problems)
 	if lines, _ := summary(records, nil); lines != "1,2" {
 		t.Errorf("got lines %s, want 1,2", lines)
 	}
@@ -136,7 +146,7 @@ func TestDecodingProblemsReadAsTheBinarysOwnZstdMessages(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			zstRecordsOf(bytes.NewReader(test.input), "x.jsonl.zst", &problems)
+			testReader(t).records(bytes.NewReader(test.input), "x.jsonl.zst", &problems)
 			if len(problems) != 1 || problems[0].Line != 1 ||
 				!strings.HasPrefix(problems[0].Message, test.want) {
 				t.Errorf("got %+v, want one problem at line 1 starting %q", problems, test.want)
@@ -213,7 +223,7 @@ func TestLinesCutAcrossManyChunksAreSearchedOnce(t *testing.T) {
 func TestAMissingZstFileIsOneProblemAtLineZero(t *testing.T) {
 	var problems parser.Problems
 	path := filepath.Join(t.TempDir(), "rollout-x.jsonl.zst")
-	if records := zstRecords(path, &problems); len(records) != 0 {
+	if records := New().zstRecords(path, &problems); len(records) != 0 {
 		t.Errorf("got %d records", len(records))
 	}
 	if len(problems) != 1 || problems[0].Line != 0 ||
@@ -232,9 +242,14 @@ func FuzzZstRecords(fuzz *testing.F) {
 		fuzz.Add(data)
 	}
 	fuzz.Add([]byte("not zstd"))
+	// One decoder reads every input, as one parser's does every rollout.
+	reader, err := newZstReader()
+	if err != nil {
+		fuzz.Fatal(err)
+	}
 	fuzz.Fuzz(func(t *testing.T, data []byte) {
 		var problems parser.Problems
-		records := zstRecordsOf(bytes.NewReader(data), "fuzz.jsonl.zst", &problems)
+		records := reader.records(bytes.NewReader(data), "fuzz.jsonl.zst", &problems)
 		for i := 1; i < len(records); i++ {
 			if records[i].line <= records[i-1].line {
 				t.Fatalf("line numbers out of order: %d after %d", records[i].line, records[i-1].line)
