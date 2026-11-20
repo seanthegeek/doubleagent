@@ -25,7 +25,7 @@ const sessionColumnLength = 50_000
 // (runtime.MemStats.TotalAlloc), not timed.
 func TestASessionsColumnsAreConvertedOncePerSession(t *testing.T) {
 	const rel = ".copilot/session-store.db"
-	allocated := map[int]uint64{}
+	allocated := map[int]int64{}
 	for _, turns := range []int{20, 40} {
 		data, err := osfile.ReadFile(filepath.Join("testdata", fmt.Sprintf("session_columns_%d.db", turns)))
 		if err != nil {
@@ -50,7 +50,7 @@ func TestASessionsColumnsAreConvertedOncePerSession(t *testing.T) {
 			t.Fatal(err)
 		}
 		runtime.ReadMemStats(&after)
-		allocated[turns] = after.TotalAlloc - before.TotalAlloc
+		allocated[turns] = int64(after.TotalAlloc - before.TotalAlloc)
 		// Two rows per turn, then one problem row for each cut field.
 		if len(rows) != 2*turns+2 || len(rows[0].ProjectPath) > parser.CarriedLimit ||
 			rows[0].GitBranch != rows[2*turns-1].GitBranch {

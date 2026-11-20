@@ -24,7 +24,7 @@ const threadColumnLength = 50_000
 // copy of both columns per row (runtime.MemStats.TotalAlloc, not timed).
 func TestAThreadsColumnsAreConvertedOncePerThread(t *testing.T) {
 	const rel = ".codex/state_5.sqlite"
-	allocated := map[int]uint64{}
+	allocated := map[int]int64{}
 	for _, records := range []int{20, 40} {
 		data, err := osfile.ReadFile(filepath.Join("testdata", fmt.Sprintf("thread_columns_%d.db", records)))
 		if err != nil {
@@ -51,7 +51,7 @@ func TestAThreadsColumnsAreConvertedOncePerThread(t *testing.T) {
 			t.Fatal(err)
 		}
 		runtime.ReadMemStats(&after)
-		allocated[records] = after.TotalAlloc - before.TotalAlloc
+		allocated[records] = int64(after.TotalAlloc - before.TotalAlloc)
 		// The thread's record row and one row per feedback record.
 		if branches != records+1 {
 			t.Errorf("%d records gave %d rows with the branch cut, want %d", records, branches, records+1)

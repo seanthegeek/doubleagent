@@ -178,10 +178,10 @@ func countedFiles(read *int64, main, log, journal []byte) Files {
 }
 
 // allocatedBytes returns how many bytes of memory work allocates.
-func allocatedBytes(work func()) uint64 {
+func allocatedBytes(work func()) int64 {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	work()
 	runtime.ReadMemStats(&after)
-	return after.TotalAlloc - before.TotalAlloc
+	return int64(after.TotalAlloc - before.TotalAlloc)
 }

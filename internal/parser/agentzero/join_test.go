@@ -180,7 +180,7 @@ func TestAHistoryReplyIsDecodedOncePerID(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			allocated := map[int]uint64{}
+			allocated := map[int]int64{}
 			for _, items := range []int{20, 80} {
 				home := t.TempDir()
 				const rel = "agent-zero/usr/chats/ctx/chat.json"
@@ -196,7 +196,7 @@ func TestAHistoryReplyIsDecodedOncePerID(t *testing.T) {
 					t.Fatal(err)
 				}
 				runtime.ReadMemStats(&after)
-				allocated[items] = after.TotalAlloc - before.TotalAlloc
+				allocated[items] = int64(after.TotalAlloc - before.TotalAlloc)
 				if decodes := subject.Work.Count("history replies decoded"); decodes != test.decodes || rows != items+1 {
 					t.Errorf("%d items gave %d rows after %d decodes, want %d rows after %d", items, rows,
 						decodes, items+1, test.decodes)

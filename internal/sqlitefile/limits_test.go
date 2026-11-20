@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -109,7 +108,7 @@ func TestTheCostOfARowFollowsItsRecordNotTheDeclaredColumns(t *testing.T) {
 	}
 	for _, test := range queries {
 		t.Run(test.name+" costs the same per row whatever the width", func(t *testing.T) {
-			cost := map[int]uint64{}
+			cost := map[int]int64{}
 			for _, count := range []int{500, 1000} {
 				table := wideTable(t, count)
 				cost[count] = allocatedBytes(func() {
@@ -197,7 +196,7 @@ func TestADefaultNestedPastTheLimitKeepsNoTokensPastIt(t *testing.T) {
 				sql := "CREATE TABLE t(a DEFAULT " + test.nested(count) + ")"
 				var shape *tableShape
 				var err error
-				allocated := bytesAllocatedBy(func() { shape, err = parseCreateTable(sql) })
+				allocated := allocatedBytes(func() { shape, err = parseCreateTable(sql) })
 				t.Logf("a %d-byte statement allocated %d bytes", len(sql), allocated)
 				if err != nil || !errors.Is(shape.columns[0].defaultErr, errTooDeep) || allocated > 1<<20 {
 					t.Errorf("a %d-byte statement allocated %d bytes and gave %v, %v; want at most %d bytes and the "+
@@ -295,7 +294,7 @@ func TestAWideRecordCostsOnlyTheDeclaredColumns(t *testing.T) {
 			}
 		})
 		t.Run(test.name+" costs a page per row however many fields a record stores", func(t *testing.T) {
-			cost := map[int]uint64{}
+			cost := map[int]int64{}
 			for _, count := range []int{8, 16} {
 				table := fatTable(t, count, fields)
 				cost[count] = allocatedBytes(func() {
@@ -442,20 +441,11 @@ func TestTablesMayBeLookedUpFromSeveralGoroutines(t *testing.T) {
 	}
 }
 
-// bytesAllocatedBy returns how many bytes of memory work allocates.
-func bytesAllocatedBy(work func()) uint64 {
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
-	work()
-	runtime.ReadMemStats(&after)
-	return after.TotalAlloc - before.TotalAlloc
-}
-
 func TestARefusedStatementHoldsNoTokensPastTheRefusal(t *testing.T) {
 	tests := []struct {
 		name, want string
 		sql        func(count int) string
-		bound      uint64
+		bound      int64
 	}{
 		{"a parenthesis left open", "a parenthesis is not closed", func(count int) string {
 			return "CREATE TABLE t(a, b DEFAULT " + strings.Repeat("(", count)
@@ -475,7 +465,7 @@ func TestARefusedStatementHoldsNoTokensPastTheRefusal(t *testing.T) {
 			for _, count := range []int{100_000, 400_000} {
 				sql := test.sql(count)
 				var err error
-				allocated := bytesAllocatedBy(func() { _, err = parseCreateTable(sql) })
+				allocated := allocatedBytes(func() { _, err = parseCreateTable(sql) })
 				t.Logf("a %d-byte statement allocated %d bytes", len(sql), allocated)
 				if err == nil || !strings.Contains(err.Error(), test.want) || allocated > test.bound {
 					t.Errorf("a %d-byte statement allocated %d bytes and gave %v; want at most %d bytes and %q",

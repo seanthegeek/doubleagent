@@ -22,7 +22,7 @@ func TestTheCompressedRolloutsOfARunShareOneDecoder(t *testing.T) {
 	// made, the race detector's own allocations included; a decoder and a
 	// read buffer of its own cost about 140 KiB more.
 	const perFile = 64 << 10
-	allocated := map[int]uint64{}
+	allocated := map[int]int64{}
 	for _, n := range []int{10, 40} {
 		home := t.TempDir()
 		subject := New()
@@ -49,7 +49,7 @@ func TestTheCompressedRolloutsOfARunShareOneDecoder(t *testing.T) {
 			}
 		}
 		runtime.ReadMemStats(&after)
-		allocated[n] = after.TotalAlloc - before.TotalAlloc
+		allocated[n] = int64(after.TotalAlloc - before.TotalAlloc)
 		if made := subject.Work.Count("zstd decoders made"); made != 1 || rows == 0 {
 			t.Errorf("%d files gave %d rows after %d decoders were made, want rows after one", n, rows, made)
 		}

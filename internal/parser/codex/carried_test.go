@@ -170,14 +170,14 @@ func TestAPermissionModeChangeIsToldFromTheFieldsAnEventSets(t *testing.T) {
 			`","network":"` + strings.Repeat("N", size) + `"`, 2},
 	}
 	for _, test := range tests {
-		allocated := map[int]uint64{}
+		allocated := map[int]int64{}
 		for _, n := range []int{20, 40} {
 			text := policyRollout(test.context, alternatingApprovals(n)...)
 			var before, after runtime.MemStats
 			runtime.ReadMemStats(&before)
 			rows := modeRows(t, text)
 			runtime.ReadMemStats(&after)
-			allocated[n] = after.TotalAlloc - before.TotalAlloc
+			allocated[n] = int64(after.TotalAlloc - before.TotalAlloc)
 			if len(rows) != n+1+test.long {
 				t.Errorf("%s: %d events gave %d mode and problem rows, want %d", test.name, n, len(rows),
 					n+1+test.long)

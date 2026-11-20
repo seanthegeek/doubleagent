@@ -169,7 +169,7 @@ func TestEachCarriedHalfOfTheModeIsCutUnderItsOwnName(t *testing.T) {
 // request. The bytes are counted (runtime.MemStats.TotalAlloc), not timed.
 func TestAPermissionModeChangeIsToldFromTheHalvesARequestSets(t *testing.T) {
 	const size = 200_000
-	allocated := map[int]uint64{}
+	allocated := map[int]int64{}
 	for _, n := range []int{20, 40} {
 		lines := []string{requestEvent(`"permissionMode":"` + strings.Repeat("M", size) + `","agentMode":"a",`)}
 		for i := range n {
@@ -179,7 +179,7 @@ func TestAPermissionModeChangeIsToldFromTheHalvesARequestSets(t *testing.T) {
 		runtime.ReadMemStats(&before)
 		rows := modeRows(t, lines)
 		runtime.ReadMemStats(&after)
-		allocated[n] = after.TotalAlloc - before.TotalAlloc
+		allocated[n] = int64(after.TotalAlloc - before.TotalAlloc)
 		// The first request after the long one sets the agent mode it had.
 		if len(rows) != n+1 {
 			t.Errorf("%d requests gave %d mode and problem rows, want %d", n, len(rows), n+1)

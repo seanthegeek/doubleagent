@@ -139,7 +139,7 @@ func TestMutatedFixturesReadWithBoundedWork(t *testing.T) {
 				if most > bound {
 					t.Errorf("a walk read %d bytes of a database of %d", most, bound)
 				}
-				if allocated > uint64(read)*perByteRead+allocatedFloor {
+				if allocated > read*perByteRead+allocatedFloor {
 					t.Errorf("reading %d bytes allocated %d", read, allocated)
 				}
 			}
