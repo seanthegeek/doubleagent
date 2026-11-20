@@ -3,6 +3,7 @@ package claudecode
 import (
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -45,12 +46,13 @@ func sessionDir(artifact *input.Artifact) (string, bool) {
 	}
 }
 
-// persistedFile is what one parse read of a persisted tool output: its
-// text or the error reading it, and whether a row has shown the text.
+// persistedFile is what was read of one persisted tool output: its text
+// until a row shows it, or the error reading it, and once shown the
+// transcript and line of that row.
 type persistedFile struct {
-	text  string
-	err   error
-	shown bool
+	text    string
+	err     error
+	shownAt string
 }
 
 // persistedText returns the full text of a persisted tool output, read
@@ -58,12 +60,12 @@ type persistedFile struct {
 // toolUseResult.persistedOutputPath; when it is empty the path is read from
 // the stub's text. The stub comes back with a note when the file is not in
 // this session's tool-results/ or is a link, and with the reason when it is
-// there but cannot be read, the unreadable problem added to problems. Each
-// file is read once per parse (files, by name): its first reference shows
-// the text, and a later one the stub with a note naming the file, so a
-// file named by many stubs is written once.
-func persistedText(artifact *input.Artifact, stub, savedPath string, files map[string]*persistedFile,
-	problems *parser.Problems) string {
+// there but cannot be read, the unreadable problem added. Each file is read
+// once for all the session's transcripts of a loaded input
+// (Reader.outputsOf): its first reference in parse order shows the text,
+// and every later one the stub with a note naming the transcript and line
+// of the row that shows it.
+func (s *session) persistedText(stub, savedPath string) string {
 	if savedPath == "" {
 		match := persistedPattern.FindStringSubmatch(stub)
 		if match == nil {
@@ -73,7 +75,7 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, files map[s
 	}
 	parts := pathSeparators.Split(savedPath, -1)
 	name := parts[len(parts)-1]
-	directory, found := sessionDir(artifact)
+	directory, found := sessionDir(s.artifact)
 	note := stub + "\n[persisted output not found: tool-results/" + name + "]"
 	_, named := parser.Component(name)
 	if len(parts) < 3 || parts[len(parts)-2] != "tool-results" ||
@@ -84,21 +86,52 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, files map[s
 	if !reachable || !parser.RegularFile(output) {
 		return note
 	}
+	files := s.reader.outputsOf(s.artifact.Home, directory)
 	file, read := files[name]
 	if !read {
+		s.reader.Work.Add("persisted outputs read", 1)
 		data, err := parser.ReadFile(output)
 		file = &persistedFile{text: textlines.ValidUTF8(data), err: err}
 		files[name] = file
 	}
 	switch {
 	case file.err != nil:
-		problems.AddUnreadable(0, output, file.err)
+		s.problems.AddUnreadable(0, output, file.err)
 		return stub + "\n[persisted output could not be read (" + reason.For(file.err) + ")]"
-	case file.shown:
-		return stub + "\n[persisted output shown in full at its first reference: tool-results/" + name + "]"
+	case file.shownAt != "":
+		return stub + "\n[persisted output shown in full at its first reference (" + file.shownAt +
+			"): tool-results/" + name + "]"
 	}
-	file.shown = true
-	return file.text
+	// The transcript's path is at most input.MaxPathLength bytes, the
+	// carried bound, so the note needs no cut.
+	file.shownAt = s.artifact.Original + " line " + strconv.Itoa(s.line)
+	text := file.text
+	file.text = ""
+	return text
+}
+
+// outputsOf returns the persisted tool outputs read so far for the
+// session directory of home, by file name. They are kept for the pass over
+// the home's files, since a session's subagent transcripts are files of
+// their own that share its tool-results/; each load of an input makes its
+// own home values, so a second pass over the same files starts afresh.
+func (r *Reader) outputsOf(home *input.Home, directory string) map[string]*persistedFile {
+	key := outputsKey{home: home, directory: directory}
+	if r.outputs == nil {
+		r.outputs = map[outputsKey]map[string]*persistedFile{}
+	}
+	files, ok := r.outputs[key]
+	if !ok {
+		files = map[string]*persistedFile{}
+		r.outputs[key] = files
+	}
+	return files
+}
+
+// outputsKey names a session directory of one home of a loaded input.
+type outputsKey struct {
+	home      *input.Home
+	directory string
 }
 
 // isPasteHash reports whether a paste's content hash is a plain name of

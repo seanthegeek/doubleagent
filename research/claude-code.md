@@ -2998,12 +2998,20 @@ the file, `tool-results/` nor the session directory is a symlink, and otherwise 
 followed by `[persisted output not found: tool-results/<name>]`. A file that is there but cannot be
 read keeps the stub followed by `[persisted output could not be read (<reason>)]` and gives the
 unreadable row of [Bad-line rows](#bad-line-rows). On the observed install every stub resolved.
-Each file is read once per parse of a transcript. Its first reference in file order shows its text;
-every later stub naming the same `tool-results/<name>` keeps the stub followed by
-`[persisted output shown in full at its first reference: tool-results/<name>]`, so a transcript of
-many stubs naming one file gives rows that grow with the transcript and the file, not with their
-product. A transcript's rows are the primary store and are never dropped as duplicates, so the row
-holding the text stays wherever a later one points at it.
+A session's transcripts are its own file and each subagent file below `<session dir>/subagents/`,
+each a file of its own that shares the session's `tool-results/`, so each file is read once per run
+for all of them. Its first reference in parse order shows its text. Parse order is the order of the
+input's files: for a directory, each directory's files in name order before the directories below
+it, so the session file comes before its subagents' files; for an archive, the manifest's rows.
+Every later stub naming the same `tool-results/<name>` of that session, in the same transcript or
+another, keeps the stub followed by
+`[persisted output shown in full at its first reference (<source file> line <n>): tool-results/<name>]`,
+where `<source file>` and `<n>` are the `source_file` and `source_line` of the row that shows the
+text. A session of many stubs naming one file, in one transcript or across its subagents'
+transcripts, then gives rows that grow with the transcripts and the file, not with their product.
+A transcript's rows are the primary store and are never dropped as duplicates, so the row holding
+the text stays wherever a later one points at it, unless a filter (`--since`, `--until`,
+`--match`) leaves it out while keeping the pointer.
 
 ## Confidence
 

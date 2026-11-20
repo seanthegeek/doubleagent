@@ -46,8 +46,6 @@ type session struct {
 	seen                map[string]map[seenKey]bool
 	modes, models       parser.Tracker
 	bridges             map[string]bridgeKey
-	// persisted holds the persisted tool outputs read, by file name.
-	persisted map[string]*persistedFile
 
 	line      int
 	timestamp string
@@ -58,8 +56,7 @@ type session struct {
 func (r *Reader) Session(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	state := &session{reader: r, artifact: artifact, options: options, emit: emit,
 		scan: prescanFile(artifact), seen: map[string]map[seenKey]bool{},
-		modes: parser.Tracker{}, models: parser.Tracker{}, bridges: map[string]bridgeKey{},
-		persisted: map[string]*persistedFile{}}
+		modes: parser.Tracker{}, models: parser.Tracker{}, bridges: map[string]bridgeKey{}}
 	state.lastCwd, state.lastBranch = state.scan.cwd, state.scan.branch
 	state.headerDone, state.taskDone = true, true
 	if match := subagentPattern.FindStringSubmatch(artifact.Rel); match != nil {
