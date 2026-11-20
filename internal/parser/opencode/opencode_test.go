@@ -111,23 +111,25 @@ func TestSessionRulesReadBothShapes(t *testing.T) {
 	tests := []struct {
 		name, text string
 		want       []rule
+		skipped    int
 		ok         bool
 	}{
 		{"a 2.0 rule", `[{"action":"read","resource":"*","effect":"allow"}]`,
-			[]rule{{"read", "*", "allow"}}, true},
-		{"1.x rules, missing fields and other entries",
+			[]rule{{"read", "*", "allow"}}, 0, true},
+		{"1.x rules, missing fields and other entries, which are counted",
 			`[{"permission":"bash","pattern":"","action":null}, 3, {"x":1}, ` +
 				`{"permission":0,"pattern":false,"action":[]}]`,
-			[]rule{{"bash", "-", "-"}, {"0", "false", "[]"}}, true},
-		{"an object is not an array", `{}`, nil, false},
-		{"text that is not JSON", `x`, nil, false},
-		{"an empty array", `[]`, nil, true},
+			[]rule{{"bash", "-", "-"}, {"0", "false", "[]"}}, 2, true},
+		{"entries that are not objects are counted", `[1, "x", null, []]`, nil, 4, true},
+		{"an object is not an array", `{}`, nil, 0, false},
+		{"text that is not JSON", `x`, nil, 0, false},
+		{"an empty array", `[]`, nil, 0, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, ok := sessionRules(test.text)
-			if ok != test.ok || !slices.Equal(got, test.want) {
-				t.Errorf("got %v, %v; want %v, %v", got, ok, test.want, test.ok)
+			got, skipped, ok := sessionRules(test.text)
+			if ok != test.ok || skipped != test.skipped || !slices.Equal(got, test.want) {
+				t.Errorf("got %v, %d, %v; want %v, %d, %v", got, skipped, ok, test.want, test.skipped, test.ok)
 			}
 		})
 	}

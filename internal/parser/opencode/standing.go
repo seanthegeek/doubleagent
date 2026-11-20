@@ -136,7 +136,8 @@ func decodeText(text string) (jsonvalue.Value, error) {
 // stateRows emits, per session, a "session archived" row at its
 // time_archived and a "permission setting: session ..." row per rule of
 // its permission column at its time_updated. A permission value that is
-// not a JSON array is a problem.
+// not a JSON array is a problem, and so, counted once per value, are its
+// entries that are not rules.
 func (s *store) stateRows() error {
 	for _, each := range s.sessions {
 		scoped, rowid := s.scopeFor(each.identifier), each.row.Rowid
@@ -148,7 +149,7 @@ func (s *store) stateRows() error {
 		if stored.IsNull() || (stored.Type == sqlitefile.Text && len(stored.Bytes) == 0) {
 			continue
 		}
-		rules, ok := permissionRules(stored)
+		rules, skipped, ok := permissionRules(stored)
 		if !ok {
 			raw := stored.String()
 			if stored.Type == sqlitefile.Blob {
@@ -163,20 +164,25 @@ func (s *store) stateRows() error {
 				rule.permission+" "+rule.pattern+"="+rule.effect+" (from "+s.label+
 				" "+each.table+".permission, time_updated)"))
 		}
+		if skipped > 0 {
+			s.failures = append(s.failures, failure{line: int(rowid), sessionID: each.identifier,
+				message: notRules(each.table+".permission", skipped)})
+		}
 	}
 	return nil
 }
 
 // permissionRules returns the rules of a permission column holding text or
-// a blob; any other value is not a JSON array.
-func permissionRules(stored sqlitefile.Value) ([]rule, bool) {
+// a blob and the number of its entries that are not rules; any other value
+// is not a JSON array.
+func permissionRules(stored sqlitefile.Value) ([]rule, int, bool) {
 	switch stored.Type {
 	case sqlitefile.Text:
 		return sessionRules(stored.Text())
 	case sqlitefile.Blob:
 		return sessionRules(textlines.ValidUTF8(stored.Bytes))
 	}
-	return nil, false
+	return nil, 0, false
 }
 
 // worktreeRows emits a "scratch directory:" row per worktree OpenCode

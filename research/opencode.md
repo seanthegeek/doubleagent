@@ -1357,7 +1357,9 @@ user has specified a rule which prevents you from using this specific tool call.
 feedback alike. No approval is recorded. Standing state: one row per `permission` table row at its
 `time_created`, `project_path` the project's `worktree` and no session, and one row per rule of a
 session's `permission` column (2.x `{action, resource, effect}`, 1.x `{permission, pattern,
-action}`) at the session's `time_updated`, a value that is not a JSON array being a `parser:` row:
+action}`) at the session's `time_updated`, a value that is not a JSON array being a `parser:` row
+and its entries of neither shape being counted in one
+([Bad-line rows](#bad-line-rows)):
 
 ```text
 permission setting: <action> <resource>=allow (from <database> permission, time_created)
@@ -1500,6 +1502,7 @@ one), the other entries giving their rows.
 ```text
 parser: unparseable record <rowid> (<table>.data: <reason>): <data>
 parser: unparseable record <rowid> (<table>.permission: not a JSON array): <value>
+parser: <table>.permission holds <n> entries that are not permission rules
 parser: unparseable part <partID> (<reason>): <file text>
 parser: unparseable line (<reason>): <line>
 parser: session file could not be decoded
@@ -1510,6 +1513,11 @@ parser: database could not be read: <error>
 parser: <table> holds <n> rows repeating an earlier row's id; its parts are shown once
 parser: message <id> repeats the id of an earlier message file; its parts are shown with that file
 ```
+
+A session's `permission` array holding entries of neither rule shape (not objects, or objects
+with neither `effect` nor `permission`) gives one row for them all after the database's other
+rows, with the session and project and `source_line` the session's rowid
+(`1 entry that is not a permission rule` for one); its rules still give their rows.
 
 The last two rows are for a message id that more than one record claims, which OpenCode never
 writes: the first is one row per table (`message` or `session_message`, `1 row` for one) after

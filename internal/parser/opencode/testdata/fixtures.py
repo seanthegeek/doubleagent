@@ -151,6 +151,20 @@ INSERT INTO part VALUES ('prt_3', 'msg_3', 'ses_1', 1700000003000, 1700000003000
     '{"type":"text","text":"from msg_3"}');
 """
 
+# Sessions whose permission columns hold entries that are not rules beside rules.
+PERMISSION_ENTRIES = """
+CREATE TABLE session_v2 (id text PRIMARY KEY, project_id text, directory text, title text,
+    permission text, time_created integer, time_updated integer);
+INSERT INTO session_v2 VALUES ('ses_2', NULL, '/work/two', 't2',
+    '[1, "x", {"action":"read","resource":"*","effect":"allow"}, {"other":1}]',
+    1700000000000, 1700000005000);
+CREATE TABLE session (id text PRIMARY KEY, project_id text, directory text, title text,
+    permission text, time_created integer, time_updated integer);
+INSERT INTO session VALUES ('ses_1', NULL, '/work/one', 't1',
+    '[{"permission":"bash","pattern":"ls","action":"ask"}, null]',
+    1700000001000, 1700000006000);
+"""
+
 DATABASES = {
     "no_permission_table.db": ONE_SESSION,
     # The first layout of the permission table, which every early 1.x database had.
@@ -167,6 +181,7 @@ DATABASES = {
     "repeated_v1_message_id_40.db": repeated_v1_message(40),
     "caseless_message_id.db": CASELESS_MESSAGE_ID,
     "message_directories.db": MESSAGE_DIRECTORIES,
+    "permission_entries.db": PERMISSION_ENTRIES,
 }
 
 
