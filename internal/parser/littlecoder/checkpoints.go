@@ -39,8 +39,9 @@ func regularFiles(directory string) []os.DirEntry {
 }
 
 // parseCheckpoints emits the system row of a checkpoint directory, on the
-// directory's first file by name, so each directory gives one row. Once a
-// directory is listed, its other files are passed over by name.
+// directory's first file by name that it is given (rowFile), so each
+// directory gives one row. Once a directory is listed, its other files are
+// passed over by name.
 func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	setName := p.checkpoint.FindStringSubmatch(artifact.Rel)[1]
 	key := checkpointKey{set: setName}
@@ -56,10 +57,11 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	}
 	p.Work.Add("checkpoint listings", 1)
 	files := regularFiles(directory)
-	if len(files) > 0 {
-		p.firstCheckpoint[key] = files[0].Name()
+	first, named := p.rowFile(files, setName)
+	if named {
+		p.firstCheckpoint[key] = first
 	}
-	if len(files) == 0 || files[0].Name() != filepath.Base(artifact.DiskPath) {
+	if !named || first != filepath.Base(artifact.DiskPath) {
 		return
 	}
 	mtimes, listed := describeFiles(files)
@@ -86,6 +88,21 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 		strconv.Itoa(len(listed)) + " pre-edit file(s)" + collected + ": " + strings.Join(listed, "; "))
 	emit(row)
 	parser.EmitAll(emit, p.ErrorRows(artifact, failure, row.SessionID, row.ProjectPath))
+}
+
+// rowFile returns the name of the file of a checkpoint directory, among
+// its regular files sorted by name, that gives the directory's row: the
+// first, passing over a snapshots.json that Parse reads as v0.0.x
+// snapshots (in a directory not named after a pi session file), which
+// never reaches parseCheckpoints. It is false when there is none.
+func (p *Parser) rowFile(files []os.DirEntry, setName string) (string, bool) {
+	snapshots := !p.sessionFile.MatchString(setName)
+	for _, file := range files {
+		if !snapshots || file.Name() != "snapshots.json" {
+			return file.Name(), true
+		}
+	}
+	return "", false
 }
 
 // describeFiles returns the modification times of the files that could be

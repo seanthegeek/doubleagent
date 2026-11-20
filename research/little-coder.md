@@ -453,7 +453,9 @@ says, and a session with any `custom_message` whose `customType` starts with `lc
 `provider` of `llamacpp`, or a checkpoint directory named after its file gets one `system` row
 `session driven by little-coder (pi launcher): <why>`. The little-coder parser reads
 `little-coder-prompt-history.json` as `user` rows with no timestamp and no session, and each
-checkpoint directory as one `system` row naming the session and the files.
+checkpoint directory as one `system` row naming the session and the files. The row comes with the
+directory's first regular file by name, passing over a `snapshots.json` read as v0.0.x snapshots
+(in a directory not named after a pi session file), so pre-edit copies beside one still give it.
 
 | Column | Source |
 | --- | --- |

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -150,6 +151,51 @@ func TestFindingTheSessionFilesOfManyCheckpointSetsIsLinear(t *testing.T) {
 			if rows != sets || listings != sets+1 || candidates != 1 {
 				t.Errorf("%d rows, %d listings and %d candidates, want %d rows, %d listings and 1 candidate",
 					rows, listings, candidates, sets, sets+1)
+			}
+		})
+	}
+}
+
+// A checkpoint directory's row comes with its first file by name that is
+// read as a checkpoint: a snapshots.json read as v0.0.x snapshots, which
+// sorts before a pre-edit copy, does not take the row from the copies.
+func TestACheckpointDirectoryGivesItsRowBesideASnapshotsFileThatSortsFirst(t *testing.T) {
+	const set = ".little-coder/checkpoints/c0ffee12/"
+	tests := []struct {
+		name  string
+		files []string
+		want  []string
+	}{
+		{"a copy after snapshots.json", []string{"snapshots.json", "x.py"},
+			[]string{"little-coder checkpoints for no session file (c0ffee12): 2 pre-edit file(s), " +
+				"session file not collected: snapshots.json; x.py"}},
+		{"a copy before snapshots.json", []string{"a.py", "snapshots.json"},
+			[]string{"little-coder checkpoints for no session file (c0ffee12): 2 pre-edit file(s), " +
+				"session file not collected: a.py; snapshots.json"}},
+		{"snapshots.json alone", []string{"snapshots.json"}, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			files := map[string]string{}
+			for _, name := range test.files {
+				files[set+name] = "[]"
+			}
+			home := writeHome(t, files)
+			subject := New()
+			var got []string
+			for _, name := range test.files {
+				artifact := &input.Artifact{DiskPath: filepath.Join(home.DiskPath, filepath.FromSlash(set+name)),
+					Rel: set + name, Home: home}
+				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+					if strings.HasPrefix(row.Text, "little-coder checkpoints") {
+						got = append(got, row.Text)
+					}
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
 	}
