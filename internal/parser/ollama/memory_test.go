@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -17,10 +18,9 @@ import (
 // testdata/long_chat.py writes.
 const longChatLength = 20_000
 
-// heldDuringParse copies the named testdata database into a new home and
-// returns the most heap bytes in use, after a collection, when the parse
-// emits a row, less those in use before it, and the rows it gives.
-func heldDuringParse(t *testing.T, name string) (int64, int) {
+// longChatArtifact copies the named testdata database into a new home and
+// returns the artifact.
+func longChatArtifact(t *testing.T, name string) *input.Artifact {
 	t.Helper()
 	const rel = "Library/Application Support/Ollama/db.sqlite"
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
@@ -35,8 +35,16 @@ func heldDuringParse(t *testing.T, name string) (int64, int) {
 	if err := osfile.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "ollama",
+	return &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "ollama",
 		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
+}
+
+// heldDuringParse copies the named testdata database into a new home and
+// returns the most heap bytes in use, after a collection, when the parse
+// emits a row, less those in use before it, and the rows it gives.
+func heldDuringParse(t *testing.T, name string) (int64, int) {
+	t.Helper()
+	artifact := longChatArtifact(t, name)
 	inUse := func() int64 {
 		var stats runtime.MemStats
 		runtime.GC()
@@ -75,5 +83,32 @@ func TestTheRowsOfACallAreNotHeldUntilTheParseEnds(t *testing.T) {
 	if growth := held[1] - held[0]; growth > 5*longChatLength {
 		t.Errorf("20 more calls held %d more bytes, more than a quarter of the %d-byte chat id per row", growth,
 			longChatLength)
+	}
+}
+
+// A call's tool_use_id holds its chat's whole id, so with a chat id longer
+// than the bound on a field every id is cut to the same first bytes and
+// its whole length: the 20 calls, ids 1 to 20, share one id per number of
+// digits, as research/ollama.md says.
+func TestTheCallsOfALongChatShareATooLongIDPerNumberOfDigits(t *testing.T) {
+	counts := map[string]int{}
+	if _, err := parser.Collect(New(), longChatArtifact(t, "long_chat_20.db"), parser.Options{},
+		func(row timeline.Row) {
+			if row.ToolUseID != "" {
+				counts[row.ToolUseID]++
+			}
+		}); err != nil {
+		t.Fatal(err)
+	}
+	var got []int
+	for toolUseID, count := range counts {
+		if len(toolUseID) > parser.CarriedLimit {
+			t.Errorf("a tool_use_id of %d bytes, more than %d", len(toolUseID), parser.CarriedLimit)
+		}
+		got = append(got, count)
+	}
+	slices.Sort(got)
+	if want := []int{9, 11}; !slices.Equal(got, want) {
+		t.Errorf("calls per tool_use_id %v, want %v (ids 1 to 9, then 10 to 20)", got, want)
 	}
 }
