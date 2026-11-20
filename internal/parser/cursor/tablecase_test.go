@@ -12,9 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// rowsOfTableCaseDatabase copies the named testdata database, written by
-// testdata/table_case.py, into a new home at the database's path and
-// returns the text of every row the parser gives for it.
+// rowsOfTableCaseDatabase copies the named testdata conversation-search.db,
+// written by a script under testdata, into a new home at the database's
+// path and returns the text of every row the parser gives for it.
 func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	t.Helper()
 	const rel = ".config/Cursor/User/globalStorage/conversation-search.db"

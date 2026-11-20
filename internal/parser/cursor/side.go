@@ -2,6 +2,8 @@ package cursor
 
 import (
 	"cmp"
+	"strconv"
+
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -69,7 +71,9 @@ func ftsBodies(store *store) map[string]sqlitefile.Value {
 }
 
 // search emits the rows of conversation-search.db: a conversation's cloud
-// origin, its index entry and its cached text.
+// origin, its index entry and its cached text. Each full-text body is
+// written once, under the first conversation that joins it; the later
+// conversations joining it give no copy and are counted as one problem.
 func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit) {
 	table := store.table("conversations")
 	if table == nil {
@@ -81,6 +85,7 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 	if store.keep(err) {
 		return
 	}
+	written, repeats := map[string]bool{}, 0
 	for _, record := range records {
 		sessionID := asText(record.Get("id"))
 		row := func(text string) {
@@ -98,10 +103,30 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 				columnField(record.Get("is_archived")))
 		}
 		key := parser.ColumnKey(record.Get("fts_rowid"))
-		if body := timeline.Compact(asText(bodies[key])); key != "" && body != "" {
+		body := timeline.Compact(asText(bodies[key]))
+		switch {
+		case key == "" || body == "":
+		case written[key]:
+			repeats++
+		default:
+			written[key] = true
 			row("cached conversation text (conversation-search.db, source=" + cmp.Or(source, "-") + "): " + body)
 		}
 	}
+	if repeats > 0 {
+		var problems parser.Problems
+		problems.Add(0, sharedBodiesText(repeats))
+		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	}
+}
+
+// sharedBodiesText returns the problem text of n conversations whose
+// fts_rowid names a full-text row an earlier conversation names.
+func sharedBodiesText(n int) string {
+	if n == 1 {
+		return "1 conversation names a full-text row an earlier conversation names"
+	}
+	return strconv.Itoa(n) + " conversations name a full-text row an earlier conversation names"
 }
 
 // tracking emits a row per row of the tables of ai-code-tracking.db.

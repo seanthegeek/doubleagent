@@ -2312,7 +2312,8 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `cloud-cache` row with a non-empty body (`c1`) the parser yields one `system` row
   `cached conversation text (conversation-search.db, source=cloud-cache): <c1 in full>` at
   `updated_at`, `session_id` the `bc-<uuid>`: the only local copy of a cloud agent's
-  conversation text ([Cloud agents](#cloud-agents)). It is never a `user` or `assistant` row,
+  conversation text ([Cloud agents](#cloud-agents)). A body is written once, under the first
+  conversation that joins it ([Bad-line rows](#bad-line-rows)). It is never a `user` or `assistant` row,
   because the body runs the prompt and the reply together with no boundary. Some `local` rows
   have no body ([`conversation-search.db`](#conversation-searchdb)); a non-empty one yields the
   same row with `source=local`.
@@ -2455,7 +2456,10 @@ is a whole-file row after its setting rows, `parser: permissions is not a JSON o
 user writes, is read as it is. A database that cannot be read, or whose `-wal`, `-shm` or `-journal`
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
-error one `parser: SQLite error: <message>` row. `cli-config.json` or `permissions.json` that is not
+error one `parser: SQLite error: <message>` row. In `conversation-search.db`, a `conversations`
+row whose `fts_rowid` names a full-text row an earlier row names gives no cached text row, and such
+rows are one whole-file row after the others, `parser: <n> conversations name a full-text row an
+earlier conversation names` (`1 conversation names ...` for one), with `source_line` 0. `cli-config.json` or `permissions.json` that is not
 JSON is one `parser:` row, and so is an `mcp-oauth-attempts/<uuid>.json` file that is not JSON
 (`parser: unreadable <rel>: <reason>`) or not a JSON object (`parser: <rel> is not a JSON object`).
 For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted` that is not JSON,
