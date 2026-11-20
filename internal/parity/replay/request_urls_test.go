@@ -25,18 +25,30 @@ const incomplete = "{a request the input does not record}"
 
 // requestURL returns the URL the binary is to write for the request
 // requestID, whose URL the recording cut to base: the one URL the case's
-// input records for the request, when it is base or base and a query or
-// fragment, its credentials withheld (withheldURL); otherwise incomplete.
+// input records for the request (recordedURL), its credentials withheld
+// (withheldURL); otherwise incomplete.
 func (c caseRun) requestURL(requestID, base string) string {
-	if c.requests == nil {
+	url, ok := c.recordedURL(requestID, base)
+	if !ok {
 		return incomplete
+	}
+	return withheldURL(url)
+}
+
+// recordedURL returns the one URL the case's input records for the request
+// requestID, when it is base or base and a query or fragment; false when
+// the input is not known, records no URL or another one for the request,
+// or more than one.
+func (c caseRun) recordedURL(requestID, base string) (string, bool) {
+	if c.requests == nil {
+		return "", false
 	}
 	urls := c.requests()[requestID]
 	if len(urls) != 1 || urls[0] != base && !strings.HasPrefix(urls[0], base+"?") &&
 		!strings.HasPrefix(urls[0], base+"#") {
-		return incomplete
+		return "", false
 	}
-	return withheldURL(urls[0])
+	return urls[0], true
 }
 
 // shownCredential stands in a recorded row for a request URL in which the
@@ -249,8 +261,8 @@ func TestAGeminiRequestRowIsComparedWithTheURLTheInputRecords(t *testing.T) {
 		agree           bool
 	}{
 		{"a request's key withheld passes", keyed, keyedBinary, true},
-		{"an error of the request with its key withheld passes", failed, failedBinary, true},
-		{"a response with the request's query passes", streamed, streamedBinary, true},
+		{"a response row is no site of the request's URL", streamed, streamedBinary, false},
+		{"an error row is no site of the request's URL", failed, failedBinary, false},
 		{"a request without a query passes as recorded", plain, plain, true},
 		{"a request's query dropped fails", keyed, keyed, false},
 		{"a request's key left out for another parameter fails", keyed, strings.Replace(keyed, "/token",
@@ -260,11 +272,6 @@ func TestAGeminiRequestRowIsComparedWithTheURLTheInputRecords(t *testing.T) {
 			"&key="+replayPlaceholder+" (request", 1), false},
 		{"a request's key written as the default placeholder fails", keyed,
 			strings.Replace(keyedBinary, replayPlaceholder, secrets.DefaultPlaceholder, 1), false},
-		{"a response's query dropped fails", streamed, streamed, false},
-		{"a response's query repeated fails", streamed, strings.Replace(streamedBinary, "alt=sse", "alt=sse&alt=sse",
-			1), false},
-		{"a response given another request's query fails", streamed, strings.Replace(streamed, ":stream",
-			":stream?key="+replayPlaceholder, 1), false},
 		{"a query the input does not record fails", plain, strings.Replace(plain, "/log", "/log?alt=sse", 1), false},
 		{"a request the input does not record fails", strings.Replace(plain, "g1h2j", "zzzzz", 1),
 			strings.Replace(plain, "g1h2j", "zzzzz", 1), false},

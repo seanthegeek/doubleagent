@@ -754,8 +754,8 @@ dropped when the session file holds the same text;
 the activity log at `tmp/<slug>/logs/session-<id>.jsonl` (the default path,
 which no caller writes; see
 [Activity log](../research/gemini-cli.md#activity-log)) as `console`,
-`network request`, `network response` and `network error` rows with no
-header value, query string or body; each `tmp/<slug>/memory/` file as one
+`network request`, `network response` and `network error` rows, the
+method and URL only in the request's own row and no header value or body; each `tmp/<slug>/memory/` file as one
 `memory file:` row with its text at its modification time, and each
 clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one
 `clipboard image:` row with its size, never its content. Not read: the

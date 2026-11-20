@@ -2083,9 +2083,10 @@ Three stores repeat nothing of the session file in the rows read from them and a
   [issue 410](https://github.com/seanthegeek/doubleagent/issues/410)). Per line, at the record's `timestamp` and with its
   `sessionId`, a `console` record is `console <type>: <content>`; a `network` record holding a
   `method` is `network request: <method> <url> (request <id>)`, one holding a `response`
-  `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
-  holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
-  from the request record of the same `id` and `-` for a value the file lacks. `<url>` is the
+  `network response: status <status> in <durationMs> ms (request <id>)` and one holding an
+  `error` `network error: <error> (request <id>)`, `-` for a value the file lacks. The method and
+  URL are written only in the request's own row: a response or error row names its request by the
+  `id` it carries, so many answers to one request with a long URL do not repeat it. `<url>` is the
   whole URL, its query and fragment included, an API key in the query (`key=`) shown as written;
   `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with
   the placeholder. A `chunk` record gives no row. The conversation turns in the

@@ -35,23 +35,18 @@ func (p *Parser) systemRow(artifact *input.Artifact, place where, text string) t
 	return row
 }
 
-// request is the method and URL of a network request of the activity log,
-// the URL as a row shows it.
-type request struct {
-	method, url string
-}
-
 // activityLog emits the rows of an activity log logs/session-<id>.jsonl: a
 // console record as "console <type>: <content>", a network record naming a
 // method as "network request:", one with a response as "network
 // response:" and one with an error as "network error:"; a streamed chunk
 // gives none. A URL is written whole, its query included (the output
-// replaces an API key in it under --no-secrets); header values and bodies
-// are never read into a row.
+// replaces an API key in it under --no-secrets), and only in the request's
+// own row: a response or error row names its request by its id, so many
+// answers to one request never repeat its URL. Header values and bodies are
+// never read into a row.
 func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
 	project := p.projectOf(artifact, match, &problems)
-	requests := map[string]request{}
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		payload, kind := record.Get("payload"), record.Get("type")
 		if !payload.IsObject() || !parser.IsText(kind, "console") && !parser.IsText(kind, "network") {
@@ -59,7 +54,7 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 				parser.JSONText(record))
 			continue
 		}
-		text, ok := activityText(artifact, payload, parser.IsText(kind, "console"), requests)
+		text, ok := activityText(payload, parser.IsText(kind, "console"))
 		if !ok {
 			continue
 		}
@@ -70,30 +65,21 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, match["session"], project))
 }
 
-// activityText returns the row text of one activity log record of
-// artifact, or false for a record that gives no row, remembering each
-// request it names.
-func activityText(artifact *input.Artifact, payload jsonvalue.Value, console bool, requests map[string]request) (string,
-	bool) {
+// activityText returns the row text of one activity log record, or false
+// for a record that gives no row.
+func activityText(payload jsonvalue.Value, console bool) (string, bool) {
 	requestID := parser.Text(payload.Get("id"))
-	answered, known := requests[requestID]
-	if !known {
-		answered = request{"-", "-"}
-	}
 	switch value := payload.Get("response"); {
 	case console:
 		return "console " + parser.TextOr(payload.Get("type"), "-") + ": " + parser.Text(payload.Get("content")), true
 	case payload.Get("method").IsString():
-		named := request{payload.Get("method").StringValue(), parser.Text(payload.Get("url"))}
-		requests[requestID] = named
-		return "network request: " + named.method + " " + named.url + " (request " + requestID + ")", true
+		return "network request: " + payload.Get("method").StringValue() + " " + parser.Text(payload.Get("url")) +
+			" (request " + requestID + ")", true
 	case value.IsObject():
-		return "network response: " + answered.method + " " + answered.url + " status " +
-			parser.SettingOrDash(value.Get("status")) + " in " + parser.SettingOrDash(value.Get("durationMs")) +
-			" ms (request " + requestID + ")", true
+		return "network response: status " + parser.SettingOrDash(value.Get("status")) + " in " +
+			parser.SettingOrDash(value.Get("durationMs")) + " ms (request " + requestID + ")", true
 	case !payload.Get("error").IsEmpty():
-		return "network error: " + answered.method + " " + answered.url + ": " +
-			payload.Get("error").Text() + " (request " + requestID + ")", true
+		return "network error: " + payload.Get("error").Text() + " (request " + requestID + ")", true
 	}
 	return "", false
 }
