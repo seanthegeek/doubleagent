@@ -139,20 +139,17 @@ func opencodeDatabaseCases(layout opencodeLayout) []growthCase {
 func opencodeJoinCases(layout opencodeLayout) []growthCase {
 	rel := layout.data + "/" + layout.database
 	return []growthCase{
-		{kind: "database", shape: shapeJoins, known: "allocated bytes grow about 3.7 times from n=64 to " +
-			"128 (5,006,824 to 18,406,008): each session naming the project copies its worktree of n kilobytes " +
-			"again (opencode/database.go worktreeOf, through parser.NonEmptyColumn)",
-			files: func(t *testing.T, n int) []growthFile {
-				sessions := rows(n, func(i int) []any { return []any{numbered("ses_", i), "p1", nil, "t", 1700000000000 + i} })
-				messages := rows(n, func(i int) []any {
-					return []any{numbered("msg_", i), numbered("ses_", i), 1700000000500 + i, `{"role":"user"}`}
-				})
-				parts := rows(n, func(i int) []any {
-					return []any{numbered("prt_", i), numbered("msg_", i), numbered("ses_", i), 1, `{"type":"text","text":"hi"}`}
-				})
-				return one(rel, database(t, append([]sqlitetest.Table{opencodeProjectTable("/" + strings.Repeat("w", 1000*n)),
-					opencodeSessionTable("session", sessions)}, opencodeV1Tables(messages, parts)...)...))
-			}},
+		{kind: "database", shape: shapeJoins, files: func(t *testing.T, n int) []growthFile {
+			sessions := rows(n, func(i int) []any { return []any{numbered("ses_", i), "p1", nil, "t", 1700000000000 + i} })
+			messages := rows(n, func(i int) []any {
+				return []any{numbered("msg_", i), numbered("ses_", i), 1700000000500 + i, `{"role":"user"}`}
+			})
+			parts := rows(n, func(i int) []any {
+				return []any{numbered("prt_", i), numbered("msg_", i), numbered("ses_", i), 1, `{"type":"text","text":"hi"}`}
+			})
+			return one(rel, database(t, append([]sqlitetest.Table{opencodeProjectTable("/" + strings.Repeat("w", 1000*n)),
+				opencodeSessionTable("session", sessions)}, opencodeV1Tables(messages, parts)...)...))
+		}},
 	}
 }
 

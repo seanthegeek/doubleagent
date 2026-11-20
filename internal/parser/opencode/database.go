@@ -22,8 +22,9 @@ type session struct {
 	table      string
 }
 
-// store is the reading of one database: its tables, projects and sessions,
-// each session's scope, and the problems found so far.
+// store is the reading of one database: its tables, the worktree of each
+// project by id, its sessions, each session's scope, and the problems
+// found so far.
 type store struct {
 	owner     *Parser
 	artifact  *input.Artifact
@@ -32,7 +33,7 @@ type store struct {
 	database  *sqlitefile.Database
 	tables    parser.Tables
 	label     string
-	projects  map[string]sqlitefile.Row
+	projects  map[string]string
 	sessions  []session
 	sessionAt map[string]int
 	scopes    map[string]*scope
@@ -53,7 +54,7 @@ func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit
 	}
 	if err == nil {
 		reading := &store{owner: p, artifact: artifact, options: options, emit: emit,
-			database: database, label: databaseLabel(artifact), projects: map[string]sqlitefile.Row{},
+			database: database, label: databaseLabel(artifact), projects: map[string]string{},
 			sessionAt: map[string]int{}, scopes: map[string]*scope{}, shares: map[string]bool{}}
 		err = reading.read()
 		if closeErr := database.Close(); err == nil {
@@ -144,12 +145,20 @@ func (s *store) readProjects() error {
 	return err
 }
 
-// addProject indexes one project row by its id. A row whose id is NULL is
-// left out: NULL equals nothing in SQL, so no session's project_id finds it.
+// addProject indexes one project row's worktree by its id, made once
+// however many sessions name the project: "" when it is empty or "/". A
+// row whose id is NULL is left out: NULL equals nothing in SQL, so no
+// session's project_id finds it.
 func (s *store) addProject(row sqlitefile.Row) {
-	if key := parser.ColumnKey(row.Get("id")); key != "" {
-		s.projects[key] = row
+	key := parser.ColumnKey(row.Get("id"))
+	if key == "" {
+		return
 	}
+	worktree := parser.NonEmptyColumn(row.Get("worktree"))
+	if worktree == "/" {
+		worktree = ""
+	}
+	s.projects[key] = worktree
 }
 
 // readSessions reads session_v2 then session, each ordered by its time
@@ -201,15 +210,10 @@ func (s *store) scopeFor(identifier string) *scope {
 // there is none or it is "/"; a NULL id has no project.
 func (s *store) worktreeOf(identifier sqlitefile.Value) string {
 	key := parser.ColumnKey(identifier)
-	project, ok := s.projects[key]
-	if key == "" || !ok {
+	if key == "" {
 		return ""
 	}
-	worktree := parser.NonEmptyColumn(project.Get("worktree"))
-	if worktree == "/" {
-		return ""
-	}
-	return worktree
+	return s.projects[key]
 }
 
 // rowLookup reads the fields of a database row.
