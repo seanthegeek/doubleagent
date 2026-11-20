@@ -201,7 +201,8 @@ func enrolledText(key string, byKey map[string]keyed) string {
 // githubAccount emits the "source host: github account" row of a
 // github-<login> key, at its latest use, else the file's modification
 // time. Another extension's github- key that is not an account list is
-// skipped; a cut account list is a bad record.
+// skipped; a cut account list is a bad record. A usages value that is not
+// a list, and its entries that are not objects, are problems.
 func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emit) {
 	login := row.key[len("github-"):]
 	if login == "" || !plain(row.value).IsArray() {
@@ -212,10 +213,8 @@ func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emi
 	}
 	var usages []jsonvalue.Value
 	if found, ok := byKey[row.key+"-usages"]; ok {
-		for _, usage := range decodeRecord(found.rowid, found.key, found.value, i.problems).Items() {
-			if usage.IsObject() {
-				usages = append(usages, usage)
-			}
+		for _, usage := range objectEntries(found, i.problems) {
+			usages = append(usages, usage)
 		}
 	}
 	text := githubText(login, row.key, usages, i.owner.Work)

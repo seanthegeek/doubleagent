@@ -2435,8 +2435,10 @@ conversation at the `composerData` rowid, `parser: <n> header entries name a bub
 entry names` (`1 header entry names a bubble an earlier entry names` for one). A value or member the format gives a kind that is present with another (an
 absent, null or empty one gives no row) is a row through `error_rows` at the value's rowid: a
 `cloudAgentRepository.agents.<account>`, `cloudEnvironmentTemplate.githubRepos`,
-`cursor.plugins.installedIds.<team>|<scope>` or `composerConvHeaders:<id>:<NNNNNN>` value that is
-not an array is `parser: <key> is not a JSON array` (`<key>` the row's key), a `composerData:<id>`
+`cursor.plugins.installedIds.<team>|<scope>`, `composerConvHeaders:<id>:<NNNNNN>` or
+`github-<login>-usages` value that is not an array, or a `cloudAgentRepository.mcpAuthResolution`
+value that is neither one answer object nor an array, is `parser: <key> is not a JSON array`
+(`<key>` the row's key), a `composerData:<id>`
 value or the settings blob that is not an object is `parser: <key> is not a JSON object` (a
 `composerHeaders` row's `value` gives `parser: composerHeaders <id> is not a JSON object`), a
 `fullConversationHeadersOnly` that is not an array is
