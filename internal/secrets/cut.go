@@ -1,6 +1,8 @@
 package secrets
 
 import (
+	"slices"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
@@ -8,22 +10,85 @@ import (
 )
 
 // CutPoint returns how many leading bytes of value to keep when it is cut
-// to at most limit bytes and white space is written after them, so the
-// kept bytes hold exactly the URL credentials the whole value holds there:
-// limit, moved back to the start of a UTF-8 character, and back to the
-// start of its token (urlcredentials rule 1) when the token's kept part
-// holds a scheme separator. A credential needs a separator before it in
-// its token, so a kept part without one holds none, and the credentials of
-// the tokens before it are found alike in both, the white space ending the
-// last one; so a cut never keeps the start of a URL's credentials and
-// never makes text read as one. It reads at most limit bytes.
+// to at most limit bytes and white space is written after them: limit,
+// moved back to the start of a UTF-8 character, then, when the cut would
+// end inside a span the cut must keep whole or leave out, back to where
+// the span starts, and again until it ends inside none: the URL spans of
+// value (cutSpans). The answer depends on value alone, never on what a run
+// records, so every run cuts a value alike; it reads at most twice limit
+// bytes of value.
 func CutPoint(value string, limit int) int {
 	point := min(max(limit, 0), len(value))
 	for steps := 1; steps < utf8.UTFMax && point > 0 && point < len(value) && !utf8.RuneStart(value[point]); steps++ {
 		point--
 	}
-	if start := urlcredentials.TokenStart(value, point); urlcredentials.MayHold(value[start:point]) {
-		return start
+	if point == len(value) {
+		return point
+	}
+	return outsideSpans(point, cutSpans(value, point, limit))
+}
+
+// cutSpans returns the spans a cut at or before point keeps whole or leaves
+// out, so the kept bytes with white space after them hold exactly the URL
+// credentials value holds there: each one the output replaces with the
+// byte after it (the @ after user information; a query value cut right
+// after it would end its token and lose punctuation), and each URL's
+// scheme and separator. URLs are read to the end of point's token; when it
+// runs more than lookahead bytes past point, the span from its first
+// separator's end to the value's end stands for its URLs, since each
+// credential of a token comes after its first separator.
+func cutSpans(value string, point, lookahead int) [][2]int {
+	start := urlcredentials.TokenStart(value, point)
+	window := value[:min(len(value), point+lookahead+1)]
+	end := urlcredentials.TokenEnd(window, point)
+	var spans [][2]int
+	if end == len(window) && len(window) < len(value) {
+		if separator := firstSeparatorEnd(value[start:point]); separator > 0 {
+			spans = append(spans, [2]int{start + separator, len(value)})
+		}
+		end = start
+	}
+	text := value[:end]
+	if !urlcredentials.MayHold(text) {
+		return spans
+	}
+	identifyURLs(text, func(secret urlcredentials.Credential) {
+		spans = append(spans, [2]int{secret.Start, secret.End + 1})
+	}, nil)
+	return append(spans, urlcredentials.Schemes(text)...)
+}
+
+// firstSeparatorEnd returns where the first scheme separator of text, "://"
+// or JSON's `:\/\/`, ends, or 0 when text holds none.
+func firstSeparatorEnd(text string) int {
+	plain, escaped := strings.Index(text, "://"), strings.Index(text, `:\/\/`)
+	switch {
+	case plain >= 0 && (escaped < 0 || plain < escaped):
+		return plain + len("://")
+	case escaped >= 0:
+		return escaped + len(`:\/\/`)
+	}
+	return 0
+}
+
+// outsideSpans returns point, or, when it lies strictly inside a span, the
+// start of the run of spans that overlap around it: the first place at or
+// before point that lies inside none, reached by moving back to the start
+// of each span it lies inside in turn.
+func outsideSpans(point int, spans [][2]int) int {
+	slices.SortFunc(spans, func(left, right [2]int) int { return left[0] - right[0] })
+	runStart, runEnd := 0, -1
+	for _, span := range spans {
+		if span[0] >= point {
+			break
+		}
+		if span[0] >= runEnd {
+			runStart = span[0]
+		}
+		runEnd = max(runEnd, span[1])
+	}
+	if runEnd > point && runStart < point {
+		return runStart
 	}
 	return point
 }

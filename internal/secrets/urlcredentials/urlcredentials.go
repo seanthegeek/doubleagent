@@ -100,6 +100,34 @@ func TokenStart(text string, end int) int {
 	return start
 }
 
+// TokenEnd returns where the token (rule 1) that holds byte start of text
+// ends: at the first delimiter at or after start, or at the end of text.
+func TokenEnd(text string, start int) int {
+	end := start
+	for end < len(text) && !isDelimiter(text[end]) {
+		end++
+	}
+	return end
+}
+
+// Schemes returns where each URL of text (rule 2) begins and its authority
+// starts, [scheme, authority), in order: the bytes of its scheme and its
+// separator.
+func Schemes(text string) [][2]int {
+	var spans [][2]int
+	for start := 0; start < len(text); {
+		end := TokenEnd(text, start)
+		for _, each := range urlStarts(text[:end], start, nil) {
+			spans = append(spans, [2]int{each.scheme, each.authority})
+		}
+		start = end
+		for start < len(text) && isDelimiter(text[start]) {
+			start++
+		}
+	}
+	return spans
+}
+
 // count adds n bytes read to work, when it counts.
 func count(work textset.Counter, n int) {
 	if work != nil {

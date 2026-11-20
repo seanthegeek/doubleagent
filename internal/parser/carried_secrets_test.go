@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -51,9 +52,11 @@ func plantCases() []plantCase {
 	}
 	return []plantCase{
 		{"a URL with a password across the cut in the value's one token",
-			around(10, fakeURL), 0, -1, "", recordNever},
+			around(10, fakeURL), point - 2, -1, "", recordNever},
 		{"a URL with a password across the cut after white space",
-			around(11, " "+fakeURL), point - 10, -1, "", recordNever},
+			around(11, " "+fakeURL), point - 2, -1, "", recordNever},
+		{"a URL with a password across the cut in a short token",
+			around(12, " "+fakeURL+" "), point - 3, -1, "", recordNever},
 		{"a secret identified before the row, across the cut",
 			around(5, fakeSecret), point, point - 5, fakeSecret, recordBefore},
 		{"a secret identified after the row, across the cut",
@@ -188,7 +191,8 @@ func tail(text string) string {
 // FuzzACutShowsNoPartOfASecret holds that a value longer than the limit,
 // holding a secret or a URL with a password at any place near the cut, in
 // a field or in a row's text, is written with no byte of the secret under
-// any placeholder, whenever the secret is identified. The secret is in the
+// any placeholder, whenever the secret is identified, and holds exactly
+// the URL credentials the whole value holds before the cut. The secret is in the
 // letters Q, X, Z and W, which nothing else written holds; one in a field
 // is at least secrets.EverywhereLength bytes, since a shorter one reaches
 // only the text of its parse's rows.
@@ -214,10 +218,11 @@ func FuzzACutShowsNoPartOfASecret(fuzz *testing.F) {
 			test.when = recordBefore
 		}
 		shown, _, _ := plantedRun(secrets.Setting{}, test, field)
-		if got := field.get(shown[0]); len(got) > CarriedLimit || len(value) > CarriedLimit && !strings.HasSuffix(got,
-			cutMark(len(value))) {
+		got := field.get(shown[0])
+		if len(got) > CarriedLimit || len(value) > CarriedLimit && !strings.HasSuffix(got, cutMark(len(value))) {
 			t.Fatalf("shown %d bytes ending %q", len(got), tail(got))
 		}
+		keepsTheURLCredentialsBefore(t, value, got)
 		for _, mode := range []string{placeholder, ""} {
 			rows, sessions, _ := plantedRun(secrets.Setting{Withhold: true, Placeholder: mode}, test, field)
 			for _, text := range writtenStrings(rows, sessions) {
@@ -227,6 +232,29 @@ func FuzzACutShowsNoPartOfASecret(fuzz *testing.F) {
 			}
 		}
 	})
+}
+
+// keepsTheURLCredentialsBefore fails the test unless written, a cut of
+// value, holds exactly the URL credentials value holds wholly in the bytes
+// it keeps, under either placeholder: none in part, and none value does
+// not hold there.
+func keepsTheURLCredentialsBefore(t *testing.T, value, written string) {
+	t.Helper()
+	kept := len(strings.TrimSuffix(written, cutMark(len(value))))
+	for _, empty := range []bool{false, true} {
+		var want [][2]int
+		for _, each := range secrets.URLCredentialRanges(value, empty) {
+			if each[0] < kept && each[1] > kept {
+				t.Fatalf("the cut keeps part of the credential at %v", each)
+			}
+			if each[1] <= kept {
+				want = append(want, each)
+			}
+		}
+		if got := secrets.URLCredentialRanges(written, empty); !slices.Equal(got, want) {
+			t.Fatalf("the cut holds the credentials %v, the whole value %v there", got, want)
+		}
+	}
 }
 
 // planted returns raw in the letters Q, X, Z and W, one per byte.
