@@ -137,6 +137,48 @@ func TestDecodePrefixReadsOneValueAndLeavesTheRest(t *testing.T) {
 	}
 }
 
+// damagedValues returns n damaged values, each on its own line after one
+// character that is not ASCII, and the offset where each starts.
+func damagedValues(n int) (string, []int) {
+	var text strings.Builder
+	var starts []int
+	for range n {
+		text.WriteString("é ")
+		starts = append(starts, text.Len())
+		text.WriteString(`{"a": ]` + "\n")
+	}
+	return text.String(), starts
+}
+
+func TestADocumentCountsEachErrorsPlaceOnFromTheLast(t *testing.T) {
+	for _, n := range []int{100, 200} {
+		text, starts := damagedValues(n)
+		document := NewDocument(text)
+		for _, start := range starts {
+			_, _, fresh := DecodePrefix(text, start)
+			if _, _, err := document.DecodePrefix(start); errorText(err) != errorText(fresh) {
+				t.Fatalf("value at %d: %v, want %v", start, err, fresh)
+			}
+		}
+		if document.Scanned() > len(text) {
+			t.Errorf("%d errors read %d bytes of a %d-byte text to place them", n, document.Scanned(), len(text))
+		}
+	}
+}
+
+func TestADocumentPlacesAnEarlierErrorFromTheStart(t *testing.T) {
+	text, starts := damagedValues(3)
+	document := NewDocument(text)
+	for _, start := range []int{starts[2], starts[0], -1, len(text) + 4} {
+		_, _, fresh := DecodePrefix(text, start)
+		_, _, err := document.DecodePrefix(start)
+		var got, want *Error
+		if !errors.As(err, &got) || !errors.As(fresh, &want) || got.Offset != want.Offset || got.Error() != want.Error() {
+			t.Errorf("value at %d: %v at %d, want %v at %d", start, got, got.Offset, want, want.Offset)
+		}
+	}
+}
+
 func TestTextGivesEachKindAsRowText(t *testing.T) {
 	tests := []struct {
 		name  string

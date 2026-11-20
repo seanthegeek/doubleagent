@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -75,23 +76,49 @@ func historyMarks(text string) []historyMark {
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
 // Date.toUTCString() date; it belongs to the account key before it, and
-// runs to the next account or chat key.
+// runs to the next account or chat key outside its interactions.
 func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
+	walk := newRecovery(text)
+	history, chats, found := walk.chats()
+	return history, "chat history did not parse; recovered " + strconv.Itoa(chats) + " chat(s)",
+		recoveredSessions(history, found)
+}
+
+// recovery is the walk of a damaged history. Each chat's interactions are
+// read as far as they decode, which can be past the next key when an
+// interaction holds a key shaped like a chat's or an account's; a key whose
+// object starts inside text an earlier chat's walk has read belongs to that
+// chat's interactions and starts no chat or account of its own. The walks
+// therefore read each byte of the text once whatever keys it holds; walked
+// and searched count the bytes they decode and search, for the tests.
+type recovery struct {
+	text             string
+	document         *jsonvalue.Document
+	marks            []historyMark
+	walked, searched int
+}
+
+// newRecovery returns the walk of a damaged history's text.
+func newRecovery(text string) *recovery {
+	return &recovery{text: text, document: jsonvalue.NewDocument(text), marks: historyMarks(text)}
+}
+
+// chats returns the history the walk recovers, how many chats it holds and
+// the damaged interactions, each with its account and chat.
+func (r *recovery) chats() (jsonvalue.Value, int, []recoveredError) {
 	history := jsonvalue.NewObject()
 	var found []recoveredError
-	account := ""
-	chats := 0
-	marks := historyMarks(text)
-	for i, mark := range marks {
-		if !mark.isChat {
+	account, chats, stopped := "", 0, -1
+	for i, mark := range r.marks {
+		switch {
+		case mark.offset <= stopped: // inside an earlier chat's interactions
+			continue
+		case !mark.isChat:
 			account = mark.name
 			continue
 		}
-		end, shownEnd := len(text), len(text)
-		if i+1 < len(marks) {
-			end, shownEnd = marks[i+1].offset, marks[i+1].keyStart
-		}
-		chat, problems := recoverChat(text, mark, end, shownEnd)
+		chat, problems, read := r.chat(i)
+		stopped = read
 		for _, problem := range problems {
 			found = append(found, recoveredError{problem: problem, account: account, chat: mark.name})
 		}
@@ -103,35 +130,76 @@ func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
 		holder.Get("chat").Set(mark.name, chat)
 		chats++
 	}
-	return history, "chat history did not parse; recovered " + strconv.Itoa(chats) + " chat(s)",
-		recoveredSessions(history, found)
+	return history, chats, found
 }
 
-// recoverChat returns the chat whose key ends at mark, read up to end: its
-// id, the interactions that decode and its title when it decodes, and the
-// problems of its damaged interactions. The interactions array is walked
-// past end when an interaction holds a key that looks like a chat's, but a
-// damaged interaction's record is shown only up to shownEnd, where the next
-// key starts, and not at all when it starts after that: each part of the
-// text is shown once however many chats are damaged.
-func recoverChat(text string, mark historyMark, end, shownEnd int) (jsonvalue.Value, parser.Problems) {
+// chat returns the chat of mark i: its id, the interactions that decode and
+// its title when it decodes, the problems of its damaged interactions, and
+// the offset its walk read up to. A damaged interaction's record runs to
+// where the next key outside the walk starts, so each part of the text is
+// shown once however many chats are damaged; the title is looked for
+// outside the interactions the walk read.
+func (r *recovery) chat(i int) (jsonvalue.Value, parser.Problems, int) {
+	mark := r.marks[i]
 	var problems parser.Problems
 	interactions := []jsonvalue.Value{}
-	if found := interactionsKey.FindStringIndex(text[mark.offset:end]); found != nil {
-		for _, value := range parser.ArrayAtShownTo(text, mark.offset+found[1], shownEnd, &problems, nil) {
+	walkStart, stopped := mark.offset, mark.offset
+	if found := r.search(interactionsKey, mark.offset, r.next(i, mark.offset).keyStart); found != nil {
+		walkStart = found[1]
+		walk := &parser.ArrayWalk{Document: r.document,
+			ShownEnd: func(stopped int) int { return r.next(i, stopped).keyStart }}
+		for _, value := range walk.Array(walkStart, &problems, nil) {
 			if value.IsObject() {
 				interactions = append(interactions, value)
 			}
 		}
+		stopped = walk.Stopped
+		r.walked += stopped - walkStart
 	}
 	chat := jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString(mark.name)},
 		jsonvalue.Member{Key: "interactions", Value: jsonvalue.NewArray(interactions...)})
-	if found := titleKey.FindStringSubmatch(text[mark.offset:end]); found != nil {
-		if title, err := jsonvalue.DecodeString(found[1]); err == nil {
+	found := r.search(titleKey, mark.offset, walkStart)
+	if found == nil {
+		found = r.search(titleKey, stopped, r.next(i, stopped).keyStart)
+	}
+	if found != nil {
+		if title, err := jsonvalue.DecodeString(r.text[found[2]:found[3]]); err == nil {
 			chat.Set("chatTitle", title)
 		}
 	}
-	return chat, problems
+	return chat, problems, stopped
+}
+
+// search returns the offsets of pattern's first match in the text from
+// start to end, as FindStringSubmatchIndex gives them but counted from the
+// start of the text, or nil; it counts the bytes it searched.
+func (r *recovery) search(pattern *regexp.Regexp, start, end int) []int {
+	if start >= end {
+		return nil
+	}
+	found := pattern.FindStringSubmatchIndex(r.text[start:end])
+	if found == nil {
+		r.searched += end - start
+		return nil
+	}
+	r.searched += found[1]
+	for j := range found {
+		if found[j] >= 0 {
+			found[j] += start
+		}
+	}
+	return found
+}
+
+// next returns the first mark after mark i whose object starts after the
+// offset read, or a mark at the end of the text when there is none.
+func (r *recovery) next(i, read int) historyMark {
+	later := r.marks[i+1:]
+	j := sort.Search(len(later), func(j int) bool { return later[j].offset > read })
+	if j == len(later) {
+		return historyMark{offset: len(r.text), keyStart: len(r.text)}
+	}
+	return later[j]
 }
 
 // recoveredSessions gives each damaged interaction the session id of its

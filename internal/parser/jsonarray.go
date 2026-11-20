@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"iter"
 	"strconv"
 
@@ -18,52 +19,66 @@ import (
 // end (TailText) as raw. When end is not nil it is set to the offset after
 // the closing bracket, or -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
-	return ArrayAtShownTo(text, offset, len(text), problems, end)
+	walk := &ArrayWalk{Document: jsonvalue.NewDocument(text)}
+	return walk.Array(offset, problems, end)
 }
 
-// ArrayAtShownTo walks the array as ArrayAt does, but the raw text of an
-// element that does not decode runs only to the byte offset shownEnd, and
-// an element that starts at or after shownEnd has none. A caller that walks
-// several arrays of one text passes the end of each array's own part, so
-// the text the problems show adds up to no more than the text itself.
-func ArrayAtShownTo(text string, offset, shownEnd int, problems *Problems,
-	end *int) iter.Seq2[int, jsonvalue.Value] {
+// ArrayWalk walks the JSON arrays of one document as ArrayAt walks one, for
+// a caller that reads several arrays of a text in text order and reads no
+// part of it twice. After each walk, Stopped is the byte offset it read up
+// to: past the closing bracket, where an element was not followed by a
+// comma or bracket, or where an element that does not decode failed.
+// ShownEnd, when not nil, is given that offset and returns where the raw
+// text of the element that does not decode ends; one that starts at or
+// after it has none.
+type ArrayWalk struct {
+	Document *jsonvalue.Document
+	ShownEnd func(stopped int) int
+	Stopped  int
+}
+
+// Array yields (1-based position, element) from the array that starts at the
+// byte offset of the walk's document, with the problems ArrayAt adds.
+func (w *ArrayWalk) Array(offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
+		text := w.Document.String()
 		setEnd(end, -1)
 		cursor := SkipJSONSpace(text, max(offset, 0))
+		w.Stopped = cursor
 		if cursor >= len(text) || text[cursor] != '[' {
 			problems.Add(1, "not a JSON array")
 			return
 		}
 		cursor = SkipJSONSpace(text, cursor+1)
+		w.Stopped = cursor
 		if cursor < len(text) && text[cursor] == ']' {
+			w.Stopped = cursor + 1
 			setEnd(end, cursor+1)
 			return
 		}
 		for position := 1; ; position++ {
 			start := SkipJSONSpace(text, cursor)
+			w.Stopped = start
 			if start == len(text) {
 				problems.Add(position, cutOff(position-1))
 				return
 			}
-			value, next, err := jsonvalue.DecodePrefix(text, start)
+			value, next, err := w.Document.DecodePrefix(start)
 			if err != nil {
-				raw := ""
-				if start < shownEnd {
-					raw = TailText(text[:min(shownEnd, len(text))], start)
-				}
-				problems.AddRaw(position, UnparseableRecord(position, err), raw)
+				w.failed(start, position, err, problems)
 				return
 			}
 			if !yield(position, value) {
 				return
 			}
 			cursor = SkipJSONSpace(text, next)
+			w.Stopped = cursor
 			switch {
 			case cursor < len(text) && text[cursor] == ',':
 				cursor++
 				continue
 			case cursor < len(text) && text[cursor] == ']':
+				w.Stopped = cursor + 1
 				setEnd(end, cursor+1)
 				return
 			}
@@ -71,6 +86,25 @@ func ArrayAtShownTo(text string, offset, shownEnd int, problems *Problems,
 			return
 		}
 	}
+}
+
+// failed records the element at start that does not decode: where the
+// reader stopped, and its problem with the raw text up to ShownEnd.
+func (w *ArrayWalk) failed(start, position int, err error, problems *Problems) {
+	text := w.Document.String()
+	var decodeError *jsonvalue.Error
+	if errors.As(err, &decodeError) {
+		w.Stopped = min(max(decodeError.Offset, start), len(text))
+	}
+	shownEnd := len(text)
+	if w.ShownEnd != nil {
+		shownEnd = min(max(w.ShownEnd(w.Stopped), 0), len(text))
+	}
+	raw := ""
+	if start < shownEnd {
+		raw = TailText(text[:shownEnd], start)
+	}
+	problems.AddRaw(position, UnparseableRecord(position, err), raw)
 }
 
 // cutOff is the message of an array cut off after count whole elements.

@@ -3,6 +3,8 @@ package parser
 import (
 	"slices"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 // ArrayAt yields each element before damage with its position, then the
@@ -62,7 +64,7 @@ func TestArrayAtSalvagesTheElementsBeforeDamage(t *testing.T) {
 	}
 }
 
-func TestArrayAtShownToShowsABadRecordOnlyUpToItsEnd(t *testing.T) {
+func TestArrayWalkShowsABadRecordOnlyUpToItsShownEnd(t *testing.T) {
 	const text = `[1, {"a": ] next part`
 	reason := "unparseable record 2 (invalid JSON at line 1, column 11: invalid character ']' after object key:value pair)"
 	tests := []struct {
@@ -74,18 +76,52 @@ func TestArrayAtShownToShowsABadRecordOnlyUpToItsEnd(t *testing.T) {
 		{"an end inside the record shows its start", 9, `{"a":`},
 		{"an end at the record's start shows nothing", 4, ""},
 		{"an end before the record shows nothing", 1, ""},
+		{"an end before the text shows nothing", -3, ""},
 		{"an end past the text shows the rest", len(text) + 5, `{"a": ] next part`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems Problems
 			var items []string
-			for _, value := range ArrayAtShownTo(text, 0, test.shownEnd, &problems, nil) {
+			given := -1
+			walk := &ArrayWalk{Document: jsonvalue.NewDocument(text), ShownEnd: func(stopped int) int {
+				given = stopped
+				return test.shownEnd
+			}}
+			for _, value := range walk.Array(0, &problems, nil) {
 				items = append(items, value.JSON())
 			}
 			want := Problems{{Line: 2, Message: reason, Raw: test.raw}}
-			if !slices.Equal(items, []string{"1"}) || !slices.Equal(problems, want) {
-				t.Errorf("got %q, %+v; want [1], %+v", items, problems, want)
+			if !slices.Equal(items, []string{"1"}) || !slices.Equal(problems, want) || given != 10 || walk.Stopped != 10 {
+				t.Errorf("got %q, %+v, stopped %d (given %d); want [1], %+v, stopped 10", items, problems,
+					walk.Stopped, given, want)
+			}
+		})
+	}
+}
+
+func TestArrayWalkStopsWhereItStoppedReading(t *testing.T) {
+	tests := []struct {
+		name, text string
+		offset     int
+		stopped    int
+	}{
+		{"past the closing bracket", `x [1, 2] tail`, 1, 8},
+		{"past an empty array", `[ ] tail`, 0, 3},
+		{"at the end of a cut text", `[1, `, 0, 4},
+		{"where a comma is missing", `[1 2]`, 0, 3},
+		{"at the start of text that is not an array", `  {}`, 0, 2},
+		{"at the error of an element that does not decode", `[{"a": "b" "c"}]`, 0, 11},
+		{"at the end of the text inside an element", `[{"a": [1, 2`, 0, 12},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var problems Problems
+			walk := &ArrayWalk{Document: jsonvalue.NewDocument(test.text)}
+			for range walk.Array(test.offset, &problems, nil) {
+			}
+			if walk.Stopped != test.stopped {
+				t.Errorf("stopped at %d, want %d", walk.Stopped, test.stopped)
 			}
 		})
 	}
