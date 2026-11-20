@@ -83,6 +83,9 @@ type Parser struct {
 	text  textPatterns
 	// markers holds each .workspace file read, by its state.
 	markers map[markerState]*markerText
+	// namespaces holds each sessions directory's namespaces, by its path,
+	// listed once for the run, since every WebUI chat looks in all of them.
+	namespaces map[string]*sessionNamespaces
 }
 
 // New returns the parser.
