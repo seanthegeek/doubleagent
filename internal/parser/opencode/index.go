@@ -27,6 +27,10 @@ type treeIndex struct {
 	// projectFiles holds each project file a session file read, by its
 	// state, since every session of a project names it.
 	projectFiles map[fileState]*sideRead
+	// quietSides holds each side file a session's scope read quietly, by
+	// its state, null when it is not an object, since sessions naming one
+	// file in several spellings the disk opens alike would each read it.
+	quietSides map[fileState]jsonvalue.Value
 	// partsShown holds the message file that first showed each part
 	// directory, by the directory's entry, since a message id names one
 	// directory of parts.
@@ -77,7 +81,7 @@ type sessionKey struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string]*projectFiles{},
 		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
-		projectFiles: map[fileState]*sideRead{}, partsShown: map[parser.EntryKey]string{}}
+		projectFiles: map[fileState]*sideRead{}, quietSides: map[fileState]jsonvalue.Value{}, partsShown: map[parser.EntryKey]string{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,
@@ -189,4 +193,23 @@ func (x *treeIndex) projectFile(path string, found bool, problems *parser.Proble
 	}
 	*problems = append(*problems, held.problems...)
 	return held.value, held.err
+}
+
+// quietSide returns the side file at path decoded as an object as
+// quietObject does, null when it is not one, read once per state of the
+// file for the run, whatever spelling of its name opens it.
+func (x *treeIndex) quietSide(path string, found bool, work parser.Work) jsonvalue.Value {
+	info, err := osfile.Lstat(path)
+	if !found || err != nil {
+		value, _ := quietObject(path, found)
+		return value
+	}
+	key := fileState{entry: parser.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}
+	value, ok := x.quietSides[key]
+	if !ok {
+		work.Add("quiet side reads", 1)
+		value, _ = quietObject(path, true)
+		x.quietSides[key] = value
+	}
+	return value
 }
