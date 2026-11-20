@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -113,5 +114,72 @@ func TestACutValueIsRecordedOnceAndItsDroppedURLCredentialsEverywhere(t *testing
 	shown.Cut(value, "keep  [cut]", 5, false)
 	if shown.CutValues() != nil || shown.Text("keep  [cut]") != "keep  [cut]" {
 		t.Error("a run that shows secrets changed what it writes")
+	}
+}
+
+// cutWork returns the work of cutting n values of 6,000 bytes, each kept
+// to its first 4,000, then collecting and writing each written text, by
+// the name of the work: with every written text the same or each its own,
+// and with a recorded secret in each value running across its cut or none.
+func cutWork(t *testing.T, n int, shared, withSecrets bool) counter {
+	t.Helper()
+	const length, kept = 6000, 4000
+	work := counter{}
+	recorder := NewRecorder(withheld())
+	recorder.work = work
+	common := strings.Repeat("abcdefghi/", length/10)
+	written := make([]string, n)
+	for i := range n {
+		head := common[:kept-5]
+		if !shared {
+			head = fmt.Sprintf("%06d", i) + common[6:kept-5]
+		}
+		secret := fmt.Sprintf("QXQXQ%06dQXQXQ", i)
+		value := head + secret + common[kept+len(secret)-5:]
+		if withSecrets {
+			recorder.Value(secret)
+		}
+		written[i] = value[:kept] + " [cut]"
+		recorder.Cut(value, written[i], kept, false)
+	}
+	for _, text := range written {
+		recorder.Collect(text)
+	}
+	for _, text := range written {
+		if got := recorder.Text(text); withSecrets && strings.Contains(got, "QX") {
+			t.Fatalf("a written text shows part of a secret: %q", got[len(got)-20:])
+		}
+	}
+	return work
+}
+
+func TestCuttingAndWritingManyValuesCostsTheirLengthAFixedNumberOfTimes(t *testing.T) {
+	tests := []struct {
+		name                string
+		shared, withSecrets bool
+	}{
+		{"values with one written text", true, false},
+		{"values each with its own written text", false, false},
+		{"values with one written text and a secret across each cut", true, true},
+		{"values each with its own written text and a secret across each cut", false, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			small, double, quadruple := cutWork(t, 250, test.shared, test.withSecrets),
+				cutWork(t, 500, test.shared, test.withSecrets), cutWork(t, 1000, test.shared, test.withSecrets)
+			// Every value costs the same, so doubling the values doubles
+			// what they cost, exactly, whatever their written texts share.
+			for _, name := range []string{"cut bytes compared", "bytes read", "bytes indexed", "bytes searched",
+				"fallbacks taken"} {
+				if quadruple[name]-double[name] != 2*(double[name]-small[name]) {
+					t.Errorf("%s: %d, %d and %d for 250, 500 and 1000 values: not linear", name, small[name],
+						double[name], quadruple[name])
+				}
+			}
+			if test.withSecrets && double["bytes searched"] <= small["bytes searched"] {
+				t.Errorf("searched %d and %d bytes: the written texts were not searched", small["bytes searched"],
+					double["bytes searched"])
+			}
+		})
 	}
 }

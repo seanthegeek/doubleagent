@@ -66,18 +66,58 @@ func (r *Recorder) Cut(value, written string, kept int, inText bool) {
 	if inText {
 		parse = r.current
 	}
-	for _, earlier := range r.cutsOf[written] {
-		if each := r.cuts[earlier]; each.parse == parse && each.value == value {
-			return
-		}
+	if r.cutBefore(cutPlace{written, parse}, value) {
+		return
 	}
-	if r.cutsOf == nil {
-		r.cutsOf = map[string][]int{}
-	}
-	r.cutsOf[written] = append(r.cutsOf[written], len(r.cuts))
 	r.cuts = append(r.cuts, cut{value: value, written: written, kept: kept, parse: parse})
 	r.changes++
 	r.Collect(value)
+}
+
+// cutPlace is what keeps apart the lists of values cut: the text written
+// in their place and the record of the parse whose row text holds it (nil
+// for a field of a row).
+type cutPlace struct {
+	written string
+	parse   *Found
+}
+
+// cutList is the values cut in one place: every one, as a set, and the one
+// last met there, which a value carried onto rows in turn with others
+// meets again in one comparison.
+type cutList struct {
+	values map[string]bool
+	last   string
+}
+
+// cutBefore reports whether value was cut in place before, and adds it to
+// the place's list when not. It compares value with the place's last one
+// and looks it up in the place's set, each reading value at most once
+// (counted as "cut bytes compared"), however many values the place holds.
+func (r *Recorder) cutBefore(place cutPlace, value string) bool {
+	if r.cutsOf == nil {
+		r.cutsOf = map[cutPlace]*cutList{}
+	}
+	list := r.cutsOf[place]
+	if list == nil {
+		list = &cutList{values: map[string]bool{}}
+		r.cutsOf[place] = list
+	} else {
+		countWork(r.work, "cut bytes compared", 2*len(value))
+		if list.last == value || list.values[value] {
+			list.last = value
+			return true
+		}
+	}
+	list.values[value], list.last = true, value
+	return false
+}
+
+// countWork adds n units of the named work to work, when it counts.
+func countWork(work textset.Counter, name string, n int) {
+	if work != nil {
+		work.Add(name, n)
+	}
 }
 
 // CutValue is a value the parser kit cut, as Cut recorded it, for a test
