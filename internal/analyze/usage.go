@@ -36,17 +36,20 @@ const timelineNoSecretsHelp = `  --no-secrets         replace each identified se
 `
 
 // detectNoSecretsHelp is the help of detect's --no-secrets: detect reads
-// no file's content, so no parser identifies a token or key.
+// none of the agents' own files, so no parser identifies a token or key.
 const detectNoSecretsHelp = `  --no-secrets         replace each credential of a URL that has a scheme
                        with REDACTED, and the value of a URL parameter
                        named as a credential (token, key, sig and the
                        like), wherever the output writes the URL: a
                        credential of 8 bytes or more is replaced
                        everywhere it appears in the output, a shorter one
-                       only where the URL holds it. detect reads no
-                       file's content, so a token or key that timeline
-                       --no-secrets identifies by the parsers is not
-                       replaced here, even in a file name or a path
+                       only where the URL holds it. detect reads none of
+                       the agents' own files, only a collection's
+                       manifest.jsonl and collection.json and each
+                       project's .git/config and .git/HEAD, so a token or
+                       key that timeline --no-secrets identifies by the
+                       parsers is not replaced here, even in a file name
+                       or a path
 `
 
 // inputPlaceholderHelp is the help of the options detect and timeline
