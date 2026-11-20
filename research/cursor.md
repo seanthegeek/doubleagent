@@ -2428,7 +2428,10 @@ deletion row is yielded for it.
 The transcript JSONL is read with `iter_jsonl`, and each bad line becomes its own `system` row
 through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (when it should be) is
 appended to the errors list with its rowid and key, and a header entry with no bubble row has its
-own row (table above). A value or member the format gives a kind that is present with another (an
+own row (table above). Each bubble is read once per conversation, at the first header entry naming
+it: a later entry naming the same bubble gives no row, and such entries are one row per
+conversation at the `composerData` rowid, `parser: <n> header entries name a bubble an earlier
+entry names` (`1 header entry names a bubble an earlier entry names` for one). A value or member the format gives a kind that is present with another (an
 absent, null or empty one gives no row) is a row through `error_rows` at the value's rowid: a
 `cloudAgentRepository.agents.<account>`, `cloudEnvironmentTemplate.githubRepos`,
 `cursor.plugins.installedIds.<team>|<scope>` or `composerConvHeaders:<id>:<NNNNNN>` value that is

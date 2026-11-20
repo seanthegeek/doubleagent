@@ -229,7 +229,9 @@ func chunkComposer(key string) (string, bool) {
 }
 
 // conversation emits the rows of a conversation: its name, its origin,
-// each bubble's rows, and whether it is archived.
+// each bubble's rows, and whether it is archived. Each bubble is read once,
+// at the first header entry naming it; the later entries naming it give no
+// row and are counted as one problem.
 func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 	current := stamp.composer
 	if name := timeline.CompactValue(firstOrLast(current.data.Get("name"), current.head.Get("name"))); name != "" {
@@ -237,8 +239,14 @@ func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 	}
 	r.owner.origin(stamp)
 	tracked, model := parser.Tracker{}, ""
+	met, repeats := map[string]bool{}, 0
 	for _, entry := range entries {
 		bubbleID := parser.Text(entry.Get("bubbleId"))
+		if met[bubbleID] {
+			repeats++
+			continue
+		}
+		met[bubbleID] = true
 		key := "bubbleId:" + current.ident + ":" + bubbleID
 		found, ok := r.bubbles[key]
 		if bubbleID == "" || !ok {
@@ -252,9 +260,21 @@ func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 		}
 		model = r.bubble(stamp, bubble, entry, found.rowid, tracked, model)
 	}
+	if repeats > 0 {
+		current.problems.Add(int(current.dataRowid), repeatedEntriesText(repeats))
+	}
 	if current.archived() {
 		stamp.add(timeline.TurnSystem, "conversation archived", current.headerUpdated(), current.dataRowid, model)
 	}
+}
+
+// repeatedEntriesText returns the problem text of n header entries that
+// name a bubble an earlier entry of the same list names.
+func repeatedEntriesText(n int) string {
+	if n == 1 {
+		return "1 header entry names a bubble an earlier entry names"
+	}
+	return strconv.Itoa(n) + " header entries name a bubble an earlier entry names"
 }
 
 // bubble emits the rows of one bubble: a prompt (with a model change), a
