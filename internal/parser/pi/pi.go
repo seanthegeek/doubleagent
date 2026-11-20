@@ -87,10 +87,18 @@ func (p *Parser) Marks() parser.Marks {
 // Wants reports whether the artifact is a session, trust, settings, debug,
 // crash, metadata or export file.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return slices.Contains([]string{trustRel, settingsRel, debugRel, crashesRel}, rel) ||
-		p.session.MatchString(rel) || p.meta.MatchString(rel) || p.tuiCrash.MatchString(rel) ||
-		p.isExport(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the trust, settings, debug log and crashes files, the
+// sessions, the experimental session metadata, the crash logs and the
+// three export forms.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelKind("trust.json", trustRel), parser.RelKind("settings.json", settingsRel),
+		parser.RelKind("pi-debug.log", debugRel), parser.RelKind("crashes.json", crashesRel),
+		parser.PatternKind("session", p.session), parser.PatternKind("session meta.json", p.meta),
+		parser.PatternKind("crash log", p.tuiCrash), parser.PatternKind("HTML export", p.htmlExport),
+		parser.PatternKind("JSONL export", p.jsonlExport), parser.PatternKind("bug report zip", p.bugZip)}
 }
 
 // isExport reports whether rel is one of the three project exports.

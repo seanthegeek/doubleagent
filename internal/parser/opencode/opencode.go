@@ -106,14 +106,18 @@ func (p *Parser) Marks() parser.Marks {
 // Wants reports whether the artifact is a database, a legacy JSON tree file
 // or a terminal UI state file.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{p.patterns.database, p.patterns.session,
-		p.patterns.message, p.patterns.oldSession, p.patterns.oldMessage, p.patterns.history,
-		p.patterns.stash, p.patterns.pinned} {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
-	}
-	return false
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the databases, the 1.x and older session and message
+// files, the prompt history and stash, and the pinned session.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("database", p.patterns.database),
+		parser.PatternKind("session file", p.patterns.session), parser.PatternKind("message file", p.patterns.message),
+		parser.PatternKind("old session file", p.patterns.oldSession),
+		parser.PatternKind("old message file", p.patterns.oldMessage),
+		parser.PatternKind("prompt-history.jsonl", p.patterns.history),
+		parser.PatternKind("prompt-stash.jsonl", p.patterns.stash), parser.PatternKind("session.json", p.patterns.pinned)}
 }
 
 // Secondary reports whether the artifact is the prompt history, the pinned

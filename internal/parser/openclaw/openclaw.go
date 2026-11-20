@@ -114,13 +114,19 @@ func (p *Parser) Marks() parser.Marks {
 // Wants reports whether the artifact is an agent or state database, a cold
 // archive or a transcript file; a trajectory transcript is not read.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	if p.files.agentDatabase.MatchString(rel) || p.files.cold.MatchString(rel) ||
-		p.files.stateDatabase.MatchString(rel) {
-		return true
-	}
-	name, ok := p.matchTranscript(rel)
-	return ok && !strings.HasSuffix(name.name, ".trajectory")
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the agent and state databases, the cold transcripts, and
+// the transcripts other than trajectories.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("openclaw-agent.sqlite", p.files.agentDatabase),
+		parser.PatternKind("cold transcript", p.files.cold),
+		parser.PatternKind("openclaw.sqlite", p.files.stateDatabase),
+		parser.RelFuncKind("transcript", func(rel string) bool {
+			name, ok := p.matchTranscript(rel)
+			return ok && !strings.HasSuffix(name.name, ".trajectory")
+		})}
 }
 
 // Secondary reports whether the artifact is a published archive, a

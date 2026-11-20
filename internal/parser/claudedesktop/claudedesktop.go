@@ -82,13 +82,19 @@ func New() *Parser {
 // Wants reports whether the artifact is a transcript, an audit log, a
 // session record or one of the app's state files.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{transcriptPattern, stagedPattern, auditPattern,
-		recordPattern, scheduledTasksPattern, worktreePattern, spacesPattern} {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
-	}
-	return false
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the session transcripts, the staged imports, the audit
+// logs, the session records, the scheduled tasks, the worktree list and
+// the remote session spaces.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("session transcript", transcriptPattern),
+		parser.PatternKind("imported-staging transcript", stagedPattern),
+		parser.PatternKind("audit.jsonl", auditPattern), parser.PatternKind("session record", recordPattern),
+		parser.PatternKind("scheduled-tasks.json", scheduledTasksPattern),
+		parser.PatternKind("git-worktrees.json", worktreePattern),
+		parser.PatternKind("remote-session-spaces.json", spacesPattern)}
 }
 
 // Secondary reports whether the artifact is an audit log or a session

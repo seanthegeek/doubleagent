@@ -111,9 +111,15 @@ func New() *Parser {
 // Wants reports whether the artifact is an event file, base_state.json,
 // meta.json, a prompt history or a legacy event.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return p.event.MatchString(rel) || p.legacy.MatchString(rel) || p.state.MatchString(rel) ||
-		p.meta.MatchString(rel) || p.history.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the conversation events, the legacy event files, the base
+// state, the conversation metadata and the prompt history.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("event", p.event), parser.PatternKind("legacy event", p.legacy),
+		parser.PatternKind("base_state.json", p.state), parser.PatternKind("meta.json", p.meta),
+		parser.PatternKind("prompt_history.json", p.history)}
 }
 
 // Secondary reports whether the artifact is the CLI's prompt history.

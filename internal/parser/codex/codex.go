@@ -109,15 +109,34 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel, built := artifact.Rel, p.paths
-	return rel == built.history || rel == built.state || rel == built.threadHistory ||
-		built.rollout.MatchString(rel) ||
-		(built.ledger != "" && rel == built.ledger) ||
-		(p.settings.Automations && built.automation.MatchString(rel)) ||
-		built.logs.MatchString(rel) ||
-		(built.globalState != "" && rel == built.globalState) ||
-		rel == built.config || built.rules.MatchString(rel) || built.memory.MatchString(rel) ||
-		built.backupState.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the files the parser reads: the import ledger, the
+// automations and the desktop app's state only where the settings name
+// them.
+func (p *Parser) Kinds() []parser.Kind {
+	built := p.paths
+	kinds := []parser.Kind{parser.RelKind("history.jsonl", built.history),
+		parser.RelKind("state_5.sqlite", built.state), parser.RelKind("thread_history_1.sqlite", built.threadHistory),
+		parser.RelFuncKind("rollout", func(rel string) bool {
+			return built.rollout.MatchString(rel) && !strings.HasSuffix(rel, ".zst")
+		}),
+		parser.RelFuncKind("compressed rollout", func(rel string) bool {
+			return built.rollout.MatchString(rel) && strings.HasSuffix(rel, ".zst")
+		})}
+	if built.ledger != "" {
+		kinds = append(kinds, parser.RelKind("import ledger", built.ledger))
+	}
+	if p.settings.Automations {
+		kinds = append(kinds, parser.PatternKind("automation.toml", built.automation))
+	}
+	kinds = append(kinds, parser.PatternKind("logs database", built.logs))
+	if built.globalState != "" {
+		kinds = append(kinds, parser.RelKind(globalStateName, built.globalState))
+	}
+	return append(kinds, parser.RelKind("config.toml", built.config), parser.PatternKind("rules", built.rules),
+		parser.PatternKind("rollout summary", built.memory), parser.PatternKind("state backup", built.backupState))
 }
 
 // Secondary reports whether the artifact repeats events the rollouts

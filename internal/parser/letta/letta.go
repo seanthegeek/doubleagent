@@ -24,7 +24,6 @@ package letta
 import (
 	"encoding/base64"
 	"regexp"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -88,10 +87,18 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is one of the Letta files read.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return slices.Contains([]string{sessionsRel, settingsRel, localSettingsRel, legacySettingsRel,
-		cronsRel}, rel) || p.transcript.MatchString(rel) || p.local.MatchString(rel) ||
-		p.routing.MatchString(rel) || p.runs.MatchString(rel) || p.listener.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the session list, the three settings files, the crons, the
+// transcripts, the local backend's conversations, the channel routing,
+// the runs and the listener state.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelKind("sessions.jsonl", sessionsRel), parser.RelKind("settings.json", settingsRel),
+		parser.RelKind("settings.local.json", localSettingsRel), parser.RelKind("legacy settings.json", legacySettingsRel),
+		parser.RelKind("crons.json", cronsRel), parser.PatternKind("transcript", p.transcript),
+		parser.PatternKind("local backend messages", p.local), parser.PatternKind("channel routing", p.routing),
+		parser.PatternKind("run", p.runs), parser.PatternKind("listener state", p.listener)}
 }
 
 // Secondary reports whether the artifact is a transcript, which repeats the

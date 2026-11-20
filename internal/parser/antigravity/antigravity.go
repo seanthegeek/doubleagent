@@ -98,9 +98,19 @@ func standingFile(rel string) bool {
 // Wants reports whether the artifact is a conversation, the summaries, a
 // brain transcript, the history or a permission file.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return rel == historyRel || brainPattern.MatchString(rel) || summariesPattern.MatchString(rel) ||
-		conversationPattern.MatchString(rel) || standingFile(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the history, the brain transcripts, the summaries, the
+// conversations and the four permission files.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelKind("history.jsonl", historyRel),
+		parser.PatternKind("brain transcript", brainPattern),
+		parser.PatternKind("conversation_summaries.db", summariesPattern),
+		parser.PatternKind("conversation database", conversationPattern),
+		parser.RelKind("config.json", configRel), parser.RelKind("CLI settings.json", cliSettingsRel),
+		parser.PatternKind("project permissions", projectPattern),
+		parser.PatternKind("sidecar.json", sidecarPattern)}
 }
 
 // Secondary reports whether the artifact is the CLI history or the brain

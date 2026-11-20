@@ -96,12 +96,26 @@ func (p *Parser) own(artifact *input.Artifact) bool {
 // Wants reports whether the artifact is a Tabby database, event log,
 // config or history, or an editor's state database.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	if !p.own(artifact) {
-		return vscodestate.IsStateDatabase(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns an editor's state database, among another agent's
+// artifacts, and Tabby's own database, backups, event logs, config and
+// JetBrains history.
+func (p *Parser) Kinds() []parser.Kind {
+	kinds := []parser.Kind{{Name: "editor state.vscdb", Wants: func(artifact *input.Artifact) bool {
+		return !p.own(artifact) && vscodestate.IsStateDatabase(artifact.Rel)
+	}}}
+	for _, each := range []struct {
+		name    string
+		pattern *regexp.Regexp
+	}{{"db.sqlite", p.database}, {"database backup", p.backup}, {"event log", p.events},
+		{"config.toml", p.config}, {"IntelliJ command history", p.intellij}} {
+		kinds = append(kinds, parser.Kind{Name: each.name, Wants: func(artifact *input.Artifact) bool {
+			return p.own(artifact) && each.pattern.MatchString(artifact.Rel)
+		}})
 	}
-	return p.database.MatchString(rel) || p.backup.MatchString(rel) ||
-		p.events.MatchString(rel) || p.config.MatchString(rel) || p.intellij.MatchString(rel)
+	return kinds
 }
 
 // Secondary reports whether the artifact is a backup database, an event

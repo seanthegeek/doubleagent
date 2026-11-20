@@ -94,12 +94,19 @@ func (p *Parser) wanted() []*regexp.Regexp {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range p.wanted() {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the files the parser reads, one kind per pattern.
+func (p *Parser) Kinds() []parser.Kind {
+	names := []string{"state.db", "state snapshot", "session jsonl", "pending pastes", "config.yaml",
+		"pairing approvals", ".hermes_history", "cron output", "response_store.db", "trajectory samples",
+		"connections"}
+	var kinds []parser.Kind
+	for i, pattern := range p.wanted() {
+		kinds = append(kinds, parser.PatternKind(names[i], pattern))
 	}
-	return false
+	return kinds
 }
 
 // Secondary reports whether the artifact repeats the events of state.db.

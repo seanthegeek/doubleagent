@@ -107,19 +107,34 @@ func New() *Parser {
 // Wants reports whether the artifact is one of the files the parser reads;
 // trusted_hooks.json and acknowledgments/agents.json only in a user's home.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	if hooksPattern.MatchString(rel) || agentsAckPattern.MatchString(rel) {
-		return !artifact.Home.Project
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the files the parser reads. The trusted hooks and the
+// agents acknowledgments are read in a home only, and a path that names
+// either is no other kind.
+func (p *Parser) Kinds() []parser.Kind {
+	acknowledged := func(rel string) bool { return hooksPattern.MatchString(rel) || agentsAckPattern.MatchString(rel) }
+	kinds := []parser.Kind{
+		{Name: "trusted_hooks.json", Wants: func(artifact *input.Artifact) bool {
+			return hooksPattern.MatchString(artifact.Rel) && !artifact.Home.Project
+		}},
+		{Name: "agents acknowledgments", Wants: func(artifact *input.Artifact) bool {
+			return agentsAckPattern.MatchString(artifact.Rel) && !artifact.Home.Project
+		}}}
+	for _, each := range []struct {
+		name    string
+		pattern *regexp.Regexp
+	}{{"session", sessionPattern}, {"logs.json", logsPattern}, {"trustedFolders.json", trustedPattern},
+		{"shell_history", shellPattern}, {"checkpoint", checkpointPattern}, {"bug report history", bugPattern},
+		{"settings.json", settingsPattern}, {"policy", policyPattern}, {"session activity log", activityPattern},
+		{"tool checkpoint", toolCheckpointPattern}, {"memory", memoryPattern}, {"clipboard image", clipboardPattern},
+		{"error report", errorReportPattern}, {"project error report", projectErrorReportPattern}} {
+		kinds = append(kinds, parser.RelFuncKind(each.name, func(rel string) bool {
+			return !acknowledged(rel) && each.pattern.MatchString(rel)
+		}))
 	}
-	for _, pattern := range []*regexp.Regexp{sessionPattern, logsPattern, trustedPattern,
-		shellPattern, checkpointPattern, bugPattern, settingsPattern, policyPattern,
-		activityPattern, toolCheckpointPattern, memoryPattern, clipboardPattern,
-		errorReportPattern, projectErrorReportPattern} {
-		if pattern.MatchString(rel) {
-			return true
-		}
-	}
-	return false
+	return kinds
 }
 
 // Secondary reports whether the artifact repeats events of the session

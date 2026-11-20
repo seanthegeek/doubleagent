@@ -124,18 +124,28 @@ func (p *Parser) DedupHooks() parser.AgentHooks {
 // Wants reports whether the artifact is a chat file (not a ledger or
 // runtime sidecar) or another file the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := runtimeRel(artifact.Rel)
-	for _, pattern := range runtimePatterns() {
-		if pattern.MatchString(rel) {
-			return true
-		}
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the runtime files, matched below a managed local root too,
+// the files matched on the path as it is, and a managed worker's usage
+// records.
+func (p *Parser) Kinds() []parser.Kind {
+	var kinds []parser.Kind
+	runtimeNames := []string{"chat", "logs.json", "token usage", "todo", "session organization", "pull requests"}
+	for i, pattern := range runtimePatterns() {
+		kinds = append(kinds, parser.RelFuncKind(runtimeNames[i], func(rel string) bool {
+			return pattern.MatchString(runtimeRel(rel))
+		}))
 	}
-	for _, pattern := range homePatterns() {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
+	homeNames := []string{"trustedFolders.json", "channels", "daemon routes", "group history", "audit",
+		"settings.json", "usage_record.jsonl", "PROJECT_SUMMARY.md"}
+	for i, pattern := range homePatterns() {
+		kinds = append(kinds, parser.PatternKind(homeNames[i], pattern))
 	}
-	return usagePattern.MatchString(workerRel(artifact.Rel))
+	return append(kinds, parser.RelFuncKind("worker usage record", func(rel string) bool {
+		return usagePattern.MatchString(workerRel(rel))
+	}))
 }
 
 // Secondary reports whether the artifact is a prompt log, the usage

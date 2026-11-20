@@ -103,14 +103,19 @@ func (p *Parser) Marks() parser.Marks {
 // Wants reports whether the artifact is one of the nanobot files the parser
 // reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	for _, pattern := range []*regexp.Regexp{p.files.session, p.files.history, p.files.webui,
-		p.files.database, p.files.cliHistory, p.files.config, p.files.pairing, p.files.sidebar} {
-		if pattern.MatchString(rel) {
-			return true
-		}
-	}
-	return p.isRun(artifact)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the session files, the memory history, the WebUI mirror,
+// the session database, the CLI history, the config, the pairing, the
+// sidebar index and the run records.
+func (p *Parser) Kinds() []parser.Kind {
+	files := p.files
+	return []parser.Kind{parser.PatternKind("session jsonl", files.session),
+		parser.PatternKind("memory history.jsonl", files.history), parser.PatternKind("WebUI mirror", files.webui),
+		parser.PatternKind("sessions.sqlite3", files.database), parser.PatternKind("cli_history", files.cliHistory),
+		parser.PatternKind("config.json", files.config), parser.PatternKind("pairing.json", files.pairing),
+		parser.PatternKind("sidebar index", files.sidebar), {Name: "run record", Wants: p.isRun}}
 }
 
 // isRun reports whether the artifact is a cron or trigger run record. The

@@ -66,10 +66,16 @@ func (p *Parser) ReadsAgents() []string {
 // Wants reports whether the artifact is an editor state database or
 // settings file, a JetBrains Cody file or the older plugin's history.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return vscodestate.IsStateDatabase(rel) || jetBrainsHistory.MatchString(rel) ||
-		jetBrainsPreferences.MatchString(rel) || settingsPattern.MatchString(rel) ||
-		legacyPattern.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the editors' state databases, the JetBrains chat history
+// and model preferences, the editor settings and the old JetBrains history.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelFuncKind("state.vscdb", vscodestate.IsStateDatabase),
+		parser.PatternKind("JetBrains chat history", jetBrainsHistory),
+		parser.PatternKind("JetBrains model preferences", jetBrainsPreferences),
+		parser.PatternKind("settings.json", settingsPattern), parser.PatternKind("cody_history.xml", legacyPattern)}
 }
 
 // Secondary reports whether the artifact is the older plugin's

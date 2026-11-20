@@ -94,8 +94,13 @@ func New() *Parser {
 // Wants reports whether the artifact is a session log, the prompt history or
 // trust.json.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return artifact.Rel == historyRel || artifact.Rel == trustRel ||
-		p.session.MatchString(artifact.Rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the prompt history, trust.json and the session logs.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelKind("tui-history.jsonl", historyRel), parser.RelKind("trust.json", trustRel),
+		parser.PatternKind("session log", p.session)}
 }
 
 // Secondary reports whether the artifact is the prompt history, which

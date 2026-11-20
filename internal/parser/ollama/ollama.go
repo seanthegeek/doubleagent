@@ -66,12 +66,14 @@ func (p *Parser) ReadsAgents() []string {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{p.database, p.history, p.config, p.profile} {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
-	}
-	return false
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the app database, the CLI history, the config and the
+// shell profile.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("database", p.database), parser.PatternKind("history", p.history),
+		parser.PatternKind("config", p.config), parser.PatternKind("profile", p.profile)}
 }
 
 // Parse emits the rows of one Ollama file.

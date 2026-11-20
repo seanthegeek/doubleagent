@@ -69,9 +69,14 @@ func New() *Parser {
 // Wants reports whether the artifact is a chat, settings, function or
 // response cache file.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return p.chat.MatchString(rel) || p.settings.MatchString(rel) ||
-		p.function.MatchString(rel) || p.cache.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the chat cache, the settings, the functions and the
+// response cache.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("chat", p.chat), parser.PatternKind(".sgptrc", p.settings),
+		parser.PatternKind("function", p.function), parser.PatternKind("cache", p.cache)}
 }
 
 // Secondary reports whether the artifact is a response cache file, which

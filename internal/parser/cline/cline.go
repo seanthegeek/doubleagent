@@ -95,15 +95,24 @@ func (p *Parser) Marks() parser.Marks {
 // Wants reports whether the artifact is a task, session, database,
 // history, log or settings file of Cline.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	switch rel {
-	case sessionsDatabaseRel, searchDatabaseRel, inputHistoryRel, hooksRel, globalStateRel,
-		globalSettingsRel:
-		return true
-	}
-	return p.TaskMatch(artifact) || statePattern.MatchString(rel) || isManifest(rel) ||
-		messagesPattern.MatchString(rel) || syncQueuePattern.MatchString(rel) ||
-		mcpSettingsPattern.MatchString(rel) || pendingStartPattern.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the databases, logs and settings of the SDK, the task
+// files, the task index, the SDK sessions' files, the sync queue, the MCP
+// settings and the pending cloud starts.
+func (p *Parser) Kinds() []parser.Kind {
+	kinds := []parser.Kind{parser.RelKind("sessions.db", sessionsDatabaseRel),
+		parser.RelKind("session-search.db", searchDatabaseRel),
+		parser.RelKind("user_input_history.jsonl", inputHistoryRel), parser.RelKind("hooks.jsonl", hooksRel),
+		parser.RelKind("globalState.json", globalStateRel),
+		parser.RelKind("global-settings.json", globalSettingsRel)}
+	return append(append(kinds, p.TaskKinds()...), parser.PatternKind("taskHistory.json", statePattern),
+		parser.RelFuncKind("session manifest", isManifest),
+		parser.PatternKind("session messages.json", messagesPattern),
+		parser.PatternKind("sync-queue.json", syncQueuePattern),
+		parser.PatternKind("cline_mcp_settings.json", mcpSettingsPattern),
+		parser.PatternKind("cloud pending start", pendingStartPattern))
 }
 
 // Secondary reports whether the artifact is the search index, the input
