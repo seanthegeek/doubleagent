@@ -25,7 +25,8 @@ type attachment struct {
 }
 
 // parseDatabase emits the rows of db.sqlite, or one `parser:` row when the
-// database cannot be read; a failure part way gives only that row.
+// database cannot be read; a failure part way gives only that row, since
+// every table is read before the first row is emitted.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	database, err := parser.OpenDatabase(artifact.DiskPath)
 	if err != nil {
@@ -33,13 +34,9 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 		return
 	}
 	defer database.Close()
-	var rows []timeline.Row
-	err = p.databaseRows(database, artifact, options, func(row timeline.Row) { rows = append(rows, row) })
-	if err != nil {
+	if err := p.databaseRows(database, artifact, options, emit); err != nil {
 		emit(p.SystemRow(artifact, parser.ProblemPrefix+parser.DatabaseError(err)))
-		return
 	}
-	parser.EmitAll(emit, rows)
 }
 
 // readCalls returns the tool calls by message, each message's in id order.
@@ -89,7 +86,11 @@ type chatState struct {
 	used    int
 }
 
-// databaseRows emits the rows of the messages, ordered by chat_id then id.
+// databaseRows emits the rows of the messages, ordered by chat_id then id,
+// once every table is read, and emits nothing when a read fails. The
+// rows are emitted as they are made rather than held to the end, so a
+// value each row builds from a long one, such as a call's tool_use_id
+// from its chat's id, is cut at emit and not kept whole for every row.
 func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Artifact,
 	options parser.Options, emit parser.Emit) error {
 	tables, err := parser.TablesOf(database)
@@ -114,11 +115,14 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 	state := &chatState{models: parser.Tracker{}}
 	reader := &messageReader{parser: p, artifact: artifact, options: options, calls: calls,
 		files: files, shown: map[string]bool{}, state: state, emit: emit}
-	err = table.Select().OrderBy("chat_id", "id").Each(func(row sqlitefile.Row) error {
+	messages, err := table.Select().OrderBy("chat_id", "id").All()
+	if err != nil {
+		return err
+	}
+	for _, row := range messages {
 		reader.message(row)
-		return nil
-	})
-	if err == nil && reader.repeats > 0 {
+	}
+	if reader.repeats > 0 {
 		rows := "1 row repeating"
 		if reader.repeats > 1 {
 			rows = strconv.Itoa(reader.repeats) + " rows repeating"
@@ -126,7 +130,7 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 		emit(p.SystemRow(artifact, parser.ProblemPrefix+"messages holds "+rows+
 			" an earlier row's id; its tool calls and attachments are shown once"))
 	}
-	return err
+	return nil
 }
 
 // messageReader turns message rows into timeline rows. A message id is the
