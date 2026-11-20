@@ -954,7 +954,10 @@ is present but not an array is `parser: <list> is not a JSON array`. A `chat.jso
 (`log`, `data`, `telegram_bot_cfg`, `chat_model_override`, `chat_model_override.<slot>`), and one
 whose `log.logs` or `agents` is present but not an array is `parser: log.logs is not a JSON array`
 or `parser: agents is not a JSON array`, after the chat's other rows; an absent, null or empty
-member gives no row. The connector's `.env` gives no bad-line rows: it is a secret file, and the
+member gives no row. A `log.logs` or `agents` holding entries that are not objects gives one row for
+them all at the same place, `parser: log.logs holds <n> entries that are not JSON objects` or
+`parser: agents holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other entries giving their rows. The connector's `.env` gives no bad-line rows: it is a secret file, and the
 connector's own reader skips a line without `=` too. Any of these files that cannot be read is one
 row `parser: <file> could not be read (<reason>)`, `<file>` its name, a `chat.json` row carrying the
 chat directory's name as its session id. A message file under `messages/` that exists but cannot be

@@ -1561,7 +1561,9 @@ entry, its token usage records and, after a daemon delete, its `logs.json` promp
 
 Each line of a transcript that does not decode becomes its own `parser: unparseable line` row.
 `logs.json`, a JSON array, is decoded record by record: the records before a cut are yielded and
-the cut is one `unparseable record <N>` row. A channel routes file or a `trustedFolders.json` that
+the cut is one `unparseable record <N>` row. Its entries that are not objects give one row for them
+all after the others, `parser: logs.json holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), with `source_line` 0. A channel routes file or a `trustedFolders.json` that
 is not a JSON object is one whole-file `parser:` row, and a routes entry that is not an object is
 its own row ([Channel routes](#channel-routes), [Permission rows](#permission-rows)). Each line of
 `usage_record.jsonl` that does not decode is its own `parser: unparseable line` row, and the lines

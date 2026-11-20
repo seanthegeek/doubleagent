@@ -505,31 +505,24 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 }
 
 // logItems returns the chat's log items that are objects; a log that is
-// not an object, or logs that is not an array, adds a problem.
+// not an object, or logs that is not an array, adds a problem, and so do
+// the items that are not objects, one for them all.
 func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 	log := document.Get("log")
 	if !log.IsObject() && !log.IsNull() {
 		c.problems.Add(0, parser.WrongKind("log", jsonvalue.Object))
 		return nil
 	}
-	var logs []jsonvalue.Value
-	for _, item := range parser.ArrayMember(log.Get("logs"), "log.logs", 0, &c.problems) {
-		if item.IsObject() {
-			logs = append(logs, item)
-		}
-	}
-	return logs
+	return parser.ListOfKind(log.Get("logs"), "log.logs", jsonvalue.Object, 0, &c.problems)
 }
 
 // agentHistories reads each agent's history, filling the chat's message
 // index and returning its items in order. An agents member that is not an
-// array adds a problem.
+// array adds a problem, and so do the agents that are not objects, one for
+// them all.
 func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
-	for i, agent := range parser.ArrayMember(document.Get("agents"), "agents", 0, &c.problems) {
-		if !agent.IsObject() {
-			continue
-		}
+	for i, agent := range parser.EntriesOfKind(document.Get("agents"), "agents", jsonvalue.Object, 0, &c.problems) {
 		number := jsonvalue.NewInt(int64(i))
 		if declared, ok := agent.Lookup("number"); ok {
 			number = declared

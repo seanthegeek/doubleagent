@@ -362,8 +362,9 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 // "unparseable record <n> (<reason>)" with the text from the element to the
 // end as raw, and ends the walk; a file whose text is not an array adds "not
 // a JSON array" at 0, and one without its closing bracket "unterminated
-// JSON array". Elements need no comma between them, and whitespace alone
-// is no array.
+// JSON array". The entries that are not objects are passed over and add
+// one problem at 0 for them all (parser.WrongEntries). Elements need no
+// comma between them, and whitespace alone is no array.
 func logEntries(path string, problems *parser.Problems) []entry {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
@@ -379,7 +380,13 @@ func logEntries(path string, problems *parser.Problems) []entry {
 		return nil
 	}
 	var out []entry
-	index := 0
+	index, wrong := 0, 0
+	// The entries passed over are one problem, after how the walk ended.
+	defer func() {
+		if wrong > 0 {
+			problems.Add(0, parser.WrongEntries("logs.json", jsonvalue.Object, wrong))
+		}
+	}()
 	for offset = parser.SkipJSONSpace(text, offset+1); offset < len(text) && text[offset] != ']'; {
 		index++
 		value, next, err := jsonvalue.DecodePrefix(text, offset)
@@ -389,6 +396,8 @@ func logEntries(path string, problems *parser.Problems) []entry {
 		}
 		if value.IsObject() {
 			out = append(out, entry{index, value})
+		} else {
+			wrong++
 		}
 		if offset = parser.SkipJSONSpace(text, next); offset < len(text) && text[offset] == ',' {
 			offset = parser.SkipJSONSpace(text, offset+1)
