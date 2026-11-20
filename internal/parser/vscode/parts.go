@@ -34,8 +34,37 @@ func enumName(value jsonvalue.Value, names []string) (string, int64, bool) {
 
 // mdText returns the text of an IMarkdownString ({value}), a plain string
 // or an array of either: "" for null and for an object whose value is not
-// a string, any other value as its row text (jsonvalue.Value.Text).
+// a string, any other value as its row text (jsonvalue.Value.Text). An
+// array's text is its items' texts, one per line, an item that is an array
+// giving its own; the leaves are gathered first and joined once, so text
+// inside many levels of arrays is copied once, not once per level.
 func mdText(value jsonvalue.Value) string {
+	if !value.IsArray() {
+		return mdLeafText(value)
+	}
+	return strings.Join(mdLeaves(value, nil), "\n")
+}
+
+// mdLeaves appends to texts the text of each item of array that is not an
+// array, in order, and the leaves of each item that is; an empty array
+// stands as one "" in its place.
+func mdLeaves(array jsonvalue.Value, texts []string) []string {
+	if array.Len() == 0 {
+		return append(texts, "")
+	}
+	for _, item := range array.Items() {
+		if item.IsArray() {
+			texts = mdLeaves(item, texts)
+		} else {
+			texts = append(texts, mdLeafText(item))
+		}
+	}
+	return texts
+}
+
+// mdLeafText returns the text of a value of an IMarkdownString that is not
+// an array.
+func mdLeafText(value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
 		return ""
@@ -43,12 +72,6 @@ func mdText(value jsonvalue.Value) string {
 		return value.StringValue()
 	case value.IsObject():
 		return value.Get("value").StringValue()
-	case value.IsArray():
-		texts := make([]string, 0, value.Len())
-		for _, item := range value.Items() {
-			texts = append(texts, mdText(item))
-		}
-		return strings.Join(texts, "\n")
 	}
 	return value.Text()
 }
