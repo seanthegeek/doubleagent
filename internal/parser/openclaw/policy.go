@@ -9,9 +9,9 @@ import (
 
 // execConfig emits one `permission setting:` row per policy setting of the
 // migrated exec approvals in exec_approvals_config: each default and
-// per-agent policy field, allowlist entry and MCP tool grant, each with the
-// approvals socket's token through parser.SecretText when the file holds
-// one; a raw_json that does not decode is reported with the reader's error
+// per-agent policy field, allowlist entry and MCP tool grant, then one row
+// for the approvals socket's token through parser.SecretText when the file
+// holds one; a raw_json that does not decode is reported with the reader's error
 // through parser.ReaderErrorText, since the reader can quote that token,
 // and a raw_json, socket, agents, policy, allowlist or mcpTools of the
 // wrong kind adds a problem.
@@ -27,8 +27,8 @@ func (s *stateRows) execConfig(record sqlitefile.Row) {
 
 // execDocument emits the permission rows of a decoded approvals file read
 // from the row with the given rowid, and adds the problems of its members
-// of the wrong kind. The socket's token is part of every row; a file with a
-// token and no policy setting gives one row for the token alone.
+// of the wrong kind. The socket's token is one row of its own, after the
+// settings, so a file of many settings does not repeat it in each.
 func (s *stateRows) execDocument(rowid int64, document jsonvalue.Value, timestamp string) {
 	type scope struct {
 		name   string
@@ -37,26 +37,20 @@ func (s *stateRows) execDocument(rowid int64, document jsonvalue.Value, timestam
 	const source = " (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)"
 	line := int(rowid)
 	parser.ObjectMember(document, "raw_json", line, &s.problems)
-	socket := ""
 	parser.ObjectMember(document.Get("socket"), "socket", line, &s.problems)
-	if token := parser.Text(document.Get("socket").Get("token")); token != "" {
-		socket = " socket.token=" + parser.SecretText(s.artifact, token)
-	}
 	scopes := []scope{{"defaults", document.Get("defaults")}}
 	for _, member := range parser.ObjectMember(document.Get("agents"), "agents", line, &s.problems) {
 		scopes = append(scopes, scope{"agents." + member.Key, member.Value})
 	}
-	emitted := false
 	for _, each := range scopes {
 		parser.ObjectMember(each.policy, each.name, line, &s.problems)
 		for _, setting := range policySettings(each.policy, each.name, line, &s.problems) {
-			s.emit(s.stateRow(s.artifact, rowid, timestamp, "permission setting: "+each.name+"."+setting+socket+
-				source, ""))
-			emitted = true
+			s.emit(s.stateRow(s.artifact, rowid, timestamp, "permission setting: "+each.name+"."+setting+source, ""))
 		}
 	}
-	if !emitted && socket != "" {
-		s.emit(s.stateRow(s.artifact, rowid, timestamp, "permission setting:"+socket+source, ""))
+	if token := parser.Text(document.Get("socket").Get("token")); token != "" {
+		s.emit(s.stateRow(s.artifact, rowid, timestamp, "permission setting: socket.token="+
+			parser.SecretText(s.artifact, token)+source, ""))
 	}
 }
 

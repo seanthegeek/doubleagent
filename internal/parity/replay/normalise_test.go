@@ -64,8 +64,8 @@ func Differences() []Difference {
 				"the recording machine's file system listed the tree in"},
 	}, slices.Concat(formatDifferences(), laterDifferences(), reportedDifferences(),
 		[]Difference{withheldDifference(), withheldRowsDifference(), shownDifference()}, wantedDifferences(), entryReportDifferences(),
-		// Difference 260, numbered apart from the others.
-		[]Difference{requestAnswersDifference()})...)
+		// The differences from 250, then 260, each numbered apart from the others.
+		repeatDifferences(), []Difference{requestAnswersDifference()})...)
 }
 
 // retiredUnneeded is why a difference was retired that recorded cases

@@ -388,11 +388,6 @@ func addedPartForms() []withheldForm {
 		// binary adds it after the URL.
 		addsForm("roo-code", "retry queue bearer token", `cloud upload queued: [^"\n]*? url=[^ "\n]*`,
 			` Authorization=`+replayPlaceholder, ` [^"\n]*?\(Roo Code Cloud retry queue, `),
-		// The recording gave the exec approvals settings without the
-		// approvals socket's token; the binary adds it to each.
-		addsForm("openclaw", "exec approvals socket token", `permission setting: [^"\n]*?`,
-			` socket\.token=`+replayPlaceholder,
-			` \(from state/openclaw\.sqlite exec_approvals_config, updated_at_ms\)`),
 		// The recording gave an integration without its access token.
 		addsForm("tabby", "integration access token", `source host: [^"\n]* api_base=[^ "\n]*`,
 			` access_token=`+replayPlaceholder,
@@ -852,16 +847,13 @@ func connectionAndSlotKeyCases() []withheldCase {
 	}
 }
 
-// retryQueueAndSocketTokenCases returns the cases of a retried upload's token and of
-// the approvals socket's token, which the binary adds.
-func retryQueueAndSocketTokenCases() []withheldCase {
+// retryQueueCases returns the cases of a retried upload's token, which the
+// binary adds.
+func retryQueueCases() []withheldCase {
 	retryRecorded := "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
 		"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
 		"roo.retryQueue, request timestamp)"
 	retryBinary := strings.Replace(retryRecorded, " lastError", " Authorization="+replayPlaceholder+" lastError", 1)
-	socketRecorded := "permission setting: defaults.security=allowlist (from state/openclaw.sqlite " +
-		"exec_approvals_config, updated_at_ms)"
-	socketBinary := strings.Replace(socketRecorded, " (from", " socket.token="+replayPlaceholder+" (from", 1)
 	return []withheldCase{
 		{"a retried upload's token in its placeholder form passes", retryRecorded, retryBinary, true},
 		{"a retried upload's token shown fails", retryRecorded,
@@ -870,18 +862,11 @@ func retryQueueAndSocketTokenCases() []withheldCase {
 			strings.Replace(retryBinary, "api/events", "api/other", 1), false},
 		{"a retried upload of another error fails", retryRecorded,
 			strings.Replace(retryBinary, "fetch failed", "timeout", 1), false},
-		{"a socket token in its placeholder form passes", socketRecorded, socketBinary, true},
-		{"a socket token shown fails", socketRecorded, strings.Replace(socketBinary, replayPlaceholder, "tok", 1), false},
-		{"a socket token beside another setting fails", socketRecorded,
-			strings.Replace(socketBinary, "allowlist", "full", 1), false},
 		{"a retried upload without the token the binary adds fails", retryRecorded, retryRecorded, false},
-		{"settings without the socket token the binary adds fail", socketRecorded, socketRecorded, false},
 		{"a retried upload's token written twice fails", retryRecorded,
 			strings.Replace(retryBinary, " lastError", " Authorization="+replayPlaceholder+" lastError", 1), false},
 		{"a retried upload's token after the error fails", retryRecorded,
 			strings.Replace(retryRecorded, " (Roo Code", " Authorization="+replayPlaceholder+" (Roo Code", 1), false},
-		{"a socket token written twice fails", socketRecorded,
-			strings.Replace(socketBinary, " (from", " socket.token="+replayPlaceholder+" (from", 1), false},
 		{"a retried upload holding the compared form's marker fails", retryRecorded,
 			strings.Replace(retryRecorded, " lastError", "{added retry queue bearer token} lastError", 1), false},
 	}
@@ -924,7 +909,7 @@ func integrationModelAndShareCases() []withheldCase {
 
 func TestAWithheldSecretIsComparedAsItsPlaceholderAndNothingElse(t *testing.T) {
 	tests := slices.Concat(remoteCases(), tomlJSONAndChatErrorCases(), crushExecAndSettingsLineCases(),
-		accountAndBotTokenCases(), connectionAndSlotKeyCases(), retryQueueAndSocketTokenCases(),
+		accountAndBotTokenCases(), connectionAndSlotKeyCases(), retryQueueCases(),
 		integrationModelAndShareCases())
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1056,8 +1041,6 @@ func withheldFormSamples() map[string]string {
 		"roo-code retry queue bearer token": "cloud upload queued: Task Message task=t type=telemetry retries=2 " +
 			"url=https://app.example/api/events lastError=fetch failed (Roo Code Cloud retry queue, from f " +
 			"roo.retryQueue, request timestamp)",
-		"openclaw exec approvals socket token": "permission setting: defaults.security=allowlist " +
-			"(from state/openclaw.sqlite exec_approvals_config, updated_at_ms)",
 		"tabby integration access token": "source host: github.com integration acme kind=github api_base=- " +
 			"(account not recorded; from integrations table, created_at)",
 		"tabby config.toml API key": "model configured: chat m via http kind=openai/chat endpoint=https://h/v1 " +

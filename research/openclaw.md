@@ -1469,8 +1469,8 @@ the client credential store), `mcp_oauth_stores`, `secret_store_entries` (`value
 ([`state/secret-state-tables.ts:2-23`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/secret-state-tables.ts#L2-L23);
 [`openclaw-state-schema.sql:2768-2780`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-state-schema.sql#L2768-L2780)).
 `exec_approvals_config.raw_json` holds `socket.token` on builds before the client credential store
-([Format versions](#format-versions)); the parser shows it on the file's `permission setting:` rows
-as ` socket.token=`, which `--no-secrets` replaces with the placeholder
+([Format versions](#format-versions)); the parser shows it once, in a `permission setting:` row of
+its own (`socket.token=`), which `--no-secrets` replaces with the placeholder
 ([Parser plan](#parser-plan)).
 
 In records: `thinkingSignature` and `providerReplay.data` are opaque provider state;
@@ -1558,9 +1558,10 @@ all fixture only:
   allowlist entry (`allowlist=<pattern>[ argPattern=<argPattern>] source=<source>`) and per MCP
   tool grant (`mcpTools=<server>/<tool> source=<source>`) of `raw_json`'s `defaults` and of each
   `agents.<id>`, `<scope>` being `defaults` or `agents.<id>`. When `socket.token` is set
-  ([Secrets](#secrets)) every such row ends ` socket.token=<token>` before `(from`, and a file
-  with a token and no policy setting gives the one row
-  `permission setting: socket.token=<token> (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)`;
+  ([Secrets](#secrets)) the settings are followed by one row of its own,
+  `permission setting: socket.token=<token> (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)`,
+  and no setting's row repeats it, so a file of many settings and a long token gives rows that grow
+  with the file, not with their product;
   the token is shown as written and replaced with the placeholder under `timeline --no-secrets`
   and `detect --no-secrets`. A `raw_json`
   that does not decode is one row

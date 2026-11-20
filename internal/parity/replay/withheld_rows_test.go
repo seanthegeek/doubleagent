@@ -18,6 +18,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/letta"
 	"github.com/seanthegeek/doubleagent/internal/parser/littlecoder"
 	"github.com/seanthegeek/doubleagent/internal/parser/nanobot"
+	"github.com/seanthegeek/doubleagent/internal/parser/openclaw"
 	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
 	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
@@ -35,15 +36,16 @@ import (
 // the row itself.
 
 // addedRowFilter takes, from each parse of a command run, the first row of
-// withheldRows that the parse gives, and counts the parses it took one
-// from.
+// withheldRows that the parse gives and the rows of difference 250
+// (socketTokenRows), and counts the rows it took of each.
 type addedRowFilter struct {
-	taken int
+	taken, socketTokens int
 }
 
 // emit returns the emit of one parse of artifact by agent's parser: it
-// passes each row on but, for each entry of withheldRows for agent, the
-// first row that is the whole row the entry lets the parse add.
+// passes each row on but, for each entry of withheldRows for agent and
+// each row of socketTokenRows, the first row that is the whole row the
+// entry lets the parse add.
 func (f *addedRowFilter) emit(agent string, artifact *input.Artifact, emit parser.Emit) parser.Emit {
 	parse := parsedFile{agent: agent, file: artifact.Original, disk: artifact.DiskPath, rel: artifact.Rel,
 		home: artifact.Home, mtime: parser.FileMtime(artifact)}
@@ -53,6 +55,8 @@ func (f *addedRowFilter) emit(agent string, artifact *input.Artifact, emit parse
 			waiting = append(waiting, parse.matches(entry.text, entry.row, nil))
 		}
 	}
+	withheld := len(waiting)
+	waiting = append(waiting, socketTokenRows(parse)...)
 	recorder := recorderOf(artifact)
 	return func(row timeline.Row) {
 		// The row is compared as the output writes it (timeline.Row.Withheld:
@@ -64,7 +68,12 @@ func (f *addedRowFilter) emit(agent string, artifact *input.Artifact, emit parse
 		for i, matches := range waiting {
 			if matches(candidate) {
 				waiting = slices.Delete(waiting, i, i+1)
-				f.taken++
+				if i < withheld {
+					withheld--
+					f.taken++
+				} else {
+					f.socketTokens++
+				}
 				return
 			}
 		}
@@ -81,7 +90,8 @@ func recorderOf(artifact *input.Artifact) *secrets.Recorder {
 }
 
 // withoutAddedRows returns list with the parser of each agent that has an
-// entry of withheldRows in place of one whose parses pass through filter.
+// entry of withheldRows, and OpenClaw's for difference 250, in place of one
+// whose parses pass through filter.
 // Each stand-in embeds the parser's own type, so every optional interface
 // the parser implements is still there.
 func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Parser {
@@ -107,6 +117,8 @@ func withoutAddedRows(list []parser.Parser, filter *addedRowFilter) []parser.Par
 			out[i] = nanobotRows{concrete, filter}
 		case *littlecoder.Parser:
 			out[i] = littleCoderRows{concrete, filter}
+		case *openclaw.Parser:
+			out[i] = openClawRows{concrete, filter}
 		}
 	}
 	return out
@@ -205,6 +217,18 @@ type littleCoderRows struct {
 
 // Parse parses the artifact through the filter.
 func (p littleCoderRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
+}
+
+// openClawRows is the OpenClaw parser with its parses passed through an
+// addedRowFilter, for the socket token rows of difference 250.
+type openClawRows struct {
+	*openclaw.Parser
+	filter *addedRowFilter
+}
+
+// Parse parses the artifact through the filter.
+func (p openClawRows) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
 	return p.Parser.Parse(artifact, options, p.filter.emit(p.Agent(), artifact, emit))
 }
 
