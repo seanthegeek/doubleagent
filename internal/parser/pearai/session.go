@@ -41,8 +41,10 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	}
 	history := parser.ArrayMember(document.Get("history"), "history", 0, &problems)
 	search := parser.ArrayMember(document.Get("perplexityHistory"), "perplexityHistory", 0, &problems)
+	carried := parser.NewCarried(artifact)
 	row(0, timeline.TurnSystem, startText(document, entry, len(history), len(search),
-		base.TimestampUTC != ""), "")
+		base.TimestampUTC != "", carried), "")
+	carried.Report(0, &problems)
 	models := parser.Tracker{}
 	for i, item := range append(append([]jsonvalue.Value{}, history...), search...) {
 		if message := item.Get("message"); message.IsObject() {
@@ -58,12 +60,17 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 }
 
 // startText returns the text of a session's start row: its title, the
-// index's integration, the item counts and whether the time is known.
-func startText(document, entry jsonvalue.Value, history, search int, dated bool) string {
-	bits := []string{"session start: " + parser.Text(parser.FirstNonEmpty(document.Get("title"),
-		entry.Get("title")))}
+// index's integration, the item counts and whether the time is known. What
+// comes from the index entry, which any number of session files can name,
+// is cut by carried; the file's own title is not.
+func startText(document, entry jsonvalue.Value, history, search int, dated bool, carried *parser.Carried) string {
+	title := parser.Text(document.Get("title"))
+	if document.Get("title").IsEmpty() {
+		title = carried.Cut("index title", parser.Text(entry.Get("title")))
+	}
+	bits := []string{"session start: " + title}
 	if integration := entry.Get("integrationType"); !integration.IsEmpty() {
-		bits = append(bits, "integration="+integration.Text())
+		bits = append(bits, "integration="+carried.Cut("integration type", integration.Text()))
 	}
 	bits = append(bits, "history="+strconv.Itoa(history)+" perplexityHistory="+strconv.Itoa(search))
 	if !dated {
