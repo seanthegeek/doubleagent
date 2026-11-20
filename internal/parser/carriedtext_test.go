@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 func TestCarriedCutsOnlyLongValuesAndReportsOnceAName(t *testing.T) {
@@ -27,5 +28,23 @@ func TestCarriedCutsOnlyLongValuesAndReportsOnceAName(t *testing.T) {
 	carried.Report(8, &problems)
 	if len(problems) != 0 {
 		t.Errorf("a second report gave %v", problems)
+	}
+}
+
+// Two long values cut in turn under two names are each cut once: the
+// cut of each name is kept, so neither is read again for the secrets
+// recorder however often the names take turns.
+func TestCarriedCutsEachNamesValueOnceWhenNamesTakeTurns(t *testing.T) {
+	work := CountingWork()
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true})
+	recorder.CountWork(work)
+	carried := NewCarried(&input.Artifact{Home: &input.Home{Secrets: recorder}})
+	first, second := filler(9000), "/other"+filler(9000)
+	for range 100 {
+		carried.Cut("sandbox", first)
+		carried.Cut("network", second)
+	}
+	if compared := work.Count("cut bytes compared"); compared != 0 {
+		t.Errorf("the recorder compared %d bytes of cut values, want none", compared)
 	}
 }

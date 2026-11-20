@@ -15,12 +15,14 @@ type Carried struct {
 	artifact *input.Artifact
 	names    []string
 	counts   map[string]int
-	last     lastCut
+	// last holds the cut last made under each name, so values carried
+	// under names that take turns are each cut once.
+	last map[string]*lastCut
 }
 
 // NewCarried returns the Carried of one parse of artifact.
 func NewCarried(artifact *input.Artifact) *Carried {
-	return &Carried{artifact: artifact, counts: map[string]int{}}
+	return &Carried{artifact: artifact, counts: map[string]int{}, last: map[string]*lastCut{}}
 }
 
 // Cut returns value, a carried key, name or path called name in the
@@ -34,7 +36,12 @@ func (c *Carried) Cut(name, value string) string {
 		c.names = append(c.names, name)
 	}
 	c.counts[name]++
-	return c.last.cutOf(recorderOf(c.artifact), value, true)
+	last := c.last[name]
+	if last == nil {
+		last = &lastCut{}
+		c.last[name] = last
+	}
+	return last.cutOf(recorderOf(c.artifact), value, true)
 }
 
 // Report adds, at line, one problem (CarriedProblem) per name cut since

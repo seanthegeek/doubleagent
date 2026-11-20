@@ -159,25 +159,33 @@ func TestEachCarriedPolicyValueIsCutUnderItsOwnName(t *testing.T) {
 // (runtime.MemStats.TotalAlloc), not timed.
 func TestAPermissionModeChangeIsToldFromTheFieldsAnEventSets(t *testing.T) {
 	const size = 200_000
-	for _, context := range []string{
-		`"approval_policy":"x","network":"` + strings.Repeat("N", size) + `"`,
-		`"approval_policy":"x","sandbox_policy":{"mode":"` + strings.Repeat("S", size) + `"}`,
-	} {
+	tests := []struct {
+		name, context string
+		long          int
+	}{
+		{"a long network", `"approval_policy":"x","network":"` + strings.Repeat("N", size) + `"`, 1},
+		{"a long sandbox object", `"approval_policy":"x","sandbox_policy":{"mode":"` + strings.Repeat("S", size) +
+			`"}`, 1},
+		{"a long sandbox and network", `"approval_policy":"x","sandbox_policy":"` + strings.Repeat("S", size) +
+			`","network":"` + strings.Repeat("N", size) + `"`, 2},
+	}
+	for _, test := range tests {
 		allocated := map[int]uint64{}
 		for _, n := range []int{20, 40} {
-			text := policyRollout(context, alternatingApprovals(n)...)
+			text := policyRollout(test.context, alternatingApprovals(n)...)
 			var before, after runtime.MemStats
 			runtime.ReadMemStats(&before)
 			rows := modeRows(t, text)
 			runtime.ReadMemStats(&after)
 			allocated[n] = after.TotalAlloc - before.TotalAlloc
-			if len(rows) != n+2 {
-				t.Errorf("%d events gave %d mode and problem rows, want %d", n, len(rows), n+2)
+			if len(rows) != n+1+test.long {
+				t.Errorf("%s: %d events gave %d mode and problem rows, want %d", test.name, n, len(rows),
+					n+1+test.long)
 			}
 		}
 		if growth := allocated[40] - allocated[20]; growth > 5*size {
-			t.Errorf("20 more events allocated %d more bytes, more than five copies of the %d-byte field",
-				growth, size)
+			t.Errorf("%s: 20 more events allocated %d more bytes, more than five copies of the %d-byte field",
+				test.name, growth, size)
 		}
 	}
 }
