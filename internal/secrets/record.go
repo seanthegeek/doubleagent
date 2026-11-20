@@ -23,6 +23,14 @@ type Recorder struct {
 	// joined is the matcher replace last built for the records a row
 	// lists, kept for the next row that lists the same ones.
 	joined joinedMatcher
+	// cuts are the values the parser kit cut (Cut), cutsOf their places
+	// by written text, and tails what the output withholds of them;
+	// changes counts each text recorded and each value cut, so tails is
+	// built again after any.
+	cuts    []cut
+	cutsOf  map[string][]int
+	tails   cutTails
+	changes int
 }
 
 // NewRecorder returns the recorder of a run with setting, nil when the
@@ -31,7 +39,9 @@ func NewRecorder(setting Setting) *Recorder {
 	if !setting.Withhold {
 		return nil
 	}
-	return &Recorder{setting: setting, everywhere: &Found{}}
+	recorder := &Recorder{setting: setting}
+	recorder.everywhere = &Found{version: &recorder.changes}
+	return recorder
 }
 
 // Setting returns the run's setting, the zero setting for a nil Recorder.
@@ -51,7 +61,7 @@ func (r *Recorder) Begin() *Found {
 		return nil
 	}
 	r.outer = append(r.outer, r.current)
-	r.current = &Found{}
+	r.current = &Found{version: &r.changes}
 	return r.current
 }
 
@@ -261,6 +271,9 @@ type Found struct {
 	// listed holds the parses' records a list WithDuplicates made stands
 	// for, nil for a parse's own record.
 	listed []*Found
+	// version is the recorder's count of changes, which each change here
+	// adds to; nil for a list WithDuplicates made.
+	version *int
 }
 
 // add records one form replaced in where; of a text recorded both plain
@@ -279,15 +292,24 @@ func (f *Found) add(secret form, where reach) {
 		if !earlier.plain() {
 			f.forms[key] = secret
 			if secret.plain() {
-				f.changes[where]++
+				f.changed(where)
 			}
 		}
 		return
 	}
 	f.forms[key] = secret
-	f.changes[where]++
+	f.changed(where)
 	f.texts[where] = append(f.texts[where], key.text)
 	f.size[where] += len(key.text)
+}
+
+// changed counts one change of the texts replaced in where, here and in
+// the recorder's count.
+func (f *Found) changed(where reach) {
+	f.changes[where]++
+	if f.version != nil {
+		*f.version++
+	}
 }
 
 // Secrets returns the distinct secrets recorded, sorted; nil for a nil

@@ -2,11 +2,31 @@ package timeline
 
 import "github.com/seanthegeek/doubleagent/internal/secrets"
 
+// Field is one string of a row that timeline.jsonl writes: its column
+// name and where the row holds it.
+type Field struct {
+	Name  string
+	Value *string
+}
+
+// FieldsButText returns each string of the row timeline.jsonl writes but
+// its text, in column order.
+func (r *Row) FieldsButText() []Field {
+	return []Field{{"timestamp_utc", &r.TimestampUTC}, {"host", &r.Host}, {"user", &r.User},
+		{"agent", &r.Agent}, {"session_id", &r.SessionID}, {"project_path", &r.ProjectPath},
+		{"git_branch", &r.GitBranch}, {"turn_type", &r.TurnType}, {"model", &r.Model},
+		{"tool_name", &r.ToolName}, {"tool_use_id", &r.ToolUseID}, {"source_file", &r.SourceFile},
+		{"recovered", &r.Recovered}}
+}
+
 // fields returns a pointer to each string of the row timeline.jsonl writes
 // but its text, which a parse's shorter secrets reach as well.
 func (r *Row) fields() []*string {
-	return []*string{&r.TimestampUTC, &r.Host, &r.User, &r.Agent, &r.SessionID, &r.ProjectPath, &r.GitBranch,
-		&r.TurnType, &r.Model, &r.ToolName, &r.ToolUseID, &r.SourceFile, &r.Recovered}
+	var pointers []*string
+	for _, field := range r.FieldsButText() {
+		pointers = append(pointers, field.Value)
+	}
+	return pointers
 }
 
 // Strings returns each string of the row timeline.jsonl writes, its text

@@ -53,13 +53,15 @@ func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	matchers = r.parseMatchers(matchers, len(text), parse, reaches, emptyPlaceholder)
 	var inText []urlcredentials.Credential
 	identifyURLs(text, func(secret urlcredentials.Credential) { inText = append(inText, secret) }, r.work)
-	if len(matchers) == 0 && len(inText) == 0 {
+	tails := r.cutTails(emptyPlaceholder)
+	if len(matchers) == 0 && len(inText) == 0 && tails.set == nil {
 		return text
 	}
 	longest := make([]int, len(text))
 	for _, matcher := range matchers {
 		matcher.Longest(text, longest)
 	}
+	tails.withhold(text, longest)
 	// The credentials of a URL are replaced where the URL holds them,
 	// whatever their length, by their byte range: the same letters
 	// elsewhere in the string are not a credential.

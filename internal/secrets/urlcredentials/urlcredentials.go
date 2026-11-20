@@ -89,6 +89,17 @@ func isDelimiter(char byte) bool {
 	return strings.IndexByte(" \t\n\v\f\r\"<>`", char) >= 0
 }
 
+// TokenStart returns where the token (rule 1) that text[:end] ends in
+// starts: just after the last delimiter before end, or 0. It reads back
+// from end no further than that delimiter.
+func TokenStart(text string, end int) int {
+	start := end
+	for start > 0 && !isDelimiter(text[start-1]) {
+		start--
+	}
+	return start
+}
+
 // count adds n bytes read to work, when it counts.
 func count(work textset.Counter, n int) {
 	if work != nil {
