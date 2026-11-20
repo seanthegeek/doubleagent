@@ -623,10 +623,14 @@ for Go files as it does for the others.
   `internal/parsers/growth_<package>_test.go`: inputs built at two sizes in
   each shape that fits the kind (many records naming one large value, a
   repeated id, one long carried value, deep nesting and damaged siblings,
-  many files that look at each other, equal join keys). `TestEveryFileKindHasGrowthCases`
+  many files that look at each other, equal join keys, directories that
+  cannot be listed). `TestEveryFileKindHasGrowthCases`
   fails for a kind without one, and `TestEveryParserGrowsInStepWithItsInput`
-  fails when the rows, their bytes or the allocations at twice the size are
+  fails when the rows (counted as the output writes them, each shared text
+  once), their bytes or the allocations at twice the size are
   more than 2.5 times those at the size, or the row text outweighs the input.
+  Work that allocates nothing is not measured there; a parser's own tests
+  count it (`parser.Work`).
 - **Evidence is shown as written.** In the analysis output files a number
   from the evidence keeps its source text, JSON embedded in a row is compact
   with the evidence's key order, a boolean is `true` or `false`, and a null
