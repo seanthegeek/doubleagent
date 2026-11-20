@@ -1523,7 +1523,11 @@ The last two rows are for a message id that more than one record claims, which O
 writes: the first is one row per table (`message` or `session_message`, `1 row` for one) after
 the database's other rows, with no session or time and `source_line` 0, counting the rows of an
 id whose parts an earlier row of it already showed; the second is a row of each later message
-file of the JSON trees, after its own rows, with `source_line` 1.
+file of the JSON trees, after its own rows, with `source_line` 1. A part directory, and a project
+file, is the one the path opens: on a disk that matches names in any letter case (the macOS and
+Windows default) message files whose ids are case spellings of one id name one part directory,
+whose parts the first of them shows, and sessions naming one project file in several spellings
+read it once.
 
 A database file that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

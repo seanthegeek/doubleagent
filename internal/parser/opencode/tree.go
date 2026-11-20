@@ -267,10 +267,12 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 // message id is unique, so another message file claiming the same id as
 // the first file of the run whose part directory held any is damage: it
 // gets one problem in place of the parts, so many such files read the
-// directory once. The first file parsed again reads them again.
+// directory once, whatever spelling of the id opens it. The first file
+// parsed again reads them again.
 func (p *Parser) messageParts(artifact *input.Artifact, root treeRoot, partNames []string,
 	messageID string) ([]part, []failure) {
-	key := root.disk + "\x00" + strings.Join(partNames, "\x00")
+	directory, _ := childPath(root.disk, partNames...)
+	key := parser.KeyOf(directory)
 	if first, ok := p.tree.partsShown[key]; ok && first != artifact.DiskPath {
 		return nil, []failure{{line: 1, message: "message " + messageID +
 			" repeats the id of an earlier message file; its parts are shown with that file"}}
