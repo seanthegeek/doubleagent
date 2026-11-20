@@ -116,7 +116,22 @@ func TestAShortRecordReadsTheDefaultSQLiteReads(t *testing.T) {
 			}
 		})
 	}
-	if compared != 25130 {
+	if compared != 25555 {
 		t.Errorf("compared %d readings, want every reading of default_values.jsonl.gz", compared)
+	}
+}
+
+func TestACastThatStartsALargerDefaultIsNull(t *testing.T) {
+	// From SQLite 3.53.4 and 3.51.0, each the DEFAULT of a column added by
+	// rewriting the schema with PRAGMA writable_schema, since ALTER TABLE
+	// refuses a value it does not evaluate: every one reads as NULL.
+	for _, clause := range []string{"(CAST(1 AS INT) COLLATE NOCASE)", "(CAST(1 AS INT) + 1)",
+		"(CAST('a' AS TEXT) || 'b')", "(- CAST(1 AS INT) + 1)"} {
+		t.Run("DEFAULT "+clause, func(t *testing.T) {
+			shape, err := parseCreateTable("CREATE TABLE t(id, c DEFAULT " + clause + ")")
+			if err != nil || shape.columns[1].defaultErr != nil || shape.columns[1].Default.Type != Null {
+				t.Errorf("got %v, %v (%v); want NULL", shape.columns[1].Default, shape.columns[1].defaultErr, err)
+			}
+		})
 	}
 }

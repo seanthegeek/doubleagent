@@ -170,7 +170,7 @@ func TestDefaultsNestedPastSQLitesParserAreNotEvaluated(t *testing.T) {
 		t.Run(test.name+" past the limit are refused", func(t *testing.T) {
 			shape, err := parseCreateTable("CREATE TABLE t(a DEFAULT " + test.nesting(maxDefaultDepth+2) + ")")
 			if err != nil || !errors.Is(shape.columns[0].defaultErr, errDefault) ||
-				!strings.Contains(shape.columns[0].defaultErr.Error(), "more than 100 deep") {
+				!strings.Contains(shape.columns[0].defaultErr.Error(), "more than "+strconv.Itoa(maxDefaultDepth)+" deep") {
 				t.Errorf("default error = %v (%v), want one naming the limit", shape.columns[0].defaultErr, err)
 			}
 		})

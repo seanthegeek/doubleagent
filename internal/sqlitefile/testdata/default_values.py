@@ -127,6 +127,42 @@ def is_term(expression: str) -> bool:
     return not expression.startswith("-(")
 
 
+def null_tests() -> list[str]:
+    """Tests for NULL of literals, signs, parentheses and other tests, each form of the test."""
+    operands = ["1", "-1", "+1", "- 1", "-(1)", "(1)", "1.5", "0x10", "'a'", "''", "- 'a'", "x'00'"]
+    operands += [
+        "NULL",
+        "TRUE",
+        "CAST(1 AS TEXT)",
+        "(1+1)",
+        "CURRENT_TIME",
+        "1 IS NULL",
+        "(1 NOTNULL)",
+    ]
+    suffixes = [" IS NULL", " ISNULL", " NOTNULL", " NOT NULL", " IS NOT NULL"]
+    found = ["(%s%s)" % (operand, suffix) for operand in operands for suffix in suffixes]
+    found += ["(-(1 IS NULL))", "(-(1 NOTNULL))", "(- 1 NOTNULL)", "(CAST(1 IS NULL AS TEXT))"]
+    found += [
+        "(CAST(1 NOTNULL AS REAL))",
+        "(1 ISNULL NOTNULL ISNULL)",
+        "(1 IS NULL + 1)",
+        "(+1 NOTNULL)",
+    ]
+    return found
+
+
+def deep_nesting() -> list[str]:
+    """Values nested deeper than SQLite 3.51 parses: parentheses, signs and CASTs."""
+    found = []
+    for depth in (150, 1000, 2400):
+        found.append("(" * depth + "7" + ")" * depth)
+        found.append("(" + "+ " * depth + "7)")
+    for depth in (150, 998):
+        found.append("(" + "- " * depth + "7)")
+        found.append("(" + "CAST(" * depth + "7" + " AS INTEGER)" * depth + ")")
+    return found
+
+
 def clauses() -> list[str]:
     """Every DEFAULT clause measured, as the text after the keyword DEFAULT."""
     found = ["abc", '"abc"', "[abc]", "`abc`"]
@@ -141,6 +177,7 @@ def clauses() -> list[str]:
             for inner in CAST_TYPES
             for outer in CAST_TYPES
         ]
+    found += null_tests() + deep_nesting()
     return list(dict.fromkeys(found))
 
 
