@@ -95,14 +95,11 @@ func copilotcliStoreCases() []growthCase {
 			filled["sessions"] = [][]any{{"s1", "/" + long("cwd"), long("branch"), "name", copilotcliTime}}
 			return one(rel, copilotcliStore(t, filled))
 		}},
-		{kind: "session-store.db", shape: shapeJoins, known: "allocated bytes grow 3.65 times from n=64 to 128 " +
-			"(25,332,464 to 92,456,352): each joined turn, file and tool row converts the session's whole n-kilobyte " +
-			"cwd again before the cut (copilotcli/store.go stamper.stamp)",
-			files: func(t *testing.T, n int) []growthFile {
-				filled := copilotcliTurns(n, "s1")
-				filled["sessions"] = [][]any{{"s1", "/" + strings.Repeat("c", 1024*n), "main", "name", copilotcliTime}}
-				return one(rel, copilotcliStore(t, filled))
-			}},
+		{kind: "session-store.db", shape: shapeJoins, files: func(t *testing.T, n int) []growthFile {
+			filled := copilotcliTurns(n, "s1")
+			filled["sessions"] = [][]any{{"s1", "/" + strings.Repeat("c", 1024*n), "main", "name", copilotcliTime}}
+			return one(rel, copilotcliStore(t, filled))
+		}},
 		{kind: "session-store.db", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
 			filled := copilotcliTurns(n, "s1")
 			filled["sessions"] = rows(n, func(i int) []any {

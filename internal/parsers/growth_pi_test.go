@@ -107,9 +107,6 @@ func piSessionCases() []growthCase {
 				return piForks(n, "parent", func(i int) string { return "parent" })
 			}},
 		{kind: "session", shape: shapeLargeShared + " (forks of one parent by Greek case spellings)", n: 32,
-			foldsCase: true, known: "on a file system that folds case, allocations grow 3.5 times from n=32 to " +
-				"64: each Greek case spelling of the parent's name, which the entry key folds in ASCII only, " +
-				"reads the parent again (pi/pi.go parentKeys, parser/entrykey.go KeyOf)",
 			files: func(t *testing.T, n int) []growthFile {
 				return piForks(n, piGreek, func(i int) string { return piGreekSpelling(i + 1) })
 			}},

@@ -206,17 +206,14 @@ func openclawAgentCases() []growthCase {
 				return openclawWindow("s1", numbered("m", i), "chat")
 			}), openclawEvents("s1", "/p", n, true)))
 		}},
-		{kind: "openclaw-agent.sqlite", shape: shapeLargeShared + " by archives of one window", known: "row text 41 times the input at n=64 (3,215,806 bytes from 77,824) and 75 times at 128 (6,431,514 from " +
-			"86,016): each archived generation of a session writes its window's whole 50,000-byte display_name, " +
-			"uncut, into its session-start row (openclaw/agentdb.go windowSession)",
-			files: func(t *testing.T, n int) []growthFile {
-				archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")))
-				return one(openclawAgent, openclawAgentDatabase(t, [][]any{openclawWindow("s1", "m", long("name"))}, nil,
-					sqlitetest.Table{Name: "session_transcript_archives", SQL: openclawArchivesSQL,
-						Rows: rows(n, func(i int) []any {
-							return []any{"s1", "agent:main:s1", "reset", "zstd", numbered("a", i), int64(i), archive}
-						})}))
-			}},
+		{kind: "openclaw-agent.sqlite", shape: shapeLargeShared + " by archives of one window", files: func(t *testing.T, n int) []growthFile {
+			archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")))
+			return one(openclawAgent, openclawAgentDatabase(t, [][]any{openclawWindow("s1", "m", long("name"))}, nil,
+				sqlitetest.Table{Name: "session_transcript_archives", SQL: openclawArchivesSQL,
+					Rows: rows(n, func(i int) []any {
+						return []any{"s1", "agent:main:s1", "reset", "zstd", numbered("a", i), int64(i), archive}
+					})}))
+		}},
 		{kind: "openclaw-agent.sqlite", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			events := rows(n, func(i int) []any { return []any{"s1", int64(i), `{"type":`, int64(i), nil} })
 			deep := `{"type":"message","message":{"role":"user","content":` + nestedArrays(n, `{"type":"text","text":"x"}`) + `}}`

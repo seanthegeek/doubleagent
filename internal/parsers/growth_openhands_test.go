@@ -146,9 +146,6 @@ func openhandsModelCases() []growthCase {
 				return append(files, text(openhandsEvent(conversation, n), openhandsAction("a", long("tool"))))
 			}},
 		{kind: "event", shape: shapeLargeShared + " (two responses' models in turn)", n: 32,
-			known: "row text 33.2 times the input at n=32 (3,520,191 bytes from 106,034) and 62.5 times at " +
-				"64, not cut: each event switching between two token usages' 50,000-byte models writes both " +
-				"whole into the text of its \"model: A -> B\" row (openhands/conversation.go trackModels)",
 			files: func(t *testing.T, n int) []growthFile {
 				return append(openhandsEvents(conversation, n, func(i int) string {
 					return openhandsMessage(i, `,"llm_response_id":"r`+strconv.Itoa(1+i%2)+`"`)

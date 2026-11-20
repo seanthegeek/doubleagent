@@ -213,16 +213,13 @@ func opencodeSessionFileCases(layout opencodeLayout) []growthCase {
 				return storage + "session/proj_a1/" + numbered("ses_", i) + ".json"
 			}, func(i int) string { return opencodeLegacySession(numbered("ses_", i), "proj_a1", "") })...)
 		}},
-		{kind: "session file", shape: shapeLargeShared + " by many spellings", n: 32, foldsCase: true,
-			known: "on a file system that folds case, allocated bytes grow about 3.6 times from n=32 to 64: each " +
-				"Greek case spelling of a project id reads the project file again, since its entry's key folds " +
-				"ASCII letters only (opencode/index.go projectFile)", files: func(t *testing.T, n int) []growthFile {
-				files := []growthFile{text(storage+"project/"+opencodeGreekSpelling(0)+".json",
-					`{"worktree":"/srv/proj","pad":"`+strings.Repeat("x", 1000*n)+`"}`)}
-				return append(files, manyFiles(n, func(i int) string {
-					return storage + "session/proj_a1/" + numbered("ses_", i) + ".json"
-				}, func(i int) string { return opencodeLegacySession(numbered("ses_", i), opencodeGreekSpelling(i), "") })...)
-			}},
+		{kind: "session file", shape: shapeLargeShared + " by many spellings", n: 32, files: func(t *testing.T, n int) []growthFile {
+			files := []growthFile{text(storage+"project/"+opencodeGreekSpelling(0)+".json",
+				`{"worktree":"/srv/proj","pad":"`+strings.Repeat("x", 1000*n)+`"}`)}
+			return append(files, manyFiles(n, func(i int) string {
+				return storage + "session/proj_a1/" + numbered("ses_", i) + ".json"
+			}, func(i int) string { return opencodeLegacySession(numbered("ses_", i), opencodeGreekSpelling(i), "") })...)
+		}},
 		{kind: "session file", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
 			return one(storage+"session/proj_a1/"+opencodeSession+".json", []byte(opencodeLegacySession(opencodeSession,
 				"proj_a1", `,"title":`+nestedArrays(n, `"t"`)+`,"share":`+nestedObjects(n, "url", "1"))))
@@ -247,14 +244,11 @@ func opencodeMessageFileCases(layout opencodeLayout) []growthCase {
 			func(i int) string { return `{"type":"text","text":"` + strings.Repeat("p", 100) + `"}` })
 	}
 	return []growthCase{
-		{kind: "message file", shape: shapeLargeShared + " by many spellings", n: 16, foldsCase: true,
-			known: "on a file system that folds case, row bytes grow about 3.8 times from n=16 to 32: each Greek case " +
-				"spelling of one message id reads and writes the whole part directory again, since its entry's key " +
-				"folds ASCII letters only (opencode/tree.go messageParts)", files: func(t *testing.T, n int) []growthFile {
-				return append(partFiles(n, opencodeGreekSpelling(0)), manyFiles(n, func(i int) string {
-					return messages + numbered("msg_", 1000+i) + ".json"
-				}, func(i int) string { return opencodeLegacyMessage(opencodeGreekSpelling(i), "") })...)
-			}},
+		{kind: "message file", shape: shapeLargeShared + " by many spellings", n: 16, files: func(t *testing.T, n int) []growthFile {
+			return append(partFiles(n, opencodeGreekSpelling(0)), manyFiles(n, func(i int) string {
+				return messages + numbered("msg_", 1000+i) + ".json"
+			}, func(i int) string { return opencodeLegacyMessage(opencodeGreekSpelling(i), "") })...)
+		}},
 		{kind: "message file", shape: shapeSharedID, n: 32, files: func(t *testing.T, n int) []growthFile {
 			return append(partFiles(n, "msg_a"), manyFiles(n, func(i int) string {
 				return messages + numbered("msg_", 1000+i) + ".json"

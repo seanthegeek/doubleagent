@@ -71,8 +71,6 @@ func vscodeSessionCases() []growthCase {
 			}), `,"workingDirectory":"file:///`+long("p")+`"`)))
 		}},
 		{kind: kind, shape: shapeNested + " (markdown nested around one large text)", n: 32,
-			known: "allocated bytes grow 3.5 times from n=32 to 64 (1,336,032 to 4,681,568): each level of nested " +
-				"arrays joins and copies the whole text of the levels inside it again (vscode/parts.go mdText)",
 			files: func(t *testing.T, n int) []growthFile {
 				content := `"` + strings.Repeat("w", 1000*n) + `"`
 				for range n {
