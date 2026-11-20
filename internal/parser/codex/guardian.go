@@ -6,7 +6,6 @@ import (
 	"sort"
 	"unicode/utf8"
 
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -235,47 +234,24 @@ func guardianRows(logPath string) ([]guardianLog, bool) {
 	return logs, found && column.Affinity == sqlitefile.TextAffinity
 }
 
-// guardianFile is the index of one log database, kept for one state of
-// the file and its write-ahead log.
-type guardianFile struct {
-	state [4]int64
-	index *guardianIndex
-}
-
 // guardianIndexes returns the indexes of the logs_<N>.sqlite databases in
-// home, in name order, each read once per state of the file and its log
-// for the parser's life, since every guardian review thread looks them up.
+// home, in name order. The home is listed and each database read once for
+// the parser's life, which is one run, since every guardian review thread
+// of the home looks them up.
 func (p *Parser) guardianIndexes(home string) []*guardianIndex {
+	if indexes, ok := p.guardians[home]; ok {
+		return indexes
+	}
 	if p.guardians == nil {
-		p.guardians = map[string]*guardianFile{}
+		p.guardians = map[string][]*guardianIndex{}
 	}
-	var indexes []*guardianIndex
+	p.Work.Add("codex home listings", 1)
+	indexes := []*guardianIndex{}
 	for _, logPath := range logDatabases(home) {
-		state := databaseState(logPath)
-		cached, ok := p.guardians[logPath]
-		if !ok || cached.state != state {
-			p.Work.Add("guardian log databases read", 1)
-			logs, textTimes := guardianRows(logPath)
-			cached = &guardianFile{state: state, index: newGuardianIndex(logs, textTimes, p.Work)}
-			p.guardians[logPath] = cached
-		}
-		indexes = append(indexes, cached.index)
+		p.Work.Add("guardian log databases read", 1)
+		logs, textTimes := guardianRows(logPath)
+		indexes = append(indexes, newGuardianIndex(logs, textTimes, p.Work))
 	}
+	p.guardians[home] = indexes
 	return indexes
-}
-
-// databaseState returns the size and modification time of a database file
-// and of its write-ahead log, -1 for each that cannot be looked at, which
-// tell one state of the database from another.
-func databaseState(path string) [4]int64 {
-	state := [4]int64{-1, -1, -1, -1}
-	if info, err := osfile.Lstat(path); err == nil {
-		state[0], state[1] = info.Size(), info.ModTime().UnixNano()
-	}
-	if log, ok := parser.Sidecar(path, "-wal"); ok {
-		if info, err := osfile.Lstat(log); err == nil {
-			state[2], state[3] = info.Size(), info.ModTime().UnixNano()
-		}
-	}
-	return state
 }

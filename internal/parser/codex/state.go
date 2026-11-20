@@ -8,6 +8,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -341,4 +342,20 @@ func (p *Parser) siblingThreads(artifact *input.Artifact) map[string]*sqlitefile
 		cached.byID = threadsByID(threads)
 	}
 	return cached.byID
+}
+
+// databaseState returns the size and modification time of a database file
+// and of its write-ahead log, -1 for each that cannot be looked at, which
+// tell one state of the database from another.
+func databaseState(path string) [4]int64 {
+	state := [4]int64{-1, -1, -1, -1}
+	if info, err := osfile.Lstat(path); err == nil {
+		state[0], state[1] = info.Size(), info.ModTime().UnixNano()
+	}
+	if log, ok := parser.Sidecar(path, "-wal"); ok {
+		if info, err := osfile.Lstat(log); err == nil {
+			state[2], state[3] = info.Size(), info.ModTime().UnixNano()
+		}
+	}
+	return state
 }
