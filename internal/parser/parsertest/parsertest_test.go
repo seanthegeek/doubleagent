@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -250,5 +251,32 @@ func TestTheHarnessRefusesASecretLeftWhereItReaches(t *testing.T) {
 	rows = []timeline.Row{{SessionID: "s", Text: text, Secrets: other}}
 	if broken := written(recorder, found, rows); len(broken) == 0 {
 		t.Error("a short credential left in its own row's text passes")
+	}
+}
+
+func TestAValueTheKitCutIsWrittenWithTheSecretItRanThroughWithheld(t *testing.T) {
+	secret := "fake-secret-value-0001"
+	point := parser.CarriedLimit - len(" [cut from 10000 bytes]")
+	long := strings.Repeat("a", point-4) + secret
+	long += strings.Repeat("b", 10_000-len(long))
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	artifact := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+	var rows []timeline.Row
+	err := Run(t, artifact, func(emit parser.Emit) error {
+		carried := parser.NewCarried(artifact)
+		emit(timeline.Row{SessionID: "s", ProjectPath: long, Text: "key " + carried.Cut("settings key", long) +
+			" holds " + parser.SecretText(artifact, secret)})
+		return nil
+	}, func(row timeline.Row) { rows = append(rows, row) })
+	want := strings.Repeat("a", point-4) + "P [cut from 10000 bytes]"
+	if err != nil || len(rows) != 2 || rows[0].ProjectPath != want || rows[0].Text != "key "+want+" holds P" {
+		t.Errorf("rows %d, project %q, text %q, want %q", len(rows), rows[0].ProjectPath[point-10:],
+			rows[0].Text[point-6:], want[point-10:])
+	}
+	// The project path and the key in the text are two cuts of one value.
+	tail := cutTail{secret[:4] + " [cut from 10000 bytes]", 4}
+	if tails := cutTails(recorder, nil, recorder.EverywhereTexts(), nil); len(tails) != 2 || tails[0] != tail ||
+		tails[1] != tail {
+		t.Errorf("the plain search found the tails %+v, want %+v twice", tails, tail)
 	}
 }

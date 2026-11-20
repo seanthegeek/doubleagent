@@ -165,15 +165,23 @@ func Collect(each Parser, artifact *input.Artifact, options Options, emit Emit) 
 // identify while it runs is recorded as the parse's own, which it returns
 // (nil in a run that shows secrets) with produce's error, and each row
 // produce emits carries that record (timeline.Row.Secrets) for the output
-// to replace in it.
+// to replace in it. Every field of a row but its text that is longer than
+// CarriedLimit is cut to it, and the parse ends with one problem row per
+// field cut (CarriedProblem), so no parser can leave one long.
 func Within(artifact *input.Artifact, produce func(emit Emit) error, emit Emit) (*secrets.Found, error) {
 	recorder := recorderOf(artifact)
 	found := recorder.Begin()
 	defer recorder.End()
+	fields := carriedFields{recorder: recorder}
 	err := produce(func(row timeline.Row) {
 		row.Secrets = found
+		fields.cut(&row)
 		emit(row)
 	})
+	for _, row := range fields.problemRows() {
+		row.Secrets = found
+		emit(row)
+	}
 	return found, err
 }
 

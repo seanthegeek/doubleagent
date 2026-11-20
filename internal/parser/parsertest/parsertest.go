@@ -8,8 +8,9 @@
 // the rule the design rests on: the parse is run a second time showing
 // secrets, and the rows must be the same in both modes, field for field
 // and in order, and so must the sessions built from them; the rows written
-// must be the rows with exactly the recorded secrets and the credentials of
-// their URLs replaced, each where it reaches (internal/secrets), as a
+// must be the rows with exactly the recorded secrets, the credentials of
+// their URLs and the kept part of each secret a cut value ran through
+// (secrets.Recorder.Cut) replaced, each where it reaches, as a
 // separate, plain search gives them, with any placeholder, the empty one
 // included, and in every string of a row; no secret the run replaces in
 // every string may remain in them; and a parse run by Parse or Run must
@@ -145,7 +146,8 @@ func bothModes(shown, rows []timeline.Row) []string {
 // replaces everywhere (Recorder.EverywhereTexts), with this parse's values
 // the run replaces everywhere (Found.EverywhereValues) and the URL
 // credentials of its rows that reach every string
-// (secrets.URLCredentialEverywhere); in the text alone, the parse's other
+// (secrets.URLCredentialEverywhere), and the kept part of each secret a
+// cut value ran through (cutTails); in the text alone, the parse's other
 // values and its readers' details too. Those long ones may not remain.
 func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.Row) []string {
 	var broken []string
@@ -164,6 +166,7 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 			inText = append(inText, ": "+detail)
 		}
 	}
+	tails := cutTails(recorder, found, everywhere, inText)
 	for _, row := range rows {
 		raw, output := row.Strings(), row.Withheld(recorder).Strings()
 		for i, field := range raw {
@@ -171,8 +174,8 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 			if i == len(raw)-1 {
 				searched = inText
 			}
-			if want := replaced(field, searched, secrets.URLCredentialRanges(field, empty), placeholder); output[i] !=
-				want {
+			ranges := slices.Concat(secrets.URLCredentialRanges(field, empty), tailRanges(field, tails))
+			if want := replaced(field, searched, ranges, placeholder); output[i] != want {
 				broken = append(broken, fmt.Sprintf("%q is written %q, want %q (searched %q)", field, output[i], want,
 					searched))
 			}
@@ -184,6 +187,50 @@ func written(recorder *secrets.Recorder, found *secrets.Found, rows []timeline.R
 		}
 	}
 	return broken
+}
+
+// cutTail is the end of a cut value's written text from the start of a
+// secret the cut ran through, and how many of its bytes are that secret.
+type cutTail struct {
+	text   string
+	secret int
+}
+
+// cutTails returns the tails of the values the kit cut that the output
+// withholds, by a plain search of each whole value: where the first text
+// the output replaces there (everywhere, or inText for a value in the text
+// of this parse's rows) that runs past the kept bytes starts.
+func cutTails(recorder *secrets.Recorder, found *secrets.Found, everywhere, inText []string) []cutTail {
+	var tails []cutTail
+	for _, each := range recorder.CutValues() {
+		searched := everywhere
+		if each.Parse != nil && each.Parse == found {
+			searched = inText
+		}
+		for start := range each.Kept {
+			if slices.ContainsFunc(searched, func(secret string) bool {
+				return secret != "" && start+len(secret) > each.Kept && strings.HasPrefix(each.Value[start:], secret)
+			}) {
+				tails = append(tails, cutTail{each.Written[start:], each.Kept - start})
+				break
+			}
+		}
+	}
+	return tails
+}
+
+// tailRanges returns the byte ranges of text, [start, end), that hold a
+// tail's secret.
+func tailRanges(text string, tails []cutTail) [][2]int {
+	var ranges [][2]int
+	for _, tail := range tails {
+		for i := range len(text) {
+			if strings.HasPrefix(text[i:], tail.text) {
+				ranges = append(ranges, [2]int{i, i + tail.secret})
+			}
+		}
+	}
+	return ranges
 }
 
 // longURLCredentials adds to long the URL credentials of text that the
