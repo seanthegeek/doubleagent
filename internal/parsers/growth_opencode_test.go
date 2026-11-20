@@ -111,19 +111,16 @@ func opencodeDatabaseCases(layout opencodeLayout) []growthCase {
 	rel := layout.data + "/" + layout.database
 	session := []any{opencodeSession, nil, "/work/proj", "t", 1700000000000}
 	return []growthCase{
-		{kind: "database", shape: shapeSharedID + " (1.x)", n: 128, known: "allocated bytes grow 3.2 times from " +
-			"n=128 to 256 (2,582,208 to 8,208,960): each message row repeating one id gathers the id's whole " +
-			"group of parts again before it finds the group shown (opencode/transcript.go messageParts)",
-			files: func(t *testing.T, n int) []growthFile {
-				messages := rows(n, func(i int) []any { return opencodeUserMessage("msg_1", i) })
-				parts := rows(n, func(i int) []any { return opencodeTextPart(numbered("prt_", i), "msg_1", i) })
-				share := sqlitetest.Table{Name: "session_share", SQL: "CREATE TABLE session_share (session_id text, id text, " +
-					"url text, time_created integer)", Rows: rows(n, func(i int) []any {
-					return []any{opencodeSession, numbered("shr_", i), "https://opncd.example/s/x", 1700000002000}
-				})}
-				return one(rel, database(t, append([]sqlitetest.Table{opencodeSessionTable("session", [][]any{session}),
-					share}, opencodeV1Tables(messages, parts)...)...))
-			}},
+		{kind: "database", shape: shapeSharedID + " (1.x)", n: 128, files: func(t *testing.T, n int) []growthFile {
+			messages := rows(n, func(i int) []any { return opencodeUserMessage("msg_1", i) })
+			parts := rows(n, func(i int) []any { return opencodeTextPart(numbered("prt_", i), "msg_1", i) })
+			share := sqlitetest.Table{Name: "session_share", SQL: "CREATE TABLE session_share (session_id text, id text, " +
+				"url text, time_created integer)", Rows: rows(n, func(i int) []any {
+				return []any{opencodeSession, numbered("shr_", i), "https://opncd.example/s/x", 1700000002000}
+			})}
+			return one(rel, database(t, append([]sqlitetest.Table{opencodeSessionTable("session", [][]any{session}),
+				share}, opencodeV1Tables(messages, parts)...)...))
+		}},
 		{kind: "database", shape: shapeSharedID + " (2.x)", files: func(t *testing.T, n int) []growthFile {
 			messages := rows(n, func(i int) []any {
 				return []any{"msg_1", opencodeSession, "assistant", i, 1700000001000 + i, `{"content":[]}`}
