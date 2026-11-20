@@ -58,9 +58,35 @@ DATABASES = {
 }
 
 
+# The length of a role over the 4,096 bytes a carried value is cut to.
+LONG_ROLE = 5000
+
+
+def long_role(count: int) -> str:
+    """Return the SQL of a database whose one message, of a 5,000-byte role, has count text parts."""
+    parts = ",".join(f'{{"type":"text","data":{{"text":"part {i}"}}}}' for i in range(count))
+    return "\n".join(
+        [
+            "PRAGMA page_size = 512;",
+            "CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, created_at INTEGER);",
+            "CREATE TABLE messages (id TEXT, session_id TEXT, role TEXT, parts TEXT, created_at INTEGER);",
+            "INSERT INTO sessions VALUES ('s1', 'first', 1760000000);",
+            f"INSERT INTO messages VALUES ('m1', 's1', '{'r' * LONG_ROLE}', '[{parts}]', 1760000001);",
+        ]
+    )
+
+
+def scripts() -> dict[str, str]:
+    """Return the SQL of every database, by file name."""
+    built = dict(DATABASES)
+    for count in (10, 40):
+        built[f"long_role_{count}.db"] = long_role(count)
+    return built
+
+
 def main() -> None:
-    """Rewrite every database of DATABASES in this directory."""
-    for name, script in DATABASES.items():
+    """Rewrite every database of scripts() in this directory."""
+    for name, script in scripts().items():
         path = HERE / name
         path.unlink(missing_ok=True)
         with contextlib.closing(sqlite3.connect(path)) as connection:
