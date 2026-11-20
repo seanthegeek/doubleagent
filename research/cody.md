@@ -630,7 +630,10 @@ source-derived; not observed on any real install.
 `<project>/.idea/cody_history.xml` ([Legacy JetBrains history](#legacy-jetbrains-history)) is a
 secondary source, collected through the project table and read on every run with `secondary()`
 true. Per chat it yields `chat: <internalId> | account=<accountId> | messages=<n> (legacy
-JetBrains history)`, `model: <id>` before the first assistant message, and a `user` or
+JetBrains history)` (an `AccountData`'s `accountId` is repeated in the heading of each chat under
+it, so one longer than 4,096 bytes is cut there as a carried value, with one `parser: account
+longer than 4096 bytes, cut to 4096 bytes (<n> times)` row for the file; a chat's own `accountId`
+is written whole), `model: <id>` before the first assistant message, and a `user` or
 `assistant` row per `HUMAN` or `ASSISTANT` message with text, all with the chat's `updatedAt` as
 `session_id` (else `internalId`) and as the time, read as UTC like the same string in the agent
 store, and the project the file sits in as `project_path`. A migrated chat's complete pairs
