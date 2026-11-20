@@ -154,6 +154,20 @@ func (p *TaskParser) TaskMatch(artifact *input.Artifact) bool {
 	return p.taskPattern.MatchString(artifact.Rel)
 }
 
+// TaskKinds returns the four task files under the root, one kind each,
+// which together want what TaskMatch does.
+func (p *TaskParser) TaskKinds() []parser.Kind {
+	var kinds []parser.Kind
+	for _, name := range []string{UIFile, APIFile, OlderAPIFile, MetadataFile} {
+		stem := strings.TrimSuffix(name, ".json")
+		kinds = append(kinds, parser.RelFuncKind("task "+name, func(rel string) bool {
+			match := p.taskPattern.FindStringSubmatch(rel)
+			return match != nil && strings.EqualFold(match[2], stem)
+		}))
+	}
+	return kinds
+}
+
 // CachedJSON returns the file at path decoded as JSON, or null when it is
 // absent, unreadable or not JSON. The result is kept for the parser's
 // life, keyed by the path, modification time and size, so the many task

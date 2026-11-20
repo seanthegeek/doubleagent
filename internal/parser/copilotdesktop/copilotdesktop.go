@@ -51,7 +51,12 @@ func New() *Parser {
 
 // Wants reports whether the artifact is data.db or a checkpoint ref.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return p.database.MatchString(artifact.Rel) || p.ref.MatchString(artifact.Rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the app database and the checkpoint refs.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("data.db", p.database), parser.PatternKind("checkpoint ref", p.ref)}
 }
 
 // Parse emits the rows of data.db, or the one row of a checkpoint ref.

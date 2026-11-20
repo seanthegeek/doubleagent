@@ -80,14 +80,21 @@ func (p *Parser) ReadsAgents() []string {
 // Wants reports whether the artifact is a task, index, settings, state or
 // CLI history file of Roo Code.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	switch rel {
-	case cliHistoryRel, cliSettingsRel, projectMCPRel, globalStateRel:
-		return true
-	}
-	return p.TaskMatch(artifact) || itemPattern.MatchString(rel) || indexPattern.MatchString(rel) ||
-		mcpPattern.MatchString(rel) || workspaceStatePattern.MatchString(rel) ||
-		vscodestate.IsStateDatabase(rel) || workspaceDatabase.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the CLI's files, the task files, the task history items
+// and index, the MCP settings, the workspace state and the editors' state
+// databases.
+func (p *Parser) Kinds() []parser.Kind {
+	kinds := []parser.Kind{parser.RelKind("cli-history.json", cliHistoryRel),
+		parser.RelKind("cli-settings.json", cliSettingsRel), parser.RelKind("project mcp.json", projectMCPRel),
+		parser.RelKind("global-state.json", globalStateRel)}
+	return append(append(kinds, p.TaskKinds()...), parser.PatternKind("history_item.json", itemPattern),
+		parser.PatternKind("tasks _index.json", indexPattern), parser.PatternKind("mcp_settings.json", mcpPattern),
+		parser.PatternKind("workspace-state.json", workspaceStatePattern),
+		parser.RelFuncKind("state.vscdb", vscodestate.IsStateDatabase),
+		parser.PatternKind("workspace state.vscdb", workspaceDatabase))
 }
 
 // Secondary reports whether the artifact is the CLI's input history, which

@@ -90,9 +90,21 @@ func New() *Parser {
 // Wants reports whether the artifact is a session (the index included),
 // task, log, dev_data or state file.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return sessionPattern.MatchString(rel) || p.TaskMatch(artifact) || logPattern.MatchString(rel) ||
-		devDataPattern.MatchString(rel) || statePattern.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the sessions, the task files, the logs, the two dev_data
+// logs and the state database.
+func (p *Parser) Kinds() []parser.Kind {
+	kinds := append([]parser.Kind{parser.PatternKind("session", sessionPattern)}, p.TaskKinds()...)
+	kinds = append(kinds, parser.PatternKind("log", logPattern))
+	for _, name := range []string{"chat", "tokens_generated"} {
+		kinds = append(kinds, parser.RelFuncKind("dev_data "+name+".jsonl", func(rel string) bool {
+			match := devDataPattern.FindStringSubmatch(rel)
+			return match != nil && match[1] == name
+		}))
+	}
+	return append(kinds, parser.PatternKind("state.vscdb", statePattern))
 }
 
 // Secondary reports whether the artifact is the output channel log or

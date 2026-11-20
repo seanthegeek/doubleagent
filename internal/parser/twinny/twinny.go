@@ -78,9 +78,15 @@ func (p *Parser) ReadsAgents() []string {
 // Wants reports whether the artifact is a state database, an agent-changes
 // record or a Twinny log.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return vscodestate.IsStateDatabase(rel) || workspaceDatabase.MatchString(rel) ||
-		changesPattern.MatchString(rel) || logPattern.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the editors' global and workspace state databases, the
+// agent changes and the log.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelFuncKind("state.vscdb", vscodestate.IsStateDatabase),
+		parser.PatternKind("workspace state.vscdb", workspaceDatabase), parser.PatternKind("agent changes", changesPattern),
+		parser.PatternKind("Twinny.log", logPattern)}
 }
 
 // Secondary reports whether the artifact is an agent-changes record or a

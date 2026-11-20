@@ -75,15 +75,21 @@ func New() *Parser {
 // Wants reports whether the artifact is the database, the history, an
 // agent or delegate file, or a .json that starts like a /save export.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	switch {
-	case p.database.MatchString(rel), p.history.MatchString(rel), p.agent.MatchString(rel),
-		p.subagent.MatchString(rel):
-		return true
-	case p.sessions.MatchString(rel) || !strings.HasSuffix(rel, ".json"):
-		return false
-	}
-	return sniffExport(artifact.DiskPath)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the database, the history, the agent configurations, the
+// subagent records and a conversation export: any other .json file outside
+// .kiro/sessions whose start reads as one, tried last since it reads the
+// file.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("data.sqlite3", p.database),
+		parser.PatternKind(".cli_bash_history", p.history), parser.PatternKind("agent configuration", p.agent),
+		parser.PatternKind("subagent record", p.subagent),
+		{Name: "conversation export", Wants: func(artifact *input.Artifact) bool {
+			rel := artifact.Rel
+			return !p.sessions.MatchString(rel) && strings.HasSuffix(rel, ".json") && sniffExport(artifact.DiskPath)
+		}}}
 }
 
 // sniffExport reports whether a file starts like a /save export: an object

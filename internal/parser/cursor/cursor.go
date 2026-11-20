@@ -81,13 +81,19 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{statePattern, searchPattern, transcriptPattern, trackingPattern,
-		cliConfigPattern, permissionsPattern, attemptPattern} {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
-	}
-	return false
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the state database, the search database, the agent
+// transcripts, the tracking database, the CLI config, the permissions and
+// the MCP sign-in attempts.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("state.vscdb", statePattern),
+		parser.PatternKind("conversation-search.db", searchPattern),
+		parser.PatternKind("agent transcript", transcriptPattern),
+		parser.PatternKind("ai-code-tracking.db", trackingPattern), parser.PatternKind("cli-config.json", cliConfigPattern),
+		parser.PatternKind("permissions.json", permissionsPattern),
+		parser.PatternKind("mcp-oauth attempt", attemptPattern)}
 }
 
 // Secondary reports whether the artifact is an agent transcript, which

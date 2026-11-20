@@ -16,7 +16,6 @@ package copilotcli
 import (
 	"cmp"
 	"regexp"
-	"slices"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -80,9 +79,19 @@ func (p *Parser) patterns() []*regexp.Regexp {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return slices.ContainsFunc(p.patterns(), func(pattern *regexp.Regexp) bool {
-		return pattern.MatchString(artifact.Rel)
-	})
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the files the parser reads, one kind per pattern.
+func (p *Parser) Kinds() []parser.Kind {
+	names := []string{"events.jsonl", "workspace.yaml", "rewind snapshots index.json", "session-store.db",
+		"command-history-state.json", "permissions-config.json", "settings.json", "sidebar session state",
+		"process log"}
+	var kinds []parser.Kind
+	for i, pattern := range p.patterns() {
+		kinds = append(kinds, parser.PatternKind(names[i], pattern))
+	}
+	return kinds
 }
 
 // Secondary reports whether the artifact repeats events of the session

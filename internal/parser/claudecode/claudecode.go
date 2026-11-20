@@ -87,13 +87,18 @@ func (p *Parser) Marks() parser.Marks {
 // registry entry, a settings file, ~/.claude.json or a Remote Control
 // sidecar.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{historyPattern, sessionPattern, registryPattern,
-		settingsPattern, globalConfigPattern, ccrTipPattern, bridgePointerPattern} {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
-	}
-	return false
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the history, the session transcripts, the session
+// registry, the settings, the global config, the remote tips and the
+// bridge pointers.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("history.jsonl", historyPattern),
+		parser.PatternKind("session transcript", sessionPattern),
+		parser.PatternKind("session registry", registryPattern), parser.PatternKind("settings.json", settingsPattern),
+		parser.PatternKind(".claude.json", globalConfigPattern), parser.PatternKind("ccr-tip.json", ccrTipPattern),
+		parser.PatternKind("bridge-pointer.json", bridgePointerPattern)}
 }
 
 // Secondary reports whether the artifact is history.jsonl.

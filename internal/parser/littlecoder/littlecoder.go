@@ -106,9 +106,15 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is one of little-coder's files.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return slices.Contains([]string{historyRel, legacyInputRel, legacyConfigRel}, rel) ||
-		p.checkpoint.MatchString(rel) || p.legacySession.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the prompt history, the legacy input history and config,
+// the checkpoints and the legacy sessions.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelKind("prompt history", historyRel),
+		parser.RelKind("input_history.txt", legacyInputRel), parser.RelKind("config.json", legacyConfigRel),
+		parser.PatternKind("checkpoint", p.checkpoint), parser.PatternKind("legacy session", p.legacySession)}
 }
 
 // Secondary reports whether the artifact is a v0.0.x file that repeats a

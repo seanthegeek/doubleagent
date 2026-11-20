@@ -74,9 +74,14 @@ func New() *Parser {
 // Wants reports whether the artifact is threads.db, a channel's db.sqlite
 // or a user settings file.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return p.files.threads.MatchString(rel) || p.files.sidebar.MatchString(rel) ||
-		p.files.settings.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the threads database, the workspace database and the
+// settings.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("threads.db", p.files.threads),
+		parser.PatternKind("workspace db.sqlite", p.files.sidebar), parser.PatternKind("settings.json", p.files.settings)}
 }
 
 // Parse emits the rows of one Zed file. A file that is not a database or

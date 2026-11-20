@@ -83,9 +83,13 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return p.database.MatchString(rel) || p.projects.MatchString(rel) ||
-		p.config.MatchString(rel) || p.crushrc.MatchString(rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the database, the projects list, the config and crushrc.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("crush.db", p.database), parser.PatternKind("projects.json", p.projects),
+		parser.PatternKind("crush.json", p.config), parser.PatternKind("crushrc", p.crushrc)}
 }
 
 // Parse emits the rows of one artifact, by the file it is.

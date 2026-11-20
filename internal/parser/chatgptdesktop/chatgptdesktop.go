@@ -57,7 +57,12 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is .codex/sqlite/codex-dev.db.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return artifact.Rel == databaseRel
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the app database.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.RelKind("app database", databaseRel)}
 }
 
 // Parse emits three system rows per ChatGPT conversation of the table.

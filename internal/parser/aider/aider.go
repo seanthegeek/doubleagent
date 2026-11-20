@@ -78,7 +78,19 @@ func New() *Parser {
 
 // Wants reports whether the artifact is one of the three history files.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return p.file.MatchString(artifact.Rel)
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the three history files, in any directory.
+func (p *Parser) Kinds() []parser.Kind {
+	var kinds []parser.Kind
+	for _, name := range []string{".aider.chat.history.md", ".aider.input.history", ".aider.llm.history"} {
+		kinds = append(kinds, parser.RelFuncKind(name, func(rel string) bool {
+			match := p.file.FindStringSubmatch(rel)
+			return match != nil && match[1] == name
+		}))
+	}
+	return kinds
 }
 
 // Secondary reports whether the artifact is the input or LLM history.

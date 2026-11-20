@@ -65,9 +65,22 @@ func New() *Parser {
 // included), a dev_data file, a cn log, the input history or
 // permissions.yaml.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return sessionPattern.MatchString(rel) || devDataPattern.MatchString(rel) ||
-		cnLogPattern.MatchString(rel) || rel == inputHistoryRel || rel == permissionsRel
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the sessions, the five dev_data logs, the CLI logs, the
+// input history and the permissions.
+func (p *Parser) Kinds() []parser.Kind {
+	kinds := []parser.Kind{parser.PatternKind("session", sessionPattern)}
+	for _, name := range []string{"chatInteraction", "toolUsage", "editInteraction", "editOutcome",
+		"chatFeedback"} {
+		kinds = append(kinds, parser.RelFuncKind("dev_data "+name+".jsonl", func(rel string) bool {
+			match := devDataPattern.FindStringSubmatch(rel)
+			return match != nil && match[1] == name
+		}))
+	}
+	return append(kinds, parser.PatternKind("cn log", cnLogPattern),
+		parser.RelKind("input_history.json", inputHistoryRel), parser.RelKind("permissions.yaml", permissionsRel))
 }
 
 // Secondary reports whether the artifact is the CLI's prompt history or a

@@ -76,13 +76,17 @@ func (p *Parser) Marks() parser.Marks {
 
 // Wants reports whether the artifact is one of the files the parser reads.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{p.database, p.legacy, p.llm, p.history, p.permission,
-		p.trust, p.schedule} {
-		if pattern.MatchString(artifact.Rel) {
-			return true
-		}
-	}
-	return false
+	return parser.WantsAny(p.Kinds(), artifact)
+}
+
+// Kinds returns the session database, the legacy sessions, the LLM
+// request logs, the history, the permissions, the roaming trust and the
+// schedule.
+func (p *Parser) Kinds() []parser.Kind {
+	return []parser.Kind{parser.PatternKind("sessions.db", p.database), parser.PatternKind("legacy session", p.legacy),
+		parser.PatternKind("llm request log", p.llm), parser.PatternKind("history.txt", p.history),
+		parser.PatternKind("permission.yaml", p.permission), parser.PatternKind("roaming_trust.json", p.trust),
+		parser.PatternKind("schedule.json", p.schedule)}
 }
 
 // Secondary reports whether the artifact is a prompt history or a request
