@@ -344,7 +344,14 @@ type chat struct {
 	emit     parser.Emit
 	base     timeline.Row
 	history  map[string]historyEntry
-	models   parser.Tracker
+	// joined holds the history ids whose message has joined a log item,
+	// and files the message files already looked for: each joins the
+	// first log item that reaches it and is read at most once.
+	joined map[string]bool
+	files  map[string]bool
+	// work counts the message files read, which a test holds to one each.
+	work   parser.Work
+	models parser.Tracker
 	// messages is the messages directory beside the chat, the zero
 	// Directory when there is none.
 	messages parser.Directory
@@ -401,7 +408,8 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		fallbackID = parser.Stem(name)
 	}
 	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
-		base: p.BaseRow(artifact), history: map[string]historyEntry{}, models: parser.Tracker{}}
+		base: p.BaseRow(artifact), history: map[string]historyEntry{}, joined: map[string]bool{},
+		work: p.Work, models: parser.Tracker{}}
 	state.base.SessionID = fallbackID
 	content, ok := parser.FileBytes(artifact.DiskPath, &state.problems)
 	if !ok {
@@ -629,14 +637,24 @@ func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
 }
 
 // messageFile returns the text of the message file a history entry names, ""
-// when there is none. A file that exists but cannot be read adds its
-// unreadable problem; a failure to look for it stops the parse.
+// when there is none or an earlier entry of the chat named it: a file is
+// looked for once, and its text joins the first log item that reaches it.
+// A file that exists but cannot be read adds its unreadable problem; a
+// failure to look for it stops the parse.
 func (c *chat) messageFile(content jsonvalue.Value) string {
 	if !content.IsObject() || content.Get("file").IsEmpty() {
 		return ""
 	}
 	name := strings.ReplaceAll(content.Get("file").Text(), `\`, "/")
-	path, named := c.messages.Child(name[strings.LastIndex(name, "/")+1:])
+	name = name[strings.LastIndex(name, "/")+1:]
+	if c.files[name] {
+		return ""
+	}
+	if c.files == nil {
+		c.files = map[string]bool{}
+	}
+	c.files[name] = true
+	path, named := c.messages.Child(name)
 	if !named {
 		return ""
 	}
@@ -650,6 +668,7 @@ func (c *chat) messageFile(content jsonvalue.Value) string {
 	if !info.Mode().IsRegular() {
 		return ""
 	}
+	c.work.Add("message files read", 1)
 	data, ok := parser.FileBytes(path, &c.problems)
 	if !ok {
 		return ""
@@ -687,7 +706,13 @@ func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
 		current.content = content
 	}
 	if held, ok := c.history[current.itemID]; ok && current.itemID != "" && !held.message.IsEmpty() {
-		current.message, current.body, current.hasMessage = held.message, held.message.Get("content"), true
+		current.message, current.hasMessage = held.message, true
+		// The message's text joins the first log item that names its id;
+		// a later one keeps the id and the model and reads its own content.
+		if !c.joined[current.itemID] {
+			c.joined[current.itemID] = true
+			current.body = held.message.Get("content")
+		}
 	}
 	return current
 }
