@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -403,5 +404,42 @@ func TestTablesMayBeLookedUpFromSeveralGoroutines(t *testing.T) {
 	close(failures)
 	for err := range failures {
 		t.Error(err)
+	}
+}
+
+// bytesAllocatedBy returns how many bytes of memory work allocates.
+func bytesAllocatedBy(work func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	work()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
+}
+
+func TestARefusedStatementHoldsNoTokensPastTheRefusal(t *testing.T) {
+	tests := []struct {
+		name, want string
+		sql        func(count int) string
+		bound      uint64
+	}{
+		{"a parenthesis left open", "a parenthesis is not closed", func(count int) string {
+			return "CREATE TABLE t(a, b DEFAULT " + strings.Repeat("(", count)
+		}, 64 << 10},
+		{"columns past the limit", "more than 2000 columns", func(count int) string {
+			return "CREATE TABLE t(" + columnList(count) + ")"
+		}, 4 << 20},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, count := range []int{100_000, 400_000} {
+				sql := test.sql(count)
+				var err error
+				allocated := bytesAllocatedBy(func() { _, err = parseCreateTable(sql) })
+				if err == nil || !strings.Contains(err.Error(), test.want) || allocated > test.bound {
+					t.Errorf("a %d-byte statement allocated %d bytes and gave %v; want at most %d bytes and %q",
+						len(sql), allocated, err, test.bound, test.want)
+				}
+			}
+		})
 	}
 }

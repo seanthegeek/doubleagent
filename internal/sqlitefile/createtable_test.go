@@ -171,6 +171,19 @@ func TestDefaultsSQLiteRefusesFailOnlyTheRowsThatNeedThem(t *testing.T) {
 	}
 }
 
+// tokenize returns every token of text as the schema parser scans them,
+// or the first error.
+func tokenize(text string) ([]token, error) {
+	var tokens []token
+	for offset := 0; ; {
+		next, end, err := scanFrom(text, offset)
+		if err != nil || next.kind == 0 {
+			return tokens, err
+		}
+		tokens, offset = append(tokens, next), end
+	}
+}
+
 func TestTokenizeReadsLiteralsAndQuotes(t *testing.T) {
 	tokens, err := tokenize(`x'0aFF' 1_000.5e-3 0x1F .5 "a""b" [c] ` + "`d``e`" + ` 'f''g' || <= -- end`)
 	if err != nil {

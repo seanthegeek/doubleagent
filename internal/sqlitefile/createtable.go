@@ -68,33 +68,68 @@ const maxColumns = 2000
 // package cannot read.
 var errSchemaSyntax = errors.New("cannot read the CREATE TABLE statement")
 
-// schemaParser walks the tokens of one CREATE statement.
+// schemaParser reads one CREATE statement a token at a time, scanning
+// each from the text only when the grammar asks for it, so a refusal (an
+// unclosed parenthesis, a table past maxColumns, a malformed token) stops
+// the reading where it is made and the tokens held are those of clauses
+// already read whole. err is the first token that does not scan; the
+// parser then sees the end of the text, and the statement fails with err.
 type schemaParser struct {
-	tokens   []token
-	position int
+	text   string
+	offset int
+	// ahead is the token scanned from aheadFrom, ending at aheadEnd.
+	ahead               token
+	aheadFrom, aheadEnd int
+	err                 error
+}
+
+// newSchemaParser returns a parser at the start of sql.
+func newSchemaParser(sql string) *schemaParser {
+	return &schemaParser{text: sql, aheadFrom: -1}
+}
+
+// scan returns the token at or after offset and the offset after it,
+// recording the first error and giving the end of the text in its place.
+func (p *schemaParser) scan(offset int) (token, int) {
+	next, end, err := scanFrom(p.text, offset)
+	if err != nil && p.err == nil {
+		p.err = fmt.Errorf("%w: %w", errSchemaSyntax, err)
+	}
+	return next, end
 }
 
 // peek returns the next token, or a zero token at the end.
 func (p *schemaParser) peek() token {
-	if p.position < len(p.tokens) {
-		return p.tokens[p.position]
+	if p.aheadFrom != p.offset {
+		p.ahead, p.aheadEnd = p.scan(p.offset)
+		p.aheadFrom = p.offset
 	}
-	return token{}
+	return p.ahead
+}
+
+// peekSecond returns the token after the next one.
+func (p *schemaParser) peekSecond() token {
+	p.peek()
+	second, _ := p.scan(p.aheadEnd)
+	return second
+}
+
+// atEnd reports whether the text holds no more tokens.
+func (p *schemaParser) atEnd() bool {
+	return p.peek().kind == 0
 }
 
 // next returns the next token and moves past it.
 func (p *schemaParser) next() token {
 	current := p.peek()
-	if p.position < len(p.tokens) {
-		p.position++
-	}
+	p.offset = p.aheadEnd
 	return current
 }
 
 // accept moves past the next token when it is the keyword.
 func (p *schemaParser) accept(keyword string) bool {
 	if p.peek().isKeyword(keyword) {
-		p.position++
+		p.next()
 		return true
 	}
 	return false
@@ -103,7 +138,7 @@ func (p *schemaParser) accept(keyword string) bool {
 // acceptPunctuation moves past the next token when it is the mark.
 func (p *schemaParser) acceptPunctuation(mark string) bool {
 	if p.peek().isPunctuation(mark) {
-		p.position++
+		p.next()
 		return true
 	}
 	return false
@@ -121,7 +156,7 @@ func (p *schemaParser) expect(keywords ...string) error {
 
 // unexpected reports the next token where wanted was expected.
 func (p *schemaParser) unexpected(wanted string) error {
-	if p.position >= len(p.tokens) {
+	if p.atEnd() {
 		return fmt.Errorf("%w: the text ends where %s is expected", errSchemaSyntax, wanted)
 	}
 	return fmt.Errorf("%w: %q where %s is expected", errSchemaSyntax, p.peek().text, wanted)
@@ -129,61 +164,86 @@ func (p *schemaParser) unexpected(wanted string) error {
 
 // identifier reads a name: a bare word, a quoted identifier or a string.
 func (p *schemaParser) identifier(what string) (string, error) {
-	current := p.peek()
-	if current.kind != word && current.kind != quoted && current.kind != stringToken {
+	if !isName(p.peek()) {
 		return "", p.unexpected(what)
 	}
-	p.position++
-	return current.name(), nil
+	return p.next().name(), nil
 }
 
 // group reads a parenthesised run of tokens, nested parentheses included,
-// and returns the tokens inside the outer pair.
+// and returns the tokens inside the outer pair. The run is first read
+// without keeping its tokens, so an unclosed one is refused having held
+// none of them.
 func (p *schemaParser) group() ([]token, error) {
-	if !p.acceptPunctuation("(") {
-		return nil, p.unexpected("(")
+	start := p.offset
+	if err := p.skipGroup(); err != nil {
+		return nil, err
 	}
-	start, depth := p.position, 1
-	for p.position < len(p.tokens) {
-		current := p.next()
-		switch {
+	end := p.offset
+	p.offset = start
+	p.next() // the opening parenthesis
+	var inner []token
+	for p.offset < end {
+		inner = append(inner, p.next())
+	}
+	return inner[:len(inner)-1], nil
+}
+
+// skipGroup moves past a parenthesised run of tokens, nested parentheses
+// included, keeping none of them.
+func (p *schemaParser) skipGroup() error {
+	if !p.acceptPunctuation("(") {
+		return p.unexpected("(")
+	}
+	for depth := 1; !p.atEnd(); {
+		switch current := p.next(); {
 		case current.isPunctuation("("):
 			depth++
 		case current.isPunctuation(")"):
-			depth--
-			if depth == 0 {
-				return p.tokens[start : p.position-1], nil
+			if depth--; depth == 0 {
+				return nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("%w: a parenthesis is not closed", errSchemaSyntax)
+	return fmt.Errorf("%w: a parenthesis is not closed", errSchemaSyntax)
 }
 
-// parseCreateTable parses the SQL text of a table's schema row.
+// parseCreateTable parses the SQL text of a table's schema row. A token
+// that does not scan fails the statement wherever it stands, the text
+// after a whole fts5 declaration included.
 func parseCreateTable(sql string) (*tableShape, error) {
-	tokens, err := tokenize(sql)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errSchemaSyntax, err)
+	parser := newSchemaParser(sql)
+	shape, err := parser.statement()
+	for err == nil && parser.err == nil && !parser.atEnd() {
+		parser.next()
 	}
-	parser := &schemaParser{tokens: tokens}
-	if err := parser.expect("CREATE"); err != nil {
+	if parser.err != nil {
+		return nil, parser.err
+	}
+	return shape, err
+}
+
+// statement reads CREATE [TEMP] TABLE or CREATE VIRTUAL TABLE.
+func (p *schemaParser) statement() (*tableShape, error) {
+	if err := p.expect("CREATE"); err != nil {
 		return nil, err
 	}
-	_ = parser.accept("TEMP") || parser.accept("TEMPORARY")
-	if parser.accept("VIRTUAL") {
-		return parser.virtualTable()
+	_ = p.accept("TEMP") || p.accept("TEMPORARY")
+	if p.accept("VIRTUAL") {
+		return p.virtualTable()
 	}
-	if err := parser.expect("TABLE"); err != nil {
+	if err := p.expect("TABLE"); err != nil {
 		return nil, err
 	}
 	shape := &tableShape{}
-	if shape.name, err = parser.tableName(); err != nil {
+	var err error
+	if shape.name, err = p.tableName(); err != nil {
 		return nil, err
 	}
-	if err := parser.definitions(shape); err != nil {
+	if err := p.definitions(shape); err != nil {
 		return nil, err
 	}
-	if err := parser.options(shape); err != nil {
+	if err := p.options(shape); err != nil {
 		return nil, err
 	}
 	return shape, shape.finish()
@@ -244,7 +304,7 @@ func startsTableConstraint(next token) bool {
 
 // options reads the table options after the closing parenthesis.
 func (p *schemaParser) options(shape *tableShape) error {
-	for p.position < len(p.tokens) {
+	for !p.atEnd() {
 		switch {
 		case p.accept("WITHOUT"):
 			if err := p.expect("ROWID"); err != nil {
@@ -253,12 +313,12 @@ func (p *schemaParser) options(shape *tableShape) error {
 			shape.withoutRowid = true
 		case p.accept("STRICT"):
 			shape.strict = true
-		case p.acceptPunctuation(";") && p.position == len(p.tokens):
+		case p.acceptPunctuation(";") && p.atEnd():
 			return nil
 		default:
 			return p.unexpected("WITHOUT ROWID or STRICT")
 		}
-		if !p.acceptPunctuation(",") && p.position < len(p.tokens) && !p.peek().isPunctuation(";") {
+		if !p.acceptPunctuation(",") && !p.atEnd() && !p.peek().isPunctuation(";") {
 			return p.unexpected(",")
 		}
 	}

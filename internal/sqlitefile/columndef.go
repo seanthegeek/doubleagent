@@ -31,7 +31,7 @@ func (p *schemaParser) columnDefinition(shape *tableShape) error {
 	if column.DeclaredType, err = p.columnType(); err != nil {
 		return err
 	}
-	for p.position < len(p.tokens) && !p.peek().isPunctuation(",") && !p.peek().isPunctuation(")") {
+	for !p.atEnd() && !p.peek().isPunctuation(",") && !p.peek().isPunctuation(")") {
 		if err := p.columnConstraint(shape, &column); err != nil {
 			return fmt.Errorf("column %s: %w", name, err)
 		}
@@ -83,6 +83,7 @@ func joinTokens(tokens []token) string {
 
 // columnConstraint reads one column constraint into column.
 func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error {
+	before := p.offset
 	switch next := p.next(); {
 	case next.isKeyword("CONSTRAINT"):
 		_, err := p.identifier("a constraint name")
@@ -97,8 +98,7 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 	case next.isKeyword("NULL") || next.isKeyword("UNIQUE"):
 		return p.conflictClause()
 	case next.isKeyword("CHECK"):
-		_, err := p.group()
-		return err
+		return p.skipGroup()
 	case next.isKeyword("DEFAULT"):
 		expression, err := p.defaultClause()
 		column.defaultExpression = expression
@@ -120,7 +120,7 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 	case next.isKeyword("AS"):
 		return p.generated(column)
 	default:
-		p.position--
+		p.offset = before
 		return p.unexpected("a column constraint")
 	}
 }
@@ -161,7 +161,7 @@ func (s *tableShape) setAutoincrement(autoincrement, rowidAlias bool) error {
 
 // generated reads AS (expression) [STORED | VIRTUAL], VIRTUAL by default.
 func (p *schemaParser) generated(column *Column) error {
-	if _, err := p.group(); err != nil {
+	if err := p.skipGroup(); err != nil {
 		return err
 	}
 	column.Generated = VirtualGenerated
@@ -192,25 +192,25 @@ func (p *schemaParser) conflictClause() error {
 // defaultClause returns the tokens of a DEFAULT value: a parenthesised
 // expression with its parentheses, a signed term, or one literal or name.
 func (p *schemaParser) defaultClause() ([]token, error) {
-	start := p.position
 	next := p.peek()
 	switch {
 	case next.isPunctuation("("):
-		if _, err := p.group(); err != nil {
+		opening := p.peek()
+		inner, err := p.group()
+		if err != nil {
 			return nil, err
 		}
+		return append(append([]token{opening}, inner...), token{kind: punctuation, text: ")"}), nil
 	case next.isPunctuation("+") || next.isPunctuation("-"):
-		p.position++
+		sign := p.next()
 		if term := p.peek(); term.kind == punctuation || term.kind == 0 {
 			return nil, p.unexpected("a default value")
 		}
-		p.position++
+		return []token{sign, p.next()}, nil
 	case next.kind == punctuation || next.kind == 0:
 		return nil, p.unexpected("a default value")
-	default:
-		p.position++
 	}
-	return p.tokens[start:p.position], nil
+	return []token{p.next()}, nil
 }
 
 // foreignKey reads the rest of a REFERENCES clause: the parent table, its
@@ -220,7 +220,7 @@ func (p *schemaParser) foreignKey() error {
 		return err
 	}
 	if p.peek().isPunctuation("(") {
-		if _, err := p.group(); err != nil {
+		if err := p.skipGroup(); err != nil {
 			return err
 		}
 	}
@@ -261,8 +261,8 @@ func (p *schemaParser) foreignKeyAction() error {
 // deferral reads an optional [NOT] DEFERRABLE [INITIALLY DEFERRED|IMMEDIATE];
 // a NOT that is not followed by DEFERRABLE starts a NOT NULL constraint.
 func (p *schemaParser) deferral() error {
-	if p.peek().isKeyword("NOT") && p.position+1 < len(p.tokens) && p.tokens[p.position+1].isKeyword("DEFERRABLE") {
-		p.position++
+	if p.peek().isKeyword("NOT") && p.peekSecond().isKeyword("DEFERRABLE") {
+		p.next()
 	}
 	if !p.accept("DEFERRABLE") {
 		return nil
@@ -289,18 +289,17 @@ func (p *schemaParser) tableConstraint(shape *tableShape) error {
 		}
 		return p.tablePrimaryKey(shape)
 	case p.accept("UNIQUE"):
-		if _, err := p.group(); err != nil {
+		if err := p.skipGroup(); err != nil {
 			return err
 		}
 		return p.conflictClause()
 	case p.accept("CHECK"):
-		_, err := p.group()
-		return err
+		return p.skipGroup()
 	case p.accept("FOREIGN"):
 		if err := p.expect("KEY"); err != nil {
 			return err
 		}
-		if _, err := p.group(); err != nil {
+		if err := p.skipGroup(); err != nil {
 			return err
 		}
 		if err := p.expect("REFERENCES"); err != nil {
