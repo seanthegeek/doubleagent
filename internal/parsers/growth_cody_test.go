@@ -133,15 +133,12 @@ func codyJetBrainsCases() []growthCase {
 				`<updatedAt value="`+long("2026")+`"/><llm><model value="`+long("model")+`"/></llm><messages><list>`+
 				messages+`</list></messages></chat></list></chats></AccountData></list></accountData></component></application>`))
 		}},
-		{kind: "cody_history.xml", shape: shapeCarried + " by the account", known: "row text 58 times the input at n=64 (3,206,848 bytes from 55,049) and 107 times at 128 (6,413,696 from " +
-			"59,913): each legacy chat's start row writes its AccountData's whole 50,000-byte accountId, uncut " +
-			"(cody/legacy.go legacyChat)",
-			files: func(t *testing.T, n int) []growthFile {
-				chats := strings.Repeat(`<chat><internalId value="i"/><updatedAt value="2026-01-01T00:00:00"/></chat>`, n)
-				return one(".idea/cody_history.xml", []byte(`<application><component name="ChatHistory"><accountData>`+
-					`<list><AccountData><accountId value="`+long("a")+`"/><chats><list>`+chats+
-					`</list></chats></AccountData></list></accountData></component></application>`))
-			}},
+		{kind: "cody_history.xml", shape: shapeCarried + " by the account", files: func(t *testing.T, n int) []growthFile {
+			chats := strings.Repeat(`<chat><internalId value="i"/><updatedAt value="2026-01-01T00:00:00"/></chat>`, n)
+			return one(".idea/cody_history.xml", []byte(`<application><component name="ChatHistory"><accountData>`+
+				`<list><AccountData><accountId value="`+long("a")+`"/><chats><list>`+chats+
+				`</list></chats></AccountData></list></accountData></component></application>`))
+		}},
 		{kind: "cody_history.xml", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			message := `<message><speaker value="HUMAN"/><text value="hi"/></message>`
 			chats := strings.Repeat(`<chat><internalId value="i"/><messages>`+message+`</messages></chat>`, n)

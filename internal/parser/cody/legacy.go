@@ -180,7 +180,8 @@ func xmlError(decoder *xml.Decoder, err error) error {
 
 // legacy emits the rows of a JetBrains project's .idea/cody_history.xml.
 // The file is read as a stream, so the chats before a damaged part are
-// kept, and the damage is one row saying how many were read.
+// kept, and the damage is one row saying how many were read. The account
+// id an AccountData gives every chat under it is cut (parser.Carried).
 func (p *Parser) legacy(artifact *input.Artifact, emit parser.Emit) {
 	project := ""
 	if artifact.Home != nil && artifact.Home.Project {
@@ -192,8 +193,9 @@ func (p *Parser) legacy(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 		return
 	}
+	carried := parser.NewCarried(artifact)
 	reader := &legacyReader{onChat: func(chat *element, account string) {
-		p.legacyChat(artifact, chat, account, project, emit)
+		p.legacyChat(artifact, chat, carried.Cut("account", account), project, emit)
 	}}
 	if err := reader.read(data); err != nil {
 		row := p.systemRow(artifact, "parser: cody_history.xml did not parse; read "+
@@ -201,6 +203,8 @@ func (p *Parser) legacy(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = project
 		emit(row)
 	}
+	carried.Report(0, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
 // legacyChat emits the rows of one chat of the older plugin's history.
