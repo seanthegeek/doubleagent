@@ -947,7 +947,9 @@ conversation ([What survives a delete](#what-survives-a-delete)).
 #### Bad-line rows
 
 No file is read line by line, and an event file that does not decode gives one
-`parser: event file could not be decoded (<reason>)` row. An event file that cannot be read is one
+`parser: event file could not be decoded (<reason>)` row, and one that decodes to a JSON value
+other than an object one `parser: event file is not a JSON object` row. An event file that cannot
+be read is one
 row `parser: <file name> could not be read (<reason>)` through `error_rows`, with `source_line` 0
 and the conversation's session id and `project_path`. A `meta.json` or `base_state.json` that
 exists but cannot be read, does not decode or is not a JSON object is read as empty and gives one
