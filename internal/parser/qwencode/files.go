@@ -221,6 +221,7 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	names := groupNames(document.Get("groups"), &problems)
+	carried := parser.NewCarried(artifact)
 	for i, session := range parser.ObjectMember(document.Get("sessions"), "sessions", 0, &problems) {
 		entry := session.Value
 		if !entry.IsObject() {
@@ -231,7 +232,8 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 		if groupID := entry.Get("groupId"); !groupID.IsEmpty() {
 			group = groupID.Text()
 			if name, ok := names[group]; ok {
-				group = name
+				// A group's name is written into each of its sessions' rows.
+				group = carried.Cut("group name", name)
 			}
 		}
 		pinned := parser.Text(entry.Get("pinnedAt"))
@@ -244,5 +246,6 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 		row.SessionID = session.Key
 		emit(row)
 	}
+	carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

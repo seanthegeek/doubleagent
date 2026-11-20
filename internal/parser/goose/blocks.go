@@ -43,7 +43,8 @@ func textBlocks(content jsonvalue.Value) jsonvalue.Value {
 // the session's toolConfirmationResponse blocks answer: a toolRequest whose
 // _meta holds goose.executable false and no answer is followed by its
 // "permission decision: not executable" row. Blocks that are not objects
-// add a problem to problems, at the base row's line.
+// add a problem to problems, at the base row's line, and so does a role
+// longer than parser.CarriedLimit, which each text block's row repeats.
 func (r *blockReader) blocks(base timeline.Row, role string, content jsonvalue.Value,
 	visible bool, answered map[string]bool, problems *parser.Problems, emit parser.Emit) {
 	content = textBlocks(content)
@@ -54,6 +55,9 @@ func (r *blockReader) blocks(base timeline.Row, role string, content jsonvalue.V
 	if role == timeline.TurnUser || role == timeline.TurnAssistant {
 		textType = role
 	}
+	carried := parser.NewCarried(r.artifact)
+	role = carried.Cut("role", role)
+	defer carried.Report(base.SourceLine, problems)
 	for _, block := range parser.EntriesOfKind(content, "content", jsonvalue.Object, base.SourceLine, problems) {
 		row, keep := r.block(base, role, textType, visible, block)
 		if !keep {

@@ -88,10 +88,14 @@ func permissionEntries(path string, problems *parser.Problems) []permissionEntry
 func (p *Parser) parsePermissionYAML(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	timestamp := parser.FileMtime(artifact)
+	carried := parser.NewCarried(artifact)
 	for _, entry := range permissionEntries(artifact.DiskPath, &problems) {
-		emit(p.standingRow(artifact, entry.line, timestamp, "permission setting: "+entry.category+"."+
-			entry.level+"="+entry.tool+" (from "+artifact.Rel+", file mtime)"))
+		// A category and a level line stand before each of their tools.
+		emit(p.standingRow(artifact, entry.line, timestamp, "permission setting: "+
+			carried.Cut("permission category", entry.category)+"."+carried.Cut("permission level", entry.level)+
+			"="+entry.tool+" (from "+artifact.Rel+", file mtime)"))
 	}
+	carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 

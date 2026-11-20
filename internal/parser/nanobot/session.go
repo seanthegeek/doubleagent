@@ -39,6 +39,8 @@ type session struct {
 	preset, requested string
 	models            parser.Tracker
 	problems          *parser.Problems
+	// carried cuts the workspace each metadata record's row repeats.
+	carried *parser.Carried
 }
 
 // row emits a row of the session at the time of the last dated record,
@@ -66,7 +68,7 @@ func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, s
 	project string, records []numbered, emit parser.Emit, problems *parser.Problems) string {
 	state := &session{Parser: p, artifact: artifact, options: options, emit: emit,
 		sessionID: sessionID, project: project, models: parser.Tracker{},
-		switched: p.hasSwitch(records), problems: problems}
+		switched: p.hasSwitch(records), problems: problems, carried: parser.NewCarried(artifact)}
 	for _, each := range records {
 		record := each.record
 		recordType, typed := record.Lookup("_type")
@@ -79,6 +81,7 @@ func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, s
 			state.message(each.line, record)
 		}
 	}
+	state.carried.Report(0, problems)
 	return state.sessionID
 }
 
@@ -118,7 +121,7 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 		parts = append(parts, "updated_at="+updated.Text())
 	}
 	if s.project != "" {
-		parts = append(parts, "workspace="+s.project)
+		parts = append(parts, "workspace="+s.carried.Cut("workspace", s.project))
 	}
 	s.row(line, timeline.TurnSystem, strings.Join(parts, " "), "", "")
 	for _, text := range relayTexts(s.sessionID, meta.Get("last_channel")) {

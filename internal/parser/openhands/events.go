@@ -46,7 +46,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event j
 		acpRows(event, row)
 	case "SecurityAnalysisEvent":
 		if event.Get("risks").IsObject() && event.Get("risks").Len() > 0 {
-			securityRows(event, conv, row)
+			securityRows(artifact, event, conv, row)
 		} else {
 			otherRow(kind, event, row)
 		}
@@ -271,9 +271,13 @@ func hookRow(event jsonvalue.Value, row eventRowMaker) {
 }
 
 // securityRows emits one permission decision row per action the security
-// analyzer rated.
-func securityRows(event jsonvalue.Value, conv *conversation, row eventRowMaker) {
+// analyzer rated; the analyzer and policy each row repeats are cut by the
+// kit (parser.Carried).
+func securityRows(artifact *input.Artifact, event jsonvalue.Value, conv *conversation, row eventRowMaker) {
 	details := event.Get("details")
+	carried := parser.NewCarried(artifact)
+	analyzer := carried.Cut("analyzer", parser.TextOr(event.Get("analyzer"), "-"))
+	policy := carried.Cut("policy", parser.TextOr(event.Get("policy"), "-"))
 	for _, risk := range event.Get("risks").Members() {
 		held := conv.actions[risk.Key]
 		missing := ""
@@ -285,7 +289,11 @@ func securityRows(event jsonvalue.Value, conv *conversation, row eventRowMaker) 
 			detailText = "details=" + parser.JSONText(detail)
 		}
 		row(timeline.TurnSystem, parser.JoinNonEmpty(" ", "permission decision: analyzed risk="+risk.Value.Text()+
-			" analyzer="+parser.TextOr(event.Get("analyzer"), "-")+" policy="+
-			parser.TextOr(event.Get("policy"), "-"), missing, detailText), held[0], held[1])
+			" analyzer="+analyzer+" policy="+policy, missing, detailText), held[0], held[1])
+	}
+	var problems parser.Problems
+	carried.Report(0, &problems)
+	for _, problem := range problems {
+		row(timeline.TurnSystem, parser.ProblemPrefix+problem.Message, "", "")
 	}
 }
