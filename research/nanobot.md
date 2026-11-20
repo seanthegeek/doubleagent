@@ -995,10 +995,13 @@ one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the 
 one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
 project path. A `sessions` table holding rows that repeat an earlier row's key, which nanobot
 never writes (the key is the table's primary key), gives the key's messages with its first row in
-`created_at` then key order; each later row of the key gives its own `session start:` row, and one
-row after the database's other rows, with the workspace's project path, no session and
-`source_line` 0, counts them (`1 row` for one):
+`created_at` then key order; each later row of the key gives its own `session start:` row. When
+the key has messages, which only its first row shows, one row after the database's other rows,
+with the workspace's project path, no session and `source_line` 0, counts the later rows (`1 row`
+for one):
 `parser: sessions holds <n> rows repeating an earlier row's key; its messages are shown once`.
+A key with no messages gives its rows and no such row: no row lacks what another shows, and
+the repeated key is in each row's own `session start:` text.
 
 The WebUI index, `.webui_session_index.json`, that does not decode is one whole-file row
 `parser: .webui_session_index.json did not parse: <reason>`, one that is not a JSON object
