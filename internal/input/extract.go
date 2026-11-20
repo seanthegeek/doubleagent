@@ -131,12 +131,15 @@ func (e *collisionError) Error() string {
 
 // skipped reports whether err, from writing the member called name, means
 // the member is skipped rather than the archive refused, and records the
-// skip: a name the system cannot hold, or a place another member holds.
+// skip: a name too long for the system or one it cannot hold otherwise,
+// or a place another member holds.
 func (e *extraction) skipped(name string, err error) bool {
 	var collision *collisionError
 	switch {
 	case errors.As(err, &collision):
 		e.skip(name, collision.Error())
+	case nameTooLong(err):
+		e.skip(name, reasonTooLong)
 	case nameRefused(err):
 		e.skip(name, reasonNotAName)
 	default:
@@ -150,6 +153,7 @@ const (
 	reasonLeavesDirectory = "its name leads out of the extraction directory"
 	reasonNoFile          = "its name names no file"
 	reasonNotAName        = "its name holds a part this system cannot use as a file name"
+	reasonTooLong         = "its name, or a part of it, is longer than this system takes"
 )
 
 // partsReason returns the reason parts, the components of a member's name,

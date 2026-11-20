@@ -17,7 +17,13 @@ const (
 func hostMemberName(name string) bool { return windowsNameAllowed(name) }
 
 // nameRefused reports whether err is the system refusing a name it cannot
-// hold: an invalid name, or a path longer than the system takes.
+// hold for what it holds: an invalid name.
 func nameRefused(err error) bool {
-	return errors.Is(err, errorInvalidName) || errors.Is(err, errorFilenameExcedRange)
+	return errors.Is(err, errorInvalidName)
+}
+
+// nameTooLong reports whether err is the system refusing a name for its
+// length: a file name or a path longer than the system takes.
+func nameTooLong(err error) bool {
+	return errors.Is(err, errorFilenameExcedRange)
 }

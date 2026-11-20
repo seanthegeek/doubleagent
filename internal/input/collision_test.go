@@ -151,7 +151,7 @@ func TestAMemberNameTheSystemCannotHoldIsSkipped(t *testing.T) {
 		tarMember{name: long, typeflag: '0', body: "x"},
 		tarMember{name: "alice/.claude/x", typeflag: '0', body: "x"}))
 	opened(t, err)
-	wantProblem(t, collection, "member "+long+" not extracted: "+reasonNotAName)
+	wantProblem(t, collection, "member "+long+" not extracted: "+longPartReason)
 	wantSlice(t, "artifacts", rels(collection), []string{".claude/x"})
 }
 
