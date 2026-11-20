@@ -89,7 +89,7 @@ func TestACutMessagesFileReportsTheCutAfterTheWholeMessages(t *testing.T) {
 				t.Fatal(err)
 			}
 			var problems parser.Problems
-			result := readTranscript(&input.Artifact{DiskPath: path}, jsonvalue.NewNull(), &problems)
+			result := readTranscript(&input.Artifact{DiskPath: path}, sessionManifest{}, &problems)
 			count := 0
 			for range result.messages {
 				count++

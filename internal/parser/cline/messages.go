@@ -36,7 +36,7 @@ type transcript struct {
 // readTranscript reads a messages file: a whole object's messages array,
 // or, for a file cut mid-write, its messages array walked as far as it
 // parses. A messages member that is not an array adds a problem.
-func readTranscript(artifact *input.Artifact, manifest jsonvalue.Value, problems *parser.Problems) transcript {
+func readTranscript(artifact *input.Artifact, manifest sessionManifest, problems *parser.Problems) transcript {
 	rawText, ok := parser.ReadText(artifact.DiskPath, problems)
 	if !ok {
 		return transcript{messages: func(func(int, jsonvalue.Value) bool) {}}
@@ -44,10 +44,10 @@ func readTranscript(artifact *input.Artifact, manifest jsonvalue.Value, problems
 	payload, err := jsonvalue.DecodeString(rawText)
 	if err == nil && payload.IsObject() {
 		return transcript{messages: positions(parser.ArrayMember(payload.Get("messages"), "messages", 0, problems)),
-			fallback: timeutil.FirstNonEmpty(timeutil.FromValue(manifest.Get("started_at")),
+			fallback: timeutil.FirstNonEmpty(timeutil.FromValue(manifest.started),
 				timeutil.FromValue(payload.Get("updated_at")))}
 	}
-	result := transcript{fallback: timeutil.FromValue(manifest.Get("started_at"))}
+	result := transcript{fallback: timeutil.FromValue(manifest.started)}
 	if start, found := clinelegacy.ArrayAfterKey(rawText, messagesArray); found {
 		result.messages = parser.ArrayAt(rawText, start, problems, nil)
 	} else {
@@ -68,22 +68,50 @@ func positions(items []jsonvalue.Value) iter.Seq2[int, jsonvalue.Value] {
 	}
 }
 
+// sessionManifest is what a session's manifest gives each of its messages
+// files: the project, the start time and the model; the zero value is a
+// manifest that gives nothing.
+type sessionManifest struct {
+	project        string
+	started, model jsonvalue.Value
+}
+
+// sessionManifest returns what the manifest of the session sessionID,
+// beside the messages file, gives, read once per home by the entry its
+// path opens however many messages files the session has; a manifest that
+// is missing or does not parse gives nothing, and that is kept too.
+func (p *Parser) sessionManifest(artifact *input.Artifact, sessionID string) sessionManifest {
+	manifestPath, ok := parser.Beside(artifact, sessionID+".json")
+	if !ok {
+		return sessionManifest{}
+	}
+	read := p.manifests.For(artifact.Home)
+	key := parser.KeyOf(manifestPath)
+	if known, seen := read[key]; seen {
+		return known
+	}
+	p.Work.Add("session manifests read", 1)
+	var ignored parser.Problems
+	manifest, _ := parser.LoadJSON(manifestPath, &ignored)
+	known := sessionManifest{project: parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"),
+		manifest.Get("workspace_root"))), started: manifest.Get("started_at"), model: manifest.Get("model")}
+	read[key] = known
+	return known
+}
+
 // messages emits the rows of an SDK session's messages file: a model row
 // on each change, the content rows, and a permission decision after each
 // result of a call the runtime skipped.
 func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	directory := path.Dir(artifact.Rel)
 	sessionID := path.Base(directory)
-	var ignored, problems parser.Problems
-	manifest := jsonvalue.NewNull()
-	if manifestPath, ok := parser.Beside(artifact, sessionID+".json"); ok {
-		manifest, _ = parser.LoadJSON(manifestPath, &ignored)
-	}
-	project := parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))
+	var problems parser.Problems
+	manifest := p.sessionManifest(artifact, sessionID)
+	project := manifest.project
 	read := readTranscript(artifact, manifest, &problems)
 	seen := parser.Tracker{}
-	if path.Base(artifact.Rel) == sessionID+".messages.json" && !manifest.Get("model").IsEmpty() {
-		seen[sessionID] = manifest.Get("model").Text()
+	if path.Base(artifact.Rel) == sessionID+".messages.json" && !manifest.model.IsEmpty() {
+		seen[sessionID] = manifest.model.Text()
 	}
 	fallback := read.fallback
 	for position, message := range parser.EntriesOfKindFrom(read.messages, "messages", jsonvalue.Object, 0, &problems) {
@@ -98,10 +126,10 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 }
 
 // messageRows emits the rows of one message, each built from base.
-func (p *Parser) messageRows(base timeline.Row, message, manifest jsonvalue.Value, seen parser.Tracker,
+func (p *Parser) messageRows(base timeline.Row, message jsonvalue.Value, manifest sessionManifest, seen parser.Tracker,
 	options parser.Options, emit parser.Emit) {
 	info := message.Get("modelInfo")
-	base.Model = parser.Text(parser.FirstNonEmpty(info.Get("id"), manifest.Get("model")))
+	base.Model = parser.Text(parser.FirstNonEmpty(info.Get("id"), manifest.model))
 	if change := seen.Change("model", base.SessionID, parser.Text(info.Get("id"))); change != "" {
 		row := base
 		row.TurnType = timeline.TurnSystem
