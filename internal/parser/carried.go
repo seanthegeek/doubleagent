@@ -14,7 +14,7 @@ import (
 // one place in the evidence gives that a parse copies onto many rows (a
 // field of a row other than its text, such as a project path, model or
 // session id, or a key or name written into the text of each row of a
-// list). It is the longest path the input reads a file at
+// list). It is the bound the input puts on a file's path
 // (input.MaxPathLength, Linux's PATH_MAX), far above any identifier, path
 // or key an agent writes, and it keeps the output a fixed size per row
 // however long the value: without it a value of n bytes on m rows costs n

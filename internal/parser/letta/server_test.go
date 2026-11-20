@@ -81,7 +81,7 @@ func TestATranscriptsServerShowsItsCredentialsUnlessWithheld(t *testing.T) {
 // transcripts cost twice the bytes, never the value's length again. The
 // cut keeps a URL's credentials only where the kept part holds the whole
 // URL, and they are then shown or withheld as the run says; a URL longer
-// than the limit is cut before its start, so no part of it is written.
+// than the limit is cut after its scheme, so no credential of it is written.
 func TestALongServerIsCutInEachTranscriptWithItsCredentialsStillFound(t *testing.T) {
 	tail := strings.Repeat("a", 10_000)
 	tests := []struct {
@@ -91,8 +91,8 @@ func TestALongServerIsCutInEachTranscriptWithItsCredentialsStillFound(t *testing
 	}{
 		{"a URL followed by long text keeps the URL", "https://ci:s3cret@letta.example/ " + tail,
 			func(mode secretMode) string { return " server " + mode.scheme + "letta.example/ aaa" }, parsertest.Parse},
-		{"a URL longer than the limit is cut before its start", "https://ci:s3cret@letta.example/" + tail,
-			func(secretMode) string { return " server  [cut from 10032 bytes]" }, parsertest.ParseWithoutSecrets},
+		{"a URL longer than the limit is cut after its scheme", "https://ci:s3cret@letta.example/" + tail,
+			func(secretMode) string { return " server https:// [cut from 10032 bytes]" }, parsertest.ParseWithoutSecrets},
 	}
 	for _, test := range tests {
 		for _, mode := range secretModes() {

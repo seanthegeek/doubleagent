@@ -643,7 +643,8 @@ for Go files as it does for the others.
   through `timeline.Row.Withheld` and the commands' own writers): under
   `timeline --no-secrets` each is replaced by one placeholder, `REDACTED`
   unless `--redaction-placeholder` names another, and each kind reaches its
-  own strings. `detect` runs no parser and reads no file's content, so
+  own strings. `detect` runs no parser and reads none of the agents' own
+  files, so
   `detect --no-secrets` replaces only a URL's credentials, and its help
   says so; a key a parser would identify stays in a file name or path
   there. A value `SecretText` identifies

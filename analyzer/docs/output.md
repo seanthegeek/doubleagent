@@ -1374,7 +1374,8 @@ alike. [searching.md](searching.md) has recipes.
 | `recovered` | string | `yes` when the row is an event (any `turn_type` but `system`) from a secondary source of its agent (see [Secondary sources](#secondary-sources)) that survived deduplication, so the agent's primary store does not hold the event; since 0.20.0 also the `user` and `assistant` rows the `cursor` parser takes from the `agentKv` prompt blobs of a conversation deleted in the editor, which the editor's database still holds although the conversation's own records are gone; since 0.20.1 also the turns the `kiro` parser recovers from a conversation's checkpoint snapshots or tangent-mode main history, which the conversation's own history no longer holds. `""` for every other row, including every `system` row of a secondary source (an index header, a thread record, a snapshot, a session-start or permission row, a `parser:` problem), which describes the source or the session rather than a turn the primary store lost. Since analyzer 0.15.0. |
 
 **Carried values longer than 4,096 bytes.** Every field but `text` and
-`source_line` is at most 4,096 bytes, the longest path Linux takes: the
+`source_line` is at most 4,096 bytes, the bound the input also puts on a
+file's path (one byte more than the longest path Linux takes): the
 analyzer cuts each longer one, whichever parser wrote it. A key, name or
 path a parser copies from one place in the evidence into the `text` of
 more than one row (a settings key written before each of its leaves, a
