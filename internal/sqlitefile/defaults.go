@@ -189,7 +189,8 @@ func negatedDefault(operand []token, affinity Affinity, depth int) (Value, error
 
 // castDefault evaluates "CAST ( expression AS type )" for the conversions
 // that need no rule beyond affinity: numbers to text, numeric text to a
-// number, text to a blob.
+// number, text to a blob; and any value to an integer, as castToInteger
+// converts it.
 func castDefault(rest []token, affinity Affinity, depth int) (Value, error) {
 	if len(rest) < 4 || !rest[0].isPunctuation("(") || !rest[len(rest)-1].isPunctuation(")") {
 		return Value{}, errDefault
@@ -205,22 +206,75 @@ func castDefault(rest []token, affinity Affinity, depth int) (Value, error) {
 		return Value{}, errDefault
 	}
 	target := affinityOf(joinTokens(inner[separator+1:]), false)
-	value, err := evaluateDefault(inner[:separator], target, depth)
+	operand := target
+	if target == IntegerAffinity {
+		operand = BlobAffinity
+	}
+	value, err := evaluateDefault(inner[:separator], operand, depth)
 	if err != nil {
 		return Value{}, err
 	}
 	switch {
 	case value.Type == Null:
+	case target == IntegerAffinity:
+		value = castToInteger(value)
 	case target == TextAffinity:
 		value = Value{Type: Text, Bytes: value.Bytes}
 	case target == BlobAffinity && value.Type == Text:
 		value = BlobValue(value.Bytes)
-	case target == IntegerAffinity && value.Type == Float:
-		if value = integerIfExact(FloatValue(math.Trunc(value.Float))); value.Type != Integer {
-			return Value{}, errDefault
-		}
 	case !target.numeric() || (value.Type != Integer && value.Type != Float):
 		return Value{}, errDefault
 	}
 	return applyAffinity(value, affinity), nil
+}
+
+// castToInteger converts a value that is not NULL as CAST to INTEGER does
+// (sqlite3VdbeMemIntegerify): a float drops its fraction, and one past the
+// 64-bit range becomes the nearer end of it; text, and a blob read as
+// text, becomes the integer it starts with, as integerPrefix reads it.
+func castToInteger(value Value) Value {
+	switch value.Type {
+	case Float:
+		switch {
+		case value.Float <= math.MinInt64:
+			return IntValue(math.MinInt64)
+		case value.Float >= math.MaxInt64: // the float nearest the greatest integer is 2^63
+			return IntValue(math.MaxInt64)
+		}
+		return IntValue(int64(value.Float))
+	case Text, Blob:
+		return IntValue(integerPrefix(string(value.Bytes)))
+	}
+	return value
+}
+
+// integerPrefix reads the integer that text starts with, after ASCII
+// whitespace and one sign, as SQLite reads text it casts to INTEGER
+// (sqlite3Atoi64): the digits up to the first other character, 0 when
+// there are none, and the nearer end of the 64-bit range for a number past
+// it.
+func integerPrefix(text string) int64 {
+	text = strings.TrimLeftFunc(text, func(char rune) bool { return char < 0x80 && isSpace(byte(char)) })
+	negative := strings.HasPrefix(text, "-")
+	if negative || strings.HasPrefix(text, "+") {
+		text = text[1:]
+	}
+	end := 0
+	for end < len(text) && isDigit(text[end]) {
+		end++
+	}
+	digits := strings.TrimLeft(text[:end], "0")
+	if digits == "" {
+		return 0
+	}
+	magnitude, err := strconv.ParseUint(digits, 10, 64)
+	switch {
+	case (err != nil || magnitude >= 1<<63) && negative:
+		return math.MinInt64
+	case err != nil || magnitude >= 1<<63:
+		return math.MaxInt64
+	case negative:
+		return -int64(magnitude)
+	}
+	return int64(magnitude)
 }
