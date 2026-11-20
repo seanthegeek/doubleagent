@@ -140,7 +140,7 @@ func (s *session) textRow(record jsonvalue.Value, label, text string) timeline.R
 func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 	text := ResultText(block.Get("content"))
 	if savedPath != "" || strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), persistedMark) {
-		text = persistedText(s.artifact, text, savedPath, &s.problems)
+		text = persistedText(s.artifact, text, savedPath, s.persisted, &s.problems)
 	}
 	if !block.Get("is_error").IsEmpty() {
 		text = "[error] " + text

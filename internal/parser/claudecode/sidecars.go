@@ -45,13 +45,25 @@ func sessionDir(artifact *input.Artifact) (string, bool) {
 	}
 }
 
+// persistedFile is what one parse read of a persisted tool output: its
+// text or the error reading it, and whether a row has shown the text.
+type persistedFile struct {
+	text  string
+	err   error
+	shown bool
+}
+
 // persistedText returns the full text of a persisted tool output, read
 // from the session's tool-results/ directory. savedPath is the line's
 // toolUseResult.persistedOutputPath; when it is empty the path is read from
 // the stub's text. The stub comes back with a note when the file is not in
 // this session's tool-results/ or is a link, and with the reason when it is
-// there but cannot be read, the unreadable problem added to problems.
-func persistedText(artifact *input.Artifact, stub, savedPath string, problems *parser.Problems) string {
+// there but cannot be read, the unreadable problem added to problems. Each
+// file is read once per parse (files, by name): its first reference shows
+// the text, and a later one the stub with a note naming the file, so a
+// file named by many stubs is written once.
+func persistedText(artifact *input.Artifact, stub, savedPath string, files map[string]*persistedFile,
+	problems *parser.Problems) string {
 	if savedPath == "" {
 		match := persistedPattern.FindStringSubmatch(stub)
 		if match == nil {
@@ -72,12 +84,21 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, problems *p
 	if !reachable || !parser.RegularFile(output) {
 		return note
 	}
-	data, err := parser.ReadFile(output)
-	if err != nil {
-		problems.AddUnreadable(0, output, err)
-		return stub + "\n[persisted output could not be read (" + reason.For(err) + ")]"
+	file, read := files[name]
+	if !read {
+		data, err := parser.ReadFile(output)
+		file = &persistedFile{text: textlines.ValidUTF8(data), err: err}
+		files[name] = file
 	}
-	return textlines.ValidUTF8(data)
+	switch {
+	case file.err != nil:
+		problems.AddUnreadable(0, output, file.err)
+		return stub + "\n[persisted output could not be read (" + reason.For(file.err) + ")]"
+	case file.shown:
+		return stub + "\n[persisted output shown in full at its first reference: tool-results/" + name + "]"
+	}
+	file.shown = true
+	return file.text
 }
 
 // isPasteHash reports whether a paste's content hash is a plain name of
