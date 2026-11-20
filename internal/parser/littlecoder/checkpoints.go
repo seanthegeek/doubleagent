@@ -41,7 +41,8 @@ func regularFiles(directory string) []os.DirEntry {
 // parseCheckpoints emits the system row of a checkpoint directory, on the
 // directory's first file by name that it is given (rowFile), so each
 // directory gives one row. Once a directory is listed, its other files are
-// passed over by name.
+// passed over by name, and every file of one that could not be listed or
+// holds no such file ("" remembered) gives nothing.
 func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	setName := p.checkpoint.FindStringSubmatch(artifact.Rel)[1]
 	key := checkpointKey{set: setName}
@@ -58,9 +59,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	p.Work.Add("checkpoint listings", 1)
 	files := regularFiles(directory)
 	first, named := p.rowFile(files, setName)
-	if named {
-		p.firstCheckpoint[key] = first
-	}
+	p.firstCheckpoint[key] = first
 	if !named || first != filepath.Base(artifact.DiskPath) {
 		return
 	}

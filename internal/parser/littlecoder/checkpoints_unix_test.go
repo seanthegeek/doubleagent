@@ -3,11 +3,14 @@
 package littlecoder
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 func TestAPiSessionIsNeverFoundThroughALinkedDirectory(t *testing.T) {
@@ -52,11 +55,12 @@ func TestAPiSessionIsNeverFoundThroughALinkedDirectory(t *testing.T) {
 	}
 }
 
-// A directory that cannot be listed, or can be listed but not searched,
-// gives what a search of every directory in turn gives: the file it holds
-// where it can be looked up, else the problem of the first such directory
-// when no directory holds the file.
-func TestADirectoryThatCannotBeListedOrSearchedGivesWhatEveryDirectoryInTurnGives(t *testing.T) {
+// A directory that cannot be listed holds no session file and fails, and
+// one that can be listed but not searched fails for the names its listing
+// holds: a lookup gives the file from the first directory that holds it,
+// else the problem of the first such directory, as listing every directory
+// in turn gives.
+func TestADirectoryThatCannotBeListedOrSearchedGivesWhatListingEveryDirectoryGives(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("permissions do not bind the superuser")
 	}
@@ -82,6 +86,100 @@ func TestADirectoryThatCannotBeListedOrSearchedGivesWhatEveryDirectoryInTurnGive
 			}
 			t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
 			checkSameHeaders(t, home)
+		})
+	}
+}
+
+// lockAll gives each directory mode, giving them back their modes when the
+// test ends, and skips the test when the first can still be listed, as it
+// can by the superuser.
+func lockAll(t *testing.T, mode os.FileMode, directories ...string) {
+	t.Helper()
+	for _, directory := range directories {
+		if err := os.Chmod(directory, mode); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	}
+	if _, err := os.ReadDir(directories[0]); err == nil {
+		t.Skip("a directory without read permission can still be listed by this user")
+	}
+}
+
+// Every checkpoint set looks for its session file in every project
+// directory, so a project directory that cannot be listed is remembered as
+// failed when the sessions directory is first listed: as many sets as such
+// directories look only where a listing holds their name, not in each of
+// them.
+func TestAProjectDirectoryThatCannotBeListedIsLookedInByNoSet(t *testing.T) {
+	for _, n := range []int{10, 40} {
+		t.Run(fmt.Sprintf("%d sets beside %d project directories that cannot be listed", n, n), func(t *testing.T) {
+			files := map[string]string{
+				".pi/agent/sessions/p/2026_s0.jsonl": `{"type": "session", "id": "s0", "cwd": "/w"}` + "\n"}
+			var locked []string
+			for i := range n {
+				files[fmt.Sprintf(".little-coder/checkpoints/2026_s%d.jsonl/a.py", i)] = "x"
+				files[fmt.Sprintf(".pi/agent/sessions/locked%03d/other.jsonl", i)] = ""
+			}
+			home := writeHome(t, files)
+			for i := range n {
+				locked = append(locked, filepath.Join(home.DiskPath, ".pi", "agent", "sessions", fmt.Sprintf("locked%03d", i)))
+			}
+			lockAll(t, 0o000, locked...)
+			subject := New()
+			subject.Work = parser.CountingWork()
+			found, problems := 0, 0
+			for i := range n {
+				rel := fmt.Sprintf(".little-coder/checkpoints/2026_s%d.jsonl/a.py", i)
+				artifact := &input.Artifact{DiskPath: filepath.Join(home.DiskPath, filepath.FromSlash(rel)), Rel: rel,
+					Home: home}
+				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+					switch {
+					case row.ProjectPath == "/w":
+						found++
+					case row.Text == parser.ProblemPrefix+"locked000 could not be read (permission denied)":
+						problems++
+					}
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			candidates := subject.Work.Count("pi session file candidates")
+			listings := subject.Work.Count("pi project directory listings")
+			if found != 1 || problems != n-1 || candidates != 1 || listings != n+1 {
+				t.Errorf("%d found, %d problems, %d candidates and %d listings; want 1, %d, 1 and %d",
+					found, problems, candidates, listings, n-1, n+1)
+			}
+		})
+	}
+}
+
+// A checkpoint directory that cannot be listed gives no row, and its files
+// each ask for that one listing: it is made once, not once per file.
+func TestACheckpointDirectoryThatCannotBeListedIsListedOnce(t *testing.T) {
+	for _, n := range []int{10, 40} {
+		t.Run(fmt.Sprintf("%d files", n), func(t *testing.T) {
+			const set = ".little-coder/checkpoints/c0ffee12/"
+			files := map[string]string{}
+			for i := range n {
+				files[fmt.Sprintf("%sf%03d.py", set, i)] = "x"
+			}
+			home := writeHome(t, files)
+			lockAll(t, 0o300, filepath.Join(home.DiskPath, filepath.FromSlash(set)))
+			subject := New()
+			subject.Work = parser.CountingWork()
+			rows := 0
+			for i := range n {
+				rel := fmt.Sprintf("%sf%03d.py", set, i)
+				artifact := &input.Artifact{DiskPath: filepath.Join(home.DiskPath, filepath.FromSlash(rel)), Rel: rel,
+					Home: home}
+				if err := subject.Parse(artifact, parser.Options{}, func(timeline.Row) { rows++ }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if listings := subject.Work.Count("checkpoint listings"); rows != 0 || listings != 1 {
+				t.Errorf("%d rows and %d listings, want 0 and 1", rows, listings)
+			}
 		})
 	}
 }

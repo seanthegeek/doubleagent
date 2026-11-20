@@ -67,7 +67,7 @@ type Parser struct {
 	records map[recordKey]foundRecord
 	// transcripts holds each .claude/projects directory a Code tab record
 	// looked for its transcript in, indexed once for the run.
-	transcripts map[string]*transcriptIndex
+	transcripts map[string]*parser.ChildListings
 	// shortNames holds, per org or agent/ directory a short-named session
 	// dir looked its record up in, the record names of each short name.
 	shortNames map[string]map[string][]string

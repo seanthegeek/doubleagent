@@ -3,6 +3,7 @@
 package opencode
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,31 +46,50 @@ func TestALegacySessionFileIsNeverFoundThroughALinkedDirectory(t *testing.T) {
 	}
 }
 
-// A project directory that cannot be listed but can be searched still
-// gives the session file at its place in name order.
-func TestASessionFileInAProjectDirectoryThatCannotBeListedIsStillFound(t *testing.T) {
-	directory := t.TempDir()
-	files := map[string]string{"p1/s.json": `{"directory": "/hidden"}`, "p2/s.json": `{"directory": "/listed"}`}
-	for rel, text := range files {
-		path := filepath.Join(directory, filepath.FromSlash(rel))
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
+// A project directory that cannot be listed, whether or not it can be
+// searched, holds no session file: it is remembered as failed when the
+// session directory is first listed and never looked in again, so the
+// lookups of as many sessions as there are such directories look only
+// where a listing holds the name.
+func TestAProjectDirectoryThatCannotBeListedIsNeverLookedIn(t *testing.T) {
+	for _, n := range []int{10, 40} {
+		for _, mode := range []os.FileMode{0o100, 0o000} {
+			t.Run(fmt.Sprintf("%d directories of mode %03o", n, mode), func(t *testing.T) {
+				directory := t.TempDir()
+				files := map[string]string{"zz/s.json": `{"directory": "/listed"}`}
+				for i := range n {
+					files[fmt.Sprintf("p%03d/s.json", i)] = `{"directory": "/hidden"}`
+				}
+				for rel, text := range files {
+					path := filepath.Join(directory, filepath.FromSlash(rel))
+					if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for i := range n {
+					hidden := filepath.Join(directory, fmt.Sprintf("p%03d", i))
+					if err := os.Chmod(hidden, mode); err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(func() { _ = os.Chmod(hidden, 0o700) })
+				}
+				if _, err := os.ReadDir(filepath.Join(directory, "p000")); err == nil {
+					t.Skip("a directory without read permission can still be listed by this user")
+				}
+				index, work := newTreeIndex(), parser.CountingWork()
+				got := index.session(directory, "s", work).JSON()
+				for i := range n {
+					index.session(directory, fmt.Sprintf("absent%d", i), work)
+				}
+				candidates, listings := work.Count("session file candidates"), work.Count("project directory listings")
+				if got != `{"directory":"/listed"}` || candidates != 1 || listings != n+1 {
+					t.Errorf("got %s, %d candidates and %d listings; want the listed file, 1 and %d", got,
+						candidates, listings, n+1)
+				}
+			})
 		}
-		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	hidden := filepath.Join(directory, "p1")
-	if err := os.Chmod(hidden, 0o100); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(hidden, 0o700) })
-	if _, err := os.ReadDir(hidden); err == nil {
-		t.Skip("this user can list a directory without read permission")
-	}
-	want := sessionByEveryDirectory(directory, "s").JSON()
-	got := newTreeIndex().session(directory, "s", parser.Work{}).JSON()
-	if got != want || got != `{"directory":"/hidden"}` {
-		t.Errorf("got %s, want %s, the first directory's file", got, want)
 	}
 }

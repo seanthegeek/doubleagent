@@ -604,14 +604,15 @@ the `session file not collected` clause, followed by one row
 `parser: <file> could not be read (<reason>)`, `<file>` the session file's name.
 
 A pi sessions directory (`.pi/agent/sessions`) that cannot be read, listed or searched, or a
-directory above it that cannot be searched, or a project directory under it that cannot be
-searched, so the session file cannot be looked up, gives the checkpoint row without the
+directory above it that cannot be searched, gives the checkpoint row without the
 `session file not collected` clause, followed by one row
-`parser: <directory> could not be read (<reason>)`, `<directory>` the directory's name
-(`sessions`, or the project directory's `--<cwd>--` name). A denied project directory the
-session does not live in is passed over, and the row names it only when no directory holds
-the file. A symlinked sessions directory counts as absent, since the analyzer follows no
-symlink, and gives the clause.
+`parser: <directory> could not be read (<reason>)`, `<directory>` the directory's name. Each
+project directory under it is listed once for the run: one whose entry cannot be looked at
+(`<directory>` then `sessions`) or that cannot be listed (its `--<cwd>--` name) holds no session
+file, and one whose listing holds the session file but in which the file cannot be looked up
+fails for that file. A failed directory gives the same two rows only when no directory holds
+the file, the first failed one in name order. A symlinked sessions directory counts as absent,
+since the analyzer follows no symlink, and gives the clause.
 
 #### Fixtures
 
