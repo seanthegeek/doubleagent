@@ -507,3 +507,90 @@ func TestAnFTS5ColumnReadsOnlyAStoredContentColumn(t *testing.T) {
 		}
 	})
 }
+
+func TestIntegerAffinityLeavesBothEndsOfTheRangeReal(t *testing.T) {
+	// From SQLite 3.51.0: typeof() and the value a column of each affinity
+	// stores for the text, and reads for it as a DEFAULT.
+	const least, greatest = "float:c3e0000000000000", "float:43e0000000000000"
+	cases := []struct {
+		text, integer, real string
+	}{
+		{"-9223372036854775809", least, least},
+		{"-9223372036854775808", "int:-9223372036854775808", least},
+		{"-9223372036854775808.0", least, least},
+		{"-9223372036854775807", "int:-9223372036854775807", least},
+		{"-9223372036854775807.0", least, least},
+		{"-9223372036854775296.0", least, least},
+		{"-9223372036854774784.0", "int:-9223372036854774784", "float:c3dfffffffffffff"},
+		{"9223372036854775807", "int:9223372036854775807", greatest},
+		{"9223372036854775807.0", greatest, greatest},
+		{"9223372036854775808", greatest, greatest},
+		{"9223372036854775295.0", "int:9223372036854774784", "float:43dfffffffffffff"},
+	}
+	for _, test := range cases {
+		for _, affinity := range []Affinity{IntegerAffinity, NumericAffinity, RealAffinity} {
+			want := test.integer
+			if affinity == RealAffinity {
+				want = test.real
+			}
+			t.Run(affinity.String()+" text "+test.text, func(t *testing.T) {
+				if got := describeValue(applyAffinity(TextValue(test.text), affinity)); got != want {
+					t.Errorf("stored as %s, want %s", got, want)
+				}
+				shape, err := parseCreateTable("CREATE TABLE t(a " + affinity.String() + " DEFAULT '" + test.text + "')")
+				if err != nil || describeValue(shape.columns[0].Default) != want {
+					t.Errorf("as a DEFAULT: %v, %v; want %s", err, shape, want)
+				}
+			})
+		}
+	}
+	for _, test := range []struct {
+		number float64
+		want   string
+	}{{-0x1p63, least}, {-9223372036854774784, "int:-9223372036854774784"}, {0x1p63, greatest}} {
+		if got := describeValue(applyAffinity(FloatValue(test.number), IntegerAffinity)); got != test.want {
+			t.Errorf("the float %v under INTEGER affinity is %s, want %s", test.number, got, test.want)
+		}
+	}
+}
+
+func TestCastToIntegerFollowsSQLite(t *testing.T) {
+	// From SQLite 3.51.0: SELECT CAST(x AS INTEGER), the same value under
+	// each column affinity.
+	cases := []struct {
+		operand, want string
+	}{
+		{"-9223372036854775808.0", "int:-9223372036854775808"},
+		{"-9223372036854775807.0", "int:-9223372036854775808"},
+		{"-9223372036854775296.0", "int:-9223372036854775808"},
+		{"-9.3e18", "int:-9223372036854775808"},
+		{"9.3e18", "int:9223372036854775807"},
+		{"9223372036854775807.0", "int:9223372036854775807"},
+		{"9223372036854774784.0", "int:9223372036854774784"},
+		{"1e999", "int:9223372036854775807"},
+		{"-1e999", "int:-9223372036854775808"},
+		{"'-9223372036854775808.0'", "int:-9223372036854775808"},
+		{"'-9223372036854775809'", "int:-9223372036854775808"},
+		{"'9223372036854775808'", "int:9223372036854775807"},
+		{"'99999999999999999999'", "int:9223372036854775807"},
+		{"'-99999999999999999999'", "int:-9223372036854775808"},
+		{"'1e3'", "int:1"},
+		{"'1.9e1'", "int:1"},
+		{"' 12 '", "int:12"},
+		{"'  -0012x'", "int:-12"},
+		{"'+5'", "int:5"},
+		{"'abc'", "int:0"},
+		{"x'3132'", "int:12"},
+	}
+	for _, test := range cases {
+		for _, declared := range []string{"", "INTEGER", "NUMERIC"} {
+			t.Run(declared+" CAST("+test.operand+" AS INTEGER)", func(t *testing.T) {
+				shape, err := parseCreateTable("CREATE TABLE t(a " + declared + " DEFAULT (CAST(" + test.operand +
+					" AS INTEGER)))")
+				if err != nil || shape.columns[0].defaultErr != nil || describeValue(shape.columns[0].Default) != test.want {
+					t.Errorf("got %v, %+v; want %s", err, shape, test.want)
+				}
+			})
+		}
+	}
+}

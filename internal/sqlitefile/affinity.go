@@ -68,7 +68,7 @@ func applyAffinity(value Value, affinity Affinity) Value {
 			value = number
 		}
 	case affinity.numeric() && value.Type == Float:
-		value = integerIfExact(value)
+		value = integerByAffinity(value)
 	}
 	if affinity == RealAffinity && value.Type == Integer {
 		return FloatValue(float64(value.Int))
@@ -101,7 +101,7 @@ func parseNumeric(text string, tryInteger bool) (Value, bool) {
 	}
 	value := FloatValue(number)
 	if tryInteger {
-		value = integerIfExact(value)
+		value = integerByAffinity(value)
 	}
 	return value, true
 }
@@ -140,8 +140,20 @@ func allDigits(text string) bool {
 	return true
 }
 
+// integerByAffinity returns a Float as the Integer that NUMERIC and
+// INTEGER affinity make of it: a whole number strictly between the least
+// and the greatest 64-bit integers, as SQLite's integer affinity tests the
+// range (sqlite3VdbeIntegerAffinity). The least, -2^63, stays a Float; no
+// Float equals the greatest. Any other value is returned unchanged.
+func integerByAffinity(value Value) Value {
+	if value.Type == Float && value.Float == math.MinInt64 {
+		return value
+	}
+	return integerIfExact(value)
+}
+
 // integerIfExact returns a Float that is exactly a 64-bit integer as that
-// Integer, and any other value unchanged.
+// Integer, -2^63 included, and any other value unchanged.
 func integerIfExact(value Value) Value {
 	if value.Type != Float {
 		return value
