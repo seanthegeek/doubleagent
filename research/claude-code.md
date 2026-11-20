@@ -2620,7 +2620,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins); `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with the placeholder |
 | `queue-operation` | `system`, `queue <operation>: <content>`; an `enqueue` whose `content` a `queued_command` attachment or a `user` record of the file delivers is `prompt queued: delivered at line N` at the enqueue's own timestamp, N being the first delivering line after it (else the first), so the typing time is kept and the prompt text appears once, on the delivering row |
 | every other type ([Record schema](#record-schema) table) | skip |
-| `history.jsonl` line | `user`, each paste placeholder in `display` expanded ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
+| `history.jsonl` line | `user`, each paste placeholder in `display` expanded, a paste once per line ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
 | `sessions/<pid>.json` | one `system` row at `startedAt` (epoch ms), `claude-code process <pid> <kind> status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none> host_session=<hostSessionId or none>` (`-` for a missing `kind`, `status` or `entrypoint`), `session_id` `sessionId`, `project_path` `cwd`, `source_line` 1; a file that is not a JSON object is one `system` row `parser: session registry file is not a JSON object`. A `bridge=` value means the process was under Remote Control when the collector ran ([Remote Control](#remote-control)), and the file then gives a second `system` row, `session synced: remote control bridge <bridgeSessionId> url - (from <path>, file mtime)`, at the file's modification time ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/<session id>/ccr-tip.json` | one `system` row at the file's modification time, `session synced: remote event <eventId> at <updatedAt> (from <path>, file mtime)`, `session_id` the directory's session ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/bridge-pointer.json` | one `system` row at the file's modification time, `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>, file mtime)` |
@@ -2724,6 +2724,18 @@ rows, `source_line` 0. A prompt then matches with the transcript's `<pasted_cont
 removed ([`user` records](#user-records)) and each run of ASCII whitespace collapsed to one space,
 so an expanded history line matches the `user` line whose text is the same once unwrapped, and
 only a history line with no transcript counterpart is a recovered row.
+
+Within one line a paste is written in full once. A later placeholder of the same paste (the same
+number for an inline paste, the same `contentHash` for a cached one) is written as the placeholder
+with `, shown above` before its closing bracket, `[Pasted text #N, shown above]` or
+`[Pasted text #N +M lines, shown above]`, so a line naming one paste many times gives text that
+grows with the line, not with the product of the paste and its placeholders. The scope is the line,
+not the file: deduplication keeps or drops whole rows, and a row that held only a pointer to a
+paste shown in another line could be kept while that line was dropped. A line that names one
+paste twice (one number twice, or two numbers of one `contentHash`) therefore no longer equals its
+transcript record, which holds the paste at both places, and is kept as a recovered row beside it;
+two inline pastes of equal text under two numbers are both written in full. A placeholder whose
+paste is not found is kept as written, however often it repeats.
 
 #### Sync, relay and origin rows
 
