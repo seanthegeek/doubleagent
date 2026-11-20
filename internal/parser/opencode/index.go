@@ -29,6 +29,10 @@ type treeIndex struct {
 	// its state, null when it is not an object, since sessions naming one
 	// file in several spellings the disk opens alike would each read it.
 	quietSides map[fileState]jsonvalue.Value
+	// failedLooks holds each side file path whose look failed, since every
+	// session of a project names its file and a file not there stays so
+	// while its home is read.
+	failedLooks map[string]bool
 	// partsShown holds the message file that first showed each part
 	// directory, by the directory's entry, since a message id names one
 	// directory of parts.
@@ -72,7 +76,8 @@ type sessionKey struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string]*parser.ChildListings{},
 		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
-		projectFiles: map[fileState]*sideRead{}, quietSides: map[fileState]jsonvalue.Value{}, partsShown: map[parser.EntryKey]shownBy{}}
+		projectFiles: map[fileState]*sideRead{}, quietSides: map[fileState]jsonvalue.Value{},
+		failedLooks: map[string]bool{}, partsShown: map[parser.EntryKey]shownBy{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,
@@ -135,15 +140,14 @@ func listProjects(directory string, work parser.Work) *parser.ChildListings {
 
 // projectFile returns the project file at path as readSide does, read once
 // per state of the file for the home, whatever spelling of its name opens
-// it; the problems of that read are added for each lookup as a fresh read
-// would.
+// it, and looked for once when it is not there (sideState); the problems
+// of that read are added for each lookup as a fresh read would.
 func (x *treeIndex) projectFile(path string, found bool, problems *parser.Problems,
 	work parser.Work) (jsonvalue.Value, error) {
-	info, err := osfile.Lstat(path)
-	if !found || err != nil {
-		return readSide(path, found, problems)
+	key, looked := x.sideState(path, found, work)
+	if !looked {
+		return jsonvalue.NewNull(), nil
 	}
-	key := fileState{entry: parser.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}
 	held, ok := x.projectFiles[key]
 	if !ok {
 		work.Add("project file reads", 1)
@@ -157,14 +161,13 @@ func (x *treeIndex) projectFile(path string, found bool, problems *parser.Proble
 
 // quietSide returns the side file at path decoded as an object as
 // quietObject does, null when it is not one, read once per state of the
-// file for the home, whatever spelling of its name opens it.
+// file for the home, whatever spelling of its name opens it, and looked
+// for once when it is not there (sideState).
 func (x *treeIndex) quietSide(path string, found bool, work parser.Work) jsonvalue.Value {
-	info, err := osfile.Lstat(path)
-	if !found || err != nil {
-		value, _ := quietObject(path, found)
-		return value
+	key, looked := x.sideState(path, found, work)
+	if !looked {
+		return jsonvalue.NewNull()
 	}
-	key := fileState{entry: parser.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}
 	value, ok := x.quietSides[key]
 	if !ok {
 		work.Add("quiet side reads", 1)
@@ -172,4 +175,22 @@ func (x *treeIndex) quietSide(path string, found bool, work parser.Work) jsonval
 		x.quietSides[key] = value
 	}
 	return value
+}
+
+// sideState returns the state of the side file at path, the key of what is
+// read from it once, or false when the path cannot be reached or looked
+// at: such a file is neither a regular file nor readable, so it gives null.
+// A look that fails is remembered by the path, so the file is looked for
+// once for the home however many sessions name it.
+func (x *treeIndex) sideState(path string, found bool, work parser.Work) (fileState, bool) {
+	if !found || x.failedLooks[path] {
+		return fileState{}, false
+	}
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		work.Add("failed side looks", 1)
+		x.failedLooks[path] = true
+		return fileState{}, false
+	}
+	return fileState{entry: parser.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}, true
 }

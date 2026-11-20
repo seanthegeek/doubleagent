@@ -114,3 +114,44 @@ func TestFindingTheSessionFilesOfManySessionsIsLinear(t *testing.T) {
 		})
 	}
 }
+
+// Sessions and message files naming one project file that is not there
+// look for it once for the home, however many name it; a project file
+// that is there is read once whatever the count.
+func TestAProjectFileThatCannotBeLookedAtIsLookedForOnce(t *testing.T) {
+	tests := []struct {
+		name         string
+		present      bool
+		failedLooks  int
+		projectReads int
+	}{
+		{"a missing project file", false, 1, 0},
+		{"a project file that is there", true, 0, 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			const sessions = 50
+			files := map[string]string{}
+			var rels []string
+			for i := range sessions {
+				session := fmt.Sprintf("%s/session/prj/ses_%d.json", spellingStorage, i)
+				message := fmt.Sprintf("%s/message/ses_%d/m0.json", spellingStorage, i)
+				files[session] = fmt.Sprintf(`{"id": "ses_%d", "projectID": "prj"}`, i)
+				files[message] = fmt.Sprintf(`{"id": "m0", "sessionID": "ses_%d", "role": "user"}`, i)
+				rels = append(rels, session, message)
+			}
+			// The project directory is there, so only the file itself is missing.
+			files[spellingStorage+"/project/other.json"] = `{"worktree": "/work/other"}`
+			if test.present {
+				files[spellingStorage+"/project/prj.json"] = `{"worktree": "/work/prj"}`
+			}
+			_, work := parseRels(t, writeTree(t, files), rels)
+			if looks := work.Count("failed side looks"); looks != test.failedLooks {
+				t.Errorf("the project file's look failed %d times, want %d", looks, test.failedLooks)
+			}
+			if reads := work.Count("project file reads") + work.Count("quiet side reads"); reads != 2*test.projectReads {
+				t.Errorf("the project file was read %d times, want %d", reads, 2*test.projectReads)
+			}
+		})
+	}
+}
