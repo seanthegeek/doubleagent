@@ -19,7 +19,7 @@ type lookup struct {
 // own and, with broaden, then its project and its identity alone. Under a
 // broader scope a row may take only candidates of its own session or none,
 // and of its own project or none, so it looks under exactly those keys.
-func (m matcher) lookups(row timeline.Row, broaden bool) []lookup {
+func (m matcher) lookups(row timeline.Row, text identity, broaden bool) []lookup {
 	places := scopePlaces(row.SessionID, row.ProjectPath)
 	if !broaden {
 		places = places[:1]
@@ -28,9 +28,9 @@ func (m matcher) lookups(row timeline.Row, broaden bool) []lookup {
 		ident  identity
 		idless bool
 	}
-	identities := []keyed{{m.byText(row), false}}
+	identities := []keyed{{text, false}}
 	if hasID(row) {
-		identities = []keyed{{byID(row), false}, {m.byText(row), true}}
+		identities = []keyed{{byID(row), false}, {text, true}}
 	}
 	var out []lookup
 	for _, place := range places {
@@ -69,21 +69,24 @@ func scopePlaces(session, project string) [][]scope {
 }
 
 // pass is one matching pass: the candidates filed by key, the rows their
-// indices name, which of them are taken, how many rows were filed, the
-// blockTrees widened rows have needed, and the work its lookups did.
+// indices name and those rows' identities by text, which of them are
+// taken, how many rows were filed, the blockTrees widened rows have
+// needed, and the work its lookups did.
 type pass struct {
 	buckets map[bucketKey]*bucket
 	rows    []timeline.Row
+	texts   []identity
 	used    []bool
 	filed   int
 	trees   map[treeKey]*blockTree
 	steps   int
 }
 
-// newPass returns an empty pass over candidate rows.
-func newPass(rows []timeline.Row) *pass {
-	return &pass{buckets: map[bucketKey]*bucket{}, rows: rows, used: make([]bool, len(rows)),
-		trees: map[treeKey]*blockTree{}}
+// newPass returns an empty pass over candidate rows with their identities
+// by text.
+func newPass(rows []timeline.Row, texts []identity) *pass {
+	return &pass{buckets: map[bucketKey]*bucket{}, rows: rows, texts: texts,
+		used: make([]bool, len(rows)), trees: map[treeKey]*blockTree{}}
 }
 
 // seal sorts the settled candidates once every one is filed.
@@ -114,17 +117,17 @@ func (p *pass) partsOf(entry lookup) []*bucketPart {
 	return parts
 }
 
-// find returns the candidate a row pairs with, trying its lookups in
-// order. With broaden the row is matched among secondary copies, at its
+// find returns the candidate a row with an identity by text pairs with,
+// trying its lookups in order. With broaden the row is matched among secondary copies, at its
 // own time where the primary join would give it none, and never with a
 // candidate from its own file.
-func (m matcher) find(state *pass, row timeline.Row, tolerance float64, broaden bool,
-	bound *forwardBound, forward window) (int, bool) {
+func (m matcher) find(state *pass, row timeline.Row, text identity, tolerance float64,
+	broaden bool, bound *forwardBound, forward window) (int, bool) {
 	query := &search{state: state, bound: bound}
 	if broaden {
 		query.refused = &refusal{row.SourceFile}
 	}
-	for _, entry := range m.lookups(row, broaden) {
+	for _, entry := range m.lookups(row, text, broaden) {
 		index, ok := m.pair(query, state.partsOf(entry), row, tolerance, forward, !broaden)
 		if ok {
 			return index, true
@@ -168,9 +171,9 @@ func (m matcher) processingOrder(secondary []Secondary, byScope bool) []int {
 // with a primary row, the index of that primary row. Each row looks only
 // under its own scope; a row in forward looks up to that many seconds after
 // it, before the bound limits gives.
-func (m matcher) againstPrimary(primary []timeline.Row, secondary []Secondary, limits *bounds,
-	forward map[int]float64) map[int]int {
-	state := newPass(primary)
+func (m matcher) againstPrimary(primary []timeline.Row, primaryText []identity,
+	secondary []Secondary, limits *bounds, forward map[int]float64) map[int]int {
+	state := newPass(primary, primaryText)
 	for index, row := range primary {
 		if !isParserRow(row) {
 			millis, dated := m.matchTime(row, true)
@@ -184,10 +187,10 @@ func (m matcher) againstPrimary(primary []timeline.Row, secondary []Secondary, l
 		seconds, widened := forward[secondaryIndex]
 		var bound *forwardBound
 		if limits != nil && widened {
-			bound = m.candidateBound(limits, item.Row)
+			bound = m.candidateBound(limits, item.Row, m.secondaryText[secondaryIndex])
 		}
-		index, ok := m.find(state, item.Row, item.Tolerance, false, bound,
-			window{seconds, widened})
+		index, ok := m.find(state, item.Row, m.secondaryText[secondaryIndex], item.Tolerance,
+			false, bound, window{seconds, widened})
 		if ok {
 			state.used[index] = true
 			matched[secondaryIndex] = index
@@ -207,7 +210,7 @@ func (m matcher) amongSecondary(secondary []Secondary, matched map[int]bool) map
 	for index, item := range secondary {
 		rows[index] = item.Row
 	}
-	state := newPass(rows)
+	state := newPass(rows, m.secondaryText)
 	taken := make([]int, 0, len(matched))
 	for index := range matched {
 		taken = append(taken, index)
@@ -224,7 +227,8 @@ func (m matcher) amongSecondary(secondary []Secondary, matched map[int]bool) map
 			continue
 		}
 		item := secondary[index]
-		if candidate, ok := m.find(state, item.Row, item.Tolerance, true, nil, window{}); ok {
+		if candidate, ok := m.find(state, item.Row, m.secondaryText[index], item.Tolerance, true,
+			nil, window{}); ok {
 			state.used[candidate] = true
 			copies[index] = candidate
 		}
@@ -244,7 +248,7 @@ func (m matcher) forwardWindows(secondary []Secondary) map[int]float64 {
 		if hook == nil {
 			continue
 		}
-		if wider, ok := hook(item.Row); ok && wider > item.Tolerance {
+		if wider, ok := hook(item.Row, m.texts); ok && wider > item.Tolerance {
 			windows[index] = wider
 		}
 	}

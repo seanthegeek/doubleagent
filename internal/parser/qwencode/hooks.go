@@ -34,19 +34,21 @@ func suffixOf(row timeline.Row) []string {
 	return historySuffix.FindStringSubmatch(row.Text)
 }
 
-// MatchForm returns the turn type and text a row is deduplicated under. A
-// "group message:" row matches without a history row's suffix and with
-// each run of ASCII whitespace as one space, since the channel quotes a
-// line break as a space; any other row matches as it is.
-func MatchForm(row timeline.Row) (string, string) {
-	text := row.Text
+// MatchForm writes the text a row is deduplicated under and returns its
+// turn type. A "group message:" row matches without a history row's
+// suffix and with each run of ASCII whitespace as one space, since the
+// channel quotes a line break as a space; any other row matches as it is.
+func MatchForm(row timeline.Row, text *dedup.MatchText) string {
+	message := row.Text
 	if suffix := suffixOf(row); suffix != nil {
-		text = suffix[1]
+		message = suffix[1]
 	}
-	if strings.HasPrefix(text, groupMessagePrefix) {
-		return row.TurnType, strings.Trim(asciiSpaceRun.ReplaceAllLiteralString(text, " "), " ")
+	if strings.HasPrefix(message, groupMessagePrefix) {
+		text.Write(strings.Trim(asciiSpaceRun.ReplaceAllLiteralString(message, " "), " "))
+	} else {
+		text.WriteRow(row)
 	}
-	return row.TurnType, row.Text
+	return row.TurnType
 }
 
 // MatchAnchor returns the time a group history row is matched at: the

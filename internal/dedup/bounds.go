@@ -29,13 +29,13 @@ type bounds struct {
 func (m matcher) newBounds(secondary []Secondary) *bounds {
 	limits := &bounds{bySession: map[scopedText][]int64{},
 		byProjectOnly: map[scopedText][]int64{}, byNone: map[identity][]int64{}}
-	for _, item := range secondary {
+	for index, item := range secondary {
 		row := item.Row
 		millis, dated := m.matchTime(row, true)
 		if !dated || millis == noMatch || isParserRow(row) {
 			continue
 		}
-		text := m.byText(row)
+		text := m.secondaryText[index]
 		switch {
 		case row.SessionID != "":
 			key := scopedText{text, row.SessionID}
@@ -97,12 +97,12 @@ type forwardBound struct {
 	millis int64
 }
 
-// candidateBound returns the bound of a widened row, or nil when the row is
-// undated.
-func (m matcher) candidateBound(limits *bounds, row timeline.Row) *forwardBound {
+// candidateBound returns the bound of a widened row with an identity by
+// text, or nil when the row is undated.
+func (m matcher) candidateBound(limits *bounds, row timeline.Row, text identity) *forwardBound {
 	millis, dated := m.matchTime(row, true)
 	if !dated {
 		return nil
 	}
-	return &forwardBound{limits, m.byText(row), millis}
+	return &forwardBound{limits, text, millis}
 }

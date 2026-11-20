@@ -135,11 +135,13 @@ func formWork(n int) (int, int, bool) {
 		recorder.Value(fmt.Sprintf("v%04d", i))
 		recorder.End()
 	}
-	hooks := Hooks{"claude-code": AgentHooks{Form: func(row timeline.Row) (string, string) {
+	hooks := Hooks{"claude-code": AgentHooks{Form: func(row timeline.Row, text *MatchText) string {
 		if strings.HasPrefix(row.Text, "/x v0000") {
-			return row.TurnType, "/x"
+			text.Write("/x")
+		} else {
+			text.WriteRow(row)
 		}
-		return row.TurnType, row.Text
+		return row.TurnType
 	}}}
 	kept, _ := Deduplicate(rows(primary), withTolerance(2, copies...), hooks)
 	work := counter{}

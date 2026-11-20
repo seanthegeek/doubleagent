@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -35,7 +36,7 @@ func FuzzChatFileAndLogs(fuzz *testing.F) {
 			}
 			artifact := &input.Artifact{DiskPath: disk, Rel: rel, Home: &input.Home{DiskPath: home}}
 			if err := New().Parse(artifact, parser.Options{IncludeThinking: true}, func(row timeline.Row) {
-				MatchForm(row)
+				MatchForm(row, dedup.NewTexts().NewText())
 				MatchAnchor(row)
 			}); err != nil {
 				t.Fatal(err)

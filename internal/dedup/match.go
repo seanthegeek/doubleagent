@@ -2,9 +2,8 @@ package dedup
 
 import (
 	"cmp"
-	"crypto/sha256"
-	"iter"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -15,25 +14,23 @@ import (
 // time EpochMillis returns, since the year 1 is about -6.2e13 milliseconds.
 const noMatch = math.MinInt64
 
-// digestMark starts the match value of a text longer than sha256.Size
-// bytes, which makes that value one byte longer than any text compared as
-// it is.
-const digestMark = "#"
-
 // windowLimit bounds a window in milliseconds, so that a time plus or minus
 // a window never overflows; it is longer than the years 1 to 9999.
 const windowLimit = 1 << 62
 
 // matcher runs one deduplication with the hooks the agents declared, adding
-// the work its lookups do to steps.
+// the work its lookups do to steps; texts holds the run's match texts and
+// secondaryText the identity by text of each secondary row, computed once.
 type matcher struct {
-	hooks Hooks
-	steps *int
+	hooks         Hooks
+	steps         *int
+	texts         *Texts
+	secondaryText []identity
 }
 
 // identity is what two rows must share to pair, apart from scope: host,
-// user, agent and turn type, with either the text (byID false) or the
-// tool_use_id (byID true) as value.
+// user, agent and turn type, with either the number of the class of the
+// match text (byID false) or the tool_use_id (byID true) as value.
 type identity struct {
 	host, user, agent, turnType string
 	byID                        bool
@@ -113,49 +110,19 @@ func (m matcher) matchTime(row timeline.Row, againstPrimary bool) (int64, bool) 
 }
 
 // byText returns a row's identity by text, in its agent's match form: the
-// row's text as it reads in full when the form leaves it as it is.
+// row's text as it reads in full when the agent has no Form hook. Two rows
+// have one identity by text only when their match texts are equal byte
+// for byte (Texts.classOf).
 func (m matcher) byText(row timeline.Row) identity {
-	turnType, text := row.TurnType, row.Text
+	text := m.texts.NewText()
+	turnType := row.TurnType
 	if form := m.hooks[row.Agent].Form; form != nil {
-		turnType, text = form(row)
-	}
-	value := ""
-	if row.Shared != nil && text == row.Text {
-		value = matchValue(row.Pieces())
+		turnType = form(row, text)
 	} else {
-		value = matchValue(func(yield func(string) bool) { yield(text) })
+		text.WriteRow(row)
 	}
 	return identity{host: row.Host, user: row.User, agent: row.Agent, turnType: turnType,
-		value: value}
-}
-
-// matchValue returns what two texts given in pieces are compared by: the
-// text itself up to sha256.Size bytes, else digestMark and its SHA-256
-// digest, so a long text is held in a fixed size however many rows name it,
-// and a text never equals the value of a longer one.
-func matchValue(pieces iter.Seq[string]) string {
-	length := 0
-	for piece := range pieces {
-		length += len(piece)
-	}
-	if length <= sha256.Size {
-		var short strings.Builder
-		for piece := range pieces {
-			short.WriteString(piece)
-		}
-		return short.String()
-	}
-	digest := sha256.New()
-	// Each piece is copied through one small buffer, never whole.
-	var chunk [4096]byte
-	for piece := range pieces {
-		for piece != "" {
-			n := copy(chunk[:], piece)
-			digest.Write(chunk[:n])
-			piece = piece[n:]
-		}
-	}
-	return digestMark + string(digest.Sum(nil))
+		value: strconv.Itoa(m.texts.classOf(text))}
 }
 
 // byID returns a row's identity by tool_use_id.
@@ -198,7 +165,7 @@ func (m matcher) add(state *pass, row timeline.Row, index int, millis int64, dat
 	if dated && millis == noMatch {
 		return
 	}
-	identities := []identity{m.byText(row)}
+	identities := []identity{state.texts[index]}
 	if hasID(row) {
 		identities = append(identities, byID(row))
 	}

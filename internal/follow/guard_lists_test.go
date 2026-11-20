@@ -24,6 +24,10 @@ func reviewedImports() map[string]string {
 		// Reads a database's schema once however many goroutines ask for
 		// it (sqlitefile); the name used is Once, which takes no path.
 		"sync",
+		// Multiplies two 64-bit numbers into 128 bits for the text digests
+		// of deduplication (dedup/digest.go); the name used is Mul64, pure
+		// arithmetic that takes no path.
+		"math/bits",
 		// Decodes zstd data from an io.Reader the caller gives it; the names
 		// used are NewReader, WithDecoderConcurrency, WithDecoderLowmem,
 		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,

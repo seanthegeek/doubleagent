@@ -148,8 +148,9 @@ func TestGroupHistoryRowsMatchAtTheirClearUnderTheirOwnForm(t *testing.T) {
 		t.Run(test.text, func(t *testing.T) {
 			row := timeline.Row{Agent: "qwen-code", TurnType: test.turn, Text: test.text,
 				SourceFile: test.file}
-			if turn, text := MatchForm(row); turn != test.turn || text != test.formText {
-				t.Errorf("form %q %q, want %q", turn, text, test.formText)
+			text := dedup.NewTexts().NewText()
+			if turn := MatchForm(row, text); turn != test.turn || text.String() != test.formText {
+				t.Errorf("form %q %q, want %q", turn, text.String(), test.formText)
 			}
 			if kind, millis := MatchAnchor(row); kind != test.kind || millis != test.millis {
 				t.Errorf("anchor %v %d, want %v %d", kind, millis, test.kind, test.millis)

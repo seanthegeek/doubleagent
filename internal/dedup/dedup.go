@@ -11,9 +11,8 @@
 // no time matches on identity and scope alone. Matching is one-to-one,
 // timestamped rows first, each taking the nearest unused candidate, the
 // earlier one on a tie. The text is the row's text as it reads in full,
-// with every long text it shares with other rows in place
-// (timeline.SharedText); a text longer than a SHA-256 digest is compared by
-// that digest, so a long text many rows name is held once.
+// every shared text it names in place (timeline.SharedText), read once
+// however many rows name it; texts are equal only byte for byte (Texts).
 //
 // The secondary rows no primary row took are then matched against each
 // other, looking under broader scopes too, so the several copies of one
@@ -68,13 +67,16 @@ const (
 // source records events in another form or at another moment than its
 // primary store. A nil hook keeps the default.
 type AgentHooks struct {
-	// Form returns the turn type and text a row is matched under in place
-	// of its own.
-	Form func(row timeline.Row) (turnType, text string)
+	// Form writes the text a row is matched under to text, in place of its
+	// own, and returns the turn type it is matched under. A shared text the
+	// row names goes in as a segment (MatchText.Segment), so it is read
+	// once however many rows name it.
+	Form func(row timeline.Row, text *MatchText) (turnType string)
 	// Window returns a forward window in seconds for a secondary row, and
 	// false for the source's own tolerance; a window no wider than the
-	// tolerance is ignored.
-	Window func(row timeline.Row) (seconds float64, ok bool)
+	// tolerance is ignored. What it learns from a shared text it keeps in
+	// texts (Texts.Memo).
+	Window func(row timeline.Row, texts *Texts) (seconds float64, ok bool)
 	// Anchor returns the time a row is matched at against the primary
 	// store, with the epoch milliseconds when the kind is AtTime.
 	Anchor func(row timeline.Row) (kind AnchorKind, millis int64)
@@ -93,24 +95,33 @@ type Hooks map[string]AgentHooks
 // (timeline.Row.Secrets). The arguments are not changed.
 func Deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]timeline.Row,
 	map[string]int) {
-	kept, counts, _ := deduplicate(primary, secondary, hooks)
+	kept, counts, _ := deduplicate(primary, secondary, hooks, newTexts(randomBase()))
 	return kept, counts
 }
 
-// deduplicate is Deduplicate, also returning the work its lookups did: the
-// candidates they looked at, the jumps they made over candidates already
-// refused, and the comparisons that sorted the candidates.
-func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]timeline.Row,
-	map[string]int, int) {
+// deduplicate is Deduplicate with the run's Texts, also returning the work
+// its lookups did: the candidates they looked at, the jumps they made over
+// candidates already refused, and the comparisons that sorted the
+// candidates.
+func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks,
+	texts *Texts) ([]timeline.Row, map[string]int, int) {
 	steps := 0
-	run := matcher{hooks: hooks, steps: &steps}
+	run := matcher{hooks: hooks, steps: &steps, texts: texts}
+	primaryText := make([]identity, len(primary))
+	for index, row := range primary {
+		primaryText[index] = run.byText(row)
+	}
+	run.secondaryText = make([]identity, len(secondary))
+	for index, item := range secondary {
+		run.secondaryText[index] = run.byText(item.Row)
+	}
 	forward := run.forwardWindows(secondary)
 	var limits *bounds
 	if len(forward) > 0 {
 		limits = run.newBounds(secondary)
 	}
 	dropped := map[int]bool{}
-	intoPrimary := run.againstPrimary(primary, secondary, limits, forward)
+	intoPrimary := run.againstPrimary(primary, primaryText, secondary, limits, forward)
 	for index := range intoPrimary {
 		dropped[index] = true
 	}

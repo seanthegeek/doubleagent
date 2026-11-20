@@ -18,13 +18,15 @@ import (
 // anchored there (an undated "at" keeps the row's own time).
 func sampleHooks() Hooks {
 	return Hooks{"hooked": {
-		Form: func(row timeline.Row) (string, string) {
+		Form: func(row timeline.Row, text *MatchText) string {
 			if row.TurnType == timeline.TurnSystem && strings.HasPrefix(row.Text, "cmd: ") {
-				return timeline.TurnUser, "/" + row.Text[5:]
+				text.Write("/" + row.Text[5:])
+				return timeline.TurnUser
 			}
-			return row.TurnType, row.Text
+			text.WriteRow(row)
+			return row.TurnType
 		},
-		Window: func(row timeline.Row) (float64, bool) {
+		Window: func(row timeline.Row, _ *Texts) (float64, bool) {
 			return 30, row.TurnType == timeline.TurnUser && strings.HasPrefix(row.Text, "/")
 		},
 		Anchor: func(row timeline.Row) (AnchorKind, int64) {

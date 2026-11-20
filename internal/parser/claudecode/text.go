@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -136,14 +137,12 @@ func textOr(value jsonvalue.Value, missing string) string {
 	return value.Text()
 }
 
-// Match forms of a slash command in the transcript, and of a pasted text.
+// The parts of a slash command in the transcript, and the white space its
+// match form collapses.
 var (
-	commandNamePattern  = regexp.MustCompile(`(?s)<command-name>(.*?)</command-name>`)
-	commandArgsPattern  = regexp.MustCompile(`(?s)<command-args>(.*?)</command-args>`)
-	asciiSpacePattern   = regexp.MustCompile(`[ \t\r\n\f\v]+`)
-	pasteWrapperPattern = regexp.MustCompile(`</?pasted_content(?:[ \t\r\n][^>]*)?>`)
-	// A history line that is a slash command as typed (/model, /rename x).
-	historyCommandPattern = regexp.MustCompile(`^/[A-Za-z][A-Za-z0-9:_-]*(?:[ \t]|\z)`)
+	commandNamePattern = regexp.MustCompile(`(?s)<command-name>(.*?)</command-name>`)
+	commandArgsPattern = regexp.MustCompile(`(?s)<command-args>(.*?)</command-args>`)
+	asciiSpacePattern  = regexp.MustCompile(`[ \t\r\n\f\v]+`)
 )
 
 // commandWindowSeconds is how long after its history line a slash command's
@@ -151,25 +150,28 @@ var (
 // overlay or a flow (/model, /help) is recorded when it completes.
 const commandWindowSeconds = 600.0
 
-// MatchForm returns the turn type and text a row is deduplicated under. A
-// slash command, typed in history.jsonl and in tag form in the transcript
-// (a "slash command:" or "local_command:" row), matches as the user text
-// "/<name>", plus " <args>" when the arguments are not empty. A prompt
-// matches with the transcript's <pasted_content> wrapper removed, since
-// the history holds the bare paste. Both collapse each run of ASCII
-// whitespace to one space; every other row matches as it is. A history
-// line matches with each paste it names in full (timeline.Row.FullText),
-// however the output then writes it.
-func MatchForm(row timeline.Row) (turnType, text string) {
+// MatchForm writes the text a row is deduplicated under and returns its
+// turn type. A slash command, typed in history.jsonl and in tag form in
+// the transcript (a "slash command:" or "local_command:" row), matches as
+// the user text "/<name>", plus " <args>" when the arguments are not
+// empty. A prompt matches with the transcript's <pasted_content> wrapper
+// tags removed, since the history holds the bare paste (promptForm). Both
+// collapse each run of ASCII whitespace to one space; every other row
+// matches as it is. A history line matches with each paste it names in
+// full, however the output then writes it, each paste read once per run.
+func MatchForm(row timeline.Row, text *dedup.MatchText) string {
 	switch row.TurnType {
 	case timeline.TurnSystem:
 		if command, ok := commandForm(row.Text); ok {
-			return timeline.TurnUser, squash(command)
+			text.Write(squash(command))
+			return timeline.TurnUser
 		}
 	case timeline.TurnUser:
-		return timeline.TurnUser, squash(pasteWrapperPattern.ReplaceAllLiteralString(row.FullText(), " "))
+		writePrompt(row, text)
+		return timeline.TurnUser
 	}
-	return row.TurnType, row.Text
+	text.WriteRow(row)
+	return row.TurnType
 }
 
 // commandForm returns the command a "slash command:" or "local_command:"
@@ -201,10 +203,10 @@ func squash(text string) string {
 }
 
 // MatchWindow returns the forward window of a history row that is a slash
-// command as typed, its pastes read in full, and false for any other row,
-// which keeps the source's own tolerance.
-func MatchWindow(row timeline.Row) (float64, bool) {
-	if row.TurnType == timeline.TurnUser && row.Matches(historyCommandPattern) {
+// command as typed (typedCommand), its pastes read in full, and false for
+// any other row, which keeps the source's own tolerance.
+func MatchWindow(row timeline.Row, texts *dedup.Texts) (float64, bool) {
+	if row.TurnType == timeline.TurnUser && typedCommand(row, texts) {
 		return commandWindowSeconds, true
 	}
 	return 0, false

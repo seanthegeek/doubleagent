@@ -128,7 +128,7 @@ func TestDeduplicateWorkGrowsWithTheRows(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			measure := func(n int) int {
 				primary, secondary := test.build(n)
-				_, _, steps := deduplicate(primary, secondary, test.hooks)
+				_, _, steps := deduplicate(primary, secondary, test.hooks, NewTexts())
 				return steps
 			}
 			smaller, larger := measure(small), measure(4*small)
@@ -173,7 +173,7 @@ func TestWidenedRowsLookAtNoCandidateTheirBoundsRefuse(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprint(test.rows, " candidates each bounded by its own session"), func(t *testing.T) {
 			primary, secondary := boundedBySessions(test.rows)
-			kept, counts, steps := deduplicate(primary, secondary, sampleHooks())
+			kept, counts, steps := deduplicate(primary, secondary, sampleHooks(), NewTexts())
 			if counts["hooked"] != 2*test.rows || len(kept) != test.rows {
 				t.Fatalf("dropped %v and kept %d rows, want %d dropped and %d kept", counts,
 					len(kept), 2*test.rows, test.rows)

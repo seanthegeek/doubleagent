@@ -120,6 +120,13 @@ func commandBlock(name, arguments string) string {
 		"</command-message>\n            <command-args>" + arguments + "</command-args>"
 }
 
+// matchForm returns the turn type and the text MatchForm writes for a row.
+func matchForm(row timeline.Row) (string, string) {
+	text := dedup.NewTexts().NewText()
+	turn := MatchForm(row, text)
+	return turn, text.String()
+}
+
 func TestMatchFormPairsCommandsAndPastesWithTheirHistoryLines(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -149,7 +156,7 @@ func TestMatchFormPairsCommandsAndPastesWithTheirHistoryLines(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			turn, text := MatchForm(timeline.Row{TurnType: test.turn, Text: test.text})
+			turn, text := matchForm(timeline.Row{TurnType: test.turn, Text: test.text})
 			if turn != test.wantTurn || text != test.want {
 				t.Errorf("got (%q, %q), want (%q, %q)", turn, text, test.wantTurn, test.want)
 			}
@@ -164,8 +171,8 @@ func TestMatchFormKeepsWhitespaceDistinctions(t *testing.T) {
 			{TurnType: "user", Text: "/a xy"}},
 	}
 	for _, pair := range pairs {
-		leftTurn, left := MatchForm(pair[0])
-		rightTurn, right := MatchForm(pair[1])
+		leftTurn, left := matchForm(pair[0])
+		rightTurn, right := matchForm(pair[1])
 		if leftTurn == rightTurn && left == right {
 			t.Errorf("%q and %q match as %q", pair[0].Text, pair[1].Text, left)
 		}
@@ -189,7 +196,7 @@ func TestMatchWindowWidensOnlyATypedCommand(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%s %q", test.turn, test.text), func(t *testing.T) {
-			seconds, ok := MatchWindow(timeline.Row{TurnType: test.turn, Text: test.text})
+			seconds, ok := MatchWindow(timeline.Row{TurnType: test.turn, Text: test.text}, dedup.NewTexts())
 			if ok != test.want || (ok && seconds != 600) {
 				t.Errorf("got %v, %v", seconds, ok)
 			}
