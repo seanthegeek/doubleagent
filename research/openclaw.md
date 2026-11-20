@@ -1798,7 +1798,8 @@ reset or deleted archive, compressed or not) that cannot be read is one row
 session id its name gives, followed by the `sessions.json` row when there is one. A line that is
 valid JSON but not an object (an array, a string, a number, `null`), in a JSONL file or an archive
 blob, is its own row like any other bad line, `parser: unparseable line (not a JSON object): <line>`
-(prefixed `archive <name> line <n>: ` inside a blob), and the lines around it are still yielded.
+(prefixed `archive <name> line <n>: ` inside a blob, the name cut as a carried value when it is
+longer than 4,096 bytes, with one `parser: archive name ...` row for the database), and the lines around it are still yielded.
 Fixture only.
 
 An `openclaw-agent.sqlite` or `state/openclaw.sqlite` that cannot be read, or whose `-wal`, `-shm`

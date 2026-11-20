@@ -92,7 +92,7 @@ func (a *agentDatabase) archives() error {
 		extra := "archive=" + parser.NonEmptyColumn(row.Get("reason")) + " name=" + name
 		current := a.windowSession(sessionID, parser.NonEmptyColumn(row.Get("session_key")), extra)
 		line, createdAt := int(row.Rowid), parser.ColumnTime(row.Get("created_at"))
-		a.blob(current, line, "archive "+cmp.Or(name, sessionID), columnBytes(row.Get("archive_blob")),
+		a.blob(current, line, "archive", cmp.Or(name, sessionID), columnBytes(row.Get("archive_blob")),
 			createdAt)
 		if parser.TextColumn(row.Get("reason")) == "deleted" {
 			a.system(current, line, createdAt, "session deleted: "+cmp.Or(sessionID, "-")+
@@ -104,9 +104,11 @@ func (a *agentDatabase) archives() error {
 }
 
 // blob emits the rows of an archive blob, zstd-compressed or not, then the
-// problems of its lines, each labelled with the blob's label and line.
+// problems of its lines, each labelled with the blob's kind and name, the
+// name cut ("archive name") since each of its lines' problems repeats it.
 // Every row's source line is the rowid of the row that held it.
-func (a *agentDatabase) blob(current *session, line int, label string, blob []byte, timestamp string) {
+func (a *agentDatabase) blob(current *session, line int, kind, name string, blob []byte, timestamp string) {
+	label := kind + " " + a.carried.Cut("archive name", name)
 	data, err := maybeZstd(blob, a.budget)
 	if err != nil {
 		a.bad(current, line, label+" could not be decompressed ("+err.Error()+")", timestamp)
@@ -160,7 +162,7 @@ func (a *agentDatabase) cold() error {
 				a.bad(current, line, "cold archive "+each.name+" has no stored bytes", archivedAt)
 				continue
 			}
-			a.blob(current, line, "cold archive "+each.name, columnBytes(each.blob), archivedAt)
+			a.blob(current, line, "cold archive", each.name, columnBytes(each.blob), archivedAt)
 		}
 	}
 	return nil
