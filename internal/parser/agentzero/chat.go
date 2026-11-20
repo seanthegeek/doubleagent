@@ -537,7 +537,7 @@ func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 // index and returning its items in order. An agents member that is not an
 // array adds a problem, and so do the agents that are not objects, one for
 // them all, and the entries of an agent's history that are not objects,
-// one per agent. An agent's number, which each of its rows starts with, is
+// the history itself among them, one per agent. An agent's number, which each of its rows starts with, is
 // cut by the kit (parser.Carried).
 func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
@@ -565,7 +565,7 @@ func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []histor
 			}
 		}
 		wrong := 0
-		walkHistory(history, summaries, &wrong, func(summary bool, node jsonvalue.Value) {
+		walkEntry(history, summaries, &wrong, func(summary bool, node jsonvalue.Value) {
 			ordered = append(ordered, historyItem{agent: number, summary: summary, node: node})
 			if messageID := node.Get("id"); !summary && !messageID.IsEmpty() {
 				if _, held := c.history[messageID.Text()]; !held {

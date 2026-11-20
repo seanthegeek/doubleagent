@@ -130,3 +130,33 @@ func TestHistoryEntriesThatAreNotObjectsAreCountedPerAgent(t *testing.T) {
 		})
 	}
 }
+
+// A history that is itself neither null, an array nor an object, as it is
+// written or once a history written as JSON text is decoded, is one entry
+// that is not an object; an array's entries are counted one by one, and an
+// empty or absent history gives nothing.
+func TestAHistoryThatIsItselfAScalarIsOneEntry(t *testing.T) {
+	const rel = "agent-zero/usr/chats/ctx/chat.json"
+	one := []string{"parser: history of agent 0 holds 1 entry that is not a JSON object"}
+	tests := []struct {
+		name, history string
+		want          []string
+	}{
+		{"a number", `5`, one},
+		{"a boolean", `true`, one},
+		{"text that decodes to a number", `"7"`, one},
+		{"text that decodes to text", `"\"words\""`, one},
+		{"text that decodes to an array of scalars", `"[1,2]"`,
+			[]string{"parser: history of agent 0 holds 2 entries that are not JSON objects"}},
+		{"empty text", `""`, nil},
+		{"null", `null`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			chatText := `{"id":"ctx","agents":[{"number":0,"history":` + test.history + `}],"log":{"logs":[]}}`
+			if got := parseProblems(t, rel, chatText); !slices.Equal(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
