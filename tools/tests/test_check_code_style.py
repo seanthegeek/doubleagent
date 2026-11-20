@@ -99,6 +99,25 @@ def test_fields_and_interface_methods_are_checked() -> None:
         assert bad_names("package p\n\n" + source) == expected, source
 
 
+@pytest.mark.parametrize(
+    ("source", "line"),
+    [
+        ("// Thing is.\ntype Thing struct {\n\t/* c */ cfg int\n}\n", 5),
+        ("const (\n\t/* c */ cfg = 1\n)\n", 4),
+        ("// Thing is.\ntype Thing interface {\n\t/* c */ cfg()\n}\n", 5),
+        ("var (\n\t/* c */ cfg = 1\n)\n", 4),
+        (
+            "// run runs.\nfunc run() {\n\tvar (\n\t\tgood = 1\n\t\t/* c */ cfg = 2\n\t)\n"
+            "\t_, _ = good, cfg\n}\n",
+            7,
+        ),
+    ],
+    ids=["struct field", "const entry", "interface method", "var block", "var block in a function"],
+)
+def test_a_comment_before_a_name_on_its_line_does_not_hide_the_name(source: str, line: int) -> None:
+    assert findings("package p\n\n" + source) == [(line, "name 'cfg' abbreviates a word ('cfg')")]
+
+
 def test_a_capitalised_word_may_not_be_an_abbreviation() -> None:
     cases = [
         ("srcPath", "src"),
