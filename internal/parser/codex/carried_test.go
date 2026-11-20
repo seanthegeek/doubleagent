@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -147,5 +148,36 @@ func TestEachCarriedPolicyValueIsCutUnderItsOwnName(t *testing.T) {
 					firstDifference(got, test.want))
 			}
 		})
+	}
+}
+
+// Whether a thread_settings_applied event changes the permission mode is
+// told from the fields it sets: a long field it copies from the last
+// turn_context is neither joined into a composite nor compared again, so
+// twice the events allocate twice the bytes of their rows, not one more
+// copy of the long value per event. The bytes are counted
+// (runtime.MemStats.TotalAlloc), not timed.
+func TestAPermissionModeChangeIsToldFromTheFieldsAnEventSets(t *testing.T) {
+	const size = 200_000
+	for _, context := range []string{
+		`"approval_policy":"x","network":"` + strings.Repeat("N", size) + `"`,
+		`"approval_policy":"x","sandbox_policy":{"mode":"` + strings.Repeat("S", size) + `"}`,
+	} {
+		allocated := map[int]uint64{}
+		for _, n := range []int{20, 40} {
+			text := policyRollout(context, alternatingApprovals(n)...)
+			var before, after runtime.MemStats
+			runtime.ReadMemStats(&before)
+			rows := modeRows(t, text)
+			runtime.ReadMemStats(&after)
+			allocated[n] = after.TotalAlloc - before.TotalAlloc
+			if len(rows) != n+2 {
+				t.Errorf("%d events gave %d mode and problem rows, want %d", n, len(rows), n+2)
+			}
+		}
+		if growth := allocated[40] - allocated[20]; growth > 5*size {
+			t.Errorf("20 more events allocated %d more bytes, more than five copies of the %d-byte field",
+				growth, size)
+		}
 	}
 }

@@ -44,10 +44,10 @@ type rollout struct {
 
 	sessionID, cwd, model, branch string
 	metaSeen                      bool
-	seenModel, seenMode           parser.Tracker
-	policies                      map[string]policy
-	// shownModes holds each session's composite permission mode as its
-	// last row wrote it, seenMode the same composite whole.
+	seenModel                     parser.Tracker
+	// modes holds each session's permission mode, and shownModes the
+	// composite as its last "permission mode:" row wrote it.
+	modes      map[string]*mode
 	shownModes map[string]string
 	// taskPending is set in a subagent's file until its first prompt.
 	taskPending bool
@@ -69,7 +69,7 @@ type rollout struct {
 func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	state := &rollout{parser: p, artifact: artifact, options: options, emit: emit,
-		seenModel: parser.Tracker{}, seenMode: parser.Tracker{}, policies: map[string]policy{},
+		seenModel: parser.Tracker{}, modes: map[string]*mode{},
 		shownModes: map[string]string{}, cuts: parser.NewCarried(artifact)}
 	if match := uuidTail.FindStringSubmatch(artifact.Rel); match != nil {
 		state.sessionID = match[1]
@@ -218,20 +218,25 @@ func (s *rollout) lineage(payload, when jsonvalue.Value) {
 func (s *rollout) turnContext(payload jsonvalue.Value) {
 	s.cwd = cmp.Or(parser.Text(payload.Get("cwd")), s.cwd)
 	s.model = cmp.Or(parser.Text(payload.Get("model")), s.model)
-	s.policies[s.sessionID] = policyOf(payload)
+	current, ok := s.modes[s.sessionID]
+	if !ok {
+		current = newMode(s.parser.Work)
+		s.modes[s.sessionID] = current
+	}
+	current.fromContext(payload)
 	texts := []string{
 		s.seenModel.Change("model", s.sessionID, parser.Text(payload.Get("model"))),
-		s.modeChange(s.policies[s.sessionID].text(), s.policies[s.sessionID].text),
+		s.modeChange(current, current.wholeText),
 	}
 	s.systemTexts(texts)
 }
 
 // modeChange returns the "permission mode:" text when the session's
-// composite mode, whole, changes (parser.Tracker), written with what shown
-// returns, the composite as this line writes it, after the one the last
-// such row wrote; "" when it does not change, without calling shown.
-func (s *rollout) modeChange(whole string, shown func() string) string {
-	if s.seenMode.Change("permission mode", s.sessionID, whole) == "" {
+// composite mode changes (mode.changed), written with what shown returns,
+// the composite as this line writes it, after the one the last such row
+// wrote; "" when it does not change, without calling shown.
+func (s *rollout) modeChange(current *mode, shown func() string) string {
+	if !current.changed() {
 		return ""
 	}
 	old := s.shownModes[s.sessionID]
@@ -408,11 +413,11 @@ func (s *rollout) threadSettings(settings jsonvalue.Value) {
 	newModel := settingsModel(settings)
 	s.model = timeutil.FirstNonEmpty(newModel, s.model)
 	texts := []string{s.seenModel.Change("model", s.sessionID, newModel)}
-	if previous, ok := s.policies[s.sessionID]; ok {
-		state := previous.withSettings(settings)
-		s.policies[s.sessionID] = state
-		texts = append(texts, s.modeChange(state.text(), func() string {
-			return state.carriedText(settingsSet(settings), s.cuts)
+	if current, ok := s.modes[s.sessionID]; ok {
+		set := settingsSet(settings)
+		current.withSettings(settings, set)
+		texts = append(texts, s.modeChange(current, func() string {
+			return current.carriedText(set, s.cuts)
 		}))
 	}
 	s.systemTexts(texts)

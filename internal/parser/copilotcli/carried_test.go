@@ -2,6 +2,7 @@ package copilotcli
 
 import (
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -158,5 +159,34 @@ func TestEachCarriedHalfOfTheModeIsCutUnderItsOwnName(t *testing.T) {
 				t.Errorf("got %d rows %.300q, want %d", len(got), got, len(test.want))
 			}
 		})
+	}
+}
+
+// Whether a permission request changes the mode is told from the halves
+// it sets: a long half copied from an earlier request is neither joined
+// into the mode's text nor compared again, so twice the requests allocate
+// twice the bytes of their rows, not one more copy of the long half per
+// request. The bytes are counted (runtime.MemStats.TotalAlloc), not timed.
+func TestAPermissionModeChangeIsToldFromTheHalvesARequestSets(t *testing.T) {
+	const size = 200_000
+	allocated := map[int]uint64{}
+	for _, n := range []int{20, 40} {
+		lines := []string{requestEvent(`"permissionMode":"` + strings.Repeat("M", size) + `","agentMode":"a",`)}
+		for i := range n {
+			lines = append(lines, requestEvent(`"agentMode":"`+"ab"[i%2:i%2+1]+`",`))
+		}
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		rows := modeRows(t, lines)
+		runtime.ReadMemStats(&after)
+		allocated[n] = after.TotalAlloc - before.TotalAlloc
+		// The first request after the long one sets the agent mode it had.
+		if len(rows) != n+1 {
+			t.Errorf("%d requests gave %d mode and problem rows, want %d", n, len(rows), n+1)
+		}
+	}
+	if growth := allocated[40] - allocated[20]; growth > 5*size {
+		t.Errorf("20 more requests allocated %d more bytes, more than five copies of the %d-byte half",
+			growth, size)
 	}
 }

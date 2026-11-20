@@ -26,23 +26,26 @@ var (
 // eventWalk is the state of one pass over an events.jsonl, with the
 // problems of its lines.
 type eventWalk struct {
-	parser     *Parser
-	artifact   *input.Artifact
-	problems   *parser.Problems
-	options    parser.Options
-	emit       parser.Emit
-	sessionID  string
-	project    string
-	branch     string
-	model      string
-	line       int
-	timestamp  string
-	names      map[string]string
-	requested  map[string]bool
-	models     map[string]string
-	modes      parser.Tracker
+	parser    *Parser
+	artifact  *input.Artifact
+	problems  *parser.Problems
+	options   parser.Options
+	emit      parser.Emit
+	sessionID string
+	project   string
+	branch    string
+	model     string
+	line      int
+	timestamp string
+	names     map[string]string
+	requested map[string]bool
+	models    map[string]string
+	// permission is the tracked permission mode, and mode its two halves
+	// as pieces of the text "<permissionMode> agent=<agentMode>", which
+	// tells a change from the halves an event sets.
 	permission permissionMode
-	// stored is the permission mode modes last took, and cuts cuts its
+	mode       *parser.Composite
+	// stored is the permission mode last recorded, and cuts cuts its
 	// halves where a later event's row repeats them.
 	stored permissionMode
 	cuts   *parser.Carried
@@ -73,7 +76,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options
 	walk := &eventWalk{parser: p, artifact: artifact, options: options, emit: emit, sessionID: sessionID,
 		project: p.fallbackProject(artifact, 0, sessionID),
 		names:   map[string]string{}, requested: map[string]bool{}, models: map[string]string{},
-		modes: parser.Tracker{}, cuts: parser.NewCarried(artifact)}
+		mode: parser.NewComposite(2, p.Work), cuts: parser.NewCarried(artifact)}
 	walk.problems = &problems
 	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		walk.line = number
@@ -278,19 +281,26 @@ func (m permissionMode) text(shown func(name, value string) string) string {
 	return shown("permission mode", m.mode)
 }
 
-// whole returns a half of the mode as it is.
-func whole(_, value string) string {
-	return value
+// setMode makes mode the tracked permissionMode half.
+func (w *eventWalk) setMode(mode string) {
+	w.permission.mode = mode
+	w.mode.Set(0, mode)
 }
 
-// modeValue returns the tracked permission mode, whole.
-func (w *eventWalk) modeValue() string {
-	return w.permission.text(whole)
+// setAgent makes agent the tracked agentMode half, a piece " agent=<agent>"
+// of the mode's text, or none when empty.
+func (w *eventWalk) setAgent(agent string) {
+	w.permission.agent = agent
+	piece := ""
+	if agent != "" {
+		piece = " agent=" + agent
+	}
+	w.mode.Set(1, piece)
 }
 
-// storeMode makes the tracked permission mode the one modes holds.
+// storeMode records the tracked permission mode.
 func (w *eventWalk) storeMode() {
-	w.modes[w.sessionID] = w.modeValue()
+	w.mode.Record()
 	w.stored = w.permission
 }
 
@@ -312,7 +322,7 @@ func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
 	case "session.mode_changed":
 		old, next := cmp.Or(data.Get("previousMode").Text(), "-"), cmp.Or(data.Get("newMode").Text(), "-")
 		w.system("agent mode: " + old + " -> " + next)
-		w.permission.agent = data.Get("newMode").Text()
+		w.setAgent(data.Get("newMode").Text())
 		if w.permission.mode != "" {
 			w.storeMode()
 		}
@@ -335,10 +345,10 @@ func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
 	set := map[string]bool{"permission mode": !data.Get("permissionMode").IsEmpty(),
 		"agent mode": !data.Get("agentMode").IsEmpty()}
 	if set["permission mode"] {
-		w.permission.mode = data.Get("permissionMode").Text()
+		w.setMode(data.Get("permissionMode").Text())
 	}
 	if set["agent mode"] {
-		w.permission.agent = data.Get("agentMode").Text()
+		w.setAgent(data.Get("agentMode").Text())
 	}
 	if w.permission.mode != "" {
 		w.modeChange(set, callID)
@@ -349,14 +359,15 @@ func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
 // tracked mode. Every half of the earlier mode, and each half of the new
 // one the request did not set, came from an earlier event and is repeated
 // in each such row, so it is cut (parser.Carried); whether the mode
-// changed is decided on the whole values.
+// changed is decided on the whole text (parser.Composite), from the
+// halves the events set.
 func (w *eventWalk) modeChange(set map[string]bool, callID string) {
-	_, seen := w.modes[w.sessionID]
+	seen := w.mode.Recorded()
 	old := w.stored
-	if w.modes.Change("permission mode", w.sessionID, w.modeValue()) == "" {
+	if !w.mode.Changed() {
 		return
 	}
-	w.stored = w.permission
+	w.storeMode()
 	next := w.permission.text(func(name, value string) string {
 		if set[name] {
 			return value
@@ -385,12 +396,12 @@ func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
 			data.Get("allowAllPermissionMode").Text()
 		w.system("permission mode: allow-all " + old + " -> " + cmp.Or(next, "-"))
 		if next != "" {
-			w.permission.mode = "allow-all " + next
+			w.setMode("allow-all " + next)
 		}
 	} else {
 		w.system("permission mode: " + cmp.Or(data.Get("previousMode").Text(), "-") + " -> " +
 			cmp.Or(data.Get("mode").Text(), "-"))
-		w.permission.mode = data.Get("mode").Text()
+		w.setMode(data.Get("mode").Text())
 	}
 	if w.permission.mode != "" {
 		w.storeMode()
