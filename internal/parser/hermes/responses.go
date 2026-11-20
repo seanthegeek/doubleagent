@@ -33,7 +33,8 @@ func (p *Parser) parseResponses(artifact *input.Artifact, options parser.Options
 	}
 	defer handle.Close()
 	var problems parser.Problems
-	names, stored, message, err := readResponses(handle, &problems)
+	carried := parser.NewCarried(artifact)
+	names, stored, message, err := readResponses(handle, carried, &problems)
 	switch {
 	case err != nil:
 		emit(p.system(artifact, 0, noSession(), parser.ProblemPrefix+parser.DatabaseError(err)))
@@ -47,6 +48,7 @@ func (p *Parser) parseResponses(artifact *input.Artifact, options parser.Options
 	for _, entry := range stored {
 		p.responseRows(artifact, entry, names, seen, reader, &problems)
 	}
+	carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
@@ -93,9 +95,10 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 
 // readResponses returns the conversation names by response id and the
 // responses whose data decodes, sorted by created_at then rowid; a row
-// whose data does not decode adds a problem. The message is set for a
-// store without a responses table.
-func readResponses(handle *sqlitefile.Database, problems *parser.Problems) (map[string]string,
+// whose data does not decode adds a problem. A name is cut as a carried
+// value, since each response of its id repeats it. The message is set for
+// a store without a responses table.
+func readResponses(handle *sqlitefile.Database, carried *parser.Carried, problems *parser.Problems) (map[string]string,
 	[]storedResponse, string, error) {
 	tables, err := parser.TablesOf(handle)
 	if err != nil {
@@ -112,7 +115,7 @@ func readResponses(handle *sqlitefile.Database, problems *parser.Problems) (map[
 		}
 		err = table.Select("name", "response_id").Each(func(row sqlitefile.Row) error {
 			record := rowObject(row)
-			names[record.Get("response_id").Text()] = record.Get("name").Text()
+			names[record.Get("response_id").Text()] = carried.Cut("conversation name", record.Get("name").Text())
 			return nil
 		})
 		if err != nil {

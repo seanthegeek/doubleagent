@@ -67,11 +67,29 @@ CREATE TABLE session_model_usage (session_id TEXT NOT NULL, model TEXT NOT NULL,
     return "\n".join(rows)
 
 
+def repeated_response(count: int) -> str:
+    """Return a response_store.db with count responses rows of one id and a 5,000-byte name."""
+    rows = [
+        """PRAGMA page_size = 512;
+CREATE TABLE responses (response_id TEXT, data TEXT, accessed_at REAL);
+CREATE TABLE conversations (name TEXT, response_id TEXT);""",
+        "INSERT INTO conversations VALUES ('%s', 'r1');" % ("n" * 5000),
+    ]
+    for i in range(count):
+        rows.append(
+            """INSERT INTO responses VALUES ('r1', '{"session_id": "s1", "response": """
+            """{"status": "completed", "model": "m", "created_at": %d}}', 0);""" % (1767323045 + i)
+        )
+    return "\n".join(rows)
+
+
 DATABASES = {
     "generated_column.db": GENERATED_COLUMN,
     "room_events_without_rowid.db": ROOM_EVENTS_WITHOUT_ROWID,
     "repeated_session_id_10.db": repeated_session(10),
     "repeated_session_id_40.db": repeated_session(40),
+    "repeated_response_id_10.db": repeated_response(10),
+    "repeated_response_id_40.db": repeated_response(40),
 }
 
 
