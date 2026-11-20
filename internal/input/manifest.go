@@ -282,18 +282,22 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 }
 
 // maxPathComponents is the most components a manifest path may have. A
-// path a system's file calls take whole is at most 4096 bytes on Linux
-// (PATH_MAX) and 1024 on macOS, and holds at most one component for every
-// two bytes; the limit is twice the most such a path holds, room for any
-// real file, while a row's staged paths, one per component, stay few.
+// path a system's file calls take whole is at most 4095 bytes on Linux and
+// 1023 on macOS (PATH_MAX, 4096 and 1024, counts the NUL that ends it), and
+// holds at most one component for every two bytes; the limit is twice the
+// most such a path holds, room for any real file, while a row's staged
+// paths, one per component, stay few.
 const maxPathComponents = 4096
 
-// MaxPathLength is the longest path, in bytes, of a file the input makes an
-// artifact of: 4096, Linux's PATH_MAX, the longest path its file calls take
-// whole. A file's path and its part below the home are written in every
-// row the file gives (source_file) and in the text of many, so a longer
-// one, which a manifest's text or Windows' extended-length paths allow,
-// would cost its length once per row; such a file is a problem instead.
+// MaxPathLength is the longest path text, in bytes, of a file the input
+// makes an artifact of: the manifest's path, where each byte of a name that
+// is not UTF-8 is U+FFFD, three bytes, or a loose tree's home path joined
+// to the file's part below it. It is Linux's PATH_MAX, which counts the
+// NUL that ends a path: one byte more than the longest path Linux's file
+// calls take whole. A file's path and its part below the home are written
+// in every row the file gives (source_file) and in the text of many, so a
+// longer one, which a manifest's text or Windows' extended-length paths
+// allow, would cost its length once per row; it is a problem instead.
 const MaxPathLength = 4096
 
 // errTooLong is the reason a file whose path is longer than MaxPathLength
