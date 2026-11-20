@@ -417,7 +417,10 @@ type walk struct {
 	lastRequest                [2]string
 	shellIDs                   []string
 	models, modes              parser.Tracker
-	declaredFormat             string
+	// declaredFormat is the session's declared permission format, which
+	// every later permission mode row repeats, so carried cuts it.
+	declaredFormat string
+	carried        *parser.Carried
 }
 
 // recordStep is one record of the pass: what its rows are built from.
@@ -474,7 +477,8 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 		runModel: map[string]string{}, runCompletedModel: map[string]string{},
 		startedRuns: map[string]bool{}, committed: map[string]bool{},
 		lastDelta: map[string]int{}, deltas: map[string][]string{}, calls: map[string]string{},
-		approvals: map[string][2]string{}, models: parser.Tracker{}, modes: parser.Tracker{}}
+		approvals: map[string][2]string{}, models: parser.Tracker{}, modes: parser.Tracker{},
+		carried: parser.NewCarried(artifact)}
 	pass.prepass()
 	pass.project, pass.branch = workspace(seqOf(entries), 0)
 	if pass.isSubagent && pass.project == "" {
@@ -483,6 +487,7 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 	for i, entry := range entries {
 		pass.record(i, entry)
 	}
+	pass.carried.Report(0, &problems)
 	for _, row := range p.ErrorRows(artifact, problems, pass.sessionID, pass.project) {
 		row.GitBranch = pass.branch
 		emit(row)
@@ -545,7 +550,7 @@ func (w *walk) record(index int, entry envelope) {
 	case step.payloadType == "run.model.configured" && !step.facts.Get("model_id").IsEmpty():
 		w.modelRow(step, step.facts.Get("model_id").Text(), step.facts)
 	case step.payloadType == "runtime.session.permission_format_declared":
-		w.declaredFormat = step.facts.Get("format").Text()
+		w.declaredFormat = w.carried.Cut("permission format", step.facts.Get("format").Text())
 	case step.payloadType == "runtime.session.permission_profile_committed":
 		w.permissionProfile(step)
 	case step.payloadType == "session.opened.observed" && parser.Present(step.facts.Get("security_mode")):
