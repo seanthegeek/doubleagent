@@ -15,7 +15,9 @@ type RowFilter struct {
 	// KeepUndated keeps rows without a timestamp when a bound is set.
 	KeepUndated bool
 	// Patterns are the --match expressions; a row is kept when any
-	// matches somewhere in its text.
+	// matches somewhere in its text as it reads in full, with every shared
+	// text it names in place (timeline.Row.Matches), whichever row the
+	// output then writes that text in.
 	Patterns []*regexp.Regexp
 	// DroppedWindow, DroppedUndated and DroppedMatch count the rows
 	// dropped as outside the window, as undated, and as matching no
@@ -99,15 +101,16 @@ func (f *RowFilter) Apply(rows []timeline.Row) []timeline.Row {
 	}
 	hit := make([]bool, len(kept))
 	partners := map[partnerKey]bool{}
-	for i, row := range kept {
+	for i := range kept {
+		row := &kept[i]
 		for _, pattern := range f.Patterns {
-			if pattern.MatchString(row.Text) {
+			if row.Matches(pattern) {
 				hit[i] = true
 				break
 			}
 		}
 		if hit[i] && row.ToolUseID != "" {
-			partners[keyOf(row)] = true
+			partners[keyOf(*row)] = true
 		}
 	}
 	var out []timeline.Row

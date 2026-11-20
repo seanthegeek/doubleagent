@@ -1,8 +1,10 @@
 // Package parsertest runs a parser in a test as an analysis run does under
 // a secrets setting: the parse records what the kit identifies in the
 // recorder of the artifact's home, and the test receives the rows as
-// timeline.jsonl writes them (timeline.Row.Withheld), so a parser's test
-// of a withheld secret checks the text the output holds.
+// timeline.jsonl writes them (timeline.Row.Withheld), each shared text
+// written out in the order the parse emitted its rows (timeline.Resolve),
+// so a parser's test of a withheld secret checks the text the output
+// holds.
 //
 // A run that withholds also proves, for every parse a test makes this way,
 // the rule the design rests on: the parse is run a second time showing
@@ -83,9 +85,11 @@ func run(test testing.TB, artifact *input.Artifact, produce func(emit parser.Emi
 		artifact.Home.Secrets = nil
 		_, _ = parser.Within(artifact, produce, func(row timeline.Row) { shown = append(shown, row) })
 		artifact.Home.Secrets = recorder
+		timeline.Resolve(shown)
 	}
 	var rows []timeline.Row
 	found, err := parser.Within(artifact, produce, func(row timeline.Row) { rows = append(rows, row) })
+	timeline.Resolve(rows)
 	for _, row := range rows {
 		row.Collect(recorder)
 	}

@@ -1,7 +1,8 @@
 // Package timeline defines the rows of timeline.jsonl and sessions.jsonl:
 // the Row every parser emits, the per-session summary built from the rows,
 // the marker texts a parser starts a system row with, the spellings of a
-// Windows project path, the stable sorts and the JSONL writers.
+// Windows project path, the stable sorts, the JSONL writers, and the long
+// texts that several rows name, written in full once (Resolve).
 //
 // Both files are interfaces analysts build on: fields are added at the end,
 // never renamed or removed. The writers put each record on one line, keys
@@ -70,6 +71,10 @@ type Row struct {
 	// output replaces in its text (Withheld); nil in a run that shows
 	// secrets. It is no column.
 	Secrets *secrets.Found `json:"-"`
+	// Shared lists where the text names a shared text (SharedRef), which
+	// Resolve writes out once the rows of the output are known; nil for a
+	// text that names none. It is no column.
+	Shared *SharedRefs `json:"-"`
 }
 
 // Columns returns the field names of timeline.jsonl in order.

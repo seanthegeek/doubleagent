@@ -2,6 +2,8 @@ package dedup
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"iter"
 	"math"
 	"strings"
 
@@ -12,6 +14,11 @@ import (
 // noMatch is the match time of a row no primary row can take: below any
 // time EpochMillis returns, since the year 1 is about -6.2e13 milliseconds.
 const noMatch = math.MinInt64
+
+// digestMark starts the match value of a text longer than sha256.Size
+// bytes, which makes that value one byte longer than any text compared as
+// it is.
+const digestMark = "#"
 
 // windowLimit bounds a window in milliseconds, so that a time plus or minus
 // a window never overflows; it is longer than the years 1 to 9999.
@@ -105,14 +112,50 @@ func (m matcher) matchTime(row timeline.Row, againstPrimary bool) (int64, bool) 
 	return timeutil.EpochMillis(row.TimestampUTC)
 }
 
-// byText returns a row's identity by text, in its agent's match form.
+// byText returns a row's identity by text, in its agent's match form: the
+// row's text as it reads in full when the form leaves it as it is.
 func (m matcher) byText(row timeline.Row) identity {
 	turnType, text := row.TurnType, row.Text
 	if form := m.hooks[row.Agent].Form; form != nil {
 		turnType, text = form(row)
 	}
+	value := ""
+	if row.Shared != nil && text == row.Text {
+		value = matchValue(row.Pieces())
+	} else {
+		value = matchValue(func(yield func(string) bool) { yield(text) })
+	}
 	return identity{host: row.Host, user: row.User, agent: row.Agent, turnType: turnType,
-		value: text}
+		value: value}
+}
+
+// matchValue returns what two texts given in pieces are compared by: the
+// text itself up to sha256.Size bytes, else digestMark and its SHA-256
+// digest, so a long text is held in a fixed size however many rows name it,
+// and a text never equals the value of a longer one.
+func matchValue(pieces iter.Seq[string]) string {
+	length := 0
+	for piece := range pieces {
+		length += len(piece)
+	}
+	if length <= sha256.Size {
+		var short strings.Builder
+		for piece := range pieces {
+			short.WriteString(piece)
+		}
+		return short.String()
+	}
+	digest := sha256.New()
+	// Each piece is copied through one small buffer, never whole.
+	var chunk [4096]byte
+	for piece := range pieces {
+		for piece != "" {
+			n := copy(chunk[:], piece)
+			digest.Write(chunk[:n])
+			piece = piece[n:]
+		}
+	}
+	return digestMark + string(digest.Sum(nil))
 }
 
 // byID returns a row's identity by tool_use_id.
