@@ -93,7 +93,7 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 		problems.AddRaw(int(row.Rowid), label, value.String())
 		return
 	}
-	main := store.mainRepository(path)
+	main := store.carried.Cut("main repository", store.mainRepository(path))
 	if main != "" {
 		main = " of " + main
 	}
@@ -156,7 +156,8 @@ func (s *sidebarStore) indexRepositories() *repositoryIndex {
 }
 
 // archivedWorktree returns the row of one archived worktree and one thread
-// linked to it.
+// linked to it. The join copies the worktree's columns onto the row of each
+// linked thread, so the store's carried cuts them.
 func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 	store *sidebarStore) timeline.Row {
 	sessionID := ""
@@ -165,13 +166,15 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 			sessionID = parser.NonEmptyColumn(side.Get("session_id"))
 		}
 	}
-	text := "archived worktree: " + parser.NonEmptyColumn(row.Get("worktree_path")) + " of " +
-		parser.NonEmptyColumn(row.Get("main_repo_path")) + " branch=" +
-		cmp.Or(parser.NonEmptyColumn(row.Get("branch_name")), "-") + " staged=" +
-		cmp.Or(parser.NonEmptyColumn(row.Get("staged_commit_hash")), "-") + " unstaged=" +
-		cmp.Or(parser.NonEmptyColumn(row.Get("unstaged_commit_hash")), "-") + " original=" +
-		cmp.Or(parser.NonEmptyColumn(row.Get("original_commit_hash")), "-") + " ref=refs/archived-worktrees/" +
-		row.Get("id").String() + " (from " + artifact.Rel + " archived_git_worktrees, file mtime)"
+	column := func(name string) string {
+		return store.carried.Cut("archived_git_worktrees."+name, parser.NonEmptyColumn(row.Get(name)))
+	}
+	text := "archived worktree: " + column("worktree_path") + " of " + column("main_repo_path") + " branch=" +
+		cmp.Or(column("branch_name"), "-") + " staged=" + cmp.Or(column("staged_commit_hash"), "-") +
+		" unstaged=" + cmp.Or(column("unstaged_commit_hash"), "-") + " original=" +
+		cmp.Or(column("original_commit_hash"), "-") + " ref=refs/archived-worktrees/" +
+		store.carried.Cut("archived_git_worktrees.id", row.Get("id").String()) + " (from " + artifact.Rel +
+		" archived_git_worktrees, file mtime)"
 	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, sessionID,
 		parser.NonEmptyColumn(row.Get("main_repo_path")))
 }

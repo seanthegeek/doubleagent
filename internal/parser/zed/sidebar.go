@@ -40,6 +40,9 @@ type sidebarStore struct {
 	repositories *repositoryIndex
 	// work counts the entries indexed, which a test measures.
 	work parser.Work
+	// carried cuts the values a join copies onto many rows: an archived
+	// worktree's columns and a created worktree's main repository.
+	carried *parser.Carried
 }
 
 // tableReader runs the queries of one database in turn, keeping the first
@@ -158,6 +161,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 		return
 	}
 	store.work = p.Work
+	store.carried = parser.NewCarried(artifact)
 	var problems parser.Problems
 	for _, row := range store.sidebar {
 		p.sidebarRow(artifact, row, emit)
@@ -181,6 +185,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 		emit(p.stateRow(artifact, text, parser.ColumnTime(row.Get("created_at")), row.Rowid, "",
 			firstFolder(row.Get("folder_paths"))))
 	}
+	store.carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
