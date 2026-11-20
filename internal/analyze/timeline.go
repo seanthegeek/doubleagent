@@ -276,7 +276,8 @@ func probeWrite(directory string) bool {
 }
 
 // parse collects the rows of every artifact, drops the secondary rows a
-// primary store holds, sorts and filters them, writes out the shared texts
+// primary store holds, settles the parent each group of a repeated id goes
+// with (attach), sorts and filters the rows, writes out the shared texts
 // they name (timeline.Resolve), and summarises the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
@@ -286,6 +287,7 @@ func (r *timelineRun) parse(ctx context.Context) error {
 	}
 	r.problems, r.problemSecrets = result.Problems, result.ProblemSecrets
 	r.rows, r.dropped = dedup.Deduplicate(result.Primary, result.Secondary, r.registry.Hooks())
+	r.rows = r.attach(result, r.rows)
 	r.counts = countRows(r.rows)
 	timeline.SortRows(r.rows)
 	parsed := map[string]bool{}
@@ -302,6 +304,29 @@ func (r *timelineRun) parse(ctx context.Context) error {
 	timeline.Resolve(r.rows)
 	r.sessions = timeline.Summarise(r.rows, r.registry.Marks())
 	return nil
+}
+
+// attach settles the parent each group of a repeated id goes with
+// (timeline.Group): the first the filter keeps of the rows as the parsers
+// gave them, before deduplication, so a parent shown by its primary
+// store's copy still counts. That pass counts nothing; the filter then
+// runs for real over the rows as attached. Without a filter every group
+// goes with its first parent.
+func (r *timelineRun) attach(result parsers.Result, rows []timeline.Row) []timeline.Row {
+	if !timeline.Grouped(rows) {
+		return rows
+	}
+	var choice timeline.Choice
+	if r.filter.Active() {
+		probe := *r.filter
+		given := make([]timeline.Row, 0, len(result.Primary)+len(result.Secondary))
+		given = append(given, result.Primary...)
+		for _, secondary := range result.Secondary {
+			given = append(given, secondary.Row)
+		}
+		choice = timeline.Choose(probe.Apply(given))
+	}
+	return timeline.Attach(rows, choice)
 }
 
 // countRows returns the number of rows per agent and turn type.

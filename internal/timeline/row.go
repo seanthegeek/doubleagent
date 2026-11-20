@@ -75,6 +75,10 @@ type Row struct {
 	// Resolve writes out once the rows of the output are known; nil for a
 	// text that names none. It is no column.
 	Shared *SharedRefs `json:"-"`
+	// Group is the row's place among the rows of an id its store repeats
+	// (Group), which Attach settles once the filter's choice is known; nil
+	// for a row of no group. It is no column.
+	Group *GroupRef `json:"-"`
 }
 
 // Columns returns the field names of timeline.jsonl in order.

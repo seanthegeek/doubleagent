@@ -76,10 +76,16 @@ func (b *TextBuilder) Share(shared *SharedText, standIn string, pointer Pointer)
 		pointer: pointer})
 }
 
-// Set sets the row's text and references to what was added, the white
-// space at both ends of the full text left out (a reference whose text is
-// all white space there names nothing), and empties the builder.
+// Set sets the row's text and references to what was added (Text).
 func (b *TextBuilder) Set(row *Row) {
+	text := b.Text()
+	row.Text, row.Shared = text.Text, text.Shared
+}
+
+// Text returns the text and references of what was added, the white space
+// at both ends of the full text left out (a reference whose text is all
+// white space there names nothing), and empties the builder.
+func (b *TextBuilder) Text() RowText {
 	pieces := b.pieces
 	b.pieces = nil
 	for len(pieces) > 0 {
@@ -109,10 +115,11 @@ func (b *TextBuilder) Set(row *Row) {
 		refs = append(refs, SharedRef{Shared: piece.shared, Start: start, End: text.Len(),
 			Full: piece.text, Pointer: piece.pointer})
 	}
-	row.Text, row.Shared = text.String(), nil
+	built := RowText{Text: text.String()}
 	if refs != nil {
-		row.Shared = &refs
+		built.Shared = &refs
 	}
+	return built
 }
 
 // Pieces yields the row's text as it reads in full, in pieces: the text
@@ -148,9 +155,25 @@ func (r *Row) FullText() string {
 }
 
 // Matches reports whether pattern matches somewhere in the row's text as
-// it reads in full, whichever reference the output writes in full. A row
-// naming shared texts is read piece by piece, never copied.
+// it reads in full, whichever reference the output writes in full, or in
+// either of the texts of a parent's row whose text depends on the parent
+// its group goes with (Parent.Texts). A row naming shared texts is read
+// piece by piece, never copied.
 func (r *Row) Matches(pattern *regexp.Regexp) bool {
+	if r.Group != nil && r.Group.texts != nil {
+		for _, text := range r.Group.texts {
+			if (&Row{Text: text.Text, Shared: text.Shared}).matchesText(pattern) {
+				return true
+			}
+		}
+		return false
+	}
+	return r.matchesText(pattern)
+}
+
+// matchesText reports whether pattern matches somewhere in the row's text
+// as it reads in full.
+func (r *Row) matchesText(pattern *regexp.Regexp) bool {
 	if r.Shared == nil {
 		return pattern.MatchString(r.Text)
 	}
