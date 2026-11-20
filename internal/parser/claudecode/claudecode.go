@@ -49,6 +49,9 @@ var (
 // for the transcripts the desktop app keeps in the same format.
 type Reader struct {
 	parser.Base
+	// outputs holds, per session directory, the persisted tool outputs
+	// its transcripts named (outputsOf).
+	outputs map[outputsKey]map[string]*persistedFile
 }
 
 // NewReader returns a Reader whose rows carry base's agent.
