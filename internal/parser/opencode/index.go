@@ -34,7 +34,14 @@ type treeIndex struct {
 	// partsShown holds the message file that first showed each part
 	// directory, by the directory's entry, since a message id names one
 	// directory of parts.
-	partsShown map[parser.EntryKey]string
+	partsShown map[parser.EntryKey]shownBy
+}
+
+// shownBy is the message file that showed a part directory: its path on
+// disk, which tells it from a later file, and its source path, which a
+// later file's problem row names.
+type shownBy struct {
+	disk, original string
 }
 
 // projectFiles is one session directory's project directories, in name
@@ -81,7 +88,7 @@ type sessionKey struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string]*projectFiles{},
 		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
-		projectFiles: map[fileState]*sideRead{}, quietSides: map[fileState]jsonvalue.Value{}, partsShown: map[parser.EntryKey]string{}}
+		projectFiles: map[fileState]*sideRead{}, quietSides: map[fileState]jsonvalue.Value{}, partsShown: map[parser.EntryKey]shownBy{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,

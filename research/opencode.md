@@ -1510,8 +1510,8 @@ parser: message file could not be decoded
 parser: project file <projectID>.json could not be read (<reason>)
 parser: <file> is not a JSON object
 parser: database could not be read: <error>
-parser: <table> holds <n> rows repeating an earlier row's id; its parts are shown once
-parser: message <id> repeats the id of an earlier message file; its parts are shown with that file
+parser: <table> holds <n> rows repeating an earlier row's id, the first row <rowid> repeating row <rowid>; each id's parts are shown with its first row
+parser: message <id> repeats the id of an earlier message file; its parts are shown with <file>
 ```
 
 A session's `permission` array holding entries of neither rule shape (not objects, or objects
@@ -1522,12 +1522,14 @@ rows, with the session and project and `source_line` the session's rowid
 The last two rows are for a message id that more than one record claims, which OpenCode never
 writes: the first is one row per table (`message` or `session_message`, `1 row` for one) after
 the database's other rows, with no session or time and `source_line` 0, counting the rows of an
-id whose parts an earlier row of it already showed; the second is a row of each later message
-file of the JSON trees, after its own rows, with `source_line` 1. A part directory, and a project
-file, is the one the path opens: on a disk that matches names in any letter case (the macOS and
-Windows default) message files whose ids are case spellings of one id name one part directory,
-whose parts the first of them shows, and sessions naming one project file in several spellings
-read it once.
+id whose parts an earlier row of it already showed and naming by rowid the first of them and the
+row whose parts it lacks; the second is a row of each later message file of the JSON trees, after
+its own rows, with `source_line` 1, `<file>` the source path of the first message file of the run
+that showed the parts, so the parts can be found when a filter leaves that file's rows out. A part
+directory, and a project file, is the one the path opens: on a disk that matches names in any
+letter case (the macOS and Windows default) message files whose ids are case spellings of one id
+name one part directory, whose parts the first of them shows, and sessions naming one project file
+in several spellings read it once.
 
 A database file that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

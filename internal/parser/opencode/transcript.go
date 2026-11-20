@@ -1,7 +1,7 @@
 package opencode
 
 import (
-	"strconv"
+	"fmt"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -72,31 +72,48 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 		where := origin{line: int(row.Rowid), time: parser.ColumnTime(row.Get("time_created"))}
 		s.owner.messageRows(s.artifact, s.scopeFor(identifier), message, where, found, s.options, failures, emit)
 	}
-	s.addRepeats("message", groups.repeats)
+	s.addRepeats("message", groups.repeated)
 	return covered, nil
 }
 
-// shownGroups holds the groups of parts already shown, by the rowid of a
-// group's first part row (each part row belongs to one message id's group),
-// and counts the message rows that met a group already shown.
+// shownGroups holds the rowid of the message row that showed each group of
+// parts, by the rowid of the group's first part row (each part row belongs
+// to one message id's group), and the message rows that met a group
+// already shown.
 type shownGroups struct {
-	shown   map[int64]bool
-	repeats int
+	shown    map[int64]int64
+	repeated repeats
+}
+
+// repeats counts the rows of a table that repeat an earlier row's id, and
+// keeps the rowids of the first of them and of the row it repeats.
+type repeats struct {
+	count, first, shownBy int64
+}
+
+// add counts the row at rowid repeating the row at shownBy.
+func (r *repeats) add(rowid, shownBy int64) {
+	if r.count == 0 {
+		r.first, r.shownBy = rowid, shownBy
+	}
+	r.count++
 }
 
 // addRepeats adds one problem for the rows of table that repeat an earlier
 // row's id and so give their rows without the id's parts, when there are
-// any. A message id is unique in OpenCode's tables, so a repeat is damage.
-func (s *store) addRepeats(table string, repeats int) {
-	if repeats == 0 {
+// any, naming the first of them and the row whose parts it lacks. A message
+// id is unique in OpenCode's tables, so a repeat is damage.
+func (s *store) addRepeats(table string, repeated repeats) {
+	if repeated.count == 0 {
 		return
 	}
-	rows := "1 row repeating"
-	if repeats > 1 {
-		rows = strconv.Itoa(repeats) + " rows repeating"
+	rows := "rows"
+	if repeated.count == 1 {
+		rows = "row"
 	}
-	s.failures = append(s.failures, failure{
-		message: table + " holds " + rows + " an earlier row's id; its parts are shown once"})
+	s.failures = append(s.failures, failure{message: fmt.Sprintf("%s holds %d %s repeating an earlier "+
+		"row's id, the first row %d repeating row %d; each id's parts are shown with its first row", table,
+		repeated.count, rows, repeated.first, repeated.shownBy)})
 }
 
 // markRecovered returns an emit that marks every row but a system row
@@ -134,14 +151,14 @@ func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row, groups *show
 	if len(group) == 0 {
 		return nil, nil
 	}
-	if groups.shown[group[0].Rowid] {
-		groups.repeats++
+	if shownBy, ok := groups.shown[group[0].Rowid]; ok {
+		groups.repeated.add(message.Rowid, shownBy)
 		return nil, nil
 	}
 	if groups.shown == nil {
-		groups.shown = map[int64]bool{}
+		groups.shown = map[int64]int64{}
 	}
-	groups.shown[group[0].Rowid] = true
+	groups.shown[group[0].Rowid] = message.Rowid
 	var found []part
 	var failures []failure
 	for _, row := range group {
@@ -178,7 +195,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	shown, repeats := map[string]bool{}, 0
+	shown, repeated := map[string]int64{}, repeats{}
 	for _, row := range rows {
 		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		if skip[identifier] {
@@ -192,10 +209,10 @@ func (s *store) v2Messages(skip map[string]bool) error {
 		message := parser.NonEmptyColumn(row.Get("id"))
 		if found := items[message]; len(found) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
 			data.Has("content") {
-			if shown[message] {
-				repeats++
+			if shownBy, ok := shown[message]; ok {
+				repeated.add(row.Rowid, shownBy)
 			} else {
-				shown[message] = true
+				shown[message] = row.Rowid
 				data.Set("content", jsonvalue.NewArray(found...))
 			}
 		}
@@ -206,7 +223,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 		s.owner.recordRows(s.artifact, s.scopeFor(identifier), name, data, int(row.Rowid),
 			parser.ColumnTime(row.Get("time_created")), s.options, s.emit)
 	}
-	s.addRepeats("session_message", repeats)
+	s.addRepeats("session_message", repeated)
 	return nil
 }
 
