@@ -361,7 +361,11 @@ type chat struct {
 	// first log item that reaches it and is read at most once.
 	joined map[string]bool
 	files  map[parser.EntryKey]bool
-	// work counts the message files read, which a test holds to one each.
+	// replies holds each history reply read as the agent's JSON response,
+	// by id: every agent item of the id that has not shown it reads it.
+	replies map[string]jsonvalue.Value
+	// work counts the message files read and the replies decoded, which
+	// tests hold to one each.
 	work   parser.Work
 	models parser.Tracker
 	// messages is the messages directory beside the chat, the zero
@@ -421,7 +425,8 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 	}
 	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), history: map[string]historyEntry{}, joined: map[string]bool{},
-		work: p.Work, models: parser.Tracker{}}
+		replies: map[string]jsonvalue.Value{},
+		work:    p.Work, models: parser.Tracker{}}
 	state.base.SessionID = fallbackID
 	content, ok := parser.FileBytes(artifact.DiskPath, &state.problems)
 	if !ok {
@@ -794,12 +799,9 @@ func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeli
 		made.Model = model
 		c.emit(made)
 	}
-	parsed := jsonvalue.NewNull()
-	if current.hasMessage {
-		parsed = parseAI(current.body)
-	}
 	text := headlineText(current.kvps)
 	if text == "" {
+		parsed := c.reply(current)
 		if parsed.IsEmpty() && current.hasMessage {
 			text = contentText(current.body)
 		} else if !parsed.IsEmpty() {
@@ -817,6 +819,22 @@ func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeli
 		made.Model = model
 		c.emit(made)
 	}
+}
+
+// reply returns the history reply an agent item joins, read as the agent's
+// JSON response (parseAI), else null: it is decoded once per id, since any
+// number of items of the id may join it before one shows it.
+func (c *chat) reply(current *logItem) jsonvalue.Value {
+	if !current.hasMessage || current.body.IsNull() {
+		return jsonvalue.NewNull()
+	}
+	if parsed, ok := c.replies[current.itemID]; ok {
+		return parsed
+	}
+	c.work.Add("history replies decoded", 1)
+	parsed := parseAI(current.body)
+	c.replies[current.itemID] = parsed
+	return parsed
 }
 
 // toolLogRows emits the call and the result of a tool log item.

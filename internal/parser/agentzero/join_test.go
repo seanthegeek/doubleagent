@@ -3,6 +3,7 @@ package agentzero
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -145,6 +146,66 @@ func TestAHistoryMessageJoinsTheFirstLogItemThatShowsIt(t *testing.T) {
 			}
 			if !slices.Equal(got, test.want) {
 				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+// replyChat returns a chat.json whose history holds an assistant reply
+// "a", a JSON object of about size bytes that names no headline or
+// thoughts, and whose log names it in items agent items, each with kvps.
+func replyChat(items, size int, kvps string) string {
+	reply := jsonvalue.NewString(`{"tool_name":"","pad":"` + strings.Repeat("X", size) + `"}`).JSON()
+	history := `{"_cls":"History","current":{"_cls":"Topic","messages":[` +
+		`{"_cls":"Message","id":"a","ai":true,"content":` + reply + `}]}}`
+	item := `{"type":"agent","id":"a","content":"own","kvps":` + kvps + `},`
+	return `{"id":"ctx","agents":[{"number":0,"history":` + jsonvalue.NewString(history).JSON() +
+		`}],"log":{"logs":[` + strings.TrimSuffix(strings.Repeat(item, items), ",") + `]}}`
+}
+
+// An assistant reply that no agent item shows (it has no headline, or the
+// items carry their own) is read as the agent's JSON response at most once
+// for its id, however many items name it, and not at all while the items
+// carry their own headline: the decodes are counted, and so are the bytes
+// the parse allocates, which grow with the items, not with the items times
+// the reply.
+func TestAHistoryReplyIsDecodedOncePerID(t *testing.T) {
+	const size = 50_000
+	tests := []struct {
+		name, kvps string
+		decodes    int
+	}{
+		{"items without a headline read the reply once", `{}`, 1},
+		{"items with their own headline never read it", `{"headline":"own headline"}`, 0},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			allocated := map[int]uint64{}
+			for _, items := range []int{20, 80} {
+				home := t.TempDir()
+				const rel = "agent-zero/usr/chats/ctx/chat.json"
+				writeFile(t, home, rel, replyChat(items, size, test.kvps))
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+					Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+				subject := New()
+				subject.Work = parser.CountingWork()
+				rows := 0
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				if err := subject.Parse(artifact, parser.Options{}, func(timeline.Row) { rows++ }); err != nil {
+					t.Fatal(err)
+				}
+				runtime.ReadMemStats(&after)
+				allocated[items] = after.TotalAlloc - before.TotalAlloc
+				if decodes := subject.Work.Count("history replies decoded"); decodes != test.decodes || rows != items+1 {
+					t.Errorf("%d items gave %d rows after %d decodes, want %d rows after %d", items, rows,
+						decodes, items+1, test.decodes)
+				}
+			}
+			// One more decode per item would add 60 copies of the reply.
+			if growth := allocated[80] - allocated[20]; growth > 10*size {
+				t.Errorf("60 more items allocated %d more bytes, more than ten copies of the %d-byte reply",
+					growth, size)
 			}
 		})
 	}
