@@ -336,3 +336,29 @@ func TestEarlierCutsAreTheBoundBeforeEachMarkShapedText(t *testing.T) {
 		})
 	}
 }
+
+func TestALongProjectPathIsCutBeforeTheURLItsSpellingKeepsAsWritten(t *testing.T) {
+	point := CarriedLimit - len(cutMark(10_000))
+	head := `C:\p\https://h/`
+	value := head + filler(point-5-len(head)) + fakeSecret
+	value += filler(10_000-len(value)-len("?token=QXQXQXQXQX")) + "?token=QXQXQXQXQX"
+	for _, placeholder := range []string{secrets.DefaultPlaceholder, ""} {
+		t.Run("placeholder "+placeholder, func(t *testing.T) {
+			produce := func(artifact *input.Artifact, emit Emit) {
+				SecretText(artifact, fakeSecret)
+				emit(timeline.Row{ProjectPath: value, TurnType: timeline.TurnUser, Text: "x"})
+			}
+			_, _, shown := carriedRun(secrets.Setting{}, produce, nil)
+			got := shown[0].ProjectPath
+			if want := `C:\p\` + cutMark(10_000); got != want || timeline.CanonicalProjectPath(got) != got {
+				t.Errorf("project path %q, want %q, its own spelling", tail(got), want)
+			}
+			rows, sessions, _ := carriedRun(secrets.Setting{Withhold: true, Placeholder: placeholder}, produce, nil)
+			for _, text := range writtenStrings(rows, sessions) {
+				if strings.ContainsAny(text, "QX") {
+					t.Errorf("an output string shows part of a secret: %q", tail(text))
+				}
+			}
+		})
+	}
+}

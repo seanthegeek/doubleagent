@@ -79,6 +79,16 @@ func canonicalAfter(head, path string, from int) string {
 	return head + joined + `\` + path[kept:]
 }
 
+// KeptAsWrittenFrom returns where CanonicalProjectPath keeps path, in its
+// canonical form, as written: the element of its first URL when it is a
+// Windows form holding a URL credential (asWrittenFrom), else its length.
+func KeptAsWrittenFrom(path string) int {
+	if !IsWindowsPath(path) {
+		return len(path)
+	}
+	return asWrittenFrom(path)
+}
+
 // asWrittenFrom returns where path keeps its text as written: at the start
 // of the element (after the last slash or backslash) that holds its first
 // scheme separator, when the path holds a URL credential the output
