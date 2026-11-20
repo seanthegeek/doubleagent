@@ -66,7 +66,8 @@ func (w *writer) bash(current *session, line int, timestamp string, record, mess
 }
 
 // assistant emits the rows of an assistant message: its `model:` row when
-// the model is new, its blocks, and an error or abort.
+// the model is new, its blocks, and an error or abort. A content that is
+// neither text nor an array of blocks is a problem, not silence.
 func (w *writer) assistant(current *session, line int, timestamp string, message jsonvalue.Value) {
 	requested := parser.Text(message.Get("model"))
 	model := cmp.Or(parser.Text(message.Get("responseModel")), requested, current.model)
@@ -85,14 +86,16 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
 			jsonvalue.Member{Key: "text", Value: content}))
 	}
+	var problems parser.Problems
 	if content.IsArray() {
-		var problems parser.Problems
 		for _, block := range parser.EntriesOfKind(content, "content", jsonvalue.Object, line, &problems) {
 			w.block(current, line, timestamp, block, model)
 		}
-		for _, problem := range problems {
-			w.bad(current, problem.Line, problem.Message, timestamp)
-		}
+	} else {
+		parser.ArrayMember(content, "content", line, &problems)
+	}
+	for _, problem := range problems {
+		w.bad(current, problem.Line, problem.Message, timestamp)
 	}
 	stop := message.Get("stopReason")
 	errorMessage := message.Get("errorMessage")
