@@ -43,6 +43,27 @@ CREATE TABLE hosted_room_events (room_id TEXT NOT NULL, seq INTEGER NOT NULL,
 INSERT INTO hosted_room_events VALUES ('r1', 1, 'e1', 'message', '{}', '{}', 1767323045.0);
 """
 
+# Two sessions rows of one id, an old one and a new one five months later, each with its own
+# project, branch and model; a usage row first seen a day after the new row and one with no
+# first_seen; a message between the rows and one after them; and a deletion fence after those.
+REPEATED_SESSION_ROWS = """
+PRAGMA page_size = 512;
+CREATE TABLE sessions (id TEXT, source TEXT NOT NULL, model TEXT, started_at REAL NOT NULL,
+  title TEXT, cwd TEXT, git_branch TEXT);
+CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,
+  role TEXT NOT NULL, content TEXT, timestamp REAL NOT NULL);
+CREATE TABLE session_model_usage (session_id TEXT NOT NULL, model TEXT NOT NULL,
+  billing_provider TEXT, task TEXT, first_seen REAL);
+CREATE TABLE state_meta (key TEXT PRIMARY KEY, value TEXT);
+INSERT INTO sessions VALUES ('s1', 'cli', 'model-old', 1767225600.0, 'old', '/proj/old', 'branch-old');
+INSERT INTO sessions VALUES ('s1', 'cli', 'model-new', 1780272000.0, 'new', '/proj/new', 'branch-new');
+INSERT INTO session_model_usage VALUES ('s1', 'usage-dated', NULL, NULL, 1780358400.0);
+INSERT INTO session_model_usage VALUES ('s1', 'usage-undated', NULL, NULL, NULL);
+INSERT INTO messages (session_id, role, content, timestamp) VALUES ('s1', 'user', 'early message', 1769904000.0);
+INSERT INTO messages (session_id, role, content, timestamp) VALUES ('s1', 'assistant', 'late message', 1780444800.0);
+INSERT INTO state_meta VALUES ('gateway.retired_session.v1.s1', '{"retired_at": 1780531200.0}');
+"""
+
 
 def repeated_session(count: int) -> str:
     """Return a state.db with count sessions rows of one id and count usage rows of it."""
@@ -90,6 +111,7 @@ DATABASES = {
     "repeated_session_id_40.db": repeated_session(40),
     "repeated_response_id_10.db": repeated_response(10),
     "repeated_response_id_40.db": repeated_response(40),
+    "repeated_session_rows.db": REPEATED_SESSION_ROWS,
 }
 
 

@@ -1529,7 +1529,12 @@ to a model already used is not visible. A session with no such rows gets one
 `sessions.model` ([Model usage](#model-usage)). The session id is the table's key, so a second
 `sessions` row of one id is damage: the usage rows follow only the first row of the id by
 `started_at`, and each later row of the id is read as a session with no usage rows, adding to one
-problem row for the table ([Bad-line rows](#bad-line-rows)).
+problem row for the table ([Bad-line rows](#bad-line-rows)). The usage rows, and the id's
+messages, deletion fences and the problem rows of its messages, take `project_path`,
+`git_branch` and `model` (a usage row and a model-switch marker keep their own model), and a
+usage row with no `first_seen` its time, from the first row of the id by `started_at` that
+`--since`, `--until` and `--match` keep, else from its first row
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
 
 Model-switch markers, `system`, in message order: each `messages` row with
 `display_kind = 'model_switch'` is one row `model: <old> -> <model> provider=<provider>` at the

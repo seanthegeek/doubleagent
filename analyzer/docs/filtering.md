@@ -24,6 +24,11 @@ pattern over the row text is set with `--match`:
   rows name is searched in full in each of them, although only the first
   row kept holds it and the later ones a pointer to that row
   ([A long text that many rows name](output.md#timelinejsonl)).
+- The rows of an id a store repeats, which only damage or an edit writes,
+  are shown once, with the attributes of the first stored row of the id
+  that the window and the patterns keep
+  ([Rows of a repeated id](output.md#timelinejsonl)), so a row of the id
+  outside the window does not take the rows of the id with it.
 - `--match` applies after the time window. `sessions.jsonl` is summarised
   from the rows that are kept, so its counts and first and last timestamps
   describe the filtered timeline, not the whole session.

@@ -41,10 +41,12 @@ func rowObject(row sqlitefile.Row) jsonvalue.Value {
 }
 
 // recordError is a problem of one stored record, reported after the file's
-// other rows under its session and project.
+// other rows under its session and project; member says the project is
+// the session's, not the record's own.
 type recordError struct {
 	sessionID, project string
 	problem            parser.Problem
+	member             bool
 }
 
 // stateReader reads one state.db.
@@ -54,9 +56,12 @@ type stateReader struct {
 	handle   *sqlitefile.Database
 	tables   parser.Tables
 	sessions map[string]jsonvalue.Value
-	usage    map[string][]jsonvalue.Value
-	errors   []recordError
-	emit     parser.Emit
+	// groups holds the group of each session id the sessions table
+	// repeats (timeline.Group).
+	groups map[string]*timeline.Group
+	usage  map[string][]jsonvalue.Value
+	errors []recordError
+	emit   parser.Emit
 }
 
 // parseDatabase emits the rows of state.db or a snapshot of it: sessions,
@@ -71,7 +76,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	}
 	defer handle.Close()
 	reader := &stateReader{parser: p, artifact: artifact, handle: handle,
-		sessions: map[string]jsonvalue.Value{}, emit: emit}
+		sessions: map[string]jsonvalue.Value{}, groups: map[string]*timeline.Group{}, emit: emit}
 	if err := reader.rows(options); err != nil {
 		emit(p.system(artifact, 0, noSession(), parser.ProblemPrefix+parser.DatabaseError(err)))
 	}
@@ -119,6 +124,7 @@ func (s *stateReader) rows(options parser.Options) error {
 		}
 	}
 	reader := s.parser.newMessageReader(s.artifact, options, s.usage, s.emit)
+	reader.groups = s.groups
 	err = s.each("messages", false, nil, []string{"timestamp", "id"}, func(message jsonvalue.Value) error {
 		sessionID := parser.Text(message.Get("session_id"))
 		session, ok := s.sessions[sessionID]
@@ -135,29 +141,48 @@ func (s *stateReader) rows(options parser.Options) error {
 		return err
 	}
 	for _, entry := range s.errors {
-		parser.EmitAll(s.emit, s.parser.ErrorRows(s.artifact, parser.Problems{entry.problem},
-			entry.sessionID, entry.project))
+		for _, row := range s.parser.ErrorRows(s.artifact, parser.Problems{entry.problem}, entry.sessionID,
+			entry.project) {
+			if group := s.groups[entry.sessionID]; entry.member && group != nil {
+				group.Member(&row, timeline.TakeProject)
+			}
+			s.emit(row)
+		}
 	}
 	return nil
 }
 
-// readSessions emits the rows of the sessions table by started_at. An id's
-// usage rows give its model rows once, after its first row: the id is the
-// table's key, so a repeat is damage, and each later row of the id gives its
-// model from its own model column and the table one problem row.
+// readSessions emits the rows of the sessions table by started_at. The id
+// is the table's key, so a repeat is damage: each row of a repeated id is a
+// parent of the id's group (timeline.Group), and the id's usage rows,
+// messages and deletion fences its members, shown once with the project,
+// branch and model of the row the group goes with. The usage rows give
+// their model rows after the id's first row, each later row its model from
+// its own model column, and the table one problem row.
 func (s *stateReader) readSessions() error {
-	seen, walked, repeats := parser.Tracker{}, map[string]bool{}, 0
+	var sessions []jsonvalue.Value
+	counts := map[string]int{}
 	err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
+		sessions = append(sessions, session)
+		counts[parser.Text(session.Get("id"))]++
+		return nil
+	})
+	seen, walked, repeats := parser.Tracker{}, map[string]bool{}, 0
+	for _, session := range sessions {
 		identifier := parser.Text(session.Get("id"))
-		s.sessions[identifier] = session
+		if !walked[identifier] {
+			s.sessions[identifier] = session
+			if counts[identifier] > 1 {
+				s.groups[identifier] = timeline.NewGroup()
+			}
+		}
 		repeated := walked[identifier] && len(s.usage[identifier]) > 0
 		if repeated {
 			repeats++
 		}
 		walked[identifier] = true
 		s.sessionRows(session, seen, repeated)
-		return nil
-	})
+	}
 	if repeats > 0 {
 		rows := "1 row repeating"
 		if repeats > 1 {
@@ -265,6 +290,10 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker, 
 			parser.Labelled("parent=", session.Get("parent_session_id")),
 			parser.Labelled("end=", session.Get("end_reason")), archived, imported)))
 	start.TimestampUTC = timeutil.FromValue(session.Get("started_at"))
+	if group := s.groups[start.SessionID]; group != nil {
+		// The rows copied from the start row are this parent's rows too.
+		group.Parent(&start)
+	}
 	s.emit(start)
 	s.modelRows(session, start, seen, repeated)
 	source := parser.Text(session.Get("source"))
@@ -311,8 +340,14 @@ func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, see
 		}
 		row := copyRow(start, text, model)
 		row.SourceLine = lineNumber(usage.Get("_rowid"))
-		row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(usage.Get("first_seen")),
-			start.TimestampUTC)
+		row.TimestampUTC = timeutil.FromValue(usage.Get("first_seen"))
+		takes := timeline.TakeProject | timeline.TakeBranch
+		if row.TimestampUTC == "" {
+			row.TimestampUTC, takes = start.TimestampUTC, takes|timeline.TakeTime
+		}
+		if group := s.groups[row.SessionID]; group != nil {
+			group.Member(&row, takes)
+		}
 		s.emit(row)
 	}
 }
@@ -361,6 +396,7 @@ func (s *stateReader) retiredRows() error {
 		if err != nil {
 			s.addError(sessionID, projectOf(session), record.Get("_rowid"), "unparseable record "+
 				record.Get("_rowid").Text()+" (state_meta.value: "+err.Error()+")", parser.Text(record.Get("value")))
+			s.errors[len(s.errors)-1].member = true
 			return nil
 		}
 		sweep := ""
@@ -370,6 +406,9 @@ func (s *stateReader) retiredRows() error {
 		deleted := s.parser.system(s.artifact, int(row.Rowid), session, "session deleted: "+sessionID+
 			sweep+" (from state.db state_meta gateway.retired_session.v1, retired_at)")
 		deleted.TimestampUTC = timeutil.FromValue(value.Get("retired_at"))
+		if group := s.groups[sessionID]; group != nil {
+			group.Member(&deleted, timeline.TakeProject|timeline.TakeBranch|timeline.TakeModel)
+		}
 		s.emit(deleted)
 		return nil
 	})

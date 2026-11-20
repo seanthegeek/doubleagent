@@ -994,8 +994,11 @@ A `sessions.sqlite3` that cannot be read, or whose `-wal`, `-shm` or `-journal` 
 one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
 one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
 project path. A `sessions` table holding rows that repeat an earlier row's key, which nanobot
-never writes (the key is the table's primary key), gives the key's messages with its first row in
-`created_at` then key order; each later row of the key gives its own `session start:` row. When
+never writes (the key is the table's primary key), gives the key's messages once, after its first
+row in `created_at` then key order; each later row of the key gives its own `session start:` row.
+The messages take the preset `model` (until a `/model` switch) and the time (until a message
+carries one) of the first row of the key that `--since`, `--until` and `--match` keep, else of its
+first row ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). When
 the key has messages, which only its first row shows, one row after the database's other rows,
 with the workspace's project path, no session and `source_line` 0, counts the later rows (`1 row`
 for one):
