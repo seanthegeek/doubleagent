@@ -707,14 +707,20 @@ func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
 	}
 	if held, ok := c.history[current.itemID]; ok && current.itemID != "" && !held.message.IsEmpty() {
 		current.message, current.hasMessage = held.message, true
-		// The message's text joins the first log item that names its id;
-		// a later one keeps the id and the model and reads its own content.
+		// The message's text joins the first log item of its id that shows
+		// it (shown marks it); a later one keeps the id, the model and the
+		// tool name and reads its own content.
 		if !c.joined[current.itemID] {
-			c.joined[current.itemID] = true
 			current.body = held.message.Get("content")
 		}
 	}
 	return current
+}
+
+// shown records that the history message of the item's id has been
+// written into a row, so no later item of the id shows it again.
+func (c *chat) shown(current *logItem) {
+	c.joined[current.itemID] = true
 }
 
 // logRows emits the rows of the log items; a message file that cannot be
@@ -749,6 +755,7 @@ func (c *chat) userLogRow(current *logItem, row func(turn, text string) timeline
 	text := contentText(current.content)
 	if current.body.IsObject() && current.body.Has("user_message") {
 		text = contentText(current.body.Get("user_message"))
+		c.shown(current)
 	}
 	if attachments := current.kvps.Get("attachments"); attachments.IsArray() && attachments.Len() > 0 {
 		names := make([]string, 0, attachments.Len())
@@ -775,11 +782,15 @@ func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeli
 		parsed = parseAI(current.body)
 	}
 	text := headlineText(current.kvps)
-	if text == "" && !parsed.IsEmpty() {
-		text = headlineText(parsed)
-	}
-	if text == "" && current.hasMessage && parsed.IsEmpty() {
-		text = contentText(current.body)
+	if text == "" {
+		if parsed.IsEmpty() && current.hasMessage {
+			text = contentText(current.body)
+		} else if !parsed.IsEmpty() {
+			text = headlineText(parsed)
+		}
+		if text != "" {
+			c.shown(current)
+		}
 	}
 	if text == "" {
 		text = contentText(current.content)
@@ -793,7 +804,8 @@ func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeli
 
 // toolLogRows emits the call and the result of a tool log item.
 func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	name := parser.TextOr(parser.FirstNonEmpty(current.kvps.Get("_tool_name"), current.body.Get("tool_name")), current.kind)
+	name := parser.TextOr(parser.FirstNonEmpty(current.kvps.Get("_tool_name"),
+		current.message.Get("content").Get("tool_name")), current.kind)
 	toolID := current.itemID
 	if toolID == "" {
 		toolID = "log:" + strconv.Itoa(current.line)
@@ -807,6 +819,9 @@ func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timelin
 	}
 	if result == "" && current.body.IsObject() && current.body.Has("tool_result") {
 		result = contentText(current.body.Get("tool_result"))
+	}
+	if result != "" {
+		c.shown(current)
 	}
 	if result == "" {
 		result = contentText(current.content)

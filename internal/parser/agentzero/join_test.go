@@ -94,3 +94,58 @@ func TestAMessageFileNamedTwiceIsReadOnce(t *testing.T) {
 		t.Errorf("got %q after %d reads, want %q after one", got, work.Count("message files read"), want)
 	}
 }
+
+// joinChat returns a chat.json whose history holds a user message "u" and
+// a tool message "t", each with its text in the history, and whose log is
+// logs.
+func joinChat(logs string) string {
+	history := `{"_cls":"History","current":{"_cls":"Topic","messages":[` +
+		`{"_cls":"Message","id":"u","ai":false,"content":{"user_message":"HISTORY-USER-TEXT"}},` +
+		`{"_cls":"Message","id":"t","ai":false,"content":{"tool_name":"x","tool_result":"HISTORY-TOOL-RESULT"}}]}}`
+	return `{"id":"ctx","agents":[{"number":0,"history":` + jsonvalue.NewString(history).JSON() +
+		`}],"log":{"logs":[` + logs + `]}}`
+}
+
+// A history message's text joins the first log item of its id that shows
+// it, so an item of another kind naming the id first, which shows only its
+// own content, leaves the text to the next; the text is in exactly one
+// row, and every tool item of the id carries the history's tool name.
+func TestAHistoryMessageJoinsTheFirstLogItemThatShowsIt(t *testing.T) {
+	tests := []struct {
+		name, logs string
+		want       []string
+	}{
+		{"a response naming a user message first leaves its text to the user item",
+			`{"type":"response","id":"u","content":"r"},{"type":"user","id":"u","content":"own"}`,
+			[]string{"assistant  r", "user  HISTORY-USER-TEXT"}},
+		{"an info item naming a tool message first leaves its result to the tool item",
+			`{"type":"info","id":"t","content":"i"},{"type":"tool","id":"t","content":"own"}`,
+			[]string{"system  info: i", "tool_use x {}", "tool_result x HISTORY-TOOL-RESULT"}},
+		{"a later item of the id shows its own content with the tool name",
+			`{"type":"tool","id":"t","content":"first"},{"type":"tool","id":"t","content":"own"}`,
+			[]string{"tool_use x {}", "tool_result x HISTORY-TOOL-RESULT", "tool_use x {}", "tool_result x own"}},
+		{"a tool item naming a user message leaves its text to the user item",
+			`{"type":"tool","id":"u","content":"own"},{"type":"user","id":"u","content":"later"}`,
+			[]string{"tool_use tool {}", "tool_result tool own", "user  HISTORY-USER-TEXT"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			const rel = "agent-zero/usr/chats/ctx/chat.json"
+			writeFile(t, home, rel, joinChat(test.logs))
+			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
+				Rel: rel, Home: &input.Home{DiskPath: home}}
+			var got []string
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+				if row.TurnType != timeline.TurnSystem || !strings.HasPrefix(row.Text, "chat ") {
+					got = append(got, row.TurnType+" "+row.ToolName+" "+row.Text)
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
