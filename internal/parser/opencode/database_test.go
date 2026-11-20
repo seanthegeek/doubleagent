@@ -88,12 +88,12 @@ func TestTheFirstLayoutOfThePermissionTableLeavesTheTranscriptWhole(t *testing.T
 // NULL too.
 func TestANullProjectIDMatchesNoProject(t *testing.T) {
 	nullProject := sqlitefile.Row{}
-	reading := &store{projects: map[string]sqlitefile.Row{}}
+	reading := &store{projects: map[string]string{}}
 	reading.addProject(nullProject)
 	if len(reading.projects) != 0 {
 		t.Errorf("a project with a NULL id was indexed: %v", reading.projects)
 	}
-	reading.projects[parser.ColumnKey(sqlitefile.Value{})] = nullProject
+	reading.projects[parser.ColumnKey(sqlitefile.Value{})] = "/w"
 	if got := reading.worktreeOf(sqlitefile.Value{}); got != "" {
 		t.Errorf("a NULL project_id found the worktree %q", got)
 	}
