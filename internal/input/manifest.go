@@ -249,6 +249,10 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 		return
 	}
 	collection := load.collection
+	if len(original) > MaxPathLength {
+		collection.addProblem(label + ": " + errTooLong.Error())
+		return
+	}
 	if size, _ := parseSize(row.Get("size")); size < 0 {
 		collection.addProblem(label + ": " + errNegativeSize.Error())
 		return
@@ -283,6 +287,18 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 // two bytes; the limit is twice the most such a path holds, room for any
 // real file, while a row's staged paths, one per component, stay few.
 const maxPathComponents = 4096
+
+// MaxPathLength is the longest path, in bytes, of a file the input makes an
+// artifact of: 4096, Linux's PATH_MAX, the longest path its file calls take
+// whole. A file's path and its part below the home are written in every
+// row the file gives (source_file) and in the text of many, so a longer
+// one, which a manifest's text or Windows' extended-length paths allow,
+// would cost its length once per row; such a file is a problem instead.
+const MaxPathLength = 4096
+
+// errTooLong is the reason a file whose path is longer than MaxPathLength
+// is not read.
+var errTooLong = errors.New("a path longer than " + strconv.Itoa(MaxPathLength) + " bytes, not read")
 
 // errTooDeep is the reason a row with a path deeper than maxPathComponents
 // is not read.

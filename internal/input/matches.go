@@ -93,6 +93,10 @@ func (c *Collection) addHits(ctx context.Context, home *Home, hits []hit) error 
 			if home.Original != "" {
 				original = trimRightSlash(home.Original) + "/" + relText
 			}
+			if len(original) > MaxPathLength {
+				c.recordProblem(c.describe(diskPath, errTooLong))
+				return
+			}
 			c.Artifacts = append(c.Artifacts, &Artifact{DiskPath: diskPath, Original: original,
 				Rel: relText, Agent: found.pattern.Agent, Home: home})
 		})

@@ -1392,7 +1392,11 @@ The parse ends with one `system` row per field or kind of value cut,
 times)`. Two values longer than the bound that agree in length and in the
 bytes kept become one value, so their rows group as one session or
 project; values of different lengths stay apart. The `text` of an event
-itself is never cut. A project path longer than the bound in
+itself is never cut. A file whose path is longer than 4,096 bytes, which
+a manifest's text or a Windows extended-length path allows, is not read
+at all, since its path would stand in the `source_file` and often the
+`text` of each of its rows: the run's problems name it, `<path>: a path
+longer than 4096 bytes, not read`. A project path longer than the bound in
 `collection.json` is not cut, so it does not match the cut path of its
 rows.
 

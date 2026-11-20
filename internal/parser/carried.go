@@ -3,6 +3,7 @@ package parser
 import (
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -11,11 +12,12 @@ import (
 // one place in the evidence gives that a parse copies onto many rows (a
 // field of a row other than its text, such as a project path, model or
 // session id, or a key or name written into the text of each row of a
-// list). 4096 bytes is the longest path Linux takes (PATH_MAX), far above
-// any identifier, path or key an agent writes, and it keeps the output a
-// fixed size per row however long the value: without it a value of n bytes
-// on m rows costs n times m.
-const CarriedLimit = 4096
+// list). It is the longest path the input reads a file at
+// (input.MaxPathLength, Linux's PATH_MAX), far above any identifier, path
+// or key an agent writes, and it keeps the output a fixed size per row
+// however long the value: without it a value of n bytes on m rows costs n
+// times m.
+const CarriedLimit = input.MaxPathLength
 
 // cutMark returns the text a cut value ends with, which gives the whole
 // value's length in bytes: " [cut from <length> bytes]". The length keeps
