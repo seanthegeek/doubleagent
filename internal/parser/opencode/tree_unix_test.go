@@ -44,3 +44,32 @@ func TestALegacySessionFileIsNeverFoundThroughALinkedDirectory(t *testing.T) {
 		})
 	}
 }
+
+// A project directory that cannot be listed but can be searched still
+// gives the session file at its place in name order.
+func TestASessionFileInAProjectDirectoryThatCannotBeListedIsStillFound(t *testing.T) {
+	directory := t.TempDir()
+	files := map[string]string{"p1/s.json": `{"directory": "/hidden"}`, "p2/s.json": `{"directory": "/listed"}`}
+	for rel, text := range files {
+		path := filepath.Join(directory, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hidden := filepath.Join(directory, "p1")
+	if err := os.Chmod(hidden, 0o100); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(hidden, 0o700) })
+	if _, err := os.ReadDir(hidden); err == nil {
+		t.Skip("this user can list a directory without read permission")
+	}
+	want := sessionByEveryDirectory(directory, "s").JSON()
+	got := newTreeIndex().session(directory, "s", parser.Work{}).JSON()
+	if got != want || got != `{"directory":"/hidden"}` {
+		t.Errorf("got %s, want %s, the first directory's file", got, want)
+	}
+}
