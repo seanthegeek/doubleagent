@@ -91,6 +91,9 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var problems parser.Problems
+	carried := parser.NewCarried(artifact)
+	// Each entry's row repeats the index's version.
+	version := carried.Cut("index version", getOr(data, "version", ""))
 	for i, entry := range entries.Items() {
 		if !entry.IsObject() {
 			problems.AddRaw(0, fmt.Sprintf("unparseable record %d (not a JSON object)", i+1),
@@ -104,10 +107,11 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 				parts = append(parts, name+"="+value.Text())
 			}
 		}
-		parts = append(parts, "(from .webui_session_index.json version "+getOr(data, "version", "")+")")
+		parts = append(parts, "(from .webui_session_index.json version "+version+")")
 		emit(p.settingRow(artifact, timeutil.FromValue(entry.Get("created_at")),
 			strings.Join(parts, " "), key))
 	}
+	carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
@@ -123,13 +127,16 @@ func (p *Parser) parsePairing(artifact *input.Artifact, emit parser.Emit) {
 	}
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
+	carried := parser.NewCarried(artifact)
 	for _, member := range parser.ObjectMember(data.Get("approved"), "approved", 0, &problems) {
+		channel := carried.Cut("approved channel", member.Key)
 		for _, sender := range parser.ArrayMember(member.Value, "approved."+member.Key, 0, &problems) {
 			emit(p.settingRow(artifact, timestamp, "permission setting: pairing.approved."+
-				member.Key+"="+parser.SettingValue(sender)+" (from "+artifact.Rel+
+				channel+"="+parser.SettingValue(sender)+" (from "+artifact.Rel+
 				", file mtime)", ""))
 		}
 	}
+	carried.Report(0, &problems)
 	for _, info := range parser.MembersOfKind(data.Get("pending"), "pending", jsonvalue.Object, 0, &problems) {
 		status := ""
 		if value := info.Get("delivery_status"); !value.IsEmpty() {
@@ -199,14 +206,18 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		}
 	}
 	var problems parser.Problems
+	carried := parser.NewCarried(artifact)
 	tools := parser.ObjectOrEmptyMember(data.Get("tools"), "tools", 0, &problems)
 	add("tools.", tools, configToolKeys())
 	add("tools.exec.", parser.ObjectOrEmptyMember(tools.Get("exec"), "tools.exec", 0, &problems), configExecKeys())
 	// channels holds settings beside the channel objects (sendProgress), so
 	// a member that is not an object is not reported.
 	for _, member := range parser.ObjectMember(data.Get("channels"), "channels", 0, &problems) {
-		add("channels."+member.Key+".", member.Value, [][]string{{"allowFrom", "allow_from"}})
+		// Each allowFrom entry's row repeats the channel's name.
+		add("channels."+carried.Cut("channel name", member.Key)+".", member.Value,
+			[][]string{{"allowFrom", "allow_from"}})
 	}
+	carried.Report(0, &problems)
 	timestamp := parser.FileMtime(artifact)
 	for _, setting := range settings {
 		entries := []jsonvalue.Value{setting.Value}
