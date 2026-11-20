@@ -40,9 +40,11 @@ func (e *Error) Unwrap() error { return e.Err }
 // errExtraData is the cause of an error for text after a whole document.
 var errExtraData = errors.New("extra data after the value")
 
-// maxDepth is how deep arrays and objects may nest. A value deeper than
-// this is refused, so the writer, Equal and IsEmpty, which recurse once
-// per level, stay within a bounded stack; the number is the token
+// maxDepth is how deep arrays and objects of a decoded document may nest.
+// A document deeper than this is refused, so the writer (JSON,
+// IndentedJSON, MarshalJSON and Text) and Equal, which recurse once per
+// level, stay within a bounded stack for any value decoded; a value built
+// with NewArray and NewObject is not held to it. The number is the token
 // reader's own limit where it has one, so both builds refuse the same
 // documents with the same error.
 const maxDepth = 10_000
