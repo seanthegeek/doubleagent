@@ -943,7 +943,9 @@ plan, and the parser is written from them.
      text longer than 4,096 bytes, and a key, name or path a parser copies
      into the text of many rows, is cut to 4,096 bytes with one `parser:`
      problem row per kind (`parser.Within` for the fields, `parser.Carried`
-     for the text); a parser never cuts one itself.
+     for the text); a parser never cuts one itself. A `Carried.Cut`
+     result goes into a row's text: in a field long enough for the kit
+     to cut again, it is left out whole.
    - **Permission rows.** Each per-call decision (approval, denial, "allow
      always", automatic) gets a `system` row beside the call, joined on
      `tool_use_id` when possible: `permission decision: <decision> ...`.

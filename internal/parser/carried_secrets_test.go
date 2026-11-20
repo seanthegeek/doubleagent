@@ -283,3 +283,56 @@ func plantedValue(length, offset int, secret string, shape uint8) string {
 	value := filler(place) + planted
 	return value + filler(max(0, length-len(value)))
 }
+
+func TestACarriedCutPutIntoAFieldIsLeftOutOfTheFieldsCutWhole(t *testing.T) {
+	point := CarriedLimit - len(cutMark(10_000))
+	value := filler(point-12) + fakeSecret + filler(10_000-(point-12)-len(fakeSecret))
+	for _, prefix := range []string{"pppppp", "ppp"} {
+		for _, placeholder := range []string{secrets.DefaultPlaceholder, ""} {
+			t.Run("prefix "+prefix+", placeholder "+placeholder, func(t *testing.T) {
+				var length int
+				produce := func(artifact *input.Artifact, emit Emit) {
+					SecretText(artifact, fakeSecret)
+					field := prefix + NewCarried(artifact).Cut("settings key", value) + "suffix-suffix-suffix-suffix"
+					length = len(field)
+					emit(timeline.Row{SessionID: field, TurnType: timeline.TurnSystem, Text: "x"})
+				}
+				_, _, shown := carriedRun(secrets.Setting{}, produce, nil)
+				if want := prefix + cutMark(length); shown[0].SessionID != want {
+					t.Errorf("shown %q, want %q", tail(shown[0].SessionID), want)
+				}
+				rows, sessions, _ := carriedRun(secrets.Setting{Withhold: true, Placeholder: placeholder}, produce, nil)
+				for _, text := range writtenStrings(rows, sessions) {
+					if strings.ContainsAny(text, "QX") {
+						t.Errorf("an output string shows part of the secret: %q", tail(text))
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestEarlierCutsAreTheBoundBeforeEachMarkShapedText(t *testing.T) {
+	long := strings.Repeat("a", CarriedLimit)
+	tests := []struct {
+		name  string
+		value string
+		want  [][2]int
+	}{
+		{"no mark", "plain text", nil},
+		{"a mark near the start reaches back to it", "ab [cut from 12 bytes] cd", [][2]int{{0, 22}}},
+		{"a mark reaches back the limit before its end", long + " [cut from 9 bytes]",
+			[][2]int{{19, CarriedLimit + 19}}},
+		{"a mark's reach starts at a character", "é" + long[:CarriedLimit-20] + " [cut from 9 bytes]",
+			[][2]int{{0, CarriedLimit + 1}}},
+		{"a mark without digits is no mark", "ab [cut from bytes] [cut from x bytes]", nil},
+		{"each of two marks", "a [cut from 1 bytes] [cut from 22 bytes]", [][2]int{{0, 20}, {0, 40}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := earlierCuts(test.value); !slices.Equal(got, test.want) {
+				t.Errorf("earlierCuts = %v, want %v", got, test.want)
+			}
+		})
+	}
+}

@@ -2,6 +2,8 @@ package parser
 
 import (
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
@@ -19,28 +21,65 @@ import (
 // times m.
 const CarriedLimit = input.MaxPathLength
 
+// markStart and markEnd are the text around the length in a cut's mark.
+const (
+	markStart = " [cut from "
+	markEnd   = " bytes]"
+)
+
 // cutMark returns the text a cut value ends with, which gives the whole
 // value's length in bytes: " [cut from <length> bytes]". The length keeps
-// apart two cut values that start alike but differ in length; two of one
-// length whose first bytes agree become one, which only values longer than
-// the limit can, so no row of an ordinary value is merged with another.
-// The mark starts with white space and holds no URL, as secrets.CutPoint
-// asks.
+// apart two cut values that start alike but differ in length. The mark
+// starts with white space and holds no URL, as secrets.CutPoint asks.
 func cutMark(length int) string {
-	return " [cut from " + strconv.Itoa(length) + " bytes]"
+	return markStart + strconv.Itoa(length) + markEnd
 }
 
 // cutValue returns value, longer than CarriedLimit, cut to at most
-// CarriedLimit bytes: its first bytes up to secrets.CutPoint, then
-// cutMark. The cut is recorded in recorder (secrets.Recorder.Cut, inText
-// when it stands in a row's text), so a secret the cut runs through is
-// withheld whole, and the same value always gives the same text.
+// CarriedLimit bytes: its first bytes up to secrets.CutPoint, which keeps
+// whole or leaves out each URL credential and each earlier cut it holds
+// (earlierCuts), then cutMark. The cut is recorded in recorder
+// (secrets.Recorder.Cut, inText when it stands in a row's text), so a
+// secret the cut runs through is withheld whole, and the same value always
+// gives the same text.
 func cutValue(recorder *secrets.Recorder, value string, inText bool) string {
 	mark := cutMark(len(value))
-	kept := secrets.CutPoint(value, CarriedLimit-len(mark))
+	kept := secrets.CutPoint(value, CarriedLimit-len(mark), earlierCuts(value))
 	written := value[:kept] + mark
 	recorder.Cut(value, written, kept, inText)
 	return written
+}
+
+// earlierCuts returns the spans of value that may hold the text written
+// for a value cut before (a Carried.Cut result a parser put into a field):
+// for each text shaped like a mark, any length in it, the CarriedLimit
+// bytes up to its end, from the start of a character. A cut keeps each
+// whole or leaves it out, so the output still finds the end of the earlier
+// cut that it withholds from a secret's start. Only the first twice
+// CarriedLimit bytes are read: a later span starts after any cut point.
+func earlierCuts(value string) [][2]int {
+	window := value[:min(len(value), 2*CarriedLimit)]
+	var spans [][2]int
+	for from := 0; ; {
+		found := strings.Index(window[from:], markStart)
+		if found < 0 {
+			return spans
+		}
+		digits := from + found + len(markStart)
+		end := digits
+		for end < len(window) && '0' <= window[end] && window[end] <= '9' {
+			end++
+		}
+		if end > digits && strings.HasPrefix(window[end:], markEnd) {
+			end += len(markEnd)
+			start := max(0, end-CarriedLimit)
+			for start > 0 && !utf8.RuneStart(value[start]) {
+				start--
+			}
+			spans = append(spans, [2]int{start, end})
+		}
+		from = digits
+	}
 }
 
 // CarriedProblem returns the problem text of a carried value cut n times:
