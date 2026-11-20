@@ -85,7 +85,8 @@ func earlierCuts(value string) [][2]int {
 }
 
 // CarriedProblem returns the problem text of a carried value cut n times:
-// "<name> longer than 4096 bytes, cut to 4096 bytes (<n> times)".
+// "<name> longer than 4096 bytes, cut to 4096 bytes (<n> times)", or
+// "(1 time)" for one.
 func CarriedProblem(name string, n int) string {
 	times := " times)"
 	if n == 1 {

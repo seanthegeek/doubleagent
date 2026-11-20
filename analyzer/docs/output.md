@@ -1374,11 +1374,15 @@ alike. [searching.md](searching.md) has recipes.
 | `recovered` | string | `yes` when the row is an event (any `turn_type` but `system`) from a secondary source of its agent (see [Secondary sources](#secondary-sources)) that survived deduplication, so the agent's primary store does not hold the event; since 0.20.0 also the `user` and `assistant` rows the `cursor` parser takes from the `agentKv` prompt blobs of a conversation deleted in the editor, which the editor's database still holds although the conversation's own records are gone; since 0.20.1 also the turns the `kiro` parser recovers from a conversation's checkpoint snapshots or tangent-mode main history, which the conversation's own history no longer holds. `""` for every other row, including every `system` row of a secondary source (an index header, a thread record, a snapshot, a session-start or permission row, a `parser:` problem), which describes the source or the session rather than a turn the primary store lost. Since analyzer 0.15.0. |
 
 **Carried values longer than 4,096 bytes.** Every field but `text` and
-`source_line`, and a key, name or path a parser copies from one place in
-the evidence into the `text` of many rows (a settings key written before
-each of its leaves, a group's name in each of its sessions' rows, the
-columns of a joined row), is at most 4,096 bytes, the longest path Linux
-takes. A longer one is cut: it keeps its first bytes, whole characters
+`source_line` is at most 4,096 bytes, the longest path Linux takes: the
+analyzer cuts each longer one, whichever parser wrote it. A key, name or
+path a parser copies from one place in the evidence into the `text` of
+more than one row (a settings key written before each of its leaves, a
+group's name in each of its sessions' rows, the columns of a joined row)
+is cut the same way, but only where the parser passes it through the
+cut; every parser is meant to, and nothing checks that it does, so a
+parser that copies such a value without it writes it whole into each
+row. A longer one is cut: it keeps its first bytes, whole characters
 only, and ends ` [cut from <length> bytes]`, `<length>` being the whole
 value's. No agent writes such a value, so ordinary evidence is never cut;
 the bound keeps a crafted file from multiplying one long value by many
@@ -1395,9 +1399,12 @@ exactly the URL credentials the whole value holds there, and under
 replaced like the rest of that secret. A cut also keeps whole or leaves
 out text that may be an earlier cut: each text shaped like the mark
 (` [cut from <digits> bytes]`) with the 4,096 bytes up to its end.
-The parse ends with one `system` row per field or kind of value cut,
-`parser: <field or kind> longer than 4096 bytes, cut to 4096 bytes (<n>
-times)`. Two values longer than the bound that agree in length and in the
+Each cut is counted in a `system` row, `parser: <field or kind> longer
+than 4096 bytes, cut to 4096 bytes (<n> times)`, or `(1 time)` for one:
+one row per field at the end of the parse, and one per kind of copied
+value for each group of rows the parser counts together, which is the
+whole parse or, for some parsers, one message or event, so the number of
+these rows grows no faster than the input. Two values longer than the bound that agree in length and in the
 bytes kept become one value, so their rows group as one session or
 project. Values of different lengths stay apart with one exception: a
 value of 4,096 bytes or fewer is written as it is, so one that already
