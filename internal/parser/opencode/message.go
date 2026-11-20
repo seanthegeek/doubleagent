@@ -48,17 +48,21 @@ func (b *partRows) add(where origin, timestamp, turn, text string) int {
 // messageRows emits the rows of one 1.x message and its parts: the model
 // and agent changes, the parts' rows with the user's text parts joined
 // into one row where the first of them was, the message's error, then a
-// `parser:` row per part that could not be decoded.
+// `parser:` row per part that could not be decoded. When the session gives
+// no project path the rows take the message's own path.cwd, which is
+// never kept for the session's other messages.
 func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message jsonvalue.Value,
 	where origin, parts []part, options parser.Options, failures []failure, emit parser.Emit) {
+	if scoped.projectPath == "" {
+		own := *scoped
+		own.projectPath = parser.Text(parser.ObjectOrEmpty(message.Get("path")).Get("cwd"))
+		scoped = &own
+	}
 	provider, modelID := messageRef(message)
 	builder := &partRows{owner: p, artifact: artifact, scoped: scoped, model: modelName(provider, modelID),
 		options: options}
 	times := parser.ObjectOrEmpty(message.Get("time"))
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("created")), where.time)
-	if scoped.projectPath == "" {
-		scoped.projectPath = parser.Text(parser.ObjectOrEmpty(message.Get("path")).Get("cwd"))
-	}
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, provider, modelID),
 		agentRowText(scoped.modes, scoped.sessionID, message.Get("agent"))} {
 		if text != "" {

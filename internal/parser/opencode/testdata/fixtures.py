@@ -127,6 +127,30 @@ INSERT INTO part VALUES ('prt_1', 'msg_1', 'ses_1', 1700000001000, 1700000001000
     '{"type":"text","text":"part 1"}');
 """
 
+# A 1.x session with no directory and no project whose messages ran in different directories,
+# and one that names none.
+MESSAGE_DIRECTORIES = """
+CREATE TABLE session (id text PRIMARY KEY, project_id text, directory text, title text,
+    time_created integer, time_updated integer);
+INSERT INTO session VALUES ('ses_1', NULL, NULL, 't', 1700000000000, 1700000000000);
+CREATE TABLE message (id text PRIMARY KEY, session_id text, time_created integer,
+    time_updated integer, data text);
+INSERT INTO message VALUES ('msg_1', 'ses_1', 1700000001000, 1700000001000,
+    '{"role":"assistant","path":{"cwd":"/a"}}');
+INSERT INTO message VALUES ('msg_2', 'ses_1', 1700000002000, 1700000002000,
+    '{"role":"assistant","path":{"cwd":"/b"}}');
+INSERT INTO message VALUES ('msg_3', 'ses_1', 1700000003000, 1700000003000,
+    '{"role":"assistant"}');
+CREATE TABLE part (id text PRIMARY KEY, message_id text, session_id text, time_created integer,
+    time_updated integer, data text);
+INSERT INTO part VALUES ('prt_1', 'msg_1', 'ses_1', 1700000001000, 1700000001000,
+    '{"type":"text","text":"from msg_1"}');
+INSERT INTO part VALUES ('prt_2', 'msg_2', 'ses_1', 1700000002000, 1700000002000,
+    '{"type":"text","text":"from msg_2"}');
+INSERT INTO part VALUES ('prt_3', 'msg_3', 'ses_1', 1700000003000, 1700000003000,
+    '{"type":"text","text":"from msg_3"}');
+"""
+
 DATABASES = {
     "no_permission_table.db": ONE_SESSION,
     # The first layout of the permission table, which every early 1.x database had.
@@ -142,6 +166,7 @@ DATABASES = {
     "repeated_v1_message_id_10.db": repeated_v1_message(10),
     "repeated_v1_message_id_40.db": repeated_v1_message(40),
     "caseless_message_id.db": CASELESS_MESSAGE_ID,
+    "message_directories.db": MESSAGE_DIRECTORIES,
 }
 
 

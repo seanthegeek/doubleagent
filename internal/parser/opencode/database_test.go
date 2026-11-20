@@ -33,6 +33,18 @@ func parseDatabase(t *testing.T, name string) []string {
 // setting says.
 func parseDatabaseWith(t *testing.T, name string, setting secrets.Setting) []string {
 	t.Helper()
+	var texts []string
+	for _, row := range parseDatabaseRows(t, name, setting) {
+		texts = append(texts, row.Text)
+	}
+	return texts
+}
+
+// parseDatabaseRows copies the named testdata database into a new home at
+// databaseRel and returns every row the parser gives for it in a run that
+// shows secrets as setting says.
+func parseDatabaseRows(t *testing.T, name string, setting secrets.Setting) []timeline.Row {
+	t.Helper()
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
@@ -48,12 +60,12 @@ func parseDatabaseWith(t *testing.T, name string, setting secrets.Setting) []str
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + databaseRel, Rel: databaseRel,
 		Agent: "opencode", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
-	var texts []string
-	err = parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) })
+	var rows []timeline.Row
+	err = parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) })
 	if err != nil {
 		t.Fatal(err)
 	}
-	return texts
+	return rows
 }
 
 func TestTheFirstLayoutOfThePermissionTableLeavesTheTranscriptWhole(t *testing.T) {
@@ -120,5 +132,20 @@ func TestARepeatedMessageIDShowsItsPartsOnce(t *testing.T) {
 					want[len(want)-1])
 			}
 		})
+	}
+}
+
+// A message's own working directory is the project of its rows when its
+// session gives none, and never that of another message of the session.
+func TestEachMessageTakesItsOwnWorkingDirectory(t *testing.T) {
+	want := map[string]string{"session start: t": "", "from msg_1": "/a", "from msg_2": "/b", "from msg_3": ""}
+	rows := parseDatabaseRows(t, "message_directories.db", secrets.Setting{})
+	if len(rows) != len(want) {
+		t.Fatalf("%d rows %+v, want %d", len(rows), rows, len(want))
+	}
+	for _, row := range rows {
+		if project, ok := want[row.Text]; !ok || row.ProjectPath != project {
+			t.Errorf("row %q has project %q, want %q", row.Text, row.ProjectPath, project)
+		}
 	}
 }
