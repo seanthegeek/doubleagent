@@ -187,6 +187,19 @@ MCP_AUTH_TEXT = """
 INSERT INTO ItemTable VALUES ('cloudAgentRepository.mcpAuthResolution', '"allow"');
 """
 
+# Plugin scopes whose file: path holds a URL with credentials: in a drive path, in a drive path
+# percent-encoded, in a network path and in a POSIX path.
+PLUGIN_SCOPES = "".join(
+    f"INSERT INTO ItemTable VALUES ('cursor.plugins.installedIds.team|{scope}',"
+    """ '[{"id": "p1", "sources": ["s"]}]');\n"""
+    for scope in (
+        "file:///c:/w/https://ef:gh@example.org/r",
+        "file:///c%3A/w/https%3A%2F%2Fab%3Acd%40example.com%2Fr",
+        "file://server/https://ij:kl@example.net/r",
+        "file:///srv/https://mn:op@example.com/r",
+    )
+)
+
 DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
@@ -204,6 +217,7 @@ DATABASES = {
     "repeated_bubbles.db": (repeated_bubbles(), ""),
     "item_kinds.db": ([], ITEM_KINDS),
     "mcp_auth_text.db": ([], MCP_AUTH_TEXT),
+    "plugin_scopes.db": ([], PLUGIN_SCOPES),
 }
 
 

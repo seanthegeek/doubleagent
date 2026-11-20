@@ -143,3 +143,62 @@ func TestACloudAgentsRepositoryURLShowsItsCredentialsUnlessWithheld(t *testing.T
 		})
 	}
 }
+
+// pluginRows returns the plugin rows of the plugin_scopes.db fixture under a
+// secrets setting, each project path given its one spelling as the run
+// gives every row's, and every row as timeline.jsonl writes it.
+func pluginRows(t *testing.T, setting secrets.Setting) []timeline.Row {
+	t.Helper()
+	artifact := stateArtifact(t, "plugin_scopes.db")
+	artifact.Home.Secrets = secrets.NewRecorder(setting)
+	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	var rows []timeline.Row
+	_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
+		New().state(artifact, newStore(database, parser.CountingWork()), parser.Options{}, func(row timeline.Row) {
+			row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
+			emit(row)
+		})
+		return nil
+	}, func(row timeline.Row) {
+		if strings.HasPrefix(row.Text, "plugin installed:") {
+			rows = append(rows, row)
+		}
+	})
+	return rows
+}
+
+// A plugin scope's file: path is the row's project path, as the run spells
+// every path, so a URL inside the path keeps its slashes and the output
+// finds its credentials there as in the row's text; only the encoded form
+// of a percent-encoded URL is left in the text, where it is no URL.
+func TestAURLCredentialInAPluginScopesPathIsWithheldInEveryField(t *testing.T) {
+	want := map[string]string{
+		"C:\\w\\https://ef:gh@example.org/r":      "C:\\w\\https://REDACTED@example.org/r",
+		"C:\\w\\https://ab:cd@example.com/r":      "C:\\w\\https://REDACTED@example.com/r",
+		"\\\\server\\https://ij:kl@example.net/r": "\\\\server\\https://REDACTED@example.net/r",
+		"/srv/https://mn:op@example.com/r":        "/srv/https://REDACTED@example.com/r",
+	}
+	shown := pluginRows(t, secrets.Setting{})
+	withheld := pluginRows(t, secrets.Setting{Withhold: true, Placeholder: secrets.DefaultPlaceholder})
+	if len(shown) != len(want) || len(withheld) != len(want) {
+		t.Fatalf("%d and %d plugin rows, want %d", len(shown), len(withheld), len(want))
+	}
+	credentials := []string{"ef:gh", "ab:cd", "ij:kl", "mn:op"}
+	for i, row := range shown {
+		written := withheld[i]
+		if got, ok := want[row.ProjectPath]; !ok || written.ProjectPath != got {
+			t.Errorf("project path %q is written %q, want %q", row.ProjectPath, written.ProjectPath, got)
+		}
+		for _, text := range written.Strings() {
+			for _, credential := range credentials {
+				if strings.Contains(text, credential) {
+					t.Errorf("a withheld run shows %q in %q", credential, text)
+				}
+			}
+		}
+	}
+}

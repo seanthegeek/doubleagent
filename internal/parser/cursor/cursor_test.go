@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every store are proved against the recorded cases by the
@@ -113,18 +114,22 @@ func TestRunModeNamesTheUIsLabel(t *testing.T) {
 	}
 }
 
-func TestURIPathWritesWindowsPathsWithBackslashes(t *testing.T) {
+// A plugin scope's path is written as the run spells every project path:
+// a drive or network path with backslashes, a POSIX path as it is.
+func TestAPluginScopesPathIsSpelledAsTheRunSpellsAProjectPath(t *testing.T) {
 	for _, test := range []struct{ name, uri, want string }{
-		{"a drive path", "file:///c%3A/Users/alice/proj/demo", "c:\\Users\\alice\\proj\\demo"},
+		{"a drive path with an escaped colon", "file:///c%3A/Users/alice/proj/demo", "C:\\Users\\alice\\proj\\demo"},
+		{"a drive path", "file:///c:/Users/alice/proj", "C:\\Users\\alice\\proj"},
+		{"a drive written as the host", "file://C:/proj/demo", "C:\\proj\\demo"},
+		{"localhost is this machine", "file://localhost/c:/proj", "C:\\proj"},
 		{"a POSIX path keeps its slashes", "file:///home/alice/my%20proj", "/home/alice/my proj"},
 		{"a network share keeps its server", "file://fileserver/share/proj",
 			"\\\\fileserver\\share\\proj"},
 		{"a server alone names no folder", "file://fileserver", ""},
-		{"localhost is this machine", "file://localhost/c:/proj", "c:\\proj"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := uriPath(test.uri); got != test.want {
-				t.Errorf("uriPath(%q) = %q, want %q", test.uri, got, test.want)
+			if got := timeline.CanonicalProjectPath(uriPath(test.uri)); got != test.want {
+				t.Errorf("the path of %q is spelled %q, want %q", test.uri, got, test.want)
 			}
 		})
 	}
