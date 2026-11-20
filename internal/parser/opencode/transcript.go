@@ -141,25 +141,26 @@ func (s *store) partLookup() (*sqlitefile.Lookup, error) {
 
 // messageParts returns the decoded parts of a message row, and a failure
 // per part whose data does not decode. A group of parts that groups has
-// shown already is not returned again but counted as a repeat, so a
-// message id repeated in many rows gives its parts once.
+// shown already is not gathered or returned again but counted as a repeat,
+// so a message id repeated in many rows gives its parts once.
 func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row, groups *shownGroups) ([]part, []failure) {
 	if parts == nil {
 		return nil, nil
 	}
-	group := parts.Find(message, "id")
-	if len(group) == 0 {
+	first, ok := parts.First(message, "id")
+	if !ok {
 		return nil, nil
 	}
-	if shownBy, ok := groups.shown[group[0].Rowid]; ok {
+	if shownBy, ok := groups.shown[first.Rowid]; ok {
 		groups.repeated.add(message.Rowid, shownBy)
 		return nil, nil
 	}
 	if groups.shown == nil {
 		groups.shown = map[int64]int64{}
 	}
-	groups.shown[group[0].Rowid] = message.Rowid
+	groups.shown[first.Rowid] = message.Rowid
 	var found []part
+	group := parts.Find(message, "id")
 	var failures []failure
 	for _, row := range group {
 		data, raw, err := decodeRecord(row.Get("data"))
