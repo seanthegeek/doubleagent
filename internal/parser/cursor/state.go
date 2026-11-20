@@ -378,8 +378,8 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 // the same source line under another session the blob names holds its
 // text.
 func blobPointer(holder *timeline.Row, _ bool) string {
-	return "[agentKv blob text shown in full above, in the row of source line " +
-		strconv.Itoa(holder.SourceLine) + " under another session it names]"
+	return "[agentKv blob text shown in full above, under another session at source line " +
+		strconv.Itoa(holder.SourceLine) + "]"
 }
 
 // blob emits the row of one JSON agentKv blob, whose text is shared, in a

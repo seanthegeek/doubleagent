@@ -175,8 +175,8 @@ func textBytes(t *testing.T, name string) int {
 // blobPointerText is the text of a later row of the agentKv blob of a
 // source line.
 func blobPointerText(line int) string {
-	return "[agentKv blob text shown in full above, in the row of source line " + strconv.Itoa(line) +
-		" under another session it names]"
+	return "[agentKv blob text shown in full above, under another session at source line " +
+		strconv.Itoa(line) + "]"
 }
 
 func TestABlobNamingSeveralDeletedConversationsIsWrittenOnce(t *testing.T) {
