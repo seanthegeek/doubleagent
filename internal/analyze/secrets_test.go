@@ -260,10 +260,10 @@ func TestDetectWithholdsOnlyURLCredentialsSinceItRunsNoParser(t *testing.T) {
 func TestEachCommandsNoSecretsHelpSaysWhatItReplaces(t *testing.T) {
 	flat := func(command string) string { return strings.Join(strings.Fields(usageOf(command)), " ") }
 	for command, test := range map[string]struct{ has, lacks []string }{
-		"detect": {[]string{"replace each credential of a URL", "detect reads no file's content",
+		"detect": {[]string{"replace each credential of a URL", "detect reads none of the agents' own files",
 			"is not replaced here"}, []string{"the parsers identify"}},
 		"timeline": {[]string{"the tokens, keys and reader errors the parsers identify"},
-			[]string{"detect reads no file's content"}},
+			[]string{"detect reads none of the agents' own files"}},
 	} {
 		for _, text := range test.has {
 			if !strings.Contains(flat(command), text) {
