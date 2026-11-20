@@ -118,6 +118,7 @@ INSERT INTO ItemTable VALUES ('cloudEnvironmentTemplate.githubRepos',
     '[{"url": "https://ci:s3cret@github.com/o/r", "type": "github"}]');
 """
 
+
 def deleted_header(ident: str) -> str:
     """Return the SQL of the header a delete leaves: archived, with no composerData."""
     return f"INSERT INTO composerHeaders (composerId, isArchived, value) VALUES ('{ident}', 1, '{{}}');\n"
@@ -229,7 +230,8 @@ def body(fts_rowid: int, text: str) -> str:
 
 def shared_body(count: int) -> str:
     """Return count conversations that all join one body of 10 bytes per conversation."""
-    return "".join(conversation(f"c{number}", 1) for number in range(count)) + body(1, "y" * (10 * count))
+    conversations = "".join(conversation(f"c{number}", 1) for number in range(count))
+    return conversations + body(1, "y" * (10 * count))
 
 
 # c1, c2 and c4 join full-text row 1, c3 joins row 2.
