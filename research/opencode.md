@@ -1255,7 +1255,7 @@ item; in a 1.x database, one per `part`, plus a `user` row per user message.
 | --- | --- |
 | timestamp_utc | 2.x `data.time.created`; 1.x part `data.time.start`, else `part.time_created` |
 | session_id | `session_v2.id`, else `session.id` |
-| project_path | `project.worktree`, fallback the session's `directory` |
+| project_path | the session's `directory`, else its project's `worktree` unless `/`, else, for a 1.x message's rows, that message's own `path.cwd` (`path.root`, then `path.cwd`, in the JSON trees), never another message's |
 | git_branch | empty |
 | turn_type | `user` → user; `text` → assistant; `reasoning` → thinking; `tool` → tool_use, plus tool_result once completed or failed; `shell` → tool_use and tool_result; 1.x `step-*` → system |
 | model | 2.x `model.providerID/id`; 1.x `data.providerID/modelID` |
