@@ -21,15 +21,17 @@ func TestANullFullTextKeyJoinsNoRow(t *testing.T) {
 	}
 }
 
-func TestAFullTextBodyIsWrittenOnceUnderTheFirstConversationThatJoinsIt(t *testing.T) {
+func TestAFullTextBodyIsWrittenInFullOnceAndPointedToByEachLaterConversation(t *testing.T) {
 	got := rowsOfTableCaseDatabase(t, "shared_bodies.db")
 	want := []string{
 		"conversation index: Title c1 source=local archived=0",
 		"cached conversation text (conversation-search.db, source=local): body one",
 		"conversation index: Title c2 source=local archived=0",
+		"cached conversation text (conversation-search.db, source=local): [shown in full above, in the row of source line 1]",
 		"conversation index: Title c3 source=local archived=0",
 		"cached conversation text (conversation-search.db, source=local): body two",
 		"conversation index: Title c4 source=local archived=0",
+		"cached conversation text (conversation-search.db, source=local): [shown in full above, in the row of source line 1]",
 		"parser: 2 conversations name a full-text row an earlier conversation names",
 	}
 	if !slices.Equal(got, want) {

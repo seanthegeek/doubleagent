@@ -311,7 +311,11 @@ func TestPastePlaceholdersExpandFromInlineTextOrTheCache(t *testing.T) {
 		"[Pasted text #5] [Pasted text #6]"
 	want := "a inline b cached� c [Pasted text #3] [Pasted text #4] [Pasted text #5] [Pasted text #6]"
 	var problems parser.Problems
-	if got := expandPastes(home, display, pasted, &problems); got != want || len(problems) != 0 {
+	var out timeline.TextBuilder
+	New().expandPastes(&out, &input.Home{}, home, display, pasted, &problems)
+	var row timeline.Row
+	out.Set(&row)
+	if got := row.FullText(); got != want || len(problems) != 0 {
 		t.Errorf("got %q, %v; want %q", got, problems, want)
 	}
 }

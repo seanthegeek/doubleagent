@@ -927,7 +927,7 @@ WORKTREE_PATTERN         (^|/)git-worktrees\.json$  (only under a claude-desktop
 
 Subagent files under a transcript's `<session>/subagents/` follow the claude-code layout and go
 through the same reader, so a persisted tool output that several transcripts of one session name is
-shown in full once, at its first reference in parse order, and the others point at that row
+shown in full once, in the first of those rows the timeline keeps, and the others point at that row
 ([Persisted output files in `claude-code.md`](claude-code.md#persisted-output-files)).
 
 Not parsed: LevelDB stores, logs, `spaces.json`, memory Markdown, `rpm/`, caches,

@@ -20,7 +20,10 @@ pattern over the row text is set with `--match`:
   `tool_use_id` (the same `source_file` for rows without a session id)
   inside the time window: its call, its result and the rows beside them,
   such as a `permission decision:` row. Only `text` is
-  searched; filter other fields with jq afterwards.
+  searched; filter other fields with jq afterwards. A long text that many
+  rows name is searched in full in each of them, although only the first
+  row kept holds it and the later ones a pointer to that row
+  ([A long text that many rows name](output.md#timelinejsonl)).
 - `--match` applies after the time window. `sessions.jsonl` is summarised
   from the rows that are kept, so its counts and first and last timestamps
   describe the filtered timeline, not the whole session.

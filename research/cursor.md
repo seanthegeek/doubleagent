@@ -2290,10 +2290,12 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `composerHeaders` row but no `composerData` (a deleted conversation) yield `user` and
   `assistant` rows from
   `content` (a `system` message as `system prompt: <content>`), with an empty `timestamp_utc`
-  and `source_line` the rowid. A blob naming several deleted conversations is written once, under
-  the first of them in the order the composers are read; each other one it names gets a `system`
-  row `recovered message: text under session <first id>, which the same agentKv blob names` at the
-  same rowid, so the blob's text is never repeated. Blobs of a conversation still present are not
+  and `source_line` the rowid. A blob naming several deleted conversations gives each of them its row,
+  and the rows share the blob's text: the timeline writes it in full in the first of them it keeps,
+  and in each later one
+  `[agentKv blob text shown in full above, in the row of source line <rowid> under another session it names]`
+  in its place (after `system prompt: ` for a `system` message), so the blob's text is never
+  repeated. Blobs of a conversation still present are not
   yielded: their user
   text is the whole prompt with its context, which repeats the bubbles in a form deduplication
   cannot match. Protobuf blobs yield nothing.
@@ -2312,8 +2314,10 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `cloud-cache` row with a non-empty body (`c1`) the parser yields one `system` row
   `cached conversation text (conversation-search.db, source=cloud-cache): <c1 in full>` at
   `updated_at`, `session_id` the `bc-<uuid>`: the only local copy of a cloud agent's
-  conversation text ([Cloud agents](#cloud-agents)). A body is written once, under the first
-  conversation that joins it ([Bad-line rows](#bad-line-rows)). It is never a `user` or
+  conversation text ([Cloud agents](#cloud-agents)). Each conversation joining a body gets the
+  row, and the rows share its text: the timeline writes it in full in the first of them it keeps and
+  `[shown in full above, in the row of source line <rowid>]` in its place in each later one
+  ([Bad-line rows](#bad-line-rows)). It is never a `user` or
   `assistant` row, because the body runs the prompt and the reply together with no boundary. Some
   `local` rows have no body ([`conversation-search.db`](#conversation-searchdb)); a non-empty one
   yields the same row with `source=local`.
@@ -2461,8 +2465,8 @@ user writes, is read as it is. A database that cannot be read, or whose `-wal`, 
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
 error one `parser: SQLite error: <message>` row. In `conversation-search.db`, a `conversations`
-row whose `fts_rowid` names a full-text row an earlier row names gives no cached text row, and such
-rows are one whole-file row after the others,
+row whose `fts_rowid` names a full-text row an earlier row names gives its cached text row with the
+pointer above in place of the body, and such rows are counted in one whole-file row after the others,
 `parser: <n> conversations name a full-text row an earlier conversation names`
 (`1 conversation names ...` for one), with `source_line` 0. `cli-config.json` or
 `permissions.json` that is not

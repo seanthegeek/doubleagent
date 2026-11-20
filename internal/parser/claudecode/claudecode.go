@@ -52,6 +52,9 @@ type Reader struct {
 	// outputs holds, per session directory, the persisted tool outputs
 	// its transcripts named (outputsOf).
 	outputs map[outputsKey]map[string]*persistedFile
+	// pastes holds the paste-cache files the history lines named
+	// (pasteOf).
+	pastes map[pastesKey]*paste
 }
 
 // NewReader returns a Reader whose rows carry base's agent.

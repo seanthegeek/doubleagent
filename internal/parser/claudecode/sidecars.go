@@ -11,6 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // persistedMark starts the stub a transcript keeps in place of a tool
@@ -46,30 +47,29 @@ func sessionDir(artifact *input.Artifact) (string, bool) {
 	}
 }
 
-// persistedFile is what was read of one persisted tool output: its text
-// until a row shows it, or the error reading it, and once shown the
-// transcript and line of that row.
+// persistedFile is what was read of one persisted tool output: its text,
+// shared by every row naming it, or the error reading it.
 type persistedFile struct {
-	text    string
-	err     error
-	shownAt string
+	shared *timeline.SharedText
+	err    error
 }
 
-// persistedText returns the full text of a persisted tool output, read
+// persistedText adds to out the full text of a persisted tool output, read
 // from the session's tool-results/ directory. savedPath is the line's
 // toolUseResult.persistedOutputPath; when it is empty the path is read from
-// the stub's text. The stub comes back with a note when the file is not in
+// the stub's text. The stub is added with a note when the file is not in
 // this session's tool-results/ or is a link, and with the reason when it is
 // there but cannot be read, the unreadable problem added. Each file is read
 // once for all the session's transcripts of a loaded input
-// (Reader.outputsOf): its first reference in parse order shows the text,
-// and every later one the stub with a note naming the transcript and line
-// of the row that shows it.
-func (s *session) persistedText(stub, savedPath string) string {
+// (Reader.outputsOf), and every row naming it shares its text: the output
+// writes it in full in the first of its rows it keeps, and in each later
+// one the stub with a note naming the row above that holds it.
+func (s *session) persistedText(out *timeline.TextBuilder, stub, savedPath string) {
 	if savedPath == "" {
 		match := persistedPattern.FindStringSubmatch(stub)
 		if match == nil {
-			return stub
+			out.Write(stub)
+			return
 		}
 		savedPath = match[1]
 	}
@@ -80,34 +80,40 @@ func (s *session) persistedText(stub, savedPath string) string {
 	_, named := parser.Component(name)
 	if len(parts) < 3 || parts[len(parts)-2] != "tool-results" ||
 		!found || parts[len(parts)-3] != filepath.Base(directory) || !named {
-		return note
+		out.Write(note)
+		return
 	}
 	output, reachable := parser.Under(directory, "tool-results", name)
 	if !reachable || !parser.RegularFile(output) {
-		return note
+		out.Write(note)
+		return
 	}
 	files := s.reader.outputsOf(s.artifact.Home, directory)
 	file, read := files[name]
 	if !read {
 		s.reader.Work.Add("persisted outputs read", 1)
 		data, err := parser.ReadFile(output)
-		file = &persistedFile{text: textlines.ValidUTF8(data), err: err}
+		file = &persistedFile{shared: timeline.NewSharedText(textlines.ValidUTF8(data)), err: err}
 		files[name] = file
 	}
-	switch {
-	case file.err != nil:
+	if file.err != nil {
 		s.problems.AddUnreadable(0, output, file.err)
-		return stub + "\n[persisted output could not be read (" + reason.For(file.err) + ")]"
-	case file.shownAt != "":
-		return stub + "\n[persisted output shown in full at its first reference (" + file.shownAt +
-			"): tool-results/" + name + "]"
+		out.Write(stub + "\n[persisted output could not be read (" + reason.For(file.err) + ")]")
+		return
 	}
-	// The transcript's path is at most input.MaxPathLength bytes, the
-	// carried bound, so the note needs no cut.
-	file.shownAt = s.artifact.Original + " line " + strconv.Itoa(s.line)
-	text := file.text
-	file.text = ""
-	return text
+	out.Share(file.shared, stub, persistedPointer(stub, name))
+}
+
+// persistedPointer returns the pointer of a later reference to the
+// persisted output name: the stub, then a note naming the transcript and
+// line of the row above that shows the output. The transcript's path is at
+// most input.MaxPathLength bytes, the carried bound, so the note needs no
+// cut.
+func persistedPointer(stub, name string) timeline.Pointer {
+	return func(holder *timeline.Row, _ bool) string {
+		return stub + "\n[persisted output shown in full above (" + holder.SourceFile + " line " +
+			strconv.Itoa(holder.SourceLine) + "): tool-results/" + name + "]"
+	}
 }
 
 // outputsOf returns the persisted tool outputs read so far for the
@@ -167,89 +173,119 @@ func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool
 	return textlines.ValidUTF8(data), true
 }
 
-// paste is the text of one paste-cache file, whether it was read, and the
-// problems reading it added.
+// paste is the text of one paste-cache file, shared by every placeholder
+// naming it, whether it was read, and the problems reading it added.
 type paste struct {
-	text     string
+	shared   *timeline.SharedText
 	found    bool
 	problems parser.Problems
 }
 
-// expandPastes returns a history line's display text with each paste
-// placeholder replaced by its text: pastedContents.<n>.content when the
+// pastesKey names one paste-cache file of one home of a loaded input.
+type pastesKey struct {
+	home             *input.Home
+	historyDir, hash string
+}
+
+// pasteOf returns the paste-cache file of hash in historyDir, read once for
+// every line naming it of a loaded input; each load of an input makes its
+// own home values, so a second pass over the same files reads it again.
+func (r *Reader) pasteOf(home *input.Home, historyDir, hash string) *paste {
+	key := pastesKey{home: home, historyDir: historyDir, hash: hash}
+	if r.pastes == nil {
+		r.pastes = map[pastesKey]*paste{}
+	}
+	each, ok := r.pastes[key]
+	if !ok {
+		each = &paste{}
+		var text string
+		text, each.found = readPaste(historyDir, hash, &each.problems)
+		each.shared = timeline.NewSharedText(text)
+		r.pastes[key] = each
+	}
+	return each
+}
+
+// expandPastes adds to out a history line's display text with each paste
+// placeholder standing for its text: pastedContents.<n>.content when the
 // paste is kept inline, else paste-cache/<contentHash>.txt in historyDir. A
 // placeholder whose text is in neither place is kept as written.
-func expandPastes(historyDir, display string, pasted jsonvalue.Value, problems *parser.Problems) string {
-	return expandPastesFrom(display, pasted, problems, func(hash string, read *parser.Problems) (string, bool) {
-		return readPaste(historyDir, hash, read)
+func (r *Reader) expandPastes(out *timeline.TextBuilder, home *input.Home, historyDir, display string,
+	pasted jsonvalue.Value, problems *parser.Problems) {
+	expandPastesFrom(out, display, pasted, problems, func(hash string) *paste {
+		return r.pasteOf(home, historyDir, hash)
 	})
 }
 
-// expandPastesFrom is expandPastes with the paste-cache file of a hash read
-// by readCache. Each file is read once per line, however many placeholders
-// name it; the problems of that read are added for each of them, as a
-// fresh read would. A paste the line names again, by its number or by the
-// hash of its paste-cache file, is written in full at its first
-// placeholder and as that placeholder with ", shown above" at each later
-// one, so a paste named many times is written once.
-func expandPastesFrom(display string, pasted jsonvalue.Value, problems *parser.Problems,
-	readCache func(hash string, read *parser.Problems) (string, bool)) string {
+// expandPastesFrom is expandPastes with the paste-cache file of a hash
+// given by cached; the problems of its read are added at each placeholder
+// naming it, as a fresh read would add them. A paste is one text for every
+// placeholder that names it, by its number within the line for an inline
+// paste and by the hash of its file for one in paste-cache/, across lines
+// too: the output writes it in full at its first placeholder it keeps, and
+// each later one as that placeholder with a note before its closing
+// bracket saying where above it is shown (pastePointer).
+func expandPastesFrom(out *timeline.TextBuilder, display string, pasted jsonvalue.Value,
+	problems *parser.Problems, cached func(hash string) *paste) {
 	if !pasted.IsObject() || pasted.Len() == 0 {
-		return display
+		out.Write(display)
+		return
 	}
-	files := map[string]*paste{}
-	cached := func(hash string) (string, bool) {
-		each, ok := files[hash]
-		if !ok {
-			each = &paste{}
-			each.text, each.found = readCache(hash, &each.problems)
-			files[hash] = each
-		}
-		*problems = append(*problems, each.problems...)
-		return each.text, each.found
-	}
-	shown := map[string]bool{}
-	var out strings.Builder
+	inline := map[string]*timeline.SharedText{}
 	last := 0
 	for _, match := range pastePattern.FindAllStringSubmatchIndex(display, -1) {
-		out.WriteString(display[last:match[0]])
+		out.Write(display[last:match[0]])
 		placeholder := display[match[0]:match[1]]
 		number := display[match[2]:match[3]]
-		text, identity, ok := pasteText(number, pasted.Get(number), cached)
-		switch {
-		case !ok:
-			out.WriteString(placeholder)
-		case shown[identity]:
-			out.WriteString(strings.TrimSuffix(placeholder, "]") + ", shown above]")
-		default:
-			shown[identity] = true
-			out.WriteString(text)
+		if shared, ok := pasteText(number, pasted.Get(number), inline, problems, cached); ok {
+			out.Share(shared, placeholder, pastePointer(placeholder))
+		} else {
+			out.Write(placeholder)
 		}
 		last = match[1]
 	}
-	out.WriteString(display[last:])
-	return out.String()
+	out.Write(display[last:])
 }
 
-// pasteText returns the text of the pastedContents entry of a paste
-// number, its paste-cache file read through cached, and the paste's
-// identity within the line: its number for an inline paste, its hash for
-// one in paste-cache/. It is false when the entry is not a text paste or
-// its text is in neither place.
-func pasteText(number string, entry jsonvalue.Value, cached func(hash string) (string, bool)) (string, string,
-	bool) {
+// pastePointer returns the pointer of a later placeholder of a paste: the
+// placeholder with ", shown above" before its closing bracket, and the
+// history file and line of the row showing it when that is another row.
+// The history's path is at most input.MaxPathLength bytes, the carried
+// bound, so the note needs no cut.
+func pastePointer(placeholder string) timeline.Pointer {
+	opening := strings.TrimSuffix(placeholder, "]")
+	return func(holder *timeline.Row, sameRow bool) string {
+		if sameRow {
+			return opening + ", shown above]"
+		}
+		return opening + ", shown above in " + holder.SourceFile + " line " + strconv.Itoa(holder.SourceLine) + "]"
+	}
+}
+
+// pasteText returns the shared text of the pastedContents entry of a paste
+// number: from inline, by number, for a paste kept in the line, else its
+// paste-cache file through cached, whose problems are added. It is false
+// when the entry is not a text paste or its text is in neither place.
+func pasteText(number string, entry jsonvalue.Value, inline map[string]*timeline.SharedText,
+	problems *parser.Problems, cached func(hash string) *paste) (*timeline.SharedText, bool) {
 	if !entry.IsObject() {
-		return "", "", false
+		return nil, false
 	}
 	if kind, ok := entry.Lookup("type"); ok && !parser.IsText(kind, "text") {
-		return "", "", false
+		return nil, false
 	}
 	if content := entry.Get("content"); content.IsString() {
-		return content.StringValue(), "number " + number, true
+		shared, ok := inline[number]
+		if !ok {
+			shared = timeline.NewSharedText(content.StringValue())
+			inline[number] = shared
+		}
+		return shared, true
 	}
 	if hash := entry.Get("contentHash"); hash.IsString() {
-		text, ok := cached(hash.StringValue())
-		return text, "hash " + hash.StringValue(), ok
+		file := cached(hash.StringValue())
+		*problems = append(*problems, file.problems...)
+		return file.shared, file.found
 	}
-	return "", "", false
+	return nil, false
 }

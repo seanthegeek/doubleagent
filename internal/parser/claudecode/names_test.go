@@ -6,6 +6,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 func TestAPersistedOutputNameThatIsNotAFileNameIsNotFound(t *testing.T) {
@@ -36,7 +37,11 @@ func TestAPersistedOutputNameThatIsNotAFileNameIsNotFound(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := &session{reader: &New().Reader, artifact: artifact}
-			if got := state.persistedText("stub", test.saved); got != test.want || len(state.problems) != 0 {
+			var out timeline.TextBuilder
+			state.persistedText(&out, "stub", test.saved)
+			var row timeline.Row
+			out.Set(&row)
+			if got := row.FullText(); got != test.want || len(state.problems) != 0 {
 				t.Errorf("got %q, %v; want %q", got, state.problems, test.want)
 			}
 		})

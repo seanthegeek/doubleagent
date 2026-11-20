@@ -24,7 +24,8 @@ const (
 )
 
 // history emits one user row per line of history.jsonl, its paste
-// placeholders expanded, then a row per problem.
+// placeholders standing for their texts (expandPastes), then a row per
+// problem.
 func (r *Reader) history(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	// A directory the kit refuses comes back empty, and Under refuses that.
@@ -37,8 +38,10 @@ func (r *Reader) history(artifact *input.Artifact, emit parser.Emit) {
 		row.ProjectPath = parser.Text(record.Get("project"))
 		row.TurnType = timeline.TurnUser
 		if display := record.Get("display"); display.IsString() {
-			row.Text = timeline.Compact(expandPastes(historyDir, display.StringValue(),
-				record.Get("pastedContents"), &problems))
+			var out timeline.TextBuilder
+			r.expandPastes(&out, artifact.Home, historyDir, display.StringValue(),
+				record.Get("pastedContents"), &problems)
+			out.Set(&row)
 		} else {
 			row.Text = timeline.CompactValue(display)
 		}

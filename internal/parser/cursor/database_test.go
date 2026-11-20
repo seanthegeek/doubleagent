@@ -3,6 +3,7 @@ package cursor
 import (
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -40,8 +41,18 @@ func stateArtifact(t *testing.T, name string) *input.Artifact {
 }
 
 // readState runs the primary store's reader over the named testdata
-// database and returns its rows and the number of queries it ran.
+// database and returns its rows, each shared text written out in their
+// order, and the number of queries it ran.
 func readState(t *testing.T, name string) ([]timeline.Row, int) {
+	t.Helper()
+	rows, queries := parseState(t, name)
+	timeline.Resolve(rows)
+	return rows, queries
+}
+
+// parseState is readState with the rows as the parser gives them, each
+// naming its shared texts.
+func parseState(t *testing.T, name string) ([]timeline.Row, int) {
 	t.Helper()
 	artifact := stateArtifact(t, name)
 	database, err := sqlitefile.OpenPath(artifact.DiskPath)
@@ -161,18 +172,45 @@ func textBytes(t *testing.T, name string) int {
 	return total
 }
 
+// blobPointerText is the text of a later row of the agentKv blob of a
+// source line.
+func blobPointerText(line int) string {
+	return "[agentKv blob text shown in full above, in the row of source line " + strconv.Itoa(line) +
+		" under another session it names]"
+}
+
 func TestABlobNamingSeveralDeletedConversationsIsWrittenOnce(t *testing.T) {
 	rows, _ := readState(t, "shared_blobs.db")
 	deleted := "conversation deleted (header kept; time is the header's lastUpdatedAt)" + archivedByDelete
 	want := []string{
 		"d1 system " + deleted, "d2 system " + deleted, "d3 system " + deleted,
 		"d2 user asked in d3 and d2",
-		"d3 system recovered message: text under session d2, which the same agentKv blob names",
+		"d3 user " + blobPointerText(1),
 		"d1 system system prompt: prompt for d3 and d1",
-		"d3 system recovered message: text under session d1, which the same agentKv blob names",
+		"d3 system system prompt: " + blobPointerText(2),
 		"d1 assistant answer in d1",
 	}
 	if got := rowTexts(rows); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+func TestABlobsTextIsHeldByTheFirstOfItsRowsTheOutputKeeps(t *testing.T) {
+	rows, _ := parseState(t, "shared_blobs.db")
+	// The output leaves out d2's row of the first blob, as a filter would.
+	kept := slices.DeleteFunc(rows, func(row timeline.Row) bool {
+		return row.SessionID == "d2" && row.TurnType == timeline.TurnUser
+	})
+	timeline.Resolve(kept)
+	want := []string{"d3 user asked in d3 and d2", "d1 system system prompt: prompt for d3 and d1",
+		"d3 system system prompt: " + blobPointerText(2)}
+	var got []string
+	for _, text := range rowTexts(kept) {
+		if !strings.Contains(text, "conversation deleted") && !strings.Contains(text, "answer in d1") {
+			got = append(got, text)
+		}
+	}
+	if !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }

@@ -2588,7 +2588,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `user`, `origin.kind` `task-notification`, `peer`, `coordinator`, `auto-continuation` | `system`, label `task notification`, `peer message`, `coordinator message`, `auto-continuation` |
 | `user`, other `isMeta` | `system`, label `context` |
 | `user`, any other string, `text` or `image` block | `user` (one row per block); the rules above are tried in this order, the record-level ones for every block |
-| `user`, `tool_result` block | `tool_result`; `tool_reference` blocks as their `tool_name`; a `<persisted-output>` stub replaced by its `tool-results/` file at the file's first reference (a later one keeps the stub and a note), named by `toolUseResult.persistedOutputPath` when that key is set and the line has one `tool_result` block, else by the stub's text (below); text prefixed `[error]` when `is_error` |
+| `user`, `tool_result` block | `tool_result`; `tool_reference` blocks as their `tool_name`; a `<persisted-output>` stub replaced by its `tool-results/` file at the first row the timeline keeps that names it (a later one keeps the stub and a note), named by `toolUseResult.persistedOutputPath` when that key is set and the line has one `tool_result` block, else by the stub's text (below); text prefixed `[error]` when `is_error` |
 | `user`, `permissionDecision` (2.1.295) | one `system` row after the line's `tool_result` rows, `permission decision: <decision> source=<source> reason=<reasonType>` (`-` for a missing key), then a space and the object's compact JSON when it has other keys (`grantScope` and `reasonCode` on 2.1.309, [Permission decisions](#permission-decisions)); `tool_use_id` of the line's first `tool_result` block, `tool_name` empty as on `tool_result` rows |
 | `user`, `toolDenialKind`, `userFeedback` (factory key list, [Record schema](#record-schema)) | appended to that line's `permission decision:` row as ` toolDenialKind=<value> userFeedback=<value>`, in that order, each only when set, printed as recorded (no value set is recorded; `userFeedback` is free text, so it comes last); a line with `toolDenialKind` and no `permissionDecision`, the form 2.1.310 wrote on macOS for every refusal and a declined plan, gets `permission decision: reject (interrupted) toolDenialKind=user-rejected` (the value as recorded), the source being unknown ([issue 97](https://github.com/seanthegeek/doubleagent/issues/97)) |
 | `attachment` `plan_mode`, `plan_mode_exit`, `plan_mode_reentry`, `auto_mode`, `auto_mode_exit` | skip: their keys are now recorded ([`attachment` records](#attachment-records)); `auto_mode` is the turn's auto-mode configuration, not a decision, and every mode change they mark is also a `permissionMode` value or a `permission-mode` record, which the `permission mode:` rows read |
@@ -2620,7 +2620,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins); `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with the placeholder |
 | `queue-operation` | `system`, `queue <operation>: <content>`; an `enqueue` whose `content` a `queued_command` attachment or a `user` record of the file delivers is `prompt queued: delivered at line N` at the enqueue's own timestamp, N being the first delivering line after it (else the first), so the typing time is kept and the prompt text appears once, on the delivering row |
 | every other type ([Record schema](#record-schema) table) | skip |
-| `history.jsonl` line | `user`, each paste placeholder in `display` expanded, a paste once per line ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
+| `history.jsonl` line | `user`, each paste placeholder in `display` expanded, a paste written in full once per output ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
 | `sessions/<pid>.json` | one `system` row at `startedAt` (epoch ms), `claude-code process <pid> <kind> status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none> host_session=<hostSessionId or none>` (`-` for a missing `kind`, `status` or `entrypoint`), `session_id` `sessionId`, `project_path` `cwd`, `source_line` 1; a file that is not a JSON object is one `system` row `parser: session registry file is not a JSON object`. A `bridge=` value means the process was under Remote Control when the collector ran ([Remote Control](#remote-control)), and the file then gives a second `system` row, `session synced: remote control bridge <bridgeSessionId> url - (from <path>, file mtime)`, at the file's modification time ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/<session id>/ccr-tip.json` | one `system` row at the file's modification time, `session synced: remote event <eventId> at <updatedAt> (from <path>, file mtime)`, `session_id` the directory's session ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/bridge-pointer.json` | one `system` row at the file's modification time, `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>, file mtime)` |
@@ -2725,17 +2725,19 @@ removed ([`user` records](#user-records)) and each run of ASCII whitespace colla
 so an expanded history line matches the `user` line whose text is the same once unwrapped, and
 only a history line with no transcript counterpart is a recovered row.
 
-Within one line a paste is written in full once. A later placeholder of the same paste (the same
-number for an inline paste, the same `contentHash` for a cached one) is written as the placeholder
-with `, shown above` before its closing bracket, `[Pasted text #N, shown above]` or
-`[Pasted text #N +M lines, shown above]`, so a line naming one paste many times gives text that
-grows with the line, not with the product of the paste and its placeholders. The scope is the line,
-not the file: deduplication keeps or drops whole rows, and a row that held only a pointer to a
-paste shown in another line could be kept while that line was dropped. A line that names one
-paste twice (one number twice, or two numbers of one `contentHash`) therefore no longer equals its
-transcript record, which holds the paste at both places, and is kept as a recovered row beside it;
-two inline pastes of equal text under two numbers are both written in full. A placeholder whose
-paste is not found is kept as written, however often it repeats.
+A paste is one text for every placeholder that names it, in one line or in many (the same number
+within a line for an inline paste, the same `contentHash` in one `paste-cache/` for a cached one);
+each `paste-cache/` file is read once per run. The line matches its transcript record, and
+`--match` reads it, with every paste in full. The timeline then writes each paste in full at the
+first placeholder of it in a row it keeps, once deduplication and the filters have chosen the rows,
+and each later placeholder as the placeholder with a note before its closing bracket:
+`[Pasted text #N, shown above]` (or `[Pasted text #N +M lines, shown above]`) for a later
+placeholder in the same line, `[Pasted text #N, shown above in <source file> line <n>]` for one in
+a later line, `<source file>` and `<n>` the `source_file` and `source_line` of the row holding it.
+So history lines naming one paste many times give text that grows with the lines and the paste, not
+with their product, and a line dropped as a duplicate of its record, or left out by a filter, leaves
+the paste to the next line kept. Two inline pastes of equal text under two numbers are both written
+in full. A placeholder whose paste is not found is kept as written, however often it repeats.
 
 #### Sync, relay and origin rows
 
@@ -3000,18 +3002,16 @@ read keeps the stub followed by `[persisted output could not be read (<reason>)]
 unreadable row of [Bad-line rows](#bad-line-rows). On the observed install every stub resolved.
 A session's transcripts are its own file and each subagent file below `<session dir>/subagents/`,
 each a file of its own that shares the session's `tool-results/`, so each file is read once per run
-for all of them. Its first reference in parse order shows its text. Parse order is the order of the
-input's files: for a directory, each directory's files in name order before the directories below
-it, so the session file comes before its subagents' files; for an archive, the manifest's rows.
-Every later stub naming the same `tool-results/<name>` of that session, in the same transcript or
+for all of them, and every tool result naming it shares its text. The timeline writes it in full in
+the first such row it keeps, once deduplication and the filters have chosen the rows, and every
+later stub naming the same `tool-results/<name>` of that session, in the same transcript or
 another, keeps the stub followed by
-`[persisted output shown in full at its first reference (<source file> line <n>): tool-results/<name>]`,
+`[persisted output shown in full above (<source file> line <n>): tool-results/<name>]`,
 where `<source file>` and `<n>` are the `source_file` and `source_line` of the row that shows the
 text. A session of many stubs naming one file, in one transcript or across its subagents'
-transcripts, then gives rows that grow with the transcripts and the file, not with their product.
-A transcript's rows are the primary store and are never dropped as duplicates, so the row holding
-the text stays wherever a later one points at it, unless a filter (`--since`, `--until`,
-`--match`) leaves it out while keeping the pointer.
+transcripts, then gives rows that grow with the transcripts and the file, not with their product,
+and a filter (`--since`, `--until`, `--match`) that leaves out the first row leaves the text to the
+next row kept; `--match` reads every such row with the output in full.
 
 ## Confidence
 

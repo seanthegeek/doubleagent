@@ -2,7 +2,6 @@ package claudecode
 
 import (
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +14,29 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
+
+// expandedLine returns a history line's text as the output writes it, the
+// paste-cache file of each hash read through readCache once.
+func expandedLine(display string, pasted jsonvalue.Value, problems *parser.Problems,
+	readCache func(hash string, read *parser.Problems) (string, bool)) string {
+	files := map[string]*paste{}
+	var out timeline.TextBuilder
+	expandPastesFrom(&out, display, pasted, problems, func(hash string) *paste {
+		each, ok := files[hash]
+		if !ok {
+			each = &paste{}
+			var text string
+			text, each.found = readCache(hash, &each.problems)
+			each.shared = timeline.NewSharedText(text)
+			files[hash] = each
+		}
+		return each
+	})
+	rows := make([]timeline.Row, 1)
+	out.Set(&rows[0])
+	timeline.Resolve(rows)
+	return rows[0].Text
+}
 
 func TestEachPasteCacheFileIsReadOncePerLine(t *testing.T) {
 	const placeholders = 2000
@@ -48,7 +70,7 @@ func TestEachPasteCacheFileIsReadOncePerLine(t *testing.T) {
 			}
 			reads := 0
 			var problems parser.Problems
-			got := expandPastesFrom(display.String(), jsonvalue.NewObject(members...), &problems,
+			got := expandedLine(display.String(), jsonvalue.NewObject(members...), &problems,
 				func(hash string, read *parser.Problems) (string, bool) {
 					reads++
 					if !test.readable {
@@ -61,9 +83,9 @@ func TestEachPasteCacheFileIsReadOncePerLine(t *testing.T) {
 			if !test.readable {
 				wantProblems = placeholders
 			}
-			if got != want.String() || reads != test.reads || len(problems) != wantProblems {
+			if got != strings.TrimSpace(want.String()) || reads != test.reads || len(problems) != wantProblems {
 				t.Errorf("%d reads and %d problems, text as wanted %v; want %d reads and %d problems",
-					reads, len(problems), got == want.String(), test.reads, wantProblems)
+					reads, len(problems), got == strings.TrimSpace(want.String()), test.reads, wantProblems)
 			}
 		})
 	}
@@ -119,7 +141,7 @@ func TestAPasteNamedManyTimesInALineIsWrittenOnce(t *testing.T) {
 		for _, size := range []int{500, 2000} {
 			line := builder.build(size)
 			var problems parser.Problems
-			got := expandPastesFrom(line.display, line.pasted, &problems,
+			got := expandedLine(line.display, line.pasted, &problems,
 				func(string, *parser.Problems) (string, bool) { return line.paste, true })
 			if len(got) != line.want || strings.Count(got, line.paste) != 1 || !strings.HasPrefix(got, line.paste) {
 				t.Errorf("%s, %d references: %d bytes holding the paste %d times, want %d bytes holding it once, first",
@@ -138,7 +160,7 @@ func TestALaterPlaceholderKeepsItsLineCountAndAMissingPasteStaysAsWritten(t *tes
 	display := "a [Pasted text #1 +3 lines] b [Pasted text #1 +3 lines] c [Pasted text #2] d [Pasted text #2]"
 	want := "a P b [Pasted text #1 +3 lines, shown above] c [Pasted text #2] d [Pasted text #2]"
 	var problems parser.Problems
-	got := expandPastesFrom(display, pasted, &problems, func(string, *parser.Problems) (string, bool) { return "", false })
+	got := expandedLine(display, pasted, &problems, func(string, *parser.Problems) (string, bool) { return "", false })
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -148,13 +170,19 @@ func TestALaterPlaceholderKeepsItsLineCountAndAMissingPasteStaysAsWritten(t *tes
 // file h1.txt holding PASTE-B, and returns the rows the parser gives it.
 func historyRows(t *testing.T, lines ...string) []timeline.Row {
 	t.Helper()
+	return historyRowsWith(t, "PASTE-B", lines...)
+}
+
+// historyRowsWith is historyRows with h1.txt holding paste.
+func historyRowsWith(t *testing.T, paste string, lines ...string) []timeline.Row {
+	t.Helper()
 	home := t.TempDir()
 	const rel = ".claude/history.jsonl"
 	cache := filepath.Join(home, ".claude", "paste-cache")
 	if err := osfile.MkdirAll(cache, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := osfile.WriteFile(filepath.Join(cache, "h1.txt"), []byte("PASTE-B"), 0o600); err != nil {
+	if err := osfile.WriteFile(filepath.Join(cache, "h1.txt"), []byte(paste), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, filepath.FromSlash(rel))
@@ -170,44 +198,66 @@ func historyRows(t *testing.T, lines ...string) []timeline.Row {
 	return rows
 }
 
-// A paste is written in full once per history line, so the row that holds
-// a pointer always holds the text it points at, and deduplication, which
-// keeps or drops whole rows, never keeps a pointer whose text it dropped.
-func TestAKeptHistoryRowHoldsEveryPasteItsPointersName(t *testing.T) {
-	rows := historyRows(t,
-		`{"display": "[Pasted text #1] again [Pasted text #1]", "pastedContents": {"1": {"content": "PASTE-A"}}, `+
-			`"timestamp": 1790000001000, "sessionId": "s", "project": "/p"}`,
-		`{"display": "[Pasted text #1] then [Pasted text #2]", "pastedContents": {"1": {"contentHash": "h1"}, `+
-			`"2": {"contentHash": "h1"}}, "timestamp": 1790000002000, "sessionId": "s", "project": "/p"}`,
-		`{"display": "[Pasted text #1]", "pastedContents": {"1": {"contentHash": "h1"}}, `+
-			`"timestamp": 1790000003000, "sessionId": "s", "project": "/p"}`)
-	var texts []string
-	for _, row := range rows {
-		texts = append(texts, row.Text)
-	}
-	want := []string{"PASTE-A again [Pasted text #1, shown above]", "PASTE-B then [Pasted text #2, shown above]",
-		"PASTE-B"}
-	if !slices.Equal(texts, want) {
-		t.Fatalf("got %q, want %q", texts, want)
-	}
+// deduplicatedHistory runs the history rows through deduplication against
+// the transcript records given, by index of the row they record, and
+// returns the texts of the rows kept as the output writes them.
+func deduplicatedHistory(rows []timeline.Row, records map[int]string) []string {
 	var primary []timeline.Row
 	secondary := make([]dedup.Secondary, len(rows))
 	for i, row := range rows {
-		record := row
-		record.SourceFile = "/home/u/.claude/projects/p/s.jsonl"
-		record.Text = []string{"PASTE-A again PASTE-A", "PASTE-B then PASTE-B", "PASTE-B"}[i]
-		primary = append(primary, record)
 		secondary[i] = dedup.Secondary{Row: row, Tolerance: 2}
+		if text, ok := records[i]; ok {
+			record := row
+			record.SourceFile, record.Text, record.Shared = "/home/u/.claude/projects/p/s.jsonl", text, nil
+			primary = append(primary, record)
+		}
 	}
 	kept, _ := dedup.Deduplicate(primary, secondary, dedup.Hooks{"claude-code": New().DedupHooks()})
-	pointer := regexp.MustCompile(`\[Pasted text #[0-9]+[^\]]*, shown above\]`)
-	for _, row := range kept[len(primary):] {
-		before, _, found := strings.Cut(row.Text, ", shown above]")
-		if found && !strings.Contains(before, "PASTE-") {
-			t.Errorf("kept row %q points at a paste it does not hold", row.Text)
+	kept = kept[len(primary):]
+	timeline.Resolve(kept)
+	texts := make([]string, len(kept))
+	for i, row := range kept {
+		texts[i] = row.Text
+	}
+	return texts
+}
+
+// A history line matches its transcript record with its pastes in full,
+// and the line that then holds a paste is the first one kept.
+func TestTheFirstKeptHistoryLineHoldsAPasteWhoseFirstLineIsADuplicate(t *testing.T) {
+	line := func(display string, second int) string {
+		return `{"display": "` + display + `", "pastedContents": {"1": {"contentHash": "h1"}}, ` +
+			`"timestamp": 179000000` + strconv.Itoa(second) + `000, "sessionId": "s", "project": "/p"}`
+	}
+	rows := historyRows(t, line("one [Pasted text #1] and [Pasted text #1]", 1),
+		line("two [Pasted text #1]", 2), line("three [Pasted text #1]", 3))
+	got := deduplicatedHistory(rows[:3], map[int]string{0: "one PASTE-B and PASTE-B"})
+	want := []string{"two PASTE-B",
+		"three [Pasted text #1, shown above in /home/u/.claude/history.jsonl line 2]"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestHistoryLinesNamingOnePasteGrowWithThePasteNotWithTheirProduct(t *testing.T) {
+	size := func(n int) int {
+		lines := make([]string, n)
+		for i := range lines {
+			lines[i] = `{"display": "line ` + strconv.Itoa(i) + ` [Pasted text #1]", ` +
+				`"pastedContents": {"1": {"contentHash": "h1"}}, "timestamp": 1790000001000}`
 		}
-		if found && !pointer.MatchString(row.Text) {
-			t.Errorf("kept row %q has a pointer of another form", row.Text)
+		rows := historyRowsWith(t, strings.Repeat("p", 10*n), lines...)
+		timeline.Resolve(rows)
+		total := 0
+		for _, row := range rows {
+			total += len(row.Text)
 		}
+		return total
+	}
+	// Twice the lines naming a paste twice as long gives about twice the
+	// bytes; the paste in every line would give four times as many.
+	small, large := size(500), size(1000)
+	if small < 10*500 || large > 5*small/2 {
+		t.Errorf("%d bytes for 500 lines, %d for 1000", small, large)
 	}
 }
