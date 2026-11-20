@@ -117,6 +117,35 @@ INSERT INTO ItemTable VALUES ('cloudEnvironmentTemplate.githubRepos',
     '[{"url": "https://ci:s3cret@github.com/o/r", "type": "github"}]');
 """
 
+def deleted_header(ident: str) -> str:
+    """Return the SQL of the header a delete leaves: archived, with no composerData."""
+    return f"INSERT INTO composerHeaders (composerId, isArchived, value) VALUES ('{ident}', 1, '{{}}');\n"
+
+
+def blob(key: str, role: str, content: str) -> str:
+    """Return the SQL of a JSON agentKv blob of a role and its content."""
+    value = json.dumps({"role": role, "content": content})
+    return f"INSERT INTO cursorDiskKV VALUES ('agentKv:blob:{key}', '{value}');\n"
+
+
+def blob_fanout(count: int) -> str:
+    """Return count deleted composers and one blob whose content names them all."""
+    idents = [f"d{number:06d}" for number in range(count)]
+    return "".join(deleted_header(ident) for ident in idents) + blob("00", "user", " ".join(idents))
+
+
+# Three deleted composers; a user blob naming d2 and d3, a system blob naming d1 and d3, and
+# an assistant blob naming d1 alone.
+SHARED_BLOBS = (
+    deleted_header("d1")
+    + deleted_header("d2")
+    + deleted_header("d3")
+    + blob("01", "user", "asked in d3 and d2")
+    + blob("02", "system", "prompt for d3 and d1")
+    + blob("03", "assistant", "answer in d1")
+)
+
+
 DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
@@ -126,6 +155,9 @@ DATABASES = {
     "mcp_secret.db": ([], MCP_SECRET),
     "header_kinds.db": ([], HEADER_KINDS),
     "cloud_repository.db": ([], CLOUD_REPOSITORY),
+    "blob_fanout_20.db": ([], blob_fanout(20)),
+    "blob_fanout_40.db": ([], blob_fanout(40)),
+    "shared_blobs.db": ([], SHARED_BLOBS),
 }
 
 

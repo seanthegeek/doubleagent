@@ -139,3 +139,50 @@ func TestAHeaderValueThatIsNotAnObjectIsReported(t *testing.T) {
 		t.Errorf("problems %q, want %q", got, want)
 	}
 }
+
+// rowTexts returns each row's session id, type and text, joined by spaces.
+func rowTexts(rows []timeline.Row) []string {
+	texts := make([]string, len(rows))
+	for i, row := range rows {
+		texts[i] = row.SessionID + " " + row.TurnType + " " + row.Text
+	}
+	return texts
+}
+
+// textBytes returns the bytes of text the rows of a testdata database
+// hold, all rows together.
+func textBytes(t *testing.T, name string) int {
+	t.Helper()
+	rows, _ := readState(t, name)
+	total := 0
+	for _, row := range rows {
+		total += len(row.Text)
+	}
+	return total
+}
+
+func TestABlobNamingSeveralDeletedConversationsIsWrittenOnce(t *testing.T) {
+	rows, _ := readState(t, "shared_blobs.db")
+	deleted := "conversation deleted (header kept; time is the header's lastUpdatedAt)" + archivedByDelete
+	want := []string{
+		"d1 system " + deleted, "d2 system " + deleted, "d3 system " + deleted,
+		"d2 user asked in d3 and d2",
+		"d3 system recovered message: text under session d2, which the same agentKv blob names",
+		"d1 system system prompt: prompt for d3 and d1",
+		"d3 system recovered message: text under session d1, which the same agentKv blob names",
+		"d1 assistant answer in d1",
+	}
+	if got := rowTexts(rows); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+func TestTheTextOfBlobsGrowsWithTheBlobsNotWithTheConversationsTheyName(t *testing.T) {
+	small, large := textBytes(t, "blob_fanout_20.db"), textBytes(t, "blob_fanout_40.db")
+	// Twice the composers named makes a blob twice as long and gives twice
+	// the short rows; writing the blob once per composer would give four
+	// times the text.
+	if small == 0 || large > 5*small/2 {
+		t.Errorf("text bytes: %d for 20 composers, %d for 40", small, large)
+	}
+}

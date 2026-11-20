@@ -331,7 +331,10 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 
 // blobs emits user and assistant rows from the JSON agentKv blobs that
 // name a deleted composer; a blob that is not JSON is protobuf, not an
-// error.
+// error. A blob's text is written once, under the first deleted composer
+// it names in the order the composers are read; each other composer it
+// names gets a short row pointing to that session, so the text is never
+// repeated.
 func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 	idents := make([]string, len(deleted))
 	for i, current := range deleted {
@@ -344,24 +347,41 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 			continue
 		}
 		content := blob.Get("content")
-		for _, position := range named.Find(parser.SettingValue(content)) {
-			current := deleted[position]
-			stamp := r.owner.newStamper(r.artifact, current, emit)
-			role := parser.Text(blob.Get("role"))
-			text := timeline.Compact(parser.TextOf(content))
-			if role == "user" || role == "assistant" {
-				made := stamp.row(role, text, "", row.rowid, "")
-				made.Recovered = "yes"
-				emit(made)
-				continue
-			}
-			label := "system prompt"
-			if role != "system" {
-				label = cmp.Or(role, "-") + " message"
-			}
-			stamp.add(timeline.TurnSystem, label+": "+text, "", row.rowid, "")
+		positions := named.Find(parser.SettingValue(content))
+		if len(positions) == 0 {
+			continue
+		}
+		first := deleted[positions[0]]
+		r.blob(r.owner.newStamper(r.artifact, first, emit), blob, row.rowid)
+		for _, position := range positions[1:] {
+			r.owner.newStamper(r.artifact, deleted[position], emit).add(timeline.TurnSystem,
+				sharedBlobText(first.ident), "", row.rowid, "")
 		}
 	}
+}
+
+// sharedBlobText returns the text of the row of a deleted composer whose
+// agentKv blob's text is written under another composer the blob names.
+func sharedBlobText(owner string) string {
+	return "recovered message: text under session " + owner + ", which the same agentKv blob names"
+}
+
+// blob emits the row of one JSON agentKv blob in a composer: a user or
+// assistant message recovered, or a system row for any other role.
+func (r *stateReader) blob(stamp *stamper, blob jsonvalue.Value, rowid int64) {
+	role := parser.Text(blob.Get("role"))
+	text := timeline.Compact(parser.TextOf(blob.Get("content")))
+	if role == "user" || role == "assistant" {
+		made := stamp.row(role, text, "", rowid, "")
+		made.Recovered = "yes"
+		stamp.emit(made)
+		return
+	}
+	label := "system prompt"
+	if role != "system" {
+		label = cmp.Or(role, "-") + " message"
+	}
+	stamp.add(timeline.TurnSystem, label+": "+text, "", rowid, "")
 }
 
 // keyedValue returns the value of the first row whose key is text, false
