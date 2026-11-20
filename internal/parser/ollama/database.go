@@ -113,22 +113,52 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 	}
 	state := &chatState{models: parser.Tracker{}}
 	reader := &messageReader{parser: p, artifact: artifact, options: options, calls: calls,
-		files: files, state: state, emit: emit}
-	return table.Select().OrderBy("chat_id", "id").Each(func(row sqlitefile.Row) error {
+		files: files, shown: map[string]bool{}, state: state, emit: emit}
+	err = table.Select().OrderBy("chat_id", "id").Each(func(row sqlitefile.Row) error {
 		reader.message(row)
 		return nil
 	})
+	if err == nil && reader.repeats > 0 {
+		rows := "1 row repeating"
+		if reader.repeats > 1 {
+			rows = strconv.Itoa(reader.repeats) + " rows repeating"
+		}
+		emit(p.SystemRow(artifact, parser.ProblemPrefix+"messages holds "+rows+
+			" an earlier row's id; its tool calls and attachments are shown once"))
+	}
+	return err
 }
 
-// messageReader turns message rows into timeline rows.
+// messageReader turns message rows into timeline rows. A message id is the
+// key of the messages table, so its tool calls and attachments go with the
+// first message of the id in the order the rows are read: shown holds the
+// groups already given, by kind and key, and repeats counts the later
+// messages that met one.
 type messageReader struct {
 	parser   *Parser
 	artifact *input.Artifact
 	options  parser.Options
 	calls    map[string][]toolCall
 	files    map[string][]attachment
+	shown    map[string]bool
+	repeats  int
 	state    *chatState
 	emit     parser.Emit
+}
+
+// firstShowing reports whether the group of kind under key, which has
+// count members, is to be shown with this message: true the first time,
+// false (counting a repeat) after that, and false for an empty group.
+func (m *messageReader) firstShowing(kind, key string, count int) bool {
+	if count == 0 {
+		return false
+	}
+	if m.shown[kind+key] {
+		m.repeats++
+		return false
+	}
+	m.shown[kind+key] = true
+	return true
 }
 
 // message emits the rows of one message.
@@ -150,7 +180,11 @@ func (m *messageReader) message(message sqlitefile.Row) {
 		if content := parser.NonEmptyColumn(message.Get("content")); content != "" {
 			parts = append(parts, content)
 		}
-		for _, file := range m.files[key] {
+		files := m.files[key]
+		if !m.firstShowing("a", key, len(files)) {
+			files = nil
+		}
+		for _, file := range files {
 			parts = append(parts, "[attachment: "+file.filename+", "+
 				strconv.FormatInt(file.size, 10)+" bytes]")
 		}
@@ -178,6 +212,9 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 	content, thinking := parser.NonEmptyColumn(message.Get("content")), parser.NonEmptyColumn(message.Get("thinking"))
 	model := parser.NonEmptyColumn(message.Get("model_name"))
 	calls := m.calls[key]
+	if !m.firstShowing("c", key, len(calls)) {
+		calls = nil
+	}
 	build := func(turnType, text string) timeline.Row {
 		row := base
 		row.TurnType, row.Model, row.Text = turnType, model, text

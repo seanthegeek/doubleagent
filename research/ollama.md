@@ -1011,6 +1011,15 @@ one gives no row. An `integrations` holding values that are not objects gives on
 all, `parser: integrations holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one).
 
+`messages.id` is the table's key, so Ollama never writes two messages of one id. When a damaged
+`messages` table holds an id more than once, the id's `tool_calls` rows go with the first
+assistant message of the id and its `attachments` rows with the first user message of it, in
+the order the messages are read (`chat_id`, then `id`, an id stored as `3` and as `3.0` being one
+id as SQL's `=` finds them); each later message of the id gives its own rows without them. One row
+`parser: messages holds <n> rows repeating an earlier row's id; its tool calls and attachments are shown once`
+(`1 row repeating` for one) follows the database's other rows, with no session or time, counting
+the messages that met a group an earlier message of their id already showed.
+
 #### Fixtures
 
 Fixture `Library/Application Support/Ollama/db.sqlite`:
