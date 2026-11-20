@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // mixedBatch is one batch of testdata/sessions.json: rows whose fields come
@@ -107,6 +109,9 @@ func TestMixedPathSpellings(t *testing.T) {
 	}
 }
 
+// FuzzProjectPathSpelling holds that the canonical form of a project path
+// is its own canonical form and key, keeps a path in no Windows form as it
+// is, and holds the URL credentials the path holds.
 func FuzzProjectPathSpelling(fuzz *testing.F) {
 	for _, test := range pathCases() {
 		fuzz.Add(test.input)
@@ -124,6 +129,10 @@ func FuzzProjectPathSpelling(fuzz *testing.F) {
 		}
 		if key := ProjectKey(path); ProjectKey(key) != key {
 			t.Fatalf("ProjectKey(%q) = %q, but of that %q", path, key, ProjectKey(key))
+		}
+		if got, want := secrets.URLCredentials(canonical), secrets.URLCredentials(path); !slices.Equal(got, want) {
+			t.Fatalf("CanonicalProjectPath(%q) = %q holds the URL credentials %q, the path %q", path, canonical, got,
+				want)
 		}
 	})
 }

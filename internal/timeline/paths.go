@@ -4,18 +4,19 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // CanonicalProjectPath returns one spelling for a Windows project path, a
-// path as the evidence's machine wrote it (evidencepath):
-// c:/Users/a/demo, C:\Users\a\demo\ and \\?\C:\Users\a\demo all become
-// C:\Users\a\demo, with an upper-case drive letter, backslashes, no
-// repeated or trailing separator and no extended-length prefix (\\?\ or
-// \\?\UNC\). The case after the drive is kept, since the folder's real
-// casing is unknown. Any other path, //server/share included, is returned
-// unchanged, as is a UNC path whose server is "?" with more after it, which
-// no Windows program writes and which would read as an extended-length
-// prefix; CanonicalProjectPath and ProjectKey give their results back.
+// path as the evidence's machine wrote it (evidencepath): c:/Users/a/demo,
+// C:\Users\a\demo\ and \\?\C:\Users\a\demo all become C:\Users\a\demo, with
+// an upper-case drive letter, backslashes, no repeated or trailing
+// separator and no \\?\ or \\?\UNC\ prefix, the case after the drive kept,
+// and the text from a URL with a credential on as written (asWrittenFrom).
+// Any other path, //server/share included, is returned unchanged, as is a
+// UNC path whose server is "?" with more after it, which would read as an
+// extended-length prefix; CanonicalProjectPath and ProjectKey give their
+// results back.
 func CanonicalProjectPath(path string) string {
 	if canonical, ok := windowsForm(path); ok {
 		return canonical
@@ -52,16 +53,52 @@ func windowsForm(path string) (string, bool) {
 		}
 	}
 	if evidencepath.IsDrivePath(path) {
-		parts := evidencepath.Elements(path[2:], true)
-		return string(upperASCII(path[0])) + `:\` + strings.Join(parts, `\`), true
+		return canonicalAfter(string(upperASCII(path[0]))+`:\`, path, 2), true
 	}
 	if rest, ok := strings.CutPrefix(path, `\\`); ok {
 		parts := evidencepath.Elements(rest, true)
 		if len(parts) == 1 || len(parts) > 1 && parts[0] != "?" {
-			return `\\` + strings.Join(parts, `\`), true
+			return canonicalAfter(`\\`, path, 2), true
 		}
 	}
 	return "", false
+}
+
+// canonicalAfter returns path, a Windows form whose first from bytes are
+// its drive or its \\, as head and then its elements joined by
+// backslashes, up to where asWrittenFrom says to keep the path as written.
+func canonicalAfter(head, path string, from int) string {
+	kept := asWrittenFrom(path)
+	if kept < from {
+		return path
+	}
+	joined := strings.Join(evidencepath.Elements(path[from:kept], true), `\`)
+	if kept == len(path) || joined == "" {
+		return head + joined + path[kept:]
+	}
+	return head + joined + `\` + path[kept:]
+}
+
+// asWrittenFrom returns where path keeps its text as written: at the start
+// of the element (after the last slash or backslash) that holds its first
+// scheme separator, when the path holds a URL credential the output
+// replaces, else at its end. Every credential comes after that separator,
+// and the bytes from the element on are left as they are, so the canonical
+// form holds the same URL credentials as the path, each in its URL, and the
+// output replaces them alike: rewriting a URL's slashes would leave no URL
+// to find them in. No Windows folder name holds a colon, so no real path
+// is spelled differently.
+func asWrittenFrom(path string) int {
+	if len(secrets.URLCredentialRanges(path, false)) == 0 {
+		return len(path)
+	}
+	separator := len(path)
+	for _, mark := range []string{"://", `:\/\/`} {
+		if found := strings.Index(path, mark); found >= 0 {
+			separator = min(separator, found)
+		}
+	}
+	return strings.LastIndexAny(path[:separator], `/\`) + 1
 }
 
 // upperASCII returns char in upper case when it is an ASCII letter.

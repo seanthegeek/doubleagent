@@ -147,6 +147,18 @@ func pathCases() []pathCase {
 		{"\\\\?\\UNC\\?\\C:\\x", "\\\\?\\UNC\\?\\C:\\x", "\\\\?\\UNC\\?\\C:\\x", false, ""},
 		{"\\\\?\\UNC\\?\\UNC\\a\\b", "\\\\?\\UNC\\?\\UNC\\a\\b", "\\\\?\\UNC\\?\\UNC\\a\\b", false, ""},
 		{"\\\\?\\Ab", "\\\\?\\Ab", "\\\\?\\Ab", false, ""},
+		{"C:/proj/https://QZ:QZJWZJWQ@h/x", "C:\\proj\\https://QZ:QZJWZJWQ@h/x", "c:\\proj\\https://qz:qzjwzjwq@h/x", true,
+			""},
+		{"c:\\p\\\\x\\https://u:pw@h/a//b", "C:\\p\\x\\https://u:pw@h/a//b", "c:\\p\\x\\https://u:pw@h/a//b", true, ""},
+		{"C:/p/a:\\/\\/u:pw@h", "C:\\p\\a:\\/\\/u:pw@h", "c:\\p\\a:\\/\\/u:pw@h", true, ""},
+		{"C:/p/https://h/?token=ab/cd", "C:\\p\\https://h/?token=ab/cd", "c:\\p\\https://h/?token=ab/cd", true, ""},
+		{"C:/p/https://h/x", "C:\\p\\https:\\h\\x", "c:\\p\\https:\\h\\x", true, ""},
+		{"C:/p/https://git@h/x", "C:\\p\\https:\\git@h\\x", "c:\\p\\https:\\git@h\\x", true, ""},
+		{"c://u:pw@h/x", "c://u:pw@h/x", "c://u:pw@h/x", true, ""},
+		{"\\\\?\\C:/p/x://u:pw@h", "C:\\p\\x://u:pw@h", "c:\\p\\x://u:pw@h", true, ""},
+		{"\\\\srv/share//https://u:pw@h/x", "\\\\srv\\share\\https://u:pw@h/x", "\\\\srv\\share\\https://u:pw@h/x", true,
+			""},
+		{"\\\\https://u:pw@h/x", "\\\\https://u:pw@h/x", "\\\\https://u:pw@h/x", true, ""},
 	}
 }
 
