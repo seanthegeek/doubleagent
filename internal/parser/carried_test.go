@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -186,5 +187,32 @@ func TestALongWindowsProjectPathIsCutInItsOneSpelling(t *testing.T) {
 	}
 	if cut[0] != cut[1] || timeline.CanonicalProjectPath(cut[0]) != cut[0] || !strings.HasPrefix(cut[0], `C:\Users\a\`) {
 		t.Errorf("cut %q and %q, want one canonical spelling", cut[0][:20], cut[1][:20])
+	}
+}
+
+// sharedPathAllocations returns the allocations of one parse that emits n
+// rows sharing path as their project path.
+func sharedPathAllocations(path string, n int) float64 {
+	artifact := &input.Artifact{Original: "/home/user/file"}
+	return testing.AllocsPerRun(3, func() {
+		_, _ = Within(artifact, func(emit Emit) error {
+			for range n {
+				emit(timeline.Row{ProjectPath: path, TurnType: timeline.TurnUser, Text: "t"})
+			}
+			return nil
+		}, func(timeline.Row) {})
+	})
+}
+
+func TestALongProjectPathTheRowsShareCostsTheSameARowInEitherForm(t *testing.T) {
+	windows := `C:\` + strings.ReplaceAll(filler(10_000), "/", `\`)
+	unix := "/" + filler(10_000)
+	// The rows past the first cost what every row does, whatever the form:
+	// the same allocations a row, rounded, since the runtime may allocate a
+	// few times of its own during a run.
+	windowsRows := math.Round((sharedPathAllocations(windows, 1000) - sharedPathAllocations(windows, 500)) / 500)
+	unixRows := math.Round((sharedPathAllocations(unix, 1000) - sharedPathAllocations(unix, 500)) / 500)
+	if windowsRows != unixRows {
+		t.Errorf("a row allocated %v times with a Windows path and %v with a Unix path", windowsRows, unixRows)
 	}
 }
