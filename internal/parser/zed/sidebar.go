@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -32,6 +33,9 @@ type sidebarStore struct {
 	keyValues []sqlitefile.Row
 	archived  []archivedRow
 	terminals []sqlitefile.Row
+	// repeatedArchived counts the archived worktree rows repeating an
+	// earlier row's id, which give their rows unlinked.
+	repeatedArchived int
 	// byKey holds the sidebar rows by thread key, the last row of a key
 	// winning.
 	byKey map[string]sqlitefile.Row
@@ -91,7 +95,8 @@ func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
 		})
 	})
 	if reader.err == nil && names.Has("archived_git_worktrees") {
-		store.archived, reader.err = readArchived(database, names.Has("thread_archived_worktrees"))
+		store.archived, store.repeatedArchived, reader.err = readArchived(database,
+			names.Has("thread_archived_worktrees"))
 	}
 	store.terminals = reader.rows("sidebar_terminal_threads", func(table *sqlitefile.Table) sqlitefile.Query {
 		return table.Select().OrderBy("created_at")
@@ -106,39 +111,62 @@ func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
 }
 
 // readArchived returns the archived worktrees by id, each joined to the
-// threads linked to it (a left join on archived_worktree_id). Several
-// threads linked to one worktree come in the order of their thread ids.
-func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, error) {
+// threads linked to it (a left join on archived_worktree_id), and the
+// number of rows repeating an earlier row's id. Several threads linked to
+// one worktree come in the order of their thread ids. The id is the
+// table's key, so only damage repeats one: the links of an id join its
+// first row, and each later row of it gives its own unlinked row.
+func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, int, error) {
 	table, err := database.Table("archived_git_worktrees")
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	worktrees, err := table.Select().OrderBy("id").All()
 	if err != nil || !linked {
-		return asArchived(worktrees), err
+		return asArchived(worktrees), 0, err
 	}
 	links, err := database.Table("thread_archived_worktrees")
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	lookup, err := links.Select("thread_id").Lookup("archived_worktree_id")
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var joined []archivedRow
+	// shown holds the groups of links already joined, by the rowid of a
+	// group's first link, so ids the column compares as one are one group.
+	shown, repeats := map[int64]bool{}, 0
 	for _, worktree := range worktrees {
 		matches := lookup.Find(worktree, "id")
+		if len(matches) > 0 && shown[matches[0].Rowid] {
+			repeats++
+			matches = nil
+		}
+		if len(matches) == 0 {
+			joined = append(joined, archivedRow{Row: worktree})
+			continue
+		}
+		shown[matches[0].Rowid] = true
+		matches = slices.Clone(matches)
 		slices.SortStableFunc(matches, func(left, right sqlitefile.Row) int {
 			return sqlitefile.Compare(left.Get("thread_id"), right.Get("thread_id"))
 		})
-		if len(matches) == 0 {
-			joined = append(joined, archivedRow{Row: worktree})
-		}
 		for _, link := range matches {
 			joined = append(joined, archivedRow{Row: worktree, thread: link.Get("thread_id")})
 		}
 	}
-	return joined, nil
+	return joined, repeats, nil
+}
+
+// repeatedWorktrees returns the problem text of n archived worktree rows
+// that repeat an earlier row's id and so give their rows unlinked.
+func repeatedWorktrees(n int) string {
+	rows := "1 row repeating"
+	if n > 1 {
+		rows = strconv.Itoa(n) + " rows repeating"
+	}
+	return "archived_git_worktrees holds " + rows + " an earlier row's id; its linked threads are shown once"
 }
 
 // asArchived returns worktrees with no linked thread.
@@ -178,6 +206,9 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 	}
 	for _, row := range store.archived {
 		emit(p.archivedWorktree(artifact, row, store))
+	}
+	if store.repeatedArchived > 0 {
+		problems.Add(0, repeatedWorktrees(store.repeatedArchived))
 	}
 	for _, row := range store.terminals {
 		text := "sidebar terminal: " + firstColumn(row.Get("custom_title"), row.Get("title")) +

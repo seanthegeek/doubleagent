@@ -692,7 +692,10 @@ Every store of [Other db.sqlite tables](#other-dbsqlite-tables) is read as a pri
 - An archived worktree is `archived worktree: <worktree_path> of <main_repo_path> branch=<b>
   staged=<hash> unstaged=<hash> original=<hash> ref=refs/archived-worktrees/<id> (from <file>
   archived_git_worktrees, file mtime)`, one per thread linked to it with that thread's
-  `session_id`, `project_path` the main repository; the archive time is not recorded.
+  `session_id`, `project_path` the main repository; the archive time is not recorded. The id is
+  the table's primary key, so a table holding one id in several rows is damage: the id's links
+  join its first row in id order, and each later row of the id is one row with no `session_id`
+  ([Bad-line rows](#bad-line-rows)).
 - A sidebar terminal is `sidebar terminal: <custom_title or title> cwd=<working_directory>` at its
   `created_at`, with its first folder as `project_path` and no `session_id`.
 - A native `sidebar_threads` row with a `session_id` is `sidebar thread: title=<title>
@@ -823,6 +826,11 @@ row. An `initial_project_snapshot.worktree_snapshots` holding entries that are n
 one row for them all at the same place,
 `parser: initial_project_snapshot.worktree_snapshots holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one).
+
+An `archived_git_worktrees` table holding rows that repeat an earlier row's id gives one row after
+the file's other rows, with no session, an empty `timestamp_utc` and `source_line` 0, counting
+them (`1 row` for one):
+`parser: archived_git_worktrees holds <n> rows repeating an earlier row's id; its linked threads are shown once`.
 
 A `scoped_kv_store` value that does not decode (a draft prompt that is not JSON, a worktree
 record without `created_at_seconds`) is `parser: unparseable record <rowid> (<namespace>[ <key>]:
