@@ -43,9 +43,37 @@ CREATE TABLE hosted_room_events (room_id TEXT NOT NULL, seq INTEGER NOT NULL,
 INSERT INTO hosted_room_events VALUES ('r1', 1, 'e1', 'message', '{}', '{}', 1767323045.0);
 """
 
+
+
+def repeated_session(count: int) -> str:
+    """Return a state.db whose sessions table holds count rows of one id, as only damage writes,
+    and count main-loop usage rows of that id alternating between two models."""
+    rows = [
+        """PRAGMA page_size = 512;
+CREATE TABLE sessions (id TEXT, source TEXT NOT NULL, model TEXT, started_at REAL NOT NULL,
+  title TEXT);
+CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,
+  role TEXT NOT NULL, content TEXT, timestamp REAL NOT NULL);
+CREATE TABLE session_model_usage (session_id TEXT NOT NULL, model TEXT NOT NULL,
+  billing_provider TEXT, task TEXT, first_seen REAL NOT NULL);"""
+    ]
+    for i in range(count):
+        rows.append(
+            "INSERT INTO sessions VALUES ('s1', 'cli', 'model-b', %d.0, 'copy %d');"
+            % (1767323045 + i, i)
+        )
+        rows.append(
+            "INSERT INTO session_model_usage VALUES ('s1', 'model-%s', NULL, NULL, %d.5);"
+            % ("ab"[i % 2], 1767323045 + i)
+        )
+    return "\n".join(rows)
+
+
 DATABASES = {
     "generated_column.db": GENERATED_COLUMN,
     "room_events_without_rowid.db": ROOM_EVENTS_WITHOUT_ROWID,
+    "repeated_session_id_10.db": repeated_session(10),
+    "repeated_session_id_40.db": repeated_session(40),
 }
 
 

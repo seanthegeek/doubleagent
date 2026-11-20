@@ -1526,7 +1526,10 @@ The records are under [Permission outcomes and settings](#permission-outcomes-an
 when it is set; auxiliary task rows are skipped. The table aggregates per model, so a switch back
 to a model already used is not visible. A session with no such rows gets one
 `model: <sessions.model>` row at `started_at`. The `model` column of the other rows stays
-`sessions.model` ([Model usage](#model-usage)).
+`sessions.model` ([Model usage](#model-usage)). The session id is the table's key, so a second
+`sessions` row of one id is damage: the usage rows follow only the first row of the id by
+`started_at`, and each later row of the id is read as a session with no usage rows, adding to one
+problem row for the table ([Bad-line rows](#bad-line-rows)).
 
 Model-switch markers, `system`, in message order: each `messages` row with
 `display_kind = 'model_switch'` is one row `model: <old> -> <model> provider=<provider>` at the
@@ -1731,8 +1734,12 @@ a JSON list is one `parser:` row, and an entry that is not an object with a `url
 In `state.db` a `sessions.origin_json` or `model_config`, a `state_meta` fence value, or a
 `hosted_room_events` `actor_json` or `payload_json` that does not decode to a JSON object is a row
 `parser: unparseable record <rowid> (<table>.<column>: <reason>): <value as stored>`, with the
-session's id where there is one, after the file's other rows. In `response_store.db` a `data`
-value is reported the same way (`responses.data`), and a history entry that is not an object as
+session's id where there is one, after the file's other rows. A `sessions` table holding rows
+that repeat an earlier row's id, whose usage rows that row already showed, gives one row after
+them with no session and `source_line` 0 (`1 row` for one):
+`parser: sessions holds <n> rows repeating an earlier row's id; its usage rows are shown once`.
+In `response_store.db` a `data` value is reported the same way (`responses.data`), and a
+history entry that is not an object as
 `(responses.data conversation_history <index>: not an object)`; a `conversation_history` that is
 present but not an array is `parser: conversation_history is not a JSON array` (`source_line` the
 row's rowid), and a `connections.json` `quarantined` that is present but not an array is

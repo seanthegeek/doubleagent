@@ -1278,6 +1278,11 @@ from them in `ordinal` order, as OpenCode's reader does
 ([`:132-133`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L132-L133)); the writer stores the
 same `type` in both
 ([`projector.ts:280`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/projector.ts#L280)). A
+message id is its table's key, so a second row of one id is damage: the id's `session_part` items
+(or 1.x `part` rows) go with the first row of the id that takes them, in the order the rows are
+read, and each later row keeps its own `content` and adds to one problem row for the table
+([Bad-line rows](#bad-line-rows)). In the JSON trees a message's part directory is read for the
+first message file of the run that claims its id. A
 `tool_use` row's text is the first non-empty of the input's `command`, `filePath`, `file_path`,
 `pattern` (followed by ` | <path>` when `path` is set), `path`, `url`, `query`, `description` and
 `prompt`, else the input as JSON. Not read: `blob`, `blob_ref`, `schedule`, `job`,
@@ -1502,7 +1507,15 @@ parser: message file could not be decoded
 parser: project file <projectID>.json could not be read (<reason>)
 parser: <file> is not a JSON object
 parser: database could not be read: <error>
+parser: <table> holds <n> rows repeating an earlier row's id; its parts are shown once
+parser: message <id> repeats the id of an earlier message file; its parts are shown with that file
 ```
+
+The last two rows are for a message id that more than one record claims, which OpenCode never
+writes: the first is one row per table (`message` or `session_message`, `1 row` for one) after
+the database's other rows, with no session or time and `source_line` 0, counting the rows of an
+id whose parts an earlier row of it already showed; the second is a row of each later message
+file of the JSON trees, after its own rows, with `source_line` 1.
 
 A database file that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

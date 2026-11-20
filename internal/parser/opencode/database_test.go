@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -83,5 +84,41 @@ func TestANullProjectIDMatchesNoProject(t *testing.T) {
 	reading.projects[parser.ColumnKey(sqlitefile.Value{})] = nullProject
 	if got := reading.worktreeOf(sqlitefile.Value{}); got != "" {
 		t.Errorf("a NULL project_id found the worktree %q", got)
+	}
+}
+
+// A message id is unique in OpenCode's tables, so a repeated one is damage:
+// the message's parts are shown once, with the first row of the id in the
+// order the rows are read, and the later rows of the id give their own rows
+// without them and one problem row for the table, so the rows grow with
+// the table rather than with the square of it.
+func TestARepeatedMessageIDShowsItsPartsOnce(t *testing.T) {
+	tests := []struct {
+		name, database, table string
+		parts, repeats        int
+	}{
+		{"10 rows of one id in session_message give each part once", "repeated_message_id_10.db",
+			"session_message", 10, 9},
+		{"40 rows of one id in session_message give each part once", "repeated_message_id_40.db",
+			"session_message", 40, 39},
+		{"10 rows of one id in message give each part once", "repeated_v1_message_id_10.db", "message", 10, 9},
+		{"40 rows of one id in message give each part once", "repeated_v1_message_id_40.db", "message", 40, 39},
+		{"three spellings of one id that the column compares as one give its parts once",
+			"caseless_message_id.db", "message", 2, 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := parseDatabase(t, test.database)
+			want := []string{"session start: Repeat directory=/work/proj"}
+			for i := range test.parts {
+				want = append(want, fmt.Sprintf("part %d", i))
+			}
+			want = append(want, fmt.Sprintf("parser: %s holds %d rows repeating an earlier row's id; "+
+				"its parts are shown once", test.table, test.repeats))
+			if !slices.Equal(got, want) {
+				t.Errorf("%d rows ending %q, want %d rows ending %q", len(got), got[len(got)-1], len(want),
+					want[len(want)-1])
+			}
+		})
 	}
 }
