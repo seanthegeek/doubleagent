@@ -65,7 +65,7 @@ func (p *Parser) sessionRecord(home *input.Home, session string) (jsonvalue.Valu
 		return cached.record, cached.found
 	}
 	p.Work.Add("record lookups", 1)
-	record, found := findRecord(home, session)
+	record, found := p.findRecord(home, session)
 	if p.records == nil {
 		p.records = map[recordKey]foundRecord{}
 	}
@@ -80,7 +80,7 @@ func (p *Parser) sessionRecord(home *input.Home, session string) (jsonvalue.Valu
 // dir's full or short name, never through a link. A record that cannot be
 // read is skipped here: it is an artifact of its own, reported when it is
 // parsed.
-func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
+func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 	if home == nil {
 		return jsonvalue.NewNull(), false
 	}
@@ -106,7 +106,7 @@ func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 		if !ok {
 			continue
 		}
-		for _, candidate := range recordCandidates(directory, name, long) {
+		for _, candidate := range p.recordCandidates(directory, name, long) {
 			if !longName.MatchString(strings.TrimSuffix(filepath.Base(candidate), ".json")) ||
 				!parser.RegularFile(candidate) {
 				continue
@@ -122,8 +122,8 @@ func findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
 
 // recordCandidates returns the paths that may hold the record of the
 // session dir called name: <name>.json for a full name, else every
-// local_<name>-*.json, sorted by name.
-func recordCandidates(directory parser.Directory, name string, long bool) []string {
+// local_<name>-*.json, sorted by name, from the directory's index.
+func (p *Parser) recordCandidates(directory parser.Directory, name string, long bool) []string {
 	if long {
 		candidate, ok := directory.Child(name + ".json")
 		if !ok {
@@ -131,19 +131,7 @@ func recordCandidates(directory parser.Directory, name string, long bool) []stri
 		}
 		return []string{candidate}
 	}
-	entries, err := parser.ReadDir(directory.Path())
-	if err != nil {
-		return nil
-	}
-	prefix := "local_" + name + "-"
-	var names []string
-	for _, entry := range entries {
-		entryName := entry.Name()
-		if strings.HasPrefix(entryName, prefix) && strings.HasSuffix(entryName[len(prefix):], ".json") {
-			names = append(names, entryName)
-		}
-	}
-	slices.Sort(names)
+	names := p.shortNamesOf(directory)[name]
 	candidates := make([]string, 0, len(names))
 	for _, entryName := range names {
 		if candidate, ok := directory.Child(entryName); ok {
@@ -151,6 +139,39 @@ func recordCandidates(directory parser.Directory, name string, long bool) []stri
 		}
 	}
 	return candidates
+}
+
+// shortNamesOf returns the names of the directory's entries
+// local_<eight characters>-*.json by those eight characters, each list
+// sorted, made on first use for the run, since every session dir of an
+// org with a short name looks its record up there. A directory that cannot
+// be listed has none.
+func (p *Parser) shortNamesOf(directory parser.Directory) map[string][]string {
+	if names, ok := p.shortNames[directory.Path()]; ok {
+		return names
+	}
+	if p.shortNames == nil {
+		p.shortNames = map[string]map[string][]string{}
+	}
+	names := map[string][]string{}
+	p.shortNames[directory.Path()] = names
+	p.Work.Add("org directory listings", 1)
+	entries, err := parser.ReadDir(directory.Path())
+	if err != nil {
+		return names
+	}
+	const prefix, short = "local_", 8
+	for _, entry := range entries {
+		entryName := entry.Name()
+		rest, found := strings.CutPrefix(entryName, prefix)
+		if found && len(rest) > short && rest[short] == '-' && strings.HasSuffix(rest[short+1:], ".json") {
+			names[rest[:short]] = append(names[rest[:short]], entryName)
+		}
+	}
+	for _, list := range names {
+		slices.Sort(list)
+	}
+	return names
 }
 
 // hasTranscriptFile reports whether a plain directory directly below the
