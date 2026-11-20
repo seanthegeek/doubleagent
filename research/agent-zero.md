@@ -698,9 +698,13 @@ history messages that have no matching log id, with an empty timestamp and
 a `system` row saying the log was trimmed.
 
 A log item reads the history message of its `id` (the user's text, the reply, the tool result)
-and the `messages/<n>.txt` file that message names. Each message's text joins the first log item,
-in log order, that names its id; a later item with the same id keeps the id and the message's
-model but gives only its own `content`. Each message file is read at most once per chat, its text
+and the `messages/<n>.txt` file that message names. Each message's text joins the first log item
+of its id, in log order, that shows it: a `user` item showing its `user_message`, an `agent` item
+whose reply comes from it, or a tool item showing its result or message file. An item that shows
+only its own `content` (a `response`, `info` or `warning`, or an item of the wrong kind for the
+message) leaves the text to the next item of the id. A later item with the same id keeps the id,
+the message's model and, for a tool item, its `tool_name`, but gives only its own `content`. Each
+message file is read at most once per chat, its text
 joining the first log item that reaches it; on a disk that matches names in any letter case (the
 macOS and Windows default) every case spelling of its name is that one file.
 
