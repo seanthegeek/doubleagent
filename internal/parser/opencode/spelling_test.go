@@ -134,3 +134,43 @@ func TestEverySpellingOfOneProjectIDReadsItsFileOnce(t *testing.T) {
 		})
 	}
 }
+
+// Message files of the first layout whose session ids are case spellings
+// of one id read its info file once on a disk that matches names in any
+// case, and all take its directory; two sessions read both files.
+func TestEverySpellingOfOneSessionIDReadsItsInfoFileOnce(t *testing.T) {
+	const oldSessions = ".local/share/opencode/project/p/storage/session"
+	tests := []struct {
+		name     string
+		sessions []string
+		infos    []string
+		anyCase  bool
+		reads    int
+	}{
+		{"four spellings of one session id read its info file once", []string{"ses_a", "SES_A", "Ses_A", "sEs_a"},
+			[]string{"ses_a"}, true, 1},
+		{"two session ids read both info files", []string{"ses_a", "ses_b"}, []string{"ses_a", "ses_b"}, false, 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			files := map[string]string{}
+			var rels []string
+			for i, sessionID := range test.sessions {
+				rel := fmt.Sprintf("%s/message/%s/m%d.json", oldSessions, sessionID, i)
+				rels = append(rels, rel)
+				files[rel] = fmt.Sprintf(`{"id": "m%d", "sessionID": "%s", "role": "user"}`, i, sessionID)
+			}
+			for _, sessionID := range test.infos {
+				files[oldSessions+"/info/"+sessionID+".json"] = `{"directory": "/work/` + sessionID + `"}`
+			}
+			home := writeTree(t, files)
+			if test.anyCase {
+				requireAnyCase(t, home, oldSessions+"/info/"+test.sessions[1]+".json")
+			}
+			_, work := parseRels(t, home, rels)
+			if reads := work.Count("quiet side reads"); reads != test.reads {
+				t.Errorf("the info files were read %d times, want %d", reads, test.reads)
+			}
+		})
+	}
+}

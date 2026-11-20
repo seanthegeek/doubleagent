@@ -139,13 +139,15 @@ func (p *Parser) sessionProject(root string, sessionID string, old bool) string 
 	p.Work.Add("session side reads", 1)
 	session := jsonvalue.NewNull()
 	if old {
-		session, _ = quietObject(childPath(root, "info", sessionID+".json"))
+		info, found := childPath(root, "info", sessionID+".json")
+		session = p.tree.quietSide(info, found, p.Work)
 	} else if directory, ok := childPath(root, "session"); ok {
 		session = p.tree.session(directory, sessionID, p.Work)
 	}
 	projectPath := parser.Text(session.Get("directory"))
 	if projectID := session.Get("projectID"); projectPath == "" && !old && !projectID.IsEmpty() {
-		project, _ := quietObject(childPath(root, "project", projectID.Text()+".json"))
+		file, found := childPath(root, "project", projectID.Text()+".json")
+		project := p.tree.quietSide(file, found, p.Work)
 		projectPath = worktreeText(project.Get("worktree"))
 	}
 	p.tree.projectPaths[key] = projectPath
