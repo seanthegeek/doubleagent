@@ -7,21 +7,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// project is a conversation's project path and git branch.
+// project is a conversation's project path, a local path or a cloud
+// agent's repository URL as written, and its git branch.
 type project struct {
 	path   string
 	branch string
-	// remote marks a cloud agent's project, a repository URL.
-	remote bool
-}
-
-// pathFor returns the project's path as a row of artifact shows it: a
-// repository URL or a local path, as it is.
-func (found project) pathFor(artifact *input.Artifact) string {
-	if found.remote {
-		return found.path
-	}
-	return found.path
 }
 
 // stateIndex is what the side files of a home need from its state.vscdb:
@@ -91,7 +81,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	for _, found := range readCloudAgents(store, &ignored) {
 		ident := found.agent.Get("bcId").Text()
 		if _, seen := p.index.projects[ident]; !seen {
-			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text(), remote: true}
+			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text()}
 		}
 		if _, seen := p.index.models[ident]; !seen {
 			p.index.models[ident], _ = cloudModel(found.agent)
