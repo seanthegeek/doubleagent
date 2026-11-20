@@ -52,10 +52,8 @@ INSERT INTO event VALUES ('evt_1', 'ses_2', 1, 'session.updated.1',
 )
 
 
-
 def repeated_v2_message(count: int) -> str:
-    """Return a 2.x database whose session_message holds count rows of one id, as only damage
-    writes, and that id's count session_part items."""
+    """Return a 2.x database whose session_message holds count rows of one id and its parts."""
     rows = [
         """CREATE TABLE session_v2 (id text PRIMARY KEY, project_id text, directory text,
     title text, time_created integer, time_updated integer);
@@ -73,14 +71,13 @@ CREATE TABLE session_part (id text, message_id text, session_id text, type text,
         )
         rows.append(
             "INSERT INTO session_part VALUES ('prt_%d', 'msg_1', 'ses_1', 'text', %d, "
-            "'{\"text\":\"part %d\"}');" % (i, i, i)
+            '\'{"text":"part %d"}\');' % (i, i, i)
         )
     return "\n".join(rows)
 
 
 def repeated_v1_message(count: int) -> str:
-    """Return a 1.x database whose message table holds count rows of one id, as only damage
-    writes, and that id's count parts."""
+    """Return a 1.x database whose message table holds count rows of one id and its parts."""
     rows = [
         """CREATE TABLE session (id text PRIMARY KEY, project_id text, directory text,
     title text, time_created integer, time_updated integer);
@@ -98,8 +95,7 @@ CREATE TABLE part (id text, message_id text, session_id text, time_created integ
         )
         rows.append(
             "INSERT INTO part VALUES ('prt_%03d', 'msg_1', 'ses_1', %d, %d, "
-            "'{\"type\":\"text\",\"text\":\"part %d\"}');"
-            % (i, 1700000001000 + i, 1700000001000 + i, i)
+            '\'{"type":"text","text":"part %d"}\');' % (i, 1700000001000 + i, 1700000001000 + i, i)
         )
     return "\n".join(rows)
 
