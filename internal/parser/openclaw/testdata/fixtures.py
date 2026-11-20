@@ -202,6 +202,35 @@ INSERT INTO projects VALUES ('/w/r', 'https://ci:s3cret@git.example/o/r.git', 17
 """
 
 
+# One window whose key, display name, model and provider are each 10000 bytes, more than the 4096 a
+# value copied onto many rows is written with, and ten archived generations of its session that name
+# no key of their own, so each generation's start row copies the window's.
+LONG = "replace(hex(zeroblob(5000)), '0', '{letter}')"
+WINDOW_ARCHIVES = (
+    """
+PRAGMA page_size = 512;
+CREATE TABLE session_windows (session_id TEXT NOT NULL PRIMARY KEY, session_key TEXT NOT NULL,
+  previous_session_id TEXT, reason TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+  started_at INTEGER, ended_at INTEGER, status TEXT, chat_type TEXT, channel TEXT, account_id TEXT,
+  model_provider TEXT, model TEXT, parent_session_key TEXT, spawned_by TEXT, display_name TEXT,
+  hook_external_content_source TEXT);
+CREATE TABLE session_transcript_archives (session_id TEXT NOT NULL, generation TEXT NOT NULL,
+  session_key TEXT NOT NULL, reason TEXT NOT NULL, encoding TEXT NOT NULL, archive_blob BLOB NOT NULL,
+  archive_sha256 TEXT NOT NULL, archive_name TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL,
+  published_at INTEGER, PRIMARY KEY (session_id, generation));
+"""
+    + f"""INSERT INTO session_windows (session_id, session_key, created_at, updated_at, channel,
+  display_name, model, model_provider) VALUES ('s', {LONG.format(letter="k")}, 1, 1, 'webchat',
+  {LONG.format(letter="d")}, {LONG.format(letter="m")}, {LONG.format(letter="p")});
+"""
+    + "".join(
+        f"INSERT INTO session_transcript_archives VALUES ('s', 'g{number}', '', 'reset', 'jsonl',"
+        f" CAST('{{\"type\": \"label\", \"label\": \"l{number}\"}}' AS BLOB), '', 'a{number}',"
+        f" {number}, NULL);\n"
+        for number in range(10)
+    )
+)
+
 def write_state(name: str, script: str) -> None:
     """Write a state database from its SQL."""
     path = HERE / name
@@ -241,6 +270,7 @@ def main() -> None:
     write_state("state_urls.db", STATE_URLS)
     for count in (10, 40):
         write_state(f"conversations_repeated_{count}.db", conversations(count))
+    write_state("window_archives.db", WINDOW_ARCHIVES)
 
 
 if __name__ == "__main__":
