@@ -95,16 +95,19 @@ func CarriedProblem(name string, n int) string {
 		strconv.Itoa(CarriedLimit) + " bytes (" + strconv.Itoa(n) + times
 }
 
-// lastCut is the value a cut was last made of and the text it gave, so a
-// value carried onto many rows is cut once.
+// lastCut is the value, as the parser gave it, that a cut was last made of
+// and the text written for it, so a value carried onto many rows is cut
+// once; cut is false for a project path that its one spelling brought
+// within the limit.
 type lastCut struct {
 	value, written string
+	cut            bool
 }
 
 // cutOf returns the cut of value, from the last when it is the same value.
 func (l *lastCut) cutOf(recorder *secrets.Recorder, value string, inText bool) string {
 	if l.written == "" || l.value != value {
-		*l = lastCut{value: value, written: cutValue(recorder, value, inText)}
+		*l = lastCut{value: value, written: cutValue(recorder, value, inText), cut: true}
 	}
 	return l.written
 }
@@ -121,35 +124,56 @@ type carriedFields struct {
 	first    *timeline.Row
 }
 
-// cut cuts the long fields of row. A project path is first given its one
-// spelling (timeline.CanonicalProjectPath), which the run gives every
-// project path, so each spelling of one long path is cut alike.
+// cut cuts the long fields of row.
 func (c *carriedFields) cut(row *timeline.Row) {
 	cutAny := false
 	for _, field := range row.FieldsButText() {
 		if len(*field.Value) <= CarriedLimit {
 			continue
 		}
-		if field.Name == "project_path" {
-			if *field.Value = timeline.CanonicalProjectPath(*field.Value); len(*field.Value) <= CarriedLimit {
-				continue
-			}
-		}
-		if c.counts == nil {
-			c.counts, c.last = map[string]int{}, map[string]*lastCut{}
+		written, cut := c.written(field.Name, *field.Value)
+		*field.Value = written
+		if !cut {
+			continue
 		}
 		if c.counts[field.Name] == 0 {
 			c.names = append(c.names, field.Name)
-			c.last[field.Name] = &lastCut{}
 		}
 		c.counts[field.Name]++
-		*field.Value = c.last[field.Name].cutOf(c.recorder, *field.Value, false)
 		cutAny = true
 	}
 	if cutAny && c.first == nil {
 		first := *row
 		c.first = &first
 	}
+}
+
+// written returns what the kit writes for value, a field longer than
+// CarriedLimit, and whether that is a cut, from the field's last value when
+// value is the same as the parser gave it, so a value the rows share costs
+// one comparison a row. A project path is first given its one spelling
+// (timeline.CanonicalProjectPath), which the run gives every project path,
+// so each spelling of one long path is cut alike.
+func (c *carriedFields) written(name, value string) (string, bool) {
+	if c.counts == nil {
+		c.counts, c.last = map[string]int{}, map[string]*lastCut{}
+	}
+	last := c.last[name]
+	if last == nil {
+		last = &lastCut{}
+		c.last[name] = last
+	}
+	if last.written == "" || last.value != value {
+		written, cut := value, false
+		if name == "project_path" {
+			written = timeline.CanonicalProjectPath(value)
+		}
+		if len(written) > CarriedLimit {
+			written, cut = cutValue(c.recorder, written, false), true
+		}
+		*last = lastCut{value: value, written: written, cut: cut}
+	}
+	return last.written, last.cut
 }
 
 // problemRows returns one "parser:" system row per field cut, in the order
