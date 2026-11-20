@@ -44,10 +44,8 @@ INSERT INTO hosted_room_events VALUES ('r1', 1, 'e1', 'message', '{}', '{}', 176
 """
 
 
-
 def repeated_session(count: int) -> str:
-    """Return a state.db whose sessions table holds count rows of one id, as only damage writes,
-    and count main-loop usage rows of that id alternating between two models."""
+    """Return a state.db with count sessions rows of one id and count usage rows of it."""
     rows = [
         """PRAGMA page_size = 512;
 CREATE TABLE sessions (id TEXT, source TEXT NOT NULL, model TEXT, started_at REAL NOT NULL,
