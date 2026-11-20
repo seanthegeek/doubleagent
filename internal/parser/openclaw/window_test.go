@@ -3,9 +3,9 @@ package openclaw
 import (
 	"fmt"
 	"runtime"
-	"strconv"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/zstdframe"
 )
 
@@ -32,18 +32,27 @@ func allocatedBy(run func()) uint64 {
 	return after.TotalAlloc - before.TotalAlloc
 }
 
+// coldArchive returns the path, below a home, of the i-th cold archive
+// file: a compressed transcript the parser reads.
+func coldArchive(i int) string {
+	return fmt.Sprintf(".openclaw/sessions/cold/%064x.jsonl.zst", i)
+}
+
 func TestTheTranscriptsOfAParseReserveTheLargestWindowOnce(t *testing.T) {
 	measured := map[int]uint64{}
 	for _, n := range []int{10, 40} {
 		t.Run(fmt.Sprintf("%d transcripts", n), func(t *testing.T) {
 			home := t.TempDir()
-			for i := range n {
-				writeHomeFile(t, home, ".openclaw/sessions/s"+strconv.Itoa(i)+".jsonl.zst", windowFrame)
-			}
 			subject := New()
+			for i := range n {
+				if !subject.Wants(&input.Artifact{Rel: coldArchive(i)}) {
+					t.Fatalf("the parser is not given %s", coldArchive(i))
+				}
+				writeHomeFile(t, home, coldArchive(i), windowFrame)
+			}
 			allocated := allocatedBy(func() {
 				for i := range n {
-					parseHomeFile(t, subject, home, ".openclaw/sessions/s"+strconv.Itoa(i)+".jsonl.zst")
+					parseHomeFile(t, subject, home, coldArchive(i))
 				}
 			})
 			measured[n] = allocated
