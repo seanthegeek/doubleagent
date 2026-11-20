@@ -794,7 +794,10 @@ error while reading one `parser: SQLite error: <error>` row, after the threads r
 row's text or a `zstd` row's compressed bytes as lowercase hex (a truncated frame can decompress to
 nothing), the reason then ending `stored zstd blob as hex`. One blob decompresses to at most
 256 MiB, and the blobs of one database to at most 64 times its size (at least 1 GiB) in all; a blob
-past either limit is such a row, its reason saying which limit it met.
+past either limit is such a row, its reason saying which limit it met. The blobs of one database
+share one decoder, so the history buffer a frame's header asks for (its window) is made once for
+the database rather than once per blob; a frame whose window is above 128 MiB, or above what is
+left of the database's limit, is such a row too, refused before the buffer is made.
 
 A `messages[]` item of no known variant, a `Compaction` with
 neither `Summary` nor `ProviderNative`, an `Agent` content item of no

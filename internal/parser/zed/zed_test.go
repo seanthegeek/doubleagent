@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"bytes"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -187,10 +188,23 @@ func FuzzDecompress(fuzz *testing.F) {
 		frame, _ := hex.DecodeString(seed)
 		fuzz.Add(frame)
 	}
+	whole, _ := hex.DecodeString(
+		"28b52ffd20210901007b2276657273696f6e223a22302e332e30222c226d65737361676573223a5b5d7d")
 	fuzz.Fuzz(func(t *testing.T, data []byte) {
 		out, err := Decompress(data)
 		if err == nil && len(out) > MaxDecompressed {
 			t.Errorf("%d bytes decoded, more than the limit", len(out))
+		}
+		// A database's blobs share a decoder: each gives what a decoder of
+		// its own gives, whatever came before it.
+		budget := NewBudget(0, BudgetFloor)
+		shared, sharedErr := budget.Decompress(data)
+		if (err == nil) != (sharedErr == nil) || !bytes.Equal(out, shared) {
+			t.Errorf("a shared decoder gave %d bytes, %v; a decoder of its own %d bytes, %v",
+				len(shared), sharedErr, len(out), err)
+		}
+		if next, err := budget.Decompress(whole); err == nil && string(next) != threadJSON {
+			t.Errorf("the blob after it decoded to %q", next)
 		}
 	})
 }
