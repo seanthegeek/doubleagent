@@ -214,6 +214,14 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go test -race -tags parity,noasm,nounsafe ./internal/glob/
+      # Built without encoding/json v2, the token reader has no depth limit,
+      # so only there does jsonvalue's own limit refuse a document. This runs
+      # that one test in that build; the package's other tests are left out,
+      # since three of them fail there for reasons unrelated to depth.
+      - name: go test (JSON depth limit without encoding/json v2)
+        env:
+          GOEXPERIMENT: nojsonv2
+        run: go test -run '^TestArraysAndObjectsNestAtMostTenThousandDeep$' ./internal/jsonvalue/
       - name: Build the six targets twice and compare the hashes
         run: |
           sh .github/go-build.sh "$RUNNER_TEMP/build-1" > "$RUNNER_TEMP/sums-1"

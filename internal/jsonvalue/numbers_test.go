@@ -3,6 +3,8 @@ package jsonvalue
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"math/big"
 	"strings"
 	"testing"
@@ -191,7 +193,25 @@ func nestedObjects(levels int) string {
 	return strings.Repeat(`{"a":`, levels) + "1" + strings.Repeat("}", levels)
 }
 
+// tokenReaderRefusesDepth reports whether encoding/json's token reader
+// refuses an array nested one past maxDepth by itself, as it does in the
+// default build; built with GOEXPERIMENT=nojsonv2 it has no limit, and the
+// package's own count of levels is what refuses.
+func tokenReaderRefusesDepth() bool {
+	decoder := json.NewDecoder(strings.NewReader(nested(maxDepth + 1)))
+	for {
+		if _, err := decoder.Token(); err != nil {
+			return !errors.Is(err, io.EOF)
+		}
+	}
+}
+
+// The error text and place are checked in every build. Only in the build
+// where the token reader has no limit (GOEXPERIMENT=nojsonv2, which CI runs
+// for this test alone) is the refusal the package's own, errTooDeep; in the
+// default build the token reader refuses first with the same words.
 func TestArraysAndObjectsNestAtMostTenThousandDeep(t *testing.T) {
+	ownCheckFires := !tokenReaderRefusesDepth()
 	tests := []struct {
 		name, text, want, prefixWant string
 	}{
@@ -212,11 +232,17 @@ func TestArraysAndObjectsNestAtMostTenThousandDeep(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := DecodeString(test.text); errorText(err) != test.want {
+			_, err := DecodeString(test.text)
+			if errorText(err) != test.want {
 				t.Errorf("DecodeString gave %q, want %q", errorText(err), test.want)
 			}
-			if _, _, err := DecodePrefix("x"+test.text, 1); errorText(err) != test.prefixWant {
-				t.Errorf("DecodePrefix gave %q, want %q", errorText(err), test.prefixWant)
+			_, _, prefixErr := DecodePrefix("x"+test.text, 1)
+			if errorText(prefixErr) != test.prefixWant {
+				t.Errorf("DecodePrefix gave %q, want %q", errorText(prefixErr), test.prefixWant)
+			}
+			if refused := test.want != ""; ownCheckFires && refused &&
+				(!errors.Is(err, errTooDeep) || !errors.Is(prefixErr, errTooDeep)) {
+				t.Errorf("the package's own depth check did not refuse: %v, %v", err, prefixErr)
 			}
 		})
 	}
