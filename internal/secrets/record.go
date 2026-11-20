@@ -172,13 +172,12 @@ func URLCredentialEverywhere(credential string) bool {
 // ReaderError records the detail of err, the error a JSON, TOML or XML
 // reader gave for a file that may hold secrets, which can quote the file:
 // the text after the position the reader names ("invalid JSON at line 3,
-// column 9: "), or the whole message of an error of another kind. With an empty
-// placeholder the ": " before either goes too.
-// The detail is often the reader's own wording ("unexpected end of JSON
-// input"), so whatever its length it is replaced only in the rows and the
-// problem lines of the parse running, never elsewhere. A TOML document
-// refused for a size or depth limit (tomldoc.Error.IsLimit) quotes nothing
-// from the file and records nothing.
+// column 9: "), or the whole message of an error of another kind. With an
+// empty placeholder the ": " before either goes too. The detail is often
+// the reader's own wording, so whatever its length it is replaced only in
+// the rows and problem lines of the parse running. A TOML document refused
+// for a size or depth limit (tomldoc.Error.IsLimit) records nothing, and
+// neither does a detail empty once its white space is removed, as in Value.
 func (r *Recorder) ReaderError(err error) {
 	if r == nil || err == nil || isLimit(err) {
 		return
@@ -189,6 +188,9 @@ func (r *Recorder) ReaderError(err error) {
 		if _, detail, found = strings.Cut(detail, ": "); !found {
 			return
 		}
+	}
+	if strings.TrimSpace(detail) == "" {
+		return
 	}
 	r.current.add(form{secret: detail}, parseProblem)
 	// With an empty placeholder the ": " before the detail goes too.

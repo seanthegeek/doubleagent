@@ -1028,3 +1028,26 @@ func TestAFormRecordedPlainAfterAReplacementIsMatchedFromThen(t *testing.T) {
 		t.Errorf("after: got %q, want %q", got, "xP"+rest)
 	}
 }
+
+func TestAReaderErrorWithNoDetailRecordsNothing(t *testing.T) {
+	const text = "parser: a: b and c: d\te"
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{"an empty message", errors.New("")},
+		{"a space", errors.New(" ")},
+		{"a tab and a newline", errors.New("\t\n")},
+	}
+	for _, test := range tests {
+		for _, placeholder := range []string{"", "R"} {
+			t.Run(test.name+" under placeholder "+placeholder, func(t *testing.T) {
+				got, recorded := identified(Setting{Withhold: true, Placeholder: placeholder}, text,
+					func(recorder *Recorder) { recorder.ReaderError(test.err) })
+				if got != text || len(recorded) != 0 {
+					t.Errorf("wrote %q and recorded %q, want %q and nothing", got, recorded, text)
+				}
+			})
+		}
+	}
+}
