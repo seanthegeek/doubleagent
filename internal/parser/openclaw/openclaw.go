@@ -93,6 +93,9 @@ type Parser struct {
 	// budgetFloor is the least decompression budget of a database or file
 	// (zed.BudgetFloor; a test lowers it).
 	budgetFloor int
+	// decoder decodes the zstd blobs of every database and file the parser
+	// reads, so the window a frame announces is reserved once for the run.
+	decoder zed.SharedDecoder
 	// legacyIndexes holds each legacy sessions.json read, by its state.
 	legacyIndexes map[fileState]*legacyIndex
 }

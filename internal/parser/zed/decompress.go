@@ -10,14 +10,14 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/zstdframe"
 )
 
-// MaxDecompressed is the most bytes Decompress returns for one blob: far
+// MaxDecompressed is the most bytes Budget.Decompress returns for one blob: far
 // above any thread or session event an agent stores, and low enough that a
 // small hostile frame cannot make the parser allocate without bound.
 const MaxDecompressed = 256 << 20
 
-// The decompression budget of one database, which bounds the bytes its
-// blobs decompress to in all, since MaxDecompressed bounds only one blob:
-// BudgetRatio times the database's size, and at least BudgetFloor.
+// The decompression budget of one database or file, which bounds the bytes
+// its blobs decompress to in all, since MaxDecompressed bounds only one
+// blob: BudgetRatio times its size, and at least BudgetFloor.
 const (
 	// BudgetRatio is far above what zstd gives for the JSON text agents
 	// store, which rarely compresses past 20 to 1, so only a frame built to
@@ -28,36 +28,20 @@ const (
 	BudgetFloor = 4 * MaxDecompressed
 )
 
-// Decompress returns the content of a zstd blob as Zed and OpenClaw write
-// it: one frame, with or without its content size in the header. A frame
-// cut off before its end gives the whole blocks decoded before the cut and
-// no error, so the caller reports the shortened text rather than the
-// compression. Data that is not zstd, is corrupt, or decodes to more than
-// MaxDecompressed bytes is an error in the binary's own words.
-func Decompress(blob []byte) ([]byte, error) {
-	decoder, err := zstdframe.NewDecoder()
-	if err != nil {
-		return nil, err
-	}
-	defer decoder.Close()
-	out, _, err := decompress(decoder, blob, MaxDecompressed)
-	if errors.Is(err, zstdframe.ErrTooLarge) {
-		return nil, errBlobTooLarge
-	}
-	return out, err
-}
-
 // errBlobTooLarge reports a blob that decodes to more than MaxDecompressed
 // bytes.
 var errBlobTooLarge = errors.New("zstd: the content is larger than the decoder allows")
 
-// decompress returns the content of a zstd blob decoded up to limit bytes
-// and how many bytes were decoded, the content returned or not; past the
-// limit the error wraps zstdframe.ErrTooLarge. A frame announcing a window
-// above limit is refused the same way before its window is made: a window
-// holds output already decoded, so a frame that needs a larger one would
-// pass the limit anyway, and one that only announces it would make the
-// decoder reserve memory its content never uses.
+// decompress returns the content of a zstd blob as Zed and OpenClaw write
+// it, one frame with or without its content size in the header, decoded up
+// to limit bytes, and how many bytes were decoded, the content returned or
+// not. A frame cut off before its end gives the whole blocks decoded
+// before the cut and no error. Past the limit the error wraps
+// zstdframe.ErrTooLarge, and so it does for a frame announcing a window
+// above limit, before the window is made, even when its content would fit:
+// the window bounds how far back the frame may copy from, not its content,
+// and a frame may announce more than it uses. Data that is not zstd or is
+// corrupt is an error in the binary's own words.
 func decompress(decoder *zstdframe.Decoder, blob []byte, limit int) ([]byte, int, error) {
 	var out bytes.Buffer
 	err := decoder.DecodeStream(bytes.NewReader(blob), uint64(limit), func(chunk []byte) error {
@@ -77,45 +61,67 @@ func decompress(decoder *zstdframe.Decoder, blob []byte, limit int) ([]byte, int
 	return nil, out.Len(), errors.New("zstd: corrupt data (" + detail + ")")
 }
 
-// Budget is what is left of the bytes the blobs of one database may
-// decompress to in all. Once it is spent, every further blob is refused
-// with an error that says so. Its blobs share one decoder, so the window a
-// frame announces is reserved once for the database, not once per blob,
-// and is never larger than what is left of the budget.
+// Budget is what is left of the bytes the blobs of one database or file
+// may decompress to in all. Once it is spent, every further blob is
+// refused with an error that says so. Its blobs decode with the decoder of
+// its SharedDecoder, so the window a frame announces is reserved once for
+// all the budgets that share it, not once per blob, and is never larger
+// than what is left of the budget.
 type Budget struct {
 	total, left int
-	// decoder is made for the first blob and kept for the others. It runs
-	// in the calling goroutine and holds only memory, so a Budget needs no
-	// closing.
+	// shared holds the decoder; a Budget made without one makes its own.
+	shared *SharedDecoder
+}
+
+// SharedDecoder is one zstd decoder for the budgets of a parse to share,
+// so a window is reserved once for all of them. Its zero value is ready
+// for use; the decoder is made for the first blob and kept, so the largest
+// window a frame announced stays reserved while the SharedDecoder lives.
+// It runs in the calling goroutine and holds only memory, so it needs no
+// closing, and it is for one goroutine at a time.
+type SharedDecoder struct {
 	decoder *zstdframe.Decoder
 }
 
-// NewBudget returns the budget of a database of size bytes: BudgetRatio
-// times its size, and at least floor (BudgetFloor outside the tests).
-func NewBudget(size int64, floor int) *Budget {
+// Budget returns the budget of a database or file of size bytes, decoding
+// with the shared decoder: BudgetRatio times its size, and at least floor
+// (BudgetFloor outside the tests).
+func (s *SharedDecoder) Budget(size int64, floor int) *Budget {
 	total := floor
 	if size > int64(math.MaxInt/BudgetRatio) {
 		total = math.MaxInt
 	} else if size > 0 {
 		total = max(total, int(size)*BudgetRatio)
 	}
-	return &Budget{total: total, left: total}
+	return &Budget{total: total, left: total, shared: s}
 }
 
-// Decompress decompresses a blob as Decompress does, also refusing one
-// that would take the database past its budget or whose frame announces a
-// window above what is left of it. The bytes a blob decodes, refused or
-// not, are taken from the budget.
+// NewBudget returns the budget of a database or file of size bytes, as
+// SharedDecoder.Budget does, with a decoder of its own.
+func NewBudget(size int64, floor int) *Budget {
+	return new(SharedDecoder).Budget(size, floor)
+}
+
+// Decompress returns the content of a zstd blob as decompress decodes it,
+// refusing one that decodes to more than MaxDecompressed bytes, would take
+// the budget past its total, or whose frame announces a window above what
+// is left of it. The bytes a blob decodes, refused or not, are taken from
+// the budget, and a blob refused for passing what is left of it spends the
+// rest: near the end of a budget, a frame announcing a larger window than
+// its content needs is refused, and so is every blob after it.
 func (b *Budget) Decompress(blob []byte) ([]byte, error) {
-	if b.decoder == nil {
+	if b.shared == nil {
+		b.shared = new(SharedDecoder)
+	}
+	if b.shared.decoder == nil {
 		decoder, err := zstdframe.NewDecoder()
 		if err != nil {
 			return nil, err
 		}
-		b.decoder = decoder
+		b.shared.decoder = decoder
 	}
 	limit := min(MaxDecompressed, b.left)
-	out, decoded, err := decompress(b.decoder, blob, limit)
+	out, decoded, err := decompress(b.shared.decoder, blob, limit)
 	b.left -= decoded
 	if !errors.Is(err, zstdframe.ErrTooLarge) {
 		return out, err
