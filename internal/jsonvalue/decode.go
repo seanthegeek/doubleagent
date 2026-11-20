@@ -89,7 +89,10 @@ func (d *Document) String() string { return d.text }
 // errorAt returns the error for reading the text up to byte offset. The
 // line and column are counted on from the last count when the offset lies
 // at or after it, and from the start of the text when it lies before; an
-// offset outside the text is placed at its nearer end.
+// offset outside the text is placed at its nearer end. A count kept for
+// the next error ends at the start of a character, so an offset inside a
+// character of several bytes, such as a DecodePrefix start, gives every
+// later error the column a count from the start of the text gives.
 func (d *Document) errorAt(offset int, cause error) *Error {
 	within := min(max(offset, 0), len(d.text))
 	from := d.counted
@@ -105,7 +108,27 @@ func (d *Document) errorAt(offset int, cause error) *Error {
 	}
 	reached.column += utf8.RuneCountInString(between)
 	d.counted = reached
+	if start := characterStart(d.text, within); start < within {
+		d.counted = place{offset: start, line: reached.line,
+			column: reached.column - utf8.RuneCountInString(d.text[start:within])}
+	}
 	return &Error{Offset: offset, Line: reached.line, Column: reached.column, Err: cause}
+}
+
+// characterStart returns where the character of text that offset lies
+// inside starts: the start of a valid UTF-8 sequence of several bytes that
+// begins before offset and ends after it, or offset itself. A count of
+// characters split there counts each byte before offset as one.
+func characterStart(text string, offset int) int {
+	for back := 1; back < utf8.UTFMax && back <= offset; back++ {
+		if utf8.RuneStart(text[offset-back]) {
+			if _, size := utf8.DecodeRuneInString(text[offset-back:]); size > back {
+				return offset - back
+			}
+			return offset
+		}
+	}
+	return offset
 }
 
 // Decode reads data, raw bytes such as a file's content, as one JSON
