@@ -20,7 +20,7 @@ func (r *Row) FieldsButText() []Field {
 }
 
 // fields returns a pointer to each string of the row timeline.jsonl writes
-// but its text, which a parse's shorter secrets reach as well.
+// but its text (only the text is reached by a parse's shorter secrets).
 func (r *Row) fields() []*string {
 	var pointers []*string
 	for _, field := range r.FieldsButText() {

@@ -939,13 +939,16 @@ plan, and the parser is written from them.
      every row; `git_branch` stays empty when the format lacks it. A format
      without per-message timestamps inherits the session timestamp, and the
      docstring says so.
-   - **Carried values.** In the Go kit, a field of a row other than its
-     text longer than 4,096 bytes, and a key, name or path a parser copies
-     into the text of many rows, is cut to 4,096 bytes with one `parser:`
-     problem row per kind (`parser.Within` for the fields, `parser.Carried`
-     for the text); a parser never cuts one itself. A `Carried.Cut`
-     result goes into a row's text: in a field long enough for the kit
-     to cut again, it is left out whole.
+   - **Carried values.** In the Go kit, `parser.Within` cuts every field
+     of a row but its text that is longer than 4,096 bytes, with one
+     `parser:` problem row per field. A parser passes every key, name or
+     path it copies into the text of more than one row through a
+     `parser.Carried`, which cuts it alike and reports one problem row per
+     kind each time the parser calls `Report` (once a parse, or once a
+     message or event); nothing checks this mechanically, so a reviewer
+     looks for such copies. A parser never cuts a value itself. A
+     `Carried.Cut` result goes into a row's text: in a field long enough
+     for the kit to cut again, it is left out whole.
    - **Permission rows.** Each per-call decision (approval, denial, "allow
      always", automatic) gets a `system` row beside the call, joined on
      `tool_use_id` when possible: `permission decision: <decision> ...`.

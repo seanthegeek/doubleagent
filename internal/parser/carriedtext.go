@@ -2,13 +2,15 @@ package parser
 
 import "github.com/seanthegeek/doubleagent/internal/input"
 
-// Carried cuts, for one parse, the values a parser copies from one place
-// in the evidence into the text of many rows, such as a settings key
-// written before each of its leaves or a group's name written into each of
-// its members' rows, and counts them for the parse's one problem per kind.
-// A value is cut as the kit cuts a row's fields (CarriedLimit, with the
-// whole length after it) and only when longer; a parser never cuts one
-// itself, and never cuts what an element itself says.
+// Carried cuts the values a parser copies from one place in the evidence
+// into the text of more than one row, such as a settings key written
+// before each of its leaves or a group's name written into each of its
+// members' rows, and counts them for one problem per kind each time the
+// parser calls Report: a parser makes one per parse, or one per message or
+// event and reports it there. A value is cut as the kit cuts a row's
+// fields (CarriedLimit, with the whole length after it) and only when
+// longer; a parser never cuts one itself, and never cuts what an element
+// itself says. Nothing checks that a parser passes every such value here.
 type Carried struct {
 	artifact *input.Artifact
 	names    []string
