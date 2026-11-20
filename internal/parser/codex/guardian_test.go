@@ -141,6 +141,94 @@ func TestGuardianWindowsGrowWithTheRowsNotTheirSquare(t *testing.T) {
 	}
 }
 
+// callsOfThreadByScan returns the calls of a thread's spans in the rows of
+// logs, in order, by looking at every row: the rule a reviewed thread's
+// lookup is to agree with.
+func callsOfThreadByScan(logs []guardianLog, thread string) ([]int, []string) {
+	var rows []int
+	var calls []string
+	for position, each := range logs {
+		for _, span := range each.spans {
+			if span.thread == thread && span.call != "" {
+				rows = append(rows, position)
+				calls = append(calls, span.call)
+			}
+		}
+	}
+	return rows, calls
+}
+
+// otherByScan returns, for each call, the first later position whose call
+// differs, len(calls) when none, by looking at every later call.
+func otherByScan(calls []string) []int {
+	other := make([]int, len(calls))
+	for i := range calls {
+		other[i] = len(calls)
+		for j := i + 1; j < len(calls); j++ {
+			if calls[j] != calls[i] {
+				other[i] = j
+				break
+			}
+		}
+	}
+	return other
+}
+
+func TestEachReviewedThreadHasTheCallsAScanOfEveryRowFinds(t *testing.T) {
+	for seed := range uint64(300) {
+		t.Run(fmt.Sprintf("seed %d", seed), func(t *testing.T) {
+			source := rand.New(rand.NewPCG(seed, 96))
+			logs := randomGuardianLogs(source, false)
+			// Rows written twice, each naming the threads of the first.
+			for range source.IntN(4) {
+				if len(logs) > 0 {
+					logs = append(logs, logs[source.IntN(len(logs))])
+				}
+			}
+			index := newGuardianIndex(logs, false, parser.Work{})
+			for _, thread := range []string{"p", "q", "r", ""} {
+				rows, calls := callsOfThreadByScan(index.logs, thread)
+				found := index.parent(thread)
+				if !slices.Equal(found.rows, rows) || !slices.Equal(found.calls, calls) ||
+					!slices.Equal(found.other, otherByScan(calls)) {
+					t.Fatalf("thread %q: got rows %v calls %q other %v; want rows %v calls %q other %v", thread,
+						found.rows, found.calls, found.other, rows, calls, otherByScan(calls))
+				}
+			}
+		})
+	}
+}
+
+// manyThreadsWork returns the guardian rows looked at to answer one window
+// for each of n reviewed threads, over n rows of one second each, row i
+// naming thread i alone.
+func manyThreadsWork(n int) int {
+	logs := make([]guardianLog, n)
+	for i := range logs {
+		time := sqlitefile.IntValue(int64(i))
+		logs[i] = guardianLog{time: time, compare: columnCompare(time, false), readable: true,
+			spans: []logSpan{{thread: "p" + strconv.Itoa(i), call: "call"}}}
+	}
+	work := parser.CountingWork()
+	index := newGuardianIndex(logs, false, work)
+	for i := range n {
+		if calls, ok := index.windowCalls("p"+strconv.Itoa(i), int64(i), int64(i)); !ok || len(calls) != 1 {
+			return -1
+		}
+	}
+	return work.Count("guardian rows looked at")
+}
+
+func TestManyReviewedThreadsGrowWithTheRowsNotTheirSquare(t *testing.T) {
+	small, large := manyThreadsWork(1000), manyThreadsWork(2000)
+	// Twice the threads and rows costs a little over twice the binary
+	// searches' steps; a scan of every row per thread would cost four
+	// times as much.
+	if small <= 0 || large > 3*small {
+		t.Errorf("rows looked at: %d for 1000 threads, %d for 2000", small, large)
+	}
+}
+
 // writeFile writes data at rel under home, making its directories.
 func writeFile(t *testing.T, home, rel, data string) string {
 	t.Helper()
