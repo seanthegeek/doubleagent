@@ -133,7 +133,8 @@ func cloudText(artifact *input.Artifact, agent jsonvalue.Value) string {
 
 // mcpAuth emits a "permission decision:" row per cloud agent MCP
 // authorisation answer, in the agent's session, joined on its toolCallId,
-// at the file's modification time.
+// at the file's modification time. A value that is neither an answer nor
+// a list, and a list's entries that are not answers, are problems.
 func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
 	found, ok := keyedValue(i.store, i.table, mcpAuthKey)
 	if !ok {
@@ -144,14 +145,17 @@ func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
 	for _, each := range agents {
 		known[each.agent.Get("bcId").Text()] = each.agent
 	}
+	// The value is one answer, or a list of them whose entries of another
+	// kind are one problem.
 	resolutions := []jsonvalue.Value{document}
-	if document.IsArray() {
-		resolutions = document.Items()
+	if !document.IsObject() {
+		resolutions = nil
+		for _, entry := range parser.EntriesOfKind(document, mcpAuthKey, jsonvalue.Object, int(found.rowid),
+			i.problems) {
+			resolutions = append(resolutions, entry)
+		}
 	}
 	for _, resolution := range resolutions {
-		if !resolution.IsObject() {
-			continue
-		}
 		agentID, callID := resolution.Get("agentId").Text(), resolution.Get("toolCallId").Text()
 		row := i.system("permission decision: "+fieldOf(resolution.Get("userDecision"))+
 			" mcp auth for cloud agent "+cmp.Or(agentID, "-")+" tool_call="+cmp.Or(callID, "-")+" "+mcpAuthSource,

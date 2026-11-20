@@ -205,3 +205,38 @@ func TestTheTextOfAConversationGrowsWithItsBubblesNotWithItsEntries(t *testing.T
 		t.Errorf("text bytes: %d for 20 entries, %d for 40", small, large)
 	}
 }
+
+// problemTexts returns the session id and text of each problem row.
+func problemTexts(rows []timeline.Row) []string {
+	var texts []string
+	for _, row := range rows {
+		if strings.HasPrefix(row.Text, parser.ProblemPrefix) {
+			texts = append(texts, row.SessionID+" "+row.Text)
+		}
+	}
+	return texts
+}
+
+func TestItemTableListsReportTheirEntriesOfTheWrongKind(t *testing.T) {
+	tests := []struct {
+		name, database string
+		want           []string
+	}{
+		{"entries that are not objects", "item_kinds.db", []string{
+			" parser: github-alice-usages is not a JSON array",
+			" parser: github-bob-usages holds 1 entry that is not a JSON object",
+			" parser: cloudAgentRepository.mcpAuthResolution holds 2 entries that are not JSON objects",
+		}},
+		{"a value that is neither a list nor an answer", "mcp_auth_text.db", []string{
+			" parser: cloudAgentRepository.mcpAuthResolution is not a JSON array",
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows, _ := readState(t, test.database)
+			if got := problemTexts(rows); !slices.Equal(got, test.want) {
+				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}

@@ -169,6 +169,23 @@ def repeated_bubbles() -> list[tuple[str, str]]:
     ]
 
 
+# ItemTable lists holding entries of the wrong kind: an MCP authorisation list with a number
+# and a string beside its answer, a usages list with a number beside its usage, and a usages
+# value that is an object.
+ITEM_KINDS = """
+INSERT INTO ItemTable VALUES ('cloudAgentRepository.mcpAuthResolution',
+    '[5, "x", {"agentId": "bc-1", "toolCallId": "t1", "userDecision": "allow"}]');
+INSERT INTO ItemTable VALUES ('github-alice', '[{"id": "e", "name": "E", "allowed": true}]');
+INSERT INTO ItemTable VALUES ('github-alice-usages', '{"not": "a list"}');
+INSERT INTO ItemTable VALUES ('github-bob', '[{"id": "e", "name": "E", "allowed": true}]');
+INSERT INTO ItemTable VALUES ('github-bob-usages', '[1, {"lastUsed": 1790845200000, "scopes": ["repo"]}]');
+"""
+
+# An MCP authorisation value that is neither a list nor an answer.
+MCP_AUTH_TEXT = """
+INSERT INTO ItemTable VALUES ('cloudAgentRepository.mcpAuthResolution', '"allow"');
+"""
+
 DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
@@ -184,6 +201,8 @@ DATABASES = {
     "repeated_bubble_20.db": (repeated_bubble(20), ""),
     "repeated_bubble_40.db": (repeated_bubble(40), ""),
     "repeated_bubbles.db": (repeated_bubbles(), ""),
+    "item_kinds.db": ([], ITEM_KINDS),
+    "mcp_auth_text.db": ([], MCP_AUTH_TEXT),
 }
 
 
