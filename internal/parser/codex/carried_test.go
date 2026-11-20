@@ -189,3 +189,48 @@ func TestAPermissionModeChangeIsToldFromTheFieldsAnEventSets(t *testing.T) {
 		}
 	}
 }
+
+// exitRollout returns a rollout whose CommandExecution item c1 failed with
+// the exit code written as code, then outputs function_call_output rows of
+// the call.
+func exitRollout(code string, outputs int) string {
+	lines := []string{`{"type":"session_meta","timestamp":"2026-01-02T00:00:00Z","payload":{` +
+		`"id":"0198f0a1-0000-7000-8000-000000000001","cwd":"/p"}}`,
+		`{"type":"event_msg","timestamp":"2026-01-02T00:00:01Z","payload":{"type":"item_completed",` +
+			`"item":{"type":"CommandExecution","id":"c1","command":["ls"],"aggregated_output":"",` +
+			`"exit_code":` + code + `}}}`}
+	for range outputs {
+		lines = append(lines, `{"type":"response_item","timestamp":"2026-01-02T00:00:02Z","payload":{`+
+			`"type":"function_call_output","call_id":"c1","output":"ok"}}`)
+	}
+	return strings.Join(lines, "\n") + "\n"
+}
+
+func TestAnExitCodeCarriedIntoEachOutputOfACallIsCut(t *testing.T) {
+	long := strings.Repeat("7", parser.CarriedLimit+1)
+	tests := []struct {
+		name, code string
+		want       []string
+	}{
+		{"an ordinary exit code is written whole", `1`, []string{"[exit 1] ok", "[exit 1] ok"}},
+		{"a zero exit code is not shown", `0`, []string{"ok", "ok"}},
+		{"a long exit code is cut in each output and counted once per output", `"` + long + `"`,
+			[]string{"[exit " + cutOf(long) + "] ok", "[exit " + cutOf(long) + "] ok",
+				parser.ProblemPrefix + parser.CarriedProblem("exit code", 2)}},
+	}
+	rel := ".codex/sessions/2026/01/02/rollout-2026-01-02T00-00-00-0198f0a1-0000-7000-8000-000000000001.jsonl"
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var got []string
+			for _, row := range parseWith(t, secrets.Setting{}, rel, exitRollout(test.code, 2)) {
+				if strings.HasSuffix(row, "] ok") || row == "ok" || strings.HasPrefix(row, parser.ProblemPrefix) {
+					got = append(got, row)
+				}
+			}
+			if strings.Join(got, "\n") != strings.Join(test.want, "\n") {
+				t.Errorf("got %d rows, want %d; first difference near row %d", len(got), len(test.want),
+					firstDifference(got, test.want))
+			}
+		})
+	}
+}

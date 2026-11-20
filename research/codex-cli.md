@@ -2074,7 +2074,7 @@ emitting rows, so that an `item_completed` line can be checked against every
 | turn_type | coverage table below |
 | tool_name | `name`; `shell` for `local_shell_call` and `CommandExecution`, `web_search` for `web_search_call` and web-search turn items, `tool_search`, `<server>.<tool>` for `McpToolCall`, `apply_patch` for `FileChange` |
 | tool_use_id | `call_id` (call falls back to `id`); a turn item's `id` |
-| text | message: `content[].text` joined, prefixed `<role>: ` for developer; user-role context `context: <kind>: <text>`; tool_use: `arguments` or `input`, `action.command` joined, `action.query`, `arguments` JSON; tool_result: `output` string or `[].text` joined, prefixed `[exit N]` when the matching `CommandExecution` item has a non-zero `exit_code`; thinking: `summary[].text`, else `content[].text` |
+| text | message: `content[].text` joined, prefixed `<role>: ` for developer; user-role context `context: <kind>: <text>`; tool_use: `arguments` or `input`, `action.command` joined, `action.query`, `arguments` JSON; tool_result: `output` string or `[].text` joined, prefixed `[exit N]` when the matching `CommandExecution` item has a non-zero `exit_code` (the code is repeated in each output of the call, so one longer than 4,096 bytes is cut there as a carried value, with one `parser: exit code longer than 4096 bytes, cut to 4096 bytes (<n> times)` row); thinking: `summary[].text`, else `content[].text` |
 
 | Record | Row |
 | --- | --- |

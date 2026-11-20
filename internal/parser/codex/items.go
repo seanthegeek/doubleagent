@@ -52,7 +52,7 @@ func itemRows(item jsonvalue.Value) []itemRow {
 	itemID := parser.Text(item.Get("id"))
 	switch {
 	case itemType == "CommandExecution":
-		output := withExit(parser.Text(item.Get("aggregated_output")), item.Get("exit_code"))
+		output := withExit(parser.Text(item.Get("aggregated_output")), exitText(item.Get("exit_code")))
 		return toolPair(itemID, "shell", joinedCommand(item.Get("command")), output)
 	case itemType == "McpToolCall":
 		name := parser.Text(item.Get("server")) + "." + parser.Text(item.Get("tool"))
@@ -184,11 +184,20 @@ func resultText(value jsonvalue.Value) string {
 	return parser.TextOf(value)
 }
 
-// withExit prefixes a command's output with "[exit <code>] " when its exit
-// code is neither missing nor zero.
-func withExit(text string, code jsonvalue.Value) string {
-	if isNullOrZero(code) {
+// withExit prefixes a command's output with "[exit <code>] " when it has
+// an exit code to show (exitText).
+func withExit(text, code string) string {
+	if code == "" {
 		return text
 	}
-	return "[exit " + code.Text() + "] " + text
+	return "[exit " + code + "] " + text
+}
+
+// exitText returns the text of an exit code that reports a failure, and ""
+// for one that is missing or zero.
+func exitText(code jsonvalue.Value) string {
+	if isNullOrZero(code) {
+		return ""
+	}
+	return code.Text()
 }

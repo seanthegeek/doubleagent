@@ -187,10 +187,7 @@ func codexRolloutCases(prefix string) []growthCase {
 				return codexLine("response_item", `"type":"function_call_output","call_id":"same","output":"ok"`)
 			})...))
 		}},
-		{kind: "rollout", shape: shapeLargeShared, known: "row text 54 times the input at n=64 (3,205,674 bytes from 58,867) and 95 " +
-			"times at 128 (6,411,242 from 67,379): every output of a call writes the call's exit code in " +
-			"full, uncut, here a 50,000-byte value one item_completed gives " +
-			"(codex/items.go withExit, from codex/rollout.go responseItem)", files: func(t *testing.T, n int) []growthFile {
+		{kind: "rollout", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
 			completed := codexLine("event_msg", `"type":"item_completed","item":{"type":"CommandExecution",`+
 				`"id":"same","command":["ls"],"aggregated_output":"","exit_code":"`+long("code")+`"}`)
 			return one(codexRolloutRel(prefix, 0), append([]byte(codexMeta(0, "/p")+"\n"+completed+"\n"),
