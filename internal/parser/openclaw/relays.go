@@ -62,20 +62,35 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 		return err
 	}
 	for _, link := range links {
-		for _, conversation := range byID.Find(link, "conversation_id") {
-			channel := parser.TextColumn(conversation.Get("channel"))
-			if !isPlatform(channel) {
-				continue
-			}
-			sessionID := parser.NonEmptyColumn(link.Get("session_id"))
-			field := func(name string) string { return cmp.Or(parser.NonEmptyColumn(conversation.Get(name)), "-") }
-			a.store.attach(sessionID, int(link.Rowid), parser.ColumnTime(link.Get("first_seen_at")),
-				"session relayed: "+channel+" account "+field("account_id")+" "+
-					field("kind")+" peer "+field("peer_id")+" thread "+field("thread_id")+
-					" role "+cmp.Or(parser.NonEmptyColumn(link.Get("role")), "-")+
-					" (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)", "")
-			relayed[sessionID] = true
+		conversation, found := firstConversation(byID, link)
+		if !found {
+			continue
 		}
+		channel := parser.TextColumn(conversation.Get("channel"))
+		if !isPlatform(channel) {
+			continue
+		}
+		sessionID := parser.NonEmptyColumn(link.Get("session_id"))
+		field := func(name string) string { return cmp.Or(parser.NonEmptyColumn(conversation.Get(name)), "-") }
+		a.store.attach(sessionID, int(link.Rowid), parser.ColumnTime(link.Get("first_seen_at")),
+			"session relayed: "+channel+" account "+field("account_id")+" "+
+				field("kind")+" peer "+field("peer_id")+" thread "+field("thread_id")+
+				" role "+cmp.Or(parser.NonEmptyColumn(link.Get("role")), "-")+
+				" (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)", "")
+		relayed[sessionID] = true
 	}
 	return nil
+}
+
+// firstConversation returns the first conversations row whose
+// conversation_id is the one row names, and false when none is. The id is
+// the conversations table's key, so a second row of one id, which only a
+// file the agent did not write holds, is not joined again to every row
+// naming it.
+func firstConversation(byID *sqlitefile.Lookup, row sqlitefile.Row) (sqlitefile.Row, bool) {
+	found := byID.Find(row, "conversation_id")
+	if len(found) == 0 {
+		return sqlitefile.Row{}, false
+	}
+	return found[0], true
 }

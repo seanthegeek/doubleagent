@@ -127,6 +127,9 @@ func (a *agentDatabase) blob(current *session, line int, label string, blob []by
 // chunk by chunk when the chunks table exists. Every row of an archive
 // carries the archive's rowid, the chunks table having none; an archive or
 // chunk whose blob is NULL has lost its bytes and is one `parser:` row.
+// The chunks name only their session, so they are read for the first
+// archive of a session; a later archive of that session, which the agent's
+// schema does not allow, is read from its own blob.
 func (a *agentDatabase) cold() error {
 	rows, err := a.table("session_transcript_cold_archives", func(table *sqlitefile.Table) sqlitefile.Query {
 		return table.Select("session_id", "archive_name", "archived_at", "archive_blob").
@@ -136,12 +139,14 @@ func (a *agentDatabase) cold() error {
 	if err != nil {
 		return err
 	}
+	chunked := map[string]bool{}
 	for _, row := range rows {
 		sessionID := parser.NonEmptyColumn(row.Get("session_id"))
 		current := a.windowSession(sessionID, "", "cold_archive="+parser.NonEmptyColumn(row.Get("archive_name")))
 		line, archivedAt := int(row.Rowid), parser.ColumnTime(row.Get("archived_at"))
 		blobs := []namedBlob{{cmp.Or(parser.NonEmptyColumn(row.Get("archive_name")), sessionID), row.Get("archive_blob")}}
-		if a.names.Has("session_transcript_cold_archive_chunks") {
+		if a.names.Has("session_transcript_cold_archive_chunks") && !chunked[sessionID] {
+			chunked[sessionID] = true
 			chunks, err := a.chunks(sessionID)
 			if err != nil {
 				return err
