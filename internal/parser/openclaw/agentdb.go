@@ -59,7 +59,7 @@ func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parser.Opt
 	reader := &agentDatabase{writer: &writer{Parser: p, artifact: artifact, options: options,
 		emit: emit}, database: database, store: newDatabaseState(),
 		windows: windowSet{byID: map[string]sqlitefile.Row{}},
-		budget:  zed.NewBudget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)}
+		budget:  p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)}
 	if err := reader.read(); err != nil {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return

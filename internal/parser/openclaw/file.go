@@ -127,7 +127,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 	var problems parser.Problems
 	raw, read := parser.FileBytes(artifact.DiskPath, &problems)
 	if read {
-		data, err := maybeZstd(raw, zed.NewBudget(int64(len(raw)), p.budgetFloor))
+		data, err := maybeZstd(raw, p.decoder.Budget(int64(len(raw)), p.budgetFloor))
 		if err != nil {
 			out.bad(current, 1, "could not decompress ("+err.Error()+")", "")
 		} else {

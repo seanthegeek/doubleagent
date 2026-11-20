@@ -40,7 +40,7 @@ func TestDecompressReadsAFrameWithOrWithoutItsSize(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := Decompress(frame)
+			got, err := NewBudget(0, BudgetFloor).Decompress(frame)
 			if err != nil || string(got) != test.want {
 				t.Errorf("got %q, %v; want %q", got, err, test.want)
 			}
@@ -49,7 +49,7 @@ func TestDecompressReadsAFrameWithOrWithoutItsSize(t *testing.T) {
 }
 
 func TestDecompressRefusesDataThatIsNotZstd(t *testing.T) {
-	got, err := Decompress([]byte("hello world"))
+	got, err := NewBudget(0, BudgetFloor).Decompress([]byte("hello world"))
 	if err == nil || got != nil || !strings.HasPrefix(err.Error(), "zstd: corrupt data (") {
 		t.Errorf("got %q, %v; want a corrupt-data error", got, err)
 	}
@@ -191,13 +191,17 @@ func FuzzDecompress(fuzz *testing.F) {
 	whole, _ := hex.DecodeString(
 		"28b52ffd20210901007b2276657273696f6e223a22302e332e30222c226d65737361676573223a5b5d7d")
 	fuzz.Fuzz(func(t *testing.T, data []byte) {
-		out, err := Decompress(data)
+		out, err := NewBudget(0, BudgetFloor).Decompress(data)
 		if err == nil && len(out) > MaxDecompressed {
 			t.Errorf("%d bytes decoded, more than the limit", len(out))
 		}
-		// A database's blobs share a decoder: each gives what a decoder of
-		// its own gives, whatever came before it.
-		budget := NewBudget(0, BudgetFloor)
+		// The budgets of a parse share a decoder: each blob gives what a
+		// decoder of its own gives, whatever came before it.
+		var parse SharedDecoder
+		if first, err := parse.Budget(0, BudgetFloor).Decompress(whole); err != nil || string(first) != threadJSON {
+			t.Fatalf("the first blob decoded to %q, %v", first, err)
+		}
+		budget := parse.Budget(0, BudgetFloor)
 		shared, sharedErr := budget.Decompress(data)
 		if (err == nil) != (sharedErr == nil) || !bytes.Equal(out, shared) {
 			t.Errorf("a shared decoder gave %d bytes, %v; a decoder of its own %d bytes, %v",
