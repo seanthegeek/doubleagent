@@ -29,7 +29,7 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, 
 		records = append(records, numbered{line, record})
 	}
 	sessionID := p.sessionRows(artifact, options, DecodeStem(group(p.files.session, match, "stem")),
-		project, records, emit, &problems)
+		project, records, nil, emit, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }
 
@@ -48,25 +48,16 @@ type sessionStore struct {
 	messages map[string][]sqlitefile.Row
 }
 
-// parseDatabase emits the rows of every session of a sessions.sqlite3,
-// messages whose session row is gone included, after the problems of the
-// .workspace marker beside it.
-func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
-	var markerProblems parser.Problems
-	project := ""
-	if marker, ok := parser.Beside(artifact, ".workspace"); ok {
-		project = p.marker(marker, &markerProblems)
-	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, markerProblems, "", project))
-	store, err := readSessionStore(artifact.DiskPath)
-	if err != nil {
-		emit(p.fileRow(artifact, project, err.Error()))
-		return
-	}
-	type head struct {
-		key     string
-		session *sqlitefile.Row
-	}
+// head is one session of a session database: its key and its sessions
+// row, nil when the row is gone.
+type head struct {
+	key     string
+	session *sqlitefile.Row
+}
+
+// sessionHeads returns the sessions of a store: each sessions row in
+// order, then each key with messages but no sessions row, in key order.
+func sessionHeads(store *sessionStore) []head {
 	var heads []head
 	known := map[string]bool{}
 	for i := range store.sessions {
@@ -86,20 +77,49 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	for _, key := range orphans {
 		heads = append(heads, head{key, nil})
 	}
+	return heads
+}
+
+// parseDatabase emits the rows of every session of a sessions.sqlite3,
+// messages whose session row is gone included, after the problems of the
+// .workspace marker beside it.
+func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
+	var markerProblems parser.Problems
+	project := ""
+	if marker, ok := parser.Beside(artifact, ".workspace"); ok {
+		project = p.marker(marker, &markerProblems)
+	}
+	parser.EmitAll(emit, p.ErrorRows(artifact, markerProblems, "", project))
+	store, err := readSessionStore(artifact.DiskPath)
+	if err != nil {
+		emit(p.fileRow(artifact, project, err.Error()))
+		return
+	}
+	heads := sessionHeads(store)
 	// A key is the sessions table's key, so only damage repeats one: its
-	// messages go with its first row, and each later row gives its own rows,
-	// counted for the problem row only when the key has messages to leave out.
-	shown, repeats := map[string]bool{}, 0
+	// messages are shown once, after its first row, as members of the key's
+	// group (timeline.Group), whose parents are the key's rows; each later
+	// row gives its own rows, counted for the problem row only when the key
+	// has messages to leave out.
+	counts := map[string]int{}
+	for _, each := range heads {
+		counts[each.key]++
+	}
+	groups, shown, repeats := map[string]*timeline.Group{}, map[string]bool{}, 0
 	for _, each := range heads {
 		var problems parser.Problems
 		messages := store.messages[each.key]
+		if counts[each.key] > 1 && len(messages) > 0 && groups[each.key] == nil {
+			groups[each.key] = timeline.NewGroup()
+		}
 		if shown[each.key] && len(messages) > 0 {
 			messages = nil
 			repeats++
 		}
 		shown[each.key] = true
 		records := databaseRecords(each.session, messages, &problems)
-		sessionID := p.sessionRows(artifact, options, each.key, project, records, emit, &problems)
+		sessionID := p.sessionRows(artifact, options, each.key, project, records, groups[each.key], emit,
+			&problems)
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 	}
 	if repeats > 0 {

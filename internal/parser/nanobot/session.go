@@ -41,6 +41,15 @@ type session struct {
 	problems          *parser.Problems
 	// carried cuts the workspace each metadata record's row repeats.
 	carried *parser.Carried
+	// repeated is the group of a key the sessions table repeats, nil for
+	// any other session: the rows of each metadata record are a parent's
+	// (parent, while inMetadata), the messages' rows members, taking the
+	// time and model the parent gave them while fromParent says so.
+	repeated        *timeline.Group
+	parent          *timeline.Parent
+	inMetadata      bool
+	timeFromParent  bool
+	modelFromParent bool
 }
 
 // row emits a row of the session at the time of the last dated record,
@@ -56,19 +65,43 @@ func (s *session) row(line int, turnType, text, toolName, toolUseID string) {
 	row.ToolName = toolName
 	row.ToolUseID = toolUseID
 	row.Text = timeline.Compact(text)
+	s.join(&row)
 	s.emit(row)
+}
+
+// join gives a row of a repeated key its place in the key's group.
+func (s *session) join(row *timeline.Row) {
+	switch {
+	case s.repeated == nil:
+	case s.inMetadata && s.parent == nil:
+		s.parent = s.repeated.Parent(row)
+	case s.inMetadata:
+		s.parent.Row(row, timeline.Always)
+	default:
+		var takes timeline.Takes
+		if s.timeFromParent {
+			takes |= timeline.TakeTime
+		}
+		if s.modelFromParent {
+			takes |= timeline.TakeModel
+		}
+		s.repeated.Member(row, takes)
+	}
 }
 
 // sessionRows emits the rows of one session from its records, the metadata
 // record first, then the messages, as a session JSONL holds them and as the
 // database's rows are rebuilt. It returns the session id: the metadata's
 // key when there is one, else sessionID. A member of the wrong kind adds a
-// problem to problems.
+// problem to problems. repeated is the group of a key the sessions table
+// repeats, else nil.
 func (p *Parser) sessionRows(artifact *input.Artifact, options parser.Options, sessionID,
-	project string, records []numbered, emit parser.Emit, problems *parser.Problems) string {
+	project string, records []numbered, repeated *timeline.Group, emit parser.Emit,
+	problems *parser.Problems) string {
 	state := &session{Parser: p, artifact: artifact, options: options, emit: emit,
 		sessionID: sessionID, project: project, models: parser.Tracker{},
-		switched: p.hasSwitch(records), problems: problems, carried: parser.NewCarried(artifact)}
+		switched: p.hasSwitch(records), problems: problems, carried: parser.NewCarried(artifact),
+		repeated: repeated}
 	for _, each := range records {
 		record := each.record
 		recordType, typed := record.Lookup("_type")
@@ -111,6 +144,8 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 	if !s.switched {
 		s.model = parser.Text(meta.Get("_nanobot_model_preset"))
 	}
+	s.inMetadata, s.parent, s.timeFromParent, s.modelFromParent = true, nil, true, !s.switched
+	defer func() { s.inMetadata = false }()
 	s.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at")),
 		timeutil.FromValue(record.Get("updated_at")))
 	parts := []string{"session start: key=" + s.sessionID}
@@ -140,7 +175,9 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 
 // message emits the rows of one chat message by its role.
 func (s *session) message(line int, record jsonvalue.Value) {
-	s.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")), s.timestamp)
+	if own := timeutil.FromValue(record.Get("timestamp")); own != "" {
+		s.timestamp, s.timeFromParent = own, false
+	}
 	role := record.Get("role")
 	text := parser.TextOf(record.Get("content"))
 	switch {
@@ -207,6 +244,6 @@ func (s *session) switchRow(line int, text, preset string) {
 	if resolved := s.text.resolved.FindStringSubmatch(text); resolved != nil {
 		out.WriteString(" resolved=" + resolved[1])
 	}
-	s.preset, s.model, s.requested = preset, preset, ""
+	s.preset, s.model, s.requested, s.modelFromParent = preset, preset, "", false
 	s.row(line, timeline.TurnSystem, out.String(), "", "")
 }

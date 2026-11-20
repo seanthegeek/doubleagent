@@ -37,7 +37,10 @@ type messageReader struct {
 	toolNames map[string]string
 	switches  map[string]string
 	usage     map[string][]jsonvalue.Value
-	emit      parser.Emit
+	// groups holds the group of each session id state.db's sessions table
+	// repeats, whose members a message's rows are.
+	groups map[string]*timeline.Group
+	emit   parser.Emit
 }
 
 // newMessageReader returns a reader of one file's messages.
@@ -245,6 +248,7 @@ func (m *messageReader) message(message, session, line jsonvalue.Value) {
 		row := m.parser.row(m.artifact, number, session, timestamp)
 		row.TurnType = turnType
 		row.Text = timeline.Compact(marker + text)
+		m.join(&row, sessionTakes)
 		return row
 	}
 	if m.options.IncludeThinking {
@@ -285,8 +289,22 @@ func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 		m.toolNames[row.ToolUseID] = row.ToolName
 		m.emit(row)
 	}
-	parser.EmitAll(m.emit, m.parser.ErrorRows(m.artifact, problems, parser.Text(session.Get("id")),
-		projectOf(session)))
+	for _, row := range m.parser.ErrorRows(m.artifact, problems, parser.Text(session.Get("id")), projectOf(session)) {
+		m.join(&row, timeline.TakeProject)
+		m.emit(row)
+	}
+}
+
+// sessionTakes is what a message's row takes from the sessions row its
+// session's group goes with.
+const sessionTakes = timeline.TakeProject | timeline.TakeBranch | timeline.TakeModel
+
+// join makes a row of a session whose id the sessions table repeats a
+// member of the id's group, taking what takes names.
+func (m *messageReader) join(row *timeline.Row, takes timeline.Takes) {
+	if group := m.groups[row.SessionID]; group != nil {
+		group.Member(row, takes)
+	}
 }
 
 // toolResult emits a tool result row and, for the terminal tool, the
@@ -307,6 +325,7 @@ func (m *messageReader) toolResult(message, session jsonvalue.Value, row timelin
 		permission.TurnType = timeline.TurnSystem
 		permission.Text = timeline.Compact("permission decision: " + decision)
 		permission.ToolName, permission.ToolUseID = row.ToolName, row.ToolUseID
+		m.join(&permission, sessionTakes)
 		m.emit(permission)
 	}
 }
@@ -322,8 +341,10 @@ func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) 
 	model, provider, ok := modelSwitch(message.Get("content"))
 	if !ok {
 		row.Text = timeline.Compact("model_switch: " + contentText(message.Get("content")))
+		m.join(&row, sessionTakes)
 		return row
 	}
+	m.join(&row, timeline.TakeProject|timeline.TakeBranch)
 	old := m.switches[row.SessionID]
 	switchTime, isNumber := message.Get("timestamp").Float()
 	if old == "" && isNumber {

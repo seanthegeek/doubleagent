@@ -1390,6 +1390,27 @@ reads each row with every such text in full, so whether a row is kept does
 not depend on whether it holds the text or a pointer, and deduplication
 compares rows the same way.
 
+**Rows of a repeated id.** An id is its table's key, so only damage or an
+edit stores a second row with an id an earlier row has: a Hermes
+`sessions` row repeating a session id, a nanobot `sessions` row repeating
+a key. Each stored row of the id gives its own rows, and the rows of the
+id itself are shown once: Hermes's usage `model:` rows, messages and
+deletion fences of the session, with the `project_path`, `git_branch` and
+`model` of one of the id's stored rows, and its time for a usage row with
+no `first_seen`; nanobot's messages of the key, with the stored row's
+preset `model` until a `/model` switch, and its time until a message
+carries one. That stored row is the first, in the order the parser reads
+them, that `--since`, `--until` and `--match` keep, or the first when they
+keep none or none is given. Evidence may have been altered, and this keeps
+a planted earlier row with a real message's id from moving that message's
+rows out of the window or giving them its attributes. The choice is made
+by the filters reading the rows as the parsers gave them, before
+deduplication, with every row attributed to the first stored row; the
+filters then keep or drop the rows as attributed, so a row kept in that
+first reading only beside a partner with the same `tool_use_id` can be
+dropped once its session changes. `sessions.jsonl` is summarised from the
+rows kept, so it describes only the rows shown.
+
 **Carried values longer than 4,096 bytes.** Every field but `text` and
 `source_line` is at most 4,096 bytes, the bound the input also puts on a
 file's path (one byte more than the longest path Linux takes): the
