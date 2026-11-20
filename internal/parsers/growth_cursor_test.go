@@ -122,14 +122,11 @@ func cursorHashes(t *testing.T, n int) []byte {
 func cursorSideCases() []growthCase {
 	const search, tracking = cursorStorage + "conversation-search.db", ".cursor/ai-tracking/ai-code-tracking.db"
 	return []growthCase{
-		{kind: "conversation-search.db", shape: shapeJoins, known: "allocated bytes grow 3.76 times from n=64 to " +
-			"128 (4,725,000 to 17,751,256): every conversation naming one fts_rowid converts and compacts the shared " +
-			"n-kilobyte body again before it is found already written (cursor/side.go Parser.search)",
-			files: func(t *testing.T, n int) []growthFile {
-				return one(search, cursorConversations(t, rows(n, func(i int) []any {
-					return []any{1, numbered("c", i), numbered("title ", i), "local", 0, 1790000000000}
-				}), [][]any{{1, "title", strings.Repeat("b", 1024*n)}}))
-			}},
+		{kind: "conversation-search.db", shape: shapeJoins, files: func(t *testing.T, n int) []growthFile {
+			return one(search, cursorConversations(t, rows(n, func(i int) []any {
+				return []any{1, numbered("c", i), numbered("title ", i), "local", 0, 1790000000000}
+			}), [][]any{{1, "title", strings.Repeat("b", 1024*n)}}))
+		}},
 		{kind: "conversation-search.db", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{cursorLongProject(t), {rel: search, data: cursorConversations(t,
 				rows(n, func(i int) []any { return []any{i, "c1", numbered("title ", i), "local", 0, 1790000000000} }), nil)}}

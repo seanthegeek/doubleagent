@@ -110,14 +110,17 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 				columnField(record.Get("is_archived")), nil)
 		}
 		key := parser.ColumnKey(record.Get("fts_rowid"))
-		if body := timeline.Compact(asText(bodies[key])); key != "" && body != "" {
-			shared, met := written[key]
-			if met {
-				repeats++
-			} else {
-				shared = timeline.NewSharedText(body)
-				written[key] = shared
-			}
+		if key == "" {
+			continue
+		}
+		shared, met := written[key]
+		if !met {
+			shared = sharedBody(bodies[key])
+			written[key] = shared
+		} else if shared != nil {
+			repeats++
+		}
+		if shared != nil {
 			row("cached conversation text (conversation-search.db, source="+cmp.Or(source, "-")+"): ", shared)
 		}
 	}
@@ -126,6 +129,16 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 		problems.Add(0, sharedBodiesText(repeats))
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 	}
+}
+
+// sharedBody returns the shared text of a full-text body, made once per
+// fts_rowid however many conversations name it; nil for an empty body.
+func sharedBody(body sqlitefile.Value) *timeline.SharedText {
+	text := timeline.Compact(asText(body))
+	if text == "" {
+		return nil
+	}
+	return timeline.NewSharedText(text)
 }
 
 // bodyPointer is the pointer of a later conversation's row of a full-text
