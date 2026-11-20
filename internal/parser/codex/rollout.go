@@ -38,13 +38,17 @@ type rollout struct {
 
 	carried   map[string]bool
 	exitCodes map[string]jsonvalue.Value
-	// cuts cuts the session id each guardian verdict's text repeats.
+	// cuts cuts the session id each guardian verdict's text repeats and
+	// the policy values each thread_settings_applied row repeats.
 	cuts *parser.Carried
 
 	sessionID, cwd, model, branch string
 	metaSeen                      bool
 	seenModel, seenMode           parser.Tracker
 	policies                      map[string]policy
+	// shownModes holds each session's composite permission mode as its
+	// last row wrote it, seenMode the same composite whole.
+	shownModes map[string]string
 	// taskPending is set in a subagent's file until its first prompt.
 	taskPending bool
 	// guardianParent is the thread a guardian review thread reviews, and
@@ -66,7 +70,7 @@ func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, 
 	var problems parser.Problems
 	state := &rollout{parser: p, artifact: artifact, options: options, emit: emit,
 		seenModel: parser.Tracker{}, seenMode: parser.Tracker{}, policies: map[string]policy{},
-		cuts: parser.NewCarried(artifact)}
+		shownModes: map[string]string{}, cuts: parser.NewCarried(artifact)}
 	if match := uuidTail.FindStringSubmatch(artifact.Rel); match != nil {
 		state.sessionID = match[1]
 	}
@@ -217,9 +221,25 @@ func (s *rollout) turnContext(payload jsonvalue.Value) {
 	s.policies[s.sessionID] = policyOf(payload)
 	texts := []string{
 		s.seenModel.Change("model", s.sessionID, parser.Text(payload.Get("model"))),
-		s.seenMode.Change("permission mode", s.sessionID, s.policies[s.sessionID].text()),
+		s.modeChange(s.policies[s.sessionID].text(), s.policies[s.sessionID].text),
 	}
 	s.systemTexts(texts)
+}
+
+// modeChange returns the "permission mode:" text when the session's
+// composite mode, whole, changes (parser.Tracker), written with what shown
+// returns, the composite as this line writes it, after the one the last
+// such row wrote; "" when it does not change, without calling shown.
+func (s *rollout) modeChange(whole string, shown func() string) string {
+	if s.seenMode.Change("permission mode", s.sessionID, whole) == "" {
+		return ""
+	}
+	old := s.shownModes[s.sessionID]
+	s.shownModes[s.sessionID] = shown()
+	if old != "" {
+		return "permission mode: " + old + " -> " + s.shownModes[s.sessionID]
+	}
+	return "permission mode: " + s.shownModes[s.sessionID]
 }
 
 // systemTexts emits a system row for each text that is not empty.
@@ -391,7 +411,9 @@ func (s *rollout) threadSettings(settings jsonvalue.Value) {
 	if previous, ok := s.policies[s.sessionID]; ok {
 		state := previous.withSettings(settings)
 		s.policies[s.sessionID] = state
-		texts = append(texts, s.seenMode.Change("permission mode", s.sessionID, state.text()))
+		texts = append(texts, s.modeChange(state.text(), func() string {
+			return state.carriedText(settingsSet(settings), s.cuts)
+		}))
 	}
 	s.systemTexts(texts)
 }
