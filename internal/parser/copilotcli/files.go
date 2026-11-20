@@ -262,15 +262,19 @@ func (p *Parser) parsePermissions(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var wrong parser.Problems
+	carried := parser.NewCarried(artifact)
 	for _, location := range parser.ObjectMember(document.Get("locations"), "locations", 1, &wrong) {
 		member := "locations." + location.Key
 		parser.ObjectMember(location.Value, member, 1, &wrong)
+		// Each grant's row repeats its location's key.
+		shown := "locations." + carried.Cut("locations key", location.Key)
 		for _, key := range []string{"tool_approvals", "allowed_directories"} {
 			for _, item := range parser.ArrayMember(location.Value.Get(key), member+"."+key, 1, &wrong) {
-				emit(p.settingRow(artifact, timestamp, member+"."+key, item, location.Key))
+				emit(p.settingRow(artifact, timestamp, shown+"."+key, item, location.Key))
 			}
 		}
 	}
+	carried.Report(1, &wrong)
 	p.problemRows(artifact, wrong, timestamp, emit)
 }
 
