@@ -51,16 +51,59 @@ const maxDepth = 10_000
 // deeper than maxDepth, worded as the token reader words its own.
 var errTooDeep = errors.New("exceeded max depth")
 
-// newError returns the error for reading text up to byte offset.
-func newError(text string, offset int, cause error) *Error {
-	before := text[:min(max(offset, 0), len(text))]
-	lineStart := strings.LastIndexByte(before, '\n') + 1
-	return &Error{
-		Offset: offset,
-		Line:   strings.Count(before, "\n") + 1,
-		Column: utf8.RuneCountInString(before[lineStart:]) + 1,
-		Err:    cause,
+// Document is a JSON text whose values are read one at a time with
+// DecodePrefix, for a reader that walks the values of one text in order,
+// such as the arrays of a damaged history. An error's line and column are
+// counted on from where the last error's count ended, rather than from the
+// start of the text, so a walk that meets an error in each of many values
+// still reads each byte of the text a fixed number of times.
+type Document struct {
+	text string
+	// counted is the place the last count of lines and columns reached;
+	// scanned is how many bytes the counts have read.
+	counted place
+	scanned int
+}
+
+// place is a byte offset of a text with its line and its column in
+// characters, both counted from 1.
+type place struct {
+	offset, line, column int
+}
+
+// NewDocument returns text as a Document whose values are read in text
+// order.
+func NewDocument(text string) *Document {
+	return &Document{text: text, counted: place{line: 1, column: 1}}
+}
+
+// Scanned returns how many bytes the document has read to count the lines
+// and columns of its errors.
+func (d *Document) Scanned() int { return d.scanned }
+
+// String returns the document's text.
+func (d *Document) String() string { return d.text }
+
+// errorAt returns the error for reading the text up to byte offset. The
+// line and column are counted on from the last count when the offset lies
+// at or after it, and from the start of the text when it lies before; an
+// offset outside the text is placed at its nearer end.
+func (d *Document) errorAt(offset int, cause error) *Error {
+	within := min(max(offset, 0), len(d.text))
+	from := d.counted
+	if within < from.offset {
+		from = place{line: 1, column: 1}
 	}
+	between := d.text[from.offset:within]
+	d.scanned += len(between)
+	reached := place{offset: within, line: from.line + strings.Count(between, "\n"), column: from.column}
+	if lineStart := strings.LastIndexByte(between, '\n'); lineStart >= 0 {
+		reached.column = 1
+		between = between[lineStart+1:]
+	}
+	reached.column += utf8.RuneCountInString(between)
+	d.counted = reached
+	return &Error{Offset: offset, Line: reached.line, Column: reached.column, Err: cause}
 }
 
 // Decode reads data, raw bytes such as a file's content, as one JSON
@@ -72,14 +115,15 @@ func Decode(data []byte) (Value, error) {
 
 // DecodeString reads text as one JSON document, as Decode does.
 func DecodeString(text string) (Value, error) {
+	document := NewDocument(text)
 	decoder := newDecoder(text)
-	value, err := readValue(decoder, text, 0)
+	value, err := readValue(decoder, document, 0)
 	if err != nil {
 		return Value{}, err
 	}
 	end := int(decoder.InputOffset())
 	if rest := strings.TrimLeft(text[end:], " \t\r\n"); rest != "" {
-		return Value{}, newError(text, len(text)-len(rest), errExtraData)
+		return Value{}, document.errorAt(len(text)-len(rest), errExtraData)
 	}
 	return value, nil
 }
@@ -88,11 +132,17 @@ func DecodeString(text string) (Value, error) {
 // after any whitespace, and returns it with the byte offset just past it;
 // what follows the value, such as another document, is left unread.
 func DecodePrefix(text string, start int) (Value, int, error) {
-	if start < 0 || start > len(text) {
-		return Value{}, 0, newError(text, start, io.ErrUnexpectedEOF)
+	return NewDocument(text).DecodePrefix(start)
+}
+
+// DecodePrefix reads the one value that starts at byte start of the
+// document, as the function DecodePrefix reads it from the document's text.
+func (d *Document) DecodePrefix(start int) (Value, int, error) {
+	if start < 0 || start > len(d.text) {
+		return Value{}, 0, d.errorAt(start, io.ErrUnexpectedEOF)
 	}
-	decoder := newDecoder(text[start:])
-	value, err := readValue(decoder, text, start)
+	decoder := newDecoder(d.text[start:])
+	value, err := readValue(decoder, d, start)
 	if err != nil {
 		return Value{}, 0, err
 	}
@@ -116,23 +166,23 @@ type frame struct {
 	hasKey bool
 }
 
-// readValue reads one value from decoder, which reads text from byte
-// start, building arrays and objects on a stack of its own rather than by
+// readValue reads one value from decoder, which reads the document's text
+// from byte start, building arrays and objects on a stack of its own rather than by
 // recursion. An array or object that opens below maxDepth others is
 // refused at its opening bracket.
-func readValue(decoder *json.Decoder, text string, start int) (Value, error) {
+func readValue(decoder *json.Decoder, document *Document, start int) (Value, error) {
 	var stack []*frame
 	for {
 		token, err := decoder.Token()
 		if err != nil {
-			return Value{}, readError(decoder, text, start, err)
+			return Value{}, readError(decoder, document, start, err)
 		}
 		var value Value
 		switch typed := token.(type) {
 		case json.Delim:
 			if typed == '{' || typed == '[' {
 				if len(stack) == maxDepth {
-					return Value{}, newError(text, start+int(decoder.InputOffset())-1, errTooDeep)
+					return Value{}, document.errorAt(start+int(decoder.InputOffset())-1, errTooDeep)
 				}
 				stack = append(stack, openFrame(typed))
 				continue
@@ -159,18 +209,19 @@ func readValue(decoder *json.Decoder, text string, start int) (Value, error) {
 
 // readError returns the error for a failed read: a syntax error at its own
 // offset, and an end of text inside a value as an unexpected end.
-func readError(decoder *json.Decoder, text string, start int, err error) error {
+func readError(decoder *json.Decoder, document *Document, start int, err error) error {
+	text := document.text
 	var syntax *json.SyntaxError
 	switch {
 	case errors.As(err, &syntax):
 		// The reader's offset counts the character it stopped at.
 		end := min(start+int(syntax.Offset), len(text))
 		_, width := utf8.DecodeLastRuneInString(text[start:end])
-		return newError(text, end-width, err)
+		return document.errorAt(end-width, err)
 	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
-		return newError(text, len(text), io.ErrUnexpectedEOF)
+		return document.errorAt(len(text), io.ErrUnexpectedEOF)
 	}
-	return newError(text, start+int(decoder.InputOffset()), err)
+	return document.errorAt(start+int(decoder.InputOffset()), err)
 }
 
 // openFrame returns the frame of an array or object that delimiter opens.

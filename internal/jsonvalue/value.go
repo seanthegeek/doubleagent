@@ -9,7 +9,7 @@
 // with U+FFFD. NaN and Infinity are not JSON and do not decode.
 //
 // Decode reads a whole document, DecodePrefix one value followed by other
-// text. Arrays and objects nest at most 10,000 deep: the decoder counts the
+// text, and a Document the values of one text in text order. Arrays and objects nest at most 10,000 deep: the decoder counts the
 // levels itself and refuses a deeper document with an error ("exceeded max
 // depth" at its opening bracket), and it builds the value without
 // recursion, so reading never overflows the stack. Errors wrap the
