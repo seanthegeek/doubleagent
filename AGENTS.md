@@ -617,6 +617,16 @@ for Go files as it does for the others.
   from the evidence cannot lead a parser out of the collection.
   `TestNoParserPackageBuildsAPath` in `internal/follow` fails on such a
   call; the kit, `internal/parser`, is where they are made.
+- **A parser's output and work grow in step with its input.** A parser
+  lists every kind of file it reads (`Kinds`, from which its `Wants` is
+  built), and a new parser or kind ships with its growth cases in
+  `internal/parsers/growth_<package>_test.go`: inputs built at two sizes in
+  each shape that fits the kind (many records naming one large value, a
+  repeated id, one long carried value, deep nesting and damaged siblings,
+  many files that look at each other, equal join keys). `TestEveryFileKindHasGrowthCases`
+  fails for a kind without one, and `TestEveryParserGrowsInStepWithItsInput`
+  fails when the rows, their bytes or the allocations at twice the size are
+  more than 2.5 times those at the size, or the row text outweighs the input.
 - **Evidence is shown as written.** In the analysis output files a number
   from the evidence keeps its source text, JSON embedded in a row is compact
   with the evidence's key order, a boolean is `true` or `false`, and a null
