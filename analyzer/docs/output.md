@@ -1373,6 +1373,29 @@ alike. [searching.md](searching.md) has recipes.
 | `source_line` | integer | Where the record is in that file, so the full record can be read. For line-oriented files (JSONL, Markdown, text) the 1-based line number. For SQLite stores it is the record's `rowid` (Tabby events: the event id), and for JSON documents an array index or `1`. Each parser's module docstring says which. `0` when no position applies. |
 | `recovered` | string | `yes` when the row is an event (any `turn_type` but `system`) from a secondary source of its agent (see [Secondary sources](#secondary-sources)) that survived deduplication, so the agent's primary store does not hold the event; since 0.20.0 also the `user` and `assistant` rows the `cursor` parser takes from the `agentKv` prompt blobs of a conversation deleted in the editor, which the editor's database still holds although the conversation's own records are gone; since 0.20.1 also the turns the `kiro` parser recovers from a conversation's checkpoint snapshots or tangent-mode main history, which the conversation's own history no longer holds. `""` for every other row, including every `system` row of a secondary source (an index header, a thread record, a snapshot, a session-start or permission row, a `parser:` problem), which describes the source or the session rather than a turn the primary store lost. Since analyzer 0.15.0. |
 
+**Carried values longer than 4,096 bytes.** Every field but `text` and
+`source_line`, and a key, name or path a parser copies from one place in
+the evidence into the `text` of many rows (a settings key written before
+each of its leaves, a group's name in each of its sessions' rows, the
+columns of a joined row), is at most 4,096 bytes, the longest path Linux
+takes. A longer one is cut: it keeps its first bytes, whole characters
+only, and ends ` [cut from <length> bytes]`, `<length>` being the whole
+value's. No agent writes such a value, so ordinary evidence is never cut;
+the bound keeps a crafted file from multiplying one long value by many
+rows. The cut moves back to the start of the last word it keeps (a word
+ends at white space, a double quote, an angle bracket or a backtick) when
+that part of the word holds a URL's `://`, so no part of a URL's
+credentials is kept, and under `--no-secrets` the kept part of any
+secret the cut runs through is replaced like the rest of that secret.
+The parse ends with one `system` row per field or kind of value cut,
+`parser: <field or kind> longer than 4096 bytes, cut to 4096 bytes (<n>
+times)`. Two values longer than the bound that agree in length and in the
+bytes kept become one value, so their rows group as one session or
+project; values of different lengths stay apart. The `text` of an event
+itself is never cut. A project path longer than the bound in
+`collection.json` is not cut, so it does not match the cut path of its
+rows.
+
 The field names each parser relies on are listed in its module docstring
 under `doubleagent/parsers/`. Thinking and reasoning blocks are left out
 unless `--include-thinking` is passed.
