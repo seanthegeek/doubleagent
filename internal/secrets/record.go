@@ -23,12 +23,12 @@ type Recorder struct {
 	// joined is the matcher replace last built for the records a row
 	// lists, kept for the next row that lists the same ones.
 	joined joinedMatcher
-	// cuts are the values the parser kit cut (Cut), cutsOf their places
-	// by written text, and tails what the output withholds of them;
-	// changes counts each text recorded and each value cut, so tails is
-	// built again after any.
+	// cuts are the values the parser kit cut (Cut), cutsOf the values cut
+	// in each place, and tails what the output withholds of them; changes
+	// counts each text recorded and each value cut, so tails is built
+	// again after any.
 	cuts    []cut
-	cutsOf  map[string][]int
+	cutsOf  map[cutPlace]*cutList
 	tails   cutTails
 	changes int
 }
