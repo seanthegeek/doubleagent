@@ -20,11 +20,18 @@ const databaseRel = ".hermes/state.db"
 // named testdata database, placed at databaseRel in a new home.
 func parseDatabase(t *testing.T, name string) []string {
 	t.Helper()
+	return parseDatabaseAt(t, databaseRel, name)
+}
+
+// parseDatabaseAt returns the text of every row the parser gives for the
+// named testdata database, placed at rel in a new home.
+func parseDatabaseAt(t *testing.T, rel, name string) []string {
+	t.Helper()
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return parseFile(t, databaseRel, string(data))
+	return parseFile(t, rel, string(data))
 }
 
 // A virtual generated column is computed when read and not stored, so
@@ -67,6 +74,36 @@ func TestARepeatedSessionIDGivesItsUsageModelsOnce(t *testing.T) {
 				"its usage rows are shown once", count-1))
 			if !slices.Equal(got, want) {
 				t.Errorf("%d rows %q, want %d rows %q", len(got), got[:min(len(got), 6)], len(want), want[:6])
+			}
+		})
+	}
+}
+
+// A response id names one response, so many responses rows of one id are
+// damage; the conversation name of that id, written into each of their
+// rows, is cut as a carried value, with one problem row, so the output
+// grows with the rows rather than with the rows times the name.
+func TestAConversationNameIsCutInEveryResponseOfItsID(t *testing.T) {
+	for _, count := range []int{10, 40} {
+		t.Run(fmt.Sprintf("%d responses of one id", count), func(t *testing.T) {
+			rows := parseDatabaseAt(t, ".hermes/response_store.db", fmt.Sprintf("repeated_response_id_%d.db", count))
+			whole := strings.Repeat("n", 5000)
+			headers, wholeNames, problems := 0, 0, 0
+			for _, text := range rows {
+				switch {
+				case strings.HasPrefix(text, "api server response r1 "):
+					headers++
+					if len(text) > parser.CarriedLimit+200 {
+						t.Errorf("a header of %d bytes", len(text))
+					}
+				case text == parser.ProblemPrefix+parser.CarriedProblem("conversation name", 1):
+					problems++
+				}
+				wholeNames += strings.Count(text, whole)
+			}
+			if headers != count || wholeNames != 0 || problems != 1 || len(rows) != count+1 {
+				t.Errorf("%d rows: %d headers, %d whole names and %d problems, want %d, 0 and 1",
+					len(rows), headers, wholeNames, problems, count)
 			}
 		})
 	}

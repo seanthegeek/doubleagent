@@ -1738,6 +1738,12 @@ session's id where there is one, after the file's other rows. A `sessions` table
 that repeat an earlier row's id, whose usage rows that row already showed, gives one row after
 them with no session and `source_line` 0 (`1 row` for one):
 `parser: sessions holds <n> rows repeating an earlier row's id; its usage rows are shown once`.
+A `hosted_rooms` name, which each event row of its room repeats, and a `response_store.db`
+`conversations` name, which each response row of its response id repeats, are cut there to
+4,096 bytes when longer, as a carried value, with one row with no session and `source_line` 0,
+after the room events or after the store's other problem rows:
+`parser: room name longer than 4096 bytes, cut to 4096 bytes (<n> times)`
+(`conversation name` for the store), `<n>` the number of names cut.
 In `response_store.db` a `data` value is reported the same way (`responses.data`), and a
 history entry that is not an object as
 `(responses.data conversation_history <index>: not an object)`; a `conversation_history` that is
