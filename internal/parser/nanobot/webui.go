@@ -39,16 +39,21 @@ type webui struct {
 	segmented bool
 	projects  map[string]string
 	problems  parser.Problems
-	// namespaces holds the session namespace directories, each listed once
-	// for the file, made on the first lookup; listed says it was made.
-	namespaces []namespace
-	listed     bool
 }
 
-// namespace is one session namespace directory and its listing.
-type namespace struct {
-	directory parser.Directory
-	listing   parser.Listing
+// sessionNamespaces is one sessions directory's namespace directories, in
+// listing order, each listed once for the run, with the places of those
+// holding each file name as a regular file, so finding a chat's session
+// file costs the number of namespaces holding its name rather than the
+// number of namespaces, and a run's WebUI files list them once in all.
+type sessionNamespaces struct {
+	directories []parser.Directory
+	// holders maps a file name to the places in directories of the listed
+	// namespaces that hold it as a regular file, in listing order.
+	holders map[string][]int
+	// unlisted holds the places of the namespaces that could not be
+	// listed, where every name is looked at.
+	unlisted []int
 }
 
 // project returns the project path of a session id, looked up once.
@@ -64,19 +69,22 @@ func (w *webui) project(sessionID string) string {
 // workspace returns the .workspace of the session file for sessionID when
 // exactly one session namespace that has the file gives one. A marker that
 // cannot be read adds its unreadable problem. The file is looked up by its
-// exact name in each namespace's listing, since the agent names it by the
+// exact name in the namespaces' listings, since the agent names it by the
 // same encoding of the session id.
 func (w *webui) workspace(sessionID string) string {
 	name, named := parser.Component(base64.RawURLEncoding.EncodeToString([]byte(sessionID)) + ".jsonl")
 	if !named {
 		return ""
 	}
+	namespaces := w.sessionNamespaces()
 	found := map[string]bool{}
-	for _, each := range w.sessionNamespaces() {
-		if _, ok := each.listing.RegularFile(name); !ok {
+	for _, place := range namespaces.candidates(name) {
+		w.Work.Add("namespace lookups", 1)
+		directory := namespaces.directories[place]
+		if path, ok := directory.Child(name); !ok || !parser.RegularFile(path) {
 			continue
 		}
-		if marker, ok := each.directory.Child(".workspace"); ok {
+		if marker, ok := directory.Child(".workspace"); ok {
 			found[w.marker(marker, &w.problems)] = true
 		}
 	}
@@ -90,26 +98,37 @@ func (w *webui) workspace(sessionID string) string {
 	return ""
 }
 
-// sessionNamespaces returns the session namespace directories beside the
-// transcript's sessions directory, those that are plain directories and
-// not hidden, each listed once for the file.
-func (w *webui) sessionNamespaces() []namespace {
-	if w.listed {
-		return w.namespaces
-	}
-	w.listed = true
+// sessionNamespaces returns the session namespaces of the sessions
+// directory beside the transcript, listed on the run's first use of that
+// directory; none when there is no such directory.
+func (w *webui) sessionNamespaces() *sessionNamespaces {
 	levels := 1
 	if w.segmented {
 		levels = 2
 	}
 	sessions, ok := parser.Above(w.artifact, levels, "sessions")
 	if !ok {
-		return nil
+		return &sessionNamespaces{}
 	}
+	if listed, ok := w.namespaces[sessions]; ok {
+		return listed
+	}
+	listed := listNamespaces(sessions, w.Work)
+	if w.namespaces == nil {
+		w.namespaces = map[string]*sessionNamespaces{}
+	}
+	w.namespaces[sessions] = listed
+	return listed
+}
+
+// listNamespaces lists the namespace directories of a sessions directory,
+// those that are plain directories and not hidden, and each of them once.
+func listNamespaces(sessions string, work parser.Work) *sessionNamespaces {
+	namespaces := &sessionNamespaces{holders: map[string][]int{}}
 	listed, ok := parser.DirectoryAt(sessions)
 	entries, err := parser.ReadDir(sessions)
 	if !ok || err != nil {
-		return nil
+		return namespaces
 	}
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), ".") || entry.Type()&fs.ModeSymlink != 0 || !entry.IsDir() {
@@ -119,12 +138,38 @@ func (w *webui) sessionNamespaces() []namespace {
 		if !ok {
 			continue
 		}
-		if directory, ok := parser.DirectoryAt(path); ok {
-			w.Work.Add("namespace listings", 1)
-			w.namespaces = append(w.namespaces, namespace{directory: directory, listing: parser.ListingOf(directory)})
+		directory, ok := parser.DirectoryAt(path)
+		if !ok {
+			continue
+		}
+		work.Add("namespace listings", 1)
+		place := len(namespaces.directories)
+		namespaces.directories = append(namespaces.directories, directory)
+		files, err := parser.ReadDir(directory.Path())
+		if err != nil {
+			namespaces.unlisted = append(namespaces.unlisted, place)
+			continue
+		}
+		for _, file := range files {
+			if file.Type().IsRegular() {
+				namespaces.holders[file.Name()] = append(namespaces.holders[file.Name()], place)
+			}
 		}
 	}
-	return w.namespaces
+	return namespaces
+}
+
+// candidates returns the places of the namespaces where name may be a
+// regular file, in listing order: those whose listing holds it as one and
+// those that could not be listed.
+func (n *sessionNamespaces) candidates(name string) []int {
+	held := n.holders[name]
+	if len(n.unlisted) == 0 {
+		return held
+	}
+	merged := slices.Concat(held, n.unlisted)
+	slices.Sort(merged)
+	return merged
 }
 
 // parseWebUI emits the rows of a WebUI transcript file, each record's
