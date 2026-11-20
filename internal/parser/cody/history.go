@@ -15,7 +15,8 @@ const rejected = "Command rejected"
 
 // historyRows emits the rows of every chat of every account of a history.
 // A chat key found under more than one account takes the account before
-// it in its session id. Accounts that are not objects add one problem to
+// it in its session id, and the account key each chat's heading repeats
+// is cut (parser.Carried). Accounts that are not objects add one problem to
 // problems, at line, and so does each of the chat list, interactions,
 // message, content and processes members however many entries hold it of
 // the wrong kind.
@@ -26,6 +27,7 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 	}
 	var found parser.Problems
 	var tally parser.EntryTally
+	carried := parser.NewCarried(artifact)
 	seen := map[string]int{}
 	for _, account := range history.Members() {
 		for _, chatID := range account.Value.Get("chat").Keys() {
@@ -43,10 +45,11 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 			}
 			rows := chatRows{owner: p, artifact: artifact, sessionID: sessionID, line: line, emit: emit,
 				names: map[string]string{}, models: parser.Tracker{}, tally: &tally}
-			rows.chat(accountKey, chat)
+			rows.chat(carried.Cut("account", accountKey), chat)
 		}
 	}
 	tally.Report(line, &found)
+	carried.Report(line, &found)
 	addProblems(problems, found)
 }
 
