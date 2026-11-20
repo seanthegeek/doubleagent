@@ -2588,7 +2588,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `user`, `origin.kind` `task-notification`, `peer`, `coordinator`, `auto-continuation` | `system`, label `task notification`, `peer message`, `coordinator message`, `auto-continuation` |
 | `user`, other `isMeta` | `system`, label `context` |
 | `user`, any other string, `text` or `image` block | `user` (one row per block); the rules above are tried in this order, the record-level ones for every block |
-| `user`, `tool_result` block | `tool_result`; `tool_reference` blocks as their `tool_name`; a `<persisted-output>` stub replaced by its `tool-results/` file, named by `toolUseResult.persistedOutputPath` when that key is set and the line has one `tool_result` block, else by the stub's text (below); text prefixed `[error]` when `is_error` |
+| `user`, `tool_result` block | `tool_result`; `tool_reference` blocks as their `tool_name`; a `<persisted-output>` stub replaced by its `tool-results/` file at the file's first reference (a later one keeps the stub and a note), named by `toolUseResult.persistedOutputPath` when that key is set and the line has one `tool_result` block, else by the stub's text (below); text prefixed `[error]` when `is_error` |
 | `user`, `permissionDecision` (2.1.295) | one `system` row after the line's `tool_result` rows, `permission decision: <decision> source=<source> reason=<reasonType>` (`-` for a missing key), then a space and the object's compact JSON when it has other keys (`grantScope` and `reasonCode` on 2.1.309, [Permission decisions](#permission-decisions)); `tool_use_id` of the line's first `tool_result` block, `tool_name` empty as on `tool_result` rows |
 | `user`, `toolDenialKind`, `userFeedback` (factory key list, [Record schema](#record-schema)) | appended to that line's `permission decision:` row as ` toolDenialKind=<value> userFeedback=<value>`, in that order, each only when set, printed as recorded (no value set is recorded; `userFeedback` is free text, so it comes last); a line with `toolDenialKind` and no `permissionDecision`, the form 2.1.310 wrote on macOS for every refusal and a declined plan, gets `permission decision: reject (interrupted) toolDenialKind=user-rejected` (the value as recorded), the source being unknown ([issue 97](https://github.com/seanthegeek/doubleagent/issues/97)) |
 | `attachment` `plan_mode`, `plan_mode_exit`, `plan_mode_reentry`, `auto_mode`, `auto_mode_exit` | skip: their keys are now recorded ([`attachment` records](#attachment-records)); `auto_mode` is the turn's auto-mode configuration, not a decision, and every mode change they mark is also a `permissionMode` value or a `permission-mode` record, which the `permission mode:` rows read |
@@ -2998,6 +2998,12 @@ the file, `tool-results/` nor the session directory is a symlink, and otherwise 
 followed by `[persisted output not found: tool-results/<name>]`. A file that is there but cannot be
 read keeps the stub followed by `[persisted output could not be read (<reason>)]` and gives the
 unreadable row of [Bad-line rows](#bad-line-rows). On the observed install every stub resolved.
+Each file is read once per parse of a transcript. Its first reference in file order shows its text;
+every later stub naming the same `tool-results/<name>` keeps the stub followed by
+`[persisted output shown in full at its first reference: tool-results/<name>]`, so a transcript of
+many stubs naming one file gives rows that grow with the transcript and the file, not with their
+product. A transcript's rows are the primary store and are never dropped as duplicates, so the row
+holding the text stays wherever a later one points at it.
 
 ## Confidence
 

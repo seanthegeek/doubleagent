@@ -37,7 +37,7 @@ func TestAPersistedOutputNameThatIsNotAFileNameIsNotFound(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			if got := persistedText(artifact, "stub", test.saved, &problems); got != test.want ||
+			if got := persistedText(artifact, "stub", test.saved, map[string]*persistedFile{}, &problems); got != test.want ||
 				len(problems) != 0 {
 				t.Errorf("got %q, %v; want %q", got, problems, test.want)
 			}
