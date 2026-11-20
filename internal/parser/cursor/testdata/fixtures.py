@@ -4,8 +4,9 @@ Run it from any directory:
 
     python3 -I internal/parser/cursor/testdata/fixtures.py
 
-Each database below is a state.vscdb written by SQLite itself from the rows given, so the Go
-tests read files SQLite wrote. Pages are 512 bytes to keep the files small. No test runs this
+Each database of DATABASES is a state.vscdb, and each of SEARCH_DATABASES a
+conversation-search.db, written by SQLite itself from the rows given, so the Go tests read files
+SQLite wrote. Pages are 512 bytes to keep the files small. No test runs this
 script; rerun it after changing the rows.
 """
 
@@ -186,15 +187,66 @@ DATABASES = {
 }
 
 
-def main() -> None:
-    """Rewrite every database of DATABASES in this directory."""
-    for name, (rows, script) in DATABASES.items():
-        path = HERE / name
-        path.unlink(missing_ok=True)
-        with contextlib.closing(sqlite3.connect(path)) as connection:
-            connection.executescript(SCHEMA + script)
+SEARCH_SCHEMA = """
+PRAGMA page_size = 512;
+CREATE TABLE conversations (fts_rowid INTEGER, source TEXT, scope TEXT, id TEXT, title TEXT,
+    branches TEXT, updated_at INTEGER, is_archived INTEGER);
+CREATE TABLE conversation_fts_content (id INTEGER PRIMARY KEY, c0, c1, c2);
+"""
+
+
+def conversation(ident: str, fts_rowid: int) -> str:
+    """Return the SQL of a local conversation-search.db conversation joined on fts_rowid."""
+    return (
+        f"INSERT INTO conversations VALUES ({fts_rowid}, 'local', '', '{ident}', 'Title {ident}', '',"
+        " 1767323045000, 0);\n"
+    )
+
+
+def body(fts_rowid: int, text: str) -> str:
+    """Return the SQL of a full-text content row whose body is text."""
+    return f"INSERT INTO conversation_fts_content VALUES ({fts_rowid}, 'title', '{text}', '');\n"
+
+
+def shared_body(count: int) -> str:
+    """Return count conversations that all join one body of 10 bytes per conversation."""
+    return "".join(conversation(f"c{number}", 1) for number in range(count)) + body(1, "y" * (10 * count))
+
+
+# c1, c2 and c4 join full-text row 1, c3 joins row 2.
+SHARED_BODIES = (
+    conversation("c1", 1)
+    + conversation("c2", 1)
+    + conversation("c3", 2)
+    + conversation("c4", 1)
+    + body(1, "body one")
+    + body(2, "body two")
+)
+
+SEARCH_DATABASES = {
+    "shared_body_20.db": shared_body(20),
+    "shared_body_40.db": shared_body(40),
+    "shared_bodies.db": SHARED_BODIES,
+}
+
+
+def write(name: str, script: str, rows: list[tuple[str, str]]) -> None:
+    """Rewrite the database name in this directory from a script and cursorDiskKV rows."""
+    path = HERE / name
+    path.unlink(missing_ok=True)
+    with contextlib.closing(sqlite3.connect(path)) as connection:
+        connection.executescript(script)
+        if rows:
             connection.executemany("INSERT INTO cursorDiskKV VALUES (?, ?)", rows)
-            connection.commit()
+        connection.commit()
+
+
+def main() -> None:
+    """Rewrite every database of DATABASES and SEARCH_DATABASES in this directory."""
+    for name, (rows, script) in DATABASES.items():
+        write(name, SCHEMA + script, rows)
+    for name, script in SEARCH_DATABASES.items():
+        write(name, SEARCH_SCHEMA + script, [])
 
 
 if __name__ == "__main__":
