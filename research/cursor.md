@@ -2665,9 +2665,10 @@ are decoded, and no `mcpOAuth.secret.*` value is read:
   id=<id> sources=<sources, comma-separated> scope=<scope> (from state.vscdb
   cursor.plugins.installedIds, file mtime)` at the file's modification time, the scope the
   key's segment after the last `|` (`no-workspace`, or a folder's `file://` URI, whose decoded
-  path is the row's `project_path`, a Windows drive in the form VS Code's `fsPath` writes, with
-  the drive letter in lower case, `c:\...`, so that it matches the composer headers'
-  `workspaceIdentifier.uri.fsPath`);
+  path is the row's `project_path`, spelled as every row's project path is, a Windows drive or
+  network path with backslashes and an upper-case drive letter, `C:\...`, so that it matches
+  the composer headers' `workspaceIdentifier.uri.fsPath`, and the text from a URL with a
+  credential on kept as written, so the credential is withheld there as in the text);
 - for each `User/globalStorage/mcp-oauth-attempts/<uuid>.json`, `mcp oauth attempt:
   server=<serverUrl> client_id=<clientInformation.client_id> workspace=<owner.workspaceId>
   (from mcp-oauth-attempts/<file>)`, a URL's user name and password shown as written, or as
