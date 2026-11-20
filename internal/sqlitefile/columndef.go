@@ -214,17 +214,6 @@ func (p *schemaParser) defaultClause() (string, error) {
 	return p.text[start:p.offset], nil
 }
 
-// scanAll returns the tokens of text, which has been scanned before
-// without error.
-func scanAll(text string) []token {
-	parser := newSchemaParser(text)
-	var tokens []token
-	for !parser.atEnd() {
-		tokens = append(tokens, parser.next())
-	}
-	return tokens
-}
-
 // foreignKey reads the rest of a REFERENCES clause: the parent table, its
 // columns, the ON and MATCH actions and the deferral.
 func (p *schemaParser) foreignKey() error {

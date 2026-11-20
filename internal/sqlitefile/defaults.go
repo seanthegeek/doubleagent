@@ -12,6 +12,68 @@ import (
 // not evaluate; it is reported only when a short record needs the value.
 var errDefault = fmt.Errorf("%w: unsupported DEFAULT value", errSchemaSyntax)
 
+// readDefault evaluates the DEFAULT clause text, which has been scanned
+// before without error, as defaultValue does. Its tokens are kept only
+// while they nest at most maxDefaultDepth deep, so a clause refused for
+// its depth holds none of the tokens past that depth.
+func readDefault(text string, affinity Affinity) (Value, error) {
+	parser := newSchemaParser(text)
+	var tokens []token
+	var levels nesting
+	for !parser.atEnd() {
+		current := parser.next()
+		if levels.add(current, tokens) > maxDefaultDepth {
+			return Value{}, errTooDeep
+		}
+		tokens = append(tokens, current)
+	}
+	return defaultValue(tokens, affinity)
+}
+
+// nesting counts the levels open at each token of a DEFAULT clause as it
+// is scanned: the parentheses not yet closed, and the signs and CASTs
+// waiting for their operand, outside each open parenthesis and within
+// the innermost one.
+type nesting struct {
+	open, waiting int
+	// saved holds, for each open parenthesis, the signs and CASTs that
+	// were waiting when it opened, and savedSum their sum.
+	saved    []int
+	savedSum int
+}
+
+// add counts current, the token after before, and returns the levels open
+// once it is read.
+func (n *nesting) add(current token, before []token) int {
+	switch {
+	case current.isPunctuation("("):
+		n.saved = append(n.saved, n.waiting)
+		n.savedSum += n.waiting
+		n.open, n.waiting = n.open+1, 0
+	case current.isPunctuation(")") && n.open > 0:
+		last := len(n.saved) - 1
+		n.savedSum -= n.saved[last]
+		n.saved = n.saved[:last]
+		n.open, n.waiting = n.open-1, 0
+	case current.isPunctuation("+") || current.isPunctuation("-"):
+		if len(before) == 0 || !endsOperand(before[len(before)-1]) {
+			n.waiting++
+		}
+	case current.isKeyword("CAST"):
+		n.waiting++
+	default:
+		n.waiting = 0
+	}
+	return n.open + n.savedSum + n.waiting
+}
+
+// endsOperand reports whether a sign after the token is a binary operator
+// rather than the sign of the next operand: after a literal, a name or a
+// closing parenthesis.
+func endsOperand(previous token) bool {
+	return previous.kind != punctuation || previous.isPunctuation(")")
+}
+
 // defaultValue evaluates a column's DEFAULT clause as SQLite evaluates it
 // for a record too short to hold the column: literals, signs, parentheses
 // and CAST with the column's affinity applied, the CURRENT_ keywords and
@@ -38,11 +100,13 @@ func isKeywordLiteral(literal token) bool {
 	return false
 }
 
-// maxDefaultDepth is how deeply a DEFAULT value may nest: each pair of
-// parentheses, sign and CAST around the value is one level. A default
-// build of SQLite parses with a stack of 100 entries (YYSTACKDEPTH) and
-// refuses deeper text as a parser stack overflow, so it writes no deeper
-// DEFAULT; the bound keeps evaluating one to a hundred scans of its tokens.
+// maxDefaultDepth is how deeply a DEFAULT value may nest: each open
+// parenthesis, and each sign and CAST waiting for its operand, is one
+// level, counted as the clause is scanned. A default build of SQLite
+// parses with a stack of 100 entries (YYSTACKDEPTH), each level holding
+// at least one, and refuses deeper text as a parser stack overflow, so it
+// writes no deeper DEFAULT; the bound keeps evaluating one to a hundred
+// scans of its tokens.
 const maxDefaultDepth = 100
 
 // evaluateDefault evaluates the expression tokens hold, nested depth

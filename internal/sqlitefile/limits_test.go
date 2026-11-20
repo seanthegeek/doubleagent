@@ -152,7 +152,11 @@ func TestDefaultsNestedPastSQLitesParserAreNotEvaluated(t *testing.T) {
 			return strings.Repeat("(", depth) + "7" + strings.Repeat(")", depth)
 		}, 7},
 		{"signs in parentheses", func(depth int) string {
-			return "(" + strings.Repeat("- ", depth) + "7)"
+			return "((" + strings.Repeat("- ", depth-2) + "7))"
+		}, 7},
+		{"CASTs, each a word and a parenthesis", func(depth int) string {
+			casts := (depth - 1) / 2
+			return "(" + strings.Repeat("CAST(", casts) + "7" + strings.Repeat(" AS INTEGER)", casts) + ")"
 		}, 7},
 	}
 	for _, test := range cases {
@@ -168,6 +172,37 @@ func TestDefaultsNestedPastSQLitesParserAreNotEvaluated(t *testing.T) {
 			if err != nil || !errors.Is(shape.columns[0].defaultErr, errDefault) ||
 				!strings.Contains(shape.columns[0].defaultErr.Error(), "more than 100 deep") {
 				t.Errorf("default error = %v (%v), want one naming the limit", shape.columns[0].defaultErr, err)
+			}
+		})
+	}
+}
+
+// Each level of a DEFAULT is counted as it is scanned, so a value nested
+// past the limit is refused before the tokens beyond it are kept, and the
+// memory it takes does not grow with its length.
+func TestADefaultNestedPastTheLimitKeepsNoTokensPastIt(t *testing.T) {
+	tests := []struct {
+		name   string
+		nested func(count int) string
+	}{
+		{"parentheses", func(count int) string { return strings.Repeat("(", count) + "7" + strings.Repeat(")", count) }},
+		{"signs", func(count int) string { return "(" + strings.Repeat("- ", count) + "7)" }},
+		{"CASTs", func(count int) string {
+			return "(" + strings.Repeat("CAST(", count) + "7" + strings.Repeat(" AS INTEGER)", count) + ")"
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, count := range []int{100_000, 400_000} {
+				sql := "CREATE TABLE t(a DEFAULT " + test.nested(count) + ")"
+				var shape *tableShape
+				var err error
+				allocated := bytesAllocatedBy(func() { shape, err = parseCreateTable(sql) })
+				t.Logf("a %d-byte statement allocated %d bytes", len(sql), allocated)
+				if err != nil || !errors.Is(shape.columns[0].defaultErr, errTooDeep) || allocated > 1<<20 {
+					t.Errorf("a %d-byte statement allocated %d bytes and gave %v, %v; want at most %d bytes and the "+
+						"depth refused", len(sql), allocated, err, shape.columns[0].defaultErr, 1<<20)
+				}
 			}
 		})
 	}

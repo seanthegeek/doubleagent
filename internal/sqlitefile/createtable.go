@@ -375,8 +375,7 @@ func (s *tableShape) finish() error {
 		column := &s.columns[i]
 		column.Affinity = affinityOf(column.DeclaredType, s.strict)
 		if column.defaultText != "" {
-			column.Default, column.defaultErr = defaultValue(scanAll(column.defaultText),
-				column.Affinity)
+			column.Default, column.defaultErr = readDefault(column.defaultText, column.Affinity)
 			column.defaultText = ""
 		}
 		if s.withoutRowid {
