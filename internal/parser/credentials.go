@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -85,14 +86,12 @@ func credentialName(name string) bool {
 }
 
 // recordForms records a secret value in each form a row can hold it: as
-// it is, without the white space around it, and, for an HTTP authorization
-// value of the Bearer (RFC 6750) or Basic (RFC 7617) scheme, its
-// credentials after the scheme, which are the secret a log or another
-// header shows alone; and each of those as compact JSON writes it inside
-// quotes, where that differs, since a row that shows evidence as compact
-// JSON holds it so. The last of the unescaped forms is the secret itself,
-// and its length alone decides the reach of every form, so a form that
-// escaping or white space makes longer reaches no further than the secret.
+// written, without the white space around it, and, for a Bearer (RFC 6750)
+// or Basic (RFC 7617) authorization value, its credentials after the
+// scheme; and each of those in the spellings of jsonSpellings, at most
+// seven texts each, 21 in all. The last unescaped form is the secret
+// itself, and its length alone decides the reach of every form, so a
+// longer spelling reaches no further than the secret.
 func recordForms(recorder *secrets.Recorder, value string) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
@@ -109,11 +108,40 @@ func recordForms(recorder *secrets.Recorder, value string) {
 	}
 	for _, form := range forms {
 		record(form)
-		quoted := jsonvalue.NewString(form).JSON()
-		if escaped := quoted[1 : len(quoted)-1]; escaped != form {
-			record(escaped)
+		for _, spelling := range jsonSpellings(form) {
+			if spelling != form {
+				record(spelling)
+			}
 		}
 	}
+}
+
+// htmlEscapedLower and htmlEscapedUpper write the characters &, < and > as
+// Go's encoding/json does by default, with the hex digits in lower case,
+// and in upper case.
+var (
+	htmlEscapedLower = strings.NewReplacer("&", `\u0026`, "<", `\u003c`, ">", `\u003e`)
+	htmlEscapedUpper = strings.NewReplacer("&", `\u0026`, "<", `\u003C`, ">", `\u003E`)
+)
+
+// jsonSpellings returns the ways a JSON writer can write text inside the
+// quotes of a string, each once, in no set order: as compact JSON writes it
+// (backslash, quote and control characters escaped, U+2028 and U+2029 as
+// \u2028 and \u2029, nothing else); and, since another writer escapes a
+// slash as \/ (PHP's json_encode) and the characters &, < and > as \u0026,
+// \u003c and \u003e (Go's encoding/json by default, in either hex case), that
+// text with each slash escaped, with each of those three characters escaped
+// in either hex case, and with both. At most six texts.
+func jsonSpellings(text string) []string {
+	quoted := jsonvalue.NewString(text).JSON()
+	plain := quoted[1 : len(quoted)-1]
+	slashed := strings.ReplaceAll(plain, "/", `\/`)
+	spellings := []string{plain, slashed}
+	for _, base := range []string{plain, slashed} {
+		spellings = append(spellings, htmlEscapedLower.Replace(base), htmlEscapedUpper.Replace(base))
+	}
+	slices.Sort(spellings)
+	return slices.Compact(spellings)
 }
 
 // ReaderErrorText returns the message of a JSON, TOML or XML reader's error

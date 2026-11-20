@@ -140,7 +140,27 @@ func withheldLeakQuotedByChatFixtures() []withheldLeakFixture {
 					`"cwd":"/srv/proj","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1",` +
 					`"name":"Custom","input":{"keys":["fake-crush-key\"sec\\ret-0002"]}}]}}` + "\n"}},
 			"fake-crush-key"},
+		{"a Crush key holding a slash that another JSON writer escapes", crushKeyQuotedBy("fake-slash-key/0039",
+			`{\"k\":\"fake-slash-key\\/0039\"}`), "fake-slash-key"},
+		{"a Crush key holding & < > that another JSON writer escapes", crushKeyQuotedBy("fake-amp-key&<0040>",
+			`{\"k\":\"fake-amp-key\\u0026\\u003c0040\\u003e\"}`), "fake-amp-key"},
+		{"a Crush key holding a slash and < that another JSON writer escapes in upper-case hex",
+			crushKeyQuotedBy("fake-both-key/<0041",
+				`{\"k\":\"fake-both-key\\/\\u003C0041\"}`), "fake-both-key"},
 	}
+}
+
+// crushKeyQuotedBy returns the collection of a Crush file holding key and a
+// Claude Code prompt that says quoted, JSON text as another writer escaped
+// it (the characters of quoted are those of the prompt, in its own JSON
+// string).
+func crushKeyQuotedBy(key, quoted string) []collectedFile {
+	const home = "/home/alice"
+	return []collectedFile{
+		{"alice", home, "crush", ".config/crush/crush.json",
+			`{"providers": {"b": {"api_key": ` + jsonvalue.NewString(key).JSON() + `}}}`},
+		{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+			quoting("the tool said " + quoted)}}
 }
 
 // withheldLeakInCodexRemoteFixtures returns the collection of a Codex remote

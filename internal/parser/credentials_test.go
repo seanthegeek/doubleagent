@@ -176,3 +176,53 @@ func TestTheSecretItselfDecidesWhereEachOfItsFormsIsReplaced(t *testing.T) {
 		})
 	}
 }
+
+func TestAValueIsRecordedAsEachJSONWriterSpellsIt(t *testing.T) {
+	tests := []struct {
+		name, value string
+		recorded    []string
+	}{
+		{"a slash", "fake/key-0001", []string{"fake/key-0001", `fake\/key-0001`}},
+		{"the characters & < >", "fake&<key>-1", []string{"fake&<key>-1", `fake\u0026\u003Ckey\u003E-1`,
+			`fake\u0026\u003ckey\u003e-1`}},
+		{"a slash and a quote and <", `a/"b<cdefg`, []string{`a/"b<cdefg`, `a/\"b<cdefg`, `a\/\"b<cdefg`,
+			`a/\"b\u003ccdefg`, `a/\"b\u003Ccdefg`, `a\/\"b\u003ccdefg`, `a\/\"b\u003Ccdefg`}},
+		{"a backslash before a slash", `a\/b-fake-01`, []string{`a\/b-fake-01`, `a\\/b-fake-01`, `a\\\/b-fake-01`}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			artifact := &input.Artifact{Home: &input.Home{Secrets: secrets.NewRecorder(
+				secrets.Setting{Withhold: true, Placeholder: "P"})}}
+			found, _ := Within(artifact, func(Emit) error { SecretText(artifact, test.value); return nil },
+				func(timeline.Row) {})
+			if got, want := found.Secrets(), slices.Sorted(slices.Values(test.recorded)); !slices.Equal(got, want) {
+				t.Errorf("recorded %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestEverySpellingOfASecretReachesAsFarAsTheSecretItself(t *testing.T) {
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true, Placeholder: "P"})
+	artifact := &input.Artifact{Home: &input.Home{Secrets: recorder}}
+	// Short as written; its escaped spellings are longer than 8 bytes.
+	found, _ := Within(artifact, func(Emit) error { SecretText(artifact, "a/b&c"); return nil }, func(timeline.Row) {})
+	if got := recorder.EverywhereTexts(); got != nil {
+		t.Errorf("replaced in every string: %q, want none", got)
+	}
+	if got := recorder.RowText(`a\/b\u0026c`, found); got != "P" {
+		t.Errorf("the parse's row text gives %q", got)
+	}
+}
+
+func TestAtMostTwentyOneTextsAreRecordedForOneValue(t *testing.T) {
+	artifact := &input.Artifact{Home: &input.Home{Secrets: secrets.NewRecorder(
+		secrets.Setting{Withhold: true, Placeholder: "P"})}}
+	found, _ := Within(artifact, func(Emit) error {
+		SecretText(artifact, ` Bearer fake/<&>"key-0001 `)
+		return nil
+	}, func(timeline.Row) {})
+	if got := len(found.Secrets()); got > 21 {
+		t.Errorf("%d texts recorded, want at most 21: %q", got, found.Secrets())
+	}
+}

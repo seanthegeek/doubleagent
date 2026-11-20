@@ -644,7 +644,12 @@ for Go files as it does for the others.
   `timeline --no-secrets` or `detect --no-secrets` each is replaced by one
   placeholder, `REDACTED` unless `--redaction-placeholder` names another,
   and each kind reaches its own strings. A value `SecretText` identifies
-  is replaced, in each form a row can hold it, in every string of the
+  is replaced, in each form a row can hold it (as written, without the
+  white space around it, the credentials after a `Bearer` or `Basic`
+  scheme, and each of those as compact JSON writes it inside quotes and
+  with each `/` written `\/`, each `&`, `<` and `>` written `\u0026`,
+  `\u003c` or `\u003C`, `\u003e` or `\u003E`, as other JSON writers
+  do, or both: at most 21 texts), in every string of the
   output when the secret itself (the value without the white space around
   it, or the credentials after a `Bearer` or `Basic` scheme) is 8 bytes or
   more, and otherwise only in the `text` field of the rows of the parse that identified it
