@@ -166,6 +166,26 @@ func TestADocumentCountsEachErrorsPlaceOnFromTheLast(t *testing.T) {
 	}
 }
 
+func TestADocumentPlacesAnErrorAsAFreshCountDoesFromAnyStart(t *testing.T) {
+	tests := []struct{ name, text string }{
+		{"a character of two bytes", "\u00e9 [x \u00e9 [x"},
+		{"a character of three bytes", "\u20ac [x\n\u20ac [x \u20ac"},
+		{"a character of four bytes", "\U0001F600 [x \U0001F600 [x"},
+		{"a character cut short", "\xe2\x82 [x \u20ac [x"},
+	}
+	for _, test := range tests {
+		t.Run(test.name+" before each start, inside it or not", func(t *testing.T) {
+			document := NewDocument(test.text)
+			for start := range len(test.text) {
+				_, _, fresh := DecodePrefix(test.text, start)
+				if _, _, err := document.DecodePrefix(start); errorText(err) != errorText(fresh) {
+					t.Errorf("value at %d: %v, want %v", start, err, fresh)
+				}
+			}
+		})
+	}
+}
+
 func TestADocumentPlacesAnEarlierErrorFromTheStart(t *testing.T) {
 	text, starts := damagedValues(3)
 	document := NewDocument(text)
