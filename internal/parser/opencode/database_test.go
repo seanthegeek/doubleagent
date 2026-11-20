@@ -149,3 +149,17 @@ func TestEachMessageTakesItsOwnWorkingDirectory(t *testing.T) {
 		}
 	}
 }
+
+func TestPermissionEntriesThatAreNotRulesAreCountedInOneRow(t *testing.T) {
+	want := []string{
+		"session start: t2 directory=/work/two",
+		"session start: t1 directory=/work/one (only in the 1.x session table)",
+		"permission setting: session read *=allow (from opencode.db session_v2.permission, time_updated)",
+		"permission setting: session bash ls=ask (from opencode.db session.permission, time_updated)",
+		"parser: session_v2.permission holds 3 entries that are not permission rules",
+		"parser: session.permission holds 1 entry that is not a permission rule",
+	}
+	if got := parseDatabase(t, "permission_entries.db"); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

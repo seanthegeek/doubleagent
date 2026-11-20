@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -154,15 +155,17 @@ type rule struct {
 
 // sessionRules returns the rules of a session's permission column text, a
 // JSON array of 2.0 {action, resource, effect} or 1.x and Kilo Code
-// {permission, pattern, action} objects, or false when the text is not a
-// JSON array. Entries of neither shape are skipped; a missing or empty
-// field reads "-".
-func sessionRules(text string) ([]rule, bool) {
+// {permission, pattern, action} objects, and the number of entries of
+// neither shape (not objects, or objects with neither key), which give no
+// rule; false when the text is not a JSON array. A missing or empty field
+// reads "-".
+func sessionRules(text string) ([]rule, int, bool) {
 	rules, err := jsonvalue.DecodeString(text)
 	if err != nil || !rules.IsArray() {
-		return nil, false
+		return nil, 0, false
 	}
 	var found []rule
+	skipped := 0
 	for _, entry := range rules.Items() {
 		entry = parser.ObjectOrEmpty(entry)
 		var keys [3]string
@@ -172,10 +175,21 @@ func sessionRules(text string) ([]rule, bool) {
 		case entry.Has("permission"):
 			keys = [3]string{"permission", "pattern", "action"}
 		default:
+			skipped++
 			continue
 		}
 		found = append(found, rule{permission: parser.SettingOrDash(entry.Get(keys[0])),
 			pattern: parser.SettingOrDash(entry.Get(keys[1])), effect: parser.SettingOrDash(entry.Get(keys[2]))})
 	}
-	return found, true
+	return found, skipped, true
+}
+
+// notRules returns the problem text of a permission column holding n
+// entries that are not rules: "<column> holds <n> entries that are not
+// permission rules", "1 entry that is not" for one.
+func notRules(column string, n int) string {
+	if n == 1 {
+		return column + " holds 1 entry that is not a permission rule"
+	}
+	return column + " holds " + strconv.Itoa(n) + " entries that are not permission rules"
 }
