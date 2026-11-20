@@ -177,10 +177,7 @@ func codexRolloutCases(prefix string) []growthCase {
 			return one(codexRolloutRel(prefix, 0), append([]byte(codexMeta(0, "/"+long("p"))+"\n"),
 				lines(n, func(i int) string { return codexPrompt(numbered("p", i)) })...))
 		}},
-		{kind: "rollout", shape: shapeCarried + " of a policy value as long as the input", known: "allocated bytes grow 3.0 times from n=64 to 128 (3,462,048 to 10,394,624): each " +
-			"thread_settings_applied event builds and compares the whole permission mode, the turn's " +
-			"network value of 100 bytes a unit included, so the work is events times value length " +
-			"(codex/rollout.go threadSettings, codex/policy.go shownText)", files: codexPolicy(prefix)},
+		{kind: "rollout", shape: shapeCarried + " of a policy value as long as the input", files: codexPolicy(prefix)},
 		{kind: "rollout", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
 			return one(codexRolloutRel(prefix, 0), append([]byte(codexMeta(0, "/p")+"\n"), lines(2*n, func(i int) string {
 				if i%2 == 0 {

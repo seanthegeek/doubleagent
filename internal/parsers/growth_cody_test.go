@@ -85,14 +85,10 @@ func codyStateCases() []growthCase {
 			return one(codyState, codyStateDatabase(t, `{"cody-local-chatHistory-v2":`+
 				codyHistory(codyChat(codyChatDate(0), call+","+results))+"}"))
 		}},
-		{kind: "state.vscdb", shape: shapeCarried + " by the account", agent: codyEditorAgent, known: "row text 49 times the input at n=64 (3,206,016 bytes from 65,536) and 82 times at 128 (6,412,032 from " +
-			"77,824): each chat's start row writes its account's whole 50,000-byte key, uncut " +
-			"(cody/history.go chat)",
-
-			files: func(t *testing.T, n int) []growthFile {
-				chats := joined(n, func(i int) string { return codyChat(codyChatDate(i), "") })
-				return one(codyState, codyStateDatabase(t, codyItem(`{"`+long("acct")+`":{"chat":{`+chats+`}}}`)))
-			}},
+		{kind: "state.vscdb", shape: shapeCarried + " by the account", agent: codyEditorAgent, files: func(t *testing.T, n int) []growthFile {
+			chats := joined(n, func(i int) string { return codyChat(codyChatDate(i), "") })
+			return one(codyState, codyStateDatabase(t, codyItem(`{"`+long("acct")+`":{"chat":{`+chats+`}}}`)))
+		}},
 		{kind: "state.vscdb", shape: shapeSharedID, agent: codyEditorAgent, files: func(t *testing.T, n int) []growthFile {
 			accounts := joined(n, func(i int) string {
 				return `"` + numbered("acct", i) + `":{"chat":{` + codyChat(codyChatDate(0), codyInteraction(i)) + `}}`

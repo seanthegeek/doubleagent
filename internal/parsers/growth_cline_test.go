@@ -287,16 +287,13 @@ func clineSearchCases() []growthCase {
 			documents := rows(n, func(i int) []any { return clineDocument(i, clineSession, "user", "/p", "hi") })
 			return one(search, database(t, clineSearchTables(indexed, documents)...))
 		}},
-		{kind: "session-search.db", shape: shapeLargeShared + " by many spellings", n: 32, foldsCase: true,
-			known: "on a file system that folds case, allocated bytes grow 3.6 times from n=32 to 64: every " +
-				"indexed session reads and decodes the manifest its id names, once per spelling of the id " +
-				"(cline/search.go searchProject)", files: func(t *testing.T, n int) []growthFile {
-				const sessionID = "abcdefabcdefabcdefab"
-				indexed := rows(n, func(i int) []any { return []any{spelling(sessionID, i), "t", 1, 1} })
-				return []growthFile{{rel: search, data: database(t, clineSearchTables(indexed, nil)...)},
-					text(clineData+"sessions/"+sessionID+"/"+sessionID+".json",
-						clineManifest(sessionID, "/p", `,"pad":"`+strings.Repeat("x", 1000*n)+`"`))}
-			}},
+		{kind: "session-search.db", shape: shapeLargeShared + " by many spellings", n: 32, files: func(t *testing.T, n int) []growthFile {
+			const sessionID = "abcdefabcdefabcdefab"
+			indexed := rows(n, func(i int) []any { return []any{spelling(sessionID, i), "t", 1, 1} })
+			return []growthFile{{rel: search, data: database(t, clineSearchTables(indexed, nil)...)},
+				text(clineData+"sessions/"+sessionID+"/"+sessionID+".json",
+					clineManifest(sessionID, "/p", `,"pad":"`+strings.Repeat("x", 1000*n)+`"`))}
+		}},
 	}
 }
 

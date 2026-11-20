@@ -60,16 +60,13 @@ const (
 // claudecodeHistory returns the cases of history.jsonl.
 func claudecodeHistory() []growthCase {
 	return []growthCase{
-		{kind: "history.jsonl", shape: shapeLargeShared, known: "row text 55 times the input at n=64 (3,201,984 bytes " +
-			"from 58,448): each history line naming one paste-cache file writes its whole text " +
-			"(claudecode/sidecars.go expandPastes)",
-			files: func(t *testing.T, n int) []growthFile {
-				return []growthFile{text(".claude/paste-cache/h1.txt", long("paste")),
-					{rel: ".claude/history.jsonl", data: lines(n, func(i int) string {
-						return `{"display":"[Pasted text #1]","pastedContents":{"1":{"contentHash":"h1"}},` +
-							`"timestamp":` + strconv.Itoa(1767000000000+i) + `,"project":"/p","sessionId":"s"}`
-					})}}
-			}},
+		{kind: "history.jsonl", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
+			return []growthFile{text(".claude/paste-cache/h1.txt", long("paste")),
+				{rel: ".claude/history.jsonl", data: lines(n, func(i int) string {
+					return `{"display":"[Pasted text #1]","pastedContents":{"1":{"contentHash":"h1"}},` +
+						`"timestamp":` + strconv.Itoa(1767000000000+i) + `,"project":"/p","sessionId":"s"}`
+				})}}
+		}},
 		{kind: "history.jsonl", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			first := `{"display":"a","timestamp":1767000000000,"project":"/` + long("p") + `","sessionId":"s"}`
 			return one(".claude/history.jsonl", append([]byte(first+"\n"), lines(n, func(i int) string {
@@ -93,9 +90,6 @@ func claudecodeTranscripts() []growthCase {
 				})}}
 		}},
 		{kind: "session transcript", shape: shapeLargeShared + " by many spellings", n: 32,
-			known: "on a file system that folds case, row bytes grow 3.91 times from n=32 to 64: each " +
-				"spelling of the persisted output's name reads the file again and writes it in full " +
-				"(claudecode/sidecars.go persistedText)",
 			files: func(t *testing.T, n int) []growthFile {
 				return []growthFile{text(claudeToolResults+"abcdefghij.txt", strings.Repeat("o", 100*n)),
 					{rel: claudeTranscript, data: lines(n, func(i int) string {

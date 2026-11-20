@@ -227,14 +227,11 @@ func hermesResponseCases() []growthCase {
 					numbered("a", i)+`"}`)}
 			}), nil))
 		}},
-		{kind: "response_store.db", shape: shapeSharedID, known: "row text 44 times the input at n=64 (3,209,334 bytes from 73,728) and 78 times at 128 (6,418,706 from " +
-			"81,920): each responses row of a repeated response id writes the conversation's whole 50,000-byte name " +
-			"into its header row, uncut (hermes/responses.go responseRows)",
-			files: func(t *testing.T, n int) []growthFile {
-				return one(store, hermesResponses(t, rows(n, func(i int) []any {
-					return []any{"r", hermesResponse(i, `{"role":"user","content":"`+numbered("q", i)+`"}`)}
-				}), [][]any{{long("name"), "r"}}))
-			}},
+		{kind: "response_store.db", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
+			return one(store, hermesResponses(t, rows(n, func(i int) []any {
+				return []any{"r", hermesResponse(i, `{"role":"user","content":"`+numbered("q", i)+`"}`)}
+			}), [][]any{{long("name"), "r"}}))
+		}},
 		{kind: "response_store.db", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one(store, hermesResponses(t, append(rows(n, func(i int) []any {
 				return []any{numbered("r", i), `{"session_id":`}

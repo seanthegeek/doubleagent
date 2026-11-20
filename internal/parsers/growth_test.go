@@ -74,15 +74,12 @@ type growthFile struct {
 // files builds the home's files at size n. agent, when set, is the agent
 // the artifacts belong to, for a parser that reads another agent's files.
 // known, when set, records a defect the case finds on the current code:
-// the measure that grows, its ratio and the site, until a fix removes it;
-// with foldsCase, the defect shows only where the file system folds the
-// case of names, as macOS and Windows do by default.
+// the measure that grows, its ratio and the site, until a fix removes it.
 type growthCase struct {
 	kind, shape string
 	n           int
 	agent       string
 	known       string
-	foldsCase   bool
 	files       func(t *testing.T, n int) []growthFile
 }
 
@@ -157,8 +154,11 @@ func newParser(t *testing.T, name string) parser.Parser {
 }
 
 // parseHome parses the artifacts with the parser as a run does
-// (Registry.Collect) and returns the rows' measures; a problem line counts
-// as a row.
+// (Registry.Collect), writes out the shared texts the rows name as a run
+// writes its output (timeline.Resolve), and returns the rows' measures; a
+// problem line counts as a row. Every row is kept, the secondary rows
+// after the primary ones, so a text the run's deduplication would drop
+// still counts.
 func parseHome(t *testing.T, each parser.Parser, artifacts []*input.Artifact) growthMeasure {
 	t.Helper()
 	result, err := NewOf([]parser.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
@@ -175,11 +175,13 @@ func parseHome(t *testing.T, each parser.Parser, artifacts []*input.Artifact) gr
 		}
 		identity += len(row.Host) + len(row.User) + len(row.Agent) + len(row.SourceFile)
 	}
-	for _, row := range result.Primary {
-		add(row)
-	}
+	written := slices.Clone(result.Primary)
 	for _, row := range result.Secondary {
-		add(row.Row)
+		written = append(written, row.Row)
+	}
+	timeline.Resolve(written)
+	for _, row := range written {
+		add(row)
 	}
 	for _, line := range result.Problems {
 		add(timeline.Row{Text: line})
@@ -219,18 +221,6 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int) growthMeas
 	measure.allocations = after.Mallocs - before.Mallocs
 	measure.allocatedBytes = after.TotalAlloc - before.TotalAlloc
 	return measure
-}
-
-// foldsCase reports whether the file system of the test's temporary
-// directory gives a name spelled in another case the file of the name.
-func foldsCase(t *testing.T) bool {
-	t.Helper()
-	directory := t.TempDir()
-	if err := osfile.WriteFile(filepath.Join(directory, "fold"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := osfile.Lstat(filepath.Join(directory, "FOLD"))
-	return err == nil
 }
 
 // kindWants reports whether the parser's kind called name wants the
@@ -294,9 +284,6 @@ func TestEveryParserGrowsInStepWithItsInput(t *testing.T) {
 				failures := growthFailures(small, large)
 				t.Logf("n=%d: %+v; 2n: %+v", n, small, large)
 				known := test.known
-				if test.foldsCase && !foldsCase(t) {
-					known = ""
-				}
 				switch {
 				case known != "" && len(failures) == 0 && raceDetector:
 					t.Logf("known growth (%s) not seen: allocations are not counted under the race detector", known)
