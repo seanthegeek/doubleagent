@@ -877,11 +877,14 @@ while the model is being pulled,
 [`ui.go:832-841`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/app/ui/ui.go#L832-L841))
 yields no row. A chat with `title` yields nothing extra; the title is not a turn.
 
-A `tool_use_id` holds the chat's whole id, so a chat id of about 4,096 bytes or more makes it longer
-than the output's bound for a field, and it is cut as every long field is: it keeps its first bytes
-and ends with its whole length. The calls of such a chat whose `tool_calls.id` have the same number
-of digits then share one `tool_use_id`, as do the calls of two such chats whose ids agree in the
-bytes kept; each `tool_result` row still takes its own call's id by position.
+A `tool_use_id` starts with the chat's id. A chat id too long for the output's bound on a field
+(4,096 bytes) with the colon and a call id after it is cut there once for the chat, leaving room
+for the colon and the longest 64-bit `tool_calls.id` (21 bytes): it keeps its first bytes and ends
+with its whole length, `[cut from <n> bytes]`, and then `:<tool_calls.id>` follows. Each call of
+such a chat keeps its own `tool_use_id` within the bound, and each `tool_result` row takes its own
+call's id by position. The parse ends with one `parser: tool_use_id longer than 4096 bytes, cut to
+4096 bytes (<n> times)` row counting the rows whose id was cut. The calls of two such chats whose
+ids agree in the bytes kept and in their length share their ids.
 
 #### Permission rows
 

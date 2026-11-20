@@ -88,9 +88,7 @@ type chatState struct {
 
 // databaseRows emits the rows of the messages, ordered by chat_id then id,
 // once every table is read, and emits nothing when a read fails. The
-// rows are emitted as they are made rather than held to the end, so a
-// value each row builds from a long one, such as a call's tool_use_id
-// from its chat's id, is cut at emit and not kept whole for every row.
+// rows are emitted as they are made rather than held to the end.
 func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Artifact,
 	options parser.Options, emit parser.Emit) error {
 	tables, err := parser.TablesOf(database)
@@ -114,7 +112,7 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 	}
 	state := &chatState{models: parser.Tracker{}}
 	reader := &messageReader{parser: p, artifact: artifact, options: options, calls: calls,
-		files: files, shown: map[string]bool{}, state: state, emit: emit}
+		files: files, shown: map[string]bool{}, state: state, cuts: parser.NewCarried(artifact), emit: emit}
 	messages, err := table.Select().OrderBy("chat_id", "id").All()
 	if err != nil {
 		return err
@@ -129,6 +127,11 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 		}
 		emit(p.SystemRow(artifact, parser.ProblemPrefix+"messages holds "+rows+
 			" an earlier row's id; its tool calls and attachments are shown once"))
+	}
+	var problems parser.Problems
+	reader.cuts.Report(0, &problems)
+	for _, problem := range problems {
+		emit(p.SystemRow(artifact, parser.ProblemPrefix+problem.Message))
 	}
 	return nil
 }
@@ -147,7 +150,22 @@ type messageReader struct {
 	shown    map[string]bool
 	repeats  int
 	state    *chatState
-	emit     parser.Emit
+	// cuts cuts the chat id each call's tool_use_id starts with.
+	cuts *parser.Carried
+	emit parser.Emit
+}
+
+// callIDRoom is the room a tool_use_id leaves after its chat id: the colon
+// and the call's id, an INTEGER PRIMARY KEY, whose text is at most the 20
+// bytes of the lowest 64-bit integer.
+const callIDRoom = len(":") + len("-9223372036854775808")
+
+// toolUseID returns the tool_use_id of a call of the current chat,
+// "<chat id>:<call id>": a chat id too long for the field with the call's
+// id after it is cut (parser.Carried.CutAhead) once per chat, so the
+// calls of a long chat keep distinct ids within the field's bound.
+func (m *messageReader) toolUseID(call toolCall) string {
+	return m.cuts.CutAhead("tool_use_id", m.state.chat, callIDRoom) + ":" + call.callID.String()
 }
 
 // firstShowing reports whether the group of kind under key, which has
@@ -242,7 +260,7 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 		row := build(timeline.TurnToolUse, timeline.Compact(callText(call.arguments)))
 		row.SourceLine = parser.ColumnLine(call.callID)
 		row.ToolName = call.name
-		row.ToolUseID = m.state.chat + ":" + call.callID.String()
+		row.ToolUseID = m.toolUseID(call)
 		m.emit(row)
 	}
 }
@@ -255,7 +273,7 @@ func (m *messageReader) toolResult(message sqlitefile.Row, row timeline.Row) {
 	case m.state.used < len(pending):
 		call := pending[m.state.used]
 		row.ToolName = call.name
-		row.ToolUseID = m.state.chat + ":" + call.callID.String()
+		row.ToolUseID = m.toolUseID(call)
 	case len(pending) > 0:
 		row.ToolName = pending[len(pending)-1].name
 	}
