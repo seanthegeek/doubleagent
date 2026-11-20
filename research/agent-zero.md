@@ -962,7 +962,12 @@ or `parser: agents is not a JSON array`, after the chat's other rows; an absent,
 member gives no row. A `log.logs` or `agents` holding entries that are not objects gives one row for
 them all at the same place, `parser: log.logs holds <n> entries that are not JSON objects` or
 `parser: agents holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
-for one), the other entries giving their rows. The connector's `.env` gives no bad-line rows: it
+for one), the other entries giving their rows. An agent's history whose `bulks`, `topics`,
+`current`, `messages` or `records`, or an entry of one of those lists, is present and neither null,
+an array nor an object gives one row per agent for them all after the chat's other rows,
+`parser: history of agent <n> holds <count> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one); the walk passes over them and the other entries
+give their rows. The connector's `.env` gives no bad-line rows: it
 is a secret file, and the
 connector's own reader skips a line without `=` too. Any of these files that cannot be read is one
 row `parser: <file> could not be read (<reason>)`, `<file>` its name, a `chat.json` row carrying the

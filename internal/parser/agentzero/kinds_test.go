@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -91,6 +92,40 @@ func TestAToolAccessListThatIsNotAnArrayIsReported(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := parseProblems(t, rel, test.policy); !slices.Equal(got, test.want) {
 				t.Errorf("problems %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+// An agent's history passes over the entries that are not objects, giving
+// one problem row per agent for them all; null and absent members give none.
+func TestHistoryEntriesThatAreNotObjectsAreCountedPerAgent(t *testing.T) {
+	const rel = "agent-zero/usr/chats/ctx/chat.json"
+	message := `{"_cls":"Message","id":"m","ai":false,"content":{"user_message":"from history"}}`
+	tests := []struct {
+		name, histories string
+		want            []string
+	}{
+		{"scalars among the bulks, topics and messages are counted together",
+			`{"_cls":"History","bulks":5,"topics":[1,"x",null],"current":{"_cls":"Topic","messages":[1,"two",[3],` +
+				message + `]}}`,
+			[]string{"parser: history of agent 0 holds 6 entries that are not JSON objects"}},
+		{"one scalar is one entry", `{"_cls":"History","current":{"_cls":"Topic","messages":[true,` + message + `]}}`,
+			[]string{"parser: history of agent 0 holds 1 entry that is not a JSON object"}},
+		{"null and absent members give nothing", `{"_cls":"History","bulks":null,"current":{"_cls":"Topic",` +
+			`"messages":[null,` + message + `]}}`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			history := jsonvalue.NewString(test.histories).JSON()
+			chatText := `{"id":"ctx","agents":[{"number":0,"history":` + history + `},{"number":1,"history":` +
+				history + `}],"log":{"logs":[]}}`
+			want := slices.Clone(test.want)
+			for _, text := range test.want {
+				want = append(want, strings.Replace(text, "agent 0", "agent 1", 1))
+			}
+			if got := parseProblems(t, rel, chatText); !slices.Equal(got, want) {
+				t.Errorf("got %q, want %q", got, want)
 			}
 		})
 	}

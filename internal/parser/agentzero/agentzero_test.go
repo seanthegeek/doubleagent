@@ -164,7 +164,8 @@ func TestWalkHistoryVisitsBulksTopicsThenTheCurrentTopic(t *testing.T) {
 		`"records":[{"_cls":"Message","id":"1"}]}],"topics":[{"messages":[{"_cls":"Message","id":"2"}],`+
 		`"summary":"T"}],"current":{"_cls":"Topic","messages":[{"_cls":"Message","id":"3"}]}}`)
 	var seen []string
-	walkHistory(document, true, func(summary bool, node jsonvalue.Value) {
+	wrong := 0
+	walkHistory(document, true, &wrong, func(summary bool, node jsonvalue.Value) {
 		if summary {
 			seen = append(seen, "summary "+node.StringValue())
 		} else {
@@ -176,9 +177,11 @@ func TestWalkHistoryVisitsBulksTopicsThenTheCurrentTopic(t *testing.T) {
 		t.Errorf("got %q, want %q", seen, want)
 	}
 	seen = nil
-	walkHistory(document, false, func(_ bool, node jsonvalue.Value) { seen = append(seen, node.Get("id").StringValue()) })
-	if !slices.Equal(seen, []string{"1", "2", "3"}) {
-		t.Errorf("without summaries got %q", seen)
+	walkHistory(document, false, &wrong, func(_ bool, node jsonvalue.Value) {
+		seen = append(seen, node.Get("id").StringValue())
+	})
+	if !slices.Equal(seen, []string{"1", "2", "3"}) || wrong != 0 {
+		t.Errorf("without summaries got %q and %d entries that are not objects", seen, wrong)
 	}
 }
 
