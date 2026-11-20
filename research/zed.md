@@ -826,7 +826,7 @@ one row for them all at the same place,
 
 A `scoped_kv_store` value that does not decode (a draft prompt that is not JSON, a worktree
 record without `created_at_seconds`) is `parser: unparseable record <rowid> (<namespace>[ <key>]:
-<error type>: <reason>): <stored value>` at the end of the file's rows, with an empty
+<reason>): <stored value>` at the end of the file's rows, with an empty
 `timestamp_utc` and the store's rowid as `source_line`; a settings file that does not decode to a
 JSON object is one `parser: <file> is not a JSON object` row, and an empty one yields nothing.
 These are source-derived; not observed on any real install.

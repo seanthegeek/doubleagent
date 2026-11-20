@@ -957,7 +957,8 @@ or `parser: agents is not a JSON array`, after the chat's other rows; an absent,
 member gives no row. A `log.logs` or `agents` holding entries that are not objects gives one row for
 them all at the same place, `parser: log.logs holds <n> entries that are not JSON objects` or
 `parser: agents holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
-for one), the other entries giving their rows. The connector's `.env` gives no bad-line rows: it is a secret file, and the
+for one), the other entries giving their rows. The connector's `.env` gives no bad-line rows: it
+is a secret file, and the
 connector's own reader skips a line without `=` too. Any of these files that cannot be read is one
 row `parser: <file> could not be read (<reason>)`, `<file>` its name, a `chat.json` row carrying the
 chat directory's name as its session id. A message file under `messages/` that exists but cannot be
