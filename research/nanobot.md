@@ -995,6 +995,13 @@ one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the 
 one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
 project path.
 
+The WebUI index, `.webui_session_index.json`, that does not decode is one whole-file row
+`parser: .webui_session_index.json did not parse: <reason>`, one that is not a JSON object
+`parser: .webui_session_index.json is not a JSON object`, and one whose `sessions` is absent or not
+an array `parser: .webui_session_index.json has no sessions list`; an entry of `sessions` that is
+not an object is its own row, `parser: unparseable record <N> (not a JSON object): <entry>`, `<N>`
+its 1-based position, at `source_line` 0 after the other entries' rows.
+
 A JSONL file, the CLI history, `config.json`, `pairing.json`, the WebUI index or a run record that
 cannot be read is one whole-file row `parser: <file> could not be read (<reason>)` through
 `error_rows`, `<file>` its name. A `config.json` that does not decode is

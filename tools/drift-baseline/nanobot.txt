@@ -19,8 +19,6 @@ check_fixture_schema|module-provenance-missing|nanobot
 check_fixture_schema|sample-equals-builder|.nanobot/sessions/0123456789abcdef0123456789abcdef/dGVsZWdyYW06MTIzNDU2Nzg5.jsonl
 check_fixture_schema|sample-equals-builder|.nanobot/sessions/0123456789abcdef0123456789abcdef/dW5pZmllZDpkZWZhdWx0.jsonl
 check_fixture_schema|sample-equals-builder|.nanobot/workspace/cron/runs/job1_1791187200000_ab12cd34.json
-check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
-check_parser_research|parser-message-undocumented|parser: .webui_session_index.json has no sessions list
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
 check_parser_research|parser-message-undocumented|parser: no %s table in the session database
 check_parser_research|pattern-undocumented|^(?:\.nanobot(?:-[^/]+)?/(?P<ws>.+/)?)?(?P<kind>cron|triggers)/runs/[^/]+\.json$
