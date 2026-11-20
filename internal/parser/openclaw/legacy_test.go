@@ -80,6 +80,11 @@ func TestTranscriptEntriesOfTheWrongKindAreReported(t *testing.T) {
 		{"content blocks that are not objects",
 			`{"type": "message", "message": {"role": "assistant", "content": [{"type": "text", "text": "ok"}, 7]}}`,
 			"parser: content holds 1 entry that is not a JSON object"},
+		{"an assistant content that is an object",
+			`{"type": "message", "message": {"role": "assistant", "content": {"type": "text", "text": "hi"}}}`,
+			"parser: content is not a JSON array"},
+		{"an assistant content that is a number",
+			`{"type": "message", "message": {"role": "assistant", "content": 5}}`, "parser: content is not a JSON array"},
 		{"a cold archive event whose row is not an object", `{"kind": "event", "row": 7}`,
 			"parser: row is not a JSON object"},
 		{"a cold archive event whose event_json is not an object",
@@ -94,5 +99,18 @@ func TestTranscriptEntriesOfTheWrongKindAreReported(t *testing.T) {
 				t.Errorf("rows %q lack %q", rows, test.want)
 			}
 		})
+	}
+}
+
+func TestAnAssistantContentThatIsTextNullOrAbsentIsNoProblem(t *testing.T) {
+	for _, content := range []string{`, "content": "hi"`, `, "content": null`, ``} {
+		home := t.TempDir()
+		writeHomeFile(t, home, ".openclaw/sessions/s1.jsonl",
+			`{"type": "message", "message": {"role": "assistant"`+content+`}}`+"\n")
+		for _, row := range parseHomeFile(t, New(), home, ".openclaw/sessions/s1.jsonl") {
+			if strings.HasPrefix(row, "parser:") {
+				t.Errorf("content%s gave %q", content, row)
+			}
+		}
 	}
 }
