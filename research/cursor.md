@@ -2313,10 +2313,10 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `cached conversation text (conversation-search.db, source=cloud-cache): <c1 in full>` at
   `updated_at`, `session_id` the `bc-<uuid>`: the only local copy of a cloud agent's
   conversation text ([Cloud agents](#cloud-agents)). A body is written once, under the first
-  conversation that joins it ([Bad-line rows](#bad-line-rows)). It is never a `user` or `assistant` row,
-  because the body runs the prompt and the reply together with no boundary. Some `local` rows
-  have no body ([`conversation-search.db`](#conversation-searchdb)); a non-empty one yields the
-  same row with `source=local`.
+  conversation that joins it ([Bad-line rows](#bad-line-rows)). It is never a `user` or
+  `assistant` row, because the body runs the prompt and the reply together with no boundary. Some
+  `local` rows have no body ([`conversation-search.db`](#conversation-searchdb)); a non-empty one
+  yields the same row with `source=local`.
 - The surviving `composerHeaders` row of a deleted conversation gives its `conversation deleted`
   row ([Deletion rows](#deletion-rows)).
 
@@ -2431,8 +2431,10 @@ through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (wh
 appended to the errors list with its rowid and key, and a header entry with no bubble row has its
 own row (table above). Each bubble is read once per conversation, at the first header entry naming
 it: a later entry naming the same bubble gives no row, and such entries are one row per
-conversation at the `composerData` rowid, `parser: <n> header entries name a bubble an earlier
-entry names` (`1 header entry names a bubble an earlier entry names` for one). A value or member the format gives a kind that is present with another (an
+conversation at the `composerData` rowid,
+`parser: <n> header entries name a bubble an earlier entry names`
+(`1 header entry names a bubble an earlier entry names` for one). A value or member the format
+gives a kind that is present with another (an
 absent, null or empty one gives no row) is a row through `error_rows` at the value's rowid: a
 `cloudAgentRepository.agents.<account>`, `cloudEnvironmentTemplate.githubRepos`,
 `cursor.plugins.installedIds.<team>|<scope>`, `composerConvHeaders:<id>:<NNNNNN>` or
@@ -2460,8 +2462,10 @@ sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
 error one `parser: SQLite error: <message>` row. In `conversation-search.db`, a `conversations`
 row whose `fts_rowid` names a full-text row an earlier row names gives no cached text row, and such
-rows are one whole-file row after the others, `parser: <n> conversations name a full-text row an
-earlier conversation names` (`1 conversation names ...` for one), with `source_line` 0. `cli-config.json` or `permissions.json` that is not
+rows are one whole-file row after the others,
+`parser: <n> conversations name a full-text row an earlier conversation names`
+(`1 conversation names ...` for one), with `source_line` 0. `cli-config.json` or
+`permissions.json` that is not
 JSON is one `parser:` row, and so is an `mcp-oauth-attempts/<uuid>.json` file that is not JSON
 (`parser: unreadable <rel>: <reason>`) or not a JSON object (`parser: <rel> is not a JSON object`).
 For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted` that is not JSON,
