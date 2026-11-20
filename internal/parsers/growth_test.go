@@ -2,6 +2,7 @@ package parsers
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -35,6 +36,7 @@ const (
 	shapeNested      = "deep nesting and many damaged siblings"
 	shapeManyFiles   = "many small files that each look at the others"
 	shapeJoins       = "equal join keys and a large text column joined many times"
+	shapeUnlisted    = "many directories that cannot be listed"
 )
 
 // growthLimit is the most any measure at 2n may be, as a multiple of the
@@ -75,12 +77,16 @@ type growthFile struct {
 // the artifacts belong to, for a parser that reads another agent's files.
 // known, when set, records a defect the case finds on the current code:
 // the measure that grows, its ratio and the site, until a fix removes it.
+// unlisted, when set, names the directories of the home (relative to it)
+// that the case takes every permission from once its files are written,
+// so they cannot be listed (shapeUnlisted).
 type growthCase struct {
 	kind, shape string
 	n           int
 	agent       string
 	known       string
 	files       func(t *testing.T, n int) []growthFile
+	unlisted    func(n int) []string
 }
 
 // growthSet is one parser's growth cases, and the kinds it reads that
@@ -202,6 +208,9 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int) growthMeas
 		agent = each.Agent()
 	}
 	artifacts, written := growthHome(t, agent, test.files(t, n))
+	if test.unlisted != nil {
+		unlist(t, artifacts[0].Home.DiskPath, test.unlisted(n))
+	}
 	if !slices.ContainsFunc(artifacts, func(artifact *input.Artifact) bool {
 		return kindWants(each, test.kind, artifact)
 	}) {
@@ -221,6 +230,25 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int) growthMeas
 	measure.allocations = after.Mallocs - before.Mallocs
 	measure.allocatedBytes = after.TotalAlloc - before.TotalAlloc
 	return measure
+}
+
+// unlist takes every permission from the directories of home at rels, so
+// that they cannot be listed, and gives them back when the test ends. Where
+// the first can still be listed (a user whom permissions do not bind, or a
+// system that keeps no such permission on a directory) the test is
+// skipped: it is decided by what the directory does, not by the platform.
+func unlist(t *testing.T, home string, rels []string) {
+	t.Helper()
+	for _, rel := range rels {
+		directory := filepath.Join(home, filepath.FromSlash(rel))
+		if err := os.Chmod(directory, 0); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	}
+	if _, err := osfile.ReadDir(filepath.Join(home, filepath.FromSlash(rels[0]))); err == nil {
+		t.Skip("a directory without permissions can still be listed here")
+	}
 }
 
 // kindWants reports whether the parser's kind called name wants the
@@ -269,9 +297,14 @@ func growthFailures(small, large growthMeasure) []string {
 
 // Every parser, for every kind of file it reads, writes rows and does work
 // that grow in step with its input in every shape its cases build. A case
-// marked known is a defect found and not yet fixed: it must still break a
-// bound where every measure is counted (without the race detector), so
-// that its fix also removes the mark.
+// marked known is a defect not yet fixed: it must still break a bound where
+// every measure is counted (without the race detector), so its fix also
+// removes the mark. Not measured: work that allocates nothing, such as a
+// loop comparing or scanning bytes already in memory or reading into a
+// reused buffer, and a system call that allocates nothing in the parse,
+// pass however often they repeat; a parser's own tests bound such work
+// through counters (parser.Work), or nothing does. Under the race detector
+// only rows and their bytes are counted.
 func TestEveryParserGrowsInStepWithItsInput(t *testing.T) {
 	for _, set := range growthSets() {
 		for _, test := range set.cases {

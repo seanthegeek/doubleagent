@@ -145,6 +145,16 @@ func nanobotWebUIRecord(chat string, i int) string {
 	return `{` + event + `,"chat_id":"` + chat + `","created_at_ms":` + strconv.Itoa(1767000000000+i) + `}`
 }
 
+// nanobotUnlisted returns the n session namespace directories of the
+// WebUI case of unlisted directories.
+func nanobotUnlisted(n int) []string {
+	rels := make([]string, 0, n)
+	for i := range n {
+		rels = append(rels, strings.TrimSuffix(nanobotNamespace(i), "/"))
+	}
+	return rels
+}
+
 // nanobotWebUICases returns the cases of the WebUI mirror and its sidebar
 // index.
 func nanobotWebUICases() []growthCase {
@@ -159,6 +169,18 @@ func nanobotWebUICases() []growthCase {
 			}
 			return files
 		}},
+		{kind: "WebUI mirror", shape: shapeUnlisted + " (session namespaces)", n: 16,
+			files: func(t *testing.T, n int) []growthFile {
+				files := make([]growthFile, 0, 2*n)
+				for i := range n {
+					chat := numbered("chat", i)
+					files = append(files, text(nanobotNamespace(i)+".workspace", numbered("/p", i)),
+						text(".nanobot/webui/websocket_"+chat+".jsonl", nanobotWebUIRecord(chat, 0)+"\n"))
+				}
+				return files
+			}, unlisted: func(n int) []string {
+				return nanobotUnlisted(n)
+			}},
 		{kind: "WebUI mirror", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			namespace := nanobotNamespace(1)
 			return []growthFile{text(namespace+nanobotChatFile("c"), nanobotMetadata("websocket:c", "m")),
