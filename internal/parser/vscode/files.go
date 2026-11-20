@@ -62,13 +62,14 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.systemRow(artifact, "", "", "parser: "+source+" is not a JSON object"+why))
 		return
 	}
+	carried := parser.NewCarried(artifact)
 	for _, member := range document.Members() {
 		var texts []string
 		switch {
 		case member.Key == defaultModelKey:
 			texts = []string{"model setting: " + member.Key + "=" + parser.SettingValue(member.Value)}
 		case settingsPermission.MatchString(member.Key):
-			texts = settingTexts(member.Key, member.Value)
+			texts = settingTexts(carried.Cut("settings key", member.Key), member.Value)
 		}
 		for _, text := range texts {
 			row := p.systemRow(artifact, "", timestamp, text+" (from "+source+", file mtime)")
@@ -76,6 +77,8 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 			emit(row)
 		}
 	}
+	carried.Report(1, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // settingTexts returns the "permission setting:" texts of one
