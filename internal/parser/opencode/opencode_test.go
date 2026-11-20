@@ -233,11 +233,12 @@ func legacySession(t *testing.T, count int) []*input.Artifact {
 			t.Fatal(err)
 		}
 	}
+	collectedHome := &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}
 	artifacts := make([]*input.Artifact, len(rels))
 	for i, rel := range rels {
 		artifacts[i] = &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
 			Original: "/home/u/" + rel, Rel: rel, Agent: "opencode", Manifest: jsonvalue.NewNull(),
-			Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}}
+			Home: collectedHome}
 	}
 	return artifacts
 }

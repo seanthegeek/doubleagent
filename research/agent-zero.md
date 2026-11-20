@@ -704,9 +704,10 @@ whose reply comes from it, or a tool item showing its result or message file. An
 only its own `content` (a `response`, `info` or `warning`, or an item of the wrong kind for the
 message) leaves the text to the next item of the id. A later item with the same id keeps the id,
 the message's model and, for a tool item, its `tool_name`, but gives only its own `content`. Each
-message file is read at most once per chat, its text
-joining the first log item that reaches it; on a disk that matches names in any letter case (the
-macOS and Windows default) every case spelling of its name is that one file.
+message file is read at most once per chat, its text joining the first log item that reaches it; on
+a disk that matches names without regard to letter case (accented and non-Latin letters included)
+or, on macOS, to whether an accented letter is written as one character or as a letter and a
+combining accent, every such spelling of its name is that one file.
 
 Paths: `chat.json`, its `messages/<n>.txt` and the legacy `<ctxid>.json`
 under `<a0>/usr/chats` or `<a0>/tmp/chats` of a home install, and under

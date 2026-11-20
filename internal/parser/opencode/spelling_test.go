@@ -3,6 +3,7 @@ package opencode
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,9 +32,10 @@ func parseRels(t *testing.T, home string, rels []string) ([]string, parser.Work)
 	subject := New()
 	subject.Work = parser.CountingWork()
 	var texts []string
+	collectedHome := &input.Home{DiskPath: home}
 	for _, rel := range rels {
 		artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
-			Original: "/home/u/" + rel, Home: &input.Home{DiskPath: home}}
+			Original: "/home/u/" + rel, Home: collectedHome}
 		if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 			texts = append(texts, row.Text)
 		}); err != nil {
@@ -43,10 +45,12 @@ func parseRels(t *testing.T, home string, rels []string) ([]string, parser.Work)
 	return texts, subject.Work
 }
 
-// Message files whose ids are case spellings of one id name one part
-// directory on a disk that matches names in any case, so its parts are
-// shown once, with the first file, however many spellings name it; ids
-// that name two directories show both.
+// Message files whose ids are spellings of one id the disk opens its part
+// directory by (another case, or an accent written as a combining mark)
+// name one directory, so its parts are shown once, with the first file,
+// however many spellings name it; ids that name two directories show
+// both. A spelling the disk tells apart names no directory, and the case
+// says so.
 func TestEverySpellingOfOneMessageIDShowsItsPartsOnce(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -57,6 +61,14 @@ func TestEverySpellingOfOneMessageIDShowsItsPartsOnce(t *testing.T) {
 	}{
 		{"four spellings of one id show its parts once", []string{"msg_abc", "MSG_ABC", "Msg_Abc", "msg_ABC"},
 			[]string{"msg_abc"}, true, 3},
+		{"spellings in accented capitals show the parts once",
+			[]string{"msg_\u00e9t\u00e9", "msg_\u00c9T\u00c9", "msg_\u00c9t\u00e9", "MSG_\u00e9T\u00c9"},
+			[]string{"msg_\u00e9t\u00e9"}, true, 3},
+		{"spellings in Greek capitals show the parts once",
+			[]string{"msg_\u03b1\u03b2\u03b3", "msg_\u0391\u0392\u0393", "msg_\u0391\u03b2\u0393"},
+			[]string{"msg_\u03b1\u03b2\u03b3"}, true, 3},
+		{"a spelling with combining accents shows the parts once", []string{"msg_\u00e9t\u00e9", "msg_e\u0301te\u0301"},
+			[]string{"msg_\u00e9t\u00e9"}, true, 3},
 		{"two ids show the parts of both", []string{"msg_abc", "msg_def"}, []string{"msg_abc", "msg_def"}, false, 6},
 	}
 	for _, test := range tests {
@@ -75,8 +87,10 @@ func TestEverySpellingOfOneMessageIDShowsItsPartsOnce(t *testing.T) {
 				}
 			}
 			home := writeTree(t, files)
-			if test.anyCase {
-				requireAnyCase(t, home, spellingStorage+"/part/"+test.ids[1])
+			for _, messageID := range test.ids[1:] {
+				if test.anyCase {
+					requireAnyCase(t, home, spellingStorage+"/part/"+messageID)
+				}
 			}
 			texts, _ := parseRels(t, home, rels)
 			parts, repeats := 0, 0
@@ -170,6 +184,41 @@ func TestEverySpellingOfOneSessionIDReadsItsInfoFileOnce(t *testing.T) {
 			_, work := parseRels(t, home, rels)
 			if reads := work.Count("quiet side reads"); reads != test.reads {
 				t.Errorf("the info files were read %d times, want %d", reads, test.reads)
+			}
+		})
+	}
+}
+
+// A parser value that outlives one collection, as a test's or a long
+// run's may, meets the next collection's directories afresh: a set of the
+// part directories shown lasts one home, so a directory of a new home is
+// never taken for one shown before, even where the disk gives it the same
+// number, which a deleted directory's number may be given again.
+func TestANewHomeShowsThePartsOfAnIDAnEarlierHomeShowed(t *testing.T) {
+	files := map[string]string{}
+	rels := []string{spellingStorage + "/message/ses_x/m0.json", spellingStorage + "/message/ses_x/m1.json"}
+	for _, rel := range rels {
+		files[rel] = `{"id": "msg_abc", "sessionID": "ses_x", "role": "assistant"}`
+	}
+	files[spellingStorage+"/part/msg_abc/prt_0.json"] = `{"type": "text", "text": "part msg_abc"}`
+	home := writeTree(t, files)
+	subject := New()
+	tests := []struct{ name, rel string }{
+		{"the first home shows the parts", rels[0]},
+		{"a second home over the same directory shows them again", rels[1]},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(test.rel)), Rel: test.rel,
+				Original: "/home/u/" + test.rel, Home: &input.Home{DiskPath: home}}
+			var texts []string
+			if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
+				texts = append(texts, row.Text)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(texts, "part msg_abc") {
+				t.Errorf("rows %q, want the part", texts)
 			}
 		})
 	}

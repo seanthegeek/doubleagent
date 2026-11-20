@@ -35,11 +35,12 @@ func TestMessageFilesClaimingOneIDShowItsPartsOnce(t *testing.T) {
 					"its parts are shown with /home/u/"+rels[0])
 			}
 			home := writeTree(t, files)
+			collectedHome := &input.Home{DiskPath: home}
 			subject := New()
 			var got []string
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
-					Original: "/home/u/" + rel, Home: &input.Home{DiskPath: home}}
+					Original: "/home/u/" + rel, Home: collectedHome}
 				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 					got = append(got, row.Text)
 				}); err != nil {
@@ -52,7 +53,7 @@ func TestMessageFilesClaimingOneIDShowItsPartsOnce(t *testing.T) {
 			}
 			again := 0
 			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rels[0])), Rel: rels[0],
-				Original: "/home/u/" + rels[0], Home: &input.Home{DiskPath: home}}
+				Original: "/home/u/" + rels[0], Home: collectedHome}
 			if err := subject.Parse(artifact, parser.Options{}, func(timeline.Row) { again++ }); err != nil {
 				t.Fatal(err)
 			}

@@ -28,9 +28,10 @@ func toolFilesChat(names []string) string {
 		`}],"log":{"logs":[` + strings.Join(logs, ",") + `]}}`
 }
 
-// Tool messages naming one message file by case spellings of its name
-// read it once on a disk that matches names in any case, and its text is
-// in one row; two files are both read.
+// Tool messages naming one message file by spellings the disk opens it by
+// (another case, or an accent written as a combining mark) read it once,
+// and its text is in one row; two files are both read. A spelling the
+// disk tells apart names no file, and the case says so.
 func TestEverySpellingOfOneMessageFileReadsItOnce(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -41,6 +42,10 @@ func TestEverySpellingOfOneMessageFileReadsItOnce(t *testing.T) {
 	}{
 		{"four spellings of one file read it once", []string{"big.txt", "BIG.TXT", "Big.txt", "bIg.TxT"},
 			[]string{"big.txt"}, true, 1},
+		{"spellings in accented capitals read one file once", []string{"\u00e9t\u00e9.txt", "\u00c9T\u00c9.txt", "\u00c9t\u00e9.TXT"},
+			[]string{"\u00e9t\u00e9.txt"}, true, 1},
+		{"a spelling with combining accents reads one file once", []string{"\u00e9t\u00e9.txt", "e\u0301te\u0301.txt"},
+			[]string{"\u00e9t\u00e9.txt"}, true, 1},
 		{"two files are both read", []string{"big.txt", "other.txt"}, []string{"big.txt", "other.txt"}, false, 2},
 	}
 	for _, test := range tests {
@@ -51,10 +56,10 @@ func TestEverySpellingOfOneMessageFileReadsItOnce(t *testing.T) {
 			for _, name := range test.files {
 				writeFile(t, home, "agent-zero/usr/chats/ctx/messages/"+name, "FILE TEXT OF "+name)
 			}
-			if test.anyCase {
-				spelled := filepath.Join(home, "agent-zero", "usr", "chats", "ctx", "messages", test.named[1])
-				if _, err := osfile.Lstat(spelled); err != nil {
-					t.Skip("this disk tells names apart by case, so no two spellings open one file")
+			for _, name := range test.named[1:] {
+				spelled := filepath.Join(home, "agent-zero", "usr", "chats", "ctx", "messages", name)
+				if _, err := osfile.Lstat(spelled); test.anyCase && err != nil {
+					t.Skip("this disk tells the spellings apart, so they open two names")
 				}
 			}
 			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,

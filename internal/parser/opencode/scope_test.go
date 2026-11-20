@@ -58,12 +58,13 @@ func TestASessionsSideFilesAreReadOnceForAllItsMessages(t *testing.T) {
 					`"providerID": "p", "modelID": "m%d"}`, i, i)
 			}
 			home := writeTree(t, files)
+			collectedHome := &input.Home{DiskPath: home}
 			subject := New()
 			subject.Work = parser.CountingWork()
 			rows := 0
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
-					Home: &input.Home{DiskPath: home}}
+					Home: collectedHome}
 				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 					rows++
 					if row.ProjectPath != "/work/x" {
@@ -82,7 +83,7 @@ func TestASessionsSideFilesAreReadOnceForAllItsMessages(t *testing.T) {
 }
 
 // Every session file of a project names the project's file, so it is read
-// once per state of it for the run, and a damaged one is still reported on
+// once per state of it for the home, and a damaged one is still reported on
 // each session file as a fresh read would report it.
 func TestAProjectFileIsReadOnceForAllItsSessions(t *testing.T) {
 	const storage = ".local/share/opencode/storage"
@@ -105,11 +106,12 @@ func TestAProjectFileIsReadOnceForAllItsSessions(t *testing.T) {
 				files[rel] = fmt.Sprintf(`{"id": "ses_%03d", "projectID": "p1", "title": "t%d"}`, i, i)
 			}
 			home := writeTree(t, files)
+			collectedHome := &input.Home{DiskPath: home}
 			subject := New()
 			subject.Work = parser.CountingWork()
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
-					Home: &input.Home{DiskPath: home}}
+					Home: collectedHome}
 				var problems []string
 				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 					if row.ProjectPath != test.projectPath {
@@ -152,11 +154,12 @@ func TestEachProjectDirectoryIsListedOnceForAllSessions(t *testing.T) {
 				rels = append(rels, rel)
 			}
 			home := writeTree(t, files)
+			collectedHome := &input.Home{DiskPath: home}
 			subject := New()
 			subject.Work = parser.CountingWork()
 			for i, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
-					Home: &input.Home{DiskPath: home}}
+					Home: collectedHome}
 				want := fmt.Sprintf("/work/s%d", i)
 				if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 					if row.ProjectPath != want {

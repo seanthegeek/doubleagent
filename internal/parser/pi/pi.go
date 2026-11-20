@@ -51,13 +51,17 @@ const (
 const debugTolerance = 3600.0
 
 // Parser reads pi's files. It remembers the entry identities of each parent
-// session file it has read, for the forks of that parent.
+// session file it has read, per home, for the forks of that parent.
 type Parser struct {
 	parser.Base
 	session, sessionName, meta, tuiCrash *regexp.Regexp
 	htmlExport, jsonlExport, bugZip      *regexp.Regexp
-	parents                              map[parser.EntryKey]map[entryKey]bool
+	parents                              *parser.PerHome[parentFiles]
 }
+
+// parentFiles maps each parent session file of a home read, by its entry,
+// to the entry identities it holds.
+type parentFiles map[parser.EntryKey]map[entryKey]bool
 
 // New returns the parser.
 func New() *Parser {
@@ -71,7 +75,7 @@ func New() *Parser {
 		htmlExport:  regexp.MustCompile(`\Api-session-[^/]+\.html\z`),
 		jsonlExport: regexp.MustCompile(`\Asession-[0-9]{4}-[^/]*\.jsonl\z`),
 		bugZip:      regexp.MustCompile(`\Api-bug-report-[^/]+\.zip\z`),
-		parents:     map[parser.EntryKey]map[entryKey]bool{},
+		parents:     parser.NewPerHome(func() parentFiles { return parentFiles{} }),
 	}
 }
 
@@ -192,11 +196,12 @@ func (p *Parser) parentKeys(artifact *input.Artifact, parent string) map[entryKe
 	if key == parser.KeyOf(artifact.DiskPath) {
 		return nil
 	}
-	if _, read := p.parents[key]; !read {
+	parents := p.parents.For(artifact.Home)
+	if _, read := parents[key]; !read {
 		p.Work.Add("parent files read", 1)
-		p.parents[key] = entryKeys(path)
+		parents[key] = entryKeys(path)
 	}
-	return p.parents[key]
+	return parents[key]
 }
 
 // homeFile returns where the home holds original, a file's path on the

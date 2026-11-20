@@ -19,17 +19,15 @@ func TestKeyOfNeverFollowsALink(t *testing.T) {
 	}
 }
 
-// A device and inode number name a file only while it exists, so two
-// paths of one file that are not case spellings of each other, such as two
-// hard links, keep two keys, as a new file that takes a deleted one's
-// number elsewhere does.
-func TestKeyOfKeepsTwoNamesOfOneFileApartUnlessTheyDifferOnlyInCase(t *testing.T) {
+// Two hard links are two names of one file, which is read once by
+// whichever name comes first.
+func TestKeyOfGivesTwoLinksOfOneFileOneKey(t *testing.T) {
 	directory := writeEntryFiles(t, "a.json")
 	other := filepath.Join(directory, "b.json")
 	if err := os.Link(filepath.Join(directory, "a.json"), other); err != nil {
 		t.Fatal(err)
 	}
-	if KeyOf(other) == KeyOf(filepath.Join(directory, "a.json")) {
-		t.Error("two links of one file share a key")
+	if KeyOf(other) != KeyOf(filepath.Join(directory, "a.json")) {
+		t.Error("two links of one file have two keys")
 	}
 }

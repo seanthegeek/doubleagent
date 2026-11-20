@@ -94,12 +94,13 @@ func TestFindingTheSessionFilesOfManySessionsIsLinear(t *testing.T) {
 					fmt.Sprintf(`{"id": "msg_%03d", "sessionID": "ses_%03d", "role": "user"}`, i, i)
 			}
 			home := writeTree(t, files)
+			collectedHome := &input.Home{DiskPath: home}
 			subject := New()
 			subject.Work = parser.CountingWork()
 			for i := range sessions {
 				rel := fmt.Sprintf("%s/message/s/msg_%03d.json", storage, i)
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
-					Home: &input.Home{DiskPath: home}}
+					Home: collectedHome}
 				if err := subject.Parse(artifact, parser.Options{}, func(timeline.Row) {}); err != nil {
 					t.Fatal(err)
 				}

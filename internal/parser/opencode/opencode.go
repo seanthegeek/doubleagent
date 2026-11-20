@@ -62,7 +62,8 @@ type Parser struct {
 	parser.Base
 	nextDatabase string
 	patterns     patterns
-	tree         *treeIndex
+	// trees holds the legacy tree files each home's files share.
+	trees *parser.PerHome[*treeIndex]
 }
 
 // New returns the OpenCode parser.
@@ -83,7 +84,7 @@ func NewFor(config Config) *Parser {
 	return &Parser{
 		Base:         parser.NewBase(config.Agent, config.Agent),
 		nextDatabase: config.NextDatabase,
-		tree:         newTreeIndex(),
+		trees:        parser.NewPerHome(newTreeIndex),
 		patterns: patterns{
 			history:    compile(`^` + state + `/prompt-history\.jsonl\z`),
 			stash:      compile(`^` + state + `/prompt-stash\.jsonl\z`),

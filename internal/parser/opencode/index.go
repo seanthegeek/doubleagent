@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// treeIndex holds what the legacy tree files of one run share, each read
+// treeIndex holds what the legacy tree files of one home share, each read
 // once: every message file of a session looks at its directory's listing
 // and at the session's file, so reading them per message file would cost
 // the square of a session's length.
@@ -134,7 +134,7 @@ func listProjects(directory string, work parser.Work) *parser.ChildListings {
 }
 
 // projectFile returns the project file at path as readSide does, read once
-// per state of the file for the run, whatever spelling of its name opens
+// per state of the file for the home, whatever spelling of its name opens
 // it; the problems of that read are added for each lookup as a fresh read
 // would.
 func (x *treeIndex) projectFile(path string, found bool, problems *parser.Problems,
@@ -157,7 +157,7 @@ func (x *treeIndex) projectFile(path string, found bool, problems *parser.Proble
 
 // quietSide returns the side file at path decoded as an object as
 // quietObject does, null when it is not one, read once per state of the
-// file for the run, whatever spelling of its name opens it.
+// file for the home, whatever spelling of its name opens it.
 func (x *treeIndex) quietSide(path string, found bool, work parser.Work) jsonvalue.Value {
 	info, err := osfile.Lstat(path)
 	if !found || err != nil {
