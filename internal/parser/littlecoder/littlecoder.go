@@ -69,6 +69,10 @@ type Parser struct {
 	// directory listed, so its other files are passed over without a
 	// listing of their own.
 	firstCheckpoint map[checkpointKey]string
+	// sessionIndexes holds each home's .pi/agent/sessions, listed once,
+	// by the home's path on disk, since every checkpoint set of a pi
+	// session looks for its session file there.
+	sessionIndexes map[string]*sessionIndex
 }
 
 // checkpointKey names a checkpoint directory: the home's path on disk and
@@ -90,6 +94,7 @@ func New() *Parser {
 		sessionID:       regexp.MustCompile(`"session_id"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"`),
 		savedAt:         regexp.MustCompile(`"saved_at"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"`),
 		firstCheckpoint: map[checkpointKey]string{},
+		sessionIndexes:  map[string]*sessionIndex{},
 	}
 }
 

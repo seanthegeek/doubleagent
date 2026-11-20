@@ -69,7 +69,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parser.Emit) {
 	what := "no session file (" + setName + ")"
 	if match := p.sessionFile.FindStringSubmatch(setName); match != nil {
 		row.SessionID, what = match[1], "pi session "+setName
-		header, failure = sessionHeader(artifact, setName)
+		header, failure = p.sessionHeader(artifact, setName)
 	}
 	if header.IsObject() {
 		row.SessionID = timeutil.FirstNonEmpty(parser.Text(header.Get("id")), row.SessionID)
@@ -121,54 +121,6 @@ func lstatPresent(path string) (fs.FileInfo, error) {
 // counting.
 func isDirectory(info fs.FileInfo) bool {
 	return info != nil && info.IsDir()
-}
-
-// sessionHeader returns the header of the pi session file name in a project
-// directory of .pi/agent/sessions, null when none is found, and the
-// whole-file problems of the search: the sessions directory that could not
-// be listed, or the first project directory or session file that could not
-// be looked at when no directory held the file (a session file name
-// belongs to one project), or the session file that could not be read.
-func sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, parser.Problems) {
-	// The sessions directory is a fixed path of the home, not a neighbour
-	// of the checkpoint: Home.PathOf finds it where the collection staged
-	// it, at a symbolic link's physical path, which climbing from the
-	// checkpoint's own directory would miss.
-	if artifact.Home == nil {
-		return jsonvalue.NewNull(), nil
-	}
-	sessions, found := artifact.Home.PathOf(".pi/agent/sessions")
-	var listed parser.Directory
-	var directories []string
-	info, err := lstatPresent(sessions)
-	if found && err == nil && isDirectory(info) {
-		listed, _ = parser.DirectoryAt(sessions)
-		var entries []os.DirEntry
-		if entries, err = parser.ReadDir(sessions); err == nil {
-			for _, entry := range entries {
-				directories = append(directories, entry.Name())
-			}
-			slices.Sort(directories)
-		}
-	}
-	if err != nil {
-		return jsonvalue.NewNull(), parser.Problems{{Message: reason.Unreadable(sessions, err)}}
-	}
-	var firstFailure parser.Problems
-	for _, directory := range directories {
-		project, ok := listed.Child(directory)
-		if !ok {
-			continue
-		}
-		header, failure, found := projectSession(project, sessions, name)
-		if found {
-			return header, failure
-		}
-		if firstFailure == nil {
-			firstFailure = failure
-		}
-	}
-	return jsonvalue.NewNull(), firstFailure
 }
 
 // projectSession looks for the session file name in one project directory
