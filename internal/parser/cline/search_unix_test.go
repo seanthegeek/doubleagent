@@ -70,7 +70,7 @@ func spelledManifests(t *testing.T, sessions string, n int, manifest string) {
 func TestEverySpellingOfOneSearchSessionReadsItsManifestOnce(t *testing.T) {
 	const size = 100_000
 	manifest := `{"cwd": "/p", "pad": "` + strings.Repeat("x", size) + `"}`
-	allocated := map[int]uint64{}
+	allocated := map[int]int64{}
 	for _, n := range []int{20, 40} {
 		data, err := os.ReadFile(filepath.Join("testdata", fmt.Sprintf("search_spellings_%d.db", n)))
 		if err != nil {
@@ -101,7 +101,7 @@ func TestEverySpellingOfOneSearchSessionReadsItsManifestOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 		runtime.ReadMemStats(&after)
-		allocated[n] = after.TotalAlloc - before.TotalAlloc
+		allocated[n] = int64(after.TotalAlloc - before.TotalAlloc)
 		if reads := subject.Work.Count("search manifests read"); reads != 1 || projects != n {
 			t.Errorf("%d spellings: %d rows took the manifest's project after %d reads, want %d after one", n,
 				projects, reads, n)

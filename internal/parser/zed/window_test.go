@@ -22,12 +22,12 @@ func windowFrame(log byte) []byte {
 const windowRing = zstdframe.MaxWindowSize + 2*(128<<10+32) + 128<<10
 
 // allocatedBy returns the bytes the heap gave out while run ran.
-func allocatedBy(run func()) uint64 {
+func allocatedBy(run func()) int64 {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	run()
 	runtime.ReadMemStats(&after)
-	return after.TotalAlloc - before.TotalAlloc
+	return int64(after.TotalAlloc - before.TotalAlloc)
 }
 
 // perBlobAllowance is the most one ten-byte blob may cost once the window is
@@ -37,7 +37,7 @@ const perBlobAllowance = 512
 
 func TestTheBlobsOfADatabaseReserveTheLargestWindowOnce(t *testing.T) {
 	frame := windowFrame(27)
-	measured := map[int]uint64{}
+	measured := map[int]int64{}
 	for _, n := range []int{200, 800} {
 		t.Run(fmt.Sprintf("%d blobs", n), func(t *testing.T) {
 			budget := NewBudget(int64(n*len(frame)), BudgetFloor)
@@ -50,7 +50,7 @@ func TestTheBlobsOfADatabaseReserveTheLargestWindowOnce(t *testing.T) {
 			})
 			measured[n] = allocated
 			t.Logf("%d blobs of %d bytes allocated %d bytes", n, len(frame), allocated)
-			if limit := windowRing + uint64(n)*perBlobAllowance; allocated > limit {
+			if limit := windowRing + int64(n)*perBlobAllowance; allocated > limit {
 				t.Errorf("%d blobs of %d bytes allocated %d bytes, more than one window and %d per blob (%d)",
 					n, len(frame), allocated, perBlobAllowance, limit)
 			}
@@ -107,7 +107,7 @@ func TestAFrameWhoseWindowIsAboveTheLimitIsRefused(t *testing.T) {
 const perRowAllowance = 8 << 10
 
 func TestADatabaseOfBlobsAnnouncingTheLargestWindowReservesItOnce(t *testing.T) {
-	measured := map[int]uint64{}
+	measured := map[int]int64{}
 	for _, n := range []int{200, 800} {
 		t.Run(fmt.Sprintf("%d threads", n), func(t *testing.T) {
 			var rows int
@@ -119,7 +119,7 @@ func TestADatabaseOfBlobsAnnouncingTheLargestWindowReservesItOnce(t *testing.T) 
 			if rows != n {
 				t.Fatalf("got %d rows, want a thread start for each of %d threads", rows, n)
 			}
-			if limit := windowRing + uint64(n)*perRowAllowance; allocated > limit {
+			if limit := windowRing + int64(n)*perRowAllowance; allocated > limit {
 				t.Errorf("%d threads allocated %d bytes, more than one window and %d per thread (%d)",
 					n, allocated, perRowAllowance, limit)
 			}

@@ -56,7 +56,7 @@ func TestMarkdownTextCopiesTheTextOnceHoweverDeepTheArraysAroundIt(t *testing.T)
 	// allocates: room for one more leaf, never another copy of the text.
 	const perLevel = 128
 	text := strings.Repeat("w", length)
-	allocated := map[int]uint64{}
+	allocated := map[int]int64{}
 	for _, depth := range []int{100, 400} {
 		t.Run(fmt.Sprintf("%d levels", depth), func(t *testing.T) {
 			value := nestedMarkdown(t, text, depth)
@@ -64,7 +64,7 @@ func TestMarkdownTextCopiesTheTextOnceHoweverDeepTheArraysAroundIt(t *testing.T)
 			runtime.ReadMemStats(&before)
 			got := mdText(value)
 			runtime.ReadMemStats(&after)
-			allocated[depth] = after.TotalAlloc - before.TotalAlloc
+			allocated[depth] = int64(after.TotalAlloc - before.TotalAlloc)
 			if want := text + strings.Repeat("\n", depth); got != want {
 				t.Errorf("got %d bytes, want the text and %d line breaks", len(got), depth)
 			}

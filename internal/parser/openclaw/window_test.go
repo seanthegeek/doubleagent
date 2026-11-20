@@ -24,12 +24,12 @@ const windowRing = zstdframe.MaxWindowSize + 2*(128<<10+32) + 128<<10
 const perFileAllowance = 32 << 10
 
 // allocatedBy returns the bytes the heap gave out while run ran.
-func allocatedBy(run func()) uint64 {
+func allocatedBy(run func()) int64 {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	run()
 	runtime.ReadMemStats(&after)
-	return after.TotalAlloc - before.TotalAlloc
+	return int64(after.TotalAlloc - before.TotalAlloc)
 }
 
 // coldArchive returns the path, below a home, of the i-th cold archive
@@ -39,7 +39,7 @@ func coldArchive(i int) string {
 }
 
 func TestTheTranscriptsOfAParseReserveTheLargestWindowOnce(t *testing.T) {
-	measured := map[int]uint64{}
+	measured := map[int]int64{}
 	for _, n := range []int{10, 40} {
 		t.Run(fmt.Sprintf("%d transcripts", n), func(t *testing.T) {
 			home := t.TempDir()
@@ -57,7 +57,7 @@ func TestTheTranscriptsOfAParseReserveTheLargestWindowOnce(t *testing.T) {
 			})
 			measured[n] = allocated
 			t.Logf("%d transcripts of %d bytes allocated %d bytes", n, len(windowFrame), allocated)
-			if limit := windowRing + uint64(n)*perFileAllowance; allocated > limit {
+			if limit := windowRing + int64(n)*perFileAllowance; allocated > limit {
 				t.Errorf("%d transcripts allocated %d bytes, more than one window and %d per file (%d)",
 					n, allocated, perFileAllowance, limit)
 			}
