@@ -32,7 +32,7 @@ func TestMessageFilesClaimingOneIDShowItsPartsOnce(t *testing.T) {
 			}
 			for range count - 1 {
 				want = append(want, "parser: message msg_x repeats the id of an earlier message file; "+
-					"its parts are shown with that file")
+					"its parts are shown with /home/u/"+rels[0])
 			}
 			home := writeTree(t, files)
 			subject := New()

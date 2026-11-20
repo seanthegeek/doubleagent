@@ -275,13 +275,13 @@ func (p *Parser) messageParts(artifact *input.Artifact, root treeRoot, partNames
 	messageID string) ([]part, []failure) {
 	directory, _ := childPath(root.disk, partNames...)
 	key := parser.KeyOf(directory)
-	if first, ok := p.tree.partsShown[key]; ok && first != artifact.DiskPath {
+	if first, ok := p.tree.partsShown[key]; ok && first.disk != artifact.DiskPath {
 		return nil, []failure{{line: 1, message: "message " + messageID +
-			" repeats the id of an earlier message file; its parts are shown with that file"}}
+			" repeats the id of an earlier message file; its parts are shown with " + first.original}}
 	}
 	found, failures := root.partFiles(partNames)
 	if len(found) > 0 || len(failures) > 0 {
-		p.tree.partsShown[key] = artifact.DiskPath
+		p.tree.partsShown[key] = shownBy{disk: artifact.DiskPath, original: artifact.Original}
 	}
 	return found, failures
 }
