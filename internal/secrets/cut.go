@@ -14,10 +14,10 @@ import (
 // moved back to the start of a UTF-8 character, then, when the cut would
 // end inside a span the cut must keep whole or leave out, back to where
 // the span starts, and again until it ends inside none: the URL spans of
-// value (cutSpans). The answer depends on value alone, never on what a run
-// records, so every run cuts a value alike; it reads at most twice limit
-// bytes of value.
-func CutPoint(value string, limit int) int {
+// value (cutSpans) and whole, which the caller gives. The answer depends
+// on value alone, never on what a run records, so every run cuts a value
+// alike; it reads at most twice limit bytes of value.
+func CutPoint(value string, limit int, whole [][2]int) int {
 	point := min(max(limit, 0), len(value))
 	for steps := 1; steps < utf8.UTFMax && point > 0 && point < len(value) && !utf8.RuneStart(value[point]); steps++ {
 		point--
@@ -25,7 +25,7 @@ func CutPoint(value string, limit int) int {
 	if point == len(value) {
 		return point
 	}
-	return outsideSpans(point, cutSpans(value, point, limit))
+	return outsideSpans(point, append(cutSpans(value, point, limit), whole...))
 }
 
 // cutSpans returns the spans a cut at or before point keeps whole or leaves

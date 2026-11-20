@@ -1392,7 +1392,9 @@ past it, the word's URLs are not read, and a cut after the word's first
 `://` or `:\/\/` moves back to just after it. So the kept part holds
 exactly the URL credentials the whole value holds there, and under
 `--no-secrets` the kept part of any other secret the cut runs through is
-replaced like the rest of that secret.
+replaced like the rest of that secret. A cut also keeps whole or leaves
+out text that may be an earlier cut: each text shaped like the mark
+(` [cut from <digits> bytes]`) with the 4,096 bytes up to its end.
 The parse ends with one `system` row per field or kind of value cut,
 `parser: <field or kind> longer than 4096 bytes, cut to 4096 bytes (<n>
 times)`. Two values longer than the bound that agree in length and in the

@@ -42,7 +42,7 @@ func TestACutPointKeepsWholeCharactersAndNoPartOfAURLCredential(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := CutPoint(test.value, test.limit); got != test.want {
+			if got := CutPoint(test.value, test.limit, nil); got != test.want {
 				t.Errorf("CutPoint(%q, %d) = %d, want %d", test.value, test.limit, got, test.want)
 			}
 		})
@@ -58,7 +58,7 @@ func TestACutValueHoldsOnlyTheURLCredentialsOfTheWholeValue(t *testing.T) {
 	}
 	for _, value := range values {
 		for limit := range len(value) + 1 {
-			point := CutPoint(value, limit)
+			point := CutPoint(value, limit, nil)
 			kept := URLCredentialRanges(value[:point]+" [cut]", false)
 			var whole [][2]int
 			for _, each := range URLCredentialRanges(value, false) {
@@ -227,25 +227,30 @@ func referenceCutPoint(point int, spans [][2]int) int {
 // the URL credentials the whole value holds wholly before the cut, under
 // either placeholder: no part of one across the cut, and none the whole
 // value does not hold there. It also holds that the cut point is the one
-// the rule as stated gives.
+// the rule as stated gives, with other spans to keep whole as well.
 func FuzzACutKeepsExactlyTheURLCredentialsBefore(fuzz *testing.F) {
-	fuzz.Add([]byte{0, 3, 4, 5, 6, 2, 3, 7, 2}, uint8(9))
-	fuzz.Add([]byte{2, 0, 7, 8, 13, 3, 16, 9, 2, 2, 2, 2}, uint8(20))
-	fuzz.Add([]byte{1, 3, 4, 27, 5, 2, 8, 13, 28, 25, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, uint8(12))
+	fuzz.Add([]byte{0, 3, 4, 5, 6, 2, 3, 7, 2}, uint8(9), []byte{})
+	fuzz.Add([]byte{2, 0, 7, 8, 13, 3, 16, 9, 2, 2, 2, 2}, uint8(20), []byte{3, 4})
+	fuzz.Add([]byte{1, 3, 4, 27, 5, 2, 8, 13, 28, 25, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, uint8(12), []byte{9, 30})
 	pieces := cutPieces()
-	fuzz.Fuzz(func(t *testing.T, raw []byte, limit uint8) {
+	fuzz.Fuzz(func(t *testing.T, raw []byte, limit uint8, spans []byte) {
 		var built strings.Builder
 		for _, each := range raw {
 			built.WriteString(pieces[int(each)%len(pieces)])
 		}
 		value := built.String()
-		point := CutPoint(value, int(limit))
+		var whole [][2]int
+		for i := 0; i+1 < len(spans); i += 2 {
+			start := int(spans[i]) % (len(value) + 1)
+			whole = append(whole, [2]int{start, start + int(spans[i+1])%40})
+		}
+		point := CutPoint(value, int(limit), slices.Clone(whole))
 		start := min(int(limit), len(value))
 		for start > 0 && start < len(value) && !utf8.RuneStart(value[start]) {
 			start--
 		}
 		if start < len(value) {
-			if want := referenceCutPoint(start, cutSpans(value, start, int(limit))); point != want {
+			if want := referenceCutPoint(start, append(cutSpans(value, start, int(limit)), whole...)); point != want {
 				t.Fatalf("CutPoint(%q, %d) = %d, the rule gives %d", value, limit, point, want)
 			}
 		}
