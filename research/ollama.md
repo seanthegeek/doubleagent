@@ -877,6 +877,12 @@ while the model is being pulled,
 [`ui.go:832-841`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/app/ui/ui.go#L832-L841))
 yields no row. A chat with `title` yields nothing extra; the title is not a turn.
 
+A `tool_use_id` holds the chat's whole id, so a chat id of about 4,096 bytes or more makes it longer
+than the output's bound for a field, and it is cut as every long field is: it keeps its first bytes
+and ends with its whole length. The calls of such a chat whose `tool_calls.id` have the same number
+of digits then share one `tool_use_id`, as do the calls of two such chats whose ids agree in the
+bytes kept; each `tool_result` row still takes its own call's id by position.
+
 #### Permission rows
 
 The desktop app asks before no tool call and the REPL has no tools, so there is no per-call
