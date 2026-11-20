@@ -121,9 +121,14 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 	if err != nil {
 		return err
 	}
+	// The join copies a conversation's channel onto each delivery's row.
+	carried := parser.NewCarried(a.artifact)
+	defer carried.Report(0, &a.problems)
 	for _, row := range rows {
 		if conversation, found := firstConversation(byID, row); found {
-			a.delivery(row, conversation.Get("channel"), current[parser.NonEmptyColumn(row.Get("source_session_key"))])
+			channel := sqlitefile.TextValue(carried.Cut("conversations.channel",
+				parser.NonEmptyColumn(conversation.Get("channel"))))
+			a.delivery(row, channel, current[parser.NonEmptyColumn(row.Get("source_session_key"))])
 		}
 	}
 	return nil

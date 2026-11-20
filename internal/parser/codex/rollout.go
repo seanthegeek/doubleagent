@@ -38,6 +38,8 @@ type rollout struct {
 
 	carried   map[string]bool
 	exitCodes map[string]jsonvalue.Value
+	// cuts cuts the session id each guardian verdict's text repeats.
+	cuts *parser.Carried
 
 	sessionID, cwd, model, branch string
 	metaSeen                      bool
@@ -63,7 +65,8 @@ type rollout struct {
 func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	state := &rollout{parser: p, artifact: artifact, options: options, emit: emit,
-		seenModel: parser.Tracker{}, seenMode: parser.Tracker{}, policies: map[string]policy{}}
+		seenModel: parser.Tracker{}, seenMode: parser.Tracker{}, policies: map[string]policy{},
+		cuts: parser.NewCarried(artifact)}
 	if match := uuidTail.FindStringSubmatch(artifact.Rel); match != nil {
 		state.sessionID = match[1]
 	}
@@ -81,6 +84,7 @@ func (p *Parser) parseRollout(artifact *input.Artifact, options parser.Options, 
 		parser.ObjectMember(record.value.Get("payload"), "payload", record.line, &problems)
 		state.read()
 	}
+	state.cuts.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, state.sessionID, ""))
 }
 
@@ -361,7 +365,7 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	if len(calls) == 1 {
 		row.ToolUseID = calls[0]
 	}
-	s.put(row, guardianText(verdict, cmp.Or(row.ToolUseID, "-"), s.sessionID))
+	s.put(row, guardianText(verdict, cmp.Or(row.ToolUseID, "-"), s.cuts.Cut("session id", s.sessionID)))
 }
 
 // guardianLogs returns the indexes of the log databases in home, looking

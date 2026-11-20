@@ -42,6 +42,16 @@ func fileChangeText(changeID, entry jsonvalue.Value) string {
 	return text
 }
 
+// replyID returns a reply's id for fileChangeText, cut by carried when
+// longer than parser.CarriedLimit, since each changed file's row repeats
+// it.
+func replyID(carried *parser.Carried, changeID jsonvalue.Value) jsonvalue.Value {
+	if text := parser.SettingValue(changeID); !changeID.IsNull() && len(text) > parser.CarriedLimit {
+		return jsonvalue.NewString(carried.Cut("reply id", text))
+	}
+	return changeID
+}
+
 // changes emits the "file changed:" rows of one agent-changes record; a
 // files member that is not an array adds a problem.
 func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
@@ -67,11 +77,14 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		root = value.StringValue()
 	}
 	timestamp := timeutil.FromValue(record.Get("createdAt"))
+	carried := parser.NewCarried(artifact)
+	changeID := replyID(carried, record.Get("id"))
 	for _, entry := range parser.EntriesOfKind(record.Get("files"), "files", jsonvalue.Object, 0, &problems) {
-		row := p.systemRow(artifact, timestamp, fileChangeText(record.Get("id"), entry))
+		row := p.systemRow(artifact, timestamp, fileChangeText(changeID, entry))
 		row.ProjectPath = root
 		emit(row)
 	}
+	carried.Report(0, &problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 

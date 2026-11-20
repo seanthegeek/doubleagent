@@ -61,6 +61,9 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 	if err != nil {
 		return err
 	}
+	// The join copies a conversation's columns onto each link's row.
+	carried := parser.NewCarried(a.artifact)
+	defer carried.Report(0, &a.problems)
 	for _, link := range links {
 		conversation, found := firstConversation(byID, link)
 		if !found {
@@ -71,9 +74,11 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 			continue
 		}
 		sessionID := parser.NonEmptyColumn(link.Get("session_id"))
-		field := func(name string) string { return cmp.Or(parser.NonEmptyColumn(conversation.Get(name)), "-") }
+		field := func(name string) string {
+			return carried.Cut("conversations."+name, cmp.Or(parser.NonEmptyColumn(conversation.Get(name)), "-"))
+		}
 		a.store.attach(sessionID, int(link.Rowid), parser.ColumnTime(link.Get("first_seen_at")),
-			"session relayed: "+channel+" account "+field("account_id")+" "+
+			"session relayed: "+carried.Cut("conversations.channel", channel)+" account "+field("account_id")+" "+
 				field("kind")+" peer "+field("peer_id")+" thread "+field("thread_id")+
 				" role "+cmp.Or(parser.NonEmptyColumn(link.Get("role")), "-")+
 				" (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)", "")

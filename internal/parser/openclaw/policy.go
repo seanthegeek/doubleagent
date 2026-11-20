@@ -38,9 +38,12 @@ func (s *stateRows) execDocument(rowid int64, document jsonvalue.Value, timestam
 	line := int(rowid)
 	parser.ObjectMember(document, "raw_json", line, &s.problems)
 	parser.ObjectMember(document.Get("socket"), "socket", line, &s.problems)
+	// An agent's name stands in each of its settings' rows.
+	carried := parser.NewCarried(s.artifact)
+	defer carried.Report(line, &s.problems)
 	scopes := []scope{{"defaults", document.Get("defaults")}}
 	for _, member := range parser.ObjectMember(document.Get("agents"), "agents", line, &s.problems) {
-		scopes = append(scopes, scope{"agents." + member.Key, member.Value})
+		scopes = append(scopes, scope{"agents." + carried.Cut("agent name", member.Key), member.Value})
 	}
 	for _, each := range scopes {
 		parser.ObjectMember(each.policy, each.name, line, &s.problems)

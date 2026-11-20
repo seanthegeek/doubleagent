@@ -129,9 +129,16 @@ func (r *messageReader) message(record sqlitefile.Row) {
 	if current.role == timeline.TurnUser || current.role == timeline.TurnAssistant {
 		current.textType = current.role
 	}
+	// Another role stands before each text part's text.
+	carried := parser.NewCarried(r.store.artifact)
+	current.role = carried.Cut("role", current.role)
 	for _, part := range parts {
 		r.part(current, part)
 	}
+	var problems parser.Problems
+	carried.Report(int(current.record.Rowid), &problems)
+	parser.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems, current.sessionID,
+		r.store.projectPath))
 }
 
 // parts returns the message's parts, or false after emitting the bad-record

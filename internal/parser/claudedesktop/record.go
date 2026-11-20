@@ -276,12 +276,17 @@ func (p *Parser) spaces(artifact *input.Artifact, emit parser.Emit) {
 	}
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
-	defer func() { p.problemRows(artifact, problems, emit) }()
+	carried := parser.NewCarried(artifact)
+	defer func() {
+		carried.Report(1, &problems)
+		p.problemRows(artifact, problems, emit)
+	}()
 	for i, entry := range parser.EntriesOfKind(document.Get("entries"), "entries", jsonvalue.Object, 1, &problems) {
 		folders := parser.ArrayMember(entry.Get("folders"), "entries.folders", i+1, &problems)
 		key := "entries.folders"
 		if sessionID := entry.Get("sessionId").Text(); sessionID != "" {
-			key = "entries." + sessionID + ".folders"
+			// Each folder's row repeats its entry's session id.
+			key = "entries." + carried.Cut("session id", sessionID) + ".folders"
 		}
 		for _, granted := range folders {
 			if !parser.Present(granted) {

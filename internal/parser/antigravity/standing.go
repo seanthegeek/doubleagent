@@ -52,12 +52,15 @@ func (p *Parser) standing(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	entries := standingEntries(artifact.Rel, document, &problems)
+	// The entries of a list share its key, a sidecar's name in it.
+	carried := parser.NewCarried(artifact)
 	for i, found := range entries {
-		row := p.SystemRow(artifact, timeline.Compact("permission setting: "+found.key+"="+
+		row := p.SystemRow(artifact, timeline.Compact("permission setting: "+carried.Cut("settings key", found.key)+"="+
 			parser.SettingValue(found.value)+" (from "+artifact.Rel+", file mtime)"))
 		row.SourceLine, row.TimestampUTC, row.ProjectPath = i+1, mtime, found.project
 		emit(row)
 	}
+	carried.Report(0, &problems)
 	for _, found := range problems {
 		row := p.SystemRow(artifact, parser.ProblemPrefix+found.Message)
 		row.SourceLine, row.TimestampUTC = 1, mtime

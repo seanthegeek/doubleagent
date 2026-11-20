@@ -175,10 +175,16 @@ func (p *Parser) mcpSettings(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	writer := p.newSettings(artifact, emit)
+	carried := parser.NewCarried(artifact)
 	for _, member := range document.Get("mcpServers").Members() {
-		writer.list("mcpServers."+member.Key+".autoApprove", member.Value.Get("autoApprove"))
+		// Each autoApprove entry's row repeats the server's name.
+		writer.list("mcpServers."+carried.Cut("server name", member.Key)+".autoApprove",
+			member.Value.Get("autoApprove"))
 		if disabled := member.Value.Get("disabled"); disabled.IsBool() {
 			writer.setting("mcpServers."+member.Key+".disabled", disabled)
 		}
 	}
+	var problems parser.Problems
+	carried.Report(1, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

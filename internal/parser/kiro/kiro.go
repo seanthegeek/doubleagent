@@ -240,15 +240,21 @@ func (p *Parser) parseAgentConfig(artifact *input.Artifact, emit parser.Emit) {
 	if !tools.IsObject() {
 		return
 	}
+	carried := parser.NewCarried(artifact)
 	for _, tool := range tools.Members() {
 		if !tool.Value.IsObject() {
 			setting("toolsSettings."+tool.Key, tool.Value)
 			continue
 		}
+		// Each member's row repeats its tool's key.
+		key := carried.Cut("tool key", tool.Key)
 		for _, member := range tool.Value.Members() {
-			setting("toolsSettings."+tool.Key+"."+member.Key, member.Value)
+			setting("toolsSettings."+key+"."+member.Key, member.Value)
 		}
 	}
+	var problems parser.Problems
+	carried.Report(1, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
 // positiveTime returns the time of a positive epoch number, else "".

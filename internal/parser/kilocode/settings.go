@@ -66,17 +66,22 @@ func (p *Parser) config(artifact *input.Artifact, emit parser.Emit) {
 			"permission setting: permission="+parser.SettingValue(permission)+" "+source))
 		return
 	}
+	carried := parser.NewCarried(artifact)
 	for _, member := range permission.Members() {
 		if !member.Value.IsObject() {
 			emit(p.settingRow(artifact, timestamp, "permission setting: permission."+member.Key+"="+
 				parser.SettingValue(member.Value)+" "+source))
 			continue
 		}
+		// Each action's row repeats its permission's key.
+		key := carried.Cut("permission key", member.Key)
 		for _, action := range member.Value.Members() {
-			emit(p.settingRow(artifact, timestamp, "permission setting: permission."+member.Key+"."+
+			emit(p.settingRow(artifact, timestamp, "permission setting: permission."+key+"."+
 				action.Key+"="+parser.SettingValue(action.Value)+" "+source))
 		}
 	}
+	carried.Report(1, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // sandbox emits the "permission setting: sandbox.<key>=<value>" rows of a

@@ -243,11 +243,15 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var wrong parser.Problems
+	carried := parser.NewCarried(artifact)
 	for _, list := range configLists(document, &wrong) {
+		// Each entry's row repeats its list's key, a server's or hook's name in it.
+		key := carried.Cut("settings key", list.key)
 		for _, entry := range parser.ArrayMember(list.entries, list.key, 1, &wrong) {
-			emit(p.settingRow(artifact, timestamp, list.key, entry, artifact.Rel, 1))
+			emit(p.settingRow(artifact, timestamp, key, entry, artifact.Rel, 1))
 		}
 	}
+	carried.Report(1, &wrong)
 	var keys []string
 	for name, provider := range parser.MembersOfKind(document.Get("providers"), "providers", jsonvalue.Object, 1,
 		&wrong) {

@@ -204,12 +204,17 @@ func (p *Parser) mcp(artifact *input.Artifact, emit parser.Emit) {
 	if artifact.Home.Project {
 		project = artifact.Home.Original
 	}
+	carried := parser.NewCarried(artifact)
 	for _, member := range document.Get("mcpServers").Members() {
+		// Each tool's row repeats its server's name.
+		key := "mcpServers." + carried.Cut("server name", member.Key) + ".alwaysAllow"
 		for _, tool := range member.Value.Get("alwaysAllow").Items() {
-			emit(p.settingRow(artifact, "permission setting", "mcpServers."+member.Key+".alwaysAllow",
-				tool, artifact.Rel, project))
+			emit(p.settingRow(artifact, "permission setting", key, tool, artifact.Rel, project))
 		}
 	}
+	var problems parser.Problems
+	carried.Report(0, &problems)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
 // stateDatabase emits the rows of the extension's state in an editor's

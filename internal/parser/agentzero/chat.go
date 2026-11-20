@@ -519,13 +519,19 @@ func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 // agentHistories reads each agent's history, filling the chat's message
 // index and returning its items in order. An agents member that is not an
 // array adds a problem, and so do the agents that are not objects, one for
-// them all.
+// them all. An agent's number, which each of its rows starts with, is cut
+// by the kit (parser.Carried).
 func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
+	carried := parser.NewCarried(c.artifact)
+	defer carried.Report(0, &c.problems)
 	for i, agent := range parser.EntriesOfKind(document.Get("agents"), "agents", jsonvalue.Object, 0, &c.problems) {
 		number := jsonvalue.NewInt(int64(i))
 		if declared, ok := agent.Lookup("number"); ok {
 			number = declared
+		}
+		if text := number.Text(); len(text) > parser.CarriedLimit && !zeroAgent(number) {
+			number = jsonvalue.NewString(carried.Cut("agent number", text))
 		}
 		history := agent.Get("history")
 		if history.IsString() {
