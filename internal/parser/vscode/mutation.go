@@ -2,6 +2,7 @@ package vscode
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -25,23 +26,30 @@ type node struct {
 }
 
 // newNode returns a decoded value as a node made by the record at log line
-// line, its arrays and objects copied.
-func newNode(value jsonvalue.Value, line int) *node {
+// line, its arrays and objects copied, and its height: 0 for a value that
+// is neither, and one more than its highest item or member for an array or
+// object, so a value put at a path of n keys reaches level n plus its
+// height, the state itself being level 1.
+func newNode(value jsonvalue.Value, line int) (*node, int) {
 	switch {
 	case value.IsArray():
-		created := &node{isArray: true, line: line}
+		created, height := &node{isArray: true, line: line}, 0
 		for _, item := range value.Items() {
-			created.items.push(newNode(item, line))
+			made, below := newNode(item, line)
+			created.items.push(made)
+			height = max(height, below)
 		}
-		return created
+		return created, height + 1
 	case value.IsObject():
-		created := &node{isObject: true, line: line, slots: map[string]int{}, members: map[string]*node{}}
+		created, height := &node{isObject: true, line: line, slots: map[string]int{}, members: map[string]*node{}}, 0
 		for _, member := range value.Members() {
-			created.add(member.Key, newNode(member.Value, line))
+			made, below := newNode(member.Value, line)
+			created.add(member.Key, made)
+			height = max(height, below)
 		}
-		return created
+		return created, height + 1
 	}
-	return &node{scalar: value, line: line}
+	return &node{scalar: value, line: line}, 0
 }
 
 // value returns the node as a decoded value.
@@ -87,6 +95,18 @@ type mutationError string
 
 // Error returns the reason.
 func (e mutationError) Error() string { return string(e) }
+
+// errTooDeep refuses a set or push that would nest the state deeper than
+// a decoded document may, so each recursion over the state or the value it
+// gives (node.value, the writer, Equal, mdText, uriText) needs no more stack
+// than a decoded document. No node is in the state twice, so the node at a
+// path of n keys is at level n+1. By induction over the records: kind 0
+// takes a decoded value; kind 1 puts a value of height h at a path of n
+// keys, reaching level n+h; kind 2 makes at most an array at level n+1 and
+// pushes items into it, reaching n plus the height of an array of them;
+// kind 3 and a truncation only remove, and a walk makes nothing. Refusing a
+// record whose n plus that height passes the limit keeps every state within it.
+var errTooDeep = mutationError("the record nests the state deeper than " + strconv.Itoa(jsonvalue.MaxDepth) + " levels")
 
 // integer returns a value written as an integer; one beyond int64 is held
 // at the nearest bound, which is out of every range it is compared with.
@@ -205,21 +225,27 @@ func remove(parent *node, key jsonvalue.Value, work parser.Work) {
 // state and returns the new state. Kind 0 replaces the state with v; kind 1
 // sets v at path k; kind 2 truncates the array at k to i items, when i is
 // given, and pushes v (each item of an array); kind 3 deletes the value at
-// k. The items pushed and deleted are counted in work.
+// k. A set or push that would nest the state past jsonvalue.MaxDepth is
+// refused (errTooDeep). The items pushed and deleted are counted in work.
 func applyMutation(state *node, record jsonvalue.Value, line int, work parser.Work) (*node, error) {
 	kind := record.Get("kind")
 	if isKind(kind, 0) {
-		return newNode(record.Get("v"), line), nil
+		created, _ := newNode(record.Get("v"), line)
+		return created, nil
 	}
 	pathValue := record.Get("k")
 	path := pathValue.Items()
 	if !pathValue.IsArray() || (len(path) == 0 && !isKind(kind, 2)) {
 		return state, mutationError("bad path " + pathValue.JSON())
 	}
+	added, height := addedNodes(kind, record.Get("v"), line)
+	if len(path)+height > jsonvalue.MaxDepth {
+		return state, errTooDeep
+	}
 	target := state
 	if len(path) > 0 {
 		var err error
-		if target, err = keyedMutation(state, kind, path, record.Get("v"), line, work); target == nil || err != nil {
+		if target, err = keyedMutation(state, kind, path, added, line, work); target == nil || err != nil {
 			return state, err
 		}
 	}
@@ -229,21 +255,43 @@ func applyMutation(state *node, record jsonvalue.Value, line int, work parser.Wo
 	if start, ok := integer(record.Get("i")); ok {
 		target.items.truncate(sliceStart(start, target.items.Len()))
 	}
-	pushed := []jsonvalue.Value{record.Get("v")}
-	if record.Get("v").IsArray() {
-		pushed = record.Get("v").Items()
+	for _, item := range added {
+		target.items.push(item)
 	}
-	for _, item := range pushed {
-		target.items.push(newNode(item, line))
-	}
-	work.Add("entries changed", len(pushed))
+	work.Add("entries changed", len(added))
 	return state, nil
 }
 
+// addedNodes returns the nodes a record of kind 1 or 2 adds and the height
+// it adds them at below its path: kind 1's value and its height, or kind
+// 2's items (v's items when it is an array, else v) and the height of an
+// array holding them. Any other kind adds nothing.
+func addedNodes(kind, value jsonvalue.Value, line int) ([]*node, int) {
+	switch {
+	case isKind(kind, 1):
+		created, height := newNode(value, line)
+		return []*node{created}, height
+	case isKind(kind, 2):
+		pushed := []jsonvalue.Value{value}
+		if value.IsArray() {
+			pushed = value.Items()
+		}
+		nodes, height := make([]*node, len(pushed)), 0
+		for i, item := range pushed {
+			var below int
+			nodes[i], below = newNode(item, line)
+			height = max(height, below)
+		}
+		return nodes, height + 1
+	}
+	return nil, 0
+}
+
 // keyedMutation applies a record of kind 1, 2 or 3 at a non-empty path: a
-// set of value or a delete is done and gives nil, and a push gives the array to push
-// to, made empty at the path when the path holds nothing.
-func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value,
+// set of the one added node or a delete is done and gives nil, and a push
+// gives the array to push to, made empty at the path when the path holds
+// nothing.
+func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, added []*node,
 	line int, work parser.Work) (*node, error) {
 	parent, err := walk(state, path[:len(path)-1])
 	if err != nil {
@@ -252,7 +300,7 @@ func keyedMutation(state *node, kind jsonvalue.Value, path []jsonvalue.Value, va
 	key := path[len(path)-1]
 	switch {
 	case isKind(kind, 1):
-		return nil, set(parent, key, newNode(value, line))
+		return nil, set(parent, key, added[0])
 	case isKind(kind, 3):
 		remove(parent, key, work)
 		return nil, nil

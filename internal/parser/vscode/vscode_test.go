@@ -1,6 +1,7 @@
 package vscode
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"math/rand/v2"
@@ -145,7 +146,7 @@ func mutationPathAndKindCases() []mutationCase {
 func TestApplyMutationChangesTheStateOrSaysWhyNot(t *testing.T) {
 	for _, test := range slices.Concat(mutationCases(), mutationPathAndKindCases()) {
 		t.Run(test.name, func(t *testing.T) {
-			state := newNode(decoded(t, startState), 0)
+			state, _ := newNode(decoded(t, startState), 0)
 			var err error
 			for i, record := range decoded(t, test.records).Items() {
 				if state, err = applyMutation(state, record, i+1, parser.Work{}); err != nil {
@@ -290,6 +291,7 @@ func TestConfirmedTextReadsEachForm(t *testing.T) {
 func FuzzApplyMutation(fuzz *testing.F) {
 	fuzz.Add(`[{"kind":0,"v":{"requests":[]}},{"kind":2,"k":["requests"],"v":[{"a":1}]},{"kind":1,"k":["requests",0,"a"],"v":2}]`)
 	fuzz.Add(`[{"kind":0,"v":{"requests":[{},{},{}]}},{"kind":2,"k":["requests"],"i":-1,"v":[{}]},{"kind":3,"k":["requests",0]}]`)
+	fuzz.Add(`[{"kind":0,"v":{"a":` + nested(5000) + `}},{"kind":1,"k":["a"` + zeros(5000) + `],"v":` + nested(5000) + `}]`)
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		records, err := jsonvalue.DecodeString(text)
 		if err != nil {
@@ -300,10 +302,15 @@ func FuzzApplyMutation(fuzz *testing.F) {
 		started, startLine := false, 0
 		lines, referenceLines := requestLines{}, requestLines{}
 		for i, record := range records.Items() {
+			// The shifting replay has no depth limit, so a record refused
+			// for its depth, which changes nothing, is not given to it.
+			next, err := applyMutation(state, record, i, parser.Work{})
+			if errors.Is(err, errTooDeep) {
+				continue
+			}
 			referenceBefore := shiftingRequestCount(reference)
 			made, makes := requestMadeInside(reference, record)
 			nextReference, referenceErr := shiftingApply(reference, record, parser.Work{})
-			next, err := applyMutation(state, record, i, parser.Work{})
 			if (err == nil) != (referenceErr == nil) || (err != nil && err.Error() != referenceErr.Error()) {
 				t.Fatalf("record %d: error %v, the shifting replay's %v", i, err, referenceErr)
 			}
@@ -319,8 +326,12 @@ func FuzzApplyMutation(fuzz *testing.F) {
 				started, startLine = true, i
 			}
 			trackLines(state, started, startLine, lines)
-			if got, want := state.value().JSON(), reference.value().JSON(); got != want {
+			got := state.value().JSON()
+			if want := reference.value().JSON(); got != want {
 				t.Fatalf("record %d: state %s, the shifting replay's %s", i, got, want)
+			}
+			if _, err := jsonvalue.DecodeString(got); err != nil {
+				t.Fatalf("record %d: the state is deeper than a document may be: %v", i, err)
 			}
 			if !maps.Equal(lines, referenceLines) {
 				t.Fatalf("record %d: lines %v, the shifting replay's %v", i, lines, referenceLines)
@@ -393,7 +404,7 @@ func TestObjectKeysKeepTheOrderAListOfKeysWouldKeep(t *testing.T) {
 	for seed := range uint64(200) {
 		t.Run(fmt.Sprintf("seed %d", seed), func(t *testing.T) {
 			source := rand.New(rand.NewPCG(seed, 527))
-			state := newNode(decoded(t, `{"o":{"b":0,"a":0}}`), 0)
+			state, _ := newNode(decoded(t, `{"o":{"b":0,"a":0}}`), 0)
 			want := []string{"b", "a"}
 			for step := range 40 {
 				key := string("abcd"[source.IntN(4)])

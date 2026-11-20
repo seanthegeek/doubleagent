@@ -1047,7 +1047,11 @@ one too.
 A `.jsonl` session line that does not decode, or whose mutation cannot be applied, is a `system`
 row through `error_rows`, `parser: unparseable line (<reason>): <line>` or
 `parser: mutation not applied (<why>): <line>`, and a line that decodes to a JSON value other than
-an object is `parser: unparseable line (not a JSON object): <line>`; a `.json` session that does
+an object is `parser: unparseable line (not a JSON object): <line>`. A set or push whose path and
+value together would nest the session's arrays and objects deeper than 10,000 levels, the deepest a
+JSON document is read, is
+`parser: mutation not applied (the record nests the state deeper than 10000 levels): <line>` and
+changes nothing, so the rows of the state before it stay; a `.json` session that does
 not decode is
 `parser: file is not valid JSON (<reason>)`; `workspace.json` errors are under
 [Scratch directory rows](#scratch-directory-rows). A chat editing `state.json` that does not

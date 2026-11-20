@@ -159,3 +159,44 @@ func requestMadeInside(state *shiftingNode, record jsonvalue.Value) (int64, bool
 	}
 	return int64(index), true
 }
+
+// largeValueLog returns a mutation log that makes one request of n
+// response parts, then sets a member of each part, pushes n more parts
+// and deletes n from the front.
+func largeValueLog(n int) string {
+	var log strings.Builder
+	log.WriteString(`{"kind":0,"v":{"requests":[{"response":[` + strings.Repeat(`{"value":"x"},`, n) + `{}]}]}}` + "\n")
+	for i := range n {
+		fmt.Fprintf(&log, `{"kind":1,"k":["requests",0,"response",%d,"value"],"v":"y"}`+"\n", i)
+	}
+	for range n {
+		log.WriteString(`{"kind":2,"k":["requests",0,"response"],"v":[{"value":"z"}]}` + "\n")
+	}
+	for range n {
+		log.WriteString(`{"kind":3,"k":["requests",0,"response",0]}` + "\n")
+	}
+	return log.String()
+}
+
+// A log of changes to one large value costs allocations in proportion to
+// the log: twice the records allocate at most a little over twice as much.
+func TestALongLogOfChangesToOneValueAllocatesInProportionToTheLog(t *testing.T) {
+	allocations := map[int]float64{}
+	for _, n := range []int{1000, 2000} {
+		path := filepath.Join(t.TempDir(), "session.jsonl")
+		if err := osfile.WriteFile(path, []byte(largeValueLog(n)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		allocations[n] = testing.AllocsPerRun(3, func() {
+			var problems parser.Problems
+			if state := replay(path, requestLines{}, &problems, parser.Work{}); len(problems) != 0 ||
+				state.Get("requests").Index(0).Get("response").Len() != n+1 {
+				t.Fatalf("replay gave problems %v", problems)
+			}
+		})
+	}
+	if ratio := allocations[2000] / allocations[1000]; ratio > 2.1 {
+		t.Errorf("2000 changes allocate %.0f times, %.2f times the %.0f of 1000", allocations[2000], ratio,
+			allocations[1000])
+	}
+}

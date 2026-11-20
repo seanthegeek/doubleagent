@@ -194,11 +194,11 @@ func nestedObjects(levels int) string {
 }
 
 // tokenReaderRefusesDepth reports whether encoding/json's token reader
-// refuses an array nested one past maxDepth by itself, as it does in the
+// refuses an array nested one past MaxDepth by itself, as it does in the
 // default build; built with GOEXPERIMENT=nojsonv2 it has no limit, and the
 // package's own count of levels is what refuses.
 func tokenReaderRefusesDepth() bool {
-	decoder := json.NewDecoder(strings.NewReader(nested(maxDepth + 1)))
+	decoder := json.NewDecoder(strings.NewReader(nested(MaxDepth + 1)))
 	for {
 		if _, err := decoder.Token(); err != nil {
 			return !errors.Is(err, io.EOF)
