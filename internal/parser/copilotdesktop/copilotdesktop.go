@@ -167,28 +167,33 @@ func flag(value sqlitefile.Value) string {
 }
 
 // projectIndex is the projects of a database by id, in the order each id
-// was first met; an id that two rows share holds the later row.
+// was first met; an id that two rows share holds the later row. Each
+// project's main repository path is made into a string once, since every
+// workspace, worktree and session row of the project carries it and the
+// rows are held until the parse ends.
 type projectIndex struct {
 	order []string
 	byID  map[string]sqlitefile.Row
+	paths map[string]string
 }
 
 // newProjectIndex indexes the project rows by id.
 func newProjectIndex(rows []sqlitefile.Row) projectIndex {
-	index := projectIndex{byID: map[string]sqlitefile.Row{}}
+	index := projectIndex{byID: map[string]sqlitefile.Row{}, paths: map[string]string{}}
 	for _, row := range rows {
 		projectID := parser.ColumnText(row.Get("id"))
 		if _, seen := index.byID[projectID]; !seen {
 			index.order = append(index.order, projectID)
 		}
 		index.byID[projectID] = row
+		index.paths[projectID] = parser.ColumnText(row.Get("main_repo_path"))
 	}
 	return index
 }
 
 // pathOf returns the main repository path of a project id, "" when unknown.
 func (x projectIndex) pathOf(projectID string) string {
-	return parser.ColumnText(x.byID[projectID].Get("main_repo_path"))
+	return x.paths[projectID]
 }
 
 // databaseRows emits the rows of every table, in this order: accounts,
@@ -244,16 +249,16 @@ func (p *Parser) settingsRows(artifact *input.Artifact, reader *store, emit pars
 // projectRows emits one row per project.
 func (p *Parser) projectRows(artifact *input.Artifact, projects projectIndex, emit parser.Emit) {
 	for _, projectID := range projects.order {
-		project := projects.byID[projectID]
+		project, path := projects.byID[projectID], projects.pathOf(projectID)
 		line := "project added: " + parser.ColumnText(project.Get("name")) + " kind=" +
-			parser.ColumnText(project.Get("container_kind")) + " path=" + parser.ColumnText(project.Get("main_repo_path"))
+			parser.ColumnText(project.Get("container_kind")) + " path=" + path
 		if !project.Get("github_owner").IsNull() || !project.Get("github_repo").IsNull() {
 			line += " github=" + parser.ColumnText(project.Get("github_owner")) + "/" +
 				parser.ColumnText(project.Get("github_repo"))
 		}
 		line += " default_branch=" + parser.ColumnText(project.Get("default_branch"))
 		row := p.row(artifact, line, parser.ColumnTime(project.Get("created_at")))
-		row.ProjectPath = parser.ColumnText(project.Get("main_repo_path"))
+		row.ProjectPath = path
 		emit(row)
 	}
 }
