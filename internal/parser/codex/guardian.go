@@ -37,7 +37,8 @@ type guardianIndex struct {
 	// unreadable[i] counts the rows of logs[:i] whose body is not text a
 	// query could return.
 	unreadable []int
-	// parents holds, per reviewed thread looked up, its calls in ts order.
+	// parents holds, per thread a span names, its calls in ts order,
+	// gathered in one pass over the rows when the index is built.
 	parents map[string]*parentCalls
 	work    parser.Work
 }
@@ -64,7 +65,7 @@ func newGuardianIndex(logs []guardianLog, textTimes bool, work parser.Work) *gua
 		order, _ := left.compare(right.time)
 		return order
 	})
-	index := &guardianIndex{logs: kept, unreadable: make([]int, len(kept)+1), parents: map[string]*parentCalls{},
+	index := &guardianIndex{logs: kept, unreadable: make([]int, len(kept)+1), parents: callsByThread(kept, work),
 		work: work}
 	for i, each := range kept {
 		index.unreadable[i+1] = index.unreadable[i]
@@ -91,34 +92,55 @@ func (x *guardianIndex) window(low, high int64) (int, int) {
 	return from, max(from, until)
 }
 
-// parent returns the calls of the reviewed thread's spans, gathered on its
-// first lookup.
+// callsByThread returns the calls of the spans of each thread the rows of
+// logs name, each thread's in the order of the rows, in one pass over the
+// rows, counting each row looked at in work.
+func callsByThread(logs []guardianLog, work parser.Work) map[string]*parentCalls {
+	parents := map[string]*parentCalls{}
+	for position, each := range logs {
+		work.Add("guardian rows looked at", 1)
+		for _, span := range each.spans {
+			if span.call == "" {
+				continue
+			}
+			found, ok := parents[span.thread]
+			if !ok {
+				found = &parentCalls{}
+				parents[span.thread] = found
+			}
+			found.rows = append(found.rows, position)
+			found.calls = append(found.calls, span.call)
+		}
+	}
+	for _, found := range parents {
+		found.other = otherCalls(found.calls)
+	}
+	return parents
+}
+
+// otherCalls returns, for each call, the first position at or after it
+// whose call differs, len(calls) when none.
+func otherCalls(calls []string) []int {
+	other := make([]int, len(calls))
+	for i := len(calls) - 1; i >= 0; i-- {
+		other[i] = len(calls)
+		if i+1 < len(calls) {
+			other[i] = i + 1
+			if calls[i+1] == calls[i] {
+				other[i] = other[i+1]
+			}
+		}
+	}
+	return other
+}
+
+// parent returns the calls of the reviewed thread's spans, none for a
+// thread no span names.
 func (x *guardianIndex) parent(thread string) *parentCalls {
 	if found, ok := x.parents[thread]; ok {
 		return found
 	}
-	found := &parentCalls{}
-	for position, each := range x.logs {
-		x.work.Add("guardian rows looked at", 1)
-		for _, span := range each.spans {
-			if span.thread == thread && span.call != "" {
-				found.rows = append(found.rows, position)
-				found.calls = append(found.calls, span.call)
-			}
-		}
-	}
-	found.other = make([]int, len(found.calls))
-	for i := len(found.calls) - 1; i >= 0; i-- {
-		found.other[i] = len(found.calls)
-		if i+1 < len(found.calls) {
-			found.other[i] = i + 1
-			if found.calls[i+1] == found.calls[i] {
-				found.other[i] = found.other[i+1]
-			}
-		}
-	}
-	x.parents[thread] = found
-	return found
+	return &parentCalls{}
 }
 
 // windowCalls returns the distinct calls of the thread's spans in the rows
