@@ -66,8 +66,9 @@ type Parser struct {
 	// The keys a session file cut mid-write is searched for.
 	sessionsKey, messagesKey, sessionID, savedAt *regexp.Regexp
 	// firstCheckpoint is the first file by name of each checkpoint
-	// directory listed, so its other files are passed over without a
-	// listing of their own.
+	// directory listed, "" for one that could not be listed or holds
+	// none, so its other files are passed over without a listing of their
+	// own.
 	firstCheckpoint map[checkpointKey]string
 	// sessionIndexes holds each home's .pi/agent/sessions, listed once,
 	// by the home's path on disk, since every checkpoint set of a pi

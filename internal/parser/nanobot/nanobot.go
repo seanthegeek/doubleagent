@@ -85,7 +85,7 @@ type Parser struct {
 	markers map[markerState]*markerText
 	// namespaces holds each sessions directory's namespaces, by its path,
 	// listed once for the run, since every WebUI chat looks in all of them.
-	namespaces map[string]*sessionNamespaces
+	namespaces map[string]*parser.ChildListings
 }
 
 // New returns the parser.

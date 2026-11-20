@@ -2,7 +2,9 @@ package opencode
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -13,9 +15,9 @@ import (
 )
 
 // sessionByEveryDirectory finds a session file by the rule stated on
-// treeIndex.session, looking in every project directory of the session
-// directory in name order: the first where <id>.json is a regular file that
-// decodes.
+// treeIndex.session, listing every project directory of the session
+// directory in name order: the first whose listing holds <id>.json as a
+// regular file that decodes. A directory that cannot be listed holds none.
 func sessionByEveryDirectory(directory, sessionID string) jsonvalue.Value {
 	sessions, _ := parser.DirectoryAt(directory)
 	for _, project := range subdirectories(directory) {
@@ -23,9 +25,12 @@ func sessionByEveryDirectory(directory, sessionID string) jsonvalue.Value {
 		if !ok {
 			continue
 		}
-		listed, _ := parser.DirectoryAt(projectPath)
-		candidate, ok := parser.ListingOf(listed).RegularFile(sessionID + ".json")
-		if !ok {
+		entries, err := parser.ReadDir(projectPath)
+		held := slices.ContainsFunc(entries, func(entry os.DirEntry) bool {
+			return entry.Name() == sessionID+".json" && entry.Type().IsRegular()
+		})
+		candidate, ok := filepath.Join(projectPath, sessionID+".json"), err == nil && held
+		if !ok || !parser.RegularFile(candidate) {
 			continue
 		}
 		if decoded, ok := quietObject(candidate, true); ok {

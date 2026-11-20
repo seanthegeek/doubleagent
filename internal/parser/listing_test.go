@@ -2,20 +2,30 @@ package parser
 
 import (
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// listedDirectory makes a directory holding the file "session.json" and the
-// directory "project", and returns it.
-func listedDirectory(t *testing.T) Directory {
+// listedParent makes a directory holding the directories "a" and "b", "a"
+// holding the file "session.json" and the directory "inner", "b" holding
+// "session.json" and "other.json", and the file "file.json" beside them,
+// and returns it.
+func listedParent(t *testing.T) Directory {
 	t.Helper()
 	root := t.TempDir()
-	if err := osfile.WriteFile(filepath.Join(root, "session.json"), []byte("{}"), 0o600); err != nil {
-		t.Fatal(err)
+	for _, rel := range []string{"a/session.json", "b/session.json", "b/other.json", "file.json"} {
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte("{}"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := osfile.MkdirAll(filepath.Join(root, "project"), 0o700); err != nil {
+	if err := osfile.MkdirAll(filepath.Join(root, "a", "inner"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	directory, ok := DirectoryAt(root)
@@ -25,26 +35,34 @@ func listedDirectory(t *testing.T) Directory {
 	return directory
 }
 
-func TestAListingFindsANameByItsExactBytes(t *testing.T) {
-	listing := ListingOf(listedDirectory(t))
+func TestChildListingsFindANameByItsBytesInTheDirectoriesHoldingIt(t *testing.T) {
+	children := ListChildren(listedParent(t), []string{"a", "b", "file.json", "absent", "../a"},
+		nil, Work{}, "listings")
 	tests := []struct {
-		name, entry          string
-		regular, isDirectory bool
+		name, entry string
+		want        []int
 	}{
-		{"a regular file is found", "session.json", true, false},
-		{"a directory is found as one", "project", false, true},
-		{"a name in another case is not found", "Session.json", false, false},
-		{"an absent name is not found", "absent.json", false, false},
-		{"a name that is not one component is not found", "../session.json", false, false},
+		{"a file of two directories is in both, in order", "session.json", []int{0, 1}},
+		{"a file of one directory is in it", "other.json", []int{1}},
+		{"a directory is no holder", "inner", nil},
+		{"a name in another case is not found", "Session.json", nil},
+		{"an absent name is not found", "absent.json", nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, regular := listing.RegularFile(test.entry)
-			_, isDirectory := listing.Subdirectory(test.entry)
-			if regular != test.regular || isDirectory != test.isDirectory {
-				t.Errorf("RegularFile %v and Subdirectory %v, want %v and %v", regular, isDirectory,
-					test.regular, test.isDirectory)
+			if got := children.Holders(test.entry); !slices.Equal(got, test.want) {
+				t.Errorf("holders %v, want %v", got, test.want)
 			}
 		})
+	}
+	if base := filepath.Base(children.Directory(1).Path()); base != "b" || len(children.Failures()) > 0 {
+		t.Errorf("place 1 is %q and the failures %v, want b and none", base, children.Failures())
+	}
+}
+
+func TestChildListingsFoldTheNamesFiledAndLookedUp(t *testing.T) {
+	children := ListChildren(listedParent(t), []string{"a", "b"}, strings.ToLower, Work{}, "listings")
+	if got := children.Holders("SESSION.JSON"); !slices.Equal(got, []int{0, 1}) {
+		t.Errorf("holders %v, want [0 1]", got)
 	}
 }

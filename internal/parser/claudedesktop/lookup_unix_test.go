@@ -3,12 +3,14 @@
 package claudedesktop
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // linkOutside moves the directory at the slash-separated rel below home to
@@ -117,5 +119,51 @@ func TestAShortNameFindsNoRecordInAnOrgDirThatCannotBeListed(t *testing.T) {
 	if record, found := subject.findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); !found ||
 		record.Get("title").Text() != "short" {
 		t.Errorf("the full name's record: got %v, %v", record, found)
+	}
+}
+
+// Every Code tab record looks for its CLI transcript in every slug of
+// ~/.claude/projects, so a slug that cannot be listed is remembered as
+// failed when the projects directory is first listed: as many records as
+// such slugs look only in the slugs whose listing holds their transcript,
+// not in each of them.
+func TestASlugThatCannotBeListedIsLookedInByNoRecord(t *testing.T) {
+	for _, n := range []int{10, 40} {
+		t.Run(fmt.Sprintf("%d records beside %d slugs that cannot be listed", n, n), func(t *testing.T) {
+			home := t.TempDir()
+			writeEmpty(t, home, ".claude/projects/open/c0.jsonl")
+			var locked []string
+			for i := range n {
+				writeEmpty(t, home, fmt.Sprintf(".claude/projects/locked%03d/c%d.jsonl", i, i))
+				locked = append(locked, filepath.Join(home, ".claude", "projects", fmt.Sprintf("locked%03d", i)))
+			}
+			for _, directory := range locked {
+				if err := os.Chmod(directory, 0o000); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+			}
+			if _, err := os.ReadDir(locked[0]); err == nil {
+				t.Skip("a directory without read permission can still be listed by this user")
+			}
+			subject := New()
+			subject.Work = parser.CountingWork()
+			collected := 0
+			for i := range n {
+				rel := cowork + "/" + session + ".json"
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
+					Home: &input.Home{DiskPath: home}}
+				record := jsonvalue.NewObject(
+					jsonvalue.Member{Key: "sessionId", Value: jsonvalue.NewString(session)},
+					jsonvalue.Member{Key: "cliSessionId", Value: jsonvalue.NewString(fmt.Sprintf("c%d", i))})
+				if subject.sessionCollected(artifact, record) {
+					collected++
+				}
+			}
+			candidates := subject.Work.Count("transcript candidates")
+			if collected != 1 || candidates != 1 {
+				t.Errorf("%d collected and %d candidates looked at, want 1 and 1", collected, candidates)
+			}
+		})
 	}
 }

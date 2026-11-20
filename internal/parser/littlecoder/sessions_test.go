@@ -17,21 +17,21 @@ import (
 )
 
 // sessionHeaderByEveryDirectory finds a pi session file by the rule stated
-// on Parser.sessionHeader, looking in every project directory of the
-// home's sessions directory in name order.
+// on Parser.sessionHeader, listing every project directory of the home's
+// sessions directory in name order: the first whose listing holds the name
+// in any ASCII case as a regular file and where the file is found, else the
+// first problem in that order of a directory that could not be read or of
+// a holder where the file could not be looked at.
 func sessionHeaderByEveryDirectory(home *input.Home, name string) (jsonvalue.Value, parser.Problems) {
 	sessions, _ := home.PathOf(".pi/agent/sessions")
-	var listed parser.Directory
 	var directories []string
 	info, err := lstatPresent(sessions)
 	if err == nil && isDirectory(info) {
-		listed, _ = parser.DirectoryAt(sessions)
 		var entries []os.DirEntry
 		if entries, err = parser.ReadDir(sessions); err == nil {
 			for _, entry := range entries {
 				directories = append(directories, entry.Name())
 			}
-			slices.Sort(directories)
 		}
 	}
 	if err != nil {
@@ -39,11 +39,7 @@ func sessionHeaderByEveryDirectory(home *input.Home, name string) (jsonvalue.Val
 	}
 	var firstFailure parser.Problems
 	for _, directory := range directories {
-		project, ok := listed.Child(directory)
-		if !ok {
-			continue
-		}
-		header, failure, found := projectSession(project, sessions, name)
+		header, failure, found := listedSession(sessions, filepath.Join(sessions, directory), name)
 		if found {
 			return header, failure
 		}
@@ -52,6 +48,31 @@ func sessionHeaderByEveryDirectory(home *input.Home, name string) (jsonvalue.Val
 		}
 	}
 	return jsonvalue.NewNull(), firstFailure
+}
+
+// listedSession lists one project directory and looks for the session file
+// name in it when the listing holds it in any ASCII case as a regular file:
+// the file's header and problems and true when found, else the problem of
+// a directory that could not be read or a file that could not be looked
+// at, and false.
+func listedSession(sessions, project, name string) (jsonvalue.Value, parser.Problems, bool) {
+	info, err := lstatPresent(project)
+	switch {
+	case err != nil:
+		return jsonvalue.NewNull(), parser.Problems{{Message: reason.Unreadable(sessions, err)}}, false
+	case !isDirectory(info):
+		return jsonvalue.NewNull(), nil, false
+	}
+	entries, err := parser.ReadDir(project)
+	if err != nil {
+		return jsonvalue.NewNull(), parser.Problems{{Message: reason.Unreadable(project, err)}}, false
+	}
+	if !slices.ContainsFunc(entries, func(entry os.DirEntry) bool {
+		return lowerASCII(entry.Name()) == lowerASCII(name) && entry.Type().IsRegular()
+	}) {
+		return jsonvalue.NewNull(), nil, false
+	}
+	return projectSession(project, sessions, name)
 }
 
 // writeHome writes each file at its path relative to a new home and

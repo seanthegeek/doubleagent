@@ -1014,7 +1014,10 @@ cannot be read is one whole-file row `parser: <file> could not be read (<reason>
 (`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the file
 holds API keys. A `.workspace` marker that exists but cannot be read gives the same
 row, naming `.workspace`, at the session JSONL, database or WebUI transcript that reads it, and that
-file's rows have no project path.
+file's rows have no project path. The session namespace directories are listed once for the run;
+one that cannot be read or listed holds no session file for any chat, and gives one row
+`parser: <namespace> could not be read (<reason>)` at the WebUI transcript that first looked in
+the `sessions` directory.
 
 A member present but of the wrong kind is `parser: <member> is not a JSON array` (or `object`): a
 session record's `tool_calls`, a WebUI record's `tool_events` or `edits` (each row at the record's
