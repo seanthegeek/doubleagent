@@ -110,15 +110,11 @@ func zedSidebarCases() []growthCase {
 			})
 			return one(zedSidebar, zedSidebarTables(t, sidebar, store, nil, nil))
 		}},
-		{kind: "workspace db.sqlite", shape: shapeSharedID, n: 128, known: "allocated bytes grow 3.19 times from " +
-			"n=128 to 256 (2,589,000 to 8,258,216) and 3.56 times from 256 to 512: each archived worktree row repeating an id gets " +
-			"a new list of every link of that id, though its links are not shown (zed/sidebar.go " +
-			"readArchived, through sqlitefile Lookup.Find)",
-			files: func(t *testing.T, n int) []growthFile {
-				archived := rows(n, func(i int) []any { return []any{int64(1), numbered("/w/copy", i), "/w", nil} })
-				links := rows(n, func(i int) []any { return []any{numbered("t", i), int64(1)} })
-				return one(zedSidebar, zedSidebarTables(t, nil, nil, archived, links))
-			}},
+		{kind: "workspace db.sqlite", shape: shapeSharedID, n: 128, files: func(t *testing.T, n int) []growthFile {
+			archived := rows(n, func(i int) []any { return []any{int64(1), numbered("/w/copy", i), "/w", nil} })
+			links := rows(n, func(i int) []any { return []any{numbered("t", i), int64(1)} })
+			return one(zedSidebar, zedSidebarTables(t, nil, nil, archived, links))
+		}},
 	}
 }
 
