@@ -165,6 +165,24 @@ func claudedesktopRecordCases() []growthCase {
 				return ".claude/projects/" + numbered("-p", i) + "/" + numbered("c", i) + ".jsonl"
 			}, func(i int) string { return "\n" })...)
 		}},
+		{kind: "session record", shape: shapeUnlisted + " (slug directories)", n: 16,
+			files: func(t *testing.T, n int) []growthFile {
+				files := manyFiles(n, func(i int) string {
+					return claudedesktopCode + claudedesktopRecordName(claudedesktopShort(i))
+				}, func(i int) string {
+					return `{"title":"t","cliSessionId":"c` + strconv.Itoa(i) + `","initialMessage":"hi",` +
+						`"createdAt":1790845200000}`
+				})
+				return append(files, manyFiles(n, func(i int) string {
+					return ".claude/projects/" + numbered("-p", i) + "/" + numbered("c", i) + ".jsonl"
+				}, func(i int) string { return "\n" })...)
+			}, unlisted: func(n int) []string {
+				rels := make([]string, 0, n)
+				for i := range n {
+					rels = append(rels, ".claude/projects/"+numbered("-p", i))
+				}
+				return rels
+			}},
 	}
 }
 

@@ -277,6 +277,24 @@ func opencodeMoreMessageFileCases(layout opencodeLayout) []growthCase {
 			}
 			return files
 		}},
+		{kind: "message file", shape: shapeUnlisted + " (project directories of the sessions)", n: 32,
+			files: func(t *testing.T, n int) []growthFile {
+				var files []growthFile
+				for i := range n {
+					messageID, sessionID := numbered("msg_", 1000+i), numbered("ses_", i)
+					files = append(files, text(storage+"session/"+numbered("proj_", i)+"/"+sessionID+".json",
+						opencodeLegacySession(sessionID, numbered("proj_", i), "")),
+						text(storage+"message/"+sessionID+"/"+messageID+".json", `{"id":"`+messageID+
+							`","sessionID":"`+sessionID+`","role":"user","time":{"created":1790931601000}}`))
+				}
+				return files
+			}, unlisted: func(n int) []string {
+				rels := make([]string, 0, n)
+				for i := range n {
+					rels = append(rels, storage+"session/"+numbered("proj_", i))
+				}
+				return rels
+			}},
 		{kind: "message file", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			files := manyFiles(n, func(i int) string { return storage + "part/msg_a/" + numbered("prt_", i) + ".json" },
 				func(i int) string { return `{"type":` })

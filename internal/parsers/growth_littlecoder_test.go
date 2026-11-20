@@ -57,6 +57,22 @@ func littlecoderCheckpointCases() []growthCase {
 				}
 				return files
 			}},
+		{kind: "checkpoint", shape: shapeUnlisted + " (pi project directories)", n: 16,
+			files: func(t *testing.T, n int) []growthFile {
+				var files []growthFile
+				for i := range n {
+					files = append(files, text(".little-coder/checkpoints/"+littlecoderSession(i)+"/a.py", "x"),
+						text(".pi/agent/sessions/"+numbered("--p", i)+"--/"+littlecoderSession(i),
+							piHeader(numbered("s", i), numbered("/p", i), "")+"\n"))
+				}
+				return files
+			}, unlisted: func(n int) []string {
+				rels := make([]string, 0, n)
+				for i := range n {
+					rels = append(rels, ".pi/agent/sessions/"+numbered("--p", i)+"--")
+				}
+				return rels
+			}},
 		{kind: "checkpoint", shape: shapeManyFiles + " (one set of many files)", n: 32,
 			files: func(t *testing.T, n int) []growthFile {
 				return append(manyFiles(n, func(i int) string {
