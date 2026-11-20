@@ -138,17 +138,17 @@ func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, in
 	// group's first link, so ids the column compares as one are one group.
 	shown, repeats := map[int64]bool{}, 0
 	for _, worktree := range worktrees {
-		matches := lookup.Find(worktree, "id")
-		if len(matches) > 0 && shown[matches[0].Rowid] {
+		first, found := lookup.First(worktree, "id")
+		if found && shown[first.Rowid] {
 			repeats++
-			matches = nil
+			found = false
 		}
-		if len(matches) == 0 {
+		if !found {
 			joined = append(joined, archivedRow{Row: worktree})
 			continue
 		}
-		shown[matches[0].Rowid] = true
-		matches = slices.Clone(matches)
+		shown[first.Rowid] = true
+		matches := lookup.Find(worktree, "id")
 		slices.SortStableFunc(matches, func(left, right sqlitefile.Row) int {
 			return sqlitefile.Compare(left.Get("thread_id"), right.Get("thread_id"))
 		})

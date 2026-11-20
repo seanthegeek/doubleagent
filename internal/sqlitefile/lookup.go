@@ -60,6 +60,28 @@ func errorNoColumn(table *Table, column string) error {
 // and text under the collation the probing column declares, else the one
 // the key column declares. A NULL matches nothing.
 func (l *Lookup) Find(row Row, column string) []Row {
+	var found []Row
+	for _, index := range l.matches(row, column) {
+		found = append(found, l.rows[index])
+	}
+	return found
+}
+
+// First returns the first row Find would return, and false when Find
+// would return none, without gathering the others: a join that needs only
+// to know which group a row falls in asks this, so a key many rows repeat
+// costs one step per row, not one per row of its group.
+func (l *Lookup) First(row Row, column string) (Row, bool) {
+	matches := l.matches(row, column)
+	if len(matches) == 0 {
+		return Row{}, false
+	}
+	return l.rows[matches[0]], true
+}
+
+// matches returns the numbers of the rows Find returns, in the query's
+// order, as the index holds them: the caller must not change the slice.
+func (l *Lookup) matches(row Row, column string) []int {
 	position := row.lookup(column)
 	if position < 0 {
 		return nil
@@ -74,11 +96,7 @@ func (l *Lookup) Find(row Row, column string) []Row {
 	if !ok {
 		return nil
 	}
-	var found []Row
-	for _, index := range l.index(mode)[key] {
-		found = append(found, l.rows[index])
-	}
-	return found
+	return l.index(mode)[key]
 }
 
 // index returns, building it on first use, the row numbers by key in mode.

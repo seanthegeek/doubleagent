@@ -258,6 +258,15 @@ func openclawJoinCases() []growthCase {
 					return []any{numbered("op", i), "send", "c", "agent:main:s0", "sent", int64(i)}
 				})}))
 		}},
+		{kind: "openclaw-agent.sqlite", shape: shapeSharedID + " by conversations rows", files: func(t *testing.T, n int) []growthFile {
+			return one(openclawAgent, openclawAgentDatabase(t, nil, nil,
+				sqlitetest.Table{Name: "conversations", SQL: "CREATE TABLE conversations (conversation_id TEXT, " +
+					"channel TEXT, account_id TEXT, kind TEXT, peer_id TEXT, thread_id TEXT)",
+					Rows: rows(n, func(i int) []any { return []any{"c", "telegram", "acct", "direct", numbered("peer", i), nil} })},
+				sqlitetest.Table{Name: "session_conversations", SQL: "CREATE TABLE session_conversations " +
+					"(session_id TEXT, conversation_id TEXT, role TEXT, first_seen_at INTEGER)",
+					Rows: rows(n, func(i int) []any { return []any{numbered("s", i), "c", "primary", int64(i)} })}))
+		}},
 		{kind: "openclaw-agent.sqlite", shape: shapeSharedID + " in the session metadata", files: func(t *testing.T, n int) []growthFile {
 			return one(openclawAgent, openclawAgentDatabase(t, [][]any{openclawWindow("s1", "m", "chat")},
 				openclawEvents("s1", "/p", 3, false), sqlitetest.Table{Name: "session_nodes",

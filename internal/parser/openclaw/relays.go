@@ -91,11 +91,7 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 // conversation_id is the one row names, and false when none is. The id is
 // the conversations table's key, so a second row of one id, which only a
 // file the agent did not write holds, is not joined again to every row
-// naming it.
+// naming it, nor gathered again for each.
 func firstConversation(byID *sqlitefile.Lookup, row sqlitefile.Row) (sqlitefile.Row, bool) {
-	found := byID.Find(row, "conversation_id")
-	if len(found) == 0 {
-		return sqlitefile.Row{}, false
-	}
-	return found[0], true
+	return byID.First(row, "conversation_id")
 }

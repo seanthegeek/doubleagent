@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -160,6 +161,30 @@ func TestRowsReadNamesAndValues(t *testing.T) {
 	}
 	if !row.Get("i").IsNull() || row.Has("i") {
 		t.Error("a column not selected should read as NULL and be absent")
+	}
+}
+
+func TestLookupFirstIsTheFirstRowFindReturns(t *testing.T) {
+	people := tableOf(t, "schema.db", "people")
+	byName, err := people.Select("n").Lookup("name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	probes, err := people.Select("name", "t").All()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, probe := range probes {
+		t.Run("probe "+strconv.Itoa(i), func(t *testing.T) {
+			found := byName.Find(probe, "name")
+			first, ok := byName.First(probe, "name")
+			if ok != (len(found) > 0) || ok && first.Rowid != found[0].Rowid {
+				t.Errorf("First() = rowid %d, %v; Find() = rowids %v", first.Rowid, ok, rowids(found))
+			}
+		})
+	}
+	if _, ok := byName.First(probes[0], "absent"); ok {
+		t.Error("a probe of a missing column found a row")
 	}
 }
 
