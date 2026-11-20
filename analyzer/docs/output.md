@@ -1409,8 +1409,9 @@ inside one the output replaces (user information, a password or a
 credential parameter's value, or right after one) or inside a URL's
 scheme and its `://` or JSON's `:\/\/`, the cut moves back to where that
 starts. When the word holding the bound (a word ends at white space, a
-double quote, an angle bracket or a backtick) runs more than 4,096 bytes
-past it, the word's URLs are not read, and a cut after the word's first
+double quote, an angle bracket or a backtick) runs past it by more than
+the bound itself, 4,096 bytes less the length of the mark (4,073 bytes
+for a value of 10,000 bytes), the word's URLs are not read, and a cut after the word's first
 `://` or `:\/\/` moves back to just after it. So the kept part holds
 exactly the URL credentials the whole value holds there, and under
 `--no-secrets` the kept part of any other secret the cut runs through is
