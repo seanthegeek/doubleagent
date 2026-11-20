@@ -65,3 +65,98 @@ func TestALongWorkingDirectoryAndModelAreCutInEveryRow(t *testing.T) {
 		})
 	}
 }
+
+// requestEvent returns a permission.requested event with the given data
+// members before its request.
+func requestEvent(members string) string {
+	return `{"type":"permission.requested","timestamp":"2026-01-02T03:04:05Z","data":{` + members +
+		`"permissionRequest":{"kind":"shell","toolCallId":"c"}}}`
+}
+
+// modeRows returns the "permission mode:" and problem rows of an events
+// file of the given lines.
+func modeRows(t *testing.T, lines []string) []string {
+	t.Helper()
+	var kept []string
+	for _, text := range parseWith(t, sessionDir+"events.jsonl", strings.Join(lines, "\n")+"\n", parser.Options{}) {
+		if strings.HasPrefix(text, "permission mode:") || strings.HasPrefix(text, parser.ProblemPrefix) {
+			kept = append(kept, text)
+		}
+	}
+	return kept
+}
+
+// cutOf returns a value of letters longer than parser.CarriedLimit as the
+// kit writes it once cut.
+func cutOf(value string) string {
+	mark := " [cut from " + strconv.Itoa(len(value)) + " bytes]"
+	return value[:parser.CarriedLimit-len(mark)] + mark
+}
+
+func TestAModeRowCutsTheHalfItsRequestDidNotSet(t *testing.T) {
+	for _, n := range []int{500, 1000} {
+		t.Run(strconv.Itoa(n)+" agent mode changes after a long permission mode", func(t *testing.T) {
+			mode := strings.Repeat("M", 10*n)
+			lines := []string{requestEvent(`"permissionMode":"` + mode + `","agentMode":"a",`)}
+			want := []string{"permission mode: " + mode + " agent=a"}
+			old := "a"
+			for i := range n {
+				agent := "ab"[i%2 : i%2+1]
+				lines = append(lines, requestEvent(`"agentMode":"`+agent+`",`))
+				if agent != old {
+					want = append(want, "permission mode: "+cutOf(mode)+" agent="+old+" -> "+cutOf(mode)+" agent="+agent)
+				}
+				old = agent
+			}
+			want = append(want, parser.ProblemPrefix+parser.CarriedProblem("permission mode", 2*(len(want)-1)))
+			got := modeRows(t, lines)
+			bytes := 0
+			for _, text := range got {
+				bytes += len(text)
+			}
+			t.Logf("%d rows, %d bytes of text", len(got), bytes)
+			if strings.Join(got, "\n") != strings.Join(want, "\n") {
+				t.Errorf("got %d rows, want %d", len(got), len(want))
+			}
+		})
+	}
+}
+
+func TestEachCarriedHalfOfTheModeIsCutUnderItsOwnName(t *testing.T) {
+	long := strings.Repeat("L", parser.CarriedLimit+1)
+	tests := []struct {
+		name  string
+		lines []string
+		want  []string
+	}{
+		{"ordinary modes are written whole",
+			[]string{requestEvent(`"permissionMode":"manual","agentMode":"interactive",`),
+				requestEvent(`"agentMode":"autopilot",`), requestEvent(`"permissionMode":"auto",`)},
+			[]string{"permission mode: manual agent=interactive",
+				"permission mode: manual agent=interactive -> manual agent=autopilot",
+				"permission mode: manual agent=autopilot -> auto agent=autopilot"}},
+		{"a long agent mode a later request carries",
+			[]string{requestEvent(`"permissionMode":"manual","agentMode":"` + long + `",`),
+				requestEvent(`"permissionMode":"auto",`)},
+			[]string{"permission mode: manual agent=" + long,
+				"permission mode: manual agent=" + cutOf(long) + " -> auto agent=" + cutOf(long),
+				parser.ProblemPrefix + parser.CarriedProblem("agent mode", 2)}},
+		{"a long mode a permissions change set, carried by a request",
+			[]string{`{"type":"session.permissions_changed","data":{"previousMode":"manual","mode":"` + long + `"}}`,
+				requestEvent(`"agentMode":"a",`)},
+			[]string{"permission mode: manual -> " + long,
+				"permission mode: " + cutOf(long) + " -> " + cutOf(long) + " agent=a",
+				parser.ProblemPrefix + parser.CarriedProblem("permission mode", 2)}},
+		{"a request that changes nothing gives no row, however long the mode",
+			[]string{requestEvent(`"permissionMode":"` + long + `","agentMode":"a",`), requestEvent(`"agentMode":"a",`)},
+			[]string{"permission mode: " + long + " agent=a"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := modeRows(t, test.lines)
+			if strings.Join(got, "\n") != strings.Join(test.want, "\n") {
+				t.Errorf("got %d rows %.300q, want %d", len(got), got, len(test.want))
+			}
+		})
+	}
+}
