@@ -436,6 +436,9 @@ func (r *commandReplay) run(t *testing.T, node, command string, recorded Command
 	if r.added.taken > 0 {
 		r.note(node, []int{withheldRowsDifference().Number})
 	}
+	if r.added.socketTokens > 0 {
+		r.note(node, []int{socketTokenDifference().Number})
+	}
 	got := commandOutput{exit: exit, stdout: stdout.String(), stderr: stderr.String(),
 		outputs: map[string]string{}, source: parsedRun}
 	for path := range recorded.Outputs {

@@ -82,9 +82,8 @@ func TestTheApprovalsSocketTokenIsShownUnlessWithheld(t *testing.T) {
 	for _, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
 			got := parseStateDatabase(t, "exec_config_socket.db", mode.setting)
-			token := " socket.token=" + mode.shown("FIXTURE-SOCKET-TOKEN")
-			want := []string{"permission setting: defaults.security=deny" + token + source,
-				"permission setting:" + token + source}
+			token := "permission setting: socket.token=" + mode.shown("FIXTURE-SOCKET-TOKEN") + source
+			want := []string{"permission setting: defaults.security=deny" + source, token, token}
 			if !slices.Equal(got, want) {
 				t.Errorf("got %q, want %q", got, want)
 			}

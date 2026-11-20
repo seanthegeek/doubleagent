@@ -342,6 +342,9 @@ func (r *parserReplay) runParse(t *testing.T, node string, subject parser.Parser
 // and 232 that a case needing the difference shows.
 func (r *parserReplay) countEntries(numbers []int, entries []string, want []Row) {
 	for _, entry := range entries {
+		if repeatLabels()[entry] {
+			continue
+		}
 		if labels := withheldRowLabels(entry); len(labels) > 0 {
 			for _, label := range labels {
 				r.withheld[label]++
