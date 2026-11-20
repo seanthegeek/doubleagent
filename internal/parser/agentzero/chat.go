@@ -53,11 +53,13 @@ type historyEntry struct {
 }
 
 // walkHistory visits the history's messages and, with summaries, its
-// summaries in order: bulks, then topics, then the current topic.
-func walkHistory(node jsonvalue.Value, summaries bool, visit func(summary bool, node jsonvalue.Value)) {
+// summaries in order: bulks, then topics, then the current topic. It
+// counts in wrong the entries it passes over that are present and neither
+// null, an array nor an object.
+func walkHistory(node jsonvalue.Value, summaries bool, wrong *int, visit func(summary bool, node jsonvalue.Value)) {
 	if node.IsArray() {
 		for _, child := range node.Items() {
-			walkHistory(child, summaries, visit)
+			walkEntry(child, summaries, wrong, visit)
 		}
 		return
 	}
@@ -70,14 +72,24 @@ func walkHistory(node jsonvalue.Value, summaries bool, visit func(summary bool, 
 		visit(false, node)
 	case parser.IsText(class, "History"):
 		for _, name := range []string{"bulks", "topics", "current"} {
-			walkHistory(node.Get(name), summaries, visit)
+			walkEntry(node.Get(name), summaries, wrong, visit)
 		}
 	case parser.IsText(class, "Topic") || parser.IsText(class, "Bulk") || node.Has("messages") || node.Has("records"):
 		if summaries && !node.Get("summary").IsEmpty() {
 			visit(true, node.Get("summary"))
 		}
-		walkHistory(parser.FirstNonEmpty(node.Get("messages"), node.Get("records")), summaries, visit)
+		walkEntry(parser.FirstNonEmpty(node.Get("messages"), node.Get("records")), summaries, wrong, visit)
 	}
+}
+
+// walkEntry walks a node inside the history as walkHistory does, counting
+// it in wrong when it is present and neither null, an array nor an object.
+func walkEntry(node jsonvalue.Value, summaries bool, wrong *int, visit func(summary bool, node jsonvalue.Value)) {
+	if !node.IsNull() && !node.IsArray() && !node.IsObject() {
+		*wrong++
+		return
+	}
+	walkHistory(node, summaries, wrong, visit)
 }
 
 // parseAI returns the assistant's raw output parsed as the agent's JSON
@@ -519,8 +531,9 @@ func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 // agentHistories reads each agent's history, filling the chat's message
 // index and returning its items in order. An agents member that is not an
 // array adds a problem, and so do the agents that are not objects, one for
-// them all. An agent's number, which each of its rows starts with, is cut
-// by the kit (parser.Carried).
+// them all, and the entries of an agent's history that are not objects,
+// one per agent. An agent's number, which each of its rows starts with, is
+// cut by the kit (parser.Carried).
 func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
 	carried := parser.NewCarried(c.artifact)
@@ -546,7 +559,8 @@ func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []histor
 				history = decoded
 			}
 		}
-		walkHistory(history, summaries, func(summary bool, node jsonvalue.Value) {
+		wrong := 0
+		walkHistory(history, summaries, &wrong, func(summary bool, node jsonvalue.Value) {
 			ordered = append(ordered, historyItem{agent: number, summary: summary, node: node})
 			if messageID := node.Get("id"); !summary && !messageID.IsEmpty() {
 				if _, held := c.history[messageID.Text()]; !held {
@@ -554,6 +568,9 @@ func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []histor
 				}
 			}
 		})
+		if wrong > 0 {
+			c.problems.Add(0, parser.WrongEntries("history of agent "+number.Text(), jsonvalue.Object, wrong))
+		}
 	}
 	return ordered
 }
