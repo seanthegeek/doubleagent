@@ -161,6 +161,20 @@ func TestTwoLongValuesStayApartUnlessTheirLengthAndFirstBytesAgree(t *testing.T)
 	}
 }
 
+func TestOnlyAValueWrittenLikeACutEqualsTheCutOfALongerOne(t *testing.T) {
+	long := filler(5000)
+	cut := long[:CarriedLimit-len(cutMark(5000))] + cutMark(5000)
+	values := []string{filler(4095), filler(4096), filler(4097), long, cut}
+	_, sessions, raw := carriedRun(secrets.Setting{}, func(artifact *input.Artifact, emit Emit) {
+		for _, value := range values {
+			emit(timeline.Row{SessionID: value, TurnType: timeline.TurnUser, TimestampUTC: "2026-01-01T00:00:00Z"})
+		}
+	}, nil)
+	if len(sessions) != 4 || raw[3].SessionID != cut || raw[4].SessionID != cut {
+		t.Errorf("%d sessions, want 4: the value written like a cut and the value it copies as one", len(sessions))
+	}
+}
+
 func TestALongWindowsProjectPathIsCutInItsOneSpelling(t *testing.T) {
 	spellings := []string{`c:/Users/a/` + filler(6000), `C:\Users\a\` + strings.ReplaceAll(filler(6000), "/", `\`)}
 	var cut []string

@@ -1399,7 +1399,11 @@ The parse ends with one `system` row per field or kind of value cut,
 `parser: <field or kind> longer than 4096 bytes, cut to 4096 bytes (<n>
 times)`. Two values longer than the bound that agree in length and in the
 bytes kept become one value, so their rows group as one session or
-project; values of different lengths stay apart. The `text` of an event
+project. Values of different lengths stay apart with one exception: a
+value of 4,096 bytes or fewer is written as it is, so one that already
+ends like a cut (its first bytes, then ` [cut from <length> bytes]`) is
+the same text as the cut of a longer value it copies, and their rows
+group as one. The `text` of an event
 itself is never cut. A file whose path is longer than 4,096 bytes, which
 a manifest's text or a Windows extended-length path allows, is not read
 at all, since its path would stand in the `source_file` and often the

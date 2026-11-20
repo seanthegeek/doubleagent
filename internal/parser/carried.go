@@ -29,8 +29,10 @@ const (
 
 // cutMark returns the text a cut value ends with, which gives the whole
 // value's length in bytes: " [cut from <length> bytes]". The length keeps
-// apart two cut values that start alike but differ in length. The mark
-// starts with white space and holds no URL, as secrets.CutPoint asks.
+// apart two cut values that start alike but differ in length, though not
+// a value within the limit that is written like a cut: it is kept as it
+// is, so it equals the cut of the longer value it copies. The mark starts
+// with white space and holds no URL, as secrets.CutPoint asks.
 func cutMark(length int) string {
 	return markStart + strconv.Itoa(length) + markEnd
 }
