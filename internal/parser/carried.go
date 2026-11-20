@@ -151,12 +151,14 @@ func (c *carriedFields) cut(row *timeline.Row) {
 
 // written returns what the kit writes for value, a field longer than
 // CarriedLimit, and whether that is a cut, from the field's last value when
-// value is the same as the parser gave it, so a value the rows share costs
-// one comparison a row. A project path is first given its one spelling
-// (timeline.CanonicalProjectPath), which the run gives every project path,
-// so each spelling of one long path is cut alike; the part of it the
-// spelling keeps as written, from a URL with a credential on, is left out
-// whole, so the cut text holds none of it and is its own spelling.
+// value is the same as the parser gave it. Telling that reads both values
+// when they are two copies of one text, as long as the value is, so a
+// parser makes a value it stamps on many rows once and gives each row that
+// string, which compares in one step. A project path is first given its
+// one spelling (timeline.CanonicalProjectPath), which the run gives every
+// project path, so each spelling of one long path is cut alike; the part
+// of it the spelling keeps as written, from a URL with a credential on, is
+// left out whole, so the cut text holds none of it and is its own spelling.
 func (c *carriedFields) written(name, value string) (string, bool) {
 	if c.counts == nil {
 		c.counts, c.last = map[string]int{}, map[string]*lastCut{}

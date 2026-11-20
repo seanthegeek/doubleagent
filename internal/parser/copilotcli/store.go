@@ -90,9 +90,16 @@ func (p *Parser) parseStore(artifact *input.Artifact, emit parser.Emit) {
 type stamper struct {
 	parser   *Parser
 	artifact *input.Artifact
-	sessions map[string]sqlitefile.Row
+	sessions map[string]storedSession
 	sidebar  map[string]string
 	emit     parser.Emit
+}
+
+// storedSession is a sessions row and its cwd and branch as row text,
+// made once for every row of the session to share.
+type storedSession struct {
+	row         sqlitefile.Row
+	cwd, branch string
 }
 
 // stamp emits a row of a session of the store, with the project and branch
@@ -102,13 +109,13 @@ func (s *stamper) stamp(sessionID string, line int64, turn, text string, timesta
 	session := s.sessions[sessionID]
 	s.emit(s.parser.row(s.artifact, int(line), turn, text, columns{
 		timestamp: parser.ColumnTime(timestamp), sessionID: sessionID,
-		project: cmp.Or(stored(session, "cwd"), s.sidebar[sessionID]),
-		branch:  stored(session, "branch"), toolUseID: toolUseID}))
+		project: cmp.Or(session.cwd, s.sidebar[sessionID]),
+		branch:  session.branch, toolUseID: toolUseID}))
 }
 
 // storeRows emits the rows of every table of the store the parser reads.
 func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parser.Emit) {
-	stamps := &stamper{parser: p, artifact: artifact, sessions: map[string]sqlitefile.Row{},
+	stamps := &stamper{parser: p, artifact: artifact, sessions: map[string]storedSession{},
 		sidebar: p.sidebarJoin(artifact), emit: emit}
 	var order []string
 	for _, session := range reader.rows("sessions", "created_at") {
@@ -116,10 +123,11 @@ func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parser.
 		if _, seen := stamps.sessions[sessionID]; !seen {
 			order = append(order, sessionID)
 		}
-		stamps.sessions[sessionID] = session
+		stamps.sessions[sessionID] = storedSession{row: session, cwd: stored(session, "cwd"),
+			branch: stored(session, "branch")}
 	}
 	for _, sessionID := range order {
-		session := stamps.sessions[sessionID]
+		session := stamps.sessions[sessionID].row
 		if present(session, "summary") {
 			stamps.stamp(sessionID, session.Rowid, timeline.TurnSystem,
 				"session name: "+session.Get("summary").String(), session.Get("created_at"), "")
