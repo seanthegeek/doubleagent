@@ -203,11 +203,11 @@ func isGuardian(metadata jsonvalue.Value) bool {
 }
 
 // prescan returns the ids every response item carries, as id or call_id,
-// and the exit code of each completed CommandExecution item by its id,
-// which is the call's call_id.
-func prescan(records []numberedRecord) (map[string]bool, map[string]jsonvalue.Value) {
+// and the text of each failed exit code (exitText) of a completed
+// CommandExecution item by its id, which is the call's call_id.
+func prescan(records []numberedRecord) (map[string]bool, map[string]string) {
 	carried := map[string]bool{}
-	exitCodes := map[string]jsonvalue.Value{}
+	exitCodes := map[string]string{}
 	for _, record := range records {
 		payload := record.value.Get("payload")
 		if !payload.IsObject() {
@@ -224,7 +224,7 @@ func prescan(records []numberedRecord) (map[string]bool, map[string]jsonvalue.Va
 			parser.IsText(payload.Get("type"), "item_completed"):
 			item := payload.Get("item")
 			if parser.IsText(item.Get("type"), "CommandExecution") && !item.Get("exit_code").IsNull() {
-				exitCodes[parser.Text(item.Get("id"))] = item.Get("exit_code")
+				exitCodes[parser.Text(item.Get("id"))] = exitText(item.Get("exit_code"))
 			}
 		}
 	}

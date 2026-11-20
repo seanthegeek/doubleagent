@@ -37,7 +37,7 @@ type rollout struct {
 	emit     parser.Emit
 
 	carried   map[string]bool
-	exitCodes map[string]jsonvalue.Value
+	exitCodes map[string]string
 	// cuts cuts the session id each guardian verdict's text repeats and
 	// the policy values each thread_settings_applied row repeats.
 	cuts *parser.Carried
@@ -130,6 +130,13 @@ func (s *rollout) row(turnType string, timestamp jsonvalue.Value) timeline.Row {
 	row.Model = s.model
 	row.TurnType = turnType
 	return row
+}
+
+// exitCode returns the failed exit code of the call callID, carried from its
+// CommandExecution item into each output of the call, cut as a carried
+// value; "" when it has none.
+func (s *rollout) exitCode(callID string) string {
+	return s.cuts.Cut("exit code", s.exitCodes[callID])
 }
 
 // put emits row with text, compacted.
@@ -271,7 +278,7 @@ func (s *rollout) responseItem(payload jsonvalue.Value) {
 	case textIn(payloadType, outputTypes...):
 		row := s.row(timeline.TurnToolResult, jsonvalue.NewNull())
 		row.ToolUseID = parser.Text(payload.Get("call_id"))
-		s.put(row, withExit(parser.TextOf(payload.Get("output")), s.exitCodes[row.ToolUseID]))
+		s.put(row, withExit(parser.TextOf(payload.Get("output")), s.exitCode(row.ToolUseID)))
 	case parser.IsText(payloadType, "tool_search_call"):
 		row := s.row(timeline.TurnToolUse, jsonvalue.NewNull())
 		row.ToolName = "tool_search"
