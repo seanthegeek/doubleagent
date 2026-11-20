@@ -276,7 +276,8 @@ func probeWrite(directory string) bool {
 }
 
 // parse collects the rows of every artifact, drops the secondary rows a
-// primary store holds, sorts and filters them, and summarises the sessions.
+// primary store holds, sorts and filters them, writes out the shared texts
+// they name (timeline.Resolve), and summarises the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
 		parser.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)
@@ -296,6 +297,9 @@ func (r *timelineRun) parse(ctx context.Context) error {
 		r.rows = r.filter.Apply(r.rows)
 		r.counts = countRows(r.rows)
 	}
+	// Only now are the rows of the output known, so each shared text is
+	// written in full in the first of them that names it.
+	timeline.Resolve(r.rows)
 	r.sessions = timeline.Summarise(r.rows, r.registry.Marks())
 	return nil
 }

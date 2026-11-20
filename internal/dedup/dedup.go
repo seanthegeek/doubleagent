@@ -10,7 +10,10 @@
 // else none) and a time within the source's tolerance. A secondary row with
 // no time matches on identity and scope alone. Matching is one-to-one,
 // timestamped rows first, each taking the nearest unused candidate, the
-// earlier one on a tie.
+// earlier one on a tie. The text is the row's text as it reads in full,
+// with every long text it shares with other rows in place
+// (timeline.SharedText); a text longer than a SHA-256 digest is compared by
+// that digest, so a long text many rows name is held once.
 //
 // The secondary rows no primary row took are then matched against each
 // other, looking under broader scopes too, so the several copies of one

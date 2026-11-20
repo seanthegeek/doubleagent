@@ -39,7 +39,8 @@ func withheldSecrets() secrets.Setting {
 
 // parseWithheld runs one parse of artifact as a run with --no-secrets does
 // (parser.Collect, the artifact's home holding the run's recorder) and
-// returns its rows as timeline.jsonl writes them, through the function the
+// returns its rows as timeline.jsonl writes them, each shared text written
+// out in the order of the rows (timeline.Resolve), through the function the
 // timeline command writes each row with (timeline.Row.Withheld).
 func parseWithheld(subject parser.Parser, artifact *input.Artifact, options parser.Options) ([]Row, error) {
 	recorder := secrets.NewRecorder(withheldSecrets())
@@ -48,6 +49,7 @@ func parseWithheld(subject parser.Parser, artifact *input.Artifact, options pars
 	}
 	var rows []timeline.Row
 	_, err := parser.Collect(subject, artifact, options, func(row timeline.Row) { rows = append(rows, row) })
+	timeline.Resolve(rows)
 	got := make([]Row, len(rows))
 	for i, row := range rows {
 		got[i] = replayRow(row.Withheld(recorder))
