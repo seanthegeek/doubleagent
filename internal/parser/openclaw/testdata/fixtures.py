@@ -225,7 +225,7 @@ CREATE TABLE session_transcript_archives (session_id TEXT NOT NULL, generation T
 """
     + "".join(
         f"INSERT INTO session_transcript_archives VALUES ('s', 'g{number}', '', 'reset', 'jsonl',"
-        f" CAST('{{\"type\": \"label\", \"label\": \"l{number}\"}}' AS BLOB), '', 'a{number}',"
+        f' CAST(\'{{"type": "label", "label": "l{number}"}}\' AS BLOB), \'\', \'a{number}\','
         f" {number}, NULL);\n"
         for number in range(10)
     )
