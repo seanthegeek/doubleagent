@@ -39,14 +39,14 @@ func cutMark(length int) string {
 
 // cutValue returns value, longer than CarriedLimit, cut to at most
 // CarriedLimit bytes: its first bytes up to secrets.CutPoint, which keeps
-// whole or leaves out each URL credential and each earlier cut it holds
-// (earlierCuts), then cutMark. The cut is recorded in recorder
+// whole or leaves out each URL credential, each earlier cut it holds
+// (earlierCuts) and each span of whole, then cutMark. The cut is recorded in recorder
 // (secrets.Recorder.Cut, inText when it stands in a row's text), so a
 // secret the cut runs through is withheld whole, and the same value always
 // gives the same text.
-func cutValue(recorder *secrets.Recorder, value string, inText bool) string {
+func cutValue(recorder *secrets.Recorder, value string, inText bool, whole ...[2]int) string {
 	mark := cutMark(len(value))
-	kept := secrets.CutPoint(value, CarriedLimit-len(mark), earlierCuts(value))
+	kept := secrets.CutPoint(value, CarriedLimit-len(mark), append(earlierCuts(value), whole...))
 	written := value[:kept] + mark
 	recorder.Cut(value, written, kept, inText)
 	return written
@@ -154,7 +154,9 @@ func (c *carriedFields) cut(row *timeline.Row) {
 // value is the same as the parser gave it, so a value the rows share costs
 // one comparison a row. A project path is first given its one spelling
 // (timeline.CanonicalProjectPath), which the run gives every project path,
-// so each spelling of one long path is cut alike.
+// so each spelling of one long path is cut alike; the part of it the
+// spelling keeps as written, from a URL with a credential on, is left out
+// whole, so the cut text holds none of it and is its own spelling.
 func (c *carriedFields) written(name, value string) (string, bool) {
 	if c.counts == nil {
 		c.counts, c.last = map[string]int{}, map[string]*lastCut{}
@@ -166,11 +168,13 @@ func (c *carriedFields) written(name, value string) (string, bool) {
 	}
 	if last.written == "" || last.value != value {
 		written, cut := value, false
+		var whole [][2]int
 		if name == "project_path" {
 			written = timeline.CanonicalProjectPath(value)
+			whole = [][2]int{{timeline.KeptAsWrittenFrom(written), len(written)}}
 		}
 		if len(written) > CarriedLimit {
-			written, cut = cutValue(c.recorder, written, false), true
+			written, cut = cutValue(c.recorder, written, false, whole...), true
 		}
 		*last = lastCut{value: value, written: written, cut: cut}
 	}
