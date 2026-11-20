@@ -49,17 +49,20 @@ var (
 // for the transcripts the desktop app keeps in the same format.
 type Reader struct {
 	parser.Base
-	// outputs holds, per session directory, the persisted tool outputs
-	// its transcripts named (outputsOf).
-	outputs map[outputsKey]map[string]*persistedFile
-	// pastes holds the paste-cache files the history lines named
+	// outputs holds, per home, the persisted tool outputs its transcripts
+	// named. They are kept for the pass over the home's files, since a
+	// session's subagent transcripts are files of their own that share its
+	// tool-results/.
+	outputs *parser.PerHome[persistedFiles]
+	// pastes holds, per home, the paste-cache files its history lines named
 	// (pasteOf).
-	pastes map[pastesKey]*paste
+	pastes *parser.PerHome[pasteFiles]
 }
 
 // NewReader returns a Reader whose rows carry base's agent.
 func NewReader(base parser.Base) *Reader {
-	return &Reader{Base: base}
+	return &Reader{Base: base, outputs: parser.NewPerHome(func() persistedFiles { return persistedFiles{} }),
+		pastes: parser.NewPerHome(func() pasteFiles { return pasteFiles{} })}
 }
 
 // Parser reads Claude Code's transcripts and the history, registry and
@@ -70,7 +73,7 @@ type Parser struct {
 
 // New returns the parser.
 func New() *Parser {
-	return &Parser{Reader: Reader{Base: parser.NewBase("claude-code", "claude-code")}}
+	return &Parser{Reader: *NewReader(parser.NewBase("claude-code", "claude-code"))}
 }
 
 // Marks says the parser records synced sessions (a Remote Control bridge

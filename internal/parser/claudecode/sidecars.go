@@ -60,10 +60,10 @@ type persistedFile struct {
 // the stub's text. The stub is added with a note when the file is not in
 // this session's tool-results/ or is a link, and with the reason when it is
 // there but cannot be read, the unreadable problem added. Each file is read
-// once for all the session's transcripts of a loaded input
-// (Reader.outputsOf), and every row naming it shares its text: the output
-// writes it in full in the first of its rows it keeps, and in each later
-// one the stub with a note naming the row above that holds it.
+// once for all the transcripts of its home, by whatever spelling of its
+// name opens it (Reader.outputs), and every row naming it shares its text:
+// the output writes it in full in the first of its rows it keeps, and in
+// each later one the stub with a note naming the row above that holds it.
 func (s *session) persistedText(out *timeline.TextBuilder, stub, savedPath string) {
 	if savedPath == "" {
 		match := persistedPattern.FindStringSubmatch(stub)
@@ -88,13 +88,13 @@ func (s *session) persistedText(out *timeline.TextBuilder, stub, savedPath strin
 		out.Write(note)
 		return
 	}
-	files := s.reader.outputsOf(s.artifact.Home, directory)
-	file, read := files[name]
+	files, key := s.reader.outputs.For(s.artifact.Home), parser.KeyOf(output)
+	file, read := files[key]
 	if !read {
 		s.reader.Work.Add("persisted outputs read", 1)
 		data, err := parser.ReadFile(output)
 		file = &persistedFile{shared: timeline.NewSharedText(textlines.ValidUTF8(data)), err: err}
-		files[name] = file
+		files[key] = file
 	}
 	if file.err != nil {
 		s.problems.AddUnreadable(0, output, file.err)
@@ -116,29 +116,10 @@ func persistedPointer(stub, name string) timeline.Pointer {
 	}
 }
 
-// outputsOf returns the persisted tool outputs read so far for the
-// session directory of home, by file name. They are kept for the pass over
-// the home's files, since a session's subagent transcripts are files of
-// their own that share its tool-results/; each load of an input makes its
-// own home values, so a second pass over the same files starts afresh.
-func (r *Reader) outputsOf(home *input.Home, directory string) map[string]*persistedFile {
-	key := outputsKey{home: home, directory: directory}
-	if r.outputs == nil {
-		r.outputs = map[outputsKey]map[string]*persistedFile{}
-	}
-	files, ok := r.outputs[key]
-	if !ok {
-		files = map[string]*persistedFile{}
-		r.outputs[key] = files
-	}
-	return files
-}
-
-// outputsKey names a session directory of one home of a loaded input.
-type outputsKey struct {
-	home      *input.Home
-	directory string
-}
+// persistedFiles holds the persisted tool outputs of one home read so
+// far, by the entry each name opened. A home's session directories each
+// hold their own tool-results/, so a file's entry names it within the home.
+type persistedFiles map[parser.EntryKey]*persistedFile
 
 // isPasteHash reports whether a paste's content hash is a plain name of
 // ASCII letters and digits, the only names read from paste-cache/.
@@ -153,15 +134,33 @@ func isPasteHash(hash string) bool {
 	return hash != ""
 }
 
-// readPaste returns the text of paste-cache/<hash>.txt in the history's
-// directory, or false: silently for a name that is not a plain hash, a missing file or
-// a link (never followed), and with the unreadable problem added for a file
-// that is there but cannot be read, since a read failure is evidence.
-func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool) {
+// pasteFile returns the path of paste-cache/<hash>.txt in the history's
+// directory, false for a name that is not a plain hash or a path that
+// cannot be reached without a link.
+func pasteFile(historyDir, hash string) (string, bool) {
 	if !isPasteHash(hash) {
 		return "", false
 	}
-	cacheFile, reachable := parser.Under(historyDir, "paste-cache", hash+".txt")
+	return parser.Under(historyDir, "paste-cache", hash+".txt")
+}
+
+// pasteEntry returns the key of the paste-cache file a hash names, the
+// zero key when no path reaches one, since no file is then read.
+func pasteEntry(historyDir, hash string) parser.EntryKey {
+	cacheFile, reachable := pasteFile(historyDir, hash)
+	if !reachable {
+		return parser.EntryKey{}
+	}
+	return parser.KeyOf(cacheFile)
+}
+
+// readPaste returns the text of paste-cache/<hash>.txt in the history's
+// directory, or false: silently for a name that is not a plain hash, a
+// missing file or a link (never followed), and with the unreadable problem
+// added for a file that is there but cannot be read, since a read failure
+// is evidence.
+func readPaste(historyDir, hash string, problems *parser.Problems) (string, bool) {
+	cacheFile, reachable := pasteFile(historyDir, hash)
 	if !reachable || !parser.RegularFile(cacheFile) {
 		return "", false
 	}
@@ -181,27 +180,23 @@ type paste struct {
 	problems parser.Problems
 }
 
-// pastesKey names one paste-cache file of one home of a loaded input.
-type pastesKey struct {
-	home             *input.Home
-	historyDir, hash string
-}
+// pasteFiles holds the paste-cache files of one home read so far, by the
+// entry each hash opened, so every spelling of one file's name is one text.
+type pasteFiles map[parser.EntryKey]*paste
 
 // pasteOf returns the paste-cache file of hash in historyDir, read once for
-// every line naming it of a loaded input; each load of an input makes its
-// own home values, so a second pass over the same files reads it again.
+// every line of the home naming it, by whatever spelling of its hash opens
+// it; each load of an input makes its own home values, so a second pass
+// over the same files reads it again.
 func (r *Reader) pasteOf(home *input.Home, historyDir, hash string) *paste {
-	key := pastesKey{home: home, historyDir: historyDir, hash: hash}
-	if r.pastes == nil {
-		r.pastes = map[pastesKey]*paste{}
-	}
-	each, ok := r.pastes[key]
+	files, key := r.pastes.For(home), pasteEntry(historyDir, hash)
+	each, ok := files[key]
 	if !ok {
 		each = &paste{}
 		var text string
 		text, each.found = readPaste(historyDir, hash, &each.problems)
 		each.shared = timeline.NewSharedText(text)
-		r.pastes[key] = each
+		files[key] = each
 	}
 	return each
 }

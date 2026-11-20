@@ -2726,8 +2726,9 @@ so an expanded history line matches the `user` line whose text is the same once 
 only a history line with no transcript counterpart is a recovered row.
 
 A paste is one text for every placeholder that names it, in one line or in many (the same number
-within a line for an inline paste, the same `contentHash` in one `paste-cache/` for a cached one);
-each `paste-cache/` file is read once per run. The line matches its transcript record, and
+within a line for an inline paste, the same `paste-cache/` file for a cached one, whatever spelling
+of its `contentHash` opens it on a disk that matches names without regard to letter case); each
+`paste-cache/` file is read once per home of a run. The line matches its transcript record, and
 `--match` reads it, with every paste in full. The timeline then writes each paste in full at the
 first placeholder of it in a row it keeps, once deduplication and the filters have chosen the rows,
 and each later placeholder as the placeholder with a note before its closing bracket:
@@ -3001,8 +3002,10 @@ followed by `[persisted output not found: tool-results/<name>]`. A file that is 
 read keeps the stub followed by `[persisted output could not be read (<reason>)]` and gives the
 unreadable row of [Bad-line rows](#bad-line-rows). On the observed install every stub resolved.
 A session's transcripts are its own file and each subagent file below `<session dir>/subagents/`,
-each a file of its own that shares the session's `tool-results/`, so each file is read once per run
-for all of them, and every tool result naming it shares its text. The timeline writes it in full in
+each a file of its own that shares the session's `tool-results/`, so each file is read once per home
+for all of them, by any spelling of its name that opens it (on a disk that matches names without
+regard to letter case or, on macOS, to how an accented letter is encoded), and every tool result
+naming it shares its text. The timeline writes it in full in
 the first such row it keeps, once deduplication and the filters have chosen the rows, and every
 later stub naming the same `tool-results/<name>` of that session, in the same transcript or
 another, keeps the stub followed by
