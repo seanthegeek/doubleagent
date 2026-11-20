@@ -50,39 +50,37 @@ func (t token) name() string {
 	return t.text
 }
 
-// tokenize splits SQL text into tokens after SQLite's tokenizer
-// ("tokenize.c"): whitespace and both comment forms are dropped, and an
-// unterminated quote or comment is an error.
-func tokenize(text string) ([]token, error) {
-	var tokens []token
-	for position := 0; position < len(text); {
-		octet := text[position]
+// scanFrom returns the token at or after byte position of text and the
+// offset after it, read as SQLite's tokenizer ("tokenize.c") reads: past
+// whitespace and both comment forms. At the end of the text it returns the
+// zero token; an unterminated quote is an error, and an unterminated block
+// comment ends the text, as it does for SQLite.
+func scanFrom(text string, position int) (token, int, error) {
+	for position < len(text) {
 		switch {
-		case isSpace(octet):
+		case isSpace(text[position]):
 			position++
 		case strings.HasPrefix(text[position:], "--"):
 			end := strings.IndexByte(text[position:], '\n')
 			if end < 0 {
-				return tokens, nil
+				return token{}, len(text), nil
 			}
 			position += end + 1
 		case strings.HasPrefix(text[position:], "/*"):
 			end := strings.Index(text[position+2:], "*/")
 			if end < 0 {
-				// SQLite ends an unterminated block comment at the end of input.
-				return tokens, nil
+				return token{}, len(text), nil
 			}
 			position += end + 4
 		default:
 			next, length, err := scanToken(text[position:])
 			if err != nil {
-				return nil, fmt.Errorf("at offset %d: %w", position, err)
+				return token{}, len(text), fmt.Errorf("at offset %d: %w", position, err)
 			}
-			tokens = append(tokens, next)
-			position += length
+			return next, position + length, nil
 		}
 	}
-	return tokens, nil
+	return token{}, len(text), nil
 }
 
 // isSpace reports whether octet is whitespace to SQLite: space, tab, line
