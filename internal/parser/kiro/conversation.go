@@ -104,20 +104,28 @@ func resultText(result jsonvalue.Value) string {
 // decisionText returns the "permission decision:" text of a
 // CancelledToolUses message's prompt: the fixed denial text of a bare n, a
 // deny rule of the agent's toolsSettings, an interrupt, or the user's own
-// words typed at the approval prompt.
-func (p *Parser) decisionText(prompt jsonvalue.Value) string {
+// words typed at the approval prompt. The tool a deny rule names is
+// written as tool returns it.
+func (p *Parser) decisionText(prompt jsonvalue.Value, tool func(string) string) string {
 	if !prompt.IsString() || prompt.StringValue() == "" {
 		return "permission decision: cancelled"
 	}
-	switch text := prompt.StringValue(); {
-	case text == denyText:
+	switch text := prompt.StringValue(); text {
+	case denyText:
 		return "permission decision: denied by=n"
-	case text == interruptText:
+	case interruptText:
 		return "permission decision: cancelled by=interrupt"
-	case p.denyRule.MatchString(text):
-		return "permission decision: denied by=deny-rule tool=" + p.denyRule.FindStringSubmatch(text)[1]
+	}
+	if match := p.denyRule.FindStringSubmatch(prompt.StringValue()); match != nil {
+		return denyRuleText(tool(match[1]))
 	}
 	return "permission decision: denied by=user-text"
+}
+
+// denyRuleText returns the decision text of a call a deny rule of the
+// agent's toolsSettings rejected, naming its tool.
+func denyRuleText(tool string) string {
+	return "permission decision: denied by=deny-rule tool=" + tool
 }
 
 // entryKey returns what identifies a history entry across the copies one
@@ -141,6 +149,9 @@ type conversation struct {
 	names              map[string]string
 	lastTimestamp      string
 	problems           parser.Problems
+	// carried cuts the tool a deny-rule prompt names, which goes into the
+	// decision row of each of the message's results.
+	carried *parser.Carried
 	// entries counts the problems of the members of history entries and
 	// checkpoints, each reported once for the conversation.
 	entries parser.EntryTally
@@ -191,7 +202,7 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 	}
 	reader := &conversation{parser: p, artifact: artifact, options: options, emit: emit,
 		line: line, sessionID: parser.Text(state.Get("conversation_id")), project: key,
-		names: map[string]string{}}
+		names: map[string]string{}, carried: parser.NewCarried(artifact)}
 	if info := state.Get("model_info"); info.IsObject() && !info.Get("model_id").IsEmpty() {
 		reader.stateModel, reader.source = info.Get("model_id").Text(), "model_info"
 	} else if model := state.Get("model"); model.IsString() {
@@ -202,6 +213,7 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 	}
 	reader.read(state)
 	reader.entries.Report(line, &reader.problems)
+	reader.carried.Report(line, &reader.problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, reader.problems, reader.sessionID, reader.project))
 	if err != nil {
 		row := p.SystemRow(artifact, "parser: truncated conversation, "+
@@ -437,12 +449,15 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 			// tool but not the call.
 			row := c.base(timestamp, model)
 			row.ToolName = match[1]
-			emit(fill(row, timeline.TurnSystem, c.parser.decisionText(prompt)))
+			emit(fill(row, timeline.TurnSystem, denyRuleText(match[1])))
 		}
 	}
 	if tag != "ToolUseResults" && !cancelled {
 		return
 	}
+	// The decision is the message's, so it is worked out once for all of
+	// its results, the tool it names cut as a carried value.
+	decision := ""
 	for _, result := range c.entries.EntriesOfKind(body.Get("tool_use_results"), "tool_use_results",
 		jsonvalue.Object) {
 		row := c.base(timestamp, model)
@@ -457,9 +472,12 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 		}
 		emit(fill(row, timeline.TurnToolResult, text))
 		if cancelled {
-			decision := c.base(timestamp, model)
-			decision.ToolUseID, decision.ToolName = row.ToolUseID, row.ToolName
-			emit(fill(decision, timeline.TurnSystem, c.parser.decisionText(prompt)))
+			if decision == "" {
+				decision = c.parser.decisionText(prompt, func(tool string) string {
+					return c.carried.Cut("deny rule tool", tool)
+				})
+			}
+			emit(fill(row, timeline.TurnSystem, decision))
 		}
 	}
 }

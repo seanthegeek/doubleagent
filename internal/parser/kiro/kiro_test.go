@@ -96,7 +96,7 @@ func TestDecisionTextNamesWhoRefusedTheCall(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			if got := New().decisionText(test.prompt); got != test.want {
+			if got := New().decisionText(test.prompt, func(tool string) string { return tool }); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
