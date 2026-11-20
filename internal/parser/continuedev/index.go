@@ -56,6 +56,16 @@ func (x *Indexes) Errors(path string) parser.Problems {
 	return slices.Clone(x.get(path).problems)
 }
 
+// Title returns a session's title: the file's own, else its index entry's.
+// Any number of session files can name one entry, each writing its title
+// into a row, so the entry's is cut by carried; the file's own is not.
+func Title(document, entry jsonvalue.Value, carried *parser.Carried) string {
+	if !document.Get("title").IsEmpty() {
+		return parser.Text(document.Get("title"))
+	}
+	return carried.Cut("index title", parser.Text(entry.Get("title")))
+}
+
 // ReadIndex returns the entries, by sessionId, of the sessions.json index
 // at path, and its problems: an unreadable file, a file that is not a JSON
 // array, an element that does not decode (with the text from it to the end

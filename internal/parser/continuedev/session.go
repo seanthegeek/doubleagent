@@ -101,11 +101,13 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 }
 
 // header emits a session's start row, its first model, its mode, and the
-// scratch directory row of a cn review worktree.
+// scratch directory row of a cn review worktree; an index title it cuts
+// adds a problem.
 func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
 	model := s.model
-	bits := []string{"session start: " + parser.Text(parser.FirstNonEmpty(document.Get("title"),
-		entry.Get("title")))}
+	carried := parser.NewCarried(s.artifact)
+	bits := []string{"session start: " + Title(document, entry, carried)}
+	carried.Report(0, &s.problems)
 	if mode := document.Get("mode"); !mode.IsEmpty() {
 		bits = append(bits, "mode="+mode.Text())
 	}

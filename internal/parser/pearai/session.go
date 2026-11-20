@@ -64,11 +64,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 // comes from the index entry, which any number of session files can name,
 // is cut by carried; the file's own title is not.
 func startText(document, entry jsonvalue.Value, history, search int, dated bool, carried *parser.Carried) string {
-	title := parser.Text(document.Get("title"))
-	if document.Get("title").IsEmpty() {
-		title = carried.Cut("index title", parser.Text(entry.Get("title")))
-	}
-	bits := []string{"session start: " + title}
+	bits := []string{"session start: " + continuedev.Title(document, entry, carried)}
 	if integration := entry.Get("integrationType"); !integration.IsEmpty() {
 		bits = append(bits, "integration="+carried.Cut("integration type", integration.Text()))
 	}
