@@ -13,8 +13,10 @@
 // permission, sync, relay, origin and scheduled-task rows.
 //
 // Fields read are those listed in research/agent-zero.md; a task's token and
-// system prompt are never read. A Telegram bot's token, a model override's
-// API key and every .env value are shown through parser.SecretText.
+// system prompt are never read. A Telegram bot's token and webhook secret,
+// a model configuration's API key and the connector .env's restore token,
+// the one credential that file holds, are shown through parser.SecretText;
+// the .env's other values are shown as written.
 package agentzero
 
 import (
