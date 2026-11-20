@@ -48,6 +48,8 @@ type store struct {
 	// carried cuts what a join copies onto many rows: a user's label and
 	// an integration's name and kind.
 	carried *parser.Carried
+	// problems are the database's own problems, emitted after its rows.
+	problems parser.Problems
 }
 
 // parseDatabase emits the rows of a database or a backup of one: a backup
@@ -75,7 +77,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 	if err := reader.rows(); err != nil {
 		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + parser.DatabaseError(err)}))
 	}
-	var problems parser.Problems
+	problems := reader.problems
 	reader.carried.Report(0, &problems)
 	for _, problem := range problems {
 		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + problem.Message}))
@@ -218,6 +220,36 @@ func (s *store) parents(table, order string, children *grouped) ([]parent, error
 	return list, nil
 }
 
+// eachParent runs visit over each parent with the children filed under
+// its id. An id is its table's key, so a second row of one is damage: the
+// children go with the first row of the id, in the order the rows are
+// read, each later row is visited with none, and the table gives one
+// problem counting those rows, so the rows grow with the table rather
+// than with the square of it.
+func (s *store) eachParent(table, noun string, parents []parent, children *grouped,
+	visit func(parent, []sqlitefile.Row)) {
+	shown, repeats := map[string]bool{}, 0
+	for _, each := range parents {
+		group := children.rows[each.parentID]
+		if len(group) > 0 && shown[each.parentID] {
+			group = nil
+			repeats++
+		}
+		if len(group) > 0 {
+			shown[each.parentID] = true
+		}
+		visit(each, group)
+	}
+	if repeats > 0 {
+		rows := "1 row repeating"
+		if repeats > 1 {
+			rows = strconv.Itoa(repeats) + " rows repeating"
+		}
+		s.problems = append(s.problems, parser.Problem{Message: table + " holds " + rows +
+			" an earlier row's id; its " + noun + " are shown once"})
+	}
+}
+
 // owner returns a user's label by the id column, "" when unknown; a
 // missing column reads as NULL. The label is cut by the store's carried,
 // since each of the user's rows repeats it.
@@ -240,9 +272,7 @@ func (s *store) threads() error {
 	if err != nil {
 		return err
 	}
-	for _, thread := range threads {
-		s.thread(thread, messages.rows[thread.parentID])
-	}
+	s.eachParent("threads", "messages", threads, messages, s.thread)
 	return nil
 }
 
@@ -320,9 +350,7 @@ func (s *store) pages() error {
 	if err != nil {
 		return err
 	}
-	for _, page := range pages {
-		s.page(page, sections.rows[page.parentID])
-	}
+	s.eachParent("pages", "sections", pages, sections, s.page)
 	return nil
 }
 

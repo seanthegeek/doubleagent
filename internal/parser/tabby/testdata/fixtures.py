@@ -55,9 +55,43 @@ INSERT INTO users VALUES (1, 'ana@example.com', 'Ana', 'auth_FIXTURE', '2026-10-
 DATABASES = {"integrations.db": INTEGRATIONS, "narrow_tables.db": NARROW_TABLES, "users.db": USERS}
 
 
+def repeated_ids(count: int) -> str:
+    """Return the SQL of a database whose thread id 1 and page id 2 are each on count rows.
+
+    The tables have no key, so an id can repeat; the last thread row stores its id as the text
+    '1', which the join reads as the same id. Thread 1 has count messages and page 2 count
+    sections.
+    """
+    lines = [
+        "PRAGMA page_size = 512;",
+        "CREATE TABLE threads (id, created_at TIMESTAMP);",
+        "CREATE TABLE thread_messages (id INTEGER, thread_id, role TEXT, content TEXT, created_at TIMESTAMP);",
+        "CREATE TABLE pages (id, title TEXT, created_at TIMESTAMP);",
+        "CREATE TABLE page_sections (id INTEGER, page_id, title TEXT, content TEXT, position INTEGER,"
+        " created_at TIMESTAMP);",
+    ]
+    for i in range(count):
+        thread = "'1'" if i == count - 1 else "1"
+        lines += [
+            f"INSERT INTO threads VALUES ({thread}, '2026-10-01 09:00:00');",
+            f"INSERT INTO thread_messages VALUES ({i}, 1, 'user', 'message {i}', '2026-10-01 09:00:01');",
+            f"INSERT INTO pages VALUES (2, 'copy {i}', '2026-10-01 09:00:00');",
+            f"INSERT INTO page_sections VALUES ({i}, 2, 'section {i}', 'body', {i}, '2026-10-01 09:00:02');",
+        ]
+    return "\n".join(lines)
+
+
+def scripts() -> dict[str, str]:
+    """Return the SQL of every database, by file name."""
+    built = dict(DATABASES)
+    for count in (10, 40):
+        built[f"repeated_ids_{count}.db"] = repeated_ids(count)
+    return built
+
+
 def main() -> None:
-    """Rewrite every database of DATABASES in this directory."""
-    for name, script in DATABASES.items():
+    """Rewrite every database of scripts() in this directory."""
+    for name, script in scripts().items():
         path = HERE / name
         path.unlink(missing_ok=True)
         with contextlib.closing(sqlite3.connect(path)) as connection:

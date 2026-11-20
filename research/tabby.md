@@ -722,6 +722,15 @@ row for them all, `parser: server.serverRecords holds <n> entries that are not J
 `parser: choices holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
 for one), the other choices giving their rows.
 
+A thread or page id is its table's key, so Tabby never writes two rows of one. When a damaged
+`threads` or `pages` table holds an id more than once, the id's `thread_messages` or
+`page_sections` rows go with the first row of the id in the order the rows are read
+(`created_at`, then `id`); each later row of the id gives its start row alone. One row per table,
+`parser: threads holds <n> rows repeating an earlier row's id; its messages are shown once` or
+`parser: pages holds <n> rows repeating an earlier row's id; its sections are shown once`
+(`1 row repeating` for one), follows the database's other rows, with `source_line` 0, counting the
+rows that met a group an earlier row of their id already showed.
+
 #### Fixtures
 
 ```sql
