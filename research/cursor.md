@@ -2290,7 +2290,11 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `composerHeaders` row but no `composerData` (a deleted conversation) yield `user` and
   `assistant` rows from
   `content` (a `system` message as `system prompt: <content>`), with an empty `timestamp_utc`
-  and `source_line` the rowid. Blobs of a conversation still present are not yielded: their user
+  and `source_line` the rowid. A blob naming several deleted conversations is written once, under
+  the first of them in the order the composers are read; each other one it names gets a `system`
+  row `recovered message: text under session <first id>, which the same agentKv blob names` at the
+  same rowid, so the blob's text is never repeated. Blobs of a conversation still present are not
+  yielded: their user
   text is the whole prompt with its context, which repeats the bubbles in a form deduplication
   cannot match. Protobuf blobs yield nothing.
 - `ai-code-tracking.db` (not secondary: it repeats no event): `ai_code_hashes`, `system`, `ai
