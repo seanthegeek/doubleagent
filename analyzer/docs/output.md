@@ -1373,6 +1373,23 @@ alike. [searching.md](searching.md) has recipes.
 | `source_line` | integer | Where the record is in that file, so the full record can be read. For line-oriented files (JSONL, Markdown, text) the 1-based line number. For SQLite stores it is the record's `rowid` (Tabby events: the event id), and for JSON documents an array index or `1`. Each parser's module docstring says which. `0` when no position applies. |
 | `recovered` | string | `yes` when the row is an event (any `turn_type` but `system`) from a secondary source of its agent (see [Secondary sources](#secondary-sources)) that survived deduplication, so the agent's primary store does not hold the event; since 0.20.0 also the `user` and `assistant` rows the `cursor` parser takes from the `agentKv` prompt blobs of a conversation deleted in the editor, which the editor's database still holds although the conversation's own records are gone; since 0.20.1 also the turns the `kiro` parser recovers from a conversation's checkpoint snapshots or tangent-mode main history, which the conversation's own history no longer holds. `""` for every other row, including every `system` row of a secondary source (an index header, a thread record, a snapshot, a session-start or permission row, a `parser:` problem), which describes the source or the session rather than a turn the primary store lost. Since analyzer 0.15.0. |
 
+**A long text that many rows name.** Some texts are named by more than one
+row: a Claude Code paste that several history lines (or several
+placeholders of one line) name, a persisted tool output that several tool
+results name, a Cursor `agentKv` blob that several deleted conversations
+name, and a Cursor full-text body that several conversations join. Each
+such text is written in full once, in the first row of `timeline.jsonl`
+that names it, and every later row that names it holds a short pointer in
+its place instead, naming the `source_file` and `source_line` of the row
+above that holds it (a second reference within one row says only that it
+is shown above). Which row holds the text is settled after deduplication,
+`--since`, `--until`, `--agent` and `--match` have chosen the rows, so a
+filtered timeline holds every text its pointers name; rows are sorted by
+time before that, so the holder is always earlier in the file. `--match`
+reads each row with every such text in full, so whether a row is kept does
+not depend on whether it holds the text or a pointer, and deduplication
+compares rows the same way.
+
 **Carried values longer than 4,096 bytes.** Every field but `text` and
 `source_line` is at most 4,096 bytes, the bound the input also puts on a
 file's path (one byte more than the longest path Linux takes): the
@@ -3110,7 +3127,7 @@ beside its `session synced: server conversation` row.
 | `agent-zero` | `usr/scheduler/tasks.json` of the install directory or volume (each task's prompt, with no timestamp, matches on text within the task's chat; its last result is stamped when the run ends: a 60-second window); the Telegram plugin's `usr/plugins/_telegram_integration/state.json` (only `system` rows, for a mapped chat that is gone) | `usr/chats/<ctxid>/chat.json` |
 | `aider` | `.aider.input.history` and `.aider.llm.history`, in a home or a repository | `.aider.chat.history.md` beside them |
 | `antigravity` | `.gemini/antigravity-cli/history.jsonl`; the brain mirror `.gemini/<dir>/brain/<uuid>/.system_generated/logs/transcript_full.jsonl`, else its chunks, else `transcript.jsonl`, else its chunks, `<dir>` each of `antigravity-cli`, `antigravity`, `antigravity-ide` and `antigravity-backup` (600 seconds: the mirror records a step's start, the database row its completion) | `.gemini/<dir>/conversations/<uuid>.db` |
-| `claude-code` | `.claude/history.jsonl` (and `.claude-<name>/history.jsonl`; a `[Pasted text #<n> ...]` placeholder is expanded from the line's `pastedContents` or `paste-cache/<contentHash>.txt` when either holds the paste, once per line, a later placeholder of the same paste ending `, shown above]`; `/exit` and other commands the transcript does not record never pair) | `.claude/projects/<slug>/*.jsonl` and its subagent files |
+| `claude-code` | `.claude/history.jsonl` (and `.claude-<name>/history.jsonl`; a `[Pasted text #<n> ...]` placeholder is expanded from the line's `pastedContents` or `paste-cache/<contentHash>.txt` when either holds the paste, matching in full but written once per output, a later placeholder of the same paste ending `, shown above]` or `, shown above in <source_file> line <n>]` ([A long text that many rows name](#timelinejsonl)); `/exit` and other commands the transcript does not record never pair) | `.claude/projects/<slug>/*.jsonl` and its subagent files |
 | `claude-desktop` | each Cowork session's `local-agent-mode-sessions/<acct>/<org>/[agent/]<session dir>/audit.jsonl` under the app-data directory; the session records `local_<uuid>.json` beside the session dirs and under `claude-code-sessions/` (a Cowork record's first prompt has no timestamp: matches on text within the session) | the session dir's `.claude/projects/<slug>/*.jsonl` and its subagent files |
 | `cline` | `.cline/data/db/session-search.db` (no timestamp per message: matches on text and session; a message of content blocks keeps their type names and tool ids, so only plain-string prompts match); `.cline/data/cache/user_input_history.jsonl` (only the last line timestamped: the others match on text alone); `.cline/data/logs/hooks.jsonl` (tolerance one hour; tool rows match on the call id) | `.cline/data/sessions/<id>/<id>.messages.json` |
 | `codex-cli` | `.codex/history.jsonl`; `.codex/state_5.sqlite` (first prompt with no timestamp: matches on text alone); `.codex/thread_history_1.sqlite`; `.codex/.codex-global-state.json` (the desktop app's prompt history, no timestamp: matches on text within the thread); `.codex/db-backups/<folder>/state_5.sqlite` (a copy Codex set aside as corrupt, read as `state_5.sqlite`) | the rollouts under `.codex/sessions/` and `.codex/archived_sessions/` |

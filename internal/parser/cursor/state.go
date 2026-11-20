@@ -351,62 +351,60 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 
 // blobs emits user and assistant rows from the JSON agentKv blobs that
 // name a deleted composer; a blob that is not JSON is protobuf, not an
-// error. A blob's text is written once, under the first deleted composer
-// it names in the order the composers are read; each other composer it
-// names gets a short row pointing to that session, so the text is never
-// repeated.
+// error. Each deleted composer a blob names gets its row, and the rows
+// share the blob's text: the output writes it in full in the first of them
+// it keeps and a pointer to that row in each later one, so the text is
+// never repeated.
 func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 	idents := make([]string, len(deleted))
 	for i, current := range deleted {
 		idents[i] = current.ident
 	}
 	named := textset.New(idents, r.store.work)
-	// The first composer's id stands in the row of each other one it names.
-	carried := parser.NewCarried(r.artifact)
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
 		blob, err := jsonvalue.DecodeString(asText(row.value))
 		if err != nil || !blob.Has("content") {
 			continue
 		}
 		content := blob.Get("content")
-		positions := named.Find(parser.SettingValue(content))
-		if len(positions) == 0 {
-			continue
-		}
-		first := deleted[positions[0]]
-		r.blob(r.owner.newStamper(r.artifact, first, emit), blob, row.rowid)
-		for _, position := range positions[1:] {
-			r.owner.newStamper(r.artifact, deleted[position], emit).add(timeline.TurnSystem,
-				sharedBlobText(carried.Cut("session id", first.ident)), "", row.rowid, "")
+		text := timeline.NewSharedText(timeline.Compact(parser.TextOf(content)))
+		for _, position := range named.Find(parser.SettingValue(content)) {
+			r.blob(r.owner.newStamper(r.artifact, deleted[position], emit), blob, text, row.rowid)
 		}
 	}
-	var problems parser.Problems
-	carried.Report(0, &problems)
-	parser.EmitAll(emit, r.owner.ErrorRows(r.artifact, problems, "", ""))
 }
 
-// sharedBlobText returns the text of the row of a deleted composer whose
-// agentKv blob's text is written under another composer the blob names.
-func sharedBlobText(owner string) string {
-	return "recovered message: text under session " + owner + ", which the same agentKv blob names"
+// blobPointer is the pointer of a later row of an agentKv blob: the row of
+// the same source line under another session the blob names holds its
+// text.
+func blobPointer(holder *timeline.Row, _ bool) string {
+	return "[agentKv blob text shown in full above, in the row of source line " +
+		strconv.Itoa(holder.SourceLine) + " under another session it names]"
 }
 
-// blob emits the row of one JSON agentKv blob in a composer: a user or
-// assistant message recovered, or a system row for any other role.
-func (r *stateReader) blob(stamp *stamper, blob jsonvalue.Value, rowid int64) {
+// blob emits the row of one JSON agentKv blob, whose text is shared, in a
+// composer: a user or assistant message recovered, or a system row for any
+// other role.
+func (r *stateReader) blob(stamp *stamper, blob jsonvalue.Value, shared *timeline.SharedText, rowid int64) {
 	role := parser.Text(blob.Get("role"))
-	text := timeline.Compact(parser.TextOf(blob.Get("content")))
-	if role == "user" || role == "assistant" {
-		made := stamp.row(role, text, "", rowid, "")
+	turnType, label := role, ""
+	if role != "user" && role != "assistant" {
+		turnType, label = timeline.TurnSystem, "system prompt: "
+		if role != "system" {
+			label = cmp.Or(role, "-") + " message: "
+		}
+	}
+	made := stamp.row(turnType, label+shared.Text(), "", rowid, "")
+	if shared.Text() != "" {
+		var out timeline.TextBuilder
+		out.Write(label)
+		out.Share(shared, "[agentKv blob text]", blobPointer)
+		out.Set(&made)
+	}
+	if turnType != timeline.TurnSystem {
 		made.Recovered = "yes"
-		stamp.emit(made)
-		return
 	}
-	label := "system prompt"
-	if role != "system" {
-		label = cmp.Or(role, "-") + " message"
-	}
-	stamp.add(timeline.TurnSystem, label+": "+text, "", rowid, "")
+	stamp.emit(made)
 }
 
 // keyedValue returns the value of the first row whose key is text, false

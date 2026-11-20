@@ -23,7 +23,8 @@ func persistedStub(name string) string {
 
 // toolResultRows writes a session file s1.jsonl of the given tool result
 // stubs, one line each, beside s1/tool-results/ holding files, and returns
-// the texts of the tool_result rows the parser gives it.
+// the texts of the tool_result rows the parser gives it, each shared text
+// written out in the order of the rows.
 func toolResultRows(t *testing.T, stubs []string, files map[string]string) []string {
 	t.Helper()
 	home := t.TempDir()
@@ -52,22 +53,27 @@ func toolResultRows(t *testing.T, stubs []string, files map[string]string) []str
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "claude-code",
 		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
-	var texts []string
+	var rows []timeline.Row
 	emit := func(row timeline.Row) {
 		if row.TurnType == timeline.TurnToolResult {
-			texts = append(texts, row.Text)
+			rows = append(rows, row)
 		}
 	}
 	if err := New().Parse(artifact, parser.Options{}, emit); err != nil {
 		t.Fatal(err)
 	}
+	timeline.Resolve(rows)
+	texts := make([]string, len(rows))
+	for i, row := range rows {
+		texts[i] = row.Text
+	}
 	return texts
 }
 
-// persistedPointer is the row of a later reference to tool-results/<name>
+// laterReference is the row of a later reference to tool-results/<name>
 // whose text line of s1.jsonl shows.
-func persistedPointer(name string, line int) string {
-	return persistedStub(name) + "\n[persisted output shown in full at its first reference " +
+func laterReference(name string, line int) string {
+	return persistedStub(name) + "\n[persisted output shown in full above " +
 		"(/home/u/.claude/projects/p/s1.jsonl line " + strconv.Itoa(line) + "): tool-results/" + name + "]"
 }
 
@@ -83,8 +89,8 @@ func TestAPersistedOutputNamedByManyStubsIsWrittenOnce(t *testing.T) {
 		for _, text := range texts {
 			got += len(text)
 		}
-		want := len(output) + (size-1)*len(persistedPointer("a.txt", 1))
-		if got != want || len(texts) != size || texts[0] != output || texts[size-1] != persistedPointer("a.txt", 1) {
+		want := len(output) + (size-1)*len(laterReference("a.txt", 1))
+		if got != want || len(texts) != size || texts[0] != output || texts[size-1] != laterReference("a.txt", 1) {
 			t.Errorf("%d stubs naming one file of %d bytes: %d rows of %d bytes, want %d rows of %d bytes",
 				size, len(output), len(texts), got, size, want)
 		}
@@ -96,8 +102,8 @@ func TestEachPersistedOutputIsShownInFullAtItsOwnFirstReference(t *testing.T) {
 		persistedStub("gone.txt"), persistedStub("gone.txt"), persistedStub("b.txt")}
 	texts := toolResultRows(t, stubs, map[string]string{"a.txt": "output A", "b.txt": "output B"})
 	missing := persistedStub("gone.txt") + "\n[persisted output not found: tool-results/gone.txt]"
-	want := []string{"output A", "output B", persistedPointer("a.txt", 1), missing, missing,
-		persistedPointer("b.txt", 2)}
+	want := []string{"output A", "output B", laterReference("a.txt", 1), missing, missing,
+		laterReference("b.txt", 2)}
 	if strings.Join(texts, "\n|\n") != strings.Join(want, "\n|\n") {
 		t.Errorf("got %q, want %q", texts, want)
 	}
@@ -120,7 +126,8 @@ type shownRow struct {
 
 // sessionRows writes the sessions into one home and parses every
 // transcript with one parser, session by session in order, and returns the
-// tool_result rows and the persisted outputs the parser read.
+// tool_result rows, each shared text written out in the order of the
+// rows, and the persisted outputs the parser read.
 func sessionRows(t *testing.T, sessions map[string]sessionFiles, order []string) ([]shownRow, int) {
 	t.Helper()
 	home := t.TempDir()
@@ -128,7 +135,7 @@ func sessionRows(t *testing.T, sessions map[string]sessionFiles, order []string)
 	subject.Work = parser.CountingWork()
 	// One home value, as one load of an input gives all its files.
 	homeValue := &input.Home{DiskPath: home, Original: "/home/u"}
-	var rows []shownRow
+	var parsed []timeline.Row
 	for _, sessionID := range order {
 		files := sessions[sessionID]
 		for name, text := range files.outputs {
@@ -141,12 +148,17 @@ func sessionRows(t *testing.T, sessions map[string]sessionFiles, order []string)
 				Home: homeValue, Manifest: jsonvalue.NewNull()}
 			if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 				if row.TurnType == timeline.TurnToolResult {
-					rows = append(rows, shownRow{row.SourceFile, row.SourceLine, row.Text})
+					parsed = append(parsed, row)
 				}
 			}); err != nil {
 				t.Fatal(err)
 			}
 		}
+	}
+	timeline.Resolve(parsed)
+	rows := make([]shownRow, len(parsed))
+	for i, row := range parsed {
+		rows[i] = shownRow{row.SourceFile, row.SourceLine, row.Text}
 	}
 	return rows, subject.Work.Count("persisted outputs read")
 }
@@ -181,7 +193,7 @@ func stubLine(sessionID, name string) string {
 // whose text a row of file at line shows.
 func pointerTo(sessionID, name, file string, line int) string {
 	return "<persisted-output>\nOutput too large. Full output saved to: /x/" + sessionID + "/tool-results/" + name +
-		"\n</persisted-output>\n[persisted output shown in full at its first reference (" + file + " line " +
+		"\n</persisted-output>\n[persisted output shown in full above (" + file + " line " +
 		strconv.Itoa(line) + "): tool-results/" + name + "]"
 }
 
@@ -251,13 +263,18 @@ func TestASecondLoadOfTheSameFilesShowsTheOutputAgain(t *testing.T) {
 	for load := range 2 {
 		artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "claude-code",
 			Home: &input.Home{DiskPath: home, Original: "/home/u"}, Manifest: jsonvalue.NewNull()}
-		var texts []string
+		var rows []timeline.Row
 		if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
 			if row.TurnType == timeline.TurnToolResult {
-				texts = append(texts, row.Text)
+				rows = append(rows, row)
 			}
 		}); err != nil {
 			t.Fatal(err)
+		}
+		timeline.Resolve(rows)
+		var texts []string
+		for _, row := range rows {
+			texts = append(texts, row.Text)
 		}
 		if !slices.Equal(texts, []string{"output A"}) {
 			t.Errorf("load %d: got %q, want the output in full", load, texts)

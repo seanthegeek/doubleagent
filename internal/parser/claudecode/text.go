@@ -157,7 +157,9 @@ const commandWindowSeconds = 600.0
 // "/<name>", plus " <args>" when the arguments are not empty. A prompt
 // matches with the transcript's <pasted_content> wrapper removed, since
 // the history holds the bare paste. Both collapse each run of ASCII
-// whitespace to one space; every other row matches as it is.
+// whitespace to one space; every other row matches as it is. A history
+// line matches with each paste it names in full (timeline.Row.FullText),
+// however the output then writes it.
 func MatchForm(row timeline.Row) (turnType, text string) {
 	switch row.TurnType {
 	case timeline.TurnSystem:
@@ -165,7 +167,7 @@ func MatchForm(row timeline.Row) (turnType, text string) {
 			return timeline.TurnUser, squash(command)
 		}
 	case timeline.TurnUser:
-		return timeline.TurnUser, squash(pasteWrapperPattern.ReplaceAllLiteralString(row.Text, " "))
+		return timeline.TurnUser, squash(pasteWrapperPattern.ReplaceAllLiteralString(row.FullText(), " "))
 	}
 	return row.TurnType, row.Text
 }
@@ -199,10 +201,10 @@ func squash(text string) string {
 }
 
 // MatchWindow returns the forward window of a history row that is a slash
-// command as typed, and false for any other row, which keeps the source's
-// own tolerance.
+// command as typed, its pastes read in full, and false for any other row,
+// which keeps the source's own tolerance.
 func MatchWindow(row timeline.Row) (float64, bool) {
-	if row.TurnType == timeline.TurnUser && historyCommandPattern.MatchString(row.Text) {
+	if row.TurnType == timeline.TurnUser && row.Matches(historyCommandPattern) {
 		return commandWindowSeconds, true
 	}
 	return 0, false

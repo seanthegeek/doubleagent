@@ -139,13 +139,17 @@ func (s *session) textRow(record jsonvalue.Value, label, text string) timeline.R
 // toolResult emits the row of a tool_result block.
 func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 	text := ResultText(block.Get("content"))
-	if savedPath != "" || strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), persistedMark) {
-		text = s.persistedText(text, savedPath)
-	}
+	var out timeline.TextBuilder
 	if !block.Get("is_error").IsEmpty() {
-		text = "[error] " + text
+		out.Write("[error] ")
 	}
-	row := s.row(timeline.TurnToolResult, text)
+	if savedPath != "" || strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), persistedMark) {
+		s.persistedText(&out, text, savedPath)
+	} else {
+		out.Write(text)
+	}
+	row := s.row(timeline.TurnToolResult, "")
+	out.Set(&row)
 	row.ToolUseID = parser.Text(block.Get("tool_use_id"))
 	s.emit(row)
 }

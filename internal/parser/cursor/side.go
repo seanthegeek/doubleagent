@@ -71,9 +71,10 @@ func ftsBodies(store *store) map[string]sqlitefile.Value {
 }
 
 // search emits the rows of conversation-search.db: a conversation's cloud
-// origin, its index entry and its cached text. Each full-text body is
-// written once, under the first conversation that joins it; the later
-// conversations joining it give no copy and are counted as one problem.
+// origin, its index entry and its cached text. The conversations that join
+// one full-text body share its text: the output writes it in full in the
+// first of their rows it keeps and a pointer to that row in each later
+// one, and the later conversations joining it are counted as one problem.
 func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit) {
 	table := store.table("conversations")
 	if table == nil {
@@ -85,32 +86,39 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 	if store.keep(err) {
 		return
 	}
-	written, repeats := map[string]bool{}, 0
+	written, repeats := map[string]*timeline.SharedText{}, 0
 	for _, record := range records {
 		sessionID := asText(record.Get("id"))
-		row := func(text string) {
+		row := func(text string, shared *timeline.SharedText) {
 			made := p.row(artifact, timeline.TurnSystem, text, parser.ColumnTime(record.Get("updated_at")), record.Rowid)
+			if shared != nil {
+				var out timeline.TextBuilder
+				out.Write(text)
+				out.Share(shared, "[cached conversation text]", bodyPointer)
+				out.Set(&made)
+			}
 			joinProject(&made, sessionID, index)
 			made.Model = index.models[sessionID]
 			emit(made)
 		}
 		source := asText(record.Get("source"))
 		if source == cloudCache {
-			row(cloudOrigin)
+			row(cloudOrigin, nil)
 		}
 		if title := timeline.Compact(asText(record.Get("title"))); title != "" {
-			row("conversation index: " + title + " source=" + cmp.Or(source, "-") + " archived=" +
-				columnField(record.Get("is_archived")))
+			row("conversation index: "+title+" source="+cmp.Or(source, "-")+" archived="+
+				columnField(record.Get("is_archived")), nil)
 		}
 		key := parser.ColumnKey(record.Get("fts_rowid"))
-		body := timeline.Compact(asText(bodies[key]))
-		switch {
-		case key == "" || body == "":
-		case written[key]:
-			repeats++
-		default:
-			written[key] = true
-			row("cached conversation text (conversation-search.db, source=" + cmp.Or(source, "-") + "): " + body)
+		if body := timeline.Compact(asText(bodies[key])); key != "" && body != "" {
+			shared, met := written[key]
+			if met {
+				repeats++
+			} else {
+				shared = timeline.NewSharedText(body)
+				written[key] = shared
+			}
+			row("cached conversation text (conversation-search.db, source="+cmp.Or(source, "-")+"): ", shared)
 		}
 	}
 	if repeats > 0 {
@@ -118,6 +126,12 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 		problems.Add(0, sharedBodiesText(repeats))
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 	}
+}
+
+// bodyPointer is the pointer of a later conversation's row of a full-text
+// body: the conversation row of the source line given holds its text.
+func bodyPointer(holder *timeline.Row, _ bool) string {
+	return "[shown in full above, in the row of source line " + strconv.Itoa(holder.SourceLine) + "]"
 }
 
 // sharedBodiesText returns the problem text of n conversations whose

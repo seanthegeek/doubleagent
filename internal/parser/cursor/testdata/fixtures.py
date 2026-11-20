@@ -244,10 +244,20 @@ SHARED_BODIES = (
     + body(2, "body two")
 )
 
+# c1, c2 and c3 join one full-text row at three times, c1 from another
+# source, so a filter of the time or of the text can leave out the first.
+SHARED_BODY_TIMES = (
+    "INSERT INTO conversations VALUES (1, 'local', '', 'c1', 'Title c1', '', 1767323045000, 0);\n"
+    "INSERT INTO conversations VALUES (1, 'remote', '', 'c2', 'Title c2', '', 1767323046000, 0);\n"
+    "INSERT INTO conversations VALUES (1, 'remote', '', 'c3', 'Title c3', '', 1767323047000, 0);\n"
+    + body(1, "the shared body")
+)
+
 SEARCH_DATABASES = {
     "shared_body_20.db": shared_body(20),
     "shared_body_40.db": shared_body(40),
     "shared_bodies.db": SHARED_BODIES,
+    "shared_body_times.db": SHARED_BODY_TIMES,
 }
 
 

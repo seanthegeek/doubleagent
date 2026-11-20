@@ -14,7 +14,8 @@ import (
 
 // rowsOfTableCaseDatabase copies the named testdata conversation-search.db,
 // written by a script under testdata, into a new home at the database's
-// path and returns the text of every row the parser gives for it.
+// path and returns the text of every row the parser gives for it, each
+// shared text written out in the order of the rows.
 func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	t.Helper()
 	const rel = ".config/Cursor/User/globalStorage/conversation-search.db"
@@ -32,9 +33,14 @@ func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "cursor",
 		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
-	var texts []string
-	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 		t.Fatal(err)
+	}
+	timeline.Resolve(rows)
+	texts := make([]string, len(rows))
+	for i, row := range rows {
+		texts[i] = row.Text
 	}
 	return texts
 }
