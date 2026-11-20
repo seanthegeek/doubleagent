@@ -1278,7 +1278,10 @@ in a moved project still joins.
 pi keeps no prompt history file ([What survives a delete](#what-survives-a-delete)).
 
 When a file's `parentSession` parent is also in the collection, child entries whose `id` and
-`timestamp` match a parent entry are dropped, so a fork does not double the timeline.
+`timestamp` match a parent entry are dropped, so a fork does not double the timeline. The parent
+is the file the path opens: on a disk that matches names in any letter case (the macOS and
+Windows default) every case spelling of its name is that one file, read once for all the forks
+naming it, and a `parentSession` naming the fork's own file in another spelling drops nothing.
 
 An export or a zip transcript of a fork keeps the entries the fork copied from its parent. They
 carry the fork's id, the parent's rows carry the parent's, and the fork's session file drops them,

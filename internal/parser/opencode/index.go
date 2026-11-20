@@ -28,9 +28,9 @@ type treeIndex struct {
 	// state, since every session of a project names it.
 	projectFiles map[fileState]*sideRead
 	// partsShown holds the message file that first showed each part
-	// directory, by root and names, since a message id names one directory
-	// of parts.
-	partsShown map[string]string
+	// directory, by the directory's entry, since a message id names one
+	// directory of parts.
+	partsShown map[parser.EntryKey]string
 }
 
 // projectFiles is one session directory's project directories, in name
@@ -47,10 +47,10 @@ type projectFiles struct {
 	unlisted []int
 }
 
-// fileState names a file as read: its path, modification time in
+// fileState names a file as read: its entry, modification time in
 // nanoseconds and size, the key of what is read from it once.
 type fileState struct {
-	path        string
+	entry       parser.EntryKey
 	mtime, size int64
 }
 
@@ -77,7 +77,7 @@ type sessionKey struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string]*projectFiles{},
 		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
-		projectFiles: map[fileState]*sideRead{}, partsShown: map[string]string{}}
+		projectFiles: map[fileState]*sideRead{}, partsShown: map[parser.EntryKey]string{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,
@@ -170,15 +170,16 @@ func (f *projectFiles) candidates(name string) []int {
 }
 
 // projectFile returns the project file at path as readSide does, read once
-// per state of the file for the run; the problems of that read are added
-// for each lookup as a fresh read would.
+// per state of the file for the run, whatever spelling of its name opens
+// it; the problems of that read are added for each lookup as a fresh read
+// would.
 func (x *treeIndex) projectFile(path string, found bool, problems *parser.Problems,
 	work parser.Work) (jsonvalue.Value, error) {
 	info, err := osfile.Lstat(path)
 	if !found || err != nil {
 		return readSide(path, found, problems)
 	}
-	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	key := fileState{entry: parser.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}
 	held, ok := x.projectFiles[key]
 	if !ok {
 		work.Add("project file reads", 1)

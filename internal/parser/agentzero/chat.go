@@ -348,7 +348,7 @@ type chat struct {
 	// and files the message files already looked for: each joins the
 	// first log item that reaches it and is read at most once.
 	joined map[string]bool
-	files  map[string]bool
+	files  map[parser.EntryKey]bool
 	// work counts the message files read, which a test holds to one each.
 	work   parser.Work
 	models parser.Tracker
@@ -636,8 +636,9 @@ func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
 }
 
 // messageFile returns the text of the message file a history entry names, ""
-// when there is none or an earlier entry of the chat named it: a file is
-// looked for once, and its text joins the first log item that reaches it.
+// when there is none or an earlier entry of the chat named it, in any
+// spelling that opens it: a file is looked for once, and its text joins
+// the first log item that reaches it.
 // A file that exists but cannot be read adds its unreadable problem; a
 // failure to look for it stops the parse.
 func (c *chat) messageFile(content jsonvalue.Value) string {
@@ -645,18 +646,18 @@ func (c *chat) messageFile(content jsonvalue.Value) string {
 		return ""
 	}
 	name := strings.ReplaceAll(content.Get("file").Text(), `\`, "/")
-	name = name[strings.LastIndex(name, "/")+1:]
-	if c.files[name] {
-		return ""
-	}
-	if c.files == nil {
-		c.files = map[string]bool{}
-	}
-	c.files[name] = true
-	path, named := c.messages.Child(name)
+	path, named := c.messages.Child(name[strings.LastIndex(name, "/")+1:])
 	if !named {
 		return ""
 	}
+	key := parser.KeyOf(path)
+	if c.files[key] {
+		return ""
+	}
+	if c.files == nil {
+		c.files = map[parser.EntryKey]bool{}
+	}
+	c.files[key] = true
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		if !absentLookup(err) {
