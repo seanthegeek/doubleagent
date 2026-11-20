@@ -127,7 +127,7 @@ func TestACutValueKeepsWholeCharactersAndSaysItsLength(t *testing.T) {
 	// cut point.
 	accented := "a" + strings.Repeat("é", 5000)
 	mark := " [cut from 10001 bytes]"
-	got := cutValue(nil, accented, false)
+	got := cutValue(nil, accented, CarriedLimit, false)
 	if !utf8.ValidString(got) || !strings.HasSuffix(got, mark) || len(got) > CarriedLimit ||
 		got != accented[:len(got)-len(mark)]+mark {
 		t.Errorf("cut %q... of %d bytes, want whole characters and %q", got[:10], len(got), mark)

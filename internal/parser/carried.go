@@ -37,16 +37,17 @@ func cutMark(length int) string {
 	return markStart + strconv.Itoa(length) + markEnd
 }
 
-// cutValue returns value, longer than CarriedLimit, cut to at most
-// CarriedLimit bytes: its first bytes up to secrets.CutPoint, which keeps
-// whole or leaves out each URL credential, each earlier cut it holds
-// (earlierCuts) and each span of whole, then cutMark. The cut is recorded in recorder
+// cutValue returns value, longer than limit, cut to at most limit bytes
+// (CarriedLimit, or less to leave room for what follows it): its first
+// bytes up to secrets.CutPoint, which keeps whole or leaves out each URL
+// credential, each earlier cut it holds (earlierCuts) and each span of
+// whole, then cutMark. The cut is recorded in recorder
 // (secrets.Recorder.Cut, inText when it stands in a row's text), so a
 // secret the cut runs through is withheld whole, and the same value always
 // gives the same text.
-func cutValue(recorder *secrets.Recorder, value string, inText bool, whole ...[2]int) string {
+func cutValue(recorder *secrets.Recorder, value string, limit int, inText bool, whole ...[2]int) string {
 	mark := cutMark(len(value))
-	kept := secrets.CutPoint(value, CarriedLimit-len(mark), append(earlierCuts(value), whole...))
+	kept := secrets.CutPoint(value, limit-len(mark), append(earlierCuts(value), whole...))
 	written := value[:kept] + mark
 	recorder.Cut(value, written, kept, inText)
 	return written
@@ -96,19 +97,21 @@ func CarriedProblem(name string, n int) string {
 		strconv.Itoa(CarriedLimit) + " bytes (" + strconv.Itoa(n) + times
 }
 
-// lastCut is the value, as the parser gave it, that a cut was last made of
-// and the text written for it, so a value carried onto many rows is cut
-// once; cut is false for a project path that its one spelling brought
-// within the limit.
+// lastCut is the value, as the parser gave it, that a cut was last made of,
+// the limit it was cut to and the text written for it, so a value carried
+// onto many rows is cut once; cut is false for a project path that its one
+// spelling brought within the limit.
 type lastCut struct {
 	value, written string
+	limit          int
 	cut            bool
 }
 
-// cutOf returns the cut of value, from the last when it is the same value.
-func (l *lastCut) cutOf(recorder *secrets.Recorder, value string, inText bool) string {
-	if l.written == "" || l.value != value {
-		*l = lastCut{value: value, written: cutValue(recorder, value, inText), cut: true}
+// cutOf returns the cut of value to limit, from the last when it is the
+// same value and limit.
+func (l *lastCut) cutOf(recorder *secrets.Recorder, value string, limit int, inText bool) string {
+	if l.written == "" || l.limit != limit || l.value != value {
+		*l = lastCut{value: value, written: cutValue(recorder, value, limit, inText), limit: limit, cut: true}
 	}
 	return l.written
 }
@@ -176,7 +179,7 @@ func (c *carriedFields) written(name, value string) (string, bool) {
 			whole = [][2]int{{timeline.KeptAsWrittenFrom(written), len(written)}}
 		}
 		if len(written) > CarriedLimit {
-			written, cut = cutValue(c.recorder, written, false, whole...), true
+			written, cut = cutValue(c.recorder, written, CarriedLimit, false, whole...), true
 		}
 		*last = lastCut{value: value, written: written, cut: cut}
 	}

@@ -54,14 +54,11 @@ func ollamaDatabaseCases() []growthCase {
 			return one(ollamaDatabaseRel, ollamaDatabase(t, messages,
 				rows(n, func(i int) []any { return ollamaCall(i+1, 1, "web_search") }), nil))
 		}},
-		{kind: "database", shape: shapeJoins + " in the chat id", known: "allocated bytes grow 3.52 times from " +
-			"n=64 to 128 (5,494,688 to 19,324,528): each call's tool_use_id is built from the whole n-kilobyte chat id " +
-			"before the cut (ollama/database.go messageReader.assistant)",
-			files: func(t *testing.T, n int) []growthFile {
-				messages := [][]any{ollamaMessage(1, strings.Repeat("c", 1024*n), "assistant", "calling", "m")}
-				return one(ollamaDatabaseRel, ollamaDatabase(t, messages,
-					rows(n, func(i int) []any { return ollamaCall(i+1, 1, "web_search") }), nil))
-			}},
+		{kind: "database", shape: shapeJoins + " in the chat id", files: func(t *testing.T, n int) []growthFile {
+			messages := [][]any{ollamaMessage(1, strings.Repeat("c", 1024*n), "assistant", "calling", "m")}
+			return one(ollamaDatabaseRel, ollamaDatabase(t, messages,
+				rows(n, func(i int) []any { return ollamaCall(i+1, 1, "web_search") }), nil))
+		}},
 		{kind: "database", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
 			messages := append([][]any{ollamaMessage(1, "c", "assistant", "", "m")},
 				rows(n, func(i int) []any { return ollamaMessage(i+2, "c", "tool", "result", "") })...)

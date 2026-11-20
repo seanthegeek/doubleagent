@@ -29,7 +29,27 @@ func NewCarried(artifact *input.Artifact) *Carried {
 // problem ("settings key"), as written when it is CarriedLimit bytes or
 // fewer, else cut to that and counted for Report.
 func (c *Carried) Cut(name, value string) string {
-	if len(value) <= CarriedLimit {
+	return c.cut(name, value, CarriedLimit, true)
+}
+
+// CutAhead returns value, which a field of each row starts with ahead of a
+// suffix of at most room bytes (a long chat id before ":<call id>" in each
+// call's tool_use_id), as written when the two fit in CarriedLimit, else
+// cut so that they do and counted for Report under name. Each row's field
+// then needs no cut of its own, so the value is cut and given to the
+// secrets recorder once however many suffixes follow it, and distinct
+// suffixes keep the fields distinct. The cut is recorded as a field's, not
+// as row text. A suffix longer than room makes the field longer than
+// CarriedLimit, and the kit cuts that field as it cuts any.
+func (c *Carried) CutAhead(name, value string, room int) string {
+	return c.cut(name, value, CarriedLimit-room, false)
+}
+
+// cut returns value as written when it is limit bytes or fewer, else cut
+// to limit and counted for Report under name; inText says whether it
+// stands in a row's text or in a field.
+func (c *Carried) cut(name, value string, limit int, inText bool) string {
+	if len(value) <= limit {
 		return value
 	}
 	if c.counts[name] == 0 {
@@ -41,7 +61,7 @@ func (c *Carried) Cut(name, value string) string {
 		last = &lastCut{}
 		c.last[name] = last
 	}
-	return last.cutOf(recorderOf(c.artifact), value, true)
+	return last.cutOf(recorderOf(c.artifact), value, limit, inText)
 }
 
 // Report adds, at line, one problem (CarriedProblem) per name cut since

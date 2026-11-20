@@ -48,3 +48,47 @@ func TestCarriedCutsEachNamesValueOnceWhenNamesTakeTurns(t *testing.T) {
 		t.Errorf("the recorder compared %d bytes of cut values, want none", compared)
 	}
 }
+
+func TestCutAheadLeavesRoomForASuffixAfterTheValue(t *testing.T) {
+	const room = 21
+	long := filler(9000)
+	tests := []struct {
+		name, value, want string
+	}{
+		{"a value that fits with the room is written whole", filler(CarriedLimit - room),
+			filler(CarriedLimit - room)},
+		{"a value one byte too long for the room is cut", filler(CarriedLimit - room + 1),
+			filler(CarriedLimit - room + 1)[:CarriedLimit-room-len(cutMark(CarriedLimit-room+1))] +
+				cutMark(CarriedLimit-room+1)},
+		{"a long value is cut to leave the room", long, long[:CarriedLimit-room-len(cutMark(9000))] + cutMark(9000)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := NewCarried(&input.Artifact{}).CutAhead("chat id", test.value, room)
+			if got != test.want || len(got)+room > CarriedLimit {
+				t.Errorf("CutAhead gave %d bytes, want %d within %d", len(got), len(test.want), CarriedLimit-room)
+			}
+		})
+	}
+}
+
+// A value cut ahead of many suffixes is cut once and given to the secrets
+// recorder once, and its cuts are counted for one problem.
+func TestCutAheadCutsAValueGivenAgainOnce(t *testing.T) {
+	work := CountingWork()
+	recorder := secrets.NewRecorder(secrets.Setting{Withhold: true})
+	recorder.CountWork(work)
+	carried := NewCarried(&input.Artifact{Home: &input.Home{Secrets: recorder}})
+	long := filler(9000)
+	for range 100 {
+		carried.CutAhead("chat id", long, 21)
+	}
+	var problems Problems
+	carried.Report(0, &problems)
+	want := Problems{{Message: CarriedProblem("chat id", 100)}}
+	if compared := work.Count("cut bytes compared"); compared != 0 || len(recorder.CutValues()) != 1 ||
+		!slices.Equal(problems, want) {
+		t.Errorf("compared %d bytes, recorded %d cuts and problems %v; want none, one and %v", compared,
+			len(recorder.CutValues()), problems, want)
+	}
+}
