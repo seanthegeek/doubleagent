@@ -2290,10 +2290,10 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `composerHeaders` row but no `composerData` (a deleted conversation) yield `user` and
   `assistant` rows from
   `content` (a `system` message as `system prompt: <content>`), with an empty `timestamp_utc`
-  and `source_line` the rowid. A blob naming several deleted conversations gives each of them its row,
-  and the rows share the blob's text: the timeline writes it in full in the first of them it keeps,
-  and in each later one
-  `[agentKv blob text shown in full above, in the row of source line <rowid> under another session it names]`
+  and `source_line` the rowid. A blob naming several deleted conversations gives each of them its
+  row, and the rows share the blob's text: the timeline writes it in full in the first of them it
+  keeps, and in each later one
+  `[agentKv blob text shown in full above, under another session at source line <rowid>]`
   in its place (after `system prompt: ` for a `system` message), so the blob's text is never
   repeated. Blobs of a conversation still present are not
   yielded: their user
@@ -2466,7 +2466,8 @@ sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
 error one `parser: SQLite error: <message>` row. In `conversation-search.db`, a `conversations`
 row whose `fts_rowid` names a full-text row an earlier row names gives its cached text row with the
-pointer above in place of the body, and such rows are counted in one whole-file row after the others,
+pointer above in place of the body, and such rows are counted in one whole-file row after the
+others,
 `parser: <n> conversations name a full-text row an earlier conversation names`
 (`1 conversation names ...` for one), with `source_line` 0. `cli-config.json` or
 `permissions.json` that is not
