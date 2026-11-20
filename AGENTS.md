@@ -641,9 +641,12 @@ for Go files as it does for the others.
   counting see the same values. Replacement happens once, where output is
   written (`secrets.Recorder.Text`, `RowText` and `ProblemText`, reached
   through `timeline.Row.Withheld` and the commands' own writers): under
-  `timeline --no-secrets` or `detect --no-secrets` each is replaced by one
-  placeholder, `REDACTED` unless `--redaction-placeholder` names another,
-  and each kind reaches its own strings. A value `SecretText` identifies
+  `timeline --no-secrets` each is replaced by one placeholder, `REDACTED`
+  unless `--redaction-placeholder` names another, and each kind reaches its
+  own strings. `detect` runs no parser and reads no file's content, so
+  `detect --no-secrets` replaces only a URL's credentials, and its help
+  says so; a key a parser would identify stays in a file name or path
+  there. A value `SecretText` identifies
   is replaced, in each form a row can hold it (as written, without the
   white space around it, the credentials after a `Bearer` or `Basic`
   scheme, and each of those as compact JSON writes it inside quotes and

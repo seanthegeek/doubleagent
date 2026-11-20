@@ -8,15 +8,19 @@ const inputArgumentHelp = `
                        collection, or any directory
 `
 
-// inputOptionsHelp is the help of the options detect and timeline share.
-const inputOptionsHelp = `  --host HOST          host name to record when the input has no
+// inputSharedOptionsHelp is the help of the options detect and timeline
+// share before --no-secrets.
+const inputSharedOptionsHelp = `  --host HOST          host name to record when the input has no
                        collection.json
   --user USER          user name to record for a home whose owner cannot be
                        inferred
   --work-dir DIR       where to extract an archive (default: a temporary
                        directory removed afterwards)
   --keep-extracted     do not delete the extracted archive
-  --no-secrets         replace each identified secret with REDACTED: the
+`
+
+// timelineNoSecretsHelp is the help of timeline's --no-secrets.
+const timelineNoSecretsHelp = `  --no-secrets         replace each identified secret with REDACTED: the
                        credentials of any URL that has a scheme, wherever
                        the output writes it, and the value of a URL
                        parameter named as a credential (token, key, sig
@@ -29,11 +33,33 @@ const inputOptionsHelp = `  --host HOST          host name to record when the in
                        of the parse that read it. A reader's error is
                        replaced only in the text of its parse's rows and
                        in its problem lines
-  --redaction-placeholder TEXT
+`
+
+// detectNoSecretsHelp is the help of detect's --no-secrets: detect reads
+// no file's content, so no parser identifies a token or key.
+const detectNoSecretsHelp = `  --no-secrets         replace each credential of a URL that has a scheme
+                       with REDACTED, and the value of a URL parameter
+                       named as a credential (token, key, sig and the
+                       like), wherever the output writes the URL: a
+                       credential of 8 bytes or more is replaced
+                       everywhere it appears in the output, a shorter one
+                       only where the URL holds it. detect reads no
+                       file's content, so a token or key that timeline
+                       --no-secrets identifies by the parsers is not
+                       replaced here, even in a file name or a path
+`
+
+// inputPlaceholderHelp is the help of the options detect and timeline
+// share after --no-secrets.
+const inputPlaceholderHelp = `  --redaction-placeholder TEXT
                        with --no-secrets, replace each secret with TEXT
                        rather than REDACTED; "" leaves nothing in its place
   -h, --help           print this text and exit
 `
+
+// timelineOptionsHelp is the help of the options timeline shares with
+// detect, with timeline's own --no-secrets.
+const timelineOptionsHelp = inputSharedOptionsHelp + timelineNoSecretsHelp + inputPlaceholderHelp
 
 // inputLimitHelp is the note detect and timeline give about a relative
 // input: it is read at its absolute path, which the system limits.
@@ -54,8 +80,9 @@ command line, a tool's output, a pasted file) is shown either way. Review a
 timeline before it is shared, whichever mode wrote it.
 `
 
-// inputHelp is the help of the input and options detect and timeline share.
-const inputHelp = inputArgumentHelp + inputOptionsHelp
+// detectInputHelp is the help of the input and the options detect shares
+// with timeline, with detect's own --no-secrets.
+const detectInputHelp = inputArgumentHelp + inputSharedOptionsHelp + detectNoSecretsHelp + inputPlaceholderHelp
 
 // detectUsage is the help text of detect.
 const detectUsage = `Usage: doubleagent detect [options] INPUT
@@ -63,7 +90,7 @@ const detectUsage = `Usage: doubleagent detect [options] INPUT
 List the homes, users and agents found in the input. Exit status: 0 when
 agent files were found or --json was given, 1 when none were, 2 on an
 error, 130 when interrupted.
-` + inputHelp + `  --json               machine-readable output
+` + detectInputHelp + `  --json               machine-readable output
   --files              list every attributed file
 ` + inputLimitHelp + secretsHelp
 
@@ -76,7 +103,7 @@ error, 130 when interrupted.
 ` + inputArgumentHelp + `  OUTPUT_DIR           a new or empty directory for the output files; its
                        path is cleaned by name before it is judged and
                        written, so link/../out names out
-` + inputOptionsHelp + `  --include-thinking   emit thinking and reasoning blocks as rows of type
+` + timelineOptionsHelp + `  --include-thinking   emit thinking and reasoning blocks as rows of type
                        thinking
   --agent AGENT        only parse this agent (repeatable); default is every
                        agent with a parser

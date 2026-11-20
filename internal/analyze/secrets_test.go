@@ -205,3 +205,81 @@ func TestTheRecorderReachesEveryHome(t *testing.T) {
 		}
 	}
 }
+
+// detectKeyFiles is a collection whose Crush file holds a key that a Claude
+// Code session file's name repeats, and whose repository remote URL holds a
+// credential.
+var detectKeyFiles = []collectedFile{
+	{"alice", "/home/alice", "crush", ".config/crush/crush.json",
+		`{"providers": {"a": {"api_key": "fake-crush-key-0001"}}}`},
+	{"alice", "/home/alice", "claude-code", ".claude/projects/-srv-proj-fake-crush-key-0001/s1.jsonl",
+		`{"type":"user","sessionId":"s1","uuid":"u1","timestamp":"2026-10-01T00:00:00Z",` +
+			`"cwd":"/srv/proj","message":{"role":"user","content":"hi"}}` + "\n"},
+	{"alice", "/srv/proj", "project", ".git/config",
+		"[remote \"origin\"]\n\turl = https://x-access-token:ghs_fake_repo_token@github.com/o/r.git\n"},
+	{"alice", "/srv/proj", "project", ".git/HEAD", "ref: refs/heads/main\n"},
+}
+
+func TestDetectWithholdsOnlyURLCredentialsSinceItRunsNoParser(t *testing.T) {
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1")),
+		member("projects", stringArray([]string{"/srv/proj"}))}, detectKeyFiles)
+	for _, args := range [][]string{{"detect", "--files"}, {"detect", "--json", "--files"}} {
+		code, stdout, stderr := runCommand(env,
+			append(append(args, "--no-secrets"), collection)...)
+		if code != ExitFound || stderr != "" {
+			t.Fatalf("%q exited %d: %s", args, code, stderr)
+		}
+		if !strings.Contains(stdout, "fake-crush-key-0001") {
+			t.Errorf("%q does not show the key in the file name, which no parser identified in detect:\n%s",
+				args, stdout)
+		}
+		if strings.Contains(stdout, "ghs_fake_repo_token") || !strings.Contains(stdout, "REDACTED") {
+			t.Errorf("%q does not replace the credential of the URL:\n%s", args, stdout)
+		}
+	}
+	output := filepath.Join(work, "out")
+	if code, _, stderr := runCommand(env, "timeline", "--no-secrets",
+		collection, output); code != ExitFound {
+		t.Fatalf("timeline exited %d: %s", code, stderr)
+	}
+	for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
+		data, err := osfile.ReadFile(filepath.Join(output, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(data), "fake-crush-key-0001") {
+			t.Errorf("timeline --no-secrets writes the key in %s:\n%s", name, data)
+		}
+	}
+}
+
+func TestEachCommandsNoSecretsHelpSaysWhatItReplaces(t *testing.T) {
+	flat := func(command string) string { return strings.Join(strings.Fields(usageOf(command)), " ") }
+	for command, test := range map[string]struct{ has, lacks []string }{
+		"detect": {[]string{"replace each credential of a URL", "detect reads no file's content",
+			"is not replaced here"}, []string{"the parsers identify"}},
+		"timeline": {[]string{"the tokens, keys and reader errors the parsers identify"},
+			[]string{"detect reads no file's content"}},
+	} {
+		for _, text := range test.has {
+			if !strings.Contains(flat(command), text) {
+				t.Errorf("%s's usage lacks %q", command, text)
+			}
+		}
+		for _, text := range test.lacks {
+			if strings.Contains(flat(command), text) {
+				t.Errorf("%s's usage holds %q", command, text)
+			}
+		}
+		for _, warning := range []string{"hold live credentials",
+			"--no-secrets cannot guarantee that every credential is removed"} {
+			if !strings.Contains(flat(command), warning) {
+				t.Errorf("%s's usage lacks the warning %q", command, warning)
+			}
+		}
+	}
+}
