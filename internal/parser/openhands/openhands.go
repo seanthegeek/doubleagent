@@ -266,7 +266,7 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 	if !ok {
 		return
 	}
-	conv := p.conversation(files)
+	conv := p.conversation(artifact, files)
 	timestamp := parser.FileMtime(artifact)
 	texts := slices.Clone(conv.settings)
 	if conv.finalModelRow != "" {
@@ -297,7 +297,7 @@ func (p *Parser) parseMeta(artifact *input.Artifact, emit parser.Emit) {
 	if !ok || parser.RegularFile(files.state) {
 		return
 	}
-	if conv := p.conversation(files); conv.firstEvent == "" {
+	if conv := p.conversation(artifact, files); conv.firstEvent == "" {
 		parser.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
 	}
 }
@@ -324,7 +324,7 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, em
 	if !found {
 		return
 	}
-	conv := p.conversation(files)
+	conv := p.conversation(artifact, files)
 	name := filepath.Base(artifact.DiskPath)
 	if name == conv.firstEvent {
 		p.headerRows(artifact, conv, emit)

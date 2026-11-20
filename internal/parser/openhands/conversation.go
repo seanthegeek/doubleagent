@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -172,14 +173,15 @@ func filesOf(path string) (conversationFiles, bool) {
 }
 
 // conversation returns the conversation in a directory, loaded once for as
-// long as its files keep their times.
-func (p *Parser) conversation(files conversationFiles) *conversation {
+// long as its files keep their times, by the parse of artifact that first
+// asks for it.
+func (p *Parser) conversation(artifact *input.Artifact, files conversationFiles) *conversation {
 	key := cacheKey{directory: files.directory, meta: mtimeOf(files.meta), state: mtimeOf(files.state),
 		events: mtimeOf(files.events)}
 	if held, ok := p.cache[key]; ok {
 		return held
 	}
-	loaded := p.load(files)
+	loaded := p.load(artifact, files)
 	if len(p.cache) > cacheLimit {
 		clear(p.cache)
 	}
@@ -222,8 +224,8 @@ func (p *Parser) eventFiles(path string) []eventFile {
 	return files
 }
 
-// load reads a conversation's files.
-func (p *Parser) load(paths conversationFiles) *conversation {
+// load reads a conversation's files in the parse of artifact.
+func (p *Parser) load(artifact *input.Artifact, paths conversationFiles) *conversation {
 	conv := &conversation{sessionID: filepath.Base(paths.directory), modelBefore: map[string]string{},
 		modelAfter: map[string]modelStep{}, eventModel: map[string]string{},
 		actions: map[string][2]string{}}
@@ -244,7 +246,7 @@ func (p *Parser) load(paths conversationFiles) *conversation {
 	if len(loaded) > 0 {
 		first = loaded[0].event
 	}
-	conv.trackModels(state, loaded)
+	conv.trackModels(artifact, state, loaded)
 	conv.settings = settingRows(state, conv.actions, &conv.problems)
 	conv.scratch = scratchText(conv.projectPath)
 	conv.anchor(meta, first)
@@ -400,9 +402,11 @@ type loadedEvent struct {
 }
 
 // responseModels returns the model of each response id, from the token
-// usages of base_state.json's stats; the first model of an id stands. A
-// usage_to_metrics or token_usages of the wrong kind adds a problem.
-func responseModels(state jsonvalue.Value, problems *parser.Problems) map[string]string {
+// usages of base_state.json's stats; the first model of an id stands. Each
+// event naming a response copies its model into its rows, so the model is
+// cut ("token usage model") as it is filed. A usage_to_metrics or
+// token_usages of the wrong kind adds a problem.
+func responseModels(state jsonvalue.Value, carried *parser.Carried, problems *parser.Problems) map[string]string {
 	byResponse := map[string]string{}
 	usages := state.Get("stats").Get("usage_to_metrics")
 	for _, metrics := range parser.ObjectMember(usages, "stats.usage_to_metrics", 1, problems) {
@@ -412,7 +416,7 @@ func responseModels(state jsonvalue.Value, problems *parser.Problems) map[string
 			if responseID, ok := nonEmptyText(response); ok {
 				if name, ok := nonEmptyText(model); ok {
 					if _, set := byResponse[responseID]; !set {
-						byResponse[responseID] = name
+						byResponse[responseID] = carried.Cut("token usage model", name)
 					}
 				}
 			}
@@ -427,8 +431,10 @@ func responseModels(state jsonvalue.Value, problems *parser.Problems) map[string
 // from the switch observations' active_model, and a final row when
 // agent.llm.model differs from the last model the events show, since a
 // switch over REST leaves no event.
-func (c *conversation) trackModels(state jsonvalue.Value, loaded []loadedEvent) {
-	byResponse := responseModels(state, &c.problems)
+func (c *conversation) trackModels(artifact *input.Artifact, state jsonvalue.Value, loaded []loadedEvent) {
+	carried := parser.NewCarried(artifact)
+	byResponse := responseModels(state, carried, &c.problems)
+	carried.Report(0, &c.problems)
 	initial, switched := "", false
 	for _, each := range loaded {
 		if next, _ := switchOf(each.event); next != "" {

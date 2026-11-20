@@ -798,6 +798,11 @@ install:
   modification time, when `agent.llm.model` differs from the last model the events show: a REST
   switch after the last response.
 - The `model` column of each event row is the model in force at that event.
+- Every event naming a response copies the response's model from `token_usages[]`, so a model
+  there longer than 4,096 bytes is cut where it is read, as the output cuts any value copied onto
+  many rows, and the conversation's first event (or its `base_state.json` when it has no event)
+  adds one `parser: token usage model longer than 4096 bytes, cut to 4096 bytes (<n> times)` row;
+  the rows above compare and write the cut model.
 
 #### Past-use rows and secondary sources
 
