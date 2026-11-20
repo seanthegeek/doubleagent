@@ -259,8 +259,27 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 	if old {
 		partNames = []string{"part", sessionID, messageID}
 	}
-	found, failures := root.partFiles(partNames)
+	found, failures := p.messageParts(artifact, root, partNames, messageID)
 	p.messageRows(artifact, scoped, message, origin{line: 1}, found, options, failures, emit)
+}
+
+// messageParts returns the parts of a message file as partFiles does. A
+// message id is unique, so another message file claiming the same id as
+// the first file of the run whose part directory held any is damage: it
+// gets one problem in place of the parts, so many such files read the
+// directory once. The first file parsed again reads them again.
+func (p *Parser) messageParts(artifact *input.Artifact, root treeRoot, partNames []string,
+	messageID string) ([]part, []failure) {
+	key := root.disk + "\x00" + strings.Join(partNames, "\x00")
+	if first, ok := p.tree.partsShown[key]; ok && first != artifact.DiskPath {
+		return nil, []failure{{line: 1, message: "message " + messageID +
+			" repeats the id of an earlier message file; its parts are shown with that file"}}
+	}
+	found, failures := root.partFiles(partNames)
+	if len(found) > 0 || len(failures) > 0 {
+		p.tree.partsShown[key] = artifact.DiskPath
+	}
+	return found, failures
 }
 
 // previousMessage returns the message file before the named one in its

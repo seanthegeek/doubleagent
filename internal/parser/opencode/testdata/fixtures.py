@@ -51,6 +51,82 @@ INSERT INTO event VALUES ('evt_1', 'ses_2', 1, 'session.updated.1',
 """
 )
 
+
+
+def repeated_v2_message(count: int) -> str:
+    """Return a 2.x database whose session_message holds count rows of one id, as only damage
+    writes, and that id's count session_part items."""
+    rows = [
+        """CREATE TABLE session_v2 (id text PRIMARY KEY, project_id text, directory text,
+    title text, time_created integer, time_updated integer);
+INSERT INTO session_v2 VALUES ('ses_1', NULL, '/work/proj', 'Repeat', 1700000000000,
+    1700000000000);
+CREATE TABLE session_message (id text, session_id text, type text, seq integer,
+    time_created integer, time_updated integer, data text);
+CREATE TABLE session_part (id text, message_id text, session_id text, type text,
+    ordinal integer, data text);"""
+    ]
+    for i in range(count):
+        rows.append(
+            "INSERT INTO session_message VALUES ('msg_1', 'ses_1', 'assistant', %d, %d, %d, "
+            "'{\"content\":[]}');" % (i, 1700000001000 + i, 1700000001000 + i)
+        )
+        rows.append(
+            "INSERT INTO session_part VALUES ('prt_%d', 'msg_1', 'ses_1', 'text', %d, "
+            "'{\"text\":\"part %d\"}');" % (i, i, i)
+        )
+    return "\n".join(rows)
+
+
+def repeated_v1_message(count: int) -> str:
+    """Return a 1.x database whose message table holds count rows of one id, as only damage
+    writes, and that id's count parts."""
+    rows = [
+        """CREATE TABLE session (id text PRIMARY KEY, project_id text, directory text,
+    title text, time_created integer, time_updated integer);
+INSERT INTO session VALUES ('ses_1', NULL, '/work/proj', 'Repeat', 1700000000000,
+    1700000000000);
+CREATE TABLE message (id text, session_id text, time_created integer, time_updated integer,
+    data text);
+CREATE TABLE part (id text, message_id text, session_id text, time_created integer,
+    time_updated integer, data text);"""
+    ]
+    for i in range(count):
+        rows.append(
+            "INSERT INTO message VALUES ('msg_1', 'ses_1', %d, %d, '{\"role\":\"assistant\"}');"
+            % (1700000001000 + i, 1700000001000 + i)
+        )
+        rows.append(
+            "INSERT INTO part VALUES ('prt_%03d', 'msg_1', 'ses_1', %d, %d, "
+            "'{\"type\":\"text\",\"text\":\"part %d\"}');"
+            % (i, 1700000001000 + i, 1700000001000 + i, i)
+        )
+    return "\n".join(rows)
+
+
+# A 1.x message table whose id column compares without case, so three spellings of one id join
+# the same parts.
+CASELESS_MESSAGE_ID = """
+CREATE TABLE session (id text PRIMARY KEY, project_id text, directory text, title text,
+    time_created integer, time_updated integer);
+INSERT INTO session VALUES ('ses_1', NULL, '/work/proj', 'Repeat', 1700000000000,
+    1700000000000);
+CREATE TABLE message (id text COLLATE NOCASE, session_id text, time_created integer,
+    time_updated integer, data text);
+INSERT INTO message VALUES ('msg_1', 'ses_1', 1700000001000, 1700000001000,
+    '{"role":"assistant"}');
+INSERT INTO message VALUES ('MSG_1', 'ses_1', 1700000002000, 1700000002000,
+    '{"role":"assistant"}');
+INSERT INTO message VALUES ('Msg_1', 'ses_1', 1700000003000, 1700000003000,
+    '{"role":"assistant"}');
+CREATE TABLE part (id text, message_id text, session_id text, time_created integer,
+    time_updated integer, data text);
+INSERT INTO part VALUES ('prt_0', 'msg_1', 'ses_1', 1700000001000, 1700000001000,
+    '{"type":"text","text":"part 0"}');
+INSERT INTO part VALUES ('prt_1', 'msg_1', 'ses_1', 1700000001000, 1700000001000,
+    '{"type":"text","text":"part 1"}');
+"""
+
 DATABASES = {
     "no_permission_table.db": ONE_SESSION,
     # The first layout of the permission table, which every early 1.x database had.
@@ -61,6 +137,11 @@ DATABASES = {
         time_created integer, time_updated integer);
     INSERT INTO permission VALUES ('p1', '{}', 1700000000000, 1700000000000);""",
     "shared_session.db": SHARED_SESSION,
+    "repeated_message_id_10.db": repeated_v2_message(10),
+    "repeated_message_id_40.db": repeated_v2_message(40),
+    "repeated_v1_message_id_10.db": repeated_v1_message(10),
+    "repeated_v1_message_id_40.db": repeated_v1_message(40),
+    "caseless_message_id.db": CASELESS_MESSAGE_ID,
 }
 
 

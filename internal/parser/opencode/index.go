@@ -27,6 +27,10 @@ type treeIndex struct {
 	// projectFiles holds each project file a session file read, by its
 	// state, since every session of a project names it.
 	projectFiles map[fileState]*sideRead
+	// partsShown holds the message file that first showed each part
+	// directory, by root and names, since a message id names one directory
+	// of parts.
+	partsShown map[string]string
 }
 
 // projectFiles is one session directory's project directories, in name
@@ -73,7 +77,7 @@ type sessionKey struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{messages: map[string][]string{}, projects: map[string]*projectFiles{},
 		sessions: map[sessionKey]jsonvalue.Value{}, projectPaths: map[projectKey]string{},
-		projectFiles: map[fileState]*sideRead{}}
+		projectFiles: map[fileState]*sideRead{}, partsShown: map[string]string{}}
 }
 
 // messageNames returns the sorted JSON file names of a message directory,

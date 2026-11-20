@@ -1,6 +1,8 @@
 package opencode
 
 import (
+	"strconv"
+
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -29,7 +31,8 @@ func (s *store) sessionMessageIDs() (map[string]bool, error) {
 // session not in skip, marking every row but a system row recovered when
 // asked, and returns the ids of the sessions with a message row. A message
 // whose data does not decode is a problem of the database; a part's is a
-// `parser:` row after its message's rows.
+// `parser:` row after its message's rows. An id's parts go with its first
+// row only.
 func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]bool, error) {
 	covered := map[string]bool{}
 	if !s.tables.Has("message") {
@@ -49,6 +52,7 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 		emit = markRecovered(s.emit)
 	}
 	var parts *sqlitefile.Lookup
+	groups := &shownGroups{}
 	for _, row := range rows {
 		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		covered[identifier] = true
@@ -64,11 +68,35 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 				return nil, err
 			}
 		}
-		found, failures := messageParts(parts, row)
+		found, failures := messageParts(parts, row, groups)
 		where := origin{line: int(row.Rowid), time: parser.ColumnTime(row.Get("time_created"))}
 		s.owner.messageRows(s.artifact, s.scopeFor(identifier), message, where, found, s.options, failures, emit)
 	}
+	s.addRepeats("message", groups.repeats)
 	return covered, nil
+}
+
+// shownGroups holds the groups of parts already shown, by the rowid of a
+// group's first part row (each part row belongs to one message id's group),
+// and counts the message rows that met a group already shown.
+type shownGroups struct {
+	shown   map[int64]bool
+	repeats int
+}
+
+// addRepeats adds one problem for the rows of table that repeat an earlier
+// row's id and so give their rows without the id's parts, when there are
+// any. A message id is unique in OpenCode's tables, so a repeat is damage.
+func (s *store) addRepeats(table string, repeats int) {
+	if repeats == 0 {
+		return
+	}
+	rows := "1 row repeating"
+	if repeats > 1 {
+		rows = strconv.Itoa(repeats) + " rows repeating"
+	}
+	s.failures = append(s.failures, failure{
+		message: table + " holds " + rows + " an earlier row's id; its parts are shown once"})
 }
 
 // markRecovered returns an emit that marks every row but a system row
@@ -95,14 +123,28 @@ func (s *store) partLookup() (*sqlitefile.Lookup, error) {
 }
 
 // messageParts returns the decoded parts of a message row, and a failure
-// per part whose data does not decode.
-func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []failure) {
+// per part whose data does not decode. A group of parts that groups has
+// shown already is not returned again but counted as a repeat, so a
+// message id repeated in many rows gives its parts once.
+func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row, groups *shownGroups) ([]part, []failure) {
 	if parts == nil {
 		return nil, nil
 	}
+	group := parts.Find(message, "id")
+	if len(group) == 0 {
+		return nil, nil
+	}
+	if groups.shown[group[0].Rowid] {
+		groups.repeats++
+		return nil, nil
+	}
+	if groups.shown == nil {
+		groups.shown = map[int64]bool{}
+	}
+	groups.shown[group[0].Rowid] = true
 	var found []part
 	var failures []failure
-	for _, row := range parts.Find(message, "id") {
+	for _, row := range group {
 		data, raw, err := decodeRecord(row.Get("data"))
 		if err != nil {
 			failures = append(failures, failure{line: int(row.Rowid),
@@ -117,7 +159,8 @@ func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []f
 
 // v2Messages emits the rows of session_message for every session not in
 // skip, an assistant message's content replaced by its session_part items
-// when it has any. A record whose data does not decode is a problem.
+// when it has any, for the first row of its id only. A record whose data
+// does not decode is a problem.
 func (s *store) v2Messages(skip map[string]bool) error {
 	if !s.tables.Has("session_message") {
 		return nil
@@ -135,6 +178,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 	if err != nil {
 		return err
 	}
+	shown, repeats := map[string]bool{}, 0
 	for _, row := range rows {
 		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		if skip[identifier] {
@@ -145,10 +189,15 @@ func (s *store) v2Messages(skip map[string]bool) error {
 			continue
 		}
 		kind := row.Get("type")
-		found := items[parser.NonEmptyColumn(row.Get("id"))]
-		if len(found) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
+		message := parser.NonEmptyColumn(row.Get("id"))
+		if found := items[message]; len(found) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
 			data.Has("content") {
-			data.Set("content", jsonvalue.NewArray(found...))
+			if shown[message] {
+				repeats++
+			} else {
+				shown[message] = true
+				data.Set("content", jsonvalue.NewArray(found...))
+			}
 		}
 		name := parser.NonEmptyColumn(kind)
 		if name == "" {
@@ -157,6 +206,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 		s.owner.recordRows(s.artifact, s.scopeFor(identifier), name, data, int(row.Rowid),
 			parser.ColumnTime(row.Get("time_created")), s.options, s.emit)
 	}
+	s.addRepeats("session_message", repeats)
 	return nil
 }
 

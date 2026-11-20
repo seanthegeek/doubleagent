@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -43,5 +44,30 @@ func TestRoomEventsInATableWithoutRowidsAreAnError(t *testing.T) {
 	want := []string{parser.ProblemPrefix + "SQLite error: table hosted_room_events: no such column: rowid"}
 	if !slices.Equal(rows, want) {
 		t.Errorf("got %q, want %q", rows, want)
+	}
+}
+
+// A session id is the sessions table's key, so a repeated one is damage:
+// the session's usage rows give their model rows once, after the first row
+// of the id in the order the rows are read, and each later row gives its
+// own rows, its model from its own model column, and the table one problem
+// row, so the rows grow with the table rather than with the square of it.
+func TestARepeatedSessionIDGivesItsUsageModelsOnce(t *testing.T) {
+	for _, count := range []int{10, 40} {
+		t.Run(fmt.Sprintf("%d rows of one id and %d usage rows", count, count), func(t *testing.T) {
+			got := parseDatabase(t, fmt.Sprintf("repeated_session_id_%d.db", count))
+			want := []string{"session start | copy 0 | source=cli", "model: model-a"}
+			for i := 1; i < count; i++ {
+				want = append(want, "model: model-"+"ab"[(i-1)%2:(i-1)%2+1]+" -> model-"+"ab"[i%2:i%2+1])
+			}
+			for i := 1; i < count; i++ {
+				want = append(want, fmt.Sprintf("session start | copy %d | source=cli", i))
+			}
+			want = append(want, fmt.Sprintf("parser: sessions holds %d rows repeating an earlier row's id; "+
+				"its usage rows are shown once", count-1))
+			if !slices.Equal(got, want) {
+				t.Errorf("%d rows %q, want %d rows %q", len(got), got[:min(len(got), 6)], len(want), want[:6])
+			}
+		})
 	}
 }

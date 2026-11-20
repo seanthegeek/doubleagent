@@ -3,6 +3,7 @@ package hermes
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -113,13 +114,7 @@ func (s *stateReader) rows(options parser.Options) error {
 		return err
 	}
 	if s.tables.Has("sessions") {
-		seen := parser.Tracker{}
-		err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
-			s.sessions[parser.Text(session.Get("id"))] = session
-			s.sessionRows(session, seen)
-			return nil
-		})
-		if err != nil {
+		if err := s.readSessions(); err != nil {
 			return err
 		}
 	}
@@ -144,6 +139,34 @@ func (s *stateReader) rows(options parser.Options) error {
 			entry.sessionID, entry.project))
 	}
 	return nil
+}
+
+// readSessions emits the rows of the sessions table by started_at. An id's
+// usage rows give its model rows once, after its first row: the id is the
+// table's key, so a repeat is damage, and each later row of the id gives its
+// model from its own model column and the table one problem row.
+func (s *stateReader) readSessions() error {
+	seen, walked, repeats := parser.Tracker{}, map[string]bool{}, 0
+	err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
+		identifier := parser.Text(session.Get("id"))
+		s.sessions[identifier] = session
+		repeated := walked[identifier] && len(s.usage[identifier]) > 0
+		if repeated {
+			repeats++
+		}
+		walked[identifier] = true
+		s.sessionRows(session, seen, repeated)
+		return nil
+	})
+	if repeats > 0 {
+		rows := "1 row repeating"
+		if repeats > 1 {
+			rows = strconv.Itoa(repeats) + " rows repeating"
+		}
+		s.errors = append(s.errors, recordError{problem: parser.Problem{Message: "sessions holds " + rows +
+			" an earlier row's id; its usage rows are shown once"}})
+	}
+	return err
 }
 
 // tableRows emits the rows of the deletion fences, the relay peers and the
@@ -222,9 +245,10 @@ func archivedValue(value jsonvalue.Value) bool {
 	return flag || jsonvalue.Equal(value, jsonvalue.NewInt(1)) || parser.IsText(value, "1")
 }
 
-// sessionRows emits a session's start row, its model rows, and its relay,
-// yolo-mode and worktree rows.
-func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) {
+// sessionRows emits a session's start row, its model rows (from its own
+// model column alone when repeated, as for a session with no usage rows),
+// and its relay, yolo-mode and worktree rows.
+func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker, repeated bool) {
 	origin, config := s.columnJSON(session, "origin_json"), s.columnJSON(session, "model_config")
 	imported := ""
 	if from := origin.Get("imported_from"); from.IsObject() {
@@ -242,7 +266,7 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 			parser.Labelled("end=", session.Get("end_reason")), archived, imported)))
 	start.TimestampUTC = timeutil.FromValue(session.Get("started_at"))
 	s.emit(start)
-	s.modelRows(session, start, seen)
+	s.modelRows(session, start, seen, repeated)
 	source := parser.Text(session.Get("source"))
 	if slices.Contains(messagingSources(), source) ||
 		!session.Get("chat_id").IsEmpty() && source != "local" && source != "api_server" {
@@ -265,10 +289,11 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 }
 
 // modelRows emits a session's model rows: one per main-loop usage model
-// that changes it, at the usage's first_seen, else one for sessions.model.
-func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, seen parser.Tracker) {
+// that changes it, at the usage's first_seen, else (or when ownOnly) one
+// for sessions.model.
+func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, seen parser.Tracker, ownOnly bool) {
 	uses := s.usage[start.SessionID]
-	if len(uses) == 0 {
+	if len(uses) == 0 || ownOnly {
 		model := parser.Text(session.Get("model"))
 		if text := seen.Change("model", start.SessionID, model); text != "" {
 			s.emit(copyRow(start, text, model))
