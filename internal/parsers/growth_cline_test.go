@@ -188,9 +188,7 @@ func clineSessionCases() []growthCase {
 			return one(manifest, []byte(clineManifest(clineSession, "/p", `,"metadata":{"title":`+
 				nestedArrays(n, `"t"`)+`,"importedFrom":`+nestedObjects(n, "tool", "1")+`}`)))
 		}},
-		{kind: "session messages.json", shape: shapeLargeShared, n: 32, known: "allocated bytes grow 3.6 times from n=32 " +
-			"to 64 (7,545,736 to 27,153,936): every messages file of a session reads and decodes the " +
-			"session's manifest again (cline/messages.go messages)", files: func(t *testing.T, n int) []growthFile {
+		{kind: "session messages.json", shape: shapeLargeShared, n: 32, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{text(manifest, clineManifest(clineSession, "/p", `,"pad":"`+
 				strings.Repeat("x", 1000*n)+`"`))}
 			return append(files, manyFiles(n, func(i int) string { return directory + numbered("a", i) + ".messages.json" },

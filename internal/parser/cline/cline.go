@@ -76,11 +76,16 @@ func isManifest(rel string) bool {
 // Parser reads Cline's tasks, SDK sessions, logs and settings.
 type Parser struct {
 	*clinelegacy.TaskParser
+	// manifests holds, per home, what each session manifest a messages
+	// file reads gave, by the entry its path opens.
+	manifests *parser.PerHome[map[parser.EntryKey]sessionManifest]
 }
 
 // New returns the parser.
 func New() *Parser {
-	created := &Parser{}
+	created := &Parser{manifests: parser.NewPerHome(func() map[parser.EntryKey]sessionManifest {
+		return map[parser.EntryKey]sessionManifest{}
+	})}
 	created.TaskParser = clinelegacy.NewTaskParser(parser.NewBase("cline", "cline"), root,
 		"cwdOnTaskInitialization", created)
 	return created
