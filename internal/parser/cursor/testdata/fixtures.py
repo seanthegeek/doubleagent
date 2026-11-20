@@ -146,6 +146,28 @@ SHARED_BLOBS = (
 )
 
 
+def repeated_bubble(count: int) -> list[tuple[str, str]]:
+    """Return composer c1 whose header list names bubble b count times, b's text 10 bytes each."""
+    entries = [{"bubbleId": "b", "type": 2}] * count
+    data = {"composerId": "c1", "fullConversationHeadersOnly": entries, "status": "completed"}
+    return [
+        ("composerData:c1", json.dumps(data)),
+        ("bubbleId:c1:b", json.dumps({"type": 2, "text": "x" * (10 * count)})),
+    ]
+
+
+def repeated_bubbles() -> list[tuple[str, str]]:
+    """Return composer c1 whose header list names b1, b2, b1, m, b1, b2 and m, m having no row."""
+    order = ["b1", "b2", "b1", "m", "b1", "b2", "m"]
+    entries = [{"bubbleId": bubble, "type": 2} for bubble in order]
+    data = {"composerId": "c1", "fullConversationHeadersOnly": entries, "status": "completed"}
+    return [
+        ("composerData:c1", json.dumps(data)),
+        ("bubbleId:c1:b1", json.dumps({"type": 2, "text": "first"})),
+        ("bubbleId:c1:b2", json.dumps({"type": 2, "text": "second"})),
+    ]
+
+
 DATABASES = {
     "empty_composers_2.db": (empty_composers(2), ""),
     "empty_composers_8.db": (empty_composers(8), ""),
@@ -158,6 +180,9 @@ DATABASES = {
     "blob_fanout_20.db": ([], blob_fanout(20)),
     "blob_fanout_40.db": ([], blob_fanout(40)),
     "shared_blobs.db": ([], SHARED_BLOBS),
+    "repeated_bubble_20.db": (repeated_bubble(20), ""),
+    "repeated_bubble_40.db": (repeated_bubble(40), ""),
+    "repeated_bubbles.db": (repeated_bubbles(), ""),
 }
 
 

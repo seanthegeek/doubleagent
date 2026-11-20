@@ -186,3 +186,22 @@ func TestTheTextOfBlobsGrowsWithTheBlobsNotWithTheConversationsTheyName(t *testi
 		t.Errorf("text bytes: %d for 20 composers, %d for 40", small, large)
 	}
 }
+
+func TestEachBubbleOfAConversationIsWrittenOnceAtItsFirstEntry(t *testing.T) {
+	rows, _ := readState(t, "repeated_bubbles.db")
+	want := []string{"c1 assistant first", "c1 assistant second", "c1 system parser: missing bubble m",
+		"c1 system parser: 4 header entries name a bubble an earlier entry names"}
+	if got := rowTexts(rows); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+func TestTheTextOfAConversationGrowsWithItsBubblesNotWithItsEntries(t *testing.T) {
+	small, large := textBytes(t, "repeated_bubble_20.db"), textBytes(t, "repeated_bubble_40.db")
+	// Twice the entries naming one bubble twice as long gives twice the
+	// text; writing the bubble once per entry would give four times as
+	// much.
+	if small == 0 || large > 5*small/2 {
+		t.Errorf("text bytes: %d for 20 entries, %d for 40", small, large)
+	}
+}
