@@ -41,14 +41,19 @@ func tooDeep() string {
 		" levels)"
 }
 
+// notApplied is the problem of a record that is not applied for reason.
+func notApplied(reason string) string {
+	return "mutation not applied (" + reason + ")"
+}
+
 // A depthCase is a record applied to a state of one request beside "a",
-// deep arrays each the only item of the one around it, and whether the
-// reader's limit refuses it.
+// deep arrays each the only item of the one around it, and the problem it
+// gives: tooDeep when the reader's limit refuses it, "" when it applies.
 type depthCase struct {
 	name    string
 	deep    int
 	record  string
-	refused bool
+	problem string
 }
 
 // depthCases returns the cases of TestARecordThatWouldNestTheStatePastTheLimitIsRefused.
@@ -57,19 +62,27 @@ type depthCase struct {
 func depthCases() []depthCase {
 	inside := `["a"` + zeros(5000) + `]`
 	return []depthCase{
-		{"a set reaching 10000 levels is applied", 5000, `{"kind":1,"k":` + inside + `,"v":` + nested(4999) + `}`, false},
-		{"a set reaching 10001 levels is refused", 5000, `{"kind":1,"k":` + inside + `,"v":` + nested(5000) + `}`, true},
+		{"a set reaching 10000 levels is applied", 5000, `{"kind":1,"k":` + inside + `,"v":` + nested(4999) + `}`, ""},
+		{"a set reaching 10001 levels is refused", 5000, `{"kind":1,"k":` + inside + `,"v":` + nested(5000) + `}`, tooDeep()},
 		{"a push of an array reaching 10000 levels is applied", 5000,
-			`{"kind":2,"k":` + inside + `,"v":` + nested(4999) + `}`, false},
+			`{"kind":2,"k":` + inside + `,"v":` + nested(4999) + `}`, ""},
 		{"a push of an array reaching 10001 levels is refused", 5000,
-			`{"kind":2,"k":` + inside + `,"v":` + nested(5000) + `}`, true},
+			`{"kind":2,"k":` + inside + `,"v":` + nested(5000) + `}`, tooDeep()},
 		{"a push of one value reaching 10000 levels is applied", 5000,
-			`{"kind":2,"k":` + inside + `,"v":{"x":` + nested(4997) + `}}`, false},
+			`{"kind":2,"k":` + inside + `,"v":{"x":` + nested(4997) + `}}`, ""},
 		{"a push of one value reaching 10001 levels is refused", 5000,
-			`{"kind":2,"k":` + inside + `,"v":{"x":` + nested(4998) + `}}`, true},
-		{"an empty array made at level 10000 is applied", 9998, `{"kind":2,"k":["a"` + zeros(9998) + `],"v":[]}`, false},
+			`{"kind":2,"k":` + inside + `,"v":{"x":` + nested(4998) + `}}`, tooDeep()},
+		{"an empty array made at level 10000 is applied", 9998, `{"kind":2,"k":["a"` + zeros(9998) + `],"v":[]}`, ""},
 		{"a push whose path alone passes the limit is refused", 9998,
-			`{"kind":2,"k":["a"` + zeros(9999) + `],"v":[]}`, true},
+			`{"kind":2,"k":["a"` + zeros(9999) + `],"v":[]}`, tooDeep()},
+		// A delete or a record of another kind adds nothing, so only the
+		// path it names, which no state within the limit holds, stops it.
+		{"a delete whose path passes the limit is not refused for depth", 9998,
+			`{"kind":3,"k":["a"` + zeros(10000) + `]}`, notApplied(`path ["a"` + zeros(9999) + `] not found`)},
+		{"an unknown kind whose path passes the limit is not refused for depth", 9998,
+			`{"kind":7,"k":["a"` + zeros(10000) + `]}`, notApplied(`path ["a"` + zeros(9999) + `] not found`)},
+		{"an unknown kind at a path the state holds is reported as unknown", 9998, `{"kind":7,"k":["a"]}`,
+			notApplied("unknown kind 7")},
 	}
 }
 
@@ -87,8 +100,8 @@ func TestARecordThatWouldNestTheStatePastTheLimitIsRefused(t *testing.T) {
 				messages = append(messages, "line "+strconv.Itoa(problem.Line)+": "+problem.Message)
 			}
 			var want []string
-			if test.refused {
-				want = []string{"line 2: " + tooDeep()}
+			if test.problem != "" {
+				want = []string{"line 2: " + test.problem}
 			}
 			if !slices.Equal(messages, want) {
 				t.Errorf("problems %q, want %q", messages, want)
