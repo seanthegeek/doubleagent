@@ -13,25 +13,24 @@ import (
 const millisecondLayout = "2006-01-02T15:04:05.000Z"
 
 // cutTimes holds the timestamps, cut to the millisecond as the binary
-// writes them, of a case's sources whose time has digits below the
-// millisecond: the modification times of the files of its tree, and the
-// times its files' contents write as text with more than three fraction
-// digits, as an ISO 8601 time or as epoch seconds. The recording rounded
-// such a time to the millisecond and could carry it into the next one;
-// the binary cuts it, so only such a timestamp may be one millisecond
-// earlier than the recorded one (difference 119). The set is built when
-// first asked for, since few comparisons need it; a nil one holds none.
+// writes them, of a case's sources whose time the recording could carry
+// into the next millisecond (roundsUp): the modification times of the files
+// and directories of its tree, and the times its files' contents write as
+// text, as an ISO 8601 time or as epoch seconds. The binary cuts such a
+// time, so only such a timestamp may be one millisecond earlier than the
+// recorded one (difference 119). The set is built when first asked for,
+// since few comparisons need it; a nil one holds none.
 type cutTimes struct {
 	build func() (map[string]bool, map[string][]string)
 	// times holds every cut time; mtimes gives, for each that is a
-	// modification time, the files modified then, by their path under the
-	// root with forward slashes.
+	// modification time, the files and directories modified then, by their
+	// path under the root with forward slashes.
 	times  map[string]bool
 	mtimes map[string][]string
 }
 
-// holds reports whether timestamp is a time of a source with digits below
-// the millisecond, cut.
+// holds reports whether timestamp is a time of a source that roundsUp,
+// cut.
 func (c *cutTimes) holds(timestamp string) bool {
 	if c == nil {
 		return false
@@ -42,8 +41,8 @@ func (c *cutTimes) holds(timestamp string) bool {
 	return c.times[timestamp]
 }
 
-// holdsModified reports whether timestamp is the modification time, with
-// digits below the millisecond, cut, of a file of the case's tree. The file
+// holdsModified reports whether timestamp is the modification time, cut,
+// of a file or directory of the case's tree that roundsUp. The file
 // is not matched with the one a row names: a row names its file from the
 // input, with or without a leading slash, and the input may lie anywhere in
 // the tree, so no rule on the two paths holds for every input.
@@ -69,6 +68,14 @@ func fixedModifiedTimes(timestamp string, files ...string) *cutTimes {
 	return set
 }
 
+// roundsUp is the least part below the millisecond, in nanoseconds, of a
+// time the recording could carry into the next millisecond. The recording
+// rounded a time to the microsecond, the only step that rounds up, and
+// then cut it to the millisecond, so only a part of 999.5 microseconds or
+// more is carried; the bound leaves room for the error of the floating
+// point seconds it read the time as, under a quarter of a microsecond.
+const roundsUp = 999_000
+
 // cutTimesOf returns the cutTimes of a recorded tree and its times object;
 // a case without a tree has none.
 func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
@@ -80,7 +87,7 @@ func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
 		if times != "" {
 			if mtimes, err := c.ReadTimes(times); err == nil {
 				for relative, mtime := range mtimes {
-					if mtime%int64(time.Millisecond) != 0 {
+					if mtime%int64(time.Millisecond) >= roundsUp {
 						cut := time.Unix(0, mtime).UTC().Format(millisecondLayout)
 						set[cut] = true
 						modified[cut] = append(modified[cut], relative)
@@ -93,8 +100,8 @@ func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
 	}}
 }
 
-// addWrittenTimes adds to set the times with digits below the millisecond
-// that the files of a tree object write as text, cut.
+// addWrittenTimes adds to set the times that roundsUp and that the files
+// of a tree object write as text, cut.
 func (c *Corpus) addWrittenTimes(tree string, set map[string]bool) {
 	entries, err := c.ReadTree(tree)
 	if err != nil {
@@ -122,7 +129,7 @@ var (
 )
 
 // writtenCutTimes returns the times of writtenISOTime and
-// writtenEpochTime in text, cut to the millisecond.
+// writtenEpochTime in text that roundsUp, cut to the millisecond.
 func writtenCutTimes(text string) []string {
 	var found []string
 	for _, match := range writtenISOTime.FindAllStringSubmatch(text, -1) {
@@ -131,7 +138,7 @@ func writtenCutTimes(text string) []string {
 			zone = "+0000"
 		}
 		moment, err := time.Parse("2006-01-02 15:04:05.999999999-0700", match[1]+" "+match[2]+zone)
-		if err == nil && moment.Nanosecond()%int(time.Millisecond) != 0 {
+		if err == nil && moment.Nanosecond()%int(time.Millisecond) >= roundsUp {
 			found = append(found, moment.UTC().Format(millisecondLayout))
 		}
 	}
@@ -142,7 +149,7 @@ func writtenCutTimes(text string) []string {
 		}
 		fraction := (match[2] + "000000000")[:9]
 		nanoseconds, err := strconv.ParseInt(fraction, 10, 64)
-		if err != nil || nanoseconds%int64(time.Millisecond) == 0 {
+		if err != nil || nanoseconds%int64(time.Millisecond) < roundsUp {
 			continue
 		}
 		found = append(found, time.Unix(seconds, nanoseconds).UTC().Format(millisecondLayout))

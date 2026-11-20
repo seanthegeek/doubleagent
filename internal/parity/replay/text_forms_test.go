@@ -248,8 +248,8 @@ func rolledOver(want, got string, cut *cutTimes) string {
 }
 
 // sameOrOneLater reports whether the timestamp want equals got, or is one
-// millisecond later where cut holds got, a time cut from a source with
-// digits below the millisecond.
+// millisecond later where cut holds got, a time cut from a source the
+// recording could carry into the next millisecond.
 func sameOrOneLater(want, got string, cut *cutTimes) bool {
 	if want == got {
 		return true
@@ -303,8 +303,8 @@ func rolledOverLines(want, got string, cut *cutTimes) (string, string) {
 }
 
 // movedModifiedTime reports whether a line holds exactly one timestamp and
-// it is the modification time, with digits below the millisecond, cut, of
-// a file of the case's tree.
+// it is the modification time, cut, of a file or directory of the case's
+// tree that the recording could carry into the next millisecond.
 func movedModifiedTime(line string, cut *cutTimes) bool {
 	found := jsonTimestamp.FindAllStringSubmatch(line, -1)
 	return len(found) == 1 && cut.holdsModified(found[0][1])

@@ -92,9 +92,10 @@ func TestWrittenTimesBelowTheMillisecondAreFound(t *testing.T) {
 		want []string
 	}{
 		{"an ISO time with microseconds", `{"at":"2026-01-01T00:00:00.122999Z"}`, []string{"2026-01-01T00:00:00.122Z"}},
-		{"an ISO time with an offset", `2026-01-01T01:00:00.1225+01:00`, []string{"2026-01-01T00:00:00.122Z"}},
-		{"epoch seconds with a fraction", `"ts": 1767225600.1229`, []string{"2026-01-01T00:00:00.122Z"}},
+		{"an ISO time with an offset", `2026-01-01T01:00:00.1229995+01:00`, []string{"2026-01-01T00:00:00.122Z"}},
+		{"epoch seconds with a fraction", `"ts": 1767225600.1229995`, []string{"2026-01-01T00:00:00.122Z"}},
 		{"a time of whole milliseconds is not one", `2026-01-01T00:00:00.1220Z and 1767225600.122`, nil},
+		{"a fraction the recording rounds down is not one", `2026-01-01T00:00:00.1225Z and 1767225600.1229`, nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -235,9 +236,9 @@ func modifiedTimeCases() []movedRowCase {
 			fixedModifiedTimes("2026-01-01T00:00:00.302Z", "r/broken.json"), false},
 		{"a time from a record rather than a file's modification time fails", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after}, fixedCutTimes("2026-01-01T00:00:00.300Z"), false},
-		{"a file the row names from an input inside the tree passes", []string{laterFile, recordedFile, after},
+		{"the cut modification time of another file of the case passes", []string{laterFile, recordedFile, after},
 			[]string{binaryFile, laterFile, after},
-			fixedModifiedTimes("2026-01-01T00:00:00.300Z", "case/home/r/broken.json"), true},
+			fixedModifiedTimes("2026-01-01T00:00:00.300Z", "case/other/x.json"), true},
 	}
 }
 
