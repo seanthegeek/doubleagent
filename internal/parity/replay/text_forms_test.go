@@ -219,8 +219,8 @@ var (
 
 // rolledOver returns want when got equals it but for whole timestamps each
 // of which is want's, or one millisecond earlier where cut holds got's
-// timestamp, the recording having rounded a time with digits below the
-// millisecond into the next one; otherwise got.
+// timestamp, the recording having carried that time into the next
+// millisecond; otherwise got.
 func rolledOver(want, got string, cut *cutTimes) string {
 	if want == got {
 		return got

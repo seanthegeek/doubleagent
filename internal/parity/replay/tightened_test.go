@@ -85,14 +85,22 @@ func TestARowOneMillisecondEarlyPassesOnlyForATimeCutFromASource(t *testing.T) {
 	}
 }
 
+func TestOnlyAPartTheRecordingRoundsUpIsCarried(t *testing.T) {
+	for part, want := range map[int64]bool{0: false, 500_000: false, 998_999: false, 999_000: true, 999_999: true} {
+		if got := carried(part); got != want {
+			t.Errorf("carried(%d) = %t, want %t", part, got, want)
+		}
+	}
+}
+
 func TestWrittenTimesBelowTheMillisecondAreFound(t *testing.T) {
 	tests := []struct {
 		name string
 		text string
 		want []string
 	}{
-		{"an ISO time with microseconds", `{"at":"2026-01-01T00:00:00.122999Z"}`, []string{"2026-01-01T00:00:00.122Z"}},
-		{"an ISO time with an offset", `2026-01-01T01:00:00.1229995+01:00`, []string{"2026-01-01T00:00:00.122Z"}},
+		{"an ISO time is never one", `{"at":"2026-01-01T00:00:00.122999Z"}`, nil},
+		{"an ISO time with an offset is never one", `2026-01-01T01:00:00.1229995+01:00`, nil},
 		{"epoch seconds with a fraction", `"ts": 1767225600.1229995`, []string{"2026-01-01T00:00:00.122Z"}},
 		{"a time of whole milliseconds is not one", `2026-01-01T00:00:00.1220Z and 1767225600.122`, nil},
 		{"a fraction the recording rounds down is not one", `2026-01-01T00:00:00.1225Z and 1767225600.1229`, nil},

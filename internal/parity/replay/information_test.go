@@ -64,8 +64,9 @@ func formatDifferences() []Difference {
 			"never rounded up into the next one: a row's timestamp, or a timestamp that is a whole " +
 			"JSON string or a whole word of an output line otherwise equal, may be one millisecond " +
 			"earlier when it is the cut time of a source the recording could carry into the next " +
-			"millisecond: a modification time of the case's tree, or a time a file writes as text; a row whose " +
-			"timestamp is the cut modification time of any file of the case may also move towards the start, " +
+			"millisecond: a modification time of the case's tree, or a time a file writes as text in epoch " +
+			"seconds; a row whose timestamp is the cut modification time of any file or directory of the case " +
+			"may also move towards the start, " +
 			"past only rows the timeline order puts after it, to the place that order gives the cut time",
 			Scope: scopeTimes, Unchecked: "whether a case needs it depends on the modification times the " +
 				"recording's files were given when it ran, which a new recording changes"},

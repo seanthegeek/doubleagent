@@ -5,7 +5,6 @@ package replay
 import (
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -14,9 +13,9 @@ const millisecondLayout = "2006-01-02T15:04:05.000Z"
 
 // cutTimes holds the timestamps, cut to the millisecond as the binary
 // writes them, of a case's sources whose time the recording could carry
-// into the next millisecond (roundsUp): the modification times of the files
+// into the next millisecond (carried): the modification times of the files
 // and directories of its tree, and the times its files' contents write as
-// text, as an ISO 8601 time or as epoch seconds. The binary cuts such a
+// text in epoch seconds. The binary cuts such a
 // time, so only such a timestamp may be one millisecond earlier than the
 // recorded one (difference 119). The set is built when first asked for,
 // since few comparisons need it; a nil one holds none.
@@ -29,7 +28,7 @@ type cutTimes struct {
 	mtimes map[string][]string
 }
 
-// holds reports whether timestamp is a time of a source that roundsUp,
+// holds reports whether timestamp is a time of a source that is carried,
 // cut.
 func (c *cutTimes) holds(timestamp string) bool {
 	if c == nil {
@@ -42,7 +41,7 @@ func (c *cutTimes) holds(timestamp string) bool {
 }
 
 // holdsModified reports whether timestamp is the modification time, cut,
-// of a file or directory of the case's tree that roundsUp. The file
+// of a file or directory of the case's tree that is carried. The file
 // is not matched with the one a row names: a row names its file from the
 // input, with or without a leading slash, and the input may lie anywhere in
 // the tree, so no rule on the two paths holds for every input.
@@ -76,6 +75,10 @@ func fixedModifiedTimes(timestamp string, files ...string) *cutTimes {
 // point seconds it read the time as, under a quarter of a microsecond.
 const roundsUp = 999_000
 
+// carried reports whether a time whose part below the millisecond is part
+// nanoseconds is one the recording could carry into the next millisecond.
+func carried(part int64) bool { return part >= roundsUp }
+
 // cutTimesOf returns the cutTimes of a recorded tree and its times object;
 // a case without a tree has none.
 func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
@@ -87,7 +90,7 @@ func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
 		if times != "" {
 			if mtimes, err := c.ReadTimes(times); err == nil {
 				for relative, mtime := range mtimes {
-					if mtime%int64(time.Millisecond) >= roundsUp {
+					if carried(mtime % int64(time.Millisecond)) {
 						cut := time.Unix(0, mtime).UTC().Format(millisecondLayout)
 						set[cut] = true
 						modified[cut] = append(modified[cut], relative)
@@ -100,8 +103,8 @@ func (c *Corpus) cutTimesOf(tree, times string) *cutTimes {
 	}}
 }
 
-// addWrittenTimes adds to set the times that roundsUp and that the files
-// of a tree object write as text, cut.
+// addWrittenTimes adds to set the carried times that the files of a tree
+// object write as text, cut.
 func (c *Corpus) addWrittenTimes(tree string, set map[string]bool) {
 	entries, err := c.ReadTree(tree)
 	if err != nil {
@@ -121,27 +124,15 @@ func (c *Corpus) addWrittenTimes(tree string, set map[string]bool) {
 	}
 }
 
-// Times written with more than three fraction digits: an ISO 8601 time,
-// UTC when it names no offset, and epoch seconds with a fraction.
-var (
-	writtenISOTime   = regexp.MustCompile(`([0-9]{4}-[0-9]{2}-[0-9]{2})[T ]([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{4,9})(Z|[+-][0-9]{2}:?[0-9]{2})?`)
-	writtenEpochTime = regexp.MustCompile(`(?:^|[^0-9.])([0-9]{9,10})\.([0-9]{4,9})(?:[^0-9]|$)`)
-)
+// writtenEpochTime is a time written as epoch seconds with more than three
+// fraction digits. A time written as ISO 8601 text is not looked for: the
+// recording cut such a fraction and never carried it.
+var writtenEpochTime = regexp.MustCompile(`(?:^|[^0-9.])([0-9]{9,10})\.([0-9]{4,9})(?:[^0-9]|$)`)
 
-// writtenCutTimes returns the times of writtenISOTime and
-// writtenEpochTime in text that roundsUp, cut to the millisecond.
+// writtenCutTimes returns the carried times of writtenEpochTime in text,
+// cut to the millisecond.
 func writtenCutTimes(text string) []string {
 	var found []string
-	for _, match := range writtenISOTime.FindAllStringSubmatch(text, -1) {
-		zone := strings.Replace(match[3], ":", "", 1)
-		if zone == "" || zone == "Z" {
-			zone = "+0000"
-		}
-		moment, err := time.Parse("2006-01-02 15:04:05.999999999-0700", match[1]+" "+match[2]+zone)
-		if err == nil && moment.Nanosecond()%int(time.Millisecond) >= roundsUp {
-			found = append(found, moment.UTC().Format(millisecondLayout))
-		}
-	}
 	for _, match := range writtenEpochTime.FindAllStringSubmatch(text, -1) {
 		seconds, err := strconv.ParseInt(match[1], 10, 64)
 		if err != nil {
@@ -149,7 +140,7 @@ func writtenCutTimes(text string) []string {
 		}
 		fraction := (match[2] + "000000000")[:9]
 		nanoseconds, err := strconv.ParseInt(fraction, 10, 64)
-		if err != nil || nanoseconds%int64(time.Millisecond) < roundsUp {
+		if err != nil || !carried(nanoseconds%int64(time.Millisecond)) {
 			continue
 		}
 		found = append(found, time.Unix(seconds, nanoseconds).UTC().Format(millisecondLayout))
