@@ -1382,11 +1382,17 @@ takes. A longer one is cut: it keeps its first bytes, whole characters
 only, and ends ` [cut from <length> bytes]`, `<length>` being the whole
 value's. No agent writes such a value, so ordinary evidence is never cut;
 the bound keeps a crafted file from multiplying one long value by many
-rows. The cut moves back to the start of the last word it keeps (a word
-ends at white space, a double quote, an angle bracket or a backtick) when
-that part of the word holds a URL's `://`, so no part of a URL's
-credentials is kept, and under `--no-secrets` the kept part of any
-secret the cut runs through is replaced like the rest of that secret.
+rows. A cut never ends inside a URL's credentials: when the bound falls
+inside one the output replaces (user information, a password or a
+credential parameter's value, or right after one) or inside a URL's
+scheme and its `://` or JSON's `:\/\/`, the cut moves back to where that
+starts. When the word holding the bound (a word ends at white space, a
+double quote, an angle bracket or a backtick) runs more than 4,096 bytes
+past it, the word's URLs are not read, and a cut after the word's first
+`://` or `:\/\/` moves back to just after it. So the kept part holds
+exactly the URL credentials the whole value holds there, and under
+`--no-secrets` the kept part of any other secret the cut runs through is
+replaced like the rest of that secret.
 The parse ends with one `system` row per field or kind of value cut,
 `parser: <field or kind> longer than 4096 bytes, cut to 4096 bytes (<n>
 times)`. Two values longer than the bound that agree in length and in the

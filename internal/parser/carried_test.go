@@ -143,6 +143,10 @@ func TestTwoLongValuesStayApartUnlessTheirLengthAndFirstBytesAgree(t *testing.T)
 		{"values of different lengths stay apart", base + "x", base + "xy", false},
 		{"values that differ after the limit and agree in length become one", base + "x", base + "y", true},
 		{"values that differ before the limit stay apart", "b" + base, "c" + base, false},
+		{"URLs without credentials that differ before the limit stay apart",
+			"https://a.example/" + strings.Repeat("x", 5000), "s3://bucket-bbbbb/" + strings.Repeat("y", 5000), false},
+		{"URLs without credentials that differ after their scheme stay apart",
+			"https://a.example/" + strings.Repeat("x", 5000), "https://b.example/" + strings.Repeat("x", 5000), false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
