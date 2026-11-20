@@ -168,6 +168,9 @@ type brainLines struct {
 	emit      parser.Emit
 	calls     []jsonvalue.Value // the last reply's tool calls not yet matched to a result
 	problems  *parser.Problems
+	// truncated holds the field names the current line's truncated_fields
+	// lists, read once per line, since a line gives a row per tool call.
+	truncated map[string]bool
 }
 
 // row emits a row of a brain line; text whose field the line marks as
@@ -176,11 +179,8 @@ func (b *brainLines) row(number int, record jsonvalue.Value, turnType, text, fie
 	row := b.owner.BaseRow(b.artifact)
 	row.SourceLine, row.SessionID, row.TurnType = number, b.sessionID, turnType
 	row.TimestampUTC = timeutil.FromValue(record.Get("created_at"))
-	for _, truncated := range record.Get("truncated_fields").Items() {
-		if truncated.Text() == field {
-			text += " [truncated: " + field + "]"
-			break
-		}
+	if b.truncated[field] {
+		text += " [truncated: " + field + "]"
 	}
 	row.Text = timeline.Compact(text)
 	return row
@@ -188,6 +188,7 @@ func (b *brainLines) row(number int, record jsonvalue.Value, turnType, text, fie
 
 // record emits the rows of one brain line.
 func (b *brainLines) record(number int, record jsonvalue.Value) {
+	b.truncated = truncatedFields(record, b.owner.Work)
 	kind := parser.Text(record.Get("type"))
 	content := parser.TextOf(record.Get("content"))
 	switch kind {
@@ -216,6 +217,19 @@ func (b *brainLines) record(number int, record jsonvalue.Value) {
 	row := b.row(number, record, timeline.TurnToolResult, text, "content")
 	row.ToolName, row.ToolUseID = parser.Text(call.Get("name")), parser.Text(call.Get("id"))
 	b.emit(row)
+}
+
+// truncatedFields returns the set of names a brain line's truncated_fields
+// lists, each entry read once and counted as a "truncated field reads"
+// unit of work.
+func truncatedFields(record jsonvalue.Value, work parser.Work) map[string]bool {
+	entries := record.Get("truncated_fields").Items()
+	work.Add("truncated field reads", len(entries))
+	names := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		names[entry.Text()] = true
+	}
+	return names
 }
 
 // brainEventText returns the text of a brain line that is neither a prompt
