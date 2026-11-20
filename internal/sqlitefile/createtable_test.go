@@ -153,7 +153,7 @@ func TestParseCreateTableRefusesWhatItCannotRead(t *testing.T) {
 }
 
 func TestDefaultsSQLiteRefusesFailOnlyTheRowsThatNeedThem(t *testing.T) {
-	shape, err := parseCreateTable(`CREATE TABLE t(a, b DEFAULT ("x"), c DEFAULT (-'abc'))`)
+	shape, err := parseCreateTable(`CREATE TABLE t(a, b DEFAULT ("x"), c DEFAULT (CAST(1)))`)
 	if err != nil {
 		t.Fatal(err)
 	}

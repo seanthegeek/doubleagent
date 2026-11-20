@@ -64,7 +64,7 @@ func applyAffinity(value Value, affinity Affinity) Value {
 	case affinity == TextAffinity && (value.Type == Integer || value.Type == Float):
 		return TextValue(numberText(value))
 	case affinity.numeric() && value.Type == Text:
-		if number, ok := parseNumeric(string(value.Bytes), true); ok {
+		if number, ok := parseNumeric(string(value.Bytes)); ok {
 			value = number
 		}
 	case affinity.numeric() && value.Type == Float:
@@ -76,68 +76,24 @@ func applyAffinity(value Value, affinity Affinity) Value {
 	return value
 }
 
-// parseNumeric reads text that is a well-formed integer or real literal,
-// with optional surrounding whitespace and sign, as SQLite's text-to-number
-// conversion does; hexadecimal is not a number here. An integer literal
-// that fits 64 bits is an Integer, anything else a Float, made an Integer
-// when tryInteger is set and the float is exactly one.
-func parseNumeric(text string, tryInteger bool) (Value, bool) {
-	if end := strings.IndexByte(text, 0); end >= 0 {
-		text = text[:end]
-	}
-	text = strings.TrimFunc(text, func(char rune) bool { return char < 0x80 && isSpace(byte(char)) })
-	digits := strings.TrimLeft(text, "+-")
-	if len(text)-len(digits) > 1 || !wellFormedNumber(digits) {
+// parseNumeric reads text as NUMERIC affinity does (applyNumericAffinity):
+// only when readReal reads all of it as one number, an integer when the
+// text has no decimal point or exponent and is one that fits 64 bits, else
+// a float, an Integer when integerByAffinity makes one of it.
+func parseNumeric(text string) (Value, bool) {
+	reading := readReal(text)
+	if !reading.whole {
 		return Value{}, false
 	}
-	if !strings.ContainsAny(digits, ".eE") {
-		if integer, err := strconv.ParseInt(strings.TrimPrefix(text, "+"), 10, 64); err == nil {
+	if !reading.pointOrPower {
+		if integer := realToInteger(reading.value); realSameAsInteger(reading.value, integer) {
+			return IntValue(integer), true
+		}
+		if integer, _, whole := readInteger(text); whole {
 			return IntValue(integer), true
 		}
 	}
-	number, err := strconv.ParseFloat(text, 64)
-	if err != nil && !isRangeError(err) {
-		return Value{}, false
-	}
-	value := FloatValue(number)
-	if tryInteger {
-		value = integerByAffinity(value)
-	}
-	return value, true
-}
-
-// isRangeError reports whether err is strconv's out-of-range error, after
-// which ParseFloat still returns the infinity or zero SQLite reads.
-func isRangeError(err error) bool {
-	numberError, ok := err.(*strconv.NumError)
-	return ok && numberError.Err == strconv.ErrRange
-}
-
-// wellFormedNumber reports whether text is digits with an optional
-// fraction and exponent, holding at least one digit before the exponent.
-func wellFormedNumber(text string) bool {
-	mantissa, exponent, hasExponent := strings.Cut(FoldASCII(text), "e")
-	whole, fraction, _ := strings.Cut(mantissa, ".")
-	if whole+fraction == "" || !allDigits(whole) || !allDigits(fraction) {
-		return false
-	}
-	if !hasExponent {
-		return true
-	}
-	if strings.HasPrefix(exponent, "+") || strings.HasPrefix(exponent, "-") {
-		exponent = exponent[1:]
-	}
-	return exponent != "" && allDigits(exponent)
-}
-
-// allDigits reports whether text holds only ASCII digits.
-func allDigits(text string) bool {
-	for i := range len(text) {
-		if !isDigit(text[i]) {
-			return false
-		}
-	}
-	return true
+	return integerByAffinity(FloatValue(reading.value)), true
 }
 
 // integerByAffinity returns a Float as the Integer that NUMERIC and

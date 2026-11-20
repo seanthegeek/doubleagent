@@ -555,8 +555,10 @@ func TestIntegerAffinityLeavesBothEndsOfTheRangeReal(t *testing.T) {
 }
 
 func TestCastToIntegerFollowsSQLite(t *testing.T) {
-	// From SQLite 3.51.0: SELECT CAST(x AS INTEGER), the same value under
-	// each column affinity.
+	// From SQLite 3.53.4, a record too short for the column: the operand
+	// has INTEGER affinity before the cast, so text that is a whole number
+	// in exponent form is that number. The same value under each column
+	// affinity; testdata/default_values.jsonl.gz holds many more.
 	cases := []struct {
 		operand, want string
 	}{
@@ -574,8 +576,8 @@ func TestCastToIntegerFollowsSQLite(t *testing.T) {
 		{"'9223372036854775808'", "int:9223372036854775807"},
 		{"'99999999999999999999'", "int:9223372036854775807"},
 		{"'-99999999999999999999'", "int:-9223372036854775808"},
-		{"'1e3'", "int:1"},
-		{"'1.9e1'", "int:1"},
+		{"'1e3'", "int:1000"},
+		{"'1.9e1'", "int:19"},
 		{"' 12 '", "int:12"},
 		{"'  -0012x'", "int:-12"},
 		{"'+5'", "int:5"},

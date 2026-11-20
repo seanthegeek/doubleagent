@@ -17,7 +17,8 @@ var errDefault = fmt.Errorf("%w: unsupported DEFAULT value", errSchemaSyntax)
 // and CAST with the column's affinity applied, the CURRENT_ keywords and
 // any other expression as NULL, since SQLite computes those only when a
 // row is written. A name in parentheses is no constant, which SQLite
-// refuses. The rules were taken from what SQLite returns for each form.
+// refuses. testdata/default_values.jsonl.gz holds what SQLite reads for
+// each form, and the tests compare with it.
 func defaultValue(tokens []token, affinity Affinity) (Value, error) {
 	if len(tokens) == 1 && (tokens[0].kind == word || tokens[0].kind == quoted) &&
 		!isKeywordLiteral(tokens[0]) {
@@ -45,7 +46,8 @@ func isKeywordLiteral(literal token) bool {
 const maxDefaultDepth = 100
 
 // evaluateDefault evaluates the expression tokens hold, nested depth
-// levels inside the DEFAULT clause.
+// levels inside the DEFAULT clause, under affinity, as SQLite evaluates a
+// DEFAULT for a short record (valueFromExpr).
 func evaluateDefault(tokens []token, affinity Affinity, depth int) (Value, error) {
 	for {
 		if depth > maxDefaultDepth {
@@ -60,8 +62,6 @@ func evaluateDefault(tokens []token, affinity Affinity, depth int) (Value, error
 	switch {
 	case len(tokens) == 0:
 		return Value{}, errDefault
-	case len(tokens) == 2 && tokens[0].isPunctuation("-") && tokens[1].kind == number:
-		return numberLiteral(tokens[1].text, true, affinity)
 	case len(tokens) > 1 && tokens[0].isPunctuation("-"):
 		return negatedDefault(tokens[1:], affinity, depth+1)
 	case len(tokens) > 1 && tokens[0].isKeyword("CAST"):
@@ -81,6 +81,11 @@ func unwrapDefault(tokens []token) ([]token, bool) {
 	if len(tokens) > 1 && tokens[0].isPunctuation("+") {
 		return tokens[1:], true
 	}
+	return unwrapParentheses(tokens)
+}
+
+// unwrapParentheses removes a pair of parentheses around all of tokens.
+func unwrapParentheses(tokens []token) ([]token, bool) {
 	if len(tokens) < 2 || !tokens[0].isPunctuation("(") || !tokens[len(tokens)-1].isPunctuation(")") {
 		return tokens, false
 	}
@@ -118,14 +123,16 @@ func literalDefault(literal token, affinity Affinity) (Value, error) {
 	return Value{}, fmt.Errorf("%w: default value %s is not constant", errSchemaSyntax, literal.text)
 }
 
-// numberLiteral evaluates a numeric literal, negated when negative. An
-// integer that fits 64 bits (hexadecimal ones as their 64-bit pattern) is
-// an integer; any other literal keeps its text, sign included, for a TEXT
-// column, and is read as a number for the others, an integer only when the
-// column is NUMERIC, INTEGER or REAL.
+// numberLiteral evaluates a numeric literal, negated when negative, as
+// SQLite does: an integer literal that fits 64 bits (a hexadecimal one as
+// its 64-bit pattern) is that integer, with the affinity applied. Any
+// other literal is its text, sign included, with the affinity applied;
+// under BLOB affinity a real literal is read as a float and an integer one
+// as NUMERIC affinity reads it.
 func numberLiteral(text string, negative bool, affinity Affinity) (Value, error) {
 	text = strings.ReplaceAll(text, "_", "")
-	if integer, ok := integerLiteral(text); ok {
+	integerToken := isHexLiteral(text) || !strings.ContainsAny(text, ".eE")
+	if integer, ok := integerLiteral(text); ok && integerToken {
 		if negative {
 			integer = -integer
 		}
@@ -134,63 +141,84 @@ func numberLiteral(text string, negative bool, affinity Affinity) (Value, error)
 	if negative {
 		text = "-" + text
 	}
-	if affinity == TextAffinity {
-		return TextValue(text), nil
+	switch {
+	case affinity == BlobAffinity && !integerToken:
+		return FloatValue(readReal(text).value), nil
+	case affinity == BlobAffinity:
+		return applyAffinity(TextValue(text), NumericAffinity), nil
 	}
-	value, ok := parseNumeric(text, affinity != BlobAffinity)
-	if !ok {
-		return Value{}, fmt.Errorf("%w: malformed number %s", errSchemaSyntax, text)
+	return applyAffinity(TextValue(text), affinity), nil
+}
+
+// isHexLiteral reports whether a number token is a hexadecimal literal.
+func isHexLiteral(text string) bool {
+	return len(text) > 2 && text[0] == '0' && text[1]|0x20 == 'x'
+}
+
+// negatedInOneStep reports whether SQLite reads a minus sign before the
+// number literal text as part of it: for every literal but a hexadecimal
+// one past 31 bits, whose 64-bit pattern is negated as a value instead.
+func negatedInOneStep(text string) bool {
+	if !isHexLiteral(text) {
+		return true
 	}
-	return applyAffinity(value, affinity), nil
+	digits := strings.TrimLeft(strings.ReplaceAll(text[2:], "_", ""), "0")
+	pattern, err := strconv.ParseUint(digits, 16, 32)
+	return digits == "" || (err == nil && pattern < 1<<31)
 }
 
 // integerLiteral reads a decimal integer that fits 64 bits or a
-// hexadecimal one of at most 16 digits.
+// hexadecimal one of at most 16 digits after its leading zeros.
 func integerLiteral(text string) (int64, bool) {
-	if len(text) > 2 && text[0] == '0' && text[1]|0x20 == 'x' {
-		pattern, err := strconv.ParseUint(text[2:], 16, 64)
+	if isHexLiteral(text) {
+		digits := strings.TrimLeft(text[2:], "0")
+		if digits == "" {
+			return 0, true
+		}
+		pattern, err := strconv.ParseUint(digits, 16, 64)
 		return int64(pattern), err == nil
-	}
-	if strings.ContainsAny(text, ".eE") {
-		return 0, false
 	}
 	integer, err := strconv.ParseInt(text, 10, 64)
 	return integer, err == nil
 }
 
-// negatedDefault evaluates "- expression": the operand as a number,
-// negated, then the affinity applied.
+// negatedDefault evaluates "- expression" as SQLite does. When the operand
+// is a number literal, in parentheses or not, other than a hexadecimal one
+// past 31 bits, the sign is part of the literal. Any other operand is
+// evaluated under the same affinity, made a number as numerify makes it,
+// negated (-2^63 becoming the float 2^63), then the affinity applied.
 func negatedDefault(operand []token, affinity Affinity, depth int) (Value, error) {
-	value, err := evaluateDefault(operand, BlobAffinity, depth)
+	literal := operand
+	for range maxDefaultDepth - depth {
+		inner, ok := unwrapParentheses(literal)
+		if !ok {
+			break
+		}
+		literal = inner
+	}
+	if len(literal) == 1 && literal[0].kind == number && negatedInOneStep(literal[0].text) {
+		return numberLiteral(literal[0].text, true, affinity)
+	}
+	value, err := evaluateDefault(operand, affinity, depth)
 	if err != nil || value.Type == Null {
 		return value, err
 	}
-	if value.Type == Text {
-		number, ok := parseNumeric(string(value.Bytes), true)
-		if !ok {
-			return Value{}, errDefault
-		}
-		value = number
-	}
-	switch value.Type {
-	case Integer:
-		if value.Int == -9223372036854775808 {
-			value = FloatValue(9223372036854775808)
-		} else {
-			value.Int = -value.Int
-		}
-	case Float:
+	value = numerify(value)
+	switch {
+	case value.Type == Float:
 		value.Float = -value.Float
+	case value.Int == math.MinInt64:
+		value = FloatValue(0x1p63)
 	default:
-		return Value{}, errDefault
+		value.Int = -value.Int
 	}
 	return applyAffinity(value, affinity), nil
 }
 
-// castDefault evaluates "CAST ( expression AS type )" for the conversions
-// that need no rule beyond affinity: numbers to text, numeric text to a
-// number, text to a blob; and any value to an integer, as castToInteger
-// converts it.
+// castDefault evaluates "CAST ( expression AS type )" as SQLite does for a
+// DEFAULT: the operand's value under the affinity of the type, converted
+// to the type as castValue converts it, then the column's affinity
+// applied.
 func castDefault(rest []token, affinity Affinity, depth int) (Value, error) {
 	if len(rest) < 4 || !rest[0].isPunctuation("(") || !rest[len(rest)-1].isPunctuation(")") {
 		return Value{}, errDefault
@@ -206,75 +234,80 @@ func castDefault(rest []token, affinity Affinity, depth int) (Value, error) {
 		return Value{}, errDefault
 	}
 	target := affinityOf(joinTokens(inner[separator+1:]), false)
-	operand := target
-	if target == IntegerAffinity {
-		operand = BlobAffinity
-	}
-	value, err := evaluateDefault(inner[:separator], operand, depth)
+	value, err := evaluateDefault(inner[:separator], target, depth)
 	if err != nil {
 		return Value{}, err
 	}
+	return applyAffinity(castValue(value, target), affinity), nil
+}
+
+// castValue converts a value as CAST to a type of affinity target does
+// (sqlite3VdbeMemCast): NULL stays NULL; BLOB makes a number its text and
+// text a blob of its bytes; TEXT makes a number or a blob text; INTEGER,
+// REAL and NUMERIC convert as castToInteger, castToReal and numerify do.
+func castValue(value Value, target Affinity) Value {
 	switch {
 	case value.Type == Null:
+		return value
 	case target == IntegerAffinity:
-		value = castToInteger(value)
-	case target == TextAffinity:
-		value = Value{Type: Text, Bytes: value.Bytes}
-	case target == BlobAffinity && value.Type == Text:
-		value = BlobValue(value.Bytes)
-	case !target.numeric() || (value.Type != Integer && value.Type != Float):
-		return Value{}, errDefault
+		return castToInteger(value)
+	case target == RealAffinity:
+		return castToReal(value)
+	case target == NumericAffinity:
+		return numerify(value)
+	case value.Type == Integer || value.Type == Float:
+		value = TextValue(numberText(value))
 	}
-	return applyAffinity(value, affinity), nil
+	if target == TextAffinity {
+		return Value{Type: Text, Bytes: value.Bytes}
+	}
+	return Value{Type: Blob, Bytes: value.Bytes}
+}
+
+// numerify makes a value a number as SQLite does when it must have one
+// (sqlite3VdbeMemNumerify): a number stays as it is; text, and a blob read
+// as text, becomes the integer its digits give when they have no decimal
+// point or exponent and fit 64 bits, else the float readReal reads, an
+// integer when that is one within 2^51 of zero.
+func numerify(value Value) Value {
+	if value.Type != Text && value.Type != Blob {
+		return value
+	}
+	text := string(value.Bytes)
+	reading := readReal(text)
+	if integer, fits, _ := readInteger(text); !reading.pointOrPower && fits {
+		return IntValue(integer)
+	}
+	if integer := realToInteger(reading.value); realSameAsInteger(reading.value, integer) {
+		return IntValue(integer)
+	}
+	return FloatValue(reading.value)
 }
 
 // castToInteger converts a value that is not NULL as CAST to INTEGER does
 // (sqlite3VdbeMemIntegerify): a float drops its fraction, and one past the
 // 64-bit range becomes the nearer end of it; text, and a blob read as
-// text, becomes the integer it starts with, as integerPrefix reads it.
+// text, becomes the integer it starts with, as readInteger reads it.
 func castToInteger(value Value) Value {
 	switch value.Type {
 	case Float:
-		switch {
-		case value.Float <= math.MinInt64:
-			return IntValue(math.MinInt64)
-		case value.Float >= math.MaxInt64: // the float nearest the greatest integer is 2^63
-			return IntValue(math.MaxInt64)
-		}
-		return IntValue(int64(value.Float))
+		return IntValue(realToInteger(value.Float))
 	case Text, Blob:
-		return IntValue(integerPrefix(string(value.Bytes)))
+		integer, _, _ := readInteger(string(value.Bytes))
+		return IntValue(integer)
 	}
 	return value
 }
 
-// integerPrefix reads the integer that text starts with, after ASCII
-// whitespace and one sign, as SQLite reads text it casts to INTEGER
-// (sqlite3Atoi64): the digits up to the first other character, 0 when
-// there are none, and the nearer end of the 64-bit range for a number past
-// it.
-func integerPrefix(text string) int64 {
-	text = strings.TrimLeftFunc(text, func(char rune) bool { return char < 0x80 && isSpace(byte(char)) })
-	negative := strings.HasPrefix(text, "-")
-	if negative || strings.HasPrefix(text, "+") {
-		text = text[1:]
+// castToReal converts a value that is not NULL as CAST to REAL does
+// (sqlite3VdbeMemRealify): an integer becomes the nearest float; text, and
+// a blob read as text, the number its longest numeric prefix holds.
+func castToReal(value Value) Value {
+	switch value.Type {
+	case Integer:
+		return FloatValue(float64(value.Int))
+	case Text, Blob:
+		return FloatValue(readReal(string(value.Bytes)).value)
 	}
-	end := 0
-	for end < len(text) && isDigit(text[end]) {
-		end++
-	}
-	digits := strings.TrimLeft(text[:end], "0")
-	if digits == "" {
-		return 0
-	}
-	magnitude, err := strconv.ParseUint(digits, 10, 64)
-	switch {
-	case (err != nil || magnitude >= 1<<63) && negative:
-		return math.MinInt64
-	case err != nil || magnitude >= 1<<63:
-		return math.MaxInt64
-	case negative:
-		return -int64(magnitude)
-	}
-	return int64(magnitude)
+	return value
 }
