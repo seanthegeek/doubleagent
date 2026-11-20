@@ -71,7 +71,7 @@ func withSecretsWithheld(command string, args []string) []string {
 func withheldDifference() Difference {
 	return Difference{Number: 230, Summary: "a withheld secret is written as the placeholder: at each site of " +
 		"withheldForms, the recording's withheld form and the binary's form with the placeholder become one token " +
-		"that keeps the rest of the row; where the recording cut a URL at its query, its row takes the URL " +
+		"that keeps the rest of the row; where the recording cut a request row's URL at its query, the row takes the URL " +
 		"the case's input gives, its credentials as the placeholder (those the binary's rule finds, which must " +
 		"include the replay's own minimum, a password and a key parameter), and the binary's row is compared with " +
 		"it as written",
@@ -426,13 +426,14 @@ func commandAndURLForms() []withheldForm {
 			binary:   regexp.MustCompile(`("text": ?")\[` + replayPlaceholder + `\](")`),
 			token:    "${1}{a key's text}${2}", cause: regexp.MustCompile(`https?://[^\s"?]*\?(?:[^\s"#]*&)?key=redacted\b`)},
 		// The recording cut a network request's URL at its query, which can
-		// carry an API key; the binary gives the whole URL as the request's
-		// record in the input holds it, its credentials withheld
-		// (requestURL), a password and a key parameter whatever the binary's
-		// table says. An error row has a colon after the URL.
+		// carry an API key; the binary gives the whole URL in the request's
+		// own row as the request's record in the input holds it, its
+		// credentials withheld (requestURL), a password and a key parameter
+		// whatever the binary's table says. A response or error row carries
+		// no URL (difference 260).
 		{scope: parserScope, agent: "gemini-cli", name: "network request URL",
-			recorded: regexp.MustCompile(`(network (?:request|response|error): [A-Z]+ )(https?://[^ ?#"\n]*?)` +
-				`(:? (?:[^"\n]*? )?\(request ([^ )"\n]*)\))`),
+			recorded: regexp.MustCompile(`(network request: [A-Z]+ )(https?://[^ ?#"\n]*?)` +
+				`( \(request ([^ )"\n]*)\))`),
 			completed: func(match []string, run caseRun) string {
 				return match[1] + run.requestURL(match[4], match[2]) + match[3]
 			}},
@@ -476,8 +477,8 @@ func remoteUserInfo() string {
 		strconv.Itoa(secrets.EverywhereLength) + ",})"
 }
 
-// withheldIn returns table with difference 230's rewrites of texts and of
-// rows those of run.
+// withheldIn returns table with the rewrites of texts and of rows of
+// differences 230 and 260 those of run.
 func withheldIn(table []Difference, run caseRun) []Difference {
 	table = slices.Clone(table)
 	for i := range table {
@@ -486,6 +487,9 @@ func withheldIn(table []Difference, run caseRun) []Difference {
 				formsText(withheldForms(), binarySide, run)
 			table[i].RowText, table[i].RowBinary = withheldRowText(recordedSide, run),
 				withheldRowText(binarySide, run)
+		}
+		if table[i].Number == requestAnswersDifference().Number {
+			table[i] = requestAnswersDifferenceIn(run)
 		}
 	}
 	return table

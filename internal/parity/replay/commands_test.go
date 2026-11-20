@@ -950,7 +950,7 @@ func normalisedPair(t testing.TB, node string, table []Difference, want, got str
 }
 
 // caseDifferences returns commandDifferences as one case calls for:
-// differences 230 and 232 by the entries that apply in run, and for a run
+// differences 230, 232 and 260 by the entries that apply in run, and for a run
 // already in the compared form, no rewrite of the binary's side.
 func caseDifferences(run caseRun) []Difference {
 	table := commandDifferences()
@@ -962,6 +962,8 @@ func caseDifferences(run caseRun) []Difference {
 		case shownDifference().Number:
 			table[i].Text, table[i].Binary = formsText(shownForms(), recordedSide, run),
 				formsText(shownForms(), binarySide, run)
+		case requestAnswersDifference().Number:
+			table[i].Text, table[i].Binary = requestAnswersDifferenceIn(run).Text, requestAnswersDifferenceIn(run).Binary
 		}
 		if run.source == comparedRun && table[i].Binary != nil {
 			table[i].Binary = asWritten
