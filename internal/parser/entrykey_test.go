@@ -33,6 +33,19 @@ func matchesAnyCase(t *testing.T, directory string) bool {
 	return err == nil
 }
 
+func TestFoldASCIILowersOnlyASCIICapitals(t *testing.T) {
+	tests := []struct{ text, want string }{
+		{"Message.JSON", "message.json"},
+		{"\xc3\x89t\xc3\xa9", "\xc3\x89t\xc3\xa9"},
+		{"\xff\xfeAZ@[`{", "\xff\xfeaz@[`{"},
+	}
+	for _, test := range tests {
+		if got := foldASCII(test.text); got != test.want {
+			t.Errorf("foldASCII(%q) = %q, want %q", test.text, got, test.want)
+		}
+	}
+}
+
 func TestKeyOfTellsEntriesApart(t *testing.T) {
 	directory := writeEntryFiles(t, "a.json", "b.json")
 	tests := []struct {
