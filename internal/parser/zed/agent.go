@@ -11,7 +11,8 @@ import (
 
 // agentMessage adds the items of an Agent message: its text, thinking,
 // tool calls each followed by its result, images, then the results no call
-// named.
+// named. A result follows only the first call naming its id, so it is
+// written once however many calls repeat the id.
 func (p *Parser) agentMessage(out *transcript, message jsonvalue.Value) {
 	if !message.IsObject() {
 		out.bad("Agent message is not an object",
@@ -41,7 +42,7 @@ func (p *Parser) agentMessage(out *transcript, message jsonvalue.Value) {
 
 // agentPart adds the items of one content part of an Agent message. A tool
 // call is followed by its result, marked done, so the timeline reads in
-// order.
+// order; a later call of an id already done gets no result.
 func (p *Parser) agentPart(out *transcript, k int, part, results jsonvalue.Value,
 	done map[string]bool) {
 	switch {
@@ -60,7 +61,7 @@ func (p *Parser) agentPart(out *transcript, k int, part, results jsonvalue.Value
 		toolUseID := parser.Text(toolUse.Get("id"))
 		out.items = append(out.items, item{timeline.TurnToolUse, toolInputText(toolUse),
 			parser.Text(toolUse.Get("name")), toolUseID})
-		if result := results.Get(toolUseID); result.IsObject() {
+		if result := results.Get(toolUseID); result.IsObject() && !done[toolUseID] {
 			done[toolUseID] = true
 			p.toolResult(out, toolUseID, result)
 		}

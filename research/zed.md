@@ -601,7 +601,9 @@ Globs: `{Library/Application Support/Zed,.local/share/zed,AppData/Local/Zed}/thr
 (with the Flatpak `.var/app/dev.zed.Zed*/{data,config}/zed` forms). Requires the `zstandard`
 package.
 
-Rows: one per message content item and per `tool_results` entry; one
+Rows: one per message content item and per `tool_results` entry, an `Agent` message's result
+following the first `ToolUse` that names its id (a later call with the same id gets no result
+row); one
 `system` row per `sidebar_threads` entry with `agent_id` set (external agent,
 no transcript); the `system` rows of the subsections below.
 
