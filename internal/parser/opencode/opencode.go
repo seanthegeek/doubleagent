@@ -19,7 +19,7 @@
 // The model and the agent (an OpenCode agent is a mode with its own
 // permission rules) are tracked per session as "model:" and
 // "permission mode:" rows. A row's project path is the session's
-// directory, else its project's worktree unless "/", else the message's
+// directory, else its project's worktree unless "/", else the message's own
 // working directory. Kilo Code's CLI is a fork that keeps the same stores
 // under its own directories: Config describes where a build keeps them,
 // and the kilocode parser holds a Parser made for Kilo's. See
