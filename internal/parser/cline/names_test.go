@@ -6,6 +6,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
 // writeManifest writes a session manifest naming cwd at the slash-separated
@@ -43,7 +44,7 @@ func TestASessionIDThatIsNotAFileNameHasNoManifest(t *testing.T) {
 				if manifestPresent(artifact, test.sessionID) {
 					t.Errorf("%s: the manifest was found", rel)
 				}
-				if got := New().searchProject(artifact, test.sessionID, "/workspace"); got != "/workspace" {
+				if got := New().searchProject(artifact, test.sessionID, "/workspace", map[parser.EntryKey]manifestProject{}); got != "/workspace" {
 					t.Errorf("%s: the project is %q, want the workspace", rel, got)
 				}
 			}
@@ -53,7 +54,7 @@ func TestASessionIDThatIsNotAFileNameHasNoManifest(t *testing.T) {
 	writeManifest(t, home, ".cline/data/sessions/s1/s1.json", "/srv/proj")
 	artifact := &input.Artifact{DiskPath: filepath.Join(home, ".cline", "data", "db", "sessions.db"),
 		Rel: sessionsDatabaseRel, Home: &input.Home{DiskPath: home}}
-	if !manifestPresent(artifact, "s1") || New().searchProject(artifact, "s1", "/workspace") != "/srv/proj" {
+	if !manifestPresent(artifact, "s1") || New().searchProject(artifact, "s1", "/workspace", map[parser.EntryKey]manifestProject{}) != "/srv/proj" {
 		t.Error("a plain session id's manifest was not read")
 	}
 }

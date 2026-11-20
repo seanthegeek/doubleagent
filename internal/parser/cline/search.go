@@ -79,6 +79,7 @@ func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
 	}
 	var order []string
 	bySession := map[string][]sqlitefile.Row{}
+	manifests := map[parser.EntryKey]manifestProject{}
 	add := func(sessionID string) {
 		if _, ok := bySession[sessionID]; !ok {
 			order = append(order, sessionID)
@@ -97,21 +98,21 @@ func (p *Parser) searchDatabase(artifact *input.Artifact, emit parser.Emit) {
 		bySession[sessionID] = append(bySession[sessionID], document)
 	}
 	for _, sessionID := range order {
-		p.searchSession(artifact, sessionID, meta[sessionID], bySession[sessionID], emit)
+		p.searchSession(artifact, sessionID, meta[sessionID], bySession[sessionID], manifests, emit)
 	}
 }
 
 // searchSession emits the index row of one session, then a row per
 // message document in ordinal order.
 func (p *Parser) searchSession(artifact *input.Artifact, sessionID string, indexed sqlitefile.Row,
-	documents []sqlitefile.Row, emit parser.Emit) {
+	documents []sqlitefile.Row, manifests map[parser.EntryKey]manifestProject, emit parser.Emit) {
 	head, hasHead, messages := splitHead(documents)
 	first := head
 	if !hasHead && len(messages) > 0 {
 		first = messages[0]
 	}
 	workspace := parser.NonEmptyColumn(first.Get("workspace_root"))
-	project := p.searchProject(artifact, sessionID, workspace)
+	project := p.searchProject(artifact, sessionID, workspace, manifests)
 	row := p.BaseRow(artifact)
 	row.TimestampUTC = parser.ColumnTime(first.Get("started_at"))
 	row.SessionID, row.ProjectPath = sessionID, project
@@ -155,23 +156,42 @@ func splitHead(documents []sqlitefile.Row) (sqlitefile.Row, bool, []sqlitefile.R
 	return head, hasHead, messages
 }
 
+// manifestProject is what a session manifest gives a search session: its
+// project, when the manifest is a JSON object.
+type manifestProject struct {
+	project string
+	object  bool
+}
+
 // searchProject returns a search session's project: its manifest's when
-// the manifest is there, else the documents' workspace root.
-func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace string) string {
+// the manifest is there, else the documents' workspace root. Each manifest
+// is read once per index, in manifests by the entry its path opens, since
+// the ids of many sessions can be spellings that open one file.
+func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace string,
+	manifests map[parser.EntryKey]manifestProject) string {
 	name, named := parser.Component(sessionID)
 	if !named {
 		return workspace
 	}
-	var ignored parser.Problems
 	manifestPath, found := parser.Above(artifact, 1, "sessions", name, name+".json")
 	if !found {
 		return workspace
 	}
-	manifest, _ := parser.LoadJSON(manifestPath, &ignored)
-	if !manifest.IsObject() {
+	key := parser.KeyOf(manifestPath)
+	read, seen := manifests[key]
+	if !seen {
+		p.Work.Add("search manifests read", 1)
+		var ignored parser.Problems
+		if manifest, _ := parser.LoadJSON(manifestPath, &ignored); manifest.IsObject() {
+			read = manifestProject{object: true,
+				project: parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))}
+		}
+		manifests[key] = read
+	}
+	if !read.object {
 		return workspace
 	}
-	return parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))
+	return read.project
 }
 
 // searchDetail returns the "key=value" fields of a search session's index
