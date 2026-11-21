@@ -1183,7 +1183,7 @@ attribute are the same string.
      document's Credentials section, not one per glob.
    - Run the full shell matrix of
      [Validation and testing](#validation-and-testing), Windows PowerShell
-     5.1 through the WSL path included.
+     5.1 included.
 7. Write the Collection part of `research/<agent>.md`, and the Parsing part
    if the tool keeps transcripts worth parsing; add the agent to the index
    table in [`research/README.md`](research/README.md), with its Parser and
@@ -1519,13 +1519,11 @@ changes, and the main session reviews. The brief sets the safety envelope:
 - A blocked clone or download is reported, never worked around from
   memory.
 - Nobody runs `doubleagent collect`, either collector script or a smoke
-  test on the workstation by accident: `-r ""`, `-r /` (Unix), a relative
-  root that comes out as `/` from the current directory (`-r ..` from
-  `/tmp`) and `-Root ''` are live runs, not image runs, and so is any root
-  the sh collector cannot enter; a root that is a symlink to `/` or a
-  drive's root (`-r C:\`) reads the whole workstation as an image.
-  A reviewer trying root spellings uses a root inside a scratch image, and a
-  brief for a subagent says so.
+  test on the workstation by accident: the root spellings that give a live
+  run or read the whole workstation are listed under Tests in
+  [Go standards](#go-standards), and `-Root ''` is one for the PowerShell
+  collector. A reviewer trying root spellings uses a root inside a scratch
+  image, and a brief for a subagent says so.
 - A subagent that runs a live collection against the workstation writes it
   under the scratchpad, deletes it afterwards, and reports no file contents
   or manifest rows from it; or the main session runs it.
@@ -1564,14 +1562,6 @@ tests.
   count.
 - The integration agent derives the number of agents from the documents in
   the tree, not the brief, and says when they differ.
-- Claude Desktop since the 2.31226 builds (October 2026) has one Chat and
-  Cowork surface, which enters Cowork mode itself, beside the Code tab.
-  Never describe a "Cowork mode" the user starts or ask the user to "open
-  Cowork", and never expect a `local_<uuid>.json` under
-  `local-agent-mode-sessions/` for every chat: on 2.31226.1 (MSIX build and
-  Linux deb) a chat that wrote files ran as a remote session leaving only
-  `remote-session-spaces.json` and the files it committed, and scheduled
-  tasks set from a chat stayed server-side, not in `scheduled-tasks.json`.
 - Chat history outside the home cannot be a catalog line: record it in
   [`collectors/docs/coverage.md`](collectors/docs/coverage.md) as a manual
   step and file an issue. Docker and Podman named volumes are the exception
@@ -1684,11 +1674,8 @@ into Format versions.
      removes only the local token, and the grant itself is revoked under
      the account's authorized OAuth apps.
    - An agent driven over SSH may fail to reach the OS credential store and
-     write a file fallback instead (Claude Code 2.1.310 on macOS:
-     `~/.claude/.credentials.json`, mode 0600), and whether it fails can
-     turn on a desktop session being logged in at the time (Gemini CLI
-     0.66.0 on Linux reached the keyring over SSH while one was, and wrote
-     the fallback while none was). On every platform, record where its
+     write a file fallback instead, and whether it fails can turn on a
+     desktop session being logged in at the time. On every platform, record where its
      credentials land at the ssh sign-in (the credential entered in the
      session started over SSH): where the agent takes a key at a prompt,
      the pipeline types it from its credentials file before anyone has
@@ -1718,9 +1705,7 @@ into Format versions.
    - A session deleted the way a user would (the agent's own delete or
      clear, or the project directory removed). When the delete offers to
      remove the synced copy, take it and record whether a local file still
-     marks the sync (Copilot CLI 1.0.98 marks one with `remote_steerable`,
-     `mc_task_id`, `mc_session_id` and `mc_last_event_id` in
-     `workspace.yaml`).
+     marks the sync.
    - A set idle period with a listing, then a reboot and a listing after
      login.
    - A surface that writes nothing locally is a finding, and so is a
@@ -1890,37 +1875,15 @@ cd ../analyzer && tests/run.sh
 cd ..
 python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
 python3 -m pytest lab/round/tests -q   # the round pipeline's tests
-export GOFLAGS=-tags=noasm,nounsafe   # every go command of the project needs these tags
-gofmt -l cmd internal && go vet ./... && go test -race ./...   # the Go tree
-# quality gates, from the repository root (see "Quality gates")
-uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
-uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright
-npx -y markdownlint-cli2@0.23.3 "**/*.md"
-python3 tools/check_doc_links.py
-python3 tools/check_research_structure.py
-python3 tools/check_tables_research.py
-python3 tools/check_smoke_coverage.py
-python3 tools/check_parser_research.py
-python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
-python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
-python3 tools/check_code_style.py
-python3 tools/check_fork_budget.py --base origin/main   # Linux only: needs strace
-shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') >/dev/null && shellcheck -s sh $(shfmt -f . | grep -v '^vendor/') && checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
+# then every command of the "Quality gates" table, from the repository root; PSScriptAnalyzer is:
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
 
 For a change to the PowerShell collector, also run the test under real
-Windows PowerShell 5.1. From this WSL checkout that is:
-
-```sh
-/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -ExecutionPolicy Bypass \
-  -File '\\wsl.localhost\Ubuntu\home\sean\dev\coding-agent-collector\collectors\tests\smoke.ps1' \
-  -Collector '\\wsl.localhost\Ubuntu\home\sean\dev\coding-agent-collector\collectors\Collect-AgentArtifacts.ps1'
-```
+Windows PowerShell 5.1, which the Windows lab VM and the CI runner have.
 
 Without the privilege to create symlinks the test skips the symlink checks
-and says so. A pass under PowerShell 7 alone is not enough, and a pass
-under 5.1 through the WSL path is weaker than one on the CI runner. A change
+and says so. A pass under PowerShell 7 alone is not enough. A change
 is done when every check on its pull request, CI and CodeQL, is green and
 Copilot's review of the final commit has no unanswered finding, its
 suppressed and body-only findings included;
