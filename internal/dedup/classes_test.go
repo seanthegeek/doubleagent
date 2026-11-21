@@ -47,6 +47,8 @@ func TestTwoTextsInPiecesAreEqualExactlyWhenTheirBytesAre(t *testing.T) {
 		{"texts differing in a last segment differ", []string{"ab", "#c|x"}, []string{"#a|b", "#cd"}, false},
 		{"a text and a longer one it begins differ", []string{"ab"}, []string{"ab", "c"}, false},
 		{"a segment and a longer one it begins differ", []string{"#a|b"}, []string{"#a|b|c"}, false},
+		{"a text and a longer one it begins in the same piece differ", []string{"ab"}, []string{"abc"}, false},
+		{"a segment and a longer one it begins in the same piece differ", []string{"#ab"}, []string{"#abc"}, false},
 		{"empty pieces in the middle are skipped", []string{"ab", "", "#|c||", "#", "d"}, []string{"abcd"}, true},
 		{"two empty texts are equal", nil, nil, true},
 		{"empty pieces and an empty text are equal", []string{"", "#|"}, nil, true},

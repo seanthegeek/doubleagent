@@ -76,7 +76,9 @@ func sameText(left, right *MatchText) bool {
 			return false
 		}
 	}
-	return !rest.next()
+	// Equal only when nothing of the right text is left: neither the rest
+	// of the piece the cursor is at nor a later piece.
+	return rest.piece == "" && !rest.next()
 }
 
 // pieceCursor steps through the pieces of a match text: the part it reads
