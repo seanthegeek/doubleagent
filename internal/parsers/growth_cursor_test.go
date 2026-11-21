@@ -67,8 +67,8 @@ func cursorLongProject(t *testing.T) growthFile {
 
 // cursorGrowth returns the cursor growth set.
 func cursorGrowth() growthSet {
-	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorSideCases(), cursorFileCases(),
-		cursorSettingsCases())}
+	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(), cursorSideCases(),
+		cursorFileCases(), cursorSettingsCases())}
 }
 
 // cursorStateCases returns the cases of state.vscdb.
@@ -129,6 +129,24 @@ func cursorStateCases() []growthCase {
 	}
 }
 
+// cursorRepeatCases returns the cases of a state.vscdb that stores a
+// composer's key more than once.
+func cursorRepeatCases() []growthCase {
+	return []growthCase{
+		// Each stored composerData row of a repeated key is a parent of
+		// the composer's group, with its own rows, and names its own
+		// bubble and the first; each bubble is a member, shown once.
+		{kind: "state.vscdb", shape: shapeSharedID + " (composerData rows in their own projects)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(cursorStateRel, cursorState(t, append(rows(n, func(i int) []any {
+					return []any{"composerData:c1", `{"name":"` + numbered("n", i) + `","workspaceIdentifier":` +
+						`{"uri":{"fsPath":"/` + numbered("p", i) + `"}},"fullConversationHeadersOnly":[` +
+						`{"bubbleId":"b0","type":1},{"bubbleId":"b` + strconv.Itoa(i) + `","type":1}]}`}
+				}), cursorBubbles("c1", n)...), nil, nil))
+			}},
+	}
+}
+
 // cursorConversations returns a conversation-search.db holding the
 // conversations and the full-text bodies.
 func cursorConversations(t *testing.T, records [][]any, bodies [][]any) []byte {
@@ -166,6 +184,15 @@ func cursorSideCases() []growthCase {
 		{kind: "ai-code-tracking.db", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
 			return one(tracking, cursorHashes(t, n))
 		}},
+		// The home's state repeats the composer's key in n rows, so each
+		// hash is a member of a group of n parents.
+		{kind: "ai-code-tracking.db", shape: shapeSharedID + " (a composer the state repeats)",
+			files: func(t *testing.T, n int) []growthFile {
+				state := cursorState(t, rows(n, func(i int) []any {
+					return cursorComposer("c1", "/"+numbered("p", i), "main", 1)
+				}), nil, nil)
+				return []growthFile{{rel: cursorStateRel, data: state}, {rel: tracking, data: cursorHashes(t, n)}}
+			}},
 	}
 }
 

@@ -4,11 +4,14 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// composer is what the store has about one conversation: its
-// composerData, its composerHeaders row and that row's decoded value.
+// composer is what the store has about one conversation: its first
+// composerData, its composerHeaders row and that row's decoded value, with
+// every composerData row of the id (stored) and the group of a repeated
+// key (repeat.go). Its copies share its problems.
 type composer struct {
 	ident     string
 	data      jsonvalue.Value // null when there is no composerData row
@@ -16,12 +19,22 @@ type composer struct {
 	dataRowid int64
 	header    *sqlitefile.Row
 	head      jsonvalue.Value // the header row's value, an object
-	problems  parser.Problems
+	problems  *parser.Problems
+	stored    []storedData
+	group     *timeline.Group
+}
+
+// storedData is one composerData row of a composer: its value, its rowid
+// and the problems of the row, the composer's own unless the key repeats.
+type storedData struct {
+	value    jsonvalue.Value
+	rowid    int64
+	problems *parser.Problems
 }
 
 // newComposer returns a composer known only by its id.
 func newComposer(ident string) *composer {
-	return &composer{ident: ident, data: jsonvalue.NewNull(), head: jsonvalue.NewObject()}
+	return &composer{ident: ident, data: jsonvalue.NewNull(), head: jsonvalue.NewObject(), problems: &parser.Problems{}}
 }
 
 // documents returns the header value and the composerData, the order a
@@ -129,16 +142,28 @@ func (c *composers) get(ident string) *composer {
 
 // readComposers returns every composer of the store: the composerData rows
 // in rowid order, then the composers with only a header. A composerData
-// value that is not a JSON object is that composer's problem.
+// value that is not a JSON object is that composer's problem, or that
+// stored row's when the key repeats.
 func readComposers(store *store) *composers {
 	found := &composers{byID: map[string]*composer{}}
 	if keyValues := store.table("cursorDiskKV"); keyValues != nil {
 		rows := store.rows(prefixed(keyValues, "composerData:"))
 		sortByRowid(rows)
+		counts := map[string]int{}
+		for _, row := range rows {
+			counts[row.key]++
+		}
 		for _, row := range rows {
 			current := found.get(row.key[len("composerData:"):])
-			current.data = objectRecord(row, &current.problems)
-			current.hasData, current.dataRowid = true, row.rowid
+			problems := current.problems
+			if counts[row.key] > 1 {
+				problems = &parser.Problems{}
+			}
+			value := objectRecord(row, problems)
+			current.stored = append(current.stored, storedData{value: value, rowid: row.rowid, problems: problems})
+			if !current.hasData {
+				current.data, current.hasData, current.dataRowid = value, true, row.rowid
+			}
 		}
 	}
 	readHeaders(store, found)
@@ -167,7 +192,7 @@ func readHeaders(store *store, found *composers) {
 		current.header = &rows[i]
 		if value := rows[i].Get("value"); !value.IsNull() {
 			current.head = objectRecord(keyed{rowid: rows[i].Rowid, key: "composerHeaders " + current.ident,
-				value: value}, &current.problems)
+				value: value}, current.problems)
 		}
 	}
 }

@@ -62,10 +62,13 @@ var (
 const transcriptTolerance = 60.0
 
 // Parser reads the Cursor IDE's stores, transcripts and settings files. It
-// keeps the projects and models of the last home state.vscdb read.
+// keeps the projects and models of the last home state.vscdb read, and the
+// group of each composer id a home state.vscdb repeats, by the database's
+// path and the id, which its parse and its side files' parses share.
 type Parser struct {
 	parser.Base
-	index *stateIndex
+	index  *stateIndex
+	groups map[[2]string]*timeline.Group
 }
 
 // New returns the parser.

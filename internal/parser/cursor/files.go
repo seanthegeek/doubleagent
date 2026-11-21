@@ -15,10 +15,12 @@ import (
 // object, or content that is neither text nor a JSON array, is a problem.
 func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 	sessionID := transcriptPattern.FindStringSubmatch(artifact.Rel)[1]
-	found := p.homeIndex(artifact).projects[sessionID]
+	index := p.homeIndex(artifact)
+	found := index.projects[sessionID]
 	row := func(turnType, text, when string, line int) timeline.Row {
 		made := p.row(artifact, turnType, text, when, int64(line))
 		made.SessionID, made.ProjectPath, made.GitBranch = sessionID, found.path, found.branch
+		index.member(sessionID, &made, timeline.TakeProject|timeline.TakeBranch)
 		return made
 	}
 	var problems parser.Problems
@@ -53,7 +55,10 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 			}
 		}
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, found.path))
+	for _, made := range p.ErrorRows(artifact, problems, sessionID, found.path) {
+		index.member(sessionID, &made, timeline.TakeProject)
+		emit(made)
+	}
 }
 
 // readDocument reads a JSON settings or attempt file, emitting the row

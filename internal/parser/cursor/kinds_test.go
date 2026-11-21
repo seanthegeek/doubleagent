@@ -190,10 +190,10 @@ func TestAnInlineHeaderListThatIsNotAnArrayIsReported(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			current := newComposer("c1")
-			current.data, current.hasData, current.dataRowid = decoded(t, test.data), true, 5
+			current.stored = []storedData{{value: decoded(t, test.data), rowid: 5, problems: current.problems}}
 			reader := &stateReader{owner: New()}
-			reader.entries(current)
-			if got := messages(current.problems); !slices.Equal(got, test.want) {
+			reader.entryLists(current)
+			if got := messages(*current.problems); !slices.Equal(got, test.want) {
 				t.Errorf("problems %q, want %q", got, test.want)
 			}
 		})

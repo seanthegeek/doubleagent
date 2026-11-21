@@ -75,6 +75,7 @@ func (s *stamper) add(turnType, text, timestamp string, line int64, model string
 // integrations, cloud agents, MCP servers and plugins of ItemTable.
 func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Options, emit parser.Emit) {
 	found := readComposers(store)
+	p.assignGroups(sharedState(artifact), found)
 	keyValues := store.table("cursorDiskKV")
 	drafts := map[string]keyed{}
 	if keyValues != nil {
@@ -110,24 +111,63 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 
 // composer emits the rows of one composer: its conversation (a draft never
 // sent has none) or, when only its header is left, its deletion, then its
-// unsent draft and its problems. It reports whether it was deleted.
+// unsent draft and its problems. It reports whether it was deleted. The
+// rows of each stored row of a repeated id are its view's (repeat.go).
 func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit parser.Emit) bool {
-	stamp := r.owner.newStamper(r.artifact, current, emit)
+	views := r.views(current, emit)
+	stamp := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject|timeline.TakeBranch)
 	deleted := false
 	if current.hasData {
-		entries := r.entries(current)
-		if len(entries) > 0 || !parser.IsText(current.data.Get("status"), "none") {
-			r.conversation(stamp, entries)
+		lists := r.entryLists(current)
+		if entryCount(lists) > 0 || sent(current) {
+			r.conversation(views, stamp, lists)
 		}
-	} else if !current.head.Get("agentLocationHistory").IsEmpty() || current.archived() {
-		deleted = true
-		r.owner.deleted(stamp)
+	} else {
+		for _, found := range views {
+			if shown := found.composer; !shown.head.Get("agentLocationHistory").IsEmpty() || shown.archived() {
+				deleted = true
+				r.owner.deleted(found.stamp)
+			}
+		}
 	}
 	if draft, ok := drafts[current.ident]; ok {
-		r.owner.draft(stamp, draft)
+		r.owner.draft(r.owner.memberStamp(r.artifact, current, emit,
+			timeline.TakeTime|timeline.TakeProject|timeline.TakeBranch), draft)
 	}
-	parser.EmitAll(emit, r.owner.ErrorRows(r.artifact, current.problems, current.ident, stamp.path))
+	for _, found := range views {
+		r.ownProblems(found)
+	}
+	problems := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject)
+	parser.EmitAll(problems.emit, r.owner.ErrorRows(r.artifact, *current.problems, current.ident, stamp.path))
 	return deleted
+}
+
+// sent reports whether a composerData row of the composer has a status
+// other than none, which only a draft never sent has.
+func sent(current *composer) bool {
+	for _, stored := range current.stored {
+		if !parser.IsText(stored.value.Get("status"), "none") {
+			return true
+		}
+	}
+	return false
+}
+
+// entryList is the header list of one composerData row, with the rowid
+// and the problems its repeated entries are counted in.
+type entryList struct {
+	entries  []jsonvalue.Value
+	rowid    int64
+	problems *parser.Problems
+}
+
+// entryCount returns the number of entries of the lists.
+func entryCount(lists []entryList) int {
+	count := 0
+	for _, list := range lists {
+		count += len(list.entries)
+	}
+	return count
 }
 
 // stateReader reads the conversations of the primary store.
@@ -160,26 +200,38 @@ func (r *stateReader) loadBubbles() {
 	}
 }
 
-// entries returns the conversation's header list: composerData's inline
-// fullConversationHeadersOnly, else its composerConvHeaders chunks. An
-// inline list or a chunk that is not a JSON array is a problem.
-func (r *stateReader) entries(current *composer) []jsonvalue.Value {
-	var entries []jsonvalue.Value
-	inline := current.data.Get("fullConversationHeadersOnly")
-	inlineEntries := parser.EntriesOfKind(inline, "fullConversationHeadersOnly", jsonvalue.Object,
-		int(current.dataRowid), &current.problems)
-	if inline.IsArray() && inline.Len() > 0 {
-		for _, entry := range inlineEntries {
-			entries = append(entries, entry)
+// entryLists returns the conversation's header lists, one per
+// composerData row in rowid order: the row's inline
+// fullConversationHeadersOnly, else the composer's composerConvHeaders
+// chunks, read once for the first row without an inline list. An inline
+// list or a chunk that is not a JSON array is a problem.
+func (r *stateReader) entryLists(current *composer) []entryList {
+	var lists []entryList
+	chunked := false
+	for _, stored := range current.stored {
+		inline := stored.value.Get("fullConversationHeadersOnly")
+		inlineEntries := parser.EntriesOfKind(inline, "fullConversationHeadersOnly", jsonvalue.Object,
+			int(stored.rowid), stored.problems)
+		list := entryList{rowid: stored.rowid, problems: stored.problems}
+		if inline.IsArray() && inline.Len() > 0 {
+			for _, entry := range inlineEntries {
+				list.entries = append(list.entries, entry)
+			}
+			lists = append(lists, list)
+			continue
 		}
-		return entries
-	}
-	for _, row := range r.headerChunks(current.ident) {
-		for _, entry := range objectEntries(row, &current.problems) {
-			entries = append(entries, entry)
+		if chunked {
+			continue
 		}
+		chunked, list.problems = true, current.problems
+		for _, row := range r.headerChunks(current.ident) {
+			for _, entry := range objectEntries(row, current.problems) {
+				list.entries = append(list.entries, entry)
+			}
+		}
+		lists = append(lists, list)
 	}
-	return entries
+	return lists
 }
 
 // headerChunks returns a composer's composerConvHeaders:<id>:<NNNNNN> rows
@@ -228,44 +280,63 @@ func chunkComposer(key string) (string, bool) {
 	return rest[:cut], true
 }
 
-// conversation emits the rows of a conversation: its name, its origin,
-// each bubble's rows, and whether it is archived. Each bubble is read once,
-// at the first header entry naming it; the later entries naming it give no
-// row and are counted as one problem.
-func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
-	current := stamp.composer
-	if name := timeline.CompactValue(firstOrLast(current.data.Get("name"), current.head.Get("name"))); name != "" {
-		stamp.add(timeline.TurnSystem, "session name: "+name, current.created(), current.dataRowid, "")
+// conversation emits the rows of a conversation: each view's name and
+// origin, each bubble's rows, and each view's archive. Each bubble is read
+// once, at the first header entry naming it; the later entries of the
+// same list naming it give no row and are counted as one problem, and
+// those of a later list (a repeated composerData key) give none.
+func (r *stateReader) conversation(views []view, stamp *stamper, lists []entryList) {
+	for _, found := range views {
+		shown := found.composer
+		if name := timeline.CompactValue(firstOrLast(shown.data.Get("name"), shown.head.Get("name"))); name != "" {
+			found.stamp.add(timeline.TurnSystem, "session name: "+name, shown.created(), shown.dataRowid, "")
+		}
+		r.owner.origin(found.stamp)
 	}
-	r.owner.origin(stamp)
 	tracked, model := parser.Tracker{}, ""
-	met, repeats := map[string]bool{}, 0
-	for _, entry := range entries {
-		bubbleID := parser.Text(entry.Get("bubbleId"))
-		if met[bubbleID] {
-			repeats++
-			continue
+	met := map[string]int{}
+	for i, list := range lists {
+		repeats := 0
+		for _, entry := range list.entries {
+			bubbleID := parser.Text(entry.Get("bubbleId"))
+			if seen := met[bubbleID]; seen != 0 {
+				if seen == i+1 {
+					repeats++
+				}
+				continue
+			}
+			met[bubbleID] = i + 1
+			model = r.entry(stamp, entry, bubbleID, tracked, model)
 		}
-		met[bubbleID] = true
-		key := "bubbleId:" + current.ident + ":" + bubbleID
-		found, ok := r.bubbles[key]
-		if bubbleID == "" || !ok {
-			stamp.add(timeline.TurnSystem, "parser: missing bubble "+bubbleID,
-				timeutil.FromValue(entry.Get("createdAt")), 0, "")
-			continue
+		if repeats > 0 {
+			list.problems.Add(int(list.rowid), repeatedEntriesText(repeats))
 		}
-		bubble := parser.ObjectOrEmpty(decodeRecord(found.rowid, key, found.value, &current.problems))
-		if bubble.Len() == 0 {
-			continue
+	}
+	for _, found := range views {
+		if shown := found.composer; shown.archived() {
+			found.stamp.add(timeline.TurnSystem, "conversation archived", shown.headerUpdated(), shown.dataRowid,
+				model)
 		}
-		model = r.bubble(stamp, bubble, entry, found.rowid, tracked, model)
 	}
-	if repeats > 0 {
-		current.problems.Add(int(current.dataRowid), repeatedEntriesText(repeats))
+}
+
+// entry emits the rows of the bubble a header entry names, or a missing
+// bubble row, and returns the model in use.
+func (r *stateReader) entry(stamp *stamper, entry jsonvalue.Value, bubbleID string, tracked parser.Tracker,
+	model string) string {
+	current := stamp.composer
+	key := "bubbleId:" + current.ident + ":" + bubbleID
+	found, ok := r.bubbles[key]
+	if bubbleID == "" || !ok {
+		stamp.add(timeline.TurnSystem, "parser: missing bubble "+bubbleID,
+			timeutil.FromValue(entry.Get("createdAt")), 0, "")
+		return model
 	}
-	if current.archived() {
-		stamp.add(timeline.TurnSystem, "conversation archived", current.headerUpdated(), current.dataRowid, model)
+	bubble := parser.ObjectOrEmpty(decodeRecord(found.rowid, key, found.value, current.problems))
+	if bubble.Len() == 0 {
+		return model
 	}
+	return r.bubble(stamp, bubble, entry, found.rowid, tracked, model)
 }
 
 // repeatedEntriesText returns the problem text of n header entries that
@@ -343,7 +414,7 @@ func (p *Parser) deleted(stamp *stamper) {
 
 // draft emits a composer's unsent draft.
 func (p *Parser) draft(stamp *stamper, row keyed) {
-	draft := parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, &stamp.composer.problems))
+	draft := parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, stamp.composer.problems))
 	if text := timeline.CompactValue(draft.Get("text")); text != "" {
 		stamp.add(timeline.TurnSystem, "unsent draft: "+text, stamp.composer.created(), row.rowid, "")
 	}
@@ -373,7 +444,8 @@ func (r *stateReader) blobs(deleted []*composer, problems *parser.Problems, emit
 		text := timeline.NewSharedText(timeline.Compact(parser.TextOf(content)))
 		turnType, label := blobLabel(parser.Text(blob.Get("role")), carried)
 		for _, position := range named.Find(parser.SettingValue(content)) {
-			r.blob(r.owner.newStamper(r.artifact, deleted[position], emit), turnType, label, text, row.rowid)
+			stamp := r.owner.memberStamp(r.artifact, deleted[position], emit, timeline.TakeProject|timeline.TakeBranch)
+			r.blob(stamp, turnType, label, text, row.rowid)
 		}
 	}
 }

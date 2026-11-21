@@ -1016,7 +1016,10 @@ a session; the chat store waits for [issue 235](https://github.com/seanthegeek/d
 and `composerHeaders(composerId TEXT PRIMARY KEY, workspaceId TEXT, createdAt INTEGER,
 lastUpdatedAt INTEGER, isArchived INTEGER, isSubagent INTEGER, recency INTEGER, checkpointAt
 INTEGER, subagentTypeName TEXT, value TEXT)`, indexed on `(workspaceId, isSubagent, isArchived,
-recency)` and `(recency, composerId)`. Values are JSON text unless a row says otherwise. The
+recency)` and `(recency, composerId)`. Values are JSON text unless a row says otherwise. Both
+key-value tables declare `key TEXT UNIQUE`
+([cursaves how-cursor-stores-chats.md](https://github.com/Callum-Ward/cursaves/blob/1edf2b67276867424d2f5d0556a0535c23cf5fe0/docs/how-cursor-stores-chats.md#L451-L452)),
+so neither table holds a key twice, as `composerHeaders` holds no `composerId` twice. The
 `cursorDiskKV` key families:
 
 | Key | Value |
@@ -2480,6 +2483,19 @@ For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted`
 or a `meta.0` value that is not hex-encoded JSON, is one `parser:` row for that file, and a blob
 that is neither JSON nor protobuf is appended to the errors list with its `id`.
 
+A `composerData:<composerId>` key that `cursorDiskKV` holds in more than one row is damage or an
+edit, since the table stores no key twice ([Record schema](#record-schema)). Each stored row of the
+key gives its own rows, with the project and branch it names: its `session name:`, origin and
+`conversation archived` rows, and one row, at its `createdAt`,
+`parser: cursorDiskKV holds <n> rows of this row's id; its conversation's messages, draft and rows in other files are shown once, with this row`
+(`another of them` in place of `this row` for each stored row the composer's rows are not shown
+with). The composer's own rows are shown once: its bubbles (each read once, at the first header
+list naming it, the lists read in rowid order), its unsent draft and problems, and its rows in the
+transcripts, `conversation-search.db` and `ai-code-tracking.db`, with the project and branch of
+one stored row, the draft with its time too: the first, in rowid order, that `--since`, `--until`
+and `--match` keep, else the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with
@@ -2795,6 +2811,8 @@ Globs for the CLI files, relative to the home:
   the IDE's run-mode names and delete commands.
 - Medium: `.cursor-server` (convention plus L4).
 - Low: `~/.cursor_info` (a single L4 claim).
+- Medium: the `UNIQUE` key of `cursorDiskKV` and `ItemTable` (an L4 write-up's schema; no
+  install's schema was recorded).
 - Not determined: the schema of the CLI chat store's protobuf nodes (no descriptor extracted), so
   the CLI's message order and per-call times; whether other CLI builds split or encrypt the blobs,
   which 2026.10.19-6bbf2c4 stored whole and in plaintext beside `blobEncryptionKey` (codeburn

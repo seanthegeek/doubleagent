@@ -1494,6 +1494,15 @@ attributes. What the rows of the id are depends on the agent:
   its `created_at`, with its own `project_path` and `git_branch`; without
   a filter the session's rows take the first stored row's, in
   `created_at` order.
+- **Cursor**, a `state.vscdb` `cursorDiskKV` row repeating a
+  `composerData:<composerId>` key: the conversation's bubbles, unsent
+  draft and problems, and its rows in the transcripts,
+  `conversation-search.db` and `ai-code-tracking.db` of the home, with the
+  stored row's `project_path` and `git_branch`, and its time for the
+  draft. Each stored row gives its own `session name:`, origin and archive
+  rows and a `parser:` row, with its own `project_path` and `git_branch`;
+  without a filter the conversation's rows take the first stored row's, in
+  rowid order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

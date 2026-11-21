@@ -39,12 +39,14 @@ func columnField(value sqlitefile.Value) string {
 }
 
 // joinProject gives a row the session id and, when the home's
-// store knows it, its project and branch.
+// store knows it, its project and branch, those of the stored row the
+// group goes with when the store repeats the id.
 func joinProject(row *timeline.Row, sessionID string, index *stateIndex) {
 	row.SessionID = sessionID
 	if found, ok := index.projects[sessionID]; ok {
 		row.ProjectPath, row.GitBranch = found.path, found.branch
 	}
+	index.member(sessionID, row, timeline.TakeProject|timeline.TakeBranch)
 }
 
 // ftsBodies returns the conversation_fts_content id -> c1 (the body; c0 is

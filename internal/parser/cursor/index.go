@@ -5,6 +5,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // project is a conversation's project path, a local path or a cloud
@@ -15,13 +16,15 @@ type project struct {
 }
 
 // stateIndex is what the side files of a home need from its state.vscdb:
-// the project of each composer and cloud agent and the model of each cloud
-// agent, kept for one state of the file and its log.
+// the project of each composer (its first stored rows') and cloud agent,
+// the model of each cloud agent and the group of each composer id the
+// file repeats (repeat.go), kept for one state of the file and its log.
 type stateIndex struct {
 	key      [5]int64
 	path     string
 	projects map[string]project
 	models   map[string]string
+	groups   map[string]*timeline.Group
 }
 
 // fileState returns the size and modification time of a file, -1 for each
@@ -66,16 +69,22 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	if p.index != nil && p.index.path == path && p.index.key == key {
 		return p.index
 	}
-	p.index = &stateIndex{key: key, path: path, projects: map[string]project{}, models: map[string]string{}}
+	p.index = &stateIndex{key: key, path: path, projects: map[string]project{}, models: map[string]string{},
+		groups: map[string]*timeline.Group{}}
 	database, err := parser.OpenDatabase(path)
 	if err != nil {
 		return p.index
 	}
 	defer database.Close()
 	store := newStore(database, p.Work)
-	for _, current := range readComposers(store).list {
-		path, branch := current.project()
-		p.index.projects[current.ident] = project{path: path, branch: branch}
+	found := readComposers(store)
+	p.assignGroups(path, found)
+	for _, current := range found.list {
+		projectPath, branch := current.project()
+		p.index.projects[current.ident] = project{path: projectPath, branch: branch}
+		if current.group != nil {
+			p.index.groups[current.ident] = current.group
+		}
 	}
 	var ignored parser.Problems
 	for _, found := range readCloudAgents(store, &ignored) {
@@ -88,7 +97,8 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		}
 	}
 	if store.err != nil {
-		p.index.projects, p.index.models = map[string]project{}, map[string]string{}
+		p.index.projects, p.index.models, p.index.groups = map[string]project{}, map[string]string{},
+			map[string]*timeline.Group{}
 	}
 	return p.index
 }
