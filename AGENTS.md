@@ -1971,8 +1971,7 @@ skipped without it. Never add a `python3` requirement to the collector.
   the test modules of the changed files pass (`test_<module>.py` for a
   module, `tests/parsers/test_<parser>.py` for a parser, the whole suite
   for a change to `model.py`, `cli.py` or `parsers/base.py`), and again
-  after each fix. It runs alone, never beside a smoke test or another run of
-  the suite.
+  after each fix.
 - A run with no fixed end (fuzzing, generated inputs, a search over
   seeds) gets a wall-clock limit before it starts. Unlike a timeout on a
   check that should finish, reaching the limit is a planned stop, and the

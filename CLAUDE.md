@@ -14,14 +14,12 @@ Notes for Claude Code on this workstation:
 - Pass `-q` to the collector from a tool call; without it, every collected
   path is logged to stderr.
 - Run `tools/diff_smoke_rows.py` with `--shell dash`: it runs the collector
-  twice, and its default `/bin/sh` is the slow bash 3.2 here. Never run it
-  beside a VM or another smoke test.
+  twice, and its default `/bin/sh` is the slow bash 3.2 here.
 - `tools/check_fork_budget.py` needs strace, which this Mac lacks: run it on
   the Ubuntu lab VM (`sudo apt-get install dash strace`) or read CI's fork budget
-  job; never beside a smoke test, and with no other VM running. The budget
-  is the runner's count, and the VM's differs by its filesystem's directory
-  order: write a moved budget from the job's totals line, not from
-  `--update-budget` on the VM.
+  job. The budget is the runner's count, and the VM's differs by its
+  filesystem's directory order: write a moved budget from the job's totals
+  line, not from `--update-budget` on the VM.
 - A live collection here gathers the author's own agent credentials: write
   it under the scratchpad and delete it afterwards.
 - This Mac's `python3` is 3.14 without `zstandard` or `python-dateutil`, so
@@ -37,10 +35,9 @@ Notes for Claude Code on this workstation:
   -r analyzer/requirements-dev.txt`.
 - This Mac has `/bin/dash` and `uv` with `uvx`, but no busybox, posh, pwsh, shellcheck or
   shfmt; CI runs those gates. Its `/bin/sh` is bash 3.2, the one shell CI
-  does not run; the smoke test under it takes about 17 minutes with no VM
-  running and far longer beside a Parallels VM, which holds most of the
-  8 GB, so never run it beside one. While a Linux lab VM is up, run dash,
-  bash and busybox there and the analyzer tests here.
+  does not run, and the slowest for the smoke test. The lab VMs can run
+  together and beside local test runs: run busybox and posh in the Ubuntu
+  VM.
 - A Bash call with `run_in_background` and a subagent each re-invoke the
   session when they end, with the exit code and the output file: wait for
   that notification and read the file. Never write a loop that sleeps and

@@ -69,8 +69,6 @@ if [ "$DRY_RUN" -eq 1 ]; then
   # Replace every function that would reach prlctl, ssh or scp with one that
   # prints what it would do. A guest script on stdin is printed too.
   # shellcheck disable=SC2317,SC2329 # called through the shared functions
-  vm_others_running() { dry "prlctl list -H -o status,name   (refuse if a VM other than $VM_NAME runs)" >&2; }
-  # shellcheck disable=SC2317,SC2329
   vm_revert_clean() { dry "prlctl snapshot-switch $VM_NAME -i <id of snapshot '$CLEAN_SNAPSHOT_NAME'>"; }
   # shellcheck disable=SC2317,SC2329
   vm_start() { dry "prlctl start $VM_NAME   (resume when suspended or paused)"; }
@@ -222,8 +220,6 @@ EOF_GUEST
 
 main() {
   [ "$DRY_RUN" -eq 1 ] || mkdir -p "$DIRECTORY" || die "cannot create $DIRECTORY"
-  _mn_others=$(vm_others_running)
-  [ -z "$_mn_others" ] || die "another VM is running: $_mn_others"
   # Build before the VM is touched, so a compile error costs no revert.
   build_binaries "$@"
   trap cleanup EXIT

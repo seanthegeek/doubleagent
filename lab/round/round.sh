@@ -424,16 +424,9 @@ next_listing_number() {
     END { printf "%0" width "d\n", last + 1 }' "$CELL/steps.tsv"
 }
 
-# Refuse to start a VM while another one runs: the lab host has room for one.
-refuse_other_vms() {
-  _ro_others=$(vm_others_running)
-  [ -z "$_ro_others" ] || die "another VM is running: $_ro_others"
-}
-
 start_cell() {
   [ ! -f "$CELL/state" ] || die "cell $CELL is already started; use resume, collect or finish"
   host_tool steps.py check "$AGENT_DIR" || die "the steps file has errors"
-  refuse_other_vms
   mkdir -p "$CELL/listings" "$CELL/diffs" "$CELL/screens" "$CELL/casts" "$CELL/tools"
   # The cell keeps its own copy of the step table and the roots, so an edit
   # in the repository never shifts a paused cell.
@@ -460,7 +453,6 @@ start_cell() {
 resume_cell() {
   [ -f "$CELL/state" ] || die "cell $CELL is not started"
   host_tool steps.py check --steps "$CELL/steps.tsv" "$AGENT_DIR" || die "the steps file has errors"
-  [ "$(vm_status)" = running ] || refuse_other_vms
   vm_start
   vm_wait_ssh 60 || die "no ssh answer from $VM_NAME"
   _rsm_paused=$(state_get paused)

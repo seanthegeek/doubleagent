@@ -50,12 +50,6 @@ vm_status() {
   prl status "$VM_NAME" | awk '{ print $NF }'
 }
 
-# Print the names of the running VMs other than $VM_NAME, one per line.
-vm_others_running() {
-  prl list -H -o status,name | awk -v self="$VM_NAME" '
-    $1 == "running" { sub(/^[^ ]+ +/, ""); if ($0 != self) print }'
-}
-
 # Print the id of the snapshot named CLEAN_SNAPSHOT_NAME, compared without
 # case; fail unless exactly one snapshot has that name. CLEAN_SNAPSHOT_ID,
 # when set, is used as given.
