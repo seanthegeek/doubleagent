@@ -1439,7 +1439,12 @@ attributes. What the rows of the id are depends on the agent:
   `project_path`. Each stored row gives a `parser:` row with its own
   `worktree`; a worktree's row names the project by id. The rows of a
   session or message id that is repeated too keep the project's first
-  stored row's `worktree`.
+  stored row's `worktree`. The first stored row of a project or session
+  id is its oldest by `time_created`, ties by id and then in the order
+  the table holds them; that of a message id is its first in the first
+  session, by session id, that holds it, and within a session the
+  earliest (by `time_created` for a 1.x `message`, by `seq` for a
+  `session_message`).
 - **Zed**, an `archived_git_worktrees` row repeating an id: the
   `archived worktree:` row of each thread linked to the id, with its own
   `session_id` and the stored row's text, `project_path` and rowid as

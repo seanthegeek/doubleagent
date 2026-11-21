@@ -76,3 +76,20 @@ func TestARepeatedIntegrationIDLendsNoStoredRowsName(t *testing.T) {
 		t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// The stored rows of the threads and pages tables are read oldest first by
+// created_at, then by id, then in the order the table holds them, so the
+// children of a repeated id follow its oldest row, though the table holds
+// a newer row first.
+func TestTheChildrenOfARepeatedIDFollowItsOldestRow(t *testing.T) {
+	rows := parseTables(t,
+		sqlitetest.Table{Name: "pages", SQL: "CREATE TABLE pages (id INTEGER, title TEXT, created_at TIMESTAMP)",
+			Rows: [][]any{{2, "newer", "2026-06-01 00:00:00"}, {2, "older", "2026-01-01 00:00:00"}}},
+		sqlitetest.Table{Name: "page_sections", SQL: "CREATE TABLE page_sections (id INTEGER, page_id INTEGER, " +
+			"title TEXT, content TEXT, position INTEGER)", Rows: [][]any{{1, 2, "sec", "body", 0}}})
+	want := []string{"page start | title older", "sec\n\nbody", "page start | title newer",
+		"parser: pages holds 1 row repeating an earlier row's id; its sections are shown once"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows %q, want %q", rows, want)
+	}
+}

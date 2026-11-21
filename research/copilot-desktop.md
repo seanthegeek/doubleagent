@@ -1162,8 +1162,9 @@ for a workspace and
 for an alias (`another of them` for each stored row the joined rows do not go with) at its
 `created_at`, an alias's with its `session_id` and the path of its workspace. The rows joined
 through the key (the worktree, workspace and session rows of a project, the session rows of a
-workspace or an alias) are shown once, with the path of the first stored row by `created_at` that
-`--since`, `--until` and `--match` keep, else of the first
+workspace or an alias) are shown once, with the path of the first stored row by `created_at`
+(ties in the order the table holds them) that `--since`, `--until` and `--match` keep, else of the
+first
 ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A session row follows the
 first key of its chain that repeats (its alias, else its workspace, else its project), and the
 keys after that one give their first stored row's path; a stored row of a repeated workspace id

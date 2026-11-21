@@ -1278,7 +1278,8 @@ second row of one id in one table is damage: each stored row gives its own `sess
 problem row ([Bad-line rows](#bad-line-rows)), and its `session archived` and
 `permission setting: session` rows, with its own project, and the session's messages, shares and
 problems are shown once, with the `project_path` of one of its rows: the first, in `time_created`
-order, that the analysis filters keep, else the first. The rows of a message id that is repeated
+order (ties by `id`, then in the order the table holds them), that the analysis filters keep, else
+the first. The rows of a message id that is repeated
 too stay with that id's rows, which take the first stored session row's project; the rows of a 1.x
 message with its own `path.cwd` keep that path when the first stored row names no project, and
 otherwise take the chosen row's project even when it names none:
@@ -1300,7 +1301,10 @@ message id is its table's key, so a second row of one id is damage: each row of 
 and a problem row of its own ([Bad-line rows](#bad-line-rows)), and the rows of the id's items or
 parts are shown once, with the `session_id`, `project_path` and `model` of one of the id's rows,
 and its time for a row with no time of its own: the first row, in the order the rows are read,
-that the analysis filters keep, else the first. A 2.x record's own `content` gives its rows only
+that the analysis filters keep, else the first. The rows are read session by session (by
+`session_id`), and within a session by `time_created` then `id` (1.x `message`) or by `seq` then
+`time_created` (`session_message`), so the first row of a message id that two sessions hold is its
+row in the session whose id sorts first. A 2.x record's own `content` gives its rows only
 when the items are shown with another row of the id. In the JSON trees a message's part directory
 is read for the first message file of the run that claims its id. A
 `tool_use` row's text is the first non-empty of the input's `command`, `filePath`, `file_path`,
@@ -1487,7 +1491,8 @@ parser: project holds <n> rows of this row's id; its sessions and saved grants a
 (`another of them` for each stored row the joined rows do not go with). The rows that take the
 project's `worktree` as their `project_path` (the rows of a session that names no `directory` of
 its own, and the `permission` table's grants of the project) are shown once, with the `worktree` of
-the first stored row in reading order that the analysis filters keep, else of the first
+the first stored row (the oldest by `time_created`, as for a session) that the analysis filters
+keep, else of the first
 ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A worktree's row names the
 project `git worktree of project <id>` in place of its `worktree`, which is text inside a row of
 another id, so no stored row lends it. The rows of a session or message id that is repeated too

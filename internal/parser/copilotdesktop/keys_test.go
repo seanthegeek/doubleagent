@@ -140,3 +140,20 @@ func TestAKeyRepeatsOnlyWhenTheColumnComparesItsRowsEqual(t *testing.T) {
 		})
 	}
 }
+
+// The stored rows of the projects, workspaces and alias tables are read
+// oldest first by created_at, then in the order the table holds them, so
+// the first stored row of a repeated key is the oldest: the session takes
+// the older project row's path without a filter, though the table holds
+// the newer row first.
+func TestTheFirstStoredRowOfARepeatedKeyIsTheOldest(t *testing.T) {
+	rows := sessionRowsOf(parseTables(t, keysTables("", [][]any{
+		{"p1", "newer", "/proj/newer", "2026-06-01T00:00:00Z"}, {"p1", "older", "/proj/older", "2026-01-01T00:00:00Z"}},
+		[][]any{{"w1", "p1", "w", "2026-01-01T00:00:00Z"}}, [][]any{{"s1", "w1", "2026-01-01T00:00:00Z"}},
+		[][]any{{"s1", "t", "2026-07-01T00:00:00Z"}})))
+	want := "s1 /proj/older desktop session: t type= model=- auto_approve= permission_mode=- remote_control= " +
+		"archived=false"
+	if !slices.Equal(rows, []string{want}) {
+		t.Errorf("rows %q, want %q", rows, want)
+	}
+}

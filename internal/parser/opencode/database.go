@@ -231,8 +231,8 @@ func (s *store) transcript() error {
 }
 
 // readProjects indexes the project table's rows by their id, an id by its
-// first row in reading order; an id held in more than one row is a repeat
-// (projectRepeat), each of its rows kept.
+// first row in reading order (storedOrder); an id held in more than one
+// row is a repeat (projectRepeat), each of its rows kept.
 func (s *store) readProjects() error {
 	if !s.tables.Has("project") {
 		return nil
@@ -241,7 +241,7 @@ func (s *store) readProjects() error {
 	if err != nil {
 		return err
 	}
-	rows, err := table.Select().All()
+	rows, err := table.Select().OrderBy(storedOrder(table)...).All()
 	s.projectCollation = parser.KeyCollation(table, "id")
 	counts := map[string]int{}
 	for _, row := range rows {
@@ -295,7 +295,7 @@ func (s *store) readSessions() error {
 		if err != nil {
 			return err
 		}
-		rows, err := table.Select().OrderBy("time_created, id").All()
+		rows, err := table.Select().OrderBy(storedOrder(table)...).All()
 		if err != nil {
 			return err
 		}
@@ -342,6 +342,23 @@ func (s *store) sessionRef(value sqlitefile.Value) sessionRef {
 // column compares it, "" for NULL.
 func (s *store) projectKey(value sqlitefile.Value) string {
 	return parser.CollatedKey(value, s.projectCollation)
+}
+
+// storedOrder returns the order the stored rows of a project or session
+// table are read in, which decides the first stored row of a repeated id:
+// oldest first by time_created, ties by id, then by rowid, the order the
+// table holds them; a column the table lacks is left out. A message table
+// is read session by session, each session's messages in this order
+// (session_message by seq first), so the first stored row of a message id
+// is its first in the first session that names it.
+func storedOrder(table *sqlitefile.Table) []string {
+	var keys []string
+	for _, column := range []string{"time_created", "id"} {
+		if table.Has(column) {
+			keys = append(keys, column)
+		}
+	}
+	return append(keys, "rowid")
 }
 
 // scopeFor returns the scope of a session, made on first use: its project
