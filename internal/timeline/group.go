@@ -29,13 +29,16 @@ type Parent struct {
 type Takes uint8
 
 // The attributes a member can take. TakeTime is for a member whose time
-// is the parent's because it has none of its own.
+// is the parent's because it has none of its own. TakeText is for a member
+// whose text is the parent's row's, with its shared texts, as that row
+// held them when the parent was registered.
 const (
 	TakeTime Takes = 1 << iota
 	TakeSession
 	TakeProject
 	TakeBranch
 	TakeModel
+	TakeText
 )
 
 // Form says when one of a parent's rows is shown.
@@ -122,6 +125,9 @@ func take(row *Row, parent Row, takes Takes) {
 		if takes&field.take != 0 {
 			*field.into = *field.value
 		}
+	}
+	if takes&TakeText != 0 {
+		row.Text, row.Shared = parent.Text, parent.Shared
 	}
 }
 

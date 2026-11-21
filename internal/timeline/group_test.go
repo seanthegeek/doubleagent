@@ -277,3 +277,84 @@ func TestAttachingGrowsLinearlyWithTheRows(t *testing.T) {
 		t.Errorf("work %d for 500 groups and %d for 1000, want twice", small, large)
 	}
 }
+
+// linkedRows returns a group of two stored copies of one record, each with
+// its own row shown only when the group does not go with it, and two
+// links of the record as members taking their text and project from the
+// parent the group goes with; takes adds to what the links take. The new
+// parent's text names a shared text.
+func linkedRows(takes Takes) []Row {
+	group := NewGroup()
+	var rows []Row
+	for _, path := range []string{"/w/old", "/w/new"} {
+		var builder TextBuilder
+		builder.Write("worktree " + path)
+		if path == "/w/new" {
+			builder.Write(" notes ")
+			builder.Share(NewSharedText("NOTES"), "NOTES", func(*Row, bool) string { return "(notes above)" })
+		}
+		own := Row{TimestampUTC: oldTime, ProjectPath: path, SourceFile: "f"}
+		builder.Set(&own)
+		group.Parent(&own).Row(&own, WhenNotChosen)
+		rows = append(rows, own)
+	}
+	for _, session := range []string{"t1", "t2"} {
+		link := Row{TimestampUTC: oldTime, SessionID: session, Text: "link " + session, SourceFile: "f"}
+		group.Member(&link, takes|TakeProject)
+		rows = append(rows, link)
+	}
+	return rows
+}
+
+// linkSummary returns each row as "session project text", the text as it
+// reads in full, and whether it names a shared text.
+func linkSummary(rows []Row) []string {
+	var lines []string
+	for _, row := range rows {
+		shared := ""
+		if row.Shared != nil {
+			shared = " (shared)"
+		}
+		lines = append(lines, row.SessionID+" "+row.ProjectPath+" "+row.FullText()+shared)
+	}
+	return lines
+}
+
+func TestAMemberTakingTextShowsTheTextOfTheParentTheGroupGoesWith(t *testing.T) {
+	newText := "worktree /w/new notes NOTES (shared)"
+	tests := []struct {
+		name   string
+		takes  Takes
+		filter *filter
+		want   []string
+	}{
+		{"without a filter the links show the first parent's text", TakeText, nil,
+			[]string{" /w/new " + newText, "t1 /w/old worktree /w/old", "t2 /w/old worktree /w/old"}},
+		{"a pattern only the second parent matches gives the links its text and shared texts", TakeText,
+			&filter{pattern: regexp.MustCompile("/w/new")}, []string{"t1 /w/new " + newText, "t2 /w/new " + newText}},
+		{"a pattern only the first parent matches keeps the links with it", TakeText,
+			&filter{pattern: regexp.MustCompile("/w/old")}, []string{"t1 /w/old worktree /w/old",
+				"t2 /w/old worktree /w/old"}},
+		{"a pattern neither parent matches shows nothing", TakeText,
+			&filter{pattern: regexp.MustCompile("absent")}, nil},
+		{"a link not taking text keeps its own text", 0, &filter{pattern: regexp.MustCompile("/w/new|link")},
+			[]string{"t1 /w/new link t1", "t2 /w/new link t2"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := linkSummary(settle(linkedRows(test.takes), test.filter)); !slices.Equal(got, test.want) {
+				t.Errorf("got  %q\nwant %q", got, test.want)
+			}
+		})
+	}
+}
+
+// A member taking text is given the first parent's text as it joins, so
+// the rows a parse gives read as the output without a filter.
+func TestAMemberTakingTextReadsAsWithoutAFilterBeforeAttaching(t *testing.T) {
+	rows := linkedRows(TakeText)
+	if got, want := linkSummary(rows[2:]), []string{"t1 /w/old worktree /w/old",
+		"t2 /w/old worktree /w/old"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
