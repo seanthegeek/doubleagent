@@ -186,6 +186,7 @@ func openclawGroupedStores() []groupedStore {
 	return []groupedStore{
 		{"openclaw windows", "openclaw", file(openclawRepeatedWindow)},
 		{"openclaw relayed windows", "openclaw", file(openclawRelayedWindow)},
+		{"openclaw session keys", "openclaw", file(openclawRepeatedNode)},
 	}
 }
 
@@ -238,6 +239,93 @@ func TestAMatchShowsEveryRowOfARepeatedOpenClawIDItMatches(t *testing.T) {
 						t.Errorf("--match %q: %q", pattern, faults)
 					}
 				}
+			}
+		})
+	}
+}
+
+// openclawRepeatedNode returns an OpenClaw agent database whose
+// session_nodes table holds the session key k twice, as only damage
+// writes, since the key is the table's key: a row of the generation s-old
+// updated on 1 January, then one of s-new updated on 1 June, each with a
+// permission setting of its own; each generation's transcript header, in /old and
+// /new; and one delivery from k on telegram in July.
+func openclawRepeatedNode(t *testing.T) string {
+	t.Helper()
+	header := func(sessionID, cwd string) []any {
+		return []any{sessionID, 0, `{"type":"session","version":3,"id":"` + sessionID +
+			`","timestamp":"2026-07-01T00:00:00Z","cwd":"` + cwd + `"}`, nil, 1782864000000}
+	}
+	return buildDatabase(t,
+		sqlitetest.Table{Name: "session_nodes", SQL: "CREATE TABLE session_nodes (session_key TEXT, " +
+			"current_session_id TEXT, entry_json TEXT, updated_at INTEGER)", Rows: [][]any{
+			{"k", "s-old", `{"execHost":"gateway"}`, 1767225600000},
+			{"k", "s-new", `{"execHost":"node"}`, 1780272000000}}},
+		sqlitetest.Table{Name: "transcript_events", SQL: "CREATE TABLE transcript_events (session_id TEXT, " +
+			"seq INTEGER, event_json TEXT, event_zstd BLOB, created_at INTEGER)",
+			Rows: [][]any{header("s-new", "/new"), header("s-old", "/old")}},
+		sqlitetest.Table{Name: "conversations", SQL: "CREATE TABLE conversations (conversation_id TEXT, " +
+			"channel TEXT)", Rows: [][]any{{"c", "telegram"}}},
+		sqlitetest.Table{Name: "conversation_deliveries", SQL: "CREATE TABLE conversation_deliveries " +
+			"(operation_kind TEXT, conversation_id TEXT, source_session_key TEXT, status TEXT, created_at INTEGER)",
+			Rows: [][]any{{"send", "c", "k", "sent", 1783000000000}}})
+}
+
+// The rows of the repeated session key above.
+const (
+	openclawNodeShown = "parser: session_nodes holds 2 rows of this row's session key; its channel deliveries " +
+		"are shown once, with "
+	openclawOldNode = "2026-01-01T00:00:00.000Z s-old /old  "
+	openclawNewNode = "2026-06-01T00:00:00.000Z s-new /new  "
+	openclawSetting = openclawOldNode + "permission setting: execHost=gateway (from openclaw-agent.sqlite " +
+		"session_nodes.entry_json, updated_at)"
+	openclawNewSetting = openclawNewNode + "permission setting: execHost=node (from openclaw-agent.sqlite " +
+		"session_nodes.entry_json, updated_at)"
+	openclawDelivery = "channel delivery: send sent channel telegram conversation c platform message - " +
+		"(from openclaw-agent.sqlite conversation_deliveries, created_at)"
+	openclawDeliveryAt = "2026-07-02T13:46:40.000Z "
+)
+
+// openclawNodeRows returns the stored rows' own rows, with the first or
+// the second chosen.
+func openclawNodeRows(firstChosen bool) []string {
+	old, later := "this row", "another of them"
+	if !firstChosen {
+		old, later = later, old
+	}
+	return []string{openclawOldNode + openclawNodeShown + old, openclawSetting,
+		openclawNewNode + openclawNodeShown + later, openclawNewSetting}
+}
+
+func TestTheDeliveriesOfARepeatedOpenClawSessionKeyGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	starts := []string{"2026-07-01T00:00:00.000Z s-new /new  session start: version=3",
+		"2026-07-01T00:00:00.000Z s-old /old  session start: version=3"}
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter they take the first stored row's session", nil, slices.Concat(openclawNodeRows(true),
+			starts, []string{openclawDeliveryAt + "s-old /old  " + openclawDelivery})},
+		{"a window past the first row moves them to the second", []string{"--since", "2026-03-01"},
+			slices.Concat([]string{openclawNewNode + openclawNodeShown + "this row", openclawNewSetting}, starts,
+				[]string{openclawDeliveryAt + "s-new /new  " + openclawDelivery})},
+		{"a window keeping only the first row keeps them there", []string{"--until", "2026-03-01"},
+			[]string{openclawOldNode + openclawNodeShown + "this row", openclawSetting}},
+		{"a pattern only the second row's setting matches moves them to the second",
+			[]string{"--match", "execHost=node|channel delivery"},
+			[]string{openclawNewSetting, openclawDeliveryAt + "s-new /new  " + openclawDelivery}},
+		{"a pattern only the first row's setting matches keeps them with the first",
+			[]string{"--match", "execHost=gateway|channel delivery"},
+			[]string{openclawSetting, openclawDeliveryAt + "s-old /old  " + openclawDelivery}},
+		{"a pattern no stored row's rows match keeps them with the first", []string{"--match", "channel delivery"},
+			[]string{openclawDeliveryAt + "s-old /old  " + openclawDelivery}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := openclawRun(t, openclawRepeatedNode(t), test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
 			}
 		})
 	}

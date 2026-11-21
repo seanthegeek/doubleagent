@@ -1514,6 +1514,13 @@ attributes. What the rows of the id are depends on the agent:
   session's `session start:` rows name no window's key or columns and the
   session has no `model:` row of a window; the first message that names a
   model gives `model: <model>`.
+  A `session_nodes` row repeating a session key: the key's
+  `channel delivery:` and `channel delivery reply:` rows, with the stored
+  row's generation as `session_id` and that generation's `project_path`.
+  Each stored row gives a `parser:` row of its own at its `updated_at` and
+  its own entry rows (permission settings, model override, relay, public
+  share, archive marker), with its own generation; without a filter the
+  deliveries take the first stored row's, in table order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

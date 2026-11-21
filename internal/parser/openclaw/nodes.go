@@ -66,34 +66,46 @@ func (a *agentDatabase) nodes() ([]node, error) {
 // current generation: the public share (to the generation it publishes),
 // the external delivery route when no conversation or window recorded the
 // relay, the model override, the per-session permission settings and the
-// archive marker.
+// archive marker. The rows of a key stored more than once wait for its
+// group instead (keyRepeat).
 func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
-	for _, each := range nodes {
-		entry, line, timestamp := each.entry, each.rowid, each.updatedAt
-		sessionID := parser.NonEmptyColumn(each.currentSessionID)
-		if grant := entry.Get("publicShare"); grant.IsObject() && !grant.Get("id").IsEmpty() {
-			generation := parser.Text(grant.Get("sessionId"))
-			a.store.attach(cmp.Or(generation, sessionID), line,
-				timeutil.FromValue(grant.Get("createdAt")), "session synced: public share "+
-					cmp.Or(parser.Text(grant.Get("id")), "-")+" generation "+cmp.Or(generation, "-")+
-					" (from openclaw-agent.sqlite session_nodes.entry_json, publicShare.createdAt)", "")
+	a.repeatKeys(nodes)
+	for i, each := range nodes {
+		attach := a.store.attach
+		if repeat := a.keys[each.sessionKey.String()]; repeat != nil {
+			attach = repeat.waiting(i)
 		}
-		if relay := deliveryRelay(entry.Get("delivery")); relay != "" && !relayed[sessionID] {
-			a.store.attach(sessionID, line, timestamp, relay, "")
+		nodeRows(each, relayed, attach)
+	}
+}
+
+// nodeRows gives attach the rows of one session_nodes row's entry.
+func nodeRows(each node, relayed map[string]bool, attach func(sessionID string, line int, timestamp, text,
+	model string)) {
+	entry, line, timestamp := each.entry, each.rowid, each.updatedAt
+	sessionID := parser.NonEmptyColumn(each.currentSessionID)
+	if grant := entry.Get("publicShare"); grant.IsObject() && !grant.Get("id").IsEmpty() {
+		generation := parser.Text(grant.Get("sessionId"))
+		attach(cmp.Or(generation, sessionID), line,
+			timeutil.FromValue(grant.Get("createdAt")), "session synced: public share "+
+				cmp.Or(parser.Text(grant.Get("id")), "-")+" generation "+cmp.Or(generation, "-")+
+				" (from openclaw-agent.sqlite session_nodes.entry_json, publicShare.createdAt)", "")
+	}
+	if relay := deliveryRelay(entry.Get("delivery")); relay != "" && !relayed[sessionID] {
+		attach(sessionID, line, timestamp, relay, "")
+	}
+	if override := entry.Get("modelOverride"); override.IsString() && override.StringValue() != "" {
+		attach(sessionID, line, timestamp, overrideText(entry), override.StringValue())
+	}
+	for _, key := range sessionPermissionKeys() {
+		if value := entry.Get(key); !isEmptySetting(value) {
+			attach(sessionID, line, timestamp, "permission setting: "+key+"="+
+				parser.SettingValue(value)+
+				" (from openclaw-agent.sqlite session_nodes.entry_json, updated_at)", "")
 		}
-		if override := entry.Get("modelOverride"); override.IsString() && override.StringValue() != "" {
-			a.store.attach(sessionID, line, timestamp, overrideText(entry), override.StringValue())
-		}
-		for _, key := range sessionPermissionKeys() {
-			if value := entry.Get(key); !isEmptySetting(value) {
-				a.store.attach(sessionID, line, timestamp, "permission setting: "+key+"="+
-					parser.SettingValue(value)+
-					" (from openclaw-agent.sqlite session_nodes.entry_json, updated_at)", "")
-			}
-		}
-		if archived, ok := entry.Lookup("archivedAt"); ok && !archived.IsNull() {
-			a.store.attach(sessionID, line, timeutil.FromValue(archived), archiveText(entry), "")
-		}
+	}
+	if archived, ok := entry.Lookup("archivedAt"); ok && !archived.IsNull() {
+		attach(sessionID, line, timeutil.FromValue(archived), archiveText(entry), "")
 	}
 }
 

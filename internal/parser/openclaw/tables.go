@@ -98,14 +98,18 @@ func (a *agentDatabase) fullText() error {
 // deliveries emits one `channel delivery:` row per send or turn to a
 // platform conversation, by created_at, then a `channel delivery reply:`
 // row for the platform message that replied to it. The session is the
-// current generation of source_session_key in session_nodes.
+// current generation of source_session_key in session_nodes: that of its
+// first row, or, for a key stored more than once, of the row its group
+// goes with (keyRepeat).
 func (a *agentDatabase) deliveries(nodes []node) error {
 	if !a.names.Has("conversations") {
 		return nil
 	}
 	current := map[string]string{}
 	for _, each := range nodes {
-		current[each.sessionKey.String()] = each.currentSessionID.String()
+		if _, met := current[each.sessionKey.String()]; !met {
+			current[each.sessionKey.String()] = each.currentSessionID.String()
+		}
 	}
 	conversations, err := a.database.Table("conversations")
 	if err != nil {
@@ -128,27 +132,37 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 		if conversation, found := firstConversation(byID, row); found {
 			channel := sqlitefile.TextValue(carried.Cut("conversations.channel",
 				parser.NonEmptyColumn(conversation.Get("channel"))))
-			a.delivery(row, channel, current[parser.NonEmptyColumn(row.Get("source_session_key"))])
+			key := parser.NonEmptyColumn(row.Get("source_session_key"))
+			a.delivery(row, channel, current[key], a.keys[key])
 		}
 	}
 	return nil
 }
 
-// delivery emits the rows of one delivery to a conversation of channel.
-func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, sessionID string) {
+// delivery emits the rows of one delivery to a conversation of channel,
+// members of repeat's group, taking its session and project, when repeat
+// is not nil.
+func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, sessionID string,
+	repeat *keyRepeat) {
+	emit := func(delivered timeline.Row) {
+		if repeat != nil {
+			repeat.group.Member(&delivered, timeline.TakeSession|timeline.TakeProject)
+		}
+		a.emit(delivered)
+	}
 	field := func(name string) string { return cmp.Or(parser.NonEmptyColumn(row.Get(name)), "-") }
 	rejection := ""
 	if value := row.Get("rejection_error"); !value.IsEmpty() {
 		rejection = " error=" + value.String()
 	}
 	line := int(row.Rowid)
-	a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
+	emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
 		"channel delivery: "+field("operation_kind")+" "+field("status")+" channel "+
 			cmp.Or(parser.NonEmptyColumn(channel), "-")+" conversation "+field("conversation_id")+
 			" platform message "+field("platform_message_id")+rejection+
 			" (from openclaw-agent.sqlite conversation_deliveries, created_at)"))
 	if reply := row.Get("reply_text"); !reply.IsNull() {
-		a.emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("reply_timestamp")),
+		emit(a.contextRow(sessionID, line, parser.ColumnTime(row.Get("reply_timestamp")),
 			timeline.TurnSystem, "channel delivery reply: "+reply.String()+" (reply message "+
 				field("reply_message_id")+
 				"; from openclaw-agent.sqlite conversation_deliveries, reply_timestamp)"))

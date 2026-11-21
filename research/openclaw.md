@@ -1569,6 +1569,16 @@ one) are shown once, with the `model` of the first stored row that `--since`, `-
 that choice, so the session's `session start:` rows carry no window's key or columns, no `model:`
 row follows them, and the first message naming a model gives `model: <model>`.
 
+`session_nodes.session_key` is that table's key (`session_key TEXT NOT NULL PRIMARY KEY`,
+[`openclaw-agent-schema.sql:16-17`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L16-L17)).
+When a damaged table holds a key more than once, each stored row, in table order, gives one row
+`parser: session_nodes holds <n> rows of this row's session key; its channel deliveries are shown once, with this row`
+(`another of them` for each row the deliveries do not go with) at its `updated_at`, with its
+`current_session_id` and that generation's `cwd`, and its own `entry_json` rows. The
+`channel delivery:` and `channel delivery reply:` rows whose `source_session_key` is the key are
+shown once, with the `current_session_id` and `cwd` of the first stored row that `--since`,
+`--until` and `--match` keep, else of the first.
+
 #### Permission rows
 
 No transcript entry records a per-call permission decision; `bashExecution.cancelled` stays on the

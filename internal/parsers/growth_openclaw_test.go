@@ -67,6 +67,7 @@ func openclawGrowth() growthSet {
 	cases = append(cases, openclawColdCases()...)
 	cases = append(cases, openclawAgentCases()...)
 	cases = append(cases, openclawJoinCases()...)
+	cases = append(cases, openclawRepeatCases()...)
 	cases = append(cases, openclawStateCases()...)
 	return growthSet{parser: "openclaw", cases: cases}
 }
@@ -206,15 +207,6 @@ func openclawAgentCases() []growthCase {
 				return openclawWindow("s1", numbered("m", i), "chat")
 			}), openclawEvents("s1", "/p", n, true)))
 		}},
-		{kind: "openclaw-agent.sqlite", shape: shapeSharedID + " by window rows and archives", files: func(t *testing.T, n int) []growthFile {
-			archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")+"\n"+openclawEntry(1)))
-			return one(openclawAgent, openclawAgentDatabase(t, rows(n, func(i int) []any {
-				return openclawWindow("s1", numbered("m", i), long("name"))
-			}), openclawEvents("s1", "/p", n, false), sqlitetest.Table{Name: "session_transcript_archives",
-				SQL: openclawArchivesSQL, Rows: rows(n, func(i int) []any {
-					return []any{"s1", "agent:main:s1", "reset", "zstd", numbered("a", i), int64(i), archive}
-				})}))
-		}},
 		{kind: "openclaw-agent.sqlite", shape: shapeLargeShared + " by archives of one window", files: func(t *testing.T, n int) []growthFile {
 			archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")))
 			return one(openclawAgent, openclawAgentDatabase(t, [][]any{openclawWindow("s1", "m", long("name"))}, nil,
@@ -287,6 +279,37 @@ func openclawJoinCases() []growthCase {
 				sqlitetest.Table{Name: "memory_session_tombstones", SQL: "CREATE TABLE memory_session_tombstones " +
 					"(session_id TEXT, agent_id TEXT, reason TEXT, created_at INTEGER)",
 					Rows: rows(n, func(i int) []any { return []any{"s1", "main", "forget", int64(i)} })}))
+		}},
+	}
+}
+
+// openclawRepeatCases returns the cases of the agent database's keys
+// stored more than once: a window id with the archives of its session,
+// and a session key with the deliveries from it.
+func openclawRepeatCases() []growthCase {
+	return []growthCase{
+		{kind: "openclaw-agent.sqlite", shape: shapeSharedID + " by window rows and archives", files: func(t *testing.T, n int) []growthFile {
+			archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")+"\n"+openclawEntry(1)))
+			return one(openclawAgent, openclawAgentDatabase(t, rows(n, func(i int) []any {
+				return openclawWindow("s1", numbered("m", i), long("name"))
+			}), openclawEvents("s1", "/p", n, false), sqlitetest.Table{Name: "session_transcript_archives",
+				SQL: openclawArchivesSQL, Rows: rows(n, func(i int) []any {
+					return []any{"s1", "agent:main:s1", "reset", "zstd", numbered("a", i), int64(i), archive}
+				})}))
+		}},
+		{kind: "openclaw-agent.sqlite", shape: shapeSharedID + " by session_nodes rows of one key", files: func(t *testing.T, n int) []growthFile {
+			return one(openclawAgent, openclawAgentDatabase(t, nil, openclawEvents("s1", "/"+long("p"), 3, false),
+				sqlitetest.Table{Name: "session_nodes", SQL: "CREATE TABLE session_nodes (session_key TEXT, " +
+					"current_session_id TEXT, entry_json TEXT, updated_at INTEGER)", Rows: rows(n, func(i int) []any {
+					return []any{"agent:main:s0", numbered("s", i%2+1), `{"execHost":"gateway"}`, int64(i)}
+				})},
+				sqlitetest.Table{Name: "conversations", SQL: "CREATE TABLE conversations (conversation_id TEXT, " +
+					"channel TEXT)", Rows: [][]any{{"c", "telegram"}}},
+				sqlitetest.Table{Name: "conversation_deliveries", SQL: "CREATE TABLE conversation_deliveries " +
+					"(operation_id TEXT, operation_kind TEXT, conversation_id TEXT, source_session_key TEXT, " +
+					"status TEXT, created_at INTEGER)", Rows: rows(n, func(i int) []any {
+					return []any{numbered("op", i), "send", "c", "agent:main:s0", "sent", int64(i)}
+				})}))
 		}},
 	}
 }

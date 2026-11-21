@@ -39,6 +39,9 @@ type agentDatabase struct {
 	// cut once however many generations copy it.
 	carried   *parser.Carried
 	described map[string]windowText
+	// keys holds the group of each session_nodes key stored more than
+	// once.
+	keys map[string]*keyRepeat
 }
 
 // windowText is what each generation of a session copies from its window
@@ -85,7 +88,8 @@ func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parser.Opt
 func newAgentDatabase(out *writer, database *sqlitefile.Database, budget *zed.Budget) *agentDatabase {
 	return &agentDatabase{writer: out, database: database, store: newDatabaseState(),
 		windows: windowSet{byID: map[string][]sqlitefile.Row{}, repeats: map[string]*windowRepeat{}},
-		budget:  budget, carried: parser.NewCarried(out.artifact), described: map[string]windowText{}}
+		budget:  budget, carried: parser.NewCarried(out.artifact), described: map[string]windowText{},
+		keys: map[string]*keyRepeat{}}
 }
 
 // read runs the passes over the database in order.
@@ -112,6 +116,7 @@ func (a *agentDatabase) read() error {
 		{"session_transcript_cold_archives", a.cold},
 		{"session_pending_inputs", a.pending},
 		{"session_transcript_fts_content", a.fullText},
+		{"session_nodes", func() error { a.keyNotices(nodes); return nil }},
 		{"conversation_deliveries", func() error { return a.deliveries(nodes) }},
 		{"memory_session_tombstones", a.tombstones},
 	}
