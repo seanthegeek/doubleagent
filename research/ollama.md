@@ -1028,7 +1028,12 @@ it. That message is the first, in the order the messages are read (`chat_id`, th
 stored as `3` and as `3.0` being one id as SQL's `=` finds them), that `--since`, `--until` and
 `--match` keep, else the first
 ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); each other message of the id
-gives its own rows without them. One row
+gives its own rows without them. An assistant message of the id with neither `content` nor
+`thinking` gives the `model:` row its `model_name` would give (a model the chat has not used, or a
+change from the last one), shown only when the calls are shown with it, and the chat's next `model:`
+row then reads from that model in that case and from the chat's last shown one otherwise; a message
+of the id with no row of its own, or none the filters keep, is never the one the calls go with. One
+row
 `parser: messages holds <n> rows repeating an earlier row's id; its tool calls and attachments are shown once`
 (`1 row repeating` for one) follows the database's other rows, with no session or time, counting
 the messages that met a group an earlier message of their id already showed.

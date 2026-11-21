@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -76,14 +77,26 @@ func readAttachments(database *sqlitefile.Database) (map[string][]attachment, er
 }
 
 // chatState is what the walk over the messages carries: the current chat,
-// the models seen per chat, and the calls of the last assistant message
-// with calls with how many tool messages have answered them.
+// the models seen per chat, the calls of the last assistant message with
+// calls with how many tool messages have answered them, and the model of a
+// message of the chat that the calls of a repeated id may move to (moved).
 type chatState struct {
 	chat    string
 	started bool
 	models  parser.Tracker
 	pending []toolCall
 	used    int
+	moved   *movedModel
+}
+
+// movedModel is the model of a message of a repeated id that has no
+// content or thinking of its own, named by a `model:` row shown only when
+// the id's calls are shown with it (timeline.WhenChosen): until the chat's
+// next model row, the chat's model is that one when they are and the
+// tracked one when they are not.
+type movedModel struct {
+	parent *timeline.Parent
+	model  string
 }
 
 // databaseRows emits the rows of the messages, ordered by chat_id then id,
@@ -237,6 +250,7 @@ func (m *messageReader) message(message sqlitefile.Row) {
 	sessionID := parser.NonEmptyColumn(message.Get("chat_id"))
 	if !m.state.started || sessionID != m.state.chat {
 		m.state.chat, m.state.started, m.state.pending, m.state.used = sessionID, true, nil, 0
+		m.state.moved = nil
 	}
 	key := parser.ColumnKey(messageID)
 	timestamp := parser.ColumnTime(message.Get("created_at"))
@@ -334,10 +348,11 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 		}
 		return row
 	}
-	if content != "" || thinking != "" || len(calls) > 0 {
-		if text := m.state.models.Change("model", m.state.chat, model); text != "" {
-			m.emit(build(timeline.TurnSystem, text))
-		}
+	switch {
+	case content != "" || thinking != "" || len(calls) > 0:
+		m.modelRow(build, model)
+	case parent != nil:
+		m.movedModelRow(build, parent, model)
 	}
 	if thinking != "" && m.options.IncludeThinking {
 		m.emit(build(timeline.TurnThinking, timeline.Compact(thinking)))
@@ -358,6 +373,60 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 		}
 		m.emit(row)
 	}
+}
+
+// modelRow emits the `model:` row of a message that names model, if the
+// chat's model changes. After a moved model of the chat, the row reads
+// from that model when the calls are shown with its message, and from the
+// tracked one when they are not; a row of another group keeps the second.
+func (m *messageReader) modelRow(build func(turnType, text string) timeline.Row, model string) {
+	text := m.state.models.Change("model", m.state.chat, model)
+	moved := m.state.moved
+	if moved == nil || model == "" {
+		if text != "" {
+			m.emit(build(timeline.TurnSystem, text))
+		}
+		return
+	}
+	m.state.moved = nil
+	chosen := parser.Tracker{m.state.chat: moved.model}.Change("model", m.state.chat, model)
+	row := build(timeline.TurnSystem, cmp.Or(text, chosen))
+	switch {
+	case row.Group != nil:
+		if text == "" {
+			return
+		}
+	case text == "":
+		moved.parent.Row(&row, timeline.WhenChosen)
+	case chosen == "":
+		moved.parent.Row(&row, timeline.WhenNotChosen)
+	default:
+		moved.parent.Texts(&row, timeline.RowText{Text: chosen}, timeline.RowText{Text: text})
+	}
+	m.emit(row)
+}
+
+// movedModelRow emits, for a message of a repeated id with calls that has
+// no content or thinking of its own, the `model:` row its model would give
+// were the id's calls shown with it, shown only when they are: the chat's
+// tracked model is left as it is, and the chat's next model row reads from
+// either (modelRow).
+func (m *messageReader) movedModelRow(build func(turnType, text string) timeline.Row,
+	parent *timeline.Parent, model string) {
+	current, seen := m.state.models[m.state.chat]
+	text := m.state.models.Change("model", m.state.chat, model)
+	if seen {
+		m.state.models[m.state.chat] = current
+	} else {
+		delete(m.state.models, m.state.chat)
+	}
+	if text == "" {
+		return
+	}
+	row := build(timeline.TurnSystem, text)
+	parent.Row(&row, timeline.WhenChosen)
+	m.state.moved = &movedModel{parent: parent, model: model}
+	m.emit(row)
 }
 
 // toolResult emits a tool message, paired by position with the pending
