@@ -727,9 +727,8 @@ A thread or page id is its table's key, so Tabby never writes two rows of one. W
 `page_sections` rows are shown once, after the first row of the id in the order the rows are read
 (`created_at`, then `id`); each later row of the id gives its start row alone, with the id's
 `project_path` (the first `code[].git_url` those messages or sections attach, a value of the id and
-not of one of its rows). A section with no
-`created_at` takes the `created_at` of the first row of its page id that `--since`, `--until` and
-`--match` keep, else of the first
+not of one of its rows). A section with no `created_at` takes the `created_at` of the first row of
+its page id that `--since`, `--until` and `--match` keep, else of the first
 ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); a thread message keeps its own
 time or none. One row per table,
 `parser: threads holds <n> rows repeating an earlier row's id; its messages are shown once` or
