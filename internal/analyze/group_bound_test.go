@@ -59,13 +59,59 @@ func ollamaLongModel(t *testing.T, n int) string {
 			"function_name TEXT, function_arguments TEXT)", Rows: calls})
 }
 
-// timelineBytes runs timeline over a collection holding file with the
+// codexLongCwd returns a Codex state database whose threads table holds
+// one thread id in two rows, each with a cwd of longValue's length, and,
+// as the state database's neighbour, a log database with n /feedback
+// reports of the thread, which are the members of the id's group; the
+// state database first, or last with stateLast set.
+func codexLongCwd(t *testing.T, n int, stateLast bool) []collectedFile {
+	t.Helper()
+	state := buildDatabase(t, sqlitetest.Table{Name: "threads", SQL: "CREATE TABLE threads (id TEXT, " +
+		"rollout_path TEXT, created_at INTEGER, cwd TEXT, title TEXT, git_branch TEXT, first_user_message TEXT)",
+		Rows: [][]any{{"th", "/r1", int64(1767225600), longValue, "A", "br-a", nil},
+			{"th", "/r2", int64(1780272000), longValue + "b", "B", "br-b", nil}}})
+	var reports [][]any
+	for i := range n {
+		reports = append(reports, []any{int64(1780358401 + i), "codex_feedback",
+			"feedback event uploaded to Sentry thread_id=th uploaded_attachments=1", "th"})
+	}
+	logs := buildDatabase(t, sqlitetest.Table{Name: "logs", SQL: "CREATE TABLE logs (ts INTEGER, " +
+		"target TEXT, feedback_log_body TEXT, thread_id TEXT)", Rows: reports})
+	files := []collectedFile{{"alice", "/home/alice", "codex-cli", ".codex/state_5.sqlite", state},
+		{"alice", "/home/alice", "codex-cli", ".codex/logs_1.sqlite", logs}}
+	if stateLast {
+		files[0], files[1] = files[1], files[0]
+	}
+	return files
+}
+
+// copilotLongCwd returns a Copilot CLI session store whose sessions table
+// holds one session id in two rows, each with a cwd of longValue's length,
+// and n turns of the session with a prompt alone, which take the project
+// of the stored row the group goes with.
+func copilotLongCwd(t *testing.T, n int) []collectedFile {
+	t.Helper()
+	var turns [][]any
+	for i := range n {
+		turns = append(turns, []any{"s1", int64(i), "ask", nil, "2026-06-02T00:00:00.000Z"})
+	}
+	store := buildDatabase(t,
+		sqlitetest.Table{Name: "sessions", SQL: "CREATE TABLE sessions (id TEXT, cwd TEXT, branch TEXT, " +
+			"summary TEXT, created_at TEXT)", Rows: [][]any{
+			{"s1", longValue, "br-a", "Name A", "2026-01-01T00:00:00.000Z"},
+			{"s1", longValue + "b", "br-b", "Name B", "2026-06-01T00:00:00.000Z"}}},
+		sqlitetest.Table{Name: "turns", SQL: "CREATE TABLE turns (session_id TEXT, turn_index INTEGER, " +
+			"user_message TEXT, assistant_response TEXT, timestamp TEXT)", Rows: turns})
+	return []collectedFile{{"alice", "/home/alice", "copilot-cli", ".copilot/session-store.db", store}}
+}
+
+// timelineBytes runs timeline over a collection holding files with the
 // options given and returns the size of timeline.jsonl.
-func timelineBytes(t *testing.T, file collectedFile, options ...string) int {
+func timelineBytes(t *testing.T, files []collectedFile, options ...string) int {
 	t.Helper()
 	work := t.TempDir()
 	collection := writeCollection(t, filepath.Join(work, "col"),
-		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, []collectedFile{file})
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
 		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
@@ -87,23 +133,28 @@ func timelineBytes(t *testing.T, file collectedFile, options ...string) int {
 func TestTheMembersOfARepeatedIDTakeTheirParentsFieldsCut(t *testing.T) {
 	stores := []struct {
 		name  string
-		file  func(t *testing.T, n int) collectedFile
+		files func(t *testing.T, n int) []collectedFile
 		later string
 	}{
-		{"an OpenCode session's directory", func(t *testing.T, n int) collectedFile {
-			return collectedFile{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode.db",
-				opencodeLongDirectory(t, n)}
+		{"an OpenCode session's directory", func(t *testing.T, n int) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode.db",
+				opencodeLongDirectory(t, n)}}
 		}, "2026-03-01"},
-		{"an Ollama message's model", func(t *testing.T, n int) collectedFile {
-			return collectedFile{"alice", "/home/alice", "ollama", "Library/Application Support/Ollama/db.sqlite",
-				ollamaLongModel(t, n)}
+		{"an Ollama message's model", func(t *testing.T, n int) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", "ollama", "Library/Application Support/Ollama/db.sqlite",
+				ollamaLongModel(t, n)}}
 		}, "2026-03-01"},
+		{"a Codex thread's cwd, its members in the log database read after it",
+			func(t *testing.T, n int) []collectedFile { return codexLongCwd(t, n, false) }, "2026-03-01"},
+		{"a Codex thread's cwd, its members in the log database read before it",
+			func(t *testing.T, n int) []collectedFile { return codexLongCwd(t, n, true) }, "2026-03-01"},
+		{"a Copilot CLI session's cwd", copilotLongCwd, "2026-03-01"},
 	}
 	for _, store := range stores {
 		for _, options := range [][]string{nil, {"--since", store.later}} {
 			t.Run(store.name+" "+strings.Join(options, " "), func(t *testing.T) {
-				small, large := timelineBytes(t, store.file(t, 100), options...),
-					timelineBytes(t, store.file(t, 200), options...)
+				small, large := timelineBytes(t, store.files(t, 100), options...),
+					timelineBytes(t, store.files(t, 200), options...)
 				if perMember := (large - small) / 100; perMember > 2*parser.CarriedLimit {
 					t.Errorf("100 members wrote %d bytes and 200 wrote %d: %d a member", small, large, perMember)
 				}
