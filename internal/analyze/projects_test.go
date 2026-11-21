@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -267,7 +268,7 @@ func TestTheHomeLookupAnswersAsComparingEveryHomeDoes(t *testing.T) {
 	claimed := 0
 	for range 3000 {
 		var homes []string
-		indexed := homeKeys{}
+		indexed := newHomeKeys()
 		for range 1 + random.IntN(4) {
 			home := randomPath(random)
 			if cut := strings.LastIndexAny(home, `/\`); cut > 0 && random.IntN(3) == 0 {
@@ -298,7 +299,7 @@ func TestTheHomeLookupAnswersAsComparingEveryHomeDoes(t *testing.T) {
 
 // A path is compared with the homes in a number of lookups that grows with
 // its components, whatever the number of homes, so n homes and n paths
-// cost n lookups a component, not n times n.
+// cost at most two lookups a component, not n times n.
 func TestTheHomeLookupsGrowWithThePathsNotTheHomes(t *testing.T) {
 	lookups := map[int]int{}
 	for _, count := range []int{500, 1000} {
@@ -319,5 +320,28 @@ func TestTheHomeLookupsGrowWithThePathsNotTheHomes(t *testing.T) {
 	if lookups[1000] > 2*lookups[500]+10 || lookups[500] > 500*2*103 {
 		t.Errorf("500 homes and paths made %d lookups and 1000 made %d, want about two a component of each path",
 			lookups[500], lookups[1000])
+	}
+}
+
+// A project path collection.json names is answered in a number of bytes
+// hashed and compared that grows with its length, not with its square,
+// however many homes there are: a path twice as long costs about twice
+// the bytes.
+func TestTheHomeLookupOfALongPathGrowsWithItsLength(t *testing.T) {
+	work := map[int]int{}
+	for _, length := range []int{64 << 10, 128 << 10} {
+		finder := testFinder(t)
+		collection := &input.Collection{Summary: jsonvalue.NewObject(jsonvalue.Member{Key: "projects",
+			Value: jsonvalue.NewArray(jsonvalue.NewString(strings.Repeat("/a", length/2)))})}
+		for i := range 20 {
+			collection.Homes = append(collection.Homes, &input.Home{Original: "/home/user" + strconv.Itoa(i)})
+		}
+		if keys := finder.scratchKeys(collection, nil); len(keys) != 0 {
+			t.Fatalf("scratch keys %v, want none", keys)
+		}
+		work[length] = finder.homeBytes
+	}
+	if small, large := work[64<<10], work[128<<10]; small < 64<<10 || large > 2*small+64 {
+		t.Errorf("a path of 64 KiB cost %d bytes and one of 128 KiB %d, want about twice", small, large)
 	}
 }

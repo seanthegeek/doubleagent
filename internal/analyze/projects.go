@@ -1,6 +1,7 @@
 package analyze
 
 import (
+	"hash/maphash"
 	"regexp"
 	"slices"
 	"strings"
@@ -110,14 +111,16 @@ func collectionProjectTexts(collection *input.Collection) []string {
 // scratchFinder tells a project path that is a scratch directory, one that
 // belongs to an agent rather than to the user, from the catalog: the
 // project entries' segments compiled exact and without regard to case, and
-// the home claims. tests counts the segment expressions tried, and
-// homeLookups the home keys looked up, so a test can see the work a run
+// the home claims. tests counts the segment expressions tried,
+// homeLookups the home keys looked up and homeBytes the bytes of project
+// keys hashed or compared to find them, so a test can see the work a run
 // does.
 type scratchFinder struct {
 	found       *catalog.Matcher
 	entries     [2]entryIndex
 	tests       int
 	homeLookups int
+	homeBytes   int
 }
 
 // entryIndex holds the project entries of one case mode by their first
@@ -193,7 +196,7 @@ func (f *scratchFinder) scratchKeys(collection *input.Collection, rows []timelin
 			keys[timeline.ProjectKey(row.ProjectPath)] = true
 		}
 	}
-	homes := homeKeys{}
+	homes := newHomeKeys()
 	for _, home := range collection.Homes {
 		if home.Original != "" && !home.Project {
 			homes.add(stripImageRoot(home.Original, collection.Summary))
@@ -260,44 +263,67 @@ func (f *scratchFinder) matchesAll(segments []*regexp.Regexp, parts []string) bo
 
 // homeKeys holds the homes of a run, paths on the source host, by their
 // project key: for each key whether a home of that key is a Windows path,
-// each answer once.
-type homeKeys map[string][]bool
+// each answer once, and the hash of each key, so a prefix of a project key
+// can be looked up from a hash taken as the key is read.
+type homeKeys struct {
+	keys   map[string][]bool
+	seed   maphash.Seed
+	hashes map[uint64]bool
+}
+
+// newHomeKeys returns an empty set of homes.
+func newHomeKeys() *homeKeys {
+	return &homeKeys{keys: map[string][]bool{}, seed: maphash.MakeSeed(), hashes: map[uint64]bool{}}
+}
 
 // add records a home.
-func (h homeKeys) add(home string) {
+func (h *homeKeys) add(home string) {
 	key, windows := timeline.ProjectKey(home), timeline.IsWindowsPath(home)
-	if !slices.Contains(h[key], windows) {
-		h[key] = append(h[key], windows)
+	if !slices.Contains(h.keys[key], windows) {
+		h.keys[key] = append(h.keys[key], windows)
 	}
+	h.hashes[maphash.String(h.seed, key)] = true
 }
 
 // underHomeClaim reports whether a project key lies in or under a
 // directory a home entry claims in one of the homes; a Windows home is
 // compared in its key form and without regard to case. A home holding the
 // key ends just before or just after one of its separators, or is the key
-// itself, so the homes are looked up once per component, whatever their
-// number.
-func (f *scratchFinder) underHomeClaim(key string, homes homeKeys) bool {
-	if f.claimedUnder(key, key, homes) {
-		return true
-	}
+// itself. The key is hashed once, byte by byte, and only a prefix whose
+// hash is a home's is looked up and compared, so the work grows with the
+// key's length, not with its square or with the number of homes.
+func (f *scratchFinder) underHomeClaim(key string, homes *homeKeys) bool {
+	var hash maphash.Hash
+	hash.SetSeed(homes.seed)
 	for i := range len(key) {
-		if key[i] != '/' && key[i] != '\\' {
+		if key[i] == '/' || key[i] == '\\' {
+			if f.claimedUnder(key, key[:i], homes, hash.Sum64()) {
+				return true
+			}
+			f.homeBytes++
+			_ = hash.WriteByte(key[i])
+			if f.claimedUnder(key, key[:i+1], homes, hash.Sum64()) {
+				return true
+			}
 			continue
 		}
-		if f.claimedUnder(key, key[:i], homes) || f.claimedUnder(key, key[:i+1], homes) {
-			return true
-		}
+		f.homeBytes++
+		_ = hash.WriteByte(key[i])
 	}
-	return false
+	return f.claimedUnder(key, key, homes, hash.Sum64())
 }
 
-// claimedUnder reports whether homeKey is the key of a home of homes that
-// holds key, the key itself or a path under it by the home's separator,
-// and a home entry claims the rest of key in that home.
-func (f *scratchFinder) claimedUnder(key, homeKey string, homes homeKeys) bool {
+// claimedUnder reports whether homeKey, a prefix of key whose hash is
+// sum, is the key of a home of homes that holds key, the key itself or a
+// path under it by the home's separator, and a home entry claims the rest
+// of key in that home.
+func (f *scratchFinder) claimedUnder(key, homeKey string, homes *homeKeys, sum uint64) bool {
+	if !homes.hashes[sum] {
+		return false
+	}
 	f.homeLookups++
-	for _, windows := range homes[homeKey] {
+	f.homeBytes += len(homeKey)
+	for _, windows := range homes.keys[homeKey] {
 		separator := "/"
 		if windows {
 			separator = `\`

@@ -28,6 +28,11 @@ func reviewedImports() map[string]string {
 		// of deduplication (dedup/digest.go); the name used is Mul64, pure
 		// arithmetic that takes no path.
 		"math/bits",
+		// Hashes each prefix of a project path as it is read, one byte at
+		// a time, to look the homes holding it up (analyze/projects.go);
+		// the names used are Hash, its SetSeed, WriteByte and Sum64,
+		// MakeSeed, Seed and String, none of which takes a path.
+		"hash/maphash",
 		// Decodes zstd data from an io.Reader the caller gives it; the names
 		// used are NewReader, WithDecoderConcurrency, WithDecoderLowmem,
 		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,

@@ -396,10 +396,8 @@ func (load *manifestLoad) finish() {
 			}
 			// A row archived in place shows every directory above it real.
 			if row.archivePath != "" && archivedInPlace(home, load.collection.Root, row.rel, row.archivePath) {
-				for i := range len(row.rel) {
-					if row.rel[i] == '/' {
-						inPlace[row.rel[:i]] = true
-					}
+				for _, directory := range directoriesAbove(row.rel) {
+					inPlace[directory] = true
 				}
 			}
 		}
@@ -414,6 +412,23 @@ func (load *manifestLoad) finish() {
 		}
 		load.collection.Homes = append(load.collection.Homes, home)
 	}
+}
+
+// directoriesAbove returns each directory above rel as the staged paths
+// look it up: its non-empty components up to it, joined by single slashes
+// (joinedPrefixes). There is one per component, which tooDeep bounds,
+// however many separators repeat, and each is a prefix of one string.
+func directoriesAbove(rel string) []string {
+	parts := splitNonEmpty(rel)
+	if len(parts) < 2 {
+		return nil
+	}
+	joined, ends := joinedPrefixes(parts)
+	directories := make([]string, len(parts)-1)
+	for i := range directories {
+		directories[i] = joined[:ends[i+1]]
+	}
+	return directories
 }
 
 // archivedPath returns where the collection holds an archive path from the

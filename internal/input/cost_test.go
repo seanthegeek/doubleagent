@@ -146,3 +146,34 @@ func TestACollectedRowWithANegativeSizeIsAProblem(t *testing.T) {
 	wantProblem(t, collection, "/home/a/.pi/t: "+errNegativeSize.Error())
 	wantSlice(t, "artifacts", rels(collection), []string{".pi/s"})
 }
+
+// The directories above a row are its components', however many slashes
+// repeat between them, in the form the staged paths look them up: the
+// bytes of the keys made grow with the components, not with the square of
+// the path's length.
+func TestTheDirectoriesAboveARowAreOnePerComponent(t *testing.T) {
+	tests := []struct {
+		name, rel string
+		want      []string
+	}{
+		{"a plain path gives each directory", "a/b/c", []string{"a", "a/b"}},
+		{"repeated slashes give the same directories", "a//b///c", []string{"a", "a/b"}},
+		{"a file at the home gives none", "f", nil},
+		{"leading and trailing slashes add none", "/a/b/", []string{"a"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wantSlice(t, "directories", directoriesAbove(test.rel), test.want)
+		})
+	}
+	keyBytes := func(slashes int) int {
+		total := 0
+		for _, directory := range directoriesAbove(".pi/x" + strings.Repeat("/", slashes) + "f") {
+			total += len(directory)
+		}
+		return total
+	}
+	if small, large := keyBytes(1<<15), keyBytes(1<<16); large != small {
+		t.Errorf("keys of %d and %d bytes for 32,768 and 65,536 slashes, want the same", small, large)
+	}
+}
