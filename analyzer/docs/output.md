@@ -1543,6 +1543,11 @@ attributes. What the rows of the id are depends on the agent:
   gives a `parser:` row in place of its cached text. An
   `allowlistOptions` entry repeating an `id` lends nothing either: the
   `allowlisted=` list names the id by each entry's name, joined with `|`.
+  A `cloudAgentRepository.agents.` entry repeating a `bcId`: the agent's
+  MCP `permission decision:` rows and its rows in `conversation-search.db`
+  and `ai-code-tracking.db`, with the entry's repository as
+  `project_path`, and its `model` but for a tracking row, which names its
+  own. Each entry gives its own rows and a `parser:` row.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows

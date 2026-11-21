@@ -69,6 +69,9 @@ type Parser struct {
 	parser.Base
 	index  *stateIndex
 	groups map[[2]string]*timeline.Group
+	// cloudGroups is the group of each cloud agent bcId a home's
+	// state.vscdb repeats, kept as groups is.
+	cloudGroups map[[2]string]*timeline.Group
 }
 
 // New returns the parser.

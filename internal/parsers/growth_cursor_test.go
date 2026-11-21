@@ -268,6 +268,18 @@ func cursorSideCases() []growthCase {
 			return []growthFile{cursorLongProject(t), {rel: search, data: cursorConversations(t,
 				rows(n, func(i int) []any { return []any{i, "c1", numbered("title ", i), "local", 0, 1790000000000} }), nil)}}
 		}},
+		// Each entry of a bcId the cloud agent list repeats is a parent of
+		// the agent's group, and each conversation of it a member.
+		{kind: "conversation-search.db", shape: shapeSharedID + " (a cloud agent the state repeats)",
+			files: func(t *testing.T, n int) []growthFile {
+				agents := "[" + joined(n, func(i int) string {
+					return `{"bcId":"bc-1","repoUrl":"` + numbered("github.com/o/r", i) + `","createdAt":1790000000000}`
+				}) + "]"
+				state := cursorState(t, nil, [][]any{{"cloudAgentRepository.agents.acct", agents}}, nil)
+				return []growthFile{{rel: cursorStateRel, data: state}, {rel: search, data: cursorConversations(t,
+					rows(n, func(i int) []any { return []any{nil, "bc-1", numbered("t", i), "cloud-cache", 0, 1790000000000} }),
+					nil)}}
+			}},
 		// Each stored row of a repeated full-text id gives its own row.
 		{kind: "conversation-search.db", shape: shapeSharedID + " (full-text rows of one id)",
 			files: func(t *testing.T, n int) []growthFile {

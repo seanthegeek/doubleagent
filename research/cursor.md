@@ -2546,6 +2546,14 @@ place of its cached text row,
 `parser: conversation_fts_content holds <n> rows of this row's fts_rowid; each gives its own row`,
 and each stored row, in rowid order, gives once, with no session or time,
 `cached conversation text (conversation-search.db, fts_rowid=<id>): <body>`.
+A `bcId` that the `cloudAgentRepository.agents.*` lists hold in more than one entry, which Cursor
+is not known to write, is a group: each entry, in key then list order, gives its own rows with its
+own `repoUrl` and model, after a row at its `createdAt`,
+`parser: cloudAgentRepository.agents holds <n> entries of this row's bcId; its decisions and rows in other files are shown once, with this row`
+(`another of them` for the others), and the agent's MCP `permission decision:` rows and its rows
+in `conversation-search.db` and `ai-code-tracking.db` are shown once, with the `repoUrl` and (but
+for a tracking row, which names its own) the model of the first entry that `--since`, `--until`
+and `--match` keep, else the first.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row

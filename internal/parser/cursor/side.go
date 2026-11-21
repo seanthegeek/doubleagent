@@ -114,6 +114,7 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 			}
 			joinProject(&made, sessionID, index)
 			made.Model = index.models[sessionID]
+			index.cloudMember(sessionID, &made, timeline.TakeProject|timeline.TakeModel)
 			emit(made)
 		}
 		source := asText(record.Get("source"))
@@ -233,6 +234,7 @@ func (p *Parser) tracking(artifact *input.Artifact, store *store, emit parser.Em
 			row := p.row(artifact, timeline.TurnSystem, text, parser.ColumnTime(when), record.Rowid)
 			joinProject(&row, sessionID, index)
 			row.Model = asText(record.Get("model"))
+			index.cloudMember(sessionID, &row, timeline.TakeProject)
 			if tracked.name == "scored_commits" {
 				row.GitBranch = asText(record.Get("branchName"))
 			}

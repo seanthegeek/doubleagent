@@ -2,6 +2,7 @@ package cursor
 
 import (
 	"cmp"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -73,10 +74,11 @@ func (i *items) cloud(emit parser.Emit) {
 	}
 	cached := cloudCachedIDs(i.artifact)
 	agents := readCloudAgents(i.store, i.problems)
+	repeats := i.owner.cloudRepeats(sharedState(i.artifact), agents)
 	for _, found := range agents {
-		i.cloudAgent(found, cached, emit)
+		i.cloudAgent(found, cached, repeats[found.agent.Get("bcId").Text()], emit)
 	}
-	i.mcpAuth(agents, emit)
+	i.mcpAuth(agents, repeats, emit)
 	stored := keyedValues(i.store, i.table, githubReposKey)
 	for _, found := range stored {
 		i.repeatNotice(len(stored), found, emit)
@@ -100,18 +102,74 @@ func (i *items) repeatNotice(n int, found keyed, emit parser.Emit) {
 	}
 }
 
+// cloudRepeat is a bcId the cloud agent lists hold in more than one entry,
+// which Cursor is not known to write, and the group of its rows
+// (timeline.Group): each entry is a parent, giving its own rows and a
+// parser: row with its own repository and model, and the agent's MCP
+// decisions and its rows in conversation-search.db are members, shown once
+// with the repository and model of the entry the group goes with.
+type cloudRepeat struct {
+	group *timeline.Group
+	count int
+}
+
+// cloudRepeats returns the repeat of each bcId the agents hold more than
+// once, its group the parser's own for the state database at path, which
+// the database's parse and conversation-search.db's share, or a new one
+// when path is "".
+func (p *Parser) cloudRepeats(path string, agents []cloudAgent) map[string]*cloudRepeat {
+	counts := map[string]int{}
+	for _, found := range agents {
+		counts[found.agent.Get("bcId").Text()]++
+	}
+	repeats := map[string]*cloudRepeat{}
+	for ident, count := range counts {
+		if count < 2 {
+			continue
+		}
+		group := timeline.NewGroup()
+		if path != "" {
+			key := [2]string{path, ident}
+			if p.cloudGroups == nil {
+				p.cloudGroups = map[[2]string]*timeline.Group{}
+			}
+			if p.cloudGroups[key] == nil {
+				p.cloudGroups[key] = group
+			}
+			group = p.cloudGroups[key]
+		}
+		repeats[ident] = &cloudRepeat{group: group, count: count}
+	}
+	return repeats
+}
+
 // cloudAgent emits the origin, sync, model, source host and "cloud agent:"
-// rows of one cloud agent.
-func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, emit parser.Emit) {
+// rows of one cloud agent; an entry of a repeated bcId first gives the
+// parser: row that makes it a parent of the bcId's group.
+func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, repeat *cloudRepeat, emit parser.Emit) {
 	agent := found.agent
 	ident := agent.Get("bcId").Text()
 	repo := agent.Get("repoUrl").Text()
 	model, requested := cloudModel(agent)
 	created := firstOrLast(agent.Get("createdAt"), agent.Get("rowUpdatedAtMs"))
+	var parent *timeline.Parent
 	row := func(text string, when jsonvalue.Value) {
 		made := i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(when), found.rowid)
 		made.SessionID, made.ProjectPath, made.Model = ident, repo, model
+		if parent != nil {
+			parent.Row(&made, timeline.Always)
+		}
 		emit(made)
+	}
+	if repeat != nil {
+		notice := i.owner.row(i.artifact, timeline.TurnSystem, "", timeutil.FromValue(created), found.rowid)
+		notice.SessionID, notice.ProjectPath, notice.Model = ident, repo, model
+		parent = repeat.group.Parent(&notice)
+		prefix := parser.ProblemPrefix + "cloudAgentRepository.agents holds " + strconv.Itoa(repeat.count) +
+			" entries of this row's bcId; its decisions and rows in other files are shown once, with "
+		parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+			timeline.RowText{Text: prefix + "another of them"})
+		emit(notice)
 	}
 	if !cached[ident] {
 		row(cloudOrigin, created)
@@ -143,15 +201,22 @@ func cloudText(artifact *input.Artifact, agent jsonvalue.Value) string {
 // mcpAuth emits a "permission decision:" row per cloud agent MCP
 // authorisation answer of each stored row of the key, in the agent's
 // session, joined on its toolCallId, at the file's modification time.
-func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
+func (i *items) mcpAuth(agents []cloudAgent, repeats map[string]*cloudRepeat, emit parser.Emit) {
 	known := map[string]jsonvalue.Value{}
 	for _, each := range agents {
-		known[each.agent.Get("bcId").Text()] = each.agent
+		if ident := each.agent.Get("bcId").Text(); !known[ident].IsObject() {
+			known[ident] = each.agent
+		}
 	}
 	stored := keyedValues(i.store, i.table, mcpAuthKey)
 	for _, found := range stored {
 		i.repeatNotice(len(stored), found, emit)
-		i.mcpAnswers(found, known, emit)
+		i.mcpAnswers(found, known, func(row timeline.Row) {
+			if repeat := repeats[row.SessionID]; repeat != nil {
+				repeat.group.Member(&row, timeline.TakeProject|timeline.TakeModel)
+			}
+			emit(row)
+		})
 	}
 }
 

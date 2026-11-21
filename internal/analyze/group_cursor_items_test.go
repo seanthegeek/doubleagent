@@ -248,3 +248,88 @@ func TestEachStoredBodyOfARepeatedCursorFullTextRowIsShown(t *testing.T) {
 		t.Errorf("rows\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// cursorRepeatedCloudAgent returns a state.vscdb whose cloud agent list
+// holds bc-1 twice, in January on github.com/o/old with m-old and in June
+// on github.com/o/new with m-new, with an MCP authorisation answer of it.
+func cursorRepeatedCloudAgent(t *testing.T) string {
+	t.Helper()
+	agent := func(repo, model string, created int64) string {
+		return `{"bcId":"bc-1","name":"A","repoUrl":"` + repo + `","createdAt":` + jsonvalue.NewInt(created).JSON() +
+			`,"modelDetails":{"modelName":"` + model + `"}}`
+	}
+	return cursorItemsOf(t, [][]any{
+		{"cloudAgentRepository.agents.acct", "[" + agent("github.com/o/old", "m-old", 1767225600000) + "," +
+			agent("github.com/o/new", "m-new", 1780272000000) + "]"},
+		{"cloudAgentRepository.mcpAuthResolution", `{"agentId":"bc-1","toolCallId":"t1","userDecision":"approve"}`}})
+}
+
+// cursorCloudSearch returns a conversation-search.db whose cloud-cache
+// row names bc-1 two days after its later entry.
+func cursorCloudSearch(t *testing.T) string {
+	t.Helper()
+	return buildDatabase(t, sqlitetest.Table{Name: "conversations", SQL: "CREATE TABLE conversations " +
+		"(fts_rowid INTEGER, id TEXT, title TEXT, source TEXT, is_archived INTEGER, updated_at INTEGER)",
+		Rows: [][]any{{nil, "bc-1", "CLOUD-TITLE", "cloud-cache", 0, int64(1780444800000)}}})
+}
+
+// cursorCloudFiles returns the home's state and search databases, the
+// state first or last.
+func cursorCloudFiles(t *testing.T, stateFirst bool) []collectedFile {
+	t.Helper()
+	state := collectedFile{"alice", "/home/alice", "cursor", cursorStateRel, cursorRepeatedCloudAgent(t)}
+	search := collectedFile{"alice", "/home/alice", "cursor", cursorSearchRel, cursorCloudSearch(t)}
+	if stateFirst {
+		return []collectedFile{state, search}
+	}
+	return []collectedFile{search, state}
+}
+
+// cursorCloudStateFirst returns the cloud agent's files, the state first.
+func cursorCloudStateFirst(t *testing.T) []collectedFile {
+	return cursorCloudFiles(t, true)
+}
+
+func TestTheRowsOfARepeatedCursorCloudAgentGoWithTheEntryTheFilterKeeps(t *testing.T) {
+	for _, stateFirst := range []bool{true, false} {
+		for _, test := range []struct {
+			name    string
+			options []string
+			project string
+		}{
+			{"without a filter they take the first entry's repository and model", nil, "github.com/o/old m-old"},
+			{"a window past the first entry moves them to the second", []string{"--since", "2026-03-01"},
+				"github.com/o/new m-new"},
+			{"a pattern on the second entry's repository moves them to it", []string{"--match", "o/new|CLOUD-TITLE|approve"},
+				"github.com/o/new m-new"},
+		} {
+			t.Run(test.name+cursorOrderName(stateFirst), func(t *testing.T) {
+				work := t.TempDir()
+				collection := writeCollection(t, filepath.Join(work, "col"),
+					[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, cursorCloudFiles(t, stateFirst))
+				env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+					Parsers: parsers.New, Version: "0.0.0-test"}
+				output := filepath.Join(work, "out")
+				args := append(append([]string{"timeline", "--agent", "cursor"}, test.options...), collection, output)
+				if code, _, stderr := runCommand(env, args...); code != ExitFound {
+					t.Fatalf("%q exited %d: %s", args, code, stderr)
+				}
+				rows := recordsOf(t, filepath.Join(output, TimelineFile), "text", "project_path", "model", "text")
+				for _, kind := range []string{"conversation index: CLOUD-TITLE", "permission decision: approve"} {
+					var found []string
+					for _, row := range rows {
+						if strings.Contains(row, kind) {
+							found = append(found, row)
+						}
+					}
+					if len(found) != 1 || !strings.HasPrefix(found[0], test.project+" ") {
+						t.Errorf("%q rows %q, want one with %q, in\n%s", kind, found, test.project, strings.Join(rows, "\n"))
+					}
+				}
+				if count := countContaining(rows, "entries of this row's bcId"); test.options == nil && count != 2 {
+					t.Errorf("%d parser: rows of the repeated bcId, want 2:\n%s", count, strings.Join(rows, "\n"))
+				}
+			})
+		}
+	}
+}

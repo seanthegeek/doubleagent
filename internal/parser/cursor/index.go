@@ -25,6 +25,7 @@ type stateIndex struct {
 	projects map[string]project
 	models   map[string]string
 	groups   map[string]*timeline.Group
+	cloud    map[string]*cloudRepeat
 }
 
 // fileState returns the size and modification time of a file, -1 for each
@@ -87,7 +88,9 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		}
 	}
 	var ignored parser.Problems
-	for _, found := range readCloudAgents(store, &ignored) {
+	agents := readCloudAgents(store, &ignored)
+	p.index.cloud = p.cloudRepeats(path, agents)
+	for _, found := range agents {
 		ident := found.agent.Get("bcId").Text()
 		if _, seen := p.index.projects[ident]; !seen {
 			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text()}
@@ -99,6 +102,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	if store.err != nil {
 		p.index.projects, p.index.models, p.index.groups = map[string]project{}, map[string]string{},
 			map[string]*timeline.Group{}
+		p.index.cloud = nil
 	}
 	return p.index
 }

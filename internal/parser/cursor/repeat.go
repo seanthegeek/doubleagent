@@ -171,3 +171,12 @@ func (index *stateIndex) member(sessionID string, row *timeline.Row, takes timel
 		group.Member(row, takes)
 	}
 }
+
+// cloudMember makes row, a row of the cloud agent sessionID in a side
+// file, a member of the agent's group when the home's state repeats its
+// bcId and no composer of that id has a group.
+func (index *stateIndex) cloudMember(sessionID string, row *timeline.Row, takes timeline.Takes) {
+	if repeat := index.cloud[sessionID]; repeat != nil && index.groups[sessionID] == nil {
+		repeat.group.Member(row, takes)
+	}
+}
