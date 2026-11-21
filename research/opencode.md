@@ -1264,7 +1264,16 @@ item; in a 1.x database, one per `part`, plus a `user` row per user message.
 
 Session headers and `directory` come from `session_v2`, else `session`, one `system` row per
 session at its `time_created`, each part present only when set; a session a 2.x database holds
-only in the 1.x `session` table ends `(only in the 1.x session table)`:
+only in the 1.x `session` table ends `(only in the 1.x session table)`. A session id both tables
+hold is the migration's copy, read from `session_v2` alone. A session id is its table's key, so a
+second row of one id in one table is damage: each stored row gives its own `session start:` row, a
+problem row ([Bad-line rows](#bad-line-rows)), and its `session archived` and
+`permission setting: session` rows, with its own project, and the session's messages, shares and
+problems are shown once, with the `project_path` of one of its rows: the first, in `time_created`
+order, that the analysis filters keep, else the first. The rows of a message id that is repeated
+too stay with that id's rows, which take the first stored session row's project; the rows of a 1.x
+message with its own `path.cwd` keep that path when the first stored row names no project, and
+otherwise take the chosen row's project even when it names none:
 
 ```text
 session start: <title> slug=<slug> version=<version> agent=<agent> parent=<parent_id> fork=<fork_session_id> directory=<directory>
@@ -1516,6 +1525,8 @@ parser: database could not be read: <error>
 parser: <table> holds <n> rows of this row's id; its parts are shown once, with this row
 parser: <table> holds <n> rows of this row's id; its parts are shown once, with another of them
 parser: message <id> repeats the id of an earlier message file; its parts are shown with <file>
+parser: <table> holds <n> rows of this row's id; its messages and shares are shown once, with this row
+parser: <table> holds <n> rows of this row's id; its messages and shares are shown once, with another of them
 ```
 
 A session's `permission` array holding entries of neither rule shape (not objects, or objects
@@ -1523,19 +1534,23 @@ with neither `effect` nor `permission`) gives one row for them all after the dat
 rows, with the session and project and `source_line` the session's rowid
 (`1 entry that is not a permission rule` for one); its rules still give their rows.
 
-The last three rows are for a message id that more than one record claims, which OpenCode never
-writes: the first two are one row of each `message` or `session_message` row of an id with parts
-or items, before that row's own rows, with its session, project, model, time and rowid as
-`source_line`, `<n>` the rows of the id, saying `this row` on the row the parts are shown with
-and `another of them` on the others; the third is a row of each later message file of the JSON
-trees, after
-its own rows, with `source_line` 1, `<file>` the source path of the first message file of the home
-that showed the parts, so the parts can be found when a filter leaves that file's rows out. A part
-directory, and a project file, is the one the path opens: on a disk that matches names without
-regard to letter case (accented and non-Latin letters included) or, on macOS, to whether an
-accented letter is written as one character or as a letter and a combining accent, message files
-whose ids are such spellings of one id name one part directory, whose parts the first of them in
-the home shows, and sessions naming one project file in several spellings read it once.
+The three rows before the last two are for a message id that more than one record claims, which
+OpenCode never writes: the first two are one row of each `message` or `session_message` row of an id
+with parts or items, before that row's own rows, with its session, project, model, time and rowid as
+`source_line`, `<n>` the rows of the id, saying `this row` on the row the parts are shown with and
+`another of them` on the others; the third is a row of each later message file of the JSON trees,
+after its own rows, with `source_line` 1, `<file>` the source path of the first message file of the
+home that showed the parts, so the parts can be found when a filter leaves that file's rows out. A
+part directory, and a project file, is the one the path opens: on a disk that matches names without
+regard to letter case (accented and non-Latin letters included) or, on macOS, to whether an accented
+letter is written as one character or as a letter and a combining accent, message files whose ids
+are such spellings of one id name one part directory, whose parts the first of them in the home
+shows, and sessions naming one project file in several spellings read it once.
+
+The last two rows are for a session id that one `session_v2` or `session` table holds in more
+than one row: one row of each stored row of the id, after its `session start:` row, with its
+project, time and rowid as `source_line`, `<n>` the rows of the id, saying `this row` on the row
+the session's other rows are shown with and `another of them` on the others.
 
 A database file that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

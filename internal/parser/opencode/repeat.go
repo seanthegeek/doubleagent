@@ -75,3 +75,34 @@ func (l *link) problem(row *timeline.Row) {
 		l.repeat.group.Member(row, timeline.TakeSession|timeline.TakeProject)
 	}
 }
+
+// sessionRepeat is a session id one session table holds in more than one
+// row, which only damage or an edit writes, since the id is the table's
+// key. Its rows are a group (timeline.Group): each stored row of the id is
+// a parent, giving its own session-start, archive and permission rows and
+// a `parser:` row saying so, with its own project; the session's
+// messages, shares and problems are members, shown once with the project
+// of the row the group goes with.
+type sessionRepeat struct {
+	group *timeline.Group
+	table string
+	count int
+}
+
+// newSessionRepeat returns the group of a session id table holds in count
+// rows.
+func newSessionRepeat(table string, count int) *sessionRepeat {
+	return &sessionRepeat{group: timeline.NewGroup(), table: table, count: count}
+}
+
+// start makes start, the "session start:" row of one stored row of the
+// id, a new parent of the group, and notice, a copy of it, that parent's
+// `parser:` row, and returns the parent.
+func (r *sessionRepeat) start(start, notice *timeline.Row) *timeline.Parent {
+	parent := r.group.Parent(start)
+	prefix := parser.ProblemPrefix + r.table + " holds " + strconv.Itoa(r.count) +
+		" rows of this row's id; its messages and shares are shown once, with "
+	parent.Texts(notice, timeline.RowText{Text: prefix + "this row"},
+		timeline.RowText{Text: prefix + "another of them"})
+	return parent
+}

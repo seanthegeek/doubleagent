@@ -62,10 +62,22 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 			}
 		}
 		where := origin{line: int(each.row.Rowid), time: parser.ColumnTime(each.row.Get("time_created"))}
-		s.owner.messageRows(s.artifact, s.scopeFor(each.session), each.message, where, found, s.options,
-			failures, repeated, emit)
+		scoped := s.scopeFor(each.session)
+		s.owner.messageRows(s.artifact, scoped, each.message, where, found, s.options, failures, repeated,
+			s.memberEmit(each.session, sessionTakes(scoped, each.message), emit))
 	}
 	return covered, nil
+}
+
+// sessionTakes returns what the rows of a 1.x message take from the stored
+// row of a repeated session id their group goes with: its project, unless
+// the session's first row names none and the message gives its own
+// path.cwd, which the rows then keep.
+func sessionTakes(scoped *scope, message jsonvalue.Value) timeline.Takes {
+	if scoped.projectPath == "" && ownDirectory(message) != "" {
+		return 0
+	}
+	return timeline.TakeProject
 }
 
 // partCounts returns the number of message rows of each id with parts, by
@@ -210,7 +222,8 @@ func (s *store) v2Messages(skip map[string]bool) error {
 			}
 		}
 		s.owner.recordRows(s.artifact, s.scopeFor(each.session), each.kind, each.data, int(each.row.Rowid),
-			parser.ColumnTime(each.row.Get("time_created")), s.options, content, s.emit)
+			parser.ColumnTime(each.row.Get("time_created")), s.options, content,
+			s.memberEmit(each.session, timeline.TakeProject, s.emit))
 	}
 	return nil
 }

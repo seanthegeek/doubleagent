@@ -15,11 +15,16 @@ import (
 // 1.x rows behind.
 const legacyNote = "(only in the 1.x session table)"
 
-// session is one row of a session table, by its id's text.
+// session is one row of a session table, by its id's text, with its
+// project path: its directory, else its project's worktree unless "/".
+// parent is its place in the group of an id its table holds in more than
+// one row, nil for any other row.
 type session struct {
 	identifier string
 	row        sqlitefile.Row
 	table      string
+	project    string
+	parent     *timeline.Parent
 }
 
 // store is the reading of one database: its tables, the worktree of each
@@ -36,7 +41,10 @@ type store struct {
 	projects  map[string]string
 	sessions  []session
 	sessionAt map[string]int
-	scopes    map[string]*scope
+	// repeats holds the session ids a session table holds in more than
+	// one row, which only damage or an edit writes.
+	repeats map[string]*sessionRepeat
+	scopes  map[string]*scope
 	// shares holds the ids of the sessions with a session_share row.
 	shares map[string]bool
 	// parts holds the part table's rows by message id, read on first use.
@@ -57,7 +65,8 @@ func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit
 	if err == nil {
 		reading := &store{owner: p, artifact: artifact, options: options, emit: emit,
 			database: database, label: databaseLabel(artifact), projects: map[string]string{},
-			sessionAt: map[string]int{}, scopes: map[string]*scope{}, shares: map[string]bool{}}
+			sessionAt: map[string]int{}, repeats: map[string]*sessionRepeat{}, scopes: map[string]*scope{},
+			shares: map[string]bool{}}
 		err = reading.read()
 		if closeErr := database.Close(); err == nil {
 			err = closeErr
@@ -82,14 +91,8 @@ func (s *store) read() error {
 	if err := s.readSessions(); err != nil {
 		return err
 	}
-	hasV2 := tables.Has("session_v2")
-	for _, each := range s.sessions {
-		note := ""
-		if hasV2 && each.table == "session" {
-			note = legacyNote
-		}
-		s.emit(s.owner.sessionRow(s.artifact, s.scopeFor(each.identifier), rowLookup(each.row),
-			parser.ColumnTime(each.row.Get("time_created")), int(each.row.Rowid), note))
+	for i := range s.sessions {
+		s.sessionStart(&s.sessions[i])
 	}
 	for _, step := range []func() error{s.shareRows, s.eventShareRows, s.stateRows,
 		s.worktreeRows, s.grantRows, s.transcript} {
@@ -98,12 +101,77 @@ func (s *store) read() error {
 		}
 	}
 	for i, row := range s.owner.failureRows(s.artifact, s.failures, "", "") {
-		if identifier := s.failures[i].sessionID; identifier != "" {
-			row.SessionID, row.ProjectPath = identifier, s.scopeFor(identifier).projectPath
+		failed := s.failures[i]
+		switch {
+		case failed.owner != nil:
+			row.SessionID, row.ProjectPath = failed.sessionID, failed.owner.project
+			s.ownRow(failed.owner, row)
+		case failed.sessionID != "":
+			row.SessionID, row.ProjectPath = failed.sessionID, s.scopeFor(failed.sessionID).projectPath
+			s.memberEmit(failed.sessionID, timeline.TakeProject, s.emit)(row)
+		default:
+			s.emit(row)
 		}
-		s.emit(row)
 	}
 	return nil
+}
+
+// sessionStart emits the "session start:" row of one stored session row,
+// with the row's own project; a session a 2.x database holds only in the
+// 1.x session table ends with legacyNote. A row of an id its table repeats
+// is a parent of the id's group, its start row followed by a `parser:`
+// row saying so.
+func (s *store) sessionStart(each *session) {
+	note := ""
+	if s.tables.Has("session_v2") && each.table == "session" {
+		note = legacyNote
+	}
+	start := s.owner.sessionRow(s.artifact, s.rowScope(each), rowLookup(each.row),
+		parser.ColumnTime(each.row.Get("time_created")), int(each.row.Rowid), note)
+	repeated := s.repeats[each.identifier]
+	if repeated == nil {
+		s.emit(start)
+		return
+	}
+	notice := start
+	each.parent = repeated.start(&start, &notice)
+	s.emit(start)
+	s.emit(notice)
+}
+
+// rowScope returns the scope of a stored session row's own rows: the
+// session's scope for its first row, else one with the row's own project.
+func (s *store) rowScope(each *session) *scope {
+	if &s.sessions[s.sessionAt[each.identifier]] == each {
+		return s.scopeFor(each.identifier)
+	}
+	return newScope(each.identifier, each.project)
+}
+
+// ownRow emits row, a row of one stored session row alone, as one of its
+// parent's rows when its id is repeated.
+func (s *store) ownRow(each *session, row timeline.Row) {
+	if each.parent != nil {
+		each.parent.Row(&row, timeline.Always)
+	}
+	s.emit(row)
+}
+
+// memberEmit returns an emit of the rows of a session, which makes each
+// row it is given that has no place in a group yet a member of the group
+// of the session's id, taking takes, when its table repeats the id; emit
+// itself otherwise or when takes is empty.
+func (s *store) memberEmit(identifier string, takes timeline.Takes, emit parser.Emit) parser.Emit {
+	repeated := s.repeats[identifier]
+	if repeated == nil || takes == 0 {
+		return emit
+	}
+	return func(row timeline.Row) {
+		if row.Group == nil {
+			repeated.group.Member(&row, takes)
+		}
+		emit(row)
+	}
 }
 
 // transcript emits the messages. In a 2.x database session_message is the
@@ -164,7 +232,9 @@ func (s *store) addProject(row sqlitefile.Row) {
 }
 
 // readSessions reads session_v2 then session, each ordered by its time
-// and id; the first row of an id is kept.
+// and id. An id session_v2 holds is left out of session, where a
+// migration leaves it; an id one table holds in more than one row is a
+// repeat (sessionRepeat), each of its rows kept.
 func (s *store) readSessions() error {
 	for _, name := range []string{"session_v2", "session"} {
 		if !s.tables.Has(name) {
@@ -178,11 +248,21 @@ func (s *store) readSessions() error {
 		if err != nil {
 			return err
 		}
+		counts := map[string]int{}
 		for _, row := range rows {
 			identifier := row.Get("id").String()
-			if _, seen := s.sessionAt[identifier]; !seen {
+			if where, seen := s.sessionAt[identifier]; !seen {
 				s.sessionAt[identifier] = len(s.sessions)
-				s.sessions = append(s.sessions, session{identifier: identifier, row: row, table: name})
+			} else if s.sessions[where].table != name {
+				continue
+			}
+			counts[identifier]++
+			s.sessions = append(s.sessions, session{identifier: identifier, row: row, table: name,
+				project: s.projectOf(row)})
+		}
+		for identifier, count := range counts {
+			if count > 1 {
+				s.repeats[identifier] = newSessionRepeat(name, count)
 			}
 		}
 	}
@@ -195,17 +275,22 @@ func (s *store) scopeFor(identifier string) *scope {
 	if found, ok := s.scopes[identifier]; ok {
 		return found
 	}
-	var record sqlitefile.Row
+	path := ""
 	if where, ok := s.sessionAt[identifier]; ok {
-		record = s.sessions[where].row
-	}
-	path := parser.NonEmptyColumn(record.Get("directory"))
-	if path == "" {
-		path = s.worktreeOf(record.Get("project_id"))
+		path = s.sessions[where].project
 	}
 	made := newScope(identifier, path)
 	s.scopes[identifier] = made
 	return made
+}
+
+// projectOf returns the project path of a session row: its directory, else
+// its project's worktree unless "/".
+func (s *store) projectOf(record sqlitefile.Row) string {
+	if path := parser.NonEmptyColumn(record.Get("directory")); path != "" {
+		return path
+	}
+	return s.worktreeOf(record.Get("project_id"))
 }
 
 // worktreeOf returns the worktree of the project with the given id, "" when

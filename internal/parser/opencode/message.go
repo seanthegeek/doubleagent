@@ -64,7 +64,7 @@ func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message js
 	where origin, parts []part, options parser.Options, failures []failure, repeated *repeat, emit parser.Emit) {
 	if scoped.projectPath == "" {
 		own := *scoped
-		own.projectPath = parser.Text(parser.ObjectOrEmpty(message.Get("path")).Get("cwd"))
+		own.projectPath = ownDirectory(message)
 		scoped = &own
 	}
 	provider, modelID := messageRef(message)
@@ -96,6 +96,11 @@ func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message js
 		linked.members = false
 	}
 	p.messageEnd(builder, message, where, failures, linked, emit)
+}
+
+// ownDirectory returns a 1.x message's own working directory, path.cwd.
+func ownDirectory(message jsonvalue.Value) string {
+	return parser.Text(parser.ObjectOrEmpty(message.Get("path")).Get("cwd"))
 }
 
 // messageEnd emits a 1.x message's error row, its own, then the `parser:`

@@ -36,7 +36,8 @@ func (s *store) shareRows() error {
 	for _, row := range rows {
 		identifier := parser.NonEmptyColumn(row.Get("session_id"))
 		s.shares[identifier] = true
-		s.emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
+		emit := s.memberEmit(identifier, timeline.TakeProject, s.emit)
+		emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
 			" share "+cmp.Or(parser.NonEmptyColumn(row.Get("id")), "-")+" url "+
 			cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-")+
 			shareSecret(s.artifact, row.Get("secret"))+" (from "+s.label+" session_share, time_created)"))
@@ -89,7 +90,8 @@ func (s *store) eventShareRows() error {
 		default:
 			continue
 		}
-		s.emit(s.owner.systemRow(s.artifact, s.scopeFor(identifier), int(row.Rowid),
+		emit := s.memberEmit(identifier, timeline.TakeProject, s.emit)
+		emit(s.owner.systemRow(s.artifact, s.scopeFor(identifier), int(row.Rowid),
 			timeutil.FromValue(parser.ObjectOrEmpty(info.Get("time")).Get("updated")),
 			text+" (from "+s.label+" event session.updated.1, info.time.updated)"))
 	}
@@ -133,16 +135,17 @@ func decodeText(text string) (jsonvalue.Value, error) {
 	return value, nil
 }
 
-// stateRows emits, per session, a "session archived" row at its
-// time_archived and a "permission setting: session ..." row per rule of
-// its permission column at its time_updated. A permission value that is
-// not a JSON array is a problem, and so, counted once per value, are its
-// entries that are not rules.
+// stateRows emits, per stored session row, a "session archived" row at
+// its time_archived and a "permission setting: session ..." row per rule
+// of its permission column at its time_updated, the row's own. A
+// permission value that is not a JSON array is a problem, and so, counted
+// once per value, are its entries that are not rules.
 func (s *store) stateRows() error {
-	for _, each := range s.sessions {
-		scoped, rowid := s.scopeFor(each.identifier), each.row.Rowid
+	for i := range s.sessions {
+		each := &s.sessions[i]
+		scoped, rowid := s.rowScope(each), each.row.Rowid
 		if archived := each.row.Get("time_archived"); !archived.IsEmpty() {
-			s.emit(s.systemAt(scoped, rowid, archived, "session archived (from "+s.label+" "+
+			s.ownRow(each, s.systemAt(scoped, rowid, archived, "session archived (from "+s.label+" "+
 				each.table+", time_archived)"))
 		}
 		stored := each.row.Get("permission")
@@ -155,17 +158,17 @@ func (s *store) stateRows() error {
 			if stored.Type == sqlitefile.Blob {
 				raw = textlines.ValidUTF8(stored.Bytes)
 			}
-			s.failures = append(s.failures, failure{line: int(rowid), raw: raw, sessionID: each.identifier,
+			s.failures = append(s.failures, failure{line: int(rowid), raw: raw, sessionID: each.identifier, owner: each,
 				message: unparseable(rowid, each.table+".permission", errors.New("not a JSON array"))})
 			continue
 		}
 		for _, rule := range rules {
-			s.emit(s.systemAt(scoped, rowid, each.row.Get("time_updated"), "permission setting: session "+
+			s.ownRow(each, s.systemAt(scoped, rowid, each.row.Get("time_updated"), "permission setting: session "+
 				rule.permission+" "+rule.pattern+"="+rule.effect+" (from "+s.label+
 				" "+each.table+".permission, time_updated)"))
 		}
 		if skipped > 0 {
-			s.failures = append(s.failures, failure{line: int(rowid), sessionID: each.identifier,
+			s.failures = append(s.failures, failure{line: int(rowid), sessionID: each.identifier, owner: each,
 				message: notRules(each.table+".permission", skipped)})
 		}
 	}

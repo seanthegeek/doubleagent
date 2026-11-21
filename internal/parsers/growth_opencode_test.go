@@ -121,6 +121,16 @@ func opencodeDatabaseCases(layout opencodeLayout) []growthCase {
 			return one(rel, database(t, append([]sqlitetest.Table{opencodeSessionTable("session", [][]any{session}),
 				share}, opencodeV1Tables(messages, parts)...)...))
 		}},
+		{kind: "database", shape: shapeSharedID + " (session rows)", n: 128, files: func(t *testing.T, n int) []growthFile {
+			sessions := rows(n, func(i int) []any {
+				return []any{opencodeSession, nil, "/work/" + numbered("proj_", i), "t", 1700000000000 + i}
+			})
+			messages := rows(n, func(i int) []any { return opencodeUserMessage(numbered("msg_", i), i) })
+			parts := rows(n, func(i int) []any { return opencodeTextPart(numbered("prt_", i), numbered("msg_", i), i) })
+			return one(rel, database(t, append([]sqlitetest.Table{{Name: "session", SQL: "CREATE TABLE session (id text, " +
+				"project_id text, directory text, title text, time_created integer)", Rows: sessions}},
+				opencodeV1Tables(messages, parts)...)...))
+		}},
 		{kind: "database", shape: shapeSharedID + " (2.x)", files: func(t *testing.T, n int) []growthFile {
 			messages := rows(n, func(i int) []any {
 				return []any{"msg_1", opencodeSession, "assistant", i, 1700000001000 + i, `{"content":[]}`}

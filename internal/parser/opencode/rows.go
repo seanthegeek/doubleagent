@@ -133,13 +133,15 @@ func (p *Parser) sessionRow(artifact *input.Artifact, scoped *scope, field looku
 }
 
 // failure is a problem met while reading a store, with the file it
-// concerns ("" for the artifact) or the session it belongs to.
+// concerns ("" for the artifact) or the session it belongs to, and the
+// stored session row it belongs to alone, when it does.
 type failure struct {
 	line       int
 	message    string
 	raw        string
 	sourceFile string
 	sessionID  string
+	owner      *session
 }
 
 // failureRows returns the `parser:` rows of failures, with the given

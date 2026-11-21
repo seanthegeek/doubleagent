@@ -1413,7 +1413,17 @@ attributes. What the rows of the id are depends on the agent:
   and `model`, and its time for a part with none of its own. Each stored
   row of the id gives a `parser:` row of its own at its time, and a
   `session_message` row's own content is shown only when the parts are
-  shown with another row of the id.
+  shown with another row of the id. A `session_v2` or `session` row
+  repeating a session id in its own table (an id both tables hold is the
+  migration's copy, read from `session_v2` alone, as before): the
+  session's messages, shares and problems, with the stored row's
+  `project_path`. Each stored row gives its own `session start:` row, a
+  `parser:` row, and its archive and permission rows, with its own
+  `project_path`. Two limits: the rows of a message id that is repeated
+  too keep the first stored row's `project_path`, and the rows of a 1.x
+  message with its own `path.cwd` keep that path when the first stored
+  row names no project, and otherwise take the chosen row's
+  `project_path` even when it names none.
 - **Zed**, an `archived_git_worktrees` row repeating an id: the
   `archived worktree:` row of each thread linked to the id, with its own
   `session_id` and the stored row's text, `project_path` and rowid as
