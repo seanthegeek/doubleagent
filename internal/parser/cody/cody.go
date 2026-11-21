@@ -150,7 +150,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 	history := jsonvalue.NewNull()
 	switch {
 	case state.IsString(): // the value did not parse, and ReadItem said so
-		history, _, recovered = recoverHistory(state.StringValue())
+		history, _, recovered = recoverHistory(artifact, state.StringValue())
 	case state.IsObject():
 		history = state.Get(historyKey)
 		fromText := history.IsString()
@@ -182,7 +182,7 @@ func decodeHistory(artifact *input.Artifact, text string, problems *[]string, re
 	if err == nil {
 		return history
 	}
-	history, problem, errors := recoverHistory(text)
+	history, problem, errors := recoverHistory(artifact, text)
 	*problems = append(*problems, problem+" ("+err.Error()+")")
 	*recovered = append(*recovered, errors...)
 	return history

@@ -5,6 +5,7 @@ import (
 	"iter"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
@@ -33,6 +34,10 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 // after it has none.
 type ArrayWalk struct {
 	Document *jsonvalue.Document
+	// Artifact, when set, is the parse the elements' repeated member names
+	// are noted in (NoteRepeats) in place of a problem, for a reader that
+	// walks many arrays of one file, which then gives one row.
+	Artifact *input.Artifact
 	ShownEnd func(stopped int) int
 	Stopped  int
 }
@@ -42,7 +47,13 @@ type ArrayWalk struct {
 func (w *ArrayWalk) Array(offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		var noted repeated
-		defer noted.report(problems)
+		defer func() {
+			if w.Artifact != nil {
+				NoteRepeats(w.Artifact, noted.repeats)
+			} else {
+				noted.report(problems)
+			}
+		}()
 		text := w.Document.String()
 		setEnd(end, -1)
 		cursor := SkipJSONSpace(text, max(offset, 0))

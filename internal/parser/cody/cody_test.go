@@ -72,16 +72,16 @@ func TestRecoveredKeysTakeJSONWhitespaceAndASCIIDigitsOnly(t *testing.T) {
 	build := func(date, space, after string) string {
 		return strings.NewReplacer("%DATE%", date, "%SPACE%", space, "%AFTER%", after).Replace(template)
 	}
-	chats, _, _ := recoverHistory(build(date, " \n", "\t"))
+	chats, _, _ := recoverHistory(nil, build(date, " \n", "\t"))
 	if keys := chats.Get("acct").Get("chat").Keys(); len(keys) != 1 || keys[0] != date {
 		t.Errorf("recovered chats = %v, want [%q]", keys, date)
 	}
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
-		if chats, _, _ := recoverHistory(build(date, space, "")); chats.Len() != 0 {
+		if chats, _, _ := recoverHistory(nil, build(date, space, "")); chats.Len() != 0 {
 			t.Errorf("a key followed by %q recovers %s", space, chats.JSON())
 		}
 	}
-	if chats, _, _ := recoverHistory(build(strings.Replace(date, "01 Oct", "0\u0661 Oct", 1), "", "")); chats.Len() != 0 {
+	if chats, _, _ := recoverHistory(nil, build(strings.Replace(date, "01 Oct", "0\u0661 Oct", 1), "", "")); chats.Len() != 0 {
 		t.Errorf("a key with a non-ASCII digit recovers %s", chats.JSON())
 	}
 }
@@ -89,7 +89,7 @@ func TestRecoveredKeysTakeJSONWhitespaceAndASCIIDigitsOnly(t *testing.T) {
 func TestRecoverHistoryKeepsTheInteractionsBeforeTheDamage(t *testing.T) {
 	text := `{"a": {"chat": {"Wed, 01 Oct 2026 08:00:00 GMT": {"chatTitle": "one", "interactions": [{"x": 1}, {"y": ` +
 		`}, "b": {"chat": {"Wed, 01 Oct 2026 08:00:00 GMT": {"interactions": [1, {"z": 2}]}`
-	history, message, errors := recoverHistory(text)
+	history, message, errors := recoverHistory(nil, text)
 	want := `{"a":{"chat":{"Wed, 01 Oct 2026 08:00:00 GMT":{"id":"Wed, 01 Oct 2026 08:00:00 GMT",` +
 		`"interactions":[{"x":1}],"chatTitle":"one"}}},"b":{"chat":{"Wed, 01 Oct 2026 08:00:00 GMT":` +
 		`{"id":"Wed, 01 Oct 2026 08:00:00 GMT","interactions":[{"z":2}]}}}}`

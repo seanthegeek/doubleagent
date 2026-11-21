@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -76,9 +77,11 @@ func historyMarks(text string) []historyMark {
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
 // Date.toUTCString() date; it belongs to the account key before it, and
-// runs to the next account or chat key outside its interactions.
-func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
+// runs to the next account or chat key outside its interactions. The
+// interactions' repeated member names are noted in the parse of artifact.
+func recoverHistory(artifact *input.Artifact, text string) (jsonvalue.Value, string, []recoveredError) {
 	walk := newRecovery(text)
+	walk.artifact = artifact
 	history, chats, found := walk.chats()
 	return history, "chat history did not parse; recovered " + strconv.Itoa(chats) + " chat(s)",
 		recoveredSessions(history, found)
@@ -92,6 +95,9 @@ func recoverHistory(text string) (jsonvalue.Value, string, []recoveredError) {
 // therefore read each byte of the text once whatever keys it holds; walked
 // and searched count the bytes they decode and search, for the tests.
 type recovery struct {
+	// artifact is the parse the walks note repeated member names in, once
+	// for the file however many chats repeat one.
+	artifact         *input.Artifact
 	text             string
 	document         *jsonvalue.Document
 	marks            []historyMark
@@ -146,7 +152,7 @@ func (r *recovery) chat(i int) (jsonvalue.Value, parser.Problems, int) {
 	walkStart, stopped := mark.offset, mark.offset
 	if found := r.search(interactionsKey, mark.offset, r.next(i, mark.offset).keyStart); found != nil {
 		walkStart = found[1]
-		walk := &parser.ArrayWalk{Document: r.document,
+		walk := &parser.ArrayWalk{Document: r.document, Artifact: r.artifact,
 			ShownEnd: func(stopped int) int { return r.next(i, stopped).keyStart }}
 		for _, value := range walk.Array(walkStart, &problems, nil) {
 			if value.IsObject() {

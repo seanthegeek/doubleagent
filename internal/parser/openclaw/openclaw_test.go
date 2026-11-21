@@ -109,6 +109,6 @@ func FuzzTranscriptBlob(fuzz *testing.F) {
 			return
 		}
 		var problems parser.Problems
-		out.records(newSession(""), blobLines(data, &problems), 0)
+		out.records(newSession(""), blobLines(nil, data, &problems), 0)
 	})
 }

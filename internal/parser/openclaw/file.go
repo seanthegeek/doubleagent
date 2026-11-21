@@ -39,10 +39,11 @@ type numbered struct {
 
 // blobLines returns the JSON object lines of data, numbered from 1. A line
 // that does not decode, or holds another JSON value, adds an "unparseable
-// line" problem with the line as raw text.
-func blobLines(data []byte, problems *parser.Problems) []numbered {
+// line" problem with the line as raw text. Repeated member names are noted
+// in the parse of artifact, whose file may hold many blobs.
+func blobLines(artifact *input.Artifact, data []byte, problems *parser.Problems) []numbered {
 	var records []numbered
-	for line, record := range parser.JSONRecords(parser.SplitLines(data), problems) {
+	for line, record := range parser.JSONRecordsIn(artifact, parser.SplitLines(data), problems) {
 		records = append(records, numbered{line, record})
 	}
 	return records
@@ -137,7 +138,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parser.Options, emi
 		if err != nil {
 			out.bad(current, 1, "could not decompress ("+err.Error()+")", "")
 		} else {
-			out.records(current, blobLines(data, &problems), 0)
+			out.records(current, blobLines(artifact, data, &problems), 0)
 		}
 	}
 	if keyError != nil {

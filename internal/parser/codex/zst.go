@@ -71,10 +71,12 @@ func newZstReader() (*zstReader, error) {
 func (z *zstReader) records(r io.Reader, path string, problems *parser.Problems) []numberedRecord {
 	var records []numberedRecord
 	var split lineSplitter
+	lines := parser.NewJSONLineReader(problems)
+	defer lines.Close()
 	source := &chunkReader{source: r, buffer: z.buffer}
 	err := z.decoder.DecodeStream(source, zstdframe.MaxWindowSize, func(chunk []byte) error {
 		split.add(chunk, func(number int, raw []byte) {
-			records = appendRecord(records, number, raw, problems)
+			records = appendRecord(records, number, raw, lines)
 		})
 		return nil
 	})
@@ -85,7 +87,7 @@ func (z *zstReader) records(r io.Reader, path string, problems *parser.Problems)
 		}
 		problems.Add(split.number+1, zstdMessage(err))
 	}
-	return appendRecord(records, split.number+1, split.pending, problems)
+	return appendRecord(records, split.number+1, split.pending, lines)
 }
 
 // lineSplitter cuts decoded text into lines as it arrives. Each byte is
@@ -119,13 +121,13 @@ func (s *lineSplitter) add(chunk []byte, line func(number int, raw []byte)) {
 }
 
 // appendRecord adds the line raw to records when it holds a JSON object,
-// read as parser.JSONRecords reads a line: a blank line adds nothing, and a
-// line that is not a JSON object adds its problem.
+// read by the file's line reader as parser.JSONRecords reads a line: a
+// blank line adds nothing, and a line that is not a JSON object adds its
+// problem.
 func appendRecord(records []numberedRecord, number int, raw []byte,
-	problems *parser.Problems) []numberedRecord {
-	line := func(yield func(int, []byte) bool) { yield(number, raw) }
-	for lineNumber, record := range parser.JSONRecords(line, problems) {
-		records = append(records, numberedRecord{line: lineNumber, value: record})
+	lines *parser.JSONLineReader) []numberedRecord {
+	if record, ok := lines.Record(number, raw); ok {
+		records = append(records, numberedRecord{line: number, value: record})
 	}
 	return records
 }

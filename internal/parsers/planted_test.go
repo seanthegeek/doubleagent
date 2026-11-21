@@ -143,11 +143,17 @@ type plantedOutcome struct {
 	planted, reported int
 }
 
-// checkPlanted plants a repeat in one object of each file of the case in
-// turn and checks that the repeat rows grow by one at most, only on the
-// planted file when it is parsed as its own artifact.
+// checkPlanted plants a repeat in one object, then in every object, of
+// each file of the case in turn and checks that the repeat rows grow by one
+// at most, only on the planted file when it is parsed as its own artifact.
 func checkPlanted(t *testing.T, name string, test growthCase) plantedOutcome {
-	return checkPlantedIn(t, name, test, false)
+	var outcome plantedOutcome
+	for _, every := range []bool{false, true} {
+		found := checkPlantedIn(t, name, test, every)
+		outcome.planted += found.planted
+		outcome.reported += found.reported
+	}
+	return outcome
 }
 
 // checkPlantedIn holds the case to checkPlanted's rule with a repeat in

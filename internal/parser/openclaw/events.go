@@ -115,7 +115,7 @@ func (a *agentDatabase) blob(current *session, line int, kind, name string, blob
 		return
 	}
 	var problems parser.Problems
-	a.records(current, blobLines(data, &problems), line)
+	a.records(current, blobLines(a.artifact, data, &problems), line)
 	located := make(parser.Problems, len(problems))
 	for i, problem := range problems {
 		located[i] = parser.Problem{Line: line,

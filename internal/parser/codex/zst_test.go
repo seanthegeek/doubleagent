@@ -161,9 +161,11 @@ func TestZstLinesSkipBlankLinesAndReportEveryOtherLineThatIsNoObject(t *testing.
 	lines := []string{"{\"a\":1}", "", "  ", "[1]", "{bad", "{\"b\":2}\r"}
 	var records []numberedRecord
 	var problems parser.Problems
+	reader := parser.NewJSONLineReader(&problems)
 	for i, line := range lines {
-		records = appendRecord(records, i+1, []byte(line), &problems)
+		records = appendRecord(records, i+1, []byte(line), reader)
 	}
+	reader.Close()
 	got, kinds := summary(records, problems)
 	if got != "1,6" || kinds != "4:line,5:line" {
 		t.Errorf("got lines %s problems %s, want 1,6 and 4:line,5:line", got, kinds)
