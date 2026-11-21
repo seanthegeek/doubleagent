@@ -2,7 +2,6 @@ package analyze
 
 import (
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -10,8 +9,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/rowfilter"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // familyRunOf runs timeline over a collection holding the files, for the
@@ -140,84 +137,4 @@ func rooRepeatFiles(*testing.T) []collectedFile {
 
 func TestTheRowsOfARepeatedRooCodeTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
 	checkRepeatCases(t, "roo-code", rooRepeatFiles, familyCases(familyTaskA, familyTaskB))
-}
-
-// familyStores returns the stores of this file's parsers whose index
-// repeats an id, for the checks of group_property_test.go.
-func familyStores() []groupedStore {
-	return []groupedStore{
-		{"cline task index", "cline", clineRepeatFiles},
-		{"kilo code pre-fork task index", "kilo-code", kiloRepeatFiles},
-		{"pearai task history", "pearai", pearaiRepeatFiles},
-		{"continue session index", "continue", continueRepeatFiles("continue", ".continue/")},
-		{"pearai chat session index", "pearai", continueRepeatFiles("pearai", ".pearai/")},
-		{"roo code task index", "roo-code", func(t *testing.T) []collectedFile {
-			files := rooRepeatFiles(t)
-			files[0].text = strings.ReplaceAll(files[0].text, `"modelId"`, `"mode":"code","modelId"`)
-			return files
-		}},
-	}
-}
-
-// For the stores above, a window from or to the time of any row of the
-// output without a filter shows every dated row of that output inside it
-// and no row more often, as TestAWindowShowsEveryRowOfARepeatedIDInsideIt
-// holds for the stores it lists.
-func TestAWindowShowsEveryRowOfARepeatedIndexEntryInsideIt(t *testing.T) {
-	for _, store := range familyStores() {
-		t.Run(store.name, func(t *testing.T) {
-			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-			for _, row := range unfiltered {
-				if row.TimestampUTC == "" {
-					continue
-				}
-				for _, window := range []rowfilter.RowFilter{{Since: row.TimestampUTC}, {Until: row.TimestampUTC}} {
-					filtered := timelineRows(t, directory, store.agent, window, nil, false)
-					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-						return row.TimestampUTC != "" && (window.Since == "" || row.TimestampUTC >= window.Since) &&
-							(window.Until == "" || row.TimestampUTC <= window.Until)
-					}); len(faults) > 0 {
-						t.Errorf("--since %q --until %q: %q", window.Since, window.Until, faults)
-					}
-				}
-			}
-		})
-	}
-}
-
-// For the stores above, a --match pattern made of the texts of one or two
-// grouped rows shows every row of the output without a filter it matches
-// and no row more often, as TestAMatchShowsEveryRowOfARepeatedIDItMatches
-// holds for the stores it lists.
-func TestAMatchShowsEveryRowOfARepeatedIndexEntryItMatches(t *testing.T) {
-	for _, store := range familyStores() {
-		t.Run(store.name, func(t *testing.T) {
-			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			var texts []string
-			for _, row := range timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true) {
-				if text := row.FullText(); text != "" && !slices.Contains(texts, regexp.QuoteMeta(text)) {
-					texts = append(texts, regexp.QuoteMeta(text))
-				}
-			}
-			if len(texts) == 0 {
-				t.Fatal("the store gave no grouped row")
-			}
-			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-			for i, first := range texts {
-				for _, second := range texts[i:] {
-					pattern := first + "|" + second
-					filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
-					matched := regexp.MustCompile(pattern)
-					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-						return row.Matches(matched)
-					}); len(faults) > 0 {
-						t.Errorf("--match %q: %q", pattern, faults)
-					}
-				}
-			}
-		})
-	}
 }

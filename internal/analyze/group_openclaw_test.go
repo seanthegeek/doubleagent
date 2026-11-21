@@ -2,7 +2,6 @@ package analyze
 
 import (
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -10,9 +9,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
-	"github.com/seanthegeek/doubleagent/internal/rowfilter"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // openclawAgentRel is where OpenClaw keeps an agent's database.
@@ -169,76 +166,6 @@ func TestEachStoredRowOfARepeatedOpenClawWindowGivesItsOwnRelayRow(t *testing.T)
 			rows := openclawRun(t, openclawRelayedWindow(t), test.options...)
 			if !slices.Equal(rows, test.want) {
 				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
-			}
-		})
-	}
-}
-
-// openclawGroupedStores returns the OpenClaw stores whose rows of a
-// repeated id are grouped, for the property the parsers on the grouping
-// mechanism keep (group_property_test.go).
-func openclawGroupedStores() []groupedStore {
-	file := func(text func(t *testing.T) string) func(t *testing.T) []collectedFile {
-		return func(t *testing.T) []collectedFile {
-			return []collectedFile{{"alice", "/home/alice", "openclaw", openclawAgentRel, text(t)}}
-		}
-	}
-	return []groupedStore{
-		{"openclaw windows", "openclaw", file(openclawRepeatedWindow)},
-		{"openclaw relayed windows", "openclaw", file(openclawRelayedWindow)},
-		{"openclaw session keys", "openclaw", file(openclawRepeatedNode)},
-	}
-}
-
-// openclawCollection writes the store's collection and returns its
-// directory and its rows without a filter.
-func openclawCollection(t *testing.T, store groupedStore) (string, []timeline.Row) {
-	t.Helper()
-	directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-	return directory, timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-}
-
-func TestAWindowShowsEveryRowOfARepeatedOpenClawIDInsideIt(t *testing.T) {
-	for _, store := range openclawGroupedStores() {
-		t.Run(store.name, func(t *testing.T) {
-			directory, unfiltered := openclawCollection(t, store)
-			for _, row := range unfiltered {
-				for _, window := range []rowfilter.RowFilter{{Since: row.TimestampUTC}, {Until: row.TimestampUTC}} {
-					filtered := timelineRows(t, directory, store.agent, window, nil, false)
-					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-						return row.TimestampUTC != "" && (window.Since == "" || row.TimestampUTC >= window.Since) &&
-							(window.Until == "" || row.TimestampUTC <= window.Until)
-					}); len(faults) > 0 {
-						t.Errorf("--since %q --until %q: %q", window.Since, window.Until, faults)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestAMatchShowsEveryRowOfARepeatedOpenClawIDItMatches(t *testing.T) {
-	for _, store := range openclawGroupedStores() {
-		t.Run(store.name, func(t *testing.T) {
-			directory, unfiltered := openclawCollection(t, store)
-			var texts []string
-			for _, row := range timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true) {
-				if text := regexp.QuoteMeta(row.FullText()); text != "" && !slices.Contains(texts, text) {
-					texts = append(texts, text)
-				}
-			}
-			for i, first := range texts {
-				for _, second := range texts[i:] {
-					pattern := first + "|" + second
-					filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
-					matched := regexp.MustCompile(pattern)
-					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-						return row.Matches(matched)
-					}); len(faults) > 0 {
-						t.Errorf("--match %q: %q", pattern, faults)
-					}
-				}
 			}
 		})
 	}

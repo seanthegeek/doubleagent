@@ -1,16 +1,12 @@
 package analyze
 
 import (
-	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/rowfilter"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The Cursor IDE's files in a home, relative to it.
@@ -264,88 +260,5 @@ func TestEachStoredHeaderOfADeletedCursorComposerGivesItsDeletionRow(t *testing.
 				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
 			}
 		})
-	}
-}
-
-// cursorGroupedStores returns the Cursor stores of a repeated id, for the
-// property every parser on the grouping mechanism keeps.
-func cursorGroupedStores() []groupedStore {
-	return []groupedStore{
-		{"cursor composerData, the state database first", "cursor", func(t *testing.T) []collectedFile {
-			return cursorFiles(t, cursorRepeatedData(t), true)
-		}},
-		{"cursor composerData, the state database last", "cursor", func(t *testing.T) []collectedFile {
-			return cursorFiles(t, cursorRepeatedData(t), false)
-		}},
-		{"cursor composerHeaders", "cursor", func(t *testing.T) []collectedFile {
-			return cursorFiles(t, cursorRepeatedHeaders(t), true)
-		}},
-	}
-}
-
-// The property of TestAWindowShowsEveryRowOfARepeatedIDInsideIt and
-// TestAMatchShowsEveryRowOfARepeatedIDItMatches, for the Cursor stores.
-func TestCursorRepeatedIDsKeepEveryFilteredRowShown(t *testing.T) {
-	for _, store := range cursorGroupedStores() {
-		t.Run(store.name, func(t *testing.T) {
-			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			checkWindowProperty(t, directory, store.agent)
-			checkMatchProperty(t, directory, store.agent)
-		})
-	}
-}
-
-// checkWindowProperty checks that a --since or --until at each time of
-// the output without a filter shows every row of that output inside the
-// window, and no row more often.
-func checkWindowProperty(t *testing.T, directory, agent string) {
-	t.Helper()
-	unfiltered := timelineRows(t, directory, agent, rowfilter.RowFilter{}, nil, false)
-	var times []string
-	for _, row := range unfiltered {
-		if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
-			times = append(times, row.TimestampUTC)
-		}
-	}
-	for _, bound := range times {
-		for _, window := range []rowfilter.RowFilter{{Since: bound}, {Until: bound}} {
-			filtered := timelineRows(t, directory, agent, window, nil, false)
-			if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-				return row.TimestampUTC != "" && (window.Since == "" || row.TimestampUTC >= window.Since) &&
-					(window.Until == "" || row.TimestampUTC <= window.Until)
-			}); len(faults) > 0 {
-				t.Errorf("--since %q --until %q: %q", window.Since, window.Until, faults)
-			}
-		}
-	}
-}
-
-// checkMatchProperty checks that a --match of any two texts of the
-// grouped rows shows every row of the output without a filter it matches,
-// and no row more often.
-func checkMatchProperty(t *testing.T, directory, agent string) {
-	t.Helper()
-	var texts []string
-	for _, row := range timelineRows(t, directory, agent, rowfilter.RowFilter{}, nil, true) {
-		if text := row.FullText(); text != "" && !slices.Contains(texts, regexp.QuoteMeta(text)) {
-			texts = append(texts, regexp.QuoteMeta(text))
-		}
-	}
-	if len(texts) == 0 {
-		t.Fatal("the store gave no grouped row")
-	}
-	unfiltered := timelineRows(t, directory, agent, rowfilter.RowFilter{}, nil, false)
-	for i, first := range texts {
-		for _, second := range texts[i:] {
-			pattern := first + "|" + second
-			filtered := timelineRows(t, directory, agent, rowfilter.RowFilter{}, []string{pattern}, false)
-			matched := regexp.MustCompile(pattern)
-			if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-				return row.Matches(matched)
-			}); len(faults) > 0 {
-				t.Errorf("--match %q: %q", pattern, faults)
-			}
-		}
 	}
 }

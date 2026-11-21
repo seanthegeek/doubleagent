@@ -29,8 +29,19 @@ type groupedStore struct {
 }
 
 // groupedStores returns a store of every parser that groups the rows of a
-// repeated id, with moreGroupedStores.
+// repeated id, the one list the three properties below run over. A new
+// store is one line in the function of its kind: databaseStores,
+// moreGroupedStores, opencodeShapeStores, unitStores or familyStores; a
+// store whose grouped rows and the rows taking from them are in different
+// files goes in both read orders (bothOrders).
 func groupedStores() []groupedStore {
+	return slices.Concat(databaseStores(), moreGroupedStores(), opencodeShapeStores(), unitStores(),
+		familyStores())
+}
+
+// databaseStores returns the stores of one database or file a parser
+// groups the rows of.
+func databaseStores() []groupedStore {
 	file := func(agent, rel string, text func(t *testing.T) string) func(t *testing.T) []collectedFile {
 		return func(t *testing.T) []collectedFile {
 			return []collectedFile{{"alice", "/home/alice", agent, rel, text(t)}}
@@ -48,7 +59,7 @@ func groupedStores() []groupedStore {
 	ollama := "Library/Application Support/Ollama/db.sqlite"
 	opencode, kilo := ".local/share/opencode/opencode-dev.db", ".local/share/kilo/kilo-dev.db"
 	zed := ".local/share/zed/db/0-stable/db.sqlite"
-	return append(append([]groupedStore{
+	return []groupedStore{
 		{"hermes sessions", "hermes", file("hermes", ".hermes/state.db",
 			testdata("hermes", "testdata", "repeated_session_rows.db"))},
 		{"nanobot keys", "nanobot", file("nanobot",
@@ -75,7 +86,7 @@ func groupedStores() []groupedStore {
 			return []collectedFile{agentZeroChat(messageFileChat),
 				{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/messages/1.txt", "FILE-RESULT"}}
 		}},
-	}, moreGroupedStores()...), opencodeShapeStores()...)
+	}
 }
 
 // opencodeShapeDatabase returns a 2.x OpenCode database of the sessions
@@ -190,6 +201,79 @@ func moreGroupedStores() []groupedStore {
 				userMessage("u", "LATER-PROMPT"), userItem("u", january, "")+","+userItem("u", june, "june ask")))}
 		}},
 	}
+}
+
+// unitStores returns the stores of Cursor, OpenClaw, Copilot Desktop,
+// OpenCode projects and Tabby users, and the Agent Zero shapes beyond
+// moreGroupedStores.
+func unitStores() []groupedStore {
+	file := func(agent, rel string, text func(t *testing.T) string) func(t *testing.T) []collectedFile {
+		return func(t *testing.T) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", agent, rel, text(t)}}
+		}
+	}
+	cursor := func(state func(t *testing.T) string, stateFirst bool) func(t *testing.T) []collectedFile {
+		return func(t *testing.T) []collectedFile { return cursorFiles(t, state(t), stateFirst) }
+	}
+	desktop, opencode := ".copilot/data.db", ".local/share/opencode/opencode.db"
+	messages := userMessage("u", "FIRST-PROMPT") + "," + userMessage("u", "LATER-PROMPT")
+	return []groupedStore{
+		{"cursor composerData, the state database first", "cursor", cursor(cursorRepeatedData, true)},
+		{"cursor composerData, the state database last", "cursor", cursor(cursorRepeatedData, false)},
+		{"cursor composerHeaders", "cursor", cursor(cursorRepeatedHeaders, true)},
+		{"openclaw windows", "openclaw", file("openclaw", openclawAgentRel, openclawRepeatedWindow)},
+		{"openclaw relayed windows", "openclaw", file("openclaw", openclawAgentRel, openclawRelayedWindow)},
+		{"openclaw session keys", "openclaw", file("openclaw", openclawAgentRel, openclawRepeatedNode)},
+		{"copilot desktop projects", "copilot-desktop", file("copilot-desktop", desktop, copilotdesktopRepeatedProject)},
+		{"copilot desktop workspaces", "copilot-desktop",
+			file("copilot-desktop", desktop, copilotdesktopRepeatedWorkspace)},
+		{"copilot desktop aliases", "copilot-desktop", file("copilot-desktop", desktop, copilotdesktopRepeatedAlias)},
+		{"copilot desktop chain", "copilot-desktop", file("copilot-desktop", desktop, copilotdesktopRepeatedChain)},
+		{"opencode projects", "opencode", file("opencode", opencode, opencodeProjectRepeat)},
+		{"opencode projects and sessions", "opencode", file("opencode", opencode, opencodeProjectAndSessionRepeat)},
+		{"tabby users, which no group joins", "tabby", file("tabby", ".tabby/ee/db.sqlite", tabbyRepeatedUser)},
+		{"agent zero message file of two ids with two items each and a tool result", "agent-zero",
+			agentZeroFileChat(historyChat(toolMessage("t1", "")+","+toolMessage("t2", "SECOND-RESULT"),
+				toolItem("t1", january, "a1")+","+toolItem("t2", march, "b1")+","+toolItem("t1", june, "a2")+","+
+					toolItem("t2", september, "b2")))},
+		{"agent zero history message repeating an id with no log item", "agent-zero",
+			func(*testing.T) []collectedFile { return []collectedFile{agentZeroChat(historyChat(messages, ""))} }},
+		{"agent zero history message repeating an id with one log item", "agent-zero",
+			func(*testing.T) []collectedFile {
+				return []collectedFile{agentZeroChat(historyChat(messages, userItem("u", june, "")))}
+			}},
+	}
+}
+
+// familyStores returns the stores of the Cline family's task indexes and
+// Continue's session index, each in both read orders, since the index and
+// the transcripts that take from its entries are separate files.
+func familyStores() []groupedStore {
+	roo := func(t *testing.T) []collectedFile {
+		files := rooRepeatFiles(t)
+		files[0].text = strings.ReplaceAll(files[0].text, `"modelId"`, `"mode":"code","modelId"`)
+		return files
+	}
+	return slices.Concat(
+		bothOrders(groupedStore{"cline task index", "cline", clineRepeatFiles}),
+		bothOrders(groupedStore{"roo code task index", "roo-code", roo}),
+		bothOrders(groupedStore{"kilo code pre-fork task index", "kilo-code", kiloRepeatFiles}),
+		bothOrders(groupedStore{"pearai task history", "pearai", pearaiRepeatFiles}),
+		bothOrders(groupedStore{"continue session index", "continue", continueRepeatFiles("continue", ".continue/")}),
+		bothOrders(groupedStore{"pearai chat session index", "pearai", continueRepeatFiles("pearai", ".pearai/")}))
+}
+
+// bothOrders returns store with its files in their order and reversed, as
+// a collection may list them either way.
+func bothOrders(store groupedStore) []groupedStore {
+	reversed := store
+	reversed.name += ", files reversed"
+	reversed.files = func(t *testing.T) []collectedFile {
+		files := store.files(t)
+		slices.Reverse(files)
+		return files
+	}
+	return []groupedStore{store, reversed}
 }
 
 // zedRepeatedSidebar returns a Zed db.sqlite whose sidebar_threads table
@@ -318,6 +402,7 @@ func countRecords(rows []timeline.Row) map[string]int {
 func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
+			t.Parallel()
 			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
 				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
 			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
@@ -346,32 +431,35 @@ func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
 // pattern that matches a row of the output without a filter shows that
 // row, with its text or, in the row of the chosen parent with two texts,
 // its chosen one, and shows no row more often than that output does. Each
-// pattern is the text of one or two of the grouped rows the parser gave.
+// pattern is the text of one or two of the grouped rows the parser gave,
+// or of one short row of that output, so a store whose rows of a repeated
+// id the parser gives without a group is checked too.
 func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
+			t.Parallel()
 			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
 				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			var texts []string
-			for _, row := range timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true) {
-				if text := row.FullText(); text != "" && !slices.Contains(texts, regexp.QuoteMeta(text)) {
-					texts = append(texts, regexp.QuoteMeta(text))
+			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
+			grouped := windowTexts(timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true), nil)
+			var patterns []string
+			for i, first := range grouped {
+				for _, second := range grouped[i:] {
+					patterns = append(patterns, first+"|"+second)
 				}
 			}
-			if len(texts) == 0 {
-				t.Fatal("the store gave no grouped row")
+			for _, text := range windowTexts(nil, unfiltered) {
+				if !slices.Contains(grouped, text) {
+					patterns = append(patterns, text)
+				}
 			}
-			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-			for i, first := range texts {
-				for _, second := range texts[i:] {
-					pattern := first + "|" + second
-					filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
-					matched := regexp.MustCompile(pattern)
-					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
-						return row.Matches(matched)
-					}); len(faults) > 0 {
-						t.Errorf("--match %q: %q", pattern, faults)
-					}
+			for _, pattern := range patterns {
+				filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
+				matched := regexp.MustCompile(pattern)
+				if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
+					return row.Matches(matched)
+				}); len(faults) > 0 {
+					t.Errorf("--match %q: %q", pattern, faults)
 				}
 			}
 		})
@@ -379,12 +467,14 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 }
 
 // For every parser that groups the rows of a repeated id, a window from or
-// to the time of any row of the output without a filter, with and without
-// --keep-undated, together with a pattern of one text (a grouped row's, or
-// a short row's of that output), shows every row of that output both keep,
-// as a match or a window alone does. Each text is tried alone rather than
-// in pairs, which the match test covers, and the stores run in parallel,
-// to keep the test's time to a few seconds.
+// to the time of any grouped row the parser gave, and with --keep-undated
+// when some row has no time, together with a pattern of one grouped row's
+// text, shows every row of the output without a filter both keep, as a
+// match or a window alone does. A store with no grouped row uses its output's times
+// and short texts instead. The window and match tests try every output
+// time and short text, and pairs of texts; this one crosses only the
+// grouped rows' times and single texts, which decide the choice, to keep
+// its time to a few seconds with the stores run in parallel.
 func TestAWindowAndAMatchShowEveryRowOfARepeatedIDBothKeep(t *testing.T) {
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
@@ -392,8 +482,12 @@ func TestAWindowAndAMatchShowEveryRowOfARepeatedIDBothKeep(t *testing.T) {
 			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
 				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
 			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-			texts := windowTexts(timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true), unfiltered)
-			for _, window := range windowsOf(unfiltered) {
+			grouped := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true)
+			texts, windows := windowTexts(grouped, nil), windowsOf(grouped, unfiltered)
+			if len(grouped) == 0 {
+				texts, windows = windowTexts(nil, unfiltered), windowsOf(unfiltered)
+			}
+			for _, window := range windows {
 				for _, text := range texts {
 					filtered := timelineRows(t, directory, store.agent, window, []string{text}, false)
 					matched := regexp.MustCompile(text)
@@ -423,20 +517,27 @@ func windowTexts(grouped, unfiltered []timeline.Row) []string {
 	return texts
 }
 
-// windowsOf returns a window from and one to each time of rows, each with
-// and without --keep-undated.
-func windowsOf(rows []timeline.Row) []rowfilter.RowFilter {
+// windowsOf returns a window from and one to each time of rows, and each
+// again with --keep-undated when a row of others has no time, which is
+// the only case where that option changes what is kept.
+func windowsOf(rows []timeline.Row, others ...[]timeline.Row) []rowfilter.RowFilter {
 	var times []string
+	undated := []bool{false}
+	for _, row := range slices.Concat(append(others, rows)...) {
+		if row.TimestampUTC == "" && len(undated) == 1 {
+			undated = append(undated, true)
+		}
+	}
 	for _, row := range rows {
 		if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
 			times = append(times, row.TimestampUTC)
 		}
 	}
 	var windows []rowfilter.RowFilter
-	for _, undated := range []bool{false, true} {
+	for _, keep := range undated {
 		for _, bound := range times {
-			windows = append(windows, rowfilter.RowFilter{Since: bound, KeepUndated: undated},
-				rowfilter.RowFilter{Until: bound, KeepUndated: undated})
+			windows = append(windows, rowfilter.RowFilter{Since: bound, KeepUndated: keep},
+				rowfilter.RowFilter{Until: bound, KeepUndated: keep})
 		}
 	}
 	return windows
