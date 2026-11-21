@@ -1442,7 +1442,9 @@ attributes. What the rows of the id are depends on the agent:
   assistant message of the id with no content or thinking gives a
   `model:` row for its model only when the calls are shown with it.
 - **Tabby**, a `pages` row repeating a page id: the id's sections, of
-  which one with no `created_at` takes the stored row's time.
+  which one with no `created_at` takes the stored row's time. Every
+  stored row of a repeated thread or page id shows the id's
+  `project_path`, which comes from the id's messages or sections.
 - **Agent Zero**, whose log items share an id in ordinary use, each naming
   the history message of its turn: the message's text (the user's prompt,
   the reply or the tool result) is shown in one item of the id that would

@@ -53,6 +53,9 @@ type store struct {
 	// pageGroups holds the group (timeline.Group) of each page id the
 	// pages table repeats with sections, by id.
 	pageGroups map[string]*timeline.Group
+	// projects holds the project of each thread and page id whose rows
+	// name one, by table and id, for every stored row of a repeated id.
+	projects map[[2]string]string
 }
 
 // parseDatabase emits the rows of a database or a backup of one: a backup
@@ -76,7 +79,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 	}
 	defer database.Close()
 	reader := &store{parser: p, artifact: artifact, database: database, emit: emit,
-		carried: parser.NewCarried(artifact)}
+		carried: parser.NewCarried(artifact), projects: map[[2]string]string{}}
 	if err := reader.rows(); err != nil {
 		emit(p.row(artifact, rowSpec{text: parser.ProblemPrefix + parser.DatabaseError(err)}))
 	}
@@ -253,6 +256,22 @@ func (s *store) eachParent(table, noun string, parents []parent, children *group
 	}
 }
 
+// projectOfID returns the project of a thread or page id: the first git
+// URL its rows attach code from. Those rows go with the first stored row
+// of the id (eachParent), so the project is kept for the id's later rows,
+// whose start rows show it too: it is the id's, not one stored row's.
+func (s *store) projectOfID(table, parentID string, attachments []jsonvalue.Value) string {
+	key := [2]string{table, parentID}
+	if len(attachments) == 0 {
+		return s.projects[key]
+	}
+	project := projectOf(s.artifact, attachments)
+	if project != "" {
+		s.projects[key] = project
+	}
+	return project
+}
+
 // owner returns a user's label by the id column, "" when unknown; a
 // missing column reads as NULL. The label is cut by the store's carried,
 // since each of the user's rows repeats it.
@@ -285,7 +304,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	for i, message := range messages {
 		attachments[i] = messageAttachment(message)
 	}
-	project := projectOf(s.artifact, attachments)
+	project := s.projectOfID("threads", thread.parentID, attachments)
 	var questions []string
 	if value, ok := jsonColumn(thread.row.Get("relevant_questions")); ok {
 		for _, question := range parser.Elements(value) {
@@ -386,7 +405,8 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 		attachments[i] = attachment
 	}
 	spec := rowSpec{line: digitsLine(page.parentID), sessionID: "page:" + page.parentID,
-		projectPath: projectOf(s.artifact, attachments), timestamp: parser.ColumnTime(page.row.Get("created_at"))}
+		projectPath: s.projectOfID("pages", page.parentID, attachments),
+		timestamp:   parser.ColumnTime(page.row.Get("created_at"))}
 	authorID, author := page.row.Get("author_id"), ""
 	if owner := s.owner(authorID); owner != "" {
 		author = "author " + owner

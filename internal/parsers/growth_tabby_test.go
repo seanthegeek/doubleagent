@@ -125,6 +125,13 @@ func tabbyCarriedCases() []growthCase {
 				"thread_messages": tabbyMessages(n, `{"code":[{"git_url":"git@github.com:org/`+long("git")+`.git"}]}`),
 			}))
 		}},
+		{kind: "db.sqlite", shape: shapeCarried + " by the rows of a repeated id", files: func(t *testing.T, n int) []growthFile {
+			attachment := `{"code":[{"git_url":"git@github.com:org/` + long("git") + `.git"}]}`
+			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
+				"threads":         rows(n, func(i int) []any { return []any{1, 0, 1, tabbyTime, nil} }),
+				"thread_messages": tabbyMessages(1, attachment),
+			}))
+		}},
 		{kind: "db.sqlite", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
 			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
 				"users": {{1, long("email"), "A", nil, tabbyTime}},

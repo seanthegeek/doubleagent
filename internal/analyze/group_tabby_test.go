@@ -87,3 +87,85 @@ func TestTheUndatedSectionsOfARepeatedTabbyPageTakeTheTimeOfTheFirstRowTheFilter
 		})
 	}
 }
+
+// tabbyProjectDatabase returns a Tabby db.sqlite whose threads and pages
+// tables each repeat an id, as only damage writes, an old row and a new
+// one five months later: the thread's message and the page's section
+// attach code from one repository, the project of the id's rows.
+func tabbyProjectDatabase(t *testing.T) string {
+	t.Helper()
+	const attachment = `{"code":[{"git_url":"https://example.com/repo.git","filepath":"a.go"}]}`
+	data, err := sqlitetest.Build(
+		sqlitetest.Table{Name: "threads", SQL: "CREATE TABLE threads (id INTEGER, created_at TIMESTAMP)",
+			Rows: [][]any{{1, "2026-01-01 00:00:00"}, {1, "2026-06-01 00:00:00"}}},
+		sqlitetest.Table{Name: "thread_messages", SQL: "CREATE TABLE thread_messages (id INTEGER, " +
+			"thread_id INTEGER, role TEXT, content TEXT, attachment TEXT, created_at TIMESTAMP)",
+			Rows: [][]any{{1, 1, "user", "ask", attachment, "2026-01-01 00:00:01"}}},
+		sqlitetest.Table{Name: "pages", SQL: "CREATE TABLE pages (id INTEGER, title TEXT, created_at TIMESTAMP)",
+			Rows: [][]any{{2, "old page", "2026-01-01 00:00:00"}, {2, "new page", "2026-06-01 00:00:00"}}},
+		sqlitetest.Table{Name: "page_sections", SQL: "CREATE TABLE page_sections (id INTEGER, page_id INTEGER, " +
+			"title TEXT, content TEXT, position INTEGER, attachment TEXT, created_at TIMESTAMP)",
+			Rows: [][]any{{1, 2, "section", "text", 0, attachment, nil}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+// tabbyProjectRun runs timeline over tabbyProjectDatabase with the options
+// given, and returns each thread and page start row as "time session
+// project text".
+func tabbyProjectRun(t *testing.T, options ...string) []string {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
+		[]collectedFile{{"alice", "/home/alice", "tabby", ".tabby/ee/db.sqlite", tabbyProjectDatabase(t)}})
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	args := append(append([]string{"timeline"}, options...), collection, output)
+	if code, _, stderr := runCommand(env, args...); code != ExitFound {
+		t.Fatalf("%q exited %d: %s", args, code, stderr)
+	}
+	var starts []string
+	for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc",
+		"session_id", "project_path", "text") {
+		if strings.Contains(row, " thread start") || strings.Contains(row, " page start") {
+			starts = append(starts, row)
+		}
+	}
+	return starts
+}
+
+// The project of a thread or page is the repository its rows attach code
+// from, so every stored row of a repeated id shows it on its start row,
+// whichever row the id's rows are shown with and whatever the filters keep.
+func TestEveryStartRowOfARepeatedTabbyIDShowsTheIDsProject(t *testing.T) {
+	const (
+		project = " https://example.com/repo.git "
+		old     = "2026-01-01T00:00:00.000Z "
+		current = "2026-06-01T00:00:00.000Z "
+	)
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter", nil, []string{old + "1" + project + "thread start", old + "page:2" + project +
+			"page start | title old page", current + "1" + project + "thread start",
+			current + "page:2" + project + "page start | title new page"}},
+		{"with a window that keeps only the later rows", []string{"--since", "2026-03-01"},
+			[]string{current + "1" + project + "thread start", current + "page:2" + project +
+				"page start | title new page"}},
+		{"with a window that keeps only the earlier rows", []string{"--until", "2026-03-01"},
+			[]string{old + "1" + project + "thread start", old + "page:2" + project + "page start | title old page"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if rows := tabbyProjectRun(t, test.options...); !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+		})
+	}
+}
