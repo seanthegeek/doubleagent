@@ -85,7 +85,9 @@ func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, error) 
 
 // parseThreadHistory emits the rows of thread_history_1.sqlite: the turns
 // and their items in rollout order, thread by thread, then a problem row
-// per item that does not decode or holds a member of the wrong kind.
+// per item that does not decode or holds a member of the wrong kind. The
+// rows of a thread id the state database repeats are members of its group
+// (threadIndex).
 func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	turns, items, err := readThreadHistory(artifact.DiskPath)
 	if err != nil {
@@ -96,9 +98,13 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 	var problems []itemProblem
 	tasked := map[string]bool{} // subagent threads whose first prompt was seen
 	for _, event := range historyEvents(turns, items) {
-		thread := threads[event.threadID]
+		thread := threads.byID[event.threadID]
+		member := func(row timeline.Row) {
+			threads.member(event.threadID, &row, timeline.TakeProject|timeline.TakeBranch)
+			emit(row)
+		}
 		if event.kind != turnItem {
-			p.turnRow(artifact, event, thread, emit)
+			p.turnRow(artifact, event, thread, member)
 			continue
 		}
 		item, problem, ok := decodeItem(event.row)
@@ -106,7 +112,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 			problems = append(problems, itemProblem{event.threadID, thread, problem})
 			continue
 		}
-		for _, problem := range p.itemEventRows(artifact, event, thread, item, options, tasked, emit) {
+		for _, problem := range p.itemEventRows(artifact, event, thread, item, options, tasked, member) {
 			problems = append(problems, itemProblem{event.threadID, thread, problem})
 		}
 	}
@@ -115,8 +121,10 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 		if entry.thread != nil {
 			project = entry.thread.cwd
 		}
-		parser.EmitAll(emit, p.ErrorRows(artifact, parser.Problems{entry.problem}, entry.sessionID,
-			project))
+		for _, row := range p.ErrorRows(artifact, parser.Problems{entry.problem}, entry.sessionID, project) {
+			threads.member(entry.sessionID, &row, timeline.TakeProject)
+			emit(row)
+		}
 	}
 }
 

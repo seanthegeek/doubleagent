@@ -26,6 +26,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // Settings are what tell one agent of the Codex format from another.
@@ -52,10 +53,12 @@ type Parser struct {
 	settings Settings
 	paths    paths
 	// guardians holds the guardian indexes of each Codex home's log
-	// databases, by home, and threads the threads of each state database
-	// read, by path.
+	// databases, by home, threads the threads of each state database
+	// read, by path, and groups the group of each thread id a state
+	// database repeats, by the database's path and the id.
 	guardians map[string][]*guardianIndex
 	threads   map[string]*threadsFile
+	groups    map[[2]string]*timeline.Group
 	// zst reads every compressed rollout of the run (zstRecords).
 	zst *zstReader
 }

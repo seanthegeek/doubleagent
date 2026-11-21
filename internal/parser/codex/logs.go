@@ -175,7 +175,7 @@ func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
-	threads := map[string]*threadRecord{}
+	var threads threadIndex
 	if len(records) > 0 {
 		threads = p.siblingThreads(artifact)
 	}
@@ -194,7 +194,7 @@ func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
 		}
 		var thread *threadRecord
 		if found.sessionID != "" {
-			thread = threads[found.sessionID]
+			thread = threads.byID[found.sessionID]
 		}
 		row := p.stamp(artifact, thread, found.sessionID)
 		row.SourceLine = record.rowid
@@ -202,6 +202,9 @@ func (p *Parser) parseLogs(artifact *input.Artifact, emit parser.Emit) {
 		row.TimestampUTC = logTime(record)
 		row.ToolUseID = found.toolUseID
 		row.Text = found.text
+		if thread != nil {
+			threads.member(found.sessionID, &row, timeline.TakeProject|timeline.TakeBranch)
+		}
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))

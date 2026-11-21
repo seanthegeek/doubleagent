@@ -91,12 +91,24 @@ func codexThreadRow(thread, cwd, branch string) []any {
 // codexState returns a state database whose one thread "t" has the working
 // directory and branch, and n guardian review feedback records of it.
 func codexState(t *testing.T, n int, cwd, branch string) []byte {
+	return codexRepeatedState(t, 1, n, cwd, branch)
+}
+
+// codexRepeatedState returns a state database whose threads table holds
+// thread "t" in stored rows, each but the first in its own working
+// directory below cwd, and n guardian review feedback records of it.
+func codexRepeatedState(t *testing.T, stored, n int, cwd, branch string) []byte {
 	feedback := sqlitetest.Table{Name: "guardian_review_feedback", SQL: "CREATE TABLE " +
 		"guardian_review_feedback (id TEXT, thread_id TEXT, record TEXT)", Rows: rows(n, func(i int) []any {
 		return []any{numbered("f", i), "t", `{"reviewed_thread_id":"t","status":"approved","target_item_id":"c` +
 			strconv.Itoa(i) + `","decision":"ok","action":"run"}`}
 	})}
-	return database(t, codexThreadsTable([][]any{codexThreadRow("t", cwd, branch)}), feedback)
+	return database(t, codexThreadsTable(rows(stored, func(i int) []any {
+		if i == 0 {
+			return codexThreadRow("t", cwd, branch)
+		}
+		return codexThreadRow("t", cwd+numbered("/", i), branch)
+	})), feedback)
 }
 
 // codexHistory returns a thread history database of n turns and n items,
@@ -276,6 +288,10 @@ func codexStateCases(prefix string) []growthCase {
 				return codexThreadRow("same", "/p", "main")
 			})))}}
 		}},
+		{kind: "state_5.sqlite", shape: shapeSharedID + " (stored threads rows with the thread's feedback)",
+			files: func(t *testing.T, n int) []growthFile {
+				return []growthFile{{rel: state, data: codexRepeatedState(t, n, n, "/p", "main")}}
+			}},
 		{kind: "state backup", shape: shapeJoins, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{{rel: prefix + "/db-backups/b/state_5.sqlite", data: codexState(t, n, "/p", "main")}}
 		}},
@@ -342,6 +358,13 @@ func codexLogCases(prefix string) []growthCase {
 					`CommandExecutionRequestApproval { request_id: "same", decision: Approved }`, "t"}
 			}))))
 		}},
+		{kind: "logs database", shape: shapeSharedID + " (stored threads rows of the state database beside)",
+			files: func(t *testing.T, n int) []growthFile {
+				return []growthFile{{rel: state, data: codexRepeatedState(t, n, 0, "/p", "main")},
+					{rel: prefix + "/logs_1.sqlite", data: database(t, codexLogsTable(rows(n, func(i int) []any {
+						return codexFeedbackRow("t")
+					})))}}
+			}},
 		{kind: "logs database", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{{rel: state, data: codexState(t, 0, "/p", "main")}}
 			for i := range n {

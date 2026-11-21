@@ -1458,6 +1458,16 @@ attributes. What the rows of the id are depends on the agent:
   its own; the other items show only their own `content`, and an `agent`
   item with no headline or `content` of its own gives a row only when it
   shows the reply.
+- **Codex CLI and Open Interpreter**, whose stores one reader reads, a
+  `state_5.sqlite` `threads` row repeating a thread id: the thread's
+  `guardian_review_feedback` rows and its rows in the log databases and
+  `thread_history_1.sqlite` beside it, with the stored row's
+  `project_path` and `git_branch`. Each stored row gives its own
+  `thread record:`, `git remote:` and first-prompt rows. Whether a
+  `thread_history_1.sqlite` user message of the thread reads as its
+  `subagent task:` is decided by the first stored row. Without a filter
+  the thread's rows take the first stored row's attributes, in
+  `created_at` order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

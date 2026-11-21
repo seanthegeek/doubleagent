@@ -2123,6 +2123,20 @@ emitting rows, so that an `item_completed` line can be checked against every
 | `state_5.sqlite` `remote_control_enrollments` row | `system` `remote control: enabled=<0\|1> server=<server_id> environment=<environment_id> host=<server_name> client=<app_server_client_name> account=<account_id>` at `updated_at`, `session_id` empty ([issue 160](https://github.com/seanthegeek/doubleagent/issues/160)) |
 | `.codex-global-state.json` (secondary, Codex Desktop) | `user` for each `prompt-history` entry of a thread, with an empty `timestamp_utc` (matched on text and session), `session_id` the thread id; `system` `session deleted: <id>` for each `codex-writing-block-deleted-thread-v1:<id>` key and `system` `permission mode (standing): ...` for each `heartbeat-thread-permissions-by-id` entry, at the file's modification time; `system` `thread description: ...` for each `thread-descriptions-v1` entry; one `system` `remote control: mobile device connected=<bool> environment=<id>` row from the two top-level keys; one `system` `scratch directory: <path> (projectless thread <id>) (from <file> thread-projectless-output-directories, file mtime)` row for each `thread-projectless-output-directories` entry, `session_id` the thread id and `project_path` the path itself, so inventory.json lists the directory under `scratch_directories` ([issue 149](https://github.com/seanthegeek/doubleagent/issues/149)); a file that does not decode is one `parser:` row ([issue 160](https://github.com/seanthegeek/doubleagent/issues/160)); after the other rows, `electron-persisted-atom-state` (an object, or a string holding one), its `prompt-history`, `thread-descriptions-v1`, `thread-user-activity-times-v1`, `heartbeat-thread-permissions-by-id`, `agent-mode-by-host-id` or `preferred-non-full-access-agent-mode-by-host-id`, or the top-level `thread-projectless-output-directories`, present as anything else is one `parser: <member> is not a JSON object` row, and a `prompt-history` list that is not an array `parser: prompt-history.<list> is not a JSON array`, `source_line` 0; a `prompt-history` list holding entries that are not objects, a `heartbeat-thread-permissions-by-id` holding values that are not objects, or a `thread-projectless-output-directories` holding values that are not strings is one row for them all, `parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for one), `source_line` 0; an absent, null or empty member gives no row |
 
+The rows of a thread in `state_5.sqlite` (its `guardian_review_feedback` rows), in the log
+databases beside it and in `thread_history_1.sqlite` (a problem row included) take the thread's
+`cwd` and `git_branch` from its `threads` row. The thread id is that table's key, so a second
+`threads` row of one id is damage or an edit: each stored row gives its own `thread record:`,
+`git remote:` and first-prompt rows with its own project and branch, and the thread's other rows
+are shown once, with the `project_path` and `git_branch` of one of its rows: the first, in the
+order the parser reads them (`created_at_ms`, else `created_at`), that the analysis filters keep,
+else the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). Whether a
+`thread_history_1.sqlite` user message of such a thread is its subagent task is decided by the
+first stored row. A rollout's rows take the rollout's own `session_meta` and `turn_context`, and
+a thread that is in both `state_5.sqlite` and a `db-backups/` copy is read from each file as
+its own.
+
 #### Permission rows
 
 Permission state is the per-turn `turn_context` policy above and, on Codex Desktop, every

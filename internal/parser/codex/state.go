@@ -186,24 +186,71 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return
 	}
-	p.threadRows(artifact, tables.threads, emit)
+	index := p.indexThreads(artifact, tables.threads)
+	p.threadRows(artifact, tables.threads, index.groups, emit)
 	for _, enrollment := range tables.enrollments {
 		row := p.SystemRow(artifact, enrollmentText(enrollment))
 		row.SourceLine = int(enrollment.Rowid)
 		row.TimestampUTC = parser.ColumnTime(enrollment.Get("updated_at"))
 		emit(row)
 	}
-	p.feedbackRows(artifact, tables.feedback, threadsByID(tables.threads), emit)
+	p.feedbackRows(artifact, tables.feedback, index, emit)
 }
 
-// threadsByID returns the threads rows by their id as text, the last row
-// of a repeated id winning.
-func threadsByID(threads []sqlitefile.Row) map[string]*threadRecord {
-	byID := make(map[string]*threadRecord, len(threads))
+// threadIndex is the threads rows of one state database by their id as
+// text, the first row of a repeated id standing for it until the output is
+// settled, and the group of each id the table repeats (timeline.Group),
+// which only damage or an edit writes, since the id is the table's key:
+// each stored row of the id is a parent, through its "thread record:" row,
+// and the thread's rows in the state, log and thread history databases are
+// members, shown once with the project and branch of the stored row the
+// group goes with.
+type threadIndex struct {
+	byID   map[string]*threadRecord
+	groups map[string]*timeline.Group
+}
+
+// indexThreads returns the index of the threads rows of the state database
+// beside artifact (or artifact itself). The groups are the parser's own
+// for that database, so the database's parse and the parses of the
+// databases beside it share them.
+func (p *Parser) indexThreads(artifact *input.Artifact, threads []sqlitefile.Row) threadIndex {
+	index := threadIndex{byID: make(map[string]*threadRecord, len(threads)), groups: map[string]*timeline.Group{}}
+	counts := map[string]int{}
 	for _, thread := range threads {
-		byID[parser.NonEmptyColumn(thread.Get("id"))] = newThreadRecord(thread)
+		threadID := parser.NonEmptyColumn(thread.Get("id"))
+		if counts[threadID]++; counts[threadID] == 1 {
+			index.byID[threadID] = newThreadRecord(thread)
+		}
 	}
-	return byID
+	state, shared := parser.Beside(artifact, stateDatabase)
+	for threadID, count := range counts {
+		if count < 2 {
+			continue
+		}
+		key := [2]string{state, threadID}
+		group := p.groups[key]
+		if group == nil {
+			group = timeline.NewGroup()
+		}
+		if shared {
+			if p.groups == nil {
+				p.groups = map[[2]string]*timeline.Group{}
+			}
+			p.groups[key] = group
+		}
+		index.groups[threadID] = group
+	}
+	return index
+}
+
+// member makes row, a row of the thread threadID, a member of the id's
+// group when the threads table repeats it, taking what takes names from
+// the stored row the group goes with.
+func (index threadIndex) member(threadID string, row *timeline.Row, takes timeline.Takes) {
+	if group := index.groups[threadID]; group != nil {
+		group.Member(row, takes)
+	}
 }
 
 // enrollmentText returns the "remote control:" text of an enrollment, "-"
@@ -222,8 +269,10 @@ func enrollmentText(enrollment sqlitefile.Row) string {
 }
 
 // threadRows emits a thread record per threads row, then its git remote
-// and its first prompt when it has them.
-func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row, emit parser.Emit) {
+// and its first prompt when it has them; for an id groups holds, the three
+// are the rows of one parent of its group, the record its parent row.
+func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row,
+	groups map[string]*timeline.Group, emit parser.Emit) {
 	for i := range threads {
 		thread := &threads[i]
 		record := newThreadRecord(*thread)
@@ -233,6 +282,10 @@ func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row, 
 		row.TurnType = timeline.TurnSystem
 		row.TimestampUTC = parser.ColumnTime(threadCreated(*thread))
 		row.Text = timeline.Compact(threadText(*thread))
+		var parent *timeline.Parent
+		if group := groups[sessionID]; group != nil {
+			parent = group.Parent(&row)
+		}
 		emit(row)
 		if origin := compactColumn(thread.Get("git_origin_url")); origin != "" {
 			remote := row
@@ -249,16 +302,20 @@ func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row, 
 		if isSubagentThread(*thread) {
 			prompt.TurnType, prompt.Text = timeline.TurnSystem, "subagent task: "+first
 		}
+		if parent != nil {
+			parent.Row(&prompt, timeline.Always)
+		}
 		emit(prompt)
 	}
 }
 
 // feedbackRows emits a "permission decision:" row per
 // guardian_review_feedback record, at the time in its UUIDv7 id, under the
-// reviewed thread, with the governed item as the call id; a record that is
-// not a JSON object is a problem row after the others.
+// reviewed thread, with the governed item as the call id and the project
+// and branch of the thread's stored row; a record that is not a JSON
+// object is a problem row after the others.
 func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Row,
-	threads map[string]*threadRecord, emit parser.Emit) {
+	threads threadIndex, emit parser.Emit) {
 	var problems parser.Problems
 	for _, entry := range feedback {
 		rowid := int(entry.Rowid)
@@ -270,12 +327,13 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 		if sessionID == "" {
 			sessionID = parser.NonEmptyColumn(entry.Get("thread_id"))
 		}
-		row := p.stamp(artifact, threads[sessionID], sessionID)
+		row := p.stamp(artifact, threads.byID[sessionID], sessionID)
 		row.SourceLine = rowid
 		row.TurnType = timeline.TurnSystem
 		row.TimestampUTC = uuid7Time(entry.Get("id"))
 		row.ToolUseID = parser.Text(record.Get("target_item_id"))
 		row.Text = timeline.Compact(feedbackText(record))
+		threads.member(sessionID, &row, timeline.TakeProject|timeline.TakeBranch)
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -323,7 +381,7 @@ func feedbackText(record jsonvalue.Value) string {
 // state of the file and its write-ahead log.
 type threadsFile struct {
 	state [4]int64
-	byID  map[string]*threadRecord
+	index threadIndex
 }
 
 // siblingThreads returns the threads rows of the state_5.sqlite beside the
@@ -331,30 +389,30 @@ type threadsFile struct {
 // parser's life, since every log database beside it looks them up; none
 // when there is no such database or it cannot be read, which that
 // database's own parse reports. The map is shared: callers only read it.
-func (p *Parser) siblingThreads(artifact *input.Artifact) map[string]*threadRecord {
+func (p *Parser) siblingThreads(artifact *input.Artifact) threadIndex {
 	path, ok := parser.Beside(artifact, stateDatabase)
 	if !ok {
-		return map[string]*threadRecord{}
+		return threadIndex{}
 	}
 	if p.threads == nil {
 		p.threads = map[string]*threadsFile{}
 	}
 	state := databaseState(path)
 	if cached, ok := p.threads[path]; ok && cached.state == state {
-		return cached.byID
+		return cached.index
 	}
 	p.Work.Add("state databases read", 1)
-	cached := &threadsFile{state: state, byID: map[string]*threadRecord{}}
+	cached := &threadsFile{state: state}
 	p.threads[path] = cached
 	database, err := parser.OpenDatabase(path)
 	if err != nil {
-		return cached.byID
+		return cached.index
 	}
 	defer database.Close()
 	if threads, err := readThreads(database); err == nil {
-		cached.byID = threadsByID(threads)
+		cached.index = p.indexThreads(artifact, threads)
 	}
-	return cached.byID
+	return cached.index
 }
 
 // databaseState returns the size and modification time of a database file
