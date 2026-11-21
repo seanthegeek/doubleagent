@@ -106,3 +106,49 @@ func (r *sessionRepeat) start(start, notice *timeline.Row) *timeline.Parent {
 		timeline.RowText{Text: prefix + "another of them"})
 	return parent
 }
+
+// projectRepeat is a project id the project table holds in more than one
+// row, which only damage or an edit writes, since the id is the table's
+// key. Its rows are a group (timeline.Group): each stored row of the id
+// is a parent, with a `parser:` row of its own at its time and with its
+// worktree; the rows whose project path is the project's worktree (the
+// rows of a session naming no directory of its own and the saved grants
+// of the project) are members, shown once with the worktree of the row the
+// group goes with.
+type projectRepeat struct {
+	group *timeline.Group
+	count int
+}
+
+// newProjectRepeat returns the group of a project id the table holds in
+// count rows.
+func newProjectRepeat(count int) *projectRepeat {
+	return &projectRepeat{group: timeline.NewGroup(), count: count}
+}
+
+// member makes row a member of the group, taking takes; a nil repeat
+// leaves the row as it is.
+func (r *projectRepeat) member(row *timeline.Row, takes timeline.Takes) {
+	if r != nil && takes != 0 {
+		r.group.Member(row, takes)
+	}
+}
+
+// projectNotices emits the `parser:` row of each stored row of a repeated
+// project id, at its time_created and with its worktree: the parents of
+// the id's group, registered before any of its members.
+func (s *store) projectNotices() {
+	for _, row := range s.repeatedProjects {
+		found := s.projectRepeats[parser.ColumnKey(row.Get("id"))]
+		worktree := parser.NonEmptyColumn(row.Get("worktree"))
+		if worktree == "/" {
+			worktree = ""
+		}
+		notice := s.systemAt(newScope("", worktree), row.Rowid, row.Get("time_created"), "")
+		prefix := parser.ProblemPrefix + "project holds " + strconv.Itoa(found.count) +
+			" rows of this row's id; its sessions and saved grants are shown once, with "
+		found.group.Parent(&notice).Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+			timeline.RowText{Text: prefix + "another of them"})
+		s.emit(notice)
+	}
+}

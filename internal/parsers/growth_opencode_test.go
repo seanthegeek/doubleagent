@@ -131,6 +131,20 @@ func opencodeDatabaseCases(layout opencodeLayout) []growthCase {
 				"project_id text, directory text, title text, time_created integer)", Rows: sessions}},
 				opencodeV1Tables(messages, parts)...)...))
 		}},
+		// Each stored row of a repeated project id gives a parser: row; the
+		// sessions naming no directory and the saved grants are members.
+		{kind: "database", shape: shapeSharedID + " (project rows)", files: func(t *testing.T, n int) []growthFile {
+			projects := sqlitetest.Table{Name: "project", SQL: "CREATE TABLE project (id text, worktree text, " +
+				"time_created integer, time_updated integer)", Rows: rows(n, func(i int) []any {
+				return []any{"p1", "/work/" + numbered("proj_", i), 1700000000000 + i, 1700000000000}
+			})}
+			sessions := rows(n, func(i int) []any { return []any{numbered("ses_", i), "p1", nil, "t", 1700000000000} })
+			grants := sqlitetest.Table{Name: "permission", SQL: "CREATE TABLE permission (id text, project_id text, " +
+				"action text, resource text, time_created integer)", Rows: rows(n, func(i int) []any {
+				return []any{numbered("per_", i), "p1", "bash", numbered("cmd", i), 1700000000000 + i}
+			})}
+			return one(rel, database(t, projects, opencodeSessionTable("session", sessions), grants))
+		}},
 		{kind: "database", shape: shapeSharedID + " (2.x)", files: func(t *testing.T, n int) []growthFile {
 			messages := rows(n, func(i int) []any {
 				return []any{"msg_1", opencodeSession, "assistant", i, 1700000001000 + i, `{"content":[]}`}

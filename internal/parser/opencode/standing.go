@@ -226,7 +226,7 @@ func (s *store) worktreeRows() error {
 			seen[directory] = true
 			made := s.systemAt(newScope("", ""), row.Rowid, row.Get("time_created"), timeline.ScratchPrefix+
 				" "+directory+" (git worktree of "+
-				cmp.Or(carried.Cut("project worktree", s.worktreeOf(row.Get("project_id"))), "-")+" strategy="+
+				s.projectNamed(carried, row.Get("project_id"))+" strategy="+
 				cmp.Or(parser.NonEmptyColumn(row.Get("strategy")), "-")+") (from "+s.label+" "+name+
 				", time_created)")
 			made.ProjectPath = directory
@@ -234,6 +234,17 @@ func (s *store) worktreeRows() error {
 		}
 	}
 	return nil
+}
+
+// projectNamed returns how a worktree's row names its project: the
+// project's worktree, cut by carried, "-" when there is none, or, for a
+// project id the table repeats, "project <id>": the worktree is text
+// inside a row of another id, which no stored row of the project lends.
+func (s *store) projectNamed(carried *parser.Carried, projectID sqlitefile.Value) string {
+	if s.projectRepeats[parser.ColumnKey(projectID)] != nil {
+		return "project " + carried.Cut("project id", parser.ColumnText(projectID))
+	}
+	return cmp.Or(carried.Cut("project worktree", s.worktreeOf(projectID)), "-")
 }
 
 // grantRows emits a "permission setting:" row per saved grant of the
@@ -260,6 +271,7 @@ func (s *store) grantRows() error {
 			cmp.Or(parser.NonEmptyColumn(row.Get("action")), "-")+" "+cmp.Or(parser.NonEmptyColumn(row.Get("resource")), "-")+
 			"=allow (from "+s.label+" permission, time_created)")
 		made.ProjectPath = s.worktreeOf(row.Get("project_id"))
+		s.projectRepeats[parser.ColumnKey(row.Get("project_id"))].member(&made, timeline.TakeProject)
 		s.emit(made)
 	}
 	return nil

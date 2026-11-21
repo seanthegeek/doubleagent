@@ -1467,6 +1467,24 @@ rule. Each row of the `worktree` table, else of the deprecated `project_director
 scratch directory: <directory> (git worktree of <project worktree> strategy=<strategy>) (from <database> <table>, time_created)
 ```
 
+A project id is the `project` table's key (`id: text().primaryKey()` in
+[`project/sql.ts:12-13`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/project/sql.ts#L12-L13)),
+so a second row of one id is damage. Each stored row of such an id gives one `system` row at its
+`time_created`, with its own `worktree` as `project_path` and no session:
+
+```text
+parser: project holds <n> rows of this row's id; its sessions and saved grants are shown once, with this row
+```
+
+(`another of them` for each stored row the joined rows do not go with). The rows that take the
+project's `worktree` as their `project_path` (the rows of a session that names no `directory` of
+its own, and the `permission` table's grants of the project) are shown once, with the `worktree` of
+the first stored row in reading order that the analysis filters keep, else of the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A worktree's row names the
+project `git worktree of project <id>` in place of its `worktree`, which is text inside a row of
+another id, so no stored row lends it. The rows of a session or message id that is repeated too
+stay with that id's rows, which take the project's first stored row's `worktree`.
+
 The temp root ([Scratch directories](#scratch-directories)) gives no row.
 
 #### Deletion rows

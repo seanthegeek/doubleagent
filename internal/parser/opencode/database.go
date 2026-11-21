@@ -25,22 +25,30 @@ type session struct {
 	table      string
 	project    string
 	parent     *timeline.Parent
+	// projectRepeat is the group of the id of the project the row's
+	// project path comes from, when that id is repeated, nil otherwise.
+	projectRepeat *projectRepeat
 }
 
 // store is the reading of one database: its tables, the worktree of each
 // project by id, its sessions, each session's scope, and the problems
 // found so far.
 type store struct {
-	owner     *Parser
-	artifact  *input.Artifact
-	options   parser.Options
-	emit      parser.Emit
-	database  *sqlitefile.Database
-	tables    parser.Tables
-	label     string
-	projects  map[string]string
-	sessions  []session
-	sessionAt map[string]int
+	owner    *Parser
+	artifact *input.Artifact
+	options  parser.Options
+	emit     parser.Emit
+	database *sqlitefile.Database
+	tables   parser.Tables
+	label    string
+	projects map[string]string
+	// projectRepeats holds the project ids the project table holds in more
+	// than one row, which only damage or an edit writes, and
+	// repeatedProjects those rows, in reading order.
+	projectRepeats   map[string]*projectRepeat
+	repeatedProjects []sqlitefile.Row
+	sessions         []session
+	sessionAt        map[string]int
 	// repeats holds the session ids a session table holds in more than
 	// one row, which only damage or an edit writes.
 	repeats map[string]*sessionRepeat
@@ -65,7 +73,8 @@ func (p *Parser) database(artifact *input.Artifact, options parser.Options, emit
 	if err == nil {
 		reading := &store{owner: p, artifact: artifact, options: options, emit: emit,
 			database: database, label: databaseLabel(artifact), projects: map[string]string{},
-			sessionAt: map[string]int{}, repeats: map[string]*sessionRepeat{}, scopes: map[string]*scope{},
+			projectRepeats: map[string]*projectRepeat{},
+			sessionAt:      map[string]int{}, repeats: map[string]*sessionRepeat{}, scopes: map[string]*scope{},
 			shares: map[string]bool{}}
 		err = reading.read()
 		if closeErr := database.Close(); err == nil {
@@ -91,6 +100,7 @@ func (s *store) read() error {
 	if err := s.readSessions(); err != nil {
 		return err
 	}
+	s.projectNotices()
 	for i := range s.sessions {
 		s.sessionStart(&s.sessions[i])
 	}
@@ -130,6 +140,7 @@ func (s *store) sessionStart(each *session) {
 		parser.ColumnTime(each.row.Get("time_created")), int(each.row.Rowid), note)
 	repeated := s.repeats[each.identifier]
 	if repeated == nil {
+		each.projectRepeat.member(&start, timeline.TakeProject)
 		s.emit(start)
 		return
 	}
@@ -149,26 +160,36 @@ func (s *store) rowScope(each *session) *scope {
 }
 
 // ownRow emits row, a row of one stored session row alone, as one of its
-// parent's rows when its id is repeated.
+// parent's rows when its id is repeated, else as a member of the group of
+// its project's id when that is repeated.
 func (s *store) ownRow(each *session, row timeline.Row) {
 	if each.parent != nil {
 		each.parent.Row(&row, timeline.Always)
+	} else {
+		each.projectRepeat.member(&row, timeline.TakeProject)
 	}
 	s.emit(row)
 }
 
 // memberEmit returns an emit of the rows of a session, which makes each
-// row it is given that has no place in a group yet a member of the group
-// of the session's id, taking takes, when its table repeats the id; emit
-// itself otherwise or when takes is empty.
+// row it is given that has no place in a group yet a member, taking takes,
+// of the group of the session's id when its table repeats the id, else of
+// the group of the id of the project its path comes from when that is
+// repeated; emit itself otherwise or when takes is empty. A row holds one
+// place in one group, so a row already placed keeps that place.
 func (s *store) memberEmit(identifier string, takes timeline.Takes, emit parser.Emit) parser.Emit {
-	repeated := s.repeats[identifier]
-	if repeated == nil || takes == 0 {
+	var group *timeline.Group
+	if repeated := s.repeats[identifier]; repeated != nil {
+		group = repeated.group
+	} else if where, ok := s.sessionAt[identifier]; ok && s.sessions[where].projectRepeat != nil {
+		group = s.sessions[where].projectRepeat.group
+	}
+	if group == nil || takes == 0 {
 		return emit
 	}
 	return func(row timeline.Row) {
 		if row.Group == nil {
-			repeated.group.Member(&row, takes)
+			group.Member(&row, takes)
 		}
 		emit(row)
 	}
@@ -198,8 +219,9 @@ func (s *store) transcript() error {
 	return s.v2Messages(covered)
 }
 
-// readProjects indexes the project table's rows by their id, a later row
-// replacing an earlier one with the same id.
+// readProjects indexes the project table's rows by their id, an id by its
+// first row in reading order; an id held in more than one row is a repeat
+// (projectRepeat), each of its rows kept.
 func (s *store) readProjects() error {
 	if !s.tables.Has("project") {
 		return nil
@@ -209,8 +231,14 @@ func (s *store) readProjects() error {
 		return err
 	}
 	rows, err := table.Select().All()
+	counts := map[string]int{}
 	for _, row := range rows {
-		s.addProject(row)
+		if key := parser.ColumnKey(row.Get("id")); key != "" {
+			counts[key]++
+		}
+	}
+	for _, row := range rows {
+		s.addProject(row, counts)
 	}
 	return err
 }
@@ -218,10 +246,21 @@ func (s *store) readProjects() error {
 // addProject indexes one project row's worktree by its id, made once
 // however many sessions name the project: "" when it is empty or "/". A
 // row whose id is NULL is left out: NULL equals nothing in SQL, so no
-// session's project_id finds it.
-func (s *store) addProject(row sqlitefile.Row) {
+// session's project_id finds it. A row of an id counts gives more than
+// one row is kept for its `parser:` row, and the id's first row is the
+// one indexed.
+func (s *store) addProject(row sqlitefile.Row, counts map[string]int) {
 	key := parser.ColumnKey(row.Get("id"))
 	if key == "" {
+		return
+	}
+	if counts[key] > 1 {
+		s.repeatedProjects = append(s.repeatedProjects, row)
+		if s.projectRepeats[key] == nil {
+			s.projectRepeats[key] = newProjectRepeat(counts[key])
+		}
+	}
+	if _, met := s.projects[key]; met {
 		return
 	}
 	worktree := parser.NonEmptyColumn(row.Get("worktree"))
@@ -258,7 +297,7 @@ func (s *store) readSessions() error {
 			}
 			counts[identifier]++
 			s.sessions = append(s.sessions, session{identifier: identifier, row: row, table: name,
-				project: s.projectOf(row)})
+				project: s.projectOf(row), projectRepeat: s.projectRepeatOf(row)})
 		}
 		for identifier, count := range counts {
 			if count > 1 {
@@ -291,6 +330,16 @@ func (s *store) projectOf(record sqlitefile.Row) string {
 		return path
 	}
 	return s.worktreeOf(record.Get("project_id"))
+}
+
+// projectRepeatOf returns the group of the project id a session row's
+// project path comes from, nil when the row names its own directory or
+// the id is not repeated.
+func (s *store) projectRepeatOf(record sqlitefile.Row) *projectRepeat {
+	if parser.NonEmptyColumn(record.Get("directory")) != "" {
+		return nil
+	}
+	return s.projectRepeats[parser.ColumnKey(record.Get("project_id"))]
 }
 
 // worktreeOf returns the worktree of the project with the given id, "" when

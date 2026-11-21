@@ -1370,7 +1370,9 @@ The agent's worktrees ([Scratch directories](#scratch-directories)) are named by
 writes one `system` row
 `scratch directory: <directory> (git worktree of <project worktree> strategy=<strategy>) (from kilo.db project_directory, time_created)`
 per `project_directory` row of type `git_worktree`, with the directory as `project_path` and no
-session ([Scratch directory rows of `opencode.md`](opencode.md#scratch-directory-rows)). The
+session, and `git worktree of project <id>` in its text when the `project` table holds the
+project's id in more than one row, each of those rows giving a `parser:` row
+([Scratch directory rows of `opencode.md`](opencode.md#scratch-directory-rows)). The
 temporary root and its remote attachments are outside the home and give no row.
 
 #### Deletion rows

@@ -89,7 +89,7 @@ func TestTheFirstLayoutOfThePermissionTableLeavesTheTranscriptWhole(t *testing.T
 func TestANullProjectIDMatchesNoProject(t *testing.T) {
 	nullProject := sqlitefile.Row{}
 	reading := &store{projects: map[string]string{}}
-	reading.addProject(nullProject)
+	reading.addProject(nullProject, map[string]int{})
 	if len(reading.projects) != 0 {
 		t.Errorf("a project with a NULL id was indexed: %v", reading.projects)
 	}

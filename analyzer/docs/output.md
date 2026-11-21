@@ -1433,7 +1433,13 @@ attributes. What the rows of the id are depends on the agent:
   too keep the first stored row's `project_path`, and the rows of a 1.x
   message with its own `path.cwd` keep that path when the first stored
   row names no project, and otherwise take the chosen row's
-  `project_path` even when it names none.
+  `project_path` even when it names none. A `project` row repeating a
+  project id: the rows of its sessions that name no directory of their
+  own and its saved grants, with the stored row's `worktree` as
+  `project_path`. Each stored row gives a `parser:` row with its own
+  `worktree`; a worktree's row names the project by id. The rows of a
+  session or message id that is repeated too keep the project's first
+  stored row's `worktree`.
 - **Zed**, an `archived_git_worktrees` row repeating an id: the
   `archived worktree:` row of each thread linked to the id, with its own
   `session_id` and the stored row's text, `project_path` and rowid as

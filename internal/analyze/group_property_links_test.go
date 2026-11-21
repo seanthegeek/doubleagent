@@ -13,7 +13,8 @@ import (
 
 // linkedStores returns the stores whose repeated key is a link other rows
 // take their project path through: a Copilot Desktop project, workspace
-// or session alias, and the two links at once.
+// or session alias, and the two links at once, and an OpenCode project,
+// alone and with a repeated session of it.
 func linkedStores() []groupedStore {
 	file := func(build func(t *testing.T) string) func(t *testing.T) []collectedFile {
 		return func(t *testing.T) []collectedFile {
@@ -25,6 +26,14 @@ func linkedStores() []groupedStore {
 		{"copilot desktop workspaces", "copilot-desktop", file(copilotdesktopRepeatedWorkspace)},
 		{"copilot desktop aliases", "copilot-desktop", file(copilotdesktopRepeatedAlias)},
 		{"copilot desktop chain", "copilot-desktop", file(copilotdesktopRepeatedChain)},
+		{"opencode projects", "opencode", func(t *testing.T) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode.db",
+				opencodeProjectRepeat(t)}}
+		}},
+		{"opencode projects and sessions", "opencode", func(t *testing.T) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode.db",
+				opencodeProjectAndSessionRepeat(t)}}
+		}},
 	}
 }
 
