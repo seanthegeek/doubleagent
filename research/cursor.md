@@ -2537,6 +2537,13 @@ row `parser: ItemTable holds <n> rows of this row's key; each gives its own rows
 of them that `--since`, `--until` and `--match` keep, else the first; one that is not a number
 gives
 `parser: ItemTable holds <n> rows of this row's key; it holds no time, so the server rows do not take it`.
+A `conversation_fts_content` `id` held in more than one row, which only damage writes since it is
+the content table's `INTEGER PRIMARY KEY` (as SQLite 3.54.1 creates an FTS5 table's content table),
+lends nothing: each conversation naming it gives, in
+place of its cached text row,
+`parser: conversation_fts_content holds <n> rows of this row's fts_rowid; each gives its own row`,
+and each stored row, in rowid order, gives once, with no session or time,
+`cached conversation text (conversation-search.db, fts_rowid=<id>): <body>`.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row

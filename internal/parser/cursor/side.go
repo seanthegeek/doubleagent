@@ -2,6 +2,7 @@ package cursor
 
 import (
 	"cmp"
+	"slices"
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -49,13 +50,21 @@ func joinProject(row *timeline.Row, sessionID string, index *stateIndex) {
 	index.member(sessionID, row, timeline.TakeProject|timeline.TakeBranch)
 }
 
-// ftsBodies returns the conversation_fts_content id -> c1 (the body; c0 is
-// the title). The full-text table's content table is read as a plain
-// table, so the module is never needed; none when it or a column is
-// missing. A row whose id is NULL is left out: NULL equals nothing in
-// SQL, so no conversation's fts_rowid finds it.
-func ftsBodies(store *store) map[string]sqlitefile.Value {
-	bodies := map[string]sqlitefile.Value{}
+// ftsBody is one conversation_fts_content row: its rowid and c1, the body
+// (c0 is the title).
+type ftsBody struct {
+	rowid int64
+	body  sqlitefile.Value
+}
+
+// ftsBodies returns the conversation_fts_content rows by id, in rowid
+// order; more than one of an id only damage writes, the id being the
+// content table's INTEGER PRIMARY KEY. The full-text table's content table
+// is read as a plain table, so the module is never needed; none when it or
+// a column is missing. A row whose id is NULL is left out: NULL equals
+// nothing in SQL, so no conversation's fts_rowid finds it.
+func ftsBodies(store *store) map[string][]ftsBody {
+	bodies := map[string][]ftsBody{}
 	table := store.table("conversation_fts_content")
 	if table == nil || !table.Has("id") || !table.Has("c1") {
 		return bodies
@@ -66,8 +75,11 @@ func ftsBodies(store *store) map[string]sqlitefile.Value {
 	}
 	for _, row := range rows {
 		if key := parser.ColumnKey(row.Get("id")); key != "" {
-			bodies[key] = row.Get("c1")
+			bodies[key] = append(bodies[key], ftsBody{rowid: row.Rowid, body: row.Get("c1")})
 		}
+	}
+	for _, stored := range bodies {
+		slices.SortStableFunc(stored, func(left, right ftsBody) int { return cmp.Compare(left.rowid, right.rowid) })
 	}
 	return bodies
 }
@@ -88,7 +100,8 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 	if store.keep(err) {
 		return
 	}
-	written, repeats := map[string]*timeline.SharedText{}, 0
+	joined := &bodyJoin{owner: p, artifact: artifact, bodies: bodies, written: map[string]*timeline.SharedText{},
+		emit: emit}
 	for _, record := range records {
 		sessionID := asText(record.Get("id"))
 		row := func(text string, shared *timeline.SharedText) {
@@ -111,25 +124,70 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parser.Emit
 			row("conversation index: "+title+" source="+cmp.Or(source, "-")+" archived="+
 				columnField(record.Get("is_archived")), nil)
 		}
-		key := parser.ColumnKey(record.Get("fts_rowid"))
-		if key == "" {
-			continue
-		}
-		shared, met := written[key]
-		if !met {
-			shared = sharedBody(bodies[key])
-			written[key] = shared
-		} else if shared != nil {
-			repeats++
-		}
-		if shared != nil {
-			row("cached conversation text (conversation-search.db, source="+cmp.Or(source, "-")+"): ", shared)
-		}
+		joined.cached(record, source, row)
 	}
-	if repeats > 0 {
+	if joined.repeats > 0 {
 		var problems parser.Problems
-		problems.Add(0, sharedBodiesText(repeats))
+		problems.Add(0, sharedBodiesText(joined.repeats))
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	}
+}
+
+// bodyJoin joins the conversations of conversation-search.db to their
+// full-text bodies: the shared text of each id once written, and the
+// conversations that named an id an earlier one names.
+type bodyJoin struct {
+	owner    *Parser
+	artifact *input.Artifact
+	bodies   map[string][]ftsBody
+	written  map[string]*timeline.SharedText
+	repeats  int
+	emit     parser.Emit
+}
+
+// cached gives a conversation its cached text row through row, sharing
+// the text of its fts_rowid's body; a body id the content table holds
+// more than once gives a parser: row instead, its stored rows each giving
+// a row of their own once (storedBodies).
+func (j *bodyJoin) cached(record sqlitefile.Row, source string, row func(string, *timeline.SharedText)) {
+	key := parser.ColumnKey(record.Get("fts_rowid"))
+	if key == "" {
+		return
+	}
+	stored := j.bodies[key]
+	shared, met := j.written[key]
+	if len(stored) > 1 {
+		row(parser.ProblemPrefix+"conversation_fts_content holds "+strconv.Itoa(len(stored))+
+			" rows of this row's fts_rowid; each gives its own row", nil)
+		if !met {
+			j.written[key] = nil
+			j.owner.storedBodies(j.artifact, asText(record.Get("fts_rowid")), stored, j.emit)
+		}
+		return
+	}
+	if !met {
+		var body sqlitefile.Value
+		if len(stored) == 1 {
+			body = stored[0].body
+		}
+		shared = sharedBody(body)
+		j.written[key] = shared
+	} else if shared != nil {
+		j.repeats++
+	}
+	if shared != nil {
+		row("cached conversation text (conversation-search.db, source="+cmp.Or(source, "-")+"): ", shared)
+	}
+}
+
+// storedBodies emits a row of its own, with no session or time, for each
+// stored row of a full-text id the content table holds more than once:
+// which of them a conversation naming the id holds is not known, so none
+// gives its text to the conversation's rows.
+func (p *Parser) storedBodies(artifact *input.Artifact, ident string, stored []ftsBody, emit parser.Emit) {
+	for _, found := range stored {
+		emit(p.row(artifact, timeline.TurnSystem, "cached conversation text (conversation-search.db, fts_rowid="+ident+
+			"): "+timeline.Compact(asText(found.body)), "", found.rowid))
 	}
 }
 

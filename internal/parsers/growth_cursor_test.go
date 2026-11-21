@@ -251,6 +251,12 @@ func cursorSideCases() []growthCase {
 			return []growthFile{cursorLongProject(t), {rel: search, data: cursorConversations(t,
 				rows(n, func(i int) []any { return []any{i, "c1", numbered("title ", i), "local", 0, 1790000000000} }), nil)}}
 		}},
+		// Each stored row of a repeated full-text id gives its own row.
+		{kind: "conversation-search.db", shape: shapeSharedID + " (full-text rows of one id)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(search, cursorConversations(t, [][]any{{1, "c1", "title", "local", 0, 1790000000000}},
+					rows(n, func(i int) []any { return []any{1, "title", numbered("body ", i)} })))
+			}},
 		{kind: "ai-code-tracking.db", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{cursorLongProject(t), {rel: tracking, data: cursorHashes(t, n)}}
 		}},

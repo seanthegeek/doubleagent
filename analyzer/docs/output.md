@@ -1537,7 +1537,10 @@ attributes. What the rows of the id are depends on the agent:
   `mcp_server_url` gives its own `mcp server:` row, and those rows take
   the time of the first stored `mcp_oauth_updated_at_ms` the filters keep,
   the first when they keep none; a stored time that is not a number is
-  not taken.
+  not taken. A `conversation-search.db` `conversation_fts_content` row
+  repeating an `id` lends nothing: each stored body gives its own cached
+  text row, with no session or time, and each conversation naming the id
+  gives a `parser:` row in place of its cached text.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows

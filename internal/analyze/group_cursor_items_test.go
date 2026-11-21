@@ -213,3 +213,38 @@ func TestARepeatedCursorMCPUpdateTimeThatIsNotANumberIsShownAndNotTaken(t *testi
 func cursorRepeatedMCPTimes(t *testing.T) string {
 	return cursorRepeatedMCP(t, "1767225600000", "1780272000000")
 }
+
+// cursorSearchRel is where the IDE keeps its conversation search index.
+const cursorSearchRel = "Library/Application Support/Cursor/User/globalStorage/conversation-search.db"
+
+// A full-text row id conversation_fts_content holds twice, which only
+// damage writes, the id being the table's INTEGER PRIMARY KEY, gives each
+// stored body its own row; the conversation naming it takes neither.
+func TestEachStoredBodyOfARepeatedCursorFullTextRowIsShown(t *testing.T) {
+	search := buildDatabase(t, sqlitetest.Table{Name: "conversations", SQL: "CREATE TABLE conversations " +
+		"(fts_rowid INTEGER, id TEXT, title TEXT, source TEXT, is_archived INTEGER, updated_at INTEGER)",
+		Rows: [][]any{{1, "c1", "T", "local", 0, int64(1780272000000)}}},
+		sqlitetest.Table{Name: "conversation_fts_content", SQL: "CREATE TABLE conversation_fts_content " +
+			"(id INTEGER, c0 TEXT, c1 TEXT)", Rows: [][]any{{1, "T", "BODY-ONE"}, {1, "T", "BODY-TWO"}}})
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
+		[]collectedFile{{"alice", "/home/alice", "cursor", cursorSearchRel, search}})
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	if code, _, stderr := runCommand(env, "timeline", "--agent", "cursor", collection, output); code != ExitFound {
+		t.Fatalf("exited %d: %s", code, stderr)
+	}
+	got := recordsOf(t, filepath.Join(output, TimelineFile), "text", "session_id", "text")
+	slices.Sort(got)
+	want := []string{
+		" cached conversation text (conversation-search.db, fts_rowid=1): BODY-ONE",
+		" cached conversation text (conversation-search.db, fts_rowid=1): BODY-TWO",
+		"c1 conversation index: T source=local archived=0",
+		"c1 parser: conversation_fts_content holds 2 rows of this row's fts_rowid; each gives its own row",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("rows\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
