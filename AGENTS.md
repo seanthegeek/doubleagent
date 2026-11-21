@@ -638,12 +638,19 @@ for Go files as it does for the others.
   not at all; a parser's own tests count it (`parser.Work`).
 - **Evidence JSON is decoded through the kit.** A parser decodes the JSON
   it reads from the evidence with the kit's readers or `parser.DecodeJSON`,
-  and a `jsonvalue.Document` it walks itself gives its `TakeRepeats` to
-  `parser.NoteRepeats`, so an object that repeats a member name gives its
-  file a `parser:` row. `TestParsersDecodeEvidenceThroughTheKit` in
-  `internal/parser` fails on any other call of `jsonvalue.Decode`,
-  `DecodeString` or `DecodePrefix` in a parser package beyond its reviewed
-  list of values that hold no object.
+  so an object that repeats a member name gives a `parser:` row. Three
+  tests in `internal/parser` hold the parser packages to it:
+  `TestParsersDecodeEvidenceThroughTheKit` fails on a call of
+  `jsonvalue.Decode`, `DecodeString` or `DecodePrefix` beyond a reviewed
+  list of values that hold no object; `TestParsersWalkOnlyReviewedDocuments`
+  fails on a `jsonvalue.NewDocument` beyond a reviewed list, each entry
+  naming where its `TakeRepeats` goes; and
+  `TestParsersKeepTheRepeatsOfAStateDatabase` fails on a call of
+  `vscodestate.ReadItem` or `ReadItems` that drops the repeats it returns.
+  A repeat is reported once, by the parse of the file that holds it, as the
+  comment of `parser.NoteRepeats` states; over the growth cases,
+  `TestARepeatIsReportedOnceByTheParseOfTheFileThatHoldsIt` in
+  `internal/parsers` fails on a repeat reported twice or on another file.
 - **Evidence is shown as written.** In the analysis output files a number
   from the evidence keeps its source text, JSON embedded in a row is compact
   with the evidence's key order, a boolean is `true` or `false`, and a null

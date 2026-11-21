@@ -30,6 +30,45 @@ var plainDecodes = map[string]struct {
 	"kiro/conversation.go":       {1, "a conversation id found by a pattern, quoted: a JSON string"},
 }
 
+// walkedDocuments are the reviewed jsonvalue.NewDocument calls in the parser
+// packages, by file and count, each with where the document's TakeRepeats
+// goes, since the kit cannot see a Document a parser walks itself.
+var walkedDocuments = map[string]struct {
+	count int
+	goes  string
+}{
+	"agentzero/chat.go":         {1, "recoverLogs gives it to NoteRepeats"},
+	"cody/recover.go":           {1, "the recovery's ArrayWalk notes it in the parse (ArrayWalk.Artifact)"},
+	"continuedev/load.go":       {1, "LoadSession gives it to NoteRepeats"},
+	"openhands/conversation.go": {1, "loadJSON merges it into the repeats its caller gives NoteRepeats"},
+	"qwencode/session.go":       {1, "logEntries gives it to NoteRepeats"},
+	"roocode/decisions.go":      {1, "decisionText gives it to NoteRepeats"},
+}
+
+// TestParsersWalkOnlyReviewedDocuments holds every parser package to the
+// reviewed list of jsonvalue.NewDocument calls: a Document a parser walks
+// itself must give its TakeRepeats to NoteRepeats, which only a reader of
+// the code can check, so a new call fails until it is reviewed.
+func TestParsersWalkOnlyReviewedDocuments(t *testing.T) {
+	found := map[string]int{}
+	for _, file := range parserSources(t) {
+		if calls := jsonvalueCalls(t, file, "NewDocument"); calls > 0 {
+			found[filepath.ToSlash(file)] = calls
+		}
+	}
+	for _, file := range slices.Sorted(maps.Keys(found)) {
+		if found[file] != walkedDocuments[file].count {
+			t.Errorf("%s makes %d Documents, %d reviewed; review where each one's repeats go", file,
+				found[file], walkedDocuments[file].count)
+		}
+	}
+	for file := range walkedDocuments {
+		if found[file] == 0 {
+			t.Errorf("%s is reviewed but makes no Document; remove its entry", file)
+		}
+	}
+}
+
 // TestParsersDecodeEvidenceThroughTheKit holds every parser package to
 // decoding the JSON of its evidence through the kit (DecodeJSON), so a
 // member name repeated within an object is reported: a call of
