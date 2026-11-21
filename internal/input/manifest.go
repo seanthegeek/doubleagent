@@ -391,8 +391,10 @@ func (load *manifestLoad) finish() {
 		links := map[string]bool{}
 		inPlace := map[string]bool{}
 		for _, row := range rows {
+			// Keyed as the staged paths look a directory up, so a link's
+			// row stops the walk however its path repeats a separator.
 			if row.link {
-				links[row.rel] = true
+				links[strings.Join(splitNonEmpty(row.rel), "/")] = true
 			}
 			// A row archived in place shows every directory above it real.
 			if row.archivePath != "" && archivedInPlace(home, load.collection.Root, row.rel, row.archivePath) {

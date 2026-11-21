@@ -98,6 +98,13 @@ staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
 staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
 artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","agent":"pi"}
 artifact	0	pi	.config/Cursor/User/globalStorage/state.vscdb	/home/bob/.config/Cursor/User/globalStorage/state.vscdb	<input>/fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/Cursor/User/globalStorage/state.vscdb","archive_path":"fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb","agent":"pi"}
+=== a link row whose path repeats a slash bounds the map as its plain spelling does
+kind	collected
+host	
+home	0	<input>/fs/home/bob	/home/bob	bob		false	false
+staged	0	.config/gh	<input>/fs/home/bob/dotfiles/.config/gh
+staged	0	.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml
+artifact	0	pi	.config/gh/hosts.yml	/home/bob/.config/gh/hosts.yml	<input>/fs/home/bob/dotfiles/.config/gh/hosts.yml	{"type":"file","status":"collected","user":"bob","home":"/home/bob","path":"/home/bob/.config/gh/hosts.yml","archive_path":"fs/home/bob/dotfiles/.config/gh/hosts.yml","agent":"pi"}
 === a nested link maps the directory holding its files
 kind	collected
 host	
