@@ -48,7 +48,7 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 		emit = markRecovered(s.emit)
 	}
 	counts := partCounts(stored)
-	repeats := map[int64]*repeat{}
+	repeats, consumed := map[int64]*repeat{}, map[int]bool{}
 	for _, each := range stored {
 		var found []part
 		var failures []failure
@@ -57,6 +57,12 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 			repeated = repeats[each.firstPart]
 			if repeated == nil {
 				found, failures = messageParts(s.parts, each.row)
+				for _, taken := range found {
+					consumed[taken.where.line] = true
+				}
+				for _, taken := range failures {
+					consumed[taken.line] = true
+				}
 				if counts[each.firstPart] > 1 {
 					repeated = newRepeat("message", counts[each.firstPart])
 					repeats[each.firstPart] = repeated
@@ -68,7 +74,7 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 		s.owner.messageRows(s.artifact, scoped, each.message, where, found, s.options, failures, repeated,
 			s.memberEmit(each.session, sessionTakes(scoped, each.message), emit))
 	}
-	return covered, nil
+	return covered, s.orphanParts(consumed, skip, emit)
 }
 
 // sessionTakes returns what the rows of a 1.x message take from the stored
@@ -206,7 +212,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	stored, err := s.v2Rows(skip, items)
+	stored, err := s.v2Rows(skip, items.byMessage)
 	if err != nil {
 		return err
 	}
@@ -224,16 +230,17 @@ func (s *store) v2Messages(skip map[string]bool) error {
 				}
 				content.repeated = repeats[each.message]
 				if first {
-					content.items = items[each.message]
+					content.items = items.byMessage[each.message]
 				}
 			case first:
-				each.data.Set("content", jsonvalue.NewArray(items[each.message]...))
+				each.data.Set("content", jsonvalue.NewArray(items.byMessage[each.message]...))
 			}
 		}
 		s.owner.recordRows(s.artifact, s.scopeFor(each.session), each.kind, each.data, int(each.row.Rowid),
 			parser.ColumnTime(each.row.Get("time_created")), s.options, content,
 			s.memberEmit(each.session, timeline.TakeProject, s.emit))
 	}
+	s.orphanItems(items, stored)
 	return nil
 }
 
@@ -295,22 +302,39 @@ func (s *store) v2Rows(skip map[string]bool, items map[string][]jsonvalue.Value)
 	return stored, nil
 }
 
-// sessionParts returns the session_part items of each message id, in
-// ordinal order, for every session not in skip. A row's type column
-// overrides the item's own. A row whose data does not decode is a problem.
-func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value, error) {
-	items := map[string][]jsonvalue.Value{}
+// sessionItems is the session_part items of the sessions read: each
+// message id's items in ordinal order, by the id's key, and every item row
+// in reading order, for the items no record claims (orphanItems).
+type sessionItems struct {
+	byMessage map[string][]jsonvalue.Value
+	rows      []storedItem
+}
+
+// storedItem is one decoded session_part row: the key of its message id,
+// the session it names, its rowid and its item.
+type storedItem struct {
+	message string
+	session sessionRef
+	rowid   int64
+	data    jsonvalue.Value
+}
+
+// sessionParts returns the session_part items of every session not in
+// skip, in ordinal order. A row's type column overrides the item's own. A
+// row whose data does not decode is a problem.
+func (s *store) sessionParts(skip map[string]bool) (sessionItems, error) {
+	items := sessionItems{byMessage: map[string][]jsonvalue.Value{}}
 	if !s.tables.Has("session_part") {
 		return items, nil
 	}
 	table, err := s.database.Table("session_part")
 	if err != nil {
-		return nil, err
+		return items, err
 	}
 	rows, err := table.Select("message_id", "session_id", "type", "data").
 		OrderBy("message_id, ordinal").All()
 	if err != nil {
-		return nil, err
+		return items, err
 	}
 	for _, row := range rows {
 		identifier := s.sessionRef(row.Get("session_id"))
@@ -324,9 +348,12 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 		if kind := row.Get("type"); !kind.IsEmpty() {
 			data.Set("type", columnValue(kind))
 		}
-		if message := parser.CollatedKey(row.Get("message_id"), s.messageCollation); message != "" {
-			items[message] = append(items[message], data)
+		message := parser.CollatedKey(row.Get("message_id"), s.messageCollation)
+		if message != "" {
+			items.byMessage[message] = append(items.byMessage[message], data)
 		}
+		items.rows = append(items.rows, storedItem{message: message, session: identifier, rowid: row.Rowid,
+			data: data})
 	}
 	return items, nil
 }

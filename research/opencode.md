@@ -1529,6 +1529,28 @@ the session and project the parser knows for it: a part file's row has the part 
 session file that reads it. The session and project files read for a message file's context give
 no row there; their own pass reports them.
 
+A 1.x `part` row that no message read takes (its `message_id` names no `message` row, is NULL, or
+names a message whose `data` does not decode) and a `session_part` row that no assistant record
+read claims (its `message_id` names no `session_message` row, is NULL, or names a record that is
+not an assistant record with `content`) give their own rows, with their own `session_id`, that
+session's project, their own time (a part's `time_created`; an item has only the times inside its
+`data`) and no model. A 1.x text part is shown as the assistant's, since only its message says
+whose it is, and an item as an assistant record's content, the only records items belong to. One
+`system` row per table, with no session and `source_line` 0, counts them:
+
+```text
+parser: part holds <n> rows naming no message read here; their rows are shown with their own session_id and no message
+parser: session_part holds <n> rows naming no assistant record read here; their rows are shown with their own session_id and no record
+```
+
+(`1 row` for one). A part of a 1.x message in a session `session_message` holds gives nothing,
+since that session is read from `session_message` alone. A message, record, share or event whose
+`session_id` or `aggregate_id` names no session row is shown with the id it names and no project,
+and one whose reference is NULL with an empty `session_id` and no project; no row says the session
+is missing. A session whose `project_id` names no project row, or is NULL, has no project unless
+it names its own `directory`, a saved grant naming none has no project, and a worktree's row
+names its project `-`.
+
 A 2.x assistant record whose `content` is present but not an array is a `system` row
 `parser: content is not a JSON array` at the record's rowid, and a tool item whose `state.content`
 is present but not an array is `parser: state.content is not a JSON array` after the record's

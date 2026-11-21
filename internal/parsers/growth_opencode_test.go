@@ -97,13 +97,35 @@ func opencodeGrowth() growthSet {
 // opencodeCases returns the cases of the stores of one OpenCode build.
 func opencodeCases(layout opencodeLayout) []growthCase {
 	var cases []growthCase
-	for _, group := range [][]growthCase{opencodeDatabaseCases(layout), opencodeRepeatCases(layout), opencodeJoinCases(layout), opencodeMoreDatabaseCases(layout),
+	for _, group := range [][]growthCase{opencodeDatabaseCases(layout), opencodeOrphanCases(layout), opencodeRepeatCases(layout), opencodeJoinCases(layout), opencodeMoreDatabaseCases(layout),
 		opencodeSessionFileCases(layout), opencodeMessageFileCases(layout), opencodeMoreMessageFileCases(layout),
 		opencodeOldLayoutCases(layout),
 		opencodeStateCases(layout)} {
 		cases = append(cases, group...)
 	}
 	return cases
+}
+
+// opencodeOrphanCases returns the cases of a database whose parts and
+// items name no message or record.
+func opencodeOrphanCases(layout opencodeLayout) []growthCase {
+	rel := layout.data + "/" + layout.database
+	return []growthCase{
+		// Each part naming no message, and each item naming no record, gives
+		// its own rows, and one parser: row counts them per table.
+		{kind: "database", shape: shapeSharedID + " (parts naming no message)", files: func(t *testing.T, n int) []growthFile {
+			parts := rows(n, func(i int) []any { return opencodeTextPart(numbered("prt_", i), numbered("msg_", i), i) })
+			items := sqlitetest.Table{Name: "session_part", SQL: "CREATE TABLE session_part (id text, message_id text, " +
+				"session_id text, type text, ordinal integer, data text)", Rows: rows(n, func(i int) []any {
+				return []any{numbered("itm_", i), numbered("rec_", i), opencodeSession, "text", 0, `{"text":"part"}`}
+			})}
+			records := sqlitetest.Table{Name: "session_message", SQL: "CREATE TABLE session_message (id text, " +
+				"session_id text, type text, seq integer, time_created integer, data text)"}
+			return one(rel, database(t, append([]sqlitetest.Table{opencodeSessionTable("session",
+				[][]any{{opencodeSession, nil, "/work/proj", "t", 1700000000000}}), items, records},
+				opencodeV1Tables(nil, parts)...)...))
+		}},
+	}
 }
 
 // opencodeDatabaseCases returns the cases of a database's repeated ids.

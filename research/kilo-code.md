@@ -1397,7 +1397,10 @@ the OpenCode reader.
 
 #### Bad-line rows
 
-Every file the parser reads is covered. Each line of `prompt-history.jsonl` and
+`kilo.db`'s parts and items naming no message or record, and its rows naming no session or
+project, are shown as the OpenCode reader shows them
+([Bad-line rows of `opencode.md`](opencode.md#bad-line-rows)). Every file the parser reads is
+covered. Each line of `prompt-history.jsonl` and
 `prompt-stash.jsonl` that does not decode is its own `parser: unparseable line (<reason>): <line>`
 row, read before Kilo's next start drops it; a log line that names a remote control message
 without its fields is `parser: unparseable line (<message> without its fields): <line>`. A file

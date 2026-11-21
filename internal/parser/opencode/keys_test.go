@@ -120,8 +120,9 @@ func TestASessionIDRepeatsOnlyWhenTheColumnComparesItsRowsEqual(t *testing.T) {
 }
 
 // A session_part item belongs only to the session_message record whose id
-// SQL's = finds equal to its message_id: a NULL message_id belongs to no
-// record, not one whose id is NULL too.
+// SQL's = finds equal to its message_id: an item whose message_id is NULL
+// belongs to no record, not one whose id is NULL too, and is shown as an
+// item of no record, counted in one parser: row.
 func TestAnItemWithANullMessageIDBelongsToNoRecord(t *testing.T) {
 	rows := keysRows(t,
 		sqlitetest.Table{Name: "session_v2", SQL: "CREATE TABLE session_v2 (id TEXT, directory TEXT, title TEXT, " +
@@ -132,12 +133,10 @@ func TestAnItemWithANullMessageIDBelongsToNoRecord(t *testing.T) {
 		sqlitetest.Table{Name: "session_part", SQL: "CREATE TABLE session_part (id TEXT, message_id TEXT, " +
 			"session_id TEXT, type TEXT, ordinal INTEGER, data TEXT)", Rows: [][]any{
 			{"prt_1", nil, "s1", "text", 0, `{"text":"ITEM"}`}}})
-	for _, row := range rows {
-		if strings.HasSuffix(row, " ITEM") {
-			t.Errorf("the item of a NULL message_id is shown as the record's content: %q", rows)
-		}
-	}
-	if !slices.Contains(rows, "s1 /proj OWN") {
-		t.Errorf("the record's own content is not shown: %q", rows)
+	want := []string{"s1 /proj session start: T directory=/proj", "s1 /proj OWN", "s1 /proj ITEM",
+		"  parser: session_part holds 1 row naming no assistant record read here; their rows are shown with " +
+			"their own session_id and no record"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows %q, want %q", rows, want)
 	}
 }
