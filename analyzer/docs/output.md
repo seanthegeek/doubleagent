@@ -1413,7 +1413,11 @@ deduplication, with every row attributed to the first stored row; the
 filters then keep or drop the rows as attributed, so a row kept in that
 first reading only beside a partner with the same `tool_use_id` can be
 dropped once its session changes. `sessions.jsonl` is summarised from the
-rows kept, so it describes only the rows shown.
+rows kept, so it describes only the rows shown. An Ollama `messages` row
+repeating a message id is one stored row of the id the same way: the
+id's tool calls are shown once, with the chat, time and `model` of one
+assistant message of the id, and its attachments once, in the text of
+one user message of it.
 
 **Carried values longer than 4,096 bytes.** Every field but `text` and
 `source_line` is at most 4,096 bytes, the bound the input also puts on a

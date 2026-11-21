@@ -1021,10 +1021,14 @@ all, `parser: integrations holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one).
 
 `messages.id` is the table's key, so Ollama never writes two messages of one id. When a damaged
-`messages` table holds an id more than once, the id's `tool_calls` rows go with the first
-assistant message of the id and its `attachments` rows with the first user message of it, in
-the order the messages are read (`chat_id`, then `id`, an id stored as `3` and as `3.0` being one
-id as SQL's `=` finds them); each later message of the id gives its own rows without them. One row
+`messages` table holds an id more than once, the id's `tool_calls` rows are shown once, with the
+chat, time and `model_name` of one assistant message of the id (their `tool_use_id` keeps the
+first message's `chat_id`), and its `attachments` rows once, in the text of one user message of
+it. That message is the first, in the order the messages are read (`chat_id`, then `id`, an id
+stored as `3` and as `3.0` being one id as SQL's `=` finds them), that `--since`, `--until` and
+`--match` keep, else the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); each other message of the id
+gives its own rows without them. One row
 `parser: messages holds <n> rows repeating an earlier row's id; its tool calls and attachments are shown once`
 (`1 row repeating` for one) follows the database's other rows, with no session or time, counting
 the messages that met a group an earlier message of their id already showed.

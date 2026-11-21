@@ -14,7 +14,8 @@ import (
 
 // rowsOfTableCaseDatabase copies the named testdata database, written by
 // a script under testdata, into a new home at the database's path and
-// returns the text of every row the parser gives for it.
+// returns the text of every row the parser gives for it, as it reads in
+// full.
 func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	t.Helper()
 	const rel = "Library/Application Support/Ollama/db.sqlite"
@@ -33,7 +34,7 @@ func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "ollama",
 		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
 	var texts []string
-	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { texts = append(texts, row.FullText()) }); err != nil {
 		t.Fatal(err)
 	}
 	return texts

@@ -111,12 +111,13 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 		return err
 	}
 	state := &chatState{models: parser.Tracker{}}
-	reader := &messageReader{parser: p, artifact: artifact, options: options, calls: calls,
-		files: files, shown: map[string]bool{}, state: state, cuts: parser.NewCarried(artifact), emit: emit}
 	messages, err := table.Select().OrderBy("chat_id", "id").All()
 	if err != nil {
 		return err
 	}
+	reader := &messageReader{parser: p, artifact: artifact, options: options, calls: calls,
+		files: files, shown: map[string]bool{}, groups: repeatedGroups(messages, calls, files),
+		attachments: map[string]*timeline.SharedText{}, state: state, cuts: parser.NewCarried(artifact), emit: emit}
 	for _, row := range messages {
 		reader.message(row)
 	}
@@ -136,11 +137,51 @@ func (p *Parser) databaseRows(database *sqlitefile.Database, artifact *input.Art
 	return nil
 }
 
+// messageKey returns the key of a message's id, an empty id read as 0.
+func messageKey(message sqlitefile.Row) string {
+	messageID := message.Get("id")
+	if messageID.IsEmpty() {
+		messageID = sqlitefile.IntValue(0)
+	}
+	return parser.ColumnKey(messageID)
+}
+
+// repeatedGroups returns a group (timeline.Group) for each id that more
+// than one assistant message with tool calls, or more than one user
+// message with attachments, repeats, by kind and key as messageReader's
+// shown holds them: "c" or "a" and the id's key.
+func repeatedGroups(messages []sqlitefile.Row, calls map[string][]toolCall,
+	files map[string][]attachment) map[string]*timeline.Group {
+	counts := map[string]int{}
+	for _, message := range messages {
+		key := messageKey(message)
+		switch parser.NonEmptyColumn(message.Get("role")) {
+		case "assistant":
+			if len(calls[key]) > 0 {
+				counts["c"+key]++
+			}
+		case "user":
+			if len(files[key]) > 0 {
+				counts["a"+key]++
+			}
+		}
+	}
+	groups := map[string]*timeline.Group{}
+	for kindKey, count := range counts {
+		if count > 1 {
+			groups[kindKey] = timeline.NewGroup()
+		}
+	}
+	return groups
+}
+
 // messageReader turns message rows into timeline rows. A message id is the
-// key of the messages table, so its tool calls and attachments go with the
-// first message of the id in the order the rows are read: shown holds the
-// groups already given, by kind and key, and repeats counts the later
-// messages that met one.
+// key of the messages table, so its tool calls and attachments are shown
+// once, with the first message of the id in the order the rows are read:
+// shown holds the kinds already given, by kind and key, and repeats counts
+// the later messages that met one. groups holds the group of each such
+// repeated id, by kind and key, whose parents are the messages of the id
+// and which settles which of them shows the calls or the attachments.
 type messageReader struct {
 	parser   *Parser
 	artifact *input.Artifact
@@ -148,8 +189,12 @@ type messageReader struct {
 	calls    map[string][]toolCall
 	files    map[string][]attachment
 	shown    map[string]bool
-	repeats  int
-	state    *chatState
+	groups   map[string]*timeline.Group
+	// attachments holds the shared text of the attachments of each id
+	// that groups holds, by key.
+	attachments map[string]*timeline.SharedText
+	repeats     int
+	state       *chatState
 	// cuts cuts the chat id each call's tool_use_id starts with.
 	cuts *parser.Carried
 	emit parser.Emit
@@ -198,21 +243,7 @@ func (m *messageReader) message(message sqlitefile.Row) {
 	row := m.parser.row(m.artifact, parser.ColumnLine(messageID), sessionID, timestamp)
 	switch role := parser.NonEmptyColumn(message.Get("role")); role {
 	case "user":
-		parts := []string{}
-		if content := parser.NonEmptyColumn(message.Get("content")); content != "" {
-			parts = append(parts, content)
-		}
-		files := m.files[key]
-		if !m.firstShowing("a", key, len(files)) {
-			files = nil
-		}
-		for _, file := range files {
-			parts = append(parts, "[attachment: "+file.filename+", "+
-				strconv.FormatInt(file.size, 10)+" bytes]")
-		}
-		row.TurnType = timeline.TurnUser
-		row.Text = timeline.Compact(strings.Join(parts, "\n"))
-		m.emit(row)
+		m.user(message, row, key)
 	case "assistant":
 		m.assistant(message, row, key)
 	case "tool":
@@ -228,6 +259,54 @@ func (m *messageReader) message(message sqlitefile.Row) {
 	}
 }
 
+// user emits a user message's row: its content, then, with the message
+// that shows them, its attachments. Each message of a repeated id is a
+// parent of the id's group, its row holding the attachments only when the
+// group goes with it, as one shared text so that each message does not
+// hold its own copy of them.
+func (m *messageReader) user(message sqlitefile.Row, row timeline.Row, key string) {
+	content := parser.NonEmptyColumn(message.Get("content"))
+	files := m.files[key]
+	row.TurnType = timeline.TurnUser
+	showing := m.firstShowing("a", key, len(files))
+	if group := m.groups["a"+key]; group != nil {
+		if m.attachments[key] == nil {
+			m.attachments[key] = timeline.NewSharedText(attachmentLines("", files))
+		}
+		var chosen timeline.TextBuilder
+		chosen.Write(content)
+		chosen.Write("\n")
+		chosen.Share(m.attachments[key], "[attachments]", attachmentsPointer)
+		group.Parent(&row).Texts(&row, chosen.Text(), timeline.RowText{Text: timeline.Compact(content)})
+		m.emit(row)
+		return
+	}
+	if !showing {
+		files = nil
+	}
+	row.Text = timeline.Compact(attachmentLines(content, files))
+	m.emit(row)
+}
+
+// attachmentLines returns content, when not empty, and a line per file.
+func attachmentLines(content string, files []attachment) string {
+	parts := []string{}
+	if content != "" {
+		parts = append(parts, content)
+	}
+	for _, file := range files {
+		parts = append(parts, "[attachment: "+file.filename+", "+strconv.FormatInt(file.size, 10)+" bytes]")
+	}
+	return strings.Join(parts, "\n")
+}
+
+// attachmentsPointer is what a row writes for the attachments of a
+// repeated id another row holds in full; only one message of the id shows
+// them, so no row writes it but a copy of that message's row.
+func attachmentsPointer(holder *timeline.Row, _ bool) string {
+	return "[attachments shown in full above, at source line " + strconv.Itoa(holder.SourceLine) + "]"
+}
+
 // assistant emits an assistant message's model change, thinking, text and
 // tool calls; base is the row the others start from.
 func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key string) {
@@ -237,9 +316,22 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 	if !m.firstShowing("c", key, len(calls)) {
 		calls = nil
 	}
+	// Each message of a repeated id is a parent of the id's group, and the
+	// calls, shown once, its members, at the time and with the chat and
+	// model of the message the group goes with.
+	group := m.groups["c"+key]
+	var parent *timeline.Parent
+	if group != nil {
+		holder := base
+		holder.Model = model
+		parent = group.Parent(&holder)
+	}
 	build := func(turnType, text string) timeline.Row {
 		row := base
 		row.TurnType, row.Model, row.Text = turnType, model, text
+		if parent != nil {
+			parent.Row(&row, timeline.Always)
+		}
 		return row
 	}
 	if content != "" || thinking != "" || len(calls) > 0 {
@@ -261,6 +353,9 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 		row.SourceLine = parser.ColumnLine(call.callID)
 		row.ToolName = call.name
 		row.ToolUseID = m.toolUseID(call)
+		if group != nil {
+			group.Member(&row, timeline.TakeTime|timeline.TakeSession|timeline.TakeModel)
+		}
 		m.emit(row)
 	}
 }
