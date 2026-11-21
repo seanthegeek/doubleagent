@@ -717,16 +717,6 @@ func (c *chat) messageFileRef(content jsonvalue.Value) (fileRef, bool) {
 	return fileRef{path: path, key: parser.KeyOf(path)}, true
 }
 
-// messageFile returns the text of the message file a history entry names,
-// "" when there is none (messageFileText).
-func (c *chat) messageFile(content jsonvalue.Value) string {
-	ref, named := c.messageFileRef(content)
-	if !named {
-		return ""
-	}
-	return c.messageFileText(ref)
-}
-
 // messageFileText returns the text of a message file, "" when it is absent
 // or not a regular file. A file is looked for once per chat, by the entry
 // it opens, so every spelling of its name that opens it gives the text of

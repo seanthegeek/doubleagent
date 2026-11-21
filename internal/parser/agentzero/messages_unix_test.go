@@ -37,7 +37,7 @@ func TestAMessageFileIsNeverReadThroughALinkedMessagesDirectory(t *testing.T) {
 				Home: &input.Home{DiskPath: home}}
 			state := &chat{messages: messagesBeside(artifact)}
 			content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString("1.txt")})
-			if got := state.messageFile(content); got != test.want || state.failure != nil {
+			if got := namedFileText(state, content); got != test.want || state.failure != nil {
 				t.Errorf("got %q, failure %v; want %q", got, state.failure, test.want)
 			}
 		})

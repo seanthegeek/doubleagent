@@ -87,7 +87,7 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			state := &chat{messages: messages}
 			content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(name)})
-			got := state.messageFile(content)
+			got := namedFileText(state, content)
 			if got != "" || state.failure != nil || len(state.problems) > 0 {
 				t.Errorf("got %q, failure %v, problems %v", got, state.failure, state.problems)
 			}
@@ -95,7 +95,7 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 	}
 	state := &chat{messages: messages}
 	content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(`a\1.txt`)})
-	if got := state.messageFile(content); got != "kept" {
+	if got := namedFileText(state, content); got != "kept" {
 		t.Errorf("a plain name after a backslash gave %q", got)
 	}
 }

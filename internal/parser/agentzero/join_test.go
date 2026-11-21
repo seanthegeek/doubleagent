@@ -28,6 +28,17 @@ func repeatedIDChat(pairs, size int) string {
 		`}],"log":{"logs":[` + strings.TrimSuffix(strings.Repeat(pair, pairs), ",") + `]}}`
 }
 
+// namedFileText returns the text of the message file a history message's
+// content names, as a log item of it reaches the file (groupKeys and
+// historyFile): "" when it names none.
+func namedFileText(state *chat, content jsonvalue.Value) string {
+	ref, named := state.messageFileRef(content)
+	if !named {
+		return ""
+	}
+	return state.messageFileText(ref)
+}
+
 // decodedOrNull returns the JSON value of text, null when it is not JSON.
 func decodedOrNull(text string) jsonvalue.Value {
 	value, err := jsonvalue.DecodeString(text)
@@ -92,7 +103,7 @@ func TestAMessageFileNamedTwiceIsReadOnce(t *testing.T) {
 	var got []string
 	for _, name := range []string{"1.txt", `x\1.txt`, "missing.txt", "missing.txt"} {
 		content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(name)})
-		got = append(got, state.messageFile(content))
+		got = append(got, namedFileText(state, content))
 	}
 	if want := []string{"kept", "kept", "", ""}; !slices.Equal(got, want) || work.Count("message files read") != 1 {
 		t.Errorf("got %q after %d reads, want %q after one", got, work.Count("message files read"), want)
