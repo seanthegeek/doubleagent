@@ -29,7 +29,7 @@ type groupedStore struct {
 }
 
 // groupedStores returns a store of every parser that groups the rows of a
-// repeated id.
+// repeated id, with moreGroupedStores.
 func groupedStores() []groupedStore {
 	file := func(agent, rel string, text func(t *testing.T) string) func(t *testing.T) []collectedFile {
 		return func(t *testing.T) []collectedFile {
@@ -48,7 +48,7 @@ func groupedStores() []groupedStore {
 	ollama := "Library/Application Support/Ollama/db.sqlite"
 	opencode, kilo := ".local/share/opencode/opencode-dev.db", ".local/share/kilo/kilo-dev.db"
 	zed := ".local/share/zed/db/0-stable/db.sqlite"
-	return []groupedStore{
+	return append([]groupedStore{
 		{"hermes sessions", "hermes", file("hermes", ".hermes/state.db",
 			testdata("hermes", "testdata", "repeated_session_rows.db"))},
 		{"nanobot keys", "nanobot", file("nanobot",
@@ -75,6 +75,57 @@ func groupedStores() []groupedStore {
 			return []collectedFile{agentZeroChat(messageFileChat),
 				{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/messages/1.txt", "FILE-RESULT"}}
 		}},
+	}, moreGroupedStores()...)
+}
+
+// codexState returns the Codex state database of a repeated thread id.
+func codexState(t *testing.T) collectedFile {
+	return collectedFile{"alice", "/home/alice", "codex-cli", ".codex/state_5.sqlite", codexRepeatState(t)}
+}
+
+// agentZeroFileChat returns the files of an Agent Zero chat whose history
+// names the message file big.txt, which holds FILE-TEXT.
+func agentZeroFileChat(chat string) func(*testing.T) []collectedFile {
+	return func(*testing.T) []collectedFile {
+		return []collectedFile{agentZeroChat(chat),
+			{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/messages/big.txt", "FILE-TEXT"}}
+	}
+}
+
+// moreGroupedStores returns the stores of the parsers on the grouping
+// mechanism that groupedStores does not build: Codex threads in both read
+// orders, Copilot CLI sessions, and Agent Zero's message file and history
+// message groups.
+func moreGroupedStores() []groupedStore {
+	file := func(agent, rel string, text func(t *testing.T) string) func(t *testing.T) []collectedFile {
+		return func(t *testing.T) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", agent, rel, text(t)}}
+		}
+	}
+	return []groupedStore{
+		{"codex threads, the state database first", "codex-cli", func(t *testing.T) []collectedFile {
+			return append([]collectedFile{codexState(t)}, codexRepeatSiblings(t)...)
+		}},
+		{"codex threads, the state database last", "codex-cli", func(t *testing.T) []collectedFile {
+			return append(codexRepeatSiblings(t), codexState(t))
+		}},
+		{"copilot cli sessions", "copilot-cli", file("copilot-cli", ".copilot/session-store.db", copilotRepeatStore)},
+		{"copilot cli sessions without a summary", "copilot-cli",
+			file("copilot-cli", ".copilot/session-store.db", copilotUnnamedStore)},
+		{"agent zero message file of two ids", "agent-zero", agentZeroFileChat(
+			historyChat(toolMessage("t1", "")+","+toolMessage("t2", ""),
+				toolItem("t1", january, "first own")+","+toolItem("t2", june, "second own")))},
+		{"agent zero message file of two ids with two items each", "agent-zero", agentZeroFileChat(
+			historyChat(toolMessage("t1", "")+","+toolMessage("t2", ""),
+				toolItem("t1", january, "a1")+","+toolItem("t2", march, "b1")+","+toolItem("t1", june, "a2")+","+
+					toolItem("t2", september, "b2")))},
+		{"agent zero message file beside a tool result", "agent-zero", agentZeroFileChat(
+			historyChat(toolMessage("t1", "")+","+toolMessage("t2", "SECOND-RESULT"),
+				toolItem("t1", january, "a1")+","+toolItem("t2", march, "b1")+","+toolItem("t2", june, "b2")))},
+		{"agent zero history message repeating an id", "agent-zero", func(*testing.T) []collectedFile {
+			return []collectedFile{agentZeroChat(historyChat(userMessage("u", "FIRST-PROMPT")+","+
+				userMessage("u", "LATER-PROMPT"), userItem("u", january, "")+","+userItem("u", june, "june ask")))}
+		}},
 	}
 }
 
@@ -99,10 +150,11 @@ func zedRepeatedSidebar(t *testing.T) string {
 }
 
 // timelineRows parses the collection at directory for agent as timeline
-// does, with patterns as --match, and returns the rows of the output; with
-// grouped set it returns instead the texts of the grouped rows the parsers
-// gave.
-func timelineRows(t *testing.T, directory, agent string, patterns []string, grouped bool) []timeline.Row {
+// does under filter, its patterns compiled from patterns, and returns the
+// rows of the output; with grouped set it returns instead the grouped rows
+// the parsers gave.
+func timelineRows(t *testing.T, directory, agent string, filter rowfilter.RowFilter, patterns []string,
+	grouped bool) []timeline.Row {
 	t.Helper()
 	ctx := context.Background()
 	found, err := matcher()
@@ -118,7 +170,7 @@ func timelineRows(t *testing.T, directory, agent string, patterns []string, grou
 	}
 	defer func() { _ = collection.Cleanup() }()
 	run := &timelineRun{options: TimelineOptions{Agents: []string{agent}}, env: env, collection: collection,
-		registry: parsers.New(), filter: &rowfilter.RowFilter{}}
+		registry: parsers.New(), filter: &filter}
 	if grouped {
 		result, err := run.registry.Collect(ctx, collection, parser.Options{}, run.options.Agents)
 		if err != nil {
@@ -153,12 +205,12 @@ func rowRecord(row timeline.Row) string {
 		row.FullText()}, " ")
 }
 
-// matchFaults returns what is wrong with filtered, the output under a
-// pattern, against unfiltered, the output without a filter: a row it
-// shows more often than unfiltered does, or a row of unfiltered the
-// pattern matches that it does not show, with its text or, for a row of
-// the chosen parent with two texts, at its place.
-func matchFaults(unfiltered, filtered []timeline.Row, pattern *regexp.Regexp) []string {
+// keepFaults returns what is wrong with filtered, the output under a
+// filter, against unfiltered, the output without one: a row it shows more
+// often than unfiltered does, or a row of unfiltered the filter keeps
+// (keeps) that it does not show, with its text or, for a row of the
+// chosen parent with two texts, at its place.
+func keepFaults(unfiltered, filtered []timeline.Row, keeps func(row *timeline.Row) bool) []string {
 	var faults []string
 	counts := map[string]int{}
 	for _, row := range unfiltered {
@@ -170,7 +222,7 @@ func matchFaults(unfiltered, filtered []timeline.Row, pattern *regexp.Regexp) []
 		}
 	}
 	for _, hit := range unfiltered {
-		if !hit.Matches(pattern) {
+		if !keeps(&hit) {
 			continue
 		}
 		if !slices.ContainsFunc(filtered, func(row timeline.Row) bool {
@@ -193,6 +245,38 @@ func countRecords(rows []timeline.Row) map[string]int {
 	return counts
 }
 
+// For every parser that groups the rows of a repeated id, a window from or
+// to the time of any row of the output without a filter shows every dated
+// row of that output inside it, with its text or, in the row of the
+// chosen parent with two texts, its chosen one, and shows no row more
+// often than that output does.
+func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
+	for _, store := range groupedStores() {
+		t.Run(store.name, func(t *testing.T) {
+			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
+				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
+			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
+			var times []string
+			for _, row := range unfiltered {
+				if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
+					times = append(times, row.TimestampUTC)
+				}
+			}
+			for _, bound := range times {
+				for _, window := range []rowfilter.RowFilter{{Since: bound}, {Until: bound}} {
+					filtered := timelineRows(t, directory, store.agent, window, nil, false)
+					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
+						return row.TimestampUTC != "" && (window.Since == "" || row.TimestampUTC >= window.Since) &&
+							(window.Until == "" || row.TimestampUTC <= window.Until)
+					}); len(faults) > 0 {
+						t.Errorf("--since %q --until %q: %q", window.Since, window.Until, faults)
+					}
+				}
+			}
+		})
+	}
+}
+
 // For every parser that groups the rows of a repeated id, a --match
 // pattern that matches a row of the output without a filter shows that
 // row, with its text or, in the row of the chosen parent with two texts,
@@ -204,7 +288,7 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
 				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
 			var texts []string
-			for _, row := range timelineRows(t, directory, store.agent, nil, true) {
+			for _, row := range timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true) {
 				if text := row.FullText(); text != "" && !slices.Contains(texts, regexp.QuoteMeta(text)) {
 					texts = append(texts, regexp.QuoteMeta(text))
 				}
@@ -212,12 +296,15 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 			if len(texts) == 0 {
 				t.Fatal("the store gave no grouped row")
 			}
-			unfiltered := timelineRows(t, directory, store.agent, nil, false)
+			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
 			for i, first := range texts {
 				for _, second := range texts[i:] {
 					pattern := first + "|" + second
-					filtered := timelineRows(t, directory, store.agent, []string{pattern}, false)
-					if faults := matchFaults(unfiltered, filtered, regexp.MustCompile(pattern)); len(faults) > 0 {
+					filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
+					matched := regexp.MustCompile(pattern)
+					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
+						return row.Matches(matched)
+					}); len(faults) > 0 {
 						t.Errorf("--match %q: %q", pattern, faults)
 					}
 				}

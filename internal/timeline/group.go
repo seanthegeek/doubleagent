@@ -5,8 +5,8 @@ package timeline
 // the id itself are members, shown once with what they take from the parent
 // the group goes with: its first, in the order the parser registered them,
 // that the --since, --until and --match filter keeps, never one that would
-// hide a kept row with nothing showing what the filter tested of it in its
-// place (Choose), else its first. Attach settles that once the output's
+// hide a kept row with nothing showing its text in its place (Choose),
+// else its first. Attach settles that once the output's
 // rows are known, so a planted earlier row with a real record's id cannot
 // move the record's rows out of a filter's window or give them its
 // attributes. See "Rows of a repeated id" in analyzer/docs/output.md.
@@ -55,7 +55,7 @@ type Form uint8
 // with, only when it goes with this parent (rows that replace the
 // parent's own row), or only when it does not (the row they replace). A
 // kept WhenNotChosen row counts toward choosing its parent only when a row
-// shown in its place carries what the filter tested of it (Choose).
+// shown in its place carries its text (Choose).
 const (
 	Always Form = iota
 	WhenChosen
@@ -190,10 +190,10 @@ const (
 // parser's order, with a row among kept, the rows a filter that tests
 // tested keeps of the rows the parsers gave, that counts for it. A kept
 // row shown only when its parent is not chosen counts only when a row
-// shown in its place carries what the filter tested of it: a member that
-// takes the parent's text (for a pattern) and time (for a window), the row
-// holding them, or a kept row of the parent shown only when it is chosen
-// with the same text. A kept one that does not passes over its parent,
+// shown in its place carries its text, and its time for a window: a member
+// that takes the parent's text (and time, for a window), the row holding
+// them, or a kept row of the parent shown only when it is chosen with the
+// same text. A kept one that does not passes over its parent,
 // unless that is the first, whose such rows the output without a filter
 // hides too. Without a filter a nil Choice gives every group its first.
 func Choose(kept []Row, tested Tested) Choice {
@@ -272,18 +272,16 @@ func (found *candidates) settle(group *Group, tested Tested, choice Choice) int 
 
 // carries reports whether a member of the group shows in the place of
 // row, a row of a parent shown only when the group does not go with it,
-// what a filter testing tested kept of it: the row holds the parent's
-// text, for a pattern, and its time, for a window, and one member takes
-// both.
+// its text and, for a filter that tests the time, its time: the row holds
+// the parent's text (and time), and one member takes it (and the time).
+// A member showing only the time would hide the row's text, which the
+// output without a filter shows.
 func (g *Group) carries(row *Row, tested Tested) bool {
 	parent := &g.parents[row.Group.parent]
-	var needs Takes
-	if tested&TestedText != 0 {
-		if row.Text != parent.Text || row.Shared != parent.Shared {
-			return false
-		}
-		needs |= TakeText
+	if row.Text != parent.Text || row.Shared != parent.Shared {
+		return false
 	}
+	needs := TakeText
 	if tested&TestedTime != 0 {
 		if row.TimestampUTC != parent.TimestampUTC {
 			return false

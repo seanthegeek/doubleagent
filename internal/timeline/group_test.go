@@ -588,7 +588,7 @@ func TestARowShownOnlyWhenChosenIsShownWhenItsParentIsChosen(t *testing.T) {
 	}
 }
 
-func TestAHiddenRowCountsOnlyWhenWhatReplacesItCarriesWhatTheFilterTested(t *testing.T) {
+func TestAHiddenRowCountsOnlyWhenWhatReplacesItCarriesItsText(t *testing.T) {
 	tests := []struct {
 		name   string
 		filter *filter
@@ -598,8 +598,8 @@ func TestAHiddenRowCountsOnlyWhenWhatReplacesItCarriesWhatTheFilterTested(t *tes
 			[]string{"content new"}},
 		{"a pattern also matching the later model row keeps the content shown",
 			&filter{pattern: regexp.MustCompile("content new|model new")}, []string{"model new", "content new"}},
-		{"a window that keeps only the later copy moves the part there, its time the content's",
-			&filter{since: betweenOld}, []string{"notice: parts with this row", "model new", "part text"}},
+		{"a window that keeps only the later copy keeps its content shown, as the part shows other text",
+			&filter{since: betweenOld}, []string{"notice: parts with another", "model new", "content new"}},
 		{"a window and a pattern on the later content keep it shown",
 			&filter{since: betweenOld, pattern: regexp.MustCompile("content new")}, []string{"content new"}},
 	}

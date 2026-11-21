@@ -76,7 +76,20 @@ func TestTheRowsOfARepeatedCopilotCLISessionGoWithTheFirstStoredRowTheFilterKeep
 // name, but its `parser:` row still shows it, with its own project, and
 // the session's rows go with it when the filter keeps only that row.
 func TestAStoredSessionRowWithNoSummaryStillShowsItsRepeat(t *testing.T) {
-	store := buildDatabase(t,
+	rows := repeatedIDRunOf(t, "copilot-cli", []collectedFile{{"alice", "/home/alice", "copilot-cli",
+		".copilot/session-store.db", copilotUnnamedStore(t)}}, "--since", "2026-03-01")
+	want := []string{copilotRowB + copilotShown + "this row", "2026-06-02T00:00:00.000Z s1 /proj/b br-b USER-TEXT"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// copilotUnnamedStore returns a session store whose sessions table holds
+// one session id in two rows, the later with no summary, and a turn of the
+// session a day after the later row.
+func copilotUnnamedStore(t *testing.T) string {
+	t.Helper()
+	return buildDatabase(t,
 		sqlitetest.Table{Name: "sessions", SQL: "CREATE TABLE sessions (id TEXT, cwd TEXT, branch TEXT, " +
 			"summary TEXT, created_at TEXT)", Rows: [][]any{
 			{"s1", "/proj/a", "br-a", "Name A", "2026-01-01T00:00:00.000Z"},
@@ -84,10 +97,4 @@ func TestAStoredSessionRowWithNoSummaryStillShowsItsRepeat(t *testing.T) {
 		sqlitetest.Table{Name: "turns", SQL: "CREATE TABLE turns (session_id TEXT, turn_index INTEGER, " +
 			"user_message TEXT, assistant_response TEXT, timestamp TEXT)", Rows: [][]any{
 			{"s1", int64(0), "USER-TEXT", nil, "2026-06-02T00:00:00.000Z"}}})
-	rows := repeatedIDRunOf(t, "copilot-cli", []collectedFile{{"alice", "/home/alice", "copilot-cli",
-		".copilot/session-store.db", store}}, "--since", "2026-03-01")
-	want := []string{copilotRowB + copilotShown + "this row", "2026-06-02T00:00:00.000Z s1 /proj/b br-b USER-TEXT"}
-	if !slices.Equal(rows, want) {
-		t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(want, "\n"))
-	}
 }

@@ -145,11 +145,13 @@ func opencodeRepeatCases() []opencodeRepeatCase {
 			opencodeRecordD + opencodeShownV2 + "another of them", opencodeRecordD + "model: mB provider=pB",
 			opencodeRecordD + "OWN-NEW", opencodeStartB, opencodeUserB + opencodeShown + "another of them",
 			opencodeModelB + opencodeShown + "another of them", opencodeModelB + "model: mB provider=pB", assistantA}},
-		{"a window past the first row moves them to the second", []string{"--since", "2026-03-01"}, []string{
-			opencodeRecordD + "ITEM-TEXT", opencodeStartD, opencodeRecordD + opencodeShownV2 + "this row",
-			opencodeRecordD + "model: mB provider=pB", opencodeUserB + "USER-PART-TEXT", opencodeStartB,
-			opencodeUserB + opencodeShown + "this row", opencodeModelB + opencodeShown + "this row",
-			opencodeModelB + "model: mB provider=pB", assistantB}},
+		{"a window past the first row moves the 1.x rows to the second and keeps the later content shown",
+			[]string{"--since", "2026-03-01"}, []string{
+				opencodeStartD, opencodeRecordD + opencodeShownV2 + "another of them",
+				opencodeRecordD + "model: mB provider=pB", opencodeRecordD + "OWN-NEW",
+				opencodeUserB + "USER-PART-TEXT", opencodeStartB,
+				opencodeUserB + opencodeShown + "this row", opencodeModelB + opencodeShown + "this row",
+				opencodeModelB + "model: mB provider=pB", assistantB}},
 		{"a window before the second row keeps them with the first", []string{"--until", "2026-03-01"}, []string{
 			opencodeStartC, opencodeRecordC + opencodeShownV2 + "this row", opencodeRecordC + "model: mA provider=pA",
 			opencodeRecordC + "ITEM-TEXT", opencodeStartA, opencodeUserA + opencodeShown + "this row",
