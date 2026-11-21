@@ -319,7 +319,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 	var problems parser.Problems
 	for _, entry := range feedback {
 		rowid := int(entry.Rowid)
-		record, ok := decodeColumnObject(entry.Get("record"), rowid, &problems)
+		record, ok := decodeColumnObject(artifact, entry.Get("record"), rowid, &problems)
 		if !ok {
 			continue
 		}
@@ -332,7 +332,7 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 		row.TurnType = timeline.TurnSystem
 		row.TimestampUTC = uuid7Time(entry.Get("id"))
 		row.ToolUseID = parser.Text(record.Get("target_item_id"))
-		row.Text = timeline.Compact(feedbackText(record))
+		row.Text = timeline.Compact(feedbackText(artifact, record))
 		threads.member(sessionID, &row, timeline.TakeProject|timeline.TakeBranch)
 		emit(row)
 	}
@@ -342,12 +342,12 @@ func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Ro
 // decodeColumnObject returns the JSON object a column holds as text or as
 // a UTF-8 blob, or false after adding the problem "unparseable record
 // <rowid> (<reason>)" with the stored value.
-func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Problems) (jsonvalue.Value, bool) {
+func decodeColumnObject(artifact *input.Artifact, value sqlitefile.Value, rowid int, problems *parser.Problems) (jsonvalue.Value, bool) {
 	raw := value.String()
 	if value.Type == sqlitefile.Blob {
 		raw = textlines.ValidUTF8(value.Bytes)
 	}
-	record, err := jsonvalue.DecodeString(raw)
+	record, err := parser.DecodeJSON(artifact, raw)
 	if err == nil && !record.IsObject() {
 		err = errNotObject
 	}
@@ -362,12 +362,12 @@ func decodeColumnObject(value sqlitefile.Value, rowid int, problems *parser.Prob
 // review's feedback record. A denied record whose decision is the
 // reviewer's JSON verdict reads as the review thread's own row for that
 // verdict, so the two pair.
-func feedbackText(record jsonvalue.Value) string {
+func feedbackText(artifact *input.Artifact, record jsonvalue.Value) string {
 	item := cmp.Or(parser.Text(record.Get("target_item_id")), "-")
 	reviewer := cmp.Or(parser.Text(record.Get("reviewer_thread_id")), "-")
 	decision := record.Get("decision")
 	if parser.IsText(record.Get("status"), "denied") && decision.IsString() {
-		if verdict, ok := guardianVerdict(decision.StringValue()); ok {
+		if verdict, ok := guardianVerdict(artifact, decision.StringValue()); ok {
 			return guardianText(verdict, item, reviewer)
 		}
 	}

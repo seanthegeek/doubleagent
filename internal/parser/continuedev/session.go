@@ -68,7 +68,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, fileID, ""))
 		return
 	}
-	document, problem := LoadSession(textlines.ValidUTF8(content))
+	document, problem := LoadSession(artifact, textlines.ValidUTF8(content))
 	sessionID := cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	var entry jsonvalue.Value
 	var repeat *Repeat

@@ -33,7 +33,7 @@ func TestLoadMessagesKeepsWhatSurvivesATruncation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			messages, failure := loadMessages(test.raw, &problems)
+			messages, failure := loadMessages(nil, test.raw, &problems)
 			text := ""
 			if failure != nil {
 				text = failure.Error()
@@ -71,7 +71,7 @@ func TestCallTextPrefersTheShellCommand(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := callText(arguments); got != test.want {
+			if got := callText(nil, arguments); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

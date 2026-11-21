@@ -31,12 +31,12 @@ func orgDir(artifact *input.Artifact, dir string) (string, bool) {
 
 // readJSON returns the file decoded as JSON, or false when it cannot be
 // read (its problem added) or is not JSON.
-func readJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
+func readJSON(artifact *input.Artifact, path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	value, err := jsonvalue.Decode(data)
+	value, err := parser.DecodeJSONBytes(artifact, data)
 	return value, err == nil
 }
 
@@ -112,7 +112,7 @@ func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, 
 				continue
 			}
 			var ignored parser.Problems
-			if record, ok := readJSON(candidate, &ignored); ok && record.IsObject() {
+			if record, ok := readJSON(nil, candidate, &ignored); ok && record.IsObject() {
 				return record, true
 			}
 		}

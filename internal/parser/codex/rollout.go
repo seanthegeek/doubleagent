@@ -381,7 +381,7 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	if s.guardianParent == "" || !message.IsString() {
 		return
 	}
-	verdict, ok := guardianVerdict(message.StringValue())
+	verdict, ok := guardianVerdict(s.artifact, message.StringValue())
 	if !ok {
 		return
 	}

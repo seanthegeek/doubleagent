@@ -192,7 +192,7 @@ func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := jsonvalue.Decode(data)
+	document, err := parser.DecodeJSONBytes(artifact, data)
 	timestamp := parser.FileMtime(artifact)
 	put := func(text string) {
 		row := p.SystemRow(artifact, text)

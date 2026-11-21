@@ -52,12 +52,12 @@ func (p *Parser) newMessageReader(artifact *input.Artifact, options parser.Optio
 
 // decodeContent returns a messages.content value as stored: text, or the
 // parts behind the JSON sentinel (the text after it when it is not JSON).
-func decodeContent(value jsonvalue.Value) jsonvalue.Value {
+func decodeContent(artifact *input.Artifact, value jsonvalue.Value) jsonvalue.Value {
 	if !value.IsString() || !strings.HasPrefix(value.StringValue(), jsonPrefix) {
 		return value
 	}
 	rest := strings.TrimPrefix(value.StringValue(), jsonPrefix)
-	decoded, err := jsonvalue.DecodeString(rest)
+	decoded, err := parser.DecodeJSON(artifact, rest)
 	if err != nil {
 		return jsonvalue.NewString(rest)
 	}
@@ -66,8 +66,8 @@ func decodeContent(value jsonvalue.Value) jsonvalue.Value {
 
 // contentText returns the text of a messages.content value, image parts as
 // "[image]".
-func contentText(value jsonvalue.Value) string {
-	content := decodeContent(value)
+func contentText(artifact *input.Artifact, value jsonvalue.Value) string {
+	content := decodeContent(artifact, value)
 	if content.IsArray() {
 		blocks := make([]jsonvalue.Value, 0, content.Len())
 		for _, block := range content.Items() {
@@ -84,14 +84,14 @@ func contentText(value jsonvalue.Value) string {
 
 // jsonOr decodes a JSON text, returning fallback for null, empty text or
 // text that is not JSON; a value that is not text is itself.
-func jsonOr(value, fallback jsonvalue.Value) jsonvalue.Value {
+func jsonOr(artifact *input.Artifact, value, fallback jsonvalue.Value) jsonvalue.Value {
 	switch {
 	case value.IsNull(), value.IsString() && value.StringValue() == "":
 		return fallback
 	case !value.IsString():
 		return value
 	}
-	decoded, err := jsonvalue.DecodeString(value.StringValue())
+	decoded, err := parser.DecodeJSON(artifact, value.StringValue())
 	if err != nil {
 		return fallback
 	}
@@ -116,7 +116,7 @@ func modelSwitch(content jsonvalue.Value) (string, string, bool) {
 // value that is not JSON, not a list (a lone object is a one-call list) or
 // holds an entry that is not an object is a problem carrying the value as
 // stored; the entries that are objects are still returned.
-func toolCalls(message jsonvalue.Value, line jsonvalue.Value) ([]jsonvalue.Value, parser.Problems) {
+func toolCalls(artifact *input.Artifact, message jsonvalue.Value, line jsonvalue.Value) ([]jsonvalue.Value, parser.Problems) {
 	value := message.Get("tool_calls")
 	if !parser.Present(value) {
 		return nil, nil
@@ -129,7 +129,7 @@ func toolCalls(message jsonvalue.Value, line jsonvalue.Value) ([]jsonvalue.Value
 	label := "unparseable record " + line.Text()
 	var problems parser.Problems
 	if value.IsString() {
-		decoded, err := jsonvalue.DecodeString(value.StringValue())
+		decoded, err := parser.DecodeJSON(artifact, value.StringValue())
 		if err != nil {
 			problems.AddRaw(number, label+" (tool_calls is not valid JSON: "+err.Error()+")", raw)
 			return nil, problems
@@ -166,8 +166,8 @@ func lineNumber(line jsonvalue.Value) int {
 
 // callSummary returns the command, path, file_path, url or query argument
 // of a call, else the arguments as compact JSON, or as stored text.
-func callSummary(arguments jsonvalue.Value) string {
-	decoded := jsonOr(arguments, arguments)
+func callSummary(artifact *input.Artifact, arguments jsonvalue.Value) string {
+	decoded := jsonOr(artifact, arguments, arguments)
 	if decoded.IsObject() {
 		for _, key := range []string{"command", "path", "file_path", "url", "query"} {
 			if value := decoded.Get(key); parser.Present(value) {
@@ -186,10 +186,10 @@ func callSummary(arguments jsonvalue.Value) string {
 // of a terminal tool result: "approved (<note>)", "blocked <error>" with
 // " user_summary=<summary>" when a person was asked, or "pending
 // pattern=<key> smart_denied=<bool>"; "" for any other result.
-func terminalDecision(content jsonvalue.Value) string {
-	value := decodeContent(content)
+func terminalDecision(artifact *input.Artifact, content jsonvalue.Value) string {
+	value := decodeContent(artifact, content)
 	if value.IsString() {
-		decoded, err := jsonvalue.DecodeString(value.StringValue())
+		decoded, err := parser.DecodeJSON(artifact, value.StringValue())
 		if err != nil {
 			return ""
 		}
@@ -256,7 +256,7 @@ func (m *messageReader) message(message, session, line jsonvalue.Value) {
 			m.emit(makeRow(timeline.TurnThinking, reasoning.Text()))
 		}
 	}
-	text := contentText(message.Get("content"))
+	text := contentText(m.artifact, message.Get("content"))
 	turnType, known := roleTypes()[role]
 	if !known {
 		turnType = timeline.TurnSystem
@@ -277,13 +277,13 @@ func (m *messageReader) message(message, session, line jsonvalue.Value) {
 // each call's tool name, then the problems of its tool_calls.
 func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 	makeRow func(turnType, text string) timeline.Row) {
-	calls, problems := toolCalls(message, line)
+	calls, problems := toolCalls(m.artifact, message, line)
 	for _, call := range calls {
 		function := call.Get("function")
 		if !function.IsObject() {
 			function = jsonvalue.NewObject()
 		}
-		row := makeRow(timeline.TurnToolUse, callSummary(function.Get("arguments")))
+		row := makeRow(timeline.TurnToolUse, callSummary(m.artifact, function.Get("arguments")))
 		row.ToolUseID = parser.Text(parser.FirstNonEmpty(call.Get("id"), call.Get("call_id")))
 		row.ToolName = parser.Text(function.Get("name"))
 		m.toolNames[row.ToolUseID] = row.ToolName
@@ -320,7 +320,7 @@ func (m *messageReader) toolResult(message, session jsonvalue.Value, row timelin
 	if row.ToolName != "terminal" {
 		return
 	}
-	if decision := terminalDecision(message.Get("content")); decision != "" {
+	if decision := terminalDecision(m.artifact, message.Get("content")); decision != "" {
 		permission := m.parser.row(m.artifact, number, session, timestamp)
 		permission.TurnType = timeline.TurnSystem
 		permission.Text = timeline.Compact("permission decision: " + decision)
@@ -340,7 +340,7 @@ func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) 
 	row.TurnType = timeline.TurnSystem
 	model, provider, ok := modelSwitch(message.Get("content"))
 	if !ok {
-		row.Text = timeline.Compact("model_switch: " + contentText(message.Get("content")))
+		row.Text = timeline.Compact("model_switch: " + contentText(m.artifact, message.Get("content")))
 		m.join(&row, sessionTakes)
 		return row
 	}

@@ -23,7 +23,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, fileID, ""))
 		return
 	}
-	document, problem := continuedev.LoadSession(raw)
+	document, problem := continuedev.LoadSession(artifact, raw)
 	base := p.BaseRow(artifact)
 	base.SessionID = cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	var entry jsonvalue.Value

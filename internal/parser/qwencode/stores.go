@@ -97,7 +97,7 @@ func (p *Parser) channelRoutes(artifact *input.Artifact, name string, emit parse
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := jsonvalue.Decode(data)
+	document, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, name+" is not a JSON object")
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -147,7 +147,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 	if artifact.Home.Project {
 		project = artifact.Home.Original
 	}
-	document, err := parser.ParseJSONC(data)
+	document, err := parser.ParseJSONC(artifact, data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, artifact.Rel+" is not a JSON object")
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))

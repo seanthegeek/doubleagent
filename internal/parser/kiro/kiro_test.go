@@ -34,7 +34,7 @@ func TestSalvageKeepsTheEntriesBeforeTheDamage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state, ok, err := New().salvage(test.text)
+			state, ok, err := New().salvage(nil, test.text)
 			got := ""
 			if ok {
 				got = state.JSON()
@@ -51,12 +51,12 @@ func TestSalvageTakesJSONWhitespaceOnly(t *testing.T) {
 		return `{"conversation_id"` + first + ":" + second + `"c1", "history"` + third + ":" +
 			fourth + `[{"a": 1}, {"b`
 	}
-	state, _, _ := New().salvage(template(" ", "\n", "\r\n", "\t"))
+	state, _, _ := New().salvage(nil, template(" ", "\n", "\r\n", "\t"))
 	if got := state.Get("conversation_id"); !got.IsString() || got.StringValue() != "c1" {
 		t.Errorf("got %v", got)
 	}
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
-		state, _, _ := New().salvage(template(space, "", space, ""))
+		state, _, _ := New().salvage(nil, template(space, "", space, ""))
 		if state.Has("conversation_id") {
 			t.Errorf("%q: the id was read", space)
 		}

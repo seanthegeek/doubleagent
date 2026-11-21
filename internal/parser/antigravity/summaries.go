@@ -2,7 +2,6 @@ package antigravity
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -46,7 +45,7 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 		row.SourceLine = position + 1
 		row.SessionID = parser.NonEmptyColumn(summary.Get("conversation_id"))
 		row.TimestampUTC = parser.ColumnTime(summary.Get("last_modified_time"))
-		row.ProjectPath = firstWorkspace(summary.Get("workspace_uris"))
+		row.ProjectPath = firstWorkspace(artifact, summary.Get("workspace_uris"))
 		row.TurnType = timeline.TurnSystem
 		steps := "0"
 		if table.Has("step_count") {
@@ -65,12 +64,13 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 }
 
 // firstWorkspace returns the path of the first workspace URI of a
-// summary's JSON list, "" when there is none.
-func firstWorkspace(value sqlitefile.Value) string {
+// summary's JSON list, "" when there is none, noting the list's repeated
+// member names in the parse of artifact.
+func firstWorkspace(artifact *input.Artifact, value sqlitefile.Value) string {
 	if value.IsEmpty() || (value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob) {
 		return ""
 	}
-	uris, err := jsonvalue.DecodeString(textlines.ValidUTF8(value.Bytes))
+	uris, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(value.Bytes))
 	if err != nil || uris.IsObject() {
 		return ""
 	}

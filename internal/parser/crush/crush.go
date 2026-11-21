@@ -140,7 +140,7 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil {
 		emit(p.system(artifact, parser.ProblemPrefix+"projects.json did not parse: "+err.Error(), 0))
 		return
@@ -234,7 +234,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", p.configProject(artifact)))
 		return
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil || !document.IsObject() {
 		text := parser.ProblemPrefix + artifact.Rel + " is not a JSON object"
 		if err != nil {

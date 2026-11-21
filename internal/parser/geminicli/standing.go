@@ -68,7 +68,7 @@ func TrustedFolderRows(base parser.Base, artifact *input.Artifact, emit parser.E
 		return
 	}
 	timestamp := parser.FileMtime(artifact)
-	document, err := parser.ParseJSONC(data)
+	document, err := parser.ParseJSONC(artifact, data)
 	if err != nil || !document.IsObject() {
 		emit(standingRow(base, artifact, timestamp, "", "parser: "+artifact.Rel+
 			" is not a JSON object"))
@@ -93,9 +93,9 @@ func (p *Parser) jsonObject(artifact *input.Artifact, jsonc bool) (jsonvalue.Val
 	var document jsonvalue.Value
 	var err error
 	if jsonc {
-		document, err = parser.ParseJSONC(data)
+		document, err = parser.ParseJSONC(artifact, data)
 	} else {
-		document, err = jsonvalue.Decode(data)
+		document, err = parser.DecodeJSONBytes(artifact, data)
 	}
 	if err == nil && document.IsObject() {
 		return document, timeline.Row{}, true

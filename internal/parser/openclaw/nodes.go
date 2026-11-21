@@ -46,7 +46,7 @@ func (a *agentDatabase) nodes() ([]node, error) {
 	var nodes []node
 	for _, row := range rows {
 		raw := parser.TextColumn(row.Get("entry_json"))
-		entry, decodeErr := jsonvalue.DecodeString(raw)
+		entry, decodeErr := parser.DecodeJSON(a.artifact, raw)
 		if decodeErr != nil {
 			a.problems.AddRaw(int(row.Rowid), "session_nodes entry_json unparseable ("+
 				decodeErr.Error()+")", raw)

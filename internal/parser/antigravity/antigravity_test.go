@@ -76,7 +76,7 @@ func TestToolArgsSummaryPicksTheNamingArgument(t *testing.T) {
 		{"5", "5"},
 	} {
 		t.Run(test.arguments, func(t *testing.T) {
-			if got := toolArgsSummary(test.arguments); got != test.want {
+			if got := toolArgsSummary(nil, test.arguments); got != test.want {
 				t.Errorf("toolArgsSummary(%q) = %q, want %q", test.arguments, got, test.want)
 			}
 		})

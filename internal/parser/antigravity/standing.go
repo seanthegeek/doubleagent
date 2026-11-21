@@ -44,7 +44,7 @@ func (p *Parser) standing(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	mtime := parser.FileMtime(artifact)
-	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
+	document, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(content))
 	if err != nil || !document.IsObject() {
 		row := p.SystemRow(artifact, "parser: unreadable "+artifact.Rel)
 		row.SourceLine, row.TimestampUTC = 1, mtime

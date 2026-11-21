@@ -249,7 +249,7 @@ func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonval
 	label := "unparseable record " + rowid.Text() + " (sessions." + column
 	value := raw
 	if raw.IsString() {
-		decoded, err := jsonvalue.DecodeString(raw.StringValue())
+		decoded, err := parser.DecodeJSON(s.artifact, raw.StringValue())
 		if err != nil {
 			s.addError(sessionID, project, rowid, label+": "+err.Error()+")", raw.StringValue())
 			return jsonvalue.NewObject()
@@ -355,14 +355,14 @@ func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, see
 // jsonObject decodes a column that stores a JSON object. An empty value
 // reads as empty text, which does not decode; a number is "not JSON
 // text", and a document of another kind "not a JSON object".
-func jsonObject(value jsonvalue.Value) (jsonvalue.Value, error) {
+func jsonObject(artifact *input.Artifact, value jsonvalue.Value) (jsonvalue.Value, error) {
 	if value.IsEmpty() {
 		value = jsonvalue.NewString("")
 	}
 	if !value.IsString() {
 		return jsonvalue.Value{}, errors.New("not JSON text")
 	}
-	decoded, err := jsonvalue.DecodeString(value.StringValue())
+	decoded, err := parser.DecodeJSON(artifact, value.StringValue())
 	switch {
 	case err != nil:
 		return jsonvalue.Value{}, err
@@ -392,7 +392,7 @@ func (s *stateReader) retiredRows() error {
 		if !ok {
 			session = sessionOf(sessionID)
 		}
-		value, err := jsonObject(record.Get("value"))
+		value, err := jsonObject(s.artifact, record.Get("value"))
 		if err != nil {
 			s.addError(sessionID, projectOf(session), record.Get("_rowid"), "unparseable record "+
 				record.Get("_rowid").Text()+" (state_meta.value: "+err.Error()+")", parser.Text(record.Get("value")))
@@ -495,7 +495,7 @@ func (s *stateReader) roomRows() error {
 // object, or false after filing a record problem when it does not decode
 // to one.
 func (s *stateReader) roomJSON(event jsonvalue.Value, column string) (jsonvalue.Value, bool) {
-	value, err := jsonObject(event.Get(column))
+	value, err := jsonObject(s.artifact, event.Get(column))
 	if err == nil {
 		return value, true
 	}

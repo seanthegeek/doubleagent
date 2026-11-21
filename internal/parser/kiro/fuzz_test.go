@@ -9,7 +9,7 @@ func FuzzSalvage(fuzz *testing.F) {
 	}
 	subject := New()
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		_, _, _ = subject.salvage(text)
+		_, _, _ = subject.salvage(nil, text)
 		_ = unescapeHistory(text)
 	})
 }

@@ -22,9 +22,10 @@ const (
 // when it does not parse: the conversation_id and every complete history
 // entry before the damage. It returns the state, or false when there is
 // none, and the error that stopped the decoding, nil when the whole
-// document parsed.
-func (p *Parser) salvage(text string) (jsonvalue.Value, bool, error) {
-	state, err := jsonvalue.DecodeString(text)
+// document parsed. Repeated member names are noted in the parse of
+// artifact.
+func (p *Parser) salvage(artifact *input.Artifact, text string) (jsonvalue.Value, bool, error) {
+	state, err := parser.DecodeJSON(artifact, text)
 	if err == nil {
 		if state.IsObject() {
 			return state, true, nil
@@ -41,7 +42,7 @@ func (p *Parser) salvage(text string) (jsonvalue.Value, bool, error) {
 			members = append(members, jsonvalue.Member{Key: "conversation_id", Value: decoded})
 		}
 	}
-	entries := parser.ObjectsFrom(text, found[1])
+	entries := parser.ObjectsFrom(artifact, text, found[1])
 	history := jsonvalue.Member{Key: "history", Value: jsonvalue.NewArray(entries...)}
 	return jsonvalue.NewObject(append([]jsonvalue.Member{history}, members...)...), true, err
 }
@@ -185,7 +186,7 @@ func fill(row timeline.Row, turnType, text string) timeline.Row {
 // problem row, after the conversation's rows.
 func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, text, key string,
 	line int, emit parser.Emit) {
-	state, ok, err := p.salvage(text)
+	state, ok, err := p.salvage(artifact, text)
 	if !ok || !state.Get("history").IsArray() {
 		if ok && err == nil {
 			var found parser.Problems

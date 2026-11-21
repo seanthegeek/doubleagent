@@ -93,8 +93,9 @@ func walkEntry(node jsonvalue.Value, summaries bool, wrong *int, visit func(summ
 }
 
 // parseAI returns the assistant's raw output parsed as the agent's JSON
-// response, else null.
-func parseAI(content jsonvalue.Value) jsonvalue.Value {
+// response, else null, noting its repeated member names in the parse of
+// artifact.
+func parseAI(artifact *input.Artifact, content jsonvalue.Value) jsonvalue.Value {
 	if content.IsObject() {
 		return content
 	}
@@ -105,7 +106,7 @@ func parseAI(content jsonvalue.Value) jsonvalue.Value {
 	if !strings.HasPrefix(text, "{") {
 		return jsonvalue.NewNull()
 	}
-	value, err := jsonvalue.DecodeString(text)
+	value, err := parser.DecodeJSON(artifact, text)
 	if err != nil || !value.IsObject() {
 		return jsonvalue.NewNull()
 	}
@@ -170,19 +171,22 @@ func contentText(value jsonvalue.Value) string {
 }
 
 // recoverLogs returns the complete log items before the point where a
-// damaged file breaks off.
-func (p *Parser) recoverLogs(raw string) []jsonvalue.Value {
+// damaged file breaks off, noting their repeated member names in the parse
+// of artifact.
+func (p *Parser) recoverLogs(artifact *input.Artifact, raw string) []jsonvalue.Value {
 	match := p.logs.FindStringIndex(raw)
 	if match == nil {
 		return nil
 	}
+	document := jsonvalue.NewDocument(raw)
+	defer func() { parser.NoteRepeats(artifact, document.TakeRepeats()) }()
 	var items []jsonvalue.Value
 	position := match[1]
 	for {
 		for position < len(raw) && strings.IndexByte(" \t\r\n,", raw[position]) >= 0 {
 			position++
 		}
-		item, end, err := jsonvalue.DecodePrefix(raw, position)
+		item, end, err := document.DecodePrefix(position)
 		if err != nil || !item.IsObject() {
 			return items
 		}
@@ -451,7 +455,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		return nil
 	}
 	raw := textlines.ValidUTF8(content)
-	document, err := jsonvalue.DecodeString(raw)
+	document, err := parser.DecodeJSON(artifact, raw)
 	reason := ""
 	switch {
 	case err != nil:
@@ -464,7 +468,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 	if reason != "" {
 		emit(state.row(timeline.TurnSystem, "parser: chat.json did not parse ("+reason+
 			"); log items recovered without history", 0, ""))
-		state.logRows(p.recoverLogs(raw))
+		state.logRows(p.recoverLogs(artifact, raw))
 		return state.failure
 	}
 	if !legacy {
@@ -575,7 +579,7 @@ func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []histor
 		if history.IsString() {
 			history = jsonvalue.NewObject()
 			if text := agent.Get("history").StringValue(); text != "" {
-				decoded, err := jsonvalue.DecodeString(text)
+				decoded, err := parser.DecodeJSON(c.artifact, text)
 				if err != nil {
 					c.emit(c.row(timeline.TurnSystem, "parser: history of agent "+number.Text()+
 						" did not parse ("+err.Error()+")", 0, ""))
@@ -677,7 +681,7 @@ func (c *chat) historyRows(agent, message jsonvalue.Value) {
 // assistantHistory emits the model row, the reply and the tool call of an
 // assistant history message.
 func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
-	parsed := parseAI(content)
+	parsed := parseAI(c.artifact, content)
 	model := modelOf(message)
 	c.modelRow(agent, model, 0, "")
 	text := contentText(content)
@@ -1089,7 +1093,7 @@ func (c *chat) reply(current *logItem, body jsonvalue.Value) (string, bool) {
 		return held.text, held.parsed
 	}
 	c.work.Add("history replies decoded", 1)
-	parsed := parseAI(body)
+	parsed := parseAI(c.artifact, body)
 	held := decodedReply{parsed: !parsed.IsEmpty()}
 	if held.parsed {
 		held.text = headlineText(parsed)

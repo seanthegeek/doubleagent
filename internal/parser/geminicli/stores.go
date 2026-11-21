@@ -92,7 +92,7 @@ func jsonFile(artifact *input.Artifact, label string, problems *parser.Problems)
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	document, err := jsonvalue.Decode(data)
+	document, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil {
 		problems.Add(0, "unparseable "+label+" ("+err.Error()+")")
 		return jsonvalue.NewNull(), false
@@ -207,7 +207,7 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parser.Options, m
 // logs emits one user row per record of a logs.json, a secondary source.
 func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
+	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
 		p.logRows(artifact, project, data, emit)
 	}
@@ -218,7 +218,7 @@ func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parser.Emi
 // its 1-based index, or the row saying the file is not an array.
 func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, emit parser.Emit) {
 	place := where{project: project}
-	records, err := jsonvalue.Decode(data)
+	records, err := parser.DecodeJSONBytes(artifact, data)
 	switch {
 	case err != nil:
 		emit(p.systemRow(artifact, place, "parser: unparseable logs.json: "+err.Error()))

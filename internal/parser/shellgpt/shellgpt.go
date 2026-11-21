@@ -198,6 +198,7 @@ func (p *Parser) parseCache(artifact *input.Artifact, emit parser.Emit) {
 // tool call id, the synthetic id and name of an older function call
 // waiting for its result, and the problems met.
 type chatState struct {
+	artifact *input.Artifact
 	names    map[string]string
 	problems parser.Problems
 	pending  [2]string
@@ -226,7 +227,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	messages, failure := loadMessages(textlines.ValidUTF8(content), &problems)
+	messages, failure := loadMessages(artifact, textlines.ValidUTF8(content), &problems)
 	if !slices.ContainsFunc(messages, func(message jsonvalue.Value) bool { return message.Has("role") }) {
 		text := "parser: not a ShellGPT chat file"
 		if failure != nil {
@@ -235,7 +236,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, emit parser.Emit) {
 		emit(makeRow(timeline.TurnSystem, text, "", ""))
 		return
 	}
-	state := chatState{names: map[string]string{}}
+	state := chatState{artifact: artifact, names: map[string]string{}}
 	for index, message := range messages {
 		walkMessage(message, index, &state, makeRow, emit)
 	}
@@ -292,12 +293,12 @@ func walkAssistant(message jsonvalue.Value, index int, content string, state *ch
 		callID := parser.Text(call.Get("id"))
 		name := parser.Text(function.Get("name"))
 		state.names[callID] = name
-		emit(makeRow(timeline.TurnToolUse, callText(function.Get("arguments")), name, callID))
+		emit(makeRow(timeline.TurnToolUse, callText(state.artifact, function.Get("arguments")), name, callID))
 	}
 	if functionCall := message.Get("function_call"); functionCall.IsObject() {
 		state.pending = [2]string{"function_call_" + strconv.Itoa(index),
 			parser.Text(functionCall.Get("name"))}
-		emit(makeRow(timeline.TurnToolUse, callText(functionCall.Get("arguments")),
+		emit(makeRow(timeline.TurnToolUse, callText(state.artifact, functionCall.Get("arguments")),
 			state.pending[1], state.pending[0]))
 	}
 }
@@ -314,9 +315,10 @@ var errNotObject = errors.New("not a JSON object")
 // the error that kept it from decoding whole (nil when it did). A whole
 // array decodes at once, an element that is not an object adding a problem;
 // a truncated one is decoded element by element so the messages before the
-// cut survive, and the error says how many did.
-func loadMessages(raw string, problems *parser.Problems) ([]jsonvalue.Value, error) {
-	data, err := jsonvalue.DecodeString(raw)
+// cut survive, and the error says how many did. Repeated member names are
+// noted in the parse of artifact.
+func loadMessages(artifact *input.Artifact, raw string, problems *parser.Problems) ([]jsonvalue.Value, error) {
+	data, err := parser.DecodeJSON(artifact, raw)
 	if err == nil {
 		if !data.IsArray() {
 			return nil, errNotArray
@@ -327,7 +329,7 @@ func loadMessages(raw string, problems *parser.Problems) ([]jsonvalue.Value, err
 	if !strings.HasPrefix(text, "[") {
 		return nil, err
 	}
-	found := parser.ObjectsFrom(text, 1)
+	found := parser.ObjectsFrom(artifact, text, 1)
 	return found, fmt.Errorf("truncated after %d message(s): %w", len(found), err)
 }
 
@@ -348,11 +350,12 @@ func objects(values []jsonvalue.Value, problems *parser.Problems) []jsonvalue.Va
 }
 
 // callText returns a tool call's "shell_command" argument, else its
-// arguments as text.
-func callText(arguments jsonvalue.Value) string {
+// arguments as text, noting the arguments' repeated member names in the
+// parse of artifact.
+func callText(artifact *input.Artifact, arguments jsonvalue.Value) string {
 	switch {
 	case arguments.IsString():
-		parsed, err := jsonvalue.DecodeString(arguments.StringValue())
+		parsed, err := parser.DecodeJSON(artifact, arguments.StringValue())
 		if err == nil && parsed.IsObject() && parsed.Get("shell_command").IsString() {
 			return parsed.Get("shell_command").StringValue()
 		}

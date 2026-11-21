@@ -61,7 +61,7 @@ func TestAnMCPServersURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
 			defer database.Close()
 			var got []string
 			_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
-				New().state(artifact, newStore(database, parser.CountingWork()), parser.Options{}, emit)
+				New().state(artifact, newStore(nil, database, parser.CountingWork()), parser.Options{}, emit)
 				return nil
 			}, func(row timeline.Row) { got = append(got, row.Text) })
 			want := []string{"mcp server: srv url=" + mode.url + " (from state.vscdb mcpOAuth.global, file mtime)" +
@@ -158,7 +158,7 @@ func pluginRows(t *testing.T, setting secrets.Setting) []timeline.Row {
 	defer database.Close()
 	var rows []timeline.Row
 	_ = parsertest.Run(t, artifact, func(emit parser.Emit) error {
-		New().state(artifact, newStore(database, parser.CountingWork()), parser.Options{}, func(row timeline.Row) {
+		New().state(artifact, newStore(nil, database, parser.CountingWork()), parser.Options{}, func(row timeline.Row) {
 			row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
 			emit(row)
 		})

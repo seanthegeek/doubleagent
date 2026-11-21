@@ -67,7 +67,7 @@ func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parser.Optio
 	context := p.Context(artifact)
 	if parser.RegularFile(clinelegacy.TaskOf(artifact).InDir(clinelegacy.UIFile)) {
 		var problems parser.Problems
-		for _, decision := range apiDecisions(artifact.DiskPath, &problems) {
+		for _, decision := range apiDecisions(artifact, artifact.DiskPath, &problems) {
 			ownTime := timeutil.FromValue(decision.timestamp)
 			row := p.Row(artifact, context, decision.position, timeutil.FirstNonEmpty(ownTime, context.Start), "")
 			context.Member(&row, ownTime != "", true)
@@ -79,7 +79,7 @@ func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parser.Optio
 	}
 	var ignored parser.Problems
 	pending := map[string][]decision{}
-	for _, decision := range apiDecisions(artifact.DiskPath, &ignored) {
+	for _, decision := range apiDecisions(artifact, artifact.DiskPath, &ignored) {
 		pending[decision.toolUseID] = append(pending[decision.toolUseID], decision)
 	}
 	p.ParseAPI(artifact, context, options, func(row timeline.Row) {
@@ -111,7 +111,7 @@ type decision struct {
 // feedback: {"status":"denied","message":...}, {"status":"denied",
 // "feedback":...} or {"status":"approved","feedback":...}, the last
 // followed by the tool output.
-func apiDecisions(path string, problems *parser.Problems) []decision {
+func apiDecisions(artifact *input.Artifact, path string, problems *parser.Problems) []decision {
 	var decisions []decision
 	names := map[string]string{}
 	for position, message := range parser.JSONArray(path, problems) {
@@ -123,7 +123,7 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 			if !parser.IsText(block.Get("type"), "tool_result") {
 				continue
 			}
-			text, ok := decisionText(block.Get("content"))
+			text, ok := decisionText(artifact, block.Get("content"))
 			if !ok {
 				continue
 			}
@@ -137,12 +137,14 @@ func apiDecisions(path string, problems *parser.Problems) []decision {
 
 // decisionText returns the "permission decision:" text of a tool result's
 // content, or false when its text does not open with a decision object.
-func decisionText(content jsonvalue.Value) (string, bool) {
+func decisionText(artifact *input.Artifact, content jsonvalue.Value) (string, bool) {
 	body := strings.TrimLeftFunc(parser.TextOf(content), unicode.IsSpace)
 	if !strings.HasPrefix(body, "{") {
 		return "", false
 	}
-	status, _, err := jsonvalue.DecodePrefix(body, 0)
+	document := jsonvalue.NewDocument(body)
+	status, _, err := document.DecodePrefix(0)
+	parser.NoteRepeats(artifact, document.TakeRepeats())
 	if err != nil {
 		return "", false
 	}

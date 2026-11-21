@@ -117,7 +117,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 			repeats++
 		}
 		shown[each.key] = true
-		records := databaseRecords(each.session, messages, &problems)
+		records := databaseRecords(artifact, each.session, messages, &problems)
 		sessionID := p.sessionRows(artifact, options, each.key, project, records, groups[each.key], emit,
 			&problems)
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
@@ -198,11 +198,11 @@ func querySessionStore(database *sqlitefile.Database) (*sessionStore, error) {
 // exists, then each message's record in position order, each numbered by
 // its rowid. A stored value that is not a JSON object adds a problem and is
 // skipped.
-func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
+func databaseRecords(artifact *input.Artifact, head *sqlitefile.Row, messages []sqlitefile.Row,
 	problems *parser.Problems) []numbered {
 	var records []numbered
 	if head != nil {
-		meta, ok := jsonObject(head.Get("metadata"), head.Rowid, "unparseable session metadata", problems)
+		meta, ok := jsonObject(artifact, head.Get("metadata"), head.Rowid, "unparseable session metadata", problems)
 		if !ok || meta.Len() == 0 {
 			meta = jsonvalue.NewObject()
 		}
@@ -216,7 +216,7 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 	}
 	for _, message := range messages {
 		label := "unparseable record " + message.Get("position").String()
-		if record, ok := jsonObject(message.Get("record"), message.Rowid, label, problems); ok {
+		if record, ok := jsonObject(artifact, message.Get("record"), message.Rowid, label, problems); ok {
 			records = append(records, numbered{int(message.Rowid), record})
 		}
 	}
@@ -225,13 +225,13 @@ func databaseRecords(head *sqlitefile.Row, messages []sqlitefile.Row,
 
 // jsonObject returns a stored JSON text decoded to an object, or false
 // after adding "<label> (<reason>)" with the value as text to problems.
-func jsonObject(raw sqlitefile.Value, rowid int64, label string,
+func jsonObject(artifact *input.Artifact, raw sqlitefile.Value, rowid int64, label string,
 	problems *parser.Problems) (jsonvalue.Value, bool) {
 	text := raw.String()
 	if raw.Type == sqlitefile.Blob {
 		text = textlines.ValidUTF8(raw.Bytes)
 	}
-	value, err := jsonvalue.DecodeString(text)
+	value, err := parser.DecodeJSON(artifact, text)
 	switch {
 	case err != nil:
 		problems.AddRaw(int(rowid), label+" ("+err.Error()+")", text)

@@ -92,7 +92,7 @@ func threadRecords(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
 // a json row, decoded with replacement, or the stored bytes of a zstd row
 // as lowercase hex, since they have no faithful text form. A zstd row is
 // decompressed within the database's budget.
-func decodeThread(record sqlitefile.Row, budget *Budget) (jsonvalue.Value, string, error) {
+func decodeThread(artifact *input.Artifact, record sqlitefile.Row, budget *Budget) (jsonvalue.Value, string, error) {
 	data := record.Get("data")
 	if data.IsNull() {
 		return jsonvalue.Value{}, "", errors.New("no data")
@@ -109,7 +109,7 @@ func decodeThread(record sqlitefile.Row, budget *Budget) (jsonvalue.Value, strin
 	}
 	value := jsonvalue.Value{}
 	if err == nil {
-		value, err = jsonvalue.Decode(raw)
+		value, err = parser.DecodeJSONBytes(artifact, raw)
 		if err == nil && !value.IsObject() {
 			err = errors.New("the thread is not a JSON object")
 		}
@@ -131,7 +131,7 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row, bud
 	context := &thread{artifact: artifact, rowid: record.Rowid,
 		sessionID: parser.NonEmptyColumn(record.Get("id")), project: firstFolder(record.Get("folder_paths")),
 		updated: parser.ColumnTime(record.Get("updated_at"))}
-	value, raw, err := decodeThread(record, budget)
+	value, raw, err := decodeThread(artifact, record, budget)
 	if err != nil {
 		var problems parser.Problems
 		problems.AddRaw(int(record.Rowid), fmt.Sprintf("unparseable record %d (%v)", record.Rowid, err), raw)

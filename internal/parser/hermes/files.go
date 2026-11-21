@@ -43,7 +43,7 @@ func (p *Parser) readJSON(artifact *input.Artifact, name string, holdsSecrets bo
 	if !ok {
 		return jsonvalue.Value{}, false
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil {
 		reason := err.Error()
 		if holdsSecrets {
@@ -205,7 +205,7 @@ func (p *Parser) parseTrajectory(artifact *input.Artifact, emit parser.Emit) {
 		if len(strings.Trim(string(raw), textlines.ASCIIWhitespace)) == 0 {
 			continue
 		}
-		record, err := jsonvalue.Decode(raw)
+		record, err := parser.DecodeJSONBytes(artifact, raw)
 		reason := ""
 		switch {
 		case err != nil:
@@ -333,7 +333,7 @@ func connectionText(artifact *input.Artifact, connection jsonvalue.Value) string
 func headersText(artifact *input.Artifact, value jsonvalue.Value) string {
 	text := parser.SecretJSONText(artifact, value)
 	if value.IsString() {
-		if decoded, err := jsonvalue.DecodeString(text); err == nil && decoded.IsObject() {
+		if decoded, err := parser.DecodeJSON(artifact, text); err == nil && decoded.IsObject() {
 			parser.SecretJSONText(artifact, decoded)
 		}
 	}

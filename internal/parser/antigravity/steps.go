@@ -101,7 +101,7 @@ func (r *conversationReader) plannerResponse(index int64, created, completed, mo
 		r.add(r.stepRow(index, completed, model, timeline.TurnAssistant, text))
 	}
 	for _, call := range payload.children("tool_calls") {
-		row := r.stepRow(index, completed, model, timeline.TurnToolUse, toolArgsSummary(call.text("arguments_json")))
+		row := r.stepRow(index, completed, model, timeline.TurnToolUse, toolArgsSummary(r.artifact, call.text("arguments_json")))
 		row.ToolName, row.ToolUseID = call.first("name", "original_name"), call.text("id")
 		r.add(row)
 	}

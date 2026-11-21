@@ -16,7 +16,7 @@ import (
 // and a raw_json, socket, agents, policy, allowlist or mcpTools of the
 // wrong kind adds a problem.
 func (s *stateRows) execConfig(record sqlitefile.Row) {
-	document, err := jsonvalue.DecodeString(parser.TextColumn(record.Get("raw_json")))
+	document, err := parser.DecodeJSON(s.artifact, parser.TextColumn(record.Get("raw_json")))
 	if err != nil {
 		s.problems.Add(int(record.Rowid), "exec_approvals_config raw_json unparseable ("+
 			parser.ReaderErrorText(s.artifact, err)+")")

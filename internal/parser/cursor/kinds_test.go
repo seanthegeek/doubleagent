@@ -136,7 +136,7 @@ func TestAListValueThatIsNotAnArrayIsReported(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
 			items := 0
-			for range objectEntries(keyed{rowid: 7, key: key, value: sqlitefile.TextValue(test.value)}, &problems) {
+			for range objectEntries(nil, keyed{rowid: 7, key: key, value: sqlitefile.TextValue(test.value)}, &problems) {
 				items++
 			}
 			if got := messages(problems); !slices.Equal(got, test.want) || items != test.items {
@@ -166,7 +166,7 @@ func TestAComposerDataValueThatIsNotAnObjectIsReported(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			value := objectRecord(keyed{rowid: 3, key: "composerData:c1", value: sqlitefile.TextValue(test.value)}, &problems)
+			value := objectRecord(nil, keyed{rowid: 3, key: "composerData:c1", value: sqlitefile.TextValue(test.value)}, &problems)
 			if got := messages(problems); !slices.Equal(got, test.want) || !value.IsObject() {
 				t.Errorf("problems %q and value %s, want %q and an object", got, value.JSON(), test.want)
 			}

@@ -70,7 +70,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := parser.ParseJSONC(raw)
+	document, err := parser.ParseJSONC(artifact, raw)
 	if err != nil || !document.IsObject() {
 		// The file is the editor's; it concerns Cody only when it names Cody.
 		if bytes.Contains(raw, []byte(`"cody.`)) {
@@ -102,7 +102,7 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	preferences, err := jsonvalue.DecodeString(text)
+	preferences, err := parser.DecodeJSON(artifact, text)
 	if err != nil || !preferences.IsObject() {
 		emit(p.systemRow(artifact, parser.ProblemPrefix+parser.WrongKind(preferencesKey, jsonvalue.Object), 1))
 		return

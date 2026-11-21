@@ -149,7 +149,7 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parser.Options, em
 		if chat := record.Get("chat_id"); chat.IsString() && chat.StringValue() != "" {
 			sessionID = webuiPrefix + chat.StringValue()
 		}
-		for _, each := range webuiEvents(record, line, options, &state.problems) {
+		for _, each := range webuiEvents(artifact, record, line, options, &state.problems) {
 			row := p.BaseRow(artifact)
 			row.SourceLine = line
 			row.SessionID = sessionID
@@ -172,8 +172,10 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parser.Options, em
 // it merges into the next, the end of reasoning, finished file edits, a fork
 // marker and a context compaction. The silent events give nothing and any
 // other a `webui event:` row. A tool_events or edits that is not an array
-// adds a problem at line.
-func webuiEvents(record jsonvalue.Value, line int, options parser.Options, problems *parser.Problems) []event {
+// adds a problem at line. The calls' arguments note their repeated member
+// names in the parse of artifact.
+func webuiEvents(artifact *input.Artifact, record jsonvalue.Value, line int, options parser.Options,
+	problems *parser.Problems) []event {
 	name := record.Get("event")
 	text := ""
 	if value := record.Get("text"); value.IsString() {
@@ -189,7 +191,7 @@ func webuiEvents(record jsonvalue.Value, line int, options parser.Options, probl
 	case "user":
 		return only(timeline.TurnUser, userText(record, text))
 	case "message":
-		return messageEvents(record, text, options, line, problems)
+		return messageEvents(artifact, record, text, options, line, problems)
 	case "stream_end":
 		if text != "" && record.Get("merge_next").IsEmpty() {
 			return only(timeline.TurnAssistant, text)
@@ -226,10 +228,10 @@ func userText(record jsonvalue.Value, text string) string {
 
 // messageEvents returns the rows of a message record: its tool events,
 // then its text by kind.
-func messageEvents(record jsonvalue.Value, text string, options parser.Options, line int,
-	problems *parser.Problems) []event {
+func messageEvents(artifact *input.Artifact, record jsonvalue.Value, text string, options parser.Options,
+	line int, problems *parser.Problems) []event {
 	toolEvents := parser.ListOfKind(record.Get("tool_events"), "tool_events", jsonvalue.Object, line, problems)
-	events := toolEventRows(toolEvents)
+	events := toolEventRows(artifact, toolEvents)
 	kind := record.Get("kind")
 	switch {
 	case parser.IsText(kind, "reasoning"):
@@ -270,8 +272,8 @@ func fileEdits(record jsonvalue.Value, line int, problems *parser.Problems) []ev
 }
 
 // toolEventRows returns the tool call and result rows of a message's tool
-// events, joined on call_id.
-func toolEventRows(toolEvents []jsonvalue.Value) []event {
+// events of a parse of artifact, joined on call_id.
+func toolEventRows(artifact *input.Artifact, toolEvents []jsonvalue.Value) []event {
 	var events []event
 	for _, entry := range toolEvents {
 		name, callID := parser.Text(entry.Get("name")), parser.Text(entry.Get("call_id"))
@@ -279,7 +281,7 @@ func toolEventRows(toolEvents []jsonvalue.Value) []event {
 		switch {
 		case parser.IsText(phase, "start"):
 			events = append(events, event{timeline.TurnToolUse,
-				openclaw.ToolArgsText(entry.Get("arguments")), name, callID})
+				openclaw.ToolArgsText(artifact, entry.Get("arguments")), name, callID})
 		case parser.IsText(phase, "end"):
 			result := entry.Get("result")
 			body := parser.JSONText(result)

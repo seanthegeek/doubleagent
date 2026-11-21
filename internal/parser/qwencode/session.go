@@ -235,7 +235,7 @@ func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problem
 	if !ok {
 		return
 	}
-	document, err := jsonvalue.Decode(data)
+	document, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, name+" is not a JSON object")
 		return
@@ -325,7 +325,7 @@ type entry struct {
 // model, anything else as "<type>: <message>".
 func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	for _, each := range logEntries(artifact.DiskPath, &problems) {
+	for _, each := range logEntries(artifact, artifact.DiskPath, &problems) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = each.index
 		row.TimestampUTC = timeutil.FromValue(each.value.Get("timestamp"))
@@ -338,7 +338,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 			row.TurnType = timeline.TurnSystem
 			event := message
 			if message.IsString() {
-				if decoded, err := jsonvalue.DecodeString(message.StringValue()); err == nil {
+				if decoded, err := parser.DecodeJSON(artifact, message.StringValue()); err == nil {
 					event = decoded
 				}
 			}
@@ -365,7 +365,7 @@ func (p *Parser) logs(artifact *input.Artifact, emit parser.Emit) {
 // JSON array". The entries that are not objects are passed over and add
 // one problem at 0 for them all (parser.WrongEntries). Elements need no
 // comma between them, and whitespace alone is no array.
-func logEntries(path string, problems *parser.Problems) []entry {
+func logEntries(artifact *input.Artifact, path string, problems *parser.Problems) []entry {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
 		return nil
@@ -387,9 +387,11 @@ func logEntries(path string, problems *parser.Problems) []entry {
 			problems.Add(0, parser.WrongEntries("logs.json", jsonvalue.Object, wrong))
 		}
 	}()
+	document := jsonvalue.NewDocument(text)
+	defer func() { parser.NoteRepeats(artifact, document.TakeRepeats()) }()
 	for offset = parser.SkipJSONSpace(text, offset+1); offset < len(text) && text[offset] != ']'; {
 		index++
-		value, next, err := jsonvalue.DecodePrefix(text, offset)
+		value, next, err := document.DecodePrefix(offset)
 		if err != nil {
 			problems.AddRaw(index, parser.UnparseableRecord(index, err), parser.TailText(text, offset))
 			return out

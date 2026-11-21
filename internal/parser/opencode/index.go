@@ -120,7 +120,7 @@ func (x *treeIndex) session(directory, sessionID string, work parser.Work) jsonv
 		if !ok || !parser.RegularFile(candidate) {
 			continue
 		}
-		if decoded, ok := quietObject(candidate, true); ok {
+		if decoded, ok := quietObject(nil, candidate, true); ok {
 			session = decoded
 			break
 		}
@@ -152,7 +152,7 @@ func (x *treeIndex) projectFile(path string, found bool, problems *parser.Proble
 	if !ok {
 		work.Add("project file reads", 1)
 		held = &sideRead{}
-		held.value, held.err = readSide(path, true, &held.problems)
+		held.value, held.err = readSide(nil, path, true, &held.problems)
 		x.projectFiles[key] = held
 	}
 	*problems = append(*problems, held.problems...)
@@ -171,7 +171,7 @@ func (x *treeIndex) quietSide(path string, found bool, work parser.Work) jsonval
 	value, ok := x.quietSides[key]
 	if !ok {
 		work.Add("quiet side reads", 1)
-		value, _ = quietObject(path, true)
+		value, _ = quietObject(nil, path, true)
 		x.quietSides[key] = value
 	}
 	return value

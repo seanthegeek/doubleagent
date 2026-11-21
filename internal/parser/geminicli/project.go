@@ -61,14 +61,14 @@ func readSmall(path string, problems *parser.Problems) (string, bool) {
 // whose value is the slug, else the key whose sha256 is the slug or
 // projectHash, else projectHash. A side file that exists but cannot be read
 // adds its problem for the caller's rows.
-func (p *Parser) resolveProject(base func(names ...string) string, slug, projectHash string,
+func (p *Parser) resolveProject(artifact *input.Artifact, base func(names ...string) string, slug, projectHash string,
 	problems *parser.Problems) string {
 	if root, ok := p.projectRoot(base("tmp", slug, ".project_root"), problems); ok {
 		if root = strings.TrimSpace(root); root != "" {
 			return root
 		}
 	}
-	index := p.projectIndex(base("projects.json"), problems)
+	index := p.projectIndex(artifact, base("projects.json"), problems)
 	if key, ok := index.byValue[slug]; ok {
 		return key
 	}
@@ -144,7 +144,7 @@ func (p *Parser) projectRoot(path string, problems *parser.Problems) (string, bo
 // decoded once per state of the file for the parser's life, since every
 // file of every project looks it up; the problems of that read are added
 // for each lookup as a fresh read would. An absent file is an empty index.
-func (p *Parser) projectIndex(path string, problems *parser.Problems) *projectIndex {
+func (p *Parser) projectIndex(artifact *input.Artifact, path string, problems *parser.Problems) *projectIndex {
 	info, err := osfile.Lstat(path)
 	if path == "" || err != nil {
 		return &projectIndex{}
@@ -155,7 +155,7 @@ func (p *Parser) projectIndex(path string, problems *parser.Problems) *projectIn
 		index = &projectIndex{byValue: map[string]string{}, byDigest: map[string]int{}}
 		if raw, read := readSmall(path, &index.problems); read && raw != "" {
 			p.Work.Add("projects.json reads", 1)
-			if data, err := jsonvalue.DecodeString(raw); err == nil {
+			if data, err := parser.DecodeJSON(artifact, raw); err == nil {
 				index.add(data.Get("projects").Members())
 			}
 		}
@@ -186,7 +186,7 @@ func (p *Parser) projectOf(artifact *input.Artifact, match pathMatch, problems *
 	if !ok {
 		return ""
 	}
-	return p.resolveProject(inBase(artifact, match), slug, "", problems)
+	return p.resolveProject(artifact, inBase(artifact, match), slug, "", problems)
 }
 
 // nameTime returns the timeline time of an ISO time a file name spells with

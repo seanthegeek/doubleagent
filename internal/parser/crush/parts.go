@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -157,7 +158,7 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	if source == "" {
 		source = "[]"
 	}
-	parts, err := jsonvalue.DecodeString(source)
+	parts, err := parser.DecodeJSON(r.store.artifact, source)
 	reason := ""
 	switch {
 	case err != nil:
@@ -289,7 +290,7 @@ func (r *messageReader) resultPart(current *message, data jsonvalue.Value, row *
 	if !data.Get("is_error").IsEmpty() {
 		text = "[error] " + text
 	}
-	decision := permissionText(data)
+	decision := permissionText(r.store.artifact, data)
 	if decision == "" {
 		return text, nil
 	}
@@ -342,9 +343,9 @@ func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.
 
 // metadata returns a tool result's metadata, stored as a JSON string, as
 // an object; anything else is an empty object.
-func metadata(value jsonvalue.Value) jsonvalue.Value {
+func metadata(artifact *input.Artifact, value jsonvalue.Value) jsonvalue.Value {
 	if value.IsString() && value.StringValue() != "" {
-		decoded, err := jsonvalue.DecodeString(value.StringValue())
+		decoded, err := parser.DecodeJSON(artifact, value.StringValue())
 		if err != nil {
 			return jsonvalue.NewObject()
 		}
@@ -361,13 +362,13 @@ func metadata(value jsonvalue.Value) jsonvalue.Value {
 // permission"; a hook's decision is metadata.hook, and an error result that
 // starts with a hook's block or halt message stands for it when the
 // metadata is missing. A hook decision of none without a halt is not one.
-func permissionText(data jsonvalue.Value) string {
+func permissionText(artifact *input.Artifact, data jsonvalue.Value) string {
 	content := textOnly(data.Get("content"))
 	isError := !data.Get("is_error").IsEmpty()
 	if isError && content == denied {
 		return "permission decision: denied by user"
 	}
-	if hook := metadata(data.Get("metadata")).Get("hook"); hook.IsObject() {
+	if hook := metadata(artifact, data.Get("metadata")).Get("hook"); hook.IsObject() {
 		return hookDecision(hook)
 	}
 	if isError {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -133,7 +134,7 @@ func TestModelSwitchMarkersNameTheModelAndProvider(t *testing.T) {
 func TestStringHelpersReadEachForm(t *testing.T) {
 	tests := []struct {
 		name  string
-		got   func(jsonvalue.Value) string
+		got   func(*input.Artifact, jsonvalue.Value) string
 		input jsonvalue.Value
 		want  string
 	}{
@@ -166,7 +167,7 @@ func TestStringHelpersReadEachForm(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := test.got(test.input); got != test.want {
+			if got := test.got(nil, test.input); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -191,7 +192,7 @@ func TestToolCallsReportWhatIsNotAListOfObjects(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.value.Text(), func(t *testing.T) {
 			message := jsonvalue.NewObject(jsonvalue.Member{Key: "tool_calls", Value: test.value})
-			calls, problems := toolCalls(message, jsonvalue.NewInt(7))
+			calls, problems := toolCalls(nil, message, jsonvalue.NewInt(7))
 			if len(calls) != test.calls || fmt.Sprint(problems) != fmt.Sprint(test.want) {
 				t.Errorf("got %d calls, %v; want %d, %v", len(calls), problems, test.calls, test.want)
 			}

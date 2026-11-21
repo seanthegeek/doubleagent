@@ -223,7 +223,7 @@ func (s *session) assistant(line int, record jsonvalue.Value, text string) {
 	for _, call := range parser.EntriesOfKind(record.Get("tool_calls"), "tool_calls", jsonvalue.Object, line,
 		s.problems) {
 		function := call.Get("function")
-		s.row(line, timeline.TurnToolUse, openclaw.ToolArgsText(function.Get("arguments")),
+		s.row(line, timeline.TurnToolUse, openclaw.ToolArgsText(s.artifact, function.Get("arguments")),
 			parser.Text(function.Get("name")), parser.Text(call.Get("id")))
 	}
 }

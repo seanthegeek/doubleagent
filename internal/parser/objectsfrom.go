@@ -3,6 +3,7 @@ package parser
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
@@ -10,9 +11,12 @@ import (
 // offset on, separated by JSON whitespace and commas, up to a closing
 // bracket, the end of the text or the first value that does not decode:
 // what a damaged array's elements still give. A value that is not an
-// object is passed over.
-func ObjectsFrom(text string, offset int) []jsonvalue.Value {
+// object is passed over. The values' repeated member names are noted in the
+// parse of artifact (NoteRepeats).
+func ObjectsFrom(artifact *input.Artifact, text string, offset int) []jsonvalue.Value {
 	var objects []jsonvalue.Value
+	document := jsonvalue.NewDocument(text)
+	defer func() { NoteRepeats(artifact, document.TakeRepeats()) }()
 	for {
 		for offset < len(text) && strings.IndexByte(" \t\r\n,", text[offset]) >= 0 {
 			offset++
@@ -20,7 +24,7 @@ func ObjectsFrom(text string, offset int) []jsonvalue.Value {
 		if offset >= len(text) || text[offset] == ']' {
 			return objects
 		}
-		value, end, err := jsonvalue.DecodePrefix(text, offset)
+		value, end, err := document.DecodePrefix(offset)
 		if err != nil {
 			return objects
 		}

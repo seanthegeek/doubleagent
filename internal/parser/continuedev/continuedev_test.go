@@ -132,7 +132,7 @@ func TestLoadSessionRecoversWhatItCan(t *testing.T) {
 			`{"title":"é","history":[{"a":1},{"b":2}]}`, "session file did not parse"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session, problem := LoadSession(test.text)
+			session, problem := LoadSession(nil, test.text)
 			if got := session.JSON(); got != test.want {
 				t.Errorf("session = %s, want %s", got, test.want)
 			}
@@ -146,7 +146,7 @@ func TestLoadSessionRecoversWhatItCan(t *testing.T) {
 func TestLoadSessionTakesJSONWhitespaceOnly(t *testing.T) {
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
 		text := "{\"sessionId\"" + space + ":\"s1\", \"history\"" + space + ":[{\"a\": 1}, {\"b"
-		session, _ := LoadSession(text)
+		session, _ := LoadSession(nil, text)
 		if got := session.JSON(); got != `{"history":[]}` {
 			t.Errorf("%q: session = %s", space, got)
 		}
@@ -184,7 +184,7 @@ func FuzzLoadSessionNeverPanics(fuzz *testing.F) {
 		fuzz.Add(seed)
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		session, _ := LoadSession(text)
+		session, _ := LoadSession(nil, text)
 		if !session.IsObject() {
 			t.Errorf("LoadSession(%q) is not an object", text)
 		}

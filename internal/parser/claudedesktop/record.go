@@ -73,7 +73,7 @@ func (s *sessionRecord) row(turnType, message, timestamp string) timeline.Row {
 func (p *Parser) record(artifact *input.Artifact, emit parser.Emit) {
 	match := recordPattern.FindStringSubmatch(artifact.Rel)
 	var problems parser.Problems
-	record, _ := readJSON(artifact.DiskPath, &problems)
+	record, _ := readJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
@@ -196,7 +196,7 @@ func (s *sessionRecord) grants() {
 // <name>" at line 1 for a file that is not a JSON object.
 func (p *Parser) readObject(artifact *input.Artifact, name string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
-	document, _ := readJSON(artifact.DiskPath, &problems)
+	document, _ := readJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return document, false

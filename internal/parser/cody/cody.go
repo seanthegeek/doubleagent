@@ -120,7 +120,7 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parser.Options, emi
 	}
 	var problems []string
 	var recovered []recoveredError
-	history := decodeHistory(text, &problems, &recovered)
+	history := decodeHistory(artifact, text, &problems, &recovered)
 	if !history.IsObject() {
 		problems = append(problems, parser.WrongKind("chat history", jsonvalue.Object))
 	}
@@ -154,7 +154,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 		history = state.Get(historyKey)
 		fromText := history.IsString()
 		if fromText {
-			history = decodeHistory(history.StringValue(), &problems, &recovered)
+			history = decodeHistory(artifact, history.StringValue(), &problems, &recovered)
 		}
 		if (fromText || !history.IsNull()) && !history.IsObject() {
 			problems = append(problems, parser.WrongKind(historyKey, jsonvalue.Object))
@@ -176,8 +176,8 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parser.Options,
 
 // decodeHistory returns a history's text decoded, else what can be
 // recovered from it, adding the problem and the damaged interactions.
-func decodeHistory(text string, problems *[]string, recovered *[]recoveredError) jsonvalue.Value {
-	history, err := jsonvalue.DecodeString(text)
+func decodeHistory(artifact *input.Artifact, text string, problems *[]string, recovered *[]recoveredError) jsonvalue.Value {
+	history, err := parser.DecodeJSON(artifact, text)
 	if err == nil {
 		return history
 	}

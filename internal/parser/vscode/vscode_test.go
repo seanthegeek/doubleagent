@@ -256,7 +256,7 @@ func TestTrackGivesEachRequestTheLineThatMadeIt(t *testing.T) {
 			}
 			lines := requestLines{}
 			var problems parser.Problems
-			state := replay(path, lines, &problems, parser.Work{})
+			state := replay(nil, path, lines, &problems, parser.Work{})
 			if !maps.Equal(lines, test.want) {
 				t.Errorf("lines = %v, want %v (requests %s)", lines, test.want, state.Get("requests").JSON())
 			}
@@ -387,7 +387,7 @@ func TestReplayWorkGrowsWithTheLogNotItsSquare(t *testing.T) {
 			work := parser.CountingWork()
 			lines := requestLines{}
 			var problems parser.Problems
-			state := replay(path, lines, &problems, work)
+			state := replay(nil, path, lines, &problems, work)
 			if state.Get("requests").Len() != n || state.Get("settings").Len() != 0 || len(problems) != 0 {
 				t.Fatalf("replay gave %s with problems %v", state.JSON(), problems)
 			}

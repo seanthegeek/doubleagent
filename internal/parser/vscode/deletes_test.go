@@ -45,7 +45,7 @@ func TestDeletingRequestsMovesNoOtherEntry(t *testing.T) {
 			work := parser.CountingWork()
 			lines := requestLines{}
 			var problems parser.Problems
-			state := replay(path, lines, &problems, work)
+			state := replay(nil, path, lines, &problems, work)
 			if state.Get("requests").Len() != 0 || len(problems) != 0 || !maps.Equal(lines, requestLines{sessionStart: 1}) {
 				t.Fatalf("replay gave %s, lines %v and problems %v", state.JSON(), lines, problems)
 			}
@@ -189,7 +189,7 @@ func TestALongLogOfChangesToOneValueAllocatesInProportionToTheLog(t *testing.T) 
 		}
 		allocations[n] = testing.AllocsPerRun(3, func() {
 			var problems parser.Problems
-			if state := replay(path, requestLines{}, &problems, parser.Work{}); len(problems) != 0 ||
+			if state := replay(nil, path, requestLines{}, &problems, parser.Work{}); len(problems) != 0 ||
 				state.Get("requests").Index(0).Get("response").Len() != n+1 {
 				t.Fatalf("replay gave problems %v", problems)
 			}

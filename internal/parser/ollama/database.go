@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -364,7 +363,7 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 		m.state.pending, m.state.used = calls, 0
 	}
 	for _, call := range calls {
-		row := build(timeline.TurnToolUse, timeline.Compact(callText(call.arguments)))
+		row := build(timeline.TurnToolUse, timeline.Compact(callText(m.artifact, call.arguments)))
 		row.SourceLine = parser.ColumnLine(call.callID)
 		row.ToolName = call.name
 		row.ToolUseID = m.toolUseID(call)
@@ -448,7 +447,7 @@ func (m *messageReader) toolResult(message sqlitefile.Row, row timeline.Row) {
 	m.state.used++
 	text := parser.NonEmptyColumn(message.Get("content"))
 	if text == "" {
-		text = resultFallback(message.Get("tool_result"))
+		text = resultFallback(m.artifact, message.Get("tool_result"))
 	}
 	row.Text = timeline.Compact(text)
 	m.emit(row)
@@ -457,7 +456,7 @@ func (m *messageReader) toolResult(message sqlitefile.Row, row timeline.Row) {
 // callText returns the url or query argument of a desktop tool call, else
 // the arguments as stored: text that is not JSON or not an object as it
 // is, an object as compact JSON, and a value that is not text as JSON.
-func callText(arguments sqlitefile.Value) string {
+func callText(artifact *input.Artifact, arguments sqlitefile.Value) string {
 	if arguments.Type != sqlitefile.Text {
 		if arguments.IsNull() {
 			return "null"
@@ -465,7 +464,7 @@ func callText(arguments sqlitefile.Value) string {
 		return parser.ColumnText(arguments)
 	}
 	text := string(arguments.Bytes)
-	decoded, err := jsonvalue.DecodeString(text)
+	decoded, err := parser.DecodeJSON(artifact, text)
 	if err != nil || !decoded.IsObject() {
 		return text
 	}
@@ -480,7 +479,7 @@ func callText(arguments sqlitefile.Value) string {
 // resultFallback returns a tool message's tool_result JSON as compact text,
 // "" when it is empty or JSON null, and a value that is not JSON text as
 // it is.
-func resultFallback(value sqlitefile.Value) string {
+func resultFallback(artifact *input.Artifact, value sqlitefile.Value) string {
 	if value.IsNull() || value.Type == sqlitefile.Text &&
 		(len(value.Bytes) == 0 || string(value.Bytes) == "null") {
 		return ""
@@ -488,7 +487,7 @@ func resultFallback(value sqlitefile.Value) string {
 	if value.Type != sqlitefile.Text {
 		return value.String()
 	}
-	decoded, err := jsonvalue.DecodeString(string(value.Bytes))
+	decoded, err := parser.DecodeJSON(artifact, string(value.Bytes))
 	if err != nil {
 		return string(value.Bytes)
 	}

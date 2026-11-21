@@ -26,7 +26,7 @@ type storedJSON struct {
 // readStored decodes a JSON column that should hold an array when array is
 // set, else an object; a blob is read as UTF-8 with replacement, and JSON
 // null is accepted.
-func readStored(column sqlitefile.Value, array bool) storedJSON {
+func readStored(artifact *input.Artifact, column sqlitefile.Value, array bool) storedJSON {
 	var text string
 	switch column.Type {
 	case sqlitefile.Null:
@@ -41,7 +41,7 @@ func readStored(column sqlitefile.Value, array bool) storedJSON {
 	if len(column.Bytes) == 0 {
 		return storedJSON{}
 	}
-	decoded, err := jsonvalue.DecodeString(text)
+	decoded, err := parser.DecodeJSON(artifact, text)
 	switch {
 	case err != nil:
 		return storedJSON{reason: err.Error(), raw: text}
@@ -182,7 +182,7 @@ func (d *database) readSessions() error {
 // and its model and mode rows read from its own values alone.
 func (d *database) session(session sqlitefile.Row, repeat *sessionRepeat) {
 	rowid := int(session.Rowid)
-	config := readStored(session.Get("model_config_json"), false)
+	config := readStored(d.artifact, session.Get("model_config_json"), false)
 	var problems parser.Problems
 	if config.reason != "" {
 		problems.AddRaw(rowid, "unparseable record "+strconv.Itoa(rowid)+" (sessions.model_config_json: "+
@@ -288,7 +288,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 	err = table.Select("session_id", "content_json").Where(func(row sqlitefile.Row) bool {
 		return sqlitefile.Like(row.Get("content_json"), "%toolConfirmationResponse%")
 	}).Each(func(row sqlitefile.Row) error {
-		content := readStored(row.Get("content_json"), true).value
+		content := readStored(d.artifact, row.Get("content_json"), true).value
 		for _, block := range parser.Elements(content) {
 			data := block.Get("data")
 			if data.IsObject() && parser.IsText(data.Get("actionType"), "toolConfirmationResponse") {
@@ -316,7 +316,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	}
 	line := parser.ColumnLine(record)
 	var problems parser.Problems
-	stored := readStored(message.Get("metadata_json"), false)
+	stored := readStored(d.artifact, message.Get("metadata_json"), false)
 	if stored.reason != "" {
 		problems.AddRaw(line, "unparseable record "+record.String()+" (messages.metadata_json: "+
 			stored.reason+")", stored.raw)
@@ -339,7 +339,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	}
 	base.Model = d.messageModel(base, inference)
 	d.emitProblems(problems, sessionID, projectPath)
-	content := readStored(message.Get("content_json"), true)
+	content := readStored(d.artifact, message.Get("content_json"), true)
 	if content.value.IsNull() && content.reason == "" {
 		content.reason = "empty"
 		if content.raw != "" {

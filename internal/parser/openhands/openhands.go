@@ -249,7 +249,7 @@ func (p *Parser) projectIndex(artifact *input.Artifact) map[string]string {
 				continue
 			}
 			p.Work.Add("conversations read for projects", 1)
-			document, _, _ := loadJSON(conversation, &parser.Problems{})
+			document, _, _ := loadJSON(artifact, conversation, &parser.Problems{})
 			dir, ok := nonEmptyText(document.Get("workspace").Get("working_dir"))
 			if _, seen := index[sha256Hex(dir)]; ok && !seen {
 				index[sha256Hex(dir)] = dir
@@ -336,7 +336,7 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, em
 		p.headerRows(artifact, conv, emit)
 	}
 	var problems parser.Problems
-	event, decoded, err := loadJSON(artifact.DiskPath, &problems)
+	event, decoded, err := loadJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, conv.sessionID, conv.projectPath))
 		return
@@ -432,7 +432,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 		}
 	}
 	var problems parser.Problems
-	event := loadObject(artifact.DiskPath, &problems)
+	event := loadObject(artifact, artifact.DiskPath, &problems)
 	row := p.BaseRow(artifact)
 	row.SessionID = match[1]
 	row.TurnType = timeline.TurnSystem

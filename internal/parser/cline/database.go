@@ -79,7 +79,7 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 		if manifestPresent(artifact, parser.Text(session.Get("session_id"))) {
 			continue
 		}
-		meta := metadataJSON(record.Get("metadata_json"))
+		meta := metadataJSON(artifact, record.Get("metadata_json"))
 		addMetadata(session, meta)
 		start := p.sessionStart(artifact, session, int(record.Rowid), "started_at", "session index", keys)
 		p.startRows(artifact, start, session, meta, "sessions.db sessions.metadata_json", emit)
@@ -96,8 +96,9 @@ func manifestPresent(artifact *input.Artifact, sessionID string) bool {
 }
 
 // metadataJSON returns a metadata_json column decoded as JSON, or null for
-// an empty or absent value, a number, or text that is not JSON.
-func metadataJSON(value sqlitefile.Value) jsonvalue.Value {
+// an empty or absent value, a number, or text that is not JSON, noting its
+// repeated member names in the parse of artifact.
+func metadataJSON(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Value {
 	if value.IsEmpty() {
 		return jsonvalue.NewNull()
 	}
@@ -105,9 +106,9 @@ func metadataJSON(value sqlitefile.Value) jsonvalue.Value {
 	var err error
 	switch value.Type {
 	case sqlitefile.Text:
-		decoded, err = jsonvalue.DecodeString(value.Text())
+		decoded, err = parser.DecodeJSON(artifact, value.Text())
 	case sqlitefile.Blob:
-		decoded, err = jsonvalue.Decode(value.Bytes)
+		decoded, err = parser.DecodeJSONBytes(artifact, value.Bytes)
 	default:
 		return jsonvalue.NewNull()
 	}

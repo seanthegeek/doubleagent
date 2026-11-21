@@ -12,8 +12,8 @@ func FuzzResultAndArguments(fuzz *testing.F) {
 	}
 	fuzz.Fuzz(func(t *testing.T, text string) {
 		value := jsonvalue.NewString(text)
-		resultText(value)
-		argumentsSummary(value)
+		resultText(nil, value)
+		argumentsSummary(nil, value)
 		microsToUTC(value)
 	})
 }

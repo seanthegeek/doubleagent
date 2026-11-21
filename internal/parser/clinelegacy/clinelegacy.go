@@ -205,7 +205,9 @@ func (p *TaskParser) cachedFile(path string) *cachedFile {
 		return cached
 	}
 	var ignored parser.Problems
-	value, _ := parser.LoadJSON(path, &ignored)
+	// The index is also parsed as its own artifact, whose parse reports its
+	// repeated member names; a lookup from a task's parse notes none.
+	value, _ := parser.LoadJSON(nil, path, &ignored)
 	p.cache[key] = &cachedFile{value: value}
 	return p.cache[key]
 }
@@ -277,7 +279,7 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	task := TaskOf(artifact)
 	item, group := p.family.HistoryItem(task)
 	var ignored parser.Problems
-	metadata, _ := parser.LoadJSON(task.InDir(MetadataFile), &ignored)
+	metadata, _ := parser.LoadJSON(artifact, task.InDir(MetadataFile), &ignored)
 	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
 	context.work, context.group = p.Work, group
 	return context

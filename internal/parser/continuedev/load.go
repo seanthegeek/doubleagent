@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -31,9 +32,9 @@ var errNotObject = errors.New("session file is not a JSON object")
 // the offset where the data starts, counted in characters (runes). A file
 // that does not decode yields its header keys and every history item that
 // decodes before the damage, with the problem saying how many were
-// recovered.
-func LoadSession(text string) (jsonvalue.Value, error) {
-	document, err := jsonvalue.DecodeString(text)
+// recovered. Repeated member names are noted in the parse of artifact.
+func LoadSession(artifact *input.Artifact, text string) (jsonvalue.Value, error) {
+	document, err := parser.DecodeJSON(artifact, text)
 	if err == nil {
 		if document.IsObject() {
 			return document, nil
@@ -41,7 +42,9 @@ func LoadSession(text string) (jsonvalue.Value, error) {
 		return jsonvalue.NewObject(), errNotObject
 	}
 	if start := strings.IndexByte(text, '{'); start >= 0 {
-		prefix, end, prefixErr := jsonvalue.DecodePrefix(text, start)
+		document := jsonvalue.NewDocument(text)
+		prefix, end, prefixErr := document.DecodePrefix(start)
+		parser.NoteRepeats(artifact, document.TakeRepeats())
 		if prefixErr == nil && prefix.IsObject() {
 			return prefix, fmt.Errorf("trailing data after the session object at offset %d",
 				utf8.RuneCountInString(text[:end]))
@@ -53,7 +56,7 @@ func LoadSession(text string) (jsonvalue.Value, error) {
 			recovered.Set(key, value)
 		}
 	}
-	history := recoverHistory(text)
+	history := recoverHistory(artifact, text)
 	recovered.Set("history", jsonvalue.NewArray(history...))
 	return recovered, fmt.Errorf("session file did not parse (%w); recovered %d history item(s)",
 		err, len(history))
@@ -74,12 +77,12 @@ func headerValue(text, key string) (jsonvalue.Value, bool) {
 
 // recoverHistory returns the object items of the history array of a
 // damaged session file, up to the first that does not decode.
-func recoverHistory(text string) []jsonvalue.Value {
+func recoverHistory(artifact *input.Artifact, text string) []jsonvalue.Value {
 	location := historyPattern.FindStringIndex(text)
 	if location == nil {
 		return nil
 	}
-	return parser.ObjectsFrom(text, location[1])
+	return parser.ObjectsFrom(artifact, text, location[1])
 }
 
 // MessageText returns the text of a chat message's content, image parts

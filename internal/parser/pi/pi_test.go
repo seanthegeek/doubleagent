@@ -175,7 +175,7 @@ func TestHTMLSessionDataSaysWhyItCannotBeRead(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := htmlSessionData(test.page)
+			_, err := htmlSessionData(nil, test.page)
 			got := ""
 			if err != nil {
 				got = err.Error()
@@ -287,7 +287,7 @@ func FuzzHTMLSessionData(fuzz *testing.F) {
 	fuzz.Add(htmlPage(base64.StdEncoding.EncodeToString([]byte(`{"header":{"type":"session"}}`))))
 	fuzz.Add(htmlPage("QU JD"))
 	fuzz.Fuzz(func(t *testing.T, page []byte) {
-		value, err := htmlSessionData(page)
+		value, err := htmlSessionData(nil, page)
 		if (err == nil) != value.IsObject() {
 			t.Errorf("error %v with a value of kind %v", err, value.Kind())
 		}

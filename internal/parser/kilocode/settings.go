@@ -22,12 +22,12 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, text string) ti
 // readJSON returns the file at path decoded as JSON and true, or false
 // after adding its unreadable problem; text that is not JSON decodes to
 // null.
-func readJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
+func readJSON(artifact *input.Artifact, path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	value, err := jsonvalue.Decode(data)
+	value, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil {
 		return jsonvalue.NewNull(), true
 	}
@@ -47,7 +47,7 @@ func (p *Parser) config(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := parser.ParseJSONC(raw)
+	document, err := parser.ParseJSONC(artifact, raw)
 	switch {
 	case err != nil:
 		emit(p.settingRow(artifact, timestamp,
@@ -93,7 +93,7 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	source := "(from " + artifact.Rel + ", file mtime)"
 	var problems parser.Problems
-	document, ok := readJSON(artifact.DiskPath, &problems)
+	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
@@ -123,7 +123,7 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parser.Emit) {
 // `parser:` row.
 func (p *Parser) retention(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document, ok := readJSON(artifact.DiskPath, &problems)
+	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
@@ -155,7 +155,7 @@ func (p *Parser) retention(artifact *input.Artifact, emit parser.Emit) {
 // that is not a JSON object gives one `parser:` row instead.
 func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
-	document, ok := readJSON(artifact.DiskPath, &problems)
+	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
 	if !ok {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return

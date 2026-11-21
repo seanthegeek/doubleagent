@@ -96,7 +96,7 @@ var errFileNotObject = errors.New("is not a JSON object")
 // (<reason>)". A file that exists but cannot be read adds its unreadable
 // problem to problems. A missing file, a link or a directory gives nothing
 // and no error, since the CLI writes no meta.json and that is not an error.
-func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, error) {
+func loadJSON(artifact *input.Artifact, path string, problems *parser.Problems) (jsonvalue.Value, bool, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		if !ignoredLookupError(err) {
@@ -111,7 +111,7 @@ func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, er
 	if !ok {
 		return jsonvalue.NewNull(), false, nil
 	}
-	value, err := jsonvalue.Decode(data)
+	value, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil {
 		return jsonvalue.NewNull(), false, fmt.Errorf("could not be decoded (%w)", err)
 	}
@@ -122,9 +122,9 @@ func loadJSON(path string, problems *parser.Problems) (jsonvalue.Value, bool, er
 // that exists but cannot be read adds its whole-file problem to problems;
 // one that does not decode or is not an object adds "<name> <reason>" at
 // line 1.
-func loadObject(path string, problems *parser.Problems) jsonvalue.Value {
+func loadObject(artifact *input.Artifact, path string, problems *parser.Problems) jsonvalue.Value {
 	var unread parser.Problems
-	value, decoded, err := loadJSON(path, &unread)
+	value, decoded, err := loadJSON(artifact, path, &unread)
 	if len(unread) > 0 {
 		*problems = append(*problems, unread...)
 		return jsonvalue.NewNull()
@@ -144,8 +144,8 @@ func loadObject(path string, problems *parser.Problems) jsonvalue.Value {
 // readObject returns the JSON object in a file this parser also parses in
 // full, else null: a pre-scan, whose problems are reported when the file is
 // parsed as an artifact or loaded as a conversation's state.
-func readObject(path string) jsonvalue.Value {
-	value, _, _ := loadJSON(path, &parser.Problems{})
+func readObject(artifact *input.Artifact, path string) jsonvalue.Value {
+	value, _, _ := loadJSON(artifact, path, &parser.Problems{})
 	if value.IsObject() {
 		return value
 	}
@@ -229,8 +229,8 @@ func (p *Parser) load(artifact *input.Artifact, paths conversationFiles) *conver
 	conv := &conversation{sessionID: filepath.Base(paths.directory), modelBefore: map[string]string{},
 		modelAfter: map[string]modelStep{}, eventModel: map[string]string{},
 		actions: map[string][2]string{}}
-	meta := loadObject(paths.meta, &conv.problems)
-	state := loadObject(paths.state, &conv.problems)
+	meta := loadObject(artifact, paths.meta, &conv.problems)
+	state := loadObject(artifact, paths.state, &conv.problems)
 	conv.projectPath = parser.Text(parser.FirstNonEmpty(meta.Get("workspace").Get("working_dir"),
 		state.Get("workspace").Get("working_dir")))
 	conv.model = parser.Text(state.Get("agent").Get("llm").Get("model"))
@@ -240,7 +240,7 @@ func (p *Parser) load(artifact *input.Artifact, paths conversationFiles) *conver
 	}
 	loaded := make([]loadedEvent, len(files))
 	for i, file := range files {
-		loaded[i] = loadedEvent{file.name, readObject(file.path)}
+		loaded[i] = loadedEvent{file.name, readObject(artifact, file.path)}
 	}
 	first := jsonvalue.NewNull()
 	if len(loaded) > 0 {

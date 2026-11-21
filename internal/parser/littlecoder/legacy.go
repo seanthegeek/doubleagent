@@ -35,7 +35,7 @@ func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parser.Emit) 
 	var problems parser.Problems
 	text, ok := parser.ReadText(artifact.DiskPath, &problems)
 	var sessions iter.Seq2[int, jsonvalue.Value]
-	switch document, err := jsonvalue.DecodeString(text); {
+	switch document, err := parser.DecodeJSON(artifact, text); {
 	case !ok:
 	case err == nil && document.IsObject() && document.Get("sessions").IsArray():
 		sessions = numbered(document.Get("sessions"), "sessions", 0, &problems)
@@ -62,7 +62,7 @@ func (p *Parser) parseLegacySession(artifact *input.Artifact, emit parser.Emit) 
 	var problems parser.Problems
 	text, ok := parser.ReadText(artifact.DiskPath, &problems)
 	if ok {
-		document, err := jsonvalue.DecodeString(text)
+		document, err := parser.DecodeJSON(artifact, text)
 		switch found := p.messagesKey.FindStringIndex(text); {
 		case err == nil && document.IsObject():
 			p.legacyRows(artifact, document, numbered(document.Get("messages"), "messages", 0, &problems),

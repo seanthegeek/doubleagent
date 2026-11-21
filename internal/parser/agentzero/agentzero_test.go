@@ -29,16 +29,16 @@ func TestRecoverLogsTakesJSONWhitespaceOnly(t *testing.T) {
 	subject := New()
 	for _, space := range []string{" ", "\t", "\n", "\r\n"} {
 		text := `{"logs"` + space + ":" + space + `[{"a": 1}`
-		if got := subject.recoverLogs(text); len(got) != 1 || got[0].JSON() != `{"a":1}` {
+		if got := subject.recoverLogs(nil, text); len(got) != 1 || got[0].JSON() != `{"a":1}` {
 			t.Errorf("%q gave %d items", space, len(got))
 		}
 	}
 	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
-		if got := subject.recoverLogs(`{"logs"` + space + `: [{"a": 1}`); len(got) != 0 {
+		if got := subject.recoverLogs(nil, `{"logs"`+space+`: [{"a": 1}`); len(got) != 0 {
 			t.Errorf("%q gave %d items", space, len(got))
 		}
 	}
-	got := subject.recoverLogs(`{"logs": [{"no": 0}, {"no": 1`)
+	got := subject.recoverLogs(nil, `{"logs": [{"no": 0}, {"no": 1`)
 	if len(got) != 1 || got[0].JSON() != `{"no":0}` {
 		t.Errorf("a cut log gave %d items", len(got))
 	}
@@ -103,7 +103,7 @@ func TestParseAIReadsAnObjectOrTextHoldingOne(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.json, func(t *testing.T) {
-			got := parseAI(decoded(t, test.json))
+			got := parseAI(nil, decoded(t, test.json))
 			if text := got.JSON(); (got.IsNull() && test.want != "") ||
 				(!got.IsNull() && text != test.want) {
 				t.Errorf("got %q, want %q", text, test.want)

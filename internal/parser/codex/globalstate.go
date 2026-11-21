@@ -34,9 +34,9 @@ var hostSettingKeys = []string{"agent-mode-by-host-id",
 
 // asObject returns value when it is a JSON object, or the object a string
 // holds; else an empty object.
-func asObject(value jsonvalue.Value) jsonvalue.Value {
+func asObject(artifact *input.Artifact, value jsonvalue.Value) jsonvalue.Value {
 	if value.IsString() {
-		decoded, err := jsonvalue.DecodeString(value.StringValue())
+		decoded, err := parser.DecodeJSON(artifact, value.StringValue())
 		if err != nil {
 			return jsonvalue.NewObject()
 		}
@@ -48,10 +48,10 @@ func asObject(value jsonvalue.Value) jsonvalue.Value {
 // objectIn returns asObject(value) for a member of the global state that
 // the app writes as an object: a member present as anything else, or as a
 // string that does not hold an object, adds a problem naming it.
-func objectIn(value jsonvalue.Value, member string, problems *parser.Problems) jsonvalue.Value {
+func objectIn(artifact *input.Artifact, value jsonvalue.Value, member string, problems *parser.Problems) jsonvalue.Value {
 	held := value
 	if value.IsString() {
-		if decoded, err := jsonvalue.DecodeString(value.StringValue()); err == nil {
+		if decoded, err := parser.DecodeJSON(artifact, value.StringValue()); err == nil {
 			held = decoded
 		}
 	}
@@ -64,9 +64,9 @@ func objectIn(value jsonvalue.Value, member string, problems *parser.Problems) j
 // activityByThread returns the last activity time per thread id, from the
 // keys `["local","<id>"]` of the activity atom; an atom that is not an
 // object adds a problem.
-func activityByThread(atom jsonvalue.Value, problems *parser.Problems) jsonvalue.Value {
+func activityByThread(artifact *input.Artifact, atom jsonvalue.Value, problems *parser.Problems) jsonvalue.Value {
 	out := jsonvalue.NewObject()
-	for _, member := range objectIn(atom.Get(activityKey), activityKey, problems).Members() {
+	for _, member := range objectIn(artifact, atom.Get(activityKey), activityKey, problems).Members() {
 		parts, err := jsonvalue.DecodeString(member.Key)
 		if err == nil && parts.IsArray() && parts.Len() == 2 && parts.Index(1).IsString() {
 			out.Set(parts.Index(1).StringValue(), member.Value)
@@ -89,10 +89,10 @@ type promptEntry struct {
 // file has its text, since two rows of one file never pair in
 // deduplication. A prompt-history that is not an object, or a list of it
 // that is not an array, adds a problem.
-func promptEntries(atom jsonvalue.Value, problems *parser.Problems) []promptEntry {
+func promptEntries(artifact *input.Artifact, atom jsonvalue.Value, problems *parser.Problems) []promptEntry {
 	var listed []promptEntry
 	threaded := map[string]bool{}
-	for _, member := range objectIn(atom.Get(promptHistoryKey), promptHistoryKey, problems).Members() {
+	for _, member := range objectIn(artifact, atom.Get(promptHistoryKey), promptHistoryKey, problems).Members() {
 		list := parser.EntriesOfKind(member.Value, promptHistoryKey+"."+member.Key, jsonvalue.Object, 0, problems)
 		for i, entry := range list {
 			markdown := entry.Get("markdown")
@@ -155,7 +155,7 @@ type stateText struct {
 // settings, the remote control state and the projectless directories,
 // from the document, its atom and its output directories. A member of the
 // atom read here that is not an object adds a problem.
-func globalStateTexts(document, atom, outputs jsonvalue.Value, rel string,
+func globalStateTexts(artifact *input.Artifact, document, atom, outputs jsonvalue.Value, rel string,
 	problems *parser.Problems) []stateText {
 	source := func(key string) string { return "(from " + rel + " " + key + ", file mtime)" }
 	setting := func(text string) stateText {
@@ -169,13 +169,13 @@ func globalStateTexts(document, atom, outputs jsonvalue.Value, rel string,
 				source(strings.TrimSuffix(deletedPrefix, ":"))})
 		}
 	}
-	texts = append(texts, descriptionTexts(atom, source(descriptionsKey), problems)...)
-	permissions := objectIn(atom.Get(permissionsKey), permissionsKey, problems)
+	texts = append(texts, descriptionTexts(artifact, atom, source(descriptionsKey), problems)...)
+	permissions := objectIn(artifact, atom.Get(permissionsKey), permissionsKey, problems)
 	for threadID, permission := range parser.MembersOfKind(permissions, permissionsKey, jsonvalue.Object, 0, problems) {
 		texts = append(texts, stateText{threadID, standingText(permission, source(permissionsKey))})
 	}
 	for _, key := range hostSettingKeys {
-		for _, member := range objectIn(atom.Get(key), key, problems).Members() {
+		for _, member := range objectIn(artifact, atom.Get(key), key, problems).Members() {
 			texts = append(texts, setting(key+"."+member.Key+"="+parser.SettingValue(member.Value)))
 		}
 	}
@@ -190,9 +190,9 @@ func globalStateTexts(document, atom, outputs jsonvalue.Value, rel string,
 // descriptionTexts returns a "thread description:" text per described
 // thread, then per thread with only an activity time. Either atom that is
 // not an object adds a problem.
-func descriptionTexts(atom jsonvalue.Value, suffix string, problems *parser.Problems) []stateText {
-	descriptions := objectIn(atom.Get(descriptionsKey), descriptionsKey, problems)
-	activity := activityByThread(atom, problems)
+func descriptionTexts(artifact *input.Artifact, atom jsonvalue.Value, suffix string, problems *parser.Problems) []stateText {
+	descriptions := objectIn(artifact, atom.Get(descriptionsKey), descriptionsKey, problems)
+	activity := activityByThread(artifact, atom, problems)
 	sessions := descriptions.Keys()
 	for _, threadID := range activity.Keys() {
 		if !descriptions.Has(threadID) {
@@ -247,7 +247,7 @@ func (p *Parser) readGlobalState(artifact *input.Artifact, emit parser.Emit) (js
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return jsonvalue.NewNull(), false
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil {
 		emit(p.ProblemRow(artifact, "unreadable global state: "+err.Error()))
 		return jsonvalue.NewNull(), false
@@ -269,9 +269,9 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	var problems parser.Problems
-	atom := objectIn(document.Get(atomKey), atomKey, &problems)
-	roots := asObject(document.Get(rootHintsKey))
-	outputs := objectIn(document.Get(outputDirsKey), outputDirsKey, &problems)
+	atom := objectIn(artifact, document.Get(atomKey), atomKey, &problems)
+	roots := asObject(artifact, document.Get(rootHintsKey))
+	outputs := objectIn(artifact, document.Get(outputDirsKey), outputDirsKey, &problems)
 	stamp := func(sessionID string) timeline.Row {
 		row := p.stamp(artifact, nil, sessionID)
 		if sessionID != "" {
@@ -279,7 +279,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 		}
 		return row
 	}
-	for _, entry := range promptEntries(atom, &problems) {
+	for _, entry := range promptEntries(artifact, atom, &problems) {
 		row := stamp(entry.threadID)
 		row.TurnType = timeline.TurnUser
 		row.SourceLine = entry.index
@@ -287,7 +287,7 @@ func (p *Parser) parseGlobalState(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 	}
 	mtime := parser.FileMtime(artifact)
-	for _, found := range globalStateTexts(document, atom, outputs, artifact.Rel, &problems) {
+	for _, found := range globalStateTexts(artifact, document, atom, outputs, artifact.Rel, &problems) {
 		row := stamp(found.sessionID)
 		row.TurnType = timeline.TurnSystem
 		row.SourceLine = 1

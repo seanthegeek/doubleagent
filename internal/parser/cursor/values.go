@@ -4,6 +4,7 @@ import (
 	"iter"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -37,9 +38,9 @@ func firstOrLast(values ...jsonvalue.Value) jsonvalue.Value {
 
 // plain returns a short ItemTable value's JSON value when it decodes, else
 // its text as a string.
-func plain(value sqlitefile.Value) jsonvalue.Value {
+func plain(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Value {
 	text := asText(value)
-	decoded, err := jsonvalue.DecodeString(text)
+	decoded, err := parser.DecodeJSON(artifact, text)
 	if err != nil {
 		return jsonvalue.NewString(text)
 	}
@@ -48,9 +49,10 @@ func plain(value sqlitefile.Value) jsonvalue.Value {
 
 // decodeRecord returns the JSON value of a row, or null after adding the
 // problem "unparseable record <rowid> (<key>: <reason>)" with the text.
-func decodeRecord(rowid int64, key string, value sqlitefile.Value, problems *parser.Problems) jsonvalue.Value {
+func decodeRecord(artifact *input.Artifact, rowid int64, key string, value sqlitefile.Value,
+	problems *parser.Problems) jsonvalue.Value {
 	text := asText(value)
-	decoded, err := jsonvalue.DecodeString(text)
+	decoded, err := parser.DecodeJSON(artifact, text)
 	if err != nil {
 		problems.AddRaw(int(rowid), "unparseable record "+strconv.FormatInt(rowid, 10)+" ("+key+": "+err.Error()+")", text)
 		return jsonvalue.NewNull()
@@ -152,8 +154,8 @@ func selectPresent(table *sqlitefile.Table, wanted []string) ([]sqlitefile.Row, 
 // problem through decodeRecord, one of another kind adds the problem that
 // the row's key is not a JSON array, and entries that are not objects one
 // problem, each at the row's rowid.
-func objectEntries(row keyed, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
-	return parser.EntriesOfKind(decodeRecord(row.rowid, row.key, row.value, problems), row.key, jsonvalue.Object,
+func objectEntries(artifact *input.Artifact, row keyed, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
+	return parser.EntriesOfKind(decodeRecord(artifact, row.rowid, row.key, row.value, problems), row.key, jsonvalue.Object,
 		int(row.rowid), problems)
 }
 
@@ -161,8 +163,8 @@ func objectEntries(row keyed, problems *parser.Problems) iter.Seq2[int, jsonvalu
 // makes a JSON object, an empty object when it is not one. A value that
 // does not decode is a problem through decodeRecord, and one of another
 // kind adds the problem that the row's key is not a JSON object.
-func objectRecord(row keyed, problems *parser.Problems) jsonvalue.Value {
-	value := decodeRecord(row.rowid, row.key, row.value, problems)
+func objectRecord(artifact *input.Artifact, row keyed, problems *parser.Problems) jsonvalue.Value {
+	value := decodeRecord(artifact, row.rowid, row.key, row.value, problems)
 	parser.ObjectMember(value, row.key, int(row.rowid), problems)
 	return parser.ObjectOrEmpty(value)
 }

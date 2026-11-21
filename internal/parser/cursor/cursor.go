@@ -157,7 +157,7 @@ func (p *Parser) database(artifact *input.Artifact, emit parser.Emit, read func(
 		return
 	}
 	defer database.Close()
-	store := newStore(database, p.Work)
+	store := newStore(artifact, database, p.Work)
 	var rows []timeline.Row
 	read(store, func(row timeline.Row) { rows = append(rows, row) })
 	if store.err != nil {
@@ -170,6 +170,10 @@ func (p *Parser) database(artifact *input.Artifact, emit parser.Emit, read func(
 // store reads the tables of one database, keeping the first error, after
 // which every read gives nothing.
 type store struct {
+	// artifact is the parse the JSON of the database notes its repeated
+	// member names in, nil for a lookup in a database that is parsed as
+	// its own artifact.
+	artifact *input.Artifact
 	database *sqlitefile.Database
 	tables   parser.Tables
 	err      error
@@ -179,8 +183,8 @@ type store struct {
 
 // newStore returns the store of an open database, counting its queries in
 // work.
-func newStore(database *sqlitefile.Database, work parser.Work) *store {
-	created := &store{database: database, work: work}
+func newStore(artifact *input.Artifact, database *sqlitefile.Database, work parser.Work) *store {
+	created := &store{artifact: artifact, database: database, work: work}
 	created.tables, created.err = parser.TablesOf(database)
 	return created
 }

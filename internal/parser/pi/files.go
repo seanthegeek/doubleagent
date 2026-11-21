@@ -30,7 +30,7 @@ func jsonObject(artifact *input.Artifact, problems *parser.Problems) (jsonvalue.
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	document, err := jsonvalue.DecodeString(text)
+	document, err := parser.DecodeJSON(artifact, text)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, artifact.Rel+" is not a JSON object")
 		return jsonvalue.NewNull(), false
@@ -95,7 +95,7 @@ func (p *Parser) parseDebugLog(artifact *input.Artifact, options parser.Options,
 			continue
 		}
 		if strings.Trim(line, textlines.JSONSpace) != "" {
-			session.addDebugMessage(number, line)
+			session.addDebugMessage(artifact, number, line)
 		}
 	}
 	if !readAny && len(session.Problems) > 0 {
@@ -111,8 +111,8 @@ func (p *Parser) parseDebugLog(artifact *input.Artifact, options parser.Options,
 
 // addDebugMessage adds one message line of the debug log as a message
 // entry, or its problem when it is not a JSON object.
-func (s *Session) addDebugMessage(number int, line string) {
-	message, err := jsonvalue.DecodeString(line)
+func (s *Session) addDebugMessage(artifact *input.Artifact, number int, line string) {
+	message, err := parser.DecodeJSON(artifact, line)
 	switch {
 	case err != nil:
 		s.Problems.AddRaw(number, parser.UnparseableLine(err), line)

@@ -202,7 +202,7 @@ func (p *Parser) jsonDocument(artifact *input.Artifact, what string) (jsonvalue.
 		row := p.ErrorRows(artifact, problems, "", "")[0]
 		return jsonvalue.Value{}, &row
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err == nil && document.IsObject() {
 		return document, nil
 	}

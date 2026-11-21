@@ -68,7 +68,7 @@ func TestCallTextPrefersTheURLThenTheQuery(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := callText(test.arguments); got != test.want {
+			if got := callText(nil, test.arguments); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -92,7 +92,7 @@ func TestResultFallbackGivesTheStoredResultAsCompactJSON(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := resultFallback(test.value); got != test.want {
+			if got := resultFallback(nil, test.value); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

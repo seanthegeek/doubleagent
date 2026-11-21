@@ -55,7 +55,7 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 		}
 		data = decoded
 	}
-	record, err := jsonvalue.Decode(data)
+	record, err := parser.DecodeJSONBytes(a.artifact, data)
 	if err == nil && record.IsObject() {
 		a.entry(current, line, record, createdAt)
 		return

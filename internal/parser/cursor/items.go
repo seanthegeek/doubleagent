@@ -112,7 +112,7 @@ func (i *items) sandboxes(emit parser.Emit) []sandbox {
 	group := timeline.NewGroup()
 	for n, found := range stored {
 		var ignored parser.Problems
-		values[n].enabled = isTrue(decodeRecord(found.rowid, sandboxKey, found.value, &ignored))
+		values[n].enabled = isTrue(decodeRecord(i.artifact, found.rowid, sandboxKey, found.value, &ignored))
 		if len(stored) == 1 {
 			continue
 		}
@@ -140,7 +140,7 @@ func (i *items) sandboxes(emit parser.Emit) []sandbox {
 // parent shown only when the group goes with it), its switches and the
 // models' last use.
 func (i *items) settingsRows(settings keyed, sandboxes []sandbox, emit parser.Emit) {
-	document := objectRecord(settings, i.problems)
+	document := objectRecord(i.artifact, settings, i.problems)
 	line := int(settings.rowid)
 	state, uses := settingsParts(document, line, i.problems)
 	lists, modes, switched := standingTexts(state, line, i.problems)
@@ -327,7 +327,7 @@ func (i *items) lenders(what string, stored []keyed, emit parser.Emit,
 // key whose first stored row that is true is held, with the display name
 // of each stored name row (lenders).
 func (i *items) enrolment(key string, stored, names []keyed, emit parser.Emit) {
-	held := slices.IndexFunc(stored, func(row keyed) bool { return isTrue(plain(row.value)) })
+	held := slices.IndexFunc(stored, func(row keyed) bool { return isTrue(plain(i.artifact, row.value)) })
 	if held < 0 {
 		return
 	}
@@ -339,14 +339,14 @@ func (i *items) enrolment(key string, stored, names []keyed, emit parser.Emit) {
 		if name != nil {
 			raw = name.value
 		}
-		return i.system(enrolledText(key, raw), i.mtime, stored[held].rowid)
+		return i.system(enrolledText(i.artifact, key, raw), i.mtime, stored[held].rowid)
 	})
 }
 
 // enrolledText returns the "remote agent host enrolled:" text of an
 // enrolment key, with the account's display name raw.
-func enrolledText(key string, raw sqlitefile.Value) string {
-	name := plain(raw)
+func enrolledText(artifact *input.Artifact, key string, raw sqlitefile.Value) string {
+	name := plain(artifact, raw)
 	text := asText(raw)
 	if name.IsString() {
 		text = name.StringValue()
@@ -366,12 +366,12 @@ func (i *items) githubAccount(key string, stored, usages []keyed, emit parser.Em
 	login := key[len("github-"):]
 	held := -1
 	for n, row := range stored {
-		if login != "" && plain(row.value).IsArray() {
+		if login != "" && plain(i.artifact, row.value).IsArray() {
 			if held < 0 {
 				held = n
 			}
 		} else if strings.HasPrefix(asText(row.value), "[") {
-			decodeRecord(row.rowid, row.key, row.value, i.problems)
+			decodeRecord(i.artifact, row.rowid, row.key, row.value, i.problems)
 		}
 	}
 	if held < 0 {
@@ -383,7 +383,7 @@ func (i *items) githubAccount(key string, stored, usages []keyed, emit parser.Em
 	i.lenders("account row is", usages, emit, func(found *keyed) timeline.Row {
 		var entries []jsonvalue.Value
 		if found != nil {
-			for _, usage := range objectEntries(*found, i.problems) {
+			for _, usage := range objectEntries(i.artifact, *found, i.problems) {
 				entries = append(entries, usage)
 			}
 		}

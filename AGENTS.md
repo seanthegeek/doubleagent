@@ -636,6 +636,14 @@ for Go files as it does for the others.
   bytes a row (four carried values of 4,096 bytes, and 512). Allocations
   are not counted under the race detector, and work that allocates nothing
   not at all; a parser's own tests count it (`parser.Work`).
+- **Evidence JSON is decoded through the kit.** A parser decodes the JSON
+  it reads from the evidence with the kit's readers or `parser.DecodeJSON`,
+  and a `jsonvalue.Document` it walks itself gives its `TakeRepeats` to
+  `parser.NoteRepeats`, so an object that repeats a member name gives its
+  file a `parser:` row. `TestParsersDecodeEvidenceThroughTheKit` in
+  `internal/parser` fails on any other call of `jsonvalue.Decode`,
+  `DecodeString` or `DecodePrefix` in a parser package beyond its reviewed
+  list of values that hold no object.
 - **Evidence is shown as written.** In the analysis output files a number
   from the evidence keeps its source text, JSON embedded in a row is compact
   with the evidence's key order, a boolean is `true` or `false`, and a null

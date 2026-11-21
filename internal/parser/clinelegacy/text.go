@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -37,12 +38,13 @@ func Join(parts ...jsonvalue.Value) string {
 }
 
 // LoadsOrNone returns text decoded as a JSON object, or false when it does
-// not open with "{" after leading whitespace or is not a JSON object.
-func LoadsOrNone(text string) (jsonvalue.Value, bool) {
+// not open with "{" after leading whitespace or is not a JSON object; its
+// repeated member names are noted in the parse of artifact.
+func LoadsOrNone(artifact *input.Artifact, text string) (jsonvalue.Value, bool) {
 	if !strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "{") {
 		return jsonvalue.NewNull(), false
 	}
-	value, err := jsonvalue.DecodeString(text)
+	value, err := parser.DecodeJSON(artifact, text)
 	if err != nil || !value.IsObject() {
 		return jsonvalue.NewNull(), false
 	}

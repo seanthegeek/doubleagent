@@ -72,7 +72,7 @@ func parseStateOf(t *testing.T, artifact *input.Artifact) ([]timeline.Row, int) 
 		t.Fatal(err)
 	}
 	defer database.Close()
-	store := newStore(database, parser.CountingWork())
+	store := newStore(nil, database, parser.CountingWork())
 	var rows []timeline.Row
 	New().state(artifact, store, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) })
 	if store.err != nil {

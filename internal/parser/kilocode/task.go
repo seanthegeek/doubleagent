@@ -26,7 +26,7 @@ import (
 func (p *Parser) historyItems(artifact *input.Artifact, taskID string, problems *parser.Problems) []jsonvalue.Value {
 	item := jsonvalue.NewNull()
 	if itemPath, ok := parser.Beside(artifact, "history_item.json"); ok && parser.RegularFile(itemPath) {
-		if read, ok := readJSON(itemPath, problems); ok {
+		if read, ok := readJSON(artifact, itemPath, problems); ok {
 			item = read
 			if !item.IsObject() {
 				problems.Add(0, "history_item.json is not a JSON object")
@@ -74,7 +74,7 @@ func (p *Parser) indexEntries(indexPath, taskID string, problems *parser.Problem
 	index, ok := p.indexes[key]
 	if !ok {
 		index = &taskIndex{entries: map[string][]jsonvalue.Value{}}
-		document, read := readJSON(indexPath, &index.problems)
+		document, read := readJSON(nil, indexPath, &index.problems)
 		if read && !document.IsObject() {
 			index.problems.Add(0, "_index.json is not a JSON object")
 		}

@@ -36,7 +36,7 @@ func TestToolArgsTextGivesTheRowText(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := ToolArgsText(arguments); got != test.want {
+			if got := ToolArgsText(nil, arguments); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

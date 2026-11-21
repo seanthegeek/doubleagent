@@ -65,7 +65,7 @@ func (p *Parser) stash(artifact *input.Artifact, emit parser.Emit) {
 // that is not an array is another.
 func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document, ok := readObject(artifact.DiskPath, &problems)
+	document, ok := readObject(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
@@ -93,12 +93,12 @@ func (p *Parser) pinned(artifact *input.Artifact, emit parser.Emit) {
 
 // readObject returns the file at path decoded as a JSON object, or false
 // when it cannot be read (its problem added) or is not one.
-func readObject(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
+func readObject(artifact *input.Artifact, path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	value, err := jsonvalue.Decode(data)
+	value, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil || !value.IsObject() {
 		return jsonvalue.NewNull(), false
 	}

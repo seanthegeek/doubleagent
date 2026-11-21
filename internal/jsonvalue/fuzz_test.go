@@ -8,8 +8,9 @@ import (
 
 // FuzzDecode checks that any input decodes to a value or an error without a
 // panic, that a decoded value re-encodes to JSON that decodes to an equal
-// value with the same encoding, and that its indented form is laid out as
-// encoding/json's Indent lays out the compact form.
+// value with the same encoding, that its indented form is laid out as
+// encoding/json's Indent lays out the compact form, and that a Document's
+// note of repeated names keeps at most RepeatedNamesKept of them.
 func FuzzDecode(fuzz *testing.F) {
 	seeds := []string{
 		`{"a":[1,2.5,-0,1e400,"xé😀\ud83d"],"a":null}`, `[1,]`, `01`, `"\uzzzz"`,
@@ -25,6 +26,14 @@ func FuzzDecode(fuzz *testing.F) {
 			t.Fatalf("DecodePrefix ended at %d of %d bytes", end, len(data))
 		}
 		value, err := Decode(data)
+		document := NewDocument(string(data))
+		if _, noted := document.Decode(); (noted == nil) != (err == nil) {
+			t.Fatalf("a Document gave %v where Decode gave %v", noted, err)
+		}
+		if repeats := document.TakeRepeats(); len(repeats.Names()) > RepeatedNamesKept ||
+			sumTimes(repeats.Names()) > repeats.Count() || (err != nil && repeats.Count() != 0) {
+			t.Fatalf("repeats %d of %v", repeats.Count(), repeats.Names())
+		}
 		if err != nil {
 			return
 		}

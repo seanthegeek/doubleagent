@@ -32,7 +32,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 	if len(bytes.Trim(raw, " \t\n\r\v\f")) == 0 {
 		return
 	}
-	document, err := parser.ParseJSONC(raw)
+	document, err := parser.ParseJSONC(artifact, raw)
 	if err != nil || !document.IsObject() {
 		emit(p.ProblemRow(artifact, artifact.Rel+" is not a JSON object"))
 		return

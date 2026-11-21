@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -159,8 +160,8 @@ type rule struct {
 // neither shape (not objects, or objects with neither key), which give no
 // rule; false when the text is not a JSON array. A missing or empty field
 // reads "-".
-func sessionRules(text string) ([]rule, int, bool) {
-	rules, err := jsonvalue.DecodeString(text)
+func sessionRules(artifact *input.Artifact, text string) ([]rule, int, bool) {
+	rules, err := parser.DecodeJSON(artifact, text)
 	if err != nil || !rules.IsArray() {
 		return nil, 0, false
 	}

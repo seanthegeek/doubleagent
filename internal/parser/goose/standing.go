@@ -109,7 +109,7 @@ func (p *Parser) readJSONFile(artifact *input.Artifact, emit parser.Emit) (jsonv
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return jsonvalue.Value{}, "", false
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil {
 		return jsonvalue.Value{}, artifact.Rel + " is not JSON (" + err.Error() + ")", true
 	}

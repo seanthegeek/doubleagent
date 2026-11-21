@@ -181,11 +181,11 @@ func keptInName(char rune) bool {
 // argumentsText returns a transcript's argsText as the pi reader renders
 // the same call's arguments: ArgsSummary of the text decoded as JSON, else
 // the text itself.
-func argumentsText(arguments jsonvalue.Value) string {
+func argumentsText(artifact *input.Artifact, arguments jsonvalue.Value) string {
 	if !arguments.IsString() {
 		return pi.ArgsSummary(arguments)
 	}
-	value, err := jsonvalue.DecodeString(arguments.StringValue())
+	value, err := parser.DecodeJSON(artifact, arguments.StringValue())
 	if err != nil {
 		return arguments.StringValue()
 	}

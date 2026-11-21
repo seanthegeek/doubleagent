@@ -83,7 +83,7 @@ func (s *stateRows) projects() {
 func (s *stateRows) backups() {
 	for _, run := range s.data["backup_runs"] {
 		raw := parser.TextColumn(run.Get("manifest_json"))
-		manifest, err := jsonvalue.DecodeString(raw)
+		manifest, err := parser.DecodeJSON(s.artifact, raw)
 		if err != nil {
 			s.problems.AddRaw(int(run.Rowid), "backup_runs manifest_json unparseable ("+err.Error()+")", raw)
 			continue

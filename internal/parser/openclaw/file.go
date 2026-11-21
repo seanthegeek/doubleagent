@@ -78,7 +78,7 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 			continue
 		}
 		createdAt := timeutil.FromValue(inner.Get("created_at"))
-		entry, err := eventJSON(inner.Get("event_json"))
+		entry, err := eventJSON(w.artifact, inner.Get("event_json"))
 		if err != nil {
 			w.bad(current, line, "cold archive event seq "+inner.Get("seq").Text()+
 				" unreadable: "+err.Error(), createdAt)
@@ -94,8 +94,9 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 }
 
 // eventJSON decodes the event_json text of a cold archive's event record;
-// a value that is not text is an error.
-func eventJSON(value jsonvalue.Value) (jsonvalue.Value, error) {
+// a value that is not text is an error. Repeated member names are noted in
+// the parse of artifact.
+func eventJSON(artifact *input.Artifact, value jsonvalue.Value) (jsonvalue.Value, error) {
 	text := ""
 	switch {
 	case value.IsString():
@@ -103,7 +104,7 @@ func eventJSON(value jsonvalue.Value) (jsonvalue.Value, error) {
 	case !value.IsEmpty():
 		return jsonvalue.Value{}, errEventNotText
 	}
-	return jsonvalue.DecodeString(text)
+	return parser.DecodeJSON(artifact, text)
 }
 
 // parseFile emits the rows of a JSONL transcript, an archived or copied
@@ -163,7 +164,7 @@ func (p *Parser) legacyKey(artifact *input.Artifact, sessionID string) (string, 
 	key := fileState{path: store, mtime: info.ModTime().UnixNano(), size: info.Size()}
 	index, ok := p.legacyIndexes[key]
 	if !ok {
-		index = p.readLegacyIndex(store)
+		index = p.readLegacyIndex(artifact, store)
 		if p.legacyIndexes == nil {
 			p.legacyIndexes = map[fileState]*legacyIndex{}
 		}
@@ -186,15 +187,17 @@ type legacyIndex struct {
 	err  error
 }
 
-// readLegacyIndex reads and indexes the sessions.json at path.
-func (p *Parser) readLegacyIndex(path string) *legacyIndex {
+// readLegacyIndex reads and indexes the sessions.json at path, once for
+// the parser's life, noting its repeated member names in the parse of
+// artifact, the first to read it.
+func (p *Parser) readLegacyIndex(artifact *input.Artifact, path string) *legacyIndex {
 	p.Work.Add("sessions.json reads", 1)
 	var problems parser.Problems
 	content, ok := parser.FileBytes(path, &problems)
 	if !ok {
 		return &legacyIndex{err: errors.New(problems[0].Message)}
 	}
-	data, err := jsonvalue.Decode(content)
+	data, err := parser.DecodeJSONBytes(artifact, content)
 	switch {
 	case err != nil:
 		return &legacyIndex{err: fmt.Errorf("sessions.json unparseable (%w)", err)}

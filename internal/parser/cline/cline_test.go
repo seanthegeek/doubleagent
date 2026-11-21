@@ -58,7 +58,7 @@ func TestDenialReadsRejectionsAndBlocks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := denial(content); got != test.want {
+			if got := denial(nil, content); got != test.want {
 				t.Errorf("denial = %q, want %q", got, test.want)
 			}
 		})

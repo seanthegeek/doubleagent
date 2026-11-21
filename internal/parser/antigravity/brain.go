@@ -143,7 +143,7 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parser.
 			if len(stripped) == 0 {
 				continue
 			}
-			record, err := jsonvalue.DecodeString(textlines.ValidUTF8(stripped))
+			record, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(stripped))
 			if err == nil && !record.IsObject() {
 				err = errNotObject
 			}
@@ -272,7 +272,7 @@ func (b *brainLines) reply(number int, record jsonvalue.Value, content string) {
 			call = jsonvalue.NewObject()
 		}
 		b.calls = append(b.calls, call)
-		row := b.row(number, record, timeline.TurnToolUse, toolArgsSummary(brainArgs(call)), "tool_calls")
+		row := b.row(number, record, timeline.TurnToolUse, toolArgsSummary(b.artifact, brainArgs(call)), "tool_calls")
 		row.ToolName, row.ToolUseID = parser.Text(call.Get("name")), parser.Text(call.Get("id"))
 		b.emit(row)
 	}

@@ -19,7 +19,7 @@ func (p *Parser) cloudSessions(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(data))
+	document, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(data))
 	if err != nil || !document.IsObject() {
 		why := ""
 		if err != nil {
@@ -53,7 +53,7 @@ func (p *Parser) settings(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := parser.ParseJSONC(data)
+	document, err := parser.ParseJSONC(artifact, data)
 	if err != nil || !document.IsObject() {
 		why := ""
 		if err != nil {
@@ -104,7 +104,7 @@ func (p *Parser) editing(artifact *input.Artifact, sessionID string, emit parser
 	project, _ := p.workspaceJSON(artifact, 2, &problems)
 	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		decoded, err := jsonvalue.DecodeString(textlines.ValidUTF8(data))
+		decoded, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(data))
 		switch {
 		case err != nil:
 			problems.Add(0, "file is not valid JSON ("+err.Error()+")")

@@ -3,6 +3,7 @@ package parser
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
@@ -90,11 +91,12 @@ func StripJSONC(text string) string {
 	return StripTrailingCommas(StripJSONComments(text))
 }
 
-// ParseJSONC decodes a JSON-with-comments document: raw bytes decoded as
-// UTF-8 with replacement, a leading byte-order mark dropped, comments and
-// trailing commas stripped. It returns the decoder's error for text that is
-// still not JSON.
-func ParseJSONC(raw []byte) (jsonvalue.Value, error) {
+// ParseJSONC decodes a JSON-with-comments document of a parse of artifact:
+// raw bytes decoded as UTF-8 with replacement, a leading byte-order mark
+// dropped, comments and trailing commas stripped, its repeated member
+// names noted in the parse (DecodeJSON). It returns the decoder's error for
+// text that is still not JSON.
+func ParseJSONC(artifact *input.Artifact, raw []byte) (jsonvalue.Value, error) {
 	text := strings.TrimPrefix(textlines.ValidUTF8(raw), byteOrderMark)
-	return jsonvalue.DecodeString(StripJSONC(text))
+	return DecodeJSON(artifact, StripJSONC(text))
 }

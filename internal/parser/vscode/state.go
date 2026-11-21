@@ -60,7 +60,8 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	if !workspace {
 		keys = append(keys, copilotStateKey)
 	}
-	values, problems := vscodestate.ReadItems(artifact.DiskPath, keys)
+	values, problems, repeats := vscodestate.ReadItemsRepeats(artifact.DiskPath, keys)
+	parser.NoteRepeats(artifact, repeats)
 	var errors parser.Problems
 	project := ""
 	if workspace {
@@ -68,7 +69,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	}
 	p.copilotStateRows(artifact, values[copilotStateKey], &problems, emit)
 	if !workspace {
-		usages, more := usageItems(artifact.DiskPath)
+		usages, more := usageItems(artifact, artifact.DiskPath)
 		problems = append(problems, more...)
 		p.sourceHostRows(artifact, usages, &problems, emit)
 	}
@@ -157,7 +158,7 @@ type usage struct {
 // database in row order, and the problems of values that are not JSON. A
 // database ReadItems could not open gives nothing here, since it reported
 // it; secret:// rows never match.
-func usageItems(databasePath string) ([]usage, []string) {
+func usageItems(artifact *input.Artifact, databasePath string) ([]usage, []string) {
 	if !parser.RegularFile(databasePath) {
 		return nil, nil
 	}
@@ -186,7 +187,7 @@ func usageItems(databasePath string) ([]usage, []string) {
 		if key.Type != sqlitefile.Text || !usageKey.MatchString(key.Text()) {
 			continue
 		}
-		decoded, err := jsonvalue.DecodeString(usageText(row.Get("value")))
+		decoded, err := parser.DecodeJSON(artifact, usageText(row.Get("value")))
 		if err != nil {
 			problems = append(problems, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
 			continue

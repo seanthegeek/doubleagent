@@ -124,7 +124,7 @@ func (p *Parser) digest(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	project := ""
 	if manifest, found := parser.Above(artifact, 1, "manifest.json"); found {
-		project = p.manifestRoot(manifest, &problems)
+		project = p.manifestRoot(artifact, manifest, &problems)
 	}
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
@@ -182,7 +182,7 @@ type manifestFile struct {
 // read once per state of the file for the parser's life, since every
 // digest of the memory folder looks it up; the problems of that read are
 // added for each lookup as a fresh read would.
-func (p *Parser) manifestRoot(path string, problems *parser.Problems) string {
+func (p *Parser) manifestRoot(artifact *input.Artifact, path string, problems *parser.Problems) string {
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		return ""
@@ -192,7 +192,7 @@ func (p *Parser) manifestRoot(path string, problems *parser.Problems) string {
 	if !ok {
 		p.Work.Add("manifest.json reads", 1)
 		read = &manifestFile{}
-		read.root = readManifest(path, &read.problems)
+		read.root = readManifest(artifact, path, &read.problems)
 		if p.manifests == nil {
 			p.manifests = map[indexKey]*manifestFile{}
 		}
@@ -205,11 +205,11 @@ func (p *Parser) manifestRoot(path string, problems *parser.Problems) string {
 // readManifest returns the canonical project root of a memory folder's
 // manifest.json, or "". An absent manifest, or one without canonical, is
 // silent; one that cannot be read or is not a JSON object adds a problem.
-func readManifest(path string, problems *parser.Problems) string {
+func readManifest(artifact *input.Artifact, path string, problems *parser.Problems) string {
 	if !parser.RegularFile(path) {
 		return ""
 	}
-	document, ok := readJSON(path, problems)
+	document, ok := readJSON(artifact, path, problems)
 	if !ok {
 		return ""
 	}

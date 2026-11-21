@@ -36,7 +36,7 @@ func (e metadataEvent) sortKey() float64 {
 // adds a problem.
 func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContext, emit parser.Emit) {
 	var problems parser.Problems
-	data, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	data, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if !data.IsObject() {
 		if len(problems) == 0 {
 			problems.Add(0, "task_metadata.json is not a JSON object")

@@ -69,7 +69,7 @@ func (r *Reader) JSONObject(artifact *input.Artifact, what string) (jsonvalue.Va
 	if !ok {
 		return jsonvalue.NewNull(), r.ErrorRows(artifact, problems, "", "")[0], false
 	}
-	document, err := jsonvalue.Decode(data)
+	document, err := parser.DecodeJSONBytes(artifact, data)
 	if err == nil && document.IsObject() {
 		return document, timeline.Row{}, true
 	}
@@ -126,7 +126,7 @@ func (r *Reader) registry(artifact *input.Artifact, emit parser.Emit) {
 	row := r.BaseRow(artifact)
 	row.SourceLine = 1
 	row.TurnType = timeline.TurnSystem
-	record, err := jsonvalue.Decode(data)
+	record, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil || !record.IsObject() {
 		row.Text = "parser: session registry file is not a JSON object"
 		emit(row)

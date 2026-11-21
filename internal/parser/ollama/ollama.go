@@ -137,7 +137,7 @@ func (p *Parser) readObject(artifact *input.Artifact) (jsonvalue.Value, error) {
 	err := utf8Error(content)
 	var document jsonvalue.Value
 	if err == nil {
-		document, err = jsonvalue.Decode(content)
+		document, err = parser.DecodeJSONBytes(artifact, content)
 	}
 	if err != nil {
 		return jsonvalue.Value{}, fmt.Errorf("%s%s is not readable JSON (%w)", parser.ProblemPrefix, artifact.Rel, err)

@@ -61,6 +61,21 @@ func IsStateDatabase(rel string) bool {
 // file, a symbolic link and a file that is not regular give nothing.
 // secret:// keys are never read.
 func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string) {
+	var repeats jsonvalue.Repeats
+	return readItems(path, keys, &repeats)
+}
+
+// ReadItemsRepeats returns what ReadItems does and the member names the
+// values repeat within an object, for a parser to report.
+func ReadItemsRepeats(path string, keys []string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
+	var repeats jsonvalue.Repeats
+	values, problems := readItems(path, keys, &repeats)
+	return values, problems, repeats
+}
+
+// readItems reads the items as ReadItems does, noting in repeats the member
+// names the values repeat within an object.
+func readItems(path string, keys []string, repeats *jsonvalue.Repeats) (map[string]jsonvalue.Value, []string) {
 	values := map[string]jsonvalue.Value{}
 	var wanted []sqlitefile.Value
 	for _, key := range keys {
@@ -88,7 +103,9 @@ func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string
 			continue
 		}
 		text := valueText(row.Get("value"))
-		decoded, err := jsonvalue.DecodeString(text)
+		document := jsonvalue.NewDocument(text)
+		decoded, err := document.Decode()
+		repeats.Merge(document.TakeRepeats())
 		if err != nil {
 			decoded = jsonvalue.NewString(text)
 			problems = append(problems, ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")

@@ -17,7 +17,7 @@ func TestALogLineThatIsNotAnObjectIsAProblem(t *testing.T) {
 		t.Fatal(err)
 	}
 	var problems parser.Problems
-	state := replay(path, requestLines{}, &problems, parser.Work{})
+	state := replay(nil, path, requestLines{}, &problems, parser.Work{})
 	const reason = "unparseable line (not a JSON object)"
 	want := parser.Problems{{Line: 2, Message: reason, Raw: "[1,2]"}, {Line: 3, Message: reason, Raw: "42"},
 		{Line: 4, Message: reason, Raw: `"text"`}, {Line: 6, Message: reason, Raw: "null"}}

@@ -29,7 +29,7 @@ func readObject(artifact *input.Artifact, problems *parser.Problems) (jsonvalue.
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	document, err := jsonvalue.Decode(data)
+	document, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil || !document.IsObject() {
 		problems.Add(0, fileName(artifact)+" is not a JSON object")
 		return jsonvalue.NewNull(), false

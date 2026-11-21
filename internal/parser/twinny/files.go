@@ -61,7 +61,7 @@ func (p *Parser) changes(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	record, err := jsonvalue.DecodeString(textlines.ValidUTF8(raw))
+	record, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(raw))
 	switch {
 	case err != nil:
 		problems.Add(0, "agent-changes record is not valid JSON ("+err.Error()+")")

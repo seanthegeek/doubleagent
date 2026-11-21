@@ -71,7 +71,7 @@ func (p *Parser) readDocument(artifact *input.Artifact, project string, emit par
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 		return jsonvalue.Value{}, false
 	}
-	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
+	document, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(content))
 	switch {
 	case err != nil:
 		emit(p.row(artifact, timeline.TurnSystem, "parser: unreadable "+artifact.Rel+": "+reason.For(err), "", 0))

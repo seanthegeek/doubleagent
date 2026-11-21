@@ -82,7 +82,7 @@ func (p *Parser) cnLog(artifact *input.Artifact, emit parser.Emit) {
 		rows = append(rows, row)
 	}
 	for _, entry := range posts {
-		rows[entry.row].Text = postText(entry, source)
+		rows[entry.row].Text = postText(artifact, entry, source)
 	}
 	parser.EmitAll(emit, rows)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -132,11 +132,12 @@ func (q *pendingPosts) settle(processID, url, status string) {
 }
 
 // postText returns the row text of a metadata post: the agent, from the
-// fields sent or else the URL, the metadata keys sent and the status.
-func postText(entry *post, source string) string {
+// fields sent or else the URL, the metadata keys sent and the status; the
+// fields' repeated member names are noted in the parse of artifact.
+func postText(artifact *input.Artifact, entry *post, source string) string {
 	document := jsonvalue.NewNull()
 	if entry.fields != "" {
-		if decoded, err := jsonvalue.DecodeString(entry.fields); err == nil {
+		if decoded, err := parser.DecodeJSON(artifact, entry.fields); err == nil {
 			document = decoded
 		}
 	}

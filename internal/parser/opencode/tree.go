@@ -105,12 +105,12 @@ func subdirectories(directory string) []string {
 // quietObject returns a file read beside the one parsed decoded as a JSON
 // object, or false; that file's own problems are reported where it is
 // parsed, so none is kept here.
-func quietObject(path string, ok bool) (jsonvalue.Value, bool) {
+func quietObject(artifact *input.Artifact, path string, ok bool) (jsonvalue.Value, bool) {
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
 	var ignored parser.Problems
-	return readObject(path, &ignored)
+	return readObject(artifact, path, &ignored)
 }
 
 // sessionScope returns a message file's session scope. The session file is
@@ -169,7 +169,7 @@ func worktreeText(worktree jsonvalue.Value) string {
 func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emit) {
 	var problems parser.Problems
 	stem := jsonStem(artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:])
-	session, ok := readObject(artifact.DiskPath, &problems)
+	session, ok := readObject(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, stem, ""))
 		return
@@ -208,7 +208,7 @@ func (p *Parser) sessionFile(artifact *input.Artifact, old bool, emit parser.Emi
 // object, with an error saying why it is not one. A file that is absent,
 // a link or not a regular file is silent; one that cannot be read adds its
 // unreadable problem and gives no error.
-func readSide(path string, ok bool, problems *parser.Problems) (jsonvalue.Value, error) {
+func readSide(artifact *input.Artifact, path string, ok bool, problems *parser.Problems) (jsonvalue.Value, error) {
 	if !ok || !parser.RegularFile(path) {
 		return jsonvalue.NewNull(), nil
 	}
@@ -216,7 +216,7 @@ func readSide(path string, ok bool, problems *parser.Problems) (jsonvalue.Value,
 	if !read {
 		return jsonvalue.NewNull(), nil
 	}
-	return decodeText(textlines.ValidUTF8(data))
+	return decodeText(artifact, textlines.ValidUTF8(data))
 }
 
 // messageFile emits the rows of a legacy message file and its part files:
@@ -234,7 +234,7 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 	sessionID, name := parts[len(parts)-2], parts[len(parts)-1]
 	tree := p.trees.For(artifact.Home)
 	var problems parser.Problems
-	message, ok := readObject(artifact.DiskPath, &problems)
+	message, ok := readObject(artifact, artifact.DiskPath, &problems)
 	if !ok {
 		scoped := p.sessionScope(tree, root.disk, sessionID, old, jsonvalue.NewNull())
 		if len(problems) > 0 {
@@ -281,7 +281,7 @@ func (p *Parser) messageParts(artifact *input.Artifact, root treeRoot, partNames
 		return nil, []failure{{line: 1, message: "message " + messageID +
 			" repeats the id of an earlier message file; its parts are shown with " + first.original}}
 	}
-	found, failures := root.partFiles(partNames)
+	found, failures := root.partFiles(artifact, partNames)
 	if len(found) > 0 || len(failures) > 0 {
 		tree.partsShown[key] = shownBy{disk: artifact.DiskPath, original: artifact.Original}
 	}
@@ -297,13 +297,16 @@ func (p *Parser) previousMessage(tree *treeIndex, directory, name string) (jsonv
 	if !found || position == 0 {
 		return jsonvalue.NewNull(), false
 	}
-	return quietObject(childPath(directory, siblings[position-1]))
+	path, found := childPath(directory, siblings[position-1])
+	// The previous message is its own artifact, whose parse reports its
+	// repeated member names.
+	return quietObject(nil, path, found)
 }
 
 // partFiles returns the decoded part files of the directory names leads
 // to below the root, each with its original path, and a failure per part
 // file that cannot be read or decoded.
-func (r treeRoot) partFiles(names []string) ([]part, []failure) {
+func (r treeRoot) partFiles(artifact *input.Artifact, names []string) ([]part, []failure) {
 	path, ok := childPath(r.disk, names...)
 	if !ok {
 		return nil, nil
@@ -329,7 +332,7 @@ func (r treeRoot) partFiles(names []string) ([]part, []failure) {
 			continue
 		}
 		raw := textlines.ValidUTF8(data)
-		value, err := decodeText(raw)
+		value, err := decodeText(artifact, raw)
 		if err != nil {
 			failures = append(failures, failure{line: 1, raw: raw, sourceFile: source,
 				message: "unparseable part " + jsonStem(file) + " (" + err.Error() + ")"})

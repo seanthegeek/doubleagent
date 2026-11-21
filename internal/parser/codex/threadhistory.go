@@ -107,7 +107,7 @@ func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parser.Opt
 			p.turnRow(artifact, event, thread, member)
 			continue
 		}
-		item, problem, ok := decodeItem(event.row)
+		item, problem, ok := decodeItem(artifact, event.row)
 		if !ok {
 			problems = append(problems, itemProblem{event.threadID, thread, problem})
 			continue
@@ -257,7 +257,7 @@ func valueKey(value sqlitefile.Value) string {
 // decodeItem returns the ThreadItem object a thread_items row's item_json
 // holds, or false with the problem "unparseable record <rowid> (<reason>)"
 // and the stored value.
-func decodeItem(row sqlitefile.Row) (jsonvalue.Value, parser.Problem, bool) {
+func decodeItem(artifact *input.Artifact, row sqlitefile.Row) (jsonvalue.Value, parser.Problem, bool) {
 	rowid := int(row.Rowid)
 	value := row.Get("item_json")
 	if value.IsNull() {
@@ -265,7 +265,7 @@ func decodeItem(row sqlitefile.Row) (jsonvalue.Value, parser.Problem, bool) {
 		return jsonvalue.NewNull(), parser.Problem{Line: rowid, Message: message}, false
 	}
 	var problems parser.Problems
-	item, ok := decodeColumnObject(value, rowid, &problems)
+	item, ok := decodeColumnObject(artifact, value, rowid, &problems)
 	if !ok {
 		return jsonvalue.NewNull(), problems[0], false
 	}

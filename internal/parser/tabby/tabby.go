@@ -325,7 +325,7 @@ func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parser.Emit) {
 		p.serverRows(artifact, state.Get(vscodeServersKey), emit, &found)
 		var commands []string
 		for _, entry := range parser.ArrayMember(state.Get(vscodeHistoryKey), vscodeHistoryKey, 0, &found) {
-			if command := commandText(entry); command != "" {
+			if command := commandText(artifact, entry); command != "" {
 				commands = append(commands, command)
 			}
 		}

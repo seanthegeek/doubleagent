@@ -37,7 +37,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 			row.Text = timeline.Compact(reasoning.StringValue())
 			emit(row)
 		}
-		mapped, ok := MapUI(kind, message, position == 1)
+		mapped, ok := MapUI(artifact, kind, message, position == 1)
 		if !ok || (mapped.TurnType == timeline.TurnThinking && !options.IncludeThinking) {
 			continue
 		}
@@ -139,7 +139,7 @@ func resultTool(kind string) (string, bool) {
 // MapUI returns the row of one ui_messages.json message of a kind, or
 // false to skip it. first is set for the file's first message, whose
 // "text" kind is the user's task.
-func MapUI(kind string, message jsonvalue.Value, first bool) (Mapped, bool) {
+func MapUI(artifact *input.Artifact, kind string, message jsonvalue.Value, first bool) (Mapped, bool) {
 	text := messageText(message.Get("text"))
 	switch {
 	case isUserKind(kind) || (kind == "text" && first):
@@ -150,20 +150,20 @@ func MapUI(kind string, message jsonvalue.Value, first bool) (Mapped, bool) {
 	case kind == "reasoning":
 		return Mapped{TurnType: timeline.TurnThinking, Text: text}, text != ""
 	case isAssistantKind(kind):
-		text = assistantText(text)
+		text = assistantText(artifact, text)
 		return Mapped{TurnType: timeline.TurnAssistant, Text: text}, text != ""
 	case IsToolUseKind(kind):
-		name, body := toolUseText(kind, text)
+		name, body := toolUseText(artifact, kind, text)
 		return Mapped{TurnType: timeline.TurnToolUse, Text: body, ToolName: name}, body != "" || name != ""
 	}
 	if name, ok := resultTool(kind); ok {
 		if kind == "browser_action_result" {
-			parsed, _ := LoadsOrNone(text)
+			parsed, _ := LoadsOrNone(artifact, text)
 			text = Join(parsed.Get("currentUrl"), parsed.Get("logs"), screenshot(parsed))
 		}
 		return Mapped{TurnType: timeline.TurnToolResult, Text: text, ToolName: name}, text != ""
 	}
-	return Mapped{TurnType: timeline.TurnSystem, Text: systemText(kind, text, message)}, true
+	return Mapped{TurnType: timeline.TurnSystem, Text: systemText(artifact, kind, text, message)}, true
 }
 
 // messageText returns a message's text field: a string as it is, "" for
@@ -188,8 +188,8 @@ func screenshot(parsed jsonvalue.Value) jsonvalue.Value {
 
 // assistantText returns a reply's text: for JSON text (a followup or a
 // plan response) its question or response and the choices offered.
-func assistantText(text string) string {
-	parsed, ok := LoadsOrNone(text)
+func assistantText(artifact *input.Artifact, text string) string {
+	parsed, ok := LoadsOrNone(artifact, text)
 	if !ok {
 		return text
 	}
@@ -222,10 +222,10 @@ func choiceList(choices jsonvalue.Value) string {
 // systemText returns the text of a message kept as a system row: the
 // request counts of an API request, a context condensation's counts and
 // summary, a checkpoint's hash, else "<kind>: <text>" or the kind alone.
-func systemText(kind, text string, message jsonvalue.Value) string {
+func systemText(artifact *input.Artifact, kind, text string, message jsonvalue.Value) string {
 	switch kind {
 	case "api_req_started", "api_req_finished", "api_req_deleted":
-		parsed, _ := LoadsOrNone(text)
+		parsed, _ := LoadsOrNone(artifact, text)
 		detail := FormatCounts(parsed, "tokensIn", "tokensOut", "cacheWrites", "cacheReads",
 			"cost", "apiProtocol", "cancelReason", "streamingFailedMessage")
 		if detail == "" {
@@ -250,8 +250,8 @@ func systemText(kind, text string, message jsonvalue.Value) string {
 }
 
 // toolUseText returns the tool name and text of a tool call message.
-func toolUseText(kind, text string) (string, string) {
-	parsed, ok := LoadsOrNone(text)
+func toolUseText(artifact *input.Artifact, kind, text string) (string, string) {
+	parsed, ok := LoadsOrNone(artifact, text)
 	switch {
 	case kind == "tool" && !ok:
 		return "tool", text

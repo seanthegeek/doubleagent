@@ -68,7 +68,7 @@ func loadDocument(artifact *input.Artifact, problems *parser.Problems) (jsonvalu
 	if !ok {
 		return jsonvalue.NewNull(), ""
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil {
 		return jsonvalue.NewNull(), "not JSON (" + err.Error() + ")"
 	}

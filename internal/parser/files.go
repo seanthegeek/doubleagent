@@ -150,15 +150,17 @@ func ReadText(path string, problems *Problems) (string, bool) {
 	return strings.TrimPrefix(textlines.ValidUTF8(data), byteOrderMark), true
 }
 
-// LoadJSON returns an optional side file decoded as JSON, read as ReadText
-// reads it. Only a file that cannot be read adds a problem; for text that is
-// not JSON the caller writes its own message, so it gives false silently.
-func LoadJSON(path string, problems *Problems) (jsonvalue.Value, bool) {
+// LoadJSON returns an optional side file of a parse of artifact decoded as
+// JSON, read as ReadText reads it, noting its repeated member names in the
+// parse (DecodeJSON). Only a file that cannot be read adds a problem; for
+// text that is not JSON the caller writes its own message, so it gives
+// false silently.
+func LoadJSON(artifact *input.Artifact, path string, problems *Problems) (jsonvalue.Value, bool) {
 	text, ok := ReadText(path, problems)
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	value, err := jsonvalue.DecodeString(text)
+	value, err := DecodeJSON(artifact, text)
 	if err != nil {
 		return jsonvalue.NewNull(), false
 	}

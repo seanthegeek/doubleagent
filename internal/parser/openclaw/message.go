@@ -131,7 +131,7 @@ func (w *writer) block(current *session, line int, timestamp string, block jsonv
 		}
 		row = w.row(current, line, timestamp, timeline.TurnThinking, thinking)
 	case parser.IsText(blockType, "toolCall"):
-		row = w.row(current, line, timestamp, timeline.TurnToolUse, ToolArgsText(block.Get("arguments")))
+		row = w.row(current, line, timestamp, timeline.TurnToolUse, ToolArgsText(w.artifact, block.Get("arguments")))
 		row.ToolName, row.ToolUseID = parser.Text(block.Get("name")), parser.Text(block.Get("id"))
 	case parser.IsText(blockType, "image"):
 		row = w.row(current, line, timestamp, timeline.TurnAssistant, "[image]")

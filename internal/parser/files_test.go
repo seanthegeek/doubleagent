@@ -122,10 +122,10 @@ func TestReadTextAndLoadJSONTreatASideFileAsOptional(t *testing.T) {
 		})
 	}
 	var problems Problems
-	if value, ok := LoadJSON(withMark, &problems); !ok || value.JSON() != `{"a":1}` {
+	if value, ok := LoadJSON(nil, withMark, &problems); !ok || value.JSON() != `{"a":1}` {
 		t.Errorf("LoadJSON gave %v, %v", value.JSON(), ok)
 	}
-	if _, ok := LoadJSON(notJSON, &problems); ok || len(problems) > 0 {
+	if _, ok := LoadJSON(nil, notJSON, &problems); ok || len(problems) > 0 {
 		t.Errorf("text that is not JSON gave %v and %v", ok, problems)
 	}
 }

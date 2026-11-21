@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -285,8 +286,8 @@ func goalText(payload jsonvalue.Value) string {
 
 // guardianVerdict returns the verdict a guardian review's message holds: a
 // JSON object, in a string, with a true outcome; false otherwise.
-func guardianVerdict(message string) (jsonvalue.Value, bool) {
-	verdict, err := jsonvalue.DecodeString(message)
+func guardianVerdict(artifact *input.Artifact, message string) (jsonvalue.Value, bool) {
+	verdict, err := parser.DecodeJSON(artifact, message)
 	if err != nil || verdict.Get("outcome").IsEmpty() {
 		return jsonvalue.NewNull(), false
 	}

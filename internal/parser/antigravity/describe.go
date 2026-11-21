@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
@@ -18,10 +19,11 @@ func argKeys() []string {
 
 // toolArgsSummary returns the argument that names a tool call's action,
 // else the arguments as JSON; text that is not JSON is returned as it is.
-func toolArgsSummary(argumentsJSON string) string {
+// The arguments' repeated member names are noted in the parse of artifact.
+func toolArgsSummary(artifact *input.Artifact, argumentsJSON string) string {
 	args := jsonvalue.NewObject()
 	if argumentsJSON != "" {
-		decoded, err := jsonvalue.DecodeString(argumentsJSON)
+		decoded, err := parser.DecodeJSON(artifact, argumentsJSON)
 		if err != nil {
 			return argumentsJSON
 		}

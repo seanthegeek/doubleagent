@@ -33,7 +33,7 @@ func sessionByEveryDirectory(directory, sessionID string) jsonvalue.Value {
 		if !ok || !parser.RegularFile(candidate) {
 			continue
 		}
-		if decoded, ok := quietObject(candidate, true); ok {
+		if decoded, ok := quietObject(nil, candidate, true); ok {
 			return decoded
 		}
 	}

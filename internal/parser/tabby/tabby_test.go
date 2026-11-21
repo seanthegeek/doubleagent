@@ -67,7 +67,7 @@ func TestCommandTextReadsAnEntryOfTheVSCodeHistory(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := commandText(item); got != test.want {
+			if got := commandText(nil, item); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

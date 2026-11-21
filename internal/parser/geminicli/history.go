@@ -84,8 +84,8 @@ func continues(line string) bool {
 // checkpoint is {history, authType} or a legacy bare array, a /bug history
 // export a bare array. A file cut mid-write keeps its complete leading
 // items; a file in neither form is one problem.
-func historyItems(text string, problems *parser.Problems) ([]jsonvalue.Value, jsonvalue.Value) {
-	document, err := jsonvalue.DecodeString(text)
+func historyItems(artifact *input.Artifact, text string, problems *parser.Problems) ([]jsonvalue.Value, jsonvalue.Value) {
+	document, err := parser.DecodeJSON(artifact, text)
 	if err != nil {
 		if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "[") {
 			return parser.ArrayElements(text, problems), jsonvalue.NewNull()
@@ -110,7 +110,7 @@ func historyItems(text string, problems *parser.Problems) ([]jsonvalue.Value, js
 // secondary source.
 func (p *Parser) shellHistory(artifact *input.Artifact, match pathMatch, emit parser.Emit) {
 	var problems parser.Problems
-	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
+	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
 	data, _ := parser.FileBytes(artifact.DiskPath, &problems)
 	for _, entry := range shellHistoryEntries(data, &problems, p.Work) {
 		row := p.BaseRow(artifact)
@@ -128,11 +128,11 @@ func (p *Parser) shellHistory(artifact *input.Artifact, match pathMatch, emit pa
 func (p *Parser) historyCopy(artifact *input.Artifact, options parser.Options, match pathMatch,
 	emit parser.Emit) {
 	var problems parser.Problems
-	project := p.resolveProject(inBase(artifact, match), match["slug"], "", &problems)
+	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
 	var items []jsonvalue.Value
 	document := jsonvalue.NewNull()
 	if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok && len(data) > 0 {
-		items, document = historyItems(textlines.ValidUTF8(data), &problems)
+		items, document = historyItems(artifact, textlines.ValidUTF8(data), &problems)
 	}
 	var header timeline.Row
 	if tag, ok := match["tag"]; ok {

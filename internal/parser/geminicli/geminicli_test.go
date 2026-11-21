@@ -156,7 +156,7 @@ func TestProjectFallsBackFromTheRootFileToProjectsJSONToTheHash(t *testing.T) {
 		if step.before != nil {
 			step.before()
 		}
-		if got := subject.resolveProject(func(names ...string) string {
+		if got := subject.resolveProject(nil, func(names ...string) string {
 			return filepath.Join(append([]string{base}, names...)...)
 		}, step.slug, step.hash, &problems); got != step.want {
 			t.Errorf("%s: got %q, want %q", step.name, got, step.want)
@@ -208,7 +208,7 @@ func TestProjectsJSONIsReadOncePerStateOfTheFile(t *testing.T) {
 		if i%2 == 1 {
 			slug, want = "b", "/srv/b"
 		}
-		if got := subject.resolveProject(locate, slug, "", &problems); got != want {
+		if got := subject.resolveProject(nil, locate, slug, "", &problems); got != want {
 			t.Fatalf("lookup %d gave %q, want %q", i, got, want)
 		}
 	}
@@ -216,7 +216,7 @@ func TestProjectsJSONIsReadOncePerStateOfTheFile(t *testing.T) {
 		t.Errorf("projects.json decoded %d times for %d lookups, want once", reads, lookups)
 	}
 	write(t, projects, `{"projects": {"/srv/a2": "a", "/srv/b": "b"}}`)
-	if got := subject.resolveProject(locate, "a", "", &problems); got != "/srv/a2" {
+	if got := subject.resolveProject(nil, locate, "a", "", &problems); got != "/srv/a2" {
 		t.Errorf("a changed file gave %q, want the new key", got)
 	}
 	if reads := subject.Work.Count("projects.json reads"); reads != 2 || len(problems) != 0 {
@@ -239,7 +239,7 @@ func TestTheProjectRootIsReadOncePerStateOfTheFile(t *testing.T) {
 	subject.Work = parser.CountingWork()
 	var problems parser.Problems
 	for i := range lookups {
-		if got := subject.resolveProject(locate, "slug", "", &problems); got != "/srv/a" {
+		if got := subject.resolveProject(nil, locate, "slug", "", &problems); got != "/srv/a" {
 			t.Fatalf("lookup %d gave %q, want /srv/a", i, got)
 		}
 	}
@@ -247,7 +247,7 @@ func TestTheProjectRootIsReadOncePerStateOfTheFile(t *testing.T) {
 		t.Errorf(".project_root read %d times for %d lookups, want once", reads, lookups)
 	}
 	write(t, root, "/srv/longer\n")
-	if got := subject.resolveProject(locate, "slug", "", &problems); got != "/srv/longer" {
+	if got := subject.resolveProject(nil, locate, "slug", "", &problems); got != "/srv/longer" {
 		t.Errorf("a changed file gave %q, want its new text", got)
 	}
 	if reads := subject.Work.Count(".project_root reads"); reads != 2 || len(problems) != 0 {
@@ -278,7 +278,7 @@ func TestTheFirstKeyOfAMatchingHashWins(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
-			if got := subject.resolveProject(locate, test.slug, test.hash, &problems); got != test.want {
+			if got := subject.resolveProject(nil, locate, test.slug, test.hash, &problems); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

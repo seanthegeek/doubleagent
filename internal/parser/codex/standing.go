@@ -58,7 +58,7 @@ func (p *Parser) parseLedger(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	data, err := jsonvalue.Decode(content)
+	data, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil {
 		emit(p.ProblemRow(artifact, "unreadable import ledger: "+err.Error()))
 		return

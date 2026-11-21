@@ -1,5 +1,10 @@
 package jsonvalue
 
+import (
+	"strconv"
+	"strings"
+)
+
 // RepeatedNamesKept is how many repeated member names a Repeats keeps by
 // name, the first met: enough for a report to show what to look for, while
 // the count carries the rest. Each later repeat is compared with at most
@@ -97,4 +102,39 @@ func skipSpace(text string, offset int) int {
 		offset++
 	}
 	return offset
+}
+
+// Describe returns the report of the repeats: "1 member name repeats within
+// its JSON object (<name>); the last value is used", or "<n> member names
+// repeat within their JSON objects (<name> <k> times, ...); the last value
+// of each is used", naming the names kept, with "..." when others
+// repeated. A name is written as a JSON string, or as "a name of <length>
+// bytes" when longer than longest bytes, so the text has a bound and holds
+// no part of a long name. The value a repeat replaced is never written.
+func (r Repeats) Describe(longest int) string {
+	if r.count == 1 && len(r.names) == 1 {
+		return "1 member name repeats within its JSON object (" + describeName(r.names[0].Name, longest) +
+			"); the last value is used"
+	}
+	shown := make([]string, 0, len(r.names)+1)
+	for _, name := range r.names {
+		times := " times"
+		if name.Times == 1 {
+			times = " time"
+		}
+		shown = append(shown, describeName(name.Name, longest)+" "+strconv.Itoa(name.Times)+times)
+	}
+	if sumTimes(r.names) < r.count {
+		shown = append(shown, "...")
+	}
+	return strconv.Itoa(r.count) + " member names repeat within their JSON objects (" +
+		strings.Join(shown, ", ") + "); the last value of each is used"
+}
+
+// describeName returns a repeated name as Describe writes it.
+func describeName(name string, longest int) string {
+	if len(name) > longest {
+		return "a name of " + strconv.Itoa(len(name)) + " bytes"
+	}
+	return NewString(name).JSON()
 }

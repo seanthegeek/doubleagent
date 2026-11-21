@@ -34,7 +34,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, match
 		state.apply(each.line, each.record)
 	}
 	problems = append(problems, state.problems...)
-	project := p.resolveProject(inBase(artifact, match), match["slug"],
+	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"],
 		parser.Text(state.projectHash), &problems)
 	for _, start := range state.starts {
 		place := where{start.line, start.timestamp, start.sessionID, project}
@@ -97,7 +97,7 @@ func legacyRecords(artifact *input.Artifact, problems *parser.Problems) []number
 	if !ok {
 		return nil
 	}
-	record, err := jsonvalue.Decode(data)
+	record, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil {
 		problems.Add(1, "unparseable session file: "+err.Error())
 		return nil

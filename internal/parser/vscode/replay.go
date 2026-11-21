@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -26,7 +27,7 @@ type requestLines map[int64]int
 // value other than an object, or whose mutation does not apply, is a
 // problem with the line's text and is skipped. The entries the replay
 // changes are counted in work.
-func replay(path string, lines requestLines, problems *parser.Problems, work parser.Work) jsonvalue.Value {
+func replay(artifact *input.Artifact, path string, lines requestLines, problems *parser.Problems, work parser.Work) jsonvalue.Value {
 	var state *node
 	started, startLine := false, 0
 	for number, raw := range parser.Lines(path, problems) {
@@ -34,7 +35,7 @@ func replay(path string, lines requestLines, problems *parser.Problems, work par
 		if len(stripped) == 0 {
 			continue
 		}
-		record, err := jsonvalue.DecodeString(textlines.ValidUTF8(stripped))
+		record, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(stripped))
 		if err == nil && !record.IsObject() {
 			err = errNotObject
 		}

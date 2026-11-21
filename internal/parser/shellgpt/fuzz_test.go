@@ -12,7 +12,7 @@ func FuzzLoadMessages(fuzz *testing.F) {
 	}
 	fuzz.Fuzz(func(t *testing.T, raw string) {
 		var problems parser.Problems
-		messages, _ := loadMessages(raw, &problems)
+		messages, _ := loadMessages(nil, raw, &problems)
 		if len(messages) > 0 && !messages[0].IsObject() {
 			t.Errorf("a message that is not an object: %v", messages[0])
 		}

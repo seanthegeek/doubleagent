@@ -103,7 +103,7 @@ func (s *store) eventShareRows() error {
 // adding the problem "unparseable record <rowid> (<label>: <reason>)",
 // with the column's text as raw, for the session the row names.
 func (s *store) decodeColumn(row sqlitefile.Row, column, label string, reference sessionRef) (jsonvalue.Value, bool) {
-	value, raw, err := decodeRecord(row.Get(column))
+	value, raw, err := decodeRecord(s.artifact, row.Get(column))
 	if err != nil {
 		s.failures = append(s.failures, failure{line: int(row.Rowid),
 			message: unparseable(row.Rowid, label, err), raw: raw, session: reference})
@@ -114,19 +114,19 @@ func (s *store) decodeColumn(row sqlitefile.Row, column, label string, reference
 
 // decodeRecord returns a stored JSON value decoded to an object and the
 // text it was read from, with an error saying why it is not an object.
-func decodeRecord(stored sqlitefile.Value) (jsonvalue.Value, string, error) {
+func decodeRecord(artifact *input.Artifact, stored sqlitefile.Value) (jsonvalue.Value, string, error) {
 	text, err := columnJSON(stored)
 	if err != nil {
 		return jsonvalue.NewNull(), text, err
 	}
-	value, err := decodeText(text)
+	value, err := decodeText(artifact, text)
 	return value, text, err
 }
 
 // decodeText returns text decoded to a JSON object, or an error saying why
 // it is not one.
-func decodeText(text string) (jsonvalue.Value, error) {
-	value, err := jsonvalue.DecodeString(text)
+func decodeText(artifact *input.Artifact, text string) (jsonvalue.Value, error) {
+	value, err := parser.DecodeJSON(artifact, text)
 	if err != nil {
 		return jsonvalue.NewNull(), err
 	}
@@ -153,7 +153,7 @@ func (s *store) stateRows() error {
 		if stored.IsNull() || (stored.Type == sqlitefile.Text && len(stored.Bytes) == 0) {
 			continue
 		}
-		rules, skipped, ok := permissionRules(stored)
+		rules, skipped, ok := permissionRules(s.artifact, stored)
 		if !ok {
 			raw := stored.String()
 			if stored.Type == sqlitefile.Blob {
@@ -179,12 +179,12 @@ func (s *store) stateRows() error {
 // permissionRules returns the rules of a permission column holding text or
 // a blob and the number of its entries that are not rules; any other value
 // is not a JSON array.
-func permissionRules(stored sqlitefile.Value) ([]rule, int, bool) {
+func permissionRules(artifact *input.Artifact, stored sqlitefile.Value) ([]rule, int, bool) {
 	switch stored.Type {
 	case sqlitefile.Text:
-		return sessionRules(stored.Text())
+		return sessionRules(artifact, stored.Text())
 	case sqlitefile.Blob:
-		return sessionRules(textlines.ValidUTF8(stored.Bytes))
+		return sessionRules(artifact, textlines.ValidUTF8(stored.Bytes))
 	}
 	return nil, 0, false
 }

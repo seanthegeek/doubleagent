@@ -113,7 +113,7 @@ func blobUpload(artifact *input.Artifact, start timeline.Row, meta jsonvalue.Val
 func (p *Parser) manifest(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	sessionID := path.Base(path.Dir(artifact.Rel))
-	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	document, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if !document.IsObject() {
 		if len(problems) == 0 {
 			problems.Add(0, "session manifest is not a JSON object")

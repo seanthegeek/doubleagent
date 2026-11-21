@@ -20,12 +20,13 @@ var errNotText = errors.New("the value is not text")
 
 // decodeColumn decodes a key-value entry's value as JSON, or returns an
 // error saying why it does not decode: the value is not text, or the JSON
-// reader's error.
-func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, error) {
+// reader's error. Repeated member names are noted in the parse of
+// artifact.
+func decodeColumn(artifact *input.Artifact, value sqlitefile.Value) (jsonvalue.Value, error) {
 	if value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob {
 		return jsonvalue.Value{}, errNotText
 	}
-	return jsonvalue.Decode(value.Bytes)
+	return parser.DecodeJSONBytes(artifact, value.Bytes)
 }
 
 // draft emits `unsent draft: <text>` for an agent_draft_prompts entry, at
@@ -36,7 +37,7 @@ func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, error) {
 func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *sidebarStore,
 	problems *parser.Problems, emit parser.Emit) {
 	key, value := row.Get("key").String(), row.Get("value")
-	blocks, err := decodeColumn(value)
+	blocks, err := decodeColumn(artifact, value)
 	if err != nil {
 		label := fmt.Sprintf("unparseable record %d (%s %s: %v)", row.Rowid, draftsNamespace, key, err)
 		problems.AddRaw(int(row.Rowid), label, value.String())
@@ -87,7 +88,7 @@ func (p *Parser) createdWorktree(artifact *input.Artifact, row sqlitefile.Row,
 	store *sidebarStore, problems *parser.Problems, emit parser.Emit) {
 	value := row.Get("value")
 	host, path, _ := strings.Cut(row.Get("key").String(), "\n")
-	record, err := decodeColumn(value)
+	record, err := decodeColumn(artifact, value)
 	seconds := 0.0
 	if err == nil {
 		seconds, err = createdSeconds(record)

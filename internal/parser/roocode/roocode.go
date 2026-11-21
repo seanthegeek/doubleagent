@@ -109,7 +109,9 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 // it, else null.
 func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.Group) {
 	var ignored parser.Problems
-	if item, _ := parser.LoadJSON(task.InDir(itemFile), &ignored); item.IsObject() {
+	// The item is also parsed as its own artifact, whose parse reports its
+	// repeated member names; a lookup from a task's parse notes none.
+	if item, _ := parser.LoadJSON(nil, task.InDir(itemFile), &ignored); item.IsObject() {
 		return item, nil
 	}
 	indexPath, found := task.InRoot("tasks/_index.json")
@@ -154,7 +156,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 // historyItem emits the task row of a history_item.json.
 func (p *Parser) historyItem(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	item, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	item, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if item.IsObject() {
 		p.historyRows(artifact, item, 1, nil, emit)
 		return
@@ -186,7 +188,7 @@ func (p *Parser) historyRows(artifact *input.Artifact, item jsonvalue.Value, pos
 // id's group, which the task's files share (EntryGroup).
 func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	index, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	index, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if !index.Get("entries").IsArray() {
 		if len(problems) == 0 {
 			problems.Add(0, "_index.json has no entries array")

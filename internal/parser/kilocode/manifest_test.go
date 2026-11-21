@@ -18,7 +18,7 @@ func TestAMemoryManifestIsReadOncePerStateOfTheFile(t *testing.T) {
 	subject.Work = parser.CountingWork()
 	var problems parser.Problems
 	for i := range digests {
-		if got := subject.manifestRoot(path, &problems); got != "/srv/a" {
+		if got := subject.manifestRoot(nil, path, &problems); got != "/srv/a" {
 			t.Fatalf("digest %d: root %q, want /srv/a", i, got)
 		}
 	}
@@ -29,7 +29,7 @@ func TestAMemoryManifestIsReadOncePerStateOfTheFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if got := subject.manifestRoot(path, &problems); got != "" {
+		if got := subject.manifestRoot(nil, path, &problems); got != "" {
 			t.Errorf("a manifest that is not an object gave %q", got)
 		}
 	}

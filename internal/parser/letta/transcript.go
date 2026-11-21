@@ -139,7 +139,7 @@ func (p *Parser) server(artifact *input.Artifact, agentDirectory string) string 
 	byAgent, held := p.servers[state]
 	if !held {
 		p.Work.Add("settings.json reads", 1)
-		byAgent = readServers(state.path)
+		byAgent = readServers(artifact, state.path)
 		p.servers[state] = byAgent
 	}
 	if found, ok := byAgent[agentDirectory]; ok {
@@ -150,10 +150,10 @@ func (p *Parser) server(artifact *input.Artifact, agentDirectory string) string 
 
 // readServers returns the server of each agent directory the settings file
 // at path names, from the first agents[] entry naming it.
-func readServers(path string) map[string]string {
+func readServers(artifact *input.Artifact, path string) map[string]string {
 	byAgent := map[string]string{}
 	var ignored parser.Problems
-	document, _ := readSettings(path, &ignored)
+	document, _ := readSettings(artifact, path, &ignored)
 	for _, entry := range document.Get("agents").Items() {
 		if !entry.IsObject() {
 			continue
@@ -173,12 +173,12 @@ func readServers(path string) map[string]string {
 // readSettings returns a Letta JSON file as an object, or false when it
 // cannot be read (its unreadable problem added) or is not an object (no
 // problem added).
-func readSettings(path string, problems *parser.Problems) (jsonvalue.Value, bool) {
+func readSettings(artifact *input.Artifact, path string, problems *parser.Problems) (jsonvalue.Value, bool) {
 	content, ok := parser.FileBytes(path, problems)
 	if !ok {
 		return jsonvalue.NewNull(), false
 	}
-	document, err := jsonvalue.Decode(content)
+	document, err := parser.DecodeJSONBytes(artifact, content)
 	if err != nil || !document.IsObject() {
 		return jsonvalue.NewNull(), false
 	}
@@ -258,7 +258,7 @@ func (w *transcriptRows) record(record jsonvalue.Value, options parser.Options) 
 // its result row.
 func (w *transcriptRows) toolCall(record jsonvalue.Value) {
 	name := parser.Text(record.Get("name"))
-	w.put(timeline.TurnToolUse, argumentsText(record.Get("argsText")), name)
+	w.put(timeline.TurnToolUse, argumentsText(w.artifact, record.Get("argsText")), name)
 	if record.Has("resultText") || record.Has("resultOk") {
 		result := parser.Text(record.Get("resultText"))
 		if succeeded, isBool := record.Get("resultOk").Bool(); isBool && !succeeded {

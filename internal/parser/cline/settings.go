@@ -50,7 +50,7 @@ func (s *settings) list(key string, value jsonvalue.Value) {
 // the row that says why it is not one.
 func (p *Parser) jsonObject(artifact *input.Artifact, what string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
-	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	document, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if document.IsObject() {
 		return document, true
 	}
@@ -120,7 +120,7 @@ func (p *Parser) cloudRows(artifact *input.Artifact, sessionID, timestamp, detai
 // modification time.
 func (p *Parser) pendingStarts(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	document, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if !document.IsArray() {
 		if len(problems) == 0 {
 			problems.Add(0, "cloud pending-start file is not a JSON array")

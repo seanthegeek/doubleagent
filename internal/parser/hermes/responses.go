@@ -34,7 +34,7 @@ func (p *Parser) parseResponses(artifact *input.Artifact, options parser.Options
 	defer handle.Close()
 	var problems parser.Problems
 	carried := parser.NewCarried(artifact)
-	names, stored, message, err := readResponses(handle, carried, &problems)
+	names, stored, message, err := readResponses(artifact, handle, carried, &problems)
 	switch {
 	case err != nil:
 		emit(p.system(artifact, 0, noSession(), parser.ProblemPrefix+parser.DatabaseError(err)))
@@ -98,7 +98,7 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 // whose data does not decode adds a problem. A name is cut as a carried
 // value, since each response of its id repeats it. The message is set for
 // a store without a responses table.
-func readResponses(handle *sqlitefile.Database, carried *parser.Carried, problems *parser.Problems) (map[string]string,
+func readResponses(artifact *input.Artifact, handle *sqlitefile.Database, carried *parser.Carried, problems *parser.Problems) (map[string]string,
 	[]storedResponse, string, error) {
 	tables, err := parser.TablesOf(handle)
 	if err != nil {
@@ -122,12 +122,12 @@ func readResponses(handle *sqlitefile.Database, carried *parser.Carried, problem
 			return nil, nil, "", err
 		}
 	}
-	stored, err := storedResponses(handle, problems)
+	stored, err := storedResponses(artifact, handle, problems)
 	return names, stored, "", err
 }
 
 // storedResponses reads the responses rows whose data decodes to an object.
-func storedResponses(handle *sqlitefile.Database, problems *parser.Problems) ([]storedResponse, error) {
+func storedResponses(artifact *input.Artifact, handle *sqlitefile.Database, problems *parser.Problems) ([]storedResponse, error) {
 	table, err := handle.Table("responses")
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func storedResponses(handle *sqlitefile.Database, problems *parser.Problems) ([]
 	var stored []storedResponse
 	err = table.Select("rowid", "response_id", "data").Each(func(row sqlitefile.Row) error {
 		record := rowObject(row)
-		data, err := jsonObject(record.Get("data"))
+		data, err := jsonObject(artifact, record.Get("data"))
 		if err != nil {
 			problems.AddRaw(int(row.Rowid), "unparseable record "+strconv.FormatInt(row.Rowid, 10)+
 				" (responses.data: "+err.Error()+")", parser.Text(record.Get("data")))

@@ -168,7 +168,7 @@ func readComposers(store *store) *composers {
 			if counts[row.key] > 1 {
 				problems = &parser.Problems{}
 			}
-			value := objectRecord(row, problems)
+			value := objectRecord(store.artifact, row, problems)
 			current.stored = append(current.stored, storedData{value: value, rowid: row.rowid, problems: problems})
 			if !current.hasData {
 				current.data, current.hasData, current.dataRowid = value, true, row.rowid
@@ -209,7 +209,7 @@ func readHeaders(store *store, found *composers) {
 			stored.problems = &parser.Problems{}
 		}
 		if value := rows[i].Get("value"); !value.IsNull() {
-			stored.value = objectRecord(keyed{rowid: rows[i].Rowid, key: "composerHeaders " + current.ident,
+			stored.value = objectRecord(store.artifact, keyed{rowid: rows[i].Rowid, key: "composerHeaders " + current.ident,
 				value: value}, stored.problems)
 		}
 		if current.header == nil {

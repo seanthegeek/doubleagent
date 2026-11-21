@@ -77,7 +77,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		return p.index
 	}
 	defer database.Close()
-	store := newStore(database, p.Work)
+	store := newStore(nil, database, p.Work)
 	found := readComposers(store)
 	p.assignGroups(path, found)
 	for _, current := range found.list {
@@ -121,7 +121,7 @@ func cloudCachedIDs(artifact *input.Artifact) map[string]bool {
 		return ids
 	}
 	defer database.Close()
-	store := newStore(database, parser.Work{})
+	store := newStore(nil, database, parser.Work{})
 	table := store.table("conversations")
 	if table == nil {
 		return ids

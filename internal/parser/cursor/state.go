@@ -231,7 +231,7 @@ func (r *stateReader) entryLists(current *composer) []entryList {
 		}
 		chunked, list.problems = true, current.problems
 		for _, row := range r.headerChunks(current.ident) {
-			for _, entry := range objectEntries(row, current.problems) {
+			for _, entry := range objectEntries(r.artifact, row, current.problems) {
 				list.entries = append(list.entries, entry)
 			}
 		}
@@ -341,7 +341,7 @@ func (r *stateReader) entry(stamp *stamper, entry jsonvalue.Value, bubbleID stri
 	if len(found) > 1 {
 		return r.repeatedBubble(stamp, entry, found, tracked, model)
 	}
-	bubble := parser.ObjectOrEmpty(decodeRecord(found[0].rowid, key, found[0].value, current.problems))
+	bubble := parser.ObjectOrEmpty(decodeRecord(r.artifact, found[0].rowid, key, found[0].value, current.problems))
 	if bubble.Len() == 0 {
 		return model
 	}
@@ -361,7 +361,7 @@ func (r *stateReader) repeatedBubble(stamp *stamper, entry jsonvalue.Value, foun
 	bubbles := make([]jsonvalue.Value, len(found))
 	moved := false
 	for i, stored := range found {
-		bubbles[i] = parser.ObjectOrEmpty(decodeRecord(stored.rowid, stored.key, stored.value, stamp.composer.problems))
+		bubbles[i] = parser.ObjectOrEmpty(decodeRecord(r.artifact, stored.rowid, stored.key, stored.value, stamp.composer.problems))
 		named := parser.Text(bubbles[i].Get("modelInfo").Get("modelName"))
 		if equalsOne(firstOrLast(bubbles[i].Get("type"), entry.Get("type"))) && named != "" && named != before {
 			moved = true
@@ -482,7 +482,7 @@ func (p *Parser) drafts(stamp *stamper, stored []keyed) {
 
 // draft emits the unsent draft of one composerDraft row.
 func (p *Parser) draft(stamp *stamper, row keyed) {
-	draft := parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, stamp.composer.problems))
+	draft := parser.ObjectOrEmpty(decodeRecord(stamp.artifact, row.rowid, row.key, row.value, stamp.composer.problems))
 	if text := timeline.CompactValue(draft.Get("text")); text != "" {
 		stamp.add(timeline.TurnSystem, "unsent draft: "+text, stamp.composer.created(), row.rowid, "")
 	}
@@ -504,7 +504,7 @@ func (r *stateReader) blobs(deleted []*composer, problems *parser.Problems, emit
 	}
 	named := textset.New(idents, r.store.work)
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
-		blob, err := jsonvalue.DecodeString(asText(row.value))
+		blob, err := parser.DecodeJSON(r.artifact, asText(row.value))
 		if err != nil || !blob.Has("content") {
 			continue
 		}

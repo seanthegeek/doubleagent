@@ -31,7 +31,7 @@ func TestDecisionTextReadsTheStatusObjectARoundTripWrites(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, ok := decisionText(content)
+			got, ok := decisionText(nil, content)
 			if got != test.want || ok != test.ok {
 				t.Errorf("decisionText = %q, %v; want %q, %v", got, ok, test.want, test.ok)
 			}

@@ -14,7 +14,7 @@ import (
 // jsonColumn returns the JSON a column holds, or false for NULL, empty
 // text and text that is not JSON: a blob is decoded as UTF-8 with
 // replacement first, and a number is itself.
-func jsonColumn(value sqlitefile.Value) (jsonvalue.Value, bool) {
+func jsonColumn(artifact *input.Artifact, value sqlitefile.Value) (jsonvalue.Value, bool) {
 	var text string
 	switch value.Type {
 	case sqlitefile.Null:
@@ -31,7 +31,7 @@ func jsonColumn(value sqlitefile.Value) (jsonvalue.Value, bool) {
 			return jsonvalue.Value{}, false
 		}
 	}
-	decoded, err := jsonvalue.DecodeString(text)
+	decoded, err := parser.DecodeJSON(artifact, text)
 	if err != nil {
 		return jsonvalue.Value{}, false
 	}
@@ -86,12 +86,12 @@ func attachmentParts(artifact *input.Artifact, attachment jsonvalue.Value) []str
 
 // messageAttachment returns a thread message's attachment, built from the
 // separate columns of a database older than 0.25 when it has none.
-func messageAttachment(message sqlitefile.Row) jsonvalue.Value {
-	if attachment, ok := jsonColumn(message.Get("attachment")); ok && attachment.IsObject() {
+func messageAttachment(artifact *input.Artifact, message sqlitefile.Row) jsonvalue.Value {
+	if attachment, ok := jsonColumn(artifact, message.Get("attachment")); ok && attachment.IsObject() {
 		return attachment
 	}
 	member := func(key, column string) jsonvalue.Member {
-		value, ok := jsonColumn(message.Get(column))
+		value, ok := jsonColumn(artifact, message.Get(column))
 		if !ok {
 			value = jsonvalue.NewNull()
 		}
@@ -124,12 +124,12 @@ func projectOf(artifact *input.Artifact, attachments []jsonvalue.Value) string {
 // commandText returns one edit.recentlyCommand entry of the VS Code
 // extension as row text, its context files' URIs appended. An entry is the
 // JSON of {command, context} or a bare command string.
-func commandText(item jsonvalue.Value) string {
+func commandText(artifact *input.Artifact, item jsonvalue.Value) string {
 	command := item
 	if item.IsString() {
 		command = jsonvalue.NewNull()
 		if item.StringValue() != "" {
-			if decoded, err := jsonvalue.DecodeString(item.StringValue()); err == nil {
+			if decoded, err := parser.DecodeJSON(artifact, item.StringValue()); err == nil {
 				command = decoded
 			}
 		}

@@ -79,7 +79,7 @@ func (i *items) mcp(emit parser.Emit) {
 			scopes[scope] = map[string][]mcpField{}
 		}
 		scopes[scope][field] = append(scopes[scope][field],
-			mcpField{rowid: row.rowid, value: plain(row.value), raw: asText(row.value)})
+			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: asText(row.value)})
 	}
 	names := make([]string, 0, len(scopes))
 	for name := range scopes {
@@ -202,7 +202,7 @@ func (i *items) plugins(emit parser.Emit) {
 		scope := suffix[strings.LastIndex(suffix, "|")+1:]
 		// Each entry's row repeats the key's scope.
 		shown := carried.Cut("plugin scope", scope)
-		for _, entry := range objectEntries(row, i.problems) {
+		for _, entry := range objectEntries(i.artifact, row, i.problems) {
 			var sources []string
 			for _, source := range entry.Get("sources").Items() {
 				sources = append(sources, source.Text())

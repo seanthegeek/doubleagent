@@ -41,7 +41,7 @@ func (p *Parser) lineOne(artifact *input.Artifact, timestamp, text string) timel
 func (p *Parser) readDocument(artifact *input.Artifact, emit parser.Emit,
 	project string) (jsonvalue.Value, bool, bool) {
 	var problems parser.Problems
-	document, isObject := readSettings(artifact.DiskPath, &problems)
+	document, isObject := readSettings(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 		return document, false, false

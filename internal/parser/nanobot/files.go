@@ -23,7 +23,7 @@ func (p *Parser) loadObject(artifact *input.Artifact, what string) (jsonvalue.Va
 	if !ok {
 		return jsonvalue.Value{}, p.ProblemRow(artifact, problems[0].Message), false
 	}
-	value, err := jsonvalue.Decode(content)
+	value, err := parser.DecodeJSONBytes(artifact, content)
 	switch {
 	case err != nil && what == "config.json":
 		return jsonvalue.Value{}, p.ProblemRow(artifact, what+" did not parse: "+parser.ReaderErrorText(artifact, err)), false

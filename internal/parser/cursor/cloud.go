@@ -44,7 +44,7 @@ func readCloudAgents(store *store, problems *parser.Problems) []cloudAgent {
 	}
 	var found []cloudAgent
 	for _, row := range store.rows(substrPrefixed(table, cloudAgentsPrefix)) {
-		for _, agent := range objectEntries(row, problems) {
+		for _, agent := range objectEntries(store.artifact, row, problems) {
 			if !agent.Get("bcId").IsEmpty() {
 				found = append(found, cloudAgent{rowid: row.rowid, agent: agent})
 			}
@@ -82,7 +82,7 @@ func (i *items) cloud(emit parser.Emit) {
 	stored := keyedValues(i.store, i.table, githubReposKey)
 	for _, found := range stored {
 		i.repeatNotice(len(stored), found, emit)
-		for _, repo := range objectEntries(found, i.problems) {
+		for _, repo := range objectEntries(i.artifact, found, i.problems) {
 			target := repo.Get("url").Text()
 			if target == "" {
 				target = cmp.Or(repo.Get("name").Text(), "-")
@@ -224,7 +224,7 @@ func (i *items) mcpAuth(agents []cloudAgent, repeats map[string]*cloudRepeat, em
 // authorisation key. A value that is neither an answer nor a list, and a
 // list's entries that are not answers, are problems.
 func (i *items) mcpAnswers(found keyed, known map[string]jsonvalue.Value, emit parser.Emit) {
-	document := decodeRecord(found.rowid, mcpAuthKey, found.value, i.problems)
+	document := decodeRecord(i.artifact, found.rowid, mcpAuthKey, found.value, i.problems)
 	// The value is one answer, or a list of them whose entries of another
 	// kind are one problem.
 	resolutions := []jsonvalue.Value{document}

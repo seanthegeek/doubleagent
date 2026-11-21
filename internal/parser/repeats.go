@@ -2,8 +2,6 @@ package parser
 
 import (
 	"cmp"
-	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -11,43 +9,11 @@ import (
 )
 
 // RepeatedMembers returns the problem text of the members that repeated a
-// name of their JSON object, whose values replaced the earlier ones:
-// "1 member name repeats within its JSON object (<name>); the last value
-// is used", or "<n> member names repeat within their JSON objects (<name>
-// <k> times, ...); the last value of each is used", naming the first
-// names noted, with "..." when others repeated. A name is written as a
-// JSON string, or as "a name of <length> bytes" when longer than
-// CarriedLimit, so the text stays a fixed size and holds no part of a
-// name. The value a repeat replaced is never written.
+// name of their JSON object, whose values replaced the earlier ones
+// (jsonvalue.Repeats.Describe), a name longer than CarriedLimit given by
+// its length only.
 func RepeatedMembers(repeats jsonvalue.Repeats) string {
-	names := repeats.Names()
-	if repeats.Count() == 1 && len(names) == 1 {
-		return "1 member name repeats within its JSON object (" + repeatedName(names[0].Name) +
-			"); the last value is used"
-	}
-	shown := make([]string, 0, len(names)+1)
-	listed := 0
-	for _, name := range names {
-		times := " times"
-		if name.Times == 1 {
-			times = " time"
-		}
-		shown = append(shown, repeatedName(name.Name)+" "+strconv.Itoa(name.Times)+times)
-		listed += name.Times
-	}
-	if listed < repeats.Count() {
-		shown = append(shown, "...")
-	}
-	return strconv.Itoa(repeats.Count()) + " member names repeat within their JSON objects (" +
-		strings.Join(shown, ", ") + "); the last value of each is used"
-}
-
-// repeatedName returns a repeated member name as RepeatedMembers writes it.
-func repeatedName(name string) string {
-	if len(name) > CarriedLimit {
-		return "a name of " + strconv.Itoa(len(name)) + " bytes"
-	}
-	return jsonvalue.NewString(name).JSON()
+	return repeats.Describe(CarriedLimit)
 }
 
 // AddRepeats adds at line the problem RepeatedMembers(repeats), a note

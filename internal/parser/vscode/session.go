@@ -46,9 +46,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	var problems parser.Problems
 	state := jsonvalue.NewNull()
 	if strings.HasSuffix(artifact.Rel, ".jsonl") {
-		state = replay(artifact.DiskPath, lines, &problems, p.Work)
+		state = replay(artifact, artifact.DiskPath, lines, &problems, p.Work)
 	} else if data, ok := parser.FileBytes(artifact.DiskPath, &problems); ok {
-		decoded, err := jsonvalue.DecodeString(textlines.ValidUTF8(data))
+		decoded, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(data))
 		if err != nil {
 			problems.Add(0, "file is not valid JSON ("+err.Error()+")")
 		}
@@ -146,7 +146,7 @@ func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *p
 	if !cached {
 		p.Work.Add("workspace.json reads", 1)
 		read = &workspaceFile{}
-		read.folder, read.workspace = readWorkspace(file, &read.problems)
+		read.folder, read.workspace = readWorkspace(artifact, file, &read.problems)
 		if p.workspaces == nil {
 			p.workspaces = map[workspaceState]*workspaceFile{}
 		}
@@ -158,7 +158,7 @@ func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *p
 
 // readWorkspace returns the folder and workspace file of the workspace.json
 // at file, as workspaceJSON describes.
-func readWorkspace(file string, problems *parser.Problems) (string, string) {
+func readWorkspace(artifact *input.Artifact, file string, problems *parser.Problems) (string, string) {
 	if !parser.RegularFile(file) {
 		return "", ""
 	}
@@ -166,7 +166,7 @@ func readWorkspace(file string, problems *parser.Problems) (string, string) {
 	if !ok {
 		return "", ""
 	}
-	data, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
+	data, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(content))
 	switch {
 	case err != nil:
 		problems.Add(0, "workspace.json not read ("+err.Error()+")")

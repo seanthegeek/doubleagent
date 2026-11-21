@@ -34,7 +34,7 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parser.Option
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	sessionData, failure := htmlSessionData(data)
+	sessionData, failure := htmlSessionData(artifact, data)
 	header := sessionData.Get("header")
 	if failure == nil && !(header.IsObject() && parser.IsText(header.Get("type"), "session")) {
 		failure = errNoHeader
@@ -79,7 +79,7 @@ var (
 // htmlSessionData returns the session data an HTML export embeds, or the
 // error that says why it could not be read: the base64 text of the
 // session-data element, UTF-8 JSON once decoded, an object.
-func htmlSessionData(data []byte) (jsonvalue.Value, error) {
+func htmlSessionData(artifact *input.Artifact, data []byte) (jsonvalue.Value, error) {
 	start := bytes.Index(data, []byte(sessionDataOpen))
 	if start < 0 {
 		return jsonvalue.NewNull(), errNoSessionData
@@ -96,7 +96,7 @@ func htmlSessionData(data []byte) (jsonvalue.Value, error) {
 	if !utf8.Valid(decoded) {
 		return jsonvalue.NewNull(), errNotUTF8
 	}
-	value, err := jsonvalue.DecodeString(string(decoded))
+	value, err := parser.DecodeJSON(artifact, string(decoded))
 	if err != nil {
 		return jsonvalue.NewNull(), fmt.Errorf("session data is not JSON (%w)", err)
 	}
@@ -164,8 +164,8 @@ func (p *Parser) copyRows(artifact *input.Artifact, session *Session, options pa
 func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	members := bugZipMembers(artifact, &problems)
-	report := bugJSONMember(artifact.Rel, members, "report.json", &problems)
-	diagnostics := bugJSONMember(artifact.Rel, members, "diagnostics.json", &problems)
+	report := bugJSONMember(artifact, artifact.Rel, members, "report.json", &problems)
+	diagnostics := bugJSONMember(artifact, artifact.Rel, members, "diagnostics.json", &problems)
 	reportSession := report.Get("session")
 	sessionID := parser.Text(either(reportSession.Get("id"), diagnostics.Get("sessionId")))
 	cwd := parser.Text(reportSession.Get("cwd"))
@@ -224,14 +224,14 @@ func either(first, second jsonvalue.Value) jsonvalue.Value {
 // bugJSONMember returns a JSON member of a bug report zip as an object,
 // null when the member is absent; a member that is not a UTF-8 JSON object
 // adds a problem and gives null.
-func bugJSONMember(rel string, members map[string][]byte, name string,
+func bugJSONMember(artifact *input.Artifact, rel string, members map[string][]byte, name string,
 	problems *parser.Problems) jsonvalue.Value {
 	data, ok := members[name]
 	if !ok {
 		return jsonvalue.NewNull()
 	}
 	if utf8.Valid(data) {
-		if value, err := jsonvalue.DecodeString(string(data)); err == nil && value.IsObject() {
+		if value, err := parser.DecodeJSON(artifact, string(data)); err == nil && value.IsObject() {
 			return value
 		}
 	}

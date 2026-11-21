@@ -376,11 +376,11 @@ func (s *store) threads() error {
 func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	attachments := make([]jsonvalue.Value, len(messages))
 	for i, message := range messages {
-		attachments[i] = messageAttachment(message)
+		attachments[i] = messageAttachment(s.artifact, message)
 	}
 	project := s.projectOfID("threads", thread.key, attachments)
 	var questions []string
-	if value, ok := jsonColumn(thread.row.Get("relevant_questions")); ok {
+	if value, ok := jsonColumn(s.artifact, thread.row.Get("relevant_questions")); ok {
 		for _, question := range parser.Elements(value) {
 			questions = append(questions, question.Text())
 		}
@@ -474,7 +474,7 @@ func repeatedGroups(parents []parent, children *grouped) map[string]*timeline.Gr
 func (s *store) page(page parent, sections []sqlitefile.Row) {
 	attachments := make([]jsonvalue.Value, len(sections))
 	for i, section := range sections {
-		attachment, ok := jsonColumn(section.Get("attachment"))
+		attachment, ok := jsonColumn(s.artifact, section.Get("attachment"))
 		if !ok || !attachment.IsObject() {
 			attachment = jsonvalue.NewObject()
 		}
@@ -568,7 +568,7 @@ func (s *store) userEvents() error {
 		if owner == "" {
 			owner = userID.String()
 		}
-		payload, ok := jsonColumn(event.Get("payload"))
+		payload, ok := jsonColumn(s.artifact, event.Get("payload"))
 		if !ok || !payload.IsObject() {
 			spec.text = "parser: user_event " + event.Get("id").String() + " payload did not parse"
 			s.emit(s.parser.row(s.artifact, spec))

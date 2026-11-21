@@ -176,9 +176,9 @@ func isASCIIDigits(text string) bool {
 // argumentsSummary returns the first argumentKeys argument of a tool call,
 // else its arguments as compact JSON; arguments given as text are decoded
 // first, and text that is not JSON stands for itself.
-func argumentsSummary(arguments jsonvalue.Value) string {
+func argumentsSummary(artifact *input.Artifact, arguments jsonvalue.Value) string {
 	if arguments.IsString() {
-		decoded, err := jsonvalue.DecodeString(arguments.StringValue())
+		decoded, err := parser.DecodeJSON(artifact, arguments.StringValue())
 		if err != nil {
 			return arguments.StringValue()
 		}
@@ -197,7 +197,7 @@ func argumentsSummary(arguments jsonvalue.Value) string {
 
 // resultText returns a tool result's text; a bash result is a JSON object
 // with output and exit_code.
-func resultText(result jsonvalue.Value) string {
+func resultText(artifact *input.Artifact, result jsonvalue.Value) string {
 	if !result.IsString() {
 		return result.Text()
 	}
@@ -205,7 +205,7 @@ func resultText(result jsonvalue.Value) string {
 	if !strings.HasPrefix(raw, "{") {
 		return raw
 	}
-	decoded, err := jsonvalue.DecodeString(raw)
+	decoded, err := parser.DecodeJSON(artifact, raw)
 	if err != nil || !decoded.IsObject() || !decoded.Has("output") {
 		return raw
 	}
@@ -229,7 +229,7 @@ const notMuse = "not a Muse session log (the first record is neither an envelope
 // the children of each frame unpacked in child order and the markers
 // dropped. It stops at once when the first record is not Muse, which adds
 // that problem.
-func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
+func records(artifact *input.Artifact, path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
 		first := true
 		for number, record := range parser.JSONLines(path, problems) {
@@ -243,7 +243,7 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Va
 			switch {
 			case record.Has("retained_marker"):
 			case record.Has("retained_frame"):
-				for _, inner := range frameChildren(number, record, problems) {
+				for _, inner := range frameChildren(artifact, number, record, problems) {
 					if !yield(number, inner) {
 						return
 					}
@@ -262,7 +262,7 @@ func records(path string, problems *parser.Problems) iter.Seq2[int, jsonvalue.Va
 // something other than an object, or a children that is not an array,
 // adds a problem; a child whose record_json is the text null is passed
 // over without one.
-func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
+func frameChildren(artifact *input.Artifact, number int, frame jsonvalue.Value, problems *parser.Problems) []jsonvalue.Value {
 	children := parser.ListOfKind(frame.Get("children"), "children", jsonvalue.Object, number, problems)
 	slices.SortStableFunc(children, func(left, right jsonvalue.Value) int {
 		return compareIndex(left.Get("child_index"), right.Get("child_index"))
@@ -270,7 +270,7 @@ func frameChildren(number int, frame jsonvalue.Value, problems *parser.Problems)
 	var inners []jsonvalue.Value
 	for _, child := range children {
 		encoded := child.Get("record_json")
-		inner, err := decodeChild(encoded)
+		inner, err := decodeChild(artifact, encoded)
 		if err != nil {
 			raw := ""
 			if encoded.IsString() {
@@ -292,14 +292,14 @@ var errChildNotText = errors.New("the JSON record is not text")
 
 // decodeChild decodes a frame child's record_json; a missing or empty one is
 // an error, as is one that is not text.
-func decodeChild(encoded jsonvalue.Value) (jsonvalue.Value, error) {
+func decodeChild(artifact *input.Artifact, encoded jsonvalue.Value) (jsonvalue.Value, error) {
 	switch {
 	case encoded.IsEmpty():
-		return jsonvalue.DecodeString("")
+		return parser.DecodeJSON(artifact, "")
 	case !encoded.IsString():
 		return jsonvalue.NewNull(), errChildNotText
 	}
-	return jsonvalue.DecodeString(encoded.StringValue())
+	return parser.DecodeJSON(artifact, encoded.StringValue())
 }
 
 // compareIndex orders two child_index values: a missing or false one is 0,
@@ -386,7 +386,7 @@ func (p *Parser) parentWorkspace(artifact *input.Artifact) (string, string) {
 		found, cached := p.parentCache[log]
 		if !cached {
 			var ignored parser.Problems
-			project, branch := workspace(records(log, &ignored), parentScanLines)
+			project, branch := workspace(records(artifact, log, &ignored), parentScanLines)
 			found = [2]string{project, branch}
 			p.parentCache[log] = found
 		}
@@ -470,7 +470,7 @@ func seqOf(entries []envelope) iter.Seq2[int, jsonvalue.Value] {
 func (p *Parser) parseSession(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
 	var problems parser.Problems
 	var entries []envelope
-	for number, record := range records(artifact.DiskPath, &problems) {
+	for number, record := range records(artifact, artifact.DiskPath, &problems) {
 		entries = append(entries, envelope{number, record})
 	}
 	if len(entries) == 0 {
@@ -871,7 +871,7 @@ func (w *walk) toolCalls(step *recordStep, event jsonvalue.Value) {
 	for _, call := range parser.ArrayMember(event.Get("tool_calls"), "tool_calls", step.line, w.problems) {
 		name, callID := call.Get("name").Text(), call.Get("call_id").Text()
 		w.calls[callID] = name
-		w.emit(w.makeRow(step, timeline.TurnToolUse, argumentsSummary(call.Get("args")), name, callID))
+		w.emit(w.makeRow(step, timeline.TurnToolUse, argumentsSummary(w.artifact, call.Get("args")), name, callID))
 	}
 }
 
@@ -891,7 +891,7 @@ func (w *walk) toolResults(step *recordStep, event jsonvalue.Value) {
 				break
 			}
 		}
-		w.emit(w.makeRow(step, timeline.TurnToolResult, resultText(raw), w.calls[callID], callID))
+		w.emit(w.makeRow(step, timeline.TurnToolResult, resultText(w.artifact, raw), w.calls[callID], callID))
 	}
 }
 
@@ -903,7 +903,7 @@ func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
 	w.calls[callID] = name
 	summary := ""
 	if action.IsObject() && action.Len() > 0 {
-		summary = argumentsSummary(action)
+		summary = argumentsSummary(w.artifact, action)
 	}
 	w.emit(w.makeRow(step, timeline.TurnToolUse, summary, name, callID))
 	body := ""
@@ -929,7 +929,7 @@ func (p *Parser) parseTrust(artifact *input.Artifact, emit parser.Emit) {
 	row := p.SystemRow(artifact, "")
 	row.SourceLine = 1
 	row.TimestampUTC = timestamp
-	document, err := jsonvalue.DecodeString(textlines.ValidUTF8(content))
+	document, err := parser.DecodeJSON(artifact, textlines.ValidUTF8(content))
 	if err != nil || !document.IsObject() {
 		row.Text = "parser: trust.json is not a JSON object"
 		emit(row)
@@ -978,7 +978,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		if stripped == "" {
 			continue
 		}
-		record, err := jsonvalue.Decode([]byte(stripped))
+		record, err := parser.DecodeJSONBytes(artifact, []byte(stripped))
 		if err != nil {
 			problems.AddRaw(number, parser.UnparseableLine(err), parser.LineText(raw))
 			continue

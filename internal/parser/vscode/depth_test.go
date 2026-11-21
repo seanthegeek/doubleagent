@@ -94,7 +94,7 @@ func TestARecordThatWouldNestTheStatePastTheLimitIsRefused(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			first := `{"kind":0,"v":{"requests":[{"message":"kept"}],"a":` + nested(test.deep) + `}}`
 			var problems parser.Problems
-			state := replay(writeLog(t, []string{first, test.record}), requestLines{}, &problems, parser.Work{})
+			state := replay(nil, writeLog(t, []string{first, test.record}), requestLines{}, &problems, parser.Work{})
 			var messages []string
 			for _, problem := range problems {
 				messages = append(messages, "line "+strconv.Itoa(problem.Line)+": "+problem.Message)
@@ -135,7 +135,7 @@ func TestALogNestingTheStateEverDeeperStaysWithinTheLimit(t *testing.T) {
 	defer debug.SetMaxStack(debug.SetMaxStack(16 << 20))
 	const depth, grafts = 5000, 20
 	var problems parser.Problems
-	state := replay(writeLog(t, graftLog(depth, grafts)), requestLines{}, &problems, parser.Work{})
+	state := replay(nil, writeLog(t, graftLog(depth, grafts)), requestLines{}, &problems, parser.Work{})
 	var lines []int
 	for _, problem := range problems {
 		if problem.Message != tooDeep() {

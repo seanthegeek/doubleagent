@@ -51,12 +51,12 @@ func readFlatYAML(path string, problems *parser.Problems) map[string]string {
 
 // readJSON returns the parsed file, or null when it cannot be read or
 // parsed. A file that cannot be read adds its unreadable problem.
-func readJSON(path string, problems *parser.Problems) jsonvalue.Value {
+func readJSON(artifact *input.Artifact, path string, problems *parser.Problems) jsonvalue.Value {
 	data, ok := parser.FileBytes(path, problems)
 	if !ok {
 		return jsonvalue.NewNull()
 	}
-	value, err := jsonvalue.Decode(data)
+	value, err := parser.DecodeJSONBytes(artifact, data)
 	if err != nil {
 		return jsonvalue.NewNull()
 	}
@@ -101,7 +101,7 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 			continue
 		}
 		// Each sidebar file is also an artifact parseSidebar reports.
-		document := readJSON(path, &parser.Problems{})
+		document := readJSON(nil, path, &parser.Problems{})
 		cwd, sessions := document.Get("cwd").Text(), document.Get("sessionIds")
 		if cwd == "" || !sessions.IsArray() {
 			continue
@@ -176,7 +176,7 @@ func (p *Parser) problemRows(artifact *input.Artifact, problems parser.Problems,
 // snapshots that is not a JSON array is a problem.
 func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit parser.Emit) {
 	var problems parser.Problems
-	document := readJSON(artifact.DiskPath, &problems)
+	document := readJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
@@ -219,7 +219,7 @@ func countText(value jsonvalue.Value) string {
 // a commandHistory that is not a JSON array is a problem.
 func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document := readJSON(artifact.DiskPath, &problems)
+	document := readJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
@@ -252,7 +252,7 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, val
 func (p *Parser) parsePermissions(artifact *input.Artifact, emit parser.Emit) {
 	timestamp := parser.FileMtime(artifact)
 	var problems parser.Problems
-	document := readJSON(artifact.DiskPath, &problems)
+	document := readJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
@@ -289,7 +289,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	document, err := jsonvalue.DecodeString(parser.StripJSONC(textlines.ValidUTF8(data)))
+	document, err := parser.DecodeJSON(artifact, parser.StripJSONC(textlines.ValidUTF8(data)))
 	if err != nil || !document.IsObject() {
 		emit(p.problem(artifact, "parser: settings.json is not a JSON object", timestamp))
 		return
@@ -344,7 +344,7 @@ func (p *Parser) parseLog(artifact *input.Artifact, emit parser.Emit) {
 // is a join lost.
 func (p *Parser) parseSidebar(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document := readJSON(artifact.DiskPath, &problems)
+	document := readJSON(artifact, artifact.DiskPath, &problems)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return

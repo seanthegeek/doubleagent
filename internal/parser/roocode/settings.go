@@ -55,7 +55,7 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	data, err := jsonvalue.DecodeString(text)
+	data, err := parser.DecodeJSON(artifact, text)
 	// The CLI's own loadHistory keeps only non-blank strings, so an entry of
 	// another kind is passed over as it passes it over (research/roo-code.md).
 	for position, entry := range cliEntries(text, data, err == nil, &problems) {
@@ -103,7 +103,7 @@ func cliEntries(text string, data jsonvalue.Value, decoded bool, problems *parse
 // the row that says why it is not one.
 func (p *Parser) stateFile(artifact *input.Artifact, what string, emit parser.Emit) (jsonvalue.Value, bool) {
 	var problems parser.Problems
-	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	document, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	if document.IsObject() {
 		return document, true
 	}
@@ -223,7 +223,8 @@ func (p *Parser) mcp(artifact *input.Artifact, emit parser.Emit) {
 // retry queue's problem keep the file's time, as in workspace-state.json,
 // and a whole-file problem carries none.
 func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
-	values, problems := vscodestate.ReadItems(artifact.DiskPath, extensionKeys())
+	values, problems, repeats := vscodestate.ReadItemsRepeats(artifact.DiskPath, extensionKeys())
+	parser.NoteRepeats(artifact, repeats)
 	workspace := workspaceDatabase.MatchString(artifact.Rel)
 	queueProblems := map[string]bool{}
 	for _, key := range extensionKeys() {
@@ -270,7 +271,7 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 	var problems parser.Problems
 	for i, request := range parser.EntriesOfKind(state.Get(retryQueueKey), retryQueueKey, jsonvalue.Object, 0,
 		&problems) {
-		event := queuedEvent(request)
+		event := queuedEvent(artifact, request)
 		taskID := event.Get("properties").Get("taskId")
 		retries := "-"
 		if value, found := request.Lookup("retryCount"); found {
@@ -304,12 +305,12 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 
 // queuedEvent returns the JSON event body of a queued request, or null
 // when it is not a JSON object.
-func queuedEvent(request jsonvalue.Value) jsonvalue.Value {
+func queuedEvent(artifact *input.Artifact, request jsonvalue.Value) jsonvalue.Value {
 	body := request.Get("options").Get("body")
 	if !body.IsString() {
 		return jsonvalue.NewNull()
 	}
-	event, err := jsonvalue.DecodeString(body.StringValue())
+	event, err := parser.DecodeJSON(artifact, body.StringValue())
 	if err != nil || !event.IsObject() {
 		return jsonvalue.NewNull()
 	}

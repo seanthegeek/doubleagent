@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -56,7 +57,7 @@ func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]boo
 		if each.hasParts {
 			repeated = repeats[each.firstPart]
 			if repeated == nil {
-				found, failures = messageParts(s.parts, each.row)
+				found, failures = messageParts(s.artifact, s.parts, each.row)
 				for _, taken := range found {
 					consumed[taken.where.line] = true
 				}
@@ -177,11 +178,11 @@ func (s *store) partLookup() (*sqlitefile.Lookup, error) {
 
 // messageParts returns the decoded parts of a message row, and a failure
 // per part whose data does not decode.
-func messageParts(parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []failure) {
+func messageParts(artifact *input.Artifact, parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []failure) {
 	var found []part
 	var failures []failure
 	for _, row := range parts.Find(message, "id") {
-		data, raw, err := decodeRecord(row.Get("data"))
+		data, raw, err := decodeRecord(artifact, row.Get("data"))
 		if err != nil {
 			failures = append(failures, failure{line: int(row.Rowid),
 				message: unparseable(row.Rowid, "part.data", err), raw: raw})

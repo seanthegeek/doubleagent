@@ -88,7 +88,7 @@ func mapUICases() []mapUICase {
 func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 	for _, test := range mapUICases() {
 		t.Run(test.name, func(t *testing.T) {
-			got, ok := MapUI(test.kind, decode(t, test.message), test.first)
+			got, ok := MapUI(nil, test.kind, decode(t, test.message), test.first)
 			if ok != test.ok || (ok && got != test.want) {
 				t.Errorf("MapUI = %+v, %v; want %+v, %v", got, ok, test.want, test.ok)
 			}

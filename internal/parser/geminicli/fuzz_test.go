@@ -53,6 +53,6 @@ func FuzzShellHistoryAndTags(fuzz *testing.F) {
 			}
 		}
 		_ = unquote(text)
-		historyItems(text, &problems)
+		historyItems(nil, text, &problems)
 	})
 }

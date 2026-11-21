@@ -41,7 +41,7 @@ func readTranscript(artifact *input.Artifact, manifest sessionManifest, problems
 	if !ok {
 		return transcript{messages: func(func(int, jsonvalue.Value) bool) {}}
 	}
-	payload, err := jsonvalue.DecodeString(rawText)
+	payload, err := parser.DecodeJSON(artifact, rawText)
 	if err == nil && payload.IsObject() {
 		return transcript{messages: positions(parser.ArrayMember(payload.Get("messages"), "messages", 0, problems)),
 			fallback: timeutil.FirstNonEmpty(timeutil.FromValue(manifest.started),
@@ -92,7 +92,7 @@ func (p *Parser) sessionManifest(artifact *input.Artifact, sessionID string) ses
 	}
 	p.Work.Add("session manifests read", 1)
 	var ignored parser.Problems
-	manifest, _ := parser.LoadJSON(manifestPath, &ignored)
+	manifest, _ := parser.LoadJSON(artifact, manifestPath, &ignored)
 	known := sessionManifest{project: parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"),
 		manifest.Get("workspace_root"))), started: manifest.Get("started_at"), model: manifest.Get("model")}
 	read[key] = known
@@ -120,14 +120,15 @@ func (p *Parser) messages(artifact *input.Artifact, options parser.Options, emit
 		row := p.BaseRow(artifact)
 		row.SourceLine, row.TimestampUTC = position, timestamp
 		row.SessionID, row.ProjectPath = sessionID, project
-		p.messageRows(row, message, manifest, seen, options, emit)
+		p.messageRows(artifact, row, message, manifest, seen, options, emit)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }
 
-// messageRows emits the rows of one message, each built from base.
-func (p *Parser) messageRows(base timeline.Row, message jsonvalue.Value, manifest sessionManifest, seen parser.Tracker,
-	options parser.Options, emit parser.Emit) {
+// messageRows emits the rows of one message of artifact, each built from
+// base.
+func (p *Parser) messageRows(artifact *input.Artifact, base timeline.Row, message jsonvalue.Value,
+	manifest sessionManifest, seen parser.Tracker, options parser.Options, emit parser.Emit) {
 	info := message.Get("modelInfo")
 	base.Model = parser.Text(parser.FirstNonEmpty(info.Get("id"), manifest.model))
 	if change := seen.Change("model", base.SessionID, parser.Text(info.Get("id"))); change != "" {
@@ -140,7 +141,7 @@ func (p *Parser) messageRows(base timeline.Row, message jsonvalue.Value, manifes
 		emit(row)
 	}
 	content := message.Get("content")
-	decided := decisions(content)
+	decided := decisions(artifact, content)
 	baseTurn := clinelegacy.BaseTurn(message.Get("role"))
 	for _, block := range clinelegacy.ContentRows(content, baseTurn, options.IncludeThinking) {
 		row := base
@@ -157,14 +158,15 @@ func (p *Parser) messageRows(base timeline.Row, message jsonvalue.Value, manifes
 
 // decisions returns, by tool call id, the "permission decision:" text of
 // each skipped call in a message's content: an errored tool_result whose
-// reason is a rejection or a block.
-func decisions(content jsonvalue.Value) map[string]string {
+// reason is a rejection or a block. A result's repeated member names are
+// noted in the parse of artifact.
+func decisions(artifact *input.Artifact, content jsonvalue.Value) map[string]string {
 	decided := map[string]string{}
 	for _, block := range content.Items() {
 		if !parser.IsText(block.Get("type"), "tool_result") || block.Get("is_error").IsEmpty() {
 			continue
 		}
-		if text := denial(block.Get("content")); text != "" {
+		if text := denial(artifact, block.Get("content")); text != "" {
 			decided[parser.Text(block.Get("tool_use_id"))] = timeline.Compact(text)
 		}
 	}
@@ -174,9 +176,9 @@ func decisions(content jsonvalue.Value) map[string]string {
 // denial returns the "permission decision:" text of a skipped call's
 // result, whose content is {"error": <reason>}, possibly as a JSON string;
 // "" for any other result.
-func denial(content jsonvalue.Value) string {
+func denial(artifact *input.Artifact, content jsonvalue.Value) string {
 	if content.IsString() {
-		decoded, err := jsonvalue.DecodeString(content.StringValue())
+		decoded, err := parser.DecodeJSON(artifact, content.StringValue())
 		if err != nil {
 			return ""
 		}

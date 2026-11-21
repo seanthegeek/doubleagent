@@ -8,6 +8,6 @@ func FuzzRecoverLogs(fuzz *testing.F) {
 	}
 	subject := New()
 	fuzz.Fuzz(func(t *testing.T, raw string) {
-		subject.recoverLogs(raw)
+		subject.recoverLogs(nil, raw)
 	})
 }

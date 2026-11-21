@@ -20,7 +20,7 @@ func TestAValueThatDoesNotDecodeSaysWhyInPlainWords(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := ""
-			if _, err := decodeColumn(test.value); err != nil {
+			if _, err := decodeColumn(nil, test.value); err != nil {
 				got = err.Error()
 			}
 			if got != test.want {

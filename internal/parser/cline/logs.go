@@ -174,7 +174,7 @@ func (p *Parser) taskHistory(artifact *input.Artifact, emit parser.Emit) {
 // are never read.
 func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	document, _ := parser.LoadJSON(artifact.DiskPath, &problems)
+	document, _ := parser.LoadJSON(artifact, artifact.DiskPath, &problems)
 	items := document.Get("items")
 	if !items.IsObject() {
 		if len(problems) == 0 {

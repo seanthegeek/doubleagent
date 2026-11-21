@@ -23,7 +23,7 @@ func TestObjectsFromSalvagesTheObjectsBeforeDamage(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var got []string
-			for _, value := range ObjectsFrom(test.text, test.offset) {
+			for _, value := range ObjectsFrom(nil, test.text, test.offset) {
 				got = append(got, value.JSON())
 			}
 			if !slices.Equal(got, test.want) {

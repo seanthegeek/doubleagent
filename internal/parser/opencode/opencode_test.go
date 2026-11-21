@@ -127,7 +127,7 @@ func TestSessionRulesReadBothShapes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, skipped, ok := sessionRules(test.text)
+			got, skipped, ok := sessionRules(nil, test.text)
 			if ok != test.ok || skipped != test.skipped || !slices.Equal(got, test.want) {
 				t.Errorf("got %v, %d, %v; want %v, %d, %v", got, skipped, ok, test.want, test.skipped, test.ok)
 			}

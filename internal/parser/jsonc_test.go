@@ -26,7 +26,7 @@ func TestJSONCReadsCommentsAndTrailingCommasOutsideStrings(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := compactOrError(ParseJSONC([]byte(test.raw))); got != test.parsed {
+			if got := compactOrError(ParseJSONC(nil, []byte(test.raw))); got != test.parsed {
 				t.Errorf("ParseJSONC: got %s, want %s", got, test.parsed)
 			}
 			if got := compactOrError(jsonvalue.DecodeString(StripJSONC(test.raw))); got != test.stripped {
@@ -53,6 +53,6 @@ func FuzzParseJSONC(fuzz *testing.F) {
 		if len(stripped) > len(raw) {
 			t.Errorf("stripping grew %d bytes to %d", len(raw), len(stripped))
 		}
-		_, _ = ParseJSONC(raw)
+		_, _ = ParseJSONC(nil, raw)
 	})
 }

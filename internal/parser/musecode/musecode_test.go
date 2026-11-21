@@ -76,7 +76,7 @@ func TestArgumentsSummaryPicksTheFirstKnownArgument(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := argumentsSummary(decoded(t, test.json)); got != test.want {
+			if got := argumentsSummary(nil, decoded(t, test.json)); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -107,7 +107,7 @@ func TestResultTextUnwrapsABashResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := resultText(decoded(t, test.json)); got != test.want {
+			if got := resultText(nil, decoded(t, test.json)); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -156,7 +156,7 @@ func TestFrameChildrenAreReadInChildOrder(t *testing.T) {
 	}
 	var problems parser.Problems
 	var kinds []string
-	for number, record := range records(path, &problems) {
+	for number, record := range records(nil, path, &problems) {
 		kinds = append(kinds, record.Get("payload_type").StringValue())
 		if number != 1 && number != 3 {
 			t.Errorf("record on line %d", number)
@@ -179,7 +179,7 @@ func TestALogThatStartsWithAnotherRecordIsNotMuse(t *testing.T) {
 		t.Fatal(err)
 	}
 	var problems parser.Problems
-	for range records(path, &problems) {
+	for range records(nil, path, &problems) {
 		t.Fatal("a record was yielded")
 	}
 }
