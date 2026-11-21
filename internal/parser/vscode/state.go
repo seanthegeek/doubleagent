@@ -60,7 +60,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	if !workspace {
 		keys = append(keys, copilotStateKey)
 	}
-	values, problems, repeats := vscodestate.ReadItemsRepeats(artifact.DiskPath, keys)
+	values, problems, repeats := vscodestate.ReadItems(artifact.DiskPath, keys)
 	parser.NoteRepeats(artifact, repeats)
 	var errors parser.Problems
 	project := ""

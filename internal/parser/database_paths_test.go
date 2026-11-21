@@ -32,7 +32,7 @@ func databaseMessages(t *testing.T, path string) []string {
 	} else {
 		messages = append(messages, readError(t, database)...)
 	}
-	_, problems := vscodestate.ReadItems(path, []string{"key"})
+	_, problems, _ := vscodestate.ReadItems(path, []string{"key"})
 	return append(messages, problems...)
 }
 

@@ -31,34 +31,16 @@ var plainDecodes = map[string]struct {
 }
 
 // TestParsersDecodeEvidenceThroughTheKit holds every parser package to
-// decoding the JSON of its evidence through the kit (DecodeJSON, or a
-// Document whose repeats reach NoteRepeats), so a member name repeated
-// within an object is reported: a call of jsonvalue.Decode, DecodeString
-// or DecodePrefix outside the reviewed list fails.
+// decoding the JSON of its evidence through the kit (DecodeJSON), so a
+// member name repeated within an object is reported: a call of
+// jsonvalue.Decode, DecodeString or DecodePrefix outside the reviewed list
+// fails.
 func TestParsersDecodeEvidenceThroughTheKit(t *testing.T) {
 	found := map[string]int{}
-	packages := 0
-	err := filepath.WalkDir(".", func(file string, entry fs.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			return err
-		case entry.IsDir() && filepath.Dir(file) == ".":
-			packages++
-			return nil
-		case entry.IsDir() || filepath.Dir(file) == "." || !strings.HasSuffix(file, ".go") ||
-			strings.HasSuffix(file, "_test.go"):
-			return nil
-		}
-		if calls := plainDecodeCalls(t, file); calls > 0 {
+	for _, file := range parserSources(t) {
+		if calls := jsonvalueCalls(t, file, "Decode", "DecodeString", "DecodePrefix"); calls > 0 {
 			found[filepath.ToSlash(file)] = calls
 		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if packages < 30 {
-		t.Fatalf("looked at %d parser packages, want every one", packages)
 	}
 	for _, file := range slices.Sorted(maps.Keys(found)) {
 		if found[file] != plainDecodes[file].count {
@@ -73,9 +55,90 @@ func TestParsersDecodeEvidenceThroughTheKit(t *testing.T) {
 	}
 }
 
-// plainDecodeCalls counts the calls in file of jsonvalue's Decode,
-// DecodeString and DecodePrefix functions.
-func plainDecodeCalls(t *testing.T, file string) int {
+// TestParsersKeepTheRepeatsOfAStateDatabase holds every parser package to
+// keeping the repeated member names vscodestate's readers return (for
+// NoteRepeats): a call of vscodestate.ReadItem or ReadItems whose last
+// result is not kept fails.
+func TestParsersKeepTheRepeatsOfAStateDatabase(t *testing.T) {
+	for _, file := range parserSources(t) {
+		for _, line := range droppedStateRepeats(t, file) {
+			t.Errorf("%s:%d drops the repeats a vscodestate reader returns; pass them to NoteRepeats",
+				filepath.ToSlash(file), line)
+		}
+	}
+}
+
+// parserSources returns the files of the parser packages, tests left out,
+// failing when fewer packages than the parsers are found.
+func parserSources(t *testing.T) []string {
+	t.Helper()
+	var files []string
+	packages := 0
+	err := filepath.WalkDir(".", func(file string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case entry.IsDir() && filepath.Dir(file) == ".":
+			packages++
+		case !entry.IsDir() && filepath.Dir(file) != "." && strings.HasSuffix(file, ".go") &&
+			!strings.HasSuffix(file, "_test.go"):
+			files = append(files, file)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if packages < 30 {
+		t.Fatalf("looked at %d parser packages, want every one", packages)
+	}
+	return files
+}
+
+// droppedStateRepeats returns the lines of file where a vscodestate reader
+// is called and its last result, the repeats, is not given a name.
+func droppedStateRepeats(t *testing.T, file string) []int {
+	t.Helper()
+	files := token.NewFileSet()
+	parsed, err := goparser.ParseFile(files, file, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept := map[*ast.CallExpr]bool{}
+	var lines []int
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		if assign, ok := node.(*ast.AssignStmt); ok && len(assign.Rhs) == 1 && len(assign.Lhs) == 3 {
+			if call, ok := assign.Rhs[0].(*ast.CallExpr); ok {
+				last, named := assign.Lhs[2].(*ast.Ident)
+				kept[call] = !named || last.Name != "_"
+			}
+		}
+		call, ok := node.(*ast.CallExpr)
+		if !ok || !isStateReader(call) {
+			return true
+		}
+		if !kept[call] {
+			lines = append(lines, files.Position(call.Pos()).Line)
+		}
+		return true
+	})
+	return lines
+}
+
+// isStateReader reports whether call is of vscodestate.ReadItem or
+// ReadItems.
+func isStateReader(call *ast.CallExpr) bool {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	name, ok := selector.X.(*ast.Ident)
+	return ok && name.Name == "vscodestate" && (selector.Sel.Name == "ReadItem" || selector.Sel.Name == "ReadItems")
+}
+
+// jsonvalueCalls counts the uses in file of the named functions of
+// jsonvalue.
+func jsonvalueCalls(t *testing.T, file string, names ...string) int {
 	t.Helper()
 	parsed, err := goparser.ParseFile(token.NewFileSet(), file, nil, 0)
 	if err != nil {
@@ -88,7 +151,7 @@ func plainDecodeCalls(t *testing.T, file string) int {
 			return true
 		}
 		if name, ok := selector.X.(*ast.Ident); ok && name.Name == "jsonvalue" &&
-			slices.Contains([]string{"Decode", "DecodeString", "DecodePrefix"}, selector.Sel.Name) {
+			slices.Contains(names, selector.Sel.Name) {
 			calls++
 		}
 		return true

@@ -41,7 +41,7 @@ func TestReadItemsReturnsEachValueAndProblem(t *testing.T) {
 	path := stateCopy(t)
 	// From read_items on the same file: values decoded, the value that is not
 	// JSON kept as text, the secret never read, problems in key order.
-	values, problems := ReadItems(path, []string{"cloudAgentRepository.agentsX",
+	values, problems, _ := ReadItems(path, []string{"cloudAgentRepository.agentsX",
 		"cloudAgentRepository.agents.u2", "secret://x", "cloudAgentRepository.agents.u1", "missing",
 		"CLOUDAGENTREPOSITORY.agents.u3"})
 	want := map[string]string{"CLOUDAGENTREPOSITORY.agents.u3": "[]",
@@ -57,7 +57,7 @@ func TestReadItemsReturnsEachValueAndProblem(t *testing.T) {
 	if shown := ShownProblem(problems[0]); shown != "ItemTable value for cloudAgentRepository.agentsX is not valid JSON" {
 		t.Errorf("ShownProblem() = %q", shown)
 	}
-	value, problems := ReadItem(path, "missing")
+	value, problems, _ := ReadItem(path, "missing")
 	if !value.IsNull() || problems != nil {
 		t.Errorf("ReadItem(missing) = %v, %q; want null and no problem", value, problems)
 	}
@@ -66,24 +66,24 @@ func TestReadItemsReturnsEachValueAndProblem(t *testing.T) {
 func TestReadItemsReportsAFileItCannotOpen(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "state.vscdb")
-	if values, problems := ReadItems(path, []string{"k"}); len(values) != 0 || problems != nil {
+	if values, problems, _ := ReadItems(path, []string{"k"}); len(values) != 0 || problems != nil {
 		t.Errorf("an absent file gave %v, %q", values, problems)
 	}
 	if err := osfile.WriteFile(path, []byte("plain text\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, problems := ReadItems(path, []string{"k"})
+	_, problems, _ := ReadItems(path, []string{"k"})
 	if !slices.Equal(problems, []string{"state.vscdb is not a SQLite database"}) {
 		t.Errorf("a text file gave %q", problems)
 	}
-	if values, problems := ReadItems(stateCopy(t), []string{"secret://x"}); len(values) != 0 || problems != nil {
+	if values, problems, _ := ReadItems(stateCopy(t), []string{"secret://x"}); len(values) != 0 || problems != nil {
 		t.Errorf("only secret keys gave %v, %q; want nothing read", values, problems)
 	}
 	empty := filepath.Join(directory, "empty.vscdb")
 	if err := osfile.WriteFile(empty, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if values, problems := ReadItems(empty, []string{"k"}); len(values) != 0 || problems != nil {
+	if values, problems, _ := ReadItems(empty, []string{"k"}); len(values) != 0 || problems != nil {
 		t.Errorf("an empty database gave %v, %q; want nothing", values, problems)
 	}
 }
@@ -150,7 +150,7 @@ func TestReadItemsFindsItemTableInAnyASCIICase(t *testing.T) {
 			if err := osfile.WriteFile(path, renamed, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			values, problems := ReadItems(path, []string{"cloudAgentRepository.agents.u1"})
+			values, problems, _ := ReadItems(path, []string{"cloudAgentRepository.agents.u1"})
 			if found := len(values) == 1; found != test.found || problems != nil {
 				t.Errorf("ReadItems() = %v, %q; want found %v", values, problems, test.found)
 			}

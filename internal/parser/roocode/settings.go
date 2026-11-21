@@ -223,7 +223,7 @@ func (p *Parser) mcp(artifact *input.Artifact, emit parser.Emit) {
 // retry queue's problem keep the file's time, as in workspace-state.json,
 // and a whole-file problem carries none.
 func (p *Parser) stateDatabase(artifact *input.Artifact, emit parser.Emit) {
-	values, problems, repeats := vscodestate.ReadItemsRepeats(artifact.DiskPath, extensionKeys())
+	values, problems, repeats := vscodestate.ReadItems(artifact.DiskPath, extensionKeys())
 	parser.NoteRepeats(artifact, repeats)
 	workspace := workspaceDatabase.MatchString(artifact.Rel)
 	queueProblems := map[string]bool{}

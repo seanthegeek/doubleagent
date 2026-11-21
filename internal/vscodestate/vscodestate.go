@@ -59,15 +59,10 @@ func IsStateDatabase(rel string) bool {
 // returned as its text, a JSON string, and noted in the problems, and so is
 // a database sqlitefile.Problem rejects, under its own file name. An absent
 // file, a symbolic link and a file that is not regular give nothing.
-// secret:// keys are never read.
-func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string) {
-	var repeats jsonvalue.Repeats
-	return readItems(path, keys, &repeats)
-}
-
-// ReadItemsRepeats returns what ReadItems does and the member names the
-// values repeat within an object, for a parser to report.
-func ReadItemsRepeats(path string, keys []string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
+// secret:// keys are never read. The member names the values repeat within
+// an object come last, for the parse of the database to report
+// (parser.NoteRepeats).
+func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
 	var repeats jsonvalue.Repeats
 	values, problems := readItems(path, keys, &repeats)
 	return values, problems, repeats
@@ -159,10 +154,11 @@ func valueText(value sqlitefile.Value) string {
 }
 
 // ReadItem returns the decoded JSON value of one ItemTable key, JSON null
-// when it is absent (the two read alike), and the problems.
-func ReadItem(path, key string) (jsonvalue.Value, []string) {
-	values, problems := ReadItems(path, []string{key})
-	return values[key], problems
+// when it is absent (the two read alike), the problems and the member
+// names the value repeats, as ReadItems does.
+func ReadItem(path, key string) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+	values, problems, repeats := ReadItems(path, []string{key})
+	return values[key], problems, repeats
 }
 
 // ShownProblem returns the problem a row shows: a value problem without the

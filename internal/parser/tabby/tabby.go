@@ -318,7 +318,8 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parser.Emit
 // holds those tokens. A history that is not an array, and server records
 // of the wrong kind, add a problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parser.Emit) {
-	state, problems := vscodestate.ReadItem(artifact.DiskPath, vscodeItemKey)
+	state, problems, repeats := vscodestate.ReadItem(artifact.DiskPath, vscodeItemKey)
+	parser.NoteRepeats(artifact, repeats)
 	switch {
 	case state.IsObject():
 		var found parser.Problems

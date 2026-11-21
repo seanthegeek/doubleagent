@@ -69,8 +69,11 @@ type stateKey struct {
 type globalState struct {
 	value    jsonvalue.Value
 	problems []string
-	history  map[string]jsonvalue.Value
-	counts   map[string]int
+	// repeats are the member names the value repeats, which the parse of
+	// the database itself reports, not a task file's lookup of it.
+	repeats jsonvalue.Repeats
+	history map[string]jsonvalue.Value
+	counts  map[string]int
 }
 
 // Parser reads PearAI's chat sessions, agent tasks, editor state and chat
@@ -159,9 +162,10 @@ func (p *Parser) globalState(path string) globalState {
 	if found, ok := p.states[key]; ok {
 		return found
 	}
-	value, problems := vscodestate.ReadItem(path, extensionID)
+	value, problems, repeats := vscodestate.ReadItem(path, extensionID)
 	history, counts := p.historyIndex(value)
-	p.states[key] = globalState{value: value, problems: problems, history: history, counts: counts}
+	p.states[key] = globalState{value: value, problems: problems, repeats: repeats, history: history,
+		counts: counts}
 	return p.states[key]
 }
 

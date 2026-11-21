@@ -145,6 +145,7 @@ func blockText(block jsonvalue.Value) jsonvalue.Value {
 // per standing key, at the file's modification time.
 func (p *Parser) state(artifact *input.Artifact, emit parser.Emit) {
 	read := p.globalState(artifact.DiskPath)
+	parser.NoteRepeats(artifact, read.repeats)
 	problems := read.problems
 	switch {
 	case read.value.IsObject():
