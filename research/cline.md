@@ -1067,6 +1067,18 @@ row at `source_line` 0; an absent, null or empty one gives no row. A `task_metad
 `parser: <member or file> holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
+The extension writes one `state/taskHistory.json` entry per task `id`, replacing the entry in place
+on each update
+([`src/core/controller/index.ts:841-851`](https://github.com/cline/cline/blob/6787dedf474fff3d22a7e9301a69d796d46225c1/src/core/controller/index.ts#L841-L851),
+the legacy controller at tag `v3.30.0`), and the current extension only removes entries
+([`apps/vscode/src/sdk/legacy-state-reader.ts:160-170`](https://github.com/cline/cline/blob/41e75efc53e7abbcb76564b89e6de57f78659b33/apps/vscode/src/sdk/legacy-state-reader.ts#L160-L170)),
+so a second entry of one id is damage or an edit. Each entry of the id gives its own `task:` row,
+and the task's rows (its task files' rows, their `parser:` rows and the upload queue rows of the
+task) are shown once, with the `cwdOnTaskInitialization` of one entry, and its `ts` and `modelId`
+where the task's start and model come from the entry: the first entry, in file order, that the
+analysis filters keep, else the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+
 #### Fixtures
 
 Fixtures (invented content, real field names):

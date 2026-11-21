@@ -41,7 +41,7 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 		if len(problems) == 0 {
 			problems.Add(0, "task_metadata.json is not a JSON object")
 		}
-		parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+		parser.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 		return
 	}
 	events := fileEvents(data.Get("files_in_context"), &problems)
@@ -63,12 +63,13 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 	for _, event := range events {
 		for _, text := range eventTexts(event, context.TaskID, models, modes) {
 			row := p.Row(artifact, context, event.position, timeutil.FromValue(event.timestamp), event.model)
+			context.Member(&row, true, true)
 			row.TurnType = timeline.TurnSystem
 			row.Text = timeline.Compact(text)
 			emit(row)
 		}
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+	parser.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 }
 
 // timeOrZero returns an entry's ts, or the number 0 when it is empty, so an

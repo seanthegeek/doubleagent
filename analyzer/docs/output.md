@@ -1542,6 +1542,16 @@ attributes. What the rows of the id are depends on the agent:
   pages and the rows of the events that name the user; those name the
   user by id, and each stored row gives a `parser:` row naming its own
   label, so a planted row cannot put its label on the user's threads.
+- **Cline and Roo Code**, whose task files one reader reads, a task
+  index entry repeating a task id (Cline's `state/taskHistory.json`, Roo
+  Code's `tasks/_index.json` for a task with no `history_item.json`;
+  each agent writes one entry per id, so only damage or an edit repeats
+  one): the rows of the task's files and, for Cline, its upload queue
+  rows, with the entry's `project_path`, and its time and `model` where
+  the task's start and model come from the entry. Each entry gives its
+  own `task:` row (and Roo Code's `permission mode:` row) with its own
+  attributes; without a filter the task's rows take the first entry's,
+  in file order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

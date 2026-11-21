@@ -152,6 +152,15 @@ func clineMetadataCases() []growthCase {
 				return `{"id":"` + clineTaskID + `","ts":1791021607001,"task":"fix tests","modelId":"m"}`
 			})+"]"))
 		}},
+		{kind: "taskHistory.json", shape: shapeSharedID + " and the task's many records", files: func(t *testing.T,
+			n int) []growthFile {
+			return []growthFile{text(clineExtension+"state/taskHistory.json", "["+joined(n, func(i int) string {
+				return `{"id":"t1","ts":` + strconv.Itoa(1791021607001+i) + `,"task":"t","cwdOnTaskInitialization":"/p` +
+					strconv.Itoa(i) + `","modelId":"m"}`
+			})+"]"), text(clineTaskFile("t1", "api_conversation_history.json"), "["+joined(n, func(i int) string {
+				return clineAPIMessage("user", "hi")
+			})+"]")}
+		}},
 		{kind: "taskHistory.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
 			return one(clineExtension+"state/taskHistory.json", []byte("["+joined(n, func(i int) string {
 				return `"bad"`

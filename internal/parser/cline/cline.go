@@ -27,6 +27,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // root matches the storage roots: the extension's global storage in any
@@ -139,13 +140,14 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 	return parser.DefaultTolerance
 }
 
-// HistoryItem returns the task's entry in state/taskHistory.json, or null.
-func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
+// HistoryItem returns the task's entry in state/taskHistory.json, or null,
+// and the group of its id when the file repeats it.
+func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.Group) {
 	history, found := task.InRoot("state/taskHistory.json")
 	if !found {
-		return jsonvalue.NewNull()
+		return jsonvalue.NewNull(), nil
 	}
-	return p.CachedEntry(history, "", task.TaskID)
+	return p.CachedEntry(history, "", task.TaskID), p.EntryGroup(history, "", task.TaskID)
 }
 
 // Parse emits the rows of one Cline file.

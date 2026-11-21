@@ -35,10 +35,12 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 	var problems parser.Problems
 	for position, message := range parser.EntriesOfKindFrom(parser.JSONArray(artifact.DiskPath, &problems),
 		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
-		timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), context.Start)
+		ownTime := timeutil.FromValue(message.Get("ts"))
+		timestamp := timeutil.FirstNonEmpty(ownTime, context.Start)
 		model := context.ModelAt(message.Get("ts"))
 		row := func(turnType string) timeline.Row {
 			row := p.Row(artifact, context, position, timestamp, model)
+			context.Member(&row, ownTime != "", false)
 			row.TurnType = turnType
 			return row
 		}
@@ -58,7 +60,7 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 			emit(each)
 		}
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+	parser.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 }
 
 // apiMarker emits the row of a reasoning record (when thinking is kept),

@@ -149,12 +149,21 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// taskHistory emits the "task:" row of each entry of state/taskHistory.json.
+// taskHistory emits the "task:" row of each entry of state/taskHistory.json;
+// the row of each entry of an id the file repeats is a parent of the id's
+// group, which the task's files share (EntryGroup).
 func (p *Parser) taskHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
+	history, shared := parser.Beside(artifact, "taskHistory.json")
 	for position, item := range parser.EntriesOfKindFrom(parser.JSONArray(artifact.DiskPath, &problems),
 		"taskHistory.json", jsonvalue.Object, 0, &problems) {
-		emit(p.HistoryRow(artifact, item, position))
+		row := p.HistoryRow(artifact, item, position)
+		if shared {
+			if group := p.EntryGroup(history, "", item.Get("id").Text()); group != nil {
+				group.Parent(&row)
+			}
+		}
+		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
@@ -186,9 +195,12 @@ func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 		row.SourceLine = i + 1
 		row.SessionID = parser.Text(item.Get("taskId"))
 		if row.SessionID != "" {
-			history := p.HistoryItem(clinelegacy.Task{Artifact: artifact, TaskID: row.SessionID,
+			history, group := p.HistoryItem(clinelegacy.Task{Artifact: artifact, TaskID: row.SessionID,
 				RootLevels: 1})
 			row.ProjectPath = parser.Text(history.Get(p.ProjectKey()))
+			if group != nil {
+				group.Member(&row, timeline.TakeProject)
+			}
 		}
 		row.TimestampUTC = timeutil.FromValue(item.Get("timestamp"))
 		if parser.IsText(item.Get("status"), "synced") {

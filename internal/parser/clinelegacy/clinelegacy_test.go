@@ -179,17 +179,19 @@ func TestTheTaskPatternMatchesTaskFilesUnderTheRoot(t *testing.T) {
 func TestTaskStartPrefersTheIdThenTheMetadataThenTheIndex(t *testing.T) {
 	for _, test := range []struct {
 		name, taskID, item, metadata, want string
+		fromItem                           bool
 	}{
-		{"a millisecond id", "1791021600000", `{"ts": 1}`, `{}`, "2026-10-03T10:00:00.000Z"},
+		{"a millisecond id", "1791021600000", `{"ts": 1}`, `{}`, "2026-10-03T10:00:00.000Z", false},
 		{"the earliest metadata time", "abc", `{"ts": 1}`,
 			`{"model_usage": [{"ts": 1791021700000}], "environment_history": [{"ts": 1791021600000}, {"ts": "x"}]}`,
-			"2026-10-03T10:00:00.000Z"},
-		{"the index time", "abc", `{"ts": 1791021600000}`, `{}`, "2026-10-03T10:00:00.000Z"},
+			"2026-10-03T10:00:00.000Z", false},
+		{"the index time", "abc", `{"ts": 1791021600000}`, `{}`, "2026-10-03T10:00:00.000Z", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got := taskStart(test.taskID, decode(t, test.item), decode(t, test.metadata))
-			if got != test.want {
-				t.Errorf("start = %q, want %q", got, test.want)
+			got, fromItem := taskStart(test.taskID, decode(t, test.item), decode(t, test.metadata))
+			if got != test.want || fromItem != test.fromItem {
+				t.Errorf("start = %q from the index %v, want %q from the index %v", got, fromItem, test.want,
+					test.fromItem)
 			}
 		})
 	}

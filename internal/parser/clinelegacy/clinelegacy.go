@@ -59,8 +59,9 @@ func IsAPIFile(name string) bool {
 // Family is what an agent's parser gives the TaskParser it embeds.
 type Family interface {
 	// HistoryItem returns the task's entry in the agent's task index, or
-	// null when there is none.
-	HistoryItem(task Task) jsonvalue.Value
+	// null when there is none, and the group of the task's id when the
+	// index holds it in more than one entry (EntryGroup), else nil.
+	HistoryItem(task Task) (jsonvalue.Value, *timeline.Group)
 }
 
 // APIRower is implemented by a Family whose API history writes tool calls
@@ -122,7 +123,20 @@ type cacheKey struct {
 // ("" for the document itself).
 type cachedFile struct {
 	value jsonvalue.Value
-	byID  map[string]map[string]jsonvalue.Value
+	byID  map[string]*entryList
+}
+
+// entryList is one list of a cached file indexed by id: the first object
+// of each id, and how many objects hold each id.
+type entryList struct {
+	first  map[string]jsonvalue.Value
+	counts map[string]int
+}
+
+// entryKey names one id of one list of one file: the file's path, the
+// member that holds the list and the id.
+type entryKey struct {
+	path, member, entryID string
 }
 
 // TaskParser reads the task files under one storage root for the parser
@@ -133,6 +147,9 @@ type TaskParser struct {
 	projectKey  string
 	family      Family
 	cache       map[cacheKey]*cachedFile
+	// groups holds the group of each id a list repeats, by its file, list
+	// and id, for the parser's life (EntryGroup).
+	groups map[entryKey]*timeline.Group
 }
 
 // NewTaskParser returns the reader of the task files under the storage
@@ -141,7 +158,7 @@ type TaskParser struct {
 func NewTaskParser(base parser.Base, root, projectKey string, family Family) *TaskParser {
 	return &TaskParser{Base: base, projectKey: projectKey, family: family,
 		taskPattern: regexp.MustCompile(`(?i)^` + root + taskFilePattern),
-		cache:       map[cacheKey]*cachedFile{}}
+		cache:       map[cacheKey]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
 }
 
 // ProjectKey returns the index entry's key of the project path.
@@ -199,40 +216,70 @@ func (p *TaskParser) cachedFile(path string) *cachedFile {
 // as CachedJSON reads it, and its list is indexed by id once, so the many
 // task files that look up one index cost one pass over it.
 func (p *TaskParser) CachedEntry(path, member, entryID string) jsonvalue.Value {
-	cached := p.cachedFile(path)
-	if cached.byID == nil {
-		cached.byID = map[string]map[string]jsonvalue.Value{}
-	}
-	entries, ok := cached.byID[member]
-	if !ok {
-		list := cached.value
-		if member != "" {
-			list = list.Get(member)
-		}
-		entries = map[string]jsonvalue.Value{}
-		for _, item := range list.Items() {
-			p.Work.Add("index items read", 1)
-			if _, seen := entries[item.Get("id").Text()]; item.IsObject() && !seen {
-				entries[item.Get("id").Text()] = item
-			}
-		}
-		cached.byID[member] = entries
-	}
-	if entry, ok := entries[entryID]; ok {
+	if entry, ok := p.entries(path, member).first[entryID]; ok {
 		return entry
 	}
 	return jsonvalue.NewNull()
+}
+
+// EntryGroup returns the group of the id entryID in the list CachedEntry
+// reads when the list holds the id in more than one object, else nil. The
+// agents write one entry per task id, replacing it on each update, so only
+// damage or an edit repeats one (timeline.Group): each entry of the id is a
+// parent, through its own row, and the task's rows are members. The group
+// is the parser's own for that file and id, so the index's parse and the
+// task files' parses share it in whichever order they come.
+func (p *TaskParser) EntryGroup(path, member, entryID string) *timeline.Group {
+	if p.entries(path, member).counts[entryID] < 2 {
+		return nil
+	}
+	key := entryKey{path: path, member: member, entryID: entryID}
+	group := p.groups[key]
+	if group == nil {
+		group = timeline.NewGroup()
+		p.groups[key] = group
+	}
+	return group
+}
+
+// entries returns a list of the file at path indexed by id, indexing it on
+// first use.
+func (p *TaskParser) entries(path, member string) *entryList {
+	cached := p.cachedFile(path)
+	if cached.byID == nil {
+		cached.byID = map[string]*entryList{}
+	}
+	if entries, ok := cached.byID[member]; ok {
+		return entries
+	}
+	list := cached.value
+	if member != "" {
+		list = list.Get(member)
+	}
+	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{}}
+	for _, item := range list.Items() {
+		p.Work.Add("index items read", 1)
+		if !item.IsObject() {
+			continue
+		}
+		entryID := item.Get("id").Text()
+		if entries.counts[entryID]++; entries.counts[entryID] == 1 {
+			entries.first[entryID] = item
+		}
+	}
+	cached.byID[member] = entries
+	return entries
 }
 
 // Context returns what the task directory of the artifact knows about
 // itself.
 func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	task := TaskOf(artifact)
-	item := p.family.HistoryItem(task)
+	item, group := p.family.HistoryItem(task)
 	var ignored parser.Problems
 	metadata, _ := parser.LoadJSON(task.InDir(MetadataFile), &ignored)
 	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
-	context.work = p.Work
+	context.work, context.group = p.Work, group
 	return context
 }
 
@@ -265,6 +312,17 @@ func (p *TaskParser) Row(artifact *input.Artifact, context *TaskContext, positio
 	row.ProjectPath = context.ProjectPath
 	row.Model = model
 	return row
+}
+
+// TaskErrorRows returns a row per problem of a task file, with the task's
+// id and project, each a member of the task's group (TaskContext.Member).
+func (p *TaskParser) TaskErrorRows(artifact *input.Artifact, problems parser.Problems,
+	context *TaskContext) []timeline.Row {
+	rows := p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath)
+	for i := range rows {
+		context.Member(&rows[i], true, true)
+	}
+	return rows
 }
 
 // HistoryRow returns the "task:" row of one task index entry.

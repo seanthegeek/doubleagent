@@ -205,6 +205,14 @@ func rooIndexCases() []growthCase {
 				return `{"id":"same","ts":1767000000000,"task":"x","workspace":"/w","mode":"code"}`
 			})+`]}`))
 		}},
+		{kind: "tasks _index.json", shape: shapeSharedID + " and the task's many records", files: func(t *testing.T,
+			n int) []growthFile {
+			return []growthFile{text(rooRoot+"tasks/_index.json", `{"entries":[`+joined(n, func(i int) string {
+				return `{"id":"same","ts":` + strconv.Itoa(1767000000000+i) + `,"task":"x","workspace":"/w` +
+					strconv.Itoa(i) + `","mode":"code"}`
+			})+`]}`), {rel: rooRoot + "tasks/same/ui_messages.json",
+				data: rooUI(joined(n, func(i int) string { return rooSay(i, "text", "hi") }))}}
+		}},
 		{kind: "tasks _index.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
 			return one(rooRoot+"tasks/_index.json", []byte(`{"entries":[`+joined(n, strconv.Itoa)+
 				`,{"id":"deep","task":`+nestedArrays(n, `"x"`)+`}]}`))

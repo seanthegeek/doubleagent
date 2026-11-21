@@ -678,6 +678,16 @@ file's time), the other entries giving their rows. A
 `cli-history.json` entry that is not a string is passed over without a row, as the CLI's
 `loadHistory` passes it over.
 
+The extension keeps one history item per task `id` in a map and writes `tasks/_index.json` from
+it
+([`src/core/task-persistence/TaskHistoryStore.ts:160-171`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task-persistence/TaskHistoryStore.ts#L160-L171),
+[`:390-398`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task-persistence/TaskHistoryStore.ts#L390-L398)),
+so a second `entries` element of one id is damage or an edit. For a task with no
+`history_item.json`, each entry of the id gives its own task and `permission mode:` rows, and the
+task's rows are shown once, with the `workspace` of one entry, and its `ts` where the task's start
+comes from the entry: the first entry, in file order, that the analysis filters keep, else the
+first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+
 #### Fixtures
 
 ```json

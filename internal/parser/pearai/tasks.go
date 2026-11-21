@@ -26,15 +26,15 @@ func standingKeys() []string {
 
 // HistoryItem returns the task's taskHistory[] entry from the editor's
 // global state, or null.
-func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
+func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.Group) {
 	database, found := task.InRootParent("state.vscdb")
 	if !found {
-		return jsonvalue.NewNull()
+		return jsonvalue.NewNull(), nil
 	}
 	if entry, found := p.globalState(database).history[task.TaskID]; found {
-		return entry
+		return entry, nil
 	}
-	return jsonvalue.NewNull()
+	return jsonvalue.NewNull(), nil
 }
 
 // taskFile emits a task file's rows; beside ui_messages.json, which holds
@@ -100,8 +100,9 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 			if decision == "" {
 				continue
 			}
-			row := p.Row(artifact, context, position,
-				timeutil.FirstNonEmpty(timeutil.FromValue(timestamp), context.Start), "")
+			ownTime := timeutil.FromValue(timestamp)
+			row := p.Row(artifact, context, position, timeutil.FirstNonEmpty(ownTime, context.Start), "")
+			context.Member(&row, ownTime != "", true)
 			row.TurnType = timeline.TurnSystem
 			row.ToolName = name
 			row.ToolUseID = asks.lastBefore(timestamp)
@@ -109,7 +110,7 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 			emit(row)
 		}
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+	parser.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 }
 
 // lastBefore returns the latest ask time at or before a message's time

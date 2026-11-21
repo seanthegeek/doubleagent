@@ -32,6 +32,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 		reasoning := message.Get("reasoning")
 		if options.IncludeThinking && reasoning.IsString() && reasoning.StringValue() != "" && kind != "reasoning" {
 			row := p.Row(artifact, context, position, timeutil.FromValue(timestamp), rowModel)
+			context.Member(&row, true, model != "")
 			row.TurnType = timeline.TurnThinking
 			row.Text = timeline.Compact(reasoning.StringValue())
 			emit(row)
@@ -41,6 +42,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 			continue
 		}
 		row := p.Row(artifact, context, position, timeutil.FromValue(timestamp), rowModel)
+		context.Member(&row, true, model != "")
 		row.TurnType = mapped.TurnType
 		switch mapped.TurnType {
 		case timeline.TurnToolUse:
@@ -52,7 +54,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 		row.Text = timeline.Compact(partialText(mapped.Text, message))
 		emit(row)
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+	parser.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 }
 
 // messageKind returns a message's say for a "say" message, else its ask,

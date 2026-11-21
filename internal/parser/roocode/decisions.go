@@ -68,12 +68,13 @@ func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parser.Optio
 	if parser.RegularFile(clinelegacy.TaskOf(artifact).InDir(clinelegacy.UIFile)) {
 		var problems parser.Problems
 		for _, decision := range apiDecisions(artifact.DiskPath, &problems) {
-			row := p.Row(artifact, context, decision.position,
-				timeutil.FirstNonEmpty(timeutil.FromValue(decision.timestamp), context.Start), "")
+			ownTime := timeutil.FromValue(decision.timestamp)
+			row := p.Row(artifact, context, decision.position, timeutil.FirstNonEmpty(ownTime, context.Start), "")
+			context.Member(&row, ownTime != "", true)
 			row.ToolUseID, row.ToolName = decision.toolUseID, decision.toolName
 			emit(systemLike(row, decision.text))
 		}
-		parser.EmitAll(emit, p.ErrorRows(artifact, problems, context.TaskID, context.ProjectPath))
+		parser.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 		return
 	}
 	var ignored parser.Problems

@@ -32,6 +32,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
 
@@ -104,17 +105,18 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 }
 
 // HistoryItem returns the task's history_item.json, else its
-// tasks/_index.json entry, else null.
-func (p *Parser) HistoryItem(task clinelegacy.Task) jsonvalue.Value {
+// tasks/_index.json entry, with the group of its id when the index repeats
+// it, else null.
+func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.Group) {
 	var ignored parser.Problems
 	if item, _ := parser.LoadJSON(task.InDir(itemFile), &ignored); item.IsObject() {
-		return item
+		return item, nil
 	}
 	indexPath, found := task.InRoot("tasks/_index.json")
 	if !found {
-		return jsonvalue.NewNull()
+		return jsonvalue.NewNull(), nil
 	}
-	return p.CachedEntry(indexPath, "entries", task.TaskID)
+	return p.CachedEntry(indexPath, "entries", task.TaskID), p.EntryGroup(indexPath, "entries", task.TaskID)
 }
 
 // Parse emits the rows of one Roo Code file.
@@ -154,7 +156,7 @@ func (p *Parser) historyItem(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	item, _ := parser.LoadJSON(artifact.DiskPath, &problems)
 	if item.IsObject() {
-		p.historyRows(artifact, item, 1, emit)
+		p.historyRows(artifact, item, 1, nil, emit)
 		return
 	}
 	if len(problems) == 0 {
@@ -165,9 +167,13 @@ func (p *Parser) historyItem(artifact *input.Artifact, emit parser.Emit) {
 
 // historyRows emits the task row of an index entry, then "permission
 // mode: <mode>" from its mode, the slug that decides the tool groups the
-// task may use.
-func (p *Parser) historyRows(artifact *input.Artifact, item jsonvalue.Value, position int, emit parser.Emit) {
+// task may use; both are the rows of a new parent of group when it is set.
+func (p *Parser) historyRows(artifact *input.Artifact, item jsonvalue.Value, position int,
+	group *timeline.Group, emit parser.Emit) {
 	row := p.HistoryRow(artifact, item, position)
+	if group != nil {
+		group.Parent(&row)
+	}
 	emit(row)
 	if mode := item.Get("mode"); mode.IsString() && mode.StringValue() != "" {
 		emit(systemLike(row, "permission mode: "+mode.StringValue()))
@@ -176,6 +182,8 @@ func (p *Parser) historyRows(artifact *input.Artifact, item jsonvalue.Value, pos
 
 // index emits the task rows of the tasks/_index.json entries whose
 // history_item.json is gone; an id that is not a plain file name has none.
+// The rows of each entry of an id the index repeats are a parent of the
+// id's group, which the task's files share (EntryGroup).
 func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	index, _ := parser.LoadJSON(artifact.DiskPath, &problems)
@@ -191,7 +199,11 @@ func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 		if item, ok := parser.Beside(artifact, taskID, itemFile); named && ok && parser.RegularFile(item) {
 			continue
 		}
-		p.historyRows(artifact, entry, i+1, emit)
+		var group *timeline.Group
+		if indexPath, shared := parser.Beside(artifact, "_index.json"); shared {
+			group = p.EntryGroup(indexPath, "entries", entry.Get("id").Text())
+		}
+		p.historyRows(artifact, entry, i+1, group, emit)
 	}
 }
 

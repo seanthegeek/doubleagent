@@ -86,3 +86,30 @@ func TestModelAtIsABinarySearch(t *testing.T) {
 		t.Errorf("%d entries looked at for %d lookups, over %d", compared, entries, limit)
 	}
 }
+
+func TestOnlyAnIDTheIndexHoldsTwiceHasAGroupSharedByEveryLookup(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "taskHistory.json")
+	if err := osfile.WriteFile(path, []byte(`[{"id":"a"},{"id":"b"},{"id":"a"},"a",{"id":"c"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reader := NewTaskParser(parser.NewBase("x", "x"), "x", "", nil)
+	for _, test := range []struct {
+		name, entryID string
+		grouped       bool
+	}{
+		{"an id held twice has a group", "a", true},
+		{"an id held once has none", "b", false},
+		{"an id held once beside a string of it has none", "c", false},
+		{"an absent id has none", "z", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			group := reader.EntryGroup(path, "", test.entryID)
+			if (group != nil) != test.grouped {
+				t.Fatalf("group %v, want one: %v", group, test.grouped)
+			}
+			if group != nil && reader.EntryGroup(path, "", test.entryID) != group {
+				t.Error("a second lookup gave another group")
+			}
+		})
+	}
+}

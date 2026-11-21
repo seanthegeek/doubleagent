@@ -1,0 +1,208 @@
+package analyze
+
+import (
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/rowfilter"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+)
+
+// familyRunOf runs timeline over a collection holding the files, for the
+// agent given, with the options given, and returns each row with a session
+// of timeline.jsonl as "time session project model text".
+func familyRunOf(t *testing.T, agent string, files []collectedFile, options ...string) []string {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, files)
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	args := append(append([]string{"timeline", "--agent", agent}, options...), collection, output)
+	code, _, stderr := runCommand(env, args...)
+	if code != ExitFound {
+		t.Fatalf("%q exited %d: %s", args, code, stderr)
+	}
+	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "session_id",
+		"project_path", "model", "text")
+}
+
+// checkRepeatCases runs each case over the files files gives, in the order
+// given and reversed, and compares the rows with the case's.
+func checkRepeatCases(t *testing.T, agent string, files func(t *testing.T) []collectedFile, cases []repeatCase) {
+	t.Helper()
+	for _, order := range []string{"in path order", "in reverse order"} {
+		for _, test := range cases {
+			t.Run(test.name+" "+order, func(t *testing.T) {
+				listed := files(t)
+				if order == "in reverse order" {
+					slices.Reverse(listed)
+				}
+				rows := familyRunOf(t, agent, listed, test.options...)
+				if !slices.Equal(rows, test.want) {
+					t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+				}
+			})
+		}
+	}
+}
+
+// The storage roots of Cline's and Roo Code's task files in an editor.
+const (
+	clineRoot = ".config/Code/User/globalStorage/saoudrizwan.claude-dev/"
+	rooRoot   = ".config/Code/User/globalStorage/rooveterinaryinc.roo-cline/"
+)
+
+// repeatEntries returns two task index entries of the task t1: an old one in
+// /proj/a with the model m-a, and a new one in /proj/b with m-b, the project
+// under the key given.
+func repeatEntries(projectKey string) string {
+	return `{"id":"t1","ts":1767225600000,"task":"TASK-A","` + projectKey + `":"/proj/a","modelId":"m-a"},` +
+		`{"id":"t1","ts":1780272000000,"task":"TASK-B","` + projectKey + `":"/proj/b","modelId":"m-b"}`
+}
+
+// repeatTaskHistory returns the API history of the task t1: a user message
+// a day after the new entry, and an assistant reply with no time of its own.
+const repeatTaskHistory = `[{"role":"user","ts":1780358400000,"content":[{"type":"text","text":"USER-TEXT"}]},` +
+	`{"role":"assistant","content":[{"type":"text","text":"REPLY-TEXT"}]}]`
+
+// clineRepeatFiles returns a Cline task index holding the task t1 twice and
+// the task's API history.
+func clineRepeatFiles(*testing.T) []collectedFile {
+	return []collectedFile{
+		{"alice", "/home/alice", "cline", clineRoot + "state/taskHistory.json",
+			"[" + repeatEntries("cwdOnTaskInitialization") + "]"},
+		{"alice", "/home/alice", "cline", clineRoot + "tasks/t1/api_conversation_history.json", repeatTaskHistory}}
+}
+
+// The rows of the stores above: each entry's task row, and the task's rows
+// with the attributes of one entry (the reply at that entry's time).
+const (
+	familyTaskA = "2026-01-01T00:00:00.000Z t1 /proj/a m-a task: TASK-A |"
+	familyTaskB = "2026-06-01T00:00:00.000Z t1 /proj/b m-b task: TASK-B |"
+)
+
+// familyMembers returns the task's rows with the project and model of one
+// entry, the reply at that entry's time.
+func familyMembers(entryTime, attributes string) []string {
+	return []string{entryTime + " t1 " + attributes + " REPLY-TEXT",
+		"2026-06-02T00:00:00.000Z t1 " + attributes + " USER-TEXT"}
+}
+
+// familyCases returns the runs over a store whose index repeats the task t1,
+// and the rows each gives.
+func familyCases(taskA, taskB string) []repeatCase {
+	first := familyMembers("2026-01-01T00:00:00.000Z", "/proj/a m-a")
+	second := familyMembers("2026-06-01T00:00:00.000Z", "/proj/b m-b")
+	return []repeatCase{
+		{"without a filter they go with the first entry of the id", nil,
+			[]string{taskA, first[0], taskB, first[1]}},
+		{"a window past the first entry moves them to the second", []string{"--since", "2026-03-01"},
+			[]string{taskB, second[0], second[1]}},
+		{"a pattern only the second entry and the rows match moves them to the second",
+			[]string{"--match", "TASK-B|-TEXT"}, []string{taskB, second[0], second[1]}},
+		{"a pattern only the first entry and the rows match keeps them with the first",
+			[]string{"--match", "TASK-A|-TEXT"}, []string{taskA, first[0], first[1]}},
+		{"a pattern neither entry matches keeps them with the first", []string{"--match", "-TEXT"}, first},
+	}
+}
+
+func TestTheRowsOfARepeatedClineTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	checkRepeatCases(t, "cline", clineRepeatFiles, familyCases(familyTaskA, familyTaskB))
+}
+
+// rooRepeatFiles returns a Roo Code task index holding the task t1 twice,
+// with no history_item.json, and the task's API history.
+func rooRepeatFiles(*testing.T) []collectedFile {
+	return []collectedFile{
+		{"alice", "/home/alice", "roo-code", rooRoot + "tasks/_index.json",
+			`{"version":1,"entries":[` + repeatEntries("workspace") + `]}`},
+		{"alice", "/home/alice", "roo-code", rooRoot + "tasks/t1/api_conversation_history.json", repeatTaskHistory}}
+}
+
+func TestTheRowsOfARepeatedRooCodeTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	checkRepeatCases(t, "roo-code", rooRepeatFiles, familyCases(familyTaskA, familyTaskB))
+}
+
+// familyStores returns the stores of this file's parsers whose index
+// repeats an id, for the checks of group_property_test.go.
+func familyStores() []groupedStore {
+	return []groupedStore{
+		{"cline task index", "cline", clineRepeatFiles},
+		{"roo code task index", "roo-code", func(t *testing.T) []collectedFile {
+			files := rooRepeatFiles(t)
+			files[0].text = strings.ReplaceAll(files[0].text, `"modelId"`, `"mode":"code","modelId"`)
+			return files
+		}},
+	}
+}
+
+// For the stores above, a window from or to the time of any row of the
+// output without a filter shows every dated row of that output inside it
+// and no row more often, as TestAWindowShowsEveryRowOfARepeatedIDInsideIt
+// holds for the stores it lists.
+func TestAWindowShowsEveryRowOfARepeatedIndexEntryInsideIt(t *testing.T) {
+	for _, store := range familyStores() {
+		t.Run(store.name, func(t *testing.T) {
+			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
+				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
+			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
+			for _, row := range unfiltered {
+				if row.TimestampUTC == "" {
+					continue
+				}
+				for _, window := range []rowfilter.RowFilter{{Since: row.TimestampUTC}, {Until: row.TimestampUTC}} {
+					filtered := timelineRows(t, directory, store.agent, window, nil, false)
+					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
+						return row.TimestampUTC != "" && (window.Since == "" || row.TimestampUTC >= window.Since) &&
+							(window.Until == "" || row.TimestampUTC <= window.Until)
+					}); len(faults) > 0 {
+						t.Errorf("--since %q --until %q: %q", window.Since, window.Until, faults)
+					}
+				}
+			}
+		})
+	}
+}
+
+// For the stores above, a --match pattern made of the texts of one or two
+// grouped rows shows every row of the output without a filter it matches
+// and no row more often, as TestAMatchShowsEveryRowOfARepeatedIDItMatches
+// holds for the stores it lists.
+func TestAMatchShowsEveryRowOfARepeatedIndexEntryItMatches(t *testing.T) {
+	for _, store := range familyStores() {
+		t.Run(store.name, func(t *testing.T) {
+			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
+				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
+			var texts []string
+			for _, row := range timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true) {
+				if text := row.FullText(); text != "" && !slices.Contains(texts, regexp.QuoteMeta(text)) {
+					texts = append(texts, regexp.QuoteMeta(text))
+				}
+			}
+			if len(texts) == 0 {
+				t.Fatal("the store gave no grouped row")
+			}
+			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
+			for i, first := range texts {
+				for _, second := range texts[i:] {
+					pattern := first + "|" + second
+					filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
+					matched := regexp.MustCompile(pattern)
+					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
+						return row.Matches(matched)
+					}); len(faults) > 0 {
+						t.Errorf("--match %q: %q", pattern, faults)
+					}
+				}
+			}
+		})
+	}
+}

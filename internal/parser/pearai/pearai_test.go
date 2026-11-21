@@ -255,7 +255,8 @@ func TestATaskFindsItsHistoryEntryThroughOneIndexOfTheState(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := subject.HistoryItem(task(test.taskID)).Get("task").Text(); got != test.want {
+			entry, _ := subject.HistoryItem(task(test.taskID))
+			if got := entry.Get("task").Text(); got != test.want {
 				t.Errorf("task %q, want %q", got, test.want)
 			}
 		})
