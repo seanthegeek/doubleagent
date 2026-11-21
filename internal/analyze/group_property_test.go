@@ -94,8 +94,8 @@ func agentZeroFileChat(chat string) func(*testing.T) []collectedFile {
 
 // moreGroupedStores returns the stores of the parsers on the grouping
 // mechanism that groupedStores does not build: Codex threads in both read
-// orders, Copilot CLI sessions, and Agent Zero's message file and history
-// message groups.
+// orders, Copilot CLI and Goose sessions, and Agent Zero's message file
+// and history message groups.
 func moreGroupedStores() []groupedStore {
 	file := func(agent, rel string, text func(t *testing.T) string) func(t *testing.T) []collectedFile {
 		return func(t *testing.T) []collectedFile {
@@ -112,6 +112,7 @@ func moreGroupedStores() []groupedStore {
 		{"copilot cli sessions", "copilot-cli", file("copilot-cli", ".copilot/session-store.db", copilotRepeatStore)},
 		{"copilot cli sessions without a summary", "copilot-cli",
 			file("copilot-cli", ".copilot/session-store.db", copilotUnnamedStore)},
+		{"goose sessions", "goose", file("goose", gooseSessionsRel, gooseRepeatedSession)},
 		{"agent zero message file of two ids", "agent-zero", agentZeroFileChat(
 			historyChat(toolMessage("t1", "")+","+toolMessage("t2", ""),
 				toolItem("t1", january, "first own")+","+toolItem("t2", june, "second own")))},

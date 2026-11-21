@@ -68,8 +68,9 @@ func epochColumn(value sqlitefile.Value) string {
 	return parser.ColumnTime(value)
 }
 
-// database reads one sessions.db: the sessions by id, the model tracked per
-// session across sessions and messages, and each session's model.
+// database reads one sessions.db: the first stored row of each session id,
+// the model tracked per session across sessions and messages, each
+// session's model, and the group of each session id stored more than once.
 type database struct {
 	parser   *Parser
 	artifact *input.Artifact
@@ -79,7 +80,23 @@ type database struct {
 	models   parser.Tracker
 	modes    parser.Tracker
 	byModel  map[string]string
+	repeats  map[string]*sessionRepeat
 	emit     parser.Emit
+}
+
+// sessionRepeat is a session id the sessions table holds in more than one
+// row, which only damage or an edit writes, since the id is the table's
+// key. Its rows are a group (timeline.Group): each stored row is a parent,
+// giving its own rows and a `parser:` row saying so with its own project
+// and model; the session's messages are members, shown once with the
+// project, and the model where they name none, of the row the group goes
+// with. The model rows of the stored rows and of the messages are not
+// chained: each stored row's reads from its own model, and the messages'
+// first from none, since which stored row the messages follow is settled
+// only once the output's rows are known.
+type sessionRepeat struct {
+	group *timeline.Group
+	count int
 }
 
 // parseDatabase emits the rows of sessions.db: each session's rows, then
@@ -99,7 +116,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parser.Options,
 	defer handle.Close()
 	reader := &database{parser: p, artifact: artifact, options: options, handle: handle,
 		sessions: map[string]sqlitefile.Row{}, models: parser.Tracker{}, modes: parser.Tracker{},
-		byModel: map[string]string{}, emit: emit}
+		byModel: map[string]string{}, repeats: map[string]*sessionRepeat{}, emit: emit}
 	if err := reader.rows(); err != nil {
 		problem(parser.DatabaseError(err))
 	}
@@ -112,16 +129,7 @@ func (d *database) rows() error {
 		return err
 	}
 	if tables.Has("sessions") {
-		table, err := d.handle.Table("sessions")
-		if err != nil {
-			return err
-		}
-		err = table.Select().OrderBy("created_at", "rowid").
-			Each(func(session sqlitefile.Row) error {
-				d.session(session)
-				return nil
-			})
-		if err != nil {
+		if err := d.readSessions(); err != nil {
 			return err
 		}
 	}
@@ -142,9 +150,37 @@ func (d *database) rows() error {
 		})
 }
 
+// readSessions emits the rows of the sessions table by created_at, each
+// session id stored more than once a group (sessionRepeat) whose first
+// parent is its first row.
+func (d *database) readSessions() error {
+	table, err := d.handle.Table("sessions")
+	if err != nil {
+		return err
+	}
+	sessions, err := table.Select().OrderBy("created_at", "rowid").All()
+	if err != nil {
+		return err
+	}
+	counts := map[string]int{}
+	for _, session := range sessions {
+		counts[parser.NonEmptyColumn(session.Get("id"))]++
+	}
+	for _, session := range sessions {
+		sessionID := parser.NonEmptyColumn(session.Get("id"))
+		if counts[sessionID] > 1 && d.repeats[sessionID] == nil {
+			d.repeats[sessionID] = &sessionRepeat{group: timeline.NewGroup(), count: counts[sessionID]}
+		}
+		d.session(session, d.repeats[sessionID])
+	}
+	return nil
+}
+
 // session emits a session's start row, its bad-config row, and its relay,
-// model and permission mode rows.
-func (d *database) session(session sqlitefile.Row) {
+// model and permission mode rows. A stored row of a repeated id (repeat
+// not nil) is a parent of the id's group, with a `parser:` row saying so,
+// and its model and mode rows read from its own values alone.
+func (d *database) session(session sqlitefile.Row, repeat *sessionRepeat) {
 	rowid := int(session.Rowid)
 	config := readStored(session.Get("model_config_json"), false)
 	var problems parser.Problems
@@ -158,10 +194,12 @@ func (d *database) session(session sqlitefile.Row) {
 	}
 	sessionID := parser.NonEmptyColumn(session.Get("id"))
 	provider := parser.NonEmptyColumn(session.Get("provider_name"))
-	d.byModel[sessionID] = modelName(provider, modelValue)
-	d.sessions[sessionID] = session
+	if _, met := d.sessions[sessionID]; !met {
+		d.byModel[sessionID] = modelName(provider, modelValue)
+		d.sessions[sessionID] = session
+	}
 	workingDir := parser.NonEmptyColumn(session.Get("working_dir"))
-	row := d.parser.row(d.artifact, rowid, sessionID, workingDir, d.byModel[sessionID],
+	row := d.parser.row(d.artifact, rowid, sessionID, workingDir, modelName(provider, modelValue),
 		parser.ColumnTime(session.Get("created_at")))
 	row.TurnType = timeline.TurnSystem
 	row.Text = timeline.Compact(parser.JoinNonEmpty(" | ", "session start", parser.NonEmptyColumn(session.Get("name")),
@@ -169,20 +207,40 @@ func (d *database) session(session sqlitefile.Row) {
 		labelled("parent=", session.Get("parent_session_id")),
 		labelled("schedule=", session.Get("schedule_id")),
 		labelled("archived=", session.Get("archived_at"))))
-	d.emit(row)
+	models, modes := d.models, d.modes
+	if repeat != nil {
+		models, modes = parser.Tracker{}, parser.Tracker{}
+		repeat.start(&row, d.emit)
+	} else {
+		d.emit(row)
+	}
 	parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, problems, sessionID, workingDir))
 	if text := d.parser.gatewayText(session); text != "" {
 		d.emit(systemCopy(row, text))
 	}
-	if text := d.models.Change("model", sessionID, modelValue); text != "" {
+	if text := models.Change("model", sessionID, modelValue); text != "" {
 		if provider != "" {
 			text += " provider=" + provider
 		}
 		d.emit(systemCopy(row, text))
 	}
-	if text := d.modes.Change("permission mode", sessionID, parser.NonEmptyColumn(session.Get("goose_mode"))); text != "" {
+	if text := modes.Change("permission mode", sessionID, parser.NonEmptyColumn(session.Get("goose_mode"))); text != "" {
 		d.emit(systemCopy(row, text))
 	}
+}
+
+// start makes start, the session start row of one stored row of the id,
+// a new parent of the group and emits it, then a copy of it, the parent's
+// `parser:` row.
+func (r *sessionRepeat) start(start *timeline.Row, emit parser.Emit) {
+	parent := r.group.Parent(start)
+	emit(*start)
+	notice := systemCopy(*start, "")
+	prefix := parser.ProblemPrefix + "sessions holds " + strconv.Itoa(r.count) +
+		" rows of this row's id; its messages are shown once, with "
+	parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+		timeline.RowText{Text: prefix + "another of them"})
+	emit(notice)
 }
 
 // labelled returns label and the column's text when the column is not
@@ -270,8 +328,17 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	base := d.parser.row(d.artifact, line, sessionID, projectPath, "",
 		timeutil.FirstNonEmpty(epochColumn(message.Get("created_timestamp")),
 			parser.ColumnTime(message.Get("timestamp"))))
-	base.Model = d.messageModel(base, orObject(meta.Get("inference")))
-	parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, problems, sessionID, projectPath))
+	inference := orObject(meta.Get("inference"))
+	repeat := d.repeats[sessionID]
+	if repeat != nil {
+		takes := timeline.TakeProject
+		if inferredModel(inference) == "" {
+			takes |= timeline.TakeModel
+		}
+		repeat.group.Member(&base, takes)
+	}
+	base.Model = d.messageModel(base, inference)
+	d.emitProblems(problems, sessionID, projectPath)
 	content := readStored(message.Get("content_json"), true)
 	if content.value.IsNull() && content.reason == "" {
 		content.reason = "empty"
@@ -283,13 +350,36 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 		var bad parser.Problems
 		bad.AddRaw(line, "unparseable record "+record.String()+" (messages.content_json: "+
 			content.reason+")", content.raw)
-		parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, bad, sessionID, projectPath))
+		d.emitProblems(bad, sessionID, projectPath)
 		return
 	}
 	var wrong parser.Problems
 	reader.blocks(base, parser.NonEmptyColumn(message.Get("role")), content.value, userVisible(meta),
 		answeredOf(answered, sessionID), &wrong, d.emit)
-	parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, wrong, sessionID, projectPath))
+	d.emitProblems(wrong, sessionID, projectPath)
+}
+
+// emitProblems emits the problem rows of a message; those of a repeated
+// session's message are members of its group, taking the project of the
+// stored row the group goes with.
+func (d *database) emitProblems(problems parser.Problems, sessionID, projectPath string) {
+	repeat := d.repeats[sessionID]
+	for _, row := range d.parser.ErrorRows(d.artifact, problems, sessionID, projectPath) {
+		if repeat != nil {
+			repeat.group.Member(&row, timeline.TakeProject)
+		}
+		d.emit(row)
+	}
+}
+
+// inferredModel returns the model a message's inference metadata names,
+// the resolved one else the requested one, after its provider.
+func inferredModel(inference jsonvalue.Value) string {
+	resolved := parser.Text(inference.Get("resolvedModel"))
+	if resolved == "" {
+		resolved = parser.Text(inference.Get("requestedModel"))
+	}
+	return modelName(parser.Text(inference.Get("provider")), resolved)
 }
 
 // messageModel returns the model of a message from its inference
@@ -304,14 +394,15 @@ func (d *database) messageModel(base timeline.Row, inference jsonvalue.Value) st
 	if base.Model == "" {
 		base.Model = d.byModel[base.SessionID]
 	}
+	suffix := ""
+	if provider != "" {
+		suffix = " provider=" + provider
+	}
+	if requested := parser.Text(inference.Get("requestedModel")); requested != "" && requested != resolved {
+		suffix += " requested=" + requested
+	}
 	if text := d.models.Change("model", base.SessionID, resolved); text != "" {
-		if provider != "" {
-			text += " provider=" + provider
-		}
-		if requested := parser.Text(inference.Get("requestedModel")); requested != "" && requested != resolved {
-			text += " requested=" + requested
-		}
-		d.emit(systemCopy(base, text))
+		d.emit(systemCopy(base, text+suffix))
 	}
 	return base.Model
 }

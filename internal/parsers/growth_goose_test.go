@@ -73,6 +73,16 @@ func gooseDatabaseCases() []growthCase {
 			return one(gooseDatabase, gooseTables(t, rows(n, func(i int) []any { return gooseSession("s", "/w") }),
 				rows(n, func(i int) []any { return []any{int64(1), "s", "user", confirm, int64(1767323045)} })))
 		}},
+		// Each stored row of a repeated session id is a parent of the id's
+		// group, with its own rows; each message is a member.
+		{kind: "sessions.db", shape: shapeSharedID + " (stored rows in their own directories)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(gooseDatabase, gooseTables(t, rows(n, func(i int) []any {
+					return gooseSession("s", "/"+numbered("w", i))
+				}), rows(n, func(i int) []any {
+					return gooseMessage(i, "s", "user", `[{"type":"text","text":"`+numbered("hi", i)+`"}]`)
+				})))
+			}},
 		{kind: "sessions.db", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
 			content := `[{"type":"toolRequest","id":"c","toolCall":{"status":"success","value":{"name":"x",` +
 				`"arguments":{"a":` + nestedArrays(n, "1") + `}}}},` + joined(n, strconv.Itoa) + `]`

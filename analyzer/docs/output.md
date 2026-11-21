@@ -1400,6 +1400,14 @@ been altered, and this keeps a planted earlier row with a real message's
 id from moving that message's rows out of the window or giving them its
 attributes. What the rows of the id are depends on the agent:
 
+- **Goose**, a `sessions` row repeating a session id: the session's
+  messages and their problem rows, with the stored row's `project_path`,
+  and its `model` for a message that names none. Each stored row gives its
+  own start, model, permission mode and relay rows and a `parser:` row,
+  with its own `project_path` and `model`; the stored rows are read by
+  `created_at`, so without a filter the messages take the earliest row's
+  attributes. The session's first message that names a model gives
+  `model: <model>`, not a change from a stored row's model.
 - **Hermes**, a `sessions` row repeating a session id: the usage `model:`
   rows, messages and deletion fences of the session, with the stored row's
   `project_path`, `git_branch` and `model`, and its time for a usage row

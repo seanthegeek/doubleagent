@@ -993,6 +993,19 @@ partial message per chunk, built with `Message::assistant()`, so each line carri
 `toolRequest.id` (an `assistant` row) and `toolResponse.id` (a `user` row). The project path is
 `sessions.working_dir`; there is no git branch.
 
+`sessions.id` is the table's key (`TEXT PRIMARY KEY`), so Goose never writes two rows of one id.
+When a damaged `sessions` table holds an id more than once, each stored row gives its own rows (its
+start row, its `model:` and `permission mode:` rows, read from its own values and not chained from
+another row of the id, and its relay and bad-value rows) with its own `working_dir` and model, and
+one row
+`parser: sessions holds <n> rows of this row's id; its messages are shown once, with this row`
+(`another of them` for each row the messages do not go with) at its `created_at`. The session's
+messages and their problem rows are shown once, with the `working_dir`, and for a message naming no
+model the model, of the first stored row by `created_at` that `--since`, `--until` and `--match`
+keep, else of the first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). The
+session's first message naming a model gives `model: <model>`, not a change from a stored row's
+model.
+
 - `sessions.id` is `<YYYYMMDD>_<n>`, the UTC date and the next number for that date
   ([`session_manager.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/session_manager.rs#L1809-L1825)).
   `messages.message_id` is the message's own id or `msg_<session_id>_<uuid>`
