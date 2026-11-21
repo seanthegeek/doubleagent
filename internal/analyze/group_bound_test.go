@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -60,8 +61,9 @@ func ollamaLongModel(t *testing.T, n int) string {
 }
 
 // codexLongCwd returns a Codex state database whose threads table holds
-// one thread id in two rows, each with a cwd of longValue's length, and,
-// as the state database's neighbour, a log database with n /feedback
+// one thread id in two rows, each with a cwd of longValue's length, and a
+// guardian review of the thread, a member read in the same parse, and, as
+// the state database's neighbour, a log database with n /feedback
 // reports of the thread, which are the members of the id's group; the
 // state database first, or last with stateLast set.
 func codexLongCwd(t *testing.T, n int, stateLast bool) []collectedFile {
@@ -69,7 +71,11 @@ func codexLongCwd(t *testing.T, n int, stateLast bool) []collectedFile {
 	state := buildDatabase(t, sqlitetest.Table{Name: "threads", SQL: "CREATE TABLE threads (id TEXT, " +
 		"rollout_path TEXT, created_at INTEGER, cwd TEXT, title TEXT, git_branch TEXT, first_user_message TEXT)",
 		Rows: [][]any{{"th", "/r1", int64(1767225600), longValue, "A", "br-a", nil},
-			{"th", "/r2", int64(1780272000), longValue + "b", "B", "br-b", nil}}})
+			{"th", "/r2", int64(1780272000), longValue + "b", "B", "br-b", nil}}},
+		sqlitetest.Table{Name: "guardian_review_feedback", SQL: "CREATE TABLE guardian_review_feedback " +
+			"(id TEXT, thread_id TEXT, record TEXT)", Rows: [][]any{
+			{"019e85a1-4800-7000-8000-000000000001", "th", `{"reviewed_thread_id":"th","status":"approved",` +
+				`"target_item_id":"c1","decision":"FEEDBACK-TEXT","action":"run"}`}}})
 	var reports [][]any
 	for i := range n {
 		reports = append(reports, []any{int64(1780358401 + i), "codex_feedback",
@@ -160,5 +166,36 @@ func TestTheMembersOfARepeatedIDTakeTheirParentsFieldsCut(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A cut is reported by the rows of the stored row that holds the value,
+// never by the members that take it, so a repeated Codex thread's long cwd
+// gives one problem row counting the two stored rows, whichever of the
+// state and log databases is read first.
+func TestAMembersCutIsNotCountedWhicheverFileIsReadFirst(t *testing.T) {
+	want := []string{"/home/alice/.codex/state_5.sqlite parser: project_path longer than 4096 bytes, " +
+		"cut to 4096 bytes (2 times)"}
+	for _, stateLast := range []bool{false, true} {
+		t.Run("state database last "+strconv.FormatBool(stateLast), func(t *testing.T) {
+			work := t.TempDir()
+			collection := writeCollection(t, filepath.Join(work, "col"),
+				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, codexLongCwd(t, 3, stateLast))
+			env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+				Parsers: parsers.New, Version: "0.0.0-test"}
+			output := filepath.Join(work, "out")
+			if code, _, stderr := runCommand(env, "timeline", collection, output); code != ExitFound {
+				t.Fatal(stderr)
+			}
+			var got []string
+			for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "source_file", "text") {
+				if strings.Contains(row, " cut to ") {
+					got = append(got, row)
+				}
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("problem rows %q, want %q", got, want)
+			}
+		})
 	}
 }

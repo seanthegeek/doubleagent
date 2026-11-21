@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -78,5 +79,36 @@ func TestAMemberTakesEachFieldOfItsParentCut(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A member's cut of a field it takes from its parent is not counted: the
+// problem row counts the parents' own rows, here two, and a member's cut
+// of a field of its own is counted.
+func TestAMembersCutOfATakenFieldIsNotCounted(t *testing.T) {
+	long := "/" + strings.Repeat("v", 3*CarriedLimit)
+	artifact := &input.Artifact{Original: "/home/user/file", Home: &input.Home{Host: "host", User: "user"}}
+	var problems []string
+	_, _ = Within(artifact, func(emit Emit) error {
+		group := timeline.NewGroup()
+		for _, name := range []string{"a", "b"} {
+			parent := timeline.Row{ProjectPath: long + name, Text: name, SourceFile: "file"}
+			group.Parent(&parent)
+			emit(parent)
+		}
+		for i := range 5 {
+			member := timeline.Row{Text: "member", SourceFile: "file", SessionID: strings.Repeat("s", i%2*2*CarriedLimit)}
+			group.Member(&member, timeline.TakeProject)
+			emit(member)
+		}
+		return nil
+	}, func(row timeline.Row) {
+		if strings.HasPrefix(row.Text, ProblemPrefix) {
+			problems = append(problems, row.Text)
+		}
+	})
+	want := []string{ProblemPrefix + CarriedProblem("project_path", 2), ProblemPrefix + CarriedProblem("session_id", 2)}
+	if !slices.Equal(problems, want) {
+		t.Errorf("problems %q, want %q", problems, want)
 	}
 }

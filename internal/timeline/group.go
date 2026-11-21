@@ -121,6 +121,25 @@ func (ref *GroupRef) Owner() *Group {
 	return ref.group
 }
 
+// TakesField reports whether the row is a member that takes the field
+// called name (a timeline.jsonl column) from the parent its group goes
+// with: a value the kit cuts on the parent's own rows, not on the member.
+func (ref *GroupRef) TakesField(name string) bool {
+	if ref.parent >= 0 {
+		return false
+	}
+	for _, field := range []struct {
+		take Takes
+		name string
+	}{{TakeTime, "timestamp_utc"}, {TakeSession, "session_id"}, {TakeProject, "project_path"},
+		{TakeBranch, "git_branch"}, {TakeModel, "model"}} {
+		if field.name == name {
+			return ref.takes&field.take != 0
+		}
+	}
+	return false
+}
+
 // Bound calls bound with each parent's copy of the attributes its members
 // take, for the kit to cut each field but the text as it cuts the fields
 // of a row the parse emits. The text is not cut: a member taking it takes

@@ -128,7 +128,10 @@ type carriedFields struct {
 	first    *timeline.Row
 }
 
-// cut cuts the long fields of row.
+// cut cuts the long fields of row, counting each cut but those of a field
+// a member of a group takes from its parent, whose own rows count it
+// (timeline.GroupRef.TakesField), so the count is the same whichever parse
+// the member's file is read in.
 func (c *carriedFields) cut(row *timeline.Row) {
 	cutAny := false
 	for _, field := range row.FieldsButText() {
@@ -137,7 +140,7 @@ func (c *carriedFields) cut(row *timeline.Row) {
 		}
 		written, cut := c.written(field.Name, *field.Value)
 		*field.Value = written
-		if !cut {
+		if !cut || row.Group != nil && row.Group.TakesField(field.Name) {
 			continue
 		}
 		if c.counts[field.Name] == 0 {
