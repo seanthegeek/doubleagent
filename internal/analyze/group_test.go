@@ -373,3 +373,44 @@ func TestAgentZeroReplyIsShownInAKeptLaterItemWithNoContentOfItsOwn(t *testing.T
 		})
 	}
 }
+
+// messageFileChat is an Agent Zero chat.json whose log names a tool
+// message, whose result is kept in messages/1.txt, in two tool items: one
+// on the first of January, one on the first of June.
+const messageFileChat = `{"id":"ctx","agents":[{"number":0,"history":` +
+	`"{\"_cls\":\"History\",\"current\":{\"_cls\":\"Topic\",\"messages\":[` +
+	`{\"_cls\":\"Message\",\"id\":\"t\",\"ai\":false,\"content\":{\"tool_name\":\"x\",\"file\":\"1.txt\"}}]}}"}],` +
+	`"log":{"logs":[` +
+	`{"no":1,"id":"t","type":"tool","timestamp":1767225600,"content":"january output"},` +
+	`{"no":2,"id":"t","type":"tool","timestamp":1780272000,"content":"june output"}]}}`
+
+// The text of a message file the history message of an id names is shown
+// in the first tool item of the id the filters keep, once, and the other
+// item shows its own content.
+func TestAgentZeroMessageFileIsShownInTheFirstItemTheFilterKeeps(t *testing.T) {
+	files := []collectedFile{agentZeroChat(messageFileChat),
+		{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/messages/1.txt", "FILE-RESULT"}}
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter the file goes with the first item", nil,
+			[]string{"01 tool_use {}", "01 tool_result FILE-RESULT", "06 tool_use {}", "06 tool_result june output"}},
+		{"a window that keeps only the later item shows the file there",
+			[]string{"--since", "2026-03-01"}, []string{"06 tool_use {}", "06 tool_result FILE-RESULT"}},
+		{"a window that keeps only the first item keeps the file with it",
+			[]string{"--until", "2026-03-01"}, []string{"01 tool_use {}", "01 tool_result FILE-RESULT"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := agentZeroRun(t, files, test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+			if count := strings.Count(strings.Join(rows, "\n"), "FILE-RESULT"); count > 1 {
+				t.Errorf("the file's text is shown %d times, want once", count)
+			}
+		})
+	}
+}
