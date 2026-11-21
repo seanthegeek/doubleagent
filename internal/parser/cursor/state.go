@@ -394,7 +394,7 @@ func (r *stateReader) blob(stamp *stamper, blob jsonvalue.Value, shared *timelin
 			label = cmp.Or(role, "-") + " message: "
 		}
 	}
-	made := stamp.row(turnType, label+shared.Text(), "", rowid, "")
+	made := stamp.row(turnType, label, "", rowid, "")
 	if shared.Text() != "" {
 		var out timeline.TextBuilder
 		out.Write(label)

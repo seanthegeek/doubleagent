@@ -47,6 +47,17 @@ func cursorBubbles(ident string, n int) [][]any {
 	})
 }
 
+// cursorDeletedBlob returns a state.vscdb of n deleted composers, each
+// with a header, and one agentKv blob of the role given whose content
+// names every one of them.
+func cursorDeletedBlob(t *testing.T, role string, n int) []byte {
+	headers := rows(n, func(i int) []any {
+		return []any{numbered("gone", i), 1790000000000, 1790000000000, 1, `{"name":"n"}`}
+	})
+	blob := `{"role":"` + role + `","content":"` + joined(n, func(i int) string { return numbered("gone", i) }) + `"}`
+	return cursorState(t, [][]any{{"agentKv:blob:aa", blob}}, nil, headers)
+}
+
 // cursorLongProject returns the state.vscdb of one composer c1 with a
 // long project path and branch and one bubble.
 func cursorLongProject(t *testing.T) growthFile {
@@ -82,11 +93,13 @@ func cursorStateCases() []growthCase {
 			return one(cursorStateRel, cursorState(t, keyValues, nil, nil))
 		}},
 		{kind: "state.vscdb", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
-			headers := rows(n, func(i int) []any {
-				return []any{numbered("gone", i), 1790000000000, 1790000000000, 1, `{"name":"n"}`}
-			})
-			blob := `{"role":"user","content":"` + joined(n, func(i int) string { return numbered("gone", i) }) + `"}`
-			return one(cursorStateRel, cursorState(t, [][]any{{"agentKv:blob:aa", blob}}, nil, headers))
+			return one(cursorStateRel, cursorDeletedBlob(t, "user", n))
+		}},
+		// A role other than user or assistant puts a label before the
+		// shared text; n is large enough that a copy of the whole text per
+		// composer passes the allocation slack.
+		{kind: "state.vscdb", shape: shapeLargeShared, n: 2048, files: func(t *testing.T, n int) []growthFile {
+			return one(cursorStateRel, cursorDeletedBlob(t, "tool", n))
 		}},
 		{kind: "state.vscdb", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			keyValues := append([][]any{cursorComposer("c1", "/p", "main", n)}, rows(n, func(i int) []any {
