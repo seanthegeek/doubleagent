@@ -146,30 +146,54 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 
 // readUsers returns each user's label, "<email> (<name>)", by id, and
 // emits a "tabby user:" row with the auth_token of each user that has one,
-// the token through parser.SecretText.
+// the token through parser.SecretText. An id is the table's key, so a
+// second row of one is damage: the label is text inside the rows of the
+// threads, pages and events naming the user, rows of other ids, so no
+// stored row of such an id lends its label to them (they name the user by
+// id), and each stored row gives a `parser:` row naming its own label.
 func (s *store) readUsers() (map[string]string, error) {
 	users := map[string]string{}
 	if !s.tables.Has("users") {
 		return users, nil
 	}
+	var stored []sqlitefile.Row
+	counts := map[string]int{}
 	err := s.each("users", "id", func(user sqlitefile.Row) {
-		label := parser.NonEmptyColumn(user.Get("email"))
-		if name := user.Get("name"); !name.IsEmpty() {
-			if label != "" {
-				label += " (" + name.String() + ")"
-			} else {
-				label = name.String()
-			}
-		}
-		users[user.Get("id").String()] = label
-		if token := parser.NonEmptyColumn(user.Get("auth_token")); token != "" {
-			s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(user.Get("id")),
-				timestamp: parser.ColumnTime(user.Get("created_at")),
-				text: "tabby user: " + cmp.Or(label, "-") + " id=" + user.Get("id").String() + " auth_token=" +
-					parser.SecretText(s.artifact, token) + " (from users table, created_at)"}))
-		}
+		stored = append(stored, user)
+		counts[user.Get("id").String()]++
 	})
+	for _, user := range stored {
+		userID, label := user.Get("id").String(), userLabel(user)
+		spec := rowSpec{line: parser.ColumnLine(user.Get("id")), timestamp: parser.ColumnTime(user.Get("created_at"))}
+		if token := parser.NonEmptyColumn(user.Get("auth_token")); token != "" {
+			spec.text = "tabby user: " + cmp.Or(label, "-") + " id=" + userID + " auth_token=" +
+				parser.SecretText(s.artifact, token) + " (from users table, created_at)"
+			s.emit(s.parser.row(s.artifact, spec))
+		}
+		if counts[userID] == 1 {
+			users[userID] = label
+			continue
+		}
+		spec.text = parser.ProblemPrefix + "users holds " + strconv.Itoa(counts[userID]) + " rows of this row's id; " +
+			"the rows of its threads, pages and events name the user by id alone, and this row's label is " +
+			cmp.Or(s.carried.Cut("user label", label), "-")
+		s.emit(s.parser.row(s.artifact, spec))
+	}
 	return users, err
+}
+
+// userLabel returns a user's label, "<email> (<name>)", or whichever of
+// the two the row holds.
+func userLabel(user sqlitefile.Row) string {
+	label := parser.NonEmptyColumn(user.Get("email"))
+	if name := user.Get("name"); !name.IsEmpty() {
+		if label != "" {
+			label += " (" + name.String() + ")"
+		} else {
+			label = name.String()
+		}
+	}
+	return label
 }
 
 // digitsLine returns an id read as text as a source line when it is all

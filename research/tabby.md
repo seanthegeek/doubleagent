@@ -736,6 +736,16 @@ time or none. One row per table,
 (`1 row repeating` for one), follows the database's other rows, with `source_line` 0, counting the
 rows that met a group an earlier row of their id already showed.
 
+A user id is the `users` table's key (`INTEGER PRIMARY KEY AUTOINCREMENT`,
+[schema.sql:17-30](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L17-L30)),
+so only damage writes two rows of one. A user's label is text inside the start rows of the threads
+and pages and the rows of the events that name the user, rows of other ids, so when a damaged
+`users` table holds an id more than once no stored row lends its label to them: they name the user
+`owner user_id=<id>`, `author user_id=<id>` and `user=<id>`, as for a user no row holds, and each
+stored row of the id gives, after its `tabby user:` row, one row at its `created_at`,
+`parser: users holds <n> rows of this row's id; the rows of its threads, pages and events name the user by id alone, and this row's label is <label>`
+(`-` for a row with no email or name).
+
 #### Fixtures
 
 ```sql

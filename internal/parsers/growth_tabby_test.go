@@ -81,6 +81,20 @@ func tabbyDatabaseCases() []growthCase {
 				"page_sections":   rows(n, func(i int) []any { return []any{i, 1, "s", "c", i, tabbyTime} }),
 			}))
 		}},
+		// Each stored row of a repeated user id gives its own rows, and the
+		// threads and events naming the user name it by id alone.
+		{kind: "db.sqlite", shape: shapeSharedID + " (users named by many threads and events)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
+					"users": rows(n, func(i int) []any {
+						return []any{1, numbered("a", i) + "@example.com", "A", numbered("token", i), tabbyTime}
+					}),
+					"threads": rows(n, func(i int) []any { return []any{i, 0, 1, tabbyTime, nil} }),
+					"user_events": rows(n, func(i int) []any {
+						return []any{i, 1, "chat", tabbyTime, `{"view":{"completion_id":"c","choice_index":0}}`}
+					}),
+				}))
+			}},
 		{kind: "db.sqlite", shape: shapeSharedID + " with undated sections", files: func(t *testing.T, n int) []growthFile {
 			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
 				"pages":         rows(n, func(i int) []any { return []any{1, 1, "t", "c", tabbyTime} }),

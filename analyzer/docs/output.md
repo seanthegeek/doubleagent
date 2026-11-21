@@ -1531,6 +1531,11 @@ attributes. What the rows of the id are depends on the agent:
   filter the joined rows take the earliest row's path. A session row
   follows the first of its alias, workspace and project whose key
   repeats; the others give their first stored row's path.
+- **Tabby**, a `users` row repeating a user id: no row takes the stored
+  row's label, which is text inside the start rows of the threads and
+  pages and the rows of the events that name the user; those name the
+  user by id, and each stored row gives a `parser:` row naming its own
+  label, so a planted row cannot put its label on the user's threads.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a
