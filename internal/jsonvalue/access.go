@@ -173,13 +173,19 @@ func (v Value) Has(key string) bool {
 // is already present and adding it last otherwise. Every copy of the object
 // sees the change. Set does nothing when v is not an object.
 func (v Value) Set(key string, value Value) {
+	v.put(key, value)
+}
+
+// put sets key to value as Set does and reports whether the object already
+// held key.
+func (v Value) put(key string, value Value) bool {
 	if v.kind != Object {
-		return
+		return false
 	}
 	object := v.members
 	if position := object.find(key); position >= 0 {
 		object.list[position].Value = value
-		return
+		return true
 	}
 	object.list = append(object.list, Member{Key: key, Value: value})
 	if object.index != nil {
@@ -190,6 +196,7 @@ func (v Value) Set(key string, value Value) {
 			object.index[member.Key] = i
 		}
 	}
+	return false
 }
 
 // find returns the position of key among the members, or -1.

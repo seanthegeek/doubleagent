@@ -65,6 +65,9 @@ type Document struct {
 	// scanned is how many bytes the counts have read.
 	counted place
 	scanned int
+	// repeats holds what the values returned since the last TakeRepeats
+	// repeated.
+	repeats Repeats
 }
 
 // place is a byte offset of a text with its line and its column in
@@ -140,17 +143,7 @@ func Decode(data []byte) (Value, error) {
 
 // DecodeString reads text as one JSON document, as Decode does.
 func DecodeString(text string) (Value, error) {
-	document := NewDocument(text)
-	decoder := newDecoder(text)
-	value, err := readValue(decoder, document, 0)
-	if err != nil {
-		return Value{}, err
-	}
-	end := int(decoder.InputOffset())
-	if rest := strings.TrimLeft(text[end:], " \t\r\n"); rest != "" {
-		return Value{}, document.errorAt(len(text)-len(rest), errExtraData)
-	}
-	return value, nil
+	return NewDocument(text).Decode()
 }
 
 // DecodePrefix reads the one value that starts at byte start of text,
@@ -161,17 +154,30 @@ func DecodePrefix(text string, start int) (Value, int, error) {
 }
 
 // DecodePrefix reads the one value that starts at byte start of the
-// document, as the function DecodePrefix reads it from the document's text.
+// document, as the function DecodePrefix reads it from the document's text,
+// noting the member names that repeat for TakeRepeats.
 func (d *Document) DecodePrefix(start int) (Value, int, error) {
-	if start < 0 || start > len(d.text) {
-		return Value{}, 0, d.errorAt(start, io.ErrUnexpectedEOF)
-	}
-	decoder := newDecoder(d.text[start:])
-	value, err := readValue(decoder, d, start)
+	value, end, found, err := d.decodeAt(start)
 	if err != nil {
 		return Value{}, 0, err
 	}
-	return value, start + int(decoder.InputOffset()), nil
+	d.repeats.Merge(found)
+	return value, end, nil
+}
+
+// decodeAt reads the one value that starts at byte start of the document
+// and returns it with the offset just past it and the names it repeated.
+func (d *Document) decodeAt(start int) (Value, int, Repeats, error) {
+	if start < 0 || start > len(d.text) {
+		return Value{}, 0, Repeats{}, d.errorAt(start, io.ErrUnexpectedEOF)
+	}
+	decoder := newDecoder(d.text[start:])
+	var found Repeats
+	value, err := readValue(decoder, d, start, &found)
+	if err != nil {
+		return Value{}, 0, Repeats{}, err
+	}
+	return value, start + int(decoder.InputOffset()), found, nil
 }
 
 // newDecoder returns a token reader over text that keeps each number's
@@ -193,9 +199,10 @@ type frame struct {
 
 // readValue reads one value from decoder, which reads the document's text
 // from byte start, building arrays and objects on a stack of its own rather than by
-// recursion. An array or object that opens below MaxDepth others is
-// refused at its opening bracket.
-func readValue(decoder *json.Decoder, document *Document, start int) (Value, error) {
+// recursion, and notes in found each member that repeats a name of its
+// object. An array or object that opens below MaxDepth others is refused
+// at its opening bracket.
+func readValue(decoder *json.Decoder, document *Document, start int, found *Repeats) (Value, error) {
 	var stack []*frame
 	for {
 		token, err := decoder.Token()
@@ -228,7 +235,7 @@ func readValue(decoder *json.Decoder, document *Document, start int) (Value, err
 		if top == nil {
 			return value, nil
 		}
-		top.add(value)
+		top.add(value, found)
 	}
 }
 
@@ -266,10 +273,12 @@ func topFrame(stack []*frame) *frame {
 }
 
 // add puts value into the frame: as the next item, or as the value of the
-// key read before it.
-func (f *frame) add(value Value) {
+// key read before it, noting in found a key the object already holds.
+func (f *frame) add(value Value, found *Repeats) {
 	if f.object.IsObject() {
-		f.object.Set(f.key, value)
+		if f.object.put(f.key, value) {
+			found.note(f.key, 1)
+		}
 		f.key, f.hasKey = "", false
 		return
 	}
