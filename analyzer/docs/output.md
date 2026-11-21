@@ -1418,7 +1418,14 @@ attributes. What the rows of the id are depends on the agent:
   `archived worktree:` row of each thread linked to the id, with its own
   `session_id` and the stored row's text, `project_path` and rowid as
   `source_line`; each other stored row of the id gives its own row with no
-  session.
+  session. A `sidebar_threads` row repeating a thread id: the thread's
+  unsent drafts, with the stored row's `updated_at` and `project_path`, and
+  the `archived worktree:` row of each worktree linked to the thread, with
+  the stored row's `session_id` (the first stored row's when the worktree's
+  id is repeated too). Each stored row of the thread id gives a `parser:`
+  row of its own at its `updated_at`, with its `session_id` and
+  `project_path`; without a filter the drafts and links take the first
+  stored row's attributes, in `updated_at` order.
 - **Ollama**, a `messages` row repeating a message id: the id's tool
   calls, with the chat, time and `model` of one assistant message of the
   id, and its attachments, in the text of one user message of it.

@@ -687,12 +687,22 @@ Every store of [Other db.sqlite tables](#other-dbsqlite-tables) is read as a pri
   folder as `project_path` and no `session_id` (a draft has none), or, when the sidebar row is gone,
   `unsent draft: <text> (from <file> agent_draft_prompts, file mtime)` at the file's modification
   time. The text joins the ACP blocks: `text` as written, `resource_link` and `resource` as
-  `[mention] <uri>`, `image` and `audio` as markers. The thread blob's own `draft_prompt` (same
+  `[mention] <uri>`, `image` and `audio` as markers. The sidebar row is the first of its
+  `thread_id` in `updated_at` order; `thread_id` is the table's primary key, so a table holding
+  one in several rows is damage, and then each draft of the thread is shown once, with the
+  `updated_at` and first folder of one of its rows: the first that `--since`, `--until` and
+  `--match` keep, or the first when they keep none or none is given
+  ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). Each row of such a
+  `thread_id` gives one row of its own ([Bad-line rows](#bad-line-rows)) beside its own sidebar
+  row, so the filters have a row to keep it by; a draft store holding one key in several entries
+  gives each entry its row, all with the one sidebar row. The thread blob's own `draft_prompt` (same
   shape) is `unsent draft: <text> (thread blob, as of updated_at)` after the thread's messages.
 - An archived worktree is `archived worktree: <worktree_path> of <main_repo_path> branch=<b>
   staged=<hash> unstaged=<hash> original=<hash> ref=refs/archived-worktrees/<id> (from <file>
   archived_git_worktrees, file mtime)`, one per thread linked to it with that thread's
-  `session_id`, `project_path` the main repository; the archive time is not recorded. The id is
+  `session_id` (from the thread's sidebar row, chosen as for a draft when the sidebar repeats the
+  thread, and the first when the worktree's id is repeated too), `project_path` the main
+  repository; the archive time is not recorded. The id is
   the table's primary key, so a table holding one id in several rows is damage: the id's links
   are shown once each, with the `worktree_path`, the other columns, the main repository and the
   rowid (as `source_line`) of one of the id's rows, and each other row of the id is one row with
@@ -835,6 +845,17 @@ An `archived_git_worktrees` table holding rows that repeat an earlier row's id g
 the file's other rows, with no session, an empty `timestamp_utc` and `source_line` 0, counting
 them (`1 row` for one):
 `parser: archived_git_worktrees holds <n> rows repeating an earlier row's id; its linked threads are shown once`.
+
+A `sidebar_threads` table holding one `thread_id` in several rows gives each of those rows a row
+at its `updated_at`, with its `session_id`, its first folder as `project_path` and its rowid as
+`source_line`, `<n>` the number of rows of the `thread_id`. The row the thread's drafts and links
+go with ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) reads as the
+first line, every other as the second:
+
+```text
+parser: sidebar_threads holds <n> rows of this row's thread_id; its drafts and archived worktree links are shown once, with this row
+parser: sidebar_threads holds <n> rows of this row's thread_id; its drafts and archived worktree links are shown once, with another of them
+```
 
 A `scoped_kv_store` value that does not decode (a draft prompt that is not JSON, a worktree
 record without `created_at_seconds`) is `parser: unparseable record <rowid> (<namespace>[ <key>]:

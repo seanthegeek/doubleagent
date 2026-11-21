@@ -115,6 +115,17 @@ func zedSidebarCases() []growthCase {
 			links := rows(n, func(i int) []any { return []any{numbered("t", i), int64(1)} })
 			return one(zedSidebar, zedSidebarTables(t, nil, nil, archived, links))
 		}},
+		{kind: "workspace db.sqlite", shape: shapeSharedID, n: 128, files: func(t *testing.T, n int) []growthFile {
+			sidebar := rows(n, func(i int) []any {
+				return []any{"t", numbered("s", i), "thread", "2026-01-02T03:04:05Z", numbered("/w", i), nil}
+			})
+			store := rows(n, func(i int) []any {
+				return []any{"agent_draft_prompts", "t", `[{"type":"text","text":"` + numbered("draft", i) + `"}]`}
+			})
+			archived := rows(n, func(i int) []any { return []any{int64(i), numbered("/w/tree", i), "/w", nil} })
+			links := rows(n, func(i int) []any { return []any{"t", int64(i)} })
+			return one(zedSidebar, zedSidebarTables(t, sidebar, store, archived, links))
+		}},
 	}
 }
 

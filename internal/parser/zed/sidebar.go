@@ -48,9 +48,11 @@ type sidebarStore struct {
 	// repeatedArchived counts the archived worktree rows repeating an
 	// earlier row's id, which give their rows unlinked.
 	repeatedArchived int
-	// byKey holds the sidebar rows by thread key, the last row of a key
-	// winning.
+	// byKey holds the sidebar rows by thread key, the first row of a key
+	// winning: the stored row a repeated key goes with without a filter.
 	byKey map[string]sqlitefile.Row
+	// repeats holds the thread keys the table repeats, each a group.
+	repeats map[string]*sidebarRepeat
 	// repositories indexes the main repository of each worktree path, made
 	// on first use.
 	repositories *repositoryIndex
@@ -117,8 +119,11 @@ func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
 		return nil, reader.err
 	}
 	for _, row := range store.sidebar {
-		store.byKey[threadKey(row.Get("thread_id"))] = row
+		if _, held := store.byKey[threadKey(row.Get("thread_id"))]; !held {
+			store.byKey[threadKey(row.Get("thread_id"))] = row
+		}
 	}
+	store.repeats = repeatedKeys(store.sidebar)
 	return store, nil
 }
 
@@ -226,7 +231,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 	store.carried = parser.NewCarried(artifact)
 	var problems parser.Problems
 	for _, row := range store.sidebar {
-		p.sidebarRow(artifact, row, emit)
+		p.sidebarRows(artifact, row, store, emit)
 	}
 	for _, row := range store.trusted {
 		emit(p.trustedRow(artifact, row))
@@ -254,10 +259,11 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// sidebarRow emits the row of an external agent's thread, which has no
-// transcript in threads.db, or of a native thread's sidebar state. A draft
-// (no session_id) has no row of its own, only its draft prompt.
-func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit parser.Emit) {
+// sidebarRow returns the row of an external agent's thread, which has no
+// transcript in threads.db, or of a native thread's sidebar state, and
+// whether there is one: a draft (no session_id) has no row of its own,
+// only its draft prompt.
+func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row) (timeline.Row, bool) {
 	title := firstColumn(row.Get("title_override"), row.Get("title"))
 	project := firstFolder(row.Get("folder_paths"))
 	sessionID := parser.NonEmptyColumn(row.Get("session_id"))
@@ -273,14 +279,15 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row, emit p
 		if interacted := row.Get("interacted_at"); !interacted.IsEmpty() {
 			timestamp = parser.ColumnTime(interacted)
 		}
-		emit(p.stateRow(artifact, text, timestamp, row.Rowid, sessionID, project))
+		return p.stateRow(artifact, text, timestamp, row.Rowid, sessionID, project), true
 	case sessionID != "":
 		text := fmt.Sprintf("sidebar thread: title=%s archived=%t interacted_at=%s main_worktree=%s",
 			title, !row.Get("archived").IsEmpty(), cmp.Or(parser.ColumnTime(row.Get("interacted_at")), "-"),
 			cmp.Or(firstFolder(row.Get("main_worktree_paths")), "-"))
-		emit(p.stateRow(artifact, text, parser.ColumnTime(row.Get("updated_at")), row.Rowid,
-			sessionID, project))
+		return p.stateRow(artifact, text, parser.ColumnTime(row.Get("updated_at")), row.Rowid,
+			sessionID, project), true
 	}
+	return timeline.Row{}, false
 }
 
 // trustedRow returns the `permission setting:` row of one trusted project

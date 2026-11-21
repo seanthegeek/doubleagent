@@ -30,7 +30,9 @@ func decodeColumn(value sqlitefile.Value) (jsonvalue.Value, error) {
 
 // draft emits `unsent draft: <text>` for an agent_draft_prompts entry, at
 // the draft's sidebar updated_at, or at the file's modification time, saying
-// so, when the draft has no sidebar row.
+// so, when the draft has no sidebar row. Of a thread key the sidebar
+// repeats, the draft takes the time and project of the stored row the
+// key's group goes with.
 func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *sidebarStore,
 	problems *parser.Problems, emit parser.Emit) {
 	key, value := row.Get("key").String(), row.Get("value")
@@ -45,8 +47,10 @@ func (p *Parser) draft(artifact *input.Artifact, row sqlitefile.Row, store *side
 		return
 	}
 	if side, ok := store.byKey[key]; ok {
-		emit(p.stateRow(artifact, "unsent draft: "+text, parser.ColumnTime(side.Get("updated_at")),
-			row.Rowid, "", firstFolder(side.Get("folder_paths"))))
+		draft := p.stateRow(artifact, "unsent draft: "+text, parser.ColumnTime(side.Get("updated_at")),
+			row.Rowid, "", firstFolder(side.Get("folder_paths")))
+		store.member(key, &draft, timeline.TakeTime|timeline.TakeProject)
+		emit(draft)
 		return
 	}
 	text = "unsent draft: " + text + " (from " + artifact.Rel + " " + draftsNamespace +
@@ -161,7 +165,10 @@ func (s *sidebarStore) indexRepositories() *repositoryIndex {
 // repeats, each stored row's own row, unlinked, is a parent, shown unless
 // the group goes with it, and a link's row takes the text, project and
 // source line of the stored row the group goes with ("Rows of a repeated
-// id" in analyzer/docs/output.md).
+// id" in analyzer/docs/output.md). A link of a thread key the sidebar
+// repeats takes the session of the sidebar row the key's group goes with,
+// unless the worktree's id is repeated too: a row joins one group, so that
+// link keeps the session of the key's first sidebar row.
 func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow, store *sidebarStore,
 	emit parser.Emit) {
 	sessionID := ""
@@ -189,6 +196,8 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow, sto
 		parser.NonEmptyColumn(row.Get("main_repo_path")))
 	if row.group != nil {
 		row.group.Parent(&own).Row(&own, timeline.WhenNotChosen)
+	} else if !row.thread.IsEmpty() {
+		store.member(threadKey(row.thread), &own, timeline.TakeSession)
 	}
 	emit(own)
 }
