@@ -31,7 +31,7 @@ CREATE TABLE archived_git_worktrees(id INTEGER, worktree_path TEXT NOT NULL,
 CREATE TABLE thread_archived_worktrees(thread_id TEXT NOT NULL, archived_worktree_id INTEGER NOT NULL);
 """
 
-COUNTS = (10, 40)
+COUNTS = (2, 10, 40)
 
 
 def build(path: Path, count: int) -> None:

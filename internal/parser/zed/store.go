@@ -155,16 +155,26 @@ func (s *sidebarStore) indexRepositories() *repositoryIndex {
 	return index
 }
 
-// archivedWorktree returns the row of one archived worktree and one thread
+// archivedWorktree emits the row of one archived worktree and one thread
 // linked to it. The join copies the worktree's columns onto the row of each
-// linked thread, so the store's carried cuts them.
-func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
-	store *sidebarStore) timeline.Row {
+// linked thread, so the store's carried cuts them. Of an id the table
+// repeats, each stored row's own row, unlinked, is a parent, shown unless
+// the group goes with it, and a link's row takes the text and project of
+// the stored row the group goes with ("Rows of a repeated id" in
+// analyzer/docs/output.md).
+func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow, store *sidebarStore,
+	emit parser.Emit) {
 	sessionID := ""
 	if !row.thread.IsEmpty() {
 		if side, ok := store.byKey[threadKey(row.thread)]; ok {
 			sessionID = parser.NonEmptyColumn(side.Get("session_id"))
 		}
+	}
+	if row.link {
+		linked := p.stateRow(artifact, "", parser.FileMtime(artifact), row.Rowid, sessionID, "")
+		row.group.Member(&linked, timeline.TakeText|timeline.TakeProject)
+		emit(linked)
+		return
 	}
 	column := func(name string) string {
 		return store.carried.Cut("archived_git_worktrees."+name, parser.NonEmptyColumn(row.Get(name)))
@@ -175,6 +185,10 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow,
 		cmp.Or(column("original_commit_hash"), "-") + " ref=refs/archived-worktrees/" +
 		store.carried.Cut("archived_git_worktrees.id", row.Get("id").String()) + " (from " + artifact.Rel +
 		" archived_git_worktrees, file mtime)"
-	return p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, sessionID,
+	own := p.stateRow(artifact, text, parser.FileMtime(artifact), row.Rowid, sessionID,
 		parser.NonEmptyColumn(row.Get("main_repo_path")))
+	if row.group != nil {
+		row.group.Parent(&own).Row(&own, timeline.WhenNotChosen)
+	}
+	emit(own)
 }

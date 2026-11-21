@@ -23,6 +23,18 @@ const (
 type archivedRow struct {
 	sqlitefile.Row
 	thread sqlitefile.Value
+	// group is the group of an id threads link to that the table repeats,
+	// nil for any other id: each stored row of the id is a parent, and each
+	// link (link true) a member.
+	group *timeline.Group
+	link  bool
+}
+
+// linkGroup is the first thread link of one archived worktree row, by
+// which the rows of an id the link column compares as one are grouped.
+type linkGroup struct {
+	rowid int64
+	found bool
 }
 
 // sidebarStore holds the rows of a db.sqlite, each table's in the order
@@ -114,8 +126,9 @@ func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
 // threads linked to it (a left join on archived_worktree_id), and the
 // number of rows repeating an earlier row's id. Several threads linked to
 // one worktree come in the order of their thread ids. The id is the
-// table's key, so only damage repeats one: the links of an id join its
-// first row, and each later row of it gives its own unlinked row.
+// table's key, so only damage repeats one: the links of a repeated id
+// come once, after its first row, as members of a group whose parents are
+// the id's rows, each giving its own row unlinked.
 func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, int, error) {
 	table, err := database.Table("archived_git_worktrees")
 	if err != nil {
@@ -133,30 +146,51 @@ func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, in
 	if err != nil {
 		return nil, 0, err
 	}
-	var joined []archivedRow
-	// shown holds the groups of links already joined, by the rowid of a
-	// group's first link, so ids the column compares as one are one group.
-	shown, repeats := map[int64]bool{}, 0
-	for _, worktree := range worktrees {
+	firsts, counts := make([]linkGroup, len(worktrees)), map[int64]int{}
+	for i, worktree := range worktrees {
 		first, found := lookup.First(worktree, "id")
-		if found && shown[first.Rowid] {
-			repeats++
-			found = false
+		firsts[i] = linkGroup{rowid: first.Rowid, found: found}
+		if found {
+			counts[first.Rowid]++
 		}
-		if !found {
+	}
+	joined, repeats := joinArchived(worktrees, firsts, counts, lookup)
+	return joined, repeats, nil
+}
+
+// joinArchived joins each worktree to its links, given each worktree's
+// first link and the number of worktrees sharing it, and returns the rows
+// and the number of worktrees repeating an earlier one's links.
+func joinArchived(worktrees []sqlitefile.Row, firsts []linkGroup, counts map[int64]int,
+	lookup *sqlitefile.Lookup) ([]archivedRow, int) {
+	var joined []archivedRow
+	groups, repeats := map[int64]*timeline.Group{}, 0
+	for i, worktree := range worktrees {
+		first := firsts[i]
+		group, shown := groups[first.rowid]
+		switch {
+		case !first.found:
 			joined = append(joined, archivedRow{Row: worktree})
 			continue
+		case shown:
+			repeats++
+			joined = append(joined, archivedRow{Row: worktree, group: group})
+			continue
+		case counts[first.rowid] > 1:
+			group = timeline.NewGroup()
+			joined = append(joined, archivedRow{Row: worktree, group: group})
 		}
-		shown[first.Rowid] = true
+		groups[first.rowid] = group
 		matches := lookup.Find(worktree, "id")
 		slices.SortStableFunc(matches, func(left, right sqlitefile.Row) int {
 			return sqlitefile.Compare(left.Get("thread_id"), right.Get("thread_id"))
 		})
 		for _, link := range matches {
-			joined = append(joined, archivedRow{Row: worktree, thread: link.Get("thread_id")})
+			joined = append(joined, archivedRow{Row: worktree, thread: link.Get("thread_id"), group: group,
+				link: group != nil})
 		}
 	}
-	return joined, repeats, nil
+	return joined, repeats
 }
 
 // repeatedWorktrees returns the problem text of n archived worktree rows
@@ -205,7 +239,7 @@ func (p *Parser) parseSidebar(artifact *input.Artifact, database *sqlitefile.Dat
 		}
 	}
 	for _, row := range store.archived {
-		emit(p.archivedWorktree(artifact, row, store))
+		p.archivedWorktree(artifact, row, store, emit)
 	}
 	if store.repeatedArchived > 0 {
 		problems.Add(0, repeatedWorktrees(store.repeatedArchived))

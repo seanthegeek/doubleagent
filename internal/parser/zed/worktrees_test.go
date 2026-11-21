@@ -3,6 +3,7 @@ package zed
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -96,14 +97,15 @@ func sidebarRows(t *testing.T, name string) []timeline.Row {
 }
 
 // An archived worktree's id is its table's key, so a repeated one is
-// damage: the id's thread links join its first row, in id order, each
-// later row gives its own unlinked row, and the table one problem row, so
-// the rows grow with the table rather than with the square of it.
+// damage: without a filter the id's thread links join its first row, in id
+// order, each later row gives its own unlinked row, and the table one
+// problem row, so the rows grow with the table rather than with the square
+// of it.
 func TestARepeatedArchivedWorktreeIDJoinsItsLinksOnce(t *testing.T) {
 	for _, count := range []int{10, 40} {
 		t.Run(strconv.Itoa(count)+" rows of one id and as many links", func(t *testing.T) {
 			var got []string
-			for _, row := range sidebarRows(t, "repeated_worktree_"+strconv.Itoa(count)+".db") {
+			for _, row := range timeline.Attach(sidebarRows(t, "repeated_worktree_"+strconv.Itoa(count)+".db"), nil) {
 				switch {
 				case strings.HasPrefix(row.Text, "archived worktree: "):
 					path, _, _ := strings.Cut(strings.TrimPrefix(row.Text, "archived worktree: "), " ")
@@ -123,6 +125,65 @@ func TestARepeatedArchivedWorktreeIDJoinsItsLinksOnce(t *testing.T) {
 				"row's id; its linked threads are shown once", count-1))
 			if !slices.Equal(got, want) {
 				t.Errorf("%d rows %q, want %d rows %q", len(got), got[:min(len(got), 3)], len(want), want[:3])
+			}
+		})
+	}
+}
+
+// settledWorktrees returns the archived worktree rows of the named testdata
+// db.sqlite as the timeline command shows them under a --match of
+// pattern: the stored row each repeated id goes with is chosen from what
+// the pattern keeps of the parse, then the pattern runs over the rows as
+// attached. Each row reads "<worktree path> <session id>".
+func settledWorktrees(t *testing.T, name, pattern string) []string {
+	t.Helper()
+	match := regexp.MustCompile(pattern)
+	keep := func(rows []timeline.Row) []timeline.Row {
+		var kept []timeline.Row
+		for i := range rows {
+			if rows[i].Matches(match) {
+				kept = append(kept, rows[i])
+			}
+		}
+		return kept
+	}
+	rows := sidebarRows(t, name)
+	var got []string
+	for _, row := range keep(timeline.Attach(rows, timeline.Choose(keep(rows)))) {
+		if rest, found := strings.CutPrefix(row.Text, "archived worktree: "); found {
+			path, _, _ := strings.Cut(rest, " ")
+			got = append(got, path+" "+row.SessionID)
+		}
+	}
+	return got
+}
+
+// A --match keeping only a later stored row of a repeated id shows the
+// id's links as rows of that stored row, once each with its own session,
+// and leaves out the first stored row's rows; one keeping only the first
+// keeps the links with it; one keeping neither shows none.
+func TestARepeatedArchivedWorktreeIDsLinksGoWithTheStoredRowTheMatchKeeps(t *testing.T) {
+	links := func(path string) []string {
+		var rows []string
+		for i := range 10 {
+			rows = append(rows, fmt.Sprintf("%s s%03d", path, i))
+		}
+		return rows
+	}
+	tests := []struct {
+		name, pattern string
+		want          []string
+	}{
+		{"a match on a later stored row moves the links to it", "/w/copy3 ", links("/w/copy3")},
+		{"a match on the first stored row keeps the links with it", "/w/copy0 ", links("/w/copy0")},
+		{"a match on two later stored rows takes the earlier of them", "/w/copy[47] ",
+			append(links("/w/copy4"), "/w/copy7 ")},
+		{"a match on no stored row shows none of them", "/w/absent", nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := settledWorktrees(t, "repeated_worktree_10.db", test.pattern); !slices.Equal(got, test.want) {
+				t.Errorf("got  %q\nwant %q", got, test.want)
 			}
 		})
 	}

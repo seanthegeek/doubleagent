@@ -180,3 +180,59 @@ func TestChoosingTheParentsCountsNoRowAsFiltered(t *testing.T) {
 		t.Errorf("summary %q, want the line %q", stdout, want)
 	}
 }
+
+// zedWorktreeRun runs timeline with the options given over a collection
+// holding Zed's testdata/repeated_worktree_2.db: two archived worktree rows
+// of one id, at /w/copy0 and /w/copy1, and the threads t000 and t001 of
+// the sessions s000 and s001 linked to the id. It returns each archived
+// worktree row of timeline.jsonl as "session project worktree".
+func zedWorktreeRun(t *testing.T, options ...string) []string {
+	t.Helper()
+	data, err := osfile.ReadFile(filepath.Join("..", "parser", "zed", "testdata", "repeated_worktree_2.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
+		[]collectedFile{{"alice", "/home/alice", "zed", ".local/share/zed/db/0-stable/db.sqlite", string(data)}})
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	args := append(append([]string{"timeline"}, options...), collection, output)
+	if code, _, stderr := runCommand(env, args...); code != ExitFound {
+		t.Fatalf("%q exited %d: %s", args, code, stderr)
+	}
+	var rows []string
+	for _, line := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "session_id", "project_path",
+		"text") {
+		if session, rest, found := strings.Cut(line, " /w/main archived worktree: "); found {
+			worktree, _, _ := strings.Cut(rest, " ")
+			rows = append(rows, session+" /w/main "+worktree)
+		}
+	}
+	return rows
+}
+
+func TestTheLinksOfARepeatedZedWorktreeIDGoWithTheStoredRowTheMatchKeeps(t *testing.T) {
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter they go with the first stored row", nil,
+			[]string{"s000 /w/main /w/copy0", "s001 /w/main /w/copy0", " /w/main /w/copy1"}},
+		{"a match on the later stored row moves them to it", []string{"--match", "/w/copy1 "},
+			[]string{"s000 /w/main /w/copy1", "s001 /w/main /w/copy1"}},
+		{"a match on the first stored row keeps them with it", []string{"--match", "/w/copy0 "},
+			[]string{"s000 /w/main /w/copy0", "s001 /w/main /w/copy0"}},
+		{"a match on neither stored row shows none of them", []string{"--match", "/w/absent|sidebar thread"}, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := zedWorktreeRun(t, test.options...); !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}

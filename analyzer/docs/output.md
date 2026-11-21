@@ -1399,7 +1399,11 @@ deletion fences of the session, with the `project_path`, `git_branch` and
 `model` of one of the id's stored rows, and its time for a usage row with
 no `first_seen`; nanobot's messages of the key, with the stored row's
 preset `model` until a `/model` switch, and its time until a message
-carries one. That stored row is the first, in the order the parser reads
+carries one. A Zed `archived_git_worktrees` row repeating an id gives the
+`archived worktree:` row of each thread linked to the id once, with its
+own `session_id` and the text and `project_path` of one of the id's stored
+rows, and each other stored row of the id its own row with no session.
+That stored row is the first, in the order the parser reads
 them, that `--since`, `--until` and `--match` keep, or the first when they
 keep none or none is given. Evidence may have been altered, and this keeps
 a planted earlier row with a real message's id from moving that message's
