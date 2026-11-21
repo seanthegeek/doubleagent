@@ -97,7 +97,7 @@ func opencodeGrowth() growthSet {
 // opencodeCases returns the cases of the stores of one OpenCode build.
 func opencodeCases(layout opencodeLayout) []growthCase {
 	var cases []growthCase
-	for _, group := range [][]growthCase{opencodeDatabaseCases(layout), opencodeJoinCases(layout), opencodeMoreDatabaseCases(layout),
+	for _, group := range [][]growthCase{opencodeDatabaseCases(layout), opencodeRepeatCases(layout), opencodeJoinCases(layout), opencodeMoreDatabaseCases(layout),
 		opencodeSessionFileCases(layout), opencodeMessageFileCases(layout), opencodeMoreMessageFileCases(layout),
 		opencodeOldLayoutCases(layout),
 		opencodeStateCases(layout)} {
@@ -141,6 +141,50 @@ func opencodeDatabaseCases(layout opencodeLayout) []growthCase {
 			return one(rel, database(t, append([]sqlitetest.Table{opencodeSessionTable("session_v2",
 				[][]any{session})}, opencodeV2Tables(messages, parts)...)...))
 		}},
+	}
+}
+
+// opencodeRepeatedSessions returns a session table (session or
+// session_v2) that holds the session id n times, each row in its own
+// directory: the table declares no key, so it can.
+func opencodeRepeatedSessions(name string, n int) sqlitetest.Table {
+	return sqlitetest.Table{Name: name, SQL: "CREATE TABLE " + name + " (id text, project_id text, directory text, " +
+		"title text, time_created integer)", Rows: rows(n, func(i int) []any {
+		return []any{opencodeSession, nil, "/work/" + numbered("proj_", i), "t", 1700000000000 + i}
+	})}
+}
+
+// opencodeRepeatCases returns the cases of a database whose session id is
+// repeated: in session_v2 with a message each, and in either table with a
+// message id repeated too and the parts of that id.
+func opencodeRepeatCases(layout opencodeLayout) []growthCase {
+	rel := layout.data + "/" + layout.database
+	assistant := func(i int) []any {
+		return []any{"msg_1", opencodeSession, "assistant", i, 1700000001000 + i, `{"content":[]}`}
+	}
+	return []growthCase{
+		{kind: "database", shape: shapeSharedID + " (2.x session rows)", n: 128, files: func(t *testing.T, n int) []growthFile {
+			messages := rows(n, func(i int) []any {
+				return []any{numbered("msg_", i), opencodeSession, "user", i, 1700000001000 + i, `{"text":"hi"}`}
+			})
+			return one(rel, database(t, append([]sqlitetest.Table{opencodeRepeatedSessions("session_v2", n)},
+				opencodeV2Tables(messages, nil)...)...))
+		}},
+		{kind: "database", shape: shapeSharedID + " (1.x session and message ids)", n: 128,
+			files: func(t *testing.T, n int) []growthFile {
+				messages := rows(n, func(i int) []any { return opencodeUserMessage("msg_1", i) })
+				parts := rows(n, func(i int) []any { return opencodeTextPart(numbered("prt_", i), "msg_1", i) })
+				return one(rel, database(t, append([]sqlitetest.Table{opencodeRepeatedSessions("session", n)},
+					opencodeV1Tables(messages, parts)...)...))
+			}},
+		{kind: "database", shape: shapeSharedID + " (2.x session and message ids)", n: 128,
+			files: func(t *testing.T, n int) []growthFile {
+				parts := rows(n, func(i int) []any {
+					return []any{numbered("prt_", i), "msg_1", opencodeSession, "text", i, `{"text":"part"}`}
+				})
+				return one(rel, database(t, append([]sqlitetest.Table{opencodeRepeatedSessions("session_v2", n)},
+					opencodeV2Tables(rows(n, assistant), parts)...)...))
+			}},
 	}
 }
 
