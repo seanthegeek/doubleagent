@@ -28,8 +28,8 @@ func repeatsChat(prompts []string, logs string) string {
 // Every history message whose id an earlier message has gives its own rows
 // at the time and source line of the log item of the id, after the item's,
 // and one problem row per agent counts them; the first message joins the
-// item. With no log item of the id, no message of it is shown, and the
-// problem row still counts them.
+// item. With no log item of the id, every message of it gives its rows
+// without a time, as a trimmed log's history does.
 func TestAHistoryMessageRepeatingAnIDGivesItsOwnRowsAndAProblem(t *testing.T) {
 	const item = `{"no":7,"type":"user","id":"u","timestamp":1780272000,"content":""}`
 	tests := []struct {
@@ -40,13 +40,14 @@ func TestAHistoryMessageRepeatingAnIDGivesItsOwnRowsAndAProblem(t *testing.T) {
 	}{
 		{"one later message", []string{"FIRST", "LATER"}, item, []string{"user 7 FIRST", "user 7 LATER",
 			"system 0 parser: history of agent 0 holds 1 message repeating an earlier message's id; " +
-				"each gives its own rows at a log item of the id"}},
+				"each gives its own rows, at a log item of the id or, with no such item, without a time"}},
 		{"two later messages", []string{"FIRST", "SECOND", "THIRD"}, item, []string{"user 7 FIRST",
 			"user 7 SECOND", "user 7 THIRD", "system 0 parser: history of agent 0 holds 2 messages repeating " +
-				"an earlier message's id; each gives its own rows at a log item of the id"}},
-		{"no log item of the id", []string{"FIRST", "LATER"}, "", []string{"system 0 parser: history of " +
-			"agent 0 holds 1 message repeating an earlier message's id; each gives its own rows at a log item " +
-			"of the id"}},
+				"an earlier message's id; each gives its own rows, at a log item of the id or, with no such item, " +
+				"without a time"}},
+		{"no log item of the id", []string{"FIRST", "LATER"}, "", []string{"user 0 FIRST", "user 0 LATER",
+			"system 0 parser: history of agent 0 holds 1 message repeating an earlier message's id; " +
+				"each gives its own rows, at a log item of the id or, with no such item, without a time"}},
 		{"an id with one message gives no problem", []string{"FIRST"}, item, []string{"user 7 FIRST"}},
 	}
 	for _, test := range tests {
@@ -61,8 +62,12 @@ func TestAHistoryMessageRepeatingAnIDGivesItsOwnRowsAndAProblem(t *testing.T) {
 				if row.Text == "chat start" {
 					return
 				}
-				if row.TurnType == timeline.TurnUser && row.TimestampUTC != "2026-06-01T00:00:00.000Z" {
-					t.Errorf("row %q is at %q, want the log item's time", row.Text, row.TimestampUTC)
+				want := "2026-06-01T00:00:00.000Z"
+				if test.logs == "" {
+					want = ""
+				}
+				if row.TurnType == timeline.TurnUser && row.TimestampUTC != want {
+					t.Errorf("row %q is at %q, want %q", row.Text, row.TimestampUTC, want)
 				}
 				got = append(got, row.TurnType+" "+strconv.Itoa(row.SourceLine)+" "+row.Text)
 			})

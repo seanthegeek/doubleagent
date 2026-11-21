@@ -357,8 +357,9 @@ type chat struct {
 	base     timeline.Row
 	history  map[string]historyEntry
 	// later holds the history messages whose id an earlier message has, in
-	// history order.
-	later []historyEntry
+	// history order, and trimmed says the log was cut to its last items.
+	later   []historyEntry
+	trimmed bool
 	// fileRefs holds the message file each history id's message names, and
 	// fileTexts the text each file gave, read at most once.
 	fileRefs  map[string]fileRef
@@ -498,9 +499,9 @@ func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
 	}
 	c.startRows(document, data)
 	logs := c.logItems(document)
-	trimmed := len(logs) >= logSize
-	ordered := c.agentHistories(document, trimmed)
-	if trimmed {
+	c.trimmed = len(logs) >= logSize
+	ordered := c.agentHistories(document, c.trimmed)
+	if c.trimmed {
 		c.trimmedRows(logs, ordered)
 	}
 	c.logRows(logs)
@@ -614,7 +615,8 @@ func repeatsText(agent jsonvalue.Value, count int) string {
 		messages = "1 message"
 	}
 	return "history of agent " + agent.Text() + " holds " + messages +
-		" repeating an earlier message's id; each gives its own rows at a log item of the id"
+		" repeating an earlier message's id; each gives its own rows, at a log item of the id or, " +
+		"with no such item, without a time"
 }
 
 // trimmedRows emits, for a chat whose log was cut to its last items, the
@@ -980,36 +982,50 @@ func (c *chat) logRows(logs []jsonvalue.Value) {
 }
 
 // laterRows emits the rows of each history message whose id an earlier
-// message has, as a history message's rows (historyRows), when a log item
-// names the id: each a member of the group the id's items are parents of
-// (timeline.Member), at the time and source line of the item the group
-// goes with, else at those of the id's first log item. A message no log
-// item names is shown only among a trimmed log's rows (trimmedRows). Such a
-// message holds no place in the chat's sequence of models, so its model
-// row names its own model alone (a tracker of its own), and the chat's
-// tracker is left as the log left it.
+// message has, as a history message's rows (laterMessageRows). When a log
+// item names the id, each row is a member of the group the id's items are
+// parents of (timeline.Member), at the time and source line of the item
+// the group goes with, else at those of the id's first log item. When none
+// does, every message of the id gives its rows without a time, as a
+// trimmed log's history does; in a trimmed log trimmedRows has given them.
 func (c *chat) laterRows() {
-	emit, models := c.emit, c.models
-	defer func() { c.emit, c.models = emit, models }()
+	unnamed := map[string]bool{}
 	for _, entry := range c.later {
 		itemID := entry.message.Get("id").Text()
 		place, named := c.firstItems[itemID]
 		if !named {
+			if !c.trimmed {
+				if !unnamed[itemID] {
+					unnamed[itemID] = true
+					parser.EmitAll(c.emit, c.laterMessageRows(c.history[itemID]))
+				}
+				parser.EmitAll(c.emit, c.laterMessageRows(entry))
+			}
 			continue
 		}
-		var rows []timeline.Row
-		c.emit = func(row timeline.Row) { rows = append(rows, row) }
-		c.models = parser.Tracker{}
-		c.historyRows(entry.agent, entry.message)
-		for _, row := range rows {
+		for _, row := range c.laterMessageRows(entry) {
 			if c.parented[itemID] {
 				c.groups[c.keys[itemID]].Member(&row, timeline.TakeTime|timeline.TakeSourceLine)
 			} else {
 				row.TimestampUTC, row.SourceLine = place.timestamp, place.line
 			}
-			emit(row)
+			c.emit(row)
 		}
 	}
+}
+
+// laterMessageRows returns the rows of a history message of a repeated id
+// (historyRows). Such a message holds no place in the chat's sequence of
+// models, so its model row names its own model alone (a tracker of its
+// own), and the chat's tracker is left as the log left it.
+func (c *chat) laterMessageRows(entry historyEntry) []timeline.Row {
+	emit, models := c.emit, c.models
+	defer func() { c.emit, c.models = emit, models }()
+	var rows []timeline.Row
+	c.emit = func(row timeline.Row) { rows = append(rows, row) }
+	c.models = parser.Tracker{}
+	c.historyRows(entry.agent, entry.message)
+	return rows
 }
 
 // userLogRow emits a user log item, with the text the history holds for it

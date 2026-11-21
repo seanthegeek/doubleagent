@@ -727,10 +727,13 @@ A history message whose id an earlier message of the chat has, in any agent's hi
 written by damage or an edit; the first is the one the log items join. Each later one gives its own
 rows, those of a message a trimmed log no longer holds, at the time and source line of a log item of
 the id: the item the id's group goes with (the first the filters keep of the items that show the
-group's text), or the id's first log item when its items show only their own `content`. A later
-message whose id no log item names is shown only among a trimmed log's rows. Each agent whose
-history holds such messages gives one row counting them, after the chat's other rows,
-`parser: history of agent <n> holds <count> messages repeating an earlier message's id; each gives its own rows at a log item of the id`
+group's text), or the id's first log item when its items show only their own `content`. When no log
+item names the id, every message of it, the first included, gives its rows with an empty timestamp,
+as a trimmed log's history messages do, since neither the log nor the history gives it a time; a
+trimmed log's rows already hold them. A history message whose id is not repeated and that no log
+item names is still shown only in a trimmed log. Each agent whose history holds such messages gives
+one row counting them, after the chat's other rows,
+`parser: history of agent <n> holds <count> messages repeating an earlier message's id; each gives its own rows, at a log item of the id or, with no such item, without a time`
 (`1 message` for one).
 
 Paths: `chat.json`, its `messages/<n>.txt` and the legacy `<ctxid>.json`

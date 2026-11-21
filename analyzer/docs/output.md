@@ -1464,8 +1464,10 @@ attributes. What the rows of the id are depends on the agent:
   file's text or that result, not by its own `content`, which no output
   shows. A history message repeating the id of
   an earlier one, which only damage or an edit writes, gives its own rows
-  at the time of the item the id's rows go with, and a `parser:` row
-  counts such messages.
+  at the time of the item the id's rows go with, its `model:` row naming
+  its own model alone. When no log item names the id, every message of it
+  gives its rows with no time, as a trimmed log's history does. A
+  `parser:` row counts such messages.
 - **Codex CLI and Open Interpreter**, whose stores one reader reads, a
   `state_5.sqlite` `threads` row repeating a thread id: the thread's
   `guardian_review_feedback` rows and its rows in the log databases and
