@@ -286,8 +286,15 @@ func (r *timelineRun) parse(ctx context.Context) error {
 		return err
 	}
 	r.problems, r.problemSecrets = result.Problems, result.ProblemSecrets
+	choice := r.choose(result)
+	timeline.Place(result.Primary, choice)
+	for i := range result.Secondary {
+		placed := []timeline.Row{result.Secondary[i].Row}
+		timeline.Place(placed, choice)
+		result.Secondary[i].Row = placed[0]
+	}
 	r.rows, r.dropped = dedup.Deduplicate(result.Primary, result.Secondary, r.registry.Hooks())
-	r.rows = r.attach(result, r.rows)
+	r.rows = timeline.Attach(r.rows, choice)
 	r.counts = countRows(r.rows)
 	timeline.SortRows(r.rows)
 	parsed := map[string]bool{}
@@ -306,34 +313,41 @@ func (r *timelineRun) parse(ctx context.Context) error {
 	return nil
 }
 
-// attach settles the parent each group of a repeated id goes with
+// choose settles the parent each group of a repeated id goes with
 // (timeline.Group): the first the filter keeps of the rows as the parsers
 // gave them, before deduplication, so a parent shown by its primary
-// store's copy still counts. That pass counts nothing; the filter then
-// runs for real over the rows as attached. Without a filter every group
-// goes with its first parent.
-func (r *timelineRun) attach(result parsers.Result, rows []timeline.Row) []timeline.Row {
-	if !timeline.Grouped(rows) {
-		return rows
+// store's copy still counts. That pass counts nothing; the rows are then
+// given their attributes (timeline.Place) before deduplication compares
+// them, and the filter runs for real over the rows as attached. Without a
+// filter, or a group, every group goes with its first parent.
+func (r *timelineRun) choose(result parsers.Result) timeline.Choice {
+	if !r.filter.Active() || !timeline.Grouped(result.Primary) && !groupedSecondary(result.Secondary) {
+		return nil
 	}
-	var choice timeline.Choice
-	if r.filter.Active() {
-		probe := *r.filter
-		given := make([]timeline.Row, 0, len(result.Primary)+len(result.Secondary))
-		given = append(given, result.Primary...)
-		for _, secondary := range result.Secondary {
-			given = append(given, secondary.Row)
-		}
-		var tested timeline.Tested
-		if probe.Since != "" || probe.Until != "" {
-			tested |= timeline.TestedTime
-		}
-		if len(probe.Patterns) > 0 {
-			tested |= timeline.TestedText
-		}
-		choice = timeline.Choose(probe.Apply(given), tested)
+	probe := *r.filter
+	given := make([]timeline.Row, 0, len(result.Primary)+len(result.Secondary))
+	given = append(given, result.Primary...)
+	for _, secondary := range result.Secondary {
+		given = append(given, secondary.Row)
 	}
-	return timeline.Attach(rows, choice)
+	var tested timeline.Tested
+	if probe.Since != "" || probe.Until != "" {
+		tested |= timeline.TestedTime
+	}
+	if len(probe.Patterns) > 0 {
+		tested |= timeline.TestedText
+	}
+	return timeline.Choose(probe.Apply(given), tested)
+}
+
+// groupedSecondary reports whether any secondary row belongs to a group.
+func groupedSecondary(rows []dedup.Secondary) bool {
+	for _, secondary := range rows {
+		if secondary.Row.Group != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // countRows returns the number of rows per agent and turn type.

@@ -324,6 +324,31 @@ func LastParents(rows []Row) Choice {
 	return choice
 }
 
+// Place gives each member among rows the attributes of the parent its
+// group goes with, and each row with two texts the one of its case, in
+// place, keeping every row and its place in its group: deduplication then
+// compares the rows as Attach shows them, and Attach, which does the same
+// again, leaves out the rows of a form not shown.
+func Place(rows []Row, choice Choice) {
+	for i := range rows {
+		ref := rows[i].Group
+		if ref == nil || len(ref.group.parents) == 0 {
+			continue
+		}
+		chosen := choice[ref.group]
+		switch {
+		case ref.parent < 0:
+			take(&rows[i], ref.group.parents[chosen], ref.takes)
+		case ref.texts != nil:
+			text := ref.texts[1]
+			if ref.parent == chosen {
+				text = ref.texts[0]
+			}
+			rows[i].Text, rows[i].Shared = text.Text, text.Shared
+		}
+	}
+}
+
 // Attach gives each grouped row its place once choice is settled: a
 // member takes its attributes from the parent its group goes with, a row
 // of a form not shown is left out, and a row with two texts holds the one

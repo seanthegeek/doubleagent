@@ -615,3 +615,28 @@ func TestAHiddenRowCountsOnlyWhenWhatReplacesItCarriesWhatTheFilterTested(t *tes
 		})
 	}
 }
+
+// Placing gives the members the chosen parent's attributes and the rows
+// with two texts the text of their case, and keeps every row in its group,
+// so attaching after it gives what attaching alone does.
+func TestPlacingKeepsEveryRowAndAttachingAfterItIsTheSame(t *testing.T) {
+	choose := func(rows []Row) Choice { return Choose(rows[3:4], TestedText) }
+	placed := memberRows()
+	Place(placed, choose(placed))
+	if got, want := summary(placed[1:3]), []string{ownTime + " s-new /new branch-new model-new dated member",
+		newTime + " s-new /new branch-new model-new undated member"}; !slices.Equal(got, want) {
+		t.Errorf("placed members %q, want %q", got, want)
+	}
+	if len(placed) != 4 || !Grouped(placed) {
+		t.Errorf("placing left %d rows, grouped %v", len(placed), Grouped(placed))
+	}
+	alone := memberRows()
+	if got, want := summary(Attach(placed, choose(placed))), summary(Attach(alone, choose(alone))); !slices.Equal(got, want) {
+		t.Errorf("attached after placing %q, alone %q", got, want)
+	}
+	texts := textRows(func(string) string { return "HISTORY TEXT" })
+	Place(texts, Choose(texts[1:2], TestedText))
+	if texts[0].Text != "old own" || texts[1].Text != "HISTORY TEXT" {
+		t.Errorf("placed texts %q and %q", texts[0].Text, texts[1].Text)
+	}
+}

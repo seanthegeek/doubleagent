@@ -169,3 +169,62 @@ func TestEveryStartRowOfARepeatedTabbyIDShowsTheIDsProject(t *testing.T) {
 		})
 	}
 }
+
+// tabbyBackup returns a Tabby backup database holding the repeated page's
+// later row alone, with its undated section, which a page that is not
+// repeated dates at the page's time.
+func tabbyBackup(t *testing.T) string {
+	t.Helper()
+	return buildDatabase(t,
+		sqlitetest.Table{Name: "pages", SQL: "CREATE TABLE pages (id INTEGER, title TEXT, content TEXT, " +
+			"created_at TIMESTAMP)", Rows: [][]any{{2, "new page", "new body", "2026-06-01 00:00:00"}}},
+		sqlitetest.Table{Name: "page_sections", SQL: "CREATE TABLE page_sections (id INTEGER, page_id INTEGER, " +
+			"title TEXT, content TEXT, position INTEGER, created_at TIMESTAMP)", Rows: [][]any{
+			{1, 2, "undated section", "text", 0, nil}}})
+}
+
+// Deduplication compares a repeated id's rows as they are shown: with the
+// time of the stored row the filter chose, the undated section of the
+// database is the backup's copy of it, shown once; without a filter, at
+// the first row's time, the backup's later copy is its own row.
+func TestDeduplicationComparesARepeatedIDsRowsWithTheChosenParentsTime(t *testing.T) {
+	const section = "undated section\n\ntext"
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter the backup's later copy is recovered", nil, []string{
+			"2026-01-01T00:00:00.000Z  " + section, "2026-06-01T00:00:00.000Z yes " + section}},
+		{"a window that keeps the later row shows the section once", []string{"--since", "2026-03-01"},
+			[]string{"2026-06-01T00:00:00.000Z  " + section}},
+		{"a pattern only the later row matches shows the section once", []string{"--match", "new page|section"},
+			[]string{"2026-06-01T00:00:00.000Z  " + section}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			work := t.TempDir()
+			collection := writeCollection(t, filepath.Join(work, "col"),
+				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, []collectedFile{
+					{"alice", "/home/alice", "tabby", ".tabby/ee/db.sqlite", tabbyRepeatedDatabase(t)},
+					{"alice", "/home/alice", "tabby", ".tabby/ee/db.backup-2026.sqlite", tabbyBackup(t)}})
+			env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+				Parsers: parsers.New, Version: "0.0.0-test"}
+			output := filepath.Join(work, "out")
+			args := append(append([]string{"timeline"}, test.options...), collection, output)
+			if code, _, stderr := runCommand(env, args...); code != ExitFound {
+				t.Fatalf("%q exited %d: %s", args, code, stderr)
+			}
+			var got []string
+			for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc",
+				"recovered", "text") {
+				if strings.Contains(row, "undated section") {
+					got = append(got, row)
+				}
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want %q", got, test.want)
+			}
+		})
+	}
+}
