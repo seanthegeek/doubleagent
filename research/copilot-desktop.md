@@ -1247,6 +1247,11 @@ stripped, nothing repaired; one that cannot be read is one row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `source_line` 0, with the
 session id from its path.
 
+A row naming a key no stored row holds, or a NULL key, is shown with an empty `project_path`: a
+session whose alias row is missing (as a general chat's is), names no workspace or a NULL one, or
+whose workspace names no project or a NULL one, and a workspace or worktree whose project is
+missing or NULL. No row says the key is missing, since a general chat has no alias at all.
+
 A `data.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
 is not a SQLite database is `parser: not a SQLite database`.

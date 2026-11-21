@@ -157,3 +157,40 @@ func TestTheFirstStoredRowOfARepeatedKeyIsTheOldest(t *testing.T) {
 		t.Errorf("rows %q, want %q", rows, want)
 	}
 }
+
+// A row naming a key no stored row holds, or a NULL one, is shown with no
+// project: a session's alias, workspace or project missing or NULL leaves
+// its row in place with an empty project path, and so does a workspace's
+// or worktree's project; no row says the key is missing, since a general
+// chat has no alias at all.
+func TestARowNamingAMissingKeyIsShownWithNoProject(t *testing.T) {
+	const session = "s1  desktop session: t type= model=- auto_approve= permission_mode=- remote_control= archived=false"
+	project := [][]any{{"p1", "proj", "/proj", "2026-01-01T00:00:00Z"}}
+	workspace := func(projectID any) [][]any { return [][]any{{"w1", projectID, "w", "2026-01-01T00:00:00Z"}} }
+	alias := func(workspaceID any) [][]any { return [][]any{{"s1", workspaceID, "2026-01-01T00:00:00Z"}} }
+	sessions := [][]any{{"s1", "t", "2026-01-02T00:00:00Z"}}
+	tests := []struct {
+		name                string
+		workspaces, aliases [][]any
+		want                []string
+	}{
+		{"no alias", workspace("p1"), nil, []string{" /proj workspace: w type= branch=", session}},
+		{"an alias naming no workspace", workspace("p1"), alias("wX"), []string{" /proj workspace: w type= branch=", session}},
+		{"an alias naming a NULL workspace", workspace("p1"), alias(nil), []string{" /proj workspace: w type= branch=", session}},
+		{"a workspace naming no project", workspace("pX"), alias("w1"), []string{"  workspace: w type= branch=", session}},
+		{"a workspace naming a NULL project", workspace(nil), alias("w1"), []string{"  workspace: w type= branch=", session}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var rows []string
+			for _, row := range parseTables(t, keysTables("", project, test.workspaces, test.aliases, sessions)) {
+				if strings.Contains(row, "workspace:") || strings.Contains(row, "desktop session:") {
+					rows = append(rows, row)
+				}
+			}
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows %q, want %q", rows, test.want)
+			}
+		})
+	}
+}
