@@ -31,7 +31,9 @@ type Takes uint8
 // The attributes a member can take. TakeTime is for a member whose time
 // is the parent's because it has none of its own. TakeText is for a member
 // whose text is the parent's row's, with its shared texts, as that row
-// held them when the parent was registered.
+// held them when the parent was registered. TakeSourceLine is for a member
+// whose source_line names the stored row its group goes with, as a member
+// whose text is that row's does.
 const (
 	TakeTime Takes = 1 << iota
 	TakeSession
@@ -39,6 +41,7 @@ const (
 	TakeBranch
 	TakeModel
 	TakeText
+	TakeSourceLine
 )
 
 // Form says when one of a parent's rows is shown.
@@ -128,6 +131,9 @@ func take(row *Row, parent Row, takes Takes) {
 	}
 	if takes&TakeText != 0 {
 		row.Text, row.Shared = parent.Text, parent.Shared
+	}
+	if takes&TakeSourceLine != 0 {
+		row.SourceLine = parent.SourceLine
 	}
 }
 

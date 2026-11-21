@@ -3,6 +3,7 @@ package timeline
 import (
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -356,5 +357,56 @@ func TestAMemberTakingTextReadsAsWithoutAFilterBeforeAttaching(t *testing.T) {
 	if got, want := linkSummary(rows[2:]), []string{"t1 /w/old worktree /w/old",
 		"t2 /w/old worktree /w/old"}; !slices.Equal(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// sourceLines returns what a filter keeps of a group of two stored copies
+// of one record, at source lines 1 and 2, each with its own row shown only
+// when the group does not go with it, and two links of the record at the
+// first copy's line, as a join gives them, taking its text and what takes
+// adds from the copy the group goes with. Each row reads "source line
+// text", sorted.
+func sourceLines(takes Takes, rowFilter *filter) []string {
+	group := NewGroup()
+	var rows []Row
+	for line, path := range []string{"/w/old", "/w/new"} {
+		own := Row{TimestampUTC: oldTime, Text: "worktree " + path, SourceFile: "f", SourceLine: line + 1}
+		group.Parent(&own).Row(&own, WhenNotChosen)
+		rows = append(rows, own)
+	}
+	for range 2 {
+		link := Row{TimestampUTC: oldTime, SourceFile: "f", SourceLine: 1}
+		group.Member(&link, takes|TakeText)
+		rows = append(rows, link)
+	}
+	var lines []string
+	for _, row := range settle(rows, rowFilter) {
+		lines = append(lines, strconv.Itoa(row.SourceLine)+" "+row.Text)
+	}
+	slices.Sort(lines)
+	return lines
+}
+
+func TestAMemberTakingTheSourceLineNamesTheParentTheGroupGoesWith(t *testing.T) {
+	newPattern := &filter{pattern: regexp.MustCompile("/w/new")}
+	tests := []struct {
+		name   string
+		takes  Takes
+		filter *filter
+		want   []string
+	}{
+		{"without a filter the links name the first parent's line", TakeSourceLine, nil,
+			[]string{"1 worktree /w/old", "1 worktree /w/old", "2 worktree /w/new"}},
+		{"a pattern only the second parent matches gives the links its line with its text", TakeSourceLine,
+			newPattern, []string{"2 worktree /w/new", "2 worktree /w/new"}},
+		{"a link not taking the source line keeps its own beside the second parent's text", 0, newPattern,
+			[]string{"1 worktree /w/new", "1 worktree /w/new"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := sourceLines(test.takes, test.filter); !slices.Equal(got, test.want) {
+				t.Errorf("got  %q\nwant %q", got, test.want)
+			}
+		})
 	}
 }
