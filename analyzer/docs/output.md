@@ -1553,6 +1553,9 @@ attributes. What the rows of the id are depends on the agent:
   pages and the rows of the events that name the user; those name the
   user by id, and each stored row gives a `parser:` row naming its own
   label, so a planted row cannot put its label on the user's threads.
+  An `integrations` row repeating an integration id is shown the same
+  way: the cached repositories name the integration by id, and each
+  stored row gives a `parser:` row with its own name and kind.
 - **Cline and Roo Code**, whose task files one reader reads, a task
   index entry repeating a task id (Cline's `state/taskHistory.json`, Roo
   Code's `tasks/_index.json` for a task with no `history_item.json`;

@@ -574,29 +574,59 @@ func (s *store) userEvents() error {
 	})
 }
 
-// integrations emits the source-host integrations, then the repositories
-// cached from them. An integration's access_token goes through
-// parser.SecretText.
-func (s *store) integrations() error {
-	type named struct{ name, kind string }
-	names, collation := map[string]named{}, s.idCollation("integrations")
+// integrationNamed is an integration's name and kind, as the rows of the
+// repositories cached from it name it.
+type integrationNamed struct{ name, kind string }
+
+// integrationNames emits the row of each integration and returns the
+// name and kind of each by the key of its id, under the collation the id
+// column declares, which it returns too. An id is the table's key, so a
+// second row of one is damage: the name and kind are text inside the rows
+// of the repositories, rows of other ids, so no stored row of such an id
+// lends them (the repositories name the integration by id), and each
+// stored row gives a `parser:` row with its own name and kind.
+func (s *store) integrationNames() (map[string]integrationNamed, string, error) {
+	names, collation := map[string]integrationNamed{}, s.idCollation("integrations")
+	var stored []sqlitefile.Row
+	counts := map[string]int{}
 	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
+		stored = append(stored, integration)
+		counts[parser.CollatedKey(integration.Get("id"), collation)]++
+	})
+	for _, integration := range stored {
 		kind, apiBase := parser.NonEmptyColumn(integration.Get("kind")), parser.NonEmptyColumn(integration.Get("api_base"))
 		host := integrationHosts()[kind]
 		if host == "" {
 			host = urlHostname(apiBase)
 		}
 		name := parser.NonEmptyColumn(integration.Get("display_name"))
-		// Each repository's row repeats its integration's name and kind.
-		if key := parser.CollatedKey(integration.Get("id"), collation); key != "" {
-			names[key] = named{s.carried.Cut("integration name", name), s.carried.Cut("integration kind", kind)}
-		}
-		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),
+		spec := rowSpec{line: parser.ColumnLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
 			text: "source host: " + cmp.Or(host, "-") + " integration " + cmp.Or(name, "-") + " kind=" + cmp.Or(kind, "-") +
 				" api_base=" + cmp.Or(apiBase, "-") + accessToken(s.artifact, integration.Get("access_token")) +
-				" (account not recorded; from integrations table, created_at)"}))
-	})
+				" (account not recorded; from integrations table, created_at)"}
+		s.emit(s.parser.row(s.artifact, spec))
+		// Each repository's row repeats its integration's name and kind.
+		named := integrationNamed{s.carried.Cut("integration name", name), s.carried.Cut("integration kind", kind)}
+		switch key := parser.CollatedKey(integration.Get("id"), collation); {
+		case key == "":
+		case counts[key] == 1:
+			names[key] = named
+		default:
+			spec.text = parser.ProblemPrefix + "integrations holds " + strconv.Itoa(counts[key]) +
+				" rows of this row's id; the repositories cached from it name the integration by id alone, " +
+				"and this row's name is " + cmp.Or(named.name, "-") + " and its kind " + cmp.Or(named.kind, "-")
+			s.emit(s.parser.row(s.artifact, spec))
+		}
+	}
+	return names, collation, err
+}
+
+// integrations emits the source-host integrations, then the repositories
+// cached from them. An integration's access_token goes through
+// parser.SecretText.
+func (s *store) integrations() error {
+	names, collation, err := s.integrationNames()
 	if err != nil || !s.tables.Has("provided_repositories") {
 		return err
 	}

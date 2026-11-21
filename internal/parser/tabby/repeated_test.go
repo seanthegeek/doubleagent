@@ -3,7 +3,10 @@ package tabby
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
 // A thread or page id is its table's key, so a repeated one is damage: the
@@ -43,5 +46,33 @@ func TestARepeatedThreadOrPageIDShowsItsChildrenOnce(t *testing.T) {
 					len(want), want[len(want)-3:])
 			}
 		})
+	}
+}
+
+// An integration id is its table's key, so a repeated one is damage. Its
+// name and kind are text inside the rows of the repositories cached from
+// it, rows of other ids, so no stored row lends them: the repositories
+// name the integration by id, and each stored row gives its own row and a
+// parser: row with its own name and kind.
+func TestARepeatedIntegrationIDLendsNoStoredRowsName(t *testing.T) {
+	rows := parseTables(t,
+		sqlitetest.Table{Name: "integrations", SQL: "CREATE TABLE integrations (id INTEGER, kind TEXT, " +
+			"display_name TEXT, api_base TEXT, created_at TEXT)", Rows: [][]any{
+			{1, "github", "Planted Hub", nil, "2026-01-01 00:00:00"},
+			{1, "gitlab", "Real Lab", nil, "2026-06-01 00:00:00"}}},
+		sqlitetest.Table{Name: "provided_repositories", SQL: "CREATE TABLE provided_repositories (id INTEGER, " +
+			"integration_id INTEGER, name TEXT, git_url TEXT, active INTEGER, updated_at TEXT)",
+			Rows: [][]any{{1, 1, "r", "https://example.com/r.git", 1, "2026-06-02 00:00:00"}}})
+	const notice = "parser: integrations holds 2 rows of this row's id; the repositories cached from it name " +
+		"the integration by id alone, and this row's name is "
+	want := []string{
+		"source host: github.com integration Planted Hub kind=github api_base=- (account not recorded; " +
+			"from integrations table, created_at)", notice + "Planted Hub and its kind github",
+		"source host: gitlab.com integration Real Lab kind=gitlab api_base=- (account not recorded; " +
+			"from integrations table, created_at)", notice + "Real Lab and its kind gitlab",
+		"source host repository: https://example.com/r.git type=- name=r active=yes (integration " +
+			"integration_id=1; from provided_repositories table, updated_at)"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 }

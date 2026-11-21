@@ -65,22 +65,14 @@ func tabbyMessages(n int, attachment string) [][]any {
 
 // tabbyGrowth returns the tabby growth set.
 func tabbyGrowth() growthSet {
-	return growthSet{parser: "tabby", cases: slices.Concat(tabbyDatabaseCases(), tabbyCarriedCases(),
+	return growthSet{parser: "tabby", cases: slices.Concat(tabbyDatabaseCases(), tabbyRepeatedKeyCases(), tabbyCarriedCases(),
 		tabbyEventCases(), tabbyFileCases())}
 }
 
-// tabbyDatabaseCases returns the cases of the server database that hold no
-// long value.
-func tabbyDatabaseCases() []growthCase {
+// tabbyRepeatedKeyCases returns the cases of a server database whose
+// users or integrations table repeats an id that many rows name.
+func tabbyRepeatedKeyCases() []growthCase {
 	return []growthCase{
-		{kind: "db.sqlite", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
-			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
-				"threads":         rows(n, func(i int) []any { return []any{1, 0, 1, tabbyTime, nil} }),
-				"thread_messages": tabbyMessages(n, `{"code":[{"git_url":"https://g/r","filepath":"a.go"}]}`),
-				"pages":           rows(n, func(i int) []any { return []any{1, 1, "t", "c", tabbyTime} }),
-				"page_sections":   rows(n, func(i int) []any { return []any{i, 1, "s", "c", i, tabbyTime} }),
-			}))
-		}},
 		// Each stored row of a repeated user id gives its own rows, and the
 		// threads and events naming the user name it by id alone.
 		{kind: "db.sqlite", shape: shapeSharedID + " (users named by many threads and events)",
@@ -95,6 +87,34 @@ func tabbyDatabaseCases() []growthCase {
 					}),
 				}))
 			}},
+		// Each stored row of a repeated integration id gives its own rows,
+		// and the repositories cached from it name it by id alone.
+		{kind: "db.sqlite", shape: shapeSharedID + " (integrations named by many repositories)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
+					"integrations": rows(n, func(i int) []any {
+						return []any{1, "github", numbered("hub", i), nil, tabbyTime}
+					}),
+					"provided_repositories": rows(n, func(i int) []any {
+						return []any{i, 1, numbered("r", i), "https://g/" + numbered("r", i), 1, tabbyTime}
+					}),
+				}))
+			}},
+	}
+}
+
+// tabbyDatabaseCases returns the cases of the server database that hold no
+// long value.
+func tabbyDatabaseCases() []growthCase {
+	return []growthCase{
+		{kind: "db.sqlite", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
+			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
+				"threads":         rows(n, func(i int) []any { return []any{1, 0, 1, tabbyTime, nil} }),
+				"thread_messages": tabbyMessages(n, `{"code":[{"git_url":"https://g/r","filepath":"a.go"}]}`),
+				"pages":           rows(n, func(i int) []any { return []any{1, 1, "t", "c", tabbyTime} }),
+				"page_sections":   rows(n, func(i int) []any { return []any{i, 1, "s", "c", i, tabbyTime} }),
+			}))
+		}},
 		{kind: "db.sqlite", shape: shapeSharedID + " with undated sections", files: func(t *testing.T, n int) []growthFile {
 			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
 				"pages":         rows(n, func(i int) []any { return []any{1, 1, "t", "c", tabbyTime} }),

@@ -756,6 +756,16 @@ stored row of the id gives, after its `tabby user:` row, one row at its `created
 `parser: users holds <n> rows of this row's id; the rows of its threads, pages and events name the user by id alone, and this row's label is <label>`
 (`-` for a row with no email or name).
 
+An integration id is the `integrations` table's key (`INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`,
+[schema.sql:142-143](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L142-L143)),
+so only damage writes two rows of one. An integration's name and kind are text inside the rows of
+the repositories cached from it, rows of other ids, so when a damaged `integrations` table holds an
+id more than once no stored row lends them: those rows give `type=-` and
+`(integration integration_id=<id>; ...)`, as for an integration no row holds, and each stored row of
+the id gives, after its `source host:` row, one row at its `created_at`,
+`parser: integrations holds <n> rows of this row's id; the repositories cached from it name the integration by id alone, and this row's name is <name> and its kind <kind>`
+(`-` for an empty name or kind).
+
 #### Fixtures
 
 ```sql
