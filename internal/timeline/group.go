@@ -85,7 +85,10 @@ type GroupRef struct {
 }
 
 // Parent registers a new parent of the group, with the attributes row
-// holds now, and makes row one of its rows, shown in either case.
+// holds now, and makes row one of its rows, shown in either case. The kit
+// that runs a parse bounds the fields of that copy as it bounds those of
+// an emitted row, once the parse ends (Bound), so a member takes them as
+// the output writes the parent's own rows.
 func (g *Group) Parent(row *Row) *Parent {
 	parent := &Parent{group: g, index: len(g.parents)}
 	g.parents = append(g.parents, *row)
@@ -111,6 +114,21 @@ func (p *Parent) Texts(row *Row, chosen, notChosen RowText) {
 		text = chosen
 	}
 	row.Text, row.Shared = text.Text, text.Shared
+}
+
+// Owner returns the group a row belongs to.
+func (ref *GroupRef) Owner() *Group {
+	return ref.group
+}
+
+// Bound calls bound with each parent's copy of the attributes its members
+// take, for the kit to cut each field but the text as it cuts the fields
+// of a row the parse emits. The text is not cut: a member taking it takes
+// the parent's text and the shared texts it names (TakeText).
+func (g *Group) Bound(bound func(row *Row)) {
+	for i := range g.parents {
+		bound(&g.parents[i])
+	}
 }
 
 // Member makes row a member of the group, taking what takes names from
@@ -291,6 +309,19 @@ func takenCode(takes Takes) int {
 		code |= 2
 	}
 	return code
+}
+
+// LastParents returns the choice that sends each group rows name to its
+// last parent, as a filter keeping only that parent's rows would: the
+// parent whose attributes a member takes in place of the first's.
+func LastParents(rows []Row) Choice {
+	choice := Choice{}
+	for i := range rows {
+		if ref := rows[i].Group; ref != nil {
+			choice[ref.group] = len(ref.group.parents) - 1
+		}
+	}
+	return choice
 }
 
 // Attach gives each grouped row its place once choice is settled: a

@@ -1,0 +1,113 @@
+package analyze
+
+import (
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
+)
+
+// longValue is a value of a stored row longer than the bound the kit cuts
+// every field but the text to.
+var longValue = "/" + strings.Repeat("a", 100_000)
+
+// opencodeLongDirectory returns a 1.x OpenCode database whose session table
+// holds one session id in two rows, each with a directory of longValue's
+// length, and n messages of the session with one text part each.
+func opencodeLongDirectory(t *testing.T, n int) string {
+	t.Helper()
+	var messages, parts [][]any
+	for i := range n {
+		message := "msg_" + strconv.Itoa(i)
+		messages = append(messages, []any{message, "ses_x", opencodePart + i, opencodePart + i, `{"role":"assistant"}`})
+		parts = append(parts, []any{"prt_" + strconv.Itoa(i), message, "ses_x", opencodePart + i, opencodePart + i,
+			`{"type":"text","text":"hi"}`})
+	}
+	return buildDatabase(t,
+		sqlitetest.Table{Name: "session", SQL: opencodeSessionSQL("session"), Rows: [][]any{
+			{"ses_x", nil, longValue, "A", opencodeOld, opencodeOld, nil},
+			{"ses_x", nil, longValue + "b", "B", opencodeNew, opencodeNew, nil}}},
+		sqlitetest.Table{Name: "message", SQL: "CREATE TABLE message (id text, session_id text, " +
+			"time_created integer, time_updated integer, data text)", Rows: messages},
+		sqlitetest.Table{Name: "part", SQL: "CREATE TABLE part (id text, message_id text, session_id text, " +
+			"time_created integer, time_updated integer, data text)", Rows: parts})
+}
+
+// ollamaLongModel returns an Ollama database whose messages repeat one
+// assistant message id, each with a model name of longValue's length, and
+// n tool calls of the id, which take the model of the message the group
+// goes with.
+func ollamaLongModel(t *testing.T, n int) string {
+	t.Helper()
+	var calls [][]any
+	for i := range n {
+		calls = append(calls, []any{i + 1, 1, "search", `{}`})
+	}
+	return buildDatabase(t,
+		sqlitetest.Table{Name: "messages", SQL: "CREATE TABLE messages (id INTEGER, chat_id TEXT, role TEXT, " +
+			"content TEXT, thinking TEXT, model_name TEXT, created_at TEXT)", Rows: [][]any{
+			{1, "c", "assistant", "a", "", longValue, "2026-01-01 00:00:00"},
+			{1, "c", "assistant", "b", "", longValue + "x", "2026-06-01 00:00:00"}}},
+		sqlitetest.Table{Name: "tool_calls", SQL: "CREATE TABLE tool_calls (id INTEGER, message_id INTEGER, " +
+			"function_name TEXT, function_arguments TEXT)", Rows: calls})
+}
+
+// timelineBytes runs timeline over a collection holding file with the
+// options given and returns the size of timeline.jsonl.
+func timelineBytes(t *testing.T, file collectedFile, options ...string) int {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, []collectedFile{file})
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	args := append(append([]string{"timeline"}, options...), collection, output)
+	if code, _, stderr := runCommand(env, args...); code != ExitFound {
+		t.Fatalf("%q exited %d: %s", args, code, stderr)
+	}
+	data, err := osfile.ReadFile(filepath.Join(output, TimelineFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(data)
+}
+
+// The members of a repeated id take their parent's fields as the kit cut
+// them on the parent's own row, so a long project or model of a stored row
+// costs its cut length in each member, whichever stored row the group goes
+// with: each member costs about the bound, not the whole value.
+func TestTheMembersOfARepeatedIDTakeTheirParentsFieldsCut(t *testing.T) {
+	stores := []struct {
+		name  string
+		file  func(t *testing.T, n int) collectedFile
+		later string
+	}{
+		{"an OpenCode session's directory", func(t *testing.T, n int) collectedFile {
+			return collectedFile{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode.db",
+				opencodeLongDirectory(t, n)}
+		}, "2026-03-01"},
+		{"an Ollama message's model", func(t *testing.T, n int) collectedFile {
+			return collectedFile{"alice", "/home/alice", "ollama", "Library/Application Support/Ollama/db.sqlite",
+				ollamaLongModel(t, n)}
+		}, "2026-03-01"},
+	}
+	for _, store := range stores {
+		for _, options := range [][]string{nil, {"--since", store.later}} {
+			t.Run(store.name+" "+strings.Join(options, " "), func(t *testing.T) {
+				small, large := timelineBytes(t, store.file(t, 100), options...),
+					timelineBytes(t, store.file(t, 200), options...)
+				if perMember := (large - small) / 100; perMember > 2*parser.CarriedLimit {
+					t.Errorf("100 members wrote %d bytes and 200 wrote %d: %d a member", small, large, perMember)
+				}
+			})
+		}
+	}
+}

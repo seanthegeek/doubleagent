@@ -1475,7 +1475,9 @@ from the rows kept, so it describes only the rows shown.
 **Carried values longer than 4,096 bytes.** Every field but `text` and
 `source_line` is at most 4,096 bytes, the bound the input also puts on a
 file's path (one byte more than the longest path Linux takes): the
-analyzer cuts each longer one, whichever parser wrote it. A key, name or
+analyzer cuts each longer one, whichever parser wrote it. A row of a
+repeated id that takes a value from one of the id's stored rows takes it
+cut as that stored row's own rows show it, with no problem row of its own. A key, name or
 path a parser copies from one place in the evidence into the `text` of
 more than one row (a settings key written before each of its leaves, a
 group's name in each of its sessions' rows, the columns of a joined row)

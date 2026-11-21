@@ -152,6 +152,16 @@ func (c *carriedFields) cut(row *timeline.Row) {
 	}
 }
 
+// bound cuts the long fields of row as cut does, counting none of them: a
+// group's copy of a parent's attributes, whose own rows report the cuts.
+func (c *carriedFields) bound(row *timeline.Row) {
+	for _, field := range row.FieldsButText() {
+		if len(*field.Value) > CarriedLimit {
+			*field.Value, _ = c.written(field.Name, *field.Value)
+		}
+	}
+}
+
 // written returns what the kit writes for value, a field longer than
 // CarriedLimit, and whether that is a cut, from the field's last value when
 // value is the same as the parser gave it. Telling that reads both values
