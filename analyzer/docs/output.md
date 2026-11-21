@@ -1542,7 +1542,9 @@ attributes. What the rows of the id are depends on the agent:
   text row, with no session or time, and each conversation naming the id
   gives a `parser:` row in place of its cached text. An
   `allowlistOptions` entry repeating an `id` lends nothing either: the
-  `allowlisted=` list names the id by each entry's name, joined with `|`.
+  `allowlisted=` list names the id by each distinct name of its entries,
+  joined with `|`; an id the applied list repeats is written as the id
+  after its first time.
   A `cloudAgentRepository.agents.` entry repeating a `bcId`: the agent's
   MCP `permission decision:` rows and its rows in `conversation-search.db`
   and `ai-code-tracking.db`, with the entry's repository as
