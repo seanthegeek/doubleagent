@@ -144,6 +144,16 @@ func cursorRepeatCases() []growthCase {
 						`{"bubbleId":"b0","type":1},{"bubbleId":"b` + strconv.Itoa(i) + `","type":1}]}`}
 				}), cursorBubbles("c1", n)...), nil, nil))
 			}},
+		// Each stored composerHeaders row of a repeated id is a parent too.
+		{kind: "state.vscdb", shape: shapeSharedID + " (composerHeaders rows in their own projects)",
+			files: func(t *testing.T, n int) []growthFile {
+				headers := rows(n, func(i int) []any {
+					return []any{"c1", 1790000000000, 1790000000000, 1, `{"name":"` + numbered("n", i) +
+						`","workspaceIdentifier":{"uri":{"fsPath":"/` + numbered("p", i) + `"}}}`}
+				})
+				return one(cursorStateRel, cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", n)},
+					cursorBubbles("c1", n)...), nil, headers))
+			}},
 	}
 }
 

@@ -2483,17 +2483,21 @@ For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted`
 or a `meta.0` value that is not hex-encoded JSON, is one `parser:` row for that file, and a blob
 that is neither JSON nor protobuf is appended to the errors list with its `id`.
 
-A `composerData:<composerId>` key that `cursorDiskKV` holds in more than one row is damage or an
-edit, since the table stores no key twice ([Record schema](#record-schema)). Each stored row of the
-key gives its own rows, with the project and branch it names: its `session name:`, origin and
-`conversation archived` rows, and one row, at its `createdAt`,
+A `composerData:<composerId>` key that `cursorDiskKV` holds in more than one row, or a
+`composerId` that `composerHeaders` holds in more than one row, is damage or an edit, since
+neither table stores a key twice ([Record schema](#record-schema)). Each stored row of the id
+gives its own rows, with the project and branch it names: its `session name:`, origin, and
+`conversation archived` or `conversation deleted` rows, and one row, at the composer's
+`createdAt` as that stored row gives it,
 `parser: cursorDiskKV holds <n> rows of this row's id; its conversation's messages, draft and rows in other files are shown once, with this row`
-(`another of them` in place of `this row` for each stored row the composer's rows are not shown
-with). The composer's own rows are shown once: its bubbles (each read once, at the first header
-list naming it, the lists read in rowid order), its unsent draft and problems, and its rows in the
-transcripts, `conversation-search.db` and `ai-code-tracking.db`, with the project and branch of
-one stored row, the draft with its time too: the first, in rowid order, that `--since`, `--until`
-and `--match` keep, else the first
+(`parser: composerHeaders holds <n> rows ...` for a header; `another of them` in place of
+`this row` for each stored row the composer's rows are not shown with). A composerData row stands
+with the first header, and a later header with the first composerData row. The composer's own
+rows are shown once: its bubbles (each read once, at the first header list naming it, the lists
+read in rowid order), its unsent draft, its blobs and problems, and its rows in the transcripts,
+`conversation-search.db` and `ai-code-tracking.db`, with the project and branch of one stored
+row, the draft with its time too: the first, in rowid order, that `--since`, `--until` and
+`--match` keep, else the first
 ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an

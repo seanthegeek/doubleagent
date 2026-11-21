@@ -9,9 +9,9 @@ import (
 )
 
 // composer is what the store has about one conversation: its first
-// composerData, its composerHeaders row and that row's decoded value, with
-// every composerData row of the id (stored) and the group of a repeated
-// key (repeat.go). Its copies share its problems.
+// composerData, its first composerHeaders row and that row's decoded
+// value, with every stored row of each (stored, headers) and the group of
+// an id either table repeats (repeat.go). Its copies share its problems.
 type composer struct {
 	ident     string
 	data      jsonvalue.Value // null when there is no composerData row
@@ -21,6 +21,7 @@ type composer struct {
 	head      jsonvalue.Value // the header row's value, an object
 	problems  *parser.Problems
 	stored    []storedData
+	headers   []storedHeader
 	group     *timeline.Group
 }
 
@@ -29,6 +30,14 @@ type composer struct {
 type storedData struct {
 	value    jsonvalue.Value
 	rowid    int64
+	problems *parser.Problems
+}
+
+// storedHeader is one composerHeaders row of a composer, its value and
+// the problems of the row, the composer's own unless the id repeats.
+type storedHeader struct {
+	row      *sqlitefile.Row
+	value    jsonvalue.Value
 	problems *parser.Problems
 }
 
@@ -183,16 +192,29 @@ func readHeaders(store *store, found *composers) {
 	if store.keep(err) {
 		return
 	}
+	counts := map[string]int{}
+	for i := range rows {
+		if ident := rows[i].Get("composerId"); !ident.IsEmpty() {
+			counts[ident.String()]++
+		}
+	}
 	for i := range rows {
 		ident := rows[i].Get("composerId")
 		if ident.IsEmpty() {
 			continue
 		}
 		current := found.get(ident.String())
-		current.header = &rows[i]
-		if value := rows[i].Get("value"); !value.IsNull() {
-			current.head = objectRecord(keyed{rowid: rows[i].Rowid, key: "composerHeaders " + current.ident,
-				value: value}, current.problems)
+		stored := storedHeader{row: &rows[i], value: jsonvalue.NewObject(), problems: current.problems}
+		if counts[current.ident] > 1 {
+			stored.problems = &parser.Problems{}
 		}
+		if value := rows[i].Get("value"); !value.IsNull() {
+			stored.value = objectRecord(keyed{rowid: rows[i].Rowid, key: "composerHeaders " + current.ident,
+				value: value}, stored.problems)
+		}
+		if current.header == nil {
+			current.header, current.head = stored.row, stored.value
+		}
+		current.headers = append(current.headers, stored)
 	}
 }

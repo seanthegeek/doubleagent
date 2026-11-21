@@ -158,6 +158,115 @@ func cursorOrderName(stateFirst bool) string {
 	return ", the state database read last"
 }
 
+// cursorHeader returns a composerHeaders row of c1 created and updated at
+// the time given, with its name, archived flag and value members.
+func cursorHeader(created int64, name string, archived int, members string) []any {
+	return []any{"c1", created, created + 1000, archived, `{"name":"` + name + `","createdAt":` +
+		jsonvalue.NewInt(created).JSON() + `,` + members + `}`}
+}
+
+// cursorRepeatedHeaders returns a state.vscdb whose composerHeaders holds
+// c1 twice, an earlier header OLD-H in /proj/old on br-old, then NEW-H in
+// /proj/new on br-new, both archived; its composerData names neither
+// project nor time, and its bubble b1 is a prompt a day after the later.
+func cursorRepeatedHeaders(t *testing.T) string {
+	t.Helper()
+	return cursorStateOf(t, [][]any{
+		{"composerData:c1", `{"composerId":"c1","status":"completed",` +
+			`"fullConversationHeadersOnly":[{"bubbleId":"b1","type":1}]}`},
+		{"bubbleId:c1:b1", `{"type":1,"text":"the question","createdAt":1780358400000}`}},
+		[][]any{cursorHeader(1767225600000, "OLD-H", 1, cursorWorkspace("/proj/old", "br-old")),
+			cursorHeader(1780272000000, "NEW-H", 1, cursorWorkspace("/proj/new", "br-new"))})
+}
+
+// cursorHeaderRows returns the rows of the state above and the tracking
+// database, each stored header's own when kept, and the composer's with
+// the project and branch of the stored header chosen. A notice's source
+// line is its header's rowid and a name's the composerData's, so the later
+// header's name sorts before its notice.
+func cursorHeaderRows(old, recent, chosenOld bool) []string {
+	var rows []string
+	if old {
+		rows = append(rows, "2026-01-01T00:00:00.000Z c1 /proj/old br-old "+cursorNotice("composerHeaders", chosenOld),
+			"2026-01-01T00:00:00.000Z c1 /proj/old br-old session name: OLD-H",
+			"2026-01-01T00:00:01.000Z c1 /proj/old br-old conversation archived")
+	}
+	if recent {
+		rows = append(rows, "2026-06-01T00:00:00.000Z c1 /proj/new br-new session name: NEW-H",
+			"2026-06-01T00:00:00.000Z c1 /proj/new br-new "+cursorNotice("composerHeaders", !chosenOld),
+			"2026-06-01T00:00:01.000Z c1 /proj/new br-new conversation archived")
+	}
+	attributes := "/proj/old br-old "
+	if !chosenOld {
+		attributes = "/proj/new br-new "
+	}
+	return append(rows, "2026-06-02T00:00:00.000Z c1 "+attributes+"the question",
+		"2026-06-02T00:00:01.000Z c1 "+attributes+"ai code: /src/f source=composer model=m request=r1")
+}
+
+func TestTheRowsOfARepeatedCursorComposerHeaderGoWithTheFirstStoredRowTheFilterKeeps(t *testing.T) {
+	for _, test := range []repeatCase{
+		{"without a filter they go with the first stored row", nil, cursorHeaderRows(true, true, true)},
+		{"a window past the first stored row moves them to the second", []string{"--since", "2026-03-01"},
+			cursorHeaderRows(false, true, false)},
+		{"a pattern only the second row matches moves them to the second",
+			[]string{"--match", "name: NEW-H|question|ai code"}, []string{
+				"2026-06-01T00:00:00.000Z c1 /proj/new br-new session name: NEW-H",
+				"2026-06-02T00:00:00.000Z c1 /proj/new br-new the question",
+				"2026-06-02T00:00:01.000Z c1 /proj/new br-new ai code: /src/f source=composer model=m request=r1"}},
+		{"a pattern only the first row matches keeps them with the first",
+			[]string{"--match", "name: OLD-H|question|ai code"}, []string{
+				"2026-01-01T00:00:00.000Z c1 /proj/old br-old session name: OLD-H",
+				"2026-06-02T00:00:00.000Z c1 /proj/old br-old the question",
+				"2026-06-02T00:00:01.000Z c1 /proj/old br-old ai code: /src/f source=composer model=m request=r1"}},
+		{"a pattern neither row matches keeps them with the first", []string{"--match", "question|ai code"},
+			[]string{"2026-06-02T00:00:00.000Z c1 /proj/old br-old the question",
+				"2026-06-02T00:00:01.000Z c1 /proj/old br-old ai code: /src/f source=composer model=m request=r1"}},
+		{"a window before the second stored row keeps them with the first", []string{"--until", "2026-03-01"},
+			cursorHeaderRows(true, false, true)[:3]},
+	} {
+		for _, stateFirst := range []bool{true, false} {
+			t.Run(test.name+cursorOrderName(stateFirst), func(t *testing.T) {
+				rows := repeatedIDRunOf(t, "cursor", cursorFiles(t, cursorRepeatedHeaders(t), stateFirst),
+					test.options...)
+				if !slices.Equal(rows, test.want) {
+					t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+				}
+			})
+		}
+	}
+}
+
+// A conversation deleted with its header kept, whose composerHeaders
+// holds its id twice, gives each stored header's deletion row, and its
+// draft goes with the first stored header the filter keeps.
+func TestEachStoredHeaderOfADeletedCursorComposerGivesItsDeletionRow(t *testing.T) {
+	state := cursorStateOf(t, [][]any{{"composerDraft:c1", `{"text":"DRAFT-TEXT"}`}},
+		[][]any{cursorHeader(1767225600000, "OLD-H", 1, cursorWorkspace("/proj/old", "br-old")),
+			cursorHeader(1780272000000, "NEW-H", 1, cursorWorkspace("/proj/new", "br-new"))})
+	deleted := "conversation deleted (header kept; time is the header's lastUpdatedAt) " +
+		"(isArchived is set by the delete)"
+	oldStored, newStored := "2026-01-01T00:00:00.000Z c1 /proj/old br-old ", "2026-06-01T00:00:00.000Z c1 /proj/new br-new "
+	for _, test := range []repeatCase{
+		{"without a filter the draft goes with the first", nil, []string{
+			oldStored + cursorNotice("composerHeaders", true), oldStored + "session name: OLD-H",
+			oldStored + "unsent draft: DRAFT-TEXT", "2026-01-01T00:00:01.000Z c1 /proj/old br-old " + deleted,
+			newStored + cursorNotice("composerHeaders", false), newStored + "session name: NEW-H",
+			"2026-06-01T00:00:01.000Z c1 /proj/new br-new " + deleted}},
+		{"a window past the first moves the draft to the second", []string{"--since", "2026-03-01"}, []string{
+			newStored + "unsent draft: DRAFT-TEXT", newStored + cursorNotice("composerHeaders", true),
+			newStored + "session name: NEW-H", "2026-06-01T00:00:01.000Z c1 /proj/new br-new " + deleted}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rows := repeatedIDRunOf(t, "cursor", []collectedFile{{"alice", "/home/alice", "cursor", cursorStateRel,
+				state}}, test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+		})
+	}
+}
+
 // cursorGroupedStores returns the Cursor stores of a repeated id, for the
 // property every parser on the grouping mechanism keeps.
 func cursorGroupedStores() []groupedStore {
@@ -167,6 +276,9 @@ func cursorGroupedStores() []groupedStore {
 		}},
 		{"cursor composerData, the state database last", "cursor", func(t *testing.T) []collectedFile {
 			return cursorFiles(t, cursorRepeatedData(t), false)
+		}},
+		{"cursor composerHeaders", "cursor", func(t *testing.T) []collectedFile {
+			return cursorFiles(t, cursorRepeatedHeaders(t), true)
 		}},
 	}
 }

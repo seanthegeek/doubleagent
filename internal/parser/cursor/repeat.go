@@ -9,17 +9,18 @@ import (
 )
 
 // A composer id whose composerData key cursorDiskKV holds in more than one
-// row is one only damage or an edit writes: the key column is UNIQUE. Its
-// rows are a group (timeline.Group): each
+// row, or that composerHeaders holds in more than one row, is one only
+// damage or an edit writes: the key column is UNIQUE and composerId the
+// header table's PRIMARY KEY. Its rows are a group (timeline.Group): each
 // stored row is a parent, giving its own rows (its parser: row, session
 // name, origin and archive or deletion rows) with the project it names,
 // and the composer's own rows (its bubbles, draft, blobs and problems,
 // and its rows in the side files of the home) are members, shown once
 // with the project and branch of the stored row the group goes with.
 
-// repeated reports whether cursorDiskKV holds the composer's key twice.
+// repeated reports whether either table holds the composer's id twice.
 func (c *composer) repeated() bool {
-	return len(c.stored) > 1
+	return len(c.stored) > 1 || len(c.headers) > 1
 }
 
 // assignGroups gives each repeated composer of found its group: the
@@ -55,11 +56,17 @@ func sharedState(artifact *input.Artifact) string {
 	return ""
 }
 
-// variant returns a copy of the composer as its composerData row data
-// shows it.
-func (c *composer) variant(data int) *composer {
+// variant returns a copy of the composer as its composerData row data and
+// its composerHeaders row header show it; an index past the stored rows
+// keeps the first's.
+func (c *composer) variant(data, header int) *composer {
 	shown := *c
-	shown.data, shown.dataRowid = c.stored[data].value, c.stored[data].rowid
+	if data < len(c.stored) {
+		shown.data, shown.dataRowid = c.stored[data].value, c.stored[data].rowid
+	}
+	if header < len(c.headers) {
+		shown.header, shown.head = c.headers[header].row, c.headers[header].value
+	}
 	return &shown
 }
 
@@ -71,24 +78,29 @@ type view struct {
 	problems []*parser.Problems
 }
 
-// views returns the parents of a composer, one per composerData row, and
-// emits each one's parser: row. A composer whose key cursorDiskKV does not
-// repeat is its one view, with no group.
+// views returns the parents of a composer and emits each one's parser:
+// rows: one per composerData row, with the first header, then one per
+// later composerHeaders row, with the first composerData. A composer
+// whose id neither table repeats is its one view, with no group.
 func (r *stateReader) views(current *composer, emit parser.Emit) []view {
 	if current.group == nil {
 		return []view{{composer: current, stamp: r.owner.newStamper(r.artifact, current, emit)}}
 	}
 	var views []view
-	for i := range current.stored {
-		views = append(views, r.view(current, i, emit))
+	for i := range max(1, len(current.stored)) {
+		views = append(views, r.view(current, i, 0, len(current.stored) > 1, len(current.headers) > 1 && i == 0, emit))
+	}
+	for i := 1; i < len(current.headers); i++ {
+		views = append(views, r.view(current, 0, i, false, true, emit))
 	}
 	return views
 }
 
 // view registers the parent of a composer that its composerData row data
-// shows, emitting its parser: row, and returns it.
-func (r *stateReader) view(current *composer, data int, emit parser.Emit) view {
-	shown := current.variant(data)
+// and its composerHeaders row header show, emitting a parser: row for each
+// of the two the parent stands for (byData, byHeader), and returns it.
+func (r *stateReader) view(current *composer, data, header int, byData, byHeader bool, emit parser.Emit) view {
+	shown := current.variant(data, header)
 	stamp := r.owner.newStamper(r.artifact, shown, emit)
 	found := view{composer: shown, stamp: stamp}
 	var parent *timeline.Parent
@@ -104,7 +116,12 @@ func (r *stateReader) view(current *composer, data int, emit parser.Emit) view {
 		emit(row)
 		found.problems = append(found.problems, problems)
 	}
-	notice("cursorDiskKV", len(current.stored), shown.dataRowid, current.stored[data].problems)
+	if byData {
+		notice("cursorDiskKV", len(current.stored), shown.dataRowid, current.stored[data].problems)
+	}
+	if byHeader {
+		notice("composerHeaders", len(current.headers), shown.header.Rowid, current.headers[header].problems)
+	}
 	stamp.emit = func(row timeline.Row) {
 		parent.Row(&row, timeline.Always)
 		emit(row)
