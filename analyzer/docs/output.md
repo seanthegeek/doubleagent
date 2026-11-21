@@ -1497,11 +1497,15 @@ attributes. What the rows of the id are depends on the agent:
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a
-later Ollama message) counts for that stored row only when a row shown in
-its place shows its text, at its time under `--since` and `--until`. A
-Zed link takes the stored row's text and time, and the `model:` row of
-the Ollama message that takes the calls names the same change; an
-OpenCode part is shown with other text, so a match on a later record's
+later Ollama message) counts for that stored row only when a row the
+filters keep shows its text in its place: a row of the id that takes the
+stored row's text, and under `--since` and `--until` its time, so it is
+shown at that row's time; or a row the stored row gives only while the
+rows of the id go with it, with the same text, shown at its own time. A
+Zed link takes the stored row's text and time; the `model:` row of the
+Ollama message that takes the calls names the same change at that
+message's time, in place of the later message's row; an OpenCode part is
+shown with other text, so a match on a later record's
 own content, or a window that keeps it, leaves the parts where they were
 and the content shown. A stored row other than the first with a row
 the filters keep that nothing carries is passed over, so the filters

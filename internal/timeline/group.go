@@ -212,15 +212,15 @@ const (
 )
 
 // Choose returns the parent each group goes with: the first, in the
-// parser's order, with a row among kept, the rows a filter that tests
-// tested keeps of the rows the parsers gave, that counts for it. A kept
-// row shown only when its parent is not chosen counts only when a row
-// shown in its place carries its text, and its time for a window: a member
-// that takes the parent's text (and time, for a window), the row holding
-// them, or a kept row of the parent shown only when it is chosen with the
-// same text. A kept one that does not passes over its parent,
-// unless that is the first, whose such rows the output without a filter
-// hides too. Without a filter a nil Choice gives every group its first.
+// parser's order, with a row that counts for it among kept, what a filter
+// testing tested keeps of the parsers' rows. A kept row shown only when
+// its parent is not chosen counts only when a kept row shows its text in
+// its place: a member taking the parent's text, and its time for a window,
+// the row holding both, so it is shown at the row's time; or a kept row of
+// the parent shown only when it is chosen, with the same text, shown at
+// its own time. Else it passes over its parent, unless that is the first,
+// whose such rows the output without a filter hides too. Without a filter
+// a nil Choice gives every group its first.
 func Choose(kept []Row, tested Tested) Choice {
 	choice, _ := choose(kept, tested)
 	return choice
