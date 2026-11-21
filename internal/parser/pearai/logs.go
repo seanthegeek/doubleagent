@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -151,15 +150,14 @@ func settingsModel(header string) string {
 // as promptTurn reads it, the completion, and the user's feedback.
 func (p *Parser) devChat(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	var index map[string]jsonvalue.Value
-	if path, found := parser.Above(artifact, 1, "sessions", continuedev.IndexName); found {
-		index = p.indexes.Index(path)
-	}
+	indexPath, _ := parser.Above(artifact, 1, "sessions", continuedev.IndexName)
+	index := p.indexes.Index(indexPath)
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		base := p.BaseRow(artifact)
 		base.SourceLine = line
 		base.SessionID = parser.Text(record.Get("sessionId"))
 		base.ProjectPath = parser.Text(index[base.SessionID].Get("workspaceDirectory"))
+		p.indexes.Member(indexPath, base.SessionID, &base, timeline.TakeProject)
 		base.Model = parser.Text(record.Get("completionOptions").Get("model"))
 		var turns [][2]string
 		if prompt := record.Get("prompt"); prompt.IsString() {

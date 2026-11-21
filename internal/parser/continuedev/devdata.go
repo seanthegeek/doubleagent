@@ -14,19 +14,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// devIndex returns the session index of the .continue directory a
-// dev_data file is in: .continue/dev_data/<file> or
-// .continue/dev_data/<schema>/<file>.
-func (p *Parser) devIndex(artifact *input.Artifact) map[string]jsonvalue.Value {
+// devIndex returns the path of the session index of the .continue
+// directory a dev_data file is in, .continue/dev_data/<file> or
+// .continue/dev_data/<schema>/<file>, or "" when the kit refuses it.
+func (p *Parser) devIndex(artifact *input.Artifact) string {
 	levels := 2
 	if parent, found := parser.Above(artifact, 1); found && filepath.Base(parent) == ".continue" {
 		levels = 1
 	}
-	index, found := parser.Above(artifact, levels, "sessions", IndexName)
-	if !found {
-		return nil
-	}
-	return p.indexes.Index(index)
+	index, _ := parser.Above(artifact, levels, "sessions", IndexName)
+	return index
 }
 
 // recordText returns a prompt or completion as row text: a string as it
@@ -48,13 +45,15 @@ func recordModel(record jsonvalue.Value) string {
 // feedback: feedback=<true|false|-> model=<model|->".
 func (p *Parser) chatInteraction(artifact *input.Artifact, feedback bool, emit parser.Emit) {
 	var problems parser.Problems
-	index := p.devIndex(artifact)
+	indexPath := p.devIndex(artifact)
+	index := p.indexes.Index(indexPath)
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		base := p.BaseRow(artifact)
 		base.SourceLine = line
 		base.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
 		base.SessionID = parser.Text(record.Get("sessionId"))
 		base.ProjectPath = parser.Text(index[base.SessionID].Get("workspaceDirectory"))
+		p.indexes.Member(indexPath, base.SessionID, &base, timeline.TakeProject)
 		model := recordModel(record)
 		for _, turn := range [][2]string{{timeline.TurnUser, "prompt"}, {timeline.TurnAssistant, "completion"}} {
 			text := record.Get(turn[1])

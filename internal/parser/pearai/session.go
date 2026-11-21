@@ -27,12 +27,16 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	base := p.BaseRow(artifact)
 	base.SessionID = cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	var entry jsonvalue.Value
+	var repeat *continuedev.Repeat
 	if index, ok := parser.Beside(artifact, continuedev.IndexName); ok {
-		entry = p.indexes.Index(index)[base.SessionID]
+		entry, repeat = p.indexes.Index(index)[base.SessionID], p.indexes.Repeated(index, base.SessionID)
 	}
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
 	base.ProjectPath = parser.Text(parser.FirstNonEmpty(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))
+	if repeat != nil {
+		repeat.Group.Member(&base, continuedev.MemberTakes(document))
+	}
 	row := func(position int, turnType, text, model string) {
 		each := base
 		each.SourceLine, each.TurnType, each.Model = position, turnType, model
@@ -41,10 +45,14 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	}
 	history := parser.ArrayMember(document.Get("history"), "history", 0, &problems)
 	search := parser.ArrayMember(document.Get("perplexityHistory"), "perplexityHistory", 0, &problems)
-	carried := parser.NewCarried(artifact)
-	row(0, timeline.TurnSystem, startText(document, entry, len(history), len(search),
-		base.TimestampUTC != "", carried), "")
-	carried.Report(0, &problems)
+	if repeat == nil {
+		carried := parser.NewCarried(artifact)
+		row(0, timeline.TurnSystem, startText(document, entry, len(history), len(search),
+			base.TimestampUTC != "", carried), "")
+		carried.Report(0, &problems)
+	} else {
+		parser.EmitAll(emit, p.repeatedStarts(artifact, base, document, repeat, len(history), len(search)))
+	}
 	models := parser.Tracker{}
 	for i, item := range append(append([]jsonvalue.Value{}, history...), search...) {
 		if message := item.Get("message"); message.IsObject() {
@@ -57,6 +65,39 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	for _, found := range problems {
 		row(found.Line, timeline.TurnSystem, parser.ProblemPrefix+found.Message, "")
 	}
+}
+
+// repeatedStarts returns a start row for each entry of a session id the
+// index repeats, with the entry's time and, when the file has none,
+// project, and the problems of its text, as rows of the entry's parent
+// shown only when the session's rows go with it.
+func (p *Parser) repeatedStarts(artifact *input.Artifact, base timeline.Row, document jsonvalue.Value,
+	repeat *continuedev.Repeat, history, search int) []timeline.Row {
+	var rows []timeline.Row
+	for place, entry := range repeat.Entries {
+		start := base
+		start.Group = nil
+		start.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
+		if document.Get("workspaceDirectory").IsEmpty() {
+			start.ProjectPath = parser.Text(entry.Get("workspaceDirectory"))
+		}
+		start.TurnType = timeline.TurnSystem
+		carried := parser.NewCarried(artifact)
+		start.Text = timeline.Compact(startText(document, entry, history, search, start.TimestampUTC != "", carried))
+		var problems parser.Problems
+		carried.Report(0, &problems)
+		each := []timeline.Row{start}
+		for _, found := range problems {
+			problem := start
+			problem.SourceLine, problem.Text = found.Line, parser.ProblemPrefix+found.Message
+			each = append(each, problem)
+		}
+		for i := range each {
+			repeat.Parents[place].Row(&each[i], timeline.WhenChosen)
+		}
+		rows = append(rows, each...)
+	}
+	return rows
 }
 
 // startText returns the text of a session's start row: its title, the

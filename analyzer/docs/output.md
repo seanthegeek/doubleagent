@@ -1565,6 +1565,15 @@ attributes. What the rows of the id are depends on the agent:
   model come from the entry. Each entry gives its own `task:` row with
   its own attributes; without a filter the task's rows take the first
   entry's.
+- **Continue and PearAI's chat**, whose `sessions/sessions.json` index
+  one reader reads, an entry repeating a `sessionId` (the extension
+  updates a session's entry in place, so only damage or an edit repeats
+  one): the session file's rows, with the entry's time and, where the
+  file names no workspace, its `project_path`, and its `dev_data` rows,
+  with that `project_path`; the session's start row shows the entry's
+  title. Each entry gives a `parser:` row at its `dateCreated` with its
+  own `project_path`; without a filter the session's rows take the first
+  entry's, in file order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

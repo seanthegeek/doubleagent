@@ -89,6 +89,13 @@ func pearaiSessionCases() []growthCase {
 			return append(files, manyFiles(n, func(i int) string { return pearaiSessions + numbered("s", i) + ".json" },
 				func(i int) string { return `{"sessionId":"` + numbered("s", i) + `","history":[]}` })...)
 		}},
+		{kind: "session", shape: shapeSharedID + " in the index", files: func(t *testing.T, n int) []growthFile {
+			index := text(pearaiSessions+"sessions.json", "["+joined(n, func(i int) string {
+				return `{"sessionId":"s","title":"t","dateCreated":"1767000000000","workspaceDirectory":"` +
+					numbered("/w", i) + `","integrationType":"chat"}`
+			})+"]")
+			return []growthFile{index, text(pearaiSessions+"s.json", pearaiSession("s", "", n))}
+		}},
 		{kind: "session", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one(pearaiSessions+"s.json", []byte(`{"sessionId":"s","history":[`+joined(n, func(i int) string {
 				return `{"message":{"role":"user","content":"x"},"promptLogs":7}`

@@ -40,7 +40,8 @@ func TestADevDataFileNeverReadsAnIndexThroughALinkedDirectory(t *testing.T) {
 			}
 			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
 				Home: &input.Home{DiskPath: home}}
-			if got := len(New().devIndex(artifact)); got != test.entries {
+			subject := New()
+			if got := len(subject.indexes.Index(subject.devIndex(artifact))); got != test.entries {
 				t.Errorf("%d index entries, want %d", got, test.entries)
 			}
 		})

@@ -804,6 +804,20 @@ real install, source-derived (continuedev/continue at
 the index can be cut because the extension rewrites it whole on every save
 ([Transcript stores](#transcript-stores)).
 
+The extension updates the first entry of a session's `sessionId` in place and adds an entry only
+for an id it does not hold
+([`core/util/history.ts:153-176`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/core/util/history.ts#L153-L176)),
+and the CLI saves through the same function
+([`extensions/cli/src/session.ts:292`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/extensions/cli/src/session.ts#L292)),
+so a second entry of one `sessionId` is damage or an edit. Each entry of the id gives a row of its
+own at its position, with its `dateCreated`, `sessionId` and `workspaceDirectory`,
+`parser: sessions.json holds <n> entries of this entry's sessionId; its session's rows are shown once, with this entry`
+(`with another of them` for an entry the rows do not go with). The session file's rows and the
+`dev_data` rows of the session are shown once, with the `dateCreated` and, where the session file
+has none, the `workspaceDirectory` of one entry, its start row with that entry's `title`: the
+first entry, in file order, that the analysis filters keep, else the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+
 #### Fixtures
 
 Fixture `sessions/0f1e.json`:

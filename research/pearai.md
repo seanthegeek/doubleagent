@@ -694,7 +694,12 @@ position; an absent, null or empty member gives no row. The chat surface's `sess
 is read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
 which yields rows for what it loses, with the texts of
 [Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions
-without their `dateCreated` time.
+without their `dateCreated` time. The fork's writer, like Continue's, updates the first entry of a
+`sessionId` in place and adds one only for an id it does not hold
+([`core/util/history.ts:115-136`](https://github.com/trypear/pearai-submodule/blob/51eceef62a90c29f712b3a9607ea70a9dca657e9/core/util/history.ts#L115-L136)),
+so a second entry of one id is damage or an edit, read as Continue's is: each entry gives its
+`parser: sessions.json holds <n> entries of this entry's sessionId; its session's rows are shown once, with this entry`
+row, and the session's rows and its `dev_data/chat.jsonl` rows go with one entry.
 
 A `dev_data/chat.jsonl` or `dev_data/tokens_generated.jsonl` that cannot be read is one whole-file
 row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. So is a

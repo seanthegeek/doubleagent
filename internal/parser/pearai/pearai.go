@@ -128,6 +128,9 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	switch {
 	case session != nil && session[1]+".json" == continuedev.IndexName:
 		parser.EmitAll(emit, p.ErrorRows(artifact, p.indexes.Errors(artifact.DiskPath), "", ""))
+		if index, ok := parser.Beside(artifact, continuedev.IndexName); ok {
+			parser.EmitAll(emit, p.indexes.Notices(index, p.BaseRow(artifact)))
+		}
 	case session != nil:
 		p.session(artifact, session[1], emit)
 	case p.TaskMatch(artifact):

@@ -52,6 +52,12 @@ func continueSessionCases() []growthCase {
 					return continueSession(numbered("s", i), "", continueItem("user", "hi", ""))
 				}), index)
 		}},
+		{kind: "session", shape: shapeSharedID + " in the index", files: func(t *testing.T, n int) []growthFile {
+			index := text(continueIndex, "["+joined(n, func(i int) string { return continueEntry("s", numbered("/w", i)) })+"]")
+			return []growthFile{index, text(continueSessions+"s.json", continueSession("s", "", joined(n, func(i int) string {
+				return continueItem("user", numbered("hi", i), "")
+			})))}
+		}},
 		{kind: "session", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			return one(continueSessions+"s.json", []byte(continueSession("s", "/"+long("w"), joined(n, func(i int) string {
 				return continueItem("user", numbered("hi", i), "")

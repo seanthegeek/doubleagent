@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 func TestYAMLScalarReadsOnlyAScalarOnItsLine(t *testing.T) {
@@ -277,5 +278,38 @@ func TestReadIndexReportsADamagedArrayInTheKitsWording(t *testing.T) {
 					test.entries, test.problems)
 			}
 		})
+	}
+}
+
+func TestTheIndexKeepsTheFirstEntryOfASessionIDAndGroupsOnlyARepeatedOne(t *testing.T) {
+	path := filepath.Join(t.TempDir(), IndexName)
+	text := `[{"sessionId":"a","title":"first"},{"sessionId":"b"},{"sessionId":"a","title":"second"}]`
+	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	indexes := NewIndexes()
+	if got := indexes.Index(path)["a"].Get("title").Text(); got != "first" {
+		t.Errorf("the entry of a is titled %q, want the first", got)
+	}
+	for _, test := range []struct {
+		name, sessionID string
+		entries         int
+	}{
+		{"an id held twice has both entries", "a", 2},
+		{"an id held once has no repeat", "b", 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := 0
+			if found := indexes.Repeated(path, test.sessionID); found != nil {
+				got = len(found.Entries)
+			}
+			if got != test.entries {
+				t.Errorf("%d entries, want %d", got, test.entries)
+			}
+		})
+	}
+	if rows := indexes.Notices(path, timeline.Row{}); len(rows) != 2 || rows[0].SourceLine != 1 ||
+		rows[1].SourceLine != 3 {
+		t.Errorf("notices %+v, want one at each entry of a", rows)
 	}
 }

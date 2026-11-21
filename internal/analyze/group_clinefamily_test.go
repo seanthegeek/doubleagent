@@ -149,6 +149,8 @@ func familyStores() []groupedStore {
 		{"cline task index", "cline", clineRepeatFiles},
 		{"kilo code pre-fork task index", "kilo-code", kiloRepeatFiles},
 		{"pearai task history", "pearai", pearaiRepeatFiles},
+		{"continue session index", "continue", continueRepeatFiles("continue", ".continue/")},
+		{"pearai chat session index", "pearai", continueRepeatFiles("pearai", ".pearai/")},
 		{"roo code task index", "roo-code", func(t *testing.T) []collectedFile {
 			files := rooRepeatFiles(t)
 			files[0].text = strings.ReplaceAll(files[0].text, `"modelId"`, `"mode":"code","modelId"`)

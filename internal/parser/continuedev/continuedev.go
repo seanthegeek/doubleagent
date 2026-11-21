@@ -128,6 +128,9 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 		p.toolUsage(artifact, emit)
 	case path.Base(rel) == IndexName:
 		parser.EmitAll(emit, p.ErrorRows(artifact, p.indexes.Errors(artifact.DiskPath), "", ""))
+		if index, ok := parser.Beside(artifact, IndexName); ok {
+			parser.EmitAll(emit, p.indexes.Notices(index, p.BaseRow(artifact)))
+		}
 	default:
 		p.session(artifact, options, emit)
 	}

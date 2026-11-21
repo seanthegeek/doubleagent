@@ -8,40 +8,96 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // byteOrderMark is U+FEFF in UTF-8, which a JSON file may start with.
 const byteOrderMark = "\ufeff"
 
-// index is one read of a sessions.json index: its entries by session id
-// and the problems met.
+// index is one read of a sessions.json index: its entries by session id,
+// the first of an id standing, the session ids it repeats, the entries of
+// those ids in file order, and the problems met.
 type index struct {
 	entries  map[string]jsonvalue.Value
+	repeats  map[string]*Repeat
+	notices  []notice
 	problems parser.Problems
+}
+
+// Repeat is a session id the index holds in more than one entry. The
+// extension updates a session's entry in place and adds one only for an id
+// it does not hold (core/util/history.ts), so only damage or an edit
+// repeats one (timeline.Group): each entry is a parent of the group,
+// registered when the index is read so that every file's rows find it in
+// whichever order they are parsed, and the rows that take an entry's
+// dateCreated or workspaceDirectory are members.
+type Repeat struct {
+	Entries []jsonvalue.Value
+	Parents []*timeline.Parent
+	Group   *timeline.Group
+}
+
+// notice is one entry of a repeated id: its position in the file, its id
+// and its place among the id's entries.
+type notice struct {
+	position  int
+	sessionID string
+	place     int
 }
 
 // Indexes reads sessions.json indexes and keeps each for the parser's
 // life, so the many session files that share an index read it once and its
 // problems are reported once, on the index's own artifact.
 type Indexes struct {
-	read map[string]index
+	read map[string]*index
 }
 
 // NewIndexes returns an empty cache of indexes.
 func NewIndexes() *Indexes {
-	return &Indexes{read: map[string]index{}}
+	return &Indexes{read: map[string]*index{}}
 }
 
 // get returns the index at path, reading it on first use. Every path is
 // one the parser kit or the input built, which joins its parts with one
 // separator and no dot element, so one file has one spelling and one key.
-func (x *Indexes) get(path string) index {
+func (x *Indexes) get(path string) *index {
 	if found, ok := x.read[path]; ok {
 		return found
 	}
-	entries, problems := ReadIndex(path)
-	x.read[path] = index{entries: entries, problems: problems}
-	return x.read[path]
+	elements, problems := readIndex(path)
+	read := &index{entries: map[string]jsonvalue.Value{}, repeats: map[string]*Repeat{}, problems: problems}
+	counts := map[string]int{}
+	for _, element := range elements {
+		counts[element.sessionID]++
+	}
+	for _, element := range elements {
+		if _, held := read.entries[element.sessionID]; !held {
+			read.entries[element.sessionID] = element.entry
+		}
+		if counts[element.sessionID] > 1 {
+			read.repeat(element)
+		}
+	}
+	x.read[path] = read
+	return read
+}
+
+// repeat adds an entry of a repeated id as a new parent of the id's group:
+// the parent holds the entry's dateCreated, id and workspaceDirectory,
+// which a member takes.
+func (read *index) repeat(element indexElement) {
+	found := read.repeats[element.sessionID]
+	if found == nil {
+		found = &Repeat{Group: timeline.NewGroup()}
+		read.repeats[element.sessionID] = found
+	}
+	stored := timeline.Row{TimestampUTC: timeutil.FromValue(element.entry.Get("dateCreated")),
+		SessionID: element.sessionID, ProjectPath: parser.Text(element.entry.Get("workspaceDirectory"))}
+	read.notices = append(read.notices, notice{position: element.position, sessionID: element.sessionID,
+		place: len(found.Entries)})
+	found.Entries = append(found.Entries, element.entry)
+	found.Parents = append(found.Parents, found.Group.Parent(&stored))
 }
 
 // Index returns the entries, by session id, of the sessions.json index at
@@ -51,9 +107,47 @@ func (x *Indexes) Index(path string) map[string]jsonvalue.Value {
 	return x.get(path).entries
 }
 
+// Repeated returns the repeat of a session id the index at path holds in
+// more than one entry, else nil.
+func (x *Indexes) Repeated(path, sessionID string) *Repeat {
+	return x.get(path).repeats[sessionID]
+}
+
+// Member makes row a member of the group of its session id when the index
+// at path repeats the id, taking what takes names from the entry the group
+// goes with.
+func (x *Indexes) Member(path, sessionID string, row *timeline.Row, takes timeline.Takes) {
+	if found := x.Repeated(path, sessionID); found != nil {
+		found.Group.Member(row, takes)
+	}
+}
+
 // Errors returns the problems of the index at path, a new list each call.
 func (x *Indexes) Errors(path string) parser.Problems {
 	return slices.Clone(x.get(path).problems)
+}
+
+// Notices returns a `parser:` row per entry of a session id the index at
+// path repeats, at the entry's position, with its dateCreated, id and
+// workspaceDirectory, each the row of its parent (timeline.Parent.Texts),
+// so the filters can keep an entry by it; base gives the rows' file.
+func (x *Indexes) Notices(path string, base timeline.Row) []timeline.Row {
+	read := x.get(path)
+	rows := make([]timeline.Row, 0, len(read.notices))
+	for _, each := range read.notices {
+		found := read.repeats[each.sessionID]
+		entry := found.Entries[each.place]
+		row := base
+		row.SourceLine, row.TurnType, row.SessionID = each.position, timeline.TurnSystem, each.sessionID
+		row.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
+		row.ProjectPath = parser.Text(entry.Get("workspaceDirectory"))
+		prefix := parser.ProblemPrefix + IndexName + " holds " + strconv.Itoa(len(found.Entries)) +
+			" entries of this entry's sessionId; its session's rows are shown once, with "
+		found.Parents[each.place].Texts(&row, timeline.RowText{Text: prefix + "this entry"},
+			timeline.RowText{Text: prefix + "another of them"})
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // Title returns a session's title: the file's own, else its index entry's.
@@ -67,32 +161,54 @@ func Title(document, entry jsonvalue.Value, carried *parser.Carried) string {
 }
 
 // ReadIndex returns the entries, by sessionId, of the sessions.json index
-// at path, and its problems: an unreadable file, a file that is not a JSON
-// array, an element that does not decode (with the text from it to the end
-// of the file) and an element that is not an object with a sessionId.
-// Entries keyed session_id, a pre-1.0 format the extension filters out,
-// are skipped without a problem. An absent file or a symbolic link is an
-// empty index with no problem.
+// at path, the first of an id standing, and its problems: an unreadable
+// file, a file that is not a JSON array, an element that does not decode
+// (with the text from it to the end of the file) and an element that is not
+// an object with a sessionId. Entries keyed session_id, a pre-1.0 format
+// the extension filters out, are skipped without a problem. An absent file
+// or a symbolic link is an empty index with no problem.
 func ReadIndex(path string) (map[string]jsonvalue.Value, parser.Problems) {
+	elements, problems := readIndex(path)
 	entries := map[string]jsonvalue.Value{}
+	for _, element := range elements {
+		if _, held := entries[element.sessionID]; !held {
+			entries[element.sessionID] = element.entry
+		}
+	}
+	return entries, problems
+}
+
+// indexElement is one entry of a sessions.json index: its position, its
+// sessionId as text and the entry.
+type indexElement struct {
+	position  int
+	sessionID string
+	entry     jsonvalue.Value
+}
+
+// readIndex returns the entries of the sessions.json index at path in file
+// order, and its problems, as ReadIndex reads them.
+func readIndex(path string) ([]indexElement, parser.Problems) {
+	var elements []indexElement
 	var problems parser.Problems
 	if !parser.RegularFile(path) {
-		return entries, problems
+		return elements, problems
 	}
 	content, ok := parser.FileBytes(path, &problems)
 	if !ok {
-		return entries, problems
+		return elements, problems
 	}
 	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
 	for position, element := range parser.ArrayText(text, &problems) {
 		switch {
 		case element.IsObject() && !element.Get("sessionId").IsEmpty():
-			entries[element.Get("sessionId").Text()] = element
+			elements = append(elements, indexElement{position: position,
+				sessionID: element.Get("sessionId").Text(), entry: element})
 		case element.IsObject() && !element.Get("session_id").IsEmpty():
 		default:
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+
 				" (not an object with a sessionId)", parser.JSONText(element))
 		}
 	}
-	return entries, problems
+	return elements, problems
 }

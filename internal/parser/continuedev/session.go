@@ -36,6 +36,11 @@ type sessionFile struct {
 	names    map[string]string
 	answered map[string]bool
 	problems parser.Problems
+	// repeat is the session id's repeat when the index holds the id in more
+	// than one entry, and takes what a row takes from the entry the id's
+	// group goes with.
+	repeat *Repeat
+	takes  timeline.Takes
 }
 
 // row returns a row of the session at a history position, with a model
@@ -66,8 +71,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	document, problem := LoadSession(textlines.ValidUTF8(content))
 	sessionID := cmp.Or(parser.Text(document.Get("sessionId")), fileID)
 	var entry jsonvalue.Value
+	var repeat *Repeat
 	if index, ok := parser.Beside(artifact, IndexName); ok {
-		entry = p.indexes.Index(index)[sessionID]
+		entry, repeat = p.indexes.Index(index)[sessionID], p.indexes.Repeated(index, sessionID)
 	}
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), models: parser.Tracker{}, names: map[string]string{},
@@ -78,7 +84,13 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		entry.Get("workspaceDirectory")))
 	state.model = parser.Text(document.Get("chatModelTitle"))
 	history := parser.ArrayMember(document.Get("history"), "history", 0, &state.problems)
-	state.header(document, entry, len(history))
+	if repeat == nil {
+		state.header(document, entry, len(history))
+	} else {
+		state.repeat, state.takes = repeat, MemberTakes(document)
+		state.emit = state.member(repeat, emit)
+		state.repeatedHeaders(document, repeat, len(history))
+	}
 	for _, item := range history {
 		message := item.Get("message")
 		if parser.IsText(message.Get("role"), "tool") && !message.Get("toolCallId").IsEmpty() {
@@ -96,8 +108,56 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	for _, found := range state.problems {
 		row := state.row(found.Line, "", timeline.TurnSystem)
 		row.Text = parser.ProblemPrefix + found.Message
+		state.emit(row)
+	}
+}
+
+// MemberTakes returns what a row of a session file whose id the index
+// repeats takes from the entry the id's group goes with: the entry's
+// dateCreated, and its workspaceDirectory when the file has none.
+func MemberTakes(document jsonvalue.Value) timeline.Takes {
+	if document.Get("workspaceDirectory").IsEmpty() {
+		return timeline.TakeTime | timeline.TakeProject
+	}
+	return timeline.TakeTime
+}
+
+// member returns emit with each row not yet in the repeat's group made a
+// member of it, taking s.takes.
+func (s *sessionFile) member(repeat *Repeat, emit parser.Emit) parser.Emit {
+	return func(row timeline.Row) {
+		if row.Group == nil {
+			repeat.Group.Member(&row, s.takes)
+		}
 		emit(row)
 	}
+}
+
+// repeatedHeaders emits the header rows once for each entry of a session
+// id the index repeats, with the entry's time and, when the file has none,
+// project, and the problems the header adds, as rows of the entry's parent
+// shown only when the session's rows go with it.
+func (s *sessionFile) repeatedHeaders(document jsonvalue.Value, repeat *Repeat, items int) {
+	base, emit, problems := s.base, s.emit, s.problems
+	for place, entry := range repeat.Entries {
+		s.base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
+		if s.takes&timeline.TakeProject != 0 {
+			s.base.ProjectPath = parser.Text(entry.Get("workspaceDirectory"))
+		}
+		s.models, s.problems = parser.Tracker{}, nil
+		parent := repeat.Parents[place]
+		s.emit = func(row timeline.Row) {
+			parent.Row(&row, timeline.WhenChosen)
+			emit(row)
+		}
+		s.header(document, entry, items)
+		for _, found := range s.problems {
+			row := s.row(found.Line, "", timeline.TurnSystem)
+			row.Text = parser.ProblemPrefix + found.Message
+			s.emit(row)
+		}
+	}
+	s.base, s.emit, s.problems = base, emit, problems
 }
 
 // header emits a session's start row, its first model, its mode, and the
@@ -138,15 +198,24 @@ func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
 	}
 }
 
+// ownTime makes row, a row with a time of its own when own is set, a
+// member of the session's group that keeps that time.
+func (s *sessionFile) ownTime(row *timeline.Row, own string) {
+	if own != "" && s.repeat != nil {
+		s.repeat.Group.Member(row, s.takes&^timeline.TakeTime)
+	}
+}
+
 // item emits the rows of one history item at a 1-based position.
 func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
 	model := s.promptModels(position, item)
 	if reasoning := item.Get("reasoning"); s.options.IncludeThinking && reasoning.IsObject() &&
 		!reasoning.Get("text").IsEmpty() {
 		row := s.row(position, model, timeline.TurnThinking)
-		row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(reasoning.Get("startAt")),
-			s.base.TimestampUTC)
+		own := timeutil.FromValue(reasoning.Get("startAt"))
+		row.TimestampUTC = timeutil.FirstNonEmpty(own, s.base.TimestampUTC)
 		row.Text = timeline.CompactValue(reasoning.Get("text"))
+		s.ownTime(&row, own)
 		s.emit(row)
 	}
 	role := message.Get("role")
