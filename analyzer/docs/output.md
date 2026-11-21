@@ -1521,6 +1521,16 @@ attributes. What the rows of the id are depends on the agent:
   its own entry rows (permission settings, model override, relay, public
   share, archive marker), with its own generation; without a filter the
   deliveries take the first stored row's, in table order.
+- **Copilot Desktop**, a `projects` or `workspaces` row repeating an id,
+  or a `workspace_session_aliases` row repeating a session id: the rows
+  whose `project_path` is joined through it (a project's worktree,
+  workspace and session rows, a workspace's or an alias's session rows),
+  with the stored row's `project_path`. Each stored row gives a `parser:`
+  row, and a project or workspace row its own row, with its own
+  `project_path`; the stored rows are read by `created_at`, so without a
+  filter the joined rows take the earliest row's path. A session row
+  follows the first of its alias, workspace and project whose key
+  repeats; the others give their first stored row's path.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

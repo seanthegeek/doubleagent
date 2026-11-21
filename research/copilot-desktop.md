@@ -1142,6 +1142,27 @@ timestamps converted with `to_utc`:
 
 Rows follow the table order above, then `created_at`.
 
+Each key a row's project path is joined through names one row:
+`workspace_session_aliases.session_id` is the table's primary key
+([Record schema](#record-schema)), and `projects.id` and `workspaces.id` are the ids every other
+table names a project or workspace by. When a damaged table holds one key in more than one row,
+each stored `projects` and `workspaces` row gives its own row, with its own path, and every stored
+row of the key gives one row
+`parser: projects holds <n> rows of this row's id; its worktrees, workspaces and sessions are shown once, with this row`
+for a project,
+`parser: workspaces holds <n> rows of this row's id; its sessions are shown once, with this row`
+for a workspace and
+`parser: workspace_session_aliases holds <n> rows of this row's session_id; its session's rows are shown once, with this row`
+for an alias (`another of them` for each stored row the joined rows do not go with) at its
+`created_at`, an alias's with its `session_id` and the path of its workspace. The rows joined
+through the key (the worktree, workspace and session rows of a project, the session rows of a
+workspace or an alias) are shown once, with the path of the first stored row by `created_at` that
+`--since`, `--until` and `--match` keep, else of the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A session row follows the
+first key of its chain that repeats (its alias, else its workspace, else its project), and the
+keys after that one give their first stored row's path; a stored row of a repeated workspace id
+gives the path of its project's first stored row.
+
 Checkpoint refs: `wants()` also takes
 `^\.copilot/repos/[^/]+/\.git/refs/copilot/checkpoints/([0-9a-f-]{36})/(\d+)/([0-9a-f-]{36})$`
 and yields one `system` row per ref file:

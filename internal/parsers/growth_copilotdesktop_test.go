@@ -101,6 +101,25 @@ func copilotdesktopRepeatCases() []growthCase {
 				"sessions":                  rows(n, func(i int) []any { return copilotdesktopSession("s1") }),
 			}))
 		}},
+		// Each link of a session's path to its project repeats, every stored
+		// row of each naming another: the session rows are members of the
+		// alias's group, the workspace rows parents of the workspace's.
+		{kind: "data.db", shape: shapeSharedID + " (each link of a chain, every stored row its own)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(copilotdesktopRel, copilotdesktopDatabase(t, map[string][][]any{
+					"projects": rows(n, func(i int) []any { return copilotdesktopProject("p1", numbered("/p", i)) }),
+					"workspaces": rows(n, func(i int) []any {
+						return []any{"w1", "p1", numbered("ws", i), "local", "main", copilotdesktopTime}
+					}),
+					"workspace_session_aliases": rows(n, func(i int) []any {
+						return []any{"s1", numbered("w", i), copilotdesktopTime}
+					}),
+					"sessions": rows(n, func(i int) []any { return copilotdesktopSession("s1") }),
+					"worktrees": rows(n, func(i int) []any {
+						return []any{numbered("/w/", i), numbered("b", i), "main", "p1", copilotdesktopTime}
+					}),
+				}))
+			}},
 		{kind: "data.db", shape: shapeJoins, files: func(t *testing.T, n int) []growthFile {
 			session := copilotdesktopSession("s1")
 			session[1] = strings.Repeat("t", 1024*n)

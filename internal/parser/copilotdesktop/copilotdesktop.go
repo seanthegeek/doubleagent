@@ -171,34 +171,39 @@ func flag(value sqlitefile.Value) string {
 	return "true"
 }
 
-// projectIndex is the projects of a database by id, in the order each id
-// was first met; an id that two rows share holds the later row. Each
-// project's main repository path is made into a string once, since every
-// workspace, worktree and session row of the project carries it and the
-// rows are held until the parse ends.
+// projectIndex is the stored rows of the projects table in reading order,
+// with each row's main repository path, made into a string once, since
+// every workspace, worktree and session row of the project carries it and
+// the rows are held until the parse ends. An id names its first stored
+// row; an id more than one row holds has a repeat.
 type projectIndex struct {
-	order []string
-	byID  map[string]sqlitefile.Row
-	paths map[string]string
+	rows    []sqlitefile.Row
+	paths   []string
+	first   map[string]int
+	repeats map[string]*repeat
 }
 
 // newProjectIndex indexes the project rows by id.
 func newProjectIndex(rows []sqlitefile.Row) projectIndex {
-	index := projectIndex{byID: map[string]sqlitefile.Row{}, paths: map[string]string{}}
-	for _, row := range rows {
+	index := projectIndex{rows: rows, paths: make([]string, len(rows)), first: map[string]int{},
+		repeats: repeatsOf("projects", "id", "worktrees, workspaces and sessions", rows)}
+	for i, row := range rows {
 		projectID := parser.ColumnText(row.Get("id"))
-		if _, seen := index.byID[projectID]; !seen {
-			index.order = append(index.order, projectID)
+		if _, met := index.first[projectID]; !met {
+			index.first[projectID] = i
 		}
-		index.byID[projectID] = row
-		index.paths[projectID] = parser.ColumnText(row.Get("main_repo_path"))
+		index.paths[i] = parser.ColumnText(row.Get("main_repo_path"))
 	}
 	return index
 }
 
-// pathOf returns the main repository path of a project id, "" when unknown.
+// pathOf returns the main repository path of a project id's first stored
+// row, "" when no row holds the id.
 func (x projectIndex) pathOf(projectID string) string {
-	return x.paths[projectID]
+	if i, ok := x.first[projectID]; ok {
+		return x.paths[i]
+	}
+	return ""
 }
 
 // databaseRows emits the rows of every table, in this order: accounts,
@@ -206,14 +211,8 @@ func (x projectIndex) pathOf(projectID string) string {
 func (p *Parser) databaseRows(artifact *input.Artifact, reader *store, emit parser.Emit) {
 	projects := newProjectIndex(reader.created("projects"))
 	workspaces := reader.created("workspaces")
-	workspaceProject := map[string]string{}
-	for _, workspace := range workspaces {
-		workspaceProject[parser.ColumnText(workspace.Get("id"))] = parser.ColumnText(workspace.Get("project_id"))
-	}
-	aliases := map[string]string{}
-	for _, alias := range reader.created("workspace_session_aliases") {
-		aliases[parser.ColumnText(alias.Get("session_id"))] = parser.ColumnText(alias.Get("workspace_id"))
-	}
+	aliases := reader.created("workspace_session_aliases")
+	joined := newLinks(projects, workspaces, aliases)
 	p.accountRows(artifact, reader, emit)
 	p.settingsRows(artifact, reader, emit)
 	for _, provider := range reader.created("model_providers") {
@@ -221,11 +220,9 @@ func (p *Parser) databaseRows(artifact *input.Artifact, reader *store, emit pars
 			parser.ColumnText(provider.Get("type")), parser.ColumnTime(provider.Get("created_at"))))
 	}
 	p.projectRows(artifact, projects, emit)
-	p.workspaceRows(artifact, reader, workspaces, projects, emit)
-	sessionPath := func(sessionID string) string {
-		return projects.pathOf(workspaceProject[aliases[sessionID]])
-	}
-	p.sessionRows(artifact, reader, sessionPath, emit)
+	p.workspaceRows(artifact, reader, workspaces, joined, emit)
+	p.aliasRows(artifact, aliases, joined, emit)
+	p.sessionRows(artifact, reader, joined, emit)
 	p.scheduleRows(artifact, reader, emit)
 }
 
@@ -251,10 +248,11 @@ func (p *Parser) settingsRows(artifact *input.Artifact, reader *store, emit pars
 	}
 }
 
-// projectRows emits one row per project.
+// projectRows emits one row per stored project row, each row of an id
+// more than one row holds followed by its `parser:` row.
 func (p *Parser) projectRows(artifact *input.Artifact, projects projectIndex, emit parser.Emit) {
-	for _, projectID := range projects.order {
-		project, path := projects.byID[projectID], projects.pathOf(projectID)
+	for i, project := range projects.rows {
+		path := projects.paths[i]
 		line := "project added: " + parser.ColumnText(project.Get("name")) + " kind=" +
 			parser.ColumnText(project.Get("container_kind")) + " path=" + path
 		if !project.Get("github_owner").IsNull() || !project.Get("github_repo").IsNull() {
@@ -264,18 +262,28 @@ func (p *Parser) projectRows(artifact *input.Artifact, projects projectIndex, em
 		line += " default_branch=" + parser.ColumnText(project.Get("default_branch"))
 		row := p.row(artifact, line, parser.ColumnTime(project.Get("created_at")))
 		row.ProjectPath = path
+		var notices []timeline.Row
+		if projectID := project.Get("id"); !projectID.IsNull() {
+			notices = projects.repeats[parser.ColumnText(projectID)].start(&row)
+		}
 		emit(row)
+		parser.EmitAll(emit, notices)
 	}
 }
 
-// workspaceRows emits the worktree rows, then the workspace rows.
+// workspaceRows emits the worktree rows, then the workspace rows. A row
+// naming a project id more than one row holds is a member of its group; a
+// stored row of a workspace id more than one row holds is a parent of the
+// workspace's group instead, followed by its `parser:` row.
 func (p *Parser) workspaceRows(artifact *input.Artifact, reader *store,
-	workspaces []sqlitefile.Row, projects projectIndex, emit parser.Emit) {
+	workspaces []sqlitefile.Row, joined links, emit parser.Emit) {
 	for _, worktree := range reader.created("worktrees") {
 		row := p.row(artifact, "worktree: "+parser.ColumnText(worktree.Get("path"))+" branch="+
 			parser.ColumnText(worktree.Get("branch"))+" base="+dash(worktree.Get("base_branch")),
 			parser.ColumnTime(worktree.Get("created_at")))
-		row.ProjectPath = projects.pathOf(parser.ColumnText(worktree.Get("project_id")))
+		path, project := joined.projectPlace(parser.ColumnText(worktree.Get("project_id")))
+		row.ProjectPath = path
+		project.member(&row)
 		emit(row)
 	}
 	for _, workspace := range workspaces {
@@ -288,15 +296,23 @@ func (p *Parser) workspaceRows(artifact *input.Artifact, reader *store,
 			}
 		}
 		row := p.row(artifact, line, parser.ColumnTime(workspace.Get("created_at")))
-		row.ProjectPath = projects.pathOf(parser.ColumnText(workspace.Get("project_id")))
+		path, project := joined.projectPlace(parser.ColumnText(workspace.Get("project_id")))
+		row.ProjectPath = path
+		var notices []timeline.Row
+		if repeated := joined.workspaceRepeat(workspace); repeated != nil {
+			notices = repeated.start(&row)
+		} else {
+			project.member(&row)
+		}
 		emit(row)
+		parser.EmitAll(emit, notices)
 	}
 }
 
 // sessionRows emits the session rows, the activity items and the
-// checkpoints.
-func (p *Parser) sessionRows(artifact *input.Artifact, reader *store,
-	pathOf func(sessionID string) string, emit parser.Emit) {
+// checkpoints. A session row whose project path is joined through a
+// repeated key is a member of that key's group (links.sessionPlace).
+func (p *Parser) sessionRows(artifact *input.Artifact, reader *store, joined links, emit parser.Emit) {
 	for _, session := range reader.created("sessions") {
 		sessionID := parser.ColumnText(session.Get("id"))
 		created := parser.ColumnTime(session.Get("created_at"))
@@ -304,7 +320,9 @@ func (p *Parser) sessionRows(artifact *input.Artifact, reader *store,
 			row := p.row(artifact, line, created)
 			row.SessionID = sessionID
 			row.Model = parser.ColumnText(session.Get("model"))
-			row.ProjectPath = pathOf(sessionID)
+			path, place := joined.sessionPlace(sessionID)
+			row.ProjectPath = path
+			place.member(&row)
 			return row
 		}
 		emit(build("desktop session: " + dash(session.Get("title")) + " type=" +
