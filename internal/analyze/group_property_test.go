@@ -48,7 +48,7 @@ func groupedStores() []groupedStore {
 	ollama := "Library/Application Support/Ollama/db.sqlite"
 	opencode, kilo := ".local/share/opencode/opencode-dev.db", ".local/share/kilo/kilo-dev.db"
 	zed := ".local/share/zed/db/0-stable/db.sqlite"
-	return append([]groupedStore{
+	return append(append([]groupedStore{
 		{"hermes sessions", "hermes", file("hermes", ".hermes/state.db",
 			testdata("hermes", "testdata", "repeated_session_rows.db"))},
 		{"nanobot keys", "nanobot", file("nanobot",
@@ -75,7 +75,69 @@ func groupedStores() []groupedStore {
 			return []collectedFile{agentZeroChat(messageFileChat),
 				{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/messages/1.txt", "FILE-RESULT"}}
 		}},
-	}, moreGroupedStores()...)
+	}, moreGroupedStores()...), opencodeShapeStores()...)
+}
+
+// opencodeShapeDatabase returns a 2.x OpenCode database of the sessions
+// ses_c, ses_d and ses_e whose session_message and session_part hold the
+// records and parts given.
+func opencodeShapeDatabase(t *testing.T, records, parts [][]any) string {
+	t.Helper()
+	return buildDatabase(t,
+		sqlitetest.Table{Name: "session_v2", SQL: "CREATE TABLE session_v2 (id text PRIMARY KEY, project_id text, " +
+			"directory text, title text, time_created integer, time_updated integer)", Rows: [][]any{
+			{"ses_c", nil, "/proj/c", "C", opencodeOld, opencodeOld},
+			{"ses_d", nil, "/proj/d", "D", opencodeNew, opencodeNew},
+			{"ses_e", nil, "/proj/e", "E", opencodeLater, opencodeLater}}},
+		sqlitetest.Table{Name: "session_message", SQL: "CREATE TABLE session_message (id text, session_id text, " +
+			"type text, seq integer, time_created integer, time_updated integer, data text)", Rows: records},
+		sqlitetest.Table{Name: "session_part", SQL: "CREATE TABLE session_part (id text, message_id text, " +
+			"session_id text, type text, ordinal integer, data text)", Rows: parts})
+}
+
+// opencodeLater is the time of a third stored record, two months after
+// the new one.
+const opencodeLater = opencodeNew + 5_000_000_000
+
+// opencodeShapeRecord returns a session_message row of msg_v in the session
+// at the time, with the content given as JSON and the model.
+func opencodeShapeRecord(session string, created int, content, model string) []any {
+	return []any{"msg_v", session, "assistant", 0, created, created,
+		`{"content":` + content + `,"model":{"providerID":"p","id":"` + model + `"}}`}
+}
+
+// opencodeShapeStores returns OpenCode 2.x stores of a repeated message id
+// in more shapes: three records; a later record whose content is empty, or
+// is not an array; the same content in both records; and items with times
+// of their own and a tool call.
+func opencodeShapeStores() []groupedStore {
+	item := [][]any{{"prt_v", "msg_v", "ses_c", "text", 0, `{"text":"ITEM-TEXT"}`}}
+	store := func(name string, records, parts [][]any) groupedStore {
+		return groupedStore{name, "opencode", func(t *testing.T) []collectedFile {
+			return []collectedFile{{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode-dev.db",
+				opencodeShapeDatabase(t, records, parts)}}
+		}}
+	}
+	text := func(value string) string { return `[{"type":"text","text":"` + value + `"}]` }
+	first := opencodeShapeRecord("ses_c", opencodeOld, text("OWN-1"), "mA")
+	second := opencodeShapeRecord("ses_d", opencodeNew, text("OWN-2"), "mB")
+	return []groupedStore{
+		store("opencode three records", [][]any{first, second,
+			opencodeShapeRecord("ses_e", opencodeLater, text("OWN-3"), "mC")}, item),
+		store("opencode later record with empty content", [][]any{first,
+			opencodeShapeRecord("ses_d", opencodeNew, `[]`, "mB"),
+			opencodeShapeRecord("ses_e", opencodeLater, text("OWN-3"), "mC")}, item),
+		store("opencode later record with content not an array", [][]any{first,
+			opencodeShapeRecord("ses_d", opencodeNew, `"bad"`, "mB")}, item),
+		store("opencode same content in both records", [][]any{opencodeShapeRecord("ses_c", opencodeOld,
+			text("SAME"), "mA"), opencodeShapeRecord("ses_c", opencodeNew, text("SAME"), "mA")}, item),
+		store("opencode items with their own times and a tool call", [][]any{first, second}, [][]any{
+			{"prt_v", "msg_v", "ses_c", "text", 0, `{"text":"ITEM-TEXT","time":{"start":1780358400000,` +
+				`"created":1780358400000}}`},
+			{"prt_w", "msg_v", "ses_c", "tool", 1, `{"type":"tool","tool":"bash","callID":"call_1","state":` +
+				`{"status":"completed","input":{"command":"ls"},"output":"OUT","time":{"start":1780358400000,` +
+				`"end":1780358401000}}}`}}),
+	}
 }
 
 // codexState returns the Codex state database of a repeated thread id.
@@ -247,10 +309,12 @@ func countRecords(rows []timeline.Row) map[string]int {
 }
 
 // For every parser that groups the rows of a repeated id, a window from or
-// to the time of any row of the output without a filter shows every dated
-// row of that output inside it, with its text or, in the row of the
-// chosen parent with two texts, its chosen one, and shows no row more
-// often than that output does.
+// to the time of any row of the output without a filter shows the text of
+// every dated row of that output inside it (or, for the row of the chosen
+// parent with two texts, its chosen text at its place), and shows no row
+// more often than that output does. The text may be shown at another time
+// inside the window: a row the chosen stored row gives with the same text
+// stands at its own time in place of one of another stored row.
 func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
