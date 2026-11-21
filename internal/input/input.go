@@ -98,6 +98,11 @@ type Home struct {
 	// files, for the output to replace; every home of a run shares the
 	// run's recorder, and nil (a run that shows secrets) records nothing.
 	Secrets *secrets.Recorder
+	// Repeats gathers the member names repeated within a JSON object that
+	// the parse running reads outside the parser kit's line and array
+	// readers (parser.Within sets it for each parse and reports them), nil
+	// between parses.
+	Repeats *jsonvalue.Repeats
 	// ownDirectory is set when DiskPath is a directory the input's walk
 	// found, or the input itself, so a lookup below it need not look at it.
 	ownDirectory bool

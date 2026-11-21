@@ -162,31 +162,38 @@ func Collect(each Parser, artifact *input.Artifact, options Options, emit Emit) 
 }
 
 // Within runs produce as one parse of artifact: what the kit's functions
-// identify while it runs is recorded as the parse's own, which it returns
-// (nil in a run that shows secrets) with produce's error, and each row
-// produce emits carries that record (timeline.Row.Secrets) for the output
-// to replace in it. Every field of a row but its text that is longer than
-// CarriedLimit is cut to it, and the parse ends with one problem row per
-// field cut (CarriedProblem), so no parser can leave one long. The parents
-// of each group an emitted row belongs to (timeline.Group) are cut alike
-// when the parse ends, counting no cut, so a member takes a parent's
-// fields as its own rows show them.
+// identify while it runs is the parse's own record, returned (nil in a run
+// that shows secrets) with produce's error and carried by each row
+// (timeline.Row.Secrets) for the output to replace. Every field of a row
+// but its text longer than CarriedLimit is cut, with one problem row per
+// field cut (CarriedProblem) at the end; the parents of each group a row
+// belongs to (timeline.Group) are cut alike, counting no cut. The member
+// names the parse noted as repeated (NoteRepeats) give one problem row
+// before those (RepeatedMembers).
 func Within(artifact *input.Artifact, produce func(emit Emit) error, emit Emit) (*secrets.Found, error) {
 	recorder := recorderOf(artifact)
 	found := recorder.Begin()
 	defer recorder.End()
+	var repeats jsonvalue.Repeats
+	defer gatherRepeats(artifact, &repeats)()
 	fields := carriedFields{recorder: recorder}
 	groups := map[*timeline.Group]bool{}
 	var order []*timeline.Group
-	err := produce(func(row timeline.Row) {
+	var outline parseOutline
+	inner := func(row timeline.Row) {
 		row.Secrets = found
 		fields.cut(&row)
 		if row.Group != nil && !groups[row.Group.Owner()] {
 			groups[row.Group.Owner()] = true
 			order = append(order, row.Group.Owner())
 		}
+		outline.add(row)
 		emit(row)
-	})
+	}
+	err := produce(inner)
+	if repeats.Count() > 0 {
+		inner(outline.repeatsRow(artifact, repeats))
+	}
 	for _, group := range order {
 		group.Bound(fields.bound)
 	}
@@ -195,6 +202,19 @@ func Within(artifact *input.Artifact, produce func(emit Emit) error, emit Emit) 
 		emit(row)
 	}
 	return found, err
+}
+
+// gatherRepeats makes repeats the record of the repeated member names of
+// the parse of artifact (input.Home.Repeats) and returns the function that
+// gives the home back the record it had, the parse a parse begun inside
+// another returns to.
+func gatherRepeats(artifact *input.Artifact, repeats *jsonvalue.Repeats) func() {
+	if artifact == nil || artifact.Home == nil {
+		return func() {}
+	}
+	home, saved := artifact.Home, artifact.Home.Repeats
+	home.Repeats = repeats
+	return func() { home.Repeats = saved }
 }
 
 // recorderOf returns the recorder of the artifact's home, nil (record

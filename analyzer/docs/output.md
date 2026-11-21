@@ -1850,6 +1850,25 @@ array`, `parser: not a SQLite database`, `parser: SQLite error:
 <error>` or `parser: no <table> table in the session database`, with
 the line number when the error has one and `0` otherwise.
 
+A JSON object that gives one member name more than once is read as the
+agents read their own files, the last value of the name taking the place
+of the earlier ones, and since the earlier value then appears in no row,
+the file is reported: one `system` row `parser: <n> member names repeat
+within their JSON objects (<name> <k> times, ...); the last value of each
+is used`, or `parser: 1 member name repeats within its JSON object
+(<name>); the last value is used` for a single one. `<n>` counts every
+member that repeated a name of its object; the first three names are
+given, each as a JSON string (a name longer than 4,096 bytes as `a name of
+<length> bytes`), with `...` when other names repeated too. The value a
+repeat replaced is never shown. A file read line by line or as a JSON
+array gives the row beside its other `parser:` rows, with the file's
+session id and project path and the `source_line` of the first line or
+array element that repeated a name; JSON read any other way (a whole
+document, a database column, JSON inside a string) gives one row per file
+parsed, with `source_line` 0, and the session id and project path only
+when every row of the parse has the same. The rows are otherwise as they
+would be without the repeat.
+
 Antigravity's permission state is also typed `system`. A grant recorded on
 a step is `permission grant: action=<action> target=<target>
 allow=<true|false> scope=<scope>`, or for a file access entry

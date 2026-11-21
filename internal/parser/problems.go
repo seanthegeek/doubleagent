@@ -14,15 +14,32 @@ const ProblemPrefix = "parser: "
 
 // Problem is one problem met while reading an artifact: the line or record
 // it concerns (0 for the whole file), the message, and the raw text of the
-// line or record when there is one to show.
+// line or record when there is one to show. A problem that reports
+// repeated member names (AddRepeats) is a note: the evidence read whole,
+// with a value of it replaced, rather than evidence that could not be
+// read.
 type Problem struct {
 	Line    int
 	Message string
 	Raw     string
+	note    bool
 }
 
 // Problems collects the problems of one parse in the order they are met.
 type Problems []Problem
+
+// Damaged reports whether a problem other than a note was met: a line,
+// record or file that could not be read as the format gives it. A parser
+// that treats a file differently once any of it was damaged asks this,
+// not whether the list is empty.
+func (p Problems) Damaged() bool {
+	for _, problem := range p {
+		if !problem.note {
+			return true
+		}
+	}
+	return false
+}
 
 // Add records a problem without raw text.
 func (p *Problems) Add(line int, message string) {

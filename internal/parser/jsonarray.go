@@ -9,15 +9,15 @@ import (
 )
 
 // ArrayAt yields (1-based position, element) from the JSON array that
-// starts at the byte offset of text, after any whitespace, salvaging what it
-// can of a damaged one; the elements before the damage are kept. Text that
-// is not an array adds "not a JSON array" at 1. An array whose text ends
-// before its closing bracket, or that lacks a comma between two elements,
-// adds "array cut off after record <n>" at n+1, n the elements read whole.
-// An element that starts but does not decode adds "unparseable record
-// <position> (<reason>)" at its position, with the text from there to the
-// end (TailText) as raw. When end is not nil it is set to the offset after
-// the closing bracket, or -1.
+// starts at the byte offset of text, after any whitespace, keeping the
+// elements before any damage. Text that is not an array adds "not a JSON
+// array" at 1. An array that ends before its closing bracket, or lacks a
+// comma between two elements, adds "array cut off after record <n>" at n+1,
+// n the elements read whole. An element that does not decode adds
+// "unparseable record <position> (<reason>)" at its position, with the text
+// from there to the end (TailText) as raw. Elements that repeat a member
+// name give one problem (RepeatedMembers) at the first one's position when
+// the walk ends. A non-nil end is set past the closing bracket, or to -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	walk := &ArrayWalk{Document: jsonvalue.NewDocument(text)}
 	return walk.Array(offset, problems, end)
@@ -41,6 +41,8 @@ type ArrayWalk struct {
 // byte offset of the walk's document, with the problems ArrayAt adds.
 func (w *ArrayWalk) Array(offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
+		var noted repeated
+		defer noted.report(problems)
 		text := w.Document.String()
 		setEnd(end, -1)
 		cursor := SkipJSONSpace(text, max(offset, 0))
@@ -68,6 +70,7 @@ func (w *ArrayWalk) Array(offset int, problems *Problems, end *int) iter.Seq2[in
 				w.failed(start, position, err, problems)
 				return
 			}
+			noted.note(position, w.Document.TakeRepeats())
 			if !yield(position, value) {
 				return
 			}
