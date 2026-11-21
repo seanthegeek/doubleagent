@@ -168,6 +168,16 @@ func opencodeJoinCases(layout opencodeLayout) []growthCase {
 func opencodeMoreDatabaseCases(layout opencodeLayout) []growthCase {
 	rel := layout.data + "/" + layout.database
 	return []growthCase{
+		{kind: "database", shape: shapeCarried + " (a repeated session id's directory)", files: func(t *testing.T,
+			n int) []growthFile {
+			sessions := [][]any{{opencodeSession, nil, "/" + long("p"), "t", 1700000000000},
+				{opencodeSession, nil, "/" + long("q"), "t", 1700000000001}}
+			messages := rows(n, func(i int) []any { return opencodeUserMessage(numbered("msg_", i), i) })
+			parts := rows(n, func(i int) []any { return opencodeTextPart(numbered("prt_", i), numbered("msg_", i), i) })
+			return one(rel, database(t, append([]sqlitetest.Table{{Name: "session", SQL: "CREATE TABLE session (id text, " +
+				"project_id text, directory text, title text, time_created integer)", Rows: sessions}},
+				opencodeV1Tables(messages, parts)...)...))
+		}},
 		{kind: "database", shape: shapeCarried + " (the session's directory)", files: func(t *testing.T, n int) []growthFile {
 			session := []any{opencodeSession, nil, "/" + long("p"), "t", 1700000000000}
 			messages := rows(n, func(i int) []any {

@@ -54,6 +54,13 @@ func ollamaDatabaseCases() []growthCase {
 			return one(ollamaDatabaseRel, ollamaDatabase(t, messages,
 				rows(n, func(i int) []any { return ollamaCall(i+1, 1, "web_search") }), nil))
 		}},
+		{kind: "database", shape: shapeCarried + " (a repeated message id's model)", files: func(t *testing.T,
+			n int) []growthFile {
+			messages := [][]any{ollamaMessage(1, "c", "assistant", "a", long("m")),
+				ollamaMessage(1, "c", "assistant", "b", long("n"))}
+			return one(ollamaDatabaseRel, ollamaDatabase(t, messages,
+				rows(n, func(i int) []any { return ollamaCall(i+1, 1, "web_search") }), nil))
+		}},
 		{kind: "database", shape: shapeJoins + " in the chat id", files: func(t *testing.T, n int) []growthFile {
 			messages := [][]any{ollamaMessage(1, strings.Repeat("c", 1024*n), "assistant", "calling", "m")}
 			return one(ollamaDatabaseRel, ollamaDatabase(t, messages,

@@ -625,12 +625,17 @@ for Go files as it does for the others.
   repeated id, one long carried value, deep nesting and damaged siblings,
   many files that look at each other, equal join keys, directories that
   cannot be listed). `TestEveryFileKindHasGrowthCases`
-  fails for a kind without one, and `TestEveryParserGrowsInStepWithItsInput`
-  fails when the rows (counted as the output writes them, each shared text
-  once), their bytes or the allocations at twice the size are
-  more than 2.5 times those at the size, or the row text outweighs the input.
-  Work that allocates nothing is not measured there; a parser's own tests
-  count it (`parser.Work`).
+  fails for a kind without one. `TestEveryParserGrowsInStepWithItsInput`
+  reads the rows as a run writes them, each group of a repeated id attached
+  to its first parent and again to its last and each shared text written
+  once, and fails when at twice the size the rows or their bytes are more
+  than 2.5 times those at the size, or the allocations or bytes allocated
+  more than 2.5 times plus 2,048 allocations or 256 KiB (the runtime's own
+  work); or when at either size the row text (every field but host, user,
+  agent and source file) passes four bytes per byte of input plus 16,896
+  bytes a row (four carried values of 4,096 bytes, and 512). Allocations
+  are not counted under the race detector, and work that allocates nothing
+  not at all; a parser's own tests count it (`parser.Work`).
 - **Evidence is shown as written.** In the analysis output files a number
   from the evidence keeps its source text, JSON embedded in a row is compact
   with the evidence's key order, a boolean is `true` or `false`, and a null

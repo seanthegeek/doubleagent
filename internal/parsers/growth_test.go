@@ -160,12 +160,14 @@ func newParser(t *testing.T, name string) parser.Parser {
 }
 
 // parseHome parses the artifacts with the parser as a run does
-// (Registry.Collect), writes out the shared texts the rows name as a run
-// writes its output (timeline.Resolve), and returns the rows' measures; a
-// problem line counts as a row. Every row is kept, the secondary rows
-// after the primary ones, so a text the run's deduplication would drop
-// still counts.
-func parseHome(t *testing.T, each parser.Parser, artifacts []*input.Artifact) growthMeasure {
+// (Registry.Collect), settles the parent each group of a repeated id goes
+// with (timeline.Attach), its first or, with later set, its last, as a
+// filter that keeps only that parent's rows would choose, writes out the
+// shared texts the rows name as a run writes its output
+// (timeline.Resolve), and returns the rows' measures; a problem line
+// counts as a row. Every row is kept, the secondary rows after the primary
+// ones, so a text the run's deduplication would drop still counts.
+func parseHome(t *testing.T, each parser.Parser, artifacts []*input.Artifact, later bool) growthMeasure {
 	t.Helper()
 	result, err := NewOf([]parser.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
 		parser.Options{IncludeThinking: true}, nil)
@@ -185,6 +187,11 @@ func parseHome(t *testing.T, each parser.Parser, artifacts []*input.Artifact) gr
 	for _, row := range result.Secondary {
 		written = append(written, row.Row)
 	}
+	var choice timeline.Choice
+	if later {
+		choice = timeline.LastParents(written)
+	}
+	written = timeline.Attach(written, choice)
 	timeline.Resolve(written)
 	for _, row := range written {
 		add(row)
@@ -197,10 +204,11 @@ func parseHome(t *testing.T, each parser.Parser, artifacts []*input.Artifact) gr
 }
 
 // measureGrowth builds the case's home at size n and parses it with a new
-// parser value, counting the allocations of the parse alone. Under the race
+// parser value, each group going with its last parent when later is set
+// (parseHome), counting the allocations of the parse alone. Under the race
 // detector the cases run in parallel and the allocations are not counted,
 // since the counts are of the whole process.
-func measureGrowth(t *testing.T, name string, test growthCase, n int) growthMeasure {
+func measureGrowth(t *testing.T, name string, test growthCase, n int, later bool) growthMeasure {
 	t.Helper()
 	each := newParser(t, name)
 	agent := test.agent
@@ -217,14 +225,14 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int) growthMeas
 		t.Fatalf("no file of the case is of the kind %q", test.kind)
 	}
 	if raceDetector {
-		measure := parseHome(t, each, artifacts)
+		measure := parseHome(t, each, artifacts, later)
 		measure.inputBytes = written
 		return measure
 	}
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	measure := parseHome(t, each, artifacts)
+	measure := parseHome(t, each, artifacts, later)
 	runtime.ReadMemStats(&after)
 	measure.inputBytes = written
 	measure.allocations = after.Mallocs - before.Mallocs
@@ -296,15 +304,14 @@ func growthFailures(small, large growthMeasure) []string {
 }
 
 // Every parser, for every kind of file it reads, writes rows and does work
-// that grow in step with its input in every shape its cases build. A case
-// marked known is a defect not yet fixed: it must still break a bound where
-// every measure is counted (without the race detector), so its fix also
-// removes the mark. Not measured: work that allocates nothing, such as a
-// loop comparing or scanning bytes already in memory or reading into a
-// reused buffer, and a system call that allocates nothing in the parse,
-// pass however often they repeat; a parser's own tests bound such work
-// through counters (parser.Work), or nothing does. Under the race detector
-// only rows and their bytes are counted.
+// that grow in step with its input in every shape its cases build, read as
+// a run writes them: each group of a repeated id going with its first
+// parent, as without a filter, and with its last, so its members take
+// another parent's fields. A case marked known is a defect not yet fixed:
+// it must still break a bound where every measure is counted (without the
+// race detector), so its fix also removes the mark. Work that allocates
+// nothing is not measured: a parser's own tests bound it through counters
+// (parser.Work). Under the race detector only rows and their bytes count.
 func TestEveryParserGrowsInStepWithItsInput(t *testing.T) {
 	for _, set := range growthSets() {
 		for _, test := range set.cases {
@@ -313,22 +320,43 @@ func TestEveryParserGrowsInStepWithItsInput(t *testing.T) {
 					t.Parallel()
 				}
 				n := test.size()
-				small, large := measureGrowth(t, set.parser, test, n), measureGrowth(t, set.parser, test, 2*n)
-				failures := growthFailures(small, large)
-				t.Logf("n=%d: %+v; 2n: %+v", n, small, large)
-				known := test.known
-				switch {
-				case known != "" && len(failures) == 0 && raceDetector:
-					t.Logf("known growth (%s) not seen: allocations are not counted under the race detector", known)
-				case known != "" && len(failures) == 0:
-					t.Errorf("the known growth (%s) is gone: remove the mark", known)
-				case known != "":
-					t.Logf("known growth (%s): %s", known, strings.Join(failures, "; "))
-				case len(failures) > 0:
-					t.Errorf("at %d and %d units: %s", n, 2*n, strings.Join(failures, "; "))
+				var failures []string
+				for _, later := range []bool{false, true} {
+					small, large := measureGrowth(t, set.parser, test, n, later),
+						measureGrowth(t, set.parser, test, 2*n, later)
+					for _, failure := range growthFailures(small, large) {
+						failures = append(failures, choiceName(later)+": "+failure)
+					}
+					t.Logf("%s, n=%d: %+v; 2n: %+v", choiceName(later), n, small, large)
 				}
+				reportGrowth(t, test, n, failures)
 			})
 		}
+	}
+}
+
+// choiceName names the parent the groups go with.
+func choiceName(later bool) string {
+	if later {
+		return "each group with its last parent"
+	}
+	return "each group with its first parent"
+}
+
+// reportGrowth fails the case for the failures at n and 2n, or for a known
+// growth no longer seen.
+func reportGrowth(t *testing.T, test growthCase, n int, failures []string) {
+	t.Helper()
+	known := test.known
+	switch {
+	case known != "" && len(failures) == 0 && raceDetector:
+		t.Logf("known growth (%s) not seen: allocations are not counted under the race detector", known)
+	case known != "" && len(failures) == 0:
+		t.Errorf("the known growth (%s) is gone: remove the mark", known)
+	case known != "":
+		t.Logf("known growth (%s): %s", known, strings.Join(failures, "; "))
+	case len(failures) > 0:
+		t.Errorf("at %d and %d units: %s", n, 2*n, strings.Join(failures, "; "))
 	}
 }
 
@@ -393,7 +421,10 @@ func checkKinds(t *testing.T, each parser.Parser, set growthSet) {
 }
 
 // Over every file the growth cases write, each parser's Wants agrees with
-// its kinds, so the kinds are the whole of what it reads.
+// its kinds, so every file a parser is given is of a kind a growth case
+// builds. Every Wants is the kit's union of the kinds today; this fails for
+// one written another way. A neighbour a parser opens itself (Beside,
+// Above) is no kind: the case of the file it is beside reaches it.
 func TestWantsIsTheUnionOfTheKinds(t *testing.T) {
 	all := All()
 	for _, set := range growthSets() {
