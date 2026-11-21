@@ -1552,6 +1552,12 @@ attributes. What the rows of the id are depends on the agent:
   own `task:` row (and Roo Code's `permission mode:` row) with its own
   attributes; without a filter the task's rows take the first entry's,
   in file order.
+- **Kilo Code**, a pre-fork task's `tasks/_index.json` entry repeating
+  its task id, for a task with no `history_item.json`: the task's rows,
+  with the entry's `project_path`, and its time for a record with no
+  `ts`. Each entry gives its own `task:` row with its own `project_path`
+  and time; without a filter the task's rows take the first entry's, in
+  file order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

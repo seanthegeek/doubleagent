@@ -1167,10 +1167,16 @@ once, with one of those rows' project, as in OpenCode
 A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) is the task directory's
 session, with the history item's `workspace` as `project_path`. The history item is one
 `task: <task> mode=<mode> status=<status> parent=<parentTaskId>` row at the item's `ts` (each
-field only when set), `source_line` 0. Each record's rows follow at its array position, timed by
-its `ts`, else the item's: the record's text and `image` blocks are one row by its `role` (an
-image as `[image]`), placed where the first was; a text block opening `<environment_details>` is a
-`system` row; a `tool_use` block is a `tool_use` row with `name` and `id`; a `tool_result` block a
+field only when set), `source_line` 0. The index is Roo Code's, which keeps one entry per task id
+([Bad-line rows in `roo-code.md`](roo-code.md#bad-line-rows)), so a second `entries` element of one
+id is damage or an edit: each entry of the id gives its own `task:` row, with its own `workspace`
+and start, and the task's other rows are shown once, with the `workspace` of one entry, and its
+start for a record with no `ts`: the first entry, in file order, that the analysis filters keep,
+else the first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). Each record's
+rows follow at its array position, timed by its `ts`, else the item's: the record's text and
+`image` blocks are one row by its `role` (an image as `[image]`), placed where the first was; a
+text block opening `<environment_details>` is a `system` row; a `tool_use` block is a `tool_use`
+row with `name` and `id`; a `tool_result` block a
 `tool_result` row joined on `tool_use_id`, its text opening `[error] ` when `is_error` is true; a
 `thinking` block, and a `reasoning` record's `summary` texts, `reasoning_content` or `text`, a
 `thinking` row only with thinking rows on; a record with `isSummary` one

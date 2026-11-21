@@ -17,12 +17,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// historyItem returns a pre-fork task's history item: history_item.json in
-// its directory, else its entry in the tasks' _index.json, else an empty
+// historyItems returns a pre-fork task's history item: history_item.json in
+// its directory, else its entries in the tasks' _index.json, in file order
+// (more than one only when the index repeats the id), else an empty
 // object. The task directory is the artifact's own. Either file that is
 // there but cannot be read, or does not hold a JSON object (text that is
 // not JSON among it), adds a problem.
-func (p *Parser) historyItem(artifact *input.Artifact, taskID string, problems *parser.Problems) jsonvalue.Value {
+func (p *Parser) historyItems(artifact *input.Artifact, taskID string, problems *parser.Problems) []jsonvalue.Value {
 	item := jsonvalue.NewNull()
 	if itemPath, ok := parser.Beside(artifact, "history_item.json"); ok && parser.RegularFile(itemPath) {
 		if read, ok := readJSON(itemPath, problems); ok {
@@ -33,14 +34,14 @@ func (p *Parser) historyItem(artifact *input.Artifact, taskID string, problems *
 		}
 	}
 	if item.IsObject() {
-		return item
+		return []jsonvalue.Value{item}
 	}
 	if indexPath, found := parser.Above(artifact, 1, "_index.json"); found && parser.RegularFile(indexPath) {
-		if entry, ok := p.indexEntry(indexPath, taskID, problems); ok {
-			return entry
+		if entries := p.indexEntries(indexPath, taskID, problems); len(entries) > 0 {
+			return entries
 		}
 	}
-	return jsonvalue.NewObject()
+	return []jsonvalue.Value{jsonvalue.NewObject()}
 }
 
 // indexKey identifies one state of a side file read once, a tasks' _index.json
@@ -51,28 +52,28 @@ type indexKey struct {
 	mtime, size int64
 }
 
-// taskIndex is a tasks' _index.json read once: the first object entry of
-// each string id, and the problems reading the file added.
+// taskIndex is a tasks' _index.json read once: the object entries of each
+// string id in file order, and the problems reading the file added.
 type taskIndex struct {
-	entries  map[string]jsonvalue.Value
+	entries  map[string][]jsonvalue.Value
 	problems parser.Problems
 }
 
-// indexEntry returns the entry of the _index.json at indexPath whose id is
-// the string taskID. The file is read and indexed once per state for the
+// indexEntries returns the entries of the _index.json at indexPath whose id
+// is the string taskID. The file is read and indexed once per state for the
 // parser's life, since every task file below it looks it up, and the
 // problems of that read are added for each lookup as a fresh read would; a
 // file that does not hold a JSON object, and an entries member that is not
 // an array, are among them.
-func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems) (jsonvalue.Value, bool) {
+func (p *Parser) indexEntries(indexPath, taskID string, problems *parser.Problems) []jsonvalue.Value {
 	info, err := osfile.Lstat(indexPath)
 	if err != nil {
-		return jsonvalue.NewNull(), false
+		return nil
 	}
 	key := indexKey{path: indexPath, mtime: info.ModTime().UnixNano(), size: info.Size()}
 	index, ok := p.indexes[key]
 	if !ok {
-		index = &taskIndex{entries: map[string]jsonvalue.Value{}}
+		index = &taskIndex{entries: map[string][]jsonvalue.Value{}}
 		document, read := readJSON(indexPath, &index.problems)
 		if read && !document.IsObject() {
 			index.problems.Add(0, "_index.json is not a JSON object")
@@ -80,15 +81,14 @@ func (p *Parser) indexEntry(indexPath, taskID string, problems *parser.Problems)
 		for _, entry := range parser.EntriesOfKind(document.Get("entries"), "entries", jsonvalue.Object, 0,
 			&index.problems) {
 			p.Work.Add("index entries read", 1)
-			if _, seen := index.entries[entry.Get("id").StringValue()]; entry.Get("id").IsString() && !seen {
-				index.entries[entry.Get("id").StringValue()] = entry
+			if entryID := entry.Get("id"); entryID.IsString() {
+				index.entries[entryID.StringValue()] = append(index.entries[entryID.StringValue()], entry)
 			}
 		}
 		p.indexes[key] = index
 	}
 	*problems = append(*problems, index.problems...)
-	entry, found := index.entries[taskID]
-	return entry, found
+	return index.entries[taskID]
 }
 
 // task holds what every row of one pre-fork task shares.
@@ -101,16 +101,41 @@ type task struct {
 	options  parser.Options
 	// problems collects the task file's problems.
 	problems *parser.Problems
+	// group is the group of the task's id when the tasks' _index.json
+	// repeats it (taskRows).
+	group *timeline.Group
 }
 
-// row returns a row of the task at line and timestamp, its text compacted.
+// row returns a row of the task at line and timestamp, its text compacted;
+// an empty timestamp is the task's start. In a task whose index repeats its
+// id, the row is a member of the id's group, taking the project, and the
+// time when it is the task's start, from the entry the group goes with.
 func (t *task) row(line int, timestamp, turn, text string) timeline.Row {
+	takes := timeline.TakeProject
+	if timestamp == "" {
+		timestamp, takes = t.started, takes|timeline.TakeTime
+	}
 	row := t.owner.BaseRow(t.artifact)
 	row.SourceLine, row.SessionID, row.ProjectPath = line, t.taskID, t.project
 	row.TimestampUTC = timestamp
 	row.TurnType = turn
 	row.Text = timeline.Compact(text)
+	if t.group != nil {
+		t.group.Member(&row, takes)
+	}
 	return row
+}
+
+// errorRows returns a row per problem of the task, each a member of the
+// task's group as row makes its rows.
+func (t *task) errorRows() []timeline.Row {
+	rows := t.owner.ErrorRows(t.artifact, *t.problems, t.taskID, t.project)
+	for i := range rows {
+		if t.group != nil {
+			t.group.Member(&rows[i], timeline.TakeProject)
+		}
+	}
+	return rows
 }
 
 // task emits the rows of a pre-fork task's api_conversation_history.json:
@@ -122,18 +147,13 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 	var problems parser.Problems
 	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options,
 		problems: &problems}
-	item := p.historyItem(artifact, current.taskID, &problems)
-	current.project = parser.Text(item.Get("workspace"))
-	current.started = taskTime(item.Get("ts"), current.taskID)
-	if item.Len() > 0 {
-		emit(current.row(0, current.started, timeline.TurnSystem, strings.Join(slices.DeleteFunc(
-			[]string{"task:", parser.Text(item.Get("task")), parser.Labelled("mode=", item.Get("mode")),
-				parser.Labelled("status=", item.Get("status")), parser.Labelled("parent=", item.Get("parentTaskId"))},
-			func(part string) bool { return part == "" }), " ")))
-	}
+	items := p.historyItems(artifact, current.taskID, &problems)
+	current.project = parser.Text(items[0].Get("workspace"))
+	current.started = taskTime(items[0].Get("ts"), current.taskID)
+	parser.EmitAll(emit, current.taskRows(items))
 	data, ok := parser.FileBytes(artifact.DiskPath, &problems)
 	if !ok {
-		parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.taskID, current.project))
+		parser.EmitAll(emit, current.errorRows())
 		return
 	}
 	messages := slices.All(parser.ArrayElements(textlines.ValidUTF8(data), &problems))
@@ -141,7 +161,36 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 		&problems) {
 		parser.EmitAll(emit, current.messageRows(index+1, message))
 	}
-	parser.EmitAll(emit, p.ErrorRows(artifact, problems, current.taskID, current.project))
+	parser.EmitAll(emit, current.errorRows())
+}
+
+// taskRows returns the "task:" row of the task's history item, none for an
+// empty one. The extension writes one index entry per task id, so only
+// damage or an edit repeats one; then each entry gives its own row, with
+// its own project and start, as a parent of the id's group
+// (timeline.Group), and the task's other rows are members (row).
+func (t *task) taskRows(items []jsonvalue.Value) []timeline.Row {
+	if len(items) > 1 {
+		t.group = timeline.NewGroup()
+	}
+	var rows []timeline.Row
+	for _, item := range items {
+		if item.Len() == 0 {
+			continue
+		}
+		row := t.owner.BaseRow(t.artifact)
+		row.SessionID, row.ProjectPath = t.taskID, parser.Text(item.Get("workspace"))
+		row.TimestampUTC, row.TurnType = taskTime(item.Get("ts"), t.taskID), timeline.TurnSystem
+		row.Text = timeline.Compact(strings.Join(slices.DeleteFunc(
+			[]string{"task:", parser.Text(item.Get("task")), parser.Labelled("mode=", item.Get("mode")),
+				parser.Labelled("status=", item.Get("status")), parser.Labelled("parent=", item.Get("parentTaskId"))},
+			func(part string) bool { return part == "" }), " "))
+		if t.group != nil {
+			t.group.Parent(&row)
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // taskTime returns a task's start: its ts, else its id read as an epoch
@@ -165,7 +214,7 @@ func taskTime(stamp jsonvalue.Value, taskID string) string {
 // message's content blocks with its text blocks joined into one row placed
 // where the first of them was.
 func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row {
-	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), t.started)
+	timestamp := timeutil.FromValue(message.Get("ts"))
 	if parser.IsText(message.Get("type"), "reasoning") {
 		if !t.options.IncludeThinking {
 			return nil

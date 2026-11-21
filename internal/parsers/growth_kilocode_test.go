@@ -67,6 +67,15 @@ func kilocodeTaskCases() []growthCase {
 					`"input":{"path":"a.py"}}`)
 			})+"]"))
 		}},
+		{kind: kind, shape: shapeSharedID + " in the index", files: func(t *testing.T, n int) []growthFile {
+			index := growthFile{rel: kilocodeTasks + "_index.json", data: []byte(`{"entries":[` + joined(n, func(i int) string {
+				return `{"id":"` + kilocodeTaskID + `","ts":` + strconv.Itoa(1790935200000+i) + `,"task":"fix tests",` +
+					`"workspace":"/w` + strconv.Itoa(i) + `"}`
+			}) + `]}`)}
+			return []growthFile{index, {rel: rel, data: []byte("[" + joined(n, func(i int) string {
+				return `{"role":"user","content":"hi"}`
+			}) + "]")}}
+		}},
 		{kind: kind, shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one(rel, []byte("["+joined(n, func(i int) string { return kilocodeMessage("user", "1") })+","+
 				kilocodeMessage("user", `{"type":"tool_result","tool_use_id":"t","content":`+nestedArrays(n, `"x"`)+`}`)+

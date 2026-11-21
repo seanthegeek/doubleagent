@@ -97,10 +97,17 @@ func familyMembers(entryTime, attributes string) []string {
 }
 
 // familyCases returns the runs over a store whose index repeats the task t1,
-// and the rows each gives.
+// and the rows each gives, the task's rows taking each entry's project and
+// model.
 func familyCases(taskA, taskB string) []repeatCase {
-	first := familyMembers("2026-01-01T00:00:00.000Z", "/proj/a m-a")
-	second := familyMembers("2026-06-01T00:00:00.000Z", "/proj/b m-b")
+	return familyCasesWith(taskA, taskB, "/proj/a m-a", "/proj/b m-b")
+}
+
+// familyCasesWith returns the runs familyCases does, the task's rows taking
+// the attributes given of each entry.
+func familyCasesWith(taskA, taskB, attributesA, attributesB string) []repeatCase {
+	first := familyMembers("2026-01-01T00:00:00.000Z", attributesA)
+	second := familyMembers("2026-06-01T00:00:00.000Z", attributesB)
 	return []repeatCase{
 		{"without a filter they go with the first entry of the id", nil,
 			[]string{taskA, first[0], taskB, first[1]}},
@@ -136,6 +143,7 @@ func TestTheRowsOfARepeatedRooCodeTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *
 func familyStores() []groupedStore {
 	return []groupedStore{
 		{"cline task index", "cline", clineRepeatFiles},
+		{"kilo code pre-fork task index", "kilo-code", kiloRepeatFiles},
 		{"roo code task index", "roo-code", func(t *testing.T) []collectedFile {
 			files := rooRepeatFiles(t)
 			files[0].text = strings.ReplaceAll(files[0].text, `"modelId"`, `"mode":"code","modelId"`)

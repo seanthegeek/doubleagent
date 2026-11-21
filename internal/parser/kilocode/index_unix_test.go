@@ -26,7 +26,7 @@ func TestAnIndexThatCannotBeReadIsReportedForEachTask(t *testing.T) {
 		artifact := taskArtifact(home, taskID)
 		write(t, artifact.DiskPath, `[]`)
 		var problems parser.Problems
-		subject.historyItem(artifact, taskID, &problems)
+		subject.historyItems(artifact, taskID, &problems)
 		if len(problems) != 1 || problems[0].Message != probe[0].Message {
 			t.Errorf("task %s: problems %+v, want the index's %+v", taskID, problems, probe)
 		}
