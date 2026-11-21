@@ -111,13 +111,19 @@ func permissionText(extra, review jsonvalue.Value) string {
 			names[ident.Text()] = name
 		}
 	}
+	// An id the list names again is written as itself: the app writes
+	// each once, and its name written per repeat would grow with the
+	// square of the input.
 	var shown []string
+	written := map[string]bool{}
 	for _, ident := range applied.Items() {
-		if name, ok := names[ident.Text()]; ok {
+		name, ok := names[ident.Text()]
+		if ok && !written[ident.Text()] {
 			shown = append(shown, name)
 		} else {
 			shown = append(shown, ident.Text())
 		}
+		written[ident.Text()] = true
 	}
 	return text + " allowlisted=" + strings.Join(shown, ",")
 }

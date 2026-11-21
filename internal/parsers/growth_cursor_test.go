@@ -106,6 +106,17 @@ func cursorStateCases() []growthCase {
 		{kind: "state.vscdb", shape: shapeCarried + " (a blob's role)", n: 256, files: func(t *testing.T, n int) []growthFile {
 			return one(cursorStateRel, cursorDeletedBlob(t, strings.Repeat("r", 36*n), n))
 		}},
+		// A permission decision names each applied allowlist option by
+		// the option's command name, so n references to one option write
+		// its long name n times.
+		{kind: "state.vscdb", shape: shapeLargeShared + " (an applied allowlist option)", files: func(t *testing.T,
+			n int) []growthFile {
+			bubble := []any{"bubbleId:c1:b0", `{"type":2,"toolFormerData":{"name":"run_terminal_cmd",` +
+				`"additionalData":{"status":"accepted","reviewData":{"status":"Done","allowlistOptions":[{"id":"a",` +
+				`"commandName":"` + long("git") + `"}],"appliedAllowlistOptionIds":[` +
+				joined(n, func(i int) string { return `"a"` }) + `]}}}}`}
+			return one(cursorStateRel, cursorState(t, [][]any{cursorComposer("c1", "/p", "main", 1), bubble}, nil, nil))
+		}},
 		{kind: "state.vscdb", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			keyValues := append([][]any{cursorComposer("c1", "/p", "main", n)}, rows(n, func(i int) []any {
 				return []any{"bubbleId:c1:b" + strconv.Itoa(i), `{"type":1,"text":`}
