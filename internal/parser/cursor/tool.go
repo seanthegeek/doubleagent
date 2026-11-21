@@ -90,6 +90,27 @@ func pendingText(name string, extra, review jsonvalue.Value) string {
 		" options=" + cmp.Or(strings.Join(ids, ","), "-")
 }
 
+// optionNames returns the name of each allowlistOptions entry by its id:
+// its commandName, else the id. An id two entries give, which the app
+// never writes, has the names of both, each once, in the order met, so
+// no entry's name stands in for another's.
+func optionNames(options jsonvalue.Value) map[string][]string {
+	names, met := map[string][]string{}, map[[2]string]bool{}
+	for _, option := range parser.Elements(options) {
+		if ident := option.Get("id"); option.IsObject() && !ident.IsNull() {
+			name := ident.Text()
+			if command := option.Get("commandName"); !command.IsEmpty() {
+				name = command.Text()
+			}
+			if key := [2]string{ident.Text(), name}; !met[key] {
+				met[key] = true
+				names[ident.Text()] = append(names[ident.Text()], name)
+			}
+		}
+	}
+	return names
+}
+
 // permissionText returns the "permission decision:" text of an answered
 // prompt; " allowlisted=" with the applied allowlist entries follows when
 // there are any, which marks an allow-always decision.
@@ -101,16 +122,7 @@ func permissionText(extra, review jsonvalue.Value) string {
 	if !applied.IsArray() || applied.Len() == 0 {
 		return text
 	}
-	names := map[string]string{}
-	for _, option := range parser.Elements(review.Get("allowlistOptions")) {
-		if ident := option.Get("id"); option.IsObject() && !ident.IsNull() {
-			name := ident.Text()
-			if command := option.Get("commandName"); !command.IsEmpty() {
-				name = command.Text()
-			}
-			names[ident.Text()] = name
-		}
-	}
+	names := optionNames(review.Get("allowlistOptions"))
 	// An id the list names again is written as itself: the app writes
 	// each once, and its name written per repeat would grow with the
 	// square of the input.
@@ -119,7 +131,7 @@ func permissionText(extra, review jsonvalue.Value) string {
 	for _, ident := range applied.Items() {
 		name, ok := names[ident.Text()]
 		if ok && !written[ident.Text()] {
-			shown = append(shown, name)
+			shown = append(shown, strings.Join(name, "|"))
 		} else {
 			shown = append(shown, ident.Text())
 		}

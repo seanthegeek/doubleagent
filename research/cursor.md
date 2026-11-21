@@ -2181,7 +2181,9 @@ its `tool_use` row, a `system` row `permission decision: <selectedOption>
 outcome=<additionalData.status> approval=<approvalType> reason=<blockReason>`, then
 ` allowlisted=<entries>` when `appliedAllowlistOptionIds` is non-empty (the `commandName` of each
 matching `allowlistOptions` entry, else the ids; an id the list repeats, which the app never writes,
-is written as the id after its first time), with the call's `tool_use_id` and `tool_name`.
+is written as the id after its first time, and an id several `allowlistOptions` entries give, which
+it never writes either, by each of their names once, joined with `|`), with the call's
+`tool_use_id` and `tool_name`.
 The `allowlisted=` suffix marks an allow-always choice whatever `selectedOption` says, since the
 Agents window writes `allowlistCommands` and the editor window `run` for it, and it is the
 durable record of that choice: on Linux the standing list never gained the entry

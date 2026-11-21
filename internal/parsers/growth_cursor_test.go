@@ -68,8 +68,8 @@ func cursorLongProject(t *testing.T) growthFile {
 
 // cursorGrowth returns the cursor growth set.
 func cursorGrowth() growthSet {
-	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(), cursorItemRepeatCases(),
-		cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
+	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
+		cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
 }
 
 // cursorStateCases returns the cases of state.vscdb.
@@ -183,6 +183,23 @@ func cursorRepeatCases() []growthCase {
 				return one(cursorStateRel, cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", n)},
 					cursorBubbles("c1", n)...), nil, headers))
 			}},
+	}
+}
+
+// cursorValueRepeatCases returns the cases of a stored value that repeats
+// an id inside itself.
+func cursorValueRepeatCases() []growthCase {
+	return []growthCase{
+		// An allowlist option id n options give is named by each of their
+		// names once.
+		{kind: "state.vscdb", shape: shapeSharedID + " (allowlist options of one id)", files: func(t *testing.T,
+			n int) []growthFile {
+			bubble := []any{"bubbleId:c1:b0", `{"type":2,"toolFormerData":{"name":"run_terminal_cmd",` +
+				`"additionalData":{"status":"accepted","reviewData":{"status":"Done","allowlistOptions":[` +
+				joined(n, func(i int) string { return `{"id":"a","commandName":"` + numbered("git", i) + `"}` }) +
+				`],"appliedAllowlistOptionIds":["a"]}}}}`}
+			return one(cursorStateRel, cursorState(t, [][]any{cursorComposer("c1", "/p", "main", 1), bubble}, nil, nil))
+		}},
 	}
 }
 

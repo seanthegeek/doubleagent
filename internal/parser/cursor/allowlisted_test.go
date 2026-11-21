@@ -30,3 +30,16 @@ func TestAnAppliedAllowlistOptionIsNamedAtItsFirstReferenceOnly(t *testing.T) {
 		})
 	}
 }
+
+// Two allowlistOptions entries of one id, which the app never writes, both
+// name the id: neither name is lent to the other's place.
+func TestAnAllowlistOptionIDTwoOptionsGiveIsNamedByBoth(t *testing.T) {
+	review, err := jsonvalue.DecodeString(`{"status":"Done","allowlistOptions":[{"id":"a","commandName":"curl"},` +
+		`{"id":"a","commandName":"wget"},{"id":"a","commandName":"curl"}],"appliedAllowlistOptionIds":["a","a"]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := permissionText(jsonvalue.NewNull(), review); !strings.HasSuffix(got, " allowlisted=curl|wget,a") {
+		t.Errorf("text %q, want it to end %q", got, " allowlisted=curl|wget,a")
+	}
+}
