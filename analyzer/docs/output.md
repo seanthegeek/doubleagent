@@ -1440,7 +1440,11 @@ attributes. What the rows of the id are depends on the agent:
   calls, with the chat, time and `model` of one assistant message of the
   id, and its attachments, in the text of one user message of it. An
   assistant message of the id with no content or thinking gives a
-  `model:` row for its model only when the calls are shown with it.
+  `model:` row for its model only when the calls are shown with it, and
+  the chat's next `model:` row then reads from that model. One limit: when
+  the id has two or more such messages and the calls go with one before
+  the last, the next `model:` row reads from the model shown before them,
+  not from the one shown with the calls.
 - **Tabby**, a `pages` row repeating a page id: the id's sections, of
   which one with no `created_at` takes the stored row's time. Every
   stored row of a repeated thread or page id shows the id's

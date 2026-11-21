@@ -379,6 +379,10 @@ func (m *messageReader) assistant(message sqlitefile.Row, base timeline.Row, key
 // chat's model changes. After a moved model of the chat, the row reads
 // from that model when the calls are shown with its message, and from the
 // tracked one when they are not; a row of another group keeps the second.
+// Only the last such moved model is kept: after two or more of one id, the
+// row reads from the tracked one when the calls go with an earlier one,
+// since a row shown only when its group goes with none of several parents
+// is a form timeline.Group lacks (research/ollama.md says so).
 func (m *messageReader) modelRow(build func(turnType, text string) timeline.Row, model string) {
 	text := m.state.models.Change("model", m.state.chat, model)
 	moved := m.state.moved

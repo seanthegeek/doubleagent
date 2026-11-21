@@ -1031,9 +1031,12 @@ stored as `3` and as `3.0` being one id as SQL's `=` finds them), that `--since`
 gives its own rows without them. An assistant message of the id with neither `content` nor
 `thinking` gives the `model:` row its `model_name` would give (a model the chat has not used, or a
 change from the last one), shown only when the calls are shown with it, and the chat's next `model:`
-row then reads from that model in that case and from the chat's last shown one otherwise; a message
-of the id with no row of its own, or none the filters keep, is never the one the calls go with. One
-row
+row then reads from that model in that case and otherwise from the model of the chat's last
+assistant message with content, thinking or calls. When the id has two or more such messages, that
+next row reads from the last of them when the calls go with it, and otherwise from that earlier
+model, even when the calls go with an earlier one of them, whose own `model:` row was the last one
+shown. A message of the id with no row of its own, or none the filters keep, is never the one the
+calls go with. One row
 `parser: messages holds <n> rows repeating an earlier row's id; its tool calls and attachments are shown once`
 (`1 row repeating` for one) follows the database's other rows, with no session or time, counting
 the messages that met a group an earlier message of their id already showed.
