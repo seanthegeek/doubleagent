@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"encoding/base64"
 	"slices"
 	"strconv"
 	"strings"
@@ -133,6 +134,18 @@ func cursorStateCases() []growthCase {
 // more than once.
 func cursorRepeatCases() []growthCase {
 	return []growthCase{
+		// Each stored server URL of a repeated MCP OAuth field gives its own
+		// row, a member taking the time of the stored update time the
+		// group goes with.
+		{kind: "state.vscdb", shape: shapeSharedID + " (MCP OAuth fields)", files: func(t *testing.T, n int) []growthFile {
+			key := func(field string) string {
+				return "mcpOAuth.global." + base64.RawURLEncoding.EncodeToString([]byte("[srv] "+field))
+			}
+			items := slices.Concat(rows(n, func(i int) []any {
+				return []any{key("mcp_server_url"), `"https://` + numbered("h", i) + `.invalid/"`}
+			}), rows(n, func(i int) []any { return []any{key("mcp_oauth_updated_at_ms"), strconv.Itoa(1790000000000 + i)} }))
+			return one(cursorStateRel, cursorState(t, nil, items, nil))
+		}},
 		// Each stored row of a repeated draft key gives its own row.
 		{kind: "state.vscdb", shape: shapeSharedID + " (draft rows)", files: func(t *testing.T, n int) []growthFile {
 			return one(cursorStateRel, cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", 0)},

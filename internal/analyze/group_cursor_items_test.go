@@ -1,6 +1,7 @@
 package analyze
 
 import (
+	"encoding/base64"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -133,4 +134,82 @@ func TestTheRowsARepeatedCursorIntegrationKeyFeedsGoWithTheStoredRowTheFilterKee
 			}
 		}
 	}
+}
+
+// cursorMCPKey returns the ItemTable key of an MCP OAuth field of a scope:
+// mcpOAuth.global. and URL-safe base64 of "[scope] field".
+func cursorMCPKey(scope, field string) string {
+	return "mcpOAuth.global." + base64.RawURLEncoding.EncodeToString([]byte("["+scope+"] "+field))
+}
+
+// cursorRepeatedMCP returns a state.vscdb whose ItemTable holds the server
+// URL of the MCP scope srv twice, each with a credential, and its update
+// time as each of updates.
+func cursorRepeatedMCP(t *testing.T, updates ...string) string {
+	t.Helper()
+	url := cursorMCPKey("srv", "mcp_server_url")
+	rows := [][]any{{url, `"https://tok:s3cret@one.invalid/"`}, {url, `"https://tok:s3cret@two.invalid/"`}}
+	for _, update := range updates {
+		rows = append(rows, []any{cursorMCPKey("srv", "mcp_oauth_updated_at_ms"), update})
+	}
+	return cursorItemsOf(t, rows)
+}
+
+// cursorServer returns the "mcp server:" row of the host given.
+func cursorServer(when, credentials, host string) string {
+	return when + "mcp server: srv url=https://" + credentials + host +
+		".invalid/ (from state.vscdb mcpOAuth.global, mcp_oauth_updated_at_ms)"
+}
+
+func TestARepeatedCursorMCPServerGivesEveryURLAtTheUpdateTimeTheFilterKeeps(t *testing.T) {
+	january, june := "2026-01-01T00:00:00.000Z ", "2026-06-01T00:00:00.000Z "
+	urlNotice := "parser: ItemTable holds 2 rows of this row's key; each gives its own rows"
+	timeNotice := "parser: ItemTable holds 2 rows of this row's key; its server rows are shown once, with "
+	state := cursorRepeatedMCPTimes
+	for _, test := range []repeatCase{
+		{"without a filter both URLs take the first time", nil, []string{
+			cursorServer(january, "tok:s3cret@", "one"), cursorServer(january, "tok:s3cret@", "two"),
+			january + timeNotice + "this row", june + timeNotice + "another of them"}},
+		{"a window past the first time moves both URLs to the second", []string{"--since", "2026-03-01"}, []string{
+			cursorServer(june, "tok:s3cret@", "one"), cursorServer(june, "tok:s3cret@", "two"),
+			june + timeNotice + "this row"}},
+		{"withheld secrets leave neither URL's credentials", []string{"--no-secrets"}, []string{
+			cursorServer(january, "REDACTED@", "one"), cursorServer(january, "REDACTED@", "two"),
+			january + timeNotice + "this row", june + timeNotice + "another of them"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rows := cursorTimedTexts(t, state(t), test.options...)
+			var timed []string
+			for _, row := range rows {
+				if !strings.Contains(row, urlNotice) {
+					timed = append(timed, row)
+				}
+			}
+			if !slices.Equal(timed, test.want) || countContaining(rows, urlNotice) != 2 {
+				t.Errorf("rows\n%s\nwant two %q and\n%s", strings.Join(rows, "\n"), urlNotice,
+					strings.Join(test.want, "\n"))
+			}
+		})
+	}
+}
+
+// A stored update time that is not a number is no time, so the server
+// rows take the one that is, and the other says so.
+func TestARepeatedCursorMCPUpdateTimeThatIsNotANumberIsShownAndNotTaken(t *testing.T) {
+	rows := cursorTimedTexts(t, cursorRepeatedMCP(t, `"soon"`, "1780272000000"))
+	june := "2026-06-01T00:00:00.000Z "
+	for _, want := range []string{cursorServer(june, "tok:s3cret@", "one"), cursorServer(june, "tok:s3cret@", "two")} {
+		if !slices.Contains(rows, want) {
+			t.Errorf("no row %q in\n%s", want, strings.Join(rows, "\n"))
+		}
+	}
+	if count := countContaining(rows, "rows of this row's key; it holds no time"); count != 1 {
+		t.Errorf("%d rows say a stored update time holds no time, want 1:\n%s", count, strings.Join(rows, "\n"))
+	}
+}
+
+// cursorRepeatedMCPTimes returns the MCP state above with the update time
+// stored twice, in January and in June.
+func cursorRepeatedMCPTimes(t *testing.T) string {
+	return cursorRepeatedMCP(t, "1767225600000", "1780272000000")
 }

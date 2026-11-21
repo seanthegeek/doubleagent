@@ -223,6 +223,7 @@ func unitStores() []groupedStore {
 		{"cursor composerHeaders", "cursor", cursor(cursorRepeatedHeaders, true)},
 		{"cursor sandbox switch", "cursor", file("cursor", cursorStateRel, cursorRepeatedItems)},
 		{"cursor integrations", "cursor", file("cursor", cursorStateRel, cursorRepeatedIntegrations)},
+		{"cursor mcp servers", "cursor", file("cursor", cursorStateRel, cursorRepeatedMCPTimes)},
 		{"openclaw windows", "openclaw", file("openclaw", openclawAgentRel, openclawRepeatedWindow)},
 		{"openclaw relayed windows", "openclaw", file("openclaw", openclawAgentRel, openclawRelayedWindow)},
 		{"openclaw session keys", "openclaw", file("openclaw", openclawAgentRel, openclawRepeatedNode)},

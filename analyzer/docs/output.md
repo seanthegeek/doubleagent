@@ -1532,7 +1532,12 @@ attributes. What the rows of the id are depends on the agent:
   `--since`, `--until` and `--match` keep, the first when they keep none;
   a row repeating the account's or the enrolment's own key gives a
   `parser:` row, the row being shown once, with its first stored row
-  that is a list or true.
+  that is a list or true. An `mcpOAuth.global.` field stored in more than
+  one row gives a `parser:` row per stored row: each stored
+  `mcp_server_url` gives its own `mcp server:` row, and those rows take
+  the time of the first stored `mcp_oauth_updated_at_ms` the filters keep,
+  the first when they keep none; a stored time that is not a number is
+  not taken.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows

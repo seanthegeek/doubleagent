@@ -2527,7 +2527,16 @@ stored row that is a list (or true), and each stored row gives, at the file's mo
 group: each stored row gives the same `parser:` row, `this row` or `another of them` by whether the
 account's or host's row is shown with it, at that row's time, and the row, which takes the scopes
 and latest `lastUsed` or the display name, is shown once, with the first stored row that
-`--since`, `--until` and `--match` keep, else the first.
+`--since`, `--until` and `--match` keep, else the first. An `mcpOAuth.global.` field of one
+scope held in more than one row (a key stored twice, or spelled with and without its base64
+padding) gives each stored `mcp_server_url`, in rowid order, its own `mcp server:` row after the
+row `parser: ItemTable holds <n> rows of this row's key; each gives its own rows`. Each stored
+`mcp_oauth_updated_at_ms` that is a number gives
+`parser: ItemTable holds <n> rows of this row's key; its server rows are shown once, with this row`
+(`another of them` for the others) at its time, and the server rows take the time of the first
+of them that `--since`, `--until` and `--match` keep, else the first; one that is not a number
+gives
+`parser: ItemTable holds <n> rows of this row's key; it holds no time, so the server rows do not take it`.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
