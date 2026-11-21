@@ -2500,6 +2500,14 @@ row, the draft with its time too: the first, in rowid order, that `--since`, `--
 `--match` keep, else the first
 ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
 
+A `bubbleId:<composerId>:<bubbleId>` key that `cursorDiskKV` holds in more than one row is damage
+too. Each stored row, in rowid order, gives its own rows, read with the model in force before
+them, after a row at its time,
+`parser: cursorDiskKV holds <n> rows of this row's key; each gives its own rows`; when a stored
+row is a user bubble naming another model, the row ends
+`, and none gives its model to the rows after them`, and the bubbles after them carry no model
+until one names a model, which gives `model: <model>`.
+
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with

@@ -129,10 +129,20 @@ func cursorStateCases() []growthCase {
 	}
 }
 
-// cursorRepeatCases returns the cases of a state.vscdb that stores a
-// composer's key more than once.
+// cursorRepeatCases returns the cases of a state.vscdb that stores a key
+// more than once.
 func cursorRepeatCases() []growthCase {
 	return []growthCase{
+		// Each stored row of a repeated bubble key gives its own rows,
+		// each on its own model.
+		{kind: "state.vscdb", shape: shapeSharedID + " (bubble rows on their own models)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(cursorStateRel, cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", 1)},
+					rows(n, func(i int) []any {
+						return []any{"bubbleId:c1:b0", `{"type":1,"text":"` + numbered("q", i) +
+							`","modelInfo":{"modelName":"` + numbered("m", i) + `"}}`}
+					})...), nil, nil))
+			}},
 		// Each stored composerData row of a repeated key is a parent of
 		// the composer's group, with its own rows, and names its own
 		// bubble and the first; each bubble is a member, shown once.

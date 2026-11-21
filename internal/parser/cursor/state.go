@@ -177,7 +177,7 @@ type stateReader struct {
 	store     *store
 	keyValues *sqlitefile.Table
 	options   parser.Options
-	bubbles   map[string]keyed
+	bubbles   map[string][]keyed
 	// chunks holds the composerConvHeaders rows by composer id, each
 	// composer's in key order, once chunksRead is set; strayChunks counts
 	// the rows whose key names no composer.
@@ -186,16 +186,19 @@ type stateReader struct {
 	strayChunks int
 }
 
-// loadBubbles reads every bubbleId row once, the first row of each key in
-// key order, for the conversations to look up.
+// loadBubbles reads every bubbleId row once, the rows of each key in
+// rowid order, for the conversations to look up.
 func (r *stateReader) loadBubbles() {
-	r.bubbles = map[string]keyed{}
+	r.bubbles = map[string][]keyed{}
 	if r.keyValues == nil {
 		return
 	}
 	for _, row := range r.store.rows(prefixed(r.keyValues, "bubbleId:")) {
-		if _, seen := r.bubbles[row.key]; !seen {
-			r.bubbles[row.key] = row
+		r.bubbles[row.key] = append(r.bubbles[row.key], row)
+	}
+	for _, rows := range r.bubbles {
+		if len(rows) > 1 {
+			sortByRowid(rows)
 		}
 	}
 }
@@ -326,17 +329,63 @@ func (r *stateReader) entry(stamp *stamper, entry jsonvalue.Value, bubbleID stri
 	model string) string {
 	current := stamp.composer
 	key := "bubbleId:" + current.ident + ":" + bubbleID
-	found, ok := r.bubbles[key]
-	if bubbleID == "" || !ok {
+	found := r.bubbles[key]
+	if bubbleID == "" || len(found) == 0 {
 		stamp.add(timeline.TurnSystem, "parser: missing bubble "+bubbleID,
 			timeutil.FromValue(entry.Get("createdAt")), 0, "")
 		return model
 	}
-	bubble := parser.ObjectOrEmpty(decodeRecord(found.rowid, key, found.value, current.problems))
+	if len(found) > 1 {
+		return r.repeatedBubble(stamp, entry, found, tracked, model)
+	}
+	bubble := parser.ObjectOrEmpty(decodeRecord(found[0].rowid, key, found[0].value, current.problems))
 	if bubble.Len() == 0 {
 		return model
 	}
-	return r.bubble(stamp, bubble, entry, found.rowid, tracked, model)
+	return r.bubble(stamp, bubble, entry, found[0].rowid, tracked, model)
+}
+
+// repeatedBubble emits the rows of a bubble key cursorDiskKV holds in more
+// than one row, which only damage or an edit writes, the key being
+// UNIQUE: each stored row gives a parser: row saying so and its own rows,
+// reading the model in force before them. Nothing takes from a stored row
+// but its own rows, so when one names another model, the model after them
+// is none until a later bubble names one, and the parser: rows say so.
+func (r *stateReader) repeatedBubble(stamp *stamper, entry jsonvalue.Value, found []keyed, tracked parser.Tracker,
+	model string) string {
+	ident := stamp.composer.ident
+	before, hasBefore := tracked[ident]
+	bubbles := make([]jsonvalue.Value, len(found))
+	moved := false
+	for i, stored := range found {
+		bubbles[i] = parser.ObjectOrEmpty(decodeRecord(stored.rowid, stored.key, stored.value, stamp.composer.problems))
+		named := parser.Text(bubbles[i].Get("modelInfo").Get("modelName"))
+		if equalsOne(firstOrLast(bubbles[i].Get("type"), entry.Get("type"))) && named != "" && named != before {
+			moved = true
+		}
+	}
+	notice := repeatedKeyText("cursorDiskKV", len(found))
+	if moved {
+		notice += modelNotLent
+	}
+	for i, stored := range found {
+		when := timeutil.FromValue(firstOrLast(bubbles[i].Get("createdAt"), bubbles[i].Get("startedAtMs"),
+			entry.Get("createdAt")))
+		stamp.add(timeline.TurnSystem, notice, when, stored.rowid, "")
+		if bubbles[i].Len() == 0 {
+			continue
+		}
+		own := parser.Tracker{}
+		if hasBefore {
+			own[ident] = before
+		}
+		r.bubble(stamp, bubbles[i], entry, stored.rowid, own, model)
+	}
+	if !moved {
+		return model
+	}
+	delete(tracked, ident)
+	return ""
 }
 
 // repeatedEntriesText returns the problem text of n header entries that

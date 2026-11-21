@@ -18,6 +18,17 @@ import (
 // and its rows in the side files of the home) are members, shown once
 // with the project and branch of the stored row the group goes with.
 
+// modelNotLent ends the parser: rows of a repeated bubble key whose stored
+// rows name another model than the one in force before them.
+const modelNotLent = ", and none gives its model to the rows after them"
+
+// repeatedKeyText returns the text of the parser: row each stored row of a
+// key table holds in n rows gives when each stored row gives its own rows
+// and nothing else takes from it.
+func repeatedKeyText(table string, n int) string {
+	return parser.ProblemPrefix + table + " holds " + strconv.Itoa(n) + " rows of this row's key; each gives its own rows"
+}
+
 // repeated reports whether either table holds the composer's id twice.
 func (c *composer) repeated() bool {
 	return len(c.stored) > 1 || len(c.headers) > 1

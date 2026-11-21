@@ -1508,7 +1508,11 @@ attributes. What the rows of the id are depends on the agent:
   and `git_branch`, and its time for the draft. Each stored row gives its
   own `session name:`, origin, archive or deletion rows and a `parser:`
   row, with its own `project_path` and `git_branch`; without a filter the
-  conversation's rows take the first stored row's, in rowid order.
+  conversation's rows take the first stored row's, in rowid order. A
+  `cursorDiskKV` row repeating a `bubbleId:` key lends nothing: each
+  stored row gives its own rows and a `parser:` row, reading the model in
+  force before them, and when one names another model the rows after them
+  carry none until a later bubble names one.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows
