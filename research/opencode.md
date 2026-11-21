@@ -1278,11 +1278,14 @@ from them in `ordinal` order, as OpenCode's reader does
 ([`:132-133`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L132-L133)); the writer stores the
 same `type` in both
 ([`projector.ts:280`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/projector.ts#L280)). A
-message id is its table's key, so a second row of one id is damage: the id's `session_part` items
-(or 1.x `part` rows) go with the first row of the id that takes them, in the order the rows are
-read, and each later row keeps its own `content` and adds to one problem row for the table
-([Bad-line rows](#bad-line-rows)). In the JSON trees a message's part directory is read for the
-first message file of the run that claims its id. A
+message id is its table's key, so a second row of one id is damage: each row of an id that has
+`session_part` items (an assistant record with `content`) or 1.x `part` rows gives its own rows
+and a problem row of its own ([Bad-line rows](#bad-line-rows)), and the rows of the id's items or
+parts are shown once, with the `session_id`, `project_path` and `model` of one of the id's rows,
+and its time for a row with no time of its own: the first row, in the order the rows are read,
+that the analysis filters keep, else the first. A 2.x record's own `content` gives its rows only
+when the items are shown with another row of the id. In the JSON trees a message's part directory
+is read for the first message file of the run that claims its id. A
 `tool_use` row's text is the first non-empty of the input's `command`, `filePath`, `file_path`,
 `pattern` (followed by ` | <path>` when `path` is set), `path`, `url`, `query`, `description` and
 `prompt`, else the input as JSON. Not read: `blob`, `blob_ref`, `schedule`, `job`,
@@ -1510,7 +1513,8 @@ parser: message file could not be decoded
 parser: project file <projectID>.json could not be read (<reason>)
 parser: <file> is not a JSON object
 parser: database could not be read: <error>
-parser: <table> holds <n> rows repeating an earlier row's id, the first row <rowid> repeating row <rowid>; each id's parts are shown with its first row
+parser: <table> holds <n> rows of this row's id; its parts are shown once, with this row
+parser: <table> holds <n> rows of this row's id; its parts are shown once, with another of them
 parser: message <id> repeats the id of an earlier message file; its parts are shown with <file>
 ```
 
@@ -1519,11 +1523,12 @@ with neither `effect` nor `permission`) gives one row for them all after the dat
 rows, with the session and project and `source_line` the session's rowid
 (`1 entry that is not a permission rule` for one); its rules still give their rows.
 
-The last two rows are for a message id that more than one record claims, which OpenCode never
-writes: the first is one row per table (`message` or `session_message`, `1 row` for one) after
-the database's other rows, with no session or time and `source_line` 0, counting the rows of an
-id whose parts an earlier row of it already showed and naming by rowid the first of them and the
-row whose parts it lacks; the second is a row of each later message file of the JSON trees, after
+The last three rows are for a message id that more than one record claims, which OpenCode never
+writes: the first two are one row of each `message` or `session_message` row of an id with parts
+or items, before that row's own rows, with its session, project, model, time and rowid as
+`source_line`, `<n>` the rows of the id, saying `this row` on the row the parts are shown with
+and `another of them` on the others; the third is a row of each later message file of the JSON
+trees, after
 its own rows, with `source_line` 1, `<file>` the source path of the first message file of the home
 that showed the parts, so the parts can be found when a filter leaves that file's rows out. A part
 directory, and a project file, is the one the path opens: on a disk that matches names without

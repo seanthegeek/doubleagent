@@ -264,7 +264,7 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parser.Options, o
 		partNames = []string{"part", sessionID, messageID}
 	}
 	found, failures := p.messageParts(artifact, root, partNames, messageID)
-	p.messageRows(artifact, scoped, message, origin{line: 1}, found, options, failures, emit)
+	p.messageRows(artifact, scoped, message, origin{line: 1}, found, options, failures, nil, emit)
 }
 
 // messageParts returns the parts of a message file as partFiles does. A

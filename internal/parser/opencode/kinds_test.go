@@ -35,7 +35,7 @@ func assistantProblems(t *testing.T, data string) []string {
 	}
 	var rows []timeline.Row
 	New().recordRows(&input.Artifact{Rel: databaseRel}, newScope("s", ""), "assistant", value, 3, "",
-		parser.Options{}, func(row timeline.Row) { rows = append(rows, row) })
+		parser.Options{}, itemRows{}, func(row timeline.Row) { rows = append(rows, row) })
 	return problemTexts(rows)
 }
 

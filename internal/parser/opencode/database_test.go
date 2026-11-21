@@ -100,38 +100,38 @@ func TestANullProjectIDMatchesNoProject(t *testing.T) {
 }
 
 // A message id is unique in OpenCode's tables, so a repeated one is damage:
-// the message's parts are shown once, with the first row of the id in the
-// order the rows are read, and the later rows of the id give their own rows
-// without them and one problem row for the table, so the rows grow with
-// the table rather than with the square of it.
+// each row of the id gives a problem row of its own, and the message's
+// parts are shown once, with the first row of the id in the order the rows
+// are read when no filter chooses another, so the rows grow with the table
+// rather than with the square of it.
 func TestARepeatedMessageIDShowsItsPartsOnce(t *testing.T) {
 	tests := []struct {
 		name, database, table string
-		parts, repeats        int
-		first, shownBy        int
+		parts, rows           int
 	}{
 		{"10 rows of one id in session_message give each part once", "repeated_message_id_10.db",
-			"session_message", 10, 9, 2, 1},
+			"session_message", 10, 10},
 		{"40 rows of one id in session_message give each part once", "repeated_message_id_40.db",
-			"session_message", 40, 39, 2, 1},
-		{"10 rows of one id in message give each part once", "repeated_v1_message_id_10.db", "message", 10, 9, 2, 1},
-		{"40 rows of one id in message give each part once", "repeated_v1_message_id_40.db", "message", 40, 39, 2, 1},
+			"session_message", 40, 40},
+		{"10 rows of one id in message give each part once", "repeated_v1_message_id_10.db", "message", 10, 10},
+		{"40 rows of one id in message give each part once", "repeated_v1_message_id_40.db", "message", 40, 40},
 		{"three spellings of one id that the column compares as one give its parts once",
-			"caseless_message_id.db", "message", 2, 2, 2, 1},
+			"caseless_message_id.db", "message", 2, 3},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := parseDatabase(t, test.database)
-			want := []string{"session start: Repeat directory=/work/proj"}
+			prefix := fmt.Sprintf("parser: %s holds %d rows of this row's id; its parts are shown once, with ",
+				test.table, test.rows)
+			want := []string{"session start: Repeat directory=/work/proj", prefix + "this row"}
 			for i := range test.parts {
 				want = append(want, fmt.Sprintf("part %d", i))
 			}
-			want = append(want, fmt.Sprintf("parser: %s holds %d rows repeating an earlier row's id, the first "+
-				"row %d repeating row %d; each id's parts are shown with its first row", test.table, test.repeats,
-				test.first, test.shownBy))
+			for range test.rows - 1 {
+				want = append(want, prefix+"another of them")
+			}
 			if !slices.Equal(got, want) {
-				t.Errorf("%d rows ending %q, want %d rows ending %q", len(got), got[len(got)-1], len(want),
-					want[len(want)-1])
+				t.Errorf("got %q\nwant %q", got, want)
 			}
 		})
 	}

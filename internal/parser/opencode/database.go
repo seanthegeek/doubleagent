@@ -38,7 +38,9 @@ type store struct {
 	sessionAt map[string]int
 	scopes    map[string]*scope
 	// shares holds the ids of the sessions with a session_share row.
-	shares   map[string]bool
+	shares map[string]bool
+	// parts holds the part table's rows by message id, read on first use.
+	parts    *sqlitefile.Lookup
 	failures []failure
 }
 

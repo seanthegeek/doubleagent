@@ -1391,41 +1391,50 @@ not depend on whether it holds the text or a pointer, and deduplication
 compares rows the same way.
 
 **Rows of a repeated id.** An id is its table's key, so only damage or an
-edit stores a second row with an id an earlier row has: a Hermes
-`sessions` row repeating a session id, a nanobot `sessions` row repeating
-a key. Each stored row of the id gives its own rows, and the rows of the
-id itself are shown once: Hermes's usage `model:` rows, messages and
-deletion fences of the session, with the `project_path`, `git_branch` and
-`model` of one of the id's stored rows, and its time for a usage row with
-no `first_seen`; nanobot's messages of the key, with the stored row's
-preset `model` until a `/model` switch, and its time until a message
-carries one. A Zed `archived_git_worktrees` row repeating an id gives the
-`archived worktree:` row of each thread linked to the id once, with its
-own `session_id` and the text and `project_path` of one of the id's stored
-rows, and each other stored row of the id its own row with no session.
-That stored row is the first, in the order the parser reads
-them, that `--since`, `--until` and `--match` keep, or the first when they
-keep none or none is given. Agent Zero's log items share an id in ordinary
-use, each naming the history message of its turn: the message's text (the
-user's prompt, the reply or the tool result) is shown in one item of the
-id that would show it, the first that the filters keep, chosen the same
-way, and `--match` finds each such item by that text as well as by its
-own; the other items show only their own `content`. Evidence may have been altered, and this keeps
-a planted earlier row with a real message's id from moving that message's
-rows out of the window or giving them its attributes. The choice is made
-by the filters reading the rows as the parsers gave them, before
-deduplication, with every row attributed to the first stored row; the
-filters then keep or drop the rows as attributed, so a row kept in that
-first reading only beside a partner with the same `tool_use_id` can be
-dropped once its session changes. `sessions.jsonl` is summarised from the
-rows kept, so it describes only the rows shown. An Ollama `messages` row
-repeating a message id is one stored row of the id the same way: the
-id's tool calls are shown once, with the chat, time and `model` of one
-assistant message of the id, and its attachments once, in the text of
-one user message of it. A Tabby `pages` row repeating a page id is one
-stored row of the id too: the id's sections are shown once, and a
-section with no `created_at` takes the time of one of the id's stored
-rows.
+edit stores a second row with an id an earlier row has. Each stored row of
+the id gives its own rows, and the rows that belong to the id itself are
+shown once, with the attributes of one of the id's stored rows: the first,
+in the order the parser reads them, that `--since`, `--until` and `--match`
+keep, or the first when they keep none or none is given. Evidence may have
+been altered, and this keeps a planted earlier row with a real message's
+id from moving that message's rows out of the window or giving them its
+attributes. What the rows of the id are depends on the agent:
+
+- **Hermes**, a `sessions` row repeating a session id: the usage `model:`
+  rows, messages and deletion fences of the session, with the stored row's
+  `project_path`, `git_branch` and `model`, and its time for a usage row
+  with no `first_seen`.
+- **nanobot**, a `sessions` row repeating a key: the messages of the key,
+  with the stored row's preset `model` until a `/model` switch, and its
+  time until a message carries one.
+- **OpenCode and Kilo Code**, whose databases one reader reads, a `message`
+  or `session_message` row repeating a message id that has parts: the rows
+  of the id's parts, with the stored row's `session_id`, `project_path`
+  and `model`, and its time for a part with none of its own. Each stored
+  row of the id gives a `parser:` row of its own at its time, and a
+  `session_message` row's own content is shown only when the parts are
+  shown with another row of the id.
+- **Zed**, an `archived_git_worktrees` row repeating an id: the
+  `archived worktree:` row of each thread linked to the id, with its own
+  `session_id` and the stored row's text and `project_path`; each other
+  stored row of the id gives its own row with no session.
+- **Ollama**, a `messages` row repeating a message id: the id's tool
+  calls, with the chat, time and `model` of one assistant message of the
+  id, and its attachments, in the text of one user message of it.
+- **Tabby**, a `pages` row repeating a page id: the id's sections, of
+  which one with no `created_at` takes the stored row's time.
+- **Agent Zero**, whose log items share an id in ordinary use, each naming
+  the history message of its turn: the message's text (the user's prompt,
+  the reply or the tool result) is shown in one item of the id that would
+  show it, and `--match` finds each such item by that text as well as by
+  its own; the other items show only their own `content`.
+
+The choice is made by the filters reading the rows as the parsers gave
+them, before deduplication, with every row attributed to the first stored
+row; the filters then keep or drop the rows as attributed, so a row kept
+in that first reading only beside a partner with the same `tool_use_id`
+can be dropped once its session changes. `sessions.jsonl` is summarised
+from the rows kept, so it describes only the rows shown.
 
 **Carried values longer than 4,096 bytes.** Every field but `text` and
 `source_line` is at most 4,096 bytes, the bound the input also puts on a

@@ -28,20 +28,27 @@ type part struct {
 
 // partRows builds the rows of one message's parts in order.
 type partRows struct {
-	owner    *Parser
-	artifact *input.Artifact
-	scoped   *scope
-	model    string
-	options  parser.Options
-	rows     []timeline.Row
+	owner       *Parser
+	artifact    *input.Artifact
+	scoped      *scope
+	model       string
+	messageTime string
+	options     parser.Options
+	rows        []timeline.Row
+	// inherited says, for each row, that its time is the message's, as it
+	// has none of its own.
+	inherited []bool
 }
 
-// add appends a row of the part at, at timestamp, and returns its index.
+// add appends a row of the part at, at timestamp, else at the message's
+// time, and returns its index.
 func (b *partRows) add(where origin, timestamp, turn, text string) int {
-	row := b.owner.row(b.artifact, b.scoped, where.file, where.line, timestamp, b.model)
+	row := b.owner.row(b.artifact, b.scoped, where.file, where.line,
+		timeutil.FirstNonEmpty(timestamp, b.messageTime), b.model)
 	row.TurnType = turn
 	row.Text = timeline.Compact(text)
 	b.rows = append(b.rows, row)
+	b.inherited = append(b.inherited, timestamp == "")
 	return len(b.rows) - 1
 }
 
@@ -50,47 +57,77 @@ func (b *partRows) add(where origin, timestamp, turn, text string) int {
 // into one row where the first of them was, the message's error, then a
 // `parser:` row per part that could not be decoded. When the session gives
 // no project path the rows take the message's own path.cwd, which is
-// never kept for the session's other messages.
+// never kept for the session's other messages. repeated is the group of a
+// message id its table repeats, else nil: the message is then one of its
+// parents, and the parts' rows, given for the first of them only, members.
 func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message jsonvalue.Value,
-	where origin, parts []part, options parser.Options, failures []failure, emit parser.Emit) {
+	where origin, parts []part, options parser.Options, failures []failure, repeated *repeat, emit parser.Emit) {
 	if scoped.projectPath == "" {
 		own := *scoped
 		own.projectPath = parser.Text(parser.ObjectOrEmpty(message.Get("path")).Get("cwd"))
 		scoped = &own
 	}
 	provider, modelID := messageRef(message)
-	builder := &partRows{owner: p, artifact: artifact, scoped: scoped, model: modelName(provider, modelID),
-		options: options}
 	times := parser.ObjectOrEmpty(message.Get("time"))
-	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("created")), where.time)
+	builder := &partRows{owner: p, artifact: artifact, scoped: scoped, model: modelName(provider, modelID),
+		messageTime: timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("created")), where.time), options: options}
+	var linked *link
+	if repeated != nil {
+		start := p.row(artifact, scoped, where.file, where.line, builder.messageTime, builder.model)
+		linked = repeated.start(&start)
+		emit(start)
+	}
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, provider, modelID),
 		agentRowText(scoped.modes, scoped.sessionID, message.Get("agent"))} {
 		if text != "" {
-			builder.add(where, timestamp, timeline.TurnSystem, text)
+			builder.add(where, builder.messageTime, timeline.TurnSystem, text)
 		}
 	}
-	builder.parts(parts, parser.IsText(message.Get("role"), "user"), timestamp)
+	own := len(builder.rows)
+	builder.parts(parts, parser.IsText(message.Get("role"), "user"))
+	for i := range builder.rows {
+		if linked != nil {
+			linked.members = i >= own
+		}
+		linked.place(&builder.rows[i], builder.inherited[i])
+	}
 	parser.EmitAll(emit, builder.rows)
+	if linked != nil {
+		linked.members = false
+	}
+	p.messageEnd(builder, message, where, failures, linked, emit)
+}
+
+// messageEnd emits a 1.x message's error row, its own, then the `parser:`
+// rows of its parts that could not be decoded, the parts' own.
+func (p *Parser) messageEnd(builder *partRows, message jsonvalue.Value, where origin, failures []failure,
+	linked *link, emit parser.Emit) {
 	if failed := message.Get("error"); !failed.IsEmpty() {
-		row := p.row(artifact, scoped, where.file, where.line, timeutil.FirstNonEmpty(
-			timeutil.FromValue(times.Get("completed")), timestamp), builder.model)
+		row := p.row(builder.artifact, builder.scoped, where.file, where.line, timeutil.FirstNonEmpty(
+			timeutil.FromValue(parser.ObjectOrEmpty(message.Get("time")).Get("completed")), builder.messageTime),
+			builder.model)
 		row.TurnType = timeline.TurnSystem
 		row.Text = timeline.Compact("error: " + errorText(failed))
+		linked.place(&row, false)
 		emit(row)
 	}
-	parser.EmitAll(emit, p.failureRows(artifact, failures, scoped.sessionID, scoped.projectPath))
+	for _, row := range p.failureRows(builder.artifact, failures, builder.scoped.sessionID,
+		builder.scoped.projectPath) {
+		linked.problem(&row)
+		emit(row)
+	}
 }
 
 // parts adds the rows of the parts, a user message's text parts joined
 // into one row placed where the first of them was.
-func (b *partRows) parts(parts []part, user bool, messageTime string) {
+func (b *partRows) parts(parts []part, user bool) {
 	var texts []string
 	first, place := origin{}, -1
 	start := len(b.rows)
 	for _, each := range parts {
 		data := each.data
 		timestamp := timeutil.FirstNonEmpty(
-			timeutil.FromValue(parser.ObjectOrEmpty(data.Get("time")).Get("start")), each.where.time, messageTime)
+			timeutil.FromValue(parser.ObjectOrEmpty(data.Get("time")).Get("start")), each.where.time)
 		text := data.Get("text")
 		isPlainText := parser.IsText(data.Get("type"), "text") && data.Get("synthetic").IsEmpty() &&
 			data.Get("ignored").IsEmpty()
@@ -106,10 +143,11 @@ func (b *partRows) parts(parts []part, user bool, messageTime string) {
 		b.part(each.where, data, timestamp)
 	}
 	if len(texts) > 0 {
-		row := b.owner.row(b.artifact, b.scoped, first.file, first.line, messageTime, b.model)
+		row := b.owner.row(b.artifact, b.scoped, first.file, first.line, b.messageTime, b.model)
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.Compact(strings.Join(texts, "\n"))
 		b.rows = slices.Insert(b.rows, start+place, row)
+		b.inherited = slices.Insert(b.inherited, start+place, true)
 	}
 }
 
@@ -218,8 +256,7 @@ func (b *partRows) tool(where origin, data jsonvalue.Value, timestamp string) {
 		return
 	}
 	if decision := decisionText(state.Get("error")); decision != "" {
-		b.named(b.add(where, timeutil.FirstNonEmpty(b.rows[result].TimestampUTC, timestamp),
-			timeline.TurnSystem, decision), name, callID)
+		b.named(b.add(where, ended, timeline.TurnSystem, decision), name, callID)
 	}
 }
 

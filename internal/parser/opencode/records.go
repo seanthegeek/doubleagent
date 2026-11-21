@@ -20,6 +20,20 @@ type recordRows struct {
 	model     string
 	options   parser.Options
 	emit      parser.Emit
+	// content is how an assistant record of a repeated id shows the id's
+	// items, and linked places its rows in the id's group (nil for any
+	// other record).
+	content itemRows
+	linked  *link
+}
+
+// itemRows is how one assistant record claiming the session_part items of
+// a message id that more than one record claims gives them: repeated is
+// the id's group, nil for any other record, and items the items, for the
+// first record of the id only.
+type itemRows struct {
+	repeated *repeat
+	items    []jsonvalue.Value
 }
 
 // add emits a row of the record at when, else at the record's time, and
@@ -31,21 +45,28 @@ func (b *recordRows) add(turn, text, when string, tool ...string) timeline.Row {
 	if len(tool) == 2 {
 		row.ToolName, row.ToolUseID = tool[0], tool[1]
 	}
+	b.linked.place(&row, when == "")
 	b.emit(row)
 	return row
 }
 
 // recordRows emits the rows of one session_message record of the given
-// type, at line, created being the row's time_created.
+// type, at line, created being the row's time_created; content says how
+// an assistant record of a repeated id gives the id's items.
 func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string, data jsonvalue.Value,
-	line int, created string, options parser.Options, emit parser.Emit) {
+	line int, created string, options parser.Options, content itemRows, emit parser.Emit) {
 	reference := parser.ObjectOrEmpty(data.Get("model"))
 	builder := &recordRows{owner: p, artifact: artifact, scoped: scoped, line: line, options: options,
-		emit: emit,
+		emit: emit, content: content,
 		timestamp: timeutil.FirstNonEmpty(
 			timeutil.FromValue(parser.ObjectOrEmpty(data.Get("time")).Get("created")), created),
 		model: modelName(reference.Get("providerID"),
 			parser.FirstNonEmpty(reference.Get("modelID"), reference.Get("id")))}
+	if content.repeated != nil {
+		start := p.row(artifact, scoped, "", line, builder.timestamp, builder.model)
+		builder.linked = content.repeated.start(&start)
+		emit(start)
+	}
 	switch kind {
 	case "model-switched":
 		builder.system(modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
@@ -118,7 +139,8 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 
 // assistant emits an assistant record's model and agent changes, the rows
 // of its content items and its error. A content that is not an array adds a
-// problem row.
+// problem row. A record of a repeated id gives the id's items, when it is
+// the first, then its own content, as the rows the items replace.
 func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 	scoped := b.scoped
 	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
@@ -126,8 +148,28 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 		agentRowText(scoped.modes, scoped.sessionID, data.Get("agent"))} {
 		b.system(text)
 	}
+	if b.linked != nil {
+		if b.content.items != nil {
+			b.linked.members = true
+			b.items(jsonvalue.NewArray(b.content.items...))
+			b.linked.members = false
+		}
+		b.linked.replaced = true
+	}
+	b.items(data.Get("content"))
+	if b.linked != nil {
+		b.linked.replaced = false
+	}
+	if failure := data.Get("error"); !failure.IsEmpty() {
+		b.add(timeline.TurnSystem, "error: "+errorText(failure), "")
+	}
+}
+
+// items emits the rows of an assistant record's content items. A content
+// that is not an array adds a problem row.
+func (b *recordRows) items(content jsonvalue.Value) {
 	var problems parser.Problems
-	items := parser.ListOfKind(data.Get("content"), "content", jsonvalue.Object, 0, &problems)
+	items := parser.ListOfKind(content, "content", jsonvalue.Object, 0, &problems)
 	b.problemRows(problems)
 	var tally parser.EntryTally
 	for _, item := range items {
@@ -148,9 +190,6 @@ func (b *recordRows) assistant(data, reference jsonvalue.Value) {
 	var wrong parser.Problems
 	tally.Report(0, &wrong)
 	b.problemRows(wrong)
-	if failure := data.Get("error"); !failure.IsEmpty() {
-		b.add(timeline.TurnSystem, "error: "+errorText(failure), "")
-	}
 }
 
 // tool emits a 2.x tool item's tool_use row, and once the call has
@@ -178,14 +217,14 @@ func (b *recordRows) tool(item jsonvalue.Value, tally *parser.EntryTally) {
 		}
 		text = strings.Join(chunks, "\n")
 	}
-	result := b.add(timeline.TurnToolResult, text, timeutil.FirstNonEmpty(
-		timeutil.FromValue(times.Get("completed")), timeutil.FromValue(times.Get("ran"))),
-		name, callID)
+	ended := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("completed")),
+		timeutil.FromValue(times.Get("ran")))
+	b.add(timeline.TurnToolResult, text, ended, name, callID)
 	if status != "error" {
 		return
 	}
 	if decision := decisionText(state.Get("error")); decision != "" {
-		b.add(timeline.TurnSystem, decision, result.TimestampUTC, name, callID)
+		b.add(timeline.TurnSystem, decision, ended, name, callID)
 	}
 }
 
