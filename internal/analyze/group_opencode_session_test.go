@@ -156,6 +156,20 @@ func TestTheRowsOfARepeatedOpenCodeSessionGoWithTheFirstRowTheFilterKeeps(t *tes
 	}
 }
 
+// Kilo Code's CLI keeps OpenCode's stores under its own directory, read
+// by the same reader, so a repeated session id there is shown the same way.
+func TestTheRowsOfARepeatedKiloCodeSessionGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	for _, test := range opencodeSessionCases("kilo.db") {
+		t.Run(test.name, func(t *testing.T) {
+			rows := opencodeSessionRun(t, "kilo-code", ".local/share/kilo/kilo.db",
+				".local/share/kilo/kilo-dev.db", test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+		})
+	}
+}
+
 // opencodeDoubleRepeat returns a 2.x database whose session_v2 holds one
 // session id in two rows, an old one in /proj/c and a new one in /proj/d,
 // and whose session_message holds, in that session, a user record and an

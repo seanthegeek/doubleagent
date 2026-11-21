@@ -1158,7 +1158,11 @@ row, a `file` part is a `file: <filename> <url>` row and a `retry` part a
 `retry attempt=<attempt> <error>` row. A message id that more than one `message` or
 `session_message` row of a Kilo database holds gives each of those rows its own `parser:` row, and
 the rows of the id's parts once, with one of those rows' session, project and model, as in
-OpenCode ([Bad-line rows in `opencode.md`](opencode.md#bad-line-rows)).
+OpenCode ([Bad-line rows in `opencode.md`](opencode.md#bad-line-rows)). A session id that one
+`session_v2` or `session` table of a Kilo database holds in more than one row gives each of those
+rows its own `session start:` and `parser:` row, and the session's messages, shares and problems
+once, with one of those rows' project, as in OpenCode
+([Parser plan in `opencode.md`](opencode.md#parser-plan)).
 
 A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) is the task directory's
 session, with the history item's `workspace` as `project_path`. The history item is one
