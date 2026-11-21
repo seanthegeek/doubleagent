@@ -5,8 +5,9 @@
 // too large for its page spills onto a chain of overflow pages. It writes
 // tables only (no index, view or trigger), with 4096-byte pages, UTF-8
 // text, and the rowid of each row its position from 1. A test builds a
-// database of any size this way without a SQLite library. Only tests
-// import it.
+// database of any size this way without a SQLite library. A varint past
+// 56 bits, which the format writes in nine bytes and no rowid or size here
+// reaches, is refused with a panic. Only tests import it.
 package sqlitetest
 
 import (
@@ -271,17 +272,30 @@ func encodeRecord(values []any) ([]byte, error) {
 			return nil, fmt.Errorf("a value of type %T", value)
 		}
 	}
+	// The header size counts the varint that holds it (Record Format), so
+	// it grows until the varint's own length no longer changes it.
 	size := len(types) + 1
-	if len(appendVarint(nil, uint64(size))) > 1 {
-		size++
+	for size != len(types)+len(appendVarint(nil, uint64(size))) {
+		size = len(types) + len(appendVarint(nil, uint64(size)))
 	}
 	record := appendVarint(nil, uint64(size))
 	return append(append(record, types...), body...), nil
 }
 
-// appendVarint appends value in the file format's varint: groups of seven
-// bits, most significant first, the high bit set on all but the last.
+// maxVarint is the largest value appendVarint writes: eight groups of
+// seven bits. A larger one takes the varint's nine-byte form, whose last
+// byte holds eight bits, which no rowid or size of a table this package
+// writes needs.
+const maxVarint = 1<<56 - 1
+
+// appendVarint appends value in the file format's varint (the B-tree Pages
+// section of the file format document): groups of seven bits, most
+// significant first, the high bit set on all but the last. It panics for a
+// value past maxVarint, which it does not write.
 func appendVarint(data []byte, value uint64) []byte {
+	if value > maxVarint {
+		panic(fmt.Sprintf("sqlitetest: varint %d needs the nine-byte form, which is not written", value))
+	}
 	var groups []byte
 	for {
 		groups = append(groups, byte(value&0x7f))
