@@ -1554,6 +1554,21 @@ past either limit is a `could not be decompressed (<reason>)` row, the reason sa
 met. The rows below rest on source alone;
 each subsection says which are fixture only.
 
+`session_windows.session_id` is the table's key (`session_id TEXT NOT NULL PRIMARY KEY`,
+[`openclaw-agent-schema.sql:140-141`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L140-L141)),
+so OpenClaw never writes two rows of one id. When a damaged table holds an id more than once, each
+stored row, in table order, gives one row
+`parser: session_windows holds <n> rows of this row's id; its transcript rows are shown once, with this row (key=<session_key> <window columns> model_provider=<model_provider> model=<model>)`
+(`another of them` for each row the transcript rows do not go with, and only the words whose value
+is set) at its `started_at`, else `created_at`, with its own `model`, and its own
+`session relayed:` rows. The rows of the session's transcripts whose model is the window's (each
+`session start:` row, and the rows of an assistant message naming no model until an entry names
+one) are shown once, with the `model` of the first stored row that `--since`, `--until` and
+`--match` keep, else of the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A row's text cannot follow
+that choice, so the session's `session start:` rows carry no window's key or columns, no `model:`
+row follows them, and the first message naming a model gives `model: <model>`.
+
 #### Permission rows
 
 No transcript entry records a per-call permission decision; `bashExecution.cancelled` stays on the

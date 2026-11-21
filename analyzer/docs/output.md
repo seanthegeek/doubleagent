@@ -1503,6 +1503,17 @@ attributes. What the rows of the id are depends on the agent:
   own `session name:`, origin, archive or deletion rows and a `parser:`
   row, with its own `project_path` and `git_branch`; without a filter the
   conversation's rows take the first stored row's, in rowid order.
+- **OpenClaw**, an agent database `session_windows` row repeating a
+  session id: the rows of the session's transcripts whose model is the
+  window's (each `session start:` row, and an assistant message's rows
+  until an entry names a model), with the stored row's `model`, the first
+  stored row's in table order without a filter. Each stored row gives a
+  `parser:` row of its own at its `started_at`, naming its key, its
+  columns and its model, and its own `session relayed:` rows. One limit:
+  a row's text cannot follow the stored row the rows go with, so the
+  session's `session start:` rows name no window's key or columns and the
+  session has no `model:` row of a window; the first message that names a
+  model gives `model: <model>`.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

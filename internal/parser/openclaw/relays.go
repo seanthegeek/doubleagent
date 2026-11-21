@@ -4,14 +4,16 @@ import (
 	"cmp"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // relays attaches the `session relayed:` rows and returns the generations
 // that got one: one per platform conversation linked to a generation
-// (session_conversations joined to conversations), else one per generation
-// whose window names a platform channel, and one per generation a Gmail
-// hook started.
+// (session_conversations joined to conversations), else one per window row
+// that names a platform channel, and one per window row of a generation a
+// Gmail hook started. Each stored row of a window id stored more than once
+// gives its own, a row of its parent in the id's group.
 func (a *agentDatabase) relays() (map[string]bool, error) {
 	relayed := map[string]bool{}
 	if a.names.Has("session_conversations") && a.names.Has("conversations") {
@@ -20,25 +22,39 @@ func (a *agentDatabase) relays() (map[string]bool, error) {
 		}
 	}
 	for _, sessionID := range a.windows.order {
-		window := a.windows.byID[sessionID]
-		timestamp := timeutil.FirstNonEmpty(parser.ColumnTime(window.Get("started_at")),
-			parser.ColumnTime(window.Get("created_at")))
-		channel := parser.TextColumn(window.Get("channel"))
-		if !relayed[sessionID] && isPlatform(channel) {
-			a.store.attach(sessionID, int(window.Rowid), timestamp, "session relayed: "+channel+
-				" account "+cmp.Or(parser.NonEmptyColumn(window.Get("account_id")), "-")+" "+
-				cmp.Or(parser.NonEmptyColumn(window.Get("chat_type")), "-")+
-				" (from openclaw-agent.sqlite session_windows, started_at)", "")
-			relayed[sessionID] = true
-		}
-		if parser.TextColumn(window.Get("hook_external_content_source")) == "gmail" {
-			a.store.attach(sessionID, int(window.Rowid), timestamp, "session relayed: gmail hook"+
-				" (from openclaw-agent.sqlite session_windows hook_external_content_source,"+
-				" started_at)", "")
-			relayed[sessionID] = true
+		linked := relayed[sessionID]
+		for i, window := range a.windows.byID[sessionID] {
+			if a.windowRelays(sessionID, window, a.windows.repeats[sessionID].parent(i), linked) {
+				relayed[sessionID] = true
+			}
 		}
 	}
 	return relayed, nil
+}
+
+// windowRelays attaches the relay rows of one window row, of parent (nil
+// unless the id is stored more than once), the channel's only when linked
+// says no conversation recorded the relay, and reports whether it did.
+func (a *agentDatabase) windowRelays(sessionID string, window sqlitefile.Row, parent *timeline.Parent,
+	linked bool) bool {
+	timestamp := timeutil.FirstNonEmpty(parser.ColumnTime(window.Get("started_at")),
+		parser.ColumnTime(window.Get("created_at")))
+	channel := parser.TextColumn(window.Get("channel"))
+	attached := false
+	if !linked && isPlatform(channel) {
+		a.store.attachOwn(sessionID, parent, int(window.Rowid), timestamp, "session relayed: "+channel+
+			" account "+cmp.Or(parser.NonEmptyColumn(window.Get("account_id")), "-")+" "+
+			cmp.Or(parser.NonEmptyColumn(window.Get("chat_type")), "-")+
+			" (from openclaw-agent.sqlite session_windows, started_at)")
+		attached = true
+	}
+	if parser.TextColumn(window.Get("hook_external_content_source")) == "gmail" {
+		a.store.attachOwn(sessionID, parent, int(window.Rowid), timestamp, "session relayed: gmail hook"+
+			" (from openclaw-agent.sqlite session_windows hook_external_content_source,"+
+			" started_at)")
+		attached = true
+	}
+	return attached
 }
 
 // conversationRelays attaches one `session relayed:` row per platform

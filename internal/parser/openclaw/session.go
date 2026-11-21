@@ -13,10 +13,12 @@ import (
 )
 
 // attachedRow is a row of a table read before the transcripts, waiting for
-// its generation's session-start row.
+// its generation's session-start row; parent is the stored row of a
+// repeated id the row is its own, nil for any other.
 type attachedRow struct {
 	line                   int
 	timestamp, text, model string
+	parent                 *timeline.Parent
 }
 
 // databaseState is what the passes over one agent database share: the rows
@@ -42,7 +44,16 @@ func (d *databaseState) attach(sessionID string, line int, timestamp, text, mode
 	if _, ok := d.attached[sessionID]; !ok {
 		d.order = append(d.order, sessionID)
 	}
-	d.attached[sessionID] = append(d.attached[sessionID], attachedRow{line, timestamp, text, model})
+	d.attached[sessionID] = append(d.attached[sessionID], attachedRow{line, timestamp, text, model, nil})
+}
+
+// attachOwn adds a row of parent, with no model, to a generation's waiting
+// rows; a nil parent adds a plain row.
+func (d *databaseState) attachOwn(sessionID string, parent *timeline.Parent, line int, timestamp,
+	text string) {
+	d.attach(sessionID, line, timestamp, text, "")
+	rows := d.attached[sessionID]
+	rows[len(rows)-1].parent = parent
 }
 
 // pop returns and forgets a generation's waiting rows.
@@ -68,6 +79,12 @@ type session struct {
 	// store is the agent database's shared state, nil for a file; the
 	// session-start row takes the rows attached to its generation.
 	store *databaseState
+	// repeat is the group of a window id stored more than once, nil for
+	// any other; while lent is set no entry has named a model, and the rows
+	// whose model is the window's take it from the stored row the group
+	// goes with.
+	repeat *windowRepeat
+	lent   bool
 }
 
 // newSession returns the state of a transcript of the given session id.
@@ -102,6 +119,26 @@ func (w *writer) system(current *session, line int, timestamp, text, model strin
 	w.emit(row)
 }
 
+// emitLent emits row, a member of the session's window group taking its
+// model when lent is set.
+func (w *writer) emitLent(current *session, row timeline.Row, lent bool) {
+	if lent {
+		current.repeat.group.Member(&row, timeline.TakeModel)
+	}
+	w.emit(row)
+}
+
+// emitAttached emits a row attached to the session's generation, a row of
+// its parent when it has one.
+func (w *writer) emitAttached(current *session, attached attachedRow) {
+	row := w.row(current, attached.line, attached.timestamp, timeline.TurnSystem, attached.text)
+	row.Model = attached.model
+	if attached.parent != nil {
+		attached.parent.Row(&row, timeline.Always)
+	}
+	w.emit(row)
+}
+
 // bad emits the `parser:` row of a problem inside a transcript.
 func (w *writer) bad(current *session, line int, text, timestamp string) {
 	w.emit(w.row(current, line, timestamp, timeline.TurnSystem, parser.ProblemPrefix+text))
@@ -131,7 +168,9 @@ func (w *writer) start(current *session, line int, timestamp string, header json
 		parts = append(parts, "parent_session="+parent.Text())
 	}
 	timestamp = timeutil.FirstNonEmpty(timestamp, timeutil.FromValue(header.Get("timestamp")))
-	w.system(current, line, timestamp, strings.Join(parts, " "), current.model)
+	start := w.row(current, line, timestamp, timeline.TurnSystem, strings.Join(parts, " "))
+	start.Model = current.model
+	w.emitLent(current, start, current.repeat != nil)
 	if text := pi.ModelText(current.seen, current.sessionID, current.model, current.provider, ""); text != "" {
 		w.system(current, line, timestamp, text, current.model)
 	}
@@ -142,7 +181,7 @@ func (w *writer) start(current *session, line int, timestamp string, header json
 		current.store.cwds[current.sessionID] = current.cwd
 	}
 	for _, attached := range current.store.pop(current.sessionID) {
-		w.system(current, attached.line, attached.timestamp, attached.text, attached.model)
+		w.emitAttached(current, attached)
 	}
 }
 
@@ -171,7 +210,7 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 		return
 	}
 	if parser.IsText(entryType, "model_change") {
-		current.model = parser.Text(record.Get("modelId"))
+		current.model, current.lent = parser.Text(record.Get("modelId")), false
 		text := pi.SwitchText(current.seen, current.sessionID, current.model, parser.Text(record.Get("provider")))
 		if text != "" {
 			w.system(current, line, timestamp, text, current.model)

@@ -74,7 +74,10 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	if model != "" {
 		current.model = model
 	}
-	if !message.Get("responseModel").IsEmpty() || requested != "" {
+	named := !message.Get("responseModel").IsEmpty() || requested != ""
+	lent := current.lent && !named
+	current.lent = lent
+	if named {
 		text := pi.ModelText(current.seen, current.sessionID, model, parser.Text(message.Get("provider")), requested)
 		if text != "" {
 			w.system(current, line, timestamp, text, model)
@@ -89,7 +92,9 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	var problems parser.Problems
 	if content.IsArray() {
 		for _, block := range parser.EntriesOfKind(content, "content", jsonvalue.Object, line, &problems) {
-			w.block(current, line, timestamp, block, model)
+			if row, ok := w.block(current, line, timestamp, block, model); ok {
+				w.emitLent(current, row, lent)
+			}
 		}
 	} else {
 		parser.ArrayMember(content, "content", line, &problems)
@@ -100,13 +105,17 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	stop := message.Get("stopReason")
 	errorMessage := message.Get("errorMessage")
 	if parser.IsText(stop, "error") || parser.IsText(stop, "aborted") || !errorMessage.IsEmpty() {
-		w.system(current, line, timestamp, "assistant "+cmp.Or(parser.Text(stop), "error")+": "+
-			parser.Text(errorMessage), model)
+		row := w.row(current, line, timestamp, timeline.TurnSystem, "assistant "+
+			cmp.Or(parser.Text(stop), "error")+": "+parser.Text(errorMessage))
+		row.Model = model
+		w.emitLent(current, row, lent)
 	}
 }
 
-// block emits the row of one content block of an assistant message.
-func (w *writer) block(current *session, line int, timestamp string, block jsonvalue.Value, model string) {
+// block returns the row of one content block of an assistant message, and
+// false for a block that gives none.
+func (w *writer) block(current *session, line int, timestamp string, block jsonvalue.Value,
+	model string) (timeline.Row, bool) {
 	var row timeline.Row
 	blockType := block.Get("type")
 	switch {
@@ -118,7 +127,7 @@ func (w *writer) block(current *session, line int, timestamp string, block jsonv
 			thinking = "[redacted thinking]"
 		}
 		if thinking == "" {
-			return
+			return row, false
 		}
 		row = w.row(current, line, timestamp, timeline.TurnThinking, thinking)
 	case parser.IsText(blockType, "toolCall"):
@@ -127,8 +136,8 @@ func (w *writer) block(current *session, line int, timestamp string, block jsonv
 	case parser.IsText(blockType, "image"):
 		row = w.row(current, line, timestamp, timeline.TurnAssistant, "[image]")
 	default:
-		return
+		return row, false
 	}
 	row.Model = model
-	w.emit(row)
+	return row, true
 }

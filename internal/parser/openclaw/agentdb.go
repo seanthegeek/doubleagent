@@ -11,11 +11,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// windowSet holds the session_windows rows by session id, a later row of an
-// id replacing an earlier one in the earlier one's place.
+// windowSet holds the session_windows rows by session id, in the order the
+// ids are first met, each id's rows in table order, and the group of each
+// id the table holds more than once (windowRepeat).
 type windowSet struct {
-	order []string
-	byID  map[string]sqlitefile.Row
+	order   []string
+	byID    map[string][]sqlitefile.Row
+	repeats map[string]*windowRepeat
 }
 
 // agentDatabase is one agent database being read: its tables, the rows the
@@ -68,17 +70,22 @@ func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parser.Opt
 		return
 	}
 	defer database.Close()
-	reader := &agentDatabase{writer: &writer{Parser: p, artifact: artifact, options: options,
-		emit: emit}, database: database, store: newDatabaseState(),
-		windows: windowSet{byID: map[string]sqlitefile.Row{}},
-		budget:  p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor),
-		carried: parser.NewCarried(artifact), described: map[string]windowText{}}
+	reader := newAgentDatabase(&writer{Parser: p, artifact: artifact, options: options, emit: emit},
+		database, p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor))
 	if err := reader.read(); err != nil {
 		emit(p.ProblemRow(artifact, parser.DatabaseError(err)))
 		return
 	}
 	reader.carried.Report(0, &reader.problems)
 	parser.EmitAll(emit, p.ErrorRows(artifact, reader.problems, "", ""))
+}
+
+// newAgentDatabase returns the reader of database, writing through out,
+// its blobs decoded within budget.
+func newAgentDatabase(out *writer, database *sqlitefile.Database, budget *zed.Budget) *agentDatabase {
+	return &agentDatabase{writer: out, database: database, store: newDatabaseState(),
+		windows: windowSet{byID: map[string][]sqlitefile.Row{}, repeats: map[string]*windowRepeat{}},
+		budget:  budget, carried: parser.NewCarried(out.artifact), described: map[string]windowText{}}
 }
 
 // read runs the passes over the database in order.
@@ -116,11 +123,13 @@ func (a *agentDatabase) read() error {
 		}
 	}
 	a.leftovers()
+	a.windowNotices()
 	return nil
 }
 
-// prepare reads the windows, attaches the relay rows and the rows of each
-// session's metadata entry, and returns the session_nodes rows read.
+// prepare reads the windows, making a group of each id stored more than
+// once, attaches the relay rows and the rows of each session's metadata
+// entry, and returns the session_nodes rows read.
 func (a *agentDatabase) prepare() ([]node, error) {
 	if a.names.Has("session_windows") {
 		rows, err := a.table("session_windows", func(table *sqlitefile.Table) sqlitefile.Query {
@@ -134,8 +143,9 @@ func (a *agentDatabase) prepare() ([]node, error) {
 			if _, ok := a.windows.byID[sessionID]; !ok {
 				a.windows.order = append(a.windows.order, sessionID)
 			}
-			a.windows.byID[sessionID] = window
+			a.windows.byID[sessionID] = append(a.windows.byID[sessionID], window)
 		}
+		a.repeatWindows()
 	}
 	relayed, err := a.relays()
 	if err != nil {
@@ -162,7 +172,7 @@ func (a *agentDatabase) leftovers() {
 		current := newSession(sessionID)
 		current.cwd = a.store.cwds[sessionID]
 		for _, attached := range rows {
-			a.system(current, attached.line, attached.timestamp, attached.text, attached.model)
+			a.emitAttached(current, attached)
 		}
 	}
 }
@@ -189,8 +199,16 @@ func anchorMessage(database *sqlitefile.Database, label string) string {
 // windowSession returns the session of a generation, described by its
 // window: its channel, account, chat type, reason, previous session, parent
 // key, spawner and display name, then extra, then its model provider. key,
-// the generation's own session key, stands before the window's.
+// the generation's own session key, stands before the window's. A window
+// id stored more than once describes nothing: its rows take the model of
+// the stored row their group goes with (windowRepeat).
 func (a *agentDatabase) windowSession(sessionID, key, extra string) *session {
+	if repeat := a.windows.repeats[sessionID]; repeat != nil {
+		current := newSession(sessionID)
+		current.key, current.extra, current.store = key, extra, a.store
+		current.repeat, current.lent = repeat, true
+		return current
+	}
 	described := a.describe(sessionID)
 	var parts []string
 	for _, part := range []string{described.columns, extra} {
@@ -217,7 +235,18 @@ func (a *agentDatabase) describe(sessionID string) windowText {
 	if described, ok := a.described[sessionID]; ok {
 		return described
 	}
-	window := a.windows.byID[sessionID]
+	var window sqlitefile.Row
+	if stored := a.windows.byID[sessionID]; len(stored) > 0 {
+		window = stored[0]
+	}
+	described := a.describeRow(window)
+	a.described[sessionID] = described
+	return described
+}
+
+// describeRow returns what a generation copies from the window row, each
+// value cut ("session_windows.<column>").
+func (a *agentDatabase) describeRow(window sqlitefile.Row) windowText {
 	cut := func(column, value string) string { return a.carried.Cut("session_windows."+column, value) }
 	described := windowText{key: cut("session_key", parser.NonEmptyColumn(window.Get("session_key")))}
 	var columns []string
@@ -231,7 +260,6 @@ func (a *agentDatabase) describe(sessionID string) windowText {
 	described.columns = strings.Join(columns, " ")
 	described.provider = cut("model_provider", parser.NonEmptyColumn(window.Get("model_provider")))
 	described.model = cut("model", parser.NonEmptyColumn(window.Get("model")))
-	a.described[sessionID] = described
 	return described
 }
 

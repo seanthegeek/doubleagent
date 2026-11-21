@@ -206,6 +206,15 @@ func openclawAgentCases() []growthCase {
 				return openclawWindow("s1", numbered("m", i), "chat")
 			}), openclawEvents("s1", "/p", n, true)))
 		}},
+		{kind: "openclaw-agent.sqlite", shape: shapeSharedID + " by window rows and archives", files: func(t *testing.T, n int) []growthFile {
+			archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")+"\n"+openclawEntry(1)))
+			return one(openclawAgent, openclawAgentDatabase(t, rows(n, func(i int) []any {
+				return openclawWindow("s1", numbered("m", i), long("name"))
+			}), openclawEvents("s1", "/p", n, false), sqlitetest.Table{Name: "session_transcript_archives",
+				SQL: openclawArchivesSQL, Rows: rows(n, func(i int) []any {
+					return []any{"s1", "agent:main:s1", "reset", "zstd", numbered("a", i), int64(i), archive}
+				})}))
+		}},
 		{kind: "openclaw-agent.sqlite", shape: shapeLargeShared + " by archives of one window", files: func(t *testing.T, n int) []growthFile {
 			archive := zstdFrame(27, []byte(openclawHeader("s1", "/p")))
 			return one(openclawAgent, openclawAgentDatabase(t, [][]any{openclawWindow("s1", "m", long("name"))}, nil,
