@@ -210,3 +210,49 @@ func TestAHistoryReplyIsDecodedOncePerID(t *testing.T) {
 		})
 	}
 }
+
+// subordinateChat returns a chat.json whose history holds a user message
+// "u" of size bytes, and whose log names it in items user items of
+// agent 1, each with an attachment.
+func subordinateChat(items, size int) string {
+	history := `{"_cls":"History","current":{"_cls":"Topic","messages":[` +
+		`{"_cls":"Message","id":"u","ai":false,"content":{"user_message":"` + strings.Repeat("U", size) + `"}}]}}`
+	item := `{"type":"user","id":"u","agentno":1,"content":"own","kvps":{"attachments":["a.txt"]}},`
+	return `{"id":"ctx","agents":[{"number":0,"history":` + jsonvalue.NewString(history).JSON() +
+		`}],"log":{"logs":[` + strings.TrimSuffix(strings.Repeat(item, items), ",") + `]}}`
+}
+
+// Every item of an id that shows its history message holds the text it
+// shows with it, for the filters to choose from; the text, led by the
+// agent and followed by the attachments, is built once for the id, so the
+// bytes the parse allocates grow with the items, not with the items times
+// the message, and before the filters choose only the first item shows it.
+func TestAHistoryTextIsBuiltOncePerIDForAllItsItems(t *testing.T) {
+	const size = 50_000
+	allocated := map[int]int64{}
+	for _, items := range []int{20, 80} {
+		home := t.TempDir()
+		const rel = "agent-zero/usr/chats/ctx/chat.json"
+		writeFile(t, home, rel, subordinateChat(items, size))
+		artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
+			Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+		var texts []string
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+			texts = append(texts, row.Text)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		runtime.ReadMemStats(&after)
+		allocated[items] = int64(after.TotalAlloc - before.TotalAlloc)
+		want := "[agent 1] " + strings.Repeat("U", size) + " [attachments: a.txt]"
+		if len(texts) != items+1 || texts[1] != want || texts[2] != "[agent 1] own [attachments: a.txt]" {
+			t.Errorf("%d items gave %d rows, want %d, the first with the history text", items, len(texts), items+1)
+		}
+	}
+	// Building the text again for each item would add 60 copies of it.
+	if growth := allocated[80] - allocated[20]; growth > 10*size {
+		t.Errorf("60 more items allocated %d more bytes, more than ten copies of the %d-byte message", growth, size)
+	}
+}

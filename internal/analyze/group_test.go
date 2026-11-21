@@ -236,3 +236,86 @@ func TestTheLinksOfARepeatedZedWorktreeIDGoWithTheStoredRowTheMatchKeeps(t *test
 		})
 	}
 }
+
+// sharedIDChat is an Agent Zero chat.json whose log names each of three
+// history messages, a user's text, a tool result and a reply, in two log
+// items: one on the first of January, one on the first of June.
+const sharedIDChat = `{"id":"ctx","agents":[{"number":0,"history":` +
+	`"{\"_cls\":\"History\",\"current\":{\"_cls\":\"Topic\",\"messages\":[` +
+	`{\"_cls\":\"Message\",\"id\":\"u\",\"ai\":false,\"content\":{\"user_message\":\"HISTORY-USER\"}},` +
+	`{\"_cls\":\"Message\",\"id\":\"t\",\"ai\":false,\"content\":{\"tool_name\":\"x\",\"tool_result\":\"HISTORY-RESULT\"}},` +
+	`{\"_cls\":\"Message\",\"id\":\"a\",\"ai\":true,\"content\":\"HISTORY-REPLY\"}]}}"}],"log":{"logs":[` +
+	`{"no":1,"id":"u","type":"user","timestamp":1767225600,"content":"january ask"},` +
+	`{"no":2,"id":"t","type":"tool","timestamp":1767225600,"content":"january output"},` +
+	`{"no":3,"id":"a","type":"agent","timestamp":1767225600,"kvps":{},"content":"january reply"},` +
+	`{"no":4,"id":"u","type":"user","timestamp":1780272000,"content":"june ask"},` +
+	`{"no":5,"id":"t","type":"tool","timestamp":1780272000,"content":"june output"},` +
+	`{"no":6,"id":"a","type":"agent","timestamp":1780272000,"kvps":{},"content":"june reply"}]}}`
+
+// sharedIDRun runs timeline over a collection holding sharedIDChat with the
+// options given and returns each dated row of timeline.jsonl as "month
+// turn text", the month "01" or "06".
+func sharedIDRun(t *testing.T, options ...string) []string {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
+		[]collectedFile{{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/chat.json", sharedIDChat}})
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	args := append(append([]string{"timeline"}, options...), collection, output)
+	if code, _, stderr := runCommand(env, args...); code != ExitFound {
+		t.Fatalf("%q exited %d: %s", args, code, stderr)
+	}
+	rows := recordsOf(t, filepath.Join(output, TimelineFile), "timestamp_utc", "timestamp_utc", "turn_type", "text")
+	for i, row := range rows {
+		rows[i] = row[5:7] + row[strings.Index(row, " "):]
+	}
+	return rows
+}
+
+// The history text of an id the log items of a chat share is shown in the
+// first of those items that the filters keep, and a pattern finds an item
+// by the history text as well as by its own; the text is shown once, never
+// in an item the filters drop. Both tool items of an id carry it as their
+// tool_use_id, so the filters keep every row of either beside a kept row of
+// the other, and the first keeps the result.
+func TestAgentZeroHistoryTextIsShownInTheFirstItemTheFilterKeeps(t *testing.T) {
+	january := []string{"01 user HISTORY-USER", "01 tool_use {}", "01 tool_result HISTORY-RESULT",
+		"01 assistant HISTORY-REPLY"}
+	june := []string{"06 user HISTORY-USER", "06 tool_use {}", "06 tool_result HISTORY-RESULT",
+		"06 assistant HISTORY-REPLY"}
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter the history goes with the first item", nil,
+			append(slices.Clone(january), "06 user june ask", "06 tool_use {}", "06 tool_result june output",
+				"06 assistant june reply")},
+		{"a pattern only the history matches shows it in the first item alone",
+			[]string{"--match", "HISTORY"},
+			append(slices.Clone(january), "06 tool_use {}", "06 tool_result june output")},
+		{"a pattern only the later items' own content matches shows the history there",
+			[]string{"--match", "june"}, []string{"01 tool_use {}", "01 tool_result HISTORY-RESULT",
+				"06 user HISTORY-USER", "06 tool_use {}", "06 tool_result june output", "06 assistant HISTORY-REPLY"}},
+		{"a window that keeps only the later items shows the history there",
+			[]string{"--since", "2026-03-01"}, june},
+		{"a window that keeps only the first items keeps the history with them",
+			[]string{"--until", "2026-03-01"}, january},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := sharedIDRun(t, test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+			for _, history := range []string{"HISTORY-USER", "HISTORY-RESULT", "HISTORY-REPLY"} {
+				if count := strings.Count(strings.Join(rows, "\n"), history); count > 1 {
+					t.Errorf("%s is shown %d times, want at most once", history, count)
+				}
+			}
+		})
+	}
+}

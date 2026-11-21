@@ -1405,7 +1405,12 @@ own `session_id` and the text and `project_path` of one of the id's stored
 rows, and each other stored row of the id its own row with no session.
 That stored row is the first, in the order the parser reads
 them, that `--since`, `--until` and `--match` keep, or the first when they
-keep none or none is given. Evidence may have been altered, and this keeps
+keep none or none is given. Agent Zero's log items share an id in ordinary
+use, each naming the history message of its turn: the message's text (the
+user's prompt, the reply or the tool result) is shown in one item of the
+id that would show it, the first that the filters keep, chosen the same
+way, and `--match` finds each such item by that text as well as by its
+own; the other items show only their own `content`. Evidence may have been altered, and this keeps
 a planted earlier row with a real message's id from moving that message's
 rows out of the window or giving them its attributes. The choice is made
 by the filters reading the rows as the parsers gave them, before
