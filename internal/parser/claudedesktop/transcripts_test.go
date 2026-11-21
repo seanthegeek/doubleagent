@@ -47,3 +47,36 @@ func TestEachProjectSlugIsListedOnceForAllRecords(t *testing.T) {
 		})
 	}
 }
+
+// Every record naming one session dir asks whether it holds an audit log
+// or a transcript, by any spelling its name opens by; the dir's
+// .claude/projects and each slug below it are listed once for the run,
+// not once per record.
+func TestASessionDirIsListedOnceForAllTheRecordsNamingIt(t *testing.T) {
+	const slugs = 6
+	spellings := []string{session, "LOCAL_C0C0C0C0-1111-4222-8333-444444444444"}
+	for _, records := range []int{4, 40} {
+		t.Run(fmt.Sprintf("%d records over %d slugs make %d listings", records, slugs, slugs+1), func(t *testing.T) {
+			home := t.TempDir()
+			for slug := range slugs {
+				writeEmpty(t, home, fmt.Sprintf("%s/%s/.claude/projects/slug%d/notes.txt", cowork, session, slug))
+			}
+			subject := New()
+			subject.Work = parser.CountingWork()
+			owner := &input.Home{DiskPath: home}
+			for i := range records {
+				rel := fmt.Sprintf("%s/local_%08x-1111-4222-8333-444444444444.json", cowork, i)
+				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Rel: rel,
+					Home: owner}
+				record := jsonvalue.NewObject(jsonvalue.Member{Key: "sessionId",
+					Value: jsonvalue.NewString(spellings[i%len(spellings)])})
+				if subject.sessionCollected(artifact, record) {
+					t.Errorf("record %d found a transcript in a session dir that holds none", i)
+				}
+			}
+			if listings := subject.Work.Count("session directory listings"); listings != slugs+1 {
+				t.Errorf("%d records made %d session directory listings, want %d", records, listings, slugs+1)
+			}
+		})
+	}
+}

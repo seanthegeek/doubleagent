@@ -71,12 +71,16 @@ type Parser struct {
 	// shortNames holds, per org or agent/ directory a short-named session
 	// dir looked its record up in, the record names of each short name.
 	shortNames map[string]map[string][]string
+	// sessionDirs holds, per home, whether each session dir a record named
+	// holds an audit log or a transcript, by the entry it opens.
+	sessionDirs *parser.PerHome[map[parser.EntryKey]bool]
 }
 
 // New returns the parser.
 func New() *Parser {
 	base := parser.NewBase("claude-desktop", "claude-desktop")
-	return &Parser{Base: base, code: claudecode.NewReader(base)}
+	return &Parser{Base: base, code: claudecode.NewReader(base),
+		sessionDirs: parser.NewPerHome(func() map[parser.EntryKey]bool { return map[parser.EntryKey]bool{} })}
 }
 
 // Wants reports whether the artifact is a transcript, an audit log, a

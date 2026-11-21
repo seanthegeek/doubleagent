@@ -175,13 +175,14 @@ func (p *Parser) shortNamesOf(directory parser.Directory) map[string][]string {
 }
 
 // hasTranscriptFile reports whether a plain directory directly below the
-// plain directory projects holds a regular file named name, or any regular
-// .jsonl file when name is "", through no link.
-func hasTranscriptFile(projects, name string) bool {
+// plain directory projects holds any regular .jsonl file, through no link,
+// counting each directory it lists in work.
+func hasTranscriptFile(projects string, work parser.Work) bool {
 	directory, ok := parser.DirectoryAt(projects)
 	if !ok {
 		return false
 	}
+	work.Add("session directory listings", 1)
 	slugs, err := parser.ReadDir(projects)
 	if err != nil {
 		return false
@@ -191,7 +192,7 @@ func hasTranscriptFile(projects, name string) bool {
 		if !ok {
 			continue
 		}
-		if slugDirectory, ok := parser.DirectoryAt(slugPath); ok && slugHolds(slugDirectory, name) {
+		if slugDirectory, ok := parser.DirectoryAt(slugPath); ok && slugHolds(slugDirectory, "", work) {
 			return true
 		}
 	}
@@ -199,12 +200,14 @@ func hasTranscriptFile(projects, name string) bool {
 }
 
 // slugHolds reports whether the plain directory slug holds a regular file
-// named name, or any regular .jsonl file when name is "".
-func slugHolds(slug parser.Directory, name string) bool {
+// named name, or any regular .jsonl file when name is "", which lists it
+// (counted in work).
+func slugHolds(slug parser.Directory, name string, work parser.Work) bool {
 	if name != "" {
 		path, ok := slug.Child(name)
 		return ok && parser.RegularFile(path)
 	}
+	work.Add("session directory listings", 1)
 	files, err := parser.ReadDir(slug.Path())
 	if err != nil {
 		return false
@@ -221,8 +224,8 @@ func slugHolds(slug parser.Directory, name string) bool {
 }
 
 // hasTranscript reports whether a session dir holds a transcript under
-// .claude/projects/.
-func hasTranscript(sessionDir parser.Directory) bool {
+// .claude/projects/, counting the directories it lists in work.
+func hasTranscript(sessionDir parser.Directory, work parser.Work) bool {
 	claude, ok := sessionDir.Child(".claude")
 	if !ok {
 		return false
@@ -232,7 +235,7 @@ func hasTranscript(sessionDir parser.Directory) bool {
 		return false
 	}
 	projects, ok := claudeDirectory.Child("projects")
-	return ok && hasTranscriptFile(projects, "")
+	return ok && hasTranscriptFile(projects, work)
 }
 
 // folder returns the first folder the person chose for a session or task,
@@ -272,7 +275,7 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 			continue
 		}
 		for _, name := range names {
-			if sessionDirHolds(directory, name) {
+			if p.sessionDirHolds(artifact.Home, directory, name) {
 				return true
 			}
 		}
@@ -325,7 +328,7 @@ func (p *Parser) transcriptHeld(projects, name string) bool {
 	index := p.transcriptIndexOf(projects)
 	for _, place := range index.Holders(name) {
 		p.Work.Add("transcript candidates", 1)
-		if slugHolds(index.Directory(place), name) {
+		if slugHolds(index.Directory(place), name, p.Work) {
 			return true
 		}
 	}
@@ -333,16 +336,25 @@ func (p *Parser) transcriptHeld(projects, name string) bool {
 }
 
 // sessionDirHolds reports whether the session dir called name in directory
-// is a plain directory holding an audit log or a transcript.
-func sessionDirHolds(directory parser.Directory, name string) bool {
+// is a plain directory holding an audit log or a transcript. The answer is
+// found once per session dir for the run, by the entry its path opens in
+// the home, since every record naming the dir asks, by any spelling, and
+// finding it lists the dir's .claude/projects and each slug below it.
+func (p *Parser) sessionDirHolds(home *input.Home, directory parser.Directory, name string) bool {
 	path, ok := directory.Child(name)
 	if !ok {
 		return false
 	}
-	session, ok := parser.DirectoryAt(path)
-	if !ok {
-		return false
+	answers := p.sessionDirs.For(home)
+	key := parser.KeyOf(path)
+	if holds, ok := answers[key]; ok {
+		return holds
 	}
-	audit, ok := session.Child("audit.jsonl")
-	return ok && parser.RegularFile(audit) || hasTranscript(session)
+	holds := false
+	if session, ok := parser.DirectoryAt(path); ok {
+		audit, ok := session.Child("audit.jsonl")
+		holds = ok && parser.RegularFile(audit) || hasTranscript(session, p.Work)
+	}
+	answers[key] = holds
+	return holds
 }
