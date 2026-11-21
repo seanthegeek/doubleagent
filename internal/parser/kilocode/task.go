@@ -37,7 +37,7 @@ func (p *Parser) historyItems(artifact *input.Artifact, taskID string, problems 
 		return []jsonvalue.Value{item}
 	}
 	if indexPath, found := parser.Above(artifact, 1, "_index.json"); found && parser.RegularFile(indexPath) {
-		if entries := p.indexEntries(indexPath, taskID, problems); len(entries) > 0 {
+		if entries := p.indexEntries(artifact, indexPath, taskID, problems); len(entries) > 0 {
 			return entries
 		}
 	}
@@ -64,8 +64,9 @@ type taskIndex struct {
 // parser's life, since every task file below it looks it up, and the
 // problems of that read are added for each lookup as a fresh read would; a
 // file that does not hold a JSON object, and an entries member that is not
-// an array, are among them.
-func (p *Parser) indexEntries(indexPath, taskID string, problems *parser.Problems) []jsonvalue.Value {
+// an array, are among them. Its repeated member names are noted once, in
+// the parse of artifact that reads it first.
+func (p *Parser) indexEntries(artifact *input.Artifact, indexPath, taskID string, problems *parser.Problems) []jsonvalue.Value {
 	info, err := osfile.Lstat(indexPath)
 	if err != nil {
 		return nil
@@ -74,7 +75,7 @@ func (p *Parser) indexEntries(indexPath, taskID string, problems *parser.Problem
 	index, ok := p.indexes[key]
 	if !ok {
 		index = &taskIndex{entries: map[string][]jsonvalue.Value{}}
-		document, read := readJSON(nil, indexPath, &index.problems)
+		document, read := readJSON(artifact, indexPath, &index.problems)
 		if read && !document.IsObject() {
 			index.problems.Add(0, "_index.json is not a JSON object")
 		}
