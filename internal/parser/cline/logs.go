@@ -151,15 +151,22 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parser.Emit) {
 
 // taskHistory emits the "task:" row of each entry of state/taskHistory.json;
 // the row of each entry of an id the file repeats is a parent of the id's
-// group, which the task's files share (EntryGroup).
+// group, which the task's files share (EntryGroup). Only an id this read
+// finds repeated is looked up, so a file without one is not read again.
 func (p *Parser) taskHistory(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	history, shared := parser.Beside(artifact, "taskHistory.json")
+	var rows []timeline.Row
+	var ids []string
+	counts := map[string]int{}
 	for position, item := range parser.EntriesOfKindFrom(parser.JSONArray(artifact.DiskPath, &problems),
 		"taskHistory.json", jsonvalue.Object, 0, &problems) {
-		row := p.HistoryRow(artifact, item, position)
-		if shared {
-			if group := p.EntryGroup(history, "", item.Get("id").Text()); group != nil {
+		rows, ids = append(rows, p.HistoryRow(artifact, item, position)), append(ids, item.Get("id").Text())
+		counts[ids[len(ids)-1]]++
+	}
+	for i, row := range rows {
+		if shared && counts[ids[i]] > 1 {
+			if group := p.EntryGroup(history, "", ids[i]); group != nil {
 				group.Parent(&row)
 			}
 		}
