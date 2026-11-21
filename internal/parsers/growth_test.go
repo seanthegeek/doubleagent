@@ -79,12 +79,15 @@ type growthFile struct {
 // the measure that grows, its ratio and the site, until a fix removes it.
 // unlisted, when set, names the directories of the home (relative to it)
 // that the case takes every permission from once its files are written,
-// so they cannot be listed (shapeUnlisted).
+// so they cannot be listed (shapeUnlisted). first, when set, is the path
+// of the file parsed before the others, which otherwise go in the order of
+// their paths, as a collection may list them.
 type growthCase struct {
 	kind, shape string
 	n           int
 	agent       string
 	known       string
+	first       string
 	files       func(t *testing.T, n int) []growthFile
 	unlisted    func(n int) []string
 }
@@ -216,6 +219,11 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int, later bool
 		agent = each.Agent()
 	}
 	artifacts, written := growthHome(t, agent, test.files(t, n))
+	if first := slices.IndexFunc(artifacts, func(artifact *input.Artifact) bool {
+		return test.first != "" && artifact.Rel == test.first
+	}); first > 0 {
+		artifacts = slices.Concat(artifacts[first:first+1], artifacts[:first], artifacts[first+1:])
+	}
 	if test.unlisted != nil {
 		unlist(t, artifacts[0].Home.DiskPath, test.unlisted(n))
 	}

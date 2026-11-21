@@ -15,6 +15,8 @@ type Group struct {
 	// taken holds, for each set of TakeText and TakeTime some member takes,
 	// the bit 1 << takenCode of the set.
 	taken uint8
+	// bounded is the number of parents, from the first, Bound has given.
+	bounded int
 }
 
 // NewGroup returns a group with no parent yet. A parser makes one per
@@ -140,13 +142,17 @@ func (ref *GroupRef) TakesField(name string) bool {
 	return false
 }
 
-// Bound calls bound with each parent's copy of the attributes its members
-// take, for the kit to cut each field but the text as it cuts the fields
-// of a row the parse emits. The text is not cut: a member taking it takes
-// the parent's text and the shared texts it names (TakeText).
+// Bound calls bound with the copy of the attributes its members take of
+// each parent registered since the last call, for the kit to cut each
+// field but the text as it cuts the fields of a row the parse emits. A
+// copy never changes once registered and a cut value is cut again to
+// itself, so each is given once, at the end of the first parse after it
+// that emits a row of the group, however many parses share the group.
+// The text is not cut: a member taking it takes the parent's text and the
+// shared texts it names (TakeText).
 func (g *Group) Bound(bound func(row *Row)) {
-	for i := range g.parents {
-		bound(&g.parents[i])
+	for ; g.bounded < len(g.parents); g.bounded++ {
+		bound(&g.parents[g.bounded])
 	}
 }
 

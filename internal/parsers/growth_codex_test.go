@@ -365,6 +365,15 @@ func codexLogCases(prefix string) []growthCase {
 						return codexFeedbackRow("t")
 					})))}}
 			}},
+		{kind: "logs database", shape: shapeManyFiles + " beside a repeated thread, the state database read first",
+			n: 64, first: state, files: func(t *testing.T, n int) []growthFile {
+				files := []growthFile{{rel: state, data: codexRepeatedState(t, n, 0, "/p", "main")}}
+				for i := range n {
+					files = append(files, growthFile{rel: prefix + "/logs_" + strconv.Itoa(i) + ".sqlite",
+						data: database(t, codexLogsTable([][]any{codexFeedbackRow("t")}))})
+				}
+				return files
+			}},
 		{kind: "logs database", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{{rel: state, data: codexState(t, 0, "/p", "main")}}
 			for i := range n {
