@@ -54,8 +54,11 @@ func (r *repeated) report(problems *Problems) {
 // NoteRepeats adds repeats, what a parser's own reading of JSON in the
 // evidence noted (jsonvalue.Document.TakeRepeats), to the parse of
 // artifact that is running (Within), which ends with one problem row for
-// all it was given. A parser that reads JSON outside the kit's line and
-// array readers, which report their own, notes each value here.
+// all it was given. The rule every parser follows: a repeat is reported
+// once, by the parse of the file that holds it. A read of another file
+// during a parse (a cached lookup, a neighbour) passes no artifact when a
+// parser takes that file as its own artifact, and the artifact of the
+// first parse that reads it only when none does.
 func NoteRepeats(artifact *input.Artifact, repeats jsonvalue.Repeats) {
 	if repeats.Count() > 0 && artifact != nil && artifact.Home != nil && artifact.Home.Repeats != nil {
 		artifact.Home.Repeats.Merge(repeats)

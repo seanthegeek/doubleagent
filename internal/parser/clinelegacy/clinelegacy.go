@@ -279,7 +279,9 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	task := TaskOf(artifact)
 	item, group := p.family.HistoryItem(task)
 	var ignored parser.Problems
-	metadata, _ := parser.LoadJSON(artifact, task.InDir(MetadataFile), &ignored)
+	// The metadata is parsed as its own artifact, whose parse reports its
+	// repeated member names.
+	metadata, _ := parser.LoadJSON(nil, task.InDir(MetadataFile), &ignored)
 	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
 	context.work, context.group = p.Work, group
 	return context
