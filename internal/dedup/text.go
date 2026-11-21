@@ -214,23 +214,27 @@ func (x *Texts) segmentOf(key segmentKey, full string, write SegmentWriter) *seg
 func (t *MatchText) chunks() iter.Seq[string] {
 	return func(yield func(string) bool) {
 		for _, part := range t.parts {
-			if part.segment == nil {
-				if !yield(part.literal) {
-					return
-				}
-				continue
-			}
-			t.texts.sharedRead += len(part.full)
-			stopped := false
-			part.write(part.full, part.state, func(chunk string) bool {
-				stopped = !yield(chunk)
-				return !stopped
-			})
-			if stopped {
+			if !part.each(t.texts, yield) {
 				return
 			}
 		}
 	}
+}
+
+// each yields the pieces of a part, a segment's by running its writer
+// again (counted in the run's sharedRead), and reports whether yield asked
+// for more.
+func (p textPart) each(texts *Texts, yield func(string) bool) bool {
+	if p.segment == nil {
+		return yield(p.literal)
+	}
+	texts.sharedRead += len(p.full)
+	more := true
+	p.write(p.full, p.state, func(chunk string) bool {
+		more = yield(chunk)
+		return more
+	})
+	return more
 }
 
 // arrangement returns the parts of a segmented match text as one string:
