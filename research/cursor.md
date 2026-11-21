@@ -2288,17 +2288,17 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   file survives a delete.
 - `agentKv` blobs (secondary): a JSON blob whose `content` contains the id of a composer with a
   `composerHeaders` row but no `composerData` (a deleted conversation) yield `user` and
-  `assistant` rows from
-  `content` (a `system` message as `system prompt: <content>`), with an empty `timestamp_utc`
-  and `source_line` the rowid. A blob naming several deleted conversations gives each of them its
-  row, and the rows share the blob's text: the timeline writes it in full in the first of them it
-  keeps, and in each later one
+  `assistant` rows from `content`, with an empty `timestamp_utc` and `source_line` the rowid. A
+  blob of any other role gives a `system` row instead: a `system` message as
+  `system prompt: <content>`, a message of another role as `<role> message: <content>`, and one
+  with no `role` as `- message: <content>` (only `system`, `user` and `assistant` were observed).
+  A blob naming several deleted conversations gives each of them its row, and the rows share the
+  blob's text: the timeline writes it in full in the first of them it keeps, and in each later one
   `[agentKv blob text shown in full above, under another session at source line <rowid>]`
-  in its place (after `system prompt: ` for a `system` message), so the blob's text is never
-  repeated. Blobs of a conversation still present are not
-  yielded: their user
-  text is the whole prompt with its context, which repeats the bubbles in a form deduplication
-  cannot match. Protobuf blobs yield nothing.
+  in its place, after the label of a `system` row, so the blob's text is never repeated. Blobs of
+  a conversation still present are not yielded: their user text is the whole prompt with its
+  context, which repeats the bubbles in a form deduplication cannot match. Protobuf blobs yield
+  nothing.
 - `ai-code-tracking.db` (not secondary: it repeats no event): `ai_code_hashes`, `system`, `ai
   code: <fileName> source=<source> model=<model> request=<requestId>` at `timestamp`;
   `conversation_summaries`, `system`, `conversation summary: <title>: <tldr>` at `updatedAt`;

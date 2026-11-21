@@ -28,6 +28,13 @@ func stateArtifact(t *testing.T, name string) *input.Artifact {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return stateArtifactOf(t, data)
+}
+
+// stateArtifactOf writes data into a new home as its state.vscdb and
+// returns the artifact.
+func stateArtifactOf(t *testing.T, data []byte) *input.Artifact {
+	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(stateRel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -54,7 +61,12 @@ func readState(t *testing.T, name string) ([]timeline.Row, int) {
 // naming its shared texts.
 func parseState(t *testing.T, name string) ([]timeline.Row, int) {
 	t.Helper()
-	artifact := stateArtifact(t, name)
+	return parseStateOf(t, stateArtifact(t, name))
+}
+
+// parseStateOf is parseState over the state.vscdb of an artifact.
+func parseStateOf(t *testing.T, artifact *input.Artifact) ([]timeline.Row, int) {
+	t.Helper()
 	database, err := sqlitefile.OpenPath(artifact.DiskPath)
 	if err != nil {
 		t.Fatal(err)
