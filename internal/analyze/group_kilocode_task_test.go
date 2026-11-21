@@ -15,6 +15,7 @@ func kiloRepeatFiles(*testing.T) []collectedFile {
 }
 
 func TestTheRowsOfARepeatedKiloCodeTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	checkRepeatCases(t, "kilo-code", kiloRepeatFiles, familyCasesWith(
 		"2026-01-01T00:00:00.000Z t1 /proj/a  task: TASK-A", "2026-06-01T00:00:00.000Z t1 /proj/b  task: TASK-B",
 		"/proj/a ", "/proj/b "))

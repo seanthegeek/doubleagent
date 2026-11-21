@@ -100,6 +100,7 @@ func codexMembers(attributes string) []string {
 }
 
 func TestTheRowsOfARepeatedCodexThreadGoWithTheFirstStoredRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	first, second := codexMembers("/proj/a br-a"), codexMembers("/proj/b br-b")
 	for _, test := range []repeatCase{
 		{"without a filter they go with the first row of the id", nil,

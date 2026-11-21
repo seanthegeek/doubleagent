@@ -193,6 +193,7 @@ func TestAWithheldRunWritesNoIdentifiedSecretAndCountsAsTheDefaultRunDoes(t *tes
 		withheldLeakInCodexRemoteFixtures(t))
 	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
 			shown := outputsOf(t, fixture.files)
 			withheld := outputsOf(t, fixture.files, "--no-secrets")
 			if !strings.Contains(shown.all(), fixture.secret) {

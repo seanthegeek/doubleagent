@@ -123,6 +123,7 @@ func familyCasesWith(taskA, taskB, attributesA, attributesB string) []repeatCase
 }
 
 func TestTheRowsOfARepeatedClineTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	checkRepeatCases(t, "cline", clineRepeatFiles, familyCases(familyTaskA, familyTaskB))
 }
 
@@ -136,5 +137,6 @@ func rooRepeatFiles(*testing.T) []collectedFile {
 }
 
 func TestTheRowsOfARepeatedRooCodeTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	checkRepeatCases(t, "roo-code", rooRepeatFiles, familyCases(familyTaskA, familyTaskB))
 }

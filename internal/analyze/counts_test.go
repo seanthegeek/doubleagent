@@ -79,6 +79,7 @@ func TestDetectHoldsATotalSizeAtTheLargestValue(t *testing.T) {
 }
 
 func TestDetectKeepsTheOrderOfManyAgents(t *testing.T) {
+	t.Parallel()
 	var files []collectedFile
 	for i := range 2000 {
 		files = append(files, collectedFile{"a", "/home/a", "agent" + strconv.Itoa(1999-i),

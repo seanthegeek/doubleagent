@@ -61,6 +61,7 @@ func ollamaRepeatedRun(t *testing.T, options ...string) []string {
 }
 
 func TestTheCallsAndAttachmentsOfARepeatedOllamaMessageGoWithTheFirstMessageTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	const (
 		old       = "2026-01-01T00:00:00.000Z c model-old "
 		current   = "2026-06-01T00:00:00.000Z c model-new "
@@ -154,6 +155,7 @@ func ollamaMovedModelRun(t *testing.T, next string, options ...string) []string 
 // `model:` row there, as for any record of a new model, and the next model
 // row of the chat reads from it; without a filter the rows are as before.
 func TestAnOllamaMessageThatTakesTheCallsAlonePutsItsModelInAModelRow(t *testing.T) {
+	t.Parallel()
 	const (
 		january = "2026-01-01T00:00:00.000Z model-old "
 		june    = "2026-06-01T00:00:00.000Z model-new "

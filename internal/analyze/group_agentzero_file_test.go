@@ -65,6 +65,7 @@ func tool(month, result string) []string {
 // by its own content, and the items of one id carry it as their
 // tool_use_id, so the filters keep every item of an id beside a kept one.
 func TestAMessageFileSeveralIDsNameIsShownInTheFirstItemTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	twoIDs := historyChat(toolMessage("t1", "")+","+toolMessage("t2", ""),
 		toolItem("t1", january, "first own")+","+toolItem("t2", june, "second own"))
 	oneID := historyChat(toolMessage("t1", ""),
@@ -163,6 +164,7 @@ func userItem(messageID, timestamp, content string) string {
 // at the time of the log item its id's rows go with: the first item of
 // the id the filters keep. The earlier message joins the item as before.
 func TestALaterHistoryMessageOfAnIDIsShownAtALogItemOfTheID(t *testing.T) {
+	t.Parallel()
 	messages := userMessage("u", "FIRST-PROMPT") + "," + userMessage("u", "LATER-PROMPT")
 	oneItem := historyChat(messages, userItem("u", june, ""))
 	twoItems := historyChat(messages, userItem("u", january, "")+","+userItem("u", june, "june ask"))

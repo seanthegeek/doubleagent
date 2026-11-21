@@ -65,6 +65,7 @@ const (
 )
 
 func TestTheMessagesOfARepeatedGooseSessionGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	ownRows := func(stored string, chosen bool) []string {
 		which := "another of them"
 		if chosen {

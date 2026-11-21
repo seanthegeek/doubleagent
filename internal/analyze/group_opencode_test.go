@@ -174,6 +174,7 @@ func opencodeRepeatCases() []opencodeRepeatCase {
 }
 
 func TestTheRowsOfARepeatedOpenCodeMessageGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range opencodeRepeatCases() {
 		t.Run(test.name, func(t *testing.T) {
 			rows := opencodeRepeatRun(t, "opencode", ".local/share/opencode/opencode.db",
@@ -188,6 +189,7 @@ func TestTheRowsOfARepeatedOpenCodeMessageGoWithTheFirstRowTheFilterKeeps(t *tes
 // Kilo Code's CLI keeps OpenCode's stores under its own directory, read
 // by the same reader, so a repeated message id there is shown the same way.
 func TestTheRowsOfARepeatedKiloCodeMessageGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range opencodeRepeatCases() {
 		t.Run(test.name, func(t *testing.T) {
 			rows := opencodeRepeatRun(t, "kilo-code", ".local/share/kilo/kilo.db",

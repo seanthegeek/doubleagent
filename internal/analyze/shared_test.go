@@ -136,6 +136,7 @@ func bodyPointerTo(line int) string {
 }
 
 func TestASharedTextIsWrittenInFullAtItsFirstReferenceTheOutputKeeps(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                   string
 		options                []string
@@ -185,6 +186,7 @@ func toolResultTexts(texts []string) []string {
 }
 
 func TestWithholdingSecretsKeepsTheRowsThatHoldAndPointToASharedText(t *testing.T) {
+	t.Parallel()
 	for _, options := range [][]string{nil, {"--since", "2026-01-02T03:04:02.500Z"}} {
 		shown := sharedTimeline(t, options...)
 		withheld := sharedTimeline(t, append([]string{"--no-secrets"}, options...)...)

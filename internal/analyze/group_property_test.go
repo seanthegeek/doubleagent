@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -300,18 +301,43 @@ func zedRepeatedSidebar(t *testing.T) string {
 			"(thread_id TEXT, archived_worktree_id INTEGER)", Rows: [][]any{{"t1", int64(7)}}})
 }
 
-// timelineRows parses the collection at directory for agent as timeline
-// does under filter, its patterns compiled from patterns, and returns the
-// rows of the output; with grouped set it returns instead the grouped rows
-// the parsers gave.
-func timelineRows(t *testing.T, directory, agent string, filter rowfilter.RowFilter, patterns []string,
-	grouped bool) []timeline.Row {
+// writtenStore is the collection of one grouped store written to disk once,
+// with the bundled catalog compiled once for every parse of it: the catalog
+// is the same for every filter, and compiling it is most of a parse's cost.
+type writtenStore struct {
+	found            *catalog.Matcher
+	directory, agent string
+}
+
+// compiledCatalog returns the bundled catalog compiled for matching paths,
+// for the stores of one test to share.
+func compiledCatalog(t *testing.T) *catalog.Matcher {
 	t.Helper()
-	ctx := context.Background()
 	found, err := matcher()
 	if err != nil {
 		t.Fatal(err)
 	}
+	return found
+}
+
+// writeStore writes the store's files as a collection under a new
+// temporary directory.
+func writeStore(t *testing.T, found *catalog.Matcher, store groupedStore) writtenStore {
+	t.Helper()
+	directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
+	return writtenStore{found: found, directory: directory, agent: store.agent}
+}
+
+// timelineRows parses the written store as timeline does under filter, its
+// patterns compiled from patterns, and returns the rows of the output;
+// with grouped set it returns instead the grouped rows the parsers gave.
+func timelineRows(t *testing.T, written writtenStore, filter rowfilter.RowFilter, patterns []string,
+	grouped bool) []timeline.Row {
+	t.Helper()
+	ctx := context.Background()
+	directory, agent, found := written.directory, written.agent, written.found
+	var err error
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
 		Parsers: parsers.New, Version: "0.0.0-test"}
 	collection, _, message := openInput(ctx, InputOptions{Input: directory}, found, env,
@@ -404,12 +430,12 @@ func countRecords(rows []timeline.Row) map[string]int {
 // inside the window: a row the chosen stored row gives with the same text
 // stands at its own time in place of one of another stored row.
 func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
+	found := compiledCatalog(t)
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
 			t.Parallel()
-			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
+			written := writeStore(t, found, store)
+			unfiltered := timelineRows(t, written, rowfilter.RowFilter{}, nil, false)
 			var times []string
 			for _, row := range unfiltered {
 				if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
@@ -418,7 +444,7 @@ func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
 			}
 			for _, bound := range times {
 				for _, window := range []rowfilter.RowFilter{{Since: bound}, {Until: bound}} {
-					filtered := timelineRows(t, directory, store.agent, window, nil, false)
+					filtered := timelineRows(t, written, window, nil, false)
 					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
 						return row.TimestampUTC != "" && (window.Since == "" || row.TimestampUTC >= window.Since) &&
 							(window.Until == "" || row.TimestampUTC <= window.Until)
@@ -439,13 +465,13 @@ func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
 // or of one short row of that output, so a store whose rows of a repeated
 // id the parser gives without a group is checked too.
 func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
+	found := compiledCatalog(t)
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
 			t.Parallel()
-			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-			grouped := windowTexts(timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true), nil)
+			written := writeStore(t, found, store)
+			unfiltered := timelineRows(t, written, rowfilter.RowFilter{}, nil, false)
+			grouped := windowTexts(timelineRows(t, written, rowfilter.RowFilter{}, nil, true), nil)
 			var patterns []string
 			for i, first := range grouped {
 				for _, second := range grouped[i:] {
@@ -458,7 +484,7 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 				}
 			}
 			for _, pattern := range patterns {
-				filtered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, []string{pattern}, false)
+				filtered := timelineRows(t, written, rowfilter.RowFilter{}, []string{pattern}, false)
 				matched := regexp.MustCompile(pattern)
 				if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
 					return row.Matches(matched)
@@ -480,20 +506,20 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 // grouped rows' times and single texts, which decide the choice, to keep
 // its time to a few seconds with the stores run in parallel.
 func TestAWindowAndAMatchShowEveryRowOfARepeatedIDBothKeep(t *testing.T) {
+	found := compiledCatalog(t)
 	for _, store := range groupedStores() {
 		t.Run(store.name, func(t *testing.T) {
 			t.Parallel()
-			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
-				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
-			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
-			grouped := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true)
+			written := writeStore(t, found, store)
+			unfiltered := timelineRows(t, written, rowfilter.RowFilter{}, nil, false)
+			grouped := timelineRows(t, written, rowfilter.RowFilter{}, nil, true)
 			texts, windows := windowTexts(grouped, nil), windowsOf(grouped, unfiltered)
 			if len(grouped) == 0 {
 				texts, windows = windowTexts(nil, unfiltered), windowsOf(unfiltered)
 			}
 			for _, window := range windows {
 				for _, text := range texts {
-					filtered := timelineRows(t, directory, store.agent, window, []string{text}, false)
+					filtered := timelineRows(t, written, window, []string{text}, false)
 					matched := regexp.MustCompile(text)
 					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
 						return insideWindow(window, row) && row.Matches(matched)

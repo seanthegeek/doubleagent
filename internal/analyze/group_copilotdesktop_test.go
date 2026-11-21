@@ -152,6 +152,7 @@ const copilotdesktopSessionText = "desktop session: fix it type=project model=m 
 	"permission_mode=- remote_control= archived=false"
 
 func TestTheRowsOfARepeatedCopilotDesktopProjectGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	const notice = "parser: projects holds 2 rows of this row's id; its worktrees, workspaces and sessions " +
 		"are shown once, with "
 	old, current := copilotdesktopOld+"  /proj/a ", copilotdesktopNew+"  /proj/b "
@@ -180,6 +181,7 @@ func TestTheRowsOfARepeatedCopilotDesktopProjectGoWithTheFirstRowTheFilterKeeps(
 }
 
 func TestTheSessionsOfARepeatedCopilotDesktopWorkspaceGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	const notice = "parser: workspaces holds 2 rows of this row's id; its sessions are shown once, with "
 	old, current := copilotdesktopOld+"  /proj/a ", copilotdesktopNew+"  /proj/b "
 	projects := []string{old + "project added: a kind=folder path=/proj/a default_branch=main",
@@ -205,6 +207,7 @@ func TestTheSessionsOfARepeatedCopilotDesktopWorkspaceGoWithTheFirstRowTheFilter
 }
 
 func TestTheSessionOfARepeatedCopilotDesktopAliasGoesWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	const notice = "parser: workspace_session_aliases holds 2 rows of this row's session_id; its session's " +
 		"rows are shown once, with "
 	stored := []string{copilotdesktopOld + "  /proj/a project added: a kind=folder path=/proj/a default_branch=main",

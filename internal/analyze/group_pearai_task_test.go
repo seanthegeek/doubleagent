@@ -22,5 +22,6 @@ func pearaiRepeatFiles(t *testing.T) []collectedFile {
 }
 
 func TestTheRowsOfARepeatedPearAITaskGoWithTheFirstHistoryEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	checkRepeatCases(t, "pearai", pearaiRepeatFiles, familyCases(familyTaskA, familyTaskB))
 }

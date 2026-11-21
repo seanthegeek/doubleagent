@@ -71,6 +71,7 @@ func TestAURLCredentialInAWindowsProjectPathIsWithheldInEveryOutput(t *testing.T
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			if shown := projectPathOutputs(t, test.project, test.listed); !strings.Contains(shown, "QZJ") {
 				t.Fatal("the run that shows secrets does not show the project path's credential")
 			}

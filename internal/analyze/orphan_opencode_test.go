@@ -93,6 +93,7 @@ func orphanRun(t *testing.T, agent, rel, database string) []string {
 // items belong to. A message or record naming a session no row holds, or
 // none, is shown with the session id it names and no project.
 func TestAPartOfNoMessageIsShownWithItsOwnAttributes(t *testing.T) {
+	t.Parallel()
 	const (
 		part        = "2026-06-02T00:00:00.000Z "
 		tail        = " naming no message read here; their rows are shown with their own session_id and no message"

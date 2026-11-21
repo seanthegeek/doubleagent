@@ -139,6 +139,7 @@ func secretOutputs(t *testing.T, options ...string) string {
 }
 
 func TestDetectAndTimelineShowSecretsUnlessWithheld(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		options  []string

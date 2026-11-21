@@ -434,22 +434,25 @@ func checkKinds(t *testing.T, each parser.Parser, set growthSet) {
 // one written another way. A neighbour a parser opens itself (Beside,
 // Above) is no kind: the case of the file it is beside reaches it.
 func TestWantsIsTheUnionOfTheKinds(t *testing.T) {
-	all := All()
 	for _, set := range growthSets() {
-		for _, test := range set.cases {
-			agent := test.agent
-			if agent == "" {
-				agent = newParser(t, set.parser).Agent()
-			}
-			artifacts, _ := growthHome(t, agent, test.files(t, 2))
-			for _, artifact := range artifacts {
-				for _, other := range all {
-					if other.Wants(artifact) != parser.WantsAny(parser.KindsOf(other), artifact) {
-						t.Errorf("%s: Wants and the kinds disagree on %s", other.Name(), artifact.Rel)
+		t.Run(set.parser, func(t *testing.T) {
+			t.Parallel()
+			all := All()
+			for _, test := range set.cases {
+				agent := test.agent
+				if agent == "" {
+					agent = newParser(t, set.parser).Agent()
+				}
+				artifacts, _ := growthHome(t, agent, test.files(t, 2))
+				for _, artifact := range artifacts {
+					for _, other := range all {
+						if other.Wants(artifact) != parser.WantsAny(parser.KindsOf(other), artifact) {
+							t.Errorf("%s: Wants and the kinds disagree on %s", other.Name(), artifact.Rel)
+						}
 					}
 				}
 			}
-		}
+		})
 	}
 }
 

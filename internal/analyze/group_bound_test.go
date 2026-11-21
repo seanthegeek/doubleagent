@@ -137,6 +137,7 @@ func timelineBytes(t *testing.T, files []collectedFile, options ...string) int {
 // costs its cut length in each member, whichever stored row the group goes
 // with: each member costs about the bound, not the whole value.
 func TestTheMembersOfARepeatedIDTakeTheirParentsFieldsCut(t *testing.T) {
+	t.Parallel()
 	stores := []struct {
 		name  string
 		files func(t *testing.T, n int) []collectedFile

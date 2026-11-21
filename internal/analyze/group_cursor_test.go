@@ -111,6 +111,7 @@ func cursorDataRows(old, recent bool, chosenOld bool) []string {
 }
 
 func TestTheRowsOfARepeatedCursorComposerDataKeyGoWithTheFirstStoredRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range []repeatCase{
 		{"without a filter they go with the first stored row", nil, cursorDataRows(true, true, true)},
 		{"a window past the first stored row moves them to the second", []string{"--since", "2026-03-01"},
@@ -201,6 +202,7 @@ func cursorHeaderRows(old, recent, chosenOld bool) []string {
 }
 
 func TestTheRowsOfARepeatedCursorComposerHeaderGoWithTheFirstStoredRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range []repeatCase{
 		{"without a filter they go with the first stored row", nil, cursorHeaderRows(true, true, true)},
 		{"a window past the first stored row moves them to the second", []string{"--since", "2026-03-01"},

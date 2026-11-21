@@ -145,6 +145,7 @@ func opencodeSessionCases(label string) []opencodeRepeatCase {
 }
 
 func TestTheRowsOfARepeatedOpenCodeSessionGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range opencodeSessionCases("opencode.db") {
 		t.Run(test.name, func(t *testing.T) {
 			rows := opencodeSessionRun(t, "opencode", ".local/share/opencode/opencode.db",
@@ -159,6 +160,7 @@ func TestTheRowsOfARepeatedOpenCodeSessionGoWithTheFirstRowTheFilterKeeps(t *tes
 // Kilo Code's CLI keeps OpenCode's stores under its own directory, read
 // by the same reader, so a repeated session id there is shown the same way.
 func TestTheRowsOfARepeatedKiloCodeSessionGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range opencodeSessionCases("kilo.db") {
 		t.Run(test.name, func(t *testing.T) {
 			rows := opencodeSessionRun(t, "kilo-code", ".local/share/kilo/kilo.db",

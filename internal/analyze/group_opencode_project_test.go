@@ -94,6 +94,7 @@ func opencodeProjectCases(label string) []opencodeRepeatCase {
 }
 
 func TestTheRowsOfARepeatedOpenCodeProjectGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range opencodeProjectCases("opencode.db") {
 		t.Run(test.name, func(t *testing.T) {
 			rows := opencodeProjectRun(t, "opencode", ".local/share/opencode/opencode.db", test.options...)
@@ -107,6 +108,7 @@ func TestTheRowsOfARepeatedOpenCodeProjectGoWithTheFirstRowTheFilterKeeps(t *tes
 // Kilo Code's CLI keeps OpenCode's stores under its own directory, read
 // by the same reader, so a repeated project id there is shown the same way.
 func TestTheRowsOfARepeatedKiloCodeProjectGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, test := range opencodeProjectCases("kilo.db") {
 		t.Run(test.name, func(t *testing.T) {
 			rows := opencodeProjectRun(t, "kilo-code", ".local/share/kilo/kilo.db", test.options...)

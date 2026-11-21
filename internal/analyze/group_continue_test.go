@@ -73,11 +73,13 @@ func continueCases(start string, dev bool) []repeatCase {
 }
 
 func TestTheRowsOfARepeatedContinueSessionGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	checkRepeatCases(t, "continue", continueRepeatFiles("continue", ".continue/"),
 		continueCases("session start: %s items=2", true))
 }
 
 func TestTheRowsOfARepeatedPearAIChatSessionGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	checkRepeatCases(t, "pearai", continueRepeatFiles("pearai", ".pearai/"),
 		continueCases("session start: %s | history=2 perplexityHistory=0", false))
 }

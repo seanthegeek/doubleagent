@@ -165,6 +165,7 @@ func countContaining(texts []string, part string) int {
 // The run-mode rows take the sandbox switch, so a switch key ItemTable
 // holds twice shows them once, with the stored switch a filter keeps.
 func TestTheRunModesOfARepeatedCursorSandboxSwitchGoWithTheStoredRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	mode := func(label, sandbox string) string {
 		return "permission setting: run mode agent=" + label + " autoRun=true smartModeAutoRun=- fullAutoRun=- " +
 			"sandbox=" + sandbox + " (from state.vscdb composerState, file mtime, written late by the app)"

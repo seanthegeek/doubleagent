@@ -165,6 +165,7 @@ func randomPath(random *rand.Rand) string {
 // The indexed finder gives every path the answer of trying every entry at
 // every component.
 func TestTheIndexedFinderAnswersAsTryingEveryEntryDoes(t *testing.T) {
+	t.Parallel()
 	finder := testFinder(t)
 	scanning := newScanningFinder(finder)
 	cases := []string{"/home/alice/.claude/x", "/.claude/x", "/a/.claude", "/a/.claude/", "C:\\Users\\a\\.CLAUDE\\x",
@@ -212,6 +213,7 @@ func randomCollection(random *rand.Rand) (*input.Collection, []timeline.Row) {
 // The scratch keys of a run are the same whether each path's answer is
 // kept for the run or found again for each row.
 func TestScratchKeysAreTheSameWithEachAnswerKept(t *testing.T) {
+	t.Parallel()
 	finder := testFinder(t)
 	scanning := newScanningFinder(finder)
 	random := rand.New(rand.NewPCG(3, 4))
@@ -262,6 +264,7 @@ func TestEachPathIsAnsweredOnceInWorkThatGrowsWithItsLength(t *testing.T) {
 // every home does: homes nested in one another, Windows and POSIX homes,
 // homes with a trailing separator, and paths in, under and beside them.
 func TestTheHomeLookupAnswersAsComparingEveryHomeDoes(t *testing.T) {
+	t.Parallel()
 	finder := testFinder(t)
 	scanning := newScanningFinder(finder)
 	random := rand.New(rand.NewPCG(5, 6))

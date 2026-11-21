@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"maps"
 	"slices"
+	"sync/atomic"
 	"testing"
 )
 
@@ -146,22 +147,33 @@ type plantedOutcome struct {
 // checkPlanted plants a repeat in one object, then in every object, of
 // each file of the case in turn and checks that the repeat rows grow by one
 // at most, only on the planted file when it is parsed as its own artifact.
+// The files as written are parsed once, for both kinds of planting.
 func checkPlanted(t *testing.T, name string, test growthCase) plantedOutcome {
+	files := test.files(t, 4)
+	before, own := repeatRowsByFile(t, name, test, files)
 	var outcome plantedOutcome
 	for _, every := range []bool{false, true} {
-		found := checkPlantedIn(t, name, test, every)
+		found := checkPlantedIn(t, name, test, plantedBase{files, before, own}, every)
 		outcome.planted += found.planted
 		outcome.reported += found.reported
 	}
 	return outcome
 }
 
+// plantedBase is a case's files as written, with the repeat rows their
+// parse gave by source file and the source files parsed as their own
+// artifact.
+type plantedBase struct {
+	files  []growthFile
+	before map[string]int
+	own    map[string]bool
+}
+
 // checkPlantedIn holds the case to checkPlanted's rule with a repeat in
 // the first object of the planted file, or in every object when every is
 // set.
-func checkPlantedIn(t *testing.T, name string, test growthCase, every bool) plantedOutcome {
-	files := test.files(t, 4)
-	before, own := repeatRowsByFile(t, name, test, files)
+func checkPlantedIn(t *testing.T, name string, test growthCase, base plantedBase, every bool) plantedOutcome {
+	files, before, own := base.files, base.before, base.own
 	var outcome plantedOutcome
 	for k, file := range files {
 		data, ok := plantRepeat(file.data, every)
@@ -193,18 +205,23 @@ func checkPlantedIn(t *testing.T, name string, test growthCase, every bool) plan
 }
 
 func TestARepeatIsReportedOnceByTheParseOfTheFileThatHoldsIt(t *testing.T) {
-	planted, reported := 0, 0
+	var planted, reported atomic.Int64
+	// The cases run in parallel, so the totals are logged once they are all
+	// done: a test's cleanup runs after its subtests.
+	t.Cleanup(func() {
+		t.Logf("%d files planted, %d reported by their own parse", planted.Load(), reported.Load())
+	})
 	for _, set := range growthSets() {
 		for _, test := range set.cases {
 			if test.shape == shapeUnlisted {
 				continue
 			}
 			t.Run(set.parser+"/"+test.kind+"/"+test.shape, func(t *testing.T) {
+				t.Parallel()
 				outcome := checkPlanted(t, set.parser, test)
-				planted += outcome.planted
-				reported += outcome.reported
+				planted.Add(int64(outcome.planted))
+				reported.Add(int64(outcome.reported))
 			})
 		}
 	}
-	t.Logf("%d files planted, %d reported by their own parse", planted, reported)
 }

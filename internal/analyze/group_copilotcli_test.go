@@ -46,6 +46,7 @@ func copilotMembers(attributes string) []string {
 }
 
 func TestTheRowsOfARepeatedCopilotCLISessionGoWithTheFirstStoredRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	first, second := copilotMembers("/proj/a br-a"), copilotMembers("/proj/b br-b")
 	for _, test := range []repeatCase{
 		{"without a filter they go with the first row of the id", nil, append([]string{

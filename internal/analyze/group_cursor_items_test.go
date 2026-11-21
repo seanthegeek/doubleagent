@@ -87,6 +87,7 @@ func cursorShownOnce(rows string, chosen bool) string {
 }
 
 func TestTheRowsARepeatedCursorIntegrationKeyFeedsGoWithTheStoredRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	enrolled := func(name string) string { return strings.Replace(cursorEnrolled, "%s", name, 1) }
 	tests := []struct {
 		name    string
@@ -291,6 +292,7 @@ func cursorCloudStateFirst(t *testing.T) []collectedFile {
 }
 
 func TestTheRowsOfARepeatedCursorCloudAgentGoWithTheEntryTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	for _, stateFirst := range []bool{true, false} {
 		for _, test := range []struct {
 			name    string

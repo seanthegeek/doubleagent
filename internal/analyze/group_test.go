@@ -99,6 +99,7 @@ const (
 )
 
 func TestTheRowsOfARepeatedIDGoWithTheFirstParentTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		options []string
@@ -215,6 +216,7 @@ func zedWorktreeRun(t *testing.T, options ...string) []string {
 }
 
 func TestTheLinksOfARepeatedZedWorktreeIDGoWithTheStoredRowTheMatchKeeps(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		options []string
@@ -301,6 +303,7 @@ func agentZeroRun(t *testing.T, files []collectedFile, options ...string) []stri
 // tool_use_id, so the filters keep every row of either beside a kept row of
 // the other, and the first keeps the result.
 func TestAgentZeroHistoryTextIsShownInTheFirstItemTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	january := []string{"01 user HISTORY-USER", "01 tool_use {}", "01 tool_result HISTORY-RESULT",
 		"01 assistant HISTORY-REPLY"}
 	june := []string{"06 user HISTORY-USER", "06 tool_use {}", "06 tool_result HISTORY-RESULT",
@@ -353,6 +356,7 @@ const emptyLaterChat = `{"id":"ctx","agents":[{"number":0,"history":` +
 // own shows the history reply when the filters keep it and not the first
 // item, and otherwise writes no row; the reply is shown once.
 func TestAgentZeroReplyIsShownInAKeptLaterItemWithNoContentOfItsOwn(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		options []string

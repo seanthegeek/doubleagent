@@ -97,6 +97,7 @@ func openclawWindowTranscript(model string) []string {
 }
 
 func TestTheTranscriptOfARepeatedOpenClawWindowGoesWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		options []string
@@ -225,6 +226,7 @@ func openclawNodeRows(firstChosen bool) []string {
 }
 
 func TestTheDeliveriesOfARepeatedOpenClawSessionKeyGoWithTheFirstRowTheFilterKeeps(t *testing.T) {
+	t.Parallel()
 	starts := []string{"2026-07-01T00:00:00.000Z s-new /new  session start: version=3",
 		"2026-07-01T00:00:00.000Z s-old /old  session start: version=3"}
 	tests := []struct {

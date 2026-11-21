@@ -132,11 +132,27 @@ type repeatOutcome struct {
 	changed                          []string
 }
 
-// parseRepeated parses the case's files at size n as written and with their
-// first members given copies more times, and compares the two.
-func parseRepeated(t *testing.T, name string, test growthCase, n, copies int) repeatOutcome {
+// plainRows parses files, a case's files at one size as written, and
+// returns the texts of the rows other than repeat rows.
+func plainRows(t *testing.T, name string, test growthCase, files []growthFile) []string {
 	t.Helper()
-	files := test.files(t, n)
+	written, _ := growthHome(t, cmpAgent(test.agent, newParser(t, name).Agent()), files)
+	pinTimes(t, written)
+	var plain []string
+	for _, row := range rowsOf(t, newParser(t, name), written) {
+		if !isRepeatRow(row) {
+			plain = append(plain, rowText(row))
+		}
+	}
+	return plain
+}
+
+// parseRepeated parses files, a case's files at one size, with their first
+// members given copies more times, and compares the rows with plain, the
+// rows of the files as written (plainRows).
+func parseRepeated(t *testing.T, name string, test growthCase, files []growthFile, plain []string,
+	copies int) repeatOutcome {
+	t.Helper()
 	outcome := repeatOutcome{files: len(files)}
 	repeated := make([]growthFile, len(files))
 	for i, file := range files {
@@ -146,17 +162,9 @@ func parseRepeated(t *testing.T, name string, test growthCase, n, copies int) re
 		}
 		repeated[i] = growthFile{rel: file.rel, data: data}
 	}
-	agent := cmpAgent(test.agent, newParser(t, name).Agent())
-	written, _ := growthHome(t, agent, files)
-	again, _ := growthHome(t, agent, repeated)
-	pinTimes(t, written)
+	again, _ := growthHome(t, cmpAgent(test.agent, newParser(t, name).Agent()), repeated)
 	pinTimes(t, again)
-	var plain, withRepeats []string
-	for _, row := range rowsOf(t, newParser(t, name), written) {
-		if !isRepeatRow(row) {
-			plain = append(plain, rowText(row))
-		}
-	}
+	var withRepeats []string
 	for _, row := range rowsOf(t, newParser(t, name), again) {
 		if isRepeatRow(row) {
 			outcome.repeatRows++
@@ -230,6 +238,7 @@ func TestEveryParserReportsARepeatedMemberNameOncePerFile(t *testing.T) {
 				continue
 			}
 			t.Run(set.parser+"/"+test.kind+"/"+test.shape, func(t *testing.T) {
+				t.Parallel()
 				checkRepeats(t, set.parser, test)
 			})
 		}
@@ -241,18 +250,27 @@ func TestEveryParserReportsARepeatedMemberNameOncePerFile(t *testing.T) {
 // and as many times as the size (one name repeats many times): the repeat
 // changes no other row, gives the repeat rows of a file (at most one per
 // reader, two at most) at either size, and as many at both when the case
-// has as many files, so no row is written per record or per repeat.
+// has as many files, so no row is written per record or per repeat. The
+// files as written are parsed once per size, for both kinds of repeat.
 func checkRepeats(t *testing.T, name string, test growthCase) {
+	outcomes := map[int][]repeatOutcome{}
+	for _, n := range []int{4, 8} {
+		files := test.files(t, n)
+		plain := plainRows(t, name, test, files)
+		for _, copies := range []int{1, 0} {
+			outcome := parseRepeated(t, name, test, files, plain, cmp.Or(copies, n))
+			outcomes[copies] = append(outcomes[copies], outcome)
+		}
+	}
 	for _, copies := range []int{1, 0} {
-		checkRepeatsAt(t, name, test, copies)
+		checkRepeatOutcomes(t, outcomes[copies][0], outcomes[copies][1])
 	}
 }
 
-// checkRepeatsAt holds the case to checkRepeats's rule with copies more
-// members per object, or as many as the size when copies is 0.
-func checkRepeatsAt(t *testing.T, name string, test growthCase, copies int) {
-	small := parseRepeated(t, name, test, 4, cmp.Or(copies, 4))
-	large := parseRepeated(t, name, test, 8, cmp.Or(copies, 8))
+// checkRepeatOutcomes holds the outcomes of one kind of repeat at the
+// smaller and the larger size to checkRepeats's rule.
+func checkRepeatOutcomes(t *testing.T, small, large repeatOutcome) {
+	t.Helper()
 	for _, outcome := range []repeatOutcome{small, large} {
 		if outcome.changed != nil {
 			t.Errorf("repeating a member changed a row:\n%s", strings.Join(outcome.changed, "\n"))
