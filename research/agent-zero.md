@@ -707,14 +707,20 @@ takes the text. The item is the first of those, in log order, that `--since`, `-
 the message's text as well as by its own `content`. Every other item with the same id keeps the id,
 the message's model and, for a tool item, its `tool_name`, but gives only its own `content`; an
 `agent` item with neither a headline nor `content` of its own gives a reply row only when it is the
-item that shows the message's text. The text is held once for the id however many items name it; a
-copy of the row showing it, which the output never writes, would read
+item that shows the message's text. The text is held once however many items name it; a copy of
+the row showing it, which the output never writes, would read
 `[history message shown in full above, at source line <no>]` (until then the row holds
-`[history message]` in its place). Each
-message file is read at most once per chat, its text joining the log items of the first id that
-reaches it; on a disk that matches names without regard to letter case (accented and non-Latin
-letters included) or, on macOS, to whether an accented letter is written as one character or as a
-letter and a combining accent, every such spelling of its name is that one file.
+`[history message]` in its place).
+
+Each message file is read at most once per chat. Its text is one text for the tool items of every id
+whose message names the file, which only damage or an edit gives more than one id: it is shown in
+the first of those items, in log order, that the filters keep, as a message's text is among the
+items of its id, and `--match` finds each of them by it. The other items give their own `content`,
+except the first item of each id after the first, which gives its message's `tool_result` when it
+has one, as it would with the file shown in another id's item. On a disk that matches names without
+regard to letter case (accented and non-Latin letters included) or, on macOS, to whether an accented
+letter is written as one character or as a letter and a combining accent, every such spelling of its
+name is that one file.
 
 Paths: `chat.json`, its `messages/<n>.txt` and the legacy `<ctxid>.json`
 under `<a0>/usr/chats` or `<a0>/tmp/chats` of a home install, and under

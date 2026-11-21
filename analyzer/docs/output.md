@@ -1457,7 +1457,10 @@ attributes. What the rows of the id are depends on the agent:
   show it, and `--match` finds each such item by that text as well as by
   its own; the other items show only their own `content`, and an `agent`
   item with no headline or `content` of its own gives a row only when it
-  shows the reply.
+  shows the reply. A message file that the tool messages of several ids
+  name is one text for the tool items of all of them, shown in one of
+  those items the same way; the first item of each other id shows its
+  message's tool result instead.
 - **Codex CLI and Open Interpreter**, whose stores one reader reads, a
   `state_5.sqlite` `threads` row repeating a thread id: the thread's
   `guardian_review_feedback` rows and its rows in the log databases and

@@ -356,19 +356,23 @@ type chat struct {
 	emit     parser.Emit
 	base     timeline.Row
 	history  map[string]historyEntry
-	// files holds the message files already looked for, each read at most
-	// once, and fileTexts the text each history id's message file gave.
-	files     map[parser.EntryKey]bool
-	fileTexts map[string]string
+	// fileRefs holds the message file each history id's message names, and
+	// fileTexts the text each file gave, read at most once.
+	fileRefs  map[string]fileRef
+	fileTexts map[parser.EntryKey]string
 	// replies holds the text of each history reply read as the agent's
 	// JSON response, by id, and whether it read as one.
 	replies map[string]decodedReply
-	// repeated holds the history ids more than one log item names, and
-	// groups the group of each (timeline.Group): the message's text is
-	// shown in the first item of the id that shows it and the filters keep.
-	repeated map[string]bool
-	groups   map[string]*timeline.Group
+	// keys holds the group key of each history id a log item names
+	// (groupKey), grouped the keys more than one log item reaches, groups
+	// the group of each (timeline.Group) and parented the ids with a
+	// parent in it.
+	keys     map[string]groupKey
+	grouped  map[groupKey]bool
+	groups   map[groupKey]*timeline.Group
+	parented map[string]bool
 	chosen   map[chosenKey]timeline.RowText
+	shared   map[sharedKey]*timeline.SharedText
 	// work counts the message files read and the replies decoded, which
 	// tests hold to one each.
 	work   parser.Work
@@ -429,9 +433,9 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 		fallbackID = parser.Stem(name)
 	}
 	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
-		base: p.BaseRow(artifact), history: map[string]historyEntry{}, fileTexts: map[string]string{},
-		replies: map[string]decodedReply{}, groups: map[string]*timeline.Group{},
-		chosen: map[chosenKey]timeline.RowText{},
+		base: p.BaseRow(artifact), history: map[string]historyEntry{},
+		replies: map[string]decodedReply{}, chosen: map[chosenKey]timeline.RowText{},
+		shared: map[sharedKey]*timeline.SharedText{},
 		work:   p.Work, models: parser.Tracker{}}
 	state.base.SessionID = fallbackID
 	content, ok := parser.FileBytes(artifact.DiskPath, &state.problems)
@@ -663,30 +667,51 @@ func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
 	}
 }
 
-// messageFile returns the text of the message file a history entry names, ""
-// when there is none or an earlier entry of the chat named it, in any
-// spelling that opens it: a file is looked for once, and its text joins
-// the log items of the first id that reaches it (historyFile).
-// A file that exists but cannot be read adds its unreadable problem; a
-// failure to look for it stops the parse.
-func (c *chat) messageFile(content jsonvalue.Value) string {
+// fileRef is the message file a history message names: its path in the
+// messages directory and the key of the entry it opens.
+type fileRef struct {
+	path string
+	key  parser.EntryKey
+}
+
+// messageFileRef returns the message file a history message's content
+// names, and whether it names a file name in the messages directory.
+func (c *chat) messageFileRef(content jsonvalue.Value) (fileRef, bool) {
 	if !content.IsObject() || content.Get("file").IsEmpty() {
-		return ""
+		return fileRef{}, false
 	}
 	name := strings.ReplaceAll(content.Get("file").Text(), `\`, "/")
 	path, named := c.messages.Child(name[strings.LastIndex(name, "/")+1:])
 	if !named {
+		return fileRef{}, false
+	}
+	return fileRef{path: path, key: parser.KeyOf(path)}, true
+}
+
+// messageFile returns the text of the message file a history entry names,
+// "" when there is none (messageFileText).
+func (c *chat) messageFile(content jsonvalue.Value) string {
+	ref, named := c.messageFileRef(content)
+	if !named {
 		return ""
 	}
-	key := parser.KeyOf(path)
-	if c.files[key] {
-		return ""
+	return c.messageFileText(ref)
+}
+
+// messageFileText returns the text of a message file, "" when it is absent
+// or not a regular file. A file is looked for once per chat, by the entry
+// it opens, so every spelling of its name that opens it gives the text of
+// that one read. A file that exists but cannot be read adds its unreadable
+// problem; a failure to look for it stops the parse.
+func (c *chat) messageFileText(ref fileRef) string {
+	if text, ok := c.fileTexts[ref.key]; ok {
+		return text
 	}
-	if c.files == nil {
-		c.files = map[parser.EntryKey]bool{}
+	if c.fileTexts == nil {
+		c.fileTexts = map[parser.EntryKey]string{}
 	}
-	c.files[key] = true
-	info, err := osfile.Lstat(path)
+	c.fileTexts[ref.key] = ""
+	info, err := osfile.Lstat(ref.path)
 	if err != nil {
 		if !absentLookup(err) {
 			c.failure = err
@@ -697,11 +722,13 @@ func (c *chat) messageFile(content jsonvalue.Value) string {
 		return ""
 	}
 	c.work.Add("message files read", 1)
-	data, ok := parser.FileBytes(path, &c.problems)
+	data, ok := parser.FileBytes(ref.path, &c.problems)
 	if !ok {
 		return ""
 	}
-	return textlines.ValidUTF8(data)
+	text := textlines.ValidUTF8(data)
+	c.fileTexts[ref.key] = text
+	return text
 }
 
 // logItem is one log item with what its rows are built from.
@@ -740,92 +767,147 @@ func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
 	return current
 }
 
-// repeatedIDs returns the history ids that more than one log item names.
-func (c *chat) repeatedIDs(logs []jsonvalue.Value) map[string]bool {
-	seen, repeated := map[string]bool{}, map[string]bool{}
+// groupKey names the group of the log items that could show one text:
+// the message file a history message names, by the entry it opens, so
+// the items of every id whose message names it are one group; else the
+// history id (file the zero key).
+type groupKey struct {
+	itemID string
+	file   parser.EntryKey
+}
+
+// groupKeys sets the group key of each history id a log item names, the
+// message file of each id whose message names one, and the keys that
+// more than one log item reaches; only those have a group.
+func (c *chat) groupKeys(logs []jsonvalue.Value) {
+	c.keys, c.fileRefs, c.grouped = map[string]groupKey{}, map[string]fileRef{}, map[groupKey]bool{}
+	c.groups, c.parented = map[groupKey]*timeline.Group{}, map[string]bool{}
+	counts := map[groupKey]int{}
 	for _, item := range logs {
 		itemID := parser.Text(item.Get("id"))
-		if held, ok := c.history[itemID]; !ok || itemID == "" || held.message.IsEmpty() {
+		held, ok := c.history[itemID]
+		if !ok || itemID == "" || held.message.IsEmpty() {
 			continue
 		}
-		if seen[itemID] {
-			repeated[itemID] = true
+		key, known := c.keys[itemID]
+		if !known {
+			key = groupKey{itemID: itemID}
+			if ref, named := c.messageFileRef(held.message.Get("content")); named {
+				c.fileRefs[itemID] = ref
+				key = groupKey{file: ref.key}
+			}
+			c.keys[itemID] = key
 		}
-		seen[itemID] = true
+		counts[key]++
+		if counts[key] > 1 {
+			c.grouped[key] = true
+		}
 	}
-	return repeated
 }
 
 // joined is how a log item's row of turn reads its id's history message:
 // text gives the row's text with the message's content as body, or null
-// for the item's own, and whether the message gave it; suffix ends the
-// text either way; with optional the item writes no row without text.
+// for the item's own, and whether the message gave it; with file, the
+// text of a message file the message names stands in its place when the
+// file gives one; suffix ends the text either way; with optional the item
+// writes no row without text.
 type joined struct {
 	turn     string
 	text     func(body jsonvalue.Value) (string, bool)
+	file     bool
 	suffix   string
 	optional bool
 }
 
-// chosenKey names the text a row of an id's group shows with the history
-// message: one per turn, agent and suffix, so it is built once.
-type chosenKey struct {
-	itemID, turn, agent, suffix string
+// sharedKey names one text a group's rows can show: its source (the
+// message file, else the history id) and the turn that reads it.
+type sharedKey struct {
+	source groupKey
+	turn   string
 }
 
-// joinedRow returns a log item's row, with its history message's text when
-// the message gives one, else its own, and whether that text is set. For
-// an id other items name, the row is a parent of the id's group with both
-// texts (Parent.Texts), so the message's text is shown only in the first
-// such item the filters keep. An optional row with no text of its own is
-// shown only when chosen (timeline.WhenChosen), so the output without a
-// filter writes it only for the id's first such item.
+// chosenKey names the text a row shows with a shared text: led by the
+// item's agent and followed by the suffix.
+type chosenKey struct {
+	shared        sharedKey
+	agent, suffix string
+}
+
+// joinedRow returns a log item's row, with its history message's text (or
+// its message file's) when the message gives one, else its own, and
+// whether that text is set. When more than one log item reaches the
+// text's group (groupKeys: one per message file, holding the items of
+// every id whose message names it, else one per id), the row is a parent
+// of it with both texts (Parent.Texts): the text is shown only in the
+// first such item the filters keep, the others showing their own content
+// but for the first item of each later id, which shows what its message
+// gives apart from the file. An optional row with no text of its own is
+// shown only when chosen (timeline.WhenChosen).
 func (c *chat) joinedRow(current *logItem, how joined,
 	row func(turn, text string) timeline.Row) (timeline.Row, bool) {
-	shown, shows := how.text(current.body)
-	hasText := shown != "" || how.suffix != ""
-	if !shows || !c.repeated[current.itemID] || c.failure != nil {
-		return row(how.turn, shown+how.suffix), hasText
+	shown, fromHistory := how.text(current.body)
+	full, shows, source := shown, fromHistory, groupKey{itemID: current.itemID}
+	if how.file {
+		if text := c.historyFile(current); text != "" {
+			full, shows, source = text, true, c.keys[current.itemID]
+		}
 	}
-	group, ok := c.groups[current.itemID]
-	if !ok {
+	hasText := full != "" || how.suffix != ""
+	key := c.keys[current.itemID]
+	if !shows || !c.grouped[key] || c.failure != nil {
+		return row(how.turn, full+how.suffix), hasText
+	}
+	group, later := c.groups[key]
+	if !later {
 		group = timeline.NewGroup()
-		c.groups[current.itemID] = group
+		c.groups[key] = group
 	}
-	chosen := c.chosenText(current, how, shown)
+	chosen := c.chosenText(current, how, full, source)
 	made := row(how.turn, "")
 	made.Text, made.Shared = chosen.Text, chosen.Shared
 	parent := group.Parent(&made)
-	if own, _ := how.text(jsonvalue.NewNull()); !how.optional || own != "" || how.suffix != "" {
+	firstOfID := !c.parented[current.itemID]
+	c.parented[current.itemID] = true
+	own, _ := how.text(jsonvalue.NewNull())
+	switch {
+	case later && firstOfID && fromHistory:
+		parent.Texts(&made, chosen, timeline.RowText{Text: row(how.turn, shown+how.suffix).Text})
+	case !how.optional || own != "" || how.suffix != "":
 		parent.Texts(&made, chosen, timeline.RowText{Text: row(how.turn, own+how.suffix).Text})
-		return made, true
+	default:
+		parent.Row(&made, timeline.WhenChosen)
 	}
-	parent.Row(&made, timeline.WhenChosen)
 	return made, true
 }
 
-// chosenText returns the text an item's row of turn shows with its id's
-// history message, whose text is shown: led by the item's agent, followed
-// by the suffix, and built once per id, agent and suffix, the message's
-// text one shared text (timeline.SharedText) that only the chosen item's
-// row writes, however many items of the id hold it.
-func (c *chat) chosenText(current *logItem, how joined, shown string) timeline.RowText {
-	key := chosenKey{current.itemID, how.turn, current.agent.Text(), how.suffix}
+// chosenText returns the text an item's row of turn shows with the text of
+// its group, shown: led by the item's agent and followed by the suffix,
+// built once per source, turn, agent and suffix. The text itself is one
+// shared text (timeline.SharedText) per source and turn, so memory holds
+// it once however many items and ids hold it, and only the chosen item's
+// row writes it.
+func (c *chat) chosenText(current *logItem, how joined, shown string, source groupKey) timeline.RowText {
+	key := chosenKey{sharedKey{source, how.turn}, current.agent.Text(), how.suffix}
 	if chosen, ok := c.chosen[key]; ok {
 		return chosen
 	}
+	shared, ok := c.shared[key.shared]
+	if !ok {
+		shared = timeline.NewSharedText(shown)
+		c.shared[key.shared] = shared
+	}
 	var builder timeline.TextBuilder
 	builder.Write(prefix(current.agent, ""))
-	builder.Share(timeline.NewSharedText(shown), "[history message]", historyPointer)
+	builder.Share(shared, "[history message]", historyPointer)
 	builder.Write(how.suffix)
 	chosen := builder.Text()
 	c.chosen[key] = chosen
 	return chosen
 }
 
-// historyPointer is what a row writes for the history message of a
-// repeated id another row holds in full; only one item of the id shows it,
-// so no row writes it but a copy of that item's row.
+// historyPointer is what a row writes for the history message or message
+// file of a group another row holds in full; only one item of the group
+// shows it, so no row writes it but a copy of that item's row.
 func historyPointer(holder *timeline.Row, _ bool) string {
 	return "[history message shown in full above, at source line " + strconv.Itoa(holder.SourceLine) + "]"
 }
@@ -833,7 +915,7 @@ func historyPointer(holder *timeline.Row, _ bool) string {
 // logRows emits the rows of the log items; a message file that cannot be
 // read adds a problem.
 func (c *chat) logRows(logs []jsonvalue.Value) {
-	c.repeated = c.repeatedIDs(logs)
+	c.groupKeys(logs)
 	for _, item := range logs {
 		if c.failure != nil {
 			return
@@ -948,14 +1030,12 @@ func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timelin
 	call := row(timeline.TurnToolUse, argsSummary(current.kvps))
 	call.ToolName, call.ToolUseID = name, toolID
 	c.emit(call)
-	made, hasResult := c.joinedRow(current, joined{turn: timeline.TurnToolResult,
+	made, hasResult := c.joinedRow(current, joined{turn: timeline.TurnToolResult, file: true,
 		text: func(body jsonvalue.Value) (string, bool) {
-			result := c.historyFile(current, body)
-			if result == "" && body.IsObject() && body.Has("tool_result") {
-				result = contentText(body.Get("tool_result"))
-			}
-			if result != "" {
-				return result, true
+			if body.IsObject() && body.Has("tool_result") {
+				if result := contentText(body.Get("tool_result")); result != "" {
+					return result, true
+				}
 			}
 			return contentText(current.content), false
 		}}, row)
@@ -969,17 +1049,14 @@ func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timelin
 }
 
 // historyFile returns the text of the message file a log item's history
-// message body names, read once per id however many items of the id ask.
-func (c *chat) historyFile(current *logItem, body jsonvalue.Value) string {
-	if body.IsNull() {
+// message names (groupKeys), read once per file however many items and
+// ids reach it.
+func (c *chat) historyFile(current *logItem) string {
+	ref, named := c.fileRefs[current.itemID]
+	if !named || !current.hasMessage {
 		return ""
 	}
-	if text, ok := c.fileTexts[current.itemID]; ok {
-		return text
-	}
-	text := c.messageFile(body)
-	c.fileTexts[current.itemID] = text
-	return text
+	return c.messageFileText(ref)
 }
 
 // otherLogRows emits the row of any other log item: its type, heading and

@@ -68,7 +68,7 @@ func TestEverySpellingOfOneMessageFileReadsItOnce(t *testing.T) {
 			subject.Work = parser.CountingWork()
 			shown := 0
 			if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) {
-				shown += strings.Count(row.Text, "FILE TEXT OF ")
+				shown += strings.Count(row.FullText(), "FILE TEXT OF ")
 			}); err != nil {
 				t.Fatal(err)
 			}

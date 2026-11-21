@@ -78,6 +78,8 @@ func TestAHistoryMessageJoinsOnlyTheFirstLogItemNamingIt(t *testing.T) {
 	}
 }
 
+// A message file two names open is read once, and both are given its
+// text; which log item shows it is the group's choice (joinedRow).
 func TestAMessageFileNamedTwiceIsReadOnce(t *testing.T) {
 	directory := t.TempDir()
 	writeFile(t, directory, "chats/ctx/messages/1.txt", "kept")
@@ -92,7 +94,7 @@ func TestAMessageFileNamedTwiceIsReadOnce(t *testing.T) {
 		content := jsonvalue.NewObject(jsonvalue.Member{Key: "file", Value: jsonvalue.NewString(name)})
 		got = append(got, state.messageFile(content))
 	}
-	if want := []string{"kept", "", "", ""}; !slices.Equal(got, want) || work.Count("message files read") != 1 {
+	if want := []string{"kept", "kept", "", ""}; !slices.Equal(got, want) || work.Count("message files read") != 1 {
 		t.Errorf("got %q after %d reads, want %q after one", got, work.Count("message files read"), want)
 	}
 }

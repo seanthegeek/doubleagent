@@ -127,6 +127,17 @@ func agentzeroJoinCases() []growthCase {
 				return `{"no":` + strconv.Itoa(i) + `,"id":"u","type":"user","content":"q"}`
 			}))))
 		}},
+		{kind: "chat.json", shape: shapeLargeShared + " by the messages of many ids", files: func(t *testing.T, n int) []growthFile {
+			messages := joined(n, func(i int) string {
+				return `{"_cls":"Message","id":"` + numbered("t", i) + `","ai":false,"content":{"tool_name":"code",` +
+					`"tool_result":"` + numbered("r", i) + `","file":"big.txt"}}`
+			})
+			return []growthFile{text(agentzeroChats+"c1/messages/big.txt", long("output")),
+				text(chat, agentzeroChat("c1", `{}`, messages, joined(n, func(i int) string {
+					return `{"no":` + strconv.Itoa(i) + `,"id":"` + numbered("t", i/2) + `","type":"tool",` +
+						`"kvps":{"code":"ls"},"content":"c"}`
+				})))}
+		}},
 	}
 }
 
