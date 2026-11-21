@@ -1403,7 +1403,9 @@ attributes. What the rows of the id are depends on the agent:
 - **Hermes**, a `sessions` row repeating a session id: the usage `model:`
   rows, messages and deletion fences of the session, with the stored row's
   `project_path`, `git_branch` and `model`, and its time for a usage row
-  with no `first_seen`.
+  with no `first_seen`. A stored row with no `started_at` is read first,
+  so when `--keep-undated` keeps it beside a window, the session's rows go
+  with it.
 - **nanobot**, a `sessions` row repeating a key: the messages of the key,
   with the stored row's preset `model` until a `/model` switch, and its
   time until a message carries one.

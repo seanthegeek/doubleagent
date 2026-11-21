@@ -1534,7 +1534,10 @@ messages, deletion fences and the problem rows of its messages, take `project_pa
 `git_branch` and `model` (a usage row and a model-switch marker keep their own model), and a
 usage row with no `first_seen` its time, from the first row of the id by `started_at` that
 `--since`, `--until` and `--match` keep, else from its first row
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A row with a null
+`started_at` (the column is `NOT NULL` in Hermes's schema, so only an edit writes one) is read
+first, so with `--keep-undated` beside a window it is kept as undated and the id's rows take its
+attributes.
 
 Model-switch markers, `system`, in message order: each `messages` row with
 `display_kind = 'model_switch'` is one row `model: <old> -> <model> provider=<provider>` at the
