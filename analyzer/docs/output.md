@@ -1509,9 +1509,11 @@ never hide a row they kept.
 
 The choice is made by the filters reading the rows as the parsers gave
 them, before deduplication, with every row attributed to the first stored
-row; the rows are then given the chosen stored row's attributes, so
-deduplication compares them as they are shown, and the filters keep or
-drop the rows as attributed, so a row kept in that first reading only
+row. The rows are then given the chosen stored row's attributes and the
+rows of a form not shown are left out, so deduplication compares exactly
+the rows the output shows: a row left out neither stands for a copy in
+a secondary source nor is dropped as one. The filters then keep or drop
+the rows as attributed, so a row kept in that first reading only
 beside a partner with the same `tool_use_id` can be dropped once its
 session changes. `sessions.jsonl` is summarised
 from the rows kept, so it describes only the rows shown.

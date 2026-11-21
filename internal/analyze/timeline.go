@@ -275,9 +275,9 @@ func probeWrite(directory string) bool {
 	return true
 }
 
-// parse collects the rows of every artifact, drops the secondary rows a
-// primary store holds, settles the parent each group of a repeated id goes
-// with (attach), sorts and filters the rows, writes out the shared texts
+// parse collects the rows of every artifact, settles the parent each group
+// of a repeated id goes with and the rows it shows (timeline.Attach), drops
+// the secondary rows a primary store holds, sorts and filters the rows, writes out the shared texts
 // they name (timeline.Resolve), and summarises the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
@@ -286,15 +286,19 @@ func (r *timelineRun) parse(ctx context.Context) error {
 		return err
 	}
 	r.problems, r.problemSecrets = result.Problems, result.ProblemSecrets
+	// Deduplication sees exactly the rows the output will show, with the
+	// attributes they are shown with: a row its group leaves out neither
+	// takes a secondary copy nor, as a secondary row, takes a primary row.
 	choice := r.choose(result)
-	timeline.Place(result.Primary, choice)
-	for i := range result.Secondary {
-		placed := []timeline.Row{result.Secondary[i].Row}
-		timeline.Place(placed, choice)
-		result.Secondary[i].Row = placed[0]
+	primary := timeline.Attach(result.Primary, choice)
+	secondary := result.Secondary[:0]
+	for _, each := range result.Secondary {
+		if shown := timeline.Attach([]timeline.Row{each.Row}, choice); len(shown) == 1 {
+			each.Row = shown[0]
+			secondary = append(secondary, each)
+		}
 	}
-	r.rows, r.dropped = dedup.Deduplicate(result.Primary, result.Secondary, r.registry.Hooks())
-	r.rows = timeline.Attach(r.rows, choice)
+	r.rows, r.dropped = dedup.Deduplicate(primary, secondary, r.registry.Hooks())
 	r.counts = countRows(r.rows)
 	timeline.SortRows(r.rows)
 	parsed := map[string]bool{}
@@ -317,9 +321,9 @@ func (r *timelineRun) parse(ctx context.Context) error {
 // (timeline.Group): the first the filter keeps of the rows as the parsers
 // gave them, before deduplication, so a parent shown by its primary
 // store's copy still counts. That pass counts nothing; the rows are then
-// given their attributes (timeline.Place) before deduplication compares
-// them, and the filter runs for real over the rows as attached. Without a
-// filter, or a group, every group goes with its first parent.
+// attached (timeline.Attach), so deduplication compares only the rows the
+// output shows, and the filter runs for real over the rows as attached.
+// Without a filter, or a group, every group goes with its first parent.
 func (r *timelineRun) choose(result parsers.Result) timeline.Choice {
 	if !r.filter.Active() || !timeline.Grouped(result.Primary) && !groupedSecondary(result.Secondary) {
 		return nil

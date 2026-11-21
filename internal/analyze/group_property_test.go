@@ -313,3 +313,77 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 		})
 	}
 }
+
+// For every parser that groups the rows of a repeated id, a window from or
+// to the time of any row of the output without a filter, with and without
+// --keep-undated, together with a pattern of one text (a grouped row's, or
+// a short row's of that output), shows every row of that output both keep,
+// as a match or a window alone does. Each text is tried alone rather than
+// in pairs, which the match test covers, and the stores run in parallel,
+// to keep the test's time to a few seconds.
+func TestAWindowAndAMatchShowEveryRowOfARepeatedIDBothKeep(t *testing.T) {
+	for _, store := range groupedStores() {
+		t.Run(store.name, func(t *testing.T) {
+			t.Parallel()
+			directory := writeCollection(t, filepath.Join(t.TempDir(), "col"),
+				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, store.files(t))
+			unfiltered := timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, false)
+			texts := windowTexts(timelineRows(t, directory, store.agent, rowfilter.RowFilter{}, nil, true), unfiltered)
+			for _, window := range windowsOf(unfiltered) {
+				for _, text := range texts {
+					filtered := timelineRows(t, directory, store.agent, window, []string{text}, false)
+					matched := regexp.MustCompile(text)
+					if faults := keepFaults(unfiltered, filtered, func(row *timeline.Row) bool {
+						return insideWindow(window, row) && row.Matches(matched)
+					}); len(faults) > 0 {
+						t.Errorf("--since %q --until %q --keep-undated %v --match %q: %q", window.Since, window.Until,
+							window.KeepUndated, text, faults)
+					}
+				}
+			}
+		})
+	}
+}
+
+// windowTexts returns the patterns of the combined test: the text of each
+// grouped row and of each row of unfiltered shorter than 200 bytes, quoted
+// and each once.
+func windowTexts(grouped, unfiltered []timeline.Row) []string {
+	var texts []string
+	for i, row := range slices.Concat(grouped, unfiltered) {
+		text := row.FullText()
+		if text != "" && (i < len(grouped) || len(text) < 200) && !slices.Contains(texts, regexp.QuoteMeta(text)) {
+			texts = append(texts, regexp.QuoteMeta(text))
+		}
+	}
+	return texts
+}
+
+// windowsOf returns a window from and one to each time of rows, each with
+// and without --keep-undated.
+func windowsOf(rows []timeline.Row) []rowfilter.RowFilter {
+	var times []string
+	for _, row := range rows {
+		if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
+			times = append(times, row.TimestampUTC)
+		}
+	}
+	var windows []rowfilter.RowFilter
+	for _, undated := range []bool{false, true} {
+		for _, bound := range times {
+			windows = append(windows, rowfilter.RowFilter{Since: bound, KeepUndated: undated},
+				rowfilter.RowFilter{Until: bound, KeepUndated: undated})
+		}
+	}
+	return windows
+}
+
+// insideWindow reports whether the window keeps row by its time: an
+// undated row only with --keep-undated.
+func insideWindow(window rowfilter.RowFilter, row *timeline.Row) bool {
+	if row.TimestampUTC == "" {
+		return window.KeepUndated
+	}
+	return (window.Since == "" || row.TimestampUTC >= window.Since) &&
+		(window.Until == "" || row.TimestampUTC <= window.Until)
+}
