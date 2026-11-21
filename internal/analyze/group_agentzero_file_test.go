@@ -147,3 +147,46 @@ func TestAToolResultBesideAFileAnotherIDShowsIsShownInTheFirstItemOfItsID(t *tes
 		})
 	}
 }
+
+// userMessage returns a user history message of the id with the prompt.
+func userMessage(messageID, prompt string) string {
+	return `{"_cls":"Message","id":"` + messageID + `","ai":false,"content":{"user_message":"` + prompt + `"}}`
+}
+
+// userItem returns a user log item of the id at the time, with its own
+// content.
+func userItem(messageID, timestamp, content string) string {
+	return `{"id":"` + messageID + `","type":"user","timestamp":` + timestamp + `,"content":"` + content + `"}`
+}
+
+// A history message whose id an earlier message has gives its own rows,
+// at the time of the log item its id's rows go with: the first item of
+// the id the filters keep. The earlier message joins the item as before.
+func TestALaterHistoryMessageOfAnIDIsShownAtALogItemOfTheID(t *testing.T) {
+	messages := userMessage("u", "FIRST-PROMPT") + "," + userMessage("u", "LATER-PROMPT")
+	oneItem := historyChat(messages, userItem("u", june, ""))
+	twoItems := historyChat(messages, userItem("u", january, "")+","+userItem("u", june, "june ask"))
+	tests := []struct {
+		name, chat string
+		options    []string
+		want       []string
+	}{
+		{"one item without a filter", oneItem, nil, []string{"06 user FIRST-PROMPT", "06 user LATER-PROMPT"}},
+		{"one item in a window", oneItem, []string{"--since", "2026-03-01"},
+			[]string{"06 user FIRST-PROMPT", "06 user LATER-PROMPT"}},
+		{"one item with a pattern only the later message matches", oneItem, []string{"--match", "LATER"},
+			[]string{"06 user LATER-PROMPT"}},
+		{"two items without a filter take the first item's time", twoItems, nil,
+			[]string{"01 user FIRST-PROMPT", "01 user LATER-PROMPT", "06 user june ask"}},
+		{"two items with a window keeping the later item take its time", twoItems,
+			[]string{"--since", "2026-03-01"}, []string{"06 user FIRST-PROMPT", "06 user LATER-PROMPT"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := agentZeroRun(t, []collectedFile{agentZeroChat(test.chat)}, test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+		})
+	}
+}

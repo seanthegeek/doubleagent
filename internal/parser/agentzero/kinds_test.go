@@ -118,8 +118,11 @@ func TestHistoryEntriesThatAreNotObjectsAreCountedPerAgent(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			history := jsonvalue.NewString(test.histories).JSON()
+			// The second agent's message has an id of its own, as a
+			// message whose id an earlier one has gives a problem of its own.
+			second := jsonvalue.NewString(strings.Replace(test.histories, `"id":"m"`, `"id":"m1"`, 1)).JSON()
 			chatText := `{"id":"ctx","agents":[{"number":0,"history":` + history + `},{"number":1,"history":` +
-				history + `}],"log":{"logs":[]}}`
+				second + `}],"log":{"logs":[]}}`
 			want := slices.Clone(test.want)
 			for _, text := range test.want {
 				want = append(want, strings.Replace(text, "agent 0", "agent 1", 1))

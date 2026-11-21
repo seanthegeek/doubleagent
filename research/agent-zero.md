@@ -722,6 +722,16 @@ regard to letter case (accented and non-Latin letters included) or, on macOS, to
 letter is written as one character or as a letter and a combining accent, every such spelling of its
 name is that one file.
 
+A history message whose id an earlier message of the chat has, in any agent's history, is also only
+written by damage or an edit; the first is the one the log items join. Each later one gives its own
+rows, those of a message a trimmed log no longer holds, at the time and source line of a log item of
+the id: the item the id's group goes with (the first the filters keep of the items that show the
+group's text), or the id's first log item when its items show only their own `content`. A later
+message whose id no log item names is shown only among a trimmed log's rows. Each agent whose
+history holds such messages gives one row counting them, after the chat's other rows,
+`parser: history of agent <n> holds <count> messages repeating an earlier message's id; each gives its own rows at a log item of the id`
+(`1 message` for one).
+
 Paths: `chat.json`, its `messages/<n>.txt` and the legacy `<ctxid>.json`
 under `<a0>/usr/chats` or `<a0>/tmp/chats` of a home install, and under
 `chats/` at the base of a Docker volume mounted at `/a0/usr`

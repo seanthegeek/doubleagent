@@ -138,6 +138,13 @@ func agentzeroJoinCases() []growthCase {
 						`"kvps":{"code":"ls"},"content":"c"}`
 				})))}
 		}},
+		{kind: "chat.json", shape: shapeSharedID + " by history messages and one log item", files: func(t *testing.T, n int) []growthFile {
+			messages := joined(n, func(i int) string {
+				return `{"_cls":"Message","id":"u","ai":false,"content":{"user_message":"` + numbered("q", i) + `"}}`
+			})
+			return one(chat, []byte(agentzeroChat("c1", `{}`, messages,
+				`{"no":0,"id":"u","type":"user","content":"q"}`)))
+		}},
 	}
 }
 

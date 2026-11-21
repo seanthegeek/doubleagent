@@ -356,6 +356,9 @@ type chat struct {
 	emit     parser.Emit
 	base     timeline.Row
 	history  map[string]historyEntry
+	// later holds the history messages whose id an earlier message has, in
+	// history order.
+	later []historyEntry
 	// fileRefs holds the message file each history id's message names, and
 	// fileTexts the text each file gave, read at most once.
 	fileRefs  map[string]fileRef
@@ -373,6 +376,9 @@ type chat struct {
 	parented map[string]bool
 	chosen   map[chosenKey]timeline.RowText
 	shared   map[sharedKey]*timeline.SharedText
+	// firstItems holds the time and source line of each id's first log
+	// item.
+	firstItems map[string]logPlace
 	// work counts the message files read and the replies decoded, which
 	// tests hold to one each.
 	work   parser.Work
@@ -547,8 +553,11 @@ func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 // index and returning its items in order. An agents member that is not an
 // array adds a problem, and so do the agents that are not objects, one for
 // them all, and the entries of an agent's history that are not objects,
-// the history itself among them, one per agent. An agent's number, which each of its rows starts with, is
-// cut by the kit (parser.Carried).
+// the history itself among them, one per agent, and so do the messages
+// whose id an earlier message has, one per agent: the first message of an
+// id is the one its log items join (newLogItem), and each later one is
+// kept for laterRows. An agent's number, which each of its rows starts
+// with, is cut by the kit (parser.Carried).
 func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []historyItem {
 	var ordered []historyItem
 	carried := parser.NewCarried(c.artifact)
@@ -574,20 +583,38 @@ func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []histor
 				history = decoded
 			}
 		}
-		wrong := 0
+		wrong, repeats := 0, 0
 		walkEntry(history, summaries, &wrong, func(summary bool, node jsonvalue.Value) {
 			ordered = append(ordered, historyItem{agent: number, summary: summary, node: node})
 			if messageID := node.Get("id"); !summary && !messageID.IsEmpty() {
-				if _, held := c.history[messageID.Text()]; !held {
-					c.history[messageID.Text()] = historyEntry{agent: number, message: node}
+				entry := historyEntry{agent: number, message: node}
+				if _, held := c.history[messageID.Text()]; held {
+					c.later = append(c.later, entry)
+					repeats++
+				} else {
+					c.history[messageID.Text()] = entry
 				}
 			}
 		})
 		if wrong > 0 {
 			c.problems.Add(0, parser.WrongEntries("history of agent "+number.Text(), jsonvalue.Object, wrong))
 		}
+		if repeats > 0 {
+			c.problems.Add(0, repeatsText(number, repeats))
+		}
 	}
 	return ordered
+}
+
+// repeatsText returns the problem of an agent's history holding count
+// messages whose id an earlier message has.
+func repeatsText(agent jsonvalue.Value, count int) string {
+	messages := strconv.Itoa(count) + " messages"
+	if count == 1 {
+		messages = "1 message"
+	}
+	return "history of agent " + agent.Text() + " holds " + messages +
+		" repeating an earlier message's id; each gives its own rows at a log item of the id"
 }
 
 // trimmedRows emits, for a chat whose log was cut to its last items, the
@@ -776,12 +803,18 @@ type groupKey struct {
 	file   parser.EntryKey
 }
 
+// logPlace is the time and source line of a log item.
+type logPlace struct {
+	timestamp string
+	line      int
+}
+
 // groupKeys sets the group key of each history id a log item names, the
 // message file of each id whose message names one, and the keys that
 // more than one log item reaches; only those have a group.
 func (c *chat) groupKeys(logs []jsonvalue.Value) {
 	c.keys, c.fileRefs, c.grouped = map[string]groupKey{}, map[string]fileRef{}, map[groupKey]bool{}
-	c.groups, c.parented = map[groupKey]*timeline.Group{}, map[string]bool{}
+	c.groups, c.parented, c.firstItems = map[groupKey]*timeline.Group{}, map[string]bool{}, map[string]logPlace{}
 	counts := map[groupKey]int{}
 	for _, item := range logs {
 		itemID := parser.Text(item.Get("id"))
@@ -912,7 +945,8 @@ func historyPointer(holder *timeline.Row, _ bool) string {
 	return "[history message shown in full above, at source line " + strconv.Itoa(holder.SourceLine) + "]"
 }
 
-// logRows emits the rows of the log items; a message file that cannot be
+// logRows emits the rows of the log items, then those of the history
+// messages whose id an earlier message has; a message file that cannot be
 // read adds a problem.
 func (c *chat) logRows(logs []jsonvalue.Value) {
 	c.groupKeys(logs)
@@ -921,6 +955,9 @@ func (c *chat) logRows(logs []jsonvalue.Value) {
 			return
 		}
 		current := c.newLogItem(item)
+		if _, seen := c.firstItems[current.itemID]; current.hasMessage && !seen {
+			c.firstItems[current.itemID] = logPlace{current.timestamp, current.line}
+		}
 		row := func(turn, text string) timeline.Row {
 			return c.row(turn, prefix(current.agent, text), current.line, current.timestamp)
 		}
@@ -935,6 +972,38 @@ func (c *chat) logRows(logs []jsonvalue.Value) {
 			c.toolLogRows(current, row)
 		default:
 			c.otherLogRows(current, row)
+		}
+	}
+	if c.failure == nil {
+		c.laterRows()
+	}
+}
+
+// laterRows emits the rows of each history message whose id an earlier
+// message has, as a history message's rows (historyRows), when a log item
+// names the id: each a member of the group the id's items are parents of
+// (timeline.Member), at the time and source line of the item the group
+// goes with, else at those of the id's first log item. A message no log
+// item names is shown only among a trimmed log's rows (trimmedRows).
+func (c *chat) laterRows() {
+	emit := c.emit
+	defer func() { c.emit = emit }()
+	for _, entry := range c.later {
+		itemID := entry.message.Get("id").Text()
+		place, named := c.firstItems[itemID]
+		if !named {
+			continue
+		}
+		var rows []timeline.Row
+		c.emit = func(row timeline.Row) { rows = append(rows, row) }
+		c.historyRows(entry.agent, entry.message)
+		for _, row := range rows {
+			if c.parented[itemID] {
+				c.groups[c.keys[itemID]].Member(&row, timeline.TakeTime|timeline.TakeSourceLine)
+			} else {
+				row.TimestampUTC, row.SourceLine = place.timestamp, place.line
+			}
+			emit(row)
 		}
 	}
 }

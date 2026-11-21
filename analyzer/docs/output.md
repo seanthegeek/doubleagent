@@ -1460,7 +1460,10 @@ attributes. What the rows of the id are depends on the agent:
   shows the reply. A message file that the tool messages of several ids
   name is one text for the tool items of all of them, shown in one of
   those items the same way; the first item of each other id shows its
-  message's tool result instead.
+  message's tool result instead. A history message repeating the id of
+  an earlier one, which only damage or an edit writes, gives its own rows
+  at the time of the item the id's rows go with, and a `parser:` row
+  counts such messages.
 - **Codex CLI and Open Interpreter**, whose stores one reader reads, a
   `state_5.sqlite` `threads` row repeating a thread id: the thread's
   `guardian_review_feedback` rows and its rows in the log databases and
