@@ -864,6 +864,14 @@ child session (a subagent) names its parent in `parent_id`. Message ids are time
 milliseconds; a message's own time is `data.time.created`, also stored as `time_created`. The 1.x
 joins are under [Format versions](#format-versions).
 
+Every join and every test of whether an id repeats compares the ids as SQLite's `=` compares two
+values of the key column (the referenced table's id): a NULL id names nothing, not even another
+NULL; a number never equals its text; and text compares by its bytes, or by the collation the id
+column declares (`COLLATE NOCASE` makes `S1` and `s1` one id). The schema declares the ids `text`
+with no collation, so in a database OpenCode wrote they compare by their bytes; a number or a
+declared collation there comes only from damage or an edit. An id of the 1.x `session` table is
+compared under `session_v2`'s collation when both tables exist.
+
 ### Other stores
 
 #### Permission records

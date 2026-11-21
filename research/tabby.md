@@ -367,6 +367,16 @@ attribute the chat,
 `filepath` in attachments or `segments`; no local cwd is recorded. `page_sections.page_id →
 pages.id` for pages.
 
+Every join and every test of whether an id repeats compares the ids as SQLite's `=` compares two
+values of the key column (the referenced table's `id`): a NULL id names nothing, not even another
+NULL; a number never equals its text; and text compares by its bytes, or by the collation the `id`
+column declares (`COLLATE NOCASE` makes `P` and `p` one id). The schema declares the ids
+`INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT` and the columns naming them `INTEGER`
+([schema.sql:142-181](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L142-L181)),
+so in a database Tabby wrote every id is a number; a text or NULL id, or a declared collation,
+comes only from damage or an edit. A child row whose parent id is NULL is shown under a
+`thread row missing` or `page row missing` stand-in of its own.
+
 Timestamps: SQLite columns are `DATETIME('now')` defaults or `%F %X` strings, both UTC without zone,
 `YYYY-MM-DD HH:MM:SS`
 ([ee/tabby-db/src/lib.rs:307-310](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/src/lib.rs#L307-L310);

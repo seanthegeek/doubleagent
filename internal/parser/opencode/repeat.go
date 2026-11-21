@@ -139,7 +139,7 @@ func (r *projectRepeat) member(row *timeline.Row, takes timeline.Takes) {
 // the id's group, registered before any of its members.
 func (s *store) projectNotices() {
 	for _, row := range s.repeatedProjects {
-		found := s.projectRepeats[parser.ColumnKey(row.Get("id"))]
+		found := s.projectRepeats[s.projectKey(row.Get("id"))]
 		worktree := parser.NonEmptyColumn(row.Get("worktree"))
 		if worktree == "/" {
 			worktree = ""

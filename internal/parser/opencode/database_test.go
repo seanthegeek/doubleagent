@@ -49,6 +49,14 @@ func parseDatabaseRows(t *testing.T, name string, setting secrets.Setting) []tim
 	if err != nil {
 		t.Fatal(err)
 	}
+	return parseBytesRows(t, data, setting)
+}
+
+// parseBytesRows writes data into a new home at databaseRel and returns
+// every row the parser gives for it in a run that shows secrets as setting
+// says.
+func parseBytesRows(t *testing.T, data []byte, setting secrets.Setting) []timeline.Row {
+	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(databaseRel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -61,7 +69,7 @@ func parseDatabaseRows(t *testing.T, name string, setting secrets.Setting) []tim
 		Agent: "opencode", Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
 	var rows []timeline.Row
-	err = parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) })
+	err := parsertest.Parse(t, New(), artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) })
 	if err != nil {
 		t.Fatal(err)
 	}

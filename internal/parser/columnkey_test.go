@@ -93,3 +93,34 @@ func TestColumnLineTakesOnlyAnInteger(t *testing.T) {
 		})
 	}
 }
+
+func TestCollatedKeyIsSharedExactlyByValuesTheColumnsCollationFindsEqual(t *testing.T) {
+	// From SQLite 3.51: a UNIQUE column declared with each collation
+	// refuses the second value exactly when the pair is marked equal.
+	tests := []struct {
+		name        string
+		collation   string
+		left, right sqlitefile.Value
+		equal       bool
+	}{
+		{"two cases under BINARY", "", sqlitefile.TextValue("S"), sqlitefile.TextValue("s"), false},
+		{"two cases under NOCASE", "NOCASE", sqlitefile.TextValue("S"), sqlitefile.TextValue("s"), true},
+		{"a letter Unicode folds under NOCASE", "NOCASE", sqlitefile.TextValue("ſ"),
+			sqlitefile.TextValue("s"), false},
+		{"trailing spaces under RTRIM", "RTRIM", sqlitefile.TextValue("a  "), sqlitefile.TextValue("a"), true},
+		{"leading spaces under RTRIM", "RTRIM", sqlitefile.TextValue(" a"), sqlitefile.TextValue("a"), false},
+		{"trailing spaces under BINARY", "", sqlitefile.TextValue("a "), sqlitefile.TextValue("a"), false},
+		{"a number and its text under NOCASE", "NOCASE", sqlitefile.IntValue(1), sqlitefile.TextValue("1"), false},
+		{"a blob and its text under NOCASE", "NOCASE", sqlitefile.BlobValue([]byte("A")),
+			sqlitefile.TextValue("a"), false},
+		{"NULL and NULL under NOCASE", "NOCASE", sqlitefile.Value{}, sqlitefile.Value{}, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			left, right := CollatedKey(test.left, test.collation), CollatedKey(test.right, test.collation)
+			if got := left != "" && left == right; got != test.equal {
+				t.Errorf("keys %q and %q: joined %v, want %v", left, right, got, test.equal)
+			}
+		})
+	}
+}

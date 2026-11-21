@@ -978,6 +978,12 @@ differences above held, with these changes:
   `activity_items.session_id` = `session_checkpoints.session_id`
   (real install (Linux)). The `copilot-desktop` and `copilot-cli` rows of
   one session therefore share `session_id`.
+- Keys: every join and every test of whether a key repeats compares the
+  values as SQLite's `=` compares two values of the key column (the
+  referenced table's): a NULL key names nothing, not even another NULL;
+  a number never equals its text; and text compares by its bytes, or by
+  the collation the key column declares (`COLLATE NOCASE` makes `W1` and
+  `w1` one key). A session with no alias row has no project.
 - Project: `workspace_session_aliases.workspace_id` → `workspaces.id`;
   `workspaces.project_id` → `projects.id`, whose `main_repo_path` is the
   `project_path` of the session's rows; `workspaces.worktree_id` →

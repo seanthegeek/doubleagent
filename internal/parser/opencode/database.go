@@ -21,10 +21,13 @@ const legacyNote = "(only in the 1.x session table)"
 // one row, nil for any other row.
 type session struct {
 	identifier string
-	row        sqlitefile.Row
-	table      string
-	project    string
-	parent     *timeline.Parent
+	// key is the id as the session table's id column compares it ("" for
+	// NULL, which no reference names).
+	key     string
+	row     sqlitefile.Row
+	table   string
+	project string
+	parent  *timeline.Parent
 	// projectRepeat is the group of the id of the project the row's
 	// project path comes from, when that id is repeated, nil otherwise.
 	projectRepeat *projectRepeat
@@ -42,6 +45,14 @@ type store struct {
 	tables   parser.Tables
 	label    string
 	projects map[string]string
+	// projectCollation and sessionCollation are the collations the
+	// project and session tables declare for their ids, under which a
+	// reference to either is compared (sessionRef, projectKey).
+	projectCollation string
+	sessionCollation string
+	// messageCollation is the one session_message.id declares, under
+	// which session_part.message_id is compared with it.
+	messageCollation string
 	// projectRepeats holds the project ids the project table holds in more
 	// than one row, which only damage or an edit writes, and
 	// repeatedProjects those rows, in reading order.
@@ -114,11 +125,11 @@ func (s *store) read() error {
 		failed := s.failures[i]
 		switch {
 		case failed.owner != nil:
-			row.SessionID, row.ProjectPath = failed.sessionID, failed.owner.project
+			row.SessionID, row.ProjectPath = failed.session.text, failed.owner.project
 			s.ownRow(failed.owner, row)
-		case failed.sessionID != "":
-			row.SessionID, row.ProjectPath = failed.sessionID, s.scopeFor(failed.sessionID).projectPath
-			s.memberEmit(failed.sessionID, timeline.TakeProject, s.emit)(row)
+		case failed.session.key != "":
+			row.SessionID, row.ProjectPath = failed.session.text, s.scopeFor(failed.session).projectPath
+			s.memberEmit(failed.session, timeline.TakeProject, s.emit)(row)
 		default:
 			s.emit(row)
 		}
@@ -138,7 +149,7 @@ func (s *store) sessionStart(each *session) {
 	}
 	start := s.owner.sessionRow(s.artifact, s.rowScope(each), rowLookup(each.row),
 		parser.ColumnTime(each.row.Get("time_created")), int(each.row.Rowid), note)
-	repeated := s.repeats[each.identifier]
+	repeated := s.repeats[each.key]
 	if repeated == nil {
 		each.projectRepeat.member(&start, timeline.TakeProject)
 		s.emit(start)
@@ -153,8 +164,8 @@ func (s *store) sessionStart(each *session) {
 // rowScope returns the scope of a stored session row's own rows: the
 // session's scope for its first row, else one with the row's own project.
 func (s *store) rowScope(each *session) *scope {
-	if &s.sessions[s.sessionAt[each.identifier]] == each {
-		return s.scopeFor(each.identifier)
+	if where, ok := s.sessionAt[each.key]; ok && &s.sessions[where] == each {
+		return s.scopeFor(sessionRef{key: each.key, text: each.identifier})
 	}
 	return newScope(each.identifier, each.project)
 }
@@ -177,11 +188,11 @@ func (s *store) ownRow(each *session, row timeline.Row) {
 // the group of the id of the project its path comes from when that is
 // repeated; emit itself otherwise or when takes is empty. A row holds one
 // place in one group, so a row already placed keeps that place.
-func (s *store) memberEmit(identifier string, takes timeline.Takes, emit parser.Emit) parser.Emit {
+func (s *store) memberEmit(reference sessionRef, takes timeline.Takes, emit parser.Emit) parser.Emit {
 	var group *timeline.Group
-	if repeated := s.repeats[identifier]; repeated != nil {
+	if repeated := s.repeats[reference.key]; repeated != nil {
 		group = repeated.group
-	} else if where, ok := s.sessionAt[identifier]; ok && s.sessions[where].projectRepeat != nil {
+	} else if where, ok := s.sessionAt[reference.key]; ok && s.sessions[where].projectRepeat != nil {
 		group = s.sessions[where].projectRepeat.group
 	}
 	if group == nil || takes == 0 {
@@ -231,9 +242,10 @@ func (s *store) readProjects() error {
 		return err
 	}
 	rows, err := table.Select().All()
+	s.projectCollation = parser.KeyCollation(table, "id")
 	counts := map[string]int{}
 	for _, row := range rows {
-		if key := parser.ColumnKey(row.Get("id")); key != "" {
+		if key := s.projectKey(row.Get("id")); key != "" {
 			counts[key]++
 		}
 	}
@@ -250,7 +262,7 @@ func (s *store) readProjects() error {
 // one row is kept for its `parser:` row, and the id's first row is the
 // one indexed.
 func (s *store) addProject(row sqlitefile.Row, counts map[string]int) {
-	key := parser.ColumnKey(row.Get("id"))
+	key := s.projectKey(row.Get("id"))
 	if key == "" {
 		return
 	}
@@ -287,39 +299,64 @@ func (s *store) readSessions() error {
 		if err != nil {
 			return err
 		}
+		if s.sessionCollation == "" {
+			s.sessionCollation = parser.KeyCollation(table, "id")
+		}
 		counts := map[string]int{}
 		for _, row := range rows {
-			identifier := row.Get("id").String()
-			if where, seen := s.sessionAt[identifier]; !seen {
-				s.sessionAt[identifier] = len(s.sessions)
-			} else if s.sessions[where].table != name {
+			key := s.sessionRef(row.Get("id")).key
+			if where, seen := s.sessionAt[key]; !seen && key != "" {
+				s.sessionAt[key] = len(s.sessions)
+			} else if seen && s.sessions[where].table != name {
 				continue
 			}
-			counts[identifier]++
-			s.sessions = append(s.sessions, session{identifier: identifier, row: row, table: name,
-				project: s.projectOf(row), projectRepeat: s.projectRepeatOf(row)})
+			if key != "" {
+				counts[key]++
+			}
+			s.sessions = append(s.sessions, session{identifier: row.Get("id").String(), key: key, row: row,
+				table: name, project: s.projectOf(row), projectRepeat: s.projectRepeatOf(row)})
 		}
-		for identifier, count := range counts {
+		for key, count := range counts {
 			if count > 1 {
-				s.repeats[identifier] = newSessionRepeat(name, count)
+				s.repeats[key] = newSessionRepeat(name, count)
 			}
 		}
 	}
 	return nil
 }
 
+// sessionRef is a reference to a session by a column's value: key is the
+// value as the session table's id column compares it, under that
+// column's collation ("" for NULL, which names no session), and text the
+// id a row shows, "" for an empty value.
+type sessionRef struct {
+	key, text string
+}
+
+// sessionRef returns the reference a column's value makes to a session.
+func (s *store) sessionRef(value sqlitefile.Value) sessionRef {
+	return sessionRef{key: parser.CollatedKey(value, s.sessionCollation), text: parser.NonEmptyColumn(value)}
+}
+
+// projectKey returns a project id's value as the project table's id
+// column compares it, "" for NULL.
+func (s *store) projectKey(value sqlitefile.Value) string {
+	return parser.CollatedKey(value, s.projectCollation)
+}
+
 // scopeFor returns the scope of a session, made on first use: its project
 // path is the session's directory, else its project's worktree unless "/".
-func (s *store) scopeFor(identifier string) *scope {
-	if found, ok := s.scopes[identifier]; ok {
+// The rows naming no session (a NULL reference) share one scope.
+func (s *store) scopeFor(reference sessionRef) *scope {
+	if found, ok := s.scopes[reference.key]; ok {
 		return found
 	}
 	path := ""
-	if where, ok := s.sessionAt[identifier]; ok {
+	if where, ok := s.sessionAt[reference.key]; ok && reference.key != "" {
 		path = s.sessions[where].project
 	}
-	made := newScope(identifier, path)
-	s.scopes[identifier] = made
+	made := newScope(reference.text, path)
+	s.scopes[reference.key] = made
 	return made
 }
 
@@ -339,13 +376,13 @@ func (s *store) projectRepeatOf(record sqlitefile.Row) *projectRepeat {
 	if parser.NonEmptyColumn(record.Get("directory")) != "" {
 		return nil
 	}
-	return s.projectRepeats[parser.ColumnKey(record.Get("project_id"))]
+	return s.projectRepeats[s.projectKey(record.Get("project_id"))]
 }
 
 // worktreeOf returns the worktree of the project with the given id, "" when
 // there is none or it is "/"; a NULL id has no project.
 func (s *store) worktreeOf(identifier sqlitefile.Value) string {
-	key := parser.ColumnKey(identifier)
+	key := s.projectKey(identifier)
 	if key == "" {
 		return ""
 	}

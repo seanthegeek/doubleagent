@@ -705,6 +705,9 @@ Roo Code's `status` is there too. `mode` is the task's mode slug: `code`, `archi
 
 ### Joins and timestamps
 
+The OpenCode reader compares `kilo.db`'s ids as SQLite's `=` compares two values of the key column
+([Joins and timestamps of `opencode.md`](opencode.md#joins-and-timestamps)).
+
 `session.id` ← `message.session_id` ← `part.message_id`; `session.directory` is the working
 directory and `session.project_id` → `project.worktree`
 ([`packages/core/src/project/sql.ts:8`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/project/sql.ts#L8)). A V1 `tool` part

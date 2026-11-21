@@ -3,6 +3,7 @@ package parser
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
@@ -28,6 +29,40 @@ func ColumnKey(value sqlitefile.Value) string {
 		return "t" + value.Text()
 	case sqlitefile.Blob:
 		return "b" + value.Text()
+	}
+	return ""
+}
+
+// CollatedKey returns ColumnKey of a value of a column that declares
+// collation (sqlitefile.Column's Collation): text keys by its bytes with
+// the ASCII capitals lowered under NOCASE and without its trailing spaces
+// under RTRIM, as SQL's = compares two values of that column, and by its
+// bytes under BINARY or any other name. Numbers, blobs and NULL key as
+// ColumnKey keys them.
+func CollatedKey(value sqlitefile.Value, collation string) string {
+	if value.Type != sqlitefile.Text {
+		return ColumnKey(value)
+	}
+	switch collation {
+	case "NOCASE":
+		return "t" + sqlitefile.FoldASCII(value.Text())
+	case "RTRIM":
+		return "t" + strings.TrimRight(value.Text(), " ")
+	}
+	return ColumnKey(value)
+}
+
+// KeyCollation returns the collation the column of table called name
+// declares, its name matched in any ASCII case as SQL matches it; "" for
+// BINARY, a column the table lacks or no table.
+func KeyCollation(table *sqlitefile.Table, name string) string {
+	if table == nil {
+		return ""
+	}
+	for _, column := range table.Columns() {
+		if sqlitefile.FoldASCII(column.Name) == sqlitefile.FoldASCII(name) {
+			return column.Collation
+		}
 	}
 	return ""
 }

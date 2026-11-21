@@ -59,8 +59,8 @@ def repeated_ids(count: int) -> str:
     """Return the SQL of a database whose thread id 1 and page id 2 are each on count rows.
 
     The tables have no key, so an id can repeat; the last thread row stores its id as the text
-    '1', which the join reads as the same id. Thread 1 has count messages and page 2 count
-    sections.
+    '1', which SQL's = finds unequal to the number 1 in a column of no declared type, so it is
+    another thread. Thread 1 has count messages and page 2 count sections.
     """
     lines = [
         "PRAGMA page_size = 512;",

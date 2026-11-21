@@ -7,8 +7,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// sessionMessageIDs returns the ids of the sessions with a session_message
-// row.
+// sessionMessageIDs returns the keys of the sessions with a
+// session_message row (sessionRef); a NULL session_id names none.
 func (s *store) sessionMessageIDs() (map[string]bool, error) {
 	ids := map[string]bool{}
 	if !s.tables.Has("session_message") {
@@ -20,7 +20,9 @@ func (s *store) sessionMessageIDs() (map[string]bool, error) {
 	}
 	rows, err := table.Select("session_id").All()
 	for _, row := range rows {
-		ids[parser.NonEmptyColumn(row.Get("session_id"))] = true
+		if key := s.sessionRef(row.Get("session_id")).key; key != "" {
+			ids[key] = true
+		}
 	}
 	return ids, err
 }
@@ -98,7 +100,7 @@ func partCounts(stored []storedMessage) map[int64]int {
 type storedMessage struct {
 	row       sqlitefile.Row
 	message   jsonvalue.Value
-	session   string
+	session   sessionRef
 	hasParts  bool
 	firstPart int64
 }
@@ -117,9 +119,11 @@ func (s *store) v1Rows(skip, covered map[string]bool) ([]storedMessage, error) {
 	}
 	var stored []storedMessage
 	for _, row := range rows {
-		identifier := parser.NonEmptyColumn(row.Get("session_id"))
-		covered[identifier] = true
-		if skip[identifier] {
+		identifier := s.sessionRef(row.Get("session_id"))
+		if identifier.key != "" {
+			covered[identifier.key] = true
+		}
+		if skip[identifier.key] {
 			continue
 		}
 		message, ok := s.decodeColumn(row, "data", "message.data", identifier)
@@ -193,6 +197,11 @@ func (s *store) v2Messages(skip map[string]bool) error {
 	if !s.tables.Has("session_message") {
 		return nil
 	}
+	table, err := s.database.Table("session_message")
+	if err != nil {
+		return err
+	}
+	s.messageCollation = parser.KeyCollation(table, "id")
 	items, err := s.sessionParts(skip)
 	if err != nil {
 		return err
@@ -244,10 +253,11 @@ func claimCounts(stored []storedRecord) map[string]int {
 // its message id, and whether it claims the id's session_part items (an
 // assistant record with content, of an id that has items).
 type storedRecord struct {
-	row                    sqlitefile.Row
-	data                   jsonvalue.Value
-	session, kind, message string
-	claims                 bool
+	row           sqlitefile.Row
+	data          jsonvalue.Value
+	session       sessionRef
+	kind, message string
+	claims        bool
 }
 
 // v2Rows returns the decoded session_message rows of the sessions not in
@@ -264,8 +274,8 @@ func (s *store) v2Rows(skip map[string]bool, items map[string][]jsonvalue.Value)
 	}
 	var stored []storedRecord
 	for _, row := range rows {
-		identifier := parser.NonEmptyColumn(row.Get("session_id"))
-		if skip[identifier] {
+		identifier := s.sessionRef(row.Get("session_id"))
+		if skip[identifier.key] {
 			continue
 		}
 		data, ok := s.decodeColumn(row, "data", "session_message.data", identifier)
@@ -274,8 +284,8 @@ func (s *store) v2Rows(skip map[string]bool, items map[string][]jsonvalue.Value)
 		}
 		kind := row.Get("type")
 		each := storedRecord{row: row, data: data, session: identifier, kind: parser.NonEmptyColumn(kind),
-			message: parser.NonEmptyColumn(row.Get("id"))}
-		each.claims = len(items[each.message]) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
+			message: parser.CollatedKey(row.Get("id"), s.messageCollation)}
+		each.claims = each.message != "" && len(items[each.message]) > 0 && kind.Type == sqlitefile.Text && kind.Text() == "assistant" &&
 			data.Has("content")
 		if each.kind == "" {
 			each.kind = parser.Text(data.Get("type"))
@@ -303,8 +313,8 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 		return nil, err
 	}
 	for _, row := range rows {
-		identifier := parser.NonEmptyColumn(row.Get("session_id"))
-		if skip[identifier] {
+		identifier := s.sessionRef(row.Get("session_id"))
+		if skip[identifier.key] {
 			continue
 		}
 		data, ok := s.decodeColumn(row, "data", "session_part.data", identifier)
@@ -314,8 +324,9 @@ func (s *store) sessionParts(skip map[string]bool) (map[string][]jsonvalue.Value
 		if kind := row.Get("type"); !kind.IsEmpty() {
 			data.Set("type", columnValue(kind))
 		}
-		message := parser.NonEmptyColumn(row.Get("message_id"))
-		items[message] = append(items[message], data)
+		if message := parser.CollatedKey(row.Get("message_id"), s.messageCollation); message != "" {
+			items[message] = append(items[message], data)
+		}
 	}
 	return items, nil
 }

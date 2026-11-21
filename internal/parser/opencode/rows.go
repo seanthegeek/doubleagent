@@ -140,7 +140,7 @@ type failure struct {
 	message    string
 	raw        string
 	sourceFile string
-	sessionID  string
+	session    sessionRef
 	owner      *session
 }
 

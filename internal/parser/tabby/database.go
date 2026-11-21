@@ -43,8 +43,11 @@ type store struct {
 	artifact *input.Artifact
 	database *sqlitefile.Database
 	tables   parser.Tables
-	users    map[string]string
-	emit     parser.Emit
+	// users holds each user's label by the key of its id, under
+	// userCollation, the collation users.id declares.
+	users         map[string]string
+	userCollation string
+	emit          parser.Emit
 	// carried cuts what a join copies onto many rows: a user's label and
 	// an integration's name and kind.
 	carried *parser.Carried
@@ -158,11 +161,13 @@ func (s *store) readUsers() (map[string]string, error) {
 	}
 	var stored []sqlitefile.Row
 	counts := map[string]int{}
+	s.userCollation = s.idCollation("users")
 	err := s.each("users", "id", func(user sqlitefile.Row) {
 		stored = append(stored, user)
-		counts[user.Get("id").String()]++
+		counts[parser.CollatedKey(user.Get("id"), s.userCollation)]++
 	})
 	for _, user := range stored {
+		key := parser.CollatedKey(user.Get("id"), s.userCollation)
 		userID, label := user.Get("id").String(), userLabel(user)
 		spec := rowSpec{line: parser.ColumnLine(user.Get("id")), timestamp: parser.ColumnTime(user.Get("created_at"))}
 		if token := parser.NonEmptyColumn(user.Get("auth_token")); token != "" {
@@ -170,11 +175,14 @@ func (s *store) readUsers() (map[string]string, error) {
 				parser.SecretText(s.artifact, token) + " (from users table, created_at)"
 			s.emit(s.parser.row(s.artifact, spec))
 		}
-		if counts[userID] == 1 {
-			users[userID] = label
+		if key == "" {
 			continue
 		}
-		spec.text = parser.ProblemPrefix + "users holds " + strconv.Itoa(counts[userID]) + " rows of this row's id; " +
+		if counts[key] == 1 {
+			users[key] = label
+			continue
+		}
+		spec.text = parser.ProblemPrefix + "users holds " + strconv.Itoa(counts[key]) + " rows of this row's id; " +
 			"the rows of its threads, pages and events name the user by id alone, and this row's label is " +
 			cmp.Or(s.carried.Cut("user label", label), "-")
 		s.emit(s.parser.row(s.artifact, spec))
@@ -206,23 +214,47 @@ func digitsLine(text string) int {
 	return number
 }
 
-// grouped is rows grouped by a key, the keys in the order first met.
+// nullKey files the children whose parent id is NULL: no key equals it,
+// since every key ColumnKey gives starts with a letter, so no parent row
+// takes them and they are shown under a stand-in of their own.
+const nullKey = "\x00"
+
+// grouped is rows grouped by the key of the parent id they name, the keys
+// in the order first met, with the text of the id as the first row of
+// each key names it.
 type grouped struct {
 	order []string
 	rows  map[string][]sqlitefile.Row
+	text  map[string]string
+	// collation is the one the parent table's id column declares, under
+	// which a child's parent id is compared with the parents' ids.
+	collation string
 }
 
-// add files a row under its key.
-func (g *grouped) add(key string, row sqlitefile.Row) {
+// newGrouped returns an empty grouping under the collation of the parent
+// table's id column.
+func newGrouped(collation string) *grouped {
+	return &grouped{rows: map[string][]sqlitefile.Row{}, text: map[string]string{}, collation: collation}
+}
+
+// add files a row under the parent id it names.
+func (g *grouped) add(parentID sqlitefile.Value, row sqlitefile.Row) {
+	key := parser.CollatedKey(parentID, g.collation)
+	if key == "" {
+		key = nullKey
+	}
 	if _, seen := g.rows[key]; !seen {
 		g.order = append(g.order, key)
+		g.text[key] = parentID.String()
 	}
 	g.rows[key] = append(g.rows[key], row)
 }
 
 // parent is one thread or page: its row, or none (missing) when only its
-// children name it.
+// children name it; key is its id as the id column compares it ("" for
+// a NULL id, which no child's parent id equals) and parentID its text.
 type parent struct {
+	key      string
 	parentID string
 	row      sqlitefile.Row
 	missing  bool
@@ -233,21 +265,35 @@ type parent struct {
 func (s *store) parents(table, order string, children *grouped) ([]parent, error) {
 	var list []parent
 	err := s.each(table, order, func(row sqlitefile.Row) {
-		list = append(list, parent{parentID: row.Get("id").String(), row: row})
+		list = append(list, parent{key: parser.CollatedKey(row.Get("id"), children.collation),
+			parentID: row.Get("id").String(), row: row})
 	})
 	if err != nil {
 		return nil, err
 	}
 	known := map[string]bool{}
 	for _, each := range list {
-		known[each.parentID] = true
+		known[each.key] = true
 	}
 	for _, key := range children.order {
 		if !known[key] {
-			list = append(list, parent{parentID: key, missing: true})
+			list = append(list, parent{key: key, parentID: children.text[key], missing: true})
 		}
 	}
 	return list, nil
+}
+
+// idCollation returns the collation the id column of table declares, ""
+// when the table is missing or cannot be opened, as each then reads none.
+func (s *store) idCollation(table string) string {
+	if !s.tables.Has(table) {
+		return ""
+	}
+	handle, err := s.database.Table(table)
+	if err != nil {
+		return ""
+	}
+	return parser.KeyCollation(handle, "id")
 }
 
 // eachParent runs visit over each parent with the children filed under
@@ -260,13 +306,13 @@ func (s *store) eachParent(table, noun string, parents []parent, children *group
 	visit func(parent, []sqlitefile.Row)) {
 	shown, repeats := map[string]bool{}, 0
 	for _, each := range parents {
-		group := children.rows[each.parentID]
-		if len(group) > 0 && shown[each.parentID] {
+		group := children.rows[each.key]
+		if len(group) > 0 && shown[each.key] {
 			group = nil
 			repeats++
 		}
 		if len(group) > 0 {
-			shown[each.parentID] = true
+			shown[each.key] = true
 		}
 		visit(each, group)
 	}
@@ -284,8 +330,8 @@ func (s *store) eachParent(table, noun string, parents []parent, children *group
 // URL its rows attach code from. Those rows go with the first stored row
 // of the id (eachParent), so the project is kept for the id's later rows,
 // whose start rows show it too: it is the id's, not one stored row's.
-func (s *store) projectOfID(table, parentID string, attachments []jsonvalue.Value) string {
-	key := [2]string{table, parentID}
+func (s *store) projectOfID(table, parentKey string, attachments []jsonvalue.Value) string {
+	key := [2]string{table, parentKey}
 	if len(attachments) == 0 {
 		return s.projects[key]
 	}
@@ -300,15 +346,15 @@ func (s *store) projectOfID(table, parentID string, attachments []jsonvalue.Valu
 // missing column reads as NULL. The label is cut by the store's carried,
 // since each of the user's rows repeats it.
 func (s *store) owner(value sqlitefile.Value) string {
-	return s.carried.Cut("user label", s.users[value.String()])
+	return s.carried.Cut("user label", s.users[parser.CollatedKey(value, s.userCollation)])
 }
 
 // threads emits each thread's start row and its messages.
 func (s *store) threads() error {
-	messages := &grouped{rows: map[string][]sqlitefile.Row{}}
+	messages := newGrouped(s.idCollation("threads"))
 	if s.tables.Has("thread_messages") {
 		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row) {
-			messages.add(row.Get("thread_id").String(), row)
+			messages.add(row.Get("thread_id"), row)
 		})
 		if err != nil {
 			return err
@@ -328,7 +374,7 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	for i, message := range messages {
 		attachments[i] = messageAttachment(message)
 	}
-	project := s.projectOfID("threads", thread.parentID, attachments)
+	project := s.projectOfID("threads", thread.key, attachments)
 	var questions []string
 	if value, ok := jsonColumn(thread.row.Get("relevant_questions")); ok {
 		for _, question := range parser.Elements(value) {
@@ -383,10 +429,10 @@ func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, t
 // pages emits one system row per AI-written page, then its content and
 // each section, in position order, as assistant rows.
 func (s *store) pages() error {
-	sections := &grouped{rows: map[string][]sqlitefile.Row{}}
+	sections := newGrouped(s.idCollation("pages"))
 	if s.tables.Has("page_sections") {
 		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row) {
-			sections.add(row.Get("page_id").String(), row)
+			sections.add(row.Get("page_id"), row)
 		})
 		if err != nil {
 			return err
@@ -407,12 +453,14 @@ func (s *store) pages() error {
 func repeatedGroups(parents []parent, children *grouped) map[string]*timeline.Group {
 	counts := map[string]int{}
 	for _, each := range parents {
-		counts[each.parentID]++
+		if each.key != "" && !each.missing {
+			counts[each.key]++
+		}
 	}
 	groups := map[string]*timeline.Group{}
-	for parentID, count := range counts {
-		if count > 1 && len(children.rows[parentID]) > 0 {
-			groups[parentID] = timeline.NewGroup()
+	for key, count := range counts {
+		if count > 1 && len(children.rows[key]) > 0 {
+			groups[key] = timeline.NewGroup()
 		}
 	}
 	return groups
@@ -429,7 +477,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 		attachments[i] = attachment
 	}
 	spec := rowSpec{line: digitsLine(page.parentID), sessionID: "page:" + page.parentID,
-		projectPath: s.projectOfID("pages", page.parentID, attachments),
+		projectPath: s.projectOfID("pages", page.key, attachments),
 		timestamp:   parser.ColumnTime(page.row.Get("created_at"))}
 	authorID, author := page.row.Get("author_id"), ""
 	if owner := s.owner(authorID); owner != "" {
@@ -448,7 +496,7 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 	// Each row of a repeated id is a parent of the id's group, and its
 	// sections, shown once, members that take the time of the row the
 	// group goes with when they have none of their own.
-	group := s.pageGroups[page.parentID]
+	group := s.pageGroups[page.key]
 	var handle *timeline.Parent
 	if group != nil {
 		handle = group.Parent(&startRow)
@@ -531,7 +579,7 @@ func (s *store) userEvents() error {
 // parser.SecretText.
 func (s *store) integrations() error {
 	type named struct{ name, kind string }
-	names := map[string]named{}
+	names, collation := map[string]named{}, s.idCollation("integrations")
 	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
 		kind, apiBase := parser.NonEmptyColumn(integration.Get("kind")), parser.NonEmptyColumn(integration.Get("api_base"))
 		host := integrationHosts()[kind]
@@ -540,8 +588,9 @@ func (s *store) integrations() error {
 		}
 		name := parser.NonEmptyColumn(integration.Get("display_name"))
 		// Each repository's row repeats its integration's name and kind.
-		names[integration.Get("id").String()] = named{s.carried.Cut("integration name", name),
-			s.carried.Cut("integration kind", kind)}
+		if key := parser.CollatedKey(integration.Get("id"), collation); key != "" {
+			names[key] = named{s.carried.Cut("integration name", name), s.carried.Cut("integration kind", kind)}
+		}
 		s.emit(s.parser.row(s.artifact, rowSpec{line: parser.ColumnLine(integration.Get("id")),
 			timestamp: parser.ColumnTime(integration.Get("created_at")),
 			text: "source host: " + cmp.Or(host, "-") + " integration " + cmp.Or(name, "-") + " kind=" + cmp.Or(kind, "-") +
@@ -552,7 +601,7 @@ func (s *store) integrations() error {
 		return err
 	}
 	return s.each("provided_repositories", "integration_id,id", func(repository sqlitefile.Row) {
-		integration := names[repository.Get("integration_id").String()]
+		integration := names[parser.CollatedKey(repository.Get("integration_id"), collation)]
 		active := "no"
 		if !repository.Get("active").IsEmpty() {
 			active = "yes"

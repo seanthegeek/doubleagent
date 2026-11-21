@@ -34,10 +34,10 @@ func (s *store) shareRows() error {
 		return err
 	}
 	for _, row := range rows {
-		identifier := parser.NonEmptyColumn(row.Get("session_id"))
-		s.shares[identifier] = true
-		emit := s.memberEmit(identifier, timeline.TakeProject, s.emit)
-		emit(s.systemAt(s.scopeFor(identifier), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
+		reference := s.sessionRef(row.Get("session_id"))
+		s.shares[reference.key] = true
+		emit := s.memberEmit(reference, timeline.TakeProject, s.emit)
+		emit(s.systemAt(s.scopeFor(reference), row.Rowid, row.Get("time_created"), timeline.SyncedPrefix+
 			" share "+cmp.Or(parser.NonEmptyColumn(row.Get("id")), "-")+" url "+
 			cmp.Or(parser.NonEmptyColumn(row.Get("url")), "-")+
 			shareSecret(s.artifact, row.Get("secret"))+" (from "+s.label+" session_share, time_created)"))
@@ -74,9 +74,10 @@ func (s *store) eventShareRows() error {
 	}
 	state := map[string]string{}
 	for _, row := range rows {
-		identifier := parser.NonEmptyColumn(row.Get("aggregate_id"))
-		data, ok := s.decodeColumn(row, "data", "event.data", identifier)
-		if !ok || s.shares[identifier] || state[identifier] == "unshared" {
+		reference := s.sessionRef(row.Get("aggregate_id"))
+		identifier := reference.key
+		data, ok := s.decodeColumn(row, "data", "event.data", reference)
+		if !ok || (identifier != "" && s.shares[identifier]) || state[identifier] == "unshared" {
 			continue
 		}
 		info := parser.ObjectOrEmpty(data.Get("info"))
@@ -90,8 +91,8 @@ func (s *store) eventShareRows() error {
 		default:
 			continue
 		}
-		emit := s.memberEmit(identifier, timeline.TakeProject, s.emit)
-		emit(s.owner.systemRow(s.artifact, s.scopeFor(identifier), int(row.Rowid),
+		emit := s.memberEmit(reference, timeline.TakeProject, s.emit)
+		emit(s.owner.systemRow(s.artifact, s.scopeFor(reference), int(row.Rowid),
 			timeutil.FromValue(parser.ObjectOrEmpty(info.Get("time")).Get("updated")),
 			text+" (from "+s.label+" event session.updated.1, info.time.updated)"))
 	}
@@ -100,12 +101,12 @@ func (s *store) eventShareRows() error {
 
 // decodeColumn returns a row's JSON object column decoded, or false after
 // adding the problem "unparseable record <rowid> (<label>: <reason>)",
-// with the column's text as raw, for the session id.
-func (s *store) decodeColumn(row sqlitefile.Row, column, label, sessionID string) (jsonvalue.Value, bool) {
+// with the column's text as raw, for the session the row names.
+func (s *store) decodeColumn(row sqlitefile.Row, column, label string, reference sessionRef) (jsonvalue.Value, bool) {
 	value, raw, err := decodeRecord(row.Get(column))
 	if err != nil {
 		s.failures = append(s.failures, failure{line: int(row.Rowid),
-			message: unparseable(row.Rowid, label, err), raw: raw, sessionID: sessionID})
+			message: unparseable(row.Rowid, label, err), raw: raw, session: reference})
 		return jsonvalue.NewNull(), false
 	}
 	return value, true
@@ -158,7 +159,7 @@ func (s *store) stateRows() error {
 			if stored.Type == sqlitefile.Blob {
 				raw = textlines.ValidUTF8(stored.Bytes)
 			}
-			s.failures = append(s.failures, failure{line: int(rowid), raw: raw, sessionID: each.identifier, owner: each,
+			s.failures = append(s.failures, failure{line: int(rowid), raw: raw, session: sessionRef{each.key, each.identifier}, owner: each,
 				message: unparseable(rowid, each.table+".permission", errors.New("not a JSON array"))})
 			continue
 		}
@@ -168,7 +169,7 @@ func (s *store) stateRows() error {
 				" "+each.table+".permission, time_updated)"))
 		}
 		if skipped > 0 {
-			s.failures = append(s.failures, failure{line: int(rowid), sessionID: each.identifier, owner: each,
+			s.failures = append(s.failures, failure{line: int(rowid), session: sessionRef{each.key, each.identifier}, owner: each,
 				message: notRules(each.table+".permission", skipped)})
 		}
 	}
@@ -241,7 +242,7 @@ func (s *store) worktreeRows() error {
 // project id the table repeats, "project <id>": the worktree is text
 // inside a row of another id, which no stored row of the project lends.
 func (s *store) projectNamed(carried *parser.Carried, projectID sqlitefile.Value) string {
-	if s.projectRepeats[parser.ColumnKey(projectID)] != nil {
+	if s.projectRepeats[s.projectKey(projectID)] != nil {
 		return "project " + carried.Cut("project id", parser.ColumnText(projectID))
 	}
 	return cmp.Or(carried.Cut("project worktree", s.worktreeOf(projectID)), "-")
@@ -271,7 +272,7 @@ func (s *store) grantRows() error {
 			cmp.Or(parser.NonEmptyColumn(row.Get("action")), "-")+" "+cmp.Or(parser.NonEmptyColumn(row.Get("resource")), "-")+
 			"=allow (from "+s.label+" permission, time_created)")
 		made.ProjectPath = s.worktreeOf(row.Get("project_id"))
-		s.projectRepeats[parser.ColumnKey(row.Get("project_id"))].member(&made, timeline.TakeProject)
+		s.projectRepeats[s.projectKey(row.Get("project_id"))].member(&made, timeline.TakeProject)
 		s.emit(made)
 	}
 	return nil
