@@ -68,7 +68,7 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parser.Emit) {
 		row.Text = entry.StringValue()
 		emit(row)
 	}
-	if err != nil && len(problems) == 0 {
+	if err != nil && !problems.Damaged() {
 		problems.Add(0, "cli-history.json unparseable after its entries array")
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
