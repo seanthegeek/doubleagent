@@ -83,9 +83,13 @@ func (c *Collection) readManifest(ctx context.Context) ([]jsonvalue.Value, int, 
 		return nil, 0, err
 	}
 	defer file.Close()
-	rows, bad, long, err := parseManifest(ctx, file)
+	var repeats jsonvalue.Repeats
+	rows, bad, long, err := parseManifest(ctx, file, &repeats)
 	if err != nil {
 		return nil, 0, &fs.PathError{Op: "read", Path: path, Err: err}
+	}
+	if repeats.Count() > 0 {
+		c.addProblem("manifest.jsonl: " + repeats.Describe(MaxPathLength))
 	}
 	for _, number := range long {
 		c.addProblem("manifest.jsonl line " + strconv.Itoa(number) + ": longer than " +
@@ -106,8 +110,10 @@ func plural(count int, noun string) string {
 // replacement and trimmed of JSON whitespace, blank lines skipped. A line
 // that is not a JSON object, or a collected file row whose size parseSize
 // refuses, is counted as bad instead of kept; the numbers of the lines
-// longer than maxManifestLine are returned apart.
-func parseManifest(ctx context.Context, r io.Reader) (rows []jsonvalue.Value, bad int, long []int, err error) {
+// longer than maxManifestLine are returned apart. The member names the
+// rows repeat within an object are noted in repeats.
+func parseManifest(ctx context.Context, r io.Reader, repeats *jsonvalue.Repeats) (rows []jsonvalue.Value, bad int,
+	long []int, err error) {
 	rows = []jsonvalue.Value{}
 	err = readLines(ctx, r, maxManifestLine, func(number int, line []byte, tooLong bool) {
 		if tooLong {
@@ -118,11 +124,13 @@ func parseManifest(ctx context.Context, r io.Reader) (rows []jsonvalue.Value, ba
 		if text == "" {
 			return
 		}
-		row, err := jsonvalue.DecodeString(text)
+		document := jsonvalue.NewDocument(text)
+		row, err := document.Decode()
 		if err != nil || !row.IsObject() || !sizeReadable(row) {
 			bad++
 			return
 		}
+		repeats.Merge(document.TakeRepeats())
 		rows = append(rows, row)
 	})
 	return rows, bad, long, err
@@ -156,10 +164,13 @@ func (c *Collection) readSummary() {
 		c.Notes = append(c.Notes, "collection.json unreadable: "+errorReason(err))
 		return
 	}
-	summary, err := decodeSummary(data)
+	summary, repeats, err := decodeSummary(data)
 	if err != nil {
 		c.Notes = append(c.Notes, "collection.json unreadable: "+err.Error())
 		return
+	}
+	if repeats.Count() > 0 {
+		c.addProblem("collection.json: " + repeats.Describe(MaxPathLength))
 	}
 	if summary.IsObject() {
 		c.Summary = summary
@@ -188,19 +199,21 @@ func readBounded(path string, limit int64) ([]byte, error) {
 	return data, nil
 }
 
-// decodeSummary decodes collection.json bytes as strict UTF-8 JSON.
-func decodeSummary(data []byte) (jsonvalue.Value, error) {
+// decodeSummary decodes collection.json bytes as strict UTF-8 JSON, with
+// the member names it repeats within an object.
+func decodeSummary(data []byte) (jsonvalue.Value, jsonvalue.Repeats, error) {
 	if !utf8.Valid(data) {
-		return jsonvalue.Value{}, errors.New("not valid UTF-8")
+		return jsonvalue.Value{}, jsonvalue.Repeats{}, errors.New("not valid UTF-8")
 	}
-	summary, err := jsonvalue.DecodeString(string(data))
+	document := jsonvalue.NewDocument(string(data))
+	summary, err := document.Decode()
 	if err != nil {
-		return jsonvalue.Value{}, err
+		return jsonvalue.Value{}, jsonvalue.Repeats{}, err
 	}
 	if !summary.IsEmpty() && !summary.IsObject() {
-		return jsonvalue.Value{}, errors.New("not a JSON object")
+		return jsonvalue.Value{}, jsonvalue.Repeats{}, errors.New("not a JSON object")
 	}
-	return summary, nil
+	return summary, document.TakeRepeats(), nil
 }
 
 // newManifestLoad returns the state for collection, with the projects and the image

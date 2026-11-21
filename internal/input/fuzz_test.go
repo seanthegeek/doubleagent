@@ -5,13 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
 func FuzzParseManifest(fuzz *testing.F) {
 	fuzz.Add([]byte(collectedRow("a", "/home/a", "claude-code", "/home/a/.claude/x", "fs/home/a/.claude/x") + "\n"))
 	fuzz.Add([]byte("[1]\n\xff\xfe{\"size\": \"1_0\", \"status\": \"collected\", \"type\": \"file\"}\r\n \n{"))
 	fuzz.Fuzz(func(t *testing.T, data []byte) {
-		rows, bad, _, err := parseManifest(t.Context(), bytes.NewReader(data))
+		rows, bad, _, err := parseManifest(t.Context(), bytes.NewReader(data), &jsonvalue.Repeats{})
 		if err != nil {
 			t.Fatal(err)
 		}

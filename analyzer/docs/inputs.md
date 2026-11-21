@@ -65,6 +65,7 @@ command carries on:
 | --- | --- |
 | `<directory>: <reason>` | A directory in a loose tree that cannot be listed, while homes are discovered or files under a catalog match are walked. Reported once per directory; nothing under it is attributed. |
 | `<original path>: missing from the collection` | A manifest row with status `collected` and type `file` whose `archive_path` is not a regular file in the extracted collection, for example in a truncated or edited archive. The row is not attributed. Any other reason the file cannot be stat'ed is printed instead. |
+| `manifest.jsonl: <n> member names repeat within their JSON objects (<name> <k> times, ...); the last value of each is used`, and the same for `collection.json` | A manifest row or the collection summary gives one member name twice within an object. The last value of the name is the one read, as for an agent's files ([Output](output.md) describes the wording); one line per file however many rows repeat a name, `1 member name repeats within its JSON object (<name>); the last value is used` for a single one. |
 | `<original path>: <reason>` | `timeline` only: a read error a parser let escape. Most parsers report a file they cannot read as a `parser:` row in the timeline naming the file and the reason instead (the shared JSONL and SQLite readers write `<file> could not be read (<reason>)`; see [Output](output.md)). |
 
 `detect` prints them after the notes, and `timeline` before its `window:`
