@@ -154,40 +154,60 @@ func TestEachCarriedPolicyValueIsCutUnderItsOwnName(t *testing.T) {
 // Whether a thread_settings_applied event changes the permission mode is
 // told from the fields it sets: a long field it copies from the last
 // turn_context is neither joined into a composite nor compared again, so
-// twice the events allocate twice the bytes of their rows, not one more
-// copy of the long value per event. The bytes are counted
-// (runtime.MemStats.TotalAlloc), not timed.
+// what 20 more events allocate does not depend on the field's length. The
+// bytes are counted (runtime.MemStats.TotalAlloc), not timed, at two
+// lengths: what the rows themselves take, and what the allocator or the
+// race detector adds, is the same at both, while one copy of a field per
+// event would add 20 copies of the length added.
 func TestAPermissionModeChangeIsToldFromTheFieldsAnEventSets(t *testing.T) {
 	const size = 200_000
 	tests := []struct {
-		name, context string
-		long          int
+		name    string
+		context func(size int) string
+		long    int
 	}{
-		{"a long network", `"approval_policy":"x","network":"` + strings.Repeat("N", size) + `"`, 1},
-		{"a long sandbox object", `"approval_policy":"x","sandbox_policy":{"mode":"` + strings.Repeat("S", size) +
-			`"}`, 1},
-		{"a long sandbox and network", `"approval_policy":"x","sandbox_policy":"` + strings.Repeat("S", size) +
-			`","network":"` + strings.Repeat("N", size) + `"`, 2},
+		{"a long network", func(size int) string {
+			return `"approval_policy":"x","network":"` + strings.Repeat("N", size) + `"`
+		}, 1},
+		{"a long sandbox object", func(size int) string {
+			return `"approval_policy":"x","sandbox_policy":{"mode":"` + strings.Repeat("S", size) + `"}`
+		}, 1},
+		{"a long sandbox and network", func(size int) string {
+			return `"approval_policy":"x","sandbox_policy":"` + strings.Repeat("S", size) +
+				`","network":"` + strings.Repeat("N", size) + `"`
+		}, 2},
 	}
 	for _, test := range tests {
-		allocated := map[int]int64{}
-		for _, n := range []int{20, 40} {
-			text := policyRollout(test.context, alternatingApprovals(n)...)
-			var before, after runtime.MemStats
-			runtime.ReadMemStats(&before)
-			rows := modeRows(t, text)
-			runtime.ReadMemStats(&after)
-			allocated[n] = int64(after.TotalAlloc - before.TotalAlloc)
-			if len(rows) != n+1+test.long {
-				t.Errorf("%s: %d events gave %d mode and problem rows, want %d", test.name, n, len(rows),
-					n+1+test.long)
+		t.Run(test.name, func(t *testing.T) {
+			shorter := settingsGrowth(t, test.context(size), test.long)
+			longer := settingsGrowth(t, test.context(2*size), test.long)
+			if extra := longer - shorter; extra > 5*size {
+				t.Errorf("20 more events allocated %d more bytes with each long field %d bytes longer, "+
+					"more than five copies of the bytes added", extra, size)
 			}
-		}
-		if growth := allocated[40] - allocated[20]; growth > 5*size {
-			t.Errorf("%s: 20 more events allocated %d more bytes, more than five copies of the %d-byte field",
-				test.name, growth, size)
+		})
+	}
+}
+
+// settingsGrowth returns how many more bytes a rollout with the given
+// turn_context members allocates with 40 settings events than with 20, as
+// a signed number, after checking each gives a mode row per event and a
+// problem row per long carried field.
+func settingsGrowth(t *testing.T, context string, long int) int64 {
+	t.Helper()
+	allocated := map[int]int64{}
+	for _, n := range []int{20, 40} {
+		text := policyRollout(context, alternatingApprovals(n)...)
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		rows := modeRows(t, text)
+		runtime.ReadMemStats(&after)
+		allocated[n] = int64(after.TotalAlloc) - int64(before.TotalAlloc)
+		if len(rows) != n+1+long {
+			t.Errorf("%d events gave %d mode and problem rows, want %d", n, len(rows), n+1+long)
 		}
 	}
+	return allocated[40] - allocated[20]
 }
 
 // exitRollout returns a rollout whose CommandExecution item c1 failed with
