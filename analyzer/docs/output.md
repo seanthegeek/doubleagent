@@ -1525,6 +1525,14 @@ attributes. What the rows of the id are depends on the agent:
   the sandbox switch's key gives a `parser:` row, and the run-mode
   `permission setting:` rows, which name the switch, are shown once, with
   the first stored switch `--match` keeps, the first when it keeps none.
+  A row repeating a `github-<login>-usages` or
+  `remoteAgentHost.displayName.` key gives a `parser:` row at the account's
+  or host's row's time, and that row, which takes the scopes and last use
+  or the display name, is shown once, with the first stored row
+  `--since`, `--until` and `--match` keep, the first when they keep none;
+  a row repeating the account's or the enrolment's own key gives a
+  `parser:` row, the row being shown once, with its first stored row
+  that is a list or true.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows

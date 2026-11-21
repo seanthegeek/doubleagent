@@ -239,7 +239,9 @@ func runModeText(mode jsonvalue.Value, sandbox bool) string {
 
 // integrations emits the "source host:" rows of the GitHub accounts and
 // the "remote agent host enrolled:" rows. Only the github- and
-// remoteAgentHost. keys are selected, so no secret:// value is read.
+// remoteAgentHost. keys are selected, so no secret:// value is read. A key
+// stored more than once, which only damage or an edit writes, the key
+// being UNIQUE, gives a parser: row per stored row (integrationRepeats).
 func (i *items) integrations(emit parser.Emit) {
 	if i.table == nil {
 		return
@@ -247,30 +249,103 @@ func (i *items) integrations(emit parser.Emit) {
 	rows := i.store.rows(keyedRows(i.table, func(row sqlitefile.Row) bool {
 		return hasTextPrefix(row.Get("key"), "github-") || hasTextPrefix(row.Get("key"), "remoteAgentHost.")
 	}))
-	byKey := map[string]keyed{}
+	byKey := map[string][]keyed{}
 	for _, row := range rows {
-		byKey[row.key] = row
+		byKey[row.key] = append(byKey[row.key], row)
 	}
 	keys := make([]string, 0, len(byKey))
-	for key := range byKey {
+	for key, stored := range byKey {
 		keys = append(keys, key)
+		sortByRowid(stored)
 	}
 	slices.Sort(keys)
 	for _, key := range keys {
-		row := byKey[key]
+		stored := byKey[key]
 		switch {
 		case strings.HasPrefix(key, "github-") && !strings.HasSuffix(key, "-usages"):
-			i.githubAccount(row, byKey, emit)
-		case strings.HasPrefix(key, enrolledPrefix) && isTrue(plain(row.value)):
-			emit(i.system(enrolledText(key, byKey), i.mtime, row.rowid))
+			i.githubAccount(key, stored, byKey[key+"-usages"], emit)
+		case strings.HasPrefix(key, enrolledPrefix):
+			i.enrolment(key, stored, byKey[displayPrefix+key[len(enrolledPrefix):]], emit)
 		}
 	}
 }
 
+// shownOnceText returns the start of the parser: row of a stored row of a
+// key ItemTable holds in n rows whose rows, named by what, are shown once.
+func shownOnceText(what string, n int) string {
+	return parser.ProblemPrefix + "ItemTable holds " + strconv.Itoa(n) + " rows of this row's key; its " + what +
+		" shown once, with "
+}
+
+// heldOnce emits the parser: rows of the stored rows of a key whose row,
+// named by what, is the one of the stored row held and would read the
+// same from any other: with this row for the one held, with another of
+// them for the rest.
+func (i *items) heldOnce(what string, stored []keyed, held int, emit parser.Emit) {
+	for n, row := range stored {
+		which := "another of them"
+		if n == held {
+			which = "this row"
+		}
+		emit(i.system(shownOnceText(what, len(stored))+which, i.mtime, row.rowid))
+	}
+}
+
+// lenders calls row once per stored row of a key whose value other rows
+// take (a usages list, a display name), with the parent each stored row is
+// in a group of the key (timeline.Group), or once with a nil parent and
+// the one stored row, or none, when the key is stored at most once. Each
+// parent gives a parser: row at the time row gives, the rows named by what
+// shown once, with the parent the group goes with.
+func (i *items) lenders(what string, stored []keyed, emit parser.Emit,
+	row func(found *keyed) timeline.Row) {
+	if len(stored) <= 1 {
+		var found *keyed
+		if len(stored) == 1 {
+			found = &stored[0]
+		}
+		emit(row(found))
+		return
+	}
+	group := timeline.NewGroup()
+	prefix := shownOnceText(what, len(stored))
+	for n := range stored {
+		made := row(&stored[n])
+		notice := made
+		notice.TurnType, notice.Text, notice.SourceLine = timeline.TurnSystem, "", int(stored[n].rowid)
+		notice.ToolName, notice.ToolUseID = "", ""
+		parent := group.Parent(&notice)
+		parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+			timeline.RowText{Text: prefix + "another of them"})
+		emit(notice)
+		parent.Row(&made, timeline.WhenChosen)
+		emit(made)
+	}
+}
+
+// enrolment emits the "remote agent host enrolled:" row of an enrolment
+// key whose first stored row that is true is held, with the display name
+// of each stored name row (lenders).
+func (i *items) enrolment(key string, stored, names []keyed, emit parser.Emit) {
+	held := slices.IndexFunc(stored, func(row keyed) bool { return isTrue(plain(row.value)) })
+	if held < 0 {
+		return
+	}
+	if len(stored) > 1 {
+		i.heldOnce("enrolment row is", stored, held, emit)
+	}
+	i.lenders("enrolment row is", names, emit, func(name *keyed) timeline.Row {
+		var raw sqlitefile.Value
+		if name != nil {
+			raw = name.value
+		}
+		return i.system(enrolledText(key, raw), i.mtime, stored[held].rowid)
+	})
+}
+
 // enrolledText returns the "remote agent host enrolled:" text of an
-// enrolment key, with the account's display name.
-func enrolledText(key string, byKey map[string]keyed) string {
-	raw := byKey[displayPrefix+key[len(enrolledPrefix):]].value
+// enrolment key, with the account's display name raw.
+func enrolledText(key string, raw sqlitefile.Value) string {
 	name := plain(raw)
 	text := asText(raw)
 	if name.IsString() {
@@ -281,30 +356,43 @@ func enrolledText(key string, byKey map[string]keyed) string {
 }
 
 // githubAccount emits the "source host: github account" row of a
-// github-<login> key, at its latest use, else the file's modification
-// time. Another extension's github- key that is not an account list is
-// skipped; a cut account list is a bad record. A usages value that is not
-// a list, and its entries that are not objects, are problems.
-func (i *items) githubAccount(row keyed, byKey map[string]keyed, emit parser.Emit) {
-	login := row.key[len("github-"):]
-	if login == "" || !plain(row.value).IsArray() {
-		if strings.HasPrefix(asText(row.value), "[") {
+// github-<login> key, held by its first stored row that is a list, with
+// the scopes of each stored usages row (lenders), at its latest use, else
+// the file's modification time. Another extension's github- key that is
+// not an account list is skipped; a cut account list is a bad record. A
+// usages value that is not a list, and its entries that are not objects,
+// are problems.
+func (i *items) githubAccount(key string, stored, usages []keyed, emit parser.Emit) {
+	login := key[len("github-"):]
+	held := -1
+	for n, row := range stored {
+		if login != "" && plain(row.value).IsArray() {
+			if held < 0 {
+				held = n
+			}
+		} else if strings.HasPrefix(asText(row.value), "[") {
 			decodeRecord(row.rowid, row.key, row.value, i.problems)
 		}
+	}
+	if held < 0 {
 		return
 	}
-	var usages []jsonvalue.Value
-	if found, ok := byKey[row.key+"-usages"]; ok {
-		for _, usage := range objectEntries(found, i.problems) {
-			usages = append(usages, usage)
+	if len(stored) > 1 {
+		i.heldOnce("account row is", stored, held, emit)
+	}
+	i.lenders("account row is", usages, emit, func(found *keyed) timeline.Row {
+		var entries []jsonvalue.Value
+		if found != nil {
+			for _, usage := range objectEntries(*found, i.problems) {
+				entries = append(entries, usage)
+			}
 		}
-	}
-	text := githubText(login, row.key, usages, i.owner.Work)
-	if latest := lastUsed(usages); !latest.IsEmpty() {
-		emit(i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(latest), row.rowid))
-		return
-	}
-	emit(i.system(text, i.mtime, row.rowid))
+		text := githubText(login, key, entries, i.owner.Work)
+		if latest := lastUsed(entries); !latest.IsEmpty() {
+			return i.owner.row(i.artifact, timeline.TurnSystem, text, timeutil.FromValue(latest), stored[held].rowid)
+		}
+		return i.system(text, i.mtime, stored[held].rowid)
+	})
 }
 
 // lastUsed returns the latest numeric lastUsed of a usages list (a

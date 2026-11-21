@@ -2518,7 +2518,16 @@ gives its own rows after a row at the file's modification time,
 (`another of them` for each stored row they are not shown with), and each blob's run-mode
 `permission setting:` rows, which name the switch, are shown once, with the first stored switch
 that `--match` keeps, else the first; a stored switch whose value an earlier stored switch has
-holds none of them, since its rows would read the same.
+holds none of them, since its rows would read the same. A `github-<login>` or
+`remoteAgentHost.enrolled.<id>` key held in more than one row gives its row once, at the first
+stored row that is a list (or true), and each stored row gives, at the file's modification time,
+`parser: ItemTable holds <n> rows of this row's key; its account row is shown once, with this row`
+(`its enrolment row is ...` for a host; `another of them` for each other stored row). A
+`github-<login>-usages` or `remoteAgentHost.displayName.<id>` key held in more than one row is a
+group: each stored row gives the same `parser:` row, `this row` or `another of them` by whether the
+account's or host's row is shown with it, at that row's time, and the row, which takes the scopes
+and latest `lastUsed` or the display name, is shown once, with the first stored row that
+`--since`, `--until` and `--match` keep, else the first.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
