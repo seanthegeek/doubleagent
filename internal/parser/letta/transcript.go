@@ -139,7 +139,9 @@ func (p *Parser) server(artifact *input.Artifact, agentDirectory string) string 
 	byAgent, held := p.servers[state]
 	if !held {
 		p.Work.Add("settings.json reads", 1)
-		byAgent = readServers(artifact, state.path)
+		// settings.json is parsed as its own artifact, whose parse reports
+		// its repeated member names.
+		byAgent = readServers(nil, state.path)
 		p.servers[state] = byAgent
 	}
 	if found, ok := byAgent[agentDirectory]; ok {

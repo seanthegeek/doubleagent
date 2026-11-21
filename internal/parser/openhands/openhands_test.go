@@ -156,7 +156,7 @@ func TestAJSONFileWithAByteOrderMarkDoesNotDecode(t *testing.T) {
 	if err := osfile.WriteFile(path, []byte("\xef\xbb\xbf{}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, decoded, err := loadJSON(nil, path, new(parser.Problems)); decoded || err == nil {
+	if _, decoded, err := loadJSON(&jsonvalue.Repeats{}, path, new(parser.Problems)); decoded || err == nil {
 		t.Errorf("decoded %v with error %v", decoded, err)
 	}
 }

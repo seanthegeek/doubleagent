@@ -249,7 +249,10 @@ func (p *Parser) projectIndex(artifact *input.Artifact) map[string]string {
 				continue
 			}
 			p.Work.Add("conversations read for projects", 1)
-			document, _, _ := loadJSON(artifact, conversation, &parser.Problems{})
+			// The conversation's file is parsed as its own artifact, whose
+			// parse reports its repeated member names.
+			var ignored jsonvalue.Repeats
+			document, _, _ := loadJSON(&ignored, conversation, &parser.Problems{})
 			dir, ok := nonEmptyText(document.Get("workspace").Get("working_dir"))
 			if _, seen := index[sha256Hex(dir)]; ok && !seen {
 				index[sha256Hex(dir)] = dir
@@ -273,6 +276,7 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	conv := p.conversation(artifact, files)
+	parser.NoteRepeats(artifact, conv.stateRepeats)
 	timestamp := parser.FileMtime(artifact)
 	texts := slices.Clone(conv.settings)
 	if conv.finalModelRow != "" {
@@ -300,10 +304,15 @@ func (p *Parser) parseMeta(artifact *input.Artifact, emit parser.Emit) {
 		return
 	}
 	files, ok := filesOf(directory)
-	if !ok || parser.RegularFile(files.state) {
+	if !ok {
 		return
 	}
-	if conv := p.conversation(artifact, files); conv.firstEvent == "" {
+	conv := p.conversation(artifact, files)
+	parser.NoteRepeats(artifact, conv.metaRepeats)
+	if parser.RegularFile(files.state) {
+		return
+	}
+	if conv.firstEvent == "" {
 		parser.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
 	}
 }
@@ -336,7 +345,9 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parser.Options, em
 		p.headerRows(artifact, conv, emit)
 	}
 	var problems parser.Problems
-	event, decoded, err := loadJSON(artifact, artifact.DiskPath, &problems)
+	var repeats jsonvalue.Repeats
+	event, decoded, err := loadJSON(&repeats, artifact.DiskPath, &problems)
+	parser.NoteRepeats(artifact, repeats)
 	if len(problems) > 0 {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, conv.sessionID, conv.projectPath))
 		return
@@ -432,7 +443,9 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parser.Emit) {
 		}
 	}
 	var problems parser.Problems
-	event := loadObject(artifact, artifact.DiskPath, &problems)
+	var repeats jsonvalue.Repeats
+	event := loadObject(&repeats, artifact.DiskPath, &problems)
+	parser.NoteRepeats(artifact, repeats)
 	row := p.BaseRow(artifact)
 	row.SessionID = match[1]
 	row.TurnType = timeline.TurnSystem

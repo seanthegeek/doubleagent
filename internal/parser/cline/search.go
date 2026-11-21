@@ -182,7 +182,9 @@ func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace st
 	if !seen {
 		p.Work.Add("search manifests read", 1)
 		var ignored parser.Problems
-		if manifest, _ := parser.LoadJSON(artifact, manifestPath, &ignored); manifest.IsObject() {
+		// The manifest is parsed as its own artifact, whose parse reports
+		// its repeated member names.
+		if manifest, _ := parser.LoadJSON(nil, manifestPath, &ignored); manifest.IsObject() {
 			read = manifestProject{object: true,
 				project: parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"), manifest.Get("workspace_root")))}
 		}

@@ -386,7 +386,9 @@ func (p *Parser) parentWorkspace(artifact *input.Artifact) (string, string) {
 		found, cached := p.parentCache[log]
 		if !cached {
 			var ignored parser.Problems
-			project, branch := workspace(records(artifact, log, &ignored), parentScanLines)
+			// The parent log is parsed as its own artifact, whose parse
+			// reports its repeated member names.
+			project, branch := workspace(records(nil, log, &ignored), parentScanLines)
 			found = [2]string{project, branch}
 			p.parentCache[log] = found
 		}

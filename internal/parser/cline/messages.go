@@ -92,7 +92,9 @@ func (p *Parser) sessionManifest(artifact *input.Artifact, sessionID string) ses
 	}
 	p.Work.Add("session manifests read", 1)
 	var ignored parser.Problems
-	manifest, _ := parser.LoadJSON(artifact, manifestPath, &ignored)
+	// The manifest is parsed as its own artifact, whose parse reports its
+	// repeated member names.
+	manifest, _ := parser.LoadJSON(nil, manifestPath, &ignored)
 	known := sessionManifest{project: parser.Text(parser.FirstNonEmpty(manifest.Get("cwd"),
 		manifest.Get("workspace_root"))), started: manifest.Get("started_at"), model: manifest.Get("model")}
 	read[key] = known
