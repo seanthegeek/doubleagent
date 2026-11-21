@@ -159,9 +159,9 @@ func (s *sidebarStore) indexRepositories() *repositoryIndex {
 // linked to it. The join copies the worktree's columns onto the row of each
 // linked thread, so the store's carried cuts them. Of an id the table
 // repeats, each stored row's own row, unlinked, is a parent, shown unless
-// the group goes with it, and a link's row takes the text and project of
-// the stored row the group goes with ("Rows of a repeated id" in
-// analyzer/docs/output.md).
+// the group goes with it, and a link's row takes the text, project and
+// source line of the stored row the group goes with ("Rows of a repeated
+// id" in analyzer/docs/output.md).
 func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow, store *sidebarStore,
 	emit parser.Emit) {
 	sessionID := ""
@@ -172,7 +172,7 @@ func (p *Parser) archivedWorktree(artifact *input.Artifact, row archivedRow, sto
 	}
 	if row.link {
 		linked := p.stateRow(artifact, "", parser.FileMtime(artifact), row.Rowid, sessionID, "")
-		row.group.Member(&linked, timeline.TakeText|timeline.TakeProject)
+		row.group.Member(&linked, timeline.TakeText|timeline.TakeProject|timeline.TakeSourceLine)
 		emit(linked)
 		return
 	}

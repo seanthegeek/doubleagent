@@ -188,3 +188,41 @@ func TestARepeatedArchivedWorktreeIDsLinksGoWithTheStoredRowTheMatchKeeps(t *tes
 		})
 	}
 }
+
+// A link shown with a stored row of a repeated id names that row's
+// source_line, as its text is that row's: the row's own when the group goes
+// with it, the first row's without a filter.
+func TestARepeatedArchivedWorktreeIDsLinksNameTheLineOfTheStoredRowTheyGoWith(t *testing.T) {
+	tests := []struct {
+		name, pattern string
+		want          int
+	}{
+		{"without a filter the links name the first stored row", "", 1},
+		{"a match on a later stored row gives the links its line", "/w/copy3 ", 4},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := sidebarRows(t, "repeated_worktree_10.db")
+			match := regexp.MustCompile(test.pattern)
+			var kept []timeline.Row
+			for i := range rows {
+				if rows[i].Matches(match) {
+					kept = append(kept, rows[i])
+				}
+			}
+			links := 0
+			for _, row := range timeline.Attach(rows, timeline.Choose(kept)) {
+				if row.SessionID == "" || !strings.HasPrefix(row.Text, "archived worktree: ") || !row.Matches(match) {
+					continue
+				}
+				links++
+				if row.SourceLine != test.want {
+					t.Errorf("link of %s at source line %d, want %d", row.SessionID, row.SourceLine, test.want)
+				}
+			}
+			if links != 10 {
+				t.Errorf("got %d links, want 10", links)
+			}
+		})
+	}
+}

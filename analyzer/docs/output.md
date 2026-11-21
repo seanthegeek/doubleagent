@@ -1416,8 +1416,9 @@ attributes. What the rows of the id are depends on the agent:
   shown with another row of the id.
 - **Zed**, an `archived_git_worktrees` row repeating an id: the
   `archived worktree:` row of each thread linked to the id, with its own
-  `session_id` and the stored row's text and `project_path`; each other
-  stored row of the id gives its own row with no session.
+  `session_id` and the stored row's text, `project_path` and rowid as
+  `source_line`; each other stored row of the id gives its own row with no
+  session.
 - **Ollama**, a `messages` row repeating a message id: the id's tool
   calls, with the chat, time and `model` of one assistant message of the
   id, and its attachments, in the text of one user message of it.
