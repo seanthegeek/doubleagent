@@ -133,6 +133,12 @@ func cursorStateCases() []growthCase {
 // more than once.
 func cursorRepeatCases() []growthCase {
 	return []growthCase{
+		// Each stored row of a repeated draft key gives its own row.
+		{kind: "state.vscdb", shape: shapeSharedID + " (draft rows)", files: func(t *testing.T, n int) []growthFile {
+			return one(cursorStateRel, cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", 0)},
+				rows(n, func(i int) []any { return []any{"composerDraft:c1", `{"text":"` + numbered("d", i) + `"}`} })...),
+				nil, nil))
+		}},
 		// Each stored row of a repeated bubble key gives its own rows,
 		// each on its own model.
 		{kind: "state.vscdb", shape: shapeSharedID + " (bubble rows on their own models)",

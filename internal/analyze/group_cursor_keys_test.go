@@ -72,3 +72,27 @@ func TestEachStoredRowOfARepeatedCursorBubbleKeyGivesItsOwnRows(t *testing.T) {
 		})
 	}
 }
+
+// A composerDraft key cursorDiskKV holds twice gives each stored draft,
+// one of them empty, at the composer's time; nothing takes from a draft.
+func TestEachStoredRowOfARepeatedCursorDraftKeyIsShown(t *testing.T) {
+	state := cursorStateOf(t, [][]any{
+		{"composerData:c1", `{"composerId":"c1","createdAt":1767225600000,"status":"none"}`},
+		{"composerDraft:c1", `{"text":"FIRST-DRAFT"}`},
+		{"composerDraft:c1", `{"text":"SECOND-DRAFT"}`},
+		{"composerDraft:c1", `{"text":""}`}}, nil)
+	created := "2026-01-01T00:00:00.000Z c1  "
+	notice := "parser: cursorDiskKV holds 3 rows of this row's key; each gives its own rows"
+	for _, test := range []repeatCase{
+		{"without a filter every stored draft is shown", nil, []string{created + notice, created + "unsent draft: FIRST-DRAFT",
+			created + notice, created + "unsent draft: SECOND-DRAFT", created + notice}},
+		{"a pattern finds the later draft", []string{"--match", "SECOND"}, []string{created + "unsent draft: SECOND-DRAFT"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rows := cursorKeysRun(t, state, test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+			}
+		})
+	}
+}

@@ -1512,7 +1512,9 @@ attributes. What the rows of the id are depends on the agent:
   `cursorDiskKV` row repeating a `bubbleId:` key lends nothing: each
   stored row gives its own rows and a `parser:` row, reading the model in
   force before them, and when one names another model the rows after them
-  carry none until a later bubble names one.
+  carry none until a later bubble names one. A row repeating a
+  `composerDraft:` key lends nothing either: each stored draft gives its
+  own row and a `parser:` row, at the conversation's time.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows

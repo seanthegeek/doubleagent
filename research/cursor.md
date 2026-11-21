@@ -2506,7 +2506,9 @@ them, after a row at its time,
 `parser: cursorDiskKV holds <n> rows of this row's key; each gives its own rows`; when a stored
 row is a user bubble naming another model, the row ends
 `, and none gives its model to the rows after them`, and the bubbles after them carry no model
-until one names a model, which gives `model: <model>`.
+until one names a model, which gives `model: <model>`. A `composerDraft:<composerId>` key held in
+more than one row gives, for each stored row in rowid order, the same `parser:` row and that row's
+`unsent draft:` row, both at the composer's `createdAt`.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row

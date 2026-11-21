@@ -77,12 +77,15 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 	found := readComposers(store)
 	p.assignGroups(sharedState(artifact), found)
 	keyValues := store.table("cursorDiskKV")
-	drafts := map[string]keyed{}
+	drafts := map[string][]keyed{}
 	if keyValues != nil {
 		for _, row := range store.rows(prefixed(keyValues, "composerDraft:")) {
 			ident := row.key[len("composerDraft:"):]
-			drafts[ident] = row
+			drafts[ident] = append(drafts[ident], row)
 			found.get(ident)
+		}
+		for _, stored := range drafts {
+			sortByRowid(stored)
 		}
 	}
 	reader := &stateReader{owner: p, artifact: artifact, store: store, keyValues: keyValues, options: options}
@@ -113,7 +116,7 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 // sent has none) or, when only its header is left, its deletion, then its
 // unsent draft and its problems. It reports whether it was deleted. The
 // rows of each stored row of a repeated id are its view's (repeat.go).
-func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit parser.Emit) bool {
+func (r *stateReader) composer(current *composer, drafts map[string][]keyed, emit parser.Emit) bool {
 	views := r.views(current, emit)
 	stamp := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject|timeline.TakeBranch)
 	deleted := false
@@ -130,9 +133,9 @@ func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit 
 			}
 		}
 	}
-	if draft, ok := drafts[current.ident]; ok {
-		r.owner.draft(r.owner.memberStamp(r.artifact, current, emit,
-			timeline.TakeTime|timeline.TakeProject|timeline.TakeBranch), draft)
+	if stored := drafts[current.ident]; len(stored) > 0 {
+		r.owner.drafts(r.owner.memberStamp(r.artifact, current, emit,
+			timeline.TakeTime|timeline.TakeProject|timeline.TakeBranch), stored)
 	}
 	for _, found := range views {
 		r.ownProblems(found)
@@ -461,7 +464,23 @@ func (p *Parser) deleted(stamp *stamper) {
 	stamp.add(timeline.TurnSystem, text, current.headerUpdated(), line, "")
 }
 
-// draft emits a composer's unsent draft.
+// drafts emits a composer's unsent draft. A composerDraft key cursorDiskKV
+// holds in more than one row, which only damage or an edit writes, the
+// key being UNIQUE, gives each stored row's draft after a parser: row
+// saying so; nothing takes from a draft.
+func (p *Parser) drafts(stamp *stamper, stored []keyed) {
+	if len(stored) == 1 {
+		p.draft(stamp, stored[0])
+		return
+	}
+	for _, row := range stored {
+		stamp.add(timeline.TurnSystem, repeatedKeyText("cursorDiskKV", len(stored)), stamp.composer.created(),
+			row.rowid, "")
+		p.draft(stamp, row)
+	}
+}
+
+// draft emits the unsent draft of one composerDraft row.
 func (p *Parser) draft(stamp *stamper, row keyed) {
 	draft := parser.ObjectOrEmpty(decodeRecord(row.rowid, row.key, row.value, stamp.composer.problems))
 	if text := timeline.CompactValue(draft.Get("text")); text != "" {
