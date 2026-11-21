@@ -724,8 +724,12 @@ for one), the other choices giving their rows.
 
 A thread or page id is its table's key, so Tabby never writes two rows of one. When a damaged
 `threads` or `pages` table holds an id more than once, the id's `thread_messages` or
-`page_sections` rows go with the first row of the id in the order the rows are read
-(`created_at`, then `id`); each later row of the id gives its start row alone. One row per table,
+`page_sections` rows are shown once, after the first row of the id in the order the rows are read
+(`created_at`, then `id`); each later row of the id gives its start row alone. A section with no
+`created_at` takes the `created_at` of the first row of its page id that `--since`, `--until` and
+`--match` keep, else of the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); a thread message keeps its own
+time or none. One row per table,
 `parser: threads holds <n> rows repeating an earlier row's id; its messages are shown once` or
 `parser: pages holds <n> rows repeating an earlier row's id; its sections are shown once`
 (`1 row repeating` for one), follows the database's other rows, with `source_line` 0, counting the

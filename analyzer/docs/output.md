@@ -1417,7 +1417,10 @@ rows kept, so it describes only the rows shown. An Ollama `messages` row
 repeating a message id is one stored row of the id the same way: the
 id's tool calls are shown once, with the chat, time and `model` of one
 assistant message of the id, and its attachments once, in the text of
-one user message of it.
+one user message of it. A Tabby `pages` row repeating a page id is one
+stored row of the id too: the id's sections are shown once, and a
+section with no `created_at` takes the time of one of the id's stored
+rows.
 
 **Carried values longer than 4,096 bytes.** Every field but `text` and
 `source_line` is at most 4,096 bytes, the bound the input also puts on a

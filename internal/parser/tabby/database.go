@@ -50,6 +50,9 @@ type store struct {
 	carried *parser.Carried
 	// problems are the database's own problems, emitted after its rows.
 	problems parser.Problems
+	// pageGroups holds the group (timeline.Group) of each page id the
+	// pages table repeats with sections, by id.
+	pageGroups map[string]*timeline.Group
 }
 
 // parseDatabase emits the rows of a database or a backup of one: a backup
@@ -350,8 +353,26 @@ func (s *store) pages() error {
 	if err != nil {
 		return err
 	}
+	s.pageGroups = repeatedGroups(pages, sections)
 	s.eachParent("pages", "sections", pages, sections, s.page)
 	return nil
+}
+
+// repeatedGroups returns a group for each id that more than one row of
+// parents has and that children are filed under: the rows of the id are
+// its parents, and the children, shown once, its members.
+func repeatedGroups(parents []parent, children *grouped) map[string]*timeline.Group {
+	counts := map[string]int{}
+	for _, each := range parents {
+		counts[each.parentID]++
+	}
+	groups := map[string]*timeline.Group{}
+	for parentID, count := range counts {
+		if count > 1 && len(children.rows[parentID]) > 0 {
+			groups[parentID] = timeline.NewGroup()
+		}
+	}
+	return groups
 }
 
 // page emits one page's rows.
@@ -379,18 +400,34 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 	start := spec
 	start.text = parser.JoinNonEmpty(" | ", "page start", labelledColumn("title ", page.row.Get("title")), author,
 		labelledColumn("code_source ", page.row.Get("code_source_id")), missing)
-	s.emit(s.parser.row(s.artifact, start))
+	startRow := s.parser.row(s.artifact, start)
+	// Each row of a repeated id is a parent of the id's group, and its
+	// sections, shown once, members that take the time of the row the
+	// group goes with when they have none of their own.
+	group := s.pageGroups[page.parentID]
+	var handle *timeline.Parent
+	if group != nil {
+		handle = group.Parent(&startRow)
+	}
+	s.emit(startRow)
 	if content := page.row.Get("content"); !content.IsEmpty() {
 		body := spec
 		body.turnType, body.text = timeline.TurnAssistant, content.String()
-		s.emit(s.parser.row(s.artifact, body))
+		bodyRow := s.parser.row(s.artifact, body)
+		if handle != nil {
+			handle.Row(&bodyRow, timeline.Always)
+		}
+		s.emit(bodyRow)
 	}
-	s.sectionRows(spec, sections, attachments)
+	s.sectionRows(spec, sections, attachments, group)
 }
 
 // sectionRows emits a page's sections as assistant rows: the title and
-// content, then the attachments, each at its created_at, else the page's.
-func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []jsonvalue.Value) {
+// content, then the attachments, each at its created_at, else the page's,
+// or, for the sections of a repeated id, those of group, the time of the
+// page row the group goes with.
+func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []jsonvalue.Value,
+	group *timeline.Group) {
 	for i, section := range sections {
 		var pieces []string
 		for _, value := range []sqlitefile.Value{section.Get("title"), section.Get("content")} {
@@ -404,10 +441,15 @@ func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments
 		}
 		row := spec
 		row.line, row.turnType, row.text = parser.ColumnLine(section.Get("id")), timeline.TurnAssistant, text
-		if created := parser.ColumnTime(section.Get("created_at")); created != "" {
+		created := parser.ColumnTime(section.Get("created_at"))
+		if created != "" {
 			row.timestamp = created
 		}
-		s.emit(s.parser.row(s.artifact, row))
+		sectionRow := s.parser.row(s.artifact, row)
+		if group != nil && created == "" {
+			group.Member(&sectionRow, timeline.TakeTime)
+		}
+		s.emit(sectionRow)
 	}
 }
 

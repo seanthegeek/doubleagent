@@ -81,6 +81,12 @@ func tabbyDatabaseCases() []growthCase {
 				"page_sections":   rows(n, func(i int) []any { return []any{i, 1, "s", "c", i, tabbyTime} }),
 			}))
 		}},
+		{kind: "db.sqlite", shape: shapeSharedID + " with undated sections", files: func(t *testing.T, n int) []growthFile {
+			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
+				"pages":         rows(n, func(i int) []any { return []any{1, 1, "t", "c", tabbyTime} }),
+				"page_sections": rows(n, func(i int) []any { return []any{i, 1, "s", "c", i, nil} }),
+			}))
+		}},
 		{kind: "db.sqlite", shape: shapeJoins, files: func(t *testing.T, n int) []growthFile {
 			return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
 				"users":         {{1, "a@example.com", "A", nil, tabbyTime}},
