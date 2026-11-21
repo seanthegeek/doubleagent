@@ -1155,7 +1155,10 @@ shared OpenCode parser's, which the `kilo-code` parser subclasses. Through it, e
 opens with a
 `session start: <title> slug=<slug> version=<version> agent=<agent> directory=<directory>`
 row, a `file` part is a `file: <filename> <url>` row and a `retry` part a
-`retry attempt=<attempt> <error>` row.
+`retry attempt=<attempt> <error>` row. A message id that more than one `message` or
+`session_message` row of a Kilo database holds gives each of those rows its own `parser:` row, and
+the rows of the id's parts once, with one of those rows' session, project and model, as in
+OpenCode ([Bad-line rows in `opencode.md`](opencode.md#bad-line-rows)).
 
 A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) is the task directory's
 session, with the history item's `workspace` as `project_path`. The history item is one
