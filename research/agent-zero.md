@@ -717,7 +717,8 @@ whose message names the file, which only damage or an edit gives more than one i
 the first of those items, in log order, that the filters keep, as a message's text is among the
 items of its id, and `--match` finds each of them by it. The other items give their own `content`,
 except the first item of each id after the first, which gives its message's `tool_result` when it
-has one, as it would with the file shown in another id's item. On a disk that matches names without
+has one, as it would with the file shown in another id's item; `--match` finds that item by the
+file's text or that result, not by its own `content`, which no output shows. On a disk that matches names without
 regard to letter case (accented and non-Latin letters included) or, on macOS, to whether an accented
 letter is written as one character or as a letter and a combining accent, every such spelling of its
 name is that one file.

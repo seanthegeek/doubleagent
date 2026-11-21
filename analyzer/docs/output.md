@@ -1460,7 +1460,9 @@ attributes. What the rows of the id are depends on the agent:
   shows the reply. A message file that the tool messages of several ids
   name is one text for the tool items of all of them, shown in one of
   those items the same way; the first item of each other id shows its
-  message's tool result instead. A history message repeating the id of
+  message's tool result instead, and `--match` finds that item by the
+  file's text or that result, not by its own `content`, which no output
+  shows. A history message repeating the id of
   an earlier one, which only damage or an edit writes, gives its own rows
   at the time of the item the id's rows go with, and a `parser:` row
   counts such messages.
