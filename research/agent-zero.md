@@ -718,10 +718,10 @@ the first of those items, in log order, that the filters keep, as a message's te
 items of its id, and `--match` finds each of them by it. The other items give their own `content`,
 except the first item of each id after the first, which gives its message's `tool_result` when it
 has one, as it would with the file shown in another id's item; `--match` finds that item by the
-file's text or that result, not by its own `content`, which no output shows. On a disk that matches names without
-regard to letter case (accented and non-Latin letters included) or, on macOS, to whether an accented
-letter is written as one character or as a letter and a combining accent, every such spelling of its
-name is that one file.
+file's text or that result, not by its own `content`, which no output shows. On a disk that matches
+names without regard to letter case (accented and non-Latin letters included) or, on macOS, to
+whether an accented letter is written as one character or as a letter and a combining accent, every
+such spelling of its name is that one file.
 
 A history message whose id an earlier message of the chat has, in any agent's history, is also only
 written by damage or an edit; the first is the one the log items join. Each later one gives its own
