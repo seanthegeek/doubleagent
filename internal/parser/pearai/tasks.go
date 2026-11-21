@@ -25,14 +25,15 @@ func standingKeys() []string {
 }
 
 // HistoryItem returns the task's taskHistory[] entry from the editor's
-// global state, or null.
+// global state, or null, and the group of its id when the taskHistory
+// repeats it.
 func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.Group) {
 	database, found := task.InRootParent("state.vscdb")
 	if !found {
 		return jsonvalue.NewNull(), nil
 	}
 	if entry, found := p.globalState(database).history[task.TaskID]; found {
-		return entry, nil
+		return entry, p.historyGroup(database, task.TaskID)
 	}
 	return jsonvalue.NewNull(), nil
 }
@@ -157,9 +158,12 @@ func (p *Parser) state(artifact *input.Artifact, emit parser.Emit) {
 }
 
 // stateRows emits the task and setting rows of the extension's state, and
-// the problem of a taskHistory that is not an array.
+// the problem of a taskHistory that is not an array. The task row of each
+// entry of an id the taskHistory repeats is a parent of the id's group
+// (historyGroup).
 func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit parser.Emit) {
 	var problems parser.Problems
+	database, shared := parser.Beside(artifact, "state.vscdb")
 	history := parser.ArrayMember(state.Get("taskHistory"), "taskHistory", 0, &problems)
 	for _, problem := range problems {
 		emit(p.ProblemRow(artifact, problem.Message))
@@ -178,6 +182,11 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 				" newProjectPath=" + parser.TextOr(creator.Get("newProjectPath"), "-")
 		}
 		row.Text = timeline.Compact(text)
+		if shared {
+			if group := p.historyGroup(database, item.Get("id").Text()); group != nil {
+				group.Parent(&row)
+			}
+		}
 		emit(row)
 	}
 	mtime := parser.FileMtime(artifact)

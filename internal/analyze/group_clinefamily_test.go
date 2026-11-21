@@ -35,7 +35,9 @@ func familyRunOf(t *testing.T, agent string, files []collectedFile, options ...s
 }
 
 // checkRepeatCases runs each case over the files files gives, in the order
-// given and reversed, and compares the rows with the case's.
+// given and reversed, and compares the rows with the case's, each sorted:
+// rows of one time come in the order of their files, which is not what the
+// cases test.
 func checkRepeatCases(t *testing.T, agent string, files func(t *testing.T) []collectedFile, cases []repeatCase) {
 	t.Helper()
 	for _, order := range []string{"in path order", "in reverse order"} {
@@ -45,9 +47,11 @@ func checkRepeatCases(t *testing.T, agent string, files func(t *testing.T) []col
 				if order == "in reverse order" {
 					slices.Reverse(listed)
 				}
-				rows := familyRunOf(t, agent, listed, test.options...)
-				if !slices.Equal(rows, test.want) {
-					t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
+				rows, want := familyRunOf(t, agent, listed, test.options...), slices.Clone(test.want)
+				slices.Sort(rows)
+				slices.Sort(want)
+				if !slices.Equal(rows, want) {
+					t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(want, "\n"))
 				}
 			})
 		}
@@ -144,6 +148,7 @@ func familyStores() []groupedStore {
 	return []groupedStore{
 		{"cline task index", "cline", clineRepeatFiles},
 		{"kilo code pre-fork task index", "kilo-code", kiloRepeatFiles},
+		{"pearai task history", "pearai", pearaiRepeatFiles},
 		{"roo code task index", "roo-code", func(t *testing.T) []collectedFile {
 			files := rooRepeatFiles(t)
 			files[0].text = strings.ReplaceAll(files[0].text, `"modelId"`, `"mode":"code","modelId"`)

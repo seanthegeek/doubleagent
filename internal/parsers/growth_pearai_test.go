@@ -155,6 +155,12 @@ func pearaiTaskCases() []growthCase {
 				return pearaiHistoryItem("t1", "/w")
 			})+`],"allowedCommands":["ls"],"alwaysAllowWrite":true}`))
 		}},
+		{kind: "state.vscdb", shape: shapeSharedID + " and the task's many messages", files: func(t *testing.T,
+			n int) []growthFile {
+			return []growthFile{{rel: pearaiState, data: pearaiDatabase(t, `{"taskHistory":[`+joined(n, func(i int) string {
+				return pearaiHistoryItem("t1", numbered("/w", i))
+			})+"]}")}, text(pearaiTasks+"t1/ui_messages.json", "["+joined(n, pearaiUIMessage)+"]")}
+		}},
 		{kind: "state.vscdb", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one(pearaiState, pearaiDatabase(t, `{"taskHistory":[`+joined(n, pearaiDamaged)+
 				`,{"id":"t","task":`+nestedArrays(n, `"x"`)+`,"creatorModeConfig":`+nestedObjects(n, "a", "1")+

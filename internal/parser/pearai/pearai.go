@@ -34,6 +34,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
 
@@ -63,12 +64,13 @@ type stateKey struct {
 }
 
 // globalState is the extension's global state read from state.vscdb, the
-// problems met, and its taskHistory[] entries by task id, the first entry
-// of an id standing.
+// problems met, its taskHistory[] entries by task id, the first entry of an
+// id standing, and how many entries hold each id.
 type globalState struct {
 	value    jsonvalue.Value
 	problems []string
 	history  map[string]jsonvalue.Value
+	counts   map[string]int
 }
 
 // Parser reads PearAI's chat sessions, agent tasks, editor state and chat
@@ -77,11 +79,15 @@ type Parser struct {
 	*clinelegacy.TaskParser
 	indexes *continuedev.Indexes
 	states  map[stateKey]globalState
+	// groups holds the group of each task id a taskHistory repeats, by the
+	// state database's path and the id (historyGroup).
+	groups map[[2]string]*timeline.Group
 }
 
 // New returns the parser.
 func New() *Parser {
-	created := &Parser{indexes: continuedev.NewIndexes(), states: map[stateKey]globalState{}}
+	created := &Parser{indexes: continuedev.NewIndexes(), states: map[stateKey]globalState{},
+		groups: map[[2]string]*timeline.Group{}}
 	created.TaskParser = clinelegacy.NewTaskParser(parser.NewBase("pearai", "pearai"), root,
 		"workspace", created)
 	return created
@@ -151,25 +157,46 @@ func (p *Parser) globalState(path string) globalState {
 		return found
 	}
 	value, problems := vscodestate.ReadItem(path, extensionID)
-	p.states[key] = globalState{value: value, problems: problems, history: p.historyIndex(value)}
+	history, counts := p.historyIndex(value)
+	p.states[key] = globalState{value: value, problems: problems, history: history, counts: counts}
 	return p.states[key]
 }
 
 // historyIndex returns the taskHistory[] objects of a global state by
-// task id, the first entry of an id standing.
-func (p *Parser) historyIndex(state jsonvalue.Value) map[string]jsonvalue.Value {
-	index := map[string]jsonvalue.Value{}
+// task id, the first entry of an id standing, and how many hold each id.
+func (p *Parser) historyIndex(state jsonvalue.Value) (map[string]jsonvalue.Value, map[string]int) {
+	index, counts := map[string]jsonvalue.Value{}, map[string]int{}
 	for _, entry := range state.Get("taskHistory").Items() {
 		p.Work.Add("history entries read", 1)
 		if !entry.IsObject() {
 			continue
 		}
 		taskID := entry.Get("id").Text()
-		if _, held := index[taskID]; !held {
+		if counts[taskID]++; counts[taskID] == 1 {
 			index[taskID] = entry
 		}
 	}
-	return index
+	return index, counts
+}
+
+// historyGroup returns the group of a task id the taskHistory of the
+// state.vscdb at path holds in more than one entry, else nil. The extension
+// writes one entry per task id, replacing it on each update, so only damage
+// or an edit repeats one (timeline.Group): each entry's task row is a
+// parent and the task's rows are members. The group is the parser's own
+// for that database and id, so the database's parse and the task files'
+// parses share it in whichever order they come.
+func (p *Parser) historyGroup(path, taskID string) *timeline.Group {
+	if p.globalState(path).counts[taskID] < 2 {
+		return nil
+	}
+	key := [2]string{path, taskID}
+	group := p.groups[key]
+	if group == nil {
+		group = timeline.NewGroup()
+		p.groups[key] = group
+	}
+	return group
 }
 
 // The interfaces the registry looks for, checked when the package builds.

@@ -1558,6 +1558,13 @@ attributes. What the rows of the id are depends on the agent:
   `ts`. Each entry gives its own `task:` row with its own `project_path`
   and time; without a filter the task's rows take the first entry's, in
   file order.
+- **PearAI**, an agent task's `taskHistory` entry in the editor's
+  `state.vscdb` repeating its task id, read as Cline's and Roo Code's
+  index is: the rows of the task's files, with the entry's
+  `project_path`, and its time and `model` where the task's start and
+  model come from the entry. Each entry gives its own `task:` row with
+  its own attributes; without a filter the task's rows take the first
+  entry's.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a

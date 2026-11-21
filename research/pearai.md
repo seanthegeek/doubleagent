@@ -609,7 +609,12 @@ Source-derived; not observed on any real install.
 - The agent surface's `taskHistory` entries, primary: one `system` row per entry, `task: <task> |
   tokensIn=<n> tokensOut=<n> totalCost=<n> number=<n>` at the entry's `ts`, the task id as
   `session_id` and `workspace` as `project_path`, so a task whose directory is missing from the
-  collection still shows.
+  collection still shows. The extension replaces a task's entry in place on each update
+  ([`ClineProvider.ts:1453-1465`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/webview/ClineProvider.ts#L1453-L1465)),
+  so a second entry of one `id` is damage or an edit: each entry gives its own row, and the
+  task's rows are shown once, with the `workspace` of one entry, and its `ts` and `modelId` where
+  the task's start and model come from the entry: the first entry that the analysis filters keep,
+  else the first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
 - The `/share` Markdown files and `pearai_memories.json` are not transcripts the dedup rule can
   pair and stay unread.
 
