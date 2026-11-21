@@ -324,7 +324,14 @@ func (r *timelineRun) attach(result parsers.Result, rows []timeline.Row) []timel
 		for _, secondary := range result.Secondary {
 			given = append(given, secondary.Row)
 		}
-		choice = timeline.Choose(probe.Apply(given))
+		var tested timeline.Tested
+		if probe.Since != "" || probe.Until != "" {
+			tested |= timeline.TestedTime
+		}
+		if len(probe.Patterns) > 0 {
+			tested |= timeline.TestedText
+		}
+		choice = timeline.Choose(probe.Apply(given), tested)
 	}
 	return timeline.Attach(rows, choice)
 }

@@ -1453,6 +1453,18 @@ attributes. What the rows of the id are depends on the agent:
   item with no headline or `content` of its own gives a row only when it
   shows the reply.
 
+A row a stored row gives only while the rows of the id go with another
+stored row (a `session_message` row's own content, the `model:` row of a
+later Ollama message) counts for that stored row only when a row shown in
+its place carries what the filters tested of it: its text for `--match`,
+its time for `--since` and `--until`. A Zed link takes the stored row's
+text and time, and the `model:` row of the Ollama message that takes the
+calls names the same change; an OpenCode part is shown with other text,
+so a match on a later record's own content leaves the parts where they
+were and the content shown. A stored row other than the first with a row
+the filters keep that nothing carries is passed over, so the filters
+never hide a row they kept.
+
 The choice is made by the filters reading the rows as the parsers gave
 them, before deduplication, with every row attributed to the first stored
 row; the filters then keep or drop the rows as attributed, so a row kept

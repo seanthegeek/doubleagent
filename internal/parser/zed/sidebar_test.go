@@ -95,6 +95,15 @@ func (f sidebarFilter) keep(rows []timeline.Row) []timeline.Row {
 	return kept
 }
 
+// tested returns what the filter tests of a row.
+func (f sidebarFilter) tested() timeline.Tested {
+	tested := timeline.TestedText
+	if f.since != "" || f.until != "" {
+		tested |= timeline.TestedTime
+	}
+	return tested
+}
+
 // settledSidebar returns the rows of thread t1 the timeline command shows
 // of repeatedSidebar under the filter: the stored row the key goes with is
 // chosen from what the filter keeps of the parse, then the filter runs over
@@ -105,7 +114,7 @@ func settledSidebar(t *testing.T, rowFilter sidebarFilter) []string {
 	t.Helper()
 	rows := parseDatabase(t, repeatedSidebar(t))
 	var got []string
-	for _, row := range rowFilter.keep(timeline.Attach(rows, timeline.Choose(rowFilter.keep(rows)))) {
+	for _, row := range rowFilter.keep(timeline.Attach(rows, timeline.Choose(rowFilter.keep(rows), rowFilter.tested()))) {
 		switch {
 		case row.ProjectPath == "/proj/c":
 		case strings.HasPrefix(row.Text, "unsent draft: "):
@@ -198,7 +207,7 @@ func TestALinkRepeatedInBothTablesKeepsTheFirstSidebarRowsSession(t *testing.T) 
 	for _, rowFilter := range []sidebarFilter{{}, {since: betweenRows}} {
 		rows := parseDatabase(t, data)
 		var links []string
-		for _, row := range rowFilter.keep(timeline.Attach(rows, timeline.Choose(rowFilter.keep(rows)))) {
+		for _, row := range rowFilter.keep(timeline.Attach(rows, timeline.Choose(rowFilter.keep(rows), rowFilter.tested()))) {
 			if strings.HasPrefix(row.Text, "archived worktree: /w/copy0 ") && row.SessionID != "" {
 				links = append(links, row.SessionID)
 			}

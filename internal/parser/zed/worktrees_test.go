@@ -149,7 +149,7 @@ func settledWorktrees(t *testing.T, name, pattern string) []string {
 	}
 	rows := sidebarRows(t, name)
 	var got []string
-	for _, row := range keep(timeline.Attach(rows, timeline.Choose(keep(rows)))) {
+	for _, row := range keep(timeline.Attach(rows, timeline.Choose(keep(rows), timeline.TestedText))) {
 		if rest, found := strings.CutPrefix(row.Text, "archived worktree: "); found {
 			path, _, _ := strings.Cut(rest, " ")
 			got = append(got, path+" "+row.SessionID)
@@ -211,7 +211,7 @@ func TestARepeatedArchivedWorktreeIDsLinksNameTheLineOfTheStoredRowTheyGoWith(t 
 				}
 			}
 			links := 0
-			for _, row := range timeline.Attach(rows, timeline.Choose(kept)) {
+			for _, row := range timeline.Attach(rows, timeline.Choose(kept, timeline.TestedText)) {
 				if row.SessionID == "" || !strings.HasPrefix(row.Text, "archived worktree: ") || !row.Matches(match) {
 					continue
 				}

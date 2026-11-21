@@ -161,6 +161,11 @@ func opencodeRepeatCases() []opencodeRepeatCase {
 		{"a pattern only the first row's rows match keeps them with the first", []string{"--match", "mA|TEXT"},
 			[]string{opencodeRecordC + "model: mA provider=pA", opencodeRecordC + "ITEM-TEXT",
 				opencodeUserA + "USER-PART-TEXT", opencodeModelA + "model: mA provider=pA", assistantA}},
+		{"a pattern only a later record's own content matches shows that content", []string{"--match", "OWN-NEW"},
+			[]string{opencodeRecordD + "OWN-NEW"}},
+		{"a pattern matching a later record's content and model keeps the content shown",
+			[]string{"--match", "OWN-NEW|mB"}, []string{opencodeRecordD + "model: mB provider=pB",
+				opencodeRecordD + "OWN-NEW", opencodeModelB + "model: mB provider=pB"}},
 		{"a pattern neither row's rows match keeps them with the first", []string{"--match", "PART-TEXT|ITEM"},
 			[]string{opencodeRecordC + "ITEM-TEXT", opencodeUserA + "USER-PART-TEXT", assistantA}},
 	}
