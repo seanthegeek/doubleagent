@@ -38,6 +38,9 @@ type partRows struct {
 	// inherited says, for each row, that its time is the message's, as it
 	// has none of its own.
 	inherited []bool
+	// orphan says the parts are of no message read here, so a plain text
+	// part, which either side writes, names no speaker.
+	orphan bool
 }
 
 // add appends a row of the part at, at timestamp, else at the message's
@@ -166,6 +169,8 @@ func (b *partRows) part(where origin, data jsonvalue.Value, timestamp string) {
 			b.add(where, timestamp, timeline.TurnSystem, join("synthetic:", parser.Text(text)))
 		case !data.Get("ignored").IsEmpty():
 			b.add(where, timestamp, timeline.TurnSystem, join("ignored:", parser.Text(text)))
+		case !text.IsEmpty() && b.orphan:
+			b.add(where, timestamp, timeline.TurnSystem, orphanPrefix+parser.Text(text))
 		case !text.IsEmpty():
 			b.add(where, timestamp, timeline.TurnAssistant, parser.Text(text))
 		}

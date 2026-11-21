@@ -24,6 +24,8 @@ func opencodeOrphansV1(t *testing.T) string {
 		return []any{partID, messageID, sessionID, opencodePart + offset, opencodePart + offset,
 			`{"type":"text","text":"` + body + `"}`}
 	}
+	tool := []any{"p6", "mX", "s1", opencodePart + 3000, opencodePart + 3000,
+		`{"type":"tool","tool":"bash","callID":"c1","state":{"status":"pending","input":{"command":"ls"}}}`}
 	return buildDatabase(t,
 		sqlitetest.Table{Name: "session", SQL: opencodeSessionSQL("session"), Rows: [][]any{
 			{"s1", nil, "/proj", "T", opencodeNew, opencodeNew, nil}}},
@@ -34,7 +36,7 @@ func opencodeOrphansV1(t *testing.T) string {
 			"time_created integer, time_updated integer, data text)", Rows: [][]any{
 			text("p1", "m1", "s1", 0, "KEPT"), text("p2", "mX", "s1", 1000, "NO-MESSAGE"),
 			text("p3", nil, "s1", 2000, "NULL-MESSAGE"), text("p4", "m2", "sX", 0, "NO-SESSION"),
-			text("p5", "m3", nil, 0, "NULL-SESSION")}})
+			text("p5", "m3", nil, 0, "NULL-SESSION"), tool}})
 }
 
 // opencodeOrphansV2 returns a 2.x database holding a session s1, an
@@ -47,8 +49,8 @@ func opencodeOrphansV2(t *testing.T) string {
 	record := func(messageID, sessionID any, kind string, seq int, data string) []any {
 		return []any{messageID, sessionID, kind, seq, opencodePart + seq, opencodePart + seq, data}
 	}
-	item := func(partID string, messageID any, body string) []any {
-		return []any{partID, messageID, "s1", "text", 0, `{"text":"` + body + `"}`}
+	item := func(partID string, messageID any, body string, created any) []any {
+		return []any{partID, messageID, "s1", "text", 0, created, `{"text":"` + body + `"}`}
 	}
 	return buildDatabase(t,
 		sqlitetest.Table{Name: "session_v2", SQL: opencodeSessionSQL("session_v2"), Rows: [][]any{
@@ -58,13 +60,13 @@ func opencodeOrphansV2(t *testing.T) string {
 			record("m1", "s1", "assistant", 0, `{"content":[]}`), record("m2", "s1", "user", 1, `{"text":"ASKED"}`),
 			record("m3", "sX", "user", 2, `{"text":"NO-SESSION"}`), record("m4", nil, "user", 3, `{"text":"NULL-SESSION"}`)}},
 		sqlitetest.Table{Name: "session_part", SQL: "CREATE TABLE session_part (id text, message_id text, " +
-			"session_id text, type text, ordinal integer, data text)", Rows: [][]any{
-			item("p1", "m1", "KEPT"), item("p2", "mX", "NO-RECORD"), item("p3", nil, "NULL-RECORD"),
-			item("p4", "m2", "USER-RECORD")}})
+			"session_id text, type text, ordinal integer, time_created integer, data text)", Rows: [][]any{
+			item("p1", "m1", "KEPT", nil), item("p2", "mX", "NO-RECORD", opencodePart+5000),
+			item("p3", nil, "NULL-RECORD", nil), item("p4", "m2", "USER-RECORD", nil)}})
 }
 
 // orphanRun runs timeline over a collection holding database at rel for
-// agent and returns every row as "time session project text".
+// agent and returns every row as "time session project turn text".
 func orphanRun(t *testing.T, agent, rel, database string) []string {
 	t.Helper()
 	work := t.TempDir()
@@ -79,28 +81,36 @@ func orphanRun(t *testing.T, agent, rel, database string) []string {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
 	return recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc", "session_id",
-		"project_path", "text")
+		"project_path", "turn_type", "text")
 }
 
 // A part or item that no message or record read takes is evidence of its
 // own: it is shown with its own session_id, that session's project and its
-// own time, and one parser: row per table counts such rows; a message or
-// record naming a session no row holds, or none, is shown with the session
-// id it names and no project.
+// own time, and one parser: row per table counts such rows. A 1.x plain
+// text part, which either side writes, is a system row naming no speaker;
+// a tool part keeps its tool_use row, as only an assistant message holds
+// one; a 2.x item is an assistant record's content, the only records
+// items belong to. A message or record naming a session no row holds, or
+// none, is shown with the session id it names and no project.
 func TestAPartOfNoMessageIsShownWithItsOwnAttributes(t *testing.T) {
 	const (
 		part        = "2026-06-02T00:00:00.000Z "
 		tail        = " naming no message read here; their rows are shown with their own session_id and no message"
 		currentTail = " naming no assistant record read here; their rows are shown with their own session_id and no record"
+		orphan      = " system part of no message read here: "
 	)
-	legacy := []string{"2026-06-01T00:00:00.000Z s1 /proj session start: T directory=/proj",
-		part + "s1 /proj KEPT", part + "sX  NO-SESSION", part + "  NULL-SESSION",
-		"2026-06-02T00:00:01.000Z s1 /proj NO-MESSAGE", "2026-06-02T00:00:02.000Z s1 /proj NULL-MESSAGE",
-		"   parser: part holds 2 rows" + tail}
-	current := []string{"2026-06-01T00:00:00.000Z s1 /proj session start: T directory=/proj",
-		part + "s1 /proj KEPT", "2026-06-02T00:00:00.001Z s1 /proj ASKED", "2026-06-02T00:00:00.002Z sX  NO-SESSION",
-		"2026-06-02T00:00:00.003Z   NULL-SESSION", "   parser: session_part holds 3 rows" + currentTail,
-		" s1 /proj NO-RECORD", " s1 /proj NULL-RECORD", " s1 /proj USER-RECORD"}
+	legacy := []string{"2026-06-01T00:00:00.000Z s1 /proj system session start: T directory=/proj",
+		part + "s1 /proj user KEPT", part + "sX  user NO-SESSION", part + "  user NULL-SESSION",
+		"2026-06-02T00:00:01.000Z s1 /proj" + orphan + "NO-MESSAGE",
+		"2026-06-02T00:00:02.000Z s1 /proj" + orphan + "NULL-MESSAGE",
+		"2026-06-02T00:00:03.000Z s1 /proj tool_use ls",
+		"   system parser: part holds 3 rows" + tail}
+	current := []string{"2026-06-01T00:00:00.000Z s1 /proj system session start: T directory=/proj",
+		part + "s1 /proj assistant KEPT", "2026-06-02T00:00:00.001Z s1 /proj user ASKED",
+		"2026-06-02T00:00:00.002Z sX  user NO-SESSION", "2026-06-02T00:00:00.003Z   user NULL-SESSION",
+		"2026-06-02T00:00:05.000Z s1 /proj assistant NO-RECORD",
+		"   system parser: session_part holds 3 rows" + currentTail,
+		" s1 /proj assistant NULL-RECORD", " s1 /proj assistant USER-RECORD"}
 	for _, test := range []struct {
 		name, agent, rel string
 		build            func(*testing.T) string

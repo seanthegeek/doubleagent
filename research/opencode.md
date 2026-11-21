@@ -1533,10 +1533,31 @@ A 1.x `part` row that no message read takes (its `message_id` names no `message`
 names a message whose `data` does not decode) and a `session_part` row that no assistant record
 read claims (its `message_id` names no `session_message` row, is NULL, or names a record that is
 not an assistant record with `content`) give their own rows, with their own `session_id`, that
-session's project, their own time (a part's `time_created`; an item has only the times inside its
-`data`) and no model. A 1.x text part is shown as the assistant's, since only its message says
-whose it is, and an item as an assistant record's content, the only records items belong to. One
-`system` row per table, with no session and `source_line` 0, counts them:
+session's project, their own time (the times inside its `data`, else its row's `time_created`) and
+no model. A 1.x plain text part, which a user message and an assistant message both hold, is a
+`system` row naming no speaker, its text in full:
+
+```text
+part of no message read here: <text>
+```
+
+The other 1.x part types give the rows their type gives, since each is written for one side: the
+`tool`, `reasoning`, `step-start`, `step-finish`, `patch` and `retry` parts only on an assistant
+message
+([`processor.ts:240-680`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/processor.ts#L240-L680),
+and the `tool` parts of
+[`prompt.ts:270-337`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/prompt.ts#L270-L337)
+and
+[`:498-506`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/prompt.ts#L498-L506)
+on the assistant message it makes), and the `file`, `agent`, `subtask` and `compaction` parts,
+`system` rows that name no speaker. An item is shown as an assistant record's content: the
+`session_part.type` column is typed as an assistant content item, the projector writes part rows
+only for an assistant message and the reader merges them only into one
+([`session/sql.ts:107-128`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/sql.ts#L107-L128),
+[`projector.ts:317-332`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/projector.ts#L317-L332),
+[`history.ts:94-122`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L94-L122)),
+and no build before 2.0.32, which added the table ([Format versions](#format-versions)), has
+items. One `system` row per table, with no session and `source_line` 0, counts them:
 
 ```text
 parser: part holds <n> rows naming no message read here; their rows are shown with their own session_id and no message

@@ -9,15 +9,20 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
+// orphanPrefix starts the system row of a plain text part of no message
+// read here: either side writes text parts, and only the message says
+// which, so the row names no speaker.
+const orphanPrefix = "part of no message read here: "
+
 // orphanParts emits the rows of each 1.x part row that no message read
 // here took (consumed holds the rowids of those taken): one whose
 // message_id names no message row, or is NULL, or names a message whose
 // data did not decode. A part is evidence of its own, so its rows are
 // shown with the attributes it has itself, its session_id, the project of
-// that session and its own time, and no model; a text part, whose role
-// only its message says, is shown as the assistant's. One `parser:` row
-// counts them. A part of a message in a session skip leaves out is the
-// 1.x copy of a session read elsewhere and gives nothing.
+// that session and its own time, and no model; a plain text part is a
+// system row (orphanPrefix), the other types keep the rows their type
+// gives. One `parser:` row counts them. A part of a message in a session
+// skip leaves out is the 1.x copy of a session read elsewhere.
 func (s *store) orphanParts(consumed map[int]bool, skip map[string]bool, emit parser.Emit) error {
 	if !s.tables.Has("part") {
 		return nil
@@ -48,7 +53,8 @@ func (s *store) orphanParts(consumed map[int]bool, skip map[string]bool, emit pa
 		if !ok {
 			continue
 		}
-		builder := &partRows{owner: s.owner, artifact: s.artifact, scoped: s.scopeFor(reference), options: s.options}
+		builder := &partRows{owner: s.owner, artifact: s.artifact, scoped: s.scopeFor(reference), options: s.options,
+			orphan: true}
 		builder.parts([]part{{data: data, where: origin{line: int(row.Rowid),
 			time: parser.ColumnTime(row.Get("time_created"))}}}, false)
 		parser.EmitAll(s.memberEmit(reference, timeline.TakeProject, emit), builder.rows)
@@ -84,8 +90,9 @@ func (s *store) inSkippedMessage(row sqlitefile.Row, skip map[string]bool) (bool
 // message_id names no record, or is NULL, or names a record that does not
 // take items. An item is evidence of its own, so its rows are shown as an
 // assistant record's content, the only records items belong to, with the
-// item's session_id and that session's project, no model and no time but
-// the item's own. One `parser:` row counts them.
+// item's session_id and that session's project, no model, and its own
+// times, its row's time_created where it has none inside it. One
+// `parser:` row counts them.
 func (s *store) orphanItems(items sessionItems, stored []storedRecord) {
 	claimed := map[string]bool{}
 	for _, each := range stored {
@@ -100,7 +107,8 @@ func (s *store) orphanItems(items sessionItems, stored []storedRecord) {
 		}
 		shown++
 		builder := &recordRows{owner: s.owner, artifact: s.artifact, scoped: s.scopeFor(item.session),
-			line: int(item.rowid), options: s.options, emit: s.memberEmit(item.session, timeline.TakeProject, s.emit)}
+			line: int(item.rowid), timestamp: item.created, options: s.options,
+			emit: s.memberEmit(item.session, timeline.TakeProject, s.emit)}
 		builder.items(jsonvalue.NewArray(item.data))
 	}
 	if shown > 0 {

@@ -311,11 +311,12 @@ type sessionItems struct {
 }
 
 // storedItem is one decoded session_part row: the key of its message id,
-// the session it names, its rowid and its item.
+// the session it names, its rowid, its time_created and its item.
 type storedItem struct {
 	message string
 	session sessionRef
 	rowid   int64
+	created string
 	data    jsonvalue.Value
 }
 
@@ -331,8 +332,11 @@ func (s *store) sessionParts(skip map[string]bool) (sessionItems, error) {
 	if err != nil {
 		return items, err
 	}
-	rows, err := table.Select("message_id", "session_id", "type", "data").
-		OrderBy("message_id, ordinal").All()
+	columns := []string{"message_id", "session_id", "type", "data"}
+	if table.Has("time_created") {
+		columns = append(columns, "time_created")
+	}
+	rows, err := table.Select(columns...).OrderBy("message_id, ordinal").All()
 	if err != nil {
 		return items, err
 	}
@@ -353,7 +357,7 @@ func (s *store) sessionParts(skip map[string]bool) (sessionItems, error) {
 			items.byMessage[message] = append(items.byMessage[message], data)
 		}
 		items.rows = append(items.rows, storedItem{message: message, session: identifier, rowid: row.Rowid,
-			data: data})
+			created: parser.ColumnTime(row.Get("time_created")), data: data})
 	}
 	return items, nil
 }
