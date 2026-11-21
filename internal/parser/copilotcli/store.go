@@ -2,6 +2,7 @@ package copilotcli
 
 import (
 	"cmp"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -95,43 +96,91 @@ type stamper struct {
 	emit     parser.Emit
 }
 
-// storedSession is a sessions row and its cwd and branch as row text,
-// made once for every row of the session to share.
+// storedSession is the first sessions row of an id and its cwd and branch
+// as row text, made once for every row of the session to share, with the
+// number of rows of the id and, when that is more than one, their group.
 type storedSession struct {
 	row         sqlitefile.Row
 	cwd, branch string
+	count       int
+	group       *timeline.Group
 }
 
 // stamp emits a row of a session of the store, with the project and branch
-// the session record gives.
+// the session record gives; a row of a repeated session id is a member of
+// its group (sessionRows), taking the project and branch of the stored row
+// the group goes with.
 func (s *stamper) stamp(sessionID string, line int64, turn, text string, timestamp sqlitefile.Value,
 	toolUseID string) {
 	session := s.sessions[sessionID]
-	s.emit(s.parser.row(s.artifact, int(line), turn, text, columns{
+	row := s.parser.row(s.artifact, int(line), turn, text, columns{
 		timestamp: parser.ColumnTime(timestamp), sessionID: sessionID,
 		project: cmp.Or(session.cwd, s.sidebar[sessionID]),
-		branch:  session.branch, toolUseID: toolUseID}))
+		branch:  session.branch, toolUseID: toolUseID})
+	if session.group != nil {
+		session.group.Member(&row, timeline.TakeProject|timeline.TakeBranch)
+	}
+	s.emit(row)
+}
+
+// readSessions returns the sessions rows in created_at order and keeps the
+// first row of each id, with a group for each id held in more than one.
+func (s *stamper) readSessions(reader *store) []sqlitefile.Row {
+	sessions := reader.rows("sessions", "created_at")
+	for _, session := range sessions {
+		sessionID := stored(session, "id")
+		entry, seen := s.sessions[sessionID]
+		if !seen {
+			entry = storedSession{row: session, cwd: stored(session, "cwd"), branch: stored(session, "branch")}
+		}
+		if entry.count++; entry.count == 2 {
+			entry.group = timeline.NewGroup()
+		}
+		s.sessions[sessionID] = entry
+	}
+	return sessions
+}
+
+// sessionRows emits the rows of one sessions row: its "session name:" row
+// when it has a summary, and, for a session id the table holds in more
+// than one row, which only damage or an edit writes since the id is the
+// table's key, a `parser:` row saying so that makes the stored row a
+// parent of the id's group (timeline.Group), both with the row's own time,
+// project and branch.
+func (s *stamper) sessionRows(session sqlitefile.Row) {
+	sessionID := stored(session, "id")
+	entry := s.sessions[sessionID]
+	set := columns{timestamp: parser.ColumnTime(session.Get("created_at")), sessionID: sessionID,
+		project: cmp.Or(entry.cwd, s.sidebar[sessionID]), branch: entry.branch}
+	if entry.group != nil {
+		set.project, set.branch = cmp.Or(stored(session, "cwd"), s.sidebar[sessionID]), stored(session, "branch")
+	}
+	var rows []timeline.Row
+	if present(session, "summary") {
+		rows = append(rows, s.parser.row(s.artifact, int(session.Rowid), timeline.TurnSystem,
+			"session name: "+session.Get("summary").String(), set))
+	}
+	if entry.group != nil {
+		notice := s.parser.row(s.artifact, int(session.Rowid), timeline.TurnSystem, "", set)
+		parent := entry.group.Parent(&notice)
+		prefix := parser.ProblemPrefix + "sessions holds " + strconv.Itoa(entry.count) +
+			" rows of this row's id; its turns, files, references, checkpoints and tool events are shown once, with "
+		parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+			timeline.RowText{Text: prefix + "another of them"})
+		for i := range rows {
+			parent.Row(&rows[i], timeline.Always)
+		}
+		rows = append(rows, notice)
+	}
+	parser.EmitAll(s.emit, rows)
 }
 
 // storeRows emits the rows of every table of the store the parser reads.
 func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parser.Emit) {
 	stamps := &stamper{parser: p, artifact: artifact, sessions: map[string]storedSession{},
 		sidebar: p.sidebarJoin(artifact), emit: emit}
-	var order []string
-	for _, session := range reader.rows("sessions", "created_at") {
-		sessionID := stored(session, "id")
-		if _, seen := stamps.sessions[sessionID]; !seen {
-			order = append(order, sessionID)
-		}
-		stamps.sessions[sessionID] = storedSession{row: session, cwd: stored(session, "cwd"),
-			branch: stored(session, "branch")}
-	}
-	for _, sessionID := range order {
-		session := stamps.sessions[sessionID].row
-		if present(session, "summary") {
-			stamps.stamp(sessionID, session.Rowid, timeline.TurnSystem,
-				"session name: "+session.Get("summary").String(), session.Get("created_at"), "")
-		}
+	for _, session := range stamps.readSessions(reader) {
+		stamps.sessionRows(session)
 	}
 	for _, turn := range reader.rows("turns", "session_id, turn_index") {
 		for _, column := range [][2]string{{"user_message", timeline.TurnUser},

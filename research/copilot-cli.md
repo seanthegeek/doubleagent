@@ -1030,7 +1030,7 @@ Other files:
 | File | Rows |
 | --- | --- |
 | `session-store.db` `turns` | `user` from `user_message` and `assistant` from `assistant_response` when not null; `timestamp`, `session_id`, `project_path` and `git_branch` from `sessions`; `source_line` the rowid |
-| `session-store.db` `sessions` | `system`, `session name: <summary>` at `created_at` |
+| `session-store.db` `sessions` | `system`, `session name: <summary>` at `created_at`; for a session id the table holds in more than one row, each row also gives `parser: sessions holds <n> rows of this row's id; its turns, files, references, checkpoints and tool events are shown once, with this row` (`another of them` in place of `this row` for each row the session's rows are not shown with) at its `created_at`, both with the row's own `cwd` and `branch` |
 | `session-store.db` `session_files` / `session_refs` | `system`, `file changed: <file_path> tool=<tool_name>` at `first_seen_at` / `reference: <ref_type> <ref_value>` at `created_at` |
 | `session-store.db` `checkpoints` | `system`, `checkpoint <n>: <title>` and each non-null column on its own line, at `created_at` |
 | `session-store.db` `forge_trajectory_events` | `tool_use` (`command`) and `tool_result` (`output`, `[exit N]`) joined on `tool_call_id` (empty table observed; unverified) |
@@ -1140,6 +1140,14 @@ the analyzer rebuilds from it is in [What survives a delete](#what-survives-a-de
 `events.jsonl` is read with `iter_jsonl`; each bad line is its own
 `system` row, `parser: unparseable line (<reason>): <line>` with the line
 in full ([issue 136](https://github.com/seanthegeek/doubleagent/issues/136)), and reading continues.
+
+The `sessions` table's key is `id`, so a second row of one session id is damage or an edit. Each
+stored row of the id gives its own `session name:` row and a `parser:` row saying so, with its own
+project and branch, and the session's `turns`, `session_files`, `session_refs`, `checkpoints` and
+`forge_trajectory_events` rows are shown once, with the `project_path` and `git_branch` of one of
+its rows: the first, in `created_at` order, that the analysis filters keep, else the first
+([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). The session's
+`events.jsonl`, which repeats its turns, is another store and keeps its own project.
 
 A `session-store.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;

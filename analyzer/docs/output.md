@@ -1468,6 +1468,14 @@ attributes. What the rows of the id are depends on the agent:
   `subagent task:` is decided by the first stored row. Without a filter
   the thread's rows take the first stored row's attributes, in
   `created_at` order.
+- **Copilot CLI**, a `session-store.db` `sessions` row repeating a
+  session id: the session's turns, changed files, references,
+  checkpoints and tool events in that database, with the stored row's
+  `project_path` and `git_branch`. Each stored row gives its own
+  `session name:` row, when it has a `summary`, and a `parser:` row at
+  its `created_at`, with its own `project_path` and `git_branch`; without
+  a filter the session's rows take the first stored row's, in
+  `created_at` order.
 
 A row a stored row gives only while the rows of the id go with another
 stored row (a `session_message` row's own content, the `model:` row of a
