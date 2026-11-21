@@ -821,7 +821,9 @@ assistant message when the log was trimmed, whose
 row `model: <key>` at the agent's first model and `model: <old> -> <new>`
 on a change, tracked per chat `id` and agent `number` (`agentno` on log
 items), with ` agent=<n>` after it for a subordinate agent. These `model:` rows from
-`provider_model_key` are already written.
+`provider_model_key` are already written. An assistant message repeating an earlier message's id
+([Parser plan](#parser-plan)) holds no place in that sequence, so it gives `model: <key>` alone,
+never a change from another message's model, and the tracking of the rows around it is unchanged.
 
 After the chat start row, at the file's modification time, source-derived; not observed on any
 real install:

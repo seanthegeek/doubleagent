@@ -984,10 +984,13 @@ func (c *chat) logRows(logs []jsonvalue.Value) {
 // names the id: each a member of the group the id's items are parents of
 // (timeline.Member), at the time and source line of the item the group
 // goes with, else at those of the id's first log item. A message no log
-// item names is shown only among a trimmed log's rows (trimmedRows).
+// item names is shown only among a trimmed log's rows (trimmedRows). Such a
+// message holds no place in the chat's sequence of models, so its model
+// row names its own model alone (a tracker of its own), and the chat's
+// tracker is left as the log left it.
 func (c *chat) laterRows() {
-	emit := c.emit
-	defer func() { c.emit = emit }()
+	emit, models := c.emit, c.models
+	defer func() { c.emit, c.models = emit, models }()
 	for _, entry := range c.later {
 		itemID := entry.message.Get("id").Text()
 		place, named := c.firstItems[itemID]
@@ -996,6 +999,7 @@ func (c *chat) laterRows() {
 		}
 		var rows []timeline.Row
 		c.emit = func(row timeline.Row) { rows = append(rows, row) }
+		c.models = parser.Tracker{}
 		c.historyRows(entry.agent, entry.message)
 		for _, row := range rows {
 			if c.parented[itemID] {
