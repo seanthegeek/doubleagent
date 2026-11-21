@@ -102,12 +102,14 @@ func (s *store) rows() error {
 	if s.users, err = s.readUsers(); err != nil {
 		return err
 	}
+	// A step runs when its table or the table of rows naming it exists, so
+	// a message, section or repository whose parent table is gone is shown.
 	for _, step := range []struct {
-		table string
-		run   func() error
-	}{{"threads", s.threads}, {"pages", s.pages}, {"user_events", s.userEvents},
-		{"integrations", s.integrations}} {
-		if s.tables.Has(step.table) {
+		table, children string
+		run             func() error
+	}{{"threads", "thread_messages", s.threads}, {"pages", "page_sections", s.pages},
+		{"user_events", "user_events", s.userEvents}, {"integrations", "provided_repositories", s.integrations}} {
+		if s.tables.Has(step.table) || s.tables.Has(step.children) {
 			if err := step.run(); err != nil {
 				return err
 			}
@@ -264,12 +266,14 @@ type parent struct {
 // of children no row has, whose children still get read under that id.
 func (s *store) parents(table, order string, children *grouped) ([]parent, error) {
 	var list []parent
-	err := s.each(table, order, func(row sqlitefile.Row) {
-		list = append(list, parent{key: parser.CollatedKey(row.Get("id"), children.collation),
-			parentID: row.Get("id").String(), row: row})
-	})
-	if err != nil {
-		return nil, err
+	if s.tables.Has(table) {
+		err := s.each(table, order, func(row sqlitefile.Row) {
+			list = append(list, parent{key: parser.CollatedKey(row.Get("id"), children.collation),
+				parentID: row.Get("id").String(), row: row})
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	known := map[string]bool{}
 	for _, each := range list {
@@ -589,10 +593,13 @@ func (s *store) integrationNames() (map[string]integrationNamed, string, error) 
 	names, collation := map[string]integrationNamed{}, s.idCollation("integrations")
 	var stored []sqlitefile.Row
 	counts := map[string]int{}
-	err := s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
-		stored = append(stored, integration)
-		counts[parser.CollatedKey(integration.Get("id"), collation)]++
-	})
+	var err error
+	if s.tables.Has("integrations") {
+		err = s.each("integrations", "created_at,id", func(integration sqlitefile.Row) {
+			stored = append(stored, integration)
+			counts[parser.CollatedKey(integration.Get("id"), collation)]++
+		})
+	}
 	for _, integration := range stored {
 		kind, apiBase := parser.NonEmptyColumn(integration.Get("kind")), parser.NonEmptyColumn(integration.Get("api_base"))
 		host := integrationHosts()[kind]

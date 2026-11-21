@@ -746,6 +746,13 @@ time or none. One row per table,
 (`1 row repeating` for one), follows the database's other rows, with `source_line` 0, counting the
 rows that met a group an earlier row of their id already showed.
 
+A message, section or repository naming a parent no row holds, or a NULL one, is shown, also when
+the parent's table is missing: a message under a `thread start | thread row missing` row and a
+section under a `page start | page row missing` row, each stand-in at no time, its session the
+thread id or `page:<id>` the children name (an empty id for NULL); a thread or page naming no user gives
+`owner user_id=<id>` or `author user_id=<id>`, an event `user=<id>`, and a repository naming no
+integration `type=-` and `(integration integration_id=<id>; ...)`.
+
 A user id is the `users` table's key (`INTEGER PRIMARY KEY AUTOINCREMENT`,
 [schema.sql:17-30](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L17-L30)),
 so only damage writes two rows of one. A user's label is text inside the start rows of the threads

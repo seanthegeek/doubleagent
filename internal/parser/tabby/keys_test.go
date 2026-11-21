@@ -85,3 +85,42 @@ func TestARepositoryWithANullIntegrationIDNamesNoIntegration(t *testing.T) {
 		}
 	}
 }
+
+// A row naming a parent no stored row holds is shown, even when the
+// parent's table is gone: a message under a thread start stand-in saying
+// the thread row is missing, a section under a page start stand-in
+// saying the same of the page (the database has no pages table), a
+// thread naming no user by the user's id, and a repository naming no
+// integration by the integration's id (it has no integrations table).
+func TestARowNamingAMissingParentIsShown(t *testing.T) {
+	const created = "2026-01-01 00:00:00"
+	rows := parseTables(t,
+		sqlitetest.Table{Name: "users", SQL: "CREATE TABLE users (id INTEGER, email TEXT, name TEXT, " +
+			"auth_token TEXT, created_at TEXT)", Rows: [][]any{{1, "a@example.com", "A", nil, created}}},
+		sqlitetest.Table{Name: "threads", SQL: "CREATE TABLE threads (id INTEGER, user_id INTEGER, " +
+			"created_at TIMESTAMP)", Rows: [][]any{{7, 9, created}}},
+		sqlitetest.Table{Name: "thread_messages", SQL: "CREATE TABLE thread_messages (id INTEGER, thread_id INTEGER, " +
+			"role TEXT, content TEXT)", Rows: [][]any{{1, 8, "user", "lost thread"}}},
+		sqlitetest.Table{Name: "page_sections", SQL: "CREATE TABLE page_sections (id INTEGER, page_id INTEGER, " +
+			"title TEXT, content TEXT, position INTEGER)", Rows: [][]any{{1, 3, "sec", "body", 0}}},
+		sqlitetest.Table{Name: "provided_repositories", SQL: "CREATE TABLE provided_repositories (id INTEGER, " +
+			"integration_id INTEGER, name TEXT, git_url TEXT, active INTEGER, updated_at TEXT)",
+			Rows: [][]any{{1, 5, "r", "https://example.com/r.git", 1, created}}})
+	want := []string{"thread start | owner user_id=9", "thread start | thread row missing", "lost thread",
+		"page start | page row missing", "sec\n\nbody",
+		"source host repository: https://example.com/r.git type=- name=r active=yes (integration integration_id=5; " +
+			"from provided_repositories table, updated_at)"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("rows %q, want %q", rows, want)
+	}
+}
+
+// A message whose database has no threads table is shown under a thread
+// start stand-in saying the thread row is missing.
+func TestAMessageWithNoThreadsTableIsShown(t *testing.T) {
+	rows := parseTables(t, sqlitetest.Table{Name: "thread_messages", SQL: "CREATE TABLE thread_messages (id INTEGER, " +
+		"thread_id INTEGER, role TEXT, content TEXT)", Rows: [][]any{{1, 8, "user", "lost thread"}}})
+	if want := []string{"thread start | thread row missing", "lost thread"}; !slices.Equal(rows, want) {
+		t.Errorf("rows %q, want %q", rows, want)
+	}
+}

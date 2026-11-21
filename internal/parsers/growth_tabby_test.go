@@ -87,6 +87,14 @@ func tabbyRepeatedKeyCases() []growthCase {
 					}),
 				}))
 			}},
+		// Each section naming a page no row holds, in a database with no
+		// pages table, is shown under a stand-in of its page.
+		{kind: "db.sqlite", shape: shapeSharedID + " (sections naming no page)",
+			files: func(t *testing.T, n int) []growthFile {
+				return one(tabbyDatabaseRel, tabbyDatabase(t, map[string][][]any{
+					"page_sections": rows(n, func(i int) []any { return []any{i, i, "s", "c", 0, tabbyTime} }),
+				}))
+			}},
 		// Each stored row of a repeated integration id gives its own rows,
 		// and the repositories cached from it name it by id alone.
 		{kind: "db.sqlite", shape: shapeSharedID + " (integrations named by many repositories)",
