@@ -2295,7 +2295,9 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   A blob naming several deleted conversations gives each of them its row, and the rows share the
   blob's text: the timeline writes it in full in the first of them it keeps, and in each later one
   `[agentKv blob text shown in full above, under another session at source line <rowid>]`
-  in its place, after the label of a `system` row, so the blob's text is never repeated. Blobs of
+  in its place, after the label of a `system` row, so the blob's text is never repeated. A role
+  longer than 4,096 bytes is cut once per blob, as every row's label repeats it, and counted in one
+  `parser: agentKv blob role longer than 4096 bytes, cut to 4096 bytes (<n> times)` row. Blobs of
   a conversation still present are not yielded: their user text is the whole prompt with its
   context, which repeats the bubbles in a form deduplication cannot match. Protobuf blobs yield
   nothing.

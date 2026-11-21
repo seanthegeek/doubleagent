@@ -101,6 +101,11 @@ func cursorStateCases() []growthCase {
 		{kind: "state.vscdb", shape: shapeLargeShared, n: 2048, files: func(t *testing.T, n int) []growthFile {
 			return one(cursorStateRel, cursorDeletedBlob(t, "tool", n))
 		}},
+		// The role, read from the blob, is in the label of every
+		// composer's row.
+		{kind: "state.vscdb", shape: shapeCarried + " (a blob's role)", n: 256, files: func(t *testing.T, n int) []growthFile {
+			return one(cursorStateRel, cursorDeletedBlob(t, strings.Repeat("r", 36*n), n))
+		}},
 		{kind: "state.vscdb", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			keyValues := append([][]any{cursorComposer("c1", "/p", "main", n)}, rows(n, func(i int) []any {
 				return []any{"bubbleId:c1:b" + strconv.Itoa(i), `{"type":1,"text":`}

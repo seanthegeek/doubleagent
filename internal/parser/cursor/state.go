@@ -92,10 +92,10 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 			deleted = append(deleted, current)
 		}
 	}
-	if len(deleted) > 0 && keyValues != nil {
-		reader.blobs(deleted, emit)
-	}
 	var problems parser.Problems
+	if len(deleted) > 0 && keyValues != nil {
+		reader.blobs(deleted, &problems, emit)
+	}
 	if reader.strayChunks > 0 {
 		problems.Add(0, strayChunksText(reader.strayChunks))
 	}
@@ -354,8 +354,11 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 // error. Each deleted composer a blob names gets its row, and the rows
 // share the blob's text: the output writes it in full in the first of them
 // it keeps and a pointer to that row in each later one, so the text is
-// never repeated.
-func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
+// never repeated. The role in each row's label is cut once per blob
+// (parser.Carried), the cuts counted in problems.
+func (r *stateReader) blobs(deleted []*composer, problems *parser.Problems, emit parser.Emit) {
+	carried := parser.NewCarried(r.artifact)
+	defer carried.Report(0, problems)
 	idents := make([]string, len(deleted))
 	for i, current := range deleted {
 		idents[i] = current.ident
@@ -368,8 +371,9 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 		}
 		content := blob.Get("content")
 		text := timeline.NewSharedText(timeline.Compact(parser.TextOf(content)))
+		turnType, label := blobLabel(parser.Text(blob.Get("role")), carried)
 		for _, position := range named.Find(parser.SettingValue(content)) {
-			r.blob(r.owner.newStamper(r.artifact, deleted[position], emit), blob, text, row.rowid)
+			r.blob(r.owner.newStamper(r.artifact, deleted[position], emit), turnType, label, text, row.rowid)
 		}
 	}
 }
@@ -382,18 +386,23 @@ func blobPointer(holder *timeline.Row, _ bool) string {
 		strconv.Itoa(holder.SourceLine) + "]"
 }
 
-// blob emits the row of one JSON agentKv blob, whose text is shared, in a
-// composer: a user or assistant message recovered, or a system row for any
-// other role.
-func (r *stateReader) blob(stamp *stamper, blob jsonvalue.Value, shared *timeline.SharedText, rowid int64) {
-	role := parser.Text(blob.Get("role"))
-	turnType, label := role, ""
-	if role != "user" && role != "assistant" {
-		turnType, label = timeline.TurnSystem, "system prompt: "
-		if role != "system" {
-			label = cmp.Or(role, "-") + " message: "
-		}
+// blobLabel returns the turn type and the label of the rows of a blob of
+// role: a user or assistant message, else a system row labelled by the
+// role, which is cut (carried) since every composer's row repeats it.
+func blobLabel(role string, carried *parser.Carried) (string, string) {
+	switch role {
+	case "user", "assistant":
+		return role, ""
+	case "system":
+		return timeline.TurnSystem, "system prompt: "
 	}
+	return timeline.TurnSystem, cmp.Or(carried.Cut("agentKv blob role", role), "-") + " message: "
+}
+
+// blob emits the row of one JSON agentKv blob, whose text is shared, in a
+// composer: a user or assistant message recovered, or a system row with
+// the label of any other role.
+func (r *stateReader) blob(stamp *stamper, turnType, label string, shared *timeline.SharedText, rowid int64) {
 	made := stamp.row(turnType, label, "", rowid, "")
 	if shared.Text() != "" {
 		var out timeline.TextBuilder
