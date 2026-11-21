@@ -702,11 +702,15 @@ the `messages/<n>.txt` file that message names. Each message's text joins one lo
 among those that show it: a `user` item showing its `user_message`, an `agent` item whose reply
 comes from it, or a tool item showing its result or message file. An item that shows only its own
 `content` (a `response`, `info` or `warning`, or an item of the wrong kind for the message) never
-takes the text, and neither does a later `agent` item with neither a headline nor `content` of its
-own, which gives no row. The item is the first of those, in log order, that `--since`, `--until` and
+takes the text. The item is the first of those, in log order, that `--since`, `--until` and
 `--match` keep, or the first when they keep none or none is given; `--match` finds each of them by
 the message's text as well as by its own `content`. Every other item with the same id keeps the id,
-the message's model and, for a tool item, its `tool_name`, but gives only its own `content`. Each
+the message's model and, for a tool item, its `tool_name`, but gives only its own `content`; an
+`agent` item with neither a headline nor `content` of its own gives a reply row only when it is the
+item that shows the message's text. The text is held once for the id however many items name it; a
+copy of the row showing it, which the output never writes, would read
+`[history message shown in full above, at source line <no>]` (until then the row holds
+`[history message]` in its place). Each
 message file is read at most once per chat, its text joining the log items of the first id that
 reaches it; on a disk that matches names without regard to letter case (accented and non-Latin
 letters included) or, on macOS, to whether an accented letter is written as one character or as a

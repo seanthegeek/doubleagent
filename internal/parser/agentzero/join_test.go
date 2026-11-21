@@ -54,6 +54,7 @@ func TestAHistoryMessageJoinsOnlyTheFirstLogItemNamingIt(t *testing.T) {
 			if err := subject.Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 				t.Fatal(err)
 			}
+			rows = asWritten(rows)
 			text := 0
 			for _, row := range rows[1:] {
 				text += len(row.Text)
@@ -107,6 +108,15 @@ func joinChat(logs string) string {
 		`}],"log":{"logs":[` + logs + `]}}`
 }
 
+// asWritten returns rows as a run without a filter writes them: each group
+// of a repeated id with its first parent (timeline.Attach), and the shared
+// texts written out (timeline.Resolve).
+func asWritten(rows []timeline.Row) []timeline.Row {
+	rows = timeline.Attach(rows, nil)
+	timeline.Resolve(rows)
+	return rows
+}
+
 // A history message's text joins the first log item of its id that shows
 // it, so an item of another kind naming the id first, which shows only its
 // own content, leaves the text to the next; the text is in exactly one
@@ -136,13 +146,15 @@ func TestAHistoryMessageJoinsTheFirstLogItemThatShowsIt(t *testing.T) {
 			writeFile(t, home, rel, joinChat(test.logs))
 			artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
 				Rel: rel, Home: &input.Home{DiskPath: home}}
+			var rows []timeline.Row
+			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+				t.Fatal(err)
+			}
 			var got []string
-			if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
+			for _, row := range asWritten(rows) {
 				if row.TurnType != timeline.TurnSystem || !strings.HasPrefix(row.Text, "chat ") {
 					got = append(got, row.TurnType+" "+row.ToolName+" "+row.Text)
 				}
-			}); err != nil {
-				t.Fatal(err)
 			}
 			if !slices.Equal(got, test.want) {
 				t.Errorf("got %q, want %q", got, test.want)
@@ -236,16 +248,18 @@ func TestAHistoryTextIsBuiltOncePerIDForAllItsItems(t *testing.T) {
 		writeFile(t, home, rel, subordinateChat(items, size))
 		artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)),
 			Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-		var texts []string
+		var rows []timeline.Row
 		var before, after runtime.MemStats
 		runtime.ReadMemStats(&before)
-		if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) {
-			texts = append(texts, row.Text)
-		}); err != nil {
+		if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 			t.Fatal(err)
 		}
 		runtime.ReadMemStats(&after)
 		allocated[items] = int64(after.TotalAlloc - before.TotalAlloc)
+		var texts []string
+		for _, row := range asWritten(rows) {
+			texts = append(texts, row.Text)
+		}
 		want := "[agent 1] " + strings.Repeat("U", size) + " [attachments: a.txt]"
 		if len(texts) != items+1 || texts[1] != want || texts[2] != "[agent 1] own [attachments: a.txt]" {
 			t.Errorf("%d items gave %d rows, want %d, the first with the history text", items, len(texts), items+1)

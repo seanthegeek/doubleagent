@@ -368,7 +368,7 @@ type chat struct {
 	// shown in the first item of the id that shows it and the filters keep.
 	repeated map[string]bool
 	groups   map[string]*timeline.Group
-	chosen   map[chosenKey]string
+	chosen   map[chosenKey]timeline.RowText
 	// work counts the message files read and the replies decoded, which
 	// tests hold to one each.
 	work   parser.Work
@@ -431,7 +431,7 @@ func (p *Parser) parseChat(artifact *input.Artifact, options parser.Options, emi
 	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), history: map[string]historyEntry{}, fileTexts: map[string]string{},
 		replies: map[string]decodedReply{}, groups: map[string]*timeline.Group{},
-		chosen: map[chosenKey]string{},
+		chosen: map[chosenKey]timeline.RowText{},
 		work:   p.Work, models: parser.Tracker{}}
 	state.base.SessionID = fallbackID
 	content, ok := parser.FileBytes(artifact.DiskPath, &state.problems)
@@ -778,8 +778,8 @@ type chosenKey struct {
 // an id other items name, the row is a parent of the id's group with both
 // texts (Parent.Texts), so the message's text is shown only in the first
 // such item the filters keep. An optional row with no text of its own is
-// written only for the id's first such item, and shown only when chosen: a
-// later item would write a row the output without a filter lacks.
+// shown only when chosen (timeline.WhenChosen), so the output without a
+// filter writes it only for the id's first such item.
 func (c *chat) joinedRow(current *logItem, how joined,
 	row func(turn, text string) timeline.Row) (timeline.Row, bool) {
 	shown, shows := how.text(current.body)
@@ -788,30 +788,46 @@ func (c *chat) joinedRow(current *logItem, how joined,
 		return row(how.turn, shown+how.suffix), hasText
 	}
 	group, ok := c.groups[current.itemID]
-	own, _ := how.text(jsonvalue.NewNull())
-	empty := how.optional && own == "" && how.suffix == ""
-	if ok && empty {
-		return timeline.Row{}, false
-	}
 	if !ok {
 		group = timeline.NewGroup()
 		c.groups[current.itemID] = group
 	}
-	key := chosenKey{current.itemID, how.turn, current.agent.Text(), how.suffix}
-	chosen, ok := c.chosen[key]
-	if !ok {
-		chosen = row(how.turn, shown+how.suffix).Text
-		c.chosen[key] = chosen
-	}
+	chosen := c.chosenText(current, how, shown)
 	made := row(how.turn, "")
-	made.Text = chosen
+	made.Text, made.Shared = chosen.Text, chosen.Shared
 	parent := group.Parent(&made)
-	if empty {
-		parent.Row(&made, timeline.WhenChosen)
+	if own, _ := how.text(jsonvalue.NewNull()); !how.optional || own != "" || how.suffix != "" {
+		parent.Texts(&made, chosen, timeline.RowText{Text: row(how.turn, own+how.suffix).Text})
 		return made, true
 	}
-	parent.Texts(&made, timeline.RowText{Text: chosen}, timeline.RowText{Text: row(how.turn, own+how.suffix).Text})
+	parent.Row(&made, timeline.WhenChosen)
 	return made, true
+}
+
+// chosenText returns the text an item's row of turn shows with its id's
+// history message, whose text is shown: led by the item's agent, followed
+// by the suffix, and built once per id, agent and suffix, the message's
+// text one shared text (timeline.SharedText) that only the chosen item's
+// row writes, however many items of the id hold it.
+func (c *chat) chosenText(current *logItem, how joined, shown string) timeline.RowText {
+	key := chosenKey{current.itemID, how.turn, current.agent.Text(), how.suffix}
+	if chosen, ok := c.chosen[key]; ok {
+		return chosen
+	}
+	var builder timeline.TextBuilder
+	builder.Write(prefix(current.agent, ""))
+	builder.Share(timeline.NewSharedText(shown), "[history message]", historyPointer)
+	builder.Write(how.suffix)
+	chosen := builder.Text()
+	c.chosen[key] = chosen
+	return chosen
+}
+
+// historyPointer is what a row writes for the history message of a
+// repeated id another row holds in full; only one item of the id shows it,
+// so no row writes it but a copy of that item's row.
+func historyPointer(holder *timeline.Row, _ bool) string {
+	return "[history message shown in full above, at source line " + strconv.Itoa(holder.SourceLine) + "]"
 }
 
 // logRows emits the rows of the log items; a message file that cannot be

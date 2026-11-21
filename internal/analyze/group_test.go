@@ -257,15 +257,31 @@ const sharedIDChat = `{"id":"ctx","agents":[{"number":0,"history":` +
 // turn text", the month "01" or "06".
 func sharedIDRun(t *testing.T, options ...string) []string {
 	t.Helper()
+	return agentZeroRun(t, []collectedFile{agentZeroChat(sharedIDChat)}, options...)
+}
+
+// agentZeroChat returns the collected chat.json of the chat ctx holding text.
+func agentZeroChat(text string) collectedFile {
+	return collectedFile{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/chat.json", text}
+}
+
+// agentZeroRun runs timeline over a collection holding the Agent Zero files
+// with the options given and returns each dated row of timeline.jsonl as
+// "month turn text", the month "01" or "06"; none when the run found none.
+func agentZeroRun(t *testing.T, files []collectedFile, options ...string) []string {
+	t.Helper()
 	work := t.TempDir()
 	collection := writeCollection(t, filepath.Join(work, "col"),
-		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
-		[]collectedFile{{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/chat.json", sharedIDChat}})
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
 		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
-	if code, _, stderr := runCommand(env, args...); code != ExitFound {
+	switch code, _, stderr := runCommand(env, args...); code {
+	case ExitNothing:
+		return nil
+	case ExitFound:
+	default:
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
 	rows := recordsOf(t, filepath.Join(output, TimelineFile), "timestamp_utc", "timestamp_utc", "turn_type", "text")
@@ -315,6 +331,44 @@ func TestAgentZeroHistoryTextIsShownInTheFirstItemTheFilterKeeps(t *testing.T) {
 				if count := strings.Count(strings.Join(rows, "\n"), history); count > 1 {
 					t.Errorf("%s is shown %d times, want at most once", history, count)
 				}
+			}
+		})
+	}
+}
+
+// emptyLaterChat is an Agent Zero chat.json whose log names a reply's
+// history message in two agent items: one on the first of January with
+// content of its own, one on the first of June with neither a headline nor
+// content.
+const emptyLaterChat = `{"id":"ctx","agents":[{"number":0,"history":` +
+	`"{\"_cls\":\"History\",\"current\":{\"_cls\":\"Topic\",\"messages\":[` +
+	`{\"_cls\":\"Message\",\"id\":\"a\",\"ai\":true,\"content\":\"HISTORY-REPLY\"}]}}"}],"log":{"logs":[` +
+	`{"no":1,"id":"a","type":"agent","timestamp":1767225600,"kvps":{},"content":"january reply"},` +
+	`{"no":2,"id":"a","type":"agent","timestamp":1780272000,"kvps":{}}]}}`
+
+// A later agent item of an id with neither a headline nor content of its
+// own shows the history reply when the filters keep it and not the first
+// item, and otherwise writes no row; the reply is shown once.
+func TestAgentZeroReplyIsShownInAKeptLaterItemWithNoContentOfItsOwn(t *testing.T) {
+	tests := []struct {
+		name    string
+		options []string
+		want    []string
+	}{
+		{"without a filter the reply goes with the first item", nil, []string{"01 assistant HISTORY-REPLY"}},
+		{"a window that keeps only the later item shows the reply there",
+			[]string{"--since", "2026-03-01"}, []string{"06 assistant HISTORY-REPLY"}},
+		{"a window that keeps only the first item keeps the reply with it",
+			[]string{"--until", "2026-03-01"}, []string{"01 assistant HISTORY-REPLY"}},
+		{"a pattern the reply matches shows it in the first item alone",
+			[]string{"--match", "HISTORY"}, []string{"01 assistant HISTORY-REPLY"}},
+		{"a window that keeps neither item shows nothing", []string{"--since", "2026-09-01"}, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rows := agentZeroRun(t, []collectedFile{agentZeroChat(emptyLaterChat)}, test.options...)
+			if !slices.Equal(rows, test.want) {
+				t.Errorf("rows\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(test.want, "\n"))
 			}
 		})
 	}

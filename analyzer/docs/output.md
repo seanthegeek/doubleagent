@@ -1445,7 +1445,9 @@ attributes. What the rows of the id are depends on the agent:
   the history message of its turn: the message's text (the user's prompt,
   the reply or the tool result) is shown in one item of the id that would
   show it, and `--match` finds each such item by that text as well as by
-  its own; the other items show only their own `content`.
+  its own; the other items show only their own `content`, and an `agent`
+  item with no headline or `content` of its own gives a row only when it
+  shows the reply.
 
 The choice is made by the filters reading the rows as the parsers gave
 them, before deduplication, with every row attributed to the first stored
