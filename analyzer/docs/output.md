@@ -1514,7 +1514,12 @@ attributes. What the rows of the id are depends on the agent:
   force before them, and when one names another model the rows after them
   carry none until a later bubble names one. A row repeating a
   `composerDraft:` key lends nothing either: each stored draft gives its
-  own row and a `parser:` row, at the conversation's time.
+  own row and a `parser:` row, at the conversation's time. An `ItemTable`
+  row repeating the settings blob's, the repository list's or the MCP
+  authorisations' key gives its own rows and a `parser:` row; one repeating
+  the sandbox switch's key gives a `parser:` row, and the run-mode
+  `permission setting:` rows, which name the switch, are shown once, with
+  the first stored switch `--match` keeps, the first when it keeps none.
 - **OpenClaw**, an agent database `session_windows` row repeating a
   session id: the rows of the session's transcripts whose model is the
   window's (each `session start:` row, and an assistant message's rows

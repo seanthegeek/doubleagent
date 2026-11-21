@@ -3,6 +3,7 @@ package cursor
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -63,26 +64,99 @@ func (i *items) system(text, timestamp string, rowid int64) timeline.Row {
 	return i.owner.systemAt(i.artifact, text, timestamp, rowid)
 }
 
-// standing emits the standing permissions of the settings blob's
+// standing emits the standing permissions of each settings blob's
 // composerState and the models' last use. A blob, composerState, list,
-// aiSettings or modelLastUsedAt of the wrong kind is a problem.
+// aiSettings or modelLastUsedAt of the wrong kind is a problem. A key
+// ItemTable holds in more than one row, which only damage or an edit
+// writes, the key being UNIQUE, gives a parser: row per stored row: each
+// settings blob gives its own rows, and the run-mode rows, which take the
+// sandbox switch, are shown once, with the stored switch the group goes
+// with (sandboxes).
 func (i *items) standing(emit parser.Emit) {
 	if i.table == nil {
 		return
 	}
-	settings, ok := keyedValue(i.store, i.table, settingsKey)
-	if !ok {
+	settings := keyedValues(i.store, i.table, settingsKey)
+	if len(settings) == 0 {
 		return
 	}
-	document := objectRecord(settings, i.problems)
-	sandbox := false
-	if found, ok := keyedValue(i.store, i.table, sandboxKey); ok {
-		var ignored parser.Problems
-		sandbox = isTrue(decodeRecord(found.rowid, sandboxKey, found.value, &ignored))
+	sandboxes := i.sandboxes(emit)
+	for _, stored := range settings {
+		if len(settings) > 1 {
+			emit(i.system(repeatedKeyText("ItemTable", len(settings)), i.mtime, stored.rowid))
+		}
+		i.settingsRows(stored, sandboxes, emit)
 	}
+}
+
+// sandbox is one stored value of the sandbox switch that run-mode rows are
+// made with, with its parent in the group of a repeated switch key (nil
+// when the key is stored once).
+type sandbox struct {
+	enabled bool
+	parent  *timeline.Parent
+}
+
+// sandboxes returns the stored values of the sandbox switch the run-mode
+// rows are made with, false when there is none. A key stored more than
+// once is a group (timeline.Group) whose parents are its stored rows, each
+// giving a parser: row; only the first stored row of each value holds the
+// run-mode rows, since a later one's would read the same, so they grow
+// with the settings rows and not with the switch's.
+func (i *items) sandboxes(emit parser.Emit) []sandbox {
+	stored := keyedValues(i.store, i.table, sandboxKey)
+	values := []sandbox{{}}
+	if len(stored) > 0 {
+		values = make([]sandbox, len(stored))
+	}
+	group := timeline.NewGroup()
+	for n, found := range stored {
+		var ignored parser.Problems
+		values[n].enabled = isTrue(decodeRecord(found.rowid, sandboxKey, found.value, &ignored))
+		if len(stored) == 1 {
+			continue
+		}
+		notice := i.system("", i.mtime, found.rowid)
+		values[n].parent = group.Parent(&notice)
+		prefix := parser.ProblemPrefix + "ItemTable holds " + strconv.Itoa(len(stored)) +
+			" rows of this row's key; its run mode rows are shown once, with "
+		values[n].parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+			timeline.RowText{Text: prefix + "another of them"})
+		emit(notice)
+	}
+	var held []sandbox
+	seen := map[bool]bool{}
+	for _, value := range values {
+		if !seen[value.enabled] {
+			seen[value.enabled] = true
+			held = append(held, value)
+		}
+	}
+	return held
+}
+
+// settingsRows emits the rows of one settings blob: its standing lists,
+// its run modes with each stored sandbox switch (a row of the switch's
+// parent shown only when the group goes with it), its switches and the
+// models' last use.
+func (i *items) settingsRows(settings keyed, sandboxes []sandbox, emit parser.Emit) {
+	document := objectRecord(settings, i.problems)
 	line := int(settings.rowid)
 	state, uses := settingsParts(document, line, i.problems)
-	for _, text := range standingTexts(state, sandbox, line, i.problems) {
+	lists, modes, switched := standingTexts(state, line, i.problems)
+	for _, text := range lists {
+		emit(i.system(text, i.mtime, settings.rowid))
+	}
+	for _, value := range sandboxes {
+		for _, mode := range modes {
+			row := i.system(runModeText(mode, value.enabled), i.mtime, settings.rowid)
+			if value.parent != nil {
+				value.parent.Row(&row, timeline.WhenChosen)
+			}
+			emit(row)
+		}
+	}
+	for _, text := range switched {
 		emit(i.system(text, i.mtime, settings.rowid))
 	}
 	for _, used := range uses {
@@ -124,35 +198,43 @@ func settingsParts(document jsonvalue.Value, line int, problems *parser.Problems
 	return parser.ObjectOrEmpty(state), uses
 }
 
-// standingTexts returns the "permission setting:" texts of composerState:
-// one per standing-list entry, one per modes4 entry and one per switch. A
-// standing list or modes4 that is not a JSON array adds a problem at line.
-func standingTexts(state jsonvalue.Value, sandbox bool, line int, problems *parser.Problems) []string {
-	var texts []string
+// standingTexts returns the "permission setting:" texts of composerState's
+// standing lists, one per entry, its modes4 entries and the texts of its
+// switches. A standing list or modes4 that is not a JSON array adds a
+// problem at line.
+func standingTexts(state jsonvalue.Value, line int, problems *parser.Problems) ([]string, []jsonvalue.Value,
+	[]string) {
+	var lists, switched []string
 	for _, key := range standingLists() {
 		for _, entry := range parser.ArrayMember(state.Get(key), key, line, problems) {
-			texts = append(texts, "permission setting: "+key+"="+parser.SettingValue(entry)+" "+composerSource)
+			lists = append(lists, "permission setting: "+key+"="+parser.SettingValue(entry)+" "+composerSource)
 		}
 	}
-	sandboxText := parser.SettingValue(jsonvalue.NewBool(sandbox))
+	var modes []jsonvalue.Value
 	for _, mode := range parser.EntriesOfKind(state.Get("modes4"), "modes4", jsonvalue.Object, line, problems) {
-		var flags []string
-		for _, flag := range []string{"autoRun", "smartModeAutoRun", "fullAutoRun"} {
-			value := "-"
-			if found, ok := mode.Lookup(flag); ok {
-				value = parser.SettingValue(found)
-			}
-			flags = append(flags, flag+"="+value)
-		}
-		texts = append(texts, "permission setting: run mode "+fieldOf(mode.Get("id"))+"="+runMode(mode, sandbox)+
-			" "+strings.Join(flags, " ")+" sandbox="+sandboxText+" "+composerSource)
+		modes = append(modes, mode)
 	}
 	for _, key := range switches() {
 		if value, ok := state.Lookup(key); ok {
-			texts = append(texts, "permission setting: "+key+"="+parser.SettingValue(value)+" "+composerSource)
+			switched = append(switched, "permission setting: "+key+"="+parser.SettingValue(value)+" "+composerSource)
 		}
 	}
-	return texts
+	return lists, modes, switched
+}
+
+// runModeText returns the "permission setting: run mode" text of a modes4
+// entry with the sandbox switch given.
+func runModeText(mode jsonvalue.Value, sandbox bool) string {
+	var flags []string
+	for _, flag := range []string{"autoRun", "smartModeAutoRun", "fullAutoRun"} {
+		value := "-"
+		if found, ok := mode.Lookup(flag); ok {
+			value = parser.SettingValue(found)
+		}
+		flags = append(flags, flag+"="+value)
+	}
+	return "permission setting: run mode " + fieldOf(mode.Get("id")) + "=" + runMode(mode, sandbox) + " " +
+		strings.Join(flags, " ") + " sandbox=" + parser.SettingValue(jsonvalue.NewBool(sandbox)) + " " + composerSource
 }
 
 // integrations emits the "source host:" rows of the GitHub accounts and

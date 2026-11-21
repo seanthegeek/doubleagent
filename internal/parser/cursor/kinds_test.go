@@ -226,7 +226,7 @@ func TestASettingsBlobMemberOfTheWrongKindIsReported(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var problems parser.Problems
 			state, _ := settingsParts(decoded(t, test.document), 9, &problems)
-			standingTexts(state, false, 9, &problems)
+			standingTexts(state, 9, &problems)
 			if got := messages(problems); !slices.Equal(got, test.want) {
 				t.Errorf("problems %q, want %q", got, test.want)
 			}

@@ -77,17 +77,26 @@ func (i *items) cloud(emit parser.Emit) {
 		i.cloudAgent(found, cached, emit)
 	}
 	i.mcpAuth(agents, emit)
-	found, ok := keyedValue(i.store, i.table, githubReposKey)
-	if !ok {
-		return
-	}
-	for _, repo := range objectEntries(found, i.problems) {
-		target := repo.Get("url").Text()
-		if target == "" {
-			target = cmp.Or(repo.Get("name").Text(), "-")
+	stored := keyedValues(i.store, i.table, githubReposKey)
+	for _, found := range stored {
+		i.repeatNotice(len(stored), found, emit)
+		for _, repo := range objectEntries(found, i.problems) {
+			target := repo.Get("url").Text()
+			if target == "" {
+				target = cmp.Or(repo.Get("name").Text(), "-")
+			}
+			emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+
+				reposSource, i.mtime, found.rowid))
 		}
-		emit(i.system("source host repository: "+target+" type="+parser.SettingOrDash(repo.Get("type"))+" "+reposSource,
-			i.mtime, found.rowid))
+	}
+}
+
+// repeatNotice emits the parser: row of a stored row of a key ItemTable
+// holds in n rows, which only damage or an edit writes, the key being
+// UNIQUE, when n is more than one; each stored row gives its own rows.
+func (i *items) repeatNotice(n int, found keyed, emit parser.Emit) {
+	if n > 1 {
+		emit(i.system(repeatedKeyText("ItemTable", n), i.mtime, found.rowid))
 	}
 }
 
@@ -132,19 +141,25 @@ func cloudText(artifact *input.Artifact, agent jsonvalue.Value) string {
 }
 
 // mcpAuth emits a "permission decision:" row per cloud agent MCP
-// authorisation answer, in the agent's session, joined on its toolCallId,
-// at the file's modification time. A value that is neither an answer nor
-// a list, and a list's entries that are not answers, are problems.
+// authorisation answer of each stored row of the key, in the agent's
+// session, joined on its toolCallId, at the file's modification time.
 func (i *items) mcpAuth(agents []cloudAgent, emit parser.Emit) {
-	found, ok := keyedValue(i.store, i.table, mcpAuthKey)
-	if !ok {
-		return
-	}
-	document := decodeRecord(found.rowid, mcpAuthKey, found.value, i.problems)
 	known := map[string]jsonvalue.Value{}
 	for _, each := range agents {
 		known[each.agent.Get("bcId").Text()] = each.agent
 	}
+	stored := keyedValues(i.store, i.table, mcpAuthKey)
+	for _, found := range stored {
+		i.repeatNotice(len(stored), found, emit)
+		i.mcpAnswers(found, known, emit)
+	}
+}
+
+// mcpAnswers emits the decisions of one stored row of the MCP
+// authorisation key. A value that is neither an answer nor a list, and a
+// list's entries that are not answers, are problems.
+func (i *items) mcpAnswers(found keyed, known map[string]jsonvalue.Value, emit parser.Emit) {
+	document := decodeRecord(found.rowid, mcpAuthKey, found.value, i.problems)
 	// The value is one answer, or a list of them whose entries of another
 	// kind are one problem.
 	resolutions := []jsonvalue.Value{document}

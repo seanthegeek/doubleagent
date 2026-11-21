@@ -133,6 +133,21 @@ func cursorStateCases() []growthCase {
 // more than once.
 func cursorRepeatCases() []growthCase {
 	return []growthCase{
+		// Each stored settings blob of a repeated key gives its own rows,
+		// and each stored sandbox switch of a repeated key is a parent of
+		// the run-mode rows, which only its first stored row of each value
+		// holds.
+		{kind: "state.vscdb", shape: shapeSharedID + " (settings blobs and sandbox switches)",
+			files: func(t *testing.T, n int) []growthFile {
+				items := slices.Concat(rows(n, func(i int) []any {
+					return []any{cursorSettings, `{"composerState":{"yoloCommandAllowlist":["` + numbered("ls", i) +
+						`"],"modes4":[{"id":"agent","autoRun":true}]}}`}
+				}), rows(n, func(i int) []any { return []any{"cursor/sandboxAutoRunSettingEnabled", strconv.FormatBool(i%2 == 0)} }),
+					rows(n, func(i int) []any {
+						return []any{"cloudEnvironmentTemplate.githubRepos", `[{"url":"` + numbered("r", i) + `"}]`}
+					}))
+				return one(cursorStateRel, cursorState(t, nil, items, nil))
+			}},
 		// Each stored row of a repeated draft key gives its own row.
 		{kind: "state.vscdb", shape: shapeSharedID + " (draft rows)", files: func(t *testing.T, n int) []growthFile {
 			return one(cursorStateRel, cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", 0)},

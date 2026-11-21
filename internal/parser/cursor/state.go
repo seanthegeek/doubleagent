@@ -556,12 +556,10 @@ func (r *stateReader) blob(stamp *stamper, turnType, label string, shared *timel
 	stamp.emit(made)
 }
 
-// keyedValue returns the value of the first row whose key is text, false
-// when there is none.
-func keyedValue(store *store, table *sqlitefile.Table, text string) (keyed, bool) {
+// keyedValues returns the rows whose key is text, in rowid order; more
+// than one only damage or an edit writes, the key being UNIQUE.
+func keyedValues(store *store, table *sqlitefile.Table, text string) []keyed {
 	rows := store.rows(keyedRows(table, keyEquals(text)))
-	if len(rows) == 0 {
-		return keyed{}, false
-	}
-	return rows[0], true
+	sortByRowid(rows)
+	return rows
 }

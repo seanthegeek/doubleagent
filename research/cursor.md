@@ -2508,7 +2508,17 @@ row is a user bubble naming another model, the row ends
 `, and none gives its model to the rows after them`, and the bubbles after them carry no model
 until one names a model, which gives `model: <model>`. A `composerDraft:<composerId>` key held in
 more than one row gives, for each stored row in rowid order, the same `parser:` row and that row's
-`unsent draft:` row, both at the composer's `createdAt`.
+`unsent draft:` row, both at the composer's `createdAt`. An `ItemTable` key read as one value held
+in more than one row is damage too, the key being `UNIQUE`. Each stored row of the settings blob,
+`cloudEnvironmentTemplate.githubRepos` or `cloudAgentRepository.mcpAuthResolution`, in rowid order,
+gives its own rows after a row at the file's modification time,
+`parser: ItemTable holds <n> rows of this row's key; each gives its own rows`. Each stored row of
+`cursor/sandboxAutoRunSettingEnabled` gives a row at the same time,
+`parser: ItemTable holds <n> rows of this row's key; its run mode rows are shown once, with this row`
+(`another of them` for each stored row they are not shown with), and each blob's run-mode
+`permission setting:` rows, which name the switch, are shown once, with the first stored switch
+that `--match` keeps, else the first; a stored switch whose value an earlier stored switch has
+holds none of them, since its rows would read the same.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
