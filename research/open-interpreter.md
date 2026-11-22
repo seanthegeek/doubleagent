@@ -374,7 +374,7 @@ written. The analyzer reads `history.jsonl`, `state_5.sqlite`,
 the memory rollout summaries as a source of their own and the import ledger to
 mark imported rollouts
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources); see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

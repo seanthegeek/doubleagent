@@ -264,7 +264,7 @@ entry from the quick pick or IntelliJ's history list.
 The analyzer reads the live database, its pages included, as primary and the backups, the event
 log and the two command histories as secondary sources
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources); see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### SQLite specifics
 
@@ -739,7 +739,7 @@ A thread or page id is its table's key, so Tabby never writes two rows of one. W
 `project_path` (the first `code[].git_url` those messages or sections attach, a value of the id and
 not of one of its rows). A section with no `created_at` takes the `created_at` of the first row of
 its page id that `--since`, `--until` and `--match` keep, else of the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); a thread message keeps its own
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)); a thread message keeps its own
 time or none. One row per table,
 `parser: threads holds <n> rows repeating an earlier row's id; its messages are shown once` or
 `parser: pages holds <n> rows repeating an earlier row's id; its sections are shown once`

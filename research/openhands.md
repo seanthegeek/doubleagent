@@ -466,7 +466,7 @@ the global `agent-canvas/bash_events/` record of terminal commands; and Canvas b
 with no message text, such as `openhands-last-conversation-by-backend`
 ([Other stores](#other-stores)). Nothing local records a deleted conversation. The analyzer reads a
 fork as its own conversation and the prompt history as a secondary source (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), so a deleted CLI
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), so a deleted CLI
 conversation's prompts are still in the timeline; it does not read the global terminal record or
 the browser storage ([Parser plan](#parser-plan)).
 

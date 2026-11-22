@@ -2,7 +2,7 @@
 // the reference shell, dash, does under LC_ALL=C: byte by byte, with `*`, `?`,
 // bracket expressions and `\` escaping. MatchPath is the shell's `case` test,
 // MatchSegment one step of pathname expansion, and Expand the whole expansion
-// of a pattern inside a base; "Glob matching" in collectors/docs/internals.md
+// of a pattern inside a base; "Glob matching" in docs/internals.md
 // says which table each serves. The tables hold only `*`, `?` and a closed
 // bracket list of literal bytes, ranges and `!`: never a character class name
 // such as [:alpha:], which the AGENTS.md catalog rule and

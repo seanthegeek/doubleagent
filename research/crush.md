@@ -288,7 +288,7 @@ vendor without a session id
 and nothing on disk records it. The analyzer reads the database, the sub-agent sessions included,
 and writes a `session deleted:` row for each parent a sub-agent session names that is gone
 ([Deletion rows](#deletion-rows)); it reads neither the log nor the stats page (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

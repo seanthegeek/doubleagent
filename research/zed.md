@@ -282,7 +282,7 @@ so otherwise it stays there. A copy already sent with a rating stays with Zed
 analyzer reads `threads.db` and every store of [Other db.sqlite tables](#other-dbsqlite-tables), so
 a deleted thread's surviving `created_git_worktrees` entry still shows; none of these stores
 repeats a thread's messages, so none is a secondary source (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -692,7 +692,7 @@ Every store of [Other db.sqlite tables](#other-dbsqlite-tables) is read as a pri
   one in several rows is damage, and then each draft of the thread is shown once, with the
   `updated_at` and first folder of one of its rows: the first that `--since`, `--until` and
   `--match` keep, or the first when they keep none or none is given
-  ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). Each row of such a
+  ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each row of such a
   `thread_id` gives one row of its own ([Bad-line rows](#bad-line-rows)) beside its own sidebar
   row, so the filters have a row to keep it by; a draft store holding one key in several entries
   gives each entry its row, all with the one sidebar row. The thread blob's own `draft_prompt` (same
@@ -708,7 +708,7 @@ Every store of [Other db.sqlite tables](#other-dbsqlite-tables) is read as a pri
   rowid (as `source_line`) of one of the id's rows, and each other row of the id is one row with
   no `session_id` ([Bad-line rows](#bad-line-rows)). That row is the first in id order that
   `--since`, `--until` and `--match` keep, or the first when they keep none or none is given
-  ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); without a filter the links
+  ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)); without a filter the links
   join the first row.
 - A sidebar terminal is `sidebar terminal: <custom_title or title> cwd=<working_directory>` at its
   `created_at`, with its first folder as `project_path` and no `session_id`.

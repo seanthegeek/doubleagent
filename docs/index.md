@@ -20,7 +20,7 @@ reads that archive, and turns the transcripts into one timeline of prompts,
 tool calls and results. The source, the issue tracker and the releases are
 on [GitHub](https://github.com/seanthegeek/doubleagent).
 
-## Collectors
+## Collecting
 
 Two single-file scripts with the same catalog (the table of agents and the
 paths under a home directory where each keeps its state), manifest schema
@@ -35,32 +35,29 @@ holding the collected files, a hashed JSONL manifest and a run summary.
 With `--inventory` they write nothing and print one JSON line per user and
 agent found instead, for a fleet-wide audit through the EDR console.
 
-Start with the [collectors README](../collectors/README.md) for the quick
+Start with the [collect page](collect.md) for the quick
 start and the option table, then:
 
-- [Options](../collectors/docs/options.md): every option, exit code and
+- [Options](collect-options.md): every option, exit code and
   environment variable.
-- [Output](../collectors/docs/output.md): the stdout summary, the output
+- [Output](collection-output.md): the stdout summary, the output
   files, the archive layout and the manifest schema.
-- [Coverage](../collectors/docs/coverage.md): what is collected and from
+- [Coverage](coverage.md): what is collected and from
   where, exclusions and credential files.
-- [Relocation warnings](../collectors/docs/relocation.md): what to do when
+- [Relocation warnings](relocation.md): what to do when
   the log names a variable that moves an agent's files.
-- [Docker and Podman](../collectors/docs/docker.md): named volumes that
+- [Docker and Podman](docker.md): named volumes that
   belong to known agents.
-- [Privileges](../collectors/docs/privileges.md): what a run without root
+- [Privileges](privileges.md): what a run without root
   or Administrator still collects.
-- [Inventory mode](../collectors/docs/inventory.md): the fleet audit
+- [Inventory mode](collect-inventory.md): the fleet audit
   lines.
-- [Windows](../collectors/docs/windows.md): archivers, symlinks, locked
+- [Windows](windows.md): archivers, symlinks, locked
   files and long paths.
-- [Deployment](../collectors/docs/deployment.md): running through an EDR
+- [Deployment](deployment.md): running through an EDR
   remote shell, console timeouts and runtime.
-- [Testing](../collectors/docs/testing.md) and
-  [Internals](../collectors/docs/internals.md): for developers changing
-  the collectors.
 
-## Analyzer
+## Analysing
 
 `doubleagent`, a command-line tool that reads a collector archive,
 an extracted collection, or any loose directory such as a copied home or a
@@ -70,22 +67,25 @@ JSONL timeline of turns, tool calls and tool results, plus a per-session
 summary: the `detect`, `timeline`, `fleet` and `catalog` commands of the
 `doubleagent` binary, built from `cmd/doubleagent`.
 
-Start with the [analyzer README](../analyzer/README.md) for the quick
+Start with the [analyze page](analyze.md) for the quick
 start, the commands and the option table, then:
 
-- [Inputs](../analyzer/docs/inputs.md): accepted inputs, loose mode and
+- [Inputs](inputs.md): accepted inputs, loose mode and
   how agents are detected.
-- [Output](../analyzer/docs/output.md): the `detect` and `timeline`
+- [Output](timeline-output.md): the `detect` and `timeline`
   output and the `timeline.jsonl` and `sessions.jsonl` schemas.
-- [Filtering](../analyzer/docs/filtering.md): time windows and text
+- [Filtering](filtering.md): time windows and text
   matches.
-- [Searching](../analyzer/docs/searching.md): reading large timelines
+- [Searching](searching.md): reading large timelines
   with jq, grep, DuckDB, Python and PowerShell.
-- [Inventory](../analyzer/docs/inventory.md): merging many hosts'
+- [Inventory](fleet.md): merging many hosts'
   inventory lines into one CSV.
-- [Options](../analyzer/docs/options.md): every option and exit code.
-- [Development](../analyzer/docs/development.md): tests, lint checks and
-  adding a parser.
+- [Options](analyze-options.md): every option and exit code.
+
+## Reference
+
+- [Agents](agents.md): every catalog agent with its parse status, the
+  files read and the evidence behind them.
 
 ## Research
 
@@ -97,35 +97,30 @@ how the agent records its transcripts and how the parser reads them. The
 index lists every document with its evidence level and parse status, and
 which records survive a delete.
 
-## Agent lab
-
-A disposable Docker sandbox for running CLI agents against a scratch home
-and exporting it for the collector, so real-install test material can be
-produced without installing agents on a workstation. See the
-[agent lab README](../lab/README.md).
-
-## Round pipeline
-
-One command that runs a real-install round of a terminal agent on one lab
-VM: it reverts the VM, installs the agent, plays a table of prompts, key
-presses and person steps through a headless terminal, lists the agent's
-directories after every step, collects and analyzes, and reverts the VM
-again. See the [round pipeline README](../lab/round/README.md).
-
-## Lab VMs
-
-The clean virtual machines that the
-[real-install rounds](../AGENTS.md#real-install-rounds) start from: the
-development tools their snapshots hold so an agent's use of them can be
-recorded, the install commands that rebuild them on Windows, macOS and
-Ubuntu, what the host decides, and Docker's requirements in each. See
-[Lab VMs](lab-vms.md).
-
 ## Contributing
 
 The standards every change must keep, the process for adding an agent or
 a parser, and the quality gates CI runs are in
-[AGENTS.md](../AGENTS.md).
+[AGENTS.md](../AGENTS.md). The pages for developers:
+
+- [Development](development.md): tests, lint checks and
+  adding a parser.
+- [Internals](internals.md): how the collection works inside.
+- [Testing](testing.md): the tests and CI.
+- [Lab VMs](lab-vms.md): the clean virtual machines that the
+  [real-install rounds](../AGENTS.md#real-install-rounds) start from: the
+  development tools their snapshots hold so an agent's use of them can be
+  recorded, the install commands that rebuild them on Windows, macOS and
+  Ubuntu, what the host decides, and Docker's requirements in each.
+- [Round pipeline](../lab/round/README.md): one command that runs a
+  real-install round of a terminal agent on one lab VM: it reverts the VM,
+  installs the agent, plays a table of prompts, key presses and person
+  steps through a headless terminal, lists the agent's directories after
+  every step, collects and analyzes, and reverts the VM again.
+- [Agent lab](../lab/README.md): a disposable Docker sandbox for running
+  CLI agents against a scratch home and exporting it for the collector, so
+  real-install test material can be produced without installing agents on
+  a workstation.
 
 ## License
 

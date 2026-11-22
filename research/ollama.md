@@ -287,7 +287,7 @@ The desktop app's code is under `app/`.
   collected and need no exclusion.
 - Docker volumes: the volume-relative exclusion is `models`, whole, so a Docker Ollama volume's
   `models/manifests` is not collected
-  ([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)).
+  ([`docs/coverage.md`](../docs/coverage.md)).
 
 ### Project-local files
 
@@ -1027,7 +1027,7 @@ first message's `chat_id`), and its `attachments` rows once, in the text of one 
 it. That message is the first, in the order the messages are read (`chat_id`, then `id`, an id
 stored as `3` and as `3.0` being one id as SQL's `=` finds them), that `--since`, `--until` and
 `--match` keep, else the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)); each other message of the id
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)); each other message of the id
 gives its own rows without them. An assistant message of the id with neither `content` nor
 `thinking` gives the `model:` row its `model_name` would give (a model the chat has not used, or a
 change from the last one), shown only when the calls are shown with it, and the chat's next `model:`

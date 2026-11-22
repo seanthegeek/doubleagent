@@ -1,10 +1,10 @@
-# Collectors
+# Collecting
 
 The on-host half of DoubleAgent: two single-file scripts that walk
 every user's home directory, copy the on-disk artifacts of AI agents
 into a staging area, hash them, and produce one `tar.gz` with a JSONL manifest.
 Nothing is parsed on the host; that is the job of the
-[analyzer](../analyzer/README.md).
+[analyzer](analyze.md).
 
 The two collectors share one catalog, the table of agents and the paths
 under a home directory where each keeps its transcripts, configuration and
@@ -29,9 +29,9 @@ them) stages only one of two such files or links; the other's row and the log
 say why. To keep both, write to a case-sensitive volume, for names differing
 in Unicode form to a file system that compares names byte for byte, such as
 Linux ext4 or XFS, and for short names to a volume that makes none
-([details](docs/internals.md#claimed-paths-and-case-variants)).
+([details](internals.md#claimed-paths-and-case-variants)).
 
-[CHANGELOG.md](CHANGELOG.md) lists what changed in each version, including
+[../collectors/CHANGELOG.md](../collectors/CHANGELOG.md) lists what changed in each version, including
 manifest schema changes.
 
 ## Quick start
@@ -79,11 +79,11 @@ projects:   12
 collected:  5985 files, 110669230 bytes (105.5 MiB)
 skipped:    7 excluded, 0 too large, 0 secret, 0 special
 errors:     2 (2 error_copy, 0 error_read)
-relocation: 1 hint in 214 files searched; see collectors/docs/relocation.md
+relocation: 1 hint in 214 files searched; see docs/relocation.md
 docker:     4 volumes found, 1 collected, 0 unreadable
 ```
 
-[docs/output.md](docs/output.md) explains each line and every file written.
+[collection-output.md](collection-output.md) explains each line and every file written.
 
 ## Options
 
@@ -98,16 +98,16 @@ docker:     4 volumes found, 1 collected, 0 unreadable
 | `--no-projects` | `-NoProjects` | Skip project-level artifact discovery and `-p`. |
 | `--no-docker` | `-NoDocker` | Skip Docker and Podman named volume enumeration. |
 | `--max-file-size MB` | `-MaxFileSizeMB` | Skip files larger than this many MiB. Default 256, `0` disables. |
-| `--env-scan-home` | `-EnvScanHome` | Also search every other file in each home and project for relocation variable names. See [docs/relocation.md](docs/relocation.md). |
+| `--env-scan-home` | `-EnvScanHome` | Also search every other file in each home and project for relocation variable names. See [relocation.md](relocation.md). |
 | `--env-scan-max-size MB` | `-EnvScanMaxSizeMB` | With `--env-scan-home`, skip files larger than this whole number of MiB. Default 1, `0` disables. |
 | `-k, --keep-staging` | `-KeepStaging`, `-k` | Keep the staging directory. |
-| `--inventory` | `-Inventory` | Write nothing; print one JSON line per user and agent found. See [docs/inventory.md](docs/inventory.md). |
+| `--inventory` | `-Inventory` | Write nothing; print one JSON line per user and agent found. See [collect-inventory.md](collect-inventory.md). |
 | `--list` | `-List` | Print the catalog tables and exit. |
 | `-q, --quiet` | `-Quiet`, `-q` | Print only the final summary. |
 | `-V, --version` | `-Version` | Print `collect-agent-artifacts <version>` and exit. |
 | `-h, --help` | none | Print the usage text and exit. |
 
-[docs/options.md](docs/options.md) has the full semantics of each option,
+[collect-options.md](collect-options.md) has the full semantics of each option,
 the environment variables each collector reads, and the PowerShell
 parameter details.
 
@@ -127,7 +127,7 @@ are collected by default and flagged `secret: true`; model weights, caches
 and binaries are excluded but still recorded in the manifest. Processes,
 network connections and other host state are left to the EDR.
 
-Details are in [docs/coverage.md](docs/coverage.md), and the evidence for
+Details are in [coverage.md](coverage.md), and the evidence for
 every catalog entry, with citations and the level each claim rests on, is
 one document per agent, listed in the [research index](../research/README.md).
 
@@ -135,17 +135,17 @@ one document per agent, listed in the [research index](../research/README.md).
 
 | Page | Covers |
 | --- | --- |
-| [docs/options.md](docs/options.md) | Full option semantics, exit codes, environment variables, PowerShell parameter details |
-| [docs/output.md](docs/output.md) | The stdout summary, output files, archive layout, manifest fields and statuses, `collection.json` |
-| [docs/coverage.md](docs/coverage.md) | What is collected and from where: homes, projects, nested and case-variant entries, exclusions, credentials |
-| [docs/relocation.md](docs/relocation.md) | What a relocation hint means, how to read and confirm it, and how to collect a moved store |
-| [docs/docker.md](docs/docker.md) | Docker and Podman named volumes, Docker Desktop |
-| [docs/privileges.md](docs/privileges.md) | What a run without root or Administrator still collects and records |
-| [docs/inventory.md](docs/inventory.md) | Inventory mode and its JSON Lines fields |
-| [docs/windows.md](docs/windows.md) | Windows specifics: `tar.exe`, the PowerShell tar writer and zip, symlinks and reparse points, locked files, long paths |
-| [docs/deployment.md](docs/deployment.md) | Running through an EDR remote shell: why the console shows nothing until the script ends, each console's command timeout, starting a long collection detached and watching its log, runtime; fleet inventory, access times |
-| [docs/testing.md](docs/testing.md) | The smoke tests, the smoke-row diff, the fork budget, the catalog drift check and CI |
-| [docs/internals.md](docs/internals.md) | For maintainers: the shared section layout, the run flow, the sh worker programs, glob matching, the manifest writer, capability detection, project discovery, naming, and the table of matching sh and PowerShell functions |
+| [collect-options.md](collect-options.md) | Full option semantics, exit codes, environment variables, PowerShell parameter details |
+| [collection-output.md](collection-output.md) | The stdout summary, output files, archive layout, manifest fields and statuses, `collection.json` |
+| [coverage.md](coverage.md) | What is collected and from where: homes, projects, nested and case-variant entries, exclusions, credentials |
+| [relocation.md](relocation.md) | What a relocation hint means, how to read and confirm it, and how to collect a moved store |
+| [docker.md](docker.md) | Docker and Podman named volumes, Docker Desktop |
+| [privileges.md](privileges.md) | What a run without root or Administrator still collects and records |
+| [collect-inventory.md](collect-inventory.md) | Inventory mode and its JSON Lines fields |
+| [windows.md](windows.md) | Windows specifics: `tar.exe`, the PowerShell tar writer and zip, symlinks and reparse points, locked files, long paths |
+| [deployment.md](deployment.md) | Running through an EDR remote shell: why the console shows nothing until the script ends, each console's command timeout, starting a long collection detached and watching its log, runtime; fleet inventory, access times |
+| [testing.md](testing.md) | The smoke tests, the smoke-row diff, the fork budget, the catalog drift check and CI |
+| [internals.md](internals.md) | For maintainers: the shared section layout, the run flow, the sh worker programs, glob matching, the manifest writer, capability detection, project discovery, naming, and the table of matching sh and PowerShell functions |
 
 ## License
 

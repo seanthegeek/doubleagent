@@ -322,7 +322,7 @@ log session directory ([Output channel log](#output-channel-log));
 tasks deleted locally, but nothing on disk marks a deletion. The analyzer reads the output channel
 log and `dev_data/chat.jsonl` as secondary sources of the chat sessions, so a deleted session's
 logged prompts and replies and its rated replies are kept, and `dev_data/tokens_generated.jsonl` for
-the models used (see [Secondary sources](../analyzer/docs/output.md#secondary-sources) and
+the models used (see [Secondary sources](../docs/timeline-output.md#secondary-sources) and
 [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)); the `/share` exports
 and `pearai_memories.json` are not read. A deleted agent task leaves nothing the analyzer reads,
 since its `taskHistory` entry goes with its directory.
@@ -614,7 +614,7 @@ Source-derived; not observed on any real install.
   so a second entry of one `id` is damage or an edit: each entry gives its own row, and the
   task's rows are shown once, with the `workspace` of one entry, and its `ts` and `modelId` where
   the task's start and model come from the entry: the first entry that the analysis filters keep,
-  else the first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+  else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 - The `/share` Markdown files and `pearai_memories.json` are not transcripts the dedup rule can
   pair and stay unread.
 

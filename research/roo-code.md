@@ -235,7 +235,7 @@ queue, which nothing in `src/` touches, so a task delete leaves it
 per queued request, naming the task, but not the message. Other second copies, project-local
 traces and deletion markers are not stated. The analyzer reads `cli-history.json` as a secondary
 source whose lines are kept only when no task has the same text (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Transcripts in CLI ephemeral storage
 
@@ -686,7 +686,7 @@ so a second `entries` element of one id is damage or an edit. For a task with no
 `history_item.json`, each entry of the id gives its own task and `permission mode:` rows, and the
 task's rows are shown once, with the `workspace` of one entry, and its `ts` where the task's start
 comes from the entry: the first entry, in file order, that the analysis filters keep, else the
-first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 #### Fixtures
 

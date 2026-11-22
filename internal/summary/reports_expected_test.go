@@ -109,7 +109,7 @@ projects:   0
 collected:  4 files, 79 bytes (79 B)
 skipped:    0 excluded, 1 too large, 0 secret, 0 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 2 hints in 2 files searched; see collectors/docs/relocation.md
+relocation: 2 hints in 2 files searched; see docs/relocation.md
 docker:     2 volumes found, 1 collected, 0 unreadable; Docker Desktop VM disk not collected
 `
 
@@ -220,5 +220,5 @@ projects:   1
 collected:  1 file, 2097152 bytes (2.0 MiB)
 skipped:    0 excluded, 0 too large, 3 secret, 0 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 2 hints in 2 files searched; see collectors/docs/relocation.md
+relocation: 2 hints in 2 files searched; see docs/relocation.md
 `

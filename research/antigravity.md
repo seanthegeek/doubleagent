@@ -1031,7 +1031,7 @@ in favour of `cache/projects.json`). No per-project database.
 - On Windows `trustedWorkspaces`, the `history.jsonl` `workspace` and the
   `last_conversations.json` keys are Windows paths (`C:\...`), which the
   sh collector does not use for discovery (see
-  [which paths are used in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#which-paths-are-used)).
+  [which paths are used in `docs/coverage.md`](../docs/coverage.md#which-paths-are-used)).
 - The Windows install (observed, CLI 1.3.5 and app 2.23.1, 2026-10-14)
   recorded its two project folders in three spellings:
   `file:///c%3A/Users/<user>/demo` in the app's `file:` URIs, as the
@@ -1116,7 +1116,7 @@ stated. The analyzer reads `history.jsonl` and the brain mirror as secondary
 sources and each summaries row as its own `conversation summary` row, and
 does not read the annotations, the protobuf summaries, the full-text search
 table or the CLI's cache (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 The mirror sits under `brain/<uuid>/`, beside `conversations/<uuid>.db` in
 the same data directory. It is a second copy when the database alone is
@@ -1391,7 +1391,7 @@ slashes: on the Windows install (**observed**, CLI 1.3.5 and app 2.23.1,
 2026-10-14) its rows carried `c:/Users/sean/demo`, `C:/users/sean/demo2`
 and `C:\users\sean\demo2`. The timeline writes every Windows
 `project_path` in one canonical form
-([`project_path` in `analyzer/docs/output.md`](../analyzer/docs/output.md#timelinejsonl));
+([`project_path` in `docs/timeline-output.md`](../docs/timeline-output.md#timelinejsonl));
 the parser itself does not change them. A workspace URI that is not a `file:` URI, such as a
 remote's, stays a URI; its credentials, if it carries any, are shown as written, and
 `timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder.
@@ -1431,7 +1431,7 @@ database by conversation id: the `<uuid>` of `brain/<uuid>/` is the
 database's `cascade_id`, and the parser puts it in `session_id` for both.
 A mirror line repeats one database step, and the timeline pairs the two
 rows on `session_id`, `turn_type` and `text` within 600 seconds (see
-[Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources),
+[Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources),
 the analyzer's rule for second copies). The mirror records no workspace,
 so its rows have no `project_path`; they need none to pair, since the
 session id scopes the match. The text joins because the parser renders a
@@ -1652,7 +1652,7 @@ are described in [Credentials](#credentials); the parser reads neither.
 
 Every source below is read on every run; a secondary source is one whose
 rows the timeline drops when the primary store yields the same event
-([Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources)).
+([Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources)).
 
 | Source | Role | Rows |
 | --- | --- | --- |

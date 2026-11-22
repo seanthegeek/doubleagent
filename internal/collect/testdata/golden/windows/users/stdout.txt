@@ -9,5 +9,5 @@ projects:   1
 collected:  95 files, 4565 bytes (4.5 KiB)
 skipped:    3 excluded, 0 too large, 0 secret, 0 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 114 hints in 71 files searched, 18 resolved; see collectors/docs/relocation.md
+relocation: 114 hints in 71 files searched, 18 resolved; see docs/relocation.md
 docker:     3 volumes found, 2 collected, 0 unreadable

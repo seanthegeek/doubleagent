@@ -16,10 +16,10 @@ have different dependency rules, and a Docker lab for developers.
 More details can be found at the
 [documentation website](https://seanthegeek.net/doubleagent/).
 
-| Part | Directory | Runs on |
+| Part | Pages | Runs on |
 | --- | --- | --- |
-| Collectors | [`collectors/`](collectors/README.md) | The host under investigation, or an analyst workstation with a mounted image |
-| Analyzer | [`analyzer/`](analyzer/README.md) | The analyst workstation |
+| Collecting | [Collecting](docs/collect.md) | The host under investigation, or an analyst workstation with a mounted image |
+| Analysing | [Analysing](docs/analyze.md) | The analyst workstation |
 | Agent lab | [`lab/`](lab/README.md) | A developer's Docker host, to produce real-install fixtures without installing agents |
 
 ## Collectors
@@ -40,9 +40,9 @@ EDR. With `--inventory` they write nothing and print one JSON line per user
 and agent found to stdout instead, for a fleet-wide audit through the EDR
 console.
 
-Usage and options are in [collectors/README.md](collectors/README.md); the
+Usage and options are in [docs/collect.md](docs/collect.md); the
 list of covered tools, the manifest schema, Windows specifics and the test
-matrix are in the pages under [collectors/docs/](collectors/docs/).
+matrix are in the [documentation pages](docs/index.md#collecting).
 
 ## Analyzer
 
@@ -58,9 +58,9 @@ Parsing never happens on the host. The analysis is the `detect`, `timeline`,
 `fleet` and `catalog` commands of the `doubleagent` binary, built from
 `cmd/doubleagent`.
 
-Usage and options are in [analyzer/README.md](analyzer/README.md); accepted
-inputs, the JSONL schema, and recipes for searching large timelines are in the pages under
-[analyzer/docs/](analyzer/docs/).
+Usage and options are in [docs/analyze.md](docs/analyze.md); accepted
+inputs, the JSONL schema, and recipes for searching large timelines are in the
+[documentation pages](docs/index.md#analysing).
 
 ## Reporting problems
 

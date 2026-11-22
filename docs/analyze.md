@@ -1,4 +1,4 @@
-# DoubleAgent analyzer
+# Analysing
 
 `doubleagent` is a forensic analyzer of AI agent use on a system. It takes
 an archive from the doubleagent collectors, an extracted collection, or any
@@ -11,7 +11,7 @@ on the analyst's workstation, never on the host under investigation.
 
 The analyzer is the `detect`, `timeline`, `fleet` and `catalog` commands of
 the `doubleagent` binary, built from `cmd/doubleagent`.
-`--version` prints `doubleagent <version>`. [CHANGELOG.md](CHANGELOG.md) lists what changed in
+`--version` prints `doubleagent <version>`. [../analyzer/CHANGELOG.md](../analyzer/CHANGELOG.md) lists what changed in
 each version, including changes to the `timeline.jsonl` and `sessions.jsonl`
 fields.
 
@@ -48,10 +48,10 @@ doubleagent inventory /cases/fleet/inventory -o /cases/fleet/fleet-inventory.csv
 
 | Command | What it does | Writes | Page |
 | --- | --- | --- | --- |
-| `detect` | Reports the host, users, homes and agents found in an input, with file counts, bytes and whether a parser exists, in one table for homes and, for a collection, one for project directories. | stdout only; `--json` for one object | [docs/output.md](docs/output.md#detect) |
-| `timeline` | Parses every transcript it can read into one timeline, optionally filtered by time or text. | `timeline.jsonl`, `sessions.jsonl` and `inventory.json` in `-o` | [docs/output.md](docs/output.md#timeline), [docs/filtering.md](docs/filtering.md) |
-| `inventory` | Merges saved collector `--inventory` output from many hosts into one CSV. | `fleet-inventory.csv`, or the `-o` path | [docs/inventory.md](docs/inventory.md) |
-| `catalog` | Prints the bundled catalog, or with `--agents` each agent with `parser` or `detect only`. | stdout only | [docs/inputs.md](docs/inputs.md#detection) |
+| `detect` | Reports the host, users, homes and agents found in an input, with file counts, bytes and whether a parser exists, in one table for homes and, for a collection, one for project directories. | stdout only; `--json` for one object | [timeline-output.md](timeline-output.md#detect) |
+| `timeline` | Parses every transcript it can read into one timeline, optionally filtered by time or text. | `timeline.jsonl`, `sessions.jsonl` and `inventory.json` in `-o` | [timeline-output.md](timeline-output.md#timeline), [filtering.md](filtering.md) |
+| `inventory` | Merges saved collector `--inventory` output from many hosts into one CSV. | `fleet-inventory.csv`, or the `-o` path | [fleet.md](fleet.md) |
+| `catalog` | Prints the bundled catalog, or with `--agents` each agent with `parser` or `detect only`. | stdout only | [inputs.md](inputs.md#detection) |
 
 ## Options
 
@@ -82,7 +82,7 @@ doubleagent --version
 | `--work-dir DIR` | Where to extract an archive. |
 | `--keep-extracted` | Keep the extracted archive. |
 
-[docs/options.md](docs/options.md) has the full meaning of each option,
+[analyze-options.md](analyze-options.md) has the full meaning of each option,
 which subcommands take it, and the full exit-code table.
 
 | Exit code | Meaning |
@@ -93,7 +93,7 @@ which subcommands take it, and the full exit-code table.
 
 ## Parsers
 
-The [agents page](../docs/agents.md) lists every agent in the catalog
+The [agents page](agents.md) lists every agent in the catalog
 with its status (parsed, a parser backlog, or collected with nothing to
 parse), the files each parser reads and the evidence it was validated
 against. Thinking and reasoning blocks are left out unless
@@ -103,13 +103,13 @@ against. Thinking and reasoning blocks are left out unless
 
 | Page | Covers |
 | --- | --- |
-| [docs/inputs.md](docs/inputs.md) | Accepted inputs, loose mode, unreadable inputs and `problem:` lines, detection from the bundled catalog, routing files to parsers |
-| [docs/output.md](docs/output.md) | `detect` output and `--json` keys, `timeline` files and stdout, the `inventory.json`, `timeline.jsonl` and `sessions.jsonl` schemas |
-| [docs/filtering.md](docs/filtering.md) | `--since`, `--until`, `--keep-undated` and `--match`, the `WHEN` forms and periods |
-| [docs/searching.md](docs/searching.md) | Reading and searching large output with jq, grep, DuckDB, Python and PowerShell |
-| [docs/inventory.md](docs/inventory.md) | The `inventory` command, its CSV columns and rollup |
-| [docs/options.md](docs/options.md) | Every option with its subcommands, and the exit codes |
-| [docs/development.md](docs/development.md) | Running the tests and lint checks, reading a real install, protobuf and SQLite stores, adding a parser |
+| [inputs.md](inputs.md) | Accepted inputs, loose mode, unreadable inputs and `problem:` lines, detection from the bundled catalog, routing files to parsers |
+| [timeline-output.md](timeline-output.md) | `detect` output and `--json` keys, `timeline` files and stdout, the `inventory.json`, `timeline.jsonl` and `sessions.jsonl` schemas |
+| [filtering.md](filtering.md) | `--since`, `--until`, `--keep-undated` and `--match`, the `WHEN` forms and periods |
+| [searching.md](searching.md) | Reading and searching large output with jq, grep, DuckDB, Python and PowerShell |
+| [fleet.md](fleet.md) | The `inventory` command, its CSV columns and rollup |
+| [analyze-options.md](analyze-options.md) | Every option with its subcommands, and the exit codes |
+| [development.md](development.md) | Running the tests and lint checks, reading a real install, protobuf and SQLite stores, adding a parser |
 
 The evidence behind every parser, with citations and the level each claim
 rests on, is one document per agent, listed in the

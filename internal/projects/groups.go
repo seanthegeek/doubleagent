@@ -1,6 +1,6 @@
 package projects
 
-// The six source groups of collectors/docs/internals.md, "Project
+// The six source groups of docs/internals.md, "Project
 // discovery", in their fixed order: the order paths are first seen
 // sets the project order, so each source keeps its place in its group.
 

@@ -662,7 +662,7 @@ sizes only.
   ([`cmd/launch/codex_app.go:1480-1495`](https://github.com/ollama/ollama/blob/678722224b3d8c2a024a4fa5f530d83ce34db120/cmd/launch/codex_app.go#L1480-L1495)).
   A crash leaves that copy of the Codex credential in the temp directory, which no catalog line
   covers; see [Per-user storage in `ollama.md`](ollama.md#per-user-storage), and
-  [Credentials in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#credentials), which
+  [Credentials in `docs/coverage.md`](../docs/coverage.md#credentials), which
   names it as a manual step.
 
 At `4e7b9e2` no new credential file was found: the quoted file names ending `.age`, `.json`,
@@ -883,7 +883,7 @@ Hermes Agent, Cline's SDK and Pydantic AI's CLAI hold copies that outlive the or
 `history.jsonl`, the global state and the `db-backups/` copies of `state_5.sqlite` as secondary
 sources (the marker as a `session deleted:` row), and the memory rollout summaries as a source of
 their own, since they repeat no event (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -2131,7 +2131,7 @@ databases beside it and in `thread_history_1.sqlite` (a problem row included) ta
 are shown once, with the `project_path` and `git_branch` of one of its rows: the first, in the
 order the parser reads them (`created_at_ms`, else `created_at`), that the analysis filters keep,
 else the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). Whether a
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Whether a
 `thread_history_1.sqlite` user message of such a thread is its subagent task is decided by the
 first stored row. A rollout's rows take the rollout's own `session_meta` and `turn_context`, and
 a thread that is in both `state_5.sqlite` and a `db-backups/` copy is read from each file as

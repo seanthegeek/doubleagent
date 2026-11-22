@@ -4,7 +4,7 @@
 A real-install check needs the key names, value types and JSONL line types of the files an
 agent wrote, never the values (no prompts, no tokens, no account ids), so the output can be
 pasted into a research document or a report. "Reading a real install" in
-analyzer/docs/development.md documents the output and the options.
+docs/development.md documents the output and the options.
 
     python3 -I lab/round/tools/shape.py ~/.config/Agent
     python3 -I lab/round/tools/shape.py --enums --depth 3 settings.json sessions/

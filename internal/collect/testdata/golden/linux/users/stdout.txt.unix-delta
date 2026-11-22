@@ -1,5 +1,5 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
  errors:     0 (0 error_copy, 0 error_read)
--relocation: 284 hints in 73 files searched, 24 resolved; see collectors/docs/relocation.md
-+relocation: 275 hints in 73 files searched, 18 resolved; see collectors/docs/relocation.md
+-relocation: 284 hints in 73 files searched, 24 resolved; see docs/relocation.md
++relocation: 275 hints in 73 files searched, 18 resolved; see docs/relocation.md

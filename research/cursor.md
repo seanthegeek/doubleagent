@@ -285,7 +285,7 @@ installs differ in the places listed in [Cursor IDE on Linux](#cursor-ide-on-lin
 [Cursor Agent CLI](#cursor-agent-cli); excluded in [Exclusions](#exclusions)).
 
 Outside the home, under `$TMPDIR` (`/private/var/folders/.../T/` on macOS), which no catalog line
-reaches ([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)):
+reaches ([`docs/coverage.md`](../docs/coverage.md)):
 
 - `cursor-agent-logs-<uid>/`: the logs of the IDE's worker and of the standalone CLI, one
   `session-<iso time>-<pid>-<n>.log` per process (mode 0600; the CLI's interactive process and
@@ -991,7 +991,7 @@ The analyzer reads the surviving header, the transcript JSONL, the `agentKv` blo
 and `ai-code-tracking.db`, and for an archived cloud agent the cached text and the agent's
 record
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources);
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 The Agent CLI has no delete, clear, export or share command: its parameters reference lists `ls`,
 `resume`, `create-chat`, `login`, `logout`, `status`, `about`, `models`, `mcp`, `sandbox`,
@@ -2500,7 +2500,7 @@ read in rowid order), its unsent draft, its blobs and problems, and its rows in 
 `conversation-search.db` and `ai-code-tracking.db`, with the project and branch of one stored
 row, the draft with its time too: the first, in rowid order, that `--since`, `--until` and
 `--match` keep, else the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 A `bubbleId:<composerId>:<bubbleId>` key that `cursorDiskKV` holds in more than one row is damage
 too. Each stored row, in rowid order, gives its own rows, read with the model in force before

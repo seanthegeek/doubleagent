@@ -198,7 +198,7 @@ A hive that is loaded but cannot be opened is logged as
 `registry: hive of <user> not readable: <message>` and listed under
 `users_denied`; an unreadable system key is logged as
 `registry: system environment not readable: <message>`. Users read are in
-`users_read`. [output.md](output.md#collectionjson) lists the
+`users_read`. [collection-output.md](collection-output.md#collectionjson) lists the
 `registry` object, and [windows.md](windows.md#the-registry-step) says what
 needs Administrator. The sh collector, an image-mode run and PowerShell
 off Windows read no registry and record why in `registry.reason`.
@@ -209,7 +209,7 @@ Use this for a hint whose value is empty, such as one in a shell script, or
 whose `value not resolved` reason you want to follow up. Extract the file from
 the archive. Its path in the archive is
 `fs/<original path>`, or the physical path under its base for a file reached
-through a symlinked directory ([Archive layout in output.md](output.md#archive-layout)),
+through a symlinked directory ([Archive layout in collection-output.md](collection-output.md#archive-layout)),
 and the log line names the original path and the line number (the path alone for a value read from a launchd plist as a whole). Look for
 the form that matches the file's shell:
 
@@ -313,14 +313,14 @@ that has the agent's project-level files inside it, such as a `.claude`
 folder, `AGENTS.md` or `.mcp.json`) needs no scratch root: give it to the
 collector as a project with `-p DIR` (`-Project DIR`), which collects the
 project-level files of the catalog from it. A path inside the evidence
-is given with its mount point, as [options.md](options.md) describes.
+is given with its mount point, as [collect-options.md](collect-options.md) describes.
 
 ## Variables the warning covers
 
 `--list` prints every variable the search looks for, with the agent its
 line belongs to and the default folder it replaces, after the Docker
 volume names. Each agent's research document, listed in the
-[research index](../../research/README.md), explains its variables in its
+[research index](../research/README.md), explains its variables in its
 `Relocation variables` subsection: what each moves, on which platforms,
 and where in the agent's source or documentation that is said. Every agent
 document that reads a configuration or cache folder through an `XDG_*`
@@ -328,7 +328,7 @@ variable also lists those variables there, as `shared`. The `shared`
 variables are `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`,
 `XDG_CACHE_HOME`, and the variables that move the startup files themselves
 (`ZDOTDIR`, `ENV`, `BASH_ENV`, `ZSH_CUSTOM`, `BASH_IT_CUSTOM`, `OMF_CONFIG`),
-listed in [Relocation variables in `research/shared.md`](../../research/shared.md#relocation-variables).
+listed in [Relocation variables in `research/shared.md`](../research/shared.md#relocation-variables).
 
 ## Search the whole home
 

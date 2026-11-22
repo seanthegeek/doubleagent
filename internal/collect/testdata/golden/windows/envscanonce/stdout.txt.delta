@@ -5,5 +5,5 @@
 +collected:  1039 files, 25667 bytes (25.1 KiB)
 @@ after
  errors:     0 (0 error_copy, 0 error_read)
--relocation: 355 hints in 152 files searched, 20 resolved; see collectors/docs/relocation.md
-+relocation: 361 hints in 186 files searched, 1 skipped for size, 20 resolved; see collectors/docs/relocation.md
+-relocation: 355 hints in 152 files searched, 20 resolved; see docs/relocation.md
++relocation: 361 hints in 186 files searched, 1 skipped for size, 20 resolved; see docs/relocation.md

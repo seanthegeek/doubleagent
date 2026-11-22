@@ -211,7 +211,7 @@ time or session, the newest 100 files kept; its current Windows path is named by
 ([Chat history and response cache](#chat-history-and-response-cache)). Deletion markers are not
 stated. The analyzer reads the chat files and, where it was collected, the response cache, a
 secondary source joined on text only (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

@@ -108,7 +108,7 @@ It holds the tables `message`, `transaction` (run history) and `vertex_build`
 [transactions/model.py:158](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/backend/base/langflow/services/database/models/transactions/model.py#L158),
 [vertex_builds/model.py:70](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/backend/base/langflow/services/database/models/vertex_builds/model.py#L70)),
 plus `variable` (encrypted credentials). A virtual environment has no fixed home path, so the
-database is a manual step in [`collectors/docs/coverage.md`](../collectors/docs/coverage.md). A
+database is a manual step in [`docs/coverage.md`](../docs/coverage.md). A
 `uv tool` install would put it under `.local/share/uv/tools/langflow/...`, but uv was not cited, so
 that line was not added.
 

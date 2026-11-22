@@ -381,7 +381,7 @@ No deletion marker is written. The analyzer reads the frozen and backup JSONL co
 transcript, the CLI history, the sidebar cache and the cron and trigger run records as secondary
 sources and the memory journal as a primary source of summaries
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources)), and does not read
-`llm_usage.sqlite3` (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)). The
+`llm_usage.sqlite3` (see [Secondary sources](../docs/timeline-output.md#secondary-sources)). The
 run records of a workspace outside `.nanobot*` are collected through the project catalog.
 
 #### SQLite session store
@@ -998,7 +998,7 @@ never writes (the key is the table's primary key), gives the key's messages once
 row in `created_at` then key order; each later row of the key gives its own `session start:` row.
 The messages take the preset `model` (until a `/model` switch) and the time (until a message
 carries one) of the first row of the key that `--since`, `--until` and `--match` keep, else of its
-first row ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). When
+first row ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). When
 the key has messages, which only its first row shows, one row after the database's other rows,
 with the workspace's project path, no session and `source_line` 0, counts the later rows (`1 row`
 for one):

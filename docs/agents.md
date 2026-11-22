@@ -99,7 +99,7 @@ were synced to the vendor's account, and which were relayed through a
 messaging platform. Each row carries the host, user,
 agent, session, project path and source file it came from, in the same
 fields for every agent, so one query works across them all; the fields are
-in [`analyzer/docs/output.md`](../analyzer/docs/output.md#timelinejsonl).
+in [`docs/timeline-output.md`](timeline-output.md#timelinejsonl).
 Where an agent keeps a second record of its use beside the transcript, a
 prompt history, a search index or a mirror, the parser reads that too and
 shows each event once, so a session the user deleted is still recovered
@@ -128,7 +128,7 @@ approval denied automatically, an Infection Check verdict), an editor
 workspace `data.acp_cwd` as the project path, and the per-chat model
 override, with the API key and base URL of each slot that holds them. Beside the chats, in the same
 install or volume: `usr/scheduler/tasks.json` (a
-[secondary source](../analyzer/docs/output.md#secondary-sources): each
+[secondary source](timeline-output.md#secondary-sources): each
 task's prompt and last result), the Telegram plugin's `state.json` (a
 secondary source: a mapped chat that is gone gives a `session deleted:`
 row), the `_tool_access` and `_orchestrator` `config.json` files and the

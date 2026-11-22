@@ -183,7 +183,7 @@ project ([Past use and secondary sources](#past-use-rows-and-secondary-sources))
 prompt sent to the model and every response, each with its own time. No other store of past use was
 found. The analyzer reads `.aider.chat.history.md` as the primary store and the input and LLM
 histories as secondary sources on every run (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

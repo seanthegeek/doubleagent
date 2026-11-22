@@ -9,4 +9,4 @@ projects:   0
 collected:  889 files, 21300 bytes (20.8 KiB)
 skipped:    375 excluded, 1 too large, 0 secret, 1 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 341 hints in 138 files searched, 20 resolved; see collectors/docs/relocation.md
+relocation: 341 hints in 138 files searched, 20 resolved; see docs/relocation.md

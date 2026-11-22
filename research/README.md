@@ -205,7 +205,7 @@ recorded, and what other copies of past use exist and what a delete
 leaves. "Not stated" means the agent's document does not say, and the
 link in each row opens that document's account of what survives. Parsed,
 secondary and not parsed say whether the analyzer reads a file and as
-what; [Secondary sources](../analyzer/docs/output.md#secondary-sources) lists the
+what; [Secondary sources](../docs/timeline-output.md#secondary-sources) lists the
 secondary sources per agent, and
 [issue 122](https://github.com/seanthegeek/doubleagent/issues/122)
 is the design that shows each event once across them.

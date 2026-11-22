@@ -2,14 +2,14 @@
 
 How the two collectors are built, for a maintainer who has to audit or
 extend them. The project's standards for the collectors are in
-[AGENTS.md](../../AGENTS.md#non-negotiable-standards), the readability
-rules in [its Readability section](../../AGENTS.md#readability).
+[AGENTS.md](../AGENTS.md#non-negotiable-standards), the readability
+rules in [its Readability section](../AGENTS.md#readability).
 
 What the collectors write is documented elsewhere and not repeated here:
-the files and fields in [output.md](output.md), what is collected and the
+the files and fields in [collection-output.md](collection-output.md), what is collected and the
 user-visible matching rules in [coverage.md](coverage.md), the volume
 behaviour in [docker.md](docker.md), the inventory lines in
-[inventory.md](inventory.md), and the Windows archivers, symlinks and long
+[collect-inventory.md](collect-inventory.md), and the Windows archivers, symlinks and long
 paths in [windows.md](windows.md).
 
 ## Layout
@@ -150,7 +150,7 @@ this order, which keeps the per-file order of the forensic rules:
    nor a regular file is `skipped_special`, its `type_N` set to `socket`,
    `fifo`, `device` or `other` by `test -S`, `-p`, `-b` and `-c`; it is
    never copied (see
-   [Special files in `output.md`](output.md#special-files)).
+   [Special files in `collection-output.md`](collection-output.md#special-files)).
 3. `copy_chunk` gives each run of consecutive `copy` files from one
    directory to `copy_run`, which copies a run of more than one file with
    one `cp -p`; a run whose `cp` fails or prints anything is redone per
@@ -406,7 +406,7 @@ Every manifest row goes through `write_manifest_row` (sh) or
 `Write-ManifestRow` (PowerShell), which write one JSON line by hand rather
 than through a JSON library: the sh collector has none, and PowerShell's
 `ConvertTo-Json` is slower per row and differs between 5.1 and 7. The
-fields and statuses are in [output.md](output.md#manifest).
+fields and statuses are in [collection-output.md](collection-output.md#manifest).
 
 - sh: the arguments are the manifest path and the 19 fields in manifest
   order. String fields go through `json_escape_var`, which escapes
@@ -956,7 +956,7 @@ that is not text gets `not a string`. The sh collector writes a fixed
 ## Inventory mode
 
 `--inventory` / `-Inventory` runs the same walk and writes nothing; the
-output is described in [inventory.md](inventory.md).
+output is described in [collect-inventory.md](collect-inventory.md).
 
 - sh: `set_output_names` sets `LOG` and `MANIFEST` to `/dev/null` and no
   staging directory. `collect_catalog` prints `M|agent|glob` for each

@@ -557,7 +557,7 @@ The analyzer reads `history.txt` and the `llm_request` logs on every run, both a
 sources, so a removed, cleared or rewound session's prompts and latest replies are kept where
 the database lost them; see
 [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources) and
-[Secondary sources](../analyzer/docs/output.md#secondary-sources).
+[Secondary sources](../docs/timeline-output.md#secondary-sources).
 
 ### Record schema
 
@@ -1002,7 +1002,7 @@ one row
 (`another of them` for each row the messages do not go with) at its `created_at`. The session's
 messages and their problem rows are shown once, with the `working_dir`, and for a message naming no
 model the model, of the first stored row by `created_at` that `--since`, `--until` and `--match`
-keep, else of the first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). The
+keep, else of the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). The
 session's first message naming a model gives `model: <model>`, not a change from a stored row's
 model.
 

@@ -100,31 +100,30 @@ not_in_nav: |
   /docs/differences-from-the-scripts.md
 
 nav:
-  - Home: docs/index.md
-  - Agents: docs/agents.md
-  - Collectors:
-      - collectors/README.md
-      - collectors/docs/options.md
-      - collectors/docs/output.md
-      - collectors/docs/coverage.md
-      - collectors/docs/relocation.md
-      - collectors/docs/docker.md
-      - collectors/docs/privileges.md
-      - collectors/docs/inventory.md
-      - collectors/docs/windows.md
-      - collectors/docs/deployment.md
-      - collectors/docs/testing.md
-      - collectors/docs/internals.md
+  - Start:
+      - docs/index.md
+  - Collecting:
+      - docs/collect.md
+      - docs/collect-options.md
+      - docs/collection-output.md
+      - docs/coverage.md
+      - docs/relocation.md
+      - docs/docker.md
+      - docs/privileges.md
+      - docs/windows.md
+      - docs/deployment.md
+      - docs/collect-inventory.md
+  - Analysing:
+      - docs/analyze.md
+      - docs/analyze-options.md
+      - docs/inputs.md
+      - docs/timeline-output.md
+      - docs/filtering.md
+      - docs/searching.md
+      - docs/fleet.md
+  - Reference:
+      - docs/agents.md
       - Collector changelog: collectors/CHANGELOG.md
-  - Analyzer:
-      - analyzer/README.md
-      - analyzer/docs/inputs.md
-      - analyzer/docs/output.md
-      - analyzer/docs/filtering.md
-      - analyzer/docs/searching.md
-      - analyzer/docs/inventory.md
-      - analyzer/docs/options.md
-      - analyzer/docs/development.md
       - Analyzer changelog: analyzer/CHANGELOG.md
   - Research:
       - research/README.md
@@ -184,7 +183,11 @@ nav:
       - research/windsurf.md
       - research/zed.md
       - research/frameworks.md
-  - Agent lab: lab/README.md
-  - Round pipeline: lab/round/README.md
-  - Lab VMs: docs/lab-vms.md
-  - Contributing: AGENTS.md
+  - Contributing:
+      - docs/development.md
+      - docs/internals.md
+      - docs/testing.md
+      - docs/lab-vms.md
+      - Agent lab: lab/README.md
+      - Round pipeline: lab/round/README.md
+      - AGENTS.md

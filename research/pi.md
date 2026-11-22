@@ -455,7 +455,7 @@ pi writes no deletion marker. The analyzer reads the session files, `trust.json`
 secondary sources `pi-debug.log`, the two project exports and the bug report zip's `session.jsonl`,
 whose entries it keeps when no session file holds them; it also reads `crashes.json`, whose rows
 name a deleted session's file and directory, `pi-tui-crash.log`, and a zip's report, diagnostics
-and summary (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+and summary (see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

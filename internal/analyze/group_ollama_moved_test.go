@@ -62,7 +62,7 @@ func ollamaMovedRun(t *testing.T, options ...string) []string {
 // and from the chat's tracked model otherwise, also when they go with the
 // earlier one: a row shown only when the group goes with none of several
 // parents is a form the grouping lacks. This pins that limit, which
-// research/ollama.md and analyzer/docs/output.md state.
+// research/ollama.md and docs/timeline-output.md state.
 func TestTheNextModelRowAfterSeveralEmptyOllamaMessagesOfAnIDReadsFromTheLastOfThem(t *testing.T) {
 	const (
 		first  = "2026-01-01T00:00:00.000Z "

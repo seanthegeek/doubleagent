@@ -481,7 +481,7 @@ surviving `usage_record.jsonl` entry, the token usage records and, after a daemo
 organization, the GitHub channel's audit and `.qwen/PROJECT_SUMMARY.md`, and reads `logs.json`,
 `usage_record.jsonl` and the channels' group history as secondary sources; it does not read
 `shell_history`, the checkpoints, the memory documents or the managed local mode's database (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Scratch workspaces and worktrees
 
@@ -1396,7 +1396,7 @@ record, written on every change.
 #### Past-use rows and secondary sources
 
 `logs.json` is parsed as a secondary source
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)): each `user` entry repeats a
+([Secondary sources](../docs/timeline-output.md#secondary-sources)): each `user` entry repeats a
 prompt of the transcript, joined on `sessionId` and text, and outlives a delete made through the
 daemon ([What survives a delete](#what-survives-a-delete)).
 

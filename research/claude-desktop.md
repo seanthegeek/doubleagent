@@ -378,7 +378,7 @@ Sizes of the excluded subtrees observed on macOS (2026-10-11, 2.31226.1):
   bytes, 10 GiB), `sessiondata.img` the session disk (30,408,704 bytes, 29 MiB,
   [Files inside the Cowork VM](#files-inside-the-cowork-vm)), beside a 56 MiB kernel and 31 MiB
   of initrds; the manual step for the session disk is in
-  [Cowork VM disks in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#cowork-vm-disks).
+  [Cowork VM disks in `docs/coverage.md`](../docs/coverage.md#cowork-vm-disks).
 - `Cache` 1,217,064,960; `Code Cache` 161,087,488.
 - `claude-code` 476,061,696 (the two app bundles, 2.1.293 and 2.1.295).
 - `claude-code-vm` 255,528,960 (the Linux CLI and its markers).
@@ -510,7 +510,7 @@ locally, its transcript being server-side
 the audit log and the record's `initialMessage` as secondary sources (a Code-tab record's prompt
 only when its transcript was not collected) and the records' own `system` rows always; it does not
 read the logs, the LevelDB stores or `archived-sessions.idx` (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Files inside the Cowork VM
 
@@ -878,7 +878,7 @@ roots. Observed on Linux: one entry, `/tmp/claude-<uid>`, beside a
 `cli-temp-roots.json.dirty.copy.<16 hex>` of the same size; that root held per-project slug
 directories with empty `scratchpad/` and `tasks/` dirs. The roots are outside every home and are
 not collected
-([`collectors/docs/coverage.md`](../collectors/docs/coverage.md#claude-desktop-data-directories)).
+([`docs/coverage.md`](../docs/coverage.md#claude-desktop-data-directories)).
 
 ### Format versions
 

@@ -305,7 +305,7 @@ errors:     3 (1 error_copy, 2 error_read)
 		{"no hints and no docker", base, head + "relocation: 0 hints in 0 files searched\n"},
 		{"hints, skipped and resolved", withHints, head +
 			"relocation: 1 hint in 1 file searched, 2 skipped for size, 3 resolved; " +
-			"see collectors/docs/relocation.md\n"},
+			"see docs/relocation.md\n"},
 		{"docker with an unreadable volume and Docker Desktop", withDocker, head +
 			"relocation: 0 hints in 0 files searched\n" +
 			"docker:     1 volume found, 0 collected, 1 unreadable (run as root to collect); " +

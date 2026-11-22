@@ -5,7 +5,7 @@ state in an input, `timeline` parses the transcripts into JSONL files
 under `-o`, and `inventory` merges the collectors' inventory output from a
 fleet into one CSV. The options below are every one each subcommand
 accepts, with the exit codes a script can test; the short table in the
-[analyzer README](../README.md#options) is enough for a first run.
+[analyzer README](analyze.md#options) is enough for a first run.
 
 ## Synopsis
 
@@ -23,7 +23,7 @@ doubleagent --version
 
 | Option | Subcommand | Meaning |
 | --- | --- | --- |
-| `--json` | `detect` | Print the machine-readable object described in [output.md](output.md#detect). |
+| `--json` | `detect` | Print the machine-readable object described in [timeline-output.md](timeline-output.md#detect). |
 | `--files` | `detect` | Also list every attributed file. |
 | `-o, --output DIR` | `timeline` | Output directory, required. |
 | `-o, --output FILE` | `inventory` | CSV to write. Default `fleet-inventory.csv` in the current directory. |

@@ -6,7 +6,7 @@ directory, the archive layout, the manifest and `collection.json`.
 ## Stdout summary
 
 When the run finishes, the collector prints a summary on stdout (the sample
-is in the [README](../README.md#quick-start)):
+is in the [README](collect.md#quick-start)):
 
 - `archive`, `manifest`, `summary`, `log`: the paths of the four main output
   files.
@@ -28,7 +28,7 @@ is in the [README](../README.md#quick-start)):
   searched for them, as `relocation: N hints in M files searched`, followed
   by `, K skipped for size` when the `--env-scan-home` sweep left K files
   unread for their size, by `, R resolved` when R of the hints carry a value,
-  and by `; see collectors/docs/relocation.md` when N is above 0. It is printed after `errors` and before `docker`; see
+  and by `; see docs/relocation.md` when N is above 0. It is printed after `errors` and before `docker`; see
   [relocation.md](relocation.md).
 - The `docker:` line appears only when a Docker or Podman volume directory
   or Docker Desktop data was found, as `N volumes found, N collected, N unreadable`; see [docker.md](docker.md).

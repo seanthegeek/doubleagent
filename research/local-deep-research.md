@@ -224,7 +224,7 @@ readable only with the user's password:
 `Documents/LocalDeepResearch/Library`. Embedding models, vector indexes, journal datasets and
 downloaded PDFs are large and are not agent state. Each excluded directory is one manifest row
 with its total size, not a list of its files
-([`collectors/docs/output.md`](../collectors/docs/output.md)). Keep `encrypted_databases/backups`:
+([`docs/collection-output.md`](../docs/collection-output.md)). Keep `encrypted_databases/backups`:
 the files are encrypted copies, but they show when the database existed.
 
 ### Project-local files

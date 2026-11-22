@@ -1,8 +1,8 @@
-# Inventory
+# Fleet inventory
 
 `inventory` merges the output of collector runs made with `--inventory`
 (sh) or `-Inventory` (PowerShell), described in the
-[collectors documentation](../../collectors/docs/inventory.md), into one CSV
+[collectors documentation](collect-inventory.md), into one CSV
 for the fleet. Each `INPUT` is a file holding one host's captured stdout,
 or a directory whose regular files are all read (not recursively, sorted
 by name, symlinks skipped). A symlink given as `INPUT` is an error.

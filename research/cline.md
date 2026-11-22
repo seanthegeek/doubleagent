@@ -330,7 +330,7 @@ OpenCode is a copy of that agent's transcript under a new id. The analyzer reads
 `user_input_history.jsonl`, `session-search.db` and `logs/hooks.jsonl` as secondary sources, the
 upload queue and `cloudSessionStatuses` for their own rows, and an imported session as any SDK
 session with its source named on the start row (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Imported sessions
 
@@ -1077,7 +1077,7 @@ and the task's rows (its task files' rows, their `parser:` rows and the upload q
 task) are shown once, with the `cwdOnTaskInitialization` of one entry, and its `ts` and `modelId`
 where the task's start and model come from the entry: the first entry, in file order, that the
 analysis filters keep, else the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 #### Fixtures
 

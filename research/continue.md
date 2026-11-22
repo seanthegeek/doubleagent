@@ -259,7 +259,7 @@ analyzer reads all of these but the `/share` exports: the `chatInteraction`, `to
 `input_history.json` and the `chatFeedback` events as secondary sources, so a deleted session's
 prompts and rated replies are shown again
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources); see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -816,7 +816,7 @@ own at its position, with its `dateCreated`, `sessionId` and `workspaceDirectory
 `dev_data` rows of the session are shown once, with the `dateCreated` and, where the session file
 has none, the `workspaceDirectory` of one entry, its start row with that entry's `title`: the
 first entry, in file order, that the analysis filters keep, else the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)).
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 #### Fixtures
 

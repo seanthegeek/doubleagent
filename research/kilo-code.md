@@ -483,7 +483,7 @@ The analyzer reads the `kilo.db` sessions, the marker files, the prompt history 
 sessions of `session.json` as secondary sources, the project memory session digests, the remote
 control lines of the logs and `retention/state.json`
 ([Parser plan](#parser-plan),
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Remote control
 
@@ -1175,7 +1175,7 @@ field only when set), `source_line` 0. The index is Roo Code's, which keeps one 
 id is damage or an edit: each entry of the id gives its own `task:` row, with its own `workspace`
 and start, and the task's other rows are shown once, with the `workspace` of one entry, and its
 start for a record with no `ts`: the first entry, in file order, that the analysis filters keep,
-else the first ([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). Each record's
+else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each record's
 rows follow at its array position, timed by its `ts`, else the item's: the record's text and
 `image` blocks are one row by its `role` (an image as `[image]`), placed where the first was; a
 text block opening `<environment_details>` is a `system` row; a `tool_use` block is a `tool_use`

@@ -280,7 +280,7 @@ compaction ([Prompt history `.cli_bash_history`](#prompt-history-cli_bash_histor
 analyzer reads it as a secondary source, and reads the checkpoint snapshots and the tangent-mode
 main history below for the entries `history` no longer holds
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources); see also
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)); `transcript` is not read.
+[Secondary sources](../docs/timeline-output.md#secondary-sources)); `transcript` is not read.
 
 Three fields of `ConversationState` repeat history the parser reads from
 `history`, and each outlives a change to it:

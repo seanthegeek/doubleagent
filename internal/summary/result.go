@@ -90,7 +90,7 @@ func relocationLine(relocation Relocation) string {
 		text += ", " + strconv.Itoa(relocation.Resolved) + " resolved"
 	}
 	if hints != 0 {
-		text += "; see collectors/docs/relocation.md"
+		text += "; see docs/relocation.md"
 	}
 	return text
 }

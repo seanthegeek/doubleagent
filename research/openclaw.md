@@ -605,7 +605,7 @@ session-start row and a `session deleted:` row, a tombstone a `session forgotten
 row, an archived session a `session archived:` row; the full-text index gives the entries the
 transcript no longer holds, the pending inputs the prompts that never reached it, the channel
 tables the inbound messages and deliveries, and the backups `backup uploaded:` rows (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources) and
+[Secondary sources](../docs/timeline-output.md#secondary-sources) and
 [Deletion rows](#deletion-rows)).
 
 ### Record schema
@@ -1565,7 +1565,7 @@ is set) at its `started_at`, else `created_at`, with its own `model`, and its ow
 `session start:` row, and the rows of an assistant message naming no model until an entry names
 one) are shown once, with the `model` of the first stored row that `--since`, `--until` and
 `--match` keep, else of the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A row's text cannot follow
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A row's text cannot follow
 that choice, so the session's `session start:` rows carry no window's key or columns, no `model:`
 row follows them, and the first message naming a model gives `model: <model>`.
 
@@ -1639,7 +1639,7 @@ only the current override, so the row names no previous model. Fixture only.
 
 Every source is parsed on every run, and a row of a secondary source is dropped when a primary
 store's row records the same event (see
-[Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources)).
 
 - Primary: `openclaw-agent.sqlite`, all of it: `transcript_events`, the cold archives and every
   `session_transcript_archives` blob, whether or not its `published_at` is set (the time the blob

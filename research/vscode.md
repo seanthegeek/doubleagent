@@ -385,7 +385,7 @@ Neither delete path writes a log line: the exporter reports through telemetry on
 The analyzer reads the `cloudSessions.json` entries, which also name sessions deleted here, the
 `ownedTasks` list and the editing state, a secondary source whose `edit state:` rows keep the
 deleted chat's session id, edited files, request ids and model (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)); it does not read
+[Secondary sources](../docs/timeline-output.md#secondary-sources)); it does not read
 `session-store.db`, the hook transcripts, the debug logs, the memory files or the index, which the
 plan in [Parser plan](#parser-plan) makes secondary sources.
 
@@ -826,7 +826,7 @@ are the same, with only line numbers moved, and the session object gained `sessi
 `variableData.variables[].value` and `usedContext` may hold attached file contents;
 `toolSpecificData.rawInput` and `commandLine` may hold command-line secrets. `state.vscdb` stores
 extension auth material under other keys (out of scope here; see the Cursor and Windsurf notes in
-[`collectors/docs/coverage.md`](../collectors/docs/coverage.md#credentials)). In
+[`docs/coverage.md`](../docs/coverage.md#credentials)). In
 `User/settings.json`, an extension's own settings can hold a token, such as an MCP server's
 `env` or `headers` values; the keys are in that extension's document
 ([Secrets in `twinny.md`](twinny.md#secrets), [Secrets in `cody.md`](cody.md#secrets)).

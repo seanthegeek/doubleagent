@@ -28,7 +28,7 @@ type environmentDReader struct {
 // joins the next line, and a quote left open joins it with its newline (the
 // Assignment keeps the first line); one pair of enclosing quotes is removed;
 // `$$` is a dollar and `$HOME` or `${HOME}` is home when home is set. See
-// collectors/docs/relocation.md for every reason a value is refused.
+// docs/relocation.md for every reason a value is refused.
 func ResolveEnvironmentD(r io.Reader, names []string, home string) ([]Assignment, error) {
 	reader := environmentDReader{wanted: nameSet(names), home: home}
 	err := eachLine(r, func(number int, line []byte) {

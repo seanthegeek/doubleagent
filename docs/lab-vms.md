@@ -382,7 +382,7 @@ prints the VM's name without a prompt.
 
 The remote shell of an endpoint detection and response (EDR) tool runs
 as root, and the collector is written to be run through one (see
-[Deployment](../collectors/docs/deployment.md)), so the collector run in
+[Deployment](deployment.md)), so the collector run in
 the VM from the host over SSH has to run as root too, with nobody at the
 host end to type a password. The Windows lab user has that as an
 administrator. The macOS lab user is an administrator too, but the

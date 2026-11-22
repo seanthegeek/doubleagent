@@ -965,7 +965,7 @@ than exclude. The [CLI cache directory](#cli-cache-directory) is small and nothi
 `errors/` subdirectory included, is excluded. On Windows the catalog names the cache directory's
 children (`AppData/Local/claude-cli-nodejs/Cache/*`) rather than the directory, so that the Claude
 Desktop exclusion `*/Claude*/Cache` does not prune it
-([`collectors/docs/coverage.md`](../collectors/docs/coverage.md) says why). The VS Code
+([`docs/coverage.md`](../docs/coverage.md) says why). The VS Code
 extension's copy of the CLI binary
 (`.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude`, 291 MB on Linux
 2.1.310, most of the 273.3 MB extension directory on macOS 2.1.310,
@@ -1302,7 +1302,7 @@ expand a history line's paste placeholders
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)), not
 `file-history/`, `backups/` or `jobs/`; it lists a removed project that the collected files still
 name with the `referenced` status; the other agents' copies are read, if at all, under those agents
-(see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+(see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 - **Copies on Anthropic's servers.** A session driven through a Remote Control server stayed
   listed on claude.ai, marked disconnected, after the local server stopped (macOS 2.1.310), and a

@@ -73,7 +73,7 @@ under `.codex\app-server-control` and `.codex\app-server-daemon` while
 its app-server daemon runs; collector 1.12.0 recorded each as a `symlink`
 whose `target` was its own path in extended-length form. When `LinkType`
 cannot be read at all, the reparse point is still treated as a link. See
-[Special files](output.md#special-files).
+[Special files](collection-output.md#special-files).
 
 Symlinks and junctions are recreated in the staging directory as
 symbolic links with the target string exactly as `Target` reports it, as the
@@ -99,7 +99,7 @@ ordinary file to the collector: every path gets its own `collected` row and
 the bytes are staged and archived once per path. Antigravity's `cli.log`,
 a hard link to the newest file under its `log/` directory, is collected
 twice this way
-([Per-user storage in `research/antigravity.md`](../../research/antigravity.md#per-user-storage)).
+([Per-user storage in `research/antigravity.md`](../research/antigravity.md#per-user-storage)).
 The sh collector does the same on any file system, since `cp` copies each
 path on its own.
 
@@ -191,7 +191,7 @@ reads the real bytes, and from collector 1.12.0 a `collected` row's
 archived member; earlier versions wrote the stale listed length. A
 `skipped_size` decision, and the size of a `skipped_size`,
 `skipped_secret`, `skipped_special`, `symlink`, `error_copy` or excluded row, still use the
-listed length (see the `size` field in [output.md](output.md#manifest)).
+listed length (see the `size` field in [collection-output.md](collection-output.md#manifest)).
 
 Every file system call addresses its path in the extended-length form,
 `\\?\C:\...` for a drive path and `\\?\UNC\server\share\...` for a UNC

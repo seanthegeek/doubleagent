@@ -327,7 +327,7 @@ host; whether a delete reaches it is not stated, and nothing on the developer's 
 request was recorded. No deletion marker is stated. The analyzer reads the `rjmacarthy.twinny` row,
 and the `agent-changes/` records and the log channel as secondary sources, so a deleted
 conversation's file changes, project root and log lines stay in the timeline; the gateway
-recordings are not read (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+recordings are not read (see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

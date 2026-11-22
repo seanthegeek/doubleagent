@@ -22,7 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The bundled catalog copy gains the credential lines of collector 1.22.0: the six nanobot token directories `.local/share/nanobot/auth`, `Library/Application Support/nanobot/auth`, `AppData/Local/nanobot/auth` and `oauth-cli-kit/auth` under the same three roots, which detection now attributes to `nanobot`, and the secret globs for every file under them, for Agent Zero's `usr/plugins/_oauth/*/auth.json` and `usr/plugins/_oauth/*/.auth.json.*.tmp` (in a home install and a volume) and for Amp's `.local/share/amp/ide/*` ([#246], [#247], [#333]).
 - The bundled catalog copy gains collector 1.22.0's Qwen Live lines, so `detect` attributes `.qwen-live` to the new agent `qwen-live`, which `timeline` lists as detected but not parsed ([#156]).
 - The `gemini-cli` parser reads Gemini CLI's other past-use stores on every run: the tool checkpoints `tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row naming the tool, file, shadow commit and prompt id, then the history sent) and an error report `gemini-client-error-<type>-<time>.json` copied into `.gemini` or `.cache/.gemini`, or the `tmp/<slug>` directory of either (an `error report:` row, then the history sent), both as copies of the session file's turns, each turn the session file also holds dropped from the timeline; and, as stores of their own, the activity log `tmp/<slug>/logs/session-<id>.jsonl` (`console <type>: <content>`, `network request:`, `network response:` and `network error:` rows naming the method, the URL without its query string and the status, never a header value or a body; the conversation turns in its bodies are not read), each `tmp/<slug>/memory/` file as one `memory file:` row holding its text at its modification time and each clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one `clipboard image: <name> <size> bytes` row at the time in its name ([#394]).
-- The `pi` parser reads the copies of past sessions pi leaves in a project directory as [secondary sources](docs/output.md#secondary-sources): an HTML export `pi-session-*.html` (every entry of every branch, from the page's base64 session data) and a JSONL export `session-<time>.jsonl` (one branch), each with a `session exported:` row, and a bug report zip `pi-bug-report-*.zip`, read in memory, giving a `bug report:` row from `report.json` and `diagnostics.json` with its failed assistant turns, a `crash:` row per carried crash, a `bug report summary:` row for `summary.md` or the rows of its `session.jsonl`. Rows a session file also holds are dropped; a deleted session's are kept and marked recovered, as are the entries an export of a fork copied from its parent. The copies give no `model:` rows; the session file gives them ([#395]).
+- The `pi` parser reads the copies of past sessions pi leaves in a project directory as [secondary sources](../docs/timeline-output.md#secondary-sources): an HTML export `pi-session-*.html` (every entry of every branch, from the page's base64 session data) and a JSONL export `session-<time>.jsonl` (one branch), each with a `session exported:` row, and a bug report zip `pi-bug-report-*.zip`, read in memory, giving a `bug report:` row from `report.json` and `diagnostics.json` with its failed assistant turns, a `crash:` row per carried crash, a `bug report summary:` row for `summary.md` or the rows of its `session.jsonl`. Rows a session file also holds are dropped; a deleted session's are kept and marked recovered, as are the entries an export of a fork copied from its parent. The copies give no `model:` rows; the session file gives them ([#395]).
 - The `pi` parser reads the terminal UI crash log `.pi/agent/pi-tui-crash.log` (`pi-crash.log` in older builds such as 0.83.0): one `tui crash:` row per crash at its `Crash at` time, the rendered screen lines as its text ([#395]).
 - The `qwen-code` parser reads Qwen Code's past-use stores on every run: the monthly token usage log (`token usage:` rows), the todo files (`todo:`), the Web Shell's `session-organization.v1.json` (`session organization:`), `.qwen/PROJECT_SUMMARY.md` (`project summary`), the pull-request sidecars `<sessionId>.pr.json` and the GitHub channel's publication audit (`source host:` rows), the channels' group history as a secondary source (`group message:` and `group history cleared:` rows; a message is dropped when a prompt within 2 seconds of the `clear` line of its chat gives the same `group message:` row, whitespace runs compared as one space, and one no `clear` follows is always kept), and the managed local mode's harness and worker transcripts under `.qwen/managed-local/` and the workers' `usage_record.jsonl`, read as the home's; its H2 database stays unread. A token usage record whose model is `unknown` leaves the `model` column empty ([#396]).
 
@@ -140,7 +140,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   of the record that names it: the `codex-cli` and `open-interpreter`
   parsers read the rollout's `session_meta` `git.repository_url` and the
   `state_5.sqlite` `threads.git_origin_url` (a
-  [secondary source](docs/output.md#secondary-sources), so the
+  [secondary source](../docs/timeline-output.md#secondary-sources), so the
   timeline keeps one of the two); the `zed` parser reads the thread
   snapshot's `git_state.remote_url`; the `openclaw` parser reads the
   `projects` table's `origin_url` of `state/openclaw.sqlite`, with the
@@ -295,14 +295,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no `parser:` row ([#281]).
 - The examples of the plain `detect` output, `detect --json`, the
   `timeline` stdout, `inventory.json`, `timeline.jsonl` and
-  `sessions.jsonl` in [`docs/output.md`](docs/output.md) are now the
+  `sessions.jsonl` in [`../docs/timeline-output.md`](../docs/timeline-output.md) are now the
   analyzer's output on a synthetic collection, built by the new
   `tools/example_collection.py` and regenerated by the new
   `tools/regenerate_examples.py`; the collection holds several Claude
   Code sessions, a Remote Control and a teleported one among them, a
   Codex CLI thread, settings, a prompt history that names a deleted
   session, a cut transcript and a cut manifest row, and
-  [The example collection](docs/output.md#the-example-collection)
+  [The example collection](../docs/timeline-output.md#the-example-collection)
   describes it. Before, the `inventory.json` example showed analyzer
   0.14.0, keys of the `detect --json` and `inventory.json` examples had
   been filled in by hand, the project table under `detect` listed files
@@ -1923,7 +1923,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   summarised from the kept rows.
 - `python-dateutil` is a new required dependency, used for `--since` and
   `--until`; reinstall with `pip install -r requirements.txt`.
-- The [analyzer README](README.md) has recipes for filtering a written timeline by time
+- The [analyzer README](../docs/analyze.md) has recipes for filtering a written timeline by time
   with jq, DuckDB, Python and PowerShell.
 
 ### Changed
@@ -1938,7 +1938,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   output, diffs and multi-line prompts read as they were written; only
   leading and trailing whitespace is removed. Before, whitespace runs were
   collapsed to one space.
-- The [analyzer README](README.md) has a section on reading and searching large JSONL
+- The [analyzer README](../docs/analyze.md) has a section on reading and searching large JSONL
   timelines with jq, grep, DuckDB, Python and PowerShell.
 
 ### Removed
@@ -2080,7 +2080,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The [README](README.md) says the `live` pseudo-agent appears only in collections made
+- The [README](../docs/analyze.md) says the `live` pseudo-agent appears only in collections made
   by collectors before 1.6.0, which removed the live snapshot.
 
 ## [0.4.0] - 2026-10-04

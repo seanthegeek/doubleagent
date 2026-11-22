@@ -25,7 +25,7 @@ Linux home holds no macOS `Library` or Windows `AppData` tree, so those
 trees were left out, except Cursor's editor state, which was moved to its
 Linux place, `.config/Cursor`. Its `collection.json`, `manifest.jsonl`
 and `collector.log` were written in the shape
-[`collectors/docs/output.md`](../../collectors/docs/output.md) documents,
+[`docs/collection-output.md`](collection-output.md) documents,
 as the collector of this repository, whose version they carry, would
 record `wsdev14`, a Linux workstation, in live mode on 2026-10-15, with
 the users `alice` and `bob` and the repository `/srv/proj`. A file whose
@@ -145,7 +145,7 @@ Some project files belong to no single agent, because several agents read
 the same file. These are the shared files: the collector records them
 with agent `project`, and the tables count them on the project's
 `(shared)` line. They are the `project` lines of the project catalog, and
-[`research/shared.md`](../../research/shared.md)
+[`research/shared.md`](../research/shared.md)
 and the per-agent research documents cite each reader:
 
 - `AGENTS.md`, the repository instruction file read by Codex CLI, Copilot
@@ -167,7 +167,7 @@ and the per-agent research documents cite each reader:
   checked-out branch, the remotes, the branches, the reflog and the
   local ignore rules, which say where the code came
   from and where it may have been pushed rather than which agent worked
-  there. [Git metadata in `collectors/docs/coverage.md`](../../collectors/docs/coverage.md#git-metadata)
+  there. [Git metadata in `docs/coverage.md`](coverage.md#git-metadata)
   says what each file holds and what under `.git/` is not collected.
 
 A project file no project catalog entry matches is counted as shared as
@@ -481,7 +481,7 @@ agents:    none were found
 `parsed` names the agents that produced rows before filtering. `detected but
 not parsed` names the agents in the input that have no parser and whose files
 hold records a parser is wanted for, the `backlog` rows of the [agents
-page](../../docs/agents.md) (the agents `detect` shows without a parser, in
+page](agents.md) (the agents `detect` shows without a parser, in
 either table, so an agent whose only files are in a project directory counts).
 `collected only` names the agents in the input that have no parser because
 their files hold nothing to parse, a token store or configuration only: the
@@ -1148,7 +1148,7 @@ order:
 | `outside_projects.synced`, `relayed`, `origin`, `recovered` | string | As for a project, by the same rules and in the same order, over the sessions with an empty `project_path` and the agents with such rows or sessions; a Copilot cloud agent task, which records no project, is counted here. Last keys since 0.15.0. |
 | `deduplicated` | object | Keyed by agent name, sorted: the agents with rows of a secondary source dropped because a primary store or another secondary source records the same event (see [Secondary sources](#secondary-sources)), the counts of the `dropped:` line. With `--agent`, only the agents selected; not changed by `--since`, `--until` or `--match`, which apply to the rows kept. `{}` when no row was dropped. |
 | `deduplicated.<agent>` | integer | The number of this agent's secondary-source rows dropped, never 0. |
-| `collected_only` | array of strings | The `collected only` group of the `agents:` line: the agents in the input, outside or inside a project directory, that have no parser because their files hold nothing to parse (the `collected` rows of the [agents page](../../docs/agents.md)), sorted; `[]` when it is empty. Since 0.14.0. |
+| `collected_only` | array of strings | The `collected only` group of the `agents:` line: the agents in the input, outside or inside a project directory, that have no parser because their files hold nothing to parse (the `collected` rows of the [agents page](agents.md)), sorted; `[]` when it is empty. Since 0.14.0. |
 | `synced_sessions` | integer | The number of records in `sessions.jsonl` whose `synced` is `yes`, after the filters, as for `sessions`; 0 when there is none. Last key in 0.14.0. |
 | `relayed_sessions` | integer | The number of records in `sessions.jsonl` whose `relayed` is `yes`, after the filters, as for `sessions`; 0 when there is none. Added in 0.15.0. |
 | `remote_sessions` | integer | The number of records in `sessions.jsonl` whose `origin` is `remote`, after the filters, as for `sessions`; 0 when there is none. Added in 0.15.0. |
@@ -1873,7 +1873,7 @@ it governed. A standing grant from a settings file is
 `timestamp_utc` is the file's modification time, not the time of the
 grant, which no file records, and its `session_id` is empty, so it
 appears in `timeline.jsonl` but in no `sessions.jsonl` record. The
-[`antigravity` subsection of the agents page](../../docs/agents.md#antigravity) lists the
+[`antigravity` subsection of the agents page](agents.md#antigravity) lists the
 files.
 
 Permission state and the model in use are `system` rows too. The
@@ -1983,7 +1983,7 @@ sharing the timeline. That holds for every source, the rollout's
 `git.repository_url` included: Codex has removed every password and
 every username but the ssh `git` user before storing the value since
 late August 2026
-([`session_meta` in `research/codex-cli.md`](../../research/codex-cli.md#session_meta)),
+([`session_meta` in `research/codex-cli.md`](../research/codex-cli.md#session_meta)),
 but a rollout an earlier build wrote, or one written by a fork such as
 Open Interpreter, may hold the URL as the remote had it, and the parser
 writes the stored string as it is.
@@ -3535,7 +3535,7 @@ texts for the same turn (the API history wraps the first prompt in `<task>`
 tags, and its tool calls are content blocks where the UI messages have one
 JSON record per tool), so the rule could not pair them and the task's turns
 would be shown twice; see [Parser plan in
-`research/cline.md`](../../research/cline.md#parser-plan).
+`research/cline.md`](../research/cline.md#parser-plan).
 
 ## sessions.jsonl
 

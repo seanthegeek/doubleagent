@@ -670,7 +670,7 @@ in-memory transcript only when a session row was deleted, a different failure.
 
 The analyzer reads the snapshots, the `sessions/<id>.jsonl` diverts, `.hermes_history`,
 `cron/output/`, `response_store.db` and the trajectory files as secondary sources (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), the imported sessions as
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), the imported sessions as
 Hermes sessions, and the tombstones and the `conversation_generations` rows as `system` rows
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources),
 [Deletion rows](#deletion-rows)). It does not read the copies of `response_store.db` and the
@@ -1441,7 +1441,7 @@ Inputs, under any Hermes home (a home's `.hermes`, `.hermes<suffix>`, `AppData/L
 or Podman named volume's `_data`, which holds the Hermes home itself, see
 [Docker and Podman volumes](#docker-and-podman-volumes)), each marked for the timeline's
 deduplication (see
-[Secondary sources in `docs/output.md`](../analyzer/docs/output.md#secondary-sources)):
+[Secondary sources in `docs/output.md`](../docs/timeline-output.md#secondary-sources)):
 
 | Source | Kind | Why |
 | --- | --- | --- |
@@ -1534,7 +1534,7 @@ messages, deletion fences and the problem rows of its messages, take `project_pa
 `git_branch` and `model` (a usage row and a model-switch marker keep their own model), and a
 usage row with no `first_seen` its time, from the first row of the id by `started_at` that
 `--since`, `--until` and `--match` keep, else from its first row
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A row with a null
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A row with a null
 `started_at` (the column is `NOT NULL` in Hermes's schema, so only an edit writes one) is read
 first, so with `--keep-undated` beside a window it is kept as undated and the id's rows take its
 attributes.

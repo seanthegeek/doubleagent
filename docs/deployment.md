@@ -21,7 +21,7 @@ The script is a single file with no interactive prompts, reads nothing from
 stdin, and writes everything under `-o` (`-OutputDir` in PowerShell).
 Upload the script, run it with `-o` pointing at a directory you can
 retrieve from, then pull the archive (`.tar.gz`; `.tar` or `.zip` after an
-archiver fallback, see [output.md](output.md#archiver-fallbacks)). Use `-q`
+archiver fallback, see [collection-output.md](collection-output.md#archiver-fallbacks)). Use `-q`
 (`-Quiet`) to keep the console output to the final summary.
 
 On Windows, files held open by a running editor still copy, and paths
@@ -78,7 +78,7 @@ Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-ExecutionPolicy
 ```
 
 The log is created in the output directory when the run starts, under
-the name [output.md](output.md#output-files) gives,
+the name [collection-output.md](collection-output.md#output-files) gives,
 `<host>_<UTC time>_agent-artifacts.log` (for example
 `host_20261003T165531Z_agent-artifacts.log`). The lines written during
 the walk start with a UTC timestamp. Read it with `cat` or `tail` (RTR's
@@ -94,7 +94,7 @@ like:
   is not complete yet.
 - The `done:` line, `<UTC time> done: <archive path> (<size> bytes, sha256
   <hex>)`, is written once the archive is complete and hashed, as
-  [output.md](output.md#stdout-summary) describes. Pull the archive only
+  [collection-output.md](collection-output.md#stdout-summary) describes. Pull the archive only
   after it appears. It is the last line, except that the PowerShell
   collector adds one more line when it cannot remove its staging
   directory.
@@ -102,7 +102,7 @@ like:
 Then `get` the archive and its `.sha256` file. With the output sent to
 `/dev/null` the stdout summary is not kept, but the same counts are in
 `collection.json` beside the archive; see
-[output.md](output.md#collectionjson). A run that stops before it creates
+[collection-output.md](collection-output.md#collectionjson). A run that stops before it creates
 the log (a usage error, an output directory that cannot be created)
 leaves no log at all, and its message went to the discarded stderr; run
 the same command in the foreground to see it.
@@ -125,7 +125,7 @@ output of the run is the result. Save each host's stdout as its own file
 (the EDR console's output export or a copy and paste of the response) and
 pass the files to the analyzer's `inventory` command. Add `-q` so stderr
 stays empty; stderr never mixes into stdout, but some consoles show both
-together. The lines are described in [inventory.md](inventory.md).
+together. The lines are described in [collect-inventory.md](collect-inventory.md).
 
 ## Access times
 

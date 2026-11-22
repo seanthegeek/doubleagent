@@ -9,7 +9,7 @@ are flagged as credentials. Every catalog entry is tried
 against every home directory, so macOS, Linux and Windows paths coexist and a Windows image
 mounted on a Linux workstation is collected correctly. The evidence for every
 catalog entry, with citations and the level each claim rests on, is one
-document per agent, listed in the [research index](../../research/README.md).
+document per agent, listed in the [research index](../research/README.md).
 
 ## Editors, extensions and shared directories
 
@@ -44,7 +44,7 @@ inside them goes to the extension's agent.
   `kilo/repo-cli` are excluded. Its settings, `kiloLogSettings.xml` and
   `kiloAutocompleteSettings.xml` in the IDE's `options/` directory, are
   collected as `kilo-code` too
-  ([JetBrains plugin in `research/kilo-code.md`](../../research/kilo-code.md#jetbrains-plugin)).
+  ([JetBrains plugin in `research/kilo-code.md`](../research/kilo-code.md#jetbrains-plugin)).
 - **GitHub Copilot Desktop** shares `~/.copilot` with Copilot CLI: its
   sessions, written there by a bundled Copilot CLI, are collected as
   `copilot-cli`, and nested catalog entries attribute the app's own store,
@@ -80,7 +80,7 @@ inside them goes to the extension's agent.
   October 2026).
   `.copilot` is a `copilot-cli` catalog line, so both files are collected
   as `copilot-cli`. The Copilot CLI writes the same two paths itself
-  ([Process logs in `research/copilot-cli.md`](../../research/copilot-cli.md#process-logs)),
+  ([Process logs in `research/copilot-cli.md`](../research/copilot-cli.md#process-logs)),
   so a `copilot-cli` detection whose only files are under `.copilot/logs/`
   may be VS Code's rather than the CLI's; the log's own lines decide (the
   sign-in line names the account, and a session leaves `session-state/`
@@ -370,7 +370,7 @@ With `claude --debug` the CLI also writes `~/.claude/debug/<session id>.txt`
 and a `debug/latest` symbolic link to it, both kept after the session
 exits. They are under the config home and are collected as `claude-code`:
 the log as a file, the link as a `symlink` row with its target (see
-[Statuses in `output.md`](output.md#statuses)).
+[Statuses in `collection-output.md`](collection-output.md#statuses)).
 
 When a user grants a standing permission in a project, Claude Code
 writes it to the project's `.claude/settings.local.json` and adds
@@ -552,7 +552,7 @@ binary copies and Node.js runtime under `AppData/Local/OpenAI/Codex`, the
 1.27 GB runtime under `.cache/codex-runtimes`, and the sandbox's scratch
 directories in `AppData/Local/Temp`, which have no stable name. The
 evidence is in
-[`research/chatgpt-desktop.md`](../../research/chatgpt-desktop.md).
+[`research/chatgpt-desktop.md`](../research/chatgpt-desktop.md).
 
 On macOS the app is the same build, a Chromium shell hosting an Electron-style web app (ChatGPT 26.1007.71326,
 observed on macOS 26.6.2, October 2026), with the bundle identifier
@@ -695,7 +695,7 @@ collected; copy them by hand when they exist:
 | `cursor-agent-logs-<uid>/` | The agent worker's session logs, `session-<time>-<pid>-1.log`, and a `latest.log` symlink. The worker rotates or removes them: on the macOS install they were gone within an hour. |
 | `<user>-cursor-zsh/` | Copies of the user's `.zshrc`, `.zshenv`, `.zprofile` and `.zlogin` that the IDE's terminal uses for shell integration. Like Codex's shell snapshots, they can hold any API key the login shell exports. |
 
-The evidence is in [`research/cursor.md`](../../research/cursor.md).
+The evidence is in [`research/cursor.md`](../research/cursor.md).
 
 ## Home directory discovery
 
@@ -825,7 +825,7 @@ Aider's transcript (`.aider.chat.history.md`, with its input and LLM
 histories beside it) and Crush's session database (`.crush/crush.db`) live
 only inside the project, so a project deleted before collection leaves
 nothing under the home to recover those sessions from. The other agents in
-[Secondary sources](../../analyzer/docs/output.md#secondary-sources) keep
+[Secondary sources](timeline-output.md#secondary-sources) keep
 their transcript store and its second copy under the home, or together in
 the agent's Docker or Podman volume (Hermes, Letta, nanobot and Tabby have
 `DOCKER_VOLUMES` lines), where both survive the project.
@@ -909,7 +909,7 @@ their state must be copied by hand.
   launcher is uninstalled. Neither collector opens that disk or lists its
   volumes, so collect them from inside the distribution as for
   [Docker Desktop](docker.md#docker-desktop)
-  ([Host-side companions in `research/agent-zero.md`](../../research/agent-zero.md#host-side-companions)).
+  ([Host-side companions in `research/agent-zero.md`](../research/agent-zero.md#host-side-companions)).
 - **Local Deep Research** writes reports under
   `~/Documents/LocalDeepResearch`. It is also commonly deployed in
   containers; see [docker.md](docker.md).
@@ -921,18 +921,18 @@ their state must be copied by hand.
   the current response cache, `AppData/Local/Temp/cache`, is not collected
   because the name is too common in a temp directory, so read `CACHE_PATH`
   from `.sgptrc` and copy that directory by hand
-  ([Chat history and response cache in `research/shellgpt.md`](../../research/shellgpt.md#chat-history-and-response-cache)).
+  ([Chat history and response cache in `research/shellgpt.md`](../research/shellgpt.md#chat-history-and-response-cache)).
 - **OpenCode** 2.0 creates a temp root, `opencode` in the system temp
   directory (`/tmp/opencode` on Linux, under `/var/folders` on macOS), and
   tells the model to write its temporary files there. On Linux and macOS
   it is outside every home and must be copied by hand; on Windows the
   catalog collects `AppData/Local/Temp/opencode`
-  ([Scratch directories in `research/opencode.md`](../../research/opencode.md#scratch-directories)).
+  ([Scratch directories in `research/opencode.md`](../research/opencode.md#scratch-directories)).
   The OpenCode desktop app keeps its data in `ai.opencode.desktop` (or
   `.beta`, `.dev`) under `Library/Application Support`, `AppData/Roaming`
   or `.config`; it is collected, and its V8 `compile-cache` and, from
   collector 1.21.0, its `cli` copies of the OpenCode executable are excluded
-  ([OpenCode desktop app in `research/opencode.md`](../../research/opencode.md#opencode-desktop-app)).
+  ([OpenCode desktop app in `research/opencode.md`](../research/opencode.md#opencode-desktop-app)).
 - **Kilo Code** uses `kilo/` in the system temp directory as the
   temporary directory of every command its sandbox confines, and writes
   files that Kilo Cloud sends over remote control to
@@ -940,7 +940,7 @@ their state must be copied by hand.
   session's remote handling ends; no catalog line reaches it on any
   platform, so copy it by hand, while a remote session is live for the
   attachments
-  ([Scratch directories in `research/kilo-code.md`](../../research/kilo-code.md#scratch-directories)).
+  ([Scratch directories in `research/kilo-code.md`](../research/kilo-code.md#scratch-directories)).
 - **Gemini CLI** writes `gemini-client-error-<type>-<timestamp>.json` to
   the system temp directory (`/tmp` or `$TMPDIR`, `%TEMP%` on Windows,
   by default `AppData/Local/Temp` in the profile) when a model request
@@ -949,7 +949,7 @@ their state must be copied by hand.
   `gemini/ide/gemini-ide-server-<parent pid>-<port>.json` there,
   holding the port, the workspace path and a per-run auth token. No
   catalog line reaches either on any platform, so copy them by hand
-  ([Per-user storage in `research/gemini-cli.md`](../../research/gemini-cli.md#per-user-storage)).
+  ([Per-user storage in `research/gemini-cli.md`](../research/gemini-cli.md#per-user-storage)).
 - **Qwen Live**, run with `--debug`, records each request its visual
   monitors send to the model in `qwen-live-monitor-debug/` in the system
   temp directory (`$TMPDIR` on macOS, the only platform its Live Host app
@@ -964,7 +964,7 @@ their state must be copied by hand.
   `QWEN_RUNTIME_DIR` or `advanced.runtimeOutputDir`. Each record holds
   the daemon's bearer token and no secret glob reaches a moved one; copy
   those directories by hand too
-  ([Per-user storage in `research/qwen-live.md`](../../research/qwen-live.md#per-user-storage)).
+  ([Per-user storage in `research/qwen-live.md`](../research/qwen-live.md#per-user-storage)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh
   startup files to the temp directory; see
@@ -975,13 +975,13 @@ their state must be copied by hand.
   the CLI exits, so it survives only a CLI killed before its cleanup ran.
   No catalog entry reaches it; when a `roo --ephemeral` process was
   killed, copy any `roo-cli-*` directory in the temp directory by hand
-  ([CLI ephemeral storage in `research/roo-code.md`](../../research/roo-code.md#cli-ephemeral-storage)).
+  ([CLI ephemeral storage in `research/roo-code.md`](../research/roo-code.md#cli-ephemeral-storage)).
 - **Zed** on macOS gives an agent thread whose terminal runs in the OS
   sandbox its own temp directory, `$TMPDIR/zed-agent-terminal-<random>`
   (under `/private/var/folders/.../T/`), kept until the thread is deleted.
   It is outside every home and is not collected; copy it by hand when it
   exists. The thread's record in `threads.db`, which is collected, names
-  it ([Scratch directories in `research/zed.md`](../../research/zed.md#scratch-directories)).
+  it ([Scratch directories in `research/zed.md`](../research/zed.md#scratch-directories)).
   The linked git worktrees Zed creates for a thread sit beside the
   project (`<project parent>/worktrees/<name>/<project>`) and are recorded
   only in SQLite, so their project files are collected only when another
@@ -1021,10 +1021,10 @@ entry can reach these, so copy them by hand when they exist:
 | Gemini CLI | `gemini-conversation-<epoch ms>.json` or `.md` from `/chat share`, and the JSON file `/export-session <path>` writes. | The working directory of the session for `/chat share`; the path given for `/export-session`. |
 
 Details and sources are in
-[Other stores in `research/openclaw.md`](../../research/openclaw.md#other-stores),
-[Parser plan in `research/codex-cli.md`](../../research/codex-cli.md#parser-plan),
-[Other stores in `research/continue.md`](../../research/continue.md#other-stores) and
-[Parser plan in `research/gemini-cli.md`](../../research/gemini-cli.md#parser-plan).
+[Other stores in `research/openclaw.md`](../research/openclaw.md#other-stores),
+[Parser plan in `research/codex-cli.md`](../research/codex-cli.md#parser-plan),
+[Other stores in `research/continue.md`](../research/continue.md#other-stores) and
+[Parser plan in `research/gemini-cli.md`](../research/gemini-cli.md#parser-plan).
 
 ## Agent frameworks and self-hosted platforms
 
@@ -1035,7 +1035,7 @@ legacy Open Interpreter Python tool) and the self-hosted platforms Dify,
 Flowise, Langflow and n8n, in the home and in their Docker volumes (see
 [docker.md](docker.md)). The sweep behind this, with the reason each
 framework got a catalog line or not, is
-[research/frameworks.md](../../research/frameworks.md).
+[research/frameworks.md](../research/frameworks.md).
 
 Some of their state has no fixed home-relative name and is not collected.
 Copy it by hand when the framework was in use:
@@ -1063,7 +1063,7 @@ The collectors take files from disk only. Running processes, process
 environments, logged-in users, network connections, services and scheduled
 tasks are not captured: the collectors supplement an EDR, which already
 records that host state. Collectors before 1.6.0 wrote a `live/` snapshot of
-it; see [CHANGELOG.md](../CHANGELOG.md). The host name is in the `hostname`
+it; see [CHANGELOG.md](../collectors/CHANGELOG.md). The host name is in the `hostname`
 field of `collection.json`.
 
 ## Default exclusions
@@ -1106,7 +1106,7 @@ files inside a snapshot are flagged as secrets, as their originals are,
 also in a Hermes Docker or Podman volume. Hermes' zip backups under
 `backups/` stay excluded. Before collector 1.18.0 the snapshots were
 excluded too and needed `--full`. The facts are in
-[Transcript stores in `research/hermes.md`](../../research/hermes.md#transcript-stores).
+[Transcript stores in `research/hermes.md`](../research/hermes.md#transcript-stores).
 
 Claude Code's `.claude/paste-cache/` is collected from collector 1.19.0;
 before it was excluded and needed `--full`. It holds the text of each
@@ -1267,7 +1267,7 @@ temp directory while it lists Codex's models, and removes it when the
 command finishes. A crash or a kill leaves that copy outside every home,
 where no catalog line reaches it; on a host where Ollama launched the
 ChatGPT app, look for the directory in the temp directory and copy it by
-hand (see [Credentials in `research/codex-cli.md`](../../research/codex-cli.md#credentials)).
+hand (see [Credentials in `research/codex-cli.md`](../research/codex-cli.md#credentials)).
 Agent Zero copies a Telegram bot's configuration into each Telegram
 chat's `chat.json`, which is collected unflagged; the keys to redact are
 `data.telegram_bot_cfg.token` and `data.telegram_bot_cfg.webhook_secret`,

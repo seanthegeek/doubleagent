@@ -473,7 +473,7 @@ session keeps every row. The analyzer reads the legacy tables (for a session `se
 does not hold), `opencode-next.db`, `prompt-history.jsonl` and `session.json` as secondary sources
 and `prompt-stash.jsonl` as a primary record of unsent prompts; it does not read the log,
 `shell/` or `drafts.sqlite`, and `tool-output/` is excluded from collection
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+([Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -1493,7 +1493,7 @@ project's `worktree` as their `project_path` (the rows of a session that names n
 its own, and the `permission` table's grants of the project) are shown once, with the `worktree` of
 the first stored row (the oldest by `time_created`, as for a session) that the analysis filters
 keep, else of the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A worktree's row names the
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A worktree's row names the
 project `git worktree of project <id>` in place of its `worktree`, which is text inside a row of
 another id, so no stored row lends it. The rows of a session or message id that is repeated too
 stay with that id's rows, which take the project's first stored row's `worktree`.

@@ -222,7 +222,7 @@ These are home-relative:
   ([`docs/runtime-troubleshooting.md:38-43`](https://github.com/agent0ai/a0-launcher/blob/a69403d9cc92009addb06fedb5585e60e09a3d2c/docs/runtime-troubleshooting.md#L38-L43)).
   A named volume of that engine is inside the virtual disk, out of reach of the collector's volume
   walk; no catalog line names the directory, and
-  [Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories)
+  [Agents outside dot directories in `docs/coverage.md`](../docs/coverage.md#agents-outside-dot-directories)
   gives it as a manual step.
 - A0 CLI connector, computer use: each screen capture the connector takes for the agent is written
   to `<system temp>/_a0_connector/computer_use/<ctxid>/<uuid>.png` and older captures are deleted as
@@ -234,7 +234,7 @@ These are home-relative:
   `AppData/Local/Temp` on Windows, inside it; the catalog line
   `agent-zero|AppData/Local/Temp/_a0_connector` collects the Windows form, and the other two are a
   manual step in
-  [Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories).
+  [Agents outside dot directories in `docs/coverage.md`](../docs/coverage.md#agents-outside-dot-directories).
 
 ### Credentials
 
@@ -420,7 +420,7 @@ The analyzer reads the scheduler's `tasks.json` and the Telegram
 `state.json` as secondary sources, the second giving a deletion row for a
 mapped chat that is gone
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources),
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)); it does
+[Secondary sources](../docs/timeline-output.md#secondary-sources)); it does
 not read `tasks.yaml`, the time-travel git, which the collector excludes,
 or the memory store, a pickle left to manual analysis.
 

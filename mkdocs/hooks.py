@@ -4,7 +4,7 @@ The site is built from the Markdown documents where they are in the
 repository (mkdocs.yml), and the documents are written for GitHub, so:
 
 - docs/index.md is the site's home page, index.html at the root, and a
-  README.md keeps its own URL (analyzer/README.html), as foo.md becomes
+  README.md keeps its own URL (research/README.html), as foo.md becomes
   foo.html, instead of MkDocs' index.html. The root README.md is the
   GitHub overview and is not a page (mkdocs.yml excludes it). `on_files`
   sets both.

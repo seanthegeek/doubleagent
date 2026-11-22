@@ -166,7 +166,7 @@ stores under `<data>/` have no CrewAI-specific name to anchor a glob on, so
 the catalog collects the run database, the flow database and
 `.crewai_user.json` but not the memory stores beside them. A responder who
 finds a run database should copy its sibling directory by hand; see
-[`collectors/docs/coverage.md`](../collectors/docs/coverage.md). On Windows the whole `CrewAI`
+[`docs/coverage.md`](../docs/coverage.md). On Windows the whole `CrewAI`
 directory is collected.
 
 #### Docker

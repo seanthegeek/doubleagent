@@ -123,7 +123,7 @@ func TestEveryImageSiteIsAdmittedOrDocumented(t *testing.T) {
 			t.Errorf("%s is classified but no longer counted", key)
 		}
 	}
-	text, err := os.ReadFile("../../collectors/docs/internals.md")
+	text, err := os.ReadFile("../../docs/internals.md")
 	if err != nil {
 		t.Fatal(err)
 	}

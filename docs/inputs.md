@@ -21,10 +21,10 @@ In a collection, the bases listed in `collection.json` `projects`, and
 the base of any manifest row with agent `project`, are project
 directories rather than homes: their files are the collector's project
 catalog files, and `inventory.json` marks those paths `collected` (see
-[inventory.json](output.md#inventoryjson)). A manifest row with agent
+[inventory.json](timeline-output.md#inventoryjson)). A manifest row with agent
 `project`, which every row from a project directory had before collector
 1.12.0, is re-attributed from the bundled project catalog to the agent
-that owns the file (see [detect](output.md#detect)).
+that owns the file (see [detect](timeline-output.md#detect)).
 
 In loose mode the analyzer walks the tree and treats a directory as a home
 when at least one catalog entry for a real agent matches under it. A
@@ -65,8 +65,8 @@ command carries on:
 | --- | --- |
 | `<directory>: <reason>` | A directory in a loose tree that cannot be listed, while homes are discovered or files under a catalog match are walked. Reported once per directory; nothing under it is attributed. |
 | `<original path>: missing from the collection` | A manifest row with status `collected` and type `file` whose `archive_path` is not a regular file in the extracted collection, for example in a truncated or edited archive. The row is not attributed. Any other reason the file cannot be stat'ed is printed instead. |
-| `manifest.jsonl: <n> member names repeat within their JSON objects (<name> <k> times, ...); the last value of each is used`, and the same for `collection.json` | A manifest row or the collection summary gives one member name twice within an object. The last value of the name is the one read, as for an agent's files ([Output](output.md) describes the wording); one line per file however many rows repeat a name, `1 member name repeats within its JSON object (<name>); the last value is used` for a single one. |
-| `<original path>: <reason>` | `timeline` only: a read error a parser let escape. Most parsers report a file they cannot read as a `parser:` row in the timeline naming the file and the reason instead (the shared JSONL and SQLite readers write `<file> could not be read (<reason>)`; see [Output](output.md)). |
+| `manifest.jsonl: <n> member names repeat within their JSON objects (<name> <k> times, ...); the last value of each is used`, and the same for `collection.json` | A manifest row or the collection summary gives one member name twice within an object. The last value of the name is the one read, as for an agent's files ([Output](timeline-output.md) describes the wording); one line per file however many rows repeat a name, `1 member name repeats within its JSON object (<name>); the last value is used` for a single one. |
+| `<original path>: <reason>` | `timeline` only: a read error a parser let escape. Most parsers report a file they cannot read as a `parser:` row in the timeline naming the file and the reason instead (the shared JSONL and SQLite readers write `<file> could not be read (<reason>)`; see [Output](timeline-output.md)). |
 
 `detect` prints them after the notes, and `timeline` before its `window:`
 line. Symlinks are never followed, so a dangling symlink in a loose tree is
@@ -113,12 +113,12 @@ to the project, such as `claude-code` for a project's
 `.claude/settings.json`, reads the project base marker, not the agent.
 
 A project's git metadata, collected from collector 1.19.0 (see
-[Git metadata in `collectors/docs/coverage.md`](../../collectors/docs/coverage.md#git-metadata)),
+[Git metadata in `docs/coverage.md`](coverage.md#git-metadata)),
 is in the same group: its rows have agent `project`, and no parser
 wants them. The analyzer reads two of those files itself, from a project
 base only: the remotes of `.git/config` and the branch or commit of
 `.git/HEAD`, which `detect --json` and `inventory.json` give per project
-as `remotes` and `head` (see [detect --json](output.md#detect---json)).
+as `remotes` and `head` (see [detect --json](timeline-output.md#detect---json)).
 One of the two files the analyzer cannot read is a `problem:` line, as
 for any other unreadable file (see [Unreadable inputs](#unreadable-inputs)),
 and leaves the project's `remotes` empty. A loose input has no project

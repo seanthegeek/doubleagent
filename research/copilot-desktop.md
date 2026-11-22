@@ -778,7 +778,7 @@ After the quit the six `run/` files, the seven pool session directories, the 18
 The analyzer reads the surviving `session-store.db` rows through the
 `copilot-cli` parser, `data.db` and the checkpoint refs through this one
 ([Deletion rows](#deletion-rows)); how secondary rows with no primary left are kept is in
-[Secondary sources](../analyzer/docs/output.md#secondary-sources).
+[Secondary sources](../docs/timeline-output.md#secondary-sources).
 
 ### Record schema
 
@@ -1165,7 +1165,7 @@ through the key (the worktree, workspace and session rows of a project, the sess
 workspace or an alias) are shown once, with the path of the first stored row by `created_at`
 (ties in the order the table holds them) that `--since`, `--until` and `--match` keep, else of the
 first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). A session row follows the
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A session row follows the
 first key of its chain that repeats (its alias, else its workspace, else its project), and the
 keys after that one give their first stored row's path; a stored row of a repeated workspace id
 gives the path of its project's first stored row.

@@ -280,7 +280,7 @@ directories older than 30 days go at the next start
 `input_history.txt` keeps the prompts of pruned sessions, and the gist named in `config.json`
 keeps the last upload on GitHub. The analyzer reads every one of these copies, the daily and
 `/save` files as primary and `session_latest.json`, `history.json` and `input_history.txt` as
-secondary ([Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+secondary ([Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

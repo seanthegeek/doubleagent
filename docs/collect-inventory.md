@@ -96,4 +96,4 @@ quote, tab, carriage return and newline; PowerShell's `ConvertTo-Json`
 also escapes other control characters, and Windows PowerShell 5.1 escapes
 `<`, `>`, `&` and `'` as `\u` sequences. The analyzer's
 `inventory` command reads these lines from saved stdout files and builds a
-fleet CSV; see [the analyzer's inventory page](../../analyzer/docs/inventory.md).
+fleet CSV; see [the analyzer's inventory page](fleet.md).

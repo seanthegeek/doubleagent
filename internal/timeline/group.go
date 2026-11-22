@@ -9,7 +9,7 @@ package timeline
 // else its first. Attach settles that once the output's
 // rows are known, so a planted earlier row with a real record's id cannot
 // move the record's rows out of a filter's window or give them its
-// attributes. See "Rows of a repeated id" in analyzer/docs/output.md.
+// attributes. See "Rows of a repeated id" in docs/timeline-output.md.
 type Group struct {
 	parents []Row
 	// taken holds, for each set of TakeText and TakeTime some member takes,

@@ -21,7 +21,7 @@ out of scope.
 The sh and PowerShell 5.1 collectors run on the host and must work through
 an EDR remote shell, locally by a responder, and against a mounted disk
 image on an analyst workstation, including Windows images mounted on Linux
-or macOS. The analyzer (`analyzer/`) runs on the analyst's workstation and
+or macOS. The analyzer runs on the analyst's workstation and
 works without the collectors; parsing never happens on the host. The
 [agents page](docs/agents.md) lists every catalog agent with its parse
 status.
@@ -38,18 +38,13 @@ internal/<package>/          the binary's packages, one per concern ("Go standar
 .github/go-build.sh          builds the six release targets and prints their hashes
 internal/catalog/catalog.txt  the catalog's seven tables, the one place they are written;
                              the binary embeds it and `collect --list` prints it
-collectors/
-  README.md                    collector user documentation, keep in sync with behaviour
-  docs/<topic>.md              detailed collector documentation: options, output and
-                               manifest schema, coverage, Docker, privileges, inventory,
-                               Windows, deployment, testing, internals
-  CHANGELOG.md                 collector release history, one entry per VERSION
-analyzer/
-  README.md                    analyzer user documentation: quick start, commands, options
-  docs/<topic>.md              detailed analyzer documentation: inputs and detection,
-                               output and JSONL schema, filtering, searching, inventory,
-                               options, development
-  CHANGELOG.md                 analyzer release history, one entry per VERSION
+docs/<topic>.md                the documentation, one page per topic, grouped in the site's
+                               nav: tree by what the reader does: collecting (collect.md,
+                               its options, output, coverage, relocation, Docker,
+                               privileges, Windows, deployment, inventory), analysing
+                               (analyze.md, its options, inputs, timeline output,
+                               filtering, searching, fleet), reference and contributing
+                               (development, internals, testing, lab VMs)
 research/<agent>.md            everything known about one agent, one per agent: the
                                Collection part (paths, credentials, exclusions, project
                                files, discovery) and the Parsing part (how it records
@@ -102,7 +97,7 @@ mkdocs/mkdocs.yml              the documentation site: MkDocs with the Material 
 mkdocs/hooks.py                site build hooks: GitHub heading ids, code spans with
                                end spaces, links to non-page files, README URLs
 requirements-docs.txt          the site's Python dependencies, pinned
-README.md                      project overview; points at the per-part READMEs
+README.md                      project overview; points at the pages under docs/
 AGENTS.md                      this file
 CLAUDE.md                      imports this file for Claude Code
 LICENSE                        Apache 2.0
@@ -264,13 +259,13 @@ scope.
 `skipped_secret`, `skipped_special`, `error_copy`,
 `skipped_unmatched_volume`, `error_read`) and `fs/<original path>` archive
 layout of `manifest.jsonl` and `collection.json` are documented in
-[`collectors/docs/output.md`](collectors/docs/output.md). Renaming or
+[`docs/collection-output.md`](docs/collection-output.md). Renaming or
 removing one needs that page updated and a note in the commit message.
 
 ### Readability
 
 Both collectors are written for a responder to audit before running them
-as root; [`collectors/docs/internals.md`](collectors/docs/internals.md)
+as root; [`docs/internals.md`](docs/internals.md)
 holds the architecture and function tables.
 
 - **One layout.** Both scripts have thirteen sections, in this order and
@@ -288,7 +283,7 @@ holds the architecture and function tables.
   temporaries' prefix, and at most one quirk it exists for, never a walk
   through the body's branches. A quirk needing a paragraph gets one in the
   matching section of
-  [`collectors/docs/internals.md`](collectors/docs/internals.md), and the
+  [`docs/internals.md`](docs/internals.md), and the
   comment names that page.
 - **sh names.** Shared globals are `UPPER_CASE`; a function's temporaries
   `_<prefix>_<name>`, the prefix abbreviating its name (`_cp_` for
@@ -306,7 +301,7 @@ holds the architecture and function tables.
   `archive_path`, `sha256`).
 - **One name per job.** The sh and PowerShell functions for one step have
   matching names (`collect_path`, `Add-CollectedPath`) and one row in the
-  [function pairs table](collectors/docs/internals.md#function-pairs),
+  [function pairs table](docs/internals.md#function-pairs),
   updated in the same commit as any function added, renamed or removed on
   either side.
 - **Each collector reads the formats of its own platform.** The sh
@@ -366,7 +361,7 @@ The checker reads Go files too, with the exemptions of
   below it, narrates how the code came to be, or walks through what a
   function does step by step. A fact about an agent's files belongs in
   `research/<agent>.md`, a fact about a collector's design in
-  [`collectors/docs/internals.md`](collectors/docs/internals.md); the
+  [`docs/internals.md`](docs/internals.md); the
   comment names the page only when the reader must open it.
 - **No history in code.** A comment or docstring names no issue, pull
   request, date, round, or anecdote of a build ("observed on the 2.1.310
@@ -466,7 +461,7 @@ files as it does for the others.
   recreate a link with `os.Symlink`. A symlinked directory in the middle of
   a catalog glob is followed only by the glob expander, as a shell does, and
   handled as
-  [Paths through a symlinked directory in `collectors/docs/coverage.md`](collectors/docs/coverage.md#paths-through-a-symlinked-directory)
+  [Paths through a symlinked directory in `docs/coverage.md`](docs/coverage.md#paths-through-a-symlinked-directory)
   describes.
 - **Errors and exits.** Library code (`internal/`) returns errors wrapped with
   `%w` and the path or item (`fmt.Errorf("stage %s: %w", path, err)`) and
@@ -783,12 +778,12 @@ The analyzer runs on the analyst's workstation, never on the host.
   `timestamp_utc` and `source_line` set to the line, 0 when there is none.
   This covers every file a parser reads: history files, indexes and
   secondary sources (files that repeat the primary store's events; see
-  [Secondary sources](analyzer/docs/output.md#secondary-sources)).
+  [Secondary sources](docs/timeline-output.md#secondary-sources)).
 - **Problems outside parsers.** A file the analyzer command reads itself (a
   repository's config and HEAD files, an index, a settings file) that fails
   to read or parse gives a `problem:` line, never an empty result, reported
   to stdout and the JSON outputs in the same run, in the order
-  [`analyzer/docs/output.md`](analyzer/docs/output.md) documents.
+  [`docs/timeline-output.md`](docs/timeline-output.md) documents.
 - **Bad-line mechanics.** A reader appends `(line, message, raw)` to an
   `errors` list (`iter_jsonl` and `line_text` in `parsers/base.py` do so);
   the parser ends each file with
@@ -811,9 +806,9 @@ The analyzer runs on the analyst's workstation, never on the host.
   platform.
 - **The outputs are interfaces.** The `timeline.jsonl` and `sessions.jsonl`
   fields, order and JSON types are documented in
-  [`analyzer/docs/output.md`](analyzer/docs/output.md), the
+  [`docs/timeline-output.md`](docs/timeline-output.md), the
   `fleet-inventory.csv` columns in
-  [`analyzer/docs/inventory.md`](analyzer/docs/inventory.md). Add fields or
+  [`docs/fleet.md`](docs/fleet.md). Add fields or
   columns only at the end; rename, retype or remove one only with those
   pages updated and the commit saying so. Every JSONL record has every
   field, `""` rather than `null` for no value. Timestamps are UTC ISO 8601
@@ -967,7 +962,7 @@ plan, and the parser is written from them.
      histories. `secondary()` is True for those that repeat the
      primary store's events, so `dedup.deduplicate` keeps one copy of each
      event and what only the secondary source holds
-     ([Secondary sources in `analyzer/docs/output.md`](analyzer/docs/output.md#secondary-sources)).
+     ([Secondary sources in `docs/timeline-output.md`](docs/timeline-output.md#secondary-sources)).
      Such a parser sets `has_secondary`, so recovered rows and sessions are
      marked `recovered` in `timeline.jsonl`, `sessions.jsonl` and the
      inventory. A secondary source without its own record times gives rows
@@ -1129,7 +1124,7 @@ attribute are the same string.
 5. If the tool records project paths, add extraction to the matching
    source group of `discover_projects` (sh) and `Find-Projects`
    (PowerShell), at the same position on both sides
-   ([project discovery groups](collectors/docs/internals.md#project-discovery)),
+   ([project discovery groups](docs/internals.md#project-discovery)),
    and any per-project files to `PROJECT_CATALOG`. Process names are never
    listed. The analyzer, not discovery, reads project paths that live only
    in SQLite.
@@ -1166,7 +1161,7 @@ attribute are the same string.
    if the tool keeps transcripts worth parsing; add the agent to the index
    table in [`research/README.md`](research/README.md), with its Parser and
    Notes cells; note the tool in
-   [`collectors/docs/coverage.md`](collectors/docs/coverage.md) if needed;
+   [`docs/coverage.md`](docs/coverage.md) if needed;
    give the matching issue a `Closes #<n>` line in the pull request body.
    Add the agent to the
    [agents page](docs/agents.md) table as `backlog` (parseable records, with
@@ -1431,7 +1426,7 @@ when the page has one.
      agent's own delete, clear, archive or retention removes, what remains
      (the history file, second copies, deletion markers, copies held by
      other agents, project-local traces) and what the analyzer reads, with
-     a link to [Secondary sources](analyzer/docs/output.md#secondary-sources)
+     a link to [Secondary sources](docs/timeline-output.md#secondary-sources)
      and no analyzer version.
    - `### Record schema`: line or row types and their key sets, `####` per
      store or record family; the field names the parser depends on. A key
@@ -1541,7 +1536,7 @@ tests.
 - The integration agent derives the number of agents from the documents in
   the tree, not the brief, and says when they differ.
 - Chat history outside the home cannot be a catalog line: record it in
-  [`collectors/docs/coverage.md`](collectors/docs/coverage.md) as a manual
+  [`docs/coverage.md`](docs/coverage.md) as a manual
   step and file an issue. Docker and Podman named volumes are the exception
   since collector 1.5.0: they go in `DOCKER_VOLUMES`.
 
@@ -2059,23 +2054,21 @@ down.
   analyzer over the test fixtures, or over the example collection
   `internal/input/testdata/fixtures/example.tar.gz`), never edited by hand.
   The example output blocks of
-  [`analyzer/docs/output.md`](analyzer/docs/output.md) are the commands'
+  [`docs/timeline-output.md`](docs/timeline-output.md) are the commands'
   output over that collection, rewritten at every analyzer `VERSION` bump
   and every change that shows in it. A behaviour change without a README
   update is incomplete.
 - The [top-level README](README.md) and [`docs/index.md`](docs/index.md),
-  the site's home page listing each part's pages, are overviews only. A new
-  page joins that list and the `nav:` tree in `mkdocs/mkdocs.yml` beside
-  its siblings; a page belonging to neither part, such as
-  [`docs/agents.md`](docs/agents.md), goes under `docs/` at the root and at
-  the tree's top level. `mkdocs build --strict` fails on a document missing
-  from the tree. Documents carry no front matter; a page's title is its
+  the site's home page listing the pages by group, are overviews only. A new
+  page goes under `docs/` and joins that list and the `nav:` tree in
+  `mkdocs/mkdocs.yml` beside its siblings, in the group for what the reader
+  does with it (Collecting, Analysing, Reference, Contributing).
+  `mkdocs build --strict` fails on a document missing from the tree. Documents carry no front matter; a page's title is its
   `# Title`. The [documentation site](https://seanthegeek.net/doubleagent/)
   gives every heading the anchor `tools/check_doc_links.py` accepts.
 - Documentation addresses its reader, never the agent maintaining it: the
-  READMEs and pages under `collectors/docs/`, `analyzer/docs/` and `docs/`
-  the responder or analyst; `testing.md`, `development.md`, `internals.md`,
-  `lab-vms.md`, the lab README and the research index a contributor. Only
+  pages under `docs/` the responder or analyst; `testing.md`,
+  `development.md`, `internals.md`, `lab-vms.md`, the lab README and the research index a contributor. Only
   this file holds the rules for making a change.
 - This file states rules, not history. A new rule is one or two enforceable
   sentences in the section that owns it, written as the lesson taught, not
@@ -2122,7 +2115,7 @@ down.
 
 - A reference from one project document to another is a Markdown link,
   never a bare path or code span: a file as
-  ``[`collectors/docs/coverage.md`](collectors/docs/coverage.md)``,
+  ``[`docs/coverage.md`](docs/coverage.md)``,
   relative to the citing file; a section as
   ``[Transcript stores in `research/claude-desktop.md`](../research/claude-desktop.md#transcript-stores)``,
   with the fragment GitHub derives (lower case, punctuation other than

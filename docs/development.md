@@ -9,11 +9,11 @@ decoder and one reader for them.
 ## Testing
 
 The Go tests and gates, and the commands that run them, are under "Quality
-gates" in [AGENTS.md](../../AGENTS.md#quality-gates). The Python that
+gates" in [AGENTS.md](../AGENTS.md#quality-gates). The Python that
 remains, the checkers under `tools/` and the lab VM pipeline under
 `lab/round/`, is checked with ruff, pyright and
 `tools/check_code_style.py`, which checks names, comments and docstring
-lengths against "Code style" in [AGENTS.md](../../AGENTS.md#code-style),
+lengths against "Code style" in [AGENTS.md](../AGENTS.md#code-style),
 printing each failure as `path:line: message`. From the repository root:
 
 ```sh
@@ -24,7 +24,7 @@ python3 tools/check_code_style.py
 
 ## Drift checkers
 
-Each agent's research document under [`research/`](../../research/README.md)
+Each agent's research document under [`research/`](../research/README.md)
 is the source the collector's catalog tables and the smoke tests are
 written from. A place where one of them says something the document does
 not is drift, and three checkers under `tools/` report it. CI runs them in
@@ -44,7 +44,7 @@ python3 -m pytest tools/tests -q            # the checkers' own tests
 | --- | --- | --- |
 | `check_tables_research.py` | every `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS` and `DOCKER_VOLUMES` line with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span names, a credential file the Credentials section names, unless its sentence says it is not one, that no secret glob flags and the Secrets section does not list, a secret glob an exclusion hides, an exclusion or secret glob that no home or project entry reaches and no one Docker volume agent's document names, a Docker volume glob that the document's Per-user storage subsection about the volume (one whose heading or opening paragraph says "volume" and names the volume in a code span: its name, its `DOCKER_VOLUMES` glob or its catalog line) does not name, a missing Docker volume form of an exclusion, two agents' home entries whose first differing segment differs only by case or whose first segments differ and can still match one path, the wording "collected unflagged", "left unflagged", "not flagged", "may embed" or "can embed" in Credentials, a catalog agent without a document or an agents page row, a parser fact under Collection |
 | `check_smoke_coverage.py` | every table line with `collectors/tests/smoke.sh` and `collectors/tests/smoke.ps1`, read as text | a secret glob with no `secret: true` or no `skipped_secret` check, an exclusion with no `skipped_excluded` check, a catalog line no fixture file matches, a fixture file whose name the document does not give, a `smoke.ps1` check naming a row by a suffix, an agent with a `secret` case in the frameworks case list and no `--no-secrets` check of `skipped_secret` on one, a check or path the reader cannot follow |
-| `check_research_structure.py` | each research document with "Research document structure" in [AGENTS.md](../../AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an install entry under `### Observed` without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
+| `check_research_structure.py` | each research document with "Research document structure" in [AGENTS.md](../AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an install entry under `### Observed` without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
 
 Each checker prints one line per finding,
 `<path>[:<line>]: <kind> [<agent>]: <detail> - <explanation>`, such as:
@@ -79,14 +79,14 @@ is fixed, never added to the baseline.
 
 ## The output examples
 
-The plain [`detect`](output.md#detect) output, the
-[`detect --json`](output.md#detect---json) output, the
-[`timeline`](output.md#timeline) stdout and the
-[`inventory.json`](output.md#inventoryjson),
-[`timeline.jsonl`](output.md#timelinejsonl) and
-[`sessions.jsonl`](output.md#sessionsjsonl) examples in
-[`output.md`](output.md) are example output of the commands over
-[the example collection](output.md#the-example-collection), each between
+The plain [`detect`](timeline-output.md#detect) output, the
+[`detect --json`](timeline-output.md#detect---json) output, the
+[`timeline`](timeline-output.md#timeline) stdout and the
+[`inventory.json`](timeline-output.md#inventoryjson),
+[`timeline.jsonl`](timeline-output.md#timelinejsonl) and
+[`sessions.jsonl`](timeline-output.md#sessionsjsonl) examples in
+[`timeline-output.md`](timeline-output.md) are example output of the commands over
+[the example collection](timeline-output.md#the-example-collection), each between
 an `<!-- example output: <name> -->` and an `<!-- end example output: <name> -->`
 comment; its other example blocks, such as the fragments showing variant
 lines, are written by hand. The prose around each example says what to
@@ -153,7 +153,7 @@ not lost.
 
 The full checklist, including the fixture, test class, agents table row,
 version bump and the lists to update, is "Adding a parser" in
-[AGENTS.md](../../AGENTS.md#adding-a-parser). Start from the Parsing part
+[AGENTS.md](../AGENTS.md#adding-a-parser). Start from the Parsing part
 of the agent's research document, listed in the
-[research index](../../research/README.md), and confirm the record format
+[research index](../research/README.md), and confirm the record format
 against source or a real install.

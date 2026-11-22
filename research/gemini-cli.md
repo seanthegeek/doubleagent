@@ -681,7 +681,7 @@ by Google, which a responder can only ask Google for
 ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). The analyzer reads `logs.json`,
 `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the tool checkpoints
 and a copied error report as secondary sources
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)), and the activity log's
+([Secondary sources](../docs/timeline-output.md#secondary-sources)), and the activity log's
 records, `memory/` and the clipboard images as stores of their own, but not the shadow
 repository or the turns in the activity log's bodies ([Parser plan](#parser-plan)).
 
@@ -1468,7 +1468,7 @@ or, for `generateContent-api`, an object of `requestContents` (that history) and
 The report carries no session id and no project; it repeats the turns sent with the request, so
 it joins the session on text, its tool items on the call id. No catalog line reaches the system
 temporary directory, so a collection holds a report only when the responder copied it by hand
-([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)); the analyzer reads one placed
+([`docs/coverage.md`](../docs/coverage.md)); the analyzer reads one placed
 directly in a home's runtime directory (`.gemini` or `.cache/.gemini`) or in its `tmp/<slug>/`,
 which gives the report that directory's project.
 
@@ -2033,7 +2033,7 @@ directory changed
 #### Past-use rows and secondary sources
 
 `logs.json` is a secondary source: its entries become `user` rows when no session file covers
-that `sessionId` ([Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+that `sessionId` ([Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 Three more secondary sources are read. Their records carry no time, so their rows have an empty
 `timestamp_utc`, no session id and the project of their `tmp/<slug>` directory, and they match the

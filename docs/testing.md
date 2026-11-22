@@ -27,7 +27,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\smoke.ps1   # on W
 
 The linters CI runs on every file (shfmt, shellcheck with `.shellcheckrc`,
 checkbashisms, PSScriptAnalyzer, markdownlint) are listed under "Quality
-gates" in [AGENTS.md](../../AGENTS.md#quality-gates).
+gates" in [AGENTS.md](../AGENTS.md#quality-gates).
 
 ## Smoke tests
 
@@ -177,7 +177,7 @@ segments differ and can still match one path, a Credentials section saying
 a file is
 left unflagged instead of naming its secret glob, a timeline row text or
 record key under Collection, a catalog agent without a research document or
-a row on the [agents page](../../docs/agents.md), and a row on that page
+a row on the [agents page](agents.md), and a row on that page
 naming no catalog agent. For the relocation tables it reports a
 `RELOCATION_VARS` line whose variable no row of the Relocation variables
 table of its agent's research document names (`research/shared.md` for
@@ -206,7 +206,7 @@ the image root (`Users/alice/...`), never as a suffix.
 
 The disagreements that existed when the checkers were written are
 recorded in `tools/drift-baseline/`, and only a finding missing from it
-fails; [Drift checkers in `analyzer/docs/development.md`](../../analyzer/docs/development.md#drift-checkers)
+fails; [Drift checkers in `docs/development.md`](development.md#drift-checkers)
 describes the finding format and the baseline.
 
 ## Smoke-row diff
@@ -338,5 +338,5 @@ Windows PowerShell 5.1 on Windows, and the analyzer tests, then a
 `CI result` job that fails when any of them failed. Every push to `main`
 runs all of them; a pull request runs only the jobs that read a file it
 changed, as
-[Validation and testing in `AGENTS.md`](../../AGENTS.md#validation-and-testing)
+[Validation and testing in `AGENTS.md`](../AGENTS.md#validation-and-testing)
 lists.

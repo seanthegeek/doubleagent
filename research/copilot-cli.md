@@ -576,7 +576,7 @@ The store's rows that outlived a delete on the real installs:
 
 The analyzer reads `session-store.db`, `command-history-state.json` and
 `rewind-file-snapshots/index.json` as secondary sources (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), so a session whose directory
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), so a session whose directory
 was deleted still yields its store rows; of the process logs it reads the sign-in line only, and
 `search_index` and `assistant_usage_events` give no rows ([Parser plan](#parser-plan)).
 
@@ -1146,7 +1146,7 @@ stored row of the id gives its own `session name:` row and a `parser:` row sayin
 project and branch, and the session's `turns`, `session_files`, `session_refs`, `checkpoints` and
 `forge_trajectory_events` rows are shown once, with the `project_path` and `git_branch` of one of
 its rows: the first, in `created_at` order, that the analysis filters keep, else the first
-([Rows of a repeated id](../analyzer/docs/output.md#timelinejsonl)). The session's
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). The session's
 `events.jsonl`, which repeats its turns, is another store and keeps its own project.
 
 A `session-store.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is

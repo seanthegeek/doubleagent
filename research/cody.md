@@ -319,7 +319,7 @@ the migration copied into the agent store and never deleted; it is also the only
 unpaired message the migration dropped. Cody keeps no per-prompt history file and no other copy of
 its chats ([Other stores](#other-stores)). The analyzer reads the history value and, as a
 secondary source, the legacy XML (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

@@ -397,7 +397,7 @@ chunk logs (the last 5 per agent and session, content cut to 200 characters), th
 records under `listener-state/`, the input ledger under `state/` and the scheduled-task run logs
 also remain after it; what a local-backend delete does to them is not stated. The analyzer reads
 `transcript.jsonl` as a secondary source (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), so a transcript whose
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), so a transcript whose
 `messages.jsonl` was deleted keeps all its rows, and reads `sessions.jsonl`, `crons.json`, the run
 logs, the interrupted-turn records and the channel routing as primary sources; it does not read the
 input ledger or parse the chunk logs into turns
