@@ -1,269 +1,386 @@
 # Output
 
-What a collection writes: the stdout summary, the files in the output
-directory, the archive layout, the manifest and `collection.json`.
+A collection run writes five files into its output directory: the
+archive, a file holding the archive's hash, the manifest, the run summary
+`collection.json` and the log. It also prints a summary on standard
+output. This page describes each of them, field by field, so you can tell
+from the files alone what a run collected, what it left out and why, and
+what it could not read.
 
 ## Stdout summary
 
-When the run finishes, the collector prints a summary on stdout (the sample
-is in the [README](collect.md#quick-start)):
+When the run ends it prints one `name: value` line each (the example is in
+the [quick start](collect.md#quick-start)):
 
-- `archive`, `manifest`, `summary`, `log`: the paths of the four main output
-  files.
-- `size` and `sha256` are the archive's; `size` is in bytes, followed by the
-  same size in binary units (`B`, `KiB`, `MiB`, `GiB`, `TiB`, one decimal).
-- `users` counts the homes that produced at least one manifest row, the
-  `users_with_artifacts` list in `collection.json`; homes that were scanned
-  and held nothing are left out of the count but stay in `users` there.
-- `projects` counts the project directories collected from.
-- `collected` counts the manifest rows with status `collected` and their
-  bytes, as `N files, N bytes`, followed by the same total in binary units.
-- `skipped` counts the `skipped_excluded`, `skipped_size`,
-  `skipped_secret` and `skipped_special` rows, in that order, as
-  `N excluded, N too large, N secret, N special` (the `special` count
-  since collector 1.13.0).
-- `errors` is the number of `error_copy` and `error_read` rows together,
-  followed by each of the two counts in parentheses.
-- `relocation` is the number of relocation hints and the number of files
-  searched for them, as `relocation: N hints in M files searched`, followed
-  by `, K skipped for size` when the `--env-scan-home` sweep left K files
-  unread for their size, by `, R resolved` when R of the hints carry a value,
-  and by `; see docs/relocation.md` when N is above 0. It is printed after `errors` and before `docker`; see
-  [relocation.md](relocation.md).
-- The `docker:` line appears only when a Docker or Podman volume directory
-  or Docker Desktop data was found, as `N volumes found, N collected, N unreadable`; see [docker.md](docker.md).
+| Line | Value |
+| --- | --- |
+| `archive:`, `manifest:`, `summary:`, `log:` | The full paths of the archive, the manifest, `collection.json` and the log. |
+| `size:` | The archive's size in bytes, then the same size in binary units (`B`, `KiB`, `MiB`, `GiB`, `TiB`, one decimal) in parentheses. |
+| `sha256:` | The archive's SHA-256, as in its `.sha256` file. |
+| `users:` | The number of homes that produced at least one manifest row, the length of `collection.json` `users_with_artifacts`. A home that was searched and held nothing is not counted, but is listed in `users`. |
+| `projects:` | The number of project directories collected from, the length of `collection.json` `projects`. |
+| `collected:` | The `collected` rows and their bytes, `N files, N bytes`, then the bytes in binary units. |
+| `skipped:` | The `skipped_excluded`, `skipped_size`, `skipped_secret` and `skipped_special` rows, as `N excluded, N too large, N secret, N special`. |
+| `errors:` | The `error_copy` and `error_read` rows together, then each count in parentheses. |
+| `relocation:` | `N hints in M files searched`, followed by `, K skipped for size` when `--env-scan-home` left K files unread for their size, by `, R resolved` when R hints carry a value, and by `; see docs/relocation.md` when there is a hint ([Relocation warnings](relocation.md)). |
+| `docker:` | Only when a Docker or Podman volume directory or Docker Desktop data was found: `N volumes found, N collected, N unreadable`, followed by ` (run as root to collect)` when a volume was unreadable and by `; Docker Desktop VM disk not collected` when Docker Desktop data was found ([Docker volumes](docker.md)). |
 
-On the `collected`, `relocation` and `docker` lines a count of 1 takes the
-singular noun (`1 file`, `1 byte`, `1 hint`, `1 volume found`).
-
-Progress lines (each user, catalog match, project and relocation hint) go
-to stderr unless `-q` is given. They always go to the log. A `User` line is
-written only for a home with at least one catalog match, just before that
-match. A hint line is `relocation hint: <file>:<line> names <VARIABLE> (<agent>)`,
-followed by ` = <path>` when the collector resolved the value, or by
-`; value not resolved: <reason>` when the line assigns something it does not
-keep ([reasons](relocation.md#what-the-collector-resolves)). The first hint of a
-base in the startup file search, and again in the `--env-scan-home` sweep, is
-preceded by the base's header: `Relocation hints for <user> (<home>)`,
-`Relocation hints in system files` or `Relocation hints in project <path>`.
-The PowerShell collector's registry step on a live Windows host adds the
-header `Relocation hints in the registry`, with hint lines whose `<file>` is
-the registry value (`HKLM\...\Environment\<name>` or
-`HKU\<SID>\Environment\<name>`) and no `:<line>`, and the lines
-`registry: hive of <user> not loaded`,
-`registry: hive of <user> not readable: <message>` and
-`registry: system environment not readable: <message>`. The sh collector logs the
-value `plutil` reads from a launchd plist the same way, as
-`relocation hint: <file> names <VARIABLE> (<agent>)` followed by ` = <path>` or
-`; value not resolved: <reason>`, with no `:<line>` since `plutil` reports none,
-beside the plain hints of the lines naming the variable. The PowerShell
-collector reads no plist. The line of the file
-that matched is never logged, and neither is a value that was not kept. The first log lines name the options, `env_scan_home=<0|1>`
-and `env_scan_max_size=<MB>MB` among them. The last progress line is `done`;
-the log file's `done:` line also records the
-archive path, size in bytes and sha256.
-
-A project discovery source (a file the collector reads project paths
-from, listed in [internals.md](internals.md#project-discovery)) that the
-PowerShell collector cannot read gets the line
-`discovery source unreadable: <path>: <message>`, with the .NET exception
-message, on stderr unless `-q` is given and always in the log; discovery
-goes on with the next source and the file itself is still collected or
-reported in the manifest like any other. The reader opens the file with
-the same shared access as the copy, so a rollout a running agent holds
-open is read. The sh collector reads these sources with `grep`, discards
-its error messages, and logs nothing for an unreadable source.
-
-On Windows the `doubleagent` binary logs, on stderr unless `-q` is given
-and in the log, the line `access time not held: <path>: <reason>` for each
-file it read without the hold on its access time that the run wanted, once
-per file and reason, and after the last file is read, or when the run stops
-early, `access times not held: <N> file(s)` when there was at least one. Neither
-script writes these lines, and the binary writes neither on Linux, macOS
-or other Unix systems. The reasons and what an analyst does with a listed
-file are in
-[Access times with the `doubleagent` binary](deployment.md#access-times-with-the-doubleagent-binary).
+A count of one takes the singular noun (`1 file`, `1 byte`, `1 hint`,
+`1 volume found`). Unless `-q` is given, the progress lines of the
+[log](#log) go to standard error during the run (without their
+timestamps), followed by `done` once the archive is complete.
 
 ## Output files
 
-The output directory receives five files named
-`<host>_<UTC time>_agent-artifacts`. In the host name, characters other
-than `A-Za-z0-9._-` become `-`:
+Every file a run writes is named `<host>_<UTC start time>_agent-artifacts`
+plus a suffix, in the output directory. In the host name, every character
+other than `A`-`Z`, `a`-`z`, `0`-`9`, `.`, `_` and `-` becomes `-`. The host
+name is that of the machine running the command, also in image mode.
 
 ```text
-host_20261003T165531Z_agent-artifacts.tar.gz          the archive
-host_20261003T165531Z_agent-artifacts.tar.gz.sha256   its hash, as "<hex>  <file name>" (sha256sum format)
-host_20261003T165531Z_agent-artifacts.manifest.jsonl  the manifest (the archive holds a copy)
-host_20261003T165531Z_agent-artifacts.collection.json the run summary (the archive holds a copy)
-host_20261003T165531Z_agent-artifacts.log             the log (the archive holds a copy)
-.stage-host_20261003T165531Z_agent-artifacts/         the staging directory, only with -k
+ir-ws01_20261122T050937Z_agent-artifacts.tar.gz            the archive
+ir-ws01_20261122T050937Z_agent-artifacts.tar.gz.sha256     its SHA-256
+ir-ws01_20261122T050937Z_agent-artifacts.manifest.jsonl    the manifest (the archive holds a copy)
+ir-ws01_20261122T050937Z_agent-artifacts.collection.json   the run summary (the archive holds a copy)
+ir-ws01_20261122T050937Z_agent-artifacts.log               the log (the archive holds a copy)
+.stage-ir-ws01_20261122T050937Z_agent-artifacts/           the staging directory, only with -k
 ```
 
-The sh collector sets `umask 077`, so the files and directories it creates
-(an output directory it has to create included) are readable by the user
-who ran it only, mode `600` and `700`. The PowerShell collector sets no
-permissions of its own; its files get the output directory's defaults.
+The `.sha256` file is one line, `<hex>  <archive file name>`, the form
+`sha256sum -c` and `shasum -a 256 -c` read:
 
-## Archiver fallbacks
+```text
+922c3e2a832b0eb642c0398551918c5f702d8075ef8658313522f8f2f79a0acf  ir-ws01_20261122T050937Z_agent-artifacts.tar.gz
+```
 
-The sh collector writes the archive with `tar -czf`. If that fails, it pipes
-`tar` through `gzip`. The pipe counts as failed when either `tar` or `gzip`
-exits non-zero; `tar`'s exit status is passed through a temporary
-`.tar-status-<name>` file in the output directory, outside the staging
-directory, which is removed before archiving goes on, and a `tar` failure
-there is logged as `tar | gzip: tar exited N`. If the pipe fails, or `gzip`
-is not on the `PATH`, it writes an uncompressed `.tar` instead.
+On Linux and macOS the run sets its file creation mask to `077`, so the
+output files are readable by the account that ran it only (mode `600`), and
+an output directory it creates is mode `700`. On Windows the files take
+the permissions the output directory passes on.
 
-The PowerShell collector writes a `.tar.gz` with `tar.exe` (the system
-`tar` under PowerShell 7 off Windows). If `tar.exe` is missing, exits
-non-zero or leaves no archive, it writes the `.tar.gz` with its own
-PowerShell tar writer, with the same member names; if that fails too, it
-writes a `.zip`. Each failure is logged (`tar.exe failed: exit code N`, hex
-for a negative code such as `0xC0000005`) and added to `notes`; see
-[windows.md](windows.md).
-
-Both collectors rewrite `collection.json` and its staged copy before each
-fallback, so its `archive` and `capabilities.archiver` fields name the
-archive that was written. The log is copied into the archive before
-archiving starts, so only the copy outside has the final `done` line with
-the archive's size and hash.
+The staging directory is where the run copies each file before it packs the
+archive; it is removed when the run ends, unless `-k` is given.
 
 ## Archive layout
 
-Inside the archive (tar members start with `./`, from either collector;
-zip entries from the PowerShell collector have no prefix and use `/`):
+The archive is a gzip-compressed tar file in the POSIX (PAX) format,
+always `.tar.gz`. Every member name starts with `./`, and each directory's
+entries are in byte order:
 
 ```text
-fs/<original path>          collected files and recreated symlinks, mirroring
-                            the source filesystem; a path reached through a
-                            symlinked directory inside its base (the home, the project
-                            directory, or the root for a system startup file)
-                            is archived where the target holds it; a project whose
-                            own path runs through one keeps its recorded path
-manifest.jsonl
-collection.json
-collector.log
+./                              the archive's top directory
+./collection.json
+./collector.log                 the log, as it stood when archiving started
+./fs/<original path>            the collected files and recreated symlinks
+./manifest.jsonl
 ```
 
-On a live Windows host the archive path is `fs/<drive letter>/<path>`, for
-example `fs/C/Users/alice/.claude/history.jsonl`. In image mode it is
-relative to the root, as on other platforms.
+Under `fs/` each file sits at its original path, the image root left off in
+image mode (`/mnt/evidence/home/alice/.claude/history.jsonl` is
+`fs/home/alice/.claude/history.jsonl`). On a live Windows host the path
+starts with the drive letter (`fs/C/Users/alice/.claude/history.jsonl`),
+and a path on a network share with the server and share name
+(`fs/server/share/...`). The directories above each collected or skipped
+file are members too, so the archive can hold empty directories.
 
-A path reached through a symlinked directory whose target stays inside the home or the
-project directory is archived at the physical location of that path, so the recreated link in
-the archive leads to it: for `.gemini -> dotfiles/gemini`, the manifest `path`
+A collected file keeps its modification time, to the second, and on Linux
+and macOS its permission bits. Owners are stored as numbers only, never as
+names: on Linux and macOS the files' own owners when the run ran as root,
+the running account otherwise. The manifest holds each file's original
+owner and times in any case. A symlink is stored as a link with its target;
+nothing it points to is stored in its place.
+
+A path reached through a symlinked directory whose target stays inside the
+same home or project is archived where that directory physically is, so the
+recreated link in the archive leads to it: with `.gemini -> dotfiles/gemini`
+in bob's home, the manifest `path`
 `/home/bob/.gemini/antigravity-cli/conversations/a.db` has the `archive_path`
-`fs/home/bob/dotfiles/gemini/antigravity-cli/conversations/a.db`, and the link itself is archived
-at `fs/home/bob/.gemini`.
+`fs/home/bob/dotfiles/gemini/antigravity-cli/conversations/a.db`, and the
+link itself is archived at `fs/home/bob/.gemini`
+([Paths through a symlinked directory](coverage.md#paths-through-a-symlinked-directory)).
+
+The archive's copies of `collection.json` and the manifest are the final
+ones. Its copy of the log was taken when archiving started, so only the log
+beside the archive has the last line, `done:`, with the archive's size and
+hash.
 
 ## Manifest
 
-Each manifest row is one JSON object:
+The manifest is JSON Lines: one JSON object per line for every file, link
+or directory the run met, collected or not. A row from a Linux or macOS run:
 
 ```json
-{"user":"alice","home":"/home/alice","agent":"claude-code",
- "path":"/home/alice/.claude/projects/-srv-proj/s1.jsonl",
- "archive_path":"fs/home/alice/.claude/projects/-srv-proj/s1.jsonl",
- "type":"file","size":97,"mtime":1791046385,"atime":1791046385,"ctime":1791046385,
- "btime":1791046385,"uid":1000,"gid":1000,"mode":"644","sha256":"...",
- "secret":false,"status":"collected","target":"","error":""}
+{"user":"alice","home":"/mnt/evidence/home/alice","agent":"claude-code","path":"/mnt/evidence/home/alice/.claude/history.jsonl","archive_path":"fs/home/alice/.claude/history.jsonl","type":"file","size":89,"mtime":1790812800,"atime":1790812800,"ctime":1795324177,"btime":1790812800,"uid":501,"gid":0,"mode":"644","sha256":"db176a33220221c786a18e444fed4ea88e4e3f9cf32fcf8d96945ae10151b70a","secret":false,"status":"collected","target":"","error":""}
 ```
+
+Every row has every field, in this order, an empty value written as `""`,
+`0` or `false`. Rows written on Windows have two more fields, `owner` and
+`attributes`, after `mode`.
 
 | Field | Meaning |
 | --- | --- |
-| `user` | Owner of the home the path was found under. For a project file, the user whose agent state referenced the project (empty for a `-p` directory outside every home). `docker` for volume rows. |
-| `home` | The base the path was collected relative to: the home directory, the project directory, or a volume's `_data`, including the `-r` root. |
-| `agent` | Catalog agent name. For a file found through the project catalog, the agent the `PROJECT_CATALOG` line names: the agent that owns the file (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) under `.git/` and the other `project` lines in `--list`); before collector 1.12.0 every project row had `project`. For a volume row, the `DOCKER_VOLUMES` agent of the matched volume. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, project or `-p` directory. `shared` for a file collected because it names a relocation variable (a startup file, or under `--env-scan-home` any file) and that no catalog line matches; it has `secret: true`, `skipped_secret` under `--no-secrets`, and for a system file an empty `user` and `home`. See [relocation.md](relocation.md). |
-| `path` | The original full path, including the `-r` root in image mode. |
-| `archive_path` | Where the file is in the archive: `fs/<original path>`, or, for a path reached through a symlinked directory inside its base (the `home` column; the root for a system startup file, whose `home` is empty), `fs/<that path resolved to where the base physically holds it>`, so a recreated link with a relative target leads to it. The `doubleagent` binary spells it as the archive names the member: on an output directory that ignores letter case, a file staged into a directory another spelling of the same name created (the source's `Devin/User/x` in the staged `devin/`) is named `fs/.../devin/User/x`, where the sh collector writes the source's spelling. Set for `collected` rows and for `symlink` rows whose link is in the archive: always from the sh collector, and from the PowerShell collector when the link was recreated and the archive is a tar (see [windows.md](windows.md#symlinks-and-reparse-points)). Empty otherwise. |
-| `type` | `file`, `symlink`, or `dir` (an excluded directory, an unmatched volume, or an `error_read` directory). A `skipped_special` row names the kind of special file instead: `socket` (a Unix domain socket), `fifo` (a named pipe), `device` (a block or character device) or `other`; see [Special files](#special-files). |
-| `size` | Bytes. For a `collected` row from the PowerShell collector, the number of bytes copied, the length of the archived copy that `sha256` covers; for every other file and symlink row, and for every row from the sh collector, the length `lstat` or the directory listing reported before the copy. On Windows that pre-copy length is the file's directory entry, which NTFS updates only when a handle on the file closes, so it can be stale for a file a running process holds open and writes: a `skipped_size` decision and a `skipped_excluded` file row use it as it was. `0` for an `error_read` row. For any other `dir` row, the size of everything under it: `du -sk` × 1024 from the sh collector, the sum of file lengths from the PowerShell collector. The `doubleagent` binary sizes as the collector of its platform does, but opens each directory without following a link and lists it only when what it opened is a directory and no link, so a directory replaced by a symlink or junction between its `lstat` and its listing adds nothing from behind the link. |
-| `mtime`, `atime`, `ctime`, `btime` | Epoch seconds, read before the copy. `btime` (creation) is `0` where the platform cannot report it, and `ctime` is `0` from the PowerShell collector. On Linux the `doubleagent` binary reads the times through `statx`; on a kernel without it (before 4.11) or under a system-call filter that refuses it, it reads the same fields through `lstat`, and `btime` is `0`. All four are `0` for an excluded directory from the sh collector, for an unmatched volume, for an `error_read` row of a `-p` value that does not exist, and on a host with neither GNU nor BSD `stat` (where `uid`, `gid` and `mode` are `0` too). |
-| `uid`, `gid`, `mode` | Numeric owner and group, and the permission bits as an octal string (`"644"`), from `lstat`. `0`, `0` and `""` from the PowerShell collector. |
-| `owner`, `attributes` | PowerShell collector only: the owning account name (or SID when the name cannot be resolved) and the attribute list, such as `Archive, ReparsePoint`. |
-| `sha256` | SHA-256 of the staged copy, set only for `collected` rows. The sh collector leaves it empty when it found no hash tool (`capabilities.hash_tool` is `none`). |
-| `secret` | `true` when the path, relative to `home`, matched a credential pattern. |
-| `status` | See below. |
-| `target` | For a symlink, its target as stored. The PowerShell collector joins several reparse point targets with `;`. |
-| `error` | For `error_copy`, why the copy failed: `cp`'s message or the .NET exception. For `error_read`, why the directory could not be read: the first line of `ls`'s message (sh, for example `ls: cannot open directory '/home/carol': Permission denied`) or the .NET exception message. For a PowerShell `symlink` row with no `archive_path`, why the link is not in the archive, starting `not recreated in the archive:` or `not in the archive:`; the `doubleagent` binary writes `not recreated in the archive: <why>` for every link it could not read or recreate, on every platform, and logs `symlink not recreated: <path>: <why>`, where the sh collector ignores a failed `ln -s` and keeps the `archive_path`. |
+| `user` | The user whose home the path was found under. For a project file, the user whose agent state named the project, or the user whose home holds a `-p` directory (empty for one outside every home). `docker` for a Docker or Podman volume row. Empty for a system file collected for a relocation hint. |
+| `home` | The base the path was collected under, including the image root: the home directory, the project directory, or a volume's `_data` directory. Empty for a system file collected for a relocation hint. |
+| `agent` | The catalog agent the file belongs to. For a project file, the agent its project catalog line names: the agent that owns it (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) and the other `project` lines in `--list`). For a volume row, the agent of the matched volume name. `shared` for a file collected because it names a relocation variable and no catalog line matches it ([Relocation warnings](relocation.md)); such a file is flagged `secret: true`. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, a project or a `-p` value. |
+| `path` | The original full path, including the image root in image mode, in the platform's own form (backslashes on Windows). |
+| `archive_path` | The archive member that holds the file or link: `fs/` and the path without the image root, or, for a path reached through a symlinked directory inside its base, the place the base physically holds it ([Archive layout](#archive-layout)). It is spelled as the member is named. Set for `collected` rows and for `symlink` rows whose link is in the archive; empty for every other row. |
+| `type` | `file`, `symlink` or `dir` (an excluded directory, an unmatched volume, an `error_read` directory). A `skipped_special` row names the kind of special file instead: `socket`, `fifo`, `device` or `other` ([Special files](#special-files)). |
+| `size` | Bytes. For a `collected` row, on Linux and macOS the size the file had before the copy, on Windows the number of bytes copied, which is what `sha256` covers. For every other file or link row, the size before the copy (for a symlink on Linux and macOS, the length of its target). On Windows that size comes from the file's directory entry, which NTFS updates only when a handle on the file closes, so it can be smaller than the file for one a running program holds open and writes ([Windows](windows.md#locked-files-and-long-paths)). For an excluded directory or an unmatched volume, the size of everything under it: on Linux and macOS the space allocated, as `du -sk` reports it, in bytes; on Windows the sum of the files' sizes. `0` for an `error_read` row. |
+| `mtime`, `atime`, `ctime`, `btime` | Modification, access, change and birth (creation) time, in seconds since 1970 UTC, read from the file itself before it was copied, never through a link. `btime` is `0` where the file system keeps no birth time; on Linux it is read through `statx` and is `0` on a kernel without it or under a system-call filter that refuses it. `ctime` is `0` on Windows, which keeps no change time. A time before 1970 is `0`. All four are `0` for an excluded directory and an unmatched volume on Linux and macOS, and for the `error_read` row of a `-p` value that does not exist. |
+| `uid`, `gid`, `mode` | Linux and macOS: the numeric owner and group and the permission bits, the setuid, setgid and sticky bits included, as an octal string (`"644"`, `"4755"`); `0`, `0` and `"0"` where nothing could be read, as for an excluded directory. Windows: `0`, `0` and `""`. |
+| `owner` | Windows only: the account that owns the path itself (for a link, the link, not its target), as `DOMAIN\name`, the account name alone when it has no domain, the security identifier (`S-1-5-21-...`) when no account matches it, or `""` when it cannot be read. |
+| `attributes` | Windows only: the file's attribute names in ascending bit order, joined by `, ` (`Archive`, `Directory, ReparsePoint`, `Hidden, System, Archive`), or the attribute value as a decimal number when it is `0` or holds a bit that has no name in this list. |
+| `sha256` | The SHA-256 of the bytes copied into the archive, for `collected` rows only. The hash is taken during the copy, so it matches the archive member even if a running agent kept writing to the source. |
+| `secret` | `true` when the path, relative to `home`, matches a credential pattern, or the file was collected for a relocation hint. |
+| `status` | What happened to the path ([Statuses](#statuses)). |
+| `target` | For a symlink (on Windows also a junction), its target as the link stores it, which may be relative. |
+| `error` | For `error_copy` and `error_read`, why: the operating system's description of the failure, such as `open /home/carol/.claude/x: permission denied`, or on Windows `open C:\Users\carol\.claude\x: Access is denied.` For a `symlink` row with no `archive_path`, `not recreated in the archive: ` and the reason the link could not be made in the staging directory. |
 
-Timestamps come from `lstat` on the original file (sh), or from the item's
-times before the copy (PowerShell). The copy of each file is hashed after
-staging, so the hash matches the bytes in the archive even if a running
-agent appended to the source afterwards. The PowerShell collector reads the
-staged copy back through the handle that wrote it, before closing it, and
-then sets the copy's timestamps.
+Rows come in the order of the run's steps: the homes, in the order they
+were found, then the Docker and Podman volumes, the projects, and the files
+collected for relocation hints. Within one directory walk, the rows of the
+walk are written together when it ends.
 
-The PowerShell collector writes each row itself, with the fields in the
-order above. Strings escape `"` and `\`, control characters below U+0020
-(`\b`, `\t`, `\n`, `\f` and `\r`, the rest as `\u00xx`) and U+0085, U+2028
-and U+2029; everything else is written as UTF-8, and a lone surrogate in a
-Windows file name becomes U+FFFD. Up to 1.10.1 it used `ConvertTo-Json`,
-which under Windows PowerShell 5.1 also wrote `<`, `>`, `&` and `'` as `\u`
-escapes; the parsed values are the same.
+The manifest is written by Go's `encoding/json`: `"` and `\` are escaped,
+control characters are written as escapes, and so are the characters
+U+2028 and U+2029, so every line is one valid JSON object. A file name that
+is not valid UTF-8 is written with the character U+FFFD in place of each
+byte that is not part of a valid character; the archive member keeps the
+name's real bytes. On Windows a name holding a lone surrogate (a half of a
+UTF-16 character pair, which Windows allows in a name) is written with
+three U+FFFD characters, one per byte of its stored form.
 
 ### Statuses
 
 | Status | Meaning |
 | --- | --- |
 | `collected` | Copied, hashed and archived. |
-| `symlink` | A symbolic link (on Windows a symbolic link or junction: a reparse point whose `LinkType` is `SymbolicLink` or `Junction`), recorded with its target and never followed. A link to a directory that a catalog path runs through, whose target leads out of the home or project directory or cannot be resolved, is recorded this way too, under the agent of that catalog line ([coverage.md](coverage.md#paths-through-a-symlinked-directory)). A link to a directory inside its base (the home, the project directory, or the root for a system startup file) that a catalog path or startup file runs through is recorded once as well, under the agent of the first line that reached through it (`shared` for a startup file), unless it is or lies inside another catalog line's match, whose walk records it. A link inside a catalog match that is itself a symlink is recorded by the [nested entry](coverage.md#nested-entries) that reaches it, since the matched link's own row holds no walk. Both collectors recreate the link in the archive with its target as stored. The PowerShell collector cannot where Windows refuses to create it or where the archive is a `.zip`; the row then has no `archive_path` and `error` says why. |
-| `skipped_excluded` | Matched an `EXCLUDES` pattern. An excluded directory is one `dir` row with its total size; an excluded file, found in a walk or matched by a catalog entry itself, is one `file` row with its size. An excluded symlink is not a `symlink` row: it gets the same `file` row, or a `dir` row when it points to a directory. |
+| `symlink` | A symbolic link, or on Windows a symbolic link or junction, recorded with its target and never followed. The link is recreated in the archive with its target as stored; where it cannot be (on Windows, without the right to create links), the row has no `archive_path` and `error` says why, and the log has `symlink not recreated: <path>: <reason>`. A symlinked directory that a catalog path runs through gets a row too, under the agent of that catalog line: one whose target leads out of the home or project, or cannot be resolved, is recorded and not walked ([Paths through a symlinked directory](coverage.md#paths-through-a-symlinked-directory)). |
+| `skipped_excluded` | Matched a default exclusion (not with `--full`). An excluded directory is one `dir` row with the size of everything under it; an excluded file is one `file` row with its size. An excluded symlink is a `file` row, or a `dir` row when it leads to a directory. |
 | `skipped_size` | Larger than `--max-file-size`. |
 | `skipped_secret` | A credential file left out by `--no-secrets`. |
-| `skipped_special` | A special file: neither a regular file, a directory nor a symbolic link, such as the Unix domain sockets Codex CLI keeps under `.codex`. Never opened or copied; `type` names the kind, `size` and the times are as `lstat` (sh) or `Get-Item` (PowerShell) reported them, `archive_path`, `sha256`, `target` and `error` are empty, and `secret` is set as for any path. See [Special files](#special-files). Since collector 1.13.0. |
-| `error_copy` | Could not be read or copied; see `error`. From the `doubleagent` binary also a file not staged because the output directory takes its name for another file's, link's or directory's, by letter case, by Unicode form (the same accented letter stored as one character, or as a letter and a combining mark) or on Windows by an 8.3 short name: `the output directory takes its name for another file's, link's or directory's; not staged` where the run can tell, else a plain reason (for an 8.3 short name, for example `does not resolve inside the staging directory`), with no `archive_path`; such a link keeps its `symlink` row, with no `archive_path` and that reason after `not recreated in the archive:`. A file or link staged again at the same staged path after its source was replaced during the run gets `changed since this run staged it; the earlier row holds its copy` instead. |
-| `skipped_unmatched_volume` | A Docker or Podman volume that matched no `DOCKER_VOLUMES` line: one `dir` row with its size, `user` `docker`, an empty `agent`, and `home` and `path` both the volume's `_data`. |
-| `error_read` | A directory that could not be listed or entered: a home, a project directory, a `-p` value that is not a directory, or a directory inside a walk (see [privileges.md](privileges.md)). One `dir` row with size `0`, no `archive_path` and the reason in `error`; nothing under it is collected. |
+| `skipped_special` | A special file: neither a regular file, a directory nor a link ([Special files](#special-files)). Never opened; `archive_path`, `sha256`, `target` and `error` are empty. |
+| `error_copy` | The file could not be read or copied; `error` says why, and the log has `copy failed: <path>: <reason>`. Also a file the output directory cannot hold beside another of a name it takes for the same one: `the output directory takes its name for another file's, link's or directory's; not staged` ([Case and Unicode form in the output directory](collect-options.md#case-and-unicode-form-in-the-output-directory)). A file reached a second time at the same staged place after it was replaced during the run gets `changed since this run staged it; the earlier row holds its copy`. |
+| `skipped_unmatched_volume` | A Docker or Podman volume whose name matches no agent: one `dir` row with its size, `user` `docker`, an empty `agent`, and `home` and `path` both the volume's `_data` directory. |
+| `error_read` | A directory that could not be listed or entered: a home, a project, a `-p` value that is not a directory, or a directory inside a walk ([Privileges](privileges.md)). One `dir` row with `size` `0`, no `archive_path` and the reason in `error`; nothing under it is collected. |
 
 ### Check order
 
-A path that was not excluded is checked first for being a symlink, then
-for being a special file, then for `--no-secrets`, then for size. A
-symlink is therefore never skipped for size, a special file is
-`skipped_special` even when it matches a secret pattern under
-`--no-secrets` (its `secret` field still says so), and a credential file
-is `skipped_secret` under `--no-secrets` whatever its size.
+A path that no exclusion matches is checked first for being a link, then
+for being a special file, then against `--no-secrets`, then against
+`--max-file-size`. So a link is never skipped for its size, a special file
+is `skipped_special` even when it matches a credential pattern under
+`--no-secrets` (its `secret` field still says so), and a credential file is
+`skipped_secret` under `--no-secrets` whatever its size.
 
 ### Special files
 
-A socket, FIFO (named pipe) or device is never opened, because reading
-one can block the collector (a FIFO waits for a writer) or read something
-that is not a file's contents; it gets one `skipped_special` row. How each
-collector names the kind in `type`:
+A socket, a named pipe (FIFO) or a device is never opened: reading a named
+pipe waits for a writer, and reading a device or socket reads something
+that is not a file's contents. It gets one `skipped_special` row whose
+`type` names the kind:
 
-| Collector | How the kind is found | `type` values |
-| --- | --- | --- |
-| sh | Every path the walk finds that is not a directory goes to the stage worker (`find ! -type d`). After the symlink test, a path that exists and is not a regular file (`test -f`) is tested with `test -S`, `-p`, then `-b` or `-c`. | `socket`, `fifo`, `device`, else `other` |
-| PowerShell on Windows | A reparse point whose `LinkType` is neither `SymbolicLink` nor `Junction`. Windows PowerShell 5.1 exposes no reparse tag, so the kind cannot be named; the case seen is the AF_UNIX (Unix domain) socket, reparse tag `IO_REPARSE_TAG_AF_UNIX` (`0x80000023`), which collector 1.12.0 recorded as a `symlink` whose target was its own path. A reparse point whose `LinkType` cannot be read is still recorded as a `symlink`. | `other` |
-| PowerShell 7 on Linux and macOS | The first character of the item's `UnixMode` property (PowerShell 7.1 and later): `s`, `p`, `b` or `c`. Without `UnixMode` the collector cannot tell a special file from a regular one and behaves as before 1.13.0: it tries the copy, which fails for a socket (an `error_copy` row) and can wait for a writer on a FIFO. PowerShell 7.6.6 on Linux reports a FIFO's `UnixMode` with a leading `-`, as for a regular file, so the collector copies it and the run waits until something opens the FIFO for writing (seen October 2026). | `socket`, `fifo`, `device` |
+| Platform | `type` values |
+| --- | --- |
+| Linux and macOS | `socket` (a Unix domain socket, such as the ones Codex CLI keeps under `.codex`), `fifo` (a named pipe), `device` (a block or character device), else `other` |
+| Windows | `other`: a reparse point other than a symlink or junction, such as the Unix domain sockets Codex CLI keeps under `.codex\app-server-daemon` while its daemon runs |
 
-Up to collector 1.12.0 the sh walk passed only regular files and symlinks
-to the stage worker, so a socket or FIFO under a matched directory had no
-manifest row at all. `--inventory` and `-Inventory` leave the special files
-they recognise out of the file counts.
+A reparse point is the Windows mechanism behind every kind of file system
+link and some special files ([Windows](windows.md#symlinks-and-reparse-points)).
+`--inventory` leaves special files out of its file counts.
+
+## Log
+
+The log is a text file with one line per event, each starting with a UTC
+time to the second. Unless `-q` is given, the same lines go to standard
+error during the run, without the time. A run on a macOS workstation over a mounted image:
+
+```text
+2026-11-22T05:09:37Z doubleagent <version> starting on ir-ws01 (Darwin 27.2.0) mode=image root=/mnt/evidence uid=501
+2026-11-22T05:09:37Z hash=crypto/sha256 max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+2026-11-22T05:09:37Z NOTE: output directory /cases/host01 ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
+2026-11-22T05:09:37Z User alice (/mnt/evidence/home/alice)
+2026-11-22T05:09:37Z   [claude-code] /mnt/evidence/home/alice/.claude
+2026-11-22T05:09:37Z   [claude-code] /mnt/evidence/home/alice/.claude.json
+2026-11-22T05:09:37Z   [codex-cli] /mnt/evidence/home/alice/.codex
+2026-11-22T05:09:37Z Docker volumes in /mnt/evidence/var/lib/docker/volumes
+2026-11-22T05:09:37Z   [agent-zero] /mnt/evidence/var/lib/docker/volumes/a0_usr/_data
+2026-11-22T05:09:37Z Project [alice] /mnt/evidence/srv/proj
+2026-11-22T05:09:37Z   [claude-code] /mnt/evidence/srv/proj/.claude
+2026-11-22T05:09:37Z Relocation hints for alice (/mnt/evidence/home/alice)
+2026-11-22T05:09:37Z relocation hint: /mnt/evidence/home/alice/.bashrc:1 names CODEX_HOME (codex-cli)
+2026-11-22T05:09:37Z Relocation hints in system files
+2026-11-22T05:09:37Z relocation hint: /mnt/evidence/etc/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = /mnt/evidence/opt/x
+2026-11-22T05:09:37Z Archiving
+2026-11-22T05:09:37Z done: /cases/host01/ir-ws01_20261122T050937Z_agent-artifacts.tar.gz (6260 bytes, sha256 922c3e2a832b0eb642c0398551918c5f702d8075ef8658313522f8f2f79a0acf)
+```
+
+The first line names the version, the host, the system, the mode, the root
+(`/` or `\` in live mode) and the account: `uid=<n>` on Linux and macOS,
+`run_as=<DOMAIN\user> admin=<0|1>` on Windows. The second names the hash and
+the options. On Windows a third line says how files are opened, from the
+system's last-access setting ([Access times](deployment.md#access-times)).
+Then come the warnings that apply to the whole run.
+
+| Line | When |
+| --- | --- |
+| `WARNING: not running as root; other users' homes will probably be unreadable` | A live Linux or macOS run that is not root. On Windows: `WARNING: not running as Administrator; other users' profiles will probably be unreadable`. |
+| `NOTE: --inventory writes nothing; -o DIR ignored` | `--inventory` with `-o`. |
+| `NOTE: output directory DIR ignores letter case or Unicode form in names; ...` | The output directory takes two different names for one ([Case and Unicode form in the output directory](collect-options.md#case-and-unicode-form-in-the-output-directory)). |
+| `WARNING: no user home directories found` | No home was found. |
+| `WARNING: -u NAME matches no user home; homes found for: A, B` | A `-u` name that matches no home; `WARNING: -u lists no names` for a list naming nobody. |
+| `profile not accessible (skipped): PATH` | Windows: a profile the registry lists whose directory cannot be looked at. |
+| `User USER (HOME)` | Before the first catalog match of a home; a home with no match gets no line. |
+| `  [AGENT] PATH` | One per catalog match, before its files are copied. A match that is the same directory as an earlier one on a case-insensitive file system ends `: same file as PATH (case-insensitive filesystem), collected there` and gets no rows ([Case variants](coverage.md#case-variants)). |
+| `read failed: PATH: REASON` | A directory that could not be listed or entered; it has an `error_read` row. |
+| `find: PATH: REASON` | A directory whose listing failed during a walk. |
+| `copy failed: PATH: REASON` | A file that could not be copied; it has an `error_copy` row. |
+| `symlink not recreated: PATH: REASON` | A link that could not be made in the staging directory. |
+| `Docker volumes in DIR`, `  [AGENT] DIR/_data`, `NOTE: docker: ...` | The volume step ([Docker volumes](docker.md)). |
+| `Project [USER] PATH` | Before the files of a project; `Project PATH` for a `-p` directory no home holds. It ends `(through the symlinked directory LINK, archived under PATH)` for a project whose own path runs through a link inside a home. |
+| `WARNING: project given with -p is not a directory: PATH: REASON` | A `-p` value that is not a directory. |
+| `Relocation hints for USER (HOME)`, `Relocation hints in project PATH`, `Relocation hints in system files`, `Relocation hints in the registry` | Before the first hint of each place searched. |
+| `relocation hint: FILE:LINE names VARIABLE (AGENT)` | One per hint, followed by ` = VALUE` when the value was read, or `; value not resolved: REASON` ([Relocation warnings](relocation.md#what-the-warning-means)). |
+| `sweep skipped: home PATH lies outside the user home roots`, `sweep skipped: project PATH holds a home directory` | With `--env-scan-home`, a home or project that is not searched ([Search the whole home](relocation.md#search-the-whole-home)). |
+| `access time not held: PATH: REASON`, `access times not held: N file(s)` | Windows: a file read without the hold on its access time the run wanted ([Access times](deployment.md#access-times)). |
+| `Archiving` | The walk is over and the archive is being written. |
+| `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete. Written to the log file only, after the archive took its copy of the log. |
+| `interrupted` | The run was interrupted and exits `130`. |
+| `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written` when the archive failed. |
+
+In image mode, a link whose target leads out of the image root is named
+once by the step that met it, and nothing behind it is read: a line ending
+`leads out of the image root; nothing behind it was listed` (or `... was
+listed or taken as a home`, `... nothing under it was listed, not walked`,
+`... nothing behind it was listed or read`), starting with `user homes:`,
+`docker:`, `startup files:`, `Discovery [USER]`, `Project` or the catalog
+match. On Windows a path that the check let through but Windows opened
+outside the root is logged with `the root check allowed it but Windows
+opened it outside the image root; nothing from it was used`.
+
+No line holds a file's contents, a matched line of a startup file or a
+secret.
 
 ## collection.json
 
-`collection.json` records the run:
+`collection.json` records the run as one JSON object, indented by two
+spaces. From the run whose log is above:
 
-| Field | Meaning |
+```json
+{
+  "tool": "doubleagent",
+  "version": "<version>",
+  "hostname": "ir-ws01",
+  "mode": "image",
+  "root": "/mnt/evidence",
+  "platform": "Darwin 27.2.0 arm64",
+  "run_as_uid": "501",
+  "started": "2026-11-22T05:09:37Z",
+  "finished": "2026-11-22T05:09:37Z",
+  "options": {
+    "full": false,
+    "no_secrets": false,
+    "max_file_size_bytes": 268435456,
+    "users_filter": "",
+    "no_docker": false,
+    "no_projects": false,
+    "projects": [],
+    "env_scan_home": false,
+    "env_scan_max_size_bytes": 1048576,
+    "no_preserve_atime": false
+  },
+  "capabilities": {
+    "hash_tool": "crypto/sha256",
+    "archiver": "archive/tar",
+    "grep_text": true,
+    "plutil": true
+  },
+  "users": [
+    "alice"
+  ],
+  "homes": [
+    "/mnt/evidence/home/alice"
+  ],
+  "users_with_artifacts": [
+    "alice"
+  ],
+  "projects": [
+    "/mnt/evidence/srv/proj"
+  ],
+  "counts": {
+    "collected": 34,
+    "symlink": 1,
+    "skipped_excluded": 5,
+    "skipped_size": 0,
+    "skipped_secret": 0,
+    "skipped_special": 1,
+    "error_copy": 0,
+    "skipped_unmatched_volume": 1,
+    "error_read": 0,
+    "collected_bytes": 1242
+  },
+  "docker": {
+    "volumes_found": 2,
+    "volumes_collected": 1,
+    "unreadable": 0,
+    "docker_desktop": false
+  },
+  "relocation": {
+    "hints": [
+      {
+        "user": "alice",
+        "source": "/mnt/evidence/home/alice/.bashrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "/mnt/evidence/etc/environment.d/agents.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "/mnt/evidence/opt/x"
+      }
+    ],
+    "registry": {
+      "read": false,
+      "reason": "not Windows",
+      "users_read": [],
+      "users_not_loaded": [],
+      "users_denied": []
+    },
+    "files_searched": 2,
+    "files_skipped_size": 0
+  },
+  "notes": [],
+  "archive": "ir-ws01_20261122T050937Z_agent-artifacts.tar.gz"
+}
+```
+
+Every key is always written, in this order, an empty list as `[]`.
+
+| Key | Meaning |
 | --- | --- |
-| `tool`, `version` | `collect-agent-artifacts` and the collector version. |
-| `hostname` | The host name, the only record of it in the output. sh: `hostname`, else `uname -n`. PowerShell: `COMPUTERNAME`, else the DNS host name. Always read from the machine running the collector, so in image mode (`-r`) it is the analyst workstation's name, not the imaged host's. |
-| `mode` | `live` or `image`. |
-| `root` | The `-r` root. In live mode, `/` (sh) or `\` (PowerShell). |
-| `platform` | sh: `uname -s`, `-r` and `-m`. PowerShell: `Windows <OS version> <PROCESSOR_ARCHITECTURE> PowerShell <version>`; off Windows the prefix is still `Windows`, the version is .NET's `OSVersion` (the kernel version on Linux) and the architecture is empty when `PROCESSOR_ARCHITECTURE` is unset (`Windows 6.6.114.1  PowerShell 7.6.6` under PowerShell 7 on Linux). |
-| `run_as_uid` | sh only: the numeric uid the collector ran as, as a string. |
-| `run_as`, `run_as_admin` | PowerShell only: the account the collector ran as, and whether it was elevated. |
-| `started`, `finished` | UTC to the second, `2026-10-03T16:55:31Z`. `finished` is taken before archiving. |
-| `options` | `full`, `no_secrets`, `max_file_size_bytes` (`0` means no limit), `users_filter` (the `-u` string), `no_docker`, `no_projects` (boolean, `--no-projects` or `-NoProjects`), `projects` (array of the `-p`/`--project` or `-Project` values in the order given, resolved against the current directory to absolute paths and de-duplicated, by both collectors, `[]` when none). A value that is not a directory is still listed here. They are recorded even with `no_projects`, which ignores them. After `projects` come `env_scan_home` (boolean, `--env-scan-home` or `-EnvScanHome`) and `env_scan_max_size_bytes` (`0` means no limit; recorded even without `env_scan_home`). The `doubleagent` binary alone then writes `no_preserve_atime` (boolean, `--no-preserve-atime`, on every platform; see [deployment.md](deployment.md#access-times-with-the-doubleagent-binary)). |
-| `capabilities` | sh: `hash_tool` (`sha256sum`, `shasum`, `sha256`, `openssl` or `none`), `stat_mode` (`gnu`, `gnu0` for GNU `stat` without birth time, `bsd` or `none`), `worker_shell`, `archiver` (`tar -z` for `tar -czf`, `tar \| gzip` for the pipe, `tar` for the uncompressed `.tar`), `grep_text` (`true` when `grep -a -F` finds a name past a NUL byte, so a relocation variable named in such a file is found; `false` where `grep` reports the file as binary or, as busybox `grep` does, stops at the NUL byte, and the relocation search then finds no hint in it) and `plutil` (`true` when `plutil`, the property list tool macOS ships, is on the host; a launchd plist's relocation value is read only through it). PowerShell, which reads every file as text and has no `grep_text` and no `plutil` key: `hash_tool` (`System.Security.Cryptography.SHA256`; `Get-FileHash` up to 1.10.1) and `archiver` (`tar.exe` for `tar.exe` or the system `tar`, `PowerShell tar writer` for the script's own tar writer, added after 1.10.2, or `ZipFile` for the zip). `archiver` names the one that wrote the archive. |
-| `users`, `homes` | Parallel lists of every user and home scanned, including homes with no agent state. |
-| `users_with_artifacts` | The users whose home produced at least one manifest row, in the order of `users`. Rows from discovered projects and Docker volumes do not count. The stdout `users:` line is its length. |
-| `projects` | The project directories collected from, discovered or given with `-p`. A `-p` value that is not a directory is left out and has an `error_read` row instead. |
-| `counts` | Rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`) and `collected_bytes`. `skipped_special` since collector 1.13.0. |
-| `docker` | `volumes_found`, `volumes_collected`, `unreadable` and `docker_desktop`; see [docker.md](docker.md). |
-| `relocation` | `hints`, `registry`, `files_searched` and `files_skipped_size`, in that order; see [relocation.md](relocation.md). `hints` is an array of objects with `user` (the owner of the home or the project's user, empty for a system file; for a system plist under `/Library/LaunchDaemons` its `UserName`; for a registry value the profile's user, empty for the system key), `source` (the path of the file that names the variable, or the registry key path and value name), `line` (its line number; `0` for a registry value, written by the PowerShell collector, and for the value the sh collector's `plutil` reads from a launchd plist as a whole), `variable`, `agent` (the catalog agent the table line belongs to, or `shared`) and `value` (the absolute path the line assigns when the collector resolved it, in image mode with the root in front; `""` for every other hint, because the collector never evaluates a value and keeps no text that is not a plain path). A variable that two agents list gives one hint per agent. `registry` is an object with `read` (a boolean: `true` when the registry step ran), `reason` (why it did not: `image mode`, `not Windows`, or `sh collector`; `""` when it ran), `users_read` (the users whose `Environment` key was read), `users_not_loaded` (the users whose hive was not loaded, so was not read) and `users_denied` (the users whose loaded hive could not be opened); the sh collector always writes `"read": false, "reason": "sh collector"` and three empty lists. `files_searched` counts the files handed to the search, the startup files and, with `--env-scan-home`, the files of the sweep, which leaves out the startup files already searched, so each file counts once; `files_skipped_size` counts the sweep's files over `--env-scan-max-size`. |
-| `notes` | Messages about what could not be collected, such as an unreadable or symlinked Docker volume directory, Docker Desktop data, or (PowerShell) symlinks that are not in the archive and why, and (PowerShell) each archiver that failed and the one that was used instead, such as `tar.exe failed (exit code 0xC0000005); fell back to PowerShell tar writer`. |
-| `archive` | The file name of the archive written: `.tar.gz`, `.tar` after the sh collector's uncompressed fallback, or `.zip` from the PowerShell collector after both `tar.exe` and its PowerShell tar writer failed. |
+| `tool`, `version` | `doubleagent` and its version, as `doubleagent --version` prints it. |
+| `hostname` | The name of the machine running the command: on Linux and macOS the system's host name, on Windows `COMPUTERNAME`, else the DNS host name. In image mode it is the analyst workstation's name, not the imaged host's; this is the only place the output names the host. |
+| `mode` | `live`, or `image` with `-r`. |
+| `root` | The image root, absolute. In live mode `/` on Linux and macOS and `\` on Windows. |
+| `platform` | The system running the command. Linux and macOS: the kernel name, release and machine, as `uname -s`, `-r` and `-m` print them (`Linux 6.8.0-50-generic x86_64`, `Darwin 27.2.0 arm64`). Windows: `Windows`, the version as major, minor and build, and `PROCESSOR_ARCHITECTURE` (`Windows 10.0.26100 AMD64`). |
+| `run_as_uid` | Linux and macOS: the numeric user ID the command ran as, as a string. |
+| `run_as`, `run_as_admin` | Windows, in place of `run_as_uid`: the account the command ran as, `DOMAIN\user`, and whether it is a member of the Administrators group with that membership in effect (a window opened with **Run as administrator**). |
+| `started`, `finished` | UTC times to the second, `2026-11-22T05:09:37Z`. `finished` is taken when the walk ends, before archiving. |
+| `options` | The command line: `full`, `no_secrets`, `max_file_size_bytes` (`0` for no limit), `users_filter` (the `-u` text as given), `no_docker`, `no_projects`, `projects` (every `-p` value, made absolute and listed once, in the order given; a value that is not a directory is listed too, and the values are recorded even with `no_projects`), `env_scan_home`, `env_scan_max_size_bytes` (`0` for no limit; recorded even without `env_scan_home`) and `no_preserve_atime`. |
+| `capabilities` | Fixed facts about the program: `hash_tool` is `crypto/sha256` and `archiver` is `archive/tar` (the hash and archive code built into the program); `grep_text` is `true`, since the relocation search reads bytes and finds a name after a NUL byte; `plutil` says whether `plutil`, the property list tool macOS ships, was found, which decides whether a launchd property list's value is read ([Which values are read](relocation.md#which-values-are-read)). |
+| `users`, `homes` | Parallel lists of every user and home searched, homes with no agent state included. |
+| `users_with_artifacts` | The users whose home produced at least one manifest row other than its own `error_read` row, in the order of `users`. Rows from projects and Docker volumes do not count. The stdout `users:` line is its length. |
+| `projects` | The project directories collected from, found or given with `-p`. A `-p` value that is not a directory, and a project left unwalked because it leads out of the image root, are not listed. |
+| `counts` | The rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`), then `collected_bytes`, the total `size` of the `collected` rows. |
+| `docker` | `volumes_found`, `volumes_collected`, `unreadable` and `docker_desktop` ([Docker volumes](docker.md)). |
+| `relocation` | The relocation search: `hints`, `registry`, `files_searched` and `files_skipped_size` ([Relocation warnings](relocation.md)). |
+| `relocation.hints` | One object per hint, in the order found: `user` (the owner of the home or the project's user; empty for a system file, except a launchd property list under `/Library/LaunchDaemons` that names a plain account in its `UserName`; for a registry value the profile's user, empty for the system key), `source` (the file that names the variable, or the registry key and value name, such as `HKU\S-1-5-21-...\Environment\CLAUDE_CONFIG_DIR`), `line` (the line number; `0` for a registry value and for the value `plutil` read from a property list as a whole), `variable`, `agent` (the agent the variable's catalog line belongs to, or `shared`) and `value` (the absolute path the line assigns when it was read, in image mode with the root in front; `""` otherwise). A variable that two agents list gives one hint per agent. |
+| `relocation.registry` | `read` (`true` when the registry was read), `reason` (why not: `not Windows`, or `image mode`; `""` when it was read), `users_read`, `users_not_loaded` and `users_denied` (the users whose `Environment` key was read, whose registry hive was not loaded, and whose loaded hive could not be opened) ([The registry](relocation.md#the-registry)). |
+| `relocation.files_searched`, `relocation.files_skipped_size` | The files searched for relocation variables, each counted once (the startup files, and with `--env-scan-home` every other file swept), and the swept files left unread for being over `--env-scan-max-size`. |
+| `notes` | Messages about what could not be collected: a Docker or Podman volume directory that is a symlink or unreadable, a volume that could not be read or walked completely, Docker Desktop data. |
+| `archive` | The archive's file name. |
