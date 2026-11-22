@@ -1,74 +1,131 @@
 # DoubleAgent
 
-Forensic analysis of AI agent use on a system, for incident responders.
-It covers agents that execute tools or shell commands on a host and leave
-transcripts, configuration or credentials on disk: coding agents such as
-Claude Code, Gemini CLI, Antigravity, Codex CLI, Copilot CLI, Cursor,
-Windsurf, Aider and VS Code chat extensions; autonomous agents such as
-Hermes, Agent Zero and OpenClaw; agent framework studios and CLIs such as
-AutoGen Studio, CrewAI and MetaGPT; self-hosted agent and workflow
-automation platforms such as n8n, Flowise, Langflow and Dify; voice
-daemons that hand coding tasks to other agents, such as Qwen Live; Ollama;
-and others. It has two
-parts, kept in separate directories because they run in different places and
-have different dependency rules.
+DoubleAgent is a forensic tool for incident responders who need to know
+what an AI agent did on a system. It covers agents that execute tools or
+shell commands on a host and leave transcripts, configuration or
+credentials on disk: coding agents such as Claude Code, Gemini CLI,
+Antigravity, Codex CLI, Copilot CLI, Cursor, Windsurf, Aider and VS Code
+chat extensions; autonomous agents such as Hermes, Agent Zero and
+OpenClaw; agent framework studios and CLIs such as AutoGen Studio, CrewAI
+and MetaGPT; self-hosted agent and workflow automation platforms such as
+n8n, Flowise, Langflow and Dify; voice daemons that hand coding tasks to
+other agents, such as Qwen Live; Ollama; and others. The
+[agents page](docs/agents.md) lists every one of them.
 
-More details can be found at the
-[documentation website](https://seanthegeek.net/doubleagent/).
+DoubleAgent supplements the responder's EDR (endpoint detection and
+response) tool and does not duplicate it: process lists, logged-on users,
+network connections, services, scheduled tasks and shell histories are
+left to the EDR. What DoubleAgent adds is the agents' own files and a
+timeline of what each agent was asked and did.
 
-| Part | Pages | Runs on |
-| --- | --- | --- |
-| Collecting | [Collecting](docs/collect.md) | The host under investigation, or an analyst workstation with a mounted image |
-| Analysing | [Analysing](docs/analyze.md) | The analyst workstation |
+## One program
 
-## Collectors
+DoubleAgent is one program, `doubleagent`, with these commands:
 
-Two single-file scripts with the same catalog (the table of agents and the
-paths under a home directory where each keeps its state), manifest schema
-and archive layout: a POSIX `sh` collector for macOS, Linux and BSD, and a Windows
-PowerShell 5.1 collector. Each depends on nothing beyond its base system, so
-it can be uploaded and run once through an EDR remote shell (CrowdStrike RTR,
-SentinelOne RemoteOps, Defender Live Response, Palo Alto Networks Cortex XDR
-Live Terminal), run locally by a responder, or
-pointed at a mounted disk image of any of the three platforms. They also
-collect Docker and Podman named volumes that belong to known agents. Output
-is one `tar.gz` (a `.zip` from the Windows collector where `tar.exe` is
-missing) holding the collected files, a hashed JSONL manifest and a run
-summary. Host state such as processes and network connections is left to the
-EDR. With `--inventory` they write nothing and print one JSON line per user
-and agent found to stdout instead, for a fleet-wide audit through the EDR
-console.
+- `doubleagent collect` archives the on-disk files of AI agents for every
+  user of a host, or of a mounted disk image, with a hashed manifest.
+- `doubleagent detect` lists the homes, users and agents a collection, or
+  any directory tree, holds.
+- `doubleagent timeline` parses the transcripts in a collection into one
+  timeline of prompts, tool calls and results, with a summary per session.
+- `doubleagent fleet` merges the saved output of many hosts'
+  `collect --inventory` runs into one CSV.
+- `doubleagent catalog` prints the bundled catalog: the agents, and the
+  paths under a home directory where each keeps its state.
 
-Usage and options are in [docs/collect.md](docs/collect.md); the
-list of covered tools, the manifest schema, Windows specifics and the test
-matrix are in the [documentation pages](docs/index.md#collecting).
+`doubleagent --help` and `doubleagent <command> --help` print each
+command's options.
 
-## Analyzer
+## Quick start
 
-`doubleagent`, a command-line tool that reads a collector archive, an
-extracted collection, or any loose directory such as a copied home or a
-mounted image, detects which agents left state in it using the collectors'
-own catalog, and parses the transcripts it understands into a normalised
-JSONL timeline of turns, tool calls and tool results, plus a per-session
-summary. The [agents page](docs/agents.md) lists every agent in the
-catalog with its status: parsed, a parser backlog, or collected with
-nothing to parse.
-Parsing never happens on the host. The analysis is the `detect`, `timeline`,
-`fleet` and `catalog` commands of the `doubleagent` binary, built from
-`cmd/doubleagent`.
+Get the `doubleagent` build for the host's operating system and
+architecture from the
+[releases page](https://github.com/seanthegeek/doubleagent/releases). The
+builds are named `doubleagent-<os>-<arch>`; until a release is published,
+build them from a checkout as [Development](docs/development.md#building)
+describes.
 
-Usage and options are in [docs/analyze.md](docs/analyze.md); accepted
-inputs, the JSONL schema, and recipes for searching large timelines are in the
-[documentation pages](docs/index.md#analysing).
+On the host under investigation, as root or from an elevated prompt so
+every user's home can be read:
 
-## Reporting problems
+```sh
+doubleagent collect -o /var/tmp/ir
+```
 
-A vulnerability in the tool itself (a vulnerable dependency, an unintended
-action, a denial of service) is reported privately as
-[SECURITY.md](SECURITY.md) describes; it also says which versions receive
-fixes and why misuse of a forensic tool is not one. Bugs and feature
-requests go through the issue forms on GitHub, which ask for the part, the
-version and the platform.
+Or, on an analyst workstation, against a disk image mounted at
+`/mnt/evidence`:
+
+```sh
+doubleagent collect -r /mnt/evidence -o /cases/host01
+```
+
+Either run writes `<host>_<time>_agent-artifacts.tar.gz` into the output
+directory, with its SHA-256 (`.sha256`), the manifest, the run summary
+and the log beside it. On
+the analyst's workstation, turn the archive into a timeline:
+
+```sh
+doubleagent timeline /cases/host01/<host>_<time>_agent-artifacts.tar.gz /cases/host01/timeline
+```
+
+The output directory then holds `timeline.jsonl`, `sessions.jsonl` and
+`inventory.json`. By default these show the credentials found in the
+evidence as the evidence holds them; `--no-secrets` withholds the ones
+the [output page](docs/timeline-output.md) lists.
+
+## What it reads and what it never does
+
+`doubleagent collect` reads the agents' files under every home directory
+and in the projects their state names, the Docker and Podman volumes that
+belong to known agents, and the startup files that can move an agent's
+files elsewhere. It copies each file into a staging directory under `-o`,
+records its metadata as found before the copy, hashes the copy, packs
+everything into one `.tar.gz` and removes the staging directory. It
+parses no transcript.
+
+- It never modifies, moves or deletes anything outside the output
+  directory.
+- It never follows a symbolic link: it records each one with its target
+  and stores the link itself in the archive.
+- It records everything it skipped (excluded directories, oversized
+  files, credential files under `--no-secrets`) in the manifest, with a
+  status and a size.
+- It prompts for nothing and reads nothing from standard input, so it can
+  be uploaded and run once through an EDR remote shell.
+
+The analysis commands (`detect`, `timeline`, `fleet`) run wherever the
+analyst runs them, normally a workstation, over an archive, an extracted
+collection, or any directory such as a copied home or a mounted image.
+They write only what they are asked for (the timeline's output
+directory, the fleet CSV) and, for an archive, the directory they extract
+it into, which is removed afterwards unless `--keep-extracted` is given;
+they never follow a symbolic link in the evidence.
+
+## Platforms
+
+Builds are made for macOS, Linux and Windows, each on x86-64 (amd64) and
+arm64. Each build collects its own host, and any build can collect a
+mounted disk image of a macOS, Linux or Windows system, because every
+catalog entry is tried against every home directory.
+
+## Documentation
+
+The [documentation site](https://seanthegeek.net/doubleagent/) holds:
+
+- [Collecting](docs/collect.md): running `doubleagent collect`, its
+  options and its output.
+- [Analysing](docs/analyze.md): running the analysis commands, their
+  inputs and their output.
+- [Agents](docs/agents.md): every agent in the catalog with what is
+  collected and whether its transcripts are parsed.
+- [Research](research/README.md): the evidence behind every catalog entry
+  and parser, one document per agent.
+- [Development](docs/development.md): building, testing and changing
+  DoubleAgent.
+
+A vulnerability in DoubleAgent itself is reported privately as
+[SECURITY.md](SECURITY.md) describes. Bugs and feature requests go
+through the issue forms on GitHub.
 
 ## License
 

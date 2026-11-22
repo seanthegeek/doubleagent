@@ -13,7 +13,9 @@
 # below; --strict fails the build on a document missing from it.
 site_name: DoubleAgent
 site_description: >-
-  Forensic analysis of AI agent use on a system, for incident responders.
+  DoubleAgent, one program for incident responders that collects the on-disk
+  files of AI agents from a host or a disk image and turns their transcripts
+  into a timeline.
 site_url: https://seanthegeek.net/doubleagent/
 repo_url: https://github.com/seanthegeek/doubleagent
 repo_name: seanthegeek/doubleagent
@@ -53,7 +55,7 @@ validation:
   links:
     # A link to a page or file that does not exist fails the build. A link
     # to a directory, or to a file that is not a page (CLAUDE.md, LICENSE,
-    # the scripts), is pointed at GitHub by hooks.py.
+    # a source file), is pointed at GitHub by hooks.py.
     not_found: warn
     absolute_links: warn
     unrecognized_links: info
@@ -102,26 +104,26 @@ nav:
   - Start:
       - docs/index.md
   - Collecting:
-      - docs/collect.md
-      - docs/collect-options.md
-      - docs/collection-output.md
-      - docs/coverage.md
-      - docs/relocation.md
-      - docs/docker.md
-      - docs/privileges.md
-      - docs/windows.md
-      - docs/deployment.md
-      - docs/collect-inventory.md
+      - Collecting: docs/collect.md
+      - Collection options: docs/collect-options.md
+      - Collection output: docs/collection-output.md
+      - What gets collected: docs/coverage.md
+      - Relocation warnings: docs/relocation.md
+      - Docker volumes: docs/docker.md
+      - Privileges: docs/privileges.md
+      - Windows: docs/windows.md
+      - Deployment through an EDR: docs/deployment.md
+      - Inventory mode: docs/collect-inventory.md
   - Analysing:
-      - docs/analyze.md
-      - docs/analyze-options.md
-      - docs/inputs.md
-      - docs/timeline-output.md
-      - docs/filtering.md
-      - docs/searching.md
-      - docs/fleet.md
+      - Analysing: docs/analyze.md
+      - Analysis options: docs/analyze-options.md
+      - Inputs and detection: docs/inputs.md
+      - Timeline output: docs/timeline-output.md
+      - Filtering the timeline: docs/filtering.md
+      - Reading and searching the output: docs/searching.md
+      - Fleet inventory: docs/fleet.md
   - Reference:
-      - docs/agents.md
+      - Agents: docs/agents.md
       - Changelog: docs/CHANGELOG.md
   - Research:
       - research/README.md
@@ -182,9 +184,9 @@ nav:
       - research/zed.md
       - research/frameworks.md
   - Contributing:
-      - docs/development.md
-      - docs/internals.md
-      - docs/testing.md
-      - docs/lab-vms.md
-      - Round pipeline: lab/README.md
+      - Development: docs/development.md
+      - Internals: docs/internals.md
+      - Testing: docs/testing.md
+      - Lab VMs: docs/lab-vms.md
+      - Lab: lab/README.md
       - AGENTS.md

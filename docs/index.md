@@ -1,123 +1,85 @@
 # DoubleAgent
 
-Forensic analysis of AI agent use on a system, for incident responders.
-It covers agents that execute tools or shell commands on a host and leave
-transcripts, configuration or credentials on disk: coding agents such as
-Claude Code, Gemini CLI, Antigravity, Codex CLI, Copilot CLI, Cursor,
-Windsurf, Aider and VS Code chat extensions; autonomous agents such as
-Hermes, Agent Zero and OpenClaw; agent framework studios and CLIs such as
-AutoGen Studio, CrewAI and MetaGPT; self-hosted agent and workflow
-automation platforms such as n8n, Flowise, Langflow and Dify; voice
-daemons that hand coding tasks to other agents, such as Qwen Live; Ollama;
-and others. The [agents page](agents.md) lists every one of them with what the
-collector gathers and whether the analyzer parses its transcripts.
-
-DoubleAgent has two parts that run in different places. The collectors run
-on the host under investigation, or against a mounted disk image, and
-gather the on-disk artifacts of every agent for every user into one archive
-with a hashed manifest. The analyzer runs on the analyst's workstation,
-reads that archive, and turns the transcripts into one timeline of prompts,
-tool calls and results. The source, the issue tracker and the releases are
-on [GitHub](https://github.com/seanthegeek/doubleagent).
+DoubleAgent is a forensic tool for incident responders that shows what AI
+agents did on a system. One program, `doubleagent`, collects the on-disk
+files of every agent for every user of a host or a mounted disk image into
+one archive with a hashed manifest (`doubleagent collect`), and then, on
+the analyst's workstation, finds the agents in that archive or in any
+directory tree (`doubleagent detect`) and turns their transcripts into one
+timeline of prompts, tool calls and results (`doubleagent timeline`). It
+supplements the responder's EDR (endpoint detection and response) tool
+rather than duplicating it: processes, network connections and the like
+are left to the EDR. The source, the issue tracker and the releases are on
+[GitHub](https://github.com/seanthegeek/doubleagent).
 
 ## Collecting
 
-Two single-file scripts with the same catalog (the table of agents and the
-paths under a home directory where each keeps its state), manifest schema
-and archive layout: a POSIX `sh` collector for macOS, Linux and BSD, and a
-Windows PowerShell 5.1 collector. Each depends on nothing beyond its base
-system, so it can be uploaded and run once through an EDR remote shell
-(CrowdStrike RTR, SentinelOne RemoteOps, Defender Live Response, Palo Alto
-Networks Cortex XDR Live Terminal), run locally by a responder, or pointed
-at a mounted disk image of any of the three platforms. Output is one
-`tar.gz` (a `.zip` from the Windows collector where `tar.exe` is missing)
-holding the collected files, a hashed JSONL manifest and a run summary.
-With `--inventory` they write nothing and print one JSON line per user and
-agent found instead, for a fleet-wide audit through the EDR console.
-
-Start with the [collect page](collect.md) for the quick
-start and the option table, then:
-
-- [Options](collect-options.md): every option, exit code and
-  environment variable.
-- [Output](collection-output.md): the stdout summary, the output
-  files, the archive layout and the manifest schema.
-- [Coverage](coverage.md): what is collected and from
-  where, exclusions and credential files.
-- [Relocation warnings](relocation.md): what to do when
-  the log names a variable that moves an agent's files.
-- [Docker and Podman](docker.md): named volumes that
+- [Collecting](collect.md): what a collection run does, the quick start
+  for a live host and a mounted image, and the commands to copy.
+- [Collection options](collect-options.md): every option of
+  `doubleagent collect` and its exit codes.
+- [Collection output](collection-output.md): the summary it prints, the
+  files it writes, the archive layout and the manifest fields.
+- [What gets collected](coverage.md): the catalog's paths, the exclusions
+  and the credential files.
+- [Relocation warnings](relocation.md): what to do when the log names a
+  variable that moves an agent's files.
+- [Docker volumes](docker.md): the Docker and Podman named volumes that
   belong to known agents.
-- [Privileges](privileges.md): what a run without root
-  or Administrator still collects.
-- [Inventory mode](collect-inventory.md): the fleet audit
-  lines.
-- [Windows](windows.md): archivers, symlinks, locked
-  files and long paths.
-- [Deployment](deployment.md): running through an EDR
-  remote shell, console timeouts and runtime.
+- [Privileges](privileges.md): what a run without root or Administrator
+  still collects.
+- [Windows](windows.md): links and junctions, locked files, long paths and
+  the registry on Windows.
+- [Deployment through an EDR](deployment.md): running a collection through
+  an EDR remote shell, console timeouts and run time.
+- [Inventory mode](collect-inventory.md): `collect --inventory`, the
+  one-line-per-agent audit for a whole fleet.
 
 ## Analysing
 
-`doubleagent`, a command-line tool that reads a collector archive,
-an extracted collection, or any loose directory such as a copied home or a
-mounted image, detects which agents left state in it using the collectors'
-own catalog, and parses the transcripts it understands into a normalised
-JSONL timeline of turns, tool calls and tool results, plus a per-session
-summary: the `detect`, `timeline`, `fleet` and `catalog` commands of the
-`doubleagent` binary, built from `cmd/doubleagent`.
-
-Start with the [analyze page](analyze.md) for the quick
-start, the commands and the option table, then:
-
-- [Inputs](inputs.md): accepted inputs, loose mode and
-  how agents are detected.
-- [Output](timeline-output.md): the `detect` and `timeline`
-  output and the `timeline.jsonl` and `sessions.jsonl` schemas.
-- [Filtering](filtering.md): time windows and text
-  matches.
-- [Searching](searching.md): reading large timelines
-  with jq, grep, DuckDB, Python and PowerShell.
-- [Inventory](fleet.md): merging many hosts'
-  inventory lines into one CSV.
-- [Options](analyze-options.md): every option and exit code.
+- [Analysing](analyze.md): the analysis commands, their quick start and
+  what each one prints and writes.
+- [Analysis options](analyze-options.md): every option of `detect`,
+  `timeline`, `fleet` and `catalog`, and their exit codes.
+- [Inputs and detection](inputs.md): the inputs the analysis commands
+  accept and how they find the agents in them.
+- [Timeline output](timeline-output.md): the output of `detect` and
+  `timeline`, and the fields of `timeline.jsonl`, `sessions.jsonl` and
+  `inventory.json`.
+- [Filtering the timeline](filtering.md): time windows and text matches.
+- [Reading and searching the output](searching.md): working through a
+  large timeline with common command-line and database tools.
+- [Fleet inventory](fleet.md): merging many hosts' inventory lines into
+  one CSV with `doubleagent fleet`.
 
 ## Reference
 
-- [Agents](agents.md): every catalog agent with its parse status, the
-  files read and the evidence behind them.
+- [Agents](agents.md): every agent in the catalog, what is collected for
+  it, whether its transcripts are parsed and the evidence behind that.
 - [Changelog](CHANGELOG.md): what changed in each version.
 
 ## Research
 
-[Research](../research/README.md) holds one document per agent in two
-parts. The Collection part is the evidence behind every catalog entry:
-where the agent keeps its state, which files are credentials and what the
-collector excludes. The Parsing part is the evidence behind every parser:
-how the agent records its transcripts and how the parser reads them. The
-index lists every document with its evidence level and parse status, and
-which records survive a delete.
+[Research](../research/README.md) holds one document per agent, the
+evidence behind its catalog entries and its parser: where the agent keeps
+its state on each platform, which files are credentials, how it records
+its transcripts and what survives a delete. The index gives each
+document's evidence level and parse status.
 
 ## Contributing
 
-The standards every change must keep, the process for adding an agent or
-a parser, and the quality gates CI runs are in
-[AGENTS.md](../AGENTS.md). The pages for developers:
-
-- [Development](development.md): tests, lint checks and
-  adding a parser.
-- [Internals](internals.md): how the collection works inside.
-- [Testing](testing.md): the tests and CI.
-- [Lab VMs](lab-vms.md): the clean virtual machines that the
-  [real-install rounds](../AGENTS.md#real-install-rounds) start from: the
-  development tools their snapshots hold so an agent's use of them can be
-  recorded, the install commands that rebuild them on Windows, macOS and
-  Ubuntu, what the host decides, and Docker's requirements in each.
-- [Round pipeline](../lab/README.md): one command that runs a
-  real-install round of a terminal agent on one lab VM: it reverts the VM,
-  installs the agent, plays a table of prompts, key presses and person
-  steps through a headless terminal, lists the agent's directories after
-  every step, collects and analyzes, and reverts the VM again.
+- [Development](development.md): building, the build tags, the tests and
+  the quality checks, and where to start on a parser or a catalog agent.
+- [Internals](internals.md): how a collection run works inside.
+- [Testing](testing.md): how the project is tested, and what CI runs on
+  each platform.
+- [Lab VMs](lab-vms.md): the clean virtual machines that agents are
+  installed in to watch what they write, and how to rebuild them.
+- [Lab](../lab/README.md): the pipeline that installs one agent in a lab
+  VM, drives it step by step, lists what it wrote after every step and
+  collects the result.
+- [AGENTS.md](../AGENTS.md): the standards every change keeps and the
+  processes for adding an agent or a parser.
 
 ## License
 
