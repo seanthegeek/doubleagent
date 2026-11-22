@@ -86,6 +86,7 @@ start, the commands and the option table, then:
 
 - [Agents](agents.md): every catalog agent with its parse status, the
   files read and the evidence behind them.
+- [Changelog](CHANGELOG.md): what changed in each version.
 
 ## Research
 

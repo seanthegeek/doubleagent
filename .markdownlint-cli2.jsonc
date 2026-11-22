@@ -6,7 +6,7 @@
     // Prose is wrapped near 78 columns, but tables, links with commit-pinned
     // URLs and code lines cannot be wrapped, so line length is only noise.
     "MD013": false,
-    // The changelogs follow Keep a Changelog: every release repeats the
+    // The changelog follows Keep a Changelog: every release repeats the
     // same "Added", "Changed" and "Fixed" subheadings. Duplicates are only
     // an error between siblings under the same parent heading.
     "MD024": { "siblings_only": true },
@@ -14,8 +14,8 @@
     // indentation inside code spans (`#### `, `> `, `  when: <epoch>`).
     // The spaces are the point; trimming them would change the claim.
     "MD038": false,
-    // The changelogs cite issues as shortcut reference links, `[#29]`,
-    // defined at the bottom of the file. Without this option markdownlint
+    // A shortcut reference link such as the changelog's `[Unreleased]` is
+    // defined at the bottom of its file. Without this option markdownlint
     // skips shortcut references, so a missing definition would render as
     // literal brackets unnoticed.
     "MD052": { "shortcut_syntax": true }

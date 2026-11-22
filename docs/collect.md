@@ -31,7 +31,7 @@ in Unicode form to a file system that compares names byte for byte, such as
 Linux ext4 or XFS, and for short names to a volume that makes none
 ([details](internals.md#claimed-paths-and-case-variants)).
 
-[../collectors/CHANGELOG.md](../collectors/CHANGELOG.md) lists what changed in each version, including
+[CHANGELOG.md](CHANGELOG.md) lists what changed in each version, including
 manifest schema changes.
 
 ## Quick start

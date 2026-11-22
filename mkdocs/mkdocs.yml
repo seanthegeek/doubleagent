@@ -123,8 +123,7 @@ nav:
       - docs/fleet.md
   - Reference:
       - docs/agents.md
-      - Collector changelog: collectors/CHANGELOG.md
-      - Analyzer changelog: analyzer/CHANGELOG.md
+      - Changelog: docs/CHANGELOG.md
   - Research:
       - research/README.md
       - research/agent-zero.md

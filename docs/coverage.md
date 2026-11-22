@@ -1063,7 +1063,7 @@ The collectors take files from disk only. Running processes, process
 environments, logged-in users, network connections, services and scheduled
 tasks are not captured: the collectors supplement an EDR, which already
 records that host state. Collectors before 1.6.0 wrote a `live/` snapshot of
-it; see [CHANGELOG.md](../collectors/CHANGELOG.md). The host name is in the `hostname`
+it; see [CHANGELOG.md](CHANGELOG.md). The host name is in the `hostname`
 field of `collection.json`.
 
 ## Default exclusions

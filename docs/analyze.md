@@ -11,7 +11,7 @@ on the analyst's workstation, never on the host under investigation.
 
 The analyzer is the `detect`, `timeline`, `fleet` and `catalog` commands of
 the `doubleagent` binary, built from `cmd/doubleagent`.
-`--version` prints `doubleagent <version>`. [../analyzer/CHANGELOG.md](../analyzer/CHANGELOG.md) lists what changed in
+`--version` prints `doubleagent <version>`. [CHANGELOG.md](CHANGELOG.md) lists what changed in
 each version, including changes to the `timeline.jsonl` and `sessions.jsonl`
 fields.
 

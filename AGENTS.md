@@ -1097,7 +1097,7 @@ attribute are the same string.
    path, including the Windows `AppData` location. Regenerate
    `internal/catalog/catalog.txt`, run `collectors/tests/catalog-sync.sh`,
    and add an `Added` line under `Unreleased` in
-   [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md). Add a
+   [`docs/CHANGELOG.md`](docs/CHANGELOG.md). Add a
    `RELOCATION_VARS` line for every environment variable the tool reads to
    place its state, and list it in the research document's
    `#### Relocation variables` subsection.
@@ -2151,8 +2151,7 @@ down.
   at tag time, and `VERSION` is not bumped again unless the user says so.
   A documentation-only change bumps nothing and needs no changelog line.
 - Every `VERSION` bump has an entry in
-  [`collectors/CHANGELOG.md`](collectors/CHANGELOG.md) or
-  [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md) in Keep a Changelog
+  [`docs/CHANGELOG.md`](docs/CHANGELOG.md) in Keep a Changelog
   form: a `## [x.y.z] - YYYY-MM-DD` heading with `Added`, `Changed`,
   `Fixed` and `Removed` subsections, one line per item, written for that
   part's user, calling out any change to the manifest, JSONL or CSV
