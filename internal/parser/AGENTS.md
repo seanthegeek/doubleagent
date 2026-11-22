@@ -26,7 +26,14 @@ The analysis commands run on the analyst's workstation, never on the host.
   share.
 - **Parsers select by path relative to the home.** A parser's kinds match
   `artifact.Rel`, never a hard-coded agent path, and detection lives in
-  `internal/catalog` and `internal/input`.
+  `internal/catalog` and `internal/input`. Every new input shape `detect`
+  tells apart (a collection layout, an archive, a loose home or agent
+  directory) gets a case in `allInputCases` in
+  `internal/input/cases_test.go`, which `TestOpenReadsEachInput` runs.
+- **Inputs are read, never followed.** The analysis commands follow no link
+  when they read an input and create none when they extract an archive:
+  `internal/input` makes only directories and regular files, each file new
+  ([`docs/inputs.md`](../../docs/inputs.md)).
 - **Joins are one predicate.** A one-to-one join of a secondary source
   against its primary store is one predicate: scope, text form, window and
   direction. Whatever reserves a record for one claimant (a bound, a
@@ -79,6 +86,7 @@ The analysis commands run on the analyst's workstation, never on the host.
   to read or parse gives a `problem:` line, never an empty result, reported
   to stdout and the JSON outputs in the same run, in the order
   [`docs/timeline-output.md`](../../docs/timeline-output.md) documents.
+  `problem:` lines and `parser:` rows are output, never log records.
 - **The outputs are interfaces**, as the
   [root `AGENTS.md`](../../AGENTS.md#standards-every-change-keeps) says. The
   `text` field holds the full event text, line breaks included, never
@@ -177,7 +185,8 @@ The analysis commands run on the analyst's workstation, never on the host.
   inverse: the earlier and the later claimant missing, equal-time copies
   across files, a narrower and a broader scope, the same scope in another
   session, a relocated project.
-- Every branch a change adds to a parser is taken both ways by its tests.
+- Every branch a change adds to a parser or modifies in one is taken both
+  ways by its tests.
 
 ## Adding a parser
 
@@ -194,10 +203,9 @@ the research.
 A per-step round (an install in a clean VM with a listing after every user
 action; [Real-install rounds](../../lab/AGENTS.md#real-install-rounds))
 comes first for an agent whose research rests on source alone, a newer agent
-version, and a surface (one form the product ships in: a CLI, a desktop app,
-an editor fork, an extension, a packaged build beside a direct download) not
-yet exercised. Its line types and key sets go into the Record schema and
-Parser plan, and the parser is written from them.
+version, and a [surface](../../lab/AGENTS.md#real-install-rounds) not yet
+exercised. Its line types and key sets go into the Record schema and Parser
+plan, and the parser is written from them.
 
 1. Create the package `internal/parser/<name>`, named for the agent, with a
    type that embeds `parser.Base` (`parser.NewBase(agent, name)`) and
