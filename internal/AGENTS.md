@@ -146,7 +146,10 @@ packages.
 - **Logging and output.** Log lines go through the run log
   (`internal/runlog`); `fmt.Print*` outside the summary, inventory and usage
   writers is a defect; no file contents, secret or matched line reaches the
-  log.
+  log. A failed write to standard output or standard error never ends a
+  `collect` run: it receives `SIGPIPE` and drops the failure, since the log
+  file is the record, except under `--inventory`, whose standard output is
+  its output.
 
 ### Standard library and readers
 

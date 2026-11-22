@@ -58,7 +58,8 @@ Exceptions of `collect`:
 [52](#exception-52), [53](#exception-53), [54](#exception-54),
 [55](#exception-55), [56](#exception-56), [57](#exception-57),
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
-[61](#exception-61), [62](#exception-62), [63](#exception-63).
+[61](#exception-61), [62](#exception-62), [63](#exception-63),
+[64](#exception-64).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -261,6 +262,20 @@ has `symlink not recreated: <path>: <reason>`. When a link's target cannot
 be read, no link is made. The sh collector ignored a failed `ln -s`,
 leaving a row whose archive path named no member, and made a link with an
 empty target when the target could not be read.
+
+### Exception 64
+
+A run whose standard output or standard error is closed while it runs (a
+pipe whose reader ended, a remote console that detached) finishes: it
+drops what it cannot print, writes the archive, removes the staging
+directory and exits `0`, and the log file holds every line. On Linux and
+macOS `doubleagent` receives the `SIGPIPE` signal so that the write fails
+instead of ending the program. A `--inventory` run, whose standard output
+is its only output, exits `2`. The sh collector set no handler for
+`SIGPIPE` (its traps covered `EXIT`, `INT` and `TERM`), so unless it was
+started with the signal ignored, its next write to the closed stream, a
+progress line on standard error without `-q` among them, ended it by that
+signal, with no `interrupted` line.
 
 ## The manifest, the log and collection.json
 

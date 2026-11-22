@@ -194,7 +194,9 @@ link and some special files ([Windows](windows.md#symlinks-and-reparse-points)).
 
 The log is a text file with one line per event, each starting with a UTC
 time to the second. Unless `-q` is given, the same lines go to standard
-error during the run, without the time. A run on a macOS workstation over a mounted image:
+error during the run, without the time. When standard error is closed
+during a run, those copies are dropped: the log file still gets every line
+and the run finishes as usual. A run on a macOS workstation over a mounted image:
 
 ```text
 2026-11-22T05:09:37Z doubleagent <version> starting on ir-ws01 (Darwin 27.2.0) mode=image root=/mnt/evidence uid=501

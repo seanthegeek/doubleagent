@@ -123,6 +123,18 @@ before it creates the log (a usage error, an output directory that cannot
 be created) leaves no log at all, and its message went to the discarded
 standard error; run the same command in the foreground to see it.
 
+A console that goes away while `collect` runs in the foreground (a session
+that times out or detaches, a pipe whose reader ends) does not stop the
+run. On Linux and macOS the program receives the `SIGPIPE` signal rather
+than being ended by it, and on Windows a write to a closed pipe fails
+without ending it; either way the run drops what it cannot print, writes
+the archive, removes the staging directory and exits `0`, and the log
+records the whole run. A `--inventory` run, whose only output is standard
+output, exits `2` instead. Closing the console window on Windows, or a
+logoff or shutdown, is an interrupt: the run logs `interrupted`, removes
+the staging directory and exits `130`, if Windows leaves it the time
+before it ends the process.
+
 ### Runtime
 
 A run's time grows with the number and size of the files collected, since
