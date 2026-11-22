@@ -1,18 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_zed
-check_fixture_schema|builder-provenance-missing|build_zed_database_stores
-check_fixture_schema|builder-provenance-missing|zed_blob
-check_fixture_schema|builder-provenance-missing|zed_thread_record
-check_fixture_schema|builder-provenance-missing|zed_unknown_variants_record
-check_fixture_schema|module-provenance-missing|zed
-check_fixture_schema|substitution-undeclared|/private/var/folders/xy/abc/T/zed-agent-terminal-Ab12Cd
-check_fixture_schema|substitution-undeclared|/srv/worktrees/fix-tests/proj
-check_parser_research|key-undocumented|_thread
-check_parser_research|pattern-undocumented|^(?:\.config/zed|AppData/Roaming/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/config/zed)/(?:global_)?settings\.json$
-check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/db/0-[^/]+/db\.sqlite$
-check_parser_research|row-text-undocumented|compaction:
-check_parser_research|row-text-undocumented|compaction: provider native
-check_parser_research|row-text-undocumented|external agent thread (no transcript in threads.db): agent=
-check_parser_research|row-text-undocumented|thread start:
 check_research_structure|bare-doc-reference|Flatpak sandbox paths are Flatpak documentation level.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/build_timings
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/copilot

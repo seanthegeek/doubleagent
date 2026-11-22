@@ -1,27 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_cursor
-check_fixture_schema|builder-provenance-missing|cursor_attempt_record
-check_fixture_schema|builder-provenance-missing|cursor_cloud_agent
-check_fixture_schema|builder-provenance-missing|cursor_cloud_items
-check_fixture_schema|builder-provenance-missing|cursor_deleted_transcript_records
-check_fixture_schema|builder-provenance-missing|cursor_header_rows
-check_fixture_schema|builder-provenance-missing|cursor_integration_items
-check_fixture_schema|builder-provenance-missing|cursor_kv_records
-check_fixture_schema|builder-provenance-missing|cursor_mcp_bubble
-check_fixture_schema|builder-provenance-missing|cursor_mcp_items
-check_fixture_schema|builder-provenance-missing|cursor_mcp_key
-check_fixture_schema|builder-provenance-missing|cursor_review_bubbles
-check_fixture_schema|builder-provenance-missing|cursor_settings
-check_fixture_schema|builder-provenance-missing|cursor_stopped_bubbles
-check_fixture_schema|builder-provenance-missing|cursor_transcript_records
-check_fixture_schema|builder-provenance-missing|write_cursor_search
-check_fixture_schema|builder-provenance-missing|write_cursor_state
-check_fixture_schema|builder-provenance-missing|write_cursor_tracking
-check_fixture_schema|key-undocumented|flags
-check_fixture_schema|key-undocumented|height
-check_fixture_schema|module-provenance-missing|cursor
-check_fixture_schema|sample-equals-builder|.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl
-check_fixture_schema|sample-equals-builder|.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl
-check_fixture_schema|sample-equals-builder|Library/Application Support/Cursor/User/globalStorage/mcp-oauth-attempts/0000.json
 check_research_structure|latest-version-missing|Cursor Agent CLI features the macOS round did
 check_research_structure|latest-version-missing|The Agent CLI on Windows and on Linux:
 check_research_structure|observed-label-missing|Cursor Agent CLI features the macOS round did

@@ -2828,8 +2828,8 @@ The plan of [issue 235](https://github.com/seanthegeek/doubleagent/issues/235), 
 3. Order and per-call times from the protobuf state nodes, which needs their descriptors: the
    CLI bundle (`~/.local/share/cursor-agent/versions/<ver>/*.index.js`) is JavaScript, so they
    are in a protobuf-es registry (the JavaScript protobuf runtime's in-code descriptors) rather
-   than a binary, to be extracted with `analyzer/tools/proto_descriptors.py` or a variant that
-   reads JavaScript and decoded with `doubleagent/protobuf.py`. Until then the rows from the JSON
+   than a binary, to be extracted with `tools/proto_descriptors.py` or a variant that
+   reads JavaScript and decoded with `internal/protowire`. Until then the rows from the JSON
    blobs take the transcript JSONL's order.
 
 Globs for the CLI files, relative to the home:

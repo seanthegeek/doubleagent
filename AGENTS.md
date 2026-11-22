@@ -1638,7 +1638,7 @@ into Format versions.
      surface the round will touch; a root added mid-round names its first
      listing as its baseline. The survey also counts the agent's processes
      by name.
-2. **Read shapes, never values.** `analyzer/tools/shape.py` prints key
+2. **Read shapes, never values.** `lab/round/tools/shape.py` prints key
    names, value types, JSONL line types, byte totals and the enum tokens of
    a fixed set of paths, every value through its redaction function, so a
    UUID, a hex id, a path or a URL prints as its class; a new printing path

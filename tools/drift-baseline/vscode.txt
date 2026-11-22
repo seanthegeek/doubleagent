@@ -1,22 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_vscode
-check_fixture_schema|builder-provenance-missing|build_vscode_agents_window
-check_fixture_schema|builder-provenance-missing|build_vscode_grants
-check_fixture_schema|builder-provenance-missing|build_vscode_sync
-check_fixture_schema|builder-provenance-missing|vscode_editing_state
-check_fixture_schema|builder-provenance-missing|vscode_legacy_session
-check_fixture_schema|builder-provenance-missing|vscode_log_records
-check_fixture_schema|enum-undocumented|type=embed
-check_fixture_schema|key-undocumented|isBuiltin
-check_fixture_schema|key-undocumented|scheme
-check_fixture_schema|module-provenance-missing|vscode
-check_parser_research|not-read-contradicted|timestamp
-check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:profiles/(?:builtin/)?[^/]+/)?settings\.json$
-check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?|globalStorage/emptyWindowChatSessions/[^/]+\.jsonl?|globalStorage/transferredChatSessions/[^/]+\.json)$
-check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?P<scope>globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage|workspaceStorage/[^/]+)/state\.vscdb$
-check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/globalStorage/github\.copilot-chat/cloudSessions\.json$
-check_parser_research|row-text-undocumented|error:
-check_parser_research|row-text-undocumented|session start:
-check_parser_research|row-text-undocumented|system initiated:
 check_research_structure|latest-version-missing|No real-install round. The L5 evidence is a
 check_research_structure|observed-label-missing|No real-install round. The L5 evidence is a
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Code*/logs

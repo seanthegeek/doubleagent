@@ -155,7 +155,7 @@ Evidence is the **shipped bundle**; each claim names its evidence level:
   ([Transcript stores](#transcript-stores)).
 - Linux, npm, 1.0.98, 2026-10-16: installed with `sudo npm install -g @github/copilot` on an Ubuntu
   26.04.1 arm64 Parallels VM (kernel 7.0.0-38-generic, home `/home/sean`); names, sizes, key names
-  and types only, read with `analyzer/tools/shape.py`. Exercised: `copilot login`, then two
+  and types only, read with `lab/round/tools/shape.py`. Exercised: `copilot login`, then two
   interactive sessions, the first in `~/demo` (created 21:01:19.518Z, prompts at 21:02:40Z and
   21:05:34.923Z, shut down 21:16:01Z, all UTC; 194 lines) and the second in `~/secret` (created
   21:16:26.715Z, one prompt at 21:17:18Z, shut down 21:19:27Z; 35 lines), after which the user
@@ -180,7 +180,7 @@ Evidence is the **shipped bundle**; each claim names its evidence level:
   resume, a rewind, a session deleted with the CLI's own command, a subagent, a compaction, plan or
   autopilot mode, a scheduled task.
 - macOS, Homebrew npm, 1.0.98, 2026-10-15: the author's workstation; names, sizes, key names and
-  types only, read with `analyzer/tools/shape.py` and a schema dump. Three interactive sessions in
+  types only, read with `lab/round/tools/shape.py` and a schema dump. Three interactive sessions in
   `manual` permission mode (52, 168 and 64 lines, none bad), with `bash`, `view`, `apply_patch`,
   `web_fetch`, `web_search` (an MCP tool), `ask_user` and `fetch_copilot_cli_documentation` calls;
   17 permission prompts approved once (`approved`) or for the project (`approved-for-location`, a

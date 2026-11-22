@@ -1,32 +1,3 @@
-check_fixture_schema|builder-provenance-missing|agent_zero_acp_chat
-check_fixture_schema|builder-provenance-missing|agent_zero_chat
-check_fixture_schema|builder-provenance-missing|agent_zero_history
-check_fixture_schema|builder-provenance-missing|agent_zero_legacy_chat
-check_fixture_schema|builder-provenance-missing|agent_zero_logs
-check_fixture_schema|builder-provenance-missing|agent_zero_relayed_chat
-check_fixture_schema|builder-provenance-missing|agent_zero_tasks
-check_fixture_schema|builder-provenance-missing|build_agent_zero
-check_fixture_schema|builder-provenance-missing|build_agent_zero_extras
-check_fixture_schema|builder-provenance-missing|build_agent_zero_relayed
-check_fixture_schema|builder-provenance-missing|build_agent_zero_volume
-check_fixture_schema|key-undocumented|chat_model_provider
-check_fixture_schema|key-undocumented|day
-check_fixture_schema|key-undocumented|hour
-check_fixture_schema|key-undocumented|minute
-check_fixture_schema|key-undocumented|month
-check_fixture_schema|key-undocumented|project_color
-check_fixture_schema|key-undocumented|runtime
-check_fixture_schema|key-undocumented|weekday
-check_fixture_schema|module-provenance-missing|agent_zero
-check_parser_research|key-undocumented|plugin
-check_parser_research|key-undocumented|text
-check_parser_research|parser-message-undocumented|parser: chat.json did not parse (%s); log items recovered without history
-check_parser_research|parser-message-undocumented|parser: history of agent %s did not parse (%s)
-check_parser_research|parser-message-undocumented|parser: state.json %s
-check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?(?:usr|tmp)/)?scheduler/tasks\.json$
-check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_infection_check|_orchestrator)/\.toggle-(?P<state>[01])$
-check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_tool_access|_orchestrator)/config\.json$
-check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?plugins/_telegram_integration/state\.json$
 check_research_structure|bare-doc-reference|tmp/ is beside usr/ only in a native run or a whole-/a0 mount; the installer, the launcher and the README volume mount usr alone, so tmp/ stays inside the container.
 check_research_structure|latest-version-missing|The Docker volume layout of chats (`chats/<ctxid>/chat.json` at
 check_research_structure|latest-version-missing|The `session synced:` and `session relayed:` rows are

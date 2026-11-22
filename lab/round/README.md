@@ -36,17 +36,15 @@ pipeline itself needs from the host, the guests and the operator.
   (`CLEAN_SNAPSHOT_ID` in the environment names one by id instead);
   `start` and `finish` revert to it.
 - **Memory**: the host must leave each running VM the memory it is
-  configured with, plus room for the analyzer and the shape tool, which
+  configured with, plus room for `doubleagent timeline` and the shape tool, which
   `collect` runs on the host while the VM is still up. Cells on different
   VMs can run at the same time.
 - **Commands**: `ssh`, `scp`, `perl` (every wait is bounded with its
   `alarm`, as macOS has no `timeout`), `curl` (the tui-test download),
   `shasum`, `awk` and `sed`, and a `python3` for the
-  pipeline's own standard-library tools.
-- **A Python with the analyzer's requirements** for the analysis step and
-  the archive's safe extraction, any interpreter with
-  `analyzer/requirements.txt` installed, such as a virtual environment of
-  the operator's choosing, given as `ROUND_PYTHON=<path to its python>`.
+  pipeline's own standard-library tools, the archive's extraction among them.
+- **The `doubleagent` binary** for the analysis step, built from this
+  checkout, on `PATH` or given as `ROUND_DOUBLEAGENT=<path to the binary>`.
 - **The lab key** at `~/.ssh/doubleagent_lab`, or wherever
   `ROUND_SSH_KEY` points, made as
   [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes.
@@ -159,7 +157,7 @@ says of pulled collections.
 | --- | --- |
 | `start` | Refuses when the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, copies the survey and drive scripts and this checkout's collector into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
 | `resume` | Finishes the paused person step (its screen and listing), then runs the remaining steps. |
-| `collect` | Runs the collector in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs the analyzer and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
+| `collect` | Runs the collector in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs `doubleagent timeline` and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
 | `finish [--force]` | Refuses while a person step waits, while steps have not run, when no collection was taken after the last step began, or when the last listing cannot be taken (the VM is not running or `ssh` does not answer), since the revert discards the VM; run `collect` or start the VM first, or pass `--force` to go on anyway, which the log and `report.md` record. Then stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
 | `status` | Prints the cell's state and step log. |
 
@@ -168,7 +166,7 @@ reason on stderr and in `round.log`.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `ROUND_PYTHON` | `python3` | The Python that runs the analyzer: one with `analyzer/requirements.txt` installed. The pipeline's own tools need only the standard library. |
+| `ROUND_DOUBLEAGENT` | `doubleagent` | The `doubleagent` binary the analysis step runs, `doubleagent timeline --include-thinking`. The pipeline's own tools need only the standard library. |
 | `ROUND_KNOWN_HOSTS` | `<cell>/known_hosts` | The known-hosts file of the cell's ssh config. |
 | `ROUND_SSH_KEY` | `~/.ssh/doubleagent_lab` | The lab key, as [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes it. |
 | `ROUND_ENV` | `.env` beside `round.sh` | The credentials file the `secret` steps read ([Accounts](#accounts)). |
@@ -467,7 +465,7 @@ table; `start` and `resume` refuse one that fails.
 | `pause` | what the person must do; `{session}` becomes the open session's name | Prints the screen and its joined URLs, snapshots the VM and exits 3, as described above. |
 | `idle` | seconds | Waits that long. |
 | `reboot` | `-` | Ends the session, reboots the VM from inside and waits for a new boot id over `ssh`. |
-| `collect` | `-` | Runs the collector, the analyzer and the shape tool as `collect` does, into `collection/NN-name/`. |
+| `collect` | `-` | Runs the collector, `doubleagent timeline` and the shape tool as `collect` does, into `collection/NN-name/`. |
 
 `expect` says what a typing step waits for: `-` for the kind's default
 (the agent's input marker for `agent`, `prompt`, `paste` and `dialog`, a
@@ -526,8 +524,8 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `screens/NN-name.txt` | The rendered screen before and after the step; `NN-name.command.txt` for a `command` step's output, `NN-name.option-K.txt` for the screens an `options`, `dialog` or `choose` step read, `NN-name.urls.txt` for a pause's joined URLs. |
 | `casts/s<NN>.cast` | The asciicast of each terminal session. |
 | `install.log`, `tools/` | The install script's output, the tui-test download, its self-test and the sample project's commit. |
-| `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check, and under `extract/` the archive's contents. The archive is built from directories the agent controls, so it is never unpacked with `tar` or `unzip`: `extract.py` opens it through the analyzer's safe reader (`extract_archive` in `analyzer/doubleagent/inputs.py`), which creates no link or device and nothing outside `extract/`. The shape tool and the report's manifest counts read that extraction. |
-| `analysis/<label>/`, `shapes/<label>.txt` | The analyzer's `timeline.jsonl`, `sessions.jsonl` and `inventory.json`, and the shape tool's output with `--enums`. |
+| `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check, and under `extract/` the archive's contents. The archive is built from directories the agent controls, so it is never unpacked with `tar` or `unzip`: `extract.py` writes only its regular files and directories, which creates no link or device and nothing outside `extract/`. The shape tool and the report's manifest counts read that extraction. |
+| `analysis/<label>/`, `shapes/<label>.txt` | `doubleagent timeline`'s `timeline.jsonl`, `sessions.jsonl` and `inventory.json`, and the shape tool's output with `--enums`. |
 | `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the analyzer's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
 
 tui-test keeps its own recordings and traces under `~/lab/tui-test` in

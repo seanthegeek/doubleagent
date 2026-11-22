@@ -1,38 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_openhands
-check_fixture_schema|builder-provenance-missing|openhands_base_state
-check_fixture_schema|builder-provenance-missing|openhands_events
-check_fixture_schema|builder-provenance-missing|openhands_meta
-check_fixture_schema|builder-provenance-missing|openhands_prompt_history
-check_fixture_schema|builder-provenance-missing|openhands_wt_base_state
-check_fixture_schema|builder-provenance-missing|openhands_wt_events
-check_fixture_schema|builder-provenance-missing|openhands_wt_meta
-check_fixture_schema|enum-undocumented|kind=FileEditorAction
-check_fixture_schema|enum-undocumented|kind=FileEditorTool
-check_fixture_schema|enum-undocumented|kind=LocalWorkspace
-check_fixture_schema|enum-undocumented|kind=TerminalTool
-check_fixture_schema|key-undocumented|X
-check_fixture_schema|key-undocumented|accumulated_cost
-check_fixture_schema|key-undocumented|completion_tokens
-check_fixture_schema|key-undocumented|llm_api_key
-check_fixture_schema|key-undocumented|llm_model
-check_fixture_schema|key-undocumented|path
-check_fixture_schema|key-undocumented|prompt_tokens
-check_fixture_schema|key-undocumented|rationale
-check_fixture_schema|module-provenance-missing|openhands
-check_fixture_schema|sample-equals-builder|.openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000001/events/event-00001-6b1d5c2e-0000-4000-8000-000000000001.json
-check_fixture_schema|sample-equals-builder|.openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000001/events/event-00002-6b1d5c2e-0000-4000-8000-000000000002.json
-check_fixture_schema|sample-equals-builder|.openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000001/events/event-00003-6b1d5c2e-0000-4000-8000-000000000003.json
-check_fixture_schema|sample-equals-builder|.openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000003/events/event-00002-8a2f0c1d-0000-4000-8000-000000000002.json
-check_fixture_schema|sample-equals-builder|.openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000003/events/event-00005-8a2f0c1d-0000-4000-8000-000000000005.json
-check_fixture_schema|sample-equals-builder|.openhands/projects/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/prompt_history.json
-check_fixture_schema|substitution-undeclared|/tmp/conversation-worktrees/0f0e0d0c111140008000000000000003/proj
-check_parser_research|key-undocumented|forgotten_event_ids
-check_parser_research|key-undocumented|function
-check_parser_research|key-undocumented|path
-check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/base_state\.json$
-check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/events/event-(\d{5,})-[0-9a-fA-F-]{8,}\.json$
-check_parser_research|pattern-undocumented|^\.openhands/(?:sessions|users/[^/]+/conversations)/([^/]+)/events/(\d+)\.json$
-check_parser_research|row-text-undocumented|state update:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-canvas/tmux
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-canvas/workspaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh agent-canvas/tmux

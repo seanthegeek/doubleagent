@@ -1,37 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_nanobot
-check_fixture_schema|builder-provenance-missing|build_nanobot_sqlite
-check_fixture_schema|builder-provenance-missing|build_nanobot_sweep
-check_fixture_schema|builder-provenance-missing|build_nanobot_webui
-check_fixture_schema|builder-provenance-missing|nanobot_config
-check_fixture_schema|builder-provenance-missing|nanobot_database_insert_message
-check_fixture_schema|builder-provenance-missing|nanobot_database_messages
-check_fixture_schema|builder-provenance-missing|nanobot_records
-check_fixture_schema|builder-provenance-missing|nanobot_webui_records
-check_fixture_schema|enum-undocumented|status=done
-check_fixture_schema|key-undocumented|ABCD-EFGH
-check_fixture_schema|key-undocumented|enabled
-check_fixture_schema|key-undocumented|opaque
-check_fixture_schema|key-undocumented|prompt_ref
-check_fixture_schema|key-undocumented|timeout
-check_fixture_schema|key-undocumented|token
-check_fixture_schema|key-undocumented|turn_count
-check_fixture_schema|module-provenance-missing|nanobot
-check_fixture_schema|sample-equals-builder|.nanobot/sessions/0123456789abcdef0123456789abcdef/dGVsZWdyYW06MTIzNDU2Nzg5.jsonl
-check_fixture_schema|sample-equals-builder|.nanobot/sessions/0123456789abcdef0123456789abcdef/dW5pZmllZDpkZWZhdWx0.jsonl
-check_fixture_schema|sample-equals-builder|.nanobot/workspace/cron/runs/job1_1791187200000_ab12cd34.json
-check_parser_research|parser-message-undocumented|parser: SQLite error: %s
-check_parser_research|parser-message-undocumented|parser: no %s table in the session database
-check_parser_research|pattern-undocumented|^(?:\.nanobot(?:-[^/]+)?/(?P<ws>.+/)?)?(?P<kind>cron|triggers)/runs/[^/]+\.json$
-check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/(?:.+/)?memory/history\.jsonl$
-check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/webui/(?:(?P<seg>[^/]+)\.segments/\d{6}|(?P<stem>[^/]+))\.jsonl$
-check_parser_research|row-text-undocumented|context compaction:
-check_parser_research|row-text-undocumented|file edit:
-check_parser_research|row-text-undocumented|session start: key=
-check_parser_research|row-text-undocumented|summarised history:
-check_parser_research|row-text-undocumented|webui event:
-check_parser_research|row-text-undocumented|webui fork marker: the fork starts here
-check_parser_research|secondary-unlisted|.migration-conflicts/
-check_parser_research|secondary-unlisted|sessions.sqlite3
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/systemd/user/nanobot-*
 check_smoke_coverage|fixture-missing|smoke.ps1 project .nanobot
 check_smoke_coverage|fixture-missing|smoke.ps1 project memory/HISTORY.md

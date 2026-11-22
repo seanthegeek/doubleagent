@@ -27,7 +27,7 @@ VM_NAME=${2:?VM name}
 CELL_ARGUMENT=${3:?cell directory}
 ACTION=${4:-start}
 FORCE=${5:-}
-HOST_PYTHON=${ROUND_PYTHON:-python3}
+DOUBLEAGENT=${ROUND_DOUBLEAGENT:-doubleagent}
 
 # shellcheck source=lab/round/lib/vm.sh
 . "$HERE/lib/vm.sh"
@@ -352,8 +352,8 @@ guest_out_names() {
 }
 
 # Run the collector in the guest as the lab user, pull its files into
-# collection/$1, delete the guest's copy, then run the analyzer and the
-# shape tool on the analyst machine and rewrite the report.
+# collection/$1, delete the guest's copy, then run doubleagent timeline and
+# the shape tool on the analyst machine and rewrite the report.
 collect_into() {
   _ci_destination=$CELL/collection/$1
   mkdir -p "$_ci_destination" "$CELL/analysis" "$CELL/shapes"
@@ -402,18 +402,18 @@ analyze_collection() {
     [ -f "$_ac_file" ] && _ac_archive=$_ac_file && break
   done
   [ -n "$_ac_archive" ] || die "no archive in $_ac_destination"
-  round_log "analyzer timeline over $(basename "$_ac_archive")"
-  PYTHONPATH="$REPO/analyzer" "$HOST_PYTHON" -m doubleagent timeline "$_ac_archive" \
-    -o "$CELL/analysis/$1" --include-thinking >"$CELL/analysis/$1.stdout.txt" 2>&1 ||
-    round_log "analyzer exit $? for $1; see analysis/$1.stdout.txt"
+  round_log "doubleagent timeline over $(basename "$_ac_archive")"
+  "$DOUBLEAGENT" timeline --include-thinking "$_ac_archive" "$CELL/analysis/$1" \
+    >"$CELL/analysis/$1.stdout.txt" 2>&1 ||
+    round_log "doubleagent timeline exit $? for $1; see analysis/$1.stdout.txt"
   # The archive comes from directories the agent controls, so it is opened
-  # only through the analyzer's safe reader, never with tar or unzip.
-  if ! PYTHONPATH="$REPO/analyzer" "$HOST_PYTHON" "$HERE/extract.py" "$_ac_archive" \
+  # only by extract.py, which creates no link, never with tar or unzip.
+  if ! host_tool extract.py "$_ac_archive" \
     "$_ac_destination/extract" >"$_ac_destination/extract.txt" 2>&1; then
     round_log "extracting $1 failed; see extract.txt; no shapes"
     return 0
   fi
-  python3 -I "$REPO/analyzer/tools/shape.py" --enums "$_ac_destination/extract/fs" \
+  host_tool tools/shape.py --enums "$_ac_destination/extract/fs" \
     >"$CELL/shapes/$1.txt" 2>&1 || round_log "shape tool exit $? for $1"
 }
 

@@ -1,4 +1,4 @@
-"""Tests for tools/shape.py, the value-free shape dumper, on synthetic files."""
+"""Tests for lab/round/tools/shape.py, the value-free shape dumper, on synthetic files."""
 
 import json
 import os

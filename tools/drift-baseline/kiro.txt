@@ -1,27 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_kiro
-check_fixture_schema|builder-provenance-missing|kiro_conversation_records
-check_fixture_schema|builder-provenance-missing|kiro_delegate_records
-check_fixture_schema|builder-provenance-missing|kiro_denial_records
-check_fixture_schema|builder-provenance-missing|kiro_export_records
-check_fixture_schema|key-undocumented|access_token
-check_fixture_schema|key-undocumented|current_turn
-check_fixture_schema|key-undocumented|message_locked
-check_fixture_schema|key-undocumented|number
-check_fixture_schema|key-undocumented|pending_user_message
-check_fixture_schema|key-undocumented|shadow_repo_path
-check_fixture_schema|key-undocumented|tag_index
-check_fixture_schema|key-undocumented|title
-check_fixture_schema|key-undocumented|tools_in_turn
-check_fixture_schema|key-undocumented|work_tree_path
-check_fixture_schema|module-provenance-missing|kiro
-check_fixture_schema|substitution-undeclared|/home/alice/.aws/amazonq/cli-checkouts/9e8d7c6b-5a49-4382-9170-6f5e4d3c2b1a
-check_parser_research|parser-message-undocumented|parser: truncated conversation, %d history entries recovered: %s
-check_parser_research|parser-message-undocumented|parser: unparseable conversation: %s
-check_parser_research|pattern-undocumented|^(?:\.aws/amazonq|\.amazonq)/cli-agents/[^/]+\.json$
-check_parser_research|pattern-undocumented|^(?:\.local/share|Library/Application Support|AppData/Local)/(?:amazon-q|kiro-cli)/data\.sqlite3$
-check_parser_research|pattern-undocumented|^\.kiro/sessions/
-check_parser_research|row-text-undocumented|compact: conversation history summarised
-check_parser_research|row-text-undocumented|shell history:
 check_research_structure|bare-doc-reference|Nothing in the repository mentions .kiro, kiro-cli, sessions/ or workspace-roots; those catalog paths come from the closed binary's strings and the kiro.dev documentation, not from source, and their record shapes remain unverified.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/cli-checkouts
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/knowledge_bases

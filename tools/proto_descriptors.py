@@ -4,8 +4,8 @@
 Go binaries built with protobuf-go, among others, carry the serialized FileDescriptorProto of
 every message they link, which gives field names, numbers, types and enum values. Closed-source
 agents such as Antigravity CLI store transcripts as protobuf blobs with no published schema, so
-this is the evidence source for `doubleagent/parsers/antigravity.py`; re-run it when a new
-release changes the format.
+this is the evidence source for the Antigravity parser (`internal/parser/antigravity`); re-run
+it when a new release changes the format.
 
     tools/proto_descriptors.py extract ~/.local/bin/agy descriptors.json
     tools/proto_descriptors.py show descriptors.json gemini_coder.Step exa.cortex_pb.CortexStepType
@@ -21,10 +21,9 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from doubleagent.protobuf import iter_fields, read_varint
+from typing import Any
 
 TYPES = {
     1: "double",
@@ -46,6 +45,58 @@ TYPES = {
     17: "sint32",
     18: "sint64",
 }
+
+
+def read_varint(data: bytes, offset: int) -> tuple[int, int]:
+    """Return the varint at `offset` and the offset after it.
+
+    Raises:
+        ValueError: The varint is cut off or longer than ten bytes.
+    """
+    result = 0
+    shift = 0
+    while True:
+        if offset >= len(data):
+            raise ValueError("truncated varint")
+        byte = data[offset]
+        offset += 1
+        result |= (byte & 0x7F) << shift
+        shift += 7
+        if not byte & 0x80:
+            return result, offset
+        if shift > 70:
+            raise ValueError("varint too long")
+
+
+def iter_fields(data: bytes) -> Iterator[tuple[int, int, Any]]:
+    """Yield (field number, wire type, value) for each field of a protobuf message.
+
+    A length-delimited value is bytes, a varint an int, a fixed width its raw bytes; the value
+    is typed Any because its type follows the wire type.
+
+    Raises:
+        ValueError: The buffer is cut off or holds a group, whose wire types are not read.
+    """
+    offset = 0
+    size = len(data)
+    while offset < size:
+        tag, offset = read_varint(data, offset)
+        field, wire_type = tag >> 3, tag & 7
+        if wire_type == 0:
+            value, offset = read_varint(data, offset)
+            yield field, wire_type, value
+        elif wire_type in (1, 5):
+            width = 8 if wire_type == 1 else 4
+            yield field, wire_type, data[offset : offset + width]
+            offset += width
+        elif wire_type == 2:
+            length, offset = read_varint(data, offset)
+            if length > size - offset:
+                raise ValueError("truncated length-delimited field")
+            yield field, wire_type, data[offset : offset + length]
+            offset += length
+        else:
+            raise ValueError("unsupported wire type %d" % wire_type)
 
 
 def _text(data: bytes) -> str:

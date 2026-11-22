@@ -6,12 +6,12 @@ agent wrote, never the values (no prompts, no tokens, no account ids), so the ou
 pasted into a research document or a report. "Reading a real install" in
 analyzer/docs/development.md documents the output and the options.
 
-    python3 -I tools/shape.py ~/.config/Agent
-    python3 -I tools/shape.py --enums --depth 3 settings.json sessions/
-    python3 -I tools/shape.py --max-size 20000000 --skip logs ~/.agent
+    python3 -I lab/round/tools/shape.py ~/.config/Agent
+    python3 -I lab/round/tools/shape.py --enums --depth 3 settings.json sessions/
+    python3 -I lab/round/tools/shape.py --max-size 20000000 --skip logs ~/.agent
 
-Standard library only, and no import from `doubleagent`, so the single file can be copied to a
-VM and run there alone.
+Standard library only, and no import from the rest of the repository, so the single file can be
+copied to a VM and run there alone.
 
 Per file, in sorted path order: a JSON document prints its key tree with each value's shape (a
 type, or a string's class); a `.jsonl` or `.ndjson` file prints line counts and byte totals per

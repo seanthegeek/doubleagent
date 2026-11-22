@@ -1,5 +1,3 @@
-check_fixture_schema|file-unclaimed|.claude-code-router/config.json
-check_fixture_schema|file-unclaimed|Documents/notes.txt
 check_smoke_coverage|check-by-suffix|smoke.ps1 $claudeworksession
 check_smoke_coverage|check-by-suffix|smoke.ps1 *.bash_history
 check_smoke_coverage|check-by-suffix|smoke.ps1 */.config/pearai/user*
