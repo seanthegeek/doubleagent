@@ -63,13 +63,21 @@ one's files as they were, and a link another account put at one of these
 names beforehand is never written through.
 
 The run also checks the staging directory it has just made, once it has
-opened it: it must still be what the name holds, empty, and, where the
-volume keeps owners or access lists, have the owner a file the run creates
-in it then is given. When another entry took the name between the two, or
-the open fails, the run ends with exit `2` and
-`Cannot create staging dir: open DIR: is not the empty directory this run just made; another entry took its name; the directory made there is left as it is`
-(or the open's own reason in place of the first part), and leaves the
-directory it made, since its name may no longer be the run's.
+opened it, and refuses it when:
+
+- the name no longer holds the directory it opened (another entry was put
+  at the name, or the directory was moved or replaced);
+- the directory is not empty;
+- on Linux and macOS, and on Windows where the volume keeps access lists, a
+  probe file cannot be made in it, or the directory's owner is not the
+  owner that probe file is given (on a volume that keeps no owners the two
+  always agree).
+
+The run then ends with exit `2` and
+`Cannot create staging dir: open DIR: is not an empty directory this run can take as its own; the directory made there is left as it is`,
+or, when the directory cannot be opened at all, the open's own reason in
+place of the first part. The directory the run made is left in the output
+directory, since its name may no longer be the run's.
 
 The run keeps its staging directory open from the moment it makes it, and
 every staged copy, the archive's walk of it and its removal at the end go
@@ -142,13 +150,15 @@ The `.sha256` file is one line, `<hex>  <archive file name>`, the form
 On Linux and macOS the run sets its file creation mask to `077`, so the
 output files are readable by the account that ran it only (mode `600`), and
 an output directory it creates is mode `700`. On Windows the files beside
-the archive take the permissions the output directory passes on; the
-staging directory is made with its own access list, taking nothing from the
-output directory, that gives the account running the collection and the
-Administrators group full control, and everything staged inside inherits
-it, so a staging directory `-k` leaves is readable by those two only. A
-FAT or exFAT volume keeps no access list, so there the staging directory
-has none.
+the archive take the permissions the output directory passes on. On a
+volume that keeps access lists, such as NTFS, the staging directory is made
+with its own access list, taking nothing from the output directory, that
+gives the account running the collection and the Administrators group full
+control, and everything staged inside inherits it, so a staging directory
+`-k` leaves is readable by those two only. On a volume that keeps none
+(FAT, exFAT) or does not say (a network share), the staging directory is
+made as any other directory there, taking what the output directory
+passes on.
 
 The staging directory is where the run copies each file before it packs the
 archive; it is removed when the run ends, unless `-k` is given.

@@ -483,12 +483,18 @@ while the run works, and the staged paths go through `osfile` under that fixed n
 before. `stage.CreateTree` refuses a directory swapped in between the make and the open:
 one that is not empty, is not what the name holds, or has another owner than the one the
 volume gives an entry the run creates in it then (a probe file's owner, read from its
-handle; on Windows compared only on a volume whose flags include `FILE_PERSISTENT_ACLS`,
-and the running account set as owner only where the volume accepts it). Once the tree is
-open, nothing resolves the staging directory's name: its physical path, and the path a
-staged file's member is spelled from, come from the open directory itself (`F_GETPATH` on
-macOS, `GetFinalPathNameByHandle` of the held handle on Windows; on Linux, which gives
-neither, the member is spelled by a walk through the tree or as staged). On a volume that keeps no owners or access lists every entry has
+handle). On Windows the output directory's volume is asked first whether it keeps access
+lists (`GetVolumeInformationByHandle`, `FILE_PERSISTENT_ACLS`): where it does, the staging
+directory is made with its own access list and the running account as owner, and the
+owners are compared; where it keeps none or does not answer (a share), the directory is
+made plainly and no owner is compared. A member's spelling never depends on where the tree
+is or was: it is the name the stager created the file by, unless the volume respelled a
+component; the path the system gives for the new file (`F_GETPATH` on macOS,
+`GetFinalPathNameByHandle` on Windows) is used only for as many trailing components as the
+name has, and a candidate differing from the name is taken only when a lookup through the
+tree, following no link, finds that very file (`stage.Stager.member`). On Windows the held
+handle's own path, never the name, decides whether a resolved directory lies inside. On a
+volume that keeps no owners or access lists every entry has
 the same owner, so that check cannot refuse anything there, and nothing can be protected
 from another account that reaches the volume; the run still stages through the handle on
 Linux and macOS and still holds the name on Windows. `Tree.Discard`
@@ -496,7 +502,13 @@ empties the tree, closes it and removes the name only when it still holds the tr
 moment stays open to an account that may rename or delete entries in the output
 directory: the one between the archive's last check and its rename, stated on
 `collect.runState.placeArchive`. The output directory must be one only the running
-account can write.
+account can write. The write probe both commands make of their output directory is a
+pair: on Linux and macOS it creates and removes its file below the directory opened once;
+on Windows it creates the file by its path, as the run's own files are made, with
+`FILE_FLAG_DELETE_ON_CLOSE`, so closing it removes that very file, since every `os.Root`
+open there asks for backup intent (`FILE_OPEN_FOR_BACKUP_INTENT`), under which the system
+may grant access before it checks the access list, so a creation through it can succeed
+where the run's own creations are refused.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
 byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as

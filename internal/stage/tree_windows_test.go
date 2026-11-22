@@ -2,6 +2,7 @@ package stage
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"testing"
 	"unsafe"
@@ -159,8 +160,8 @@ func TestTheTreesPhysicalPathIsTheHeldHandlesPath(t *testing.T) {
 	tree, _ := newTree(t)
 	final, err := finalPath(tree.held.handle)
 	mustDo(t, err)
-	if tree.physical != syspath.FromNative(final) {
-		t.Errorf("physical %q, want the held handle's %q", tree.physical, syspath.FromNative(final))
+	if tree.held.physical != syspath.FromNative(final) {
+		t.Errorf("physical %q, want the held handle's %q", tree.held.physical, syspath.FromNative(final))
 	}
 }
 
@@ -179,7 +180,7 @@ func TestNothingResolvesTheNameOnceTheTreeIsOpen(t *testing.T) {
 	}
 	// The tree's physical path no longer matches either; only the handle's
 	// current path may decide, never the junction at the name.
-	tree.physical = parent + "/gone"
+	tree.held.physical = parent + "/gone"
 	if !tree.holds(moved + "/fs") {
 		t.Errorf("holds(%s/fs) = false; it is in the directory the tree has open", moved)
 	}
@@ -255,7 +256,49 @@ func TestADirectoryWhoseOwnerProbeCannotBeMadeIsRefused(t *testing.T) {
 
 func TestTheTemporaryDirectorysVolumeKeepsAccessLists(t *testing.T) {
 	tree, _ := newTree(t)
-	if !tree.keepsAccessLists() {
+	if !keepsAccessLists(tree.held.handle) {
 		t.Error("the NTFS volume of the test's temporary directory keeps no access lists, says the tree")
+	}
+}
+
+func TestADirectoryOwnedByAnotherAccountIsRefused(t *testing.T) {
+	path := syspath.FromNative(t.TempDir()) + "/stage"
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	mustDo(t, err)
+	// Owned by the Administrators group, an owner only an elevated account
+	// may set, while the probe is made owned by the account itself.
+	descriptor, err := windows.SecurityDescriptorFromString("O:BAD:P(A;OICI;FA;;;" +
+		user.User.Sid.String() + ")")
+	mustDo(t, err)
+	attributes := &windows.SecurityAttributes{SecurityDescriptor: descriptor}
+	attributes.Length = uint32(unsafe.Sizeof(*attributes))
+	if err := makeDirectory(path, attributes); errors.Is(err, windows.ERROR_INVALID_OWNER) {
+		t.Skip("the account may not make the Administrators group an owner: not elevated")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	tree := mustTree(t, path)
+	tree.held.attributes, err = ownAccess()
+	mustDo(t, err)
+	if tree.madeByThisRun() {
+		t.Error("madeByThisRun took a directory whose owner is not the one a new entry gets")
+	}
+}
+
+func TestATreeOpenDirGaveIsClosedWithTheTreeItCameFrom(t *testing.T) {
+	tree, _ := newTree(t)
+	mustDo(t, tree.MkdirAll("fs"))
+	sub, err := tree.OpenDir("fs")
+	mustDo(t, err)
+	mustDo(t, sub.Close())
+	if _, err := sub.Lstat("."); err != nil {
+		t.Errorf("Lstat after the subtree's own Close = %v; the tree it came from is open", err)
+	}
+	mustDo(t, tree.Close())
+	if err := sub.MkdirAll("made"); !errors.Is(err, fs.ErrClosed) {
+		t.Errorf("MkdirAll in a subtree of a closed tree = %v; want fs.ErrClosed", err)
+	}
+	if entries, _ := os.ReadDir(syspath.ToNative(tree.Path() + "/fs")); len(entries) != 0 {
+		t.Errorf("the subtree of a closed tree made %v", entries)
 	}
 }

@@ -62,7 +62,7 @@ func CreateTree(path string) (*Tree, error) {
 	if !tree.madeByThisRun() {
 		_ = tree.Close()
 		return nil, &fs.PathError{Op: "open", Path: path,
-			Err: madeButRefused{reason: swappedDirectory{}}}
+			Err: madeButRefused{reason: notOwnDirectory{}}}
 	}
 	return tree, nil
 }
@@ -112,28 +112,13 @@ func sameOwnerAsNew(directory, created uint32) bool {
 }
 
 // OpenTree opens the existing staging directory at path, following a link
-// in its name as os.OpenRoot does, then takes its physical path from the
-// directory it opened (openedPath), never from the name.
+// in its name as os.OpenRoot does.
 func OpenTree(path string) (*Tree, error) {
 	root, err := osfile.OpenRoot(path)
 	if err != nil {
 		return nil, err
 	}
-	tree := &Tree{path: path, held: heldDirectory{root: root}}
-	tree.physical = tree.openedPath()
-	return tree, nil
-}
-
-// openedPath returns the path the system gives now for the directory the
-// tree has open, wherever it has been moved (reportedPath: F_GETPATH on
-// macOS), or "" where the system gives none (Linux).
-func (tree *Tree) openedPath() string {
-	directory, err := tree.held.root.Open(".")
-	if err != nil {
-		return ""
-	}
-	defer directory.Close()
-	return reportedPath(directory)
+	return &Tree{path: path, held: heldDirectory{root: root}}, nil
 }
 
 // OpenDir opens the directory name in the tree as a tree of its own, so a

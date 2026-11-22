@@ -85,8 +85,10 @@ packages.
   calls unchanged. `TestWindowsBuildCallsNoPathFunctionOfOsDirectly` in
   `internal/osfile` fails on a direct call in any file of the Windows build.
   A path in the staging directory goes through `stage.Tree`, never by its
-  full name, and no collected name is given to an `os.Root` method on
-  Windows, where the root cleans each name with `GetFullPathName`.
+  full name, and on Windows no `os.Root` method is given a collected name
+  (the root cleans each name with `GetFullPathName`) or used where its
+  answer must match a creation through `osfile` (its creations ask for
+  backup intent).
 - **Platform code** lives in `_linux.go`, `_darwin.go`, `_windows.go` and
   `_unix.go` files or behind a build constraint, never in a `runtime.GOOS`
   switch; a function written once per platform keeps one name and one

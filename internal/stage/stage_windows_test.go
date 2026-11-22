@@ -616,7 +616,7 @@ func TestFailedCopyInsideOnWindows(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			stager, _ := newWindowsStager(t)
-			stager.Tree.physical = syspath.Fold(stager.Tree.physical)
+			stager.Tree.held.physical = syspath.Fold(stager.Tree.held.physical)
 			dest := test.setup(t, stager, syspath.FromNative(t.TempDir()))
 			if got := stager.FailedCopyInside(dest); got != test.wantResult {
 				t.Errorf("FailedCopyInside = %v", got)
@@ -630,7 +630,7 @@ func TestFailedCopyInsideOnWindows(t *testing.T) {
 
 func TestAFailedCopyRemovesItsOwnFileWhenTheStagingPathDiffersInCase(t *testing.T) {
 	stager, root := newWindowsStager(t)
-	stager.Tree.physical = syspath.Fold(stager.Tree.physical)
+	stager.Tree.held.physical = syspath.Fold(stager.Tree.held.physical)
 	source := root + "/home/f"
 	mustDo(t, os.WriteFile(source, []byte("x"), 0o600))
 	stager.wrapWriter = func(io.Writer) io.Writer { return failingWriter{} }
@@ -664,7 +664,7 @@ func TestHoldsComparesPhysicalPathsByteForByte(t *testing.T) {
 	for _, name := range []string{".stage-x/fs", ".ſtage-x/fs"} {
 		mustDo(t, os.MkdirAll(syspath.Extended(base+"/"+name), 0o755))
 	}
-	tree := &Tree{path: base + "/.stage-x", physical: base + "/.stage-x"}
+	tree := &Tree{path: base + "/.stage-x", held: heldDirectory{physical: base + "/.stage-x"}}
 	cases := []struct {
 		name, physical string
 		want           bool

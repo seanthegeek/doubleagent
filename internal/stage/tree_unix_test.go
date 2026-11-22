@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 )
 
 func TestTheRootRefusesAPathOutOfItWithTheTextTheTreeMaps(t *testing.T) {
@@ -335,5 +337,68 @@ func TestADirectoryWhoseOwnerProbeCannotBeMadeIsRefused(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(path, 0o700) })
 	if mustTree(t, path).madeByThisRun() {
 		t.Error("madeByThisRun took a directory in which the owner probe could not be made")
+	}
+}
+
+func TestAMemberIsSpelledFromTheNameAfterTheTreeIsMovedInsideANewDirectory(t *testing.T) {
+	stager, root := newStager(t)
+	parent := filepath.Dir(stager.Dir)
+	// mv stage tmp; mkdir stage; mv tmp stage/x: the system's path for a new
+	// copy then begins with the staging directory's old path.
+	mustDo(t, os.Rename(stager.Dir, parent+"/tmp"))
+	mustDo(t, os.Mkdir(stager.Dir, 0o700))
+	mustDo(t, os.Rename(parent+"/tmp", stager.Dir+"/x"))
+	source := root + "/home/u/f"
+	mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+	copied, err := stager.Copy(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if copied.ArchivePath != "fs/home/u/f" {
+		t.Errorf("ArchivePath = %q, want fs/home/u/f, the member the archive holds",
+			copied.ArchivePath)
+	}
+}
+
+func TestARespelledComponentGetsTheVolumesSpelling(t *testing.T) {
+	stager, root := newStager(t)
+	mustDo(t, os.MkdirAll(stager.Dir+"/fs/home/User", 0o700))
+	if _, err := os.Lstat(stager.Dir + "/fs/home/user"); err != nil {
+		t.Skip("the volume of the test's temporary directory tells letter case apart")
+	}
+	stager.FoldsCase = true
+	source := root + "/home/user/f"
+	mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+	copied, err := stager.Copy(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if copied.ArchivePath != "fs/home/User/f" {
+		t.Errorf("ArchivePath = %q, want fs/home/User/f, as the volume spells it",
+			copied.ArchivePath)
+	}
+}
+
+func TestACandidateSpellingNamingAnotherFileIsRefused(t *testing.T) {
+	stager, root := newStager(t)
+	source := root + "/home/u/f"
+	mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+	copied, err := stager.Copy(source)
+	mustDo(t, err)
+	// Another file whose trailing components a reported path could end in.
+	mustDo(t, os.MkdirAll(stager.Dir+"/fs/home/v", 0o700))
+	mustDo(t, os.WriteFile(stager.Dir+"/fs/home/v/f", []byte("other"), 0o600))
+	info, err := os.Lstat(stager.Dir + "/fs/home/u/f")
+	mustDo(t, err)
+	_, dest, _ := stager.Dest(source)
+	staged := fsmeta.StatIdentity(info)
+	if got := stager.member("/elsewhere/fs/home/v/f", dest, staged); got != copied.ArchivePath {
+		t.Errorf("member = %q; want %q: the candidate names another file", got, copied.ArchivePath)
+	}
+	if got := stager.member("/elsewhere/fs/home/u/f", dest, staged); got != "fs/home/u/f" {
+		t.Errorf("member = %q for the candidate naming the file itself; want fs/home/u/f", got)
 	}
 }

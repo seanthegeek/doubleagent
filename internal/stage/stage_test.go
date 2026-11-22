@@ -191,16 +191,6 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 	}
 }
 
-func TestCopyWithAnUnresolvedPhysicalPath(t *testing.T) {
-	stager, root := newStager(t)
-	mustDo(t, os.Symlink(stager.Dir, filepath.Dir(stager.Dir)+"/alias"))
-	stager.Tree.physical = filepath.Dir(stager.Dir) + "/alias"
-	mustDo(t, os.WriteFile(root+"/home/f", []byte("x"), 0o644))
-	if _, _, err := copyFile(stager, root+"/home/f"); err != nil {
-		t.Errorf("Copy: %v", err)
-	}
-}
-
 func TestFailedCopyInside(t *testing.T) {
 	cases := []struct {
 		name        string

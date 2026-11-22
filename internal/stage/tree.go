@@ -19,13 +19,10 @@ import (
 // no rename changes and which refuses a link leading out of the tree; on
 // Windows a held handle keeps the name from being renamed or deleted, and
 // paths go through osfile so every name stays exact. path is the name the
-// run gave it, for messages; physical is the path the system gave for the
-// opened directory when it was opened, never read from the name ("" on
-// Linux).
+// run gave the directory, for messages.
 type Tree struct {
-	path     string
-	physical string
-	held     heldDirectory
+	path string
+	held heldDirectory
 }
 
 // Path returns the name the staging directory was opened by, in canonical
@@ -157,11 +154,11 @@ func innerError(err error) error {
 	return err
 }
 
-// swappedDirectory is the reason CreateTree refuses the directory it opened:
-// it is not the empty directory the run just made under that name.
-type swappedDirectory struct{}
+// notOwnDirectory is the reason CreateTree refuses the directory it opened:
+// madeByThisRun did not find it the empty directory the run just made.
+type notOwnDirectory struct{}
 
 // Error returns the reason.
-func (swappedDirectory) Error() string {
-	return "is not the empty directory this run just made; another entry took its name"
+func (notOwnDirectory) Error() string {
+	return "is not an empty directory this run can take as its own"
 }

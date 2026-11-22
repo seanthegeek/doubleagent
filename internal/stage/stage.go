@@ -5,9 +5,9 @@
 // Every staged write, listing and removal goes through the open staging
 // directory (Tree), never through what its name points at now, so an
 // account that moves the directory aside during the run and puts a link in
-// its place changes nothing the run writes or the members it names: what
-// decides a member's spelling or whether a path lies inside is read from
-// the open directory, never from the name. A recreated link in the
+// its place changes nothing the run writes or the members it names: a
+// member is spelled from the name it was created by, never from where the
+// tree is or was (member). A recreated link in the
 // staging tree may lead to the source or to the analyst's own files, so
 // the stager lists or opens nothing below a link: a write, an open or a
 // link's creation first passes requireInside for its directory, and every
@@ -299,7 +299,7 @@ func (stager Stager) fill(target createdFile, source io.Reader, dest string, inf
 		return Copied{}, syspath.NativeErrors(err)
 	}
 	return Copied{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: written,
-		ArchivePath: stager.member(target.place, dest)}, nil
+		ArchivePath: stager.member(target.place, dest, target.staged)}, nil
 }
 
 // createdFile is a staged file Copy created: the open file, its own
@@ -383,40 +383,67 @@ func (changedSince) Error() string {
 	return "changed since this run staged it; the earlier row holds its copy"
 }
 
-// member returns the archive member of the staged file at dest, spelled as
-// the staging tree names it: from place, the path the system reports for
-// the file (Windows, macOS), when it lies in the staging directory, else
-// from a walk of dest where the staging directory folds names (spelling)
-// that reaches the end, else dest as named.
-func (stager Stager) member(place, dest string) string {
-	if place != "" {
-		if rest, inside := stager.inside(place); inside {
-			return rest
+// member returns the archive member of the staged file at dest, which the
+// stager created by that name, its identity staged ([2]uint64{} for a
+// link), and place the path the system gives for it ("" where it gives
+// none). A member's spelling never depends on where the tree is or was:
+// the name as created is the member unless the volume respelled a
+// component; place is used only for its last components, as many as the
+// name has, as a candidate spelling, accepted when it differs from the
+// name only if looking it up through the tree, following no link, finds
+// the very file created (reaches); otherwise the spelling comes from a
+// walk through the tree (spelling), and failing that the name as created.
+func (stager Stager) member(place, dest string, staged [2]uint64) string {
+	name := stager.name(dest)
+	if candidate, found := lastComponents(place, strings.Count(name, "/")+1); found {
+		if candidate == name || stager.reaches(candidate, staged) {
+			return candidate
 		}
 	}
 	if spelling := stager.spelling(dest); spelling.stop == stagedEnd {
 		return strings.TrimPrefix(spelling.path, stager.Dir+"/")
 	}
-	return strings.TrimPrefix(dest, stager.Dir+"/")
+	return name
 }
 
-// inside returns place, a path the system reported, less the physical
-// staging directory, and whether it lies there: the tree's physical path,
-// or, when that does not match, the path the system gives now for the
-// directory the tree has open (Tree.openedPath, on macOS and Windows).
-// Neither comes from the staging directory's name, which another account
-// may have pointed elsewhere once the directory was moved.
-func (stager Stager) inside(place string) (string, bool) {
-	for i, root := range []string{stager.Tree.physical, ""} {
-		if i == 1 {
-			// Asked only when the first did not match, as it costs an open.
-			root = stager.Tree.openedPath()
+// lastComponents returns the last count slash-separated components of
+// path, and whether path has that many.
+func lastComponents(path string, count int) (string, bool) {
+	if path == "" {
+		return "", false
+	}
+	end := len(path)
+	for ; count > 0; count-- {
+		slash := strings.LastIndexByte(path[:end], '/')
+		if slash < 0 {
+			return "", false
 		}
-		if rest, inside := Under(place, root); root != "" && inside && rest != "" {
-			return rest, true
+		end = slash
+	}
+	return path[end+1:], true
+}
+
+// reaches reports whether candidate, a name in the tree, leads through real
+// directories alone, each looked at without following it, to the entry of
+// identity staged: one lstat per component, an inode of 0 matching
+// nothing.
+func (stager Stager) reaches(candidate string, staged [2]uint64) bool {
+	if staged[1] == 0 {
+		return false
+	}
+	components := strings.Split(candidate, "/")
+	for i := range components {
+		meta, err := stager.files().lstat(stager.Dir + "/" + strings.Join(components[:i+1], "/"))
+		switch {
+		case err != nil || meta.IsLink():
+			return false
+		case i < len(components)-1 && meta.Kind != fsmeta.Dir:
+			return false
+		case i == len(components)-1:
+			return [2]uint64{meta.Dev, meta.Ino} == staged
 		}
 	}
-	return "", false
+	return false
 }
 
 // notRegular is the reason a path that stopped being a regular file between
@@ -478,7 +505,7 @@ func (stager Stager) Link(path, target string, directory bool) (string, error) {
 		}
 		return "", err
 	}
-	copied := Copied{ArchivePath: stager.member("", dest)}
+	copied := Copied{ArchivePath: stager.member("", dest, [2]uint64{})}
 	if meta, err := stager.files().lstat(dest); err == nil {
 		stager.Places.record([2]uint64{meta.Dev, meta.Ino}, identity, dest, copied)
 	}
