@@ -1,3 +1,6 @@
+check_parser_research|parser-message-undocumented|1 conversation names a full-text row an earlier conversation names
+check_parser_research|parser-message-undocumented|unparseable record {} ({}: {})
+check_parser_research|pattern-undocumented|^(?:Library/Application Support|\.config|AppData/Roaming)/Cursor/User/globalStorage/mcp-oauth-attempts/([^/]+\.json)$
 check_research_structure|latest-version-missing|Cursor Agent CLI features the macOS round did
 check_research_structure|latest-version-missing|The Agent CLI on Windows and on Linux:
 check_research_structure|observed-label-missing|Cursor Agent CLI features the macOS round did

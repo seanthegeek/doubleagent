@@ -1,2 +1,8 @@
+check_parser_research|parser-message-undocumented|history.json has no sessions array
+check_parser_research|parser-message-undocumented|session file is not a JSON object
+check_parser_research|pattern-undocumented|.little-coder/input_history.txt
+check_parser_research|pattern-undocumented|.little-coder/sessions/history.json
+check_parser_research|pattern-undocumented|.little-coder/sessions/mr_sessions/session_latest.json
+check_parser_research|pattern-undocumented|^\.little-coder/sessions/(?:[^/]+/)*[^/]+\.json$
 check_tables_research|line-unnamed|home .pi/agent/little-coder-prompt-history.json
 check_tables_research|parsing-fact-under-collection|permission_mode

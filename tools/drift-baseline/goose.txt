@@ -1,3 +1,6 @@
+check_parser_research|parser-message-undocumented|unparseable record {} (messages.content_json: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (messages.metadata_json: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (sessions.model_config_json: {})
 check_tables_research|credential-unflagged|Library/Application Support/Block/goose/chatgpt_codex/tokens.json
 check_tables_research|credential-unflagged|Library/Application Support/Block/goose/claude-code/mcp-config-.json
 check_tables_research|credential-unflagged|Library/Application Support/Block/goose/config.yaml

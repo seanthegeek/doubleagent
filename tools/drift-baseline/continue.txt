@@ -1,3 +1,4 @@
+check_parser_research|pattern-undocumented|^\.continue/logs/cn[0-9]*\.log$
 check_tables_research|credential-wording|can embed `index/`
 check_tables_research|credential-wording|can embed `mcpServers/*.yaml|json`
 check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/continue.continue

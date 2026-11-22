@@ -217,6 +217,14 @@ jobs:
       # baselined convention rules.
       - name: drift, tables against research
         run: python3 tools/check_tables_research.py
+      # The parsers' drift checker runs a Go test of tools/parserfacts that
+      # reads the parser packages' source with the type checker, so this job
+      # sets up the toolchain go.mod pins, as the go job does.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: drift, parsers against research
+        run: python3 tools/check_parser_research.py
       - name: code style
         run: python3 tools/check_code_style.py
       - name: Install sh linters

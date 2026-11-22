@@ -1,1 +1,2 @@
+check_parser_research|parser-message-undocumented|unparseable line (text before the first TO LLM / LLM RESPONSE marker)
 check_tables_research|parsing-fact-under-collection|FileHistory

@@ -1,0 +1,2 @@
+check_parser_research|pattern-undocumented|(^|/)\.config/shell_gpt/\.sgptrc$
+check_parser_research|pattern-undocumented|(^|/)\.config/shell_gpt/functions/[^/]+\.py$

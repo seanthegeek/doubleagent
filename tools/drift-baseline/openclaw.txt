@@ -1,0 +1,5 @@
+check_parser_research|parser-message-undocumented|backup_runs manifest_json unparseable ({})
+check_parser_research|parser-message-undocumented|session_nodes entry_json unparseable ({})
+check_parser_research|parser-message-undocumented|session_pending_inputs message_json unparseable ({})
+check_parser_research|parser-message-undocumented|state/openclaw.sqlite unreadable ({})
+check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/(?P<name>[^/]+?)(?:(?P<archive>\.jsonl\.(reset|deleted)\.[0-9]{4}-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]-[0-9][0-9]-[0-9][0-9](?:\.[0-9]{3})?Z(?:\.[0-9a-f]{32})?(?:\.zst)?)|(?P<copy>\.checkpoint\.[0-9a-fA-F-]{36}\.jsonl|\.jsonl\.pre-doctor-(?:branch|openai-codex)-repair-[0-9]{4}-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9]{3}Z\.bak)|\.jsonl)$

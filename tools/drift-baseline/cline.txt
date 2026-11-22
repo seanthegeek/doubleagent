@@ -1,3 +1,29 @@
+check_parser_research|key-undocumented|action
+check_parser_research|key-undocumented|answer
+check_parser_research|key-undocumented|coordinate
+check_parser_research|key-undocumented|currentUrl
+check_parser_research|key-undocumented|host_version
+check_parser_research|key-undocumented|os_arch
+check_parser_research|key-undocumented|query
+check_parser_research|key-undocumented|question
+check_parser_research|key-undocumented|response
+check_parser_research|key-undocumented|screenshot
+check_parser_research|key-undocumented|streamingFailedMessage
+check_parser_research|key-undocumented|suggest
+check_parser_research|parser-message-undocumented|cline_mcp_settings.json is not a JSON object
+check_parser_research|parser-message-undocumented|cloud pending-start file is not a JSON array
+check_parser_research|parser-message-undocumented|global-settings.json is not a JSON object
+check_parser_research|parser-message-undocumented|globalState.json is not a JSON object
+check_parser_research|parser-message-undocumented|messages file is not a JSON object
+check_parser_research|parser-message-undocumented|pending-start record {} has no sessionId
+check_parser_research|parser-message-undocumented|session manifest is not a JSON object
+check_parser_research|parser-message-undocumented|session_search unreadable ({}), indexed_sessions read alone
+check_parser_research|parser-message-undocumented|sync-queue item {} is not a JSON object
+check_parser_research|parser-message-undocumented|sync-queue.json is not a JSON object with an items object
+check_parser_research|parser-message-undocumented|task_metadata.json is not a JSON object
+check_parser_research|pattern-undocumented|^(?:(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev|\.cline/data)/settings/cline_mcp_settings\.json$
+check_parser_research|pattern-undocumented|^(?:(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev|\.cline/data)/state/taskHistory\.json$
+check_parser_research|pattern-undocumented|^(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev/cache/sync-queue\.json$
 check_tables_research|credential-wording|can embed `settings/composio/*.json`
 check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/saoudrizwan.claude-dev
 check_tables_research|line-unnamed|home .config/*/User/globalStorage/saoudrizwan.claude-dev

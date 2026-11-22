@@ -1,3 +1,21 @@
+check_parser_research|key-undocumented|agent_thread_id
+check_parser_research|key-undocumented|content_items
+check_parser_research|key-undocumented|item_id
+check_parser_research|key-undocumented|saved_path
+check_parser_research|parser-message-undocumented|global state is not a JSON object
+check_parser_research|parser-message-undocumented|import ledger has no records list
+check_parser_research|parser-message-undocumented|unparseable record {} (no item_json)
+check_parser_research|parser-message-undocumented|unreadable approval log row ({})
+check_parser_research|parser-message-undocumented|unreadable automation.toml: {}
+check_parser_research|parser-message-undocumented|unreadable global state: {}
+check_parser_research|parser-message-undocumented|unreadable import ledger: {}
+check_parser_research|parser-message-undocumented|zstd: a frame needs a window larger than the decoder allows
+check_parser_research|parser-message-undocumented|zstd: corrupt data ({})
+check_parser_research|parser-message-undocumented|zstd: the file ends inside a zstd frame
+check_parser_research|pattern-undocumented|.codex/.codex-global-state.json
+check_parser_research|pattern-undocumented|.zst
+check_parser_research|pattern-undocumented|^\.codex/logs_[0-9]+\.sqlite$
+check_parser_research|secondary-unlisted|.codex/thread_history_1.sqlite
 check_research_structure|observed-label-missing|Local: the real install on the development host,
 check_research_structure|observed-label-missing|Ubuntu, standalone CLI ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 118](https://github.com/seanthegeek/doubleagent/issues/118)):
 check_research_structure|observed-label-missing|Windows, Codex Desktop inside ChatGPT 26.1007.9446.0 ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113),

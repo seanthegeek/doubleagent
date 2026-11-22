@@ -1,3 +1,9 @@
+check_parser_research|key-undocumented|fsPath
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:profiles/(?:builtin/)?[^/]+/)?settings\.json$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?|globalStorage/emptyWindowChatSessions/[^/]+\.jsonl?|globalStorage/transferredChatSessions/[^/]+\.json)$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage|workspaceStorage/[^/]+)/state\.vscdb$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/globalStorage/github\.copilot-chat/cloudSessions\.json$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/workspaceStorage/[^/]+/chatEditingSessions/([^/]+)/state\.json$
 check_research_structure|latest-version-missing|No real-install round. The L5 evidence is a
 check_research_structure|observed-label-missing|No real-install round. The L5 evidence is a
 check_tables_research|credential-wording|can embed `token-<namespace>.json`

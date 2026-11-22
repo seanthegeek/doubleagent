@@ -1,3 +1,6 @@
+check_parser_research|key-undocumented|type
+check_parser_research|parser-message-undocumented|trust.json is not a JSON object
+check_parser_research|pattern-undocumented|^\.local/share/muse/sessions/[0-9]{4}/[0-9]{2}/[0-9]{2}/[^/]+/(?:subagent/[^/]+/)*session\.jsonl$
 check_research_structure|latest-version-missing|Windows: no real install; the Windows claims rest
 check_research_structure|latest-version-missing|macOS: no real install; the Mac claims rest
 check_research_structure|observed-label-missing|Linux (WSL2), Muse Code 1.4.2-R4684.1 (`muse-bin-1.4.2-R4684.1`, the binary
