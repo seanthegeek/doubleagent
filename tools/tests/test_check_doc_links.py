@@ -115,7 +115,7 @@ def test_every_agents_and_claude_file_is_a_rules_file() -> None:
         "internal/parser/CLAUDE.md": True,
         "research/AGENTS.md": True,
         "research/claude-code.md": False,
-        "docs/agents.md": False,
+        "docs/supported-agents.md": False,
         "docs/AGENTS.md.txt": False,
     }
     for path, wanted in cases.items():

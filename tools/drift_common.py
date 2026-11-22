@@ -47,7 +47,7 @@ BASELINE = pathlib.PurePosixPath("tools/drift-baseline")
 # The stem of the baseline file holding the findings of no agent, `-`.
 UNATTRIBUTED = "unattributed"
 CATALOG_TEXT = pathlib.PurePosixPath("internal/catalog/catalog.txt")
-AGENTS_PAGE = pathlib.PurePosixPath("docs/agents.md")
+AGENTS_PAGE = pathlib.PurePosixPath("docs/supported-agents.md")
 RESEARCH_INDEX = pathlib.PurePosixPath("research/README.md")
 # Files under research/ that are not one catalog agent's document: the index, the framework
 # sweep, the shared lines' document and the rules files for researchers.
@@ -861,7 +861,7 @@ def volume_agents_naming(
 
 @dataclass(frozen=True)
 class AgentRow:
-    """One row of the table in `docs/agents.md`: its four cells, stripped, and its line."""
+    """One row of the table in `docs/supported-agents.md`: its four cells, stripped, and its line."""
 
     agent: str
     status: str

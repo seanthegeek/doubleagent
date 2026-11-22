@@ -125,7 +125,7 @@ func ByAgent(list []parser.Parser) map[string][]parser.Parser {
 // NoTranscripts returns the catalog agents whose collected files hold
 // nothing to parse, which the analysis summary reports as collected only
 // rather than as parsers still to write: the "collected" rows of the agent
-// table in docs/agents.md.
+// table in docs/supported-agents.md.
 func NoTranscripts() []string {
 	return []string{
 		"camel-ai", // an OAuth token and config; its chats are under the working directory

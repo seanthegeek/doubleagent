@@ -17,7 +17,7 @@ paths coexist and a Windows image mounted on a Linux workstation is
 collected correctly. The evidence for every catalog entry, with citations
 and the level each claim rests on, is one document per agent, listed in
 the [research index](../research/README.md); the
-[agents page](agents.md) lists every agent with what is done with its
+[agents page](supported-agents.md) lists every agent with what is done with its
 files.
 
 ## Editors, extensions and shared directories

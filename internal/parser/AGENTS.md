@@ -119,7 +119,7 @@ The analysis commands run on the analyst's workstation, never on the host.
   which shows control characters and bytes that are not UTF-8 visibly, are
   the two exceptions to text as written.
 - **Validation evidence.** The agent's subsection under
-  [Parsed agents](../../docs/agents.md#parsed-agents) names the real
+  [Parsed agents](../../docs/supported-agents.md#parsed-agents) names the real
   installs (platform, version, date) behind the parser's paths and shapes,
   and says "fixture only" for a path resting on source or a bundle alone.
   The research document holds one Observed bullet per cell
@@ -342,14 +342,14 @@ plan, and the parser is written from them.
    [`docs/timeline-output.md`](../../docs/timeline-output.md)
    ([The output examples](../../docs/development.md#the-output-examples)),
    and read every diff.
-7. In the [agents page](../../docs/agents.md) table, set the agent's status to
+7. In the [agents page](../../docs/supported-agents.md) table, set the agent's status to
    `parsed` and its "Validated against" cell to the evidence class and
    platforms in a few words (`real installs: macOS, Windows (October 2026)`,
    `source; fixture only`); its Notes cell keeps the research link, the open
    issue links and, only while something is unparsed, a clause of about
    twelve words. Move its subsection from
-   [Collected agents](../../docs/agents.md#collected-agents) to
-   [Parsed agents](../../docs/agents.md#parsed-agents), alphabetically, with
+   [Collected agents](../../docs/supported-agents.md#collected-agents) to
+   [Parsed agents](../../docs/supported-agents.md#parsed-agents), alphabetically, with
    "Files read:" and "Validated against:" (platform, version and date of
    every real install). Move the agent out of every example showing it under
    `detected but not parsed`, `collected only` or `parser: false`, and out

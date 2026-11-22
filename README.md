@@ -10,7 +10,7 @@ OpenClaw; agent framework studios and CLIs such as AutoGen Studio, CrewAI
 and MetaGPT; self-hosted agent and workflow automation platforms such as
 n8n, Flowise, Langflow and Dify; voice daemons that hand coding tasks to
 other agents, such as Qwen Live; Ollama; and others. The
-[agents page](docs/agents.md) lists every one of them.
+[agents page](docs/supported-agents.md) lists every one of them.
 
 DoubleAgent supplements the responder's EDR (endpoint detection and
 response) tool and does not duplicate it: process lists, logged-on users,
@@ -117,7 +117,7 @@ The [documentation site](https://seanthegeek.net/doubleagent/) holds:
   options and its output.
 - [Analysing](docs/analyze.md): running the analysis commands, their
   inputs and their output.
-- [Agents](docs/agents.md): every agent in the catalog with what is
+- [Agents](docs/supported-agents.md): every agent in the catalog with what is
   collected and whether its transcripts are parsed.
 - [Research](research/README.md): the evidence behind every catalog entry
   and parser, one document per agent.
