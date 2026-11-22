@@ -10,8 +10,7 @@ the tool itself, and how to report one.
 
 Only the latest release of each part is supported. The collectors and the
 analyzer are versioned and tagged separately: the newest `collector-vX.Y.Z`
-tag covers `collect-agent-artifacts.sh` and `Collect-AgentArtifacts.ps1`,
-and the newest `analyzer-vX.Y.Z` tag covers the `doubleagent` Python
+tag covers the two collector scripts it released, and the newest `analyzer-vX.Y.Z` tag covers the `doubleagent` Python
 package. A report against an older version is first reproduced against the
 latest; a fix is released as a new tag, never backported.
 
@@ -21,8 +20,8 @@ latest; a fix is released as a new tag, never backported.
 | Analyzer, the newest `analyzer-vX.Y.Z` tag | Yes |
 | Any earlier tag | No |
 
-The running version is printed by `collect-agent-artifacts.sh --version`,
-`Collect-AgentArtifacts.ps1 -Version` and `doubleagent --version`.
+The running version is printed by `doubleagent --version`, and by a
+released collector script's `--version` (`-Version` in PowerShell).
 
 ## What is a vulnerability
 

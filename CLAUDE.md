@@ -4,20 +4,14 @@
 
 Notes for Claude Code on this workstation:
 
-- After editing a collector, run `collectors/tests/smoke.sh dash` first: dash
-  is the strictest installed shell. After editing a checker or the round
-  pipeline, run their tests with the venv below. Run the matching
-  [Quality gates](AGENTS.md#quality-gates) before committing; CI runs them,
-  the pre-commit hook does not.
-- Pass `-q` to the collector from a tool call; without it, every collected
-  path is logged to stderr.
-- Run `tools/diff_smoke_rows.py` with `--shell dash`: it runs the collector
-  twice, and its default `/bin/sh` is the slow bash 3.2 here.
-- `tools/check_fork_budget.py` needs strace, which this Mac lacks: run it on
-  the Ubuntu lab VM (`sudo apt-get install dash strace`) or read CI's fork budget
-  job. The budget is the runner's count, and the VM's differs by its
-  filesystem's directory order: write a moved budget from the job's totals
-  line, not from `--update-budget` on the VM.
+- After editing the binary, run the Go commands of
+  [Validation and testing](AGENTS.md#validation-and-testing) with
+  `GOFLAGS=-tags=noasm,nounsafe`; the `dash` tag's glob test uses
+  `/bin/dash`. After editing a checker or the round pipeline, run their
+  tests with the venv below. Run the matching
+  [Quality gates](AGENTS.md#quality-gates) before committing; CI runs them.
+- Pass `-q` to `doubleagent collect` from a tool call; without it, every
+  collected path is logged to stderr.
 - A live collection here gathers the author's own agent credentials: write
   it under the scratchpad and delete it afterwards.
 - This Mac's `python3` is 3.14 without pytest. Make a venv in the scratchpad
@@ -28,15 +22,13 @@ Notes for Claude Code on this workstation:
   CPython: to run the tests under the minimum version, `uv python install
   3.11`, then `uv venv --python 3.11 venv311 && uv pip install --python
   venv311/bin/python pytest`.
-- This Mac has `/bin/dash` and `uv` with `uvx`, but no busybox, posh, pwsh, shellcheck or
-  shfmt; CI runs those gates. Its `/bin/sh` is bash 3.2, the one shell CI
-  does not run, and the slowest for the smoke test. The lab VMs can run
-  together and beside local test runs: run busybox and posh in the Ubuntu
-  VM.
+- This Mac has `/bin/dash` and `uv` with `uvx`, but no pwsh, shellcheck or
+  shfmt; CI runs the sh linters. Its `/bin/sh` is bash 3.2. The lab VMs can
+  run together and beside local test runs.
 - A Bash call with `run_in_background` and a subagent each re-invoke the
   session when they end, with the exit code and the output file: wait for
   that notification and read the file. Never write a loop that sleeps and
-  polls for the run (`until ! pgrep -f 'smoke.sh dash'`, `while ps | grep`),
+  polls for the run (`until ! pgrep -f 'go test'`, `while ps | grep`),
   in this session or in a brief: `pgrep -f` matches the waiting shell
   itself, so the loop never ends. Bound a foreground command with
   `perl -e 'alarm N; exec @ARGV' -- <command>`, since macOS has no
@@ -56,7 +48,7 @@ Work is split by model to keep Fable for the parts that need it.
 - **Sonnet implements by default; Opus for large or complex work.** Every
   implementation step goes to a subagent, one per self-contained unit, in
   parallel. `model: sonnet` for a routine, well-scoped unit: one module, a
-  bug fix, a small feature, a smoke fixture with its checks, a changelog or
+  bug fix, a small feature, a test fixture with its checks, a changelog or
   agents-page update. `model: opus` for a large multi-file unit (a research
   document rewrite, the rebuild of an agent's tables, parser, fixtures and
   tests from its document, a new parser with its fixture and tests, a

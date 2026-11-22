@@ -1,7 +1,7 @@
 # Research
 
 One document per catalog agent, named after the agent as it appears in
-`collect-agent-artifacts.sh --list`, holds everything the project knows
+`doubleagent collect --list`, holds everything the project knows
 about that agent, in two parts. The Collection part records where the
 agent stores state on each OS, which files are credentials, which subtrees
 are large or worthless, which files it writes inside projects and where it

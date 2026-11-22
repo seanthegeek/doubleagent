@@ -36,23 +36,14 @@ cmd/doubleagent/             the doubleagent binary: subcommand dispatch and exi
 internal/<package>/          the binary's packages, one per concern ("Go standards");
                              internal/version holds the build-time version string
 .github/go-build.sh          builds the six release targets and prints their hashes
+internal/catalog/catalog.txt  the catalog's seven tables, the one place they are written;
+                             the binary embeds it and `collect --list` prints it
 collectors/
-  collect-agent-artifacts.sh   the macOS/Linux/BSD collector, single POSIX sh file
-  Collect-AgentArtifacts.ps1   the Windows collector, single PowerShell 5.1 file
-  PSScriptAnalyzerSettings.psd1  PSScriptAnalyzer rules, including the 5.1 compatibility
-                               profiles
   README.md                    collector user documentation, keep in sync with behaviour
   docs/<topic>.md              detailed collector documentation: options, output and
                                manifest schema, coverage, Docker, privileges, inventory,
                                Windows, deployment, testing, internals
   CHANGELOG.md                 collector release history, one entry per VERSION
-  tests/smoke.sh               end-to-end test of the sh collector (fake disk image)
-  tests/smoke.ps1              end-to-end test of the PowerShell collector
-  tests/catalog-sync.sh        fails if the catalog tables differ between the scripts
-                               or from the analyzer's bundled copy
-  tests/fork-budget.txt        the fork budget: the processes forked and programs
-                               executed per manifest row the sh collector may cost
-                               under dash
 analyzer/
   README.md                    analyzer user documentation: quick start, commands, options
   docs/<topic>.md              detailed analyzer documentation: inputs and detection,
@@ -70,7 +61,8 @@ lab/                           Docker sandbox for running CLI agents against a s
 lab/round/                     the real-install round pipeline: round.sh drives one agent
                                on one lab VM from a step table (agents/<agent>/), with
                                its listing, diff (classify.py) and report (report.py)
-                               tools; see lab/round/README.md
+                               tools; its PSScriptAnalyzerSettings.psd1 holds the rules
+                               for the Windows guest scripts; see lab/round/README.md
 docs/index.md                  the documentation site's home page; the root README.md is
                                the GitHub overview and is not a site page
 docs/agents.md                 every catalog agent with its parse status, files and evidence
@@ -100,15 +92,6 @@ tools/catalog_listing.py       the drift checkers' reader of internal/catalog/ca
 tools/proto_descriptors.py     extracts and queries the protobuf schemas a binary embeds
 tools/check_tables_research.py  compares the catalog tables with the Collection part of
                                each research document
-tools/check_smoke_coverage.py  verifies both smoke tests check every table line, naming
-                               each row by full path
-tools/diff_smoke_rows.py       runs the sh collector of a commit and the working tree or
-                               a second commit over the sh smoke test's main fixtures and
-                               lists the paths whose manifest rows changed, grouped under
-                               each changed table line whose glob matches them
-tools/check_fork_budget.py     runs the sh collector over the sh smoke test's main image
-                               under strace and compares the processes forked and
-                               programs executed per manifest row with the budget
 tools/tests/                   pytest suite of the drift checkers and tools, on synthetic
                                inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
@@ -125,16 +108,12 @@ CLAUDE.md                      imports this file for Claude Code
 LICENSE                        Apache 2.0
 ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc
                                linter configuration; see "Quality gates"
-.githooks/pre-commit           the catalog drift check
 .github/                       CI workflow, its change classifier (classify-changes.sh),
                                the Pages workflow (workflows/pages.yml, publishes the
                                site) and Dependabot configuration
 ```
 
-Nothing in `collectors/` may depend on `analyzer/`, and the Go tree depends on
-neither: until the rewrite removes them, `collectors/` and `analyzer/` are the
-oracle its output is diffed against ([Go standards](#go-standards)). Paths in
-this file are relative to the repository root unless stated otherwise.
+Paths in this file are relative to the repository root unless stated otherwise.
 
 ## Non-negotiable standards
 
@@ -428,10 +407,8 @@ The checker reads Go files too, with the exemptions of
 ## Go standards
 
 The `doubleagent` binary (`cmd/doubleagent/`, `internal/`) replaces the
-collectors and the analyzer. Until the scripts and the Python package leave
-the tree, their output over the smoke images and the test fixtures is the
-oracle the Go code is diffed against, and [Code style](#code-style) holds
-for Go files as it does for the others.
+collectors and the analyzer, and [Code style](#code-style) holds for Go
+files as it does for the others.
 
 - **Gates.** `gofmt -l cmd internal` prints nothing; `go vet ./...`,
   `staticcheck ./...` and `govulncheck ./...` (all with the build tags below) pass at the versions the
@@ -444,8 +421,8 @@ for Go files as it does for the others.
   compressed evidence is only decoded by bounds-checked Go. In a shell,
   `export GOFLAGS=-tags=noasm,nounsafe` once; CI sets the same `GOFLAGS` in
   the workflow `env`, and a command that passes its own `-tags` replaces it,
-  so it spells all of them (`-tags parity,noasm,nounsafe`). `.github/go-build.sh`
-  and `lab/go-parity-vm.sh` pass the tags themselves. `internal/zstdframe` does
+  so it spells all of them (`-tags dash,noasm,nounsafe`). `.github/go-build.sh`
+  passes the tags itself. `internal/zstdframe` does
   not compile without them: a build or vet without them stops with
   `undefined: buildWithTagsNoasmAndNounsafeOnly`. To see what a build links,
   run `go list -tags noasm,nounsafe -deps -f '{{.ImportPath}} {{.GoFiles}}
@@ -585,9 +562,12 @@ for Go files as it does for the others.
 - **A rewrite in Go, not a port.** The analysis commands carry the same
   information as the Python analyzer did, in Go's formatting, and the code
   stands on its own terms. No package, identifier, comment or test under
-  `cmd/` or `internal/` refers to Python or explains Go by what Python
-  does; a comment states the rule itself. No Go test runs a Python
-  interpreter or takes its expected values from one. The one exception: the
+  `cmd/` or `internal/` refers to Python or to the collector scripts, or
+  explains Go by what they do; a comment states the rule itself, and may
+  cite a numbered exception or difference of
+  [`docs/differences-from-the-scripts.md`](docs/differences-from-the-scripts.md).
+  No Go test runs a Python interpreter or a collector script or takes its
+  expected values from one. The one exception: the
   scripts under a package's `testdata` that build binary fixtures Go cannot
   build without using the code under test (SQLite databases, zstd frames,
   archives), which no test or CI step runs.
@@ -724,25 +704,17 @@ for Go files as it does for the others.
   independent cases with `t.Parallel()` and builds a fixture they share
   once, and each package's tests finish well inside `go test`'s ten-minute
   default under the race detector on the slowest CI runner. No test reads the
-  developer's home or the network, and no test runs `collect` without `-r`,
-  except the two live cases of the Windows parity harness that `PARITY_LIVE=1`
-  enables, which run only on the disposable CI runner and the lab VM and
-  delete their output: a run without a root collects the developer's own
-  credentials. An empty root (`-r ""`) is live mode too, exactly as no `-r`
-  at all, and so, on Linux and macOS, is a root that comes out as `/` once a
-  relative root is joined to the current directory and its `..` components
-  are taken away by name (`-r /`, `-r /tmp/..`, `-r ..` run from `/tmp`).
-  The sh collector also runs live when it is given a root it cannot enter
-  (one `[ -d ]` accepts but `cd` refuses), where the binary keeps image
-  mode. A symlink to `/` is not resolved, so it gives an image run whose
-  root is the whole workstation, which reads the same files, as does
-  `-r C:\` on Windows. A test or a hand run passes `-r` a real image
+  developer's home or the network, and no test runs `collect` without `-r`:
+  a run without a root collects the developer's own credentials. An empty
+  root (`-r ""`) is live mode too, exactly as no `-r` at all, and so, on
+  Linux and macOS, is a root that comes out as `/` once a relative root is
+  joined to the current directory and its `..` components are taken away by
+  name (`-r /`, `-r /tmp/..`, `-r ..` run from `/tmp`). A symlink to `/` is
+  not resolved, so it gives an image run whose root is the whole
+  workstation, which reads the same files, as does `-r C:\` on Windows. A test or a hand run passes `-r` a real image
   directory built for it, never an empty or computed value that can come
-  out empty. The parity harness
-  (`internal/collect/parity`, build tag `parity`) diffs the binary against
-  the sh collector over the sh smoke image on Linux and macOS and against the
-  PowerShell collector over the PowerShell smoke image on Windows, and runs
-  in CI on the three runners.
+  out empty. `internal/collect/imagetest` builds the fixture image the
+  end-to-end tests of `collect` run over.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
   with `CGO_ENABLED=0 go build -trimpath -tags noasm,nounsafe -ldflags=-buildid=`; CI runs it
   twice per commit and compares the hashes. The version is one string in
@@ -759,13 +731,10 @@ The analyzer runs on the analyst's workstation, never on the host.
 - **Python 3.11 or later, standard library first.** A third-party package
   only when a format needs it, listed in both `requirements.txt` and
   `pyproject.toml`. No syntax newer than 3.11.
-- **The catalog is shared, not copied by hand.** `doubleagent/catalog.txt`
-  is generated from `collect-agent-artifacts.sh --list`; regenerate it after
-  any catalog edit. `collectors/tests/catalog-sync.sh`, the analyzer tests,
-  CI and the pre-commit hook ([Quality gates](#quality-gates)) fail on a
-  stale copy. Detection lives in `catalog.py`. Parsers select files by
-  `artifact.rel`, the path relative to the home, never by a hard-coded
-  agent path.
+- **The catalog is written once.** `internal/catalog/catalog.txt` holds the
+  tables, and `internal/catalog/rules_test.go` checks their glob rules.
+  Detection lives in `catalog.py`. Parsers select files by `artifact.rel`,
+  the path relative to the home, never by a hard-coded agent path.
 - **Attribution comes from the manifest when there is one.** Host, user,
   home and agent come from `collection.json` and `manifest.jsonl`; only
   loose input without a manifest infers them from paths, and the output
@@ -1789,23 +1758,18 @@ parser's docstring at review.
 
 ## Validation and testing
 
-CI (`.github/workflows/ci.yml`) runs the catalog drift test; the Go gates,
-tests and six-target build and the parity job (the binary against the sh
-collector over the smoke image) on Ubuntu, macOS and Windows; the lint job
+CI (`.github/workflows/ci.yml`) runs the Go gates, tests and six-target
+build on Ubuntu, macOS and Windows; the lint job
 of [Quality gates](#quality-gates), which also runs the tests of the drift
 checkers and of the round pipeline, and the site job; and a `CI result`
 job that fails when any of them failed or was cancelled. CI also runs on a
 push to a `go-rewrite-*` integration branch or a `unit-*` branch of the
 rewrite, so a unit's first run on the Windows runner precedes its merge. `CI result` is the one
-status check the ruleset on `main` requires. On the rewrite branch the sh
-smoke matrix, the macOS BSD smoke, the fork budget, the collector's
-shellcheck job and the two PowerShell smoke jobs do not run: the scripts
-are frozen there and the Go binary replaces them, so a change to a script
-on that branch is a defect, not a reason to run them. A new push to a pull
+status check the ruleset on `main` requires. A new push to a pull
 request or to a `unit-*` branch cancels the run still going for its previous
 commit; on `main` and the integration branches a run in progress finishes
 and the newer push waits behind it, so every head that work is built on gets
-a verdict. A push to a `unit-*` branch runs the three Go jobs on the Ubuntu
+a verdict. A push to a `unit-*` branch runs the Go job on the Ubuntu
 runner alone; its integration branch and every pull request run them on all
 three platforms.
 
@@ -1821,32 +1785,16 @@ CI runs a job only for the parts a change touches:
 a pull request changed since its merge base into these categories, and a
 job or lint step runs when one of its categories is set.
 
-- **sh collector** (`collectors/collect-agent-artifacts.sh`,
-  `collectors/tests/smoke.sh`, `collectors/tests/catalog-sync.sh`,
-  `.shellcheckrc`): the sh smoke matrix, the macOS job, the collector's
-  shellcheck job and the lint job's sh linters.
-- **fork budget** (`collectors/collect-agent-artifacts.sh`,
-  `collectors/tests/smoke.sh`, `collectors/tests/fork-budget.txt`,
-  `tools/check_fork_budget.py` and the modules it imports,
-  `tools/diff_smoke_rows.py`, `tools/drift_common.py`,
-  `tools/catalog_listing.py`, `tools/check_doc_links.py` and
-  `tools/check_research_structure.py`): the fork budget job.
-- **sh files** (any `.sh` file, `.githooks/*`): the lint job's shfmt,
+- **sh files** (any `.sh` file, `.shellcheckrc`): the lint job's shfmt,
   shellcheck and checkbashisms steps.
-- **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
-  `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`, the
-  `.ps1` files under `lab/round/`): both PowerShell smoke jobs
-  and PSScriptAnalyzer.
 - **Python** (everything under `tools/` and `lab/round/` except Markdown
   and `tools/drift-baseline/`, and `mkdocs/hooks.py`, `ruff.toml`,
-  `pyrightconfig.json`): the lint job's ruff, pyright and pytest steps,
-  which run the tests of the drift checkers and of the round pipeline.
-- **Catalog** (either collector, `internal/catalog/catalog.txt`,
-  `collectors/tests/catalog-sync.sh`): the catalog drift job and the drift
-  checkers' tests.
+  `pyrightconfig.json`, `internal/catalog/catalog.txt`): the lint job's
+  ruff, pyright and pytest steps, which run the tests of the drift checkers
+  and of the round pipeline.
 - **Go** (`go.mod`, `go.sum`, `vendor/`, every `.go` file,
   `internal/catalog/catalog.txt`, `.github/go-build.sh`): the Go job's
-  gates, tests and builds, and the `go-parity` job.
+  gates, tests and builds.
 
 Markdownlint, the site build, the document checks, the drift checkers and
 code style run on every change. Everything runs for a push to `main` or to
@@ -1858,65 +1806,33 @@ new branch, a force push) counts as a change to everything. A change whose
 files set no category is documentation only; locally it needs markdownlint,
 `tools/check_doc_links.py`, `tools/check_research_structure.py` and the
 drift checkers, since the code style check reads no Markdown. Before
-committing a collector change, run:
+committing a change to the binary, run from the repository root:
 
 ```sh
-cd collectors
-shellcheck -s sh -S warning collect-agent-artifacts.sh   # info-level notices are allowed
-tests/smoke.sh            # /bin/sh
-tests/smoke.sh dash
-tests/smoke.sh bash
-printf '#!/bin/sh\nexec busybox ash "$@"\n' > /tmp/ash && chmod +x /tmp/ash && tests/smoke.sh /tmp/ash  # busybox, as CI runs it
-printf '#!/bin/sh\nexec zsh --emulate sh "$@"\n' > /tmp/zsh-sh && chmod +x /tmp/zsh-sh && tests/smoke.sh /tmp/zsh-sh
-tests/smoke.sh posh
-tests/catalog-sync.sh
-pwsh -NoProfile -File tests/smoke.ps1
-cd ..
+export GOFLAGS=-tags=noasm,nounsafe
+test -z "$(gofmt -l cmd internal)"
+go vet ./... && GOOS=windows go vet ./... && GOOS=linux go vet ./...
+go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+go test -race ./...
+go test -race -tags dash,noasm,nounsafe ./internal/glob/   # the glob matcher against dash
 python3 -m pytest tools/tests -q   # the drift checkers' tests
 python3 -m pytest lab/round/tests -q   # the round pipeline's tests
-# then every command of the "Quality gates" table, from the repository root; PSScriptAnalyzer is:
-pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
+# then every other command of the "Quality gates" table; PSScriptAnalyzer, for the lab's guest scripts, is:
+pwsh -NoProfile -Command '$r = @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings lab/round/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
 
-For a change to the PowerShell collector, also run the test under real
-Windows PowerShell 5.1, which the Windows lab VM and the CI runner have.
+The Windows code of the binary is checked here only by `GOOS=windows go vet`;
+its tests run on the Windows CI runner. A change is done when every check on
+its pull request, CI and CodeQL, is green and Copilot's review of the final
+commit has no unanswered finding, its suppressed and body-only findings
+included; watch them with `gh pr checks --watch` and fix what fails before
+reporting the pull request ready.
 
-Without the privilege to create symlinks the test skips the symlink checks
-and says so. A pass under PowerShell 7 alone is not enough. A change
-is done when every check on its pull request, CI and CodeQL, is green and
-Copilot's review of the final commit has no unanswered finding, its
-suppressed and body-only findings included;
-watch them with `gh pr checks --watch` and fix what fails before reporting
-the pull request ready.
-
-The smoke test runs the collector in image mode over a fake disk image
-under `$TMPDIR`, with the given shell for the script and the `find -exec`
-workers (`COLLECTOR_SH`). Every check passes under every shell; a failure
-under one shell is a portability bug.
-
-A change to a table line attaches the output of `tools/diff_smoke_rows.py`
-against its base to its review report, and the reviewer reads every group
-for paths the line was not meant to reach
-([Smoke-row diff in `collectors/docs/testing.md`](collectors/docs/testing.md#smoke-row-diff)).
-
-A change to the sh collector or to the sh smoke test's fixtures is measured
-against the fork budget ([Readability](#readability)); its reviewer reads
-the job's class table against `main` for a class that grew, the way a table
-change reads the smoke-row diff
-([Fork budget in `collectors/docs/testing.md`](collectors/docs/testing.md#fork-budget)).
-
-On Debian and Ubuntu `/usr/bin/ash` is dash, so test busybox with the
-wrapper above. CI installs `busybox-static`, whose `ash` runs busybox's own
-applets before anything on `PATH`, so a test that forces a code path with a
-`PATH` shim needs the static build: `apt-get download busybox-static &&
-dpkg-deb -x busybox-static_*.deb bbs` in the scratchpad, then point the
-wrapper at `bbs/usr/bin/busybox`.
-
-Then run a live collection against your own host and read the summary:
+After a catalog change, run a live collection against your own host, into a
+scratch directory, and read the summary:
 
 ```sh
-collectors/collect-agent-artifacts.sh -o /tmp/live -q
-powershell.exe -ExecutionPolicy Bypass -File collectors\Collect-AgentArtifacts.ps1 -OutputDir $env:TEMP\live -Quiet
+doubleagent collect -o "$SCRATCH/live" -q
 ```
 
 Check the error count, the `skipped_excluded` rows for anything new and
@@ -1924,9 +1840,6 @@ large, and that the manifest parses as JSONL. List the `collected` rows not
 `secret: true` whose file name contains `key`, `token`, `secret`, `cred`,
 `cookie` or `auth`, and account for each: not a credential (say why in the
 research document) or a new secret glob. Delete the output afterwards.
-
-The test uses `python3` only for JSON validation and the hash cross-check,
-skipped without it. Never add a `python3` requirement to the collector.
 
 ### Waiting for long-running checks
 
@@ -1960,11 +1873,11 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 ### Quality gates
 
-Every gate runs in CI, never in the pre-commit hook: the site build in the
-`site` job on the Python the Pages workflow uses, the Go gates in the `go`
-job, the others in the `lint` job. The versions are pinned in the
-workflow's `env` block; change it and this table together. The PSScriptAnalyzer and fork budget rows are not run on the
-rewrite branch, whose scripts are frozen. Run the
+Every gate but PSScriptAnalyzer runs in CI: the site build in the `site`
+job on the Python the Pages workflow uses, the Go gates in the `go` job,
+the others in the `lint` job. The versions are pinned in the workflow's
+`env` block; change it and this table together. PSScriptAnalyzer, for the
+lab's Windows guest scripts, is run by hand. Run the
 commands from the repository root before pushing; a documentation-only
 change needs markdownlint, the site build and the rows from document links
 down.
@@ -1979,20 +1892,18 @@ down.
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
-| PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
+| PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `lab/round/PSScriptAnalyzerSettings.psd1` |
 | gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `go test -race ./...`, each with `GOFLAGS=-tags=noasm,nounsafe` exported | none |
 | staticcheck | 0.8.2 | `GOFLAGS=-tags=noasm,nounsafe go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
 | govulncheck | 1.9.0 | `GOFLAGS=-tags=noasm,nounsafe go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |
 | reproducible build | the toolchain `go.mod` pins | `sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2` | none; see [Go standards](#go-standards) |
-| fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
 | code style | none | `python3 tools/check_code_style.py` | none; it reads `.go` files as well as Python, sh and PowerShell; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
 | tables against research | none | `python3 tools/check_tables_research.py` | the baseline under `tools/drift-baseline/` |
-| smoke test coverage | none | `python3 tools/check_smoke_coverage.py` | the baseline under `tools/drift-baseline/` |
 
 - The drift checkers (research document structure and the rows below it)
-  compare the research documents with the tables and the smoke tests. A
+  compare the research documents with the tables. A
   finding missing from
   `tools/drift-baseline/<agent>.txt` fails, and so does a baseline line no
   finding produces, so an agent's file empties as the agent is rebuilt
@@ -2002,25 +1913,20 @@ down.
 - Every checker skips `vendor/`: the vendored Go modules are third-party
   source, audited as a dependency ([Go standards](#go-standards)), never held
   to this project's style, links or pages.
-- `shfmt -f .` finds sh files by shebang as well as extension, so the hook
-  script and `lab/lab.sh` are checked too.
+- `shfmt -f .` finds sh files by shebang as well as extension, so
+  `lab/lab.sh` is checked too.
 - pyright runs with pytest installed, which a checker's test imports.
 - shellcheck, shfmt and checkbashisms are not on PyPI or npm: install the
   release binaries (CI checks their sha256), and checkbashisms as the
   single `scripts/checkbashisms.pl` from the devscripts tag or
   `apt install devscripts`. PSScriptAnalyzer installs with
-  `pwsh -NoProfile -Command 'Install-Module PSScriptAnalyzer -Scope CurrentUser -RequiredVersion 1.25.0 -Force'`;
-  CI instead downloads the same nupkg from the
+  `pwsh -NoProfile -Command 'Install-Module PSScriptAnalyzer -Scope CurrentUser -RequiredVersion 1.25.0 -Force'`,
+  or from the nupkg of the
   [PSScriptAnalyzer release](https://github.com/PowerShell/PSScriptAnalyzer/releases)
-  on GitHub, checks its sha256 and unzips it into the user module path,
-  because the Gallery's v2 API fails intermittently and `Install-Module`
-  does not retry.
+  on GitHub, unzipped into the user module path, when the Gallery's v2 API
+  fails, which it does intermittently.
 - The one `ruff format` commit is listed in `.git-blame-ignore-revs`;
   enable it with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
-- The pre-commit hook (`.githooks/pre-commit`, enabled once per clone with
-  `git config core.hooksPath .githooks`) holds only fast operations, today
-  the catalog drift check; linters, tests and network queries belong in CI
-  or the release checklist.
 
 ## Conventions
 
