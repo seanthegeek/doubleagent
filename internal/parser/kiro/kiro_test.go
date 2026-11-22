@@ -9,9 +9,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The rows of every file are proved against the recorded cases by the
-// parser replay (internal/parity/replay); these tests cover the salvage of
-// a damaged conversation, the history escapes and the result text.
+// The rows of every file are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the salvage of a damaged conversation, the history
+// escapes and the result text.
 
 func TestSalvageKeepsTheEntriesBeforeTheDamage(t *testing.T) {
 	tests := []struct {

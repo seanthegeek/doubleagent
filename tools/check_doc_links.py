@@ -109,10 +109,10 @@ CITATION = re.compile(
     % (_GAP, _GAP, _GAP, _GAP),
     re.I,
 )
-# Where citations are looked for, and the comparison harnesses, which hold the lists that
-# defined the numbers and are left out until they are removed.
+# Where citations are looked for, and the comparison harness, which holds the list that
+# defined the numbers and is left out until it is removed.
 CITING_DIRS = ("cmd/", "internal/")
-CITATION_EXEMPT_DIRS = ("internal/collect/parity/", "internal/parity/replay/")
+CITATION_EXEMPT_DIRS = ("internal/collect/parity/",)
 
 
 def strip_fences(text: str) -> str:

@@ -11,9 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// The rows of every store are proved against the recorded cases by the
-// parser replay (internal/parity/replay), over the recorded fixture
-// databases; these tests cover the helpers.
+// The rows of every store are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers.
 
 // thread is the JSON every frame below holds.
 const threadJSON = `{"version":"0.3.0","messages":[]}`

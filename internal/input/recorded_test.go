@@ -186,8 +186,8 @@ func TestOpenGivesTheRecordedDumpOfEachCase(t *testing.T) {
 // tar, a bzip2 tar and a zip; the fixture home as a tree of homes, as one
 // home, as its agent directories and as a gzip tar; and the fixture disk
 // image. Each path is relative to the directory the fixtures are unpacked
-// in. The archives are built by testdata/make_inputs.py, and image.tar.gz
-// holds the disk image directory it writes.
+// in, and image.tar.gz holds the disk image directory. The archives are
+// fixed fixtures: no script in the tree builds them again.
 func fixtureInputs() [][2]string {
 	inputs := [][2]string{
 		{"example collection", "example/wsdev14"},

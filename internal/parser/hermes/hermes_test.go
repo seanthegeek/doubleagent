@@ -10,9 +10,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// The rows of every store are proved against the recorded cases by the
-// parser replay (internal/parity/replay); these tests cover the helpers
-// that decide a row's fields, and the YAML and cron readers.
+// The rows of every store are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers that decide a row's fields, and the YAML and
+// cron readers.
 
 func TestYAMLScalarsReadOnlyOneLineStrings(t *testing.T) {
 	tests := []struct {

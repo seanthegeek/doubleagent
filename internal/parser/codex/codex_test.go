@@ -12,9 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// The rows of every store are proved by the parser replay
-// (internal/parity/replay) over the recorded fixtures. These tests cover
-// the helpers on their own.
+// The rows of every store are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent.
+// These tests cover the helpers on their own.
 
 func TestWantsAndSecondaryFollowTheAgentsHome(t *testing.T) {
 	codex := New()

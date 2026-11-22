@@ -101,9 +101,9 @@ jobs:
           printf '%s\n' "$categories" >> "$GITHUB_OUTPUT"
           printf '%s\nchanged files:\n%s\n' "$categories" "$changed"
 
-  # Compares the tables of both collectors and the analyzer's copy.
+  # Compares the tables of both collectors and the binary's embedded copy.
   catalog-sync:
-    name: Catalog tables in sync (sh, PowerShell, analyzer copy)
+    name: Catalog tables in sync (sh, PowerShell, embedded copy)
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.catalog == 'true'
@@ -111,56 +111,6 @@ jobs:
       - uses: actions/checkout@v7
       - name: Drift test
         run: collectors/tests/catalog-sync.sh
-      - name: Regenerated copy matches the committed one
-        run: |
-          collectors/collect-agent-artifacts.sh --list > /tmp/catalog.txt
-          if ! cmp -s /tmp/catalog.txt analyzer/doubleagent/catalog.txt; then
-            echo "analyzer/doubleagent/catalog.txt is stale. Run:"
-            echo "  collectors/collect-agent-artifacts.sh --list > analyzer/doubleagent/catalog.txt"
-            diff /tmp/catalog.txt analyzer/doubleagent/catalog.txt || true
-            exit 1
-          fi
-
-  # One job per shell so the smoke runs, several minutes each, run in
-  # parallel. `shell` is the argument to smoke.sh; `wrapper` is the body of
-  # a wrapper script for shells that need flags or a multi-call binary.
-  analyzer:
-    name: Analyzer tests
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
-    strategy:
-      matrix:
-        python: ["3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Install analyzer dependencies
-        run: pip install -r analyzer/requirements-dev.txt
-      - name: pytest
-        run: analyzer/tests/run.sh
-      # Branch coverage of the parser lines the change touched, on one Python
-      # version, since the suite runs again under coverage.py. The checkout is
-      # shallow, so the history down to the merge base and the base branch
-      # are fetched first; a checkout with full history skips the unshallow.
-      - name: branch coverage of the changed parser lines
-        if: matrix.python == '3.14'
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: |
-          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then git fetch --no-tags --unshallow origin; fi
-          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          python3 tools/check_branch_coverage.py --base "origin/$BASE_REF"
-      # The drift checkers' tests; tools/tests/conftest.py puts tools/ on
-      # the import path, so they run from the repository root.
-      - name: pytest (drift checkers)
-        run: python3 -m pytest tools/tests -q
-      # The round pipeline's host-side tools; lab/round/tests/conftest.py
-      # puts lab/round/ on the import path.
-      - name: pytest (round pipeline)
-        run: python3 -m pytest lab/round/tests -q
 
   # The Go binary's gates, tests and release build, on the three runners whose
   # tools the parity harness needs (dash with the GNU and BSD userlands, and
@@ -270,99 +220,23 @@ jobs:
           PARITY_LIVE: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: go test -count=1 -timeout 90m -tags parity,noasm,nounsafe ./...
 
-  # The replay corpus: the Python analyzer's test suite runs once with the
-  # recorder plugin (analyzer/tests/recorder), which saves every parser, input
-  # and command call with its input files and its output. The suite must run
-  # in one process, so -n 0 turns pytest-xdist off.
-  record:
-    name: Record the analyzer corpus
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.python == 'true'
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - name: Install analyzer dependencies
-        run: pip install -r analyzer/requirements-dev.txt
-      - name: Record the corpus
-        working-directory: analyzer
-        env:
-          PARITY_CORPUS: ${{ runner.temp }}/corpus
-        run: python3 -m pytest -q -n 0 -p no:cacheprovider -p recorder.plugin
-      - name: Pack the corpus
-        run: tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/corpus.tar.gz" corpus
-      - uses: actions/upload-artifact@v7
-        with:
-          name: analyzer-corpus
-          path: ${{ runner.temp }}/corpus.tar.gz
-          retention-days: 3
-          compression-level: 0
-          if-no-files-found: error
-
-  # The replay: the recorded cases run through the binary's own code and are
-  # compared with what Python produced (internal/parity/replay). The parser
-  # cases run on the three runners. The command cases run on Linux and macOS
-  # only, because the recordings print POSIX paths, so the check that every
-  # documented difference is used is skipped on Windows.
-  replay:
-    name: Replay the analyzer corpus on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    needs: [changes, record]
-    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.python == 'true'
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        # A unit branch is checked on Linux alone; its integration branch
-        # and every pull request run all three platforms.
-        os: ${{ fromJSON(github.event_name == 'push' && startsWith(github.ref_name, 'unit-') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
-    defaults:
-      run:
-        shell: bash
-    env:
-      CGO_ENABLED: "0"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - uses: actions/download-artifact@v8
-        with:
-          name: analyzer-corpus
-          path: ${{ runner.temp }}
-      # The archive is named without its directory: the tar of Git Bash on
-      # the Windows runner reads a drive letter's colon as a remote host.
-      - name: Unpack the corpus
-        working-directory: ${{ runner.temp }}
-        run: tar -xzf corpus.tar.gz
-      - name: go test (replay)
-        env:
-          PARITY_CORPUS: ${{ runner.temp }}/corpus
-        run: go test -count=1 -timeout 50m -tags parity,noasm,nounsafe ./internal/parity/replay/...
-
   lint:
-    name: Lint (ruff, pyright, markdownlint, sh linters)
+    name: Lint (ruff, pyright, Python tests, markdownlint, sh linters)
     runs-on: ubuntu-latest
     needs: changes
     steps:
       - uses: actions/checkout@v7
-      # The analyzer's dependencies are installed on every change: a research
-      # document edit alone can create drift, and the fixture schema checker
-      # imports the analyzer's test fixtures.
+      # The oldest Python the checkers and the round pipeline's tools support.
+      # The checkers below need only the standard library; pytest runs the
+      # tests of the checkers and of the round pipeline, and pyright resolves
+      # the pytest import of a checker's test.
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      # The test requirements too: pyright resolves the pytest import of the
-      # corpus recorder under analyzer/tests/recorder.
-      - name: Install analyzer dependencies
-        run: pip install -r analyzer/requirements-dev.txt
       # Each linter below runs when a file of its language changed.
-      - name: Install Python linters
-        if: needs.changes.outputs.python == 'true'
-        run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION"
+      - name: Install Python linters and pytest
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
+        run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION" pytest
       - name: ruff check
         if: needs.changes.outputs.python == 'true'
         run: ruff check .
@@ -372,24 +246,31 @@ jobs:
       - name: pyright (Python 3.11)
         if: needs.changes.outputs.python == 'true'
         run: pyright
+      # The drift checkers' tests, which also run the glob check of
+      # collectors/tests/catalog-sync.sh; tools/tests/conftest.py puts tools/
+      # on the import path, so they run from the repository root.
+      - name: pytest (drift checkers)
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
+        run: python3 -m pytest tools/tests -q
+      # The round pipeline's host-side tools; lab/round/tests/conftest.py
+      # puts lab/round/ on the import path.
+      - name: pytest (round pipeline)
+        if: needs.changes.outputs.python == 'true'
+        run: python3 -m pytest lab/round/tests -q
       - name: markdownlint
         run: npx -y "markdownlint-cli2@$MARKDOWNLINT_CLI2_VERSION" "**/*.md"
       - name: document links
         run: python3 tools/check_doc_links.py
       - name: research document structure
         run: python3 tools/check_research_structure.py
-      # The drift checkers compare the research documents with the tables,
-      # the smoke tests, the parsers and the fixtures, each against its
-      # baseline under tools/drift-baseline/; the structure step above also
-      # runs the baselined convention rules.
+      # The drift checkers compare the research documents with the tables
+      # and the smoke tests, each against its baseline under
+      # tools/drift-baseline/; the structure step above also runs the
+      # baselined convention rules.
       - name: drift, tables against research
         run: python3 tools/check_tables_research.py
       - name: drift, smoke test coverage
         run: python3 tools/check_smoke_coverage.py
-      - name: drift, parsers against research
-        run: python3 tools/check_parser_research.py
-      - name: drift, fixtures against research
-        run: python tools/check_fixture_schema.py
       - name: code style
         run: python3 tools/check_code_style.py
       - name: Install sh linters
@@ -417,9 +298,9 @@ jobs:
         run: checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
 
   # The one status check the ruleset on main requires. A matrix job that
-  # the classification skips reports under its unexpanded name ("Analyzer
-  # tests", not "Analyzer tests (3.11)"), so a pull request that skips
-  # it can never satisfy a list of per-job required checks. This job
+  # the classification skips reports under its unexpanded name, not once
+  # per runner, so a pull request that skips it can never satisfy a list of
+  # per-job required checks. This job
   # depends on every other job, runs whatever they did, and fails when any
   # of them failed or was cancelled; a skipped job counts as passed.
   site:
@@ -429,7 +310,7 @@ jobs:
     # The site is built strict on every change, as the Pages workflow builds
     # it after a merge, so a page missing from the nav tree or a broken site
     # link fails the pull request instead of the publish. Its own job, on the
-    # Python the Pages workflow uses: the lint job runs on the analyzer's
+    # Python the Pages workflow uses: the lint job runs on the checkers'
     # minimum Python, which the theme may stop supporting first.
     steps:
       - uses: actions/checkout@v7
@@ -450,11 +331,8 @@ jobs:
       - base-branch
       - changes
       - catalog-sync
-      - analyzer
       - go
       - go-parity
-      - record
-      - replay
       - lint
       - site
     steps:

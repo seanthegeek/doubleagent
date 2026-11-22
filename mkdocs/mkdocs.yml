@@ -19,9 +19,9 @@ repo_url: https://github.com/seanthegeek/doubleagent
 repo_name: seanthegeek/doubleagent
 edit_uri: ""
 docs_dir: ..
-# foo.md becomes foo.html, the URLs the site has always had (and that
-# analyzer/pyproject.toml links to); hooks.py keeps README.md as README.html
-# and makes docs/index.md the home page, index.html at the root.
+# foo.md becomes foo.html, the URLs the site has always had; hooks.py keeps
+# README.md as README.html and makes docs/index.md the home page, index.html
+# at the root.
 use_directory_urls: false
 
 # Only the Markdown documents are pages; nothing else in the repository is
@@ -41,11 +41,6 @@ exclude_docs: |
   /SECURITY.md
   /CLAUDE.md
   /mkdocs/**
-  /analyzer/doubleagent/**
-  /analyzer/tests/**
-  /analyzer/tools/**
-  /analyzer/build/**
-  /analyzer/dist/**
   /collectors/tests/**
   /tools/**
   /vendor/**

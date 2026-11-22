@@ -1,8 +1,8 @@
 """Write the zstd frames under frames/ and the table frames.txt that describes them.
 
-Run from the repository root with the analyzer's interpreter:
+Run from the repository root with a python3 that has the zstandard package:
 
-    analyzer/.venv/bin/python -I internal/zstdframe/testdata/gen_frames.py
+    python3 -I internal/zstdframe/testdata/gen_frames.py
 
 Each line of frames.txt is `name<TAB>sha256 of the decoded bytes<TAB>decoded size<TAB>shape`.
 """

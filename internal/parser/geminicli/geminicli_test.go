@@ -12,8 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved by the parser replay
-// (internal/parity/replay); these tests cover the helpers on their own.
+// The rows each file gives are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers on their own.
 
 func TestTheHistoryObjectStartTakesJSONWhitespaceOnly(t *testing.T) {
 	if !historyObjectPattern.MatchString(" \r\n{\t\"history\" : ") {

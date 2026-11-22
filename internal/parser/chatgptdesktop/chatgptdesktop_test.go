@@ -12,9 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The conversation rows themselves are proved against the recorded cases
-// by the parser replay (internal/parity/replay), over the recorded fixture
-// databases; these tests cover what needs no database built by SQLite.
+// The conversation rows themselves are checked by the golden output of the
+// analysis commands (internal/analyze), over inputs that hold every parsed
+// agent; these tests cover what needs no database built by SQLite.
 
 func TestWantsOnlyTheAppDatabaseAtTheHome(t *testing.T) {
 	tests := []struct {

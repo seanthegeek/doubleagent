@@ -8,9 +8,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of every store are proved against the recorded cases by the
-// parser replay (internal/parity/replay); these tests cover the helpers
-// that read a field's own format.
+// The rows of every store are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers that read a field's own format.
 
 func TestTagTimeReadsTheTranscriptsTimeTag(t *testing.T) {
 	for _, test := range []struct{ tag, want string }{

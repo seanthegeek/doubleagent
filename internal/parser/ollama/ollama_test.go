@@ -12,10 +12,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of the database, the history and the settings files are proved
-// against the recorded cases by the parser replay (internal/parity/replay);
-// these tests cover the file routing and the helpers that decide a row's
-// text.
+// The rows of the database, the history and the settings files are checked
+// by the golden output of the analysis commands (internal/analyze), over
+// inputs that hold every parsed agent; these tests cover the file routing
+// and the helpers that decide a row's text.
 
 func TestWantsOnlyTheFilesOllamaWrites(t *testing.T) {
 	tests := []struct {

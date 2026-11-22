@@ -12,9 +12,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of the logs, the history and trust.json are proved by the parser
-// replay (internal/parity/replay) over the recorded fixtures; these tests
-// cover the helpers the rows are built from.
+// The rows of the logs, the history and trust.json are checked by the golden
+// output of the analysis commands (internal/analyze), over inputs that hold
+// every parsed agent; these tests cover the helpers the rows are built from.
 
 // decoded returns the value of JSON text.
 func decoded(t *testing.T, text string) jsonvalue.Value {

@@ -1,8 +1,8 @@
 """Build the openclaw package's test databases.
 
-Run it with the analyzer's interpreter, which has zstandard, from any directory:
+Run it with a python3 that has the zstandard package, from any directory:
 
-    analyzer/.venv/bin/python -I internal/parser/openclaw/testdata/fixtures.py
+    python3 -I internal/parser/openclaw/testdata/fixtures.py
 
 Each database below is an openclaw-agent.sqlite written by SQLite itself, so the Go tests read
 files SQLite wrote. The cold archive tables have the agent's own schema. Pages are 512 bytes to

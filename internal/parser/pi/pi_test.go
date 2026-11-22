@@ -18,10 +18,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of every file kind are proved by the parser replay
-// (internal/parity/replay) over the recorded fixtures; these tests cover the
-// helpers the rows are built from, the ones other parsers share, and the
-// bounds of the readers of evidence.
+// The rows of every file kind are checked by the golden output of the
+// analysis commands (internal/analyze), over inputs that hold every parsed
+// agent; these tests cover the helpers the rows are built from, the ones
+// other parsers share, and the bounds of the readers of evidence.
 
 // decoded returns JSON text decoded, failing the test on an error.
 func decoded(t testing.TB, text string) jsonvalue.Value {

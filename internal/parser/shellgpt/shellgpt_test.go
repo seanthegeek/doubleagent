@@ -9,9 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows of the chat, settings and cache files are proved by the parser
-// replay (internal/parity/replay) over the recorded fixtures; these tests
-// cover the helpers the rows are built from.
+// The rows of the chat, settings and cache files are checked by the golden
+// output of the analysis commands (internal/analyze), over inputs that hold
+// every parsed agent; these tests cover the helpers the rows are built from.
 
 func TestLoadMessagesKeepsWhatSurvivesATruncation(t *testing.T) {
 	tests := []struct {
