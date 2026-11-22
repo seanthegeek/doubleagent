@@ -360,9 +360,9 @@ checkers, `make check` and the catalog coverage test.
   researchers report every other agent whose state directory their tool
   reads or writes.
 - Entries differing only by case (`.config/PearAI` and `.config/pearai`)
-  collect one directory twice on a case-insensitive file system: add both
-  only when distinct on Linux, and make their fixture test attribution, not
-  count.
+  name one directory on a case-insensitive file system, which is collected
+  once: add both only when distinct on Linux, and make their fixture test
+  attribution, not count.
 - The integration agent derives the number of agents from the documents in
   the tree, not the brief, and says when they differ.
 - Chat history outside the home cannot be a catalog line: record it in
