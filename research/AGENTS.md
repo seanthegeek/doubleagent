@@ -14,9 +14,10 @@ real install follows [`lab/AGENTS.md`](../lab/AGENTS.md).
 Repeat this process when a tool is added or its layout may have changed,
 before any install.
 
-1. **Group the tools and fan out.** One researcher per platform group, in
-   parallel. Forks of one codebase share a group (Cline with Roo Code and
-   Kilo Code); closed-source tools get their own groups.
+1. **Fan out, one research subagent per tool.** The tools are researched
+   in parallel, one subagent each, forks of one codebase included (Cline,
+   Roo Code and Kilo Code are three), whose documents then link each other
+   (step 5).
 2. **Give each researcher the same brief:** the tool's current catalog
    lines (from `doubleagent catalog`), the repository to shallow-clone into
    the scratchpad, the grep terms, and the instruction to cite file and line
@@ -123,13 +124,13 @@ before any install.
      vendor's comment block (or a new one), never at the end, writing each
      line from the document's Collection sections, never from a report's
      Proposed lines.
-   - It splits each group report into one document per catalog agent,
+   - It splits each tool's report into one document per catalog agent,
      named exactly as in the catalog, keeping citations and fixtures and
      dropping the proposed lines. Every agent with a catalog line gets its
      own document; [`research/frameworks.md`](frameworks.md) keeps only the
      sweep's summary table and the evidence for what got no line. Agents
-     sharing a lineage each say so and link the other. Grouped reports are
-     never committed.
+     sharing a lineage each say so and link the other. The reports
+     themselves are never committed.
    - The research README index lists every document, alphabetically by
      agent name, and holds the cross-agent observations.
    - It then makes the table, discovery and fixture changes of
@@ -153,14 +154,15 @@ the outline below, with the same heading names (they are the anchors), and
 puts unique subsections under the section owning the fact.
 
 A document covers one catalog agent, and a catalog agent is one state
-directory. A surface (one form the product ships in) is its own catalog
-agent and document when the catalog can attribute its state directory on
+directory. A surface, as
+[Real-install rounds](../lab/AGENTS.md#real-install-rounds) defines it and
+a cell, is its own catalog agent and document when the catalog can attribute its state directory on
 its own, at most through a nested entry (`copilot-cli`, `copilot-desktop`
 and `copilot` are three). Surfaces writing one shared tree (the Cursor IDE
 and its embedded agent CLI) are one agent and one document, with a `####`
 subsection per surface under Per-user storage and under Transcript stores,
-which says which surface writes each store, and one Observed bullet per cell
-(one surface on one platform). A surface is never split out to shorten a
+which says which surface writes each store, and one Observed bullet per
+cell. A surface is never split out to shorten a
 document nor merged in to save a catalog line.
 
 `tools/check_research_structure.py` enforces the outline, the split phrases
