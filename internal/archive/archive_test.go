@@ -315,7 +315,7 @@ func TestAStopRequestEndsTheArchiveAtItsNextCheckAndLeavesNoFile(t *testing.T) {
 	}
 }
 
-func TestWriteTarGzHashesTheBytesItWroteAndNamesItsFile(t *testing.T) {
+func TestWriteTarGzHashesTheBytesItWrote(t *testing.T) {
 	stage, _ := buildStage(t)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "run.tar.gz")
@@ -330,6 +330,20 @@ func TestWriteTarGzHashesTheBytesItWroteAndNamesItsFile(t *testing.T) {
 	sum := sha256.Sum256(data)
 	if written.SHA256 != hex.EncodeToString(sum[:]) || written.Size != int64(len(data)) {
 		t.Errorf("Written = %s, %d; the file's are %x, %d", written.SHA256, written.Size, sum, len(data))
+	}
+}
+
+func TestStillNamesKnowsOnlyTheFileWritten(t *testing.T) {
+	stage, _ := buildStage(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "run.tar.gz")
+	written, err := WriteTarGz(context.Background(), stage, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if err := StillNames(path, written.File); err != nil {
 		t.Errorf("StillNames of the file just written = %v, want nil", err)
