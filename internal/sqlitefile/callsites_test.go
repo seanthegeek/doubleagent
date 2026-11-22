@@ -126,7 +126,7 @@ func cursorSubstrSite(database *Database) ([][]Value, bool, error) {
 // zedJoinSite is the Zed parser's query: select a.rowid, a.*, t.thread_id from
 // archived_git_worktrees a left join thread_archived_worktrees t on
 // t.archived_worktree_id = a.id order by a.id, with one worktree's links
-// ordered by thread id (difference 55).
+// ordered by thread id (difference 105).
 func zedJoinSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "archived_git_worktrees", "thread_archived_worktrees")
 	if !ok || err != nil {

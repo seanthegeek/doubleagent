@@ -14,7 +14,12 @@ that:
   and no link text is a URL; a decimal word after `@` is a byte offset, not a hash;
 - outside AGENTS.md, CLAUDE.md and the research documents, a term of art in `TERMS` is
   introduced (by a heading, a linked first use or a parenthesised gloss) before it is used;
-- AGENTS.md and CLAUDE.md link none of this repository's issues or pull requests.
+- AGENTS.md and CLAUDE.md link none of this repository's issues or pull requests;
+- with no FILE arguments, every exception or difference number a file under `cmd/` or
+  `internal/` cites (`exception 47`, `differences 102, 230 and 260`) has its heading on
+  docs/differences-from-the-scripts.md, `### Exception 47` or `### Difference 102`, and that
+  page gives no number two headings. The two comparison harnesses, whose own lists define
+  the numbers until they are removed, are not read.
 
 Fenced code blocks and inline code spans are ignored before matching. The documentation site
 (mkdocs/hooks.py) gives every heading the anchor `heading_anchors()` returns, so a link this
@@ -92,6 +97,22 @@ NO_PROVENANCE_FILES = ("AGENTS.md", "CLAUDE.md")
 PROVENANCE_LINK = re.compile(
     r"^<?https?://github\.com/seanthegeek/doubleagent/(?:issues|pull)/\d+", re.I
 )
+# The page that defines every numbered exception of collect and difference of the
+# analysis commands, one heading per number, and the form of that heading.
+DIFFERENCES_PAGE = "docs/differences-from-the-scripts.md"
+DEFINITION = re.compile(r"^###[ \t]+(Exception|Difference)[ \t]+([0-9]+)[ \t]*$", re.M)
+# A citation of one or more numbers in code: "exception 47", "differences 102, 230 and
+# 260", "difference 180 to 229"; a comment may break the line before a number.
+_GAP = r"(?:[ \t]+|[ \t]*\n[ \t]*(?://|#)?[ \t]*)"
+CITATION = re.compile(
+    r"\b(exception|difference)s?%s([0-9]+(?:(?:[ \t]*,(?:%s(?:and|or|to))?|%s(?:and|or|to))%s[0-9]+)*)\b"
+    % (_GAP, _GAP, _GAP, _GAP),
+    re.I,
+)
+# Where citations are looked for, and the comparison harnesses, which hold the lists that
+# defined the numbers and are left out until they are removed.
+CITING_DIRS = ("cmd/", "internal/")
+CITATION_EXEMPT_DIRS = ("internal/collect/parity/", "internal/parity/replay/")
 
 
 def strip_fences(text: str) -> str:
@@ -226,6 +247,78 @@ def check_target(
     return None
 
 
+def defined_numbers(page: str) -> tuple[dict[tuple[str, int], int], list[tuple[int, str]]]:
+    """Return the numbers the differences page defines, and its repeated definitions.
+
+    The first value maps each (kind, number), the kind `exception` or `difference`, to the
+    line of its heading. The second lists the line and message of each heading that gives a
+    number a second time, under either kind.
+    """
+    defined: dict[tuple[str, int], int] = {}
+    first_line: dict[int, int] = {}
+    repeated: list[tuple[int, str]] = []
+    for match in DEFINITION.finditer(strip_fences(page)):
+        line, number = line_of(page, match.start()), int(match.group(2))
+        if number in first_line:
+            repeated.append(
+                (
+                    line,
+                    "number %d is defined twice (first at line %d)" % (number, first_line[number]),
+                )
+            )
+            continue
+        first_line[number] = line
+        defined[(match.group(1).lower(), number)] = line
+    return defined, repeated
+
+
+def citation_problems(page: str, sources: list[tuple[str, str]]) -> list[str]:
+    """Return a message for each number `sources` cite that `page` does not define.
+
+    `page` is the differences page's text and `sources` holds (path, text) pairs. A
+    citation names its kind, so `difference 55` needs `### Difference 55`. The page's own
+    repeated definitions are reported too.
+    """
+    defined, repeated = defined_numbers(page)
+    problems = ["%s:%d: %s" % (DIFFERENCES_PAGE, line, message) for line, message in repeated]
+    for path, text in sources:
+        for match in CITATION.finditer(text):
+            kind = match.group(1).lower()
+            for number in re.findall(r"[0-9]+", match.group(2)):
+                if (kind, int(number)) not in defined:
+                    problems.append(
+                        "%s:%d: %s %s is not defined on %s"
+                        % (path, line_of(text, match.start()), kind, number, DIFFERENCES_PAGE)
+                    )
+    return problems
+
+
+def cites_numbers(path: str) -> bool:
+    """Report whether `path`, relative to the root, is a file whose citations are checked."""
+    return path.startswith(CITING_DIRS) and not path.startswith(CITATION_EXEMPT_DIRS)
+
+
+def citing_sources() -> list[tuple[str, str]]:
+    """Return the path and text of each tracked or unignored text file that may cite numbers."""
+    command = ["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard"]
+    out = subprocess.run(
+        [*command, "-z", "--", *CITING_DIRS],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    sources = []
+    for path in sorted(set(out.split("\0"))):
+        if not path or not cites_numbers(path) or not (ROOT / path).is_file():
+            continue
+        data = (ROOT / path).read_bytes()
+        # A binary fixture (a database, an archive) holds no comment or test name.
+        if b"\0" in data:
+            continue
+        sources.append((path, data.decode("utf-8", errors="replace")))
+    return sources
+
+
 def display(path: pathlib.Path) -> str:
     """Return `path` relative to the repository root when it is inside it."""
     try:
@@ -351,6 +444,11 @@ def main() -> int:
             for offset, problem in term_problems(blank(text, unseen), link_text):
                 print("%s:%d: %s" % (rel, line_of(text, offset), problem))
                 bad += 1
+    if not args.files:
+        page = (ROOT / DIFFERENCES_PAGE).read_text(encoding="utf-8")
+        for problem in citation_problems(page, citing_sources()):
+            print(problem)
+            bad += 1
     if bad:
         print("%d problems in %d links checked in %d files" % (bad, links, len(files)))
         return 1

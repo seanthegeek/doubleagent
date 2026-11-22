@@ -101,8 +101,10 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                Markdown documents, that section and external
                                references are links, that a reader page
                                introduces this file's terms of art before using them,
-                               and that this file and CLAUDE.md link no issue or pull
-                               request
+                               that this file and CLAUDE.md link no issue or pull
+                               request, and that every exception or difference number
+                               cited under cmd/ and internal/ has its one heading on
+                               docs/differences-from-the-scripts.md
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
                                every Python, sh, PowerShell and Go file against "Code style"
 tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
