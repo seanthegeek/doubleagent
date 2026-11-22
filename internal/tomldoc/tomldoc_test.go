@@ -166,9 +166,23 @@ func TestAccessorsReadValues(t *testing.T) {
 	}
 }
 
+// seedDocuments returns the table's documents and generated ones, the
+// seeds of the fuzz targets.
+func seedDocuments(t testing.TB) []string {
+	texts := generatedDocuments(500)
+	for _, test := range loadDocuments(t) {
+		texts = append(texts, test.text)
+	}
+	return texts
+}
+
+// FuzzParse fails when Parse panics, or accepts a document and returns
+// values other than the reader's own map of it (differenceFromReader). It
+// does not show that a document Parse refuses is invalid: nothing in the
+// repository is an oracle for that, and a refusal is not checked.
 func FuzzParse(fuzzer *testing.F) {
-	for _, test := range loadDocuments(fuzzer) {
-		fuzzer.Add(test.text)
+	for _, text := range seedDocuments(fuzzer) {
+		fuzzer.Add(text)
 	}
 	for _, text := range []string{nestedArray(maxDepth), nestedInline(maxDepth),
 		"[" + dottedKey(maxDepth+1) + "]\n", nestedArray(100000)} {
@@ -181,6 +195,10 @@ func FuzzParse(fuzzer *testing.F) {
 		}
 		for _, entry := range table.Entries() {
 			SettingText(entry.Value)
+		}
+		difference := differenceFromReader(Value{kind: KindTable, table: table}, readerMap(t, text), "")
+		if difference != "" {
+			t.Fatal(difference)
 		}
 	})
 }

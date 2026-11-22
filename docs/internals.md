@@ -651,7 +651,7 @@ The tests that hold parsers to this are named in
 | Package | What it owns |
 | --- | --- |
 | `internal/jsonvalue` | A JSON document as an ordered value: keys in document order, numbers as their source text, at most 10,000 levels deep without recursion; the member names an object repeats; `IsEmpty` and `Equal`. |
-| `internal/tomldoc` | A TOML 1.0 document with its tables and keys in document order, over `github.com/BurntSushi/toml`. |
+| `internal/tomldoc` | A TOML 1.1 document with its tables and keys in document order where the module's key list gives it, over `github.com/BurntSushi/toml`. |
 | `internal/sqlitefile` | SQLite files read without SQL and without writing, with their `-wal` and `-journal` sidecars. |
 | `internal/vscodestate` | Extension global state in a VS Code family `state.vscdb`, never its `secret://` rows. |
 | `internal/protowire` | Protocol buffer messages from hand-written schemas of the fields a parser reads. |
@@ -716,7 +716,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/walk` | `filepath.WalkDir`, `os.ReadDir` | Directory order rather than name order, and the root check before each directory. |
 | `internal/evidencepath` | `path/filepath` | The rules of the machine that wrote the evidence, not of the host. |
 | `internal/jsonvalue` | `encoding/json` into `any` | Key order and number text kept. |
-| `internal/tomldoc` | `toml.Decode` into a map | Key order kept. |
+| `internal/tomldoc` | `toml.Decode` into a map | Key order kept, and the TOML 1.1 rules on defining a key or table and on a date-time offset's range checked, which the module lets some documents break. |
 | `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
 | `internal/protowire` | `google.golang.org/protobuf` | No generated code for unpublished schemas; a damaged field costs only itself. |
 | `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |

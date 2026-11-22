@@ -69,7 +69,7 @@ packages.
   | Module | Version | Why |
   | --- | --- | --- |
   | `golang.org/x/sys` | v0.50.0 | System calls the standard library does not expose: birth times (`Statx` on Linux, `Lstat` on macOS), `Uname`, and on Windows handles opened without following a reparse point, reparse tags, file owners, final paths, directory symlinks, file times set on a handle and the registry; pure Go. |
-  | `github.com/BurntSushi/toml` | v1.5.0 | TOML 1.0 documents with their tables' keys in document order, which `internal/tomldoc` builds on; v1.6.0 reads TOML 1.1 and is not used; pure Go with no dependencies. |
+  | `github.com/BurntSushi/toml` | v1.6.0 | TOML 1.1 documents with their tables' keys in document order, which `internal/tomldoc` builds on; it has no setting that limits it to TOML 1.0; pure Go with no dependencies. |
   | `github.com/klauspost/compress` | v1.20.4 | zstd decoding (only its `zstd` package and the packages beneath it), which the standard library offers only as `internal/zstd`; no cgo and no requirements, but assembly on `amd64` and `arm64` and `unsafe` memory reads that the `noasm` and `nounsafe` tags leave out, so neither is linked. `internal/zstdframe` runs it in the calling goroutine with a 128 MiB window limit. |
 
 ### Files, programs and paths
