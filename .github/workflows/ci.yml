@@ -265,12 +265,6 @@ jobs:
           python3 -m pip install pytest
           python3 -m pytest tools/tests lab/tests -q
 
-  # The one status check the ruleset on main requires. A matrix job that
-  # the classification skips reports under its unexpanded name, not once
-  # per runner, so a pull request that skips it can never satisfy a list of
-  # per-job required checks. This job
-  # depends on every other job, runs whatever they did, and fails when any
-  # of them failed or was cancelled; a skipped job counts as passed.
   site:
     name: Site build (strict)
     runs-on: ubuntu-latest
@@ -291,6 +285,12 @@ jobs:
       - name: mkdocs build --strict
         run: mkdocs build --strict -f mkdocs/mkdocs.yml -d "$RUNNER_TEMP/site"
 
+  # The one status check the ruleset on main requires. A matrix job that
+  # the classification skips reports under its unexpanded name, not once
+  # per runner, so a pull request that skips it can never satisfy a list of
+  # per-job required checks. This job depends on every other job, runs
+  # whatever they did, and fails when any of them failed or was cancelled;
+  # a skipped job counts as passed.
   result:
     name: CI result
     runs-on: ubuntu-latest

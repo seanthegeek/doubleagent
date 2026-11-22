@@ -1,7 +1,7 @@
 # The contributor's entry point for building and checking doubleagent. Each
 # target is a thin wrapper: the release build itself is .github/go-build.sh,
-# which the CI and release workflows run too. Written in the subset of make
-# that GNU make and the BSD make of macOS and the BSDs both read.
+# which the CI and release workflows run too. Written in the make syntax
+# POSIX defines, and tested with GNU Make 3.81, the make macOS ships.
 #
 # Every go command is given the build tags in GOFLAGS by its recipe, so no
 # target needs GOFLAGS exported (see "Build tags" in docs/development.md); the
