@@ -73,27 +73,47 @@ func makeSpecial(path string, kind Kind) error {
 
 // makeSocket binds a Unix domain socket at path and closes it, leaving the
 // file. A path too long for bind is reached through a short link to its
-// directory, made in the temporary directory and removed again: bind
-// follows the link and creates the socket where the path names it.
+// directory (shortLinkTo): bind follows the link and creates the socket
+// where the path names it.
 func makeSocket(path string) error {
 	if len(path) <= socketPathLimit {
 		return bindSocket(path)
 	}
-	short, err := os.MkdirTemp("", "sock")
-	if err != nil {
-		return err
+	for _, parent := range []string{os.TempDir(), shortTempDir} {
+		through, remove, err := shortLinkTo(parent, path)
+		if err != nil {
+			return err
+		}
+		if len(through) <= socketPathLimit {
+			defer remove()
+			return bindSocket(through)
+		}
+		remove()
 	}
-	defer os.RemoveAll(short)
+	return errors.New("the socket path " + path + " is too long for bind even through a link in " +
+		shortTempDir)
+}
+
+// shortTempDir is the system's own temporary directory, short on every
+// Unix, for a link when TMPDIR names a long one.
+const shortTempDir = "/tmp"
+
+// shortLinkTo makes a new private directory in parent holding a link to
+// path's directory, and returns path's name through that link and what
+// removes the directory again. The directory's name is random and made
+// with O_EXCL (os.MkdirTemp), so no other account can take its place.
+func shortLinkTo(parent, path string) (string, func(), error) {
+	short, err := os.MkdirTemp(parent, "sock")
+	if err != nil {
+		return "", nil, err
+	}
+	remove := func() { os.RemoveAll(short) }
 	link := filepath.Join(short, "d")
 	if err := os.Symlink(filepath.Dir(path), link); err != nil {
-		return err
+		remove()
+		return "", nil, err
 	}
-	through := filepath.Join(link, filepath.Base(path))
-	if len(through) > socketPathLimit {
-		return errors.New("the socket path " + path + " is too long for bind even through " +
-			through + ": set TMPDIR to a shorter directory")
-	}
-	return bindSocket(through)
+	return filepath.Join(link, filepath.Base(path)), remove, nil
 }
 
 // bindSocket binds a socket at path and closes it without removing the file.

@@ -2,6 +2,7 @@ package runlog
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,5 +74,29 @@ func TestFileLineWritesOnlyTheFile(t *testing.T) {
 	}
 	if want := "2026-03-04T05:06:07Z done: x\n"; string(got) != want || stderr.Len() != 0 {
 		t.Errorf("file %q and stderr %q, want %q and nothing", got, stderr.String(), want)
+	}
+}
+
+// failingWriter is a standard error whose every write fails, as a write to
+// a closed pipe does.
+type failingWriter struct{}
+
+// Write fails.
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+
+func TestLineDropsAFailedWriteToStandardError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.log")
+	log, err := Open(path, false, failingWriter{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := log.Line("still logged"); err != nil {
+		t.Errorf("Line returned %v for a failed standard error, want nil", err)
+	}
+	if err := log.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(path); err != nil || !bytes.HasSuffix(got, []byte(" still logged\n")) {
+		t.Errorf("file %q (%v), want the line", got, err)
 	}
 }

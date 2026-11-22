@@ -58,6 +58,7 @@ var edgeRuns = []edgeSettings{
 // directories that stay inside the home and that lead out of it.
 func edgeImage(t *testing.T) string {
 	t.Helper()
+	pinUmask(t)
 	parent := t.TempDir()
 	root, home := parent+"/root", parent+"/root/home/alice"
 	files := map[string]string{
@@ -159,4 +160,12 @@ func foldsCase(t *testing.T) bool {
 	}
 	_, err := os.Lstat(dir + "/PROBE")
 	return err == nil
+}
+
+// pinUmask sets the process umask to 022 until the test ends, so the modes
+// of the files and directories the test writes, which its expected rows
+// record, do not depend on the umask the tests were started with.
+func pinUmask(test testing.TB) {
+	previous := syscall.Umask(0o022)
+	test.Cleanup(func() { syscall.Umask(previous) })
 }

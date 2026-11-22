@@ -123,14 +123,14 @@ func ownerPackages() []string {
 // takes a path belongs on noFollowNames or allowedCalls instead.
 func safeNames() map[string][]string {
 	return map[string][]string{
-		// The process, its environment and standard streams, the null
-		// device's name, file types and flags, and two error types. Getwd
+		// The process, its environment, standard streams and signal type,
+		// the null device's name, file types and flags, and two error types. Getwd
 		// takes no path; the operating system answers it from the process,
 		// though the Unix fallback stats "." and the working directory to
 		// check $PWD. SameFile compares two FileInfo values already read.
 		"os": {"Args", "DevNull", "DirEntry", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
 			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
-			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout", "SyscallError", "TempDir"},
+			"O_TRUNC", "O_WRONLY", "SameFile", "Signal", "Stderr", "Stdout", "SyscallError", "TempDir"},
 		// A zip reader over a handle already open, its types and errors;
 		// OpenReader, which opens a path by name, is left out.
 		"archive/zip": {"ErrAlgorithm", "ErrChecksum", "ErrFormat", "ErrInsecurePath", "File", "FileHeader",
@@ -142,11 +142,11 @@ func safeNames() map[string][]string {
 		// TestNoParserPackageBuildsAPath.
 		"path/filepath": {"Base", "Clean", "Dir", "IsAbs", "Join", "Separator", "SplitList", "ToSlash",
 			"VolumeName"},
-		// Constants, a signal, an attribute record type, and error numbers
+		// Constants, two signals, an attribute record type, and error numbers
 		// with their type, which internal/reason and internal/input compare
 		// errors against.
 		"syscall": {"EILSEQ", "EISDIR", "ELOOP", "ENAMETOOLONG", "ENOTDIR", "ERROR_MORE_DATA", "Errno",
-			"FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT", "SIGTERM",
+			"FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT", "SIGPIPE", "SIGTERM",
 			"Win32FileAttributeData"},
 		// Constants, the umask, the kernel's name and a byte conversion.
 		"golang.org/x/sys/unix": {"AT_EACCESS", "AT_FDCWD", "ByteSliceToString", "Umask", "Uname",

@@ -27,7 +27,9 @@ VM_NAME=${2:?VM name}
 CELL_ARGUMENT=${3:?cell directory}
 ACTION=${4:-start}
 FORCE=${5:-}
-DOUBLEAGENT=${LAB_DOUBLEAGENT:-doubleagent}
+# The analysis step's program: the one LAB_DOUBLEAGENT names, or the cell's
+# own build for this machine (host_binary), never another on the PATH.
+DOUBLEAGENT=${LAB_DOUBLEAGENT:-}
 
 # shellcheck source=lab/lib/vm.sh
 . "$HERE/lib/vm.sh"
@@ -296,6 +298,20 @@ guest_binary() {
   printf '%s\n' "$_gb_dir/$GUEST_BINARY"
 }
 
+# Print the path of the doubleagent the analysis step runs: LAB_DOUBLEAGENT,
+# or the build for this machine that guest_binary makes beside the guest's,
+# from the same checkout as the binary that collected.
+host_binary() {
+  if [ -n "$DOUBLEAGENT" ]; then
+    printf '%s\n' "$DOUBLEAGENT"
+    return 0
+  fi
+  guest_binary >/dev/null || exit 1
+  _hb_name=doubleagent-$(go env GOHOSTOS)-$(go env GOHOSTARCH) || die "go env failed"
+  [ -f "$CELL/tools/bin/$_hb_name" ] || die "the build made no $_hb_name"
+  printf '%s\n' "$CELL/tools/bin/$_hb_name"
+}
+
 # Copy the guest scripts, the doubleagent binary and tui-test into the VM.
 # The shape tool stays on the analyst machine, which runs it over the pulled
 # archive.
@@ -417,8 +433,9 @@ analyze_collection() {
     [ -f "$_ac_file" ] && _ac_archive=$_ac_file && break
   done
   [ -n "$_ac_archive" ] || die "no archive in $_ac_destination"
+  _ac_program=$(host_binary) || exit 1
   round_log "doubleagent timeline over $(basename "$_ac_archive")"
-  "$DOUBLEAGENT" timeline --include-thinking "$_ac_archive" "$CELL/analysis/$1" \
+  "$_ac_program" timeline --include-thinking "$_ac_archive" "$CELL/analysis/$1" \
     >"$CELL/analysis/$1.stdout.txt" 2>&1 ||
     round_log "doubleagent timeline exit $? for $1; see analysis/$1.stdout.txt"
   # The archive comes from directories the agent controls, so it is opened

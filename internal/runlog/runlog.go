@@ -38,15 +38,15 @@ func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log
 }
 
 // Line appends "<time> <text>\n" to the log file and "<text>\n" to standard
-// error unless the log is quiet. The first write error is returned; the
-// standard error copy is still attempted so a full disk does not hide a
-// message from the operator.
+// error unless the log is quiet, and returns the file's write error. The
+// standard error copy is attempted even when the file's write fails, so a
+// full disk does not hide a message from the operator, and its own failure
+// is dropped: the file is the record, and a console that went away (a
+// closed pipe, a detached remote shell) must not end the run.
 func (log *Log) Line(text string) error {
 	_, fileError := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n")
 	if !log.quiet {
-		if _, err := io.WriteString(log.stderr, text+"\n"); fileError == nil {
-			fileError = err
-		}
+		_, _ = io.WriteString(log.stderr, text+"\n")
 	}
 	if fileError != nil {
 		return fmt.Errorf("write log: %w", syspath.NativeErrors(fileError))

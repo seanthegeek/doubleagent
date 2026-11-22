@@ -43,7 +43,10 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return summary.PrintResult(state.stdout, report)
+	// The archive and the log's done line are written; a summary that
+	// cannot reach a console that went away is dropped.
+	_ = summary.PrintResult(state.stdout, report)
+	return nil
 }
 
 // summary gathers what collection.json and the stdout summary report, its
@@ -188,7 +191,8 @@ func copyFile(source, target string) error {
 
 // hashArchive hashes the archive, writes its sidecar file and appends the
 // `done` line to the log file only, after the copy the archive holds, then
-// says `done` on standard error unless the run is quiet.
+// says `done` on standard error unless the run is quiet, dropping that
+// write's failure as the log does.
 func (state *runState) hashArchive(report *summary.Summary) error {
 	sha256, size, err := archive.SHA256File(state.archivePath)
 	if err != nil || size == 0 {
@@ -205,7 +209,7 @@ func (state *runState) hashArchive(report *summary.Summary) error {
 		return err
 	}
 	if !state.options.Quiet {
-		_, err = io.WriteString(state.stderr, "done\n")
+		_, _ = io.WriteString(state.stderr, "done\n")
 	}
-	return err
+	return nil
 }

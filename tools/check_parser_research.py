@@ -18,6 +18,9 @@ package imports it.
 - `key-undocumented`: a key, column or table the parser reads is no Parsing word.
 - `secondary-unlisted`, `survival-row-missing`: the agent's survival row (`secondary_findings`).
 
+A report with no parser or no fact, or a parser with no file pattern, is an error (exit 2),
+so a facts test that stops reading the registry cannot pass by checking nothing.
+
 Usage: tools/check_parser_research.py [--update-baseline], with `go` on the PATH.
 """
 
@@ -913,9 +916,32 @@ def findings(root: pathlib.Path, facts: Facts) -> Iterator[drift_common.Finding]
                 yield found
 
 
+def check_floor(facts: Facts) -> Facts:
+    """Return `facts` when the report holds parsers, facts, and patterns for every parser.
+
+    A report that lost its contents (a renamed registry, a facts test reading nothing) would
+    otherwise check nothing and pass.
+
+    Raises:
+        RuntimeError: the report has no parser or no fact, or a parser has no file pattern.
+    """
+    if not facts.parsers or not facts.facts:
+        raise RuntimeError(
+            "the report of %s holds %d parser(s) and %d fact(s); it must hold both"
+            % (FACTS_PACKAGE, len(facts.parsers), len(facts.facts))
+        )
+    empty = [parser.agent for parser in facts.parsers if not parser.patterns]
+    if empty:
+        raise RuntimeError(
+            "the report of %s gives no file pattern for the parser(s) of %s"
+            % (FACTS_PACKAGE, ", ".join(empty))
+        )
+    return facts
+
+
 def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
     """Yield the findings of every registered parser against its agent's research document."""
-    return findings(root, go_facts(root))
+    return findings(root, check_floor(go_facts(root)))
 
 
 def main(

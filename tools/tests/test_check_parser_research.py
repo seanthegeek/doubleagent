@@ -6,6 +6,7 @@ import pathlib
 import textwrap
 
 import check_parser_research as checker
+import pytest
 from check_parser_research import Fact, Facts, ParserFacts, Pattern
 
 ALPHA_PACKAGE = "example.test/alpha"
@@ -246,3 +247,26 @@ def test_a_failed_facts_run_is_an_error_not_a_pass(tmp_path, capsys):
     repository(tmp_path, document("alpha", "None."))
     assert checker.main([], tmp_path) == 2
     assert "check_parser_research: go test" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("report", "message"),
+    [
+        (Facts((), ()), "0 parser(s) and 0 fact(s)"),
+        (facts(patterns=(pattern(r"^\.alpha/x$"),)), "1 parser(s) and 0 fact(s)"),
+        (facts(fact("key", "type")), "no file pattern for the parser(s) of alpha"),
+    ],
+    ids=["an empty report", "a report without facts", "a parser without patterns"],
+)
+def test_a_report_below_the_floor_is_an_error_not_a_pass(
+    report, message, tmp_path, capsys, monkeypatch
+):
+    repository(tmp_path, document("alpha", "None."))
+    monkeypatch.setattr(checker, "go_facts", lambda root: report)
+    assert checker.main([], tmp_path) == 2
+    assert message in capsys.readouterr().err
+
+
+def test_a_report_with_parsers_facts_and_patterns_passes_the_floor():
+    report = facts(fact("key", "type"), patterns=(pattern(r"^\.alpha/x$"),))
+    assert checker.check_floor(report) is report

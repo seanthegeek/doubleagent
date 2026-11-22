@@ -2,6 +2,7 @@ package version
 
 import (
 	"bufio"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -129,12 +130,7 @@ func TestTheNoticesHoldEveryLicenceFileOfTheVendoredModulesVerbatim(t *testing.T
 func TestTheNoticesHoldTheGoDistributionsLicenceAtTheVersionGoModNames(t *testing.T) {
 	t.Parallel()
 	notices := noticesText(t)
-	var goVersion string
-	for line := range strings.SplitSeq(readText(t, filepath.Join(repositoryRoot, "go.mod")), "\n") {
-		if version, ok := strings.CutPrefix(line, "go "); ok {
-			goVersion = strings.TrimSpace(version)
-		}
-	}
+	goVersion := pinnedToolchain(t)
 	toolchain := "Toolchain: go" + goVersion + " (the Go runtime and standard library)"
 	if goVersion == "" || !strings.Contains(notices, toolchain+"\n") {
 		t.Errorf("THIRD_PARTY_NOTICES.txt has no %q line", toolchain)
@@ -151,5 +147,53 @@ func TestTheNoticesHoldTheGoDistributionsLicenceAtTheVersionGoModNames(t *testin
 			t.Errorf("THIRD_PARTY_NOTICES.txt does not hold the Go distribution's %s verbatim",
 				name)
 		}
+	}
+}
+
+// pinnedToolchain returns the version of the Go toolchain go.mod pins, as the
+// go command reads the file (go mod edit -json): its toolchain line when it
+// has one, else its go line (toolchainVersion).
+func pinnedToolchain(t *testing.T) string {
+	t.Helper()
+	command := exec.Command("go", "mod", "edit", "-json")
+	command.Dir = repositoryRoot
+	output, err := command.Output()
+	if err != nil {
+		t.Fatalf("go mod edit -json: %v", err)
+	}
+	var module struct{ Go, Toolchain string }
+	if err := json.Unmarshal(output, &module); err != nil {
+		t.Fatalf("go mod edit -json: %v", err)
+	}
+	return toolchainVersion(module.Go, module.Toolchain)
+}
+
+// toolchainVersion returns the toolchain version a module's go and toolchain
+// lines pin, without the "go" prefix: the toolchain line's, which the go
+// command prefers to the go line's, unless it is absent or "default", which
+// names no version and leaves the go line's.
+func toolchainVersion(goLine, toolchainLine string) string {
+	if version, ok := strings.CutPrefix(toolchainLine, "go"); ok {
+		return version
+	}
+	return goLine
+}
+
+func TestTheToolchainLineWinsOverTheGoLine(t *testing.T) {
+	cases := []struct {
+		name, goLine, toolchainLine, want string
+	}{
+		{"a module without a toolchain line uses its go line", "1.27.4", "", "1.27.4"},
+		{"a toolchain line names the toolchain", "1.27.4", "go1.27.5", "1.27.5"},
+		{"the default toolchain leaves the go line", "1.27.4", "default", "1.27.4"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if got := toolchainVersion(testCase.goLine, testCase.toolchainLine); got != testCase.want {
+				t.Errorf("toolchainVersion(%q, %q) = %q, want %q", testCase.goLine,
+					testCase.toolchainLine, got, testCase.want)
+			}
+		})
 	}
 }

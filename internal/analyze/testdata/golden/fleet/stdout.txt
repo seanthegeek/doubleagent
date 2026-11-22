@@ -1,7 +1,7 @@
-rows:   9 from 4 hosts in {ROOT}/out-fleet/fleet.csv
+rows:   8 from 4 hosts in {ROOT}/out-fleet/fleet.csv
 
 agent                   hosts  users  latest
-claude-code                 3      4  2026-10-05T09:00:00.000Z
+claude-code                 3      3  2026-10-05T09:00:00.000Z
 codex-cli                   2      2  2026-10-04T11:45:00.000Z
 agent-zero                  1      1  2026-10-03T10:00:00.000Z
 cursor                      1      1  2026-10-04T09:30:00.000Z

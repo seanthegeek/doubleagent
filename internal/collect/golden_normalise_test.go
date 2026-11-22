@@ -15,7 +15,9 @@
 //   - collection.json's version, hostname, platform, account, started and
 //     finished; stdout's archive size and hash; the inventory host;
 //   - in the manifest, atime, ctime, btime (not after ctime, and on macOS
-//     not after mtime), uid, gid, a Windows owner, a symlink's size where
+//     not after mtime), uid, gid and a Windows owner, each but atime first
+//     checked against a fresh lstat of the row's path (checkIdentity),
+//     a symlink's size where
 //     its target holds a replaced path (its length), and on Linux and macOS
 //     a directory row's size, du's disk usage (whole KiB);
 //   - directory order: manifest rows sorted, and runs of project blocks,
@@ -50,7 +52,7 @@ var (
 )
 
 // volatileRowFields are the manifest fields normalise replaces after
-// checking each is a number.
+// checking each is a number, and all but atime against the path's lstat.
 var volatileRowFields = []string{"atime", "ctime", "btime", "uid", "gid"}
 
 // normaliser holds the replacements of one run.
@@ -213,6 +215,7 @@ func (n normaliser) row(line string) string {
 	if runtime.GOOS == "darwin" && birth > modified {
 		n.test.Errorf("manifest row's btime %d is after its mtime %d: %s", birth, modified, line)
 	}
+	n.checkIdentity(value, numbers, line)
 	line = rowField.ReplaceAllStringFunc(n.escaped.Replace(line), func(field string) string {
 		name, _, _ := strings.Cut(strings.Trim(field, `"`), `"`)
 		return `"` + name + `":"{` + strings.ToUpper(name) + `}"`

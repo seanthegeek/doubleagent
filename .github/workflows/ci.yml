@@ -23,7 +23,8 @@ concurrency:
 
 # Linter versions for the lint and go jobs. AGENTS.md ("Quality gates") lists
 # the same versions, and the Makefile pins the staticcheck and govulncheck
-# ones; change them together.
+# ones; change them together. tools/tests/test_version_pins.py fails when the
+# staticcheck or govulncheck versions of the three differ.
 env:
   RUFF_VERSION: "0.16.10"
   PYRIGHT_VERSION: "1.1.414"
@@ -250,13 +251,20 @@ jobs:
       - name: checkbashisms
         if: needs.changes.outputs.sh-lint == 'true'
         run: checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
+      # The checkers and the round pipeline's tools support Python 3.11 and
+      # later, so their tests run again on the newest release ("3.x"), last,
+      # since every step above runs on 3.11.
+      - uses: actions/setup-python@v7
+        if: needs.changes.outputs.python == 'true'
+        with:
+          python-version: "3.x"
+      - name: pytest on the newest Python (drift checkers and round pipeline)
+        if: needs.changes.outputs.python == 'true'
+        run: |
+          python3 --version
+          python3 -m pip install pytest
+          python3 -m pytest tools/tests lab/tests -q
 
-  # The one status check the ruleset on main requires. A matrix job that
-  # the classification skips reports under its unexpanded name, not once
-  # per runner, so a pull request that skips it can never satisfy a list of
-  # per-job required checks. This job
-  # depends on every other job, runs whatever they did, and fails when any
-  # of them failed or was cancelled; a skipped job counts as passed.
   site:
     name: Site build (strict)
     runs-on: ubuntu-latest
@@ -277,6 +285,12 @@ jobs:
       - name: mkdocs build --strict
         run: mkdocs build --strict -f mkdocs/mkdocs.yml -d "$RUNNER_TEMP/site"
 
+  # The one status check the ruleset on main requires. A matrix job that
+  # the classification skips reports under its unexpanded name, not once
+  # per runner, so a pull request that skips it can never satisfy a list of
+  # per-job required checks. This job depends on every other job, runs
+  # whatever they did, and fails when any of them failed or was cancelled;
+  # a skipped job counts as passed.
   result:
     name: CI result
     runs-on: ubuntu-latest

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -99,6 +100,7 @@ func normaliseRows(t *testing.T, text, root string) (string, int) {
 }
 
 func TestCollectVolumesOverMixedImage(t *testing.T) {
+	pinUmask(t)
 	fixture := newSetup(t, false)
 	fixture.collector.MaxSize = 1 << 20
 	imageFixture(t, fixture)
@@ -129,4 +131,12 @@ func TestCollectVolumesOverMixedImage(t *testing.T) {
 	if wantReplaced := 6*5 + 3; replaced != wantReplaced {
 		t.Errorf("normalised %d fields, want %d", replaced, wantReplaced)
 	}
+}
+
+// pinUmask sets the process umask to 022 until the test ends, so the modes
+// of the files and directories the test writes, which its expected rows
+// record, do not depend on the umask the tests were started with.
+func pinUmask(test testing.TB) {
+	previous := syscall.Umask(0o022)
+	test.Cleanup(func() { syscall.Umask(previous) })
 }

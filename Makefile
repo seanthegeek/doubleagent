@@ -1,7 +1,7 @@
 # The contributor's entry point for building and checking doubleagent. Each
 # target is a thin wrapper: the release build itself is .github/go-build.sh,
-# which the CI and release workflows run too. Written in the subset of make
-# that GNU make and the BSD make of macOS and the BSDs both read.
+# which the CI and release workflows run too. Written in the make syntax
+# POSIX defines, and tested with GNU Make 3.81, the make macOS ships.
 #
 # Every go command is given the build tags in GOFLAGS by its recipe, so no
 # target needs GOFLAGS exported (see "Build tags" in docs/development.md); the
@@ -15,7 +15,8 @@ TAGS = noasm,nounsafe
 TAGGED = GOFLAGS=-tags=$(TAGS)
 # The linter versions of the "go" CI job: the env block of
 # .github/workflows/ci.yml and the "Quality gates" table of AGENTS.md give the
-# same ones, and the three change together.
+# same ones, and the three change together; tools/tests/test_version_pins.py
+# fails when they differ.
 STATICCHECK_VERSION = 0.8.2
 GOVULNCHECK_VERSION = 1.9.0
 

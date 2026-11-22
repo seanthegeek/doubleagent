@@ -29,7 +29,10 @@ const (
 
 // Run performs ACTION and returns the exit code. It writes the catalog,
 // version, help, stdout summary or inventory to STDOUT and diagnostics to
-// STDERR. A run is cancelled by ctx or by SIGINT or SIGTERM.
+// STDERR. A run is cancelled by ctx or by SIGINT or SIGTERM. SIGPIPE is
+// received rather than left to end the process, so a write to a closed
+// standard output or error fails with EPIPE (os/signal's SIGPIPE section)
+// and the run goes on, its log file the record.
 func Run(ctx context.Context, options Options, action Action, stdout, stderr io.Writer) int {
 	switch action {
 	case ActList:
@@ -44,6 +47,9 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	brokenPipes := make(chan os.Signal, 1)
+	signal.Notify(brokenPipes, syscall.SIGPIPE)
+	defer signal.Stop(brokenPipes)
 	host := environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
 		findUsers: users.Find, lastAccess: lastAccessUpdates, confine: follow.NewConfinement}
 	return runCollection(ctx, options, host, stdout, stderr)
