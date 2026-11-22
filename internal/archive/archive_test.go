@@ -249,7 +249,10 @@ func TestWriteTarGzCreatesItsFileNewAndNeverWritesThroughAnEntryAtItsName(t *tes
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := WriteTarGz(context.Background(), stage, path); !errors.Is(err, fs.ErrExist) {
+			// Windows refuses to create a file at a directory's name with its
+			// own error, where the others say the name is taken.
+			err = WriteTarGz(context.Background(), stage, path)
+			if err == nil || (!before.IsDir() && !errors.Is(err, fs.ErrExist)) {
 				t.Errorf("WriteTarGz = %v, want the name taken", err)
 			}
 			after, err := os.Lstat(path)
