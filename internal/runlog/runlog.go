@@ -30,14 +30,22 @@ type Log struct {
 	now    func() time.Time
 }
 
-// Open creates (or empties) the log file at PATH and returns a Log that echoes
-// each line to STDERR unless QUIET is set. NOW supplies the time of each line.
+// Open creates the log file at path, new: a name already taken, by a file or
+// by a link, which is neither followed nor changed, is an error. The Log
+// echoes each line to stderr unless quiet is set; now supplies the time of
+// each line.
 func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log, error) {
-	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
+	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		return nil, fmt.Errorf("open log %s: %w", syspath.ToNative(path), err)
 	}
 	return &Log{file: file, stderr: stderr, quiet: quiet, now: now}, nil
+}
+
+// Discard returns a Log that writes no file and echoes each line to stderr
+// unless quiet is set, for a run that writes no output files.
+func Discard(quiet bool, stderr io.Writer, now func() time.Time) *Log {
+	return &Log{stderr: stderr, quiet: quiet, now: now}
 }
 
 // Printable returns text with each control character written as `\xNN`, one
@@ -85,7 +93,7 @@ func controlWidth(text string) int {
 // end the run.
 func (log *Log) Line(text string) error {
 	text = Printable(text)
-	_, fileError := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n")
+	fileError := log.write(text)
 	if !log.quiet {
 		_, _ = io.WriteString(log.stderr, text+"\n")
 	}
@@ -98,15 +106,26 @@ func (log *Log) Line(text string) error {
 // FileLine appends "<time> <text>\n" to the log file only, for a line the
 // operator is told about in other words; text is written through Printable.
 func (log *Log) FileLine(text string) error {
-	line := log.now().UTC().Format(TimeFormat) + " " + Printable(text) + "\n"
-	if _, err := io.WriteString(log.file, line); err != nil {
+	if err := log.write(Printable(text)); err != nil {
 		return fmt.Errorf("write log: %w", syspath.NativeErrors(err))
 	}
 	return nil
 }
 
-// Close closes the log file.
+// write appends "<time> <text>\n" to the log file, when there is one.
+func (log *Log) write(text string) error {
+	if log.file == nil {
+		return nil
+	}
+	_, err := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n")
+	return err
+}
+
+// Close closes the log file, when there is one.
 func (log *Log) Close() error {
+	if log.file == nil {
+		return nil
+	}
 	if err := log.file.Close(); err != nil {
 		return fmt.Errorf("close log: %w", syspath.NativeErrors(err))
 	}

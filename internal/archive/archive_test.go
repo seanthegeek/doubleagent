@@ -112,7 +112,7 @@ func readMembers(t *testing.T, archivePath string) ([]*tar.Header, map[string]st
 func TestWriteTarGzMembers(t *testing.T) {
 	stage, linked := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, contents := readMembers(t, archivePath)
@@ -155,7 +155,7 @@ func TestWriteTarGzIsReadableByTar(t *testing.T) {
 	requireSystemTar(t)
 	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	output, err := tarListing(archivePath)
@@ -171,7 +171,7 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 	requireSystemTar(t)
 	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	whole, err := os.ReadFile(archivePath)
@@ -200,7 +200,7 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 
 func TestWriteTarGzFailureLeavesNoArchive(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(context.Background(), filepath.Join(t.TempDir(), "missing"), archivePath); err == nil {
+	if _, err := WriteTarGz(context.Background(), filepath.Join(t.TempDir(), "missing"), archivePath); err == nil {
 		t.Fatal("a missing stage gave no error")
 	}
 	if _, err := os.Stat(archivePath); !os.IsNotExist(err) {
@@ -251,7 +251,7 @@ func TestWriteTarGzCreatesItsFileNewAndNeverWritesThroughAnEntryAtItsName(t *tes
 			}
 			// Windows refuses to create a file at a directory's name with its
 			// own error, where the others say the name is taken.
-			err = WriteTarGz(context.Background(), stage, path)
+			_, err = WriteTarGz(context.Background(), stage, path)
 			if err == nil || (!before.IsDir() && !errors.Is(err, fs.ErrExist)) {
 				t.Errorf("WriteTarGz = %v, want the name taken", err)
 			}
@@ -302,7 +302,7 @@ func TestAStopRequestEndsTheArchiveAtItsNextCheckAndLeavesNoFile(t *testing.T) {
 			t.Parallel()
 			archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
 			stop := &stopAfterChecks{Context: context.Background(), allowed: testCase.allowed}
-			if err := WriteTarGz(stop, stage, archivePath); !errors.Is(err, context.Canceled) {
+			if _, err := WriteTarGz(stop, stage, archivePath); !errors.Is(err, context.Canceled) {
 				t.Fatalf("WriteTarGz = %v, want the stop request", err)
 			}
 			if stop.refused != 1 {
@@ -315,40 +315,74 @@ func TestAStopRequestEndsTheArchiveAtItsNextCheckAndLeavesNoFile(t *testing.T) {
 	}
 }
 
-func TestAStopRequestEndsTheHash(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "run.tar.gz")
-	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
+func TestWriteTarGzHashesTheBytesItWroteAndNamesItsFile(t *testing.T) {
+	stage, _ := buildStage(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "run.tar.gz")
+	written, err := WriteTarGz(context.Background(), stage, path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	stop := &stopAfterChecks{Context: context.Background()}
-	if _, _, err := SHA256File(stop, path); !errors.Is(err, context.Canceled) {
-		t.Errorf("SHA256File = %v, want the stop request", err)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(data)
+	if written.SHA256 != hex.EncodeToString(sum[:]) || written.Size != int64(len(data)) {
+		t.Errorf("Written = %s, %d; the file's are %x, %d", written.SHA256, written.Size, sum, len(data))
+	}
+	if err := StillNames(path, written.File); err != nil {
+		t.Errorf("StillNames of the file just written = %v, want nil", err)
+	}
+	replacements := []struct {
+		name  string
+		plant func(t *testing.T)
+	}{
+		{"a copy put at the name is not the file written", func(t *testing.T) {
+			if err := os.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"a link put at the name is not the file written", func(t *testing.T) {
+			if err := os.Symlink(filepath.Join(dir, "moved"), path); err != nil {
+				t.Skipf("cannot create a symlink: %v", err)
+			}
+		}},
+		{"a name holding nothing is not the file written", func(*testing.T) {}},
+	}
+	if err := os.Rename(path, filepath.Join(dir, "moved")); err != nil {
+		t.Fatal(err)
+	}
+	for _, replacement := range replacements {
+		t.Run(replacement.name, func(t *testing.T) {
+			replacement.plant(t)
+			defer os.Remove(path)
+			if err := StillNames(path, written.File); err == nil {
+				t.Error("StillNames = nil, want an error")
+			}
+		})
 	}
 }
 
-func TestSHA256FileAndSidecar(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "run.tar.gz")
-	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
-		t.Fatal(err)
+func TestWriteSidecarCreatesItsFileNew(t *testing.T) {
+	dir := t.TempDir()
+	path, outside := filepath.Join(dir, "run.tar.gz"), filepath.Join(dir, "outside")
+	created, err := WriteSidecar(path, "abc")
+	if sidecar, readErr := os.ReadFile(path + ".sha256"); err != nil || !created || readErr != nil ||
+		string(sidecar) != "abc  run.tar.gz\n" {
+		t.Fatalf("WriteSidecar = %v, %v; the sidecar holds %q (%v)", created, err, sidecar, readErr)
 	}
-	sum := sha256.Sum256([]byte("content"))
-	want := hex.EncodeToString(sum[:])
-	got, size, err := SHA256File(context.Background(), path)
-	if err != nil || got != want || size != 7 {
-		t.Fatalf("SHA256File = %q, %d, %v", got, size, err)
+	if created, err := WriteSidecar(path, "def"); err == nil || created {
+		t.Errorf("a second WriteSidecar = %v, %v, want the name taken", created, err)
 	}
-	if err := WriteSidecar(path, got); err != nil {
-		t.Fatal(err)
+	if err := os.Symlink(outside, filepath.Join(dir, "linked.tar.gz.sha256")); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
 	}
-	sidecar, err := os.ReadFile(path + ".sha256")
-	if err != nil || string(sidecar) != want+"  run.tar.gz\n" {
-		t.Errorf("sidecar = %q, %v", sidecar, err)
+	if created, err := WriteSidecar(filepath.Join(dir, "linked.tar.gz"), "abc"); err == nil || created {
+		t.Errorf("WriteSidecar through a link = %v, %v, want the name taken", created, err)
 	}
-}
-
-func TestSHA256FileMissing(t *testing.T) {
-	if _, _, err := SHA256File(context.Background(), filepath.Join(t.TempDir(), "none")); err == nil {
-		t.Error("a missing file gave no error")
+	if _, err := os.Lstat(outside); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a file was created through the link: %v", err)
 	}
 }
 
@@ -362,7 +396,7 @@ func TestWriteTarGzLongNameUsesPAX(t *testing.T) {
 		t.Fatal(err)
 	}
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, _ := readMembers(t, archivePath)

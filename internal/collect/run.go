@@ -153,7 +153,7 @@ func (state *runState) exitCode(ctx context.Context, err error) int {
 		return exitOK
 	case ctx.Err() != nil && !state.moving:
 		state.line("interrupted")
-		if !state.options.Inventory {
+		if state.summaryMade {
 			_ = osfile.Remove(state.summaryPath)
 		}
 		return exitInterrupted

@@ -8,8 +8,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"hash"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,31 +23,75 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// WriteTarGz writes stageDir as a gzipped tar at archivePath. Its members are
-// "./", then every directory, file and symlink under stageDir with a "./"
-// prefix, each directory before its children and each directory's entries
-// sorted bytewise. The tar format is PAX. Symlinks are stored, never followed.
-// ctx is looked at before each member and each read of a file's bytes, so a
-// stop request ends a long write promptly with ctx's error. archivePath is
-// created new: anything at that name, a link included, fails the write and is
-// neither followed nor changed (O_EXCL; on Windows CREATE_NEW with
-// FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go). A failed or
-// stopped write removes the file it created.
-func WriteTarGz(ctx context.Context, stageDir, archivePath string) error {
+// Written is what WriteTarGz wrote: the SHA-256 of the bytes it wrote, in
+// lower-case hex, their number, and the file as its open handle described
+// it, which identifies the file whatever later takes its name.
+type Written struct {
+	SHA256 string
+	Size   int64
+	File   fs.FileInfo
+}
+
+// WriteTarGz writes stageDir as a gzipped tar at archivePath: "./", then every
+// directory, file and symlink under stageDir with a "./" prefix, each
+// directory before its children and its entries sorted bytewise, in PAX
+// format, symlinks stored and never followed. ctx is looked at before each
+// member and each read of a file's bytes, so a stop ends a long write
+// promptly with ctx's error. archivePath is created new: anything at that
+// name, a link included, fails the write and is neither followed nor changed
+// (O_EXCL; on Windows CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT,
+// syscall/syscall_windows.go). The hash is of the bytes as written, never
+// read back by name. A failed or stopped write removes the file it created.
+func WriteTarGz(ctx context.Context, stageDir, archivePath string) (Written, error) {
 	file, err := osfile.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
-		return fmt.Errorf("create archive: %w", err)
+		return Written{}, fmt.Errorf("create archive: %w", err)
 	}
+	digest := &countingHash{hash: sha256.New()}
 	// A write or close error of the archive itself names it in the \\?\
 	// form osfile opened it with.
-	err = syspath.NativeErrors(writeMembers(ctx, file, stageDir))
+	err = syspath.NativeErrors(writeMembers(ctx, io.MultiWriter(file, digest), stageDir))
+	var info fs.FileInfo
+	if err == nil {
+		if info, err = file.Stat(); err != nil {
+			err = fmt.Errorf("archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(err))
+		}
+	}
 	if closeError := file.Close(); err == nil && closeError != nil {
 		err = fmt.Errorf("close archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(closeError))
 	}
 	if err != nil {
 		_ = osfile.Remove(archivePath)
+		return Written{}, err
 	}
-	return err
+	return Written{SHA256: hex.EncodeToString(digest.hash.Sum(nil)), Size: digest.size, File: info}, nil
+}
+
+// countingHash hashes the bytes written to it and counts them.
+type countingHash struct {
+	hash hash.Hash
+	size int64
+}
+
+// Write adds data to the hash and the count.
+func (digest *countingHash) Write(data []byte) (int, error) {
+	digest.size += int64(len(data))
+	return digest.hash.Write(data)
+}
+
+// StillNames returns nil when path names, without following a link, the
+// regular file that file describes (os.SameFile of the handle's description
+// against an lstat of path), and an error naming path otherwise: another
+// entry took the name after the file was written.
+func StillNames(path string, file fs.FileInfo) error {
+	info, err := osfile.Lstat(path)
+	switch {
+	case err != nil:
+		return err
+	case !info.Mode().IsRegular() || !os.SameFile(info, file):
+		return errors.New(syspath.ToNative(path) + ": no longer the file this run wrote")
+	}
+	return nil
 }
 
 // writeMembers writes the gzip and tar layers around the stage tree.
@@ -170,28 +217,24 @@ func (r contextReader) Read(data []byte) (int, error) {
 	return r.reader.Read(data)
 }
 
-// SHA256File returns the SHA-256 of the file at path, in lower-case hex, and
-// its size in bytes. A stop request (ctx) ends the read with ctx's error.
-func SHA256File(ctx context.Context, path string) (string, int64, error) {
-	source, err := osfile.Open(path)
-	if err != nil {
-		return "", 0, err
-	}
-	defer source.Close()
-	digest := sha256.New()
-	size, err := io.Copy(digest, contextReader{ctx: ctx, reader: source})
-	if err != nil {
-		return "", 0, fmt.Errorf("hash %s: %w", syspath.ToNative(path), syspath.NativeErrors(err))
-	}
-	return hex.EncodeToString(digest.Sum(nil)), size, nil
-}
-
 // WriteSidecar writes archivePath + ".sha256", one line, "<hex>  <name>", with
-// the archive's base name, in the layout sha256sum -c reads.
-func WriteSidecar(archivePath, sha256Hex string) error {
-	line := sha256Hex + "  " + filepath.Base(archivePath) + "\n"
-	if err := osfile.WriteFile(archivePath+".sha256", []byte(line), 0o666); err != nil {
-		return fmt.Errorf("write checksum file: %w", err)
+// the archive's base name, in the layout sha256sum -c reads. The file is
+// created new, as the archive is: a name already taken, by a link or
+// anything else, is an error, and what holds it is neither followed nor
+// changed. created reports whether the file was made, so a caller removes
+// only a file it made.
+func WriteSidecar(archivePath, sha256Hex string) (created bool, err error) {
+	path := archivePath + ".sha256"
+	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	if err != nil {
+		return false, fmt.Errorf("write checksum file: %w", err)
 	}
-	return nil
+	_, err = io.WriteString(file, sha256Hex+"  "+filepath.Base(archivePath)+"\n")
+	if closeError := file.Close(); err == nil {
+		err = closeError
+	}
+	if err != nil {
+		return true, fmt.Errorf("write checksum file %s: %w", syspath.ToNative(path), syspath.NativeErrors(err))
+	}
+	return true, nil
 }

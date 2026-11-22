@@ -59,7 +59,8 @@ Exceptions of `collect`:
 [55](#exception-55), [56](#exception-56), [57](#exception-57),
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
-[64](#exception-64), [65](#exception-65), [66](#exception-66).
+[64](#exception-64), [65](#exception-65), [66](#exception-66),
+[67](#exception-67).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -714,6 +715,21 @@ hexadecimal digits, and so are the C1 controls and U+2028 and U+2029
 ([Log](collection-output.md#log)), so a name cannot end a log line, start a
 forged one or drive the terminal the progress lines go to. The scripts
 wrote such characters as they were.
+
+### Exception 67
+
+Every file and directory a run writes in the output directory is created
+new, and a name already taken, by a file or by a link, ends the run with
+exit `2` and is never written through
+([Output files](collection-output.md#output-files)); the archive's hash is
+taken of the bytes as they are written, and the archive is moved to its
+name only while its partial name still names the file the run wrote. The
+sh collector created the staging directory with `mkdir -p` and the log,
+the manifest, `collection.json` and the `.sha256` file with shell
+redirection, and the PowerShell collector created them with .NET calls that
+take an existing directory as it is and replace an existing file, each
+following a link already at the name; both hashed the archive by reading it
+back by name.
 
 ## Analysing: commands and options
 

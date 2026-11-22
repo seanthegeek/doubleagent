@@ -103,9 +103,10 @@ both remove the staging directory unless `-k` is given. Losing its terminal or t
 reader of its output is neither: the run continues, because the log file is its
 record. Writing the archive has one point of no return: the archive is created new
 as `<name>.tar.gz.partial` (whatever held that name is removed first, never
-followed), hashed and given its `.sha256` file, the context is looked at once more,
-and the archive is moved to its name. A stop request before the move ends the run
-with the partial archive, the `.sha256` file and `collection.json` removed; once the
+followed) and hashed as its bytes are written, its `.sha256` file is created, the
+run checks that the partial name still names the file it wrote (`archive.StillNames`),
+the context is looked at once more, and the archive is moved to its name. A stop
+request before the move ends the run with the partial archive, the `.sha256` file and `collection.json` removed; once the
 move has begun nothing looks at the context, so the run logs `done:` and exits `0`,
 or, when the move still fails after it is tried again for about a second, exits `2` with the
 complete archive left under its partial name beside its `.sha256` file
@@ -445,6 +446,24 @@ the methods in use and why each is safe.
 
 The fields, statuses and archive layout are an interface,
 [documented in `collection-output.md`](collection-output.md).
+
+**Every output is created new.** The names a run writes under `-o` are predictable (the
+host and the start time), and a root run may write into a directory another account can
+also write. So the staging directory and its `fs` directory are made with `osfile.Mkdir`,
+and the log, the manifest, `collection.json`, the copies staged beside them, the partial
+archive and its `.sha256` file are opened with `O_CREAT|O_EXCL` (`collect.createNew`,
+`runlog.Open`, `archive.WriteTarGz`, `archive.WriteSidecar`): anything already at the
+name, a dangling link included, fails the create and is neither followed nor changed. On
+Windows `O_EXCL` becomes `CREATE_NEW` with `FILE_FLAG_OPEN_REPARSE_POINT`
+(`syscall/syscall_windows.go`), and `CreateDirectory` refuses a reparse point at the
+name. A name taken before the log is open ends the run with its message on standard
+error; one taken later with a `FATAL:` line, exit `2` either way. The run removes only
+what it made: the staging directory, `collection.json` on an interrupt, the partial
+archive and the `.sha256` file on a failure. Only the partial and final archive names
+are cleared first. The archive's hash is taken of the bytes as they are written, and the
+file's identity from its open handle, so an entry put at the partial name during the run
+is neither hashed nor moved; what that check cannot close, the moment between it and the
+rename, is stated on `collect.runState.placeArchive`.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F, and the
 UTF-8 forms of the C1 controls and of U+2028 and U+2029, as `\xNN`, in the log file and

@@ -47,14 +47,33 @@ ir-ws01_20261122T050937Z_agent-artifacts.log               the log (the archive 
 .stage-ir-ws01_20261122T050937Z_agent-artifacts/           the staging directory, only with -k
 ```
 
+Every file and directory a run writes there is created new. When
+something already holds the name of the staging directory, the log, the
+manifest, `collection.json` or the `.sha256` file (a file, a directory, a
+symbolic link, one whose target does not exist included, or on Windows a
+junction), the run never writes through it, leaves it as it was and ends
+with exit `2`: before the log is open with its message on standard error
+(`Cannot create staging dir: REASON`, `Cannot create manifest: REASON` or
+`open log PATH: REASON`), after it with a `FATAL:` line
+(`FATAL: collection.json not written: REASON`, or
+`FATAL: archive not written: REASON` for the `.sha256` file), the reason
+naming the file. Of two runs started in the same
+second into one directory, the second therefore stops and leaves the first
+one's files as they were, and a run as root into a directory that another
+account may also write cannot be made to write a file elsewhere.
+
 While it is written, the archive is named
 `<host>_<UTC start time>_agent-artifacts.tar.gz.partial`, a file the run
-creates new: whatever held that name when archiving began, a link
-included, is removed first without being followed. Once the archive is
-complete and hashed, and its `.sha256` file is written, it is moved to its
-name, and only then is the `done:` line logged. An archive under its own
-name, with its `.sha256` file beside it, is therefore one whose run
-finished.
+creates new: whatever held that name, or the archive's own name, when
+archiving began, a link included, is removed first without being followed.
+The archive's SHA-256 is taken of the bytes as the run writes them. Once
+the archive is complete and its `.sha256` file is written, the run checks
+that the `.partial` name still names the file it wrote, not an entry put
+there during the run (that is a `FATAL: archive not written:` line naming
+the `.partial` file, and the entry is left as it was), and moves it to its
+name; only then is the `done:` line logged. An archive under its own name,
+with its `.sha256` file beside it, is therefore one whose run finished, and
+`sha256sum -c` on the `.sha256` file checks the bytes the run wrote.
 
 What a run leaves in the output directory depends on how it ended
 ([Exit codes](collect-options.md#exit-codes)):

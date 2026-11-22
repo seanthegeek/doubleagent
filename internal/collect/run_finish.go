@@ -49,32 +49,40 @@ func (state *runState) writeArchive(ctx context.Context) error {
 
 // buildArchive is the archive step, filling the report's hash and size. Its
 // rule is what holds of the partial archive, the file at partialPath: it is a
-// regular file this run created new; what held that name before is removed
-// without being followed, and what cannot be removed ends the run; it then
-// becomes the archive under its final name, or is removed with its sidecar on
-// a stop request (ctx) or a failure, or, only when the move itself cannot be
-// done or the process is killed, stays complete with its sidecar beside it;
-// and the run makes the final name name nothing but that file. The move is
-// the point of no return: ctx is looked at last just before it.
+// regular file this run created new, what held that name before removed
+// unfollowed and what cannot be removed ending the run; its hash is of the
+// bytes this run wrote; it becomes the archive under its final name, or is
+// removed with its sidecar on a stop request (ctx) or a failure, or stays
+// complete beside its sidecar only when the move cannot be done or the
+// process is killed; the final name names nothing but that file; and an entry
+// this run did not make is never removed. The move is the point of no
+// return: ctx is looked at last just before it.
 func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
 	// Files left at these names by an earlier run are not this run's.
 	_ = osfile.Remove(state.archivePath)
 	_ = osfile.Remove(state.partialPath)
-	err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath)
-	created := err == nil
+	written, err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath)
+	ours, sidecarMade := err == nil, false
 	if err == nil {
 		state.reach(archiveWritten)
-		err = state.hashArchive(ctx, report)
+		sidecarMade, err = state.recordHash(written, report)
 	}
 	if err == nil {
 		state.reach(sidecarWritten)
+		if err = archive.StillNames(state.partialPath, written.File); err != nil {
+			ours = false
+		}
+	}
+	if err == nil {
 		err = ctx.Err()
 	}
 	if err != nil {
-		if created {
+		if ours {
 			_ = osfile.Remove(state.partialPath)
 		}
-		_ = osfile.Remove(state.archivePath + ".sha256")
+		if sidecarMade {
+			_ = osfile.Remove(state.archivePath + ".sha256")
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -84,19 +92,15 @@ func (state *runState) buildArchive(ctx context.Context, report *summary.Summary
 	return state.placeArchive()
 }
 
-// hashArchive hashes the partial archive into the report and writes the
-// sidecar under the archive's final name. A stop request ends the hashing
-// with an error that holds ctx's.
-func (state *runState) hashArchive(ctx context.Context, report *summary.Summary) error {
-	sha256, size, err := archive.SHA256File(ctx, state.partialPath)
-	switch {
-	case err != nil:
-		return err
-	case size == 0:
-		return errors.New(syspath.ToNative(state.partialPath) + ": empty archive")
+// recordHash puts the hash and size of the archive as written into the
+// report and writes the sidecar under the archive's final name, reporting
+// whether it made the sidecar file.
+func (state *runState) recordHash(written archive.Written, report *summary.Summary) (bool, error) {
+	if written.Size == 0 {
+		return false, errors.New(syspath.ToNative(state.partialPath) + ": empty archive")
 	}
-	report.ArchiveSHA, report.ArchiveSize = sha256, size
-	return archive.WriteSidecar(state.archivePath, sha256)
+	report.ArchiveSHA, report.ArchiveSize = written.SHA256, written.Size
+	return archive.WriteSidecar(state.archivePath, written.SHA256)
 }
 
 // Tries and pauses of the move of the archive to its name: on Windows another
@@ -108,9 +112,15 @@ const (
 )
 
 // placeArchive moves the finished archive from its partial name to its name,
-// replacing any file there, trying again over about a second. A move that
+// replacing any file there, trying again over about a second; a move that
 // cannot be done leaves the archive complete under its partial name with its
-// sidecar, and its FATAL line says so.
+// sidecar, and its FATAL line says so. buildArchive checked just before that
+// the partial name still names the file this run wrote. What stays open: in
+// between, an account that may delete entries in the output directory can
+// put another entry there, since rename(2) and MoveFileEx take names, not an
+// open file, and no portable call renames by handle; that entry then takes
+// the final name (a link moved as a link, never followed), and the sidecar,
+// holding the hash of the bytes this run wrote, does not match it.
 func (state *runState) placeArchive() error {
 	rename, sleep := state.host.rename, state.host.sleep
 	if rename == nil {
@@ -260,18 +270,47 @@ func (state *runState) relocationSummary() summary.Relocation {
 }
 
 // writeCollectionJSON writes collection.json beside the archive and a copy in
-// the staging directory.
+// the staging directory, each a file created new (createNew).
 func (state *runState) writeCollectionJSON(report summary.Summary) error {
 	var text bytes.Buffer
 	if err := summary.WriteCollectionJSON(&text, report); err != nil {
 		return err
 	}
 	for _, path := range []string{state.summaryPath, state.stageDir + "/collection.json"} {
-		if err := osfile.WriteFile(path, text.Bytes(), 0o666); err != nil {
-			return err
+		made, err := writeNew(path, text.Bytes())
+		if path == state.summaryPath {
+			state.summaryMade = made
+		}
+		if err != nil {
+			return fmt.Errorf("collection.json not written: %w", err)
 		}
 	}
 	return nil
+}
+
+// createNew creates the file at path for writing, new: anything already at
+// path, a link or a dangling link included, is an error and is neither
+// followed nor changed (O_EXCL; on Windows CREATE_NEW with
+// FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go). Every file a
+// run writes is made this way, so another account that can write the output
+// directory cannot make the run write through a link it planted there.
+func createNew(path string) (*os.File, error) {
+	return osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+}
+
+// writeNew writes data to a file created new at path (createNew) and
+// reports whether it made the file. A write or close error names the file in
+// native form.
+func writeNew(path string, data []byte) (bool, error) {
+	file, err := createNew(path)
+	if err != nil {
+		return false, err
+	}
+	_, err = file.Write(data)
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	return true, syspath.NativeErrors(err)
 }
 
 // stageRunFiles copies the manifest and the log, as they stand, into the
@@ -289,16 +328,16 @@ func (state *runState) stageRunFiles() error {
 	return nil
 }
 
-// copyFile copies the file at source to target, created with the default
-// mode the umask narrows. A read, write or close error names its file in
-// native form, as the open errors do.
+// copyFile copies the file at source to target, created new (createNew)
+// with the default mode the umask narrows. A read, write or close error
+// names its file in native form, as the open errors do.
 func copyFile(source, target string) error {
 	input, err := osfile.Open(source)
 	if err != nil {
 		return err
 	}
 	defer input.Close()
-	out, err := osfile.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
+	out, err := createNew(target)
 	if err != nil {
 		return err
 	}

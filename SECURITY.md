@@ -34,12 +34,12 @@ misbehave. Reports in these classes are wanted:
   (`requirements-docs.txt`), or in an action the GitHub workflows use.
 - **Unintended actions.** Anything DoubleAgent does that its documentation
   says it never does: modifying, moving or deleting a file outside the
-  output directory; following a symbolic link; reading a file outside the
-  image root in image mode (`-r`); writing outside the output or
-  extraction directory when it reads an archive, such as an archive
-  entry that escapes it (path traversal); printing a file's contents or a
-  credential to the terminal or the log of a collection run; or executing
-  anything found in the data it reads.
+  output directory; following a symbolic link, one placed in the output
+  directory included; reading a file outside the image root in image mode
+  (`-r`); writing outside the output or extraction directory when it reads
+  an archive, such as an archive entry that escapes it (path traversal);
+  printing a file's contents or a credential to the terminal or the log of
+  a collection run; or executing anything found in the data it reads.
 - **Harm to the host or the analyst workstation.** A crafted file tree,
   archive, transcript or database that makes `doubleagent` hang, exhaust
   memory or disk, or crash in a way that leaves its output in a misleading

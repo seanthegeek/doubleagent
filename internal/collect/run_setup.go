@@ -50,6 +50,10 @@ type runState struct {
 	logPath      string
 	manifestPath string
 	summaryPath  string
+	// stageMade and summaryMade are set once the run has created the
+	// staging directory and collection.json, so it removes only what it made.
+	stageMade   bool
+	summaryMade bool
 	// stageFoldsCase is set where the staging directory takes two names
 	// differing only in case for one (keepCaseApart).
 	stageFoldsCase bool
@@ -200,35 +204,52 @@ func safeHostname(name string) string {
 }
 
 // openOutputs creates the staging directory, the log and the manifest, and
-// the collector every walk shares. Under
-// --inventory nothing is created: the log goes to the null device and the
-// rows nowhere.
+// the collector every walk shares. Each is created new: a name already
+// taken, by a link or anything else, ends the run with a fatal error, and
+// what holds it is neither followed nor changed. Under --inventory nothing
+// is created: the log writes no file and the rows go nowhere.
 func (state *runState) openOutputs() error {
-	logPath, rows := os.DevNull, io.Writer(io.Discard)
-	physical := ""
+	rows, physical := io.Writer(io.Discard), ""
+	log := runlog.Discard(state.options.Quiet, state.stderr, state.host.now)
 	if !state.options.Inventory {
-		if err := osfile.MkdirAll(state.stageDir+"/fs", 0o777); err != nil {
-			return &fatalError{message: "Cannot create staging dir"}
-		}
-		state.stageFoldsCase = state.keepCaseApart(state.stageDir + "/fs")
 		var err error
-		if physical, err = stage.PhysicalDir(state.stageDir); err != nil {
-			return &fatalError{message: "Cannot create staging dir"}
+		if physical, err = state.makeStage(); err != nil {
+			return err
 		}
-		if state.manifestFile, err = osfile.Create(state.manifestPath); err != nil {
-			return &fatalError{message: err.Error()}
+		if state.manifestFile, err = createNew(state.manifestPath); err != nil {
+			return &fatalError{message: "Cannot create manifest: " + err.Error()}
 		}
 		state.rows = bufio.NewWriter(nativeErrorWriter{state.manifestFile})
-		logPath, rows = state.logPath, state.rows
-	}
-	log, err := runlog.Open(logPath, state.options.Quiet, state.stderr, state.host.now)
-	if err != nil {
-		return &fatalError{message: err.Error()}
+		rows = state.rows
+		if log, err = runlog.Open(state.logPath, state.options.Quiet, state.stderr,
+			state.host.now); err != nil {
+			return &fatalError{message: err.Error()}
+		}
 	}
 	state.log, state.manifest = log, manifest.NewWriter(rows)
 	state.manifest.UseSameEntry(follow.SameEntry(state.roots.Expansion()))
 	state.collector = state.newCollector(physical)
 	return nil
+}
+
+// makeStage creates the staging directory and its fs directory, each new
+// (osfile.Mkdir), marks fs to keep case apart, and returns the staging
+// directory's physical path. A failure is a fatalError naming the reason.
+func (state *runState) makeStage() (string, error) {
+	err := osfile.Mkdir(state.stageDir, 0o777)
+	state.stageMade = err == nil
+	if err == nil {
+		err = osfile.Mkdir(state.stageDir+"/fs", 0o777)
+	}
+	if err != nil {
+		return "", &fatalError{message: "Cannot create staging dir: " + err.Error()}
+	}
+	state.stageFoldsCase = state.keepCaseApart(state.stageDir + "/fs")
+	physical, err := stage.PhysicalDir(state.stageDir)
+	if err != nil {
+		return "", &fatalError{message: "Cannot create staging dir: " + err.Error()}
+	}
+	return physical, nil
 }
 
 // keepCaseApart marks dir, the new and empty staging fs directory, so it
@@ -396,8 +417,8 @@ func (state *runState) logNotHeld() error {
 	return state.log.Line(fmt.Sprintf("access times not held: %d file(s)", len(state.notHeld)))
 }
 
-// cleanup closes the run's files and removes the staging directory unless
-// -k was given, on every exit.
+// cleanup closes the run's files and removes the staging directory the run
+// made unless -k was given, on every exit.
 func (state *runState) cleanup() {
 	if state.rows != nil {
 		_ = state.rows.Flush()
@@ -408,7 +429,7 @@ func (state *runState) cleanup() {
 	if state.log != nil {
 		_ = state.log.Close()
 	}
-	if !state.options.KeepStaging && !state.options.Inventory {
+	if !state.options.KeepStaging && state.stageMade {
 		_ = osfile.RemoveAll(state.stageDir)
 	}
 }

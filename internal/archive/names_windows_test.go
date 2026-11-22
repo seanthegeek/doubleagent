@@ -26,7 +26,7 @@ func TestWriteTarGzKeepsNamesEndingInADotOrASpace(t *testing.T) {
 		}
 	}
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, members := readMembers(t, archivePath)
@@ -42,14 +42,18 @@ func TestWriteTarGzKeepsNamesEndingInADotOrASpace(t *testing.T) {
 	}
 }
 
-func TestHashErrorNamesTheNativePath(t *testing.T) {
+func TestStillNamesErrorNamesTheNativePath(t *testing.T) {
 	canonical := syspath.FromNative(t.TempDir())
-	_, _, err := SHA256File(context.Background(), canonical)
+	info, err := os.Lstat(syspath.ToNative(canonical))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = StillNames(canonical, info)
 	if err == nil {
-		t.Fatal("SHA256File(context.Background(), directory) succeeded, want a read error")
+		t.Fatal("StillNames of a directory succeeded, want an error")
 	}
 	text := err.Error()
-	if !strings.Contains(text, "hash "+syspath.ToNative(canonical)+":") || strings.Contains(text, `\\?\`) {
+	if !strings.Contains(text, syspath.ToNative(canonical)+":") || strings.Contains(text, `\\?\`) {
 		t.Errorf("error %q, want it to name %q and carry no \\\\?\\ prefix", text, syspath.ToNative(canonical))
 	}
 }
@@ -71,7 +75,7 @@ func TestArchiveErrorNamesTheNativePath(t *testing.T) {
 		new(windows.Overlapped)); err != nil {
 		t.Fatal(err)
 	}
-	err = WriteTarGz(context.Background(), syspath.FromNative(stage), filepath.Join(t.TempDir(), "out.tar.gz"))
+	_, err = WriteTarGz(context.Background(), syspath.FromNative(stage), filepath.Join(t.TempDir(), "out.tar.gz"))
 	if err == nil {
 		t.Fatal("WriteTarGz of a locked file succeeded, want a read error")
 	}

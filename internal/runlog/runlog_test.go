@@ -146,3 +146,41 @@ func TestEveryLineIsWrittenPrintable(t *testing.T) {
 		t.Errorf("file %q and stderr %q (%v), want %q and the first line", got, stderr.String(), err, want)
 	}
 }
+
+func TestOpenCreatesTheLogNewAndNeverThroughALink(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(dir, "outside")
+	cases := []struct {
+		name  string
+		plant func(path string) error
+	}{
+		{"a file at the name is refused",
+			func(path string) error { return os.WriteFile(path, []byte("kept"), 0o600) }},
+		{"a link at the name is not followed", func(path string) error { return os.Symlink(outside, path) }},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			path := filepath.Join(dir, testCase.name)
+			if err := testCase.plant(path); err != nil {
+				t.Skipf("cannot plant the entry: %v", err)
+			}
+			if _, err := Open(path, true, &bytes.Buffer{}, time.Now); !errors.Is(err, os.ErrExist) {
+				t.Errorf("Open = %v, want the name taken", err)
+			}
+			if _, err := os.Lstat(outside); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("a file was created through the link: %v", err)
+			}
+		})
+	}
+}
+
+func TestDiscardWritesOnlyStandardError(t *testing.T) {
+	var stderr bytes.Buffer
+	log := Discard(false, &stderr, time.Now)
+	if err := log.Line("a\nb"); err != nil || log.FileLine("c") != nil || log.Close() != nil {
+		t.Fatalf("a discarding log failed: %v", err)
+	}
+	if stderr.String() != "a\\x0ab\n" {
+		t.Errorf("stderr %q, want the escaped line", stderr.String())
+	}
+}

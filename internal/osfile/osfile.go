@@ -97,6 +97,14 @@ func WriteFile(path string, data []byte, perm fs.FileMode) error {
 	return syspath.NativeErrors(os.WriteFile(syspath.Extended(path), data, perm))
 }
 
+// Mkdir creates the directory path, as os.Mkdir does: anything already at
+// path, a link or a dangling link included, is an error and is neither
+// followed nor changed (mkdir(2) returns EEXIST; on Windows CreateDirectory
+// fails with ERROR_ALREADY_EXISTS).
+func Mkdir(path string, perm fs.FileMode) error {
+	return syspath.NativeErrors(os.Mkdir(syspath.Extended(path), perm))
+}
+
 // MkdirAll creates the directory path and its missing parents, as
 // os.MkdirAll does. On Windows os.MkdirAll walks the extended form's parents
 // down to its \\?\X: volume and stats each, so it takes the form whole.
