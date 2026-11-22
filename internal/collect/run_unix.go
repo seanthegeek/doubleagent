@@ -5,6 +5,7 @@ package collect
 import (
 	"os"
 	"strconv"
+	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/relocation"
 	"github.com/seanthegeek/doubleagent/internal/summary"
@@ -85,3 +86,9 @@ func hostname() string {
 	}
 	return name
 }
+
+// continueSignals are the signals that say the run's terminal or the reader
+// of its output went away: SIGHUP, a hangup of the controlling terminal, and
+// SIGPIPE, a write to a pipe whose reader ended, which then fails with EPIPE
+// instead of ending the program (os/signal's SIGPIPE section).
+func continueSignals() []os.Signal { return []os.Signal{syscall.SIGHUP, syscall.SIGPIPE} }

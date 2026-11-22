@@ -265,17 +265,24 @@ empty target when the target could not be read.
 
 ### Exception 64
 
-A run whose standard output or standard error is closed while it runs (a
-pipe whose reader ended, a remote console that detached) finishes: it
-drops what it cannot print, writes the archive, removes the staging
-directory and exits `0`, and the log file holds every line. On Linux and
-macOS `doubleagent` receives the `SIGPIPE` signal so that the write fails
-instead of ending the program. A `--inventory` run, whose standard output
-is its only output, exits `2`. The sh collector set no handler for
-`SIGPIPE` (its traps covered `EXIT`, `INT` and `TERM`), so unless it was
-started with the signal ignored, its next write to the closed stream, a
+A run whose console goes away while it runs (a pipe whose reader ended, a
+remote console that detached, a terminal that hung up) finishes: it drops
+what it cannot print, writes the archive, removes the staging directory
+and exits `0`, and the log file holds every line. On Linux and macOS
+`doubleagent` catches the `SIGPIPE` and `SIGHUP` signals such a loss
+sends, so that the write fails instead of ending the program. A
+`--inventory` run, whose standard output is its only output, exits `2`
+when that output is a pipe whose reader ended. The sh collector set no
+handler for `SIGPIPE` or `SIGHUP` (its traps covered `EXIT`, `INT` and
+`TERM`), so unless it was started with the signal ignored (as `nohup`
+does for `SIGHUP`), a hangup, or its next write to a closed pipe, a
 progress line on standard error without `-q` among them, ended it by that
-signal, with no `interrupted` line.
+signal, with no `interrupted` line. The PowerShell collector set no
+handler either: it wrote its progress lines with
+`[Console]::Error.WriteLine` and its summary with `Write-Output`, and what
+a closed stream did to those writes was left to PowerShell and .NET, which
+its source does not settle; this entry compares the two on Linux and
+macOS only.
 
 ## The manifest, the log and collection.json
 

@@ -140,16 +140,30 @@ packages.
   injectable clock so tests can pin them.
 - **Goroutines.** Every goroutine is bounded by a `context.Context` and
   waited for; the caller decides output order, never scheduling. Every loop
-  over directories or files checks `ctx.Err()` per directory; `SIGINT` and
-  `SIGTERM` cancel the context, and the run logs `interrupted`, removes the
-  staging directory and exits 130.
+  over directories or files checks `ctx.Err()` per directory.
+- **Signals.** A `collect` run ends before its archive is written only when
+  it is told to stop (an interrupt or a termination request) or meets a
+  fatal error; in both cases it removes its staging directory unless `-k`
+  is given. Losing its terminal or the reader of its output is neither: the
+  run continues, because the log file is its record. So `SIGINT` and
+  `SIGTERM` cancel the context, and the run logs `interrupted` and exits
+  130; `SIGHUP` and `SIGPIPE` are caught and dropped; every other signal
+  keeps Go's default, decided one by one in
+  [Signals](../docs/internals.md#signals), which a new handler updates. A
+  signal is caught, never ignored, so the programs a run starts keep their
+  defaults, and the handlers cover a collection and an inventory run and are
+  removed when `collect.Run` returns; `--list`, `--version` and `--help`
+  stage nothing and set none.
 - **Logging and output.** Log lines go through the run log
   (`internal/runlog`); `fmt.Print*` outside the summary, inventory and usage
   writers is a defect; no file contents, secret or matched line reaches the
   log. A failed write to standard output or standard error never ends a
-  `collect` run: it receives `SIGPIPE` and drops the failure, since the log
+  collection or inventory run: the run drops the failure, since the log
   file is the record, except under `--inventory`, whose standard output is
-  its output.
+  its output and whose failed write is fatal. On Linux and macOS the run
+  catches the `SIGPIPE` and `SIGHUP` such a loss sends
+  (the Signals bullet above); on Windows the write fails
+  without a signal.
 
 ### Standard library and readers
 

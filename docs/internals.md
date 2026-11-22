@@ -94,6 +94,41 @@ of the same name earlier on the operator's `PATH` is not the one run, and runs i
 the C locale. Copying, hashing, archiving, searching and listing are Go; nothing else
 is run.
 
+### Signals
+
+A collection or inventory run ends before its archive is written only when it is
+told to stop (an interrupt or a termination request) or meets a fatal error, and
+both remove the staging directory unless `-k` is given. Losing its terminal or the
+reader of its output is neither: the run continues, because the log file is its
+record. `collect.catchSignals` sets the handlers from that rule when the run starts
+and removes them when it returns; `--list`, `--version` and `--help` return before
+it, since they stage nothing, so a closed standard output ends them by `SIGPIPE`.
+A signal the run reacts to is caught, never ignored: an ignored signal would be
+inherited by `getent`, `dscl` and `plutil`, while a caught one is reset to its
+default action when they start.
+
+These are the signals whose default action ends a process on Linux or macOS and that
+a program can catch, with what a run does on each:
+
+| Signals | What the run does | Why |
+| --- | --- | --- |
+| `SIGINT`, `SIGTERM` | Caught: the run logs `interrupted`, removes the staging directory unless `-k` is given and exits `130`. | A request to stop. |
+| `SIGHUP`, `SIGPIPE` | Caught and dropped: the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
+| `SIGQUIT`, `SIGABRT`, `SIGILL`, `SIGTRAP`, `SIGSYS`, `SIGEMT` (macOS), `SIGSTKFLT` (Linux), and `SIGBUS`, `SIGFPE` or `SIGSEGV` sent by another program | Go's default: a stack dump on standard error and exit `2`, leaving the staging directory and a log with no closing line. | Each is a request for a stack dump or a sign that the program itself is broken; the dump is how a hung run is diagnosed, and a run that is hung could not clean up anyway. The staging directory left behind is readable by its owner only, as everything the run creates is, and is removed by hand. |
+| `SIGBUS`, `SIGFPE`, `SIGSEGV` raised by the program's own fault | Go's default: a run-time panic, exit `2`, as above. | A bug in the program. |
+| `SIGUSR1`, `SIGUSR2`, `SIGALRM`, `SIGVTALRM`, `SIGXCPU`, `SIGXFSZ`, `SIGIO` and `SIGPWR` (Linux), the real-time signals from 35 (Linux) | Go's default: caught and dropped, so the run continues. | None asks the run to stop. A write past a file size limit then fails, a fatal error; on Linux a run past its hard CPU-time limit is killed by `SIGKILL`. |
+| signals 32, 33 and 34 (Linux) | The system's default: the process ends, leaving the staging directory as `SIGKILL` does. | Go leaves them to the C library's threads and sets no handler for them. |
+| `SIGPROF` | Go's default: used by the profiler, otherwise no action. | The run never profiles itself. |
+| `SIGTSTP`, `SIGTTIN`, `SIGTTOU` | The system's default: the process stops until `SIGCONT`, and does not end. | Job control belongs to the operator's shell. When the shell that stopped the run exits, the system sends it `SIGHUP` and `SIGCONT`, and the run continues. |
+| `SIGKILL`, `SIGSTOP` | Cannot be caught. `SIGKILL` leaves the staging directory as `SIGQUIT` does. | |
+
+On Windows, Go turns Ctrl+C and Ctrl+Break into `os.Interrupt`, and the console being
+closed (or a logoff or shutdown event, which only services receive) into `SIGTERM`;
+both are requests to stop. Windows ends the process once the handler for a close has
+had its time ([HandlerRoutine callback function](https://learn.microsoft.com/en-us/windows/console/handlerroutine)
+gives the timeouts), so the cleanup may not finish. A write to a closed pipe or console
+fails without a signal, so no signal needs dropping there.
+
 ## Paths and the file system
 
 | Package | What it owns |

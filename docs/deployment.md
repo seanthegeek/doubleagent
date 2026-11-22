@@ -123,17 +123,36 @@ before it creates the log (a usage error, an output directory that cannot
 be created) leaves no log at all, and its message went to the discarded
 standard error; run the same command in the foreground to see it.
 
-A console that goes away while `collect` runs in the foreground (a session
-that times out or detaches, a pipe whose reader ends) does not stop the
-run. On Linux and macOS the program receives the `SIGPIPE` signal rather
-than being ended by it, and on Windows a write to a closed pipe fails
-without ending it; either way the run drops what it cannot print, writes
-the archive, removes the staging directory and exits `0`, and the log
-records the whole run. A `--inventory` run, whose only output is standard
-output, exits `2` instead. Closing the console window on Windows, or a
-logoff or shutdown, is an interrupt: the run logs `interrupted`, removes
-the staging directory and exits `130`, if Windows leaves it the time
-before it ends the process.
+A collection or inventory run stops early only when it is told to stop or
+meets a fatal error. A console that goes away while `collect` runs in the
+foreground (a session that times out or detaches, a terminal that hangs
+up, a pipe whose reader ends) does not stop it. On Linux and macOS the
+program catches the `SIGHUP` and `SIGPIPE` signals such a loss sends
+rather than being ended by them, and on Windows a write to a closed pipe
+fails without a signal; either way the run drops what it cannot print,
+writes the archive, removes the staging directory and exits `0`, and the
+log records the whole run. A `--inventory` run, whose only output is
+standard output, exits `2` instead when that output is a pipe whose reader
+ended; when standard output was closed before it started (`>&-` in a
+shell), the program is given the null device in its place, so the
+inventory is lost and the run exits `0`.
+
+`INT` and `TERM` on Linux and macOS, and Ctrl+C, Ctrl+Break or closing the
+console window on Windows, are requests to stop: the run logs
+`interrupted`, removes the staging directory and exits `130`, if Windows
+leaves it the few seconds it gives before it ends the process after a
+window is closed. A logoff or shutdown on Windows is not a request the run
+sees: Windows ends a program started from an interactive session without
+telling it
+([HandlerRoutine callback function](https://learn.microsoft.com/en-us/windows/console/handlerroutine)).
+A run ended that way, or by `SIGKILL`, or by `SIGQUIT` (which prints a
+stack dump of the program and exits `2`), leaves its staging directory,
+`.stage-<host>_<UTC time>_agent-artifacts`, in the output directory with
+the copies made so far, and a log without a closing line: delete the
+directory by hand. On Linux and macOS only root and the account that ran
+`collect` can read it.
+`--list`, `--version` and `--help` write no files, and a pipe whose reader
+ended stops them on Linux and macOS.
 
 ### Runtime
 

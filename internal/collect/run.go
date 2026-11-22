@@ -29,10 +29,9 @@ const (
 
 // Run performs ACTION and returns the exit code. It writes the catalog,
 // version, help, stdout summary or inventory to STDOUT and diagnostics to
-// STDERR. A run is cancelled by ctx or by SIGINT or SIGTERM. SIGPIPE is
-// received rather than left to end the process, so a write to a closed
-// standard output or error fails with EPIPE (os/signal's SIGPIPE section)
-// and the run goes on, its log file the record.
+// STDERR. A collection or inventory run is cancelled by ctx or by a request
+// to stop (catchSignals); --list, --version and --help stage nothing and
+// keep the default actions of every signal.
 func Run(ctx context.Context, options Options, action Action, stdout, stderr io.Writer) int {
 	switch action {
 	case ActList:
@@ -45,14 +44,35 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 		fmt.Fprint(stdout, UsageText)
 		return exitOK
 	}
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	brokenPipes := make(chan os.Signal, 1)
-	signal.Notify(brokenPipes, syscall.SIGPIPE)
-	defer signal.Stop(brokenPipes)
+	ctx, release := catchSignals(ctx)
+	defer release()
 	host := environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
 		findUsers: users.Find, lastAccess: lastAccessUpdates, confine: follow.NewConfinement}
 	return runCollection(ctx, options, host, stdout, stderr)
+}
+
+// catchSignals sets a run's signal handlers by its rule: a run ends before
+// its archive is written only when it is told to stop (an interrupt or a
+// termination request) or meets a fatal error, and both remove the staging
+// directory unless -k is given; losing its terminal or the reader of its
+// output is neither, so the run continues, its log file the record. The
+// returned context is cancelled by SIGINT or SIGTERM; continueSignals are
+// caught and dropped (caught, not ignored, so the programs the run starts
+// keep their default actions); every other signal keeps Go's default, as
+// the Signals section of docs/internals.md decides one by one; release
+// removes the handlers.
+func catchSignals(ctx context.Context) (stopped context.Context, release func()) {
+	stopped, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	dropped := continueSignals()
+	if len(dropped) == 0 {
+		// Notify with no signals would relay every signal.
+		return stopped, stop
+	}
+	// Notify never blocks on a full channel: this one, never read, keeps one
+	// signal and the rest are dropped, with no goroutine waiting on it.
+	caught := make(chan os.Signal, 1)
+	signal.Notify(caught, dropped...)
+	return stopped, func() { signal.Stop(caught); stop() }
 }
 
 // canonicalGetwd returns the current directory in canonical form.

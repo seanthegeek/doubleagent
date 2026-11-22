@@ -126,3 +126,9 @@ func hostname() string {
 	}
 	return name
 }
+
+// continueSignals is empty on Windows: a write to a closed pipe or console
+// fails without a signal, and Go delivers no other event than Ctrl+C and
+// Ctrl+Break (os.Interrupt) and a console close, logoff or shutdown
+// (SIGTERM), which are requests to stop.
+func continueSignals() []os.Signal { return nil }

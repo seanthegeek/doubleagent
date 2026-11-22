@@ -142,12 +142,12 @@ func safeNames() map[string][]string {
 		// TestNoParserPackageBuildsAPath.
 		"path/filepath": {"Base", "Clean", "Dir", "IsAbs", "Join", "Separator", "SplitList", "ToSlash",
 			"VolumeName"},
-		// Constants, two signals, an attribute record type, and error numbers
+		// Constants, three signals, an attribute record type, and error numbers
 		// with their type, which internal/reason and internal/input compare
 		// errors against.
 		"syscall": {"EILSEQ", "EISDIR", "ELOOP", "ENAMETOOLONG", "ENOTDIR", "ERROR_MORE_DATA", "Errno",
-			"FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT", "SIGPIPE", "SIGTERM",
-			"Win32FileAttributeData"},
+			"FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT", "SIGHUP", "SIGPIPE",
+			"SIGTERM", "Win32FileAttributeData"},
 		// Constants, the umask, the kernel's name and a byte conversion.
 		"golang.org/x/sys/unix": {"AT_EACCESS", "AT_FDCWD", "ByteSliceToString", "Umask", "Uname",
 			"Utsname", "W_OK", "X_OK"},
