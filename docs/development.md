@@ -39,26 +39,79 @@ tags beside its own (`-tags dash,noasm,nounsafe`).
 
 ## Building
 
-A development build for this machine:
+The [`Makefile`](../Makefile) at the repository root is the entry point.
+It works with GNU make and with the BSD make of macOS, and every target
+passes the build tags itself, so it needs no `GOFLAGS`. The binaries go
+into `dist/`, which git ignores, named `doubleagent-<os>-<arch>` (with
+`.exe` on Windows). A build for this machine:
 
 ```sh
-CGO_ENABLED=0 go build -o doubleagent ./cmd/doubleagent
-./doubleagent --version
+make build
+dist/doubleagent-darwin-arm64 --version    # the name of this machine's build
 ```
 
-It prints `doubleagent 0.0.0-dev` followed by the commit. The release
-builds come from `.github/go-build.sh`, which builds every release target
-(macOS, Linux and Windows, each on amd64 and arm64) into the directory
-given, as `doubleagent-<os>-<arch>` (with `.exe` on Windows), and prints
-the SHA-256 of each:
+It prints `doubleagent 0.0.0-dev` followed by the commit, and `-modified`
+when the checkout has uncommitted changes. `make` alone builds the six
+release targets (macOS, Linux and Windows, each on amd64 and arm64) and
+prints the SHA-256 of each:
 
 ```sh
-sh .github/go-build.sh /tmp/doubleagent-builds
+make
+make VERSION=1.2.3     # the version the binaries report, as a release sets it
 ```
 
-It builds with `CGO_ENABLED=0`, `-trimpath` and an empty build id, so two
-builds of one commit are byte for byte the same. `VERSION` in the
-environment sets the version the builds report.
+Both run `.github/go-build.sh`, the one recipe for a release build, which
+the CI and release workflows run too. It builds with `CGO_ENABLED=0`,
+`-trimpath` and an empty build id, so two builds of one commit are byte
+for byte the same on any machine. `make reproducible` builds the six
+targets twice in temporary directories and fails unless the hashes agree.
+
+| Target | What it does |
+| --- | --- |
+| `make` or `make all` | the six release binaries in `dist/`, with their hashes |
+| `make build` | this machine's binary in `dist/` |
+| `make test` | `go test ./...`, the quick run while working |
+| `make race` | the tests under the race detector, as CI runs them |
+| `make vet` | `go vet ./...` for Linux, macOS and Windows |
+| `make fmt-check` | fails when `gofmt` would change a file, naming it |
+| `make staticcheck`, `make govulncheck` | each at the version CI pins; `govulncheck` needs the network |
+| `make test-dash`, `make test-nojsonv2` | the two extra test runs of the CI `go` job: the glob tests against dash, which must be installed, and the JSON depth test without `encoding/json` v2 |
+| `make check` | the Go gates of the CI `go` job, in its order: `fmt-check`, `vet`, `staticcheck`, `govulncheck`, `race`, `test-dash`, `test-nojsonv2`, `reproducible` |
+| `make reproducible` | two builds of the six targets, compared |
+| `make clean` | removes `dist/` |
+
+A release is built by the release workflow,
+[`.github/workflows/release.yml`](../.github/workflows/release.yml), when
+the maintainer pushes a version tag; [Releases](#releases) describes it.
+
+### Releases
+
+A release starts when the maintainer pushes a tag `v<version>`, such as
+`v0.1.0` or the pre-release `v0.2.0-rc.1`, after the version's section
+`## [<version>] - <YYYY-MM-DD>` is in [`CHANGELOG.md`](CHANGELOG.md). The
+release workflow then:
+
+1. builds the six targets with that version on an Ubuntu and a macOS
+   runner, and fails unless the two runners built the same bytes;
+2. checks that the Linux binary reports the version, that the changelog
+   has the section, and that `THIRD_PARTY_NOTICES.txt` matches the
+   vendored modules;
+3. attests each binary's build provenance, signed through GitHub, which
+   `gh attestation verify` checks;
+4. creates a draft GitHub Release titled with the version (without the
+   `v`), with the changelog section as its notes and the six binaries,
+   `SHA256SUMS`, `LICENSE` and `THIRD_PARTY_NOTICES.txt` attached; a
+   version with a `-` suffix is marked a pre-release.
+
+The maintainer reads the draft and publishes it by hand. Running the
+workflow from the Actions tab with a version is a dry run: it builds,
+compares and checks for that version, and creates no attestation and no
+release.
+
+[`THIRD_PARTY_NOTICES.txt`](../THIRD_PARTY_NOTICES.txt) holds the licence
+of the Go distribution and of each module under `vendor/`, copied from the
+files; a test in `internal/version` fails when a module is added, removed
+or moved to another version without the file following it.
 
 ## Running the tests
 

@@ -52,9 +52,11 @@ while IFS= read -r path; do
   esac
 
   # The Go job: the module, its vendored dependencies, every Go source file,
-  # the embedded catalog and the build script the job runs twice.
+  # the embedded catalog, the build script the job runs twice and the
+  # licence notices a test compares with vendor/.
   case "$path" in
-    go.mod | go.sum | vendor/* | *.go | internal/catalog/catalog.txt | .github/go-build.sh)
+    go.mod | go.sum | vendor/* | *.go | internal/catalog/catalog.txt | .github/go-build.sh | \
+      THIRD_PARTY_NOTICES.txt)
       go_tree=true
       matched=true
       ;;
@@ -65,7 +67,7 @@ while IFS= read -r path; do
   case "$path" in
     *.md | .markdownlint-cli2.jsonc | tools/drift-baseline/* | .github/ISSUE_TEMPLATE/* | \
       .github/dependabot.yml | .github/workflows/pages.yml | mkdocs/mkdocs.yml | \
-      requirements-docs.txt | .git-blame-ignore-revs | .gitignore | LICENSE)
+      requirements-docs.txt | .git-blame-ignore-revs | .gitignore | LICENSE | Makefile)
       matched=true
       ;;
   esac
