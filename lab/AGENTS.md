@@ -190,16 +190,21 @@ differently into Format versions.
    - The main session says, in plain words and as its own line, when the VM
      may be reverted: only after the last listing, with the collection and
      probe output on the analyst machine and its outputs in the VM deleted.
-     Until then it says the VM is still needed. Then delete the pulled
-     collections and the cell directory, and revert to the clean snapshot
-     before the next agent (the pipeline's `finish` action).
-   - Automatic updates and reboots are off in the clean snapshot. The VM is
-     snapshotted at every pause with a session open and before a
-     hard-to-undo step (a delete, a retention sweep, a reboot).
+     Until then it says the VM is still needed. The pipeline's `finish`
+     action then reverts the VM to the clean snapshot and deletes the
+     snapshots the pipeline took, but deletes no file: the person deletes
+     the cell directory, which holds the pulled collections, before the next
+     agent.
+   - Automatic updates and reboots are off in the clean snapshot. The
+     pipeline snapshots the VM at every pause step; a hard-to-undo step (a
+     delete, a retention sweep, a reboot) that no pause precedes gets a
+     snapshot from the main session (`prlctl snapshot <vm> -n <name>`)
+     before it runs, or a pause step in the step table.
    - A revert to the snapshot after step N discards every later listing;
      those steps are retaken under new names, and the evidence table says
      which snapshot and why. Mid-round snapshots are deleted when the VM is
-     released; the clean snapshot is kept.
+     released, a snapshot taken by hand by whoever took it, since `finish`
+     deletes only the pipeline's; the clean snapshot is kept.
 
 Subagents integrate from one brief file holding every number the documents
 will cite, the install facts, the collection and timeline runs, and the

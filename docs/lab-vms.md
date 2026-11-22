@@ -92,8 +92,11 @@ prompt cannot be answered and the command hangs or fails, and the
 pipeline cannot be relied on to reach a running `ssh-agent` either. The lab therefore uses one
 dedicated ed25519 key with no passphrase, generated for the lab alone.
 What limits the exposure: the key is authorized only for the lab user in
-VMs on a host-only network that are reverted after every round, so it
-opens nothing a revert does not erase; `IdentitiesOnly yes` means the
+VMs that are reverted after every round, so it opens nothing a revert does
+not erase, and the VMs are on Parallels' shared network, a private network
+behind the host's address translation that the host reaches and other
+machines on the host's network do not, through which the VMs reach the
+internet; `IdentitiesOnly yes` means the
 agent never offers the developer's other keys to the VMs; the private key
 is mode 600 under `~/.ssh` on the host, outside any repository, and never
 enters a VM; and revoking it is removing the public key from the VM's
