@@ -10,16 +10,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/collect/imagetest"
 )
 
-// image is the smoke test's main image: its work directory, the image root
-// inside it, both resolved as the collectors resolve -r, and the two homes
-// the case placeholders {ALICE} and {BOB} name.
+// image is the main image: its work directory, the image root inside it,
+// both resolved as the collectors resolve -r, and the two homes the case
+// placeholders {ALICE} and {BOB} name. built is the image imagetest built,
+// or nil for the smoke test's, whose cases build their own fixtures.
 type image struct {
 	work  string
 	root  string
 	alice string
 	bob   string
+	built *imagetest.Image
 }
 
 // collectorRun is what one collector run left: its exit code, its standard
