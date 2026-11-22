@@ -29,7 +29,8 @@ func TestASignalMidRunStopsTheRunOnlyWhenItAsksTheRunToStop(t *testing.T) {
 		wantCode int
 	}{
 		{"a terminal hangup lets the run finish its archive", syscall.SIGHUP, 0},
-		{"a broken pipe signal lets the run finish its archive", syscall.SIGPIPE, 0},
+		{"a broken pipe signal sent by another program, which Go drops, lets the run finish its archive",
+			syscall.SIGPIPE, 0},
 		{"a user signal Go drops lets the run finish its archive", syscall.SIGUSR1, 0},
 		{"an interrupt stops the run and removes its staging", syscall.SIGINT, 130},
 		{"a termination request stops the run and removes its staging", syscall.SIGTERM, 130},
