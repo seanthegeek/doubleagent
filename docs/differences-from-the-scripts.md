@@ -721,8 +721,9 @@ wrote such characters as they were.
 
 Every file and directory a run writes in the output directory is created
 new, and a name already taken, by a file or by a link, ends the run with
-exit `2` and is never written through
-([Output files](collection-output.md#output-files)); the archive's hash is
+exit `2` and is never written through; only the archive's own two names
+are cleared first, without following a link
+([Output files](collection-output.md#output-files)). The archive's hash is
 taken of the bytes as they are written, and the archive is moved to its
 name only while its partial name still names the file the run wrote. The
 sh collector created the staging directory with `mkdir -p` and the log,
