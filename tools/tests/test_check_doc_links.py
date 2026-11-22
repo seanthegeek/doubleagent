@@ -30,3 +30,79 @@ def test_unlinked_term_on_one_line_is_reported() -> None:
 def test_blank_line_between_the_words_is_not_a_term() -> None:
     text = "The copy is secondary\n\nSource files follow.\n"
     assert term_names(text) == []
+
+
+PAGE = "# Differences\n\n### Exception 47\n\nText.\n\n### Difference 102\n\nText.\n\n### Difference 230\n"
+
+
+def test_a_cited_number_the_page_defines_passes() -> None:
+    sources = [("internal/walk/x_test.go", "// The home (exception 47) and difference 102.\n")]
+    assert links.citation_problems(PAGE, sources) == []
+
+
+def test_a_cited_number_the_page_lacks_is_reported_where_it_is_cited() -> None:
+    sources = [("internal/a.go", "package a\n\n// ordered by thread id (difference 55).\n")]
+    assert links.citation_problems(PAGE, sources) == [
+        "internal/a.go:3: difference 55 is not defined on %s" % links.DIFFERENCES_PAGE
+    ]
+
+
+def test_each_number_of_a_list_is_checked() -> None:
+    sources = [("internal/a.go", "// differences 102, 230 and 260, or 231 to 232\n")]
+    found = [problem.split(": ", 1)[1] for problem in links.citation_problems(PAGE, sources)]
+    assert found == [
+        "difference %s is not defined on %s" % (number, links.DIFFERENCES_PAGE)
+        for number in ("260", "231", "232")
+    ]
+
+
+def test_a_citation_broken_across_comment_lines_is_read() -> None:
+    sources = [("internal/a.go", "// the dotted home, as exception\n// 48 says\n")]
+    assert links.citation_problems(PAGE, sources) == [
+        "internal/a.go:1: exception 48 is not defined on %s" % links.DIFFERENCES_PAGE
+    ]
+
+
+def test_a_citation_needs_a_heading_of_its_own_kind() -> None:
+    sources = [("cmd/doubleagent/main.go", "# Exception 102 and Difference 47\n")]
+    assert len(links.citation_problems(PAGE, sources)) == 2
+
+
+def test_words_that_only_contain_the_kinds_are_not_citations() -> None:
+    sources = [
+        ("internal/a.go", "// exceptional 4, the differences between 2 files, Exception47\n")
+    ]
+    assert links.citation_problems(PAGE, sources) == []
+
+
+def test_a_number_the_page_defines_twice_is_reported() -> None:
+    page = PAGE + "\n### Exception 47\n\n### Exception 230\n"
+    assert links.citation_problems(page, []) == [
+        "%s:13: number 47 is defined twice (first at line 3)" % links.DIFFERENCES_PAGE,
+        "%s:15: number 230 is defined twice (first at line 11)" % links.DIFFERENCES_PAGE,
+    ]
+
+
+def test_a_heading_inside_a_fence_defines_nothing() -> None:
+    page = "```text\n### Exception 1\n```\n"
+    sources = [("internal/a.go", "// exception 1\n")]
+    assert len(links.citation_problems(page, sources)) == 1
+
+
+def test_only_code_outside_the_harnesses_and_vendor_is_read() -> None:
+    cases = {
+        "cmd/doubleagent/main.go": True,
+        "internal/walk/parity_test.go": True,
+        "internal/sqlitefile/testdata/generate.py": True,
+        "internal/collect/parity/exceptions_test.go": False,
+        "internal/parity/replay/normalise_test.go": False,
+        "vendor/golang.org/x/sys/unix/a.go": False,
+        "docs/differences-from-the-scripts.md": False,
+    }
+    for path, wanted in cases.items():
+        assert links.cites_numbers(path) == wanted, path
+
+
+def test_a_number_after_a_citation_without_a_separator_is_not_cited() -> None:
+    sources = [("internal/a.go", "// difference 102\n// 2026 rows, exception 47 48\n")]
+    assert links.citation_problems(PAGE, sources) == []

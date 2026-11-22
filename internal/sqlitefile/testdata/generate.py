@@ -563,7 +563,7 @@ def site_rows(connection: sqlite3.Connection, site: str) -> list[tuple] | None:
         return run(sql, parameters) if has(*needed) else None
     if site == "zed_join" and has("archived_git_worktrees", "thread_archived_worktrees"):
         rows = run(ZED_JOIN)
-        # Difference 55: rows of one archived worktree are ordered by thread id as a blob.
+        # Difference 105: rows of one archived worktree are ordered by thread id as a blob.
         return sorted(rows, key=lambda row: (row[1], row[-1] is not None, row[-1] or b""))
     if site == "openclaw_cold" and has("session_transcript_cold_archives"):
         found = []

@@ -87,6 +87,9 @@ lab/round/                     the real-install round pipeline: round.sh drives 
 docs/index.md                  the documentation site's home page; the root README.md is
                                the GitHub overview and is not a site page
 docs/agents.md                 every catalog agent with its parse status, files and evidence
+docs/differences-from-the-scripts.md  every numbered exception of collect and difference
+                               of the analysis commands from the scripts and the Python
+                               analyzer, one heading per number
 docs/lab-vms.md                the lab VMs: the development tools in their clean snapshots,
                                the commands that rebuild them, Docker's requirements per VM
 tools/check_research_links.py  verifies every citation link in the research documents
@@ -98,8 +101,10 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                Markdown documents, that section and external
                                references are links, that a reader page
                                introduces this file's terms of art before using them,
-                               and that this file and CLAUDE.md link no issue or pull
-                               request
+                               that this file and CLAUDE.md link no issue or pull
+                               request, and that every exception or difference number
+                               cited under cmd/ and internal/ has its one heading on
+                               docs/differences-from-the-scripts.md
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
                                every Python, sh, PowerShell and Go file against "Code style"
 tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
