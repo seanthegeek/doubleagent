@@ -227,8 +227,9 @@ archive and `fleet` cases run, since the directory inputs are read with
 POSIX paths.
 
 The test also fails on a directory under `internal/analyze/testdata/golden`
-that names no case and on a file in a case's directory that the case does
-not compare.
+that names no case, on a file in a case's directory that the case does
+not compare, and on a compressed file whose plain form is beside it, which
+the test would never read.
 `DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/analyze -run TestGoldenOutputOfTheAnalysisCommands`
 rewrites the expected files and removes those; nothing else does. The walk's own
 expected rows, log and staging tree for an image of unusual entries

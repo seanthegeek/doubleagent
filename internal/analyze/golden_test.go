@@ -241,14 +241,33 @@ func writeGolden(t *testing.T, path, text string) {
 	t.Logf("wrote %s (%d bytes)", target, len(text))
 }
 
-// checkNoStaleGoldenFiles fails the test on a directory under
-// goldenDirectory that names no case, and on a file in a case's directory
-// that the case does not compare (its stdout.txt, stderr.txt and outputs,
-// each plain or compressed), so a case renamed or an output dropped cannot
-// leave an expected file nothing reads. DOUBLEAGENT_UPDATE_GOLDEN=1 removes
-// them instead.
+// checkNoStaleGoldenFiles fails the test on each stale path under
+// goldenDirectory (staleGoldenPaths), so a case renamed or an output
+// dropped cannot leave an expected file nothing reads.
+// DOUBLEAGENT_UPDATE_GOLDEN=1 removes them instead.
 func checkNoStaleGoldenFiles(t *testing.T, cases []goldenCase) {
 	t.Helper()
+	stale, err := staleGoldenPaths(goldenDirectory, cases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range stale {
+		staleGolden(t, path.path, path.why)
+	}
+}
+
+// stalePath is an expected file or directory nothing reads, and why.
+type stalePath struct {
+	path string
+	why  string
+}
+
+// staleGoldenPaths lists, under directory, each entry that names no case,
+// each file in a case's directory that the case does not compare (its
+// stdout.txt, stderr.txt and outputs, each plain or compressed), and each
+// compressed file whose plain form is there too, since readGolden reads the
+// plain one first.
+func staleGoldenPaths(directory string, cases []goldenCase) ([]stalePath, error) {
 	compared := map[string]map[string]bool{}
 	for _, test := range cases {
 		names := map[string]bool{}
@@ -257,27 +276,39 @@ func checkNoStaleGoldenFiles(t *testing.T, cases []goldenCase) {
 		}
 		compared[test.name] = names
 	}
-	directories, err := osfile.ReadDir(goldenDirectory)
+	directories, err := osfile.ReadDir(directory)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	for _, directory := range directories {
-		names, isCase := compared[directory.Name()]
-		if !isCase || !directory.IsDir() {
-			staleGolden(t, filepath.Join(goldenDirectory, directory.Name()), "names no case")
+	var stale []stalePath
+	for _, entry := range directories {
+		caseDirectory := filepath.Join(directory, entry.Name())
+		names, isCase := compared[entry.Name()]
+		if !isCase || !entry.IsDir() {
+			stale = append(stale, stalePath{caseDirectory, "names no case"})
 			continue
 		}
-		files, err := osfile.ReadDir(filepath.Join(goldenDirectory, directory.Name()))
+		files, err := osfile.ReadDir(caseDirectory)
 		if err != nil {
-			t.Fatal(err)
+			return nil, err
+		}
+		present := map[string]bool{}
+		for _, file := range files {
+			present[file.Name()] = true
 		}
 		for _, file := range files {
-			if !names[file.Name()] {
-				staleGolden(t, filepath.Join(goldenDirectory, directory.Name(), file.Name()),
-					"is no file its case compares")
+			path := filepath.Join(caseDirectory, file.Name())
+			plain, compressed := strings.CutSuffix(file.Name(), ".gz")
+			switch {
+			case !names[file.Name()]:
+				stale = append(stale, stalePath{path, "is no file its case compares"})
+			case compressed && present[plain]:
+				stale = append(stale, stalePath{path, "is read by nothing, since " + plain +
+					" beside it is read first"})
 			}
 		}
 	}
+	return stale, nil
 }
 
 // staleGolden removes path when the expected files are being rewritten and
