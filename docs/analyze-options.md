@@ -1,4 +1,4 @@
-# Options
+# Analysis options
 
 These are every option of the analysis commands, `detect`, `timeline`,
 `fleet` and `catalog`, with their defaults and the exit codes that automation

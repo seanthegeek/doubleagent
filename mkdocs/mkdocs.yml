@@ -112,13 +112,13 @@ nav:
       - Docker volumes: docs/docker.md
       - Privileges: docs/privileges.md
       - Windows: docs/windows.md
-      - Deployment through an EDR: docs/deployment.md
+      - Deployment: docs/deployment.md
       - Inventory mode: docs/collect-inventory.md
   - Analysing:
       - Analysing: docs/analyze.md
       - Analysis options: docs/analyze-options.md
       - Inputs and detection: docs/inputs.md
-      - Timeline output: docs/timeline-output.md
+      - Analysis output: docs/timeline-output.md
       - Filtering the timeline: docs/filtering.md
       - Reading and searching the output: docs/searching.md
       - Fleet inventory: docs/fleet.md

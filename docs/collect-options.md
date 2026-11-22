@@ -1,4 +1,4 @@
-# Options
+# Collection options
 
 `doubleagent collect [options]` takes every option on this page, the same
 on Linux, macOS and Windows. A run with no options collects every user of

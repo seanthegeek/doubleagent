@@ -1,4 +1,4 @@
-# Output
+# Collection output
 
 A collection run writes five files into its output directory: the
 archive, a file holding the archive's hash, the manifest, the run summary

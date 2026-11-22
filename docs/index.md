@@ -43,7 +43,7 @@ are left to the EDR. The source, the issue tracker and the releases are on
   `timeline`, `fleet` and `catalog`, and their exit codes.
 - [Inputs and detection](inputs.md): the inputs the analysis commands
   accept and how they find the agents in them.
-- [Timeline output](timeline-output.md): the output of `detect` and
+- [Analysis output](timeline-output.md): the output of `detect` and
   `timeline`, and the fields of `timeline.jsonl`, `sessions.jsonl` and
   `inventory.json`.
 - [Filtering the timeline](filtering.md): time windows and text matches.

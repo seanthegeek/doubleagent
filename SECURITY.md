@@ -44,8 +44,8 @@ misbehave. Reports in these classes are wanted:
   memory or disk, or crash in a way that leaves its output in a misleading
   state (a denial of service), including through compressed (gzip, zstd),
   protobuf or SQLite data.
-- **A secret shown that `--no-secrets` promises to withhold.** A value the
-  [output page](docs/timeline-output.md) says `--no-secrets` replaces that
+- **A secret shown that `--no-secrets` promises to withhold.** A value that
+  [Secrets](docs/timeline-output.md#secrets) says `--no-secrets` replaces and that
   appears in the output of a run given `--no-secrets`.
 
 These are not vulnerabilities in DoubleAgent:
@@ -70,12 +70,12 @@ These are not vulnerabilities in DoubleAgent:
   a pattern can match across the boundary between a row's own words and
   the shared text. The pattern is the analyst's own, and Go's regular
   expressions run in time linear in the text they search.
-  [Filtering the timeline](docs/filtering.md) describes the cost.
+  [The cost of --match](docs/filtering.md#the-cost-of---match) states it for the analyst.
 - **Secrets shown by default.** The analysis commands show the credentials
   they find in the evidence as the evidence holds them, unless
   `--no-secrets` is given, because a credential helps establish what an
-  agent could reach. `--no-secrets` withholds only what the
-  [output page](docs/timeline-output.md) says it withholds; a credential
+  agent could reach. `--no-secrets` withholds only what
+  [Secrets](docs/timeline-output.md#secrets) says it withholds; a credential
   in free text that no rule identifies, such as a token pasted into a
   prompt, is shown either way.
 
