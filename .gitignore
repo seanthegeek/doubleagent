@@ -20,3 +20,6 @@ lab/.env
 # Expected run logs of tests are test data, not logs of a run.
 !internal/**/testdata/**/*.log
 !internal/**/testdata/*.log
+
+# Binaries the Makefile builds (make, make build)
+/dist/
