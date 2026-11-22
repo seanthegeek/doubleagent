@@ -4,10 +4,13 @@
 # definitions, so a reference such as [#12] still resolves in the release.
 # A relative link target, inline or in a definition, is made absolute against
 # BASE_URL, the URL of the changelog's directory at the tagged commit, since
-# a release page has no directory of its own; a target starting with "/",
-# "#", "<" or a scheme is not relative, and code spans and fenced code blocks
-# are copied unchanged. Fails when VERSION is not a version number (1.2.3 or
-# 1.2.3-rc.1) or the changelog has no dated, non-empty section for it.
+# a release page has no directory of its own; a target in angle brackets is
+# made absolute inside them, a target starting with "/", "#" or a scheme is
+# not relative, and code spans, fenced code blocks and HTML comments are
+# copied unchanged. A fence is recognised at up to three spaces of indent
+# only, so one inside a list item is not. Fails when VERSION is not a version
+# number (1.2.3 or 1.2.3-rc.1) or the changelog has no dated, non-empty
+# section for it.
 set -eu
 version=${1:?usage: release-notes.sh VERSION CHANGELOG BASE_URL}
 changelog=${2:?usage: release-notes.sh VERSION CHANGELOG BASE_URL}
@@ -18,12 +21,19 @@ if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]
 fi
 # The awk program keeps the lines after the version's heading up to the next
 # "## " heading or the first link reference definition, then prints them with
-# every definition of the file; a line inside a fenced code block is neither.
+# every definition of the file; a line inside a fenced code block or an HTML
+# comment is neither.
 # It exits 2 when the heading is missing and 3 when the section holds nothing.
 status=0
 awk -v version="$version" -v base="$base_url" '
   function relative(target) {
-    return target != "" && target !~ /^[a-zA-Z][a-zA-Z0-9+.-]*:/ && target !~ /^[#\/<]/
+    return target != "" && target !~ /^[a-zA-Z][a-zA-Z0-9+.-]*:/ && target !~ /^[#\/]/
+  }
+  # The target at the start of text, which follows "](" or "]: ": the text
+  # inside angle brackets when it opens with "<", else up to the first ")".
+  function target_at(text) {
+    if (substr(text, 1, 1) == "<") return substr(text, 2, index(text, ">") - 2)
+    return substr(text, 1, index(text, ")") - 1)
   }
   # The length of the run of backticks at position at of text.
   function ticks(text, at,    count) {
@@ -57,8 +67,8 @@ awk -v version="$version" -v base="$base_url" '
       if (substr(line, at, 2) == "](") {
         out = out "]("
         at += 2
-        target = substr(line, at)
-        target = substr(target, 1, index(target, ")") - 1)
+        target = target_at(substr(line, at))
+        if (substr(line, at, 1) == "<") { out = out "<"; at++ }
         if (relative(target)) out = out base
         continue
       }
@@ -88,15 +98,31 @@ awk -v version="$version" -v base="$base_url" '
     fence = ""
     return 1
   }
-  function definition(line,    at) {
+  # Whether line opens or continues an HTML comment, which runs from a line
+  # starting "<!--" at up to three spaces of indent to the first line holding
+  # "-->" after it; comment is set while the comment is open after line.
+  function comment_line(line,    text) {
+    if (comment) {
+      if (index(line, "-->") > 0) comment = 0
+      return 1
+    }
+    if (line !~ /^ ? ? ?<!--/) return 0
+    text = line
+    sub(/^ ? ? ?<!--/, "", text)
+    if (index(text, "-->") == 0) comment = 1
+    return 1
+  }
+  function definition(line,    at, rest) {
     at = index(line, "]: ")
-    if (relative(substr(line, at + 3)))
-      return substr(line, 1, at + 2) base substr(line, at + 3)
-    return line
+    rest = substr(line, at + 3)
+    if (!relative(rest ~ /^</ ? target_at(rest) : rest)) return line
+    if (rest ~ /^</) return substr(line, 1, at + 2) "<" base substr(rest, 2)
+    return substr(line, 1, at + 2) base rest
   }
   {
     was = fence
-    toggled = fence_line($0)
+    toggled = fence == "" && comment_line($0)
+    if (!toggled) toggled = fence_line($0)
   }
   toggled || was != "" {
     if (inside) {
