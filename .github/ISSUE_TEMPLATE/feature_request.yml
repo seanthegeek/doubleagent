@@ -28,7 +28,7 @@ body:
       label: Kind
       options:
         - New agent for the catalog
-        - Parser for an agent the collector already gathers
+        - Parser for an agent doubleagent collect already gathers
         - New option, command or output
         - Improvement to existing behaviour
         - Other
@@ -40,7 +40,7 @@ body:
       label: Version you checked
       description: >-
         The version that lacks the feature, from `doubleagent --version`.
-      placeholder: "0.20.1"
+      placeholder: "doubleagent 1.0.0"
     validations:
       required: true
   - type: textarea

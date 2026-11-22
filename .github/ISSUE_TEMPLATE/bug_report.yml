@@ -30,8 +30,8 @@ body:
     attributes:
       label: Version
       description: >-
-        From `doubleagent --version`; for a documentation bug, the page's commit or "site".
-      placeholder: "1.18.0"
+        The line `doubleagent --version` prints; for a documentation bug, the page's commit or "site".
+      placeholder: "doubleagent 1.0.0"
     validations:
       required: true
   - type: input
@@ -42,7 +42,7 @@ body:
         The system doubleagent ran on: for collect the host (or, for a mounted
         image, the analyst workstation and the image's operating system); for the
         analysis commands the workstation.
-      placeholder: "macOS 26.1; Windows 11 24H2; Windows Server 2019; Ubuntu 24.04; FreeBSD 14.2"
+      placeholder: "macOS 26.1; Windows 11 24H2; Windows Server 2019; Ubuntu 24.04"
     validations:
       required: true
   - type: dropdown
