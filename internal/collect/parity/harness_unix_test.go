@@ -138,13 +138,15 @@ func shCollector(script string) oracle {
 func TestCollectAgreesWithTheShCollector(t *testing.T) {
 	repository := repositoryRoot(t)
 	binary := buildBinary(t, repository)
-	img := smokeImage(t, repository)
+	img := harnessImage(t, repository)
 	script := filepath.Join(repository, "collectors/collect-agent-artifacts.sh")
 	cases := parityCases()
 	run := func(t *testing.T, testCase parityCase) {
 		if testCase.skip != "" {
 			t.Skip(testCase.skip)
 		}
+		testCase.setup = fixtureStep(t, testCase.name, testCase.setup, img, caseBuilders())
+		testCase.after = fixtureStep(t, testCase.name, testCase.after, img, caseChecks())
 		if testCase.setup != nil {
 			testCase.setup(t, img)
 		}

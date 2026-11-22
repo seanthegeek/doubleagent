@@ -201,7 +201,7 @@ func withoutSpace(text string) string {
 func TestCollectAgreesWithThePowerShellCollector(t *testing.T) {
 	repository := repositoryRoot(t)
 	binary := []string{buildBinary(t, repository), "collect"}
-	img := smokeImage(t, repository)
+	img := harnessImage(t, repository)
 	reference := powerShellCollector(filepath.Join(repository, "collectors", "Collect-AgentArtifacts.ps1"))
 	cases := windowsCases()
 	t.Run("shared image", func(t *testing.T) {

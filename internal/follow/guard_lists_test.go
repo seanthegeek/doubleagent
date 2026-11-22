@@ -108,10 +108,13 @@ func guardedModulePackages() []string {
 
 // ownerPackages are the directories, exactly, whose files may use any name:
 // this package, the path wrappers it is built on, the metadata layer whose
-// functions it wraps, and the staging layer, which works on the output
-// directory and resolves the root the run is given.
+// functions it wraps, the staging layer, which works on the output
+// directory and resolves the root the run is given, and imagetest, which
+// only tests import (TestTheBinaryLinksNoTestHelper) and which builds
+// fixture trees under a test's temporary directory.
 func ownerPackages() []string {
-	return []string{"internal/follow", "internal/osfile", "internal/fsmeta", "internal/stage"}
+	return []string{"internal/follow", "internal/osfile", "internal/fsmeta", "internal/stage",
+		"internal/collect/imagetest"}
 }
 
 // safeNames are, by import path, the exported names of guarded packages that
