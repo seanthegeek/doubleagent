@@ -40,12 +40,14 @@ while IFS= read -r path; do
 
   # The lint job's ruff and pyright steps and the tests of the tools/
   # checkers and of the round pipeline, which read every file of lab/;
-  # the drift checkers' tests also read the catalog.
+  # the drift checkers' tests also read the catalog, and the code style
+  # checker's tests the two Go files holding its reviewed long functions.
   case "$path" in
     tools/drift-baseline/*) ;;
     *.md) ;;
     tools/* | lab/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
-      internal/catalog/catalog.txt)
+      internal/catalog/catalog.txt | internal/follow/confine_sites_test.go | \
+      internal/follow/guard_lists_test.go)
       python=true
       matched=true
       ;;
