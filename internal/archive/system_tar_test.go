@@ -3,6 +3,7 @@
 package archive
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,7 +33,7 @@ func TestMembersEqualSystemTar(t *testing.T) {
 	stage, _ := buildStage(t)
 	dir := t.TempDir()
 	goArchive, systemArchive := filepath.Join(dir, "go.tar.gz"), filepath.Join(dir, "sys.tar.gz")
-	if err := WriteTarGz(stage, goArchive); err != nil {
+	if err := WriteTarGz(context.Background(), stage, goArchive); err != nil {
 		t.Fatal(err)
 	}
 	output, err := exec.Command(systemTar, "-czf", systemArchive, "-C", stage, ".").CombinedOutput()

@@ -15,6 +15,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/version"
@@ -135,15 +136,21 @@ func runCollection(ctx context.Context, options Options, host environment,
 	return state.exitCode(ctx, err)
 }
 
-// exitCode maps the outcome of a run to its exit code: 130 after logging
-// `interrupted` when ctx was cancelled, 2 after logging any other failure.
+// exitCode maps the outcome of a run to its exit code: 0 when it finished,
+// whatever ctx says by then (writeArchive's point of no return); 130 after
+// logging `interrupted` when it failed with ctx cancelled, removing the
+// collection.json written beside the archive, so the log and the manifest
+// alone are left; 2 after logging any other failure.
 func (state *runState) exitCode(ctx context.Context, err error) int {
 	switch {
-	case ctx.Err() != nil:
-		state.line("interrupted")
-		return exitInterrupted
 	case err == nil:
 		return exitOK
+	case ctx.Err() != nil:
+		state.line("interrupted")
+		if !state.options.Inventory {
+			_ = osfile.Remove(state.summaryPath)
+		}
+		return exitInterrupted
 	}
 	var logged *loggedError
 	if errors.As(err, &logged) {

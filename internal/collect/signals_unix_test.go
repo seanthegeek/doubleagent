@@ -109,19 +109,27 @@ func runSignalled(test *testing.T, binary, root, outDir string, signal syscall.S
 }
 
 // checkInterruptedOutput fails the test unless outDir holds a log ending with
-// the interrupted line and neither an archive nor a staging directory.
+// the interrupted line and the manifest, and nothing else: no archive, no
+// partial archive or sidecar, no collection.json and no staging directory.
 func checkInterruptedOutput(test *testing.T, outDir string) {
 	test.Helper()
-	stages, _ := filepath.Glob(filepath.Join(outDir, ".stage-*"))
-	archives, _ := filepath.Glob(filepath.Join(outDir, "*_agent-artifacts.tar.gz"))
-	if len(stages) != 0 || len(archives) != 0 {
-		test.Errorf("the run left staging directories %v and archives %v", stages, archives)
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		test.Fatal(err)
 	}
-	logs, _ := filepath.Glob(filepath.Join(outDir, "*_agent-artifacts.log"))
+	var logs []string
+	for _, entry := range entries {
+		switch name := entry.Name(); {
+		case strings.HasSuffix(name, "_agent-artifacts.log"):
+			logs = append(logs, name)
+		case !strings.HasSuffix(name, "_agent-artifacts.manifest.jsonl"):
+			test.Errorf("the interrupted run left %s", name)
+		}
+	}
 	if len(logs) != 1 {
 		test.Fatalf("the run left the logs %v, want one", logs)
 	}
-	text, err := os.ReadFile(logs[0])
+	text, err := os.ReadFile(filepath.Join(outDir, logs[0]))
 	if err != nil {
 		test.Fatal(err)
 	}

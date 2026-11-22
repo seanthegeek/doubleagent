@@ -56,6 +56,8 @@ func siteClasses() map[string]string {
 		"internal/collect/run_setup.go stage.FoldsCase":                    notImage,
 		"internal/collect/run_setup.go osfile.OpenFile":                    notImage,
 		"internal/collect/run_finish.go osfile.Remove":                     notImage,
+		"internal/collect/run_finish.go osfile.Rename":                     notImage,
+		"internal/collect/run.go osfile.Remove":                            notImage,
 		"internal/collect/run_finish.go osfile.WriteFile":                  notImage,
 		"internal/collect/run_finish.go osfile.Open":                       notImage,
 		"internal/collect/run_finish.go osfile.OpenFile":                   notImage,

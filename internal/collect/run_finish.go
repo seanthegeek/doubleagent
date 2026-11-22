@@ -18,9 +18,17 @@ import (
 )
 
 // writeArchive writes collection.json, stages it with the manifest and the
-// log, archives the staging directory, hashes the archive and prints the
-// stdout summary.
+// log, writes the archive under its partial name, hashes it and writes its
+// sidecar, then moves it to its name, logs `done` and prints the stdout
+// summary. The move is the run's one point of no return: before it, a stop
+// request (ctx) or a failure removes the partial archive and the sidecar and
+// returns the error; after it nothing looks at ctx or fails, so the run has
+// finished and exits 0 whatever arrives. No run therefore exits 130 with an
+// archive in place, or logs `done:` and then `interrupted`.
 func (state *runState) writeArchive(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	report := state.summary(state.host.now().UTC())
 	if err := state.writeCollectionJSON(report); err != nil {
 		return err
@@ -28,25 +36,79 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	if err := state.log.Line("Archiving"); err != nil {
 		return err
 	}
-	if err := state.stageRunFiles(); err != nil {
+	err := state.stageRunFiles()
+	if err == nil {
+		err = state.buildArchive(ctx, &report)
+	}
+	if err == nil {
+		err = ctx.Err()
+	}
+	if err == nil {
+		err = state.placeArchive()
+	}
+	if err != nil {
+		_ = osfile.Remove(state.partialPath)
+		_ = osfile.Remove(state.archivePath + ".sha256")
 		return err
 	}
-	_ = osfile.Remove(state.archivePath)
-	if err := archive.WriteTarGz(state.stageDir, state.archivePath); err != nil {
-		state.line("archive: " + err.Error())
-		state.line("FATAL: archive not written")
-		return &loggedError{message: "archive not written"}
-	}
-	if err := state.hashArchive(&report); err != nil {
-		return err
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	// The archive and the log's done line are written; a summary that
-	// cannot reach a console that went away is dropped.
+	state.logDone(report)
+	// A summary that cannot reach a console that went away is dropped.
 	_ = summary.PrintResult(state.stdout, report)
 	return nil
+}
+
+// buildArchive writes the archive under its partial name, hashes it and
+// writes the sidecar under its final name, filling the report's hash and
+// size. A stop request returns ctx's error; any other failure is logged.
+func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
+	// A file left at the archive's name by an earlier run is not this run's.
+	_ = osfile.Remove(state.archivePath)
+	if err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		state.line("archive: " + err.Error())
+		return state.archiveNotWritten()
+	}
+	sha256, size, err := archive.SHA256File(ctx, state.partialPath)
+	switch {
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case err != nil || size == 0:
+		return state.archiveNotWritten()
+	}
+	report.ArchiveSHA, report.ArchiveSize = sha256, size
+	return archive.WriteSidecar(state.archivePath, sha256)
+}
+
+// placeArchive moves the finished archive from its partial name to its
+// name, replacing any file there, the last step that can fail.
+func (state *runState) placeArchive() error {
+	if err := osfile.Rename(state.partialPath, state.archivePath); err != nil {
+		state.line("archive: " + err.Error())
+		return state.archiveNotWritten()
+	}
+	return nil
+}
+
+// archiveNotWritten logs the fatal line of an archive that could not be
+// written and returns its error.
+func (state *runState) archiveNotWritten() error {
+	state.line("FATAL: archive not written")
+	return &loggedError{message: "archive not written"}
+}
+
+// logDone appends the `done` line to the log file only, after the copy the
+// archive holds, then says `done` on standard error unless the run is quiet.
+// The archive is in place, so the run has finished: a write that fails is
+// dropped, as a summary a console cannot take is.
+func (state *runState) logDone(report summary.Summary) {
+	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
+		report.ArchiveSize, report.ArchiveSHA)
+	_ = state.log.FileLine(line)
+	if !state.options.Quiet {
+		_, _ = io.WriteString(state.stderr, "done\n")
+	}
 }
 
 // summary gathers what collection.json and the stdout summary report, its
@@ -187,29 +249,4 @@ func copyFile(source, target string) error {
 		return syspath.NativeErrors(err)
 	}
 	return syspath.NativeErrors(out.Close())
-}
-
-// hashArchive hashes the archive, writes its sidecar file and appends the
-// `done` line to the log file only, after the copy the archive holds, then
-// says `done` on standard error unless the run is quiet, dropping that
-// write's failure as the log does.
-func (state *runState) hashArchive(report *summary.Summary) error {
-	sha256, size, err := archive.SHA256File(state.archivePath)
-	if err != nil || size == 0 {
-		state.line("FATAL: archive not written")
-		return &loggedError{message: "archive not written"}
-	}
-	report.ArchiveSHA, report.ArchiveSize = sha256, size
-	if err := archive.WriteSidecar(state.archivePath, sha256); err != nil {
-		return err
-	}
-	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
-		size, sha256)
-	if err := state.log.FileLine(line); err != nil {
-		return err
-	}
-	if !state.options.Quiet {
-		_, _ = io.WriteString(state.stderr, "done\n")
-	}
-	return nil
 }

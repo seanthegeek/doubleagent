@@ -87,7 +87,8 @@ A run's state lives in a struct passed down, and the clock, the host programs, t
 current directory and the user enumeration are injected (`collect.environment`,
 `analyze.Environment`), so a test pins each; [Go standards](../internal/AGENTS.md#errors-state-and-concurrency)
 states the rule. `collect` exits 0, 1 (usage), 2 (fatal) or 130 (interrupted, after
-logging `interrupted` and removing the staging directory).
+logging `interrupted` and removing the staging directory and what it wrote of the
+archive; [Signals](#signals)).
 
 `hostcmd` looks for a program in fixed system directories before `PATH`, so a program
 of the same name earlier on the operator's `PATH` is not the one run, and runs it in
@@ -100,7 +101,14 @@ A collection or inventory run ends before its archive is written only when it is
 told to stop (an interrupt or a termination request) or meets a fatal error, and
 both remove the staging directory unless `-k` is given. Losing its terminal or the
 reader of its output is neither: the run continues, because the log file is its
-record. `collect.catchSignals` sets the handlers from that rule when the run starts
+record. Writing the archive has one point of no return: the archive is written as
+`<name>.tar.gz.partial`, hashed and given its `.sha256` file, the context is looked
+at once more, and the archive is moved to its name. A stop request before the move
+ends the run with the partial archive, the `.sha256` file and `collection.json`
+removed; after it nothing looks at the context, so the run logs `done:` and exits
+`0` (`collect.runState.writeArchive`). The archive writer looks at the context before
+each member and each read of a file, so a stop during a long archive takes effect at
+once. `collect.catchSignals` sets the handlers from that rule when the run starts
 and removes them when it returns; `--list`, `--version` and `--help` return before
 it, since they stage nothing, so a closed standard output ends them by `SIGPIPE`.
 A signal the run reacts to is caught, never ignored: an ignored signal would be
@@ -112,7 +120,7 @@ a program can catch, with what a run does on each:
 
 | Signals | What the run does | Why |
 | --- | --- | --- |
-| `SIGINT`, `SIGTERM` | Caught: the run logs `interrupted`, removes the staging directory unless `-k` is given and exits `130`. | A request to stop. |
+| `SIGINT`, `SIGTERM` | Caught: before the archive is moved to its name, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; after it, the run finishes and exits `0`. | A request to stop. |
 | `SIGHUP`, `SIGPIPE` | Caught and dropped: the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
 | `SIGQUIT`, `SIGABRT`, `SIGILL`, `SIGTRAP`, `SIGSYS`, `SIGEMT` (macOS), `SIGSTKFLT` (Linux), and `SIGBUS`, `SIGFPE` or `SIGSEGV` sent by another program | Go's default: a stack dump on standard error and exit `2`, leaving the staging directory and a log with no closing line. | Each is a request for a stack dump or a sign that the program itself is broken; the dump is how a hung run is diagnosed, and a run that is hung could not clean up anyway. The staging directory left behind is readable by its owner only, as everything the run creates is, and is removed by hand. |
 | `SIGBUS`, `SIGFPE`, `SIGSEGV` raised by the program's own fault | Go's default: a run-time panic, exit `2`, as above. | A bug in the program. |

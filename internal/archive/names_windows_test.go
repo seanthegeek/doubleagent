@@ -1,6 +1,7 @@
 package archive
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ func TestWriteTarGzKeepsNamesEndingInADotOrASpace(t *testing.T) {
 		}
 	}
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(stage, archivePath); err != nil {
+	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, members := readMembers(t, archivePath)
@@ -43,9 +44,9 @@ func TestWriteTarGzKeepsNamesEndingInADotOrASpace(t *testing.T) {
 
 func TestHashErrorNamesTheNativePath(t *testing.T) {
 	canonical := syspath.FromNative(t.TempDir())
-	_, _, err := SHA256File(canonical)
+	_, _, err := SHA256File(context.Background(), canonical)
 	if err == nil {
-		t.Fatal("SHA256File(directory) succeeded, want a read error")
+		t.Fatal("SHA256File(context.Background(), directory) succeeded, want a read error")
 	}
 	text := err.Error()
 	if !strings.Contains(text, "hash "+syspath.ToNative(canonical)+":") || strings.Contains(text, `\\?\`) {
@@ -70,7 +71,7 @@ func TestArchiveErrorNamesTheNativePath(t *testing.T) {
 		new(windows.Overlapped)); err != nil {
 		t.Fatal(err)
 	}
-	err = WriteTarGz(syspath.FromNative(stage), filepath.Join(t.TempDir(), "out.tar.gz"))
+	err = WriteTarGz(context.Background(), syspath.FromNative(stage), filepath.Join(t.TempDir(), "out.tar.gz"))
 	if err == nil {
 		t.Fatal("WriteTarGz of a locked file succeeded, want a read error")
 	}

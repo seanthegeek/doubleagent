@@ -3,6 +3,7 @@ package archive
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -111,7 +112,7 @@ func readMembers(t *testing.T, archivePath string) ([]*tar.Header, map[string]st
 func TestWriteTarGzMembers(t *testing.T) {
 	stage, linked := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(stage, archivePath); err != nil {
+	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, contents := readMembers(t, archivePath)
@@ -154,7 +155,7 @@ func TestWriteTarGzIsReadableByTar(t *testing.T) {
 	requireSystemTar(t)
 	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(stage, archivePath); err != nil {
+	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	output, err := tarListing(archivePath)
@@ -170,7 +171,7 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 	requireSystemTar(t)
 	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(stage, archivePath); err != nil {
+	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	whole, err := os.ReadFile(archivePath)
@@ -199,11 +200,68 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 
 func TestWriteTarGzFailureLeavesNoArchive(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(filepath.Join(t.TempDir(), "missing"), archivePath); err == nil {
+	if err := WriteTarGz(context.Background(), filepath.Join(t.TempDir(), "missing"), archivePath); err == nil {
 		t.Fatal("a missing stage gave no error")
 	}
 	if _, err := os.Stat(archivePath); !os.IsNotExist(err) {
 		t.Errorf("partial archive left: %v", err)
+	}
+}
+
+// stopAfterChecks is a context that is cancelled once its Err has been asked
+// allowed times, so a test stops a write at a point it chooses, and that
+// counts the questions asked after that.
+type stopAfterChecks struct {
+	context.Context
+	allowed, refused int
+}
+
+// Err reports no error for the first allowed calls and context.Canceled after.
+func (stop *stopAfterChecks) Err() error {
+	if stop.allowed > 0 {
+		stop.allowed--
+		return nil
+	}
+	stop.refused++
+	return context.Canceled
+}
+
+func TestAStopRequestEndsTheArchiveAtItsNextCheckAndLeavesNoFile(t *testing.T) {
+	stage, _ := buildStage(t)
+	cases := []struct {
+		name    string
+		allowed int
+	}{
+		{"a stop before the first member writes nothing", 0},
+		{"a stop after a few members ends the write", 3},
+		{"a stop while a file's bytes are read ends the write", 6},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
+			stop := &stopAfterChecks{Context: context.Background(), allowed: testCase.allowed}
+			if err := WriteTarGz(stop, stage, archivePath); !errors.Is(err, context.Canceled) {
+				t.Fatalf("WriteTarGz = %v, want the stop request", err)
+			}
+			if stop.refused != 1 {
+				t.Errorf("the write asked %d times after the stop, want it to end at the first", stop.refused)
+			}
+			if _, err := os.Lstat(archivePath); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("a stopped write left its archive: %v", err)
+			}
+		})
+	}
+}
+
+func TestAStopRequestEndsTheHash(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.tar.gz")
+	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stop := &stopAfterChecks{Context: context.Background()}
+	if _, _, err := SHA256File(stop, path); !errors.Is(err, context.Canceled) {
+		t.Errorf("SHA256File = %v, want the stop request", err)
 	}
 }
 
@@ -214,7 +272,7 @@ func TestSHA256FileAndSidecar(t *testing.T) {
 	}
 	sum := sha256.Sum256([]byte("content"))
 	want := hex.EncodeToString(sum[:])
-	got, size, err := SHA256File(path)
+	got, size, err := SHA256File(context.Background(), path)
 	if err != nil || got != want || size != 7 {
 		t.Fatalf("SHA256File = %q, %d, %v", got, size, err)
 	}
@@ -228,7 +286,7 @@ func TestSHA256FileAndSidecar(t *testing.T) {
 }
 
 func TestSHA256FileMissing(t *testing.T) {
-	if _, _, err := SHA256File(filepath.Join(t.TempDir(), "none")); err == nil {
+	if _, _, err := SHA256File(context.Background(), filepath.Join(t.TempDir(), "none")); err == nil {
 		t.Error("a missing file gave no error")
 	}
 }
@@ -243,7 +301,7 @@ func TestWriteTarGzLongNameUsesPAX(t *testing.T) {
 		t.Fatal(err)
 	}
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if err := WriteTarGz(stage, archivePath); err != nil {
+	if err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, _ := readMembers(t, archivePath)

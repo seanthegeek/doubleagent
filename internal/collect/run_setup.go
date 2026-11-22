@@ -46,6 +46,7 @@ type runState struct {
 	outDir       string
 	stageDir     string
 	archivePath  string
+	partialPath  string
 	logPath      string
 	manifestPath string
 	summaryPath  string
@@ -174,6 +175,7 @@ func (state *runState) setOutputNames() {
 	state.outDir = state.options.OutDir
 	state.stageDir = base + ".stage-" + state.name
 	state.archivePath = base + state.name + ".tar.gz"
+	state.partialPath = state.archivePath + ".partial"
 	state.logPath = base + state.name + ".log"
 	state.manifestPath = base + state.name + ".manifest.jsonl"
 	state.summaryPath = base + state.name + ".collection.json"

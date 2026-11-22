@@ -388,7 +388,9 @@ func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 
 // writeInventory is the --inventory step: it counts
 // the homes, walks each one's catalog, then prints the host line, the agent
-// lines of every user and those of the Docker volumes.
+// lines of every user and those of the Docker volumes. A stop request before
+// the first line returns ctx's error and prints nothing; after it a stop
+// request no longer stops the inventory.
 func (state *runState) writeInventory(ctx context.Context) error {
 	scanned, unreadable, err := state.countInventoryHomes()
 	if err != nil {
@@ -406,6 +408,9 @@ func (state *runState) writeInventory(ctx context.Context) error {
 	host := inventory.Host{Host: state.hostname, Collector: version.String(), Mode: state.mode(),
 		Timestamp: state.started.Format(runlog.TimeFormat), UsersScanned: scanned,
 		UsersUnreadable: unreadable, DockerVolumes: state.docker.Found}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := inventory.WriteHostLine(state.stdout, host); err != nil {
 		return err
 	}

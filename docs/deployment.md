@@ -107,12 +107,12 @@ in PowerShell) as often as you like:
   reaches it, so the lines show which home and agent the run is on. The log
   keeps no running count of files; the counts are in the summary at the
   end.
-- `Archiving` marks the end of the walk; the archive is being written and
-  is not complete yet.
+- `Archiving` marks the end of the walk; the archive is being written, as
+  `<archive>.partial`, and is not complete yet.
 - The last line, `<UTC time> done: <archive path> (<size> bytes, sha256
-  <hex>)`, is written once the archive is complete and hashed
-  ([Log](collection-output.md#log)). Pull the archive only after it
-  appears.
+  <hex>)`, is written once the archive is complete, hashed and moved to
+  its name ([Log](collection-output.md#log)). Pull the archive only after
+  it appears.
 
 Then retrieve the archive and its `.sha256` file, and check them on your
 workstation with `sha256sum -c <archive>.sha256` (`shasum -a 256 -c` on
@@ -139,17 +139,22 @@ inventory is lost and the run exits `0`.
 
 `INT` and `TERM` on Linux and macOS, and Ctrl+C, Ctrl+Break or closing the
 console window on Windows, are requests to stop: the run logs
-`interrupted`, removes the staging directory and exits `130`, if Windows
-leaves it the few seconds it gives before it ends the process after a
-window is closed. A logoff or shutdown on Windows is not a request the run
+`interrupted`, removes the staging directory, the partial archive, its
+`.sha256` file and `collection.json`, and exits `130`, leaving the log and
+the manifest of what it did until then, if Windows leaves it the few
+seconds it gives before it ends the process after a window is closed. A
+request that arrives once the archive has been moved to its name, just
+before the `done:` line, changes nothing: the run has finished and exits
+`0`. A logoff or shutdown on Windows is not a request the run
 sees: Windows ends a program started from an interactive session without
 telling it
 ([HandlerRoutine callback function](https://learn.microsoft.com/en-us/windows/console/handlerroutine)).
 A run ended that way, or by `SIGKILL`, or by `SIGQUIT` (which prints a
 stack dump of the program and exits `2`), leaves its staging directory,
 `.stage-<host>_<UTC time>_agent-artifacts`, in the output directory with
-the copies made so far, and a log without a closing line: delete the
-directory by hand. On Linux and macOS only root and the account that ran
+the copies made so far, and a log without a closing line, and, when it was
+archiving, a `.partial` archive and perhaps a `.sha256` file: delete them
+by hand. On Linux and macOS only root and the account that ran
 `collect` can read it.
 `--list`, `--version` and `--help` write no files, and a pipe whose reader
 ended stops them on Linux and macOS.

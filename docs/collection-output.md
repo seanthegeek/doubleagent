@@ -47,6 +47,16 @@ ir-ws01_20261122T050937Z_agent-artifacts.log               the log (the archive 
 .stage-ir-ws01_20261122T050937Z_agent-artifacts/           the staging directory, only with -k
 ```
 
+While it is written, the archive is named
+`<host>_<UTC start time>_agent-artifacts.tar.gz.partial`. Once it is
+complete and hashed, and its `.sha256` file is written, it is moved to its
+name, and only then is the `done:` line logged. A file ending `.partial`
+is therefore never a finished archive: one left behind by a run that was
+killed can be deleted. A run that is told to stop before that move removes
+the partial archive, the `.sha256` file and `collection.json`, and leaves
+the log and the manifest of what it did until then
+([Exit codes](collect-options.md#exit-codes)).
+
 The `.sha256` file is one line, `<hex>  <archive file name>`, the form
 `sha256sum -c` and `shasum -a 256 -c` read:
 
@@ -246,9 +256,9 @@ Then come the warnings that apply to the whole run.
 | `relocation hint: FILE:LINE names VARIABLE (AGENT)` | One per hint, followed by ` = VALUE` when the value was read, or `; value not resolved: REASON` ([Relocation warnings](relocation.md#what-the-warning-means)). |
 | `sweep skipped: home PATH lies outside the user home roots`, `sweep skipped: project PATH holds a home directory` | With `--env-scan-home`, a home or project that is not searched ([Search the whole home](relocation.md#search-the-whole-home)). |
 | `access time not held: PATH: REASON`, `access times not held: N file(s)` | Windows: a file read without the hold on its access time the run wanted ([Access times](deployment.md#access-times)). |
-| `Archiving` | The walk is over and the archive is being written. |
-| `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete. Written to the log file only, after the archive took its copy of the log. |
-| `interrupted` | The run was interrupted and exits `130`. |
+| `Archiving` | The walk is over and the archive is being written, under its `.partial` name. |
+| `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
+| `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
 | `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written` when the archive failed. |
 
 In image mode, a link whose target leads out of the image root is named
