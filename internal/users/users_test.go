@@ -186,9 +186,9 @@ func enumerateFilterCases() []enumerateCase {
 			want: []string{bracketName + ":/home/" + bracketName},
 		},
 		{
-			name: "a home whose name ends in a newline is read as the lines of its name",
+			name: "a home whose name holds a newline is one home under its whole name",
 			tree: tree{dirs: []string{"home/nl", "home/nl\n", "home/two\nlines"}},
-			want: []string{"nl:/home/nl"},
+			want: []string{"nl:/home/nl", "nl\n:/home/nl\n", "two\nlines:/home/two\nlines"},
 		},
 	}
 }

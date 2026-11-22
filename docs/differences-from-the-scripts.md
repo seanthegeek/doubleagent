@@ -59,7 +59,7 @@ Exceptions of `collect`:
 [55](#exception-55), [56](#exception-56), [57](#exception-57),
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
-[64](#exception-64).
+[64](#exception-64), [65](#exception-65), [66](#exception-66).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -693,6 +693,27 @@ it ran, under PowerShell 7 on Linux and macOS too, so a Windows image
 mounted there and collected by `doubleagent` matches a path only in the
 letter case the catalog gives. Collect a Windows image from a Windows
 machine for its matching.
+
+### Exception 65
+
+A file or directory whose name holds a newline is one path under its whole
+name: a catalog match, a home, a project and a startup or swept file
+alike, so it is collected, searched for relocation variables and recorded
+like any other, and its manifest row and archive member hold the real
+name. The sh collector passed paths between its steps as lines of text,
+so it read such a name as one path per line: the part before the newline
+gave an `error_copy` row for a file that does not exist, and the part after
+it was read as a path relative to the working directory, outside the
+image. It left a startup or swept file with such a name unsearched.
+
+### Exception 66
+
+A control character in a log line, such as a newline, a carriage return
+or a terminal escape in a file name, is written as `\x` and two
+hexadecimal digits, and so are the C1 controls and U+2028 and U+2029
+([Log](collection-output.md#log)), so a name cannot end a log line, start a
+forged one or drive the terminal the progress lines go to. The scripts
+wrote such characters as they were.
 
 ## Analysing: commands and options
 

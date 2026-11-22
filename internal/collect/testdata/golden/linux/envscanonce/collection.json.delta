@@ -10,11 +10,11 @@
 @@ after
    "counts": {
 -    "collected": 1039,
-+    "collected": 1046,
++    "collected": 1047,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 25712
-+    "collected_bytes": 26225
++    "collected_bytes": 26250
 @@ after
          "source": "{WORK}/root/home/alice/.bashrc.d/agents",
          "line": 1,
@@ -73,6 +73,14 @@
 +      },
 +      {
 +        "user": "alice",
++        "source": "{WORK}/root/home/alice/scripts/steer/d\nx",
++        "line": 1,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
 @@ after
          "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
          "line": 1,
@@ -101,5 +109,5 @@
      },
 -    "files_searched": 151,
 -    "files_skipped_size": 0
-+    "files_searched": 188,
++    "files_searched": 190,
 +    "files_skipped_size": 1

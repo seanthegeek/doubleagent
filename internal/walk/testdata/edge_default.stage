@@ -12,6 +12,7 @@ dir "/fs/home/alice/.claude/projects"
 dir "/fs/home/alice/.claude/projects/p"
 file "/fs/home/alice/.claude/projects/p/s1.jsonl" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 file "/fs/home/alice/.claude.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+file "/fs/home/alice/.claude.json.bak\nzzz" ad1a64057f9ab34fecfe3f4ee78660bb0316dbda9370581ffbeb1e8bddf3d598
 dir "/fs/home/alice/.config"
 dir "/fs/home/alice/.config/goose"
 file "/fs/home/alice/.config/goose/config.yaml" 75cd1899337ffbc9341398f7456f1027e2fc4b2658f9f0555a7a965cb309c6dd

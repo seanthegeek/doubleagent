@@ -25,10 +25,10 @@ type Match struct {
 }
 
 // ExpandCatalog returns every match of table under base, in table order:
-// each glob expanded inside base, a matched name
-// split at its newlines into one match per line (empty ones included), and
-// the matches whose paths differ only by ASCII case folded by device and
-// inode, so one directory is collected once. check, nil for none, is asked
+// each glob expanded inside base, each matched path kept whole as one value
+// whatever bytes its names hold, a newline included, and the matches whose
+// paths differ only by ASCII case folded by device and inode, so one
+// directory is collected once. check, nil for none, is asked
 // before the expander looks in a directory; each link it refuses is one
 // OutOfRoot match, in the place of the first glob that reached it.
 func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener *fsmeta.Opener,
@@ -48,9 +48,7 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener 
 			}
 		}
 		for _, path := range paths {
-			for _, line := range strings.Split(path, "\n") {
-				found = append(found, Match{Agent: entry.Agent, Glob: entry.Glob, Path: line})
-			}
+			found = append(found, Match{Agent: entry.Agent, Glob: entry.Glob, Path: path})
 		}
 	}
 	return foldCaseMatches(found)

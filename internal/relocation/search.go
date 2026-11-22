@@ -206,9 +206,7 @@ func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
 }
 
 // searchFiles counts files as searched and records the hints of each, the
-// files that are not PowerShell first and then the PowerShell ones. A swept
-// file under a directory whose name holds a newline is counted but not
-// recorded: no hint names it.
+// files that are not PowerShell first and then the PowerShell ones.
 func (run *search) searchFiles(ctx context.Context, user, home, base string, files []string) error {
 	run.result.FilesSearched += len(files)
 	var others, scripts []string
@@ -224,7 +222,7 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !syspath.HasPrefix(file, prefix) || strings.Contains(file, "\n") {
+		if !syspath.HasPrefix(file, prefix) {
 			continue
 		}
 		if err := run.recordFileHints(ctx, user, home, file); err != nil {

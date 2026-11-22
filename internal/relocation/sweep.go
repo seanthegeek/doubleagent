@@ -124,9 +124,7 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 	same := follow.SameEntry(run.deps.Expansion)
 	literal := syspath.NewEntries[struct{}](same)
 	for _, claim := range run.deps.Claims(base, table) {
-		for _, line := range claimLines(claim) {
-			literal.Put(line, struct{}{})
-		}
+		literal.Put(claim, struct{}{})
 	}
 	// The startup pass logged any link these globs stop at.
 	files, _ := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion,

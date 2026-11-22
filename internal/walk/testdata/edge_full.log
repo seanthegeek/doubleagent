@@ -5,10 +5,7 @@ read failed: <root>/home/alice/.claude/empty: lstat <root>/home/alice/.claude/em
 read failed: <root>/home/alice/.claude/locked: open <root>/home/alice/.claude/locked: permission denied
 read failed: <root>/home/alice/.claude/noenter: lstat <root>/home/alice/.claude/noenter/.: permission denied
   [claude-code] <root>/home/alice/.claude.json
-  [claude-code] <root>/home/alice/.claude.json.bak
-copy failed: <root>/home/alice/.claude.json.bak: open <root>/home/alice/.claude.json.bak: no such file or directory
-  [claude-code] zzz
-copy failed: zzz: open zzz: no such file or directory
+  [claude-code] <root>/home/alice/.claude.json.bak\x0azzz
   [claude-code] <root>/home/alice/.claude.json
   [gemini-cli] <root>/home/alice/.gemini
   [antigravity] <root>/home/alice/.gemini/antigravity-cli

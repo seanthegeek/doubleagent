@@ -170,7 +170,8 @@ func TestKeepProjectDirsKeepsAPathOutOfScopeUntested(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			projects := []Project{{"", root + "/srv/dir"}, {"", root + "/srv/file"},
 				{"", root + "/out/gone"}, {"", root + "/srv/missing"}, {"u", root + "/out/home"}}
-			got := keepProjectDirs(projects, "u:"+root+"/out/home", testCase.outOfScope, nil)
+			homes := []users.Home{{User: "u", Path: root + "/out/home"}}
+			got := keepProjectDirs(projects, homes, testCase.outOfScope, nil)
 			if !reflect.DeepEqual(got, testCase.want) {
 				t.Errorf("got %q, want %q", got, testCase.want)
 			}
@@ -188,15 +189,18 @@ func TestMergeProjectOwnersKeepsFirstNonEmptyOwner(t *testing.T) {
 }
 
 func TestProjectOwner(t *testing.T) {
-	userList := "alice:/home/alice\nbob:/home/bob\nodd"
+	homes := []users.Home{{User: "alice", Path: "/home/alice"}, {User: "bob", Path: "/home/bob"},
+		{User: "nl\ncarol:/home/dave", Path: "/home/nl\ncarol:/home/dave"}}
 	for _, test := range []struct{ path, want string }{
 		{"/home/alice/p", "alice"},
 		{"/home/alice", ""},
 		{"/home/alicex/p", ""},
 		{"/home/bob/x/y", "bob"},
-		{"odd/x", "odd"},
+		{"/home/nl\ncarol:/home/dave/p", "nl\ncarol:/home/dave"},
+		{"/home/dave/p", ""},
+		{"carol:/home/dave/p", ""},
 	} {
-		if got := projectOwner(userList, test.path); got != test.want {
+		if got := projectOwner(homes, test.path); got != test.want {
 			t.Errorf("projectOwner(%q) = %q, want %q", test.path, got, test.want)
 		}
 	}

@@ -6,8 +6,8 @@
 -collected:  1039 files, 25712 bytes (25.1 KiB)
 +users:      10
 +projects:   61
-+collected:  1045 files, 26516 bytes (25.9 KiB)
++collected:  1046 files, 26541 bytes (25.9 KiB)
 @@ after
  errors:     0 (0 error_copy, 0 error_read)
 -relocation: 363 hints in 151 files searched, 28 resolved; see docs/relocation.md
-+relocation: 371 hints in 220 files searched, 1 skipped for size, 30 resolved; see docs/relocation.md
++relocation: 372 hints in 222 files searched, 1 skipped for size, 30 resolved; see docs/relocation.md

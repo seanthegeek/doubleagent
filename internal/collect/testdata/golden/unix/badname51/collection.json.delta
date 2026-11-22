@@ -4,6 +4,12 @@
 -    "plutil": true
 +    "plutil": false
 @@ after
+     "nl",
+-    "nl\n",
+@@ after
+     "{WORK}/root/home/nl",
+-    "{WORK}/root/home/nl\n",
+@@ after
    "counts": {
 -    "collected": 1039,
 +    "collected": 1040,

@@ -13,6 +13,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
@@ -25,12 +26,12 @@ type edgeRun struct {
 	stage string
 }
 
-// edgeLog keeps log lines in memory.
+// edgeLog keeps log lines in memory, each as the run log writes it.
 type edgeLog struct{ lines []string }
 
-// Line keeps text.
+// Line keeps text, its control characters escaped as runlog.Printable does.
 func (log *edgeLog) Line(text string) error {
-	log.lines = append(log.lines, text)
+	log.lines = append(log.lines, runlog.Printable(text))
 	return nil
 }
 

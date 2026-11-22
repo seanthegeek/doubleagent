@@ -340,7 +340,7 @@ func (state *runState) line(text string) {
 		return
 	}
 	if !state.options.Quiet {
-		io.WriteString(state.stderr, text+"\n")
+		io.WriteString(state.stderr, runlog.Printable(text)+"\n")
 	}
 }
 

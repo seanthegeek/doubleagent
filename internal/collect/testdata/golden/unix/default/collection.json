@@ -35,6 +35,7 @@
     "frank",
     "dot",
     "nl",
+    "nl\n",
     "u1",
     "u[1]",
     "bob"
@@ -48,6 +49,7 @@
     "{WORK}/root/opt/frank",
     "{WORK}/root/home/dot",
     "{WORK}/root/home/nl",
+    "{WORK}/root/home/nl\n",
     "{WORK}/root/home/u1",
     "{WORK}/root/home/u[1]",
     "{WORK}/root/Users/bob"

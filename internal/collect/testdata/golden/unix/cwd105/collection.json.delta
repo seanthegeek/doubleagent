@@ -6,9 +6,6 @@
 +    "no_docker": true,
 +    "no_projects": true,
 @@ after
-     "svc-ollama",
-     "frank",
-     "dot",
      "nl",
      "u1",
      "u[1]",

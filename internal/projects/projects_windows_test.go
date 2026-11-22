@@ -99,13 +99,14 @@ func TestProjectComparisonsIgnoreCaseWhereTheFileSystemDoes(t *testing.T) {
 	one := func(string, string) bool { return true }
 	two := func(string, string) bool { return false }
 	t.Run("an owner's home matches in any case", func(t *testing.T) {
-		if got := projectOwner("alice:C:/Users/Alice", "c:/users/alice/p"); got != "alice" {
+		if got := projectOwner([]users.Home{{User: "alice", Path: "C:/Users/Alice"}}, "c:/users/alice/p"); got != "alice" {
 			t.Errorf("projectOwner = %q, want alice", got)
 		}
 	})
 	t.Run("a home spelled as the path owns it before one matching in another case",
 		func(t *testing.T) {
-			list := "Alice:C:/Users/Alice\nalice:C:/Users/alice"
+			list := []users.Home{{User: "Alice", Path: "C:/Users/Alice"},
+				{User: "alice", Path: "C:/Users/alice"}}
 			if got := projectOwner(list, "C:/Users/alice/p"); got != "alice" {
 				t.Errorf("projectOwner = %q, want alice", got)
 			}
@@ -125,7 +126,7 @@ func TestProjectComparisonsIgnoreCaseWhereTheFileSystemDoes(t *testing.T) {
 	t.Run("a home in another case is not a project", func(t *testing.T) {
 		root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 		writeTree(t, root, nil, "Home")
-		got := keepProjectDirs([]Project{{"u", root + "/HOME"}}, "u:"+root+"/home", nil,
+		got := keepProjectDirs([]Project{{"u", root + "/HOME"}}, []users.Home{{User: "u", Path: root + "/home"}}, nil,
 			follow.SameEntry(nil))
 		if got != nil {
 			t.Errorf("got %q, want none", got)
@@ -135,7 +136,7 @@ func TestProjectComparisonsIgnoreCaseWhereTheFileSystemDoes(t *testing.T) {
 		root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 		writeTree(t, root, nil, "Home")
 		projects := []Project{{"u", root + "/Home"}}
-		if got := keepProjectDirs(projects, "u:"+root+"/home", nil, two); !reflect.DeepEqual(got,
+		if got := keepProjectDirs(projects, []users.Home{{User: "u", Path: root + "/home"}}, nil, two); !reflect.DeepEqual(got,
 			projects) {
 			t.Errorf("got %q, want %q", got, projects)
 		}

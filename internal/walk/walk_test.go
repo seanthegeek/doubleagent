@@ -202,15 +202,15 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 	table := []catalog.Entry{{Agent: "goose", Glob: ".config/goose"},
 		{Agent: "goose", Glob: ".config/Goose"}, {Agent: "pearai", Glob: ".config/goose"},
 		{Agent: "cursor", Glob: ".config/cursor"}, {Agent: "cursor", Glob: ".config/Cursor/User"},
-		{Agent: "split", Glob: "nl*"}}
+		{Agent: "whole", Glob: "nl*"}}
 	got := ExpandCatalog(base, table, nil, nil)
 	notes, paths := map[string]bool{}, map[string]string{}
-	var split []string
+	var whole []string
 	for _, match := range got {
 		notes[match.Agent+" "+match.Glob] = match.Note != ""
 		paths[match.Agent+" "+match.Glob] = strings.TrimPrefix(match.Path, base+"/")
-		if match.Agent == "split" {
-			split = append(split, match.Path)
+		if match.Agent == "whole" {
+			whole = append(whole, match.Path)
 		}
 	}
 	variant, variantMatched := paths["cursor .config/Cursor/User"]
@@ -224,8 +224,8 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{"a variant inside another match takes its spelling where they are one directory," +
 			" and matches nothing where case tells them apart",
 			variantMatched == folds && (!folds || variant == ".config/cursor/User")},
-		{"a name holding a newline gives one match per line",
-			len(split) == 2 && split[0] == base+"/nl" && split[1] == "x"},
+		{"a name holding a newline is one match under its whole name",
+			len(whole) == 1 && whole[0] == base+"/nl\nx"},
 	}
 	for _, check := range checks {
 		if !check.ok {

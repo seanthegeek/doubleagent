@@ -13,6 +13,8 @@
 +"./fs/home/alice/scripts/agent-env/deep/" type 5
 +"./fs/home/alice/scripts/agent-env/deep/helper.ps1" 00fd70a58357ebe87232e0b81c4077156442af255166ffa3027e47e3fe6b3a00
 +"./fs/home/alice/scripts/agent-env/deep/helper.sh" fe451b0aa82b23160522cdc76aa70da0b95dd0a256614688987ffff9f47577d0
++"./fs/home/alice/scripts/steer/" type 5
++"./fs/home/alice/scripts/steer/d\nx" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
 @@ after
  "./fs/opt/" type 5
 +"./fs/opt/daemonproj/" type 5

@@ -226,7 +226,18 @@ The log is a text file with one line per event, each starting with a UTC
 time to the second. Unless `-q` is given, the same lines go to standard
 error during the run, without the time. When standard error is closed
 during a run, those copies are dropped: the log file still gets every line
-and the run finishes as usual. A run on a macOS workstation over a mounted image:
+and the run finishes as usual.
+
+A control character in a line, such as a newline, a carriage return or a
+terminal escape in a file name, is written as `\x` and its two
+hexadecimal digits, one escape per byte (`\x0a` for a newline), in the
+file and on standard error alike, so a name can neither end a line nor
+start a forged one. So are the C1 controls (U+0080 to U+009F, each as the
+two bytes of its UTF-8 form) and the characters U+2028 and U+2029. A name
+that itself holds the text `\x0a` reads the same; the manifest holds every
+name exactly.
+
+A run on a macOS workstation over a mounted image:
 
 ```text
 2026-11-22T05:09:37Z doubleagent <version> starting on ir-ws01 (Darwin 27.2.0) mode=image root=/mnt/evidence uid=501

@@ -13,6 +13,7 @@
 +relocation hint: {WORK}/root/home/alice/scripts/agent-env/deep/helper.ps1:1 names CODEX_HOME (codex-cli)
 +relocation hint: {WORK}/root/home/alice/scripts/agent-env/deep/helper.sh:2 names CODEX_HOME (codex-cli)
 +relocation hint: {WORK}/root/home/alice/scripts/once.sh:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/home/alice/scripts/steer/d\x0ax:1 names CODEX_HOME (codex-cli)
 +sweep skipped: home {WORK}/root/usr/share/ollama lies outside the user home roots
 +Relocation hints for nested ({WORK}/root/home/alice/nested)
 +relocation hint: {WORK}/root/home/alice/nested/deep/helper.sh:1 names CODEX_HOME (codex-cli)

@@ -219,15 +219,20 @@ func TestSearchSweep(t *testing.T) {
 	for _, line := range log.lines[16:] {
 		swept = append(swept, strings.TrimPrefix(line, "relocation hint: "+syspath.ToNative(alice)))
 	}
-	want := nativeLines([]string{
-		"Relocation hints for alice (" + alice + ")",
-		"/dotfiles/direnv/direnvrc:1 names CODEX_HOME (codex-cli)",
-		"/out/notes:1 names CODEX_HOME (codex-cli)",
-		"/scripts/deep.sh:1 names CODEX_HOME (codex-cli)",
-		"sweep skipped: home " + root + "/var/svc lies outside the user home roots",
-		"sweep skipped: project " + root + "/home holds a home directory",
-	})
-	slices.Sort(swept[1:4])
+	hints := []string{"/dotfiles/direnv/direnvrc:1 names CODEX_HOME (codex-cli)",
+		"/out/notes:1 names CODEX_HOME (codex-cli)", "/scripts/deep.sh:1 names CODEX_HOME (codex-cli)"}
+	// A file whose name, or a directory's, holds a newline is searched like
+	// any other.
+	for name := range newlineFixture("") {
+		hints = append(hints, strings.TrimPrefix(name, "home/alice")+":1 names CODEX_HOME (codex-cli)")
+	}
+	slices.Sort(hints)
+	want := nativeLines(append(append([]string{"Relocation hints for alice (" + alice + ")"},
+		hints...), "sweep skipped: home "+root+"/var/svc lies outside the user home roots",
+		"sweep skipped: project "+root+"/home holds a home directory"))
+	if len(swept) > len(hints) {
+		slices.Sort(swept[1 : 1+len(hints)])
+	}
 	if !slices.Equal(swept, want) {
 		t.Errorf("sweep log:\n%s\nwant:\n%s", strings.Join(swept, "\n"), strings.Join(want, "\n"))
 	}
@@ -247,15 +252,12 @@ func TestSearchSweepSearchesEachFileOnce(t *testing.T) {
 		}
 		return result.FilesSearched
 	}
-	// The sweep adds alice's deep.sh, notes, the file under a directory whose
-	// name holds a newline (counted, never recorded) where the platform allows
-	// one, and the direnvrc the startup pass read through a link, now under its
-	// own path, and nothing of the project beyond its .envrc, which the
-	// startup pass already searched.
-	added := 3
-	if len(newlineFixture("")) > 0 {
-		added++
-	}
+	// The sweep adds alice's deep.sh, notes, the files whose names or whose
+	// directory's name hold a newline where the platform allows one, and the
+	// direnvrc the startup pass read through a link, now under its own path,
+	// and nothing of the project beyond its .envrc, which the startup pass
+	// already searched.
+	added := 3 + len(newlineFixture(""))
 	if before, after := count(false), count(true); after != before+added {
 		t.Errorf("files searched: %d without the sweep, %d with it; want %d", before, after,
 			before+added)

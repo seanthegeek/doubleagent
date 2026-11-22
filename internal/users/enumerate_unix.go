@@ -120,17 +120,14 @@ func dsclHomes(ctx context.Context, run Runner) []Home {
 func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n' }
 
 // globHomes returns, for each home parent in order, the entries that exist
-// and are directories, each named by its last path segment. A match holding a
-// newline is read as its lines, each tried as a home: the expansion is read
-// line by line.
+// and are directories, each named by its last path segment. Each match is
+// one home under its whole name, a newline in it included.
 func globHomes(root string, guard *rootGuard) []Home {
 	var homes []Home
 	for _, pattern := range homeGlobs() {
 		for _, match := range guard.expand(root, pattern) {
-			for _, line := range strings.Split(match, "\n") {
-				if guard.isDirectory(line) {
-					homes = append(homes, Home{line[strings.LastIndexByte(line, '/')+1:], line})
-				}
+			if guard.isDirectory(match) {
+				homes = append(homes, Home{match[strings.LastIndexByte(match, '/')+1:], match})
 			}
 		}
 	}

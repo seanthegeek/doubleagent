@@ -7,6 +7,7 @@ package projects
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
@@ -52,19 +53,17 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 	reach func(path string) string,
 ) ([]Project, []Refusal, error) {
 	root = strings.TrimSuffix(root, "/")
-	userList := userListText(homes)
 	rules := platformRules()
 	var found []Project
 	var refused []Refusal
-	for _, line := range strings.Split(userList, "\n") {
+	for _, home := range homes {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		user, home, _ := strings.Cut(line, ":")
-		if home == "" {
+		if home.Path == "" {
 			continue
 		}
-		scan := &homeScan{ctx: ctx, root: root, user: user, home: home, rules: rules,
+		scan := &homeScan{ctx: ctx, root: root, user: home.User, home: home.Path, rules: rules,
 			dropSecret: dropSecret, outOfScope: outOfScope, opener: opener}
 		scan.claudeCodeSources()
 		scan.cliSessionSources()
@@ -73,16 +72,16 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 		scan.configFileSources()
 		scan.editorSources()
 		for _, path := range scan.paths() {
-			found = append(found, Project{Owner: user, Path: path})
+			found = append(found, Project{Owner: home.User, Path: path})
 		}
 		refused = append(refused, scan.refused...)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, nil, err
 	}
-	for _, path := range strings.Split(strings.Join(extra, "\n"), "\n") {
+	for _, path := range extra {
 		if syspath.IsAbs(path) {
-			found = append(found, Project{Owner: projectOwner(userList, path), Path: path})
+			found = append(found, Project{Owner: projectOwner(homes, path), Path: path})
 		}
 	}
 	if reach != nil {
@@ -91,39 +90,22 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 		}
 	}
 	same := follow.SameEntry(outOfScope)
-	return keepProjectDirs(mergeProjectOwners(found, same), userList, outOfScope, same), refused,
-		nil
+	return keepProjectDirs(mergeProjectOwners(found, same), homes, outOfScope, same), refused, nil
 }
 
-// userListText is the user list: one user:home line per home. Discovery
-// reads the homes back from this text, so a home with a newline in its path
-// splits into lines here.
-func userListText(homes []users.Home) string {
-	lines := make([]string, len(homes))
-	for i, home := range homes {
-		lines[i] = home.User + ":" + home.Path
-	}
-	return strings.Join(lines, "\n")
-}
-
-// projectOwner returns the user of the first user list line
-// whose home, followed by `/`, starts path, or "" when none does. On Windows
-// a home spelling path's start byte for byte wins; failing one, the first
-// home matching ignoring ASCII case owns it:
-// the owner only labels the project's rows, so a wrong one loses nothing. A
-// line with no colon is its own user and home.
-func projectOwner(userList, path string) string {
+// projectOwner returns the user of the first home that, followed by `/`,
+// starts path, or "" when none does. Each home is a value, whatever bytes its
+// path holds. On Windows a home spelling path's start byte for byte wins;
+// failing one, the first home matching ignoring ASCII case owns it: the
+// owner only labels the project's rows, so a wrong one loses nothing.
+func projectOwner(homes []users.Home, path string) string {
 	folded, foldedFound := "", false
-	for _, line := range strings.Split(userList, "\n") {
-		user, home, found := strings.Cut(line, ":")
-		if !found {
-			home = line
+	for _, home := range homes {
+		if strings.HasPrefix(path, home.Path+"/") {
+			return home.User
 		}
-		if strings.HasPrefix(path, home+"/") {
-			return user
-		}
-		if !foldedFound && syspath.HasPrefix(path, home+"/") {
-			folded, foldedFound = user, true
+		if !foldedFound && syspath.HasPrefix(path, home.Path+"/") {
+			folded, foldedFound = home.User, true
 		}
 	}
 	return folded
@@ -154,50 +136,24 @@ func mergeProjectOwners(found []Project, same syspath.SameEntry) []Project {
 }
 
 // keepProjectDirs returns the projects whose path is a directory and is not
-// the home of a user list line, tested as the text after some colon ending a
-// line, ignoring case on Windows. A path
-// outOfScope (when not nil) names skips the directory test and is never
-// stat'ed. A home spelled otherwise only in ASCII case is the project's own
-// directory only when same says so (listedHome).
-func keepProjectDirs(projects []Project, userList string, outOfScope RootExit,
+// one of homes. A path outOfScope (when not nil) names skips the directory
+// test and is never stat'ed. A home spelled otherwise only in ASCII case is
+// the project's own directory only when same says so (syspath.SameAs).
+func keepProjectDirs(projects []Project, homes []users.Home, outOfScope RootExit,
 	same syspath.SameEntry,
 ) []Project {
-	listed := "\n" + userList
 	var kept []Project
 	for _, project := range projects {
 		isDir, err := follow.IsDirectory(outOfScope, project.Path)
 		if _, leaves := follow.OutOfRoot(err); !leaves && !isDir {
 			continue
 		}
-		if listedHome(listed, project.Path, same) {
+		if slices.ContainsFunc(homes, func(home users.Home) bool {
+			return syspath.SameAs(home.Path, project.Path, same)
+		}) {
 			continue
 		}
 		kept = append(kept, project)
 	}
 	return kept
-}
-
-// listedHome reports whether path follows a colon and ends a line of
-// listed, the user list text after a newline: byte for byte, or on Windows
-// ignoring ASCII case where same says the text there and path are one entry.
-func listedHome(listed, path string, same syspath.SameEntry) bool {
-	if strings.Contains(listed, ":"+path+"\n") || strings.HasSuffix(listed, ":"+path) {
-		return true
-	}
-	// syspath.Fold changes no byte's position, so offsets in the folded
-	// text are offsets in listed.
-	folded, needle := syspath.Fold(listed), ":"+syspath.Fold(path)
-	for start := 0; ; {
-		position := strings.Index(folded[start:], needle)
-		if position < 0 {
-			return false
-		}
-		position += start
-		end := position + len(needle)
-		if (end == len(folded) || folded[end] == '\n') &&
-			syspath.SameAs(listed[position+1:end], path, same) {
-			return true
-		}
-		start = position + 1
-	}
 }

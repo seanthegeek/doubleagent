@@ -49,7 +49,7 @@ func TestAStaleSpellingDoesNotSwallowTheRealProject(t *testing.T) {
 	same := follow.SameEntry(nil)
 	// A config names the renamed Foo before the real foo.
 	got := keepProjectDirs(mergeProjectOwners([]Project{{Path: home + "/src/Foo"},
-		{Path: home + "/src/foo"}}, same), "", nil, same)
+		{Path: home + "/src/foo"}}, same), nil, nil, same)
 	if want := []Project{{Path: home + "/src/foo"}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("projects %q, want %q: the missing Foo merged the real foo away", got, want)
 	}

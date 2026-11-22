@@ -211,10 +211,12 @@ three entry points, and each table is served by one:
 `Expand` sorts each pattern's matches bytewise on Linux and macOS, as the shell sorts a
 pathname expansion, and keeps them in directory order on Windows, where it also
 respells each literal segment that exists as the disk holds it
-(`fsmeta.OnDiskName`). A pattern that matches nothing gives no match. A matched name
-holding a newline gives one match per line (`walk.ExpandCatalog`). `Expand` asks the
-image root's check before it lists a directory and returns each link the check refused
-([The image root](#the-image-root)).
+(`fsmeta.OnDiskName`). A pattern that matches nothing gives no match. Every match is a
+value in a list, never a line of text read back, so a name holding a newline or any other
+byte is one match under its whole name, in every table, the homes and the project list
+alike (`walk.ExpandCatalog`, `users`, `projects.Discover`, `relocation`). `Expand` asks
+the image root's check before it lists a directory and returns each link the check
+refused ([The image root](#the-image-root)).
 
 The tables hold only `*`, `?` and closed bracket lists of literal bytes, ranges and
 `!`: the shells disagree on character class names, collating and equivalence classes,
@@ -444,6 +446,12 @@ the methods in use and why each is safe.
 The fields, statuses and archive layout are an interface,
 [documented in `collection-output.md`](collection-output.md).
 
+**A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F, and the
+UTF-8 forms of the C1 controls and of U+2028 and U+2029, as `\xNN`, in the log file and
+in its copy on standard error, so a file name holding a newline, a carriage return or a
+terminal escape cannot end a line, forge one or drive the operator's terminal. The
+manifest and `collection.json` hold every name exactly, through `encoding/json`.
+
 **Safety does not depend on knowing which names a volume merges.** A volume can take two
 names for one: by letter case (the default macOS volume, an exFAT or FAT drive, a Linux
 file system that folds case, a Windows file system without the case-sensitive setting),
@@ -558,8 +566,8 @@ pass reads the system environment key and the `Environment` key of each collecte
 profile whose hive is loaded, never loading one, since loading changes the user's
 `NTUSER.DAT`. A startup file is a regular file only: a symlink is never read, nor a file
 under a symlinked directory whose target leads out of its base. A path holding a newline
-is never listed. The sweep never reads the catalog matches, the active exclusions or the
-run's own output, and skips a project that is or holds a home.
+is listed like any other. The sweep never reads the catalog matches, the active
+exclusions or the run's own output, and skips a project that is or holds a home.
 
 ## Analysis input
 

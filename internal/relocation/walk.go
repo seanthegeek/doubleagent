@@ -3,7 +3,6 @@ package relocation
 import (
 	"context"
 	"io/fs"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -21,8 +20,8 @@ type sweepWalk struct {
 	skipped int
 }
 
-// visit handles path: a regular file whose name holds no newline is listed
-// when it is within the limit (0 for none) and counted as skipped otherwise;
+// visit handles path: a regular file is listed when it is within the limit
+// (0 for none) and counted as skipped otherwise;
 // a directory is read and its entries visited. A directory that cannot be
 // read gives the entries read before the error, as find goes on past it.
 func (walk *sweepWalk) visit(path string) error {
@@ -51,14 +50,8 @@ func (walk *sweepWalk) visit(path string) error {
 	return nil
 }
 
-// addFile lists a regular file or counts it as over the size limit; a file
-// whose name holds a newline is neither, since a line-per-path list could
-// not tell it from two paths.
+// addFile lists a regular file or counts it as over the size limit.
 func (walk *sweepWalk) addFile(path string, size int64) {
-	name := path[strings.LastIndexByte(path, '/')+1:]
-	if strings.Contains(name, "\n") {
-		return
-	}
 	if walk.limit == 0 || size <= walk.limit {
 		walk.files = append(walk.files, path)
 	} else {
@@ -101,22 +94,6 @@ func stackOrder(entries []fs.DirEntry) []string {
 		names = append(names, directories[i])
 	}
 	return names
-}
-
-// claimLines returns the claim paths of one catalog match. A path holding a
-// newline is read as one line per line of it, and a later line is kept only
-// when it holds two `|` (its text after the second is then read as a path),
-// so the first line of the path stands for it; a kept line starting `#|` is
-// dropped as a log message.
-func claimLines(path string) []string {
-	pieces := strings.Split(path, "\n")
-	lines := []string{pieces[0]}
-	for _, piece := range pieces[1:] {
-		if strings.Count(piece, "|") >= 2 && !strings.HasPrefix(piece, "#|") {
-			lines = append(lines, strings.SplitN(piece, "|", 3)[2])
-		}
-	}
-	return lines
 }
 
 // pathsOf returns the paths of a user or project list.

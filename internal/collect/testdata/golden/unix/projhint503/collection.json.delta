@@ -17,11 +17,11 @@
 @@ after
    "counts": {
 -    "collected": 1039,
-+    "collected": 1047,
++    "collected": 1048,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 25712
-+    "collected_bytes": 26227
++    "collected_bytes": 26252
 @@ after
          "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.binary.plist",
          "line": 1,
@@ -57,6 +57,14 @@
 +        "user": "alice",
 +        "source": "{WORK}/root/home/alice/scripts/agent-env/deep/helper.sh",
 +        "line": 2,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
++        "source": "{WORK}/root/home/alice/scripts/steer/d\nx",
++        "line": 1,
 +        "variable": "CODEX_HOME",
 +        "agent": "codex-cli",
 +        "value": ""
@@ -107,5 +115,5 @@
      },
 -    "files_searched": 151,
 -    "files_skipped_size": 0
-+    "files_searched": 221,
++    "files_searched": 223,
 +    "files_skipped_size": 1

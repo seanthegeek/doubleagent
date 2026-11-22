@@ -100,3 +100,49 @@ func TestLineDropsAFailedWriteToStandardError(t *testing.T) {
 		t.Errorf("file %q (%v), want the line", got, err)
 	}
 }
+
+func TestPrintableEscapesEveryControlCharacterAndNothingElse(t *testing.T) {
+	cases := []struct{ name, text, want string }{
+		{"a newline is escaped", "a\nb", `a\x0ab`},
+		{"a carriage return is escaped", "a\rb", `a\x0db`},
+		{"a terminal escape is escaped", "a\x1b[2Kb", `a\x1b[2Kb`},
+		{"a NUL, a tab and DEL are escaped", "\x00\t\x7f", `\x00\x09\x7f`},
+		{"a C1 control is escaped byte by byte", "a\u0085b\u009bc", `a\xc2\x85b\xc2\x9bc`},
+		{"the line and paragraph separators are escaped", "a\u2028b\u2029c", `a\xe2\x80\xa8b\xe2\x80\xa9c`},
+		{"other text, a backslash and invalid UTF-8 included, is kept", `C:\Users\é` + "\xc2\xff\xe2\x80",
+			`C:\Users\é` + "\xc2\xff\xe2\x80"},
+		{"the neighbours of the escaped characters are kept", "\u00a0\u2027\u202a", "\u00a0\u2027\u202a"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if got := Printable(testCase.text); got != testCase.want {
+				t.Errorf("Printable(%q) = %q, want %q", testCase.text, got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestEveryLineIsWrittenPrintable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.log")
+	var stderr bytes.Buffer
+	pinned := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
+	log, err := Open(path, false, &stderr, func() time.Time { return pinned })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := log.Line("copy failed: a\nforged"); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.FileLine("done: b\r"); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	want := "2026-03-04T05:06:07Z copy failed: a\\x0aforged\n2026-03-04T05:06:07Z done: b\\x0d\n"
+	if err != nil || string(got) != want || stderr.String() != "copy failed: a\\x0aforged\n" {
+		t.Errorf("file %q and stderr %q (%v), want %q and the first line", got, stderr.String(), err, want)
+	}
+}

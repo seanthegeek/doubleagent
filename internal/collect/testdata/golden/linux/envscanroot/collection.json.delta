@@ -19,11 +19,11 @@
 @@ after
    "counts": {
 -    "collected": 1039,
-+    "collected": 1045,
++    "collected": 1046,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 25712
-+    "collected_bytes": 26516
++    "collected_bytes": 26541
 @@ after
          "source": "{WORK}/root/etc/zshrc",
          "line": 1,
@@ -74,6 +74,14 @@
 +      },
 +      {
 +        "user": "alice",
++        "source": "{WORK}/root/home/alice/scripts/steer/d\nx",
++        "line": 1,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
 @@ after
          "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
          "line": 1,
@@ -102,5 +110,5 @@
      },
 -    "files_searched": 151,
 -    "files_skipped_size": 0
-+    "files_searched": 187,
++    "files_searched": 189,
 +    "files_skipped_size": 1
