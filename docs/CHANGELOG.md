@@ -11,7 +11,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 ### Changed
 
 - The analysis commands read an agent's TOML files as TOML 1.1, which adds to TOML 1.0 a newline or a trailing comma inside an inline table, a time or date-time without seconds, and the `\x` and `\e` string escapes: a file using one of these now gives its rows where it gave one error row. Every TOML 1.0 file reads as before ([#569]).
-- `collect` keeps its staging directory open for the whole run and stages, archives and removes through it, so moving the directory aside and putting a link at its name during the run no longer sends staged copies through the link; on Windows the directory cannot be renamed or deleted while the run works and is made with its own access list, the running account and Administrators only ([#542]).
+- `collect` keeps its staging directory open for the whole run and stages, archives and removes through it, so moving the directory aside and putting a link at its name during the run no longer sends staged copies through the link; on Windows the directory cannot be renamed or deleted while the run works, and on a volume that keeps access lists (NTFS) it is made with its own, the running account and Administrators only, while on FAT, exFAT or a network share it is made as any other directory there. A run now ends with exit `2` (`Cannot create staging dir: ...`) when the staging directory it has just made and opened is not an empty directory it can take as its own, and leaves that directory in the output directory ([#542]).
 
 ### Fixed
 

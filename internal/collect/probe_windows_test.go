@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -44,6 +45,10 @@ func TestTheWriteProbeOnWindows(t *testing.T) {
 	}{
 		{"a directory the account may add to is writable",
 			func(t *testing.T) string { return syspath.FromNative(t.TempDir()) }, true},
+		{"one named through a short name is writable", func(t *testing.T) string {
+			short, _ := shortname.Dir(t)
+			return syspath.FromNative(short)
+		}, true},
 		{"a directory whose access list denies adding files is not",
 			directoryAddingNothing, false},
 	}

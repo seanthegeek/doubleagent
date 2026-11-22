@@ -143,3 +143,26 @@ func TestMemberIsTheStagedPathWhenTheWalkStopsShort(t *testing.T) {
 		t.Errorf("member = %q; want fs/x, the staged path as named, when the walk stops short", got)
 	}
 }
+
+func TestACandidateThroughALinkTypedADirectoryIsRefused(t *testing.T) {
+	// As fsmeta describes a Windows junction: a directory with the reparse
+	// point attribute. The walk is not consulted (FoldsCase is false).
+	const reparsePoint = 0x400
+	metas := map[string]fsmeta.Meta{
+		"/s/fs":     {Kind: fsmeta.Dir, Dev: 1, Ino: 2},
+		"/s/fs/w":   {Kind: fsmeta.Dir, Dev: 1, Ino: 3, Attributes: reparsePoint},
+		"/s/fs/w/f": {Kind: fsmeta.File, Dev: 1, Ino: 7},
+	}
+	stager := Stager{Dir: "/s", stagedFS: &stagedFS{
+		lstat: func(path string) (fsmeta.Meta, error) {
+			if meta, found := metas[path]; found {
+				return meta, nil
+			}
+			return fsmeta.Meta{}, fs.ErrNotExist
+		},
+		list: func(string) ([]fs.DirEntry, error) { return nil, nil },
+	}}
+	if got := stager.member("/elsewhere/fs/w/f", "/s/fs/u/f", [2]uint64{1, 7}); got != "fs/u/f" {
+		t.Errorf("member = %q; want fs/u/f: the candidate runs through a link", got)
+	}
+}

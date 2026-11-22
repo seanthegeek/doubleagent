@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -39,21 +40,34 @@ func directoryAddingNothing(t *testing.T) string {
 func TestTheWriteProbeOnWindows(t *testing.T) {
 	cases := []struct {
 		name string
+		// dir returns the directory as the analyst may give it.
 		dir  func(t *testing.T) string
 		want bool
 	}{
-		{"a directory the account may add to is writable",
-			func(t *testing.T) string { return syspath.FromNative(t.TempDir()) }, true},
-		{"a directory whose access list denies adding files is not",
-			directoryAddingNothing, false},
+		{"a directory the account may add to is writable", func(t *testing.T) string {
+			return t.TempDir()
+		}, true},
+		{"one given in the \\\\?\\ form is writable", func(t *testing.T) string {
+			return `\\?\` + t.TempDir()
+		}, true},
+		{"one given with a trailing backslash is writable", func(t *testing.T) string {
+			return t.TempDir() + `\`
+		}, true},
+		{"one given through a short name is writable", func(t *testing.T) string {
+			short, _ := shortname.Dir(t)
+			return short
+		}, true},
+		{"a directory whose access list denies adding files is not", func(t *testing.T) string {
+			return syspath.ToNative(directoryAddingNothing(t))
+		}, false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			dir := test.dir(t)
 			if got := probeWrite(dir); got != test.want {
-				t.Errorf("probeWrite = %v, want %v", got, test.want)
+				t.Errorf("probeWrite(%s) = %v, want %v", dir, got, test.want)
 			}
-			if entries, err := os.ReadDir(syspath.ToNative(dir)); err != nil || len(entries) != 0 {
+			if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
 				t.Errorf("the probe left %v (%v)", entries, err)
 			}
 		})

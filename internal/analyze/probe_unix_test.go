@@ -39,3 +39,39 @@ func TestTheWriteProbeRemovesNothingThroughALinkPutAtItsDirectorysName(t *testin
 		t.Errorf("the probe's own directory still holds %v", entries)
 	}
 }
+
+func TestTheWriteProbeTakesTheDirectoryAsTheAnalystGivesIt(t *testing.T) {
+	cases := []struct {
+		name string
+		// dir returns the directory as given, and the directory to list.
+		dir func(t *testing.T) (string, string)
+	}{
+		{"a directory given as it is", func(t *testing.T) (string, string) {
+			dir := t.TempDir()
+			return dir, dir
+		}},
+		{"one given with a trailing slash", func(t *testing.T) (string, string) {
+			dir := t.TempDir()
+			return dir + "/", dir
+		}},
+		{"one given relative to the working directory", func(t *testing.T) (string, string) {
+			parent := t.TempDir()
+			if err := os.Mkdir(parent+"/out", 0o700); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(parent)
+			return "out", parent + "/out"
+		}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			given, listed := test.dir(t)
+			if !probeWrite(given) {
+				t.Errorf("probeWrite(%s) = false for a writable directory", given)
+			}
+			if entries, err := os.ReadDir(listed); err != nil || len(entries) != 0 {
+				t.Errorf("the probe left %v (%v)", entries, err)
+			}
+		})
+	}
+}

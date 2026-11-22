@@ -364,7 +364,7 @@ Then come the warnings that apply to the whole run.
 | `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
 | `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file, and `FATAL: archive not moved to its name: REASON; it is complete as PARTIAL, with its .sha256 file beside it` when the finished archive could not be given its name. |
-| `staging directory not removed: REASON` | The last line, after `done:`, `interrupted` or `FATAL:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is left empty wherever it was moved. Not written with `-k`. |
+| `staging directory not removed: REASON` | The last line, after `done:`, `interrupted` or `FATAL:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is emptied wherever it was moved; when emptying it failed too, that error follows after `; `. Not written with `-k`. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

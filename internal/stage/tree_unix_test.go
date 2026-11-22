@@ -402,3 +402,50 @@ func TestACandidateSpellingNamingAnotherFileIsRefused(t *testing.T) {
 		t.Errorf("member = %q for the candidate naming the file itself; want fs/home/u/f", got)
 	}
 }
+
+func TestDiscardReportsBothATakenNameAndContentsLeft(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root removes from a directory it may not write")
+	}
+	parent := t.TempDir()
+	tree, err := CreateTree(parent + "/stage")
+	mustDo(t, err)
+	mustDo(t, tree.MkdirAll("fs/shut"))
+	file, err := tree.CreateNew("fs/shut/f", 0o600)
+	mustDo(t, err)
+	mustDo(t, file.Close())
+	mustDo(t, os.Chmod(parent+"/stage/fs/shut", 0o500))
+	t.Cleanup(func() { _ = os.Chmod(parent+"/moved/fs/shut", 0o700) })
+	mustDo(t, os.Rename(parent+"/stage", parent+"/moved"))
+	mustDo(t, os.Mkdir(parent+"/stage", 0o700))
+	err = tree.Discard()
+	if err == nil || !strings.Contains(err.Error(), notThisTree{}.Error()) ||
+		!errors.Is(err, fs.ErrPermission) {
+		t.Errorf("Discard = %v; want both the name taken and the contents that could not be removed",
+			err)
+	}
+	if _, statErr := os.Lstat(parent + "/stage"); statErr != nil {
+		t.Errorf("the directory now at the name was not left: %v", statErr)
+	}
+}
+
+func TestACandidateNamingTheCreatedFileIsTheMember(t *testing.T) {
+	stager, root := newStager(t)
+	source := root + "/home/u/f"
+	mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+	_, err := stager.Copy(source)
+	mustDo(t, err)
+	// A second name of the very file the copy created, as a respelling
+	// by the volume would give: the walk is not consulted (FoldsCase is
+	// false), so only the candidate can give this spelling.
+	mustDo(t, os.MkdirAll(stager.Dir+"/fs/home/v", 0o700))
+	mustDo(t, os.Link(stager.Dir+"/fs/home/u/f", stager.Dir+"/fs/home/v/f"))
+	info, err := os.Lstat(stager.Dir + "/fs/home/u/f")
+	mustDo(t, err)
+	_, dest, _ := stager.Dest(source)
+	if got := stager.member("/elsewhere/fs/home/v/f", dest, fsmeta.StatIdentity(info)); got !=
+		"fs/home/v/f" {
+		t.Errorf("member = %q; want fs/home/v/f, the candidate naming the created file", got)
+	}
+}

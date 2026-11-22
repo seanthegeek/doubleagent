@@ -3,6 +3,7 @@ package analyze
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"path/filepath"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -10,15 +11,18 @@ import (
 
 // probeWriteThen is probeWrite with a call, when set, between the probe's
 // creation and its removal, given the probe's name. The probe is created
-// by its path as the run's own files are (CREATE_NEW, as an exclusive
-// osfile.OpenFile makes them, without the backup intent an os.Root open
-// adds), with FILE_FLAG_DELETE_ON_CLOSE, so closing it removes the very
-// file made and no name is looked up a second time.
+// by its path as the run's own files are (joined with filepath.Join and
+// made extended as createNew's are; CREATE_NEW, without the backup intent
+// an os.Root open adds), with FILE_FLAG_DELETE_ON_CLOSE, so closing it
+// removes the very file made and no name is looked up a second time. The
+// DELETE access that needs makes a directory that allows creating files
+// but not deleting them count as not writable, though the run's own
+// creations would succeed there.
 func probeWriteThen(directory string, created func(probe string)) bool {
 	random := make([]byte, 16)
 	_, _ = rand.Read(random)
 	probe := ".write-probe-" + hex.EncodeToString(random)
-	name, err := windows.UTF16PtrFromString(syspath.Extended(directory + "/" + probe))
+	name, err := windows.UTF16PtrFromString(syspath.Extended(filepath.Join(directory, probe)))
 	if err != nil {
 		return false
 	}

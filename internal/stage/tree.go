@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"strings"
@@ -106,7 +107,9 @@ func (tree *Tree) RemoveContents() error {
 // directory by the name the run gave it when, just before the close, that
 // name still held the tree's own directory; a name that holds anything
 // else (the directory moved aside and another entry put in its place) is
-// left as it is, with an error that says so. The first error is returned.
+// left as it is. The error says that first, then the first error met
+// emptying or closing the tree, so neither is lost; else it is the first
+// error met.
 func (tree *Tree) Discard() error {
 	err := tree.RemoveContents()
 	named := tree.stillNamed()
@@ -114,7 +117,11 @@ func (tree *Tree) Discard() error {
 		err = closeErr
 	}
 	if !named {
-		return &fs.PathError{Op: "remove", Path: syspath.ToNative(tree.path), Err: notThisTree{}}
+		left := &fs.PathError{Op: "remove", Path: syspath.ToNative(tree.path), Err: notThisTree{}}
+		if err != nil {
+			return fmt.Errorf("%w; %w", left, err)
+		}
+		return left
 	}
 	if removeErr := osfile.Remove(tree.path); err == nil {
 		err = removeErr
