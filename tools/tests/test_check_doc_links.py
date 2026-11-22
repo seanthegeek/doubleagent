@@ -89,12 +89,11 @@ def test_a_heading_inside_a_fence_defines_nothing() -> None:
     assert len(links.citation_problems(page, sources)) == 1
 
 
-def test_only_code_outside_the_harnesses_and_vendor_is_read() -> None:
+def test_only_code_outside_vendor_is_read() -> None:
     cases = {
         "cmd/doubleagent/main.go": True,
-        "internal/walk/parity_test.go": True,
+        "internal/walk/walk_test.go": True,
         "internal/sqlitefile/testdata/generate.py": True,
-        "internal/collect/parity/exceptions_test.go": False,
         "internal/analyze/golden_test.go": True,
         "vendor/golang.org/x/sys/unix/a.go": False,
         "docs/differences-from-the-scripts.md": False,

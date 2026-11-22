@@ -16,9 +16,9 @@ or a `#!` line naming a shell), or in the FILE arguments, it checks that:
   or an interface method, split into words at its capitals, with the exemptions "Go standards"
   lists (`GO_ALLOWED_NAMES`). `ALLOWED_SHORT_NAMES` and `INTERFACE_NAMES` list the exceptions;
 - a comment or docstring names no issue or pull request number and no date; a copyright line
-  and the smoke tests' dated fixture-block labels (`# YYYY-MM-DD <topic> (#n)`) are exempt;
-- a run of whole-line comments is at most ten lines long, the file header and a block holding
-  the collectors' reader's guide excepted; a docstring is at most ten lines, a module's thirty;
+  is exempt;
+- a run of whole-line comments is at most ten lines long, the file header excepted; a
+  docstring is at most ten lines, a module's thirty;
   a Go doc comment is at most ten lines, a Go function body 60 (`GO_LONG_FUNCTIONS` excepted).
 
 Quoted text on an sh, PowerShell or Go line is neither a comment nor scanned for names, and a
@@ -113,8 +113,6 @@ DATE = re.compile(
     r"|(?<![+\w.-])20[2-9]\d\b"
 )
 COPYRIGHT_LINE = re.compile(r"Copyright \d{4}")
-FIXTURE_LABEL = re.compile(r"^\s*#\s*(?:---\s*)?\d{4}-\d{2}-\d{2}\b")
-READERS_GUIDE = "Reader's guide"
 
 SH_TEMPORARY_PREFIX = re.compile(r"^_(?:[a-z]{1,4}|ret)_")
 SH_ASSIGNMENT = re.compile(r"(?:^|[;{]|&&|\|\|)\s*([A-Za-z_][A-Za-z0-9_]*)=")
@@ -303,9 +301,9 @@ def python_binding_names(tree: ast.AST) -> Iterator[Finding]:
             yield line_of(node), name
 
 
-def comment_text_findings(line: int, text: str, is_fixture_label: bool) -> Iterator[Finding]:
+def comment_text_findings(line: int, text: str) -> Iterator[Finding]:
     """Yield the issue-reference and date findings of one comment or docstring line."""
-    if COPYRIGHT_LINE.search(text) or is_fixture_label:
+    if COPYRIGHT_LINE.search(text):
         return
     for match in ISSUE_REFERENCE.finditer(text):
         yield line, "comment names an issue or pull request: %r" % match.group(0)
@@ -316,7 +314,7 @@ def comment_text_findings(line: int, text: str, is_fixture_label: bool) -> Itera
 def comment_block_findings(lines: list[str]) -> Iterator[Finding]:
     """Yield a finding for every run of whole-line `#` comments over the cap.
 
-    The run that opens the file (its header) and a run holding the reader's guide are exempt.
+    The run that opens the file (its header) is exempt.
     """
     start = None
     for index, text in enumerate([*lines, ""], start=1):
@@ -325,8 +323,7 @@ def comment_block_findings(lines: list[str]) -> Iterator[Finding]:
             start = index
         elif not is_comment and start is not None:
             length = index - start
-            block = "\n".join(lines[start - 1 : index - 1])
-            if length > MAX_COMMENT_BLOCK and start > 2 and READERS_GUIDE not in block:
+            if length > MAX_COMMENT_BLOCK and start > 2:
                 message = "comment block of %d lines is longer than %d"
                 yield start, message % (length, MAX_COMMENT_BLOCK)
             start = None
@@ -344,7 +341,7 @@ def docstring_findings(tree: ast.AST) -> Iterator[Finding]:
         first_line = node.body[0].lineno
         docstring_lines = docstring.splitlines()
         for offset, text in enumerate(docstring_lines):
-            yield from comment_text_findings(first_line + offset, text, False)
+            yield from comment_text_findings(first_line + offset, text)
         is_module = isinstance(node, ast.Module)
         cap = MAX_MODULE_DOCSTRING_LINES if is_module else MAX_DOCSTRING_LINES
         if len(docstring_lines) > cap:
@@ -364,7 +361,7 @@ def check_python(path: pathlib.Path, source: str) -> Iterator[Finding]:
     try:
         for token in tokens:
             if token.type == tokenize.COMMENT:
-                yield from comment_text_findings(token.start[0], token.string, False)
+                yield from comment_text_findings(token.start[0], token.string)
     except tokenize.TokenError:
         pass
     yield from comment_block_findings(source.splitlines())
@@ -431,20 +428,17 @@ def check_sh(path: pathlib.Path, source: str) -> Iterator[Finding]:
         message = name_message(SH_TEMPORARY_PREFIX.sub("", name))
         if message:
             yield line, message
-    is_smoke = path.name.startswith("smoke.")
     for index, text in enumerate(lines, start=1):
         comment = split_comment(text)[1]
         if not comment or text.lstrip().startswith("#!"):
             continue
-        is_label = is_smoke and bool(FIXTURE_LABEL.match(text))
-        yield from comment_text_findings(index, comment, is_label)
+        yield from comment_text_findings(index, comment)
     yield from comment_block_findings(lines)
 
 
 def check_powershell(path: pathlib.Path, source: str) -> Iterator[Finding]:
     """Yield the findings of one PowerShell file."""
     lines = source.splitlines()
-    is_smoke = path.name.startswith("smoke.")
     for index, text in enumerate(lines, start=1):
         code, comment = split_comment(text)
         for match in PS_VARIABLE.finditer(code):
@@ -453,8 +447,7 @@ def check_powershell(path: pathlib.Path, source: str) -> Iterator[Finding]:
             if message:
                 yield index, message
         if comment:
-            is_label = is_smoke and bool(FIXTURE_LABEL.match(text))
-            yield from comment_text_findings(index, comment, is_label)
+            yield from comment_text_findings(index, comment)
     yield from comment_block_findings(lines)
 
 
@@ -754,7 +747,7 @@ def go_comment_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     comment_lines: list[int] = []
     for token in comments:
         for offset, text in enumerate(token.text.splitlines() or [""]):
-            yield from comment_text_findings(token.line + offset, text, False)
+            yield from comment_text_findings(token.line + offset, text)
             if token.first:
                 comment_lines.append(token.line + offset)
     first_code_line = min(code_lines, default=0)

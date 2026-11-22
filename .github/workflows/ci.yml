@@ -21,8 +21,8 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || startsWith(github.ref_name, 'unit-') }}
 
-# Linter versions for the lint job. AGENTS.md ("Quality gates") and
-# .githooks/pre-commit list the same versions; change all three together.
+# Linter versions for the lint job. AGENTS.md ("Quality gates") lists the
+# same versions; change both together.
 env:
   RUFF_VERSION: "0.16.10"
   PYRIGHT_VERSION: "1.1.414"
@@ -66,12 +66,8 @@ jobs:
     name: Classify the change
     runs-on: ubuntu-latest
     outputs:
-      sh: ${{ steps.classify.outputs.sh }}
       sh-lint: ${{ steps.classify.outputs.sh-lint }}
-      powershell: ${{ steps.classify.outputs.powershell }}
       python: ${{ steps.classify.outputs.python }}
-      catalog: ${{ steps.classify.outputs.catalog }}
-      fork-budget: ${{ steps.classify.outputs.fork-budget }}
       go: ${{ steps.classify.outputs.go }}
       all: ${{ steps.classify.outputs.all }}
     steps:
@@ -101,20 +97,8 @@ jobs:
           printf '%s\n' "$categories" >> "$GITHUB_OUTPUT"
           printf '%s\nchanged files:\n%s\n' "$categories" "$changed"
 
-  # Compares the tables of both collectors and the binary's embedded copy.
-  catalog-sync:
-    name: Catalog tables in sync (sh, PowerShell, embedded copy)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.catalog == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Drift test
-        run: collectors/tests/catalog-sync.sh
-
-  # The Go binary's gates, tests and release build, on the three runners whose
-  # tools the parity harness needs (dash with the GNU and BSD userlands, and
-  # Windows PowerShell 5.1). The linters are pinned in the env block and run
+  # The Go binary's gates, tests and release build, on Linux, macOS and
+  # Windows. The linters are pinned in the env block and run
   # with `go run module@version`, so go.mod and vendor/ hold only what the
   # binary links. The build script runs twice and the hashes must agree: a
   # release build is reproducible or it does not ship. Every step runs under
@@ -164,7 +148,7 @@ jobs:
         run: go test -race -timeout 30m ./...
       # The glob package's tests under the dash tag compare it with dash,
       # which the Unix runners ship; Debian's dash and Apple's differ in origin.
-      - name: go test (dash oracle)
+      - name: go test (dash)
         if: runner.os != 'Windows'
         env:
           CGO_ENABLED: "1"
@@ -184,42 +168,6 @@ jobs:
           cat "$RUNNER_TEMP/sums-1"
           cmp "$RUNNER_TEMP/sums-1" "$RUNNER_TEMP/sums-2"
 
-  # The parity harness: the script collector of the runner's platform (the sh
-  # collector on Linux and macOS, the PowerShell collector on Windows) and the
-  # binary run over the smoke test's image with the same arguments, and their
-  # manifests, logs, summaries, output and archive members are compared
-  # (internal/collect/parity). The collectors are subprocesses, so the race
-  # detector would only slow the test binary and is left off here. A case takes
-  # up to half a minute, so the test timeout is raised above go test's
-  # ten-minute default. PARITY_LIVE lets the two live cases of the Windows table
-  # run on this disposable runner; they never run on a developer's machine.
-  go-parity:
-    name: Go parity with the script collector on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    needs: changes
-    if: needs.changes.outputs.go == 'true'
-    timeout-minutes: 100
-    strategy:
-      fail-fast: false
-      matrix:
-        # A unit branch is checked on Linux alone; its integration branch
-        # and every pull request run all three platforms.
-        os: ${{ fromJSON(github.event_name == 'push' && startsWith(github.ref_name, 'unit-') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
-    defaults:
-      run:
-        shell: bash
-    env:
-      CGO_ENABLED: "0"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - name: go test (parity)
-        env:
-          PARITY_LIVE: ${{ runner.os == 'Windows' && '1' || '0' }}
-        run: go test -count=1 -timeout 90m -tags parity,noasm,nounsafe ./...
-
   lint:
     name: Lint (ruff, pyright, Python tests, markdownlint, sh linters)
     runs-on: ubuntu-latest
@@ -235,7 +183,7 @@ jobs:
           python-version: "3.11"
       # Each linter below runs when a file of its language changed.
       - name: Install Python linters and pytest
-        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION" pytest
       - name: ruff check
         if: needs.changes.outputs.python == 'true'
@@ -246,11 +194,10 @@ jobs:
       - name: pyright (Python 3.11)
         if: needs.changes.outputs.python == 'true'
         run: pyright
-      # The drift checkers' tests, which also run the glob check of
-      # collectors/tests/catalog-sync.sh; tools/tests/conftest.py puts tools/
-      # on the import path, so they run from the repository root.
+      # The drift checkers' tests; tools/tests/conftest.py puts tools/ on the
+      # import path, so they run from the repository root.
       - name: pytest (drift checkers)
-        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
+        if: needs.changes.outputs.python == 'true'
         run: python3 -m pytest tools/tests -q
       # The round pipeline's host-side tools; lab/round/tests/conftest.py
       # puts lab/round/ on the import path.
@@ -263,14 +210,12 @@ jobs:
         run: python3 tools/check_doc_links.py
       - name: research document structure
         run: python3 tools/check_research_structure.py
-      # The drift checkers compare the research documents with the tables
-      # and the smoke tests, each against its baseline under
+      # The drift checker compares the research documents with the tables,
+      # against its baseline under
       # tools/drift-baseline/; the structure step above also runs the
       # baselined convention rules.
       - name: drift, tables against research
         run: python3 tools/check_tables_research.py
-      - name: drift, smoke test coverage
-        run: python3 tools/check_smoke_coverage.py
       - name: code style
         run: python3 tools/check_code_style.py
       - name: Install sh linters
@@ -330,9 +275,7 @@ jobs:
     needs:
       - base-branch
       - changes
-      - catalog-sync
       - go
-      - go-parity
       - lint
       - site
     steps:

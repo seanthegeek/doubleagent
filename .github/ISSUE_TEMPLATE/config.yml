@@ -8,4 +8,4 @@ contact_links:
     about: Vulnerable dependencies, unintended actions and denial of service are reported privately here, never as an issue. SECURITY.md says what counts.
   - name: Documentation
     url: https://seanthegeek.net/doubleagent/
-    about: The collector and analyzer documentation, the agents page and the research documents.
+    about: The doubleagent documentation, the agents page and the research documents.

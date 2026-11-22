@@ -56,6 +56,35 @@ func mustDo(t *testing.T, err error) {
 	}
 }
 
+// lineLog keeps log lines in memory.
+type lineLog struct{ lines []string }
+
+// Line keeps text.
+func (log *lineLog) Line(text string) error {
+	log.lines = append(log.lines, text)
+	return nil
+}
+
+// ignoresCase reports whether dir takes two names that differ only in ASCII
+// letter case for one, by making a lower-case probe file, looking it up in
+// upper case and removing it.
+func ignoresCase(t *testing.T, dir string) bool {
+	t.Helper()
+	if err := os.WriteFile(dir+"/case-probe", nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(dir + "/case-probe")
+	_, err := os.Lstat(dir + "/CASE-PROBE")
+	return err == nil
+}
+
+// caseInsensitive reports whether the temporary directory's file system
+// folds case, so two spellings of a name are one file.
+func caseInsensitive(t *testing.T) bool {
+	t.Helper()
+	return ignoresCase(t, t.TempDir())
+}
+
 // testCollector returns a collector over root with a fresh staging directory,
 // the manifest in rows and the log in memory.
 func testCollector(t *testing.T, root string, excludes []string,

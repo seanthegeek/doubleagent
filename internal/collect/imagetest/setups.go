@@ -17,8 +17,7 @@ type volumeFile struct {
 }
 
 // frameworkVolumeFiles returns the Dify, Langflow, n8n, Hermes, OpenHands and
-// Ollama volume files the smoke test's frameworks sweep builds, besides the
-// Hermes list.
+// Ollama volume files of the frameworks sweep, besides the Hermes list.
 func frameworkVolumeFiles() []volumeFile {
 	return []volumeFile{
 		{"n8n_data/_data/config", "{\"encryptionKey\":\"k\"}\n"},

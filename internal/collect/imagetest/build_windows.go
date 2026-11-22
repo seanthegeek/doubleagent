@@ -46,7 +46,7 @@ var (
 
 // resolvedDirectory returns directory with every component spelled as the
 // disk holds it, a short 8.3 name as its long name: the runner's TEMP holds
-// a short name, which the collectors would otherwise print in another
+// a short name, which collect would otherwise print in another
 // spelling than the image's.
 func resolvedDirectory(test testing.TB, directory string) string {
 	test.Helper()

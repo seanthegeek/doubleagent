@@ -38,7 +38,7 @@ const socketPathLimit = 103
 var errDenyOnUnix = errors.New("deny applies only on Windows; use mode= here")
 
 // resolvedDirectory returns directory with its links resolved, as the
-// collectors resolve -r: on macOS the temporary directory lies under /var,
+// collect resolves -r: on macOS the temporary directory lies under /var,
 // a link to /private/var.
 func resolvedDirectory(test testing.TB, directory string) string {
 	test.Helper()

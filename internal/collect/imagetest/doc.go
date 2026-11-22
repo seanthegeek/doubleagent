@@ -16,9 +16,10 @@
 // file's content is quoted parts or count*"text" repeats, so a large file is
 // not stored. Lines starting with # are comments; entries stay sorted as
 // LC_ALL=C sort orders the lines, and order does not change what is built.
-// To add a fixture, add its file line in sorted place (Build makes the
-// directories above it) and run this package's tests, which fail on a line
-// out of order or not as Format writes it.
+// The manifest is edited by hand: when a catalog line gains a fixture, add
+// its file line in sorted place (Build makes the directories above it) and
+// run this package's tests, which fail on a line out of order or not as
+// Format writes it.
 //
 // Build sets every entry's times and mode, deepest first, so making a child
 // never moves its directory's time; the fixture builders do the same for

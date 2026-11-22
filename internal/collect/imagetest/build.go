@@ -14,7 +14,7 @@ import (
 
 // Image is a built image: its work directory, the image root inside it
 // (work/root), and the two homes the cases name alice's and bob's. Every path
-// is native and has its links and short names resolved, as a collector
+// is native and has its links and short names resolved, as collect
 // resolves -r, so the paths a run prints match them byte for byte.
 type Image struct {
 	Work  string
@@ -27,7 +27,7 @@ type Image struct {
 // becomes the image's work directory, and returns the image. It fails the
 // test on any entry it cannot make, except a link where the account may not
 // create links (Windows without the privilege), which it leaves out with a
-// note, as the smoke tests did.
+// note.
 func Build(test testing.TB, directory string) Image {
 	test.Helper()
 	entries, err := Parse(bytes.NewReader(manifestText))

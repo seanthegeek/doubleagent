@@ -2,18 +2,14 @@
 # Classify a change for the CI workflow by the files it touches, so that each
 # job runs only when a file it reads changed. Reads the changed paths, one per
 # line, on stdin; with the argument "all", ignores them. Prints one
-# "<category>=true|false" line per category: sh, sh-lint, powershell, python,
-# catalog, fork-budget, go and all. A path matching no category below, or no
+# "<category>=true|false" line per category: sh-lint, python, go and all. A
+# path matching no category below, or no
 # path at all, sets all, and all sets every category. AGENTS.md ("Validation
 # and testing") gives the rule.
 
 all=false
-sh_collector=false
 sh_lint=false
-powershell=false
 python=false
-catalog=false
-fork_budget=false
 go_tree=false
 [ "${1:-}" = all ] && all=true
 count=0
@@ -32,68 +28,31 @@ while IFS= read -r path; do
       ;;
   esac
 
-  # The smoke jobs, the BSD job and the collector's shellcheck job.
-  case "$path" in
-    collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
-      collectors/tests/catalog-sync.sh | .shellcheckrc)
-      sh_collector=true
-      matched=true
-      ;;
-  esac
-
-  # The fork budget job: the collector it traces, the smoke test that builds
-  # its image, the budget, the tool and the modules the tool imports.
-  case "$path" in
-    collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
-      collectors/tests/fork-budget.txt | tools/check_fork_budget.py | \
-      tools/diff_smoke_rows.py | tools/drift_common.py | tools/catalog_listing.py | \
-      tools/check_doc_links.py | tools/check_research_structure.py)
-      fork_budget=true
-      matched=true
-      ;;
-  esac
-
   # The lint job's shfmt, shellcheck and checkbashisms steps read every file
-  # `shfmt -f .` finds: the .sh files and the extensionless hook scripts. An
-  # extensionless sh script anywhere else matches no category and runs all.
+  # `shfmt -f .` finds, with shellcheck's configuration. An extensionless sh
+  # script matches no category and runs all.
   case "$path" in
-    *.sh | .githooks/*)
+    *.sh | .shellcheckrc)
       sh_lint=true
       matched=true
       ;;
   esac
 
-  case "$path" in
-    collectors/Collect-AgentArtifacts.ps1 | collectors/tests/smoke.ps1 | \
-      collectors/PSScriptAnalyzerSettings.psd1 | lab/round/*.ps1)
-      powershell=true
-      matched=true
-      ;;
-  esac
-
   # The lint job's ruff and pyright steps and the tests of the tools/
-  # checkers and of the round pipeline, which read every file of lab/round/.
+  # checkers and of the round pipeline, which read every file of lab/round/;
+  # the drift checkers' tests also read the catalog.
   case "$path" in
     tools/drift-baseline/*) ;;
     *.md) ;;
-    tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
+    tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
+      internal/catalog/catalog.txt)
       python=true
       matched=true
       ;;
   esac
 
-  # The catalog drift job, and the drift checkers' tests, which run the glob
-  # check of catalog-sync.sh.
-  case "$path" in
-    collectors/collect-agent-artifacts.sh | collectors/Collect-AgentArtifacts.ps1 | \
-      internal/catalog/catalog.txt | collectors/tests/catalog-sync.sh)
-      catalog=true
-      matched=true
-      ;;
-  esac
-
   # The Go job: the module, its vendored dependencies, every Go source file,
-  # the embedded catalog copy and the build script the job runs twice.
+  # the embedded catalog and the build script the job runs twice.
   case "$path" in
     go.mod | go.sum | vendor/* | *.go | internal/catalog/catalog.txt | .github/go-build.sh)
       go_tree=true
@@ -117,15 +76,9 @@ done
 
 [ "$count" -gt 0 ] || all=true
 if [ "$all" = true ]; then
-  sh_collector=true
   sh_lint=true
-  powershell=true
   python=true
-  catalog=true
-  fork_budget=true
   go_tree=true
 fi
-[ "$sh_collector" = true ] && sh_lint=true
 
-printf 'sh=%s\nsh-lint=%s\npowershell=%s\npython=%s\ncatalog=%s\nfork-budget=%s\ngo=%s\nall=%s\n' \
-  "$sh_collector" "$sh_lint" "$powershell" "$python" "$catalog" "$fork_budget" "$go_tree" "$all"
+printf 'sh-lint=%s\npython=%s\ngo=%s\nall=%s\n' "$sh_lint" "$python" "$go_tree" "$all"

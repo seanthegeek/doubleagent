@@ -2,8 +2,8 @@
 # dependencies (requirements-docs.txt), the Go modules the binary
 # links (go.mod, with their copies under vendor/, which Dependabot keeps in
 # step for Go) and the actions the workflows use. Dependabot reads this file
-# on the default branch and checks that branch's manifests. Security alerts
-# are checked separately by .githooks/pre-commit.
+# on the default branch and checks that branch's manifests. Open security
+# alerts are a release gate (AGENTS.md, "Conventions").
 version: 2
 updates:
   - package-ecosystem: pip

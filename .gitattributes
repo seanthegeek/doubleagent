@@ -1,5 +1,5 @@
-# Keep the PowerShell collector CRLF on checkout so it opens cleanly in
-# Notepad and signtool; everything else is LF.
+# Keep the PowerShell scripts (the lab's Windows guest scripts) CRLF on
+# checkout, the line ending Windows tools expect; everything else is LF.
 * text=auto
 *.ps1 text eol=crlf
 *.sh text eol=lf

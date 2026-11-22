@@ -41,7 +41,6 @@ exclude_docs: |
   /SECURITY.md
   /CLAUDE.md
   /mkdocs/**
-  /collectors/tests/**
   /tools/**
   /vendor/**
   /lab/out/**

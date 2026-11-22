@@ -18,8 +18,7 @@ that:
 - with no FILE arguments, every exception or difference number a file under `cmd/` or
   `internal/` cites (`exception 47`, `differences 102, 230 and 260`) has its heading on
   docs/differences-from-the-scripts.md, `### Exception 47` or `### Difference 102`, and that
-  page gives no number two headings. The two comparison harnesses, whose own lists define
-  the numbers until they are removed, are not read.
+  page gives no number two headings.
 
 Fenced code blocks and inline code spans are ignored before matching. The documentation site
 (mkdocs/hooks.py) gives every heading the anchor `heading_anchors()` returns, so a link this
@@ -109,10 +108,8 @@ CITATION = re.compile(
     % (_GAP, _GAP, _GAP, _GAP),
     re.I,
 )
-# Where citations are looked for, and the comparison harness, which holds the list that
-# defined the numbers and is left out until it is removed.
+# Where citations are looked for.
 CITING_DIRS = ("cmd/", "internal/")
-CITATION_EXEMPT_DIRS = ("internal/collect/parity/",)
 
 
 def strip_fences(text: str) -> str:
@@ -295,7 +292,7 @@ def citation_problems(page: str, sources: list[tuple[str, str]]) -> list[str]:
 
 def cites_numbers(path: str) -> bool:
     """Report whether `path`, relative to the root, is a file whose citations are checked."""
-    return path.startswith(CITING_DIRS) and not path.startswith(CITATION_EXEMPT_DIRS)
+    return path.startswith(CITING_DIRS)
 
 
 def citing_sources() -> list[tuple[str, str]]:
