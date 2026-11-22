@@ -10,10 +10,8 @@ copies the `doubleagent` build for the guest into the VM, runs
 reverts the VM again. A run of the pipeline is a
 [real-install round](AGENTS.md#real-install-rounds). One agent on one
 VM is a cell (one platform of one product form, in the round's terms),
-and each run of `lab.sh` works on one cell directory. Use it instead of
-driving the agent by hand over `ssh` and `screen` whenever the agent is a
-terminal program; an agent with a graphical interface, such as a desktop
-app, is still driven by the person.
+and each run of `lab.sh` works on one cell directory. The pipeline is how a terminal agent is driven; an agent with a
+graphical interface, such as a desktop app, is still driven by the person.
 
 The pipeline drives the agent through
 [microsoft/tui-test](https://github.com/microsoft/tui-test), a headless
