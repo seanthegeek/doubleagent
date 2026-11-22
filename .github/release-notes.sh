@@ -7,10 +7,13 @@
 # a release page has no directory of its own; a target in angle brackets is
 # made absolute inside them, a target starting with "/", "#" or a scheme is
 # not relative, and code spans, fenced code blocks and HTML comments are
-# copied unchanged. A fence is recognised at up to three spaces of indent
-# only, so one inside a list item is not. Fails when VERSION is not a version
-# number (1.2.3 or 1.2.3-rc.1) or the changelog has no dated, non-empty
-# section for it.
+# copied unchanged. An angle-bracket target is one only when no "<" comes
+# before its ">" and a ")", space or tab follows it (a definition's may end
+# the line); a backslash escape is not read. A fence is recognised at up to
+# three spaces of indent only, so one inside a list item is not. Fails when
+# VERSION is not a version number (1.2.3 or 1.2.3-rc.1), the changelog has no
+# dated, non-empty section for it, or an HTML comment or a fenced code block
+# in it never closes, which would hide the rest of the file.
 set -eu
 version=${1:?usage: release-notes.sh VERSION CHANGELOG BASE_URL}
 changelog=${2:?usage: release-notes.sh VERSION CHANGELOG BASE_URL}
@@ -23,7 +26,9 @@ fi
 # "## " heading or the first link reference definition, then prints them with
 # every definition of the file; a line inside a fenced code block or an HTML
 # comment is neither.
-# It exits 2 when the heading is missing and 3 when the section holds nothing.
+# It exits 10 when the heading is missing, 11 when the section holds nothing,
+# and 12, after saying on standard error which line opened it, when a comment
+# or fence never closes; awk itself exits 2 on an error of its own.
 status=0
 awk -v version="$version" -v base="$base_url" '
   function relative(target) {
@@ -31,9 +36,16 @@ awk -v version="$version" -v base="$base_url" '
   }
   # The target at the start of text, which follows "](" or "]: ": the text
   # inside angle brackets when it opens with "<", else up to the first ")".
-  function target_at(text) {
-    if (substr(text, 1, 1) == "<") return substr(text, 2, index(text, ">") - 2)
-    return substr(text, 1, index(text, ")") - 1)
+  # An angle-bracket target holds no "<" and is followed by one of ends,
+  # the characters that may come after it, or by the end of text when ends
+  # holds "$"; otherwise there is none ("").
+  function target_at(text, ends,    shut, after) {
+    if (substr(text, 1, 1) != "<") return substr(text, 1, index(text, ")") - 1)
+    shut = index(text, ">")
+    if (shut == 0 || index(substr(text, 2, shut - 2), "<") > 0) return ""
+    after = substr(text, shut + 1, 1)
+    if (after == "" ? index(ends, "$") == 0 : index(ends, after) == 0) return ""
+    return substr(text, 2, shut - 2)
   }
   # The length of the run of backticks at position at of text.
   function ticks(text, at,    count) {
@@ -67,9 +79,11 @@ awk -v version="$version" -v base="$base_url" '
       if (substr(line, at, 2) == "](") {
         out = out "]("
         at += 2
-        target = target_at(substr(line, at))
-        if (substr(line, at, 1) == "<") { out = out "<"; at++ }
-        if (relative(target)) out = out base
+        target = target_at(substr(line, at), ") \t")
+        if (relative(target)) {
+          if (substr(line, at, 1) == "<") { out = out "<"; at++ }
+          out = out base
+        }
         continue
       }
       out = out substr(line, at, 1)
@@ -91,6 +105,7 @@ awk -v version="$version" -v base="$base_url" '
     if (fence == "") {
       if (mark == "`" && index(substr(text, run + 1), "`") > 0) return 0
       fence = substr(text, 1, run)
+      opened = NR
       return 1
     }
     if (substr(fence, 1, 1) != mark || run < length(fence)) return 0
@@ -109,13 +124,13 @@ awk -v version="$version" -v base="$base_url" '
     if (line !~ /^ ? ? ?<!--/) return 0
     text = line
     sub(/^ ? ? ?<!--/, "", text)
-    if (index(text, "-->") == 0) comment = 1
+    if (index(text, "-->") == 0) { comment = 1; opened = NR }
     return 1
   }
   function definition(line,    at, rest) {
     at = index(line, "]: ")
     rest = substr(line, at + 3)
-    if (!relative(rest ~ /^</ ? target_at(rest) : rest)) return line
+    if (!relative(rest ~ /^</ ? target_at(rest, " \t$") : rest)) return line
     if (rest ~ /^</) return substr(line, 1, at + 2) "<" base substr(rest, 2)
     return substr(line, 1, at + 2) base rest
   }
@@ -150,8 +165,14 @@ awk -v version="$version" -v base="$base_url" '
     if ($0 != "") nonblank = 1
   }
   END {
-    if (!found) exit 2
-    if (!nonblank) exit 3
+    if (comment || fence != "") {
+      printf "release-notes.sh: %s: the HTML comment or fenced code block opened on line %d" \
+        " never closes\n", FILENAME, opened | "cat 1>&2"
+      close("cat 1>&2")
+      exit 12
+    }
+    if (!found) exit 10
+    if (!nonblank) exit 11
     sub(/^\n+/, "", body)
     sub(/\n+$/, "\n", body)
     printf "%s", body
@@ -160,13 +181,14 @@ awk -v version="$version" -v base="$base_url" '
 ' "$changelog" || status=$?
 case $status in
   0) ;;
-  2)
+  10)
     printf 'release-notes.sh: %s has no "## [%s] - YYYY-MM-DD" section\n' "$changelog" "$version" >&2
     exit 1
     ;;
-  3)
+  11)
     printf 'release-notes.sh: the [%s] section of %s is empty\n' "$version" "$changelog" >&2
     exit 1
     ;;
+  12) exit 1 ;;
   *) exit "$status" ;;
 esac

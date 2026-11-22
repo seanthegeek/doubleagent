@@ -164,6 +164,10 @@ def test_a_heading_inside_a_fenced_block_neither_ends_nor_starts_a_section(
         ("[a](<#anchor>)", "[a](<#anchor>)"),
         ("[a](<https://example.test/a b>)", "[a](<https://example.test/a b>)"),
         ("[a](<unclosed.md)", "[a](<unclosed.md)"),
+        ("[a](<unclosed.md) and >", "[a](<unclosed.md) and >"),
+        ("[a](<a.md) see <b>)", "[a](<a.md) see <b>)"),
+        ('[a](<titled.md> "t")', "[a](<" + BASE + 'titled.md> "t")'),
+        ("[a](<paren).md>)", "[a](<" + BASE + "paren).md>)"),
         ("[a](HTTPS://example.test/)", "[a](HTTPS://example.test/)"),
         ("`[a](notes.md)` and [b](b.md)", "`[a](notes.md)` and [b](" + BASE + "b.md)"),
         ("``x ` [a](notes.md)``", "``x ` [a](notes.md)``"),
@@ -178,6 +182,10 @@ def test_a_heading_inside_a_fenced_block_neither_ends_nor_starts_a_section(
         "an angle-bracket fragment",
         "an angle-bracket target with a scheme",
         "an unclosed angle bracket",
+        "an angle bracket closed later on the line but not before its link ends",
+        "an angle bracket with another opening before its close",
+        "an angle-bracket target with a title",
+        "an angle-bracket target holding a parenthesis",
         "an upper-case scheme",
         "a code span beside a link",
         "a code span of two backticks holding one",
@@ -231,3 +239,42 @@ def test_a_heading_inside_an_html_comment_neither_ends_nor_starts_a_section(
     assert run_over(tmp_path, COMMENTED_CHANGELOG, "9.9.9").returncode != 0
     old = run_over(tmp_path, COMMENTED_CHANGELOG, "0.1.0")
     assert (old.returncode, old.stdout) == (0, "- Old.\n\n" + definitions)
+
+
+@pytest.mark.parametrize(
+    ("opening", "line"),
+    [("<!--", 5), ("```text", 5), ("~~~", 5), ("  <!-- a comment", 5)],
+    ids=["an HTML comment", "a backtick fence", "a tilde fence", "an indented comment"],
+)
+def test_a_comment_or_fence_that_never_closes_is_refused(
+    tmp_path: pathlib.Path, opening: str, line: int
+) -> None:
+    text = (
+        "## [1.0.0] - 2026-11-05\n\n- Shown.\n\n"
+        + opening
+        + "\n## [0.9.0] - 2026-11-01\n- Hidden.\n"
+    )
+    done = run_over(tmp_path, text, "1.0.0")
+    assert (done.returncode, done.stdout) == (1, "")
+    assert f"opened on line {line} never closes" in done.stderr
+    assert str(tmp_path / "CHANGELOG.md") in done.stderr
+
+
+DEFINED_CHANGELOG = """\
+## [1.0.0] - 2026-11-05
+
+- See [e] and [f].
+
+[e]: <spaced name.md>
+[f]: <unclosed.md>tail
+"""
+
+
+def test_an_angle_bracket_definition_is_a_target_only_when_it_ends_at_its_bracket(
+    tmp_path: pathlib.Path,
+) -> None:
+    done = run_over(tmp_path, DEFINED_CHANGELOG, "1.0.0")
+    assert (done.returncode, done.stderr) == (0, "")
+    assert done.stdout == (
+        "- See [e] and [f].\n\n[e]: <" + BASE + "spaced name.md>\n[f]: <unclosed.md>tail\n"
+    )
