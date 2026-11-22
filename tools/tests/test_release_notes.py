@@ -53,14 +53,7 @@ DEFINITIONS = (
 
 def notes(tmp_path: pathlib.Path, version: str) -> subprocess.CompletedProcess[str]:
     """Run the script for `version` over the test changelog and return the finished process."""
-    changelog = tmp_path / "CHANGELOG.md"
-    changelog.write_text(CHANGELOG, encoding="utf-8")
-    return subprocess.run(
-        ["sh", str(SCRIPT), version, str(changelog), BASE],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    return run_over(tmp_path, CHANGELOG, version)
 
 
 @pytest.mark.parametrize(
@@ -106,3 +99,88 @@ def test_a_version_without_notes_is_refused(
     assert done.returncode != 0
     assert done.stdout == ""
     assert message in done.stderr
+
+
+FENCED_CHANGELOG = """\
+# Changelog
+
+## [0.2.0] - 2026-11-05
+
+- Before the fence.
+
+```text
+## [0.1.0] - 2026-11-01
+[inside](inside.md)
+[def]: inside.md
+```
+
+~~~~
+## [9.9.9] - 2026-01-01
+~~~
+still inside
+~~~~
+
+- After the fence.
+
+## [0.1.0] - 2026-11-01
+
+- Old.
+"""
+
+
+def run_over(tmp_path: pathlib.Path, text: str, version: str) -> subprocess.CompletedProcess[str]:
+    """Run the script for `version` over the changelog `text` and return the finished process."""
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(text, encoding="utf-8")
+    return subprocess.run(
+        ["sh", str(SCRIPT), version, str(changelog), BASE],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_a_heading_inside_a_fenced_block_neither_ends_nor_starts_a_section(
+    tmp_path: pathlib.Path,
+) -> None:
+    done = run_over(tmp_path, FENCED_CHANGELOG, "0.2.0")
+    assert (done.returncode, done.stderr) == (0, "")
+    start = FENCED_CHANGELOG.index("- Before the fence.")
+    end = FENCED_CHANGELOG.index("- After the fence.\n") + len("- After the fence.\n")
+    assert done.stdout == FENCED_CHANGELOG[start:end]
+    assert run_over(tmp_path, FENCED_CHANGELOG, "9.9.9").returncode != 0
+    old = run_over(tmp_path, FENCED_CHANGELOG, "0.1.0")
+    assert (old.returncode, old.stdout) == (0, "- Old.\n")
+
+
+@pytest.mark.parametrize(
+    ("line", "want"),
+    [
+        ("[a](notes.md)", "[a](" + BASE + "notes.md)"),
+        ("[a](/root.md)", "[a](/root.md)"),
+        ("[a](//host/x)", "[a](//host/x)"),
+        ("[a](#anchor)", "[a](#anchor)"),
+        ("[a](<spaced name.md>)", "[a](<spaced name.md>)"),
+        ("[a](HTTPS://example.test/)", "[a](HTTPS://example.test/)"),
+        ("`[a](notes.md)` and [b](b.md)", "`[a](notes.md)` and [b](" + BASE + "b.md)"),
+        ("``x ` [a](notes.md)``", "``x ` [a](notes.md)``"),
+        ("`unclosed [a](notes.md)", "`unclosed [a](" + BASE + "notes.md)"),
+    ],
+    ids=[
+        "a relative target",
+        "a root-relative target",
+        "a scheme-relative target",
+        "a fragment",
+        "an angle-bracket target",
+        "an upper-case scheme",
+        "a code span beside a link",
+        "a code span of two backticks holding one",
+        "an unclosed backtick",
+    ],
+)
+def test_only_a_relative_target_outside_code_is_made_absolute(
+    tmp_path: pathlib.Path, line: str, want: str
+) -> None:
+    done = run_over(tmp_path, "## [1.0.0] - 2026-11-05\n\n" + line + "\n", "1.0.0")
+    assert (done.returncode, done.stderr) == (0, "")
+    assert done.stdout == want + "\n"
