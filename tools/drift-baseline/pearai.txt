@@ -1,3 +1,5 @@
+check_parser_research|parser-message-undocumented|pearai.pearai-roo-cline global state is not a JSON object
+check_parser_research|parser-message-undocumented|unparseable record (before the first separator)
 check_tables_research|line-unnamed|home AppData/Roaming/PearAI/User
 check_tables_research|line-unnamed|home Library/Application Support/PearAI/User
 check_tables_research|parsing-fact-under-collection|taskHistory

@@ -1,3 +1,7 @@
+check_parser_research|parser-message-undocumented|agent-changes record is not a JSON object
+check_parser_research|parser-message-undocumented|rjmacarthy.twinny value is not a JSON object
+check_parser_research|pattern-undocumented|(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?$
+check_parser_research|pattern-undocumented|User/globalStorage/state.vscdb
 check_research_structure|version-without-change|#### Since 4.3.5
 check_research_structure|version-without-change|A toolSteps[] entry with said: true (since 4.3.5; name said, id said.<id>, the message in summary, status done) is a message the user sent while the reply ran, and the parser emits it as a user row with the summary as its text, in its place among the reply's steps, with no tool_name, tool_use_id or model (src/extension/chat/tool-steps.ts:101-104, src/common/types.ts:129-133); before the fix for issue 171 it was a tool_use named said and an empty tool_result.
 check_research_structure|version-without-change|ChatGPT plan sign-in (new since 4.3.5): access, refresh and id tokens in VS Code secret storage under twinny.chatgpt-plan.credentials, an encrypted secret:// row; the account's email and subject in plain globalState (Since 4.3.5) (src/extension/chatgpt-plan/session.ts:11-13, 59-66, 484).

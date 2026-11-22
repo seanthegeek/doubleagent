@@ -1,3 +1,9 @@
+check_parser_research|parser-message-undocumented|unparseable record 0 (messages is not a list)
+check_parser_research|parser-message-undocumented|unparseable record {} (agent_draft_prompts {}: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (created_git_worktrees: {})
+check_parser_research|pattern-undocumented|^(?:\.config/zed|AppData/Roaming/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/config/zed)/(?:global_)?settings\.json$
+check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/db/0-[^/]+/db\.sqlite$
+check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/threads/threads\.db$
 check_research_structure|bare-doc-reference|Flatpak sandbox paths are Flatpak documentation level.
 check_tables_research|credential-wording|can embed `global_settings.json`
 check_tables_research|line-unnamed|home .local/share/zed

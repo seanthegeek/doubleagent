@@ -1,0 +1,2 @@
+check_parser_research|key-undocumented|scheduledFor
+check_parser_research|pattern-undocumented|^\.letta/runs/[^/]+\.jsonl$

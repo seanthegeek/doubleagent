@@ -1,3 +1,9 @@
+check_parser_research|parser-message-undocumented|config.json is not a JSON object
+check_parser_research|parser-message-undocumented|pairing.json did not parse: {}
+check_parser_research|parser-message-undocumented|pairing.json is not a JSON object
+check_parser_research|parser-message-undocumented|unparseable session metadata (not a JSON object)
+check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/(?:.+/)?memory/history\.jsonl$
+check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/pairing\.json$
 check_tables_research|line-unnamed|exclude .nanobot*/bin
 check_tables_research|line-unnamed|exclude .nanobot*/cache
 check_tables_research|line-unnamed|exclude .nanobot*/run

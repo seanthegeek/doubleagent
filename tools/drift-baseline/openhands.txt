@@ -1,3 +1,9 @@
+check_parser_research|key-undocumented|forgotten_event_ids
+check_parser_research|key-undocumented|function
+check_parser_research|key-undocumented|path
+check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/base_state\.json$
+check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/events/event-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json$
+check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/meta\.json$
 check_tables_research|credential-wording|may embed `mcp.json`
 check_tables_research|parsing-fact-under-collection|workspace.working_dir
 check_tables_research|volume-glob-unnamed|exclude agent-canvas/tmux

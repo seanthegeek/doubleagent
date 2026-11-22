@@ -1,3 +1,12 @@
+check_parser_research|pattern-undocumented|.openinterpreter/config.toml
+check_parser_research|pattern-undocumented|.openinterpreter/state_5.sqlite
+check_parser_research|pattern-undocumented|.openinterpreter/thread_history_1.sqlite
+check_parser_research|pattern-undocumented|.zst
+check_parser_research|pattern-undocumented|^\.openinterpreter/(?:archived_)?sessions/(?:.*/)?rollout-[^/]*\.jsonl(?:\.zst)?$
+check_parser_research|pattern-undocumented|^\.openinterpreter/db-backups/[^/]+/state_5\.sqlite$
+check_parser_research|pattern-undocumented|^\.openinterpreter/logs_[0-9]+\.sqlite$
+check_parser_research|pattern-undocumented|^\.openinterpreter/memories/rollout_summaries/[^/]+\.md$
+check_parser_research|pattern-undocumented|^\.openinterpreter/rules/[^/]+\.rules$
 check_tables_research|credential-wording|can embed `config.toml`
 check_tables_research|line-unnamed|exclude AppData/Local/open-interpreter/open-interpreter/models
 check_tables_research|line-unnamed|home AppData/Local/Open Interpreter*
