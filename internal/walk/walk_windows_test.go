@@ -247,8 +247,8 @@ func TestWalkListsDirectoriesBeforeFilesOnWindows(t *testing.T) {
 	for _, row := range recorder.rows(t) {
 		got = append(got, strings.TrimPrefix(row["path"].(string), syspath.ToNative(root+"/home/u/.tool")+`\`))
 	}
-	// The junction carries the directory attribute, so Get-ChildItem lists
-	// it with the directories, though the walk never enters it.
+	// The junction carries the directory attribute, so fsmeta.ListingOrder
+	// puts it with the directories, though the walk never enters it.
 	want := []string{`b\x.txt`, "d", "a.txt", "c.txt", "e.txt"}
 	if !slices.Equal(got, want) {
 		t.Errorf("rows in order %q, want directories first, then files, each in listing order %q", got, want)
