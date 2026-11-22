@@ -4,9 +4,9 @@ A timeline from a busy host can run to gigabytes, because `text` holds
 full tool output and `doubleagent timeline` never shortens it. Cutting the
 output down to the rows and fields a question needs is the analyst's step,
 done with tools already on the workstation. Each line of `timeline.jsonl`
-and `sessions.jsonl` is one complete JSON record, so jq, grep, ripgrep and
-DuckDB stream the file line by line and use little memory however large it
-is. The fields are described in [timeline.jsonl](timeline-output.md#timelinejsonl)
+and `sessions.jsonl` is one complete JSON record, so jq, grep, ripgrep,
+DuckDB and PowerShell stream the file line by line and use little memory
+however large it is. The fields are described in [timeline.jsonl](timeline-output.md#timelinejsonl)
 and [sessions.jsonl](timeline-output.md#sessionsjsonl).
 
 The examples run in the output directory of `timeline`, here over the
@@ -116,6 +116,37 @@ TO 'codex.csv' (HEADER);
 `DESCRIBE SELECT * FROM read_json_auto('timeline.jsonl');` shows what it
 chose. Over the example it reads every field as text except `source_line`.
 
+## PowerShell
+
+On a Windows workstation without jq, PowerShell reads the same records.
+`Select-String` as the first filter keeps the slow `ConvertFrom-Json` step
+to the matching lines.
+
+```powershell
+# Tool calls of one agent whose text matches a regular expression
+Select-String -Path timeline.jsonl -SimpleMatch '"agent":"codex-cli"' |
+  ForEach-Object { $_.Line | ConvertFrom-Json } |
+  Where-Object { $_.turn_type -eq 'tool_use' -and $_.text -match 'rm -rf' } |
+  Select-Object timestamp_utc, user, tool_name, text
+
+# Record counts by agent and turn type
+Get-Content timeline.jsonl | ForEach-Object { $_ | ConvertFrom-Json } |
+  Group-Object agent, turn_type -NoElement | Sort-Object Count -Descending
+
+# A CSV for a spreadsheet: filter first, and cut text to 200 characters
+Select-String -Path timeline.jsonl -SimpleMatch '"agent":"codex-cli"' |
+  ForEach-Object { $_.Line | ConvertFrom-Json } |
+  Select-Object timestamp_utc, host, user, agent, session_id, turn_type, tool_name,
+    @{n='text';e={ if ($_.text.Length -gt 200) { $_.text.Substring(0,200) } else { $_.text } }} |
+  Export-Csv -NoTypeInformation -Encoding UTF8 codex.csv
+```
+
+Windows PowerShell 5.1 keeps `timestamp_utc` as the string in the file.
+PowerShell 7 turns it into a date value, which prints and exports in the
+workstation's date format without the milliseconds and the `Z`. Add
+`-DateKind String` to each `ConvertFrom-Json` (PowerShell 7.5 and later)
+to keep the string.
+
 ## Filtering by time afterwards
 
 `timestamp_utc` always has one fixed form, `2026-10-03T16:55:31.123Z`, so
@@ -152,3 +183,7 @@ WHERE timestamp_utc >= '2026-10-01' AND timestamp_utc < '2026-10-02';
 - Records without a timestamp hold `""`, which never passes a lower bound,
   so they drop out. Add `or .timestamp_utc == ""` to keep them.
 - Convert a local incident window to UTC before writing the bounds.
+- In PowerShell, `-ge` and `-lt` compare the strings the same way
+  (`$_.timestamp_utc -ge '2026-10-01' -and $_.timestamp_utc -lt '2026-10-02'`).
+  PowerShell 7 needs `-DateKind String` on `ConvertFrom-Json` first, as
+  under [PowerShell](#powershell).
