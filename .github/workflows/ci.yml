@@ -23,7 +23,8 @@ concurrency:
 
 # Linter versions for the lint and go jobs. AGENTS.md ("Quality gates") lists
 # the same versions, and the Makefile pins the staticcheck and govulncheck
-# ones; change them together.
+# ones; change them together. tools/tests/test_version_pins.py fails when the
+# staticcheck or govulncheck versions of the three differ.
 env:
   RUFF_VERSION: "0.16.10"
   PYRIGHT_VERSION: "1.1.414"

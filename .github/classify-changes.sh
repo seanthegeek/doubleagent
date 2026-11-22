@@ -42,9 +42,15 @@ while IFS= read -r path; do
   # checkers and of the round pipeline, which read every file of lab/;
   # the drift checkers' tests also read the catalog, the code style
   # checker's tests the two Go files holding its reviewed long functions,
-  # and tools/tests/test_release_notes.py runs the release notes script.
+  # tools/tests/test_release_notes.py runs the release notes script, and
+  # tools/tests/test_version_pins.py reads the linter versions of the
+  # Makefile and of the root AGENTS.md.
   case "$path" in
     tools/drift-baseline/*) ;;
+    AGENTS.md | Makefile)
+      python=true
+      matched=true
+      ;;
     *.md) ;;
     tools/* | lab/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
       internal/catalog/catalog.txt | internal/follow/confine_sites_test.go | \

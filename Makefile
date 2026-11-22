@@ -15,7 +15,8 @@ TAGS = noasm,nounsafe
 TAGGED = GOFLAGS=-tags=$(TAGS)
 # The linter versions of the "go" CI job: the env block of
 # .github/workflows/ci.yml and the "Quality gates" table of AGENTS.md give the
-# same ones, and the three change together.
+# same ones, and the three change together; tools/tests/test_version_pins.py
+# fails when they differ.
 STATICCHECK_VERSION = 0.8.2
 GOVULNCHECK_VERSION = 1.9.0
 
