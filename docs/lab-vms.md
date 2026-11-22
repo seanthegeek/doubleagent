@@ -477,9 +477,8 @@ that is reverted after every round, not to a workstation.
 Docker Desktop runs containers inside a Linux virtual machine of its own,
 so inside a guest it needs nested virtualization; Docker Engine on Linux
 runs containers on the guest's own kernel and needs none. So the Ubuntu
-VM runs containers on any host, and is where the
-[agent lab](../lab/README.md) and the container-deployed agents are
-exercised; the Windows and macOS lines below belong in those VMs'
+VM runs containers on any host, and is where the container-deployed
+agents are exercised; the Windows and macOS lines below belong in those VMs'
 snapshots only on a host that gives them nested virtualization, and are
 recorded with their requirements for a host that does.
 
@@ -510,7 +509,7 @@ sudo usermod -aG docker "$USER"
 ```
 
 The `usermod` line lets the lab user run `docker` without `sudo` after the
-next login, which `lab/lab.sh` expects. Docker Desktop for Linux is a
+next login. Docker Desktop for Linux is a
 different product that runs its engine in a virtual machine under KVM,
 the Linux kernel's hypervisor, so it needs nested virtualization enabled
 for the VM. The Engine is what the lab uses.

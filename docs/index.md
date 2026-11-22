@@ -118,10 +118,6 @@ a parser, and the quality gates CI runs are in
   installs the agent, plays a table of prompts, key presses and person
   steps through a headless terminal, lists the agent's directories after
   every step, collects and analyzes, and reverts the VM again.
-- [Agent lab](../lab/README.md): a disposable Docker sandbox for running
-  CLI agents against a scratch home and exporting it for the collector, so
-  real-install test material can be produced without installing agents on
-  a workstation.
 
 ## License
 

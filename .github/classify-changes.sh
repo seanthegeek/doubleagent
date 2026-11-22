@@ -65,8 +65,7 @@ while IFS= read -r path; do
   case "$path" in
     *.md | .markdownlint-cli2.jsonc | tools/drift-baseline/* | .github/ISSUE_TEMPLATE/* | \
       .github/dependabot.yml | .github/workflows/pages.yml | mkdocs/mkdocs.yml | \
-      requirements-docs.txt | .git-blame-ignore-revs | .gitignore | LICENSE | \
-      lab/.env.example | lab/.gitignore | lab/Dockerfile | lab/compose*.yaml)
+      requirements-docs.txt | .git-blame-ignore-revs | .gitignore | LICENSE)
       matched=true
       ;;
   esac

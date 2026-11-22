@@ -43,7 +43,6 @@ exclude_docs: |
   /mkdocs/**
   /tools/**
   /vendor/**
-  /lab/out/**
   **/node_modules/**
 
 validation:
@@ -187,6 +186,5 @@ nav:
       - docs/internals.md
       - docs/testing.md
       - docs/lab-vms.md
-      - Agent lab: lab/README.md
       - Round pipeline: lab/round/README.md
       - AGENTS.md

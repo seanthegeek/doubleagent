@@ -51,8 +51,6 @@ research/<agent>.md            everything known about one agent, one per agent: 
                                transcripts, the parser plan)
 research/README.md             the research index and the survival table
 research/frameworks.md         the framework sweep
-lab/                           Docker sandbox for running CLI agents against a scratch
-                               home and exporting it for the collector; see lab/README.md
 lab/round/                     the real-install round pipeline: round.sh drives one agent
                                on one lab VM from a step table (agents/<agent>/), with
                                its listing, diff (classify.py) and report (report.py)
@@ -1487,8 +1485,8 @@ changes, and the main session reviews. The brief sets the safety envelope:
 
 - Fetch untrusted code; never execute it. Clones, `npm pack` tarballs and
   binaries for `strings` go in the scratchpad and are only read: no
-  `npm install`, no installer, no running the tool. A real-install run in
-  `lab/` is a separate step the user asks for explicitly.
+  `npm install`, no installer, no running the tool. A real-install round
+  in a lab VM is a separate step the user asks for explicitly.
 - A blocked clone or download is reported, never worked around from
   memory.
 - Nobody runs `doubleagent collect`, either collector script or a smoke
@@ -1542,9 +1540,9 @@ tests.
 
 ## Real-install rounds
 
-A round installs one agent in a clean VM (or the `lab/` sandbox for a
-Linux-only CLI), never on the workstation, exercises it, and compares what
-it wrote with the research documents, the catalog and the parser.
+A round installs one agent in a clean VM, never on the workstation,
+exercises it, and compares what it wrote with the research documents, the
+catalog and the parser.
 [`docs/lab-vms.md`](docs/lab-vms.md) describes the VMs.
 
 A round covers every surface the agent ships on every platform it ships it
@@ -1719,7 +1717,7 @@ into Format versions.
      pending version.
 6. **Clean up, after the main session says so.**
    - The main session says, in plain words and as its own line, when the
-     VM may be reverted or the `lab/` container brought down: only after
+     VM may be reverted: only after
      the last listing, with the collection and probe output on the analyst
      machine and its outputs in the VM deleted. Until then it says the VM
      is still needed. Then delete the pulled collections and revert to the
@@ -1908,8 +1906,7 @@ down.
 - Every checker skips `vendor/`: the vendored Go modules are third-party
   source, audited as a dependency ([Go standards](#go-standards)), never held
   to this project's style, links or pages.
-- `shfmt -f .` finds sh files by shebang as well as extension, so
-  `lab/lab.sh` is checked too.
+- `shfmt -f .` finds sh files by shebang as well as extension.
 - pyright runs with pytest installed, which a checker's test imports.
 - shellcheck, shfmt and checkbashisms are not on PyPI or npm: install the
   release binaries (CI checks their sha256), and checkbashisms as the

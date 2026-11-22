@@ -11,7 +11,7 @@ automation platforms such as n8n, Flowise, Langflow and Dify; voice
 daemons that hand coding tasks to other agents, such as Qwen Live; Ollama;
 and others. It has two
 parts, kept in separate directories because they run in different places and
-have different dependency rules, and a Docker lab for developers.
+have different dependency rules.
 
 More details can be found at the
 [documentation website](https://seanthegeek.net/doubleagent/).
@@ -20,7 +20,6 @@ More details can be found at the
 | --- | --- | --- |
 | Collecting | [Collecting](docs/collect.md) | The host under investigation, or an analyst workstation with a mounted image |
 | Analysing | [Analysing](docs/analyze.md) | The analyst workstation |
-| Agent lab | [`lab/`](lab/README.md) | A developer's Docker host, to produce real-install fixtures without installing agents |
 
 ## Collectors
 
