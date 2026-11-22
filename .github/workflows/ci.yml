@@ -212,13 +212,13 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go test -race -timeout 30m ./...
-      # The glob package's tests under the parity tag compare it with dash,
+      # The glob package's tests under the dash tag compare it with dash,
       # which the Unix runners ship; Debian's dash and Apple's differ in origin.
       - name: go test (dash oracle)
         if: runner.os != 'Windows'
         env:
           CGO_ENABLED: "1"
-        run: go test -race -tags parity,noasm,nounsafe ./internal/glob/
+        run: go test -race -tags dash,noasm,nounsafe ./internal/glob/
       # Built without encoding/json v2, the token reader has no depth limit,
       # so only there does jsonvalue's own limit refuse a document. This runs
       # that one test in that build; the package's other tests are left out,
