@@ -89,6 +89,13 @@ Work is split by model to keep Fable for the parts that need it.
   finding substantive or wording. A substantive finding is fixed and the
   round repeated until one finds only wording. Copilot's review on the pull
   request is the second cold reader, never the first.
+- **A review loop has a stated end.** The brief of each round of a loop of
+  cold reviews names its scope (the commits no reviewer has read), what
+  counts as must-fix (a crash, a hang, reading outside the collection, wrong
+  output on evidence an agent really writes, cost growing faster than the
+  input) and that a round with no must-fix ends the loop. Once a loop
+  runs, a finding outside that definition becomes an issue, never a new
+  unit, and no new class of work starts without the user's word.
 
 The brief is one file in the scratchpad that every subagent of a round
 reads, the cold reader excepted, so the rules are identical and each

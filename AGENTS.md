@@ -624,7 +624,8 @@ for Go files as it does for the others.
   each shape that fits the kind (many records naming one large value, a
   repeated id, one long carried value, deep nesting and damaged siblings,
   many files that look at each other, equal join keys, directories that
-  cannot be listed). `TestEveryFileKindHasGrowthCases`
+  cannot be listed), with one long value for each field the parser copies
+  into more than one row. `TestEveryFileKindHasGrowthCases`
   fails for a kind without one. `TestEveryParserGrowsInStepWithItsInput`
   reads the rows as a run writes them, each group of a repeated id attached
   to its first parent and again to its last and each shared text written
@@ -651,6 +652,9 @@ for Go files as it does for the others.
   comment of `parser.NoteRepeats` states; over the growth cases,
   `TestARepeatIsReportedOnceByTheParseOfTheFileThatHoldsIt` in
   `internal/parsers` fails on a repeat reported twice or on another file.
+  A problems list holds such notes beside the faults, so a parser asks
+  `Problems.Damaged()` whether a file is damaged and never judges it by
+  the list's length or its first entry.
 - **Evidence is shown as written.** In the analysis output files a number
   from the evidence keeps its source text, JSON embedded in a row is compact
   with the evidence's key order, a boolean is `true` or `false`, and a null
@@ -729,7 +733,13 @@ for Go files as it does for the others.
   `GO_LONG_FUNCTIONS` names, each audited as a whole and read best
   unbroken.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
-  fixtures built under `t.TempDir()`; run with `-race`; no test reads the
+  fixtures built under `t.TempDir()`; run with `-race`. A test added with a
+  fix is run against the code before the fix and fails there, and a test of
+  cost is also run with the cost put back and fails; the change's report
+  names both runs. A test whose subject starts no goroutine runs its
+  independent cases with `t.Parallel()` and builds a fixture they share
+  once, and each package's tests finish well inside `go test`'s ten-minute
+  default under the race detector on the slowest CI runner. No test reads the
   developer's home or the network, and no test runs `collect` without `-r`,
   except the two live cases of the Windows parity harness that `PARITY_LIVE=1`
   enables, which run only on the disposable CI runner and the lab VM and
