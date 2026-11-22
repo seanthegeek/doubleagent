@@ -145,9 +145,12 @@ the manifest of what it did until then, if Windows leaves it the few
 seconds it gives before it ends the process after a window is closed. A
 request that arrives once the archive has been moved to its name, just
 before the `done:` line, changes nothing: the run has finished and exits
-`0`. A logoff or shutdown on Windows is not a request the run
-sees: Windows ends a program started from an interactive session without
-telling it
+`0`. At a logoff or shutdown on Windows, a program started from an
+interactive session is ended without being told, so the run sees no
+request; a run started by a service (an EDR agent, for example) may
+receive the logoff or shutdown event, which is then a request to stop, as
+a closed console window is, and the logoff event is sent when any user
+logs off, without saying which
 ([HandlerRoutine callback function](https://learn.microsoft.com/en-us/windows/console/handlerroutine)).
 A run ended that way, or by `SIGKILL`, or by `SIGQUIT` (which prints a
 stack dump of the program and exits `2`), leaves its staging directory,
@@ -155,7 +158,7 @@ stack dump of the program and exits `2`), leaves its staging directory,
 the copies made so far, and a log without a closing line, and, when it was
 archiving, a `.partial` archive and perhaps a `.sha256` file: delete them
 by hand. On Linux and macOS only root and the account that ran
-`collect` can read it.
+`collect` can read the staging directory.
 `--list`, `--version` and `--help` write no files, and a pipe whose reader
 ended stops them on Linux and macOS.
 
