@@ -1,0 +1,1 @@
+skipped 2 non-inventory lines in {ROOT}/fleet/ws02.jsonl

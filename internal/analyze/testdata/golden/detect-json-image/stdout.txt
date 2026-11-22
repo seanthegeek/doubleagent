@@ -1,0 +1,505 @@
+{
+  "input": "{ROOT}/image",
+  "kind": "loose",
+  "host": "",
+  "notes": [],
+  "homes": [
+    {
+      "user": "carol",
+      "home": "/Users/carol",
+      "inferred": true,
+      "agents": [
+        {
+          "agent": "codex-cli",
+          "files": 1,
+          "bytes": 127,
+          "parser": true
+        }
+      ]
+    },
+    {
+      "user": "alice",
+      "home": "/home/alice",
+      "inferred": true,
+      "agents": [
+        {
+          "agent": "agent-zero",
+          "files": 6,
+          "bytes": 7301,
+          "parser": true
+        },
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true
+        },
+        {
+          "agent": "antigravity",
+          "files": 22,
+          "bytes": 89691,
+          "parser": true
+        },
+        {
+          "agent": "chatgpt-desktop",
+          "files": 1,
+          "bytes": 24,
+          "parser": true
+        },
+        {
+          "agent": "claude-code",
+          "files": 19,
+          "bytes": 34293,
+          "parser": true
+        },
+        {
+          "agent": "claude-desktop",
+          "files": 16,
+          "bytes": 24355,
+          "parser": true
+        },
+        {
+          "agent": "cline",
+          "files": 16,
+          "bytes": 62513,
+          "parser": true
+        },
+        {
+          "agent": "codex-cli",
+          "files": 11,
+          "bytes": 128926,
+          "parser": true
+        },
+        {
+          "agent": "cody",
+          "files": 2,
+          "bytes": 1930,
+          "parser": true
+        },
+        {
+          "agent": "continue",
+          "files": 13,
+          "bytes": 7903,
+          "parser": true
+        },
+        {
+          "agent": "copilot",
+          "files": 1,
+          "bytes": 96,
+          "parser": false
+        },
+        {
+          "agent": "copilot-cli",
+          "files": 15,
+          "bytes": 119404,
+          "parser": true
+        },
+        {
+          "agent": "copilot-desktop",
+          "files": 8,
+          "bytes": 316390,
+          "parser": true
+        },
+        {
+          "agent": "crush",
+          "files": 7,
+          "bytes": 102757,
+          "parser": true
+        },
+        {
+          "agent": "cursor",
+          "files": 11,
+          "bytes": 100667,
+          "parser": true
+        },
+        {
+          "agent": "gemini-cli",
+          "files": 18,
+          "bytes": 20866,
+          "parser": true
+        },
+        {
+          "agent": "goose",
+          "files": 8,
+          "bytes": 86840,
+          "parser": true
+        },
+        {
+          "agent": "hermes",
+          "files": 12,
+          "bytes": 160853,
+          "parser": true
+        },
+        {
+          "agent": "kilo-code",
+          "files": 6,
+          "bytes": 54305,
+          "parser": true
+        },
+        {
+          "agent": "kiro",
+          "files": 9,
+          "bytes": 61860,
+          "parser": true
+        },
+        {
+          "agent": "letta",
+          "files": 16,
+          "bytes": 7368,
+          "parser": true
+        },
+        {
+          "agent": "little-coder",
+          "files": 12,
+          "bytes": 3254,
+          "parser": true
+        },
+        {
+          "agent": "muse-code",
+          "files": 6,
+          "bytes": 24278,
+          "parser": true
+        },
+        {
+          "agent": "nanobot",
+          "files": 26,
+          "bytes": 57426,
+          "parser": true
+        },
+        {
+          "agent": "ollama",
+          "files": 13,
+          "bytes": 205634,
+          "parser": true
+        },
+        {
+          "agent": "open-interpreter",
+          "files": 10,
+          "bytes": 56107,
+          "parser": true
+        },
+        {
+          "agent": "openclaw",
+          "files": 15,
+          "bytes": 431507,
+          "parser": true
+        },
+        {
+          "agent": "opencode",
+          "files": 14,
+          "bytes": 235354,
+          "parser": true
+        },
+        {
+          "agent": "openhands",
+          "files": 35,
+          "bytes": 10231,
+          "parser": true
+        },
+        {
+          "agent": "pearai",
+          "files": 14,
+          "bytes": 21787,
+          "parser": true
+        },
+        {
+          "agent": "pi",
+          "files": 13,
+          "bytes": 12646,
+          "parser": true
+        },
+        {
+          "agent": "qwen-code",
+          "files": 26,
+          "bytes": 11777,
+          "parser": true
+        },
+        {
+          "agent": "qwen-live",
+          "files": 5,
+          "bytes": 71012,
+          "parser": false
+        },
+        {
+          "agent": "roo-code",
+          "files": 14,
+          "bytes": 6391,
+          "parser": true
+        },
+        {
+          "agent": "shellgpt",
+          "files": 8,
+          "bytes": 1437,
+          "parser": true
+        },
+        {
+          "agent": "tabby",
+          "files": 10,
+          "bytes": 300710,
+          "parser": true
+        },
+        {
+          "agent": "twinny",
+          "files": 1,
+          "bytes": 40,
+          "parser": true
+        },
+        {
+          "agent": "vscode",
+          "files": 18,
+          "bytes": 131517,
+          "parser": true
+        },
+        {
+          "agent": "zed",
+          "files": 4,
+          "bytes": 62041,
+          "parser": true
+        }
+      ]
+    },
+    {
+      "user": "bob",
+      "home": "/home/bob",
+      "inferred": true,
+      "agents": [
+        {
+          "agent": "agent-zero",
+          "files": 6,
+          "bytes": 7301,
+          "parser": true
+        },
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true
+        },
+        {
+          "agent": "antigravity",
+          "files": 22,
+          "bytes": 89691,
+          "parser": true
+        },
+        {
+          "agent": "chatgpt-desktop",
+          "files": 1,
+          "bytes": 24,
+          "parser": true
+        },
+        {
+          "agent": "claude-code",
+          "files": 19,
+          "bytes": 34293,
+          "parser": true
+        },
+        {
+          "agent": "claude-desktop",
+          "files": 16,
+          "bytes": 24355,
+          "parser": true
+        },
+        {
+          "agent": "cline",
+          "files": 16,
+          "bytes": 62513,
+          "parser": true
+        },
+        {
+          "agent": "codex-cli",
+          "files": 11,
+          "bytes": 128926,
+          "parser": true
+        },
+        {
+          "agent": "cody",
+          "files": 2,
+          "bytes": 1930,
+          "parser": true
+        },
+        {
+          "agent": "continue",
+          "files": 13,
+          "bytes": 7903,
+          "parser": true
+        },
+        {
+          "agent": "copilot",
+          "files": 1,
+          "bytes": 96,
+          "parser": false
+        },
+        {
+          "agent": "copilot-cli",
+          "files": 15,
+          "bytes": 119404,
+          "parser": true
+        },
+        {
+          "agent": "copilot-desktop",
+          "files": 8,
+          "bytes": 316390,
+          "parser": true
+        },
+        {
+          "agent": "crush",
+          "files": 7,
+          "bytes": 102757,
+          "parser": true
+        },
+        {
+          "agent": "cursor",
+          "files": 11,
+          "bytes": 100667,
+          "parser": true
+        },
+        {
+          "agent": "gemini-cli",
+          "files": 18,
+          "bytes": 20866,
+          "parser": true
+        },
+        {
+          "agent": "goose",
+          "files": 8,
+          "bytes": 86840,
+          "parser": true
+        },
+        {
+          "agent": "hermes",
+          "files": 12,
+          "bytes": 160853,
+          "parser": true
+        },
+        {
+          "agent": "kilo-code",
+          "files": 6,
+          "bytes": 54305,
+          "parser": true
+        },
+        {
+          "agent": "kiro",
+          "files": 9,
+          "bytes": 61860,
+          "parser": true
+        },
+        {
+          "agent": "letta",
+          "files": 16,
+          "bytes": 7368,
+          "parser": true
+        },
+        {
+          "agent": "little-coder",
+          "files": 12,
+          "bytes": 3254,
+          "parser": true
+        },
+        {
+          "agent": "muse-code",
+          "files": 6,
+          "bytes": 24278,
+          "parser": true
+        },
+        {
+          "agent": "nanobot",
+          "files": 26,
+          "bytes": 57426,
+          "parser": true
+        },
+        {
+          "agent": "ollama",
+          "files": 13,
+          "bytes": 205634,
+          "parser": true
+        },
+        {
+          "agent": "open-interpreter",
+          "files": 10,
+          "bytes": 56107,
+          "parser": true
+        },
+        {
+          "agent": "openclaw",
+          "files": 15,
+          "bytes": 431507,
+          "parser": true
+        },
+        {
+          "agent": "opencode",
+          "files": 14,
+          "bytes": 235354,
+          "parser": true
+        },
+        {
+          "agent": "openhands",
+          "files": 35,
+          "bytes": 10231,
+          "parser": true
+        },
+        {
+          "agent": "pearai",
+          "files": 14,
+          "bytes": 21787,
+          "parser": true
+        },
+        {
+          "agent": "pi",
+          "files": 13,
+          "bytes": 12646,
+          "parser": true
+        },
+        {
+          "agent": "qwen-code",
+          "files": 26,
+          "bytes": 11777,
+          "parser": true
+        },
+        {
+          "agent": "qwen-live",
+          "files": 5,
+          "bytes": 71012,
+          "parser": false
+        },
+        {
+          "agent": "roo-code",
+          "files": 14,
+          "bytes": 6391,
+          "parser": true
+        },
+        {
+          "agent": "shellgpt",
+          "files": 8,
+          "bytes": 1437,
+          "parser": true
+        },
+        {
+          "agent": "tabby",
+          "files": 10,
+          "bytes": 300710,
+          "parser": true
+        },
+        {
+          "agent": "twinny",
+          "files": 1,
+          "bytes": 40,
+          "parser": true
+        },
+        {
+          "agent": "vscode",
+          "files": 18,
+          "bytes": 131517,
+          "parser": true
+        },
+        {
+          "agent": "zed",
+          "files": 4,
+          "bytes": 62041,
+          "parser": true
+        }
+      ]
+    }
+  ],
+  "projects": [],
+  "problems": []
+}
