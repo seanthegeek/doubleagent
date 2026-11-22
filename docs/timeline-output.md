@@ -45,8 +45,10 @@ and shown here at the path a responder would give it,
 example's command line is shown just above it; the `timeline` runs write
 into `out`, a directory below the current one. The version recorded in
 `inventory.json` reads
-`0.0.0-dev`, the version of a build made from the source tree rather than
-from a release.
+`0.0.0-dev`, the version of a build no release stamped, here the tests that
+make the examples; a build made from a checkout adds `+` and the first
+twelve hex digits of its commit (`0.0.0-dev+90723564ea03`), then
+`-modified` when the tree had uncommitted changes.
 
 The collection is synthetic: its agents' files were written from the
 record shapes of the agents' research documents, with invented contents,
@@ -137,7 +139,7 @@ tables, each after a blank line. `--files` adds, after them, one
 | --- | --- |
 | `archive sha256 verified against <name>` | The archive's SHA-256 digest equals the first word of `<archive>.sha256` beside it |
 | `WARNING archive sha256 <digest> does not match <name> (<expected>)` | The digests differ: the archive is not the one the collection run wrote |
-| `WARNING archive sha256 not checked: <reason>` | The `.sha256` file beside the archive could not be read |
+| `WARNING archive sha256 not checked: <path>: <reason>` | The `.sha256` file beside the archive could not be read |
 | `collection.json unreadable: <reason>` | The collection's summary did not read; the host and project list it gives are missing |
 | `<n> manifest row did not parse`, `<n> manifest rows did not parse` | Lines of `manifest.jsonl` that are not valid records; their files are not attributed |
 | `fs/ found without manifest.jsonl; treating fs/ as the root` | A collection without its manifest, read as a loose tree |
@@ -1981,11 +1983,12 @@ empty. Two more rows come from the same files, timestamped the same way:
 `retention setting: cleanupPeriodDays=<n> (from <file>, file mtime)`
 after a settings file's permission rows, the number of days after which
 Claude Code's retention sweep deletes a transcript, and `source host:
-github status=<status> (from .claude.json, file mtime)` from the
-`githubWebConnectionStatusCache` object of `.claude.json` (written by
-Claude Code 2.1.310 once the GitHub app is connected; `connected` is the
-value seen), with an empty `project_path`. The account and organization
-UUIDs beside that status are not printed. A settings file's string `model`
+github status=<status> account=<uuid> org=<uuid> (from .claude.json, file mtime)`
+from the `githubWebConnectionStatusCache` object of `.claude.json`
+(written by Claude Code 2.1.310 once the GitHub app is connected;
+`connected` is the value seen), with an empty `project_path`; `account=`
+and `org=` give its `accountUuid` and `orgUuid` and are left out when the
+object lacks one. A settings file's string `model`
 gives `model setting: model=<alias> (from <file>, file mtime)` after its
 retention row: the model alias (`fable`, `opus`) `/model` saves as the
 default for new sessions, which the VS Code extension's start can also
@@ -1993,9 +1996,9 @@ rewrite, so it is the file's value when collected, not a session's model.
 `.claude.json` adds, timestamped the same way, `remote control: spawn mode
 <mode> for <path> (from .claude.json, file mtime)` for a project with a
 saved Remote Control spawn mode (`same-dir` or `worktree`), with
-`project_path` the project, then `remote control: machine id set (from
+`project_path` the project, then `remote control: machine id <id> (from
 .claude.json, file mtime)` when Remote Control has been enabled on the
-machine (the id is not printed) and `cloud: hasRemoteEnvironment=<value>
+machine and `cloud: hasRemoteEnvironment=<value>
 (from .claude.json, file mtime)` once a cloud session has been created
 from the CLI, both with an empty `project_path`. A Claude Desktop session record adds ` permission_mode=<mode>
 effort=<effort>` to its row and one `permission grant: <key> <entry>` or
@@ -3413,7 +3416,7 @@ Which rows go with the stored row chosen for a repeated id ([Rows of a repeated 
   `session_message` row's own content is shown only when the parts are
   shown with another row of the id. A `session_v2` or `session` row
   repeating a session id in its own table (an id both tables hold is the
-  migration's copy, read from `session_v2` alone, as before): the
+  migration's copy, read from `session_v2` alone): the
   session's messages, shares and problems, with the stored row's
   `project_path`. Each stored row gives its own `session start:` row, a
   `parser:` row, and its archive and permission rows, with its own
