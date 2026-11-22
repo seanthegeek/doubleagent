@@ -1,219 +1,128 @@
+//go:build unix
+
 package projects
 
 import (
-	"reflect"
+	"context"
+	"slices"
+	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// matcherCase is one line given to a reader and the values it must give.
-type matcherCase struct {
-	name string
-	line string
-	want []string
-}
-
-// checkMatcher runs every case through extract.
-func checkMatcher(t *testing.T, extract func(line []byte) []string, cases []matcherCase) {
+// readerTree builds an image whose agent state exercises every reader and
+// the quirks of the shell's text handling that Discover reproduces, and
+// returns its root.
+func readerTree(t *testing.T) string {
 	t.Helper()
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			got := extract([]byte(test.line))
-			if len(got) != 0 || len(test.want) != 0 {
-				if !reflect.DeepEqual(got, test.want) {
-					t.Errorf("got %q, want %q", got, test.want)
-				}
-			}
-		})
+	root := t.TempDir()
+	writeTree(t, root, readerFiles(), "srv/p1", "srv/p2", "srv/p3", "srv/escaped", "srv/last",
+		"srv/p4", "srv/p5", "srv/nul", "home/alice/Documents/Codex/x",
+		"home/alice/.codex/worktrees/w", "home/alice/Documents/Codexy", "srv/codex",
+		"srv/codexdot", "srv/codexnest", "srv/gem/merge", "srv/win", "srv/sp ace", "srv/plain",
+		"srv/goose1", "srv/goose2", "srv/notlisted", "srv/cop", "srv/nocop",
+		"home/alice/.copilot/x", "srv/claw", "srv/clawcwd", "srv/nano", "srv/nanocfg",
+		"srv/tab by", "srv/twin/src", "srv/vs code", "srv/cline", "srv/a0", "srv/a0x", "srv/a0y",
+		"srv/fromstate", "srv/extra", "home/alice/inside", "home/bob")
+	return root
+}
+
+// readerFiles returns the files of readerTree, by path under the root.
+func readerFiles() map[string]string {
+	alice := "home/alice/"
+	vscode := alice + ".config/Code/User/"
+	return map[string]string{
+		alice + ".claude/history.jsonl": `{"project":"/srv/p1"}` + "\n" +
+			`{"project":"/srv\/p2","x":1}{"project": "/srv/p3"}` + "\n" +
+			`{"project":"\/srv\/escaped"}` + "\n" + `{"project":"/srv/last"}`,
+		alice + ".claude.json":               `{"projects":{"/srv/p4": {"a":1},"/srv/p5":{}}}`,
+		alice + ".claude-work/history.jsonl": `{"project":"/srv/nul"}` + "\n\x00\n",
+		alice + ".codex/sessions/a/r.jsonl": rolloutCwds("/home/alice/Documents/Codex",
+			"/home/alice/Documents/Codex/x", "/home/alice/.codex/worktrees/w",
+			"/home/alice/Documents/Codexy", "/srv/codex"),
+		alice + ".codex/sessions/b/.d.jsonl":            rolloutCwds("/srv/codexdot"),
+		alice + ".codex/sessions/c.jsonl/r.jsonl":       rolloutCwds("/srv/codexnest"),
+		alice + ".gemini/tmp/x/.project_root":           "/srv/gem",
+		alice + ".gemini/antigravity-cli/history.jsonl": `{"workspace":"/merge"}` + "\n",
+		alice + ".gemini/antigravity-cli/settings.json": `{"a":"file:///C%3A/srv/win",` +
+			`"b":"file:///srv/sp%20ace","c":"/srv/plain"}`,
+		alice + ".local/share/goose/projects/p.md": "workingDirs:\r\n- '/srv/goose1'  \n-\n" +
+			"- \"/srv/goose2\"\nname: x\n- /srv/notlisted\n",
+		alice + ".copilot/session-state/s1/events.jsonl":   "{}\n",
+		alice + ".copilot/session-state/s1/workspace.yaml": "cwd: '/srv/cop'\n",
+		alice + ".copilot/session-state/s2/workspace.yaml": "cwd: /srv/nocop\n",
+		alice + ".copilot/session-state/s3/events.jsonl":   "{}\n",
+		alice + ".copilot/session-state/s3/workspace.yaml": "cwd: /home/alice/.copilot/x\n",
+		alice + ".openclaw/openclaw.json": `{agents:{defaults:{workspace:'/srv/claw'}}, ` +
+			`"cwd": "/srv/clawcwd"}`,
+		alice + ".nanobot/sessions/s/.workspace": "/srv/nano",
+		alice + ".nanobot/config.json":           `{"workspace":"/srv/nanocfg"}`,
+		alice + ".tabby/config.toml":             "git_url = 'file:///srv/tab%20by'\n",
+		alice + ".twinny/embeddings/t/manifest.json": `{"/srv/twin/src/a.ts":1,` +
+			`"/srv/twin/b.ts":2}`,
+		vscode + "workspaceStorage/h1/workspace.json": `{"folder": ` +
+			`"file:///srv/vs%20code"}`,
+		vscode + "globalStorage/saoudrizwan.claude-dev/state/taskHistory.json": `[{` +
+			`"cwdOnTaskInitialization":"/srv/cline"}]`,
+		alice + "agent-zero/usr/chats/c1/chat.json": `{"acp_cwd":"/srv/a0",` +
+			`"acp_additional_directories": ["/srv/a0x", "rel", "/srv/a0y"]}`,
+		"home/bob/.claude/history.jsonl": `{"project":"/srv/p1"}` + "\n" +
+			`{"project":"/home/alice"}` + "\n" + `{"project":"/srv/fromstate"}` + "\n" +
+			`{"project":"/srv/notadir"}` + "\n",
+		"srv/notadir": "",
 	}
 }
 
-func TestJSONValues(t *testing.T) {
-	checkMatcher(t, jsonValueMatcher("cwd"), []matcherCase{
-		{"a smoke fixture line gives its value", `{"cwd":"/srv/ampproj","prompt":"hi"}`,
-			[]string{"/srv/ampproj"}},
-		{"blanks after the colon are allowed", `{"cwd":   "/a"}`, []string{"/a"}},
-		{"an escaped slash is kept for the stream to undo", `{"cwd":"\/srv\/x"}`,
-			[]string{`\/srv\/x`}},
-		{"every match on a line counts", `{"cwd":"/a"}{"cwd":"/b"}`, []string{"/a", "/b"}},
-		{"a value stops at the first quote, escaped or not", `{"cwd":"/a\"b"}`,
-			[]string{`/a\`}},
-		{"a blank before the colon is no match", `{"cwd" : "/a"}`, nil},
-		{"a longer key ending in the key matches", `{"xcwd":"/a"}`, nil},
-		{"a value not starting with a slash is still read", `{"cwd":"rel"}`, []string{"rel"}},
-	})
-}
-
-func TestJSONPathKeys(t *testing.T) {
-	checkMatcher(t, jsonPathKeyMatcher(`\{`, pathRules{}), []matcherCase{
-		{"keys followed by an object", `{"projects":{"/srv/a": {"x":1},"/srv/b":{}}}`,
-			[]string{"/srv/a", "/srv/b"}},
-		{"a relative key is no match", `{"rel": {}}`, nil},
-		{"a key followed by a string is no match", `{"/srv/a": "x"}`, nil},
-	})
-	checkMatcher(t, jsonPathKeyMatcher(`[tf]`, pathRules{}), []matcherCase{
-		{"keys set to true or false", `{"/srv/pitrust": true, "/x": false, "/y": null}`,
-			[]string{"/srv/pitrust", "/x"}},
-	})
-	checkMatcher(t, jsonPathKeyMatcher(`"`, pathRules{}), []matcherCase{
-		{"keys set to a string", `{"/srv/gem": "gem", "/x": 1}`, []string{"/srv/gem"}},
-	})
-}
-
-func TestJSONPathKeysUnderDriveRules(t *testing.T) {
-	drive := pathRules{driveJSON: true}
-	checkMatcher(t, jsonPathKeyMatcher(`\{`, drive), []matcherCase{
-		{"a drive key followed by an object", `{"projects":{"C:\\proj":{}}}`, []string{`C:\\proj`}},
-		{"a drive key with a forward slash", `{"d:/x": {}, "/y": {}}`, []string{"d:/x", "/y"}},
-		{"a relative key is still no match", `{"rel": {}, "C": {}}`, nil},
-	})
-	checkMatcher(t, jsonPathKeyMatcher(`[tf]`, drive), []matcherCase{
-		{"the pi trust fixture gives its key", `{"C:\\pitrust":true}`, []string{`C:\\pitrust`}},
-	})
-	checkMatcher(t, jsonPathKeyMatcher(`\{`, pathRules{}), []matcherCase{
-		{"the sh rules skip a drive key", `{"projects":{"C:\\proj":{}}}`, nil},
-	})
-}
-
-func TestAbsStringsUnderDriveRules(t *testing.T) {
-	checkMatcher(t, absStringMatcher(pathRules{driveJSON: true}), []matcherCase{
-		{"an escaped drive path becomes a slashed path", `{"C:\\twinproj\\src\\a.ts":1}`,
-			[]string{"C:/twinproj/src/a.ts"}},
-		{"an escaped slash is undone first", `"C:\\a\/b"`, []string{"C:/a/b"}},
-		{"an encoded space in a drive path stays", `"C:\\a%20b"`, []string{"C:/a%20b"}},
-		{"a drive path with a forward slash is no match", `"C:/x"`, nil},
-		{"POSIX paths and file URIs are still read", `["/a", "file:///C:/x/y"]`,
-			[]string{"/a", "/x/y"}},
-	})
-	checkMatcher(t, absStringMatcher(pathRules{}), []matcherCase{
-		{"the sh rules skip a drive path", `"C:\\twinproj"`, nil},
-	})
-}
-
-func TestAbsStrings(t *testing.T) {
-	checkMatcher(t, absStringMatcher(pathRules{}), []matcherCase{
-		{"a Windows drive URI with an encoded colon keeps its path",
-			`        "folderUri":  "file:///c%3A/srv/agywin"`, []string{"/srv/agywin"}},
-		{"a file URI loses its scheme", `"folderUri":  "file:///srv/agyapp"`,
-			[]string{"/srv/agyapp"}},
-		{"a drive URI with a colon keeps its path", `"file:///C:/x/y"`, []string{"/x/y"}},
-		{"an encoded space is decoded", `"file:///srv/sp%20ace"`, []string{"/srv/sp ace"}},
-		{"only %20 is decoded", `"/a%2Fb%20c"`, []string{"/a%2Fb c"}},
-		{"plain paths are found among other strings", `["/a", "rel", "/b"]`,
-			[]string{"/a", "/b"}},
-		{"a URI with a host is no match", `"file://host/x"`, nil},
-	})
-}
-
-func TestLocalPath(t *testing.T) {
-	for _, test := range []struct{ value, want string }{
-		{"file:///c%3a/x", "/x"},
-		{"file:///C%3A/", "/"},
-		{"file:///C%3Ax", "/C%3Ax"},
-		{"file:///1%3A/x", "/1%3A/x"},
-		{"file:///srv/x", "/srv/x"},
-		{"/a%20b%20c", "/a b c"},
-	} {
-		if got := localPath(test.value); got != test.want {
-			t.Errorf("localPath(%q) = %q, want %q", test.value, got, test.want)
-		}
+// rolloutCwds returns a rollout file's text naming each cwd on its own line.
+func rolloutCwds(cwds ...string) string {
+	var text strings.Builder
+	for _, cwd := range cwds {
+		text.WriteString(`{"type":"session_meta","payload":{"cwd":"` + cwd + `"}}` + "\n")
 	}
+	return text.String()
 }
 
-func TestYAMLValues(t *testing.T) {
-	checkMatcher(t, yamlValueMatcher("cwd"), []matcherCase{
-		{"a smoke fixture line gives its value", "cwd: /srv/copproj", []string{"/srv/copproj"}},
-		{"one quote is removed at each end", `cwd: '/srv/cop'`, []string{"/srv/cop"}},
-		{"the quotes need not pair", `cwd:"/a'`, []string{"/a"}},
-		{"a carriage return keeps the closing quote", "cwd: '/a'\r", []string{"/a'\r"}},
-		{"an indented key is no match", "  cwd: /a", nil},
-		{"a longer key is no match", "cwdx: /a", nil},
-	})
+// wantReaderProjects are the projects found in readerTree with the -p
+// directories of TestDiscoverEveryReader, as owner and path under the root.
+// The two projects of Codex session files in sibling directories come in the
+// file system's listing order, so the test accepts either order for that pair.
+var wantReaderProjects = []string{
+	"alice /srv/p1", "alice /srv/p2", "alice /srv/p3", "alice /srv/last", "alice /srv/p4",
+	"alice /srv/p5", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
+	"alice /srv/codexnest", "alice /srv/codexdot", "alice /srv/a0", "alice /srv/a0x",
+	"alice /srv/a0y", "alice /srv/gem/merge", "alice /srv/win", "alice /srv/sp ace",
+	"alice /srv/plain", "alice /srv/goose1", "alice /srv/goose2", "alice /srv/cop",
+	"alice /srv/claw", "alice /srv/clawcwd", "alice /srv/nano", "alice /srv/nanocfg",
+	"alice /srv/tab by", "alice /srv/twin", "alice /srv/vs code", "alice /srv/cline",
+	"bob /srv/fromstate", " /srv/extra", "alice /home/alice/inside",
 }
 
-func TestJSON5Values(t *testing.T) {
-	checkMatcher(t, json5ValueMatcher("workspace"), []matcherCase{
-		{"a smoke fixture line gives its value",
-			`{agents:{defaults:{workspace:"/srv/clawprofile"}}}`, []string{"/srv/clawprofile"}},
-		{"the key and value may be single-quoted", `{'workspace': '/a'}`, []string{"/a"}},
-		{"a key at the start of the line matches", `workspace: "/a"`, []string{"/a"}},
-		{"a key inside a longer name is no match", `{myworkspace: "/a"}`, nil},
-		{"the prefix is cut at the key's last occurrence",
-			`{"workspace": "/a/workspace: 'b"}`, []string{"b"}},
-	})
-}
-
-func TestTOMLFileURLs(t *testing.T) {
-	checkMatcher(t, tomlFileURLMatcher("git_url"), []matcherCase{
-		{"a smoke fixture line gives its path", `git_url = "file:///srv/tabbyproj"`,
-			[]string{"/srv/tabbyproj"}},
-		{"single quotes and an encoded space", `  git_url='file:///a%20b'`, []string{"/a b"}},
-		{"a remote URL is no match", `git_url = "https://example.invalid/x"`, nil},
-	})
-}
-
-func TestSessionAndEditorReaders(t *testing.T) {
-	checkMatcher(t, sessionCwdMatcher(), []matcherCase{
-		{"a rollout line gives its cwd", `{"payload":{"cwd":"/srv/oiproj"}}`,
-			[]string{"/srv/oiproj"}},
-		{"a blank after the colon is no match", `{"cwd": "/a"}`, nil},
-	})
-	checkMatcher(t, workspaceFolderMatcher(), []matcherCase{
-		{"a smoke fixture line gives its folder", `{"folder":"file:///Users/bob/Documents/app"}`,
-			[]string{"/Users/bob/Documents/app"}},
-		{"an encoded space is decoded", `{"folder": "file:///a%20b"}`, []string{"/a b"}},
-	})
-	checkMatcher(t, additionalDirectoryMatcher(), []matcherCase{
-		{"absolute items of the list", `{"acp_additional_directories": ["/a", "rel", "/b"]}`,
-			[]string{"/a", "/b"}},
-		{"a list not closed on the line is no match", `{"acp_additional_directories": ["/a",`,
-			nil},
-	})
-}
-
-func TestGooseWorkingDirs(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		lines []string
-		want  []string
-	}{
-		{"a smoke fixture project", []string{"---", "name: demo", "description: ''",
-			"workingDirs:", "- /srv/gooseproj", "---"}, []string{"/srv/gooseproj"}},
-		{"quotes and an empty item", []string{"---", "name: quoted", "workingDirs:", "- ",
-			"- '/srv/goosequoted'", "---"}, []string{"/srv/goosequoted"}},
-		{"trailing blanks and a carriage return", []string{"workingDirs: \r", "- \"/a\" \t"},
-			[]string{"/a"}},
-		{"mismatched quotes stay", []string{"workingDirs:", `- '/a"`}, []string{`'/a"`}},
-		{"another line ends the list", []string{"workingDirs:", "- /a", "x: y", "- /b"},
-			[]string{"/a"}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := gooseWorkingDirs(test.lines); !reflect.DeepEqual(got, test.want) {
-				t.Errorf("got %q, want %q", got, test.want)
-			}
-		})
+// inListingOrder puts the pair of Codex session projects, which come in the
+// file system's listing order, in the order wantReaderProjects names.
+func inListingOrder(projects []string) []string {
+	nest := slices.Index(projects, "alice /srv/codexnest")
+	dot := slices.Index(projects, "alice /srv/codexdot")
+	if nest >= 0 && dot >= 0 && dot+1 == nest {
+		projects[dot], projects[nest] = projects[nest], projects[dot]
 	}
+	return projects
 }
 
-func TestCommonDir(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		paths []string
-		want  string
-		found bool
-	}{
-		{"the smoke Twinny manifest", []string{"/srv/twinproj/src/a.ts", "/srv/twinproj/b.ts"},
-			"/srv/twinproj", true},
-		{"one file gives its directory", []string{"/a/b/c.ts"}, "/a/b", true},
-		{"a file at the top level shares too little", []string{"/a.ts"}, "", false},
-		{"paths sharing only the root", []string{"/a/x", "/b/y"}, "", false},
-		{"numeric components compare as numbers", []string{"/a/1/x", "/a/01/y"}, "/a/1", true},
-		{"no paths", nil, "", false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			got, found := commonDir(test.paths)
-			if got != test.want || found != test.found {
-				t.Errorf("got %q, %v, want %q, %v", got, found, test.want, test.found)
-			}
-		})
+func TestDiscoverEveryReader(t *testing.T) {
+	root := readerTree(t)
+	extra := []string{root + "/srv/extra", root + "/home/alice/inside",
+		root + "/srv/fromstate", root + "/srv/missing"}
+	homes := users.Enumerate(context.Background(), false, root, "", nil, nil, nil, nil)
+	found, _, err := Discover(context.Background(), homes, root, extra, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, project := range found {
+		got = append(got, project.Owner+" "+strings.TrimPrefix(project.Path, root))
+	}
+	if got = inListingOrder(got); !slices.Equal(got, wantReaderProjects) {
+		t.Errorf("projects:\n%q\nwant:\n%q", got, wantReaderProjects)
 	}
 }
