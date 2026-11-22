@@ -38,7 +38,11 @@ func TestCopy(t *testing.T) {
 	stager, root := newStager(t)
 	source := root + "/home/a\"b\nc"
 	content := []byte("staged bytes")
+	// The mode is set after the write, which takes it through the umask.
 	if err := os.WriteFile(source, content, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(source, 0o640); err != nil {
 		t.Fatal(err)
 	}
 	mtime := time.Unix(1_700_000_000, 123_000_000)
