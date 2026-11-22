@@ -1,7 +1,7 @@
 """Share the finding, the baseline and the readers of the drift checkers.
 
 The drift checkers (`tools/check_<name>.py`) compare the research documents with the catalog
-tables and the smoke tests. Each finding not in the baseline
+tables. Each finding not in the baseline
 fails, so new drift fails CI while the drift recorded in the baseline expires agent by agent.
 
 - A finding's baseline key is `<checker>|<kind>|<detail>`, its detail's whitespace runs

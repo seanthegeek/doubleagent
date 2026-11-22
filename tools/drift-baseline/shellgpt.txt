@@ -1,2 +1,0 @@
-check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/Temp/shell_gpt
-check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/Temp/shell_gpt

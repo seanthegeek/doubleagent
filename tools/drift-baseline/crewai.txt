@@ -1,9 +1,3 @@
-check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/.crewai_user.json
-check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/flow_states.db*
-check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/.crewai_user.json
-check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/flow_states.db*
-check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .local/share/myproj/latest_kickoff_task_outputs.db-wal
-check_smoke_coverage|fixture-name-undocumented|smoke.sh .local/share/myproj/latest_kickoff_task_outputs.db-wal
 check_tables_research|line-unnamed|home .local/share/*/.crewai_user.json
 check_tables_research|line-unnamed|home .local/share/*/flow_states.db*
 check_tables_research|line-unnamed|home .local/share/*/latest_kickoff_task_outputs.db*

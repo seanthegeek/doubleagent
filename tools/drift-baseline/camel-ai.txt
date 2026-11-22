@@ -1,4 +1,0 @@
-check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .camel/skills/s1/SKILL.md
-check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .config/camel/skills/s2/SKILL.md
-check_smoke_coverage|fixture-name-undocumented|smoke.sh .camel/skills/s1/SKILL.md
-check_smoke_coverage|fixture-name-undocumented|smoke.sh .config/camel/skills/s2/SKILL.md

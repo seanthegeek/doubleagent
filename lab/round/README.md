@@ -155,9 +155,9 @@ says of pulled collections.
 
 | Action | What it does |
 | --- | --- |
-| `start` | Refuses when the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, copies the survey and drive scripts and this checkout's collector into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
+| `start` | Refuses when the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, builds this checkout's `doubleagent` binaries into the cell's `tools/bin` with `.github/go-build.sh` (once per cell), copies the survey and drive scripts and the guest's binary (`GUEST_BINARY` in the VM file) into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
 | `resume` | Finishes the paused person step (its screen and listing), then runs the remaining steps. |
-| `collect` | Runs the collector in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs `doubleagent timeline` and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
+| `collect` | Runs `doubleagent collect -o ~/lab/out -q` in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs `doubleagent timeline` and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
 | `finish [--force]` | Refuses while a person step waits, while steps have not run, when no collection was taken after the last step began, or when the last listing cannot be taken (the VM is not running or `ssh` does not answer), since the revert discards the VM; run `collect` or start the VM first, or pass `--force` to go on anyway, which the log and `report.md` record. Then stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
 | `status` | Prints the cell's state and step log. |
 
@@ -544,8 +544,8 @@ shape tool's output name files and keys only.
 The Ubuntu path is the tested one. The macOS VM runs the same scripts
 with the macOS tui-test build. The Windows VM gets `lib/survey.ps1`,
 `lib/drive.ps1` and `lib/make-project.ps1`, the x86-64 tui-test build,
-which runs under Windows 11's emulation, and the PowerShell collector
-under Windows PowerShell 5.1, all over `ssh` with cmd.exe as the login
+which runs under Windows 11's emulation, and the Windows build of
+`doubleagent`, all over `ssh` with cmd.exe as the login
 shell, so every guest command is a `.ps1` file or PowerShell reading
 stdin; that path has not been run yet.
 

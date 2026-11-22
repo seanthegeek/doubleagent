@@ -283,17 +283,32 @@ fetch_tui_test() {
   [ "$_ft_sum" = "$TUI_TEST_SHA256" ] || die "tui-test sha256 $_ft_sum is not $TUI_TEST_SHA256"
 }
 
-# Copy the guest scripts, the collector and tui-test into the VM. The shape
-# tool stays on the analyst machine, which runs it over the pulled archive.
+# Build this checkout's doubleagent binaries into the cell once, with the
+# release build script, and print the path of the one for the guest.
+guest_binary() {
+  _gb_dir=$CELL/tools/bin
+  if [ ! -f "$_gb_dir/$GUEST_BINARY" ]; then
+    round_log "build doubleagent into tools/bin"
+    (cd "$REPO" && sh .github/go-build.sh "$_gb_dir") >"$CELL/tools/build.log" 2>&1 ||
+      die "building doubleagent failed; see $CELL/tools/build.log"
+  fi
+  [ -f "$_gb_dir/$GUEST_BINARY" ] || die "the build made no $GUEST_BINARY"
+  printf '%s\n' "$_gb_dir/$GUEST_BINARY"
+}
+
+# Copy the guest scripts, the doubleagent binary and tui-test into the VM.
+# The shape tool stays on the analyst machine, which runs it over the pulled
+# archive.
 push_tools() {
+  _pt_binary=$(guest_binary) || exit 1
   case $GUEST_OS in
     windows)
       _pt_lab=$(guest_lab_native)
       printf 'New-Item -ItemType Directory -Force -Path "%s", "%s" | Out-Null\n' \
         "$_pt_lab\\pastes" "$_pt_lab\\tui-test" | guest_shell >/dev/null ||
         die "mkdir in the guest failed"
-      guest_copy "$HERE/lib/survey.ps1" "$HERE/lib/drive.ps1" "$HERE/lib/make-project.ps1" \
-        "$REPO/collectors/Collect-AgentArtifacts.ps1" .
+      guest_copy "$HERE/lib/survey.ps1" "$HERE/lib/drive.ps1" "$HERE/lib/make-project.ps1" .
+      guest_copy "$_pt_binary" doubleagent.exe
       guest_copy "$CELL/tools/$TUI_TEST_ASSET" tui-test
       printf 'Expand-Archive -Force -Path "%s" -DestinationPath "%s"\n' \
         "$_pt_lab\\tui-test\\$TUI_TEST_ASSET" "$_pt_lab\\tui-test" | guest_shell >/dev/null ||
@@ -301,8 +316,9 @@ push_tools() {
       ;;
     *)
       guest_ssh 'mkdir -p lab/pastes lab/tui-test' </dev/null || die "mkdir in the guest failed"
-      guest_copy "$HERE/lib/survey.sh" "$HERE/lib/drive.sh" "$HERE/lib/make-project.sh" \
-        "$REPO/collectors/collect-agent-artifacts.sh" .
+      guest_copy "$HERE/lib/survey.sh" "$HERE/lib/drive.sh" "$HERE/lib/make-project.sh" .
+      guest_copy "$_pt_binary" doubleagent
+      guest_ssh 'chmod 755 lab/doubleagent' </dev/null || die "chmod of doubleagent failed"
       guest_copy "$CELL/tools/$TUI_TEST_ASSET" tui-test
       guest_ssh "cd lab/tui-test && tar xzf $TUI_TEST_ASSET && chmod 755 tui-test" </dev/null ||
         die "tui-test unpack failed"
@@ -351,7 +367,7 @@ guest_out_names() {
   esac
 }
 
-# Run the collector in the guest as the lab user, pull its files into
+# Run doubleagent collect in the guest as the lab user, pull its files into
 # collection/$1, delete the guest's copy, then run doubleagent timeline and
 # the shape tool on the analyst machine and rewrite the report.
 collect_into() {
@@ -361,13 +377,12 @@ collect_into() {
   round_log "collector run $1"
   case $GUEST_OS in
     windows)
-      guest_ssh powershell -NoProfile -ExecutionPolicy Bypass \
-        -File "$(guest_lab_native)\\Collect-AgentArtifacts.ps1" \
-        -OutputDir "$(guest_lab_native)\\out" -Quiet </dev/null >"$_ci_destination/stdout.txt" 2>&1
+      guest_ssh "$(guest_lab_native)\\doubleagent.exe" collect \
+        -o "$(guest_lab_native)\\out" -q </dev/null >"$_ci_destination/stdout.txt" 2>&1
       ;;
     *)
       # shellcheck disable=SC2016 # $HOME is the guest's
-      guest_ssh 'sh lab/collect-agent-artifacts.sh -o "$HOME/lab/out" -q' \
+      guest_ssh 'lab/doubleagent collect -o "$HOME/lab/out" -q' \
         </dev/null >"$_ci_destination/stdout.txt" 2>&1
       ;;
   esac || die "the collector failed; see $_ci_destination/stdout.txt"
@@ -435,6 +450,7 @@ start_cell() {
   state_set vm "$VM_NAME"
   state_set started "$(utc_now)"
   fetch_tui_test
+  guest_binary >/dev/null || exit 1
   vm_revert_clean
   vm_start
   vm_wait_ssh 60 || die "no ssh answer from $VM_NAME"

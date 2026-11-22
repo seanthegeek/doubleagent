@@ -5,46 +5,6 @@ check_research_structure|observed-label-missing|Windows, standalone CLI ([issue 
 check_research_structure|observed-label-missing|macOS, Codex Desktop inside ChatGPT 26.1007.71326 and standalone
 check_research_structure|observed-label-missing|macOS, Codex Desktop inside ChatGPT 26.1013.40934 ([issue 49](https://github.com/seanthegeek/doubleagent/issues/49),
 check_research_structure|version-without-change|Since 26.1007 the bundle id com.openai.codex is the ChatGPT app, which bundles Codex (observed on macOS, 2026-10-15), so that directory is collected as chatgpt-desktop (issue 121).
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.sandbox
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.sandbox-bin
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.tmp
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/plugins/.remote-plugin-install-staging
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/plugins/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/skills/.system
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/tmp
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/visualizations
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/.sandbox
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/.sandbox-bin
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/.tmp
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/cache
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/packages
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/plugins/.remote-plugin-install-staging
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/plugins/cache
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/skills/.system
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/tmp
-check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/visualizations
-check_smoke_coverage|fixture-missing|smoke.ps1 project .codex
-check_smoke_coverage|fixture-missing|smoke.sh project .codex
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.credentials.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.sandbox-secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.credentials.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.sandbox-secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/secrets/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/.credentials.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/.sandbox-secrets/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/config.toml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/secrets/*
-check_smoke_coverage|secret-check-missing|smoke.sh .codex/.credentials.json
-check_smoke_coverage|secret-check-missing|smoke.sh .codex/.sandbox-secrets/*
-check_smoke_coverage|secret-check-missing|smoke.sh .codex/auth.json
-check_smoke_coverage|secret-check-missing|smoke.sh .codex/config.toml
-check_smoke_coverage|secret-check-missing|smoke.sh .codex/secrets/*
 check_tables_research|credential-wording|can embed `config.toml`
 check_tables_research|parsing-fact-under-collection|model_provider
 check_tables_research|parsing-fact-under-collection|session_id

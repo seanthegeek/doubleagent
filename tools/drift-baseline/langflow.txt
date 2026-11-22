@@ -1,9 +1,4 @@
 check_research_structure|bare-doc-reference|Medium for the Desktop paths, which rest on the documentation only.
-check_smoke_coverage|fixture-name-undocumented|smoke.sh Library/Logs/com.LangflowDesktop/langflow.log
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 cache_secret_key
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 secret_key
-check_smoke_coverage|nosecrets-check-missing|smoke.sh cache_secret_key
-check_smoke_coverage|nosecrets-check-missing|smoke.sh secret_key
 check_tables_research|credential-unflagged|Library/Application Support/com.LangflowDesktop/data/.env
 check_tables_research|credential-wording|may embed `<user_id>/_mcp_servers_*.json`
 check_tables_research|volume-glob-unnamed|secret [0-9a-f]*-*-*-*-*/_mcp_servers_*.json

@@ -1,16 +1,4 @@
 check_research_structure|bare-doc-reference|All claims from source except the JetBrains settings directory, which is from JetBrains documentation.
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 index
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 repositories
-check_smoke_coverage|exclusion-check-missing|smoke.sh index
-check_smoke_coverage|exclusion-check-missing|smoke.sh repositories
-check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
-check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
-check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
-check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
-check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .tabby/ee/db.sqlite-shm
-check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .tabby/ee/db.sqlite-wal
-check_smoke_coverage|fixture-name-undocumented|smoke.sh .tabby/ee/db.sqlite-shm
-check_smoke_coverage|fixture-name-undocumented|smoke.sh .tabby/ee/db.sqlite-wal
 check_tables_research|line-unnamed|home .config/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
