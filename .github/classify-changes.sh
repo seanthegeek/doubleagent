@@ -52,11 +52,14 @@ while IFS= read -r path; do
   esac
 
   # The Go job: the module, its vendored dependencies, every Go source file,
-  # the embedded catalog, the build script the job runs twice and the
-  # licence notices a test compares with vendor/.
+  # the embedded catalog, the build script the job runs twice, the licence
+  # notices a test compares with vendor/, and the two pages Go tests read:
+  # the output page's examples (internal/analyze/examples_test.go) and the
+  # internals page's root-check sentence (internal/follow/confine_sites_test.go).
+  # Every other page sets only the always-run steps below.
   case "$path" in
     go.mod | go.sum | vendor/* | *.go | internal/catalog/catalog.txt | .github/go-build.sh | \
-      THIRD_PARTY_NOTICES.txt)
+      THIRD_PARTY_NOTICES.txt | docs/timeline-output.md | docs/internals.md)
       go_tree=true
       matched=true
       ;;
