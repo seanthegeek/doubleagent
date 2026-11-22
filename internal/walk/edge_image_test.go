@@ -127,17 +127,13 @@ func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun 
 	if err := os.MkdirAll(stageDir+"/fs", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	physical, err := stage.PhysicalDir(stageDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var rows bytes.Buffer
 	log := &edgeLog{}
 	collector := &Collector{
 		Tables: tables, Excludes: tables.Excludes, Secret: MatchAny(tables.SecretGlobs),
 		Log: log, Manifest: manifest.NewWriter(&rows), Root: root, MaxSize: settings.maxSize,
 		NoSecrets: settings.noSecrets,
-		Stager:    stage.Stager{Dir: stageDir, Physical: physical, Root: root, Places: stage.NewPlaces()},
+		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 	}
 	if settings.full {
 		collector.Excludes = nil

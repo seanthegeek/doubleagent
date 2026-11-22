@@ -41,10 +41,10 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 	// Two images, each holding one of a pair that a case-sensitive volume
 	// keeps apart, staged into one directory, as two roots' paths that
 	// differ only in case would be.
-	if !FoldsCase(parent + "/stage/fs") {
+	if !mustTree(t, parent+"/stage/fs").FoldsCase(".") {
 		t.Fatal("FoldsCase says the staging directory tells case apart")
 	}
-	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
+	first := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/one",
 		FoldsCase: true, Places: NewPlaces()}
 	second := first
 	second.Root = parent + "/two"
@@ -80,7 +80,7 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 
 func TestALinkIsNotStagedOverAnotherEntrysLinkInAFoldingStage(t *testing.T) {
 	parent := foldingStage(t)
-	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
+	first := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/one",
 		FoldsCase: true, Places: NewPlaces()}
 	second := first
 	second.Root = parent + "/two"
@@ -111,7 +111,7 @@ func TestOneSourceReachedThroughTwoSpellingsIsStagedTwice(t *testing.T) {
 	// On a volume that folds case, the catalog's AppData/Roaming/Devin and
 	// AppData/Roaming/devin name one directory; both rows are collected.
 	parent := foldingStage(t)
-	stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root",
+	stager := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/root",
 		FoldsCase: true, Places: NewPlaces()}
 	source := parent + "/root/Roaming/devin/User/settings.json"
 	if err := os.MkdirAll(filepath.Dir(source), 0o755); err != nil {
@@ -146,7 +146,7 @@ func TestFoldsCaseAnswersForTheStagingDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	merges := caseErr == nil || formErr == nil
-	if got := FoldsCase(dir); got != merges {
+	if got := mustTree(t, dir).FoldsCase("."); got != merges {
 		t.Errorf("FoldsCase = %v; the directory takes letter case or Unicode forms for one: %v",
 			got, merges)
 	}
@@ -164,7 +164,7 @@ func fileHolds(path, text string) bool {
 
 func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {
 	parent := foldingStage(t)
-	stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root",
+	stager := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/root",
 		FoldsCase: true, Places: NewPlaces()}
 	source := parent + "/root/x"
 	if err := os.MkdirAll(parent+"/root", 0o755); err != nil {
@@ -194,8 +194,8 @@ func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {
 
 // twoFoldingStagers returns two stagers over the roots one and two under
 // parent, staging into one folding staging directory with one record.
-func twoFoldingStagers(parent string) (Stager, Stager) {
-	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
+func twoFoldingStagers(t *testing.T, parent string) (Stager, Stager) {
+	first := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/one",
 		FoldsCase: true, Places: NewPlaces()}
 	second := first
 	second.Root = parent + "/two"
@@ -235,7 +235,7 @@ func TestAFileWhosePlaceHoldsALinkOrDirectoryIsACaseCollision(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			parent := foldingStage(t)
-			first, second := twoFoldingStagers(parent)
+			first, second := twoFoldingStagers(t, parent)
 			stage := func(stager Stager, path string, link bool) error {
 				makeSource(t, path, link)
 				if link {
@@ -283,7 +283,7 @@ func TestACopyAndALinkOfOneFileHaveOneIdentity(t *testing.T) {
 func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 	t.Run("a copy under another entry's link reached through another case", func(t *testing.T) {
 		parent := foldingStage(t)
-		first, second := twoFoldingStagers(parent)
+		first, second := twoFoldingStagers(t, parent)
 		link := parent + "/one/a/cursor"
 		makeSource(t, link, true)
 		if err := first.MakeParent(link); err != nil {
@@ -300,7 +300,7 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 	})
 	t.Run("a file where another entry's directory sits in another case", func(t *testing.T) {
 		parent := foldingStage(t)
-		first, second := twoFoldingStagers(parent)
+		first, second := twoFoldingStagers(t, parent)
 		makeSource(t, parent+"/one/Zed/two/x", false)
 		if _, _, err := copyFile(first, parent+"/one/Zed/two/x"); err != nil {
 			t.Fatal(err)
@@ -320,7 +320,7 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("file too
 
 func TestAFailedCopyInADirectorySpelledInAnotherCaseIsRemoved(t *testing.T) {
 	parent := foldingStage(t)
-	first, second := twoFoldingStagers(parent)
+	first, second := twoFoldingStagers(t, parent)
 	makeSource(t, parent+"/one/Zed/one", false)
 	if _, _, err := copyFile(first, parent+"/one/Zed/one"); err != nil {
 		t.Fatal(err)
@@ -371,7 +371,7 @@ func TestTheSameSourceStagedAgainKeepsTheFirstCopy(t *testing.T) {
 			readOnly)
 		t.Run(name, func(t *testing.T) {
 			parent := foldingStage(t)
-			stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage",
+			stager := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"),
 				Root: parent + "/root", FoldsCase: true, Places: NewPlaces()}
 			makeSource(t, parent+"/root/Devin/x", false)
 			if readOnly {

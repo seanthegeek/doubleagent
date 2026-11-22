@@ -3,8 +3,6 @@ package analyze
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -263,16 +261,7 @@ func removeCreated(directories []string) {
 // creating a file with a random name that must not exist yet and removing
 // it.
 func probeWrite(directory string) bool {
-	random := make([]byte, 16)
-	_, _ = rand.Read(random)
-	probe := filepath.Join(directory, ".write-probe-"+hex.EncodeToString(random))
-	file, err := createNew(probe, 0o600)
-	if err != nil {
-		return false
-	}
-	_ = file.Close()
-	_ = osfile.Remove(probe)
-	return true
+	return probeWriteThen(directory, nil)
 }
 
 // parse collects the rows of every artifact, settles the parent each group

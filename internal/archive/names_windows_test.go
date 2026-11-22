@@ -26,7 +26,7 @@ func TestWriteTarGzKeepsNamesEndingInADotOrASpace(t *testing.T) {
 		}
 	}
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), openTree(t, stage), archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, members := readMembers(t, archivePath)
@@ -75,7 +75,7 @@ func TestArchiveErrorNamesTheNativePath(t *testing.T) {
 		new(windows.Overlapped)); err != nil {
 		t.Fatal(err)
 	}
-	_, err = WriteTarGz(context.Background(), syspath.FromNative(stage), filepath.Join(t.TempDir(), "out.tar.gz"))
+	_, err = WriteTarGz(context.Background(), openTree(t, stage), filepath.Join(t.TempDir(), "out.tar.gz"))
 	if err == nil {
 		t.Fatal("WriteTarGz of a locked file succeeded, want a read error")
 	}

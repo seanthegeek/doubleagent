@@ -787,7 +787,7 @@ func TestTheRunsOpenerCarriesTheDecision(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			opener := state.newCollector("").Stager.Opener
+			opener := state.newCollector(nil).Stager.Opener
 			if opener != state.opener || opener.ReadOnly != test.wantReadOnly ||
 				opener.NTFSUpdatesOff != test.wantOff {
 				t.Errorf("opener %+v (the run's: %v), want ReadOnly %v, NTFSUpdatesOff %v",

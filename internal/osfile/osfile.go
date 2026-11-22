@@ -148,6 +148,20 @@ func RemoveAll(path string) error {
 	return syspath.NativeErrors(os.RemoveAll(syspath.Extended(path)))
 }
 
+// OpenRoot opens the directory path as an os.Root, as os.OpenRoot does.
+// The root's own methods take names relative to it and are not wrapped: on
+// Windows each such name is cleaned by GetFullPathName first
+// (os/root_windows.go), which drops a dot or a space ending a name and
+// refuses a device name, and every open it makes asks for backup intent
+// (FILE_OPEN_FOR_BACKUP_INTENT, internal/syscall/windows/at_windows.go),
+// under which the system may grant access before checking the access list
+// (NtCreateFile); so on Windows no collected name is given to one, and
+// nothing whose answer must match an ordinary creation uses one.
+func OpenRoot(path string) (*os.Root, error) {
+	root, err := os.OpenRoot(syspath.Extended(path))
+	return root, syspath.NativeErrors(err)
+}
+
 // Chtimes sets the access and modification times of path, following a link,
 // as os.Chtimes does.
 func Chtimes(path string, accessed, modified time.Time) error {

@@ -16,6 +16,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // buildStage creates a small staging tree and returns its path, and whether
@@ -112,7 +115,7 @@ func readMembers(t *testing.T, archivePath string) ([]*tar.Header, map[string]st
 func TestWriteTarGzMembers(t *testing.T) {
 	stage, linked := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), openTree(t, stage), archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, contents := readMembers(t, archivePath)
@@ -155,7 +158,7 @@ func TestWriteTarGzIsReadableByTar(t *testing.T) {
 	requireSystemTar(t)
 	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), openTree(t, stage), archivePath); err != nil {
 		t.Fatal(err)
 	}
 	output, err := tarListing(archivePath)
@@ -171,7 +174,7 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 	requireSystemTar(t)
 	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), openTree(t, stage), archivePath); err != nil {
 		t.Fatal(err)
 	}
 	whole, err := os.ReadFile(archivePath)
@@ -198,10 +201,25 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 	}
 }
 
+// openTree opens dir as a staging tree for the test, closed when it ends.
+func openTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
+}
+
 func TestWriteTarGzFailureLeavesNoArchive(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if _, err := WriteTarGz(context.Background(), filepath.Join(t.TempDir(), "missing"), archivePath); err == nil {
-		t.Fatal("a missing stage gave no error")
+	closed := openTree(t, t.TempDir())
+	if err := closed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := WriteTarGz(context.Background(), closed, archivePath); err == nil {
+		t.Fatal("a closed stage gave no error")
 	}
 	if _, err := os.Stat(archivePath); !os.IsNotExist(err) {
 		t.Errorf("partial archive left: %v", err)
@@ -251,7 +269,7 @@ func TestWriteTarGzCreatesItsFileNewAndNeverWritesThroughAnEntryAtItsName(t *tes
 			}
 			// Windows refuses to create a file at a directory's name with its
 			// own error, where the others say the name is taken.
-			_, err = WriteTarGz(context.Background(), stage, path)
+			_, err = WriteTarGz(context.Background(), openTree(t, stage), path)
 			if err == nil || (!before.IsDir() && !errors.Is(err, fs.ErrExist)) {
 				t.Errorf("WriteTarGz = %v, want the name taken", err)
 			}
@@ -302,7 +320,7 @@ func TestAStopRequestEndsTheArchiveAtItsNextCheckAndLeavesNoFile(t *testing.T) {
 			t.Parallel()
 			archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
 			stop := &stopAfterChecks{Context: context.Background(), allowed: testCase.allowed}
-			if _, err := WriteTarGz(stop, stage, archivePath); !errors.Is(err, context.Canceled) {
+			if _, err := WriteTarGz(stop, openTree(t, stage), archivePath); !errors.Is(err, context.Canceled) {
 				t.Fatalf("WriteTarGz = %v, want the stop request", err)
 			}
 			if stop.refused != 1 {
@@ -319,7 +337,7 @@ func TestWriteTarGzHashesTheBytesItWrote(t *testing.T) {
 	stage, _ := buildStage(t)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "run.tar.gz")
-	written, err := WriteTarGz(context.Background(), stage, path)
+	written, err := WriteTarGz(context.Background(), openTree(t, stage), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +355,7 @@ func TestStillNamesKnowsOnlyTheFileWritten(t *testing.T) {
 	stage, _ := buildStage(t)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "run.tar.gz")
-	written, err := WriteTarGz(context.Background(), stage, path)
+	written, err := WriteTarGz(context.Background(), openTree(t, stage), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +428,7 @@ func TestWriteTarGzLongNameUsesPAX(t *testing.T) {
 		t.Fatal(err)
 	}
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
-	if _, err := WriteTarGz(context.Background(), stage, archivePath); err != nil {
+	if _, err := WriteTarGz(context.Background(), openTree(t, stage), archivePath); err != nil {
 		t.Fatal(err)
 	}
 	headers, _ := readMembers(t, archivePath)

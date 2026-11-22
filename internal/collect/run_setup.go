@@ -3,8 +3,6 @@ package collect
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -50,9 +48,10 @@ type runState struct {
 	logPath      string
 	manifestPath string
 	summaryPath  string
-	// stageMade and summaryMade are set once the run has created the
-	// staging directory and collection.json, so it removes only what it made.
-	stageMade   bool
+	// tree is the staging directory once the run has made it, held open
+	// for every staged write (stage.Tree); summaryMade is set once the run
+	// has created collection.json, so it removes only what it made.
+	tree        *stage.Tree
 	summaryMade bool
 	// stageFoldsCase is set where the staging directory takes two names
 	// differing only in case for one (keepCaseApart).
@@ -161,16 +160,7 @@ func resolvePaths(options Options, getwd func() (string, error)) (Options, error
 // probeWrite reports whether a new file can be created in dir, by creating
 // a probe file with a random name that must not exist yet and removing it.
 func probeWrite(dir string) bool {
-	random := make([]byte, 16)
-	_, _ = rand.Read(random)
-	probe := dir + "/.write-probe-" + hex.EncodeToString(random)
-	file, err := osfile.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return false
-	}
-	_ = file.Close()
-	_ = osfile.Remove(probe)
-	return true
+	return probeWriteThen(dir, nil)
 }
 
 // setOutputNames names the run's outputs after the host and the start time.
@@ -209,11 +199,11 @@ func safeHostname(name string) string {
 // what holds it is neither followed nor changed. Under --inventory nothing
 // is created: the log writes no file and the rows go nowhere.
 func (state *runState) openOutputs() error {
-	rows, physical := io.Writer(io.Discard), ""
+	rows := io.Writer(io.Discard)
 	log := runlog.Discard(state.options.Quiet, state.stderr, state.host.now)
 	if !state.options.Inventory {
 		var err error
-		if physical, err = state.makeStage(); err != nil {
+		if state.tree, err = state.makeStage(); err != nil {
 			return err
 		}
 		if state.manifestFile, err = createNew(state.manifestPath); err != nil {
@@ -228,42 +218,38 @@ func (state *runState) openOutputs() error {
 	}
 	state.log, state.manifest = log, manifest.NewWriter(rows)
 	state.manifest.UseSameEntry(follow.SameEntry(state.roots.Expansion()))
-	state.collector = state.newCollector(physical)
+	state.collector = state.newCollector(state.tree)
 	return nil
 }
 
-// makeStage creates the staging directory and its fs directory, each new
-// (osfile.Mkdir), marks fs to keep case apart, and returns the staging
-// directory's physical path. A failure is a fatalError naming the reason.
-func (state *runState) makeStage() (string, error) {
-	err := osfile.Mkdir(state.stageDir, 0o777)
-	state.stageMade = err == nil
-	if err == nil {
-		err = osfile.Mkdir(state.stageDir+"/fs", 0o777)
-	}
+// makeStage creates the staging directory, new and held open
+// (stage.CreateTree), and its fs directory through it, marks fs to keep
+// case apart, and returns the tree. A failure is a fatalError naming the
+// reason; a tree made before it is still returned, so cleanup removes it.
+func (state *runState) makeStage() (*stage.Tree, error) {
+	tree, err := stage.CreateTree(state.stageDir)
 	if err != nil {
-		return "", &fatalError{message: "Cannot create staging dir: " + err.Error()}
+		return nil, &fatalError{message: "Cannot create staging dir: " + err.Error()}
 	}
-	state.stageFoldsCase = state.keepCaseApart(state.stageDir + "/fs")
-	physical, err := stage.PhysicalDir(state.stageDir)
-	if err != nil {
-		return "", &fatalError{message: "Cannot create staging dir: " + err.Error()}
+	if err := tree.MkdirAll("fs"); err != nil {
+		return tree, &fatalError{message: "Cannot create staging dir: " + err.Error()}
 	}
-	return physical, nil
+	state.stageFoldsCase = state.keepCaseApart(tree)
+	return tree, nil
 }
 
-// keepCaseApart marks dir, the new and empty staging fs directory, so it
-// holds two names differing only in case apart (Windows; a no-op elsewhere),
-// and reports whether it still takes two names for one (stage.FoldsCase):
-// any macOS volume (Unicode forms), an exFAT or FAT drive, or a Windows file
-// system without the setting.
-func (state *runState) keepCaseApart(dir string) bool {
+// keepCaseApart marks fs, the new and empty staging fs directory, so it
+// holds two names differing only in case apart (Windows; a no-op
+// elsewhere), and reports whether it still takes two names for one
+// (stage.Tree.FoldsCase): any macOS volume (Unicode forms), an exFAT or FAT
+// drive, or a Windows file system without the setting.
+func (state *runState) keepCaseApart(tree *stage.Tree) bool {
 	mark := state.host.markCaseSensitive
 	if mark == nil {
 		mark = stage.MarkCaseSensitive
 	}
-	_ = mark(dir) // whatever the outcome, the probe says what dir does
-	return stage.FoldsCase(dir)
+	_ = mark(tree.Path() + "/fs") // whatever the outcome, the probe says what fs does
+	return tree.FoldsCase("fs")
 }
 
 // foldingLine is the log line of a run whose staging directory takes two
@@ -276,9 +262,10 @@ func foldingLine(outDir string) string {
 }
 
 // newCollector returns the walk settings of the run: the active exclusions
-// (none under --full), the credential test, the staging directory and the
-// run's one cache of owner names.
-func (state *runState) newCollector(physical string) *walk.Collector {
+// (none under --full), the credential test, the staging tree (nil under
+// --inventory, which stages nothing) and the run's one cache of owner
+// names.
+func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
 	excludes := state.tables.Excludes
 	if state.options.Full {
 		excludes = nil
@@ -287,7 +274,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 	return &walk.Collector{
 		Tables: state.tables, Excludes: excludes, Secret: walk.MatchAny(state.tables.SecretGlobs),
 		Log: state.log, Manifest: state.manifest, Root: root,
-		Stager: stage.Stager{Dir: state.stageDir, Physical: physical, Root: root,
+		Stager: stage.Stager{Dir: state.stageDir, Tree: tree, Root: root,
 			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
@@ -417,8 +404,11 @@ func (state *runState) logNotHeld() error {
 	return state.log.Line(fmt.Sprintf("access times not held: %d file(s)", len(state.notHeld)))
 }
 
-// cleanup closes the run's files and removes the staging directory the run
-// made unless -k was given, on every exit.
+// cleanup closes the run's files and, on every exit, the staging tree the
+// run made, removing it unless -k was given: its contents through the
+// tree, then its name only when that still names it (stage.Tree.Discard).
+// A name that holds something else is left, with a log line before the
+// log closes.
 func (state *runState) cleanup() {
 	if state.rows != nil {
 		_ = state.rows.Flush()
@@ -426,11 +416,15 @@ func (state *runState) cleanup() {
 	if state.manifestFile != nil {
 		_ = state.manifestFile.Close()
 	}
+	if state.tree != nil && state.options.KeepStaging {
+		_ = state.tree.Close()
+	} else if state.tree != nil {
+		if err := state.tree.Discard(); err != nil {
+			state.line("staging directory not removed: " + err.Error())
+		}
+	}
 	if state.log != nil {
 		_ = state.log.Close()
-	}
-	if !state.options.KeepStaging && state.stageMade {
-		_ = osfile.RemoveAll(state.stageDir)
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
@@ -74,7 +75,7 @@ func TestInventoryLinesOfAgentImage(t *testing.T) {
 	collector := &walk.Collector{
 		Tables: tables, Excludes: tables.Excludes, Secret: walk.MatchAny(tables.SecretGlobs),
 		Log: silentLog{}, Manifest: manifest.NewWriter(&strings.Builder{}), Root: root,
-		Stager:  stage.Stager{Dir: stageDir, Physical: stageDir, Root: root, Places: stage.NewPlaces()},
+		Stager:  stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		MaxSize: 1 << 20, Inventory: true, Records: aggregator,
 	}
 	home := filepath.Join(root, "home/alice")
@@ -92,4 +93,15 @@ func TestInventoryLinesOfAgentImage(t *testing.T) {
 	if got.String() != wantInventoryLines {
 		t.Errorf("inventory lines:\n%s\nwant:\n%s", got.String(), wantInventoryLines)
 	}
+}
+
+// stagingTree opens dir as the staging tree of a test, closed when it ends.
+func stagingTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
 }

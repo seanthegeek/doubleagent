@@ -1,5 +1,12 @@
 package walk
 
+import (
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+)
+
 // projectScope decides RootCheck.OutOfRoot's question for root with probe,
 // resolving the root on each call, for tests.
 func projectScope(root, project string, probe probes) rootScope {
@@ -16,4 +23,15 @@ func ProjectOutOfRoot(root, project string) (string, bool) {
 func ProjectLeavesRoot(root, project string) bool {
 	_, leaves := NewRootCheck(root).Exit(project)
 	return leaves
+}
+
+// stagingTree opens dir as the staging tree of a test, closed when it ends.
+func stagingTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
 }
