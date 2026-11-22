@@ -20,25 +20,6 @@ the [research index](../research/README.md); the
 [agents page](agents.md) lists every agent with what is done with its
 files.
 
-The page runs from general rules to particular agents and back:
-
-- How the walk treats editors, [nested entries](#nested-entries),
-  [case variants](#case-variants) and
-  [symbolic links](#paths-through-a-symlinked-directory).
-- Agents whose layout needs explaining, from
-  [Claude Code](#claude-code-config-homes) to
-  [Cursor](#cursor-data-directories).
-- How [homes](#home-directory-discovery) and
-  [projects](#project-discovery) are found, including the
-  [git metadata](#git-metadata) taken from each project.
-- State that no catalog line can reach:
-  [agents outside dot directories](#agents-outside-dot-directories),
-  [frameworks](#agent-frameworks-and-self-hosted-platforms) and
-  [host state](#host-state-is-not-collected).
-- What is skipped or flagged: [exclusions](#default-exclusions),
-  [credentials](#credentials) and how the
-  [patterns match](#pattern-matching).
-
 ## Editors, extensions and shared directories
 
 Editors are collected through their `User` directories; extension state
@@ -134,7 +115,7 @@ attributed to the nested agent, and left out of the enclosing agent's walk.
 
 On a case-insensitive filesystem, catalog lines that differ only by case
 name one directory, which is collected once by the line listed first. On a
-case-sensitive filesystem every variant that exists is collected as before.
+case-sensitive filesystem every variant that exists is collected.
 
 The variants in the catalog, where both can exist on Linux:
 
@@ -276,8 +257,8 @@ the glob and refused by the walk as described above.
   nonetheless opens outside the image root is not copied or listed and is
   logged once
   (`...: the root check allowed it but Windows opened it outside the image root; nothing from it was used`;
-  [Project discovery in `internals.md`](internals.md#project-discovery) has
-  the detail).
+  [The image root in `internals.md`](internals.md#the-image-root) has the
+  detail).
 - An excluded path that is itself a link to a directory gets a `dir`
   `skipped_excluded` row, except on Linux and macOS when the link leads out
   of the image root: that row describes the link itself, from its lstat,
