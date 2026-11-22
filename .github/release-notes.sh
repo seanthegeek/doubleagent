@@ -2,9 +2,9 @@
 # Print the release notes of one version: the body of its "## [VERSION] -
 # YYYY-MM-DD" section of the changelog, then the file's link reference
 # definitions, so a reference such as [#12] still resolves in the release.
-# A relative link target is made absolute against BASE_URL, the URL of the
-# changelog's directory at the tagged commit, since a release page has no
-# directory of its own. Fails when VERSION is not a version number (1.2.3 or
+# A relative link target, inline or in a definition, is made absolute against
+# BASE_URL, the URL of the changelog's directory at the tagged commit, since
+# a release page has no directory of its own. Fails when VERSION is not a version number (1.2.3 or
 # 1.2.3-rc.1) or the changelog has no dated, non-empty section for it.
 set -eu
 version=${1:?usage: release-notes.sh VERSION CHANGELOG BASE_URL}
@@ -20,6 +20,9 @@ fi
 # when the section holds nothing.
 status=0
 awk -v version="$version" -v base="$base_url" '
+  function relative(target) {
+    return target != "" && target !~ /^[a-z][a-z0-9+.-]*:/ && target !~ /^#/
+  }
   function absolute(line,    out, rest, start, target) {
     out = ""
     rest = line
@@ -27,13 +30,19 @@ awk -v version="$version" -v base="$base_url" '
       out = out substr(rest, 1, start + 1)
       rest = substr(rest, start + 2)
       target = substr(rest, 1, index(rest, ")") - 1)
-      if (target != "" && target !~ /^[a-z][a-z0-9+.-]*:/ && target !~ /^#/)
+      if (relative(target))
         out = out base
     }
     return out rest
   }
+  function definition(line,    at) {
+    at = index(line, "]: ")
+    if (relative(substr(line, at + 3)))
+      return substr(line, 1, at + 2) base substr(line, at + 3)
+    return line
+  }
   /^\[/ && index($0, "]: ") > 2 {
-    definitions = definitions $0 "\n"
+    definitions = definitions definition($0) "\n"
     if (inside) inside = 0
     next
   }

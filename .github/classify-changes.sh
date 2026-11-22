@@ -40,14 +40,15 @@ while IFS= read -r path; do
 
   # The lint job's ruff and pyright steps and the tests of the tools/
   # checkers and of the round pipeline, which read every file of lab/;
-  # the drift checkers' tests also read the catalog, and the code style
-  # checker's tests the two Go files holding its reviewed long functions.
+  # the drift checkers' tests also read the catalog, the code style
+  # checker's tests the two Go files holding its reviewed long functions,
+  # and tools/tests/test_release_notes.py runs the release notes script.
   case "$path" in
     tools/drift-baseline/*) ;;
     *.md) ;;
     tools/* | lab/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
       internal/catalog/catalog.txt | internal/follow/confine_sites_test.go | \
-      internal/follow/guard_lists_test.go)
+      internal/follow/guard_lists_test.go | .github/release-notes.sh)
       python=true
       matched=true
       ;;
