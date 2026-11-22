@@ -95,7 +95,7 @@ func isLetter(char byte) bool {
 	return (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z')
 }
 
-// isQuote reports whether char is one of the quotes sed's ["'] strips.
+// isQuote reports whether char is a double or a single quote.
 func isQuote(char byte) bool { return char == '"' || char == '\'' }
 
 // yamlValueMatcher matches a line starting with `KEY:` gives the rest
@@ -180,7 +180,7 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 	}
 }
 
-// decodeSpaces applies sed's `s/%20/ /g` to each value.
+// decodeSpaces replaces every %20 of each value with a space.
 func decodeSpaces(values []string) []string {
 	for i, value := range values {
 		values[i] = strings.ReplaceAll(value, "%20", " ")
@@ -241,7 +241,7 @@ func commonDir(paths []string) (string, bool) {
 	return strings.Join(common, "/"), true
 }
 
-// awkSplit is awk's split on "/": an empty string has no parts.
+// awkSplit splits text at every "/"; an empty string has no parts.
 func awkSplit(text string) []string {
 	if text == "" {
 		return nil

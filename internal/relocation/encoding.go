@@ -41,10 +41,10 @@ func markOf(text []byte) (byteOrderMark, bool) {
 }
 
 // decodeUnicodeText returns the UTF-8 form of text when it starts with a
-// UTF-16 or UTF-32 byte-order mark, the mark dropped as a StreamReader drops
-// it; any other text, one with a UTF-8 mark included, comes back unchanged,
-// as grep reads its bytes. A unit that is no valid character, or a short unit
-// at the end, becomes U+FFFD, as the StreamReader's decoder replaces it.
+// UTF-16 or UTF-32 byte-order mark, the mark dropped; any other text, one
+// with a UTF-8 mark included, comes back unchanged, to be searched as bytes.
+// A unit that is no valid character, or a short unit at the end, becomes
+// U+FFFD.
 func decodeUnicodeText(text []byte) []byte {
 	mark, ok := markOf(text)
 	if !ok {

@@ -64,8 +64,7 @@ func bounded(text, needle string, powerShell bool) bool {
 	}
 }
 
-// lowerASCII lowers the ASCII letters of text and leaves every other byte, as
-// awk's tolower does under LC_ALL=C.
+// lowerASCII lowers the ASCII letters of text and leaves every other byte.
 func lowerASCII(text string) string {
 	lowered := []byte(text)
 	for i, char := range lowered {

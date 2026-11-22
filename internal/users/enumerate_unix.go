@@ -115,7 +115,8 @@ func dsclHomes(ctx context.Context, run Runner) []Home {
 	return homes
 }
 
-// isBlank is awk's default field separator under LC_ALL=C: space, tab and newline.
+// isBlank reports whether char separates the fields of a dscl line: a space,
+// a tab or a newline.
 func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n' }
 
 // globHomes returns, for each home parent in order, the entries that exist

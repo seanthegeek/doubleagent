@@ -279,8 +279,7 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 }
 
 // boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32
-// text decoded first; a file that cannot be read has none, as grep lists no
-// file it cannot open.
+// text decoded first; a file that cannot be read has none.
 func (run *search) boundedNamesOf(path string) []LineName {
 	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
