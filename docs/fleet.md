@@ -113,10 +113,10 @@ login banner and a record cut off mid-line:
 
 ```text
 skipped 2 non-inventory lines in /cases/fleet/inventory/ws02.jsonl
-rows:   9 from 4 hosts in /cases/fleet/fleet-inventory.csv
+rows:   8 from 4 hosts in /cases/fleet/fleet-inventory.csv
 
 agent                   hosts  users  latest
-claude-code                 3      4  2026-10-05T09:00:00.000Z
+claude-code                 3      3  2026-10-05T09:00:00.000Z
 codex-cli                   2      2  2026-10-04T11:45:00.000Z
 agent-zero                  1      1  2026-10-03T10:00:00.000Z
 cursor                      1      1  2026-10-04T09:30:00.000Z
@@ -127,15 +127,14 @@ run:
 
 ```text
 host,collector,mode,at,user,agent,files,bytes,first,last,projects,evidence
-ws01,1.22.0,live,2026-10-04T16:31:54.000Z,alice,claude-code,6,318,2026-09-15T01:02:03.000Z,2026-10-04T16:31:11.000Z,29,".claude,.claude.json*"
-ws01,1.22.0,live,2026-10-04T16:31:54.000Z,alice,codex-cli,1,35,2026-10-01T00:00:00.000Z,2026-10-01T00:00:00.000Z,29,.codex
-ws01,1.22.0,live,2026-10-04T16:31:54.000Z,bob,claude-code,0,0,,,0,.claude
-ws01,1.22.0,live,2026-10-04T16:31:54.000Z,docker,agent-zero,2,63,2026-10-02T10:00:00.000Z,2026-10-03T10:00:00.000Z,0,*a0_usr
-ws02,1.22.0,image,2026-10-05T06:00:00.000Z,carol,cursor,11,100667,2026-09-20T12:00:00.000Z,2026-10-04T09:30:00.000Z,4,".cursor,.config/Cursor"
-ws02,1.22.0,image,2026-10-05T06:00:00.000Z,carol,claude-code,19,34293,2026-09-01T08:00:00.000Z,2026-10-03T21:15:00.000Z,4,".claude,.claude.json*"
-ws02,1.22.0,image,2026-10-05T06:00:00.000Z,dave,codex-cli,8,59166,2026-09-28T07:00:00.000Z,2026-10-04T11:45:00.000Z,2,.codex
-ws03,1.22.0,live,2026-10-05T09:10:00.000Z,,,,,,,,
-ws04,1.21.0,live,2026-10-05T09:20:00.000Z,erin,claude-code,3,900,2026-10-01T00:00:00.000Z,2026-10-05T09:00:00.000Z,1,.claude
+ws01,0.1.1,live,2026-10-04T16:31:54.000Z,alice,claude-code,6,318,2026-09-15T01:02:03.000Z,2026-10-04T16:31:11.000Z,29,".claude,.claude.json*"
+ws01,0.1.1,live,2026-10-04T16:31:54.000Z,alice,codex-cli,1,35,2026-10-01T00:00:00.000Z,2026-10-01T00:00:00.000Z,29,.codex
+ws01,0.1.1,live,2026-10-04T16:31:54.000Z,docker,agent-zero,2,63,2026-10-02T10:00:00.000Z,2026-10-03T10:00:00.000Z,0,*a0_usr
+ws02,0.1.1,image,2026-10-05T06:00:00.000Z,carol,cursor,11,100667,2026-09-20T12:00:00.000Z,2026-10-04T09:30:00.000Z,4,".cursor,.config/Cursor"
+ws02,0.1.1,image,2026-10-05T06:00:00.000Z,carol,claude-code,19,34293,2026-09-01T08:00:00.000Z,2026-10-03T21:15:00.000Z,4,".claude,.claude.json*"
+ws02,0.1.1,image,2026-10-05T06:00:00.000Z,dave,codex-cli,8,59166,2026-09-28T07:00:00.000Z,2026-10-04T11:45:00.000Z,2,.codex
+ws03,0.1.1,live,2026-10-05T09:10:00.000Z,,,,,,,,
+ws04,0.1.0,live,2026-10-05T09:20:00.000Z,erin,claude-code,3,900,2026-10-01T00:00:00.000Z,2026-10-05T09:00:00.000Z,1,.claude
 ```
 
 `ws02`'s `host` line gives its start as `2026-10-05T08:00:00+02:00`, which
