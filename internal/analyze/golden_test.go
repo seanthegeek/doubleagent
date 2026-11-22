@@ -105,6 +105,7 @@ func goldenEnvironment() Environment {
 }
 
 func TestGoldenOutputOfTheAnalysisCommands(t *testing.T) {
+	checkNoStaleGoldenFiles(t, goldenCases())
 	work := buildGoldenInputs(t)
 	for _, test := range goldenCases() {
 		t.Run(test.name, func(t *testing.T) {
@@ -238,4 +239,56 @@ func writeGolden(t *testing.T, path, text string) {
 	}
 	writeFile(t, target, text)
 	t.Logf("wrote %s (%d bytes)", target, len(text))
+}
+
+// checkNoStaleGoldenFiles fails the test on a directory under
+// goldenDirectory that names no case, and on a file in a case's directory
+// that the case does not compare (its stdout.txt, stderr.txt and outputs,
+// each plain or compressed), so a case renamed or an output dropped cannot
+// leave an expected file nothing reads. DOUBLEAGENT_UPDATE_GOLDEN=1 removes
+// them instead.
+func checkNoStaleGoldenFiles(t *testing.T, cases []goldenCase) {
+	t.Helper()
+	compared := map[string]map[string]bool{}
+	for _, test := range cases {
+		names := map[string]bool{}
+		for _, file := range append([]string{"stdout.txt", "stderr.txt"}, test.outputs...) {
+			names[file], names[file+".gz"] = true, true
+		}
+		compared[test.name] = names
+	}
+	directories, err := osfile.ReadDir(goldenDirectory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, directory := range directories {
+		names, isCase := compared[directory.Name()]
+		if !isCase || !directory.IsDir() {
+			staleGolden(t, filepath.Join(goldenDirectory, directory.Name()), "names no case")
+			continue
+		}
+		files, err := osfile.ReadDir(filepath.Join(goldenDirectory, directory.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range files {
+			if !names[file.Name()] {
+				staleGolden(t, filepath.Join(goldenDirectory, directory.Name(), file.Name()),
+					"is no file its case compares")
+			}
+		}
+	}
+}
+
+// staleGolden removes path when the expected files are being rewritten and
+// otherwise fails the test, saying why the path is stale.
+func staleGolden(t *testing.T, path, why string) {
+	t.Helper()
+	if os.Getenv(updateGoldenVariable) == "1" {
+		if err := osfile.RemoveAll(path); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	t.Errorf("%s %s; remove it or add it to a case", path, why)
 }
