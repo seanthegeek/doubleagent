@@ -1,342 +1,292 @@
 # Testing
 
-The collectors are tested end to end. `tests/smoke.sh` and `tests/smoke.ps1`
-build a fake disk image with two users, awkward file names, credentials,
-excluded directories, an oversized file and symlinks, run the collector
-over it in image mode and check the manifest rows, the archive and each
-option; `tests/catalog-sync.sh` checks that the catalog tables agree
-between the two scripts and the analyzer's copy. A change to a collector
-runs the sh smoke test under every shell the script must support, the
-PowerShell one under PowerShell 7 and Windows PowerShell 5.1, and the drift
-check before it is pushed, and CI runs the same matrix.
-
-Run from the `collectors/` directory:
+DoubleAgent is tested with Go's own test tool. Most packages have unit
+tests beside their code; on top of those, `doubleagent collect` is run end
+to end over a fake disk image and its whole output compared with expected
+files on Linux, macOS and Windows, the analysis commands are run over
+synthetic collections and compared the same way, and every parser is held
+to output and work that grow in step with its input. Every `go` command
+needs the build tags [Development](development.md#build-tags) gives:
 
 ```sh
-tests/smoke.sh          # under sh
-tests/smoke.sh dash
-tests/smoke.sh bash
-printf '#!/bin/sh\nexec busybox ash "$@"\n' > /tmp/ash && chmod +x /tmp/ash && tests/smoke.sh /tmp/ash
-printf '#!/bin/sh\nexec zsh --emulate sh "$@"\n' > /tmp/zsh-sh && chmod +x /tmp/zsh-sh && tests/smoke.sh /tmp/zsh-sh
-tests/smoke.sh posh
-shellcheck -s sh -S warning collect-agent-artifacts.sh
-tests/catalog-sync.sh   # the tables, --list output and the analyzer copy agree
-pwsh -NoProfile -File tests/smoke.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\smoke.ps1   # on Windows
+export GOFLAGS=-tags=noasm,nounsafe
+go test ./...                          # every package
+CGO_ENABLED=1 go test -race ./...      # under the race detector, as CI runs it
+go test ./internal/parser/codex        # one package
 ```
 
-The linters CI runs on every file (shfmt, shellcheck with `.shellcheckrc`,
-checkbashisms, PSScriptAnalyzer, markdownlint) are listed under "Quality
-gates" in [AGENTS.md](../AGENTS.md#quality-gates).
+No test reads the developer's home directory or the network, and no test
+runs `doubleagent collect` without `-r` on an image it built: a
+collection run without a root, or with an empty one, collects the
+machine it runs on, credentials included.
 
-## Smoke tests
+## Unit tests
 
-`tests/smoke.sh [SHELL]` runs the collector script under `SHELL` (default
-`sh`, a name on the `PATH` or a path), and passes the same shell to the `find
--exec` workers through `COLLECTOR_SH`. Every collection run is in image mode
-with `--max-file-size 1` except three: a live run limited to a user that does
-not exist (`-u no-such-user-cac --no-docker --no-projects`), which checks that
-no `live/` directory or `live` row appears; a run with a relative `-r` and
-`CDPATH` set, which checks that the image in the working directory is
-collected; and, when not run as root, a run into a read-only output directory,
-which must exit `2` before collecting. A run with `-o` under a file must exit
-`2` the same way. It works in a `cac-smoke.*` directory under `TMPDIR`
-(default `/tmp`). The directory is removed when every check passes and kept,
-with its path printed, when one fails. The exit status is `0` or `1`. With
-`SMOKE_IMAGE_ONLY=1` in the environment the test builds the main fake image
-and stops before the first collection run: it prints the work directory as
-its last line of stdout, runs no check, exits `0` and leaves the directory,
-whose `root/` is the image, for the caller to remove.
+Each package under `internal/` has its tests in `_test.go` files beside
+its code, table-driven, with subtest names that read as sentences, and
+fixtures built under the test's temporary directory. A parser's package
+under `internal/parser/` tests it over synthetic records shaped like the
+ones its research document records, and keeps any binary input it needs
+(a SQLite database, a zstd frame, a protobuf blob) under its `testdata`
+directory; the scripts beside such a file built it once, and no test or
+CI step runs them.
 
-Both smoke tests time the collector runs they make through their run
-helpers (`run` and `inventory_run` in the sh test; `Run`, `InventoryRun` and
-`RunLinkImage` in the PowerShell test). After such a run they print
-`== run NAME: Ns`, with `N` the whole seconds the collector took, and before
-the verdict `== N collector runs: Ns; test: Ns`: the number of those runs,
-their total seconds and the seconds the whole test took. A run a test makes
-outside those helpers is not timed.
+## The fixture image
 
-The main image also holds one file per `STARTUP_FILES` line, each assigning
-one relocation variable in its own shell's syntax, and a home file that names
-every `RELOCATION_VARS` variable; the checks cover each file's row, the hints
-in `collection.json`, a lowercase name in a `.ps1` file (a hint) and in a bash
-file (none), a `#!/usr/bin/env bash` line (no `ENV` hint), a symlinked startup
-file (no hint), and that the log holds no assignment text. The sh test adds a
-check that a resolved path appears only on its own hint line, and a property
-list holding a NUL byte, hinted when `capabilities.grep_text` is true. A separate `envscan` run covers `--env-scan-home` and its size limit,
-an `envscanonce` run with one more startup file and one more swept file checks
-that `files_searched` grows by two, and an invalid `--env-scan-max-size`
-exits with code 1. Both smoke tests give these checks the same names, the
-sh-only `-q`, NUL-byte, newline-name, service-home and nested-home checks
-aside (the PowerShell test's image has no `etc/passwd` service home or nested
-home, and the newline-name hint, hash and size checks have no PowerShell
-counterpart). Only the `#473` and `#478` checks for names holding or ending
-in a newline and the `#480` check for a symlink target ending in one run in
-both tests; the PowerShell test skips them on Windows, where a name cannot
-hold a newline, and where it cannot create the symlink, and prints a `note:`
-line each time.
+`internal/collect/imagetest` builds, for tests only, the fake disk image
+that `doubleagent collect` is tested against: users' homes holding every
+agent's files, credentials, excluded directories, an oversized file,
+projects that agents' state names, Docker volumes, startup files that
+set relocation variables, links, and names no file system makes easy. A
+committed tree or archive could not hold it, since it has names with `"`
+and `\`, names that differ only in case, symbolic links, sockets, named
+pipes, unreadable directories and, on Windows, junctions and deny rules;
+the test replays a manifest instead, under a temporary directory:
+[`image_unix.txt`](../internal/collect/imagetest/testdata/image_unix.txt)
+on Linux and macOS and
+[`image_windows.txt`](../internal/collect/imagetest/testdata/image_windows.txt)
+on Windows.
 
-`tests/smoke.ps1` takes `-Collector PATH` to test a copy of the script other
-than the one beside it, which is how the test runs under Windows PowerShell
-5.1 from a WSL checkout. It works under the system temp directory, keeps it
-on failure in the same way, and skips the symlink checks, saying so, where
-creating symlinks is not permitted. Its symlink-in-archive checks use a
-separate small image with a relative, a dangling and a directory symlink
-(and, on Windows, a junction) and run it four times: with `tar`, with the
-PowerShell tar writer, with the zip from the start, and, off Windows, with a
-`tar` that fails and the zip after it (the late fall back to zip).
+Each line of a manifest is one entry: a path below the image's work
+directory, with `/` between names, a kind, its argument, then optional
+`name=value` attributes, all single spaces apart:
 
-With `SMOKE_IMAGE_ONLY=1` in the environment `tests/smoke.ps1` stops, like
-`tests/smoke.sh`, once the main fake image is built: it closes its Unix
-socket (the socket file stays), prints the work directory as its last line
-of stdout and exits `0`. The Go binary's Windows parity harness
-(`internal/collect/parity`, `*_windows_test.go`, build tag `parity`) builds
-the image that way with `TEMP` and `TMP` set to its own temporary directory,
-runs the PowerShell collector through
-`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 'collectors\Collect-AgentArtifacts.ps1' ...; exit $LASTEXITCODE"`
-and the binary over it with the same options (the binary's sh-style
-options mapped onto the collector's parameters, every `-p` value into one
-`-Project` list), and compares their manifests, `collection.json` files,
-logs, output and archive members after dropping the differences the Go
-rewrite's plan accepts. Its two live runs, the `-Users no-such-user-cac` run
-and the `HKCU\Environment\CODEX_HOME` registry run, are run only where
-`PARITY_LIVE=1`, which only the CI parity job on Windows and the lab VM set.
-
-`CAC_ARCHIVER` is a test hook for the PowerShell collector that sets the
-archivers to try, in order, as a comma-separated list of `tar`, `writer`
-(the PowerShell tar writer) and `zip`; the default is `tar,writer,zip`. An
-unknown name exits `2`, `tar` is dropped when no `tar` is on the `PATH`,
-and the archive is a `.zip` only when `zip` comes first, in which case no
-symlinks are staged. The smoke test uses `writer` and `zip` to run each
-archiver on every platform, and `tar,zip` with a failing `tar` for the late
-zip fallback. It also collects an image with Latin-1, Cyrillic and CJK file
-names and a symlink with a Cyrillic name: on Windows `tar.exe` fails on it,
-and the test checks the PowerShell tar writer's archive, `archiver`, the
-note and the log line, and reads the archive with its own .NET tar reader
-(header checksums, pax records, member names, link targets and hashes),
-since `tar.exe` cannot list those names. With the writer forced, it checks
-that the platform `tar` lists the same members as the default run and
-extracts bytes that match the manifest, and with the zip forced that the
-entry names use `/`.
-
-Each smoke test builds a fake disk image with two users, a service account,
-awkward filenames, a symlink, credential files, excluded directories, an
-oversized file and projects referenced from agent state, then checks the
-manifest, hashes and archive contents. The sh test also has a `nobody`
-account to skip. It is POSIX sh too, and its JSON validity and hash
-cross-check steps run only when `python3` is available. The PowerShell test
-uses a Windows profile tree with drive-letter and `file:///` project
-references and runs under both PowerShell 5.1 and 7. Both tests read
-project folders from Antigravity project files with a POSIX or
-drive-letter `file:///` URL.
-
-Both smoke tests also build root and rootless Docker volumes, one matched
-and one unmatched, check `--no-docker` and the Docker Desktop note, and run
-`--no-secrets`, `--full` and `-u`. The sh test adds an unreadable volume and
-data root when it is not run as root. Both run `--inventory` / `-Inventory`
-against the same image and check the key order of both line types, one
-known line's `files`, `bytes`, `first`, `last` and `evidence`, that an
-excluded subtree is not counted (and is with `--full`), the Docker volume
-lines, `-u`, `--no-docker`, that nothing is written in the current directory
-or under `-o`, that stdout stays pure JSON Lines with and without `-q`, and,
-on a POSIX host not run as root, that an unreadable home is counted in
-`users_unreadable`.
-
-The sh test also runs a small separate image through the batched stage
-worker, which lstats, copies and hashes up to 256 files at a time: names
-with a newline, a backslash and a carriage return, an unreadable file
-between readable ones (not when run as root), an excluded directory whose
-path holds a newline, and 300 files, more than one chunk. It checks the
-hashes against the archived bytes, the `error_copy` row and log line, the
-size in the excluded directory's row, that a run with `CAC_NO_BATCH=1` (the
-per-file path) writes the same manifest in the same order apart from
-`atime`, and that a copy of the collector forced onto `shasum` writes the
-same manifest.
-
-## Table coverage checks
-
-Two checkers compare each line of the catalog tables with what
-should exist for it elsewhere in the repository. Run them from the
-repository root; both use the standard library alone:
-
-```sh
-python3 tools/check_tables_research.py   # each line against its agent's research document
-python3 tools/check_smoke_coverage.py    # each line against both smoke tests
+```text
+"root/home/alice/.claude/settings.json" file "{}\n" mode=0600
 ```
 
-`tools/check_tables_research.py` reports a line whose glob no code span of
-the Collection part of the agent's research document names, a credential
-file that document names that no secret glob flags and the Secrets section
-does not list, a secret glob an exclusion hides, an exclusion or secret glob
-that no home or project entry reaches and no one Docker volume agent's
-document names, a Docker volume glob that the document's Per-user storage
-subsection about the volume does not name, an exclusion below a Docker
-volume's mount directory without its volume-relative twin, two agents' home
-entries whose first differing segment differs only by case or whose first
-segments differ and can still match one path, a Credentials section saying
-a file is
-left unflagged instead of naming its secret glob, a timeline row text or
-record key under Collection, a catalog agent without a research document or
-a row on the [agents page](agents.md), and a row on that page
-naming no catalog agent. For the relocation tables it reports a
-`RELOCATION_VARS` line whose variable no row of the Relocation variables
-table of its agent's research document names (`research/shared.md` for
-`shared`), a row naming an agent with no such line, a row whose Replaces
-column's first code span differs from the line's third field, and a
-`STARTUP_FILES` glob that no
-code span of the Startup and environment files subsection of
-`research/shared.md` names.
-
-`tools/check_smoke_coverage.py` requires, in both smoke files, a
-default-run check asserting `secret: true` and a `--no-secrets` check
-asserting `skipped_secret` on a path each `SECRET_GLOBS` line matches, a
-check asserting `skipped_excluded` for each `EXCLUDES` line, and for each
-`CATALOG` and `PROJECT_CATALOG` line a fixture path it matches whose name
-the research document gives, and for each agent with a `secret` case in
-the frameworks case list (`CASES_FW` in `smoke.sh`, `$CasesFrameworks` in
-`smoke.ps1`) a `--no-secrets` check asserting `skipped_secret` on one of
-them. It also requires a fixture path that each `STARTUP_FILES` line matches
-(home globs under a home, system globs under the image root, project globs
-under a project) and a default-run check asserting `secret: true` on it.
-It reads both smoke tests as text: keep
-fixture paths and check arguments as literals, variables assigned from
-literals, `kind|agent|path` case lists, or here-document lists read by
-`while read`, and write `Row` and `StatusOf` arguments in `smoke.ps1` from
-the image root (`Users/alice/...`), never as a suffix.
-
-The disagreements that existed when the checkers were written are
-recorded in `tools/drift-baseline/`, and only a finding missing from it
-fails; [Drift checkers in `docs/development.md`](development.md#drift-checkers)
-describes the finding format and the baseline.
-
-## Smoke-row diff
-
-An `EXCLUDES` or `SECRET_GLOBS` glob matches relative to every collection
-base (each home, discovered project and volume `_data`), and its `*` matches
-across `/`, so it can reach paths its author did not mean.
-`tools/diff_smoke_rows.py` shows what a table change does to the main fake
-image of the sh smoke test, the one its first collection run reads (the
-smaller images and the files later runs add are not in it): run it from the
-repository root before committing a change to a table line, and attach its
-output to the change's review. It runs the collector twice, so pick a fast
-shell where `/bin/sh` is a slow one (bash on macOS):
-
-```sh
-python3 tools/diff_smoke_rows.py --shell dash origin/main   # the working tree's collector against main
-python3 tools/diff_smoke_rows.py --shell dash origin/main HEAD   # two commits
-python3 tools/diff_smoke_rows.py origin/main                # under /bin/sh
-```
-
-It builds the image once from the working tree's `tests/smoke.sh` with
-`SMOKE_IMAGE_ONLY=1`, writes the collector of each commit with `git show`
-(the working tree's file when the second commit is left out), runs each over
-the image with the smoke test's own command line,
-`COLLECTOR_SH=SHELL SHELL SCRIPT -r ROOT -o OUT -q --max-file-size 1`
-(`SHELL` from `--shell`, default `/bin/sh`), and compares the two
-`manifest.jsonl` files. It removes the image and both outputs when it ends,
-a failed collector run included; only an image build that fails before
-printing its work directory leaves that `cac-smoke.*` directory under
-`TMPDIR`. It prints:
-
-| Part | What it holds |
+| Part | Holds |
 | --- | --- |
-| `table lines changed from BASE to HEAD:` | each line added (`+`) or removed (`-`) between the two `--list` outputs, with its table name (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`); `(none)` when there is none; a further line when the `DOCKER_VOLUMES` lines both scripts have changed order, since the first matching line wins |
-| `paths whose rows changed: N` | the count of image paths whose rows under some base differ in `status`, `agent` or `secret`, or exist in only one manifest; rows are compared per path and base, so facts that trade places between two bases of one path count |
-| one group per changed table line | the paths the line's glob matches, each as `PATH: BEFORE -> AFTER`, the path as it reads on the imaged host and each side `STATUS agent=AGENT secret=true base=BASE` (or `secret=false`) for each row under a base whose rows changed, with `agent=-` for an empty agent and the rows of a path with several joined by `; `, or `(no row)` |
-| `unattributed` | the changed paths no changed line matches |
-| the closing note | that the image holds only the smoke test's main fixtures, so a glob matching too much shows only where a fixture path exists to catch it |
+| path | a Go double-quoted string, as `strconv.Quote` writes it, so `"` and `\` are escaped with `\`, a byte that is not valid UTF-8 is `\xNN` and a control character its escape (`\n`) |
+| kind | `dir`, `file`, `link` (a symbolic link), `dirlink` (a Windows directory symbolic link), `junction` (a Windows junction), `fifo` (a named pipe, Unix only) or `socket` (a Unix domain socket file) |
+| argument | for a file its content, as quoted parts or `count*"text"` repeats, so a large file is not stored; for a link or junction its quoted target; nothing for the other kinds |
+| `from=work` | the target is a path below the work directory |
+| `mode=0700` | the permission bits, on Unix and not for links (default `0644`, `0755` for a directory or socket) |
+| `mtime=` | an RFC 3339 modification time (default 2026-10-01T00:00:00Z) |
+| `deny=` | the `icacls` rights `RD`, `WD` and `AD`, joined by commas, denied to the current user on the entry alone (Windows only) |
 
-A path goes under every changed line that matches it relative to one of the
-bases whose rows changed (a file inside a project inside a home has a row
-under each base; a base whose rows did not change is not tried): a `CATALOG` or
-`PROJECT_CATALOG` glob when it matches the leading segments of the path
-relative to its base, one segment at a time; an `EXCLUDES` glob when it
-matches that relative path or one of its parent directories; a
-`SECRET_GLOBS` glob when it matches the relative path itself; a
-`DOCKER_VOLUMES` glob when it matches the name of the volume whose `_data` is
-one of the path's bases. The collector decides the rows; the grouping only points at the line
-likely responsible. Read each group for paths the line was not meant to
-reach. The exit status is `0`; with `--fail` it is `1` when any row changed;
-it is `2` when a step (the image build, `git show`, a collector run) fails
-or a command cannot be started, such as a `--shell` that does not exist.
+Lines starting with `#` are comments. The entries stay sorted as
+`LC_ALL=C sort` orders the lines; the order does not change what is
+built, and the package's own tests fail on a line out of order or not
+written as the package's formatter writes it. The builder sets every
+entry's times and mode, deepest first, so making a child never moves its
+directory's time. A file system that ignores letter case keeps one entry
+of each pair differing only in case.
 
-## Fork budget
+The manifest is edited by hand. When a catalog line gains a fixture, add
+the file's line to the manifest of each platform whose homes the line
+covers, in its sorted place (the builder makes the directories above it),
+run `go test ./internal/collect/imagetest`, then rewrite the collection's
+expected output on every platform
+([Expected output of `collect`](#expected-output-of-collect)): every run
+over the image now has a new row. What a single case adds to the image,
+or a separate root a case runs over, is built by a method of the image in
+`setups_unix.go` or `setups_windows.go`.
 
-The sh collector spends its time forking processes: every `$(...)`,
-pipeline element and external command is one, and a function that runs a
-program inside `$(...)` forks twice. Wall time on a shared machine varies
-from run to run, but the number of processes the collector forks over a
-fixed image under a fixed shell on one filesystem does not, so
-`tools/check_fork_budget.py` counts them. The count does depend on the
-order the filesystem lists a directory's entries: the stage worker copies
-each run of consecutive files of one directory with one `cp`, and where the
-listing puts a subdirectory between two files, the run splits in two. An
-ext4 and a tmpfs image of the same tree differ by a few tenths of a
-percent, inside the tolerance, and the budget is the count on the CI
-runner. The tool needs `strace`, so it runs on Linux (CI, or the Ubuntu
-lab VM from a Mac), never on macOS and never beside a smoke test:
+## Expected output of `collect`
+
+`TestCollectWritesItsGoldenOutput` in `internal/collect` builds the
+program, builds the fixture image and runs `doubleagent collect` over it
+once per case, then compares everything the run wrote with the case's
+expected files. Every case passes `-r` (the image root unless the case
+names another root), then `--inventory`, or `-o`, `-q` and
+`--max-file-size 1`, then its own options. The cases are listed in
+`golden_cases_unix_test.go` and `golden_cases_windows_test.go`: the
+default run, `--no-secrets`, `--full`, `-u`, `--no-docker`,
+`--env-scan-home`, `--inventory` and its combinations, extra `-p`
+projects, roots with awkward names, relative roots and working
+directories, unreadable files and directories, and runs that must fail
+before writing anything.
+
+Each case's expected files are under
+`internal/collect/testdata/golden/<directory>/<case>/`, one per output:
+`stdout.txt`, `log.txt` (the log, named so because git ignores `*.log`),
+`manifest.jsonl`, `collection.json`, `archive.txt` (one line per archive
+member, with its type or hash) and `exit-code.txt`.
+
+| Directory | Read on | Holds |
+| --- | --- | --- |
+| `unix/` | Linux and macOS | every case's whole expected output |
+| `linux/`, `darwin/` | that platform alone | only where that platform's output differs from `unix/`: a file as a difference from `unix/`'s (`<file>.unix-delta`), a whole file, or `<file>.absent` for a file that platform does not write |
+| `windows/` | Windows | every Windows case's whole expected output |
+
+A case that collects the main image may keep a file as a line difference
+from the default case's file of the same directory, `<file>.delta`, when
+that is shorter. Before comparing, the test replaces only what differs
+from run to run or machine to machine, and checks the shape of each value
+it replaces:
+
+- the output directory, the image's work directory and the run name,
+  written `{OUT}`, `{WORK}` and `{NAME}`, in every spelling a path takes;
+- the log's timestamps, and its first line's version, host, system and
+  account; the archive's size and hash in the log and on stdout; on
+  Windows the line saying whether the system updates last-access times;
+- `collection.json`'s version, host name, platform, account and start and
+  finish times, and the inventory's host;
+- in the manifest, the access, change and birth times, the owner ids or
+  Windows owner, a link's size where its target holds a replaced path,
+  and on Linux and macOS a directory's size;
+- the order a directory listing gives: manifest rows are sorted, and so
+  are runs of project blocks, relocation hints and walk failures in the
+  log, and the projects and hints of `collection.json`.
+
+Modes, modification times, sizes, hashes, archive members and every other
+text are compared as written. A run of one case takes the subtest's name,
+`-run 'TestCollectWritesItsGoldenOutput/<case>$'`, or for a case that runs
+beside the others `-run 'TestCollectWritesItsGoldenOutput/shared_image/^<case>$'`.
+
+To accept a change of output, run the test with `DOUBLEAGENT_UPDATE_GOLDEN=1`
+on each platform, Linux, macOS and Windows, in turn, on one branch, and
+read the diff before committing:
 
 ```sh
-python3 tools/check_fork_budget.py                    # the working tree's collector under dash
-python3 tools/check_fork_budget.py --base origin/main # and the change per class against main
-python3 tools/check_fork_budget.py --update-budget    # rewrite the budget from this run
+DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/collect -run 'TestCollectWritesItsGoldenOutput|TestEveryCatalogLineLeavesItsEvidence'
+git diff internal/collect/testdata
 ```
 
-It builds the main fake image of the sh smoke test with `SMOKE_IMAGE_ONLY=1`,
-runs the working tree's collector over it with the smoke test's command
-line under `strace -f -e trace=execve,clone,clone3,vfork,fork`, and removes
-the image and the output when it ends. With `--base REF` it runs the
-collector of that commit the same way. It prints:
+An update keeps what the other platforms expect. On Linux or macOS it
+writes `unix/` when the other platform has no files of its own for the
+case or nothing is there yet, and otherwise only its own differences, and
+it folds both platforms' files into `unix/` when they write the same. A
+case directory that names no case of the platform fails the test, and an
+update removes it. A case with no expected files fails with a message
+naming the variable to set.
 
-| Part | What it holds |
+## Catalog coverage
+
+`TestEveryCatalogLineLeavesItsEvidence` in `internal/collect` runs the
+default, `--no-secrets` and `--full` runs over the fixture image, over it
+with the framework volumes, and over an image of an agent installed as a
+Windows app package (MSIX, the format of Microsoft Store apps), and needs
+evidence of every line of the catalog's tables in what they wrote:
+
+| Table | Evidence |
 | --- | --- |
-| first line | the processes forked, the programs executed, the fork-only subshells (forked, never executed), the manifest rows, and the two ratios `forks per row` and `execs per row`; with `--base`, a second line with the same totals of that commit's run |
-| class table | one row per class of process with its total and its count in each phase of the run (startup, homes, docker, projects, hints, archive, done), read from the timestamps of the collector's log; with `--base`, also the change against that commit. A class is a program by name, a worker shell by kind, a short `sh -c` program, `printf` by format, or a fork-only subshell by the programs its children ran (`fork->stat`), by having only fork-only children, or else by its parent |
-| double forks | the fork-only processes whose one child executed a program, by program: a function that runs a program inside `$(...)` |
-| verdict | `budget: ok` with each ratio and its budget; one line per ratio that is over or stale; `budget: collectors/tests/fork-budget.txt is missing` when the file is absent; `budget: wrote ...` after `--update-budget`; `budget: defined for dash, not compared under SHELL` under another shell |
+| `CATALOG`, `PROJECT_CATALOG` | a `collected` row of the line's agent on a path the line matches |
+| `EXCLUDES` | a `skipped_excluded` row the line explains |
+| `SECRET_GLOBS` | a `secret: true` row in a default run, and a `skipped_secret` row under `--no-secrets` |
+| `STARTUP_FILES` | a relocation hint read from a file the line matches |
+| `RELOCATION_VARS` | a hint naming the line's variable for its agent |
+| `DOCKER_VOLUMES` | a row of the line's agent in a volume the line names |
 
-`collectors/tests/fork-budget.txt` holds `forks_per_row` and
-`execs_per_row`. A ratio more than 2 % above its budget is over, and one
-more than 2 % below it is stale, so an improvement is recorded as
-deliberately as a regression: commit the moved budget with the change that
-moved it, the measured cause in the commit body. Its numbers are the CI
-job's `forks per row` and `execs per row`, since `--update-budget` writes
-the count of the filesystem it runs on and the lab VM's differs from the
-runner's. The budget is defined for dash; under another `--shell` the tool prints the
-report and skips the comparison, with exit status `0`. The phase columns
-come from the log's second-precision timestamps, so a process born in the
-same second as a phase boundary can land on either side of it between runs;
-a phase starts at its first logged line (a user's header is written at
-the user's first match). The budget reads the totals. The exit status is `0` when the budget holds, `1` when a ratio is over or stale or
-the budget file is missing, and `2` when a step cannot run (no `strace`,
-the shell is missing, the budget file is malformed, `--update-budget` is
-given under another shell, the image build, the `git show` of the `--base`
-commit or a collector run fails, or a run leaves no manifest or log).
+It also fails when the default run collects a path it must not, or when a
+run changes the image. A line without evidence is excused only when
+[`coverage-uncovered.txt`](../internal/collect/testdata/coverage-uncovered.txt)
+lists it with the reason the test derives for this platform:
 
-CI's `sh collector (fork budget)` job runs the tool against `main` on each
-pull request that touches the collector, the smoke test, the budget, the
-tool or a module it imports, on the `ubuntu-24.04` runner whose dash the
-budget counts, so the class table of the change is in the job log; read
-it for a class that grew.
+| Reason | Meaning |
+| --- | --- |
+| `none` | neither image manifest holds a path the line matches, so no run can show it |
+| `unix-only` | only the Linux and macOS manifest does, so Windows runs need no evidence |
+| `windows-only` | only the Windows manifest does, so Linux and macOS runs need no evidence |
+| `linux-unreached`, `darwin-unreached`, `windows-unreached` | the image holds a path the line matches and no run on that platform reaches it: a more specific catalog entry of another agent, one that lies inside this line's directory, claims it, or it lies outside every catalog entry's walk |
 
-## Catalog drift check and CI
+The test fails when the file gives a reason other than the one it
+derives. `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites the reasons this platform
+derives and keeps the other platforms' unreached lines. A line that
+leaves `none` or an unreached reason is a missing fixture: add one to the
+image ([The fixture image](#the-fixture-image)).
 
-`tests/catalog-sync.sh` extracts the tables from both scripts and fails
-if they differ or if `internal/catalog/catalog.txt` is not identical to
-`--list`. When `pwsh` is on the `PATH` it also compares `--list` with
-`-List`. The repository's pre-commit hook in `.githooks/`
-(enable it once per clone with `git config core.hooksPath .githooks`)
-refuses a commit that stages either collector or the embedded copy while the
-copy is stale or the tables differ; the linters run in CI only.
+## Expected output of the analysis commands
 
-CI (`.github/workflows/ci.yml`) runs the drift test and shellcheck, the sh
-smoke test under sh, dash, bash, busybox ash, zsh and posh, the drift test
-and the sh smoke test under dash on macOS, where the tools are the BSD
-ones, the fork budget job on Linux, a lint job that also runs the table
-coverage checks, the PowerShell smoke test under PowerShell 7 on Linux and
-Windows PowerShell 5.1 on Windows, and the analyzer tests, then a
-`CI result` job that fails when any of them failed. Every push to `main`
-runs all of them; a pull request runs only the jobs that read a file it
-changed, as
+`TestGoldenOutputOfTheAnalysisCommands` in `internal/analyze` runs
+`detect` (plain, `--json`, `--files`), `timeline` and `fleet` over several
+inputs, some with options such as `--no-secrets`, `--include-thinking`,
+`--since` and `--until` or `--match`, and compares their standard output
+and every file they write with the files under
+`internal/analyze/testdata/golden/<case>/`. The inputs are the example
+collection, `internal/input/testdata/fixtures/example.tar.gz`, read as
+the archive it is; a fixture disk image and a fixture home, unpacked as
+directories; and the saved `collect --inventory` outputs under
+`internal/analyze/testdata/golden-inputs/fleet/`. The runs use a fixed
+clock, 2026-10-15T12:00:00Z, and the version `0.0.0-golden`. Only the
+working directory's path is replaced, by `{ROOT}`, in every form it is
+printed in, and each case names text its standard output must show. An
+expected file over 32 KiB is kept gzip-compressed and compared after
+decompression; read one with `gunzip -c`. On Windows only the example
+archive and `fleet` cases run, since the directory inputs are read with
+POSIX paths.
+
+`DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/analyze -run TestGoldenOutputOfTheAnalysisCommands`
+rewrites the expected files; nothing else does. The walk's own
+expected rows, log and staging tree for an image of unusual entries
+(`internal/walk`, Linux and macOS only, skipped when run as root) are
+rewritten the same way.
+
+## Growth tests
+
+`TestEveryParserGrowsInStepWithItsInput` in `internal/parsers` builds, for
+every kind of file each parser reads, a home at a size and at twice that
+size in each shape that fits the kind: many records naming one large
+value, many records sharing one id, one long value carried by many short
+records, deep nesting and many damaged siblings, many small files that
+each look at the others, equal join keys, and directories that cannot be
+listed. It parses both and counts, never times, what each costs: the rows,
+the bytes of every string of every row, the memory allocations and the
+bytes allocated. At twice the size, the rows or their bytes may be at most
+2.5 times those at the size, and the allocations or bytes allocated at
+most 2.5 times plus 2,048 allocations or 256 KiB, the runtime's own work;
+and at either size the text of the rows may be at most four bytes per
+byte of input plus 16,896 bytes a row. A parse that reads a file again for every
+record, or writes a value again into every row, grows with the square of
+its input and fails. `TestEveryFileKindHasGrowthCases` fails for a
+parser or a kind of file without growth cases. The cases of each parser
+are in `internal/parsers/growth_<package>_test.go`.
+
+## The race detector
+
+CI runs every package's tests with `-race`, which reports two goroutines
+touching the same memory without synchronisation. It needs cgo on Linux,
+so the test run sets `CGO_ENABLED=1`; the program that ships is always
+built with `CGO_ENABLED=0`. The collection tests run the program they
+test as a separate process built without the race detector, so their
+runs take ordinary time. Under the race detector the growth tests count
+only rows and their bytes, since the detector changes what a parse
+allocates.
+
+Two more runs check what an ordinary run cannot: on Linux and macOS,
+`go test -race -tags dash,noasm,nounsafe ./internal/glob/` compares the
+catalog's glob matcher with the `dash` shell's, and
+`GOEXPERIMENT=nojsonv2 go test -run '^TestArraysAndObjectsNestAtMostTenThousandDeep$' ./internal/jsonvalue/`
+checks the JSON reader's own nesting limit in a build where the standard
+library's reader has none.
+
+## Reproducible builds
+
+A release build is reproducible or it does not ship: CI runs
+`.github/go-build.sh` twice into two directories and fails when the
+SHA-256 lists it prints differ:
+
+```sh
+sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2
+```
+
+## What CI runs
+
+CI (`.github/workflows/ci.yml`) runs on every pull request and on every
+push to `main`, to an integration branch of the rewrite (`go-rewrite`,
+`go-rewrite-*`) or to a unit branch (`unit-*`).
+[`.github/classify-changes.sh`](../.github/classify-changes.sh) sorts the
+files a change touches into categories, and a job or step runs only when
+one of its categories is set. A push to `main`, a push whose previous
+commit is unknown (a new branch, a force push), a change to the workflow,
+the classifier or `.gitattributes`, and a file the classifier does not
+know run everything.
+
+| Job | Runs on | When | What it runs |
+| --- | --- | --- | --- |
+| Base branch is main | Ubuntu | pull requests | fails a pull request whose base is not `main` |
+| Classify the change | Ubuntu | always | the classifier |
+| Go | Ubuntu, macOS and Windows; Ubuntu alone for a push to a `unit-*` branch | a Go change: `go.mod`, `go.sum`, `vendor/`, any `.go` file, `internal/catalog/catalog.txt` or `.github/go-build.sh` | `gofmt`, `go vet`, `staticcheck`, `govulncheck`, `go test -race`, the `dash` glob test (not on Windows), the JSON nesting test, and the reproducible build check |
+| Lint | Ubuntu | always; the Python steps for a change under `tools/` or `lab/`, to `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json` or the catalog; the sh steps for an `.sh` file or `.shellcheckrc` | markdownlint, the document link check, the research structure and drift checks and the code style check on every change; ruff, pyright and the tests of the checkers and the lab for a Python change; shfmt, shellcheck and checkbashisms for an sh change |
+| Site build (strict) | Ubuntu | always | `mkdocs build --strict` |
+| CI result | Ubuntu | always | fails when any job above failed or was cancelled; the one check the ruleset on `main` requires |
+
+A new push to a pull request or to a `unit-*` branch cancels the run
+still going for its previous commit; on `main` and the integration
+branches a run in progress finishes first. A second workflow,
+`.github/workflows/govulncheck.yml`, runs `govulncheck` once a week, on
+demand and when `go.mod`, `go.sum` or `vendor/` change, and records what
+it finds among the repository's code scanning alerts.
 [Validation and testing in `AGENTS.md`](../AGENTS.md#validation-and-testing)
-lists.
+gives the rule each change follows.

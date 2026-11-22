@@ -1,11 +1,15 @@
-# Round pipeline
+# Lab
 
-`lab.sh` runs a real-install round of one terminal agent on one lab VM
-from the analyst's Mac: a
-[real-install round](../AGENTS.md#real-install-rounds) installs an
-agent in a clean VM, exercises it one step at a time, lists what it wrote
-after every step, collects and analyzes, and reverts the VM. One agent on
-one VM is a cell (one platform of one product form, in the round's terms),
+The lab is where the project watches what an AI agent writes to a real
+system. Its pipeline, `lab/lab.sh`, runs from the analyst's Mac: it
+reverts a clean [lab VM](../docs/lab-vms.md) to its snapshot, installs one
+agent, drives the agent one step at a time from a table of prompts, key
+presses and person steps, lists the agent's directories after every step,
+copies the `doubleagent` build for the guest into the VM, runs
+`doubleagent collect` there, analyses the collection on the Mac, and
+reverts the VM again. A run of the pipeline is a
+[real-install round](../AGENTS.md#real-install-rounds). One agent on one
+VM is a cell (one platform of one product form, in the round's terms),
 and each run of `lab.sh` works on one cell directory. Use it instead of
 driving the agent by hand over `ssh` and `screen` whenever the agent is a
 terminal program; an agent with a graphical interface, such as a desktop
@@ -36,15 +40,19 @@ pipeline itself needs from the host, the guests and the operator.
   (`CLEAN_SNAPSHOT_ID` in the environment names one by id instead);
   `start` and `finish` revert to it.
 - **Memory**: the host must leave each running VM the memory it is
-  configured with, plus room for `doubleagent timeline` and the shape tool, which
-  `collect` runs on the host while the VM is still up. Cells on different
-  VMs can run at the same time.
+  configured with, plus room for `doubleagent timeline` and the shape tool,
+  which the `collect` action runs on the host while the VM is still up.
+  Cells on different VMs can run at the same time.
 - **Commands**: `ssh`, `scp`, `perl` (every wait is bounded with its
   `alarm`, as macOS has no `timeout`), `curl` (the tui-test download),
   `shasum`, `awk` and `sed`, and a `python3` for the
   pipeline's own standard-library tools, the archive's extraction among them.
-- **The `doubleagent` binary** for the analysis step, built from this
-  checkout, on `PATH` or given as `LAB_DOUBLEAGENT=<path to the binary>`.
+- **Go**, at the version `go.mod` names: `start` builds this checkout's
+  `doubleagent` for every release target with `.github/go-build.sh`, once
+  per cell, and copies the guest's build into the VM.
+- **A `doubleagent` build for the Mac** for the analysis step, built from
+  this checkout, on `PATH` or given as
+  `LAB_DOUBLEAGENT=<path to the program>`.
 - **The lab key** at `~/.ssh/doubleagent_lab`, or wherever
   `LAB_SSH_KEY` points, made as
   [SSH access in Lab VMs](../docs/lab-vms.md#ssh-access) describes.
@@ -65,7 +73,7 @@ pipeline itself needs from the host, the guests and the operator.
   sets up: the `reboot` step runs `sudo -n systemctl reboot` (Ubuntu) or
   `sudo -n shutdown -r now` (macOS), and the Gemini CLI install runs the
   vendor's `npm install -g` under `sudo -n` when npm's global prefix is not
-  writable. The collector runs as the lab user, without `sudo`.
+  writable. `doubleagent collect` runs as the lab user, without `sudo`.
 - **cmd.exe as the Windows ssh login shell**, which the pipeline assumes:
   every guest command is a `.ps1` file run with
   `powershell -NoProfile -ExecutionPolicy Bypass -File`, or Windows
@@ -73,8 +81,8 @@ pipeline itself needs from the host, the guests and the operator.
   the command line is a plain word of letters, digits and `._,:+=/@-`.
 - **The shells the agents run in**: an interactive login `bash` on
   Ubuntu and `zsh` on macOS, so the startup files a terminal reads set
-  `PATH`, and Windows PowerShell 5.1 on Windows; `command` steps run in a
-  login `bash` or `zsh`, or Windows PowerShell 5.1.
+  `PATH`, and Windows PowerShell, the one Windows ships, on Windows;
+  `command` steps run in a login `bash` or `zsh`, or Windows PowerShell.
 - **A network the host reaches over ssh**, at the address
   `prlctl list -f` reports for the VM: the pipeline reads it at `start`
   and after every reboot and never stores it, so a DHCP address on
@@ -157,7 +165,7 @@ says of pulled collections.
 | --- | --- |
 | `start` | Refuses when the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, builds this checkout's `doubleagent` binaries into the cell's `tools/bin` with `.github/go-build.sh` (once per cell), copies the survey and drive scripts and the guest's binary (`GUEST_BINARY` in the VM file) into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
 | `resume` | Finishes the paused person step (its screen and listing), then runs the remaining steps. |
-| `collect` | Runs `doubleagent collect -o ~/lab/out -q` in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs `doubleagent timeline` and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
+| `collect` | Runs `doubleagent collect -o ~/lab/out -q` in the VM as the lab user (`doubleagent.exe` under the lab directory on Windows), pulls every file it wrote there (the archive, its `.sha256` file, the manifest, the summary and the log) into the cell, deletes them in the VM, then checks the archive's SHA-256, runs `doubleagent timeline --include-thinking` and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM, so running it adds nothing to what the round records there. |
 | `finish [--force]` | Refuses while a person step waits, while steps have not run, when no collection was taken after the last step began, or when the last listing cannot be taken (the VM is not running or `ssh` does not answer), since the revert discards the VM; run `collect` or start the VM first, or pass `--force` to go on anyway, which the log and `report.md` record. Then stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
 | `status` | Prints the cell's state and step log. |
 
@@ -166,7 +174,7 @@ reason on stderr and in `round.log`.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `LAB_DOUBLEAGENT` | `doubleagent` | The `doubleagent` binary the analysis step runs, `doubleagent timeline --include-thinking`. The pipeline's own tools need only the standard library. |
+| `LAB_DOUBLEAGENT` | `doubleagent` | The `doubleagent` program the analysis step runs on the Mac, `doubleagent timeline --include-thinking`. The pipeline's own Python tools need only the standard library. |
 | `LAB_KNOWN_HOSTS` | `<cell>/known_hosts` | The known-hosts file of the cell's ssh config. |
 | `LAB_SSH_KEY` | `~/.ssh/doubleagent_lab` | The lab key, as [SSH access in Lab VMs](../docs/lab-vms.md#ssh-access) describes it. |
 | `LAB_ENV` | `.env` beside `lab.sh` | The credentials file the `secret` steps read ([Accounts](#accounts)). |
@@ -460,12 +468,12 @@ table; `start` and `resume` refuse one that fails.
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
 | `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the live part of the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
-| `command` | a shell command; `secret:NAME` tokens as described above the table | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`; a token's value goes to the shell's stdin, never to the log. |
+| `command` | a shell command; `secret:NAME` tokens as described above the table | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell, and saves its output as `screens/NN-name.command.txt`; a token's value goes to the shell's stdin, never to the log. |
 | `stop` | `-` | Saves the session's recording and stops it: Ctrl+C twice, then TERM (not on Windows), then a kill, each with a bounded wait. |
 | `pause` | what the person must do; `{session}` becomes the open session's name | Prints the screen and its joined URLs, snapshots the VM and exits 3, as described above. |
 | `idle` | seconds | Waits that long. |
 | `reboot` | `-` | Ends the session, reboots the VM from inside and waits for a new boot id over `ssh`. |
-| `collect` | `-` | Runs the collector, `doubleagent timeline` and the shape tool as `collect` does, into `collection/NN-name/`. |
+| `collect` | `-` | Runs `doubleagent collect`, `doubleagent timeline` and the shape tool as the `collect` action does, into `collection/NN-name/`. |
 
 `expect` says what a typing step waits for: `-` for the kind's default
 (the agent's input marker for `agent`, `prompt`, `paste` and `dialog`, a
@@ -524,9 +532,9 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `screens/NN-name.txt` | The rendered screen before and after the step; `NN-name.command.txt` for a `command` step's output, `NN-name.option-K.txt` for the screens an `options`, `dialog` or `choose` step read, `NN-name.urls.txt` for a pause's joined URLs. |
 | `casts/s<NN>.cast` | The asciicast of each terminal session. |
 | `install.log`, `tools/` | The install script's output, the tui-test download, its self-test and the sample project's commit. |
-| `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check, and under `extract/` the archive's contents. The archive is built from directories the agent controls, so it is never unpacked with `tar` or `unzip`: `extract.py` writes only its regular files and directories, which creates no link or device and nothing outside `extract/`. The shape tool and the report's manifest counts read that extraction. |
+| `collection/<label>/` | The archive, `.sha256` file, manifest, summary and log `doubleagent collect` wrote, its stdout, the SHA-256 check, and under `extract/` the archive's contents. The archive is built from directories the agent controls, so it is never unpacked with `tar` or `unzip`: `extract.py` writes only its regular files and directories, which creates no link or device and nothing outside `extract/`. The shape tool and the report's manifest counts read that extraction. |
 | `analysis/<label>/`, `shapes/<label>.txt` | `doubleagent timeline`'s `timeline.jsonl`, `sessions.jsonl` and `inventory.json`, and the shape tool's output with `--enums`. |
-| `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the analyzer's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
+| `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the timeline's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
 
 tui-test keeps its own recordings and traces under `~/lab/tui-test` in
 the VM (it keeps a recording only with tracing on), a directory no
@@ -545,7 +553,7 @@ The Ubuntu path is the tested one. The macOS VM runs the same scripts
 with the macOS tui-test build. The Windows VM gets `lib/survey.ps1`,
 `lib/drive.ps1` and `lib/make-project.ps1`, the x86-64 tui-test build,
 which runs under Windows 11's emulation, and the Windows build of
-`doubleagent`, all over `ssh` with cmd.exe as the login
+`doubleagent` for the VM's architecture, all over `ssh` with cmd.exe as the login
 shell, so every guest command is a `.ps1` file or PowerShell reading
 stdin; that path has not been run yet.
 
