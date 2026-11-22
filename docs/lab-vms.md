@@ -1,20 +1,18 @@
 # Lab VMs
 
-Three virtual machines, one each for Windows, macOS and Ubuntu, are where
+The lab's virtual machines, one each for Windows, macOS and Ubuntu, are where
 the project watches what an AI agent writes to a real system. Each is kept
 as a clean snapshot that holds what a developer's machine has and nothing
-else. A [real-install round](../AGENTS.md#real-install-rounds) reverts the
-VM to that snapshot, installs the agent under test, exercises it one step
-at a time while a listing of the agent's directories is taken over SSH
-after each step, runs the collector inside the VM, pulls the archive to
-the analyst machine, and reverts the VM again before the next agent. The
-snapshot is the starting point of every round, so what it holds decides
-what the agent can do and what the round can see.
-
-The sections below say why development tools are in the snapshots, what
-the host machine must provide for the VMs to do their job, how the main
-session reaches each VM over SSH, how each VM is built from a clean
-install, and which versions the snapshots hold.
+else. A [real-install round](../AGENTS.md#real-install-rounds), run by the
+[lab pipeline](../lab/README.md), reverts the VM to that snapshot,
+installs the agent under test, exercises it one step at a time while a
+listing of the agent's directories is taken over SSH after each step,
+copies the `doubleagent` build for the VM into it and runs
+`doubleagent collect` there, pulls the collection to the analyst machine,
+and reverts the VM again before the next agent. The snapshot is the
+starting point of every round, so what it holds decides what the agent
+can do and what the round can see. Read this page to rebuild a snapshot
+or to set up a new host for the lab.
 
 ## Why the VMs hold development tools
 
@@ -24,7 +22,7 @@ what a developer's machine has: the languages and their package managers,
 the compilers, version control, an editor and, where the host allows, a
 container engine. With them the agent can build, test, install, clone,
 commit and run whatever it is asked to, and the listings the round takes
-after each step, with the collector's archive, record that activity for
+after each step, with the collection's archive, record that activity for
 analysis: the packages it
 installed, the repositories it cloned, the commits it made, the tools it
 ran and the files each of those left behind.
@@ -38,7 +36,7 @@ appears in the diff of the step in which the agent first used that tool,
 which is itself evidence of what it did.
 
 The snapshot holds what a developer has, not what this repository's CI
-runs: its linters (shellcheck, shfmt, PSScriptAnalyzer, ruff) are not
+runs: its linters (shellcheck, shfmt, staticcheck, ruff) are not
 installed. An agent that wants one installs it during the round, and the
 install is part of the record.
 
@@ -52,7 +50,7 @@ steps since that snapshot, not the round.
 
 ## The host
 
-Four things about the host decide what the VMs can do:
+These things about the host decide what the VMs can do:
 
 - **A Mac, for the macOS VM.** Apple's software licence allows macOS to
   run as a guest only on Apple hardware, so a lab that covers macOS needs
@@ -60,9 +58,8 @@ Four things about the host decide what the VMs can do:
   on other hardware covers those two platforms and leaves macOS to a Mac.
 - **Memory.** A running VM holds a large share of the host's memory, so
   on a host with little of it only one VM runs at a time, and the
-  collector's smoke tests and the analyzer's tests are not run on the
-  host beside one; see
-  [Validation and testing](../AGENTS.md#validation-and-testing).
+  project's tests, heavy under the race detector, are not run on the host
+  beside one.
 - **Nested virtualization.** A guest can run a hypervisor of its own
   only when the host passes the hardware virtualization extensions
   through. Whether it does depends on the host's hypervisor and chip:
@@ -84,15 +81,15 @@ Four things about the host decide what the VMs can do:
 
 ## SSH access
 
-During a round the main session runs `ssh` and `scp` from its tool calls:
-the listing script after every step, copying `lab/tools/shape.py` and
-the collector into the VM, pulling the archive and the probe output out,
-and deleting the outputs it left behind. The person at the VM uses its
-console; the agent never does.
+During a round the lab pipeline runs `ssh` and `scp` with no one at the
+keyboard: the listing script after every step, copying the survey and
+drive scripts, the tui-test terminal and the `doubleagent` build for the
+VM into it, pulling the collection out, and deleting what it left behind.
+The person at the VM uses its console; the agent under test never does.
 
-A tool call has no terminal, so a password or passphrase prompt cannot be
-answered and the command hangs or fails, and an agent cannot be relied on
-to reach a running `ssh-agent` either. The lab therefore uses one
+A command run that way has no terminal, so a password or passphrase
+prompt cannot be answered and the command hangs or fails, and the
+pipeline cannot be relied on to reach a running `ssh-agent` either. The lab therefore uses one
 dedicated ed25519 key with no passphrase, generated for the lab alone.
 What limits the exposure: the key is authorized only for the lab user in
 VMs on a host-only network that are reverted after every round, so it
@@ -108,11 +105,14 @@ ssh-keygen -t ed25519 -N '' -C doubleagent-lab -f ~/.ssh/doubleagent_lab
 
 The connection flags live in an ssh config file passed with `-F` rather
 than typed per call: one file keeps every call identical, and fish does
-not word-split a flag string held in a variable. The file sits with the
-round's other tooling outside the repository, holds one `Host` alias per
-VM, and points `UserKnownHostsFile` at a known-hosts file of its own,
-because a rebuilt VM gets new host keys and would leave a stale entry in
-the developer's own file:
+not word-split a flag string held in a variable. The pipeline writes its
+own such file into the working directory of each run, with the key,
+`IdentitiesOnly` and a known-hosts file of that run
+([The cell directory in the lab page](../lab/README.md#the-cell-directory)). For the setup steps on this page and
+for work by hand, keep one outside the repository with one `Host` alias
+per VM, its `UserKnownHostsFile` pointing at a known-hosts file of its
+own, because a rebuilt VM gets new host keys and would leave a stale
+entry in the developer's own file:
 
 ```text
 # ssh -F <this file> <alias>
@@ -144,7 +144,7 @@ Host ubuvm
 The SSH server and the authorized public key are part of each clean
 snapshot, so a round's first listing can be taken before the agent is
 installed; the snapshot holds no lab directory, which the round creates
-and deletes before the VM is released. What each OS needs is under its
+and the revert removes. What each OS needs is under its
 heading below, the server first and the key after it.
 
 ## Windows
@@ -154,7 +154,7 @@ package manager Windows ships, whose manifests download each installer
 from the vendor's own release host and pin its SHA-256, and `winget` picks
 the build for the guest's architecture. On an Apple silicon host the guest
 is Windows 11 on ARM, and the ids below all have native ARM64 builds
-except two x64 packages that install the native ARM64 pieces themselves:
+except the x64 packages that install the native ARM64 pieces themselves:
 the Python install manager, which fetches the ARM64 runtime, and the
 Visual Studio Build Tools bootstrapper, which installs the ARM64
 compilers. Run from an elevated PowerShell:
@@ -209,9 +209,9 @@ py -m pipx ensurepath
 - pipx has no winget package; its own documented install is through the
   Python just installed, and `ensurepath` adds `%USERPROFILE%\.local\bin`,
   where pipx and uv both put the tools they install, to the user PATH.
-- `Microsoft.PowerShell` is PowerShell 7 beside the Windows PowerShell 5.1
-  the collector targets, so the VM runs both sides of the collector's test
-  matrix.
+- `Microsoft.PowerShell` is PowerShell 7, the cross-platform PowerShell a
+  developer installs beside the Windows PowerShell that Windows ships.
+
 `winget show --id <id>` prints the installer URL and hash a package would
 install, for checking a package before trusting it.
 
@@ -231,9 +231,9 @@ if (-not (Get-NetFirewallRule -Name OpenSSH-Server-In-TCP -ErrorAction SilentlyC
 }
 ```
 
-The lab user is an administrator, so the collector can run elevated and
-the SSH session holds the backup privilege that reads other users'
-profiles. That changes where the key goes: for a member of Administrators,
+The lab user is an administrator, and an administrator's SSH session runs
+elevated, so `doubleagent collect` run over SSH has the rights to read
+other users' profiles. That changes where the key goes: for a member of Administrators,
 sshd reads `C:\ProgramData\ssh\administrators_authorized_keys` and
 ignores the user's own `~\.ssh\authorized_keys`, and it refuses the
 file unless Administrators and SYSTEM are the only accounts that can read
@@ -343,8 +343,6 @@ brew cleanup -s
 - `powershell` is a formula, not a cask: the `powershell` cask was
   disabled on 2026-09-01 because its package fails Homebrew's Gatekeeper
   check, and the formula has arm64 bottles for macOS 26.
-- The collector's smoke test runs there under a bash 3.2 `/bin/sh`, the
-  shell CI does not test, and validates its JSON once `python3` exists.
 - VS Code's cask installs the same universal build the vendor's download
   button serves and links the `code` command into Homebrew's `bin`, so
   the app is never opened before the snapshot. The app writes
@@ -380,14 +378,13 @@ prints the VM's name without a prompt.
 
 ### sudo without a password
 
-The remote shell of an endpoint detection and response (EDR) tool runs
-as root, and the collector is written to be run through one (see
-[Deployment](deployment.md)), so the collector run in
-the VM from the host over SSH has to run as root too, with nobody at the
-host end to type a password. The Windows lab user has that as an
-administrator. The macOS lab user is an administrator too, but the
-`admin` group's sudo rule still asks for a password, so the clean
-snapshot lets the lab user run sudo without one. In the VM's Terminal:
+Some steps of a round run as root over SSH, with nobody at the host end
+to type a password: the reboot step (`sudo -n shutdown -r now`) and an
+agent's install command that needs root. The Windows lab user has that
+as an administrator. The macOS lab user is an
+administrator too, but the `admin` group's sudo rule still asks for a
+password, so the clean snapshot lets the lab user run sudo without one.
+In the VM's Terminal:
 
 ```sh
 echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/lab-nopasswd
@@ -406,10 +403,8 @@ that is reverted after every round, not to a workstation.
 
 ## Ubuntu
 
-Ubuntu, where `sh` is dash and bash and busybox are a package away, so
-the collector's smoke test runs under all three there in a few minutes
-each. Most of the toolchain is in Ubuntu's own archive; the rest comes from the
-vendor's documented route:
+Ubuntu Desktop. Most of the toolchain is in Ubuntu's own archive; the
+rest comes from the vendor's documented route:
 
 ```sh
 sudo apt install git python3 python3-pip pipx nodejs npm ruby-full golang-go default-jdk
@@ -453,9 +448,11 @@ prints the VM's name without a prompt.
 
 ### sudo without a password
 
-The collector run in the VM from the host over SSH has to run as root
-with nobody at the host end to type a password, for the reason given
-under macOS. The Ubuntu installer puts the first user in the `sudo`
+Steps of a round run as root over SSH with nobody at the host end to
+type a password, for the reasons given under macOS; on Ubuntu the reboot
+step runs `sudo -n systemctl reboot`, and an install through npm runs
+under `sudo -n` when npm's global directory is not writable. The Ubuntu
+installer puts the first user in the `sudo`
 group, which still asks for one, so the clean snapshot lets the lab user
 run sudo without a password. In the VM:
 
