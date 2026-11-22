@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/archive"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/runlog"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/version"
@@ -61,7 +62,7 @@ func (state *runState) buildArchive(ctx context.Context, report *summary.Summary
 	// Files left at these names by an earlier run are not this run's.
 	_ = osfile.Remove(state.archivePath)
 	_ = osfile.Remove(state.partialPath)
-	written, err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath)
+	written, err := archive.WriteTarGz(ctx, state.tree, state.partialPath)
 	ours, sidecarMade := err == nil, false
 	if err == nil {
 		state.reach(archiveWritten)
@@ -270,20 +271,25 @@ func (state *runState) relocationSummary() summary.Relocation {
 }
 
 // writeCollectionJSON writes collection.json beside the archive and a copy in
-// the staging directory, each a file created new (createNew).
+// the staging tree, each a file created new (createNew, stage.Tree.CreateNew).
 func (state *runState) writeCollectionJSON(report summary.Summary) error {
 	var text bytes.Buffer
 	if err := summary.WriteCollectionJSON(&text, report); err != nil {
 		return err
 	}
-	for _, path := range []string{state.summaryPath, state.stageDir + "/collection.json"} {
-		made, err := writeNew(path, text.Bytes())
-		if path == state.summaryPath {
-			state.summaryMade = made
+	file, err := createNew(state.summaryPath)
+	state.summaryMade = err == nil
+	if err == nil {
+		err = writeAll(file, text.Bytes())
+	}
+	if err == nil {
+		file, err = state.tree.CreateNew("collection.json", 0o666)
+		if err == nil {
+			err = writeAll(file, text.Bytes())
 		}
-		if err != nil {
-			return fmt.Errorf("collection.json not written: %w", err)
-		}
+	}
+	if err != nil {
+		return fmt.Errorf("collection.json not written: %w", err)
 	}
 	return nil
 }
@@ -298,46 +304,42 @@ func createNew(path string) (*os.File, error) {
 	return osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 }
 
-// writeNew writes data to a file created new at path (createNew) and
-// reports whether it made the file. A write or close error names the file in
-// native form.
-func writeNew(path string, data []byte) (bool, error) {
-	file, err := createNew(path)
-	if err != nil {
-		return false, err
-	}
-	_, err = file.Write(data)
+// writeAll writes data to file, a file just created new, and closes it. A
+// write or close error names the file in native form.
+func writeAll(file *os.File, data []byte) error {
+	_, err := file.Write(data)
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
-	return true, syspath.NativeErrors(err)
+	return syspath.NativeErrors(err)
 }
 
 // stageRunFiles copies the manifest and the log, as they stand, into the
-// staging directory.
+// staging tree.
 func (state *runState) stageRunFiles() error {
 	if err := state.rows.Flush(); err != nil {
 		return err
 	}
-	copies := [][2]string{{state.manifestPath, "/manifest.jsonl"}, {state.logPath, "/collector.log"}}
+	copies := [][2]string{{state.manifestPath, "manifest.jsonl"}, {state.logPath, "collector.log"}}
 	for _, files := range copies {
-		if err := copyFile(files[0], state.stageDir+files[1]); err != nil {
+		if err := copyFile(files[0], state.tree, files[1]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// copyFile copies the file at source to target, created new (createNew)
-// with the default mode the umask narrows. A read, write or close error
-// names its file in native form, as the open errors do.
-func copyFile(source, target string) error {
+// copyFile copies the file at source to name in the tree, created new
+// (stage.Tree.CreateNew) with the default mode the umask narrows. A read,
+// write or close error names its file in native form, as the open errors
+// do.
+func copyFile(source string, tree *stage.Tree, name string) error {
 	input, err := osfile.Open(source)
 	if err != nil {
 		return err
 	}
 	defer input.Close()
-	out, err := createNew(target)
+	out, err := tree.CreateNew(name, 0o666)
 	if err != nil {
 		return err
 	}

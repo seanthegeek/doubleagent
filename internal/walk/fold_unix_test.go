@@ -42,7 +42,7 @@ func foldingCollectors(t *testing.T) (parent string, collectors [2]*Collector,
 			t.Fatal(err)
 		}
 		collector, written, _ := testCollector(t, parent+"/"+name, nil)
-		collector.Stager = stage.Stager{Dir: stageDir, Physical: stageDir, Root: parent + "/" + name,
+		collector.Stager = stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: parent + "/" + name,
 			FoldsCase: true, Places: places}
 		collectors[i], rows[i] = collector, written
 	}

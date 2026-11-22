@@ -7,16 +7,18 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"golang.org/x/sys/unix"
 )
 
-// createDest creates the staged copy at dest exclusively, never following
-// a final symlink: when the volume takes the name for an existing entry's,
-// by any rule it has, the create fails and nothing is opened for write.
-func createDest(dest string) (createdFile, error) {
-	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
+// createDest creates the staged copy at name in the tree exclusively,
+// never following a final symlink: when the volume takes the name for an
+// existing entry's, by any rule it has, the create fails and nothing is
+// opened for write.
+func createDest(tree *Tree, name string) (createdFile, error) {
+	file, err := tree.CreateNew(name, 0o600)
 	if err != nil {
 		return createdFile{}, err
 	}
@@ -41,11 +43,11 @@ func MarkCaseSensitive(string) error {
 	return nil
 }
 
-// preserve gives the copy the source's owner when running as root, its
-// permission bits and its access and modification times, as cp -p does. As
-// cp does when it cannot set the owner, the setuid and setgid bits are
-// dropped when not running as root.
-func preserve(target *os.File, dest string, info fs.FileInfo) error {
+// preserve gives the copy at name in the tree the source's owner when
+// running as root, its permission bits and its access and modification
+// times, as cp -p does. As cp does when it cannot set the owner, the setuid
+// and setgid bits are dropped when not running as root.
+func preserve(target *os.File, tree *Tree, name string, info fs.FileInfo) error {
 	status, ok := info.Sys().(*syscall.Stat_t)
 	mode := info.Mode() & (fs.ModePerm | fs.ModeSetuid | fs.ModeSetgid | fs.ModeSticky)
 	if os.Geteuid() == 0 && ok {
@@ -61,11 +63,8 @@ func preserve(target *os.File, dest string, info fs.FileInfo) error {
 	if !ok {
 		return nil
 	}
-	times := []unix.Timespec{accessTime(status), unix.NsecToTimespec(info.ModTime().UnixNano())}
-	if err := unix.UtimesNanoAt(unix.AT_FDCWD, dest, times, unix.AT_SYMLINK_NOFOLLOW); err != nil {
-		return &fs.PathError{Op: "utimes", Path: dest, Err: err}
-	}
-	return nil
+	accessed := accessTime(status)
+	return tree.SetTimes(name, time.Unix(accessed.Sec, accessed.Nsec), info.ModTime())
 }
 
 // PhysicalDir returns dir with every symlink resolved, as `cd -P DIR && pwd

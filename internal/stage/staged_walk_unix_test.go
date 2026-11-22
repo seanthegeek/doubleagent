@@ -57,7 +57,7 @@ func TestNoStagedLinkTargetIsListed(t *testing.T) {
 		t.Run("the recreated link spelled "+linkName, func(t *testing.T) {
 			parent := foldingStage(t)
 			outside := outsideTree(t, parent)
-			first, second := twoFoldingStagers(parent)
+			first, second := twoFoldingStagers(t, parent)
 			link := parent + "/one/home/u/.config/" + linkName
 			if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 				t.Fatal(err)
@@ -89,7 +89,7 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 	}
 	t.Run("permission denied two components short", func(t *testing.T) {
 		parent := foldingStage(t)
-		_, stager := twoFoldingStagers(parent)
+		_, stager := twoFoldingStagers(t, parent)
 		if err := os.Mkdir(parent+"/stage/fs/a", 0o555); err != nil {
 			t.Fatal(err)
 		}
@@ -101,26 +101,29 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 			t.Errorf("Copy = %v; want permission denied, not a collision", err)
 		}
 	})
-	t.Run("a staged path too long for the system", func(t *testing.T) {
-		parent := foldingStage(t)
-		deep := parent + "/" + strings.Repeat(strings.Repeat("d", 50)+"/", 10) + "stage"
-		if err := os.MkdirAll(deep+"/fs", 0o700); err != nil {
-			t.Fatal(err)
-		}
-		stager := Stager{Dir: deep, Physical: deep, Root: parent + "/two", FoldsCase: true,
-			Places: NewPlaces()}
-		source := parent + "/two/" + strings.Repeat(strings.Repeat("s", 50)+"/", 9) + "x"
-		makeSource(t, source, false)
-		_, _, err := copyFile(stager, source)
-		if err == nil || IsCollision(err) {
-			t.Errorf("Copy = %v; want the system's error for a path too long", err)
-		}
-	})
+	t.Run("a staged path longer than the system takes whole is staged below the tree",
+		func(t *testing.T) {
+			parent := foldingStage(t)
+			deep := parent + "/" + strings.Repeat(strings.Repeat("d", 50)+"/", 10) + "stage"
+			if err := os.MkdirAll(deep+"/fs", 0o700); err != nil {
+				t.Fatal(err)
+			}
+			stager := Stager{Dir: deep, Tree: mustTree(t, deep), Root: parent + "/two", FoldsCase: true,
+				Places: NewPlaces()}
+			source := parent + "/two/" + strings.Repeat(strings.Repeat("s", 50)+"/", 9) + "x"
+			makeSource(t, source, false)
+			// Each staged name is taken relative to the open tree, so only
+			// the name below the staging directory counts against the limit.
+			_, dest, _ := stager.Dest(source)
+			if _, _, err := copyFile(stager, source); err != nil {
+				t.Errorf("Copy = %v; want %s staged", err, dest)
+			}
+		})
 }
 
 func TestALinkUnderAnotherEntrysFileIsACaseCollision(t *testing.T) {
 	parent := foldingStage(t)
-	first, second := twoFoldingStagers(parent)
+	first, second := twoFoldingStagers(t, parent)
 	makeSource(t, parent+"/one/s", false)
 	if _, _, err := copyFile(first, parent+"/one/s"); err != nil {
 		t.Fatal(err)

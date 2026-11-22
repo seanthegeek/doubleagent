@@ -1,0 +1,304 @@
+//go:build darwin || linux
+
+package stage
+
+import (
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestTheRootRefusesAPathOutOfItWithTheTextTheTreeMaps(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	_, err = root.Lstat("../outside")
+	var pathErr *fs.PathError
+	if !errors.As(err, &pathErr) || pathErr.Err.Error() != errPathEscapes {
+		t.Errorf("os.Root.Lstat of a path out of it = %v; want the reason %q", err, errPathEscapes)
+	}
+}
+
+func TestALinkOutOfTheTreeIsRefusedAsOutsideTheStagingDirectory(t *testing.T) {
+	cases := []struct {
+		name  string
+		stage func(stager Stager, source string) error
+	}{
+		{"a copy", func(stager Stager, source string) error {
+			_, err := stager.Copy(source)
+			return err
+		}},
+		{"a link", func(stager Stager, source string) error {
+			return symlink(stager, source, "target", false)
+		}},
+		{"a parent directory", func(stager Stager, source string) error {
+			return stager.MakeParent(source + "/child")
+		}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			stager, root := newStager(t)
+			outside := t.TempDir()
+			source := root + "/home/u/.tool/f"
+			mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+			mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+			// A link the run recreated in the staging tree, leading out of it.
+			_, dest, _ := stager.Dest(filepath.Dir(source))
+			mustDo(t, os.MkdirAll(filepath.Dir(dest), 0o700))
+			mustDo(t, os.Symlink(outside, dest))
+			if err := test.stage(stager, source); !leavesTree(err) {
+				t.Errorf("staging through the link = %v; want the reason %q", err, outsideStage{})
+			}
+			if entries, _ := os.ReadDir(outside); len(entries) != 0 {
+				t.Errorf("staged %v through the link", entries)
+			}
+		})
+	}
+}
+
+func TestAStagingDirectoryMovedAsideStillTakesEveryCopy(t *testing.T) {
+	stager, root := newStager(t)
+	victim := t.TempDir()
+	moved := filepath.Dir(stager.Dir) + "/moved"
+	mustDo(t, os.Rename(stager.Dir, moved))
+	mustDo(t, os.Symlink(victim, stager.Dir))
+	source := root + "/home/u/f"
+	mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+	copied, err := stager.Copy(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustDo(t, os.Symlink("f", root+"/home/u/l"))
+	mustDo(t, symlink(stager, root+"/home/u/l", "f", false))
+	if entries, _ := os.ReadDir(victim); len(entries) != 0 {
+		t.Errorf("staged %v where the link at the staging directory's name leads", entries)
+	}
+	if data, err := os.ReadFile(moved + "/" + copied.ArchivePath); err != nil || string(data) != "x" {
+		t.Errorf("the moved staging directory holds %q, %v; want the copy", data, err)
+	}
+	if _, err := os.Lstat(moved + "/fs/home/u/l"); err != nil {
+		t.Errorf("the link is not in the moved staging directory: %v", err)
+	}
+}
+
+func TestCreateTreeTakesOnlyTheEmptyDirectoryItMade(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(t *testing.T, path string)
+		want  bool
+	}{
+		{"the empty directory just made is taken", func(*testing.T, string) {}, true},
+		{"a directory holding an entry is refused", func(t *testing.T, path string) {
+			mustDo(t, os.WriteFile(path+"/planted", nil, 0o600))
+		}, false},
+		{"a link at the name to an empty directory is refused", func(t *testing.T, path string) {
+			mustDo(t, os.Remove(path))
+			mustDo(t, os.Symlink(t.TempDir(), path))
+		}, false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			path := t.TempDir() + "/stage"
+			mustDo(t, os.Mkdir(path, 0o700))
+			test.setup(t, path)
+			if got := mustTree(t, path).madeByThisRun(); got != test.want {
+				t.Errorf("madeByThisRun = %v, want %v", got, test.want)
+			}
+		})
+	}
+	t.Run("a name already taken is refused and left", func(t *testing.T) {
+		path := t.TempDir() + "/stage"
+		mustDo(t, os.Symlink(t.TempDir(), path))
+		if tree, err := CreateTree(path); err == nil {
+			_ = tree.Close()
+			t.Fatal("CreateTree took a name a link held")
+		}
+		if info, err := os.Lstat(path); err != nil || info.Mode()&fs.ModeSymlink == 0 {
+			t.Errorf("the link at the name was not left: %v", err)
+		}
+	})
+}
+
+func TestDiscardLeavesANameThatNoLongerHoldsTheTree(t *testing.T) {
+	parent := t.TempDir()
+	tree, err := CreateTree(parent + "/stage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustDo(t, tree.MkdirAll("fs/a"))
+	victim := t.TempDir()
+	mustDo(t, os.WriteFile(victim+"/keep", []byte("x"), 0o600))
+	mustDo(t, os.Rename(parent+"/stage", parent+"/moved"))
+	mustDo(t, os.Symlink(victim, parent+"/stage"))
+	if err := tree.Discard(); err == nil {
+		t.Error("Discard removed a name that no longer holds the tree")
+	}
+	if entries, _ := os.ReadDir(parent + "/moved"); len(entries) != 0 {
+		t.Errorf("the moved tree still holds %v", entries)
+	}
+	if _, err := os.Lstat(victim + "/keep"); err != nil {
+		t.Errorf("the directory the planted link leads to lost its file: %v", err)
+	}
+	if info, err := os.Lstat(parent + "/stage"); err != nil || info.Mode()&fs.ModeSymlink == 0 {
+		t.Errorf("the planted link was not left: %v", err)
+	}
+}
+
+func TestADirectoryIsTakenOnlyWithTheOwnerANewEntryGets(t *testing.T) {
+	self := uint32(os.Geteuid())
+	cases := []struct {
+		name               string
+		directory, created uint32
+		want               bool
+	}{
+		{"on an ordinary volume the effective user's directory is taken", self, self, true},
+		{"on an ordinary volume another account's directory is refused", self + 1, self, false},
+		{"on a volume giving every entry its mount's owner that owner is taken",
+			self + 1000, self + 1000, true},
+		{"on a volume that squashes the owner to nobody that owner is taken", 65534, 65534, true},
+		{"on such a volume a directory with another owner is refused", self + 1000, 65534, false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := sameOwnerAsNew(test.directory, test.created); got != test.want {
+				t.Errorf("sameOwnerAsNew(%d, %d) = %v, want %v", test.directory, test.created,
+					got, test.want)
+			}
+		})
+	}
+}
+
+func TestTheOwnerProbeLeavesNothingBehind(t *testing.T) {
+	path := t.TempDir() + "/stage"
+	mustDo(t, os.Mkdir(path, 0o700))
+	if !mustTree(t, path).madeByThisRun() {
+		t.Fatal("madeByThisRun refused the empty directory just made")
+	}
+	if entries, _ := os.ReadDir(path); len(entries) != 0 {
+		t.Errorf("the owner probe left %v", entries)
+	}
+}
+
+// stagedResult is what staging one path gave: the member, the hash and the
+// error text, compared between a tree that holds its parent and one that
+// does not.
+type stagedResult struct {
+	member, hash, err string
+}
+
+// stageInTurn stages each path under root in order, a link when it ends in
+// "l" and a copy otherwise, and returns what each gave. With fresh set the
+// tree releases the chain it holds before each call, as a tree without it
+// would walk every name from the root. Before the path at index moveAt the
+// staging directory is moved aside and a link to victim put at its name.
+func stageInTurn(t *testing.T, stager Stager, root string, paths []string, fresh bool,
+	moveAt int, victim string,
+) []stagedResult {
+	t.Helper()
+	var results []stagedResult
+	for i, path := range paths {
+		if i == moveAt {
+			mustDo(t, os.Rename(stager.Dir, stager.Dir+"-moved"))
+			mustDo(t, os.Symlink(victim, stager.Dir))
+		}
+		if fresh {
+			stager.Tree.releaseParent()
+		}
+		result := stagedResult{}
+		err := stager.MakeParent(path)
+		if fresh {
+			stager.Tree.releaseParent()
+		}
+		if err == nil && strings.HasSuffix(path, "l") {
+			result.member, err = stager.Link(path, "target", false)
+		} else if err == nil {
+			var copied Copied
+			copied, err = stager.Copy(path)
+			result.member, result.hash = copied.ArchivePath, copied.SHA256
+		}
+		if err != nil {
+			result.err = strings.NewReplacer(stager.Dir, "{STAGE}", root, "{ROOT}").Replace(err.Error())
+		}
+		results = append(results, result)
+	}
+	return results
+}
+
+func TestTheParentTheTreeHoldsChangesNothingStaged(t *testing.T) {
+	// In turn: a sibling, back, a child, a cousin several levels away and
+	// back, links out of the tree as the parent's last component, below a
+	// held level, beside one and as a middle component, and an in-tree
+	// directory link as a middle component, with the staging directory moved
+	// aside and a link put at its name midway.
+	paths := []string{"/home/u/a/one", "/home/u/b/two", "/home/u/a/three", "/home/u/a/l",
+		"/home/u/b/l", "/home/u/a/one", "/home/u/a/c/d/e/five", "/home/v/w/x/y/six",
+		"/home/u/a/c/d/e/seven", "/home/u/a/c/d/eight", "/home/u/out/x", "/home/u/a/out/y",
+		"/home/u/a/c/d/e/nine", "/home/u/out/deep/z", "/home/u/in/c/ten", "/home/u/in/c/d/e/l",
+		"/home/u/four"}
+	var runs [2][]stagedResult
+	for i, fresh := range []bool{true, false} {
+		stager, root := newStager(t)
+		outside := t.TempDir()
+		for _, path := range paths {
+			mustDo(t, os.MkdirAll(filepath.Dir(root+path), 0o755))
+			if strings.HasSuffix(path, "l") {
+				_ = os.Symlink("target", root+path)
+			} else {
+				mustDo(t, os.WriteFile(root+path, []byte(path), 0o644))
+			}
+		}
+		// Recreated links leading out of the tree: one beside a parent the
+		// tree will hold, one below it.
+		mustDo(t, os.MkdirAll(stager.Dir+"/fs/home/u/a", 0o700))
+		mustDo(t, os.Symlink(outside, stager.Dir+"/fs/home/u/out"))
+		mustDo(t, os.Symlink(outside, stager.Dir+"/fs/home/u/a/out"))
+		mustDo(t, os.Symlink("a", stager.Dir+"/fs/home/u/in"))
+		absolute := make([]string, len(paths))
+		for j, path := range paths {
+			absolute[j] = root + path
+		}
+		// The directory the planted link leads to mirrors the staged
+		// directories, so a level reached by name instead of through the
+		// chain would stage there.
+		victim := t.TempDir()
+		for _, path := range paths {
+			mustDo(t, os.MkdirAll(victim+"/fs"+filepath.Dir(path), 0o700))
+		}
+		runs[i] = stageInTurn(t, stager, root, absolute, fresh, 9, victim)
+		if entries, _ := os.ReadDir(outside); len(entries) != 0 {
+			t.Errorf("staged %v through a link out of the tree (fresh %v)", entries, fresh)
+		}
+		requireOnlyDirectories(t, victim)
+	}
+	for j := range paths {
+		if runs[0][j] != runs[1][j] {
+			t.Errorf("%s: walked from the root %+v, through the held parent %+v", paths[j],
+				runs[0][j], runs[1][j])
+		}
+	}
+	for _, j := range []int{10, 11, 13} {
+		if !strings.Contains(runs[1][j].err, outsideStage{}.Error()) {
+			t.Errorf("%s through a link out of the tree = %q; want %q", paths[j], runs[1][j].err,
+				outsideStage{})
+		}
+	}
+}
+
+// requireOnlyDirectories fails when anything but a directory is under dir.
+func requireOnlyDirectories(t *testing.T, dir string) {
+	t.Helper()
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			t.Errorf("staged %s where the link at the staging directory's name leads", path)
+		}
+		return err
+	})
+	mustDo(t, err)
+}

@@ -7,7 +7,6 @@ import (
 	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -77,15 +76,15 @@ func MarkCaseSensitive(dir string) error {
 	return nil
 }
 
-// createDest creates the staged copy at dest exclusively (CREATE_NEW), never
-// following a reparse point: when the volume takes the name for an existing
-// entry's, by any rule it has, the create fails and nothing is opened for
-// write. It returns the file with its own identity and the path Windows
-// gives for it. The copy's access and write times are then held, so the
-// times preserve sets are the ones the copy keeps whatever the volume
-// records.
-func createDest(dest string) (createdFile, error) {
-	file, err := osfile.OpenFile(dest,
+// createDest creates the staged copy at name in the tree exclusively
+// (CREATE_NEW), never following a reparse point: when the volume takes the
+// name for an existing entry's, by any rule it has, the create fails and
+// nothing is opened for write. It returns the file with its own identity
+// and the path Windows gives for it. The copy's access and write times are
+// then held, so the times preserve sets are the ones the copy keeps
+// whatever the volume records.
+func createDest(tree *Tree, name string) (createdFile, error) {
+	file, err := tree.openFile(name,
 		os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0o600)
 	if err != nil {
 		return createdFile{}, err
@@ -102,10 +101,10 @@ func createDest(dest string) (createdFile, error) {
 	return created, nil
 }
 
-// preserve gives the copy the source's creation, access and write times.
-// They are set on the open handle, because os.Chtimes
+// preserve gives the copy at name in the tree the source's creation, access
+// and write times. They are set on the open handle, because os.Chtimes
 // opens the path again and would follow a link put there.
-func preserve(target *os.File, dest string, info fs.FileInfo) error {
+func preserve(target *os.File, tree *Tree, name string, info fs.FileInfo) error {
 	times, ok := info.Sys().(*syscall.Win32FileAttributeData)
 	if !ok {
 		return nil
@@ -115,7 +114,7 @@ func preserve(target *os.File, dest string, info fs.FileInfo) error {
 			&times.LastAccessTime, &times.LastWriteTime)
 	})
 	if err != nil {
-		return &fs.PathError{Op: "utimes", Path: syspath.ToNative(dest), Err: err}
+		return &fs.PathError{Op: "utimes", Path: syspath.ToNative(tree.full(name)), Err: err}
 	}
 	return nil
 }

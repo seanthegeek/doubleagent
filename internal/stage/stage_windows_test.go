@@ -74,16 +74,14 @@ func TestDestMovesAPathUnderAnInBaseLinkSpelledInAnotherCase(t *testing.T) {
 }
 
 // newWindowsStager returns a stager over a fresh staging directory and a
-// fresh source root, both canonical, the stager's Physical resolved as the
-// run resolves it.
+// fresh source root, both canonical, the staging directory open as a tree
+// whose physical path is resolved as the run resolves it.
 func newWindowsStager(t *testing.T) (Stager, string) {
 	t.Helper()
 	parent := syspath.FromNative(t.TempDir())
 	mustDo(t, os.MkdirAll(parent+"/stage/fs", 0o700))
 	mustDo(t, os.MkdirAll(parent+"/root/home", 0o755))
-	physical, err := PhysicalDir(parent + "/stage")
-	mustDo(t, err)
-	return Stager{Dir: parent + "/stage", Physical: physical, Root: parent + "/root",
+	return Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/root",
 		Places: NewPlaces()}, parent + "/root"
 }
 
@@ -618,7 +616,7 @@ func TestFailedCopyInsideOnWindows(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			stager, _ := newWindowsStager(t)
-			stager.Physical = syspath.Fold(stager.Physical)
+			stager.Tree.physical = syspath.Fold(stager.Tree.physical)
 			dest := test.setup(t, stager, syspath.FromNative(t.TempDir()))
 			if got := stager.FailedCopyInside(dest); got != test.wantResult {
 				t.Errorf("FailedCopyInside = %v", got)
@@ -632,7 +630,7 @@ func TestFailedCopyInsideOnWindows(t *testing.T) {
 
 func TestAFailedCopyRemovesItsOwnFileWhenTheStagingPathDiffersInCase(t *testing.T) {
 	stager, root := newWindowsStager(t)
-	stager.Physical = syspath.Fold(stager.Physical)
+	stager.Tree.physical = syspath.Fold(stager.Tree.physical)
 	source := root + "/home/f"
 	mustDo(t, os.WriteFile(source, []byte("x"), 0o600))
 	stager.wrapWriter = func(io.Writer) io.Writer { return failingWriter{} }
@@ -666,7 +664,7 @@ func TestHoldsComparesPhysicalPathsByteForByte(t *testing.T) {
 	for _, name := range []string{".stage-x/fs", ".ſtage-x/fs"} {
 		mustDo(t, os.MkdirAll(syspath.Extended(base+"/"+name), 0o755))
 	}
-	stager := Stager{Dir: base + "/.stage-x", Physical: base + "/.stage-x"}
+	tree := &Tree{path: base + "/.stage-x", physical: base + "/.stage-x"}
 	cases := []struct {
 		name, physical string
 		want           bool
@@ -679,7 +677,7 @@ func TestHoldsComparesPhysicalPathsByteForByte(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := stager.holds(test.physical); got != test.want {
+			if got := tree.holds(test.physical); got != test.want {
 				t.Errorf("holds(%q) = %t, want %t", test.physical, got, test.want)
 			}
 		})

@@ -53,8 +53,8 @@ func unicodeStagers(t *testing.T, parent string) (Stager, Stager) {
 	if err != nil {
 		t.Skipf("%s keeps the two Unicode forms of a name apart", fsDir)
 	}
-	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
-		FoldsCase: FoldsCase(fsDir), Places: NewPlaces()}
+	first := Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/one",
+		FoldsCase: mustTree(t, fsDir).FoldsCase("."), Places: NewPlaces()}
 	second := first
 	second.Root = parent + "/two"
 	return first, second
@@ -190,7 +190,7 @@ func TestTheProbeSeesNamesTheVolumeTakesForOne(t *testing.T) {
 			if err := os.Remove(dir + "/" + composed); err != nil {
 				t.Fatal(err)
 			}
-			if merges == nil && !FoldsCase(dir) {
+			if merges == nil && !mustTree(t, dir).FoldsCase(".") {
 				t.Errorf("FoldsCase(%s) = false; the volume takes %q and %q for one", dir,
 					composed, decomposed)
 			}

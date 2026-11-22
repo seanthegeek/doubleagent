@@ -14,7 +14,7 @@ import (
 func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	parent := foldingStage(t)
 	outside := outsideTree(t, parent)
-	first, second := twoFoldingStagers(parent)
+	first, second := twoFoldingStagers(t, parent)
 	link := parent + "/one/home/u/.config/cursor"
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 		t.Fatal(err)
 	}
 	var listed []string
-	system := systemFS()
+	system := second.files()
 	second.stagedFS = &stagedFS{lstat: system.lstat, list: func(dir string) ([]fs.DirEntry, error) {
 		listed = append(listed, dir)
 		return system.list(dir)

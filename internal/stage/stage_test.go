@@ -30,7 +30,7 @@ func newStager(t *testing.T) (Stager, string) {
 	if err := os.MkdirAll(parent+"/root/home", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root",
+	return Stager{Dir: parent + "/stage", Tree: mustTree(t, parent+"/stage"), Root: parent + "/root",
 		Places: NewPlaces()}, parent + "/root"
 }
 
@@ -194,7 +194,7 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 func TestCopyWithAnUnresolvedPhysicalPath(t *testing.T) {
 	stager, root := newStager(t)
 	mustDo(t, os.Symlink(stager.Dir, filepath.Dir(stager.Dir)+"/alias"))
-	stager.Physical = filepath.Dir(stager.Dir) + "/alias"
+	stager.Tree.physical = filepath.Dir(stager.Dir) + "/alias"
 	mustDo(t, os.WriteFile(root+"/home/f", []byte("x"), 0o644))
 	if _, _, err := copyFile(stager, root+"/home/f"); err != nil {
 		t.Errorf("Copy: %v", err)

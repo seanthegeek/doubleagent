@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // stagedStop is how a walk of a staged path ended (Stager.spelling).
@@ -66,17 +65,15 @@ func (stager Stager) spelling(path string) stagedSpelling {
 }
 
 // files returns the file system the stager's walks and lstats of staged
-// paths ask: the system's, or a test's.
+// paths ask: the staging tree's, or a test's.
 func (stager Stager) files() stagedFS {
 	if stager.stagedFS != nil {
 		return *stager.stagedFS
 	}
-	return systemFS()
-}
-
-// systemFS is the file system itself.
-func systemFS() stagedFS {
-	return stagedFS{list: osfile.ReadDir, lstat: fsmeta.Lstat}
+	return stagedFS{
+		list:  func(dir string) ([]fs.DirEntry, error) { return stager.Tree.ReadDir(stager.name(dir)) },
+		lstat: func(path string) (fsmeta.Meta, error) { return stager.Tree.meta(stager.name(path)) },
+	}
 }
 
 // walkStaged spells path, below base, as the staging tree holds it. It
@@ -85,8 +82,9 @@ func systemFS() stagedFS {
 // listed with its own bytes is kept; one an lstat in that directory still
 // finds was resolved by the volume to another spelling, found by device
 // and inode at one lstat per listed entry until one matches. It goes on
-// only into a real directory, which it lists by path: only a writer inside
-// the binary's own staging directory could swap one for a link meanwhile.
+// only into a real directory, which it lists through the tree: only a
+// writer inside the binary's own staging directory could swap one for a
+// link meanwhile.
 func walkStaged(fsys stagedFS, base, path string) stagedSpelling {
 	rest, found := strings.CutPrefix(path, base+"/")
 	if !found {

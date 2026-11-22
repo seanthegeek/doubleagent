@@ -449,8 +449,9 @@ The fields, statuses and archive layout are an interface,
 
 **Every output is created new.** The names a run writes under `-o` are predictable (the
 host and the start time), and a root run may write into a directory another account can
-also write. So the staging directory and its `fs` directory are made with `osfile.Mkdir`,
-and the log, the manifest, `collection.json`, the copies staged beside them, the partial
+also write. So the staging directory is made with `osfile.Mkdir` (on Windows
+`CreateDirectory` with its own access list) and then held open as a `stage.Tree`, its `fs`
+directory made through the tree, and the log, the manifest, `collection.json`, the copies staged beside them, the partial
 archive and its `.sha256` file are opened with `O_CREAT|O_EXCL` (`collect.createNew`,
 `runlog.Open`, `archive.WriteTarGz`, `archive.WriteSidecar`): anything already at the
 name, a dangling link included, fails the create and is neither followed nor changed. On
@@ -462,12 +463,36 @@ what it made: the staging directory, `collection.json` on an interrupt, the part
 archive and the `.sha256` file on a failure. Only the partial and final archive names
 are cleared first. The archive's hash is taken of the bytes as they are written, and the
 file's identity from its open handle, so an entry put at the partial name during the run
-is neither hashed nor moved. Two things stay open to an account that may rename or
-delete entries in the output directory: the moment between that check and the rename,
-stated on `collect.runState.placeArchive`, and the staging directory, which the run
-reaches by path for every staged copy, so one moved aside during the run and replaced
-by a link sends the later copies through the link. The output directory must be one
-only the running account can write.
+is neither hashed nor moved.
+
+**The staging directory is reached through its open handle.** `stage.Tree` is the staging
+directory opened once, right after it is made, and every staged write, listing, link and
+removal (`stage.Stager`, `archive.WriteTarGz`, the run's cleanup) takes a path relative
+to it. On Linux and macOS the tree is an `os.Root`, which walks each name from the
+directory's own descriptor, so a rename of the directory changes nothing, and refuses a
+`..` or a link that leads out of it, which the stager reports as its own refusal. So a
+run's names do not each walk from the top, the tree also keeps open the chain of
+directories from it down to the parent of the last name it used, each opened as one real
+directory from the one above, never through a link; a name in another directory keeps the
+part of the chain the two share and opens, or makes, the rest one component at a time,
+and a name whose path holds a link is walked from the top as before. On
+Windows `os.Root` cleans every name with `GetFullPathName`, which drops a dot or a space
+ending a name, so the tree instead holds a handle on the directory that shares reading and
+writing but not deletion: Windows then refuses any rename or removal of the directory
+while the run works, and the staged paths go through `osfile` under that fixed name as
+before. `stage.CreateTree` refuses a directory swapped in between the make and the open:
+one that is not empty, is not what the name holds, or has another owner than the one the
+volume gives an entry the run creates in it then (on Linux and macOS a probe file's owner;
+on Windows the running account, compared only on a volume whose flags include
+`FILE_PERSISTENT_ACLS`). On a volume that keeps no owners or access lists every entry has
+the same owner, so that check cannot refuse anything there, and nothing can be protected
+from another account that reaches the volume; the run still stages through the handle on
+Linux and macOS and still holds the name on Windows. `Tree.Discard`
+empties the tree, closes it and removes the name only when it still holds the tree. One
+moment stays open to an account that may rename or delete entries in the output
+directory: the one between the archive's last check and its rename, stated on
+`collect.runState.placeArchive`. The output directory must be one only the running
+account can write.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
 byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as
@@ -740,7 +765,8 @@ name and with one comment shape, rather than as a `runtime.GOOS` switch: the fil
 `_unix.go`, `_linux.go`, `_darwin.go` or `_windows.go`, or carry a build constraint, and
 code that is the same everywhere stays in the plain file. `excludedMeta` in
 `walk/rows_other.go` and `walk/rows_windows.go`, or `RootCheck.Reached` in
-`walk/rootrules_unix.go` and `walk/rootrules_windows.go`, are such pairs. A change to one
+`walk/rootrules_unix.go` and `walk/rootrules_windows.go`, or the methods of `stage.Tree`
+in `stage/tree_unix.go` and `stage/tree_windows.go`, are such pairs. A change to one
 side is checked against the other in the same commit, and every platform runs its own
 side in CI.
 

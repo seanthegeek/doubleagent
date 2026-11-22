@@ -84,6 +84,9 @@ packages.
   constraint) may call `os` directly, since there the wrappers are the `os`
   calls unchanged. `TestWindowsBuildCallsNoPathFunctionOfOsDirectly` in
   `internal/osfile` fails on a direct call in any file of the Windows build.
+  A path in the staging directory goes through `stage.Tree`, never by its
+  full name, and no collected name is given to an `os.Root` method on
+  Windows, where the root cleans each name with `GetFullPathName`.
 - **Platform code** lives in `_linux.go`, `_darwin.go`, `_windows.go` and
   `_unix.go` files or behind a build constraint, never in a `runtime.GOOS`
   switch; a function written once per platform keeps one name and one

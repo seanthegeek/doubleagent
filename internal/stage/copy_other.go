@@ -12,9 +12,9 @@ import (
 // The binary is built for Linux, macOS and Windows only (.github/go-build.sh),
 // and fsmeta has no Lstat elsewhere, so no build compiles this file today.
 
-// createDest creates the staged copy exclusively.
-func createDest(dest string) (createdFile, error) {
-	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+// createDest creates the staged copy at name in the tree exclusively.
+func createDest(tree *Tree, name string) (createdFile, error) {
+	file, err := tree.CreateNew(name, 0o600)
 	return createdFile{file: file}, err
 }
 
@@ -30,10 +30,10 @@ func MarkCaseSensitive(string) error {
 	return nil
 }
 
-// preserve gives the copy the source's modification time, the one time this
-// platform's standard library sets.
-func preserve(_ *os.File, dest string, info fs.FileInfo) error {
-	return os.Chtimes(dest, info.ModTime(), info.ModTime())
+// preserve gives the copy at name in the tree the source's modification
+// time, the one time this platform's standard library sets.
+func preserve(_ *os.File, tree *Tree, name string, info fs.FileInfo) error {
+	return tree.SetTimes(name, info.ModTime(), info.ModTime())
 }
 
 // PhysicalDir returns dir with every symlink resolved, or an error when it is

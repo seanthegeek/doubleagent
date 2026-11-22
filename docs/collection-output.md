@@ -62,12 +62,32 @@ second into one directory, the second therefore stops and leaves the first
 one's files as they were, and a link another account put at one of these
 names beforehand is never written through.
 
-That is the whole of the protection. An account that may rename or delete
-entries in the output directory (it can write the directory, and the
-directory has no sticky bit) can still move the run's staging directory
-aside while the run works and put a link in its place; the staged copies
-then go where the link points. Give `-o` a directory that only the account
-running the collection can write.
+The run keeps its staging directory open from the moment it makes it, and
+every staged copy, the archive's walk of it and its removal at the end go
+through that open directory, never through its name. On Linux and macOS
+an account that may rename entries in the output directory (it can write
+the directory, and the directory has no sticky bit) can still move the
+staging directory aside while the run works and put a link in its place,
+but the run goes on writing into the directory where it was moved, and at
+the end empties it there and leaves the link, with a
+`staging directory not removed:` line in the log. On Windows the open
+directory cannot be renamed or deleted at all while the run works. A link
+recreated inside the staging directory that leads out of it is never
+written through on either. What stays open to such an account is the
+archive's move to its name, described below; give `-o` a directory that
+only the account running the collection can write.
+
+On a volume that keeps no owners or permissions of its own, such as a FAT
+or exFAT drive, an NTFS drive mounted on Linux with one owner for every
+entry, an NFS export that maps
+root to another account, or a macOS volume set to ignore ownership,
+nothing can be kept from another account that can reach the volume: every
+entry there has the same owner, so the run cannot tell its staging
+directory from one another account put at the name, and the mode and access
+list it asks for are not kept. The run still works there: on Linux and
+macOS it still stages through the open directory, and on Windows it still
+holds the name, so the directory cannot be renamed or deleted while it
+works.
 
 While it is written, the archive is named
 `<host>_<UTC start time>_agent-artifacts.tar.gz.partial`, a file the run
@@ -112,8 +132,14 @@ The `.sha256` file is one line, `<hex>  <archive file name>`, the form
 
 On Linux and macOS the run sets its file creation mask to `077`, so the
 output files are readable by the account that ran it only (mode `600`), and
-an output directory it creates is mode `700`. On Windows the files take
-the permissions the output directory passes on.
+an output directory it creates is mode `700`. On Windows the files beside
+the archive take the permissions the output directory passes on; the
+staging directory is made with its own access list, taking nothing from the
+output directory, that gives the account running the collection and the
+Administrators group full control, and everything staged inside inherits
+it, so a staging directory `-k` leaves is readable by those two only. A
+FAT or exFAT volume keeps no access list, so there the staging directory
+has none.
 
 The staging directory is where the run copies each file before it packs the
 archive; it is removed when the run ends, unless `-k` is given.
@@ -319,6 +345,7 @@ Then come the warnings that apply to the whole run.
 | `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
 | `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file, and `FATAL: archive not moved to its name: REASON; it is complete as PARTIAL, with its .sha256 file beside it` when the finished archive could not be given its name. |
+| `staging directory not removed: REASON` | The last line, after `done:`, `interrupted` or `FATAL:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is left empty wherever it was moved. Not written with `-k`. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

@@ -171,9 +171,10 @@ func safeNames() map[string][]string {
 		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"AttributesString", "Device", "Dir",
 			"Fifo", "File", "Kind", "ListingOrder", "Meta", "NewOpener", "NewOwners", "Opener",
 			"Owners", "Reparse", "Socket", "Symlink", "TagMountPoint", "TagSymlink", "ZeroMeta"},
-		// The staging type and a text comparison of two paths.
-		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Under", "NewPlaces",
-			"IsCollision"},
+		// The staging types and a text comparison of two paths. A Tree's
+		// methods take names below the staging directory it holds open.
+		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Tree", "Under",
+			"NewPlaces", "IsCollision"},
 	}
 }
 
@@ -208,10 +209,6 @@ func allowedCalls() map[string]allowance {
 	}{
 		{"internal/archive/archive.go", "osfile.Remove", 1,
 			"removes the partial archive it created when the write fails"},
-		{"internal/collect/run_setup.go", "osfile.Remove", 1,
-			"removes the probe file it made in the output directory"},
-		{"internal/collect/run_setup.go", "osfile.RemoveAll", 1,
-			"removes the run's own staging directory"},
 		{"internal/collect/run_finish.go", "osfile.Remove", 4,
 			"removes what holds the run's archive name and partial name before the archive is " +
 				"written, never following a link, and the run's own partial archive and checksum " +
@@ -251,23 +248,19 @@ func allowedCalls() map[string]allowance {
 				"if anything, a link included, holds the name"},
 		{"internal/collect/run_setup.go", "osfile.MkdirAll", 1,
 			"creates the output directory -o names"},
-		{"internal/collect/run_setup.go", "osfile.Mkdir", 2,
-			"creates the staging directory and its fs directory new, failing if anything, a link " +
-				"included, holds the name"},
+		{"internal/collect/run_setup.go", "stage.CreateTree", 1,
+			"creates the staging directory new, failing if anything, a link included, holds the " +
+				"name, and holds it open; every later staged write goes through that tree"},
+		{"internal/collect/run_setup.go", "osfile.OpenRoot", 1,
+			"opens the output directory once to create and remove the probe file below it"},
 		{"internal/collect/run_setup.go", "stage.MarkCaseSensitive", 1,
 			"marks the run's own new staging fs directory case-sensitive"},
-		{"internal/collect/run_setup.go", "stage.FoldsCase", 1,
-			"probes the run's own staging fs directory with a file it creates and removes"},
 		{"internal/shortname/shortname_windows.go", "windows.GetShortPathName", 1,
 			"names a test directory the helper made under the test's temporary directory"},
 		{"internal/shortname/shortname_windows.go", "windows.GetLongPathName", 1,
 			"names a test directory the helper made under the test's temporary directory"},
 		{"internal/shortname/shortname_windows.go", "osfile.MkdirAll", 1,
 			"makes a test directory under the test's own temporary directory"},
-		{"internal/archive/archive.go", "osfile.ReadDir", 1,
-			"lists the staging tree the run built"},
-		{"internal/archive/archive.go", "osfile.Open", 1,
-			"reads files of the staging tree the run built"},
 		{"internal/collect/options.go", "osfile.Stat", 1,
 			"tests -r and -o as the operator gives them"},
 		{"internal/collect/run_finish.go", "osfile.Open", 1,
@@ -275,10 +268,6 @@ func allowedCalls() map[string]allowance {
 		{"internal/collect/run_finish.go", "osfile.OpenFile", 1,
 			"creates each of the run's own output files new, failing if anything, a link included, " +
 				"holds the name"},
-		{"internal/collect/run_setup.go", "osfile.OpenFile", 1,
-			"creates the probe file in the output directory"},
-		{"internal/collect/run_setup.go", "stage.PhysicalDir", 1,
-			"resolves the staging directory"},
 		{"internal/collect/run_unix.go", "unix.Faccessat", 1,
 			"tests the output directory -o names"},
 		{"internal/glob/expand.go", "osfile.Stat", 1,
@@ -346,9 +335,11 @@ func allowedCalls() map[string]allowance {
 			"creates a file new, failing if anything, a link included, holds its name: timeline's " +
 				"probe file under a random name and each output file in its output directory, and " +
 				"fleet's temporary file under a random name beside the CSV"},
-		{"internal/analyze/timeline.go", "osfile.Remove", 2,
-			"removes the probe file it made, and the directories that timeline, fleet, or the " +
-				"work directory of detect and timeline created, once the run leaves them empty"},
+		{"internal/analyze/timeline.go", "osfile.Remove", 1,
+			"removes the directories that timeline, fleet, or the work directory of detect and " +
+				"timeline created, once the run leaves them empty"},
+		{"internal/analyze/timeline.go", "osfile.OpenRoot", 1,
+			"opens the output directory once to create and remove the probe file below it"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names as OUTPUT_DIR"},
 		{"internal/analyze/outside_unix.go", "filepath.EvalSymlinks", 1,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/shortname"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -52,7 +53,12 @@ func TestCopyFileErrorNamesTheNativePath(t *testing.T) {
 	// Reading a directory opened as a file fails with the directory's name,
 	// which osfile opened in its \\?\ form.
 	source := t.TempDir()
-	err := copyFile(source, filepath.Join(t.TempDir(), "copy"))
+	tree, err := stage.OpenTree(syspath.FromNative(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Close()
+	err = copyFile(source, tree, "copy")
 	if err == nil || strings.Contains(err.Error(), `\\?\`) || !strings.Contains(err.Error(), source) {
 		t.Errorf("copyFile error = %v, want one naming %s without the \\\\?\\ prefix", err, source)
 	}

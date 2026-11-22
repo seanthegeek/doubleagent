@@ -2,18 +2,17 @@
 // becomes the archive: the staged path of each file, the copy and its hash,
 // recreated symlinks, and the removal of a failed partial copy.
 //
-// A recreated link in the staging tree may lead to the source or to the
-// analyst's own files, so the stager lists or opens nothing below a link: a
-// write, an open or a link's creation first passes requireInside for its
-// directory, and every respelling walks the tree with walkStaged, which
-// stops at a link. requireInside, PhysicalDir and FailedCopyInside's lstat
-// of the staged path (run after a copy that failed for a reason other than
-// a collision) resolve through links and read
-// metadata only.
+// Every staged write, listing and removal goes through the open staging
+// directory (Tree), never through what its name points at now, so an
+// account that moves the directory aside during the run and puts a link in
+// its place changes nothing the run writes. A recreated link in the
+// staging tree may lead to the source or to the analyst's own files, so
+// the stager lists or opens nothing below a link: a write, an open or a
+// link's creation first passes requireInside for its directory, and every
+// respelling walks the tree with walkStaged, which stops at a link.
 package stage
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -25,25 +24,25 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// Stager says where files are staged. Dir is the staging directory, Physical
-// its path with every symlink resolved, and Root the image root ("" on a live
-// host). From and Into, when set, are an in-base symlinked directory a path
-// ran through and that directory's physical path in the base: a path at or
+// Stager says where files are staged. Dir is the staging directory's name,
+// for messages and staged paths, Tree the open directory every staged write
+// goes through, and Root the image root ("" on a live host). From and Into,
+// when set, are an in-base symlinked directory a path ran through and that
+// directory's physical path in the base: a path at or
 // under From is staged under Into, so nothing is staged through a link
 // recreated in the staging tree. Opener opens each source, as the run
 // decided (whether to ask Windows to hold its access time); nil asks
 // wherever the platform can.
 type Stager struct {
-	Dir      string
-	Physical string
-	Root     string
-	From     string
-	Into     string
-	Opener   *fsmeta.Opener
+	Dir    string
+	Tree   *Tree
+	Root   string
+	From   string
+	Into   string
+	Opener *fsmeta.Opener
 	// FoldsCase is set where the staging directory takes two names for one
 	// (FoldsCase): a member's spelling is then read from a walk of the tree
 	// where the system gives no path for it. Safety does not depend on it.
@@ -130,40 +129,67 @@ func (stager Stager) MakeParent(path string) error {
 // dir that exists resolves inside the staging directory. The directories it
 // then creates are new and real, so nothing is created outside it.
 func (stager Stager) makeDir(dir string) error {
-	if err := stager.requireInside("mkdir", dir); err != nil {
+	exists, err := stager.findInside("mkdir", dir)
+	if err != nil || exists {
 		return err
 	}
-	return osfile.MkdirAll(dir, 0o777)
+	return stager.Tree.MkdirAll(stager.name(dir))
+}
+
+// name returns the staged path dest, a path Dest built, relative to the
+// staging directory: "." for the directory itself.
+func (stager Stager) name(dest string) string {
+	if dest == stager.Dir {
+		return "."
+	}
+	return strings.TrimPrefix(dest, stager.Dir+"/")
 }
 
 // requireInside returns an *fs.PathError of operation on dir unless dir, or
 // its nearest ancestor that exists when dir does not, resolves with every
-// symlink under the physical staging directory; an lstat error other than a
-// missing path is returned as it is. Every write into the staging tree
-// passes it first: a link recreated there can lead to the source, and a
-// write through it would change the evidence.
+// symlink to a directory inside the staging directory (Tree.lookDir); an
+// error other than a missing path is returned as it is. Every write into
+// the staging tree passes it first: a link recreated there can lead to the
+// source, and a write through it would change the evidence.
 func (stager Stager) requireInside(operation, dir string) error {
+	_, err := stager.findInside(operation, dir)
+	return err
+}
+
+// findInside is requireInside, also reporting whether dir itself is the
+// directory found, so nothing is left to make.
+func (stager Stager) findInside(operation, dir string) (bool, error) {
+	outside := &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
 	existing := dir
 	for {
-		_, err := osfile.Lstat(existing)
-		if err == nil {
-			break
+		if existing != stager.Dir && !strings.HasPrefix(existing, stager.Dir+"/") {
+			return false, outside
 		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			return err
+		found, err := stager.Tree.lookDir(stager.name(existing))
+		switch {
+		case err != nil:
+			return false, err
+		case found == dirInside:
+			return existing == dir, nil
+		case found == dirOutside || existing == stager.Dir:
+			return false, outside
 		}
-		parent := parentOf(existing)
-		if parent == existing || parent == "" {
-			return &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
-		}
-		existing = parent
+		existing = parentOf(existing)
 	}
-	physical, err := PhysicalDir(existing)
-	if err != nil || !stager.holds(physical) {
-		return &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
-	}
-	return nil
 }
+
+// dirFound is what Tree.lookDir found at a name in the tree.
+type dirFound int
+
+const (
+	// dirMissing: nothing is at the name, a dangling link excepted.
+	dirMissing dirFound = iota
+	// dirInside: the name resolves to a directory inside the tree.
+	dirInside
+	// dirOutside: something is at the name that does not resolve to a
+	// directory inside the tree.
+	dirOutside
+)
 
 // Under reports whether the physical path lies at or under root and returns
 // the rest after root's slash ("" for root itself). Both must be PhysicalDir
@@ -183,27 +209,6 @@ func Under(physical, root string) (rest string, inside bool) {
 		return "", false
 	}
 	return rest, true
-}
-
-// holds reports whether the physical directory lies at or under the
-// staging directory. Physical is compared first; when it does not match, or
-// is empty, the staging directory is resolved again, so a stager whose
-// Physical was given unresolved still stages; physical and the resolved
-// staging directory are PhysicalDir results, compared through Under.
-func (stager Stager) holds(physical string) bool {
-	under := func(root string) bool {
-		_, inside := Under(physical, root)
-		return root != "" && inside
-	}
-	if under(stager.Physical) {
-		return true
-	}
-	root := stager.Physical
-	if root == "" {
-		root = stager.Dir
-	}
-	resolved, err := PhysicalDir(root)
-	return err == nil && under(resolved)
 }
 
 // outsideStage is the reason a write into the staging tree is refused: the
@@ -257,7 +262,7 @@ func (stager Stager) Copy(path string) (Copied, error) {
 		return Copied{}, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
 	identity := handleIdentity(source, info)
-	target, err := createDest(dest)
+	target, err := createDest(stager.Tree, stager.name(dest))
 	if err != nil {
 		if stager.exists(dest) {
 			return stager.again(path, dest, identity)
@@ -267,7 +272,7 @@ func (stager Stager) Copy(path string) (Copied, error) {
 	copied, err := stager.fill(target, source, dest, info)
 	if err != nil {
 		// The file was created exclusively above, so it is this copy's own.
-		_ = osfile.Remove(dest)
+		_ = stager.Tree.Remove(stager.name(dest))
 		return Copied{}, err
 	}
 	stager.Places.record(target.staged, identity, dest, copied)
@@ -281,7 +286,7 @@ func (stager Stager) fill(target createdFile, source io.Reader, dest string, inf
 	hash := sha256.New()
 	written, err := io.Copy(io.MultiWriter(stager.writer(target.file), hash), source)
 	if err == nil {
-		err = preserve(target.file, dest, info)
+		err = preserve(target.file, stager.Tree, stager.name(dest), info)
 	}
 	if closeError := target.file.Close(); err == nil {
 		err = closeError
@@ -396,11 +401,11 @@ func (stager Stager) member(place, dest string) string {
 // inside returns place, a path the system reported, less the physical
 // staging directory, and whether it lies there.
 func (stager Stager) inside(place string) (string, bool) {
-	roots := []string{stager.Physical, stager.Dir}
-	if physical, err := PhysicalDir(stager.Dir); err == nil {
-		roots = append(roots, physical)
-	}
-	for _, root := range roots {
+	for _, root := range []string{stager.Tree.physical, stager.Dir, ""} {
+		if root == "" {
+			// Resolved only when neither name matched, as it costs a walk.
+			root, _ = PhysicalDir(stager.Dir)
+		}
 		if rest, inside := Under(place, root); root != "" && inside && rest != "" {
 			return rest, true
 		}
@@ -460,7 +465,7 @@ func (stager Stager) Link(path, target string, directory bool) (string, error) {
 		return "", err
 	}
 	identity := linkIdentity(path)
-	if err := createLink(target, dest, directory); err != nil {
+	if err := stager.Tree.Symlink(target, stager.name(dest), directory); err != nil {
 		if stager.exists(dest) {
 			copied, err := stager.again(path, dest, identity)
 			return copied.ArchivePath, err
@@ -484,18 +489,16 @@ func (stager Stager) takenByAnother(path string) bool {
 }
 
 // FailedCopyInside reports, after a copy to dest failed, whether what is at
-// dest lies inside the staging directory: true when
-// nothing is there or its directory resolves inside the physical staging
-// directory, false when the staged path leads through a recreated link out
-// of the staging tree, where a file may be a source. Copy removes the file
-// it created itself, so nothing is removed here; the walk logs the false
-// case.
+// dest lies inside the staging directory: true when nothing is there or its
+// directory resolves inside the staging directory, false when the staged
+// path leads through a recreated link out of the staging tree, where a
+// file may be a source. Copy removes the file it created itself, so
+// nothing is removed here; the walk logs the false case.
 func (stager Stager) FailedCopyInside(dest string) bool {
-	if _, err := stager.files().lstat(dest); err != nil {
-		return true
+	if _, err := stager.Tree.Lstat(stager.name(dest)); err != nil {
+		return !leavesTree(err)
 	}
-	physical, err := PhysicalDir(parentOf(dest))
-	return stager.Physical != "" && err == nil && stager.holds(physical)
+	return stager.Tree.resolvesInside(stager.name(parentOf(dest)))
 }
 
 // parentOf returns path up to its last slash, as the shell's ${path%/*}
@@ -505,36 +508,6 @@ func parentOf(path string) string {
 		return path[:position]
 	}
 	return path
-}
-
-// FoldsCase reports whether dir, a staging directory, takes two names for
-// one: two differing in ASCII letter case, or the two Unicode forms of an
-// accented letter (precomposed é, and e with a combining acute accent),
-// made as the first and looked up as the second. Safety does not depend on
-// it: no staged file is ever written over (Copy). It decides the note,
-// whether a member's spelling is read from the tree (Linux, links) and
-// whether a refusal is worded as a collision (again, takenByAnother); a
-// rule it misses, such as a Windows short name, costs an archive path
-// spelled as named or a plain reason instead of the collision's, never
-// bytes.
-func FoldsCase(dir string) bool {
-	random := make([]byte, 8)
-	_, _ = rand.Read(random)
-	stem := ".case-probe-" + hex.EncodeToString(random)
-	for _, pair := range [][2]string{{stem, strings.ToUpper(stem)},
-		{stem + "-\u00e9", stem + "-e\u0301"}} {
-		probe, err := osfile.OpenFile(dir+"/"+pair[0], os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if err != nil {
-			return true
-		}
-		_ = probe.Close()
-		_, err = osfile.Lstat(dir + "/" + pair[1])
-		_ = osfile.Remove(dir + "/" + pair[0])
-		if err == nil {
-			return true
-		}
-	}
-	return false
 }
 
 // Places records, for one run, what the stager put in the staging tree:

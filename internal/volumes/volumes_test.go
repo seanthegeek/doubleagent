@@ -70,7 +70,7 @@ func newSetup(t *testing.T, inventory bool) setup {
 	collector := &walk.Collector{
 		Tables: tables, Excludes: tables.Excludes, Secret: walk.MatchAny(tables.SecretGlobs),
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root,
-		Stager:    stage.Stager{Dir: stageDir, Physical: stageDir, Root: root, Places: stage.NewPlaces()},
+		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		Inventory: inventory, Records: records,
 	}
 	return setup{root, collector, rows, log, records}
@@ -282,4 +282,15 @@ func TestBasesPlaceTheSystemVolumeDirectories(t *testing.T) {
 	if !strings.Contains(strings.Join(fixture.log.lines, "\n"), wantLine) {
 		t.Errorf("log %q lacks %q", fixture.log.lines, wantLine)
 	}
+}
+
+// stagingTree opens dir as the staging tree of a test, closed when it ends.
+func stagingTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
 }

@@ -98,7 +98,7 @@ func testCollector(t *testing.T, root string, excludes []string,
 	return &Collector{
 		Tables: &catalog.Tables{}, Excludes: excludes, Secret: MatchAny([]string{"*secret*"}),
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root, MaxSize: 10,
-		Stager:    stage.Stager{Dir: stageDir, Physical: stageDir, Root: root, Places: stage.NewPlaces()},
+		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		RootCheck: NewRootCheck(root),
 	}, rows, log
 }
