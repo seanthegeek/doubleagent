@@ -1,99 +1,102 @@
 # Inventory mode
 
-Inventory mode, `--inventory` in the sh collector and `-Inventory` in the
-PowerShell one, answers a fleet question, which users have used which
-agents on which hosts, without collecting anything: the script walks what
-a collection would take and prints one JSON line for the host and one per
-user and agent found instead of copying a file. Run the script on every host
-through the EDR console and keep what it prints: stdout is the whole result
-(see [deployment.md](deployment.md#fleet-inventory)). Nothing is created,
-copied, hashed or written, not even a log, and `-o` is ignored. When `-o` or
-`-OutputDir` is given, a `NOTE: --inventory writes nothing; -o <dir>
-ignored` line goes to stderr, unless `-q` is given (PowerShell:
-`NOTE: -Inventory writes nothing; -OutputDir <dir> ignored`). `-k`,
-`--no-secrets` and `--max-file-size` have no effect.
+`doubleagent collect --inventory` answers a fleet question, which users
+have used which agents on which hosts, without collecting anything: it
+walks what a collection would take and, instead of copying each file,
+counts it, then prints one JSON line for the host and one per user and
+agent found. Run it on every host through the EDR console and keep what it
+prints: standard output is the whole result
+([Fleet inventory](deployment.md#fleet-inventory)), and `doubleagent fleet`
+merges the saved outputs of many hosts into one CSV
+([Fleet inventory](fleet.md)).
+
+Nothing is created, copied, hashed or written on the host, not even a log
+file. `-o` is ignored; when it is given, the line
+`NOTE: --inventory writes nothing; -o DIR ignored` goes to standard error.
+`-k`, `--no-secrets`, `--max-file-size`, `--env-scan-home` and
+`--env-scan-max-size` have no effect, and no relocation hint is searched
+for.
 
 ## What is walked
 
-The walk is the collection walk with the copy step removed. Homes are
-enumerated as for a collection and honour `-u` and `-r`. Every `CATALOG`
-entry is expanded against every home,
-[nested entries](coverage.md#nested-entries) claim their subtree from the
-enclosing entry, and the `EXCLUDES` patterns prune their subtrees
-(not with `--full`), so the counts cover what a collection would take.
-Regular files are counted with their `lstat` size and modification time
-(PowerShell: `Length` and `LastWriteTimeUtc`); symlinks and reparse points
-are neither followed nor counted. Docker and Podman volumes are enumerated
-as in [docker.md](docker.md) unless `--no-docker` is given, and a volume
-that matches a `DOCKER_VOLUMES` line is walked like a home.
+The walk is the collection walk with the copy step removed, and it honours
+`-r`, `-u`, `-p`, `--full`, `--no-docker` and `--no-projects` as a
+collection does. Homes are found as for a collection. Every catalog line is
+tried against every home, [nested entries](coverage.md#nested-entries)
+claim their subtrees from the entry that encloses them, and the default
+exclusions prune their subtrees (not with `--full`), so the counts cover
+what a collection would take. Regular files are counted with their size and
+modification time from the file itself; symlinks, junctions and special
+files are neither followed nor counted. Docker and Podman volumes are found
+as in [Docker volumes](docker.md), and a volume whose name matches an agent
+is walked like a home. The homes are walked last, after the volumes and
+project discovery, so the progress lines come in that order.
 
-Project discovery runs, so the project count is available, but
-`PROJECT_CATALOG` files are not walked. Credential files are never opened:
-discovery sources that match `SECRET_GLOBS` (`.claude.json`,
-`.openclaw*/openclaw.json`, `.clawdbot/openclaw.json`,
-`.clawdbot/clawdbot.json`, `.clawdbot/moltbot.json`, `.moltbot/moltbot.json`,
-`.nanobot*/config.json`, `.tabby/config.toml`) are skipped in this mode, so
-the project count can be lower than the number of projects a collection
+Project discovery runs, so the number of projects is known, but the
+project-level files are not walked. Discovery sources that are credential
+files (such as Claude Code's `.claude.json`) are never opened in this mode,
+so the project count can be lower than the number of projects a collection
 takes from. The other discovery sources are read as in a collection, which
-updates their access time on filesystems that track it.
+may update their access time ([Access times](deployment.md#access-times)).
 
 ## Output
 
-stdout carries JSON Lines and nothing else: first one `host` line, then one
-`agent` line per user and agent, users in enumeration order and each user's
-agents in order of their first catalog match, then the Docker volume agents
-under user `docker`. Progress lines go to stderr unless `-q` is given. The
-exit code is `0` once the walk has run, including when homes or Docker data
-roots were unreadable.
+Standard output carries JSON Lines and nothing else: first one `host` line,
+then one `agent` line per user and agent, users in the order their homes
+were found and each user's agents in the order of their first catalog
+match, then the lines of the Docker and Podman volumes under the user
+`docker`. Progress lines go to standard error, without times, unless `-q`
+is given. The exit code is `0` once the walk has run, also when homes or
+Docker data were unreadable. Over a mounted image:
 
 ```jsonl
-{"type":"host","host":"host01","collector":"1.22.0","mode":"live","at":"2026-10-04T16:31:54Z","users_scanned":3,"users_unreadable":0,"docker_volumes":3}
-{"type":"agent","host":"host01","user":"alice","agent":"claude-code","files":6,"bytes":318,"first":"2026-09-15T01:02:03Z","last":"2026-10-04T16:31:11Z","projects":29,"evidence":".claude,.claude.json*"}
-{"type":"agent","host":"host01","user":"docker","agent":"agent-zero","files":2,"bytes":63,"first":"2026-10-04T16:31:11Z","last":"2026-10-04T16:31:11Z","projects":0,"evidence":"*a0_usr"}
+{"type":"host","host":"ir-ws01","collector":"<version>","mode":"image","at":"2026-11-22T05:09:59Z","users_scanned":1,"users_unreadable":0,"docker_volumes":2}
+{"type":"agent","host":"ir-ws01","user":"alice","agent":"claude-code","files":19,"bytes":822,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".claude,.claude.json*"}
+{"type":"agent","host":"ir-ws01","user":"alice","agent":"codex-cli","files":2,"bytes":43,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".codex"}
+{"type":"agent","host":"ir-ws01","user":"docker","agent":"agent-zero","files":9,"bytes":210,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"*a0_usr"}
 ```
 
 ### Host line
 
-The `host` line, one per run, keys in this order:
+One per run, with its keys in this order:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `type` | string | `host`. |
-| `host` | string | The host name, as in `collection.json` `hostname`: sh `hostname`, else `uname -n`; PowerShell `COMPUTERNAME`, else the DNS host name. Read from the machine running the collector, so with `-r` it is the analyst workstation's name. |
-| `collector` | string | The collector version, as printed by `--version`. |
+| `host` | string | The host name, as in `collection.json` `hostname`: the name of the machine running the command, so in image mode the analyst workstation's. |
+| `collector` | string | The version of `doubleagent`, as `--version` prints it. |
 | `mode` | string | `live`, or `image` with `-r`. |
-| `at` | string | UTC start time to the second, `2026-10-04T16:31:54Z`. |
-| `users_scanned` | number | Home directories walked after `-u`. sh: every enumerated home that exists as a directory, readable or not. PowerShell: the same, plus enumerated profiles that .NET reports as missing although their parent directory lists them (access denied). A `ProfileList` entry whose directory is gone is not counted. |
-| `users_unreadable` | number | Of those, the homes that cannot be read. sh: a home for which `test -r` or `test -x` fails, so it cannot be listed or entered; its globs match nothing. PowerShell: a profile .NET reports as missing although its parent lists it, or one whose entries cannot be listed. Each is also logged to stderr as `WARNING: home of <user> is not readable: <home>` (sh, and PowerShell for listable-but-unreadable profiles; the PowerShell `profile not accessible (skipped)` line covers the rest). As root, or as Administrator with access, this is `0`; without, other users' homes are counted here. A directory that cannot be listed inside a readable home is not counted anywhere: its files are simply missing from the totals. |
-| `docker_volumes` | number | Volume directories found under the Docker and Podman volume roots, matched or not, as `collection.json` `docker.volumes_found`. `0` with `--no-docker`. Without root the root-owned data roots cannot be entered, so their volumes are not found; a `NOTE: docker:` line on stderr says so unless `-q` is given. |
+| `at` | string | The start time, UTC to the second, `2026-11-22T05:09:59Z`. |
+| `users_scanned` | number | The homes walked, after `-u`. On Windows a profile logged as `profile not accessible (skipped)` is not counted. |
+| `users_unreadable` | number | Of those, the homes that cannot be both listed and entered; their catalog lines that need a listing match nothing. Each is also logged to standard error as `WARNING: home of USER is not readable: HOME`. As root, or as Administrator, this is usually `0`; without, other users' homes are counted here. A directory inside a readable home that cannot be listed is not counted anywhere: its files are missing from the totals. |
+| `docker_volumes` | number | The volume directories found, matched or not, as `collection.json` `docker.volumes_found`. `0` with `--no-docker`. Without root the root-owned volume directories cannot be read, so their volumes are not found; a `NOTE: docker:` line on standard error says so. |
 
 ### Agent lines
 
-One `agent` line per user and agent with at least one regular file under
-its matched `CATALOG` paths after exclusions and nested claims, keys in this
-order. A match that holds no files of its own gives no line: an empty
+One per user and agent with at least one regular file under its matched
+catalog paths, after exclusions and nested claims, with its keys in this
+order. A match that holds no file of its own gives no line: an empty
 directory, a symlink, an excluded-only tree, or a `~/.gemini` that holds
 only the `antigravity-cli` directory claimed by the nested `antigravity`
-entry. The same rule applies to Docker volumes. `files` is therefore never
-`0`. The `shared` entries are not inventoried, and `project` never appears.
+entry. The same holds for Docker volumes, so `files` is never `0`. The
+`shared` catalog lines (directories several agents read) are not
+inventoried, and the agent `project` never appears.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `type` | string | `agent`. |
 | `host` | string | As on the host line. |
 | `user` | string | The home's user, as in the manifest, or `docker` for a matched Docker or Podman volume. |
-| `agent` | string | The catalog agent name, or for a volume the `DOCKER_VOLUMES` agent. |
-| `files` | number | Regular files under the agent's matched paths after exclusions, with nested entries' subtrees left to their own agent. |
+| `agent` | string | The catalog agent name; for a volume, the agent its name matched. |
+| `files` | number | The regular files under the agent's matched paths after exclusions, with nested entries' subtrees left to their own agent. |
 | `bytes` | number | Their total size in bytes. |
-| `first`, `last` | string | The earliest and latest modification time of those files, UTC to the second. Empty when no modification time was available (sh on a host with neither GNU nor BSD `stat`). |
-| `projects` | number | Project directories discovered for this user, the same number on each of the user's lines: discovery does not record which agent's state named a project. A project named by several users counts for the first of them in enumeration order, as in a collection, and a `-p` directory counts for the user whose home contains it. `0` for `docker` lines and with `--no-projects`. |
-| `evidence` | string | The `CATALOG` globs (the part after `agent\|`) that matched, in catalog order, joined by commas, so no path below the home is printed. For a volume, the `DOCKER_VOLUMES` globs that matched. |
+| `first`, `last` | string | The earliest and latest modification time of those files, UTC to the second; `""` when no file had a time after 1970. |
+| `projects` | number | The project directories found for this user, the same number on each of the user's lines, since a project is not tied to one agent. A project named by several users counts for the first of them in the order their homes were found, as in a collection, and a `-p` directory counts for the user whose home holds it. A project that leads out of the image root is not counted. `0` for `docker` lines and with `--no-projects`. |
+| `evidence` | string | The catalog patterns (the part after `agent\|` in `--list`) that matched, in catalog order, joined by commas, so no path below the home is printed. For a volume, the volume name patterns that matched. |
 
 ### Escaping
 
-Strings are JSON-escaped: the sh collector escapes backslash, double
-quote, tab, carriage return and newline; PowerShell's `ConvertTo-Json`
-also escapes other control characters, and Windows PowerShell 5.1 escapes
-`<`, `>`, `&` and `'` as `\u` sequences. The analyzer's
-`inventory` command reads these lines from saved stdout files and builds a
-fleet CSV; see [the analyzer's inventory page](fleet.md).
+Each line is one JSON object written by Go's `encoding/json`: `"`, `\` and
+control characters are escaped, so are U+2028 and U+2029, and `<`, `>` and
+`&` are written as they are. A user name that is not valid
+UTF-8 is written with U+FFFD in place of each invalid byte.
