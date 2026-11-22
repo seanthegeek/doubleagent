@@ -22,8 +22,8 @@ func (c windowsCase) run(t *testing.T, img image, reference oracle, binary []str
 	if c.skip != "" {
 		t.Skip(c.skip)
 	}
-	if c.setup != nil {
-		c.setup(t, img)
+	if setup := fixtureStep(t, c.name, c.setup, img, caseBuilders()); setup != nil {
+		setup(t, img)
 	}
 	if !c.parallel {
 		settleTree(t, img.work)
