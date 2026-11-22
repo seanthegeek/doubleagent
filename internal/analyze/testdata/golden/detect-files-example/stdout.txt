@@ -1,0 +1,93 @@
+input:   {ROOT}/example.tar.gz
+kind:    archive
+host:    wsdev14
+note:    1 manifest row did not parse
+problem: /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection
+
+user           home                             agent                 files        bytes  parser
+alice          /home/alice                      claude-code              23        40040  yes
+alice          /home/alice                      codex-cli                 8        59166  yes
+alice          /home/alice                      cursor                   11       100667  yes
+alice          /home/alice                      aider                     4         1379  yes
+alice          /home/alice                      amp                       1           96  detect only
+bob            /home/bob                        gemini-cli               17        20363  yes
+bob            /home/bob                        ollama                    6          300  yes
+
+project                                  users          agent                 files        bytes  parser
+/srv/proj                                alice          claude-code               1           70  yes
+                                                        (shared)                  2          486
+  remotes: origin git@github.com:alice/proj.git https://mirror.example.com/alice/proj.git (push https://alice:FIXTURE-TOKEN@github.com/alice/proj.git), upstream https://github.com/upstream/proj.git
+
+alice	claude-code	/home/alice/.claude/history.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.meta.json
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/tool-results/b1c2d3e4f.txt
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/tool-results/k3j9x2m1q.txt
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001/ccr-tip.json
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl
+alice	claude-code	/home/alice/.claude/projects/-srv-proj/bridge-pointer.json
+alice	claude-code	/home/alice/.claude/sessions/4242.abababababababababababababababababababababababababababababababab.key
+alice	claude-code	/home/alice/.claude/sessions/4242.json
+alice	claude-code	/home/alice/.claude/sessions/4343.json
+alice	claude-code	/home/alice/.claude/settings.json
+alice	claude-code	/home/alice/.claude.json.backup.1790845200000
+alice	claude-code	/home/alice/.claude.json
+alice	claude-code	/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl
+alice	claude-code	/home/alice/.claude-work/history.jsonl
+alice	claude-code	/home/alice/.claude-work/.claude.json
+alice	codex-cli	/home/alice/.codex/automations/.run-jitter-salt
+alice	codex-cli	/home/alice/.codex/automations/check-the-nightly-build/automation.toml
+alice	codex-cli	/home/alice/.codex/config.toml
+alice	codex-cli	/home/alice/.codex/history.jsonl
+alice	codex-cli	/home/alice/.codex/logs_2.sqlite
+alice	codex-cli	/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl
+alice	codex-cli	/home/alice/.codex/state_5.sqlite
+alice	codex-cli	/home/alice/.codex/thread_history_1.sqlite
+alice	cursor	/home/alice/.cursor/ai-tracking/ai-code-tracking.db
+alice	cursor	/home/alice/.cursor/cli-config.json
+alice	cursor	/home/alice/.cursor/mcp.json
+alice	cursor	/home/alice/.cursor/permissions.json
+alice	cursor	/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl
+alice	cursor	/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl
+alice	cursor	/home/alice/.cursor/projects/srv-proj/mcps/cursor-ide-browser/SERVER_METADATA.json
+alice	cursor	/home/alice/.cursor/statsig-cache.json
+alice	cursor	/home/alice/.config/Cursor/User/globalStorage/conversation-search.db
+alice	cursor	/home/alice/.config/Cursor/User/globalStorage/mcp-oauth-attempts/0000.json
+alice	cursor	/home/alice/.config/Cursor/User/globalStorage/state.vscdb
+alice	aider	/home/alice/.aider.conf.yml
+alice	aider	/home/alice/.aider.chat.history.md
+alice	aider	/home/alice/.aider.input.history
+alice	aider	/home/alice/.aider.llm.history
+alice	amp	/home/alice/.config/amp/settings.json
+bob	gemini-cli	/home/bob/.gemini/gemini-client-error-Turn.run-sendMessageStream-2026-10-01T09-00-30-000Z.json
+bob	gemini-cli	/home/bob/.gemini/oauth_creds.json
+bob	gemini-cli	/home/bob/.gemini/projects.json
+bob	gemini-cli	/home/bob/.gemini/settings.json
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/.project_root
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/checkpoints/2026-10-01T09-00-21_500Z-util.ts-replace.json
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/images/clipboard-1790856300000.png
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/images/notes.txt
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/logs/session-a1b2c3d4-0000-4000-8000-000000000001.jsonl
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/logs.json
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/memory/.inbox/private/extraction.patch
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/memory/MEMORY.md
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/memory/skills/lint/SKILL.md
+bob	gemini-cli	/home/bob/.gemini/tmp/proj/shell_history
+bob	gemini-cli	/home/bob/.gemini/trustedFolders.json
+bob	ollama	/home/bob/.ollama/backup/config.json.1772355600
+bob	ollama	/home/bob/.ollama/config.json
+bob	ollama	/home/bob/.ollama/history
+bob	ollama	/home/bob/.ollama/id_ed25519
+bob	ollama	/home/bob/.ollama/logs/server.log
+bob	ollama	/home/bob/.ollama/onboarding-v1.completed
+alice	claude-code	/srv/proj/.claude/settings.local.json
+alice	project	/srv/proj/.git/HEAD
+alice	project	/srv/proj/.git/config

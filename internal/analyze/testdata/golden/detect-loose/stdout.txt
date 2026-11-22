@@ -1,0 +1,44 @@
+input:   {ROOT}/loose
+kind:    loose (no manifest; user and home inferred from paths)
+host:    (unknown)
+
+user           home                             agent                 files        bytes  parser
+alice          /home/alice                      cline                    16        62513  yes
+alice          /home/alice                      roo-code                 14         6391  yes
+alice          /home/alice                      kilo-code                 6        54305  yes
+alice          /home/alice                      twinny                    1           40  yes
+alice          /home/alice                      tabby                    10       300710  yes
+alice          /home/alice                      copilot-desktop           8       316390  yes
+alice          /home/alice                      cursor                   11       100667  yes
+alice          /home/alice                      vscode                   18       131517  yes
+alice          /home/alice                      shellgpt                  8         1437  yes
+alice          /home/alice                      claude-desktop           16        24355  yes
+alice          /home/alice                      chatgpt-desktop           1           24  yes
+alice          /home/alice                      opencode                 14       235354  yes
+alice          /home/alice                      crush                     7       102757  yes
+alice          /home/alice                      goose                     8        86840  yes
+alice          /home/alice                      zed                       4        62041  yes
+alice          /home/alice                      muse-code                 6        24278  yes
+alice          /home/alice                      kiro                      9        61860  yes
+alice          /home/alice                      pearai                   14        21787  yes
+alice          /home/alice                      cody                      2         1930  yes
+alice          /home/alice                      little-coder             12         3254  yes
+alice          /home/alice                      ollama                   13       205634  yes
+alice          /home/alice                      claude-code              19        34293  yes
+alice          /home/alice                      antigravity              22        89691  yes
+alice          /home/alice                      copilot                   1           96  detect only
+alice          /home/alice                      letta                    16         7368  yes
+alice          /home/alice                      gemini-cli               18        20866  yes
+alice          /home/alice                      codex-cli                11       128926  yes
+alice          /home/alice                      copilot-cli              15       119404  yes
+alice          /home/alice                      continue                 13         7903  yes
+alice          /home/alice                      aider                     4         1379  yes
+alice          /home/alice                      qwen-code                26        11777  yes
+alice          /home/alice                      qwen-live                 5        71012  detect only
+alice          /home/alice                      open-interpreter         10        56107  yes
+alice          /home/alice                      openhands                35        10231  yes
+alice          /home/alice                      pi                       13        12646  yes
+alice          /home/alice                      hermes                   12       160853  yes
+alice          /home/alice                      openclaw                 15       431507  yes
+alice          /home/alice                      nanobot                  26        57426  yes
+alice          /home/alice                      agent-zero                6         7301  yes
