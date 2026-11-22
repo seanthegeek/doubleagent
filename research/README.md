@@ -77,7 +77,7 @@ and label a rewrite dropped.
 The Collector evidence column names the evidence levels the Collection
 part rests on, the real install first where there is one. The Parser column says whether `internal/parser/` has a
 parser for the agent, and for an agent without one, its status on the
-[agents page](../docs/agents.md), which lists the files each parser reads.
+[agents page](../docs/supported-agents.md), which lists the files each parser reads.
 Notes end with the transcript store, where the agent has one.
 
 | Agent | Document | Collector evidence | Parser | Notes |

@@ -20,7 +20,7 @@
   or whose first segments differ and can still match one path (`case_overlap`).
 - `credential-wording`: a `WORDING_PHRASES` phrase in a Credentials section.
 - `document-missing`, `catalog-missing`, `agents-row-missing`, `agents-row-orphan`: a catalog
-  agent with no research document or (`project` aside) `docs/agents.md` row, and back.
+  agent with no research document or (`project` aside) `docs/supported-agents.md` row, and back.
 - `parsing-fact-under-collection`: a Collection span outside the project-path section that is a
   row text (`is_row_text`) or a Record schema key (`is_key_span`) no path names (`path_names`).
 - `relocation-line-unnamed`, `relocation-row-unlined`, `relocation-replaces-differs`,

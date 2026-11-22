@@ -449,7 +449,7 @@ lists, each group sorted and comma-separated:
 | Group | Agents |
 | --- | --- |
 | `parsed:` | The agents whose parsers produced rows, before the filters; `none` when there is none |
-| `detected but not parsed:` | The agents of the input, in a home or a project, that have no parser and whose files hold records a parser is wanted for: the `backlog` rows of the [agents page](agents.md); `none` when there is none |
+| `detected but not parsed:` | The agents of the input, in a home or a project, that have no parser and whose files hold records a parser is wanted for: the `backlog` rows of the [agents page](supported-agents.md); `none` when there is none |
 | `collected only:` | The agents of the input whose files hold nothing to parse, such as a token store or configuration: the `collected` rows of the agents page; present only when it has an entry |
 | `parser found no rows:` | The agents of the input whose parser read their files and produced no rows, such as a data directory holding only an empty database; with `--agent`, only the agents selected; present only when it has an entry |
 
@@ -1230,7 +1230,7 @@ Its keys, in order:
 | `outside_projects.synced`, `relayed`, `origin`, `recovered` | string | As for a project, by the same rules and in the same order, over the sessions with an empty `project_path` and the agents with such rows or sessions; a Copilot cloud agent task, which records no project, is counted here. |
 | `deduplicated` | object | Keyed by agent name, sorted: the agents with rows of a secondary source dropped because a primary store or another secondary source records the same event (see [Secondary sources](#secondary-sources)), the counts of the `dropped:` line. With `--agent`, only the agents selected; not changed by `--since`, `--until` or `--match`, which apply to the rows kept. `{}` when no row was dropped. |
 | `deduplicated.<agent>` | integer | The number of this agent's secondary-source rows dropped, never 0. |
-| `collected_only` | array of strings | The `collected only` group of the `agents:` line: the agents in the input, outside or inside a project directory, that have no parser because their files hold nothing to parse (the `collected` rows of the [agents page](agents.md)), sorted; `[]` when it is empty. |
+| `collected_only` | array of strings | The `collected only` group of the `agents:` line: the agents in the input, outside or inside a project directory, that have no parser because their files hold nothing to parse (the `collected` rows of the [agents page](supported-agents.md)), sorted; `[]` when it is empty. |
 | `synced_sessions` | integer | The number of records in `sessions.jsonl` whose `synced` is `yes`, after the filters, as for `sessions`; 0 when there is none. |
 | `relayed_sessions` | integer | The number of records in `sessions.jsonl` whose `relayed` is `yes`, after the filters, as for `sessions`; 0 when there is none. |
 | `remote_sessions` | integer | The number of records in `sessions.jsonl` whose `origin` is `remote`, after the filters, as for `sessions`; 0 when there is none. |
@@ -1941,7 +1941,7 @@ names the version that wrote it.
 
 ## Row forms by agent
 
-Each agent's parser turns the agent's own records into the rows above. The `system` rows below are written in addition to the prompts, replies, tool calls and results, and their texts are the row forms an analyst searches for with `--match` or `grep`. The agent's research document, linked from the [agents page](agents.md), describes the files and keys behind each row.
+Each agent's parser turns the agent's own records into the rows above. The `system` rows below are written in addition to the prompts, replies, tool calls and results, and their texts are the row forms an analyst searches for with `--match` or `grep`. The agent's research document, linked from the [agents page](supported-agents.md), describes the files and keys behind each row.
 
 ### Antigravity
 
@@ -1956,7 +1956,7 @@ it governed. A standing grant from a settings file is
 `timestamp_utc` is the file's modification time, not the time of the
 grant, which no file records, and its `session_id` is empty, so it
 appears in `timeline.jsonl` but in no `sessions.jsonl` record. The
-[`antigravity` subsection of the agents page](agents.md#antigravity) lists the
+[`antigravity` subsection of the agents page](supported-agents.md#antigravity) lists the
 files.
 
 ### Claude Code and Claude Desktop

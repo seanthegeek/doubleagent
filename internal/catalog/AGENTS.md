@@ -176,10 +176,10 @@ parser's agent name are the same string.
    Parser and Notes cells; note the tool in
    [`docs/coverage.md`](../../docs/coverage.md) if needed; give the matching
    issue a `Closes #<n>` line in the pull request body. Add the agent to the
-   [agents page](../../docs/agents.md) table as `backlog` (parseable
+   [agents page](../../docs/supported-agents.md) table as `backlog` (parseable
    records, with a parser issue) or `collected` (nothing to parse, with the
    reason), linked to a new subsection under
-   [Collected agents](../../docs/agents.md#collected-agents) listing what is
+   [Collected agents](../../docs/supported-agents.md#collected-agents) listing what is
    collected. A `collected` agent also goes into `NoTranscripts` in
    `internal/parsers/parsers.go`, which the analysis summary reports as
    `collected only`. A parser issue filed later is linked in the row by the

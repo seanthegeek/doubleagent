@@ -1,4 +1,4 @@
-# Agents
+# Supported agents
 
 This page answers, for each AI agent DoubleAgent knows, what it does with
 the agent's files: whether `doubleagent timeline` turns them into timeline

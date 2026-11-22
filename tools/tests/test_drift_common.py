@@ -676,7 +676,7 @@ AGENTS_PAGE = """\
 
 
 def test_agents_page_rows(tmp_path):
-    rows = drift_common.agents_page_rows(write(tmp_path / "agents.md", AGENTS_PAGE))
+    rows = drift_common.agents_page_rows(write(tmp_path / "supported-agents.md", AGENTS_PAGE))
     assert list(rows) == ["alpha", "beta"]
     assert rows["alpha"] == drift_common.AgentRow(
         "alpha", "parsed", "source; fixture only", "[research](../research/alpha.md)", 8
@@ -717,7 +717,7 @@ def write_repository(root: pathlib.Path) -> None:
     write(root / "internal/catalog/catalog.txt", CATALOG_TEXT)
     for name in ("alpha.md", "beta.md", "README.md", "frameworks.md", "shared.md"):
         write(root / "research" / name, "# %s\n" % name[:-3])
-    write(root / "docs/agents.md", AGENTS_PAGE)
+    write(root / "docs/supported-agents.md", AGENTS_PAGE)
 
 
 def test_agents_reads_every_source(tmp_path):
