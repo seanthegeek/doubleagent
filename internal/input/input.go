@@ -1,9 +1,8 @@
 // Package input opens what the analyst points the analysis commands at and
 // turns it into attributed artifacts. Three shapes are accepted:
 //
-//   - an archive, such as the one `doubleagent collect` writes: a tar (plain,
-//     gzip or bzip2 compressed) or a zip, extracted to a new temporary
-//     directory first;
+//   - an archive `doubleagent collect` writes or any tar (plain, gzip or
+//     bzip2 compressed) or zip, extracted to a new temporary directory first;
 //   - an extracted collection: a directory holding manifest.jsonl, fs/ and,
 //     usually, collection.json;
 //   - a loose tree: any other directory, such as a copied home, a mounted
