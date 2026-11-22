@@ -59,8 +59,15 @@ with exit `2`: before the log is open with its message on standard error
 `FATAL: archive not written: REASON` for the `.sha256` file), the reason
 naming the file. Of two runs started in the same
 second into one directory, the second therefore stops and leaves the first
-one's files as they were, and a run as root into a directory that another
-account may also write cannot be made to write a file elsewhere.
+one's files as they were, and a link another account put at one of these
+names beforehand is never written through.
+
+That is the whole of the protection. An account that may rename or delete
+entries in the output directory (it can write the directory, and the
+directory has no sticky bit) can still move the run's staging directory
+aside while the run works and put a link in its place; the staged copies
+then go where the link points. Give `-o` a directory that only the account
+running the collection can write.
 
 While it is written, the archive is named
 `<host>_<UTC start time>_agent-artifacts.tar.gz.partial`, a file the run
@@ -254,8 +261,9 @@ error alike, so a name can neither end a line nor start a forged one. So
 is each byte that is not part of a valid UTF-8 character. The C1 controls
 (U+0080 to U+009F) and the characters U+2028 and U+2029 are written as
 `\u` and four hexadecimal digits (`\u2028`). The analysis commands print
-text to a terminal in the same form, U+2028 and U+2029 aside. A name that itself holds the text `\x0a` reads the
-same; the manifest holds every name exactly.
+text to a terminal in the same form, U+2028 and U+2029 aside. A name that
+itself holds the text `\x0a` reads the same; the manifest holds every name
+exactly.
 
 A run on a macOS workstation over a mounted image:
 

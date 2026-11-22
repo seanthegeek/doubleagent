@@ -462,13 +462,18 @@ what it made: the staging directory, `collection.json` on an interrupt, the part
 archive and the `.sha256` file on a failure. Only the partial and final archive names
 are cleared first. The archive's hash is taken of the bytes as they are written, and the
 file's identity from its open handle, so an entry put at the partial name during the run
-is neither hashed nor moved; what that check cannot close, the moment between it and the
-rename, is stated on `collect.runState.placeArchive`.
+is neither hashed nor moved. Two things stay open to an account that may rename or
+delete entries in the output directory: the moment between that check and the rename,
+stated on `collect.runState.placeArchive`, and the staging directory, which the run
+reaches by path for every staged copy, so one moved aside during the run and replaced
+by a link sends the later copies through the link. The output directory must be one
+only the running account can write.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
 byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as
 `\uNNNN`, the form `analyze`'s `shown` gives the analysis commands' terminal output
-(which leaves U+2028 and U+2029 as they are), in the log file and in its copy on standard error, so a file name holding a newline, a
+(which leaves U+2028 and U+2029 as they are), in the log file and in its copy on standard
+error, so a file name holding a newline, a
 carriage return or a terminal escape cannot end a line, forge one or drive the
 operator's terminal. The UTF-8 decoding there only chooses how a byte is shown. The
 manifest and `collection.json` hold every name exactly, through `encoding/json`.

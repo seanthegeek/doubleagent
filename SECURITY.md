@@ -34,8 +34,8 @@ misbehave. Reports in these classes are wanted:
   (`requirements-docs.txt`), or in an action the GitHub workflows use.
 - **Unintended actions.** Anything DoubleAgent does that its documentation
   says it never does: modifying, moving or deleting a file outside the
-  output directory; following a symbolic link, one placed in the output
-  directory included; reading a file outside the image root in image mode
+  output directory; following a symbolic link, one already at a name the
+  run creates in the output directory included; reading a file outside the image root in image mode
   (`-r`); writing outside the output or extraction directory when it reads
   an archive, such as an archive entry that escapes it (path traversal);
   printing a file's contents or a credential to the terminal or the log of
