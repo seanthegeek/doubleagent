@@ -41,7 +41,7 @@ exclude_docs: |
   **/.*/**
   /README.md
   /SECURITY.md
-  /CLAUDE.md
+  **/CLAUDE.md
   /mkdocs/**
   /tools/**
   /vendor/**
@@ -189,4 +189,11 @@ nav:
       - Testing: docs/testing.md
       - Lab VMs: docs/lab-vms.md
       - Lab: lab/README.md
-      - AGENTS.md
+      - Rules:
+          - AGENTS.md
+          - Go code: internal/AGENTS.md
+          - Catalog: internal/catalog/AGENTS.md
+          - Parsers: internal/parser/AGENTS.md
+          - Parser registry: internal/parsers/AGENTS.md
+          - Research: research/AGENTS.md
+          - Real-install rounds: lab/AGENTS.md

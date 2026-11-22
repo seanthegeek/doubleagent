@@ -2,7 +2,7 @@
 
 This page is for a contributor who builds, tests or changes DoubleAgent.
 The rules every change keeps, and the processes for adding an agent or a
-parser, are in [AGENTS.md](../AGENTS.md); this page says how to set up and
+parser, are in [AGENTS.md](../AGENTS.md) and the area files it lists; this page says how to set up and
 run the work.
 
 ## Prerequisites
@@ -172,6 +172,27 @@ root before pushing.
 | `tools/check_research_structure.py`, `tools/check_tables_research.py` | the research documents, as [Drift checkers](#drift-checkers) describes |
 | site build | `mkdocs build --strict`, which fails on a broken page link or a page missing from the site's navigation |
 
+### Installing the linters
+
+shellcheck, shfmt and checkbashisms are not on PyPI or npm: install the
+release binaries (CI checks their sha256), and checkbashisms as the single
+`scripts/checkbashisms.pl` from the devscripts tag or
+`apt install devscripts`. PSScriptAnalyzer, which only the lab's Windows
+guest scripts need, installs with
+`pwsh -NoProfile -Command 'Install-Module PSScriptAnalyzer -Scope CurrentUser -RequiredVersion 1.25.0 -Force'`,
+or from the nupkg of the
+[PSScriptAnalyzer release](https://github.com/PowerShell/PSScriptAnalyzer/releases)
+on GitHub, unzipped into the user module path, when the PowerShell
+Gallery's v2 API fails, which it does intermittently. It runs over the
+guest scripts with:
+
+```sh
+pwsh -NoProfile -Command '$r = @(Get-ChildItem -Path lab -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings lab/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
+```
+
+The one `ruff format` commit is listed in `.git-blame-ignore-revs`; enable
+it with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
+
 ## Drift checkers
 
 Each agent's research document under [`research/`](../research/README.md)
@@ -191,7 +212,7 @@ python3 -m pytest tools/tests -q            # the checkers' own tests
 | Checker | Compares | What it reports |
 | --- | --- | --- |
 | `check_tables_research.py` | every line of the catalog's tables with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span of the document names; a credential file the Credentials section names that no secret glob flags and the Secrets section does not list; a secret glob an exclusion hides; an exclusion or secret glob that no entry reaches; a Docker volume glob the document's volume subsection does not name, or an exclusion below a volume's mount directory without its volume-relative twin; two agents' home entries that differ only by case or can match one path; forbidden wording in a Credentials section; a catalog agent without a document or a row on the [agents page](agents.md), and a row naming no catalog agent; a parsing fact under Collection; a relocation variable line or a startup file glob that its document does not name, or names differently |
-| `check_research_structure.py` | each research document with "Research document structure" in [AGENTS.md](../AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an Observed entry without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
+| `check_research_structure.py` | each research document with "Research document structure" in [`research/AGENTS.md`](../research/AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an Observed entry without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
 
 Each checker prints one line per finding,
 `<path>[:<line>]: <kind> [<agent>]: <detail> - <explanation>`, such as:
@@ -315,15 +336,15 @@ a real install, whose files are read with the shape tool above, so nothing
 from the install leaves the machine. Start from the Parsing part of the
 agent's research document, listed in the
 [research index](../research/README.md), and follow
-[Adding a parser in `AGENTS.md`](../AGENTS.md#adding-a-parser): the
+[Adding a parser in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#adding-a-parser): the
 package under `internal/parser/`, its registration, its fixtures and
 tests, its growth cases and the pages to update.
 
 A new agent for the catalog starts from its source or its vendor's
 documentation, as
-[Adding an agent to the catalog in `AGENTS.md`](../AGENTS.md#adding-an-agent-to-the-catalog)
+[Adding an agent to the catalog in `internal/catalog/AGENTS.md`](../internal/catalog/AGENTS.md#adding-an-agent-to-the-catalog)
 and
-[Validating catalog entries from source in `AGENTS.md`](../AGENTS.md#validating-catalog-entries-from-source)
+[Validating catalog entries from source in `research/AGENTS.md`](../research/AGENTS.md#validating-catalog-entries-from-source)
 describe; its lines go into `internal/catalog/catalog.txt`, and a fixture
 for each into the fake disk image
 ([The fixture image](testing.md#the-fixture-image)).

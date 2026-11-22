@@ -5,7 +5,7 @@
 // of a pattern inside a base; "Glob matching" in docs/internals.md
 // says which table each serves. The tables hold only `*`, `?` and a closed
 // bracket list of literal bytes, ranges and `!`: never a character class name
-// such as [:alpha:], which the AGENTS.md catalog rule and
+// such as [:alpha:], which the catalog rules of internal/catalog/AGENTS.md and
 // internal/catalog/rules_test.go refuse. On a class name, an unclosed bracket, a backslash, a caret or a
 // collating or equivalence class the shells disagree; the result is one's.
 //

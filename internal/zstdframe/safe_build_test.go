@@ -11,7 +11,7 @@ import (
 // The package does not compile without the two tags, so every test of it
 // runs under them. This one records that, and decodes a frame as a check that
 // the safe build works. What it cannot show is which files the linker took:
-// that is read with go list, as AGENTS.md describes.
+// that is read with go list, as internal/AGENTS.md describes.
 func TestThePackageIsBuiltWithTheSafeTags(t *testing.T) {
 	info, ok := debug.ReadBuildInfo()
 	if ok {

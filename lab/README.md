@@ -8,7 +8,7 @@ presses and person steps, lists the agent's directories after every step,
 copies the `doubleagent` build for the guest into the VM, runs
 `doubleagent collect` there, analyses the collection on the Mac, and
 reverts the VM again. A run of the pipeline is a
-[real-install round](../AGENTS.md#real-install-rounds). One agent on one
+[real-install round](AGENTS.md#real-install-rounds). One agent on one
 VM is a cell (one platform of one product form, in the round's terms),
 and each run of `lab.sh` works on one cell directory. Use it instead of
 driving the agent by hand over `ssh` and `screen` whenever the agent is a
@@ -158,7 +158,7 @@ name in `prlctl list -a`, with a file under `vms/`) and the cell
 directory, which must lie outside the repository because it receives
 what the agent showed on screen and the credentials it wrote; delete it
 once the round is written up, as
-[Real-install rounds in AGENTS.md](../AGENTS.md#real-install-rounds)
+[Real-install rounds in `lab/AGENTS.md`](AGENTS.md#real-install-rounds)
 says of pulled collections.
 
 | Action | What it does |
@@ -265,7 +265,7 @@ key, a command name, the input marker) that the first run of the table
 confirms or corrects.
 
 Each table follows the step list of
-[Real-install rounds in AGENTS.md](../AGENTS.md#real-install-rounds).
+[Real-install rounds in `lab/AGENTS.md`](AGENTS.md#real-install-rounds).
 An item is left out of an agent's table when its research document says
 the agent lacks that feature, with no step to record the absence:
 Gemini CLI has no scheduled task, no session synced to an account and no
@@ -282,7 +282,7 @@ them come before the desktop sign-in; the reboot and the desktop login
 follow, with a variable that decides between the credential store and
 its file fallback exercised over `ssh` after that login, when the store
 is reachable, and the idle period comes after the delete steps, as
-AGENTS.md lists them. Run `collect` after the last step, before `finish`.
+[`lab/AGENTS.md`](AGENTS.md#real-install-rounds) lists them. Run `collect` after the last step, before `finish`.
 
 Before its first use, every slash command a table uses has a
 `<command>-subcommands` step, a `type` step whose text is the command and

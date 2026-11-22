@@ -78,8 +78,8 @@ document's evidence level and parse status.
 - [Lab](../lab/README.md): the pipeline that installs one agent in a lab
   VM, drives it step by step, lists what it wrote after every step and
   collects the result.
-- [AGENTS.md](../AGENTS.md): the standards every change keeps and the
-  processes for adding an agent or a parser.
+- [AGENTS.md](../AGENTS.md): the rules every change keeps, and the list of
+  the rules for each area, such as adding an agent or a parser.
 
 ## License
 

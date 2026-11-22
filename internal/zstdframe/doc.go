@@ -4,7 +4,7 @@
 //
 // The decoding itself is done by the zstd package of the module
 // github.com/klauspost/compress (vendored, see the dependency table in
-// AGENTS.md). This package configures that decoder to run in the calling
+// internal/AGENTS.md). This package configures that decoder to run in the calling
 // goroutine, to refuse a frame whose window is above MaxWindowSize or the
 // caller's own lower limit, and to refuse output above the caller's limit,
 // and it sorts the decoder's failures into ErrTruncated, ErrCorrupt and
