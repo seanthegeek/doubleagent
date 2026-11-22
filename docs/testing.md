@@ -100,9 +100,12 @@ before writing anything.
 
 Each case's expected files are under
 `internal/collect/testdata/golden/<directory>/<case>/`, one per output:
-`stdout.txt`, `log.txt` (the log, named so because git ignores `*.log`),
-`manifest.jsonl`, `collection.json`, `archive.txt` (one line per archive
-member, with its type or hash) and `exit-code.txt`.
+`stdout.txt`, `stderr.txt` (the log lines a run without `-q` prints there,
+without their times, or what a failing run prints), `log.txt` (the log,
+named so because git ignores `*.log`), `manifest.jsonl`, `collection.json`,
+`archive.txt` (one line per archive member, with its type or hash) and
+`exit-code.txt`. An output the run did not write, or an empty stream, has
+no file.
 
 | Directory | Read on | Holds |
 | --- | --- | --- |
@@ -183,7 +186,10 @@ lists it with the reason the test derives for this platform:
 
 The test fails when the file gives a reason other than the one it
 derives. `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites the reasons this platform
-derives and keeps the other platforms' unreached lines. A line that
+derives and keeps the other platforms' unreached lines, so a catalog line
+whose fixture is taken out of one platform's image gets `windows-only` or
+`unix-only` written without a failure: read the list's diff after an
+update. A line that
 leaves `none` or an unreached reason is a missing fixture: add one to the
 image ([The fixture image](#the-fixture-image)).
 
@@ -264,8 +270,8 @@ sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tm
 ## What CI runs
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and on every
-push to `main`, to an integration branch of the rewrite (`go-rewrite`,
-`go-rewrite-*`) or to a unit branch (`unit-*`).
+push to `main`, to an integration branch (`go-rewrite`, `go-rewrite-*`)
+or to a unit branch (`unit-*`).
 [`.github/classify-changes.sh`](../.github/classify-changes.sh) sorts the
 files a change touches into categories, and a job or step runs only when
 one of its categories is set. A push to `main`, a push whose previous
@@ -277,7 +283,7 @@ know run everything.
 | --- | --- | --- | --- |
 | Base branch is main | Ubuntu | pull requests | fails a pull request whose base is not `main` |
 | Classify the change | Ubuntu | always | the classifier |
-| Go | Ubuntu, macOS and Windows; Ubuntu alone for a push to a `unit-*` branch | a Go change: `go.mod`, `go.sum`, `vendor/`, any `.go` file, `internal/catalog/catalog.txt` or `.github/go-build.sh` | `gofmt`, `go vet`, `staticcheck`, `govulncheck`, `go test -race`, the `dash` glob test (not on Windows), the JSON nesting test, and the reproducible build check |
+| Go | Ubuntu, macOS and Windows; Ubuntu alone for a push to a `unit-*` branch | a Go change: `go.mod`, `go.sum`, `vendor/`, any `.go` file, `internal/catalog/catalog.txt`, `.github/go-build.sh`, `THIRD_PARTY_NOTICES.txt` (a test compares it with `vendor/`), or `docs/timeline-output.md` or `docs/internals.md` (Go tests read both pages) | `gofmt`, `go vet`, `staticcheck`, `govulncheck`, `go test -race`, the `dash` glob test (not on Windows), the JSON nesting test, and the reproducible build check |
 | Lint | Ubuntu | always; the Python steps for a change under `tools/` or `lab/`, to `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json` or the catalog; the sh steps for an `.sh` file or `.shellcheckrc` | markdownlint, the document link check, the research structure and drift checks and the code style check on every change; ruff, pyright and the tests of the checkers and the lab for a Python change; shfmt, shellcheck and checkbashisms for an sh change |
 | Site build (strict) | Ubuntu | always | `mkdocs build --strict` |
 | CI result | Ubuntu | always | fails when any job above failed or was cancelled; the one check the ruleset on `main` requires |

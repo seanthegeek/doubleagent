@@ -40,7 +40,8 @@ tags beside its own (`-tags dash,noasm,nounsafe`).
 ## Building
 
 The [`Makefile`](../Makefile) at the repository root is the entry point.
-It works with GNU make and with the BSD make of macOS, and every target
+It is written in POSIX make syntax and tested with GNU Make 3.81, the
+`make` of macOS, and every target
 passes the build tags itself, so it needs no `GOFLAGS`. The binaries go
 into `dist/`, which git ignores, named `doubleagent-<os>-<arch>` (with
 `.exe` on Windows). A build for this machine:
@@ -142,8 +143,14 @@ expected files and read the diff before committing it:
 
 ```sh
 DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/collect ./internal/analyze ./internal/walk
-git diff internal/*/testdata
+git diff internal/*/testdata docs/timeline-output.md
 ```
+
+The same run rewrites the example output blocks of
+[`docs/timeline-output.md`](timeline-output.md), which a test of
+`internal/analyze` compares with the program's output
+([The output examples](#the-output-examples)), so the page's diff is read
+too.
 
 The collection's expected files differ by platform, so a change to them is
 made on Linux, macOS and Windows;
@@ -169,7 +176,7 @@ root before pushing.
 | ruff and pyright | the Python of the checkers and the lab |
 | markdownlint | every Markdown file |
 | `tools/check_doc_links.py` | every relative link and heading fragment in the Markdown files, and the link and term rules of AGENTS.md |
-| `tools/check_research_structure.py`, `tools/check_tables_research.py` | the research documents, as [Drift checkers](#drift-checkers) describes |
+| `tools/check_research_structure.py`, `tools/check_tables_research.py`, `tools/check_parser_research.py` | the research documents, as [Drift checkers](#drift-checkers) describes |
 | site build | `mkdocs build --strict`, which fails on a broken page link or a page missing from the site's navigation |
 
 ### Installing the linters
@@ -198,14 +205,15 @@ it with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 Each agent's research document under [`research/`](../research/README.md)
 is the source the catalog (`internal/catalog/catalog.txt`, which
 `doubleagent catalog` prints) is written from. A place where the catalog
-or a document's own outline disagrees with the rules is drift, and two
-checkers under `tools/` report it. CI runs them on every change, a change
+or a parser, or a document's own outline, disagrees with the rules is
+drift, and the checkers under `tools/` report it. CI runs them on every change, a change
 to the Markdown documents alone included. Run them from the repository
 root:
 
 ```sh
 python3 tools/check_tables_research.py      # the catalog against the Collection part
 python3 tools/check_research_structure.py   # the documents' outline and conventions
+python3 tools/check_parser_research.py      # the parsers against the Parsing part; needs go
 python3 -m pytest tools/tests -q            # the checkers' own tests
 ```
 
@@ -213,6 +221,7 @@ python3 -m pytest tools/tests -q            # the checkers' own tests
 | --- | --- | --- |
 | `check_tables_research.py` | every line of the catalog's tables with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span of the document names; a credential file the Credentials section names that no secret glob flags and the Secrets section does not list; a secret glob an exclusion hides; an exclusion or secret glob that no entry reaches; a Docker volume glob the document's volume subsection does not name, or an exclusion below a volume's mount directory without its volume-relative twin; two agents' home entries that differ only by case or can match one path; forbidden wording in a Credentials section; a catalog agent without a document or a row on the [agents page](agents.md), and a row naming no catalog agent; a parsing fact under Collection; a relocation variable line or a startup file glob that its document does not name, or names differently |
 | `check_research_structure.py` | each research document with "Research document structure" in [`research/AGENTS.md`](../research/AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an Observed entry without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
+| `check_parser_research.py` | each registered parser's file patterns, record keys, row texts and problem messages, which `go test ./tools/parserfacts` reads from the Go code, with the code spans and fenced lines of the Parsing part of its agent's document, and its secondary sources with the agent's row of the [survival table](../research/README.md#where-transcripts-live-and-what-survives) | a row text, problem message, file pattern or key the Parsing part does not name; a secondary file pattern the agent's survival table row does not name, or a parser with such patterns and no row |
 
 Each checker prints one line per finding,
 `<path>[:<line>]: <kind> [<agent>]: <detail> - <explanation>`, such as:

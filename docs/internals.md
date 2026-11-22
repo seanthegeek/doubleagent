@@ -537,7 +537,7 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 
 | Package | What it owns |
 | --- | --- |
-| `internal/parser` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
+| `internal/parser` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
 | `internal/parser/<package>` | One agent's parser, named for it. |
 | `internal/parsers` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
 | `internal/parser/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
@@ -693,8 +693,10 @@ compares stdout and each output file with `internal/analyze/testdata/golden/<cas
 only the working directory is normalised, to `{ROOT}`, and a file over 32 KiB is kept
 gzip-compressed (read one with `gunzip -c`).
 
-**Updating them.** `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites the expected files of the test
-it is set for, and nothing else does:
+**Updating them.** `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites the expected files of every test
+the `go test` run includes that compares them, the example blocks of
+[`docs/timeline-output.md`](timeline-output.md) among them when `internal/analyze` runs
+(`-run` narrows the set), and nothing else does:
 
 ```sh
 export GOFLAGS=-tags=noasm,nounsafe
