@@ -71,7 +71,16 @@ built, and the package's own tests fail on a line out of order or not
 written as the package's formatter writes it. The builder sets every
 entry's times and mode, deepest first, so making a child never moves its
 directory's time. A file system that ignores letter case keeps one entry
-of each pair differing only in case.
+of each pair differing only in case. On Linux and macOS a socket whose path
+is longer than `bind` accepts is made through a short link in a new
+private directory, under `TMPDIR` or, when that is too long as well, under
+`/tmp`.
+
+The tests that compare file modes with expected ones (the expected output
+of `collect`, the walk's image of unusual entries and the Docker volume
+image test) set the umask to `022` while they run, and the staging copy
+test sets its source file's mode itself, so a shell's umask does not
+change what they see.
 
 The manifest is edited by hand. When a catalog line gains a fixture, add
 the file's line to the manifest of each platform whose homes the line
@@ -126,8 +135,12 @@ it replaces:
   Windows the line saying whether the system updates last-access times;
 - `collection.json`'s version, host name, platform, account and start and
   finish times, and the inventory's host;
-- in the manifest, the access, change and birth times, the owner ids or
-  Windows owner, a link's size where its target holds a replaced path,
+- in the manifest, the access time (checked only to be a number); the
+  change and birth times, the owner ids and the Windows owner, each first
+  compared with what the file system reports for the row's path, looked
+  at without following a link, since the image outlives the run (zeros
+  for a row the format writes without them, and an empty owner where the
+  walk gives none); a link's size where its target holds a replaced path;
   and on Linux and macOS a directory's size;
 - the order a directory listing gives: manifest rows are sorted, and so
   are runs of project blocks, relocation hints and walk failures in the
@@ -213,8 +226,11 @@ decompression; read one with `gunzip -c`. On Windows only the example
 archive and `fleet` cases run, since the directory inputs are read with
 POSIX paths.
 
+The test also fails on a directory under `internal/analyze/testdata/golden`
+that names no case and on a file in a case's directory that the case does
+not compare.
 `DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/analyze -run TestGoldenOutputOfTheAnalysisCommands`
-rewrites the expected files; nothing else does. The walk's own
+rewrites the expected files and removes those; nothing else does. The walk's own
 expected rows, log and staging tree for an image of unusual entries
 (`internal/walk`, Linux and macOS only, skipped when run as root) are
 rewritten the same way.
@@ -284,7 +300,7 @@ know run everything.
 | Base branch is main | Ubuntu | pull requests | fails a pull request whose base is not `main` |
 | Classify the change | Ubuntu | always | the classifier |
 | Go | Ubuntu, macOS and Windows; Ubuntu alone for a push to a `unit-*` branch | a Go change: `go.mod`, `go.sum`, `vendor/`, any `.go` file, `internal/catalog/catalog.txt`, `.github/go-build.sh`, `THIRD_PARTY_NOTICES.txt` (a test compares it with `vendor/`), or `docs/timeline-output.md` or `docs/internals.md` (Go tests read both pages) | `gofmt`, `go vet`, `staticcheck`, `govulncheck`, `go test -race`, the `dash` glob test (not on Windows), the JSON nesting test, and the reproducible build check |
-| Lint | Ubuntu | always; the Python steps for a change under `tools/` or `lab/`, to `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json` or the catalog; the sh steps for an `.sh` file or `.shellcheckrc` | markdownlint, the document link check, the research structure and drift checks and the code style check on every change; ruff, pyright and the tests of the checkers and the lab for a Python change; shfmt, shellcheck and checkbashisms for an sh change |
+| Lint | Ubuntu | always; the Python steps for a change under `tools/` or `lab/`, to `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`, the catalog, `internal/follow/confine_sites_test.go` or `internal/follow/guard_lists_test.go` (the code style checker's tests read their reviewed long functions), `.github/release-notes.sh` (a test runs it), or the `Makefile` and the root `AGENTS.md` (a test compares their linter versions); the sh steps for an `.sh` file or `.shellcheckrc` | markdownlint, the document link check, the research structure and drift checks and the code style check on every change; ruff, pyright and the tests of the checkers and the lab for a Python change, the tests on Python 3.11 and again on the newest Python release; shfmt, shellcheck and checkbashisms for an sh change |
 | Site build (strict) | Ubuntu | always | `mkdocs build --strict` |
 | CI result | Ubuntu | always | fails when any job above failed or was cancelled; the one check the ruleset on `main` requires |
 

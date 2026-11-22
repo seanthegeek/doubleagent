@@ -115,22 +115,24 @@ A release starts when the maintainer pushes a tag `v<version>`, such as
 `## [<version>] - <YYYY-MM-DD>` is in [`CHANGELOG.md`](CHANGELOG.md). The
 release workflow then:
 
-1. builds the six targets with that version on an Ubuntu and a macOS
+1. fails unless `main` holds the tagged commit, before anything is built;
+2. builds the six targets with that version on an Ubuntu and a macOS
    runner, and fails unless the two runners built the same bytes;
-2. checks that the Linux binary reports the version, that the changelog
+3. checks that the Linux binary reports the version, that the changelog
    has the section, and that `THIRD_PARTY_NOTICES.txt` matches the
    vendored modules;
-3. attests each binary's build provenance, signed through GitHub, which
+4. fails when the tag already has a release, draft or published;
+5. attests each binary's build provenance, signed through GitHub, which
    `gh attestation verify` checks;
-4. creates a draft GitHub Release titled with the version (without the
+6. creates a draft GitHub Release titled with the version (without the
    `v`), with the changelog section as its notes and the six binaries,
    `SHA256SUMS`, `LICENSE` and `THIRD_PARTY_NOTICES.txt` attached; a
    version with a `-` suffix is marked a pre-release.
 
 The maintainer reads the draft and publishes it by hand. Running the
 workflow from the Actions tab with a version is a dry run: it builds,
-compares and checks for that version, and creates no attestation and no
-release.
+compares and checks for that version, from the branch it is started on,
+and creates no attestation and no release.
 
 [`THIRD_PARTY_NOTICES.txt`](../THIRD_PARTY_NOTICES.txt) holds the licence
 of the Go distribution and of each module under `vendor/`, copied from the

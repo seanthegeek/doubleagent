@@ -49,10 +49,9 @@ pipeline itself needs from the host, the guests and the operator.
   pipeline's own standard-library tools, the archive's extraction among them.
 - **Go**, at the version `go.mod` names: `start` builds this checkout's
   `doubleagent` for every release target with `.github/go-build.sh`, once
-  per cell, and copies the guest's build into the VM.
-- **A `doubleagent` build for the Mac** for the analysis step, built from
-  this checkout, on `PATH` or given as
-  `LAB_DOUBLEAGENT=<path to the program>`.
+  per cell, and copies the guest's build into the VM. The analysis step
+  runs the Mac's build from the same set, unless
+  `LAB_DOUBLEAGENT=<path to the program>` names another.
 - **The lab key** at `~/.ssh/doubleagent_lab`, or wherever
   `LAB_SSH_KEY` points, made as
   [SSH access in Lab VMs](../docs/lab-vms.md#ssh-access) describes.
@@ -174,7 +173,7 @@ reason on stderr and in `round.log`.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `LAB_DOUBLEAGENT` | `doubleagent` | The `doubleagent` program the analysis step runs on the Mac, `doubleagent timeline --include-thinking`. The pipeline's own Python tools need only the standard library. |
+| `LAB_DOUBLEAGENT` | the cell's `tools/bin/doubleagent-<os>-<arch>` for this machine | The `doubleagent` program the analysis step runs on the Mac, `doubleagent timeline --include-thinking`: by default the build for this machine that `start` makes beside the guest's, from the same checkout, never one found on the `PATH`; a path here names another. The pipeline's own Python tools need only the standard library. |
 | `LAB_KNOWN_HOSTS` | `<cell>/known_hosts` | The known-hosts file of the cell's ssh config. |
 | `LAB_SSH_KEY` | `~/.ssh/doubleagent_lab` | The lab key, as [SSH access in Lab VMs](../docs/lab-vms.md#ssh-access) describes it. |
 | `LAB_ENV` | `.env` beside `lab.sh` | The credentials file the `secret` steps read ([Accounts](#accounts)). |

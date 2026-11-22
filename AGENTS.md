@@ -188,8 +188,9 @@ the runners and the weekly govulncheck workflow.
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
 a pull request changed into the categories sh files, Python and Go (Go
-taking `docs/timeline-output.md` and `docs/internals.md` too, which Go tests
-read), and runs everything for a file it does not list. A commit that makes
+taking `docs/timeline-output.md` and `docs/internals.md` too, and Python
+this file and the `Makefile`, since tests read them), and runs everything
+for a file it does not list. A commit that makes
 a job read another file adds that file to the job's category in the
 classifier, and the classifier's comments, the workflow's and the table in
 [What CI runs](docs/testing.md#what-ci-runs) change with it. A change whose
@@ -256,7 +257,8 @@ Every gate but PSScriptAnalyzer runs in CI: the Go gates in the `go` job,
 the site build in the `site` job on the Python the Pages workflow uses,
 the others in the `lint` job. The versions are pinned in the workflow's
 `env` block, and staticcheck's and govulncheck's also in the `Makefile`;
-change them and this table together. PSScriptAnalyzer, for the lab's
+change them and this table together, since `tools/tests/test_version_pins.py`
+fails when the three disagree. PSScriptAnalyzer, for the lab's
 Windows guest scripts, is run by hand. Run the commands from the repository
 root before pushing; the `make` targets pass the build tags themselves, and
 a `go` command run directly needs `export GOFLAGS=-tags=noasm,nounsafe`
@@ -584,8 +586,9 @@ from document links down.
   changelog or green CI is not that permission. Once the changelog's
   version section has reached `main` and the user has said to tag it, tag
   it `vX.Y.Z` (a pre-release `vX.Y.Z-rc.N`) with an annotated tag and push
-  the tag; the release workflow makes a draft release, which the user reads
-  and publishes ([Releases](docs/development.md#releases)).
+  the tag; the release workflow fails unless `main` holds the tagged commit
+  and the tag has no release yet, then makes a draft release, which the user
+  reads and publishes ([Releases](docs/development.md#releases)).
 - A tag marks a change to what the program does. A change touching only
   documentation, research documents, the `AGENTS.md` files or the linter
   configuration gets no tag of its own; a pending tag may sit on it or on
