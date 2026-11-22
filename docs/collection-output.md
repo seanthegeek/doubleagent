@@ -33,8 +33,9 @@ timestamps), followed by `done` once the archive is complete.
 ## Output files
 
 Every file a run writes is named `<host>_<UTC start time>_agent-artifacts`
-plus a suffix, in the output directory. In the host name, every character
-other than `A`-`Z`, `a`-`z`, `0`-`9`, `.`, `_` and `-` becomes `-`. The host
+plus a suffix, in the output directory. In the host name, every byte
+other than `A`-`Z`, `a`-`z`, `0`-`9`, `.`, `_` and `-` becomes `-`, so a
+character of several bytes becomes as many. The host
 name is that of the machine running the command, also in image mode.
 
 ```text

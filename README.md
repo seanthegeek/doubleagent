@@ -41,7 +41,8 @@ command's options.
 Get the `doubleagent` build for the host's operating system and
 architecture from the
 [releases page](https://github.com/seanthegeek/doubleagent/releases). The
-builds are named `doubleagent-<os>-<arch>`; until a release is published,
+builds are named `doubleagent-<os>-<arch>`, with `.exe` after the
+Windows ones; until a release is published,
 build them from a checkout as [Development](docs/development.md#building)
 describes.
 

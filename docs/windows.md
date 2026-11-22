@@ -170,8 +170,9 @@ loader writes to the user's `NTUSER.DAT`, which an evidence collection must
 not do. A user whose hive is not loaded is listed in
 `relocation.registry.users_not_loaded` and in the log. On a default system
 only Administrators can open another user's loaded hive: a hive the account
-cannot open is listed in `users_denied` with the message Windows gave, and
-a run as Administrator reads every loaded hive. The step does not run in
+cannot open is listed by user name in `users_denied`, and the log line
+`registry: hive of USER not readable: <message>` gives the message Windows
+gave; a run as Administrator reads every loaded hive. The step does not run in
 image mode or on Linux and macOS; `relocation.registry.reason` says which.
 
 ## Image mode on Windows
