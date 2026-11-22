@@ -112,7 +112,10 @@ in PowerShell) as often as you like:
 - The last line, `<UTC time> done: <archive path> (<size> bytes, sha256
   <hex>)`, is written once the archive is complete, hashed and moved to
   its name ([Log](collection-output.md#log)). Pull the archive only after
-  it appears.
+  it appears. The archive has its own name only once the run has
+  finished, so the archive under that name with its `.sha256` file beside
+  it is the sign the run completed, whatever the log's last line: a run
+  whose write of the `done:` line fails still finishes and exits `0`.
 
 Then retrieve the archive and its `.sha256` file, and check them on your
 workstation with `sha256sum -c <archive>.sha256` (`shasum -a 256 -c` on
@@ -143,9 +146,9 @@ console window on Windows, are requests to stop: the run logs
 `.sha256` file and `collection.json`, and exits `130`, leaving the log and
 the manifest of what it did until then, if Windows leaves it the few
 seconds it gives before it ends the process after a window is closed. A
-request that arrives once the archive has been moved to its name, just
-before the `done:` line, changes nothing: the run has finished and exits
-`0`. At a logoff or shutdown on Windows, a program started from an
+request that arrives once the archive's move to its name has begun, just
+before the `done:` line, changes nothing: the run finishes as if it had
+not come. At a logoff or shutdown on Windows, a program started from an
 interactive session is ended without being told, so the run sees no
 request; a run started by a service (an EDR agent, for example) may
 receive the logoff or shutdown event, which is then a request to stop, as
@@ -156,8 +159,14 @@ A run ended that way, or by `SIGKILL`, or by `SIGQUIT` (which prints a
 stack dump of the program and exits `2`), leaves its staging directory,
 `.stage-<host>_<UTC time>_agent-artifacts`, in the output directory with
 the copies made so far, and a log without a closing line, and, when it was
-archiving, a `.partial` archive and perhaps a `.sha256` file: delete them
-by hand. On Linux and macOS only root and the account that ran
+archiving, a `.partial` archive and perhaps a `.sha256` file. A `.partial`
+archive with a `.sha256` file beside it is complete: rename it to the name
+the `.sha256` file gives and check it with `sha256sum -c`
+(`shasum -a 256 -c` on macOS), as
+[Output files](collection-output.md#output-files) says; the same holds when
+a run exits `2` because it could not move the archive to its name. A
+`.partial` archive without a `.sha256` file may be incomplete: delete it,
+and the staging directory, by hand. On Linux and macOS only root and the account that ran
 `collect` can read the staging directory.
 `--list`, `--version` and `--help` write no files, and a pipe whose reader
 ended stops them on Linux and macOS.

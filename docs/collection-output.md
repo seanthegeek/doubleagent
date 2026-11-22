@@ -48,14 +48,34 @@ ir-ws01_20261122T050937Z_agent-artifacts.log               the log (the archive 
 ```
 
 While it is written, the archive is named
-`<host>_<UTC start time>_agent-artifacts.tar.gz.partial`. Once it is
+`<host>_<UTC start time>_agent-artifacts.tar.gz.partial`, a file the run
+creates new: whatever held that name when archiving began, a link
+included, is removed first without being followed. Once the archive is
 complete and hashed, and its `.sha256` file is written, it is moved to its
-name, and only then is the `done:` line logged. A file ending `.partial`
-is therefore never a finished archive: one left behind by a run that was
-killed can be deleted. A run that is told to stop before that move removes
-the partial archive, the `.sha256` file and `collection.json`, and leaves
-the log and the manifest of what it did until then
-([Exit codes](collect-options.md#exit-codes)).
+name, and only then is the `done:` line logged. An archive under its own
+name, with its `.sha256` file beside it, is therefore one whose run
+finished.
+
+What a run leaves in the output directory depends on how it ended
+([Exit codes](collect-options.md#exit-codes)):
+
+| Ending | What is left |
+| --- | --- |
+| Finished, exit `0` | The archive, its `.sha256` file, the manifest, `collection.json` and the log, ending `done:`. |
+| Told to stop, exit `130` | The log, ending `interrupted`, and the manifest of what the run did until then; the partial archive, the `.sha256` file and `collection.json` are removed. |
+| A fatal error once the log is open, exit `2` | The log, ending `FATAL: ...`, and the manifest. A fatal error while archiving also leaves `collection.json`, which describes an archive that was not written, and no archive or `.partial` file, unless the finished archive could not be moved to its name: then the `.partial` file and its `.sha256` file are left too. |
+| Ended without cleaning up (`SIGKILL`, `SIGQUIT`, or Windows ending the process) | The log without a closing line, the manifest and the staging directory; when it was archiving, `collection.json`, and perhaps a `.partial` file and a `.sha256` file. |
+
+The staging directory is removed in every ending but the last, unless `-k`
+is given.
+
+A `.partial` file with a `.sha256` file beside it is a complete archive
+whose run was ended, or could not move it to its name, after its
+`.sha256` file was written. Rename it to the name the `.sha256` file
+gives, the same name without `.partial`, and check it with
+`sha256sum -c <archive>.sha256` (`shasum -a 256 -c` on macOS). A
+`.partial` file without a `.sha256` file may be incomplete and can be
+deleted.
 
 The `.sha256` file is one line, `<hex>  <archive file name>`, the form
 `sha256sum -c` and `shasum -a 256 -c` read:
@@ -259,7 +279,7 @@ Then come the warnings that apply to the whole run.
 | `Archiving` | The walk is over and the archive is being written, under its `.partial` name. |
 | `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
-| `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file. |
+| `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file, and `FATAL: archive not moved to its name: REASON; it is complete as PARTIAL, with its .sha256 file beside it` when the finished archive could not be given its name. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

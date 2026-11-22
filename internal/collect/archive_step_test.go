@@ -3,11 +3,16 @@ package collect
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // runName is the name every output of a test run starts with: the host and
@@ -124,5 +129,155 @@ func checkPartialOutcome(t *testing.T, outDir string, code int, keptEntry string
 	last := lastLogLine(t, outDir)
 	if !strings.Contains(last, " FATAL: archive not written: ") || !strings.Contains(last, partial) {
 		t.Errorf("the log ends %q, want a FATAL line naming %s", last, partial)
+	}
+}
+
+func TestAStopRequestEndsTheRunOnlyBeforeItsArchiveHasItsName(t *testing.T) {
+	name := runName()
+	interrupted := []string{name + ".log", name + ".manifest.jsonl"}
+	finished := []string{name + ".collection.json", name + ".log", name + ".manifest.jsonl",
+		name + ".tar.gz", name + ".tar.gz.sha256"}
+	cases := []struct {
+		name string
+		// stopText stops the run when standard error is given it; stopPoint
+		// when the archive step reaches it.
+		stopText, stopPoint string
+		wantCode            int
+		wantNames           []string
+		wantLast            string
+	}{
+		{"a stop request as archiving starts leaves only the log and the manifest",
+			"Archiving\n", "", exitInterrupted, interrupted, " interrupted"},
+		{"a stop request while the archive is hashed leaves only the log and the manifest",
+			"", archiveWritten, exitInterrupted, interrupted, " interrupted"},
+		{"a stop request after the sidecar is written, before the move, leaves only the log and the manifest",
+			"", sidecarWritten, exitInterrupted, interrupted, " interrupted"},
+		{"a stop request once the archive has its name changes nothing",
+			"", archiveMoved, exitOK, finished, " done: "},
+		{"a stop request after the done line changes nothing", "done\n", "", exitOK, finished, " done: "},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			outDir := t.TempDir()
+			options := testOptions(fixtureImage(t), outDir)
+			options.Quiet = false
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			host := testHost(t)
+			host.reached = func(point string) {
+				if point == testCase.stopPoint {
+					cancel()
+				}
+			}
+			stderr := &cancelOnText{text: testCase.stopText, cancel: func() {}}
+			if testCase.stopText != "" {
+				stderr.cancel = cancel
+			}
+			var stdout bytes.Buffer
+			if code := runCollection(ctx, options, host, &stdout, stderr); code != testCase.wantCode {
+				t.Fatalf("exit code %d, want %d", code, testCase.wantCode)
+			}
+			if ctx.Err() == nil {
+				t.Fatalf("the run never reached %q%q, so it was not stopped", testCase.stopText, testCase.stopPoint)
+			}
+			checkStoppedRun(t, outDir, testCase.wantNames, testCase.wantLast)
+		})
+	}
+}
+
+// checkStoppedRun fails the test unless outDir holds wantNames, the log's
+// last line holds wantLast, and the log has no FATAL line and not both the
+// done line and the interrupted line.
+func checkStoppedRun(t *testing.T, outDir string, wantNames []string, wantLast string) {
+	t.Helper()
+	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(wantNames, " ") {
+		t.Errorf("outputs %v, want %v", got, wantNames)
+	}
+	log := runOutput(t, outDir, ".log")
+	if last := lastLogLine(t, outDir); !strings.Contains(last, wantLast) {
+		t.Errorf("the log ends %q, want %q in it", last, wantLast)
+	}
+	if strings.Contains(log, " done: ") && strings.Contains(log, " interrupted\n") {
+		t.Errorf("the log has both a done line and the interrupted line:\n%s", log)
+	}
+	if strings.Contains(log, "FATAL") {
+		t.Errorf("a stopped run logged a FATAL line:\n%s", log)
+	}
+}
+
+func TestAnArchiveThatCannotBeMovedIsKeptCompleteUnderItsPartialName(t *testing.T) {
+	cases := []struct {
+		name string
+		// failures is how many moves fail before the real one is made.
+		failures     int
+		wantCode     int
+		wantAttempts int
+	}{
+		{"a move that keeps failing leaves the archive and its sidecar under the partial name",
+			100, exitFatal, moveAttempts},
+		{"a move that fails twice is tried again and the run finishes", 2, exitOK, 3},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			outDir := longTempDir(t)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			host := testHost(t)
+			attempts := 0
+			var pauses []time.Duration
+			host.sleep = func(pause time.Duration) { pauses = append(pauses, pause) }
+			host.rename = func(oldPath, newPath string) error {
+				attempts++
+				// A stop request during the move changes nothing either.
+				cancel()
+				if attempts <= testCase.failures {
+					return &os.LinkError{Op: "rename", Old: syspath.ToNative(oldPath),
+						New: syspath.ToNative(newPath), Err: errors.New("in use")}
+				}
+				return os.Rename(oldPath, newPath)
+			}
+			var stdout, stderr bytes.Buffer
+			code := runCollection(ctx, testOptions(fixtureImage(t), outDir), host, &stdout, &stderr)
+			if code != testCase.wantCode || attempts != testCase.wantAttempts {
+				t.Fatalf("exit code %d after %d moves, want %d after %d; log ends %q", code, attempts,
+					testCase.wantCode, testCase.wantAttempts, lastLogLine(t, outDir))
+			}
+			if len(pauses) != attempts-1 || time.Duration(len(pauses))*movePause > time.Second {
+				t.Errorf("paused %v between %d moves, want %v before each try after the first",
+					pauses, attempts, movePause)
+			}
+			if code == exitFatal {
+				checkKeptPartial(t, outDir)
+			}
+		})
+	}
+}
+
+// checkKeptPartial fails the test unless outDir holds the run's files with
+// the archive under its partial name, its sidecar naming the final name with
+// the partial archive's hash, and a log ending in the FATAL line that says so.
+func checkKeptPartial(t *testing.T, outDir string) {
+	t.Helper()
+	name := runName()
+	want := []string{name + ".collection.json", name + ".log", name + ".manifest.jsonl",
+		name + ".tar.gz.partial", name + ".tar.gz.sha256"}
+	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("outputs %v, want %v", got, want)
+	}
+	partial := filepath.Join(outDir, name+".tar.gz.partial")
+	data, err := os.ReadFile(partial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(data)
+	sidecar := runOutput(t, outDir, ".sha256")
+	if wantLine := hex.EncodeToString(digest[:]) + "  " + name + ".tar.gz\n"; sidecar != wantLine {
+		t.Errorf("the sidecar holds %q, want %q", sidecar, wantLine)
+	}
+	wantLast := "FATAL: archive not moved to its name: rename " + partial + " " +
+		filepath.Join(outDir, name+".tar.gz") + ": in use; it is complete as " + partial +
+		", with its .sha256 file beside it"
+	if last := lastLogLine(t, outDir); !strings.HasSuffix(last, " "+wantLast) {
+		t.Errorf("the log ends %q, want %q", last, wantLast)
 	}
 }

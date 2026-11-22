@@ -98,6 +98,12 @@ type environment struct {
 	// markCaseSensitive marks the empty staging fs directory case-sensitive
 	// on Windows (stage.MarkCaseSensitive); nil marks it the same way.
 	markCaseSensitive func(dir string) error
+	// rename and sleep move the archive to its name and pause between tries
+	// (osfile.Rename and time.Sleep when nil), and reached, when set, is told
+	// each point of the archive step a test stops a run at.
+	rename  func(oldPath, newPath string) error
+	sleep   func(time.Duration)
+	reached func(point string)
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
@@ -137,15 +143,15 @@ func runCollection(ctx context.Context, options Options, host environment,
 }
 
 // exitCode maps the outcome of a run to its exit code: 0 when it finished,
-// whatever ctx says by then (writeArchive's point of no return); 130 after
-// logging `interrupted` when it failed with ctx cancelled, removing the
-// collection.json written beside the archive, so the log and the manifest
-// alone are left; 2 after logging any other failure.
+// whatever ctx says by then; 130 after logging `interrupted` when it failed
+// with ctx cancelled before the archive's move began (buildArchive's point of
+// no return), removing the collection.json written beside the archive, so the
+// log and the manifest alone are left; 2 after logging any other failure.
 func (state *runState) exitCode(ctx context.Context, err error) int {
 	switch {
 	case err == nil:
 		return exitOK
-	case ctx.Err() != nil:
+	case ctx.Err() != nil && !state.moving:
 		state.line("interrupted")
 		if !state.options.Inventory {
 			_ = osfile.Remove(state.summaryPath)

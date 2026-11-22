@@ -19,13 +19,11 @@ import (
 )
 
 // writeArchive writes collection.json, stages it with the manifest and the
-// log, writes the archive under its partial name, hashes it and writes its
-// sidecar, then moves it to its name, logs `done` and prints the stdout
-// summary. The move is the run's one point of no return: before it, a stop
-// request (ctx) or a failure removes the partial archive and the sidecar and
-// returns the error; after it nothing looks at ctx or fails, so the run has
-// finished and exits 0 whatever arrives. No run therefore exits 130 with an
-// archive in place, or logs `done:` and then `interrupted`.
+// log, has buildArchive write the archive and move it to its name, then logs
+// `done` and prints the stdout summary. Once the archive has its name nothing
+// looks at ctx or fails, so the run has finished and exits 0 whatever
+// arrives: no run exits 130 with an archive in place, or logs `done:` and
+// then `interrupted`.
 func (state *runState) writeArchive(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -37,19 +35,10 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	if err := state.log.Line("Archiving"); err != nil {
 		return err
 	}
-	err := state.stageRunFiles()
-	if err == nil {
-		err = state.buildArchive(ctx, &report)
+	if err := state.stageRunFiles(); err != nil {
+		return err
 	}
-	if err == nil {
-		err = ctx.Err()
-	}
-	if err == nil {
-		err = state.placeArchive()
-	}
-	if err != nil {
-		_ = osfile.Remove(state.partialPath)
-		_ = osfile.Remove(state.archivePath + ".sha256")
+	if err := state.buildArchive(ctx, &report); err != nil {
 		return err
 	}
 	state.logDone(report)
@@ -58,42 +47,92 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	return nil
 }
 
-// buildArchive writes the archive under its partial name, hashes it and
-// writes the sidecar under its final name, filling the report's hash and
-// size. The partial archive is a regular file this run creates new: what
-// held its name is removed without being followed, and what cannot be
-// removed ends the run. A stop request returns ctx's error; any other
-// failure is logged.
+// buildArchive is the archive step, filling the report's hash and size. Its
+// rule is what holds of the partial archive, the file at partialPath: it is a
+// regular file this run created new; what held that name before is removed
+// without being followed, and what cannot be removed ends the run; it then
+// becomes the archive under its final name, or is removed with its sidecar on
+// a stop request (ctx) or a failure, or, only when the move itself cannot be
+// done or the process is killed, stays complete with its sidecar beside it;
+// and the run makes the final name name nothing but that file. The move is
+// the point of no return: ctx is looked at last just before it.
 func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
 	// Files left at these names by an earlier run are not this run's.
 	_ = osfile.Remove(state.archivePath)
 	_ = osfile.Remove(state.partialPath)
-	if err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath); err != nil {
+	err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath)
+	created := err == nil
+	if err == nil {
+		state.reach(archiveWritten)
+		err = state.hashArchive(ctx, report)
+	}
+	if err == nil {
+		state.reach(sidecarWritten)
+		err = ctx.Err()
+	}
+	if err != nil {
+		if created {
+			_ = osfile.Remove(state.partialPath)
+		}
+		_ = osfile.Remove(state.archivePath + ".sha256")
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		return state.archiveNotWritten(err)
 	}
+	state.moving = true
+	return state.placeArchive()
+}
+
+// hashArchive hashes the partial archive into the report and writes the
+// sidecar under the archive's final name. A stop request ends the hashing
+// with an error that holds ctx's.
+func (state *runState) hashArchive(ctx context.Context, report *summary.Summary) error {
 	sha256, size, err := archive.SHA256File(ctx, state.partialPath)
 	switch {
-	case ctx.Err() != nil:
-		return ctx.Err()
 	case err != nil:
-		return state.archiveNotWritten(err)
+		return err
 	case size == 0:
-		return state.archiveNotWritten(errors.New(syspath.ToNative(state.partialPath) + ": empty archive"))
+		return errors.New(syspath.ToNative(state.partialPath) + ": empty archive")
 	}
 	report.ArchiveSHA, report.ArchiveSize = sha256, size
 	return archive.WriteSidecar(state.archivePath, sha256)
 }
 
-// placeArchive moves the finished archive from its partial name to its
-// name, replacing any file there, the last step that can fail.
+// Tries and pauses of the move of the archive to its name: on Windows another
+// program (a virus scanner reading the new file, for one) can hold either
+// name open for a moment without allowing the rename or the replacement.
+const (
+	moveAttempts = 5
+	movePause    = 250 * time.Millisecond
+)
+
+// placeArchive moves the finished archive from its partial name to its name,
+// replacing any file there, trying again over about a second. A move that
+// cannot be done leaves the archive complete under its partial name with its
+// sidecar, and its FATAL line says so.
 func (state *runState) placeArchive() error {
-	if err := osfile.Rename(state.partialPath, state.archivePath); err != nil {
-		return state.archiveNotWritten(err)
+	rename, sleep := state.host.rename, state.host.sleep
+	if rename == nil {
+		rename = osfile.Rename
 	}
-	return nil
+	if sleep == nil {
+		sleep = time.Sleep
+	}
+	var err error
+	for attempt := 1; attempt <= moveAttempts; attempt++ {
+		if attempt > 1 {
+			sleep(movePause)
+		}
+		if err = rename(state.partialPath, state.archivePath); err == nil {
+			state.reach(archiveMoved)
+			return nil
+		}
+	}
+	partial := syspath.ToNative(state.partialPath)
+	state.line("FATAL: archive not moved to its name: " + err.Error() + "; it is complete as " +
+		partial + ", with its .sha256 file beside it")
+	return &loggedError{message: "archive not moved to its name"}
 }
 
 // archiveNotWritten logs the fatal line of an archive that could not be
@@ -102,6 +141,20 @@ func (state *runState) archiveNotWritten(reason error) error {
 	state.line("FATAL: archive not written: " + reason.Error())
 	return &loggedError{message: "archive not written"}
 }
+
+// reach tells a test that the archive step has reached point.
+func (state *runState) reach(point string) {
+	if state.host.reached != nil {
+		state.host.reached(point)
+	}
+}
+
+// The points of the archive step a test can stop a run at (environment.reached).
+const (
+	archiveWritten = "the archive is written under its partial name"
+	sidecarWritten = "the sidecar is written"
+	archiveMoved   = "the archive has its name"
+)
 
 // logDone appends the `done` line to the log file only, after the copy the
 // archive holds, then says `done` on standard error unless the run is quiet.

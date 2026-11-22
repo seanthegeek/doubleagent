@@ -201,52 +201,6 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 	}
 }
 
-func TestAStopRequestEndsTheRunOnlyBeforeItsArchiveHasItsName(t *testing.T) {
-	name := safeHostname(hostname() + "_20260102T030405Z_agent-artifacts")
-	cases := []struct {
-		name      string
-		stopAt    string
-		wantCode  int
-		wantNames []string
-		wantLast  string
-	}{
-		{"a stop request as archiving starts leaves only the log and the manifest",
-			"Archiving\n", exitInterrupted, []string{name + ".log", name + ".manifest.jsonl"},
-			" interrupted"},
-		{"a stop request after the done line changes nothing", "done\n", exitOK,
-			[]string{name + ".collection.json", name + ".log", name + ".manifest.jsonl",
-				name + ".tar.gz", name + ".tar.gz.sha256"}, " done: "},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			outDir := t.TempDir()
-			options := testOptions(fixtureImage(t), outDir)
-			options.Quiet = false
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			stderr := &cancelOnText{text: testCase.stopAt, cancel: cancel}
-			var stdout bytes.Buffer
-			if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != testCase.wantCode {
-				t.Fatalf("exit code %d, want %d", code, testCase.wantCode)
-			}
-			if ctx.Err() == nil {
-				t.Fatalf("the run never wrote %q, so it was not stopped", testCase.stopAt)
-			}
-			if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(testCase.wantNames, " ") {
-				t.Errorf("outputs %v, want %v", got, testCase.wantNames)
-			}
-			log := runOutput(t, outDir, ".log")
-			lines := strings.Split(strings.TrimSuffix(log, "\n"), "\n")
-			if last := lines[len(lines)-1]; !strings.Contains(last, testCase.wantLast) {
-				t.Errorf("the log ends %q, want %q in it", last, testCase.wantLast)
-			}
-			if strings.Contains(log, " done: ") && strings.Contains(log, " interrupted\n") {
-				t.Errorf("the log has both a done line and the interrupted line:\n%s", log)
-			}
-		})
-	}
-}
-
 func TestAnInterruptedInventoryPrintsNothing(t *testing.T) {
 	options := testOptions(fixtureImage(t), "")
 	options.Quiet, options.Inventory = false, true

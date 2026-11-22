@@ -101,12 +101,16 @@ A collection or inventory run ends before its archive is written only when it is
 told to stop (an interrupt or a termination request) or meets a fatal error, and
 both remove the staging directory unless `-k` is given. Losing its terminal or the
 reader of its output is neither: the run continues, because the log file is its
-record. Writing the archive has one point of no return: the archive is written as
-`<name>.tar.gz.partial`, hashed and given its `.sha256` file, the context is looked
-at once more, and the archive is moved to its name. A stop request before the move
-ends the run with the partial archive, the `.sha256` file and `collection.json`
-removed; after it nothing looks at the context, so the run logs `done:` and exits
-`0` (`collect.runState.writeArchive`). The archive writer looks at the context before
+record. Writing the archive has one point of no return: the archive is created new
+as `<name>.tar.gz.partial` (whatever held that name is removed first, never
+followed), hashed and given its `.sha256` file, the context is looked at once more,
+and the archive is moved to its name. A stop request before the move ends the run
+with the partial archive, the `.sha256` file and `collection.json` removed; once the
+move has begun nothing looks at the context, so the run logs `done:` and exits `0`,
+or, when the move still fails after it is tried again for about a second, exits `2` with the
+complete archive left under its partial name beside its `.sha256` file
+(`collect.runState.buildArchive`, whose comment states what holds of the partial
+archive). The archive writer looks at the context before
 each member and each read of a file, so a stop during a long archive takes effect at
 once. `collect.catchSignals` sets the handlers from that rule when the run starts
 and removes them when it returns; `--list`, `--version` and `--help` return before
@@ -120,7 +124,7 @@ a program can catch, with what a run does on each:
 
 | Signals | What the run does | Why |
 | --- | --- | --- |
-| `SIGINT`, `SIGTERM` | Caught: before the archive is moved to its name, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; after it, the run finishes and exits `0`. | A request to stop. |
+| `SIGINT`, `SIGTERM` | Caught: before the archive's move to its name begins, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; once the move has begun, the run finishes as if no request had come. | A request to stop. |
 | `SIGHUP`, `SIGPIPE` | Caught and dropped: the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
 | `SIGQUIT`, `SIGABRT`, `SIGILL`, `SIGTRAP`, `SIGSYS`, `SIGEMT` (macOS), `SIGSTKFLT` (Linux), and `SIGBUS`, `SIGFPE` or `SIGSEGV` sent by another program | Go's default: a stack dump on standard error and exit `2`, leaving the staging directory and a log with no closing line. | Each is a request for a stack dump or a sign that the program itself is broken; the dump is how a hung run is diagnosed, and a run that is hung could not clean up anyway. The staging directory left behind is readable by its owner only, as everything the run creates is, and is removed by hand. |
 | `SIGBUS`, `SIGFPE`, `SIGSEGV` raised by the program's own fault | Go's default: a run-time panic, exit `2`, as above. | A bug in the program. |

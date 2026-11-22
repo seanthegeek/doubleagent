@@ -53,6 +53,9 @@ type runState struct {
 	// stageFoldsCase is set where the staging directory takes two names
 	// differing only in case for one (keepCaseApart).
 	stageFoldsCase bool
+	// moving is set once the archive's move to its name has begun, after
+	// which a stop request changes nothing.
+	moving bool
 
 	log          *runlog.Log
 	manifestFile *os.File

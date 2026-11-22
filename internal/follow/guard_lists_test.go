@@ -215,7 +215,7 @@ func allowedCalls() map[string]allowance {
 		{"internal/collect/run_finish.go", "osfile.Remove", 4,
 			"removes what holds the run's archive name and partial name before the archive is " +
 				"written, never following a link, and the run's own partial archive and checksum " +
-				"file when the run stops or fails before its archive is placed"},
+				"file when the run stops or fails before its archive is moved"},
 		{"internal/collect/run_finish.go", "osfile.Rename", 1,
 			"moves the run's own finished archive from its partial name to its name"},
 		{"internal/collect/run.go", "osfile.Remove", 1,
