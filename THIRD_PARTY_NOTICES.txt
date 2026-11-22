@@ -72,7 +72,7 @@ rights granted to you under this License for this implementation of Go
 shall terminate as of the date such litigation is filed.
 
 ================================================================================
-Module: github.com/BurntSushi/toml v1.5.0
+Module: github.com/BurntSushi/toml v1.6.0
 Licence: MIT
 Linked: github.com/BurntSushi/toml, github.com/BurntSushi/toml/internal
 --------------------------------------------------------------------------------

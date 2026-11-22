@@ -1,4 +1,4 @@
-// Package tomldoc reads a TOML 1.0 document into values that keep the
+// Package tomldoc reads a TOML 1.1 document into values that keep the
 // document's order: a parser walks tables and keys in the order the file
 // wrote them.
 //

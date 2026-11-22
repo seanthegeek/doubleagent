@@ -46,6 +46,10 @@ func TestParseAcceptsNestingUpToTheLimit(t *testing.T) {
 		{"a long array of floats on one line", "a = [" + strings.Repeat("1.5, ", 1000) + "1.5]\n"},
 		{"a later header starts again from the top",
 			"[" + dottedKey(maxDepth) + "]\n[b." + dottedKey(maxDepth-1) + "]\n"},
+		{"an inline table across lines nested to the limit",
+			strings.ReplaceAll(nestedInline(maxDepth-1), "{", "{\n# {[\n")},
+		{"each inline table across lines in an array is counted on its own",
+			"a = [\n" + strings.Repeat("{\n b = [1],\n},\n", 100) + "]\n"},
 		{"each element of an array is counted on its own",
 			"a = [" + strings.Repeat("{b = [1]}, ", 100) + "{b = 1}]\n"},
 	}
@@ -65,6 +69,11 @@ func TestParseRefusesNestingPastTheLimit(t *testing.T) {
 	}{
 		{"an array nested one past the limit", nestedArray(maxDepth)},
 		{"an inline table nested one past the limit", nestedInline(maxDepth)},
+		{"an inline table across lines nested one past the limit",
+			strings.ReplaceAll(nestedInline(maxDepth), "{", "{\n")},
+		{"a dotted key across lines inside inline tables",
+			"a = " + strings.Repeat("{\nb=", maxDepth/2) + "{\n" + dottedKey(maxDepth/2) + "=1,\n" +
+				strings.Repeat("}", maxDepth/2+1) + "\n"},
 		{"a table header of one part past the limit", "[" + dottedKey(maxDepth+1) + "]\n"},
 		{"an array of tables header of one part past the limit", "[[" + dottedKey(maxDepth+1) + "]]\n"},
 		{"a dotted key of one part past the limit", dottedKey(maxDepth+1) + " = 1\n"},

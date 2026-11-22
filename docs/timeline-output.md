@@ -2272,7 +2272,7 @@ trustedHooks=<name>:<command> (from <file>, file mtime)`; and from
 `.gemini/acknowledgments/agents.json`, `permission setting:
 acknowledgedAgents.<agent>=<hash> (from <file>, file mtime)`. A
 project's file carries the project as `project_path`, and the last two
-files the project each entry names. Policy files are read as TOML 1.0
+files the project each entry names. Policy files are read as TOML 1.1
 documents. No `session retention:` row means the defaults: Gemini CLI
 deletes a project's sessions older than 30 days each time it starts
 there, so a session missing from `chats/` may have expired rather than been deleted,

@@ -10,7 +10,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Parse reads a TOML 1.0 document. The error, an *Error, says where the
+// Parse reads a TOML 1.1 document. The error, an *Error, says where the
 // document breaks the TOML rules, with a line and column, or that it is
 // larger or nests deeper than this package reads.
 func Parse(text string) (*Table, error) {
