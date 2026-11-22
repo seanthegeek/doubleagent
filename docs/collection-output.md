@@ -259,7 +259,7 @@ Then come the warnings that apply to the whole run.
 | `Archiving` | The walk is over and the archive is being written, under its `.partial` name. |
 | `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
-| `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written` when the archive failed. |
+| `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

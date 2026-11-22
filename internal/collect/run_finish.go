@@ -3,6 +3,7 @@ package collect
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -59,23 +60,28 @@ func (state *runState) writeArchive(ctx context.Context) error {
 
 // buildArchive writes the archive under its partial name, hashes it and
 // writes the sidecar under its final name, filling the report's hash and
-// size. A stop request returns ctx's error; any other failure is logged.
+// size. The partial archive is a regular file this run creates new: what
+// held its name is removed without being followed, and what cannot be
+// removed ends the run. A stop request returns ctx's error; any other
+// failure is logged.
 func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
-	// A file left at the archive's name by an earlier run is not this run's.
+	// Files left at these names by an earlier run are not this run's.
 	_ = osfile.Remove(state.archivePath)
+	_ = osfile.Remove(state.partialPath)
 	if err := archive.WriteTarGz(ctx, state.stageDir, state.partialPath); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		state.line("archive: " + err.Error())
-		return state.archiveNotWritten()
+		return state.archiveNotWritten(err)
 	}
 	sha256, size, err := archive.SHA256File(ctx, state.partialPath)
 	switch {
 	case ctx.Err() != nil:
 		return ctx.Err()
-	case err != nil || size == 0:
-		return state.archiveNotWritten()
+	case err != nil:
+		return state.archiveNotWritten(err)
+	case size == 0:
+		return state.archiveNotWritten(errors.New(syspath.ToNative(state.partialPath) + ": empty archive"))
 	}
 	report.ArchiveSHA, report.ArchiveSize = sha256, size
 	return archive.WriteSidecar(state.archivePath, sha256)
@@ -85,16 +91,15 @@ func (state *runState) buildArchive(ctx context.Context, report *summary.Summary
 // name, replacing any file there, the last step that can fail.
 func (state *runState) placeArchive() error {
 	if err := osfile.Rename(state.partialPath, state.archivePath); err != nil {
-		state.line("archive: " + err.Error())
-		return state.archiveNotWritten()
+		return state.archiveNotWritten(err)
 	}
 	return nil
 }
 
 // archiveNotWritten logs the fatal line of an archive that could not be
-// written and returns its error.
-func (state *runState) archiveNotWritten() error {
-	state.line("FATAL: archive not written")
+// written, with the reason, which names the file, and returns its error.
+func (state *runState) archiveNotWritten(reason error) error {
+	state.line("FATAL: archive not written: " + reason.Error())
 	return &loggedError{message: "archive not written"}
 }
 

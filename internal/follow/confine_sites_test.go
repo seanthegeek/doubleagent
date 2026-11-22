@@ -44,7 +44,7 @@ func siteClasses() map[string]string {
 		"internal/collect/run_unix.go unix.Faccessat":                      notImage,
 		"internal/collect/run_setup.go stage.PhysicalDir":                  notImage,
 		"internal/archive/archive.go osfile.Remove":                        notImage,
-		"internal/archive/archive.go osfile.Create":                        notImage,
+		"internal/archive/archive.go osfile.OpenFile":                      notImage,
 		"internal/archive/archive.go osfile.WriteFile":                     notImage,
 		"internal/archive/archive.go osfile.ReadDir":                       notImage,
 		"internal/archive/archive.go osfile.Open":                          notImage,

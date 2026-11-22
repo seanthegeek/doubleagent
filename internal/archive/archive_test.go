@@ -208,6 +208,64 @@ func TestWriteTarGzFailureLeavesNoArchive(t *testing.T) {
 	}
 }
 
+func TestWriteTarGzCreatesItsFileNewAndNeverWritesThroughAnEntryAtItsName(t *testing.T) {
+	stage, _ := buildStage(t)
+	cases := []struct {
+		name string
+		// plant puts an entry at path, beside the file outside, which holds
+		// "outside".
+		plant func(t *testing.T, path, outside string)
+	}{
+		{"a link to a file outside", func(t *testing.T, path, outside string) {
+			if err := os.Symlink(outside, path); err != nil {
+				t.Skipf("cannot create a symlink: %v", err)
+			}
+		}},
+		{"a link to a name nothing holds", func(t *testing.T, path, outside string) {
+			if err := os.Symlink(outside+".new", path); err != nil {
+				t.Skipf("cannot create a symlink: %v", err)
+			}
+		}},
+		{"a regular file", func(t *testing.T, path, _ string) {
+			if err := os.WriteFile(path, []byte("kept"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"an empty directory", func(t *testing.T, path, _ string) {
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name+" fails the write and is left as it was", func(t *testing.T) {
+			dir := t.TempDir()
+			path, outside := filepath.Join(dir, "out.tar.gz"), filepath.Join(dir, "outside")
+			if err := os.WriteFile(outside, []byte("outside"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			testCase.plant(t, path, outside)
+			before, err := os.Lstat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := WriteTarGz(context.Background(), stage, path); !errors.Is(err, fs.ErrExist) {
+				t.Errorf("WriteTarGz = %v, want the name taken", err)
+			}
+			after, err := os.Lstat(path)
+			if err != nil || after.Mode() != before.Mode() || after.Size() != before.Size() {
+				t.Errorf("the entry at the name became %v (%v), was %v", after, err, before)
+			}
+			if text, err := os.ReadFile(outside); err != nil || string(text) != "outside" {
+				t.Errorf("the file outside holds %d bytes (%v), want it untouched", len(text), err)
+			}
+			if _, err := os.Lstat(outside + ".new"); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("a file was created through the link: %v", err)
+			}
+		})
+	}
+}
+
 // stopAfterChecks is a context that is cancelled once its Err has been asked
 // allowed times, so a test stops a write at a point it chooses, and that
 // counts the questions asked after that.

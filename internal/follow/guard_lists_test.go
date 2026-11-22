@@ -207,14 +207,15 @@ func allowedCalls() map[string]allowance {
 		reason     string
 	}{
 		{"internal/archive/archive.go", "osfile.Remove", 1,
-			"removes a partial archive the run wrote"},
+			"removes the partial archive it created when the write fails"},
 		{"internal/collect/run_setup.go", "osfile.Remove", 1,
 			"removes the probe file it made in the output directory"},
 		{"internal/collect/run_setup.go", "osfile.RemoveAll", 1,
 			"removes the run's own staging directory"},
-		{"internal/collect/run_finish.go", "osfile.Remove", 3,
-			"removes an old file at the run's archive path before writing it, and the run's " +
-				"own partial archive and checksum file when the run stops before its archive is placed"},
+		{"internal/collect/run_finish.go", "osfile.Remove", 4,
+			"removes what holds the run's archive name and partial name before the archive is " +
+				"written, never following a link, and the run's own partial archive and checksum " +
+				"file when the run stops or fails before its archive is placed"},
 		{"internal/collect/run_finish.go", "osfile.Rename", 1,
 			"moves the run's own finished archive from its partial name to its name"},
 		{"internal/collect/run.go", "osfile.Remove", 1,
@@ -245,8 +246,9 @@ func allowedCalls() map[string]allowance {
 			"finds those programs in the system directories, then PATH"},
 		{"internal/hostcmd/hostcmd.go", "exec.Error", 1,
 			"builds the not-found error for a program"},
-		{"internal/archive/archive.go", "osfile.Create", 1,
-			"creates the archive in the output directory"},
+		{"internal/archive/archive.go", "osfile.OpenFile", 1,
+			"creates the partial archive in the output directory new, failing if anything, a link " +
+				"included, holds its name"},
 		{"internal/archive/archive.go", "osfile.WriteFile", 1,
 			"writes the archive's checksum file beside it"},
 		{"internal/collect/run_setup.go", "osfile.MkdirAll", 2,

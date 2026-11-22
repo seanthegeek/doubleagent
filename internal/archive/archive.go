@@ -25,10 +25,13 @@ import (
 // prefix, each directory before its children and each directory's entries
 // sorted bytewise. The tar format is PAX. Symlinks are stored, never followed.
 // ctx is looked at before each member and each read of a file's bytes, so a
-// stop request ends a long write promptly with ctx's error. A failed or
-// stopped write removes the partial archive.
+// stop request ends a long write promptly with ctx's error. archivePath is
+// created new: anything at that name, a link included, fails the write and is
+// neither followed nor changed (O_EXCL; on Windows CREATE_NEW with
+// FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go). A failed or
+// stopped write removes the file it created.
 func WriteTarGz(ctx context.Context, stageDir, archivePath string) error {
-	file, err := osfile.Create(archivePath)
+	file, err := osfile.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		return fmt.Errorf("create archive: %w", err)
 	}
