@@ -40,6 +40,7 @@ touches before changing it:
 | [`internal/AGENTS.md`](internal/AGENTS.md) | the Go standards | changing any Go file under `cmd/` or `internal/` |
 | [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md) | the catalog's rules and the checklist for adding an agent to it | changing `internal/catalog/catalog.txt`, the fixture image or a research document's Collection part |
 | [`internal/parser/AGENTS.md`](internal/parser/AGENTS.md) | the analysis standards and the checklist for adding a parser | changing the parser kit, a parser, the registry under `internal/parsers`, or the analysis output |
+| [`internal/parsers/AGENTS.md`](internal/parsers/AGENTS.md) | a pointer to the parser rules, which apply to the registry and its growth tests | changing the registry or a growth test under `internal/parsers` |
 | [`research/AGENTS.md`](research/AGENTS.md) | validating catalog entries from source and the research document outline | writing or changing a research document, or researching an agent |
 | [`lab/AGENTS.md`](lab/AGENTS.md) | real-install rounds | running or writing up a round in a lab VM, or changing the lab pipeline's step tables |
 
@@ -257,8 +258,9 @@ Every gate but PSScriptAnalyzer runs in CI: the Go gates in the `go` job,
 the site build in the `site` job on the Python the Pages workflow uses,
 the others in the `lint` job. The versions are pinned in the workflow's
 `env` block, and staticcheck's and govulncheck's also in the `Makefile`;
-change them and this table together, since `tools/tests/test_version_pins.py`
-fails when the three disagree. PSScriptAnalyzer, for the lab's
+change them and this table together. `tools/tests/test_version_pins.py`
+checks staticcheck and govulncheck only, and fails when their three pins
+disagree; the other versions are kept in step by hand. PSScriptAnalyzer, for the lab's
 Windows guest scripts, is run by hand. Run the commands from the repository
 root before pushing; the `make` targets pass the build tags themselves, and
 a `go` command run directly needs `export GOFLAGS=-tags=noasm,nounsafe`
