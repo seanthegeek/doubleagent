@@ -11,7 +11,7 @@ decoder and one reader for them.
 The Go tests and gates, and the commands that run them, are under "Quality
 gates" in [AGENTS.md](../AGENTS.md#quality-gates). The Python that
 remains, the checkers under `tools/` and the lab VM pipeline under
-`lab/round/`, is checked with ruff, pyright and
+`lab/`, is checked with ruff, pyright and
 `tools/check_code_style.py`, which checks names, comments and docstring
 lengths against "Code style" in [AGENTS.md](../AGENTS.md#code-style),
 printing each failure as `path:line: message`. From the repository root:
@@ -94,16 +94,16 @@ notice in it, and is written by hand.
 
 ## Reading a real install
 
-`lab/round/tools/shape.py` shows the files an agent wrote on a real install, a lab VM or
+`lab/tools/shape.py` shows the files an agent wrote on a real install, a lab VM or
 the author's own machine. It prints the shape of the files and never a value,
 so its output can go into a research document or a report. It uses the
 standard library only and imports nothing else from the repository, so the
 single file can be copied to a VM and run there.
 
 ```sh
-python3 -I lab/round/tools/shape.py ~/.config/Agent
-python3 -I lab/round/tools/shape.py --enums --depth 3 settings.json sessions/
-python3 -I lab/round/tools/shape.py --max-size 20000000 --skip logs ~/.agent
+python3 -I lab/tools/shape.py ~/.config/Agent
+python3 -I lab/tools/shape.py --enums --depth 3 settings.json sessions/
+python3 -I lab/tools/shape.py --max-size 20000000 --skip logs ~/.agent
 ```
 
 Each PATH is a file or a directory walked recursively; symlinks are listed
@@ -134,7 +134,7 @@ counts.
 | `--enums` | off | a string of at most 16 characters from `a-z`, `0-9`, `_`, `-` prints as `str=<value>`, since such strings are usually enum values; a value under a key whose name contains `token`, `secret`, `key`, `passw`, `cred`, `auth`, `cookie`, `bearer` or `salt` keeps the `str(len n)` form |
 
 The exit status is 0; an unreadable file prints `unreadable (<ErrorClass>)`
-and the walk continues. `lab/round/tests/test_shape.py` checks on synthetic files
+and the walk continues. `lab/tests/test_shape.py` checks on synthetic files
 that tokens, UUIDs, paths, URLs and prompt text do not reach the output.
 
 ## Protobuf and SQLite

@@ -1,9 +1,9 @@
 {
-  "include": ["tools", "mkdocs", "lab/round"],
+  "include": ["tools", "mkdocs", "lab"],
   "typeCheckingMode": "standard",
   "pythonVersion": "3.11",
   "executionEnvironments": [
     {"root": "tools/tests", "extraPaths": ["tools"]},
-    {"root": "lab/round", "extraPaths": ["lab/round"]}
+    {"root": "lab", "extraPaths": ["lab"]}
   ]
 }

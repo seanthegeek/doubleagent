@@ -39,12 +39,12 @@ while IFS= read -r path; do
   esac
 
   # The lint job's ruff and pyright steps and the tests of the tools/
-  # checkers and of the round pipeline, which read every file of lab/round/;
+  # checkers and of the round pipeline, which read every file of lab/;
   # the drift checkers' tests also read the catalog.
   case "$path" in
     tools/drift-baseline/*) ;;
     *.md) ;;
-    tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
+    tools/* | lab/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
       internal/catalog/catalog.txt)
       python=true
       matched=true

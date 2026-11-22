@@ -199,11 +199,11 @@ jobs:
       - name: pytest (drift checkers)
         if: needs.changes.outputs.python == 'true'
         run: python3 -m pytest tools/tests -q
-      # The round pipeline's host-side tools; lab/round/tests/conftest.py
-      # puts lab/round/ on the import path.
+      # The round pipeline's host-side tools; lab/tests/conftest.py
+      # puts lab/ on the import path.
       - name: pytest (round pipeline)
         if: needs.changes.outputs.python == 'true'
-        run: python3 -m pytest lab/round/tests -q
+        run: python3 -m pytest lab/tests -q
       - name: markdownlint
         run: npx -y "markdownlint-cli2@$MARKDOWNLINT_CLI2_VERSION" "**/*.md"
       - name: document links

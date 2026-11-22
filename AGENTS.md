@@ -51,11 +51,11 @@ research/<agent>.md            everything known about one agent, one per agent: 
                                transcripts, the parser plan)
 research/README.md             the research index and the survival table
 research/frameworks.md         the framework sweep
-lab/round/                     the real-install round pipeline: round.sh drives one agent
+lab/                           the real-install round pipeline: lab.sh drives one agent
                                on one lab VM from a step table (agents/<agent>/), with
                                its listing, diff (classify.py) and report (report.py)
                                tools; its PSScriptAnalyzerSettings.psd1 holds the rules
-                               for the Windows guest scripts; see lab/round/README.md
+                               for the Windows guest scripts; see lab/README.md
 docs/index.md                  the documentation site's home page; the root README.md is
                                the GitHub overview and is not a site page
 docs/agents.md                 every catalog agent with its parse status, files and evidence
@@ -1579,7 +1579,7 @@ into Format versions.
      surface the round will touch; a root added mid-round names its first
      listing as its baseline. The survey also counts the agent's processes
      by name.
-2. **Read shapes, never values.** `lab/round/tools/shape.py` prints key
+2. **Read shapes, never values.** `lab/tools/shape.py` prints key
    names, value types, JSONL line types, byte totals and the enum tokens of
    a fixed set of paths, every value through its redaction function, so a
    UUID, a hex id, a path or a URL prints as its class; a new printing path
@@ -1780,7 +1780,7 @@ job or lint step runs when one of its categories is set.
 
 - **sh files** (any `.sh` file, `.shellcheckrc`): the lint job's shfmt,
   shellcheck and checkbashisms steps.
-- **Python** (everything under `tools/` and `lab/round/` except Markdown
+- **Python** (everything under `tools/` and `lab/` except Markdown
   and `tools/drift-baseline/`, and `mkdocs/hooks.py`, `ruff.toml`,
   `pyrightconfig.json`, `internal/catalog/catalog.txt`): the lint job's
   ruff, pyright and pytest steps, which run the tests of the drift checkers
@@ -1809,9 +1809,9 @@ go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 go test -race ./...
 go test -race -tags dash,noasm,nounsafe ./internal/glob/   # the glob matcher against dash
 python3 -m pytest tools/tests -q   # the drift checkers' tests
-python3 -m pytest lab/round/tests -q   # the round pipeline's tests
+python3 -m pytest lab/tests -q   # the round pipeline's tests
 # then every other command of the "Quality gates" table; PSScriptAnalyzer, for the lab's guest scripts, is:
-pwsh -NoProfile -Command '$r = @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings lab/round/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
+pwsh -NoProfile -Command '$r = @(Get-ChildItem -Path lab -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings lab/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
 
 The Windows code of the binary is checked here only by `GOOS=windows go vet`;
@@ -1885,7 +1885,7 @@ down.
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
-| PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `lab/round/PSScriptAnalyzerSettings.psd1` |
+| PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `lab/PSScriptAnalyzerSettings.psd1` |
 | gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `go test -race ./...`, each with `GOFLAGS=-tags=noasm,nounsafe` exported | none |
 | staticcheck | 0.8.2 | `GOFLAGS=-tags=noasm,nounsafe go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
 | govulncheck | 1.9.0 | `GOFLAGS=-tags=noasm,nounsafe go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |

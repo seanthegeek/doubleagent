@@ -1,5 +1,5 @@
 # Ruff configuration for every Python file in the repository (tools/, mkdocs/,
-# lab/round/ and the fixture scripts under internal/**/testdata/). A project
+# lab/ and the fixture scripts under internal/**/testdata/). A project
 # config takes precedence over any user-level ruff configuration.
 target-version = "py311"
 line-length = 100
@@ -40,7 +40,7 @@ ignore = [
 [lint.per-file-ignores]
 # Test methods and functions are named for what they prove, so need no docstring.
 "tools/tests/*.py" = ["D102", "D103", "D105", "D107"]
-"lab/round/tests/*.py" = ["D102", "D103", "D105", "D107"]
+"lab/tests/*.py" = ["D102", "D103", "D105", "D107"]
 
 [lint.pydocstyle]
 convention = "google"

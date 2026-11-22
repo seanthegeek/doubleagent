@@ -186,5 +186,5 @@ nav:
       - docs/internals.md
       - docs/testing.md
       - docs/lab-vms.md
-      - Round pipeline: lab/round/README.md
+      - Round pipeline: lab/README.md
       - AGENTS.md

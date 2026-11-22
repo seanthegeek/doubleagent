@@ -113,7 +113,7 @@ a parser, and the quality gates CI runs are in
   development tools their snapshots hold so an agent's use of them can be
   recorded, the install commands that rebuild them on Windows, macOS and
   Ubuntu, what the host decides, and Docker's requirements in each.
-- [Round pipeline](../lab/round/README.md): one command that runs a
+- [Round pipeline](../lab/README.md): one command that runs a
   real-install round of a terminal agent on one lab VM: it reverts the VM,
   installs the agent, plays a table of prompts, key presses and person
   steps through a headless terminal, lists the agent's directories after
